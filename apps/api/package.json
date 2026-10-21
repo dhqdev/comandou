@@ -1,0 +1,50 @@
+{
+  "name": "@pedemais/api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API NestJS do PedeMais (monólito modular).",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "dev": "node --watch -r @swc-node/register src/main.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "db:migrate": "node dist/database/migrate-cli.js",
+    "db:migrate:dev": "node -r @swc-node/register src/database/migrate-cli.ts",
+    "tenant:provision": "node dist/provisioning/provision-cli.js",
+    "tenant:provision:dev": "node -r @swc-node/register src/provisioning/provision-cli.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "@nestjs/swagger": "^11.2.0",
+    "@nestjs/throttler": "^6.4.0",
+    "@pedemais/shared": "workspace:*",
+    "cookie-parser": "^1.4.7",
+    "drizzle-orm": "^0.45.0",
+    "helmet": "^8.1.0",
+    "nestjs-pino": "^4.4.0",
+    "pg": "^8.16.0",
+    "pino": "^9.7.0",
+    "pino-http": "^10.5.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.1.0",
+    "@swc-node/register": "^1.10.0",
+    "@swc/core": "^1.13.0",
+    "@types/cookie-parser": "^1.4.9",
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.15.0",
+    "@types/supertest": "^6.0.3",
+    "supertest": "^7.1.0",
+    "typescript": "~5.9.3",
+    "unplugin-swc": "^1.5.5",
+    "vitest": "^4.0.0"
+  }
+}

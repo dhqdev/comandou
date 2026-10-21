@@ -1,0 +1,24 @@
+{
+  "name": "pedemais",
+  "private": true,
+  "version": "0.1.0",
+  "description": "PedeMais — SaaS multi-tenant para restaurantes",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@10.28.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "pnpm -r test",
+    "db:migrate": "pnpm --filter @pedemais/api db:migrate",
+    "dev:api": "pnpm --filter @pedemais/api dev",
+    "dev:web": "pnpm --filter @pedemais/web dev"
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "typescript": "~5.9.3"
+  }
+}
