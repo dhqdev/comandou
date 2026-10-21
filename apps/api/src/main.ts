@@ -1,9 +1,9 @@
 import 'reflect-metadata';
 import { createApp } from './bootstrap';
-import { loadEnv } from './config/env';
+import { loadEnv, resolveFileSecrets } from './config/env';
 
 async function main() {
-  const env = loadEnv();
+  const env = loadEnv(resolveFileSecrets(process.env));
   const app = await createApp(env);
   await app.listen(env.PORT, '0.0.0.0');
 }

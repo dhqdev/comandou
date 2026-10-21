@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -46,3 +47,18 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
 }
 
 export const ENV = Symbol('ENV');
+
+/**
+ * Suporte a Docker secrets: VAR_FILE=/run/secrets/x vira VAR=<conteúdo do arquivo>.
+ * Assim senhas não aparecem em `docker inspect` nem na definição da stack.
+ */
+export function resolveFileSecrets(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const out: NodeJS.ProcessEnv = { ...source };
+  for (const [key, value] of Object.entries(source)) {
+    if (!key.endsWith('_FILE') || !value) continue;
+    const target = key.slice(0, -'_FILE'.length);
+    if (out[target]) continue;
+    out[target] = readFileSync(value, 'utf8').trim();
+  }
+  return out;
+}

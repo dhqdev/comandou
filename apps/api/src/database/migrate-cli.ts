@@ -1,6 +1,8 @@
+import { resolveFileSecrets } from '../config/env';
 import { migrate } from './migrator';
 
 async function main() {
+  Object.assign(process.env, resolveFileSecrets(process.env));
   const url = process.env.DATABASE_OWNER_URL;
   if (!url) {
     console.error(

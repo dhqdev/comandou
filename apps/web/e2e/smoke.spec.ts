@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 const EMAIL = process.env.E2E_EMAIL ?? 'dono@demo.local';
-const PASSWORD = process.env.E2E_PASSWORD ?? 'demo-pedemais-123';
+const PASSWORD = process.env.E2E_PASSWORD ?? '';
+test.skip(!PASSWORD, 'defina E2E_PASSWORD (senha do administrador do tenant de teste)');
 
 test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => {
   await page.goto('/');

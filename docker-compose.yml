@@ -1,0 +1,89 @@
+# Stack de DESENVOLVIMENTO local. Produção usa infrastructure/swarm/pedemais-stack.yml.
+# Acesse: http://<slug>.pedemais.localhost:8080  (*.localhost resolve para 127.0.0.1)
+name: pedemais
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina no .env}
+      PEDEMAIS_OWNER_PASSWORD: ${PEDEMAIS_OWNER_PASSWORD:?defina no .env}
+      PEDEMAIS_APP_PASSWORD: ${PEDEMAIS_APP_PASSWORD:?defina no .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d pedemais']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [internal]
+    # Sem "ports": o banco não fica exposto fora da rede interna.
+
+  migrate:
+    build: { context: ., dockerfile: infrastructure/docker/api.Dockerfile }
+    image: pedemais-api:dev
+    command: ['node', 'dist/database/migrate-cli.js']
+    environment:
+      DATABASE_OWNER_URL: postgres://pedemais_owner:${PEDEMAIS_OWNER_PASSWORD}@postgres:5432/pedemais
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: 'no'
+    networks: [internal]
+
+  api:
+    image: pedemais-api:dev
+    init: true
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://pedemais_app:${PEDEMAIS_APP_PASSWORD}@postgres:5432/pedemais
+      PEDEMAIS_BASE_DOMAIN: ${PEDEMAIS_BASE_DOMAIN:-pedemais.localhost}
+      TRUST_PROXY: 'true'
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.pm-api.rule=HostRegexp(`^[a-z0-9-]+\.${PEDEMAIS_BASE_DOMAIN:-pedemais.localhost}$$`) && PathPrefix(`/api`)
+      - traefik.http.routers.pm-api.entrypoints=web
+      - traefik.http.routers.pm-api.priority=100
+      - traefik.http.services.pm-api.loadbalancer.server.port=3000
+    networks: [internal, edge]
+
+  web:
+    build: { context: ., dockerfile: infrastructure/docker/web.Dockerfile }
+    image: pedemais-web:dev
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.pm-web.rule=HostRegexp(`^[a-z0-9-]+\.${PEDEMAIS_BASE_DOMAIN:-pedemais.localhost}$$`)
+      - traefik.http.routers.pm-web.entrypoints=web
+      - traefik.http.routers.pm-web.priority=10
+      - traefik.http.services.pm-web.loadbalancer.server.port=8080
+    networks: [edge]
+
+  traefik:
+    image: traefik:v3.5
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=pedemais_edge
+      - --entrypoints.web.address=:80
+      - --ping=true
+    ports:
+      - '${HTTP_PORT:-8080}:80'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ['CMD', 'traefik', 'healthcheck', '--ping']
+      interval: 10s
+    networks: [edge]
+
+volumes:
+  pgdata:
+
+networks:
+  internal:
+    internal: true
+  edge:
+    name: pedemais_edge

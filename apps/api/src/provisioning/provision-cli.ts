@@ -1,3 +1,4 @@
+import { resolveFileSecrets } from '../config/env';
 import { provisionTenant } from './provision';
 
 /**
@@ -7,6 +8,7 @@ import { provisionTenant } from './provision';
  * A senha vem por variável de ambiente para não aparecer no histórico do shell nem em logs.
  */
 async function main() {
+  Object.assign(process.env, resolveFileSecrets(process.env));
   const [slug, name, adminEmail, adminName] = process.argv.slice(2);
   const ownerUrl = process.env.DATABASE_OWNER_URL;
   const adminPassword = process.env.PROVISION_ADMIN_PASSWORD;
