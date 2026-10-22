@@ -4,3 +4,7 @@ packages:
 onlyBuiltDependencies:
   - '@swc/core'
   - esbuild
+# Baileys aponta o libsignal para um git via SSH, que o CI não consegue clonar.
+# Fixamos o mesmo commit via HTTPS.
+overrides:
+  libsignal: git+https://github.com/whiskeysockets/libsignal-node.git#bcea72df9ec34d9d9140ab30619cf479c7c144c7
