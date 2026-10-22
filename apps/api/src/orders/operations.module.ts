@@ -1,4 +1,12 @@
 import { Module } from '@nestjs/common';
+import { DeliveryController } from '../delivery/delivery.controller';
+import { DeliveryService } from '../delivery/delivery.service';
+import { FinanceController } from '../finance/finance.controller';
+import { PrintAgentController, PrintingController } from '../printing/printing.controller';
+import { PrintingService } from '../printing/printing.service';
+import { StockController } from '../stock/stock.controller';
+import { StockService } from '../stock/stock.service';
+import { UsersController } from '../users/users.controller';
 import { CashController } from '../cash/cash.controller';
 import { CashService } from '../cash/cash.service';
 import { KitchenController } from '../kitchen/kitchen.controller';
@@ -10,7 +18,7 @@ import { TabsService } from '../tables/tabs.service';
 import { OrdersController, PaymentsController } from './orders.controller';
 import { OrdersService } from './orders.service';
 
-/** Operação do restaurante: pedidos, salão, cozinha, caixa e relatórios. */
+/** Operação e retaguarda do restaurante: pedidos, salão, cozinha, caixa, estoque, entregas, impressão, financeiro e equipe. */
 @Module({
   controllers: [
     OrdersController,
@@ -20,7 +28,21 @@ import { OrdersService } from './orders.service';
     CashController,
     ReportsController,
     SetupController,
+    StockController,
+    DeliveryController,
+    PrintingController,
+    PrintAgentController,
+    FinanceController,
+    UsersController,
   ],
-  providers: [OrdersService, CashService, TabsService, KitchenService],
+  providers: [
+    OrdersService,
+    CashService,
+    TabsService,
+    KitchenService,
+    StockService,
+    PrintingService,
+    DeliveryService,
+  ],
 })
 export class OperationsModule {}

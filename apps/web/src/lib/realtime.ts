@@ -6,7 +6,10 @@ export type RealtimeEvent =
   | { type: 'kitchen.changed'; orderId: string }
   | { type: 'tab.changed'; tabId: string }
   | { type: 'cash.changed'; sessionId: string }
-  | { type: 'menu.changed' };
+  | { type: 'menu.changed' }
+  | { type: 'stock.changed' }
+  | { type: 'delivery.changed'; deliveryId: string }
+  | { type: 'print.changed' };
 
 type Listener = (e: RealtimeEvent) => void;
 type StatusListener = (s: RealtimeStatus) => void;

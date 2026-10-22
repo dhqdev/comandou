@@ -21,7 +21,9 @@ import type { Ctx } from '../common/context';
 import { withIdempotency } from '../common/idempotency';
 import { nextNumber, one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
+import { PrintingService } from '../printing/printing.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { StockService } from '../stock/stock.service';
 
 export interface OrderItemInput {
   productId: string;
@@ -103,6 +105,8 @@ export class OrdersService {
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
+    private readonly stock: StockService,
+    private readonly printing: PrintingService,
   ) {}
 
   // ---------------------------------------------------------------- consultas
@@ -170,11 +174,14 @@ export class OrdersService {
 
   // ---------------------------------------------------------------- criação
   async create(ctx: Ctx, input: CreateOrderInput, idemKey?: string) {
+    const fx = { stock: 0, print: 0 };
     const result = await this.db.withTenant(ctx, (tx) =>
       withIdempotency(tx, ctx.tenantId, 'order.create', idemKey, input, () =>
-        this.createInTx(tx, ctx, input),
+        this.createInTx(tx, ctx, input, fx),
       ),
     );
+    if (fx.stock) this.realtime.publish(ctx.tenantId, { type: 'stock.changed' });
+    if (fx.print) this.realtime.publish(ctx.tenantId, { type: 'print.changed' });
     this.realtime.publish(ctx.tenantId, {
       type: 'order.changed',
       orderId: result.id,
@@ -186,7 +193,12 @@ export class OrdersService {
     return result;
   }
 
-  private async createInTx(tx: Tx, ctx: Ctx, input: CreateOrderInput) {
+  private async createInTx(
+    tx: Tx,
+    ctx: Ctx,
+    input: CreateOrderInput,
+    fx: { stock: number; print: number },
+  ) {
     if (!input.items.length) throw new UnprocessableEntityException('Pedido sem itens');
 
     // Comanda: obrigatória para mesa; pode ser aberta automaticamente pela mesa.
@@ -346,6 +358,9 @@ export class OrdersService {
       }
     }
     await this.history(tx, ctx, order!.id, null, 'new');
+    // Baixa de insumos pela ficha técnica (trava os insumos por último) e comandas de impressão.
+    fx.stock = await this.stock.consumeForOrder(tx, ctx, order!.id);
+    fx.print = await this.printing.enqueueKitchenTickets(tx, ctx, order!.id);
     await this.audit.record(tx, {
       tenantId: ctx.tenantId,
       actorUserId: ctx.userId,
@@ -442,6 +457,22 @@ export class OrdersService {
         `UPDATE order_items SET status = 'cancelled' WHERE order_id = $1 AND status <> 'cancelled'`,
         [o.id],
       );
+      // Insumos voltam ao estoque (movimento de estorno; nada é apagado).
+      await this.stock.restoreForOrder(tx, ctx, o.id);
+    }
+    if (o.status === 'dispatched') {
+      // Saindo de "saiu para entrega": encerra a entrega em andamento e encurta o link de rastreio.
+      await q(
+        tx,
+        `UPDATE deliveries SET status = $2, finished_at = now(), failure_reason = $3,
+                tracking_expires_at = LEAST(tracking_expires_at, now() + interval '30 minutes')
+          WHERE order_id = $1 AND status = 'out'`,
+        [
+          o.id,
+          to === 'completed' ? 'delivered' : 'failed',
+          to === 'completed' ? null : (reason ?? null),
+        ],
+      );
     }
     if (to === 'cancel_requested' && !reason)
       throw new UnprocessableEntityException('Informe o motivo');
@@ -479,6 +510,9 @@ export class OrdersService {
   ) {
     const res = await this.db.withTenant(ctx, async (tx) => {
       const o = await this.lock(tx, id);
+      // "Saiu para entrega" sempre registra o entregador (e o link de rastreio): POST /orders/:id/dispatch.
+      if (to === 'dispatched' && o.channel === 'delivery')
+        throw new ConflictException('Para despachar, escolha o entregador na tela Entregas');
       if (opts.expectedVersion !== undefined && opts.expectedVersion !== o.version) {
         throw new ConflictException('O pedido foi alterado por outra pessoa; atualize a tela');
       }
@@ -486,6 +520,7 @@ export class OrdersService {
       return this.detail(tx, id);
     });
     this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId: id, status: to });
+    if (to === 'cancelled') this.realtime.publish(ctx.tenantId, { type: 'stock.changed' });
     if (res?.tabId) this.realtime.publish(ctx.tenantId, { type: 'tab.changed', tabId: res.tabId });
     return res;
   }

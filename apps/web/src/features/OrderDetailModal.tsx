@@ -1,5 +1,6 @@
 import { canTransition, fromCents, toCents, type OrderStatus } from '@pedemais/shared';
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import { Alert, Badge, Button, Modal, Spinner, TextField, useToast } from '../design-system';
 import { useCan } from '../app/auth';
 import { api } from '../lib/api';
@@ -25,10 +26,7 @@ const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }[]>> =
     { to: 'ready', label: 'Marcar pronto' },
   ],
   in_production: [{ to: 'ready', label: 'Marcar pronto' }],
-  ready: [
-    { to: 'dispatched', label: 'Saiu para entrega' },
-    { to: 'completed', label: 'Concluir' },
-  ],
+  ready: [{ to: 'completed', label: 'Concluir' }],
   dispatched: [{ to: 'completed', label: 'Entregue' }],
   cancel_requested: [{ to: 'new', label: 'Manter pedido' }],
 };
@@ -47,6 +45,23 @@ export function OrderDetailModal({
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const canDispatch = useCan('delivery:manage');
+  const canWrite = useCan('orders:write');
+  const canManagePrint = useCan('printing:manage');
+  const canPrint = canWrite || canManagePrint;
+  const [printing, setPrinting] = useState(false);
+  async function print(kind: 'kitchen' | 'receipt') {
+    if (!orderId) return;
+    setPrinting(true);
+    try {
+      await api(`/orders/${orderId}/print`, { method: 'POST', json: { kind } });
+      toast('Enviado para a impressora', 'success');
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    } finally {
+      setPrinting(false);
+    }
+  }
   const [paying, setPaying] = useState(false);
   const [mode, setMode] = useState<null | 'cancel' | 'adjust' | { refund: Payment }>(null);
 
@@ -233,6 +248,11 @@ export function OrderDetailModal({
                     {a.label}
                   </Button>
                 ))}
+              {order.channel === 'delivery' && order.status === 'ready' && canDispatch && (
+                <Link className="pm-btn pm-btn--secondary" to="/entregas" onClick={onClose}>
+                  Despachar em Entregas
+                </Link>
+              )}
               {canPay && order.status !== 'cancelled' && toCents(order.balance) > 0 && (
                 <Button onClick={() => setPaying(true)}>Receber {brl(order.balance)}</Button>
               )}
@@ -251,6 +271,17 @@ export function OrderDetailModal({
                   Aprovar cancelamento
                 </Button>
               )}
+            </div>
+          )}
+
+          {!mode && canPrint && order.status !== 'cancelled' && (
+            <div className="actions-row">
+              <Button variant="ghost" loading={printing} onClick={() => print('kitchen')}>
+                Reimprimir cozinha
+              </Button>
+              <Button variant="ghost" loading={printing} onClick={() => print('receipt')}>
+                Imprimir conferência
+              </Button>
             </div>
           )}
 

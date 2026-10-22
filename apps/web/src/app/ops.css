@@ -558,3 +558,68 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Novidades */
+.releases {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--pm-space-4);
+}
+.release__title {
+  display: inline-flex;
+  gap: var(--pm-space-2);
+  align-items: center;
+}
+.release__notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--pm-space-2);
+}
+.release__notes li {
+  display: flex;
+  gap: var(--pm-space-3);
+  align-items: baseline;
+}
+.release__notes .pm-badge {
+  min-width: 78px;
+  justify-content: center;
+}
+
+/* Etapa 4 ------------------------------------------------------------------------------ */
+.nav-link .pm-badge--warning {
+  background: var(--pm-warning);
+  color: #fff;
+}
+.order-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--pm-space-3);
+}
+.code-block {
+  margin: 0;
+  padding: var(--pm-space-3);
+  border-radius: var(--pm-radius-md);
+  background: var(--pm-surface-muted);
+  border: 1px solid var(--pm-border);
+  font-size: var(--pm-text-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.track-page {
+  min-height: 100%;
+  padding: var(--pm-space-6) var(--pm-space-4);
+  background: var(--pm-surface-muted);
+}
+.track-page__inner {
+  max-width: 480px;
+  margin: 0 auto;
+  display: grid;
+  gap: var(--pm-space-4);
+}
+.plain-list li {
+  min-width: 0;
+}
