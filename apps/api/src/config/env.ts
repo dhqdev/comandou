@@ -92,6 +92,19 @@ const schema = z.object({
   TRAEFIK_ENTRYPOINT: z.string().default('websecure'),
   /** Resolver HTTP-01/TLS-ALPN para domínios de clientes (o *.comandou.com usa DNS-01). */
   TRAEFIK_CUSTOM_CERT_RESOLVER: z.string().default('letsencrypt-http'),
+  /**
+   * Alternativa ao certificado coringa: o provider HTTP também lista admin.<base> e <slug>.<base> de
+   * cada restaurante ativo, e o Traefik emite um certificado (HTTP-01) para cada um.
+   */
+  TRAEFIK_TENANT_HOSTS: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  /** Resolver dos endereços de restaurantes. Vazio: usa TRAEFIK_CUSTOM_CERT_RESOLVER. */
+  TRAEFIK_TENANT_CERT_RESOLVER: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().optional(),
+  ),
   TRAEFIK_API_SERVICE: z.string().default('comandou-api@swarm'),
   TRAEFIK_WEB_SERVICE: z.string().default('comandou-web@swarm'),
   /** Requisições por minuto por IP em cada rota (padrão geral; algumas rotas têm limite próprio). */

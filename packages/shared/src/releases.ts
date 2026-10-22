@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.8.1',
+    date: '2026-10-22',
+    title: 'Endereço do restaurante no ar sozinho',
+    summary:
+      'Ao criar um restaurante no painel, o endereço dele (nome.comandou.com) pode passar a funcionar sozinho, sem ninguém editar a instalação.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Opção de instalação (TRAEFIK_TENANT_HOSTS) para o Traefik descobrir cada restaurante ativo e emitir o certificado dele automaticamente.',
+      },
+    ],
+  },
+  {
     version: '0.8.0',
     date: '2026-10-22',
     title: 'Agora somos Comandou',
