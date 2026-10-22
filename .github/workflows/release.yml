@@ -1,12 +1,12 @@
 name: Release (imagens versionadas)
 
-# Release automática: quando o CI da main termina COM SUCESSO, lê a versão do package.json (a
-# mesma da tela Novidades). Se a tag vX.Y.Z ainda não existe, cria a tag e a Release no GitHub e
-# publica as imagens com essa tag no GHCR (amd64 + arm64). Se a versão não mudou, não faz nada.
-# CI vermelho na main = nenhuma Release.
-# Regra do projeto: toda etapa sobe a versão no package.json e em packages/shared/src/releases.ts.
-# Também roda ao criar uma tag vX.Y.Z à mão e, pelo botão "Run workflow", para republicar as
-# imagens de uma tag que já existe (informe a tag).
+# Release automática, só na main. Quando o CI da main termina COM SUCESSO, lê a versão do
+# package.json (a mesma da tela Novidades). Se a tag vX.Y.Z ainda não existe: constrói e publica
+# as 4 imagens no GHCR (amd64 + arm64) e SÓ DEPOIS cria a tag e a Release no GitHub. Se a
+# construção falhar, não fica tag sem imagem: o próximo push na main tenta de novo.
+# Mesma versão de antes = não faz nada. Regra do projeto: toda mudança que deve virar versão sobe
+# o número no package.json e em packages/shared/src/releases.ts.
+# Também aceita tag vX.Y.Z criada à mão e, pelo botão "Run workflow", republicar uma tag existente.
 # Publicar imagem NÃO implanta nada: o deploy é o workflow "Deploy (produção)", manual, com aprovação.
 on:
   workflow_run:
@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag existente para republicar as imagens (ex.: v0.6.0)'
+        description: 'Tag existente para republicar as imagens (ex.: v0.7.0)'
         required: true
 
 permissions:
@@ -26,7 +26,7 @@ permissions:
   packages: write
 
 concurrency:
-  group: release-${{ github.ref }}-${{ inputs.tag }}
+  group: release-${{ github.event.workflow_run.head_branch || github.ref }}-${{ inputs.tag }}
   cancel-in-progress: false
 
 jobs:
@@ -34,11 +34,11 @@ jobs:
     name: Definir a versão
     runs-on: ubuntu-latest
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
-    permissions:
-      contents: write # criar a tag e a Release
     outputs:
       tag: ${{ steps.v.outputs.tag }}
+      sha: ${{ steps.v.outputs.sha }}
       publish: ${{ steps.v.outputs.publish }}
+      create: ${{ steps.v.outputs.create }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,40 +47,34 @@ jobs:
       - name: Versão e tag
         id: v
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT: ${{ github.event_name }}
           SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
-          REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
           INPUT_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          if [[ "$EVENT" == "workflow_dispatch" ]]; then
-            tag="$INPUT_TAG"
-          elif [[ "$REF_TYPE" == "tag" ]]; then
-            tag="$REF_NAME"
-          else
-            tag="v$(node -p "require('./package.json').version")"
-          fi
+          create=false
+          case "$EVENT" in
+            workflow_dispatch) tag="$INPUT_TAG"; ref="$tag" ;;
+            push) tag="$REF_NAME"; ref="$tag" ;;
+            *)
+              tag="v$(node -p "require('./package.json').version")"; ref="$SHA"
+              create=true ;;
+          esac
           [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "tag inválida: $tag"; exit 1; }
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          if [[ "$EVENT" == "workflow_run" ]]; then
-            # CI da main aprovado: só publica se a tag ainda não existe (versão nova).
-            if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
-              echo "A tag $tag já existe: versão não mudou, nada a publicar."
-              echo "publish=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            gh release create "$tag" --target "$SHA" --title "PedeMais $tag" --generate-notes \
-              --notes "Imagens: ghcr.io/${GITHUB_REPOSITORY}-{api,web,whatsapp-gateway,backup}:$tag. O que mudou nesta versão está na tela Novidades do sistema. Para colocar no ar: workflow Deploy (produção)."
+          publish=true
+          if [[ "$create" == true ]] && git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "A tag $tag já existe: versão não mudou, nada a publicar."
+            publish=false
           fi
-          echo "publish=true" >> "$GITHUB_OUTPUT"
+          { echo "tag=$tag"; echo "sha=$ref"; echo "publish=$publish"; echo "create=$create"; } >> "$GITHUB_OUTPUT"
 
   images:
     name: Imagem ${{ matrix.image }}
     needs: version
     if: needs.version.outputs.publish == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 40 # um build travado (já aconteceu) falha em vez de ocupar o runner por horas
     strategy:
       matrix:
         include:
@@ -91,7 +85,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.version.outputs.tag }}
+          ref: ${{ needs.version.outputs.sha }}
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
@@ -109,3 +103,20 @@ jobs:
             ghcr.io/${{ github.repository }}-${{ matrix.image }}:${{ needs.version.outputs.tag }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  release:
+    name: Tag e Release no GitHub
+    needs: [version, images]
+    if: needs.version.outputs.create == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # criar a tag e a Release
+    steps:
+      - name: Criar a Release (cria a tag no commit aprovado)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.version.outputs.tag }}
+          SHA: ${{ needs.version.outputs.sha }}
+        run: |
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "PedeMais $TAG" --generate-notes \
+            --notes "Imagens: ghcr.io/${GITHUB_REPOSITORY}-{api,web,whatsapp-gateway,backup}:$TAG (amd64 e arm64). O que mudou nesta versão está na tela Novidades do sistema. Para colocar no ar: workflow Deploy (produção)."

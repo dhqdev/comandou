@@ -158,12 +158,15 @@ sozinho; `PEDEMAIS_SKIP_BACKUP=1` pula à força (só em emergência, fica no lo
 
 ## Deploy pelo GitHub (manual, com aprovação)
 
-1. **A release é automática.** Quando o **CI da `main` termina com sucesso** (depois de cada
-   merge), o workflow **Release** lê a versão do `package.json`; se a tag `vX.Y.Z` ainda não existe, cria a tag e a Release no GitHub e publica
-   `pedemais-api`, `pedemais-web`, `pedemais-whatsapp-gateway` e `pedemais-backup` no GHCR
-   (amd64 e arm64). Mesma versão de antes = nada acontece. Por isso, **toda etapa precisa subir a
-   versão** nos `package.json` e em `packages/shared/src/releases.ts`. Não implanta nada. Para
-   republicar as imagens de uma tag existente: *Actions → Release → Run workflow* com a tag.
+1. **A release é automática, só na `main`.** O CI roda a cada push na `main` (mudança só de
+   documentação não roda). Quando ele termina com sucesso, o workflow **Release** lê a versão do
+   `package.json`; se a tag `vX.Y.Z` ainda não existe, constrói e publica `pedemais-api`,
+   `pedemais-web`, `pedemais-whatsapp-gateway` e `pedemais-backup` no GHCR (amd64 e arm64) e só
+   depois cria a tag e a Release no GitHub (se o build falhar, não fica tag sem imagem e o
+   próximo push tenta de novo). Mesma versão de antes = nada acontece. Por isso **toda mudança que
+   deve virar versão precisa subir o número** nos `package.json` e em
+   `packages/shared/src/releases.ts`. Não implanta nada. Para republicar as imagens de uma tag
+   existente: *Actions → Release → Run workflow* com a tag. Branches de trabalho não rodam nada.
 2. Em *Settings → Environments*, criar `production` com **Required reviewers** e os secrets
    `DEPLOY_SSH_KEY` (chave só para deploy), `DEPLOY_KNOWN_HOSTS` (`ssh-keyscan` do manager, conferido
    à mão), `DEPLOY_HOST`, `DEPLOY_USER`. Opcional: variável `DEPLOY_PATH` (padrão `/opt/pedemais`,
