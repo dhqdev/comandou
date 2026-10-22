@@ -673,6 +673,33 @@ describe('Controle do restaurante e acesso de suporte', () => {
     expect(team[0]).toHaveProperty('lastSeenAt');
   });
 
+  it('consumo e operação: números agregados de cada restaurante, sem misturar com o outro', async () => {
+    const a = (await pget(`/tenants/${fx.tenantA}/insights`).expect(200)).body;
+    const b = (await pget(`/tenants/${fx.tenantB}/insights`).expect(200)).body;
+    expect(a.footprint.rows).toBeGreaterThan(0);
+    expect(a.footprint.bytes).toBeGreaterThan(0);
+    expect(a.footprint.tables.some((t: { table: string }) => t.table === 'orders')).toBe(true);
+    expect(a.operation.orders.allTime).toBeGreaterThanOrEqual(1);
+    expect(a.operation.byChannel[0].key).toBe('counter');
+    expect(b.operation.orders.allTime).toBe(0);
+    expect(b.footprint.tables.some((t: { table: string }) => t.table === 'orders')).toBe(false);
+    // Nenhum dado de cliente final volta.
+    expect(JSON.stringify(a)).not.toMatch(/customer|phone|address/i);
+
+    const c = (await pget('/consumption').expect(200)).body as {
+      databaseBytes: number;
+      tenants: { id: string; bytes: number }[];
+    };
+    expect(c.databaseBytes).toBeGreaterThan(0);
+    const bytes = c.tenants.map((t) => t.bytes);
+    expect(bytes).toEqual([...bytes].sort((x, y) => y - x));
+    // O ranking e o detalhe medem a mesma coisa (pode variar um pouco: a auditoria cresce entre as chamadas).
+    expect(c.tenants.find((t) => t.id === fx.tenantA)!.bytes).toBeGreaterThanOrEqual(
+      a.footprint.bytes,
+    );
+    await pget(`/tenants/${crypto.randomUUID()}/insights`).expect(404);
+  });
+
   it('link de suporte: uso único, só no restaurante dele, sessão marcada e auditada', async () => {
     const r = await psend('post', `/tenants/${fx.tenantA}/access`, {}).expect(200);
     expect(r.body).toMatchObject({ slug: 'pf-a', user: { email: 'admin@pf-a.test' } });

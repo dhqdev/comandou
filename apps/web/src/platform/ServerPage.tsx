@@ -19,6 +19,7 @@ import {
   Tile,
   useInterval,
 } from './ui';
+import { ConsumptionRanking } from './TenantInsights';
 
 const rate = (bps: number | null) => (bps === null ? '—' : `${bytes(bps)}/s`);
 
@@ -63,19 +64,22 @@ export function ServerPage() {
   if (!data) return <Spinner />;
   if (!data.enabled)
     return (
-      <Section title="Servidor">
-        <div className="adm-panel adm-panel__body">
-          <p style={{ marginTop: 0 }}>
-            O agente do servidor ainda não está instalado. Ele é um serviço pequeno da própria stack
-            (<code>comandou-agent</code>) que lê CPU, memória, disco e rede da VM e fala com o
-            Docker para listar, limpar, reiniciar e mostrar logs.
-          </p>
-          <p className="adm-sub" style={{ whiteSpace: 'normal' }}>
-            Na API: HOST_AGENT_URL e HOST_AGENT_TOKEN. Passo a passo em docs/deploy.md, seção
-            “Agente do servidor”.
-          </p>
-        </div>
-      </Section>
+      <>
+        <Section title="Servidor">
+          <div className="adm-panel adm-panel__body">
+            <p style={{ marginTop: 0 }}>
+              O agente do servidor ainda não está instalado. Ele é um serviço pequeno da própria
+              stack (<code>comandou-agent</code>) que lê CPU, memória, disco e rede da VM e fala com
+              o Docker para listar, limpar, reiniciar e mostrar logs.
+            </p>
+            <p className="adm-sub" style={{ whiteSpace: 'normal' }}>
+              Na API: HOST_AGENT_URL e HOST_AGENT_TOKEN. Passo a passo em docs/deploy.md, seção
+              “Agente do servidor”.
+            </p>
+          </div>
+        </Section>
+        <ConsumptionRanking />
+      </>
     );
 
   const h = data.host;
@@ -273,6 +277,8 @@ export function ServerPage() {
           )}
         </div>
       </Section>
+
+      <ConsumptionRanking />
 
       {svc && (
         <ServiceSheet

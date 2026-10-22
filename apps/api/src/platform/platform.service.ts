@@ -11,6 +11,7 @@ import { hashPassword } from '../auth/password';
 import type { PoolClient } from 'pg';
 import { ENV, Env } from '../config/env';
 import { HealthChecks } from '../health/checks.service';
+import { Metrics } from '../health/metrics';
 import { provisionTenant } from '../provisioning/provision';
 import { QueueService } from '../queue/queue.service';
 import type { PlatformAdmin } from './platform-auth';
@@ -44,7 +45,118 @@ export class PlatformService {
     private readonly db: PlatformDb,
     private readonly checks: HealthChecks,
     private readonly queue: QueueService,
+    private readonly metrics: Metrics,
   ) {}
+
+  // ------------------------------------------------------------------ consumo e operação
+  /** Tráfego por restaurante desta réplica da API (só com METRICS_PER_TENANT=true). */
+  private async traffic(): Promise<Map<
+    string,
+    { requests: number; seconds: number; errors: number }
+  > | null> {
+    const t = this.metrics.tenant;
+    if (!t) return null;
+    const out = new Map<string, { requests: number; seconds: number; errors: number }>();
+    const add = (slug: string, k: 'requests' | 'seconds' | 'errors', v: number) => {
+      const cur = out.get(slug) ?? { requests: 0, seconds: 0, errors: 0 };
+      cur[k] = v;
+      out.set(slug, cur);
+    };
+    for (const k of ['requests', 'seconds', 'errors'] as const)
+      for (const v of (await t[k].get()).values) add(String(v.labels.tenant), k, v.value);
+    return out;
+  }
+
+  /** Tamanho estimado dos dados de cada restaurante, para o ranking de consumo. */
+  async consumption() {
+    const [rows, tenants, dbSize, traffic] = await Promise.all([
+      this.db.query<{ tenantId: string; rows: string; bytes: string }>(
+        `SELECT tenant_id AS "tenantId", sum(row_count)::text AS rows, sum(bytes)::text AS bytes
+           FROM platform_tenant_footprint() GROUP BY tenant_id`,
+      ),
+      this.db.query<{ id: string; slug: string; name: string; status: string }>(
+        `SELECT id, slug, name, status FROM tenants ORDER BY name`,
+      ),
+      this.db.query<{ bytes: string }>(
+        `SELECT pg_database_size(current_database())::text AS bytes`,
+      ),
+      this.traffic(),
+    ]);
+    const by = new Map(rows.map((r) => [r.tenantId, r]));
+    const totalSeconds = traffic ? [...traffic.values()].reduce((n, x) => n + x.seconds, 0) : 0;
+    return {
+      databaseBytes: Number(dbSize[0].bytes),
+      trafficEnabled: !!traffic,
+      tenants: tenants
+        .map((t) => ({
+          id: t.id,
+          slug: t.slug,
+          name: t.name,
+          status: t.status,
+          rows: Number(by.get(t.id)?.rows ?? 0),
+          bytes: Number(by.get(t.id)?.bytes ?? 0),
+          requests: traffic?.get(t.slug)?.requests ?? null,
+          seconds: traffic?.get(t.slug)?.seconds ?? null,
+          errors: traffic?.get(t.slug)?.errors ?? null,
+          timeShare:
+            traffic && totalSeconds ? (traffic.get(t.slug)?.seconds ?? 0) / totalSeconds : null,
+        }))
+        .sort((a, b) => b.bytes - a.bytes),
+    };
+  }
+
+  /** Consumo e operação detalhada de um restaurante (agregados, sem dados de clientes finais). */
+  async insights(tenantId: string) {
+    const t = (
+      await this.db.query<{ slug: string }>(`SELECT slug FROM tenants WHERE id = $1`, [tenantId])
+    )[0];
+    if (!t) throw new NotFoundException('Restaurante não encontrado');
+    const [tables, operation, dbSize, traffic, active] = await Promise.all([
+      this.db.query<{ table: string; rows: string; bytes: string }>(
+        `SELECT table_name AS "table", row_count::text AS rows, bytes::text AS bytes
+           FROM platform_tenant_footprint($1) ORDER BY bytes DESC`,
+        [tenantId],
+      ),
+      this.db.query<{ op: unknown }>(`SELECT platform_tenant_operation($1) AS op`, [tenantId]),
+      this.db.query<{ bytes: string }>(
+        `SELECT pg_database_size(current_database())::text AS bytes`,
+      ),
+      this.traffic(),
+      this.db.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM sessions
+          WHERE tenant_id = $1 AND revoked_at IS NULL AND expires_at > now()
+            AND last_seen_at > now() - interval '15 minutes'`,
+        [tenantId],
+      ),
+    ]);
+    const list = tables.map((r) => ({
+      table: r.table,
+      rows: Number(r.rows),
+      bytes: Number(r.bytes),
+    }));
+    const bytes = list.reduce((n, r) => n + r.bytes, 0);
+    const mine = traffic?.get(t.slug);
+    const total = traffic ? [...traffic.values()].reduce((n, x) => n + x.seconds, 0) : 0;
+    return {
+      footprint: {
+        tables: list,
+        rows: list.reduce((n, r) => n + r.rows, 0),
+        bytes,
+        databaseBytes: Number(dbSize[0].bytes),
+        share: Number(dbSize[0].bytes) ? bytes / Number(dbSize[0].bytes) : 0,
+      },
+      traffic: traffic
+        ? {
+            requests: mine?.requests ?? 0,
+            seconds: mine?.seconds ?? 0,
+            errors: mine?.errors ?? 0,
+            timeShare: total ? (mine?.seconds ?? 0) / total : 0,
+          }
+        : null,
+      onlineNow: active[0].n,
+      operation: operation[0].op,
+    };
+  }
 
   // ------------------------------------------------------------------ visão geral
   async overview() {

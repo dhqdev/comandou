@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.11.0',
+    date: '2026-10-22',
+    title: 'Consumo e operação de cada restaurante',
+    summary:
+      'No painel admin, cada restaurante ganhou as abas Operação e Consumo, e a tela Servidor ganhou o ranking de consumo de todos eles.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Aba Operação: pedidos, faturamento, ticket médio, cancelamentos, horários de pico, canais, formas de pagamento, mais vendidos, caixa, entregas, estoque, notas fiscais, WhatsApp, impressoras e a atividade de cada pessoa da equipe (30 dias).',
+      },
+      {
+        tag: 'novo',
+        text: 'Aba Consumo: tamanho dos dados do restaurante no banco (por tabela), linhas, quem está online agora e, com METRICS_PER_TENANT ligado, requisições e tempo de servidor consumido.',
+      },
+      {
+        tag: 'novo',
+        text: 'Servidor: ranking de consumo por restaurante, com acesso direto a cada um.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Só números agregados: nome, telefone e endereço de clientes finais não aparecem no painel. Memória RAM e CPU são do servidor todo e não são separáveis por restaurante; o painel mostra o que dá para medir de verdade.',
+      },
+    ],
+  },
+  {
     version: '0.10.0',
     date: '2026-10-22',
     title: 'Painel da plataforma novo',

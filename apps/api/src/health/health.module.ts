@@ -6,7 +6,7 @@ import { Metrics, MetricsController, MetricsMiddleware } from './metrics';
 @Module({
   controllers: [HealthController, MetricsController],
   providers: [HealthChecks, Metrics],
-  exports: [HealthChecks],
+  exports: [HealthChecks, Metrics],
 })
 export class HealthModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

@@ -17,6 +17,7 @@ import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
 import { AuditTable, useLoad } from './OverviewPages';
+import { ConsumptionPanel, OperationPanel } from './TenantInsights';
 import type { Plan, SupportLink, TeamMember, TenantDetail, TenantRow } from './types';
 import { ago, Dot, Level, Section, Tabs, Tag, Tile } from './ui';
 
@@ -301,7 +302,7 @@ const toInputDate = (iso: string | null) => (iso ? iso.slice(0, 10) : '');
 const fromInputDate = (d: string) =>
   d ? new Date(`${d}T23:59:59-03:00`).toISOString() : undefined;
 
-type DetailTab = 'subscription' | 'team' | 'domains' | 'history';
+type DetailTab = 'subscription' | 'operation' | 'usage' | 'team' | 'domains' | 'history';
 
 export function TenantDetailPage() {
   const { id } = useParams();
@@ -474,6 +475,8 @@ export function TenantDetailPage() {
           onChange={setTab}
           items={[
             ['subscription', 'Assinatura'],
+            ['operation', 'Operação'],
+            ['usage', 'Consumo'],
             ['team', `Equipe (${team.data?.length ?? '…'})`],
             ['domains', `Domínios (${t.domains.length})`],
             ['history', 'Histórico'],
@@ -542,6 +545,9 @@ export function TenantDetailPage() {
             </p>
           </div>
         )}
+
+        {tab === 'operation' && <OperationPanel id={t.id} team={team.data} />}
+        {tab === 'usage' && <ConsumptionPanel id={t.id} />}
 
         {tab === 'team' && (
           <div className="adm-panel">

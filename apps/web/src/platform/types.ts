@@ -182,3 +182,74 @@ export interface DockerDisk {
   volumes: { count: number; size: number };
   buildCache: { count: number; reclaimable: number };
 }
+
+export interface KeyCount {
+  key: string;
+  count: number;
+}
+export interface TenantInsights {
+  footprint: {
+    tables: { table: string; rows: number; bytes: number }[];
+    rows: number;
+    bytes: number;
+    databaseBytes: number;
+    share: number;
+  };
+  traffic: { requests: number; seconds: number; errors: number; timeShare: number } | null;
+  onlineNow: number;
+  operation: {
+    orders: {
+      total: number;
+      cancelled: number;
+      revenue: number;
+      avgTicket: number;
+      open: number;
+      first: string | null;
+      last: string | null;
+      allTime: number;
+    };
+    byChannel: (KeyCount & { revenue: number })[];
+    byStatus: KeyCount[];
+    byDay: { day: string; count: number; revenue: number }[];
+    byHour: { hour: number; count: number }[];
+    payments: (KeyCount & { amount: number })[];
+    topProducts: { name: string; qty: number }[];
+    catalog: {
+      categories: number;
+      products: number;
+      soldOut: number;
+      tables: number;
+      sectors: number;
+    };
+    cash: { openSessions: number; sessions30d: number; difference30d: number; openTabs: number };
+    delivery: { couriers: number; byStatus: KeyCount[] };
+    stock: { items: number; belowMin: number };
+    fiscal: KeyCount[];
+    messages: KeyCount[];
+    printAgents: {
+      name: string;
+      active: boolean;
+      lastSeenAt: string | null;
+      version: string | null;
+    }[];
+    printJobs: KeyCount[];
+    users: { id: string; orders30d: number; payments30d: number }[];
+  };
+}
+export interface ConsumptionRow {
+  id: string;
+  slug: string;
+  name: string;
+  status: string;
+  rows: number;
+  bytes: number;
+  requests: number | null;
+  seconds: number | null;
+  errors: number | null;
+  timeShare: number | null;
+}
+export interface Consumption {
+  databaseBytes: number;
+  trafficEnabled: boolean;
+  tenants: ConsumptionRow[];
+}

@@ -638,6 +638,47 @@ a.adm-row:hover {
   }
 }
 
+/* Insights por restaurante */
+.adm-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+.adm-grid--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.adm-row--bar .adm-row__main {
+  gap: 6px;
+}
+.adm-bar {
+  display: block;
+  height: 4px;
+  background: var(--a-line);
+}
+.adm-bar i {
+  display: block;
+  height: 100%;
+  background: var(--a-accent);
+}
+.adm-bar i[data-level='bad'] {
+  background: var(--a-bad);
+}
+.adm-bar i[data-level='warn'] {
+  background: var(--a-warn);
+}
+.adm-hours {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  align-items: end;
+  gap: 2px;
+  height: 56px;
+}
+.adm-hours i {
+  display: block;
+  background: var(--a-accent);
+  opacity: 0.85;
+}
+
 /* ---------------------------------------------------------------- celular */
 @media (max-width: 860px) {
   .adm {
@@ -657,6 +698,9 @@ a.adm-row:hover {
   .adm-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
+  }
+  .adm-grid--2 {
+    grid-template-columns: minmax(0, 1fr);
   }
   .adm-value {
     font-size: 24px;

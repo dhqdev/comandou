@@ -144,6 +144,16 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await expect(page.getByText(`dona-${tag}@e2e.local`).first()).toBeVisible();
   await expect(page.locator('.adm-tag', { hasText: /^Ativa$/ })).toBeVisible();
 
+  // Operação e consumo do restaurante
+  await page.getByRole('tab', { name: 'Operação' }).click();
+  await expect(page.getByText('Pedidos (30 dias)')).toBeVisible();
+  await expect(page.getByText('Faturamento (30 dias)')).toBeVisible();
+  await page.getByRole('tab', { name: 'Consumo' }).click();
+  await expect(page.getByText('Dados no banco')).toBeVisible();
+  await expect(page.getByText('Tamanho dos dados por tabela (estimado)')).toBeVisible();
+  await shot(page, info.project.name, 'admin-consumo');
+  await page.getByRole('tab', { name: 'Assinatura' }).click();
+
   // Assinatura: pagamento pendente
   await page.getByLabel('Situação').selectOption('past_due');
   await page.getByRole('button', { name: 'Salvar' }).click();
@@ -162,6 +172,11 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await dialog.getByLabel('Motivo (fica na auditoria)').fill('Regularizado');
   await dialog.getByRole('button', { name: 'Reativar' }).click();
   await expect(page.getByRole('button', { name: 'Suspender' })).toBeVisible();
+
+  // Ranking de consumo na tela do servidor (aparece mesmo sem o agente)
+  await adminNav(page, 'Servidor');
+  await expect(page.getByText('Consumo por restaurante')).toBeVisible();
+  await expect(page.getByRole('link', { name: new RegExp(`Cantina ${tag}`) })).toBeVisible();
 
   // Auditoria
   await adminNav(page, 'Auditoria');

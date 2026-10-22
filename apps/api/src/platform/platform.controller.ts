@@ -149,6 +149,16 @@ export class PlatformController {
     return this.svc.setSubscription(id, b, actor(req));
   }
 
+  @Get('consumption')
+  consumption() {
+    return this.svc.consumption();
+  }
+
+  @Get('tenants/:id/insights')
+  insights(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.svc.insights(id);
+  }
+
   @Get('tenants/:id/team')
   team(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.svc.team(id);

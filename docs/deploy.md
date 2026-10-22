@@ -195,6 +195,16 @@ restaurante (`/suporte#token`; o token fica no fragmento, que não vai para logs
 sessão como o dono (ou o membro escolhido na aba Equipe), de no máximo 2 horas, com um aviso
 “Acesso de suporte” no topo. Fica registrado na auditoria do painel e no histórico do restaurante.
 
+### Consumo e operação de cada restaurante
+
+No painel, a página de cada restaurante tem as abas **Operação** (pedidos, faturamento, horários,
+canais, pagamentos, caixa, entregas, estoque, notas, WhatsApp, impressoras e atividade da equipe,
+sempre dos últimos 30 dias) e **Consumo** (tamanho dos dados no banco por tabela, quem está online
+e, com `METRICS_PER_TENANT=true` na API, requisições e tempo de servidor). A tela “Servidor” traz o
+ranking de todos. São só agregados (funções `platform_tenant_footprint` e `platform_tenant_operation`,
+migração 0013): dados de clientes finais não saem. RAM e CPU são do servidor todo e não dá para
+separá-los por restaurante; o contador de requisições é por réplica da API e zera a cada reinício.
+
 ### Bancos dedicados (preparado, ainda sem clientes)
 
 O `comandou-migrate` aplica as migrações no banco central (`DATABASE_OWNER_URL`) e depois em cada
