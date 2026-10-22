@@ -17,6 +17,7 @@ import {
   toCents,
 } from '@pedemais/shared';
 import { AuditService } from '../audit/audit.service';
+import { MessagingService } from '../messaging/messaging.service';
 import type { Ctx } from '../common/context';
 import { withIdempotency } from '../common/idempotency';
 import { nextNumber, one, q } from '../common/sql';
@@ -107,6 +108,7 @@ export class OrdersService {
     private readonly realtime: RealtimeService,
     private readonly stock: StockService,
     private readonly printing: PrintingService,
+    private readonly messaging: MessagingService,
   ) {}
 
   // ---------------------------------------------------------------- consultas
@@ -409,6 +411,22 @@ export class OrdersService {
     return tab!;
   }
 
+  /** Pedido com nota fiscal emitida (ou em emissão) não é cancelado nem estornado sem cancelar a nota. */
+  async assertNoLiveFiscalDocument(tx: Tx, orderId: string, action: string) {
+    const doc = await one<{ status: string }>(
+      tx,
+      `SELECT status FROM fiscal_documents
+        WHERE order_id = $1 AND status IN ('pending','processing','authorized','cancelling') LIMIT 1`,
+      [orderId],
+    );
+    if (doc)
+      throw new ConflictException(
+        doc.status === 'authorized'
+          ? `Pedido com NFC-e autorizada: cancele a nota antes de ${action}`
+          : `Pedido com NFC-e em emissão: aguarde o resultado antes de ${action}`,
+      );
+  }
+
   // ---------------------------------------------------------------- estados
   async lock(tx: Tx, id: string): Promise<OrderRow> {
     const o = await one<OrderRow>(
@@ -444,6 +462,7 @@ export class OrdersService {
       throw new ConflictException(`Transição inválida: ${o.status} → ${to}`);
     }
     if (to === 'cancelled') {
+      await this.assertNoLiveFiscalDocument(tx, o.id, 'cancelar o pedido');
       if (!roleHas(ctx.user.role, 'orders:cancel'))
         throw new ForbiddenException('Cancelamento exige autorização');
       if (!reason) throw new UnprocessableEntityException('Informe o motivo do cancelamento');
@@ -498,6 +517,11 @@ export class OrdersService {
       data: { from: o.status, to, reason: reason ?? null },
       ip: ctx.ip,
     });
+    // Aviso ao cliente pelo WhatsApp: gravado nesta mesma transação (só sai se ela for gravada).
+    if (to === 'ready' && (o.channel === 'pickup' || o.channel === 'counter'))
+      await this.messaging.stage(tx, ctx.tenantId, o.id, 'order.ready');
+    if (to === 'dispatched' && o.channel === 'delivery')
+      await this.messaging.stage(tx, ctx.tenantId, o.id, 'order.dispatched');
     o.status = to;
     o.version += 1;
   }

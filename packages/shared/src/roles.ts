@@ -57,6 +57,12 @@ export const PERMISSIONS = [
   'finance:write',
   /** Agentes de impressão e reimpressões. */
   'printing:manage',
+  /** Emitir e cancelar nota fiscal de um pedido. */
+  'fiscal:emit',
+  /** Configuração fiscal do restaurante (CNPJ, token, ambiente). */
+  'fiscal:manage',
+  /** Configurar o WhatsApp e as mensagens automáticas. */
+  'messaging:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -77,6 +83,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'cash:close',
     'delivery:manage',
     'stock:read',
+    'fiscal:emit',
   ],
   waiter: ['catalog:read', 'orders:read', 'orders:write', 'tables:operate'],
   kitchen: ['catalog:read', 'orders:read', 'kitchen:operate'],
@@ -91,7 +98,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'finance:write',
     'stock:read',
   ],
-  fiscal: ['orders:read', 'reports:read', 'finance:read'],
+  fiscal: ['orders:read', 'reports:read', 'finance:read', 'fiscal:emit', 'fiscal:manage'],
 };
 
 export function roleHas(role: Role, permission: Permission): boolean {

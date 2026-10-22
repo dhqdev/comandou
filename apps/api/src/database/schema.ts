@@ -11,6 +11,7 @@ import {
   uuid,
   jsonb,
   bigint,
+  smallint,
 } from 'drizzle-orm/pg-core';
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' });
@@ -95,6 +96,12 @@ export const products = pgTable('products', {
   soldOut: boolean('sold_out').notNull().default(false),
   sectorId: uuid('sector_id'),
   position: integer('position').notNull().default(0),
+  /** Dados fiscais (NFC-e). Vazios usam o padrão da configuração fiscal do restaurante. */
+  ncm: text('ncm'),
+  cfop: text('cfop'),
+  fiscalCode: text('fiscal_code'),
+  fiscalOrigin: smallint('fiscal_origin'),
+  fiscalUnit: text('fiscal_unit'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });

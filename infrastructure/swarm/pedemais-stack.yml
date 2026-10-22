@@ -34,6 +34,42 @@ services:
       resources:
         limits: { memory: 1G }
 
+  # Filas (BullMQ) e eventos em tempo real entre as réplicas da API. Só na rede interna.
+  redis:
+    image: redis:7.4-alpine
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - pedemais_redisdata:/data
+    networks: [pedemais_internal]
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager] # volume local: fixe o nó
+      restart_policy: { condition: on-failure }
+      resources:
+        limits: { memory: 256M }
+
+  # WhatsApp por QR Code (Baileys). Uma sessão por restaurante, cifrada no volume. Só na rede interna:
+  # apenas a API fala com ele, com token próprio.
+  whatsapp-gateway:
+    image: ghcr.io/dhqdev/pedemais-whatsapp-gateway:${PEDEMAIS_VERSION:?defina a versão}
+    init: true
+    environment:
+      GATEWAY_TOKEN_FILE: /run/secrets/pedemais_wa_gateway_token
+      SESSION_KEY_FILE: /run/secrets/pedemais_wa_session_key
+      LOG_LEVEL: info
+    secrets: [pedemais_wa_gateway_token, pedemais_wa_session_key]
+    volumes:
+      - pedemais_wadata:/data
+    networks: [pedemais_internal, pedemais_egress]
+    deploy:
+      replicas: 1 # uma conexão por número: nunca mais de uma réplica
+      placement:
+        constraints: [node.role == manager] # volume local: fixe o nó
+      restart_policy: { condition: on-failure }
+      resources:
+        limits: { memory: 384M }
+
   migrate:
     image: ghcr.io/dhqdev/pedemais-api:${PEDEMAIS_VERSION:?defina a versão}
     command: ['node', 'dist/database/migrate-cli.js']
@@ -55,7 +91,12 @@ services:
       TRUST_PROXY: 'true'
       COOKIE_SECURE: 'true'
       LOG_LEVEL: info
-    secrets: [pedemais_db_app_url]
+      REDIS_URL: redis://redis:6379
+      # Chave (32 bytes base64) que cifra tokens da Focus NFe e do WhatsApp no banco.
+      INTEGRATIONS_KEY_FILE: /run/secrets/pedemais_integrations_key
+      WHATSAPP_GATEWAY_URL: http://whatsapp-gateway:3100
+      WHATSAPP_GATEWAY_TOKEN_FILE: /run/secrets/pedemais_wa_gateway_token
+    secrets: [pedemais_db_app_url, pedemais_integrations_key, pedemais_wa_gateway_token]
     networks: [pedemais_internal, network_public]
     deploy:
       replicas: 2
@@ -103,9 +144,13 @@ networks:
   pedemais_internal:
     driver: overlay
     internal: true # Postgres sem acesso externo
+  pedemais_egress:
+    driver: overlay # saída para a internet do gateway de WhatsApp (sem portas publicadas)
 
 volumes:
   pedemais_pgdata:
+  pedemais_redisdata:
+  pedemais_wadata:
 
 configs:
   pedemais_pg_init:
@@ -117,3 +162,6 @@ secrets:
   pedemais_app_password: { external: true }
   pedemais_db_app_url: { external: true }
   pedemais_db_owner_url: { external: true }
+  pedemais_integrations_key: { external: true }
+  pedemais_wa_gateway_token: { external: true }
+  pedemais_wa_session_key: { external: true }

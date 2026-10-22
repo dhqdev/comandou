@@ -67,4 +67,10 @@ export interface Product {
   active: boolean;
   soldOut: boolean;
   sectorId: string | null;
+  /** Dados fiscais da NFC-e; vazio usa o padrão de Ajustes > Nota fiscal. */
+  ncm?: string | null;
+  cfop?: string | null;
+  fiscalCode?: string | null;
+  fiscalOrigin?: number | null;
+  fiscalUnit?: string | null;
 }

@@ -9,7 +9,8 @@ export type RealtimeEvent =
   | { type: 'menu.changed' }
   | { type: 'stock.changed' }
   | { type: 'delivery.changed'; deliveryId: string }
-  | { type: 'print.changed' };
+  | { type: 'print.changed' }
+  | { type: 'fiscal.changed'; documentId: string; orderId: string };
 
 type Listener = (e: RealtimeEvent) => void;
 type StatusListener = (s: RealtimeStatus) => void;

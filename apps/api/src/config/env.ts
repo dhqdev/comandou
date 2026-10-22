@@ -32,6 +32,40 @@ const schema = z.object({
     .transform((v) => v === 'true'),
   /** Redis opcional: com mais de uma réplica da API, distribui eventos de tempo real entre elas. */
   REDIS_URL: z.string().url().optional(),
+  /** Executa os consumidores das filas neste processo (desligue numa réplica só de HTTP). */
+  QUEUE_WORKERS: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  /** Prefixo das chaves das filas no Redis (isola ambientes que compartilham o Redis). */
+  QUEUE_PREFIX: z
+    .string()
+    .regex(/^[a-z0-9_-]{1,40}$/)
+    .default('pedemais'),
+  /**
+   * Chave (32 bytes em base64) que cifra credenciais de integrações (token Focus NFe, sessões).
+   * Sem ela, a configuração fiscal não aceita token.
+   */
+  INTEGRATIONS_KEY: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z
+      .string()
+      .refine((v) => Buffer.from(v, 'base64').length === 32, '32 bytes em base64')
+      .optional(),
+  ),
+  FOCUS_NFE_URL_HOMOLOGACAO: z.string().url().default('https://homologacao.focusnfe.com.br'),
+  FOCUS_NFE_URL_PRODUCAO: z.string().url().default('https://api.focusnfe.com.br'),
+  /** Graph API da Meta (WhatsApp Cloud API), com a versão no caminho. */
+  WHATSAPP_GRAPH_URL: z.string().url().default('https://graph.facebook.com/v25.0'),
+  /** Serviço interno de WhatsApp (Baileys/QR Code). Ex.: http://whatsapp-gateway:3100 */
+  WHATSAPP_GATEWAY_URL: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().url().optional(),
+  ),
+  WHATSAPP_GATEWAY_TOKEN: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(24).optional(),
+  ),
   /** Tentativas de login por IP por minuto. */
   AUTH_LOGIN_RATE_LIMIT: z.coerce.number().int().positive().default(5),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
@@ -56,6 +90,8 @@ export const FILE_SECRET_VARS = [
   'DATABASE_OWNER_URL',
   'REDIS_URL',
   'PROVISION_ADMIN_PASSWORD',
+  'INTEGRATIONS_KEY',
+  'WHATSAPP_GATEWAY_TOKEN',
 ] as const;
 
 /**

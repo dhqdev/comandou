@@ -29,12 +29,31 @@ const CategoryCreate = z.object({
   name: z.string().trim().min(1).max(80),
   position: z.number().int().min(0).max(10_000).optional(),
 });
+/** Campos fiscais do produto (NFC-e). null limpa e volta a usar o padrão do restaurante. */
+const fiscalFields = {
+  ncm: z
+    .string()
+    .regex(/^[0-9]{8}$/, 'NCM com 8 dígitos')
+    .nullable(),
+  cfop: z
+    .string()
+    .regex(/^[0-9]{4}$/, 'CFOP com 4 dígitos')
+    .nullable(),
+  fiscalCode: z
+    .string()
+    .regex(/^[0-9]{2,3}$/, 'CSOSN/CST com 2 ou 3 dígitos')
+    .nullable(),
+  fiscalOrigin: z.number().int().min(0).max(8).nullable(),
+  fiscalUnit: z.string().trim().min(1).max(6).nullable(),
+};
+
 const ProductCreate = z.object({
   categoryId: z.string().uuid(),
   sectorId: z.string().uuid().nullable().optional(),
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(1000).optional(),
   price: money,
+  ...z.object(fiscalFields).partial().shape,
 });
 const ProductUpdate = z
   .object({
@@ -46,6 +65,7 @@ const ProductUpdate = z
     categoryId: z.string().uuid(),
     sectorId: z.string().uuid().nullable(),
     position: z.number().int().min(0).max(10_000),
+    ...fiscalFields,
   })
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');
@@ -140,6 +160,11 @@ export class CatalogController {
           description: body.description ?? null,
           price: body.price,
           sectorId: body.sectorId ?? null,
+          ncm: body.ncm ?? null,
+          cfop: body.cfop ?? null,
+          fiscalCode: body.fiscalCode ?? null,
+          fiscalOrigin: body.fiscalOrigin ?? null,
+          fiscalUnit: body.fiscalUnit ?? null,
         })
         .returning();
       await this.audit.record(tx, {

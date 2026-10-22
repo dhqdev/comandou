@@ -303,3 +303,78 @@ export interface Reconciliation {
     } | null;
   }[];
 }
+
+export type FiscalStatus =
+  'pending' | 'processing' | 'authorized' | 'rejected' | 'error' | 'cancelling' | 'cancelled';
+export interface FiscalSettings {
+  enabled: boolean;
+  environment: 'homologacao' | 'producao';
+  cnpj: string | null;
+  hasToken: boolean;
+  tokenLast4: string | null;
+  defaultCfop: string;
+  defaultCode: string;
+  defaultNcm: string | null;
+  updatedAt: string | null;
+  keyConfigured: boolean;
+}
+export interface FiscalDocument {
+  id: string;
+  orderId: string;
+  orderNumber: number;
+  environment: 'homologacao' | 'producao';
+  status: FiscalStatus;
+  attempts: number;
+  total: string;
+  sefazStatus: string | null;
+  sefazMessage: string | null;
+  accessKey: string | null;
+  number: string | null;
+  series: string | null;
+  qrcodeUrl: string | null;
+  cancelReason: string | null;
+  lastError: string | null;
+  createdAt: string;
+  authorizedAt: string | null;
+  cancelledAt: string | null;
+  xmlUrl: string | null;
+  danfeUrl: string | null;
+}
+export interface MessagingSettings {
+  provider: 'baileys' | 'meta_cloud';
+  enabled: boolean;
+  phoneNumberId: string | null;
+  hasToken: boolean;
+  tokenLast4: string | null;
+  language: string;
+  templateReady: string | null;
+  templateDispatched: string | null;
+  textReady: string;
+  textDispatched: string;
+  notifyReady: boolean;
+  notifyDispatched: boolean;
+  updatedAt: string | null;
+  keyConfigured: boolean;
+  gatewayConfigured: boolean;
+}
+export interface WhatsAppSession {
+  status: 'disconnected' | 'connecting' | 'qr' | 'connected' | 'logged_out';
+  qr?: string;
+  phone?: string;
+  error?: string;
+}
+export interface OutboxMessage {
+  id: string;
+  orderId: string | null;
+  orderNumber: number | null;
+  event: 'order.ready' | 'order.dispatched' | 'test';
+  provider: 'baileys' | 'meta_cloud';
+  toPhone: string;
+  template: string | null;
+  body: string | null;
+  status: 'queued' | 'sent' | 'failed';
+  attempts: number;
+  lastError: string | null;
+  createdAt: string;
+  sentAt: string | null;
+}

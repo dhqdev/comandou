@@ -20,6 +20,51 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.4.0',
+    date: '2026-10-22',
+    title: 'Etapa 5 — Nota fiscal, WhatsApp e filas',
+    summary:
+      'NFC-e pela Focus NFe (começando em homologação), avisos ao cliente pelo WhatsApp e uma fila de trabalhos que não trava o pedido.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Nota fiscal (NFC-e) pela Focus NFe: emita pelo detalhe do pedido pago, acompanhe a autorização e abra o DANFE.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cancelamento de NFC-e com justificativa. Pedido com nota autorizada só é cancelado ou estornado depois de cancelar a nota.',
+      },
+      {
+        tag: 'novo',
+        text: 'Tela Nota fiscal: notas emitidas e configuração (CNPJ, token, CFOP, CSOSN/CST e NCM padrão). Começa em homologação; produção só pelo dono, com confirmação.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cardápio: dados fiscais por produto (NCM, CFOP, CSOSN/CST, origem e unidade).',
+      },
+      {
+        tag: 'novo',
+        text: 'WhatsApp por QR Code: conecte o número do restaurante e o cliente recebe aviso quando o pedido fica pronto ou sai para entrega. Os textos são editáveis.',
+      },
+      {
+        tag: 'novo',
+        text: 'Alternativa: API oficial do WhatsApp (Meta), com modelos aprovados.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Fila de trabalhos (Redis): a nota e as mensagens são enviadas em segundo plano, com novas tentativas, sem segurar o caixa.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Tokens da Focus NFe e da Meta e as sessões do WhatsApp ficam cifrados; a tela mostra só o final do token.',
+      },
+      {
+        tag: 'segurança',
+        text: 'A mesma nota nunca é emitida duas vezes, mesmo com falha de rede ou clique repetido.',
+      },
+    ],
+  },
+  {
     version: '0.3.0',
     date: '2026-10-22',
     title: 'Etapa 4 — Estoque, entregas, impressão, financeiro e equipe',

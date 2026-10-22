@@ -439,6 +439,7 @@ export class CashService {
           if (!ref) throw new NotFoundException('Pagamento não encontrado');
           const o = await this.orders.lock(tx, ref.order_id);
           orderId = o.id;
+          await this.orders.assertNoLiveFiscalDocument(tx, o.id, 'estornar');
           const pay = await one<{ amount: string; refunded_amount: string; method: PaymentMethod }>(
             tx,
             `SELECT amount::text, refunded_amount::text, method FROM payments WHERE id = $1 FOR UPDATE`,

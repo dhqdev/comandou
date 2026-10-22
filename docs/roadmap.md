@@ -49,7 +49,7 @@ Entregue em um PR único (a pedido), com os seis itens planejados.
 
 Fora do escopo desta etapa (próximas): impressão de comanda/cupom, entregas e entregadores, cardápio digital do cliente, permissões configuráveis por restaurante, divisão de um item entre pessoas (hoje divide por valor ou por pedido).
 
-## Etapa 4 — Operações complementares · ✅ entregue nesta PR
+## Etapa 4 — Operações complementares · ✅ entregue (PR #3)
 
 Entregue em um PR único, versão **0.3.0** (ver tela Novidades no sistema).
 
@@ -70,9 +70,26 @@ Entregue em um PR único, versão **0.3.0** (ver tela Novidades no sistema).
 
 Fora do escopo desta etapa: permissões configuráveis por restaurante, compras/fornecedores como cadastro, transferência entre estoques, mapa ao vivo do entregador (hoje é a última posição enviada), redefinição de senha por e-mail, nota fiscal (Etapa 5).
 
-## Etapa 5 — Integrações
+## Etapa 5 — Integrações · ✅ entregue nesta PR
 
-Focus NFe (homologação primeiro), WhatsApp (serviço isolado com Baileys, sessões por tenant; avaliar API oficial), notificações. Redis + BullMQ para filas, com `tenant_id` obrigatório no payload e revalidação no worker.
+Entregue em um PR único, versão **0.4.0** (ver tela Novidades no sistema). Decisões no [ADR 0008](decisions/0008-integracoes-filas-nfce-whatsapp.md).
+
+| Critério de aceitação | Evidência |
+| --- | --- |
+| Redis + BullMQ, `tenantId` obrigatório no trabalho e revalidação no consumidor | `queue/queue.service.ts`; testes da nota e do WhatsApp rodam com e sem Redis (CI com Redis) |
+| NFC-e pela Focus NFe em homologação: emissão, consulta, cancelamento | `fiscal/*`; `test/fiscal.e2e.test.ts` com uma Focus falsa |
+| Nunca duas notas para o mesmo envio (referência fixa, reconciliação, falha temporária) | testes "falha temporária…", "referência já usada…", "Focus fora do ar…" |
+| Só pedido pago; NCM obrigatório; desconto/acréscimo rateados sem perder centavo | testes "não emite pedido sem pagamento…", "NCM ausente…", "autoriza pela fila…" |
+| Pedido com nota viva não é cancelado nem estornado | teste "pedido com nota viva…" |
+| Produção só pelo dono e com confirmação | teste "produção exige o dono…" |
+| Tokens cifrados, nunca devolvidos nem auditados | testes de configuração (fiscal e WhatsApp) |
+| WhatsApp por QR Code (Baileys) em serviço separado, sessão cifrada por restaurante | `apps/whatsapp-gateway`; `src/gateway.test.ts` (sessão cifrada, token interno, QR → conectado → envio, logout) |
+| Avisos: pronto e saiu para entrega, uma vez por pedido, texto do restaurante, reenvio de falha | `messaging/*`; `test/messaging.e2e.test.ts` com gateway e Graph API falsos |
+| API oficial da Meta como alternativa | mesmos testes, suíte "API oficial da Meta" |
+| Isolamento das 4 tabelas novas | `rls.int.test.ts` + testes de B contra A |
+| Telas: Nota fiscal, WhatsApp, NFC-e no pedido, dados fiscais no cardápio | `apps/web/e2e/integrations.spec.ts` |
+
+Pendências que dependem de contas reais (não simuladas aqui): validar em homologação na Focus NFe com o CNPJ e o certificado do restaurante (campo de outras despesas, exigências de cartão da SEFAZ do estado) e ler o primeiro QR Code com um número de teste (o CI não alcança os servidores do WhatsApp).
 
 ## Etapa 6 — SaaS
 

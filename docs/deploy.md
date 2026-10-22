@@ -29,7 +29,18 @@ printf '%s' 'senha-owner'      | docker secret create pedemais_owner_password -
 printf '%s' 'senha-app'        | docker secret create pedemais_app_password -
 printf '%s' 'postgres://pedemais_app:senha-app@postgres:5432/pedemais'     | docker secret create pedemais_db_app_url -
 printf '%s' 'postgres://pedemais_owner:senha-owner@postgres:5432/pedemais' | docker secret create pedemais_db_owner_url -
+# Etapa 5: chave que cifra tokens da Focus NFe e do WhatsApp (guarde uma cópia fora do servidor)
+openssl rand -base64 32 | tr -d '\n' | docker secret create pedemais_integrations_key -
+# WhatsApp por QR Code: token interno API ↔ gateway e chave das sessões
+openssl rand -hex 32       | tr -d '\n' | docker secret create pedemais_wa_gateway_token -
+openssl rand -base64 32    | tr -d '\n' | docker secret create pedemais_wa_session_key -
 ```
+
+A partir da 0.4.0 a stack inclui um Redis interno (filas BullMQ e tempo real entre réplicas),
+sem porta exposta e com volume próprio (`pedemais_redisdata`), e o serviço `whatsapp-gateway`
+(Baileys): uma réplica só, sessões cifradas no volume `pedemais_wadata`, sem porta publicada; só a
+API fala com ele. Ele usa a rede `pedemais_egress` para sair para a internet (WhatsApp).
+Perder `pedemais_wa_session_key` obriga cada restaurante a ler o QR Code de novo.
 
 ## Certificados
 

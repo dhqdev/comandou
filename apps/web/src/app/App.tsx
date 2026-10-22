@@ -6,6 +6,8 @@ import { MenuPage } from '../pages/MenuPage';
 import { CashPage } from '../pages/CashPage';
 import { DeliveriesPage } from '../pages/DeliveriesPage';
 import { FinancePage } from '../pages/FinancePage';
+import { FiscalPage } from '../pages/FiscalPage';
+import { WhatsAppPage } from '../pages/WhatsAppPage';
 import { PrintingPage } from '../pages/PrintingPage';
 import { StockPage } from '../pages/StockPage';
 import { TeamPage } from '../pages/TeamPage';
@@ -59,6 +61,8 @@ function Gate() {
         <Route path="financeiro" element={<FinancePage />} />
         <Route path="equipe" element={<TeamPage />} />
         <Route path="impressao" element={<PrintingPage />} />
+        <Route path="nota-fiscal" element={<FiscalPage />} />
+        <Route path="whatsapp" element={<WhatsAppPage />} />
         {SOON.map(([path, title]) => (
           <Route key={path} path={path} element={<ComingSoonPage title={title} />} />
         ))}

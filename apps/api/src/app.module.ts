@@ -11,6 +11,7 @@ import { ENV, Env } from './config/env';
 import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
 import { OperationsModule } from './orders/operations.module';
+import { QueueModule } from './queue/queue.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { TenantGuard } from './tenancy/tenant.guard';
@@ -42,6 +43,7 @@ export class AppModule {
         TenancyModule,
         AuthModule,
         RealtimeModule,
+        QueueModule,
         CatalogModule,
         OperationsModule,
       ],
