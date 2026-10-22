@@ -1,8 +1,8 @@
 /* Tela inicial: quadro de pedidos em 3 colunas. Só variáveis --cm-* (segue o design system). */
 .home {
-  --home-analysis: #e8590c;
-  --home-production: #e8a10c;
-  --home-ready: #2f9e44;
+  --home-analysis: var(--cm-brand-500);
+  --home-production: var(--cm-accent-500);
+  --home-ready: var(--cm-success);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--cm-space-4);
