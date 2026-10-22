@@ -23,6 +23,8 @@ export async function createApp(
   app.use(helmet({ contentSecurityPolicy: false })); // CSP do SPA é definida no Nginx.
   app.use(cookieParser());
   app.useBodyParser('json', { limit: '256kb' });
+  // Fotos (POST /media): o corpo é a própria imagem, já reduzida pelo navegador.
+  app.useBodyParser('raw', { type: ['image/webp', 'image/jpeg', 'image/png'], limit: '3mb' });
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.enableShutdownHooks();

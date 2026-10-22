@@ -30,6 +30,15 @@ const CategoryCreate = z.object({
   name: z.string().trim().min(1).max(80),
   position: z.number().int().min(0).max(10_000).optional(),
 });
+const CategoryUpdate = z
+  .object({
+    name: z.string().trim().min(1).max(80),
+    position: z.number().int().min(0).max(10_000),
+    active: z.boolean(),
+    imageId: z.string().uuid().nullable(),
+  })
+  .partial()
+  .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');
 /** Campos fiscais do produto (NFC-e). null limpa e volta a usar o padrão do restaurante. */
 const fiscalFields = {
   ncm: z
@@ -66,6 +75,7 @@ const ProductUpdate = z
     categoryId: z.string().uuid(),
     sectorId: z.string().uuid().nullable(),
     position: z.number().int().min(0).max(10_000),
+    imageId: z.string().uuid().nullable(),
     ...fiscalFields,
   })
   .partial()
@@ -112,6 +122,38 @@ export class CatalogController {
       });
       return row;
     });
+  }
+
+  @Patch('categories/:id')
+  @RequirePermission('catalog:write')
+  async updateCategory(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(CategoryUpdate)) body: z.infer<typeof CategoryUpdate>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const row = await this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
+      const [r] = await tx
+        .update(categories)
+        .set(body)
+        .where(and(eq(categories.id, id), eq(categories.tenantId, t.id)))
+        .returning();
+      if (r) {
+        await this.audit.record(tx, {
+          tenantId: t.id,
+          actorUserId: u.id,
+          action: 'catalog.category_updated',
+          entity: 'category',
+          entityId: r.id,
+          data: { changes: body },
+          ip: req.ip,
+        });
+      }
+      return r;
+    });
+    if (!row) throw new NotFoundException('Categoria não encontrada');
+    return row;
   }
 
   @Get('products')

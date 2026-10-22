@@ -58,6 +58,7 @@ export interface Category {
   name: string;
   position: number;
   active: boolean;
+  imageId?: string | null;
 }
 
 export interface Product {
@@ -69,6 +70,7 @@ export interface Product {
   active: boolean;
   soldOut: boolean;
   sectorId: string | null;
+  imageId?: string | null;
   /** Dados fiscais da NFC-e; vazio usa o padrão de Ajustes > Nota fiscal. */
   ncm?: string | null;
   cfop?: string | null;

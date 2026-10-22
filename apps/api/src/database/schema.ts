@@ -81,6 +81,8 @@ export const categories = pgTable('categories', {
   name: text('name').notNull(),
   position: integer('position').notNull().default(0),
   active: boolean('active').notNull().default(true),
+  /** Foto da categoria (tabela media). */
+  imageId: uuid('image_id'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });
@@ -97,6 +99,8 @@ export const products = pgTable('products', {
   soldOut: boolean('sold_out').notNull().default(false),
   sectorId: uuid('sector_id'),
   position: integer('position').notNull().default(0),
+  /** Foto do produto (tabela media). */
+  imageId: uuid('image_id'),
   /** Dados fiscais (NFC-e). Vazios usam o padrão da configuração fiscal do restaurante. */
   ncm: text('ncm'),
   cfop: text('cfop'),

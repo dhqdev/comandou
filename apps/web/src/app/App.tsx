@@ -12,6 +12,8 @@ import { PrintingPage } from '../pages/PrintingPage';
 import { StockPage } from '../pages/StockPage';
 import { TeamPage } from '../pages/TeamPage';
 import { TrackingPage } from '../pages/TrackingPage';
+import { PublicOrderPage } from '../pages/public/PublicOrderPage';
+import { PublicStorePage } from '../pages/public/PublicStorePage';
 import { KitchenPage } from '../pages/KitchenPage';
 import { OrdersPage } from '../pages/OrdersPage';
 import { PdvPage } from '../pages/PdvPage';
@@ -85,6 +87,9 @@ export function App() {
         <Routes>
           {/* Rastreio público do cliente final: fora do login. */}
           <Route path="/rastreio/:token" element={<TrackingPage />} />
+          {/* Cardápio online e acompanhamento do pedido do cliente final: fora do login. */}
+          <Route path="/pedir" element={<PublicStorePage />} />
+          <Route path="/pedido/:token" element={<PublicOrderPage />} />
           {/* Link de acesso do suporte (painel Super Admin): troca o token por uma sessão. */}
           <Route path="/suporte" element={<SupportEntryPage />} />
           <Route

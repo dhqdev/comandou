@@ -228,10 +228,10 @@ export class OptionsController {
     return this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
       q(
         tx,
-        `SELECT c.id, c.name,
+        `SELECT c.id, c.name, c.image_id AS "imageId",
            COALESCE((SELECT json_agg(json_build_object(
                'id', p.id, 'name', p.name, 'description', p.description, 'price', p.price::text,
-               'soldOut', p.sold_out, 'sectorId', p.sector_id,
+               'soldOut', p.sold_out, 'sectorId', p.sector_id, 'imageId', p.image_id,
                'optionGroups', COALESCE((SELECT json_agg(json_build_object(
                    'id', g.id, 'name', g.name, 'minSelect', g.min_select, 'maxSelect', g.max_select,
                    'options', COALESCE((SELECT json_agg(json_build_object('id', o.id, 'name', o.name, 'priceDelta', o.price_delta::text)

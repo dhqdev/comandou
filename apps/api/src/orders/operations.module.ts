@@ -22,6 +22,8 @@ import { ReportsController } from '../reports/reports.controller';
 import { SetupController } from '../setup/setup.controller';
 import { TabsController } from '../tables/tabs.controller';
 import { TabsService } from '../tables/tabs.service';
+import { MediaController, StoreController } from '../store/store.controller';
+import { StoreService } from '../store/store.service';
 import { OrdersController, PaymentsController } from './orders.controller';
 import { OrdersService } from './orders.service';
 
@@ -43,6 +45,8 @@ import { OrdersService } from './orders.service';
     UsersController,
     FiscalController,
     MessagingController,
+    StoreController,
+    MediaController,
   ],
   providers: [
     OrdersService,
@@ -57,6 +61,7 @@ import { OrdersService } from './orders.service';
     MessagingService,
     WhatsAppClient,
     GatewayClient,
+    StoreService,
   ],
 })
 export class OperationsModule {}

@@ -1,4 +1,5 @@
 import { canTransition, fromCents, toCents, type OrderStatus } from '@comandou/shared';
+import { MessageCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Alert, Badge, Button, Modal, Spinner, TextField, useToast } from '../design-system';
@@ -20,8 +21,10 @@ import {
   STATUS_TONE,
 } from './format';
 import { PaymentModal, useOpenSessions } from './PaymentModal';
+import { SidePanel } from './SidePanel';
 
 const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }[]>> = {
+  awaiting: [{ to: 'new', label: 'Aceitar pedido' }],
   new: [
     { to: 'in_production', label: 'Iniciar preparo' },
     { to: 'ready', label: 'Marcar pronto' },
@@ -35,9 +38,15 @@ const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }[]>> =
 export function OrderDetailModal({
   orderId,
   onClose,
+  variant = 'modal',
+  startWith,
 }: {
   orderId: string | null;
   onClose(): void;
+  /** Abre já no passo de despachar o entregador ou de recusar o pedido. */
+  startWith?: 'dispatch' | 'reject';
+  /** "panel": desliza da direita (tela inicial de pedidos). */
+  variant?: 'modal' | 'panel';
 }) {
   const toast = useToast();
   const canCancel = useCan('orders:cancel');
@@ -64,7 +73,9 @@ export function OrderDetailModal({
     }
   }
   const [paying, setPaying] = useState(false);
-  const [mode, setMode] = useState<null | 'cancel' | 'adjust' | { refund: Payment }>(null);
+  const [mode, setMode] = useState<
+    null | 'cancel' | 'reject' | 'adjust' | 'dispatch' | { refund: Payment }
+  >(null);
 
   const load = useCallback(async () => {
     if (!orderId) return;
@@ -78,9 +89,9 @@ export function OrderDetailModal({
 
   useEffect(() => {
     setOrder(null);
-    setMode(null);
+    setMode(startWith ?? null);
     void load();
-  }, [load]);
+  }, [load, startWith]);
   useRealtime((e) => {
     if (e.type === 'order.changed' && e.orderId === orderId) void load();
     if (e.type === 'kitchen.changed' && e.orderId === orderId) void load();
@@ -107,8 +118,9 @@ export function OrderDetailModal({
 
   const open = !!orderId;
   const title = order ? `Pedido #${order.number}` : 'Pedido';
+  const Frame = variant === 'panel' ? SidePanel : Modal;
   return (
-    <Modal open={open} onClose={onClose} title={title} size="lg">
+    <Frame open={open} onClose={onClose} title={title} size="lg">
       {error && <Alert tone="danger">{error}</Alert>}
       {!order ? (
         <Spinner />
@@ -128,6 +140,12 @@ export function OrderDetailModal({
               {[order.customerName, order.customerPhone, order.deliveryAddress, order.notes]
                 .filter(Boolean)
                 .join(' · ')}
+            </p>
+          )}
+          {order.source === 'online' && order.paymentHint && (
+            <p className="cm-hint" style={{ margin: 0 }}>
+              Cardápio online · paga com {PAYMENT_METHOD_LABELS[order.paymentHint]}
+              {order.changeFor && ` (troco para ${brl(order.changeFor)})`}
             </p>
           )}
           {order.cancelReason && <Alert tone="warning">Motivo: {order.cancelReason}</Alert>}
@@ -225,6 +243,26 @@ export function OrderDetailModal({
               onConfirm={(r) => go(canCancel ? 'cancelled' : 'cancel_requested', r)}
             />
           )}
+          {mode === 'reject' && (
+            <ReasonForm
+              label="Por que recusar? (o cliente vê este motivo)"
+              confirm="Recusar pedido"
+              danger
+              busy={busy}
+              onCancel={() => setMode(null)}
+              onConfirm={(r) => go('cancelled', r)}
+            />
+          )}
+          {mode === 'dispatch' && (
+            <DispatchForm
+              order={order}
+              onCancel={() => setMode(null)}
+              onDone={() => {
+                setMode(null);
+                void load();
+              }}
+            />
+          )}
           {mode === 'adjust' && (
             <AdjustForm
               order={order}
@@ -251,24 +289,34 @@ export function OrderDetailModal({
               {(NEXT[order.status] ?? [])
                 .filter((a) => canTransition(order.status, a.to, order.channel))
                 .map((a) => (
-                  <Button key={a.to} variant="secondary" loading={busy} onClick={() => go(a.to)}>
+                  <Button
+                    key={a.to}
+                    variant={order.status === 'awaiting' ? 'primary' : 'secondary'}
+                    loading={busy}
+                    onClick={() => go(a.to)}
+                  >
                     {a.label}
                   </Button>
                 ))}
+              {order.status === 'awaiting' && canWrite && (
+                <Button variant="danger" onClick={() => setMode('reject')}>
+                  Recusar
+                </Button>
+              )}
               {order.channel === 'delivery' && order.status === 'ready' && canDispatch && (
-                <Link className="cm-btn cm-btn--secondary" to="/entregas" onClick={onClose}>
-                  Despachar em Entregas
-                </Link>
+                <Button onClick={() => setMode('dispatch')}>Despachar entregador</Button>
               )}
               {canPay && order.status !== 'cancelled' && toCents(order.balance) > 0 && (
                 <Button onClick={() => setPaying(true)}>Receber {brl(order.balance)}</Button>
               )}
-              {!['completed', 'cancelled'].includes(order.status) && (
+              {!['completed', 'cancelled', 'awaiting'].includes(order.status) && (
                 <Button variant="ghost" onClick={() => setMode('adjust')}>
                   Desconto/acréscimo
                 </Button>
               )}
-              {!['completed', 'cancelled', 'cancel_requested'].includes(order.status) && (
+              {!['completed', 'cancelled', 'cancel_requested', 'awaiting'].includes(
+                order.status,
+              ) && (
                 <Button variant="danger" onClick={() => setMode('cancel')}>
                   {canCancel ? 'Cancelar' : 'Solicitar cancelamento'}
                 </Button>
@@ -321,7 +369,117 @@ export function OrderDetailModal({
           />
         </div>
       )}
-    </Modal>
+    </Frame>
+  );
+}
+
+interface Courier {
+  id: string;
+  name: string;
+  phone: string | null;
+  active: boolean;
+}
+
+/** Escolhe o entregador e despacha sem sair da tela; depois oferece avisar pelo WhatsApp. */
+function DispatchForm({
+  order,
+  onCancel,
+  onDone,
+}: {
+  order: Order;
+  onCancel(): void;
+  onDone(): void;
+}) {
+  const toast = useToast();
+  const [couriers, setCouriers] = useState<Courier[] | null>(null);
+  const [courierId, setCourierId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState<Courier | null>(null);
+  useEffect(() => {
+    api<Courier[]>('/couriers')
+      .then((c) => {
+        const active = c.filter((x) => x.active);
+        setCouriers(active);
+        setCourierId(active[0]?.id ?? '');
+      })
+      .catch(() => setCouriers([]));
+  }, []);
+  async function dispatch() {
+    setBusy(true);
+    try {
+      await api(`/orders/${order.id}/dispatch`, { method: 'POST', json: { courierId } });
+      toast(`Pedido #${order.number} saiu para entrega`, 'success');
+      setSent(couriers?.find((c) => c.id === courierId) ?? null);
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (sent) {
+    const phone = sent.phone?.replace(/\D/g, '');
+    const text = [
+      `Entrega do pedido #${order.number}`,
+      order.customerName &&
+        `Cliente: ${order.customerName}${order.customerPhone ? ` (${order.customerPhone})` : ''}`,
+      order.deliveryAddress && `Endereço: ${order.deliveryAddress}`,
+      `Total: ${brl(order.total)}${toCents(order.balance) > 0 ? ` (cobrar ${brl(order.balance)}${order.paymentHint ? ` em ${PAYMENT_METHOD_LABELS[order.paymentHint]}` : ''}${order.changeFor ? `, troco para ${brl(order.changeFor)}` : ''})` : ' (pago)'}`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+    return (
+      <div className="inline-form">
+        <strong>{sent.name} está com o pedido.</strong>
+        <div className="actions-row">
+          {phone && (
+            <a
+              className="cm-btn cm-btn--secondary"
+              href={`https://wa.me/${phone.length <= 11 ? `55${phone}` : phone}?text=${encodeURIComponent(text)}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <MessageCircle size={16} /> Avisar {sent.name.split(' ')[0]} no WhatsApp
+            </a>
+          )}
+          <Button onClick={onDone}>Pronto</Button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="inline-form">
+      <strong>Quem vai levar?</strong>
+      {couriers === null ? (
+        <Spinner />
+      ) : couriers.length === 0 ? (
+        <Alert tone="warning">
+          Nenhum entregador ativo. Cadastre em <Link to="/entregas">Entregas</Link>.
+        </Alert>
+      ) : (
+        <label className="cm-field">
+          <span className="cm-label">Entregador</span>
+          <select
+            className="cm-input"
+            value={courierId}
+            onChange={(e) => setCourierId(e.target.value)}
+          >
+            {couriers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <div className="actions-row">
+        <Button variant="secondary" onClick={onCancel}>
+          Voltar
+        </Button>
+        <Button loading={busy} disabled={!courierId} onClick={dispatch}>
+          Saiu para entrega
+        </Button>
+      </div>
+    </div>
   );
 }
 

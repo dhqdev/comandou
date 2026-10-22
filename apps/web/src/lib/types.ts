@@ -25,12 +25,31 @@ export interface MenuProduct {
   price: string;
   soldOut: boolean;
   sectorId: string | null;
+  imageId?: string | null;
   optionGroups: MenuGroup[];
 }
 export interface MenuCategory {
   id: string;
   name: string;
+  imageId?: string | null;
   products: MenuProduct[];
+}
+
+export interface StoreSettings {
+  enabled: boolean;
+  isOpen: boolean;
+  autoAccept: boolean;
+  acceptsDelivery: boolean;
+  acceptsPickup: boolean;
+  deliveryFee: string;
+  minOrder: string;
+  etaMin: number;
+  etaMax: number;
+  about: string | null;
+  address: string | null;
+  whatsapp: string | null;
+  coverImageId: string | null;
+  logoImageId: string | null;
 }
 
 export interface OrderItem {
@@ -78,6 +97,11 @@ export interface Order {
   deliveryAddress: string | null;
   notes: string | null;
   cancelReason: string | null;
+  /** staff = lançado pela equipe; online = cardápio online (cliente final). */
+  source?: 'staff' | 'online';
+  paymentHint?: PaymentMethod | null;
+  changeFor?: string | null;
+  acceptedAt?: string | null;
   version: number;
   createdAt: string;
   items: OrderItem[];

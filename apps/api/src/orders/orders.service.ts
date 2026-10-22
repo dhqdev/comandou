@@ -46,6 +46,15 @@ export interface CreateOrderInput {
   discount?: string;
   surcharge?: string;
   items: OrderItemInput[];
+  /** Cardápio online: nasce "em análise" (awaiting) se o aceite automático estiver desligado. */
+  online?: {
+    tokenHash: Buffer;
+    autoAccept: boolean;
+    paymentHint?: string;
+    changeFor?: string;
+  };
+  /** Pedido mínimo (sobre o subtotal dos itens), usado pelo cardápio online. */
+  minSubtotal?: string;
 }
 
 export interface OrderRow {
@@ -81,6 +90,8 @@ export const ORDER_SELECT = `
          o.tab_id AS "tabId", tb.number AS "tabNumber", dt.label AS "tableLabel",
          o.customer_name AS "customerName", o.customer_phone AS "customerPhone",
          o.delivery_address AS "deliveryAddress", o.notes, o.cancel_reason AS "cancelReason",
+         o.source, o.payment_hint AS "paymentHint", o.change_for::text AS "changeFor",
+         o.accepted_at AS "acceptedAt",
          o.version, o.created_at AS "createdAt", o.updated_at AS "updatedAt",
          COALESCE((SELECT json_agg(json_build_object(
              'id', i.id, 'productId', i.product_id, 'name', i.name, 'quantity', i.quantity::text,
@@ -307,6 +318,10 @@ export class OrdersService {
       return { p, it, chosen, unit, total };
     });
 
+    if (input.minSubtotal && subtotal < toCents(input.minSubtotal))
+      throw new UnprocessableEntityException(
+        `Pedido mínimo de R$ ${input.minSubtotal.replace('.', ',')} (sem a taxa de entrega)`,
+      );
     const discount = toCents(input.discount ?? '0');
     const surcharge = toCents(input.surcharge ?? '0');
     const deliveryFee = toCents(input.deliveryFee ?? '0');
@@ -315,11 +330,15 @@ export class OrdersService {
     if (total < 0) throw new UnprocessableEntityException('Desconto maior que o valor do pedido');
 
     const number = await nextNumber(tx, ctx.tenantId, 'order');
+    const online = input.online;
+    const status: OrderStatus = online && !online.autoAccept ? 'awaiting' : 'new';
     const order = await one<{ id: string }>(
       tx,
       `INSERT INTO orders (tenant_id, number, channel, status, tab_id, customer_name, customer_phone, delivery_address,
-                           notes, subtotal, discount, surcharge, delivery_fee, total, created_by)
-       VALUES ($1,$2,$3,'new',$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`,
+                           notes, subtotal, discount, surcharge, delivery_fee, total, created_by,
+                           source, public_token_hash, payment_hint, change_for, accepted_at)
+       VALUES ($1,$2,$3,$15,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$16,$17,$18,$19,
+               CASE WHEN $15 = 'new' AND $16 = 'online' THEN now() END) RETURNING id`,
       [
         ctx.tenantId,
         number,
@@ -335,6 +354,11 @@ export class OrdersService {
         fromCents(deliveryFee),
         fromCents(total),
         ctx.userId,
+        status,
+        online ? 'online' : 'staff',
+        online?.tokenHash ?? null,
+        online?.paymentHint ?? null,
+        online?.changeFor ?? null,
       ],
     );
     for (const l of lines) {
@@ -362,10 +386,13 @@ export class OrdersService {
         );
       }
     }
-    await this.history(tx, ctx, order!.id, null, 'new');
+    await this.history(tx, ctx, order!.id, null, status);
     // Baixa de insumos pela ficha técnica (trava os insumos por último) e comandas de impressão.
-    fx.stock = await this.stock.consumeForOrder(tx, ctx, order!.id);
-    fx.print = await this.printing.enqueueKitchenTickets(tx, ctx, order!.id);
+    // Pedido em análise só baixa estoque e imprime quando for aceito.
+    if (status === 'new') {
+      fx.stock = await this.stock.consumeForOrder(tx, ctx, order!.id);
+      fx.print = await this.printing.enqueueKitchenTickets(tx, ctx, order!.id);
+    }
     await this.audit.record(tx, {
       tenantId: ctx.tenantId,
       actorUserId: ctx.userId,
@@ -377,6 +404,7 @@ export class OrdersService {
         channel: input.channel,
         total: fromCents(total),
         discount: fromCents(discount),
+        source: online ? 'online' : 'staff',
       },
       ip: ctx.ip,
     });
@@ -464,9 +492,11 @@ export class OrdersService {
     if (!canTransition(o.status, to, o.channel)) {
       throw new ConflictException(`Transição inválida: ${o.status} → ${to}`);
     }
+    // Recusar um pedido em análise não exige gerente: nada foi produzido, cobrado ou baixado.
+    const rejecting = o.status === 'awaiting' && to === 'cancelled';
     if (to === 'cancelled') {
       await this.assertNoLiveFiscalDocument(tx, o.id, 'cancelar o pedido');
-      if (!roleHas(ctx.user.role, 'orders:cancel'))
+      if (!rejecting && !roleHas(ctx.user.role, 'orders:cancel'))
         throw new ForbiddenException('Cancelamento exige autorização');
       if (!reason) throw new UnprocessableEntityException('Informe o motivo do cancelamento');
       if (toCents(o.paid_amount) > 0) {
@@ -480,7 +510,13 @@ export class OrdersService {
         [o.id],
       );
       // Insumos voltam ao estoque (movimento de estorno; nada é apagado).
-      await this.stock.restoreForOrder(tx, ctx, o.id);
+      if (!rejecting) await this.stock.restoreForOrder(tx, ctx, o.id);
+    }
+    if (o.status === 'awaiting' && to === 'new') {
+      // Aceite do pedido online: só agora baixa estoque e imprime na cozinha.
+      await q(tx, `UPDATE orders SET accepted_at = now() WHERE id = $1`, [o.id]);
+      await this.stock.consumeForOrder(tx, ctx, o.id);
+      await this.printing.enqueueKitchenTickets(tx, ctx, o.id);
     }
     if (o.status === 'dispatched') {
       // Saindo de "saiu para entrega": encerra a entrega em andamento e encurta o link de rastreio.
@@ -547,7 +583,9 @@ export class OrdersService {
       return this.detail(tx, id);
     });
     this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId: id, status: to });
-    if (to === 'cancelled') this.realtime.publish(ctx.tenantId, { type: 'stock.changed' });
+    if (to === 'cancelled' || to === 'new')
+      this.realtime.publish(ctx.tenantId, { type: 'stock.changed' });
+    if (to === 'new') this.realtime.publish(ctx.tenantId, { type: 'print.changed' });
     if (res?.tabId) this.realtime.publish(ctx.tenantId, { type: 'tab.changed', tabId: res.tabId });
     return res;
   }

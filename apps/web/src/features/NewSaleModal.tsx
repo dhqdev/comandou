@@ -22,6 +22,9 @@ import {
 import { api, ApiError } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
+import { mediaUrl } from '../lib/media';
+import { SidePanel } from './SidePanel';
+import './sale-extras.css';
 import type { DiningTable, MenuCategory, MenuProduct, Order } from '../lib/types';
 
 interface CartLine {
@@ -43,12 +46,16 @@ export function NewSaleModal({
   onClose,
   onCreated,
   preset,
+  variant = 'modal',
 }: {
   open: boolean;
   onClose(): void;
   onCreated(o: Order): void;
   preset?: { channel?: OrderChannel; tableId?: string; tabId?: string; label?: string };
+  /** "panel": desliza da direita por cima da tela inicial. */
+  variant?: 'modal' | 'panel';
 }) {
+  const Frame = variant === 'panel' ? SidePanel : Modal;
   const toast = useToast();
   const [menu, setMenu] = useState<MenuCategory[] | null>(null);
   const [tables, setTables] = useState<DiningTable[]>([]);
@@ -175,10 +182,10 @@ export function NewSaleModal({
   const freeOrSame = tables.filter((t) => t.active);
 
   return (
-    <Modal
+    <Frame
       open={open}
       onClose={onClose}
-      title={preset?.label ? `Novo pedido — ${preset.label}` : 'Nova venda'}
+      title={preset?.label ? `Novo pedido — ${preset.label}` : 'Novo pedido'}
       size="xl"
     >
       <div className="sale">
@@ -221,6 +228,15 @@ export function NewSaleModal({
                   disabled={p.soldOut}
                   onClick={() => choose(p)}
                 >
+                  {p.imageId && (
+                    <img
+                      className="product-tile__img"
+                      src={mediaUrl(p.imageId)!}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  )}
                   <span className="product-tile__name">{p.name}</span>
                   <span className="product-tile__price">
                     {p.soldOut ? <Badge tone="danger">Esgotado</Badge> : brl(p.price)}
@@ -424,7 +440,7 @@ export function NewSaleModal({
           }}
         />
       )}
-    </Modal>
+    </Frame>
   );
 }
 

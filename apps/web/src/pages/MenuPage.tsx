@@ -12,6 +12,7 @@ import {
   useToast,
 } from '../design-system';
 import { useCan } from '../app/auth';
+import { ImagePicker } from '../features/ImagePicker';
 import { OptionGroup, OptionGroupsCard, ProductConfigModal } from '../features/OptionGroups';
 import { api, Category, Product } from '../lib/api';
 import { useRealtime } from '../lib/realtime';
@@ -73,6 +74,31 @@ export function MenuPage() {
   );
   const countBy = (id: string) => (products ?? []).filter((p) => p.categoryId === id).length;
 
+  async function setPhoto(p: Product, imageId: string | null) {
+    try {
+      const updated = await api<Product>(`/products/${p.id}`, {
+        method: 'PATCH',
+        json: { imageId },
+      });
+      setProducts((list) => list?.map((x) => (x.id === p.id ? updated : x)) ?? null);
+      toast(imageId ? 'Foto salva' : 'Foto removida', 'success');
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    }
+  }
+
+  async function setCategoryPhoto(c: Category, imageId: string | null) {
+    try {
+      const updated = await api<Category>(`/categories/${c.id}`, {
+        method: 'PATCH',
+        json: { imageId },
+      });
+      setCategories((list) => list?.map((x) => (x.id === c.id ? updated : x)) ?? null);
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    }
+  }
+
   async function toggleSoldOut(p: Product) {
     try {
       // Só reflete na tela depois da confirmação do servidor.
@@ -90,7 +116,13 @@ export function MenuPage() {
     <>
       <div>
         <h1 className="page-title">Cardápio</h1>
-        <p className="page-sub">Categorias e produtos exibidos no PDV e no cardápio digital.</p>
+        <p className="page-sub">
+          Categorias, produtos e fotos exibidos no PDV e no{' '}
+          <a href="/pedir" target="_blank" rel="noreferrer">
+            cardápio online
+          </a>
+          . Toque na miniatura para enviar a foto (pode arrastar o arquivo).
+        </p>
       </div>
       {error && <Alert tone="danger">Não foi possível carregar o cardápio: {error}</Alert>}
       <div className="menu-grid">
@@ -119,9 +151,18 @@ export function MenuPage() {
           ) : (
             <ul className="cat-list">
               {categories.map((c) => (
-                <li key={c.id}>
+                <li key={c.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {canWrite && (
+                    <ImagePicker
+                      label="Foto da categoria"
+                      width={36}
+                      value={c.imageId}
+                      onChange={(id) => setCategoryPhoto(c, id)}
+                    />
+                  )}
                   <button
                     className="cat-item"
+                    style={{ flex: 1 }}
                     aria-current={c.id === selected}
                     onClick={() => setSelected(c.id)}
                   >
@@ -160,6 +201,7 @@ export function MenuPage() {
               <table className="cm-table">
                 <thead>
                   <tr>
+                    <th style={{ width: 72 }}>Foto</th>
                     <th>Produto</th>
                     <th>Situação</th>
                     <th className="cm-num">Preço</th>
@@ -169,6 +211,14 @@ export function MenuPage() {
                 <tbody>
                   {visible.map((p) => (
                     <tr key={p.id}>
+                      <td>
+                        <ImagePicker
+                          label={`Foto de ${p.name}`}
+                          value={p.imageId}
+                          disabled={!canWrite}
+                          onChange={(id) => setPhoto(p, id)}
+                        />
+                      </td>
                       <td>
                         <strong>{p.name}</strong>
                         {p.description && <div className="cm-hint">{p.description}</div>}

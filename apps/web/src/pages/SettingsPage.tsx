@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, EmptyState, TextField, useToast } from '../design-system';
 import { useCan } from '../app/auth';
+import { StoreSettingsCard } from '../features/StoreSettingsCard';
 import { api } from '../lib/api';
 import type { CashRegister, DiningTable, Sector } from '../lib/types';
 
@@ -48,10 +49,11 @@ export function SettingsPage() {
     <>
       <div>
         <h1 className="page-title">Ajustes</h1>
-        <p className="page-sub">Setores de produção, mesas e terminais de caixa.</p>
+        <p className="page-sub">Loja online, setores de produção, mesas e terminais de caixa.</p>
       </div>
       {!canManage && <Alert tone="info">Somente gerentes alteram estes cadastros.</Alert>}
       {error && <Alert tone="danger">{error}</Alert>}
+      <StoreSettingsCard canManage={canManage} />
       <Card title="Setores de produção (cozinha)">
         <SectorForm
           disabled={!canManage}

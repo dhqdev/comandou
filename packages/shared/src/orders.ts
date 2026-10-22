@@ -4,6 +4,7 @@
  * ou "paid" ainda em produção.
  */
 export const ORDER_STATUSES = [
+  'awaiting',
   'new',
   'in_production',
   'ready',
@@ -27,6 +28,8 @@ export const ITEM_STATUSES = ['pending', 'preparing', 'ready', 'cancelled'] as c
 export type ItemStatus = (typeof ITEM_STATUSES)[number];
 
 const T: Record<OrderStatus, readonly OrderStatus[]> = {
+  // Pedido do cardápio online esperando alguém do restaurante aceitar (ou recusar).
+  awaiting: ['new', 'cancelled'],
   new: ['in_production', 'ready', 'cancel_requested', 'cancelled'],
   in_production: ['ready', 'cancel_requested', 'cancelled'],
   ready: ['dispatched', 'completed', 'in_production', 'cancel_requested', 'cancelled'],
@@ -44,6 +47,7 @@ export function canTransition(from: OrderStatus, to: OrderStatus, channel?: Orde
 }
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  awaiting: 'Em análise',
   new: 'Novo',
   in_production: 'Em produção',
   ready: 'Pronto',
@@ -85,4 +89,28 @@ export function splitCents(totalCents: number, parts: number): number[] {
   const base = Math.trunc(totalCents / parts);
   const rest = totalCents - base * parts;
   return Array.from({ length: parts }, (_, i) => base + (i < rest ? 1 : 0));
+}
+
+/** Etapas que o cliente vê no acompanhamento do pedido (cardápio online). */
+export const CUSTOMER_STEPS = ['awaiting', 'accepted', 'ready', 'dispatched', 'completed'] as const;
+export type CustomerStep = (typeof CUSTOMER_STEPS)[number];
+
+/** Converte o status interno na etapa que o cliente entende. */
+export function customerStep(status: OrderStatus): CustomerStep | 'cancelled' {
+  switch (status) {
+    case 'awaiting':
+      return 'awaiting';
+    case 'new':
+    case 'in_production':
+    case 'cancel_requested':
+      return 'accepted';
+    case 'ready':
+      return 'ready';
+    case 'dispatched':
+      return 'dispatched';
+    case 'completed':
+      return 'completed';
+    case 'cancelled':
+      return 'cancelled';
+  }
 }

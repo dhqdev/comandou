@@ -1,0 +1,10 @@
+/* Foto do produto no lançamento de pedido (PDV/salão). */
+.product-tile__img {
+  display: block;
+  width: calc(100% + 2 * var(--cm-space-3));
+  margin: calc(-1 * var(--cm-space-3)) calc(-1 * var(--cm-space-3)) var(--cm-space-2);
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--cm-radius-sm) var(--cm-radius-sm) 0 0;
+  background: var(--cm-surface-muted);
+}

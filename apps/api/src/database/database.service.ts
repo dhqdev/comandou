@@ -9,7 +9,7 @@ export type Tx = NodePgDatabase<typeof schema> & { $client: PoolClient };
 
 export interface TenantScope {
   tenantId: string;
-  userId?: string;
+  userId?: string | null;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

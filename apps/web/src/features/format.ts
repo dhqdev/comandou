@@ -12,6 +12,7 @@ export const STATUS_TONE: Record<
   OrderStatus,
   'info' | 'warning' | 'success' | 'neutral' | 'danger' | 'brand'
 > = {
+  awaiting: 'warning',
   new: 'info',
   in_production: 'warning',
   ready: 'success',
