@@ -1,5 +1,5 @@
 /**
- * Identificador de restaurante (slug) usado no subdomínio: <slug>.pedemais.com
+ * Identificador de restaurante (slug) usado no subdomínio: <slug>.comandou.com
  * Regras: 3–40 caracteres, letras minúsculas, dígitos e hífen; não começa/termina com hífen;
  * sem hífens duplos; não pode ser um nome reservado da plataforma.
  */

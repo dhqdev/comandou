@@ -83,7 +83,7 @@ Perder `pedemais_wa_session_key` obriga cada restaurante a ler o QR Code de novo
    ```
 
    Ela imprime **uma vez** o endereço `otpauth://`: adicione no aplicativo autenticador e não guarde
-   em outro lugar. O painel fica em `https://admin.pedemais.com` (o certificado curinga já cobre).
+   em outro lugar. O painel fica em `https://admin.comandou.com` (o certificado curinga já cobre).
 4. **Plano padrão.** Sem planos, nenhum restaurante tem limite. Crie os planos no painel e marque
    um como padrão para os restaurantes novos.
 
@@ -92,8 +92,8 @@ Perder `pedemais_wa_session_key` obriga cada restaurante a ler o QR Code de novo
 Valores **não secretos** do servidor, lidos pelo `install.sh` (permissão 600, dono root):
 
 ```bash
-PEDEMAIS_BASE_DOMAIN=pedemais.com
-PEDEMAIS_HEALTH_URL=https://demo.pedemais.com
+PEDEMAIS_BASE_DOMAIN=comandou.com
+PEDEMAIS_HEALTH_URL=https://demo.comandou.com
 BACKUP_S3_BUCKET=pedemais-backups
 BACKUP_S3_ENDPOINT=https://s3.us-west-004.backblazeb2.com
 BACKUP_S3_REGION=us-west-004
@@ -175,14 +175,14 @@ O workflow não foi executado ainda (não há servidor configurado).
 
 ## Certificados
 
-`*.pedemais.com` exige desafio **DNS-01** no Traefik (ex.: Cloudflare). Sem isso, cada restaurante pede um certificado HTTP-01 e o limite do Let's Encrypt (50 por semana por domínio registrado) vira gargalo.
+`*.comandou.com` exige desafio **DNS-01** no Traefik (ex.: Cloudflare). Sem isso, cada restaurante pede um certificado HTTP-01 e o limite do Let's Encrypt (50 por semana por domínio registrado) vira gargalo.
 
 ## Instalação / atualização
 
 Do zero, em um comando: [install.md](install.md). Com o repositório já no servidor:
 
 ```bash
-PEDEMAIS_VERSION=v0.7.0 PEDEMAIS_HEALTH_URL=https://demo.pedemais.com scripts/install.sh
+PEDEMAIS_VERSION=v0.7.0 PEDEMAIS_HEALTH_URL=https://demo.comandou.com scripts/install.sh
 ```
 
 O script valida SO e Docker, liga o Swarm e cria `network_public` e o Traefik se faltarem (com

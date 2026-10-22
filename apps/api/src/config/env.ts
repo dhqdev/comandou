@@ -9,7 +9,7 @@ const schema = z.object({
   /** Conexão privilegiada (dono). Usada somente por migrações e provisionamento, nunca pela API. */
   DATABASE_OWNER_URL: z.string().url().optional(),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
-  /** Domínio base: <slug>.<PEDEMAIS_BASE_DOMAIN>. Ex.: pedemais.com (prod) ou pedemais.localhost (dev). */
+  /** Domínio base: <slug>.<PEDEMAIS_BASE_DOMAIN>. Ex.: comandou.com (prod) ou pedemais.localhost (dev). */
   PEDEMAIS_BASE_DOMAIN: z
     .string()
     .regex(/^[a-z0-9.-]+$/)
@@ -90,7 +90,7 @@ const schema = z.object({
     z.string().min(24).optional(),
   ),
   TRAEFIK_ENTRYPOINT: z.string().default('websecure'),
-  /** Resolver HTTP-01/TLS-ALPN para domínios de clientes (o *.pedemais.com usa DNS-01). */
+  /** Resolver HTTP-01/TLS-ALPN para domínios de clientes (o *.comandou.com usa DNS-01). */
   TRAEFIK_CUSTOM_CERT_RESOLVER: z.string().default('letsencrypt-http'),
   TRAEFIK_API_SERVICE: z.string().default('pedemais-api@swarm'),
   TRAEFIK_WEB_SERVICE: z.string().default('pedemais-web@swarm'),

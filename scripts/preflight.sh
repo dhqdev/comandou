@@ -24,7 +24,7 @@ if [[ -r "$DEPLOY_ENV" ]]; then
   . "$DEPLOY_ENV"
   set +a
 fi
-BASE="${PEDEMAIS_BASE_DOMAIN:-pedemais.com}"
+BASE="${PEDEMAIS_BASE_DOMAIN:-comandou.com}"
 
 section "Servidor"
 [[ "$(uname -s)" == "Linux" ]] && ok "Linux $(uname -m)" || fail "requer Linux"

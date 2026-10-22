@@ -1,7 +1,7 @@
 # PedeMais
 
 Sistema para restaurantes, vendido como serviço (SaaS): cada restaurante tem o próprio endereço
-(`<restaurante>.pedemais.com` ou um domínio próprio) e usa PDV, salão, cozinha, caixa, cardápio,
+(`<restaurante>.comandou.com` ou um domínio próprio) e usa PDV, salão, cozinha, caixa, cardápio,
 entregas, estoque, financeiro, nota fiscal e avisos por WhatsApp. Os dados de um restaurante
 nunca aparecem para outro.
 

@@ -24,7 +24,7 @@ conferências de conta, páginas de teste), imprime e confirma.
 3. Rode:
 
 ```sh
-PEDEMAIS_URL=https://SEU-RESTAURANTE.pedemais.com \
+PEDEMAIS_URL=https://SEU-RESTAURANTE.comandou.com \
 PEDEMAIS_AGENT_TOKEN=pma_... \
 PRINTER_DEFAULT=tcp://192.168.0.50:9100 \
 node agent.mjs
@@ -33,7 +33,7 @@ node agent.mjs
 No Windows (PowerShell):
 
 ```powershell
-$env:PEDEMAIS_URL="https://SEU-RESTAURANTE.pedemais.com"
+$env:PEDEMAIS_URL="https://SEU-RESTAURANTE.comandou.com"
 $env:PEDEMAIS_AGENT_TOKEN="pma_..."
 $env:PRINTER_DEFAULT="tcp://192.168.0.50:9100"
 node agent.mjs

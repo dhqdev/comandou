@@ -6,7 +6,7 @@
 #     Sem ele, cada endereço pede o próprio certificado (HTTP-01).
 #   - Super Admin: PLATFORM_ADMIN_EMAIL (+ opcional PLATFORM_ADMIN_NAME) e os secrets
 #     pedemais_platform_admin_password / pedemais_platform_admin_totp. Criado só se não houver nenhum.
-#   - Variáveis: PEDEMAIS_VERSION (tag imutável), PEDEMAIS_BASE_DOMAIN (pedemais.com),
+#   - Variáveis: PEDEMAIS_VERSION (tag imutável), PEDEMAIS_BASE_DOMAIN (comandou.com),
 #     TRAEFIK_ENTRYPOINT (ex.: websecure), TRAEFIK_CERT_RESOLVER (ex.: letsencryptresolver),
 #     TRAEFIK_CUSTOM_CERT_RESOLVER (HTTP-01, domínios dos clientes), BACKUP_S3_BUCKET e
 #     BACKUP_S3_ENDPOINT (ex.: https://s3.us-west-004.backblazeb2.com).
@@ -144,7 +144,7 @@ services:
     environment:
       NODE_ENV: production
       DATABASE_URL_FILE: /run/secrets/pedemais_db_app_url
-      PEDEMAIS_BASE_DOMAIN: ${PEDEMAIS_BASE_DOMAIN:-pedemais.com}
+      PEDEMAIS_BASE_DOMAIN: ${PEDEMAIS_BASE_DOMAIN:-comandou.com}
       TRUST_PROXY: 'true'
       COOKIE_SECURE: 'true'
       LOG_LEVEL: info
@@ -153,7 +153,7 @@ services:
       INTEGRATIONS_KEY_FILE: /run/secrets/pedemais_integrations_key
       WHATSAPP_GATEWAY_URL: http://whatsapp-gateway:3100
       WHATSAPP_GATEWAY_TOKEN_FILE: /run/secrets/pedemais_wa_gateway_token
-      # Etapa 6: painel Super Admin (admin.pedemais.com), métricas e domínios dos clientes.
+      # Etapa 6: painel Super Admin (admin.comandou.com), métricas e domínios dos clientes.
       PLATFORM_DATABASE_URL_FILE: /run/secrets/pedemais_db_platform_url
       METRICS_TOKEN_FILE: /run/secrets/pedemais_metrics_token
       TRAEFIK_PROVIDER_TOKEN_FILE: /run/secrets/pedemais_traefik_provider_token
@@ -177,7 +177,7 @@ services:
       labels:
         - traefik.enable=true
         - traefik.docker.network=network_public
-        - traefik.http.routers.pedemais-api.rule=HostRegexp(`^[a-z0-9-]+\.${PEDEMAIS_BASE_DOMAIN:-pedemais.com}$$`) && PathPrefix(`/api`)
+        - traefik.http.routers.pedemais-api.rule=HostRegexp(`^[a-z0-9-]+\.${PEDEMAIS_BASE_DOMAIN:-comandou.com}$$`) && PathPrefix(`/api`)
         - traefik.http.routers.pedemais-api.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
         - traefik.http.routers.pedemais-api.tls=true
         - traefik.http.routers.pedemais-api.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}
@@ -198,7 +198,7 @@ services:
       labels:
         - traefik.enable=true
         - traefik.docker.network=network_public
-        - traefik.http.routers.pedemais-web.rule=HostRegexp(`^[a-z0-9-]+\.${PEDEMAIS_BASE_DOMAIN:-pedemais.com}$$`)
+        - traefik.http.routers.pedemais-web.rule=HostRegexp(`^[a-z0-9-]+\.${PEDEMAIS_BASE_DOMAIN:-comandou.com}$$`)
         - traefik.http.routers.pedemais-web.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
         - traefik.http.routers.pedemais-web.tls=true
         - traefik.http.routers.pedemais-web.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}

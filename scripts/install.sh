@@ -108,7 +108,7 @@ if [[ -z "${PEDEMAIS_VERSION:-}" ]]; then
 fi
 [[ "$PEDEMAIS_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "PEDEMAIS_VERSION inválida: $PEDEMAIS_VERSION (use vX.Y.Z)"
 export PEDEMAIS_VERSION
-ask PEDEMAIS_BASE_DOMAIN "Domínio do sistema (os restaurantes ficam em <nome>.<domínio>)"
+ask PEDEMAIS_BASE_DOMAIN "Domínio do sistema (os restaurantes ficam em <nome>.<domínio>)" "comandou.com"
 export PEDEMAIS_BASE_DOMAIN
 echo "Antes de seguir, no DNS: registros A de @ e * (e admin) apontando para o IP deste servidor."
 if ! secret_exists pedemais_platform_admin_password; then
