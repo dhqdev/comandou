@@ -26,7 +26,7 @@ Guia para quem mantém o PedeMais no ar. Comandos rodam no manager do Swarm, com
       scheme: https
       metrics_path: /api/v1/metrics
       bearer_token_file: /etc/prometheus/pedemais_metrics_token
-      static_configs: [{ targets: ['demo.pedemais.com'] }]
+      static_configs: [{ targets: ['demo.comandou.com'] }]
   ```
 
   Com 2 réplicas atrás do Traefik, cada coleta cai em uma delas; para ver as duas, colete pela
@@ -34,7 +34,7 @@ Guia para quem mantém o PedeMais no ar. Comandos rodam no manager do Swarm, com
 - **Alertas**: [`infrastructure/monitoring/alerts.yml`](../infrastructure/monitoring/alerts.yml)
   (API fora, 5xx acima de 2%, lentidão, pool do banco esperando, fila acumulada, memória, backup
   e teste de restauração atrasados). Testados com `promtool` no CI.
-- **Painel Super Admin** (`admin.pedemais.com`): saúde do banco, Redis e WhatsApp, último backup e
+- **Painel Super Admin** (`admin.comandou.com`): saúde do banco, Redis e WhatsApp, último backup e
   último teste de restauração.
 - **Logs**: `docker service logs pedemais_api --since 30m`. JSON (pino), sem cookies, tokens,
   senhas nem o token do link de rastreio. O Traefik também registra URLs: desligue o access log

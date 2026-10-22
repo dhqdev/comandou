@@ -4,7 +4,7 @@
 // trabalhos de impressão na API do restaurante e envia para as impressoras térmicas.
 //
 // Variáveis:
-//   PEDEMAIS_URL           endereço do restaurante (ex.: https://burguer.pedemais.com)
+//   PEDEMAIS_URL           endereço do restaurante (ex.: https://burguer.comandou.com)
 //   PEDEMAIS_AGENT_TOKEN   token gerado em Impressão > Agentes (começa com "pma_")
 //   PRINTER_DEFAULT        impressora padrão: tcp://IP:9100 | file:/caminho | stdout
 //   PRINTER_<DESTINO>      impressora de um destino (ex.: PRINTER_CHAPA, PRINTER_CAIXA).

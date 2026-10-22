@@ -1,7 +1,7 @@
 # PedeMais
 
 Sistema para restaurantes, vendido como serviço (SaaS): cada restaurante tem o próprio endereço
-(`<restaurante>.pedemais.com` ou um domínio próprio) e usa PDV, salão, cozinha, caixa, cardápio,
+(`<restaurante>.comandou.com` ou um domínio próprio) e usa PDV, salão, cozinha, caixa, cardápio,
 entregas, estoque, financeiro, nota fiscal e avisos por WhatsApp. Os dados de um restaurante
 nunca aparecem para outro.
 
@@ -72,7 +72,16 @@ scripts/              instalação, checagem pré-produção, saúde
 docs/                 arquitetura, decisões (ADR), operação, deploy, testes
 ```
 
-## Começar
+## Instalar em um servidor
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dhqdev/pedemais/main/scripts/get.sh | sudo bash
+```
+
+AMD64 ou ARM64, com Docker/Swarm, HTTPS e segredos preparados pelo instalador; o Super Admin nasce do
+e-mail e da senha que você informa. Detalhes e alternativas: [docs/install.md](docs/install.md).
+
+## Começar em desenvolvimento
 
 ```bash
 cp .env.example .env    # troque as senhas
@@ -88,7 +97,7 @@ Desenvolvimento sem Docker, testes e migrações: [docs/development.md](docs/dev
 
 - [Arquitetura](docs/architecture.md) · [Roadmap](docs/roadmap.md) · [Riscos](docs/risks.md) · [Decisões (ADR)](docs/decisions/README.md)
 - [Desenvolvimento local](docs/development.md) · [Testes](docs/testing.md) · [Carga](docs/load-testing.md)
-- [Deploy](docs/deploy.md) · [Operação](docs/operations.md) · [Backups e restauração](docs/backups.md) · [Segurança](docs/security.md)
+- [Instalação](docs/install.md) · [Deploy](docs/deploy.md) · [Operação](docs/operations.md) · [Backups e restauração](docs/backups.md) · [Segurança](docs/security.md)
 
 ## Licença
 

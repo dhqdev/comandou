@@ -8,7 +8,7 @@ Escala: **A**lto / **M**édio / **B**aixo (impacto × probabilidade).
 | R2 | Uso acidental do papel dono pela API | A | API só recebe `DATABASE_URL` do papel `pedemais_app`; teste confere privilégios | Separar secrets no Swarm (já previsto) |
 | R3 | Licença do PedeMais indefinida | M | Repositório privado | Dono decidir licença (proprietária recomendada) |
 | R5 | Infra de produção não inspecionada (nomes de entrypoint/certresolver do Traefik, versão, nós ARM) | M | Stack parametrizada, nada implantado | Acesso ao Portainer para validar antes do primeiro deploy |
-| R6 | Certificados: um por subdomínio via HTTP-01 esbarra no limite do Let's Encrypt (50/semana por domínio) | M | Stack pede `*.pedemais.com` | Configurar DNS-01 (wildcard) no Traefik existente |
+| R6 | Certificados: um por subdomínio via HTTP-01 esbarra no limite do Let's Encrypt (50/semana por domínio) | M | Stack pede `*.comandou.com` | Configurar DNS-01 (wildcard) no Traefik existente |
 | R7 | Compatibilidade ARM64 (Oracle Ampere) | B | Imagens `node:22-alpine` e `nginx-unprivileged` são multiarch; sem dependências nativas | Validar build `linux/arm64` no CI (job buildx já configurado) |
 | R8 | Baileys (WhatsApp não oficial) pode ser bloqueado | A (Etapa 5) | — | Serviço isolado; avaliar WhatsApp Business Platform |
 | R9 | Emissão fiscal incorreta | A (Etapa 5) | — | Homologação Focus NFe obrigatória; idempotência por referência |

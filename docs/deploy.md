@@ -1,5 +1,7 @@
 # Deploy (Docker Swarm + Portainer + Traefik)
 
+> Para instalar do zero em um comando, veja [install.md](install.md). Este guia é o detalhe da stack.
+
 > Nada foi implantado. Este guia foi escrito sem acesso ao servidor; os nomes do entrypoint e do certresolver do Traefik existente estão **pendentes de validação** (R5 em [riscos](risks.md)).
 
 ## Topologia
@@ -42,6 +44,9 @@ openssl rand -hex 32       | tr -d '\n' | docker secret create pedemais_traefik_
 printf '%s' '<keyID do B2>'          | docker secret create pedemais_backup_s3_key_id -
 printf '%s' '<applicationKey do B2>' | docker secret create pedemais_backup_s3_secret -
 age-keygen 2>/dev/null               | docker secret create pedemais_backup_age_identity -
+# Super Admin criado no primeiro deploy (ver install.md#super-admin)
+printf '%s' 'senha-com-12-ou-mais-caracteres' | docker secret create pedemais_platform_admin_password -
+head -c 20 /dev/urandom | base32 | tr -d '=\n' | docker secret create pedemais_platform_admin_totp -
 ```
 
 A partir da 0.4.0 a stack inclui um Redis interno (filas BullMQ e tempo real entre réplicas),
@@ -78,7 +83,7 @@ Perder `pedemais_wa_session_key` obriga cada restaurante a ler o QR Code de novo
    ```
 
    Ela imprime **uma vez** o endereço `otpauth://`: adicione no aplicativo autenticador e não guarde
-   em outro lugar. O painel fica em `https://admin.pedemais.com` (o certificado curinga já cobre).
+   em outro lugar. O painel fica em `https://admin.comandou.com` (o certificado curinga já cobre).
 4. **Plano padrão.** Sem planos, nenhum restaurante tem limite. Crie os planos no painel e marque
    um como padrão para os restaurantes novos.
 
@@ -87,8 +92,8 @@ Perder `pedemais_wa_session_key` obriga cada restaurante a ler o QR Code de novo
 Valores **não secretos** do servidor, lidos pelo `install.sh` (permissão 600, dono root):
 
 ```bash
-PEDEMAIS_BASE_DOMAIN=pedemais.com
-PEDEMAIS_HEALTH_URL=https://demo.pedemais.com
+PEDEMAIS_BASE_DOMAIN=comandou.com
+PEDEMAIS_HEALTH_URL=https://demo.comandou.com
 BACKUP_S3_BUCKET=pedemais-backups
 BACKUP_S3_ENDPOINT=https://s3.us-west-004.backblazeb2.com
 BACKUP_S3_REGION=us-west-004
@@ -153,9 +158,12 @@ sozinho; `PEDEMAIS_SKIP_BACKUP=1` pula à força (só em emergência, fica no lo
 
 ## Deploy pelo GitHub (manual, com aprovação)
 
-1. Criar a tag: `git tag v0.5.0 && git push origin v0.5.0`. O workflow **Release** publica
-   `pedemais-api`, `pedemais-web`, `pedemais-whatsapp-gateway` e `pedemais-backup` no GHCR. Não
-   implanta nada.
+1. **A release é automática.** A cada merge na `main`, o workflow **Release** lê a versão do
+   `package.json`; se a tag `vX.Y.Z` ainda não existe, cria a tag e a Release no GitHub e publica
+   `pedemais-api`, `pedemais-web`, `pedemais-whatsapp-gateway` e `pedemais-backup` no GHCR
+   (amd64 e arm64). Mesma versão de antes = nada acontece. Por isso, **toda etapa precisa subir a
+   versão** nos `package.json` e em `packages/shared/src/releases.ts`. Não implanta nada. Para
+   republicar as imagens de uma tag existente: *Actions → Release → Run workflow* com a tag.
 2. Em *Settings → Environments*, criar `production` com **Required reviewers** e os secrets
    `DEPLOY_SSH_KEY` (chave só para deploy), `DEPLOY_KNOWN_HOSTS` (`ssh-keyscan` do manager, conferido
    à mão), `DEPLOY_HOST`, `DEPLOY_USER`. Opcional: variável `DEPLOY_PATH` (padrão `/opt/pedemais`,
@@ -167,17 +175,22 @@ O workflow não foi executado ainda (não há servidor configurado).
 
 ## Certificados
 
-`*.pedemais.com` exige desafio **DNS-01** no Traefik (ex.: Cloudflare). Sem isso, cada restaurante pede um certificado HTTP-01 e o limite do Let's Encrypt (50 por semana por domínio registrado) vira gargalo.
+`*.comandou.com` exige desafio **DNS-01** no Traefik (ex.: Cloudflare). Sem isso, cada restaurante pede um certificado HTTP-01 e o limite do Let's Encrypt (50 por semana por domínio registrado) vira gargalo.
 
 ## Instalação / atualização
 
+Do zero, em um comando: [install.md](install.md). Com o repositório já no servidor:
+
 ```bash
-PEDEMAIS_VERSION=v0.1.0 PEDEMAIS_HEALTH_URL=https://demo.pedemais.com scripts/install.sh
+PEDEMAIS_VERSION=v0.7.0 PEDEMAIS_HEALTH_URL=https://demo.comandou.com scripts/install.sh
 ```
 
-O script valida SO, Docker, Swarm, `network_public` e secrets, pede confirmação, aplica a stack, aguarda as migrações e roda `scripts/healthcheck.sh`. Não remove serviços, redes ou volumes.
+O script valida SO e Docker, liga o Swarm e cria `network_public` e o Traefik se faltarem (com
+confirmação), cria os secrets que faltam (nunca sobrescreve), aplica a stack, aguarda as migrações
+(que criam o Super Admin na primeira vez) e roda `scripts/healthcheck.sh`. Não remove serviços,
+redes, volumes nem secrets.
 
-No Portainer: *Stacks → Add stack → Repository*, apontando para `infrastructure/swarm/pedemais-stack.yml`, com as variáveis `PEDEMAIS_VERSION`, `TRAEFIK_ENTRYPOINT`, `TRAEFIK_CERT_RESOLVER`.
+No Portainer: *Stacks → Add stack → Repository*, apontando para `infrastructure/swarm/pedemais-stack.yml`, com as variáveis `PEDEMAIS_VERSION`, `PEDEMAIS_BASE_DOMAIN`, `PLATFORM_ADMIN_EMAIL`, `TRAEFIK_ENTRYPOINT`, `TRAEFIK_CERT_RESOLVER`. Certificado coringa: acrescente `infrastructure/swarm/wildcard.yml`.
 
 ## Rollback
 

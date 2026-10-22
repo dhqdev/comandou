@@ -5,7 +5,7 @@
 **Monólito modular** (sem microserviços prematuros), multi-tenant em **PostgreSQL compartilhado** com `tenant_id` + **Row-Level Security** + autorização no backend.
 
 ```
-<slug>.pedemais.com ──► Traefik ──┬─ PathPrefix(/api) ─► NestJS (apps/api) ─► PostgreSQL (rede interna)
+<slug>.comandou.com ──► Traefik ──┬─ PathPrefix(/api) ─► NestJS (apps/api) ─► PostgreSQL (rede interna)
                                   └─ demais caminhos ─► Nginx (SPA React, apps/web)
 ```
 
