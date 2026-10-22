@@ -277,13 +277,22 @@ export function ProductConfigModal({
 }) {
   const [sel, setSel] = useState<string[]>(linked);
   const [sectorId, setSectorId] = useState<string>(product?.sectorId ?? '');
+  const [fiscal, setFiscal] = useState(fiscalOf(product));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     setSel(linked);
     setSectorId(product?.sectorId ?? '');
+    setFiscal(fiscalOf(product));
     setError(null);
   }, [product, linked]);
+  const fiscalErr = {
+    ncm: fiscal.ncm && !/^\d{8}$/.test(fiscal.ncm) ? '8 dígitos' : undefined,
+    cfop: fiscal.cfop && !/^\d{4}$/.test(fiscal.cfop) ? '4 dígitos' : undefined,
+    fiscalCode:
+      fiscal.fiscalCode && !/^\d{2,3}$/.test(fiscal.fiscalCode) ? '2 ou 3 dígitos' : undefined,
+  };
+  const fiscalInvalid = Object.values(fiscalErr).some(Boolean);
   async function save() {
     if (!product) return;
     setBusy(true);
@@ -292,12 +301,15 @@ export function ProductConfigModal({
         method: 'PUT',
         json: { groupIds: sel },
       });
-      if ((product.sectorId ?? '') !== sectorId) {
-        await api(`/products/${product.id}`, {
-          method: 'PATCH',
-          json: { sectorId: sectorId || null },
-        });
-      }
+      const patch: Record<string, unknown> = {};
+      if ((product.sectorId ?? '') !== sectorId) patch.sectorId = sectorId || null;
+      const before = fiscalOf(product);
+      for (const k of ['ncm', 'cfop', 'fiscalCode', 'fiscalUnit'] as const)
+        if (before[k] !== fiscal[k]) patch[k] = fiscal[k].trim() || null;
+      if (before.fiscalOrigin !== fiscal.fiscalOrigin)
+        patch.fiscalOrigin = fiscal.fiscalOrigin === '' ? null : Number(fiscal.fiscalOrigin);
+      if (Object.keys(patch).length)
+        await api(`/products/${product.id}`, { method: 'PATCH', json: patch });
       onSaved();
     } catch (e) {
       setError((e as Error).message);
@@ -342,11 +354,78 @@ export function ProductConfigModal({
             </label>
           ))}
         </fieldset>
+        <fieldset className="picker__group">
+          <legend>Nota fiscal (NFC-e)</legend>
+          <span className="pm-hint">
+            Em branco usa o padrão de Ajustes &gt; Nota fiscal. Confirme os códigos com a sua
+            contabilidade.
+          </span>
+          <div className="form-grid">
+            <TextField
+              label="NCM"
+              inputMode="numeric"
+              maxLength={8}
+              value={fiscal.ncm}
+              error={fiscalErr.ncm}
+              onChange={(e) => setFiscal({ ...fiscal, ncm: e.target.value.replace(/\D/g, '') })}
+            />
+            <TextField
+              label="CFOP"
+              inputMode="numeric"
+              maxLength={4}
+              value={fiscal.cfop}
+              error={fiscalErr.cfop}
+              onChange={(e) => setFiscal({ ...fiscal, cfop: e.target.value.replace(/\D/g, '') })}
+            />
+            <TextField
+              label="CSOSN / CST do ICMS"
+              inputMode="numeric"
+              maxLength={3}
+              value={fiscal.fiscalCode}
+              error={fiscalErr.fiscalCode}
+              onChange={(e) =>
+                setFiscal({ ...fiscal, fiscalCode: e.target.value.replace(/\D/g, '') })
+              }
+            />
+            <label className="pm-field">
+              <span className="pm-label">Origem</span>
+              <select
+                className="pm-input"
+                value={fiscal.fiscalOrigin}
+                onChange={(e) => setFiscal({ ...fiscal, fiscalOrigin: e.target.value })}
+              >
+                <option value="">Padrão (0 — nacional)</option>
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                  <option key={n} value={String(n)}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <TextField
+              label="Unidade"
+              maxLength={6}
+              placeholder="UN"
+              value={fiscal.fiscalUnit}
+              onChange={(e) => setFiscal({ ...fiscal, fiscalUnit: e.target.value.toUpperCase() })}
+            />
+          </div>
+        </fieldset>
         {error && <Alert tone="danger">{error}</Alert>}
-        <Button loading={busy} onClick={save}>
+        <Button loading={busy} onClick={save} disabled={fiscalInvalid}>
           Salvar
         </Button>
       </div>
     </Modal>
   );
+}
+
+function fiscalOf(p: Product | null) {
+  return {
+    ncm: p?.ncm ?? '',
+    cfop: p?.cfop ?? '',
+    fiscalCode: p?.fiscalCode ?? '',
+    fiscalOrigin: p?.fiscalOrigin == null ? '' : String(p.fiscalOrigin),
+    fiscalUnit: p?.fiscalUnit ?? '',
+  };
 }

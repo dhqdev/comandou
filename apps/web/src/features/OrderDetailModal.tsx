@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Alert, Badge, Button, Modal, Spinner, TextField, useToast } from '../design-system';
 import { useCan } from '../app/auth';
+import { FiscalSection } from './FiscalSection';
 import { api } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
@@ -207,6 +208,12 @@ export function OrderDetailModal({
               </ul>
             </div>
           )}
+
+          <FiscalSection
+            orderId={order.id}
+            paid={order.paymentStatus === 'paid'}
+            cancelled={order.status === 'cancelled' || order.status === 'cancel_requested'}
+          />
 
           {mode === 'cancel' && (
             <ReasonForm

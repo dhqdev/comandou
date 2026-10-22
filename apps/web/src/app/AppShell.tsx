@@ -8,6 +8,8 @@ import {
   LogOut,
   KeyRound,
   Menu,
+  MessageCircle,
+  FileText,
   Printer,
   Receipt,
   UserCog,
@@ -101,6 +103,18 @@ const NAV: { group: string; items: NavItem[] }[] = [
         label: 'Impressão',
         icon: <Printer size={18} />,
         perms: ['printing:manage'],
+      },
+      {
+        to: '/nota-fiscal',
+        label: 'Nota fiscal',
+        icon: <FileText size={18} />,
+        perms: ['fiscal:emit', 'fiscal:manage'],
+      },
+      {
+        to: '/whatsapp',
+        label: 'WhatsApp',
+        icon: <MessageCircle size={18} />,
+        perms: ['messaging:manage'],
       },
       {
         to: '/configuracoes',

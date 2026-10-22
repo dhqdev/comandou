@@ -20,6 +20,25 @@ services:
     networks: [internal]
     # Sem "ports": o banco não fica exposto fora da rede interna.
 
+  redis:
+    image: redis:7.4-alpine
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - redisdata:/data
+    networks: [internal]
+
+  whatsapp-gateway:
+    build: { context: ., dockerfile: infrastructure/docker/whatsapp-gateway.Dockerfile }
+    image: pedemais-whatsapp-gateway:dev
+    init: true
+    profiles: [whatsapp] # opcional: docker compose --profile whatsapp up
+    environment:
+      GATEWAY_TOKEN: ${WHATSAPP_GATEWAY_TOKEN:-}
+      SESSION_KEY: ${WHATSAPP_SESSION_KEY:-}
+    volumes:
+      - wadata:/data
+    networks: [internal, edge]
+
   migrate:
     build: { context: ., dockerfile: infrastructure/docker/api.Dockerfile }
     image: pedemais-api:dev
@@ -41,6 +60,11 @@ services:
       TRUST_PROXY: 'true'
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      REDIS_URL: redis://redis:6379
+      # Opcional: sem ela, tokens da Focus NFe e do WhatsApp não podem ser salvos.
+      INTEGRATIONS_KEY: ${INTEGRATIONS_KEY:-}
+      WHATSAPP_GATEWAY_URL: ${WHATSAPP_GATEWAY_URL:-}
+      WHATSAPP_GATEWAY_TOKEN: ${WHATSAPP_GATEWAY_TOKEN:-}
     depends_on:
       migrate: { condition: service_completed_successfully }
     labels:
@@ -81,6 +105,8 @@ services:
 
 volumes:
   pgdata:
+  redisdata:
+  wadata:
 
 networks:
   internal:

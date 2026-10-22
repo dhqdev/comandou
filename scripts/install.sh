@@ -31,7 +31,8 @@ echo "versão=$PEDEMAIS_VERSION domínio=$PEDEMAIS_BASE_DOMAIN stack=$STACK"
 step "4. Rede pública e secrets"
 docker network inspect network_public >/dev/null 2>&1 || die "rede network_public não existe (o Traefik precisa estar instalado)"
 missing=()
-for s in pedemais_pg_password pedemais_owner_password pedemais_app_password pedemais_db_app_url pedemais_db_owner_url; do
+for s in pedemais_pg_password pedemais_owner_password pedemais_app_password pedemais_db_app_url pedemais_db_owner_url \
+  pedemais_integrations_key pedemais_wa_gateway_token pedemais_wa_session_key; do
   docker secret inspect "$s" >/dev/null 2>&1 || missing+=("$s")
 done
 ((${#missing[@]} == 0)) || die "secrets ausentes: ${missing[*]} (veja docs/deploy.md#secrets; os valores nunca são impressos)"
