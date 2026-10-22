@@ -69,13 +69,13 @@ export class PermissionGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(ctx: ExecutionContext): boolean {
-    const perm = this.reflector.getAllAndOverride<Permission | undefined>(PERMISSION, [
+    const perms = this.reflector.getAllAndOverride<Permission[] | undefined>(PERMISSION, [
       ctx.getHandler(),
       ctx.getClass(),
     ]);
-    if (!perm) return true;
+    if (!perms?.length) return true;
     const req = ctx.switchToHttp().getRequest<Request>();
-    if (!req.user || !roleHas(req.user.role, perm)) {
+    if (!req.user || !perms.some((p) => roleHas(req.user!.role, p))) {
       throw new ForbiddenException('Permissão insuficiente');
     }
     return true;

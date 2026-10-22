@@ -27,18 +27,27 @@ Cada etapa só é considerada concluída quando **todos** os critérios de aceit
 | Stack Swarm/Portainer usando `network_public` | `infrastructure/swarm/pedemais-stack.yml` (**não implantada**) |
 | CI no GitHub Actions | `.github/workflows/ci.yml` |
 
-## Etapa 3 — Primeiros fluxos comerciais
+## Etapa 3 — Primeiros fluxos comerciais · ✅ entregue nesta PR
 
-Ordem sugerida, um PR por item:
+Entregue em um PR único (a pedido), com os seis itens planejados.
 
-1. **Adicionais e variantes** no cardápio (grupos min/max, preço).
-2. **Pedidos**: criação com idempotency key, numeração por tenant sem buracos críticos, máquina de estados, histórico de status, status operacional × financeiro.
-3. **Tempo real**: WebSocket (Socket.IO ou ws) com salas por tenant autenticadas pela sessão; reconciliação via REST após reconexão. Redis adapter quando houver >1 réplica.
-4. **KDS**: setores de produção, SLA de aviso/atraso, início/conclusão, reabertura auditada.
-5. **Salão**: mesas, comandas, transferência, divisão de conta.
-6. **Caixa/PDV**: sessão por terminal, movimentos imutáveis (abertura, venda, suprimento, sangria, estorno), fechamento esperado × informado, bloqueio `SELECT … FOR UPDATE`, idempotência.
+| Critério de aceitação | Evidência |
+| --- | --- |
+| Adicionais e variações (grupos min/max, preço adicional) validados no servidor | `catalog/options.controller.ts`; testes "valida mínimo/máximo…" |
+| Preço sempre vem do banco; valor enviado pelo cliente é ignorado | teste "preço vem do banco…" |
+| Pedido idempotente (`Idempotency-Key`), numeração por tenant, máquina de estados, histórico | `orders/orders.service.ts`; testes de idempotência e de transição |
+| Status operacional separado do financeiro (`payment_status`) | teste "pagamento parcial…" |
+| Tempo real por restaurante (`/api/ws`), publicado só após o COMMIT, reconciliação ao reconectar | `realtime/*`; testes "Tempo real (WebSocket)" |
+| Cozinha por setor, aviso/atraso, avanço automático, reabertura com permissão e motivo | `kitchen/*`; testes "Cozinha (KDS)" |
+| Salão: mesas, comandas, transferência de mesa e de pedido, divisão de conta, fechamento | `tables/*`; testes "Salão…" |
+| Caixa: sessão por terminal, abertura, suprimento, sangria, pagamentos, estornos, fechamento conferido | `cash/*`; testes "Caixa…" e "Fechamento de caixa" |
+| Registros financeiros imutáveis (estorno em vez de apagar) | teste "aplicação não altera nem apaga registros financeiros" |
+| Concorrência: dois pagamentos do mesmo saldo → um vence; mesma chave em paralelo → um registro | testes de concorrência |
+| Isolamento de cada nova tabela (RLS + FKs compostas) | `rls.int.test.ts` (varre todas as tabelas) + testes de B contra A |
+| E2E pedido → cozinha → pagamento → mesa → fechamento de caixa | `apps/web/e2e/operations.spec.ts` (desktop e celular) |
+| Relatório de vendas separando faturamento de recebimentos | `reports/reports.controller.ts` |
 
-Critérios: testes de concorrência (duas confirmações simultâneas → uma vence), testes de isolamento para cada nova tabela, E2E do fluxo pedido → cozinha → pagamento → fechamento.
+Fora do escopo desta etapa (próximas): impressão de comanda/cupom, entregas e entregadores, cardápio digital do cliente, permissões configuráveis por restaurante, divisão de um item entre pessoas (hoje divide por valor ou por pedido).
 
 ## Etapa 4 — Operações complementares
 

@@ -93,6 +93,8 @@ export const products = pgTable('products', {
   price: numeric('price', { precision: 14, scale: 2 }).notNull(),
   active: boolean('active').notNull().default(true),
   soldOut: boolean('sold_out').notNull().default(false),
+  sectorId: uuid('sector_id'),
+  position: integer('position').notNull().default(0),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });

@@ -15,4 +15,12 @@ describe('env', () => {
     expect(resolveFileSecrets({ DATABASE_URL_FILE: f }).DATABASE_URL).toBe('postgres://u:p@h/db');
     expect(resolveFileSecrets({ DATABASE_URL_FILE: f, DATABASE_URL: 'x' }).DATABASE_URL).toBe('x');
   });
+  it('ignora *_FILE que não são segredos da aplicação', () => {
+    const out = resolveFileSecrets({
+      SSL_CERT_FILE: '/nao/existe',
+      PIP_CONFIG_FILE: '/nao/existe',
+    });
+    expect(out.SSL).toBeUndefined();
+    expect(out.PIP_CONFIG).toBeUndefined();
+  });
 });

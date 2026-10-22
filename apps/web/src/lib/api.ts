@@ -66,4 +66,5 @@ export interface Product {
   price: string;
   active: boolean;
   soldOut: boolean;
+  sectorId: string | null;
 }

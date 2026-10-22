@@ -102,6 +102,7 @@
 }
 .pm-card__header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--pm-space-3);
@@ -264,6 +265,16 @@
   width: min(520px, calc(100vw - 32px));
   background: var(--pm-surface);
   color: var(--pm-text);
+}
+.pm-modal--lg {
+  width: min(760px, calc(100vw - 32px));
+}
+.pm-modal--xl {
+  width: min(1100px, calc(100vw - 32px));
+}
+.pm-modal__body {
+  max-height: calc(100dvh - 180px);
+  overflow-y: auto;
 }
 .pm-modal::backdrop {
   background: rgb(15 11 30 / 55%);

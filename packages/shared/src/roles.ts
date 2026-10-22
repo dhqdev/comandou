@@ -31,32 +31,47 @@ export const PERMISSIONS = [
   'catalog:write',
   'orders:read',
   'orders:write',
+  /** Cancelar pedido diretamente (sem só solicitar). */
+  'orders:cancel',
+  /** Desconto acima do limite padrão (DISCOUNT_FREE_LIMIT_PERCENT). */
+  'orders:discount',
+  'kitchen:operate',
+  /** Reabrir item já concluído na cozinha. */
+  'kitchen:reopen',
+  'tables:operate',
+  'payments:create',
+  'payments:refund',
   'cash:operate',
   'cash:close',
+  'reports:read',
   'users:manage',
   'settings:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
+/** Desconto até este percentual não exige permissão especial. */
+export const DISCOUNT_FREE_LIMIT_PERCENT = 10;
+
 /** Permissões padrão por papel. Futuramente configuráveis por tenant (tabela role_permissions). */
 export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   owner: PERMISSIONS,
-  manager: [
+  manager: PERMISSIONS.filter((p) => p !== 'users:manage'),
+  cashier: [
     'catalog:read',
-    'catalog:write',
     'orders:read',
     'orders:write',
+    'tables:operate',
+    'payments:create',
     'cash:operate',
     'cash:close',
   ],
-  cashier: ['catalog:read', 'orders:read', 'orders:write', 'cash:operate'],
-  waiter: ['catalog:read', 'orders:read', 'orders:write'],
-  kitchen: ['catalog:read', 'orders:read'],
+  waiter: ['catalog:read', 'orders:read', 'orders:write', 'tables:operate'],
+  kitchen: ['catalog:read', 'orders:read', 'kitchen:operate'],
   driver: ['orders:read'],
-  attendant: ['catalog:read', 'orders:read', 'orders:write'],
+  attendant: ['catalog:read', 'orders:read', 'orders:write', 'tables:operate'],
   stock: ['catalog:read'],
-  finance: ['orders:read', 'cash:close'],
-  fiscal: ['orders:read'],
+  finance: ['orders:read', 'cash:close', 'reports:read'],
+  fiscal: ['orders:read', 'reports:read'],
 };
 
 export function roleHas(role: Role, permission: Permission): boolean {

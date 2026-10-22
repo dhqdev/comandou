@@ -11,7 +11,9 @@ export const PUBLIC = 'pm:public';
 export const Public = () => SetMetadata(PUBLIC, true);
 
 export const PERMISSION = 'pm:permission';
-export const RequirePermission = (p: Permission) => SetMetadata(PERMISSION, p);
+/** Exige ao menos UMA das permissões informadas. */
+export const RequirePermission = (...p: [Permission, ...Permission[]]) =>
+  SetMetadata(PERMISSION, p);
 
 export const CurrentTenant = createParamDecorator((_: unknown, ctx: ExecutionContext) => {
   const req = ctx.switchToHttp().getRequest<Request>();
