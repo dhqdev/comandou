@@ -106,6 +106,30 @@ export class QueueService implements OnApplicationBootstrap, OnModuleDestroy {
     this.timers.add(t);
   }
 
+  get usesRedis(): boolean {
+    return !!this.queue;
+  }
+
+  /** Redis responde? (sem Redis configurado: null) */
+  async ping(): Promise<boolean | null> {
+    if (!this.queue) return null;
+    try {
+      const client = await this.queue.client;
+      return (await Promise.race([
+        (client as unknown as { ping(): Promise<string> }).ping().then((r) => r === 'PONG'),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2000)),
+      ])) as boolean;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Trabalhos por situação (monitoramento). Sem Redis, só os que estão rodando no processo. */
+  async counts(): Promise<Record<string, number>> {
+    if (!this.queue) return { inline: this.timers.size };
+    return this.queue.getJobCounts('waiting', 'active', 'delayed', 'failed', 'completed');
+  }
+
   onApplicationBootstrap() {
     if (!this.queue || !this.env.QUEUE_WORKERS) return;
     this.worker = new Worker(

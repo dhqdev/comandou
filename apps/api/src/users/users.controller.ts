@@ -25,6 +25,7 @@ import { one, q } from '../common/sql';
 import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService, Tx } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
+import { PlanService } from '../plans/plan.service';
 
 const password = z.string().min(8, 'mínimo de 8 caracteres').max(200);
 const NewMember = z.object({
@@ -53,6 +54,7 @@ export class UsersController {
   constructor(
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
+    private readonly plans: PlanService,
   ) {}
 
   @Get('users')
@@ -75,6 +77,7 @@ export class UsersController {
       throw new ForbiddenException('Só um administrador pode criar outro administrador');
     const hash = await hashPassword(b.password);
     return this.db.withTenant(ctxOf(t, u), async (tx) => {
+      await this.plans.assertCanAdd(tx, 'users');
       const r = await one<{ user_id: string; created: boolean }>(
         tx,
         `SELECT user_id, created FROM app_add_member($1, $2, $3, $4)`,
@@ -129,6 +132,7 @@ export class UsersController {
         m.role === 'owner' && m.status === 'active' && (role !== 'owner' || status !== 'active');
       if (losesOwner && owners.filter((o) => o.user_id !== id).length === 0)
         throw new ConflictException('O restaurante precisa de ao menos um administrador ativo');
+      if (status === 'active' && m.status !== 'active') await this.plans.assertCanAdd(tx, 'users');
       await q(tx, `UPDATE memberships SET role = $2, status = $3 WHERE user_id = $1`, [
         id,
         role,

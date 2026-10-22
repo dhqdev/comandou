@@ -1,10 +1,11 @@
 # Stack de PRODUÇÃO para Docker Swarm / Portainer.
 # Pré-requisitos (ver docs/deploy.md):
 #   - Traefik existente no Swarm, conectado à rede externa `network_public`.
-#   - Secrets criados: pedemais_db_app_url, pedemais_db_owner_url, pedemais_pg_password,
-#     pedemais_owner_password, pedemais_app_password.
+#   - Secrets criados (lista completa em docs/deploy.md#secrets).
 #   - Variáveis: PEDEMAIS_VERSION (tag imutável), PEDEMAIS_BASE_DOMAIN (pedemais.com),
-#     TRAEFIK_ENTRYPOINT (ex.: websecure), TRAEFIK_CERT_RESOLVER (ex.: letsencryptresolver).
+#     TRAEFIK_ENTRYPOINT (ex.: websecure), TRAEFIK_CERT_RESOLVER (ex.: letsencryptresolver),
+#     TRAEFIK_CUSTOM_CERT_RESOLVER (HTTP-01, domínios dos clientes), BACKUP_S3_BUCKET e
+#     BACKUP_S3_ENDPOINT (ex.: https://s3.us-west-004.backblazeb2.com).
 # Diferenças em relação ao docker-compose.yml de desenvolvimento:
 #   - `build`, `depends_on` com condição e `container_name` não existem no Swarm.
 #   - Labels do Traefik ficam em `deploy.labels` (não em `labels`).
@@ -18,7 +19,14 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/pedemais_pg_password
       PEDEMAIS_OWNER_PASSWORD_FILE: /run/secrets/pedemais_owner_password
       PEDEMAIS_APP_PASSWORD_FILE: /run/secrets/pedemais_app_password
-    secrets: [pedemais_pg_password, pedemais_owner_password, pedemais_app_password]
+      PEDEMAIS_PLATFORM_PASSWORD_FILE: /run/secrets/pedemais_platform_password
+    secrets:
+      [
+        pedemais_pg_password,
+        pedemais_owner_password,
+        pedemais_app_password,
+        pedemais_platform_password,
+      ]
     volumes:
       - pedemais_pgdata:/var/lib/postgresql/data
     configs:
@@ -70,6 +78,36 @@ services:
       resources:
         limits: { memory: 384M }
 
+  # Backup diário (pg_dump cifrado com age → B2/S3) e teste semanal de restauração num Postgres
+  # temporário dentro do próprio contêiner. Registra cada execução em backup_runs (painel).
+  backup:
+    image: ghcr.io/dhqdev/pedemais-backup:${PEDEMAIS_VERSION:?defina a versão}
+    environment:
+      DATABASE_OWNER_URL_FILE: /run/secrets/pedemais_db_owner_url
+      AWS_ACCESS_KEY_ID_FILE: /run/secrets/pedemais_backup_s3_key_id
+      AWS_SECRET_ACCESS_KEY_FILE: /run/secrets/pedemais_backup_s3_secret
+      AGE_IDENTITY_FILE: /run/secrets/pedemais_backup_age_identity
+      S3_BUCKET: ${BACKUP_S3_BUCKET:?defina BACKUP_S3_BUCKET}
+      S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:?defina BACKUP_S3_ENDPOINT}
+      S3_REGION: ${BACKUP_S3_REGION:-}
+      S3_PREFIX: ${BACKUP_S3_PREFIX:-pedemais}
+      BACKUP_AT: ${BACKUP_AT:-06:00} # UTC (03:00 em Brasília)
+      RESTORE_TEST_AT: ${RESTORE_TEST_AT:-08:00}
+      RESTORE_TEST_WEEKDAY: ${RESTORE_TEST_WEEKDAY:-7}
+    secrets:
+      - pedemais_db_owner_url
+      - pedemais_backup_s3_key_id
+      - pedemais_backup_s3_secret
+      - pedemais_backup_age_identity
+    networks: [pedemais_internal, pedemais_egress]
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager] # o instalador roda o backup antes de atualizar
+      restart_policy: { condition: on-failure }
+      resources:
+        limits: { memory: 768M }
+
   migrate:
     image: ghcr.io/dhqdev/pedemais-api:${PEDEMAIS_VERSION:?defina a versão}
     command: ['node', 'dist/database/migrate-cli.js']
@@ -96,7 +134,19 @@ services:
       INTEGRATIONS_KEY_FILE: /run/secrets/pedemais_integrations_key
       WHATSAPP_GATEWAY_URL: http://whatsapp-gateway:3100
       WHATSAPP_GATEWAY_TOKEN_FILE: /run/secrets/pedemais_wa_gateway_token
-    secrets: [pedemais_db_app_url, pedemais_integrations_key, pedemais_wa_gateway_token]
+      # Etapa 6: painel Super Admin (admin.pedemais.com), métricas e domínios dos clientes.
+      PLATFORM_DATABASE_URL_FILE: /run/secrets/pedemais_db_platform_url
+      METRICS_TOKEN_FILE: /run/secrets/pedemais_metrics_token
+      TRAEFIK_PROVIDER_TOKEN_FILE: /run/secrets/pedemais_traefik_provider_token
+      TRAEFIK_ENTRYPOINT: ${TRAEFIK_ENTRYPOINT:-websecure}
+      TRAEFIK_CUSTOM_CERT_RESOLVER: ${TRAEFIK_CUSTOM_CERT_RESOLVER:-letsencrypt-http}
+    secrets:
+      - pedemais_db_app_url
+      - pedemais_integrations_key
+      - pedemais_wa_gateway_token
+      - pedemais_db_platform_url
+      - pedemais_metrics_token
+      - pedemais_traefik_provider_token
     networks: [pedemais_internal, network_public]
     deploy:
       replicas: 2
@@ -165,3 +215,10 @@ secrets:
   pedemais_integrations_key: { external: true }
   pedemais_wa_gateway_token: { external: true }
   pedemais_wa_session_key: { external: true }
+  pedemais_platform_password: { external: true }
+  pedemais_db_platform_url: { external: true }
+  pedemais_metrics_token: { external: true }
+  pedemais_traefik_provider_token: { external: true }
+  pedemais_backup_s3_key_id: { external: true }
+  pedemais_backup_s3_secret: { external: true }
+  pedemais_backup_age_identity: { external: true }

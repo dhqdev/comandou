@@ -6,6 +6,9 @@ export const OWNER_URL =
 export const APP_URL =
   process.env.TEST_DATABASE_URL ??
   'postgres://pedemais_app:app_dev_pw@localhost:5432/pedemais_test';
+export const PLATFORM_URL =
+  process.env.TEST_DATABASE_PLATFORM_URL ??
+  'postgres://pedemais_platform:platform_dev_pw@localhost:5432/pedemais_test';
 
 export function testEnv(overrides: Partial<Record<string, string>> = {}): Env {
   return loadEnv({

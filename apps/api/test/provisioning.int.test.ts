@@ -20,6 +20,7 @@ describe('Provisionamento', () => {
       'admin_user',
       'admin_membership',
       'defaults',
+      'subscription',
       'activate',
     ]);
     const r2 = await provisionTenant(OWNER_URL, input);
@@ -52,7 +53,13 @@ describe('Provisionamento', () => {
       slug,
       adminEmail: 'dono@prov-retoma.test',
     });
-    expect(r.stepsRun).toEqual(['admin_user', 'admin_membership', 'defaults', 'activate']);
+    expect(r.stepsRun).toEqual([
+      'admin_user',
+      'admin_membership',
+      'defaults',
+      'subscription',
+      'activate',
+    ]);
     const [s] = await ownerQuery<{ status: string }>(`SELECT status FROM tenants WHERE id = $1`, [
       t.id,
     ]);

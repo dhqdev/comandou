@@ -636,3 +636,20 @@
   word-break: break-all;
   font-size: 0.85em;
 }
+
+/* Etapa 6: barra de uso do plano. */
+.usage-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--pm-border, #e4e2ec);
+  overflow: hidden;
+  margin-top: 8px;
+}
+.usage-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--pm-brand-600);
+}
+.usage-bar[data-full] > span {
+  background: var(--pm-danger);
+}

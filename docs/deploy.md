@@ -34,6 +34,14 @@ openssl rand -base64 32 | tr -d '\n' | docker secret create pedemais_integration
 # WhatsApp por QR Code: token interno API ↔ gateway e chave das sessões
 openssl rand -hex 32       | tr -d '\n' | docker secret create pedemais_wa_gateway_token -
 openssl rand -base64 32    | tr -d '\n' | docker secret create pedemais_wa_session_key -
+# Etapa 6: painel Super Admin, métricas, domínios dos clientes e backups
+printf '%s' 'senha-platform'   | docker secret create pedemais_platform_password -
+printf '%s' 'postgres://pedemais_platform:senha-platform@postgres:5432/pedemais' | docker secret create pedemais_db_platform_url -
+openssl rand -hex 32       | tr -d '\n' | docker secret create pedemais_metrics_token -
+openssl rand -hex 32       | tr -d '\n' | docker secret create pedemais_traefik_provider_token -
+printf '%s' '<keyID do B2>'          | docker secret create pedemais_backup_s3_key_id -
+printf '%s' '<applicationKey do B2>' | docker secret create pedemais_backup_s3_secret -
+age-keygen 2>/dev/null               | docker secret create pedemais_backup_age_identity -
 ```
 
 A partir da 0.4.0 a stack inclui um Redis interno (filas BullMQ e tempo real entre réplicas),
@@ -41,6 +49,104 @@ sem porta exposta e com volume próprio (`pedemais_redisdata`), e o serviço `wh
 (Baileys): uma réplica só, sessões cifradas no volume `pedemais_wadata`, sem porta publicada; só a
 API fala com ele. Ele usa a rede `pedemais_egress` para sair para a internet (WhatsApp).
 Perder `pedemais_wa_session_key` obriga cada restaurante a ler o QR Code de novo.
+
+## Etapa 6 (0.5.0): o que muda numa instalação existente
+
+1. **Papel do painel no banco.** O script de init do Postgres só roda em volume novo. Numa
+   instalação que já existe, crie o papel antes de atualizar (a migração 0007 recusa rodar sem ele):
+
+   ```bash
+   docker exec -it $(docker ps -q -f label=com.docker.swarm.service.name=pedemais_postgres) \
+     psql -U postgres -d pedemais -c "CREATE ROLE pedemais_platform LOGIN PASSWORD '<a mesma do secret>' NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS CONNECTION LIMIT 10" \
+     -c "GRANT CONNECT ON DATABASE pedemais TO pedemais_platform"
+   ```
+
+   (digite a senha no prompt interativo em vez de deixá-la no histórico, se preferir: `\password pedemais_platform`).
+2. **Secrets novos** (lista acima) e o arquivo `/etc/pedemais/deploy.env` (abaixo).
+3. **Primeiro administrador** do painel, pela CLI (o painel não cria administradores). A rede
+   interna não aceita contêineres avulsos, então a CLI roda dentro de um contêiner da API, que já
+   tem a `INTEGRATIONS_KEY`; a URL do dono e a senha são digitadas sem eco e não ficam no histórico:
+
+   ```bash
+   read -rsp 'URL do dono: ' OWNER_URL; echo; read -rsp 'Senha do admin: ' ADMIN_PW; echo
+   docker exec -it \
+     -e DATABASE_OWNER_URL="$OWNER_URL" -e PLATFORM_ADMIN_PASSWORD="$ADMIN_PW" \
+     -e INTEGRATIONS_KEY_FILE=/run/secrets/pedemais_integrations_key \
+     $(docker ps -q -f label=com.docker.swarm.service.name=pedemais_api | head -1) \
+     node dist/platform/platform-admin-cli.js voce@empresa.com "Seu nome"
+   unset OWNER_URL ADMIN_PW
+   ```
+
+   Ela imprime **uma vez** o endereço `otpauth://`: adicione no aplicativo autenticador e não guarde
+   em outro lugar. O painel fica em `https://admin.pedemais.com` (o certificado curinga já cobre).
+4. **Plano padrão.** Sem planos, nenhum restaurante tem limite. Crie os planos no painel e marque
+   um como padrão para os restaurantes novos.
+
+### `/etc/pedemais/deploy.env`
+
+Valores **não secretos** do servidor, lidos pelo `install.sh` (permissão 600, dono root):
+
+```bash
+PEDEMAIS_BASE_DOMAIN=pedemais.com
+PEDEMAIS_HEALTH_URL=https://demo.pedemais.com
+BACKUP_S3_BUCKET=pedemais-backups
+BACKUP_S3_ENDPOINT=https://s3.us-west-004.backblazeb2.com
+BACKUP_S3_REGION=us-west-004
+TRAEFIK_ENTRYPOINT=websecure
+TRAEFIK_CERT_RESOLVER=letsencryptresolver
+TRAEFIK_CUSTOM_CERT_RESOLVER=letsencrypt-http
+```
+
+### Domínios próprios dos restaurantes (Traefik)
+
+Os domínios verificados chegam ao Traefik pelo **provider HTTP**. Na configuração estática do
+Traefik existente (pendente de validação no servidor):
+
+```yaml
+providers:
+  http:
+    endpoint: http://pedemais_api:3000/api/v1/internal/traefik
+    pollInterval: 30s
+    headers:
+      Authorization: Bearer <conteúdo de pedemais_traefik_provider_token>
+certificatesResolvers:
+  letsencrypt-http:
+    acme:
+      email: voce@empresa.com
+      storage: /letsencrypt/acme-http.json
+      httpChallenge: { entryPoint: web }
+```
+
+O Traefik precisa alcançar a API pela rede `network_public`. Cada domínio pede o próprio
+certificado por HTTP-01, então o cliente aponta o domínio (CNAME ou A) para o servidor **antes**
+de verificar.
+
+### Monitoramento
+
+`GET https://<qualquer restaurante>/api/v1/metrics` com `Authorization: Bearer <pedemais_metrics_token>`
+(sem o token: 404). Exemplo de alvo no Prometheus: `bearer_token_file` com o token e
+`metrics_path: /api/v1/metrics`. Métricas: duração e contagem de requisições por rota/método/status,
+pool do banco, filas e as padrão do Node.
+
+### Backups
+
+Ver [backups](backups.md). O `install.sh` faz um backup antes de aplicar a stack e cancela a
+atualização se ele falhar. Na primeira instalação o serviço ainda não existe e o passo é pulado
+sozinho; `PEDEMAIS_SKIP_BACKUP=1` pula à força (só em emergência, fica no log).
+
+## Deploy pelo GitHub (manual, com aprovação)
+
+1. Criar a tag: `git tag v0.5.0 && git push origin v0.5.0`. O workflow **Release** publica
+   `pedemais-api`, `pedemais-web`, `pedemais-whatsapp-gateway` e `pedemais-backup` no GHCR. Não
+   implanta nada.
+2. Em *Settings → Environments*, criar `production` com **Required reviewers** e os secrets
+   `DEPLOY_SSH_KEY` (chave só para deploy), `DEPLOY_KNOWN_HOSTS` (`ssh-keyscan` do manager, conferido
+   à mão), `DEPLOY_HOST`, `DEPLOY_USER`. Opcional: variável `DEPLOY_PATH` (padrão `/opt/pedemais`,
+   um clone do repositório no manager).
+3. *Actions → Deploy (produção) → Run workflow*, digitando a versão duas vezes. O job confere as
+   imagens e espera a aprovação; aprovado, roda `scripts/install.sh --yes` no manager.
+
+O workflow não foi executado ainda (não há servidor configurado).
 
 ## Certificados
 
@@ -64,9 +170,12 @@ No Portainer: *Stacks → Add stack → Repository*, apontando para `infrastruct
 ## Provisionar um restaurante
 
 ```bash
-docker run --rm --network pedemais_pedemais_internal \
-  -e DATABASE_OWNER_URL_FILE=/run/secrets/... ghcr.io/dhqdev/pedemais-api:v0.1.0 \
+read -rsp 'URL do dono: ' OWNER_URL; echo; read -rsp 'Senha inicial do admin: ' PW; echo
+docker exec -it -e DATABASE_OWNER_URL="$OWNER_URL" -e PROVISION_ADMIN_PASSWORD="$PW" -e PROVISION_PLAN=basico \
+  $(docker ps -q -f label=com.docker.swarm.service.name=pedemais_api | head -1) \
   node dist/provisioning/provision-cli.js <slug> "<Nome>" <email> "<Nome do admin>"
+unset OWNER_URL PW
 ```
 
-(O painel Super Admin substitui este passo na Etapa 6.)
+A partir da 0.5.0 o caminho normal é o painel Super Admin (*Restaurantes → Novo restaurante*); a
+CLI continua para automação. Sem `PROVISION_PLAN`, usa o plano padrão (se houver).

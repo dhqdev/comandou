@@ -1,6 +1,7 @@
 import {
   BarChart3,
   BookOpen,
+  CreditCard,
   Boxes,
   ChefHat,
   ClipboardList,
@@ -115,6 +116,12 @@ const NAV: { group: string; items: NavItem[] }[] = [
         label: 'WhatsApp',
         icon: <MessageCircle size={18} />,
         perms: ['messaging:manage'],
+      },
+      {
+        to: '/plano',
+        label: 'Plano e domínio',
+        icon: <CreditCard size={18} />,
+        perms: ['plan:read', 'domains:manage'],
       },
       {
         to: '/configuracoes',

@@ -15,6 +15,13 @@ describe('classifyHost', () => {
     expect(classifyHost('pedemais.com', BASE).kind).toBe('platform');
     expect(classifyHost('www.pedemais.com', BASE).kind).toBe('platform');
   });
+  it('reconhece o painel Super Admin em admin.<base>, separado dos restaurantes', () => {
+    expect(classifyHost('Admin.PedeMais.com', BASE)).toEqual({
+      kind: 'platform-admin',
+      hostname: 'admin.pedemais.com',
+    });
+    expect(classifyHost('admin.evil.com', BASE).kind).toBe('custom-domain');
+  });
   it('trata outros hosts como domínio personalizado (validado no banco)', () => {
     expect(classifyHost('pedidos.restaurante.com.br', BASE)).toEqual({
       kind: 'custom-domain',

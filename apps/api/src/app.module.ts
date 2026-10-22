@@ -9,7 +9,10 @@ import { CatalogModule } from './catalog/catalog.module';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 import { ENV, Env } from './config/env';
 import { DatabaseModule } from './database/database.module';
-import { HealthController } from './health/health.controller';
+import { DomainsModule } from './domains/domains.module';
+import { HealthModule } from './health/health.module';
+import { PlansModule } from './plans/plans.module';
+import { PlatformModule } from './platform/platform.module';
 import { OperationsModule } from './orders/operations.module';
 import { QueueModule } from './queue/queue.module';
 import { RealtimeModule } from './realtime/realtime.module';
@@ -44,10 +47,13 @@ export class AppModule {
         AuthModule,
         RealtimeModule,
         QueueModule,
+        PlansModule,
         CatalogModule,
         OperationsModule,
+        DomainsModule,
+        HealthModule,
+        PlatformModule,
       ],
-      controllers: [HealthController],
       providers: [
         { provide: ENV, useValue: env },
         // Ordem importa: rate limit → CSRF → tenant → sessão → permissão.

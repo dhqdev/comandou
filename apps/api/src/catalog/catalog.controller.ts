@@ -18,6 +18,7 @@ import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorat
 import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService } from '../database/database.service';
 import { categories, products } from '../database/schema';
+import { PlanService } from '../plans/plan.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 
 const money = z
@@ -76,6 +77,7 @@ export class CatalogController {
   constructor(
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
+    private readonly plans: PlanService,
   ) {}
 
   @Get('categories')
@@ -151,6 +153,7 @@ export class CatalogController {
         .where(eq(categories.id, body.categoryId))
         .limit(1);
       if (!cat) throw new NotFoundException('Categoria não encontrada');
+      await this.plans.assertCanAdd(tx, 'products');
       const [row] = await tx
         .insert(products)
         .values({
@@ -190,6 +193,15 @@ export class CatalogController {
     @Req() req: Request,
   ) {
     const row = await this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
+      if (body.active === true) {
+        // Reativar um produto conta no limite de produtos ativos do plano.
+        const [cur] = await tx
+          .select({ active: products.active })
+          .from(products)
+          .where(eq(products.id, id))
+          .limit(1);
+        if (cur && !cur.active) await this.plans.assertCanAdd(tx, 'products');
+      }
       const [r] = await tx
         .update(products)
         .set(body)

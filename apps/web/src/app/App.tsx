@@ -15,6 +15,8 @@ import { TrackingPage } from '../pages/TrackingPage';
 import { KitchenPage } from '../pages/KitchenPage';
 import { OrdersPage } from '../pages/OrdersPage';
 import { PdvPage } from '../pages/PdvPage';
+import { PlanPage } from '../pages/PlanPage';
+import { PlatformApp, isPlatformHost } from '../platform/PlatformApp';
 import { ReleasesPage } from '../pages/ReleasesPage';
 import { ReportsPage } from '../pages/ReportsPage';
 import { SettingsPage } from '../pages/SettingsPage';
@@ -63,6 +65,7 @@ function Gate() {
         <Route path="impressao" element={<PrintingPage />} />
         <Route path="nota-fiscal" element={<FiscalPage />} />
         <Route path="whatsapp" element={<WhatsAppPage />} />
+        <Route path="plano" element={<PlanPage />} />
         {SOON.map(([path, title]) => (
           <Route key={path} path={path} element={<ComingSoonPage title={title} />} />
         ))}
@@ -73,6 +76,8 @@ function Gate() {
 }
 
 export function App() {
+  // admin.<domínio base>: painel Super Admin, com login e sessão próprios.
+  if (isPlatformHost()) return <PlatformApp />;
   return (
     <BrowserRouter>
       <ToastProvider>

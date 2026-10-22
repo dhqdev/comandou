@@ -34,6 +34,7 @@ jobs:
       TEST_REDIS_URL: redis://localhost:6379
       TEST_DATABASE_OWNER_URL: postgres://pedemais_owner:owner_ci@localhost:5432/pedemais_test
       TEST_DATABASE_URL: postgres://pedemais_app:app_ci@localhost:5432/pedemais_test
+      TEST_DATABASE_PLATFORM_URL: postgres://pedemais_platform:platform_ci@localhost:5432/pedemais_test
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -51,8 +52,11 @@ jobs:
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 \
             -c "CREATE ROLE pedemais_owner LOGIN PASSWORD 'owner_ci'" \
             -c "CREATE ROLE pedemais_app LOGIN PASSWORD 'app_ci' NOBYPASSRLS" \
+            -c "CREATE ROLE pedemais_platform LOGIN PASSWORD 'platform_ci' NOBYPASSRLS" \
             -c "CREATE DATABASE pedemais_test OWNER pedemais_owner"
       - run: pnpm format:check
+      - name: Scripts de shell
+        run: shellcheck -x -S warning infrastructure/backup/*.sh scripts/*.sh
       - run: pnpm --filter @pedemais/shared build
       - run: pnpm typecheck
       - run: pnpm test
@@ -65,6 +69,11 @@ jobs:
     name: E2E (Playwright)
     runs-on: ubuntu-latest
     needs: check
+    env:
+      # Valores só de teste (banco descartável do CI), nunca usados em produção.
+      E2E_INTEGRATIONS_KEY: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+      E2E_ADMIN_PASSWORD: e2e-super-admin-123
+      E2E_ADMIN_TOTP: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
     services:
       postgres:
         image: postgres:16-alpine
@@ -87,18 +96,28 @@ jobs:
           PGPASSWORD: postgres
           DATABASE_OWNER_URL: postgres://pedemais_owner:owner_ci@localhost:5432/pedemais
           PROVISION_ADMIN_PASSWORD: e2e-senha-forte-123
+          E2E_INTEGRATIONS_KEY: ${{ env.E2E_INTEGRATIONS_KEY }}
+          E2E_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
+          E2E_ADMIN_TOTP: ${{ env.E2E_ADMIN_TOTP }}
         run: |
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 \
             -c "CREATE ROLE pedemais_owner LOGIN PASSWORD 'owner_ci'" \
             -c "CREATE ROLE pedemais_app LOGIN PASSWORD 'app_ci' NOBYPASSRLS" \
+            -c "CREATE ROLE pedemais_platform LOGIN PASSWORD 'platform_ci' NOBYPASSRLS" \
             -c "CREATE DATABASE pedemais OWNER pedemais_owner"
           pnpm --filter @pedemais/shared build
           pnpm --filter @pedemais/api build
           pnpm --filter @pedemais/api db:migrate
           pnpm --filter @pedemais/api tenant:provision demo "Restaurante Demo" dono@demo.local "Dono Demo"
+          # Super Admin de teste com segredo TOTP fixo (o teste do navegador gera o código).
+          DATABASE_OWNER_URL=$DATABASE_OWNER_URL INTEGRATIONS_KEY=$E2E_INTEGRATIONS_KEY \
+            PLATFORM_ADMIN_PASSWORD=$E2E_ADMIN_PASSWORD PLATFORM_ADMIN_TOTP_SECRET=$E2E_ADMIN_TOTP \
+            node apps/api/dist/platform/platform-admin-cli.js admin@e2e.local "Admin E2E"
       - name: Subir API e Web
         run: |
           DATABASE_URL=postgres://pedemais_app:app_ci@localhost:5432/pedemais AUTH_LOGIN_RATE_LIMIT=100 \
+            PLATFORM_DATABASE_URL=postgres://pedemais_platform:platform_ci@localhost:5432/pedemais \
+            INTEGRATIONS_KEY=$E2E_INTEGRATIONS_KEY \
             nohup node apps/api/dist/main.js > api.log 2>&1 &
           nohup pnpm --filter @pedemais/web exec vite --port 5173 > web.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:3000/api/v1/health/ready && break; sleep 1; done
@@ -108,6 +127,20 @@ jobs:
           E2E_BASE_URL: http://demo.pedemais.localhost:5173
           E2E_EMAIL: dono@demo.local
           E2E_PASSWORD: e2e-senha-forte-123
+          E2E_ADMIN_EMAIL: admin@e2e.local
+      - name: Backup e teste de restauração (destino local, chave descartável)
+        env:
+          DATABASE_OWNER_URL: postgres://pedemais_owner:owner_ci@localhost:5432/pedemais
+          BACKUP_TARGET: file
+          PG_BIN: /usr/lib/postgresql/16/bin
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq age >/dev/null
+          export WORK_DIR="$RUNNER_TEMP" BACKUP_DIR="$RUNNER_TEMP/backups" AGE_IDENTITY_FILE="$RUNNER_TEMP/age.txt"
+          age-keygen -o "$AGE_IDENTITY_FILE" 2>/dev/null
+          infrastructure/backup/backup.sh
+          infrastructure/backup/restore-test.sh
+          psql "$DATABASE_OWNER_URL" -At -c "SELECT kind, status FROM backup_runs ORDER BY id" | tee runs.txt
+          grep -qx 'restore_test|ok' runs.txt
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -155,6 +188,16 @@ jobs:
           tags: ghcr.io/${{ github.repository }}-web:sha-${{ github.sha }}
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
+      - name: Backup
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/backup.Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name == 'push' }}
+          tags: ghcr.io/${{ github.repository }}-backup:sha-${{ github.sha }}
+          cache-from: type=gha,scope=backup
+          cache-to: type=gha,mode=max,scope=backup
       - name: WhatsApp gateway
         uses: docker/build-push-action@v6
         with:

@@ -17,7 +17,7 @@ Escala: **A**lto / **M**édio / **B**aixo (impacto × probabilidade).
 | R11 | Concorrência em caixa/pagamentos | A (Etapa 3) | — | Idempotency keys + `FOR UPDATE` + testes concorrentes |
 | R12 | Sessão roubada por XSS | M | Cookie HttpOnly, CSP restritiva no Nginx, React escapa conteúdo | Rotação de sessão em troca de papel; tela de sessões ativas |
 | R13 | Força bruta no login | M | Rate limit por IP (em memória), auditoria | Mover rate limit para Redis com >1 réplica; bloqueio por conta |
-| R14 | Backups inexistentes | A | — (sem produção ainda) | Etapa 6: pg_dump criptografado → B2 + teste de restauração |
+| R14 | Backups não validados em produção | M | pg_dump cifrado (age) → B2/S3, teste semanal de restauração, backup antes de cada deploy (Etapa 6) | Rodar contra o bucket real no primeiro deploy; guardar a identidade age fora do servidor |
 | R15 | Rate limit e cache em memória não funcionam com múltiplas réplicas | M | 2 réplicas na stack → limite efetivo dobra | Redis (Etapa 3) |
 | R16 | Migração destrutiva em produção | A | Migrador falha se arquivo aplicado mudar; um arquivo por transação | Regra: só migrações aditivas; destrutivas com plano de rollback e autorização |
 
