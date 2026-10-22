@@ -145,6 +145,34 @@ stack. O Let's Encrypt limita a 50 certificados novos por semana por domínio.
 `metrics_path: /api/v1/metrics`. Métricas: duração e contagem de requisições por rota/método/status,
 pool do banco, filas e as padrão do Node.
 
+Por restaurante (opcional, `METRICS_PER_TENANT=true` na API): `comandou_tenant_http_requests_total`,
+`comandou_tenant_http_request_seconds_total` e `comandou_tenant_http_server_errors_total`, com o
+rótulo `tenant` igual ao slug e sem rota (a quantidade de séries cresce só com o número de
+restaurantes). Servem para ver quem mais usa o sistema, por exemplo
+`topk(5, rate(comandou_tenant_http_request_seconds_total[1h]))`, e decidir quem precisa de banco
+dedicado ([ADR 0011](decisions/0011-banco-dedicado-por-cliente.md)).
+
+### PgBouncer (opcional)
+
+Quando o número de conexões crescer, coloque o PgBouncer (modo transação) entre a API e o Postgres
+com o overlay [`infrastructure/swarm/pgbouncer.yml`](../infrastructure/swarm/pgbouncer.yml):
+
+```bash
+printf '%s' 'postgres://comandou_app:senha-app@pgbouncer:5432/comandou' | docker secret create comandou_db_app_pooler_url -
+docker stack deploy -c infrastructure/swarm/comandou-stack.yml -c infrastructure/swarm/pgbouncer.yml comandou
+```
+
+Só a API passa por ele. Migrações e o painel Super Admin continuam direto no Postgres (usam travas
+de sessão). Para voltar, faça o deploy sem o overlay. A senha no endereço não pode ter caracteres
+que precisem de escape em URL (as geradas com `openssl rand -hex` servem).
+
+### Bancos dedicados (preparado, ainda sem clientes)
+
+O `comandou-migrate` aplica as migrações no banco central (`DATABASE_OWNER_URL`) e depois em cada
+banco de `TENANT_DATABASE_OWNER_URLS` (lista separada por vírgula; aceita `_FILE`). Vazio, que é o
+normal hoje, só o central é migrado. Se o central falhar, os outros não são tocados; se um dedicado
+falhar, os demais seguem e o serviço termina com erro mostrando qual falhou (sem senha no log).
+
 ### Backups
 
 Ver [backups](backups.md). O `install.sh` faz um backup antes de aplicar a stack e cancela a

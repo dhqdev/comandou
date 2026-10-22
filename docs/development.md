@@ -40,7 +40,9 @@ pnpm --filter @comandou/web test
 # API: usa um banco *_test (é recriado a cada execução; o setup recusa outro nome)
 TEST_DATABASE_OWNER_URL=postgres://comandou_owner:SENHA@localhost:5432/comandou_test \
 TEST_DATABASE_URL=postgres://comandou_app:SENHA@localhost:5432/comandou_test \
+TEST_DATABASE_DEDICATED_OWNER_URL=postgres://comandou_owner:SENHA@localhost:5432/comandou_dedicado_test \
 pnpm --filter @comandou/api test
+# (o banco comandou_dedicado_test, do mesmo dono, simula um banco dedicado nas migrações em lista)
 # E2E (com a stack rodando e um tenant provisionado)
 E2E_BASE_URL=http://demo.comandou.localhost:5173 E2E_EMAIL=dono@demo.local E2E_PASSWORD=... pnpm --filter @comandou/web e2e
 ```

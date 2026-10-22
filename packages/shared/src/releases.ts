@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.9.0',
+    date: '2026-10-22',
+    title: 'Pronto para crescer: banco dedicado, PgBouncer e uso por restaurante',
+    summary:
+      'Preparos para clientes grandes. Nada muda no dia a dia: todos os restaurantes continuam no mesmo banco, mas a plataforma já sabe migrar vários bancos, pode usar PgBouncer e medir o uso de cada restaurante.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Ponto único que decide o banco de cada restaurante. Hoje é sempre o compartilhado; um cliente Enterprise poderá ter banco próprio sem mudar o resto do sistema.',
+      },
+      {
+        tag: 'novo',
+        text: 'As migrações podem rodar em uma lista de bancos, com relatório por banco. Uma falha em um banco dedicado não para os outros.',
+      },
+      {
+        tag: 'novo',
+        text: 'Métricas por restaurante (opcionais): quantidade de acessos, tempo de resposta e erros de cada cliente.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PgBouncer opcional entre a API e o banco, para aguentar mais conexões.',
+      },
+    ],
+  },
+  {
     version: '0.8.2',
     date: '2026-10-22',
     title: 'Traefik 2 consegue descobrir os restaurantes',

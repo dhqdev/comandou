@@ -1,0 +1,49 @@
+# Overlay opcional: PgBouncer entre a API e o Postgres (modo transação). Use quando o número de
+# conexões crescer (muitas réplicas da API, muitos restaurantes ou bancos dedicados, ADR 0011).
+# Sem este arquivo nada muda: a API conecta direto no Postgres.
+#
+#   docker stack deploy -c infrastructure/swarm/comandou-stack.yml \
+#     -c infrastructure/swarm/pgbouncer.yml comandou
+#
+# Pré-requisito: o secret comandou_db_app_pooler_url, igual ao comandou_db_app_url mas apontando
+# para o PgBouncer:  postgres://comandou_app:<senha>@pgbouncer:5432/comandou
+#
+# Só o papel da aplicação passa pelo PgBouncer. Migrações (DATABASE_OWNER_URL) e o painel Super
+# Admin (PLATFORM_DATABASE_URL) continuam direto no Postgres, porque usam travas de sessão
+# (pg_advisory_lock) que o modo transação não mantém.
+# O modo transação é seguro para a API: o restaurante é definido com set_config(..., true), que
+# vale só dentro da transação (testado com a suíte inteira da API passando pelo PgBouncer).
+version: '3.8'
+services:
+  pgbouncer:
+    image: edoburu/pgbouncer:v1.25.2-p0
+    # A imagem lê DATABASE_URL; aqui ela vem do secret, para a senha não ficar na definição.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - export DATABASE_URL="$$(cat /run/secrets/comandou_db_app_url)"; exec /entrypoint.sh "$$@"
+      - pgbouncer
+    command: ['/usr/bin/pgbouncer', '/etc/pgbouncer/pgbouncer.ini']
+    environment:
+      POOL_MODE: transaction
+      AUTH_TYPE: scram-sha-256
+      # Conexões que a API pode abrir (todas as réplicas somadas) e conexões reais no Postgres.
+      MAX_CLIENT_CONN: '500'
+      DEFAULT_POOL_SIZE: '20'
+      IGNORE_STARTUP_PARAMETERS: extra_float_digits
+    secrets: [comandou_db_app_url]
+    networks: [comandou_internal]
+    deploy:
+      replicas: 1
+      restart_policy: { condition: on-failure }
+      resources:
+        limits: { memory: 128M }
+
+  api:
+    environment:
+      DATABASE_URL_FILE: /run/secrets/comandou_db_app_pooler_url
+    secrets:
+      - comandou_db_app_pooler_url
+
+secrets:
+  comandou_db_app_pooler_url: { external: true }

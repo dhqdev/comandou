@@ -3,6 +3,7 @@ import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool, PoolClient } from 'pg';
 import { ENV, Env } from '../config/env';
 import { schema } from './schema';
+import { SharedDatabaseRouter, TenantDatabaseRouter } from './tenant-database';
 
 export type Tx = NodePgDatabase<typeof schema> & { $client: PoolClient };
 
@@ -21,16 +22,20 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  */
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
+  /** Pool do banco compartilhado (central). Consultas sem restaurante usam sempre este. */
   readonly pool: Pool;
+  /** Decide o banco de cada restaurante (hoje sempre o compartilhado; ver ADR 0011). */
+  readonly router: TenantDatabaseRouter;
 
   constructor(@Inject(ENV) env: Env) {
     this.pool = new Pool({ connectionString: env.DATABASE_URL, max: env.DATABASE_POOL_MAX });
+    this.router = new SharedDatabaseRouter(this.pool);
   }
 
   async withTenant<T>(scope: TenantScope, fn: (tx: Tx) => Promise<T>): Promise<T> {
     if (!UUID_RE.test(scope.tenantId)) throw new Error('tenantId inválido');
     if (scope.userId && !UUID_RE.test(scope.userId)) throw new Error('userId inválido');
-    const client = await this.pool.connect();
+    const client = await this.router.poolFor(scope.tenantId).connect();
     try {
       await client.query('BEGIN');
       await client.query(

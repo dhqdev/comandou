@@ -10,6 +10,11 @@ export const PLATFORM_URL =
   process.env.TEST_DATABASE_PLATFORM_URL ??
   'postgres://comandou_platform:platform_dev_pw@localhost:5432/comandou_test';
 
+/** Segundo banco (simula um banco dedicado) para testar migrações em lista. */
+export const DEDICATED_OWNER_URL =
+  process.env.TEST_DATABASE_DEDICATED_OWNER_URL ??
+  'postgres://comandou_owner:owner_dev_pw@localhost:5432/comandou_dedicado_test';
+
 export function testEnv(overrides: Partial<Record<string, string>> = {}): Env {
   return loadEnv({
     NODE_ENV: 'test',

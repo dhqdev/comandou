@@ -84,6 +84,14 @@ const schema = z.object({
     .default(30),
   /** Token do endpoint /api/v1/metrics (Prometheus). Sem ele, o endpoint não existe. */
   METRICS_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(24).optional()),
+  /**
+   * Métricas por restaurante (rótulo = slug, sem rota): uso de cada cliente para decidir quem
+   * precisa de banco dedicado (ADR 0011). Desligado por padrão.
+   */
+  METRICS_PER_TENANT: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
   /** Token do provider HTTP do Traefik (domínios personalizados). Sem ele, o endpoint não existe. */
   TRAEFIK_PROVIDER_TOKEN: z.preprocess(
     (v) => (v === '' ? undefined : v),
@@ -139,6 +147,7 @@ export const ENV = Symbol('ENV');
 export const FILE_SECRET_VARS = [
   'DATABASE_URL',
   'DATABASE_OWNER_URL',
+  'TENANT_DATABASE_OWNER_URLS',
   'REDIS_URL',
   'PROVISION_ADMIN_PASSWORD',
   'INTEGRATIONS_KEY',

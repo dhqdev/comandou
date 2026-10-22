@@ -1,5 +1,5 @@
 import { resolveFileSecrets } from '../config/env';
-import { migrate } from './migrator';
+import { databaseList, migrateAll } from './migrate-all';
 
 async function main() {
   Object.assign(process.env, resolveFileSecrets(process.env));
@@ -10,8 +10,17 @@ async function main() {
     );
     process.exit(2);
   }
-  const res = await migrate(url);
-  console.log(`migrações aplicadas: ${res.applied.length}, já existentes: ${res.skipped.length}`);
+  const urls = databaseList(url, process.env.TENANT_DATABASE_OWNER_URLS);
+  const reports = await migrateAll(urls);
+  for (const r of reports) {
+    if (r.status === 'ok')
+      console.log(
+        `${r.database}: migrações aplicadas: ${r.applied.length}, já existentes: ${r.skipped.length}`,
+      );
+    else if (r.status === 'failed') console.error(`${r.database}: FALHOU: ${r.error}`);
+    else console.error(`${r.database}: não executado (o banco central falhou)`);
+  }
+  if (reports.some((r) => r.status !== 'ok')) process.exit(1);
 }
 
 main().catch((err) => {

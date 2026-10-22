@@ -50,6 +50,18 @@ Recomendação: oferecer 1 e 2 no plano Enterprise.
 - Teste de isolamento obrigatório: um cliente nunca lê o banco de outro, nem por erro de cache de pool.
 - Não exige mudar quem permanece no banco compartilhado.
 
+## Já preparado (0.9.0)
+
+Sem mudar o comportamento de hoje (todo restaurante segue no banco compartilhado):
+
+- **Ponto único de roteamento:** `TenantDatabaseRouter` (`apps/api/src/database/tenant-database.ts`).
+  Toda transação de negócio pede o pool por ele; a implementação atual devolve sempre o
+  compartilhado. Ligar bancos dedicados é trocar essa implementação.
+- **Migrações em lista:** `TENANT_DATABASE_OWNER_URLS` no `comandou-migrate` (central primeiro,
+  relatório por banco).
+- **PgBouncer:** overlay `infrastructure/swarm/pgbouncer.yml`, testado com a suíte da API.
+- **Métricas por restaurante:** `METRICS_PER_TENANT=true`.
+
 ## Quando implementar
 
 Somente com um cliente que peça (contrato, volume ou regra de dados). Antes disso, priorizar
