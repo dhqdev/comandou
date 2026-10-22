@@ -1,6 +1,8 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
+import type { Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { Client } from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -8,6 +10,8 @@ import { createApp } from '../src/bootstrap';
 import { hashPassword } from '../src/auth/password';
 import { seal } from '../src/common/secret-box';
 import { DomainVerifier } from '../src/domains/domains.controller';
+import type { CleanupTarget, HostAgent } from '../src/host-agent/agent';
+import { agentServer } from '../src/host-agent/server';
 import { totpContext } from '../src/platform/platform-auth';
 import { newTotpSecret, totpCode, totpStep } from '../src/platform/totp';
 import { APP_URL, PLATFORM_URL, testEnv } from './env';
@@ -26,6 +30,7 @@ const CSRF = { 'X-Comandou-Request': '1' };
 const KEY = randomBytes(32).toString('base64');
 const METRICS_TOKEN = 'metrics-token-0123456789abcdef';
 const TRAEFIK_TOKEN = 'traefik-token-0123456789abcdef';
+const AGENT_TOKEN = 'agent-token-0123456789abcdef';
 const ADMIN_EMAIL = 'root@plataforma.test';
 const ADMIN_PASSWORD = 'senha-super-admin-123';
 const SECRET = newTotpSecret();
@@ -35,6 +40,23 @@ let http: ReturnType<typeof request>;
 let fx: Fixture;
 let adminCookie = '';
 const txt = new Map<string, string[]>();
+
+// Agente do servidor falso (o HTTP e a autenticação são os reais; só as leituras são fixas).
+const agentCalls: string[] = [];
+const fakeAgent = {
+  status: async () => ({ host: { hostname: 'vm-teste' }, history: [], docker: { services: [] } }),
+  diskUsage: async () => ({ images: { count: 3 } }),
+  cleanup: async (targets: CleanupTarget[]) => {
+    agentCalls.push(`cleanup:${targets.join(',')}`);
+    return targets.map((target) => ({ target, reclaimed: 100, removed: 1 }));
+  },
+  restartService: async (name: string) => {
+    agentCalls.push(`restart:${name}`);
+    return { service: name };
+  },
+  serviceLogs: async (name: string, tail: number) => ({ service: name, text: `linhas ${tail}` }),
+} as unknown as HostAgent;
+let agentSrv: Server;
 
 async function createAdmin() {
   const [{ id }] = await ownerQuery<{ id: string }>(
@@ -103,6 +125,9 @@ const plan = (code: string, extra: object = {}) => ({
 beforeAll(async () => {
   fx = await seedTwoTenants('pf');
   await createAdmin();
+  agentSrv = agentServer(fakeAgent, AGENT_TOKEN);
+  await new Promise<void>((r) => agentSrv.listen(0, '127.0.0.1', r));
+  const agentPort = (agentSrv.address() as AddressInfo).port;
   app = await createApp(
     testEnv({
       AUTH_LOGIN_RATE_LIMIT: '1000',
@@ -110,6 +135,8 @@ beforeAll(async () => {
       INTEGRATIONS_KEY: KEY,
       METRICS_TOKEN,
       TRAEFIK_PROVIDER_TOKEN: TRAEFIK_TOKEN,
+      HOST_AGENT_URL: `http://127.0.0.1:${agentPort}`,
+      HOST_AGENT_TOKEN: AGENT_TOKEN,
     }),
     { logger: false },
   );
@@ -126,6 +153,7 @@ afterAll(async () => {
   // Não deixa plano padrão para os outros arquivos de teste (o provisionamento usaria).
   await ownerQuery(`UPDATE plans SET is_default = false WHERE is_default`);
   await app?.close();
+  agentSrv?.close();
 });
 
 describe('Barreiras do painel', () => {
@@ -625,5 +653,147 @@ describe('Monitoramento e visão geral', () => {
         'platform.tenant_created',
       ]),
     );
+  });
+});
+
+describe('Controle do restaurante e acesso de suporte', () => {
+  const exchange = (host: string, token: string) =>
+    http.post('/api/v1/auth/support').set('Host', host).set(CSRF).send({ token });
+
+  it('equipe com último uso e restaurantes extras de cada pessoa', async () => {
+    const team = (await pget(`/tenants/${fx.tenantA}/team`).expect(200)).body as {
+      email: string;
+      role: string;
+      otherTenants: number;
+    }[];
+    expect(team.map((m) => m.email)).toEqual(
+      expect.arrayContaining(['admin@pf-a.test', 'garcom@pf-a.test']),
+    );
+    expect(team[0]!.role).toBe('owner');
+    expect(team[0]).toHaveProperty('lastSeenAt');
+  });
+
+  it('link de suporte: uso único, só no restaurante dele, sessão marcada e auditada', async () => {
+    const r = await psend('post', `/tenants/${fx.tenantA}/access`, {}).expect(200);
+    expect(r.body).toMatchObject({ slug: 'pf-a', user: { email: 'admin@pf-a.test' } });
+    const token = r.body.token as string;
+
+    // Em outro restaurante o token não vale (e não é gasto).
+    await exchange(HOST_B, token).expect(401);
+    const ok = await exchange(HOST_A, token).expect(200);
+    const raw = (ok.headers['set-cookie'] as unknown as string[]).find((c) =>
+      c.startsWith('cm_sid='),
+    )!;
+    const me = await tget(HOST_A, raw.split(';')[0]!, '/auth/me').expect(200);
+    expect(me.body.user.email).toBe('admin@pf-a.test');
+    expect(me.body.support).toEqual({ adminName: 'Raiz' });
+    // Sessão de suporte dura no máximo 2 horas.
+    expect(new Date(ok.body.expiresAt).getTime() - Date.now()).toBeLessThanOrEqual(2 * 3600_000);
+
+    await exchange(HOST_A, token).expect(401); // uso único
+    const [log] = await ownerQuery<{ n: number }>(
+      `SELECT count(*)::int n FROM audit_log WHERE tenant_id = $1 AND action = 'auth.support_login'`,
+      [fx.tenantA],
+    );
+    expect(log!.n).toBe(1);
+    const audit = (await pget(`/audit?tenantId=${fx.tenantA}`).expect(200)).body as {
+      action: string;
+    }[];
+    expect(audit.map((x) => x.action)).toContain('platform.tenant.support_access');
+  });
+
+  it('link vencido não abre; membro escolhido precisa ser do restaurante', async () => {
+    const r = await psend('post', `/tenants/${fx.tenantA}/access`, {}).expect(200);
+    await ownerQuery(
+      `UPDATE support_access_tokens SET expires_at = now() - interval '1 second' WHERE used_at IS NULL`,
+    );
+    await exchange(HOST_A, r.body.token).expect(401);
+    const [b] = await ownerQuery<{ id: string }>(`SELECT id FROM users WHERE email = $1`, [
+      'admin@pf-b.test',
+    ]);
+    await psend('post', `/tenants/${fx.tenantA}/access`, { userId: b!.id }).expect(422);
+    // Sem sessão do painel, nada.
+    await psend('post', `/tenants/${fx.tenantA}/access`, {}, '').expect(401);
+  });
+
+  it('encerrar sessões derruba quem está logado', async () => {
+    const { cookie } = await tenantLogin(HOST_A, 'garcom@pf-a.test');
+    await tget(HOST_A, cookie, '/auth/me').expect(200);
+    const r = await psend('post', `/tenants/${fx.tenantA}/sessions/revoke`, {}).expect(200);
+    expect(r.body.revoked).toBeGreaterThanOrEqual(1);
+    await tget(HOST_A, cookie, '/auth/me').expect(401);
+  });
+
+  it('redefinir senha: a nova vale, a antiga não, sessões encerradas', async () => {
+    const { cookie } = await tenantLogin(HOST_A, 'garcom@pf-a.test');
+    const [w] = await ownerQuery<{ id: string }>(`SELECT id FROM users WHERE email = $1`, [
+      'garcom@pf-a.test',
+    ]);
+    await psend('post', `/tenants/${fx.tenantA}/password`, {
+      userId: w!.id,
+      password: 'curta',
+    }).expect(400);
+    await psend('post', `/tenants/${fx.tenantB}/password`, {
+      userId: w!.id,
+      password: 'nova-senha-123',
+    }).expect(404); // não é membro do B
+    await psend('post', `/tenants/${fx.tenantA}/password`, {
+      userId: w!.id,
+      password: 'nova-senha-123',
+    }).expect(200);
+    await tget(HOST_A, cookie, '/auth/me').expect(401);
+    expect((await tenantLogin(HOST_A, 'garcom@pf-a.test')).res.status).toBe(401);
+    expect((await tenantLogin(HOST_A, 'garcom@pf-a.test', 'nova-senha-123')).res.status).toBe(200);
+    const audit = await ownerQuery<{ data: object }>(
+      `SELECT data FROM platform_audit_log WHERE action = 'platform.user.password_reset'`,
+    );
+    expect(JSON.stringify(audit)).not.toContain('nova-senha-123');
+  });
+
+  it('renomeia o restaurante com auditoria', async () => {
+    const r = await psend('put', `/tenants/${fx.tenantB}/name`, { name: 'Cantina B' }).expect(200);
+    expect(r.body.name).toBe('Cantina B');
+    const [log] = await ownerQuery<{ data: { to: string } }>(
+      `SELECT data FROM platform_audit_log WHERE action = 'platform.tenant.renamed' ORDER BY id DESC LIMIT 1`,
+    );
+    expect(log!.data.to).toBe('Cantina B');
+  });
+});
+
+describe('Servidor (agente)', () => {
+  it('situação e espaço do Docker pelo agente; sem sessão do painel, 401', async () => {
+    await pget('/server', '').expect(401);
+    const r = await pget('/server').expect(200);
+    expect(r.body).toMatchObject({ enabled: true, host: { hostname: 'vm-teste' } });
+    expect((await pget('/server/disk').expect(200)).body.images.count).toBe(3);
+  });
+
+  it('limpeza só com alvos conhecidos, auditada', async () => {
+    await psend('post', '/server/cleanup', { targets: ['volumes'] }).expect(400);
+    await psend('post', '/server/cleanup', { targets: [] }).expect(400);
+    const r = await psend('post', '/server/cleanup', {
+      targets: ['containers', 'build-cache'],
+    }).expect(200);
+    expect(r.body.results).toHaveLength(2);
+    expect(agentCalls).toContain('cleanup:containers,build-cache');
+    const audit = (await pget('/audit').expect(200)).body as { action: string }[];
+    expect(audit.map((a) => a.action)).toContain('platform.server.cleanup');
+  });
+
+  it('reinicia serviço e lê logs; nome inválido é recusado', async () => {
+    await psend('post', '/server/services/comandou_api/restart', {}).expect(200);
+    expect(agentCalls).toContain('restart:comandou_api');
+    await psend('post', `/server/services/${encodeURIComponent('../x')}/restart`, {}).expect(400);
+    const l = await pget('/server/services/comandou_api/logs?tail=50').expect(200);
+    expect(l.body.text).toBe('linhas 50');
+  });
+
+  it('agente recusa token errado', async () => {
+    const port = (agentSrv.address() as AddressInfo).port;
+    const res = await fetch(`http://127.0.0.1:${port}/v1/status`, {
+      headers: { Authorization: 'Bearer token-errado-0123456789abcdef' },
+    });
+    expect(res.status).toBe(401);
+    expect((await fetch(`http://127.0.0.1:${port}/healthz`)).status).toBe(200);
   });
 });

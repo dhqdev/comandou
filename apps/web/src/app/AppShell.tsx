@@ -239,6 +239,12 @@ export function AppShell() {
             <Badge tone="warning">Reconectando…</Badge>
           )}
         </header>
+        {me?.support && (
+          <div className="offline-banner support-banner" role="status">
+            Acesso de suporte: {me.support.adminName} entrou como {me.user.name}. Tudo fica
+            registrado. <button onClick={logout}>Encerrar acesso</button>
+          </div>
+        )}
         {!online && (
           <div className="offline-banner" role="status">
             <WifiOff size={14} style={{ verticalAlign: -2 }} /> Você está offline. Pagamentos, caixa

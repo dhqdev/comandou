@@ -271,3 +271,17 @@
     padding: var(--cm-space-3) var(--cm-space-4);
   }
 }
+
+.support-banner {
+  background: var(--cm-info-bg);
+  color: var(--cm-info);
+}
+.support-banner button {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}

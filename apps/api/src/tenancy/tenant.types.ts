@@ -13,6 +13,8 @@ export interface AuthenticatedUser {
   email: string;
   role: Role;
   sessionId: string;
+  /** Sessão aberta pelo suporte da plataforma (nome de quem entrou). */
+  supportAdminName?: string | null;
 }
 
 declare module 'express' {

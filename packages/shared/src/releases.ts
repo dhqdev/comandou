@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.10.0',
+    date: '2026-10-22',
+    title: 'Painel da plataforma novo',
+    summary:
+      'O painel admin ganhou visual próprio, funciona como app no celular e passou a mostrar o servidor. Cada restaurante pode ser aberto com um clique.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Visual escuro e direto, com menu inferior no celular e janelas que sobem de baixo. Dá para instalar como app “Comandou Admin”.',
+      },
+      {
+        tag: 'novo',
+        text: '“Abrir sistema”: um link de uso único entra no restaurante já logado, como o dono ou outro membro. A sessão dura até 2 horas, mostra um aviso de suporte e fica registrada.',
+      },
+      {
+        tag: 'novo',
+        text: 'Por restaurante: equipe com último acesso, encerrar sessões, redefinir senha de um membro e renomear.',
+      },
+      {
+        tag: 'novo',
+        text: 'Tela Servidor: CPU, memória, disco e rede da VM com gráficos, serviços e containers rodando ou parados, logs, reiniciar serviço e limpeza do Docker.',
+      },
+      {
+        tag: 'segurança',
+        text: 'O agente do servidor só tem ações fixas (sem terminal), fica na rede interna com token, e toda ação vai para a auditoria.',
+      },
+    ],
+  },
+  {
     version: '0.9.0',
     date: '2026-10-22',
     title: 'Pronto para crescer: banco dedicado, PgBouncer e uso por restaurante',

@@ -1,0 +1,50 @@
+# Overlay opcional: agente do servidor para o painel Super Admin (tela "Servidor").
+# Mostra CPU, memória, disco e rede da VM, lista serviços e containers, limpa o Docker
+# (containers parados, imagens e cache de build; nunca volumes), reinicia serviços e mostra logs.
+#
+#   printf '%s' "$(openssl rand -hex 32)" | docker secret create comandou_agent_token -
+#   docker stack deploy -c infrastructure/swarm/comandou-stack.yml \
+#     -c infrastructure/swarm/agent.yml comandou
+#
+# Atenção: acesso ao socket do Docker equivale a acesso de administrador (root) ao servidor.
+# Por isso o agente só tem as ações acima (sem terminal, sem executar comandos), fica só na rede
+# interna e exige token; a API só repassa pedidos de um Super Admin logado com 2º fator, e toda
+# ação fica na auditoria. Para tirar: faça o deploy sem este arquivo.
+version: '3.8'
+services:
+  agent:
+    image: ghcr.io/dhqdev/comandou-api:${COMANDOU_VERSION:?defina a versão}
+    command: ['node', 'dist/host-agent/main.js']
+    user: root # precisa do socket do Docker
+    environment:
+      AGENT_TOKEN_FILE: /run/secrets/comandou_agent_token
+      HOST_PROC: /host/proc
+      HOST_ROOT: /host/root
+    secrets: [comandou_agent_token]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc:/host/proc:ro
+      - /:/host/root:ro
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3200/healthz']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks: [comandou_internal]
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager] # reiniciar e listar serviços exige um manager
+      restart_policy: { condition: on-failure }
+      resources:
+        limits: { memory: 128M }
+
+  api:
+    environment:
+      HOST_AGENT_URL: http://agent:3200
+      HOST_AGENT_TOKEN_FILE: /run/secrets/comandou_agent_token
+    secrets:
+      - comandou_agent_token
+
+secrets:
+  comandou_agent_token: { external: true }

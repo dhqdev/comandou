@@ -94,3 +94,91 @@ export interface AuditRow {
   createdAt: string;
   adminName: string | null;
 }
+
+export interface TeamMember {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: 'active' | 'revoked';
+  disabledAt: string | null;
+  createdAt: string;
+  lastSeenAt: string | null;
+  activeSessions: number;
+  otherTenants: number;
+}
+
+export interface SupportLink {
+  slug: string;
+  token: string;
+  expiresAt: string;
+  user: { id: string; name: string; email: string };
+}
+
+export interface ServerSample {
+  at: number;
+  cpu: number;
+  mem: number;
+  rxBps: number;
+  txBps: number;
+}
+export interface ServerService {
+  id: string;
+  name: string;
+  stack: string | null;
+  image: string;
+  mode: 'replicated' | 'global';
+  desired: number | null;
+  running: number;
+  updatedAt: string;
+  updateState: string | null;
+  lastError: string | null;
+}
+export interface ServerContainer {
+  id: string;
+  name: string;
+  service: string | null;
+  image: string;
+  state: string;
+  status: string;
+  createdAt: string;
+  memoryBytes: number | null;
+}
+export type ServerStatus =
+  | { enabled: false }
+  | {
+      enabled: true;
+      at: string;
+      host: {
+        hostname: string;
+        uptimeSec: number;
+        cores: number;
+        load: [number, number, number];
+        cpu: { percent: number | null; steal: number };
+        memory: {
+          total: number;
+          available: number;
+          used: number;
+          swapTotal: number;
+          swapUsed: number;
+        };
+        disks: { mount: string; total: number; free: number }[];
+        network: { rxBps: number | null; txBps: number | null };
+      };
+      history: ServerSample[];
+      docker:
+        | { error: string }
+        | {
+            version: string;
+            swarm: boolean;
+            manager: boolean;
+            containers: { total: number; running: number; list: ServerContainer[] };
+            services: ServerService[];
+          };
+    };
+export interface DockerDisk {
+  images: { count: number; size: number; unused: number; reclaimable: number };
+  containers: { count: number; stopped: number; reclaimable: number };
+  volumes: { count: number; size: number };
+  buildCache: { count: number; reclaimable: number };
+}

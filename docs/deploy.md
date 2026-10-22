@@ -166,6 +166,35 @@ Só a API passa por ele. Migrações e o painel Super Admin continuam direto no 
 de sessão). Para voltar, faça o deploy sem o overlay. A senha no endereço não pode ter caracteres
 que precisem de escape em URL (as geradas com `openssl rand -hex` servem).
 
+### Agente do servidor (tela “Servidor” do painel)
+
+O painel Super Admin mostra CPU, memória, disco e rede da VM, os serviços e containers do Docker,
+limpa o Docker, reinicia serviços e mostra logs por meio de um serviço pequeno, o agente, com o
+overlay [`infrastructure/swarm/agent.yml`](../infrastructure/swarm/agent.yml):
+
+```bash
+openssl rand -hex 32 | tr -d '\n' | docker secret create comandou_agent_token -
+docker stack deploy -c infrastructure/swarm/comandou-stack.yml -c infrastructure/swarm/agent.yml comandou
+```
+
+O agente usa a mesma imagem da API (`node dist/host-agent/main.js`), fica só na rede interna e
+exige token. Ele monta o socket do Docker, o `/proc` e a raiz do servidor (só leitura). Acesso ao
+socket do Docker equivale a administrador do servidor, então o agente só tem ações fixas: limpar
+containers parados, imagens e cache de build (nunca volumes), reiniciar um serviço
+(`docker service update --force`) e ler as últimas linhas de log. Não há terminal nem execução de
+comandos. Toda ação fica na auditoria do painel. Liberar cache de RAM e limpar pacotes do sistema
+não estão disponíveis (exigiriam um container privilegiado).
+
+Na API: `HOST_AGENT_URL` (ex.: `http://agent:3200`) e `HOST_AGENT_TOKEN` (ou `_FILE`). Sem eles,
+a tela mostra como instalar.
+
+### Abrir o sistema de um restaurante (acesso de suporte)
+
+No painel, “Abrir sistema” gera um link de uso único que vale 2 minutos e só no endereço daquele
+restaurante (`/suporte#token`; o token fica no fragmento, que não vai para logs). Ele abre uma
+sessão como o dono (ou o membro escolhido na aba Equipe), de no máximo 2 horas, com um aviso
+“Acesso de suporte” no topo. Fica registrado na auditoria do painel e no histórico do restaurante.
+
 ### Bancos dedicados (preparado, ainda sem clientes)
 
 O `comandou-migrate` aplica as migrações no banco central (`DATABASE_OWNER_URL`) e depois em cada

@@ -6,6 +6,8 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { RELEASES } from '@comandou/shared';
+import { createHash, randomBytes } from 'node:crypto';
+import { hashPassword } from '../auth/password';
 import type { PoolClient } from 'pg';
 import { ENV, Env } from '../config/env';
 import { HealthChecks } from '../health/checks.service';
@@ -207,6 +209,157 @@ export class PlatformService {
       }),
     );
     return this.tenant(r.tenantId);
+  }
+
+  // ------------------------------------------------------------------ controle do restaurante
+  /** Equipe do restaurante com o último uso de cada pessoa (sem dados operacionais). */
+  async team(tenantId: string) {
+    await this.mustExist(tenantId);
+    return this.db.query(
+      `SELECT u.id, u.name, u.email::text AS email, m.role, m.status, u.disabled_at AS "disabledAt",
+              m.created_at AS "createdAt",
+              (SELECT max(s.last_seen_at) FROM sessions s
+                WHERE s.tenant_id = m.tenant_id AND s.user_id = m.user_id) AS "lastSeenAt",
+              (SELECT count(*)::int FROM sessions s
+                WHERE s.tenant_id = m.tenant_id AND s.user_id = m.user_id
+                  AND s.revoked_at IS NULL AND s.expires_at > now()) AS "activeSessions",
+              (SELECT count(*)::int FROM memberships o
+                WHERE o.user_id = m.user_id AND o.tenant_id <> m.tenant_id AND o.status = 'active')
+                AS "otherTenants"
+         FROM memberships m JOIN users u ON u.id = m.user_id
+        WHERE m.tenant_id = $1
+        ORDER BY m.status, (m.role = 'owner') DESC, u.name`,
+      [tenantId],
+    );
+  }
+
+  /**
+   * Link de uso único (2 minutos) que abre o sistema do restaurante já logado, como o membro
+   * escolhido (padrão: o primeiro administrador ativo). A sessão fica marcada como suporte.
+   */
+  async supportAccess(tenantId: string, userId: string | undefined, a: Actor) {
+    return this.db.tx(async (c) => {
+      const t = (
+        await c.query<{ slug: string; status: string }>(
+          `SELECT slug, status FROM tenants WHERE id = $1`,
+          [tenantId],
+        )
+      ).rows[0];
+      if (!t) throw new NotFoundException('Restaurante não encontrado');
+      if (t.status !== 'provisioned')
+        throw new ConflictException('Só dá para abrir um restaurante ativo');
+      const member = (
+        await c.query<{ id: string; name: string; email: string }>(
+          `SELECT u.id, u.name, u.email::text AS email FROM memberships m JOIN users u ON u.id = m.user_id
+            WHERE m.tenant_id = $1 AND m.status = 'active' AND u.disabled_at IS NULL
+              AND ($2::uuid IS NULL OR u.id = $2::uuid)
+            ORDER BY (m.role = 'owner') DESC, m.created_at LIMIT 1`,
+          [tenantId, userId ?? null],
+        )
+      ).rows[0];
+      if (!member) throw new UnprocessableEntityException('Nenhum membro ativo para entrar');
+      const token = randomBytes(32).toString('base64url');
+      const r = await c.query<{ expires_at: Date }>(
+        `INSERT INTO support_access_tokens (tenant_id, user_id, admin_id, token_hash, expires_at)
+         VALUES ($1, $2, $3, $4, now() + interval '2 minutes') RETURNING expires_at`,
+        [tenantId, member.id, a.admin.id, createHash('sha256').update(token).digest()],
+      );
+      await platformAudit(c, {
+        adminId: a.admin.id,
+        action: 'platform.tenant.support_access',
+        entity: 'user',
+        entityId: member.id,
+        tenantId,
+        data: { as: member.email },
+        ip: a.ip,
+      });
+      return { slug: t.slug, token, expiresAt: r.rows[0]!.expires_at, user: member };
+    });
+  }
+
+  /** Encerra as sessões abertas do restaurante (todas ou só de um membro). */
+  async revokeSessions(tenantId: string, userId: string | undefined, a: Actor) {
+    await this.mustExist(tenantId);
+    return this.db.tx(async (c) => {
+      const r = await c.query(
+        `UPDATE sessions SET revoked_at = now()
+          WHERE tenant_id = $1 AND ($2::uuid IS NULL OR user_id = $2::uuid)
+            AND revoked_at IS NULL AND expires_at > now()`,
+        [tenantId, userId ?? null],
+      );
+      await platformAudit(c, {
+        adminId: a.admin.id,
+        action: 'platform.tenant.sessions_revoked',
+        entity: userId ? 'user' : 'tenant',
+        entityId: userId ?? tenantId,
+        tenantId,
+        data: { count: r.rowCount ?? 0 },
+        ip: a.ip,
+      });
+      return { revoked: r.rowCount ?? 0 };
+    });
+  }
+
+  /**
+   * Nova senha para um membro. A conta é única por e-mail: vale em todos os restaurantes da
+   * pessoa, e todas as sessões dela são encerradas. A senha nunca é auditada.
+   */
+  async resetPassword(tenantId: string, userId: string, password: string, a: Actor) {
+    const hash = await hashPassword(password);
+    await this.db.tx(async (c) => {
+      const m = await c.query(`SELECT 1 FROM memberships WHERE tenant_id = $1 AND user_id = $2`, [
+        tenantId,
+        userId,
+      ]);
+      if (!m.rowCount) throw new NotFoundException('Membro não encontrado neste restaurante');
+      await c.query(`UPDATE users SET password_hash = $2 WHERE id = $1`, [userId, hash]);
+      const r = await c.query(
+        `UPDATE sessions SET revoked_at = now()
+          WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()`,
+        [userId],
+      );
+      await platformAudit(c, {
+        adminId: a.admin.id,
+        action: 'platform.user.password_reset',
+        entity: 'user',
+        entityId: userId,
+        tenantId,
+        data: { sessionsRevoked: r.rowCount ?? 0 },
+        ip: a.ip,
+      });
+      await c.query(
+        `INSERT INTO audit_log (tenant_id, action, entity, entity_id, data)
+         VALUES ($1::uuid, 'user.password_reset', 'user', $2::text, '{"by":"platform"}'::jsonb)`,
+        [tenantId, userId],
+      );
+    });
+    return { ok: true };
+  }
+
+  async renameTenant(tenantId: string, name: string, a: Actor) {
+    await this.db.tx(async (c) => {
+      const r = await c.query<{ old: string }>(
+        `UPDATE tenants t SET name = $2 FROM (SELECT id, name AS old FROM tenants WHERE id = $1) o
+          WHERE t.id = o.id RETURNING o.old`,
+        [tenantId, name],
+      );
+      if (!r.rowCount) throw new NotFoundException('Restaurante não encontrado');
+      await platformAudit(c, {
+        adminId: a.admin.id,
+        action: 'platform.tenant.renamed',
+        entity: 'tenant',
+        entityId: tenantId,
+        tenantId,
+        data: { from: r.rows[0]!.old, to: name },
+        ip: a.ip,
+      });
+    });
+    return this.tenant(tenantId);
+  }
+
+  private async mustExist(tenantId: string) {
+    const r = await this.db.query(`SELECT 1 FROM tenants WHERE id = $1`, [tenantId]);
+    if (!r.length) throw new NotFoundException('Restaurante não encontrado');
   }
 
   /** Suspende (bloqueia login e operação) ou reativa. Nada é apagado. */

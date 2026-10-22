@@ -36,6 +36,7 @@ beforeAll(async () => {
   c = new Client({ connectionString: OWNER_URL });
   await c.connect();
   await c.query('BEGIN');
+  await c.query('DELETE FROM support_access_tokens');
   await c.query('DELETE FROM platform_sessions');
   await c.query('DELETE FROM platform_audit_log');
   await c.query('DELETE FROM platform_admins');

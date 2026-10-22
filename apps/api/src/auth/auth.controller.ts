@@ -22,13 +22,14 @@ import { ENV, Env } from '../config/env';
 import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { DUMMY_HASH, verifyPassword } from './password';
-import { SESSION_COOKIE, SessionService } from './session.service';
+import { hashToken, SESSION_COOKIE, SessionService } from './session.service';
 
 const LoginSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   password: z.string().min(1).max(200),
 });
 type LoginInput = z.infer<typeof LoginSchema>;
+const SupportSchema = z.object({ token: z.string().min(20).max(100) });
 
 interface LoginRow {
   user_id: string;
@@ -124,6 +125,52 @@ export class AuthController {
     });
   }
 
+  /**
+   * Acesso de suporte: troca o token de uso único gerado no painel Super Admin por uma sessão.
+   * O token só vale no restaurante para o qual foi gerado (o restaurante vem do host), por
+   * 2 minutos e uma única vez. A sessão dura no máximo 2 horas e fica marcada como suporte.
+   */
+  @Public()
+  @Post('support')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  async support(
+    @Body(new ZodPipe(SupportSchema)) body: z.infer<typeof SupportSchema>,
+    @CurrentTenant() tenant: ResolvedTenant,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const [row] = await this.db.queryUnscoped<{ user_id: string; admin_name: string }>(
+      'SELECT user_id, admin_name FROM app_consume_support_token($1, $2)',
+      [tenant.id, hashToken(body.token)],
+    );
+    if (!row) throw new UnauthorizedException('Link de acesso inválido ou vencido');
+    return this.db.withTenant({ tenantId: tenant.id, userId: row.user_id }, async (tx) => {
+      const s = await this.sessions.create(tx, tenant.id, row.user_id, {
+        ip: req.ip,
+        userAgent: req.get('user-agent'),
+        supportAdminName: row.admin_name,
+      });
+      await this.audit.record(tx, {
+        tenantId: tenant.id,
+        actorUserId: row.user_id,
+        action: 'auth.support_login',
+        entity: 'user',
+        entityId: row.user_id,
+        data: { by: 'platform', admin: row.admin_name },
+        ip: req.ip,
+      });
+      res.cookie(SESSION_COOKIE, s.token, {
+        httpOnly: true,
+        secure: this.env.COOKIE_SECURE,
+        sameSite: 'lax',
+        path: '/',
+        expires: s.expiresAt,
+      });
+      return { expiresAt: s.expiresAt };
+    });
+  }
+
   @Get('me')
   me(@CurrentUser() user: AuthenticatedUser, @CurrentTenant() tenant: ResolvedTenant) {
     return {
@@ -134,6 +181,7 @@ export class AuthController {
         role: user.role,
         roleLabel: ROLE_LABELS[user.role],
       },
+      support: user.supportAdminName ? { adminName: user.supportAdminName } : null,
       permissions: DEFAULT_ROLE_PERMISSIONS[user.role],
       tenant: { id: tenant.id, slug: tenant.slug, name: tenant.name },
     };

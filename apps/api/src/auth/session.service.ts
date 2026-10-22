@@ -29,10 +29,14 @@ export class SessionService {
     tx: Tx,
     tenantId: string,
     userId: string,
-    meta: { ip?: string; userAgent?: string },
+    meta: { ip?: string; userAgent?: string; supportAdminName?: string },
   ): Promise<{ token: string; expiresAt: Date }> {
     const token = randomBytes(32).toString('base64url');
-    const expiresAt = new Date(Date.now() + this.env.SESSION_TTL_HOURS * 3600_000);
+    // Acesso de suporte dura no máximo 2 horas.
+    const hours = meta.supportAdminName
+      ? Math.min(2, this.env.SESSION_TTL_HOURS)
+      : this.env.SESSION_TTL_HOURS;
+    const expiresAt = new Date(Date.now() + hours * 3600_000);
     await tx.insert(sessions).values({
       tenantId,
       userId,
@@ -40,6 +44,7 @@ export class SessionService {
       expiresAt,
       ip: meta.ip ?? null,
       userAgent: meta.userAgent?.slice(0, 300) ?? null,
+      supportAdminName: meta.supportAdminName ?? null,
     });
     return { token, expiresAt };
   }
@@ -55,6 +60,7 @@ export class SessionService {
           email: users.email,
           role: memberships.role,
           lastSeenAt: sessions.lastSeenAt,
+          supportAdminName: sessions.supportAdminName,
         })
         .from(sessions)
         .innerJoin(
@@ -86,6 +92,7 @@ export class SessionService {
         email: row.email,
         role: row.role as Role,
         sessionId: row.sessionId,
+        supportAdminName: row.supportAdminName,
       };
     });
   }

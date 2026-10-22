@@ -69,3 +69,19 @@ export const NewPlan = PlanBody.extend({
     .toLowerCase()
     .regex(/^[a-z0-9][a-z0-9-]{1,39}$/, 'código com letras minúsculas, números e hífen'),
 });
+
+export const SupportAccess = z.object({ userId: z.string().uuid().optional() });
+export const RevokeSessions = z.object({ userId: z.string().uuid().optional() });
+export const ResetPassword = z.object({
+  userId: z.string().uuid(),
+  password: z.string().min(10).max(200),
+});
+export const RenameTenant = z.object({ name: z.string().trim().min(1).max(120) });
+
+export const ServerCleanup = z.object({
+  targets: z
+    .array(z.enum(['containers', 'images', 'unused-images', 'build-cache']))
+    .min(1)
+    .max(4),
+});
+export const ServiceName = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,120}$/);

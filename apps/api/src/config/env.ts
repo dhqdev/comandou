@@ -84,6 +84,9 @@ const schema = z.object({
     .default(30),
   /** Token do endpoint /api/v1/metrics (Prometheus). Sem ele, o endpoint não existe. */
   METRICS_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(24).optional()),
+  /** Agente do servidor (painel Super Admin → Servidor). Sem URL, a tela mostra "não instalado". */
+  HOST_AGENT_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
+  HOST_AGENT_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(24).optional()),
   /**
    * Métricas por restaurante (rótulo = slug, sem rota): uso de cada cliente para decidir quem
    * precisa de banco dedicado (ADR 0011). Desligado por padrão.
@@ -157,6 +160,7 @@ export const FILE_SECRET_VARS = [
   'PLATFORM_ADMIN_TOTP_SECRET',
   'METRICS_TOKEN',
   'TRAEFIK_PROVIDER_TOKEN',
+  'HOST_AGENT_TOKEN',
 ] as const;
 
 /**

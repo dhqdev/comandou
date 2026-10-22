@@ -31,10 +31,18 @@ import {
   NewPlan,
   NewTenant,
   PlanBody,
+  RenameTenant,
+  ResetPassword,
+  RevokeSessions,
+  ServerCleanup,
+  ServiceName,
   StatusChange,
   SubscriptionChange,
+  SupportAccess,
 } from './platform.schemas';
 import { Actor, PlatformService } from './platform.service';
+import { PlatformDb, platformAudit } from './platform-db.service';
+import { ServerAgentClient } from './server-agent.service';
 
 const actor = (req: Request): Actor => ({ admin: req.platformAdmin!, ip: req.ip });
 
@@ -141,6 +149,52 @@ export class PlatformController {
     return this.svc.setSubscription(id, b, actor(req));
   }
 
+  @Get('tenants/:id/team')
+  team(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.svc.team(id);
+  }
+
+  /** Link de uso único para abrir o sistema do restaurante já logado (acesso de suporte). */
+  @Post('tenants/:id/access')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  access(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(SupportAccess)) b: z.infer<typeof SupportAccess>,
+    @Req() req: Request,
+  ) {
+    return this.svc.supportAccess(id, b.userId, actor(req));
+  }
+
+  @Post('tenants/:id/sessions/revoke')
+  @HttpCode(200)
+  revokeSessions(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(RevokeSessions)) b: z.infer<typeof RevokeSessions>,
+    @Req() req: Request,
+  ) {
+    return this.svc.revokeSessions(id, b.userId, actor(req));
+  }
+
+  @Post('tenants/:id/password')
+  @HttpCode(200)
+  resetPassword(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(ResetPassword)) b: z.infer<typeof ResetPassword>,
+    @Req() req: Request,
+  ) {
+    return this.svc.resetPassword(id, b.userId, b.password, actor(req));
+  }
+
+  @Put('tenants/:id/name')
+  rename(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(RenameTenant)) b: z.infer<typeof RenameTenant>,
+    @Req() req: Request,
+  ) {
+    return this.svc.renameTenant(id, b.name, actor(req));
+  }
+
   @Post('tenants/:id/domains/:domainId/remove')
   @HttpCode(200)
   removeDomain(
@@ -182,5 +236,85 @@ export class PlatformController {
   @Get('backups')
   backups() {
     return this.svc.backups();
+  }
+}
+
+/**
+ * Servidor (VM): situação, limpeza, reinício de serviço e logs, pelo agente do servidor.
+ * Ações que mudam algo ficam na auditoria da plataforma.
+ */
+@Controller({ path: 'platform/server', version: '1' })
+@SkipTenant()
+@Public()
+@UseGuards(PlatformHostGuard, PlatformSessionGuard)
+export class PlatformServerController {
+  constructor(
+    private readonly agent: ServerAgentClient,
+    private readonly db: PlatformDb,
+  ) {}
+
+  private audit(req: Request, action: string, data: Record<string, unknown>) {
+    return this.db.tx((c) =>
+      platformAudit(c, {
+        adminId: req.platformAdmin!.id,
+        action: `platform.server.${action}`,
+        entity: 'server',
+        data,
+        ip: req.ip,
+      }),
+    );
+  }
+
+  @Get()
+  async status() {
+    if (!this.agent.enabled) return { enabled: false };
+    return { enabled: true, ...(await this.agent.call<object>('GET', '/v1/status')) };
+  }
+
+  @Get('disk')
+  disk() {
+    return this.agent.call('GET', '/v1/disk', undefined, 130_000);
+  }
+
+  @Post('cleanup')
+  @HttpCode(200)
+  async cleanup(
+    @Body(new ZodPipe(ServerCleanup)) b: z.infer<typeof ServerCleanup>,
+    @Req() req: Request,
+  ) {
+    const r = await this.agent.call<{ results: { target: string; reclaimed: number }[] }>(
+      'POST',
+      '/v1/cleanup',
+      b,
+      320_000,
+    );
+    await this.audit(req, 'cleanup', {
+      targets: b.targets,
+      reclaimed: r.results.reduce((s, x) => s + x.reclaimed, 0),
+    });
+    return r;
+  }
+
+  @Post('services/:name/restart')
+  @HttpCode(200)
+  async restart(@Param('name', new ZodPipe(ServiceName)) name: string, @Req() req: Request) {
+    const r = await this.agent.call('POST', `/v1/services/${encodeURIComponent(name)}/restart`);
+    await this.audit(req, 'service_restarted', { service: name });
+    return r;
+  }
+
+  @Get('services/:name/logs')
+  async logs(
+    @Param('name', new ZodPipe(ServiceName)) name: string,
+    @Query('tail') tail: string | undefined,
+    @Req() req: Request,
+  ) {
+    const n = Math.min(Math.max(Number(tail) || 200, 10), 1000);
+    const r = await this.agent.call(
+      'GET',
+      `/v1/services/${encodeURIComponent(name)}/logs?tail=${n}`,
+    );
+    await this.audit(req, 'logs_viewed', { service: name });
+    return r;
   }
 }

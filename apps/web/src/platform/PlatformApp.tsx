@@ -2,10 +2,12 @@ import {
   Activity,
   Building2,
   DatabaseBackup,
+  Download,
   LogOut,
   Menu,
+  RefreshCw,
   ScrollText,
-  ShieldCheck,
+  Server,
   Tags,
 } from 'lucide-react';
 import {
@@ -17,14 +19,24 @@ import {
   useEffect,
   useState,
 } from 'react';
-import { BrowserRouter, NavLink, Outlet, Route, Routes } from 'react-router';
-import { Alert, Button, Spinner, TextField, ToastProvider } from '../design-system';
+import { BrowserRouter, NavLink, Outlet, Route, Routes, useLocation } from 'react-router';
+import {
+  Alert,
+  Button,
+  Modal,
+  Spinner,
+  TextField,
+  ToastProvider,
+  useToast,
+} from '../design-system';
 import { api, ApiError } from '../lib/api';
 import '../app/shell.css';
 import '../app/ops.css';
-import '../pages/login.css';
+import './admin.css';
 import { AuditPage, BackupsPage, OverviewPage } from './OverviewPages';
 import { PlansPage } from './PlansPage';
+import { isStandalone, promptInstall } from './pwa';
+import { ServerPage } from './ServerPage';
 import { TenantDetailPage, TenantsPage } from './TenantsPages';
 
 /** O painel Super Admin só existe em admin.<domínio base>. */
@@ -104,131 +116,226 @@ function PlatformLogin() {
   }
 
   return (
-    <div className="login">
-      <div className="login__panel">
-        <div className="login__brand">
-          <div className="brand__mark" aria-hidden>
-            C
-          </div>
-          <span>Comandou · Plataforma</span>
+    <div style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: 16 }}>
+      <form
+        onSubmit={onSubmit}
+        noValidate
+        className="adm-panel"
+        style={{ width: 'min(400px, 100%)', padding: 24, display: 'grid', gap: 14 }}
+      >
+        <div className="adm-logo" style={{ padding: 0 }}>
+          Comandou <span>//</span> admin
         </div>
-        <h1 className="login__title">Painel Super Admin</h1>
-        <p className="login__sub">Acesso restrito à equipe da plataforma. Tudo é auditado.</p>
-        <form onSubmit={onSubmit} className="login__form" noValidate>
-          <TextField
-            label="E-mail"
-            type="email"
-            autoComplete="username"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          <TextField
-            label="Senha"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <TextField
-            label="Código do autenticador"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            hint="6 dígitos do aplicativo autenticador"
-          />
-          {error && <Alert tone="danger">{error}</Alert>}
-          <Button
-            type="submit"
-            size="lg"
-            block
-            loading={busy}
-            disabled={!email || !password || code.length !== 6}
-          >
-            Entrar
-          </Button>
-        </form>
-      </div>
-      <div className="login__art" aria-hidden>
-        <div className="login__quote">
-          Restaurantes, planos,
-          <br />
-          saúde e backups.
+        <div className="adm-sub" style={{ whiteSpace: 'normal', marginTop: -8 }}>
+          Acesso restrito à equipe da plataforma. Tudo é auditado.
         </div>
-      </div>
+        <TextField
+          label="E-mail"
+          type="email"
+          autoComplete="username"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <TextField
+          label="Senha"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <TextField
+          label="Código do autenticador"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+          hint="6 dígitos do aplicativo autenticador"
+        />
+        {error && <Alert tone="danger">{error}</Alert>}
+        <Button
+          type="submit"
+          size="lg"
+          block
+          loading={busy}
+          disabled={!email || !password || code.length !== 6}
+        >
+          Entrar
+        </Button>
+      </form>
     </div>
   );
 }
 
 const NAV = [
-  { to: '/', label: 'Visão geral', icon: <Activity size={18} /> },
-  { to: '/restaurantes', label: 'Restaurantes', icon: <Building2 size={18} /> },
-  { to: '/planos', label: 'Planos', icon: <Tags size={18} /> },
-  { to: '/backups', label: 'Backups', icon: <DatabaseBackup size={18} /> },
-  { to: '/auditoria', label: 'Auditoria', icon: <ScrollText size={18} /> },
+  { to: '/', label: 'Status', icon: Activity },
+  { to: '/restaurantes', label: 'Restaurantes', icon: Building2 },
+  { to: '/servidor', label: 'Servidor', icon: Server },
+  { to: '/planos', label: 'Planos', icon: Tags },
+  { to: '/backups', label: 'Backups', icon: DatabaseBackup },
+  { to: '/auditoria', label: 'Auditoria', icon: ScrollText },
 ];
+const TABBAR = NAV.slice(0, 4);
+
+function titleFor(path: string) {
+  if (path === '/') return 'Status';
+  return NAV.find((n) => n.to !== '/' && path.startsWith(n.to))?.label ?? 'Painel';
+}
+
+function InstallSheet({ onClose }: { onClose: () => void }) {
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  return (
+    <Modal open title="Instalar o app" onClose={onClose}>
+      {ios ? (
+        <ol style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 8 }}>
+          <li>Abra este endereço no Safari.</li>
+          <li>
+            Toque em <strong>Compartilhar</strong> (quadrado com seta para cima).
+          </li>
+          <li>
+            Escolha <strong>Adicionar à Tela de Início</strong> e confirme.
+          </li>
+        </ol>
+      ) : (
+        <p style={{ margin: 0 }}>
+          No Chrome: menu ⋮ → <strong>Instalar app</strong> (ou “Adicionar à tela inicial”).
+        </p>
+      )}
+      <p className="adm-sub" style={{ whiteSpace: 'normal' }}>
+        O app “Comandou Admin” abre direto no painel, em tela cheia.
+      </p>
+    </Modal>
+  );
+}
 
 function PlatformShell() {
   const { admin, logout } = usePlatformAuth();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const toast = useToast();
+  const { pathname } = useLocation();
+  const [more, setMore] = useState(false);
+  const [install, setInstall] = useState(false);
+  const [tick, setTick] = useState(0);
+  const [spinning, setSpinning] = useState(false);
+  const standalone = isStandalone();
+
+  useEffect(() => setMore(false), [pathname]);
+
+  const refresh = () => {
+    setTick((t) => t + 1);
+    setSpinning(true);
+    setTimeout(() => setSpinning(false), 600);
+  };
+  const doInstall = async () => {
+    if (!(await promptInstall())) setInstall(true);
+    else toast('Instalando…', 'success');
+  };
+
   return (
-    <div className="shell" data-menu={menuOpen ? 'open' : 'closed'}>
-      <aside className="sidebar" aria-label="Navegação principal">
-        <div className="brand">
-          <div className="brand__mark" aria-hidden>
-            <ShieldCheck size={18} />
-          </div>
-          <div>
-            <div className="brand__name">Comandou</div>
-            <div className="brand__tenant">Super Admin</div>
-          </div>
+    <div className="adm">
+      <aside className="adm-rail" aria-label="Navegação">
+        <div className="adm-logo">
+          Comandou <span>//</span> admin
         </div>
-        <nav aria-label="Plataforma">
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-              onClick={() => setMenuOpen(false)}
-            >
-              {item.icon}
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="sidebar__footer">
-          <div className="user-chip">
-            <div>
-              <div>{admin?.name}</div>
-              <div className="brand__tenant">{admin?.email}</div>
-            </div>
-          </div>
-          <button
-            className="nav-link"
-            style={{ border: 0, background: 'none', cursor: 'pointer' }}
-            onClick={logout}
+        {NAV.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            className={({ isActive }) => `adm-nav ${isActive ? 'active' : ''}`}
           >
-            <LogOut size={18} /> Sair
+            <Icon size={16} /> {label}
+          </NavLink>
+        ))}
+        <div className="adm-rail__foot">
+          {!standalone && (
+            <button className="adm-nav" style={{ padding: '6px 0' }} onClick={doInstall}>
+              <Download size={14} /> Instalar app
+            </button>
+          )}
+          <button className="adm-nav" style={{ padding: '6px 0' }} onClick={logout}>
+            <LogOut size={14} /> Sair
           </button>
+          <div>{admin?.name}</div>
+          <div>{admin?.email}</div>
         </div>
       </aside>
-      <div className="main">
-        <header className="topbar">
-          <Button
-            variant="ghost"
-            className="menu-toggle"
-            aria-label="Abrir menu"
-            onClick={() => setMenuOpen((v) => !v)}
-            icon={<Menu size={20} />}
-          />
-          <strong>Painel da plataforma</strong>
+      <div className="adm-main">
+        <header className="adm-top">
+          <div>
+            <div className="adm-top__title">{titleFor(pathname)}</div>
+            <div className="adm-top__sub">{window.location.hostname}</div>
+          </div>
+          <span className="adm-top__spacer" />
+          <button
+            className="adm-icon-btn"
+            onClick={refresh}
+            aria-label="Atualizar"
+            aria-busy={spinning}
+          >
+            <RefreshCw size={16} />
+          </button>
         </header>
-        <main className="content">
-          <Outlet />
+        <main className="adm-content">
+          <Outlet key={tick} />
         </main>
       </div>
+      <nav className="adm-tabbar" aria-label="Navegação">
+        {TABBAR.map(({ to, label, icon: Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/'}
+            className={({ isActive }) => (isActive ? 'active' : '')}
+          >
+            <Icon size={20} />
+            {label === 'Restaurantes' ? 'Clientes' : label}
+          </NavLink>
+        ))}
+        <button className={more ? 'active' : ''} onClick={() => setMore(true)}>
+          <Menu size={20} />
+          Mais
+        </button>
+      </nav>
+      <Modal open={more} title="Menu" onClose={() => setMore(false)}>
+        <div className="adm-grid" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+          {NAV.slice(4).map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className="adm-tile"
+              style={{ justifyItems: 'center', textDecoration: 'none' }}
+            >
+              <Icon size={22} color="var(--a-accent)" />
+              <span className="adm-label">{label}</span>
+            </NavLink>
+          ))}
+          {!standalone && (
+            <button className="adm-tile" style={{ justifyItems: 'center' }} onClick={doInstall}>
+              <Download size={22} color="var(--a-accent)" />
+              <span className="adm-label">Instalar</span>
+            </button>
+          )}
+          <button
+            className="adm-tile"
+            style={{ justifyItems: 'center' }}
+            onClick={() => {
+              setMore(false);
+              refresh();
+            }}
+          >
+            <RefreshCw size={22} color="var(--a-accent)" />
+            <span className="adm-label">Atualizar</span>
+          </button>
+          <button className="adm-tile" style={{ justifyItems: 'center' }} onClick={logout}>
+            <LogOut size={22} color="var(--a-bad)" />
+            <span className="adm-label">Sair</span>
+          </button>
+        </div>
+        <p className="adm-sub" style={{ textAlign: 'center', marginBottom: 0 }}>
+          {admin?.name} · {admin?.email}
+        </p>
+      </Modal>
+      {install && <InstallSheet onClose={() => setInstall(false)} />}
     </div>
   );
 }
@@ -254,6 +361,7 @@ function Gate() {
         <Route index element={<OverviewPage />} />
         <Route path="restaurantes" element={<TenantsPage />} />
         <Route path="restaurantes/:id" element={<TenantDetailPage />} />
+        <Route path="servidor" element={<ServerPage />} />
         <Route path="planos" element={<PlansPage />} />
         <Route path="backups" element={<BackupsPage />} />
         <Route path="auditoria" element={<AuditPage />} />

@@ -60,6 +60,7 @@ export const sessions = pgTable('sessions', {
   lastSeenAt: ts('last_seen_at').notNull().defaultNow(),
   ip: inet('ip'),
   userAgent: text('user_agent'),
+  supportAdminName: text('support_admin_name'),
 });
 
 export const auditLog = pgTable('audit_log', {

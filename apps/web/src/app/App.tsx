@@ -20,6 +20,7 @@ import { PlatformApp, isPlatformHost } from '../platform/PlatformApp';
 import { ReleasesPage } from '../pages/ReleasesPage';
 import { ReportsPage } from '../pages/ReportsPage';
 import { SettingsPage } from '../pages/SettingsPage';
+import { SupportEntryPage } from '../pages/SupportEntryPage';
 import { TablesPage } from '../pages/TablesPage';
 import { AppShell } from './AppShell';
 import { AuthProvider, useAuth } from './auth';
@@ -84,6 +85,8 @@ export function App() {
         <Routes>
           {/* Rastreio público do cliente final: fora do login. */}
           <Route path="/rastreio/:token" element={<TrackingPage />} />
+          {/* Link de acesso do suporte (painel Super Admin): troca o token por uma sessão. */}
+          <Route path="/suporte" element={<SupportEntryPage />} />
           <Route
             path="*"
             element={
