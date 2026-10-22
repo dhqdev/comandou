@@ -1,4 +1,5 @@
 import { ReactNode, SelectHTMLAttributes, useId } from 'react';
+import { Segmented } from '../design-system';
 
 /** Campo de seleção com rótulo, no mesmo visual do TextField. */
 export function SelectField({
@@ -30,19 +31,12 @@ export function Tabs<T extends string>({
   items: [NoInfer<T>, string][];
 }) {
   return (
-    <div className="chips" role="tablist">
-      {items.map(([v, label]) => (
-        <button
-          key={v}
-          role="tab"
-          className="chip"
-          aria-selected={value === v}
-          onClick={() => onChange(v)}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
+    <Segmented
+      label="Seções"
+      value={value}
+      onChange={onChange}
+      options={items.map(([v, label]) => ({ value: v, label }))}
+    />
   );
 }
 

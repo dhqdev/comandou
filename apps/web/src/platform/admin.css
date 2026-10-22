@@ -1,20 +1,20 @@
 /*
- * Painel Super Admin (admin.<domínio>): visual próprio, escuro e direto.
- * Grafite + âmbar, cantos retos, rótulos em monoespaçada. Os componentes do design system
- * herdam estes tokens (botões, campos, tabelas e modais ficam no mesmo estilo).
+ * Painel Super Admin (admin.<domínio>): versão escura do padrão Comandou.
+ * Grafite quente + páprica, cantos discretos, rótulos em monoespaçada. Os componentes do
+ * design system herdam estes tokens (botões, campos, tabelas e modais ficam no mesmo estilo).
  */
 :root[data-app='admin'] {
   color-scheme: dark;
-  --a-bg: #0b0c0f;
-  --a-panel: #121419;
-  --a-panel-2: #181b21;
-  --a-line: #23272f;
-  --a-line-strong: #323743;
-  --a-text: #e8eaef;
-  --a-muted: #a0a6b2;
-  --a-subtle: #6d7380;
-  --a-accent: #f2b544;
-  --a-accent-ink: #15120a;
+  --a-bg: #0f0d0c;
+  --a-panel: #171412;
+  --a-panel-2: #1d1a17;
+  --a-line: #2a2522;
+  --a-line-strong: #3a3430;
+  --a-text: #f1ece7;
+  --a-muted: #b0a69c;
+  --a-subtle: #7d746b;
+  --a-accent: #f26a3d;
+  --a-accent-ink: #1a0b05;
   --a-ok: #5ad68a;
   --a-warn: #f2b544;
   --a-bad: #f2706b;
@@ -32,7 +32,17 @@
   --cm-brand-500: var(--a-accent);
   --cm-brand-600: var(--a-accent);
   --cm-brand-700: var(--a-accent);
-  --cm-brand-800: #ffc85e;
+  --cm-brand-800: #ffb59c;
+  --cm-brand-50: #26140d;
+  --cm-brand-100: #331a10;
+  --cm-on-brand: var(--a-accent-ink);
+  --cm-link: var(--a-accent);
+  --cm-surface-sunken: #0b0a09;
+  --cm-sidebar-bg: var(--a-bg);
+  --cm-glass-bg: rgb(58 52 48 / 62%);
+  --cm-glass-border: rgb(255 255 255 / 8%);
+  --cm-glass-highlight: inset 0 1px 0 rgb(255 255 255 / 7%);
+  --cm-mascot-ink: #1a1613;
   --cm-success: var(--a-ok);
   --cm-success-bg: #10241a;
   --cm-warning: var(--a-warn);
@@ -769,4 +779,36 @@ a.adm-row:hover {
   .adm-kv dd {
     margin-bottom: 8px;
   }
+}
+
+/* Indicador deslizante do padrão Comandou (menu lateral e abas internas). */
+.adm-rail__nav {
+  display: grid;
+  gap: 2px;
+}
+.adm-rail__nav .adm-nav.active {
+  background: transparent;
+  box-shadow: none;
+}
+.adm-rail__nav .cm-glider {
+  border-radius: 4px;
+  box-shadow: inset 2px 0 0 var(--a-accent);
+}
+.adm-tabs.cm-glide button[aria-selected='true'] {
+  box-shadow: none;
+}
+.adm-tabs .cm-glider {
+  top: auto;
+  bottom: 0;
+  height: 2px;
+  border: 0;
+  border-radius: 0;
+  background: var(--a-accent);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.adm-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }

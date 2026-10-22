@@ -9,8 +9,8 @@
 .kbd {
   font: 600 11px var(--cm-font-mono);
   padding: 1px 6px;
-  border-radius: 4px;
-  background: rgb(255 255 255 / 20%);
+  border-radius: var(--cm-radius-xs);
+  background: color-mix(in srgb, currentColor 14%, transparent);
 }
 .section-title {
   font-size: var(--cm-text-sm);
@@ -73,7 +73,7 @@
 .link-btn {
   border: 0;
   background: none;
-  color: var(--cm-brand-700);
+  color: var(--cm-link);
   font-weight: 600;
   cursor: pointer;
   padding: 0 4px;
@@ -95,22 +95,36 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 36px;
+  min-height: 34px;
   padding: 0 var(--cm-space-3);
-  border-radius: var(--cm-radius-full);
+  border-radius: var(--cm-radius-sm);
   border: 1px solid var(--cm-border-strong);
   background: var(--cm-surface);
   color: var(--cm-text);
   font-weight: 600;
   font-size: var(--cm-text-sm);
   cursor: pointer;
+  transition:
+    color var(--cm-dur) var(--cm-ease),
+    background-color var(--cm-dur) var(--cm-ease),
+    border-color var(--cm-dur) var(--cm-ease);
+}
+.chip:hover:not(:disabled) {
+  border-color: var(--cm-gray-300);
 }
 .chip[aria-selected='true'],
 .chip[aria-checked='true'],
 .chip[aria-pressed='true'] {
-  background: var(--cm-brand-700);
-  border-color: var(--cm-brand-700);
-  color: #fff;
+  background: var(--cm-brand-600);
+  border-color: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+}
+/* Com o indicador deslizante, quem pinta o fundo é ele. */
+.chips.cm-glide .chip[aria-selected='true'],
+.chips.cm-glide .chip[aria-pressed='true'],
+.chips.cm-glide .chip[aria-checked='true'] {
+  background: transparent;
+  border-color: transparent;
 }
 .chip:disabled,
 .chip[aria-disabled='true'] {
@@ -137,9 +151,16 @@
   color: inherit;
   font: inherit;
   box-shadow: var(--cm-shadow-sm);
+  transition:
+    border-color var(--cm-dur) var(--cm-ease),
+    box-shadow var(--cm-dur) var(--cm-ease),
+    transform var(--cm-dur) var(--cm-ease);
+  animation: cm-pop var(--cm-dur) var(--cm-ease) both;
 }
 .order-card:hover {
-  border-color: var(--cm-brand-400);
+  border-color: var(--cm-brand-300);
+  box-shadow: var(--cm-shadow-md);
+  transform: translateY(-1px);
 }
 .order-card__top,
 .order-card__bottom {
@@ -203,18 +224,33 @@
   display: grid;
   gap: 4px;
   text-align: left;
+  align-content: start;
   min-height: 84px;
   padding: var(--cm-space-3);
   border-radius: var(--cm-radius-md);
-  border: 1px solid var(--cm-border-strong);
+  border: 1px solid var(--cm-border);
   background: var(--cm-surface);
   color: inherit;
   font: inherit;
   cursor: pointer;
+  box-shadow: var(--cm-shadow-sm);
+  transition:
+    border-color var(--cm-dur) var(--cm-ease),
+    box-shadow var(--cm-dur) var(--cm-ease),
+    transform var(--cm-dur-fast) var(--cm-ease);
 }
 .product-tile:hover:not(:disabled) {
-  border-color: var(--cm-brand-500);
-  background: var(--cm-brand-50);
+  border-color: var(--cm-brand-300);
+  box-shadow: var(--cm-shadow-md);
+}
+.product-tile:active:not(:disabled) {
+  transform: scale(0.98);
+}
+/* Foto do produto no topo do bloco (SmartImage). */
+.product-tile > .cm-img {
+  margin: calc(var(--cm-space-3) * -1) calc(var(--cm-space-3) * -1) 4px;
+  width: calc(100% + var(--cm-space-3) * 2);
+  border-radius: var(--cm-radius-md) var(--cm-radius-md) 0 0;
 }
 .product-tile:disabled {
   opacity: 0.55;
@@ -224,8 +260,9 @@
   font-weight: 650;
 }
 .product-tile__price {
-  color: var(--cm-brand-700);
+  color: var(--cm-text);
   font-weight: 700;
+  font-size: var(--cm-text-sm);
 }
 .cart {
   list-style: none;
@@ -284,7 +321,9 @@
 .picker {
   position: fixed;
   inset: 0;
-  background: rgb(15 11 30 / 45%);
+  background: rgb(18 15 13 / 42%);
+  backdrop-filter: blur(3px);
+  animation: cm-fade var(--cm-dur) var(--cm-ease) both;
   display: grid;
   place-items: center;
   padding: var(--cm-space-4);
@@ -300,6 +339,7 @@
   display: grid;
   gap: var(--cm-space-4);
   box-shadow: var(--cm-shadow-lg);
+  animation: cm-pop var(--cm-dur) var(--cm-ease) both;
 }
 .picker__group {
   border: 1px solid var(--cm-border);
@@ -379,7 +419,7 @@
   --lvl: var(--cm-success);
   background: var(--cm-surface);
   border: 1px solid var(--cm-border);
-  border-left: 6px solid var(--lvl);
+  border-left: 4px solid var(--lvl);
   border-radius: var(--cm-radius-md);
   padding: var(--cm-space-3);
   display: grid;
@@ -489,12 +529,23 @@
   min-height: 110px;
   min-width: 0;
   padding: var(--cm-space-3);
-  border-radius: var(--cm-radius-lg);
-  border: 2px dashed var(--cm-border-strong);
+  border-radius: var(--cm-radius-md);
+  border: 1.5px dashed var(--cm-border-strong);
   background: var(--cm-surface);
   color: inherit;
   font: inherit;
   cursor: pointer;
+  transition:
+    border-color var(--cm-dur) var(--cm-ease),
+    box-shadow var(--cm-dur) var(--cm-ease),
+    transform var(--cm-dur-fast) var(--cm-ease);
+}
+.table-tile:hover {
+  border-color: var(--cm-brand-400);
+  box-shadow: var(--cm-shadow-md);
+}
+.table-tile:active {
+  transform: scale(0.98);
 }
 .table-tile[data-busy] {
   border-style: solid;
@@ -503,7 +554,8 @@
 }
 .table-tile__label {
   font-size: var(--cm-text-2xl);
-  font-weight: 800;
+  font-weight: 750;
+  letter-spacing: -0.03em;
   max-width: 100%;
   overflow-wrap: anywhere;
   text-align: center;
@@ -640,8 +692,8 @@
 /* Etapa 6: barra de uso do plano. */
 .usage-bar {
   height: 6px;
-  border-radius: 999px;
-  background: var(--cm-border, #e4e2ec);
+  border-radius: var(--cm-radius-xs);
+  background: var(--cm-surface-sunken);
   overflow: hidden;
   margin-top: 8px;
 }

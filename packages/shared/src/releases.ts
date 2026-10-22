@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.12.0',
+    date: '2026-10-22',
+    title: 'Identidade visual nova do Comandou',
+    summary:
+      'O sistema inteiro ganhou cara própria: cor páprica, fonte Inter, cantos discretos, o mascote Comandinho e menus com indicador que desliza entre as opções.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Mascote Comandinho (uma comanda com rosto) no logotipo, no login, no ícone do app e no favicon.',
+      },
+      {
+        tag: 'novo',
+        text: 'Indicador deslizante no menu lateral, nas abas e nos filtros (cozinha, nova venda, painel admin): o destaque escorrega até a opção escolhida.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cor da marca páprica com neutros quentes, fonte Inter embutida (funciona offline), cantos e sombras discretos e modo escuro em todas as telas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Menu lateral claro com nome e cargo do usuário compactos, barra superior translúcida e transição suave ao trocar de tela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No celular, janelas abrem como folha que sobe de baixo; o menu lateral escurece o fundo e fecha ao tocar fora.',
+      },
+      {
+        tag: 'novo',
+        text: 'Componentes de foto prontos para o cardápio: proporção fixa, carregamento suave e prato neutro quando não há imagem.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Painel admin no mesmo padrão: grafite quente com destaque páprica.',
+      },
+    ],
+  },
+  {
     version: '0.11.0',
     date: '2026-10-22',
     title: 'Consumo e operação de cada restaurante',

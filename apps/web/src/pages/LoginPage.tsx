@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useState } from 'react';
-import { Alert, Button, TextField } from '../design-system';
+import { CSSProperties, FormEvent, useEffect, useState } from 'react';
+import { Alert, Button, Logo, Mascot, TextField } from '../design-system';
 import { useAuth } from '../app/auth';
 import { api, ApiError } from '../lib/api';
 import './login.css';
@@ -40,10 +40,7 @@ export function LoginPage() {
     <div className="login">
       <div className="login__panel">
         <div className="login__brand">
-          <div className="brand__mark" aria-hidden>
-            C
-          </div>
-          <span>Comandou</span>
+          <Logo size={34} />
         </div>
         <h1 className="login__title">
           {tenantName ? `Entrar em ${tenantName}` : 'Bem-vindo de volta'}
@@ -84,10 +81,31 @@ export function LoginPage() {
         </form>
       </div>
       <div className="login__art" aria-hidden>
+        <div className="login__tickets">
+          <span
+            className="login__ticket"
+            style={{ '--d': '0s', '--x': '10%', '--r': '-8deg' } as CSSProperties}
+          >
+            <b>#128</b> Mesa 4 · 2x Burger
+          </span>
+          <span
+            className="login__ticket"
+            style={{ '--d': '2.3s', '--x': '52%', '--r': '5deg' } as CSSProperties}
+          >
+            <b>#129</b> Delivery · Pizza G
+          </span>
+          <span
+            className="login__ticket"
+            style={{ '--d': '4.6s', '--x': '28%', '--r': '-2deg' } as CSSProperties}
+          >
+            <b>#130</b> Balcão · Açaí 500ml
+          </span>
+        </div>
+        <Mascot size={148} animated mood="joy" className="login__mascot" />
         <div className="login__quote">
           Pedidos, salão, cozinha e caixa
           <br />
-          no mesmo lugar.
+          <span>no mesmo lugar.</span>
         </div>
       </div>
     </div>

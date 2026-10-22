@@ -1,5 +1,6 @@
 import {
   ButtonHTMLAttributes,
+  CSSProperties,
   ReactNode,
   InputHTMLAttributes,
   forwardRef,
@@ -7,12 +8,14 @@ import {
   useId,
   useRef,
 } from 'react';
+import { X } from 'lucide-react';
+import { Mascot, type MascotMood } from './mascot';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
-  size?: 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg';
   block?: boolean;
   loading?: boolean;
   icon?: ReactNode;
@@ -33,6 +36,8 @@ export function Button({
     'cm-btn',
     `cm-btn--${variant}`,
     size === 'lg' && 'cm-btn--lg',
+    size === 'sm' && 'cm-btn--sm',
+    icon && (children === undefined || children === null || children === false) && 'cm-btn--icon',
     block && 'cm-btn--block',
     className,
   ]
@@ -146,15 +151,22 @@ export function EmptyState({
   title,
   description,
   action,
+  mascot,
 }: {
   icon?: ReactNode;
   title: string;
   description?: string;
   action?: ReactNode;
+  /** Mostra o mascote no lugar do ícone (telas vazias "amigáveis"). */
+  mascot?: MascotMood | boolean;
 }) {
   return (
     <div className="cm-empty">
-      {icon && <div className="cm-empty__icon">{icon}</div>}
+      {mascot ? (
+        <Mascot size={56} mood={mascot === true ? 'sleep' : mascot} />
+      ) : (
+        icon && <div className="cm-empty__icon">{icon}</div>
+      )}
       <p className="cm-empty__title">{title}</p>
       {description && <p style={{ margin: 0, maxWidth: 360 }}>{description}</p>}
       {action}
@@ -218,12 +230,86 @@ export function Modal({
         <h2 id={titleId} className="cm-card__title">
           {title}
         </h2>
-        <Button variant="ghost" onClick={onClose} aria-label="Fechar">
-          ✕
-        </Button>
+        <Button variant="ghost" onClick={onClose} aria-label="Fechar" icon={<X size={18} />} />
       </div>
       <div className="cm-card__body cm-modal__body">{open ? children : null}</div>
       {footer && <div className="cm-modal__footer">{footer}</div>}
     </dialog>
+  );
+}
+
+export function Drawer({
+  open,
+  title,
+  onClose,
+  children,
+  footer,
+  side = 'right',
+  width,
+  headerExtra,
+}: {
+  open: boolean;
+  title: ReactNode;
+  onClose: () => void;
+  children: ReactNode;
+  footer?: ReactNode;
+  side?: 'right' | 'left';
+  /** Largura em px (padrão 480). No celular ocupa a tela toda. */
+  width?: number;
+  headerExtra?: ReactNode;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (open && !d.open) d.showModal?.();
+    if (!open && d.open) d.close?.();
+  }, [open]);
+  return (
+    <dialog
+      ref={ref}
+      className={`cm-drawer ${side === 'left' ? 'cm-drawer--left' : ''}`}
+      style={width ? ({ '--cm-drawer-w': `${width}px` } as CSSProperties) : undefined}
+      onClose={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      // Clique no fundo escurecido fecha.
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      aria-labelledby={titleId}
+    >
+      <div className="cm-drawer__head">
+        <h2 id={titleId}>{title}</h2>
+        {headerExtra}
+        <Button variant="ghost" onClick={onClose} aria-label="Fechar" icon={<X size={18} />} />
+      </div>
+      <div className="cm-drawer__body">{open ? children : null}</div>
+      {footer && <div className="cm-drawer__footer">{footer}</div>}
+    </dialog>
+  );
+}
+
+export function PageHeader({
+  eyebrow,
+  title,
+  subtitle,
+  actions,
+}: {
+  eyebrow?: ReactNode;
+  title: ReactNode;
+  subtitle?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <header className="cm-page-head">
+      <div>
+        {eyebrow && <p className="cm-page-head__eyebrow">{eyebrow}</p>}
+        <h1 className="cm-page-head__title">{title}</h1>
+        {subtitle && <p className="cm-page-head__sub">{subtitle}</p>}
+      </div>
+      {actions && <div className="cm-page-head__actions">{actions}</div>}
+    </header>
   );
 }

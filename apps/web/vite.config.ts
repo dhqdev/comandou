@@ -16,8 +16,8 @@ export default defineConfig({
         short_name: 'Comandou',
         description: 'Gestão completa para restaurantes',
         lang: 'pt-BR',
-        theme_color: '#5B21B6',
-        background_color: '#0F0B1E',
+        theme_color: '#D63F17',
+        background_color: '#F7F5F3',
         display: 'standalone',
         start_url: '/',
         icons: [

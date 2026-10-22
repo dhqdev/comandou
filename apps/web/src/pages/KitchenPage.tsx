@@ -1,6 +1,6 @@
 import { Check, ChefHat, Play, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Badge, Button, EmptyState, Spinner, useToast } from '../design-system';
+import { Alert, Badge, Button, ChipGroup, EmptyState, Spinner, useToast } from '../design-system';
 import { useCan } from '../app/auth';
 import { CHANNEL_LABELS, minutesSince, qty } from '../features/format';
 import { api } from '../lib/api';
@@ -124,7 +124,7 @@ export function KitchenPage() {
           <h1 className="page-title">Cozinha</h1>
           <p className="page-sub">Fila de produção por setor. Toque no item para avançar.</p>
         </div>
-        <div className="chips" role="tablist" aria-label="Setor">
+        <ChipGroup label="Setor">
           <button
             className="chip"
             role="tab"
@@ -152,7 +152,7 @@ export function KitchenPage() {
           >
             Sem setor
           </button>
-        </div>
+        </ChipGroup>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
       {!board ? (

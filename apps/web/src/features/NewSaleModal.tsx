@@ -12,6 +12,7 @@ import {
   Alert,
   Badge,
   Button,
+  ChipGroup,
   EmptyState,
   Modal,
   Spinner,
@@ -193,7 +194,7 @@ export function NewSaleModal({
             />
           </div>
           {!search && (
-            <div className="chips" role="tablist" aria-label="Categorias">
+            <ChipGroup label="Categorias">
               {(menu ?? []).map((c) => (
                 <button
                   key={c.id}
@@ -205,7 +206,7 @@ export function NewSaleModal({
                   {c.name}
                 </button>
               ))}
-            </div>
+            </ChipGroup>
           )}
           {menu === null ? (
             <Spinner />

@@ -24,8 +24,8 @@ import {
 } from 'lucide-react';
 import { ReactNode, useState } from 'react';
 import { CURRENT_RELEASE } from '@comandou/shared';
-import { NavLink, Outlet } from 'react-router';
-import { Badge, Button } from '../design-system';
+import { NavLink, Outlet, useLocation } from 'react-router';
+import { Badge, Button, Logo, useGlider } from '../design-system';
 import { useOnline } from '../lib/connectivity';
 import { useRealtimeStatus } from '../lib/realtime';
 import { useHasUnseenRelease } from '../lib/releases';
@@ -140,6 +140,8 @@ export function AppShell() {
   const unseen = useHasUnseenRelease();
   const [menuOpen, setMenuOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
+  const location = useLocation();
+  const nav = useGlider<HTMLDivElement>({ selector: '.nav-link.active' });
   const initials = (me?.user.name ?? '?')
     .split(' ')
     .map((p) => p[0])
@@ -151,34 +153,36 @@ export function AppShell() {
     <div className="shell" data-menu={menuOpen ? 'open' : 'closed'}>
       <aside className="sidebar" aria-label="Navegação principal">
         <div className="brand">
-          <div className="brand__mark" aria-hidden>
-            C
-          </div>
-          <div>
-            <div className="brand__name">Comandou</div>
-            <div className="brand__tenant">{me?.tenant.name}</div>
+          <Logo size={30} />
+          <div className="brand__tenant" title={me?.tenant.name}>
+            {me?.tenant.name}
           </div>
         </div>
-        {NAV.map((g) => (
-          <nav key={g.group} aria-label={g.group}>
-            <div className="nav-group">{g.group}</div>
-            {g.items
-              .filter((item) => !item.perms || item.perms.some((p) => me?.permissions.includes(p)))
-              .map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === '/'}
-                  className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-                  onClick={() => setMenuOpen(false)}
-                >
-                  {item.icon}
-                  {item.label}
-                  {item.soon && <Badge>em breve</Badge>}
-                </NavLink>
-              ))}
-          </nav>
-        ))}
+        <div className="sidebar__nav cm-glide" ref={nav.ref}>
+          {NAV.map((g) => (
+            <nav key={g.group} aria-label={g.group}>
+              <div className="nav-group">{g.group}</div>
+              {g.items
+                .filter(
+                  (item) => !item.perms || item.perms.some((p) => me?.permissions.includes(p)),
+                )
+                .map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === '/'}
+                    className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    {item.icon}
+                    {item.label}
+                    {item.soon && <Badge>em breve</Badge>}
+                  </NavLink>
+                ))}
+            </nav>
+          ))}
+          {nav.glider}
+        </div>
         <div className="sidebar__footer">
           <NavLink
             to="/novidades"
@@ -193,27 +197,30 @@ export function AppShell() {
             <div className="user-chip__avatar" aria-hidden>
               {initials}
             </div>
-            <div>
+            <div className="user-chip__who">
               <div>{me?.user.name}</div>
               <div className="brand__tenant">{me?.user.roleLabel}</div>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Trocar senha"
+              title="Trocar senha"
+              onClick={() => setPwOpen(true)}
+              icon={<KeyRound size={16} />}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Sair"
+              title="Sair"
+              onClick={logout}
+              icon={<LogOut size={16} />}
+            />
           </div>
-          <button
-            className="nav-link"
-            style={{ border: 0, background: 'none', cursor: 'pointer' }}
-            onClick={() => setPwOpen(true)}
-          >
-            <KeyRound size={18} /> Trocar senha
-          </button>
-          <button
-            className="nav-link"
-            style={{ border: 0, background: 'none', cursor: 'pointer' }}
-            onClick={logout}
-          >
-            <LogOut size={18} /> Sair
-          </button>
         </div>
       </aside>
+      <div className="scrim" aria-hidden onClick={() => setMenuOpen(false)} />
       <div className="main">
         <header className="topbar">
           <Button
@@ -234,7 +241,9 @@ export function AppShell() {
           {!online ? (
             <Badge tone="warning">Sem conexão</Badge>
           ) : live === 'live' ? (
-            <Badge tone="success">● Tempo real</Badge>
+            <Badge tone="success">
+              <span className="cm-dot cm-dot--pulse" /> Tempo real
+            </Badge>
           ) : (
             <Badge tone="warning">Reconectando…</Badge>
           )}
@@ -251,7 +260,8 @@ export function AppShell() {
             e confirmação de pedidos ficam bloqueados até a conexão voltar.
           </div>
         )}
-        <main className="content">
+        {/* A chave reinicia a animação de entrada a cada troca de tela. */}
+        <main className="content cm-enter" key={location.pathname}>
           <Outlet />
         </main>
         <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />

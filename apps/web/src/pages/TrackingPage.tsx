@@ -1,7 +1,7 @@
 import { Bike, CheckCircle2, MapPin, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
-import { Alert, Card, Spinner } from '../design-system';
+import { Alert, Card, Logo, Spinner } from '../design-system';
 import { time } from '../features/format';
 import { api, ApiError } from '../lib/api';
 import '../app/shell.css';
@@ -55,11 +55,11 @@ export function TrackingPage() {
   return (
     <main className="track-page">
       <div className="track-page__inner">
-        <div className="brand" style={{ padding: 0, color: 'var(--cm-text)' }}>
-          <div className="brand__mark" aria-hidden>
-            C
-          </div>
-          <div className="brand__name">Rastreio do pedido</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Logo size={28} />
+          <span className="page-sub" style={{ margin: 0 }}>
+            Rastreio do pedido
+          </span>
         </div>
         {error && <Alert tone={data ? 'warning' : 'danger'}>{error}</Alert>}
         {!data && !error && <Spinner />}

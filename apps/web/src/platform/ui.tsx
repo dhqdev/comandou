@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useRef } from 'react';
+import { useGlider } from '../design-system';
 
 /** Peças visuais do painel Super Admin (ver admin.css). */
 
@@ -149,8 +150,9 @@ export function Tabs<T extends string>({
   onChange: (v: T) => void;
   items: [T, string][];
 }) {
+  const g = useGlider<HTMLDivElement>();
   return (
-    <div className="adm-tabs" role="tablist">
+    <div className="adm-tabs cm-glide" role="tablist" ref={g.ref}>
       {items.map(([k, label]) => (
         <button
           key={k}
@@ -162,6 +164,7 @@ export function Tabs<T extends string>({
           {label}
         </button>
       ))}
+      {g.glider}
     </div>
   );
 }

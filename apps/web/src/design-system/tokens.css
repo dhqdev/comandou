@@ -1,68 +1,95 @@
 /*
  * Comandou Design System — tokens.
- * Identidade própria: violeta "jabuticaba" + âmbar. Não reutiliza cores/logos de concorrentes.
+ *
+ * Identidade: "Páprica" (laranja-avermelhado de tempero, abre o apetite) sobre neutros quentes
+ * de pedra. Mostarda é o acento; folha é o verde de sucesso. Cantos discretos (6–12px),
+ * nada de pílulas gigantes: o visual é limpo e de ferramenta de trabalho.
+ *
+ * Regra: telas nunca usam cor, raio, sombra ou fonte "na mão"; sempre estas variáveis.
  */
 :root {
-  /* Marca */
-  --cm-brand-50: #f5f3ff;
-  --cm-brand-100: #ede9fe;
-  --cm-brand-200: #ddd6fe;
-  --cm-brand-400: #a78bfa;
-  --cm-brand-500: #8b5cf6;
-  --cm-brand-600: #7c3aed;
-  --cm-brand-700: #6d28d9;
-  --cm-brand-800: #5b21b6;
-  --cm-brand-900: #2e1065;
-  --cm-accent-400: #fbbf24;
-  --cm-accent-500: #f59e0b;
+  /* Marca — Páprica */
+  --cm-brand-50: #fff5f1;
+  --cm-brand-100: #ffe6dc;
+  --cm-brand-200: #ffc9b5;
+  --cm-brand-300: #ffa184;
+  --cm-brand-400: #f97a53;
+  --cm-brand-500: #ee5a2f;
+  --cm-brand-600: #d63f17; /* botão primário: contraste 4.6:1 com branco */
+  --cm-brand-700: #b5330f;
+  --cm-brand-800: #8f2a10;
+  --cm-brand-900: #4d170a;
+  --cm-on-brand: #ffffff;
 
-  /* Neutros */
+  /* Acento — Mostarda */
+  --cm-accent-300: #ffd866;
+  --cm-accent-400: #f9c62b;
+  --cm-accent-500: #f2b705;
+  --cm-on-accent: #1a1613;
+
+  /* Neutros quentes (pedra) */
   --cm-gray-0: #ffffff;
-  --cm-gray-25: #fbfaff;
-  --cm-gray-50: #f6f5fa;
-  --cm-gray-100: #eceaf3;
-  --cm-gray-200: #dcd9e6;
-  --cm-gray-300: #c3bfd1;
-  --cm-gray-500: #7b7590;
-  --cm-gray-600: #5d5872;
-  --cm-gray-700: #423d55;
-  --cm-gray-800: #2a2639;
-  --cm-gray-900: #17141f;
-  --cm-ink: #0f0b1e;
+  --cm-gray-25: #fcfbfa;
+  --cm-gray-50: #f7f5f3;
+  --cm-gray-100: #efece8;
+  --cm-gray-200: #e3ded8;
+  --cm-gray-300: #cbc4bc;
+  --cm-gray-400: #a69d94;
+  --cm-gray-500: #857c73;
+  --cm-gray-600: #645c54;
+  --cm-gray-700: #463f39;
+  --cm-gray-800: #2b2622;
+  --cm-gray-900: #1a1613;
+  --cm-ink: #120f0d;
 
   /* Semânticas (estados de pedido seguem estas cores) */
-  --cm-info: #2563eb;
-  --cm-info-bg: #eff4ff;
-  --cm-success: #059669;
-  --cm-success-bg: #ecfdf5;
-  --cm-warning: #d97706;
-  --cm-warning-bg: #fffbeb;
-  --cm-danger: #dc2626;
-  --cm-danger-bg: #fef2f2;
+  --cm-info: #2463d1;
+  --cm-info-bg: #eef3fd;
+  --cm-success: #2b8a3e; /* folha */
+  --cm-success-bg: #edf7ef;
+  --cm-warning: #b86e00;
+  --cm-warning-bg: #fff6e0;
+  --cm-danger: #d0312d;
+  --cm-danger-bg: #fdefee;
 
   /* Superfícies */
   --cm-bg: var(--cm-gray-50);
   --cm-surface: var(--cm-gray-0);
   --cm-surface-muted: var(--cm-gray-25);
+  --cm-surface-sunken: var(--cm-gray-100);
   --cm-border: var(--cm-gray-100);
   --cm-border-strong: var(--cm-gray-200);
   --cm-text: var(--cm-gray-900);
   --cm-text-muted: var(--cm-gray-600);
   --cm-text-subtle: var(--cm-gray-500);
-  --cm-sidebar-bg: var(--cm-ink);
-  --cm-sidebar-text: #c9c4dc;
-  --cm-sidebar-active: var(--cm-brand-700);
-  --cm-focus: 0 0 0 3px color-mix(in srgb, var(--cm-brand-500) 35%, transparent);
+  --cm-link: var(--cm-brand-700);
+  --cm-sidebar-bg: var(--cm-gray-50);
+  --cm-sidebar-text: var(--cm-gray-600);
+  --cm-sidebar-text-strong: var(--cm-gray-900);
+  --cm-sidebar-active: var(--cm-surface);
+  --cm-focus: 0 0 0 3px color-mix(in srgb, var(--cm-brand-500) 32%, transparent);
 
-  /* Tipografia */
-  --cm-font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --cm-font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
-  --cm-text-xs: 0.75rem;
-  --cm-text-sm: 0.875rem;
-  --cm-text-md: 1rem;
-  --cm-text-lg: 1.125rem;
-  --cm-text-xl: 1.375rem;
-  --cm-text-2xl: 1.75rem;
+  /* Vidro (indicador deslizante, barras flutuantes) */
+  --cm-glass-bg: rgb(255 255 255 / 72%);
+  --cm-glass-border: rgb(26 22 19 / 8%);
+  --cm-glass-highlight: inset 0 1px 0 rgb(255 255 255 / 90%);
+  --cm-glass-blur: blur(14px) saturate(180%);
+
+  /* Tipografia — Inter (self-hosted, funciona offline) */
+  --cm-font:
+    'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    sans-serif;
+  --cm-font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  --cm-text-2xs: 0.6875rem; /* 11 */
+  --cm-text-xs: 0.75rem; /* 12 */
+  --cm-text-sm: 0.875rem; /* 14 */
+  --cm-text-md: 0.9375rem; /* 15: base de UI densa */
+  --cm-text-lg: 1.0625rem; /* 17 */
+  --cm-text-xl: 1.25rem; /* 20 */
+  --cm-text-2xl: 1.625rem; /* 26 */
+  --cm-text-3xl: 2.125rem; /* 34 */
+  --cm-leading: 1.5;
+  --cm-tracking-tight: -0.018em;
 
   /* Espaçamento (escala de 4px) */
   --cm-space-1: 4px;
@@ -73,44 +100,89 @@
   --cm-space-6: 24px;
   --cm-space-8: 32px;
   --cm-space-10: 40px;
+  --cm-space-12: 48px;
 
-  /* Formas e elevação */
-  --cm-radius-sm: 8px;
-  --cm-radius-md: 12px;
-  --cm-radius-lg: 16px;
+  /* Formas e elevação: cantos discretos */
+  --cm-radius-xs: 4px;
+  --cm-radius-sm: 6px;
+  --cm-radius-md: 8px;
+  --cm-radius-lg: 12px;
   --cm-radius-full: 999px;
-  --cm-shadow-sm: 0 1px 2px rgb(23 20 31 / 6%);
-  --cm-shadow-md: 0 4px 16px rgb(23 20 31 / 8%);
-  --cm-shadow-lg: 0 16px 48px rgb(23 20 31 / 18%);
+  --cm-shadow-sm: 0 1px 2px rgb(26 22 19 / 5%);
+  --cm-shadow-md: 0 1px 2px rgb(26 22 19 / 4%), 0 6px 20px -6px rgb(26 22 19 / 12%);
+  --cm-shadow-lg: 0 2px 6px rgb(26 22 19 / 6%), 0 24px 64px -12px rgb(26 22 19 / 28%);
+
+  /* Movimento: a curva "líquida" passa um pouco do ponto e assenta */
+  --cm-ease: cubic-bezier(0.2, 0, 0, 1);
+  --cm-ease-liquid: cubic-bezier(0.34, 1.32, 0.5, 1);
+  --cm-dur-fast: 120ms;
+  --cm-dur: 200ms;
+  --cm-dur-slow: 360ms;
 
   /* Alvos de toque (garçom/caixa em tablet) */
   --cm-touch: 44px;
-  --cm-sidebar-w: 248px;
+  --cm-control: 38px;
+  --cm-sidebar-w: 240px;
 }
 
+/* Modo escuro: mesma marca, superfícies de grafite quente. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --cm-bg: #121019;
-    --cm-surface: #1b1826;
-    --cm-surface-muted: #221e30;
-    --cm-border: #2c2840;
-    --cm-border-strong: #3a3552;
-    --cm-text: #f1eff8;
-    --cm-text-muted: #b5afc9;
-    --cm-text-subtle: #8c86a3;
-    --cm-info-bg: #172036;
-    --cm-success-bg: #10251d;
-    --cm-warning-bg: #2a1f0d;
-    --cm-danger-bg: #2c1414;
+    --cm-brand-50: #2a1710;
+    --cm-brand-100: #3a1d12;
+    --cm-brand-200: #5c2a17;
+    --cm-brand-800: #ffb59c;
+    --cm-link: #ff9a78;
+    --cm-bg: #141110;
+    --cm-surface: #1c1917;
+    --cm-surface-muted: #221e1b;
+    --cm-surface-sunken: #110e0d;
+    --cm-border: #2c2724;
+    --cm-border-strong: #3b3531;
+    --cm-text: #f4f1ee;
+    --cm-text-muted: #bdb4ab;
+    --cm-text-subtle: #8f867d;
+    --cm-gray-100: #2c2724;
+    --cm-gray-700: #d6cfc8;
+    --cm-sidebar-bg: #110e0d;
+    --cm-sidebar-text: #bdb4ab;
+    --cm-sidebar-text-strong: #f4f1ee;
+    --cm-sidebar-active: #221e1b;
+    --cm-info-bg: #14203a;
+    --cm-success-bg: #12251a;
+    --cm-warning-bg: #2b2010;
+    --cm-danger-bg: #2e1513;
+    --cm-glass-bg: rgb(44 39 36 / 70%);
+    --cm-glass-border: rgb(255 255 255 / 8%);
+    --cm-glass-highlight: inset 0 1px 0 rgb(255 255 255 / 8%);
   }
 }
 :root[data-theme='dark'] {
-  --cm-bg: #121019;
-  --cm-surface: #1b1826;
-  --cm-surface-muted: #221e30;
-  --cm-border: #2c2840;
-  --cm-border-strong: #3a3552;
-  --cm-text: #f1eff8;
-  --cm-text-muted: #b5afc9;
-  --cm-text-subtle: #8c86a3;
+  --cm-brand-50: #2a1710;
+  --cm-brand-100: #3a1d12;
+  --cm-brand-200: #5c2a17;
+  --cm-brand-800: #ffb59c;
+  --cm-link: #ff9a78;
+  --cm-bg: #141110;
+  --cm-surface: #1c1917;
+  --cm-surface-muted: #221e1b;
+  --cm-surface-sunken: #110e0d;
+  --cm-border: #2c2724;
+  --cm-border-strong: #3b3531;
+  --cm-text: #f4f1ee;
+  --cm-text-muted: #bdb4ab;
+  --cm-text-subtle: #8f867d;
+  --cm-gray-100: #2c2724;
+  --cm-gray-700: #d6cfc8;
+  --cm-sidebar-bg: #110e0d;
+  --cm-sidebar-text: #bdb4ab;
+  --cm-sidebar-text-strong: #f4f1ee;
+  --cm-sidebar-active: #221e1b;
+  --cm-info-bg: #14203a;
+  --cm-success-bg: #12251a;
+  --cm-warning-bg: #2b2010;
+  --cm-danger-bg: #2e1513;
+  --cm-glass-bg: rgb(44 39 36 / 70%);
+  --cm-glass-border: rgb(255 255 255 / 8%);
+  --cm-glass-highlight: inset 0 1px 0 rgb(255 255 255 / 8%);
 }

@@ -23,10 +23,12 @@ import { BrowserRouter, NavLink, Outlet, Route, Routes, useLocation } from 'reac
 import {
   Alert,
   Button,
+  Mascot,
   Modal,
   Spinner,
   TextField,
   ToastProvider,
+  useGlider,
   useToast,
 } from '../design-system';
 import { api, ApiError } from '../lib/api';
@@ -124,7 +126,7 @@ function PlatformLogin() {
         style={{ width: 'min(400px, 100%)', padding: 24, display: 'grid', gap: 14 }}
       >
         <div className="adm-logo" style={{ padding: 0 }}>
-          Comandou <span>//</span> admin
+          <Mascot size={22} /> Comandou <span>//</span> admin
         </div>
         <div className="adm-sub" style={{ whiteSpace: 'normal', marginTop: -8 }}>
           Acesso restrito à equipe da plataforma. Tudo é auditado.
@@ -217,6 +219,7 @@ function PlatformShell() {
   const [tick, setTick] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const standalone = isStandalone();
+  const railGlide = useGlider<HTMLDivElement>();
 
   useEffect(() => setMore(false), [pathname]);
 
@@ -234,18 +237,21 @@ function PlatformShell() {
     <div className="adm">
       <aside className="adm-rail" aria-label="Navegação">
         <div className="adm-logo">
-          Comandou <span>//</span> admin
+          <Mascot size={22} /> Comandou <span>//</span> admin
         </div>
-        {NAV.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }) => `adm-nav ${isActive ? 'active' : ''}`}
-          >
-            <Icon size={16} /> {label}
-          </NavLink>
-        ))}
+        <div className="adm-rail__nav cm-glide" ref={railGlide.ref}>
+          {NAV.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/'}
+              className={({ isActive }) => `adm-nav ${isActive ? 'active' : ''}`}
+            >
+              <Icon size={16} /> {label}
+            </NavLink>
+          ))}
+          {railGlide.glider}
+        </div>
         <div className="adm-rail__foot">
           {!standalone && (
             <button className="adm-nav" style={{ padding: '6px 0' }} onClick={doInstall}>
