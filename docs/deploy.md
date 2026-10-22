@@ -1,5 +1,7 @@
 # Deploy (Docker Swarm + Portainer + Traefik)
 
+> Para instalar do zero em um comando, veja [install.md](install.md). Este guia é o detalhe da stack.
+
 > Nada foi implantado. Este guia foi escrito sem acesso ao servidor; os nomes do entrypoint e do certresolver do Traefik existente estão **pendentes de validação** (R5 em [riscos](risks.md)).
 
 ## Topologia
@@ -42,6 +44,9 @@ openssl rand -hex 32       | tr -d '\n' | docker secret create pedemais_traefik_
 printf '%s' '<keyID do B2>'          | docker secret create pedemais_backup_s3_key_id -
 printf '%s' '<applicationKey do B2>' | docker secret create pedemais_backup_s3_secret -
 age-keygen 2>/dev/null               | docker secret create pedemais_backup_age_identity -
+# Super Admin criado no primeiro deploy (ver install.md#super-admin)
+printf '%s' 'senha-com-12-ou-mais-caracteres' | docker secret create pedemais_platform_admin_password -
+head -c 20 /dev/urandom | base32 | tr -d '=\n' | docker secret create pedemais_platform_admin_totp -
 ```
 
 A partir da 0.4.0 a stack inclui um Redis interno (filas BullMQ e tempo real entre réplicas),
@@ -174,13 +179,18 @@ O workflow não foi executado ainda (não há servidor configurado).
 
 ## Instalação / atualização
 
+Do zero, em um comando: [install.md](install.md). Com o repositório já no servidor:
+
 ```bash
-PEDEMAIS_VERSION=v0.1.0 PEDEMAIS_HEALTH_URL=https://demo.pedemais.com scripts/install.sh
+PEDEMAIS_VERSION=v0.7.0 PEDEMAIS_HEALTH_URL=https://demo.pedemais.com scripts/install.sh
 ```
 
-O script valida SO, Docker, Swarm, `network_public` e secrets, pede confirmação, aplica a stack, aguarda as migrações e roda `scripts/healthcheck.sh`. Não remove serviços, redes ou volumes.
+O script valida SO e Docker, liga o Swarm e cria `network_public` e o Traefik se faltarem (com
+confirmação), cria os secrets que faltam (nunca sobrescreve), aplica a stack, aguarda as migrações
+(que criam o Super Admin na primeira vez) e roda `scripts/healthcheck.sh`. Não remove serviços,
+redes, volumes nem secrets.
 
-No Portainer: *Stacks → Add stack → Repository*, apontando para `infrastructure/swarm/pedemais-stack.yml`, com as variáveis `PEDEMAIS_VERSION`, `TRAEFIK_ENTRYPOINT`, `TRAEFIK_CERT_RESOLVER`.
+No Portainer: *Stacks → Add stack → Repository*, apontando para `infrastructure/swarm/pedemais-stack.yml`, com as variáveis `PEDEMAIS_VERSION`, `PEDEMAIS_BASE_DOMAIN`, `PLATFORM_ADMIN_EMAIL`, `TRAEFIK_ENTRYPOINT`, `TRAEFIK_CERT_RESOLVER`. Certificado coringa: acrescente `infrastructure/swarm/wildcard.yml`.
 
 ## Rollback
 

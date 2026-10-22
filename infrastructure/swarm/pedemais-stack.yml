@@ -2,6 +2,10 @@
 # Pré-requisitos (ver docs/deploy.md):
 #   - Traefik existente no Swarm, conectado à rede externa `network_public`.
 #   - Secrets criados (lista completa em docs/deploy.md#secrets).
+#   - Certificado coringa (*.dominio, exige DNS-01): acrescente -c infrastructure/swarm/wildcard.yml.
+#     Sem ele, cada endereço pede o próprio certificado (HTTP-01).
+#   - Super Admin: PLATFORM_ADMIN_EMAIL (+ opcional PLATFORM_ADMIN_NAME) e os secrets
+#     pedemais_platform_admin_password / pedemais_platform_admin_totp. Criado só se não houver nenhum.
 #   - Variáveis: PEDEMAIS_VERSION (tag imutável), PEDEMAIS_BASE_DOMAIN (pedemais.com),
 #     TRAEFIK_ENTRYPOINT (ex.: websecure), TRAEFIK_CERT_RESOLVER (ex.: letsencryptresolver),
 #     TRAEFIK_CUSTOM_CERT_RESOLVER (HTTP-01, domínios dos clientes), BACKUP_S3_BUCKET e
@@ -110,10 +114,25 @@ services:
 
   migrate:
     image: ghcr.io/dhqdev/pedemais-api:${PEDEMAIS_VERSION:?defina a versão}
-    command: ['node', 'dist/database/migrate-cli.js']
+    # Migra o banco e cria o Super Admin se ainda não existir nenhum (não altera um existente).
+    command:
+      - sh
+      - -c
+      - node dist/database/migrate-cli.js && node dist/platform/platform-admin-cli.js --bootstrap
     environment:
       DATABASE_OWNER_URL_FILE: /run/secrets/pedemais_db_owner_url
-    secrets: [pedemais_db_owner_url]
+      INTEGRATIONS_KEY_FILE: /run/secrets/pedemais_integrations_key
+      PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-}
+      PLATFORM_ADMIN_NAME: ${PLATFORM_ADMIN_NAME:-Administrador}
+      PLATFORM_ADMIN_PASSWORD_FILE: /run/secrets/pedemais_platform_admin_password
+      PLATFORM_ADMIN_TOTP_SECRET_FILE: /run/secrets/pedemais_platform_admin_totp
+    secrets:
+      [
+        pedemais_db_owner_url,
+        pedemais_integrations_key,
+        pedemais_platform_admin_password,
+        pedemais_platform_admin_totp,
+      ]
     networks: [pedemais_internal]
     deploy:
       replicas: 1
@@ -158,12 +177,10 @@ services:
       labels:
         - traefik.enable=true
         - traefik.docker.network=network_public
-        - traefik.http.routers.pedemais-api.rule=HostRegexp(`^[a-z0-9-]+\.pedemais\.com$$`) && PathPrefix(`/api`)
+        - traefik.http.routers.pedemais-api.rule=HostRegexp(`^[a-z0-9-]+\.${PEDEMAIS_BASE_DOMAIN:-pedemais.com}$$`) && PathPrefix(`/api`)
         - traefik.http.routers.pedemais-api.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
         - traefik.http.routers.pedemais-api.tls=true
         - traefik.http.routers.pedemais-api.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}
-        - traefik.http.routers.pedemais-api.tls.domains[0].main=pedemais.com
-        - traefik.http.routers.pedemais-api.tls.domains[0].sans=*.pedemais.com
         - traefik.http.routers.pedemais-api.priority=100
         - traefik.http.services.pedemais-api.loadbalancer.server.port=3000
         - traefik.http.services.pedemais-api.loadbalancer.healthcheck.path=/api/v1/health/ready
@@ -181,7 +198,7 @@ services:
       labels:
         - traefik.enable=true
         - traefik.docker.network=network_public
-        - traefik.http.routers.pedemais-web.rule=HostRegexp(`^[a-z0-9-]+\.pedemais\.com$$`)
+        - traefik.http.routers.pedemais-web.rule=HostRegexp(`^[a-z0-9-]+\.${PEDEMAIS_BASE_DOMAIN:-pedemais.com}$$`)
         - traefik.http.routers.pedemais-web.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
         - traefik.http.routers.pedemais-web.tls=true
         - traefik.http.routers.pedemais-web.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}
@@ -222,3 +239,5 @@ secrets:
   pedemais_backup_s3_key_id: { external: true }
   pedemais_backup_s3_secret: { external: true }
   pedemais_backup_age_identity: { external: true }
+  pedemais_platform_admin_password: { external: true }
+  pedemais_platform_admin_totp: { external: true }

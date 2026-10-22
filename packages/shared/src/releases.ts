@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.7.0',
+    date: '2026-10-22',
+    title: 'Instalação em um comando',
+    summary:
+      'Instalar o PedeMais ficou simples: um comando baixa tudo do GitHub e prepara o servidor. O seu acesso de Super Admin nasce da senha que você escolhe na instalação.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Um comando instala o sistema em um servidor novo (Docker, HTTPS automático e segredos incluídos), em máquinas AMD64 e ARM64.',
+      },
+      {
+        tag: 'novo',
+        text: 'O Super Admin é criado com o e-mail e a senha que você informa na instalação ou na stack, com o código do aplicativo autenticador.',
+      },
+      {
+        tag: 'novo',
+        text: 'Esqueceu a senha do Super Admin? Um comando define uma nova e encerra as sessões antigas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O domínio do sistema agora vem da configuração, em vez de ficar fixo no arquivo da stack.',
+      },
+    ],
+  },
+  {
     version: '0.6.0',
     date: '2026-10-22',
     title: 'Etapa 7 — Pronto para produção',

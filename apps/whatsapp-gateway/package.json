@@ -1,6 +1,6 @@
 {
   "name": "@pedemais/whatsapp-gateway",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "description": "Serviço interno de WhatsApp (Baileys/QR Code) do PedeMais: uma sessão cifrada por restaurante.",
   "type": "module",

@@ -1,0 +1,6 @@
+# Overlay opcional: sobe a stack sem o serviço de backup (não recomendado em produção).
+version: '3.8'
+services:
+  backup:
+    deploy:
+      replicas: 0
