@@ -510,6 +510,9 @@ export class OrdersService {
   ) {
     const res = await this.db.withTenant(ctx, async (tx) => {
       const o = await this.lock(tx, id);
+      // "Saiu para entrega" sempre registra o entregador (e o link de rastreio): POST /orders/:id/dispatch.
+      if (to === 'dispatched' && o.channel === 'delivery')
+        throw new ConflictException('Para despachar, escolha o entregador na tela Entregas');
       if (opts.expectedVersion !== undefined && opts.expectedVersion !== o.version) {
         throw new ConflictException('O pedido foi alterado por outra pessoa; atualize a tela');
       }

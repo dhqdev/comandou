@@ -49,6 +49,7 @@ jobs:
       - run: pnpm --filter @pedemais/shared build
       - run: pnpm typecheck
       - run: pnpm test
+      - run: node --test tools/print-agent/escpos.test.mjs
       - run: pnpm build
       - name: Auditoria de dependências (alta/crítica)
         run: pnpm audit --prod --audit-level high

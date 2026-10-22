@@ -588,3 +588,38 @@
   min-width: 78px;
   justify-content: center;
 }
+
+/* Etapa 4 ------------------------------------------------------------------------------ */
+.nav-link .pm-badge--warning {
+  background: var(--pm-warning);
+  color: #fff;
+}
+.order-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--pm-space-3);
+}
+.code-block {
+  margin: 0;
+  padding: var(--pm-space-3);
+  border-radius: var(--pm-radius-md);
+  background: var(--pm-surface-muted);
+  border: 1px solid var(--pm-border);
+  font-size: var(--pm-text-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.track-page {
+  min-height: 100%;
+  padding: var(--pm-space-6) var(--pm-space-4);
+  background: var(--pm-surface-muted);
+}
+.track-page__inner {
+  max-width: 480px;
+  margin: 0 auto;
+  display: grid;
+  gap: var(--pm-space-4);
+}
+.plain-list li {
+  min-width: 0;
+}

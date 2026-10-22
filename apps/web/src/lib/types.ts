@@ -162,3 +162,144 @@ export interface CashSession {
     createdByName: string | null;
   }[];
 }
+
+// ---------------------------------------------------------------- Etapa 4 (retaguarda)
+export interface Member {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: 'active' | 'revoked';
+  createdAt: string;
+  lastSeenAt: string | null;
+}
+
+export type StockUnit = 'un' | 'kg' | 'g' | 'l' | 'ml';
+export interface StockItem {
+  id: string;
+  name: string;
+  unit: StockUnit;
+  quantity: string;
+  minQuantity: string;
+  avgCost: string;
+  allowNegative: boolean;
+  active: boolean;
+  low: boolean;
+  stockValue: string;
+}
+export interface StockMovement {
+  id: string;
+  stockItemId: string;
+  itemName: string;
+  unit: StockUnit;
+  kind: 'purchase' | 'adjustment' | 'sale' | 'sale_reversal' | 'loss';
+  quantity: string;
+  unitCost: string | null;
+  balanceAfter: string;
+  orderId: string | null;
+  orderNumber: number | null;
+  note: string | null;
+  createdAt: string;
+  createdByName: string | null;
+}
+export interface RecipeLine {
+  stockItemId: string;
+  quantity: string;
+}
+
+export interface Courier {
+  id: string;
+  name: string;
+  phone: string | null;
+  userId: string | null;
+  userName: string | null;
+  active: boolean;
+}
+export interface Delivery {
+  id: string;
+  status: 'out' | 'delivered' | 'failed';
+  orderId: string;
+  orderNumber: number;
+  orderStatus: OrderStatus;
+  customerName: string | null;
+  customerPhone: string | null;
+  deliveryAddress: string | null;
+  total: string;
+  balance: string;
+  paymentStatus: PaymentStatus;
+  courierId: string;
+  courierName: string;
+  dispatchedAt: string;
+  finishedAt: string | null;
+  failureReason: string | null;
+  lastLat: string | null;
+  lastLng: string | null;
+  lastLocationAt: string | null;
+}
+
+export interface PrintAgent {
+  id: string;
+  name: string;
+  active: boolean;
+  online: boolean;
+  lastSeenAt: string | null;
+  version: string | null;
+}
+export interface PrintJob {
+  id: string;
+  kind: 'kitchen_ticket' | 'receipt' | 'test';
+  target: string;
+  status: 'queued' | 'printing' | 'done' | 'failed';
+  attempts: number;
+  orderId: string | null;
+  orderNumber: number | null;
+  lastError: string | null;
+  createdAt: string;
+  agentName: string | null;
+}
+
+export interface FinanceEntry {
+  id: string;
+  kind: 'payable' | 'receivable';
+  description: string;
+  category: string | null;
+  counterparty: string | null;
+  amount: string;
+  dueDate: string;
+  status: 'open' | 'paid' | 'cancelled';
+  paidAt: string | null;
+  paidMethod: string | null;
+  cancelReason: string | null;
+  overdue: boolean;
+}
+export interface FinanceSummary {
+  payableOpen: string;
+  payableOverdue: string;
+  payableNext7: string;
+  receivableOpen: string;
+  receivableOverdue: string;
+  receivableNext7: string;
+}
+export interface CashFlowDay {
+  day: string;
+  sales: string;
+  refunds: string;
+  received: string;
+  paid: string;
+  expectedIn: string;
+  expectedOut: string;
+  net: string;
+}
+export interface Reconciliation {
+  day: string;
+  methods: {
+    method: PaymentMethod;
+    systemAmount: string;
+    reconciliation: {
+      informedAmount: string;
+      difference: string;
+      note: string | null;
+      createdByName: string | null;
+    } | null;
+  }[];
+}

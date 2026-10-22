@@ -4,6 +4,12 @@ import { ComingSoonPage } from '../pages/ComingSoonPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MenuPage } from '../pages/MenuPage';
 import { CashPage } from '../pages/CashPage';
+import { DeliveriesPage } from '../pages/DeliveriesPage';
+import { FinancePage } from '../pages/FinancePage';
+import { PrintingPage } from '../pages/PrintingPage';
+import { StockPage } from '../pages/StockPage';
+import { TeamPage } from '../pages/TeamPage';
+import { TrackingPage } from '../pages/TrackingPage';
 import { KitchenPage } from '../pages/KitchenPage';
 import { OrdersPage } from '../pages/OrdersPage';
 import { PdvPage } from '../pages/PdvPage';
@@ -15,12 +21,7 @@ import { AppShell } from './AppShell';
 import { AuthProvider, useAuth } from './auth';
 import { UpdatePrompt } from './UpdatePrompt';
 
-const SOON: [string, string][] = [
-  ['entregas', 'Entregas'],
-  ['clientes', 'Clientes'],
-  ['estoque', 'Estoque'],
-  ['financeiro', 'Financeiro'],
-];
+const SOON: [string, string][] = [['clientes', 'Clientes']];
 
 function Gate() {
   const { status, error } = useAuth();
@@ -53,6 +54,11 @@ function Gate() {
         <Route path="configuracoes" element={<SettingsPage />} />
         <Route path="cardapio" element={<MenuPage />} />
         <Route path="novidades" element={<ReleasesPage />} />
+        <Route path="entregas" element={<DeliveriesPage />} />
+        <Route path="estoque" element={<StockPage />} />
+        <Route path="financeiro" element={<FinancePage />} />
+        <Route path="equipe" element={<TeamPage />} />
+        <Route path="impressao" element={<PrintingPage />} />
         {SOON.map(([path, title]) => (
           <Route key={path} path={path} element={<ComingSoonPage title={title} />} />
         ))}
@@ -66,10 +72,19 @@ export function App() {
   return (
     <BrowserRouter>
       <ToastProvider>
-        <AuthProvider>
-          <Gate />
-          <UpdatePrompt />
-        </AuthProvider>
+        <Routes>
+          {/* Rastreio público do cliente final: fora do login. */}
+          <Route path="/rastreio/:token" element={<TrackingPage />} />
+          <Route
+            path="*"
+            element={
+              <AuthProvider>
+                <Gate />
+                <UpdatePrompt />
+              </AuthProvider>
+            }
+          />
+        </Routes>
       </ToastProvider>
     </BrowserRouter>
   );

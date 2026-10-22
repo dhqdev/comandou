@@ -6,8 +6,11 @@ import {
   ClipboardList,
   LayoutGrid,
   LogOut,
+  KeyRound,
   Menu,
+  Printer,
   Receipt,
+  UserCog,
   Settings,
   Sparkles,
   Store,
@@ -23,6 +26,7 @@ import { Badge, Button } from '../design-system';
 import { useOnline } from '../lib/connectivity';
 import { useRealtimeStatus } from '../lib/realtime';
 import { useHasUnseenRelease } from '../lib/releases';
+import { ChangePasswordModal } from '../pages/TeamPage';
 import { useAuth } from './auth';
 import './shell.css';
 import './ops.css';
@@ -65,7 +69,12 @@ const NAV: { group: string; items: NavItem[] }[] = [
         icon: <Wallet size={18} />,
         perms: ['cash:operate', 'cash:close', 'reports:read'],
       },
-      { to: '/entregas', label: 'Entregas', icon: <Truck size={18} />, soon: true },
+      {
+        to: '/entregas',
+        label: 'Entregas',
+        icon: <Truck size={18} />,
+        perms: ['delivery:manage', 'delivery:operate'],
+      },
     ],
   },
   {
@@ -73,13 +82,25 @@ const NAV: { group: string; items: NavItem[] }[] = [
     items: [
       { to: '/cardapio', label: 'Cardápio', icon: <BookOpen size={18} /> },
       { to: '/clientes', label: 'Clientes', icon: <Users size={18} />, soon: true },
-      { to: '/estoque', label: 'Estoque', icon: <Boxes size={18} />, soon: true },
-      { to: '/financeiro', label: 'Financeiro', icon: <Receipt size={18} />, soon: true },
+      { to: '/estoque', label: 'Estoque', icon: <Boxes size={18} />, perms: ['stock:read'] },
+      {
+        to: '/financeiro',
+        label: 'Financeiro',
+        icon: <Receipt size={18} />,
+        perms: ['finance:read'],
+      },
       {
         to: '/relatorios',
         label: 'Relatórios',
         icon: <BarChart3 size={18} />,
         perms: ['reports:read'],
+      },
+      { to: '/equipe', label: 'Equipe', icon: <UserCog size={18} />, perms: ['users:manage'] },
+      {
+        to: '/impressao',
+        label: 'Impressão',
+        icon: <Printer size={18} />,
+        perms: ['printing:manage'],
       },
       {
         to: '/configuracoes',
@@ -97,6 +118,7 @@ export function AppShell() {
   const live = useRealtimeStatus();
   const unseen = useHasUnseenRelease();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
   const initials = (me?.user.name ?? '?')
     .split(' ')
     .map((p) => p[0])
@@ -158,6 +180,13 @@ export function AppShell() {
           <button
             className="nav-link"
             style={{ border: 0, background: 'none', cursor: 'pointer' }}
+            onClick={() => setPwOpen(true)}
+          >
+            <KeyRound size={18} /> Trocar senha
+          </button>
+          <button
+            className="nav-link"
+            style={{ border: 0, background: 'none', cursor: 'pointer' }}
             onClick={logout}
           >
             <LogOut size={18} /> Sair
@@ -198,6 +227,7 @@ export function AppShell() {
         <main className="content">
           <Outlet />
         </main>
+        <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
       </div>
     </div>
   );

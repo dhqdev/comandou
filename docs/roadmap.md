@@ -49,9 +49,26 @@ Entregue em um PR único (a pedido), com os seis itens planejados.
 
 Fora do escopo desta etapa (próximas): impressão de comanda/cupom, entregas e entregadores, cardápio digital do cliente, permissões configuráveis por restaurante, divisão de um item entre pessoas (hoje divide por valor ou por pedido).
 
-## Etapa 4 — Operações complementares
+## Etapa 4 — Operações complementares · ✅ entregue nesta PR
 
-Estoque (fichas técnicas, baixa definida por regra explícita, sem negativo involuntário), delivery e entregadores (rastreamento temporário com expiração), **agente local de impressão** (heartbeat, fila, chave única por trabalho), financeiro (contas a pagar/receber, fluxo de caixa, conciliação), administração de usuários.
+Entregue em um PR único, versão **0.3.0** (ver tela Novidades no sistema).
+
+| Critério de aceitação | Evidência |
+| --- | --- |
+| Equipe: adicionar pessoa, trocar papel, desativar (encerra sessões), troca da própria senha | `users/users.controller.ts`; testes "Equipe" |
+| Nunca fica sem administrador, mesmo com alterações simultâneas | teste "dois administradores rebaixando um ao outro" |
+| Estoque por insumo, entrada com custo médio, perda/contagem com motivo, livro-razão só de inserção | `stock/*`; testes "Estoque e ficha técnica" |
+| Ficha técnica de produto e de adicional; venda baixa, cancelamento devolve (estorno) | testes "ficha técnica…baixa o estoque" |
+| Sem negativo involuntário, inclusive com vendas simultâneas | teste "vendas simultâneas não deixam o estoque negativo" |
+| Entregas com entregador, link de rastreio público com hash e expiração, entregador só vê/mexe nas próprias | `delivery/*`; testes "Entregas e rastreio" |
+| Rastreio não expõe endereço/telefone e não funciona em outro restaurante | mesmos testes |
+| Fila de impressão com chave única, reserva com `SKIP LOCKED`, prazo e limite de tentativas, heartbeat | `printing/*`; testes "Impressão" |
+| Agente local sem dependências (ESC/POS, CP860, TCP 9100/arquivo) | `tools/print-agent` + `node --test` |
+| Financeiro: contas a pagar/receber, baixa idempotente, pago não cancela, fluxo de caixa, conciliação imutável | `finance/finance.controller.ts`; testes "Financeiro" |
+| Isolamento das 10 tabelas novas (RLS + FKs compostas) | `rls.int.test.ts` + testes de B contra A |
+| Telas no navegador (desktop e celular) | `apps/web/e2e/backoffice.spec.ts` |
+
+Fora do escopo desta etapa: permissões configuráveis por restaurante, compras/fornecedores como cadastro, transferência entre estoques, mapa ao vivo do entregador (hoje é a última posição enviada), redefinição de senha por e-mail, nota fiscal (Etapa 5).
 
 ## Etapa 5 — Integrações
 

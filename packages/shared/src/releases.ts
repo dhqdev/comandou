@@ -30,6 +30,46 @@ export const RELEASES: readonly Release[] = [
         tag: 'novo',
         text: 'Tela Novidades: acompanhe aqui tudo o que foi entregue em cada versão.',
       },
+      {
+        tag: 'novo',
+        text: 'Equipe: adicione pessoas com papel (caixa, garçom, entregador…), troque o papel ou desative o acesso na hora.',
+      },
+      {
+        tag: 'novo',
+        text: 'Trocar minha senha, no menu lateral. Os outros aparelhos conectados são desconectados.',
+      },
+      {
+        tag: 'novo',
+        text: 'Estoque por insumo: entradas com custo médio, perdas e contagens com motivo, alerta de estoque mínimo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Ficha técnica de produtos e adicionais: cada venda baixa os insumos e o cancelamento devolve.',
+      },
+      {
+        tag: 'novo',
+        text: 'Entregas: despacho com entregador, link de rastreio para o cliente (expira sozinho) e conclusão pelo celular do entregador.',
+      },
+      {
+        tag: 'novo',
+        text: 'Impressão automática das comandas por setor com o agente local, reimpressão e conferência de conta.',
+      },
+      {
+        tag: 'novo',
+        text: 'Financeiro: contas a pagar e a receber, fluxo de caixa diário e conciliação por forma de pagamento.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Venda sem saldo é recusada (salvo insumo que permita negativo), mesmo com vendas simultâneas.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Lançamento pago não pode ser apagado nem cancelado; a baixa não duplica em clique duplo.',
+      },
+      {
+        tag: 'melhoria',
+        text: '"Saiu para entrega" agora sempre registra o entregador (pela tela Entregas).',
+      },
     ],
   },
   {
