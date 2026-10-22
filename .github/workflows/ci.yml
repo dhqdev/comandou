@@ -1,22 +1,37 @@
-name: Testes
+name: Comandou (testes, imagens e Release)
 
-# Só na main (o desenvolvimento por enquanto vai direto nela). Mudança só de documentação não
-# roda nada. Se tudo passar, o workflow "Release" publica as imagens e cria a tag e a Release.
+# UM workflow só, um run por push na main, nesta ordem:
+#  1. Testes: Qualidade (formatação, tipos, testes) e Ponta a ponta (navegador e backup).
+#  2. Versão: a do package.json (a mesma da tela Novidades) se ainda não tem tag; senão a próxima
+#     correção dela (v0.8.1 → v0.8.2...). Todo push aprovado vira versão.
+#  3. Imagens: as 4 imagens no GHCR (amd64 + arm64): ghcr.io/<dono>/comandou-*.
+#  4. Release: só depois de tudo, cria a tag e a Release no GitHub. Se algo falhar antes, não fica
+#     tag sem imagem.
+# Mudança só de documentação não roda nada. Versão nova de funcionalidade (0.9.0...): suba o número
+# no package.json e em packages/shared/src/releases.ts. Pelo botão "Run workflow" dá para
+# republicar as imagens de uma tag existente (sem rodar os testes).
+# Publicar NÃO implanta nada: o deploy é o workflow "Deploy (produção)", manual, com aprovação.
 on:
   push:
     branches: [main]
     paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag existente para republicar as imagens (ex.: v0.8.1)'
+        required: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: comandou-${{ github.ref }}
+  cancel-in-progress: true # um push novo cancela o anterior (a tag só nasce no fim)
 
 jobs:
   check:
-    name: Qualidade (formatação, tipos e testes)
+    name: 1. Qualidade (formatação, tipos e testes)
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -83,7 +98,8 @@ jobs:
         run: pnpm audit --prod --audit-level high
 
   e2e:
-    name: Ponta a ponta (navegador e backup)
+    name: 1. Ponta a ponta (navegador e backup)
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     needs: check
     env:
@@ -173,3 +189,105 @@ jobs:
             apps/web/test-results
             api.log
             web.log
+
+  version:
+    name: 2. Definir a versão
+    needs: [check, e2e]
+    # Roda se os testes passaram (ou foram pulados, no republicar por tag); nunca se algum falhou.
+    if: ${{ !failure() && !cancelled() }}
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+      sha: ${{ steps.v.outputs.sha }}
+      create: ${{ steps.v.outputs.create }}
+    steps:
+      - name: Baixar o código aprovado nos testes
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0 # traz as tags
+      - name: Calcular a próxima versão
+        id: v
+        env:
+          EVENT: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT" == "workflow_dispatch" ]]; then
+            tag="$INPUT_TAG"; ref="$tag"; create=false
+            [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "tag inválida: $tag"; exit 1; }
+            git rev-parse -q --verify "refs/tags/$tag" >/dev/null || { echo "a tag $tag não existe"; exit 1; }
+          else
+            ref="$SHA"; create=true
+            base="$(node -p "require('./package.json').version")"
+            if ! git rev-parse -q --verify "refs/tags/v$base" >/dev/null; then
+              tag="v$base"
+            else
+              # Já existe: próxima correção da mesma linha (maior patch publicado + 1).
+              mm="${base%.*}"
+              last="$(git tag -l "v$mm.*" | sed "s/^v$mm\.//" | grep -E '^[0-9]+$' | sort -n | tail -1)"
+              tag="v$mm.$((last + 1))"
+            fi
+          fi
+          echo "versão: $tag (commit $ref)"
+          { echo "tag=$tag"; echo "sha=$ref"; echo "create=$create"; } >> "$GITHUB_OUTPUT"
+
+  images:
+    name: 3. Imagem ${{ matrix.image }} (amd64 + arm64)
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    timeout-minutes: 40 # um build travado falha em vez de ocupar o runner por horas
+    strategy:
+      matrix:
+        include:
+          - { image: api, dockerfile: infrastructure/docker/api.Dockerfile }
+          - { image: web, dockerfile: infrastructure/docker/web.Dockerfile }
+          - { image: whatsapp-gateway, dockerfile: infrastructure/docker/whatsapp-gateway.Dockerfile }
+          - { image: backup, dockerfile: infrastructure/docker/backup.Dockerfile }
+    steps:
+      - name: Baixar o código da versão
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version.outputs.sha }}
+      - name: Preparar emulação arm64 (QEMU)
+        uses: docker/setup-qemu-action@v3
+      - name: Preparar o Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Entrar no GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Construir e publicar ghcr.io/${{ github.repository_owner }}/comandou-${{ matrix.image }}:${{ needs.version.outputs.tag }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/comandou-${{ matrix.image }}:${{ needs.version.outputs.tag }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  release:
+    name: 4. Criar a tag e a Release
+    needs: [version, images]
+    if: needs.version.outputs.create == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Criar a tag ${{ needs.version.outputs.tag }} e a Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.version.outputs.tag }}
+          SHA: ${{ needs.version.outputs.sha }}
+        run: |
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "Comandou $TAG" --generate-notes \
+            --notes "Imagens: ghcr.io/${GITHUB_REPOSITORY_OWNER}/comandou-{api,web,whatsapp-gateway,backup}:$TAG (amd64 e arm64). O que mudou está na tela Novidades do sistema. Para colocar no ar: workflow Deploy (produção) ou scripts/get.sh."

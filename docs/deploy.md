@@ -170,15 +170,15 @@ sozinho; `COMANDOU_SKIP_BACKUP=1` pula à força (só em emergência, fica no lo
 
 ## Deploy pelo GitHub (manual, com aprovação)
 
-1. **A release é automática, só na `main`, e só no fim de tudo.** O workflow **Testes** roda a
-   cada push na `main` (mudança só de documentação não roda). Quando ele passa, o workflow
-   **Release** define a versão: a do `package.json` se ela ainda não tem tag, senão a próxima
-   correção (`v0.8.0` → `v0.8.1` → ...). Constrói e publica `comandou-api`, `comandou-web`,
-   `comandou-whatsapp-gateway` e `comandou-backup` no GHCR (amd64 e arm64) e **só depois** cria a
+1. **Tudo em um workflow só (`ci.yml`, "Comandou (testes, imagens e Release)"), um run por push na
+   `main`** (mudança só de documentação não roda). Ordem: testes → versão → imagens → tag e
+   Release. A versão é a do `package.json` se ela ainda não tem tag, senão a próxima correção
+   (`v0.8.1` → `v0.8.2` → ...). Constrói e publica `comandou-api`, `comandou-web`,
+   `comandou-whatsapp-gateway` e `comandou-backup` no GHCR (amd64 e arm64) e **só no fim** cria a
    tag e a Release no GitHub; se algo falhar antes, não fica tag sem imagem. Para uma versão de
    funcionalidade (`0.9.0`), suba o número nos `package.json` e em
    `packages/shared/src/releases.ts`. Não implanta nada. Para republicar as imagens de uma tag
-   existente: *Actions → Release → Run workflow* com a tag.
+   existente: *Actions → Comandou → Run workflow* com a tag (sem rodar os testes).
 2. Em *Settings → Environments*, criar `production` com **Required reviewers** e os secrets
    `DEPLOY_SSH_KEY` (chave só para deploy), `DEPLOY_KNOWN_HOSTS` (`ssh-keyscan` do manager, conferido
    à mão), `DEPLOY_HOST`, `DEPLOY_USER`. Opcional: variável `DEPLOY_PATH` (padrão `/opt/comandou`,

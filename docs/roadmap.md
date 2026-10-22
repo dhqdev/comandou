@@ -104,7 +104,7 @@ Entregue em um PR único, versão **0.5.0** (ver tela Novidades no sistema). Dec
 | Domínio próprio verificado por DNS TXT, só verificado resolve e vai para o Traefik | `domains/*`; testes de domínio e "Traefik recebe só domínios verificados, com token" |
 | Monitoramento: métricas Prometheus com token, saúde do banco/Redis/WhatsApp | `health/*`; testes de métricas e readiness |
 | Backup cifrado para B2/S3 e teste de restauração | `infrastructure/backup/*`; passo do CI (destino em arquivo) faz backup e restauração; ver [backups](backups.md) |
-| Deploy controlado com aprovação manual | `.github/workflows/release.yml` e `deploy.yml`; `scripts/install.sh` com backup antes |
+| Deploy controlado com aprovação manual | `.github/workflows/ci.yml` (inclui a release) e `deploy.yml`; `scripts/install.sh` com backup antes |
 | Telas: painel Super Admin e "Plano e domínio" | `apps/web/e2e/platform.spec.ts` (desktop e celular) |
 
 Pendências que dependem de contas e servidores reais (não simulados aqui): bucket real do B2,
