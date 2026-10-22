@@ -7,6 +7,7 @@ import { CashPage } from '../pages/CashPage';
 import { KitchenPage } from '../pages/KitchenPage';
 import { OrdersPage } from '../pages/OrdersPage';
 import { PdvPage } from '../pages/PdvPage';
+import { ReleasesPage } from '../pages/ReleasesPage';
 import { ReportsPage } from '../pages/ReportsPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { TablesPage } from '../pages/TablesPage';
@@ -51,6 +52,7 @@ function Gate() {
         <Route path="relatorios" element={<ReportsPage />} />
         <Route path="configuracoes" element={<SettingsPage />} />
         <Route path="cardapio" element={<MenuPage />} />
+        <Route path="novidades" element={<ReleasesPage />} />
         {SOON.map(([path, title]) => (
           <Route key={path} path={path} element={<ComingSoonPage title={title} />} />
         ))}

@@ -58,3 +58,21 @@ export const Payment = z.object({
   amount: money,
   tendered: money.optional(),
 });
+
+/** Quantidade de estoque em string decimal com até 3 casas (ex.: "0.350"). Nunca float. */
+export const qty = z
+  .string()
+  .regex(/^\d{1,10}(\.\d{1,3})?$/, 'quantidade com até 3 casas decimais');
+export const positiveQty = qty.refine((v) => Number(v) > 0, 'quantidade deve ser maior que zero');
+/** Custo unitário com até 4 casas. */
+export const unitCost = z
+  .string()
+  .regex(/^\d{1,10}(\.\d{1,4})?$/, 'custo com até 4 casas decimais');
+/** Data de calendário AAAA-MM-DD. */
+export const isoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'data no formato AAAA-MM-DD')
+  .refine((d) => {
+    const t = new Date(`${d}T00:00:00Z`);
+    return !Number.isNaN(t.getTime()) && t.toISOString().slice(0, 10) === d;
+  }, 'data inválida');

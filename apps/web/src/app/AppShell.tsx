@@ -9,6 +9,7 @@ import {
   Menu,
   Receipt,
   Settings,
+  Sparkles,
   Store,
   Truck,
   Users,
@@ -16,10 +17,12 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { ReactNode, useState } from 'react';
+import { CURRENT_RELEASE } from '@pedemais/shared';
 import { NavLink, Outlet } from 'react-router';
 import { Badge, Button } from '../design-system';
 import { useOnline } from '../lib/connectivity';
 import { useRealtimeStatus } from '../lib/realtime';
+import { useHasUnseenRelease } from '../lib/releases';
 import { useAuth } from './auth';
 import './shell.css';
 import './ops.css';
@@ -92,6 +95,7 @@ export function AppShell() {
   const { me, logout } = useAuth();
   const online = useOnline();
   const live = useRealtimeStatus();
+  const unseen = useHasUnseenRelease();
   const [menuOpen, setMenuOpen] = useState(false);
   const initials = (me?.user.name ?? '?')
     .split(' ')
@@ -133,6 +137,15 @@ export function AppShell() {
           </nav>
         ))}
         <div className="sidebar__footer">
+          <NavLink
+            to="/novidades"
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            onClick={() => setMenuOpen(false)}
+          >
+            <Sparkles size={18} />
+            Novidades
+            <Badge tone={unseen ? 'warning' : 'neutral'}>v{CURRENT_RELEASE.version}</Badge>
+          </NavLink>
           <div className="user-chip">
             <div className="user-chip__avatar" aria-hidden>
               {initials}
