@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.8.2',
+    date: '2026-10-22',
+    title: 'Traefik 2 consegue descobrir os restaurantes',
+    summary:
+      'Ajuste na instalação: o Traefik versão 2 não envia cabeçalhos ao consultar o Comandou, então a consulta de endereços também aceita o token na URL.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'A rota interna que lista os endereços para o Traefik aceita ?token=..., e o token não aparece nos registros (logs).',
+      },
+    ],
+  },
+  {
     version: '0.8.1',
     date: '2026-10-22',
     title: 'Endereço do restaurante no ar sozinho',

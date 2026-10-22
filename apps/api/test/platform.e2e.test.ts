@@ -523,6 +523,9 @@ describe('Domínio próprio', () => {
       .get('/api/v1/internal/traefik')
       .set('Authorization', 'Bearer errado-errado-errado-errado')
       .expect(404);
+    // Traefik 2.x não envia cabeçalhos ao provider HTTP: o token também vale na URL.
+    await http.get('/api/v1/internal/traefik?token=errado-errado-errado-errado').expect(404);
+    await http.get(`/api/v1/internal/traefik?token=${TRAEFIK_TOKEN}`).expect(200);
     const r = await http
       .get('/api/v1/internal/traefik')
       .set('Authorization', `Bearer ${TRAEFIK_TOKEN}`)

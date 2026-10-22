@@ -110,10 +110,10 @@ Traefik existente (pendente de validação no servidor):
 ```yaml
 providers:
   http:
-    endpoint: http://comandou_api:3000/api/v1/internal/traefik
+    endpoint: http://comandou_api:3000/api/v1/internal/traefik?token=<conteúdo de comandou_traefik_provider_token>
     pollInterval: 30s
-    headers:
-      Authorization: Bearer <conteúdo de comandou_traefik_provider_token>
+    # Traefik 3: pode usar `headers: { Authorization: Bearer <token> }`. Traefik 2.x não aceita
+    # cabeçalhos no provider HTTP; use o token na URL (?token=...), que a API também aceita.
 certificatesResolvers:
   letsencrypt-http:
     acme:

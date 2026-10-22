@@ -1,7 +1,7 @@
 {
   "name": "comandou",
   "private": true,
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Comandou — SaaS multi-tenant para restaurantes",
   "license": "UNLICENSED",
   "packageManager": "pnpm@10.28.0",

@@ -1,6 +1,6 @@
 {
   "name": "@comandou/whatsapp-gateway",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "private": true,
   "description": "Serviço interno de WhatsApp (Baileys/QR Code) do Comandou: uma sessão cifrada por restaurante.",
   "type": "module",

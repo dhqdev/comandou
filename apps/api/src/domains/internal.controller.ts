@@ -2,7 +2,7 @@ import { Controller, Get, Inject, NotFoundException, Req } from '@nestjs/common'
 import { SkipThrottle } from '@nestjs/throttler';
 import { createHash } from 'node:crypto';
 import type { Request } from 'express';
-import { bearerMatches } from '../common/bearer';
+import { bearerOrQueryMatches } from '../common/bearer';
 import { Public, SkipTenant } from '../common/decorators';
 import { ENV, Env } from '../config/env';
 import { DatabaseService } from '../database/database.service';
@@ -59,7 +59,7 @@ export class InternalController {
   /** Provider HTTP do Traefik: um roteador por domínio personalizado verificado (e, se ligado, por restaurante). */
   @Get('traefik')
   async traefik(@Req() req: Request) {
-    if (!bearerMatches(req, this.env.TRAEFIK_PROVIDER_TOKEN)) throw new NotFoundException();
+    if (!bearerOrQueryMatches(req, this.env.TRAEFIK_PROVIDER_TOKEN)) throw new NotFoundException();
     const rows = await this.db.queryUnscoped<{ hostname: string }>(
       'SELECT hostname FROM app_verified_domains()',
       [],

@@ -18,10 +18,8 @@ providers:
     exposedByDefault: false
     network: network_public
   http:
-    endpoint: http://comandou_api:3000/api/v1/internal/traefik
+    endpoint: http://comandou_api:3000/api/v1/internal/traefik?token=@PROVIDER_TOKEN@
     pollInterval: 30s
-    headers:
-      Authorization: Bearer @PROVIDER_TOKEN@
 certificatesResolvers:
   letsencryptresolver:
     acme:

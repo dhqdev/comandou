@@ -4,5 +4,7 @@
  */
 export function maskSecretsInUrl(url: string | undefined): string | undefined {
   if (!url) return url;
-  return url.replace(/(\/track\/)[^/?#]+/g, '$1[oculto]');
+  return url
+    .replace(/(\/track\/)[^/?#]+/g, '$1[oculto]')
+    .replace(/([?&]token=)[^&#]+/g, '$1[oculto]');
 }
