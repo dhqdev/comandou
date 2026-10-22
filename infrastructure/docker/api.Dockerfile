@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1.7
 # Imagem da API (NestJS). Base node:22-alpine é multiarch (linux/amd64 e linux/arm64).
 # Sem dependências nativas: senhas usam scrypt do próprio Node.
-FROM node:22-alpine AS build
+# O estágio de build roda no processador do próprio runner (rápido) e só o runtime é por arquitetura:
+# sem isso o arm64 seria compilado por emulação (QEMU), 10x mais lento.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS build
 WORKDIR /repo
 # CA extra opcional (redes corporativas com proxy TLS): docker build --secret id=ca,src=ca.crt
 ENV NODE_EXTRA_CA_CERTS=/run/secrets/ca
