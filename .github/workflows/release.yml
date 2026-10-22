@@ -7,6 +7,7 @@ name: Release (imagens versionadas)
 # Mesma versão de antes = não faz nada. Regra do projeto: toda mudança que deve virar versão sobe
 # o número no package.json e em packages/shared/src/releases.ts.
 # Também aceita tag vX.Y.Z criada à mão e, pelo botão "Run workflow", republicar uma tag existente.
+# As imagens têm nome fixo (ghcr.io/<dono>/pedemais-*), independente do nome do repositório.
 # Publicar imagem NÃO implanta nada: o deploy é o workflow "Deploy (produção)", manual, com aprovação.
 on:
   workflow_run:
@@ -100,7 +101,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}-${{ matrix.image }}:${{ needs.version.outputs.tag }}
+            ghcr.io/${{ github.repository_owner }}/pedemais-${{ matrix.image }}:${{ needs.version.outputs.tag }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
@@ -119,4 +120,4 @@ jobs:
           SHA: ${{ needs.version.outputs.sha }}
         run: |
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "PedeMais $TAG" --generate-notes \
-            --notes "Imagens: ghcr.io/${GITHUB_REPOSITORY}-{api,web,whatsapp-gateway,backup}:$TAG (amd64 e arm64). O que mudou nesta versão está na tela Novidades do sistema. Para colocar no ar: workflow Deploy (produção)."
+            --notes "Imagens: ghcr.io/${GITHUB_REPOSITORY_OWNER}/pedemais-{api,web,whatsapp-gateway,backup}:$TAG (amd64 e arm64). O que mudou nesta versão está na tela Novidades do sistema. Para colocar no ar: workflow Deploy (produção)."
