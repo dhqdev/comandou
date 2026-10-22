@@ -1,0 +1,591 @@
+import 'reflect-metadata';
+import type { INestApplication } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
+import { Client } from 'pg';
+import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createApp } from '../src/bootstrap';
+import { hashPassword } from '../src/auth/password';
+import { seal } from '../src/common/secret-box';
+import { DomainVerifier } from '../src/domains/domains.controller';
+import { totpContext } from '../src/platform/platform-auth';
+import { newTotpSecret, totpCode, totpStep } from '../src/platform/totp';
+import { APP_URL, PLATFORM_URL, testEnv } from './env';
+import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
+
+/**
+ * Etapa 6: painel Super Admin (admin.<base>) com papel de banco próprio, login com código do
+ * autenticador, planos/assinaturas/limites, suspensão, domínios por DNS TXT, provider do Traefik
+ * e métricas. Inclui as barreiras: rota do painel some fora de admin.<base>, cookie do
+ * restaurante não abre o painel, papéis de banco sem acesso cruzado.
+ */
+const ADMIN_HOST = 'admin.pedemais.test';
+const HOST_A = 'pf-a.pedemais.test';
+const HOST_B = 'pf-b.pedemais.test';
+const CSRF = { 'X-PedeMais-Request': '1' };
+const KEY = randomBytes(32).toString('base64');
+const METRICS_TOKEN = 'metrics-token-0123456789abcdef';
+const TRAEFIK_TOKEN = 'traefik-token-0123456789abcdef';
+const ADMIN_EMAIL = 'root@plataforma.test';
+const ADMIN_PASSWORD = 'senha-super-admin-123';
+const SECRET = newTotpSecret();
+
+let app: INestApplication;
+let http: ReturnType<typeof request>;
+let fx: Fixture;
+let adminCookie = '';
+const txt = new Map<string, string[]>();
+
+async function createAdmin() {
+  const [{ id }] = await ownerQuery<{ id: string }>(
+    `INSERT INTO platform_admins (email, name, password_hash, totp_secret_enc)
+     VALUES ($1, 'Raiz', $2, '\\x00') RETURNING id`,
+    [ADMIN_EMAIL, await hashPassword(ADMIN_PASSWORD)],
+  );
+  await ownerQuery(`UPDATE platform_admins SET totp_secret_enc = $2 WHERE id = $1`, [
+    id,
+    seal(KEY, SECRET, totpContext(id)),
+  ]);
+  return id;
+}
+
+const adminLogin = (code: string, password = ADMIN_PASSWORD, host = ADMIN_HOST) =>
+  http
+    .post('/api/v1/platform/auth/login')
+    .set('Host', host)
+    .set(CSRF)
+    .send({ email: ADMIN_EMAIL, password, code });
+
+const pget = (url: string, cookie = adminCookie) =>
+  http.get(`/api/v1/platform${url}`).set('Host', ADMIN_HOST).set('Cookie', cookie);
+const psend = (method: 'post' | 'put', url: string, body: object, cookie = adminCookie) =>
+  http[method](`/api/v1/platform${url}`)
+    .set('Host', ADMIN_HOST)
+    .set(CSRF)
+    .set('Cookie', cookie)
+    .send(body);
+
+async function tenantLogin(host: string, email: string, password = PASSWORD) {
+  const res = await http
+    .post('/api/v1/auth/login')
+    .set('Host', host)
+    .set(CSRF)
+    .send({ email, password });
+  const raw = (res.headers['set-cookie'] as unknown as string[] | undefined) ?? [];
+  return { res, cookie: raw.find((c) => c.startsWith('pm_sid='))?.split(';')[0] ?? '' };
+}
+const tget = (host: string, cookie: string, url: string) =>
+  http.get(`/api/v1${url}`).set('Host', host).set('Cookie', cookie);
+const tsend = (
+  host: string,
+  cookie: string,
+  method: 'post' | 'put' | 'patch',
+  url: string,
+  b: object,
+) => http[method](`/api/v1${url}`).set('Host', host).set(CSRF).set('Cookie', cookie).send(b);
+
+const plan = (code: string, extra: object = {}) => ({
+  code,
+  name: `Plano ${code}`,
+  priceMonthly: '99.90',
+  maxUsers: null,
+  maxProducts: null,
+  maxOrdersMonth: null,
+  featureFiscal: false,
+  featureWhatsapp: false,
+  featureCustomDomain: false,
+  trialDays: 0,
+  isDefault: false,
+  active: true,
+  ...extra,
+});
+
+beforeAll(async () => {
+  fx = await seedTwoTenants('pf');
+  await createAdmin();
+  app = await createApp(
+    testEnv({
+      AUTH_LOGIN_RATE_LIMIT: '1000',
+      PLATFORM_DATABASE_URL: PLATFORM_URL,
+      INTEGRATIONS_KEY: KEY,
+      METRICS_TOKEN,
+      TRAEFIK_PROVIDER_TOKEN: TRAEFIK_TOKEN,
+    }),
+    { logger: false },
+  );
+  await app.init();
+  app.get(DomainVerifier).resolveTxt = async (name: string) => {
+    const v = txt.get(name);
+    if (!v) throw Object.assign(new Error('not found'), { code: 'ENOTFOUND' });
+    return v.map((s) => [s.slice(0, 10), s.slice(10)]); // TXT em pedaços, como no DNS real
+  };
+  http = request(app.getHttpServer());
+});
+
+afterAll(async () => {
+  // Não deixa plano padrão para os outros arquivos de teste (o provisionamento usaria).
+  await ownerQuery(`UPDATE plans SET is_default = false WHERE is_default`);
+  await app?.close();
+});
+
+describe('Barreiras do painel', () => {
+  it('rotas do painel não existem fora de admin.<base>', async () => {
+    for (const host of [HOST_A, 'pedemais.test', 'www.pedemais.test', 'admin.outro.com']) {
+      await http.get('/api/v1/platform/auth/me').set('Host', host).expect(404);
+      await adminLogin(totpCode(SECRET, totpStep()), ADMIN_PASSWORD, host).expect(404);
+    }
+  });
+
+  it('admin.<base> não resolve restaurante nenhum', async () => {
+    await http.get('/api/v1/tenant').set('Host', ADMIN_HOST).expect(404);
+  });
+
+  it('sem sessão do painel: 401; cookie de restaurante não abre o painel', async () => {
+    await pget('/overview', '').expect(401);
+    const { cookie } = await tenantLogin(HOST_A, 'admin@pf-a.test');
+    expect(cookie).toBeTruthy();
+    await pget('/overview', cookie.replace('pm_sid=', 'pm_admin=')).expect(401);
+    await pget('/overview', cookie).expect(401);
+  });
+
+  it('papéis do banco: a app não lê a plataforma; a plataforma não lê hash de senha', async () => {
+    const appDb = new Client({ connectionString: APP_URL });
+    const pfDb = new Client({ connectionString: PLATFORM_URL });
+    await appDb.connect();
+    await pfDb.connect();
+    try {
+      for (const t of ['platform_admins', 'platform_sessions', 'platform_audit_log', 'backup_runs'])
+        await expect(appDb.query(`SELECT 1 FROM ${t}`)).rejects.toThrow(/permission denied/);
+      await expect(pfDb.query(`SELECT password_hash FROM users`)).rejects.toThrow(
+        /permission denied/,
+      );
+      await expect(pfDb.query(`SELECT * FROM orders`)).rejects.toThrow(/permission denied/);
+      await expect(pfDb.query(`DELETE FROM platform_audit_log`)).rejects.toThrow(
+        /permission denied/,
+      );
+      await expect(
+        pfDb.query(
+          `INSERT INTO platform_admins (email, name, password_hash, totp_secret_enc) VALUES ('x@y.z','x','x','\\x00')`,
+        ),
+      ).rejects.toThrow(/permission denied/);
+    } finally {
+      await appDb.end();
+      await pfDb.end();
+    }
+  });
+});
+
+describe('Login do Super Admin', () => {
+  it('senha certa com código errado é recusada e auditada', async () => {
+    await adminLogin('000000').expect(401);
+    await adminLogin(totpCode(SECRET, totpStep()), 'senha-errada-000').expect(401);
+    const rows = await ownerQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM platform_audit_log WHERE action = 'platform.login_failed'`,
+    );
+    expect(rows[0].n).toBeGreaterThanOrEqual(2);
+  });
+
+  it('senha + código: cookie restrito ao painel; o mesmo código não serve de novo', async () => {
+    const code = totpCode(SECRET, totpStep());
+    const r = await adminLogin(code).expect(200);
+    const raw = r.headers['set-cookie'] as unknown as string[];
+    const c = raw.find((x) => x.startsWith('pm_admin='))!;
+    expect(c).toMatch(/Path=\/api\/v1\/platform/);
+    expect(c).toMatch(/HttpOnly/);
+    expect(c).toMatch(/SameSite=Strict/);
+    adminCookie = c.split(';')[0];
+    await adminLogin(code).expect(401); // replay
+    const me = await pget('/auth/me').expect(200);
+    expect(me.body.admin.email).toBe(ADMIN_EMAIL);
+    // O cookie do painel não abre rotas do restaurante.
+    await tget(HOST_A, adminCookie, '/auth/me').expect(401);
+  });
+
+  it('logout revoga a sessão no servidor', async () => {
+    const r = await adminLogin(totpCode(SECRET, totpStep() + 1)).expect(200);
+    const cookie = (r.headers['set-cookie'] as unknown as string[])
+      .find((x) => x.startsWith('pm_admin='))!
+      .split(';')[0];
+    await http
+      .post('/api/v1/platform/auth/logout')
+      .set('Host', ADMIN_HOST)
+      .set(CSRF)
+      .set('Cookie', cookie)
+      .expect(204);
+    await pget('/auth/me', cookie).expect(401);
+  });
+});
+
+describe('Planos, assinaturas e limites', () => {
+  let small: string;
+  let full: string;
+
+  it('cria planos (código único) e só um padrão', async () => {
+    const a = await psend(
+      'post',
+      '/plans',
+      plan('pf-pequeno', { maxProducts: 2, maxUsers: 3, maxOrdersMonth: 1 }),
+    ).expect(201);
+    small = a.body.id;
+    expect(a.body.priceMonthly).toBe('99.90');
+    const b = await psend(
+      'post',
+      '/plans',
+      plan('pf-completo', {
+        featureFiscal: true,
+        featureWhatsapp: true,
+        featureCustomDomain: true,
+        trialDays: 14,
+        isDefault: true,
+      }),
+    ).expect(201);
+    full = b.body.id;
+    await psend('post', '/plans', plan('pf-pequeno')).expect(409);
+    await psend('post', '/plans', plan('pf-x', { priceMonthly: '9.999' })).expect(400);
+    await psend('post', '/plans', plan('pf-y', { isDefault: true, active: false })).expect(422);
+    const list = await pget('/plans').expect(200);
+    expect(list.body.filter((p: { isDefault: boolean }) => p.isDefault)).toHaveLength(1);
+  });
+
+  it('cria restaurante pelo painel com o plano padrão em teste (sem auditar a senha)', async () => {
+    const r = await psend('post', '/tenants', {
+      slug: 'pf-novo',
+      name: 'Restaurante Novo',
+      adminEmail: 'dona@pf-novo.test',
+      adminName: 'Dona',
+      adminPassword: 'senha-inicial-123',
+    }).expect(201);
+    expect(r.body.status).toBe('provisioned');
+    expect(r.body.subscription).toMatchObject({ status: 'trialing', planId: full });
+    expect(r.body.owners).toEqual([{ name: 'Dona', email: 'dona@pf-novo.test' }]);
+    const { res } = await tenantLogin(
+      'pf-novo.pedemais.test',
+      'dona@pf-novo.test',
+      'senha-inicial-123',
+    );
+    expect(res.status).toBe(200);
+    const audit = await ownerQuery<{ data: string }>(
+      `SELECT data::text FROM platform_audit_log WHERE action = 'platform.tenant_created'`,
+    );
+    expect(audit.map((a) => a.data).join()).not.toContain('senha-inicial-123');
+    await psend('post', '/tenants', {
+      slug: 'pf-novo',
+      name: 'X',
+      adminEmail: 'x@x.test',
+      adminName: 'X',
+      adminPassword: 'senha-inicial-123',
+    }).expect(409);
+    await psend('post', '/tenants', {
+      slug: 'admin',
+      name: 'X',
+      adminEmail: 'x@x.test',
+      adminName: 'X',
+      adminPassword: 'senha-inicial-123',
+    }).expect(400);
+    await psend('post', '/tenants', {
+      slug: 'pf-sem-plano',
+      name: 'X',
+      adminEmail: 'x@x.test',
+      adminName: 'X',
+      adminPassword: 'senha-inicial-123',
+      planCode: 'nao-existe',
+    }).expect(422);
+    expect(await ownerQuery(`SELECT 1 FROM tenants WHERE slug = 'pf-sem-plano'`)).toHaveLength(0);
+  });
+
+  it('aplica limites de produtos, equipe e pedidos do plano, sem apagar nada', async () => {
+    await psend('put', `/tenants/${fx.tenantA}/subscription`, {
+      planId: small,
+      status: 'active',
+    }).expect(200);
+    const { cookie } = await tenantLogin(HOST_A, 'admin@pf-a.test');
+    const sub = await tget(HOST_A, cookie, '/subscription').expect(200);
+    expect(sub.body.current.plan.limits).toEqual({ users: 3, products: 2, orders_month: 1 });
+    expect(sub.body.usage).toEqual({ users: 2, products: 1, orders_month: 0 });
+
+    // Produtos: tinha 1; cabe mais 1.
+    await tsend(HOST_A, cookie, 'post', '/products', {
+      categoryId: fx.catA,
+      name: 'P2',
+      price: '1.00',
+    }).expect(201);
+    const over = await tsend(HOST_A, cookie, 'post', '/products', {
+      categoryId: fx.catA,
+      name: 'P3',
+      price: '1.00',
+    }).expect(403);
+    expect(over.body.message).toMatch(/Limite do plano/);
+    // Desativar libera vaga; reativar conta de novo.
+    await tsend(HOST_A, cookie, 'patch', `/products/${fx.prodA}`, { active: false }).expect(200);
+    await tsend(HOST_A, cookie, 'post', '/products', {
+      categoryId: fx.catA,
+      name: 'P3',
+      price: '1.00',
+    }).expect(201);
+    await tsend(HOST_A, cookie, 'patch', `/products/${fx.prodA}`, { active: true }).expect(403);
+
+    // Equipe: 2 ativos, limite 3.
+    await tsend(HOST_A, cookie, 'post', '/users', {
+      email: 'caixa@pf-a.test',
+      name: 'Caixa',
+      role: 'cashier',
+      password: 'senha-caixa-123',
+    }).expect(201);
+    await tsend(HOST_A, cookie, 'post', '/users', {
+      email: 'caixa2@pf-a.test',
+      name: 'Caixa 2',
+      role: 'cashier',
+      password: 'senha-caixa-123',
+    }).expect(403);
+
+    // Pedidos no mês: limite 1.
+    const [p] = await ownerQuery<{ id: string }>(
+      `SELECT id FROM products WHERE tenant_id = $1 AND active LIMIT 1`,
+      [fx.tenantA],
+    );
+    await tsend(HOST_A, cookie, 'post', '/orders', {
+      channel: 'counter',
+      items: [{ productId: p.id, quantity: 1 }],
+    }).expect(201);
+    await tsend(HOST_A, cookie, 'post', '/orders', {
+      channel: 'counter',
+      items: [{ productId: p.id, quantity: 1 }],
+    }).expect(403);
+
+    // Recursos fora do plano.
+    const [o] = await ownerQuery<{ id: string }>(
+      `SELECT id FROM orders WHERE tenant_id = $1 LIMIT 1`,
+      [fx.tenantA],
+    );
+    const nf = await tsend(HOST_A, cookie, 'post', `/orders/${o.id}/nfce`, {}).expect(403);
+    expect(nf.body.message).toMatch(/Nota fiscal/);
+    await tsend(HOST_A, cookie, 'put', '/messaging/settings', { enabled: true }).expect(403);
+    await tsend(HOST_A, cookie, 'post', '/domains', { hostname: 'pedidos.pf-a.com.br' }).expect(
+      403,
+    );
+
+    // Outro restaurante (sem assinatura) não é afetado.
+    const b = await tenantLogin(HOST_B, 'admin@pf-b.test');
+    await tsend(HOST_B, b.cookie, 'post', '/products', {
+      categoryId: fx.catB,
+      name: 'B2',
+      price: '1.00',
+    }).expect(201);
+    await tsend(HOST_B, b.cookie, 'post', '/products', {
+      categoryId: fx.catB,
+      name: 'B3',
+      price: '1.00',
+    }).expect(201);
+  });
+
+  it('garçom não vê o plano; cancelar a assinatura tira os limites', async () => {
+    const w = await tenantLogin(HOST_A, 'garcom@pf-a.test');
+    await tget(HOST_A, w.cookie, '/subscription').expect(403);
+    await psend('put', `/tenants/${fx.tenantA}/subscription`, {
+      status: 'cancelled',
+      notes: 'teste',
+    }).expect(200);
+    const { cookie } = await tenantLogin(HOST_A, 'admin@pf-a.test');
+    expect((await tget(HOST_A, cookie, '/subscription').expect(200)).body.current).toBeNull();
+    await tsend(HOST_A, cookie, 'post', '/products', {
+      categoryId: fx.catA,
+      name: 'P4',
+      price: '1.00',
+    }).expect(201);
+    await psend('put', `/tenants/${fx.tenantA}/subscription`, { status: 'cancelled' }).expect(404);
+    const audit = await pget(`/audit?tenantId=${fx.tenantA}`).expect(200);
+    expect(audit.body.map((a: { action: string }) => a.action)).toEqual(
+      expect.arrayContaining(['platform.subscription_changed']),
+    );
+  });
+
+  it('período de teste exige data ou dias de teste no plano', async () => {
+    await psend('put', `/tenants/${fx.tenantB}/subscription`, {
+      planId: small,
+      status: 'trialing',
+    }).expect(422);
+    const r = await psend('put', `/tenants/${fx.tenantB}/subscription`, {
+      planId: full,
+      status: 'trialing',
+    }).expect(200);
+    expect(r.body.subscription.trialEndsAt).toBeTruthy();
+  });
+});
+
+describe('Suspensão', () => {
+  it('suspende (restaurante fica indisponível) e reativa, com motivo auditado', async () => {
+    await psend('post', `/tenants/${fx.tenantB}/status`, {
+      status: 'suspended',
+      reason: 'x',
+    }).expect(400);
+    await psend('post', `/tenants/${fx.tenantB}/status`, {
+      status: 'suspended',
+      reason: 'Pagamento atrasado',
+    }).expect(200);
+    const { res } = await tenantLogin(HOST_B, 'admin@pf-b.test');
+    expect(res.status).toBe(403);
+    await psend('post', `/tenants/${fx.tenantB}/status`, {
+      status: 'suspended',
+      reason: 'de novo',
+    }).expect(409);
+    await psend('post', `/tenants/${fx.tenantB}/status`, {
+      status: 'provisioned',
+      reason: 'Pago',
+    }).expect(200);
+    expect((await tenantLogin(HOST_B, 'admin@pf-b.test')).res.status).toBe(200);
+    const t = await ownerQuery<{ action: string }>(
+      `SELECT action FROM audit_log WHERE tenant_id = $1 AND action LIKE 'tenant.%' ORDER BY id`,
+      [fx.tenantB],
+    );
+    expect(t.map((r) => r.action)).toEqual(
+      expect.arrayContaining(['tenant.suspended', 'tenant.reactivated']),
+    );
+  });
+});
+
+describe('Domínio próprio', () => {
+  let domainId = '';
+
+  it('valida o endereço, cadastra e mostra o registro TXT', async () => {
+    const { cookie } = await tenantLogin(HOST_B, 'admin@pf-b.test');
+    for (const bad of [
+      'pf-b.pedemais.test',
+      'x.pedemais.test',
+      '10.0.0.1',
+      'localhost',
+      'a..b.com',
+      '-a.com',
+    ])
+      await tsend(HOST_B, cookie, 'post', '/domains', { hostname: bad }).expect(422);
+    const r = await tsend(HOST_B, cookie, 'post', '/domains', {
+      hostname: 'Pedidos.PF-B.com.br.',
+    }).expect(201);
+    expect(r.body).toMatchObject({
+      hostname: 'pedidos.pf-b.com.br',
+      verified: false,
+      dns: { txtName: '_pedemais.pedidos.pf-b.com.br', cnameTarget: 'pf-b.pedemais.test' },
+    });
+    expect(r.body.dns.txtValue).toMatch(/^pedemais-verify=[A-Za-z0-9_-]{32}$/);
+    domainId = r.body.id;
+    await tsend(HOST_B, cookie, 'post', '/domains', { hostname: 'pedidos.pf-b.com.br' }).expect(
+      409,
+    );
+
+    // Sem TXT: não verifica e explica.
+    const v1 = await tsend(HOST_B, cookie, 'post', `/domains/${domainId}/verify`, {}).expect(201);
+    expect(v1.body.verified).toBe(false);
+    expect(v1.body.lastError).toMatch(/Nenhum registro TXT/);
+    await http.get('/api/v1/tenant').set('Host', 'pedidos.pf-b.com.br').expect(404);
+
+    txt.set('_pedemais.pedidos.pf-b.com.br', ['outra-coisa', r.body.dns.txtValue]);
+    const v2 = await tsend(HOST_B, cookie, 'post', `/domains/${domainId}/verify`, {}).expect(201);
+    expect(v2.body.verified).toBe(true);
+    const t = await http.get('/api/v1/tenant').set('Host', 'pedidos.pf-b.com.br').expect(200);
+    expect(t.body.slug).toBe('pf-b');
+  });
+
+  it('outro restaurante pode pedir o mesmo domínio, mas não verificá-lo', async () => {
+    await psend('put', `/tenants/${fx.tenantA}/subscription`, {
+      planId: (await pget('/plans')).body.find((p: { code: string }) => p.code === 'pf-completo')
+        .id,
+      status: 'active',
+    }).expect(200);
+    const { cookie } = await tenantLogin(HOST_A, 'admin@pf-a.test');
+    const r = await tsend(HOST_A, cookie, 'post', '/domains', {
+      hostname: 'pedidos.pf-b.com.br',
+    }).expect(201);
+    txt.set('_pedemais.pedidos.pf-b.com.br', [r.body.dns.txtValue]);
+    await tsend(HOST_A, cookie, 'post', `/domains/${r.body.id}/verify`, {}).expect(409);
+    // A lista de A não vê os domínios de B.
+    const list = await tget(HOST_A, cookie, '/domains').expect(200);
+    expect(list.body).toHaveLength(1);
+    expect(list.body[0].verified).toBe(false);
+  });
+
+  it('Traefik recebe só domínios verificados, com token', async () => {
+    await http.get('/api/v1/internal/traefik').expect(404);
+    await http
+      .get('/api/v1/internal/traefik')
+      .set('Authorization', 'Bearer errado-errado-errado-errado')
+      .expect(404);
+    const r = await http
+      .get('/api/v1/internal/traefik')
+      .set('Authorization', `Bearer ${TRAEFIK_TOKEN}`)
+      .expect(200);
+    const routers = Object.values(r.body.http.routers) as {
+      rule: string;
+      service: string;
+      tls: object;
+    }[];
+    expect(routers).toHaveLength(2);
+    expect(routers.map((x) => x.rule)).toEqual([
+      'Host(`pedidos.pf-b.com.br`) && PathPrefix(`/api`)',
+      'Host(`pedidos.pf-b.com.br`)',
+    ]);
+    expect(routers[0]).toMatchObject({
+      service: 'pedemais-api@swarm',
+      tls: { certResolver: 'letsencrypt-http' },
+    });
+  });
+
+  it('remover tira o domínio do ar; o painel também remove', async () => {
+    const { cookie } = await tenantLogin(HOST_B, 'admin@pf-b.test');
+    await tsend(HOST_B, cookie, 'post', `/domains/${domainId}/remove`, {}).expect(201);
+    await http.get('/api/v1/tenant').set('Host', 'pedidos.pf-b.com.br').expect(404);
+    const r = await http
+      .get('/api/v1/internal/traefik')
+      .set('Authorization', `Bearer ${TRAEFIK_TOKEN}`)
+      .expect(200);
+    expect(Object.keys(r.body.http.routers)).toHaveLength(0);
+
+    const a = await tenantLogin(HOST_A, 'admin@pf-a.test');
+    const [d] = (await tget(HOST_A, a.cookie, '/domains').expect(200)).body;
+    await psend('post', `/tenants/${fx.tenantA}/domains/${d.id}/remove`, {}).expect(200);
+    expect((await tget(HOST_A, a.cookie, '/domains').expect(200)).body).toHaveLength(0);
+  });
+});
+
+describe('Monitoramento e visão geral', () => {
+  it('métricas Prometheus só com token, sem restaurante nos rótulos', async () => {
+    await http.get('/api/v1/metrics').expect(404);
+    const r = await http
+      .get('/api/v1/metrics')
+      .set('Authorization', `Bearer ${METRICS_TOKEN}`)
+      .expect(200);
+    expect(r.text).toContain('pedemais_http_request_duration_seconds');
+    expect(r.text).toContain('pedemais_db_pool_connections');
+    expect(r.text).toContain('route="/api/v1/products"');
+    expect(r.text).not.toContain('pf-a');
+  });
+
+  it('readiness mostra banco e Redis', async () => {
+    const r = await http.get('/api/v1/health/ready').expect(200);
+    expect(r.body.checks.database).toBe('ok');
+    expect(['ok', 'disabled']).toContain(r.body.checks.redis);
+  });
+
+  it('visão geral, lista de restaurantes, backups e auditoria', async () => {
+    await ownerQuery(
+      `INSERT INTO backup_runs (kind, status, finished_at, object_key, size_bytes)
+       VALUES ('backup', 'ok', now(), 'pedemais/2026/10/x.dump.age', 1234)`,
+    );
+    const o = await pget('/overview').expect(200);
+    expect(o.body.health.database).toBe('ok');
+    expect(o.body.tenants.provisioned).toBeGreaterThanOrEqual(3);
+    expect(o.body.backups.backup.lastOkAt).toBeTruthy();
+    expect(o.body.backups.restoreTest.last).toBeNull();
+    const l = await pget('/tenants?search=pf-').expect(200);
+    const a = l.body.find((t: { slug: string }) => t.slug === 'pf-a');
+    expect(a).toMatchObject({ planName: 'Plano pf-completo', subscriptionStatus: 'active' });
+    expect(a.ordersMonth).toBe(1);
+    expect((await pget('/backups').expect(200)).body[0].objectKey).toContain('.dump.age');
+    const audit = (await pget('/audit').expect(200)).body as { action: string }[];
+    expect(audit.map((x) => x.action)).toEqual(
+      expect.arrayContaining([
+        'platform.login',
+        'platform.plan_created',
+        'platform.tenant_created',
+      ]),
+    );
+  });
+});

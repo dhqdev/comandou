@@ -66,6 +66,34 @@ const schema = z.object({
     (v) => (v === '' ? undefined : v),
     z.string().min(24).optional(),
   ),
+  /**
+   * Conexão do painel Super Admin: papel pedemais_platform (sem BYPASSRLS, políticas próprias).
+   * Sem ela, o painel (admin.<domínio base>) fica desligado.
+   */
+  PLATFORM_DATABASE_URL: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().url().optional(),
+  ),
+  PLATFORM_SESSION_TTL_HOURS: z.coerce.number().int().positive().max(24).default(8),
+  /** Sessão do painel expira após este tempo sem uso. */
+  PLATFORM_IDLE_MINUTES: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(24 * 60)
+    .default(30),
+  /** Token do endpoint /api/v1/metrics (Prometheus). Sem ele, o endpoint não existe. */
+  METRICS_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(24).optional()),
+  /** Token do provider HTTP do Traefik (domínios personalizados). Sem ele, o endpoint não existe. */
+  TRAEFIK_PROVIDER_TOKEN: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(24).optional(),
+  ),
+  TRAEFIK_ENTRYPOINT: z.string().default('websecure'),
+  /** Resolver HTTP-01/TLS-ALPN para domínios de clientes (o *.pedemais.com usa DNS-01). */
+  TRAEFIK_CUSTOM_CERT_RESOLVER: z.string().default('letsencrypt-http'),
+  TRAEFIK_API_SERVICE: z.string().default('pedemais-api@swarm'),
+  TRAEFIK_WEB_SERVICE: z.string().default('pedemais-web@swarm'),
   /** Tentativas de login por IP por minuto. */
   AUTH_LOGIN_RATE_LIMIT: z.coerce.number().int().positive().default(5),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
@@ -92,6 +120,10 @@ export const FILE_SECRET_VARS = [
   'PROVISION_ADMIN_PASSWORD',
   'INTEGRATIONS_KEY',
   'WHATSAPP_GATEWAY_TOKEN',
+  'PLATFORM_DATABASE_URL',
+  'PLATFORM_ADMIN_PASSWORD',
+  'METRICS_TOKEN',
+  'TRAEFIK_PROVIDER_TOKEN',
 ] as const;
 
 /**

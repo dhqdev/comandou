@@ -9,6 +9,8 @@ export interface ProvisionInput {
   adminName: string;
   /** Usada apenas se o usuário ainda não existir. Nunca é registrada em log. */
   adminPassword: string;
+  /** Plano da assinatura inicial. Sem ele, usa o plano padrão (se houver). */
+  planCode?: string;
 }
 
 export interface ProvisionResult {
@@ -17,11 +19,19 @@ export interface ProvisionResult {
   stepsRun: string[];
 }
 
-const STEPS = ['tenant', 'admin_user', 'admin_membership', 'defaults', 'activate'] as const;
+const STEPS = [
+  'tenant',
+  'admin_user',
+  'admin_membership',
+  'defaults',
+  'subscription',
+  'activate',
+] as const;
 
 /**
  * Provisionamento idempotente e retomável (banco compartilhado: NÃO cria banco por tenant).
- * Executa com a conexão do dono, pois é uma operação global. Cada etapa é registrada em
+ * Executa com a conexão do dono (CLI) ou do papel da plataforma (painel Super Admin), pois é
+ * uma operação global. Cada etapa é registrada em
  * tenant_provisioning_steps; reexecutar após falha retoma do ponto pendente sem duplicar recursos.
  * O acesso administrativo só é liberado na etapa final (status = provisioned).
  */
@@ -39,6 +49,13 @@ export async function provisionTenant(
   const stepsRun: string[] = [];
   try {
     await c.query('SELECT pg_advisory_lock(hashtext($1))', [`provision:${input.slug}`]);
+
+    // Plano informado precisa existir ANTES de criar qualquer coisa (erro de digitação não
+    // deixa um restaurante pela metade).
+    if (input.planCode) {
+      const p = await c.query(`SELECT 1 FROM plans WHERE code = $1 AND active`, [input.planCode]);
+      if (!p.rowCount) throw new Error(`plano não encontrado ou inativo: ${input.planCode}`);
+    }
 
     // Etapa: tenant (cria ou reaproveita)
     const existing = await c.query<{ id: string; status: string }>(
@@ -144,6 +161,26 @@ async function runStep(
         [tenantId],
       );
       return;
+    case 'subscription': {
+      const plan = (
+        await c.query<{ id: string; trial_days: number }>(
+          input.planCode
+            ? `SELECT id, trial_days FROM plans WHERE code = $1 AND active`
+            : `SELECT id, trial_days FROM plans WHERE is_default AND $1::text IS NULL`,
+          [input.planCode ?? null],
+        )
+      ).rows[0];
+      if (!plan) return; // sem plano padrão: restaurante sem limites de plano
+      await c.query(
+        `INSERT INTO subscriptions (tenant_id, plan_id, status, trial_ends_at)
+         SELECT $1, $2,
+                CASE WHEN $3::int > 0 THEN 'trialing' ELSE 'active' END,
+                CASE WHEN $3::int > 0 THEN now() + make_interval(days => $3::int) END
+          WHERE NOT EXISTS (SELECT 1 FROM subscriptions WHERE tenant_id = $1 AND status <> 'cancelled')`,
+        [tenantId, plan.id, plan.trial_days],
+      );
+      return;
+    }
     case 'activate':
       await c.query(`UPDATE tenants SET status = 'provisioned' WHERE id = $1`, [tenantId]);
       await c.query(

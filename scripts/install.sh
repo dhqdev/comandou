@@ -24,25 +24,52 @@ docker info >/dev/null 2>&1 || die "Docker não está acessível para este usuá
 [[ "$(docker info --format '{{.Swarm.ControlAvailable}}')" == "true" ]] || die "execute em um nó manager"
 
 step "3. Variáveis obrigatórias"
+# Valores não secretos do servidor (bucket, endpoint, URL de saúde...). Ver docs/deploy.md.
+DEPLOY_ENV="${PEDEMAIS_DEPLOY_ENV:-/etc/pedemais/deploy.env}"
+if [[ -f "$DEPLOY_ENV" ]]; then
+  echo "lendo $DEPLOY_ENV"
+  set -a
+  # shellcheck source=/dev/null
+  . "$DEPLOY_ENV"
+  set +a
+fi
 : "${PEDEMAIS_VERSION:?defina PEDEMAIS_VERSION (tag imutável, ex.: v0.1.0)}"
 export PEDEMAIS_BASE_DOMAIN="${PEDEMAIS_BASE_DOMAIN:-pedemais.com}"
-echo "versão=$PEDEMAIS_VERSION domínio=$PEDEMAIS_BASE_DOMAIN stack=$STACK"
+: "${BACKUP_S3_BUCKET:?defina BACKUP_S3_BUCKET (bucket do B2/S3 para os backups)}"
+: "${BACKUP_S3_ENDPOINT:?defina BACKUP_S3_ENDPOINT (ex.: https://s3.us-west-004.backblazeb2.com)}"
+export BACKUP_S3_BUCKET BACKUP_S3_ENDPOINT
+echo "versão=$PEDEMAIS_VERSION domínio=$PEDEMAIS_BASE_DOMAIN stack=$STACK bucket=$BACKUP_S3_BUCKET"
 
 step "4. Rede pública e secrets"
 docker network inspect network_public >/dev/null 2>&1 || die "rede network_public não existe (o Traefik precisa estar instalado)"
 missing=()
 for s in pedemais_pg_password pedemais_owner_password pedemais_app_password pedemais_db_app_url pedemais_db_owner_url \
-  pedemais_integrations_key pedemais_wa_gateway_token pedemais_wa_session_key; do
+  pedemais_integrations_key pedemais_wa_gateway_token pedemais_wa_session_key \
+  pedemais_platform_password pedemais_db_platform_url pedemais_metrics_token pedemais_traefik_provider_token \
+  pedemais_backup_s3_key_id pedemais_backup_s3_secret pedemais_backup_age_identity; do
   docker secret inspect "$s" >/dev/null 2>&1 || missing+=("$s")
 done
 ((${#missing[@]} == 0)) || die "secrets ausentes: ${missing[*]} (veja docs/deploy.md#secrets; os valores nunca são impressos)"
 
-step "5. Implantação da stack"
-echo "Serviços afetados: ${STACK}_postgres, ${STACK}_migrate, ${STACK}_api, ${STACK}_web"
+step "5. Backup antes de atualizar"
+# Só existe a partir da 0.5.0. Na primeira instalação não há o que salvar.
+BACKUP_CTR="$(docker ps -q --filter "label=com.docker.swarm.service.name=${STACK}_backup" | head -1)"
+if [[ -n "$BACKUP_CTR" ]]; then
+  if [[ "${PEDEMAIS_SKIP_BACKUP:-}" == "1" ]]; then
+    echo "AVISO: backup antes da atualização pulado (PEDEMAIS_SKIP_BACKUP=1)"
+  else
+    docker exec "$BACKUP_CTR" /opt/pedemais-backup/backup.sh || die "backup falhou: a atualização foi cancelada"
+  fi
+else
+  echo "serviço ${STACK}_backup ainda não está rodando neste nó: sem backup prévio"
+fi
+
+step "6. Implantação da stack"
+echo "Serviços afetados: ${STACK}_postgres, ${STACK}_redis, ${STACK}_whatsapp-gateway, ${STACK}_backup, ${STACK}_migrate, ${STACK}_api, ${STACK}_web"
 confirm "Aplicar a stack '$STACK' na versão $PEDEMAIS_VERSION?" || die "cancelado pelo operador"
 docker stack deploy --with-registry-auth -c "$ROOT/infrastructure/swarm/pedemais-stack.yml" "$STACK"
 
-step "6. Migrações"
+step "7. Migrações"
 echo "Aguardando o serviço ${STACK}_migrate concluir..."
 for _ in $(seq 1 60); do
   state="$(docker service ps "${STACK}_migrate" --format '{{.CurrentState}}' | head -1)"
@@ -51,7 +78,7 @@ for _ in $(seq 1 60); do
   sleep 5
 done
 
-step "7. Saúde dos componentes"
+step "8. Saúde dos componentes"
 docker service ls --filter "label=com.docker.stack.namespace=$STACK"
 if [[ -n "${PEDEMAIS_HEALTH_URL:-}" ]]; then
   "$ROOT/scripts/healthcheck.sh" "$PEDEMAIS_HEALTH_URL" || die "health check falhou"

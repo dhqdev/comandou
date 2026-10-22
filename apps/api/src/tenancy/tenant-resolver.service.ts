@@ -18,7 +18,8 @@ export class TenantResolverService {
   async resolve(rawHost: string | undefined): Promise<ResolveOutcome> {
     const c = classifyHost(rawHost, this.env.PEDEMAIS_BASE_DOMAIN);
     if (c.kind === 'invalid') return { ok: false, reason: 'invalid-host' };
-    if (c.kind === 'platform') return { ok: false, reason: 'platform-host' };
+    if (c.kind === 'platform' || c.kind === 'platform-admin')
+      return { ok: false, reason: 'platform-host' };
     const slug = c.kind === 'tenant-subdomain' ? c.slug : null;
     const rows = await this.db.queryUnscoped<ResolvedTenant>(
       'SELECT id, slug, name, status FROM app_resolve_tenant($1, $2)',

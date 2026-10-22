@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.5.0',
+    date: '2026-10-22',
+    title: 'Etapa 6 — SaaS: painel da plataforma, planos e backups',
+    summary:
+      'Painel Super Admin separado e auditado, planos com limites, domínio próprio do restaurante, monitoramento, backups cifrados com teste de restauração e deploy com aprovação manual.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Painel Super Admin em admin.pedemais.com: restaurantes, planos, assinaturas, saúde do sistema, backups e auditoria. Entrada com senha e código do aplicativo autenticador.',
+      },
+      {
+        tag: 'novo',
+        text: 'Planos e assinaturas: limite de pessoas na equipe, produtos ativos e pedidos por mês, e recursos por plano (NFC-e, WhatsApp, domínio próprio). Trocar de plano nunca apaga dados.',
+      },
+      {
+        tag: 'novo',
+        text: 'Tela "Plano e domínio" no restaurante: uso do plano em barras e cadastro do domínio próprio com verificação por registro TXT no DNS.',
+      },
+      {
+        tag: 'novo',
+        text: 'Restaurante novo pelo painel, com plano escolhido; suspender e reativar exige motivo, que fica na auditoria.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Monitoramento: métricas no formato Prometheus (protegidas por token) e verificação de saúde do banco, Redis e WhatsApp.',
+      },
+      {
+        tag: 'segurança',
+        text: 'O painel usa um usuário próprio no banco, com acesso mínimo: não lê senhas nem pedidos e não apaga nada. Toda ação, inclusive login recusado, vai para a auditoria.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Backup diário cifrado (age) para B2/S3 e teste semanal de restauração num banco temporário; o deploy faz um backup antes e só roda com aprovação manual.',
+      },
+    ],
+  },
+  {
     version: '0.4.0',
     date: '2026-10-22',
     title: 'Etapa 5 — Nota fiscal, WhatsApp e filas',

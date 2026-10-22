@@ -4,7 +4,12 @@ export type HostResolution =
   | { kind: 'tenant-subdomain'; slug: string; hostname: string }
   | { kind: 'custom-domain'; hostname: string }
   | { kind: 'platform'; hostname: string }
+  /** Painel Super Admin: admin.<base>. Nunca resolve um restaurante. */
+  | { kind: 'platform-admin'; hostname: string }
   | { kind: 'invalid'; reason: string };
+
+/** Subdomínio do painel Super Admin (reservado em RESERVED_SLUGS). */
+export const PLATFORM_ADMIN_LABEL = 'admin';
 
 const HOST_RE = /^[a-z0-9.-]{1,253}$/;
 
@@ -29,6 +34,7 @@ export function classifyHost(rawHost: string | undefined, baseDomain: string): H
   if (host.endsWith(suffix)) {
     const label = host.slice(0, -suffix.length);
     if (label.includes('.')) return { kind: 'invalid', reason: 'Subdomínio não suportado' };
+    if (label === PLATFORM_ADMIN_LABEL) return { kind: 'platform-admin', hostname: host };
     const v = validateTenantSlug(label);
     if (!v.ok) return { kind: 'invalid', reason: 'Identificador inválido' };
     return { kind: 'tenant-subdomain', slug: label, hostname: host };

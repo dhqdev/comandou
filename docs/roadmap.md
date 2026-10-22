@@ -70,7 +70,7 @@ Entregue em um PR único, versão **0.3.0** (ver tela Novidades no sistema).
 
 Fora do escopo desta etapa: permissões configuráveis por restaurante, compras/fornecedores como cadastro, transferência entre estoques, mapa ao vivo do entregador (hoje é a última posição enviada), redefinição de senha por e-mail, nota fiscal (Etapa 5).
 
-## Etapa 5 — Integrações · ✅ entregue nesta PR
+## Etapa 5 — Integrações · ✅ entregue (PR #4)
 
 Entregue em um PR único, versão **0.4.0** (ver tela Novidades no sistema). Decisões no [ADR 0008](decisions/0008-integracoes-filas-nfce-whatsapp.md).
 
@@ -91,9 +91,28 @@ Entregue em um PR único, versão **0.4.0** (ver tela Novidades no sistema). Dec
 
 Pendências que dependem de contas reais (não simuladas aqui): validar em homologação na Focus NFe com o CNPJ e o certificado do restaurante (campo de outras despesas, exigências de cartão da SEFAZ do estado) e ler o primeiro QR Code com um número de teste (o CI não alcança os servidores do WhatsApp).
 
-## Etapa 6 — SaaS
+## Etapa 6 — SaaS · ✅ entregue nesta PR
 
-Painel Super Admin (caminho privilegiado separado e auditado), planos, assinaturas, limites, domínios personalizados (verificação DNS TXT), monitoramento, backups para B2/S3 com teste de restauração, deploy controlado com aprovação manual.
+Entregue em um PR único, versão **0.5.0** (ver tela Novidades no sistema). Decisões no [ADR 0009](decisions/0009-saas-plataforma-planos-backups.md).
+
+| Critério de aceitação | Evidência |
+| --- | --- |
+| Super Admin em caminho separado: só em `admin.<base>`, 404 em qualquer outro host | `platform/*`; testes "rotas do painel não existem fora de admin.<base>", "admin.<base> não resolve restaurante nenhum" |
+| Papel próprio no banco, sem BYPASSRLS, sem ler senhas nem pedidos, sem DELETE | migração `0007_saas.sql`; teste "papéis do banco…" |
+| Login com senha + código do autenticador; código não reutilizável; cookie restrito ao painel | `platform/totp.test.ts` (vetores da RFC 6238); testes de login e logout |
+| Toda ação auditada, inclusive login recusado; suspender/reativar com motivo | testes "senha certa com código errado…", "suspende… e reativa…" |
+| Planos, assinaturas e limites (equipe, produtos, pedidos/mês) sem apagar dados | `plans/*`; testes "cria planos…", "aplica limites…", "cancelar a assinatura tira os limites" |
+| Restaurante novo pelo painel com plano | teste "cria restaurante pelo painel…"; `provisioning.int.test.ts` |
+| Domínio próprio verificado por DNS TXT, só verificado resolve e vai para o Traefik | `domains/*`; testes de domínio e "Traefik recebe só domínios verificados, com token" |
+| Monitoramento: métricas Prometheus com token, saúde do banco/Redis/WhatsApp | `health/*`; testes de métricas e readiness |
+| Backup cifrado para B2/S3 e teste de restauração | `infrastructure/backup/*`; passo do CI (destino em arquivo) faz backup e restauração; ver [backups](backups.md) |
+| Deploy controlado com aprovação manual | `.github/workflows/release.yml` e `deploy.yml`; `scripts/install.sh` com backup antes |
+| Telas: painel Super Admin e "Plano e domínio" | `apps/web/e2e/platform.spec.ts` (desktop e celular) |
+
+Pendências que dependem de contas e servidores reais (não simulados aqui): bucket real do B2,
+DNS real de um cliente, provider HTTP no Traefik existente, as imagens Docker e os dois workflows
+rodando no GitHub. Cobrança automática da assinatura fica para depois da escolha do meio de
+pagamento; hoje a situação da assinatura é ajustada no painel.
 
 ## Etapa 7 — Produção
 

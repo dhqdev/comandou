@@ -25,6 +25,7 @@ import { DatabaseService, Tx } from '../database/database.service';
 import { PrintingService } from '../printing/printing.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { StockService } from '../stock/stock.service';
+import { PlanService } from '../plans/plan.service';
 
 export interface OrderItemInput {
   productId: string;
@@ -109,6 +110,7 @@ export class OrdersService {
     private readonly stock: StockService,
     private readonly printing: PrintingService,
     private readonly messaging: MessagingService,
+    private readonly plans: PlanService,
   ) {}
 
   // ---------------------------------------------------------------- consultas
@@ -202,6 +204,7 @@ export class OrdersService {
     fx: { stock: number; print: number },
   ) {
     if (!input.items.length) throw new UnprocessableEntityException('Pedido sem itens');
+    await this.plans.assertCanAdd(tx, 'orders_month');
 
     // Comanda: obrigatória para mesa; pode ser aberta automaticamente pela mesa.
     let tabId = input.tabId ?? null;

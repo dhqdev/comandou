@@ -40,8 +40,11 @@
 | `reports` | ✅ (vendas) | faturamento × recebimentos, por canal, mais vendidos |
 | `realtime` | ✅ | Socket.IO em `/api/ws`, sala por tenant, adapter Redis opcional (`REDIS_URL`) |
 | `setup` | ✅ | setores de produção, mesas, terminais de caixa |
-| `provisioning` | ✅ (CLI) | idempotente e retomável; painel Super Admin na Etapa 6 |
-| `health` | ✅ | `live` e `ready` |
+| `provisioning` | ✅ | idempotente e retomável; CLI e painel Super Admin, com plano |
+| `platform` | ✅ | painel Super Admin em `admin.<base>`, papel `pedemais_platform`, senha + TOTP, auditoria própria |
+| `plans` | ✅ | planos, assinaturas, limites e recursos por plano |
+| `domains` | ✅ | domínio próprio com verificação TXT; provider HTTP do Traefik |
+| `health` | ✅ | `live`, `ready` (banco, Redis, WhatsApp) e métricas Prometheus |
 | demais | ⏳ | ver [roadmap](roadmap.md) |
 
 Ordem dos guards globais: **Throttler → CSRF → Tenant → Sessão → Permissão**.

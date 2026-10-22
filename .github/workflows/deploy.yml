@@ -1,0 +1,79 @@
+name: Deploy (produção)
+
+# Deploy controlado: só roda quando alguém dispara à mão, digitando a versão duas vezes, e
+# espera a aprovação do ambiente "production" (Settings > Environments > Required reviewers).
+# No servidor roda scripts/install.sh, que faz backup antes, aplica a stack, espera as
+# migrações e confere a saúde. Rollback: docs/deploy.md#rollback.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versão já publicada (ex.: v0.5.0)'
+        required: true
+      confirm:
+        description: 'Digite a versão de novo para confirmar'
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Conferir versão e imagens
+    runs-on: ubuntu-latest
+    steps:
+      - name: Versão
+        env:
+          V: ${{ inputs.version }}
+          C: ${{ inputs.confirm }}
+        run: |
+          [[ "$V" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "versão inválida: $V"; exit 1; }
+          [[ "$V" == "$C" ]] || { echo "a confirmação não confere"; exit 1; }
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.version }}
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Imagens publicadas (amd64 e arm64)
+        env:
+          V: ${{ inputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          for img in api web whatsapp-gateway backup; do
+            ref="ghcr.io/${REPO}-${img}:${V}"
+            manifest="$(docker buildx imagetools inspect "$ref")"
+            grep -q 'linux/arm64' <<<"$manifest" || { echo "sem arm64: $ref"; exit 1; }
+            echo "ok: $ref"
+          done
+
+  deploy:
+    name: Implantar ${{ inputs.version }}
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Implantar pelo SSH no manager do Swarm
+        env:
+          V: ${{ inputs.version }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          DIR: ${{ vars.DEPLOY_PATH || '/opt/pedemais' }}
+        run: |
+          [[ -n "$SSH_KEY" && -n "$KNOWN_HOSTS" && -n "$HOST" && -n "$USER" ]] \
+            || { echo "configure os secrets DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS, DEPLOY_HOST e DEPLOY_USER"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_deploy -o StrictHostKeyChecking=yes "$USER@$HOST" \
+            "set -e; cd '$DIR' && git fetch --tags --force origin && git checkout --detach '$V' \
+             && PEDEMAIS_VERSION='$V' scripts/install.sh --yes"

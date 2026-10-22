@@ -6,6 +6,7 @@ import { provisionTenant } from './provision';
  *   DATABASE_OWNER_URL=... PROVISION_ADMIN_PASSWORD=... \
  *   node dist/provisioning/provision-cli.js <slug> "<Nome>" <admin-email> "<Nome do admin>"
  * A senha vem por variável de ambiente para não aparecer no histórico do shell nem em logs.
+ * PROVISION_PLAN=<código> (opcional) escolhe o plano da assinatura inicial.
  */
 async function main() {
   Object.assign(process.env, resolveFileSecrets(process.env));
@@ -18,7 +19,14 @@ async function main() {
     );
     process.exit(2);
   }
-  const r = await provisionTenant(ownerUrl, { slug, name, adminEmail, adminName, adminPassword });
+  const r = await provisionTenant(ownerUrl, {
+    slug,
+    name,
+    adminEmail,
+    adminName,
+    adminPassword,
+    planCode: process.env.PROVISION_PLAN || undefined,
+  });
   console.log(
     `tenant ${slug} (${r.tenantId}) status=${r.status} etapas=${r.stepsRun.join(',') || 'nenhuma'}`,
   );

@@ -2,7 +2,7 @@
 
 SaaS multi-tenant para restaurantes: PDV, salão, cozinha (KDS), caixa, cardápio, delivery e gestão, com cada restaurante em `<slug>.pedemais.com`.
 
-> **Estado:** Etapa 2 (fundação técnica) entregue. Fluxos comerciais (pedidos, mesas, KDS, caixa) começam na Etapa 3. Ver [roadmap](docs/roadmap.md).
+> **Estado:** Etapas 1 a 6 entregues (operação, retaguarda, NFC-e, WhatsApp e SaaS com painel Super Admin, planos e backups). Falta a Etapa 7 (produção). Ver [roadmap](docs/roadmap.md).
 
 | Login | Cardápio |
 | --- | --- |
@@ -59,7 +59,7 @@ O restaurante vem do **Host validado**, a sessão só existe **dentro desse rest
 ## Documentação
 
 - [Análise inicial](docs/initial-analysis.md) · [Arquitetura](docs/architecture.md) · [Roadmap](docs/roadmap.md) · [Riscos](docs/risks.md) · [Decisões (ADR)](docs/decisions/README.md)
-- [Desenvolvimento local](docs/development.md) · [Testes](docs/testing.md) · [Deploy, Swarm, Portainer, Traefik, rollback](docs/deploy.md)
+- [Desenvolvimento local](docs/development.md) · [Testes](docs/testing.md) · [Deploy, Swarm, Portainer, Traefik, rollback](docs/deploy.md) · [Backups e restauração](docs/backups.md)
 - [Observações do sistema de referência](docs/reference/observations.md)
 
 ## Licença

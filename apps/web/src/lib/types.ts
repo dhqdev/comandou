@@ -378,3 +378,35 @@ export interface OutboxMessage {
   createdAt: string;
   sentAt: string | null;
 }
+
+// ---- Etapa 6: plano, assinatura e domínio próprio ----
+export interface TenantSubscription {
+  current: {
+    subscription: {
+      id: string;
+      status: 'trialing' | 'active' | 'past_due' | 'cancelled';
+      startedAt: string;
+      trialEndsAt: string | null;
+      currentPeriodEnd: string | null;
+    };
+    plan: {
+      id: string;
+      code: string;
+      name: string;
+      priceMonthly: string;
+      limits: { users: number | null; products: number | null; orders_month: number | null };
+      features: { fiscal: boolean; whatsapp: boolean; custom_domain: boolean };
+    };
+  } | null;
+  usage: { users: number; products: number; orders_month: number };
+}
+export interface TenantDomain {
+  id: string;
+  hostname: string;
+  verified: boolean;
+  verifiedAt: string | null;
+  lastCheckedAt: string | null;
+  lastError: string | null;
+  createdAt: string;
+  dns: { txtName: string; txtValue: string; cnameTarget: string };
+}

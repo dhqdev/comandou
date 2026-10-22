@@ -25,6 +25,7 @@ import {
   FocusResponse,
   FocusUnavailableError,
 } from './focus.client';
+import { PlanService } from '../plans/plan.service';
 
 export type FiscalStatus =
   'pending' | 'processing' | 'authorized' | 'rejected' | 'error' | 'cancelling' | 'cancelled';
@@ -122,6 +123,7 @@ export class FiscalService implements OnModuleInit {
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
     private readonly orders: OrdersService,
+    private readonly plans: PlanService,
   ) {}
 
   onModuleInit() {
@@ -369,6 +371,7 @@ export class FiscalService implements OnModuleInit {
       if (live) return live;
       if (o.status === 'cancelled' || o.status === 'cancel_requested')
         throw new ConflictException('Pedido cancelado não recebe nota');
+      await this.plans.assertFeature(tx, 'fiscal');
       const s = await this.settingsRow(tx);
       if (!s?.enabled || !s.cnpj || !s.token_enc)
         throw new UnprocessableEntityException(

@@ -63,6 +63,10 @@ export const PERMISSIONS = [
   'fiscal:manage',
   /** Configurar o WhatsApp e as mensagens automáticas. */
   'messaging:manage',
+  /** Ver o plano, a assinatura e o uso do restaurante. */
+  'plan:read',
+  /** Domínio próprio do restaurante (muda o endereço de acesso). Só o administrador. */
+  'domains:manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -72,7 +76,7 @@ export const DISCOUNT_FREE_LIMIT_PERCENT = 10;
 /** Permissões padrão por papel. Futuramente configuráveis por tenant (tabela role_permissions). */
 export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   owner: PERMISSIONS,
-  manager: PERMISSIONS.filter((p) => p !== 'users:manage'),
+  manager: PERMISSIONS.filter((p) => p !== 'users:manage' && p !== 'domains:manage'),
   cashier: [
     'catalog:read',
     'orders:read',

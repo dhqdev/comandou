@@ -16,6 +16,7 @@ import { DatabaseService, Tx } from '../database/database.service';
 import { QueueService, TenantJob } from '../queue/queue.service';
 import { GatewayClient } from './gateway.client';
 import { WhatsAppClient, WhatsAppUnavailableError } from './whatsapp.client';
+import { PlanService } from '../plans/plan.service';
 
 export type MessageEvent = 'order.ready' | 'order.dispatched';
 export type MessagingProvider = 'baileys' | 'meta_cloud';
@@ -102,6 +103,7 @@ export class MessagingService implements OnModuleInit {
     private readonly whatsapp: WhatsAppClient,
     private readonly gateway: GatewayClient,
     private readonly audit: AuditService,
+    private readonly plans: PlanService,
   ) {}
 
   onModuleInit() {
@@ -173,6 +175,7 @@ export class MessagingService implements OnModuleInit {
         notifyReady: pick('notifyReady', cur.notify_ready),
         notifyDispatched: pick('notifyDispatched', cur.notify_dispatched),
       };
+      if (next.enabled && !cur.enabled) await this.plans.assertFeature(tx, 'whatsapp');
       if (next.enabled && next.provider === 'meta_cloud' && (!next.phoneNumberId || !tokenEnc))
         throw new UnprocessableEntityException(
           'Para ativar a API oficial, informe o ID do número e o token de acesso',
@@ -266,6 +269,8 @@ export class MessagingService implements OnModuleInit {
   async stage(tx: Tx, tenantId: string, orderId: string, event: MessageEvent) {
     const s = await this.settingsRow(tx);
     if (!s?.enabled) return;
+    // Plano sem WhatsApp: o aviso não sai, mas o pedido segue normalmente.
+    if (!(await this.plans.hasFeature(tx, 'whatsapp'))) return;
     const on = event === 'order.ready' ? s.notify_ready : s.notify_dispatched;
     if (!on) return;
     const template = event === 'order.ready' ? s.template_ready : s.template_dispatched;
@@ -321,6 +326,7 @@ export class MessagingService implements OnModuleInit {
     const m = await this.db.withTenant(ctx, async (tx) => {
       const s = await this.settingsRow(tx);
       if (!s?.enabled) throw new ConflictException('Ative o WhatsApp antes de testar');
+      await this.plans.assertFeature(tx, 'whatsapp');
       const meta = s.provider === 'meta_cloud';
       return one<{ id: string }>(
         tx,
