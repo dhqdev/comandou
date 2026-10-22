@@ -107,7 +107,7 @@ export function Card({
       {(title || actions) && (
         <header className="pm-card__header">
           {title && <h2 className="pm-card__title">{title}</h2>}
-          {actions && <div style={{ display: 'flex', gap: 8 }}>{actions}</div>}
+          {actions && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{actions}</div>}
         </header>
       )}
       {bodyless ? children : <div className="pm-card__body">{children}</div>}
@@ -187,14 +187,17 @@ export function Modal({
   onClose,
   children,
   footer,
+  size = 'md',
 }: {
   open: boolean;
   title: string;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  size?: 'md' | 'lg' | 'xl';
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
@@ -202,16 +205,24 @@ export function Modal({
     if (!open && d.open) d.close?.();
   }, [open]);
   return (
-    <dialog ref={ref} className="pm-modal" onClose={onClose} aria-labelledby="pm-modal-title">
+    <dialog
+      ref={ref}
+      className={`pm-modal pm-modal--${size}`}
+      // O React propaga "close" de um dialog aninhado para o pai; só reage ao próprio.
+      onClose={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      aria-labelledby={titleId}
+    >
       <div className="pm-card__header">
-        <h2 id="pm-modal-title" className="pm-card__title">
+        <h2 id={titleId} className="pm-card__title">
           {title}
         </h2>
         <Button variant="ghost" onClick={onClose} aria-label="Fechar">
           ✕
         </Button>
       </div>
-      <div className="pm-card__body">{children}</div>
+      <div className="pm-card__body pm-modal__body">{open ? children : null}</div>
       {footer && <div className="pm-modal__footer">{footer}</div>}
     </dialog>
   );

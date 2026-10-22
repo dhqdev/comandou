@@ -167,6 +167,18 @@ export class OptionsController {
     return row;
   }
 
+  /** Vínculos produto ↔ grupo (para a tela de cardápio). */
+  @Get('product-option-groups')
+  @RequirePermission('catalog:read')
+  links(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
+      q(
+        tx,
+        `SELECT product_id AS "productId", group_id AS "groupId", position FROM product_option_groups ORDER BY product_id, position`,
+      ),
+    );
+  }
+
   /** Define (substitui) os grupos de opções de um produto, na ordem enviada. */
   @Put('products/:id/option-groups')
   @RequirePermission('catalog:write')

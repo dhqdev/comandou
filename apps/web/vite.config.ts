@@ -48,7 +48,7 @@ export default defineConfig({
     allowedHosts: ['.pedemais.localhost', 'localhost'],
     proxy: {
       // changeOrigin=false preserva o Host do restaurante para a API resolver o tenant.
-      '/api': { target: API_TARGET, changeOrigin: false },
+      '/api': { target: API_TARGET, changeOrigin: false, ws: true },
     },
   },
   test: {

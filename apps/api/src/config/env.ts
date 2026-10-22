@@ -50,15 +50,25 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
 
 export const ENV = Symbol('ENV');
 
+/** Variáveis que podem vir de arquivo (Docker secrets). Outras `*_FILE` do ambiente são ignoradas. */
+export const FILE_SECRET_VARS = [
+  'DATABASE_URL',
+  'DATABASE_OWNER_URL',
+  'REDIS_URL',
+  'PROVISION_ADMIN_PASSWORD',
+] as const;
+
 /**
  * Suporte a Docker secrets: VAR_FILE=/run/secrets/x vira VAR=<conteúdo do arquivo>.
  * Assim senhas não aparecem em `docker inspect` nem na definição da stack.
+ * Só as variáveis da lista são lidas: o ambiente costuma ter outras `*_FILE`
+ * (ex.: SSL_CERT_FILE) que não são segredos da aplicação.
  */
 export function resolveFileSecrets(source: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   const out: NodeJS.ProcessEnv = { ...source };
-  for (const [key, value] of Object.entries(source)) {
-    if (!key.endsWith('_FILE') || !value) continue;
-    const target = key.slice(0, -'_FILE'.length);
+  for (const target of FILE_SECRET_VARS) {
+    const value = source[`${target}_FILE`];
+    if (!value) continue;
     if (out[target]) continue;
     out[target] = readFileSync(value, 'utf8').trim();
   }

@@ -12,7 +12,10 @@ import {
   useToast,
 } from '../design-system';
 import { useCan } from '../app/auth';
+import { OptionGroup, OptionGroupsCard, ProductConfigModal } from '../features/OptionGroups';
 import { api, Category, Product } from '../lib/api';
+import { useRealtime } from '../lib/realtime';
+import type { Sector } from '../lib/types';
 import { brl, parseBrlInput } from '../lib/money';
 
 export function MenuPage() {
@@ -23,15 +26,25 @@ export function MenuPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [modal, setModal] = useState<'category' | 'product' | null>(null);
+  const [groups, setGroups] = useState<OptionGroup[]>([]);
+  const [links, setLinks] = useState<{ productId: string; groupId: string }[]>([]);
+  const [sectors, setSectors] = useState<Sector[]>([]);
+  const [configuring, setConfiguring] = useState<Product | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [c, p] = await Promise.all([
+      const [c, p, g, l, s] = await Promise.all([
         api<Category[]>('/categories'),
         api<Product[]>('/products'),
+        api<OptionGroup[]>('/option-groups'),
+        api<{ productId: string; groupId: string }[]>('/product-option-groups'),
+        api<Sector[]>('/sectors').catch(() => [] as Sector[]),
       ]);
       setCategories(c);
       setProducts(p);
+      setGroups(g);
+      setLinks(l);
+      setSectors(s.filter((x) => x.active));
       setSelected((s) => s ?? c[0]?.id ?? null);
       setError(null);
     } catch (e) {
@@ -42,6 +55,17 @@ export function MenuPage() {
   useEffect(() => {
     void load();
   }, [load]);
+  useRealtime((e) => {
+    if (e.type === 'menu.changed') void load();
+  });
+  const linkedOf = useCallback(
+    (productId: string) => links.filter((l) => l.productId === productId).map((l) => l.groupId),
+    [links],
+  );
+  const configLinks = useMemo(
+    () => (configuring ? linkedOf(configuring.id) : []),
+    [configuring, linkedOf],
+  );
 
   const visible = useMemo(
     () => (products ?? []).filter((p) => p.categoryId === selected),
@@ -148,6 +172,15 @@ export function MenuPage() {
                       <td>
                         <strong>{p.name}</strong>
                         {p.description && <div className="pm-hint">{p.description}</div>}
+                        {linkedOf(p.id).length > 0 && (
+                          <div className="pm-hint">
+                            Opções:{' '}
+                            {linkedOf(p.id)
+                              .map((id) => groups.find((g) => g.id === id)?.name)
+                              .filter(Boolean)
+                              .join(', ')}
+                          </div>
+                        )}
                       </td>
                       <td>
                         {p.soldOut ? (
@@ -158,7 +191,10 @@ export function MenuPage() {
                       </td>
                       <td className="pm-num">{brl(p.price)}</td>
                       {canWrite && (
-                        <td className="pm-num">
+                        <td className="pm-num" style={{ whiteSpace: 'nowrap' }}>
+                          <Button variant="ghost" onClick={() => setConfiguring(p)}>
+                            Configurar
+                          </Button>{' '}
                           <Button variant="secondary" onClick={() => toggleSoldOut(p)}>
                             {p.soldOut ? 'Reativar' : 'Esgotar'}
                           </Button>
@@ -172,6 +208,19 @@ export function MenuPage() {
           )}
         </Card>
       </div>
+      <OptionGroupsCard groups={groups} canWrite={canWrite} onChanged={load} />
+      <ProductConfigModal
+        product={configuring}
+        groups={groups.filter((g) => g.active)}
+        sectors={sectors}
+        linked={configLinks}
+        onClose={() => setConfiguring(null)}
+        onSaved={async () => {
+          setConfiguring(null);
+          toast('Produto atualizado', 'success');
+          await load();
+        }}
+      />
       <CategoryModal
         open={modal === 'category'}
         onClose={() => setModal(null)}

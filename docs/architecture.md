@@ -32,10 +32,16 @@
 | `auth` | ✅ | login, sessão opaca, logout/revogação, rate limit |
 | `roles/permissions` | ✅ (padrão) | permissões por papel em `packages/shared`; configuração por tenant na Etapa 6 |
 | `audit` | ✅ | gravação na mesma transação; app só faz INSERT/SELECT |
-| `catalog` | ✅ (base) | categorias e produtos |
+| `catalog` | ✅ | categorias, produtos, adicionais/variações, cardápio consolidado (`GET /menu`) |
+| `orders` | ✅ | pedidos, estados, histórico, descontos/acréscimos, transferência entre comandas |
+| `tables` (salão) | ✅ | comandas, transferência de mesa, pagamento dividido, fechamento de conta |
+| `kitchen` | ✅ | fila por setor, avanço por item/pedido, reabertura auditada |
+| `cash` + pagamentos | ✅ | sessões por terminal, livro-razão imutável, estornos, fechamento conferido |
+| `reports` | ✅ (vendas) | faturamento × recebimentos, por canal, mais vendidos |
+| `realtime` | ✅ | Socket.IO em `/api/ws`, sala por tenant, adapter Redis opcional (`REDIS_URL`) |
+| `setup` | ✅ | setores de produção, mesas, terminais de caixa |
 | `provisioning` | ✅ (CLI) | idempotente e retomável; painel Super Admin na Etapa 6 |
 | `health` | ✅ | `live` e `ready` |
-| `orders`, `tables`, `kitchen`, `cash-register`, `payments` | ⏳ Etapa 3 | tabelas `orders`/`order_items` já criadas para validar FKs compostas |
 | demais | ⏳ | ver [roadmap](roadmap.md) |
 
 Ordem dos guards globais: **Throttler → CSRF → Tenant → Sessão → Permissão**.
@@ -72,10 +78,28 @@ Decisão: [ADR 0003](decisions/0003-multi-tenant-rls.md).
 | `sessions` | tenant | sim | só o SHA-256 do token; expiração e revogação |
 | `audit_log` | tenant | sim | somente inserção para a app |
 | `categories`, `products` | tenant | sim | preço `NUMERIC(14,2)` |
-| `orders`, `order_items` | tenant | sim | base para Etapa 3 |
+| `orders`, `order_items`, `order_item_options` | tenant | sim | preço e nome congelados no item; `total = subtotal − desconto + acréscimo + entrega` (CHECK) |
+| `order_status_history` | tenant | sim (só INSERT) | quem mudou, de/para, motivo |
+| `option_groups`, `options`, `product_option_groups` | tenant | sim | variação = grupo com mín = máx = 1 |
+| `production_sectors` | tenant | sim | canais atendidos, minutos de aviso/atraso |
+| `dining_tables`, `tabs` | tenant | sim | no máximo uma comanda aberta por mesa (índice único parcial) |
+| `cash_registers`, `cash_sessions` | tenant | sim | no máximo uma sessão aberta por terminal |
+| `payments`, `payment_refunds`, `cash_movements` | tenant | sim (sem UPDATE/DELETE; só `refunded_amount` é atualizável) | livro-razão com sinal; estorno nunca apaga |
+| `idempotency_keys` | tenant | sim | chave + hash do corpo + resposta |
+| `tenant_counters` | tenant | sim | numeração de pedidos, comandas e sessões |
 | `schema_migrations` | global | n/a | controle do migrador (só dono) |
 
 Entidades planejadas por etapa (unidade, plano, assinatura, mesa, comanda, caixa, pagamento, estoque, entrega, fiscal, impressão, WhatsApp) estão no [roadmap](roadmap.md). Unidade (filial) entrará como `unit_id` + FK composta `(tenant_id, unit_id)` quando o primeiro cliente multiunidade exigir.
+
+## Operação (Etapa 3)
+
+Decisão: [ADR 0006](decisions/0006-operacao-pedidos-caixa.md).
+
+- **Pedido**: preço e opções sempre do banco. Estados em `packages/shared/orders.ts` (`canTransition`). `payment_status` (a pagar/parcial/pago) é independente do status operacional.
+- **Idempotência**: `POST /orders` aceita `Idempotency-Key`; pagamentos, estornos, sangria/suprimento e fechamento **exigem**. A chave é gravada na mesma transação da operação, com o hash do corpo: repetir devolve a mesma resposta; corpo diferente → 422; falha → nada fica gravado.
+- **Travas** (sempre nesta ordem, para não haver deadlock): sessão de caixa (`FOR SHARE` em vendas/estornos, `FOR UPDATE` em sangria/suprimento/fechamento) → comanda → pedidos (por data, id) → pagamento.
+- **Caixa**: cada venda, suprimento, sangria e estorno é um movimento com sinal. Esperado por forma de pagamento = soma dos movimentos. Fechamento grava esperado, contado e diferença; com diferença, observação é obrigatória.
+- **Tempo real**: eventos são só avisos ("pedido X mudou") publicados depois do COMMIT; a tela busca o estado pela API e recarrega tudo ao reconectar. Evento recebido não prova persistência.
 
 ## Dinheiro
 

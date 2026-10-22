@@ -1,5 +1,6 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import { api, ApiError, Me } from '../lib/api';
+import { closeRealtime } from '../lib/realtime';
 
 interface AuthState {
   status: 'loading' | 'anonymous' | 'authenticated' | 'unavailable';
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await api('/auth/logout', { method: 'POST' }).catch(() => undefined);
+    closeRealtime();
     setState({ status: 'anonymous' });
   }, []);
 
