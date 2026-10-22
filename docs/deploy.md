@@ -158,8 +158,8 @@ sozinho; `PEDEMAIS_SKIP_BACKUP=1` pula à força (só em emergência, fica no lo
 
 ## Deploy pelo GitHub (manual, com aprovação)
 
-1. **A release é automática.** A cada merge na `main`, o workflow **Release** lê a versão do
-   `package.json`; se a tag `vX.Y.Z` ainda não existe, cria a tag e a Release no GitHub e publica
+1. **A release é automática.** Quando o **CI da `main` termina com sucesso** (depois de cada
+   merge), o workflow **Release** lê a versão do `package.json`; se a tag `vX.Y.Z` ainda não existe, cria a tag e a Release no GitHub e publica
    `pedemais-api`, `pedemais-web`, `pedemais-whatsapp-gateway` e `pedemais-backup` no GHCR
    (amd64 e arm64). Mesma versão de antes = nada acontece. Por isso, **toda etapa precisa subir a
    versão** nos `package.json` e em `packages/shared/src/releases.ts`. Não implanta nada. Para

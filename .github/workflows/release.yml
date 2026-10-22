@@ -1,15 +1,19 @@
 name: Release (imagens versionadas)
 
-# Release automática: a cada push na main, lê a versão do package.json (a mesma da tela
-# Novidades). Se a tag vX.Y.Z ainda não existe, cria a tag e a Release no GitHub e publica as
-# imagens com essa tag no GHCR (amd64 + arm64). Se a versão não mudou, não faz nada.
+# Release automática: quando o CI da main termina COM SUCESSO, lê a versão do package.json (a
+# mesma da tela Novidades). Se a tag vX.Y.Z ainda não existe, cria a tag e a Release no GitHub e
+# publica as imagens com essa tag no GHCR (amd64 + arm64). Se a versão não mudou, não faz nada.
+# CI vermelho na main = nenhuma Release.
 # Regra do projeto: toda etapa sobe a versão no package.json e em packages/shared/src/releases.ts.
 # Também roda ao criar uma tag vX.Y.Z à mão e, pelo botão "Run workflow", para republicar as
 # imagens de uma tag que já existe (informe a tag).
 # Publicar imagem NÃO implanta nada: o deploy é o workflow "Deploy (produção)", manual, com aprovação.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
+  push:
     tags: ['v*.*.*']
   workflow_dispatch:
     inputs:
@@ -29,6 +33,7 @@ jobs:
   version:
     name: Definir a versão
     runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: write # criar a tag e a Release
     outputs:
@@ -37,12 +42,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }} # o commit que o CI aprovou
           fetch-depth: 0
       - name: Versão e tag
         id: v
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT: ${{ github.event_name }}
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
           INPUT_TAG: ${{ inputs.tag }}
@@ -57,14 +64,14 @@ jobs:
           fi
           [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "tag inválida: $tag"; exit 1; }
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          if [[ "$EVENT" == "push" && "$REF_TYPE" == "branch" ]]; then
-            # Push na main: só publica se a tag ainda não existe (versão nova).
+          if [[ "$EVENT" == "workflow_run" ]]; then
+            # CI da main aprovado: só publica se a tag ainda não existe (versão nova).
             if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
               echo "A tag $tag já existe: versão não mudou, nada a publicar."
               echo "publish=false" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            gh release create "$tag" --target "$GITHUB_SHA" --title "PedeMais $tag" --generate-notes \
+            gh release create "$tag" --target "$SHA" --title "PedeMais $tag" --generate-notes \
               --notes "Imagens: ghcr.io/${GITHUB_REPOSITORY}-{api,web,whatsapp-gateway,backup}:$tag. O que mudou nesta versão está na tela Novidades do sistema. Para colocar no ar: workflow Deploy (produção)."
           fi
           echo "publish=true" >> "$GITHUB_OUTPUT"
