@@ -31,6 +31,7 @@ const CategoryCreate = z.object({
 });
 const ProductCreate = z.object({
   categoryId: z.string().uuid(),
+  sectorId: z.string().uuid().nullable().optional(),
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(1000).optional(),
   price: money,
@@ -42,6 +43,9 @@ const ProductUpdate = z
     price: money,
     active: z.boolean(),
     soldOut: z.boolean(),
+    categoryId: z.string().uuid(),
+    sectorId: z.string().uuid().nullable(),
+    position: z.number().int().min(0).max(10_000),
   })
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');
@@ -135,6 +139,7 @@ export class CatalogController {
           name: body.name,
           description: body.description ?? null,
           price: body.price,
+          sectorId: body.sectorId ?? null,
         })
         .returning();
       await this.audit.record(tx, {

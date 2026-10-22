@@ -30,6 +30,8 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
+  /** Redis opcional: com mais de uma réplica da API, distribui eventos de tempo real entre elas. */
+  REDIS_URL: z.string().url().optional(),
   /** Tentativas de login por IP por minuto. */
   AUTH_LOGIN_RATE_LIMIT: z.coerce.number().int().positive().default(5),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
