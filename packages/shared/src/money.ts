@@ -46,3 +46,28 @@ export function multiplyCents(cents: number, quantity: number, quantityScale = 1
 export function formatBRL(cents: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
 }
+
+/**
+ * Reparte `total` centavos proporcionalmente aos pesos (maiores restos), sem perder centavo:
+ * a soma do resultado é exatamente `total`. Usado para ratear desconto e acréscimos entre os
+ * itens de uma nota fiscal.
+ */
+export function allocateCents(total: number, weights: readonly number[]): number[] {
+  if (!Number.isSafeInteger(total) || total < 0) throw new Error('Total deve ser inteiro >= 0');
+  if (weights.some((w) => !Number.isSafeInteger(w) || w < 0)) throw new Error('Pesos inválidos');
+  const sum = weights.reduce((a, b) => a + b, 0);
+  if (total === 0) return weights.map(() => 0);
+  if (sum === 0) throw new Error('Sem base para ratear');
+  const exact = weights.map((w) => (BigInt(total) * BigInt(w)) as bigint);
+  const out = exact.map((e) => Number(e / BigInt(sum)));
+  let rest = total - out.reduce((a, b) => a + b, 0);
+  const order = exact
+    .map((e, i) => ({ i, r: Number(e % BigInt(sum)) }))
+    .sort((a, b) => b.r - a.r || a.i - b.i);
+  for (const { i } of order) {
+    if (rest <= 0) break;
+    out[i]++;
+    rest--;
+  }
+  return out;
+}

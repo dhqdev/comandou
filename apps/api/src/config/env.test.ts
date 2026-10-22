@@ -23,4 +23,16 @@ describe('env', () => {
     expect(out.SSL).toBeUndefined();
     expect(out.PIP_CONFIG).toBeUndefined();
   });
+  it('INTEGRATIONS_KEY: vazia = ausente; precisa ter 32 bytes', () => {
+    const base = { DATABASE_URL: 'postgres://u:p@h/db' };
+    expect(loadEnv({ ...base, INTEGRATIONS_KEY: '' }).INTEGRATIONS_KEY).toBeUndefined();
+    expect(() => loadEnv({ ...base, INTEGRATIONS_KEY: 'curta' })).toThrow(/INTEGRATIONS_KEY/);
+    const key = Buffer.alloc(32, 7).toString('base64');
+    expect(loadEnv({ ...base, INTEGRATIONS_KEY: key }).INTEGRATIONS_KEY).toBe(key);
+    const e = loadEnv({ ...base, WHATSAPP_GATEWAY_URL: '', WHATSAPP_GATEWAY_TOKEN: '' });
+    expect(e.WHATSAPP_GATEWAY_URL).toBeUndefined();
+    expect(() => loadEnv({ ...base, WHATSAPP_GATEWAY_TOKEN: 'curto' })).toThrow(
+      /WHATSAPP_GATEWAY_TOKEN/,
+    );
+  });
 });

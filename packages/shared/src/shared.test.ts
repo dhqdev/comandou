@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  allocateCents,
   fromCents,
   multiplyCents,
   toCents,
@@ -7,6 +8,22 @@ import {
   roleHas,
   isMoneyString,
 } from './index';
+
+describe('allocateCents', () => {
+  it('reparte sem perder centavo e proporcionalmente', () => {
+    expect(allocateCents(100, [1, 1, 1])).toEqual([34, 33, 33]);
+    expect(allocateCents(500, [1000, 3000])).toEqual([125, 375]);
+    expect(allocateCents(0, [5, 5])).toEqual([0, 0]);
+    const r = allocateCents(997, [2590, 4500, 1]);
+    expect(r.reduce((a, b) => a + b, 0)).toBe(997);
+    expect(r[2]).toBe(0);
+  });
+  it('recusa entradas inválidas', () => {
+    expect(() => allocateCents(10, [0, 0])).toThrow();
+    expect(() => allocateCents(-1, [1])).toThrow();
+    expect(() => allocateCents(10, [1.5])).toThrow();
+  });
+});
 
 describe('money', () => {
   it('converte strings decimais em centavos sem ponto flutuante', () => {

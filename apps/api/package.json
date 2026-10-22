@@ -1,6 +1,6 @@
 {
   "name": "@pedemais/api",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "API NestJS do PedeMais (monólito modular).",
   "scripts": {
@@ -25,6 +25,7 @@
     "@nestjs/websockets": "^11.2.7",
     "@pedemais/shared": "workspace:*",
     "@socket.io/redis-adapter": "^8.3.0",
+    "bullmq": "^5.81.5",
     "cookie": "^1.1.1",
     "cookie-parser": "^1.4.7",
     "drizzle-orm": "^0.45.0",

@@ -2,6 +2,13 @@ import { Module } from '@nestjs/common';
 import { DeliveryController } from '../delivery/delivery.controller';
 import { DeliveryService } from '../delivery/delivery.service';
 import { FinanceController } from '../finance/finance.controller';
+import { FiscalController } from '../fiscal/fiscal.controller';
+import { FiscalService } from '../fiscal/fiscal.service';
+import { FocusClient } from '../fiscal/focus.client';
+import { MessagingController } from '../messaging/messaging.controller';
+import { GatewayClient } from '../messaging/gateway.client';
+import { MessagingService } from '../messaging/messaging.service';
+import { WhatsAppClient } from '../messaging/whatsapp.client';
 import { PrintAgentController, PrintingController } from '../printing/printing.controller';
 import { PrintingService } from '../printing/printing.service';
 import { StockController } from '../stock/stock.controller';
@@ -18,7 +25,7 @@ import { TabsService } from '../tables/tabs.service';
 import { OrdersController, PaymentsController } from './orders.controller';
 import { OrdersService } from './orders.service';
 
-/** Operação e retaguarda do restaurante: pedidos, salão, cozinha, caixa, estoque, entregas, impressão, financeiro e equipe. */
+/** Operação e retaguarda do restaurante: pedidos, salão, cozinha, caixa, estoque, entregas, impressão, financeiro, equipe, nota fiscal e WhatsApp. */
 @Module({
   controllers: [
     OrdersController,
@@ -34,6 +41,8 @@ import { OrdersService } from './orders.service';
     PrintAgentController,
     FinanceController,
     UsersController,
+    FiscalController,
+    MessagingController,
   ],
   providers: [
     OrdersService,
@@ -43,6 +52,11 @@ import { OrdersService } from './orders.service';
     StockService,
     PrintingService,
     DeliveryService,
+    FiscalService,
+    FocusClient,
+    MessagingService,
+    WhatsAppClient,
+    GatewayClient,
   ],
 })
 export class OperationsModule {}
