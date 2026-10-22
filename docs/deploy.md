@@ -153,9 +153,12 @@ sozinho; `PEDEMAIS_SKIP_BACKUP=1` pula à força (só em emergência, fica no lo
 
 ## Deploy pelo GitHub (manual, com aprovação)
 
-1. Criar a tag: `git tag v0.5.0 && git push origin v0.5.0`. O workflow **Release** publica
-   `pedemais-api`, `pedemais-web`, `pedemais-whatsapp-gateway` e `pedemais-backup` no GHCR. Não
-   implanta nada.
+1. **A release é automática.** A cada merge na `main`, o workflow **Release** lê a versão do
+   `package.json`; se a tag `vX.Y.Z` ainda não existe, cria a tag e a Release no GitHub e publica
+   `pedemais-api`, `pedemais-web`, `pedemais-whatsapp-gateway` e `pedemais-backup` no GHCR
+   (amd64 e arm64). Mesma versão de antes = nada acontece. Por isso, **toda etapa precisa subir a
+   versão** nos `package.json` e em `packages/shared/src/releases.ts`. Não implanta nada. Para
+   republicar as imagens de uma tag existente: *Actions → Release → Run workflow* com a tag.
 2. Em *Settings → Environments*, criar `production` com **Required reviewers** e os secrets
    `DEPLOY_SSH_KEY` (chave só para deploy), `DEPLOY_KNOWN_HOSTS` (`ssh-keyscan` do manager, conferido
    à mão), `DEPLOY_HOST`, `DEPLOY_USER`. Opcional: variável `DEPLOY_PATH` (padrão `/opt/pedemais`,
