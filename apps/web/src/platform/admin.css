@@ -175,6 +175,8 @@
 .adm-content {
   padding: 24px;
   display: grid;
+  /* minmax(0, …): tabela larga rola dentro do cartão, não empurra a página para os lados. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 28px;
   max-width: 1280px;
   width: 100%;
@@ -186,6 +188,7 @@
 /* ---------------------------------------------------------------- blocos */
 .adm-section {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 .adm-section__head {
@@ -204,10 +207,13 @@
   white-space: nowrap;
 }
 .adm-section__sub {
+  min-width: 0;
   font-family: var(--a-mono);
   font-size: 12px;
   color: var(--a-subtle);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .adm-section__rule {
   flex: 1;

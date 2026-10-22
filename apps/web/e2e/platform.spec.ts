@@ -45,7 +45,7 @@ const stepNow = () => Math.floor(Date.now() / 30_000);
 /** Cada código vale uma vez: tenta o passo atual e o próximo; se já foram usados, espera. */
 async function adminLogin(page: Page) {
   await page.goto(ADMIN_URL);
-  await expect(page.getByRole('heading', { name: 'Painel Super Admin' })).toBeVisible();
+  await expect(page.getByLabel('Código do autenticador')).toBeVisible();
   await page.getByLabel('E-mail').fill(ADMIN_EMAIL);
   await page.getByLabel('Senha').fill(ADMIN_PASSWORD);
   for (let attempt = 0; attempt < 6; attempt++) {
@@ -57,11 +57,31 @@ async function adminLogin(page: Page) {
       page.getByRole('button', { name: 'Entrar' }).click(),
     ]);
     if (res.ok()) {
-      await expect(page.getByRole('heading', { name: 'Visão geral' })).toBeVisible();
+      await expect(page.locator('.adm-top__title')).toHaveText('Status');
       return;
     }
   }
   throw new Error('não conseguiu entrar no painel');
+}
+
+const isMobileAdmin = (page: Page) => (page.viewportSize()?.width ?? 1200) <= 860;
+const TABBAR: Record<string, string> = {
+  Status: 'Status',
+  Restaurantes: 'Clientes',
+  Servidor: 'Servidor',
+  Planos: 'Planos',
+};
+
+/** Painel: barra lateral no computador; no celular, barra inferior + "Mais" (Backups, Auditoria, Sair). */
+async function adminNav(page: Page, name: string) {
+  if (!isMobileAdmin(page)) return page.getByRole('link', { name, exact: true }).click();
+  if (TABBAR[name])
+    return page
+      .locator('.adm-tabbar')
+      .getByRole('link', { name: TABBAR[name], exact: true })
+      .click();
+  await page.getByRole('button', { name: 'Mais' }).click();
+  await page.getByRole('dialog').getByRole('link', { name, exact: true }).click();
 }
 
 async function nav(page: Page, name: string) {
@@ -89,11 +109,11 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await shot(page, info.project.name, 'admin-login');
 
   await adminLogin(page);
-  await expect(page.getByText('Banco de dados')).toBeVisible();
+  await expect(page.getByText('Banco de dados').first()).toBeVisible();
   await shot(page, info.project.name, 'admin-visao-geral');
 
   // Plano novo
-  await nav(page, 'Planos');
+  await adminNav(page, 'Planos');
   await page.getByRole('button', { name: 'Novo plano' }).click();
   let dialog = page.getByRole('dialog');
   await dialog.getByLabel('Código').fill(`e2e-${tag}`);
@@ -108,8 +128,8 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await expect(row).toContainText('Domínio próprio');
 
   // Restaurante novo com esse plano
-  await nav(page, 'Restaurantes');
-  await page.getByRole('button', { name: 'Novo restaurante' }).click();
+  await adminNav(page, 'Restaurantes');
+  await page.getByRole('button', { name: 'Novo', exact: true }).click();
   dialog = page.getByRole('dialog');
   await dialog.getByLabel('Nome do restaurante').fill(`Cantina ${tag}`);
   await dialog.getByLabel('Endereço').fill('admin');
@@ -122,20 +142,20 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await dialog.getByRole('button', { name: 'Criar restaurante' }).click();
   await expect(page.getByRole('heading', { name: new RegExp(`Cantina ${tag}`) })).toBeVisible();
   await expect(page.getByText(`dona-${tag}@e2e.local`).first()).toBeVisible();
-  await expect(page.locator('.cm-badge', { hasText: /^Ativa$/ })).toBeVisible();
+  await expect(page.locator('.adm-tag', { hasText: /^Ativa$/ })).toBeVisible();
 
   // Assinatura: pagamento pendente
   await page.getByLabel('Situação').selectOption('past_due');
   await page.getByRole('button', { name: 'Salvar' }).click();
   await expect(page.getByText('Assinatura salva')).toBeVisible();
-  await expect(page.locator('.cm-badge', { hasText: 'Pagamento pendente' })).toBeVisible();
+  await expect(page.locator('.adm-tag', { hasText: 'Pagamento pendente' })).toBeVisible();
 
   // Suspender e reativar (com motivo)
   await page.getByRole('button', { name: 'Suspender' }).click();
   dialog = page.getByRole('dialog');
   await dialog.getByLabel('Motivo (fica na auditoria)').fill(`Teste E2E ${tag}`);
   await dialog.getByRole('button', { name: 'Suspender' }).click();
-  await expect(page.getByText(/Restaurante suspenso: ninguém consegue entrar/)).toBeVisible();
+  await expect(page.getByText(/Suspenso: ninguém entra nem opera/)).toBeVisible();
   await shot(page, info.project.name, 'admin-restaurante-suspenso');
   await page.getByRole('button', { name: 'Reativar' }).click();
   dialog = page.getByRole('dialog');
@@ -144,14 +164,14 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await expect(page.getByRole('button', { name: 'Suspender' })).toBeVisible();
 
   // Auditoria
-  await nav(page, 'Auditoria');
+  await adminNav(page, 'Auditoria');
   await expect(page.getByText(`Teste E2E ${tag}`)).toBeVisible();
   await expect(page.getByText('Restaurante criado').first()).toBeVisible();
-  await nav(page, 'Backups');
+  await adminNav(page, 'Backups');
   await expect(page.getByRole('heading', { name: 'Backups' })).toBeVisible();
 
   // Nenhuma tela do painel rola na horizontal (celular e computador).
-  for (const path of ['/', '/restaurantes', '/planos', '/backups', '/auditoria']) {
+  for (const path of ['/', '/restaurantes', '/servidor', '/planos', '/backups', '/auditoria']) {
     await page.goto(`${ADMIN_URL}${path}`);
     await page.waitForLoadState('networkidle');
     const overflow = await page.evaluate(
@@ -160,10 +180,9 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
     expect(overflow, path).toBeLessThanOrEqual(0);
   }
 
-  if ((page.viewportSize()?.width ?? 1200) < 1024)
-    await page.getByRole('button', { name: 'Abrir menu' }).click();
+  if (isMobileAdmin(page)) await page.getByRole('button', { name: 'Mais' }).click();
   await page.getByRole('button', { name: 'Sair' }).click();
-  await expect(page.getByRole('heading', { name: 'Painel Super Admin' })).toBeVisible();
+  await expect(page.getByLabel('Código do autenticador')).toBeVisible();
 });
 
 test('restaurante: tela Plano e domínio com instruções de DNS', async ({ page }, info) => {
