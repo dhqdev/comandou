@@ -1,0 +1,116 @@
+/*
+ * PedeMais Design System — tokens.
+ * Identidade própria: violeta "jabuticaba" + âmbar. Não reutiliza cores/logos de concorrentes.
+ */
+:root {
+  /* Marca */
+  --pm-brand-50: #f5f3ff;
+  --pm-brand-100: #ede9fe;
+  --pm-brand-200: #ddd6fe;
+  --pm-brand-400: #a78bfa;
+  --pm-brand-500: #8b5cf6;
+  --pm-brand-600: #7c3aed;
+  --pm-brand-700: #6d28d9;
+  --pm-brand-800: #5b21b6;
+  --pm-brand-900: #2e1065;
+  --pm-accent-400: #fbbf24;
+  --pm-accent-500: #f59e0b;
+
+  /* Neutros */
+  --pm-gray-0: #ffffff;
+  --pm-gray-25: #fbfaff;
+  --pm-gray-50: #f6f5fa;
+  --pm-gray-100: #eceaf3;
+  --pm-gray-200: #dcd9e6;
+  --pm-gray-300: #c3bfd1;
+  --pm-gray-500: #7b7590;
+  --pm-gray-600: #5d5872;
+  --pm-gray-700: #423d55;
+  --pm-gray-800: #2a2639;
+  --pm-gray-900: #17141f;
+  --pm-ink: #0f0b1e;
+
+  /* Semânticas (estados de pedido seguem estas cores) */
+  --pm-info: #2563eb;
+  --pm-info-bg: #eff4ff;
+  --pm-success: #059669;
+  --pm-success-bg: #ecfdf5;
+  --pm-warning: #d97706;
+  --pm-warning-bg: #fffbeb;
+  --pm-danger: #dc2626;
+  --pm-danger-bg: #fef2f2;
+
+  /* Superfícies */
+  --pm-bg: var(--pm-gray-50);
+  --pm-surface: var(--pm-gray-0);
+  --pm-surface-muted: var(--pm-gray-25);
+  --pm-border: var(--pm-gray-100);
+  --pm-border-strong: var(--pm-gray-200);
+  --pm-text: var(--pm-gray-900);
+  --pm-text-muted: var(--pm-gray-600);
+  --pm-text-subtle: var(--pm-gray-500);
+  --pm-sidebar-bg: var(--pm-ink);
+  --pm-sidebar-text: #c9c4dc;
+  --pm-sidebar-active: var(--pm-brand-700);
+  --pm-focus: 0 0 0 3px color-mix(in srgb, var(--pm-brand-500) 35%, transparent);
+
+  /* Tipografia */
+  --pm-font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --pm-font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  --pm-text-xs: 0.75rem;
+  --pm-text-sm: 0.875rem;
+  --pm-text-md: 1rem;
+  --pm-text-lg: 1.125rem;
+  --pm-text-xl: 1.375rem;
+  --pm-text-2xl: 1.75rem;
+
+  /* Espaçamento (escala de 4px) */
+  --pm-space-1: 4px;
+  --pm-space-2: 8px;
+  --pm-space-3: 12px;
+  --pm-space-4: 16px;
+  --pm-space-5: 20px;
+  --pm-space-6: 24px;
+  --pm-space-8: 32px;
+  --pm-space-10: 40px;
+
+  /* Formas e elevação */
+  --pm-radius-sm: 8px;
+  --pm-radius-md: 12px;
+  --pm-radius-lg: 16px;
+  --pm-radius-full: 999px;
+  --pm-shadow-sm: 0 1px 2px rgb(23 20 31 / 6%);
+  --pm-shadow-md: 0 4px 16px rgb(23 20 31 / 8%);
+  --pm-shadow-lg: 0 16px 48px rgb(23 20 31 / 18%);
+
+  /* Alvos de toque (garçom/caixa em tablet) */
+  --pm-touch: 44px;
+  --pm-sidebar-w: 248px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --pm-bg: #121019;
+    --pm-surface: #1b1826;
+    --pm-surface-muted: #221e30;
+    --pm-border: #2c2840;
+    --pm-border-strong: #3a3552;
+    --pm-text: #f1eff8;
+    --pm-text-muted: #b5afc9;
+    --pm-text-subtle: #8c86a3;
+    --pm-info-bg: #172036;
+    --pm-success-bg: #10251d;
+    --pm-warning-bg: #2a1f0d;
+    --pm-danger-bg: #2c1414;
+  }
+}
+:root[data-theme='dark'] {
+  --pm-bg: #121019;
+  --pm-surface: #1b1826;
+  --pm-surface-muted: #221e30;
+  --pm-border: #2c2840;
+  --pm-border-strong: #3a3552;
+  --pm-text: #f1eff8;
+  --pm-text-muted: #b5afc9;
+  --pm-text-subtle: #8c86a3;
+}

@@ -1,0 +1,314 @@
+import { BookOpen, Plus } from 'lucide-react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Modal,
+  Skeleton,
+  TextField,
+  useToast,
+} from '../design-system';
+import { useCan } from '../app/auth';
+import { api, Category, Product } from '../lib/api';
+import { brl, parseBrlInput } from '../lib/money';
+
+export function MenuPage() {
+  const canWrite = useCan('catalog:write');
+  const toast = useToast();
+  const [categories, setCategories] = useState<Category[] | null>(null);
+  const [products, setProducts] = useState<Product[] | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [modal, setModal] = useState<'category' | 'product' | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const [c, p] = await Promise.all([
+        api<Category[]>('/categories'),
+        api<Product[]>('/products'),
+      ]);
+      setCategories(c);
+      setProducts(p);
+      setSelected((s) => s ?? c[0]?.id ?? null);
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const visible = useMemo(
+    () => (products ?? []).filter((p) => p.categoryId === selected),
+    [products, selected],
+  );
+  const countBy = (id: string) => (products ?? []).filter((p) => p.categoryId === id).length;
+
+  async function toggleSoldOut(p: Product) {
+    try {
+      // Só reflete na tela depois da confirmação do servidor.
+      const updated = await api<Product>(`/products/${p.id}`, {
+        method: 'PATCH',
+        json: { soldOut: !p.soldOut },
+      });
+      setProducts((list) => list?.map((x) => (x.id === p.id ? updated : x)) ?? null);
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    }
+  }
+
+  return (
+    <>
+      <div>
+        <h1 className="page-title">Cardápio</h1>
+        <p className="page-sub">Categorias e produtos exibidos no PDV e no cardápio digital.</p>
+      </div>
+      {error && <Alert tone="danger">Não foi possível carregar o cardápio: {error}</Alert>}
+      <div className="menu-grid">
+        <Card
+          title="Categorias"
+          bodyless
+          actions={
+            canWrite && (
+              <Button
+                variant="secondary"
+                icon={<Plus size={16} />}
+                onClick={() => setModal('category')}
+              >
+                Nova
+              </Button>
+            )
+          }
+        >
+          {categories === null ? (
+            <div style={{ padding: 16, display: 'grid', gap: 8 }}>
+              <Skeleton height={36} />
+              <Skeleton height={36} />
+            </div>
+          ) : categories.length === 0 ? (
+            <EmptyState title="Sem categorias" />
+          ) : (
+            <ul className="cat-list">
+              {categories.map((c) => (
+                <li key={c.id}>
+                  <button
+                    className="cat-item"
+                    aria-current={c.id === selected}
+                    onClick={() => setSelected(c.id)}
+                  >
+                    {c.name}
+                    <Badge>{countBy(c.id)}</Badge>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+        <Card
+          title={categories?.find((c) => c.id === selected)?.name ?? 'Produtos'}
+          bodyless
+          actions={
+            canWrite &&
+            selected && (
+              <Button icon={<Plus size={16} />} onClick={() => setModal('product')}>
+                Adicionar item
+              </Button>
+            )
+          }
+        >
+          {products === null ? (
+            <div style={{ padding: 16 }}>
+              <Skeleton height={120} />
+            </div>
+          ) : visible.length === 0 ? (
+            <EmptyState
+              icon={<BookOpen size={20} />}
+              title="Nenhum produto nesta categoria"
+              description={canWrite ? 'Adicione o primeiro item para começar a vender.' : undefined}
+            />
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="pm-table">
+                <thead>
+                  <tr>
+                    <th>Produto</th>
+                    <th>Situação</th>
+                    <th className="pm-num">Preço</th>
+                    {canWrite && <th />}
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((p) => (
+                    <tr key={p.id}>
+                      <td>
+                        <strong>{p.name}</strong>
+                        {p.description && <div className="pm-hint">{p.description}</div>}
+                      </td>
+                      <td>
+                        {p.soldOut ? (
+                          <Badge tone="danger">Esgotado</Badge>
+                        ) : (
+                          <Badge tone="success">Disponível</Badge>
+                        )}
+                      </td>
+                      <td className="pm-num">{brl(p.price)}</td>
+                      {canWrite && (
+                        <td className="pm-num">
+                          <Button variant="secondary" onClick={() => toggleSoldOut(p)}>
+                            {p.soldOut ? 'Reativar' : 'Esgotar'}
+                          </Button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </div>
+      <CategoryModal
+        open={modal === 'category'}
+        onClose={() => setModal(null)}
+        onSaved={async (c) => {
+          setModal(null);
+          toast('Categoria criada', 'success');
+          await load();
+          setSelected(c.id);
+        }}
+      />
+      {selected && (
+        <ProductModal
+          open={modal === 'product'}
+          categoryId={selected}
+          onClose={() => setModal(null)}
+          onSaved={async () => {
+            setModal(null);
+            toast('Produto adicionado', 'success');
+            await load();
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function CategoryModal({
+  open,
+  onClose,
+  onSaved,
+}: {
+  open: boolean;
+  onClose(): void;
+  onSaved(c: Category): void;
+}) {
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const c = await api<Category>('/categories', { method: 'POST', json: { name } });
+      setName('');
+      onSaved(c);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal open={open} title="Nova categoria" onClose={onClose}>
+      <form onSubmit={submit} style={{ display: 'grid', gap: 16 }}>
+        <TextField
+          label="Nome"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={80}
+          required
+        />
+        {error && <Alert tone="danger">{error}</Alert>}
+        <Button type="submit" loading={busy} disabled={!name.trim()}>
+          Salvar
+        </Button>
+      </form>
+    </Modal>
+  );
+}
+
+function ProductModal({
+  open,
+  categoryId,
+  onClose,
+  onSaved,
+}: {
+  open: boolean;
+  categoryId: string;
+  onClose(): void;
+  onSaved(): void;
+}) {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [price, setPrice] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const parsed = parseBrlInput(price);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!parsed) return;
+    setBusy(true);
+    try {
+      await api('/products', {
+        method: 'POST',
+        json: { categoryId, name, description: description || undefined, price: parsed },
+      });
+      setName('');
+      setDescription('');
+      setPrice('');
+      onSaved();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal open={open} title="Adicionar item" onClose={onClose}>
+      <form onSubmit={submit} style={{ display: 'grid', gap: 16 }}>
+        <TextField
+          label="Nome"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={120}
+          required
+        />
+        <TextField
+          label="Descrição"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+        <TextField
+          label="Preço"
+          inputMode="decimal"
+          placeholder="0,00"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          error={price && !parsed ? 'Use o formato 12,90' : undefined}
+          hint="Valor em reais"
+          required
+        />
+        {error && <Alert tone="danger">{error}</Alert>}
+        <Button type="submit" loading={busy} disabled={!name.trim() || !parsed}>
+          Salvar
+        </Button>
+      </form>
+    </Modal>
+  );
+}

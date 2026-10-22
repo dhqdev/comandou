@@ -1,0 +1,61 @@
+.login {
+  min-height: 100%;
+  display: grid;
+  grid-template-columns: minmax(360px, 520px) 1fr;
+  background: var(--pm-surface);
+}
+.login__panel {
+  padding: var(--pm-space-10) clamp(24px, 6vw, 64px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--pm-space-3);
+}
+.login__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--pm-space-3);
+  font-weight: 800;
+  font-size: var(--pm-text-lg);
+  color: var(--pm-brand-800);
+  margin-bottom: var(--pm-space-6);
+}
+.login__brand .brand__mark {
+  color: #fff;
+}
+.login__title {
+  margin: 0;
+  font-size: var(--pm-text-2xl);
+  letter-spacing: -0.01em;
+}
+.login__sub {
+  margin: 0 0 var(--pm-space-4);
+  color: var(--pm-text-muted);
+}
+.login__form {
+  display: grid;
+  gap: var(--pm-space-4);
+}
+.login__art {
+  background:
+    radial-gradient(circle at 20% 20%, rgb(245 158 11 / 35%), transparent 40%),
+    radial-gradient(circle at 80% 70%, rgb(139 92 246 / 55%), transparent 45%), var(--pm-ink);
+  display: flex;
+  align-items: flex-end;
+  padding: var(--pm-space-10);
+}
+.login__quote {
+  color: #fff;
+  font-size: clamp(1.5rem, 2.6vw, 2.4rem);
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+@media (max-width: 860px) {
+  .login {
+    grid-template-columns: 1fr;
+  }
+  .login__art {
+    display: none;
+  }
+}

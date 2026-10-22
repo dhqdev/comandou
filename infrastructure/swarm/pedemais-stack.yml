@@ -1,0 +1,119 @@
+# Stack de PRODUÇÃO para Docker Swarm / Portainer.
+# Pré-requisitos (ver docs/deploy.md):
+#   - Traefik existente no Swarm, conectado à rede externa `network_public`.
+#   - Secrets criados: pedemais_db_app_url, pedemais_db_owner_url, pedemais_pg_password,
+#     pedemais_owner_password, pedemais_app_password.
+#   - Variáveis: PEDEMAIS_VERSION (tag imutável), PEDEMAIS_BASE_DOMAIN (pedemais.com),
+#     TRAEFIK_ENTRYPOINT (ex.: websecure), TRAEFIK_CERT_RESOLVER (ex.: letsencryptresolver).
+# Diferenças em relação ao docker-compose.yml de desenvolvimento:
+#   - `build`, `depends_on` com condição e `container_name` não existem no Swarm.
+#   - Labels do Traefik ficam em `deploy.labels` (não em `labels`).
+#   - Migração roda como serviço one-shot (replicas 1, restart on-failure) ANTES de atualizar a API.
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/pedemais_pg_password
+      PEDEMAIS_OWNER_PASSWORD_FILE: /run/secrets/pedemais_owner_password
+      PEDEMAIS_APP_PASSWORD_FILE: /run/secrets/pedemais_app_password
+    secrets: [pedemais_pg_password, pedemais_owner_password, pedemais_app_password]
+    volumes:
+      - pedemais_pgdata:/var/lib/postgresql/data
+    configs:
+      - source: pedemais_pg_init
+        target: /docker-entrypoint-initdb.d/01-roles.sh
+        mode: 0555
+    networks: [pedemais_internal]
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager] # volume local: fixe o nó
+      restart_policy: { condition: on-failure }
+      resources:
+        limits: { memory: 1G }
+
+  migrate:
+    image: ghcr.io/dhqdev/pedemais-api:${PEDEMAIS_VERSION:?defina a versão}
+    command: ['node', 'dist/database/migrate-cli.js']
+    environment:
+      DATABASE_OWNER_URL_FILE: /run/secrets/pedemais_db_owner_url
+    secrets: [pedemais_db_owner_url]
+    networks: [pedemais_internal]
+    deploy:
+      replicas: 1
+      restart_policy: { condition: on-failure, max_attempts: 5, delay: 10s }
+
+  api:
+    image: ghcr.io/dhqdev/pedemais-api:${PEDEMAIS_VERSION:?defina a versão}
+    init: true
+    environment:
+      NODE_ENV: production
+      DATABASE_URL_FILE: /run/secrets/pedemais_db_app_url
+      PEDEMAIS_BASE_DOMAIN: ${PEDEMAIS_BASE_DOMAIN:-pedemais.com}
+      TRUST_PROXY: 'true'
+      COOKIE_SECURE: 'true'
+      LOG_LEVEL: info
+    secrets: [pedemais_db_app_url]
+    networks: [pedemais_internal, network_public]
+    deploy:
+      replicas: 2
+      update_config: { parallelism: 1, order: start-first, failure_action: rollback, delay: 10s }
+      rollback_config: { parallelism: 1, order: start-first }
+      restart_policy: { condition: on-failure }
+      resources:
+        limits: { memory: 512M }
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=network_public
+        - traefik.http.routers.pedemais-api.rule=HostRegexp(`^[a-z0-9-]+\.pedemais\.com$$`) && PathPrefix(`/api`)
+        - traefik.http.routers.pedemais-api.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
+        - traefik.http.routers.pedemais-api.tls=true
+        - traefik.http.routers.pedemais-api.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}
+        - traefik.http.routers.pedemais-api.tls.domains[0].main=pedemais.com
+        - traefik.http.routers.pedemais-api.tls.domains[0].sans=*.pedemais.com
+        - traefik.http.routers.pedemais-api.priority=100
+        - traefik.http.services.pedemais-api.loadbalancer.server.port=3000
+        - traefik.http.services.pedemais-api.loadbalancer.healthcheck.path=/api/v1/health/ready
+        - traefik.http.services.pedemais-api.loadbalancer.healthcheck.interval=10s
+
+  web:
+    image: ghcr.io/dhqdev/pedemais-web:${PEDEMAIS_VERSION:?defina a versão}
+    networks: [network_public]
+    deploy:
+      replicas: 2
+      update_config: { parallelism: 1, order: start-first, failure_action: rollback }
+      restart_policy: { condition: on-failure }
+      resources:
+        limits: { memory: 128M }
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=network_public
+        - traefik.http.routers.pedemais-web.rule=HostRegexp(`^[a-z0-9-]+\.pedemais\.com$$`)
+        - traefik.http.routers.pedemais-web.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
+        - traefik.http.routers.pedemais-web.tls=true
+        - traefik.http.routers.pedemais-web.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}
+        - traefik.http.routers.pedemais-web.priority=10
+        - traefik.http.services.pedemais-web.loadbalancer.server.port=8080
+
+networks:
+  network_public:
+    external: true # rede pública já existente do Traefik — NÃO criar outra
+  pedemais_internal:
+    driver: overlay
+    internal: true # Postgres sem acesso externo
+
+volumes:
+  pedemais_pgdata:
+
+configs:
+  pedemais_pg_init:
+    file: ../docker/postgres-init/01-roles.sh
+
+secrets:
+  pedemais_pg_password: { external: true }
+  pedemais_owner_password: { external: true }
+  pedemais_app_password: { external: true }
+  pedemais_db_app_url: { external: true }
+  pedemais_db_owner_url: { external: true }
