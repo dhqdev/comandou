@@ -2,15 +2,13 @@
 
 Cada etapa só é considerada concluída quando **todos** os critérios de aceitação forem verificados com evidência (teste automatizado, log ou captura).
 
-## Etapa 1 — Investigação e planejamento · ✅ concluída (com pendências)
+## Etapa 1 — Investigação e planejamento · ✅ concluída
 
-- [x] Repositório analisado ([análise inicial](initial-analysis.md))
-- [x] Repositório `alextnetto/res` avaliado (skill MIT de engenharia reversa; útil como ferramenta)
-- [~] Sistema de referência: só por capturas de tela. **Pendente**: acesso direto com credenciais
+- [x] Repositório analisado (vazio; estrutura criada do zero)
 - [ ] Infraestrutura existente (Oracle/Swarm/Portainer/Traefik): **pendente de acesso** para inspeção
 - [x] Arquitetura, modelo de dados inicial, riscos e ADRs
 
-## Etapa 2 — Fundação técnica · ✅ entregue nesta PR
+## Etapa 2 — Fundação técnica · ✅ entregue (PR #1)
 
 | Critério de aceitação | Evidência |
 | --- | --- |
@@ -27,7 +25,7 @@ Cada etapa só é considerada concluída quando **todos** os critérios de aceit
 | Stack Swarm/Portainer usando `network_public` | `infrastructure/swarm/pedemais-stack.yml` (**não implantada**) |
 | CI no GitHub Actions | `.github/workflows/ci.yml` |
 
-## Etapa 3 — Primeiros fluxos comerciais · ✅ entregue nesta PR
+## Etapa 3 — Primeiros fluxos comerciais · ✅ entregue (PR #2)
 
 Entregue em um PR único (a pedido), com os seis itens planejados.
 
@@ -91,7 +89,7 @@ Entregue em um PR único, versão **0.4.0** (ver tela Novidades no sistema). Dec
 
 Pendências que dependem de contas reais (não simuladas aqui): validar em homologação na Focus NFe com o CNPJ e o certificado do restaurante (campo de outras despesas, exigências de cartão da SEFAZ do estado) e ler o primeiro QR Code com um número de teste (o CI não alcança os servidores do WhatsApp).
 
-## Etapa 6 — SaaS · ✅ entregue nesta PR
+## Etapa 6 — SaaS · ✅ entregue (PR #5)
 
 Entregue em um PR único, versão **0.5.0** (ver tela Novidades no sistema). Decisões no [ADR 0009](decisions/0009-saas-plataforma-planos-backups.md).
 
@@ -114,6 +112,23 @@ DNS real de um cliente, provider HTTP no Traefik existente, as imagens Docker e 
 rodando no GitHub. Cobrança automática da assinatura fica para depois da escolha do meio de
 pagamento; hoje a situação da assinatura é ajustada no painel.
 
-## Etapa 7 — Produção
+## Etapa 7 — Produção · ✅ entregue nesta PR
 
-Revisão de segurança, testes de carga, testes de restauração, validação das integrações, documentação de operação.
+Entregue em um PR único, versão **0.6.0** (ver tela Novidades no sistema). Decisões no [ADR 0010](decisions/0010-producao-endurecimento.md).
+
+| Critério de aceitação | Evidência |
+| --- | --- |
+| Revisão de segurança com achados corrigidos | [segurança](security.md) (S1–S7); `test/security.e2e.test.ts`, `log-redact.test.ts`, teste de bloqueio no painel |
+| Dependências sem vulnerabilidade alta/crítica | `pnpm audit --prod` no CI; nenhuma conhecida em 2026-10-22 |
+| Testes de carga com números medidos | [carga](load-testing.md): 0 erros em 30.815 requisições, 100 disputas de pagamento sem duplicação, isolamento conferido |
+| Gargalo achado e corrigido | lista de pedidos 1,7 s → 9 ms com 1 milhão de pedidos (migração 0009) |
+| Testes de restauração | [ensaios](backups.md#ensaios): backup 17 s, restauração 14–41 s com 1 milhão de pedidos; API funcionando no banco restaurado |
+| Validação das integrações e do servidor | `scripts/preflight.sh` (antes e `--deployed` depois); exercitado com um Docker simulado |
+| Monitoramento com alertas | `infrastructure/monitoring/alerts.yml` + testes do `promtool` no CI |
+| Documentação de operação | [operação](operations.md): rotina, incidentes, rotação de segredos, retenção LGPD |
+
+**Para ir ao ar falta o que depende do servidor e das contas reais**, nesta ordem: acesso ao
+servidor (Portainer/Traefik), `scripts/preflight.sh`, secrets e `deploy.env`, primeiro deploy pelo
+workflow com aprovação, `scripts/preflight.sh --deployed`, bucket B2 real com um backup e um teste
+de restauração, NFC-e em homologação com o certificado do primeiro restaurante e o primeiro QR
+Code do WhatsApp com um número de teste.

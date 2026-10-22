@@ -61,6 +61,23 @@ export class Metrics {
         for (const [state, n] of Object.entries(counts)) this.set({ state }, n);
       },
     });
+    // Para alertas de backup atrasado (0 = nunca houve um bem-sucedido).
+    new Gauge({
+      name: 'pedemais_backup_last_success_timestamp_seconds',
+      help: 'Horário (epoch) do último backup e do último teste de restauração bem-sucedidos',
+      labelNames: ['kind'],
+      registers: [this.registry],
+      async collect() {
+        const rows = await db
+          .queryUnscoped<{ kind: string; last_ok_at: Date | null }>(
+            'SELECT kind, last_ok_at FROM app_backup_status()',
+            [],
+          )
+          .catch(() => []);
+        for (const r of rows)
+          this.set({ kind: r.kind }, r.last_ok_at ? r.last_ok_at.getTime() / 1000 : 0);
+      },
+    });
   }
 }
 

@@ -185,6 +185,21 @@ describe('Login do Super Admin', () => {
     expect(rows[0].n).toBeGreaterThanOrEqual(2);
   });
 
+  it('muitas tentativas recusadas bloqueiam a conta por um tempo (429)', async () => {
+    const email = 'alvo@plataforma.test';
+    const statuses: number[] = [];
+    for (let i = 0; i < 11; i++) {
+      const r = await http
+        .post('/api/v1/platform/auth/login')
+        .set('Host', ADMIN_HOST)
+        .set(CSRF)
+        .send({ email, password: 'senha-errada-' + i, code: '123456' });
+      statuses.push(r.status);
+    }
+    expect(statuses.slice(0, 10).every((s) => s === 401)).toBe(true);
+    expect(statuses[10]).toBe(429);
+  });
+
   it('senha + código: cookie restrito ao painel; o mesmo código não serve de novo', async () => {
     const code = totpCode(SECRET, totpStep());
     const r = await adminLogin(code).expect(200);
@@ -556,6 +571,26 @@ describe('Monitoramento e visão geral', () => {
     expect(r.text).toContain('pedemais_db_pool_connections');
     expect(r.text).toContain('route="/api/v1/products"');
     expect(r.text).not.toContain('pf-a');
+  });
+
+  it('métrica do último backup bom (alertas de backup atrasado)', async () => {
+    await ownerQuery(
+      `INSERT INTO backup_runs (kind, status, finished_at) VALUES ('backup', 'ok', '2026-01-02T03:04:05Z')`,
+    );
+    const r = await http
+      .get('/api/v1/metrics')
+      .set('Authorization', `Bearer ${METRICS_TOKEN}`)
+      .expect(200);
+    const line = (kind: string) =>
+      r.text
+        .split('\n')
+        .find((l) =>
+          l.startsWith(`pedemais_backup_last_success_timestamp_seconds{kind="${kind}"}`),
+        );
+    expect(Number(line('backup')?.split(' ')[1])).toBeGreaterThanOrEqual(
+      Date.parse('2026-01-02T03:04:05Z') / 1000,
+    );
+    expect(line('restore_test')).toBeDefined();
   });
 
   it('readiness mostra banco e Redis', async () => {

@@ -57,6 +57,11 @@ jobs:
       - run: pnpm format:check
       - name: Scripts de shell
         run: shellcheck -x -S warning infrastructure/backup/*.sh scripts/*.sh
+      - name: Alertas do Prometheus
+        working-directory: infrastructure/monitoring
+        run: |
+          docker run --rm -v "$PWD:/w" -w /w --entrypoint promtool prom/prometheus:v2.53.2 check rules alerts.yml
+          docker run --rm -v "$PWD:/w" -w /w --entrypoint promtool prom/prometheus:v2.53.2 test rules alerts.test.yml
       - run: pnpm --filter @pedemais/shared build
       - run: pnpm typecheck
       - run: pnpm test

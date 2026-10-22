@@ -1,0 +1,54 @@
+rule_files: [alerts.yml]
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'up{job="pedemais-api"}'
+        values: '1 1 0 0 0 0'
+      - series: 'pedemais_http_server_errors_total{route="/api/v1/orders"}'
+        values: '0+10x20'
+      - series: 'pedemais_http_request_duration_seconds_count{method="POST",route="/api/v1/orders",status="201"}'
+        values: '0+100x20'
+      - series: 'pedemais_backup_last_success_timestamp_seconds{kind="backup"}'
+        values: '0x20'
+      - series: 'pedemais_backup_last_success_timestamp_seconds{kind="restore_test"}'
+        values: '0x20'
+      - series: 'pedemais_db_pool_connections{state="waiting"}'
+        values: '0x20'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: PedeMaisApiFora
+        exp_alerts:
+          - exp_labels: { severity: critical, job: pedemais-api }
+            exp_annotations:
+              summary: 'API do PedeMais não responde às métricas'
+              runbook: 'docs/operations.md#api-fora-do-ar'
+      - eval_time: 18m
+        alertname: PedeMaisErros5xx
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations:
+              summary: 'Mais de 2% das requisições com erro 5xx'
+              runbook: 'docs/operations.md#erros-5xx'
+      - eval_time: 18m
+        alertname: PedeMaisPoolDoBancoEsperando
+        exp_alerts: []
+      - eval_time: 18m
+        alertname: PedeMaisBackupAtrasado
+        exp_alerts: []
+  # Um dia e pouco depois do último backup bom (feito no instante 0), o alerta dispara.
+  - interval: 1m
+    input_series:
+      - series: 'pedemais_backup_last_success_timestamp_seconds{kind="backup"}'
+        values: '0x1800'
+    alert_rule_test:
+      - eval_time: 25h
+        alertname: PedeMaisBackupAtrasado
+        exp_alerts: []
+      - eval_time: 28h
+        alertname: PedeMaisBackupAtrasado
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations:
+              summary: 'Nenhum backup bem-sucedido nas últimas 26 h'
+              runbook: 'docs/operations.md#backup-atrasado'

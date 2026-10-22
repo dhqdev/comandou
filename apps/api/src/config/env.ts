@@ -37,7 +37,7 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((v) => v === 'true'),
-  /** Prefixo das chaves das filas no Redis (isola ambientes que compartilham o Redis). */
+  /** Prefixo das chaves no Redis: filas e limite de requisições (isola ambientes que compartilham o Redis). */
   QUEUE_PREFIX: z
     .string()
     .regex(/^[a-z0-9_-]{1,40}$/)
@@ -94,8 +94,18 @@ const schema = z.object({
   TRAEFIK_CUSTOM_CERT_RESOLVER: z.string().default('letsencrypt-http'),
   TRAEFIK_API_SERVICE: z.string().default('pedemais-api@swarm'),
   TRAEFIK_WEB_SERVICE: z.string().default('pedemais-web@swarm'),
+  /** Requisições por minuto por IP em cada rota (padrão geral; algumas rotas têm limite próprio). */
+  RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
   /** Tentativas de login por IP por minuto. */
   AUTH_LOGIN_RATE_LIMIT: z.coerce.number().int().positive().default(5),
+  /**
+   * Bloqueio temporário por conta: com N senhas erradas para o mesmo e-mail na janela, novas
+   * tentativas recebem 429 até a janela passar (vale entre réplicas e IPs diferentes).
+   */
+  AUTH_ACCOUNT_LOCK_THRESHOLD: z.coerce.number().int().positive().default(10),
+  AUTH_ACCOUNT_LOCK_MINUTES: z.coerce.number().int().positive().default(15),
+  /** Intervalo da limpeza de dados vencidos (sessões antigas, chaves de idempotência). 0 desliga. */
+  MAINTENANCE_INTERVAL_MINUTES: z.coerce.number().int().min(0).default(360),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 

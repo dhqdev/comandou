@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.6.0',
+    date: '2026-10-22',
+    title: 'Etapa 7 — Pronto para produção',
+    summary:
+      'Revisão de segurança, teste de carga com 1 milhão de pedidos, ensaio de restauração de backup e o guia de operação para colocar o PedeMais no ar.',
+    notes: [
+      {
+        tag: 'segurança',
+        text: 'Depois de 10 senhas erradas em 15 minutos, a conta fica bloqueada por um tempo, de qualquer computador. Vale para os restaurantes e para o painel Super Admin.',
+      },
+      {
+        tag: 'segurança',
+        text: 'O limite de tentativas agora vale para todos os servidores juntos, não para cada um.',
+      },
+      {
+        tag: 'segurança',
+        text: 'O link de rastreio do cliente não aparece mais nos registros do servidor.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Lista de pedidos rápida mesmo com muitos pedidos: de 1,7 s para 9 ms num restaurante com 1 milhão de pedidos.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Dados antigos que não servem mais (sessões encerradas há 90 dias, posição do entregador depois de 30 dias) são apagados sozinhos, como pede a LGPD. Pedidos, pagamentos e notas nunca são apagados.',
+      },
+      {
+        tag: 'novo',
+        text: 'Alertas de monitoramento: sistema fora do ar, erros, lentidão e backup atrasado.',
+      },
+      {
+        tag: 'novo',
+        text: 'Checagem automática do servidor antes e depois de cada atualização.',
+      },
+    ],
+  },
+  {
     version: '0.5.0',
     date: '2026-10-22',
     title: 'Etapa 6 — SaaS: painel da plataforma, planos e backups',
