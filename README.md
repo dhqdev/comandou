@@ -1,43 +1,75 @@
 # PedeMais
 
-SaaS multi-tenant para restaurantes: PDV, salão, cozinha (KDS), caixa, cardápio, delivery e gestão, com cada restaurante em `<slug>.pedemais.com`.
+Sistema para restaurantes, vendido como serviço (SaaS): cada restaurante tem o próprio endereço
+(`<restaurante>.pedemais.com` ou um domínio próprio) e usa PDV, salão, cozinha, caixa, cardápio,
+entregas, estoque, financeiro, nota fiscal e avisos por WhatsApp. Os dados de um restaurante
+nunca aparecem para outro.
 
-> **Estado:** Etapas 1 a 6 entregues (operação, retaguarda, NFC-e, WhatsApp e SaaS com painel Super Admin, planos e backups). Falta a Etapa 7 (produção). Ver [roadmap](docs/roadmap.md).
-
-| Login | Cardápio |
+| PDV | Relatórios |
 | --- | --- |
-| ![Login](docs/assets/screens/desktop-login.png) | ![Cardápio](docs/assets/screens/desktop-cardapio.png) |
+| ![PDV com os pedidos em tempo real](docs/assets/screens/desktop-pdv.png) | ![Relatórios de vendas e recebimentos](docs/assets/screens/desktop-relatorios.png) |
+| **Login** | **Painel Super Admin** |
+| ![Login do restaurante](docs/assets/screens/desktop-login.png) | ![Visão geral da plataforma](docs/assets/screens/desktop-admin-visao-geral.png) |
 
-## Stack
+## O que o sistema faz
+
+| Área | Recursos |
+| --- | --- |
+| **Venda** | PDV com atalhos de teclado, adicionais e variações, pedidos de balcão, mesa e delivery, descontos com limite por papel |
+| **Salão** | Mesas e comandas, transferência, divisão da conta sem perder centavo, fechamento |
+| **Cozinha** | Fila por setor de produção (KDS) em tempo real, avanço por item ou pedido |
+| **Caixa** | Abertura por terminal, pagamentos com troco, estornos, sangria e suprimento, fechamento conferido |
+| **Retaguarda** | Equipe e papéis, estoque com ficha técnica e custo médio, entregadores com rastreio, impressão local (agente ESC/POS), contas a pagar e receber, relatórios |
+| **Integrações** | NFC-e pela Focus NFe, avisos ao cliente pelo WhatsApp (QR Code ou API oficial), filas com novas tentativas |
+| **SaaS** | Painel Super Admin com dois fatores, planos e limites, domínio próprio verificado por DNS, monitoramento, backups cifrados com teste de restauração |
+
+O histórico de versões aparece no próprio sistema, na tela **Novidades**.
+
+## Garantias
+
+- **Isolamento entre restaurantes.** O restaurante vem do endereço validado, nunca de um campo
+  enviado pelo navegador. Todas as tabelas têm `tenant_id` com Row-Level Security no PostgreSQL, e
+  o banco recusa ler ou referenciar dados de outro restaurante mesmo se a aplicação errar.
+- **Dinheiro sem arredondamento errado.** Valores em decimal (nunca ponto flutuante); pagamento,
+  fechamento de pedido e de caixa com chave de idempotência; registro financeiro confirmado nunca
+  é apagado, só estornado.
+- **Confirmação só depois do servidor.** A tela não mostra pagamento ou operação de caixa como
+  confirmados antes da resposta do backend; o aviso em tempo real é só um sinal.
+- **Segredos protegidos.** Tokens de integração e sessões do WhatsApp cifrados no banco; senhas,
+  cookies e tokens nunca vão para os logs.
+
+Cada garantia tem testes automatizados: ver [docs/testing.md](docs/testing.md).
+
+## Tecnologia
 
 | Camada | Tecnologia |
 | --- | --- |
-| Backend | NestJS 11 + TypeScript (monólito modular) |
-| Banco | PostgreSQL 16, `tenant_id` + Row-Level Security, Drizzle ORM, migrações SQL versionadas |
+| Backend | NestJS 11 + TypeScript (monólito modular), filas BullMQ, Socket.IO |
+| Banco | PostgreSQL 16 com Row-Level Security, migrações SQL versionadas |
+| Cache e filas | Redis |
 | Frontend | React 19 + Vite 7 + TypeScript, Design System próprio, PWA |
-| Borda | Traefik (TLS, roteamento por subdomínio) → Nginx (estáticos) / NestJS (`/api`) |
-| Infra | Docker, Compose (dev), Swarm + Portainer (prod), rede `network_public` |
-| Testes | Vitest, supertest, Playwright |
-| CI | GitHub Actions |
-
-Planejado para as próximas etapas: Redis + BullMQ, WebSockets, S3/B2, Focus NFe, WhatsApp. **Não usa Frappe.**
+| Borda | Traefik (TLS e roteamento por endereço) → Nginx (arquivos estáticos) e NestJS (`/api`) |
+| Infra | Docker, Compose (desenvolvimento), Swarm + Portainer (produção), imagens amd64 e arm64 |
+| Qualidade | Vitest, supertest, Playwright, GitHub Actions |
 
 ## Estrutura
 
 ```
 apps/
-  api/                NestJS: auth, tenancy, catalog, audit, provisioning, health
-    db/migrations/    SQL versionado (RLS, grants, funções)
-    test/             testes de integração: RLS, API ponta a ponta, provisionamento
-  web/                React + PWA: design-system/, app/, pages/, e2e/
+  api/                API NestJS (auth, restaurantes, cardápio, pedidos, caixa, estoque,
+                      entregas, financeiro, nota fiscal, WhatsApp, planos, painel da plataforma)
+    db/migrations/    SQL versionado (tabelas, RLS, permissões)
+    test/             testes de integração e ponta a ponta
+  web/                React + PWA (telas do restaurante e painel Super Admin), e2e/ com Playwright
+  whatsapp-gateway/   serviço separado do WhatsApp por QR Code
 packages/
-  shared/             dinheiro, slug de tenant, papéis e permissões
-infrastructure/
-  docker/             Dockerfiles e init do Postgres (papéis)
-  nginx/              configuração do SPA
-  swarm/              stack de produção para Swarm/Portainer
-scripts/              install.sh, healthcheck.sh
-docs/                 arquitetura, análise, roadmap, riscos, ADRs, guias
+  shared/             regras comuns: dinheiro, papéis e permissões, planos, Novidades
+tools/
+  print-agent/        agente de impressão que roda no computador do restaurante
+  load/               testes de carga
+infrastructure/       Dockerfiles, Nginx, Traefik, stack do Swarm, backups, alertas
+scripts/              instalação, checagem pré-produção, saúde
+docs/                 arquitetura, decisões (ADR), operação, deploy, testes
 ```
 
 ## Começar
@@ -52,16 +84,12 @@ docker compose run --rm -e PROVISION_ADMIN_PASSWORD='uma-senha-forte' migrate \
 
 Desenvolvimento sem Docker, testes e migrações: [docs/development.md](docs/development.md).
 
-## Segurança multi-tenant em uma frase
-
-O restaurante vem do **Host validado**, a sessão só existe **dentro desse restaurante** (RLS), o banco **recusa** linhas e referências de outro restaurante mesmo se a aplicação errar, e há testes que provam cada uma dessas garantias ([docs/testing.md](docs/testing.md)).
-
 ## Documentação
 
-- [Análise inicial](docs/initial-analysis.md) · [Arquitetura](docs/architecture.md) · [Roadmap](docs/roadmap.md) · [Riscos](docs/risks.md) · [Decisões (ADR)](docs/decisions/README.md)
-- [Desenvolvimento local](docs/development.md) · [Testes](docs/testing.md) · [Deploy, Swarm, Portainer, Traefik, rollback](docs/deploy.md) · [Backups e restauração](docs/backups.md)
-- [Observações do sistema de referência](docs/reference/observations.md)
+- [Arquitetura](docs/architecture.md) · [Roadmap](docs/roadmap.md) · [Riscos](docs/risks.md) · [Decisões (ADR)](docs/decisions/README.md)
+- [Desenvolvimento local](docs/development.md) · [Testes](docs/testing.md) · [Carga](docs/load-testing.md)
+- [Deploy](docs/deploy.md) · [Operação](docs/operations.md) · [Backups e restauração](docs/backups.md) · [Segurança](docs/security.md)
 
 ## Licença
 
-Ainda não definida pelo dono do projeto (código privado). Ver [riscos](docs/risks.md) R3.
+Código privado. A licença ainda não foi definida pelo dono do projeto.

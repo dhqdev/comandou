@@ -1,7 +1,7 @@
 # Backups e restauração
 
-> Testado localmente com destino em arquivo e com um emulador S3. Ainda **não** rodou contra um
-> bucket real do Backblaze B2 nem em produção.
+> Testado localmente com destino em arquivo e com um emulador S3, e ensaiado com 1 milhão de
+> pedidos (abaixo). Ainda **não** rodou contra um bucket real do Backblaze B2 nem em produção.
 
 ## O que roda
 
@@ -79,3 +79,21 @@ pg_restore --exit-on-error -d pedemais_restore db.dump
 # 3. Conferir contagens, apontar os secrets *_url para o banco novo e reiniciar a stack
 shred -u db.dump
 ```
+
+Com 1 milhão de pedidos ou mais, `pg_restore -j 4` (4 tarefas em paralelo) reduz bastante o tempo.
+
+## Ensaios
+
+**2026-10-22**, máquina de desenvolvimento (4 vCPUs), banco com 16 restaurantes e 1.005.983
+pedidos (1,1 GB), destino em arquivo (o envio ao bucket não entra na conta):
+
+| Etapa | Tempo |
+| --- | --- |
+| Backup (`pg_dump` + cifrar), arquivo final de 139 MB | 17 s |
+| Teste de restauração automático (baixar, conferir sha256, decifrar, restaurar em cluster temporário, conferir contagens) | 41 s |
+| Restauração de desastre num banco novo (`age --decrypt` + `pg_restore -j 4`) | 14 s |
+| API apontada para o banco restaurado: `ready` ok, login e cardápio respondendo, cookie de um restaurante recusado no outro | ok |
+
+Estimativa de recuperação (RTO) para esse tamanho: menos de 15 minutos somando baixar do
+bucket, restaurar, conferir e trocar a conexão. Perda máxima de dados (RPO): até 24 h, porque o
+backup é diário; para perder menos, aumente a frequência ou use replicação do Postgres.

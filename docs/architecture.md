@@ -44,7 +44,8 @@
 | `platform` | ✅ | painel Super Admin em `admin.<base>`, papel `pedemais_platform`, senha + TOTP, auditoria própria |
 | `plans` | ✅ | planos, assinaturas, limites e recursos por plano |
 | `domains` | ✅ | domínio próprio com verificação TXT; provider HTTP do Traefik |
-| `health` | ✅ | `live`, `ready` (banco, Redis, WhatsApp) e métricas Prometheus |
+| `health` | ✅ | `live`, `ready` (banco, Redis, WhatsApp) e métricas Prometheus (inclui idade do último backup) |
+| `maintenance` | ✅ | limpeza periódica de dados vencidos pela função `app_purge_expired()` |
 | demais | ⏳ | ver [roadmap](roadmap.md) |
 
 Ordem dos guards globais: **Throttler → CSRF → Tenant → Sessão → Permissão**.

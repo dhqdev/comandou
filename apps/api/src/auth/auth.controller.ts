@@ -9,12 +9,14 @@ import {
   Res,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ThrottlerException } from '@nestjs/throttler';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { ROLE_LABELS, DEFAULT_ROLE_PERMISSIONS } from '@pedemais/shared';
 import { AuditService } from '../audit/audit.service';
 import { CurrentTenant, CurrentUser, Public } from '../common/decorators';
+import { one } from '../common/sql';
 import { ZodPipe } from '../common/zod.pipe';
 import { ENV, Env } from '../config/env';
 import { DatabaseService } from '../database/database.service';
@@ -59,6 +61,23 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
+    // Bloqueio por conta (antes de conferir a senha): vale para qualquer e-mail, exista ou não,
+    // então não revela quais contas existem.
+    const failures = await this.db.withTenant({ tenantId: tenant.id }, async (tx) => {
+      const r = await one<{ n: number }>(
+        tx,
+        `SELECT count(*)::int AS n FROM audit_log
+          WHERE tenant_id = $1 AND action = 'auth.login_failed' AND data->>'email' = $2
+            AND created_at > now() - make_interval(mins => $3)`,
+        [tenant.id, body.email, this.env.AUTH_ACCOUNT_LOCK_MINUTES],
+      );
+      return r?.n ?? 0;
+    });
+    if (failures >= this.env.AUTH_ACCOUNT_LOCK_THRESHOLD)
+      throw new ThrottlerException(
+        'Muitas tentativas com senha errada para esta conta. Aguarde alguns minutos.',
+      );
+
     const rows = await this.db.queryUnscoped<LoginRow>(
       'SELECT user_id, name, password_hash, role FROM app_find_login($1, $2)',
       [tenant.id, body.email],

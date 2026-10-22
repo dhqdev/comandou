@@ -134,6 +134,23 @@ Ver [backups](backups.md). O `install.sh` faz um backup antes de aplicar a stack
 atualização se ele falhar. Na primeira instalação o serviço ainda não existe e o passo é pulado
 sozinho; `PEDEMAIS_SKIP_BACKUP=1` pula à força (só em emergência, fica no log).
 
+## Etapa 7 (0.6.0): antes e depois de cada deploy
+
+- **Antes**: `scripts/preflight.sh` (só lê; confere servidor, `deploy.env`, segredos, Traefik e DNS).
+- **Depois**: `scripts/preflight.sh --deployed` (serviços, certificados, HSTS, saúde, métricas
+  fechadas, bucket, idade dos backups, saída para Focus NFe, Meta e WhatsApp).
+- Migrações 0008 a 0010 são aditivas. Em um banco grande já em produção, crie os índices da
+  0009 antes, sem travar escritas:
+
+  ```sql
+  CREATE INDEX CONCURRENTLY IF NOT EXISTS orders_tenant_created_idx ON orders (tenant_id, created_at DESC);
+  CREATE INDEX CONCURRENTLY IF NOT EXISTS cash_movements_tenant_created_idx ON cash_movements (tenant_id, created_at);
+  ```
+
+- Variáveis novas da API (opcionais): `RATE_LIMIT_PER_MINUTE` (300), `AUTH_ACCOUNT_LOCK_THRESHOLD`
+  (10), `AUTH_ACCOUNT_LOCK_MINUTES` (15), `MAINTENANCE_INTERVAL_MINUTES` (360; 0 desliga).
+- Alertas: [operação](operations.md#monitoramento).
+
 ## Deploy pelo GitHub (manual, com aprovação)
 
 1. Criar a tag: `git tag v0.5.0 && git push origin v0.5.0`. O workflow **Release** publica

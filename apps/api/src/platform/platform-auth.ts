@@ -6,6 +6,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ThrottlerException } from '@nestjs/throttler';
 import { randomBytes } from 'node:crypto';
 import type { Request } from 'express';
 import { DUMMY_HASH, verifyPassword } from '../auth/password';
@@ -61,6 +62,16 @@ export class PlatformAuthService {
     code: string,
     meta: { ip?: string; userAgent?: string },
   ): Promise<{ token: string; expiresAt: Date; admin: { id: string; name: string } }> {
+    const recent = await this.db.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM platform_audit_log
+        WHERE action = 'platform.login_failed' AND data->>'email' = $1
+          AND created_at > now() - make_interval(mins => $2)`,
+      [email, this.env.AUTH_ACCOUNT_LOCK_MINUTES],
+    );
+    if (recent[0].n >= this.env.AUTH_ACCOUNT_LOCK_THRESHOLD)
+      throw new ThrottlerException(
+        'Muitas tentativas recusadas para esta conta. Aguarde alguns minutos.',
+      );
     const rows = await this.db.query<AdminRow>(
       `SELECT id, name, email::text AS email, password_hash, totp_secret_enc, totp_last_step
          FROM platform_admins WHERE email = $1 AND disabled_at IS NULL`,

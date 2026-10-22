@@ -8,3 +8,5 @@ onlyBuiltDependencies:
 # Fixamos o mesmo commit via HTTPS.
 overrides:
   libsignal: git+https://github.com/whiskeysockets/libsignal-node.git#bcea72df9ec34d9d9140ab30619cf479c7c144c7
+  # GHSA-r3ph-w7gj-g6xm (vem pelo @nestjs/swagger).
+  'js-yaml@>=5.0.0 <5.4.1': ^5.4.1

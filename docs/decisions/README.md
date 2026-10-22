@@ -11,3 +11,4 @@
 | [0007](0007-retaguarda-estoque-entregas-impressao-financeiro.md) | Retaguarda: estoque, entregas, impressão, financeiro e equipe | Aceita |
 | [0008](0008-integracoes-filas-nfce-whatsapp.md) | Integrações: filas, NFC-e (Focus NFe) e WhatsApp | Aceita |
 | [0009](0009-saas-plataforma-planos-backups.md) | SaaS: Super Admin, planos, domínios, backups e deploy | Aceita |
+| [0010](0010-producao-endurecimento.md) | Produção: limites, bloqueio por conta, limpeza de dados e verificação | Aceita |

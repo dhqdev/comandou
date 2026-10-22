@@ -1,0 +1,72 @@
+# Alertas do PedeMais para o Prometheus. O alvo deve ter job="pedemais-api" e coletar
+# https://<qualquer restaurante>/api/v1/metrics com o token pedemais_metrics_token.
+# Testes: promtool test rules alerts.test.yml (rodam no CI).
+groups:
+  - name: pedemais
+    rules:
+      - alert: PedeMaisApiFora
+        expr: up{job="pedemais-api"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: 'API do PedeMais não responde às métricas'
+          runbook: 'docs/operations.md#api-fora-do-ar'
+
+      - alert: PedeMaisErros5xx
+        expr: |
+          sum(rate(pedemais_http_server_errors_total[5m]))
+            / clamp_min(sum(rate(pedemais_http_request_duration_seconds_count[5m])), 1e-9) > 0.02
+        for: 10m
+        labels: { severity: critical }
+        annotations:
+          summary: 'Mais de 2% das requisições com erro 5xx'
+          runbook: 'docs/operations.md#erros-5xx'
+
+      - alert: PedeMaisLento
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(pedemais_http_request_duration_seconds_bucket[5m]))) > 1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: '95% das requisições acima de 1 s'
+          runbook: 'docs/operations.md#lentidao'
+
+      - alert: PedeMaisPoolDoBancoEsperando
+        expr: max(pedemais_db_pool_connections{state="waiting"}) > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Requisições esperando conexão com o banco'
+          runbook: 'docs/operations.md#lentidao'
+
+      - alert: PedeMaisFilaAcumulada
+        expr: max(pedemais_queue_jobs{state=~"waiting|delayed"}) > 200
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Fila de nota fiscal/WhatsApp acumulando'
+          runbook: 'docs/operations.md#fila-acumulada'
+
+      - alert: PedeMaisMemoriaAlta
+        expr: max(pedemais_process_resident_memory_bytes) > 450 * 1024 * 1024
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'API perto do limite de 512 MB de memória'
+          runbook: 'docs/operations.md#lentidao'
+
+      - alert: PedeMaisBackupAtrasado
+        expr: time() - max(pedemais_backup_last_success_timestamp_seconds{kind="backup"}) > 26 * 3600
+        for: 15m
+        labels: { severity: critical }
+        annotations:
+          summary: 'Nenhum backup bem-sucedido nas últimas 26 h'
+          runbook: 'docs/operations.md#backup-atrasado'
+
+      - alert: PedeMaisTesteDeRestauracaoAtrasado
+        expr: time() - max(pedemais_backup_last_success_timestamp_seconds{kind="restore_test"}) > 8 * 86400
+        for: 1h
+        labels: { severity: warning }
+        annotations:
+          summary: 'Nenhum teste de restauração bem-sucedido em 8 dias'
+          runbook: 'docs/operations.md#backup-atrasado'
