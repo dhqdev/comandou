@@ -20,11 +20,28 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.8.0',
+    date: '2026-10-22',
+    title: 'Agora somos Comandou',
+    summary:
+      'O sistema passou a se chamar Comandou, com endereço próprio em comandou.com. Nada muda no seu dia a dia: pedidos, caixa e cadastros continuam iguais.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Novo nome e novo ícone: Comandou. Os restaurantes ficam em <seu-restaurante>.comandou.com.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cada atualização aprovada nos testes vira uma versão nova automaticamente, com as imagens prontas para instalar.',
+      },
+    ],
+  },
+  {
     version: '0.7.0',
     date: '2026-10-22',
     title: 'Instalação em um comando',
     summary:
-      'Instalar o PedeMais ficou simples: um comando baixa tudo do GitHub e prepara o servidor. O seu acesso de Super Admin nasce da senha que você escolhe na instalação.',
+      'Instalar o Comandou ficou simples: um comando baixa tudo do GitHub e prepara o servidor. O seu acesso de Super Admin nasce da senha que você escolhe na instalação.',
     notes: [
       {
         tag: 'novo',
@@ -49,7 +66,7 @@ export const RELEASES: readonly Release[] = [
     date: '2026-10-22',
     title: 'Etapa 7 — Pronto para produção',
     summary:
-      'Revisão de segurança, teste de carga com 1 milhão de pedidos, ensaio de restauração de backup e o guia de operação para colocar o PedeMais no ar.',
+      'Revisão de segurança, teste de carga com 1 milhão de pedidos, ensaio de restauração de backup e o guia de operação para colocar o Comandou no ar.',
     notes: [
       {
         tag: 'segurança',
@@ -90,7 +107,7 @@ export const RELEASES: readonly Release[] = [
     notes: [
       {
         tag: 'novo',
-        text: 'Painel Super Admin em admin.pedemais.com: restaurantes, planos, assinaturas, saúde do sistema, backups e auditoria. Entrada com senha e código do aplicativo autenticador.',
+        text: 'Painel Super Admin em admin.comandou.com: restaurantes, planos, assinaturas, saúde do sistema, backups e auditoria. Entrada com senha e código do aplicativo autenticador.',
       },
       {
         tag: 'novo',
@@ -262,7 +279,7 @@ export const RELEASES: readonly Release[] = [
     notes: [
       {
         tag: 'novo',
-        text: 'Cada restaurante no seu endereço (ex.: demo.pedemais.com), com dados isolados no banco.',
+        text: 'Cada restaurante no seu endereço (ex.: demo.comandou.com), com dados isolados no banco.',
       },
       {
         tag: 'novo',

@@ -38,7 +38,7 @@ export function PlansPage() {
       {error && <Alert tone="danger">{error}</Alert>}
       <Card bodyless>
         {!data ? (
-          <div className="pm-card__body">
+          <div className="cm-card__body">
             <Spinner />
           </div>
         ) : data.length === 0 ? (
@@ -48,28 +48,28 @@ export function PlansPage() {
           />
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table className="pm-table pm-table--click">
+            <table className="cm-table cm-table--click">
               <thead>
                 <tr>
                   <th>Plano</th>
-                  <th className="pm-num">Mensal</th>
+                  <th className="cm-num">Mensal</th>
                   <th>Limites (equipe · produtos · pedidos/mês)</th>
                   <th>Recursos</th>
-                  <th className="pm-num">Assinantes</th>
+                  <th className="cm-num">Assinantes</th>
                 </tr>
               </thead>
               <tbody>
                 {data.map((p) => (
                   <tr key={p.id} onClick={() => setEditing(p)}>
                     <td>
-                      <strong>{p.name}</strong> <span className="pm-hint">{p.code}</span>
+                      <strong>{p.name}</strong> <span className="cm-hint">{p.code}</span>
                       <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
                         {p.isDefault && <Badge tone="brand">padrão</Badge>}
                         {!p.active && <Badge>inativo</Badge>}
                         {p.trialDays > 0 && <Badge tone="info">{p.trialDays} dias de teste</Badge>}
                       </div>
                     </td>
-                    <td className="pm-num">{brl(p.priceMonthly)}</td>
+                    <td className="cm-num">{brl(p.priceMonthly)}</td>
                     <td>
                       {limitText(p.maxUsers)} · {limitText(p.maxProducts)} ·{' '}
                       {limitText(p.maxOrdersMonth)}
@@ -83,7 +83,7 @@ export function PlansPage() {
                         .filter(Boolean)
                         .join(', ') || '—'}
                     </td>
-                    <td className="pm-num">{p.subscribers}</td>
+                    <td className="cm-num">{p.subscribers}</td>
                   </tr>
                 ))}
               </tbody>
@@ -229,7 +229,7 @@ function PlanModal({
           {check('active', 'Ativo (aceita novas assinaturas)')}
         </div>
         {error && <Alert tone="danger">{error}</Alert>}
-        <div className="pm-modal__footer" style={{ padding: 0 }}>
+        <div className="cm-modal__footer" style={{ padding: 0 }}>
           <Button variant="ghost" type="button" onClick={onClose}>
             Cancelar
           </Button>

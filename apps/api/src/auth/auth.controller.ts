@@ -13,7 +13,7 @@ import { ThrottlerException } from '@nestjs/throttler';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { ROLE_LABELS, DEFAULT_ROLE_PERMISSIONS } from '@pedemais/shared';
+import { ROLE_LABELS, DEFAULT_ROLE_PERMISSIONS } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import { CurrentTenant, CurrentUser, Public } from '../common/decorators';
 import { one } from '../common/sql';

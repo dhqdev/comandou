@@ -1,4 +1,4 @@
-import { validateTenantSlug } from '@pedemais/shared';
+import { validateTenantSlug } from '@comandou/shared';
 
 export type HostResolution =
   | { kind: 'tenant-subdomain'; slug: string; hostname: string }

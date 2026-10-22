@@ -10,10 +10,10 @@ body,
 }
 body {
   margin: 0;
-  font-family: var(--pm-font);
-  font-size: var(--pm-text-md);
-  color: var(--pm-text);
-  background: var(--pm-bg);
+  font-family: var(--cm-font);
+  font-size: var(--cm-text-md);
+  color: var(--cm-text);
+  background: var(--cm-bg);
   -webkit-font-smoothing: antialiased;
   font-feature-settings: 'tnum' 1; /* números tabulares: valores alinhados */
 }
@@ -26,9 +26,9 @@ textarea {
 }
 :focus-visible {
   outline: none;
-  box-shadow: var(--pm-focus);
+  box-shadow: var(--cm-focus);
 }
-.pm-sr-only {
+.cm-sr-only {
   position: absolute;
   width: 1px;
   height: 1px;

@@ -4,7 +4,7 @@ import {
   PAYMENT_METHOD_LABELS,
   type OrderStatus,
   type PaymentStatus,
-} from '@pedemais/shared';
+} from '@comandou/shared';
 
 export { CHANNEL_LABELS, ORDER_STATUS_LABELS, PAYMENT_METHOD_LABELS };
 

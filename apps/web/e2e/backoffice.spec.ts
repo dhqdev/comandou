@@ -26,7 +26,7 @@ async function nav(page: Page, name: string | RegExp) {
 async function apiPost<T>(page: Page, path: string, data: object): Promise<T> {
   const r = await page.request.post(`/api/v1${path}`, {
     data,
-    headers: { 'X-PedeMais-Request': '1' },
+    headers: { 'X-Comandou-Request': '1' },
   });
   expect(r.ok(), `${path}: ${await r.text()}`).toBeTruthy();
   return (await r.json()) as T;

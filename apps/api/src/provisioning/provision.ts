@@ -1,5 +1,5 @@
 import { Client } from 'pg';
-import { validateTenantSlug } from '@pedemais/shared';
+import { validateTenantSlug } from '@comandou/shared';
 import { hashPassword } from '../auth/password';
 
 export interface ProvisionInput {

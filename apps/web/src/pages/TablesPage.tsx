@@ -1,4 +1,4 @@
-import { toCents } from '@pedemais/shared';
+import { toCents } from '@comandou/shared';
 import { ArrowRightLeft, LayoutGrid, Plus, Receipt } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -107,12 +107,12 @@ export function TablesPage() {
               {t.tabId ? (
                 <>
                   <strong>{brl(t.tabTotal)}</strong>
-                  <span className="pm-hint">
+                  <span className="cm-hint">
                     {t.openedAt ? `${minutesSince(t.openedAt)} min` : ''}
                   </span>
                 </>
               ) : (
-                <span className="pm-hint">Livre · {t.seats} lugares</span>
+                <span className="cm-hint">Livre · {t.seats} lugares</span>
               )}
             </button>
           ))}
@@ -279,28 +279,28 @@ function TabModal({
         <div className="order-detail">
           <div className="tab-summary">
             <div>
-              <span className="pm-hint">Total</span>
+              <span className="cm-hint">Total</span>
               <strong>{brl(tab.total)}</strong>
             </div>
             <div>
-              <span className="pm-hint">Pago</span>
+              <span className="cm-hint">Pago</span>
               <strong>{brl(tab.paid)}</strong>
             </div>
             <div>
-              <span className="pm-hint">Saldo</span>
+              <span className="cm-hint">Saldo</span>
               <strong>{brl(tab.balance)}</strong>
             </div>
           </div>
           {(tab.orders ?? []).length === 0 ? (
             <EmptyState title="Nenhum pedido nesta comanda" />
           ) : (
-            <table className="pm-table pm-table--click">
+            <table className="cm-table cm-table--click">
               <tbody>
                 {tab.orders!.map((o) => (
                   <tr key={o.id} onClick={() => setOrderId(o.id)}>
                     <td>
                       <strong>#{o.number}</strong>
-                      <div className="pm-hint">
+                      <div className="cm-hint">
                         {o.items.map((i) => `${Number(i.quantity)}× ${i.name}`).join(', ')}
                       </div>
                     </td>
@@ -312,7 +312,7 @@ function TabModal({
                         {PAYMENT_STATUS_LABEL[o.paymentStatus]}
                       </Badge>
                     </td>
-                    <td className="pm-num">{brl(o.total)}</td>
+                    <td className="cm-num">{brl(o.total)}</td>
                   </tr>
                 ))}
               </tbody>

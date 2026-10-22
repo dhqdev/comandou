@@ -14,7 +14,7 @@ const RFC_SECRET = base32Encode(Buffer.from('12345678901234567890'));
 
 describe('TOTP', () => {
   it('base32 ida e volta', () => {
-    const b = Buffer.from('PedeMais-123!');
+    const b = Buffer.from('Comandou-123!');
     expect(base32Decode(base32Encode(b))).toEqual(b);
     expect(base32Encode(Buffer.from('12345678901234567890'))).toBe(
       'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ',
@@ -42,7 +42,7 @@ describe('TOTP', () => {
 
   it('gera o endereço otpauth para o aplicativo autenticador', () => {
     expect(otpauthUri('ABC', 'ana@x.com')).toBe(
-      'otpauth://totp/PedeMais%20Admin%3Aana%40x.com?secret=ABC&issuer=PedeMais%20Admin&algorithm=SHA1&digits=6&period=30',
+      'otpauth://totp/Comandou%20Admin%3Aana%40x.com?secret=ABC&issuer=Comandou%20Admin&algorithm=SHA1&digits=6&period=30',
     );
   });
 });

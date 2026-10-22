@@ -55,7 +55,7 @@ export const resetPlatformAdmin = (i: PlatformAdminInput) =>
 export async function bootstrapIn(c: Client, i: PlatformAdminInput): Promise<boolean> {
   check(i);
   // Trava para duas execuções simultâneas não criarem dois administradores.
-  await c.query(`SELECT pg_advisory_xact_lock(hashtext('pedemais.platform_admin_bootstrap'))`);
+  await c.query(`SELECT pg_advisory_xact_lock(hashtext('comandou.platform_admin_bootstrap'))`);
   const n = await c.query<{ n: string }>(`SELECT count(*) AS n FROM platform_admins`);
   if (Number(n.rows[0].n) > 0) return false;
   await insertAdmin(c, i, 'bootstrap');

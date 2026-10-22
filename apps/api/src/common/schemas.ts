@@ -1,4 +1,4 @@
-import { isMoneyString, ORDER_CHANNELS, ORDER_STATUSES, PAYMENT_METHODS } from '@pedemais/shared';
+import { isMoneyString, ORDER_CHANNELS, ORDER_STATUSES, PAYMENT_METHODS } from '@comandou/shared';
 import { z } from 'zod';
 
 /** Valor monetário positivo em string decimal (ex.: "12.50"). Nunca float. */

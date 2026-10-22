@@ -9,10 +9,10 @@ RUN apk add --no-cache bash age aws-cli jq coreutils
 ENV AWS_REQUEST_CHECKSUM_CALCULATION=when_required \
     AWS_RESPONSE_CHECKSUM_VALIDATION=when_required \
     WORK_DIR=/work STATE_DIR=/work
-COPY infrastructure/backup/*.sh /opt/pedemais-backup/
-RUN chmod 0555 /opt/pedemais-backup/*.sh && mkdir -p /work && chown postgres:postgres /work
+COPY infrastructure/backup/*.sh /opt/comandou-backup/
+RUN chmod 0555 /opt/comandou-backup/*.sh && mkdir -p /work && chown postgres:postgres /work
 # initdb (teste de restauração) não roda como root.
 USER postgres
 WORKDIR /work
 ENTRYPOINT []
-CMD ["/opt/pedemais-backup/scheduler.sh"]
+CMD ["/opt/comandou-backup/scheduler.sh"]

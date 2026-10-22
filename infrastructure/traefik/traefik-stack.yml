@@ -1,7 +1,7 @@
-# Traefik para o PedeMais, instalado por scripts/install.sh quando o servidor ainda não tem um.
+# Traefik para o Comandou, instalado por scripts/install.sh quando o servidor ainda não tem um.
 # Portas 80/443 no próprio host, certificados Let's Encrypt por HTTP-01 (um por endereço) e
 # provider HTTP que lê os domínios próprios dos restaurantes direto da API.
-# A configuração estática (com o token do provider) vem do secret pedemais_traefik_static,
+# A configuração estática (com o token do provider) vem do secret comandou_traefik_static,
 # gerado pelo instalador. Se o seu servidor já tem Traefik, NÃO use este arquivo.
 version: '3.8'
 
@@ -16,7 +16,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_letsencrypt:/letsencrypt
     secrets:
-      - source: pedemais_traefik_static
+      - source: comandou_traefik_static
         target: /etc/traefik/traefik.yml
     networks: [network_public]
     deploy:
@@ -35,4 +35,4 @@ volumes:
   traefik_letsencrypt:
 
 secrets:
-  pedemais_traefik_static: { external: true }
+  comandou_traefik_static: { external: true }

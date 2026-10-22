@@ -4,7 +4,7 @@ import { APP_URL } from './env';
 import { Fixture, ownerQuery, seedTwoTenants } from './fixtures';
 
 /**
- * Testes de isolamento DIRETAMENTE no banco, com o papel da aplicação (pedemais_app).
+ * Testes de isolamento DIRETAMENTE no banco, com o papel da aplicação (comandou_app).
  * Provam que o isolamento não depende só do código da API.
  */
 let fx: Fixture;
@@ -36,11 +36,11 @@ afterAll(async () => {
 describe('RLS — papel da aplicação', () => {
   it('papel da aplicação não é superusuário, não tem BYPASSRLS e não é dono das tabelas', async () => {
     const [role] = await ownerQuery<{ rolsuper: boolean; rolbypassrls: boolean }>(
-      `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'pedemais_app'`,
+      `SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'comandou_app'`,
     );
     expect(role).toEqual({ rolsuper: false, rolbypassrls: false });
     const owned = await ownerQuery(
-      `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tableowner = 'pedemais_app'`,
+      `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tableowner = 'comandou_app'`,
     );
     expect(owned).toEqual([]);
   });

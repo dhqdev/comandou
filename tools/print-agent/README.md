@@ -1,10 +1,10 @@
-# Agente de impressão do PedeMais
+# Agente de impressão do Comandou
 
 Programa pequeno, sem dependências, que roda no computador do restaurante ligado às
 impressoras térmicas. Ele busca os trabalhos na API do restaurante (comandas de cozinha,
 conferências de conta, páginas de teste), imprime e confirma.
 
-- A fila fica no PedeMais: se o computador ou a impressora caírem, os trabalhos esperam e
+- A fila fica no Comandou: se o computador ou a impressora caírem, os trabalhos esperam e
   voltam para a fila (até 5 tentativas). Falhas aparecem em **Impressão** no sistema.
 - O agente só **busca** trabalhos (conexão de saída HTTPS). Não é preciso abrir portas.
 - Comandas de cozinha saem sozinhas a cada pedido, uma por setor de produção, desde que exista
@@ -18,14 +18,14 @@ conferências de conta, páginas de teste), imprime e confirma.
 
 ## Instalação
 
-1. No PedeMais, abra **Impressão → Adicionar agente**. Copie o token (`pma_...`): ele aparece
+1. No Comandou, abra **Impressão → Adicionar agente**. Copie o token (`pma_...`): ele aparece
    uma única vez. Se perder, gere um novo token (o anterior para de funcionar).
 2. Copie a pasta `tools/print-agent` para o computador.
 3. Rode:
 
 ```sh
-PEDEMAIS_URL=https://SEU-RESTAURANTE.comandou.com \
-PEDEMAIS_AGENT_TOKEN=pma_... \
+COMANDOU_URL=https://SEU-RESTAURANTE.comandou.com \
+COMANDOU_AGENT_TOKEN=pma_... \
 PRINTER_DEFAULT=tcp://192.168.0.50:9100 \
 node agent.mjs
 ```
@@ -33,8 +33,8 @@ node agent.mjs
 No Windows (PowerShell):
 
 ```powershell
-$env:PEDEMAIS_URL="https://SEU-RESTAURANTE.comandou.com"
-$env:PEDEMAIS_AGENT_TOKEN="pma_..."
+$env:COMANDOU_URL="https://SEU-RESTAURANTE.comandou.com"
+$env:COMANDOU_AGENT_TOKEN="pma_..."
 $env:PRINTER_DEFAULT="tcp://192.168.0.50:9100"
 node agent.mjs
 ```
@@ -59,9 +59,9 @@ testar sem impressora).
 
 ## Rodar como serviço
 
-- **Linux (systemd)**: crie `/etc/systemd/system/pedemais-print.service` com
-  `ExecStart=/usr/bin/node /opt/pedemais/print-agent/agent.mjs`, as variáveis em
-  `EnvironmentFile=/etc/pedemais-print.env` (permissão 600) e `Restart=always`.
+- **Linux (systemd)**: crie `/etc/systemd/system/comandou-print.service` com
+  `ExecStart=/usr/bin/node /opt/comandou/print-agent/agent.mjs`, as variáveis em
+  `EnvironmentFile=/etc/comandou-print.env` (permissão 600) e `Restart=always`.
 - **Windows**: use o Agendador de Tarefas ("Ao iniciar") ou um gerenciador de serviços como o
   NSSM, com as variáveis acima.
 

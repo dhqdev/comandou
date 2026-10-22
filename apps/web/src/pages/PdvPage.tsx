@@ -10,10 +10,10 @@ import { useDebounced, useRealtime } from '../lib/realtime';
 import type { Order } from '../lib/types';
 
 const COLUMNS = [
-  { key: ['new', 'cancel_requested'], label: 'Novos', color: 'var(--pm-info)' },
-  { key: ['in_production'], label: 'Em produção', color: 'var(--pm-warning)' },
-  { key: ['ready'], label: 'Prontos', color: 'var(--pm-success)' },
-  { key: ['dispatched'], label: 'Saiu para entrega', color: 'var(--pm-brand-600)' },
+  { key: ['new', 'cancel_requested'], label: 'Novos', color: 'var(--cm-info)' },
+  { key: ['in_production'], label: 'Em produção', color: 'var(--cm-warning)' },
+  { key: ['ready'], label: 'Prontos', color: 'var(--cm-success)' },
+  { key: ['dispatched'], label: 'Saiu para entrega', color: 'var(--cm-brand-600)' },
 ];
 
 export function PdvPage() {

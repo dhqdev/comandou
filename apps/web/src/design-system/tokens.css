@@ -1,116 +1,116 @@
 /*
- * PedeMais Design System — tokens.
+ * Comandou Design System — tokens.
  * Identidade própria: violeta "jabuticaba" + âmbar. Não reutiliza cores/logos de concorrentes.
  */
 :root {
   /* Marca */
-  --pm-brand-50: #f5f3ff;
-  --pm-brand-100: #ede9fe;
-  --pm-brand-200: #ddd6fe;
-  --pm-brand-400: #a78bfa;
-  --pm-brand-500: #8b5cf6;
-  --pm-brand-600: #7c3aed;
-  --pm-brand-700: #6d28d9;
-  --pm-brand-800: #5b21b6;
-  --pm-brand-900: #2e1065;
-  --pm-accent-400: #fbbf24;
-  --pm-accent-500: #f59e0b;
+  --cm-brand-50: #f5f3ff;
+  --cm-brand-100: #ede9fe;
+  --cm-brand-200: #ddd6fe;
+  --cm-brand-400: #a78bfa;
+  --cm-brand-500: #8b5cf6;
+  --cm-brand-600: #7c3aed;
+  --cm-brand-700: #6d28d9;
+  --cm-brand-800: #5b21b6;
+  --cm-brand-900: #2e1065;
+  --cm-accent-400: #fbbf24;
+  --cm-accent-500: #f59e0b;
 
   /* Neutros */
-  --pm-gray-0: #ffffff;
-  --pm-gray-25: #fbfaff;
-  --pm-gray-50: #f6f5fa;
-  --pm-gray-100: #eceaf3;
-  --pm-gray-200: #dcd9e6;
-  --pm-gray-300: #c3bfd1;
-  --pm-gray-500: #7b7590;
-  --pm-gray-600: #5d5872;
-  --pm-gray-700: #423d55;
-  --pm-gray-800: #2a2639;
-  --pm-gray-900: #17141f;
-  --pm-ink: #0f0b1e;
+  --cm-gray-0: #ffffff;
+  --cm-gray-25: #fbfaff;
+  --cm-gray-50: #f6f5fa;
+  --cm-gray-100: #eceaf3;
+  --cm-gray-200: #dcd9e6;
+  --cm-gray-300: #c3bfd1;
+  --cm-gray-500: #7b7590;
+  --cm-gray-600: #5d5872;
+  --cm-gray-700: #423d55;
+  --cm-gray-800: #2a2639;
+  --cm-gray-900: #17141f;
+  --cm-ink: #0f0b1e;
 
   /* Semânticas (estados de pedido seguem estas cores) */
-  --pm-info: #2563eb;
-  --pm-info-bg: #eff4ff;
-  --pm-success: #059669;
-  --pm-success-bg: #ecfdf5;
-  --pm-warning: #d97706;
-  --pm-warning-bg: #fffbeb;
-  --pm-danger: #dc2626;
-  --pm-danger-bg: #fef2f2;
+  --cm-info: #2563eb;
+  --cm-info-bg: #eff4ff;
+  --cm-success: #059669;
+  --cm-success-bg: #ecfdf5;
+  --cm-warning: #d97706;
+  --cm-warning-bg: #fffbeb;
+  --cm-danger: #dc2626;
+  --cm-danger-bg: #fef2f2;
 
   /* Superfícies */
-  --pm-bg: var(--pm-gray-50);
-  --pm-surface: var(--pm-gray-0);
-  --pm-surface-muted: var(--pm-gray-25);
-  --pm-border: var(--pm-gray-100);
-  --pm-border-strong: var(--pm-gray-200);
-  --pm-text: var(--pm-gray-900);
-  --pm-text-muted: var(--pm-gray-600);
-  --pm-text-subtle: var(--pm-gray-500);
-  --pm-sidebar-bg: var(--pm-ink);
-  --pm-sidebar-text: #c9c4dc;
-  --pm-sidebar-active: var(--pm-brand-700);
-  --pm-focus: 0 0 0 3px color-mix(in srgb, var(--pm-brand-500) 35%, transparent);
+  --cm-bg: var(--cm-gray-50);
+  --cm-surface: var(--cm-gray-0);
+  --cm-surface-muted: var(--cm-gray-25);
+  --cm-border: var(--cm-gray-100);
+  --cm-border-strong: var(--cm-gray-200);
+  --cm-text: var(--cm-gray-900);
+  --cm-text-muted: var(--cm-gray-600);
+  --cm-text-subtle: var(--cm-gray-500);
+  --cm-sidebar-bg: var(--cm-ink);
+  --cm-sidebar-text: #c9c4dc;
+  --cm-sidebar-active: var(--cm-brand-700);
+  --cm-focus: 0 0 0 3px color-mix(in srgb, var(--cm-brand-500) 35%, transparent);
 
   /* Tipografia */
-  --pm-font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --pm-font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
-  --pm-text-xs: 0.75rem;
-  --pm-text-sm: 0.875rem;
-  --pm-text-md: 1rem;
-  --pm-text-lg: 1.125rem;
-  --pm-text-xl: 1.375rem;
-  --pm-text-2xl: 1.75rem;
+  --cm-font: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --cm-font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  --cm-text-xs: 0.75rem;
+  --cm-text-sm: 0.875rem;
+  --cm-text-md: 1rem;
+  --cm-text-lg: 1.125rem;
+  --cm-text-xl: 1.375rem;
+  --cm-text-2xl: 1.75rem;
 
   /* Espaçamento (escala de 4px) */
-  --pm-space-1: 4px;
-  --pm-space-2: 8px;
-  --pm-space-3: 12px;
-  --pm-space-4: 16px;
-  --pm-space-5: 20px;
-  --pm-space-6: 24px;
-  --pm-space-8: 32px;
-  --pm-space-10: 40px;
+  --cm-space-1: 4px;
+  --cm-space-2: 8px;
+  --cm-space-3: 12px;
+  --cm-space-4: 16px;
+  --cm-space-5: 20px;
+  --cm-space-6: 24px;
+  --cm-space-8: 32px;
+  --cm-space-10: 40px;
 
   /* Formas e elevação */
-  --pm-radius-sm: 8px;
-  --pm-radius-md: 12px;
-  --pm-radius-lg: 16px;
-  --pm-radius-full: 999px;
-  --pm-shadow-sm: 0 1px 2px rgb(23 20 31 / 6%);
-  --pm-shadow-md: 0 4px 16px rgb(23 20 31 / 8%);
-  --pm-shadow-lg: 0 16px 48px rgb(23 20 31 / 18%);
+  --cm-radius-sm: 8px;
+  --cm-radius-md: 12px;
+  --cm-radius-lg: 16px;
+  --cm-radius-full: 999px;
+  --cm-shadow-sm: 0 1px 2px rgb(23 20 31 / 6%);
+  --cm-shadow-md: 0 4px 16px rgb(23 20 31 / 8%);
+  --cm-shadow-lg: 0 16px 48px rgb(23 20 31 / 18%);
 
   /* Alvos de toque (garçom/caixa em tablet) */
-  --pm-touch: 44px;
-  --pm-sidebar-w: 248px;
+  --cm-touch: 44px;
+  --cm-sidebar-w: 248px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --pm-bg: #121019;
-    --pm-surface: #1b1826;
-    --pm-surface-muted: #221e30;
-    --pm-border: #2c2840;
-    --pm-border-strong: #3a3552;
-    --pm-text: #f1eff8;
-    --pm-text-muted: #b5afc9;
-    --pm-text-subtle: #8c86a3;
-    --pm-info-bg: #172036;
-    --pm-success-bg: #10251d;
-    --pm-warning-bg: #2a1f0d;
-    --pm-danger-bg: #2c1414;
+    --cm-bg: #121019;
+    --cm-surface: #1b1826;
+    --cm-surface-muted: #221e30;
+    --cm-border: #2c2840;
+    --cm-border-strong: #3a3552;
+    --cm-text: #f1eff8;
+    --cm-text-muted: #b5afc9;
+    --cm-text-subtle: #8c86a3;
+    --cm-info-bg: #172036;
+    --cm-success-bg: #10251d;
+    --cm-warning-bg: #2a1f0d;
+    --cm-danger-bg: #2c1414;
   }
 }
 :root[data-theme='dark'] {
-  --pm-bg: #121019;
-  --pm-surface: #1b1826;
-  --pm-surface-muted: #221e30;
-  --pm-border: #2c2840;
-  --pm-border-strong: #3a3552;
-  --pm-text: #f1eff8;
-  --pm-text-muted: #b5afc9;
-  --pm-text-subtle: #8c86a3;
+  --cm-bg: #121019;
+  --cm-surface: #1b1826;
+  --cm-surface-muted: #221e30;
+  --cm-border: #2c2840;
+  --cm-border-strong: #3a3552;
+  --cm-text: #f1eff8;
+  --cm-text-muted: #b5afc9;
+  --cm-text-subtle: #8c86a3;
 }

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/websockets';
 import { parse as parseCookie } from 'cookie';
 import type { Server, Socket } from 'socket.io';
-import { tenantAcceptsTraffic } from '@pedemais/shared';
+import { tenantAcceptsTraffic } from '@comandou/shared';
 import { SESSION_COOKIE, SessionService } from '../auth/session.service';
 import { ENV, Env } from '../config/env';
 import { TenantResolverService } from '../tenancy/tenant-resolver.service';

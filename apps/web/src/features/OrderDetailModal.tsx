@@ -1,4 +1,4 @@
-import { canTransition, fromCents, toCents, type OrderStatus } from '@pedemais/shared';
+import { canTransition, fromCents, toCents, type OrderStatus } from '@comandou/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Alert, Badge, Button, Modal, Spinner, TextField, useToast } from '../design-system';
@@ -124,14 +124,14 @@ export function OrderDetailModal({
             {order.tabNumber && <Badge>Comanda {order.tabNumber}</Badge>}
           </div>
           {(order.customerName || order.deliveryAddress || order.notes) && (
-            <p className="pm-hint" style={{ margin: 0 }}>
+            <p className="cm-hint" style={{ margin: 0 }}>
               {[order.customerName, order.customerPhone, order.deliveryAddress, order.notes]
                 .filter(Boolean)
                 .join(' · ')}
             </p>
           )}
           {order.cancelReason && <Alert tone="warning">Motivo: {order.cancelReason}</Alert>}
-          <table className="pm-table">
+          <table className="cm-table">
             <tbody>
               {order.items.map((i) => (
                 <tr
@@ -145,11 +145,11 @@ export function OrderDetailModal({
                   <td>
                     {qty(i.quantity)}× <strong>{i.name}</strong>
                     {i.options.length > 0 && (
-                      <div className="pm-hint">{i.options.map((o) => o.name).join(', ')}</div>
+                      <div className="cm-hint">{i.options.map((o) => o.name).join(', ')}</div>
                     )}
-                    {i.notes && <div className="pm-hint">Obs.: {i.notes}</div>}
+                    {i.notes && <div className="cm-hint">Obs.: {i.notes}</div>}
                   </td>
-                  <td className="pm-num">{brl(i.total)}</td>
+                  <td className="cm-num">{brl(i.total)}</td>
                 </tr>
               ))}
             </tbody>
@@ -256,7 +256,7 @@ export function OrderDetailModal({
                   </Button>
                 ))}
               {order.channel === 'delivery' && order.status === 'ready' && canDispatch && (
-                <Link className="pm-btn pm-btn--secondary" to="/entregas" onClick={onClose}>
+                <Link className="cm-btn cm-btn--secondary" to="/entregas" onClick={onClose}>
                   Despachar em Entregas
                 </Link>
               )}
@@ -294,15 +294,15 @@ export function OrderDetailModal({
 
           {order.history && (
             <details>
-              <summary className="pm-hint">Histórico</summary>
+              <summary className="cm-hint">Histórico</summary>
               <ul className="plain-list">
                 {order.history.map((h, i) => (
                   <li key={i}>
                     <span>
                       {ORDER_STATUS_LABELS[h.to]}{' '}
-                      {h.reason && <span className="pm-hint">— {h.reason}</span>}
+                      {h.reason && <span className="cm-hint">— {h.reason}</span>}
                     </span>
-                    <span className="pm-hint">
+                    <span className="cm-hint">
                       {h.actorName} · {dateTime(h.at)}
                     </span>
                   </li>
@@ -474,9 +474,9 @@ function RefundForm({
       {sessions?.length === 0 && (
         <Alert tone="warning">Abra um caixa para registrar o estorno.</Alert>
       )}
-      <label className="pm-field">
-        <span className="pm-label">Caixa</span>
-        <select className="pm-input" value={sessionId} onChange={(e) => choose(e.target.value)}>
+      <label className="cm-field">
+        <span className="cm-label">Caixa</span>
+        <select className="cm-input" value={sessionId} onChange={(e) => choose(e.target.value)}>
           {(sessions ?? []).map((s) => (
             <option key={s.id} value={s.id}>
               {s.registerName} · sessão {s.number}

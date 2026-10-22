@@ -1,7 +1,7 @@
 # Operação
 
-Guia para quem mantém o PedeMais no ar. Comandos rodam no manager do Swarm, com a stack
-`pedemais`. Nada aqui apaga volume, rede ou banco.
+Guia para quem mantém o Comandou no ar. Comandos rodam no manager do Swarm, com a stack
+`comandou`. Nada aqui apaga volume, rede ou banco.
 
 ## Rotina
 
@@ -17,26 +17,26 @@ Guia para quem mantém o PedeMais no ar. Comandos rodam no manager do Swarm, com
 
 ## Monitoramento
 
-- **Métricas**: `GET /api/v1/metrics` com `Authorization: Bearer <pedemais_metrics_token>`.
+- **Métricas**: `GET /api/v1/metrics` com `Authorization: Bearer <comandou_metrics_token>`.
   Exemplo de alvo no Prometheus:
 
   ```yaml
   scrape_configs:
-    - job_name: pedemais-api
+    - job_name: comandou-api
       scheme: https
       metrics_path: /api/v1/metrics
-      bearer_token_file: /etc/prometheus/pedemais_metrics_token
+      bearer_token_file: /etc/prometheus/comandou_metrics_token
       static_configs: [{ targets: ['demo.comandou.com'] }]
   ```
 
   Com 2 réplicas atrás do Traefik, cada coleta cai em uma delas; para ver as duas, colete pela
-  rede interna (`tasks.pedemais_api:3000`) com `Host` de um restaurante.
+  rede interna (`tasks.comandou_api:3000`) com `Host` de um restaurante.
 - **Alertas**: [`infrastructure/monitoring/alerts.yml`](../infrastructure/monitoring/alerts.yml)
   (API fora, 5xx acima de 2%, lentidão, pool do banco esperando, fila acumulada, memória, backup
   e teste de restauração atrasados). Testados com `promtool` no CI.
 - **Painel Super Admin** (`admin.comandou.com`): saúde do banco, Redis e WhatsApp, último backup e
   último teste de restauração.
-- **Logs**: `docker service logs pedemais_api --since 30m`. JSON (pino), sem cookies, tokens,
+- **Logs**: `docker service logs comandou_api --since 30m`. JSON (pino), sem cookies, tokens,
   senhas nem o token do link de rastreio. O Traefik também registra URLs: desligue o access log
   dele para `/rastreio/` e `/api/v1/track/` ou deixe-o desligado.
 
@@ -44,9 +44,9 @@ Guia para quem mantém o PedeMais no ar. Comandos rodam no manager do Swarm, com
 
 ### API fora do ar
 
-1. `docker service ps pedemais_api --no-trunc` mostra por que a tarefa caiu.
-2. `docker service logs pedemais_api --since 15m | tail -100`.
-3. Banco: `docker service ps pedemais_postgres`. A API responde `ready` 503 quando o banco cai e
+1. `docker service ps comandou_api --no-trunc` mostra por que a tarefa caiu.
+2. `docker service logs comandou_api --since 15m | tail -100`.
+3. Banco: `docker service ps comandou_postgres`. A API responde `ready` 503 quando o banco cai e
    o Traefik tira a réplica do balanceamento sozinho.
 4. Se começou depois de um deploy: [rollback](deploy.md#rollback).
 
@@ -57,16 +57,16 @@ infraestrutura. Abra um issue com a rota e o horário, sem copiar dados de clien
 
 ### Lentidão
 
-1. Pool esperando conexão (`pedemais_db_pool_connections{state="waiting"}`): consultas lentas no
+1. Pool esperando conexão (`comandou_db_pool_connections{state="waiting"}`): consultas lentas no
    banco. Veja as mais caras:
 
    ```bash
-   docker exec -it $(docker ps -q -f name=pedemais_postgres) psql -U postgres -d pedemais -c \
+   docker exec -it $(docker ps -q -f name=comandou_postgres) psql -U postgres -d comandou -c \
      "SELECT now() - query_start AS tempo, state, left(query, 120) FROM pg_stat_activity
-       WHERE datname = 'pedemais' AND state <> 'idle' ORDER BY 1 DESC LIMIT 10"
+       WHERE datname = 'comandou' AND state <> 'idle' ORDER BY 1 DESC LIMIT 10"
    ```
 
-2. Memória da API perto de 512 MB: `docker service update --limit-memory 768M pedemais_api`
+2. Memória da API perto de 512 MB: `docker service update --limit-memory 768M comandou_api`
    (é reversível) e investigue.
 3. Referência do que é normal: [teste de carga](load-testing.md).
 
@@ -78,10 +78,10 @@ consultadas de novo. Confira o `ready` da API (WhatsApp) e o status da Focus NFe
 
 ### Backup atrasado
 
-1. `docker service logs pedemais_backup --since 30h | grep -E 'ERRO|ok'`.
+1. `docker service logs comandou_backup --since 30h | grep -E 'ERRO|ok'`.
 2. Erros comuns: chave do bucket vencida ou sem permissão de escrita, bucket cheio, banco
    indisponível. A linha em `backup_runs` (painel → Backups) mostra o erro.
-3. Rodar agora: `docker exec $(docker ps -q -f name=pedemais_backup) /opt/pedemais-backup/backup.sh`.
+3. Rodar agora: `docker exec $(docker ps -q -f name=comandou_backup) /opt/comandou-backup/backup.sh`.
 
 ### Suspeita de vazamento ou invasão
 
@@ -99,22 +99,22 @@ Docker secrets não mudam de valor: cria-se um novo com outro nome e troca-se no
 
 ```bash
 # Exemplo: token das métricas
-openssl rand -hex 32 | tr -d '\n' | docker secret create pedemais_metrics_token_v2 -
+openssl rand -hex 32 | tr -d '\n' | docker secret create comandou_metrics_token_v2 -
 docker service update \
-  --secret-rm pedemais_metrics_token \
-  --secret-add source=pedemais_metrics_token_v2,target=pedemais_metrics_token \
-  pedemais_api
+  --secret-rm comandou_metrics_token \
+  --secret-add source=comandou_metrics_token_v2,target=comandou_metrics_token \
+  comandou_api
 # Atualize o Prometheus; o secret antigo pode ser removido depois que nada mais o usar.
 ```
 
 | Segredo | Efeito de trocar |
 | --- | --- |
-| `pedemais_metrics_token`, `pedemais_traefik_provider_token` | atualizar Prometheus / Traefik junto |
-| `pedemais_wa_gateway_token` | trocar na API e no gateway na mesma janela |
+| `comandou_metrics_token`, `comandou_traefik_provider_token` | atualizar Prometheus / Traefik junto |
+| `comandou_wa_gateway_token` | trocar na API e no gateway na mesma janela |
 | Senhas dos papéis do banco (`*_password` e `*_url`) | `ALTER ROLE ... PASSWORD` primeiro, depois os secrets |
-| `pedemais_integrations_key` | **não troque sem migração**: cifra tokens da Focus/Meta e o 2º fator dos administradores |
-| `pedemais_wa_session_key` | cada restaurante lê o QR Code de novo |
-| `pedemais_backup_age_identity` | backups novos usam a chave nova; guarde a antiga enquanto houver backup cifrado com ela |
+| `comandou_integrations_key` | **não troque sem migração**: cifra tokens da Focus/Meta e o 2º fator dos administradores |
+| `comandou_wa_session_key` | cada restaurante lê o QR Code de novo |
+| `comandou_backup_age_identity` | backups novos usam a chave nova; guarde a antiga enquanto houver backup cifrado com ela |
 | Chave do bucket (B2/S3) | criar a nova no B2, trocar os dois secrets, apagar a antiga no B2 |
 
 ## Ensaio de restauração completo

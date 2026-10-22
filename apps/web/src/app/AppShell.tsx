@@ -23,7 +23,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import { ReactNode, useState } from 'react';
-import { CURRENT_RELEASE } from '@pedemais/shared';
+import { CURRENT_RELEASE } from '@comandou/shared';
 import { NavLink, Outlet } from 'react-router';
 import { Badge, Button } from '../design-system';
 import { useOnline } from '../lib/connectivity';
@@ -152,10 +152,10 @@ export function AppShell() {
       <aside className="sidebar" aria-label="Navegação principal">
         <div className="brand">
           <div className="brand__mark" aria-hidden>
-            P+
+            C
           </div>
           <div>
-            <div className="brand__name">PedeMais</div>
+            <div className="brand__name">Comandou</div>
             <div className="brand__tenant">{me?.tenant.name}</div>
           </div>
         </div>
@@ -225,7 +225,7 @@ export function AppShell() {
           />
           <div className="topbar__search">
             <input
-              className="pm-input"
+              className="cm-input"
               placeholder="Buscar mesa, comanda, pedido ou cliente…"
               aria-label="Buscar"
             />

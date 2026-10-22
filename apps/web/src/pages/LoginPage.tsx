@@ -41,9 +41,9 @@ export function LoginPage() {
       <div className="login__panel">
         <div className="login__brand">
           <div className="brand__mark" aria-hidden>
-            P+
+            C
           </div>
-          <span>PedeMais</span>
+          <span>Comandou</span>
         </div>
         <h1 className="login__title">
           {tenantName ? `Entrar em ${tenantName}` : 'Bem-vindo de volta'}

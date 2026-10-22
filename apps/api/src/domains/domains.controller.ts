@@ -28,7 +28,7 @@ import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types'
 
 /** Domínios vivos (não removidos) por restaurante. */
 export const MAX_DOMAINS = 3;
-export const TXT_PREFIX = '_pedemais';
+export const TXT_PREFIX = '_comandou';
 
 const LABEL = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/;
 
@@ -56,7 +56,7 @@ export class DomainVerifier {
     const name = `${TXT_PREFIX}.${hostname}`;
     try {
       const records = (await this.resolveTxt(name)).map((chunks) => chunks.join(''));
-      if (records.includes(`pedemais-verify=${token}`)) return { ok: true };
+      if (records.includes(`comandou-verify=${token}`)) return { ok: true };
       return { ok: false, error: `O registro TXT em ${name} não tem o valor esperado` };
     } catch (e) {
       const code = (e as { code?: string }).code;
@@ -107,8 +107,8 @@ export class DomainsController {
       createdAt: d.created_at,
       dns: {
         txtName: `${TXT_PREFIX}.${d.hostname}`,
-        txtValue: `pedemais-verify=${d.verification_token}`,
-        cnameTarget: `${t.slug}.${this.env.PEDEMAIS_BASE_DOMAIN}`,
+        txtValue: `comandou-verify=${d.verification_token}`,
+        cnameTarget: `${t.slug}.${this.env.COMANDOU_BASE_DOMAIN}`,
       },
     };
   }
@@ -134,7 +134,7 @@ export class DomainsController {
     @CurrentUser() u: AuthenticatedUser,
     @Req() req: Request,
   ) {
-    const hostname = normalizeHostname(b.hostname, this.env.PEDEMAIS_BASE_DOMAIN);
+    const hostname = normalizeHostname(b.hostname, this.env.COMANDOU_BASE_DOMAIN);
     if (!hostname)
       throw new UnprocessableEntityException(
         'Domínio inválido: use um endereço como pedidos.seurestaurante.com.br',

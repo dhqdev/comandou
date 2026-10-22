@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
-import { ORDER_CHANNELS, ORDER_STATUSES } from '@pedemais/shared';
+import { ORDER_CHANNELS, ORDER_STATUSES } from '@comandou/shared';
 import { CashService } from '../cash/cash.service';
 import { ctxOf } from '../common/context';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';

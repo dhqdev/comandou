@@ -1,9 +1,9 @@
 {
-  "name": "@pedemais/web",
-  "version": "0.7.0",
+  "name": "@comandou/web",
+  "version": "0.8.0",
   "private": true,
   "type": "module",
-  "description": "Frontend React (PWA) do PedeMais.",
+  "description": "Frontend React (PWA) do Comandou.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json && vite build",
@@ -14,7 +14,7 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@pedemais/shared": "workspace:*",
+    "@comandou/shared": "workspace:*",
     "lucide-react": "^0.540.0",
     "qrcode": "1.5.4",
     "react": "^19.1.0",

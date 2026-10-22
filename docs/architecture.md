@@ -27,7 +27,7 @@
 | Módulo | Estado | Notas |
 | --- | --- | --- |
 | `config` | ✅ | validação de ambiente com zod; segredos via `*_FILE` |
-| `database` | ✅ | pool `pedemais_app`, `withTenant()`, migrador SQL |
+| `database` | ✅ | pool `comandou_app`, `withTenant()`, migrador SQL |
 | `tenancy` | ✅ | classificação do Host, resolução via função `SECURITY DEFINER` |
 | `auth` | ✅ | login, sessão opaca, logout/revogação, rate limit |
 | `roles/permissions` | ✅ (padrão) | permissões por papel em `packages/shared`; configuração por tenant na Etapa 6 |
@@ -41,7 +41,7 @@
 | `realtime` | ✅ | Socket.IO em `/api/ws`, sala por tenant, adapter Redis opcional (`REDIS_URL`) |
 | `setup` | ✅ | setores de produção, mesas, terminais de caixa |
 | `provisioning` | ✅ | idempotente e retomável; CLI e painel Super Admin, com plano |
-| `platform` | ✅ | painel Super Admin em `admin.<base>`, papel `pedemais_platform`, senha + TOTP, auditoria própria |
+| `platform` | ✅ | painel Super Admin em `admin.<base>`, papel `comandou_platform`, senha + TOTP, auditoria própria |
 | `plans` | ✅ | planos, assinaturas, limites e recursos por plano |
 | `domains` | ✅ | domínio próprio com verificação TXT; provider HTTP do Traefik |
 | `health` | ✅ | `live`, `ready` (banco, Redis, WhatsApp) e métricas Prometheus (inclui idade do último backup) |
@@ -58,8 +58,8 @@ Decisão: [ADR 0003](decisions/0003-multi-tenant-rls.md).
 2. **Autorização**: a sessão é buscada **com RLS do tenant resolvido**. Um cookie emitido para A não existe quando a requisição chega pelo host de B. O cookie não tem `Domain`, então o navegador nem o envia para outros subdomínios.
 3. **Banco**: todas as tabelas de negócio têm `tenant_id` e política `tenant_id = app_current_tenant()`. O contexto é definido por `set_config('app.tenant_id', $1, true)` **dentro da transação**; ao fim (COMMIT/ROLLBACK) o valor some, então conexões reutilizadas no pool não herdam contexto. Sem contexto, nenhuma linha é visível.
 4. **Papéis**:
-   - `pedemais_owner`: dono das tabelas. Usado **só** por migrações e provisionamento.
-   - `pedemais_app`: usado pela API. Não é dono, não é superusuário, **NOBYPASSRLS**, sem `DELETE` em lugar nenhum, sem `UPDATE` em auditoria.
+   - `comandou_owner`: dono das tabelas. Usado **só** por migrações e provisionamento.
+   - `comandou_app`: usado pela API. Não é dono, não é superusuário, **NOBYPASSRLS**, sem `DELETE` em lugar nenhum, sem `UPDATE` em auditoria.
    - Não usamos `FORCE ROW LEVEL SECURITY` porque o dono precisa enxergar tudo nas operações globais e nas duas funções `SECURITY DEFINER` (resolução de host e busca de login), que são estreitas e retornam só o necessário.
 5. **Integridade**: chaves únicas `(tenant_id, id)` e FKs compostas. Um item de pedido de A não referencia produto de B **nem que a aplicação falhe** (testado inclusive com o dono, que ignora RLS).
 6. **Nunca** se aceita `tenant_id` do cliente: os DTOs não têm o campo e o valor vem do contexto.
@@ -112,7 +112,7 @@ Decisão: [ADR 0006](decisions/0006-operacao-pedidos-caixa.md).
 
 ## Autenticação e sessão
 
-Decisão: [ADR 0004](decisions/0004-sessoes-opacas-cookie.md). Token aleatório de 256 bits em cookie `HttpOnly; SameSite=Lax; Secure` (produção), sem `Domain`. Banco guarda apenas o hash. Logout revoga no servidor. Escritas exigem o cabeçalho `X-PedeMais-Request: 1` e, se houver `Origin`, ele deve ser o próprio host. Login: 5 tentativas/minuto por IP (configurável), auditoria de falhas e tempo constante para e-mails inexistentes.
+Decisão: [ADR 0004](decisions/0004-sessoes-opacas-cookie.md). Token aleatório de 256 bits em cookie `HttpOnly; SameSite=Lax; Secure` (produção), sem `Domain`. Banco guarda apenas o hash. Logout revoga no servidor. Escritas exigem o cabeçalho `X-Comandou-Request: 1` e, se houver `Origin`, ele deve ser o próprio host. Login: 5 tentativas/minuto por IP (configurável), auditoria de falhas e tempo constante para e-mails inexistentes.
 
 ## Frontend e PWA
 

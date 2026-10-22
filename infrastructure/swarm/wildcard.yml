@@ -1,10 +1,10 @@
 # Overlay opcional: certificado coringa (*.dominio) para todos os restaurantes. Exige que o
 # certresolver do Traefik use o desafio DNS-01. Uso:
-#   docker stack deploy -c infrastructure/swarm/pedemais-stack.yml -c infrastructure/swarm/wildcard.yml pedemais
+#   docker stack deploy -c infrastructure/swarm/comandou-stack.yml -c infrastructure/swarm/wildcard.yml comandou
 version: '3.8'
 services:
   api:
     deploy:
       labels:
-        - traefik.http.routers.pedemais-api.tls.domains[0].main=${PEDEMAIS_BASE_DOMAIN:?defina o domínio}
-        - traefik.http.routers.pedemais-api.tls.domains[0].sans=*.${PEDEMAIS_BASE_DOMAIN}
+        - traefik.http.routers.comandou-api.tls.domains[0].main=${COMANDOU_BASE_DOMAIN:?defina o domínio}
+        - traefik.http.routers.comandou-api.tls.domains[0].sans=*.${COMANDOU_BASE_DOMAIN}

@@ -338,7 +338,7 @@ export class MessagingService implements OnModuleInit {
           phone,
           meta ? 'hello_world' : null,
           meta ? 'en_US' : null,
-          meta ? null : 'Mensagem de teste do PedeMais: o WhatsApp do restaurante está conectado.',
+          meta ? null : 'Mensagem de teste do Comandou: o WhatsApp do restaurante está conectado.',
           ctx.userId,
         ],
       );

@@ -6,7 +6,7 @@
 ## Contexto
 
 Até a Etapa 5 cada restaurante era criado pela linha de comando e não havia limite por cliente,
-domínio próprio, backup nem um caminho de deploy. A Etapa 6 transforma o PedeMais em SaaS sem
+domínio próprio, backup nem um caminho de deploy. A Etapa 6 transforma o Comandou em SaaS sem
 abrir mão das regras anteriores: o restaurante vem do Host validado, RLS em tudo, nada de
 apagar registro financeiro e nada de deploy de produção sem aprovação.
 
@@ -16,13 +16,13 @@ apagar registro financeiro e nada de deploy de produção sem aprovação.
    - Só existe em `admin.<domínio base>` (o slug `admin` já era reservado). Nesse host nenhum
      restaurante é resolvido; em qualquer outro host as rotas `/api/v1/platform/*` respondem 404.
      Sem `PLATFORM_DATABASE_URL` configurada, também 404.
-   - Usa um papel próprio no banco, `pedemais_platform`: NOBYPASSRLS, políticas `TO pedemais_platform`
+   - Usa um papel próprio no banco, `comandou_platform`: NOBYPASSRLS, políticas `TO comandou_platform`
      explícitas e permissões mínimas. Não lê `users.password_hash`, pedidos nem pagamentos e não tem
-     DELETE em nada. O papel da aplicação (`pedemais_app`) não enxerga as tabelas da plataforma.
+     DELETE em nada. O papel da aplicação (`comandou_app`) não enxerga as tabelas da plataforma.
    - Login com e-mail, senha e código TOTP (RFC 6238, SHA-1, 6 dígitos, ±1 passo de 30 s). Cada
      código vale uma vez (`totp_last_step`). O segredo TOTP é cifrado com `INTEGRATIONS_KEY`
      (contexto `platform-totp:<id>`). Administradores só são criados pela CLI com a conexão do dono.
-   - Cookie `pm_admin` HttpOnly, SameSite=Strict, path `/api/v1/platform`; sessão de 8 h com
+   - Cookie `cm_admin` HttpOnly, SameSite=Strict, path `/api/v1/platform`; sessão de 8 h com
      expiração por inatividade de 30 min.
    - Toda ação vai para `platform_audit_log` na mesma transação, inclusive login recusado.
      Suspender ou reativar exige motivo.
@@ -39,7 +39,7 @@ apagar registro financeiro e nada de deploy de produção sem aprovação.
      pagamento pendente, cancelada) é ajustada no painel. Integrar um meio de pagamento exige
      escolher o provedor.
 3. **Domínio próprio verificado por DNS TXT.**
-   - O restaurante cadastra o domínio e publica `_pedemais.<domínio>` com `pedemais-verify=<token>`.
+   - O restaurante cadastra o domínio e publica `_comandou.<domínio>` com `comandou-verify=<token>`.
      Só depois da verificação o domínio resolve o restaurante. O nome é único apenas entre domínios
      verificados e vivos; remover é lógico (`removed_at`). No máximo 3 vivos por restaurante, e só
      com o recurso no plano.
@@ -64,7 +64,7 @@ apagar registro financeiro e nada de deploy de produção sem aprovação.
 ## Consequências
 
 - Mais um papel e mais um pool no banco; instalações existentes precisam criar o papel
-  `pedemais_platform` antes da migração 0007 (ver [deploy](../deploy.md)).
+  `comandou_platform` antes da migração 0007 (ver [deploy](../deploy.md)).
 - Perder `INTEGRATIONS_KEY` invalida também o segundo fator dos administradores (recriar pela CLI).
 - Perder a identidade `age` torna os backups ilegíveis: guarde uma cópia fora do servidor.
 - Ainda **não** validado contra serviços reais: B2 de verdade (testado com arquivo local e com um

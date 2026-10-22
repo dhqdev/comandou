@@ -16,7 +16,7 @@ export class TenantResolverService {
   ) {}
 
   async resolve(rawHost: string | undefined): Promise<ResolveOutcome> {
-    const c = classifyHost(rawHost, this.env.PEDEMAIS_BASE_DOMAIN);
+    const c = classifyHost(rawHost, this.env.COMANDOU_BASE_DOMAIN);
     if (c.kind === 'invalid') return { ok: false, reason: 'invalid-host' };
     if (c.kind === 'platform' || c.kind === 'platform-admin')
       return { ok: false, reason: 'platform-host' };

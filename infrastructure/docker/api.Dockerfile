@@ -9,11 +9,11 @@ RUN --mount=type=secret,id=ca,required=false corepack enable && corepack prepare
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
-RUN --mount=type=secret,id=ca,required=false pnpm install --frozen-lockfile --filter @pedemais/api...
+RUN --mount=type=secret,id=ca,required=false pnpm install --frozen-lockfile --filter @comandou/api...
 COPY packages/shared packages/shared
 COPY apps/api apps/api
-RUN pnpm --filter @pedemais/shared build && pnpm --filter @pedemais/api build \
- && pnpm --filter @pedemais/api deploy --legacy --prod /out
+RUN pnpm --filter @comandou/shared build && pnpm --filter @comandou/api build \
+ && pnpm --filter @comandou/api deploy --legacy --prod /out
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production

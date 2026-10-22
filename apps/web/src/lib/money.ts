@@ -1,4 +1,4 @@
-import { formatBRL, toCents } from '@pedemais/shared';
+import { formatBRL, toCents } from '@comandou/shared';
 
 /** Formata o valor decimal vindo da API ("12.90") sem passar por float. */
 export const brl = (value: string) => formatBRL(toCents(value));

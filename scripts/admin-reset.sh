@@ -8,7 +8,7 @@
 # chave de integrações (Docker secrets), e remove serviço e secrets temporários no fim. A senha e
 # a chave do autenticador só passam por Docker secrets e pelo terminal, nunca pelo log.
 set -euo pipefail
-STACK="${PEDEMAIS_STACK:-pedemais}"
+STACK="${COMANDOU_STACK:-comandou}"
 EMAIL="${1:-}"
 [[ "$EMAIL" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$ ]] || { echo "uso: scripts/admin-reset.sh <e-mail>" >&2; exit 2; }
 { : >/dev/tty; } 2>/dev/null || { echo "ERRO: precisa de um terminal para a senha" >&2; exit 1; }
@@ -22,7 +22,7 @@ read -r -s -p "Repita: " PASS2 </dev/tty >/dev/tty; echo >/dev/tty
 ((${#PASS} >= 12)) || { echo "ERRO: a senha precisa de 12 caracteres ou mais" >&2; exit 1; }
 TOTP="$(head -c 20 /dev/urandom | base32 | tr -d '=\n')"
 SUFFIX="$(date +%s)"
-S_PASS="pedemais_reset_pw_$SUFFIX"; S_TOTP="pedemais_reset_totp_$SUFFIX"; SVC="${STACK}_admin_reset"
+S_PASS="comandou_reset_pw_$SUFFIX"; S_TOTP="comandou_reset_totp_$SUFFIX"; SVC="${STACK}_admin_reset"
 cleanup() { docker service rm "$SVC" >/dev/null 2>&1 || true; docker secret rm "$S_PASS" "$S_TOTP" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
@@ -30,9 +30,9 @@ printf '%s' "$PASS" | docker secret create "$S_PASS" - >/dev/null
 printf '%s' "$TOTP" | docker secret create "$S_TOTP" - >/dev/null
 unset PASS PASS2
 docker service create --name "$SVC" --restart-condition none --detach \
-  --network "${STACK}_pedemais_internal" \
-  --secret source=pedemais_db_owner_url,target=owner_url \
-  --secret source=pedemais_integrations_key,target=integrations_key \
+  --network "${STACK}_comandou_internal" \
+  --secret source=comandou_db_owner_url,target=owner_url \
+  --secret source=comandou_integrations_key,target=integrations_key \
   --secret source="$S_PASS",target=admin_pw --secret source="$S_TOTP",target=admin_totp \
   -e DATABASE_OWNER_URL_FILE=/run/secrets/owner_url -e INTEGRATIONS_KEY_FILE=/run/secrets/integrations_key \
   -e PLATFORM_ADMIN_PASSWORD_FILE=/run/secrets/admin_pw -e PLATFORM_ADMIN_TOTP_SECRET_FILE=/run/secrets/admin_totp \
@@ -52,6 +52,6 @@ done
   echo
   echo "Acesso redefinido para $EMAIL. Cadastre no aplicativo autenticador (não será mostrado de novo):"
   echo "Chave:   $TOTP"
-  echo "Endereço: otpauth://totp/PedeMais:${EMAIL}?secret=${TOTP}&issuer=PedeMais"
-  command -v qrencode >/dev/null && qrencode -t ANSIUTF8 "otpauth://totp/PedeMais:${EMAIL}?secret=${TOTP}&issuer=PedeMais"
+  echo "Endereço: otpauth://totp/Comandou:${EMAIL}?secret=${TOTP}&issuer=Comandou"
+  command -v qrencode >/dev/null && qrencode -t ANSIUTF8 "otpauth://totp/Comandou:${EMAIL}?secret=${TOTP}&issuer=Comandou"
 } >/dev/tty

@@ -4,16 +4,16 @@ import { z } from 'zod';
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
-  /** Conexão da API: papel pedemais_app (sem BYPASSRLS, não-dono das tabelas). */
+  /** Conexão da API: papel comandou_app (sem BYPASSRLS, não-dono das tabelas). */
   DATABASE_URL: z.string().url(),
   /** Conexão privilegiada (dono). Usada somente por migrações e provisionamento, nunca pela API. */
   DATABASE_OWNER_URL: z.string().url().optional(),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
-  /** Domínio base: <slug>.<PEDEMAIS_BASE_DOMAIN>. Ex.: comandou.com (prod) ou pedemais.localhost (dev). */
-  PEDEMAIS_BASE_DOMAIN: z
+  /** Domínio base: <slug>.<COMANDOU_BASE_DOMAIN>. Ex.: comandou.com (prod) ou comandou.localhost (dev). */
+  COMANDOU_BASE_DOMAIN: z
     .string()
     .regex(/^[a-z0-9.-]+$/)
-    .default('pedemais.localhost'),
+    .default('comandou.localhost'),
   /** Confiar em X-Forwarded-Host/Proto apenas quando atrás do Traefik. */
   TRUST_PROXY: z
     .enum(['true', 'false'])
@@ -41,7 +41,7 @@ const schema = z.object({
   QUEUE_PREFIX: z
     .string()
     .regex(/^[a-z0-9_-]{1,40}$/)
-    .default('pedemais'),
+    .default('comandou'),
   /**
    * Chave (32 bytes em base64) que cifra credenciais de integrações (token Focus NFe, sessões).
    * Sem ela, a configuração fiscal não aceita token.
@@ -67,7 +67,7 @@ const schema = z.object({
     z.string().min(24).optional(),
   ),
   /**
-   * Conexão do painel Super Admin: papel pedemais_platform (sem BYPASSRLS, políticas próprias).
+   * Conexão do painel Super Admin: papel comandou_platform (sem BYPASSRLS, políticas próprias).
    * Sem ela, o painel (admin.<domínio base>) fica desligado.
    */
   PLATFORM_DATABASE_URL: z.preprocess(
@@ -92,8 +92,8 @@ const schema = z.object({
   TRAEFIK_ENTRYPOINT: z.string().default('websecure'),
   /** Resolver HTTP-01/TLS-ALPN para domínios de clientes (o *.comandou.com usa DNS-01). */
   TRAEFIK_CUSTOM_CERT_RESOLVER: z.string().default('letsencrypt-http'),
-  TRAEFIK_API_SERVICE: z.string().default('pedemais-api@swarm'),
-  TRAEFIK_WEB_SERVICE: z.string().default('pedemais-web@swarm'),
+  TRAEFIK_API_SERVICE: z.string().default('comandou-api@swarm'),
+  TRAEFIK_WEB_SERVICE: z.string().default('comandou-web@swarm'),
   /** Requisições por minuto por IP em cada rota (padrão geral; algumas rotas têm limite próprio). */
   RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
   /** Tentativas de login por IP por minuto. */

@@ -3,7 +3,7 @@ import { Alert, Card, EmptyState, Spinner } from '../design-system';
 import { CHANNEL_LABELS, PAYMENT_METHOD_LABELS, qty } from '../features/format';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
-import type { OrderChannel, PaymentMethod } from '@pedemais/shared';
+import type { OrderChannel, PaymentMethod } from '@comandou/shared';
 
 interface Sales {
   totals: {
@@ -50,10 +50,10 @@ export function ReportsPage() {
           <h1 className="page-title">Relatórios</h1>
           <p className="page-sub">Faturamento (pedidos do dia) separado de recebimentos (caixa).</p>
         </div>
-        <label className="pm-field">
-          <span className="pm-label">Dia</span>
+        <label className="cm-field">
+          <span className="cm-label">Dia</span>
           <input
-            className="pm-input"
+            className="cm-input"
             type="date"
             value={day}
             onChange={(e) => setDay(e.target.value)}
@@ -81,22 +81,22 @@ export function ReportsPage() {
               {data.received.length === 0 ? (
                 <EmptyState title="Nenhum recebimento" />
               ) : (
-                <table className="pm-table">
+                <table className="cm-table">
                   <thead>
                     <tr>
                       <th>Forma</th>
-                      <th className="pm-num">Recebido</th>
-                      <th className="pm-num">Estornos</th>
-                      <th className="pm-num">Líquido</th>
+                      <th className="cm-num">Recebido</th>
+                      <th className="cm-num">Estornos</th>
+                      <th className="cm-num">Líquido</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.received.map((r) => (
                       <tr key={r.method}>
                         <td>{PAYMENT_METHOD_LABELS[r.method]}</td>
-                        <td className="pm-num">{brl(r.received)}</td>
-                        <td className="pm-num">{brl(r.refunded)}</td>
-                        <td className="pm-num">
+                        <td className="cm-num">{brl(r.received)}</td>
+                        <td className="cm-num">{brl(r.refunded)}</td>
+                        <td className="cm-num">
                           <strong>{brl(r.net)}</strong>
                         </td>
                       </tr>
@@ -109,13 +109,13 @@ export function ReportsPage() {
               {data.byChannel.length === 0 ? (
                 <EmptyState title="Sem vendas" />
               ) : (
-                <table className="pm-table">
+                <table className="cm-table">
                   <tbody>
                     {data.byChannel.map((c) => (
                       <tr key={c.channel}>
                         <td>{CHANNEL_LABELS[c.channel]}</td>
-                        <td className="pm-num">{c.orders} pedidos</td>
-                        <td className="pm-num">
+                        <td className="cm-num">{c.orders} pedidos</td>
+                        <td className="cm-num">
                           <strong>{brl(c.revenue)}</strong>
                         </td>
                       </tr>
@@ -129,13 +129,13 @@ export function ReportsPage() {
             {data.topProducts.length === 0 ? (
               <EmptyState title="Sem vendas" />
             ) : (
-              <table className="pm-table">
+              <table className="cm-table">
                 <tbody>
                   {data.topProducts.map((p) => (
                     <tr key={p.productId + p.name}>
                       <td>{p.name}</td>
-                      <td className="pm-num">{qty(p.quantity)}</td>
-                      <td className="pm-num">{brl(p.revenue)}</td>
+                      <td className="cm-num">{qty(p.quantity)}</td>
+                      <td className="cm-num">{brl(p.revenue)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -150,10 +150,10 @@ export function ReportsPage() {
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="pm-card stat">
+    <div className="cm-card stat">
       <div className="stat__label">{label}</div>
       <div className="stat__value">{value}</div>
-      {hint && <div className="pm-hint">{hint}</div>}
+      {hint && <div className="cm-hint">{hint}</div>}
     </div>
   );
 }

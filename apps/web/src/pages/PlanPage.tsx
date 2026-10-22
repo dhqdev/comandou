@@ -4,7 +4,7 @@ import {
   SUBSCRIPTION_LABELS,
   type PlanFeature,
   type PlanResource,
-} from '@pedemais/shared';
+} from '@comandou/shared';
 import { Globe } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useCan } from '../app/auth';
@@ -91,11 +91,11 @@ function PlanCard() {
           const used = data.usage[r];
           const full = limit !== null && used >= limit;
           return (
-            <div key={r} className="pm-card stat" data-testid={`usage-${r}`}>
+            <div key={r} className="cm-card stat" data-testid={`usage-${r}`}>
               <div className="stat__label">{RESOURCE_LABELS[r]}</div>
               <div className="stat__value">
                 {used}
-                <span className="pm-hint"> / {limit ?? 'sem limite'}</span>
+                <span className="cm-hint"> / {limit ?? 'sem limite'}</span>
               </div>
               {limit !== null && (
                 <div
@@ -110,7 +110,7 @@ function PlanCard() {
                   <span style={{ width: `${Math.min(100, (used / limit) * 100)}%` }} />
                 </div>
               )}
-              {full && <div className="pm-hint">Limite atingido</div>}
+              {full && <div className="cm-hint">Limite atingido</div>}
             </div>
           );
         })}
@@ -210,7 +210,7 @@ function DomainsCard() {
       ) : (
         <ul className="plain-list" style={{ marginTop: 16 }}>
           {list.map((d) => (
-            <li key={d.id} className="pm-card" style={{ padding: 16 }}>
+            <li key={d.id} className="cm-card" style={{ padding: 16 }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <strong className="mono-break">{d.hostname}</strong>
                 <Badge tone={d.verified ? 'success' : 'warning'}>
@@ -228,8 +228,8 @@ function DomainsCard() {
               </div>
               {!d.verified && (
                 <>
-                  <p className="pm-hint">No painel do seu provedor de DNS, crie:</p>
-                  <table className="pm-table">
+                  <p className="cm-hint">No painel do seu provedor de DNS, crie:</p>
+                  <table className="cm-table">
                     <thead>
                       <tr>
                         <th>Tipo</th>
@@ -250,14 +250,14 @@ function DomainsCard() {
                       </tr>
                     </tbody>
                   </table>
-                  <p className="pm-hint">
+                  <p className="cm-hint">
                     A propagação do DNS pode levar de minutos a algumas horas.
                     {d.lastError && <> Última verificação: {d.lastError}</>}
                   </p>
                 </>
               )}
               {d.verified && d.verifiedAt && (
-                <p className="pm-hint">
+                <p className="cm-hint">
                   Verificado em {dateTime(d.verifiedAt)}. O certificado HTTPS é emitido no primeiro
                   acesso.
                 </p>

@@ -110,14 +110,14 @@ function DocumentsTab() {
         />
       ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table className="pm-table">
+          <table className="cm-table">
             <thead>
               <tr>
                 <th>Pedido</th>
                 <th>Nota</th>
                 <th>Situação</th>
                 <th>Quando</th>
-                <th className="pm-num">Total</th>
+                <th className="cm-num">Total</th>
                 <th />
               </tr>
             </thead>
@@ -136,12 +136,12 @@ function DocumentsTab() {
                   <td>
                     <Badge tone={FISCAL_STATUS[d.status][1]}>{FISCAL_STATUS[d.status][0]}</Badge>
                     {(d.sefazMessage || d.lastError) && d.status !== 'authorized' && (
-                      <div className="pm-hint">{d.lastError ?? d.sefazMessage}</div>
+                      <div className="cm-hint">{d.lastError ?? d.sefazMessage}</div>
                     )}
                   </td>
                   <td>{dateTime(d.authorizedAt ?? d.createdAt)}</td>
-                  <td className="pm-num">{brl(d.total)}</td>
-                  <td className="pm-num">
+                  <td className="cm-num">{brl(d.total)}</td>
+                  <td className="cm-num">
                     {d.danfeUrl && d.status === 'authorized' && (
                       <a href={d.danfeUrl} target="_blank" rel="noreferrer noopener">
                         DANFE
@@ -261,7 +261,7 @@ function SettingsTab() {
           )}
         </div>
         {!isOwner && s.environment === 'homologacao' && (
-          <p className="pm-hint">Só o dono do restaurante muda para produção.</p>
+          <p className="cm-hint">Só o dono do restaurante muda para produção.</p>
         )}
       </Card>
       <Card title="Dados da Focus NFe e padrões dos produtos">
@@ -315,7 +315,7 @@ function SettingsTab() {
           </div>
         </form>
         {error && <Alert tone="danger">{error}</Alert>}
-        <p className="pm-hint">
+        <p className="cm-hint">
           Os códigos fiscais dependem do regime do restaurante. Confirme CFOP, CSOSN/CST e NCM com a
           sua contabilidade e teste em homologação antes de ir para produção.
         </p>

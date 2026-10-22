@@ -4,7 +4,7 @@ import type {
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
-} from '@pedemais/shared';
+} from '@comandou/shared';
 
 export interface MenuOption {
   id: string;

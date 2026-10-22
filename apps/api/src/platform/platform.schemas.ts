@@ -1,4 +1,4 @@
-import { isMoneyString, validateTenantSlug } from '@pedemais/shared';
+import { isMoneyString, validateTenantSlug } from '@comandou/shared';
 import { z } from 'zod';
 
 export const LoginInput = z.object({

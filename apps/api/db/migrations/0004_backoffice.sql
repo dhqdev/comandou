@@ -1,10 +1,10 @@
--- PedeMais — 0004 Etapa 4: equipe, estoque, entregas, impressão e financeiro.
+-- Comandou — 0004 Etapa 4: equipe, estoque, entregas, impressão e financeiro.
 -- Convenções iguais às anteriores: tenant_id NOT NULL, UNIQUE (tenant_id, id), FKs compostas,
 -- RLS tenant_isolation e GRANT mínimo. Livros-razão (estoque, conciliação) são só INSERT.
 
 -- Equipe ------------------------------------------------------------------------------------
 -- A app só altera papel e situação do vínculo; criação passa pela função abaixo.
-GRANT UPDATE (role, status) ON memberships TO pedemais_app;
+GRANT UPDATE (role, status) ON memberships TO comandou_app;
 
 -- Adiciona um membro ao restaurante CORRENTE. Se o e-mail já tem conta (em outro restaurante),
 -- só cria o vínculo: a senha existente continua valendo e não é revelada nem alterada.
@@ -60,9 +60,9 @@ CREATE FUNCTION app_own_password_hash()
 REVOKE ALL ON FUNCTION app_add_member(text, text, text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION app_set_own_password(text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION app_own_password_hash() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION app_add_member(text, text, text, text) TO pedemais_app;
-GRANT EXECUTE ON FUNCTION app_set_own_password(text) TO pedemais_app;
-GRANT EXECUTE ON FUNCTION app_own_password_hash() TO pedemais_app;
+GRANT EXECUTE ON FUNCTION app_add_member(text, text, text, text) TO comandou_app;
+GRANT EXECUTE ON FUNCTION app_set_own_password(text) TO comandou_app;
+GRANT EXECUTE ON FUNCTION app_own_password_hash() TO comandou_app;
 
 -- Estoque -----------------------------------------------------------------------------------
 CREATE TABLE stock_items (
@@ -258,9 +258,9 @@ BEGIN
 END $$;
 
 -- Privilégios -------------------------------------------------------------------------------
-GRANT SELECT, INSERT, UPDATE ON stock_items, couriers, deliveries, print_agents, print_jobs TO pedemais_app;
-GRANT SELECT, INSERT, DELETE ON product_recipes, option_recipes TO pedemais_app; -- vínculos de ficha técnica
-GRANT SELECT, INSERT ON stock_movements, finance_reconciliations TO pedemais_app;
+GRANT SELECT, INSERT, UPDATE ON stock_items, couriers, deliveries, print_agents, print_jobs TO comandou_app;
+GRANT SELECT, INSERT, DELETE ON product_recipes, option_recipes TO comandou_app; -- vínculos de ficha técnica
+GRANT SELECT, INSERT ON stock_movements, finance_reconciliations TO comandou_app;
 -- Lançamento financeiro: valor e vencimento não mudam; só a baixa ou o cancelamento.
-GRANT SELECT, INSERT ON finance_entries TO pedemais_app;
-GRANT UPDATE (status, paid_at, paid_method, settled_by, cancel_reason) ON finance_entries TO pedemais_app;
+GRANT SELECT, INSERT ON finance_entries TO comandou_app;
+GRANT UPDATE (status, paid_at, paid_method, settled_by, cancel_reason) ON finance_entries TO comandou_app;

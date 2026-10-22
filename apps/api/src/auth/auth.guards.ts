@@ -6,7 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Permission, roleHas } from '@pedemais/shared';
+import { Permission, roleHas } from '@comandou/shared';
 import type { Request } from 'express';
 import { PERMISSION, PUBLIC, SKIP_TENANT } from '../common/decorators';
 import { SESSION_COOKIE, SessionService } from './session.service';
@@ -15,7 +15,7 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**
  * Proteção CSRF para cookies de sessão:
- * - Métodos que alteram estado exigem o header X-PedeMais-Request (força preflight CORS,
+ * - Métodos que alteram estado exigem o header X-Comandou-Request (força preflight CORS,
  *   que a API não libera para outras origens).
  * - Se o navegador enviar Origin, ele precisa ter o mesmo host da requisição.
  */
@@ -24,7 +24,7 @@ export class CsrfGuard implements CanActivate {
   canActivate(ctx: ExecutionContext): boolean {
     const req = ctx.switchToHttp().getRequest<Request>();
     if (SAFE_METHODS.has(req.method)) return true;
-    if (req.get('x-pedemais-request') !== '1') {
+    if (req.get('x-comandou-request') !== '1') {
       throw new ForbiddenException('Requisição sem cabeçalho de proteção');
     }
     const origin = req.get('origin');

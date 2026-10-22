@@ -1,4 +1,4 @@
--- PedeMais — 0006 Etapa 5: WhatsApp e avisos automáticos ao cliente.
+-- Comandou — 0006 Etapa 5: WhatsApp e avisos automáticos ao cliente.
 -- Provedor padrão: Baileys (QR Code), num serviço separado (whatsapp-gateway) com a sessão de
 -- cada restaurante cifrada em disco. Alternativa: API oficial da Meta (Cloud API), cujo token é
 -- guardado CIFRADO pela aplicação (AES-256-GCM, chave fora do banco).
@@ -64,6 +64,6 @@ CREATE POLICY tenant_isolation ON tenant_messaging_settings
 CREATE POLICY tenant_isolation ON message_outbox
   USING (tenant_id = app_current_tenant()) WITH CHECK (tenant_id = app_current_tenant());
 
-GRANT SELECT, INSERT, UPDATE ON tenant_messaging_settings TO pedemais_app;
-GRANT SELECT, INSERT ON message_outbox TO pedemais_app;
-GRANT UPDATE (status, attempts, provider_message_id, last_error, sent_at, updated_at) ON message_outbox TO pedemais_app;
+GRANT SELECT, INSERT, UPDATE ON tenant_messaging_settings TO comandou_app;
+GRANT SELECT, INSERT ON message_outbox TO comandou_app;
+GRANT UPDATE (status, attempts, provider_message_id, last_error, sent_at, updated_at) ON message_outbox TO comandou_app;

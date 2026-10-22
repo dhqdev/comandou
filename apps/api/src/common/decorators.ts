@@ -1,16 +1,16 @@
 import { createParamDecorator, ExecutionContext, SetMetadata } from '@nestjs/common';
-import type { Permission } from '@pedemais/shared';
+import type { Permission } from '@comandou/shared';
 import type { Request } from 'express';
 
 /** Rota não exige tenant (ex.: health check da plataforma). */
-export const SKIP_TENANT = 'pm:skip-tenant';
+export const SKIP_TENANT = 'cm:skip-tenant';
 export const SkipTenant = () => SetMetadata(SKIP_TENANT, true);
 
 /** Rota não exige sessão (ex.: login). Ainda exige tenant, salvo @SkipTenant. */
-export const PUBLIC = 'pm:public';
+export const PUBLIC = 'cm:public';
 export const Public = () => SetMetadata(PUBLIC, true);
 
-export const PERMISSION = 'pm:permission';
+export const PERMISSION = 'cm:permission';
 /** Exige ao menos UMA das permissões informadas. */
 export const RequirePermission = (...p: [Permission, ...Permission[]]) =>
   SetMetadata(PERMISSION, p);

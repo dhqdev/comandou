@@ -157,12 +157,12 @@ export function MenuPage() {
             />
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table className="pm-table">
+              <table className="cm-table">
                 <thead>
                   <tr>
                     <th>Produto</th>
                     <th>Situação</th>
-                    <th className="pm-num">Preço</th>
+                    <th className="cm-num">Preço</th>
                     {canWrite && <th />}
                   </tr>
                 </thead>
@@ -171,9 +171,9 @@ export function MenuPage() {
                     <tr key={p.id}>
                       <td>
                         <strong>{p.name}</strong>
-                        {p.description && <div className="pm-hint">{p.description}</div>}
+                        {p.description && <div className="cm-hint">{p.description}</div>}
                         {linkedOf(p.id).length > 0 && (
-                          <div className="pm-hint">
+                          <div className="cm-hint">
                             Opções:{' '}
                             {linkedOf(p.id)
                               .map((id) => groups.find((g) => g.id === id)?.name)
@@ -189,9 +189,9 @@ export function MenuPage() {
                           <Badge tone="success">Disponível</Badge>
                         )}
                       </td>
-                      <td className="pm-num">{brl(p.price)}</td>
+                      <td className="cm-num">{brl(p.price)}</td>
                       {canWrite && (
-                        <td className="pm-num" style={{ whiteSpace: 'nowrap' }}>
+                        <td className="cm-num" style={{ whiteSpace: 'nowrap' }}>
                           <Button variant="ghost" onClick={() => setConfiguring(p)}>
                             Configurar
                           </Button>{' '}

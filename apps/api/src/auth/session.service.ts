@@ -1,13 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import { and, eq, gt, isNull } from 'drizzle-orm';
-import type { Role } from '@pedemais/shared';
+import type { Role } from '@comandou/shared';
 import { ENV, Env } from '../config/env';
 import { DatabaseService, Tx } from '../database/database.service';
 import { memberships, sessions, users } from '../database/schema';
 import type { AuthenticatedUser } from '../tenancy/tenant.types';
 
-export const SESSION_COOKIE = 'pm_sid';
+export const SESSION_COOKIE = 'cm_sid';
 
 export function hashToken(token: string): Buffer {
   return createHash('sha256').update(token).digest();

@@ -1,24 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { classifyHost } from './host';
 
-const BASE = 'pedemais.com';
+const BASE = 'comandou.com';
 
 describe('classifyHost', () => {
-  it('extrai o slug de <slug>.pedemais.com, com porta e maiúsculas', () => {
-    expect(classifyHost('MaoRefato.PedeMais.com:443', BASE)).toEqual({
+  it('extrai o slug de <slug>.comandou.com, com porta e maiúsculas', () => {
+    expect(classifyHost('MaoRefato.Comandou.com:443', BASE)).toEqual({
       kind: 'tenant-subdomain',
       slug: 'maorefato',
-      hostname: 'maorefato.pedemais.com',
+      hostname: 'maorefato.comandou.com',
     });
   });
   it('reconhece o domínio da plataforma', () => {
-    expect(classifyHost('pedemais.com', BASE).kind).toBe('platform');
-    expect(classifyHost('www.pedemais.com', BASE).kind).toBe('platform');
+    expect(classifyHost('comandou.com', BASE).kind).toBe('platform');
+    expect(classifyHost('www.comandou.com', BASE).kind).toBe('platform');
   });
   it('reconhece o painel Super Admin em admin.<base>, separado dos restaurantes', () => {
-    expect(classifyHost('Admin.PedeMais.com', BASE)).toEqual({
+    expect(classifyHost('Admin.Comandou.com', BASE)).toEqual({
       kind: 'platform-admin',
-      hostname: 'admin.pedemais.com',
+      hostname: 'admin.comandou.com',
     });
     expect(classifyHost('admin.evil.com', BASE).kind).toBe('custom-domain');
   });
@@ -32,14 +32,14 @@ describe('classifyHost', () => {
     for (const h of [
       undefined,
       '',
-      'a.b.pedemais.com',
-      'api.pedemais.com',
-      'evil.com,maorefato.pedemais.com',
-      'user@maorefato.pedemais.com',
-      'maorefato.pedemais.com/x',
-      'mao refato.pedemais.com',
-      'x..pedemais.com',
-      '-bad.pedemais.com',
+      'a.b.comandou.com',
+      'api.comandou.com',
+      'evil.com,maorefato.comandou.com',
+      'user@maorefato.comandou.com',
+      'maorefato.comandou.com/x',
+      'mao refato.comandou.com',
+      'x..comandou.com',
+      '-bad.comandou.com',
     ]) {
       expect(classifyHost(h, BASE).kind, String(h)).toBe('invalid');
     }

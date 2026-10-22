@@ -4,6 +4,6 @@
 
 **Alternativas.** JWT em `localStorage`; JWT em cookie; sessão opaca em cookie.
 
-**Decisão.** Token aleatório (256 bits) em cookie `HttpOnly`, `SameSite=Lax`, `Secure` em produção, **sem `Domain`** (host-only). Banco guarda apenas `sha256(token)` na tabela `sessions` com RLS. CSRF: cabeçalho obrigatório `X-PedeMais-Request` em escritas + verificação de `Origin`.
+**Decisão.** Token aleatório (256 bits) em cookie `HttpOnly`, `SameSite=Lax`, `Secure` em produção, **sem `Domain`** (host-only). Banco guarda apenas `sha256(token)` na tabela `sessions` com RLS. CSRF: cabeçalho obrigatório `X-Comandou-Request` em escritas + verificação de `Origin`.
 
 **Consequências.** Uma consulta ao banco por requisição autenticada (aceitável; cache em Redis se necessário). Revogação instantânea. JavaScript nunca vê o token. Subdomínios de outros restaurantes não recebem o cookie.

@@ -7,7 +7,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { tenantAcceptsTraffic } from '@pedemais/shared';
+import { tenantAcceptsTraffic } from '@comandou/shared';
 import type { Request } from 'express';
 import { SKIP_TENANT } from '../common/decorators';
 import { TenantResolverService } from './tenant-resolver.service';

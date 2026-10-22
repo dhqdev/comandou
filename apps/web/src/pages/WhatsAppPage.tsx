@@ -183,7 +183,7 @@ export function WhatsAppPage() {
           <EmptyState icon={<MessageCircle size={20} />} title="Nenhuma mensagem ainda" />
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table className="pm-table">
+            <table className="cm-table">
               <thead>
                 <tr>
                   <th>Aviso</th>
@@ -198,15 +198,15 @@ export function WhatsAppPage() {
                   <tr key={m.id}>
                     <td>
                       {EVENT[m.event]}
-                      {m.orderNumber && <div className="pm-hint">Pedido #{m.orderNumber}</div>}
+                      {m.orderNumber && <div className="cm-hint">Pedido #{m.orderNumber}</div>}
                     </td>
                     <td>+{m.toPhone}</td>
                     <td>
                       <Badge tone={STATUS[m.status][1]}>{STATUS[m.status][0]}</Badge>
-                      {m.lastError && <div className="pm-hint">{m.lastError}</div>}
+                      {m.lastError && <div className="cm-hint">{m.lastError}</div>}
                     </td>
                     <td>{dateTime(m.sentAt ?? m.createdAt)}</td>
-                    <td className="pm-num">
+                    <td className="cm-num">
                       {m.status === 'failed' && (
                         <Button
                           variant="ghost"
@@ -357,7 +357,7 @@ function BaileysCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; s
           </Button>
         </div>
       </form>
-      <p className="pm-hint">
+      <p className="cm-hint">
         Use {'{cliente}'}, {'{pedido}'} e {'{restaurante}'} no texto.
       </p>
     </Card>
@@ -437,7 +437,7 @@ function MetaCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; save
           </Button>
         </div>
       </form>
-      <p className="pm-hint">
+      <p className="cm-hint">
         Os modelos precisam estar aprovados na Meta com três variáveis no corpo, nesta ordem:{' '}
         {'{{1}}'} nome do cliente, {'{{2}}'} número do pedido e {'{{3}}'} nome do restaurante.
         Mensagens iniciadas pelo restaurante são cobradas pela Meta.

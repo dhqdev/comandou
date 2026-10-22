@@ -28,7 +28,7 @@ export async function api<T>(
         Accept: 'application/json',
         ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}),
         // Exigido pela API em métodos que alteram estado (proteção CSRF).
-        ...(method !== 'GET' && method !== 'HEAD' ? { 'X-PedeMais-Request': '1' } : {}),
+        ...(method !== 'GET' && method !== 'HEAD' ? { 'X-Comandou-Request': '1' } : {}),
         ...headers,
       },
       body: json !== undefined ? JSON.stringify(json) : rest.body,

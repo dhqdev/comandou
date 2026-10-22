@@ -25,23 +25,23 @@ import { QueueService } from '../queue/queue.service';
 export class Metrics {
   readonly registry = new Registry();
   readonly http = new Histogram({
-    name: 'pedemais_http_request_duration_seconds',
+    name: 'comandou_http_request_duration_seconds',
     help: 'Duração das requisições HTTP',
     labelNames: ['method', 'route', 'status'],
     buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5],
     registers: [this.registry],
   });
   readonly errors = new Counter({
-    name: 'pedemais_http_server_errors_total',
+    name: 'comandou_http_server_errors_total',
     help: 'Respostas 5xx',
     labelNames: ['route'],
     registers: [this.registry],
   });
 
   constructor(db: DatabaseService, queue: QueueService) {
-    collectDefaultMetrics({ register: this.registry, prefix: 'pedemais_' });
+    collectDefaultMetrics({ register: this.registry, prefix: 'comandou_' });
     new Gauge({
-      name: 'pedemais_db_pool_connections',
+      name: 'comandou_db_pool_connections',
       help: 'Conexões do pool da API por situação',
       labelNames: ['state'],
       registers: [this.registry],
@@ -52,7 +52,7 @@ export class Metrics {
       },
     });
     new Gauge({
-      name: 'pedemais_queue_jobs',
+      name: 'comandou_queue_jobs',
       help: 'Trabalhos na fila por situação',
       labelNames: ['state'],
       registers: [this.registry],
@@ -63,7 +63,7 @@ export class Metrics {
     });
     // Para alertas de backup atrasado (0 = nunca houve um bem-sucedido).
     new Gauge({
-      name: 'pedemais_backup_last_success_timestamp_seconds',
+      name: 'comandou_backup_last_success_timestamp_seconds',
       help: 'Horário (epoch) do último backup e do último teste de restauração bem-sucedidos',
       labelNames: ['kind'],
       registers: [this.registry],

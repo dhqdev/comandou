@@ -4,7 +4,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { fromCents, toCents } from '@pedemais/shared';
+import { fromCents, toCents } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import { CashService, changeFor, PaymentInput } from '../cash/cash.service';
 import type { Ctx } from '../common/context';

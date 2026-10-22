@@ -117,7 +117,7 @@ export function DeliveriesPage() {
       {today.length > 0 && (
         <Card title="Encerradas hoje" bodyless>
           <div style={{ overflowX: 'auto' }}>
-            <table className="pm-table">
+            <table className="cm-table">
               <thead>
                 <tr>
                   <th>Pedido</th>
@@ -179,7 +179,7 @@ function TrackingLink({ path }: { path: string }) {
           Copiar
         </Button>
         <a
-          className="pm-btn pm-btn--secondary"
+          className="cm-btn cm-btn--secondary"
           href={`https://wa.me/?text=${encodeURIComponent(`Acompanhe seu pedido: ${url}`)}`}
           target="_blank"
           rel="noreferrer"
@@ -221,14 +221,14 @@ function DispatchRow({
     <li style={{ flexWrap: 'wrap', gap: 8 }}>
       <div style={{ flex: '1 1 220px' }}>
         <strong>#{order.number}</strong> {order.customerName}
-        <div className="pm-hint">{order.deliveryAddress}</div>
+        <div className="cm-hint">{order.deliveryAddress}</div>
         <Badge tone={PAYMENT_STATUS_TONE[order.paymentStatus]}>
           {PAYMENT_STATUS_LABEL[order.paymentStatus]} · {brl(order.total)}
         </Badge>
       </div>
       <div className="actions-row" style={{ alignItems: 'end' }}>
         <select
-          className="pm-input"
+          className="cm-input"
           aria-label={`Entregador do pedido ${order.number}`}
           value={courierId}
           onChange={(e) => setCourierId(e.target.value)}
@@ -306,9 +306,9 @@ function DeliveryCard({
       </div>
       <div>
         {d.customerName ?? 'Cliente'}{' '}
-        {d.customerPhone && <span className="pm-hint">· {d.customerPhone}</span>}
+        {d.customerPhone && <span className="cm-hint">· {d.customerPhone}</span>}
       </div>
-      <div className="pm-hint">{d.deliveryAddress}</div>
+      <div className="cm-hint">{d.deliveryAddress}</div>
       <div className="actions-row">
         <Badge tone="brand">{d.courierName}</Badge>
         <Badge tone={PAYMENT_STATUS_TONE[d.paymentStatus]}>
@@ -458,7 +458,7 @@ function CouriersCard({ couriers, onChanged }: { couriers: Courier[]; onChanged(
           Cadastrar
         </Button>
       </form>
-      <p className="pm-hint">
+      <p className="cm-hint">
         Com login (papel Entregador na Equipe), a pessoa vê as próprias corridas no celular e envia
         a localização para o link de rastreio.
       </p>
@@ -466,7 +466,7 @@ function CouriersCard({ couriers, onChanged }: { couriers: Courier[]; onChanged(
         {couriers.map((c) => (
           <li key={c.id}>
             <span>
-              <strong>{c.name}</strong> {c.phone && <span className="pm-hint">· {c.phone}</span>}{' '}
+              <strong>{c.name}</strong> {c.phone && <span className="cm-hint">· {c.phone}</span>}{' '}
               {c.userName && <Badge tone="info">login: {c.userName}</Badge>}{' '}
               {!c.active && <Badge>inativo</Badge>}
             </span>

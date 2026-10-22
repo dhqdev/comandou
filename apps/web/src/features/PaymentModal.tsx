@@ -4,7 +4,7 @@ import {
   splitCents,
   toCents,
   type PaymentMethod,
-} from '@pedemais/shared';
+} from '@comandou/shared';
 import { useEffect, useState } from 'react';
 import { Alert, Button, Modal, TextField, useToast } from '../design-system';
 import { api, ApiError } from '../lib/api';
@@ -142,9 +142,9 @@ export function PaymentModal({
             Nenhum caixa aberto. Abra um caixa na tela Caixa para receber pagamentos.
           </Alert>
         ) : (
-          <label className="pm-field">
-            <span className="pm-label">Caixa</span>
-            <select className="pm-input" value={sessionId} onChange={(e) => choose(e.target.value)}>
+          <label className="cm-field">
+            <span className="cm-label">Caixa</span>
+            <select className="cm-input" value={sessionId} onChange={(e) => choose(e.target.value)}>
               {(sessions ?? []).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.registerName} · sessão {s.number}
@@ -168,7 +168,7 @@ export function PaymentModal({
         </div>
         {target.kind === 'tab' && (
           <div className="chips" aria-label="Dividir conta">
-            <span className="pm-label" style={{ alignSelf: 'center' }}>
+            <span className="cm-label" style={{ alignSelf: 'center' }}>
               Dividir em
             </span>
             {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -179,7 +179,7 @@ export function PaymentModal({
           </div>
         )}
         {parts > 1 && (
-          <p className="pm-hint" style={{ margin: 0 }}>
+          <p className="cm-hint" style={{ margin: 0 }}>
             {parts} partes:{' '}
             {splitCents(balanceCents, parts)
               .map((c) => brl(fromCents(c)))

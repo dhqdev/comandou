@@ -1,5 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { CHANNEL_LABELS, OrderChannel } from '@pedemais/shared';
+import { CHANNEL_LABELS, OrderChannel } from '@comandou/shared';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { hashToken } from '../auth/session.service';
 import type { Ctx } from '../common/context';
@@ -247,7 +247,7 @@ export class PrintingService {
   async testPage(ctx: Ctx, target: string) {
     const res = await this.db.withTenant(ctx, async (tx) => {
       const text = [
-        center('PEDEMAIS'),
+        center('COMANDOU'),
         center('Teste de impressão'),
         line(),
         `Destino: ${target}`,

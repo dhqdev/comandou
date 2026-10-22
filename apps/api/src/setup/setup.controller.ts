@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
-import { ORDER_CHANNELS } from '@pedemais/shared';
+import { ORDER_CHANNELS } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
 import { one, q } from '../common/sql';

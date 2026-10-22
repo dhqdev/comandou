@@ -1,4 +1,4 @@
-import { CHANNEL_LABELS, ORDER_CHANNELS, type OrderChannel } from '@pedemais/shared';
+import { CHANNEL_LABELS, ORDER_CHANNELS, type OrderChannel } from '@comandou/shared';
 import { Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, EmptyState, TextField, useToast } from '../design-system';
@@ -63,7 +63,7 @@ export function SettingsPage() {
             description="Sem setores, todos os itens aparecem em 'Sem setor' na cozinha."
           />
         ) : (
-          <table className="pm-table">
+          <table className="cm-table">
             <thead>
               <tr>
                 <th>Setor</th>
@@ -82,7 +82,7 @@ export function SettingsPage() {
                   <td>
                     {s.warnAfterMin} / {s.lateAfterMin} min
                   </td>
-                  <td className="pm-num">
+                  <td className="cm-num">
                     {canManage && (
                       <Button
                         variant="ghost"

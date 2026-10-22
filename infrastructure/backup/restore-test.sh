@@ -6,7 +6,7 @@ set -euo pipefail
 . "$(dirname "$0")/common.sh"
 
 RUN_ID="$(run_start restore_test)"
-TMP="$(mktemp -d "$WORK_DIR/pm-restore.XXXXXX")"
+TMP="$(mktemp -d "$WORK_DIR/cm-restore.XXXXXX")"
 PGDATA_T="$TMP/pg"
 PORT="${RESTORE_PORT:-55432}"
 cleanup() {
@@ -41,8 +41,8 @@ initdb -D "$PGDATA_T" -U postgres --auth=trust -E UTF8 --no-instructions >/dev/n
 pg_ctl -D "$PGDATA_T" -o "-p $PORT -k $TMP -c listen_addresses=''" -w -l "$TMP/pg.log" start >/dev/null \
   || fail "Postgres temporário não subiu"
 T=(psql -X -v ON_ERROR_STOP=1 -At -h "$TMP" -p "$PORT" -U postgres)
-"${T[@]}" -d postgres -c "CREATE ROLE pedemais_owner NOLOGIN" -c "CREATE ROLE pedemais_app NOLOGIN" \
-  -c "CREATE ROLE pedemais_platform NOLOGIN" -c "CREATE DATABASE restore_test" >/dev/null
+"${T[@]}" -d postgres -c "CREATE ROLE comandou_owner NOLOGIN" -c "CREATE ROLE comandou_app NOLOGIN" \
+  -c "CREATE ROLE comandou_platform NOLOGIN" -c "CREATE DATABASE restore_test" >/dev/null
 pg_restore --exit-on-error --no-owner --no-privileges -h "$TMP" -p "$PORT" -U postgres \
   -d restore_test "$TMP/db.dump" || fail "pg_restore falhou"
 

@@ -26,7 +26,7 @@ export function OrderCard({ order, onOpen }: { order: Order; onOpen(o: Order): v
             {qty(i.quantity)}× {i.name}
           </li>
         ))}
-        {order.items.length > 4 && <li className="pm-hint">+{order.items.length - 4} itens</li>}
+        {order.items.length > 4 && <li className="cm-hint">+{order.items.length - 4} itens</li>}
       </ul>
       <div className="order-card__bottom">
         <Badge tone={PAYMENT_STATUS_TONE[order.paymentStatus]}>

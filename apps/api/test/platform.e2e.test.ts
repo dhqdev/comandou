@@ -19,10 +19,10 @@ import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
  * e métricas. Inclui as barreiras: rota do painel some fora de admin.<base>, cookie do
  * restaurante não abre o painel, papéis de banco sem acesso cruzado.
  */
-const ADMIN_HOST = 'admin.pedemais.test';
-const HOST_A = 'pf-a.pedemais.test';
-const HOST_B = 'pf-b.pedemais.test';
-const CSRF = { 'X-PedeMais-Request': '1' };
+const ADMIN_HOST = 'admin.comandou.test';
+const HOST_A = 'pf-a.comandou.test';
+const HOST_B = 'pf-b.comandou.test';
+const CSRF = { 'X-Comandou-Request': '1' };
 const KEY = randomBytes(32).toString('base64');
 const METRICS_TOKEN = 'metrics-token-0123456789abcdef';
 const TRAEFIK_TOKEN = 'traefik-token-0123456789abcdef';
@@ -72,7 +72,7 @@ async function tenantLogin(host: string, email: string, password = PASSWORD) {
     .set(CSRF)
     .send({ email, password });
   const raw = (res.headers['set-cookie'] as unknown as string[] | undefined) ?? [];
-  return { res, cookie: raw.find((c) => c.startsWith('pm_sid='))?.split(';')[0] ?? '' };
+  return { res, cookie: raw.find((c) => c.startsWith('cm_sid='))?.split(';')[0] ?? '' };
 }
 const tget = (host: string, cookie: string, url: string) =>
   http.get(`/api/v1${url}`).set('Host', host).set('Cookie', cookie);
@@ -130,7 +130,7 @@ afterAll(async () => {
 
 describe('Barreiras do painel', () => {
   it('rotas do painel não existem fora de admin.<base>', async () => {
-    for (const host of [HOST_A, 'pedemais.test', 'www.pedemais.test', 'admin.outro.com']) {
+    for (const host of [HOST_A, 'comandou.test', 'www.comandou.test', 'admin.outro.com']) {
       await http.get('/api/v1/platform/auth/me').set('Host', host).expect(404);
       await adminLogin(totpCode(SECRET, totpStep()), ADMIN_PASSWORD, host).expect(404);
     }
@@ -144,7 +144,7 @@ describe('Barreiras do painel', () => {
     await pget('/overview', '').expect(401);
     const { cookie } = await tenantLogin(HOST_A, 'admin@pf-a.test');
     expect(cookie).toBeTruthy();
-    await pget('/overview', cookie.replace('pm_sid=', 'pm_admin=')).expect(401);
+    await pget('/overview', cookie.replace('cm_sid=', 'cm_admin=')).expect(401);
     await pget('/overview', cookie).expect(401);
   });
 
@@ -204,7 +204,7 @@ describe('Login do Super Admin', () => {
     const code = totpCode(SECRET, totpStep());
     const r = await adminLogin(code).expect(200);
     const raw = r.headers['set-cookie'] as unknown as string[];
-    const c = raw.find((x) => x.startsWith('pm_admin='))!;
+    const c = raw.find((x) => x.startsWith('cm_admin='))!;
     expect(c).toMatch(/Path=\/api\/v1\/platform/);
     expect(c).toMatch(/HttpOnly/);
     expect(c).toMatch(/SameSite=Strict/);
@@ -219,7 +219,7 @@ describe('Login do Super Admin', () => {
   it('logout revoga a sessão no servidor', async () => {
     const r = await adminLogin(totpCode(SECRET, totpStep() + 1)).expect(200);
     const cookie = (r.headers['set-cookie'] as unknown as string[])
-      .find((x) => x.startsWith('pm_admin='))!
+      .find((x) => x.startsWith('cm_admin='))!
       .split(';')[0];
     await http
       .post('/api/v1/platform/auth/logout')
@@ -274,7 +274,7 @@ describe('Planos, assinaturas e limites', () => {
     expect(r.body.subscription).toMatchObject({ status: 'trialing', planId: full });
     expect(r.body.owners).toEqual([{ name: 'Dona', email: 'dona@pf-novo.test' }]);
     const { res } = await tenantLogin(
-      'pf-novo.pedemais.test',
+      'pf-novo.comandou.test',
       'dona@pf-novo.test',
       'senha-inicial-123',
     );
@@ -464,8 +464,8 @@ describe('Domínio próprio', () => {
   it('valida o endereço, cadastra e mostra o registro TXT', async () => {
     const { cookie } = await tenantLogin(HOST_B, 'admin@pf-b.test');
     for (const bad of [
-      'pf-b.pedemais.test',
-      'x.pedemais.test',
+      'pf-b.comandou.test',
+      'x.comandou.test',
       '10.0.0.1',
       'localhost',
       'a..b.com',
@@ -478,9 +478,9 @@ describe('Domínio próprio', () => {
     expect(r.body).toMatchObject({
       hostname: 'pedidos.pf-b.com.br',
       verified: false,
-      dns: { txtName: '_pedemais.pedidos.pf-b.com.br', cnameTarget: 'pf-b.pedemais.test' },
+      dns: { txtName: '_comandou.pedidos.pf-b.com.br', cnameTarget: 'pf-b.comandou.test' },
     });
-    expect(r.body.dns.txtValue).toMatch(/^pedemais-verify=[A-Za-z0-9_-]{32}$/);
+    expect(r.body.dns.txtValue).toMatch(/^comandou-verify=[A-Za-z0-9_-]{32}$/);
     domainId = r.body.id;
     await tsend(HOST_B, cookie, 'post', '/domains', { hostname: 'pedidos.pf-b.com.br' }).expect(
       409,
@@ -492,7 +492,7 @@ describe('Domínio próprio', () => {
     expect(v1.body.lastError).toMatch(/Nenhum registro TXT/);
     await http.get('/api/v1/tenant').set('Host', 'pedidos.pf-b.com.br').expect(404);
 
-    txt.set('_pedemais.pedidos.pf-b.com.br', ['outra-coisa', r.body.dns.txtValue]);
+    txt.set('_comandou.pedidos.pf-b.com.br', ['outra-coisa', r.body.dns.txtValue]);
     const v2 = await tsend(HOST_B, cookie, 'post', `/domains/${domainId}/verify`, {}).expect(201);
     expect(v2.body.verified).toBe(true);
     const t = await http.get('/api/v1/tenant').set('Host', 'pedidos.pf-b.com.br').expect(200);
@@ -509,7 +509,7 @@ describe('Domínio próprio', () => {
     const r = await tsend(HOST_A, cookie, 'post', '/domains', {
       hostname: 'pedidos.pf-b.com.br',
     }).expect(201);
-    txt.set('_pedemais.pedidos.pf-b.com.br', [r.body.dns.txtValue]);
+    txt.set('_comandou.pedidos.pf-b.com.br', [r.body.dns.txtValue]);
     await tsend(HOST_A, cookie, 'post', `/domains/${r.body.id}/verify`, {}).expect(409);
     // A lista de A não vê os domínios de B.
     const list = await tget(HOST_A, cookie, '/domains').expect(200);
@@ -538,7 +538,7 @@ describe('Domínio próprio', () => {
       'Host(`pedidos.pf-b.com.br`)',
     ]);
     expect(routers[0]).toMatchObject({
-      service: 'pedemais-api@swarm',
+      service: 'comandou-api@swarm',
       tls: { certResolver: 'letsencrypt-http' },
     });
   });
@@ -567,8 +567,8 @@ describe('Monitoramento e visão geral', () => {
       .get('/api/v1/metrics')
       .set('Authorization', `Bearer ${METRICS_TOKEN}`)
       .expect(200);
-    expect(r.text).toContain('pedemais_http_request_duration_seconds');
-    expect(r.text).toContain('pedemais_db_pool_connections');
+    expect(r.text).toContain('comandou_http_request_duration_seconds');
+    expect(r.text).toContain('comandou_db_pool_connections');
     expect(r.text).toContain('route="/api/v1/products"');
     expect(r.text).not.toContain('pf-a');
   });
@@ -585,7 +585,7 @@ describe('Monitoramento e visão geral', () => {
       r.text
         .split('\n')
         .find((l) =>
-          l.startsWith(`pedemais_backup_last_success_timestamp_seconds{kind="${kind}"}`),
+          l.startsWith(`comandou_backup_last_success_timestamp_seconds{kind="${kind}"}`),
         );
     expect(Number(line('backup')?.split(' ')[1])).toBeGreaterThanOrEqual(
       Date.parse('2026-01-02T03:04:05Z') / 1000,
@@ -602,7 +602,7 @@ describe('Monitoramento e visão geral', () => {
   it('visão geral, lista de restaurantes, backups e auditoria', async () => {
     await ownerQuery(
       `INSERT INTO backup_runs (kind, status, finished_at, object_key, size_bytes)
-       VALUES ('backup', 'ok', now(), 'pedemais/2026/10/x.dump.age', 1234)`,
+       VALUES ('backup', 'ok', now(), 'comandou/2026/10/x.dump.age', 1234)`,
     );
     const o = await pget('/overview').expect(200);
     expect(o.body.health.database).toBe('ok');

@@ -1,4 +1,4 @@
-import { fromCents, toCents } from '@pedemais/shared';
+import { fromCents, toCents } from '@comandou/shared';
 import { Boxes, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -135,13 +135,13 @@ function ItemsTab({
         />
       ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table className="pm-table">
+          <table className="cm-table">
             <thead>
               <tr>
                 <th>Insumo</th>
-                <th className="pm-num">Saldo</th>
-                <th className="pm-num">Mínimo</th>
-                <th className="pm-num">Custo médio</th>
+                <th className="cm-num">Saldo</th>
+                <th className="cm-num">Mínimo</th>
+                <th className="cm-num">Custo médio</th>
                 <th />
               </tr>
             </thead>
@@ -153,16 +153,16 @@ function ItemsTab({
                     {i.active && i.low && <Badge tone="warning">baixo</Badge>}{' '}
                     {i.allowNegative && <Badge tone="info">aceita negativo</Badge>}
                   </td>
-                  <td className="pm-num">
+                  <td className="cm-num">
                     {fmtQty(i.quantity)} {i.unit}
                   </td>
-                  <td className="pm-num">
+                  <td className="cm-num">
                     {fmtQty(i.minQuantity)} {i.unit}
                   </td>
-                  <td className="pm-num">
+                  <td className="cm-num">
                     R$ {i.avgCost.replace(/(\.\d\d)\d*$/, '$1').replace('.', ',')}/{i.unit}
                   </td>
-                  <td className="pm-num">
+                  <td className="cm-num">
                     {canWrite && (
                       <div className="actions-row" style={{ justifyContent: 'end' }}>
                         <Button
@@ -277,7 +277,7 @@ function EntryModal({
       }
     >
       {error && <Alert tone="danger">{error}</Alert>}
-      <p className="pm-hint">
+      <p className="cm-hint">
         Saldo atual: {fmtQty(item.quantity)} {item.unit}
       </p>
       <TextField
@@ -475,7 +475,7 @@ function RecipesTab({ items, canWrite }: { items: StockItem[]; canWrite: boolean
   if (!recipes) return <Spinner />;
   return (
     <Card title="Ficha técnica">
-      <p className="pm-hint" style={{ marginTop: 0 }}>
+      <p className="cm-hint" style={{ marginTop: 0 }}>
         Quanto de cada insumo sai por unidade vendida. Adicionais também podem ter ficha (ex.: bacon
         extra).
       </p>
@@ -506,7 +506,7 @@ function RecipesTab({ items, canWrite }: { items: StockItem[]; canWrite: boolean
       </SelectField>
       {target && (
         <div className="inline-form" style={{ marginTop: 12 }}>
-          {lines.length === 0 && <p className="pm-hint">Sem insumos: a venda não baixa estoque.</p>}
+          {lines.length === 0 && <p className="cm-hint">Sem insumos: a venda não baixa estoque.</p>}
           {lines.map((l, idx) => (
             <div key={idx} className="actions-row" style={{ alignItems: 'end' }}>
               <div style={{ flex: '2 1 200px' }}>
@@ -584,7 +584,7 @@ function MovementsTab({ items }: { items: StockItem[] }) {
   }, [itemId]);
   return (
     <Card title="Movimentos" bodyless>
-      <div className="pm-card__body filters">
+      <div className="cm-card__body filters">
         <SelectField label="Insumo" value={itemId} onChange={(e) => setItemId(e.target.value)}>
           <option value="">Todos</option>
           {items.map((i) => (
@@ -595,21 +595,21 @@ function MovementsTab({ items }: { items: StockItem[] }) {
         </SelectField>
       </div>
       {rows === null ? (
-        <div className="pm-card__body">
+        <div className="cm-card__body">
           <Spinner />
         </div>
       ) : rows.length === 0 ? (
         <EmptyState title="Nenhum movimento" />
       ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table className="pm-table">
+          <table className="cm-table">
             <thead>
               <tr>
                 <th>Quando</th>
                 <th>Insumo</th>
                 <th>Tipo</th>
-                <th className="pm-num">Quantidade</th>
-                <th className="pm-num">Saldo</th>
+                <th className="cm-num">Quantidade</th>
+                <th className="cm-num">Saldo</th>
                 <th>Detalhe</th>
               </tr>
             </thead>
@@ -619,16 +619,16 @@ function MovementsTab({ items }: { items: StockItem[] }) {
                   <td>{dateTime(m.createdAt)}</td>
                   <td>{m.itemName}</td>
                   <td>{KIND_LABEL[m.kind]}</td>
-                  <td className="pm-num">
+                  <td className="cm-num">
                     {m.quantity.startsWith('-') ? '' : '+'}
                     {fmtQty(m.quantity)} {m.unit}
                   </td>
-                  <td className="pm-num">
+                  <td className="cm-num">
                     {fmtQty(m.balanceAfter)} {m.unit}
                   </td>
                   <td>
                     {m.orderNumber ? `Pedido #${m.orderNumber}` : m.note}
-                    {m.createdByName && <div className="pm-hint">{m.createdByName}</div>}
+                    {m.createdByName && <div className="cm-hint">{m.createdByName}</div>}
                   </td>
                 </tr>
               ))}

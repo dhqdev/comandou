@@ -1,4 +1,4 @@
--- PedeMais — 0002 Cardápio e pedidos (base para os primeiros fluxos comerciais).
+-- Comandou — 0002 Cardápio e pedidos (base para os primeiros fluxos comerciais).
 -- Chaves compostas (tenant_id, id) + FKs compostas impedem, no próprio banco, que um registro
 -- de um restaurante referencie um registro de outro restaurante.
 
@@ -77,4 +77,4 @@ CREATE POLICY tenant_isolation ON orders
 CREATE POLICY tenant_isolation ON order_items
   USING (tenant_id = app_current_tenant()) WITH CHECK (tenant_id = app_current_tenant());
 
-GRANT SELECT, INSERT, UPDATE ON categories, products, orders, order_items TO pedemais_app;
+GRANT SELECT, INSERT, UPDATE ON categories, products, orders, order_items TO comandou_app;

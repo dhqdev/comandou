@@ -1,4 +1,4 @@
-import { RELEASES, type ReleaseTag } from '@pedemais/shared';
+import { RELEASES, type ReleaseTag } from '@comandou/shared';
 import { Sparkles } from 'lucide-react';
 import { useEffect } from 'react';
 import { Badge, Card } from '../design-system';
@@ -18,7 +18,7 @@ const fmt = (d: string) =>
     year: 'numeric',
   });
 
-/** Histórico de versões do PedeMais (fonte: packages/shared/src/releases.ts). */
+/** Histórico de versões do Comandou (fonte: packages/shared/src/releases.ts). */
 export function ReleasesPage() {
   useEffect(() => {
     markReleasesSeen();
@@ -27,7 +27,7 @@ export function ReleasesPage() {
     <>
       <div>
         <h1 className="page-title">Novidades</h1>
-        <p className="page-sub">O que mudou em cada versão do PedeMais.</p>
+        <p className="page-sub">O que mudou em cada versão do Comandou.</p>
       </div>
       <ol className="releases">
         {RELEASES.map((r, i) => (
@@ -41,7 +41,7 @@ export function ReleasesPage() {
               actions={
                 <>
                   {i === 0 && <Badge tone="success">versão atual</Badge>}
-                  <span className="pm-hint">{fmt(r.date)}</span>
+                  <span className="cm-hint">{fmt(r.date)}</span>
                 </>
               }
             >

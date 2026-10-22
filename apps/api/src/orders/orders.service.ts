@@ -15,7 +15,7 @@ import {
   paymentStatusFor,
   roleHas,
   toCents,
-} from '@pedemais/shared';
+} from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import { MessagingService } from '../messaging/messaging.service';
 import type { Ctx } from '../common/context';

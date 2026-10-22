@@ -126,7 +126,7 @@ export function PrintingPage() {
                   ) : (
                     <Badge tone="warning">offline</Badge>
                   )}
-                  <span className="pm-hint">
+                  <span className="cm-hint">
                     {' '}
                     {a.lastSeenAt ? `visto ${dateTime(a.lastSeenAt)}` : 'nunca conectou'}
                     {a.version && ` · v${a.version}`}
@@ -173,7 +173,7 @@ export function PrintingPage() {
           <EmptyState title="Nada impresso ainda" />
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table className="pm-table">
+            <table className="cm-table">
               <thead>
                 <tr>
                   <th>Quando</th>
@@ -193,9 +193,9 @@ export function PrintingPage() {
                     <td>{j.target}</td>
                     <td>
                       <Badge tone={STATUS[j.status][1]}>{STATUS[j.status][0]}</Badge>
-                      {j.lastError && <div className="pm-hint">{j.lastError}</div>}
+                      {j.lastError && <div className="cm-hint">{j.lastError}</div>}
                     </td>
-                    <td className="pm-num">
+                    <td className="cm-num">
                       {j.status === 'failed' && (
                         <Button
                           variant="ghost"
@@ -245,12 +245,12 @@ function AgentSetup({ token }: { token: string }) {
       >
         Copiar token
       </Button>
-      <p className="pm-hint">
+      <p className="cm-hint">
         No computador ligado à impressora, com Node.js 22 instalado, rode o agente (pasta
         tools/print-agent do projeto):
       </p>
       <pre className="code-block">
-        {`PEDEMAIS_URL=${origin} \\\nPEDEMAIS_AGENT_TOKEN=<token> \\\nPRINTER_DEFAULT=tcp://192.168.0.50:9100 \\\nnode agent.mjs`}
+        {`COMANDOU_URL=${origin} \\\nCOMANDOU_AGENT_TOKEN=<token> \\\nPRINTER_DEFAULT=tcp://192.168.0.50:9100 \\\nnode agent.mjs`}
       </pre>
     </>
   );

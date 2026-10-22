@@ -12,9 +12,9 @@ import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
  * Etapa 4: equipe, estoque (ficha técnica), entregas e rastreio, fila de impressão e financeiro.
  * Sempre pela API HTTP real, com dois restaurantes para checar isolamento.
  */
-const HOST_A = 'bo-a.pedemais.test';
-const HOST_B = 'bo-b.pedemais.test';
-const CSRF = { 'X-PedeMais-Request': '1' };
+const HOST_A = 'bo-a.comandou.test';
+const HOST_B = 'bo-b.comandou.test';
+const CSRF = { 'X-Comandou-Request': '1' };
 
 let app: INestApplication;
 let fx: Fixture;
@@ -31,7 +31,7 @@ async function login(host: string, email: string, password = PASSWORD) {
     .send({ email, password });
   expect(res.status).toBe(200);
   const raw = res.headers['set-cookie'] as unknown as string[];
-  return raw.find((c) => c.startsWith('pm_sid='))!.split(';')[0];
+  return raw.find((c) => c.startsWith('cm_sid='))!.split(';')[0];
 }
 
 const hostOf = (w: string) => (w.endsWith('B') ? HOST_B : HOST_A);

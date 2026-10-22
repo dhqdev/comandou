@@ -5,7 +5,7 @@
 
 ## O que roda
 
-O serviço `backup` da stack (imagem `pedemais-backup`, usuário `postgres`, sem root) executa
+O serviço `backup` da stack (imagem `comandou-backup`, usuário `postgres`, sem root) executa
 `infrastructure/backup/scheduler.sh`:
 
 | Trabalho | Quando (padrão da stack, UTC) | Script |
@@ -24,13 +24,13 @@ backup bom tem mais de 26 h ou o último teste bom mais de 8 dias.
 2. `pg_dump --format=custom` com a conexão do dono.
 3. Confere que o arquivo é legível (`pg_restore --list`).
 4. Cifra com [age](https://age-encryption.org) para o destinatário derivado da identidade
-   (`pedemais_backup_age_identity`); o arquivo em claro é apagado logo em seguida.
-5. Envia para `s3://$S3_BUCKET/$S3_PREFIX/AAAA/MM/pedemais-<data>.dump.age` e confere o tamanho no
+   (`comandou_backup_age_identity`); o arquivo em claro é apagado logo em seguida.
+5. Envia para `s3://$S3_BUCKET/$S3_PREFIX/AAAA/MM/comandou-<data>.dump.age` e confere o tamanho no
    bucket.
 
 O serviço **não apaga** backups. A retenção é uma regra de ciclo de vida no bucket, por exemplo no
 B2: *Lifecycle Settings → Keep prior versions for N days* ou uma regra customizada para o prefixo
-`pedemais/` com `daysFromUploadingToHiding: 35` e `daysFromHidingToDeleting: 1`. A chave de
+`comandou/` com `daysFromUploadingToHiding: 35` e `daysFromHidingToDeleting: 1`. A chave de
 aplicação do B2 pode ter só `listFiles`, `readFiles` e `writeFiles` nesse bucket (sem
 `deleteFiles`).
 
@@ -47,14 +47,14 @@ Nunca toca o banco de produção. No fim apaga o cluster temporário.
 Rodar à mão:
 
 ```bash
-docker exec $(docker ps -q -f label=com.docker.swarm.service.name=pedemais_backup) \
-  /opt/pedemais-backup/restore-test.sh
+docker exec $(docker ps -q -f label=com.docker.swarm.service.name=comandou_backup) \
+  /opt/comandou-backup/restore-test.sh
 ```
 
 ## Chave do age
 
 ```bash
-age-keygen 2>/dev/null | docker secret create pedemais_backup_age_identity -
+age-keygen 2>/dev/null | docker secret create comandou_backup_age_identity -
 ```
 
 Guarde uma cópia da identidade **fora do servidor** (cofre de senhas). Sem ela os backups são
@@ -71,10 +71,10 @@ aws --endpoint-url "$S3_ENDPOINT" s3 cp "s3://$S3_BUCKET/<chave>" db.dump.age
 sha256sum db.dump.age   # comparar com backup_runs.sha256 ou com o metadado sha256 do objeto
 age --decrypt --identity identidade.txt --output db.dump db.dump.age
 
-# 2. Os papéis pedemais_owner, pedemais_app e pedemais_platform já devem existir no servidor novo
+# 2. Os papéis comandou_owner, comandou_app e comandou_platform já devem existir no servidor novo
 #    (infrastructure/docker/postgres-init/01-roles.sh)
-createdb -O pedemais_owner pedemais_restore
-pg_restore --exit-on-error -d pedemais_restore db.dump
+createdb -O comandou_owner comandou_restore
+pg_restore --exit-on-error -d comandou_restore db.dump
 
 # 3. Conferir contagens, apontar os secrets *_url para o banco novo e reiniciar a stack
 shred -u db.dump

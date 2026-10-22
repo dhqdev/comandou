@@ -1,20 +1,20 @@
-# Stack de DESENVOLVIMENTO local. Produção usa infrastructure/swarm/pedemais-stack.yml.
-# Acesse: http://<slug>.pedemais.localhost:8080  (*.localhost resolve para 127.0.0.1)
-name: pedemais
+# Stack de DESENVOLVIMENTO local. Produção usa infrastructure/swarm/comandou-stack.yml.
+# Acesse: http://<slug>.comandou.localhost:8080  (*.localhost resolve para 127.0.0.1)
+name: comandou
 
 services:
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina no .env}
-      PEDEMAIS_OWNER_PASSWORD: ${PEDEMAIS_OWNER_PASSWORD:?defina no .env}
-      PEDEMAIS_APP_PASSWORD: ${PEDEMAIS_APP_PASSWORD:?defina no .env}
-      PEDEMAIS_PLATFORM_PASSWORD: ${PEDEMAIS_PLATFORM_PASSWORD:?defina no .env}
+      COMANDOU_OWNER_PASSWORD: ${COMANDOU_OWNER_PASSWORD:?defina no .env}
+      COMANDOU_APP_PASSWORD: ${COMANDOU_APP_PASSWORD:?defina no .env}
+      COMANDOU_PLATFORM_PASSWORD: ${COMANDOU_PLATFORM_PASSWORD:?defina no .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./infrastructure/docker/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres -d pedemais']
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d comandou']
       interval: 5s
       timeout: 3s
       retries: 20
@@ -30,7 +30,7 @@ services:
 
   whatsapp-gateway:
     build: { context: ., dockerfile: infrastructure/docker/whatsapp-gateway.Dockerfile }
-    image: pedemais-whatsapp-gateway:dev
+    image: comandou-whatsapp-gateway:dev
     init: true
     profiles: [whatsapp] # opcional: docker compose --profile whatsapp up
     environment:
@@ -42,22 +42,22 @@ services:
 
   migrate:
     build: { context: ., dockerfile: infrastructure/docker/api.Dockerfile }
-    image: pedemais-api:dev
+    image: comandou-api:dev
     command: ['node', 'dist/database/migrate-cli.js']
     environment:
-      DATABASE_OWNER_URL: postgres://pedemais_owner:${PEDEMAIS_OWNER_PASSWORD}@postgres:5432/pedemais
+      DATABASE_OWNER_URL: postgres://comandou_owner:${COMANDOU_OWNER_PASSWORD}@postgres:5432/comandou
     depends_on:
       postgres: { condition: service_healthy }
     restart: 'no'
     networks: [internal]
 
   api:
-    image: pedemais-api:dev
+    image: comandou-api:dev
     init: true
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://pedemais_app:${PEDEMAIS_APP_PASSWORD}@postgres:5432/pedemais
-      PEDEMAIS_BASE_DOMAIN: ${PEDEMAIS_BASE_DOMAIN:-pedemais.localhost}
+      DATABASE_URL: postgres://comandou_app:${COMANDOU_APP_PASSWORD}@postgres:5432/comandou
+      COMANDOU_BASE_DOMAIN: ${COMANDOU_BASE_DOMAIN:-comandou.localhost}
       TRUST_PROXY: 'true'
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -66,27 +66,27 @@ services:
       INTEGRATIONS_KEY: ${INTEGRATIONS_KEY:-}
       WHATSAPP_GATEWAY_URL: ${WHATSAPP_GATEWAY_URL:-}
       WHATSAPP_GATEWAY_TOKEN: ${WHATSAPP_GATEWAY_TOKEN:-}
-      # Painel Super Admin em http://admin.${PEDEMAIS_BASE_DOMAIN}:8080
-      PLATFORM_DATABASE_URL: postgres://pedemais_platform:${PEDEMAIS_PLATFORM_PASSWORD}@postgres:5432/pedemais
+      # Painel Super Admin em http://admin.${COMANDOU_BASE_DOMAIN}:8080
+      PLATFORM_DATABASE_URL: postgres://comandou_platform:${COMANDOU_PLATFORM_PASSWORD}@postgres:5432/comandou
     depends_on:
       migrate: { condition: service_completed_successfully }
     labels:
       - traefik.enable=true
-      - traefik.http.routers.pm-api.rule=HostRegexp(`^[a-z0-9-]+\.${PEDEMAIS_BASE_DOMAIN:-pedemais.localhost}$$`) && PathPrefix(`/api`)
-      - traefik.http.routers.pm-api.entrypoints=web
-      - traefik.http.routers.pm-api.priority=100
-      - traefik.http.services.pm-api.loadbalancer.server.port=3000
+      - traefik.http.routers.cm-api.rule=HostRegexp(`^[a-z0-9-]+\.${COMANDOU_BASE_DOMAIN:-comandou.localhost}$$`) && PathPrefix(`/api`)
+      - traefik.http.routers.cm-api.entrypoints=web
+      - traefik.http.routers.cm-api.priority=100
+      - traefik.http.services.cm-api.loadbalancer.server.port=3000
     networks: [internal, edge]
 
   web:
     build: { context: ., dockerfile: infrastructure/docker/web.Dockerfile }
-    image: pedemais-web:dev
+    image: comandou-web:dev
     labels:
       - traefik.enable=true
-      - traefik.http.routers.pm-web.rule=HostRegexp(`^[a-z0-9-]+\.${PEDEMAIS_BASE_DOMAIN:-pedemais.localhost}$$`)
-      - traefik.http.routers.pm-web.entrypoints=web
-      - traefik.http.routers.pm-web.priority=10
-      - traefik.http.services.pm-web.loadbalancer.server.port=8080
+      - traefik.http.routers.cm-web.rule=HostRegexp(`^[a-z0-9-]+\.${COMANDOU_BASE_DOMAIN:-comandou.localhost}$$`)
+      - traefik.http.routers.cm-web.entrypoints=web
+      - traefik.http.routers.cm-web.priority=10
+      - traefik.http.services.cm-web.loadbalancer.server.port=8080
     networks: [edge]
 
   traefik:
@@ -94,7 +94,7 @@ services:
     command:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false
-      - --providers.docker.network=pedemais_edge
+      - --providers.docker.network=comandou_edge
       - --entrypoints.web.address=:80
       - --ping=true
     ports:
@@ -115,4 +115,4 @@ networks:
   internal:
     internal: true
   edge:
-    name: pedemais_edge
+    name: comandou_edge

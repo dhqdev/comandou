@@ -34,7 +34,7 @@ export class RedisThrottlerStorage implements ThrottlerStorage {
 
   constructor(
     url: string,
-    private readonly prefix = 'pm:throttle:',
+    private readonly prefix = 'cm:throttle:',
   ) {
     this.client = createClient({
       url,

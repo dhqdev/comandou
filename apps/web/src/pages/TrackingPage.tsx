@@ -55,9 +55,9 @@ export function TrackingPage() {
   return (
     <main className="track-page">
       <div className="track-page__inner">
-        <div className="brand" style={{ padding: 0, color: 'var(--pm-text)' }}>
+        <div className="brand" style={{ padding: 0, color: 'var(--cm-text)' }}>
           <div className="brand__mark" aria-hidden>
-            P+
+            C
           </div>
           <div className="brand__name">Rastreio do pedido</div>
         </div>
@@ -83,7 +83,7 @@ export function TrackingPage() {
             )}
             {data.location && (
               <a
-                className="pm-btn pm-btn--secondary"
+                className="cm-btn cm-btn--secondary"
                 href={`https://www.openstreetmap.org/?mlat=${data.location.lat}&mlon=${data.location.lng}#map=16/${data.location.lat}/${data.location.lng}`}
                 target="_blank"
                 rel="noreferrer"
@@ -91,7 +91,7 @@ export function TrackingPage() {
                 <MapPin size={16} /> Ver última localização ({time(data.location.at)})
               </a>
             )}
-            <p className="pm-hint">Esta página se atualiza sozinha a cada 30 segundos.</p>
+            <p className="cm-hint">Esta página se atualiza sozinha a cada 30 segundos.</p>
           </Card>
         )}
       </div>

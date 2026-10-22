@@ -14,7 +14,7 @@ done
 : "${DATABASE_OWNER_URL:?defina DATABASE_OWNER_URL ou DATABASE_OWNER_URL_FILE}"
 : "${AGE_IDENTITY_FILE:?defina AGE_IDENTITY_FILE (chave privada do age)}"
 BACKUP_TARGET="${BACKUP_TARGET:-s3}"   # s3 (B2, S3, MinIO) ou file (testes locais)
-S3_PREFIX="${S3_PREFIX:-pedemais}"
+S3_PREFIX="${S3_PREFIX:-comandou}"
 WORK_DIR="${WORK_DIR:-/tmp}"
 
 log() { echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) [$1] ${*:2}"; }

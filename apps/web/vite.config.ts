@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-const API_TARGET = process.env.PEDEMAIS_API_URL ?? 'http://localhost:3000';
+const API_TARGET = process.env.COMANDOU_API_URL ?? 'http://localhost:3000';
 
 export default defineConfig({
   plugins: [
@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: 'prompt',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'PedeMais',
-        short_name: 'PedeMais',
+        name: 'Comandou',
+        short_name: 'Comandou',
         description: 'Gestão completa para restaurantes',
         lang: 'pt-BR',
         theme_color: '#5B21B6',
@@ -44,8 +44,8 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
-    // Em dev, acesse http://<slug>.pedemais.localhost:5173 (*.localhost resolve para 127.0.0.1).
-    allowedHosts: ['.pedemais.localhost', 'localhost'],
+    // Em dev, acesse http://<slug>.comandou.localhost:5173 (*.localhost resolve para 127.0.0.1).
+    allowedHosts: ['.comandou.localhost', 'localhost'],
     proxy: {
       // changeOrigin=false preserva o Host do restaurante para a API resolver o tenant.
       '/api': { target: API_TARGET, changeOrigin: false, ws: true },

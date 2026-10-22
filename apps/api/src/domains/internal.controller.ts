@@ -12,7 +12,7 @@ export function traefikConfig(hostnames: string[], env: Env) {
   const routers: Record<string, unknown> = {};
   const tls = { certResolver: env.TRAEFIK_CUSTOM_CERT_RESOLVER };
   for (const h of hostnames) {
-    const id = `pm-domain-${createHash('sha256').update(h).digest('hex').slice(0, 12)}`;
+    const id = `cm-domain-${createHash('sha256').update(h).digest('hex').slice(0, 12)}`;
     routers[`${id}-api`] = {
       rule: `Host(\`${h}\`) && PathPrefix(\`/api\`)`,
       service: env.TRAEFIK_API_SERVICE,

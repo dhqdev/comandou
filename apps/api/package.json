@@ -1,8 +1,8 @@
 {
-  "name": "@pedemais/api",
-  "version": "0.7.0",
+  "name": "@comandou/api",
+  "version": "0.8.0",
   "private": true,
-  "description": "API NestJS do PedeMais (monólito modular).",
+  "description": "API NestJS do Comandou (monólito modular).",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/main.js",
@@ -23,7 +23,7 @@
     "@nestjs/swagger": "^11.2.0",
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/websockets": "^11.2.7",
-    "@pedemais/shared": "workspace:*",
+    "@comandou/shared": "workspace:*",
     "@socket.io/redis-adapter": "^8.3.0",
     "bullmq": "^5.81.5",
     "cookie": "^1.1.1",

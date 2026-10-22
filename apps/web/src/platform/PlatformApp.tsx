@@ -108,9 +108,9 @@ function PlatformLogin() {
       <div className="login__panel">
         <div className="login__brand">
           <div className="brand__mark" aria-hidden>
-            P+
+            C
           </div>
-          <span>PedeMais · Plataforma</span>
+          <span>Comandou · Plataforma</span>
         </div>
         <h1 className="login__title">Painel Super Admin</h1>
         <p className="login__sub">Acesso restrito à equipe da plataforma. Tudo é auditado.</p>
@@ -180,7 +180,7 @@ function PlatformShell() {
             <ShieldCheck size={18} />
           </div>
           <div>
-            <div className="brand__name">PedeMais</div>
+            <div className="brand__name">Comandou</div>
             <div className="brand__tenant">Super Admin</div>
           </div>
         </div>

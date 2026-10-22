@@ -1,4 +1,4 @@
--- PedeMais — 0008 Etapa 7: endurecimento para produção.
+-- Comandou — 0008 Etapa 7: endurecimento para produção.
 -- 1. Índices para o bloqueio temporário por conta após muitas senhas erradas (restaurante e painel).
 -- 2. Limpeza periódica de dados operacionais vencidos (LGPD e tamanho do banco). A função só
 --    apaga sessões encerradas há mais de 90 dias e chaves de idempotência com mais de 30 dias, e
@@ -44,4 +44,4 @@ BEGIN
     'deliveryLocations', n_locations);
 END $$;
 REVOKE ALL ON FUNCTION app_purge_expired() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION app_purge_expired() TO pedemais_app;
+GRANT EXECUTE ON FUNCTION app_purge_expired() TO comandou_app;

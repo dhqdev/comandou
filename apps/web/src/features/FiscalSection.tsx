@@ -141,7 +141,7 @@ export function FiscalSection({
           )}
         </div>
       ) : (
-        <p className="pm-hint" style={{ margin: 0 }}>
+        <p className="cm-hint" style={{ margin: 0 }}>
           {paid
             ? 'Nenhuma nota emitida.'
             : 'A nota é emitida depois que o pedido estiver totalmente pago.'}

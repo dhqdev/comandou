@@ -8,7 +8,7 @@ const ROUTE = new RegExp(`^/v1/sessions/(${UUID})(?:/(start|logout|messages))?$`
 const digest = (s: string) => createHash('sha256').update(s).digest();
 
 /**
- * API interna (só a API do PedeMais chama, na rede interna, com token). O restaurante vem da URL
+ * API interna (só a API do Comandou chama, na rede interna, com token). O restaurante vem da URL
  * que a API monta a partir do Host resolvido — nunca do navegador.
  */
 export function createGatewayServer(sessions: SessionManager, token: string) {

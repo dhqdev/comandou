@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Teste de carga do PedeMais (Node 22, sem dependências).
+// Teste de carga do Comandou (Node 22, sem dependências).
 //
 // Simula vários restaurantes ao mesmo tempo, cada um com vários caixas:
 //   1. leitura   GET  /api/v1/menu                         (cardápio, a tela mais aberta)
@@ -7,7 +7,7 @@
 //   3. disputa   5 pagamentos simultâneos do saldo inteiro do mesmo pedido → só 1 pode passar
 //
 // Cada restaurante precisa existir e ter um usuário administrador. Uso:
-//   LOAD_TARGET=http://127.0.0.1:3000 LOAD_BASE_DOMAIN=pedemais.localhost \
+//   LOAD_TARGET=http://127.0.0.1:3000 LOAD_BASE_DOMAIN=comandou.localhost \
 //   LOAD_TENANTS=load-1,load-2 LOAD_EMAIL='dono@{slug}.local' LOAD_PASSWORD=... \
 //   LOAD_CONCURRENCY=8 LOAD_SECONDS=30 node tools/load/load.mjs
 //
@@ -21,7 +21,7 @@ import { writeFileSync } from 'node:fs';
 
 const env = process.env;
 const TARGET = new URL(env.LOAD_TARGET ?? 'http://127.0.0.1:3000');
-const DOMAIN = env.LOAD_BASE_DOMAIN ?? 'pedemais.localhost';
+const DOMAIN = env.LOAD_BASE_DOMAIN ?? 'comandou.localhost';
 const TENANTS = (env.LOAD_TENANTS ?? '').split(',').filter(Boolean);
 const EMAIL = env.LOAD_EMAIL ?? 'dono@{slug}.local';
 const PASSWORD = env.LOAD_PASSWORD ?? '';
@@ -42,7 +42,7 @@ const agent = new lib.Agent({ keepAlive: true, maxSockets: 512 });
 function call(slug, method, path, { body, cookie, idem } = {}) {
   const host = `${slug}.${DOMAIN}`;
   const data = body === undefined ? undefined : JSON.stringify(body);
-  const headers = { Host: host, 'X-PedeMais-Request': '1', Accept: 'application/json' };
+  const headers = { Host: host, 'X-Comandou-Request': '1', Accept: 'application/json' };
   if (data) {
     headers['Content-Type'] = 'application/json';
     headers['Content-Length'] = Buffer.byteLength(data);

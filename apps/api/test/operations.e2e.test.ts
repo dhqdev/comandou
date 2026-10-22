@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
-import { fromCents, splitCents, toCents } from '@pedemais/shared';
+import { fromCents, splitCents, toCents } from '@comandou/shared';
 import type { AddressInfo } from 'node:net';
 import { io, Socket } from 'socket.io-client';
 import request from 'supertest';
@@ -14,9 +14,9 @@ import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
  * Etapa 3: adicionais, pedidos, cozinha, salão, caixa, pagamentos, estornos, relatórios e
  * tempo real — sempre pela API HTTP real, com dois restaurantes para checar isolamento.
  */
-const HOST_A = 'ops-a.pedemais.test';
-const HOST_B = 'ops-b.pedemais.test';
-const CSRF = { 'X-PedeMais-Request': '1' };
+const HOST_A = 'ops-a.comandou.test';
+const HOST_B = 'ops-b.comandou.test';
+const CSRF = { 'X-Comandou-Request': '1' };
 
 let app: INestApplication;
 let fx: Fixture;
@@ -34,7 +34,7 @@ async function login(host: string, email: string) {
     .send({ email, password: PASSWORD });
   expect(res.status).toBe(200);
   const raw = res.headers['set-cookie'] as unknown as string[];
-  return raw.find((c) => c.startsWith('pm_sid='))!.split(';')[0];
+  return raw.find((c) => c.startsWith('cm_sid='))!.split(';')[0];
 }
 
 type Who = 'adminA' | 'adminB' | 'waiterA' | 'kitchenA' | 'cashierA';

@@ -126,7 +126,7 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   await expect(pay.getByText('Troco: R$ 21,50')).toBeVisible();
   await pay.getByRole('button', { name: /Confirmar/ }).click();
   await expect(page.getByText('Pagamento confirmado. Troco: R$ 21,50')).toBeVisible();
-  await expect(dialog.locator('.pm-badge', { hasText: /^Pago$/ })).toBeVisible();
+  await expect(dialog.locator('.cm-badge', { hasText: /^Pago$/ })).toBeVisible();
   await shot(page, info.project.name, 'pedido-pago');
   await dialog.getByRole('button', { name: 'Fechar' }).click();
 

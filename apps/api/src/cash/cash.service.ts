@@ -12,7 +12,7 @@ import {
   paymentStatusFor,
   roleHas,
   toCents,
-} from '@pedemais/shared';
+} from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import type { Ctx } from '../common/context';
 import { withIdempotency } from '../common/idempotency';

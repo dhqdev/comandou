@@ -3,7 +3,7 @@ import {
   ORDER_STATUSES,
   type OrderChannel,
   type OrderStatus,
-} from '@pedemais/shared';
+} from '@comandou/shared';
 import { ClipboardList } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Card, EmptyState, Skeleton } from '../design-system';
@@ -63,19 +63,19 @@ export function OrdersPage() {
         <p className="page-sub">Histórico do dia com status operacional e financeiro.</p>
       </div>
       <div className="filters">
-        <label className="pm-field">
-          <span className="pm-label">Dia</span>
+        <label className="cm-field">
+          <span className="cm-label">Dia</span>
           <input
-            className="pm-input"
+            className="cm-input"
             type="date"
             value={day}
             onChange={(e) => setDay(e.target.value)}
           />
         </label>
-        <label className="pm-field">
-          <span className="pm-label">Status</span>
+        <label className="cm-field">
+          <span className="cm-label">Status</span>
           <select
-            className="pm-input"
+            className="cm-input"
             value={status}
             onChange={(e) => setStatus(e.target.value as OrderStatus | '')}
           >
@@ -87,10 +87,10 @@ export function OrdersPage() {
             ))}
           </select>
         </label>
-        <label className="pm-field">
-          <span className="pm-label">Canal</span>
+        <label className="cm-field">
+          <span className="cm-label">Canal</span>
           <select
-            className="pm-input"
+            className="cm-input"
             value={channel}
             onChange={(e) => setChannel(e.target.value as OrderChannel | '')}
           >
@@ -113,7 +113,7 @@ export function OrdersPage() {
           <EmptyState icon={<ClipboardList size={20} />} title="Nenhum pedido neste filtro" />
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table className="pm-table pm-table--click">
+            <table className="cm-table cm-table--click">
               <thead>
                 <tr>
                   <th>#</th>
@@ -122,7 +122,7 @@ export function OrdersPage() {
                   <th>Cliente / mesa</th>
                   <th>Status</th>
                   <th>Pagamento</th>
-                  <th className="pm-num">Total</th>
+                  <th className="cm-num">Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -147,7 +147,7 @@ export function OrdersPage() {
                         {PAYMENT_STATUS_LABEL[o.paymentStatus]}
                       </Badge>
                     </td>
-                    <td className="pm-num">{brl(o.total)}</td>
+                    <td className="cm-num">{brl(o.total)}</td>
                   </tr>
                 ))}
               </tbody>

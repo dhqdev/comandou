@@ -74,7 +74,7 @@ export function verifyTotp(
   return null;
 }
 
-export function otpauthUri(secretB32: string, account: string, issuer = 'PedeMais Admin'): string {
+export function otpauthUri(secretB32: string, account: string, issuer = 'Comandou Admin'): string {
   const label = encodeURIComponent(`${issuer}:${account}`);
   return `otpauth://totp/${label}?secret=${secretB32}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=${TOTP_STEP_SECONDS}`;
 }

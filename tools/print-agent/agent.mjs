@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// Agente local de impressão do PedeMais.
+// Agente local de impressão do Comandou.
 // Roda no computador do restaurante (Windows, Linux ou macOS com Node.js 22+), busca os
 // trabalhos de impressão na API do restaurante e envia para as impressoras térmicas.
 //
 // Variáveis:
-//   PEDEMAIS_URL           endereço do restaurante (ex.: https://burguer.comandou.com)
-//   PEDEMAIS_AGENT_TOKEN   token gerado em Impressão > Agentes (começa com "pma_")
+//   COMANDOU_URL           endereço do restaurante (ex.: https://burguer.comandou.com)
+//   COMANDOU_AGENT_TOKEN   token gerado em Impressão > Agentes (começa com "pma_")
 //   PRINTER_DEFAULT        impressora padrão: tcp://IP:9100 | file:/caminho | stdout
 //   PRINTER_<DESTINO>      impressora de um destino (ex.: PRINTER_CHAPA, PRINTER_CAIXA).
 //                          O destino é o nome do setor da cozinha (ou "Caixa"), em
@@ -16,12 +16,12 @@ import net from 'node:net';
 import { toEscPos } from './escpos.mjs';
 
 const VERSION = '0.3.0';
-const BASE = (process.env.PEDEMAIS_URL ?? '').replace(/\/+$/, '');
-const TOKEN = process.env.PEDEMAIS_AGENT_TOKEN ?? '';
+const BASE = (process.env.COMANDOU_URL ?? '').replace(/\/+$/, '');
+const TOKEN = process.env.COMANDOU_AGENT_TOKEN ?? '';
 const POLL_MS = Math.max(1000, Number(process.env.POLL_MS ?? 3000));
 
 if (!/^https?:\/\//.test(BASE) || !TOKEN.startsWith('pma_')) {
-  console.error('Configure PEDEMAIS_URL (https://...) e PEDEMAIS_AGENT_TOKEN (pma_...).');
+  console.error('Configure COMANDOU_URL (https://...) e COMANDOU_AGENT_TOKEN (pma_...).');
   process.exit(1);
 }
 if (BASE.startsWith('http://') && !/localhost|127\.0\.0\.1/.test(BASE)) {
@@ -50,7 +50,7 @@ async function api(path, body) {
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${TOKEN}`,
-      'X-PedeMais-Request': '1',
+      'X-Comandou-Request': '1',
     },
     body: JSON.stringify(body ?? {}),
     signal: AbortSignal.timeout(15_000),
@@ -110,7 +110,7 @@ async function tick() {
 }
 
 async function main() {
-  console.log(`PedeMais agente de impressão v${VERSION} → ${BASE}`);
+  console.log(`Comandou agente de impressão v${VERSION} → ${BASE}`);
   let wait = POLL_MS;
   for (;;) {
     try {
@@ -123,7 +123,7 @@ async function main() {
       }
       wait = Math.min(wait * 2, 60_000);
       console.error(
-        `Sem conexão com o PedeMais (${err.message}); nova tentativa em ${wait / 1000}s`,
+        `Sem conexão com o Comandou (${err.message}); nova tentativa em ${wait / 1000}s`,
       );
     }
     await new Promise((r) => setTimeout(r, wait));

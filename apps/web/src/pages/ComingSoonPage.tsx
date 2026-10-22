@@ -9,7 +9,7 @@ export function ComingSoonPage({ title }: { title: string }) {
         <EmptyState
           icon={<Hammer size={20} />}
           title="Em construção"
-          description="Este módulo faz parte das próximas etapas do roadmap do PedeMais."
+          description="Este módulo faz parte das próximas etapas do roadmap do Comandou."
         />
       </Card>
     </>

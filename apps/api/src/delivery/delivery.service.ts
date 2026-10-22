@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { roleHas } from '@pedemais/shared';
+import { roleHas } from '@comandou/shared';
 import { createHash, randomBytes } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
 import type { Ctx } from '../common/context';

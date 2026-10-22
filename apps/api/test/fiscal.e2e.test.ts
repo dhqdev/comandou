@@ -16,9 +16,9 @@ import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
  * "em processamento", referência já usada, falha temporária, rejeição, cancelamento e
  * isolamento entre restaurantes. Com TEST_REDIS_URL, a fila roda de verdade no BullMQ.
  */
-const HOST_A = 'fi-a.pedemais.test';
-const HOST_B = 'fi-b.pedemais.test';
-const CSRF = { 'X-PedeMais-Request': '1' };
+const HOST_A = 'fi-a.comandou.test';
+const HOST_B = 'fi-b.comandou.test';
+const CSRF = { 'X-Comandou-Request': '1' };
 const TOKEN = 'tok-homolog-abc-1234';
 
 type Mode = 'authorize' | 'processing' | 'reject' | 'fail-once' | 'ref-used' | 'down';
@@ -162,7 +162,7 @@ async function login(host: string, email: string) {
     .send({ email, password: PASSWORD });
   expect(res.status).toBe(200);
   const raw = res.headers['set-cookie'] as unknown as string[];
-  return raw.find((c) => c.startsWith('pm_sid='))!.split(';')[0];
+  return raw.find((c) => c.startsWith('cm_sid='))!.split(';')[0];
 }
 
 async function addUser(tenantId: string, email: string, role: string) {

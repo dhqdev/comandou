@@ -5,8 +5,8 @@
 #   - Certificado coringa (*.dominio, exige DNS-01): acrescente -c infrastructure/swarm/wildcard.yml.
 #     Sem ele, cada endereço pede o próprio certificado (HTTP-01).
 #   - Super Admin: PLATFORM_ADMIN_EMAIL (+ opcional PLATFORM_ADMIN_NAME) e os secrets
-#     pedemais_platform_admin_password / pedemais_platform_admin_totp. Criado só se não houver nenhum.
-#   - Variáveis: PEDEMAIS_VERSION (tag imutável), PEDEMAIS_BASE_DOMAIN (comandou.com),
+#     comandou_platform_admin_password / comandou_platform_admin_totp. Criado só se não houver nenhum.
+#   - Variáveis: COMANDOU_VERSION (tag imutável), COMANDOU_BASE_DOMAIN (comandou.com),
 #     TRAEFIK_ENTRYPOINT (ex.: websecure), TRAEFIK_CERT_RESOLVER (ex.: letsencryptresolver),
 #     TRAEFIK_CUSTOM_CERT_RESOLVER (HTTP-01, domínios dos clientes), BACKUP_S3_BUCKET e
 #     BACKUP_S3_ENDPOINT (ex.: https://s3.us-west-004.backblazeb2.com).
@@ -20,24 +20,24 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_PASSWORD_FILE: /run/secrets/pedemais_pg_password
-      PEDEMAIS_OWNER_PASSWORD_FILE: /run/secrets/pedemais_owner_password
-      PEDEMAIS_APP_PASSWORD_FILE: /run/secrets/pedemais_app_password
-      PEDEMAIS_PLATFORM_PASSWORD_FILE: /run/secrets/pedemais_platform_password
+      POSTGRES_PASSWORD_FILE: /run/secrets/comandou_pg_password
+      COMANDOU_OWNER_PASSWORD_FILE: /run/secrets/comandou_owner_password
+      COMANDOU_APP_PASSWORD_FILE: /run/secrets/comandou_app_password
+      COMANDOU_PLATFORM_PASSWORD_FILE: /run/secrets/comandou_platform_password
     secrets:
       [
-        pedemais_pg_password,
-        pedemais_owner_password,
-        pedemais_app_password,
-        pedemais_platform_password,
+        comandou_pg_password,
+        comandou_owner_password,
+        comandou_app_password,
+        comandou_platform_password,
       ]
     volumes:
-      - pedemais_pgdata:/var/lib/postgresql/data
+      - comandou_pgdata:/var/lib/postgresql/data
     configs:
-      - source: pedemais_pg_init
+      - source: comandou_pg_init
         target: /docker-entrypoint-initdb.d/01-roles.sh
         mode: 0555
-    networks: [pedemais_internal]
+    networks: [comandou_internal]
     deploy:
       replicas: 1
       placement:
@@ -51,8 +51,8 @@ services:
     image: redis:7.4-alpine
     command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
     volumes:
-      - pedemais_redisdata:/data
-    networks: [pedemais_internal]
+      - comandou_redisdata:/data
+    networks: [comandou_internal]
     deploy:
       replicas: 1
       placement:
@@ -64,16 +64,16 @@ services:
   # WhatsApp por QR Code (Baileys). Uma sessão por restaurante, cifrada no volume. Só na rede interna:
   # apenas a API fala com ele, com token próprio.
   whatsapp-gateway:
-    image: ghcr.io/dhqdev/pedemais-whatsapp-gateway:${PEDEMAIS_VERSION:?defina a versão}
+    image: ghcr.io/dhqdev/comandou-whatsapp-gateway:${COMANDOU_VERSION:?defina a versão}
     init: true
     environment:
-      GATEWAY_TOKEN_FILE: /run/secrets/pedemais_wa_gateway_token
-      SESSION_KEY_FILE: /run/secrets/pedemais_wa_session_key
+      GATEWAY_TOKEN_FILE: /run/secrets/comandou_wa_gateway_token
+      SESSION_KEY_FILE: /run/secrets/comandou_wa_session_key
       LOG_LEVEL: info
-    secrets: [pedemais_wa_gateway_token, pedemais_wa_session_key]
+    secrets: [comandou_wa_gateway_token, comandou_wa_session_key]
     volumes:
-      - pedemais_wadata:/data
-    networks: [pedemais_internal, pedemais_egress]
+      - comandou_wadata:/data
+    networks: [comandou_internal, comandou_egress]
     deploy:
       replicas: 1 # uma conexão por número: nunca mais de uma réplica
       placement:
@@ -85,25 +85,25 @@ services:
   # Backup diário (pg_dump cifrado com age → B2/S3) e teste semanal de restauração num Postgres
   # temporário dentro do próprio contêiner. Registra cada execução em backup_runs (painel).
   backup:
-    image: ghcr.io/dhqdev/pedemais-backup:${PEDEMAIS_VERSION:?defina a versão}
+    image: ghcr.io/dhqdev/comandou-backup:${COMANDOU_VERSION:?defina a versão}
     environment:
-      DATABASE_OWNER_URL_FILE: /run/secrets/pedemais_db_owner_url
-      AWS_ACCESS_KEY_ID_FILE: /run/secrets/pedemais_backup_s3_key_id
-      AWS_SECRET_ACCESS_KEY_FILE: /run/secrets/pedemais_backup_s3_secret
-      AGE_IDENTITY_FILE: /run/secrets/pedemais_backup_age_identity
+      DATABASE_OWNER_URL_FILE: /run/secrets/comandou_db_owner_url
+      AWS_ACCESS_KEY_ID_FILE: /run/secrets/comandou_backup_s3_key_id
+      AWS_SECRET_ACCESS_KEY_FILE: /run/secrets/comandou_backup_s3_secret
+      AGE_IDENTITY_FILE: /run/secrets/comandou_backup_age_identity
       S3_BUCKET: ${BACKUP_S3_BUCKET:?defina BACKUP_S3_BUCKET}
       S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:?defina BACKUP_S3_ENDPOINT}
       S3_REGION: ${BACKUP_S3_REGION:-}
-      S3_PREFIX: ${BACKUP_S3_PREFIX:-pedemais}
+      S3_PREFIX: ${BACKUP_S3_PREFIX:-comandou}
       BACKUP_AT: ${BACKUP_AT:-06:00} # UTC (03:00 em Brasília)
       RESTORE_TEST_AT: ${RESTORE_TEST_AT:-08:00}
       RESTORE_TEST_WEEKDAY: ${RESTORE_TEST_WEEKDAY:-7}
     secrets:
-      - pedemais_db_owner_url
-      - pedemais_backup_s3_key_id
-      - pedemais_backup_s3_secret
-      - pedemais_backup_age_identity
-    networks: [pedemais_internal, pedemais_egress]
+      - comandou_db_owner_url
+      - comandou_backup_s3_key_id
+      - comandou_backup_s3_secret
+      - comandou_backup_age_identity
+    networks: [comandou_internal, comandou_egress]
     deploy:
       replicas: 1
       placement:
@@ -113,60 +113,60 @@ services:
         limits: { memory: 768M }
 
   migrate:
-    image: ghcr.io/dhqdev/pedemais-api:${PEDEMAIS_VERSION:?defina a versão}
+    image: ghcr.io/dhqdev/comandou-api:${COMANDOU_VERSION:?defina a versão}
     # Migra o banco e cria o Super Admin se ainda não existir nenhum (não altera um existente).
     command:
       - sh
       - -c
       - node dist/database/migrate-cli.js && node dist/platform/platform-admin-cli.js --bootstrap
     environment:
-      DATABASE_OWNER_URL_FILE: /run/secrets/pedemais_db_owner_url
-      INTEGRATIONS_KEY_FILE: /run/secrets/pedemais_integrations_key
+      DATABASE_OWNER_URL_FILE: /run/secrets/comandou_db_owner_url
+      INTEGRATIONS_KEY_FILE: /run/secrets/comandou_integrations_key
       PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-}
       PLATFORM_ADMIN_NAME: ${PLATFORM_ADMIN_NAME:-Administrador}
-      PLATFORM_ADMIN_PASSWORD_FILE: /run/secrets/pedemais_platform_admin_password
-      PLATFORM_ADMIN_TOTP_SECRET_FILE: /run/secrets/pedemais_platform_admin_totp
+      PLATFORM_ADMIN_PASSWORD_FILE: /run/secrets/comandou_platform_admin_password
+      PLATFORM_ADMIN_TOTP_SECRET_FILE: /run/secrets/comandou_platform_admin_totp
     secrets:
       [
-        pedemais_db_owner_url,
-        pedemais_integrations_key,
-        pedemais_platform_admin_password,
-        pedemais_platform_admin_totp,
+        comandou_db_owner_url,
+        comandou_integrations_key,
+        comandou_platform_admin_password,
+        comandou_platform_admin_totp,
       ]
-    networks: [pedemais_internal]
+    networks: [comandou_internal]
     deploy:
       replicas: 1
       restart_policy: { condition: on-failure, max_attempts: 5, delay: 10s }
 
   api:
-    image: ghcr.io/dhqdev/pedemais-api:${PEDEMAIS_VERSION:?defina a versão}
+    image: ghcr.io/dhqdev/comandou-api:${COMANDOU_VERSION:?defina a versão}
     init: true
     environment:
       NODE_ENV: production
-      DATABASE_URL_FILE: /run/secrets/pedemais_db_app_url
-      PEDEMAIS_BASE_DOMAIN: ${PEDEMAIS_BASE_DOMAIN:-comandou.com}
+      DATABASE_URL_FILE: /run/secrets/comandou_db_app_url
+      COMANDOU_BASE_DOMAIN: ${COMANDOU_BASE_DOMAIN:-comandou.com}
       TRUST_PROXY: 'true'
       COOKIE_SECURE: 'true'
       LOG_LEVEL: info
       REDIS_URL: redis://redis:6379
       # Chave (32 bytes base64) que cifra tokens da Focus NFe e do WhatsApp no banco.
-      INTEGRATIONS_KEY_FILE: /run/secrets/pedemais_integrations_key
+      INTEGRATIONS_KEY_FILE: /run/secrets/comandou_integrations_key
       WHATSAPP_GATEWAY_URL: http://whatsapp-gateway:3100
-      WHATSAPP_GATEWAY_TOKEN_FILE: /run/secrets/pedemais_wa_gateway_token
+      WHATSAPP_GATEWAY_TOKEN_FILE: /run/secrets/comandou_wa_gateway_token
       # Etapa 6: painel Super Admin (admin.comandou.com), métricas e domínios dos clientes.
-      PLATFORM_DATABASE_URL_FILE: /run/secrets/pedemais_db_platform_url
-      METRICS_TOKEN_FILE: /run/secrets/pedemais_metrics_token
-      TRAEFIK_PROVIDER_TOKEN_FILE: /run/secrets/pedemais_traefik_provider_token
+      PLATFORM_DATABASE_URL_FILE: /run/secrets/comandou_db_platform_url
+      METRICS_TOKEN_FILE: /run/secrets/comandou_metrics_token
+      TRAEFIK_PROVIDER_TOKEN_FILE: /run/secrets/comandou_traefik_provider_token
       TRAEFIK_ENTRYPOINT: ${TRAEFIK_ENTRYPOINT:-websecure}
       TRAEFIK_CUSTOM_CERT_RESOLVER: ${TRAEFIK_CUSTOM_CERT_RESOLVER:-letsencrypt-http}
     secrets:
-      - pedemais_db_app_url
-      - pedemais_integrations_key
-      - pedemais_wa_gateway_token
-      - pedemais_db_platform_url
-      - pedemais_metrics_token
-      - pedemais_traefik_provider_token
-    networks: [pedemais_internal, network_public]
+      - comandou_db_app_url
+      - comandou_integrations_key
+      - comandou_wa_gateway_token
+      - comandou_db_platform_url
+      - comandou_metrics_token
+      - comandou_traefik_provider_token
+    networks: [comandou_internal, network_public]
     deploy:
       replicas: 2
       update_config: { parallelism: 1, order: start-first, failure_action: rollback, delay: 10s }
@@ -177,17 +177,17 @@ services:
       labels:
         - traefik.enable=true
         - traefik.docker.network=network_public
-        - traefik.http.routers.pedemais-api.rule=HostRegexp(`^[a-z0-9-]+\.${PEDEMAIS_BASE_DOMAIN:-comandou.com}$$`) && PathPrefix(`/api`)
-        - traefik.http.routers.pedemais-api.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
-        - traefik.http.routers.pedemais-api.tls=true
-        - traefik.http.routers.pedemais-api.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}
-        - traefik.http.routers.pedemais-api.priority=100
-        - traefik.http.services.pedemais-api.loadbalancer.server.port=3000
-        - traefik.http.services.pedemais-api.loadbalancer.healthcheck.path=/api/v1/health/ready
-        - traefik.http.services.pedemais-api.loadbalancer.healthcheck.interval=10s
+        - traefik.http.routers.comandou-api.rule=HostRegexp(`^[a-z0-9-]+\.${COMANDOU_BASE_DOMAIN:-comandou.com}$$`) && PathPrefix(`/api`)
+        - traefik.http.routers.comandou-api.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
+        - traefik.http.routers.comandou-api.tls=true
+        - traefik.http.routers.comandou-api.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}
+        - traefik.http.routers.comandou-api.priority=100
+        - traefik.http.services.comandou-api.loadbalancer.server.port=3000
+        - traefik.http.services.comandou-api.loadbalancer.healthcheck.path=/api/v1/health/ready
+        - traefik.http.services.comandou-api.loadbalancer.healthcheck.interval=10s
 
   web:
-    image: ghcr.io/dhqdev/pedemais-web:${PEDEMAIS_VERSION:?defina a versão}
+    image: ghcr.io/dhqdev/comandou-web:${COMANDOU_VERSION:?defina a versão}
     networks: [network_public]
     deploy:
       replicas: 2
@@ -198,46 +198,46 @@ services:
       labels:
         - traefik.enable=true
         - traefik.docker.network=network_public
-        - traefik.http.routers.pedemais-web.rule=HostRegexp(`^[a-z0-9-]+\.${PEDEMAIS_BASE_DOMAIN:-comandou.com}$$`)
-        - traefik.http.routers.pedemais-web.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
-        - traefik.http.routers.pedemais-web.tls=true
-        - traefik.http.routers.pedemais-web.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}
-        - traefik.http.routers.pedemais-web.priority=10
-        - traefik.http.services.pedemais-web.loadbalancer.server.port=8080
+        - traefik.http.routers.comandou-web.rule=HostRegexp(`^[a-z0-9-]+\.${COMANDOU_BASE_DOMAIN:-comandou.com}$$`)
+        - traefik.http.routers.comandou-web.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
+        - traefik.http.routers.comandou-web.tls=true
+        - traefik.http.routers.comandou-web.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}
+        - traefik.http.routers.comandou-web.priority=10
+        - traefik.http.services.comandou-web.loadbalancer.server.port=8080
 
 networks:
   network_public:
     external: true # rede pública já existente do Traefik — NÃO criar outra
-  pedemais_internal:
+  comandou_internal:
     driver: overlay
     internal: true # Postgres sem acesso externo
-  pedemais_egress:
+  comandou_egress:
     driver: overlay # saída para a internet do gateway de WhatsApp (sem portas publicadas)
 
 volumes:
-  pedemais_pgdata:
-  pedemais_redisdata:
-  pedemais_wadata:
+  comandou_pgdata:
+  comandou_redisdata:
+  comandou_wadata:
 
 configs:
-  pedemais_pg_init:
+  comandou_pg_init:
     file: ../docker/postgres-init/01-roles.sh
 
 secrets:
-  pedemais_pg_password: { external: true }
-  pedemais_owner_password: { external: true }
-  pedemais_app_password: { external: true }
-  pedemais_db_app_url: { external: true }
-  pedemais_db_owner_url: { external: true }
-  pedemais_integrations_key: { external: true }
-  pedemais_wa_gateway_token: { external: true }
-  pedemais_wa_session_key: { external: true }
-  pedemais_platform_password: { external: true }
-  pedemais_db_platform_url: { external: true }
-  pedemais_metrics_token: { external: true }
-  pedemais_traefik_provider_token: { external: true }
-  pedemais_backup_s3_key_id: { external: true }
-  pedemais_backup_s3_secret: { external: true }
-  pedemais_backup_age_identity: { external: true }
-  pedemais_platform_admin_password: { external: true }
-  pedemais_platform_admin_totp: { external: true }
+  comandou_pg_password: { external: true }
+  comandou_owner_password: { external: true }
+  comandou_app_password: { external: true }
+  comandou_db_app_url: { external: true }
+  comandou_db_owner_url: { external: true }
+  comandou_integrations_key: { external: true }
+  comandou_wa_gateway_token: { external: true }
+  comandou_wa_session_key: { external: true }
+  comandou_platform_password: { external: true }
+  comandou_db_platform_url: { external: true }
+  comandou_metrics_token: { external: true }
+  comandou_traefik_provider_token: { external: true }
+  comandou_backup_s3_key_id: { external: true }
+  comandou_backup_s3_secret: { external: true }
+  comandou_backup_age_identity: { external: true }
+  comandou_platform_admin_password: { external: true }
+  comandou_platform_admin_totp: { external: true }

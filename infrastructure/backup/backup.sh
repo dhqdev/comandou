@@ -6,12 +6,12 @@ set -euo pipefail
 . "$(dirname "$0")/common.sh"
 
 RUN_ID="$(run_start backup)"
-TMP="$(mktemp -d "$WORK_DIR/pm-backup.XXXXXX")"
+TMP="$(mktemp -d "$WORK_DIR/cm-backup.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 fail() { log backup "ERRO: $1"; run_finish "$RUN_ID" failed '{}' "$1" || true; exit 1; }
 
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
-KEY="$S3_PREFIX/$(date -u +%Y/%m)/pedemais-$TS.dump.age"
+KEY="$S3_PREFIX/$(date -u +%Y/%m)/comandou-$TS.dump.age"
 RECIPIENT="$(age-keygen -y "$AGE_IDENTITY_FILE")" || fail "chave age inválida"
 
 log backup "início (registro $RUN_ID)"

@@ -1,4 +1,4 @@
-# PedeMais
+# Comandou
 
 Sistema para restaurantes, vendido como serviço (SaaS): cada restaurante tem o próprio endereço
 (`<restaurante>.comandou.com` ou um domínio próprio) e usa PDV, salão, cozinha, caixa, cardápio,
@@ -75,7 +75,7 @@ docs/                 arquitetura, decisões (ADR), operação, deploy, testes
 ## Instalar em um servidor
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dhqdev/pedemais/main/scripts/get.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/dhqdev/comandou/main/scripts/get.sh | sudo bash
 ```
 
 AMD64 ou ARM64, com Docker/Swarm, HTTPS e segredos preparados pelo instalador; o Super Admin nasce do
@@ -88,7 +88,7 @@ cp .env.example .env    # troque as senhas
 docker compose up -d --build
 docker compose run --rm -e PROVISION_ADMIN_PASSWORD='uma-senha-forte' migrate \
   node dist/provisioning/provision-cli.js demo "Restaurante Demo" dono@demo.local "Dono Demo"
-# abra http://demo.pedemais.localhost:8080
+# abra http://demo.comandou.localhost:8080
 ```
 
 Desenvolvimento sem Docker, testes e migrações: [docs/development.md](docs/development.md).

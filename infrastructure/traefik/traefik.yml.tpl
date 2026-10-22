@@ -18,7 +18,7 @@ providers:
     exposedByDefault: false
     network: network_public
   http:
-    endpoint: http://pedemais_api:3000/api/v1/internal/traefik
+    endpoint: http://comandou_api:3000/api/v1/internal/traefik
     pollInterval: 30s
     headers:
       Authorization: Bearer @PROVIDER_TOKEN@

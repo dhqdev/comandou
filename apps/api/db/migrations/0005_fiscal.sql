@@ -1,4 +1,4 @@
--- PedeMais — 0005 Etapa 5: nota fiscal ao consumidor (NFC-e) via Focus NFe.
+-- Comandou — 0005 Etapa 5: nota fiscal ao consumidor (NFC-e) via Focus NFe.
 -- O token da Focus NFe é guardado CIFRADO pela aplicação (AES-256-GCM, chave fora do banco).
 -- Documentos fiscais nunca são apagados; cancelamento é um estado com motivo.
 
@@ -75,9 +75,9 @@ CREATE POLICY tenant_isolation ON tenant_fiscal_settings
 CREATE POLICY tenant_isolation ON fiscal_documents
   USING (tenant_id = app_current_tenant()) WITH CHECK (tenant_id = app_current_tenant());
 
-GRANT SELECT, INSERT, UPDATE ON tenant_fiscal_settings TO pedemais_app;
-GRANT SELECT, INSERT ON fiscal_documents TO pedemais_app;
+GRANT SELECT, INSERT, UPDATE ON tenant_fiscal_settings TO comandou_app;
+GRANT SELECT, INSERT ON fiscal_documents TO comandou_app;
 -- O conteúdo enviado (payload, total, pedido, referência) não muda depois de criado.
 GRANT UPDATE (status, attempts, provider_status, sefaz_status, sefaz_message, access_key, number, series,
               xml_path, danfe_path, qrcode_url, cancel_reason, last_error, authorized_at, cancelled_at, updated_at)
-  ON fiscal_documents TO pedemais_app;
+  ON fiscal_documents TO comandou_app;

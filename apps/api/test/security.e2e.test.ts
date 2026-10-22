@@ -13,9 +13,9 @@ import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
  * Etapa 7: bloqueio por conta, limite de requisições compartilhado entre réplicas (Redis) e
  * limpeza de dados vencidos.
  */
-const HOST_A = 'sec-a.pedemais.test';
-const HOST_B = 'sec-b.pedemais.test';
-const CSRF = { 'X-PedeMais-Request': '1' };
+const HOST_A = 'sec-a.comandou.test';
+const HOST_B = 'sec-b.comandou.test';
+const CSRF = { 'X-Comandou-Request': '1' };
 const REDIS = process.env.TEST_REDIS_URL;
 
 let fx: Fixture;

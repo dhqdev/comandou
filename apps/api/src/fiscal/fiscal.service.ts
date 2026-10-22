@@ -8,7 +8,7 @@ import {
   OnModuleInit,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { allocateCents, fromCents, toCents } from '@pedemais/shared';
+import { allocateCents, fromCents, toCents } from '@comandou/shared';
 import { randomUUID } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
 import type { Ctx } from '../common/context';

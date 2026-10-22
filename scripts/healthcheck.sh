@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verifica a saúde de um ambiente PedeMais pelo endereço público.
+# Verifica a saúde de um ambiente Comandou pelo endereço público.
 # Uso: scripts/healthcheck.sh https://demo.comandou.com
 set -euo pipefail
 BASE="${1:?uso: $0 <url-de-um-restaurante>}"

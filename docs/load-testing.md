@@ -12,7 +12,7 @@ em vários restaurantes ao mesmo tempo, cada um com vários caixas, e mede três
 No fim confere que o cookie de um restaurante não abre outro.
 
 ```bash
-LOAD_TARGET=http://127.0.0.1:3000 LOAD_BASE_DOMAIN=pedemais.localhost \
+LOAD_TARGET=http://127.0.0.1:3000 LOAD_BASE_DOMAIN=comandou.localhost \
 LOAD_TENANTS=load-1,load-2,load-3 LOAD_EMAIL='dono@{slug}.local' LOAD_PASSWORD=... \
 LOAD_CONCURRENCY=4 LOAD_SECONDS=30 node tools/load/load.mjs
 ```

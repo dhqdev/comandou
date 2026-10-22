@@ -1,4 +1,4 @@
-import { ROLE_LABELS, ROLES, type Role } from '@pedemais/shared';
+import { ROLE_LABELS, ROLES, type Role } from '@comandou/shared';
 import { UserPlus, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -64,14 +64,14 @@ export function TeamPage() {
       {error && <Alert tone="danger">{error}</Alert>}
       <Card bodyless>
         {members === null ? (
-          <div className="pm-card__body">
+          <div className="cm-card__body">
             <Spinner />
           </div>
         ) : members.length === 0 ? (
           <EmptyState icon={<Users size={20} />} title="Ninguém na equipe ainda" />
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table className="pm-table">
+            <table className="cm-table">
               <thead>
                 <tr>
                   <th>Pessoa</th>
@@ -88,14 +88,14 @@ export function TeamPage() {
                       <td>
                         <strong>{m.name}</strong> {self && <Badge tone="info">você</Badge>}{' '}
                         {m.status === 'revoked' && <Badge tone="danger">desativado</Badge>}
-                        <div className="pm-hint">{m.email}</div>
+                        <div className="cm-hint">{m.email}</div>
                       </td>
                       <td>
                         {self ? (
                           ROLE_LABELS[m.role as Role]
                         ) : (
                           <select
-                            className="pm-input"
+                            className="cm-input"
                             aria-label={`Papel de ${m.name}`}
                             value={m.role}
                             onChange={(e) =>
@@ -111,7 +111,7 @@ export function TeamPage() {
                         )}
                       </td>
                       <td>{m.lastSeenAt ? dateTime(m.lastSeenAt) : '—'}</td>
-                      <td className="pm-num">
+                      <td className="cm-num">
                         {!self &&
                           (m.status === 'active' ? (
                             <Button

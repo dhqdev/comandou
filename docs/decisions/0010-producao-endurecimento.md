@@ -20,7 +20,7 @@ de pedidos e um ensaio de restauração mostraram pontos a fechar antes de receb
    responde 429. O mesmo vale para o painel da plataforma. Conta inexistente também bloqueia, para
    não revelar quais existem. Não há desbloqueio manual: a janela passa sozinha.
 3. **Limpeza de dados vencidos por função do banco.** A API continua sem DELETE. A função
-   `app_purge_expired()` (SECURITY DEFINER, dona `pedemais_owner`) apaga sessões encerradas há mais
+   `app_purge_expired()` (SECURITY DEFINER, dona `comandou_owner`) apaga sessões encerradas há mais
    de 90 dias e chaves de idempotência com mais de 30, e zera a posição do entregador 30 dias após
    a entrega. Roda a cada 6 h em cada réplica (idempotente). Nada financeiro, fiscal ou de auditoria.
 4. **Índices pelo teste de carga, não por palpite.** `orders (tenant_id, created_at DESC)` e

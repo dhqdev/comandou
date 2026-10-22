@@ -67,12 +67,12 @@ export function OverviewPage() {
         {Object.entries(TENANT_STATUS)
           .filter(([k]) => data.tenants[k] || k === 'provisioned')
           .map(([k, label]) => (
-            <div key={k} className="pm-card stat">
+            <div key={k} className="cm-card stat">
               <div className="stat__label">Restaurantes · {label}</div>
               <div className="stat__value">{data.tenants[k] ?? 0}</div>
             </div>
           ))}
-        <div className="pm-card stat">
+        <div className="cm-card stat">
           <div className="stat__label">Assinaturas em teste / ativas / pendentes</div>
           <div className="stat__value">
             {data.subscriptions.trialing ?? 0} / {data.subscriptions.active ?? 0} /{' '}
@@ -95,7 +95,7 @@ export function OverviewPage() {
               </li>
             ))}
             {data.queue && (
-              <li className="pm-hint">
+              <li className="cm-hint">
                 Fila:{' '}
                 {Object.entries(data.queue)
                   .map(([k, v]) => `${k} ${v}`)
@@ -103,7 +103,7 @@ export function OverviewPage() {
               </li>
             )}
           </ul>
-          <p className="pm-hint">
+          <p className="cm-hint">
             Últimos 7 dias: {data.last7Days.fiscalErrors} notas com erro ou rejeitadas,{' '}
             {data.last7Days.messageFailures} mensagens de WhatsApp com falha.
           </p>
@@ -145,7 +145,7 @@ export function BackupsPage() {
       {error && <Alert tone="danger">{error}</Alert>}
       <Card bodyless>
         {!data ? (
-          <div className="pm-card__body">
+          <div className="cm-card__body">
             <Spinner />
           </div>
         ) : data.length === 0 ? (
@@ -155,14 +155,14 @@ export function BackupsPage() {
           />
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table className="pm-table">
+            <table className="cm-table">
               <thead>
                 <tr>
                   <th>Tipo</th>
                   <th>Situação</th>
                   <th>Início</th>
                   <th>Arquivo</th>
-                  <th className="pm-num">Tamanho</th>
+                  <th className="cm-num">Tamanho</th>
                 </tr>
               </thead>
               <tbody>
@@ -177,11 +177,11 @@ export function BackupsPage() {
                       >
                         {r.status === 'ok' ? 'ok' : r.status === 'failed' ? 'falhou' : 'rodando'}
                       </Badge>
-                      {r.error && <div className="pm-hint">{r.error}</div>}
+                      {r.error && <div className="cm-hint">{r.error}</div>}
                     </td>
                     <td>{dateTime(r.startedAt)}</td>
                     <td className="mono-break">{r.objectKey ?? '—'}</td>
-                    <td className="pm-num">{bytes(r.sizeBytes)}</td>
+                    <td className="cm-num">{bytes(r.sizeBytes)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -212,7 +212,7 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
   if (!rows.length) return <EmptyState title="Nada registrado" />;
   return (
     <div style={{ overflowX: 'auto' }}>
-      <table className="pm-table">
+      <table className="cm-table">
         <thead>
           <tr>
             <th>Quando</th>
@@ -228,14 +228,14 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
               <td>{a.adminName ?? '—'}</td>
               <td>
                 {ACTION_LABELS[a.action] ?? a.action}
-                {a.tenantSlug && <div className="pm-hint">{a.tenantSlug}</div>}
+                {a.tenantSlug && <div className="cm-hint">{a.tenantSlug}</div>}
               </td>
               <td className="mono-break">
                 {Object.entries(a.data ?? {})
                   .filter(([, v]) => v !== null && typeof v !== 'object')
                   .map(([k, v]) => `${k}: ${String(v)}`)
                   .join(' · ')}
-                {a.ip && <div className="pm-hint">IP {a.ip}</div>}
+                {a.ip && <div className="cm-hint">IP {a.ip}</div>}
               </td>
             </tr>
           ))}

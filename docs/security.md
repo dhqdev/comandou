@@ -9,7 +9,7 @@ houve teste de invasão por terceiros; recomendamos um antes de abrir para muito
 | --- | --- | --- |
 | Restaurante ver dado de outro | restaurante vem do Host validado; RLS em toda tabela; FKs compostas; papel da API sem bypass | `rls.int.test.ts`, testes "B não vê nada de A" em cada suíte, teste de carga confere o isolamento |
 | Sessão roubada | cookie HttpOnly, host-only, `Secure` em produção, SameSite; token só em hash no banco; CSP restritiva no Nginx | `api.e2e.test.ts` |
-| CSRF | cabeçalho `X-PedeMais-Request` exigido em toda escrita + SameSite | `api.e2e.test.ts` |
+| CSRF | cabeçalho `X-Comandou-Request` exigido em toda escrita + SameSite | `api.e2e.test.ts` |
 | Força bruta no login | limite por IP (compartilhado entre réplicas via Redis) e **bloqueio temporário por conta** (10 senhas erradas em 15 min, vale para qualquer IP); mesma resposta para conta inexistente | `security.e2e.test.ts`, `platform.e2e.test.ts` |
 | Painel da plataforma | só em `admin.<base>`, senha + TOTP com código de uso único, papel próprio no banco, auditoria | `platform.e2e.test.ts` |
 | Pagamento duplicado | chave de idempotência, trava da linha do pedido, conferência do saldo | `operations.e2e.test.ts`; teste de carga com 100 disputas sem nenhuma duplicação |

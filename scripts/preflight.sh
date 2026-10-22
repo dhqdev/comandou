@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Checagem pré-produção do PedeMais. Roda no manager do Swarm e SÓ LÊ: não cria, não altera e
+# Checagem pré-produção do Comandou. Roda no manager do Swarm e SÓ LÊ: não cria, não altera e
 # não apaga nada, e nunca imprime o valor de um segredo.
 #
 # Uso: scripts/preflight.sh              (antes do primeiro deploy: servidor, DNS, segredos)
 #      scripts/preflight.sh --deployed   (depois: também certificados, saúde, backups, integrações)
 #
-# Lê /etc/pedemais/deploy.env (ou PEDEMAIS_DEPLOY_ENV). Saída: OK / AVISO / FALHA por item;
+# Lê /etc/comandou/deploy.env (ou COMANDOU_DEPLOY_ENV). Saída: OK / AVISO / FALHA por item;
 # termina com código 1 se houver alguma FALHA.
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-STACK="${PEDEMAIS_STACK:-pedemais}"
+STACK="${COMANDOU_STACK:-comandou}"
 DEPLOYED=false; [[ "${1:-}" == "--deployed" ]] && DEPLOYED=true
 fails=0; warns=0
 ok()   { echo "OK     $*"; }
@@ -17,14 +17,14 @@ warn() { echo "AVISO  $*"; warns=$((warns + 1)); }
 fail() { echo "FALHA  $*"; fails=$((fails + 1)); }
 section() { echo; echo "== $*"; }
 
-DEPLOY_ENV="${PEDEMAIS_DEPLOY_ENV:-/etc/pedemais/deploy.env}"
+DEPLOY_ENV="${COMANDOU_DEPLOY_ENV:-/etc/comandou/deploy.env}"
 if [[ -r "$DEPLOY_ENV" ]]; then
   set -a
   # shellcheck source=/dev/null
   . "$DEPLOY_ENV"
   set +a
 fi
-BASE="${PEDEMAIS_BASE_DOMAIN:-comandou.com}"
+BASE="${COMANDOU_BASE_DOMAIN:-comandou.com}"
 
 section "Servidor"
 [[ "$(uname -s)" == "Linux" ]] && ok "Linux $(uname -m)" || fail "requer Linux"
@@ -52,7 +52,7 @@ if [[ -r "$DEPLOY_ENV" ]]; then
   [[ "$perm" =~ ^[0-7]00$ ]] && ok "permissão de $DEPLOY_ENV: $perm" \
     || warn "permissão de $DEPLOY_ENV é $perm (use 600)"
 fi
-for v in PEDEMAIS_BASE_DOMAIN BACKUP_S3_BUCKET BACKUP_S3_ENDPOINT TRAEFIK_ENTRYPOINT TRAEFIK_CERT_RESOLVER; do
+for v in COMANDOU_BASE_DOMAIN BACKUP_S3_BUCKET BACKUP_S3_ENDPOINT TRAEFIK_ENTRYPOINT TRAEFIK_CERT_RESOLVER; do
   [[ -n "${!v:-}" ]] && ok "$v=${!v}" || fail "$v não definido"
 done
 
@@ -79,7 +79,7 @@ else
 fi
 
 section "DNS"
-probe="pm-check-$RANDOM"
+probe="cm-check-$RANDOM"
 for host in "$BASE" "admin.$BASE" "$probe.$BASE"; do
   ip="$(getent ahostsv4 "$host" | awk 'NR==1 {print $1}')"
   if [[ -n "$ip" ]]; then ok "$host → $ip"; else fail "$host não resolve"; fi
@@ -96,8 +96,8 @@ if $DEPLOYED; then
   done
 
   section "Endereços públicos e certificados"
-  url="${PEDEMAIS_HEALTH_URL:-}"
-  [[ -n "$url" ]] || warn "PEDEMAIS_HEALTH_URL não definido (https://<restaurante>.$BASE)"
+  url="${COMANDOU_HEALTH_URL:-}"
+  [[ -n "$url" ]] || warn "COMANDOU_HEALTH_URL não definido (https://<restaurante>.$BASE)"
   for host in "admin.$BASE" ${url:+"${url#https://}"}; do
     end="$(echo | openssl s_client -servername "$host" -connect "$host:443" 2>/dev/null \
       | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2)"
@@ -124,9 +124,9 @@ if $DEPLOYED; then
     warn "contêiner de backup não está neste nó"
   else
     # common.sh carrega os segredos *_FILE do contêiner e define s3() e sql(); nada é impresso.
-    docker exec "$bctr" bash -c '. /opt/pedemais-backup/common.sh && s3 s3api head-bucket --bucket "$S3_BUCKET"' \
+    docker exec "$bctr" bash -c '. /opt/comandou-backup/common.sh && s3 s3api head-bucket --bucket "$S3_BUCKET"' \
       >/dev/null 2>&1 && ok "bucket acessível" || fail "bucket de backup inacessível (chave, endpoint ou nome)"
-    last="$(docker exec "$bctr" bash -c '. /opt/pedemais-backup/common.sh >/dev/null 2>&1; sql -F "|" -c "
+    last="$(docker exec "$bctr" bash -c '. /opt/comandou-backup/common.sh >/dev/null 2>&1; sql -F "|" -c "
       SELECT kind, extract(epoch FROM now() - max(finished_at))::int
         FROM backup_runs WHERE status = '"'ok'"' GROUP BY kind"' 2>/dev/null)"
     b_age="$(awk -F'|' '$1 == "backup" {print $2}' <<<"$last")"

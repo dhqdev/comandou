@@ -33,7 +33,7 @@ async function api<T>(
   const r = await page.request.fetch(`/api/v1${path}`, {
     method,
     data,
-    headers: { 'X-PedeMais-Request': '1', ...(idem ? { 'Idempotency-Key': idem } : {}) },
+    headers: { 'X-Comandou-Request': '1', ...(idem ? { 'Idempotency-Key': idem } : {}) },
   });
   expect(r.ok(), `${path}: ${await r.text()}`).toBeTruthy();
   return (await r.json()) as T;

@@ -7,7 +7,7 @@ import {
   RESOURCE_LABELS,
   SubscriptionStatus,
   withinLimit,
-} from '@pedemais/shared';
+} from '@comandou/shared';
 import { one } from '../common/sql';
 import type { Tx } from '../database/database.service';
 

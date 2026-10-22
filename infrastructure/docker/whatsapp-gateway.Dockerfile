@@ -8,10 +8,10 @@ RUN apk add --no-cache git
 RUN --mount=type=secret,id=ca,required=false corepack enable && corepack prepare pnpm@10.28.0 --activate
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 COPY apps/whatsapp-gateway/package.json apps/whatsapp-gateway/
-RUN --mount=type=secret,id=ca,required=false pnpm install --frozen-lockfile --filter @pedemais/whatsapp-gateway...
+RUN --mount=type=secret,id=ca,required=false pnpm install --frozen-lockfile --filter @comandou/whatsapp-gateway...
 COPY apps/whatsapp-gateway apps/whatsapp-gateway
-RUN pnpm --filter @pedemais/whatsapp-gateway build \
- && pnpm --filter @pedemais/whatsapp-gateway deploy --legacy --prod /out
+RUN pnpm --filter @comandou/whatsapp-gateway build \
+ && pnpm --filter @comandou/whatsapp-gateway deploy --legacy --prod /out
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production DATA_DIR=/data PORT=3100

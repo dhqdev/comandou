@@ -8,11 +8,11 @@ export function SelectField({
 }: SelectHTMLAttributes<HTMLSelectElement> & { label: string; children: ReactNode }) {
   const id = useId();
   return (
-    <div className="pm-field">
-      <label className="pm-label" htmlFor={id}>
+    <div className="cm-field">
+      <label className="cm-label" htmlFor={id}>
         {label}
       </label>
-      <select id={id} className="pm-input" {...rest}>
+      <select id={id} className="cm-input" {...rest}>
         {children}
       </select>
     </div>

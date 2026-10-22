@@ -4,8 +4,8 @@ import { ENV, Env } from '../config/env';
 
 /**
  * Caminho privilegiado e separado do painel Super Admin: pool próprio com o papel
- * pedemais_platform. Nunca é usado pelas rotas do restaurante, e a API do restaurante
- * (pedemais_app) não enxerga nenhuma tabela da plataforma.
+ * comandou_platform. Nunca é usado pelas rotas do restaurante, e a API do restaurante
+ * (comandou_app) não enxerga nenhuma tabela da plataforma.
  */
 @Injectable()
 export class PlatformDb implements OnModuleDestroy {

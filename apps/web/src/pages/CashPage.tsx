@@ -1,4 +1,4 @@
-import { fromCents, PAYMENT_METHODS, toCents, type PaymentMethod } from '@pedemais/shared';
+import { fromCents, PAYMENT_METHODS, toCents, type PaymentMethod } from '@comandou/shared';
 import { ArrowDownCircle, ArrowUpCircle, Lock, Wallet } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -105,7 +105,7 @@ export function CashPage() {
           <EmptyState title="Nenhuma sessão" />
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table className="pm-table pm-table--click">
+            <table className="cm-table cm-table--click">
               <thead>
                 <tr>
                   <th>Sessão</th>
@@ -113,7 +113,7 @@ export function CashPage() {
                   <th>Abertura</th>
                   <th>Fechamento</th>
                   <th>Status</th>
-                  <th className="pm-num">Diferença</th>
+                  <th className="cm-num">Diferença</th>
                 </tr>
               </thead>
               <tbody>
@@ -123,7 +123,7 @@ export function CashPage() {
                     <td>{s.registerName}</td>
                     <td>
                       {dateTime(s.openedAt)}{' '}
-                      {s.openedByName && <span className="pm-hint">· {s.openedByName}</span>}
+                      {s.openedByName && <span className="cm-hint">· {s.openedByName}</span>}
                     </td>
                     <td>{s.closedAt ? dateTime(s.closedAt) : '—'}</td>
                     <td>
@@ -131,7 +131,7 @@ export function CashPage() {
                         {s.status === 'open' ? 'Aberta' : 'Fechada'}
                       </Badge>
                     </td>
-                    <td className="pm-num">
+                    <td className="cm-num">
                       {s.difference !== null ? <DiffValue value={s.difference} /> : '—'}
                     </td>
                   </tr>
@@ -159,7 +159,7 @@ function DiffValue({ value }: { value: string }) {
   return (
     <span
       style={{
-        color: c < 0 ? 'var(--pm-danger)' : c > 0 ? 'var(--pm-warning)' : 'var(--pm-success)',
+        color: c < 0 ? 'var(--cm-danger)' : c > 0 ? 'var(--cm-warning)' : 'var(--cm-success)',
         fontWeight: 700,
       }}
     >
@@ -279,7 +279,7 @@ function SessionPanel({ sessionId, onChanged }: { sessionId: string; onChanged()
     >
       <div className="stat-grid">
         {methods.map((m) => (
-          <div key={m} className="pm-card stat">
+          <div key={m} className="cm-card stat">
             <div className="stat__label">
               {PAYMENT_METHOD_LABELS[m]}{' '}
               {s.status === 'open' ? 'esperado' : 'esperado no fechamento'}
@@ -288,7 +288,7 @@ function SessionPanel({ sessionId, onChanged }: { sessionId: string; onChanged()
               {brl(s.status === 'closed' && s.closedExpected ? s.closedExpected[m] : s.expected[m])}
             </div>
             {s.status === 'closed' && s.counted && (
-              <div className="pm-hint">Contado: {brl(s.counted[m])}</div>
+              <div className="cm-hint">Contado: {brl(s.counted[m])}</div>
             )}
           </div>
         ))}
@@ -305,14 +305,14 @@ function SessionPanel({ sessionId, onChanged }: { sessionId: string; onChanged()
         <EmptyState title="Sem movimentos" />
       ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table className="pm-table">
+          <table className="cm-table">
             <thead>
               <tr>
                 <th>Hora</th>
                 <th>Tipo</th>
                 <th>Forma</th>
                 <th>Detalhe</th>
-                <th className="pm-num">Valor</th>
+                <th className="cm-num">Valor</th>
               </tr>
             </thead>
             <tbody>
@@ -323,11 +323,11 @@ function SessionPanel({ sessionId, onChanged }: { sessionId: string; onChanged()
                   <td>{PAYMENT_METHOD_LABELS[m.method]}</td>
                   <td>
                     {m.orderNumber ? `Pedido #${m.orderNumber}` : ''} {m.note}{' '}
-                    <span className="pm-hint">{m.createdByName}</span>
+                    <span className="cm-hint">{m.createdByName}</span>
                   </td>
                   <td
-                    className="pm-num"
-                    style={{ color: toCents(m.amount) < 0 ? 'var(--pm-danger)' : undefined }}
+                    className="cm-num"
+                    style={{ color: toCents(m.amount) < 0 ? 'var(--cm-danger)' : undefined }}
                   >
                     {brl(m.amount)}
                   </td>
@@ -411,7 +411,7 @@ function MovementModal({
     >
       <div style={{ display: 'grid', gap: 16 }}>
         {kind === 'withdrawal' && (
-          <p className="pm-hint" style={{ margin: 0 }}>
+          <p className="cm-hint" style={{ margin: 0 }}>
             Dinheiro em caixa: {brl(cashExpected)}
           </p>
         )}
@@ -493,26 +493,26 @@ function CloseModal({
   return (
     <Modal open={open} onClose={onClose} title="Fechamento conferido" size="lg">
       <div style={{ display: 'grid', gap: 16 }}>
-        <p className="pm-hint" style={{ margin: 0 }}>
+        <p className="cm-hint" style={{ margin: 0 }}>
           Conte o dinheiro da gaveta e confira os comprovantes de cada forma de pagamento.
         </p>
-        <table className="pm-table">
+        <table className="cm-table">
           <thead>
             <tr>
               <th>Forma</th>
-              <th className="pm-num">Esperado</th>
+              <th className="cm-num">Esperado</th>
               <th>Contado</th>
-              <th className="pm-num">Diferença</th>
+              <th className="cm-num">Diferença</th>
             </tr>
           </thead>
           <tbody>
             {methods.map((m) => (
               <tr key={m}>
                 <td>{PAYMENT_METHOD_LABELS[m]}</td>
-                <td className="pm-num">{brl(session.expected[m])}</td>
+                <td className="cm-num">{brl(session.expected[m])}</td>
                 <td>
                   <input
-                    className="pm-input"
+                    className="cm-input"
                     inputMode="decimal"
                     aria-label={`Contado ${PAYMENT_METHOD_LABELS[m]}`}
                     placeholder="0,00"
@@ -520,7 +520,7 @@ function CloseModal({
                     onChange={(e) => setCounted((c) => ({ ...c, [m]: e.target.value }))}
                   />
                 </td>
-                <td className="pm-num">
+                <td className="cm-num">
                   {parsed[m] !== null ? (
                     <DiffValue
                       value={fromCents(toCents(parsed[m]!) - toCents(session.expected[m]))}

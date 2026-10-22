@@ -1,4 +1,4 @@
--- PedeMais — 0003 Etapa 3: adicionais, setores de produção, salão (mesas/comandas), pedidos completos,
+-- Comandou — 0003 Etapa 3: adicionais, setores de produção, salão (mesas/comandas), pedidos completos,
 -- cozinha, pagamentos, caixa e idempotência.
 --
 -- Convenções (iguais à 0002): tenant_id NOT NULL, UNIQUE (tenant_id, id), FKs compostas,
@@ -289,12 +289,12 @@ END $$;
 
 -- Privilégios (mínimos) ---------------------------------------------------------------------
 GRANT SELECT, INSERT, UPDATE ON tenant_counters, production_sectors, option_groups, options,
-  dining_tables, tabs, cash_registers, cash_sessions, idempotency_keys TO pedemais_app;
-GRANT SELECT, INSERT, DELETE ON product_option_groups TO pedemais_app; -- vínculo, não é registro financeiro
-GRANT SELECT, INSERT ON order_item_options, order_status_history, payment_refunds, cash_movements TO pedemais_app;
+  dining_tables, tabs, cash_registers, cash_sessions, idempotency_keys TO comandou_app;
+GRANT SELECT, INSERT, DELETE ON product_option_groups TO comandou_app; -- vínculo, não é registro financeiro
+GRANT SELECT, INSERT ON order_item_options, order_status_history, payment_refunds, cash_movements TO comandou_app;
 -- payments: UPDATE apenas da coluna refunded_amount (estornos); valor e método nunca mudam.
-GRANT SELECT, INSERT ON payments TO pedemais_app;
-GRANT UPDATE (refunded_amount) ON payments TO pedemais_app;
+GRANT SELECT, INSERT ON payments TO comandou_app;
+GRANT UPDATE (refunded_amount) ON payments TO comandou_app;
 -- order_items: a app altera status/tempos de preparo; preço e produto são fixos após criação.
-REVOKE UPDATE ON order_items FROM pedemais_app;
-GRANT UPDATE (status, started_at, ready_at) ON order_items TO pedemais_app;
+REVOKE UPDATE ON order_items FROM comandou_app;
+GRANT UPDATE (status, started_at, ready_at) ON order_items TO comandou_app;

@@ -1,4 +1,4 @@
-import { PAYMENT_METHODS, toCents, type PaymentMethod } from '@pedemais/shared';
+import { PAYMENT_METHODS, toCents, type PaymentMethod } from '@comandou/shared';
 import { Plus, Receipt } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -126,7 +126,7 @@ function EntriesTab() {
         }
         bodyless
       >
-        <div className="pm-card__body filters">
+        <div className="cm-card__body filters">
           <SelectField label="Tipo" value={kind} onChange={(e) => setKind(e.target.value)}>
             <option value="">Todos</option>
             <option value="payable">A pagar</option>
@@ -141,19 +141,19 @@ function EntriesTab() {
           </SelectField>
         </div>
         {rows === null ? (
-          <div className="pm-card__body">
+          <div className="cm-card__body">
             <Spinner />
           </div>
         ) : rows.length === 0 ? (
           <EmptyState icon={<Receipt size={20} />} title="Nenhum lançamento" />
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table className="pm-table">
+            <table className="cm-table">
               <thead>
                 <tr>
                   <th>Vencimento</th>
                   <th>Descrição</th>
-                  <th className="pm-num">Valor</th>
+                  <th className="cm-num">Valor</th>
                   <th>Situação</th>
                   <th />
                 </tr>
@@ -167,11 +167,11 @@ function EntriesTab() {
                         {e.kind === 'payable' ? 'Pagar' : 'Receber'}
                       </Badge>{' '}
                       <strong>{e.description}</strong>
-                      <div className="pm-hint">
+                      <div className="cm-hint">
                         {[e.counterparty, e.category].filter(Boolean).join(' · ')}
                       </div>
                     </td>
-                    <td className="pm-num">{brl(e.amount)}</td>
+                    <td className="cm-num">{brl(e.amount)}</td>
                     <td>
                       {e.status === 'paid' ? (
                         <Badge tone="success">
@@ -186,7 +186,7 @@ function EntriesTab() {
                         <Badge tone="neutral">Em aberto</Badge>
                       )}
                     </td>
-                    <td className="pm-num">
+                    <td className="cm-num">
                       {canWrite && e.status === 'open' && (
                         <div className="actions-row" style={{ justifyContent: 'end' }}>
                           <Button variant="secondary" onClick={() => setSettling(e)}>
@@ -220,7 +220,7 @@ function Stat({ label, value, danger }: { label: string; value: string; danger?:
       <div className="stat__label">{label}</div>
       <div
         className="stat__value"
-        style={danger ? { color: 'var(--pm-danger-700, #b42318)' } : undefined}
+        style={danger ? { color: 'var(--cm-danger-700, #b42318)' } : undefined}
       >
         {value}
       </div>
@@ -384,7 +384,7 @@ function SettleModal({
         value={paidAt}
         onChange={(e) => setPaidAt(e.target.value)}
       />
-      <p className="pm-hint">
+      <p className="cm-hint">
         Depois de confirmado, o lançamento não pode ser apagado nem cancelado.
       </p>
     </Modal>
@@ -465,41 +465,41 @@ function FlowTab() {
   }, [from, to]);
   return (
     <Card title="Fluxo de caixa" bodyless>
-      <div className="pm-card__body filters">
+      <div className="cm-card__body filters">
         <TextField label="De" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
         <TextField label="Até" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
       </div>
       {error && (
-        <div className="pm-card__body">
+        <div className="cm-card__body">
           <Alert tone="danger">{error}</Alert>
         </div>
       )}
       {data && (
         <div style={{ overflowX: 'auto' }}>
-          <table className="pm-table">
+          <table className="cm-table">
             <thead>
               <tr>
                 <th>Dia</th>
-                <th className="pm-num">Vendas recebidas</th>
-                <th className="pm-num">Contas recebidas</th>
-                <th className="pm-num">Estornos</th>
-                <th className="pm-num">Contas pagas</th>
-                <th className="pm-num">Saldo do dia</th>
-                <th className="pm-num">Previsto (+/−)</th>
+                <th className="cm-num">Vendas recebidas</th>
+                <th className="cm-num">Contas recebidas</th>
+                <th className="cm-num">Estornos</th>
+                <th className="cm-num">Contas pagas</th>
+                <th className="cm-num">Saldo do dia</th>
+                <th className="cm-num">Previsto (+/−)</th>
               </tr>
             </thead>
             <tbody>
               {data.days.map((d) => (
                 <tr key={d.day}>
                   <td>{fmtDate(d.day)}</td>
-                  <td className="pm-num">{brl(d.sales)}</td>
-                  <td className="pm-num">{brl(d.received)}</td>
-                  <td className="pm-num">{brl(d.refunds)}</td>
-                  <td className="pm-num">{brl(d.paid)}</td>
-                  <td className="pm-num">
+                  <td className="cm-num">{brl(d.sales)}</td>
+                  <td className="cm-num">{brl(d.received)}</td>
+                  <td className="cm-num">{brl(d.refunds)}</td>
+                  <td className="cm-num">{brl(d.paid)}</td>
+                  <td className="cm-num">
                     <strong>{brl(d.net)}</strong>
                   </td>
-                  <td className="pm-num pm-hint">
+                  <td className="cm-num cm-hint">
                     {toCents(d.expectedIn) || toCents(d.expectedOut)
                       ? `+${brl(d.expectedIn)} / −${brl(d.expectedOut)}`
                       : '—'}
@@ -510,14 +510,14 @@ function FlowTab() {
                 <td>
                   <strong>Total</strong>
                 </td>
-                <td className="pm-num">{brl(data.totals.sales)}</td>
-                <td className="pm-num">{brl(data.totals.received)}</td>
-                <td className="pm-num">{brl(data.totals.refunds)}</td>
-                <td className="pm-num">{brl(data.totals.paid)}</td>
-                <td className="pm-num">
+                <td className="cm-num">{brl(data.totals.sales)}</td>
+                <td className="cm-num">{brl(data.totals.received)}</td>
+                <td className="cm-num">{brl(data.totals.refunds)}</td>
+                <td className="cm-num">{brl(data.totals.paid)}</td>
+                <td className="cm-num">
                   <strong>{brl(data.totals.net)}</strong>
                 </td>
-                <td className="pm-num pm-hint">
+                <td className="cm-num cm-hint">
                   +{brl(data.totals.expectedIn)} / −{brl(data.totals.expectedOut)}
                 </td>
               </tr>
@@ -566,26 +566,26 @@ function ReconcileTab() {
 
   return (
     <Card title="Conciliação diária" bodyless>
-      <div className="pm-card__body">
+      <div className="cm-card__body">
         <div className="filters">
           <TextField label="Dia" type="date" value={day} onChange={(e) => setDay(e.target.value)} />
         </div>
-        <p className="pm-hint">
+        <p className="cm-hint">
           Compare o que o sistema registrou com o extrato da maquininha, do banco (PIX) e a gaveta.
           Diferenças exigem explicação e o registro não pode ser alterado depois.
         </p>
       </div>
       {!data ? (
-        <div className="pm-card__body">
+        <div className="cm-card__body">
           <Spinner />
         </div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table className="pm-table">
+          <table className="cm-table">
             <thead>
               <tr>
                 <th>Forma</th>
-                <th className="pm-num">Sistema</th>
+                <th className="cm-num">Sistema</th>
                 <th>Conferido</th>
               </tr>
             </thead>
@@ -597,7 +597,7 @@ function ReconcileTab() {
                 return (
                   <tr key={m.method}>
                     <td>{PAYMENT_METHOD_LABELS[m.method]}</td>
-                    <td className="pm-num">{brl(m.systemAmount)}</td>
+                    <td className="cm-num">{brl(m.systemAmount)}</td>
                     <td>
                       {m.reconciliation ? (
                         <>
@@ -611,13 +611,13 @@ function ReconcileTab() {
                               ` (diferença ${brl(m.reconciliation.difference)})`}
                           </Badge>
                           {m.reconciliation.note && (
-                            <div className="pm-hint">{m.reconciliation.note}</div>
+                            <div className="cm-hint">{m.reconciliation.note}</div>
                           )}
                         </>
                       ) : canWrite ? (
                         <div className="actions-row" style={{ alignItems: 'end' }}>
                           <input
-                            className="pm-input"
+                            className="cm-input"
                             style={{ maxWidth: 140 }}
                             aria-label={`Valor conferido em ${PAYMENT_METHOD_LABELS[m.method]}`}
                             inputMode="decimal"
@@ -632,7 +632,7 @@ function ReconcileTab() {
                           />
                           {informed && diff !== 0 && (
                             <input
-                              className="pm-input"
+                              className="cm-input"
                               style={{ maxWidth: 240 }}
                               aria-label={`Motivo da diferença em ${PAYMENT_METHOD_LABELS[m.method]}`}
                               placeholder="Explique a diferença"
@@ -654,7 +654,7 @@ function ReconcileTab() {
                           </Button>
                         </div>
                       ) : (
-                        <span className="pm-hint">pendente</span>
+                        <span className="cm-hint">pendente</span>
                       )}
                     </td>
                   </tr>

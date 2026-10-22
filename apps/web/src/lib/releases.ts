@@ -1,4 +1,4 @@
-import { CURRENT_RELEASE } from '@pedemais/shared';
+import { CURRENT_RELEASE } from '@comandou/shared';
 import { useSyncExternalStore } from 'react';
 
 const KEY = 'pm.releaseSeen';

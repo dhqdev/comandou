@@ -9,9 +9,9 @@ export function UpdatePrompt() {
   } = useRegisterSW();
   if (!needRefresh) return null;
   return (
-    <div className="pm-toasts">
+    <div className="cm-toasts">
       <div
-        className="pm-toast"
+        className="cm-toast"
         role="status"
         style={{ display: 'flex', gap: 12, alignItems: 'center' }}
       >

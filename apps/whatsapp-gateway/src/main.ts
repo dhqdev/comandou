@@ -30,7 +30,7 @@ const sessions = new SessionManager(
     makeWASocket({
       auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, baileysLogger) },
       logger: baileysLogger,
-      browser: Browsers.ubuntu('PedeMais'),
+      browser: Browsers.ubuntu('Comandou'),
       markOnlineOnConnect: false,
       syncFullHistory: false,
       shouldSyncHistoryMessage: () => false,

@@ -12,7 +12,7 @@ import {
   Req,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { PAYMENT_METHODS, fromCents, isMoneyString, toCents } from '@pedemais/shared';
+import { PAYMENT_METHODS, fromCents, isMoneyString, toCents } from '@comandou/shared';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';

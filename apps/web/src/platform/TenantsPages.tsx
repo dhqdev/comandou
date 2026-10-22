@@ -1,4 +1,4 @@
-import { SUBSCRIPTION_LABELS, validateTenantSlug } from '@pedemais/shared';
+import { SUBSCRIPTION_LABELS, validateTenantSlug } from '@comandou/shared';
 import { ArrowLeft, Building2, Plus } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -79,22 +79,22 @@ export function TenantsPage() {
       {error && <Alert tone="danger">{error}</Alert>}
       <Card bodyless>
         {!data ? (
-          <div className="pm-card__body">
+          <div className="cm-card__body">
             <Spinner />
           </div>
         ) : data.length === 0 ? (
           <EmptyState icon={<Building2 size={20} />} title="Nenhum restaurante encontrado" />
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table className="pm-table pm-table--click">
+            <table className="cm-table cm-table--click">
               <thead>
                 <tr>
                   <th>Restaurante</th>
                   <th>Situação</th>
                   <th>Plano</th>
-                  <th className="pm-num">Equipe</th>
-                  <th className="pm-num">Produtos</th>
-                  <th className="pm-num">Pedidos no mês</th>
+                  <th className="cm-num">Equipe</th>
+                  <th className="cm-num">Produtos</th>
+                  <th className="cm-num">Pedidos no mês</th>
                   <th>Último pedido</th>
                 </tr>
               </thead>
@@ -103,13 +103,13 @@ export function TenantsPage() {
                   <tr key={t.id} onClick={() => navigate(`/restaurantes/${t.id}`)}>
                     <td>
                       <strong>{t.name}</strong>
-                      <div className="pm-hint">{t.slug}</div>
+                      <div className="cm-hint">{t.slug}</div>
                     </td>
                     <td>
                       <StatusBadge status={t.status} />
                     </td>
                     <td>
-                      {t.planName ?? <span className="pm-hint">sem assinatura</span>}
+                      {t.planName ?? <span className="cm-hint">sem assinatura</span>}
                       {t.subscriptionStatus && t.subscriptionStatus !== 'active' && (
                         <div>
                           <Badge tone={SUB_TONE[t.subscriptionStatus as keyof typeof SUB_TONE]}>
@@ -120,9 +120,9 @@ export function TenantsPage() {
                         </div>
                       )}
                     </td>
-                    <td className="pm-num">{t.users}</td>
-                    <td className="pm-num">{t.products}</td>
-                    <td className="pm-num">{t.ordersMonth}</td>
+                    <td className="cm-num">{t.users}</td>
+                    <td className="cm-num">{t.products}</td>
+                    <td className="cm-num">{t.ordersMonth}</td>
                     <td>{t.lastOrderAt ? dateTime(t.lastOrderAt) : '—'}</td>
                   </tr>
                 ))}
@@ -214,7 +214,7 @@ function NewTenantModal({ onClose }: { onClose(): void }) {
           </SelectField>
         </div>
         {error && <Alert tone="danger">{error}</Alert>}
-        <div className="pm-modal__footer" style={{ padding: 0, marginTop: 16 }}>
+        <div className="cm-modal__footer" style={{ padding: 0, marginTop: 16 }}>
           <Button variant="ghost" type="button" onClick={onClose}>
             Cancelar
           </Button>
@@ -305,7 +305,7 @@ export function TenantDetailPage() {
 
   return (
     <>
-      <Link to="/restaurantes" className="pm-hint" style={{ display: 'inline-flex', gap: 4 }}>
+      <Link to="/restaurantes" className="cm-hint" style={{ display: 'inline-flex', gap: 4 }}>
         <ArrowLeft size={14} /> Restaurantes
       </Link>
       <div className="page-head">
@@ -333,25 +333,25 @@ export function TenantDetailPage() {
         </Alert>
       )}
       <div className="stat-grid">
-        <div className="pm-card stat">
+        <div className="cm-card stat">
           <div className="stat__label">Equipe ativa</div>
           <div className="stat__value">{t.usage.users}</div>
         </div>
-        <div className="pm-card stat">
+        <div className="cm-card stat">
           <div className="stat__label">Produtos ativos</div>
           <div className="stat__value">{t.usage.products}</div>
         </div>
-        <div className="pm-card stat">
+        <div className="cm-card stat">
           <div className="stat__label">Pedidos no mês</div>
           <div className="stat__value">{t.usage.ordersMonth}</div>
-          <div className="pm-hint">
+          <div className="cm-hint">
             {t.usage.lastOrderAt ? `último ${dateTime(t.usage.lastOrderAt)}` : 'nenhum pedido'}
           </div>
         </div>
-        <div className="pm-card stat">
+        <div className="cm-card stat">
           <div className="stat__label">Falhas em 7 dias</div>
           <div className="stat__value">{t.usage.fiscalErrors + t.usage.messageFailures}</div>
-          <div className="pm-hint">
+          <div className="cm-hint">
             {t.usage.fiscalErrors} NFC-e · {t.usage.messageFailures} WhatsApp
           </div>
         </div>
@@ -361,7 +361,7 @@ export function TenantDetailPage() {
           title="Assinatura"
           actions={s && <Badge tone={SUB_TONE[s.status]}>{SUBSCRIPTION_LABELS[s.status]}</Badge>}
         >
-          {!s && <p className="pm-hint">Sem assinatura: nenhum limite de plano se aplica.</p>}
+          {!s && <p className="cm-hint">Sem assinatura: nenhum limite de plano se aplica.</p>}
           <form onSubmit={saveSub} className="form-grid">
             <SelectField label="Plano" value={form.planId} onChange={setForm('planId')}>
               <option value="">Escolha</option>
@@ -408,13 +408,13 @@ export function TenantDetailPage() {
               </Button>
             </div>
           </form>
-          <p className="pm-hint">
+          <p className="cm-hint">
             A cobrança ainda é feita fora do sistema: registre aqui a situação do pagamento.
           </p>
         </Card>
         <Card title="Domínios próprios">
           {t.domains.length === 0 ? (
-            <p className="pm-hint" style={{ margin: 0 }}>
+            <p className="cm-hint" style={{ margin: 0 }}>
               Nenhum. O restaurante cadastra em “Plano e domínio”.
             </p>
           ) : (

@@ -1,7 +1,7 @@
-name: CI
+name: Testes
 
 # Só na main (o desenvolvimento por enquanto vai direto nela). Mudança só de documentação não
-# roda nada. O build das imagens fica no workflow Release, que só roda quando a versão sobe.
+# roda nada. Se tudo passar, o workflow "Release" publica as imagens e cria a tag e a Release.
 on:
   push:
     branches: [main]
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   check:
-    name: Lint, tipos e testes
+    name: Qualidade (formatação, tipos e testes)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -34,17 +34,21 @@ jobs:
     env:
       # Com Redis, os testes da nota fiscal e do WhatsApp passam pela fila real (BullMQ).
       TEST_REDIS_URL: redis://localhost:6379
-      TEST_DATABASE_OWNER_URL: postgres://pedemais_owner:owner_ci@localhost:5432/pedemais_test
-      TEST_DATABASE_URL: postgres://pedemais_app:app_ci@localhost:5432/pedemais_test
-      TEST_DATABASE_PLATFORM_URL: postgres://pedemais_platform:platform_ci@localhost:5432/pedemais_test
+      TEST_DATABASE_OWNER_URL: postgres://comandou_owner:owner_ci@localhost:5432/comandou_test
+      TEST_DATABASE_URL: postgres://comandou_app:app_ci@localhost:5432/comandou_test
+      TEST_DATABASE_PLATFORM_URL: postgres://comandou_platform:platform_ci@localhost:5432/comandou_test
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - name: Baixar o código
+        uses: actions/checkout@v4
+      - name: Instalar o pnpm
+        uses: pnpm/action-setup@v4
+      - name: Instalar o Node 22
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
       - name: Papéis do banco de teste
@@ -52,11 +56,12 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 \
-            -c "CREATE ROLE pedemais_owner LOGIN PASSWORD 'owner_ci'" \
-            -c "CREATE ROLE pedemais_app LOGIN PASSWORD 'app_ci' NOBYPASSRLS" \
-            -c "CREATE ROLE pedemais_platform LOGIN PASSWORD 'platform_ci' NOBYPASSRLS" \
-            -c "CREATE DATABASE pedemais_test OWNER pedemais_owner"
-      - run: pnpm format:check
+            -c "CREATE ROLE comandou_owner LOGIN PASSWORD 'owner_ci'" \
+            -c "CREATE ROLE comandou_app LOGIN PASSWORD 'app_ci' NOBYPASSRLS" \
+            -c "CREATE ROLE comandou_platform LOGIN PASSWORD 'platform_ci' NOBYPASSRLS" \
+            -c "CREATE DATABASE comandou_test OWNER comandou_owner"
+      - name: Formatação (Prettier)
+        run: pnpm format:check
       - name: Scripts de shell
         run: shellcheck -x -S warning infrastructure/backup/*.sh scripts/*.sh
       - name: Alertas do Prometheus
@@ -64,16 +69,21 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/w" -w /w --entrypoint promtool prom/prometheus:v2.53.2 check rules alerts.yml
           docker run --rm -v "$PWD:/w" -w /w --entrypoint promtool prom/prometheus:v2.53.2 test rules alerts.test.yml
-      - run: pnpm --filter @pedemais/shared build
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: node --test tools/print-agent/escpos.test.mjs
-      - run: pnpm build
+      - name: Compilar o pacote compartilhado
+        run: pnpm --filter @comandou/shared build
+      - name: Checagem de tipos (TypeScript)
+        run: pnpm typecheck
+      - name: Testes da API e do Web (Vitest)
+        run: pnpm test
+      - name: Testes do agente de impressão
+        run: node --test tools/print-agent/escpos.test.mjs
+      - name: Build de produção
+        run: pnpm build
       - name: Auditoria de dependências (alta/crítica)
         run: pnpm audit --prod --audit-level high
 
   e2e:
-    name: E2E (Playwright)
+    name: Ponta a ponta (navegador e backup)
     runs-on: ubuntu-latest
     needs: check
     env:
@@ -90,54 +100,60 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - name: Baixar o código
+        uses: actions/checkout@v4
+      - name: Instalar o pnpm
+        uses: pnpm/action-setup@v4
+      - name: Instalar o Node 22
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @pedemais/web exec playwright install --with-deps chromium
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+      - name: Instalar o navegador do Playwright
+        run: pnpm --filter @comandou/web exec playwright install --with-deps chromium
       - name: Banco, migrações e tenant de teste
         env:
           PGPASSWORD: postgres
-          DATABASE_OWNER_URL: postgres://pedemais_owner:owner_ci@localhost:5432/pedemais
+          DATABASE_OWNER_URL: postgres://comandou_owner:owner_ci@localhost:5432/comandou
           PROVISION_ADMIN_PASSWORD: e2e-senha-forte-123
           E2E_INTEGRATIONS_KEY: ${{ env.E2E_INTEGRATIONS_KEY }}
           E2E_ADMIN_PASSWORD: ${{ env.E2E_ADMIN_PASSWORD }}
           E2E_ADMIN_TOTP: ${{ env.E2E_ADMIN_TOTP }}
         run: |
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 \
-            -c "CREATE ROLE pedemais_owner LOGIN PASSWORD 'owner_ci'" \
-            -c "CREATE ROLE pedemais_app LOGIN PASSWORD 'app_ci' NOBYPASSRLS" \
-            -c "CREATE ROLE pedemais_platform LOGIN PASSWORD 'platform_ci' NOBYPASSRLS" \
-            -c "CREATE DATABASE pedemais OWNER pedemais_owner"
-          pnpm --filter @pedemais/shared build
-          pnpm --filter @pedemais/api build
-          pnpm --filter @pedemais/api db:migrate
-          pnpm --filter @pedemais/api tenant:provision demo "Restaurante Demo" dono@demo.local "Dono Demo"
+            -c "CREATE ROLE comandou_owner LOGIN PASSWORD 'owner_ci'" \
+            -c "CREATE ROLE comandou_app LOGIN PASSWORD 'app_ci' NOBYPASSRLS" \
+            -c "CREATE ROLE comandou_platform LOGIN PASSWORD 'platform_ci' NOBYPASSRLS" \
+            -c "CREATE DATABASE comandou OWNER comandou_owner"
+          pnpm --filter @comandou/shared build
+          pnpm --filter @comandou/api build
+          pnpm --filter @comandou/api db:migrate
+          pnpm --filter @comandou/api tenant:provision demo "Restaurante Demo" dono@demo.local "Dono Demo"
           # Super Admin de teste com segredo TOTP fixo (o teste do navegador gera o código).
           DATABASE_OWNER_URL=$DATABASE_OWNER_URL INTEGRATIONS_KEY=$E2E_INTEGRATIONS_KEY \
             PLATFORM_ADMIN_PASSWORD=$E2E_ADMIN_PASSWORD PLATFORM_ADMIN_TOTP_SECRET=$E2E_ADMIN_TOTP \
             node apps/api/dist/platform/platform-admin-cli.js admin@e2e.local "Admin E2E"
       - name: Subir API e Web
         run: |
-          DATABASE_URL=postgres://pedemais_app:app_ci@localhost:5432/pedemais AUTH_LOGIN_RATE_LIMIT=100 \
-            PLATFORM_DATABASE_URL=postgres://pedemais_platform:platform_ci@localhost:5432/pedemais \
+          DATABASE_URL=postgres://comandou_app:app_ci@localhost:5432/comandou AUTH_LOGIN_RATE_LIMIT=100 \
+            PLATFORM_DATABASE_URL=postgres://comandou_platform:platform_ci@localhost:5432/comandou \
             INTEGRATIONS_KEY=$E2E_INTEGRATIONS_KEY \
             nohup node apps/api/dist/main.js > api.log 2>&1 &
-          nohup pnpm --filter @pedemais/web exec vite --port 5173 > web.log 2>&1 &
+          nohup pnpm --filter @comandou/web exec vite --port 5173 > web.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:3000/api/v1/health/ready && break; sleep 1; done
           for i in $(seq 1 30); do curl -sf http://localhost:5173/ >/dev/null && break; sleep 1; done
-      - run: pnpm --filter @pedemais/web e2e
+      - name: Testes de ponta a ponta no navegador
+        run: pnpm --filter @comandou/web e2e
         env:
-          E2E_BASE_URL: http://demo.pedemais.localhost:5173
+          E2E_BASE_URL: http://demo.comandou.localhost:5173
           E2E_EMAIL: dono@demo.local
           E2E_PASSWORD: e2e-senha-forte-123
           E2E_ADMIN_EMAIL: admin@e2e.local
       - name: Backup e teste de restauração (destino local, chave descartável)
         env:
-          DATABASE_OWNER_URL: postgres://pedemais_owner:owner_ci@localhost:5432/pedemais
+          DATABASE_OWNER_URL: postgres://comandou_owner:owner_ci@localhost:5432/comandou
           BACKUP_TARGET: file
           PG_BIN: /usr/lib/postgresql/16/bin
         run: |
@@ -148,7 +164,8 @@ jobs:
           infrastructure/backup/restore-test.sh
           psql "$DATABASE_OWNER_URL" -At -c "SELECT kind, status FROM backup_runs ORDER BY id" | tee runs.txt
           grep -qx 'restore_test|ok' runs.txt
-      - if: failure()
+      - name: Guardar prints e logs (só se falhar)
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-artifacts

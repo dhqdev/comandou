@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
-import { PAYMENT_METHODS } from '@pedemais/shared';
+import { PAYMENT_METHODS } from '@comandou/shared';
 import { ctxOf } from '../common/context';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
 import { requireKey, validIdempotencyKey } from '../common/idempotency';

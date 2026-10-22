@@ -6,9 +6,9 @@ import { createApp } from '../src/bootstrap';
 import { testEnv } from './env';
 import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 
-const HOST_A = 'api-a.pedemais.test';
-const HOST_B = 'api-b.pedemais.test';
-const CSRF = { 'X-PedeMais-Request': '1' };
+const HOST_A = 'api-a.comandou.test';
+const HOST_B = 'api-b.comandou.test';
+const CSRF = { 'X-Comandou-Request': '1' };
 
 let app: INestApplication;
 let fx: Fixture;
@@ -21,7 +21,7 @@ async function login(host: string, email: string, password = PASSWORD) {
     .set(CSRF)
     .send({ email, password });
   const raw = res.headers['set-cookie'] as unknown as string[] | undefined;
-  const cookie = raw?.find((c) => c.startsWith('pm_sid='))?.split(';')[0];
+  const cookie = raw?.find((c) => c.startsWith('cm_sid='))?.split(';')[0];
   return { res, cookie: cookie ?? '', raw: raw ?? [] };
 }
 
@@ -48,14 +48,14 @@ describe('Health', () => {
 
 describe('Resolução de tenant pelo Host', () => {
   it('host de restaurante inexistente → 404', async () => {
-    await http.get('/api/v1/tenant').set('Host', 'naoexiste.pedemais.test').expect(404);
+    await http.get('/api/v1/tenant').set('Host', 'naoexiste.comandou.test').expect(404);
   });
   it('host da plataforma → 404 nas rotas de restaurante', async () => {
-    await http.get('/api/v1/tenant').set('Host', 'pedemais.test').expect(404);
+    await http.get('/api/v1/tenant').set('Host', 'comandou.test').expect(404);
   });
   it('host malformado ou subdomínio aninhado → 400', async () => {
-    await http.get('/api/v1/tenant').set('Host', 'x.api-a.pedemais.test').expect(400);
-    await http.get('/api/v1/tenant').set('Host', 'api.pedemais.test').expect(400);
+    await http.get('/api/v1/tenant').set('Host', 'x.api-a.comandou.test').expect(400);
+    await http.get('/api/v1/tenant').set('Host', 'api.comandou.test').expect(400);
   });
   it('domínio personalizado desconhecido → 404', async () => {
     await http.get('/api/v1/tenant').set('Host', 'evil.example.com').expect(404);
@@ -94,12 +94,12 @@ describe('Autenticação', () => {
     const { res, raw } = await login(HOST_A, 'admin@api-a.test');
     expect(res.status).toBe(200);
     expect(res.body.user.role).toBe('owner');
-    const c = raw.find((x) => x.startsWith('pm_sid='))!;
+    const c = raw.find((x) => x.startsWith('cm_sid='))!;
     expect(c).toMatch(/HttpOnly/i);
     expect(c).toMatch(/SameSite=Lax/i);
     expect(c).not.toMatch(/Domain=/i);
     // Token nunca é guardado em claro.
-    const token = c.split(';')[0].slice('pm_sid='.length);
+    const token = c.split(';')[0].slice('cm_sid='.length);
     const rows = await ownerQuery(
       `SELECT 1 FROM sessions WHERE token_hash = convert_to($1, 'UTF8')`,
       [token],

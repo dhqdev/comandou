@@ -1,4 +1,4 @@
-import type { Role, TenantStatus } from '@pedemais/shared';
+import type { Role, TenantStatus } from '@comandou/shared';
 
 export interface ResolvedTenant {
   id: string;

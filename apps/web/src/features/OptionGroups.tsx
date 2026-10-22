@@ -1,4 +1,4 @@
-import { toCents } from '@pedemais/shared';
+import { toCents } from '@comandou/shared';
 import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
@@ -83,7 +83,7 @@ export function OptionGroupsCard({
                       {toCents(o.priceDelta) > 0 ? (
                         `+ ${brl(o.priceDelta)}`
                       ) : (
-                        <span className="pm-hint">sem custo</span>
+                        <span className="cm-hint">sem custo</span>
                       )}
                       {canWrite && (
                         <button className="link-btn" onClick={() => toggleOption(o.id, !o.active)}>
@@ -209,11 +209,11 @@ function GroupModal({
           </div>
         )}
         <div style={{ display: 'grid', gap: 8 }}>
-          <span className="pm-label">Opções</span>
+          <span className="cm-label">Opções</span>
           {opts.map((o, i) => (
             <div key={i} className="option-row">
               <input
-                className="pm-input"
+                className="cm-input"
                 placeholder="Nome (ex.: Bacon)"
                 aria-label={`Opção ${i + 1}`}
                 value={o.name}
@@ -223,7 +223,7 @@ function GroupModal({
                 }
               />
               <input
-                className="pm-input"
+                className="cm-input"
                 placeholder="+ 0,00"
                 inputMode="decimal"
                 aria-label={`Preço adicional ${i + 1}`}
@@ -320,10 +320,10 @@ export function ProductConfigModal({
   return (
     <Modal open={!!product} onClose={onClose} title={`Configurar ${product?.name ?? ''}`}>
       <div style={{ display: 'grid', gap: 16 }}>
-        <label className="pm-field">
-          <span className="pm-label">Setor de produção</span>
+        <label className="cm-field">
+          <span className="cm-label">Setor de produção</span>
           <select
-            className="pm-input"
+            className="cm-input"
             value={sectorId}
             onChange={(e) => setSectorId(e.target.value)}
           >
@@ -338,7 +338,7 @@ export function ProductConfigModal({
         <fieldset className="picker__group">
           <legend>Grupos de opções (na ordem em que aparecem)</legend>
           {groups.length === 0 && (
-            <span className="pm-hint">Crie grupos em “Adicionais e variações”.</span>
+            <span className="cm-hint">Crie grupos em “Adicionais e variações”.</span>
           )}
           {groups.map((g) => (
             <label key={g.id} className="picker__opt">
@@ -350,13 +350,13 @@ export function ProductConfigModal({
                 }
               />
               <span>{g.name}</span>
-              <span className="pm-hint">{rule(g)}</span>
+              <span className="cm-hint">{rule(g)}</span>
             </label>
           ))}
         </fieldset>
         <fieldset className="picker__group">
           <legend>Nota fiscal (NFC-e)</legend>
-          <span className="pm-hint">
+          <span className="cm-hint">
             Em branco usa o padrão de Ajustes &gt; Nota fiscal. Confirme os códigos com a sua
             contabilidade.
           </span>
@@ -387,10 +387,10 @@ export function ProductConfigModal({
                 setFiscal({ ...fiscal, fiscalCode: e.target.value.replace(/\D/g, '') })
               }
             />
-            <label className="pm-field">
-              <span className="pm-label">Origem</span>
+            <label className="cm-field">
+              <span className="cm-label">Origem</span>
               <select
-                className="pm-input"
+                className="cm-input"
                 value={fiscal.fiscalOrigin}
                 onChange={(e) => setFiscal({ ...fiscal, fiscalOrigin: e.target.value })}
               >

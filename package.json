@@ -1,8 +1,8 @@
 {
-  "name": "pedemais",
+  "name": "comandou",
   "private": true,
-  "version": "0.7.0",
-  "description": "PedeMais — SaaS multi-tenant para restaurantes",
+  "version": "0.8.0",
+  "description": "Comandou — SaaS multi-tenant para restaurantes",
   "license": "UNLICENSED",
   "packageManager": "pnpm@10.28.0",
   "engines": {
@@ -15,9 +15,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "pnpm -r test",
-    "db:migrate": "pnpm --filter @pedemais/api db:migrate",
-    "dev:api": "pnpm --filter @pedemais/api dev",
-    "dev:web": "pnpm --filter @pedemais/web dev"
+    "db:migrate": "pnpm --filter @comandou/api db:migrate",
+    "dev:api": "pnpm --filter @comandou/api dev",
+    "dev:web": "pnpm --filter @comandou/web dev"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

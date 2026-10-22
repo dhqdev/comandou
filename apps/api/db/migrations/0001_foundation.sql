@@ -1,8 +1,8 @@
--- PedeMais — 0001 Fundação: tenants, identidade, sessões, auditoria e RLS.
+-- Comandou — 0001 Fundação: tenants, identidade, sessões, auditoria e RLS.
 --
 -- Papéis de banco (criados fora das migrações, ver infrastructure/docker/postgres-init):
---   pedemais_owner : dono das tabelas; executa migrações e provisionamento. Nunca usado pela API em runtime.
---   pedemais_app   : usado pela API. NÃO é dono das tabelas, NÃO tem BYPASSRLS. Sujeito a RLS.
+--   comandou_owner : dono das tabelas; executa migrações e provisionamento. Nunca usado pela API em runtime.
+--   comandou_app   : usado pela API. NÃO é dono das tabelas, NÃO tem BYPASSRLS. Sujeito a RLS.
 --
 -- Contexto de tenant: cada transação da API executa
 --   SELECT set_config('app.tenant_id', '<uuid>', true)   -- true = local à transação
@@ -110,7 +110,7 @@ CREATE TABLE audit_log (
 CREATE INDEX audit_log_tenant_created_idx ON audit_log(tenant_id, created_at DESC);
 
 -- RLS ---------------------------------------------------------------------------------------
--- Não usamos FORCE ROW LEVEL SECURITY: o dono (pedemais_owner) precisa ignorar RLS para
+-- Não usamos FORCE ROW LEVEL SECURITY: o dono (comandou_owner) precisa ignorar RLS para
 -- migrações, provisionamento e as funções SECURITY DEFINER abaixo. A API nunca conecta como dono.
 ALTER TABLE tenants                   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenant_domains            ENABLE ROW LEVEL SECURITY;
@@ -164,11 +164,11 @@ CREATE FUNCTION app_find_login(p_tenant uuid, p_email text)
 
 REVOKE ALL ON FUNCTION app_resolve_tenant(text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION app_find_login(uuid, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION app_resolve_tenant(text, text) TO pedemais_app;
-GRANT EXECUTE ON FUNCTION app_find_login(uuid, text) TO pedemais_app;
+GRANT EXECUTE ON FUNCTION app_resolve_tenant(text, text) TO comandou_app;
+GRANT EXECUTE ON FUNCTION app_find_login(uuid, text) TO comandou_app;
 
 -- Privilégios da aplicação ------------------------------------------------------------------
-GRANT USAGE ON SCHEMA public TO pedemais_app;
-GRANT SELECT ON tenants, tenant_domains, tenant_provisioning_steps, users, memberships TO pedemais_app;
-GRANT SELECT, INSERT, UPDATE ON sessions TO pedemais_app;
-GRANT SELECT, INSERT ON audit_log TO pedemais_app;
+GRANT USAGE ON SCHEMA public TO comandou_app;
+GRANT SELECT ON tenants, tenant_domains, tenant_provisioning_steps, users, memberships TO comandou_app;
+GRANT SELECT, INSERT, UPDATE ON sessions TO comandou_app;
+GRANT SELECT, INSERT ON audit_log TO comandou_app;

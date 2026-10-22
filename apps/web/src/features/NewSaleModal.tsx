@@ -5,7 +5,7 @@ import {
   ORDER_CHANNELS,
   toCents,
   type OrderChannel,
-} from '@pedemais/shared';
+} from '@comandou/shared';
 import { Minus, Plus, Search, ShoppingBag, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -185,7 +185,7 @@ export function NewSaleModal({
           <div className="sale__search">
             <Search size={16} aria-hidden />
             <input
-              className="pm-input"
+              className="cm-input"
               placeholder="Buscar produto…"
               aria-label="Buscar produto"
               value={search}
@@ -224,7 +224,7 @@ export function NewSaleModal({
                   <span className="product-tile__price">
                     {p.soldOut ? <Badge tone="danger">Esgotado</Badge> : brl(p.price)}
                   </span>
-                  {p.optionGroups.length > 0 && <span className="pm-hint">com opções</span>}
+                  {p.optionGroups.length > 0 && <span className="cm-hint">com opções</span>}
                 </button>
               ))}
             </div>
@@ -246,10 +246,10 @@ export function NewSaleModal({
             ))}
           </div>
           {channel === 'table' && !preset?.tabId && (
-            <label className="pm-field">
-              <span className="pm-label">Mesa</span>
+            <label className="cm-field">
+              <span className="cm-label">Mesa</span>
               <select
-                className="pm-input"
+                className="cm-input"
                 value={tableId}
                 onChange={(e) => setTableId(e.target.value)}
               >
@@ -279,10 +279,10 @@ export function NewSaleModal({
                     <div className="cart__info">
                       <strong>{l.product.name}</strong>
                       {opts.length > 0 && (
-                        <span className="pm-hint">{opts.map((o) => o.name).join(', ')}</span>
+                        <span className="cm-hint">{opts.map((o) => o.name).join(', ')}</span>
                       )}
                       <input
-                        className="pm-input cart__note"
+                        className="cm-input cart__note"
                         placeholder="Observação (ex.: sem cebola)"
                         aria-label={`Observação de ${l.product.name}`}
                         value={l.notes}
@@ -319,7 +319,7 @@ export function NewSaleModal({
                         }
                       />
                     </div>
-                    <span className="pm-num">
+                    <span className="cm-num">
                       {brl(fromCents(multiplyCents(unitCents(l.product, l.optionIds), l.quantity)))}
                     </span>
                   </li>
@@ -408,7 +408,7 @@ export function NewSaleModal({
           >
             Enviar pedido
           </Button>
-          <p className="pm-hint" style={{ margin: 0 }}>
+          <p className="cm-hint" style={{ margin: 0 }}>
             O pedido só aparece como criado depois da confirmação do servidor.
           </p>
         </section>
@@ -462,7 +462,7 @@ function OptionPicker({
             <fieldset key={g.id} className="picker__group">
               <legend>
                 {g.name}{' '}
-                <span className="pm-hint">
+                <span className="cm-hint">
                   {single
                     ? 'escolha 1'
                     : g.minSelect > 0
@@ -480,7 +480,7 @@ function OptionPicker({
                   />
                   <span>{o.name}</span>
                   {toCents(o.priceDelta) > 0 && (
-                    <span className="pm-hint">+ {brl(o.priceDelta)}</span>
+                    <span className="cm-hint">+ {brl(o.priceDelta)}</span>
                   )}
                 </label>
               ))}

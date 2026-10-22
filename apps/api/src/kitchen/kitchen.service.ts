@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { roleHas } from '@pedemais/shared';
+import { roleHas } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';

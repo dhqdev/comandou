@@ -1,4 +1,4 @@
--- PedeMais — 0009 Etapa 7: índices achados no teste de carga com 1 milhão de pedidos.
+-- Comandou — 0009 Etapa 7: índices achados no teste de carga com 1 milhão de pedidos.
 -- Sem eles, listar os últimos pedidos de um restaurante grande lia a tabela inteira (1,7 s com
 -- 1 milhão de pedidos; 9 ms com o índice). Somente aditiva.
 --

@@ -22,7 +22,7 @@ Cada etapa só é considerada concluída quando **todos** os critérios de aceit
 | Provisionamento idempotente e retomável | `test/provisioning.int.test.ts` |
 | Frontend React com Design System e PWA | `apps/web`, Playwright desktop + celular |
 | Docker local com Nginx + Traefik | `docker-compose.yml` |
-| Stack Swarm/Portainer usando `network_public` | `infrastructure/swarm/pedemais-stack.yml` (**não implantada**) |
+| Stack Swarm/Portainer usando `network_public` | `infrastructure/swarm/comandou-stack.yml` (**não implantada**) |
 | CI no GitHub Actions | `.github/workflows/ci.yml` |
 
 ## Etapa 3 — Primeiros fluxos comerciais · ✅ entregue (PR #2)

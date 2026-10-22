@@ -31,9 +31,9 @@ export async function createApp(
     const doc = SwaggerModule.createDocument(
       app,
       new DocumentBuilder()
-        .setTitle('PedeMais API')
+        .setTitle('Comandou API')
         .setVersion('v1')
-        .addCookieAuth('pm_sid')
+        .addCookieAuth('cm_sid')
         .build(),
     );
     SwaggerModule.setup('api/docs', app, doc);

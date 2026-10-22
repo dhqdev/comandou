@@ -5,7 +5,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { RELEASES } from '@pedemais/shared';
+import { RELEASES } from '@comandou/shared';
 import type { PoolClient } from 'pg';
 import { ENV, Env } from '../config/env';
 import { HealthChecks } from '../health/checks.service';
@@ -31,7 +31,7 @@ const SUB_COLS = `s.id, s.status, s.plan_id AS "planId", s.started_at AS "starte
   s.cancelled_at AS "cancelledAt", s.notes`;
 
 /**
- * Regras do painel Super Admin. Tudo pelo pool da plataforma (papel pedemais_platform) e com
+ * Regras do painel Super Admin. Tudo pelo pool da plataforma (papel comandou_platform) e com
  * auditoria na mesma transação. Não lê dados operacionais dos restaurantes (pedidos, clientes):
  * só números agregados de uso.
  */

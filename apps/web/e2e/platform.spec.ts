@@ -6,9 +6,9 @@ import { expect, Page, test } from '@playwright/test';
  * planos, novo restaurante, assinatura, suspensão/reativação e auditoria; no restaurante, a
  * tela "Plano e domínio". O segredo TOTP de teste vem de E2E_ADMIN_TOTP (nunca o de produção).
  */
-const BASE = process.env.E2E_BASE_URL ?? 'http://demo.pedemais.localhost:5173';
+const BASE = process.env.E2E_BASE_URL ?? 'http://demo.comandou.localhost:5173';
 const ADMIN_URL = process.env.E2E_ADMIN_URL ?? BASE.replace(/\/\/[^.]+\./, '//admin.');
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'admin@pedemais.local';
+const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'admin@comandou.local';
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? '';
 const ADMIN_TOTP = process.env.E2E_ADMIN_TOTP ?? '';
 const EMAIL = process.env.E2E_EMAIL ?? 'dono@demo.local';
@@ -122,13 +122,13 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await dialog.getByRole('button', { name: 'Criar restaurante' }).click();
   await expect(page.getByRole('heading', { name: new RegExp(`Cantina ${tag}`) })).toBeVisible();
   await expect(page.getByText(`dona-${tag}@e2e.local`).first()).toBeVisible();
-  await expect(page.locator('.pm-badge', { hasText: /^Ativa$/ })).toBeVisible();
+  await expect(page.locator('.cm-badge', { hasText: /^Ativa$/ })).toBeVisible();
 
   // Assinatura: pagamento pendente
   await page.getByLabel('Situação').selectOption('past_due');
   await page.getByRole('button', { name: 'Salvar' }).click();
   await expect(page.getByText('Assinatura salva')).toBeVisible();
-  await expect(page.locator('.pm-badge', { hasText: 'Pagamento pendente' })).toBeVisible();
+  await expect(page.locator('.cm-badge', { hasText: 'Pagamento pendente' })).toBeVisible();
 
   // Suspender e reativar (com motivo)
   await page.getByRole('button', { name: 'Suspender' }).click();
@@ -179,8 +179,8 @@ test('restaurante: tela Plano e domínio com instruções de DNS', async ({ page
   await page.getByLabel('Domínio', { exact: true }).fill(host);
   await page.getByRole('button', { name: 'Adicionar' }).click();
   await expect(page.getByText('Domínio cadastrado')).toBeVisible();
-  await expect(page.getByText(`_pedemais.${host}`)).toBeVisible();
-  await expect(page.getByText(/^pedemais-verify=/).first()).toBeVisible();
+  await expect(page.getByText(`_comandou.${host}`)).toBeVisible();
+  await expect(page.getByText(/^comandou-verify=/).first()).toBeVisible();
   await shot(page, info.project.name, 'plano-dominio');
   // Sem o registro no DNS, não verifica.
   const item = page.locator('li', { hasText: host });

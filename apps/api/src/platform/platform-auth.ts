@@ -17,7 +17,7 @@ import { classifyHost } from '../tenancy/host';
 import { PlatformDb, platformAudit } from './platform-db.service';
 import { verifyTotp } from './totp';
 
-export const PLATFORM_COOKIE = 'pm_admin';
+export const PLATFORM_COOKIE = 'cm_admin';
 /** O cookie do painel só vai para as rotas do painel. */
 export const PLATFORM_COOKIE_PATH = '/api/v1/platform';
 
@@ -191,7 +191,7 @@ export class PlatformHostGuard implements CanActivate {
 
   canActivate(ctx: ExecutionContext): boolean {
     const req = ctx.switchToHttp().getRequest<Request>();
-    const host = classifyHost(req.hostname, this.env.PEDEMAIS_BASE_DOMAIN);
+    const host = classifyHost(req.hostname, this.env.COMANDOU_BASE_DOMAIN);
     if (!this.db.enabled || host.kind !== 'platform-admin') throw new NotFoundException();
     return true;
   }

@@ -1,21 +1,21 @@
--- PedeMais — 0007 Etapa 6: plataforma SaaS.
--- Super Admin com identidade, sessão e auditoria próprias (papel de banco pedemais_platform),
+-- Comandou — 0007 Etapa 6: plataforma SaaS.
+-- Super Admin com identidade, sessão e auditoria próprias (papel de banco comandou_platform),
 -- planos e assinaturas com limites, domínios personalizados verificados por DNS TXT e registro
 -- dos backups. Somente aditiva: nenhuma linha existente é apagada ou reescrita.
 --
--- O papel pedemais_platform é criado FORA das migrações (o dono não tem CREATEROLE), como os
+-- O papel comandou_platform é criado FORA das migrações (o dono não tem CREATEROLE), como os
 -- outros papéis: infrastructure/docker/postgres-init/01-roles.sh. Ele NÃO tem BYPASSRLS: cada
--- tabela que o painel usa tem uma política própria "TO pedemais_platform" e GRANTs mínimos.
--- A API do restaurante (pedemais_app) não recebe nada das tabelas da plataforma.
+-- tabela que o painel usa tem uma política própria "TO comandou_platform" e GRANTs mínimos.
+-- A API do restaurante (comandou_app) não recebe nada das tabelas da plataforma.
 
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'pedemais_platform') THEN
-    RAISE EXCEPTION 'papel pedemais_platform ausente: crie-o antes desta migração (docs/deploy.md, seção Etapa 6)';
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'comandou_platform') THEN
+    RAISE EXCEPTION 'papel comandou_platform ausente: crie-o antes desta migração (docs/deploy.md, seção Etapa 6)';
   END IF;
 END $$;
 
-GRANT USAGE ON SCHEMA public TO pedemais_platform;
+GRANT USAGE ON SCHEMA public TO comandou_platform;
 
 -- Planos (catálogo global, sem dados de restaurante) ------------------------------------------
 -- Limite NULL = ilimitado. Preços e limites são definidos no painel; nenhum plano é criado aqui.
@@ -101,10 +101,10 @@ CREATE FUNCTION app_verified_domains()
      ORDER BY d.hostname
   $$;
 REVOKE ALL ON FUNCTION app_verified_domains() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION app_verified_domains() TO pedemais_app;
+GRANT EXECUTE ON FUNCTION app_verified_domains() TO comandou_app;
 
-GRANT INSERT (tenant_id, hostname, verification_token, created_by) ON tenant_domains TO pedemais_app;
-GRANT UPDATE (verified_at, last_checked_at, last_error, removed_at) ON tenant_domains TO pedemais_app;
+GRANT INSERT (tenant_id, hostname, verification_token, created_by) ON tenant_domains TO comandou_app;
+GRANT UPDATE (verified_at, last_checked_at, last_error, removed_at) ON tenant_domains TO comandou_app;
 
 -- Identidade da plataforma (separada dos usuários dos restaurantes) ----------------------------
 -- Criada só pela CLI com a conexão do dono; o painel não cria administradores.
@@ -176,44 +176,44 @@ ALTER TABLE platform_audit_log  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE backup_runs         ENABLE ROW LEVEL SECURITY;
 
 -- Restaurante: vê os planos (para mostrar o próprio) e só a própria assinatura.
-CREATE POLICY app_read ON plans TO pedemais_app USING (true);
-CREATE POLICY tenant_isolation ON subscriptions TO pedemais_app USING (tenant_id = app_current_tenant());
-GRANT SELECT ON plans, subscriptions TO pedemais_app;
+CREATE POLICY app_read ON plans TO comandou_app USING (true);
+CREATE POLICY tenant_isolation ON subscriptions TO comandou_app USING (tenant_id = app_current_tenant());
+GRANT SELECT ON plans, subscriptions TO comandou_app;
 
 -- Plataforma: políticas explícitas, tabela por tabela.
-CREATE POLICY platform_all ON plans               TO pedemais_platform USING (true) WITH CHECK (true);
-CREATE POLICY platform_all ON subscriptions       TO pedemais_platform USING (true) WITH CHECK (true);
-CREATE POLICY platform_all ON platform_admins     TO pedemais_platform USING (true);
-CREATE POLICY platform_all ON platform_sessions   TO pedemais_platform USING (true) WITH CHECK (true);
-CREATE POLICY platform_all ON platform_audit_log  TO pedemais_platform USING (true) WITH CHECK (true);
-CREATE POLICY platform_read ON backup_runs        TO pedemais_platform USING (true);
-CREATE POLICY platform_all ON tenants                   TO pedemais_platform USING (true) WITH CHECK (true);
-CREATE POLICY platform_all ON tenant_domains            TO pedemais_platform USING (true) WITH CHECK (true);
-CREATE POLICY platform_all ON tenant_provisioning_steps TO pedemais_platform USING (true) WITH CHECK (true);
-CREATE POLICY platform_all ON users                     TO pedemais_platform USING (true) WITH CHECK (true);
-CREATE POLICY platform_all ON memberships               TO pedemais_platform USING (true) WITH CHECK (true);
-CREATE POLICY platform_all ON categories                TO pedemais_platform USING (true) WITH CHECK (true);
-CREATE POLICY platform_insert ON audit_log TO pedemais_platform WITH CHECK (true);
+CREATE POLICY platform_all ON plans               TO comandou_platform USING (true) WITH CHECK (true);
+CREATE POLICY platform_all ON subscriptions       TO comandou_platform USING (true) WITH CHECK (true);
+CREATE POLICY platform_all ON platform_admins     TO comandou_platform USING (true);
+CREATE POLICY platform_all ON platform_sessions   TO comandou_platform USING (true) WITH CHECK (true);
+CREATE POLICY platform_all ON platform_audit_log  TO comandou_platform USING (true) WITH CHECK (true);
+CREATE POLICY platform_read ON backup_runs        TO comandou_platform USING (true);
+CREATE POLICY platform_all ON tenants                   TO comandou_platform USING (true) WITH CHECK (true);
+CREATE POLICY platform_all ON tenant_domains            TO comandou_platform USING (true) WITH CHECK (true);
+CREATE POLICY platform_all ON tenant_provisioning_steps TO comandou_platform USING (true) WITH CHECK (true);
+CREATE POLICY platform_all ON users                     TO comandou_platform USING (true) WITH CHECK (true);
+CREATE POLICY platform_all ON memberships               TO comandou_platform USING (true) WITH CHECK (true);
+CREATE POLICY platform_all ON categories                TO comandou_platform USING (true) WITH CHECK (true);
+CREATE POLICY platform_insert ON audit_log TO comandou_platform WITH CHECK (true);
 
-GRANT SELECT, INSERT, UPDATE ON plans, subscriptions TO pedemais_platform;
-GRANT SELECT ON platform_admins TO pedemais_platform;
-GRANT UPDATE (totp_last_step, last_login_at) ON platform_admins TO pedemais_platform;
-GRANT SELECT, INSERT ON platform_sessions TO pedemais_platform;
-GRANT UPDATE (revoked_at, last_seen_at) ON platform_sessions TO pedemais_platform;
-GRANT SELECT, INSERT ON platform_audit_log TO pedemais_platform;
-GRANT SELECT ON backup_runs TO pedemais_platform;
+GRANT SELECT, INSERT, UPDATE ON plans, subscriptions TO comandou_platform;
+GRANT SELECT ON platform_admins TO comandou_platform;
+GRANT UPDATE (totp_last_step, last_login_at) ON platform_admins TO comandou_platform;
+GRANT SELECT, INSERT ON platform_sessions TO comandou_platform;
+GRANT UPDATE (revoked_at, last_seen_at) ON platform_sessions TO comandou_platform;
+GRANT SELECT, INSERT ON platform_audit_log TO comandou_platform;
+GRANT SELECT ON backup_runs TO comandou_platform;
 -- Provisionamento pelo painel e suspensão/reativação.
-GRANT SELECT, INSERT ON tenants TO pedemais_platform;
-GRANT UPDATE (name, status) ON tenants TO pedemais_platform;
-GRANT SELECT ON tenant_domains TO pedemais_platform;
-GRANT UPDATE (removed_at) ON tenant_domains TO pedemais_platform;
-GRANT SELECT, INSERT, UPDATE ON tenant_provisioning_steps TO pedemais_platform;
+GRANT SELECT, INSERT ON tenants TO comandou_platform;
+GRANT UPDATE (name, status) ON tenants TO comandou_platform;
+GRANT SELECT ON tenant_domains TO comandou_platform;
+GRANT UPDATE (removed_at) ON tenant_domains TO comandou_platform;
+GRANT SELECT, INSERT, UPDATE ON tenant_provisioning_steps TO comandou_platform;
 -- Usuários: nunca o hash da senha de volta (SELECT só em colunas sem segredo).
-GRANT SELECT (id, email, name, disabled_at, created_at) ON users TO pedemais_platform;
-GRANT INSERT (email, name, password_hash) ON users TO pedemais_platform;
-GRANT SELECT, INSERT ON memberships TO pedemais_platform;
-GRANT SELECT, INSERT ON categories TO pedemais_platform;
-GRANT INSERT ON audit_log TO pedemais_platform;
+GRANT SELECT (id, email, name, disabled_at, created_at) ON users TO comandou_platform;
+GRANT INSERT (email, name, password_hash) ON users TO comandou_platform;
+GRANT SELECT, INSERT ON memberships TO comandou_platform;
+GRANT SELECT, INSERT ON categories TO comandou_platform;
+GRANT INSERT ON audit_log TO comandou_platform;
 
 -- Uso por restaurante (painel): números agregados, sem dados de clientes ou pedidos.
 CREATE FUNCTION platform_tenant_usage()
@@ -234,4 +234,4 @@ CREATE FUNCTION platform_tenant_usage()
     FROM tenants t
   $$;
 REVOKE ALL ON FUNCTION platform_tenant_usage() FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION platform_tenant_usage() TO pedemais_platform;
+GRANT EXECUTE ON FUNCTION platform_tenant_usage() TO comandou_platform;

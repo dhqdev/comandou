@@ -5,7 +5,7 @@
 
 ## Contexto
 
-A Etapa 5 liga o PedeMais a serviços de fora: a Focus NFe (nota fiscal ao consumidor, NFC-e) e o
+A Etapa 5 liga o Comandou a serviços de fora: a Focus NFe (nota fiscal ao consumidor, NFC-e) e o
 WhatsApp (avisos ao cliente). Essas chamadas podem demorar, falhar ou ficar sem resposta, e não
 podem travar o pedido nem duplicar uma nota. Valem as regras anteriores: RLS por restaurante,
 dinheiro em decimal, nada de apagar registro fiscal ou financeiro, evento em tempo real só como sinal.
@@ -55,14 +55,14 @@ dinheiro em decimal, nada de apagar registro fiscal ou financeiro, evento em tem
 
 ## Consequências
 
-- Precisa de Redis em produção (já previsto na stack) e do secret `pedemais_integrations_key`.
+- Precisa de Redis em produção (já previsto na stack) e do secret `comandou_integrations_key`.
 - Perder `INTEGRATIONS_KEY` exige recadastrar os tokens (os dados fiscais continuam íntegros).
 - Ainda a validar em homologação real com a Focus NFe: o campo de outras despesas
   (`valor_outras_despesas`) para taxa de serviço e entrega, e se a SEFAZ do estado exige dados
   extras de cartão nas formas de pagamento.
 - A conexão real com o WhatsApp (QR Code e envio) não foi exercida nos testes automatizados: o
   ambiente de CI não alcança os servidores do WhatsApp. Os testes cobrem a sessão cifrada, a API
-  interna do gateway com um socket falso e a API do PedeMais com um gateway falso. A primeira
+  interna do gateway com um socket falso e a API do Comandou com um gateway falso. A primeira
   leitura de QR Code deve ser feita em homologação com um número de teste.
 - O link de rastreio não vai no WhatsApp: guardar o token em claro na mensagem enfraqueceria a
   proteção do rastreio (só o hash fica no banco).

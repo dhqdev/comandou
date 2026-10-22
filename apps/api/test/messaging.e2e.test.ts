@@ -14,9 +14,9 @@ import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
  * Etapa 5: avisos ao cliente pelo WhatsApp (API oficial da Meta), com um servidor falso no
  * lugar da Graph API. O aviso é gravado junto com a mudança do pedido e enviado pela fila.
  */
-const HOST_A = 'wa-a.pedemais.test';
-const HOST_B = 'wa-b.pedemais.test';
-const CSRF = { 'X-PedeMais-Request': '1' };
+const HOST_A = 'wa-a.comandou.test';
+const HOST_B = 'wa-b.comandou.test';
+const CSRF = { 'X-Comandou-Request': '1' };
 const TOKEN = 'EAAG-token-de-teste-da-meta-9876';
 
 let metaMode: 'ok' | 'bad-template' | 'down' = 'ok';
@@ -63,7 +63,7 @@ async function login(host: string, email: string) {
     .send({ email, password: PASSWORD });
   expect(res.status).toBe(200);
   const raw = res.headers['set-cookie'] as unknown as string[];
-  return raw.find((c) => c.startsWith('pm_sid='))!.split(';')[0];
+  return raw.find((c) => c.startsWith('cm_sid='))!.split(';')[0];
 }
 
 async function waitMessages(w: string, n: number, until: (m: { status: string }[]) => boolean) {
