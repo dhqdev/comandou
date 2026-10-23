@@ -10,7 +10,7 @@ import {
   Play,
   Plus,
 } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Alert, Button, Modal, Spinner, TextField, useToast, Select } from '../design-system';
 import { dateTime } from '../features/format';
@@ -18,6 +18,7 @@ import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
 import { AuditTable, useLoad } from './OverviewPages';
 import { ConsumptionPanel, OperationPanel } from './TenantInsights';
+import { DatabasePanel, DatabaseProgress, dbBusy } from './TenantDatabase';
 import type { Plan, SupportLink, TeamMember, TenantDetail, TenantRow } from './types';
 import { ago, Dot, Level, Section, Tabs, Tag, Tile } from './ui';
 
@@ -28,6 +29,8 @@ export const TENANT_STATUS: Record<string, [string, Level]> = {
   provisioning: ['em cadastro', 'info'],
   recovering: ['recuperando', 'info'],
   requested: ['solicitado', 'off'],
+  moving: ['mudando de banco', 'info'],
+  deleting: ['sendo excluído', 'warn'],
 };
 const SUB_LEVEL: Record<string, Level> = {
   trialing: 'info',
@@ -165,7 +168,8 @@ export function TenantsPage() {
                 >
                   <span className="adm-row__title">{t.name}</span>
                   <span className="adm-row__meta">
-                    {t.slug}.{baseDomain()} · {t.planName ?? 'sem plano'}
+                    {t.slug}.{baseDomain()} · {t.dbName ? 'banco próprio' : 'banco central'} ·{' '}
+                    {t.planName ?? 'sem plano'}
                     {t.subscriptionStatus && t.subscriptionStatus !== 'active'
                       ? ` (${SUBSCRIPTION_LABELS[t.subscriptionStatus as keyof typeof SUBSCRIPTION_LABELS] ?? t.subscriptionStatus})`
                       : ''}
@@ -225,7 +229,7 @@ function NewTenantModal({ onClose }: { onClose(): void }) {
         method: 'POST',
         json: { ...f, planCode: f.planCode || undefined },
       });
-      toast('Restaurante criado', 'success');
+      toast('Restaurante cadastrado: criando o banco dele', 'success');
       navigate(`/restaurantes/${t.id}`);
     } catch (err) {
       setError((err as Error).message);
@@ -302,13 +306,38 @@ const toInputDate = (iso: string | null) => (iso ? iso.slice(0, 10) : '');
 const fromInputDate = (d: string) =>
   d ? new Date(`${d}T23:59:59-03:00`).toISOString() : undefined;
 
-type DetailTab = 'subscription' | 'operation' | 'usage' | 'team' | 'domains' | 'history';
+type DetailTab =
+  'subscription' | 'database' | 'operation' | 'usage' | 'team' | 'domains' | 'history';
 
 export function TenantDetailPage() {
   const { id } = useParams();
   const toast = useToast();
-  const { data: t, error, setData } = useLoad<TenantDetail>(`/platform/tenants/${id}`);
+  const navigate = useNavigate();
+  const { data: t, error, setData, reload } = useLoad<TenantDetail>(`/platform/tenants/${id}`);
   const team = useLoad<TeamMember[]>(`/platform/tenants/${id}/team`);
+  // Enquanto o banco é criado, mudado ou excluído, a tela se atualiza sozinha.
+  const busyDb = !!t && dbBusy(t);
+  const wasBusy = useRef(false);
+  const wasDeleting = useRef(false);
+  useEffect(() => {
+    if (t) wasDeleting.current = t.status === 'deleting';
+    if (!busyDb) {
+      if (wasBusy.current) team.reload();
+      wasBusy.current = false;
+      return;
+    }
+    wasBusy.current = true;
+    const timer = setInterval(reload, 2000);
+    return () => clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busyDb, t?.status]);
+  useEffect(() => {
+    if (error && wasDeleting.current) {
+      toast('Restaurante excluído. O backup final está em Backups → Bases excluídas.', 'success');
+      navigate('/restaurantes');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [error]);
   const plans = useLoad<Plan[]>('/platform/plans').data ?? [];
   const { open, busy: opening, sheet } = useOpenTenant();
   const [tab, setTab] = useState<DetailTab>('subscription');
@@ -440,10 +469,11 @@ export function TenantDetailPage() {
             </button>
           )}
         </div>
+        <DatabaseProgress t={t} />
         {t.status === 'suspended' && (
           <Alert tone="warning">Suspenso: ninguém entra nem opera. Nenhum dado foi apagado.</Alert>
         )}
-        {t.provisioning.some((p) => p.status !== 'done') && (
+        {!busyDb && t.provisioning.some((p) => p.status !== 'done') && (
           <Alert tone="danger">
             Cadastro incompleto:{' '}
             {t.provisioning
@@ -475,6 +505,7 @@ export function TenantDetailPage() {
           onChange={setTab}
           items={[
             ['subscription', 'Assinatura'],
+            ['database', 'Banco de dados'],
             ['operation', 'Operação'],
             ['usage', 'Consumo'],
             ['team', `Equipe (${team.data?.length ?? '…'})`],
@@ -546,6 +577,7 @@ export function TenantDetailPage() {
           </div>
         )}
 
+        {tab === 'database' && <DatabasePanel t={t} onChanged={setData} />}
         {tab === 'operation' && <OperationPanel id={t.id} team={team.data} />}
         {tab === 'usage' && <ConsumptionPanel id={t.id} />}
 

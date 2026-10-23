@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-**Monólito modular** (sem microserviços prematuros), multi-tenant em **PostgreSQL compartilhado** com `tenant_id` + **Row-Level Security** + autorização no backend.
+**Monólito modular** (sem microserviços prematuros), multi-tenant em **PostgreSQL** (banco central + um banco por restaurante, [ADR 0011](decisions/0011-banco-dedicado-por-cliente.md)) com `tenant_id` + **Row-Level Security** + autorização no backend.
 
 ```
 <slug>.comandou.com ──► Traefik ──┬─ PathPrefix(/api) ─► NestJS (apps/api) ─► PostgreSQL (rede interna)
@@ -64,11 +64,12 @@ Decisão: [ADR 0003](decisions/0003-multi-tenant-rls.md).
 5. **Integridade**: chaves únicas `(tenant_id, id)` e FKs compostas. Um item de pedido de A não referencia produto de B **nem que a aplicação falhe** (testado inclusive com o dono, que ignora RLS).
 6. **Nunca** se aceita `tenant_id` do cliente: os DTOs não têm o campo e o valor vem do contexto.
 
-### Limites e migração futura para banco dedicado
+### Banco próprio por restaurante (0.19.0)
 
-- Custo inicial baixo, um só backup e uma só migração. Risco: "vizinho barulhento" e raio de impacto compartilhado.
-- Critérios para migrar um tenant para banco dedicado: volume > ~5% da carga total, exigência contratual/regulatória de isolamento físico, ou necessidade de janela de manutenção própria.
-- Como o código só acessa dados via `withTenant()` e o tenant é resolvido por uma função, um futuro roteamento "tenant → string de conexão" fica concentrado em `DatabaseService`. **Não implementado** (não há necessidade hoje).
+- Cada restaurante novo tem o próprio banco (`comandou_<endereço>`) no mesmo servidor, com as mesmas migrações e o mesmo RLS (defesa em profundidade). O banco central guarda a plataforma (restaurantes, domínios, planos, assinaturas, Super Admins, backups) e o registro `tenant_databases`.
+- `DatabaseService.withTenant()` pede o pool ao `RegistryDatabaseRouter` (`apps/api/src/database/tenant-database.ts`); `withCentral()` fica no central. Restaurantes antigos sem registro continuam no central até serem movidos pelo painel.
+- Criar, mover e excluir bancos são trabalhos (`tenant_db_jobs`) executados pelo serviço de backup. Detalhes em [ADR 0011](decisions/0011-banco-dedicado-por-cliente.md).
+
 
 ## Modelo de dados (implementado)
 

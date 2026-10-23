@@ -10,6 +10,11 @@ export default async function setup() {
   }
   const c = new Client({ connectionString: OWNER_URL });
   await c.connect();
+  // Bancos de restaurante criados por testes anteriores (endereços "tst-...").
+  const { rows } = await c.query<{ datname: string }>(
+    `SELECT datname FROM pg_database WHERE datname LIKE 'comandou\\_tst\\_%'`,
+  );
+  for (const r of rows) await c.query(`DROP DATABASE IF EXISTS "${r.datname}" WITH (FORCE)`);
   await c.query('DROP SCHEMA IF EXISTS public CASCADE');
   await c.query('CREATE SCHEMA public');
   await c.end();

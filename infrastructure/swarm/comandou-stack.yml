@@ -82,17 +82,22 @@ services:
       resources:
         limits: { memory: 384M }
 
-  # Backup diário de TODOS os restaurantes (pg_dump do banco inteiro, fotos incluídas), cifrado com
-  # a INTEGRATIONS_KEY e enviado ao Backblaze B2 configurado no painel Super Admin → Backups.
-  # Teste semanal de restauração num Postgres temporário dentro do próprio contêiner.
+  # Backup diário do banco central e do banco de cada restaurante (pg_dump, fotos incluídas),
+  # cifrado com a INTEGRATIONS_KEY e enviado ao Backblaze B2 configurado no painel Super Admin →
+  # Backups, numa pasta por restaurante (restaurantes/<endereço>/). Teste semanal de restauração
+  # num Postgres temporário dentro do próprio contêiner. Também é ele que cria, muda e exclui os
+  # bancos dos restaurantes pedidos no painel. A senha do postgres serve só para, ao iniciar,
+  # dar ao papel dono a permissão de criar bancos (ALTER ROLE ... CREATEDB).
   backup:
     image: ghcr.io/dhqdev/comandou-backup:${COMANDOU_VERSION:?defina a versão}
     environment:
       DATABASE_OWNER_URL_FILE: /run/secrets/comandou_db_owner_url
       INTEGRATIONS_KEY_FILE: /run/secrets/comandou_integrations_key
+      POSTGRES_PASSWORD_FILE: /run/secrets/comandou_pg_password
     secrets:
       - comandou_db_owner_url
       - comandou_integrations_key
+      - comandou_pg_password
     networks: [comandou_internal, comandou_egress]
     deploy:
       replicas: 1

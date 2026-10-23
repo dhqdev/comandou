@@ -79,7 +79,8 @@ export class AuthController {
         'Muitas tentativas com senha errada para esta conta. Aguarde alguns minutos.',
       );
 
-    const rows = await this.db.queryUnscoped<LoginRow>(
+    const rows = await this.db.queryTenantDb<LoginRow>(
+      tenant.id,
       'SELECT user_id, name, password_hash, role FROM app_find_login($1, $2)',
       [tenant.id, body.email],
     );
@@ -140,7 +141,8 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const [row] = await this.db.queryUnscoped<{ user_id: string; admin_name: string }>(
+    const [row] = await this.db.queryTenantDb<{ user_id: string; admin_name: string }>(
+      tenant.id,
       'SELECT user_id, admin_name FROM app_consume_support_token($1, $2)',
       [tenant.id, hashToken(body.token)],
     );

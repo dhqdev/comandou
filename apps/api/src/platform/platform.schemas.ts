@@ -26,6 +26,11 @@ export const NewTenant = z.object({
 });
 export type NewTenantInput = z.infer<typeof NewTenant>;
 
+export const DeleteTenant = z.object({
+  confirm: z.string().trim().min(1).max(60),
+  reason: z.string().trim().min(3).max(300),
+});
+
 export const StatusChange = z.object({
   status: z.enum(['suspended', 'provisioned']),
   reason: z.string().trim().min(3).max(300),

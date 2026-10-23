@@ -1,4 +1,4 @@
-import { Client } from 'pg';
+import { Client, type ClientBase } from 'pg';
 import { validateTenantSlug } from '@comandou/shared';
 import { hashPassword } from '../auth/password';
 
@@ -29,7 +29,9 @@ const STEPS = [
 ] as const;
 
 /**
- * Provisionamento idempotente e retomável (banco compartilhado: NÃO cria banco por tenant).
+ * Provisionamento idempotente e retomável NO BANCO CENTRAL (modo antigo, TENANT_DATABASE_MODE=shared,
+ * e a linha de comando). Restaurante com banco próprio é criado pelo serviço de backup
+ * (backup/db-jobs.ts).
  * Executa com a conexão do dono (CLI) ou do papel da plataforma (painel Super Admin), pois é
  * uma operação global. Cada etapa é registrada em
  * tenant_provisioning_steps; reexecutar após falha retoma do ponto pendente sem duplicar recursos.
@@ -161,26 +163,8 @@ async function runStep(
         [tenantId],
       );
       return;
-    case 'subscription': {
-      const plan = (
-        await c.query<{ id: string; trial_days: number }>(
-          input.planCode
-            ? `SELECT id, trial_days FROM plans WHERE code = $1 AND active`
-            : `SELECT id, trial_days FROM plans WHERE is_default AND $1::text IS NULL`,
-          [input.planCode ?? null],
-        )
-      ).rows[0];
-      if (!plan) return; // sem plano padrão: restaurante sem limites de plano
-      await c.query(
-        `INSERT INTO subscriptions (tenant_id, plan_id, status, trial_ends_at)
-         SELECT $1, $2,
-                CASE WHEN $3::int > 0 THEN 'trialing' ELSE 'active' END,
-                CASE WHEN $3::int > 0 THEN now() + make_interval(days => $3::int) END
-          WHERE NOT EXISTS (SELECT 1 FROM subscriptions WHERE tenant_id = $1 AND status <> 'cancelled')`,
-        [tenantId, plan.id, plan.trial_days],
-      );
-      return;
-    }
+    case 'subscription':
+      return insertInitialSubscription(c, tenantId, input.planCode);
     case 'activate':
       await c.query(`UPDATE tenants SET status = 'provisioned' WHERE id = $1`, [tenantId]);
       await c.query(
@@ -190,4 +174,32 @@ async function runStep(
       );
       return;
   }
+}
+
+/**
+ * Assinatura inicial (banco central): o plano informado ou o padrão, com os dias de teste do
+ * plano. Sem plano padrão, o restaurante fica sem limites de plano. Não duplica.
+ */
+export async function insertInitialSubscription(
+  c: ClientBase,
+  tenantId: string,
+  planCode?: string,
+) {
+  const plan = (
+    await c.query<{ id: string; trial_days: number }>(
+      planCode
+        ? `SELECT id, trial_days FROM plans WHERE code = $1 AND active`
+        : `SELECT id, trial_days FROM plans WHERE is_default AND $1::text IS NULL`,
+      [planCode ?? null],
+    )
+  ).rows[0];
+  if (!plan) return;
+  await c.query(
+    `INSERT INTO subscriptions (tenant_id, plan_id, status, trial_ends_at)
+     SELECT $1, $2,
+            CASE WHEN $3::int > 0 THEN 'trialing' ELSE 'active' END,
+            CASE WHEN $3::int > 0 THEN now() + make_interval(days => $3::int) END
+      WHERE NOT EXISTS (SELECT 1 FROM subscriptions WHERE tenant_id = $1 AND status <> 'cancelled')`,
+    [tenantId, plan.id, plan.trial_days],
+  );
 }

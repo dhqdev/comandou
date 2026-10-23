@@ -41,11 +41,13 @@ import {
   ServiceName,
   SystemUpdate,
   StatusChange,
+  DeleteTenant,
   SubscriptionChange,
   SupportAccess,
 } from './platform.schemas';
 import { Actor, PlatformService } from './platform.service';
 import { PlatformBackupService } from './platform-backup.service';
+import { PlatformDatabasesService } from './platform-databases.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
 import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
 
@@ -133,6 +135,7 @@ export class PlatformController {
   constructor(
     private readonly svc: PlatformService,
     private readonly backup: PlatformBackupService,
+    private readonly databases: PlatformDatabasesService,
   ) {}
 
   @Get('overview')
@@ -156,6 +159,37 @@ export class PlatformController {
   @Get('tenants/:id')
   tenant(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.svc.tenant(id);
+  }
+
+  @Post('tenants/:id/database/retry')
+  @HttpCode(200)
+  async retryDatabase(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: Request) {
+    await this.databases.retry(id, actor(req));
+    return this.svc.tenant(id);
+  }
+
+  @Post('tenants/:id/database/move')
+  @HttpCode(200)
+  async moveDatabase(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: Request) {
+    await this.databases.move(id, actor(req));
+    return this.svc.tenant(id);
+  }
+
+  /** Exclui o restaurante e a base (backup final antes). O resultado aparece em database-jobs. */
+  @Post('tenants/:id/delete')
+  @HttpCode(202)
+  async deleteTenant(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(DeleteTenant)) b: z.infer<typeof DeleteTenant>,
+    @Req() req: Request,
+  ) {
+    await this.databases.remove(id, b, actor(req));
+    return this.svc.tenant(id);
+  }
+
+  @Get('database-jobs')
+  databaseJobs(@Query('limit') limit?: string) {
+    return this.databases.jobs(Number(limit) || 50);
   }
 
   @Post('tenants/:id/status')
@@ -274,6 +308,11 @@ export class PlatformController {
   @Get('backups')
   backups() {
     return this.svc.backups();
+  }
+
+  @Get('backups/folders')
+  backupFolders() {
+    return this.svc.backupFolders();
   }
 
   @Get('backups/settings')

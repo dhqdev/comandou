@@ -17,7 +17,7 @@ import { totpContext } from '../src/platform/platform-auth';
 import { newTotpSecret, totpCode, totpStep } from '../src/platform/totp';
 import { APP_URL, PLATFORM_URL, testEnv } from './env';
 import { FakeS3, startFakeS3 } from './fake-s3';
-import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
+import { Fixture, PASSWORD, ownerQuery, runQueuedDbJobs, seedTwoTenants } from './fixtures';
 
 /**
  * Etapa 6: painel Super Admin (admin.<base>) com papel de banco próprio, login com código do
@@ -344,18 +344,32 @@ describe('Planos, assinaturas e limites', () => {
   });
 
   it('cria restaurante pelo painel com o plano padrão em teste (sem auditar a senha)', async () => {
-    const r = await psend('post', '/tenants', {
-      slug: 'pf-novo',
+    const created = await psend('post', '/tenants', {
+      slug: 'tst-pf-novo',
       name: 'Restaurante Novo',
       adminEmail: 'dona@pf-novo.test',
       adminName: 'Dona',
       adminPassword: 'senha-inicial-123',
     }).expect(201);
+    // Banco próprio: volta "em criação" e o serviço de backup cria o banco.
+    expect(created.body.status).toBe('provisioning');
+    expect(created.body.database).toMatchObject({
+      kind: 'dedicated',
+      name: 'comandou_tst_pf_novo',
+      status: 'creating',
+    });
+    expect(await runQueuedDbJobs()).toEqual(['done']);
+    const r = await pget(`/tenants/${created.body.id}`).expect(200);
     expect(r.body.status).toBe('provisioned');
+    expect(r.body.database).toMatchObject({ kind: 'dedicated', status: 'ready' });
     expect(r.body.subscription).toMatchObject({ status: 'trialing', planId: full });
     expect(r.body.owners).toEqual([{ name: 'Dona', email: 'dona@pf-novo.test' }]);
+    // A conta da dona existe só no banco do restaurante, não no central.
+    expect(await ownerQuery(`SELECT 1 FROM users WHERE email = 'dona@pf-novo.test'`)).toHaveLength(
+      0,
+    );
     const { res } = await tenantLogin(
-      'pf-novo.comandou.test',
+      'tst-pf-novo.comandou.test',
       'dona@pf-novo.test',
       'senha-inicial-123',
     );
@@ -365,7 +379,7 @@ describe('Planos, assinaturas e limites', () => {
     );
     expect(audit.map((a) => a.data).join()).not.toContain('senha-inicial-123');
     await psend('post', '/tenants', {
-      slug: 'pf-novo',
+      slug: 'tst-pf-novo',
       name: 'X',
       adminEmail: 'x@x.test',
       adminName: 'X',

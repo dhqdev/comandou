@@ -116,7 +116,7 @@ export class DomainsController {
   @Get()
   @RequirePermission('domains:manage')
   list(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
-    return this.db.withTenant(ctxOf(t, u), async (tx) =>
+    return this.db.withCentral(ctxOf(t, u), async (tx) =>
       (
         await q<DomainRow>(
           tx,
@@ -139,7 +139,7 @@ export class DomainsController {
       throw new UnprocessableEntityException(
         'Domínio inválido: use um endereço como pedidos.seurestaurante.com.br',
       );
-    return this.db.withTenant(ctxOf(t, u), async (tx) => {
+    return this.db.withCentral(ctxOf(t, u), async (tx) => {
       await this.plans.assertFeature(tx, 'custom_domain');
       // Duas inclusões simultâneas do mesmo restaurante não passam do limite.
       await q(tx, `SELECT pg_advisory_xact_lock(hashtext('domains:' || $1))`, [t.id]);
@@ -179,7 +179,7 @@ export class DomainsController {
     @Req() req: Request,
   ) {
     const ctx = ctxOf(t, u);
-    const d = await this.db.withTenant(ctx, async (tx) => {
+    const d = await this.db.withCentral(ctx, async (tx) => {
       await this.plans.assertFeature(tx, 'custom_domain');
       return one<DomainRow>(
         tx,
@@ -191,7 +191,7 @@ export class DomainsController {
     if (d.verified_at) return this.view(t, d);
     // Consulta DNS fora da transação (pode demorar alguns segundos).
     const r = await this.verifier.check(d.hostname, d.verification_token ?? '');
-    return this.db.withTenant(ctx, async (tx) => {
+    return this.db.withCentral(ctx, async (tx) => {
       let row: DomainRow | undefined;
       try {
         row = await one<DomainRow>(
@@ -231,7 +231,7 @@ export class DomainsController {
     @CurrentUser() u: AuthenticatedUser,
     @Req() req: Request,
   ) {
-    return this.db.withTenant(ctxOf(t, u), async (tx) => {
+    return this.db.withCentral(ctxOf(t, u), async (tx) => {
       const row = await one<{ hostname: string; verified_at: Date | null }>(
         tx,
         `UPDATE tenant_domains SET removed_at = now() WHERE id = $1 AND removed_at IS NULL

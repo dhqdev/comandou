@@ -47,12 +47,33 @@ export class MaintenanceService implements OnApplicationBootstrap, OnModuleDestr
     clearInterval(this.timer);
   }
 
+  /** Roda no banco central e em cada banco próprio de restaurante; devolve a soma. */
   async purge(): Promise<PurgeResult> {
+    const total: PurgeResult = {
+      sessions: 0,
+      platformSessions: 0,
+      idempotencyKeys: 0,
+      deliveryLocations: 0,
+    };
+    const add = (r: PurgeResult) => {
+      for (const k of Object.keys(total) as (keyof PurgeResult)[]) total[k] += Number(r[k] ?? 0);
+    };
     const rows = await this.db.queryUnscoped<{ r: PurgeResult }>(
       'SELECT app_purge_expired() AS r',
       [],
     );
-    return rows[0].r;
+    add(rows[0].r);
+    for (const d of await this.db.readyDatabases()) {
+      try {
+        const { rows: r } = await d.pool.query<{ r: PurgeResult }>(
+          'SELECT app_purge_expired() AS r',
+        );
+        add(r[0].r);
+      } catch (e) {
+        this.logger.warn(`limpeza em ${d.dbName} falhou: ${(e as Error).message}`);
+      }
+    }
+    return total;
   }
 
   private async runSafely() {

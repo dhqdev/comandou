@@ -6,8 +6,10 @@
 
 ## O que é salvo
 
-O **banco inteiro**, de uma vez: todos os restaurantes, pedidos, pagamentos, clientes, cadastros,
-configurações, auditoria e as **fotos** (ficam no próprio banco, tabela `media`). As sessões do
+**Cada banco num arquivo**: o banco central (plataforma e restaurantes antigos) e o banco próprio
+de cada restaurante ([ADR 0011](decisions/0011-banco-dedicado-por-cliente.md)), com pedidos,
+pagamentos, clientes, cadastros, configurações, auditoria e as **fotos** (ficam no próprio banco,
+tabela `media`). As sessões do
 WhatsApp por QR Code não entram: se o servidor for perdido, basta ler o QR de novo.
 
 ## Configurar (painel Super Admin → Backups)
@@ -28,7 +30,19 @@ A applicationKey é cifrada com a `INTEGRATIONS_KEY` (AES-256-GCM) antes de ir p
 | Horário (Brasília) | 03:00 | backup diário; o primeiro sai logo depois de ligar |
 | Guardar por (dias) | 30 | apaga do bucket os backups mais velhos, guardando sempre os 3 últimos; 0 = nunca apaga |
 | Teste de restauração | domingo | 2 h depois do backup; "Nunca" desliga |
-| Pasta no bucket | `comandou` | arquivos em `<pasta>/AAAA/MM/comandou-<data>.dump.enc` |
+| Pasta no bucket | `comandou` | pasta raiz dos arquivos (organização abaixo) |
+
+Organização no bucket:
+
+```
+comandou/
+  plataforma/2026/10/comandou-20261023T060000Z.dump.enc          banco central
+  restaurantes/pizzaria-do-ze/2026/10/pizzaria-do-ze-20261023T060000Z.dump.enc
+  restaurantes/pizzaria-do-ze/final/pizzaria-do-ze-<data>-final.dump.enc   antes de excluir
+```
+
+A retenção vale por pasta (sempre guarda os 3 últimos de cada uma) e nunca apaga `final/`. O
+painel → Backups mostra as pastas, o tamanho de cada uma e as bases excluídas.
 
 Botões **Fazer backup agora** e **Testar restauração** pedem ao serviço, que começa em até 15 s.
 
@@ -41,6 +55,8 @@ configuração e roda o que estiver na hora. Uma execução por vez no servidor 
 
 Backup:
 
+Para cada banco (central e um por restaurante):
+
 1. Anota contagens (restaurantes, pedidos, pagamentos, fotos, migrações) antes e depois.
 2. `pg_dump --format=custom` com a conexão do dono e confere que é legível (`pg_restore --list`).
 3. Cifra (AES-256-GCM, chave derivada da `INTEGRATIONS_KEY` com sal por arquivo); o arquivo em
@@ -48,11 +64,20 @@ Backup:
 4. Envia ao bucket com o sha256 nos metadados e confere o tamanho lá.
 5. Aplica a retenção. Sem permissão de apagar, o backup não falha: o aviso fica em `details`.
 
-Teste de restauração: baixa o último backup bom, confere o sha256, decifra, cria um Postgres
-**temporário dentro do contêiner** (`initdb`), restaura e confere migrações, contagens e as
-políticas de RLS. Nunca toca o banco de produção.
+Teste de restauração: baixa o último backup bom do central e de cada restaurante, confere o
+sha256, decifra, cria um Postgres **temporário dentro do contêiner** (`initdb`), restaura e
+confere migrações, contagens e as políticas de RLS. Nunca toca o banco de produção.
 
-Cada execução vira uma linha em `backup_runs` (painel → Backups → Histórico, com quem disparou).
+O mesmo serviço cria, muda e exclui os bancos dos restaurantes pedidos no painel. Para isso o
+papel dono precisa de `CREATEDB` e `pg_signal_backend`: o serviço concede ao iniciar, com a senha
+do `postgres` (secret `comandou_pg_password`). Se não conseguir, o painel mostra o comando, que
+roda uma vez no console do contêiner do banco:
+
+```bash
+psql -U postgres -c "ALTER ROLE comandou_owner CREATEDB" -c "GRANT pg_signal_backend TO comandou_owner"
+```
+
+Cada execução vira uma linha em `backup_runs` (uma por banco) (painel → Backups → Histórico, com quem disparou).
 O painel alerta quando o último backup bom tem mais de 26 h ou o último teste mais de 8 dias.
 
 ## Linha de comando (dentro do contêiner)
@@ -79,15 +104,18 @@ num banco novo, trocando a conexão depois de conferir.
 
 ```bash
 # 1. Baixar e decifrar (no contêiner de backup, ou em qualquer máquina com a imagem)
-docker exec $B node dist/backup/backup-cli.js download comandou/2026/10/comandou-<data>.dump.enc /work/db.dump
+docker exec $B node dist/backup/backup-cli.js download comandou/restaurantes/<endereço>/2026/10/<endereço>-<data>.dump.enc /work/db.dump
 #    Arquivo baixado à mão do site do B2:
 #    INTEGRATIONS_KEY=... node dist/backup/backup-cli.js decrypt arquivo.dump.enc db.dump
 
 # 2. Os papéis comandou_owner, comandou_app e comandou_platform já devem existir no servidor novo
+#    Banco central: restaure como comandou_restore. Restaurante: com ele suspenso no painel,
+#    restaure como comandou_<endereço>_r e troque o nome depois de conferir.
 createdb -O comandou_owner comandou_restore
 pg_restore --exit-on-error -j 4 -d comandou_restore db.dump
 
-# 3. Conferir contagens, apontar as conexões para o banco novo e reiniciar a stack; apagar db.dump
+# 3. Conferir contagens, trocar o banco (ALTER DATABASE ... RENAME) ou apontar as conexões para
+#    o banco novo e reiniciar a stack; apagar db.dump
 ```
 
 ## Ensaios

@@ -53,6 +53,8 @@ export const TENANT_STATUSES = [
   'failed',
   'recovering',
   'suspended',
+  'moving',
+  'deleting',
 ] as const;
 export type TenantStatus = (typeof TENANT_STATUSES)[number];
 

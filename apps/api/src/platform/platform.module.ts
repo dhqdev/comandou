@@ -10,6 +10,7 @@ import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
 import { PlatformDb } from './platform-db.service';
 import { PlatformService } from './platform.service';
 import { PlatformBackupService } from './platform-backup.service';
+import { PlatformDatabasesService } from './platform-databases.service';
 
 /** Painel Super Admin (admin.<domínio base>): caminho privilegiado separado e auditado. */
 @Module({
@@ -20,6 +21,7 @@ import { PlatformBackupService } from './platform-backup.service';
     PlatformAuthService,
     PlatformService,
     PlatformBackupService,
+    PlatformDatabasesService,
     PlatformHostGuard,
     PlatformSessionGuard,
     ServerAgentClient,

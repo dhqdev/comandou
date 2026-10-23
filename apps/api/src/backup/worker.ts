@@ -1,5 +1,13 @@
-import { Pool } from 'pg';
-import { BackupSettingsRow, dueJobs } from './backup-settings';
+import { Client, Pool } from 'pg';
+import { BackupSettingsRow, dueJobs, isConfigured } from './backup-settings';
+import {
+  claimJob,
+  databasePrivileges,
+  DbJobContext,
+  grantDatabasePrivileges,
+  requeueJob,
+  runDbJob,
+} from './db-jobs';
 import { JobContext, runBackup, runRestoreTest } from './jobs';
 import { BackupEnv, backupEnv, jobContext, loadSettings, withJobLock } from './runtime';
 
@@ -26,16 +34,33 @@ async function main() {
   process.on('SIGTERM', stop);
   process.on('SIGINT', stop);
 
+  if (env.adminUrl) {
+    const owner = decodeURIComponent(new URL(env.ownerUrl).username);
+    await grantDatabasePrivileges(env.adminUrl, owner)
+      .then(() => log(`permissão para criar bancos de restaurantes garantida (${owner})`))
+      .catch((e: Error) => log(`não foi possível dar a permissão de criar bancos: ${e.message}`));
+  }
+
   const heartbeat = async () => {
+    const priv = await databasePrivileges(pool).catch(() => null);
     await pool
       .query(
         `UPDATE platform_backup_settings SET worker_seen_at = now(), worker_info = $1 WHERE id`,
-        [{ version: process.env.COMANDOU_VERSION ?? null, node: process.version }],
+        [
+          {
+            version: process.env.COMANDOU_VERSION ?? null,
+            node: process.version,
+            canCreateDatabases: priv?.canCreateDatabases ?? null,
+            canTerminate: priv?.canTerminate ?? null,
+          },
+        ],
       )
       .catch((e: Error) => log(`banco indisponível: ${e.message}`));
   };
   const beat = setInterval(heartbeat, 30_000);
   log('serviço de backup iniciado; configuração no painel Super Admin → Backups');
+
+  const jobs = dbJobsLoop(pool, env, () => stopping);
 
   while (!stopping) {
     await heartbeat();
@@ -48,7 +73,74 @@ async function main() {
       await new Promise((r) => setTimeout(r, 500));
   }
   clearInterval(beat);
+  await jobs;
   await pool.end();
+}
+
+/**
+ * Trabalhos de banco pedidos pelo painel (criar, mover, excluir). Acorda na hora pelo
+ * LISTEN comandou_db_jobs e, de qualquer forma, confere a fila a cada 5 s. Mover e excluir
+ * esperam um backup em andamento terminar (mesma trava do backup).
+ */
+async function dbJobsLoop(pool: Pool, env: BackupEnv, stopping: () => boolean) {
+  // Serviço reiniciado no meio de um trabalho: volta para a fila (as etapas são retomáveis).
+  await pool
+    .query(
+      `UPDATE tenant_db_jobs SET status = 'queued', started_at = NULL WHERE status = 'running'`,
+    )
+    .catch(() => undefined);
+  let wake: () => void = () => undefined;
+  let listener: Client | null = null;
+  const listen = async () => {
+    try {
+      listener = new Client({ connectionString: env.ownerUrl });
+      listener.on('error', () => (listener = null));
+      listener.on('notification', () => wake());
+      await listener.connect();
+      await listener.query('LISTEN comandou_db_jobs');
+    } catch {
+      listener = null;
+    }
+  };
+  await listen();
+  const context = async (): Promise<DbJobContext> => {
+    const s = await loadSettings(pool);
+    return {
+      pool,
+      ownerUrl: env.ownerUrl,
+      log,
+      backup:
+        s.enabled && isConfigured(s) ? () => jobContext(pool, env, s, 'painel', log) : undefined,
+    };
+  };
+  while (!stopping()) {
+    try {
+      if (!listener) await listen();
+      for (let job = await claimJob(pool); job && !stopping(); job = await claimJob(pool)) {
+        const ctx = await context();
+        if (job.kind === 'create') {
+          await runDbJob(ctx, job);
+          continue;
+        }
+        const current = job;
+        const r = await withJobLock(pool, () => runDbJob(ctx, current));
+        if (r === 'busy') {
+          await requeueJob(pool, job.id, 'Aguardando o backup em andamento terminar');
+          break;
+        }
+      }
+    } catch (e) {
+      log(`trabalhos de banco: ${(e as Error).message}`);
+    }
+    await new Promise<void>((resolve) => {
+      const t = setTimeout(resolve, 5_000);
+      wake = () => {
+        clearTimeout(t);
+        resolve();
+      };
+    });
+  }
+  await (listener as Client | null)?.end().catch(() => undefined);
 }
 
 async function tick(pool: Pool, env: BackupEnv) {

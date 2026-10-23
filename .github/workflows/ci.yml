@@ -72,7 +72,8 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 \
-            -c "CREATE ROLE comandou_owner LOGIN PASSWORD 'owner_ci'" \
+            -c "CREATE ROLE comandou_owner LOGIN PASSWORD 'owner_ci' CREATEDB" \
+            -c "GRANT pg_signal_backend TO comandou_owner" \
             -c "CREATE ROLE comandou_app LOGIN PASSWORD 'app_ci' NOBYPASSRLS" \
             -c "CREATE ROLE comandou_platform LOGIN PASSWORD 'platform_ci' NOBYPASSRLS" \
             -c "CREATE DATABASE comandou_test OWNER comandou_owner" \
@@ -141,7 +142,8 @@ jobs:
           E2E_ADMIN_TOTP: ${{ env.E2E_ADMIN_TOTP }}
         run: |
           psql -h localhost -U postgres -v ON_ERROR_STOP=1 \
-            -c "CREATE ROLE comandou_owner LOGIN PASSWORD 'owner_ci'" \
+            -c "CREATE ROLE comandou_owner LOGIN PASSWORD 'owner_ci' CREATEDB" \
+            -c "GRANT pg_signal_backend TO comandou_owner" \
             -c "CREATE ROLE comandou_app LOGIN PASSWORD 'app_ci' NOBYPASSRLS" \
             -c "CREATE ROLE comandou_platform LOGIN PASSWORD 'platform_ci' NOBYPASSRLS" \
             -c "CREATE DATABASE comandou OWNER comandou_owner"
@@ -159,6 +161,10 @@ jobs:
             PLATFORM_DATABASE_URL=postgres://comandou_platform:platform_ci@localhost:5432/comandou \
             INTEGRATIONS_KEY=$E2E_INTEGRATIONS_KEY \
             nohup node apps/api/dist/main.js > api.log 2>&1 &
+          # Serviço de backup: é ele que cria o banco próprio de cada restaurante novo do painel.
+          DATABASE_OWNER_URL=postgres://comandou_owner:owner_ci@localhost:5432/comandou \
+            INTEGRATIONS_KEY=$E2E_INTEGRATIONS_KEY WORK_DIR="$RUNNER_TEMP" \
+            nohup node apps/api/dist/backup/worker.js > worker.log 2>&1 &
           nohup pnpm --filter @comandou/web exec vite --port 5173 > web.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:3000/api/v1/health/ready && break; sleep 1; done
           for i in $(seq 1 30); do curl -sf http://localhost:5173/ >/dev/null && break; sleep 1; done
@@ -175,6 +181,8 @@ jobs:
           INTEGRATIONS_KEY: ${{ env.E2E_INTEGRATIONS_KEY }}
           PG_BIN: /usr/lib/postgresql/16/bin
         run: |
+          # O serviço agendado sai antes: aqui o backup roda pela linha de comando.
+          pkill -f 'dist/backup/[w]orker.js' || true
           export WORK_DIR="$RUNNER_TEMP"
           (cd apps/api && nohup node -r @swc-node/register test/fake-s3.ts 9000 > ../../s3.log 2>&1 &)
           for i in $(seq 1 20); do curl -s http://127.0.0.1:9000/ >/dev/null && break; sleep 1; done
@@ -186,7 +194,10 @@ jobs:
               [seal(process.env.INTEGRATIONS_KEY,'segredo-teste','backup:s3')]);await c.end();})()"
           node apps/api/dist/backup/backup-cli.js run
           node apps/api/dist/backup/backup-cli.js restore-test
-          node apps/api/dist/backup/backup-cli.js list | grep -q 'dump.enc'
+          node apps/api/dist/backup/backup-cli.js list | tee bucket.txt
+          grep -q '/plataforma/.*dump.enc' bucket.txt
+          # Cada restaurante criado pelo painel tem a pasta dele no bucket.
+          grep -q '/restaurantes/e2e-.*dump.enc' bucket.txt
           psql "$DATABASE_OWNER_URL" -At -c "SELECT kind, status FROM backup_runs ORDER BY id" | tee runs.txt
           grep -qx 'restore_test|ok' runs.txt
       - name: Guardar prints e logs (só se falhar)
@@ -198,6 +209,7 @@ jobs:
             apps/web/test-results
             api.log
             web.log
+            worker.log
             s3.log
 
   version:

@@ -15,10 +15,22 @@ export function backupEnv(source: NodeJS.ProcessEnv = process.env) {
     throw new Error('Defina INTEGRATIONS_KEY (32 bytes em base64; a mesma da API)');
   return {
     ownerUrl,
+    // Opcional: superusuário do Postgres, só para dar ao dono a permissão de criar bancos.
+    adminUrl: env.DATABASE_ADMIN_URL || adminUrlFrom(ownerUrl, env.POSTGRES_PASSWORD),
     integrationsKey,
     workDir: env.WORK_DIR || tmpdir(),
     pgBin: env.PG_BIN || undefined,
   };
+}
+
+/** Mesmo servidor do dono, com o usuário postgres (senha do contêiner do banco). */
+export function adminUrlFrom(ownerUrl: string, password?: string): string | undefined {
+  if (!password) return undefined;
+  const u = new URL(ownerUrl);
+  u.username = 'postgres';
+  u.password = encodeURIComponent(password);
+  u.pathname = '/postgres';
+  return u.toString();
 }
 
 export type BackupEnv = ReturnType<typeof backupEnv>;

@@ -169,7 +169,15 @@ export function ConsumptionPanel({ id }: { id: string }) {
   return (
     <div className="adm-stack">
       <div className="adm-grid">
-        <Tile label="Dados no banco" value={bytes(f.bytes)} sub={`${pct(f.share)} do banco todo`} />
+        <Tile
+          label="Dados no banco"
+          value={bytes(f.bytes)}
+          sub={
+            f.database
+              ? `banco próprio: ${bytes(f.databaseBytes)}`
+              : `${pct(f.share)} do banco central`
+          }
+        />
         <Tile
           label="Linhas"
           value={f.rows.toLocaleString('pt-BR')}
@@ -450,7 +458,7 @@ export function ConsumptionRanking() {
   return (
     <Section
       title="Consumo por restaurante"
-      sub={data ? `banco todo: ${bytes(data.databaseBytes)}` : undefined}
+      sub={data ? `todos os bancos: ${bytes(data.databaseBytes)}` : undefined}
     >
       {error && <Alert tone="danger">{error}</Alert>}
       <div className="adm-panel">

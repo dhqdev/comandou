@@ -55,7 +55,7 @@ const ROOT = process.getuid?.() === 0;
 describe.skipIf(!PG_BIN)('serviço de backup (banco real, bucket falso)', () => {
   it('faz o backup cifrado, envia ao bucket e registra em backup_runs', async () => {
     const { key, size } = await runBackup(ctx);
-    expect(key).toMatch(/^comandou\/\d{4}\/\d{2}\/comandou-\d{8}T\d{6}Z\.dump\.enc$/);
+    expect(key).toMatch(/^comandou\/plataforma\/\d{4}\/\d{2}\/comandou-\d{8}T\d{6}Z\.dump\.enc$/);
     const obj = s3.objects.get(key)!;
     expect(obj.body.length).toBe(size);
     expect(obj.body.subarray(0, 6).toString()).toBe('CMBK1\n');

@@ -116,8 +116,13 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await dialog.getByLabel('Plano').selectOption({ label: `E2E ${tag}` });
   await dialog.getByRole('button', { name: 'Criar restaurante' }).click();
   await expect(page.getByRole('heading', { name: new RegExp(`Cantina ${tag}`) })).toBeVisible();
-  await expect(page.getByText(`dona-${tag}@e2e.local`).first()).toBeVisible();
-  await expect(page.locator('.adm-tag', { hasText: /^Ativa$/ })).toBeVisible();
+  // O banco próprio do restaurante é criado pelo serviço de backup; a tela se atualiza sozinha.
+  await expect(page.locator('.adm-tag', { hasText: /^Ativa$/ })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(`dona-${tag}@e2e.local`).first()).toBeVisible({ timeout: 60_000 });
+  await page.getByRole('tab', { name: 'Banco de dados' }).click();
+  await expect(page.locator('.adm-tag', { hasText: /^em uso$/ })).toBeVisible();
+  await expect(page.getByText(`comandou_e2e_${tag}`.replace(/-/g, '_')).first()).toBeVisible();
+  await expect(page.getByText(`restaurantes/e2e-${tag}/`).first()).toBeVisible();
 
   // Operação e consumo do restaurante
   await page.getByRole('tab', { name: 'Operação' }).click();

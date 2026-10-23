@@ -17,6 +17,22 @@ import { QueueService } from '../queue/queue.service';
 import type { PlatformAdmin } from './platform-auth';
 import { PlatformDb, platformAudit } from './platform-db.service';
 import type { NewTenantInput, PlanInput, StatusInput, SubscriptionInput } from './platform.schemas';
+import { TenantDatabaseUnavailable } from '../database/tenant-database';
+import { PlatformDatabasesService } from './platform-databases.service';
+
+/** Uso de um restaurante (a função existe em todos os bancos). */
+const USAGE_SQL = `SELECT tenant_id AS "tenantId", users::int, products::int,
+  orders_month::int AS "ordersMonth", last_order_at AS "lastOrderAt",
+  fiscal_errors::int AS "fiscalErrors", message_failures::int AS "messageFailures"
+  FROM platform_tenant_usage()`;
+const EMPTY_USAGE = {
+  users: 0,
+  products: 0,
+  ordersMonth: 0,
+  lastOrderAt: null,
+  fiscalErrors: 0,
+  messageFailures: 0,
+};
 
 export interface Actor {
   admin: PlatformAdmin;
@@ -46,6 +62,7 @@ export class PlatformService {
     private readonly checks: HealthChecks,
     private readonly queue: QueueService,
     private readonly metrics: Metrics,
+    private readonly databases: PlatformDatabasesService,
   ) {}
 
   // ------------------------------------------------------------------ consumo e operação
@@ -69,7 +86,7 @@ export class PlatformService {
 
   /** Tamanho estimado dos dados de cada restaurante, para o ranking de consumo. */
   async consumption() {
-    const [rows, tenants, dbSize, traffic] = await Promise.all([
+    const [rows, tenants, dbSize, traffic, dedicated] = await Promise.all([
       this.db.query<{ tenantId: string; rows: string; bytes: string }>(
         `SELECT tenant_id AS "tenantId", sum(row_count)::text AS rows, sum(bytes)::text AS bytes
            FROM platform_tenant_footprint() GROUP BY tenant_id`,
@@ -81,11 +98,22 @@ export class PlatformService {
         `SELECT pg_database_size(current_database())::text AS bytes`,
       ),
       this.traffic(),
+      this.db.eachDedicated<{ rows: string; bytes: string; dbBytes: string }>(
+        `WITH f AS (SELECT * FROM platform_tenant_footprint())
+         SELECT coalesce(sum(row_count), 0)::text AS rows, coalesce(sum(bytes), 0)::text AS bytes,
+                pg_database_size(current_database())::text AS "dbBytes" FROM f`,
+      ),
     ]);
     const by = new Map(rows.map((r) => [r.tenantId, r]));
+    // Restaurante com banco próprio: os números vêm do banco dele.
+    const own = new Map(dedicated.map((d) => [d.tenantId, d]));
+    for (const d of dedicated)
+      if (d.rows[0]) by.set(d.tenantId, { tenantId: d.tenantId, ...d.rows[0] });
+    const dedicatedBytes = dedicated.reduce((n, d) => n + Number(d.rows[0]?.dbBytes ?? 0), 0);
     const totalSeconds = traffic ? [...traffic.values()].reduce((n, x) => n + x.seconds, 0) : 0;
     return {
-      databaseBytes: Number(dbSize[0].bytes),
+      databaseBytes: Number(dbSize[0].bytes) + dedicatedBytes,
+      centralBytes: Number(dbSize[0].bytes),
       trafficEnabled: !!traffic,
       tenants: tenants
         .map((t) => ({
@@ -95,6 +123,8 @@ export class PlatformService {
           status: t.status,
           rows: Number(by.get(t.id)?.rows ?? 0),
           bytes: Number(by.get(t.id)?.bytes ?? 0),
+          database: own.has(t.id) ? own.get(t.id)!.dbName : null,
+          databaseBytes: own.has(t.id) ? Number(own.get(t.id)!.rows[0]?.dbBytes ?? 0) : null,
           requests: traffic?.get(t.slug)?.requests ?? null,
           seconds: traffic?.get(t.slug)?.seconds ?? null,
           errors: traffic?.get(t.slug)?.errors ?? null,
@@ -111,18 +141,17 @@ export class PlatformService {
       await this.db.query<{ slug: string }>(`SELECT slug FROM tenants WHERE id = $1`, [tenantId])
     )[0];
     if (!t) throw new NotFoundException('Restaurante não encontrado');
+    const h = await this.tenantDbOrConflict(tenantId);
     const [tables, operation, dbSize, traffic, active] = await Promise.all([
-      this.db.query<{ table: string; rows: string; bytes: string }>(
+      h.query<{ table: string; rows: string; bytes: string }>(
         `SELECT table_name AS "table", row_count::text AS rows, bytes::text AS bytes
            FROM platform_tenant_footprint($1) ORDER BY bytes DESC`,
         [tenantId],
       ),
-      this.db.query<{ op: unknown }>(`SELECT platform_tenant_operation($1) AS op`, [tenantId]),
-      this.db.query<{ bytes: string }>(
-        `SELECT pg_database_size(current_database())::text AS bytes`,
-      ),
+      h.query<{ op: unknown }>(`SELECT platform_tenant_operation($1) AS op`, [tenantId]),
+      h.query<{ bytes: string }>(`SELECT pg_database_size(current_database())::text AS bytes`),
       this.traffic(),
-      this.db.query<{ n: number }>(
+      h.query<{ n: number }>(
         `SELECT count(*)::int AS n FROM sessions
           WHERE tenant_id = $1 AND revoked_at IS NULL AND expires_at > now()
             AND last_seen_at > now() - interval '15 minutes'`,
@@ -143,6 +172,7 @@ export class PlatformService {
         rows: list.reduce((n, r) => n + r.rows, 0),
         bytes,
         databaseBytes: Number(dbSize[0].bytes),
+        database: h.location.kind === 'dedicated' ? h.location.dbName : null,
         share: Number(dbSize[0].bytes) ? bytes / Number(dbSize[0].bytes) : 0,
       },
       traffic: traffic
@@ -172,17 +202,25 @@ export class PlatformService {
     const subs = await this.db.query<{ status: string; n: number }>(
       `SELECT status, count(*)::int AS n FROM subscriptions WHERE status <> 'cancelled' GROUP BY status`,
     );
+    // Banco central: o "último backup" do painel é o dele (cada restaurante tem o seu na tela dele).
     const last = await this.db.query(
       `SELECT DISTINCT ON (kind) kind, status, started_at AS "startedAt", finished_at AS "finishedAt",
               size_bytes AS "sizeBytes", error
-         FROM backup_runs ORDER BY kind, started_at DESC`,
+         FROM backup_runs WHERE tenant_id IS NULL ORDER BY kind, started_at DESC`,
     );
     const lastOk = await this.db.query<{ kind: string; at: Date }>(
-      `SELECT kind, max(finished_at) AS at FROM backup_runs WHERE status = 'ok' GROUP BY kind`,
+      `SELECT kind, max(finished_at) AS at FROM backup_runs
+        WHERE status = 'ok' AND tenant_id IS NULL GROUP BY kind`,
     );
-    const alerts = await this.db.query<{ fiscal: number; messages: number }>(
-      `SELECT coalesce(sum(fiscal_errors), 0)::int AS fiscal, coalesce(sum(message_failures), 0)::int AS messages
-         FROM platform_tenant_usage()`,
+    const ALERTS_SQL = `SELECT coalesce(sum(fiscal_errors), 0)::int AS fiscal,
+              coalesce(sum(message_failures), 0)::int AS messages FROM platform_tenant_usage()`;
+    const alerts = await this.db.query<{ fiscal: number; messages: number }>(ALERTS_SQL);
+    for (const d of await this.db.eachDedicated<{ fiscal: number; messages: number }>(ALERTS_SQL)) {
+      alerts[0].fiscal += d.rows[0]?.fiscal ?? 0;
+      alerts[0].messages += d.rows[0]?.messages ?? 0;
+    }
+    const databases = await this.db.query<{ status: string; n: number }>(
+      `SELECT status, count(*)::int AS n FROM tenant_databases GROUP BY status`,
     );
     const byKind = (k: string) => ({
       last: last.find((r) => r.kind === k) ?? null,
@@ -195,6 +233,7 @@ export class PlatformService {
       tenants: Object.fromEntries(tenants.map((r) => [r.status, r.n])),
       subscriptions: Object.fromEntries(subs.map((r) => [r.status, r.n])),
       backups: { backup: byKind('backup'), restoreTest: byKind('restore_test') },
+      databases: Object.fromEntries(databases.map((r) => [r.status, r.n])),
       last7Days: { fiscalErrors: alerts[0].fiscal, messageFailures: alerts[0].messages },
     };
   }
@@ -211,19 +250,61 @@ export class PlatformService {
       p.push(f.status);
       where.push(`t.status = $${p.length}`);
     }
-    return this.db.query(
+    const rows = await this.db.query<{
+      id: string;
+      users: number;
+      products: number;
+      ordersMonth: number;
+      lastOrderAt: Date | null;
+      dbName: string | null;
+      dbStatus: string | null;
+    }>(
       `SELECT t.id, t.slug, t.name, t.status, t.created_at AS "createdAt",
               s.status AS "subscriptionStatus", pl.name AS "planName",
               u.users::int, u.products::int, u.orders_month::int AS "ordersMonth",
-              u.last_order_at AS "lastOrderAt"
+              u.last_order_at AS "lastOrderAt", d.db_name AS "dbName", d.status AS "dbStatus"
          FROM tenants t
          LEFT JOIN subscriptions s ON s.tenant_id = t.id AND s.status <> 'cancelled'
          LEFT JOIN plans pl ON pl.id = s.plan_id
          LEFT JOIN platform_tenant_usage() u ON u.tenant_id = t.id
+         LEFT JOIN tenant_databases d ON d.tenant_id = t.id
         ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
         ORDER BY t.created_at DESC LIMIT 300`,
       p,
     );
+    if (rows.some((r) => r.dbStatus === 'ready')) {
+      const usage = new Map<string, Record<string, unknown>>();
+      for (const d of await this.db.eachDedicated(USAGE_SQL))
+        for (const u of d.rows) if (u.tenantId === d.tenantId) usage.set(d.tenantId, u);
+      for (const r of rows) {
+        const u = usage.get(r.id);
+        if (u && r.dbStatus === 'ready') Object.assign(r, u, { id: r.id });
+      }
+    }
+    return rows;
+  }
+
+  /**
+   * Banco do restaurante para o painel. Enquanto o banco próprio ainda está sendo criado (ou a
+   * criação falhou), não há equipe nem dados para mostrar.
+   */
+  private async tenantDbOrConflict(tenantId: string) {
+    try {
+      return await this.db.tenantDb(tenantId);
+    } catch (e) {
+      if (e instanceof TenantDatabaseUnavailable)
+        throw new ConflictException('O banco deste restaurante ainda não está pronto');
+      throw e;
+    }
+  }
+
+  private async tenantDbOrNull(tenantId: string) {
+    try {
+      return await this.db.tenantDb(tenantId);
+    } catch (e) {
+      if (e instanceof TenantDatabaseUnavailable) return null;
+      throw e;
+    }
   }
 
   async tenant(id: string) {
@@ -239,23 +320,21 @@ export class PlatformService {
       `SELECT ${SUB_COLS} FROM subscriptions s WHERE s.tenant_id = $1 AND s.status <> 'cancelled'`,
       [id],
     );
-    const [usage] = await this.db.query(
-      `SELECT users::int, products::int, orders_month::int AS "ordersMonth", last_order_at AS "lastOrderAt",
-              fiscal_errors::int AS "fiscalErrors", message_failures::int AS "messageFailures"
-         FROM platform_tenant_usage() WHERE tenant_id = $1`,
-      [id],
-    );
+    const h = await this.tenantDbOrNull(id);
+    const [usage] = h ? await h.query(`${USAGE_SQL} WHERE tenant_id = $1`, [id]) : [EMPTY_USAGE];
     const domains = await this.db.query(
       `SELECT id, hostname::text AS hostname, verified_at AS "verifiedAt", last_error AS "lastError",
               created_at AS "createdAt"
          FROM tenant_domains WHERE tenant_id = $1 AND removed_at IS NULL ORDER BY created_at`,
       [id],
     );
-    const owners = await this.db.query(
-      `SELECT u.name, u.email::text AS email FROM memberships m JOIN users u ON u.id = m.user_id
-        WHERE m.tenant_id = $1 AND m.role = 'owner' AND m.status = 'active' ORDER BY u.name`,
-      [id],
-    );
+    const owners = h
+      ? await h.query(
+          `SELECT u.name, u.email::text AS email FROM memberships m JOIN users u ON u.id = m.user_id
+            WHERE m.tenant_id = $1 AND m.role = 'owner' AND m.status = 'active' ORDER BY u.name`,
+          [id],
+        )
+      : [];
     const provisioning = await this.db.query(
       `SELECT step, status, attempts, last_error AS "lastError", updated_at AS "updatedAt"
          FROM tenant_provisioning_steps WHERE tenant_id = $1 ORDER BY updated_at`,
@@ -270,16 +349,20 @@ export class PlatformService {
     return {
       ...t,
       subscription: subscription ?? null,
-      usage,
+      usage: usage ?? EMPTY_USAGE,
       domains,
       owners,
       provisioning,
       audit,
+      database: await this.databases.info(id),
     };
   }
 
   /** Cria e provisiona um restaurante (mesmo fluxo idempotente da CLI). A senha não é auditada. */
   async createTenant(b: NewTenantInput, a: Actor) {
+    // Padrão: banco próprio, criado pelo serviço de backup (a resposta já volta "em criação").
+    if (this.env.TENANT_DATABASE_MODE === 'dedicated')
+      return this.tenant(await this.databases.create(b, a));
     const exists = await this.db.query(`SELECT 1 FROM tenants WHERE slug = $1`, [b.slug]);
     if (exists.length) throw new ConflictException('Já existe um restaurante com este endereço');
     let r;
@@ -327,7 +410,9 @@ export class PlatformService {
   /** Equipe do restaurante com o último uso de cada pessoa (sem dados operacionais). */
   async team(tenantId: string) {
     await this.mustExist(tenantId);
-    return this.db.query(
+    const h = await this.tenantDbOrNull(tenantId);
+    if (!h) return [];
+    return h.query(
       `SELECT u.id, u.name, u.email::text AS email, m.role, m.status, u.disabled_at AS "disabledAt",
               m.created_at AS "createdAt",
               (SELECT max(s.last_seen_at) FROM sessions s
@@ -350,16 +435,19 @@ export class PlatformService {
    * escolhido (padrão: o primeiro administrador ativo). A sessão fica marcada como suporte.
    */
   async supportAccess(tenantId: string, userId: string | undefined, a: Actor) {
-    return this.db.tx(async (c) => {
-      const t = (
-        await c.query<{ slug: string; status: string }>(
-          `SELECT slug, status FROM tenants WHERE id = $1`,
-          [tenantId],
-        )
-      ).rows[0];
-      if (!t) throw new NotFoundException('Restaurante não encontrado');
-      if (t.status !== 'provisioned')
-        throw new ConflictException('Só dá para abrir um restaurante ativo');
+    const t = (
+      await this.db.query<{ slug: string; status: string }>(
+        `SELECT slug, status FROM tenants WHERE id = $1`,
+        [tenantId],
+      )
+    )[0];
+    if (!t) throw new NotFoundException('Restaurante não encontrado');
+    if (t.status !== 'provisioned')
+      throw new ConflictException('Só dá para abrir um restaurante ativo');
+    const h = await this.tenantDbOrConflict(tenantId);
+    const token = randomBytes(32).toString('base64url');
+    // O token fica no banco do restaurante (é lá que o login de suporte o troca por uma sessão).
+    const { member, expiresAt } = await h.tx(async (c) => {
       const member = (
         await c.query<{ id: string; name: string; email: string }>(
           `SELECT u.id, u.name, u.email::text AS email FROM memberships m JOIN users u ON u.id = m.user_id
@@ -370,13 +458,21 @@ export class PlatformService {
         )
       ).rows[0];
       if (!member) throw new UnprocessableEntityException('Nenhum membro ativo para entrar');
-      const token = randomBytes(32).toString('base64url');
       const r = await c.query<{ expires_at: Date }>(
-        `INSERT INTO support_access_tokens (tenant_id, user_id, admin_id, token_hash, expires_at)
-         VALUES ($1, $2, $3, $4, now() + interval '2 minutes') RETURNING expires_at`,
-        [tenantId, member.id, a.admin.id, createHash('sha256').update(token).digest()],
+        `INSERT INTO support_access_tokens (tenant_id, user_id, admin_id, admin_name, token_hash, expires_at)
+         VALUES ($1, $2, $3, $4, $5, now() + interval '2 minutes') RETURNING expires_at`,
+        [
+          tenantId,
+          member.id,
+          a.admin.id,
+          a.admin.name,
+          createHash('sha256').update(token).digest(),
+        ],
       );
-      await platformAudit(c, {
+      return { member, expiresAt: r.rows[0]!.expires_at };
+    });
+    await this.db.tx((c) =>
+      platformAudit(c, {
         adminId: a.admin.id,
         action: 'platform.tenant.support_access',
         entity: 'user',
@@ -384,32 +480,33 @@ export class PlatformService {
         tenantId,
         data: { as: member.email },
         ip: a.ip,
-      });
-      return { slug: t.slug, token, expiresAt: r.rows[0]!.expires_at, user: member };
-    });
+      }),
+    );
+    return { slug: t.slug, token, expiresAt, user: member };
   }
 
   /** Encerra as sessões abertas do restaurante (todas ou só de um membro). */
   async revokeSessions(tenantId: string, userId: string | undefined, a: Actor) {
     await this.mustExist(tenantId);
-    return this.db.tx(async (c) => {
-      const r = await c.query(
-        `UPDATE sessions SET revoked_at = now()
-          WHERE tenant_id = $1 AND ($2::uuid IS NULL OR user_id = $2::uuid)
-            AND revoked_at IS NULL AND expires_at > now()`,
-        [tenantId, userId ?? null],
-      );
-      await platformAudit(c, {
+    const h = await this.tenantDbOrConflict(tenantId);
+    const r = await h.query(
+      `UPDATE sessions SET revoked_at = now()
+        WHERE tenant_id = $1 AND ($2::uuid IS NULL OR user_id = $2::uuid)
+          AND revoked_at IS NULL AND expires_at > now() RETURNING id`,
+      [tenantId, userId ?? null],
+    );
+    await this.db.tx((c) =>
+      platformAudit(c, {
         adminId: a.admin.id,
         action: 'platform.tenant.sessions_revoked',
         entity: userId ? 'user' : 'tenant',
         entityId: userId ?? tenantId,
         tenantId,
-        data: { count: r.rowCount ?? 0 },
+        data: { count: r.length },
         ip: a.ip,
-      });
-      return { revoked: r.rowCount ?? 0 };
-    });
+      }),
+    );
+    return { revoked: r.length };
   }
 
   /**
@@ -418,7 +515,8 @@ export class PlatformService {
    */
   async resetPassword(tenantId: string, userId: string, password: string, a: Actor) {
     const hash = await hashPassword(password);
-    await this.db.tx(async (c) => {
+    const h = await this.tenantDbOrConflict(tenantId);
+    const revoked = await h.tx(async (c) => {
       const m = await c.query(`SELECT 1 FROM memberships WHERE tenant_id = $1 AND user_id = $2`, [
         tenantId,
         userId,
@@ -430,21 +528,24 @@ export class PlatformService {
           WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()`,
         [userId],
       );
-      await platformAudit(c, {
-        adminId: a.admin.id,
-        action: 'platform.user.password_reset',
-        entity: 'user',
-        entityId: userId,
-        tenantId,
-        data: { sessionsRevoked: r.rowCount ?? 0 },
-        ip: a.ip,
-      });
       await c.query(
         `INSERT INTO audit_log (tenant_id, action, entity, entity_id, data)
          VALUES ($1::uuid, 'user.password_reset', 'user', $2::text, '{"by":"platform"}'::jsonb)`,
         [tenantId, userId],
       );
+      return r.rowCount ?? 0;
     });
+    await this.db.tx((c) =>
+      platformAudit(c, {
+        adminId: a.admin.id,
+        action: 'platform.user.password_reset',
+        entity: 'user',
+        entityId: userId,
+        tenantId,
+        data: { sessionsRevoked: revoked },
+        ip: a.ip,
+      }),
+    );
     return { ok: true };
   }
 
@@ -466,7 +567,19 @@ export class PlatformService {
         ip: a.ip,
       });
     });
+    await this.mirror(tenantId, `UPDATE tenants SET name = $2 WHERE id = $1`, [tenantId, name]);
     return this.tenant(tenantId);
+  }
+
+  /**
+   * Repete no banco do restaurante o que mudou no central (nome, situação, histórico). Se o
+   * restaurante fica no central, a mudança já foi feita lá e aqui só o histórico é gravado.
+   */
+  private async mirror(tenantId: string, sql: string, p: unknown[]) {
+    const h = await this.tenantDbOrNull(tenantId);
+    if (!h) return;
+    if (h.location.kind === 'shared' && sql.startsWith('UPDATE tenants')) return;
+    await h.query(sql, p).catch(() => undefined);
   }
 
   private async mustExist(tenantId: string) {
@@ -501,13 +614,15 @@ export class PlatformService {
         data: { reason: b.reason },
         ip: a.ip,
       });
-      // Também no histórico do restaurante (visível para ele depois de reativado).
-      await c.query(
-        `INSERT INTO audit_log (tenant_id, action, entity, entity_id, data)
-         VALUES ($1::uuid, $2, 'tenant', $1::text, jsonb_build_object('by', 'platform', 'reason', $3::text))`,
-        [id, action, b.reason],
-      );
     });
+    // Também no banco do restaurante: situação e histórico (visível para ele depois de reativado).
+    await this.mirror(id, `UPDATE tenants SET status = $2 WHERE id = $1`, [id, b.status]);
+    await this.mirror(
+      id,
+      `INSERT INTO audit_log (tenant_id, action, entity, entity_id, data)
+       VALUES ($1::uuid, $2, 'tenant', $1::text, jsonb_build_object('by', 'platform', 'reason', $3::text))`,
+      [id, b.status === 'suspended' ? 'tenant.suspended' : 'tenant.reactivated', b.reason],
+    );
     return this.tenant(id);
   }
 
@@ -722,9 +837,45 @@ export class PlatformService {
 
   backups() {
     return this.db.query(
-      `SELECT id, kind, status, started_at AS "startedAt", finished_at AS "finishedAt",
-              object_key AS "objectKey", size_bytes AS "sizeBytes", sha256, details, error
-         FROM backup_runs ORDER BY started_at DESC LIMIT 60`,
+      `SELECT b.id, b.kind, b.status, b.started_at AS "startedAt", b.finished_at AS "finishedAt",
+              b.object_key AS "objectKey", b.size_bytes AS "sizeBytes", b.sha256, b.details, b.error,
+              b.database, b.tenant_id AS "tenantId", t.slug AS "tenantSlug", t.name AS "tenantName"
+         FROM backup_runs b LEFT JOIN tenants t ON t.id = b.tenant_id
+        ORDER BY b.started_at DESC LIMIT 100`,
     );
+  }
+
+  /**
+   * Pastas do bucket: a da plataforma (banco central, com os restaurantes que ainda estão nele)
+   * e uma por restaurante com banco próprio, com o último backup de cada.
+   */
+  async backupFolders() {
+    const [s] = await this.db.query<{ prefix: string }>(
+      `SELECT prefix FROM platform_backup_settings WHERE id`,
+    );
+    const prefix = (s?.prefix ?? 'comandou').replace(/^\/+|\/+$/g, '');
+    const last = `SELECT status, finished_at AS "finishedAt", started_at AS "startedAt",
+                         size_bytes AS "sizeBytes", object_key AS "objectKey", error
+                    FROM backup_runs b WHERE b.kind = 'backup'`;
+    const [central] = await this.db.query(
+      `${last} AND b.tenant_id IS NULL AND NOT coalesce((b.details->>'final')::boolean, false)
+        ORDER BY b.started_at DESC LIMIT 1`,
+    );
+    const tenants = await this.db.query(
+      `SELECT t.id, t.slug, t.name, t.status, d.db_name AS "database", d.status AS "databaseStatus",
+              to_jsonb(lb) AS "lastBackup"
+         FROM tenants t
+         LEFT JOIN tenant_databases d ON d.tenant_id = t.id
+         LEFT JOIN LATERAL (${last} AND b.tenant_id = t.id ORDER BY b.started_at DESC LIMIT 1) lb ON true
+        ORDER BY t.slug`,
+    );
+    return {
+      prefix,
+      platform: { folder: `${prefix}/plataforma/`, lastBackup: central ?? null },
+      tenants: tenants.map((t) => ({
+        ...t,
+        folder: t.database ? `${prefix}/restaurantes/${t.slug}/` : null,
+      })),
+    };
   }
 }

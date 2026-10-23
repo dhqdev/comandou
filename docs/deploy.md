@@ -213,12 +213,21 @@ ranking de todos. São só agregados (funções `platform_tenant_footprint` e `p
 migração 0013): dados de clientes finais não saem. RAM e CPU são do servidor todo e não dá para
 separá-los por restaurante; o contador de requisições é por réplica da API e zera a cada reinício.
 
-### Bancos dedicados (preparado, ainda sem clientes)
+### Banco próprio por restaurante (0.19.0)
 
-O `comandou-migrate` aplica as migrações no banco central (`DATABASE_OWNER_URL`) e depois em cada
-banco de `TENANT_DATABASE_OWNER_URLS` (lista separada por vírgula; aceita `_FILE`). Vazio, que é o
-normal hoje, só o central é migrado. Se o central falhar, os outros não são tocados; se um dedicado
-falhar, os demais seguem e o serviço termina com erro mostrando qual falhou (sem senha no log).
+Cada restaurante criado no painel ganha o banco `comandou_<endereço>` no mesmo Postgres
+([ADR 0011](decisions/0011-banco-dedicado-por-cliente.md)). Quem cria, muda e exclui os bancos é o
+serviço `backup`; por isso ele recebe também o secret `comandou_pg_password` e, ao iniciar, dá ao
+papel `comandou_owner` as permissões `CREATEDB` e `pg_signal_backend` (só isso; servidores novos já
+nascem assim pelo `01-roles.sh`). Sem o secret, o painel mostra o comando para rodar uma vez no
+console do contêiner do banco. Atualização de uma instalação existente: aplique a stack nova
+(o serviço `backup` ganhou o secret) e confira em *Restaurantes → (um restaurante) → Banco de
+dados* que não há aviso de permissão.
+
+O `comandou-migrate` aplica as migrações no banco central e depois em cada banco de restaurante
+registrado (e em `TENANT_DATABASE_OWNER_URLS`, se houver). Se o central falhar, os outros não são
+tocados; se um falhar, os demais seguem e o serviço termina com erro mostrando qual (sem senha no
+log). Restaurantes antigos continuam no banco central até alguém usar *Mover para banco próprio*.
 
 ### Backups
 
@@ -297,5 +306,6 @@ docker exec -it -e DATABASE_OWNER_URL="$OWNER_URL" -e PROVISION_ADMIN_PASSWORD="
 unset OWNER_URL PW
 ```
 
-A partir da 0.5.0 o caminho normal é o painel Super Admin (*Restaurantes → Novo restaurante*); a
-CLI continua para automação. Sem `PROVISION_PLAN`, usa o plano padrão (se houver).
+A partir da 0.5.0 o caminho normal é o painel Super Admin (*Restaurantes → Novo restaurante*), que
+desde a 0.19.0 cria o banco próprio do restaurante; a CLI continua para automação e cria o
+restaurante no banco central (dá para movê-lo depois pelo painel). Sem `PROVISION_PLAN`, usa o plano padrão (se houver).

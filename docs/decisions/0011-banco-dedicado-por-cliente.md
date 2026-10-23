@@ -1,6 +1,7 @@
-# ADR 0011 — Banco dedicado por cliente (plano Enterprise)
+# ADR 0011 — Banco dedicado por cliente
 
-- Status: **Proposta** (não implementada; decidir quando surgir o primeiro cliente que exija)
+- Status: **Aceita e implementada (0.19.0)**, para **todos** os restaurantes novos (não só
+  Enterprise), nível 1 (banco separado no mesmo servidor Postgres). Ver "Implementação" no fim.
 - Contexto: o modelo atual é um banco compartilhado com `tenant_id` + RLS ([ADR 0003](0003-multi-tenant-rls.md)).
 
 ## Contexto
@@ -71,3 +72,41 @@ organizações/redes de lojas e PgBouncer + métricas por restaurante.
 
 Uma etapa própria: registro de conexões, pool por restaurante, migração em todos os bancos,
 provisionamento no painel, migração de cliente existente, backups por banco e testes de isolamento.
+
+## Implementação (0.19.0)
+
+Decisão do dono do produto: cada restaurante novo ganha o próprio banco, organizado e separado.
+
+- **Nome:** `comandou_<endereço>` (hífens viram `_`), no mesmo servidor e com os mesmos papéis
+  (`comandou_owner` dono; `comandou_app` e `comandou_platform` com CONNECT). Mesmas migrações e o
+  mesmo RLS. Sem segredo novo: a conexão é a do banco central trocando o nome do banco.
+- **Banco central (`comandou`):** `tenants`, domínios, planos, assinaturas, Super Admins,
+  auditoria da plataforma, backups e o registro `tenant_databases` (restaurante → banco e
+  situação: `creating`, `ready`, `failed`, `moving`, `deleting`). Sem linha no registro = o
+  restaurante está no banco central (restaurantes antigos, até serem movidos).
+- **Banco do restaurante:** todos os dados de negócio, mais equipe (`users`, `memberships`),
+  sessões e auditoria do restaurante, e uma cópia da linha de `tenants` (nome e situação ficam
+  em sincronia pelo painel). Planos e assinatura são lidos sempre do central.
+- **Roteamento:** `RegistryDatabaseRouter` consulta o registro (cache de 10 s; o painel não usa
+  cache) e abre um pool pequeno por banco (3 conexões, fecha parado em 15 s). Banco que não está
+  `ready` responde 503 "em manutenção": nada é gravado no meio de uma mudança.
+- **Trabalhos de banco** (`tenant_db_jobs`): criar, mover e excluir são pedidos pelo painel e
+  executados pelo serviço de backup (`LISTEN comandou_db_jobs` + conferência a cada 5 s). Mover e
+  excluir usam a mesma trava do backup. Etapas retomáveis; serviço reiniciado devolve à fila.
+  - **Criar:** `CREATE DATABASE`, migrações, cópia da linha do restaurante, administrador e
+    auditoria; só então `ready` e o restaurante fica ativo.
+  - **Mover** (restaurante antigo): bloqueia, copia tudo numa fotografia consistente, confere a
+    contagem de cada tabela, troca o apontamento e só então apaga as linhas do central. Falhou:
+    apaga o banco novo e o restaurante continua no central como estava.
+  - **Excluir:** só suspenso (ou com criação falha), digitando o endereço e o motivo. Faz o
+    backup final em `restaurantes/<endereço>/final/` (nunca apagado pela retenção), apaga o
+    banco, o cadastro e a assinatura. A auditoria da plataforma fica, sem a ligação.
+- **Permissão:** o dono precisa de `CREATEDB` e `pg_signal_backend`. Servidores novos já nascem
+  assim (`01-roles.sh`); nos existentes o serviço de backup concede ao iniciar com a senha do
+  `postgres` (secret `comandou_pg_password`) e o painel mostra o comando se não conseguir.
+- **Migrações:** `migrate-cli` roda o central e depois cada banco registrado.
+- **Backups:** um arquivo por banco: `<pasta>/plataforma/AAAA/MM/` e
+  `<pasta>/restaurantes/<endereço>/AAAA/MM/`; retenção por pasta; o teste de restauração confere o
+  central e o último de cada restaurante.
+- **Desenvolvimento** (`docker-compose.yml`, sem serviço de backup): `TENANT_DATABASE_MODE=shared`
+  mantém o comportamento antigo.

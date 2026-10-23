@@ -1,5 +1,23 @@
+import { Client } from 'pg';
 import { resolveFileSecrets } from '../config/env';
 import { databaseList, migrateAll } from './migrate-all';
+import { databaseUrl } from './tenant-database';
+
+/** Bancos próprios dos restaurantes, pelo registro do banco central (vazio antes da 0018). */
+async function registeredDatabases(centralUrl: string): Promise<string[]> {
+  const c = new Client({ connectionString: centralUrl });
+  await c.connect();
+  try {
+    const { rows } = await c.query<{ db_name: string }>(
+      `SELECT db_name FROM tenant_databases WHERE status IN ('ready', 'deleting') ORDER BY db_name`,
+    );
+    return rows.map((r) => databaseUrl(centralUrl, r.db_name));
+  } catch {
+    return [];
+  } finally {
+    await c.end();
+  }
+}
 
 async function main() {
   Object.assign(process.env, resolveFileSecrets(process.env));
@@ -10,7 +28,12 @@ async function main() {
     );
     process.exit(2);
   }
-  const urls = databaseList(url, process.env.TENANT_DATABASE_OWNER_URLS);
+  // Central primeiro; depois cada banco de restaurante (registro + lista manual opcional).
+  const registered = await registeredDatabases(url);
+  const urls = databaseList(
+    url,
+    [process.env.TENANT_DATABASE_OWNER_URLS ?? '', ...registered].filter(Boolean).join(','),
+  );
   const reports = await migrateAll(urls);
   for (const r of reports) {
     if (r.status === 'ok')

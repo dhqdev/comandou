@@ -9,7 +9,7 @@ import {
   withinLimit,
 } from '@comandou/shared';
 import { one } from '../common/sql';
-import type { Tx } from '../database/database.service';
+import { DatabaseService, type Tx } from '../database/database.service';
 
 export interface CurrentPlan {
   subscription: {
@@ -62,15 +62,32 @@ const USAGE_SQL: Record<PlanResource, string> = {
  */
 @Injectable()
 export class PlanService {
-  async current(tx: Tx): Promise<CurrentPlan | null> {
-    const r = await one<Row>(
+  constructor(private readonly db: DatabaseService) {}
+
+  /**
+   * Plano e assinatura ficam sempre no banco CENTRAL. Se a transação já está nele, usa a mesma;
+   * se o restaurante tem banco próprio, abre uma consulta curta no central com o mesmo RLS.
+   */
+  private async onCentral<T>(tx: Tx, fn: (q: Tx) => Promise<T>): Promise<T> {
+    const r = (await one<{ t: string; db: string }>(
       tx,
-      `SELECT s.id AS sub_id, s.status, s.started_at, s.trial_ends_at, s.current_period_end,
+      `SELECT current_setting('app.tenant_id', true) AS t, current_database() AS db`,
+    ))!;
+    if (r.db === this.db.centralName) return fn(tx);
+    return this.db.withCentral({ tenantId: r.t }, fn);
+  }
+
+  async current(tx: Tx): Promise<CurrentPlan | null> {
+    const r = await this.onCentral(tx, (q) =>
+      one<Row>(
+        q,
+        `SELECT s.id AS sub_id, s.status, s.started_at, s.trial_ends_at, s.current_period_end,
               p.id AS plan_id, p.code, p.name, p.price_monthly, p.max_users, p.max_products,
               p.max_orders_month, p.feature_fiscal, p.feature_whatsapp, p.feature_custom_domain
          FROM subscriptions s JOIN plans p ON p.id = s.plan_id
         WHERE s.status <> 'cancelled'
         LIMIT 1`,
+      ),
     );
     if (!r) return null;
     return {

@@ -754,3 +754,24 @@ a.adm-row:hover {
   gap: 8px;
   margin-top: 12px;
 }
+
+/* Banco do restaurante sendo criado, mudado ou excluído. */
+.adm-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--a-line);
+  border-radius: 4px;
+  background: var(--a-panel);
+  padding: 12px 16px;
+  margin: 12px 0;
+  min-width: 0;
+}
+.adm-progress > div {
+  min-width: 0;
+}
+.adm-kv code,
+.adm-row code,
+.adm-help code {
+  overflow-wrap: anywhere;
+}

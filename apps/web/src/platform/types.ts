@@ -11,6 +11,10 @@ export interface BackupRun {
   sha256?: string | null;
   details?: Record<string, unknown>;
   error: string | null;
+  database?: string | null;
+  tenantId?: string | null;
+  tenantSlug?: string | null;
+  tenantName?: string | null;
 }
 
 export interface Overview {
@@ -21,6 +25,7 @@ export interface Overview {
   subscriptions: Record<string, number>;
   backups: Record<'backup' | 'restoreTest', { last: BackupRun | null; lastOkAt: string | null }>;
   last7Days: { fiscalErrors: number; messageFailures: number };
+  databases?: Partial<Record<TenantDatabaseStatus, number>>;
 }
 
 export interface TenantRow {
@@ -35,6 +40,76 @@ export interface TenantRow {
   products: number;
   ordersMonth: number;
   lastOrderAt: string | null;
+  /** Banco próprio (null = banco central). */
+  dbName: string | null;
+  dbStatus: TenantDatabaseStatus | null;
+}
+
+export type TenantDatabaseStatus = 'creating' | 'ready' | 'failed' | 'moving' | 'deleting';
+
+/** Trabalho de banco (criar, mover para banco próprio, excluir) feito pelo serviço de backup. */
+export interface DbJob {
+  id: string;
+  kind: 'create' | 'move' | 'delete';
+  status: 'queued' | 'running' | 'done' | 'failed';
+  step: string | null;
+  error: string | null;
+  reason: string | null;
+  result: {
+    database?: string;
+    finalBackupKey?: string;
+    finalBackupSize?: number;
+    rows?: number;
+    warning?: string;
+  };
+  tenantId: string;
+  tenantSlug: string;
+  tenantName: string;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface LastBackup {
+  status: 'running' | 'ok' | 'failed';
+  startedAt: string;
+  finishedAt: string | null;
+  objectKey: string | null;
+  sizeBytes: string | null;
+  error: string | null;
+}
+
+export interface TenantDatabase {
+  kind: 'dedicated' | 'shared';
+  name: string | null;
+  status: TenantDatabaseStatus;
+  lastError: string | null;
+  readyAt: string | null;
+  sizeBytes: number | null;
+  backupFolder: string | null;
+  lastBackup: LastBackup | null;
+  jobs: DbJob[];
+  worker: {
+    alive: boolean;
+    lastSeenAt: string | null;
+    canCreateDatabases: boolean | null;
+    version: string | null;
+  };
+}
+
+export interface BackupFolders {
+  prefix: string;
+  platform: { folder: string; lastBackup: LastBackup | null };
+  tenants: {
+    id: string;
+    slug: string;
+    name: string;
+    status: string;
+    database: string | null;
+    databaseStatus: TenantDatabaseStatus | null;
+    folder: string | null;
+    lastBackup: LastBackup | null;
+  }[];
 }
 
 export interface Plan {
@@ -82,6 +157,7 @@ export interface TenantDetail {
   owners: { name: string; email: string }[];
   provisioning: { step: string; status: string; attempts: number; lastError: string | null }[];
   audit: AuditRow[];
+  database: TenantDatabase;
 }
 
 export interface AuditRow {
@@ -193,6 +269,8 @@ export interface TenantInsights {
     rows: number;
     bytes: number;
     databaseBytes: number;
+    /** Banco próprio do restaurante (null = banco central). */
+    database?: string | null;
     share: number;
   };
   traffic: { requests: number; seconds: number; errors: number; timeShare: number } | null;

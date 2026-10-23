@@ -5,8 +5,9 @@ import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
-import type { BackupRun, BackupSettings, BackupTestResult } from './types';
-import { ago, bytes, Dot, Section } from './ui';
+import type { BackupFolders, BackupRun, BackupSettings, BackupTestResult, DbJob } from './types';
+import { Link } from 'react-router';
+import { ago, bytes, Dot, Level, Section } from './ui';
 
 const WEEKDAYS = ['Nunca', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 const TRIGGER: Record<string, string> = {
@@ -78,7 +79,9 @@ export function BackupsPage() {
   return (
     <>
       <StatusSection s={s} runs={runs.data} onChange={() => (settings.reload(), runs.reload())} />
+      <FoldersSection />
       <SettingsSection s={s} onSaved={(n) => settings.setData(n)} />
+      <DeletedSection />
       <HistorySection runs={runs.data} error={runs.error} />
     </>
   );
@@ -115,7 +118,7 @@ function StatusSection({
   }
   const ready = s.enabled && s.configured;
   return (
-    <Section title="Backups" sub="todos os restaurantes, cifrado, no Backblaze B2">
+    <Section title="Backups" sub="cada banco na sua pasta, cifrado, no Backblaze B2">
       {!s.worker.alive && (
         <Alert tone="warning">
           <span>
@@ -388,7 +391,7 @@ function SettingsSection({ s, onSaved }: { s: BackupSettings; onSaved(n: BackupS
 
 function HistorySection({ runs, error }: { runs: BackupRun[] | null; error: string | null }) {
   return (
-    <Section title="Histórico" sub="últimas 60 execuções">
+    <Section title="Histórico" sub="últimas 100 execuções (uma por banco)">
       {error && <Alert tone="danger">{error}</Alert>}
       <div className="adm-panel">
         {!runs ? (
@@ -407,6 +410,8 @@ function HistorySection({ runs, error }: { runs: BackupRun[] | null; error: stri
                   <span className="adm-row__main">
                     <span className="adm-row__title">
                       {r.kind === 'backup' ? 'Backup' : 'Teste de restauração'}{' '}
+                      {r.tenantName ?? (r.tenantId ? 'restaurante excluído' : 'banco central')}{' '}
+                      {r.details?.final ? <Badge>final</Badge> : null}
                       {trigger && <Badge>{trigger}</Badge>}
                     </span>
                     <span className="adm-row__meta">
@@ -423,6 +428,115 @@ function HistorySection({ runs, error }: { runs: BackupRun[] | null; error: stri
             })}
           </div>
         )}
+      </div>
+    </Section>
+  );
+}
+
+function lastLevel(b: { status: string } | null): Level {
+  return !b ? 'off' : b.status === 'ok' ? 'ok' : b.status === 'failed' ? 'bad' : 'info';
+}
+
+/**
+ * Organização do bucket: uma pasta para o banco central (plataforma/) e uma por restaurante com
+ * banco próprio (restaurantes/<endereço>/), cada uma com o seu último backup.
+ */
+function FoldersSection() {
+  const { data, error } = useLoad<BackupFolders>('/platform/backups/folders');
+  if (error) return <Alert tone="danger">{error}</Alert>;
+  if (!data) return null;
+  const shared = data.tenants.filter((t) => !t.database);
+  const own = data.tenants.filter((t) => t.database);
+  const last = (b: BackupFolders['platform']['lastBackup']) =>
+    !b
+      ? 'nenhum backup ainda'
+      : b.status === 'failed'
+        ? `falhou ${ago(b.startedAt)}: ${b.error ?? ''}`
+        : `${ago(b.finishedAt ?? b.startedAt)} · ${bytes(b.sizeBytes)}`;
+  return (
+    <Section title="Pastas no bucket" sub={`${own.length + 1} pastas`}>
+      <div className="adm-panel">
+        <div className="adm-rows">
+          <div className="adm-row">
+            <Dot level={lastLevel(data.platform.lastBackup)} />
+            <span className="adm-row__main">
+              <span className="adm-row__title">
+                <code>{data.platform.folder}</code>
+              </span>
+              <span className="adm-row__meta">
+                banco central (cadastros, planos, painel
+                {shared.length ? ` e ${shared.length} restaurante(s) ainda no banco central` : ''})
+              </span>
+            </span>
+            <span className="adm-row__side">{last(data.platform.lastBackup)}</span>
+          </div>
+          {own.map((t) => (
+            <Link
+              key={t.id}
+              to={`/restaurantes/${t.id}`}
+              className="adm-row"
+              style={{ color: 'inherit', textDecoration: 'none' }}
+            >
+              <Dot level={lastLevel(t.lastBackup)} />
+              <span className="adm-row__main">
+                <span className="adm-row__title">
+                  <code>{t.folder}</code>
+                </span>
+                <span className="adm-row__meta">
+                  {t.name} · banco <code>{t.database}</code>
+                </span>
+              </span>
+              <span className="adm-row__side">{last(t.lastBackup)}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+      {shared.length > 0 && (
+        <p className="adm-sub" style={{ whiteSpace: 'normal' }}>
+          Restaurantes ainda no banco central: {shared.map((t) => t.name).join(', ')}. Para cada um
+          ter banco e pasta próprios, abra o restaurante → Banco de dados → Mover para banco
+          próprio.
+        </p>
+      )}
+    </Section>
+  );
+}
+
+/** Restaurantes excluídos e onde ficou o backup final de cada um. */
+function DeletedSection() {
+  const { data } = useLoad<DbJob[]>('/platform/database-jobs?limit=200');
+  const deleted = data?.filter((j) => j.kind === 'delete' && j.status === 'done') ?? [];
+  if (!deleted.length) return null;
+  return (
+    <Section title="Bases excluídas" sub={`${deleted.length}`}>
+      <div className="adm-panel">
+        <div className="adm-rows">
+          {deleted.map((j) => (
+            <div key={j.id} className="adm-row">
+              <Dot level="off" />
+              <span className="adm-row__main">
+                <span className="adm-row__title">
+                  {j.tenantName} ({j.tenantSlug})
+                </span>
+                <span className="adm-row__meta">
+                  {j.result.finalBackupKey ? (
+                    <>
+                      backup final: <code>{j.result.finalBackupKey}</code>
+                    </>
+                  ) : (
+                    'sem backup final (a base nunca ficou pronta)'
+                  )}
+                  {j.reason ? ` · motivo: ${j.reason}` : ''}
+                </span>
+              </span>
+              <span className="adm-row__side">
+                {dateTime(j.finishedAt ?? j.createdAt)}
+                <br />
+                {j.result.finalBackupSize ? bytes(j.result.finalBackupSize) : ''}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </Section>
   );

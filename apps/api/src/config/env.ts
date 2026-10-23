@@ -9,6 +9,11 @@ const schema = z.object({
   /** Conexão privilegiada (dono). Usada somente por migrações e provisionamento, nunca pela API. */
   DATABASE_OWNER_URL: z.string().url().optional(),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
+  // Banco próprio por restaurante (ADR 0011): "dedicated" cria cada restaurante novo no seu
+  // banco (pelo serviço de backup); "shared" mantém o modo antigo, tudo no banco central.
+  TENANT_DATABASE_MODE: z.enum(['dedicated', 'shared']).default('dedicated'),
+  // Conexões por banco de restaurante em cada réplica da API (abertas sob demanda).
+  TENANT_DATABASE_POOL_MAX: z.coerce.number().int().positive().max(20).default(3),
   /** Domínio base: <slug>.<COMANDOU_BASE_DOMAIN>. Ex.: comandou.com (prod) ou comandou.localhost (dev). */
   COMANDOU_BASE_DOMAIN: z
     .string()
@@ -156,6 +161,8 @@ export const FILE_SECRET_VARS = [
   'DATABASE_URL',
   'DATABASE_OWNER_URL',
   'TENANT_DATABASE_OWNER_URLS',
+  'DATABASE_ADMIN_URL',
+  'POSTGRES_PASSWORD',
   'REDIS_URL',
   'PROVISION_ADMIN_PASSWORD',
   'INTEGRATIONS_KEY',

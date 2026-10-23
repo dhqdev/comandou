@@ -72,3 +72,29 @@ export async function ownerQuery<R extends object = Record<string, unknown>>(
     await c.end();
   }
 }
+
+/**
+ * Executa agora os trabalhos de banco na fila (o que o serviço de backup faria), sem a espera
+ * de segurança. Bancos de restaurante criados em teste usam endereços "tst-..." (o setup apaga
+ * os que sobrarem de execuções anteriores).
+ */
+export async function runQueuedDbJobs(
+  extra: Partial<import('../src/backup/db-jobs').DbJobContext> = {},
+): Promise<('done' | 'failed')[]> {
+  const { Pool } = await import('pg');
+  const { claimJob, runDbJob } = await import('../src/backup/db-jobs');
+  const pool = new Pool({ connectionString: OWNER_URL, max: 3 });
+  const out: ('done' | 'failed')[] = [];
+  try {
+    for (let job = await claimJob(pool); job; job = await claimJob(pool))
+      out.push(
+        await runDbJob(
+          { pool, ownerUrl: OWNER_URL, log: () => undefined, settleMs: 0, ...extra },
+          job,
+        ),
+      );
+  } finally {
+    await pool.end();
+  }
+  return out;
+}
