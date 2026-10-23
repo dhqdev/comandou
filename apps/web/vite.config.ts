@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Comandou',
@@ -34,6 +34,9 @@ export default defineConfig({
       workbox: {
         // Somente assets estáticos versionados vão para cache. A API NUNCA é cacheada pelo SW:
         // dados de restaurante, sessão e valores financeiros sempre vêm do servidor.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//],

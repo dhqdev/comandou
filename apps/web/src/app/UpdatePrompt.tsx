@@ -1,28 +1,16 @@
 import { useRegisterSW } from 'virtual:pwa-register/react';
-import { Button } from '../design-system';
 
-/** Nova versão do app disponível: o usuário escolhe quando recarregar (não interrompe uma venda). */
+/** O app se atualiza sozinho (autoUpdate); aqui só procura versão nova ao voltar para ele. */
 export function UpdatePrompt() {
-  const {
-    needRefresh: [needRefresh, setNeedRefresh],
-    updateServiceWorker,
-  } = useRegisterSW();
-  if (!needRefresh) return null;
-  return (
-    <div className="cm-toasts">
-      <div
-        className="cm-toast"
-        role="status"
-        style={{ display: 'flex', gap: 12, alignItems: 'center' }}
-      >
-        Nova versão disponível.
-        <Button variant="secondary" onClick={() => updateServiceWorker(true)}>
-          Atualizar
-        </Button>
-        <Button variant="ghost" onClick={() => setNeedRefresh(false)} style={{ color: '#fff' }}>
-          Depois
-        </Button>
-      </div>
-    </div>
-  );
+  useRegisterSW({
+    onRegisteredSW(_url, registration) {
+      if (!registration) return;
+      const check = () => {
+        if (document.visibilityState === 'visible') void registration.update();
+      };
+      document.addEventListener('visibilitychange', check);
+      setInterval(check, 30 * 60 * 1000);
+    },
+  });
+  return null;
 }

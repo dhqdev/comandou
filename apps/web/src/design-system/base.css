@@ -33,6 +33,8 @@ body,
   height: 100%;
 }
 html {
+  /* Atrás da moldura (área segura do iPhone no PWA): mesma cor dela, sem faixa. */
+  background: var(--cm-frame);
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
   /* Cara de app: nada de pinça/zoom nem página deslizando para os lados. */

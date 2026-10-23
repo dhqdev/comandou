@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.18.1',
+    date: '2026-10-23',
+    title: 'App atualiza sozinho',
+    summary:
+      'O app instalado (PWA) agora baixa e aplica a versão nova sozinho, sem ficar preso numa versão antiga; fundo atrás do menu inferior igual ao da tela.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'O PWA do iPhone não fica mais com a versão antiga (menu inferior com faixa vazia): a atualização é automática, também ao voltar para o app.',
+      },
+    ],
+  },
+  {
     version: '0.18.0',
     date: '2026-10-23',
     title: 'Backup no Backblaze B2',
