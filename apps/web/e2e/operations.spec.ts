@@ -13,7 +13,7 @@ async function login(page: Page) {
   await page.getByLabel('E-mail').fill(EMAIL);
   await page.getByLabel('Senha').fill(PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.getByRole('heading', { name: /Olá/ })).toBeVisible();
+  await expect(page.getByText(/Olá, /)).toBeVisible();
 }
 
 async function nav(page: Page, name: string) {
@@ -35,7 +35,7 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   test.setTimeout(120_000);
   const tag = `${info.project.name.slice(0, 1)}${Date.now().toString(36).slice(-5)}`;
   await login(page);
-  await expect(page.getByText('● Tempo real')).toBeVisible();
+  await expect(page.getByText('Tempo real', { exact: true })).toBeVisible();
 
   // Ajustes: mesa e terminal de caixa
   await nav(page, 'Ajustes');
@@ -93,7 +93,7 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
 
   // PDV: venda de balcão com variação, pagamento em dinheiro com troco
   await nav(page, 'PDV');
-  await page.getByRole('button', { name: /Nova venda/ }).click();
+  await page.getByRole('button', { name: /Novo pedido/ }).click();
   dialog = page.getByRole('dialog');
   await dialog.getByLabel('Buscar produto').fill(product);
   await dialog.getByRole('button', { name: new RegExp(product) }).click();
@@ -109,14 +109,11 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   await shot(page, info.project.name, 'nova-venda');
   await dialog.getByRole('button', { name: 'Enviar pedido' }).click();
   await expect(page.getByText(/Pedido #\d+ criado/)).toBeVisible();
-  const card = page
-    .locator('.order-card', { hasText: product.split(' ')[0] })
-    .filter({ hasText: 'R$ 28,50' })
-    .first();
+  const card = page.locator('.hcard', { hasText: product }).filter({ hasText: 'R$ 28,50' }).first();
   await expect(card).toBeVisible();
   await shot(page, info.project.name, 'pdv-kanban');
 
-  await card.click();
+  await card.getByRole('button', { name: /Abrir pedido/ }).click();
   dialog = page.getByRole('dialog').filter({ hasText: /Pedido #/ });
   await dialog.getByRole('button', { name: /Receber/ }).click();
   const pay = page.getByRole('dialog').filter({ hasText: 'Receber — pedido' });

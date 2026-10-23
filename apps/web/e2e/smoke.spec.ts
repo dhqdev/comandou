@@ -19,7 +19,7 @@ test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => 
 
   await page.getByLabel('Senha').fill(PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.getByRole('heading', { name: /Olá/ })).toBeVisible();
+  await expect(page.getByText(/Olá, /)).toBeVisible();
   await expect(page.getByText('Em produção')).toBeVisible();
   await page.screenshot({
     path: `test-results/screens/${info.project.name}-pdv.png`,
@@ -28,7 +28,7 @@ test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => 
 
   const isMobile = (page.viewportSize()?.width ?? 1200) < 1024;
   if (isMobile) await page.getByRole('button', { name: 'Abrir menu' }).click();
-  await page.getByRole('link', { name: 'Cardápio' }).click();
+  await page.getByRole('complementary').getByRole('link', { name: 'Cardápio' }).click();
   await expect(page.getByRole('heading', { name: 'Cardápio' })).toBeVisible();
 
   const name = `X-Salada ${info.project.name} ${Date.now()}`;
@@ -56,7 +56,7 @@ test('layout não gera rolagem horizontal na página', async ({ page }) => {
   await page.getByLabel('E-mail').fill(EMAIL);
   await page.getByLabel('Senha').fill(PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.getByRole('heading', { name: /Olá/ })).toBeVisible();
+  await expect(page.getByText(/Olá, /)).toBeVisible();
   for (const path of ['/', '/cardapio']) {
     await page.goto(path);
     await page.waitForLoadState('networkidle');

@@ -13,7 +13,7 @@ async function login(page: Page) {
   await page.getByLabel('E-mail').fill(EMAIL);
   await page.getByLabel('Senha').fill(PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.getByRole('heading', { name: /Olá/ })).toBeVisible();
+  await expect(page.getByText(/Olá, /)).toBeVisible();
 }
 
 async function nav(page: Page, name: string | RegExp) {

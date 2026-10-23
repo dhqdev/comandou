@@ -206,7 +206,7 @@ test('restaurante: tela Plano e domínio com instruções de DNS', async ({ page
   await page.getByLabel('E-mail').fill(EMAIL);
   await page.getByLabel('Senha').fill(PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.getByRole('heading', { name: /Olá/ })).toBeVisible();
+  await expect(page.getByText(/Olá, /)).toBeVisible();
   await nav(page, 'Plano e domínio');
   await expect(page.getByRole('heading', { name: 'Plano e domínio' })).toBeVisible();
   const host = `pedidos-${tag}.example.com`;
