@@ -16,7 +16,7 @@ import { Link, useParams } from 'react-router';
 import { time } from '../../features/format';
 import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
-import { Photo } from './PublicStorePage';
+import { Photo } from './ui';
 import './public.css';
 
 type Step = 'awaiting' | 'accepted' | 'ready' | 'dispatched' | 'completed';
@@ -96,15 +96,22 @@ const HERO: Record<
   },
 };
 
+/**
+ * Acompanhamento do pedido. Pelo link (/pedido/:token, sem conta) ou pelo histórico da conta
+ * (/pedir/pedidos/:id, com o cookie do cliente).
+ */
 export function PublicOrderPage() {
-  const { token = '' } = useParams();
+  const { token = '', id = '' } = useParams();
+  const base = id
+    ? `/store/account/orders/${encodeURIComponent(id)}`
+    : `/store/orders/${encodeURIComponent(token)}`;
   const [o, setO] = useState<PublicOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      setO(await api<PublicOrder>(`/store/orders/${encodeURIComponent(token)}`));
+      setO(await api<PublicOrder>(base));
       setError(null);
     } catch (e) {
       const err = e as ApiError;
@@ -114,7 +121,7 @@ export function PublicOrderPage() {
           : 'Sem conexão agora. Vamos tentar de novo sozinhos.',
       );
     }
-  }, [token]);
+  }, [base]);
 
   useEffect(() => {
     void load();
@@ -136,7 +143,7 @@ export function PublicOrderPage() {
     if (!window.confirm('Cancelar este pedido?')) return;
     setCancelling(true);
     try {
-      await api(`/store/orders/${encodeURIComponent(token)}/cancel`, { method: 'POST' });
+      await api(`${base}/cancel`, { method: 'POST' });
       await load();
     } catch (e) {
       window.alert((e as Error).message);

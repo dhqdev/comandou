@@ -76,6 +76,13 @@ const ProductUpdate = z
     sectorId: z.string().uuid().nullable(),
     position: z.number().int().min(0).max(10_000),
     imageId: z.string().uuid().nullable(),
+    featured: z.boolean(),
+    badge: z
+      .string()
+      .trim()
+      .max(20)
+      .nullable()
+      .transform((v) => v || null),
     ...fiscalFields,
   })
   .partial()

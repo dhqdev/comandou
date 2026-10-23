@@ -65,6 +65,10 @@ export const PERMISSIONS = [
   'messaging:manage',
   /** Ver o plano, a assinatura e o uso do restaurante. */
   'plan:read',
+  /** Ver os clientes com conta no cardápio online (contato, endereços, pedidos). */
+  'customers:read',
+  /** Anotar e bloquear clientes do cardápio online. */
+  'customers:manage',
   /** Domínio próprio do restaurante (muda o endereço de acesso). Só o administrador. */
   'domains:manage',
 ] as const;
@@ -88,11 +92,19 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'delivery:manage',
     'stock:read',
     'fiscal:emit',
+    'customers:read',
   ],
   waiter: ['catalog:read', 'orders:read', 'orders:write', 'tables:operate'],
   kitchen: ['catalog:read', 'orders:read', 'kitchen:operate'],
   driver: ['orders:read', 'delivery:operate'],
-  attendant: ['catalog:read', 'orders:read', 'orders:write', 'tables:operate', 'delivery:manage'],
+  attendant: [
+    'catalog:read',
+    'orders:read',
+    'orders:write',
+    'tables:operate',
+    'delivery:manage',
+    'customers:read',
+  ],
   stock: ['catalog:read', 'stock:read', 'stock:write'],
   finance: [
     'orders:read',

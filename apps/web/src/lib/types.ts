@@ -50,6 +50,80 @@ export interface StoreSettings {
   whatsapp: string | null;
   coverImageId: string | null;
   logoImageId: string | null;
+  theme: 'auto' | 'light' | 'dark';
+  headline: string | null;
+  featuredTitle: string | null;
+  accountsEnabled: boolean;
+  showPopular: boolean;
+}
+
+export interface StoreBanner {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  tag: string | null;
+  cta: string | null;
+  imageId: string | null;
+  imageUrl: string | null;
+  targetType: 'none' | 'product' | 'category';
+  targetId: string | null;
+  active: boolean;
+  position: number;
+}
+
+export interface CustomerRow {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  marketingOptIn: boolean;
+  blocked: boolean;
+  createdAt: string;
+  lastLoginAt: string | null;
+  orders: number;
+  spent: string;
+  lastOrderAt: string | null;
+}
+export interface CustomerList {
+  summary: { total: number; new30: number; active30: number };
+  customers: CustomerRow[];
+}
+export interface CustomerDetail {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  marketingOptIn: boolean;
+  createdAt: string;
+  lastLoginAt: string | null;
+  staffNotes: string | null;
+  blocked: boolean;
+  addresses: {
+    id: string;
+    label: string | null;
+    street: string;
+    number: string;
+    district: string;
+    complement: string | null;
+    reference: string | null;
+    isDefault: boolean;
+  }[];
+  orders: {
+    id: string;
+    number: number;
+    status: string;
+    channel: string;
+    total: string;
+    createdAt: string;
+  }[];
+  stats: {
+    orders: number;
+    spent: string;
+    avgTicket: string;
+    firstOrderAt: string | null;
+    lastOrderAt: string | null;
+  };
+  favorites: { name: string; quantity: number }[];
 }
 
 export interface OrderItem {

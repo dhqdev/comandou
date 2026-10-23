@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.16.0',
+    date: '2026-10-23',
+    title: 'Cardápio online novo e contas de cliente',
+    summary:
+      'O cardápio online virou um app de pedidos, com telas animadas, banners e destaques. O cliente pode criar conta, e o painel ganhou as páginas Loja online e Clientes.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Cardápio online redesenhado: capa com saudação, busca, banners que passam sozinhos, categorias com foto, faixas de Destaques e Mais pedidos, e abas embaixo (Início, Favoritos, Pedidos e Conta).',
+      },
+      {
+        tag: 'novo',
+        text: 'Transições entre telas: a foto do prato cresce ao abrir, tamanhos viram botões, adicionais viram interruptores e o item “voa” para a sacola.',
+      },
+      {
+        tag: 'novo',
+        text: 'Conta do cliente: cadastro com celular e senha, endereços salvos, favoritos, histórico e acompanhamento dos pedidos, e tema claro ou escuro.',
+      },
+      {
+        tag: 'novo',
+        text: 'Painel: página Loja online com Aparência (capa, logo, tema e textos), Banners, Destaques e selos, e Funcionamento, com prévia do celular ao lado.',
+      },
+      {
+        tag: 'novo',
+        text: 'Painel: aba Clientes com busca, total gasto, último pedido, endereços, pratos favoritos, observações da equipe e bloqueio.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Senhas de clientes guardadas com scrypt, sessão em cookie protegido e bloqueio após várias tentativas de login erradas.',
+      },
+    ],
+  },
+  {
     version: '0.15.4',
     date: '2026-10-23',
     title: 'Menu inferior do iPhone mais baixo',

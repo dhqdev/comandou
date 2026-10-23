@@ -3,6 +3,8 @@ import { Alert, Spinner, ToastProvider } from '../design-system';
 import { ComingSoonPage } from '../pages/ComingSoonPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MenuPage } from '../pages/MenuPage';
+import { CustomersPage } from '../pages/CustomersPage';
+import { OnlineStorePage } from '../pages/OnlineStorePage';
 import { CashPage } from '../pages/CashPage';
 import { DeliveriesPage } from '../pages/DeliveriesPage';
 import { FinancePage } from '../pages/FinancePage';
@@ -13,7 +15,7 @@ import { StockPage } from '../pages/StockPage';
 import { TeamPage } from '../pages/TeamPage';
 import { TrackingPage } from '../pages/TrackingPage';
 import { PublicOrderPage } from '../pages/public/PublicOrderPage';
-import { PublicStorePage } from '../pages/public/PublicStorePage';
+import { StoreApp } from '../pages/public/StoreApp';
 import { KitchenPage } from '../pages/KitchenPage';
 import { OrdersPage } from '../pages/OrdersPage';
 import { PdvPage } from '../pages/PdvPage';
@@ -27,8 +29,6 @@ import { TablesPage } from '../pages/TablesPage';
 import { AppShell } from './AppShell';
 import { AuthProvider, useAuth } from './auth';
 import { UpdatePrompt } from './UpdatePrompt';
-
-const SOON: [string, string][] = [['clientes', 'Clientes']];
 
 function Gate() {
   const { status, error } = useAuth();
@@ -60,6 +60,8 @@ function Gate() {
         <Route path="relatorios" element={<ReportsPage />} />
         <Route path="configuracoes" element={<SettingsPage />} />
         <Route path="cardapio" element={<MenuPage />} />
+        <Route path="loja-online" element={<OnlineStorePage />} />
+        <Route path="clientes" element={<CustomersPage />} />
         <Route path="novidades" element={<ReleasesPage />} />
         <Route path="entregas" element={<DeliveriesPage />} />
         <Route path="estoque" element={<StockPage />} />
@@ -69,9 +71,6 @@ function Gate() {
         <Route path="nota-fiscal" element={<FiscalPage />} />
         <Route path="whatsapp" element={<WhatsAppPage />} />
         <Route path="plano" element={<PlanPage />} />
-        {SOON.map(([path, title]) => (
-          <Route key={path} path={path} element={<ComingSoonPage title={title} />} />
-        ))}
         <Route path="*" element={<ComingSoonPage title="Página não encontrada" />} />
       </Route>
     </Routes>
@@ -88,7 +87,7 @@ export function App() {
           {/* Rastreio público do cliente final: fora do login. */}
           <Route path="/rastreio/:token" element={<TrackingPage />} />
           {/* Cardápio online e acompanhamento do pedido do cliente final: fora do login. */}
-          <Route path="/pedir" element={<PublicStorePage />} />
+          <Route path="/pedir/*" element={<StoreApp />} />
           <Route path="/pedido/:token" element={<PublicOrderPage />} />
           {/* Link de acesso do suporte (painel Super Admin): troca o token por uma sessão. */}
           <Route path="/suporte" element={<SupportEntryPage />} />

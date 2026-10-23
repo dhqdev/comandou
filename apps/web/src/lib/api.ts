@@ -71,6 +71,9 @@ export interface Product {
   soldOut: boolean;
   sectorId: string | null;
   imageId?: string | null;
+  /** Destaque e selo no cardápio online. */
+  featured?: boolean;
+  badge?: string | null;
   /** Dados fiscais da NFC-e; vazio usa o padrão de Ajustes > Nota fiscal. */
   ncm?: string | null;
   cfop?: string | null;

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Headers,
@@ -28,6 +29,7 @@ import { one } from '../common/sql';
 import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
+import { cookieOf, CUSTOMER_COOKIE, CustomersService } from './customers.service';
 import { mediaUrl, PUBLIC_TOKEN_RE, StoreService } from './store.service';
 
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -88,9 +90,48 @@ const Settings = z
     whatsapp: z.string().trim().max(30).nullable(),
     coverImageId: uuid.nullable(),
     logoImageId: uuid.nullable(),
+    theme: z.enum(['auto', 'light', 'dark']),
+    headline: z
+      .string()
+      .trim()
+      .max(60)
+      .nullable()
+      .transform((v) => v || null),
+    featuredTitle: z
+      .string()
+      .trim()
+      .max(40)
+      .nullable()
+      .transform((v) => v || null),
+    accountsEnabled: z.boolean(),
+    showPopular: z.boolean(),
   })
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');
+
+const nullText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullable()
+    .transform((v) => v || null);
+const BannerFields = z.object({
+  title: text(60),
+  subtitle: nullText(120),
+  tag: nullText(24),
+  cta: nullText(24),
+  imageId: uuid.nullable(),
+  targetType: z.enum(['none', 'product', 'category']),
+  targetId: uuid.nullable(),
+  active: z.boolean(),
+  position: z.number().int().min(0).max(10_000),
+});
+const BannerCreate = BannerFields.partial().required({ title: true });
+const BannerUpdate = BannerFields.partial().refine(
+  (o) => Object.keys(o).length > 0,
+  'nada para atualizar',
+);
 
 /** Campos que a operação (caixa/atendente) pode mudar direto da tela de pedidos. */
 const OPERATIONAL = new Set(['isOpen', 'autoAccept']);
@@ -98,7 +139,10 @@ const OPERATIONAL = new Set(['isOpen', 'autoAccept']);
 /** Cardápio online: rotas públicas (cliente final, sem login) no host do restaurante. */
 @Controller({ path: 'store', version: '1' })
 export class StoreController {
-  constructor(private readonly store: StoreService) {}
+  constructor(
+    private readonly store: StoreService,
+    private readonly customers: CustomersService,
+  ) {}
 
   @Public()
   @Throttle({ default: { ttl: 60_000, limit: 120 } })
@@ -111,13 +155,15 @@ export class StoreController {
   @Public()
   @Throttle({ default: { ttl: 60_000, limit: 15 } })
   @Post('orders')
-  place(
+  async place(
     @Body(new ZodPipe(OnlineOrder)) b: z.infer<typeof OnlineOrder>,
     @Headers('idempotency-key') key: string | undefined,
     @CurrentTenant() t: ResolvedTenant,
     @Req() req: Request,
   ) {
-    return this.store.placeOrder(t.id, b, requireKey(key), req.ip);
+    // Com a conta aberta, o pedido entra no histórico do cliente.
+    const c = await this.customers.resolve(t.id, cookieOf(req, CUSTOMER_COOKIE));
+    return this.store.placeOrder(t.id, { ...b, customerId: c?.id }, requireKey(key), req.ip);
   }
 
   @Public()
@@ -153,6 +199,46 @@ export class StoreController {
     if (!onlyOperational && !roleHas(u.role, 'settings:manage'))
       throw new ForbiddenException('Só quem gerencia as configurações altera a loja online');
     return this.store.updateSettings(ctxOf(t, u, req), b);
+  }
+
+  @Get('banners')
+  @RequirePermission('settings:manage')
+  banners(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.store.listBanners(ctxOf(t, u));
+  }
+
+  @Post('banners')
+  @RequirePermission('settings:manage')
+  createBanner(
+    @Body(new ZodPipe(BannerCreate)) b: z.infer<typeof BannerCreate>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.store.createBanner(ctxOf(t, u, req), b);
+  }
+
+  @Patch('banners/:id')
+  @RequirePermission('settings:manage')
+  updateBanner(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(BannerUpdate)) b: z.infer<typeof BannerUpdate>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.store.updateBanner(ctxOf(t, u, req), id, b);
+  }
+
+  @Delete('banners/:id')
+  @RequirePermission('settings:manage')
+  deleteBanner(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.store.deleteBanner(ctxOf(t, u, req), id);
   }
 }
 
