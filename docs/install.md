@@ -11,7 +11,8 @@ escolhe a certa) e criam o Super Admin com o e-mail e a senha que você informar
 - Um servidor Linux (Ubuntu ou Debian), 4 GB de memória ou mais, com as portas 80 e 443 abertas.
 - Um domínio com DNS apontando para o IP do servidor: registros **A** para `@`, `*` (e `admin`, se
   não usar o `*`).
-- Um bucket de backup (Backblaze B2 ou outro S3), para os backups cifrados diários.
+- Um bucket no Backblaze B2 (ou outro S3) para os backups diários; ele é configurado depois, no
+  painel Super Admin → Backups.
 
 ## 1. Um comando (recomendado)
 
@@ -23,10 +24,10 @@ Baixa a última Release para `/opt/comandou` e roda o instalador, que:
 
 1. instala o Docker se faltar e liga o Swarm de um nó só (pede confirmação);
 2. instala um Traefik com HTTPS automático se o servidor não tiver um;
-3. pergunta o domínio, o e-mail e a senha do Super Admin e o bucket de backup;
+3. pergunta o domínio, o e-mail e a senha do Super Admin;
 4. gera sozinho todos os outros segredos, como Docker secrets (nada de senha em arquivo ou log);
 5. mostra **uma vez**, só no terminal, a chave do aplicativo autenticador (e um QR Code, se
-   `qrencode` estiver instalado) e a chave dos backups: anote as duas fora do servidor;
+   `qrencode` estiver instalado): anote fora do servidor;
 6. sobe a stack, espera as migrações e confere a saúde.
 
 Depois entre em `https://admin.<seu domínio>` com o e-mail, a senha e o código do aplicativo.
@@ -55,7 +56,6 @@ scripts/install.sh
 | `PLATFORM_ADMIN_EMAIL`, `PLATFORM_ADMIN_NAME` | login e nome do Super Admin |
 | `COMANDOU_ADMIN_PASSWORD` ou `COMANDOU_ADMIN_PASSWORD_FILE` | senha (12+ caracteres) |
 | `COMANDOU_ADMIN_TOTP_SECRET` | chave do autenticador em base32 (16+ caracteres), obrigatória sem terminal |
-| `BACKUP_S3_ENDPOINT`, `BACKUP_S3_BUCKET`, `COMANDOU_BACKUP_KEY_ID`, `COMANDOU_BACKUP_APP_KEY` | backup |
 | `COMANDOU_BACKUP=off` | sobe sem backup (não recomendado) |
 | `COMANDOU_WILDCARD_TLS=1` | certificado coringa `*.domínio` (exige DNS-01 no Traefik) |
 

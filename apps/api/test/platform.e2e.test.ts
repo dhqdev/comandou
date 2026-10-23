@@ -16,6 +16,7 @@ import { agentServer } from '../src/host-agent/server';
 import { totpContext } from '../src/platform/platform-auth';
 import { newTotpSecret, totpCode, totpStep } from '../src/platform/totp';
 import { APP_URL, PLATFORM_URL, testEnv } from './env';
+import { FakeS3, startFakeS3 } from './fake-s3';
 import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 
 /**
@@ -887,5 +888,109 @@ describe('Servidor (agente)', () => {
     });
     expect(res.status).toBe(401);
     expect((await fetch(`http://127.0.0.1:${port}/healthz`)).status).toBe(200);
+  });
+});
+
+describe('Backup no Backblaze B2 (painel)', () => {
+  const B2 = {
+    keyId: '004a1b2c3d4e5f0000000001',
+    secret: 'K004segredoDaApplicationKey',
+    bucket: 'comandou-bk',
+  };
+  let s3: FakeS3;
+  const form = (over: Record<string, unknown> = {}) => ({
+    enabled: true,
+    endpoint: s3.url,
+    region: 'us-west-004',
+    bucket: B2.bucket,
+    prefix: 'comandou',
+    keyId: B2.keyId,
+    applicationKey: B2.secret,
+    runAt: '03:00',
+    retentionDays: 30,
+    restoreTestWeekday: 7,
+    ...over,
+  });
+  beforeAll(async () => {
+    s3 = await startFakeS3({ keyId: B2.keyId, secret: B2.secret, bucket: B2.bucket });
+  });
+  afterAll(() => s3?.close());
+
+  it('começa desligado; ligar sem chave é recusado', async () => {
+    const r = await pget('/backups/settings').expect(200);
+    expect(r.body).toMatchObject({ enabled: false, configured: false, hasApplicationKey: false });
+    expect(r.body.worker.alive).toBe(false);
+    await psend('put', '/backups/settings', form({ applicationKey: '' })).expect(422);
+    await psend('put', '/backups/settings', form({ runAt: '25:00' })).expect(400);
+  });
+
+  it('testa o bucket com os dados do formulário (chave errada explica o motivo)', async () => {
+    const ok = await psend('post', '/backups/test', form()).expect(200);
+    expect(ok.body.ok).toBe(true);
+    expect(ok.body.canDelete).toBe(true);
+    expect(s3.objects.size).toBe(0); // o arquivo de teste foi apagado
+    const bad = await psend('post', '/backups/test', form({ applicationKey: 'errada' })).expect(
+      200,
+    );
+    expect(bad.body.ok).toBe(false);
+    expect(JSON.stringify(bad.body)).toMatch(/Chave recusada/);
+  });
+
+  it('salva com a applicationKey cifrada; nunca devolve nem audita a chave', async () => {
+    const r = await psend('put', '/backups/settings', form()).expect(200);
+    expect(r.body).toMatchObject({ enabled: true, configured: true, hasApplicationKey: true });
+    expect(JSON.stringify(r.body)).not.toContain(B2.secret);
+    const [row] = await ownerQuery<{ secret_enc: Buffer }>(
+      `SELECT secret_enc FROM platform_backup_settings`,
+    );
+    expect(row.secret_enc.includes(Buffer.from(B2.secret))).toBe(false);
+    const audit = await ownerQuery<{ data: unknown }>(
+      `SELECT data FROM platform_audit_log WHERE action = 'platform.backup_settings_updated'`,
+    );
+    expect(audit).toHaveLength(1);
+    expect(JSON.stringify(audit)).not.toContain(B2.secret);
+
+    // Campo da chave vazio = mantém a salva (o teste usa a salva).
+    const keep = await psend(
+      'put',
+      '/backups/settings',
+      form({ applicationKey: '', retentionDays: 60 }),
+    );
+    expect(keep.status).toBe(200);
+    expect(keep.body).toMatchObject({ hasApplicationKey: true, retentionDays: 60 });
+    expect((await psend('post', '/backups/test', form({ applicationKey: '' }))).body.ok).toBe(true);
+  });
+
+  it('"fazer agora" fica pedido para o serviço de backup, com auditoria', async () => {
+    const r = await psend('post', '/backups/run', { kind: 'backup' }).expect(202);
+    expect(r.body.backupRequestedAt).toBeTruthy();
+    await psend('post', '/backups/run', { kind: 'restore_test' }).expect(202);
+    await psend('post', '/backups/run', { kind: 'apagar' }).expect(400);
+    await ownerQuery(`UPDATE platform_backup_settings SET worker_seen_at = now()`);
+    expect((await pget('/backups/settings').expect(200)).body.worker.alive).toBe(true);
+  });
+
+  it('papel do painel não marca o serviço como vivo nem muda o agendamento', async () => {
+    const c = new Client({ connectionString: PLATFORM_URL });
+    await c.connect();
+    try {
+      await expect(
+        c.query(`UPDATE platform_backup_settings SET worker_seen_at = now()`),
+      ).rejects.toThrow(/permission denied/);
+      await expect(
+        c.query(`UPDATE platform_backup_settings SET last_scheduled_backup = now()`),
+      ).rejects.toThrow(/permission denied/);
+    } finally {
+      await c.end();
+    }
+    const app = new Client({ connectionString: APP_URL });
+    await app.connect();
+    try {
+      await expect(app.query(`SELECT * FROM platform_backup_settings`)).rejects.toThrow(
+        /permission denied/,
+      );
+    } finally {
+      await app.end();
+    }
   });
 });

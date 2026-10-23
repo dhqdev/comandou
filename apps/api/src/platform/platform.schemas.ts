@@ -89,3 +89,36 @@ export const ServerCleanup = z.object({
 export const ServiceName = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,120}$/);
 
 export const SystemUpdate = z.object({ version: z.string().regex(/^v\d+\.\d+\.\d+$/) });
+
+/** Backup no Backblaze B2 (ou outro S3). applicationKey vazia = manter a salva. */
+export const BackupSettingsBody = z.object({
+  enabled: z.boolean(),
+  endpoint: z
+    .string()
+    .trim()
+    .max(200)
+    .refine((v) => v === '' || /^https?:\/\/[a-z0-9.-]+(:\d+)?\/?$/i.test(v), {
+      message: 'Endereço inválido. Ex.: https://s3.us-west-004.backblazeb2.com',
+    }),
+  region: z.string().trim().max(40).default(''),
+  bucket: z
+    .string()
+    .trim()
+    .max(63)
+    .refine((v) => v === '' || /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/i.test(v), {
+      message: 'Nome de bucket inválido',
+    }),
+  prefix: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/, 'Pasta com letras, números, ponto, hífen e /')
+    .max(100)
+    .default('comandou'),
+  keyId: z.string().trim().max(200),
+  applicationKey: z.string().trim().max(500).optional(),
+  runAt: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Horário no formato HH:MM'),
+  retentionDays: z.number().int().min(0).max(3650),
+  restoreTestWeekday: z.number().int().min(0).max(7),
+});
+export type BackupSettingsInput = z.infer<typeof BackupSettingsBody>;
+export const BackupRunRequest = z.object({ kind: z.enum(['backup', 'restore_test']) });

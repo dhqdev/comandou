@@ -80,7 +80,7 @@ jobs:
       - name: Formatação (Prettier)
         run: pnpm format:check
       - name: Scripts de shell
-        run: shellcheck -x -S warning infrastructure/backup/*.sh scripts/*.sh
+        run: shellcheck -x -S warning scripts/*.sh
       - name: Alertas do Prometheus
         working-directory: infrastructure/monitoring
         run: |
@@ -169,17 +169,24 @@ jobs:
           E2E_EMAIL: dono@demo.local
           E2E_PASSWORD: e2e-senha-forte-123
           E2E_ADMIN_EMAIL: admin@e2e.local
-      - name: Backup e teste de restauração (destino local, chave descartável)
+      - name: Backup e teste de restauração (serviço de backup + bucket S3 falso)
         env:
           DATABASE_OWNER_URL: postgres://comandou_owner:owner_ci@localhost:5432/comandou
-          BACKUP_TARGET: file
+          INTEGRATIONS_KEY: ${{ env.E2E_INTEGRATIONS_KEY }}
           PG_BIN: /usr/lib/postgresql/16/bin
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq age >/dev/null
-          export WORK_DIR="$RUNNER_TEMP" BACKUP_DIR="$RUNNER_TEMP/backups" AGE_IDENTITY_FILE="$RUNNER_TEMP/age.txt"
-          age-keygen -o "$AGE_IDENTITY_FILE" 2>/dev/null
-          infrastructure/backup/backup.sh
-          infrastructure/backup/restore-test.sh
+          export WORK_DIR="$RUNNER_TEMP"
+          (cd apps/api && nohup node -r @swc-node/register test/fake-s3.ts 9000 > ../../s3.log 2>&1 &)
+          for i in $(seq 1 20); do curl -s http://127.0.0.1:9000/ >/dev/null && break; sleep 1; done
+          # Configura o bucket como o painel faria (chave cifrada com a INTEGRATIONS_KEY).
+          node -e "
+            const {seal}=require('./apps/api/dist/common/secret-box');const {Client}=require('./apps/api/node_modules/pg');
+            (async()=>{const c=new Client(process.env.DATABASE_OWNER_URL);await c.connect();
+            await c.query(\"UPDATE platform_backup_settings SET enabled=true, endpoint='http://127.0.0.1:9000', bucket='comandou-backups', key_id='chave-teste', secret_enc=\$1\",
+              [seal(process.env.INTEGRATIONS_KEY,'segredo-teste','backup:s3')]);await c.end();})()"
+          node apps/api/dist/backup/backup-cli.js run
+          node apps/api/dist/backup/backup-cli.js restore-test
+          node apps/api/dist/backup/backup-cli.js list | grep -q 'dump.enc'
           psql "$DATABASE_OWNER_URL" -At -c "SELECT kind, status FROM backup_runs ORDER BY id" | tee runs.txt
           grep -qx 'restore_test|ok' runs.txt
       - name: Guardar prints e logs (só se falhar)
@@ -191,6 +198,7 @@ jobs:
             apps/web/test-results
             api.log
             web.log
+            s3.log
 
   version:
     name: 2. Definir a versão

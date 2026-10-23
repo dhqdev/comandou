@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Spinner } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
-import type { AuditRow, BackupRun, HealthState, Overview, ServerStatus } from './types';
+import type { AuditRow, BackupSettings, HealthState, Overview, ServerStatus } from './types';
 import { ago, bytes, Dot, Level, levelFor, Section, Tile } from './ui';
 import { useNavigate } from 'react-router';
 
@@ -40,6 +40,7 @@ function backupLevel(at: string | null, warnHours: number): Level {
 export function OverviewPage() {
   const { data, error } = useLoad<Overview>('/platform/overview');
   const server = useLoad<ServerStatus>('/platform/server');
+  const backup = useLoad<BackupSettings>('/platform/backups/settings');
   const navigate = useNavigate();
   if (error) return <Alert tone="danger">{error}</Alert>;
   if (!data) return <Spinner />;
@@ -60,6 +61,11 @@ export function OverviewPage() {
     ['Serviço de WhatsApp', data.health.whatsappGateway],
   ] as const)
     if (st === 'error') alerts.push({ level: 'bad', text: `${label} com falha` });
+  const bk = backup.data;
+  if (bk && !(bk.enabled && bk.configured))
+    alerts.push({ level: 'warn', text: 'Backup no Backblaze não configurado', to: '/backups' });
+  else if (bk && !bk.worker.alive)
+    alerts.push({ level: 'bad', text: 'Serviço de backup parado', to: '/backups' });
   if (b !== 'ok')
     alerts.push({
       level: b,
@@ -255,44 +261,7 @@ export function OverviewPage() {
   );
 }
 
-export function BackupsPage() {
-  const { data, error } = useLoad<BackupRun[]>('/platform/backups');
-  return (
-    <Section title="Backups" sub="diário cifrado + teste semanal de restauração">
-      {error && <Alert tone="danger">{error}</Alert>}
-      <div className="adm-panel">
-        {!data ? (
-          <div className="adm-panel__body">
-            <Spinner />
-          </div>
-        ) : data.length === 0 ? (
-          <div className="adm-empty">Nenhuma execução registrada</div>
-        ) : (
-          <div className="adm-rows">
-            {data.map((r) => (
-              <div key={r.id} className="adm-row">
-                <Dot level={r.status === 'ok' ? 'ok' : r.status === 'failed' ? 'bad' : 'info'} />
-                <span className="adm-row__main">
-                  <span className="adm-row__title">
-                    {r.kind === 'backup' ? 'Backup' : 'Teste de restauração'}
-                  </span>
-                  <span className="adm-row__meta">
-                    {r.error ?? r.objectKey ?? (r.status === 'running' ? 'rodando' : '—')}
-                  </span>
-                </span>
-                <span className="adm-row__side">
-                  {dateTime(r.startedAt)}
-                  <br />
-                  {bytes(r.sizeBytes)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </Section>
-  );
-}
+export { BackupsPage } from './BackupsPage';
 
 export const ACTION_LABELS: Record<string, string> = {
   'platform.login': 'Entrou no painel',

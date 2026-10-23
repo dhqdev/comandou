@@ -275,3 +275,29 @@ export interface UpdateInfo {
   error?: string;
   job: UpdateJob | null;
 }
+
+export interface BackupSettings {
+  enabled: boolean;
+  configured: boolean;
+  endpoint: string;
+  region: string;
+  resolvedRegion: string | null;
+  bucket: string;
+  prefix: string;
+  keyId: string;
+  hasApplicationKey: boolean;
+  runAt: string;
+  retentionDays: number;
+  restoreTestWeekday: number;
+  backupRequestedAt: string | null;
+  restoreRequestedAt: string | null;
+  worker: { alive: boolean; lastSeenAt: string | null };
+  keyConfigured: boolean;
+  updatedAt: string | null;
+}
+
+export interface BackupTestResult {
+  ok: boolean;
+  canDelete: boolean;
+  steps: { step: string; ok: boolean; detail?: string }[];
+}

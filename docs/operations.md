@@ -81,7 +81,8 @@ consultadas de novo. Confira o `ready` da API (WhatsApp) e o status da Focus NFe
 1. `docker service logs comandou_backup --since 30h | grep -E 'ERRO|ok'`.
 2. Erros comuns: chave do bucket vencida ou sem permissão de escrita, bucket cheio, banco
    indisponível. A linha em `backup_runs` (painel → Backups) mostra o erro.
-3. Rodar agora: `docker exec $(docker ps -q -f name=comandou_backup) /opt/comandou-backup/backup.sh`.
+3. Rodar agora: painel → Backups → **Fazer backup agora**, ou
+   `docker exec $(docker ps -q -f name=comandou_backup) node dist/backup/backup-cli.js run`.
 
 ### Suspeita de vazamento ou invasão
 

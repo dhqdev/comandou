@@ -8,7 +8,7 @@
 # O que faz, pedindo confirmação antes de cada alteração no servidor:
 #   - instala o Docker, se faltar, e liga o modo Swarm de um nó só, se ainda não estiver ligado;
 #   - cria a rede network_public e instala um Traefik (HTTPS automático) se não houver um;
-#   - pergunta domínio, e-mail e senha do Super Admin e o bucket de backup; gera os demais
+#   - pergunta domínio, e-mail e senha do Super Admin; gera os demais
 #     segredos sozinho como Docker secrets (nunca grava senha em arquivo nem no log);
 #   - sobe a stack, espera as migrações e confere a saúde.
 # NÃO remove serviços, volumes, redes nem secrets existentes: o que já existe é reaproveitado.
@@ -122,16 +122,8 @@ if ! secret_exists comandou_platform_admin_password; then
   ((${#COMANDOU_ADMIN_PASSWORD} >= 12)) || die "a senha do Super Admin precisa de 12 caracteres ou mais"
 fi
 export PLATFORM_ADMIN_EMAIL="${PLATFORM_ADMIN_EMAIL:-}" PLATFORM_ADMIN_NAME="${PLATFORM_ADMIN_NAME:-Administrador}"
-if [[ "${COMANDOU_BACKUP:-on}" == "off" ]]; then
-  echo "AVISO: backups desligados (COMANDOU_BACKUP=off). Não recomendado em produção."
-  BACKUP_S3_BUCKET=desligado; BACKUP_S3_ENDPOINT=https://desligado.invalid
-else
-  ask BACKUP_S3_ENDPOINT "Endereço S3 do backup (ex.: https://s3.us-west-004.backblazeb2.com)"
-  ask BACKUP_S3_BUCKET "Nome do bucket de backup"
-fi
-export BACKUP_S3_BUCKET BACKUP_S3_ENDPOINT
 export TRAEFIK_ENTRYPOINT="${TRAEFIK_ENTRYPOINT:-websecure}" TRAEFIK_CERT_RESOLVER="${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}"
-echo "versão=$COMANDOU_VERSION domínio=$COMANDOU_BASE_DOMAIN stack=$STACK bucket=$BACKUP_S3_BUCKET"
+echo "versão=$COMANDOU_VERSION domínio=$COMANDOU_BASE_DOMAIN stack=$STACK"
 
 step "4. Imagens ($ARCH)"
 # Baixar antes falha cedo e claro (login do GHCR, versão que não existe, arquitetura sem imagem).
@@ -215,31 +207,6 @@ else
   echo "Super Admin: secrets já existem, nada a perguntar"
 fi
 
-if [[ "${COMANDOU_BACKUP:-on}" == "off" ]]; then
-  for s in comandou_backup_s3_key_id comandou_backup_s3_secret comandou_backup_age_identity; do
-    printf 'desligado' | mk_secret "$s"
-  done
-else
-  if ! secret_exists comandou_backup_s3_key_id; then
-    ask COMANDOU_BACKUP_KEY_ID "keyID do bucket (Backblaze B2 ou S3)"
-    ask_secret COMANDOU_BACKUP_APP_KEY "applicationKey do bucket"
-    printf '%s' "$COMANDOU_BACKUP_KEY_ID" | mk_secret comandou_backup_s3_key_id
-    printf '%s' "$COMANDOU_BACKUP_APP_KEY" | mk_secret comandou_backup_s3_secret
-    unset COMANDOU_BACKUP_APP_KEY
-  fi
-  if ! secret_exists comandou_backup_age_identity; then
-    docker pull -q "$IMAGES/comandou-backup:$COMANDOU_VERSION" >/dev/null || die "imagem de backup não encontrada"
-    AGE="$(docker run --rm --entrypoint age-keygen "$IMAGES/comandou-backup:$COMANDOU_VERSION" 2>/dev/null)" \
-      || die "não consegui gerar a chave de backup (age-keygen)"
-    printf '%s' "$AGE" | mk_secret comandou_backup_age_identity
-    if have_tty; then
-      { echo; echo "=== Chave dos backups (GUARDE FORA DO SERVIDOR: sem ela o backup não abre) ==="; echo "$AGE"; echo; } >/dev/tty
-      $ASSUME_YES || { read -r -p "Guardou? Enter para continuar " _ </dev/tty >/dev/tty; }
-    fi
-    unset AGE
-  fi
-fi
-
 if [[ -n "${INSTALL_TRAEFIK:-}" ]] && ! secret_exists comandou_traefik_static; then
   # A configuração estática do Traefik leva o token do provider; ela vira um secret, não um arquivo.
   [[ -n "${PROVIDER_TOKEN:-}" ]] || die "o secret comandou_traefik_provider_token já existe e não dá para relê-lo: remova-o (docker secret rm) e rode de novo"
@@ -255,7 +222,14 @@ if [[ -n "$BACKUP_CTR" ]]; then
   if [[ "${COMANDOU_SKIP_BACKUP:-}" == "1" ]]; then
     echo "AVISO: backup antes da atualização pulado (COMANDOU_SKIP_BACKUP=1)"
   else
-    docker exec "$BACKUP_CTR" /opt/comandou-backup/backup.sh || die "backup falhou: a atualização foi cancelada"
+    # Serviço antigo (até 0.16, scripts bash) ou novo (Node, bucket configurado no painel; sem
+    # bucket configurado ele avisa e segue com código 0).
+    if docker exec "$BACKUP_CTR" test -x /opt/comandou-backup/backup.sh 2>/dev/null; then
+      docker exec "$BACKUP_CTR" /opt/comandou-backup/backup.sh || die "backup falhou: a atualização foi cancelada"
+    else
+      docker exec "$BACKUP_CTR" node dist/backup/backup-cli.js run --deploy \
+        || die "backup falhou: a atualização foi cancelada"
+    fi
   fi
 else
   echo "serviço ${STACK}_backup ainda não está rodando neste nó: sem backup prévio"
@@ -283,8 +257,6 @@ if $SUDO mkdir -p "$(dirname "$DEPLOY_ENV")" 2>/dev/null; then
 COMANDOU_BASE_DOMAIN=$COMANDOU_BASE_DOMAIN
 PLATFORM_ADMIN_EMAIL=$PLATFORM_ADMIN_EMAIL
 PLATFORM_ADMIN_NAME=$PLATFORM_ADMIN_NAME
-BACKUP_S3_BUCKET=$BACKUP_S3_BUCKET
-BACKUP_S3_ENDPOINT=$BACKUP_S3_ENDPOINT
 TRAEFIK_ENTRYPOINT=$TRAEFIK_ENTRYPOINT
 TRAEFIK_CERT_RESOLVER=$TRAEFIK_CERT_RESOLVER
 ${COMANDOU_BACKUP:+COMANDOU_BACKUP=$COMANDOU_BACKUP}

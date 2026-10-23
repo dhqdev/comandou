@@ -28,6 +28,8 @@ import {
   PlatformSessionGuard,
 } from './platform-auth';
 import {
+  BackupRunRequest,
+  BackupSettingsBody,
   LoginInput,
   NewPlan,
   NewTenant,
@@ -43,6 +45,7 @@ import {
   SupportAccess,
 } from './platform.schemas';
 import { Actor, PlatformService } from './platform.service';
+import { PlatformBackupService } from './platform-backup.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
 import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
 
@@ -127,7 +130,10 @@ export class PlatformAuthController {
 @Public()
 @UseGuards(PlatformHostGuard, PlatformSessionGuard)
 export class PlatformController {
-  constructor(private readonly svc: PlatformService) {}
+  constructor(
+    private readonly svc: PlatformService,
+    private readonly backup: PlatformBackupService,
+  ) {}
 
   @Get('overview')
   overview() {
@@ -268,6 +274,37 @@ export class PlatformController {
   @Get('backups')
   backups() {
     return this.svc.backups();
+  }
+
+  @Get('backups/settings')
+  backupSettings() {
+    return this.backup.settings();
+  }
+
+  @Put('backups/settings')
+  saveBackupSettings(
+    @Body(new ZodPipe(BackupSettingsBody)) b: z.infer<typeof BackupSettingsBody>,
+    @Req() req: Request,
+  ) {
+    return this.backup.save(b, actor(req));
+  }
+
+  /** Testa o bucket com os dados do formulário (a chave salva vale se o campo vier vazio). */
+  @Post('backups/test')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  testBackup(@Body(new ZodPipe(BackupSettingsBody)) b: z.infer<typeof BackupSettingsBody>) {
+    return this.backup.test(b);
+  }
+
+  /** Pede ao serviço de backup um backup ou teste de restauração agora. */
+  @Post('backups/run')
+  @HttpCode(202)
+  runBackup(
+    @Body(new ZodPipe(BackupRunRequest)) b: z.infer<typeof BackupRunRequest>,
+    @Req() req: Request,
+  ) {
+    return this.backup.request(b.kind, actor(req));
   }
 }
 

@@ -52,7 +52,7 @@ if [[ -r "$DEPLOY_ENV" ]]; then
   [[ "$perm" =~ ^[0-7]00$ ]] && ok "permissão de $DEPLOY_ENV: $perm" \
     || warn "permissão de $DEPLOY_ENV é $perm (use 600)"
 fi
-for v in COMANDOU_BASE_DOMAIN BACKUP_S3_BUCKET BACKUP_S3_ENDPOINT TRAEFIK_ENTRYPOINT TRAEFIK_CERT_RESOLVER; do
+for v in COMANDOU_BASE_DOMAIN TRAEFIK_ENTRYPOINT TRAEFIK_CERT_RESOLVER; do
   [[ -n "${!v:-}" ]] && ok "$v=${!v}" || fail "$v não definido"
 done
 
@@ -123,10 +123,10 @@ if $DEPLOYED; then
   if [[ -z "$bctr" ]]; then
     warn "contêiner de backup não está neste nó"
   else
-    # common.sh carrega os segredos *_FILE do contêiner e define s3() e sql(); nada é impresso.
-    docker exec "$bctr" bash -c '. /opt/comandou-backup/common.sh && s3 s3api head-bucket --bucket "$S3_BUCKET"' \
-      >/dev/null 2>&1 && ok "bucket acessível" || fail "bucket de backup inacessível (chave, endpoint ou nome)"
-    last="$(docker exec "$bctr" bash -c '. /opt/comandou-backup/common.sh >/dev/null 2>&1; sql -F "|" -c "
+    # O bucket vem do painel (Super Admin → Backups); `list` só lê. Nada de segredo é impresso.
+    docker exec "$bctr" node dist/backup/backup-cli.js list >/dev/null 2>&1 \
+      && ok "bucket acessível" || fail "bucket de backup inacessível ou não configurado (painel → Backups)"
+    last="$(docker exec "$bctr" sh -c 'psql "$(cat "$DATABASE_OWNER_URL_FILE")" -X -At -F "|" -c "
       SELECT kind, extract(epoch FROM now() - max(finished_at))::int
         FROM backup_runs WHERE status = '"'ok'"' GROUP BY kind"' 2>/dev/null)"
     b_age="$(awk -F'|' '$1 == "backup" {print $2}' <<<"$last")"
@@ -134,7 +134,7 @@ if $DEPLOYED; then
     if [[ -z "$b_age" ]]; then fail "nenhum backup bem-sucedido registrado"
     elif ((b_age > 26 * 3600)); then fail "último backup bom há $((b_age / 3600)) h"
     else ok "último backup bom há $((b_age / 3600)) h"; fi
-    if [[ -z "$r_age" ]]; then warn "nenhum teste de restauração bem-sucedido ainda (rode restore-test.sh)"
+    if [[ -z "$r_age" ]]; then warn "nenhum teste de restauração bem-sucedido ainda (painel → Backups → Testar restauração)"
     elif ((r_age > 8 * 86400)); then fail "último teste de restauração há $((r_age / 86400)) dias"
     else ok "último teste de restauração há $((r_age / 86400)) dias"; fi
   fi

@@ -41,9 +41,7 @@ printf '%s' 'senha-platform'   | docker secret create comandou_platform_password
 printf '%s' 'postgres://comandou_platform:senha-platform@postgres:5432/comandou' | docker secret create comandou_db_platform_url -
 openssl rand -hex 32       | tr -d '\n' | docker secret create comandou_metrics_token -
 openssl rand -hex 32       | tr -d '\n' | docker secret create comandou_traefik_provider_token -
-printf '%s' '<keyID do B2>'          | docker secret create comandou_backup_s3_key_id -
-printf '%s' '<applicationKey do B2>' | docker secret create comandou_backup_s3_secret -
-age-keygen 2>/dev/null               | docker secret create comandou_backup_age_identity -
+# Backups: o bucket do Backblaze B2 é configurado no painel (Super Admin → Backups), sem secret.
 # Super Admin criado no primeiro deploy (ver install.md#super-admin)
 printf '%s' 'senha-com-12-ou-mais-caracteres' | docker secret create comandou_platform_admin_password -
 head -c 20 /dev/urandom | base32 | tr -d '=\n' | docker secret create comandou_platform_admin_totp -
@@ -94,9 +92,6 @@ Valores **não secretos** do servidor, lidos pelo `install.sh` (permissão 600, 
 ```bash
 COMANDOU_BASE_DOMAIN=comandou.com
 COMANDOU_HEALTH_URL=https://demo.comandou.com
-BACKUP_S3_BUCKET=comandou-backups
-BACKUP_S3_ENDPOINT=https://s3.us-west-004.backblazeb2.com
-BACKUP_S3_REGION=us-west-004
 TRAEFIK_ENTRYPOINT=websecure
 TRAEFIK_CERT_RESOLVER=letsencryptresolver
 TRAEFIK_CUSTOM_CERT_RESOLVER=letsencrypt-http

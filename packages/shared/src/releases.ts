@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.18.0',
+    date: '2026-10-23',
+    title: 'Backup no Backblaze B2',
+    summary:
+      'No painel admin → Backups você informa o bucket do Backblaze B2 e a chave; o sistema passa a enviar todo dia o backup de todos os restaurantes (dados e fotos), cifrado.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Backups no painel admin: endereço, bucket, keyID e applicationKey do Backblaze B2, com botão Testar conexão. A chave fica cifrada e nunca é mostrada de novo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Backup diário no horário que você escolher (Brasília), guardado pelo número de dias que você definir (sempre mantém os 3 últimos), mais botões Fazer backup agora e Testar restauração.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O backup salva o banco inteiro, com todos os restaurantes e as fotos, cifrado (AES-256) antes de sair do servidor. Histórico mostra quem disparou cada execução e os erros em português.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Aviso na visão geral quando o backup não está configurado ou o serviço de backup está parado. Os segredos do bucket saíram da stack e do instalador.',
+      },
+    ],
+  },
+  {
     version: '0.17.0',
     date: '2026-10-23',
     title: 'Busca global: ache qualquer coisa no sistema',
