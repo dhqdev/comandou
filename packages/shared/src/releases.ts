@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.16.2',
+    date: '2026-10-23',
+    title: 'Menu inferior flutuante em vidro líquido',
+    summary:
+      'No celular, o menu de baixo agora é uma pílula flutuante de vidro, com um vidro que desliza até a tela escolhida. Vale para o restaurante, o painel admin e o cardápio online.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Menu inferior suspenso com efeito de vidro líquido e indicador que desliza entre os itens, igual em todos os apps.',
+      },
+      {
+        tag: 'correção',
+        text: 'A barra ocupa menos altura e não fica mais colada na borda do iPhone.',
+      },
+    ],
+  },
+  {
     version: '0.16.1',
     date: '2026-10-23',
     title: 'Painel admin: largura toda e menu do iPhone',

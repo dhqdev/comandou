@@ -2,7 +2,7 @@ import { fromCents } from '@comandou/shared';
 import { ChevronRight, Heart, House, ReceiptText, ShoppingBag, UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate, useNavigationType } from 'react-router';
-import { applyTheme, Mascot } from '../../design-system';
+import { applyTheme, Mascot, useGlider } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
 import { AccountScreen, AddressesScreen, PasswordScreen, ProfileScreen } from './AccountScreens';
@@ -31,14 +31,21 @@ function BottomNav() {
       ? [{ to: '/pedir/conta', label: name ?? 'Entrar', icon: UserRound }]
       : []),
   ];
+  const glider = useGlider<HTMLElement>({ selector: '.tabbar__item.active' });
   return (
-    <nav className="tabbar" data-focused={focused || undefined} aria-label="Navegação do cardápio">
+    <nav
+      className="tabbar cm-glide"
+      ref={glider.ref}
+      data-focused={focused || undefined}
+      aria-label="Navegação do cardápio"
+    >
       {tabs.map((t) => (
         <NavLink key={t.to} to={t.to} end={t.end} className="tabbar__item">
           <t.icon size={22} aria-hidden />
           <span>{t.label}</span>
         </NavLink>
       ))}
+      {glider.glider}
     </nav>
   );
 }

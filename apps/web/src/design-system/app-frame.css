@@ -423,9 +423,9 @@
 @media (max-width: 860px) {
   .cm-frame {
     --top-h: 56px;
-    --tabbar-h: 56px;
-    /* iPhone: só metade da área do indicador de início; inteira deixava a barra alta demais. */
-    --tabbar-pad: calc(env(safe-area-inset-bottom) * 0.5);
+    --tabbar-h: 64px;
+    /* Menu flutuante: fica solto acima da borda, com um respiro mínimo do indicador do iPhone. */
+    --tabbar-pad: calc(10px + env(safe-area-inset-bottom) * 0.3);
     /* Cola a moldura nas bordas da tela: no PWA do iPhone 100dvh pode ficar menor que a tela
        e deixava uma faixa vazia embaixo da barra de abas. */
     position: fixed;
@@ -489,51 +489,67 @@
       calc(var(--tabbar-h) + var(--tabbar-pad) + var(--cm-space-6));
     gap: var(--cm-space-4);
   }
+  /* Menu flutuante em vidro líquido: pílula solta sobre o conteúdo, com um vidro que desliza
+     até o item ativo (useGlider). */
   .cm-tabbar {
     position: fixed;
     z-index: 30;
-    inset: auto 0 0 0;
+    left: 12px;
+    right: 12px;
+    bottom: var(--tabbar-pad);
     display: grid;
     grid-auto-columns: minmax(0, 1fr);
     grid-auto-flow: column;
     align-items: stretch;
-    height: calc(var(--tabbar-h) + var(--tabbar-pad));
-    padding: 0 4px var(--tabbar-pad);
-    background: color-mix(in srgb, var(--cm-frame) 88%, transparent);
-    backdrop-filter: blur(16px) saturate(170%);
-    -webkit-backdrop-filter: blur(16px) saturate(170%);
-    border-top: 1px solid var(--cm-frame-line);
+    gap: 2px;
+    height: var(--tabbar-h);
+    padding: 6px;
+    max-width: 520px;
+    margin: 0 auto;
+    border-radius: 32px;
+    background: color-mix(in srgb, var(--cm-frame) 78%, transparent);
+    backdrop-filter: blur(26px) saturate(190%);
+    -webkit-backdrop-filter: blur(26px) saturate(190%);
+    border: 1px solid color-mix(in srgb, var(--cm-text) 10%, transparent);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 45%),
+      inset 0 -1px 0 rgb(0 0 0 / 6%),
+      0 10px 30px -8px rgb(0 0 0 / 28%),
+      0 2px 6px rgb(0 0 0 / 8%);
   }
   .cm-tabbar__item {
+    position: relative;
     display: grid;
     justify-items: center;
     align-content: center;
-    gap: 3px;
+    gap: 2px;
     min-width: 0;
     border: 0;
+    border-radius: 26px;
     background: none;
-    color: var(--cm-text-subtle);
+    color: var(--cm-text-muted);
     font: inherit;
     font-size: 11px;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: color var(--cm-dur) var(--cm-ease);
   }
   .cm-tabbar__icon {
     position: relative;
     display: grid;
     place-items: center;
-    width: 56px;
-    height: 30px;
-    border-radius: var(--cm-radius-full);
-    transition: color var(--cm-dur) var(--cm-ease);
+    width: 32px;
+    height: 26px;
+    transition: transform var(--cm-dur-slow) var(--cm-ease-liquid);
   }
   .cm-tabbar__icon svg {
-    width: 22px;
-    height: 22px;
+    width: 23px;
+    height: 23px;
   }
   .cm-tabbar__item:active .cm-tabbar__icon {
-    transform: scale(0.92);
+    transform: scale(0.9);
   }
   .cm-tabbar__label {
     max-width: 100%;
@@ -542,17 +558,42 @@
     white-space: nowrap;
   }
   .cm-tabbar__item.is-active {
-    color: var(--cm-text);
-  }
-  .cm-tabbar__item.is-active .cm-tabbar__icon {
     color: var(--cm-brand-700);
   }
+  .cm-tabbar__item.is-active .cm-tabbar__icon {
+    transform: translateY(-1px) scale(1.06);
+  }
+  /* O vidro do item ativo: mais claro que a barra, com brilho na borda de cima. */
   .cm-tabbar .cm-glider {
-    border-radius: var(--cm-radius-full);
-    background: var(--cm-brand-50);
-    border-color: color-mix(in srgb, var(--cm-brand-500) 22%, transparent);
-    box-shadow: none;
-    backdrop-filter: none;
+    border-radius: 26px;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--cm-brand-500) 22%, rgb(255 255 255 / 40%)),
+      color-mix(in srgb, var(--cm-brand-500) 14%, rgb(255 255 255 / 12%))
+    );
+    border: 1px solid color-mix(in srgb, var(--cm-brand-500) 30%, rgb(255 255 255 / 50%));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 60%),
+      0 4px 14px -4px color-mix(in srgb, var(--cm-brand-600) 45%, transparent);
+    backdrop-filter: blur(6px) saturate(160%);
+    -webkit-backdrop-filter: blur(6px) saturate(160%);
+  }
+
+  :root[data-theme='dark'] .cm-tabbar {
+    background: color-mix(in srgb, var(--cm-frame) 72%, transparent);
+    border-color: rgb(255 255 255 / 10%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 14%),
+      0 12px 32px -8px rgb(0 0 0 / 70%);
+  }
+  :root[data-theme='dark'] .cm-tabbar .cm-glider {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--cm-brand-500) 30%, rgb(255 255 255 / 10%)),
+      color-mix(in srgb, var(--cm-brand-500) 18%, rgb(255 255 255 / 4%))
+    );
+    border-color: color-mix(in srgb, var(--cm-brand-500) 40%, rgb(255 255 255 / 14%));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%);
   }
 
   .cm-sheet {

@@ -94,7 +94,7 @@ export function AppFrame({
   const [anchor, setAnchor] = useState(0);
   const rail = useGlider<HTMLDivElement>({ selector: '.cm-rail__item.is-active' });
   const tabbar = useGlider<HTMLElement>({
-    selector: '.cm-tabbar__item.is-active .cm-tabbar__icon',
+    selector: '.cm-tabbar__item.is-active',
   });
   const panel = useRef<HTMLDivElement>(null);
   const all = [...items, ...footer];
