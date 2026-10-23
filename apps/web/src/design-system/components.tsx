@@ -222,6 +222,18 @@ export function Modal({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  /** O clique só fecha se começou e terminou no fundo (selecionar texto e soltar fora não fecha). */
+  const downOnBackdrop = useRef(false);
+  const onBackdrop = (e: {
+    target: EventTarget;
+    currentTarget: HTMLDialogElement;
+    clientX: number;
+    clientY: number;
+  }) => {
+    if (e.target !== e.currentTarget) return false;
+    const r = e.currentTarget.getBoundingClientRect();
+    return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+  };
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
@@ -232,6 +244,14 @@ export function Modal({
     <dialog
       ref={ref}
       className={`cm-modal cm-modal--${size}`}
+      onMouseDown={(e) => {
+        downOnBackdrop.current = onBackdrop(e);
+      }}
+      onClick={(e) => {
+        // Clicar fora da janela (no fundo escurecido) fecha.
+        if (downOnBackdrop.current && onBackdrop(e)) onClose();
+        downOnBackdrop.current = false;
+      }}
       // O React propaga "close" de um dialog aninhado para o pai; só reage ao próprio.
       onClose={(e) => {
         if (e.target === e.currentTarget) onClose();

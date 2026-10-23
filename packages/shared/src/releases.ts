@@ -20,20 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.16.3',
+    version: '0.16.4',
     date: '2026-10-23',
-    title: 'Sem cadastro de domínio no restaurante',
-    summary:
-      'O restaurante não cadastra mais domínio ou subdomínio dentro do sistema. A tela virou apenas “Plano”.',
+    title: 'Janelas fecham ao clicar fora',
+    summary: 'Em qualquer tela, clicar fora de uma janela (no fundo escurecido) fecha a janela.',
     notes: [
       {
         tag: 'melhoria',
-        text: 'A tela “Plano e domínio” agora é só “Plano”: mostra o que o plano inclui e o uso do mês, sem a opção de adicionar domínio.',
+        text: 'Janelas e painéis laterais fecham ao clicar fora. Selecionar um texto e soltar o mouse fora não fecha.',
       },
     ],
   },
   {
-    version: '0.16.2',
+    version: '0.16.3',
     date: '2026-10-23',
     title: 'Menu inferior flutuante em vidro líquido',
     summary:
@@ -46,6 +45,19 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'correção',
         text: 'A barra ocupa menos altura e não fica mais colada na borda do iPhone.',
+      },
+    ],
+  },
+  {
+    version: '0.16.2',
+    date: '2026-10-23',
+    title: 'Sem cadastro de domínio no restaurante',
+    summary:
+      'O restaurante não cadastra mais domínio ou subdomínio dentro do sistema. A tela virou apenas “Plano”.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'A tela “Plano e domínio” agora é só “Plano”: mostra o que o plano inclui e o uso do mês, sem a opção de adicionar domínio.',
       },
     ],
   },

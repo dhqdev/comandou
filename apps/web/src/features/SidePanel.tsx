@@ -42,7 +42,10 @@ export function SidePanel({
       }}
       onClick={(e) => {
         // Clique no fundo escurecido (fora do painel) fecha.
-        if (e.target === e.currentTarget) onClose();
+        const r = e.currentTarget.getBoundingClientRect();
+        const outside =
+          e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+        if (e.target === e.currentTarget && outside) onClose();
       }}
       aria-labelledby={titleId}
     >
