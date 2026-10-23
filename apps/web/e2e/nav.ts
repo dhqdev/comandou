@@ -42,8 +42,8 @@ export async function account(page: Page, action: string) {
 }
 
 /** A folha sobe com animação: espera ela parar antes de tocar num item. */
-async function settled(page: Page) {
-  await page.getByRole('dialog').waitFor();
+export async function settled(page: Page) {
+  await page.getByRole('dialog').last().waitFor();
   await page.waitForFunction(() =>
     document
       .getAnimations()

@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { nav } from './nav';
+import { nav, settled } from './nav';
 
 /**
  * Fluxo da Etapa 3 no navegador: cadastros → adicionais → caixa → venda com variação →
@@ -143,8 +143,12 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   await nav(page, 'Salão');
   await page.getByRole('button', { name: `Mesa M${tag} livre` }).click();
   dialog = page.getByRole('dialog').filter({ hasText: `Mesa M${tag}` });
+  await settled(page);
   await dialog.getByRole('button', { name: 'Adicionar pedido' }).click();
-  const sale = page.getByRole('dialog').filter({ hasText: 'Novo pedido — Mesa' });
+  // O pedido novo abre dentro da comanda (diálogo aninhado): o de dentro é o último.
+  const sale = page.getByRole('dialog', { name: /^Novo pedido — Mesa/ }).last();
+  await expect(sale).toBeVisible();
+  await settled(page);
   await sale.getByLabel('Buscar produto').fill(product);
   await sale.getByRole('button', { name: new RegExp(product) }).click();
   await page
