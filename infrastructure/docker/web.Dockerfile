@@ -19,6 +19,7 @@ RUN pnpm --filter @comandou/shared build && pnpm --filter @comandou/web build
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 COPY infrastructure/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY infrastructure/nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
+COPY infrastructure/nginx/security-headers-frame-self.conf /etc/nginx/snippets/security-headers-frame-self.conf
 COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --retries=3 \

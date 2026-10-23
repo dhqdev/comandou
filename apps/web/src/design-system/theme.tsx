@@ -1,5 +1,6 @@
 import { Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 /**
  * Tema claro/escuro. Fica salvo neste navegador; sem escolha, segue o sistema
@@ -72,9 +73,54 @@ export function useTheme(): [Theme, (t: Theme) => void] {
   return [theme, setTheme];
 }
 
-/** Botão sol/lua que alterna o tema. A troca acontece com um fade curto em toda a tela. */
+type ViewTransitionDoc = Document & {
+  startViewTransition?: (cb: () => void) => { ready: Promise<void> };
+};
+
+/**
+ * Troca o tema com uma onda que atravessa a tela a partir de onde a pessoa clicou (View
+ * Transitions). Navegador sem suporte ou com "reduzir movimento": fade curto de cores.
+ */
+export function switchTheme(next: Theme, from?: { x: number; y: number }) {
+  const doc = document as ViewTransitionDoc;
+  const root = document.documentElement;
+  const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  if (!doc.startViewTransition || reduce) {
+    root.classList.add('cm-theme-switching');
+    setTheme(next);
+    window.setTimeout(() => root.classList.remove('cm-theme-switching'), 320);
+    return;
+  }
+  const x = from?.x ?? window.innerWidth - 40;
+  const y = from?.y ?? 40;
+  const r = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+  root.classList.add('cm-theme-sweep');
+  const vt = doc.startViewTransition(() => flushSync(() => setTheme(next)));
+  vt.ready
+    .then(() => {
+      const anim = root.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
+        {
+          duration: 650,
+          easing: 'cubic-bezier(0.65, 0, 0.35, 1)',
+          pseudoElement: '::view-transition-new(root)',
+        },
+      );
+      return anim.finished;
+    })
+    .catch(() => undefined)
+    .finally(() => root.classList.remove('cm-theme-sweep'));
+}
+
+/** Centro de um elemento clicado (origem da onda da troca de tema). */
+export function centerOf(el: Element) {
+  const b = el.getBoundingClientRect();
+  return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
+}
+
+/** Botão sol/lua que alterna o tema, com a onda que passa pela tela. */
 export function ThemeToggle({ className = '' }: { className?: string }) {
-  const [theme, set] = useTheme();
+  const [theme] = useTheme();
   const next: Theme = theme === 'dark' ? 'light' : 'dark';
   const label = next === 'dark' ? 'Usar tema escuro' : 'Usar tema claro';
   return (
@@ -84,12 +130,7 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
       aria-label={label}
       title={label}
       data-theme-now={theme}
-      onClick={() => {
-        const root = document.documentElement;
-        root.classList.add('cm-theme-switching');
-        set(next);
-        window.setTimeout(() => root.classList.remove('cm-theme-switching'), 320);
-      }}
+      onClick={(e) => switchTheme(next, centerOf(e.currentTarget))}
     >
       <Sun size={18} className="cm-theme-toggle__sun" />
       <Moon size={18} className="cm-theme-toggle__moon" />

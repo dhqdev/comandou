@@ -39,7 +39,8 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
+        // A prévia da Loja online (/pedir?previa=1) vem sempre do servidor, que permite a moldura.
+        navigateFallbackDenylist: [/^\/api\//, /[?&]previa=1(&|$)/],
         runtimeCaching: [{ urlPattern: /^\/api\//, handler: 'NetworkOnly' }],
       },
     }),

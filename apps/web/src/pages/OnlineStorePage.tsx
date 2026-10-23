@@ -707,7 +707,7 @@ export function OnlineStorePage() {
             />
           </div>
           <div className="os-phone">
-            <iframe key={preview} src="/pedir" title="Prévia do cardápio online" />
+            <iframe key={preview} src="/pedir?previa=1" title="Prévia do cardápio online" />
           </div>
           <p className="cm-hint">
             {products.some((p) => toCents(p.price) > 0)

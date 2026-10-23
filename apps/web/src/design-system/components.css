@@ -744,14 +744,13 @@ input[type='radio'] {
 .cm-glider[data-dir='back'] {
   transition-delay: 0ms, 70ms, 0ms, 70ms, 0ms;
 }
-/* No escuro o vidro cinza some no fundo: o indicador ganha tom da marca e borda clara. */
+/* No escuro: vidro grafite quente com um toque discreto de laranja (sem brilho forte). */
 :where(:root[data-theme='dark']) .cm-glider:not(.cm-glider--brand) {
-  background: color-mix(in srgb, var(--cm-brand-500) 30%, rgb(52 47 43 / 80%));
-  border-color: color-mix(in srgb, var(--cm-brand-400, var(--cm-brand-500)) 60%, transparent);
+  background: color-mix(in srgb, #9a4f06 24%, rgb(46 41 37 / 92%));
+  border-color: color-mix(in srgb, var(--cm-brand-500) 22%, rgb(255 255 255 / 8%));
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 14%),
-    0 0 0 1px color-mix(in srgb, var(--cm-brand-500) 25%, transparent),
-    0 6px 16px -6px rgb(0 0 0 / 60%);
+    inset 0 1px 0 rgb(255 255 255 / 7%),
+    0 4px 12px -6px rgb(0 0 0 / 55%);
 }
 .cm-glider--brand {
   background: var(--cm-brand-600);
@@ -817,6 +816,25 @@ input[type='radio'] {
 .cm-seg--lg .cm-seg__item {
   min-height: 40px;
   font-size: var(--cm-text-md);
+}
+
+/* Celular: abas ocupam a largura toda, grandes e centralizadas; se não couberem numa linha,
+ * quebram em duas (o indicador desliza entre linhas também) em vez de cortar a palavra. */
+@media (max-width: 640px) {
+  .cm-seg {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 4px;
+    padding: 4px;
+    overflow: visible;
+  }
+  .cm-seg__item {
+    flex: 1 1 auto;
+    min-height: 42px;
+    padding: 0 16px;
+    font-size: var(--cm-text-md);
+  }
 }
 
 /* =============================================================== Mascote */

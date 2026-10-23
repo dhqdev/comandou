@@ -220,7 +220,17 @@
   }
 }
 
-/* Troca de tema com um fade curto em tudo. */
+/* Troca de tema: a tela nova entra num círculo que cresce a partir do botão (theme.tsx). */
+.cm-theme-sweep::view-transition-old(root),
+.cm-theme-sweep::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+.cm-theme-sweep::view-transition-new(root) {
+  z-index: 2;
+}
+
+/* Sem View Transitions: fade curto em tudo. */
 .cm-theme-switching,
 .cm-theme-switching * {
   transition:

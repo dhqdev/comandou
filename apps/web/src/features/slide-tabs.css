@@ -19,9 +19,6 @@
 .slide-tabs__glider {
   position: absolute;
   z-index: 0;
-  top: 3px;
-  bottom: 3px;
-  left: 0;
   border-radius: calc(var(--cm-radius-md) - 3px);
   background: color-mix(in srgb, var(--cm-surface) 82%, transparent);
   backdrop-filter: blur(10px) saturate(1.6);
@@ -31,8 +28,10 @@
     0 4px 14px rgb(0 0 0 / 6%),
     inset 0 1px 0 rgb(255 255 255 / 55%);
   transition:
-    transform 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.15),
-    width 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.15);
+    left 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.15),
+    top 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.15),
+    width 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.15),
+    height 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.15);
 }
 .slide-tabs__tab {
   position: relative;
@@ -85,14 +84,18 @@
   border-color: rgb(255 255 255 / 14%);
 }
 :root[data-theme='dark'] .slide-tabs__glider {
-  background: color-mix(in srgb, var(--cm-brand-500) 38%, #1f1b18);
-  border: 1px solid color-mix(in srgb, var(--cm-brand-400, var(--cm-brand-500)) 75%, transparent);
+  /* Laranja queimado e discreto: destaca a aba sem brilhar. */
+  background: color-mix(in srgb, #9a4f06 30%, #2a2420);
+  border: 1px solid color-mix(in srgb, #b8650f 40%, transparent);
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--cm-brand-500) 30%, transparent),
-    0 6px 18px -6px rgb(0 0 0 / 70%),
-    inset 0 1px 0 rgb(255 255 255 / 16%);
+    0 6px 16px -8px rgb(0 0 0 / 70%),
+    inset 0 1px 0 rgb(255 255 255 / 8%);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+:root[data-theme='dark'] .slide-tabs__tab[aria-selected='true'] .slide-tabs__count {
+  background: #b8650f;
+  color: #fff;
 }
 :root[data-theme='dark'] .slide-tabs__tab {
   color: #cfc7c0;
@@ -100,4 +103,34 @@
 :root[data-theme='dark'] .slide-tabs__tab[aria-selected='true'],
 :root[data-theme='dark'] .slide-tabs__tab:hover {
   color: #fff;
+}
+
+/* Celular: ocupa a largura toda, abas maiores e centralizadas; quebra linha em vez de cortar. */
+@media (max-width: 640px) {
+  .slide-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    width: 100%;
+    gap: 4px;
+    padding: 4px;
+    overflow: visible;
+  }
+  .slide-tabs__tab {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 42px;
+    padding: 0 16px;
+    font-size: var(--cm-text-md);
+  }
+  .slide-tabs--sm .slide-tabs__tab {
+    min-height: 38px;
+    padding: 0 12px;
+    font-size: var(--cm-text-sm);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .slide-tabs__glider {
+    transition: none;
+  }
 }

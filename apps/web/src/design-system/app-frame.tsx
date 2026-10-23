@@ -89,9 +89,16 @@ export function AppFrame({
   showWhere?: boolean;
 }) {
   const { pathname } = useLocation();
-  const [open, setOpen] = useState<string | null>(null);
   const [sheet, setSheet] = useState<string | null>(null);
-  const [anchor, setAnchor] = useState(0);
+  // Item do submenu aberto na barra lateral; `closing` mantém o painel na tela durante a saída.
+  const [fly, setFly] = useState<{ key: string; closing: boolean } | null>(null);
+  const open = fly && !fly.closing ? fly.key : null;
+  const setOpen = (key: string | null) =>
+    setFly((f) => (key ? { key, closing: false } : f ? { ...f, closing: true } : null));
+  const [anchor, setAnchor] = useState({ top: 0, bottom: 0 });
+  const flyRef = useRef<HTMLDivElement>(null);
+  const [flyTop, setFlyTop] = useState<number | null>(null);
+  const [flySlide, setFlySlide] = useState(false);
   const rail = useGlider<HTMLDivElement>({ selector: '.cm-rail__item.is-active' });
   const tabbar = useGlider<HTMLElement>({
     selector: '.cm-tabbar__item.is-active',
@@ -104,7 +111,9 @@ export function AppFrame({
 
   // Trocou de tela: fecha menus e volta o painel ao topo.
   useEffect(() => {
-    setOpen(null);
+    setFly(null);
+    setFlyTop(null);
+    setFlySlide(false);
     setSheet(null);
     panel.current?.scrollTo({ top: 0 });
   }, [pathname]);
@@ -112,9 +121,10 @@ export function AppFrame({
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(null);
+    // Clique em outro item da barra troca o painel (o clique cuida disso); fora dela, fecha.
     const onDown = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
-      if (!t.closest('.cm-flyout') && !t.closest(`[data-rail-key="${open}"]`)) setOpen(null);
+      if (!t.closest('.cm-flyout') && !t.closest('[data-rail-key]')) setOpen(null);
     };
     window.addEventListener('keydown', onKey);
     window.addEventListener('pointerdown', onDown);
@@ -161,8 +171,8 @@ export function AppFrame({
         onClick={(e) => {
           if (!hasMenu) return it.onClick?.();
           const r = e.currentTarget.getBoundingClientRect();
-          setAnchor(r.top);
-          setOpen((o) => (o === it.key ? null : it.key));
+          setAnchor({ top: r.top, bottom: r.bottom });
+          setOpen(open === it.key ? null : it.key);
         }}
       >
         {body}
@@ -170,7 +180,21 @@ export function AppFrame({
     );
   };
 
-  const flyItem = all.find((i) => i.key === open);
+  const flyItem = fly ? all.find((i) => i.key === fly.key) : undefined;
+
+  // Painel ao lado do botão: começa na altura dele; se não couber embaixo (ex.: Conta, no pé
+  // da barra), termina na altura do botão, subindo a partir dele.
+  useLayoutEffect(() => {
+    const el = flyRef.current;
+    if (!el || !fly || fly.closing) return;
+    const h = el.offsetHeight;
+    const max = window.innerHeight - h - 12;
+    const top = anchor.top - 8 <= max ? anchor.top - 8 : anchor.bottom + 8 - h;
+    setFlyTop(Math.max(12, Math.min(top, max)));
+    // Só depois de aparecer no lugar certo o painel passa a deslizar entre os botões.
+    const raf = requestAnimationFrame(() => setFlySlide(true));
+    return () => cancelAnimationFrame(raf);
+  }, [fly, anchor]);
   const sheetItems = sheet === 'more' ? all.filter((i) => !tabs.includes(i.key)) : null;
   const sheetItem = sheet && sheet !== 'more' ? all.find((i) => i.key === sheet) : null;
 
@@ -187,14 +211,26 @@ export function AppFrame({
 
       {flyItem && (
         <div
+          ref={flyRef}
           className="cm-flyout"
           role="menu"
           aria-label={flyItem.label}
-          style={{ '--fly-top': `${anchor}px` } as CSSProperties}
+          data-closing={fly?.closing || undefined}
+          data-placed={flySlide || undefined}
+          style={{ '--fly-top': `${flyTop ?? anchor.top - 8}px` } as CSSProperties}
+          onAnimationEnd={(e) => {
+            if (e.animationName === 'cm-fly-out') {
+              setFly((f) => (f?.closing ? null : f));
+              setFlyTop(null);
+              setFlySlide(false);
+            }
+          }}
         >
-          <div className="cm-flyout__title">{flyItem.label}</div>
-          {flyItem.children && <FlyLinks links={flyItem.children} />}
-          {flyItem.panel}
+          <div className="cm-flyout__body" key={flyItem.key}>
+            <div className="cm-flyout__title">{flyItem.label}</div>
+            {flyItem.children && <FlyLinks links={flyItem.children} />}
+            {flyItem.panel}
+          </div>
         </div>
       )}
 

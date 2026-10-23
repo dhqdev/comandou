@@ -29,7 +29,7 @@ export function SlideTabs<T extends string>({
   className?: string;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState<{ x: number; w: number } | null>(null);
+  const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
 
   useLayoutEffect(() => {
     const el = wrap.current;
@@ -37,8 +37,14 @@ export function SlideTabs<T extends string>({
     const measure = () => {
       const active = el.querySelector<HTMLElement>('[aria-selected="true"]');
       if (!active) return setBox(null);
-      setBox({ x: active.offsetLeft, w: active.offsetWidth });
+      setBox({
+        x: active.offsetLeft,
+        y: active.offsetTop,
+        w: active.offsetWidth,
+        h: active.offsetHeight,
+      });
       // Mantém a aba ativa à vista sem mexer na rolagem vertical da página.
+      if (el.scrollWidth <= el.clientWidth) return;
       const left = active.offsetLeft - el.clientWidth / 2 + active.offsetWidth / 2;
       el.scrollTo?.({ left, behavior: 'smooth' });
     };
@@ -59,7 +65,7 @@ export function SlideTabs<T extends string>({
         <span
           className="slide-tabs__glider"
           aria-hidden
-          style={{ transform: `translateX(${box.x}px)`, width: box.w }}
+          style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
         />
       )}
       {tabs.map((t) => (

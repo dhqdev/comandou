@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Mascot, useTheme, useToast } from '../../design-system';
+import { centerOf, Mascot, switchTheme, useTheme, useToast } from '../../design-system';
 import { SlideTabs } from '../../features/SlideTabs';
 import { api, ApiError } from '../../lib/api';
 import { useStore } from './context';
@@ -218,7 +218,7 @@ function MenuRow({
 /** Aba "Conta": formulário de entrada ou o perfil com os atalhos. */
 export function AccountScreen() {
   const { account, logout, menu, favs } = useStore();
-  const [theme, setTheme] = useTheme();
+  const [theme] = useTheme();
   const toast = useToast();
   if (!account)
     return (
@@ -280,7 +280,10 @@ export function AccountScreen() {
             icon={theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
             label={theme === 'dark' ? 'Tema escuro' : 'Tema claro'}
             hint="Toque para trocar"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            onClick={() => {
+              const el = document.activeElement;
+              switchTheme(theme === 'dark' ? 'light' : 'dark', el ? centerOf(el) : undefined);
+            }}
           />
         )}
         {me && (

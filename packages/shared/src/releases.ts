@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.23.1',
+    date: '2026-10-23',
+    title: 'Prévia do celular, menus, abas, tema e fonte do admin',
+    summary:
+      'A prévia do cardápio na Loja online voltou a aparecer, os menus laterais abrem ao lado do botão, as abas ficam bonitas no celular e a troca de tema passa pela tela.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Loja online: a prévia do celular mostra o cardápio de verdade (antes ficava em branco no servidor).',
+      },
+      {
+        tag: 'correção',
+        text: 'Menus da barra lateral: abrir, fechar e trocar de menu sem piscar ou quebrar; o menu Conta abre ao lado do botão.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Abas deslizantes no modo escuro com um laranja queimado mais discreto.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No celular, as abas ocupam a largura toda, ficam maiores e centralizadas e quebram linha em vez de cortar o texto.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Trocar entre claro e escuro agora tem uma onda que atravessa a tela a partir do botão.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Painel admin com fonte maior, mais nítida e com mais contraste.',
+      },
+    ],
+  },
+  {
     version: '0.23.0',
     date: '2026-10-23',
     title: 'Painel admin: novo restaurante, backup no servidor e planos prontos',

@@ -11,8 +11,8 @@
   --a-line: #2a2522;
   --a-line-strong: #3a3430;
   --a-text: #f1ece7;
-  --a-muted: #b0a69c;
-  --a-subtle: #7d746b;
+  --a-muted: #c4bab0;
+  --a-subtle: #9a9087;
   --a-accent: #f0921f;
   --a-accent-ink: #1a1007;
   --a-ok: #5ad68a;
@@ -20,6 +20,8 @@
   --a-bad: #f2706b;
   --a-info: #6aa8ff;
   --a-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  /* Texto do painel em Inter (mais nítida e legível); monoespaçada só nos logs. */
+  --a-ui: var(--cm-font);
 
   --cm-bg: var(--a-bg);
   --cm-surface: var(--a-panel);
@@ -74,8 +76,8 @@
   --a-line: #e8e3de;
   --a-line-strong: #d6cfc8;
   --a-text: #1a1613;
-  --a-muted: #5f574f;
-  --a-subtle: #857c73;
+  --a-muted: #4f4842;
+  --a-subtle: #6e665e;
   --a-accent: #c26a00;
   --a-accent-ink: #1a1007;
   --a-ok: #1f8a4c;
@@ -109,6 +111,15 @@
 }
 :root[data-app='admin'] body {
   background: var(--a-bg);
+  font-family: var(--a-ui);
+  /* Sem 'tnum' no texto corrido: no Inter ele também alarga hífens e parênteses ("E - mail").
+     Números alinhados ficam nos valores, tabelas e colunas laterais. */
+  font-feature-settings:
+    'cv11' 1,
+    'ss03' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 :root[data-app='admin'] .cm-btn--primary {
   color: var(--a-accent-ink);
@@ -128,7 +139,7 @@
   gap: 28px;
 }
 .adm-logo {
-  font-family: var(--a-mono);
+  font-family: var(--a-ui);
   font-weight: 700;
   font-size: 15px;
   letter-spacing: 0.06em;
@@ -140,15 +151,15 @@
   color: var(--a-subtle);
 }
 .adm-top__title {
-  font-family: var(--a-mono);
+  font-family: var(--a-ui);
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   font-size: 15px;
 }
 .adm-top__sub {
-  font-family: var(--a-mono);
-  font-size: 12px;
+  font-family: var(--a-ui);
+  font-size: 13.5px;
   color: var(--a-subtle);
 }
 .adm-top__spacer {
@@ -184,18 +195,18 @@
 }
 .adm-section__title {
   margin: 0;
-  font-family: var(--a-mono);
-  font-size: 13px;
+  font-family: var(--a-ui);
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--a-accent);
   white-space: nowrap;
 }
 .adm-section__sub {
   min-width: 0;
-  font-family: var(--a-mono);
-  font-size: 12px;
+  font-family: var(--a-ui);
+  font-size: 13.5px;
   color: var(--a-subtle);
   white-space: nowrap;
   overflow: hidden;
@@ -237,14 +248,14 @@ button.adm-tile:hover {
   border-color: var(--a-line-strong);
 }
 .adm-label {
-  font-family: var(--a-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
+  font-family: var(--a-ui);
+  font-size: 12.5px;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--a-muted);
 }
 .adm-value {
-  font-family: var(--a-mono);
+  font-family: var(--a-ui);
   font-size: 28px;
   font-weight: 700;
   line-height: 1.1;
@@ -266,8 +277,8 @@ button.adm-tile:hover {
   color: var(--a-bad);
 }
 .adm-sub {
-  font-family: var(--a-mono);
-  font-size: 12px;
+  font-family: var(--a-ui);
+  font-size: 13.5px;
   color: var(--a-subtle);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -374,16 +385,16 @@ a.adm-row:hover {
   white-space: nowrap;
 }
 .adm-row__meta {
-  font-family: var(--a-mono);
-  font-size: 12px;
+  font-family: var(--a-ui);
+  font-size: 13.5px;
   color: var(--a-subtle);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .adm-row__side {
-  font-family: var(--a-mono);
-  font-size: 12px;
+  font-family: var(--a-ui);
+  font-size: 13.5px;
   color: var(--a-muted);
   text-align: right;
   white-space: nowrap;
@@ -401,7 +412,7 @@ a.adm-row:hover {
 }
 .adm-kv dd {
   margin: 0;
-  font-family: var(--a-mono);
+  font-family: var(--a-ui);
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -431,8 +442,8 @@ a.adm-row:hover {
   gap: 6px;
   padding: 2px 8px;
   border: 1px solid var(--a-line-strong);
-  font-family: var(--a-mono);
-  font-size: 11px;
+  font-family: var(--a-ui);
+  font-size: 12.5px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--a-muted);
@@ -469,8 +480,8 @@ a.adm-row:hover {
   border: 0;
   background: none;
   color: var(--a-muted);
-  font-family: var(--a-mono);
-  font-size: 12px;
+  font-family: var(--a-ui);
+  font-size: 13.5px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
@@ -497,8 +508,8 @@ a.adm-row:hover {
   border-radius: 4px;
   background: var(--a-panel);
   color: var(--a-text);
-  font-family: var(--a-mono);
-  font-size: 12px;
+  font-family: var(--a-ui);
+  font-size: 13.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
@@ -558,8 +569,8 @@ a.adm-row:hover {
   padding: 28px 16px;
   text-align: center;
   color: var(--a-subtle);
-  font-family: var(--a-mono);
-  font-size: 13px;
+  font-family: var(--a-ui);
+  font-size: 14px;
 }
 .adm-check {
   display: flex;
@@ -600,9 +611,9 @@ a.adm-row:hover {
   backdrop-filter: none;
 }
 :root[data-app='admin'] .cm-modal .cm-card__title {
-  font-family: var(--a-mono);
-  font-size: 13px;
-  letter-spacing: 0.12em;
+  font-family: var(--a-ui);
+  font-size: 14px;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--a-accent);
 }
@@ -796,10 +807,10 @@ a.adm-row:hover {
   margin-bottom: 10px;
   padding: 0 0 6px;
   border-bottom: 1px solid var(--a-line);
-  font-family: var(--a-mono);
-  font-size: 11px;
+  font-family: var(--a-ui);
+  font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--a-muted);
 }
@@ -887,8 +898,8 @@ details.adm-fieldset[open] > summary::before {
   padding: 0 12px;
   border-left: 1px solid var(--a-line);
   overflow: hidden;
-  font-family: var(--a-mono);
-  font-size: 12px;
+  font-family: var(--a-ui);
+  font-size: 13.5px;
   color: var(--a-subtle);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -905,8 +916,8 @@ details.adm-fieldset[open] > summary::before {
   border-left: 1px solid var(--a-line);
   background: transparent;
   color: var(--a-muted);
-  font-family: var(--a-mono);
-  font-size: 11px;
+  font-family: var(--a-ui);
+  font-size: 12.5px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
@@ -957,14 +968,14 @@ details.adm-fieldset[open] > summary::before {
   padding: 1px 6px;
   border: 1px solid var(--a-line-strong);
   border-radius: 3px;
-  font-family: var(--a-mono);
+  font-family: var(--a-ui);
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--a-muted);
 }
 .adm-plan-opt__detail {
-  font-size: 12px;
+  font-size: 13.5px;
   color: var(--a-muted);
 }
 
@@ -993,4 +1004,9 @@ details.adm-fieldset[open] > summary::before {
     max-width: 45%;
     padding: 0 8px;
   }
+}
+
+/* Números alinhados onde há colunas de valores. */
+:root[data-app='admin'] :is(.adm-row__side, .adm-kv dd, .cm-table td, .adm-meter) {
+  font-variant-numeric: tabular-nums;
 }
