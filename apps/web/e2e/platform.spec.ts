@@ -107,18 +107,31 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await page.getByRole('button', { name: 'Novo', exact: true }).click();
   dialog = page.getByRole('dialog');
   await dialog.getByLabel('Nome do restaurante').fill(`Cantina ${tag}`);
+  // O endereço sai do nome sozinho; dá para trocar.
+  await expect(dialog.getByLabel('Endereço')).toHaveValue(`cantina-${tag}`);
   await dialog.getByLabel('Endereço').fill('admin');
   await expect(dialog.getByText('identificador reservado')).toBeVisible();
   await dialog.getByLabel('Endereço').fill(`e2e-${tag}`);
-  await dialog.getByLabel('Nome do administrador').fill('Dona E2E');
-  await dialog.getByLabel('E-mail do administrador').fill(`dona-${tag}@e2e.local`);
+  await dialog.getByLabel('Cidade').fill('Manaus');
+  await dialog.getByLabel('UF').selectOption('AM');
+  await expect(dialog.getByLabel('Fuso horário')).toHaveValue('America/Manaus');
+  await dialog.getByLabel('Nome', { exact: true }).fill('Dona E2E');
+  await dialog.getByLabel('E-mail', { exact: true }).fill(`dona-${tag}@e2e.local`);
+  await dialog.getByRole('button', { name: 'Gerar' }).click();
+  await expect(dialog.getByLabel('Senha inicial')).not.toHaveValue('');
   await dialog.getByLabel('Senha inicial').fill('senha-e2e-12345');
-  await dialog.getByLabel('Plano').selectOption({ label: `E2E ${tag}` });
+  await dialog.locator('label.adm-plan-opt', { hasText: `E2E ${tag}` }).click();
+  await dialog.getByText('Contato e cobrança').click();
+  await dialog.getByLabel('CPF ou CNPJ').fill('12345678000195');
+  await expect(dialog.getByLabel('CPF ou CNPJ')).toHaveValue('12.345.678/0001-95');
   await dialog.getByRole('button', { name: 'Criar restaurante' }).click();
   await expect(page.getByRole('heading', { name: new RegExp(`Cantina ${tag}`) })).toBeVisible();
   // O banco próprio do restaurante é criado pelo serviço de backup; a tela se atualiza sozinha.
   await expect(page.locator('.adm-tag', { hasText: /^Ativa$/ })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByText(`dona-${tag}@e2e.local`).first()).toBeVisible({ timeout: 60_000 });
+  await page.getByRole('tab', { name: 'Cadastro' }).click();
+  await expect(page.getByLabel('CPF ou CNPJ')).toHaveValue('12.345.678/0001-95');
+  await expect(page.getByLabel('Cidade')).toHaveValue('Manaus');
   await page.getByRole('tab', { name: 'Banco de dados' }).click();
   await expect(page.locator('.adm-tag', { hasText: /^em uso$/ })).toBeVisible();
   await expect(page.getByText(`comandou_e2e_${tag}`.replace(/-/g, '_')).first()).toBeVisible();

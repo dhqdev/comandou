@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { decryptFile } from '../src/backup/backup-crypto';
 import { applyRetention, JobContext, runBackup, runRestoreTest } from '../src/backup/jobs';
 import { S3Client } from '../src/backup/s3-client';
+import { LocalStore } from '../src/backup/store';
 import { withJobLock } from '../src/backup/runtime';
 import { OWNER_URL } from './env';
 import { FakeS3, startFakeS3 } from './fake-s3';
@@ -36,7 +37,7 @@ beforeAll(async () => {
     pool,
     ownerUrl: OWNER_URL,
     integrationsKey: KEY,
-    s3: new S3Client({ endpoint: s3.url, region: 'us-west-004', ...S3 }),
+    store: new S3Client({ endpoint: s3.url, region: 'us-west-004', ...S3 }),
     prefix: 'comandou',
     retentionDays: 30,
     workDir: await mkdtemp(join(tmpdir(), 'cm-bk-')),
@@ -105,7 +106,10 @@ describe.skipIf(!PG_BIN)('serviço de backup (banco real, bucket falso)', () => 
   );
 
   it('bucket recusando a chave: backup falha com mensagem clara, sem segredo', async () => {
-    const bad = { ...ctx, s3: new S3Client({ endpoint: s3.url, region: 'x', ...S3, secret: 'x' }) };
+    const bad = {
+      ...ctx,
+      store: new S3Client({ endpoint: s3.url, region: 'x', ...S3, secret: 'x' }),
+    };
     await expect(runBackup(bad)).rejects.toThrow(/Chave recusada/);
     const [run] = (
       await pool.query(`SELECT status, error FROM backup_runs ORDER BY id DESC LIMIT 1`)
@@ -133,7 +137,7 @@ describe('retenção', () => {
     put('comandou/2026/04/comandou-20260401T030000Z.dump.enc', 40);
     put('comandou/2026/05/comandou-20260501T030000Z.dump.enc', 35);
     put('comandou/outro-arquivo.txt', 400); // não é backup: nunca apaga
-    expect(await applyRetention({ s3: c, prefix: 'comandou', retentionDays: 30 })).toEqual({
+    expect(await applyRetention({ store: c, prefix: 'comandou', retentionDays: 30 })).toEqual({
       deleted: 2,
       kept: 3,
     });
@@ -143,9 +147,35 @@ describe('retenção', () => {
       'comandou/2026/05/comandou-20260501T030000Z.dump.enc',
       'comandou/outro-arquivo.txt',
     ]);
-    expect(await applyRetention({ s3: c, prefix: 'comandou', retentionDays: 0 })).toEqual({
+    expect(await applyRetention({ store: c, prefix: 'comandou', retentionDays: 0 })).toEqual({
       deleted: 0,
     });
     await r.close();
+  });
+});
+
+describe.skipIf(!PG_BIN)('backup no próprio servidor (sem Backblaze)', () => {
+  it('grava na pasta local com as mesmas pastas do bucket e testa a restauração dela', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'cm-local-'));
+    const local = { ...ctx, store: new LocalStore(dir) };
+    const { key, size } = await runBackup(local);
+    expect(key).toMatch(/^comandou\/plataforma\/\d{4}\/\d{2}\/comandou-\d{8}T\d{6}Z\.dump\.enc$/);
+    const body = await readFile(join(dir, key));
+    expect(body.length).toBe(size);
+    expect(body.subarray(0, 6).toString()).toBe('CMBK1\n');
+    const [run] = (await pool.query(`SELECT * FROM backup_runs WHERE object_key = $1`, [key])).rows;
+    expect(run).toMatchObject({ status: 'ok' });
+    expect(run.details.destination).toBe('local');
+    if (!ROOT) {
+      const got = await runRestoreTest({ ...local, port: 55434 });
+      expect(got.policies).toBeGreaterThan(0);
+      const [rt] = (
+        await pool.query(
+          `SELECT status, details FROM backup_runs WHERE kind = 'restore_test' ORDER BY id DESC LIMIT 1`,
+        )
+      ).rows;
+      expect(rt).toMatchObject({ status: 'ok' });
+      expect(rt.details.destination).toBe('local');
+    }
   });
 });

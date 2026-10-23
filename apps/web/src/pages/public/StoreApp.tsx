@@ -143,7 +143,7 @@ export function StoreApp() {
       })
       .catch((e: ApiError) =>
         setError(
-          e.status === 404
+          e.status === 404 || e.status === 403
             ? 'Este restaurante não está recebendo pedidos online.'
             : 'Não foi possível carregar o cardápio. Tente de novo em instantes.',
         ),

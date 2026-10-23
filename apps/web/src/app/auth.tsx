@@ -1,9 +1,9 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
-import { api, ApiError, Me } from '../lib/api';
+import { api, ApiError, isSuspended, Me, TENANT_SUSPENDED_EVENT } from '../lib/api';
 import { closeRealtime } from '../lib/realtime';
 
 interface AuthState {
-  status: 'loading' | 'anonymous' | 'authenticated' | 'unavailable';
+  status: 'loading' | 'anonymous' | 'authenticated' | 'unavailable' | 'suspended';
   me?: Me;
   error?: string;
   login(email: string, password: string): Promise<void>;
@@ -24,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setState({ status: 'authenticated', me });
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) setState({ status: 'anonymous' });
+      else if (e instanceof ApiError && isSuspended(e.body)) setState({ status: 'suspended' });
       else setState({ status: 'unavailable', error: (e as Error).message });
     }
   }, []);
@@ -31,6 +32,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Suspenso no meio do uso (qualquer chamada à API avisa): fecha o tempo real e mostra o aviso.
+  useEffect(() => {
+    const onSuspended = () => {
+      closeRealtime();
+      setState({ status: 'suspended' });
+    };
+    window.addEventListener(TENANT_SUSPENDED_EVENT, onSuspended);
+    return () => window.removeEventListener(TENANT_SUSPENDED_EVENT, onSuspended);
+  }, []);
 
   const login = useCallback(
     async (email: string, password: string) => {

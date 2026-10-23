@@ -867,3 +867,22 @@ input[type='radio'] {
   color: var(--cm-brand-700);
   font-weight: inherit;
 }
+
+/* =============================================================== Restaurante suspenso */
+.cm-suspended {
+  display: grid;
+  justify-items: center;
+  gap: var(--cm-space-3);
+  max-width: 440px;
+  margin: 14vh auto 0;
+  padding: var(--cm-space-5);
+  text-align: center;
+}
+.cm-suspended h1 {
+  margin: 0;
+  font-size: var(--cm-text-xl);
+}
+.cm-suspended p {
+  margin: 0;
+  color: var(--cm-text-muted);
+}

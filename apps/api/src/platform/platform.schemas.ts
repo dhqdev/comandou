@@ -12,6 +12,72 @@ export const LoginInput = z.object({
     .default(''),
 });
 
+/** Fusos do Brasil que o painel oferece ao criar o restaurante. */
+export const BR_TIMEZONES = [
+  'America/Sao_Paulo',
+  'America/Bahia',
+  'America/Fortaleza',
+  'America/Recife',
+  'America/Belem',
+  'America/Manaus',
+  'America/Cuiaba',
+  'America/Campo_Grande',
+  'America/Porto_Velho',
+  'America/Boa_Vista',
+  'America/Rio_Branco',
+  'America/Noronha',
+] as const;
+
+const digits = (v: string) => v.replace(/\D/g, '');
+const optText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .transform((v) => v || null)
+    .nullable()
+    .optional();
+
+/** Cadastro do cliente (contato e cobrança). Tudo opcional; vazio vira nulo. */
+export const TenantProfileBody = z.object({
+  legalName: optText(160),
+  document: z
+    .string()
+    .transform(digits)
+    .refine((v) => v === '' || v.length === 11 || v.length === 14, 'CPF (11) ou CNPJ (14 dígitos)')
+    .transform((v) => v || null)
+    .nullable()
+    .optional(),
+  contactName: optText(120),
+  phone: z
+    .string()
+    .transform(digits)
+    .refine((v) => v === '' || (v.length >= 10 && v.length <= 13), 'telefone com DDD')
+    .transform((v) => v || null)
+    .nullable()
+    .optional(),
+  billingEmail: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(254)
+    .refine((v) => v === '' || z.string().email().safeParse(v).success, 'e-mail inválido')
+    .transform((v) => v || null)
+    .nullable()
+    .optional(),
+  city: optText(80),
+  state: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine((v) => v === '' || /^[A-Z]{2}$/.test(v), 'UF com 2 letras')
+    .transform((v) => v || null)
+    .nullable()
+    .optional(),
+  notes: optText(1000),
+});
+export type TenantProfileInput = z.output<typeof TenantProfileBody>;
+
 export const NewTenant = z.object({
   slug: z
     .string()
@@ -23,8 +89,12 @@ export const NewTenant = z.object({
   adminName: z.string().trim().min(1).max(120),
   adminPassword: z.string().min(10).max(200),
   planCode: z.string().trim().min(1).max(40).optional(),
+  timezone: z.enum(BR_TIMEZONES).default('America/Sao_Paulo'),
+  profile: TenantProfileBody.optional(),
 });
-export type NewTenantInput = z.infer<typeof NewTenant>;
+export type NewTenantInput = Omit<z.infer<typeof NewTenant>, 'timezone'> & {
+  timezone?: (typeof BR_TIMEZONES)[number];
+};
 
 export const DeleteTenant = z.object({
   confirm: z.string().trim().min(1).max(60),

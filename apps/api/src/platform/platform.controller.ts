@@ -35,6 +35,7 @@ import {
   NewTenant,
   PlanBody,
   RenameTenant,
+  TenantProfileBody,
   ResetPassword,
   RevokeSessions,
   ServerCleanup,
@@ -256,6 +257,15 @@ export class PlatformController {
     @Req() req: Request,
   ) {
     return this.svc.resetPassword(id, b.userId, b.password, actor(req));
+  }
+
+  @Put('tenants/:id/profile')
+  profile(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(TenantProfileBody)) b: z.infer<typeof TenantProfileBody>,
+    @Req() req: Request,
+  ) {
+    return this.svc.updateProfile(id, b, actor(req));
   }
 
   @Put('tenants/:id/name')

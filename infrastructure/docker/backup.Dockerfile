@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1.7
-# Serviço de backup: pg_dump → cifra (AES-256-GCM, chave da INTEGRATIONS_KEY) → Backblaze B2 (API S3),
+# Serviço de backup: pg_dump → cifra (AES-256-GCM, chave da INTEGRATIONS_KEY) → Backblaze B2 (API S3)
+# ou, sem bucket configurado, a pasta /backups (volume comandou_backups),
 # e teste semanal de restauração num Postgres temporário dentro do contêiner. Configurado pelo
 # painel Super Admin → Backups. Mesma versão principal do Postgres da stack (16).
 # Multiarch (linux/amd64 e linux/arm64): o build roda no processador do runner; só o runtime é por arquitetura.
@@ -22,9 +23,9 @@ FROM postgres:16-alpine
 # O Node (o mesmo da imagem da API) roda o serviço; pg_dump, initdb e pg_restore vêm da imagem do
 # Postgres. As duas são Alpine e a do Postgres já tem libstdc++/libgcc; `node --version` confere.
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
-RUN node --version && mkdir -p /work && chown postgres:postgres /work
+RUN node --version && mkdir -p /work /backups && chown postgres:postgres /work /backups && chmod 700 /backups
 COPY --from=build --chown=postgres:postgres /out /app
-ENV NODE_ENV=production WORK_DIR=/work
+ENV NODE_ENV=production WORK_DIR=/work BACKUP_LOCAL_DIR=/backups
 # initdb (teste de restauração) não roda como root.
 USER postgres
 WORKDIR /app

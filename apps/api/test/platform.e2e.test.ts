@@ -350,7 +350,25 @@ describe('Planos, assinaturas e limites', () => {
       adminEmail: 'dona@pf-novo.test',
       adminName: 'Dona',
       adminPassword: 'senha-inicial-123',
+      timezone: 'America/Manaus',
+      profile: {
+        legalName: 'Novo Restaurante Ltda',
+        document: '12.345.678/0001-95',
+        contactName: 'Dona',
+        phone: '(92) 98765-4321',
+        billingEmail: 'Financeiro@PF-novo.test',
+        city: 'Manaus',
+        state: 'am',
+        notes: 'indicado por um cliente',
+      },
     }).expect(201);
+    expect(created.body.timezone).toBe('America/Manaus');
+    expect(created.body.profile).toMatchObject({
+      document: '12345678000195',
+      phone: '92987654321',
+      billingEmail: 'financeiro@pf-novo.test',
+      state: 'AM',
+    });
     // Banco próprio: volta "em criação" e o serviço de backup cria o banco.
     expect(created.body.status).toBe('provisioning');
     expect(created.body.database).toMatchObject({
@@ -374,6 +392,18 @@ describe('Planos, assinaturas e limites', () => {
       'senha-inicial-123',
     );
     expect(res.status).toBe(200);
+    // O telefone do cadastro já vira o WhatsApp da loja online.
+    const store = await http.get('/api/v1/store').set('Host', 'tst-pf-novo.comandou.test');
+    expect(store.body.restaurant.whatsapp).toBe('92987654321');
+    // Cadastro editável depois (vazio apaga, ausente mantém); só o painel vê.
+    const up = await psend('put', `/tenants/${created.body.id}/profile`, {
+      notes: '',
+      city: 'Parintins',
+    }).expect(200);
+    expect(up.body.profile).toMatchObject({ notes: null, city: 'Parintins', state: 'AM' });
+    await psend('put', `/tenants/${created.body.id}/profile`, { document: '123' }).expect(400);
+    const list = await pget('/tenants?search=12345678000195').expect(200);
+    expect(list.body.map((t: { slug: string }) => t.slug)).toEqual(['tst-pf-novo']);
     const audit = await ownerQuery<{ data: string }>(
       `SELECT data::text FROM platform_audit_log WHERE action = 'platform.tenant_created'`,
     );
@@ -524,6 +554,9 @@ describe('Planos, assinaturas e limites', () => {
 
 describe('Suspensão', () => {
   it('suspende (restaurante fica indisponível) e reativa, com motivo auditado', async () => {
+    // Sessão aberta ANTES da suspensão: tem que parar de funcionar também.
+    const open = await tenantLogin(HOST_B, 'admin@pf-b.test');
+    await tget(HOST_B, open.cookie, '/auth/me').expect(200);
     await psend('post', `/tenants/${fx.tenantB}/status`, {
       status: 'suspended',
       reason: 'x',
@@ -534,6 +567,23 @@ describe('Suspensão', () => {
     }).expect(200);
     const { res } = await tenantLogin(HOST_B, 'admin@pf-b.test');
     expect(res.status).toBe(403);
+    expect(res.body.code).toBe('tenant_suspended');
+    for (const url of ['/auth/me', '/orders', '/products']) {
+      const r = await tget(HOST_B, open.cookie, url);
+      expect(r.status, url).toBe(403);
+      expect(r.body.code).toBe('tenant_suspended');
+    }
+    await tsend(HOST_B, open.cookie, 'post', '/orders', { channel: 'counter', items: [] }).expect(
+      403,
+    );
+    // Cardápio online e pedidos de clientes também param.
+    const store = await http.get('/api/v1/store').set('Host', HOST_B);
+    expect(store.status).toBe(403);
+    // O outro restaurante segue normal.
+    expect((await tenantLogin(HOST_A, 'admin@pf-a.test')).res.status).toBe(200);
+    // O endereço continua no Traefik (quem abre vê o aviso de suspenso, não "página não existe").
+    const slugs = await ownerQuery<{ slug: string }>(`SELECT slug FROM app_tenant_slugs()`);
+    expect(slugs.map((r) => r.slug)).toContain('pf-b');
     await psend('post', `/tenants/${fx.tenantB}/status`, {
       status: 'suspended',
       reason: 'de novo',
@@ -543,6 +593,8 @@ describe('Suspensão', () => {
       reason: 'Pago',
     }).expect(200);
     expect((await tenantLogin(HOST_B, 'admin@pf-b.test')).res.status).toBe(200);
+    // Reativado: a mesma sessão volta a valer (nada foi apagado).
+    await tget(HOST_B, open.cookie, '/auth/me').expect(200);
     const t = await ownerQuery<{ action: string }>(
       `SELECT action FROM audit_log WHERE tenant_id = $1 AND action LIKE 'tenant.%' ORDER BY id`,
       [fx.tenantB],

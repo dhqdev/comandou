@@ -1,6 +1,7 @@
 import { resolveFileSecrets } from '../config/env';
 import {
   PlatformAdminInput,
+  bootstrapDefaultPlans,
   bootstrapPlatformAdmin,
   createPlatformAdmin,
   resetPlatformAdmin,
@@ -11,7 +12,8 @@ import { newTotpSecret, otpauthUri } from './totp';
  * Administradores da plataforma (Super Admin). Só pela linha de comando, com a conexão do dono:
  * o painel não cria administradores. Segredos podem vir de arquivo (VAR_FILE).
  *
- *   --bootstrap          Usado pela stack a cada deploy. Cria o primeiro Super Admin a partir de
+ *   --bootstrap          Usado pela stack a cada deploy. Cria os planos padrão (se não houver
+ *                        nenhum plano) e o primeiro Super Admin a partir de
  *                        PLATFORM_ADMIN_EMAIL, PLATFORM_ADMIN_NAME, PLATFORM_ADMIN_PASSWORD e
  *                        PLATFORM_ADMIN_TOTP_SECRET. Se já existe algum administrador, ou se
  *                        faltar variável, não faz nada (código 0). Nunca imprime segredos.
@@ -30,6 +32,11 @@ async function main() {
   const password = env.PLATFORM_ADMIN_PASSWORD;
 
   if (args[0] === '--bootstrap') {
+    // Planos padrão (Essencial, Profissional e Premium) na primeira subida.
+    if (ownerUrl) {
+      const plans = await bootstrapDefaultPlans(ownerUrl);
+      if (plans) console.log(`Planos padrão criados: ${plans}`);
+    }
     const email = env.PLATFORM_ADMIN_EMAIL;
     const totpSecret = env.PLATFORM_ADMIN_TOTP_SECRET;
     if (!email || !password || !totpSecret) {

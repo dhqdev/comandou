@@ -1,3 +1,4 @@
+import { hostname as osHostname } from 'node:os';
 import { DockerClient, demuxLogs } from './docker';
 import { Updater } from './updater';
 import { cpuCount, CpuTimes, cpuPercent, HostReader, parseCpu } from './proc';
@@ -41,6 +42,19 @@ export const CLEANUP_TARGETS = ['containers', 'images', 'unused-images', 'build-
 export type CleanupTarget = (typeof CLEANUP_TARGETS)[number];
 
 const SERVICE_RE = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,120}$/;
+const STACK_LABEL = 'com.docker.stack.namespace';
+
+/**
+ * É da nossa stack? Pela stack do próprio agente (rótulo do Swarm); sem ela (agente fora de
+ * stack), pelo nome ou pela imagem do Comandou.
+ */
+export function isOurs(
+  stack: string | null,
+  item: { name: string; image: string; labels?: Record<string, string> },
+) {
+  if (stack) return item.labels?.[STACK_LABEL] === stack;
+  return /comandou/i.test(item.name) || /comandou/i.test(item.image);
+}
 const shortImage = (img: string) => img.replace(/@sha256:[a-f0-9]+$/, '');
 
 /**
@@ -53,6 +67,7 @@ export class HostAgent {
   readonly updater: Updater;
   private last?: { cpu: CpuTimes; rx: number; tx: number; at: number };
   private containerMem = new Map<string, number>();
+  private stackName: Promise<string | null> | null = null;
   private timers: NodeJS.Timeout[] = [];
   cores = 1;
   steal = 0;
@@ -61,8 +76,42 @@ export class HostAgent {
     readonly host = new HostReader(),
     readonly docker = new DockerClient(),
     readonly maxSamples = 180,
+    /** Stack do Comandou (padrão: a do próprio contêiner do agente). */
+    readonly stack: string | null = process.env.AGENT_STACK || null,
   ) {
     this.updater = new Updater(docker);
+  }
+
+  /** Nome da nossa stack: AGENT_STACK ou o rótulo do contêiner onde o agente roda. */
+  ownStack(): Promise<string | null> {
+    if (this.stack) return Promise.resolve(this.stack);
+    // No Docker, o hostname do contêiner é o começo do ID dele.
+    this.stackName ??= this.docker
+      .call<{ Config?: { Labels?: Record<string, string> } }>(
+        'GET',
+        `/containers/${encodeURIComponent(osHostname())}/json`,
+      )
+      .then((c) => c.Config?.Labels?.[STACK_LABEL] ?? null)
+      .catch(() => {
+        this.stackName = null; // tenta de novo na próxima
+        return null;
+      });
+    return this.stackName;
+  }
+
+  /** Recusa ações em serviços de outras stacks (Traefik, Portainer e outros sistemas da VM). */
+  private async mustBeOurs(name: string) {
+    const s = await this.docker.call<DockerService>('GET', `/services/${encodeURIComponent(name)}`);
+    const stack = await this.ownStack();
+    if (
+      !isOurs(stack, {
+        name: s.Spec.Name,
+        image: s.Spec.TaskTemplate.ContainerSpec.Image,
+        labels: s.Spec.Labels,
+      })
+    )
+      throw new Error('serviço fora da stack do Comandou');
+    return s;
   }
 
   start() {
@@ -163,7 +212,7 @@ export class HostAgent {
   }
 
   private async dockerStatus() {
-    const [info, containers, services, tasks] = await Promise.all([
+    const [info, containers, services, tasks, stack] = await Promise.all([
       this.docker.call<{
         ServerVersion: string;
         Name?: string;
@@ -172,8 +221,17 @@ export class HostAgent {
       this.docker.call<DockerContainer[]>('GET', '/containers/json?all=1'),
       this.docker.call<DockerService[]>('GET', '/services').catch(() => [] as DockerService[]),
       this.docker.call<DockerTask[]>('GET', '/tasks').catch(() => [] as DockerTask[]),
+      this.ownStack(),
     ]);
+    // Só o que é da stack do Comandou (a VM pode ter Traefik, Portainer e outros sistemas).
     const svc = services
+      .filter((s) =>
+        isOurs(stack, {
+          name: s.Spec.Name,
+          image: s.Spec.TaskTemplate.ContainerSpec.Image,
+          labels: s.Spec.Labels,
+        }),
+      )
       .map((s) => {
         const mine = tasks.filter((t) => t.ServiceID === s.ID);
         const running = mine.filter((t) => t.Status.State === 'running').length;
@@ -185,7 +243,7 @@ export class HostAgent {
         return {
           id: s.ID,
           name: s.Spec.Name,
-          stack: s.Spec.Labels?.['com.docker.stack.namespace'] ?? null,
+          stack: s.Spec.Labels?.[STACK_LABEL] ?? null,
           image: shortImage(s.Spec.TaskTemplate.ContainerSpec.Image),
           mode: s.Spec.Mode.Global ? 'global' : 'replicated',
           desired: s.Spec.Mode.Replicated?.Replicas ?? null,
@@ -197,6 +255,13 @@ export class HostAgent {
       })
       .sort((a, b) => a.name.localeCompare(b.name));
     const list = containers
+      .filter((c) =>
+        isOurs(stack, {
+          name: c.Labels['com.docker.swarm.service.name'] ?? c.Names[0] ?? '',
+          image: c.Image,
+          labels: c.Labels,
+        }),
+      )
       .map((c) => ({
         id: c.Id.slice(0, 12),
         name: c.Names[0]?.replace(/^\//, '') ?? c.Id.slice(0, 12),
@@ -216,6 +281,7 @@ export class HostAgent {
       version: info.ServerVersion,
       nodeName: info.Name ?? null,
       swarm: info.Swarm?.LocalNodeState === 'active',
+      stack,
       manager: !!info.Swarm?.ControlAvailable,
       containers: {
         total: list.length,
@@ -306,7 +372,7 @@ export class HostAgent {
   /** Reinicia as tarefas de um serviço do Swarm (mesmo efeito de `docker service update --force`). */
   async restartService(name: string) {
     if (!SERVICE_RE.test(name)) throw new Error('nome de serviço inválido');
-    const s = await this.docker.call<DockerService>('GET', `/services/${encodeURIComponent(name)}`);
+    const s = await this.mustBeOurs(name);
     const spec = { ...s.Spec } as DockerService['Spec'];
     spec.TaskTemplate = {
       ...spec.TaskTemplate,
@@ -319,6 +385,7 @@ export class HostAgent {
   /** Últimas linhas do log de um serviço (máx. 1000 linhas / 256 KB). */
   async serviceLogs(name: string, tail: number) {
     if (!SERVICE_RE.test(name)) throw new Error('nome de serviço inválido');
+    await this.mustBeOurs(name);
     const n = Math.min(Math.max(Math.floor(tail) || 200, 10), 1000);
     const buf = await this.docker.call<Buffer>(
       'GET',

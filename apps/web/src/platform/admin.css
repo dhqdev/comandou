@@ -775,3 +775,222 @@ a.adm-row:hover {
 .adm-help code {
   overflow-wrap: anywhere;
 }
+
+/* ---------------------------------------------------------------- formulários em seções
+   (Novo restaurante, aba Cadastro): grade de 6 colunas no computador, 4 no celular. */
+.adm-form-stack {
+  display: grid;
+  gap: 18px;
+}
+.adm-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.adm-fieldset__title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 0 0 6px;
+  border-bottom: 1px solid var(--a-line);
+  font-family: var(--a-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--a-muted);
+}
+.adm-fieldset__hint {
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--a-subtle);
+}
+details.adm-fieldset > summary {
+  cursor: pointer;
+  list-style: none;
+}
+details.adm-fieldset > summary::-webkit-details-marker {
+  display: none;
+}
+details.adm-fieldset > summary::before {
+  content: '+';
+  width: 12px;
+  color: var(--a-accent);
+}
+details.adm-fieldset[open] > summary::before {
+  content: '−';
+}
+.adm-form {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px 14px;
+  align-items: start;
+}
+.adm-form > * {
+  grid-column: span 6;
+}
+.adm-form > .span-1 {
+  grid-column: span 1;
+}
+.adm-form > .span-2 {
+  grid-column: span 2;
+}
+.adm-form > .span-3 {
+  grid-column: span 3;
+}
+.adm-form > .span-4 {
+  grid-column: span 4;
+}
+.adm-textarea {
+  min-height: 64px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  resize: vertical;
+  font: inherit;
+}
+.adm-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* Campo com sufixo (".comandou.com") ou botões grudados (mostrar/gerar senha). */
+.adm-addon {
+  display: flex;
+  min-width: 0;
+  border: 1px solid var(--a-line-strong);
+  border-radius: 4px;
+  background: var(--a-bg);
+}
+.adm-addon:focus-within {
+  border-color: var(--a-accent);
+}
+:root[data-app='admin'] .adm-addon .cm-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.adm-addon__suffix {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  max-width: 55%;
+  padding: 0 12px;
+  border-left: 1px solid var(--a-line);
+  overflow: hidden;
+  font-family: var(--a-mono);
+  font-size: 12px;
+  color: var(--a-subtle);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.adm-addon__btn {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  min-width: 44px;
+  justify-content: center;
+  padding: 0 12px;
+  border: 0;
+  border-left: 1px solid var(--a-line);
+  background: transparent;
+  color: var(--a-muted);
+  font-family: var(--a-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.adm-addon__btn:hover {
+  color: var(--a-accent);
+}
+
+/* Escolha do plano em cartões. */
+.adm-plan-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+}
+.adm-plan-opt {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--a-line-strong);
+  border-radius: 4px;
+  background: var(--a-bg);
+  cursor: pointer;
+}
+.adm-plan-opt input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.adm-plan-opt:hover {
+  border-color: var(--a-muted);
+}
+.adm-plan-opt[data-checked='true'] {
+  border-color: var(--a-accent);
+  box-shadow: inset 0 0 0 1px var(--a-accent);
+}
+.adm-plan-opt:has(input:focus-visible) {
+  outline: 2px solid var(--a-accent);
+  outline-offset: 2px;
+}
+.adm-plan-opt__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.adm-plan-opt__tag {
+  padding: 1px 6px;
+  border: 1px solid var(--a-line-strong);
+  border-radius: 3px;
+  font-family: var(--a-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--a-muted);
+}
+.adm-plan-opt__detail {
+  font-size: 12px;
+  color: var(--a-muted);
+}
+
+@media (max-width: 640px) {
+  .adm-form {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px 10px;
+  }
+  .adm-form > *,
+  .adm-form > .span-1,
+  .adm-form > .span-2,
+  .adm-form > .span-3,
+  .adm-form > .span-4 {
+    grid-column: span 4;
+  }
+  .adm-form > .m-span-3 {
+    grid-column: span 3;
+  }
+  .adm-form > .m-span-1 {
+    grid-column: span 1;
+  }
+  .adm-plan-pick {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .adm-addon__suffix {
+    max-width: 45%;
+    padding: 0 8px;
+  }
+}

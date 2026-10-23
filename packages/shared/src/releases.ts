@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.23.0',
+    date: '2026-10-23',
+    title: 'Painel admin: novo restaurante, backup no servidor e planos prontos',
+    summary:
+      'Cadastro de restaurante mais organizado (também no celular), backup automático no próprio servidor enquanto o Backblaze não está configurado, planos que já vêm no sistema e suspensão que bloqueia de verdade.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Novo restaurante em seções (Restaurante, Acesso do dono, Plano, Contato e cobrança): o endereço sai do nome sozinho, a senha pode ser gerada, o plano é escolhido em cartões e, no celular, tudo fica numa coluna só.',
+      },
+      {
+        tag: 'novo',
+        text: 'Campos novos no cadastro: cidade e UF, fuso horário (sugerido pela UF), razão social, CPF ou CNPJ, responsável, telefone/WhatsApp, e-mail de cobrança e observações internas. Ficam na nova aba Cadastro do restaurante e o telefone já vira o WhatsApp da loja online.',
+      },
+      {
+        tag: 'novo',
+        text: 'Sem Backblaze configurado, o backup diário fica no próprio servidor (volume comandou_backups), nas mesmas pastas, com retenção e teste de restauração. O painel mostra o destino e o espaço livre.',
+      },
+      {
+        tag: 'novo',
+        text: 'Planos Essencial, Profissional e Premium já vêm no sistema na primeira subida (dá para mudar preço e limites em Planos).',
+      },
+      {
+        tag: 'segurança',
+        text: 'Restaurante suspenso: login, sessões já abertas, cardápio online e tempo real param na hora, e quem abre o sistema vê o aviso "Restaurante suspenso" em vez de um erro.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Tela Servidor mostra só os serviços, containers e logs da stack do Comandou; logs e reinício de outros sistemas da VM ficam bloqueados.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Instalação nova: só admin.<domínio> fica no ar de início; cada restaurante ganha o endereço quando é criado no painel.',
+      },
+    ],
+  },
+  {
     version: '0.22.0',
     date: '2026-10-23',
     title: 'Restaurante de demonstração: Casa Brasa',

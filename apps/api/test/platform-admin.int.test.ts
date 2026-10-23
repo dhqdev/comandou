@@ -3,6 +3,7 @@ import { Client } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { verifyPassword } from '../src/auth/password';
 import { open as unseal } from '../src/common/secret-box';
+import { seedDefaultPlans } from '../src/platform/default-plans';
 import { bootstrapIn, resetIn } from '../src/platform/platform-admin';
 import { totpContext } from '../src/platform/platform-auth';
 import { newTotpSecret } from '../src/platform/totp';
@@ -87,5 +88,30 @@ describe('Super Admin criado na instalação', () => {
   it('recusa senha curta e e-mail inválido', async () => {
     await expect(bootstrapIn(c, base({ password: 'curta' }))).rejects.toThrow(/12\+/);
     await expect(bootstrapIn(c, base({ email: 'sem-arroba' }))).rejects.toThrow(/e-mail/);
+  });
+});
+
+describe('Planos padrão na instalação', () => {
+  it('cria Essencial (padrão), Profissional e Premium só quando não há nenhum plano', async () => {
+    await c.query('SAVEPOINT planos');
+    try {
+      await c.query('DELETE FROM subscriptions');
+      await c.query('DELETE FROM plans');
+      expect(await seedDefaultPlans(c)).toBe(3);
+      const { rows } = await c.query<{ code: string; is_default: boolean; trial_days: number }>(
+        `SELECT code, is_default, trial_days FROM plans ORDER BY price_monthly`,
+      );
+      expect(rows.map((r) => r.code)).toEqual(['essencial', 'profissional', 'premium']);
+      expect(rows.filter((r) => r.is_default).map((r) => r.code)).toEqual(['essencial']);
+      // Já existem planos: um novo deploy não cria nem altera nada.
+      await c.query(`UPDATE plans SET price_monthly = 1 WHERE code = 'essencial'`);
+      expect(await seedDefaultPlans(c)).toBe(0);
+      const p = await c.query(
+        `SELECT price_monthly::text AS p FROM plans WHERE code = 'essencial'`,
+      );
+      expect(p.rows[0].p).toBe('1.00');
+    } finally {
+      await c.query('ROLLBACK TO SAVEPOINT planos');
+    }
   });
 });

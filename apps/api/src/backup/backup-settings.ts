@@ -55,10 +55,13 @@ export function brasilia(now: Date) {
   return { date: iso.slice(0, 10), time: iso.slice(11, 16), weekday: t.getUTCDay() || 7 };
 }
 
-/** O que o serviço deve rodar agora (agendado ou pedido pelo painel). */
-export function dueJobs(s: BackupSettingsRow, now: Date) {
+/**
+ * O que o serviço deve rodar agora (agendado ou pedido pelo painel). Com `local` (pasta do
+ * servidor disponível), o backup roda mesmo sem o bucket configurado e fica nessa pasta.
+ */
+export function dueJobs(s: BackupSettingsRow, now: Date, local = false) {
   const b = brasilia(now);
-  const ready = s.enabled && isConfigured(s);
+  const ready = (s.enabled && isConfigured(s)) || local;
   return {
     backup:
       ready &&

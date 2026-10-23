@@ -36,7 +36,12 @@ export class TenantGuard implements CanActivate {
       throw new NotFoundException('Restaurante não encontrado');
     }
     if (!tenantAcceptsTraffic(outcome.tenant.status)) {
-      throw new ForbiddenException('Restaurante indisponível');
+      // Suspenso pelo painel: login, sessões abertas, cardápio online e agentes ficam bloqueados.
+      throw new ForbiddenException(
+        outcome.tenant.status === 'suspended'
+          ? { message: 'Restaurante suspenso', code: 'tenant_suspended' }
+          : { message: 'Restaurante indisponível', code: 'tenant_unavailable' },
+      );
     }
     req.tenant = outcome.tenant;
     return true;

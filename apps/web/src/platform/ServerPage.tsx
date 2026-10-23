@@ -223,7 +223,11 @@ export function ServerPage() {
 
       <Section
         title="Docker"
-        sub={docker ? `v${docker.version}${docker.swarm ? ' · swarm' : ''}` : undefined}
+        sub={
+          docker
+            ? `${docker.stack ? `stack ${docker.stack} · ` : 'só Comandou · '}v${docker.version}${docker.swarm ? ' · swarm' : ''}`
+            : undefined
+        }
         actions={
           <button className="adm-action" onClick={() => setCleanupOpen(true)}>
             <Trash2 size={14} /> Limpar

@@ -79,7 +79,7 @@ export function BackupsPage() {
   return (
     <>
       <StatusSection s={s} runs={runs.data} onChange={() => (settings.reload(), runs.reload())} />
-      <FoldersSection />
+      <FoldersSection local={s.destination === 'local'} />
       <SettingsSection s={s} onSaved={(n) => settings.setData(n)} />
       <DeletedSection />
       <HistorySection runs={runs.data} error={runs.error} />
@@ -116,16 +116,39 @@ function StatusSection({
       setBusy(null);
     }
   }
-  const ready = s.enabled && s.configured;
+  const dest = s.destination ?? (s.enabled && s.configured ? 'b2' : null);
+  const ready = !!dest;
+  const free = s.local?.freeBytes;
+  const lowDisk =
+    dest === 'local' && free !== undefined && s.local?.totalBytes
+      ? free / s.local.totalBytes < 0.1
+      : false;
   return (
-    <Section title="Backups" sub="cada banco na sua pasta, cifrado, no Backblaze B2">
+    <Section
+      title="Backups"
+      sub={
+        dest === 'local'
+          ? 'cada banco na sua pasta, cifrado, no próprio servidor'
+          : 'cada banco na sua pasta, cifrado, no Backblaze B2'
+      }
+    >
+      {dest === 'local' && (
+        <Alert tone={lowDisk ? 'danger' : 'warning'}>
+          <span>
+            Sem Backblaze, os backups ficam no próprio servidor ({s.local?.dir}, volume{' '}
+            <strong>comandou_backups</strong>). Protege contra erro e exclusão, mas{' '}
+            <strong>não</strong> contra perder a VM. Configure o Backblaze abaixo para guardar fora.
+            {lowDisk ? ' O disco está quase cheio.' : ''}
+          </span>
+        </Alert>
+      )}
       {!s.worker.alive && (
         <Alert tone="warning">
           <span>
             O serviço de backup não está rodando
             {s.worker.lastSeenAt ? ` (visto ${ago(s.worker.lastSeenAt)})` : ''}. Adicione o serviço{' '}
             <strong>comandou-backup</strong> na stack (mesma conexão do dono do banco e a mesma
-            INTEGRATIONS_KEY da API). Sem ele nada é enviado ao bucket.
+            INTEGRATIONS_KEY da API). Sem ele nenhum backup é feito.
           </span>
         </Alert>
       )}
@@ -137,18 +160,36 @@ function StatusSection({
       <div className="adm-panel">
         <div className="adm-rows">
           <div className="adm-row">
-            <Dot level={ready ? 'ok' : 'off'} />
+            <Dot level={dest === 'b2' ? 'ok' : dest === 'local' ? 'warn' : 'off'} />
             <span className="adm-row__main">
               <span className="adm-row__title">
-                {ready ? 'Ligado' : s.configured ? 'Desligado' : 'Não configurado'}
+                {dest === 'b2'
+                  ? 'Ligado no Backblaze'
+                  : dest === 'local'
+                    ? 'Ligado no servidor'
+                    : 'Sem destino'}
               </span>
               <span className="adm-row__meta">
-                {ready
+                {dest === 'b2'
                   ? `Todo dia às ${s.runAt} (Brasília) para ${s.bucket}/${s.prefix}`
-                  : 'Preencha os dados do bucket abaixo, teste e ligue'}
+                  : dest === 'local'
+                    ? `Todo dia às ${s.runAt} (Brasília) em ${s.local?.dir}/${s.prefix}`
+                    : 'Atualize o serviço de backup ou preencha os dados do bucket abaixo'}
               </span>
             </span>
           </div>
+          {dest === 'local' && s.local && (
+            <div className="adm-row">
+              <Dot level={lowDisk ? 'bad' : 'ok'} />
+              <span className="adm-row__main">
+                <span className="adm-row__title">Espaço no servidor</span>
+                <span className="adm-row__meta">
+                  {s.local.files} arquivo(s) · {bytes(s.local.bytes)} em backups
+                  {free !== undefined ? ` · ${bytes(free)} livres` : ''}
+                </span>
+              </span>
+            </div>
+          )}
           <div className="adm-row">
             <Dot level={s.worker.alive ? 'ok' : 'bad'} />
             <span className="adm-row__main">
@@ -313,7 +354,8 @@ function SettingsSection({ s, onSaved }: { s: BackupSettings; onSaved(n: BackupS
               checked={f.enabled}
               onChange={(e) => set('enabled')(e.target.checked)}
             />
-            Backup ligado (o primeiro sai logo depois de salvar)
+            Enviar ao Backblaze (o primeiro sai logo depois de salvar). Desligado, o backup continua
+            no próprio servidor.
           </label>
           {test && (
             <Alert tone={test.ok ? (test.canDelete ? 'info' : 'warning') : 'danger'}>
@@ -441,7 +483,7 @@ function lastLevel(b: { status: string } | null): Level {
  * Organização do bucket: uma pasta para o banco central (plataforma/) e uma por restaurante com
  * banco próprio (restaurantes/<endereço>/), cada uma com o seu último backup.
  */
-function FoldersSection() {
+function FoldersSection({ local }: { local: boolean }) {
   const { data, error } = useLoad<BackupFolders>('/platform/backups/folders');
   if (error) return <Alert tone="danger">{error}</Alert>;
   if (!data) return null;
@@ -454,7 +496,10 @@ function FoldersSection() {
         ? `falhou ${ago(b.startedAt)}: ${b.error ?? ''}`
         : `${ago(b.finishedAt ?? b.startedAt)} · ${bytes(b.sizeBytes)}`;
   return (
-    <Section title="Pastas no bucket" sub={`${own.length + 1} pastas`}>
+    <Section
+      title={local ? 'Pastas no servidor' : 'Pastas no bucket'}
+      sub={`${own.length + 1} pastas`}
+    >
       <div className="adm-panel">
         <div className="adm-rows">
           <div className="adm-row">

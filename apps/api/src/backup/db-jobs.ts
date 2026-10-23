@@ -206,6 +206,7 @@ async function seedTenant(ctx: DbJobContext, job: DbJob, dbName: string) {
     adminEmail?: string;
     adminName?: string;
     passwordHash?: string;
+    storeWhatsapp?: string;
     retryOf?: string;
   };
   if (payload.retryOf) {
@@ -252,6 +253,12 @@ async function seedTenant(ctx: DbJobContext, job: DbJob, dbName: string) {
          SELECT $1, 'Mais pedidos', 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE tenant_id = $1)`,
         [job.tenant_id],
       );
+      if (payload.storeWhatsapp)
+        await c.query(
+          `INSERT INTO tenant_store_settings (tenant_id, whatsapp) VALUES ($1, $2)
+           ON CONFLICT (tenant_id) DO NOTHING`,
+          [job.tenant_id, payload.storeWhatsapp],
+        );
       await c.query(
         `INSERT INTO audit_log (tenant_id, action, entity, entity_id, data)
          SELECT $1::uuid, 'tenant.provisioned', 'tenant', $1::text, jsonb_build_object('slug', $2::text, 'database', $3::text)

@@ -1,4 +1,4 @@
-import { SUBSCRIPTION_LABELS, validateTenantSlug } from '@comandou/shared';
+import { SUBSCRIPTION_LABELS } from '@comandou/shared';
 import {
   ArrowLeft,
   Copy,
@@ -19,6 +19,7 @@ import { api } from '../lib/api';
 import { AuditTable, useLoad } from './OverviewPages';
 import { ConsumptionPanel, OperationPanel } from './TenantInsights';
 import { DatabasePanel, DatabaseProgress, dbBusy } from './TenantDatabase';
+import { NewTenantModal, ProfilePanel, TIMEZONES } from './NewTenant';
 import type { Plan, SupportLink, TeamMember, TenantDetail, TenantRow } from './types';
 import { ago, Dot, Level, Section, Tabs, Tag, Tile } from './ui';
 
@@ -168,8 +169,9 @@ export function TenantsPage() {
                 >
                   <span className="adm-row__title">{t.name}</span>
                   <span className="adm-row__meta">
-                    {t.slug}.{baseDomain()} · {t.dbName ? 'banco próprio' : 'banco central'} ·{' '}
-                    {t.planName ?? 'sem plano'}
+                    {t.slug}.{baseDomain()}
+                    {t.city ? ` · ${t.city}${t.state ? `/${t.state}` : ''}` : ''} ·{' '}
+                    {t.dbName ? 'banco próprio' : 'banco central'} · {t.planName ?? 'sem plano'}
                     {t.subscriptionStatus && t.subscriptionStatus !== 'active'
                       ? ` (${SUBSCRIPTION_LABELS[t.subscriptionStatus as keyof typeof SUBSCRIPTION_LABELS] ?? t.subscriptionStatus})`
                       : ''}
@@ -202,112 +204,12 @@ export function TenantsPage() {
   );
 }
 
-function NewTenantModal({ onClose }: { onClose(): void }) {
-  const toast = useToast();
-  const navigate = useNavigate();
-  const plans = useLoad<Plan[]>('/platform/plans').data?.filter((p) => p.active) ?? [];
-  const [f, setF] = useState({
-    slug: '',
-    name: '',
-    adminName: '',
-    adminEmail: '',
-    adminPassword: '',
-    planCode: '',
-  });
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const set = (k: keyof typeof f) => (e: { target: { value: string } }) =>
-    setF((x) => ({ ...x, [k]: e.target.value }));
-  const slugCheck = f.slug ? validateTenantSlug(f.slug) : null;
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const t = await api<TenantDetail>('/platform/tenants', {
-        method: 'POST',
-        json: { ...f, planCode: f.planCode || undefined },
-      });
-      toast('Restaurante cadastrado: criando o banco dele', 'success');
-      navigate(`/restaurantes/${t.id}`);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Modal open title="Novo restaurante" onClose={onClose} size="lg">
-      <form onSubmit={submit}>
-        <div className="form-grid">
-          <TextField label="Nome do restaurante" value={f.name} onChange={set('name')} />
-          <TextField
-            label="Endereço"
-            value={f.slug}
-            onChange={(e) => setF((x) => ({ ...x, slug: e.target.value.toLowerCase() }))}
-            hint={f.slug ? `${f.slug}.${baseDomain()}` : 'Ex.: cantina-da-praca'}
-            error={slugCheck && !slugCheck.ok ? slugCheck.reason : undefined}
-          />
-          <TextField
-            label="Nome do administrador"
-            value={f.adminName}
-            onChange={set('adminName')}
-          />
-          <TextField
-            label="E-mail do administrador"
-            type="email"
-            value={f.adminEmail}
-            onChange={set('adminEmail')}
-          />
-          <TextField
-            label="Senha inicial"
-            type="password"
-            autoComplete="new-password"
-            value={f.adminPassword}
-            onChange={set('adminPassword')}
-            hint="Mínimo 10 caracteres. Se o e-mail já tem conta, a senha dele continua."
-          />
-          <SelectField label="Plano" value={f.planCode} onChange={set('planCode')}>
-            <option value="">Padrão (ou nenhum)</option>
-            {plans.map((p) => (
-              <option key={p.id} value={p.code}>
-                {p.name}
-              </option>
-            ))}
-          </SelectField>
-        </div>
-        {error && <Alert tone="danger">{error}</Alert>}
-        <div className="cm-modal__footer" style={{ padding: 0, marginTop: 16, border: 0 }}>
-          <Button variant="ghost" type="button" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button
-            type="submit"
-            loading={busy}
-            disabled={
-              !f.name ||
-              !slugCheck?.ok ||
-              !f.adminName ||
-              !f.adminEmail ||
-              f.adminPassword.length < 10
-            }
-          >
-            Criar restaurante
-          </Button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
 const toInputDate = (iso: string | null) => (iso ? iso.slice(0, 10) : '');
 const fromInputDate = (d: string) =>
   d ? new Date(`${d}T23:59:59-03:00`).toISOString() : undefined;
 
 type DetailTab =
-  'subscription' | 'database' | 'operation' | 'usage' | 'team' | 'domains' | 'history';
+  'subscription' | 'profile' | 'database' | 'operation' | 'usage' | 'team' | 'domains' | 'history';
 
 export function TenantDetailPage() {
   const { id } = useParams();
@@ -421,6 +323,7 @@ export function TenantDetailPage() {
       <Section title={t.name} sub={<StatusTag status={t.status} />}>
         <div className="adm-sub">
           {address} · criado {dateTime(t.createdAt)} ·{' '}
+          {TIMEZONES.find(([v]) => v === t.timezone)?.[1] ?? t.timezone} ·{' '}
           {t.owners.map((o) => o.email).join(', ') || 'sem administrador'}
         </div>
         <div className="adm-actions">
@@ -505,6 +408,7 @@ export function TenantDetailPage() {
           onChange={setTab}
           items={[
             ['subscription', 'Assinatura'],
+            ['profile', 'Cadastro'],
             ['database', 'Banco de dados'],
             ['operation', 'Operação'],
             ['usage', 'Consumo'],
@@ -577,6 +481,7 @@ export function TenantDetailPage() {
           </div>
         )}
 
+        {tab === 'profile' && <ProfilePanel t={t} onSaved={setData} />}
         {tab === 'database' && <DatabasePanel t={t} onChanged={setData} />}
         {tab === 'operation' && <OperationPanel id={t.id} team={team.data} />}
         {tab === 'usage' && <ConsumptionPanel id={t.id} />}

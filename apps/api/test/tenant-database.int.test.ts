@@ -70,7 +70,7 @@ beforeAll(async () => {
     pool: ownerPool,
     ownerUrl: OWNER_URL,
     integrationsKey: KEY,
-    s3: new S3Client({ endpoint: s3.url, region: 'us-west-004', ...S3 }),
+    store: new S3Client({ endpoint: s3.url, region: 'us-west-004', ...S3 }),
     prefix: 'comandou',
     retentionDays: 30,
     workDir,
@@ -339,7 +339,7 @@ describe('retenção por pasta', () => {
       put(`cm/restaurantes/ze/2026/01/ze-202601${d}T030000Z.dump.enc`, d);
     }
     put('cm/restaurantes/ze/final/ze-20260101T030000Z-final.dump.enc', 400);
-    expect(await applyRetention({ s3: c, prefix: 'cm', retentionDays: 30 })).toEqual({
+    expect(await applyRetention({ store: c, prefix: 'cm', retentionDays: 30 })).toEqual({
       deleted: 2,
       kept: 6,
     });

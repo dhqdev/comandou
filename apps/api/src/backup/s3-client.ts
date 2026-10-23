@@ -1,3 +1,4 @@
+import type { BackupStore } from './store';
 import { createHash, createHmac } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
@@ -139,7 +140,8 @@ function friendly(status: number, code: string, msg: string): string {
   return `Bucket respondeu ${status}${code ? ` (${code})` : ''}${msg ? `: ${msg}` : ''}`;
 }
 
-export class S3Client {
+export class S3Client implements BackupStore {
+  readonly kind = 'b2' as const;
   private readonly base: URL;
   readonly region: string;
 

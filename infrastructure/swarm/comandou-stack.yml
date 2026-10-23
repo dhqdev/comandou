@@ -2,8 +2,12 @@
 # Pré-requisitos (ver docs/deploy.md):
 #   - Traefik existente no Swarm, conectado à rede externa `network_public`.
 #   - Secrets criados (lista completa em docs/deploy.md#secrets).
-#   - Certificado coringa (*.dominio, exige DNS-01): acrescente -c infrastructure/swarm/wildcard.yml.
-#     Sem ele, cada endereço pede o próprio certificado (HTTP-01).
+#   - Endereços: na primeira subida só admin.<domínio> fica no ar. Cada restaurante ganha o
+#     endereço (<slug>.<domínio>) quando é criado no painel: o Traefik lê a lista da API pelo
+#     provider HTTP (ver docs/deploy.md) e pede um certificado por endereço (HTTP-01). Endereço
+#     que não é de nenhum restaurante não tem rota nem certificado.
+#   - Certificado coringa (*.dominio, exige DNS-01): acrescente -c infrastructure/swarm/wildcard.yml
+#     (aí qualquer subdomínio chega à API, que responde "restaurante não encontrado").
 #   - Super Admin: PLATFORM_ADMIN_EMAIL (+ opcional PLATFORM_ADMIN_NAME) e os secrets
 #     comandou_platform_admin_password / comandou_platform_admin_totp. Criado só se não houver nenhum.
 #   - Variáveis: COMANDOU_VERSION (tag imutável), COMANDOU_BASE_DOMAIN (comandou.com),
@@ -84,7 +88,8 @@ services:
 
   # Backup diário do banco central e do banco de cada restaurante (pg_dump, fotos incluídas),
   # cifrado com a INTEGRATIONS_KEY e enviado ao Backblaze B2 configurado no painel Super Admin →
-  # Backups, numa pasta por restaurante (restaurantes/<endereço>/). Teste semanal de restauração
+  # Backups, numa pasta por restaurante (restaurantes/<endereço>/). Sem Backblaze, fica no
+  # volume comandou_backups do próprio servidor. Teste semanal de restauração
   # num Postgres temporário dentro do próprio contêiner. Também é ele que cria, muda e exclui os
   # bancos dos restaurantes pedidos no painel. A senha do postgres serve só para, ao iniciar,
   # dar ao papel dono a permissão de criar bancos (ALTER ROLE ... CREATEDB).
@@ -98,6 +103,9 @@ services:
       - comandou_db_owner_url
       - comandou_integrations_key
       - comandou_pg_password
+    # Sem Backblaze configurado no painel, os backups ficam aqui (mesmas pastas do bucket).
+    volumes:
+      - comandou_backups:/backups
     networks: [comandou_internal, comandou_egress]
     deploy:
       replicas: 1
@@ -159,6 +167,9 @@ services:
       TRAEFIK_PROVIDER_TOKEN_FILE: /run/secrets/comandou_traefik_provider_token
       TRAEFIK_ENTRYPOINT: ${TRAEFIK_ENTRYPOINT:-websecure}
       TRAEFIK_CUSTOM_CERT_RESOLVER: ${TRAEFIK_CUSTOM_CERT_RESOLVER:-letsencrypt-http}
+      # Só admin.<domínio> e os restaurantes criados no painel (ativos ou suspensos) têm rota.
+      TRAEFIK_TENANT_HOSTS: 'true'
+      TRAEFIK_TENANT_CERT_RESOLVER: ${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}
     secrets:
       - comandou_db_app_url
       - comandou_integrations_key
@@ -174,14 +185,10 @@ services:
       restart_policy: { condition: on-failure }
       resources:
         limits: { memory: 512M }
+      # Sem roteador fixo: as rotas (admin + cada restaurante) vêm do provider HTTP da API.
       labels:
         - traefik.enable=true
         - traefik.docker.network=network_public
-        - traefik.http.routers.comandou-api.rule=HostRegexp(`^[a-z0-9-]+\.${COMANDOU_BASE_DOMAIN:-comandou.com}$$`) && PathPrefix(`/api`)
-        - traefik.http.routers.comandou-api.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
-        - traefik.http.routers.comandou-api.tls=true
-        - traefik.http.routers.comandou-api.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}
-        - traefik.http.routers.comandou-api.priority=100
         - traefik.http.services.comandou-api.loadbalancer.server.port=3000
         - traefik.http.services.comandou-api.loadbalancer.healthcheck.path=/api/v1/health/ready
         - traefik.http.services.comandou-api.loadbalancer.healthcheck.interval=10s
@@ -198,11 +205,6 @@ services:
       labels:
         - traefik.enable=true
         - traefik.docker.network=network_public
-        - traefik.http.routers.comandou-web.rule=HostRegexp(`^[a-z0-9-]+\.${COMANDOU_BASE_DOMAIN:-comandou.com}$$`)
-        - traefik.http.routers.comandou-web.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
-        - traefik.http.routers.comandou-web.tls=true
-        - traefik.http.routers.comandou-web.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}
-        - traefik.http.routers.comandou-web.priority=10
         - traefik.http.services.comandou-web.loadbalancer.server.port=8080
 
 networks:
@@ -218,6 +220,7 @@ volumes:
   comandou_pgdata:
   comandou_redisdata:
   comandou_wadata:
+  comandou_backups:
 
 configs:
   comandou_pg_init:

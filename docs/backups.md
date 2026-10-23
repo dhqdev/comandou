@@ -12,6 +12,16 @@ pagamentos, clientes, cadastros, configurações, auditoria e as **fotos** (fica
 tabela `media`). As sessões do
 WhatsApp por QR Code não entram: se o servidor for perdido, basta ler o QR de novo.
 
+## Sem Backblaze: backup no próprio servidor
+
+Enquanto o Backblaze não está configurado (ou está desligado no painel), o serviço de backup grava
+os mesmos arquivos cifrados, nas mesmas pastas (`<prefixo>/plataforma/...` e
+`<prefixo>/restaurantes/<endereço>/...`), em `/backups` dentro do contêiner, que na stack é o volume
+`comandou_backups`. Horário, retenção, teste de restauração e backup final antes de excluir um
+restaurante funcionam igual. O painel mostra o destino, quanto ocupa e o espaço livre. Protege
+contra erro humano e exclusão, mas **não** contra perder a VM: configure o Backblaze para ter uma
+cópia fora. `BACKUP_LOCAL_DIR` muda a pasta (`off` desliga o backup local).
+
 ## Configurar (painel Super Admin → Backups)
 
 1. No Backblaze: **Buckets → Create a Bucket** (privado). Copie o **Endpoint** do bucket
@@ -20,7 +30,7 @@ WhatsApp por QR Code não entram: se o servidor for perdido, basta ler o QR de n
 2. **Application Keys → Add a New Application Key**: só esse bucket, *Read and Write*. Copie o
    **keyID** e a **applicationKey** (aparece uma vez).
 3. No painel: endereço, bucket, keyID e applicationKey → **Testar conexão** (grava, confere, lista
-   e apaga um arquivo de teste) → marque **Backup ligado** → **Salvar**.
+   e apaga um arquivo de teste) → marque **Enviar ao Backblaze** → **Salvar**.
 
 A applicationKey é cifrada com a `INTEGRATIONS_KEY` (AES-256-GCM) antes de ir para o banco
 (`platform_backup_settings`). O painel nunca a devolve e a auditoria só registra que ela mudou.

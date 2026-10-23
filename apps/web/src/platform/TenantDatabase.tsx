@@ -145,7 +145,7 @@ export function DatabasePanel({
             <dd>{dateTime(db.readyAt)}</dd>
           </>
         )}
-        <dt>Pasta no bucket</dt>
+        <dt>Pasta do backup</dt>
         <dd>
           {db.kind === 'dedicated' && db.backupFolder ? (
             <>
@@ -260,7 +260,7 @@ export function DatabasePanel({
       >
         <p style={{ marginTop: 0 }}>
           O restaurante ganha o banco <code>comandou_{t.slug.replace(/-/g, '_')}</code>, só dele, e
-          os backups passam a ir para a pasta dele no bucket.
+          os backups passam a ir para a pasta dele no backup.
         </p>
         <p>
           Durante a cópia (de segundos a poucos minutos, conforme o tamanho) ninguém do restaurante
@@ -297,7 +297,7 @@ export function DatabasePanel({
               endereço <strong>{t.slug}</strong> e a assinatura. Antes, o serviço de backup guarda
               um
               <strong> backup final</strong> na pasta <code>restaurantes/{t.slug}/final/</code> do
-              bucket, que a retenção nunca apaga.
+              backup (Backblaze ou servidor), que a retenção nunca apaga.
             </p>
             <div style={{ display: 'grid', gap: 10 }}>
               <TextField

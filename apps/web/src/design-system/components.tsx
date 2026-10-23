@@ -62,17 +62,19 @@ export interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   hint?: string;
   error?: string;
   leading?: ReactNode;
+  /** Classe extra do bloco (rótulo + campo), ex.: largura numa grade. */
+  wrapClass?: string;
 }
 
 export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function TextField(
-  { label, hint, error, id, type, ...rest },
+  { label, hint, error, id, type, wrapClass, ...rest },
   ref,
 ) {
   const autoId = useId();
   const inputId = id ?? autoId;
   const describedBy = error ? `${inputId}-err` : hint ? `${inputId}-hint` : undefined;
   return (
-    <div className="cm-field">
+    <div className={wrapClass ? `cm-field ${wrapClass}` : 'cm-field'}>
       <label className="cm-label" htmlFor={inputId}>
         {label}
       </label>

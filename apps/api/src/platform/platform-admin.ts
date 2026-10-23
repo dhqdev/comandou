@@ -1,6 +1,7 @@
 import { Client } from 'pg';
 import { hashPassword } from '../auth/password';
 import { seal } from '../common/secret-box';
+import { seedDefaultPlans } from './default-plans';
 import { totpContext } from './platform-auth';
 import { base32Decode } from './totp';
 
@@ -42,6 +43,10 @@ async function inTransaction<T>(ownerUrl: string, fn: (c: Client) => Promise<T>)
  */
 export const bootstrapPlatformAdmin = (i: PlatformAdminInput) =>
   inTransaction(i.ownerUrl, (c) => bootstrapIn(c, i));
+
+/** Planos que já vêm no sistema (só se a plataforma ainda não tem nenhum). */
+export const bootstrapDefaultPlans = (ownerUrl: string) =>
+  inTransaction(ownerUrl, seedDefaultPlans);
 
 /** Cria mais um administrador (uso manual). Falha se o e-mail já existe. */
 export const createPlatformAdmin = (i: PlatformAdminInput) =>

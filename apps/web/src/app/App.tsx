@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
-import { Alert, Spinner, ToastProvider } from '../design-system';
+import { Alert, Mascot, Spinner, ToastProvider } from '../design-system';
 import { ComingSoonPage } from '../pages/ComingSoonPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MenuPage } from '../pages/MenuPage';
@@ -67,6 +67,18 @@ function Gate() {
           Não foi possível falar com o servidor: {error}. Tente novamente em instantes.
         </Alert>
       </div>
+    );
+  }
+  if (status === 'suspended') {
+    return (
+      <main className="cm-suspended" role="alert">
+        <Mascot size={88} mood="sleep" />
+        <h1>Restaurante suspenso</h1>
+        <p>
+          O acesso a este sistema está pausado. Nenhum dado foi apagado: assim que for reativado,
+          tudo volta como estava. Fale com o suporte do Comandou.
+        </p>
+      </main>
     );
   }
   if (status === 'anonymous') return <LoginPage />;

@@ -1,5 +1,5 @@
 import { Client, Pool } from 'pg';
-import { BackupSettingsRow, dueJobs, isConfigured } from './backup-settings';
+import { BackupSettingsRow, dueJobs } from './backup-settings';
 import {
   claimJob,
   databasePrivileges,
@@ -9,7 +9,16 @@ import {
   runDbJob,
 } from './db-jobs';
 import { JobContext, runBackup, runRestoreTest } from './jobs';
-import { BackupEnv, backupEnv, jobContext, loadSettings, withJobLock } from './runtime';
+import {
+  BackupEnv,
+  backupDestination,
+  backupEnv,
+  jobContext,
+  loadSettings,
+  usableLocalDir,
+  withJobLock,
+} from './runtime';
+import { LocalStore, localSpace, localUsage } from './store';
 
 /**
  * Serviço de backup (imagem comandou-backup). A cada 15 s:
@@ -25,6 +34,10 @@ const log = (m: string) => console.log(`${new Date().toISOString()} ${m}`);
 
 async function main() {
   const env = backupEnv();
+  const wanted = env.localDir;
+  env.localDir = await usableLocalDir(wanted);
+  if (wanted && !env.localDir)
+    log(`pasta do backup local indisponível (${wanted}): sem Backblaze, não há backup`);
   const pool = new Pool({ connectionString: env.ownerUrl, max: 3 });
   pool.on('error', (e) => log(`banco: ${e.message}`));
   let stopping = false;
@@ -52,6 +65,7 @@ async function main() {
             node: process.version,
             canCreateDatabases: priv?.canCreateDatabases ?? null,
             canTerminate: priv?.canTerminate ?? null,
+            local: await localInfo(pool, env),
           },
         ],
       )
@@ -109,8 +123,9 @@ async function dbJobsLoop(pool: Pool, env: BackupEnv, stopping: () => boolean) {
       pool,
       ownerUrl: env.ownerUrl,
       log,
-      backup:
-        s.enabled && isConfigured(s) ? () => jobContext(pool, env, s, 'painel', log) : undefined,
+      backup: backupDestination(s, env.localDir)
+        ? () => jobContext(pool, env, s, 'painel', log)
+        : undefined,
     };
   };
   while (!stopping()) {
@@ -143,9 +158,29 @@ async function dbJobsLoop(pool: Pool, env: BackupEnv, stopping: () => boolean) {
   await (listener as Client | null)?.end().catch(() => undefined);
 }
 
+/** Pasta local para o painel: onde fica, espaço livre e quanto os backups ocupam. */
+let usageCache: { at: number; files: number; bytes: number } | null = null;
+async function localInfo(pool: Pool, env: BackupEnv) {
+  if (!env.localDir) return null;
+  if (!usageCache || Date.now() - usageCache.at > 5 * 60_000) {
+    const s = await loadSettings(pool).catch(() => null);
+    const u = await localUsage(new LocalStore(env.localDir), s?.prefix ?? 'comandou').catch(() => ({
+      files: 0,
+      bytes: 0,
+    }));
+    usageCache = { at: Date.now(), ...u };
+  }
+  return {
+    dir: env.localDir,
+    files: usageCache.files,
+    bytes: usageCache.bytes,
+    ...(await localSpace(env.localDir)),
+  };
+}
+
 async function tick(pool: Pool, env: BackupEnv) {
   const s = await loadSettings(pool);
-  const due = dueJobs(s, new Date());
+  const due = dueJobs(s, new Date(), !!env.localDir);
   if (!due.backup && !due.restore) return;
   await withJobLock(pool, async () => {
     if (due.backup) {
@@ -159,6 +194,7 @@ async function tick(pool: Pool, env: BackupEnv) {
       const trigger = due.backupScheduled ? 'agendado' : 'painel';
       const ctx = await contextOrFail(pool, env, s, 'backup', trigger);
       if (ctx) await runBackup(ctx).catch(() => undefined); // erro já fica em backup_runs
+      usageCache = null;
     }
     if (due.restore) {
       await pool.query(

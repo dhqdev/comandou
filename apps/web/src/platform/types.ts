@@ -43,6 +43,21 @@ export interface TenantRow {
   /** Banco próprio (null = banco central). */
   dbName: string | null;
   dbStatus: TenantDatabaseStatus | null;
+  city?: string | null;
+  state?: string | null;
+}
+
+/** Cadastro do cliente (contato e cobrança), só no painel. */
+export interface TenantProfile {
+  legalName: string | null;
+  document: string | null;
+  contactName: string | null;
+  phone: string | null;
+  billingEmail: string | null;
+  city: string | null;
+  state: string | null;
+  notes: string | null;
+  updatedAt: string | null;
 }
 
 export type TenantDatabaseStatus = 'creating' | 'ready' | 'failed' | 'moving' | 'deleting';
@@ -145,6 +160,7 @@ export interface TenantDetail {
     currentPeriodEnd: string | null;
     notes: string | null;
   } | null;
+  profile: TenantProfile;
   usage: {
     users: number;
     products: number;
@@ -247,6 +263,8 @@ export type ServerStatus =
         | {
             version: string;
             swarm: boolean;
+            /** Stack do Comandou: a tela mostra só os serviços dela. */
+            stack?: string | null;
             manager: boolean;
             containers: { total: number; running: number; list: ServerContainer[] };
             services: ServerService[];
@@ -357,6 +375,15 @@ export interface UpdateInfo {
 export interface BackupSettings {
   enabled: boolean;
   configured: boolean;
+  /** Para onde vai o backup agora: bucket, pasta do servidor ou nenhum. */
+  destination?: 'b2' | 'local' | null;
+  local?: {
+    dir: string;
+    files: number;
+    bytes: number;
+    freeBytes?: number;
+    totalBytes?: number;
+  } | null;
   endpoint: string;
   region: string;
   resolvedRegion: string | null;

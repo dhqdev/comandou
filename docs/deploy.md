@@ -121,11 +121,15 @@ O Traefik precisa alcançar a API pela rede `network_public`. Cada domínio pede
 certificado por HTTP-01, então o cliente aponta o domínio (CNAME ou A) para o servidor **antes**
 de verificar.
 
-### Endereço de cada restaurante sem certificado coringa (alternativa)
+### Endereço de cada restaurante (padrão da stack)
 
-O certificado coringa (`*.comandou.com`) exige DNS-01. Quando não houver, ligue na API
-`TRAEFIK_TENANT_HOSTS=true`: o mesmo provider HTTP passa a listar também `admin.<domínio>` e
-`<slug>.<domínio>` de cada restaurante ativo (função `app_tenant_slugs()`, migração 0011). O
+A stack já vem com `TRAEFIK_TENANT_HOSTS=true` e sem regra coringa nas labels: na primeira subida
+só `admin.<domínio>` fica no ar; cada restaurante ganha `<slug>.<domínio>` quando é criado no
+painel. O provider HTTP lista `admin.<domínio>` e o `<slug>.<domínio>` de cada restaurante ativo
+ou suspenso (função `app_tenant_slugs()`, migrações 0011 e 0020; o suspenso continua com
+endereço para mostrar o aviso de suspensão). Endereço que não é de nenhum restaurante não tem
+rota nem certificado. Para o certificado coringa (`*.comandou.com`, DNS-01), use o overlay
+`wildcard.yml`, que volta à regra coringa e desliga esta lista. O
 Traefik consulta a cada 30 s e emite um certificado HTTP-01 por endereço; restaurante novo abre em
 até ~1 minuto, sem editar a stack. Variáveis opcionais: `TRAEFIK_TENANT_CERT_RESOLVER` (resolver
 HTTP-01 dos endereços; vazio usa `TRAEFIK_CUSTOM_CERT_RESOLVER`), `TRAEFIK_API_SERVICE` e

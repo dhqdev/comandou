@@ -81,6 +81,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     socket.data.tenantId = outcome.tenant.id;
     socket.data.userId = user.id;
     socket.data.token = token;
+    socket.data.host = this.hostOf(socket);
     return true;
   }
 
@@ -92,11 +93,14 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     }
     await socket.join(tenantRoom(tenantId));
     socket.emit('ready', { tenantId });
+    // A cada minuto: sessão ainda válida e restaurante ainda ativo (suspenso desconecta).
     const timer = setInterval(() => {
-      this.sessions
-        .validate(tenantId, socket.data.token as string)
-        .then((u) => {
-          if (!u) socket.disconnect(true);
+      Promise.all([
+        this.sessions.validate(tenantId, socket.data.token as string),
+        this.resolver.resolve(socket.data.host as string | undefined),
+      ])
+        .then(([u, t]) => {
+          if (!u || (t.ok && !tenantAcceptsTraffic(t.tenant.status))) socket.disconnect(true);
         })
         .catch(() => undefined);
     }, REVALIDATE_MS);

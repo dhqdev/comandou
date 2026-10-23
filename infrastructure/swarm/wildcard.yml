@@ -1,10 +1,27 @@
 # Overlay opcional: certificado coringa (*.dominio) para todos os restaurantes. Exige que o
-# certresolver do Traefik use o desafio DNS-01. Uso:
+# certresolver do Traefik use o desafio DNS-01. Com ele, qualquer <algo>.<domínio> chega à API
+# (que responde "restaurante não encontrado" para o que não existe), e a lista de endereços
+# pelo provider HTTP fica desligada (os domínios próprios dos clientes continuam por ela). Uso:
 #   docker stack deploy -c infrastructure/swarm/comandou-stack.yml -c infrastructure/swarm/wildcard.yml comandou
 version: '3.8'
 services:
   api:
+    environment:
+      TRAEFIK_TENANT_HOSTS: 'false'
     deploy:
       labels:
-        - traefik.http.routers.comandou-api.tls.domains[0].main=${COMANDOU_BASE_DOMAIN:?defina o domínio}
+        - traefik.http.routers.comandou-api.rule=HostRegexp(`^[a-z0-9-]+\.${COMANDOU_BASE_DOMAIN:?defina o domínio}$$`) && PathPrefix(`/api`)
+        - traefik.http.routers.comandou-api.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
+        - traefik.http.routers.comandou-api.tls=true
+        - traefik.http.routers.comandou-api.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}
+        - traefik.http.routers.comandou-api.tls.domains[0].main=${COMANDOU_BASE_DOMAIN}
         - traefik.http.routers.comandou-api.tls.domains[0].sans=*.${COMANDOU_BASE_DOMAIN}
+        - traefik.http.routers.comandou-api.priority=100
+  web:
+    deploy:
+      labels:
+        - traefik.http.routers.comandou-web.rule=HostRegexp(`^[a-z0-9-]+\.${COMANDOU_BASE_DOMAIN:?defina o domínio}$$`)
+        - traefik.http.routers.comandou-web.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}
+        - traefik.http.routers.comandou-web.tls=true
+        - traefik.http.routers.comandou-web.tls.certresolver=${TRAEFIK_CERT_RESOLVER:-letsencryptresolver}
+        - traefik.http.routers.comandou-web.priority=10

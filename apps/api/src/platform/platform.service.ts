@@ -16,7 +16,14 @@ import { provisionTenant } from '../provisioning/provision';
 import { QueueService } from '../queue/queue.service';
 import type { PlatformAdmin } from './platform-auth';
 import { PlatformDb, platformAudit } from './platform-db.service';
-import type { NewTenantInput, PlanInput, StatusInput, SubscriptionInput } from './platform.schemas';
+import type {
+  NewTenantInput,
+  PlanInput,
+  StatusInput,
+  SubscriptionInput,
+  TenantProfileInput,
+} from './platform.schemas';
+import { EMPTY_PROFILE, PROFILE_COLS, saveProfile } from './tenant-profile';
 import { TenantDatabaseUnavailable } from '../database/tenant-database';
 import { PlatformDatabasesService } from './platform-databases.service';
 
@@ -244,7 +251,10 @@ export class PlatformService {
     const p: unknown[] = [];
     if (f.search) {
       p.push(`%${f.search.replace(/[%_\\]/g, (m) => `\\${m}`)}%`);
-      where.push(`(t.slug ILIKE $${p.length} OR t.name ILIKE $${p.length})`);
+      where.push(
+        `(t.slug ILIKE $${p.length} OR t.name ILIKE $${p.length} OR pf.legal_name ILIKE $${p.length}
+          OR pf.city ILIKE $${p.length} OR pf.document ILIKE regexp_replace($${p.length}, '[.\\/-]', '', 'g'))`,
+      );
     }
     if (f.status) {
       p.push(f.status);
@@ -260,6 +270,7 @@ export class PlatformService {
       dbStatus: string | null;
     }>(
       `SELECT t.id, t.slug, t.name, t.status, t.created_at AS "createdAt",
+              pf.city, pf.state,
               s.status AS "subscriptionStatus", pl.name AS "planName",
               u.users::int, u.products::int, u.orders_month::int AS "ordersMonth",
               u.last_order_at AS "lastOrderAt", d.db_name AS "dbName", d.status AS "dbStatus"
@@ -268,6 +279,7 @@ export class PlatformService {
          LEFT JOIN plans pl ON pl.id = s.plan_id
          LEFT JOIN platform_tenant_usage() u ON u.tenant_id = t.id
          LEFT JOIN tenant_databases d ON d.tenant_id = t.id
+         LEFT JOIN tenant_profiles pf ON pf.tenant_id = t.id
         ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
         ORDER BY t.created_at DESC LIMIT 300`,
       p,
@@ -320,6 +332,10 @@ export class PlatformService {
       `SELECT ${SUB_COLS} FROM subscriptions s WHERE s.tenant_id = $1 AND s.status <> 'cancelled'`,
       [id],
     );
+    const [profile] = await this.db.query(
+      `SELECT ${PROFILE_COLS} FROM tenant_profiles WHERE tenant_id = $1`,
+      [id],
+    );
     const h = await this.tenantDbOrNull(id);
     const [usage] = h ? await h.query(`${USAGE_SQL} WHERE tenant_id = $1`, [id]) : [EMPTY_USAGE];
     const domains = await this.db.query(
@@ -349,6 +365,7 @@ export class PlatformService {
     return {
       ...t,
       subscription: subscription ?? null,
+      profile: profile ?? EMPTY_PROFILE,
       usage: usage ?? EMPTY_USAGE,
       domains,
       owners,
@@ -387,8 +404,13 @@ export class PlatformService {
       );
       throw new UnprocessableEntityException((e as Error).message);
     }
-    await this.db.tx((c) =>
-      platformAudit(c, {
+    await this.db.tx(async (c) => {
+      await c.query(`UPDATE tenants SET timezone = $2 WHERE id = $1`, [
+        r.tenantId,
+        b.timezone ?? 'America/Sao_Paulo',
+      ]);
+      if (b.profile) await saveProfile(c, r.tenantId, b.profile);
+      await platformAudit(c, {
         adminId: a.admin.id,
         action: 'platform.tenant_created',
         entity: 'tenant',
@@ -399,10 +421,11 @@ export class PlatformService {
           name: b.name,
           adminEmail: b.adminEmail,
           planCode: b.planCode ?? null,
+          timezone: b.timezone ?? 'America/Sao_Paulo',
         },
         ip: a.ip,
-      }),
-    );
+      });
+    });
     return this.tenant(r.tenantId);
   }
 
@@ -547,6 +570,25 @@ export class PlatformService {
       }),
     );
     return { ok: true };
+  }
+
+  /** Cadastro do cliente (contato e cobrança): só no banco central, só o painel vê. */
+  async updateProfile(tenantId: string, b: TenantProfileInput, a: Actor) {
+    await this.db.tx(async (c) => {
+      const t = await c.query(`SELECT 1 FROM tenants WHERE id = $1`, [tenantId]);
+      if (!t.rowCount) throw new NotFoundException('Restaurante não encontrado');
+      await saveProfile(c, tenantId, b);
+      await platformAudit(c, {
+        adminId: a.admin.id,
+        action: 'platform.tenant.profile_updated',
+        entity: 'tenant',
+        entityId: tenantId,
+        tenantId,
+        data: { fields: Object.keys(b).filter((k) => k !== 'notes') },
+        ip: a.ip,
+      });
+    });
+    return this.tenant(tenantId);
   }
 
   async renameTenant(tenantId: string, name: string, a: Actor) {

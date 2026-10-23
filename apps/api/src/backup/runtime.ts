@@ -1,9 +1,12 @@
+import { constants } from 'node:fs';
+import { access, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { Pool, PoolClient } from 'pg';
 import { resolveFileSecrets } from '../config/env';
-import { BackupSettingsRow, s3ConfigFrom, SETTINGS_SQL } from './backup-settings';
+import { BackupSettingsRow, isConfigured, s3ConfigFrom, SETTINGS_SQL } from './backup-settings';
 import { JobContext } from './jobs';
 import { S3Client } from './s3-client';
+import { DEFAULT_LOCAL_DIR, LocalStore } from './store';
 
 /** Ambiente do serviço de backup (aceita VAR_FILE, como os Docker secrets). */
 export function backupEnv(source: NodeJS.ProcessEnv = process.env) {
@@ -20,7 +23,36 @@ export function backupEnv(source: NodeJS.ProcessEnv = process.env) {
     integrationsKey,
     workDir: env.WORK_DIR || tmpdir(),
     pgBin: env.PG_BIN || undefined,
+    /**
+     * Pasta do backup local (sem Backblaze configurado, os backups ficam aqui). Na stack é o
+     * volume comandou_backups. "off" desliga o backup local.
+     */
+    localDir: env.BACKUP_LOCAL_DIR === 'off' ? null : env.BACKUP_LOCAL_DIR || DEFAULT_LOCAL_DIR,
   };
+}
+
+/** Garante que a pasta local existe e aceita gravação; senão o backup local fica desligado. */
+export async function usableLocalDir(dir: string | null): Promise<string | null> {
+  if (!dir) return null;
+  try {
+    await mkdir(dir, { recursive: true, mode: 0o700 });
+    await access(dir, constants.W_OK);
+    return dir;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Para onde vai o backup: o bucket, se configurado e ligado no painel; senão a pasta do
+ * próprio servidor (se existir); senão, para lugar nenhum.
+ */
+export function backupDestination(
+  s: BackupSettingsRow,
+  localDir: string | null,
+): 'b2' | 'local' | null {
+  if (s.enabled && isConfigured(s)) return 'b2';
+  return localDir ? 'local' : null;
 }
 
 /** Mesmo servidor do dono, com o usuário postgres (senha do contêiner do banco). */
@@ -52,7 +84,10 @@ export function jobContext(
     pool,
     ownerUrl: env.ownerUrl,
     integrationsKey: env.integrationsKey,
-    s3: new S3Client(s3ConfigFrom(s, env.integrationsKey)),
+    store:
+      backupDestination(s, env.localDir) === 'local'
+        ? new LocalStore(env.localDir!)
+        : new S3Client(s3ConfigFrom(s, env.integrationsKey)),
     prefix: s.prefix.replace(/^\/+|\/+$/g, ''),
     retentionDays: s.retention_days,
     workDir: env.workDir,

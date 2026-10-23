@@ -13,6 +13,19 @@ import type { Actor } from './platform.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
 import type { BackupSettingsInput } from './platform.schemas';
 
+type Row = BackupSettingsRow & {
+  updated_at?: Date;
+  worker_info?: {
+    local?: {
+      dir: string;
+      files: number;
+      bytes: number;
+      freeBytes?: number;
+      totalBytes?: number;
+    } | null;
+  };
+};
+
 /** Serviço de backup é considerado vivo se avisou nos últimos 2 minutos. */
 const WORKER_ALIVE_MS = 120_000;
 
@@ -28,18 +41,29 @@ export class PlatformBackupService {
     private readonly db: PlatformDb,
   ) {}
 
-  private async row(): Promise<BackupSettingsRow> {
-    const [r] = await this.db.query<BackupSettingsRow & { updated_at: Date }>(
-      `${SETTINGS_SQL.replace('FROM', ', updated_at FROM')}`,
+  private async row(): Promise<Row> {
+    const [r] = await this.db.query<Row>(
+      `${SETTINGS_SQL.replace('FROM', ', updated_at, worker_info FROM')}`,
     );
     return r;
   }
 
-  private view(r: BackupSettingsRow & { updated_at?: Date }) {
+  /**
+   * Destino dos backups: o bucket (configurado e ligado) ou, sem ele, a pasta do próprio
+   * servidor, se o serviço de backup avisou que ela existe.
+   */
+  private destination(r: Row): 'b2' | 'local' | null {
+    if (r.enabled && isConfigured(r)) return 'b2';
+    return r.worker_info?.local?.dir ? 'local' : null;
+  }
+
+  private view(r: Row) {
     const alive = !!r.worker_seen_at && Date.now() - r.worker_seen_at.getTime() < WORKER_ALIVE_MS;
     return {
       enabled: r.enabled,
       configured: isConfigured(r),
+      destination: this.destination(r),
+      local: r.worker_info?.local ?? null,
       endpoint: r.endpoint,
       region: r.region,
       resolvedRegion: r.endpoint ? regionFor(r.endpoint, r.region) : null,
@@ -181,8 +205,10 @@ export class PlatformBackupService {
 
   async request(kind: 'backup' | 'restore_test', a: Actor) {
     const r = await this.row();
-    if (!r.enabled || !isConfigured(r))
-      throw new UnprocessableEntityException('Configure e ligue o backup antes');
+    if (!this.destination(r))
+      throw new UnprocessableEntityException(
+        'Sem destino para o backup: configure o Backblaze ou atualize o serviço de backup',
+      );
     const col = kind === 'backup' ? 'backup_requested_at' : 'restore_requested_at';
     await this.db.tx(async (c) => {
       await c.query(`UPDATE platform_backup_settings SET ${col} = now() WHERE id`);

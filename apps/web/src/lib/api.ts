@@ -2,6 +2,12 @@
  * Cliente HTTP da API. A API é servida no MESMO domínio do restaurante sob /api
  * (sem CORS). O cookie de sessão é HttpOnly: o frontend nunca lê nem guarda o token.
  */
+export const TENANT_SUSPENDED_EVENT = 'cm:tenant-suspended';
+
+/** Resposta da API para restaurante suspenso pelo painel da plataforma. */
+export const isSuspended = (body: unknown) =>
+  (body as { code?: string } | undefined)?.code === 'tenant_suspended';
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -40,6 +46,8 @@ export async function api<T>(
   const body = await res.json().catch(() => undefined);
   if (!res.ok) {
     const msg = (body as { message?: string } | undefined)?.message ?? `Erro ${res.status}`;
+    // Restaurante suspenso no meio do uso: o app troca para a tela de aviso.
+    if (isSuspended(body)) window.dispatchEvent(new Event(TENANT_SUSPENDED_EVENT));
     throw new ApiError(res.status, msg, body);
   }
   return body as T;

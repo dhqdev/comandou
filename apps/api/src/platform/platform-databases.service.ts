@@ -14,6 +14,7 @@ import { insertInitialSubscription } from '../provisioning/provision';
 import { PlatformDb, platformAudit } from './platform-db.service';
 import type { Actor } from './platform.service';
 import type { NewTenantInput } from './platform.schemas';
+import { saveProfile } from './tenant-profile';
 
 /** Serviço de backup é considerado vivo se avisou nos últimos 2 minutos. */
 const WORKER_ALIVE_MS = 120_000;
@@ -139,10 +140,12 @@ export class PlatformDatabasesService {
     const passwordHash = await hashPassword(b.adminPassword);
     return this.db.tx(async (c) => {
       const { rows } = await c.query<{ id: string }>(
-        `INSERT INTO tenants (slug, name, status) VALUES ($1, $2, 'provisioning') RETURNING id`,
-        [b.slug, b.name],
+        `INSERT INTO tenants (slug, name, status, timezone) VALUES ($1, $2, 'provisioning', $3)
+         RETURNING id`,
+        [b.slug, b.name, b.timezone ?? 'America/Sao_Paulo'],
       );
       const id = rows[0].id;
+      if (b.profile) await saveProfile(c, id, b.profile);
       await c.query(
         `INSERT INTO tenant_databases (tenant_id, db_name, status) VALUES ($1, $2, 'creating')`,
         [id, dbName],
@@ -155,7 +158,13 @@ export class PlatformDatabasesService {
           id,
           b.slug,
           b.name,
-          { adminEmail: b.adminEmail, adminName: b.adminName, passwordHash },
+          {
+            adminEmail: b.adminEmail,
+            adminName: b.adminName,
+            passwordHash,
+            // WhatsApp da loja online já preenchido com o telefone do cadastro.
+            storeWhatsapp: b.profile?.phone ?? undefined,
+          },
           a.admin.id,
         ],
       );
@@ -170,6 +179,7 @@ export class PlatformDatabasesService {
           name: b.name,
           adminEmail: b.adminEmail,
           planCode: b.planCode ?? null,
+          timezone: b.timezone ?? 'America/Sao_Paulo',
           database: dbName,
         },
         ip: a.ip,

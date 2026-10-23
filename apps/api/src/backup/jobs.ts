@@ -7,12 +7,13 @@ import { pipeline } from 'node:stream/promises';
 import { Client, type Pool } from 'pg';
 import { databaseUrl } from '../database/tenant-database';
 import { decryptFile, encryptFile } from './backup-crypto';
-import { S3Client } from './s3-client';
+import type { BackupStore } from './store';
 
 /**
  * Trabalhos do serviço de backup:
- *  - backup: pg_dump (formato custom) → cifra (AES-256-GCM) → envia ao bucket → confere tamanho
- *    → apaga do bucket os backups mais velhos que a retenção (guardando sempre os 3 últimos);
+ *  - backup: pg_dump (formato custom) → cifra (AES-256-GCM) → envia ao bucket (ou grava na pasta
+ *    local do servidor, sem bucket configurado) → confere tamanho → apaga os backups mais velhos
+ *    que a retenção (guardando sempre os 3 últimos);
  *  - teste de restauração: baixa o último backup bom, confere o sha256, decifra e restaura num
  *    Postgres TEMPORÁRIO dentro do contêiner (nunca toca o banco de produção), conferindo
  *    migrações e contagens contra as anotadas na hora do backup.
@@ -25,7 +26,8 @@ export interface JobContext {
   pool: Pool; // papel dono
   ownerUrl: string;
   integrationsKey: string;
-  s3: S3Client;
+  /** Destino dos arquivos: o bucket (Backblaze B2 / S3) ou a pasta local do servidor. */
+  store: BackupStore;
   prefix: string;
   retentionDays: number;
   workDir: string;
@@ -200,7 +202,10 @@ export async function backupDatabase(
   extra: Record<string, unknown> = {},
 ): Promise<{ key: string; size: number; sha: string }> {
   const log = ctx.log ?? (() => undefined);
-  const id = await startRun(ctx.pool, 'backup', ctx.trigger, target, extra);
+  const id = await startRun(ctx.pool, 'backup', ctx.trigger, target, {
+    destination: ctx.store.kind,
+    ...extra,
+  });
   const tmp = await mkdtemp(join(ctx.workDir, 'cm-backup-'));
   try {
     log(`backup: ${target.database} (registro ${id})`);
@@ -220,11 +225,12 @@ export async function backupDatabase(
     await unlink(dump);
     const { size } = await stat(enc);
     const sha = await sha256File(enc);
-    await ctx.s3.putFile(key, enc, { sha256: sha });
-    const remote = await ctx.s3.head(key);
-    if (!remote) throw new Error('O arquivo não apareceu no bucket depois do envio');
+    await ctx.store.putFile(key, enc, { sha256: sha });
+    const remote = await ctx.store.head(key);
+    const where = ctx.store.kind === 'local' ? 'na pasta do servidor' : 'no bucket';
+    if (!remote) throw new Error(`O arquivo não apareceu ${where} depois de gravado`);
     if (remote.size !== size)
-      throw new Error(`Tamanho no bucket (${remote.size}) difere do local (${size})`);
+      throw new Error(`Tamanho ${where} (${remote.size}) difere do gerado (${size})`);
     await finishRun(ctx.pool, id, { status: 'ok', details: { before, after }, key, size, sha });
     log(`backup: ok ${key} (${size} bytes)`);
     return { key, size, sha };
@@ -285,9 +291,9 @@ export function retentionGroup(prefix: string, key: string): string {
  * rodar, os últimos bons não somem). Backups finais (antes de excluir) nunca são apagados.
  * retention 0 = nunca apaga.
  */
-export async function applyRetention(ctx: Pick<JobContext, 's3' | 'prefix' | 'retentionDays'>) {
+export async function applyRetention(ctx: Pick<JobContext, 'store' | 'prefix' | 'retentionDays'>) {
   if (ctx.retentionDays <= 0) return { deleted: 0 };
-  const all = (await ctx.s3.list(`${ctx.prefix}/`))
+  const all = (await ctx.store.list(`${ctx.prefix}/`))
     .filter((o) => BACKUP_KEY_RE.test(o.key))
     .sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
   const limit = Date.now() - ctx.retentionDays * 86_400_000;
@@ -299,7 +305,7 @@ export async function applyRetention(ctx: Pick<JobContext, 's3' | 'prefix' | 're
   const old = [...groups.values()].flatMap((list) =>
     list.slice(KEEP_AT_LEAST).filter((o) => o.lastModified.getTime() < limit),
   );
-  for (const o of old) await ctx.s3.delete(o.key);
+  for (const o of old) await ctx.store.delete(o.key);
   return { deleted: old.length, kept: all.length - old.length };
 }
 
@@ -318,21 +324,25 @@ interface RestoreCandidate {
  */
 export async function runRestoreTest(ctx: JobContext & { key?: string; port?: number }) {
   const log = ctx.log ?? (() => undefined);
+  // Só backups do destino atual (os da pasta local não estão no bucket e vice-versa).
+  const dest = `coalesce(details->>'destination', 'b2') = $1`;
   const { rows: candidates } = await ctx.pool.query<RestoreCandidate>(
     ctx.key
       ? `SELECT object_key, sha256, details, tenant_id, database FROM backup_runs
-          WHERE kind = 'backup' AND status = 'ok' AND object_key = $1
+          WHERE kind = 'backup' AND status = 'ok' AND object_key = $2 AND ${dest}
           ORDER BY finished_at DESC LIMIT 1`
       : `(SELECT object_key, sha256, details, tenant_id, database FROM backup_runs
            WHERE kind = 'backup' AND status = 'ok' AND tenant_id IS NULL AND object_key LIKE '%.dump.enc'
+             AND ${dest}
            ORDER BY finished_at DESC LIMIT 1)
          UNION ALL
          (SELECT DISTINCT ON (b.tenant_id) b.object_key, b.sha256, b.details, b.tenant_id, b.database
             FROM backup_runs b JOIN tenant_databases d ON d.tenant_id = b.tenant_id AND d.status = 'ready'
            WHERE b.kind = 'backup' AND b.status = 'ok' AND b.object_key LIKE '%.dump.enc'
              AND NOT coalesce((b.details->>'final')::boolean, false)
+             AND coalesce(b.details->>'destination', 'b2') = $1
            ORDER BY b.tenant_id, b.finished_at DESC)`,
-    ctx.key ? [ctx.key] : [],
+    ctx.key ? [ctx.store.kind, ctx.key] : [ctx.store.kind],
   );
   if (!candidates.length) {
     const id = await startRun(ctx.pool, 'restore_test', ctx.trigger, {
@@ -408,12 +418,14 @@ export async function runRestoreTest(ctx: JobContext & { key?: string; port?: nu
   try {
     for (const [n, c] of candidates.entries()) {
       const target = { database: c.database ?? 'comandou', tenantId: c.tenant_id };
-      const id = await startRun(ctx.pool, 'restore_test', ctx.trigger, target);
+      const id = await startRun(ctx.pool, 'restore_test', ctx.trigger, target, {
+        destination: ctx.store.kind,
+      });
       const t0 = Date.now();
       try {
         log(`restauração: testando ${c.object_key}`);
         const enc = join(tmp, 'db.dump.enc');
-        await ctx.s3.getToFile(c.object_key, enc);
+        await ctx.store.getToFile(c.object_key, enc);
         if ((await sha256File(enc)) !== c.sha256)
           throw new Error('sha256 do arquivo baixado não confere');
         const dump = join(tmp, 'db.dump');
