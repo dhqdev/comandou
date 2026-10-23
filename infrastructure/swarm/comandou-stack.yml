@@ -109,12 +109,17 @@ services:
 
   migrate:
     image: ghcr.io/dhqdev/comandou-api:${COMANDOU_VERSION:?defina a versão}
-    # Migra o banco e cria o Super Admin se ainda não existir nenhum (não altera um existente).
+    # Migra o banco, cria o Super Admin se ainda não existir nenhum (não altera um existente) e o
+    # restaurante de demonstração "Casa Brasa" (exemplo.<domínio>), uma vez só, com ~30 dias de
+    # pedidos, fotos e equipe. COMANDOU_DEMO=false desliga; reset recria do zero a cada subida.
     command:
       - sh
       - -c
-      - node dist/database/migrate-cli.js && node dist/platform/platform-admin-cli.js --bootstrap
+      - node dist/database/migrate-cli.js && node dist/platform/platform-admin-cli.js --bootstrap && node dist/demo/demo-cli.js
     environment:
+      COMANDOU_DEMO: ${COMANDOU_DEMO:-true}
+      COMANDOU_DEMO_SLUG: ${COMANDOU_DEMO_SLUG:-exemplo}
+      COMANDOU_BASE_DOMAIN: ${COMANDOU_BASE_DOMAIN:-comandou.com}
       DATABASE_OWNER_URL_FILE: /run/secrets/comandou_db_owner_url
       INTEGRATIONS_KEY_FILE: /run/secrets/comandou_integrations_key
       PLATFORM_ADMIN_EMAIL: ${PLATFORM_ADMIN_EMAIL:-}

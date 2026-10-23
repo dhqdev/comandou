@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.22.0',
+    date: '2026-10-23',
+    title: 'Restaurante de demonstração: Casa Brasa',
+    summary:
+      'O sistema já sobe com um restaurante de exemplo funcionando, cheio de dados de verdade, para testar e mostrar cada tela sem cadastrar nada.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Casa Brasa em exemplo.comandou.com: cardápio com fotos, adicionais e ficha técnica, 14 mesas, comandas abertas, cerca de 1.000 pedidos dos últimos 30 dias (salão, balcão, retirada, delivery e cardápio online) e pedidos acontecendo agora em todas as situações.',
+      },
+      {
+        tag: 'novo',
+        text: 'Equipe com um usuário para cada papel (dono, gerente, caixa, garçom, cozinha, entregador, atendente, estoque, financeiro e fiscal), todos com a senha comandou123.',
+      },
+      {
+        tag: 'novo',
+        text: 'Caixa fechado todo dia, estoque com alertas de mínimo, entregadores, áreas de entrega no mapa, clientes com conta, contas a pagar e receber, conferência de recebimentos e notas de homologação.',
+      },
+      {
+        tag: 'novo',
+        text: 'Loja online com logo, capa e banners. O ícone da aba do navegador no cardápio passa a ser a logo do restaurante.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'É criado uma vez na subida e não é sobrescrito. COMANDOU_DEMO=reset recria do zero e COMANDOU_DEMO=false desliga.',
+      },
+    ],
+  },
+  {
     version: '0.20.2',
     date: '2026-10-23',
     title: 'Abas visíveis no modo escuro',

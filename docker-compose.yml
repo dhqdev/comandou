@@ -43,9 +43,13 @@ services:
   migrate:
     build: { context: ., dockerfile: infrastructure/docker/api.Dockerfile }
     image: comandou-api:dev
-    command: ['node', 'dist/database/migrate-cli.js']
+    # Migrações + restaurante de demonstração (exemplo.comandou.localhost, criado uma vez).
+    command: ['sh', '-c', 'node dist/database/migrate-cli.js && node dist/demo/demo-cli.js']
     environment:
       DATABASE_OWNER_URL: postgres://comandou_owner:${COMANDOU_OWNER_PASSWORD}@postgres:5432/comandou
+      COMANDOU_DEMO: ${COMANDOU_DEMO:-true}
+      COMANDOU_BASE_DOMAIN: ${COMANDOU_BASE_DOMAIN:-comandou.localhost}
+      TENANT_DATABASE_MODE: shared
     depends_on:
       postgres: { condition: service_healthy }
     restart: 'no'

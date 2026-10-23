@@ -136,6 +136,11 @@ docker compose run --rm -e PROVISION_ADMIN_PASSWORD='uma-senha-forte' migrate \
 # abra http://demo.comandou.localhost:8080
 ```
 
+Já vem um restaurante de demonstração completo, a **Casa Brasa**, em
+http://exemplo.comandou.localhost:8080 (`dono@exemplo.comandou.local`, senha `comandou123`).
+Em produção ele fica em `exemplo.<domínio>`; detalhes e como desligar em
+[docs/install.md](docs/install.md#restaurante-de-demonstração).
+
 Desenvolvimento sem Docker, testes e migrações: [docs/development.md](docs/development.md).
 
 ## Tecnologia

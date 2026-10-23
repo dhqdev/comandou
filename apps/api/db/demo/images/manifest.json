@@ -1,0 +1,192 @@
+{
+  "burger-classico": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 19068
+  },
+  "burger-cheddar-bacon": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 20212
+  },
+  "burger-duplo-smash": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 19400
+  },
+  "burger-salada": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 21400
+  },
+  "burger-chicken": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 17818
+  },
+  "burger-veggie": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 15870
+  },
+  "burger-kids": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 18338
+  },
+  "pizza-margherita": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 45924
+  },
+  "pizza-calabresa": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 54410
+  },
+  "pizza-portuguesa": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 45754
+  },
+  "pizza-quatro-queijos": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 40100
+  },
+  "pizza-frango-catupiry": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 44658
+  },
+  "pizza-pepperoni": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 46584
+  },
+  "pizza-chocolate-morango": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 38406
+  },
+  "porcao-batata": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 20226
+  },
+  "porcao-batata-cheddar": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 20738
+  },
+  "porcao-aneis-cebola": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 26320
+  },
+  "porcao-isca-frango": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 18494
+  },
+  "porcao-mandioca": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 17990
+  },
+  "salada-caesar": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 17644
+  },
+  "bebida-refrigerante": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 18076
+  },
+  "bebida-suco-laranja": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 20014
+  },
+  "bebida-limonada": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 15644
+  },
+  "bebida-cerveja": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 9984
+  },
+  "bebida-agua": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 10612
+  },
+  "bebida-milkshake": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 13620
+  },
+  "bebida-caipirinha": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 13236
+  },
+  "sobremesa-brownie": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 17248
+  },
+  "sobremesa-petit-gateau": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 12476
+  },
+  "sobremesa-pudim": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 16750
+  },
+  "sobremesa-acai": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 16538
+  },
+  "combo-brasa": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 26816
+  },
+  "combo-casal": {
+    "width": 1200,
+    "height": 900,
+    "bytes": 27358
+  },
+  "capa": {
+    "width": 1600,
+    "height": 700,
+    "bytes": 61102
+  },
+  "banner-burger-dobro": {
+    "width": 1600,
+    "height": 700,
+    "bytes": 27268
+  },
+  "banner-pizza-refri": {
+    "width": 1600,
+    "height": 700,
+    "bytes": 45536
+  },
+  "banner-sobremesa": {
+    "width": 1600,
+    "height": 700,
+    "bytes": 20990
+  },
+  "logo": {
+    "width": 512,
+    "height": 512,
+    "bytes": 16506
+  }
+}

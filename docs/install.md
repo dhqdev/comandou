@@ -58,12 +58,33 @@ scripts/install.sh
 | `COMANDOU_ADMIN_TOTP_SECRET` | chave do autenticador em base32 (16+ caracteres), obrigatória sem terminal |
 | `COMANDOU_BACKUP=off` | sobe sem backup (não recomendado) |
 | `COMANDOU_WILDCARD_TLS=1` | certificado coringa `*.domínio` (exige DNS-01 no Traefik) |
+| `COMANDOU_DEMO` | restaurante de demonstração: `true` (padrão, cria uma vez), `reset` (recria a cada subida) ou `false` |
+| `COMANDOU_DEMO_SLUG` | endereço da demonstração (padrão `exemplo` → `exemplo.domínio`) |
 
 **Portainer / `docker stack deploy` na mão:** crie os Docker secrets de
 [deploy.md](deploy.md#secrets) (inclui os dois do Super Admin, abaixo), defina as variáveis da
 stack (`COMANDOU_VERSION`, `COMANDOU_BASE_DOMAIN`, `PLATFORM_ADMIN_EMAIL`, `PLATFORM_ADMIN_NAME`,
 `BACKUP_S3_*`) e aplique `infrastructure/swarm/comandou-stack.yml`. O serviço `migrate` cria o
 Super Admin no primeiro deploy.
+
+## Restaurante de demonstração
+
+Junto com o sistema sobe a **Casa Brasa** (`https://exemplo.<domínio>`), um restaurante fictício
+de hambúrguer e pizza com tudo preenchido: cardápio com fotos e adicionais, 14 mesas, comandas
+abertas, ~1.000 pedidos dos últimos 30 dias em todos os canais e situações, caixa, estoque com
+ficha técnica, entregadores, áreas de entrega no mapa, clientes, financeiro, notas de homologação e
+a loja online com logo, capa e banners. Serve para testar e para mostrar o sistema.
+
+- É criado uma vez (banco próprio `comandou_exemplo`); subir de novo **não** duplica nem apaga o
+  que você mexeu. Para começar do zero, suba uma vez com `COMANDOU_DEMO=reset`.
+- `COMANDOU_DEMO=false` desliga (não cria; um que já existe continua até ser excluído no painel).
+- Um restaurante de verdade com o mesmo endereço nunca é tocado.
+- Senha de todos os usuários: `comandou123`. E-mails: `dono@`, `gerente@`, `caixa@`, `garcom@`,
+  `garcom2@`, `cozinha@`, `entregador@`, `entregador2@`, `atendente@`, `estoque@`, `financeiro@`
+  e `fiscal@exemplo.<domínio>`. Cliente do cardápio online: celular `(11) 98888-0000`, senha
+  `cliente123`.
+- As imagens são ilustrações próprias (`apps/api/db/demo/images`, geradas por
+  `tools/demo-images/generate.mjs`).
 
 ## Super Admin
 

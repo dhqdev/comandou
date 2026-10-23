@@ -289,7 +289,7 @@ confirmação), cria os secrets que faltam (nunca sobrescreve), aplica a stack, 
 (que criam o Super Admin na primeira vez) e roda `scripts/healthcheck.sh`. Não remove serviços,
 redes, volumes nem secrets.
 
-No Portainer: *Stacks → Add stack → Repository*, apontando para `infrastructure/swarm/comandou-stack.yml`, com as variáveis `COMANDOU_VERSION`, `COMANDOU_BASE_DOMAIN`, `PLATFORM_ADMIN_EMAIL`, `TRAEFIK_ENTRYPOINT`, `TRAEFIK_CERT_RESOLVER`. Certificado coringa: acrescente `infrastructure/swarm/wildcard.yml`.
+No Portainer: *Stacks → Add stack → Repository*, apontando para `infrastructure/swarm/comandou-stack.yml`, com as variáveis `COMANDOU_VERSION`, `COMANDOU_BASE_DOMAIN`, `PLATFORM_ADMIN_EMAIL`, `TRAEFIK_ENTRYPOINT`, `TRAEFIK_CERT_RESOLVER` (e, se quiser, `COMANDOU_DEMO=false` para não criar o restaurante de demonstração; ver [install.md](install.md#restaurante-de-demonstração)). Certificado coringa: acrescente `infrastructure/swarm/wildcard.yml`.
 
 ## Rollback
 
