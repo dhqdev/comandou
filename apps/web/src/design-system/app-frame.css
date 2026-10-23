@@ -268,6 +268,9 @@
   display: none;
   flex-direction: column;
 }
+.cm-sheet:focus {
+  outline: none;
+}
 .cm-sheet[open] {
   display: flex;
   animation: cm-pop var(--cm-dur) var(--cm-ease) both;
@@ -283,6 +286,7 @@
   align-items: center;
   gap: var(--cm-space-3);
   padding: 14px var(--cm-space-4) 10px var(--cm-space-5);
+  flex-shrink: 0;
   touch-action: none;
 }
 .cm-sheet__head h2 {
@@ -306,12 +310,17 @@
   cursor: pointer;
 }
 .cm-sheet__body {
-  flex: 1;
+  /* "auto" (e não 0): no Safari do iPhone, flex-basis 0 numa folha sem altura fixa
+     encolhia o corpo até sumir e o menu aparecia cortado. */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding: 4px var(--cm-space-4) var(--cm-space-5);
 }
 .cm-sheet__footer {
+  flex-shrink: 0;
   display: flex;
   gap: var(--cm-space-2);
   padding: 12px var(--cm-space-4) calc(12px + env(safe-area-inset-bottom));

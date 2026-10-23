@@ -22,13 +22,17 @@ export const RELEASES: readonly Release[] = [
   {
     version: '0.15.1',
     date: '2026-10-23',
-    title: 'Limpeza de código',
+    title: 'Menu do iPhone e limpeza de código',
     summary:
       'Componentes, estilos e constantes que nenhuma tela usava foram removidos. Nada muda no uso.',
     notes: [
       {
         tag: 'melhoria',
         text: 'Saíram do sistema: painel lateral, cabeçalho e imagem genéricos do design system que não eram usados, o card de pedido e o quadro kanban antigos.',
+      },
+      {
+        tag: 'correção',
+        text: 'iPhone: o menu "Mais" que sobe de baixo aparecia cortado no Safari. Agora abre por completo.',
       },
     ],
   },

@@ -425,6 +425,8 @@ export function Sheet({
     if (open && !d.open) {
       d.style.removeProperty('--drag');
       d.showModal?.();
+      // Foco na folha (não no X): no iPhone o X ficava com o anel de foco aceso.
+      d.focus();
     }
     if (!open && d.open) d.close?.();
   }, [open]);
@@ -453,6 +455,7 @@ export function Sheet({
     <dialog
       ref={ref}
       className="cm-sheet"
+      tabIndex={-1}
       aria-labelledby={titleId}
       onClose={(e) => {
         if (e.target === e.currentTarget) onClose();
