@@ -78,3 +78,26 @@
   background: var(--cm-brand-600);
   color: var(--cm-on-brand);
 }
+
+/* Escuro: a aba ativa precisa saltar do fundo (cartão laranja com borda e texto claros). */
+:root[data-theme='dark'] .slide-tabs {
+  background: rgb(255 255 255 / 6%);
+  border-color: rgb(255 255 255 / 14%);
+}
+:root[data-theme='dark'] .slide-tabs__glider {
+  background: color-mix(in srgb, var(--cm-brand-500) 38%, #1f1b18);
+  border: 1px solid color-mix(in srgb, var(--cm-brand-400, var(--cm-brand-500)) 75%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--cm-brand-500) 30%, transparent),
+    0 6px 18px -6px rgb(0 0 0 / 70%),
+    inset 0 1px 0 rgb(255 255 255 / 16%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root[data-theme='dark'] .slide-tabs__tab {
+  color: #cfc7c0;
+}
+:root[data-theme='dark'] .slide-tabs__tab[aria-selected='true'],
+:root[data-theme='dark'] .slide-tabs__tab:hover {
+  color: #fff;
+}

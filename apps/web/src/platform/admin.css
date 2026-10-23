@@ -690,7 +690,7 @@ a.adm-row:hover {
 .adm-tabs.cm-glide button[aria-selected='true'] {
   box-shadow: none;
 }
-.adm-tabs .cm-glider {
+.adm-tabs.cm-glide .cm-glider {
   top: auto;
   bottom: 0;
   height: 2px;

@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.20.2',
+    date: '2026-10-23',
+    title: 'Abas visíveis no modo escuro',
+    summary:
+      'As abas do PDV, do Salão e do cardápio e o indicador que desliza entre botões agora aparecem bem no modo escuro.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'No modo escuro a aba ativa ganha tom laranja, borda clara e texto branco; as demais ficam mais claras, e o indicador deslizante dos menus também aparece.',
+      },
+    ],
+  },
+  {
     version: '0.20.1',
     date: '2026-10-23',
     title: 'Loja online mais bonita no computador',
