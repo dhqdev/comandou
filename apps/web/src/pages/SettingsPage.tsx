@@ -1,11 +1,12 @@
 import { CHANNEL_LABELS, ORDER_CHANNELS, type OrderChannel } from '@comandou/shared';
-import { Plus } from 'lucide-react';
+import { ChevronRight, Plus, Smartphone } from 'lucide-react';
+import { Link } from 'react-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, EmptyState, TextField, useToast } from '../design-system';
 import { useCan } from '../app/auth';
-import { StoreSettingsCard } from '../features/StoreSettingsCard';
 import { api } from '../lib/api';
 import type { CashRegister, DiningTable, Sector } from '../lib/types';
+import './online-store.css';
 
 export function SettingsPage() {
   const toast = useToast();
@@ -49,11 +50,20 @@ export function SettingsPage() {
     <>
       <div>
         <h1 className="page-title">Ajustes</h1>
-        <p className="page-sub">Loja online, setores de produção, mesas e terminais de caixa.</p>
+        <p className="page-sub">Setores de produção, mesas e terminais de caixa.</p>
       </div>
       {!canManage && <Alert tone="info">Somente gerentes alteram estes cadastros.</Alert>}
       {error && <Alert tone="danger">{error}</Alert>}
-      <StoreSettingsCard canManage={canManage} />
+      <Card title="Loja online">
+        <Link to="/loja-online" className="settings-link">
+          <Smartphone size={20} aria-hidden />
+          <span>
+            <strong>Cardápio online, banners, destaques e horários</strong>
+            <small>Agora tudo da loja online fica numa página só, com prévia do celular.</small>
+          </span>
+          <ChevronRight size={18} aria-hidden />
+        </Link>
+      </Card>
       <Card title="Setores de produção (cozinha)">
         <SectorForm
           disabled={!canManage}

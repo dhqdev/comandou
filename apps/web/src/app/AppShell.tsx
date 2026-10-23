@@ -18,6 +18,7 @@ import {
   Settings,
   SlidersHorizontal,
   Sparkles,
+  Smartphone,
   Store,
   Truck,
   Users,
@@ -83,7 +84,13 @@ const GROUPS: { key: string; label: string; icon: ReactNode; items: NavItem[] }[
     label: 'Gestão',
     icon: <Briefcase />,
     items: [
-      { to: '/clientes', label: 'Clientes', icon: <Users />, soon: true },
+      {
+        to: '/loja-online',
+        label: 'Loja online',
+        icon: <Smartphone />,
+        perms: ['settings:manage'],
+      },
+      { to: '/clientes', label: 'Clientes', icon: <Users />, perms: ['customers:read'] },
       { to: '/estoque', label: 'Estoque', icon: <Boxes />, perms: ['stock:read'] },
       { to: '/financeiro', label: 'Financeiro', icon: <Receipt />, perms: ['finance:read'] },
       { to: '/relatorios', label: 'Relatórios', icon: <BarChart3 />, perms: ['reports:read'] },

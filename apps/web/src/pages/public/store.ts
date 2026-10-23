@@ -9,6 +9,8 @@ export interface PublicProduct {
   price: string;
   soldOut: boolean;
   imageUrl: string | null;
+  featured: boolean;
+  badge: string | null;
   optionGroups: MenuGroup[];
 }
 export interface PublicCategory {
@@ -36,7 +38,58 @@ export interface PublicMenu {
     etaMin: number;
     etaMax: number;
   };
+  appearance: {
+    theme: 'auto' | 'light' | 'dark';
+    headline: string | null;
+    featuredTitle: string | null;
+    accountsEnabled: boolean;
+  };
+  banners: PublicBanner[];
+  /** Ids dos produtos que mais saíram nos últimos 30 dias. */
+  popular: string[];
   categories: PublicCategory[];
+}
+export interface PublicBanner {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  tag: string | null;
+  cta: string | null;
+  imageUrl: string | null;
+  targetType: 'none' | 'product' | 'category';
+  targetId: string | null;
+}
+
+export interface CustomerAccount {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  marketingOptIn: boolean;
+  createdAt: string;
+}
+export interface SavedAddress {
+  id: string;
+  label: string | null;
+  street: string;
+  number: string;
+  district: string;
+  complement: string | null;
+  reference: string | null;
+  isDefault: boolean;
+}
+export interface AccountState {
+  customer: CustomerAccount | null;
+  addresses: SavedAddress[];
+}
+export interface AccountOrder {
+  id: string;
+  number: number;
+  step: 'awaiting' | 'accepted' | 'ready' | 'dispatched' | 'completed' | 'cancelled';
+  channel: 'delivery' | 'pickup';
+  total: string;
+  createdAt: string;
+  items: { name: string; quantity: number }[];
 }
 
 export interface CartLine {
@@ -139,6 +192,21 @@ export function maskPhone(v: string) {
   if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
   return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
 }
+
+/** (11) 98888-7777 a partir dos dígitos. */
+export const fmtPhone = (digits: string) => maskPhone(digits);
+
+export const addressLine = (a: Pick<SavedAddress, 'street' | 'number' | 'district'>) =>
+  `${a.street}, ${a.number} · ${a.district}`;
+
+export const STEP_LABEL: Record<AccountOrder['step'], string> = {
+  awaiting: 'Em análise',
+  accepted: 'Em preparo',
+  ready: 'Pronto',
+  dispatched: 'Saiu para entrega',
+  completed: 'Concluído',
+  cancelled: 'Cancelado',
+};
 
 export const initials = (name: string) =>
   name

@@ -101,6 +101,9 @@ export const products = pgTable('products', {
   position: integer('position').notNull().default(0),
   /** Foto do produto (tabela media). */
   imageId: uuid('image_id'),
+  /** Destaque no topo do cardápio online e selo curto ("Novo", "Picante"…). */
+  featured: boolean('featured').notNull().default(false),
+  badge: text('badge'),
   /** Dados fiscais (NFC-e). Vazios usam o padrão da configuração fiscal do restaurante. */
   ncm: text('ncm'),
   cfop: text('cfop'),

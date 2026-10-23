@@ -52,6 +52,8 @@ export interface CreateOrderInput {
     autoAccept: boolean;
     paymentHint?: string;
     changeFor?: string;
+    /** Cliente com conta aberta no cardápio (orders.customer_id). */
+    customerId?: string;
   };
   /** Pedido mínimo (sobre o subtotal dos itens), usado pelo cardápio online. */
   minSubtotal?: string;
@@ -336,9 +338,9 @@ export class OrdersService {
       tx,
       `INSERT INTO orders (tenant_id, number, channel, status, tab_id, customer_name, customer_phone, delivery_address,
                            notes, subtotal, discount, surcharge, delivery_fee, total, created_by,
-                           source, public_token_hash, payment_hint, change_for, accepted_at)
+                           source, public_token_hash, payment_hint, change_for, accepted_at, customer_id)
        VALUES ($1,$2,$3,$15,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$16,$17,$18,$19,
-               CASE WHEN $15 = 'new' AND $16 = 'online' THEN now() END) RETURNING id`,
+               CASE WHEN $15 = 'new' AND $16 = 'online' THEN now() END, $20) RETURNING id`,
       [
         ctx.tenantId,
         number,
@@ -359,6 +361,7 @@ export class OrdersService {
         online?.tokenHash ?? null,
         online?.paymentHint ?? null,
         online?.changeFor ?? null,
+        online?.customerId ?? null,
       ],
     );
     for (const l of lines) {

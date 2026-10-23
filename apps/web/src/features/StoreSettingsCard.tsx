@@ -4,11 +4,10 @@ import { Alert, Button, Card, TextField, useToast } from '../design-system';
 import { api } from '../lib/api';
 import { parseBrlInput } from '../lib/money';
 import type { StoreSettings } from '../lib/types';
-import { ImagePicker } from './ImagePicker';
 
 const money = (v: string) => v.replace('.', ',');
 
-/** Ajustes da loja online: link, capa, logo, taxa, pedido mínimo, tempo e aceite automático. */
+/** Funcionamento da loja online: link, aberta/fechada, taxa, pedido mínimo, tempo e aceite automático. */
 export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
   const toast = useToast();
   const [s, setS] = useState<StoreSettings | null>(null);
@@ -17,7 +16,6 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
     minOrder: '',
     etaMin: '',
     etaMax: '',
-    about: '',
     address: '',
     whatsapp: '',
   });
@@ -31,7 +29,6 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
       minOrder: money(x.minOrder),
       etaMin: String(x.etaMin),
       etaMax: String(x.etaMax),
-      about: x.about ?? '',
       address: x.address ?? '',
       whatsapp: x.whatsapp ?? '',
     });
@@ -64,7 +61,7 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
 
   return (
     <Card
-      title="Loja online (cardápio para o cliente pedir)"
+      title="Funcionamento"
       actions={
         <div style={{ display: 'flex', gap: 8 }}>
           <Button
@@ -89,29 +86,6 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
         <p className="cm-hint" style={{ margin: 0 }}>
           Link para divulgar no Instagram e no WhatsApp: <strong>{link}</strong>
         </p>
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <div style={{ display: 'grid', gap: 6 }}>
-            <span className="cm-label">Capa (formato largo)</span>
-            <ImagePicker
-              label="Capa"
-              ratio="16 / 6"
-              width={260}
-              value={s.coverImageId}
-              disabled={!canManage || busy}
-              onChange={(id) => save({ coverImageId: id }, id ? 'Capa salva' : 'Capa removida')}
-            />
-          </div>
-          <div style={{ display: 'grid', gap: 6 }}>
-            <span className="cm-label">Logo</span>
-            <ImagePicker
-              label="Logo"
-              width={98}
-              value={s.logoImageId}
-              disabled={!canManage || busy}
-              onChange={(id) => save({ logoImageId: id }, id ? 'Logo salvo' : 'Logo removido')}
-            />
-          </div>
-        </div>
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
           {(
             [
@@ -142,7 +116,6 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
               minOrder: min,
               etaMin: Number(form.etaMin),
               etaMax: Number(form.etaMax),
-              about: form.about.trim() || null,
               address: form.address.trim() || null,
               whatsapp: form.whatsapp.trim() || null,
             });
@@ -202,15 +175,6 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
             maxLength={300}
             disabled={!canManage}
           />
-          <div style={{ gridColumn: '1 / -1' }}>
-            <TextField
-              label="Sobre a loja (aparece no topo do cardápio)"
-              value={form.about}
-              onChange={set('about')}
-              maxLength={500}
-              disabled={!canManage}
-            />
-          </div>
           {canManage && (
             <div>
               <Button type="submit" loading={busy} disabled={!fee || !min}>
