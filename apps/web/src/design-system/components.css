@@ -56,7 +56,7 @@
     0 1px 2px color-mix(in srgb, var(--cm-brand-800) 30%, transparent);
 }
 .cm-btn--primary:hover:not(:disabled) {
-  background: var(--cm-brand-700);
+  background: var(--cm-brand-500);
 }
 .cm-btn--secondary {
   background: var(--cm-surface);
@@ -287,7 +287,7 @@ input[type='radio'] {
   place-items: center;
   border-radius: var(--cm-radius-md);
   background: var(--cm-brand-50);
-  color: var(--cm-brand-600);
+  color: var(--cm-brand-700);
 }
 .cm-empty__title {
   margin: 0;
@@ -356,6 +356,58 @@ input[type='radio'] {
 .cm-num {
   text-align: right;
   font-variant-numeric: tabular-nums;
+}
+/* Celular: cada linha vira um cartão "rótulo: valor" (rótulos vêm do cabeçalho, ver
+   useTableLabels no AppFrame). Nada de tabela rolando para o lado. */
+@media (max-width: 640px) {
+  .cm-table thead {
+    display: none;
+  }
+  .cm-table,
+  .cm-table tbody,
+  .cm-table tr,
+  .cm-table td {
+    display: block;
+    width: 100%;
+  }
+  .cm-table tbody tr {
+    padding: 12px var(--cm-space-4);
+    border-bottom: 1px solid var(--cm-border);
+  }
+  .cm-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .cm-table td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--cm-space-3);
+    padding: 3px 0;
+    border: 0;
+    text-align: right;
+    min-height: 0;
+  }
+  .cm-table td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    color: var(--cm-text-subtle);
+    font-size: var(--cm-text-xs);
+    text-align: left;
+  }
+  .cm-table td:first-child {
+    justify-content: flex-start;
+    text-align: left;
+    font-weight: 650;
+    font-size: var(--cm-text-md);
+    padding-bottom: 6px;
+  }
+  .cm-table td:first-child::before,
+  .cm-table td[data-label='']::before {
+    display: none;
+  }
+  .cm-table td:not(:first-child)[data-label=''] {
+    justify-content: flex-end;
+  }
 }
 
 /* =============================================================== Modal */
@@ -703,7 +755,7 @@ input[type='radio'] {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--cm-brand-600);
+  color: var(--cm-brand-700);
   margin: 0 0 4px;
 }
 .cm-page-head__title {
@@ -727,7 +779,10 @@ input[type='radio'] {
 /* =============================================================== Mascote */
 .cm-mascot {
   display: inline-block;
-  color: var(--cm-brand-600);
+  color: var(--cm-brand-700);
+}
+.cm-mascot--badge {
+  --cm-mascot-rim: none;
 }
 .cm-mascot--bob {
   animation: cm-bob 2.6s ease-in-out infinite;
@@ -766,6 +821,6 @@ input[type='radio'] {
   line-height: 1;
 }
 .cm-logo__word b {
-  color: var(--cm-brand-600);
+  color: var(--cm-brand-700);
   font-weight: inherit;
 }

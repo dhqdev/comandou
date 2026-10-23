@@ -13,8 +13,8 @@
   --a-text: #f1ece7;
   --a-muted: #b0a69c;
   --a-subtle: #7d746b;
-  --a-accent: #f26a3d;
-  --a-accent-ink: #1a0b05;
+  --a-accent: #f0921f;
+  --a-accent-ink: #1a1007;
   --a-ok: #5ad68a;
   --a-warn: #f2b544;
   --a-bad: #f2706b;
@@ -58,6 +58,54 @@
   --cm-shadow-md: none;
   --cm-shadow-lg: 0 -8px 40px rgb(0 0 0 / 55%);
   --cm-focus: 0 0 0 2px color-mix(in srgb, var(--a-accent) 60%, transparent);
+  --cm-frame: #090807;
+  --cm-frame-line: var(--a-line);
+  --cm-sidebar-text: var(--a-muted);
+  --cm-sidebar-text-strong: var(--a-text);
+  --cm-sidebar-active: var(--a-panel-2);
+  --cm-mascot-rim: #6b625a;
+}
+/* Tema claro do painel (botão sol/lua): mesmos componentes, cores de papel. */
+:root[data-app='admin'][data-theme='light'] {
+  color-scheme: light;
+  --a-bg: #f6f4f1;
+  --a-panel: #ffffff;
+  --a-panel-2: #faf8f6;
+  --a-line: #e8e3de;
+  --a-line-strong: #d6cfc8;
+  --a-text: #1a1613;
+  --a-muted: #5f574f;
+  --a-subtle: #857c73;
+  --a-accent: #c26a00;
+  --a-accent-ink: #1a1007;
+  --a-ok: #1f8a4c;
+  --a-warn: #b86e00;
+  --a-bad: #d0312d;
+  --a-info: #2463d1;
+  --cm-brand-500: #ea8a0b;
+  --cm-brand-600: #db7a06;
+  --cm-brand-700: #a65800;
+  --cm-brand-800: #8a4200;
+  --cm-brand-50: #fff7ed;
+  --cm-brand-100: #ffedd5;
+  --cm-link: #a65800;
+  --cm-surface-sunken: #efece8;
+  --cm-glass-bg: rgb(255 255 255 / 72%);
+  --cm-glass-border: rgb(26 22 19 / 8%);
+  --cm-glass-highlight: inset 0 1px 0 rgb(255 255 255 / 90%);
+  --cm-success-bg: #edf7ef;
+  --cm-warning-bg: #fff6e0;
+  --cm-danger-bg: #fdefee;
+  --cm-info-bg: #eef3fd;
+  --cm-shadow-sm: 0 1px 2px rgb(26 22 19 / 5%);
+  --cm-shadow-md: 0 1px 2px rgb(26 22 19 / 4%), 0 6px 20px -6px rgb(26 22 19 / 12%);
+  --cm-shadow-lg: 0 2px 6px rgb(26 22 19 / 6%), 0 24px 64px -12px rgb(26 22 19 / 28%);
+  --cm-frame: #ffffff;
+  --cm-frame-line: var(--a-line);
+  --cm-mascot-rim: none;
+}
+:root[data-app='admin'][data-theme='light'] .cm-modal::backdrop {
+  background: rgb(18 15 13 / 42%);
 }
 :root[data-app='admin'] body {
   background: var(--a-bg);
@@ -73,22 +121,10 @@
   background: var(--a-bg);
 }
 
-/* ---------------------------------------------------------------- estrutura */
-.adm {
-  min-height: 100%;
-  display: grid;
-  grid-template-columns: 232px 1fr;
-}
-.adm-rail {
-  position: sticky;
-  top: 0;
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 20px 12px;
-  border-right: 1px solid var(--a-line);
-  background: var(--a-bg);
+/* ---------------------------------------------------------------- estrutura (moldura = AppFrame) */
+.adm-frame .cm-frame__content {
+  max-width: 1280px;
+  gap: 28px;
 }
 .adm-logo {
   font-family: var(--a-mono);
@@ -101,54 +137,6 @@
 }
 .adm-logo span {
   color: var(--a-subtle);
-}
-.adm-nav {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 10px;
-  border-radius: 4px;
-  color: var(--a-muted);
-  text-decoration: none;
-  font-size: 14px;
-  border: 0;
-  background: none;
-  cursor: pointer;
-  text-align: left;
-}
-.adm-nav:hover {
-  color: var(--a-text);
-  background: var(--a-panel);
-}
-.adm-nav.active {
-  color: var(--a-text);
-  background: var(--a-panel-2);
-  box-shadow: inset 2px 0 0 var(--a-accent);
-}
-.adm-rail__foot {
-  margin-top: auto;
-  padding: 10px;
-  font-size: 12px;
-  color: var(--a-subtle);
-  font-family: var(--a-mono);
-  line-height: 1.6;
-}
-.adm-main {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-.adm-top {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: calc(env(safe-area-inset-top) + 14px) 24px 14px;
-  background: color-mix(in srgb, var(--a-bg) 92%, transparent);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--a-line);
 }
 .adm-top__title {
   font-family: var(--a-mono);
@@ -182,19 +170,6 @@
 .adm-icon-btn[aria-busy='true'] svg {
   animation: adm-spin 0.8s linear infinite;
 }
-.adm-content {
-  padding: 24px;
-  display: grid;
-  /* minmax(0, …): tabela larga rola dentro do cartão, não empurra a página para os lados. */
-  grid-template-columns: minmax(0, 1fr);
-  gap: 28px;
-  max-width: 1280px;
-  width: 100%;
-}
-.adm-tabbar {
-  display: none;
-}
-
 /* ---------------------------------------------------------------- blocos */
 .adm-section {
   display: grid;
@@ -691,20 +666,6 @@ a.adm-row:hover {
 
 /* ---------------------------------------------------------------- celular */
 @media (max-width: 860px) {
-  .adm {
-    grid-template-columns: 1fr;
-  }
-  .adm-rail {
-    display: none;
-  }
-  .adm-top {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-  .adm-content {
-    padding: 18px 16px calc(96px + env(safe-area-inset-bottom));
-    gap: 24px;
-  }
   .adm-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
@@ -715,38 +676,6 @@ a.adm-row:hover {
   .adm-value {
     font-size: 24px;
   }
-  .adm-tabbar {
-    position: fixed;
-    inset: auto 0 0 0;
-    z-index: 10;
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
-    background: var(--a-panel);
-    border-top: 1px solid var(--a-line);
-  }
-  .adm-tabbar a,
-  .adm-tabbar button {
-    display: grid;
-    justify-items: center;
-    gap: 4px;
-    padding: 8px 0 4px;
-    border: 0;
-    background: none;
-    color: var(--a-subtle);
-    font-family: var(--a-mono);
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    text-decoration: none;
-    cursor: pointer;
-    box-shadow: inset 0 2px 0 transparent;
-  }
-  .adm-tabbar .active {
-    color: var(--a-accent);
-    box-shadow: inset 0 2px 0 var(--a-accent);
-  }
-
   /* No celular, todo modal vira uma folha que sobe de baixo. */
   :root[data-app='admin'] .cm-modal,
   :root[data-app='admin'] .cm-modal--lg,
@@ -781,19 +710,7 @@ a.adm-row:hover {
   }
 }
 
-/* Indicador deslizante do padrão Comandou (menu lateral e abas internas). */
-.adm-rail__nav {
-  display: grid;
-  gap: 2px;
-}
-.adm-rail__nav .adm-nav.active {
-  background: transparent;
-  box-shadow: none;
-}
-.adm-rail__nav .cm-glider {
-  border-radius: 4px;
-  box-shadow: inset 2px 0 0 var(--a-accent);
-}
+/* Indicador deslizante do padrão Comandou nas abas internas. */
 .adm-tabs.cm-glide button[aria-selected='true'] {
   box-shadow: none;
 }
@@ -811,4 +728,15 @@ a.adm-row:hover {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.adm-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--a-accent);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }

@@ -3,8 +3,8 @@ import {
   Building2,
   DatabaseBackup,
   Download,
+  CircleUserRound,
   LogOut,
-  Menu,
   RefreshCw,
   ScrollText,
   Server,
@@ -19,16 +19,18 @@ import {
   useEffect,
   useState,
 } from 'react';
-import { BrowserRouter, NavLink, Outlet, Route, Routes, useLocation } from 'react-router';
+import { BrowserRouter, Outlet, Route, Routes, useLocation } from 'react-router';
 import {
   Alert,
+  AppFrame,
   Button,
+  FrameItem,
   Mascot,
   Modal,
   Spinner,
   TextField,
+  ThemeToggle,
   ToastProvider,
-  useGlider,
   useToast,
 } from '../design-system';
 import { api, ApiError } from '../lib/api';
@@ -96,6 +98,16 @@ function PlatformLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
+  /** Navegador confiável: já entrou com o código antes, então o campo some. */
+  const [trusted, setTrusted] = useState(false);
+  useEffect(() => {
+    api<{ trusted: boolean; email?: string }>('/platform/auth/device')
+      .then((d) => {
+        setTrusted(d.trusted);
+        if (d.email) setEmail((e) => e || d.email!);
+      })
+      .catch(() => undefined);
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -104,11 +116,15 @@ function PlatformLogin() {
     setError(null);
     setBusy(true);
     try {
-      await login(email, password, code);
+      await login(email, password, trusted ? '' : code);
     } catch (err) {
       if (err instanceof ApiError && err.status === 429)
         setError('Muitas tentativas. Aguarde um minuto.');
-      else if (err instanceof ApiError && err.status === 401)
+      else if (err instanceof ApiError && err.status === 401 && trusted) {
+        // A confiança pode ter sido revogada: volta a pedir o código.
+        setTrusted(false);
+        setError('E-mail ou senha inválidos, ou este navegador precisa do código de novo.');
+      } else if (err instanceof ApiError && err.status === 401)
         setError('E-mail, senha ou código inválidos.');
       else setError((err as Error).message);
       setCode('');
@@ -126,7 +142,7 @@ function PlatformLogin() {
         style={{ width: 'min(400px, 100%)', padding: 24, display: 'grid', gap: 14 }}
       >
         <div className="adm-logo" style={{ padding: 0 }}>
-          <Mascot size={22} /> Comandou <span>//</span> admin
+          <Mascot size={22} badge /> Comandou <span>//</span> admin
         </div>
         <div className="adm-sub" style={{ whiteSpace: 'normal', marginTop: -8 }}>
           Acesso restrito à equipe da plataforma. Tudo é auditado.
@@ -145,22 +161,31 @@ function PlatformLogin() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <TextField
-          label="Código do autenticador"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={6}
-          value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-          hint="6 dígitos do aplicativo autenticador"
-        />
+        {trusted ? (
+          <div className="adm-sub" style={{ whiteSpace: 'normal' }}>
+            Navegador confiável: o código do autenticador não é pedido aqui.{' '}
+            <button type="button" className="adm-link" onClick={() => setTrusted(false)}>
+              Usar código
+            </button>
+          </div>
+        ) : (
+          <TextField
+            label="Código do autenticador"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+            hint="6 dígitos do aplicativo autenticador. Depois disso, este navegador fica lembrado."
+          />
+        )}
         {error && <Alert tone="danger">{error}</Alert>}
         <Button
           type="submit"
           size="lg"
           block
           loading={busy}
-          disabled={!email || !password || code.length !== 6}
+          disabled={!email || !password || (!trusted && code.length !== 6)}
         >
           Entrar
         </Button>
@@ -171,13 +196,14 @@ function PlatformLogin() {
 
 const NAV = [
   { to: '/', label: 'Status', icon: Activity },
-  { to: '/restaurantes', label: 'Restaurantes', icon: Building2 },
+  { to: '/restaurantes', label: 'Restaurantes', short: 'Clientes', icon: Building2 },
   { to: '/servidor', label: 'Servidor', icon: Server },
   { to: '/planos', label: 'Planos', icon: Tags },
   { to: '/backups', label: 'Backups', icon: DatabaseBackup },
   { to: '/auditoria', label: 'Auditoria', icon: ScrollText },
 ];
-const TABBAR = NAV.slice(0, 4);
+/** Abas do celular; o resto fica em "Mais". */
+const TABS = ['/', '/restaurantes', '/servidor', '/planos'];
 
 function titleFor(path: string) {
   if (path === '/') return 'Status';
@@ -214,14 +240,10 @@ function PlatformShell() {
   const { admin, logout } = usePlatformAuth();
   const toast = useToast();
   const { pathname } = useLocation();
-  const [more, setMore] = useState(false);
   const [install, setInstall] = useState(false);
   const [tick, setTick] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const standalone = isStandalone();
-  const railGlide = useGlider<HTMLDivElement>();
-
-  useEffect(() => setMore(false), [pathname]);
 
   const refresh = () => {
     setTick((t) => t + 1);
@@ -233,116 +255,72 @@ function PlatformShell() {
     else toast('Instalando…', 'success');
   };
 
-  return (
-    <div className="adm">
-      <aside className="adm-rail" aria-label="Navegação">
-        <div className="adm-logo">
-          <Mascot size={22} /> Comandou <span>//</span> admin
+  const items: FrameItem[] = NAV.map(({ to, label, short, icon: Icon }) => ({
+    key: to,
+    to,
+    label,
+    short,
+    icon: <Icon />,
+  }));
+  const account = (
+    <div className="account">
+      <div className="account__who">
+        <div className="account__avatar" aria-hidden>
+          {(admin?.name ?? '?').slice(0, 1).toUpperCase()}
         </div>
-        <div className="adm-rail__nav cm-glide" ref={railGlide.ref}>
-          {NAV.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              className={({ isActive }) => `adm-nav ${isActive ? 'active' : ''}`}
-            >
-              <Icon size={16} /> {label}
-            </NavLink>
-          ))}
-          {railGlide.glider}
+        <div>
+          <div className="account__name">{admin?.name}</div>
+          <div className="account__sub">{admin?.email}</div>
         </div>
-        <div className="adm-rail__foot">
-          {!standalone && (
-            <button className="adm-nav" style={{ padding: '6px 0' }} onClick={doInstall}>
-              <Download size={14} /> Instalar app
-            </button>
-          )}
-          <button className="adm-nav" style={{ padding: '6px 0' }} onClick={logout}>
-            <LogOut size={14} /> Sair
-          </button>
-          <div>{admin?.name}</div>
-          <div>{admin?.email}</div>
-        </div>
-      </aside>
-      <div className="adm-main">
-        <header className="adm-top">
-          <div>
-            <div className="adm-top__title">{titleFor(pathname)}</div>
-            <div className="adm-top__sub">{window.location.hostname}</div>
-          </div>
-          <span className="adm-top__spacer" />
-          <button
-            className="adm-icon-btn"
-            onClick={refresh}
-            aria-label="Atualizar"
-            aria-busy={spinning}
-          >
-            <RefreshCw size={16} />
-          </button>
-        </header>
-        <main className="adm-content">
-          <Outlet key={tick} />
-        </main>
       </div>
-      <nav className="adm-tabbar" aria-label="Navegação">
-        {TABBAR.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/'}
-            className={({ isActive }) => (isActive ? 'active' : '')}
-          >
-            <Icon size={20} />
-            {label === 'Restaurantes' ? 'Clientes' : label}
-          </NavLink>
-        ))}
-        <button className={more ? 'active' : ''} onClick={() => setMore(true)}>
-          <Menu size={20} />
-          Mais
+      <div className="account__row">
+        <span>Tema</span>
+        <ThemeToggle />
+      </div>
+      {!standalone && (
+        <button type="button" className="account__action" onClick={doInstall}>
+          <Download size={18} /> Instalar app
         </button>
-      </nav>
-      <Modal open={more} title="Menu" onClose={() => setMore(false)}>
-        <div className="adm-grid" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
-          {NAV.slice(4).map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className="adm-tile"
-              style={{ justifyItems: 'center', textDecoration: 'none' }}
-            >
-              <Icon size={22} color="var(--a-accent)" />
-              <span className="adm-label">{label}</span>
-            </NavLink>
-          ))}
-          {!standalone && (
-            <button className="adm-tile" style={{ justifyItems: 'center' }} onClick={doInstall}>
-              <Download size={22} color="var(--a-accent)" />
-              <span className="adm-label">Instalar</span>
-            </button>
-          )}
-          <button
-            className="adm-tile"
-            style={{ justifyItems: 'center' }}
-            onClick={() => {
-              setMore(false);
-              refresh();
-            }}
-          >
-            <RefreshCw size={22} color="var(--a-accent)" />
-            <span className="adm-label">Atualizar</span>
-          </button>
-          <button className="adm-tile" style={{ justifyItems: 'center' }} onClick={logout}>
-            <LogOut size={22} color="var(--a-bad)" />
-            <span className="adm-label">Sair</span>
-          </button>
-        </div>
-        <p className="adm-sub" style={{ textAlign: 'center', marginBottom: 0 }}>
-          {admin?.name} · {admin?.email}
-        </p>
-      </Modal>
-      {install && <InstallSheet onClose={() => setInstall(false)} />}
+      )}
+      <button type="button" className="account__action" onClick={logout}>
+        <LogOut size={18} /> Sair
+      </button>
     </div>
+  );
+
+  return (
+    <>
+      <AppFrame
+        className="adm-frame"
+        brand={<Mascot size={40} badge title="Comandou Admin" />}
+        brandCompact={<Mascot size={28} badge title="Comandou Admin" />}
+        items={items}
+        footer={[{ key: 'conta', label: 'Conta', icon: <CircleUserRound />, panel: account }]}
+        tabs={TABS}
+        contentKey={`${pathname}:${tick}`}
+        top={
+          <>
+            <div style={{ minWidth: 0 }}>
+              <div className="adm-top__title">{titleFor(pathname)}</div>
+              <div className="adm-top__sub">{window.location.hostname}</div>
+            </div>
+            <span className="adm-top__spacer" />
+            <button
+              className="adm-icon-btn"
+              onClick={refresh}
+              aria-label="Atualizar"
+              aria-busy={spinning}
+            >
+              <RefreshCw size={16} />
+            </button>
+            <ThemeToggle />
+          </>
+        }
+      >
+        <Outlet key={tick} />
+      </AppFrame>
+      {install && <InstallSheet onClose={() => setInstall(false)} />}
+    </>
   );
 }
 

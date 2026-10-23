@@ -1,4 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
+import { nav } from './nav';
 
 /**
  * Fluxo da Etapa 4 no navegador: equipe → estoque com ficha técnica → delivery com
@@ -14,12 +15,6 @@ async function login(page: Page) {
   await page.getByLabel('Senha').fill(PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page.getByText(/Olá, /)).toBeVisible();
-}
-
-async function nav(page: Page, name: string | RegExp) {
-  const isMobile = (page.viewportSize()?.width ?? 1200) < 1024;
-  if (isMobile) await page.getByRole('button', { name: 'Abrir menu' }).click();
-  await page.getByRole('link', { name, exact: typeof name === 'string' }).click();
 }
 
 /** Chamada direta à API com a sessão do navegador (para preparar dados). */

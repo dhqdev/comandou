@@ -1,4 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
+import { nav } from './nav';
 
 /**
  * Fluxo da Etapa 5 no navegador, sem contas reais de Focus NFe ou WhatsApp:
@@ -15,12 +16,6 @@ async function login(page: Page) {
   await page.getByLabel('Senha').fill(PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page.getByText(/Olá, /)).toBeVisible();
-}
-
-async function nav(page: Page, name: string | RegExp) {
-  const isMobile = (page.viewportSize()?.width ?? 1200) < 1024;
-  if (isMobile) await page.getByRole('button', { name: 'Abrir menu' }).click();
-  await page.getByRole('link', { name, exact: typeof name === 'string' }).click();
 }
 
 async function api<T>(

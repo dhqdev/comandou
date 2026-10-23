@@ -805,7 +805,7 @@ export function PublicStorePage() {
         <footer className="store-foot">
           {r.address && <p>{r.address}</p>}
           <p className="store-foot__brand">
-            <Mascot size={20} /> Pedidos online por <strong>Comandou</strong>
+            <Mascot size={20} badge /> Pedidos online por <strong>Comandou</strong>
           </p>
         </footer>
       </div>

@@ -40,6 +40,9 @@ let app: INestApplication;
 let http: ReturnType<typeof request>;
 let fx: Fixture;
 let adminCookie = '';
+let trustedLogin: () => request.Test = () => {
+  throw new Error('sem navegador confiável');
+};
 const txt = new Map<string, string[]>();
 
 // Agente do servidor falso (o HTTP e a autenticação são os reais; só as leituras são fixas).
@@ -263,8 +266,33 @@ describe('Login do Super Admin', () => {
     await tget(HOST_A, adminCookie, '/auth/me').expect(401);
   });
 
-  it('logout revoga a sessão no servidor', async () => {
+  it('navegador confiável: depois do código, entra só com a senha; sem o cookie, pede código', async () => {
     const r = await adminLogin(totpCode(SECRET, totpStep() + 1)).expect(200);
+    const raw = r.headers['set-cookie'] as unknown as string[];
+    const d = raw.find((x) => x.startsWith('cm_admin_device='))!;
+    expect(d).toMatch(/Path=\/api\/v1\/platform/);
+    expect(d).toMatch(/HttpOnly/);
+    const device = d.split(';')[0];
+    const noCode = (cookie?: string, password = ADMIN_PASSWORD) => {
+      const req = http.post('/api/v1/platform/auth/login').set('Host', ADMIN_HOST).set(CSRF);
+      if (cookie) req.set('Cookie', cookie);
+      return req.send({ email: ADMIN_EMAIL, password, code: '' });
+    };
+    const info = await http
+      .get('/api/v1/platform/auth/device')
+      .set('Host', ADMIN_HOST)
+      .set('Cookie', device)
+      .expect(200);
+    expect(info.body).toEqual({ trusted: true, email: ADMIN_EMAIL });
+    await noCode(device).expect(200);
+    await noCode(device, 'senha-errada-000').expect(401);
+    await noCode().expect(401);
+    await noCode('cm_admin_device=inventado').expect(401);
+    trustedLogin = () => noCode(device);
+  });
+
+  it('logout revoga a sessão no servidor (o navegador continua confiável)', async () => {
+    const r = await trustedLogin().expect(200);
     const cookie = (r.headers['set-cookie'] as unknown as string[])
       .find((x) => x.startsWith('cm_admin='))!
       .split(';')[0];
@@ -275,6 +303,11 @@ describe('Login do Super Admin', () => {
       .set('Cookie', cookie)
       .expect(204);
     await pget('/auth/me', cookie).expect(401);
+  });
+
+  it('confiança do navegador pode ser revogada (ex.: reset do 2º fator)', async () => {
+    await ownerQuery(`UPDATE platform_trusted_devices SET revoked_at = now()`);
+    await trustedLogin().expect(401);
   });
 });
 

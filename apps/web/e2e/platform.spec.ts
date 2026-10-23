@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { expect, Page, test } from '@playwright/test';
+import { account, nav } from './nav';
 
 /**
  * Etapa 6 no navegador: painel Super Admin (admin.<base>) com senha + código do autenticador,
@@ -64,32 +65,6 @@ async function adminLogin(page: Page) {
   throw new Error('não conseguiu entrar no painel');
 }
 
-const isMobileAdmin = (page: Page) => (page.viewportSize()?.width ?? 1200) <= 860;
-const TABBAR: Record<string, string> = {
-  Status: 'Status',
-  Restaurantes: 'Clientes',
-  Servidor: 'Servidor',
-  Planos: 'Planos',
-};
-
-/** Painel: barra lateral no computador; no celular, barra inferior + "Mais" (Backups, Auditoria, Sair). */
-async function adminNav(page: Page, name: string) {
-  if (!isMobileAdmin(page)) return page.getByRole('link', { name, exact: true }).click();
-  if (TABBAR[name])
-    return page
-      .locator('.adm-tabbar')
-      .getByRole('link', { name: TABBAR[name], exact: true })
-      .click();
-  await page.getByRole('button', { name: 'Mais' }).click();
-  await page.getByRole('dialog').getByRole('link', { name, exact: true }).click();
-}
-
-async function nav(page: Page, name: string) {
-  if ((page.viewportSize()?.width ?? 1200) < 1024)
-    await page.getByRole('button', { name: 'Abrir menu' }).click();
-  await page.getByRole('link', { name, exact: true }).click();
-}
-
 const shot = (page: Page, project: string, name: string) =>
   page.screenshot({ path: `test-results/screens/${project}-${name}.png`, fullPage: true });
 
@@ -113,7 +88,7 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await shot(page, info.project.name, 'admin-visao-geral');
 
   // Plano novo
-  await adminNav(page, 'Planos');
+  await nav(page, 'Planos');
   await page.getByRole('button', { name: 'Novo plano' }).click();
   let dialog = page.getByRole('dialog');
   await dialog.getByLabel('Código').fill(`e2e-${tag}`);
@@ -128,7 +103,7 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await expect(row).toContainText('Domínio próprio');
 
   // Restaurante novo com esse plano
-  await adminNav(page, 'Restaurantes');
+  await nav(page, 'Restaurantes');
   await page.getByRole('button', { name: 'Novo', exact: true }).click();
   dialog = page.getByRole('dialog');
   await dialog.getByLabel('Nome do restaurante').fill(`Cantina ${tag}`);
@@ -174,15 +149,15 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await expect(page.getByRole('button', { name: 'Suspender' })).toBeVisible();
 
   // Ranking de consumo na tela do servidor (aparece mesmo sem o agente)
-  await adminNav(page, 'Servidor');
+  await nav(page, 'Servidor');
   await expect(page.getByText('Consumo por restaurante')).toBeVisible();
   await expect(page.getByRole('link', { name: new RegExp(`Cantina ${tag}`) })).toBeVisible();
 
   // Auditoria
-  await adminNav(page, 'Auditoria');
+  await nav(page, 'Auditoria');
   await expect(page.getByText(`Teste E2E ${tag}`)).toBeVisible();
   await expect(page.getByText('Restaurante criado').first()).toBeVisible();
-  await adminNav(page, 'Backups');
+  await nav(page, 'Backups');
   await expect(page.getByRole('heading', { name: 'Backups' })).toBeVisible();
 
   // Nenhuma tela do painel rola na horizontal (celular e computador).
@@ -195,8 +170,10 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
     expect(overflow, path).toBeLessThanOrEqual(0);
   }
 
-  if (isMobileAdmin(page)) await page.getByRole('button', { name: 'Mais' }).click();
-  await page.getByRole('button', { name: 'Sair' }).click();
+  await account(page, 'Sair');
+  // Depois do primeiro login com código, este navegador fica confiável: só senha.
+  await expect(page.getByText(/Navegador confiável/)).toBeVisible();
+  await page.getByRole('button', { name: 'Usar código' }).click();
   await expect(page.getByLabel('Código do autenticador')).toBeVisible();
 });
 

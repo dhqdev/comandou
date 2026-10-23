@@ -35,6 +35,16 @@ body,
 html {
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
+  /* Cara de app: nada de pinça/zoom nem página deslizando para os lados. */
+  touch-action: pan-x pan-y;
+}
+html,
+body {
+  overflow-x: clip;
+  overscroll-behavior: none;
+}
+body {
+  touch-action: manipulation;
 }
 body {
   margin: 0;
@@ -89,10 +99,33 @@ svg {
   outline: none;
   box-shadow: var(--cm-focus);
 }
-/* Barras de rolagem discretas */
+/* Barras de rolagem discretas; no celular e no app instalado elas somem. */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--cm-border-strong) transparent;
+}
+@media (pointer: coarse), (display-mode: standalone) {
+  * {
+    scrollbar-width: none;
+  }
+  *::-webkit-scrollbar {
+    display: none;
+  }
+  /* iOS dá zoom ao focar campo com fonte menor que 16px. */
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+  /* Toque segura o texto dos controles sem abrir seleção/lupa. */
+  button,
+  a,
+  [role='tab'],
+  [role='button'] {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
 }
 .cm-sr-only {
   position: absolute;

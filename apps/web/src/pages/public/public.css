@@ -288,7 +288,7 @@
   height: 30px;
   border-radius: var(--cm-radius-sm);
   background: var(--cm-brand-600);
-  color: #fff;
+  color: var(--cm-on-brand);
 }
 
 /* Foto com proporção fixa */
@@ -350,8 +350,8 @@
   padding: 0 16px 0 10px;
   border: 0;
   border-radius: var(--cm-radius-md);
-  background: var(--cm-brand-700);
-  color: #fff;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
   font-weight: 650;
   font-size: var(--cm-text-md);
   box-shadow: 0 10px 30px color-mix(in srgb, var(--cm-brand-900) 40%, transparent);
@@ -611,8 +611,8 @@
   padding: 0 18px;
   border: 0;
   border-radius: var(--cm-radius-md);
-  background: var(--cm-brand-700);
-  color: #fff;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
   font-weight: 700;
   font-size: var(--cm-text-md);
   cursor: pointer;
@@ -909,7 +909,7 @@
 }
 .step[data-state='current'] .step__dot {
   border-color: var(--cm-brand-600);
-  color: var(--cm-brand-600);
+  color: var(--cm-brand-700);
 }
 .step__label {
   padding-top: 3px;

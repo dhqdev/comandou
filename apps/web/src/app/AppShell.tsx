@@ -1,5 +1,7 @@
 import {
   BarChart3,
+  Briefcase,
+  CircleUserRound,
   BookOpen,
   CreditCard,
   Boxes,
@@ -8,13 +10,13 @@ import {
   LayoutGrid,
   LogOut,
   KeyRound,
-  Menu,
   MessageCircle,
   FileText,
   Printer,
   Receipt,
   UserCog,
   Settings,
+  SlidersHorizontal,
   Sparkles,
   Store,
   Truck,
@@ -24,8 +26,8 @@ import {
 } from 'lucide-react';
 import { ReactNode, useState } from 'react';
 import { CURRENT_RELEASE } from '@comandou/shared';
-import { NavLink, Outlet, useLocation } from 'react-router';
-import { Badge, Button, Logo, useGlider } from '../design-system';
+import { Outlet, useLocation } from 'react-router';
+import { AppFrame, Badge, FrameItem, Logo, Mascot, ThemeToggle } from '../design-system';
 import { useOnline } from '../lib/connectivity';
 import { useRealtimeStatus } from '../lib/realtime';
 import { useHasUnseenRelease } from '../lib/releases';
@@ -43,105 +45,96 @@ interface NavItem {
   perms?: string[];
 }
 
-const NAV: { group: string; items: NavItem[] }[] = [
+/** Operação: cada tela é um ícone na barra. */
+const MAIN: NavItem[] = [
+  { to: '/', label: 'PDV', icon: <Store /> },
+  { to: '/pedidos', label: 'Pedidos', icon: <ClipboardList />, perms: ['orders:read'] },
   {
-    group: 'Operação',
+    to: '/mesas',
+    label: 'Salão',
+    icon: <LayoutGrid />,
+    perms: ['tables:operate', 'payments:create'],
+  },
+  {
+    to: '/cozinha',
+    label: 'Cozinha',
+    icon: <ChefHat />,
+    perms: ['kitchen:operate', 'orders:read'],
+  },
+  {
+    to: '/caixa',
+    label: 'Caixa',
+    icon: <Wallet />,
+    perms: ['cash:operate', 'cash:close', 'reports:read'],
+  },
+  {
+    to: '/entregas',
+    label: 'Entregas',
+    icon: <Truck />,
+    perms: ['delivery:manage', 'delivery:operate'],
+  },
+  { to: '/cardapio', label: 'Cardápio', icon: <BookOpen /> },
+];
+
+/** Gestão e configurações: abrem um submenu que sai da barra (no celular, folha de baixo). */
+const GROUPS: { key: string; label: string; icon: ReactNode; items: NavItem[] }[] = [
+  {
+    key: 'gestao',
+    label: 'Gestão',
+    icon: <Briefcase />,
     items: [
-      { to: '/', label: 'PDV', icon: <Store size={18} /> },
-      {
-        to: '/pedidos',
-        label: 'Pedidos',
-        icon: <ClipboardList size={18} />,
-        perms: ['orders:read'],
-      },
-      {
-        to: '/mesas',
-        label: 'Salão',
-        icon: <LayoutGrid size={18} />,
-        perms: ['tables:operate', 'payments:create'],
-      },
-      {
-        to: '/cozinha',
-        label: 'Cozinha',
-        icon: <ChefHat size={18} />,
-        perms: ['kitchen:operate', 'orders:read'],
-      },
-      {
-        to: '/caixa',
-        label: 'Caixa',
-        icon: <Wallet size={18} />,
-        perms: ['cash:operate', 'cash:close', 'reports:read'],
-      },
-      {
-        to: '/entregas',
-        label: 'Entregas',
-        icon: <Truck size={18} />,
-        perms: ['delivery:manage', 'delivery:operate'],
-      },
+      { to: '/clientes', label: 'Clientes', icon: <Users />, soon: true },
+      { to: '/estoque', label: 'Estoque', icon: <Boxes />, perms: ['stock:read'] },
+      { to: '/financeiro', label: 'Financeiro', icon: <Receipt />, perms: ['finance:read'] },
+      { to: '/relatorios', label: 'Relatórios', icon: <BarChart3 />, perms: ['reports:read'] },
+      { to: '/equipe', label: 'Equipe', icon: <UserCog />, perms: ['users:manage'] },
     ],
   },
   {
-    group: 'Gestão',
+    key: 'sistema',
+    label: 'Sistema',
+    icon: <SlidersHorizontal />,
     items: [
-      { to: '/cardapio', label: 'Cardápio', icon: <BookOpen size={18} /> },
-      { to: '/clientes', label: 'Clientes', icon: <Users size={18} />, soon: true },
-      { to: '/estoque', label: 'Estoque', icon: <Boxes size={18} />, perms: ['stock:read'] },
-      {
-        to: '/financeiro',
-        label: 'Financeiro',
-        icon: <Receipt size={18} />,
-        perms: ['finance:read'],
-      },
-      {
-        to: '/relatorios',
-        label: 'Relatórios',
-        icon: <BarChart3 size={18} />,
-        perms: ['reports:read'],
-      },
-      { to: '/equipe', label: 'Equipe', icon: <UserCog size={18} />, perms: ['users:manage'] },
-      {
-        to: '/impressao',
-        label: 'Impressão',
-        icon: <Printer size={18} />,
-        perms: ['printing:manage'],
-      },
+      { to: '/impressao', label: 'Impressão', icon: <Printer />, perms: ['printing:manage'] },
       {
         to: '/nota-fiscal',
         label: 'Nota fiscal',
-        icon: <FileText size={18} />,
+        icon: <FileText />,
         perms: ['fiscal:emit', 'fiscal:manage'],
       },
       {
         to: '/whatsapp',
         label: 'WhatsApp',
-        icon: <MessageCircle size={18} />,
+        icon: <MessageCircle />,
         perms: ['messaging:manage'],
       },
       {
         to: '/plano',
         label: 'Plano e domínio',
-        icon: <CreditCard size={18} />,
+        icon: <CreditCard />,
         perms: ['plan:read', 'domains:manage'],
       },
       {
         to: '/configuracoes',
         label: 'Ajustes',
-        icon: <Settings size={18} />,
+        icon: <Settings />,
         perms: ['settings:manage', 'orders:read'],
       },
     ],
   },
 ];
 
+/** Abas do celular, na ordem de preferência (as 4 primeiras que o usuário pode ver). */
+const TAB_PREFERENCE = ['/', '/pedidos', '/mesas', '/cozinha', '/caixa', '/cardapio'];
+
 export function AppShell() {
   const { me, logout } = useAuth();
   const online = useOnline();
   const live = useRealtimeStatus();
   const unseen = useHasUnseenRelease();
-  const [menuOpen, setMenuOpen] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const location = useLocation();
-  const nav = useGlider<HTMLDivElement>({ selector: '.nav-link.active' });
+  const can = (item: NavItem) => !item.perms || item.perms.some((p) => me?.permissions.includes(p));
   const initials = (me?.user.name ?? '?')
     .split(' ')
     .map((p) => p[0])
@@ -149,123 +142,115 @@ export function AppShell() {
     .join('')
     .toUpperCase();
 
-  return (
-    <div className="shell" data-menu={menuOpen ? 'open' : 'closed'}>
-      <aside className="sidebar" aria-label="Navegação principal">
-        <div className="brand">
-          <Logo size={30} />
-          <div className="brand__tenant" title={me?.tenant.name}>
-            {me?.tenant.name}
+  const main: FrameItem[] = MAIN.filter(can).map((i) => ({
+    key: i.to,
+    to: i.to,
+    label: i.label,
+    icon: i.icon,
+  }));
+  const groups: FrameItem[] = GROUPS.map((g) => ({
+    key: g.key,
+    label: g.label,
+    icon: g.icon,
+    children: g.items.filter(can).map((i) => ({
+      to: i.to,
+      label: i.label,
+      icon: i.icon,
+      badge: i.soon ? <Badge>em breve</Badge> : undefined,
+    })),
+  })).filter((g) => g.children.length > 0);
+  const tabs = TAB_PREFERENCE.filter((k) => main.some((m) => m.key === k)).slice(0, 4);
+
+  const account = (
+    <div className="account">
+      <div className="account__who">
+        <div className="account__avatar" aria-hidden>
+          {initials}
+        </div>
+        <div>
+          <div className="account__name">{me?.user.name}</div>
+          <div className="account__sub">
+            {me?.user.roleLabel} · {me?.tenant.name}
           </div>
         </div>
-        <div className="sidebar__nav cm-glide" ref={nav.ref}>
-          {NAV.map((g) => (
-            <nav key={g.group} aria-label={g.group}>
-              <div className="nav-group">{g.group}</div>
-              {g.items
-                .filter(
-                  (item) => !item.perms || item.perms.some((p) => me?.permissions.includes(p)),
-                )
-                .map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    end={item.to === '/'}
-                    className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    {item.icon}
-                    {item.label}
-                    {item.soon && <Badge>em breve</Badge>}
-                  </NavLink>
-                ))}
-            </nav>
-          ))}
-          {nav.glider}
-        </div>
-        <div className="sidebar__footer">
-          <NavLink
-            to="/novidades"
-            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-            onClick={() => setMenuOpen(false)}
-          >
-            <Sparkles size={18} />
-            Novidades
-            <Badge tone={unseen ? 'warning' : 'neutral'}>v{CURRENT_RELEASE.version}</Badge>
-          </NavLink>
-          <div className="user-chip">
-            <div className="user-chip__avatar" aria-hidden>
-              {initials}
-            </div>
-            <div className="user-chip__who">
-              <div>{me?.user.name}</div>
-              <div className="brand__tenant">{me?.user.roleLabel}</div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label="Trocar senha"
-              title="Trocar senha"
-              onClick={() => setPwOpen(true)}
-              icon={<KeyRound size={16} />}
-            />
-            <Button
-              variant="ghost"
-              size="sm"
-              aria-label="Sair"
-              title="Sair"
-              onClick={logout}
-              icon={<LogOut size={16} />}
-            />
-          </div>
-        </div>
-      </aside>
-      <div className="scrim" aria-hidden onClick={() => setMenuOpen(false)} />
-      <div className="main">
-        <header className="topbar">
-          <Button
-            variant="ghost"
-            className="menu-toggle"
-            aria-label="Abrir menu"
-            onClick={() => setMenuOpen((v) => !v)}
-            icon={<Menu size={20} />}
-          />
-          <div className="topbar__search">
-            <input
-              className="cm-input"
-              placeholder="Buscar mesa, comanda, pedido ou cliente…"
-              aria-label="Buscar"
-            />
-          </div>
-          <div className="topbar__spacer" />
-          {!online ? (
-            <Badge tone="warning">Sem conexão</Badge>
-          ) : live === 'live' ? (
-            <Badge tone="success">
-              <span className="cm-dot cm-dot--pulse" /> Tempo real
-            </Badge>
-          ) : (
-            <Badge tone="warning">Reconectando…</Badge>
-          )}
-        </header>
-        {me?.support && (
-          <div className="offline-banner support-banner" role="status">
-            Acesso de suporte: {me.support.adminName} entrou como {me.user.name}. Tudo fica
-            registrado. <button onClick={logout}>Encerrar acesso</button>
-          </div>
-        )}
-        {!online && (
-          <div className="offline-banner" role="status">
-            <WifiOff size={14} style={{ verticalAlign: -2 }} /> Você está offline. Pagamentos, caixa
-            e confirmação de pedidos ficam bloqueados até a conexão voltar.
-          </div>
-        )}
-        {/* A chave reinicia a animação de entrada a cada troca de tela. */}
-        <main className="content cm-enter" key={location.pathname}>
-          <Outlet />
-        </main>
-        <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
       </div>
+      <div className="account__row">
+        <span>Tema</span>
+        <ThemeToggle />
+      </div>
+      <button type="button" className="account__action" onClick={() => setPwOpen(true)}>
+        <KeyRound size={18} /> Trocar senha
+      </button>
+      <button type="button" className="account__action" onClick={logout}>
+        <LogOut size={18} /> Sair
+      </button>
     </div>
+  );
+
+  return (
+    <>
+      <AppFrame
+        brand={<Mascot size={40} badge title="Comandou" />}
+        brandCompact={<Logo size={28} />}
+        items={[...main, ...groups]}
+        footer={[
+          {
+            key: 'novidades',
+            to: '/novidades',
+            label: 'Novidades',
+            icon: <Sparkles />,
+            dot: unseen,
+          },
+          { key: 'conta', label: 'Conta', icon: <CircleUserRound />, panel: account },
+        ]}
+        tabs={tabs}
+        contentKey={location.pathname}
+        top={
+          <>
+            <div className="topbar__tenant" title={me?.tenant.name}>
+              {me?.tenant.name}
+              <span className="topbar__version">v{CURRENT_RELEASE.version}</span>
+            </div>
+            <div className="topbar__search">
+              <input
+                className="cm-input"
+                placeholder="Buscar mesa, comanda, pedido ou cliente…"
+                aria-label="Buscar"
+              />
+            </div>
+            <div className="topbar__spacer" />
+            {!online ? (
+              <Badge tone="warning">Sem conexão</Badge>
+            ) : live === 'live' ? (
+              <Badge tone="success">
+                <span className="cm-dot cm-dot--pulse" /> Tempo real
+              </Badge>
+            ) : (
+              <Badge tone="warning">Reconectando…</Badge>
+            )}
+            <ThemeToggle />
+          </>
+        }
+        banners={
+          <>
+            {me?.support && (
+              <div className="offline-banner support-banner" role="status">
+                Acesso de suporte: {me.support.adminName} entrou como {me.user.name}. Tudo fica
+                registrado. <button onClick={logout}>Encerrar acesso</button>
+              </div>
+            )}
+            {!online && (
+              <div className="offline-banner" role="status">
+                <WifiOff size={14} style={{ verticalAlign: -2 }} /> Você está offline. Pagamentos,
+                caixa e confirmação de pedidos ficam bloqueados até a conexão voltar.
+              </div>
+            )}
+          </>
+        }
+      >
+        <Outlet />
+      </AppFrame>
+      <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
+    </>
   );
 }

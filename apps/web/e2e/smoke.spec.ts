@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { nav } from './nav';
 
 const EMAIL = process.env.E2E_EMAIL ?? 'dono@demo.local';
 const PASSWORD = process.env.E2E_PASSWORD ?? '';
@@ -20,15 +21,13 @@ test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => 
   await page.getByLabel('Senha').fill(PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page.getByText(/Olá, /)).toBeVisible();
-  await expect(page.getByText('Em produção')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Em produção' })).toBeVisible();
   await page.screenshot({
     path: `test-results/screens/${info.project.name}-pdv.png`,
     fullPage: true,
   });
 
-  const isMobile = (page.viewportSize()?.width ?? 1200) < 1024;
-  if (isMobile) await page.getByRole('button', { name: 'Abrir menu' }).click();
-  await page.getByRole('complementary').getByRole('link', { name: 'Cardápio' }).click();
+  await nav(page, 'Cardápio');
   await expect(page.getByRole('heading', { name: 'Cardápio' })).toBeVisible();
 
   const name = `X-Salada ${info.project.name} ${Date.now()}`;

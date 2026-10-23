@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { Alert, Mascot, useToast } from '../design-system';
+import { Alert, Mascot, Segmented, useToast } from '../design-system';
 import { useAuth, useCan } from '../app/auth';
 import { NewSaleModal } from '../features/NewSaleModal';
 import { OrderDetailModal } from '../features/OrderDetailModal';
@@ -207,6 +207,8 @@ export function PdvPage() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [openStep, setOpenStep] = useState<'dispatch' | 'reject' | undefined>();
   const [filter, setFilter] = useState<Filter>('all');
+  /** Celular: uma coluna por vez (abas), sem arrastar a tela para o lado. */
+  const [mobileCol, setMobileCol] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -295,6 +297,9 @@ export function PdvPage() {
   }, [orders, filter, search]);
   const countBy = (c: Filter) =>
     (orders ?? []).filter((o) => c === 'all' || o.channel === c).length;
+  const colCount = (key: string) =>
+    visible.filter((o) => COLUMNS.find((c) => c.key === key)!.statuses.includes(o.status)).length;
+  const activeCol = mobileCol ?? COLUMNS.find((c) => colCount(c.key) > 0)?.key ?? COLUMNS[1].key;
 
   async function move(o: Order, to: OrderStatus) {
     setBusyId(o.id);
@@ -342,7 +347,7 @@ export function PdvPage() {
               value: 'delivery',
               label: (
                 <>
-                  <Bike size={15} /> Delivery
+                  <Bike size={15} /> <span className="tab-text">Delivery</span>
                 </>
               ),
               count: countBy('delivery'),
@@ -352,7 +357,7 @@ export function PdvPage() {
               value: 'pickup',
               label: (
                 <>
-                  <ShoppingBag size={15} /> Retirada
+                  <ShoppingBag size={15} /> <span className="tab-text">Retirada</span>
                 </>
               ),
               count: countBy('pickup'),
@@ -362,7 +367,7 @@ export function PdvPage() {
               value: 'counter',
               label: (
                 <>
-                  <Store size={15} /> Balcão
+                  <Store size={15} /> <span className="tab-text">Balcão</span>
                 </>
               ),
               count: countBy('counter'),
@@ -372,7 +377,7 @@ export function PdvPage() {
               value: 'table',
               label: (
                 <>
-                  <Utensils size={15} /> Mesa
+                  <Utensils size={15} /> <span className="tab-text">Mesa</span>
                 </>
               ),
               count: countBy('table'),
@@ -415,6 +420,18 @@ export function PdvPage() {
       {error && <Alert tone="danger">Não foi possível carregar os pedidos: {error}</Alert>}
 
       <div className="home__body">
+        <Segmented
+          className="board__switch"
+          label="Coluna do quadro"
+          block
+          value={activeCol}
+          onChange={setMobileCol}
+          options={COLUMNS.map((c) => ({
+            value: c.key,
+            label: c.key === 'ready' ? 'Prontos' : c.label,
+            count: colCount(c.key),
+          }))}
+        />
         <div className="board">
           {COLUMNS.map((c) => {
             const list = visible
@@ -424,7 +441,12 @@ export function PdvPage() {
               c.key === 'ready' &&
               list.some((o) => o.status === 'ready' && o.channel !== 'delivery');
             return (
-              <section key={c.key} className="board__col" style={{ ['--tone' as string]: c.tone }}>
+              <section
+                key={c.key}
+                className="board__col"
+                data-on={activeCol === c.key}
+                style={{ ['--tone' as string]: c.tone }}
+              >
                 <header className="board__head">
                   <h2>{c.label}</h2>
                   {readyToFinish && (

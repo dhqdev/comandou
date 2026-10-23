@@ -4,10 +4,12 @@ import { z } from 'zod';
 export const LoginInput = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   password: z.string().min(1).max(200),
+  /** Vazio só vale em navegador confiável (já entrou com o código antes). */
   code: z
     .string()
     .trim()
-    .regex(/^[0-9]{6}$/, 'código de 6 dígitos'),
+    .regex(/^([0-9]{6})?$/, 'código de 6 dígitos')
+    .default(''),
 });
 
 export const NewTenant = z.object({

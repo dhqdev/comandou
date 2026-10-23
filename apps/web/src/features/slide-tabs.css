@@ -76,5 +76,5 @@
 }
 .slide-tabs__tab[aria-selected='true'] .slide-tabs__count {
   background: var(--cm-brand-600);
-  color: #fff;
+  color: var(--cm-on-brand);
 }

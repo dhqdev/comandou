@@ -1,163 +1,21 @@
-.shell {
-  display: grid;
-  grid-template-columns: var(--cm-sidebar-w) minmax(0, 1fr);
-  min-height: 100%;
-}
-/* Menu lateral claro, sem cor chapada: o item ativo é um "vidro" que desliza. */
-.sidebar {
-  background: var(--cm-sidebar-bg);
-  color: var(--cm-sidebar-text);
-  border-right: 1px solid var(--cm-border);
+/* Topo do app do restaurante (dentro da moldura AppFrame do design system). */
+.topbar__tenant {
   display: flex;
-  flex-direction: column;
-  padding: var(--cm-space-4) var(--cm-space-3);
-  gap: var(--cm-space-1);
-  position: sticky;
-  top: 0;
-  height: 100dvh;
-  overflow-y: auto;
-  scrollbar-width: none;
-}
-.brand {
-  display: grid;
-  gap: 2px;
-  padding: var(--cm-space-1) var(--cm-space-2) var(--cm-space-4);
-  color: var(--cm-sidebar-text-strong);
-}
-.brand .cm-logo {
-  color: var(--cm-sidebar-text-strong);
-}
-.brand__tenant {
-  font-size: var(--cm-text-xs);
-  color: var(--cm-text-subtle);
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  max-width: 220px;
+  font-weight: 650;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.brand > .brand__tenant {
-  padding-left: 38px;
-  margin-top: -2px;
-}
-.sidebar__nav {
-  display: grid;
-  gap: 1px;
-}
-.nav-group {
-  margin: var(--cm-space-4) var(--cm-space-3) 6px;
+.topbar__version {
   font-size: var(--cm-text-2xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--cm-text-subtle);
-}
-.sidebar__nav nav:first-of-type .nav-group {
-  margin-top: 0;
-}
-.nav-link {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 36px;
-  padding: 0 var(--cm-space-3);
-  border-radius: var(--cm-radius-sm);
-  color: inherit;
-  text-decoration: none;
-  font-size: var(--cm-text-sm);
   font-weight: 500;
-  white-space: nowrap;
-  transition: color var(--cm-dur) var(--cm-ease);
-}
-.nav-link svg {
   color: var(--cm-text-subtle);
-  transition: color var(--cm-dur) var(--cm-ease);
-}
-.nav-link:hover {
-  color: var(--cm-sidebar-text-strong);
-}
-.nav-link:hover:not(.active) {
-  background: color-mix(in srgb, var(--cm-text) 4%, transparent);
-}
-.nav-link.active {
-  color: var(--cm-sidebar-text-strong);
-  font-weight: 600;
-}
-.nav-link.active svg {
-  color: var(--cm-brand-600);
-}
-/* Sem JS do indicador (primeiro quadro), o ativo ainda aparece. */
-.sidebar__footer .nav-link.active {
-  background: var(--cm-sidebar-active);
-  box-shadow: var(--cm-shadow-sm);
-}
-.nav-link .cm-badge {
-  margin-left: auto;
-  height: 18px;
-  font-size: 10px;
-  padding: 0 5px;
-}
-.sidebar__footer {
-  margin-top: auto;
-  padding-top: var(--cm-space-3);
-  border-top: 1px solid var(--cm-border);
-  display: grid;
-  gap: 1px;
-}
-.user-chip {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: var(--cm-space-2);
-  color: var(--cm-sidebar-text-strong);
-  font-size: var(--cm-text-sm);
-  font-weight: 550;
-  min-width: 0;
-}
-.user-chip__who {
-  min-width: 0;
-  flex: 1;
-  line-height: 1.25;
-}
-.user-chip__who > div:first-child {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.user-chip .cm-btn--icon {
-  width: 30px;
-  min-height: 30px;
-}
-.user-chip__avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--cm-brand-100);
-  color: var(--cm-brand-800);
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  font-size: var(--cm-text-xs);
-  flex-shrink: 0;
-}
-.main {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: var(--cm-space-3);
-  height: 60px;
-  padding: 0 var(--cm-space-6);
-  background: color-mix(in srgb, var(--cm-bg) 82%, transparent);
-  backdrop-filter: blur(12px) saturate(160%);
-  -webkit-backdrop-filter: blur(12px) saturate(160%);
-  border-bottom: 1px solid var(--cm-border);
-  position: sticky;
-  top: 0;
-  z-index: 5;
 }
 .topbar__search {
   flex: 1;
@@ -173,16 +31,6 @@
 }
 .topbar__spacer {
   flex: 1;
-}
-.content {
-  padding: var(--cm-space-6) var(--cm-space-8) var(--cm-space-10);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--cm-space-6);
-  align-content: start;
-  width: 100%;
-  max-width: 1600px;
-  margin: 0 auto;
 }
 .page-title {
   margin: 0;
@@ -203,47 +51,72 @@
   font-weight: 600;
   border-bottom: 1px solid color-mix(in srgb, var(--cm-warning) 20%, transparent);
 }
-.menu-toggle {
-  display: none;
-}
-.scrim {
-  display: none;
-}
 
-/* Kanban de pedidos */
-.kanban {
+/* Conta (submenu do avatar na barra; folha no celular) */
+.account {
   display: grid;
-  grid-template-columns: repeat(4, minmax(220px, 1fr));
-  gap: var(--cm-space-4);
-  overflow-x: auto;
+  gap: 2px;
 }
-.kanban__col {
-  background: var(--cm-surface-sunken);
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-md);
-  min-height: 320px;
-  display: flex;
-  flex-direction: column;
-}
-.kanban__head {
+.account__who {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--cm-space-2);
-  padding: var(--cm-space-3) var(--cm-space-4);
+  gap: 10px;
+  padding: 4px 8px 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--cm-border);
+}
+.account__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--cm-brand-100);
+  color: var(--cm-brand-800);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: var(--cm-text-xs);
+  flex-shrink: 0;
+}
+.account__name {
   font-weight: 650;
   font-size: var(--cm-text-sm);
 }
-.kanban__count {
-  min-width: 26px;
-  height: 26px;
-  border-radius: var(--cm-radius-xs);
-  display: grid;
-  place-items: center;
+.account__sub {
   font-size: var(--cm-text-xs);
-  font-weight: 700;
-  color: #fff;
-  background: var(--col);
+  color: var(--cm-text-subtle);
+}
+.account__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 0 4px 0 10px;
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+  color: var(--cm-text-muted);
+}
+.account__action {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--cm-radius-md);
+  background: none;
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+}
+.account__action:hover {
+  background: color-mix(in srgb, var(--cm-text) 5%, transparent);
+  color: var(--cm-text);
+}
+.account__action svg {
+  color: var(--cm-text-subtle);
 }
 
 /* Cardápio */
@@ -297,48 +170,17 @@
 }
 
 @media (max-width: 1024px) {
-  .shell {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .kanban {
-    grid-template-columns: repeat(4, minmax(240px, 80vw));
-    scroll-snap-type: x mandatory;
-  }
-  .kanban__col {
-    scroll-snap-align: start;
-  }
-  .sidebar {
-    position: fixed;
-    inset: 0 auto 0 0;
-    width: min(var(--cm-sidebar-w), 86vw);
-    transform: translateX(-100%);
-    transition: transform var(--cm-dur-slow) var(--cm-ease);
-    z-index: 20;
-    background: var(--cm-surface);
-  }
-  .shell[data-menu='open'] .scrim {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 19;
-    background: rgb(18 15 13 / 32%);
-    animation: cm-fade var(--cm-dur) var(--cm-ease) both;
-  }
-  .shell[data-menu='open'] .sidebar {
-    transform: none;
-    box-shadow: var(--cm-shadow-lg);
-  }
-  .menu-toggle {
-    display: inline-flex;
-  }
   .menu-grid {
     grid-template-columns: minmax(0, 1fr);
   }
-  .content {
-    padding: var(--cm-space-4);
+}
+@media (max-width: 860px) {
+  .topbar__search,
+  .topbar__tenant {
+    display: none;
   }
-  .topbar {
-    padding: 0 var(--cm-space-4);
+  .offline-banner {
+    padding: var(--cm-space-2) var(--cm-space-4);
   }
 }
 

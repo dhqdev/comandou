@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.15.0',
+    date: '2026-10-23',
+    title: 'Panda, laranja e navegação de app',
+    summary:
+      'O Comandou ganhou o panda como mascote e o laranja como cor. A navegação virou uma barra lateral de ícones (computador) e abas embaixo (celular), com tema claro e escuro em todas as telas.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Identidade nova: panda no logo, no ícone do app e no favicon; cor laranja usada com parcimônia (botão principal, item ativo e detalhes).',
+      },
+      {
+        tag: 'novo',
+        text: 'Barra lateral fixa de ícones com o nome embaixo, unida ao topo. Gestão, Sistema e Conta abrem um submenu que desliza da barra.',
+      },
+      {
+        tag: 'novo',
+        text: 'Tema claro e escuro com o botão sol/lua no topo (fica salvo no navegador). Vale para o sistema do restaurante e para o painel admin.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Celular e app instalado: abas grandes embaixo, "Mais" sobe de baixo e fecha arrastando, sem zoom e sem a tela deslizar para os lados. Quadro de pedidos por abas e tabelas viram cartões.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Painel admin: depois de entrar uma vez com o código do autenticador, aquele navegador fica lembrado e pede só a senha. Redefinir o 2º fator volta a pedir o código em todos.',
+      },
+    ],
+  },
+  {
     version: '0.14.0',
     date: '2026-10-23',
     title: 'Atualizar o sistema pelo painel',

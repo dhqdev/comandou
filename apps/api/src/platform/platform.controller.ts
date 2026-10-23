@@ -22,6 +22,7 @@ import { ENV, Env } from '../config/env';
 import {
   PLATFORM_COOKIE,
   PLATFORM_COOKIE_PATH,
+  PLATFORM_DEVICE_COOKIE,
   PlatformAuthService,
   PlatformHostGuard,
   PlatformSessionGuard,
@@ -74,6 +75,7 @@ export class PlatformAuthController {
     const r = await this.auth.login(b.email, b.password, b.code, {
       ip: req.ip,
       userAgent: req.get('user-agent'),
+      deviceToken: this.deviceCookie(req),
     });
     res.cookie(PLATFORM_COOKIE, r.token, {
       httpOnly: true,
@@ -82,7 +84,26 @@ export class PlatformAuthController {
       path: PLATFORM_COOKIE_PATH,
       expires: r.expiresAt,
     });
+    if (r.device)
+      res.cookie(PLATFORM_DEVICE_COOKIE, r.device.token, {
+        httpOnly: true,
+        secure: this.env.COOKIE_SECURE,
+        sameSite: 'strict',
+        path: PLATFORM_COOKIE_PATH,
+        expires: r.device.expiresAt,
+      });
     return { admin: r.admin, expiresAt: r.expiresAt };
+  }
+
+  /** Este navegador já é confiável? (a tela de login esconde o campo do código). */
+  @Get('device')
+  async device(@Req() req: Request) {
+    const d = await this.auth.deviceOwner(this.deviceCookie(req));
+    return d ? { trusted: true, email: d.email } : { trusted: false };
+  }
+
+  private deviceCookie(req: Request) {
+    return (req.cookies as Record<string, string> | undefined)?.[PLATFORM_DEVICE_COOKIE];
   }
 
   @Get('me')

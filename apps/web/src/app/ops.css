@@ -132,13 +132,6 @@
   cursor: not-allowed;
 }
 
-/* Kanban do PDV */
-.kanban__list {
-  display: grid;
-  gap: var(--cm-space-2);
-  padding: var(--cm-space-3);
-  align-content: start;
-}
 .order-card {
   text-align: left;
   border: 1px solid var(--cm-border);
@@ -595,11 +588,14 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .kds {
-    grid-template-columns: repeat(3, minmax(260px, 85vw));
-    scroll-snap-type: x mandatory;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: visible;
   }
-  .kds__col {
-    scroll-snap-align: start;
+}
+/* Celular: colunas da cozinha uma embaixo da outra (sem rolar de lado). */
+@media (max-width: 760px) {
+  .kds {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (max-width: 640px) {
@@ -642,10 +638,6 @@
 }
 
 /* Etapa 4 ------------------------------------------------------------------------------ */
-.nav-link .cm-badge--warning {
-  background: var(--cm-warning);
-  color: #fff;
-}
 .order-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));

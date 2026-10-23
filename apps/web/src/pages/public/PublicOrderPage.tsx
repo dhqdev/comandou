@@ -63,7 +63,7 @@ const HERO: Record<
   },
   accepted: {
     icon: ChefHat,
-    tone: 'var(--cm-brand-600)',
+    tone: 'var(--cm-brand-deep)',
     title: 'Pedido em preparo',
     text: (o) => `Previsão de ${o.etaMin} a ${o.etaMax} minutos.`,
   },
@@ -78,7 +78,7 @@ const HERO: Record<
   },
   dispatched: {
     icon: Bike,
-    tone: 'var(--cm-brand-600)',
+    tone: 'var(--cm-brand-deep)',
     title: 'Saiu para entrega',
     text: (o) => (o.courier ? `${o.courier.name} está a caminho.` : 'Está a caminho.'),
   },

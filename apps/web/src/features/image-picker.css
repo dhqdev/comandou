@@ -18,7 +18,7 @@
 .imgpick__btn:hover:not(:disabled),
 .imgpick__btn[data-over] {
   border-color: var(--cm-brand-500);
-  color: var(--cm-brand-600);
+  color: var(--cm-brand-700);
 }
 .imgpick__btn:has(img) {
   border-style: solid;

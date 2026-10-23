@@ -1,17 +1,15 @@
 import type { CSSProperties } from 'react';
 
 /**
- * "Comandinho", o mascote do Comandou: uma comanda (o papelzinho do pedido) com rosto.
- * Corpo na cor da marca, canto dobrado e base picotada como papel destacado do bloco,
- * olhos e sorriso simples. Funciona de 16px (favicon) a 160px (telas vazias).
+ * O panda do Comandou: cabeça branca com contorno escuro, orelhas e manchas pretas,
+ * olhando de lado com um sorriso de canto. Funciona de 16px (favicon) a 160px (telas vazias).
+ * Com `badge`, aparece sobre o quadradinho laranja da marca (logo, ícone do app).
  */
 export type MascotMood = 'happy' | 'joy' | 'wink' | 'wow' | 'sleep' | 'cook';
 
-/** Corpo da comanda: topo arredondado, base picotada. */
-export const MASCOT_BODY =
-  'M19 8H40L49 17V52 l-2.125 3 l-2.125 -3 l-2.125 3 l-2.125 -3 l-2.125 3 l-2.125 -3 l-2.125 3 l-2.125 -3 l-2.125 3 l-2.125 -3 l-2.125 3 l-2.125 -3 l-2.125 3 l-2.125 -3 l-2.125 3 l-2.125 -3 V12a4 4 0 0 1 4-4z';
-/** Dobrinha do canto do papel. */
-export const MASCOT_FOLD = 'M40 8v6a3 3 0 0 0 3 3h6z';
+/** Contorno da cabeça (viewBox 64×64). */
+export const PANDA_HEAD =
+  'M7.2 38C7.2 24.5 20 15.8 34.5 15.8C48.5 15.8 58.6 24.5 58.6 38C58.6 49 48 53 32 53C15.5 53 7.2 49 7.2 38Z';
 
 export function Mascot({
   size = 40,
@@ -19,6 +17,7 @@ export function Mascot({
   title,
   className = '',
   animated,
+  badge,
   style,
 }: {
   size?: number;
@@ -28,49 +27,98 @@ export function Mascot({
   className?: string;
   /** Balança de leve e pisca (telas vazias, carregando). */
   animated?: boolean;
+  /** Panda sobre o quadrado laranja da marca. */
+  badge?: boolean;
   style?: CSSProperties;
 }) {
   const ink = 'var(--cm-mascot-ink, #1a1613)';
-  const eyes =
+  const face = 'var(--cm-mascot-face, #fff)';
+  const shut = { stroke: face, strokeWidth: 1.9, strokeLinecap: 'round' as const, fill: 'none' };
+
+  const left =
     mood === 'joy' ? (
-      <g stroke={ink} strokeWidth="2.6" strokeLinecap="round" fill="none">
-        <path d="M23.5 28q2.5-3.6 5 0" />
-        <path d="M34.5 28q2.5-3.6 5 0" />
-      </g>
+      <path d="M23.4 32.6q2.2-2.6 4.4 0" {...shut} />
     ) : mood === 'sleep' ? (
-      <g stroke={ink} strokeWidth="2.6" strokeLinecap="round">
-        <path d="M23.5 27.5h5" />
-        <path d="M34.5 27.5h5" />
-      </g>
-    ) : mood === 'wink' ? (
-      <g fill={ink}>
-        <ellipse cx="26" cy="27" rx="2.5" ry="3.2" />
-        <path d="M34.5 27.5h5" stroke={ink} strokeWidth="2.6" strokeLinecap="round" />
-      </g>
+      <path d="M23.3 32.3h4.4" {...shut} />
     ) : (
-      <g fill={ink} className={animated ? 'cm-mascot__eyes' : undefined}>
-        <ellipse cx="26" cy="27" rx="2.5" ry={mood === 'wow' ? 3.7 : 3.2} />
-        <ellipse cx="37" cy="27" rx="2.5" ry={mood === 'wow' ? 3.7 : 3.2} />
+      <g>
+        <circle cx="25.5" cy="31.9" r={mood === 'wow' ? 3.4 : 2.9} fill={face} />
+        <ellipse cx="27.4" cy="31.2" rx=".95" ry="1.4" fill={ink} />
+      </g>
+    );
+  const right =
+    mood === 'joy' || mood === 'wink' ? (
+      <path d="M42.8 29.6q2.1-2.5 4.2 0" {...shut} />
+    ) : mood === 'sleep' ? (
+      <path d="M42.8 29.2h4.2" {...shut} />
+    ) : (
+      <g>
+        <circle cx="44.9" cy="28.8" r={mood === 'wow' ? 3.4 : 2.9} fill={face} />
+        <ellipse cx="46.8" cy="28.3" rx=".95" ry="1.4" fill={ink} />
       </g>
     );
   const mouth =
     mood === 'wow' ? (
-      <ellipse cx="31.5" cy="35" rx="2.3" ry="2.7" fill={ink} />
+      <ellipse cx="40.6" cy="41" rx="1.9" ry="2.3" fill={ink} />
     ) : mood === 'sleep' ? (
-      <path d="M29 34.5h5" stroke={ink} strokeWidth="2.6" strokeLinecap="round" />
+      <path
+        d="M38.5 40.6q3 .8 5-1"
+        stroke={ink}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        fill="none"
+      />
+    ) : mood === 'joy' ? (
+      <path
+        d="M36.8 39.8Q42.5 42.6 45 37.2Z"
+        stroke={ink}
+        strokeWidth="2.2"
+        strokeLinejoin="round"
+        fill={ink}
+      />
     ) : (
       <path
-        d={mood === 'joy' ? 'M27 33q4.5 5.4 9 0z' : 'M27.5 33.5q4 3.8 8 0'}
+        d="M37.5 40.6Q42.5 41.5 44.2 37.6"
         stroke={ink}
         strokeWidth="2.6"
         strokeLinecap="round"
-        strokeLinejoin="round"
-        fill={mood === 'joy' ? ink : 'none'}
+        fill="none"
       />
     );
+
+  const panda = (
+    <g>
+      {mood === 'cook' && (
+        // Touca de chef: contorno escuro, branco por dentro.
+        <g stroke={ink} strokeWidth="2.2" strokeLinejoin="round" fill={face}>
+          <path d="M23 17V10.5a5 5 0 0 1 3.6-6.2a6 6 0 0 1 10.8 0a5 5 0 0 1 3.6 6.2V17Z" />
+        </g>
+      )}
+      {/* Orelhas: no escuro ganham um aro discreto para não sumirem no fundo. */}
+      <g fill={ink} stroke="var(--cm-mascot-rim, none)" strokeWidth="1.6">
+        <circle cx="14" cy="19.9" r="8.2" />
+        <circle cx="49.8" cy="17.9" r="8.2" />
+      </g>
+      <path d={PANDA_HEAD} fill={face} stroke={ink} strokeWidth="2.8" strokeLinejoin="round" />
+      <ellipse cx="22" cy="33.7" rx="8.8" ry="5.9" transform="rotate(-40 22 33.7)" fill={ink} />
+      <ellipse cx="46.3" cy="29.4" rx="7.6" ry="5.3" transform="rotate(30 46.3 29.4)" fill={ink} />
+      <g className={animated && mood !== 'sleep' ? 'cm-mascot__eyes' : undefined}>
+        {left}
+        {right}
+      </g>
+      <ellipse cx="36.3" cy="35.2" rx="4.2" ry="2.5" transform="rotate(-12 36.3 35.2)" fill={ink} />
+      {mouth}
+      {mood === 'sleep' && (
+        <text x="55" y="9" fontSize="9" fontWeight="800" fill="currentColor" opacity=".7">
+          z
+        </text>
+      )}
+    </g>
+  );
+
   return (
     <svg
-      className={`cm-mascot ${animated ? 'cm-mascot--bob' : ''} ${className}`}
+      className={`cm-mascot ${badge ? 'cm-mascot--badge' : ''} ${animated ? 'cm-mascot--bob' : ''} ${className}`}
       width={size}
       height={size}
       viewBox="0 0 64 64"
@@ -79,45 +127,19 @@ export function Mascot({
       aria-hidden={title ? undefined : true}
       style={{ overflow: 'visible', ...style }}
     >
-      {mood === 'cook' && (
-        // Touca de chef para a tela da cozinha: contorno embaixo, branco por cima.
-        <g>
-          <g stroke="var(--cm-border-strong, #e3ded8)" strokeWidth="2.4">
-            <circle cx="26" cy="2.5" r="4" />
-            <circle cx="32" cy="0.5" r="4.5" />
-            <circle cx="38" cy="2.5" r="4" />
-            <rect x="23" y="2" width="18" height="6" />
-          </g>
-          <g fill="#fff">
-            <circle cx="26" cy="2.5" r="4" />
-            <circle cx="32" cy="0.5" r="4.5" />
-            <circle cx="38" cy="2.5" r="4" />
-            <rect x="23" y="2" width="18" height="6" />
-          </g>
-        </g>
-      )}
-      <path d={MASCOT_BODY} fill="currentColor" />
-      <path d={MASCOT_FOLD} fill="#fff" fillOpacity=".38" />
-      {/* Linhas do pedido, como na comanda de papel. */}
-      <path
-        d="M22 41.5h18M22 46.5h11"
-        stroke="#fff"
-        strokeOpacity=".5"
-        strokeWidth="2.4"
-        strokeLinecap="round"
-      />
-      {eyes}
-      {mouth}
-      {mood === 'sleep' && (
-        <text x="50" y="10" fontSize="9" fontWeight="800" fill="currentColor" opacity=".7">
-          z
-        </text>
+      {badge ? (
+        <>
+          <rect width="64" height="64" rx="15" fill="var(--cm-brand-500, #ea8a0b)" />
+          <g transform="translate(1.7 3.6) scale(.92)">{panda}</g>
+        </>
+      ) : (
+        panda
       )}
     </svg>
   );
 }
 
-/** Logotipo: mascote + "comandou". */
+/** Logotipo: panda no quadrado laranja + "comandou". */
 export function Logo({
   size = 28,
   wordmark = true,
@@ -129,7 +151,7 @@ export function Logo({
 }) {
   return (
     <span className={`cm-logo ${className}`} style={{ fontSize: size * 0.64 }}>
-      <Mascot size={size} title={wordmark ? undefined : 'Comandou'} />
+      <Mascot size={size} badge title={wordmark ? undefined : 'Comandou'} />
       {wordmark && <span className="cm-logo__word">comandou</span>}
     </span>
   );

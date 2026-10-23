@@ -1,25 +1,28 @@
 /*
  * Comandou Design System — tokens.
  *
- * Identidade: "Páprica" (laranja-avermelhado de tempero, abre o apetite) sobre neutros quentes
- * de pedra. Mostarda é o acento; folha é o verde de sucesso. Cantos discretos (6–12px),
+ * Identidade: laranja do panda (abre o apetite) sobre neutros quentes de pedra, aplicado em
+ * poucos pontos e em tons suaves. Mostarda é o acento; folha é o verde de sucesso. Cantos discretos (6–12px),
  * nada de pílulas gigantes: o visual é limpo e de ferramenta de trabalho.
  *
  * Regra: telas nunca usam cor, raio, sombra ou fonte "na mão"; sempre estas variáveis.
  */
 :root {
-  /* Marca — Páprica */
-  --cm-brand-50: #fff5f1;
-  --cm-brand-100: #ffe6dc;
-  --cm-brand-200: #ffc9b5;
-  --cm-brand-300: #ffa184;
-  --cm-brand-400: #f97a53;
-  --cm-brand-500: #ee5a2f;
-  --cm-brand-600: #d63f17; /* botão primário: contraste 4.6:1 com branco */
-  --cm-brand-700: #b5330f;
-  --cm-brand-800: #8f2a10;
-  --cm-brand-900: #4d170a;
-  --cm-on-brand: #ffffff;
+  color-scheme: light;
+  /* Marca — Laranja Comandou (o fundo do panda). Usado com parcimônia: botão principal,
+     item ativo, foco e detalhes. Sobre o laranja o texto é escuro (contraste 6:1). */
+  --cm-brand-50: #fff7ed;
+  --cm-brand-100: #ffedd5;
+  --cm-brand-200: #ffd6a8;
+  --cm-brand-300: #fbbf6b;
+  --cm-brand-400: #f5a033;
+  --cm-brand-500: #ea8a0b; /* laranja do panda */
+  --cm-brand-600: #db7a06; /* botão primário (texto escuro) */
+  --cm-brand-700: #a65800; /* texto/ícone laranja sobre branco (5.2:1) */
+  --cm-brand-800: #8a4200;
+  --cm-brand-deep: #a65800; /* fundo laranja com texto branco (igual nos dois temas) */
+  --cm-brand-900: #4a2400;
+  --cm-on-brand: #1a1613;
 
   /* Acento — Mostarda */
   --cm-accent-300: #ffd866;
@@ -63,7 +66,10 @@
   --cm-text-muted: var(--cm-gray-600);
   --cm-text-subtle: var(--cm-gray-500);
   --cm-link: var(--cm-brand-700);
-  --cm-sidebar-bg: var(--cm-gray-50);
+  /* Moldura do app: barra lateral + topo formam uma peça só; o conteúdo fica num painel. */
+  --cm-frame: #ffffff;
+  --cm-frame-line: var(--cm-gray-100);
+  --cm-sidebar-bg: var(--cm-frame);
   --cm-sidebar-text: var(--cm-gray-600);
   --cm-sidebar-text-strong: var(--cm-gray-900);
   --cm-sidebar-active: var(--cm-surface);
@@ -125,64 +131,100 @@
   --cm-sidebar-w: 240px;
 }
 
-/* Modo escuro: mesma marca, superfícies de grafite quente. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --cm-brand-50: #2a1710;
-    --cm-brand-100: #3a1d12;
-    --cm-brand-200: #5c2a17;
-    --cm-brand-800: #ffb59c;
-    --cm-link: #ff9a78;
-    --cm-bg: #141110;
-    --cm-surface: #1c1917;
-    --cm-surface-muted: #221e1b;
-    --cm-surface-sunken: #110e0d;
-    --cm-border: #2c2724;
-    --cm-border-strong: #3b3531;
-    --cm-text: #f4f1ee;
-    --cm-text-muted: #bdb4ab;
-    --cm-text-subtle: #8f867d;
-    --cm-gray-100: #2c2724;
-    --cm-gray-700: #d6cfc8;
-    --cm-sidebar-bg: #110e0d;
-    --cm-sidebar-text: #bdb4ab;
-    --cm-sidebar-text-strong: #f4f1ee;
-    --cm-sidebar-active: #221e1b;
-    --cm-info-bg: #14203a;
-    --cm-success-bg: #12251a;
-    --cm-warning-bg: #2b2010;
-    --cm-danger-bg: #2e1513;
-    --cm-glass-bg: rgb(44 39 36 / 70%);
-    --cm-glass-border: rgb(255 255 255 / 8%);
-    --cm-glass-highlight: inset 0 1px 0 rgb(255 255 255 / 8%);
-  }
-}
+/*
+ * Modo escuro: grafite quente quase preto, a moldura (barra lateral + topo) ainda mais escura.
+ * O tema é escolhido no botão sol/lua (data-theme no <html>); sem escolha, segue o sistema.
+ */
 :root[data-theme='dark'] {
-  --cm-brand-50: #2a1710;
-  --cm-brand-100: #3a1d12;
-  --cm-brand-200: #5c2a17;
-  --cm-brand-800: #ffb59c;
-  --cm-link: #ff9a78;
-  --cm-bg: #141110;
-  --cm-surface: #1c1917;
-  --cm-surface-muted: #221e1b;
-  --cm-surface-sunken: #110e0d;
-  --cm-border: #2c2724;
-  --cm-border-strong: #3b3531;
-  --cm-text: #f4f1ee;
-  --cm-text-muted: #bdb4ab;
-  --cm-text-subtle: #8f867d;
-  --cm-gray-100: #2c2724;
+  --cm-brand-50: #2a1a0b;
+  --cm-brand-100: #3a240e;
+  --cm-brand-200: #5c3712;
+  --cm-brand-700: #f5a033; /* laranja legível sobre o escuro */
+  --cm-brand-800: #ffc27a;
+  --cm-link: #f5a540;
+  --cm-frame: #0b0a09;
+  --cm-frame-line: #1f1c1a;
+  --cm-bg: #131110;
+  --cm-surface: #1a1816;
+  --cm-surface-muted: #201d1b;
+  --cm-surface-sunken: #0f0d0c;
+  --cm-border: #2a2623;
+  --cm-border-strong: #3a3531;
+  --cm-text: #f5f2ef;
+  --cm-text-muted: #b8afa6;
+  --cm-text-subtle: #8a8179;
+  --cm-gray-0: #1a1816;
+  --cm-gray-25: #201d1b;
+  --cm-gray-50: #131110;
+  --cm-gray-100: #2a2623;
+  --cm-gray-200: #3a3531;
   --cm-gray-700: #d6cfc8;
-  --cm-sidebar-bg: #110e0d;
-  --cm-sidebar-text: #bdb4ab;
-  --cm-sidebar-text-strong: #f4f1ee;
-  --cm-sidebar-active: #221e1b;
+  --cm-sidebar-bg: var(--cm-frame);
+  --cm-sidebar-text: #b8afa6;
+  --cm-sidebar-text-strong: #f5f2ef;
+  --cm-sidebar-active: #221f1c;
   --cm-info-bg: #14203a;
   --cm-success-bg: #12251a;
   --cm-warning-bg: #2b2010;
   --cm-danger-bg: #2e1513;
-  --cm-glass-bg: rgb(44 39 36 / 70%);
+  --cm-shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+  --cm-shadow-md: 0 1px 2px rgb(0 0 0 / 35%), 0 8px 24px -8px rgb(0 0 0 / 55%);
+  --cm-shadow-lg: 0 2px 6px rgb(0 0 0 / 40%), 0 24px 64px -12px rgb(0 0 0 / 70%);
+  --cm-glass-bg: rgb(52 47 43 / 72%);
   --cm-glass-border: rgb(255 255 255 / 8%);
-  --cm-glass-highlight: inset 0 1px 0 rgb(255 255 255 / 8%);
+  --cm-glass-highlight: inset 0 1px 0 rgb(255 255 255 / 7%);
+  --cm-mascot-rim: #6b625a;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --cm-brand-50: #2a1a0b;
+    --cm-brand-100: #3a240e;
+    --cm-brand-200: #5c3712;
+    --cm-brand-700: #f5a033; /* laranja legível sobre o escuro */
+    --cm-brand-800: #ffc27a;
+    --cm-link: #f5a540;
+    --cm-frame: #0b0a09;
+    --cm-frame-line: #1f1c1a;
+    --cm-bg: #131110;
+    --cm-surface: #1a1816;
+    --cm-surface-muted: #201d1b;
+    --cm-surface-sunken: #0f0d0c;
+    --cm-border: #2a2623;
+    --cm-border-strong: #3a3531;
+    --cm-text: #f5f2ef;
+    --cm-text-muted: #b8afa6;
+    --cm-text-subtle: #8a8179;
+    --cm-gray-0: #1a1816;
+    --cm-gray-25: #201d1b;
+    --cm-gray-50: #131110;
+    --cm-gray-100: #2a2623;
+    --cm-gray-200: #3a3531;
+    --cm-gray-700: #d6cfc8;
+    --cm-sidebar-bg: var(--cm-frame);
+    --cm-sidebar-text: #b8afa6;
+    --cm-sidebar-text-strong: #f5f2ef;
+    --cm-sidebar-active: #221f1c;
+    --cm-info-bg: #14203a;
+    --cm-success-bg: #12251a;
+    --cm-warning-bg: #2b2010;
+    --cm-danger-bg: #2e1513;
+    --cm-shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+    --cm-shadow-md: 0 1px 2px rgb(0 0 0 / 35%), 0 8px 24px -8px rgb(0 0 0 / 55%);
+    --cm-shadow-lg: 0 2px 6px rgb(0 0 0 / 40%), 0 24px 64px -12px rgb(0 0 0 / 70%);
+    --cm-glass-bg: rgb(52 47 43 / 72%);
+    --cm-glass-border: rgb(255 255 255 / 8%);
+    --cm-glass-highlight: inset 0 1px 0 rgb(255 255 255 / 7%);
+    --cm-mascot-rim: #6b625a;
+    color-scheme: dark;
+  }
+}
+
+/* Troca de tema com um fade curto em tudo. */
+.cm-theme-switching,
+.cm-theme-switching * {
+  transition:
+    background-color 0.3s var(--cm-ease),
+    border-color 0.3s var(--cm-ease),
+    color 0.2s var(--cm-ease) !important;
 }

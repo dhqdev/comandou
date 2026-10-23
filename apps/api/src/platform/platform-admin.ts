@@ -80,6 +80,11 @@ export async function resetIn(c: Client, i: PlatformAdminInput): Promise<void> {
     `UPDATE platform_sessions SET revoked_at = now() WHERE admin_id = $1 AND revoked_at IS NULL`,
     [id],
   );
+  // 2º fator novo: navegadores confiáveis voltam a pedir o código.
+  await c.query(
+    `UPDATE platform_trusted_devices SET revoked_at = now() WHERE admin_id = $1 AND revoked_at IS NULL`,
+    [id],
+  );
   await audit(c, id, 'platform.admin_reset', 'cli');
 }
 

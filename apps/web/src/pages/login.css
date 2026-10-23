@@ -34,23 +34,20 @@
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(
-      circle at 75% 15%,
-      color-mix(in srgb, var(--cm-accent-400) 45%, transparent),
-      transparent 42%
-    ),
+    radial-gradient(circle at 75% 15%, rgb(255 255 255 / 30%), transparent 42%),
     radial-gradient(
       circle at 15% 85%,
-      color-mix(in srgb, var(--cm-brand-400) 55%, transparent),
+      color-mix(in srgb, var(--cm-brand-600) 70%, transparent),
       transparent 50%
     ),
-    var(--cm-brand-600);
+    var(--cm-brand-500);
   display: grid;
   place-items: center;
   align-content: center;
   gap: var(--cm-space-8);
   padding: var(--cm-space-10);
-  color: #fff;
+  /* Sobre o laranja o texto é escuro (contraste 6:1). */
+  color: #1a1613;
 }
 .login__art::after {
   /* textura de pontinhos, discreta */
@@ -63,10 +60,12 @@
 }
 .login__mascot {
   --cm-mascot-ink: #1a1613;
-  color: #fff;
+  --cm-mascot-face: #fff;
+  --cm-mascot-rim: none;
+  color: #1a1613;
   position: relative;
   z-index: 1;
-  filter: drop-shadow(0 18px 30px rgb(77 23 10 / 35%));
+  filter: drop-shadow(0 18px 30px rgb(110 50 0 / 35%));
 }
 .login__tickets {
   position: absolute;
@@ -119,7 +118,11 @@
   text-align: center;
 }
 .login__quote span {
-  color: var(--cm-accent-300);
+  color: #fff8f0;
+  -webkit-text-stroke: 0;
+  text-shadow:
+    0 0 1px #6e3200,
+    0 2px 10px rgb(110 50 0 / 45%);
 }
 @media (max-width: 860px) {
   .login {
