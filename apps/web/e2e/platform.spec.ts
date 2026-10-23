@@ -5,7 +5,7 @@ import { account, nav } from './nav';
 /**
  * Etapa 6 no navegador: painel Super Admin (admin.<base>) com senha + código do autenticador,
  * planos, novo restaurante, assinatura, suspensão/reativação e auditoria; no restaurante, a
- * tela "Plano e domínio". O segredo TOTP de teste vem de E2E_ADMIN_TOTP (nunca o de produção).
+ * tela "Plano". O segredo TOTP de teste vem de E2E_ADMIN_TOTP (nunca o de produção).
  */
 const BASE = process.env.E2E_BASE_URL ?? 'http://demo.comandou.localhost:5173';
 const ADMIN_URL = process.env.E2E_ADMIN_URL ?? BASE.replace(/\/\/[^.]+\./, '//admin.');
@@ -177,29 +177,14 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await expect(page.getByLabel('Código do autenticador')).toBeVisible();
 });
 
-test('restaurante: tela Plano e domínio com instruções de DNS', async ({ page }, info) => {
-  const tag = `${info.project.name.slice(0, 1)}${Date.now().toString(36).slice(-5)}`;
+test('restaurante: tela Plano sem cadastro de domínio', async ({ page }, info) => {
   await page.goto('/');
   await page.getByLabel('E-mail').fill(EMAIL);
   await page.getByLabel('Senha').fill(PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page.getByText(/Olá, /)).toBeVisible();
-  await nav(page, 'Plano e domínio');
-  await expect(page.getByRole('heading', { name: 'Plano e domínio' })).toBeVisible();
-  const host = `pedidos-${tag}.example.com`;
-  await page.getByLabel('Domínio', { exact: true }).fill(host);
-  await page.getByRole('button', { name: 'Adicionar' }).click();
-  await expect(page.getByText('Domínio cadastrado')).toBeVisible();
-  await expect(page.getByText(`_comandou.${host}`)).toBeVisible();
-  await expect(page.getByText(/^comandou-verify=/).first()).toBeVisible();
-  await shot(page, info.project.name, 'plano-dominio');
-  // Sem o registro no DNS, não verifica.
-  const item = page.locator('li', { hasText: host });
-  await item.getByRole('button', { name: 'Verificar agora' }).click();
-  await expect(item.getByText('aguardando DNS')).toBeVisible();
-  await expect(page.getByText(/registro TXT|consultar o DNS/).first()).toBeVisible();
-  await item.getByRole('button', { name: 'Remover' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Remover' }).click();
-  await expect(page.getByText('Domínio removido')).toBeVisible();
-  await expect(page.getByText(host)).toHaveCount(0);
+  await nav(page, 'Plano');
+  await expect(page.getByRole('heading', { name: 'Plano', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Domínio', { exact: true })).toHaveCount(0);
+  await shot(page, info.project.name, 'plano');
 });

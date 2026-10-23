@@ -5,27 +5,21 @@ import {
   type PlanFeature,
   type PlanResource,
 } from '@comandou/shared';
-import { Globe } from 'lucide-react';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCan } from '../app/auth';
 import {
   Alert,
   Badge,
-  Button,
   Card,
-  EmptyState,
-  Modal,
   Spinner,
-  TextField,
-  useToast,
 } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
-import type { TenantDomain, TenantSubscription } from '../lib/types';
+import type { TenantSubscription } from '../lib/types';
 
 const RESOURCES: PlanResource[] = ['users', 'products', 'orders_month'];
-const FEATURES: PlanFeature[] = ['fiscal', 'whatsapp', 'custom_domain'];
+const FEATURES: PlanFeature[] = ['fiscal', 'whatsapp'];
 const STATUS_TONE = {
   trialing: 'info',
   active: 'success',
@@ -33,18 +27,16 @@ const STATUS_TONE = {
   cancelled: 'neutral',
 } as const;
 
-/** Plano do restaurante (limites e uso do mês) e domínio próprio. */
+/** Plano do restaurante (limites e uso do mês). */
 export function PlanPage() {
   const canPlan = useCan('plan:read');
-  const canDomains = useCan('domains:manage');
   return (
     <>
       <div>
-        <h1 className="page-title">Plano e domínio</h1>
-        <p className="page-sub">O que o seu plano inclui, o uso do mês e o endereço próprio.</p>
+        <h1 className="page-title">Plano</h1>
+        <p className="page-sub">O que o seu plano inclui e o uso do mês.</p>
       </div>
       {canPlan && <PlanCard />}
-      {canDomains && <DomainsCard />}
     </>
   );
 }
@@ -125,177 +117,6 @@ function PlanCard() {
           </li>
         ))}
       </ul>
-    </Card>
-  );
-}
-
-function DomainsCard() {
-  const toast = useToast();
-  const [list, setList] = useState<TenantDomain[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [hostname, setHostname] = useState('');
-  const [busy, setBusy] = useState<string | null>(null);
-  const [removing, setRemoving] = useState<TenantDomain | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      setList(await api<TenantDomain[]>('/domains'));
-      setError(null);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }, []);
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  async function run(key: string, fn: () => Promise<unknown>) {
-    setBusy(key);
-    try {
-      await fn();
-      await load();
-      return true;
-    } catch (e) {
-      toast((e as Error).message, 'danger');
-      return false;
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  function add(e: FormEvent) {
-    e.preventDefault();
-    void run('add', async () => {
-      await api('/domains', { method: 'POST', json: { hostname } });
-      setHostname('');
-      toast('Domínio cadastrado. Agora crie os registros no DNS.', 'success');
-    });
-  }
-
-  async function verify(d: TenantDomain) {
-    await run(d.id, async () => {
-      const r = await api<TenantDomain>(`/domains/${d.id}/verify`, { method: 'POST' });
-      toast(
-        r.verified ? 'Domínio verificado' : (r.lastError ?? 'Ainda não verificado'),
-        r.verified ? 'success' : 'danger',
-      );
-    });
-  }
-
-  return (
-    <Card title="Domínio próprio">
-      <p style={{ marginTop: 0 }}>
-        Use um endereço seu, como <strong>pedidos.seurestaurante.com.br</strong>. O endereço atual
-        continua funcionando.
-      </p>
-      {error && <Alert tone="danger">{error}</Alert>}
-      <form onSubmit={add} className="form-grid">
-        <TextField
-          label="Domínio"
-          placeholder="pedidos.seurestaurante.com.br"
-          value={hostname}
-          onChange={(e) => setHostname(e.target.value)}
-          autoComplete="off"
-        />
-        <div style={{ alignSelf: 'end' }}>
-          <Button type="submit" loading={busy === 'add'} disabled={!hostname.trim()}>
-            Adicionar
-          </Button>
-        </div>
-      </form>
-      {list === null ? (
-        <Spinner />
-      ) : list.length === 0 ? (
-        <EmptyState icon={<Globe size={20} />} title="Nenhum domínio próprio" />
-      ) : (
-        <ul className="plain-list" style={{ marginTop: 16 }}>
-          {list.map((d) => (
-            <li key={d.id} className="cm-card" style={{ padding: 16 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <strong className="mono-break">{d.hostname}</strong>
-                <Badge tone={d.verified ? 'success' : 'warning'}>
-                  {d.verified ? 'verificado' : 'aguardando DNS'}
-                </Badge>
-                <span style={{ flex: 1 }} />
-                {!d.verified && (
-                  <Button loading={busy === d.id} onClick={() => verify(d)}>
-                    Verificar agora
-                  </Button>
-                )}
-                <Button variant="ghost" onClick={() => setRemoving(d)}>
-                  Remover
-                </Button>
-              </div>
-              {!d.verified && (
-                <>
-                  <p className="cm-hint">No painel do seu provedor de DNS, crie:</p>
-                  <table className="cm-table">
-                    <thead>
-                      <tr>
-                        <th>Tipo</th>
-                        <th>Nome</th>
-                        <th>Valor</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>TXT</td>
-                        <td className="mono-break">{d.dns.txtName}</td>
-                        <td className="mono-break">{d.dns.txtValue}</td>
-                      </tr>
-                      <tr>
-                        <td>CNAME</td>
-                        <td className="mono-break">{d.hostname}</td>
-                        <td className="mono-break">{d.dns.cnameTarget}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  <p className="cm-hint">
-                    A propagação do DNS pode levar de minutos a algumas horas.
-                    {d.lastError && <> Última verificação: {d.lastError}</>}
-                  </p>
-                </>
-              )}
-              {d.verified && d.verifiedAt && (
-                <p className="cm-hint">
-                  Verificado em {dateTime(d.verifiedAt)}. O certificado HTTPS é emitido no primeiro
-                  acesso.
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      <Modal
-        open={!!removing}
-        title="Remover domínio?"
-        onClose={() => setRemoving(null)}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setRemoving(null)}>
-              Manter
-            </Button>
-            <Button
-              variant="danger"
-              loading={busy === 'remove'}
-              onClick={async () => {
-                const d = removing!;
-                if (await run('remove', () => api(`/domains/${d.id}/remove`, { method: 'POST' }))) {
-                  toast('Domínio removido', 'success');
-                  setRemoving(null);
-                }
-              }}
-            >
-              Remover
-            </Button>
-          </>
-        }
-      >
-        <p>
-          <strong>{removing?.hostname}</strong> deixa de abrir o restaurante imediatamente. O
-          endereço {removing?.dns.cnameTarget} continua funcionando.
-        </p>
-      </Modal>
     </Card>
   );
 }

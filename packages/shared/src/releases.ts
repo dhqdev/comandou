@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.16.3',
+    date: '2026-10-23',
+    title: 'Sem cadastro de domínio no restaurante',
+    summary:
+      'O restaurante não cadastra mais domínio ou subdomínio dentro do sistema. A tela virou apenas “Plano”.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'A tela “Plano e domínio” agora é só “Plano”: mostra o que o plano inclui e o uso do mês, sem a opção de adicionar domínio.',
+      },
+    ],
+  },
+  {
     version: '0.16.2',
     date: '2026-10-23',
     title: 'Menu inferior flutuante em vidro líquido',

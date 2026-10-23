@@ -592,7 +592,7 @@ export function TenantDetailPage() {
         {tab === 'domains' && (
           <div className="adm-panel">
             {t.domains.length === 0 ? (
-              <div className="adm-empty">Nenhum. O restaurante cadastra em “Plano e domínio”.</div>
+              <div className="adm-empty">Nenhum.</div>
             ) : (
               <div className="adm-rows">
                 {t.domains.map((d) => (

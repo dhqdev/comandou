@@ -117,9 +117,9 @@ const GROUPS: { key: string; label: string; icon: ReactNode; items: NavItem[] }[
       },
       {
         to: '/plano',
-        label: 'Plano e domínio',
+        label: 'Plano',
         icon: <CreditCard />,
-        perms: ['plan:read', 'domains:manage'],
+        perms: ['plan:read'],
       },
       {
         to: '/configuracoes',
