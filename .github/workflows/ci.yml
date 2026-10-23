@@ -274,6 +274,9 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/comandou-${{ matrix.image }}:${{ needs.version.outputs.tag }}
+            # "latest" sempre aponta para a última versão aprovada: a stack pode usar :latest e
+            # "Update the stack" com "Re-pull image" no Portainer traz a versão nova.
+            ghcr.io/${{ github.repository_owner }}/comandou-${{ matrix.image }}:latest
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
 
