@@ -92,9 +92,12 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await apiPost(page, `/orders/${order.id}/status`, { to: 'ready' });
 
   await nav(page, 'Entregas');
+  // Entregadores ficam numa aba própria; o despacho é a aba inicial.
+  await page.getByRole('tab', { name: /Entregadores/ }).click();
   await page.getByLabel('Nome', { exact: true }).fill(`João ${tag}`);
   await page.getByRole('button', { name: 'Cadastrar' }).click();
   await expect(page.locator('strong', { hasText: `João ${tag}` })).toBeVisible();
+  await page.getByRole('tab', { name: /Despacho/ }).click();
   await page
     .getByLabel(`Entregador do pedido ${order.number}`)
     .selectOption({ label: `João ${tag}` });

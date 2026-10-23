@@ -141,12 +141,9 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
 
   // Salão: abre mesa, lança pedido, divide em 2, fecha conta
   await nav(page, 'Salão');
+  // Mesa livre já abre o pedido: a comanda nasce com o primeiro pedido enviado.
   await page.getByRole('button', { name: `Mesa M${tag} livre` }).click();
-  dialog = page.getByRole('dialog').filter({ hasText: `Mesa M${tag}` });
-  await settled(page);
-  await dialog.getByRole('button', { name: 'Adicionar pedido' }).click();
-  // O pedido novo abre dentro da comanda (diálogo aninhado): o de dentro é o último.
-  const sale = page.getByRole('dialog', { name: /^Novo pedido — Mesa/ }).last();
+  const sale = page.getByRole('dialog', { name: `Novo pedido — Mesa M${tag}` });
   await expect(sale).toBeVisible();
   await settled(page);
   await sale.getByLabel('Buscar produto').fill(product);
@@ -161,6 +158,10 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
     .click();
   await sale.getByRole('button', { name: 'Aumentar' }).click();
   await sale.getByRole('button', { name: 'Enviar pedido' }).click();
+  await expect(sale).toBeHidden();
+  await page.getByRole('button', { name: `Mesa M${tag} ocupada` }).click();
+  dialog = page.getByRole('dialog').filter({ hasText: `Mesa M${tag}` });
+  await settled(page);
   await expect(dialog.locator('.tab-summary')).toContainText('R$ 40,00');
   await dialog.getByRole('button', { name: 'Receber / dividir' }).click();
   const tabPay = page.getByRole('dialog').filter({ hasText: 'Receber — comanda' });
@@ -186,7 +187,10 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
     page.locator('section[aria-label="Pronto"] .kds-card', { hasText: `Mesa M${tag}` }),
   ).toBeVisible();
   await nav(page, 'Salão');
-  await page.getByRole('button', { name: `Mesa M${tag} ocupada` }).click();
+  // Com parte já paga, a mesa aparece como "em pagamento".
+  await page
+    .getByRole('button', { name: new RegExp(`Mesa M${tag} (ocupada|em pagamento)`) })
+    .click();
   dialog = page.getByRole('dialog').filter({ hasText: `Mesa M${tag}` });
   await dialog.getByRole('button', { name: 'Fechar conta' }).click();
   await expect(page.getByText(/Conta da comanda \d+ fechada/)).toBeVisible();
