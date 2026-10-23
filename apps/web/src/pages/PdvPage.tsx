@@ -3,21 +3,21 @@ import {
   ArrowRight,
   Bike,
   Check,
-  ChefHat,
-  ClipboardList,
+  CircleCheckBig,
   Clock,
+  ConciergeBell,
   ExternalLink,
-  LayoutGrid,
   Link2,
   Plus,
   Search,
   ShoppingBag,
   Store,
   Utensils,
+  UsersRound,
   X,
 } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Alert, Mascot, Segmented, useToast } from '../design-system';
 import { useAuth, useCan } from '../app/auth';
 import { NewSaleModal } from '../features/NewSaleModal';
@@ -191,6 +191,53 @@ function HomeCard({
   );
 }
 
+/** Ícone da barra da direita: dica ao passar o mouse e contador embaixo. */
+function RailButton({
+  icon,
+  tip,
+  count,
+  alert,
+  onClick,
+}: {
+  icon: ReactNode;
+  tip: string;
+  count?: number;
+  alert?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`rail__item ${alert ? 'is-alert' : ''}`}
+      aria-label={count === undefined ? tip : `${tip}: ${count}`}
+      data-tip={tip}
+      onClick={onClick}
+    >
+      {icon}
+      {count !== undefined && <b>{count}</b>}
+    </button>
+  );
+}
+
+/** Mesa de bistrô (tampo e pé), como no mapa de mesas. */
+function TableIcon() {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M4 6h16M12 6v14M7 20h10M12 13l-5 7M12 13l5 7" />
+    </svg>
+  );
+}
+
 /**
  * Tela inicial: quadro de pedidos em 3 colunas (em análise → em produção → prontos). "Novo
  * pedido" e o detalhe do pedido abrem num painel que desliza da direita, sem perder o quadro.
@@ -213,6 +260,9 @@ export function PdvPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const known = useRef<Set<string> | null>(null);
+  const navigate = useNavigate();
+  /** Pedidos finalizados hoje (00:00–23:59), para o atalho da direita. */
+  const [doneToday, setDoneToday] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -229,6 +279,18 @@ export function PdvPage() {
       known.current = new Set(waiting.map((o) => o.id));
       setOrders(list);
       setError(null);
+      const from = new Date();
+      from.setHours(0, 0, 0, 0);
+      const to = new Date(from.getTime() + 86_400_000);
+      const q = new URLSearchParams({
+        from: from.toISOString(),
+        to: to.toISOString(),
+        status: 'completed',
+        limit: '500',
+      });
+      api<Order[]>(`/orders?${q}`)
+        .then((d) => setDoneToday(d.length))
+        .catch(() => setDoneToday(null));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -333,6 +395,8 @@ export function PdvPage() {
   }
 
   const storeLink = `${window.location.origin}/pedir`;
+  /** Pedidos com cancelamento pedido pelo cliente: precisam de resposta da loja. */
+  const requests = (orders ?? []).filter((o) => o.status === 'cancel_requested');
 
   return (
     <div className="home">
@@ -444,6 +508,7 @@ export function PdvPage() {
               <section
                 key={c.key}
                 className="board__col"
+                data-col={c.key}
                 data-on={activeCol === c.key}
                 style={{ ['--tone' as string]: c.tone }}
               >
@@ -519,53 +584,56 @@ export function PdvPage() {
         </div>
 
         <nav className="rail" aria-label="Atalhos">
-          <Link to="/mesas" className="rail__item" title="Salão e mesas">
-            <LayoutGrid size={20} />
-            <span>Salão</span>
-            <b>{(orders ?? []).filter((o) => o.channel === 'table').length}</b>
-          </Link>
-          <Link to="/cozinha" className="rail__item" title="Cozinha (KDS)">
-            <ChefHat size={20} />
-            <span>Cozinha</span>
-            <b>
-              {
-                (orders ?? []).filter((o) => o.status === 'new' || o.status === 'in_production')
-                  .length
-              }
-            </b>
-          </Link>
-          <Link to="/entregas" className="rail__item" title="Entregas">
-            <Bike size={20} />
-            <span>Entregas</span>
-            <b>{(orders ?? []).filter((o) => o.status === 'dispatched').length}</b>
-          </Link>
-          <Link to="/pedidos" className="rail__item" title="Histórico de pedidos">
-            <ClipboardList size={20} />
-            <span>Histórico</span>
-          </Link>
-          <a
-            href="/pedir"
-            target="_blank"
-            rel="noreferrer"
-            className="rail__item"
-            title="Abrir o cardápio online"
-          >
-            <ExternalLink size={20} />
-            <span>Cardápio online</span>
-          </a>
-          <button
-            className="rail__item"
-            title="Copiar o link do cardápio online"
+          <RailButton
+            icon={<UsersRound />}
+            tip="Solicitações de atendimento"
+            count={awaiting}
+            alert={awaiting > 0}
+            onClick={() => {
+              setFilter('all');
+              setMobileCol('analysis');
+            }}
+          />
+          <RailButton
+            icon={<ConciergeBell />}
+            tip="Solicitações de notas fiscais e ajustes no pedido"
+            count={requests.length}
+            alert={requests.length > 0}
+            onClick={() => {
+              if (requests[0]) {
+                setOpenStep(undefined);
+                setOpenId(requests[0].id);
+              } else toast('Nenhuma solicitação de ajuste agora', 'neutral');
+            }}
+          />
+          <RailButton
+            icon={<TableIcon />}
+            tip="Mapa de mesas e comandas"
+            count={(orders ?? []).filter((o) => o.channel === 'table').length}
+            onClick={() => navigate('/mesas')}
+          />
+          <RailButton
+            icon={<CircleCheckBig />}
+            tip="Pedidos finalizados no dia entre 00:00 e 23:59"
+            count={doneToday ?? 0}
+            onClick={() => navigate('/pedidos')}
+          />
+          <span className="rail__sep" aria-hidden />
+          <RailButton
+            icon={<ExternalLink />}
+            tip="Abrir o cardápio online"
+            onClick={() => window.open('/pedir', '_blank', 'noopener')}
+          />
+          <RailButton
+            icon={<Link2 />}
+            tip="Copiar o link do cardápio online"
             onClick={() =>
               navigator.clipboard
                 ?.writeText(storeLink)
                 .then(() => toast('Link do cardápio copiado', 'success'))
                 .catch(() => toast(storeLink, 'neutral'))
             }
-          >
-            <Link2 size={20} />
-            <span>Copiar link</span>
-          </button>
+          />
         </nav>
       </div>
 

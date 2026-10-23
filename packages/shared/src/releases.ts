@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.15.3',
+    date: '2026-10-23',
+    title: 'PDV em largura total e barra de atalhos',
+    summary:
+      'As telas agora ocupam a largura toda e acompanham o zoom; o PDV ganhou colunas mais fortes e a barra de atalhos da direita.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Conteúdo de todas as telas vai até as bordas e se adapta ao zoom do navegador.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDV: colunas com cabeçalho de cor cheia (laranja, amarelo e verde).',
+      },
+      {
+        tag: 'novo',
+        text: 'PDV: barra da direita com 4 atalhos e contadores (solicitações de atendimento, notas e ajustes, mapa de mesas, finalizados do dia) e dicas ao passar o mouse.',
+      },
+    ],
+  },
+  {
     version: '0.15.2',
     date: '2026-10-23',
     title: 'Seletores e janelas de celular',

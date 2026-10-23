@@ -1,8 +1,8 @@
 /* Tela inicial: quadro de pedidos em 3 colunas. Só variáveis --cm-* (segue o design system). */
 .home {
-  --home-analysis: var(--cm-brand-500);
+  --home-analysis: var(--cm-brand-600);
   --home-production: var(--cm-accent-500);
-  --home-ready: var(--cm-success);
+  --home-ready: #2f9e44;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--cm-space-4);
@@ -132,7 +132,7 @@
 /* Quadro + atalhos */
 .home__body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 88px;
+  grid-template-columns: minmax(0, 1fr) 72px;
   gap: var(--cm-space-3);
   align-items: start;
 }
@@ -143,26 +143,29 @@
   border-radius: var(--cm-radius-md);
   overflow-x: auto;
   border: 1px solid var(--cm-border);
-  min-height: calc(100vh - 210px);
+  min-height: calc(100vh - 200px);
+  min-height: calc(100dvh - 200px);
 }
 .board__col {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: color-mix(in srgb, var(--tone) 5%, var(--cm-bg));
+  background: color-mix(in srgb, var(--tone) 16%, var(--cm-bg));
 }
 .board__col + .board__col {
-  border-left: 1px solid color-mix(in srgb, var(--tone) 18%, var(--cm-border));
+  border-left: 1px solid color-mix(in srgb, var(--tone) 35%, var(--cm-border));
 }
+/* Cabeçalho forte: cor cheia da coluna (como no Anota AI), texto branco; no amarelo, escuro. */
 .board__head {
   display: flex;
   align-items: center;
   gap: var(--cm-space-2);
-  padding: 12px 16px;
-  /* Cabeçalho suave: tom da coluna clarinho, texto escuro e uma faixa forte em cima. */
-  background: color-mix(in srgb, var(--tone) 11%, var(--cm-surface));
-  box-shadow: inset 0 3px 0 var(--tone);
-  color: var(--cm-text);
+  padding: 14px 16px;
+  background: var(--tone);
+  color: #fff;
+}
+.board__col[data-col='production'] .board__head {
+  color: #1a1613;
 }
 .board__head h2 {
   margin: 0;
@@ -179,10 +182,10 @@
   margin-left: auto;
   height: 28px;
   padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--tone) 45%, var(--cm-border));
+  border: 1px solid color-mix(in srgb, currentColor 55%, transparent);
   border-radius: var(--cm-radius-sm);
-  background: var(--cm-surface);
-  color: var(--cm-text);
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  color: inherit;
   font-weight: 650;
   font-size: var(--cm-text-xs);
   cursor: pointer;
@@ -196,7 +199,7 @@
   padding: var(--cm-space-3);
   align-content: start;
   overflow-y: auto;
-  max-height: calc(100vh - 260px);
+  max-height: calc(100dvh - 260px);
 }
 .board__empty {
   display: grid;
@@ -389,43 +392,86 @@
   flex: 1;
 }
 
-/* Atalhos à direita (como a barra do Anota AI) */
+/* Atalhos à direita (como a barra do Anota AI): só ícone, contador embaixo e dica ao lado. */
 .rail {
   position: sticky;
-  top: 76px;
+  top: 12px;
   display: grid;
-  gap: 6px;
-}
-.rail__item {
-  display: grid;
-  justify-items: center;
+  align-content: start;
   gap: 2px;
-  padding: 10px 4px;
+  padding: 6px 0;
   border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-md);
   background: var(--cm-surface);
+}
+.rail__sep {
+  height: 1px;
+  margin: 4px 10px;
+  background: var(--cm-border);
+}
+.rail__item {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 10px 4px;
+  border: 0;
+  background: none;
   color: var(--cm-text-muted);
   text-decoration: none;
   font: inherit;
-  font-size: 11px;
-  font-weight: 600;
-  text-align: center;
   cursor: pointer;
-  transition:
-    color 0.15s,
-    border-color 0.15s;
+  transition: color 0.15s;
+}
+.rail__item svg {
+  width: 24px;
+  height: 24px;
 }
 .rail__item:hover {
   color: var(--cm-brand-700);
-  border-color: var(--cm-brand-400);
+}
+.rail__item.is-alert {
+  color: var(--cm-brand-700);
 }
 .rail__item b {
-  min-width: 22px;
-  padding: 0 6px;
+  min-width: 28px;
+  padding: 1px 8px;
   border-radius: var(--cm-radius-full);
-  background: var(--cm-surface-muted);
+  background: var(--cm-surface-sunken);
   color: var(--cm-text);
   font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.rail__item.is-alert b {
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+}
+/* Dica à esquerda do ícone (a barra fica na borda direita). */
+.rail__item::after {
+  content: attr(data-tip);
+  position: absolute;
+  right: calc(100% + 8px);
+  top: 50%;
+  translate: 6px -50%;
+  padding: 8px 12px;
+  border-radius: var(--cm-radius-sm);
+  background: #26211e;
+  color: #fff;
+  font-size: var(--cm-text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.15s,
+    translate 0.15s;
+  z-index: 5;
+}
+.rail__item:hover::after,
+.rail__item:focus-visible::after {
+  opacity: 1;
+  translate: 0 -50%;
 }
 
 @media (max-width: 1100px) {
@@ -435,9 +481,13 @@
   .rail {
     position: static;
     grid-auto-flow: column;
-    grid-auto-columns: minmax(84px, 1fr);
-    overflow-x: auto;
+    grid-auto-columns: minmax(64px, 1fr);
+    padding: 0;
     order: -1;
+  }
+  .rail__sep,
+  .rail__item::after {
+    display: none;
   }
 }
 /* Abas das colunas: só no celular. */
@@ -465,8 +515,7 @@
   /* Ações e atalhos cabem na largura (quebram linha em vez de rolar de lado). */
   .rail {
     grid-auto-flow: row;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    overflow: visible;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 @media (max-width: 600px) {

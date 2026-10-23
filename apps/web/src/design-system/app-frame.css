@@ -244,10 +244,11 @@
   grid-template-columns: minmax(0, 1fr);
   gap: var(--cm-space-6);
   align-content: start;
+  /* Ocupa a tela toda, até as bordas, e acompanha o zoom do navegador. */
   width: 100%;
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: var(--cm-space-6) var(--cm-space-8) var(--cm-space-10);
+  max-width: none;
+  margin: 0;
+  padding: var(--cm-space-5) var(--cm-space-5) var(--cm-space-8);
 }
 
 /* ---------------------------------------------------------------- abas de baixo (celular) */
