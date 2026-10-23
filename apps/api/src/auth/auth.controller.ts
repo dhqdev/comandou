@@ -181,7 +181,13 @@ export class AuthController {
         role: user.role,
         roleLabel: ROLE_LABELS[user.role],
       },
-      support: user.supportAdminName ? { adminName: user.supportAdminName } : null,
+      support: user.supportAdminName
+        ? {
+            adminName: user.supportAdminName,
+            // Ao encerrar o acesso de suporte, o navegador volta para o painel.
+            adminHost: `admin.${this.env.COMANDOU_BASE_DOMAIN}`,
+          }
+        : null,
       permissions: DEFAULT_ROLE_PERMISSIONS[user.role],
       tenant: { id: tenant.id, slug: tenant.slug, name: tenant.name },
     };

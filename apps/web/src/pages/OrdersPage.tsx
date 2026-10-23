@@ -6,7 +6,7 @@ import {
 } from '@comandou/shared';
 import { ClipboardList } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Badge, Card, EmptyState, Skeleton } from '../design-system';
+import { Alert, Badge, Card, EmptyState, Skeleton, Select, DateInput } from '../design-system';
 import {
   CHANNEL_LABELS,
   ORDER_STATUS_LABELS,
@@ -65,16 +65,11 @@ export function OrdersPage() {
       <div className="filters">
         <label className="cm-field">
           <span className="cm-label">Dia</span>
-          <input
-            className="cm-input"
-            type="date"
-            value={day}
-            onChange={(e) => setDay(e.target.value)}
-          />
+          <DateInput value={day} onChange={(e) => setDay(e.target.value)} />
         </label>
         <label className="cm-field">
           <span className="cm-label">Status</span>
-          <select
+          <Select
             className="cm-input"
             value={status}
             onChange={(e) => setStatus(e.target.value as OrderStatus | '')}
@@ -85,11 +80,11 @@ export function OrdersPage() {
                 {ORDER_STATUS_LABELS[s]}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <label className="cm-field">
           <span className="cm-label">Canal</span>
-          <select
+          <Select
             className="cm-input"
             value={channel}
             onChange={(e) => setChannel(e.target.value as OrderChannel | '')}
@@ -100,7 +95,7 @@ export function OrdersPage() {
                 {CHANNEL_LABELS[c]}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}

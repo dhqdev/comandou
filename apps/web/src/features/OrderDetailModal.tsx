@@ -2,7 +2,16 @@ import { canTransition, fromCents, toCents, type OrderStatus } from '@comandou/s
 import { MessageCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Alert, Badge, Button, Modal, Spinner, TextField, useToast } from '../design-system';
+import {
+  Alert,
+  Badge,
+  Button,
+  Modal,
+  Spinner,
+  TextField,
+  useToast,
+  Select,
+} from '../design-system';
 import { useCan } from '../app/auth';
 import { FiscalSection } from './FiscalSection';
 import { api } from '../lib/api';
@@ -458,7 +467,7 @@ function DispatchForm({
       ) : (
         <label className="cm-field">
           <span className="cm-label">Entregador</span>
-          <select
+          <Select
             className="cm-input"
             value={courierId}
             onChange={(e) => setCourierId(e.target.value)}
@@ -468,7 +477,7 @@ function DispatchForm({
                 {c.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       )}
       <div className="actions-row">
@@ -634,13 +643,13 @@ function RefundForm({
       )}
       <label className="cm-field">
         <span className="cm-label">Caixa</span>
-        <select className="cm-input" value={sessionId} onChange={(e) => choose(e.target.value)}>
+        <Select className="cm-input" value={sessionId} onChange={(e) => choose(e.target.value)}>
           {(sessions ?? []).map((s) => (
             <option key={s.id} value={s.id}>
               {s.registerName} · sessão {s.number}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       <TextField
         label="Valor"

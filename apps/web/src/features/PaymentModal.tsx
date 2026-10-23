@@ -6,7 +6,7 @@ import {
   type PaymentMethod,
 } from '@comandou/shared';
 import { useEffect, useState } from 'react';
-import { Alert, Button, Modal, TextField, useToast } from '../design-system';
+import { Alert, Button, Modal, TextField, useToast, Select } from '../design-system';
 import { api, ApiError } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
@@ -144,13 +144,13 @@ export function PaymentModal({
         ) : (
           <label className="cm-field">
             <span className="cm-label">Caixa</span>
-            <select className="cm-input" value={sessionId} onChange={(e) => choose(e.target.value)}>
+            <Select className="cm-input" value={sessionId} onChange={(e) => choose(e.target.value)}>
               {(sessions ?? []).map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.registerName} · sessão {s.number}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         <div className="chips" role="radiogroup" aria-label="Forma de pagamento">

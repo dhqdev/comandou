@@ -1,5 +1,5 @@
 import { ReactNode, SelectHTMLAttributes, useId } from 'react';
-import { Segmented } from '../design-system';
+import { Segmented, Select } from '../design-system';
 
 /** Campo de seleção com rótulo, no mesmo visual do TextField. */
 export function SelectField({
@@ -13,9 +13,9 @@ export function SelectField({
       <label className="cm-label" htmlFor={id}>
         {label}
       </label>
-      <select id={id} className="cm-input" {...rest}>
+      <Select id={id} className="cm-input" {...rest}>
         {children}
-      </select>
+      </Select>
     </div>
   );
 }

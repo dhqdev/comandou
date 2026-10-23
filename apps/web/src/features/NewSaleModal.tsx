@@ -18,6 +18,7 @@ import {
   Spinner,
   TextField,
   useToast,
+  Select,
 } from '../design-system';
 import { api, ApiError } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
@@ -265,7 +266,7 @@ export function NewSaleModal({
           {channel === 'table' && !preset?.tabId && (
             <label className="cm-field">
               <span className="cm-label">Mesa</span>
-              <select
+              <Select
                 className="cm-input"
                 value={tableId}
                 onChange={(e) => setTableId(e.target.value)}
@@ -276,7 +277,7 @@ export function NewSaleModal({
                     Mesa {t.label} {t.tabId ? `(ocupada · ${brl(t.tabTotal)})` : '(livre)'}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           )}
           {cart.length === 0 ? (

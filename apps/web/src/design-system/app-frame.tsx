@@ -67,6 +67,7 @@ export function AppFrame({
   children,
   contentKey,
   className = '',
+  showWhere = true,
 }: {
   /** Topo da barra lateral (logo). */
   brand: ReactNode;
@@ -84,6 +85,8 @@ export function AppFrame({
   /** Muda a cada tela, para reiniciar a animação de entrada e voltar ao topo. */
   contentKey?: string;
   className?: string;
+  /** No celular, mostra no topo o nome da tela atual (o painel admin já tem título próprio). */
+  showWhere?: boolean;
 }) {
   const { pathname } = useLocation();
   const [open, setOpen] = useState<string | null>(null);
@@ -96,6 +99,8 @@ export function AppFrame({
   const panel = useRef<HTMLDivElement>(null);
   const all = [...items, ...footer];
   useTableLabels(panel);
+  const where = currentScreen(pathname, all);
+  const [scrolled, setScrolled] = useState(false);
 
   // Trocou de tela: fecha menus e volta o painel ao topo.
   useEffect(() => {
@@ -193,12 +198,25 @@ export function AppFrame({
         </div>
       )}
 
-      <header className="cm-frame__top">
+      <header className="cm-frame__top" data-scrolled={scrolled || undefined}>
         {brandCompact && <div className="cm-frame__compact">{brandCompact}</div>}
+        {showWhere && where && (
+          <div className="cm-frame__where" aria-hidden>
+            {where.icon}
+            <span>{where.label}</span>
+          </div>
+        )}
         {top}
       </header>
 
-      <div className="cm-frame__panel" ref={panel}>
+      <div
+        className="cm-frame__panel"
+        ref={panel}
+        onScroll={(e) => {
+          const s = e.currentTarget.scrollTop > 4;
+          if (s !== scrolled) setScrolled(s);
+        }}
+      >
         {banners}
         <main className="cm-frame__content cm-enter" key={contentKey}>
           {children}
@@ -292,6 +310,20 @@ export function AppFrame({
       </Sheet>
     </div>
   );
+}
+
+/** Tela atual (o link mais específico que bate com o endereço), para o topo do celular. */
+function currentScreen(pathname: string, all: FrameItem[]) {
+  let best: { label: string; icon: ReactNode; len: number } | null = null;
+  const consider = (to: string, end: boolean | undefined, label: string, icon: ReactNode) => {
+    if (isOn(pathname, to, end) && (!best || to.length > best.len))
+      best = { label, icon, len: to.length };
+  };
+  for (const it of all) {
+    if (it.to) consider(it.to, it.end, it.label, it.icon);
+    for (const c of it.children ?? []) consider(c.to, c.end, c.label, c.icon);
+  }
+  return best as { label: string; icon: ReactNode } | null;
 }
 
 /**

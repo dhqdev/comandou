@@ -7,3 +7,4 @@ export * from './mascot';
 export * from './glider';
 export * from './theme';
 export * from './app-frame';
+export * from './pickers';

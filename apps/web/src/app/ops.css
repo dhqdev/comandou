@@ -70,6 +70,16 @@
 .filters .cm-field {
   min-width: 160px;
 }
+/* Celular: filtros em duas colunas iguais, sem campos de larguras diferentes. */
+@media (max-width: 640px) {
+  .filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .filters .cm-field {
+    min-width: 0;
+  }
+}
 .link-btn {
   border: 0;
   background: none;

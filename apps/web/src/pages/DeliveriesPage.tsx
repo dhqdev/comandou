@@ -10,6 +10,7 @@ import {
   Spinner,
   TextField,
   useToast,
+  Select,
 } from '../design-system';
 import { useCan } from '../app/auth';
 import { minutesSince, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE, time } from '../features/format';
@@ -227,7 +228,7 @@ function DispatchRow({
         </Badge>
       </div>
       <div className="actions-row" style={{ alignItems: 'end' }}>
-        <select
+        <Select
           className="cm-input"
           aria-label={`Entregador do pedido ${order.number}`}
           value={courierId}
@@ -239,7 +240,7 @@ function DispatchRow({
               {c.name}
             </option>
           ))}
-        </select>
+        </Select>
         <Button loading={busy} disabled={!courierId} onClick={go}>
           Saiu para entrega
         </Button>

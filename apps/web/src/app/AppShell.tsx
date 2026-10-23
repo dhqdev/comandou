@@ -129,6 +129,17 @@ const TAB_PREFERENCE = ['/', '/pedidos', '/mesas', '/cozinha', '/caixa', '/carda
 
 export function AppShell() {
   const { me, logout } = useAuth();
+  /** Encerra a sessão de suporte e volta para o painel admin (mesma porta em dev). */
+  const endSupport = async () => {
+    const host = me?.support?.adminHost;
+    await logout();
+    if (host) {
+      const port = window.location.port ? `:${window.location.port}` : '';
+      window.location.assign(
+        `${window.location.protocol}//${host}${port}/restaurantes/${me?.tenant.id ?? ''}`,
+      );
+    }
+  };
   const online = useOnline();
   const live = useRealtimeStatus();
   const unseen = useHasUnseenRelease();
@@ -191,7 +202,7 @@ export function AppShell() {
     <>
       <AppFrame
         brand={<Mascot size={40} badge title="Comandou" />}
-        brandCompact={<Logo size={28} />}
+        brandCompact={<Logo size={30} wordmark={false} />}
         items={[...main, ...groups]}
         footer={[
           {
@@ -236,7 +247,7 @@ export function AppShell() {
             {me?.support && (
               <div className="offline-banner support-banner" role="status">
                 Acesso de suporte: {me.support.adminName} entrou como {me.user.name}. Tudo fica
-                registrado. <button onClick={logout}>Encerrar acesso</button>
+                registrado. <button onClick={endSupport}>Encerrar acesso</button>
               </div>
             )}
             {!online && (

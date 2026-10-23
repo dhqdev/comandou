@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { X } from 'lucide-react';
 import { Mascot, type MascotMood } from './mascot';
+import { DateInput } from './pickers';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 
@@ -64,7 +65,7 @@ export interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function TextField(
-  { label, hint, error, id, ...rest },
+  { label, hint, error, id, type, ...rest },
   ref,
 ) {
   const autoId = useId();
@@ -75,14 +76,25 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
       <label className="cm-label" htmlFor={inputId}>
         {label}
       </label>
-      <input
-        ref={ref}
-        id={inputId}
-        className="cm-input"
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy}
-        {...rest}
-      />
+      {type === 'date' ? (
+        <DateInput
+          ref={ref}
+          id={inputId}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          {...rest}
+        />
+      ) : (
+        <input
+          ref={ref}
+          id={inputId}
+          type={type}
+          className="cm-input"
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          {...rest}
+        />
+      )}
       {error ? (
         <span id={`${inputId}-err`} className="cm-error-text" role="alert">
           {error}

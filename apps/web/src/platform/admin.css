@@ -676,31 +676,6 @@ a.adm-row:hover {
   .adm-value {
     font-size: 24px;
   }
-  /* No celular, todo modal vira uma folha que sobe de baixo. */
-  :root[data-app='admin'] .cm-modal,
-  :root[data-app='admin'] .cm-modal--lg,
-  :root[data-app='admin'] .cm-modal--xl {
-    width: 100%;
-    max-width: 100%;
-    margin: auto 0 0;
-    border-radius: 10px 10px 0 0;
-    border-bottom: 0;
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  :root[data-app='admin'] .cm-modal[open] {
-    animation: adm-up 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-  :root[data-app='admin'] .cm-modal::before {
-    content: '';
-    display: block;
-    width: 40px;
-    height: 4px;
-    margin: 8px auto 0;
-    background: var(--a-line-strong);
-  }
-  :root[data-app='admin'] .cm-modal__body {
-    max-height: calc(88dvh - 120px);
-  }
   .adm-kv {
     grid-template-columns: 1fr;
     gap: 2px;

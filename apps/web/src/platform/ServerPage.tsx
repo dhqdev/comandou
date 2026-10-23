@@ -1,6 +1,6 @@
 import { RefreshCw, RotateCcw, ScrollText, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { Alert, Modal, Spinner, useToast } from '../design-system';
+import { Alert, Modal, Spinner, useToast, Select } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
@@ -408,7 +408,7 @@ function ServiceSheet({
           {busy === 'logs' ? 'Carregando…' : logs ? 'Atualizar logs' : 'Ver logs'}
         </button>
         {logs && (
-          <select
+          <Select
             className="cm-input"
             style={{ width: 'auto', minHeight: 40 }}
             value={tail}
@@ -424,7 +424,7 @@ function ServiceSheet({
                 {n} linhas
               </option>
             ))}
-          </select>
+          </Select>
         )}
         {!confirm ? (
           <button className="adm-action adm-action--danger" onClick={() => setConfirm(true)}>

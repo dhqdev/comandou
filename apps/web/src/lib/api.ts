@@ -50,7 +50,7 @@ export interface Me {
   permissions: string[];
   tenant: { id: string; slug: string; name: string };
   /** Sessão aberta pelo suporte da plataforma. */
-  support?: { adminName: string } | null;
+  support?: { adminName: string; adminHost?: string } | null;
 }
 
 export interface Category {

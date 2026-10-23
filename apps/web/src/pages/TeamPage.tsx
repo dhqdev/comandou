@@ -11,6 +11,7 @@ import {
   Spinner,
   TextField,
   useToast,
+  Select,
 } from '../design-system';
 import { useAuth } from '../app/auth';
 import { dateTime } from '../features/format';
@@ -94,7 +95,7 @@ export function TeamPage() {
                         {self ? (
                           ROLE_LABELS[m.role as Role]
                         ) : (
-                          <select
+                          <Select
                             className="cm-input"
                             aria-label={`Papel de ${m.name}`}
                             value={m.role}
@@ -107,7 +108,7 @@ export function TeamPage() {
                                 {ROLE_LABELS[r]}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         )}
                       </td>
                       <td>{m.lastSeenAt ? dateTime(m.lastSeenAt) : '—'}</td>

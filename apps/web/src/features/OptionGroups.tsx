@@ -10,6 +10,7 @@ import {
   Modal,
   TextField,
   useToast,
+  Select,
 } from '../design-system';
 import { api, type Product } from '../lib/api';
 import { brl, parseBrlInput } from '../lib/money';
@@ -322,7 +323,7 @@ export function ProductConfigModal({
       <div style={{ display: 'grid', gap: 16 }}>
         <label className="cm-field">
           <span className="cm-label">Setor de produção</span>
-          <select
+          <Select
             className="cm-input"
             value={sectorId}
             onChange={(e) => setSectorId(e.target.value)}
@@ -333,7 +334,7 @@ export function ProductConfigModal({
                 {s.name}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <fieldset className="picker__group">
           <legend>Grupos de opções (na ordem em que aparecem)</legend>
@@ -389,7 +390,7 @@ export function ProductConfigModal({
             />
             <label className="cm-field">
               <span className="cm-label">Origem</span>
-              <select
+              <Select
                 className="cm-input"
                 value={fiscal.fiscalOrigin}
                 onChange={(e) => setFiscal({ ...fiscal, fiscalOrigin: e.target.value })}
@@ -400,7 +401,7 @@ export function ProductConfigModal({
                     {n}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <TextField
               label="Unidade"

@@ -219,7 +219,8 @@
   min-width: 0;
   padding: 0 var(--cm-space-5) 0 var(--cm-space-2);
 }
-.cm-frame__compact {
+.cm-frame__compact,
+.cm-frame__where {
   display: none;
 }
 .cm-frame__panel {
@@ -436,6 +437,39 @@
   .cm-frame__compact {
     display: flex;
     align-items: center;
+  }
+  /* Nome da tela atual no topo: ao rolar, o título da página some e isto fica. */
+  .cm-frame__where {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
+    font-size: var(--cm-text-lg);
+    font-weight: 750;
+    letter-spacing: -0.01em;
+    color: var(--cm-text);
+  }
+  .cm-frame__where svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    color: var(--cm-brand-700);
+  }
+  .cm-frame__where span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cm-frame__top {
+    position: relative;
+    z-index: 2;
+    border-bottom: 1px solid var(--cm-frame-line);
+    transition: box-shadow var(--cm-dur) var(--cm-ease);
+  }
+  /* Rolou: o topo ganha sombra para separar do conteúdo (no escuro os dois se confundiam). */
+  .cm-frame__top[data-scrolled] {
+    box-shadow: 0 6px 18px -8px rgb(0 0 0 / 55%);
   }
   .cm-frame__panel {
     grid-column: 1;

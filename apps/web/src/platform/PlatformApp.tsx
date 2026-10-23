@@ -294,6 +294,7 @@ function PlatformShell() {
         className="adm-frame"
         brand={<Mascot size={40} badge title="Comandou Admin" />}
         brandCompact={<Mascot size={28} badge title="Comandou Admin" />}
+        showWhere={false}
         items={items}
         footer={[{ key: 'conta', label: 'Conta', icon: <CircleUserRound />, panel: account }]}
         tabs={TABS}

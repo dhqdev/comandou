@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.15.2',
+    date: '2026-10-23',
+    title: 'Seletores e janelas de celular',
+    summary:
+      'No celular, escolher opções e datas agora abre uma folha grande que sobe de baixo, e o topo mostra em qual tela você está.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Seletores próprios no toque: listas (status, canal, entregador, caixa…) viram opções grandes e datas abrem um calendário com atalhos Hoje, Ontem e Há 7 dias.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Janelas no celular ficaram maiores, com alça, título maior e botões de largura inteira.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Topo do celular mostra o nome da tela atual e ganha sombra ao rolar, separando do conteúdo no tema escuro.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Encerrar o acesso de suporte volta direto para o restaurante no painel admin.',
+      },
+    ],
+  },
+  {
     version: '0.15.1',
     date: '2026-10-23',
     title: 'Menu do iPhone e limpeza de código',

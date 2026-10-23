@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Alert, Button, Modal, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, Modal, Spinner, TextField, useToast, Select } from '../design-system';
 import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
@@ -131,7 +131,7 @@ export function TenantsPage() {
           onChange={(e) => setSearch(e.target.value)}
           aria-label="Buscar"
         />
-        <select
+        <Select
           className="cm-input"
           value={status}
           onChange={(e) => setStatus(e.target.value)}
@@ -143,7 +143,7 @@ export function TenantsPage() {
               {l}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
       <div className="adm-panel">

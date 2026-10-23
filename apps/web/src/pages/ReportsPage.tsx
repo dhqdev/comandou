@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Card, EmptyState, Spinner } from '../design-system';
+import { Alert, Card, EmptyState, Spinner, DateInput } from '../design-system';
 import { CHANNEL_LABELS, PAYMENT_METHOD_LABELS, qty } from '../features/format';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
@@ -52,12 +52,7 @@ export function ReportsPage() {
         </div>
         <label className="cm-field">
           <span className="cm-label">Dia</span>
-          <input
-            className="cm-input"
-            type="date"
-            value={day}
-            onChange={(e) => setDay(e.target.value)}
-          />
+          <DateInput value={day} onChange={(e) => setDay(e.target.value)} />
         </label>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
