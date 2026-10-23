@@ -17,6 +17,7 @@ import { useAuth } from '../app/auth';
 import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
+import { useLinkParam } from '../lib/deep-link';
 import type { Member } from '../lib/types';
 
 /** Equipe do restaurante: quem acessa, com qual papel. Só administradores alteram. */
@@ -26,6 +27,7 @@ export function TeamPage() {
   const [members, setMembers] = useState<Member[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  useLinkParam('acao', (a) => a === 'pessoa' && setAdding(true));
 
   const load = useCallback(async () => {
     try {
@@ -85,7 +87,7 @@ export function TeamPage() {
                 {members.map((m) => {
                   const self = m.id === me?.user.id;
                   return (
-                    <tr key={m.id}>
+                    <tr key={m.id} data-search-id={`membro-${m.id}`}>
                       <td>
                         <strong>{m.name}</strong> {self && <Badge tone="info">você</Badge>}{' '}
                         {m.status === 'revoked' && <Badge tone="danger">desativado</Badge>}

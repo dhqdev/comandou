@@ -17,18 +17,6 @@
   font-weight: 500;
   color: var(--cm-text-subtle);
 }
-.topbar__search {
-  flex: 1;
-  max-width: 440px;
-}
-.topbar__search .cm-input {
-  min-height: 36px;
-  padding-left: 36px;
-  background: var(--cm-surface)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23857c73' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m14 14-3.2-3.2'/%3E%3C/svg%3E")
-    no-repeat 12px center;
-  font-size: var(--cm-text-sm);
-}
 .topbar__spacer {
   flex: 1;
 }
@@ -175,7 +163,6 @@
   }
 }
 @media (max-width: 860px) {
-  .topbar__search,
   .topbar__tenant {
     display: none;
   }

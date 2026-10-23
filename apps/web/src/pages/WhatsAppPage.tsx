@@ -99,6 +99,7 @@ export function WhatsAppPage() {
         </p>
       </div>
       <Card
+        searchId="secao-avisos"
         title="Avisos"
         actions={
           <Badge tone={s.enabled ? 'success' : 'neutral'}>
@@ -150,7 +151,7 @@ export function WhatsAppPage() {
       ) : (
         <MetaCard s={s} busy={busy} save={save} />
       )}
-      <Card title="Enviar teste">
+      <Card searchId="secao-teste" title="Enviar teste">
         <div className="form-grid">
           <TextField
             label="Telefone (DDD + número)"
@@ -172,6 +173,7 @@ export function WhatsAppPage() {
         </div>
       </Card>
       <Card
+        searchId="secao-mensagens"
         title="Mensagens recentes"
         actions={
           <Button variant="ghost" onClick={loadMsgs}>
@@ -276,6 +278,7 @@ function BaileysCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; s
 
   return (
     <Card
+      searchId="secao-qr"
       title="Conexão por QR Code"
       actions={
         session && <Badge tone={SESSION[session.status][1]}>{SESSION[session.status][0]}</Badge>
@@ -387,7 +390,7 @@ function MetaCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; save
       setForm((f) => ({ ...f, token: '' }));
   }
   return (
-    <Card title="API oficial da Meta">
+    <Card searchId="secao-meta" title="API oficial da Meta">
       {!s.keyConfigured && (
         <Alert tone="warning">
           O servidor ainda não tem a chave que protege tokens (INTEGRATIONS_KEY). Peça ao suporte

@@ -15,6 +15,7 @@ import { useCan } from '../app/auth';
 import { ImagePicker } from '../features/ImagePicker';
 import { OptionGroup, OptionGroupsCard, ProductConfigModal } from '../features/OptionGroups';
 import { api, Category, Product } from '../lib/api';
+import { useLinkParam } from '../lib/deep-link';
 import { useRealtime } from '../lib/realtime';
 import type { Sector } from '../lib/types';
 import { brl, parseBrlInput } from '../lib/money';
@@ -31,6 +32,17 @@ export function MenuPage() {
   const [links, setLinks] = useState<{ productId: string; groupId: string }[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [configuring, setConfiguring] = useState<Product | null>(null);
+  // Vindo da busca: abre a categoria certa (o produto é destacado pelo "foco") ou um cadastro.
+  useLinkParam('categoria', setSelected, categories !== null);
+  useLinkParam(
+    'acao',
+    (a) => {
+      if (!canWrite) return;
+      if (a === 'categoria') setModal('category');
+      if (a === 'produto' && categories?.length) setModal('product');
+    },
+    categories !== null,
+  );
 
   const load = useCallback(async () => {
     try {
@@ -210,7 +222,7 @@ export function MenuPage() {
                 </thead>
                 <tbody>
                   {visible.map((p) => (
-                    <tr key={p.id}>
+                    <tr key={p.id} data-search-id={`produto-${p.id}`}>
                       <td>
                         <ImagePicker
                           label={`Foto de ${p.name}`}

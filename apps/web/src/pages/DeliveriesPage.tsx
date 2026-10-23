@@ -465,7 +465,7 @@ function CouriersCard({ couriers, onChanged }: { couriers: Courier[]; onChanged(
       </p>
       <ul className="plain-list">
         {couriers.map((c) => (
-          <li key={c.id}>
+          <li key={c.id} data-search-id={`entregador-${c.id}`}>
             <span>
               <strong>{c.name}</strong> {c.phone && <span className="cm-hint">· {c.phone}</span>}{' '}
               {c.userName && <Badge tone="info">login: {c.userName}</Badge>}{' '}

@@ -24,6 +24,7 @@ import {
   STATUS_TONE,
 } from '../features/format';
 import { api } from '../lib/api';
+import { useLinkParam } from '../lib/deep-link';
 import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import type { DiningTable, Tab } from '../lib/types';
@@ -36,6 +37,8 @@ export function TablesPage() {
   const [error, setError] = useState<string | null>(null);
   const [tabId, setTabId] = useState<string | null>(null);
   const [newTab, setNewTab] = useState(false);
+  useLinkParam('comanda', setTabId);
+  useLinkParam('acao', (a) => a === 'comanda' && canOperate && setNewTab(true));
 
   const load = useCallback(async () => {
     try {
@@ -98,6 +101,7 @@ export function TablesPage() {
           {tables.map((t) => (
             <button
               key={t.id}
+              data-search-id={`mesa-${t.id}`}
               className="table-tile"
               data-busy={!!t.tabId || undefined}
               onClick={() => (t.tabId ? setTabId(t.tabId) : canOperate && openTab(t.id))}

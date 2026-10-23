@@ -83,6 +83,7 @@ function DocumentsTab() {
 
   return (
     <Card
+      searchId="secao-notas"
       title="Notas"
       actions={
         <SelectField
@@ -217,6 +218,7 @@ function SettingsTab() {
   return (
     <>
       <Card
+        searchId="secao-emissao"
         title="Emissão"
         actions={
           <Badge tone={s.enabled ? 'success' : 'neutral'}>
@@ -264,7 +266,7 @@ function SettingsTab() {
           <p className="cm-hint">Só o dono do restaurante muda para produção.</p>
         )}
       </Card>
-      <Card title="Dados da Focus NFe e padrões dos produtos">
+      <Card searchId="secao-focus" title="Dados da Focus NFe e padrões dos produtos">
         <form onSubmit={submit} className="form-grid">
           <TextField
             label="CNPJ do emitente"

@@ -6,6 +6,7 @@ import { CHANNEL_LABELS, dateTime, ORDER_STATUS_LABELS, STATUS_TONE } from '../f
 import { OrderDetailModal } from '../features/OrderDetailModal';
 import { SidePanel } from '../features/SidePanel';
 import { api } from '../lib/api';
+import { useLinkParam } from '../lib/deep-link';
 import { brl } from '../lib/money';
 import type { CustomerDetail, CustomerList } from '../lib/types';
 import './online-store.css';
@@ -230,6 +231,7 @@ export function CustomersPage() {
   const [data, setData] = useState<CustomerList | null>(null);
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState<string | null>(null);
+  useLinkParam('abrir', setOpen);
   const load = useCallback(
     (q: string) =>
       api<CustomerList>(`/customers?search=${encodeURIComponent(q)}`).then(setData, (e: Error) =>

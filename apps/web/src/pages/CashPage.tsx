@@ -15,6 +15,7 @@ import {
 import { useCan } from '../app/auth';
 import { dateTime, PAYMENT_METHOD_LABELS } from '../features/format';
 import { api } from '../lib/api';
+import { useLinkParam } from '../lib/deep-link';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
@@ -34,6 +35,7 @@ export function CashPage() {
   const [history, setHistory] = useState<CashSession[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [opening, setOpening] = useState<CashRegister | null>(null);
+  useLinkParam('sessao', setSelected);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -80,7 +82,12 @@ export function CashPage() {
       ) : (
         <div className="register-grid">
           {registers.map((r) => (
-            <div key={r.id} className="register-tile" data-open={!!r.openSessionId || undefined}>
+            <div
+              key={r.id}
+              data-search-id={`caixa-${r.id}`}
+              className="register-tile"
+              data-open={!!r.openSessionId || undefined}
+            >
               <strong>{r.name}</strong>
               {r.openSessionId ? (
                 <>
@@ -246,6 +253,7 @@ function SessionPanel({ sessionId, onChanged }: { sessionId: string; onChanged()
   const methods = PAYMENT_METHODS.filter((m) => m === 'cash' || toCents(s.expected[m]) !== 0);
   return (
     <Card
+      searchId={`sessao-${s.id}`}
       title={`${s.registerName} · sessão ${s.number}`}
       actions={
         s.status === 'open' && (

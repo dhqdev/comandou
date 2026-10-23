@@ -72,7 +72,7 @@ export function ReportsPage() {
             <Stat label="A receber" value={brl(data.totals.receivable)} />
           </div>
           <div className="two-cols">
-            <Card title="Recebimentos por forma" bodyless>
+            <Card searchId="secao-recebimentos" title="Recebimentos por forma" bodyless>
               {data.received.length === 0 ? (
                 <EmptyState title="Nenhum recebimento" />
               ) : (
@@ -100,7 +100,7 @@ export function ReportsPage() {
                 </table>
               )}
             </Card>
-            <Card title="Por canal" bodyless>
+            <Card searchId="secao-canais" title="Por canal" bodyless>
               {data.byChannel.length === 0 ? (
                 <EmptyState title="Sem vendas" />
               ) : (
@@ -120,7 +120,7 @@ export function ReportsPage() {
               )}
             </Card>
           </div>
-          <Card title="Mais vendidos" bodyless>
+          <Card searchId="secao-mais-vendidos" title="Mais vendidos" bodyless>
             {data.topProducts.length === 0 ? (
               <EmptyState title="Sem vendas" />
             ) : (

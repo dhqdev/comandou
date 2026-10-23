@@ -31,6 +31,7 @@ import { ImagePicker } from '../features/ImagePicker';
 import { SlideTabs } from '../features/SlideTabs';
 import { StoreSettingsCard } from '../features/StoreSettingsCard';
 import { api, Category, Product } from '../lib/api';
+import { useLinkParam } from '../lib/deep-link';
 import { mediaUrl } from '../lib/media';
 import { brl } from '../lib/money';
 import type { StoreBanner, StoreSettings } from '../lib/types';
@@ -617,6 +618,9 @@ export function OnlineStorePage() {
   const toast = useToast();
   const canManage = !!me?.permissions.includes('settings:manage');
   const [tab, setTab] = useState<Tab>('aparencia');
+  useLinkParam('aba', (v) => {
+    if (['aparencia', 'banners', 'destaques', 'funcionamento'].includes(v)) setTab(v as Tab);
+  });
   const [preview, setPreview] = useState(0);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);

@@ -113,14 +113,17 @@ export function Card({
   actions,
   children,
   bodyless,
+  searchId,
 }: {
   title?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
   bodyless?: boolean;
+  /** Alvo da busca global ("?foco=<id>" rola até o card e o destaca). */
+  searchId?: string;
 }) {
   return (
-    <section className="cm-card">
+    <section className="cm-card" data-search-id={searchId}>
       {(title || actions) && (
         <header className="cm-card__header">
           {title && <h2 className="cm-card__title">{title}</h2>}

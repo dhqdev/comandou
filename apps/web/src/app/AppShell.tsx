@@ -25,10 +25,21 @@ import {
   Wallet,
   WifiOff,
 } from 'lucide-react';
-import { ReactNode, useState } from 'react';
+import { ReactNode, useCallback, useState } from 'react';
 import { CURRENT_RELEASE } from '@comandou/shared';
 import { Outlet, useLocation } from 'react-router';
-import { AppFrame, Badge, FrameItem, Logo, Mascot, ThemeToggle } from '../design-system';
+import {
+  AppFrame,
+  Badge,
+  FrameItem,
+  Logo,
+  Mascot,
+  ThemeToggle,
+  currentTheme,
+  setTheme,
+} from '../design-system';
+import { GlobalSearch, GlobalSearchTrigger, useSearchHotkey } from '../features/GlobalSearch';
+import { useSearchSpotlight } from '../lib/deep-link';
 import { useOnline } from '../lib/connectivity';
 import { useRealtimeStatus } from '../lib/realtime';
 import { useHasUnseenRelease } from '../lib/releases';
@@ -151,8 +162,16 @@ export function AppShell() {
   const live = useRealtimeStatus();
   const unseen = useHasUnseenRelease();
   const [pwOpen, setPwOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
-  const can = (item: NavItem) => !item.perms || item.perms.some((p) => me?.permissions.includes(p));
+  const perms = me?.permissions;
+  const allowed = useCallback(
+    (list?: string[]) => !list || list.some((p) => perms?.includes(p)),
+    [perms],
+  );
+  const can = (item: NavItem) => allowed(item.perms);
+  useSearchHotkey(() => setSearchOpen(true));
+  useSearchSpotlight();
   const initials = (me?.user.name ?? '?')
     .split(' ')
     .map((p) => p[0])
@@ -229,13 +248,7 @@ export function AppShell() {
               {me?.tenant.name}
               <span className="topbar__version">v{CURRENT_RELEASE.version}</span>
             </div>
-            <div className="topbar__search">
-              <input
-                className="cm-input"
-                placeholder="Buscar mesa, comanda, pedido ou cliente…"
-                aria-label="Buscar"
-              />
-            </div>
+            <GlobalSearchTrigger onOpen={() => setSearchOpen(true)} />
             <div className="topbar__spacer" />
             {!online ? (
               <Badge tone="warning">Sem conexão</Badge>
@@ -246,6 +259,7 @@ export function AppShell() {
             ) : (
               <Badge tone="warning">Reconectando…</Badge>
             )}
+            <GlobalSearchTrigger icon onOpen={() => setSearchOpen(true)} />
             <ThemeToggle />
           </>
         }
@@ -269,6 +283,16 @@ export function AppShell() {
         <Outlet />
       </AppFrame>
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
+      <GlobalSearch
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        can={allowed}
+        onAction={(a) => {
+          if (a === 'theme') setTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+          if (a === 'password') setPwOpen(true);
+          if (a === 'logout') void logout();
+        }}
+      />
     </>
   );
 }

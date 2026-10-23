@@ -71,7 +71,7 @@ export function OptionGroupsCard({
       ) : (
         <div className="group-grid">
           {groups.map((g) => (
-            <div key={g.id} className="group-tile">
+            <div key={g.id} data-search-id={`grupo-${g.id}`} className="group-tile">
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
                 <strong>{g.name}</strong>
                 <Badge tone="brand">{rule(g)}</Badge>

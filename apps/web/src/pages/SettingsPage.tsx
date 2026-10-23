@@ -54,7 +54,7 @@ export function SettingsPage() {
       </div>
       {!canManage && <Alert tone="info">Somente gerentes alteram estes cadastros.</Alert>}
       {error && <Alert tone="danger">{error}</Alert>}
-      <Card title="Loja online">
+      <Card searchId="secao-loja" title="Loja online">
         <Link to="/loja-online" className="settings-link">
           <Smartphone size={20} aria-hidden />
           <span>
@@ -64,7 +64,7 @@ export function SettingsPage() {
           <ChevronRight size={18} aria-hidden />
         </Link>
       </Card>
-      <Card title="Setores de produção (cozinha)">
+      <Card searchId="secao-setores" title="Setores de produção (cozinha)">
         <SectorForm
           disabled={!canManage}
           onSave={(b) => call('/sectors', 'POST', b, 'Setor criado')}
@@ -86,7 +86,7 @@ export function SettingsPage() {
             </thead>
             <tbody>
               {sectors.map((s) => (
-                <tr key={s.id}>
+                <tr key={s.id} data-search-id={`setor-${s.id}`}>
                   <td>
                     <strong>{s.name}</strong> {!s.active && <Badge>inativo</Badge>}
                   </td>
@@ -117,7 +117,7 @@ export function SettingsPage() {
           </table>
         )}
       </Card>
-      <Card title="Mesas">
+      <Card searchId="secao-mesas" title="Mesas">
         <SimpleForm
           label="Número/nome da mesa"
           max={20}
@@ -126,7 +126,12 @@ export function SettingsPage() {
         />
         <div className="chips" style={{ marginTop: 12 }}>
           {tables.map((t) => (
-            <span key={t.id} className="chip" aria-disabled={!t.active}>
+            <span
+              key={t.id}
+              data-search-id={`mesa-${t.id}`}
+              className="chip"
+              aria-disabled={!t.active}
+            >
               Mesa {t.label}
               {canManage && !t.tabId && (
                 <button
@@ -142,7 +147,7 @@ export function SettingsPage() {
           ))}
         </div>
       </Card>
-      <Card title="Terminais de caixa">
+      <Card searchId="secao-caixas" title="Terminais de caixa">
         <SimpleForm
           label="Nome do terminal"
           max={40}
@@ -151,7 +156,7 @@ export function SettingsPage() {
         />
         <ul className="plain-list">
           {registers.map((r) => (
-            <li key={r.id}>
+            <li key={r.id} data-search-id={`caixa-${r.id}`}>
               <span>{r.name}</span>
               <Badge tone={r.openSessionId ? 'success' : 'neutral'}>
                 {r.openSessionId ? 'aberto' : 'fechado'}

@@ -17,6 +17,7 @@ import {
 } from '../features/format';
 import { OrderDetailModal } from '../features/OrderDetailModal';
 import { api } from '../lib/api';
+import { useLinkParam } from '../lib/deep-link';
 import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import type { Order } from '../lib/types';
@@ -34,6 +35,7 @@ export function OrdersPage() {
   const [channel, setChannel] = useState<OrderChannel | ''>('');
   const [day, setDay] = useState(() => startOfDay().toISOString().slice(0, 10));
   const [openId, setOpenId] = useState<string | null>(null);
+  useLinkParam('abrir', setOpenId);
 
   const load = useCallback(async () => {
     const from = new Date(`${day}T00:00:00`);

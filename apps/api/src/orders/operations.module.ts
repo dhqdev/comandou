@@ -26,6 +26,7 @@ import { AccountController, CustomersController } from '../store/account.control
 import { CustomersService } from '../store/customers.service';
 import { MediaController, StoreController } from '../store/store.controller';
 import { StoreService } from '../store/store.service';
+import { SearchController } from '../search/search.controller';
 import { OrdersController, PaymentsController } from './orders.controller';
 import { OrdersService } from './orders.service';
 
@@ -51,6 +52,7 @@ import { OrdersService } from './orders.service';
     MediaController,
     AccountController,
     CustomersController,
+    SearchController,
   ],
   providers: [
     OrdersService,

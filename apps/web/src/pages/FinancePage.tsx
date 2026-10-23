@@ -16,6 +16,7 @@ import { useCan } from '../app/auth';
 import { PAYMENT_METHOD_LABELS } from '../features/format';
 import { fmtDate, SelectField, Tabs, todayIso } from '../features/forms';
 import { api } from '../lib/api';
+import { useLinkParam } from '../lib/deep-link';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
 import type { CashFlowDay, FinanceEntry, FinanceSummary, Reconciliation } from '../lib/types';
@@ -30,6 +31,9 @@ const methodLabel = (m: string) => SETTLE_METHODS.find(([k]) => k === m)?.[1] ??
 /** Financeiro: contas a pagar e a receber, fluxo de caixa e conciliação diária. */
 export function FinancePage() {
   const [tab, setTab] = useState<'entries' | 'flow' | 'reconcile'>('entries');
+  useLinkParam('aba', (v) => {
+    if (v === 'entries' || v === 'flow' || v === 'reconcile') setTab(v);
+  });
   return (
     <>
       <div>
@@ -63,6 +67,12 @@ function EntriesTab() {
   const [creating, setCreating] = useState(false);
   const [settling, setSettling] = useState<FinanceEntry | null>(null);
   const [cancelling, setCancelling] = useState<FinanceEntry | null>(null);
+  // Conta aberta pela busca: mostra todas para ela aparecer (e ser destacada) mesmo se paga.
+  useLinkParam('conta', () => {
+    setKind('');
+    setStatus('');
+  });
+  useLinkParam('acao', (a) => a === 'conta' && canWrite && setCreating(true));
 
   // Só a resposta da consulta mais recente vale (troca de filtro durante um carregamento).
   const seq = useRef(0);
@@ -160,7 +170,7 @@ function EntriesTab() {
               </thead>
               <tbody>
                 {rows.map((e) => (
-                  <tr key={e.id}>
+                  <tr key={e.id} data-search-id={`conta-${e.id}`}>
                     <td>{fmtDate(e.dueDate)}</td>
                     <td>
                       <Badge tone={e.kind === 'payable' ? 'warning' : 'info'}>

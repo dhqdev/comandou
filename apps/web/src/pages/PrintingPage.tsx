@@ -81,7 +81,7 @@ export function PrintingPage() {
         </p>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
-      <Card title="Agentes de impressão">
+      <Card searchId="secao-agentes" title="Agentes de impressão">
         <form
           className="filters"
           style={{ alignItems: 'end' }}
@@ -116,7 +116,7 @@ export function PrintingPage() {
         ) : (
           <ul className="plain-list">
             {agents.map((a) => (
-              <li key={a.id} style={{ flexWrap: 'wrap', gap: 8 }}>
+              <li key={a.id} data-search-id={`agente-${a.id}`} style={{ flexWrap: 'wrap', gap: 8 }}>
                 <span>
                   <strong>{a.name}</strong>{' '}
                   {!a.active ? (
@@ -155,6 +155,7 @@ export function PrintingPage() {
         )}
       </Card>
       <Card
+        searchId="secao-fila"
         title="Fila de impressão"
         actions={
           <Button

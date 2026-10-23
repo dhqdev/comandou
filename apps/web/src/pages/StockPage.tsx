@@ -16,6 +16,7 @@ import { useCan } from '../app/auth';
 import { dateTime } from '../features/format';
 import { fmtQty, parseCostInput, parseQtyInput, SelectField, Tabs } from '../features/forms';
 import { api } from '../lib/api';
+import { useLinkParam } from '../lib/deep-link';
 import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import type { Product } from '../lib/api';
@@ -48,6 +49,9 @@ export function StockPage() {
   const [tab, setTab] = useState<'items' | 'recipes' | 'movements'>('items');
   const [items, setItems] = useState<StockItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  useLinkParam('aba', (v) => {
+    if (v === 'items' || v === 'recipes' || v === 'movements') setTab(v);
+  });
 
   const load = useCallback(async () => {
     try {
@@ -114,6 +118,7 @@ function ItemsTab({
 }) {
   const [entry, setEntry] = useState<{ item: StockItem; kind: EntryKind } | null>(null);
   const [editing, setEditing] = useState<StockItem | 'new' | null>(null);
+  useLinkParam('acao', (a) => a === 'insumo' && canWrite && setEditing('new'));
   const total = useMemo(() => items.reduce((s, i) => s + toCents(i.stockValue), 0), [items]);
   return (
     <Card
@@ -147,7 +152,7 @@ function ItemsTab({
             </thead>
             <tbody>
               {items.map((i) => (
-                <tr key={i.id}>
+                <tr key={i.id} data-search-id={`insumo-${i.id}`}>
                   <td>
                     <strong>{i.name}</strong> {!i.active && <Badge>inativo</Badge>}{' '}
                     {i.active && i.low && <Badge tone="warning">baixo</Badge>}{' '}
