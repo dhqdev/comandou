@@ -426,6 +426,11 @@
     --tabbar-h: 56px;
     /* iPhone: só metade da área do indicador de início; inteira deixava a barra alta demais. */
     --tabbar-pad: calc(env(safe-area-inset-bottom) * 0.5);
+    /* Cola a moldura nas bordas da tela: no PWA do iPhone 100dvh pode ficar menor que a tela
+       e deixava uma faixa vazia embaixo da barra de abas. */
+    position: fixed;
+    inset: 0;
+    height: auto;
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: calc(var(--top-h) + env(safe-area-inset-top)) minmax(0, 1fr);
   }

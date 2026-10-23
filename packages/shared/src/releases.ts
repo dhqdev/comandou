@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.16.1',
+    date: '2026-10-23',
+    title: 'Painel admin: largura toda e menu do iPhone',
+    summary:
+      'No notebook, o painel admin passa a ocupar a tela inteira e acompanha o zoom. No iPhone (PWA), o menu inferior encosta no fim da tela, sem faixa vazia embaixo.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Painel admin no notebook: o conteúdo não fica mais preso à esquerda com largura máxima; usa a tela toda e se adapta ao zoom.',
+      },
+      {
+        tag: 'correção',
+        text: 'Menu inferior no iPhone instalado como app: a moldura agora cobre a tela inteira e a barra fica na altura certa, sem espaço sobrando embaixo.',
+      },
+    ],
+  },
+  {
     version: '0.16.0',
     date: '2026-10-23',
     title: 'Cardápio online novo e contas de cliente',
