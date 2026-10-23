@@ -20,6 +20,18 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.15.4',
+    date: '2026-10-23',
+    title: 'Menu inferior do iPhone mais baixo',
+    summary: 'A barra de baixo do app no iPhone estava alta demais e foi reduzida.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'iPhone (app instalado): o menu inferior ocupava a área do indicador de início por inteiro e ficava mais alto que o normal. Agora tem a altura de um app nativo.',
+      },
+    ],
+  },
+  {
     version: '0.15.3',
     date: '2026-10-23',
     title: 'PDV em largura total e barra de atalhos',
