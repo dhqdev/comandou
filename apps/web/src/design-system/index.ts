@@ -5,6 +5,5 @@ export * from './components';
 export * from './toast';
 export * from './mascot';
 export * from './glider';
-export * from './image';
 export * from './theme';
 export * from './app-frame';

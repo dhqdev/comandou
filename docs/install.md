@@ -85,7 +85,9 @@ scripts/admin-reset.sh voce@empresa.com
 ```
 
 Pede uma senha nova, gera uma nova chave do autenticador (mostrada só no terminal), troca as duas
-e encerra as sessões do painel desse administrador. A ação fica na auditoria da plataforma.
+e encerra as sessões do painel desse administrador. Os navegadores lembrados (que entravam só
+com a senha depois do primeiro login com código) voltam a pedir o código. A ação fica na
+auditoria da plataforma.
 Também não foi executado num servidor real.
 
 ## O que o instalador não faz

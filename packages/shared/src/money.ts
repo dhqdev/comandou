@@ -4,7 +4,6 @@
  * nunca ponto flutuante binário. Moeda padrão: BRL. Arredondamento: half-even
  * (bancário) apenas quando uma operação gerar frações de centavo.
  */
-export const DEFAULT_CURRENCY = 'BRL';
 
 const DECIMAL_RE = /^-?\d{1,12}(\.\d{1,2})?$/;
 

@@ -41,7 +41,7 @@
 | `realtime` | ✅ | Socket.IO em `/api/ws`, sala por tenant, adapter Redis opcional (`REDIS_URL`) |
 | `setup` | ✅ | setores de produção, mesas, terminais de caixa |
 | `provisioning` | ✅ | idempotente e retomável; CLI e painel Super Admin, com plano |
-| `platform` | ✅ | painel Super Admin em `admin.<base>`, papel `comandou_platform`, senha + TOTP, auditoria própria |
+| `platform` | ✅ | painel Super Admin em `admin.<base>`, papel `comandou_platform`, senha + TOTP (navegador confiável lembra o 2º fator), auditoria própria |
 | `plans` | ✅ | planos, assinaturas, limites e recursos por plano |
 | `domains` | ✅ | domínio próprio com verificação TXT; provider HTTP do Traefik |
 | `health` | ✅ | `live`, `ready` (banco, Redis, WhatsApp) e métricas Prometheus (inclui idade do último backup) |
@@ -116,7 +116,7 @@ Decisão: [ADR 0004](decisions/0004-sessoes-opacas-cookie.md). Token aleatório 
 
 ## Frontend e PWA
 
-- Design System próprio em `apps/web/src/design-system` (tokens CSS, tema claro/escuro, componentes acessíveis, alvo de toque de 44 px).
+- Design System próprio em `apps/web/src/design-system` (tokens CSS, tema claro/escuro com botão, moldura `AppFrame` igual no restaurante e no painel admin: barra de ícones no computador e abas embaixo no celular, componentes acessíveis, alvo de toque de 44 px).
 - PWA: manifest, ícones, service worker gerado (Workbox) com cache **somente** de assets estáticos; `/api` é `NetworkOnly`. Atualização por aviso ("Nova versão disponível"), sem recarregar no meio de uma venda.
 - Offline: banner + bloqueio de operações críticas. Nada é exibido como confirmado antes da resposta do backend (ex.: "Esgotar" só muda após o PATCH retornar).
 

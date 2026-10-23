@@ -239,12 +239,6 @@
 .product-tile:active:not(:disabled) {
   transform: scale(0.98);
 }
-/* Foto do produto no topo do bloco (SmartImage). */
-.product-tile > .cm-img {
-  margin: calc(var(--cm-space-3) * -1) calc(var(--cm-space-3) * -1) 4px;
-  width: calc(100% + var(--cm-space-3) * 2);
-  border-radius: var(--cm-radius-md) var(--cm-radius-md) 0 0;
-}
 .product-tile:disabled {
   opacity: 0.55;
   cursor: not-allowed;

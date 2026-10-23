@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.15.1',
+    date: '2026-10-23',
+    title: 'Limpeza de código',
+    summary:
+      'Componentes, estilos e constantes que nenhuma tela usava foram removidos. Nada muda no uso.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Saíram do sistema: painel lateral, cabeçalho e imagem genéricos do design system que não eram usados, o card de pedido e o quadro kanban antigos.',
+      },
+    ],
+  },
+  {
     version: '0.15.0',
     date: '2026-10-23',
     title: 'Panda, laranja e navegação de app',

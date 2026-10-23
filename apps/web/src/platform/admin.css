@@ -1,6 +1,6 @@
 /*
  * Painel Super Admin (admin.<domínio>): versão escura do padrão Comandou.
- * Grafite quente + páprica, cantos discretos, rótulos em monoespaçada. Os componentes do
+ * Grafite quente (ou claro, no botão sol/lua) + laranja, cantos discretos, rótulos em monoespaçada. Os componentes do
  * design system herdam estes tokens (botões, campos, tabelas e modais ficam no mesmo estilo).
  */
 :root[data-app='admin'] {
