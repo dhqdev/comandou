@@ -7,12 +7,7 @@ import {
 } from '@comandou/shared';
 import { useEffect, useState } from 'react';
 import { useCan } from '../app/auth';
-import {
-  Alert,
-  Badge,
-  Card,
-  Spinner,
-} from '../design-system';
+import { Alert, Badge, Card, Spinner } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
