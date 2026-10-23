@@ -765,7 +765,7 @@ describe('Controle do restaurante e acesso de suporte', () => {
     )!;
     const me = await tget(HOST_A, raw.split(';')[0]!, '/auth/me').expect(200);
     expect(me.body.user.email).toBe('admin@pf-a.test');
-    expect(me.body.support).toEqual({ adminName: 'Raiz' });
+    expect(me.body.support).toEqual({ adminName: 'Raiz', adminHost: 'admin.comandou.test' });
     // Sessão de suporte dura no máximo 2 horas.
     expect(new Date(ok.body.expiresAt).getTime() - Date.now()).toBeLessThanOrEqual(2 * 3600_000);
 
