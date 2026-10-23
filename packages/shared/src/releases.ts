@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.20.1',
+    date: '2026-10-23',
+    title: 'Loja online mais bonita no computador',
+    summary:
+      'A loja online (cardápio do cliente) ficou mais organizada no notebook e mais agradável no modo escuro.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'No computador, a capa e o menu (Início, Favoritos, Pedidos, Entrar) ficam alinhados na mesma coluna do cardápio, em vez de soltos no canto da tela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Categorias maiores e sem rolagem escondida; "Mais pedidos" vira uma grade sem corte na borda; cartões da lista com foto maior e sem espaço sobrando.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Modo escuro: a capa não fica mais marrom lamacenta, com contraste melhor para o texto.',
+      },
+      {
+        tag: 'novo',
+        text: 'Restaurante sem pratos cadastrados mostra "O cardápio está sendo preparado" em vez de uma tela vazia.',
+      },
+    ],
+  },
+  {
     version: '0.20.0',
     date: '2026-10-23',
     title: 'Garçom no celular, painel do entregador e mapa de entregas',

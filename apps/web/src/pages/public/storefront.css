@@ -2084,3 +2084,99 @@
   border: 3px solid #fff;
   box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
 }
+
+/* ---------------------------------------------------------------- modo escuro: capa menos "lamacenta" */
+:root[data-theme='dark'] .sf-hero__art {
+  background:
+    radial-gradient(
+      55% 90% at 85% 0%,
+      color-mix(in srgb, var(--cm-accent-400) 42%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      70% 100% at 8% 100%,
+      color-mix(in srgb, var(--cm-brand-500) 52%, transparent),
+      transparent 70%
+    ),
+    #1b1611;
+}
+:root[data-theme='dark'] .sf-hero::after {
+  background: linear-gradient(
+    180deg,
+    rgb(0 0 0 / 25%) 0%,
+    rgb(0 0 0 / 15%) 45%,
+    rgb(0 0 0 / 55%) 100%
+  );
+}
+
+/* ---------------------------------------------------------------- computador: tudo alinhado na mesma coluna */
+@media (min-width: 900px) {
+  /* Capa como cartão dentro da coluna (o menu flutuante fica dentro dela). */
+  .sf-hero {
+    max-width: 1080px;
+    margin: 16px auto 0;
+    border-radius: var(--sf-r-lg);
+    padding-top: 84px;
+  }
+  .tabbar {
+    top: 28px;
+    right: max(28px, calc((100vw - 1080px) / 2 + 12px));
+  }
+  /* A busca sobe um pouco sobre a capa, na mesma largura da coluna. */
+  .sf-hero + .sf-wrap,
+  .sf-wrap.sf-search {
+    max-width: 1080px;
+  }
+
+  /* Categorias: quebram em linhas, sem rolagem lateral escondida. */
+  .catchips {
+    margin: 20px 0 0;
+    padding: 4px 0 6px;
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 14px 16px;
+  }
+  .catchip {
+    width: 88px;
+    font-size: var(--cm-text-sm);
+  }
+  .catchip__img {
+    width: 80px;
+    height: 80px;
+  }
+
+  /* "Mais pedidos": grade (sem corte no canto) em vez de faixa que rola. */
+  .hscroll {
+    margin: 0;
+    padding: 2px 0 0;
+    overflow: visible;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .hscroll .tile {
+    flex: none;
+  }
+  .hscroll .tile:nth-child(n + 6) {
+    display: none;
+  }
+
+  /* Cartões da lista: foto maior e conteúdo sem espaço sobrando. */
+  .plist {
+    gap: 14px;
+  }
+  .prow {
+    padding: 14px;
+    gap: 16px;
+    min-height: 132px;
+  }
+  .prow__media {
+    width: 116px;
+  }
+  .prow__body {
+    align-content: center;
+  }
+  .sec {
+    margin-top: 34px;
+  }
+}

@@ -362,6 +362,14 @@ export function HomeScreen() {
           <>
             <Banners banners={menu.banners} onPick={pickBanner} />
 
+            {menu.categories.every((c) => c.products.length === 0) && (
+              <div className="empty-state">
+                <Mascot size={64} />
+                <strong>O cardápio está sendo preparado</strong>
+                <p>Ainda não há pratos cadastrados. Volte em instantes!</p>
+              </div>
+            )}
+
             {menu.categories.length > 1 && (
               <div className="catchips" role="tablist" aria-label="Categorias">
                 <button
