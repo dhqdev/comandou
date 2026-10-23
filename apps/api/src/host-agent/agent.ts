@@ -1,4 +1,5 @@
 import { DockerClient, demuxLogs } from './docker';
+import { Updater } from './updater';
 import { cpuCount, CpuTimes, cpuPercent, HostReader, parseCpu } from './proc';
 
 export interface Sample {
@@ -49,6 +50,7 @@ const shortImage = (img: string) => img.replace(/@sha256:[a-f0-9]+$/, '');
  */
 export class HostAgent {
   readonly history: Sample[] = [];
+  readonly updater: Updater;
   private last?: { cpu: CpuTimes; rx: number; tx: number; at: number };
   private containerMem = new Map<string, number>();
   private timers: NodeJS.Timeout[] = [];
@@ -59,7 +61,9 @@ export class HostAgent {
     readonly host = new HostReader(),
     readonly docker = new DockerClient(),
     readonly maxSamples = 180,
-  ) {}
+  ) {
+    this.updater = new Updater(docker);
+  }
 
   start() {
     void this.sample();

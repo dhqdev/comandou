@@ -6,7 +6,7 @@ import {
   PlatformController,
   PlatformServerController,
 } from './platform.controller';
-import { ServerAgentClient } from './server-agent.service';
+import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
 import { PlatformDb } from './platform-db.service';
 import { PlatformService } from './platform.service';
 
@@ -21,6 +21,7 @@ import { PlatformService } from './platform.service';
     PlatformHostGuard,
     PlatformSessionGuard,
     ServerAgentClient,
+    ReleaseFeed,
   ],
 })
 export class PlatformModule {}

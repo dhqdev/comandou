@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.14.0',
+    date: '2026-10-23',
+    title: 'Atualizar o sistema pelo painel',
+    summary:
+      'Na tela Servidor do painel admin, o botão "Atualizar sistema" compara a versão instalada com a última publicada e atualiza tudo com um clique.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Seção Versão na tela Servidor: versão instalada x última publicada no GitHub, lista do que vai mudar e confirmação antes de atualizar.',
+      },
+      {
+        tag: 'novo',
+        text: 'A atualização segue uma ordem fixa: migração do banco, API, site, WhatsApp e, por último, o próprio agente. Mostra o andamento passo a passo.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Só troca a versão das imagens do próprio Comandou (nunca outra imagem), só aceita versões no formato vX.Y.Z, confere se a imagem existe antes de começar, para se a migração falhar e deixa o Swarm voltar sozinho ao serviço anterior se uma versão nova não subir. Tudo fica na auditoria.',
+      },
+    ],
+  },
+  {
     version: '0.13.0',
     date: '2026-10-22',
     title: 'Cardápio online, acompanhamento do pedido e tela inicial nova',

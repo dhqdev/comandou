@@ -85,6 +85,11 @@ const schema = z.object({
   /** Token do endpoint /api/v1/metrics (Prometheus). Sem ele, o endpoint não existe. */
   METRICS_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(24).optional()),
   /** Agente do servidor (painel Super Admin → Servidor). Sem URL, a tela mostra "não instalado". */
+  /** Repositório (dono/nome) onde o painel procura a última versão publicada. */
+  UPDATE_RELEASES_REPO: z
+    .string()
+    .regex(/^[\w.-]+\/[\w.-]+$/)
+    .default('dhqdev/comandou'),
   HOST_AGENT_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
   HOST_AGENT_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(24).optional()),
   /**

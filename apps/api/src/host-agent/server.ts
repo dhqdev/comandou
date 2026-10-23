@@ -59,6 +59,17 @@ export function agentServer(agent: HostAgent, token: string): Server {
         if (!targets.length) return send(res, 400, { message: 'escolha o que limpar' });
         return send(res, 200, { results: await agent.cleanup(targets) });
       }
+      if (path === '/v1/update') {
+        if (req.method === 'GET') return send(res, 200, { job: agent.updater.current() });
+        if (req.method === 'POST') {
+          const body = (await readJson(req)) as { version?: unknown };
+          try {
+            return send(res, 202, { job: await agent.updater.start(String(body.version ?? '')) });
+          } catch (e) {
+            return send(res, 400, { message: (e as Error).message });
+          }
+        }
+      }
       const m = /^\/v1\/services\/([^/]+)\/(restart|logs)$/.exec(path);
       if (m) {
         const name = decodeURIComponent(m[1]!);

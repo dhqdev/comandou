@@ -10,6 +10,7 @@ import { createApp } from '../src/bootstrap';
 import { hashPassword } from '../src/auth/password';
 import { seal } from '../src/common/secret-box';
 import { DomainVerifier } from '../src/domains/domains.controller';
+import { ReleaseFeed } from '../src/platform/server-agent.service';
 import type { CleanupTarget, HostAgent } from '../src/host-agent/agent';
 import { agentServer } from '../src/host-agent/server';
 import { totpContext } from '../src/platform/platform-auth';
@@ -55,6 +56,19 @@ const fakeAgent = {
     return { service: name };
   },
   serviceLogs: async (name: string, tail: number) => ({ service: name, text: `linhas ${tail}` }),
+  updater: {
+    current: () => null,
+    start: async (version: string) => {
+      if (version === 'v9.9.9') throw new Error('o sistema já está nesta versão');
+      agentCalls.push(`update:${version}`);
+      return {
+        id: 'j1',
+        version,
+        status: 'running',
+        steps: [{ service: 'comandou_api', from: 'v0.10.0' }],
+      };
+    },
+  },
 } as unknown as HostAgent;
 let agentSrv: Server;
 
@@ -141,6 +155,11 @@ beforeAll(async () => {
     { logger: false },
   );
   await app.init();
+  app.get(ReleaseFeed).fetchLatest = async () => ({
+    version: 'v0.11.0',
+    url: 'https://example.test/r',
+    publishedAt: null,
+  });
   app.get(DomainVerifier).resolveTxt = async (name: string) => {
     const v = txt.get(name);
     if (!v) throw Object.assign(new Error('not found'), { code: 'ENOTFOUND' });
@@ -813,6 +832,19 @@ describe('Servidor (agente)', () => {
     await psend('post', `/server/services/${encodeURIComponent('../x')}/restart`, {}).expect(400);
     const l = await pget('/server/services/comandou_api/logs?tail=50').expect(200);
     expect(l.body.text).toBe('linhas 50');
+  });
+
+  it('atualizar o sistema: mostra a última versão, só aceita vX.Y.Z e fica na auditoria', async () => {
+    const info = (await pget('/server/update').expect(200)).body;
+    expect(info.latest).toMatchObject({ version: 'v0.11.0' });
+    for (const version of ['latest', 'v1.2.3-x', '../../x'])
+      await psend('post', '/server/update', { version }).expect(400);
+    await psend('post', '/server/update', { version: 'v9.9.9' }).expect(502);
+    const r = await psend('post', '/server/update', { version: 'v0.11.0' }).expect(202);
+    expect(r.body.job.status).toBe('running');
+    expect(agentCalls).toContain('update:v0.11.0');
+    const audit = (await pget('/audit').expect(200)).body as { action: string }[];
+    expect(audit.map((a) => a.action)).toContain('platform.server.system_update_started');
   });
 
   it('agente recusa token errado', async () => {

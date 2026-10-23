@@ -36,13 +36,14 @@ import {
   RevokeSessions,
   ServerCleanup,
   ServiceName,
+  SystemUpdate,
   StatusChange,
   SubscriptionChange,
   SupportAccess,
 } from './platform.schemas';
 import { Actor, PlatformService } from './platform.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
-import { ServerAgentClient } from './server-agent.service';
+import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
 
 const actor = (req: Request): Actor => ({ admin: req.platformAdmin!, ip: req.ip });
 
@@ -261,6 +262,7 @@ export class PlatformServerController {
   constructor(
     private readonly agent: ServerAgentClient,
     private readonly db: PlatformDb,
+    private readonly releases: ReleaseFeed,
   ) {}
 
   private audit(req: Request, action: string, data: Record<string, unknown>) {
@@ -301,6 +303,39 @@ export class PlatformServerController {
     await this.audit(req, 'cleanup', {
       targets: b.targets,
       reclaimed: r.results.reduce((s, x) => s + x.reclaimed, 0),
+    });
+    return r;
+  }
+
+  /** Última versão publicada e andamento da atualização em curso (se houver). */
+  @Get('update')
+  async updateInfo() {
+    const [feed, job] = await Promise.all([
+      this.releases.latest(),
+      this.agent.enabled
+        ? this.agent.call<{ job: unknown }>('GET', '/v1/update').catch(() => ({ job: null }))
+        : Promise.resolve({ job: null }),
+    ]);
+    return { ...feed, job: job.job };
+  }
+
+  /** Troca a tag das imagens do Comandou nos serviços (migração primeiro). Ver agente/updater.ts. */
+  @Post('update')
+  @HttpCode(202)
+  @Throttle({ default: { ttl: 60_000, limit: 6 } })
+  async update(
+    @Body(new ZodPipe(SystemUpdate)) b: z.infer<typeof SystemUpdate>,
+    @Req() req: Request,
+  ) {
+    const r = await this.agent.call<{ job: { steps: { service: string; from: string }[] } }>(
+      'POST',
+      '/v1/update',
+      b,
+      60_000,
+    );
+    await this.audit(req, 'system_update_started', {
+      version: b.version,
+      services: r.job.steps.map((s) => `${s.service}:${s.from}`),
     });
     return r;
   }

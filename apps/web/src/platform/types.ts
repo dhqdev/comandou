@@ -253,3 +253,25 @@ export interface Consumption {
   trafficEnabled: boolean;
   tenants: ConsumptionRow[];
 }
+
+export interface UpdateStep {
+  service: string;
+  from: string;
+  to: string;
+  status: 'pending' | 'running' | 'ok' | 'skipped' | 'failed';
+  message?: string;
+}
+export interface UpdateJob {
+  id: string;
+  version: string;
+  startedAt: string;
+  finishedAt?: string;
+  status: 'running' | 'done' | 'failed';
+  message?: string;
+  steps: UpdateStep[];
+}
+export interface UpdateInfo {
+  latest: { version: string; url: string; publishedAt: string | null } | null;
+  error?: string;
+  job: UpdateJob | null;
+}

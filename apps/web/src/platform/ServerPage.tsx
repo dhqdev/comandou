@@ -20,6 +20,7 @@ import {
   useInterval,
 } from './ui';
 import { ConsumptionRanking } from './TenantInsights';
+import { UpdatePanel } from './UpdatePanel';
 
 const rate = (bps: number | null) => (bps === null ? '—' : `${bytes(bps)}/s`);
 
@@ -163,6 +164,8 @@ export function ServerPage() {
           <Alert tone="danger">Docker: {'error' in data.docker ? data.docker.error : ''}</Alert>
         )}
       </Section>
+
+      <UpdatePanel services={docker?.services ?? []} onChanged={reload} />
 
       <Section title="Recursos" sub="últimos 30 min">
         <div className="adm-two">

@@ -85,3 +85,5 @@ export const ServerCleanup = z.object({
     .max(4),
 });
 export const ServiceName = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,120}$/);
+
+export const SystemUpdate = z.object({ version: z.string().regex(/^v\d+\.\d+\.\d+$/) });

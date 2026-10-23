@@ -195,6 +195,19 @@ restaurante (`/suporte#token`; o token fica no fragmento, que não vai para logs
 sessão como o dono (ou o membro escolhido na aba Equipe), de no máximo 2 horas, com um aviso
 “Acesso de suporte” no topo. Fica registrado na auditoria do painel e no histórico do restaurante.
 
+### Atualizar o sistema pelo painel
+
+Tela “Servidor” → seção “Versão”. O painel consulta a última release do GitHub
+(`UPDATE_RELEASES_REPO`, padrão `dhqdev/comandou`) e o botão “Atualizar sistema” pede ao agente
+para trocar a tag das imagens `ghcr.io/dhqdev/comandou-*` nos serviços do Swarm, nesta ordem:
+migração, demais serviços e, por último, o próprio agente. Regras de segurança: só muda a tag
+(o repositório da imagem é sempre o que já está no serviço; prefixo em `AGENT_IMAGE_PREFIX`), só
+aceita `vX.Y.Z`, confere a imagem no registro antes de começar, para tudo se a migração falhar e
+usa o rollback do Swarm (`failure_action: rollback`) se um serviço não subir. Dados e volumes não
+são tocados. Se a stack for reaplicada no Portainer, ela volta à versão escrita nela (use `:latest`
+na stack para que “Re-pull” e o painel andem juntos). A primeira vez que esta função existe, é
+preciso atualizar a stack à mão, porque o agente em execução ainda é o antigo.
+
 ### Consumo e operação de cada restaurante
 
 No painel, a página de cada restaurante tem as abas **Operação** (pedidos, faturamento, horários,
