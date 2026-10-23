@@ -1,0 +1,223 @@
+/* Áreas de entrega: mapa grande + lista/formulário ao lado (embaixo no celular). */
+.areas {
+  display: grid;
+  gap: var(--cm-space-3);
+}
+.areas__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: var(--cm-space-4);
+  align-items: start;
+}
+.areas__mapwrap {
+  position: relative;
+  display: grid;
+  gap: var(--cm-space-2);
+}
+.areas__map {
+  height: min(62vh, 620px);
+  min-height: 360px;
+  border-radius: var(--cm-radius-lg);
+  border: 1px solid var(--cm-border);
+  overflow: hidden;
+  z-index: 0;
+  background: var(--cm-surface-sunken);
+}
+.areas__map[data-drawing] {
+  cursor: crosshair;
+  border-color: var(--cm-brand-500);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cm-brand-500) 25%, transparent);
+}
+.areas__map .leaflet-container,
+.areas__map.leaflet-container {
+  font: inherit;
+}
+.areas__map[data-drawing] .leaflet-grab {
+  cursor: crosshair;
+}
+/* Mapa um pouco mais escuro no tema escuro, sem perder a leitura das ruas. */
+:root[data-theme='dark'] .areas__map .leaflet-tile-pane {
+  filter: brightness(0.82) contrast(1.05) saturate(0.85);
+}
+.areas__hint {
+  padding: 8px 12px;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-brand-50);
+  color: var(--cm-brand-900);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.areas__tools {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.areas__search {
+  position: relative;
+  display: flex;
+  gap: 8px;
+}
+.areas__search .home__search {
+  flex: 1;
+  max-width: none;
+}
+.areas__results {
+  position: absolute;
+  top: 48px;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-lg);
+  max-height: 260px;
+  overflow: auto;
+}
+.areas__results button {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.areas__results button:hover {
+  background: var(--cm-surface-sunken);
+}
+.areas__results svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.areas__results li.cm-hint {
+  padding: 8px;
+}
+.areas__form {
+  display: grid;
+  gap: var(--cm-space-3);
+}
+.areas__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--cm-space-2);
+}
+.areas__colors {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.areas__colors button {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid var(--cm-surface);
+  box-shadow: 0 0 0 1px var(--cm-border-strong);
+  cursor: pointer;
+}
+.areas__colors button[aria-checked='true'] {
+  box-shadow: 0 0 0 2px var(--cm-text);
+}
+.areas__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.areas__list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--cm-border);
+}
+.areas__list li:first-child {
+  border-top: 0;
+}
+.areas__list li[data-off] .areas__info {
+  opacity: 0.6;
+}
+.areas__dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+}
+.areas__info {
+  display: grid;
+  min-width: 0;
+}
+.areas__actions {
+  display: flex;
+  gap: 2px;
+}
+.areas__toggle {
+  grid-column: 2 / -1;
+  justify-self: start;
+  font-size: var(--cm-text-sm);
+}
+.areas__empty {
+  margin: 0;
+  padding: 12px 16px;
+}
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: none;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.icon-btn:hover:not(:disabled) {
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+}
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Marcadores do Leaflet (divIcon) */
+.zone-pin {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #ea8a0b;
+  color: #5a3300;
+  font: 700 10px/1 var(--cm-font);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+}
+.zone-pin--center {
+  background: #ea8a0b;
+}
+.zone-store {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #ea8a0b;
+  color: #2b1600;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.4);
+}
+
+@media (max-width: 1100px) {
+  .areas__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .areas__map {
+    height: 52vh;
+    min-height: 300px;
+  }
+}

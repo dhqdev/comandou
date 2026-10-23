@@ -37,6 +37,8 @@ export interface PublicMenu {
     minOrder: string;
     etaMin: number;
     etaMax: number;
+    /** A loja desenhou áreas de entrega: o endereço precisa ser confirmado no mapa. */
+    deliveryZones?: boolean;
   };
   appearance: {
     theme: 'auto' | 'light' | 'dark';
@@ -77,6 +79,8 @@ export interface SavedAddress {
   complement: string | null;
   reference: string | null;
   isDefault: boolean;
+  lat?: string | null;
+  lng?: string | null;
 }
 export interface AccountState {
   customer: CustomerAccount | null;
@@ -215,3 +219,18 @@ export const initials = (name: string) =>
     .slice(0, 2)
     .map((p) => p[0]!.toUpperCase())
     .join('');
+
+/** Taxa e tempo de entrega para um ponto do mapa (a API recalcula ao criar o pedido). */
+export interface DeliveryQuote {
+  covered: boolean;
+  zone: { id: string; name: string } | null;
+  fee: string;
+  minOrder: string | null;
+  etaMin: number | null;
+  etaMax: number | null;
+}
+export interface PinnedQuote {
+  lat: number;
+  lng: number;
+  quote: DeliveryQuote;
+}

@@ -140,6 +140,8 @@ export class SetupController {
           .map((c) => 'dt.' + c)
           .join(', ')},
                 tb.id AS "tabId", tb.number AS "tabNumber", tb.opened_at AS "openedAt",
+                tb.customer_name AS "tabCustomer", tb.bill_requested_at AS "billRequestedAt",
+                COALESCE((SELECT sum(o.paid_amount) FROM orders o WHERE o.tab_id = tb.id), 0)::text AS "tabPaid",
                 COALESCE((SELECT sum(o.total) FROM orders o WHERE o.tab_id = tb.id AND o.status <> 'cancelled'), 0)::text AS "tabTotal"
            FROM dining_tables dt
            LEFT JOIN tabs tb ON tb.table_id = dt.id AND tb.status = 'open'

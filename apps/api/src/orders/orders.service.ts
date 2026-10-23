@@ -57,6 +57,8 @@ export interface CreateOrderInput {
   };
   /** Pedido mínimo (sobre o subtotal dos itens), usado pelo cardápio online. */
   minSubtotal?: string;
+  /** Coordenadas do endereço de entrega (rota do entregador). */
+  deliveryLocation?: { lat: number; lng: number };
 }
 
 export interface OrderRow {
@@ -91,7 +93,8 @@ export const ORDER_SELECT = `
          o.total::text, o.paid_amount::text AS "paidAmount", (o.total - o.paid_amount)::text AS "balance",
          o.tab_id AS "tabId", tb.number AS "tabNumber", dt.label AS "tableLabel",
          o.customer_name AS "customerName", o.customer_phone AS "customerPhone",
-         o.delivery_address AS "deliveryAddress", o.notes, o.cancel_reason AS "cancelReason",
+         o.delivery_address AS "deliveryAddress", o.delivery_lat::text AS "deliveryLat",
+         o.delivery_lng::text AS "deliveryLng", o.notes, o.cancel_reason AS "cancelReason",
          o.source, o.payment_hint AS "paymentHint", o.change_for::text AS "changeFor",
          o.accepted_at AS "acceptedAt",
          o.version, o.created_at AS "createdAt", o.updated_at AS "updatedAt",
@@ -338,9 +341,10 @@ export class OrdersService {
       tx,
       `INSERT INTO orders (tenant_id, number, channel, status, tab_id, customer_name, customer_phone, delivery_address,
                            notes, subtotal, discount, surcharge, delivery_fee, total, created_by,
-                           source, public_token_hash, payment_hint, change_for, accepted_at, customer_id)
+                           source, public_token_hash, payment_hint, change_for, accepted_at, customer_id,
+                           delivery_lat, delivery_lng)
        VALUES ($1,$2,$3,$15,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$16,$17,$18,$19,
-               CASE WHEN $15 = 'new' AND $16 = 'online' THEN now() END, $20) RETURNING id`,
+               CASE WHEN $15 = 'new' AND $16 = 'online' THEN now() END, $20, $21, $22) RETURNING id`,
       [
         ctx.tenantId,
         number,
@@ -362,6 +366,8 @@ export class OrdersService {
         online?.paymentHint ?? null,
         online?.changeFor ?? null,
         online?.customerId ?? null,
+        input.deliveryLocation?.lat.toFixed(6) ?? null,
+        input.deliveryLocation?.lng.toFixed(6) ?? null,
       ],
     );
     for (const l of lines) {

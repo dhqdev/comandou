@@ -291,7 +291,11 @@ export function HomeScreen() {
             {s.acceptsDelivery && (
               <span>
                 <Bike size={14} />{' '}
-                {toCents(s.deliveryFee) ? `Entrega ${brl(s.deliveryFee)}` : 'Entrega grátis'}
+                {s.deliveryZones
+                  ? 'Entrega conforme o bairro'
+                  : toCents(s.deliveryFee)
+                    ? `Entrega ${brl(s.deliveryFee)}`
+                    : 'Entrega grátis'}
               </span>
             )}
             {s.acceptsPickup && (

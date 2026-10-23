@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   NotFoundException,
   Param,
@@ -29,7 +30,8 @@ const Courier = z.object({
   userId: uuid.nullable().optional(),
   active: z.boolean().optional(),
 });
-const COURIER_COLS = `c.id, c.name, c.phone, c.user_id AS "userId", u.name AS "userName", c.active`;
+const COURIER_COLS = `c.id, c.name, c.phone, c.user_id AS "userId", u.name AS "userName", c.active,
+  c.access_created_at AS "linkCreatedAt"`;
 
 @Controller({ version: '1' })
 export class DeliveryController {
@@ -197,6 +199,82 @@ export class DeliveryController {
     @Req() req: Request,
   ) {
     return this.delivery.newTrackingLink(ctxOf(t, u, req), id);
+  }
+
+  /** Gera (ou troca) o link do entregador. O link aparece só agora. */
+  @Post('couriers/:id/link')
+  @RequirePermission('delivery:manage')
+  courierLink(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.delivery.newCourierLink(ctxOf(t, u, req), id);
+  }
+
+  @Delete('couriers/:id/link')
+  @RequirePermission('delivery:manage')
+  revokeCourierLink(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.delivery.revokeCourierLink(ctxOf(t, u, req), id);
+  }
+
+  // ---------------------------------------------- tela do entregador pelo link (sem login)
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 120 } })
+  @Get('courier-app/:token')
+  courierHome(@Param('token') token: string, @CurrentTenant() t: ResolvedTenant) {
+    return this.delivery.courierHome(t.id, t.name, token);
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @Post('courier-app/:token/deliveries/:id/complete')
+  async courierComplete(
+    @Param('token') token: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @Req() req: Request,
+  ) {
+    const { ctx, courier } = await this.delivery.courierCtx(t.id, token, req.ip);
+    return this.delivery.complete(ctx, id, courier.id);
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @Post('courier-app/:token/deliveries/:id/fail')
+  async courierFail(
+    @Param('token') token: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(z.object({ reason }))) b: { reason: string },
+    @CurrentTenant() t: ResolvedTenant,
+    @Req() req: Request,
+  ) {
+    const { ctx, courier } = await this.delivery.courierCtx(t.id, token, req.ip);
+    return this.delivery.fail(ctx, id, b.reason, courier.id);
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @Post('courier-app/:token/deliveries/:id/location')
+  async courierLocation(
+    @Param('token') token: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(
+      new ZodPipe(
+        z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }),
+      ),
+    )
+    b: { lat: number; lng: number },
+    @CurrentTenant() t: ResolvedTenant,
+  ) {
+    const { ctx, courier } = await this.delivery.courierCtx(t.id, token);
+    return this.delivery.location(ctx, id, b.lat, b.lng, courier.id);
   }
 
   /** Rastreio público (cliente final). Sem sessão; o tenant vem do Host. */

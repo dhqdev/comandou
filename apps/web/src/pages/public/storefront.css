@@ -2026,3 +2026,61 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Endereço confirmado no mapa (lojas com áreas de entrega) */
+.addr-map {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.addr-map__map {
+  height: 200px;
+  border-radius: var(--sf-r-sm);
+  overflow: hidden;
+  border: 1px solid var(--cm-border);
+  z-index: 0;
+}
+.addr-map .form-hint {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+}
+.addr-map__locate {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 999px;
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.addr-map__quote {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--sf-r-sm);
+  background: var(--cm-danger-bg);
+  color: var(--cm-danger);
+  font-weight: 600;
+  font-size: var(--cm-text-sm);
+}
+.addr-map__quote[data-ok] {
+  background: var(--cm-success-bg);
+  color: var(--cm-success);
+}
+.addr-pin span {
+  display: block;
+  width: 30px;
+  height: 30px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--cm-brand-500, #ea8a0b);
+  border: 3px solid #fff;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+}

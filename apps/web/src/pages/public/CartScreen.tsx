@@ -1,6 +1,6 @@
 import { fromCents, toCents } from '@comandou/shared';
 import { Bike, ChevronRight, MapPin, Plus, ShoppingBag, Store, UserRound } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { SlideTabs } from '../../features/SlideTabs';
 import { api, ApiError } from '../../lib/api';
@@ -15,10 +15,14 @@ import {
   maskPhone,
   newOrderToken,
   PAYMENT_OPTIONS,
+  PinnedQuote,
   rememberOrder,
   SavedAddress,
 } from './store';
 import { Field, Photo, ScreenHeader, Stepper, Switch } from './ui';
+
+/** Mapa do endereço (Leaflet): só carrega nas lojas com áreas de entrega. */
+const AddressPin = lazy(() => import('./AddressPin'));
 
 /** Sacola e finalização: com a conta aberta, nome, telefone e endereços já vêm preenchidos. */
 export function CartScreen() {
@@ -48,9 +52,13 @@ export function CartScreen() {
     s.acceptsPickup && ('pickup' as const),
   ].filter(Boolean) as ('delivery' | 'pickup')[];
   const channel = channels.includes(customer.channel) ? customer.channel : channels[0];
-  const fee = channel === 'delivery' ? toCents(s.deliveryFee) : 0;
+  const zones = !!s.deliveryZones && channel === 'delivery';
+  const [pinned, setPinned] = useState<PinnedQuote | null>(null);
+  const zoneFee = zones && pinned?.quote.covered ? pinned.quote.fee : null;
+  const fee = channel === 'delivery' ? toCents(zoneFee ?? s.deliveryFee) : 0;
   const total = subtotal + fee;
-  const belowMin = subtotal < toCents(s.minOrder);
+  const minOrder = (zones && pinned?.quote.minOrder) || s.minOrder;
+  const belowMin = subtotal < toCents(minOrder);
   const set = <K extends keyof CustomerInfo>(k: K, v: CustomerInfo[K]) =>
     setCustomer((c) => ({ ...c, [k]: v }));
 
@@ -60,7 +68,9 @@ export function CartScreen() {
     addrId !== 'new' ? saved.find((a) => a.id === addrId) : undefined;
   const phoneOk = phone.replace(/\D/g, '').length >= 10;
   const typedOk = !!(customer.street.trim() && customer.number.trim() && customer.district.trim());
-  const addressOk = channel !== 'delivery' || !!chosen || typedOk;
+  // Com áreas no mapa, o endereço só vale depois de achar o ponto dentro de uma área.
+  const pinOk = !zones || !!pinned?.quote.covered;
+  const addressOk = channel !== 'delivery' || ((!!chosen || typedOk) && pinOk);
   const changeCents = toCents(parseBrlInput(changeFor) ?? '0');
   const changeOk = customer.paymentMethod !== 'cash' || !changeFor || changeCents >= total;
   const canSend =
@@ -79,6 +89,7 @@ export function CartScreen() {
       complement: customer.complement.trim() || undefined,
       reference: customer.reference.trim() || undefined,
     };
+    const point = zones && pinned ? { lat: pinned.lat, lng: pinned.lng } : {};
     const address =
       channel !== 'delivery'
         ? undefined
@@ -89,14 +100,15 @@ export function CartScreen() {
               district: chosen.district,
               complement: chosen.complement || undefined,
               reference: chosen.reference || undefined,
+              ...point,
             }
-          : typed;
+          : { ...typed, ...point };
     try {
       // Endereço novo vai para a conta antes do pedido (se o cliente quiser).
       if (me && channel === 'delivery' && !chosen && saveAddr) {
         const a = await api<SavedAddress>('/store/account/addresses', {
           method: 'POST',
-          json: typed,
+          json: { ...typed, ...point },
         }).catch(() => null);
         if (a) {
           setAccount({ customer: me, addresses: [...saved, a] });
@@ -358,6 +370,26 @@ export function CartScreen() {
                   )}
                 </div>
               )}
+              {zones && (
+                <Suspense fallback={<p className="form-hint">Carregando o mapa…</p>}>
+                  <AddressPin
+                    key={chosen?.id ?? 'novo'}
+                    query={
+                      chosen
+                        ? `${chosen.street} ${chosen.number}, ${chosen.district}`
+                        : typedOk
+                          ? `${customer.street.trim()} ${customer.number.trim()}, ${customer.district.trim()}`
+                          : ''
+                    }
+                    saved={
+                      chosen?.lat && chosen.lng
+                        ? { lat: Number(chosen.lat), lng: Number(chosen.lng) }
+                        : null
+                    }
+                    onChange={setPinned}
+                  />
+                </Suspense>
+              )}
             </section>
           ) : (
             menu.restaurant.address && (
@@ -427,7 +459,13 @@ export function CartScreen() {
             {channel === 'delivery' && (
               <>
                 <dt>Entrega</dt>
-                <dd>{fee ? brl(s.deliveryFee) : 'Grátis'}</dd>
+                <dd>
+                  {zones && !pinned?.quote.covered
+                    ? 'a calcular'
+                    : fee
+                      ? brl(fromCents(fee))
+                      : 'Grátis'}
+                </dd>
               </>
             )}
             <dt className="sum__total">Total</dt>
@@ -441,8 +479,8 @@ export function CartScreen() {
           {!s.isOpen && <p className="form-hint">A loja está fechada agora.</p>}
           {belowMin && (
             <p className="form-hint">
-              Pedido mínimo de {brl(s.minOrder)} (sem a entrega). Faltam{' '}
-              {brl(fromCents(toCents(s.minOrder) - subtotal))}.
+              Pedido mínimo de {brl(minOrder)} (sem a entrega). Faltam{' '}
+              {brl(fromCents(toCents(minOrder) - subtotal))}.
             </p>
           )}
           {step === 'cart' ? (

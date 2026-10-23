@@ -85,6 +85,8 @@ const Address = z.object({
   complement: optText(80),
   reference: optText(120),
   isDefault: z.boolean().optional(),
+  lat: z.number().min(-90).max(90).nullable().optional(),
+  lng: z.number().min(-180).max(180).nullable().optional(),
 });
 const AddressPatch = Address.partial();
 

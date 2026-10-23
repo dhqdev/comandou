@@ -48,10 +48,13 @@ export interface AddressInput {
   complement?: string | null;
   reference?: string | null;
   isDefault?: boolean;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 const CUSTOMER_COLS = `id, name, phone, email, marketing_opt_in AS "marketingOptIn", created_at AS "createdAt"`;
-const ADDRESS_COLS = `id, label, street, number, district, complement, reference, is_default AS "isDefault"`;
+const ADDRESS_COLS = `id, label, street, number, district, complement, reference, is_default AS "isDefault",
+  lat::text, lng::text`;
 const MAX_ADDRESSES = 10;
 
 /** Texto livre vindo do cliente vira padrão ILIKE seguro. */
@@ -307,8 +310,8 @@ export class CustomersService {
         ]);
       return one(
         tx,
-        `INSERT INTO customer_addresses (tenant_id, customer_id, label, street, number, district, complement, reference, is_default)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING ${ADDRESS_COLS}`,
+        `INSERT INTO customer_addresses (tenant_id, customer_id, label, street, number, district, complement, reference, is_default, lat, lng)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING ${ADDRESS_COLS}`,
         [
           tenantId,
           c.id,
@@ -319,6 +322,8 @@ export class CustomersService {
           a.complement ?? null,
           a.reference ?? null,
           isDefault,
+          a.lat?.toFixed(6) ?? null,
+          a.lng?.toFixed(6) ?? null,
         ],
       );
     });
@@ -344,6 +349,8 @@ export class CustomersService {
         ['complement', 'complement'],
         ['reference', 'reference'],
         ['isDefault', 'is_default'],
+        ['lat', 'lat'],
+        ['lng', 'lng'],
       ];
       const set = cols.filter(([k]) => a[k] !== undefined);
       if (set.length)

@@ -23,7 +23,9 @@ export const DELIVERY_SELECT = `
   SELECT d.id, d.status, d.order_id AS "orderId", o.number AS "orderNumber", o.status AS "orderStatus",
          o.customer_name AS "customerName", o.customer_phone AS "customerPhone",
          o.delivery_address AS "deliveryAddress", o.total::text, (o.total - o.paid_amount)::text AS balance,
-         o.payment_status AS "paymentStatus", d.courier_id AS "courierId", c.name AS "courierName",
+         o.payment_status AS "paymentStatus", o.payment_hint AS "paymentHint", o.change_for::text AS "changeFor",
+         o.delivery_lat::text AS "deliveryLat", o.delivery_lng::text AS "deliveryLng", o.notes,
+         d.courier_id AS "courierId", c.name AS "courierName",
          d.dispatched_at AS "dispatchedAt", d.finished_at AS "finishedAt", d.failure_reason AS "failureReason",
          d.last_lat::text AS "lastLat", d.last_lng::text AS "lastLng", d.last_location_at AS "lastLocationAt",
          d.tracking_expires_at AS "trackingExpiresAt"
@@ -106,7 +108,7 @@ export class DeliveryService {
   }
 
   /** Trava pedido → entrega (mesma ordem do resto do sistema) e confere quem pode mexer. */
-  private async lockOut(tx: Tx, ctx: Ctx, id: string) {
+  private async lockOut(tx: Tx, ctx: Ctx, id: string, viaLink?: string) {
     const cur = await one<{ order_id: string }>(
       tx,
       `SELECT order_id FROM deliveries WHERE id = $1`,
@@ -114,22 +116,28 @@ export class DeliveryService {
     );
     if (!cur) throw new NotFoundException('Entrega não encontrada');
     const o = await this.orders.lock(tx, cur.order_id);
-    const d = await one<{ id: string; status: string; courier_user: string | null }>(
+    const d = await one<{
+      id: string;
+      status: string;
+      courier_user: string | null;
+      courier_id: string;
+    }>(
       tx,
-      `SELECT d.id, d.status, c.user_id AS courier_user FROM deliveries d JOIN couriers c ON c.id = d.courier_id
+      `SELECT d.id, d.status, c.user_id AS courier_user, d.courier_id FROM deliveries d JOIN couriers c ON c.id = d.courier_id
         WHERE d.id = $1 FOR UPDATE OF d`,
       [id],
     );
-    if (!this.canManage(ctx) && d!.courier_user !== ctx.userId)
+    const mine = viaLink ? d!.courier_id === viaLink : d!.courier_user === ctx.userId;
+    if ((viaLink || !this.canManage(ctx)) && !mine)
       throw new ForbiddenException('Esta entrega é de outro entregador');
     if (d!.status !== 'out') throw new ConflictException('Esta entrega já foi encerrada');
     return { o, d: d! };
   }
 
-  async complete(ctx: Ctx, id: string) {
+  async complete(ctx: Ctx, id: string, viaLink?: string) {
     let orderId = '';
     const res = await this.db.withTenant(ctx, async (tx) => {
-      const { o } = await this.lockOut(tx, ctx, id);
+      const { o } = await this.lockOut(tx, ctx, id, viaLink);
       orderId = o.id;
       await this.orders.transitionInTx(tx, ctx, o, 'completed', 'Entrega concluída');
       return one(tx, `${DELIVERY_SELECT} WHERE d.id = $1`, [id]);
@@ -139,10 +147,10 @@ export class DeliveryService {
   }
 
   /** Entrega não realizada: o pedido volta para "pronto" e pode sair de novo. */
-  async fail(ctx: Ctx, id: string, reason: string) {
+  async fail(ctx: Ctx, id: string, reason: string, viaLink?: string) {
     let orderId = '';
     const res = await this.db.withTenant(ctx, async (tx) => {
-      const { o } = await this.lockOut(tx, ctx, id);
+      const { o } = await this.lockOut(tx, ctx, id, viaLink);
       orderId = o.id;
       await this.orders.transitionInTx(tx, ctx, o, 'ready', reason);
       return one(tx, `${DELIVERY_SELECT} WHERE d.id = $1`, [id]);
@@ -151,15 +159,15 @@ export class DeliveryService {
     return res;
   }
 
-  async location(ctx: Ctx, id: string, lat: number, lng: number) {
+  async location(ctx: Ctx, id: string, lat: number, lng: number, viaLink?: string) {
     await this.db.withTenant(ctx, async (tx) => {
-      const d = await one<{ status: string; courier_user: string | null }>(
+      const d = await one<{ status: string; courier_user: string | null; courier_id: string }>(
         tx,
-        `SELECT d.status, c.user_id AS courier_user FROM deliveries d JOIN couriers c ON c.id = d.courier_id WHERE d.id = $1`,
+        `SELECT d.status, c.user_id AS courier_user, d.courier_id FROM deliveries d JOIN couriers c ON c.id = d.courier_id WHERE d.id = $1`,
         [id],
       );
       if (!d) throw new NotFoundException('Entrega não encontrada');
-      if (d.courier_user !== ctx.userId)
+      if (viaLink ? d.courier_id !== viaLink : d.courier_user !== ctx.userId)
         throw new ForbiddenException('Só o entregador da corrida envia a localização');
       if (d.status !== 'out') throw new ConflictException('Esta entrega já foi encerrada');
       await q(
@@ -193,6 +201,96 @@ export class DeliveryService {
       });
     });
     return { trackingPath: `/rastreio/${token.token}` };
+  }
+
+  // ------------------------------------------------------------ link do entregador
+  /**
+   * Gera o link do entregador (o anterior para de funcionar). Quem tem o link vê e conclui só as
+   * próprias corridas, sem login: serve para motoboy freelancer que não tem conta na equipe.
+   */
+  async newCourierLink(ctx: Ctx, courierId: string) {
+    const token = randomBytes(24).toString('base64url');
+    await this.db.withTenant(ctx, async (tx) => {
+      const r = await one(
+        tx,
+        `UPDATE couriers SET access_token_hash = $2, access_created_at = now() WHERE id = $1 RETURNING id`,
+        [courierId, trackingHash(token)],
+      );
+      if (!r) throw new NotFoundException('Entregador não encontrado');
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'courier.link_created',
+        entity: 'courier',
+        entityId: courierId,
+        ip: ctx.ip,
+      });
+    });
+    return { path: `/entregador/${token}` };
+  }
+
+  async revokeCourierLink(ctx: Ctx, courierId: string) {
+    await this.db.withTenant(ctx, async (tx) => {
+      const r = await one(
+        tx,
+        `UPDATE couriers SET access_token_hash = NULL, access_created_at = NULL WHERE id = $1 RETURNING id`,
+        [courierId],
+      );
+      if (!r) throw new NotFoundException('Entregador não encontrado');
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'courier.link_revoked',
+        entity: 'courier',
+        entityId: courierId,
+        ip: ctx.ip,
+      });
+    });
+    return { ok: true };
+  }
+
+  /** Confere o link e devolve o contexto do entregador (sem login, papel "driver"). */
+  async courierCtx(tenantId: string, token: string, ip?: string) {
+    if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) throw new NotFoundException('Link inválido');
+    const c = await this.db.withTenant({ tenantId }, (tx) =>
+      one<{ id: string; name: string; active: boolean }>(
+        tx,
+        `SELECT id, name, active FROM couriers WHERE access_token_hash = $1`,
+        [trackingHash(token)],
+      ),
+    );
+    if (!c) throw new NotFoundException('Link do entregador inválido ou desativado');
+    if (!c.active) throw new ForbiddenException('Entregador desativado. Fale com o restaurante.');
+    const ctx: Ctx = {
+      tenantId,
+      userId: null,
+      user: {
+        id: '',
+        name: `${c.name} (link do entregador)`,
+        email: '',
+        role: 'driver',
+        sessionId: '',
+      },
+      ip,
+    };
+    return { ctx, courier: c };
+  }
+
+  /** Tela do entregador pelo link: corridas na rua e as encerradas hoje. */
+  async courierHome(tenantId: string, tenantName: string, token: string) {
+    const { courier } = await this.courierCtx(tenantId, token);
+    const deliveries = await this.db.withTenant({ tenantId }, (tx) =>
+      q(
+        tx,
+        `${DELIVERY_SELECT} CROSS JOIN tenants tz
+          WHERE d.courier_id = $1
+            AND (d.status = 'out'
+                 OR (d.dispatched_at AT TIME ZONE tz.timezone)::date = (now() AT TIME ZONE tz.timezone)::date)
+          ORDER BY d.status = 'out' DESC, d.dispatched_at DESC LIMIT 100`,
+        [courier.id],
+      ),
+    );
+    return { restaurant: tenantName, courier: { name: courier.name }, deliveries };
   }
 
   /**

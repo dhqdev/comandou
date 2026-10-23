@@ -12,6 +12,7 @@ import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 import { OrdersService } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { ZonesService } from '../delivery/zones.service';
 
 export const mediaUrl = (id: string | null | undefined) => (id ? `/api/v1/media/${id}` : null);
 export const publicTokenHash = (token: string) => createHash('sha256').update(token).digest();
@@ -37,6 +38,9 @@ export interface StoreSettings {
   featuredTitle: string | null;
   accountsEnabled: boolean;
   showPopular: boolean;
+  /** Ponto da loja no mapa (centro das áreas por raio e referência da busca de endereço). */
+  storeLat: string | null;
+  storeLng: string | null;
 }
 
 export interface BannerInput {
@@ -59,7 +63,8 @@ const SETTINGS_COLS = `enabled, is_open AS "isOpen", auto_accept AS "autoAccept"
   delivery_fee::text AS "deliveryFee", min_order::text AS "minOrder", eta_min AS "etaMin",
   eta_max AS "etaMax", about, address, whatsapp, cover_image_id AS "coverImageId",
   logo_image_id AS "logoImageId", theme, headline, featured_title AS "featuredTitle",
-  accounts_enabled AS "accountsEnabled", show_popular AS "showPopular"`;
+  accounts_enabled AS "accountsEnabled", show_popular AS "showPopular",
+  store_lat::text AS "storeLat", store_lng::text AS "storeLng"`;
 
 const DEFAULTS: StoreSettings = {
   enabled: true,
@@ -81,6 +86,8 @@ const DEFAULTS: StoreSettings = {
   featuredTitle: null,
   accountsEnabled: true,
   showPopular: true,
+  storeLat: null,
+  storeLng: null,
 };
 
 const COLUMN: Record<keyof StoreSettings, string> = {
@@ -103,6 +110,8 @@ const COLUMN: Record<keyof StoreSettings, string> = {
   featuredTitle: 'featured_title',
   accountsEnabled: 'accounts_enabled',
   showPopular: 'show_popular',
+  storeLat: 'store_lat',
+  storeLng: 'store_lng',
 };
 
 export interface OnlineOrderInput {
@@ -116,6 +125,8 @@ export interface OnlineOrderInput {
     district: string;
     complement?: string;
     reference?: string;
+    lat?: number;
+    lng?: number;
   };
   notes?: string;
   paymentMethod: 'cash' | 'credit' | 'debit' | 'pix' | 'voucher';
@@ -133,6 +144,7 @@ export class StoreService {
     private readonly orders: OrdersService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
+    private readonly zones: ZonesService,
   ) {}
 
   async settingsIn(tx: Tx): Promise<StoreSettings> {
@@ -226,6 +238,10 @@ export class StoreService {
               GROUP BY i.product_id ORDER BY sum(i.quantity) DESC LIMIT 10`,
           )
         : [];
+      const zoneCount = await one<{ n: number }>(
+        tx,
+        `SELECT count(*)::int AS n FROM delivery_zones WHERE active`,
+      );
       const visible = categories.filter((c) => c.products.length > 0);
       const productIds = new Set(visible.flatMap((c) => c.products.map((p) => p.id)));
       const categoryIds = new Set(visible.map((c) => c.id));
@@ -247,6 +263,8 @@ export class StoreService {
           minOrder: s.minOrder,
           etaMin: s.etaMin,
           etaMax: s.etaMax,
+          /** Taxa por área no mapa: o cardápio pede a localização do endereço antes do pedido. */
+          deliveryZones: (zoneCount?.n ?? 0) > 0,
         },
         appearance: {
           theme: s.theme,
@@ -302,6 +320,31 @@ export class StoreService {
             .filter(Boolean)
             .join(' — ')
         : undefined;
+    // Taxa e pedido mínimo da área de entrega (se a loja desenhou áreas no mapa).
+    let fee = s.deliveryFee;
+    let minSubtotal = s.minOrder;
+    const point =
+      a?.lat !== undefined && a?.lng !== undefined ? { lat: a.lat, lng: a.lng } : undefined;
+    if (input.channel === 'delivery') {
+      const quote = await this.db.withTenant(ctx, async (tx) =>
+        point ? this.zones.quoteIn(tx, [point.lat, point.lng], s.deliveryFee) : null,
+      );
+      const hasZones =
+        quote?.hasZones ??
+        (await this.db.withTenant(ctx, async (tx) =>
+          (await this.zones.listIn(tx)).some((z) => z.active),
+        ));
+      if (hasZones && !quote)
+        throw new UnprocessableEntityException(
+          'Confirme o endereço no mapa para calcular a taxa de entrega',
+        );
+      if (quote && !quote.covered)
+        throw new UnprocessableEntityException('Ainda não entregamos neste endereço');
+      if (quote?.zone) {
+        fee = quote.fee;
+        if (quote.minOrder) minSubtotal = quote.minOrder;
+      }
+    }
     const order = await this.orders.create(
       ctx,
       {
@@ -309,8 +352,9 @@ export class StoreService {
         customerName: input.customerName,
         customerPhone: input.customerPhone,
         deliveryAddress: address,
+        deliveryLocation: input.channel === 'delivery' ? point : undefined,
         notes: input.notes,
-        deliveryFee: input.channel === 'delivery' ? s.deliveryFee : undefined,
+        deliveryFee: input.channel === 'delivery' ? fee : undefined,
         items: input.items,
         online: {
           tokenHash: publicTokenHash(input.token),
@@ -319,7 +363,7 @@ export class StoreService {
           changeFor: input.paymentMethod === 'cash' ? input.changeFor : undefined,
           customerId: input.customerId,
         },
-        minSubtotal: s.minOrder,
+        minSubtotal,
       },
       key,
     );

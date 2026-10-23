@@ -45,6 +45,7 @@ import { useRealtimeStatus } from '../lib/realtime';
 import { useHasUnseenRelease } from '../lib/releases';
 import { ChangePasswordModal } from '../pages/TeamPage';
 import { useAuth } from './auth';
+import { ROLE_HOME } from './role-home';
 import './shell.css';
 import './ops.css';
 
@@ -59,7 +60,7 @@ interface NavItem {
 
 /** Operação: cada tela é um ícone na barra. */
 const MAIN: NavItem[] = [
-  { to: '/', label: 'PDV', icon: <Store /> },
+  { to: '/', label: 'PDV', icon: <Store />, perms: ['orders:write'] },
   { to: '/pedidos', label: 'Pedidos', icon: <ClipboardList />, perms: ['orders:read'] },
   {
     to: '/mesas',
@@ -71,7 +72,7 @@ const MAIN: NavItem[] = [
     to: '/cozinha',
     label: 'Cozinha',
     icon: <ChefHat />,
-    perms: ['kitchen:operate', 'orders:read'],
+    perms: ['kitchen:operate', 'tables:operate'],
   },
   {
     to: '/caixa',
@@ -85,7 +86,7 @@ const MAIN: NavItem[] = [
     icon: <Truck />,
     perms: ['delivery:manage', 'delivery:operate'],
   },
-  { to: '/cardapio', label: 'Cardápio', icon: <BookOpen /> },
+  { to: '/cardapio', label: 'Cardápio', icon: <BookOpen />, perms: ['catalog:read'] },
 ];
 
 /** Gestão e configurações: abrem um submenu que sai da barra (no celular, folha de baixo). */
@@ -143,7 +144,14 @@ const GROUPS: { key: string; label: string; icon: ReactNode; items: NavItem[] }[
 ];
 
 /** Abas do celular, na ordem de preferência (as 4 primeiras que o usuário pode ver). */
-const TAB_PREFERENCE = ['/', '/pedidos', '/mesas', '/cozinha', '/caixa', '/cardapio'];
+const TAB_PREFERENCE = ['/', '/pedidos', '/mesas', '/cozinha', '/caixa', '/entregas', '/cardapio'];
+/** Papéis com uma tela principal própria: as abas do celular começam por ela. */
+const ROLE_TABS: Record<string, string[]> = {
+  waiter: ['/mesas', '/pedidos', '/', '/cozinha'],
+  driver: ['/entregas', '/pedidos'],
+  kitchen: ['/cozinha', '/pedidos', '/cardapio'],
+  stock: ['/estoque', '/cardapio'],
+};
 
 export function AppShell() {
   const { me, logout } = useAuth();
@@ -179,9 +187,11 @@ export function AppShell() {
     .join('')
     .toUpperCase();
 
+  // Quem tem outra tela inicial (garçom, entregador…) abre o PDV pelo endereço /pdv.
+  const pdvTo = ROLE_HOME[me?.user.role ?? ''] ? '/pdv' : '/';
   const main: FrameItem[] = MAIN.filter(can).map((i) => ({
     key: i.to,
-    to: i.to,
+    to: i.to === '/' ? pdvTo : i.to,
     label: i.label,
     icon: i.icon,
   }));
@@ -196,7 +206,9 @@ export function AppShell() {
       badge: i.soon ? <Badge>em breve</Badge> : undefined,
     })),
   })).filter((g) => g.children.length > 0);
-  const tabs = TAB_PREFERENCE.filter((k) => main.some((m) => m.key === k)).slice(0, 4);
+  const tabs = (ROLE_TABS[me?.user.role ?? ''] ?? TAB_PREFERENCE)
+    .filter((k) => main.some((m) => m.key === k))
+    .slice(0, 4);
 
   const account = (
     <div className="account">

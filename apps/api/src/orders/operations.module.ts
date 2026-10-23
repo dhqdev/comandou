@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { DeliveryController } from '../delivery/delivery.controller';
 import { DeliveryService } from '../delivery/delivery.service';
+import { GeocoderService } from '../delivery/geocoder.service';
+import { ZonesController } from '../delivery/zones.controller';
+import { ZonesService } from '../delivery/zones.service';
 import { FinanceController } from '../finance/finance.controller';
 import { FiscalController } from '../fiscal/fiscal.controller';
 import { FiscalService } from '../fiscal/fiscal.service';
@@ -42,6 +45,7 @@ import { OrdersService } from './orders.service';
     SetupController,
     StockController,
     DeliveryController,
+    ZonesController,
     PrintingController,
     PrintAgentController,
     FinanceController,
@@ -62,6 +66,8 @@ import { OrdersService } from './orders.service';
     StockService,
     PrintingService,
     DeliveryService,
+    ZonesService,
+    GeocoderService,
     FiscalService,
     FocusClient,
     MessagingService,

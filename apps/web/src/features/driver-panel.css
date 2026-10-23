@@ -1,0 +1,164 @@
+/* Painel do entregador: uma coluna, botões grandes, fácil de usar com uma mão. */
+.driver {
+  display: grid;
+  gap: var(--cm-space-3);
+  max-width: 640px;
+}
+.driver__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: var(--cm-space-2) 0 0;
+  font-size: var(--cm-text-lg);
+}
+.driver__share {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-3) var(--cm-space-4);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+}
+.driver__share > div {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.driver__share[data-on] {
+  border-color: var(--cm-success);
+  background: var(--cm-success-bg);
+}
+.driver__share[data-on] > svg {
+  color: var(--cm-success);
+}
+.driver__done {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.driver__done li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px var(--cm-space-3);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+}
+
+.run {
+  display: grid;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-4);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-sm);
+}
+.run__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.run__num {
+  font-size: var(--cm-text-2xl);
+  letter-spacing: -0.02em;
+}
+.run__who {
+  display: grid;
+}
+.run__who strong {
+  font-size: var(--cm-text-lg);
+}
+.run__addr {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: var(--cm-space-3);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+  text-decoration: none;
+  font-size: var(--cm-text-md);
+  line-height: 1.35;
+}
+.run__addr svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--cm-brand-700);
+}
+.run__notes {
+  margin: 0;
+  color: var(--cm-text-muted);
+}
+.run__pay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px var(--cm-space-3);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-success-bg);
+  color: var(--cm-text);
+}
+.run__pay.is-due {
+  background: var(--cm-warning-bg);
+}
+.run__links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.run__links .cm-btn {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+.run__actions {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 8px;
+}
+.run__actions .cm-btn {
+  justify-content: center;
+}
+
+/* Página do link do entregador (fora do sistema). */
+.courier-page {
+  min-height: 100dvh;
+  background: var(--cm-bg);
+  color: var(--cm-text);
+  padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 24px);
+}
+.courier-page__inner {
+  display: grid;
+  gap: var(--cm-space-3);
+  max-width: 640px;
+  margin: 0 auto;
+}
+.courier-page__head {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-3);
+}
+.courier-page__head > div {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.courier-page__head strong {
+  font-size: var(--cm-text-lg);
+}
+
+/* Lista de entregadores (tela Entregas → Entregadores) */
+.courier-list li {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.courier-list__who {
+  flex: 1 1 260px;
+  min-width: 0;
+}

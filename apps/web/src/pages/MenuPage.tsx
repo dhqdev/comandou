@@ -51,7 +51,8 @@ export function MenuPage() {
         api<Product[]>('/products'),
         api<OptionGroup[]>('/option-groups'),
         api<{ productId: string; groupId: string }[]>('/product-option-groups'),
-        api<Sector[]>('/sectors').catch(() => [] as Sector[]),
+        // Setores só servem para quem edita o cardápio (e só essa pessoa tem acesso a eles).
+        canWrite ? api<Sector[]>('/sectors').catch(() => [] as Sector[]) : Promise.resolve([]),
       ]);
       setCategories(c);
       setProducts(p);
@@ -63,7 +64,7 @@ export function MenuPage() {
     } catch (e) {
       setError((e as Error).message);
     }
-  }, []);
+  }, [canWrite]);
 
   useEffect(() => {
     void load();

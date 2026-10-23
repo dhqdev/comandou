@@ -20,6 +20,51 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.20.0',
+    date: '2026-10-23',
+    title: 'Garçom no celular, painel do entregador e mapa de entregas',
+    summary:
+      'O garçom atende o salão pelo celular escaneando o QR da mesa, o entregador tem um painel simples (com login ou por um link) e as áreas de entrega são desenhadas num mapa, com taxa e pedido mínimo por área.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Salão para o garçom: mapa de mesas livres, ocupadas e em pagamento, busca, aba Comandas e botão Escanear mesa (câmera do celular). Tocar numa mesa livre já abre o pedido; o pedido enviado abre a comanda.',
+      },
+      {
+        tag: 'novo',
+        text: 'QR Code das mesas pronto para imprimir (Salão > QR das mesas). O garçom escaneia e cai na mesa; o cliente que aponta a câmera vê o cardápio online.',
+      },
+      {
+        tag: 'novo',
+        text: 'Pediu a conta: o garçom marca na comanda e o salão mostra a mesa em pagamento para o caixa.',
+      },
+      {
+        tag: 'novo',
+        text: 'Painel do entregador: corridas na rua com endereço, rota no Google Maps ou Waze, ligar ou WhatsApp do cliente, quanto cobrar e troco, e os botões Entreguei e Não consegui. Também compartilha a localização para o cliente acompanhar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Link do entregador (Entregas > Entregadores): o entregador abre o painel pelo link, sem login. Dá para enviar pelo WhatsApp, gerar um novo ou desligar o link a qualquer momento.',
+      },
+      {
+        tag: 'novo',
+        text: 'Área de entrega no mapa (Entregas > Área de entrega): marque o restaurante, desenhe bairros ou um raio em km e defina taxa, pedido mínimo e tempo de cada área. Mapa público OpenStreetMap, sem chave.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Loja online: com áreas cadastradas, o cliente confirma o endereço num pino no mapa e a taxa e o mínimo vêm da área. Endereço fora das áreas avisa que ainda não entregamos lá.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cada função abre na sua tela: garçom no Salão, entregador em Minhas entregas, cozinha na Cozinha, estoque, financeiro e fiscal nas suas telas. O menu mostra só o que cada um usa.',
+      },
+      {
+        tag: 'correção',
+        text: 'Tela sem permissão mostra um aviso amigável com o caminho de volta, em vez de erro. O estoquista não recebe mais erro ao abrir o cardápio.',
+      },
+    ],
+  },
+  {
     version: '0.19.0',
     date: '2026-10-23',
     title: 'Banco próprio para cada restaurante',

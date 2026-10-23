@@ -61,6 +61,18 @@ export class TabsController {
     return this.tabs.open(ctxOf(t, u, req), b);
   }
 
+  @Post(':id/bill-request')
+  @RequirePermission('tables:operate')
+  billRequest(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(z.object({ requested: z.boolean() }))) b: { requested: boolean },
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.tabs.requestBill(ctxOf(t, u, req), id, b.requested);
+  }
+
   @Post(':id/transfer')
   @RequirePermission('tables:operate')
   transfer(

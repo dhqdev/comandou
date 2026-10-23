@@ -62,6 +62,8 @@ const schema = z.object({
   FOCUS_NFE_URL_PRODUCAO: z.string().url().default('https://api.focusnfe.com.br'),
   /** Graph API da Meta (WhatsApp Cloud API), com a versão no caminho. */
   WHATSAPP_GRAPH_URL: z.string().url().default('https://graph.facebook.com/v25.0'),
+  /** Busca de endereço (Nominatim/OpenStreetMap) usada nas áreas de entrega. */
+  GEOCODER_URL: z.string().url().default('https://nominatim.openstreetmap.org'),
   /** Serviço interno de WhatsApp (Baileys/QR Code). Ex.: http://whatsapp-gateway:3100 */
   WHATSAPP_GATEWAY_URL: z.preprocess(
     (v) => (v === '' ? undefined : v),

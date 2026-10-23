@@ -56,6 +56,8 @@ const OnlineOrder = z.object({
       district: text(80),
       complement: optText(80),
       reference: optText(120),
+      lat: z.number().min(-90).max(90).optional(),
+      lng: z.number().min(-180).max(180).optional(),
     })
     .optional(),
   notes: optText(300),
@@ -105,6 +107,18 @@ const Settings = z
       .transform((v) => v || null),
     accountsEnabled: z.boolean(),
     showPopular: z.boolean(),
+    storeLat: z
+      .number()
+      .min(-90)
+      .max(90)
+      .nullable()
+      .transform((n) => (n === null ? null : n.toFixed(6))),
+    storeLng: z
+      .number()
+      .min(-180)
+      .max(180)
+      .nullable()
+      .transform((n) => (n === null ? null : n.toFixed(6))),
   })
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');

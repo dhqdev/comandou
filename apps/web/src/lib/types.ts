@@ -201,6 +201,7 @@ export interface Tab {
   paid: string;
   balance: string;
   orderCount: number;
+  billRequestedAt: string | null;
   orders?: Order[];
 }
 
@@ -209,11 +210,15 @@ export interface DiningTable {
   label: string;
   seats: number;
   area: string | null;
+  position?: number;
   active: boolean;
   tabId: string | null;
   tabNumber: number | null;
   openedAt: string | null;
   tabTotal: string;
+  tabPaid: string;
+  tabCustomer: string | null;
+  billRequestedAt: string | null;
 }
 
 export interface Sector {
@@ -312,6 +317,8 @@ export interface Courier {
   userId: string | null;
   userName: string | null;
   active: boolean;
+  /** Quando o link do entregador (sem login) foi gerado; null = sem link. */
+  linkCreatedAt: string | null;
 }
 export interface Delivery {
   id: string;
@@ -333,6 +340,28 @@ export interface Delivery {
   lastLat: string | null;
   lastLng: string | null;
   lastLocationAt: string | null;
+  paymentHint: string | null;
+  changeFor: string | null;
+  deliveryLat: string | null;
+  deliveryLng: string | null;
+  notes: string | null;
+}
+
+export interface DeliveryZone {
+  id: string;
+  name: string;
+  color: string;
+  kind: 'polygon' | 'radius';
+  polygon: [number, number][] | null;
+  centerLat: string | null;
+  centerLng: string | null;
+  radiusM: number | null;
+  fee: string;
+  minOrder: string | null;
+  etaMin: number | null;
+  etaMax: number | null;
+  active: boolean;
+  position: number;
 }
 
 export interface PrintAgent {
