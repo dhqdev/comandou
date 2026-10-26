@@ -11,6 +11,7 @@ import {
   Sparkles,
   Store,
   UserRound,
+  Wallet,
   X,
 } from 'lucide-react';
 import { CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
@@ -211,9 +212,9 @@ function Headline({ text }: { text: string }) {
   const words = text.trim().split(/\s+/);
   const last = words.pop();
   return (
-    <h1 className="sf-hero__title">
+    <h2 className="sf-greet__title">
       {words.join(' ')} <em>{last}</em>
-    </h1>
+    </h2>
   );
 }
 
@@ -262,52 +263,62 @@ export function HomeScreen() {
 
   return (
     <>
-      <header className="sf-hero">
+      {/* Capa só com a foto (nada escrito em cima, como no iFood); os dados vêm no cartão abaixo. */}
+      <header className="sf-cover">
         {r.coverUrl ? (
-          <img src={r.coverUrl} alt="" className="sf-hero__img" />
+          <img src={r.coverUrl} alt="" className="sf-cover__img" />
         ) : (
-          <div className="sf-hero__art" />
+          <div className="sf-cover__art" />
         )}
-        <div className="sf-hero__inner sf-wrap">
-          <div className="sf-hero__top">
-            <Photo src={r.logoUrl} alt={r.name} className="sf-hero__logo" eager />
-            <div className="sf-hero__name">
-              <strong>{r.name}</strong>
+        {menu.appearance.accountsEnabled && (
+          <Link className="sf-avatar" to="/pedir/conta" aria-label="Minha conta">
+            {first ? first[0]!.toUpperCase() : <UserRound size={18} />}
+          </Link>
+        )}
+      </header>
+
+      <section className="sf-wrap sf-store">
+        <div className="sf-store__card">
+          <div className="sf-store__head">
+            <Photo src={r.logoUrl} alt={r.name} className="sf-store__logo" eager />
+            <div className="sf-store__name">
+              <h1>{r.name}</h1>
               <span className={`status ${s.isOpen ? 'is-open' : 'is-closed'}`}>
-                {s.isOpen ? 'Aberto agora' : 'Fechado'}
+                {s.isOpen ? 'Aberto agora' : 'Fechado agora'}
               </span>
             </div>
-            {menu.appearance.accountsEnabled && (
-              <Link className="sf-avatar" to="/pedir/conta" aria-label="Minha conta">
-                {first ? first[0]!.toUpperCase() : <UserRound size={18} />}
-              </Link>
-            )}
           </div>
-          <p className="sf-hero__hello">{first ? `Olá, ${first} 👋` : 'Bem-vindo! 👋'}</p>
-          <Headline text={menu.appearance.headline || 'Bateu a fome? Peça agora!'} />
-          <div className="sf-hero__meta">
-            <span>
-              <Clock size={14} /> {s.etaMin}–{s.etaMax} min
-            </span>
+          <ul className="sf-store__info">
+            <li>
+              <Clock size={15} aria-hidden /> {s.etaMin}–{s.etaMax} min
+            </li>
             {s.acceptsDelivery && (
-              <span>
-                <Bike size={14} />{' '}
+              <li>
+                <Bike size={15} aria-hidden />{' '}
                 {s.deliveryZones
                   ? 'Entrega conforme o bairro'
                   : toCents(s.deliveryFee)
                     ? `Entrega ${brl(s.deliveryFee)}`
                     : 'Entrega grátis'}
-              </span>
+              </li>
             )}
             {s.acceptsPickup && (
-              <span>
-                <Store size={14} /> Retirada
-              </span>
+              <li>
+                <Store size={15} aria-hidden /> Retirada
+              </li>
             )}
-            {toCents(s.minOrder) > 0 && <span>Mínimo {brl(s.minOrder)}</span>}
-          </div>
+            {toCents(s.minOrder) > 0 && (
+              <li>
+                <Wallet size={15} aria-hidden /> Mínimo {brl(s.minOrder)}
+              </li>
+            )}
+          </ul>
         </div>
-      </header>
+        <div className="sf-greet">
+          <p className="sf-greet__hello">{first ? `Olá, ${first} 👋` : 'Bem-vindo! 👋'}</p>
+          <Headline text={menu.appearance.headline || 'Bateu a fome? Peça agora!'} />
+        </div>
+      </section>
       <div ref={sentinel} aria-hidden />
 
       <div className="searchbar" data-stuck={stuck || undefined}>

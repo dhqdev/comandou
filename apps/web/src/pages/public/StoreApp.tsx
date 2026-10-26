@@ -1,7 +1,15 @@
 import { fromCents } from '@comandou/shared';
 import { ChevronRight, Heart, House, ReceiptText, ShoppingBag, UserRound } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { NavLink, Route, Routes, useLocation, useNavigate, useNavigationType } from 'react-router';
+import {
+  Link,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useNavigationType,
+} from 'react-router';
 import { applyTheme, Mascot, useGlider } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
@@ -13,17 +21,15 @@ import { OrdersScreen } from './OrdersScreen';
 import { ProductScreen } from './ProductScreen';
 import { PublicOrderPage } from './PublicOrderPage';
 import type { PublicMenu, StoreStatus } from './store';
+import { Photo } from './ui';
 import './public.css';
 import './storefront.css';
 
-/** Abas de baixo (no computador viram o menu do topo). */
-function BottomNav() {
+/** Abas do cardápio: embaixo no celular, no menu do topo no computador. */
+function useNavTabs() {
   const { menu, account } = useStore();
-  const { pathname } = useLocation();
-  // Produto e sacola têm a própria barra embaixo (adicionar / finalizar).
-  const focused = /^\/pedir\/(produto|sacola)/.test(pathname);
   const name = account?.customer?.name.split(' ')[0];
-  const tabs = [
+  return [
     { to: '/pedir', label: 'Início', icon: House, end: true },
     { to: '/pedir/favoritos', label: 'Favoritos', icon: Heart },
     { to: '/pedir/pedidos', label: 'Pedidos', icon: ReceiptText },
@@ -31,6 +37,14 @@ function BottomNav() {
       ? [{ to: '/pedir/conta', label: name ?? 'Entrar', icon: UserRound }]
       : []),
   ];
+}
+
+/** Abas de baixo (celular). */
+function BottomNav() {
+  const { pathname } = useLocation();
+  // Produto e sacola têm a própria barra embaixo (adicionar / finalizar).
+  const focused = /^\/pedir\/(produto|sacola)/.test(pathname);
+  const tabs = useNavTabs();
   const glider = useGlider<HTMLElement>({ selector: '.tabbar__item.active' });
   return (
     <nav
@@ -47,6 +61,46 @@ function BottomNav() {
       ))}
       {glider.glider}
     </nav>
+  );
+}
+
+/**
+ * Barra do topo no computador (como no iFood): loja à esquerda, menu e sacola à direita. Fica
+ * presa no topo e não cobre a capa nem o conteúdo.
+ */
+function TopBar() {
+  const { menu, count, subtotal, bump } = useStore();
+  const tabs = useNavTabs();
+  const r = menu.restaurant;
+  return (
+    <header className="sf-appbar">
+      <div className="sf-appbar__inner">
+        <Link to="/pedir" className="sf-appbar__brand">
+          <Photo src={r.logoUrl} alt={r.name} className="sf-appbar__logo" eager />
+          <strong>{r.name}</strong>
+        </Link>
+        <nav className="sf-appbar__nav" aria-label="Menu do cardápio">
+          {tabs.map((t) => (
+            <NavLink key={t.to} to={t.to} end={t.end} className="sf-appbar__link">
+              <t.icon size={18} aria-hidden />
+              <span>{t.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+        <Link to="/pedir/sacola" className="sf-appbar__cart" data-empty={count === 0 || undefined}>
+          <span
+            className="sf-appbar__bag"
+            data-cart-target
+            key={bump}
+            data-bump={bump > 0 || undefined}
+          >
+            <ShoppingBag size={18} />
+            {count > 0 && <span className="cartpill__count">{count}</span>}
+          </span>
+          <span>{count > 0 ? brl(fromCents(subtotal)) : 'Sacola'}</span>
+        </Link>
+      </div>
+    </header>
   );
 }
 
@@ -111,7 +165,7 @@ function Screens() {
 function Skeleton() {
   return (
     <main className="sf" aria-busy="true">
-      <div className="sf-hero sf-hero--skeleton" />
+      <div className="sf-cover sf-cover--skeleton" />
       <div className="sf-wrap">
         <div className="sk sk--search" />
         <div className="sk-row">
@@ -211,6 +265,7 @@ export function StoreApp() {
   return (
     <StoreProvider menu={menu} refreshStatus={refreshStatus}>
       <main className="sf">
+        <TopBar />
         <Screens />
         <CartPill />
         <BottomNav />

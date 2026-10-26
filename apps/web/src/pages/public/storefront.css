@@ -104,35 +104,30 @@
   }
 }
 
-/* ---------------------------------------------------------------- capa com saudação */
-.sf-hero {
+/* ---------------------------------------------------------------- capa + cartão da loja (como no iFood) */
+/* A capa é só foto: nome, horário e entrega ficam num cartão sólido logo abaixo, sempre legíveis. */
+.sf-cover {
   position: relative;
+  height: calc(env(safe-area-inset-top, 0px) + 168px);
   overflow: hidden;
-  color: var(--sf-on-photo);
-  background: var(--cm-brand-900);
-  border-radius: 0 0 var(--sf-r-lg) var(--sf-r-lg);
-  padding: calc(env(safe-area-inset-top, 0px) + 16px) 0 52px;
+  background: var(--cm-brand-800);
   isolation: isolate;
 }
-.sf-hero__img,
-.sf-hero__art {
+.sf-cover--skeleton {
+  height: 168px;
+}
+.sf-cover__img,
+.sf-cover__art {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  z-index: -2;
+  z-index: -1;
 }
-.sf-hero__img {
+.sf-cover__img {
   object-fit: cover;
-  transform: scale(1.06);
-  animation: sf-kenburns 18s ease-in-out infinite alternate;
 }
-@keyframes sf-kenburns {
-  to {
-    transform: scale(1.16) translate(-1.5%, -1%);
-  }
-}
-.sf-hero__art {
+.sf-cover__art {
   background:
     radial-gradient(
       60% 90% at 85% 10%,
@@ -146,111 +141,124 @@
     ),
     var(--cm-brand-800);
 }
-.sf-hero::after {
+/* Só uma sombra leve no alto, para a hora e a bateria do celular aparecerem sobre a foto. */
+.sf-cover::after {
   content: '';
   position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--sf-shade) 45%, transparent) 0%,
-    color-mix(in srgb, var(--sf-shade) 30%, transparent) 45%,
-    color-mix(in srgb, var(--sf-shade) 72%, transparent) 100%
-  );
-}
-.sf-hero--skeleton {
-  height: 260px;
-}
-.sf-hero__inner {
-  display: grid;
-  gap: 6px;
-}
-.sf-hero__top {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-  animation: sf-rise 0.5s var(--sf-ease) both;
-}
-.sf-hero__logo {
-  width: 46px;
-  flex: none;
-  border-radius: var(--sf-r-sm);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sf-on-photo) 70%, transparent);
-}
-.sf-hero__name {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-.sf-hero__name strong {
-  font-size: var(--cm-text-lg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.sf-hero .status {
-  font-size: var(--cm-text-xs);
-}
-.sf-hero .status.is-open {
-  color: color-mix(in srgb, var(--cm-success) 45%, var(--sf-on-photo));
+  inset: 0 0 auto;
+  height: calc(env(safe-area-inset-top, 0px) + 64px);
+  background: linear-gradient(180deg, rgb(0 0 0 / 38%), transparent);
 }
 .sf-avatar {
-  margin-left: auto;
-  width: 42px;
-  height: 42px;
-  flex: none;
+  position: absolute;
+  z-index: 1;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  right: 16px;
+  width: 40px;
+  height: 40px;
   display: grid;
   place-items: center;
   border-radius: 50%;
-  color: var(--sf-on-photo);
+  color: var(--cm-text);
   text-decoration: none;
   font-weight: 800;
-  background: color-mix(in srgb, var(--sf-on-photo) 18%, transparent);
-  border: 1px solid color-mix(in srgb, var(--sf-on-photo) 30%, transparent);
-  backdrop-filter: blur(10px);
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-md);
   transition: transform var(--cm-dur) var(--cm-ease-liquid);
 }
 .sf-avatar:active {
   transform: scale(0.92);
 }
-.sf-hero__hello {
-  margin: 0;
-  font-size: var(--cm-text-sm);
-  opacity: 0.88;
-  animation: sf-rise 0.5s 0.05s var(--sf-ease) both;
+
+.sf-store {
+  position: relative;
+  z-index: 2;
+  margin-top: -44px;
+  display: grid;
+  gap: 16px;
+  animation: sf-rise 0.45s var(--sf-ease) both;
 }
-.sf-hero__title {
+.sf-store__card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--sf-r-lg);
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+  box-shadow: var(--cm-shadow-md);
+}
+.sf-store__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.sf-store__logo {
+  width: 60px;
+  flex: none;
+  border-radius: var(--sf-r);
+  border: 1px solid var(--cm-border);
+}
+.sf-store__name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.sf-store__name h1 {
   margin: 0;
-  max-width: 18ch;
-  font-size: clamp(1.75rem, 7vw, 2.6rem);
-  line-height: 1.08;
+  font-size: var(--cm-text-xl);
   font-weight: 800;
-  letter-spacing: -0.03em;
-  animation: sf-rise 0.55s 0.1s var(--sf-ease) both;
+  line-height: 1.15;
+  letter-spacing: var(--cm-tracking-tight);
+  overflow-wrap: anywhere;
 }
-.sf-hero__title em {
-  font-style: normal;
-  color: var(--cm-brand-300);
+.sf-store .status {
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
 }
-.sf-hero__meta {
+.sf-store__info {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 12px;
-  animation: sf-rise 0.55s 0.15s var(--sf-ease) both;
+  align-items: center;
+  gap: 6px 16px;
+  margin: 0;
+  padding: 12px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--cm-border);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
 }
-.sf-hero__meta span {
+.sf-store__info li {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 10px;
-  border-radius: var(--cm-radius-full);
-  font-size: var(--cm-text-xs);
+  white-space: nowrap;
+}
+.sf-store__info svg {
+  color: var(--cm-text-subtle);
+}
+.sf-greet {
+  display: grid;
+  gap: 2px;
+  padding: 0 4px;
+}
+.sf-greet__hello {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
   font-weight: 600;
-  background: color-mix(in srgb, var(--sf-on-photo) 16%, transparent);
-  border: 1px solid color-mix(in srgb, var(--sf-on-photo) 22%, transparent);
-  backdrop-filter: blur(8px);
+}
+.sf-greet__title {
+  margin: 0;
+  font-size: clamp(1.3rem, 5.4vw, 1.75rem);
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.sf-greet__title em {
+  font-style: normal;
+  color: var(--cm-brand-600);
 }
 
 /* ---------------------------------------------------------------- busca (gruda no topo) */
@@ -258,7 +266,7 @@
   position: sticky;
   top: 0;
   z-index: 20;
-  margin-top: -28px;
+  margin-top: 14px;
   padding: 0 0 6px;
   transition:
     background var(--cm-dur) var(--cm-ease),
@@ -322,6 +330,11 @@
   margin: 12px 0 0;
   color: var(--cm-text-muted);
   font-size: var(--cm-text-sm);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* ---------------------------------------------------------------- banners */
@@ -343,9 +356,8 @@
   position: relative;
   flex: 0 0 100%;
   scroll-snap-align: center;
-  min-height: 150px;
+  min-height: 176px;
   aspect-ratio: 16 / 7;
-  max-height: 260px;
   display: flex;
   align-items: center;
   padding: 18px 20px;
@@ -387,16 +399,16 @@
   z-index: -1;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--sf-shade) 78%, transparent) 0%,
-    color-mix(in srgb, var(--sf-shade) 35%, transparent) 60%,
-    transparent 100%
+    color-mix(in srgb, var(--sf-shade) 88%, transparent) 0%,
+    color-mix(in srgb, var(--sf-shade) 62%, transparent) 50%,
+    color-mix(in srgb, var(--sf-shade) 8%, transparent) 100%
   );
 }
 .banner__text {
   display: grid;
   justify-items: start;
   gap: 6px;
-  max-width: 62%;
+  max-width: min(70%, 520px);
 }
 .banner__tag {
   padding: 3px 9px;
@@ -409,18 +421,23 @@
   text-transform: uppercase;
 }
 .banner strong {
-  font-size: clamp(1.25rem, 5.5vw, 1.75rem);
+  font-size: clamp(1.15rem, 5vw, 1.75rem);
   line-height: 1.1;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
 .banner__sub {
   font-size: var(--cm-text-sm);
-  opacity: 0.9;
+  line-height: 1.35;
+  opacity: 0.92;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .banner__cta {
   margin-top: 4px;
-  padding: 8px 16px;
+  padding: 7px 14px;
   border-radius: var(--cm-radius-full);
   background: var(--cm-brand-500);
   color: var(--cm-on-brand);
@@ -623,36 +640,34 @@
   font-size: var(--cm-text-md);
 }
 
-/* Linha do cardápio */
+/* Linha do cardápio (como no iFood): nome, descrição e preço à esquerda, foto à direita.
+   No celular é uma lista com divisórias; no computador, cartões em duas colunas. */
 .plist {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  border-top: 1px solid var(--cm-border);
 }
 .prow {
   display: flex;
-  gap: 12px;
-  padding: 12px;
-  border-radius: calc(var(--sf-r) + 2px);
-  background: var(--cm-surface);
-  border: 1px solid var(--cm-border);
+  align-items: center;
+  gap: 14px;
+  min-height: 124px;
+  padding: 16px 2px;
+  border-bottom: 1px solid var(--cm-border);
   cursor: pointer;
   text-align: left;
   animation: sf-rise 0.4s calc(var(--i, 0) * 40ms) var(--sf-ease) both;
   transition:
     transform var(--cm-dur) var(--cm-ease),
+    background var(--cm-dur),
     box-shadow var(--cm-dur) var(--cm-ease),
     border-color var(--cm-dur);
 }
-.prow:hover {
-  box-shadow: var(--cm-shadow-md);
-  border-color: var(--cm-border-strong);
-}
 .prow:active {
-  transform: scale(0.985);
+  background: color-mix(in srgb, var(--cm-text) 4%, transparent);
 }
 .prow[data-soldout] {
-  opacity: 0.6;
+  opacity: 0.55;
 }
 .prow:focus-visible,
 .tile:focus-visible {
@@ -663,13 +678,14 @@
   flex: 1;
   min-width: 0;
   display: grid;
-  align-content: start;
+  align-content: center;
   gap: 4px;
 }
 .prow__name {
   font-weight: 650;
   font-size: var(--cm-text-md);
   line-height: 1.3;
+  color: var(--cm-text);
 }
 .prow__desc {
   color: var(--cm-text-muted);
@@ -681,23 +697,28 @@
   overflow: hidden;
 }
 .prow__price {
-  margin-top: 4px;
-  font-weight: 800;
+  margin-top: 6px;
+  font-weight: 700;
+  font-size: var(--cm-text-md);
+  color: var(--cm-text);
 }
 .prow__media {
   position: relative;
   flex: none;
-  width: 104px;
-  align-self: center;
+  width: 108px;
 }
 .prow__photo {
-  border-radius: var(--sf-r);
+  border-radius: var(--sf-r-sm);
+  border: 1px solid var(--cm-border);
 }
 .prow__add {
   position: absolute;
-  right: -4px;
-  bottom: -4px;
-  box-shadow: 0 0 0 3px var(--cm-surface);
+  right: 6px;
+  bottom: 6px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  box-shadow: 0 4px 12px -4px rgb(0 0 0 / 35%);
 }
 
 .addbtn {
@@ -922,55 +943,131 @@
   text-align: left;
 }
 
-/* Computador: abas viram menu flutuante no topo direito; sacola no canto. */
+/* Barra do topo (só no computador): loja à esquerda, menu e sacola à direita. */
+.sf-appbar {
+  display: none;
+}
 @media (min-width: 900px) {
   .sf {
     --sf-tabbar: 0px;
+    --sf-appbar: 68px;
     padding-bottom: 96px;
   }
-  .tabbar {
-    margin: 0;
-    max-width: none;
-    top: 16px;
-    bottom: auto;
-    left: auto;
-    right: max(16px, calc((100vw - 1080px) / 2 + 16px));
-    height: 52px;
-    gap: 2px;
-    padding: 6px;
-    border: 1px solid var(--cm-glass-border);
-    border-radius: var(--sf-r);
-    box-shadow: var(--cm-shadow-md);
-    background: var(--cm-glass-bg);
-  }
-  .tabbar__item {
-    display: flex;
-    gap: 6px;
-    padding: 0 12px;
-    font-size: var(--cm-text-sm);
-    color: var(--cm-text-muted);
-  }
-  .tabbar__item.active svg {
-    transform: none;
-  }
+  /* No computador o menu mora na barra do topo: nada flutua por cima da capa. */
+  .tabbar,
   .cartpill {
-    left: auto;
-    right: max(16px, calc((100vw - 1080px) / 2 + 16px));
-    bottom: 24px;
-    width: 360px;
-    transform: none;
+    display: none;
   }
-  .cartpill[data-hidden] {
-    transform: translateY(140%);
+  .sf-appbar {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 45;
+    height: var(--sf-appbar);
+    background: color-mix(in srgb, var(--cm-surface) 88%, transparent);
+    backdrop-filter: blur(18px) saturate(170%);
+    -webkit-backdrop-filter: blur(18px) saturate(170%);
+    border-bottom: 1px solid var(--cm-border);
   }
-  .cartpill:active {
+  .sf-appbar__inner {
+    max-width: var(--sf-max);
+    height: 100%;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+  .sf-appbar__brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    color: var(--cm-text);
+    text-decoration: none;
+    font-size: var(--cm-text-md);
+  }
+  .sf-appbar__brand strong {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sf-appbar__logo {
+    width: 38px;
+    flex: none;
+    border-radius: var(--cm-radius-md);
+    border: 1px solid var(--cm-border);
+  }
+  .sf-appbar__nav {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .sf-appbar__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 40px;
+    padding: 0 14px;
+    border-radius: var(--cm-radius-full);
+    color: var(--cm-text-muted);
+    text-decoration: none;
+    font-size: var(--cm-text-sm);
+    font-weight: 650;
+    transition:
+      background var(--cm-dur),
+      color var(--cm-dur);
+  }
+  .sf-appbar__link:hover {
+    color: var(--cm-text);
+    background: color-mix(in srgb, var(--cm-text) 6%, transparent);
+  }
+  .sf-appbar__link.active {
+    color: var(--cm-brand-700);
+    background: color-mix(in srgb, var(--cm-brand-500) 14%, transparent);
+  }
+  .sf-appbar__cart {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    height: 44px;
+    padding: 0 18px 0 8px;
+    border-radius: var(--cm-radius-full);
+    background: var(--cm-brand-600);
+    color: var(--cm-on-brand);
+    text-decoration: none;
+    font-weight: 750;
+    font-size: var(--cm-text-sm);
+    box-shadow: 0 10px 22px -12px var(--cm-brand-600);
+    transition: transform var(--cm-dur) var(--cm-ease);
+  }
+  .sf-appbar__cart:active {
     transform: scale(0.97);
   }
-  .sf-hero {
-    padding-top: 84px;
-    padding-bottom: 64px;
+  .sf-appbar__cart[data-empty] {
+    background: var(--cm-surface-sunken);
+    color: var(--cm-text-muted);
+    box-shadow: none;
   }
-  .sf-hero__avatar,
+  .sf-appbar__bag {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: color-mix(in srgb, currentColor 14%, transparent);
+  }
+  .sf-appbar__bag[data-bump] {
+    animation: sf-pop 0.45s var(--cm-ease-liquid);
+  }
+  .sf-appbar__bag .cartpill__count {
+    top: -6px;
+    right: -8px;
+    min-width: 18px;
+    height: 18px;
+  }
   .sf-avatar {
     display: none;
   }
@@ -1325,9 +1422,9 @@
 
 @media (min-width: 900px) {
   .pdp {
-    max-width: 1080px;
+    max-width: 1180px;
     margin: 0 auto;
-    padding: 84px 16px 140px;
+    padding: 32px 24px 140px;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 32px;
@@ -1335,7 +1432,7 @@
   }
   .pdp__media {
     position: sticky;
-    top: 84px;
+    top: calc(var(--sf-appbar) + 24px);
   }
   .pdp__hero {
     border-radius: var(--sf-r-lg);
@@ -1352,7 +1449,7 @@
   }
   .addbar {
     left: auto;
-    right: max(16px, calc((100vw - 1080px) / 2 + 16px));
+    right: max(24px, calc((100vw - 1180px) / 2 + 24px));
     bottom: 24px;
     width: min(500px, calc(50% - 32px));
     border: 1px solid var(--cm-border);
@@ -1518,7 +1615,7 @@
 }
 @media (min-width: 900px) {
   .sf-page {
-    padding-top: 84px;
+    padding-top: 32px;
     max-width: 760px;
   }
 }
@@ -2086,7 +2183,7 @@
 }
 
 /* ---------------------------------------------------------------- modo escuro: capa menos "lamacenta" */
-:root[data-theme='dark'] .sf-hero__art {
+:root[data-theme='dark'] .sf-cover__art {
   background:
     radial-gradient(
       55% 90% at 85% 0%,
@@ -2100,32 +2197,50 @@
     ),
     #1b1611;
 }
-:root[data-theme='dark'] .sf-hero::after {
-  background: linear-gradient(
-    180deg,
-    rgb(0 0 0 / 25%) 0%,
-    rgb(0 0 0 / 15%) 45%,
-    rgb(0 0 0 / 55%) 100%
-  );
-}
 
-/* ---------------------------------------------------------------- computador: tudo alinhado na mesma coluna */
+/* ---------------------------------------------------------------- computador: a página ocupa a largura toda */
 @media (min-width: 900px) {
-  /* Capa como cartão dentro da coluna (o menu flutuante fica dentro dela). */
-  .sf-hero {
-    max-width: 1080px;
-    margin: 16px auto 0;
+  .sf {
+    --sf-max: 1280px;
+  }
+  .sf-wrap {
+    max-width: var(--sf-max);
+    padding: 0 24px;
+  }
+  /* Capa como faixa larga dentro da coluna; o cartão da loja encosta nela por baixo. */
+  .sf-cover {
+    max-width: calc(var(--sf-max) - 48px);
+    height: 260px;
+    margin: 20px auto 0;
     border-radius: var(--sf-r-lg);
-    padding-top: 84px;
   }
-  .tabbar {
-    top: 28px;
-    right: max(28px, calc((100vw - 1080px) / 2 + 12px));
+  .sf-cover::after {
+    display: none;
   }
-  /* A busca sobe um pouco sobre a capa, na mesma largura da coluna. */
-  .sf-hero + .sf-wrap,
-  .sf-wrap.sf-search {
-    max-width: 1080px;
+  .sf-store {
+    margin-top: -56px;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: end;
+    gap: 24px;
+  }
+  .sf-store__card {
+    margin-left: 24px;
+    padding: 20px;
+  }
+  .sf-store__logo {
+    width: 76px;
+  }
+  .sf-store__name h1 {
+    font-size: var(--cm-text-2xl);
+  }
+  .sf-greet {
+    padding: 0 0 6px;
+  }
+  .searchbar {
+    top: var(--sf-appbar);
+  }
+  .searchbar[data-stuck] {
+    padding: 10px 0;
   }
 
   /* Categorias: quebram em linhas, sem rolagem lateral escondida. */
@@ -2161,20 +2276,31 @@
     display: none;
   }
 
-  /* Cartões da lista: foto maior e conteúdo sem espaço sobrando. */
+  /* Cartões da lista em duas colunas, ocupando a largura toda. */
   .plist {
-    gap: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    border-top: 0;
   }
   .prow {
-    padding: 14px;
-    gap: 16px;
-    min-height: 132px;
+    min-height: 148px;
+    padding: 16px;
+    gap: 18px;
+    border: 1px solid var(--cm-border);
+    border-radius: calc(var(--sf-r) + 2px);
+    background: var(--cm-surface);
+  }
+  .prow:hover {
+    border-color: var(--cm-border-strong);
+    box-shadow: var(--cm-shadow-md);
   }
   .prow__media {
-    width: 116px;
+    width: 124px;
   }
-  .prow__body {
-    align-content: center;
+  .banner {
+    aspect-ratio: auto;
+    height: 240px;
+    padding: 24px 32px;
   }
   .sec {
     margin-top: 34px;
