@@ -6,14 +6,7 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
  * e escolhe o volume; a escolha fica no aparelho (cada tablet da cozinha tem a sua).
  */
 export type SoundKind =
-  | 'order'
-  | 'kitchen'
-  | 'ready'
-  | 'delivery'
-  | 'courier'
-  | 'delivered'
-  | 'bill'
-  | 'cancel';
+  'order' | 'kitchen' | 'ready' | 'delivery' | 'courier' | 'delivered' | 'bill' | 'cancel';
 
 export const SOUND_INFO: { kind: SoundKind; label: string; hint: string }[] = [
   { kind: 'order', label: 'Novo pedido', hint: 'Pedido do cardápio online esperando aceite' },
