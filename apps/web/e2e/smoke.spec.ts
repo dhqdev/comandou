@@ -46,11 +46,13 @@ test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => 
   });
 
   // Sessão sobrevive a recarregar (cookie HttpOnly; no localStorage só a marca de
-  // apresentação vista, nada de sessão).
+  // apresentação vista e as cores da loja em cache, nada de sessão).
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Cardápio' })).toBeVisible();
   expect(
-    await page.evaluate(() => Object.keys(localStorage).filter((k) => !k.startsWith('cm-tour:'))),
+    await page.evaluate(() =>
+      Object.keys(localStorage).filter((k) => !k.startsWith('cm-tour:') && k !== 'cm-brand'),
+    ),
   ).toEqual([]);
 });
 

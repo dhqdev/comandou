@@ -93,7 +93,7 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await page.getByLabel('Nome', { exact: true }).fill(`João ${tag}`);
   await page.getByRole('button', { name: 'Cadastrar' }).click();
   await expect(page.locator('strong', { hasText: `João ${tag}` })).toBeVisible();
-  await page.getByRole('tab', { name: /Despacho/ }).click();
+  await page.getByRole('tab', { name: /Ao vivo/ }).click();
   await page
     .getByLabel(`Entregador do pedido ${order.number}`)
     .selectOption({ label: `João ${tag}` });
