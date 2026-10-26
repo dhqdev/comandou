@@ -195,9 +195,18 @@ export async function seedDemoData(
     stockId[key] = randomUUID();
     stockCost[key] = toCents(cost);
     await c.query(
-      `INSERT INTO stock_items (id, tenant_id, name, unit, quantity, min_quantity, avg_cost, created_at)
-       VALUES ($1,$2,$3,$4,0,$5,$6,$7)`,
-      [stockId[key], T, name, unit, min, cost, iso(now - (days + 2) * DAY)],
+      `INSERT INTO stock_items (id, tenant_id, name, unit, quantity, min_quantity, avg_cost, created_at, category)
+       VALUES ($1,$2,$3,$4,0,$5,$6,$7,$8)`,
+      [
+        stockId[key],
+        T,
+        name,
+        unit,
+        min,
+        cost,
+        iso(now - (days + 2) * DAY),
+        C.STOCK_CATEGORY[key] ?? null,
+      ],
     );
   }
   await bulk(

@@ -671,6 +671,41 @@ export const STOCK_ITEMS: Record<string, [string, 'un' | 'kg' | 'l', number, str
   caixa: ['Caixa de pizza', 'un', 40, '1.60', 160],
 };
 
+/** Categoria de cada insumo (filtro e inventário por setor). */
+export const STOCK_CATEGORY: Record<string, string> = {
+  pao: 'Padaria e massas',
+  massa: 'Padaria e massas',
+  granola: 'Padaria e massas',
+  blend: 'Carnes',
+  bacon: 'Carnes',
+  frango: 'Carnes',
+  calabresa: 'Carnes',
+  presunto: 'Carnes',
+  prato: 'Laticínios',
+  cheddar: 'Laticínios',
+  mucarela: 'Laticínios',
+  catupiry: 'Laticínios',
+  ovo: 'Laticínios',
+  alface: 'Hortifrúti',
+  tomate: 'Hortifrúti',
+  cebola: 'Hortifrúti',
+  laranja: 'Hortifrúti',
+  limao: 'Hortifrúti',
+  morango: 'Hortifrúti',
+  banana: 'Hortifrúti',
+  batata: 'Congelados',
+  sorvete: 'Congelados',
+  acai: 'Congelados',
+  oleo: 'Mercearia',
+  molho: 'Mercearia',
+  chocolate: 'Mercearia',
+  lata: 'Bebidas',
+  longneck: 'Bebidas',
+  agua: 'Bebidas',
+  embalagem: 'Embalagens',
+  caixa: 'Embalagens',
+};
+
 /** Insumos que ficam abaixo do mínimo no fim (para o alerta aparecer). */
 export const LOW_STOCK = ['bacon', 'morango', 'catupiry'];
 

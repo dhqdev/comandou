@@ -484,6 +484,44 @@ input[type='radio'] {
   }
 }
 
+/* Caixa de seleção com título e explicação (CheckField). */
+.check-field {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-3);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface);
+  cursor: pointer;
+  transition:
+    border-color var(--cm-dur-fast) var(--cm-ease),
+    background-color var(--cm-dur-fast) var(--cm-ease);
+}
+.check-field:hover {
+  border-color: var(--cm-border-strong);
+}
+.check-field[data-checked] {
+  border-color: color-mix(in srgb, var(--cm-brand-500) 45%, var(--cm-border));
+  background: color-mix(in srgb, var(--cm-brand-500) 6%, var(--cm-surface));
+}
+.check-field input {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--cm-brand-500);
+}
+.check-field__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.check-field__label {
+  font-weight: 600;
+  font-size: var(--cm-text-sm);
+}
+
 /* =============================================================== Tabela */
 .cm-table {
   width: 100%;

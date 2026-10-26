@@ -12,7 +12,7 @@ import {
   useToast,
 } from '../design-system';
 import { dateTime } from '../features/format';
-import { Tabs } from '../features/forms';
+import { CheckField, Tabs } from '../features/forms';
 import { api } from '../lib/api';
 import type { MessagingSettings, OutboxMessage, WhatsAppSession } from '../lib/types';
 
@@ -117,22 +117,16 @@ export function WhatsAppPage() {
           >
             {s.enabled ? 'Desativar avisos' : 'Ativar avisos'}
           </Button>
-          <label className="option-row">
-            <input
-              type="checkbox"
-              checked={s.notifyReady}
-              onChange={(e) => save({ notifyReady: e.target.checked })}
-            />
-            Pedido de retirada/balcão pronto
-          </label>
-          <label className="option-row">
-            <input
-              type="checkbox"
-              checked={s.notifyDispatched}
-              onChange={(e) => save({ notifyDispatched: e.target.checked })}
-            />
-            Delivery saiu para entrega
-          </label>
+          <CheckField
+            label="Pedido de retirada/balcão pronto"
+            checked={s.notifyReady}
+            onChange={(v) => save({ notifyReady: v })}
+          />
+          <CheckField
+            label="Delivery saiu para entrega"
+            checked={s.notifyDispatched}
+            onChange={(v) => save({ notifyDispatched: v })}
+          />
         </div>
         {error && <Alert tone="danger">{error}</Alert>}
         <div style={{ marginTop: 12 }}>

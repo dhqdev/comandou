@@ -414,6 +414,81 @@ describe('Estoque e ficha técnica', () => {
     }).expect(201);
   });
 
+  it('inventário em lote ajusta vários insumos de uma vez e valoriza a diferença', async () => {
+    const lines = [
+      { stockItemId: pao.id, quantity: '48' },
+      { stockItemId: bacon.id, quantity: '1' },
+    ];
+    await post('cashierA', '/stock/counts', { note: 'Inventário', lines }).expect(403);
+    await post('stockA', '/stock/counts', { note: 'Inventário', lines: [] }).expect(400);
+    await post('stockA', '/stock/counts', {
+      note: 'Inventário',
+      lines: [lines[0], lines[0]],
+    }).expect(400);
+    await post('adminB', '/stock/counts', { note: 'Inventário', lines }).expect(404);
+    // Pão: 50 no sistema, 48 contados a R$ 2,00 = faltaram R$ 4,00. Bacon confere.
+    const r = (
+      await post('stockA', '/stock/counts', { note: 'Inventário mensal', lines }).expect(201)
+    ).body;
+    expect(r).toMatchObject({ itemsCounted: 2, itemsChanged: 1, valueDelta: '-4.00' });
+    const items = (await get('stockA', '/stock/items').expect(200)).body as {
+      id: string;
+      quantity: string;
+      countedAt: string | null;
+    }[];
+    expect(items.find((i) => i.id === pao.id)).toMatchObject({ quantity: '48.000' });
+    expect(items.find((i) => i.id === bacon.id)!.countedAt).not.toBeNull();
+    const [mv] = (await get('stockA', `/stock/movements?itemId=${pao.id}&limit=1`).expect(200))
+      .body as { kind: string; countId: string; value: string }[];
+    expect(mv).toMatchObject({ kind: 'adjustment', countId: r.id, value: '-4.00' });
+    const counts = (await get('stockA', '/stock/counts').expect(200)).body;
+    expect(counts[0]).toMatchObject({ id: r.id, itemsChanged: 1, note: 'Inventário mensal' });
+    expect((await get('adminB', '/stock/counts').expect(200)).body).toHaveLength(0);
+  });
+
+  it('precificação: custo pela ficha técnica e parâmetros de preço', async () => {
+    await get('cashierA', '/stock/pricing').expect(403);
+    const r = (await get('stockA', '/stock/pricing').expect(200)).body as {
+      settings: Record<string, string>;
+      products: {
+        id: string;
+        cost: string | null;
+        hasRecipe: boolean;
+        targetMargin: string | null;
+      }[];
+      options: { id: string; cost: string | null }[];
+      summary: { cogs30: string };
+    };
+    // 1 pão (R$ 2,00) + 0,150 kg de carne (R$ 40,00/kg) = R$ 8,00.
+    expect(r.products.find((p) => p.id === fx.prodA)).toMatchObject({
+      hasRecipe: true,
+      cost: '8.0000',
+      targetMargin: null,
+    });
+    expect(r.options.find((o) => o.id === extras.options[0].id)!.cost).toBe('1.5000');
+    expect(r.settings).toMatchObject({ taxPercent: '6.00', targetMargin: '15.00' });
+    expect(Number(r.summary.cogs30)).toBeGreaterThan(0);
+
+    const settings = { taxPercent: '8', feePercent: '3.5', fixedPercent: '25', targetMargin: '20' };
+    await put('stockA', '/stock/pricing/settings', { ...settings, fixedPercent: '60' }).expect(400);
+    await put('cashierA', '/stock/pricing/settings', settings).expect(403);
+    expect((await put('stockA', '/stock/pricing/settings', settings).expect(200)).body).toEqual({
+      taxPercent: '8.00',
+      feePercent: '3.50',
+      fixedPercent: '25.00',
+      targetMargin: '20.00',
+    });
+    await put('stockA', `/stock/pricing/products/${fx.prodA}`, { targetMargin: '60' }).expect(422);
+    await put('stockA', `/stock/pricing/products/${fx.prodA}`, { targetMargin: '30' }).expect(200);
+    await put('adminB', `/stock/pricing/products/${fx.prodA}`, { targetMargin: '30' }).expect(404);
+    const after = (await get('adminA', '/stock/pricing').expect(200)).body as typeof r;
+    expect(after.products.find((p) => p.id === fx.prodA)!.targetMargin).toBe('30.00');
+    await put('stockA', `/stock/pricing/products/${fx.prodA}`, { targetMargin: null }).expect(200);
+    expect((await get('adminB', '/stock/pricing').expect(200)).body.settings.taxPercent).toBe(
+      '6.00',
+    );
+  });
+
   it('isolamento: B não vê nem altera insumos de A', async () => {
     expect((await get('adminB', '/stock/items').expect(200)).body).toHaveLength(0);
     await patch('adminB', `/stock/items/${pao.id}`, { name: 'Hack' }).expect(404);

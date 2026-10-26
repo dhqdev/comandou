@@ -292,6 +292,62 @@ export interface StockItem {
   active: boolean;
   low: boolean;
   stockValue: string;
+  /** Agrupamento livre (Carnes, Hortifrúti, Bebidas…). */
+  category: string | null;
+  supplier: string | null;
+  /** Última vez que o saldo foi conferido (contagem). */
+  countedAt: string | null;
+  /** Consumo médio por dia nas vendas dos últimos 30 dias; null = sem venda. */
+  dailyUsage: string | null;
+}
+/** Sessão de inventário (contagem em lote). */
+export interface StockCount {
+  id: string;
+  note: string;
+  itemsCounted: number;
+  itemsChanged: number;
+  /** Diferença em R$ pelo custo médio (negativo = faltou). */
+  valueDelta: string;
+  createdAt: string;
+  createdByName: string | null;
+}
+export interface PricingSettings {
+  taxPercent: string;
+  feePercent: string;
+  fixedPercent: string;
+  targetMargin: string;
+}
+export interface PricingProduct {
+  id: string;
+  name: string;
+  categoryName: string;
+  price: string;
+  active: boolean;
+  /** Custo da ficha técnica pelo custo médio atual (4 casas); null = sem ficha. */
+  cost: string | null;
+  hasRecipe: boolean;
+  /** Algum insumo da ficha ainda sem custo (custo médio zero). */
+  missingCost: boolean;
+  /** Lucro desejado próprio; null = padrão do restaurante. */
+  targetMargin: string | null;
+  sold30: string;
+  revenue30: string;
+}
+export interface PricingOption {
+  id: string;
+  name: string;
+  groupName: string;
+  price: string;
+  active: boolean;
+  cost: string | null;
+  hasRecipe: boolean;
+  missingCost: boolean;
+}
+export interface PricingData {
+  settings: PricingSettings;
+  products: PricingProduct[];
+  options: PricingOption[];
+  summary: { revenue30: string; cogs30: string; losses30: string };
 }
 export interface StockMovement {
   id: string;
@@ -307,6 +363,9 @@ export interface StockMovement {
   note: string | null;
   createdAt: string;
   createdByName: string | null;
+  countId: string | null;
+  /** Quantidade × custo do momento, em R$; null = entrada sem custo. */
+  value: string | null;
 }
 export interface RecipeLine {
   stockItemId: string;

@@ -11,6 +11,7 @@ import {
   Put,
   Query,
   Req,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
@@ -26,13 +27,54 @@ import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types'
 import { ITEM_SELECT, StockService } from './stock.service';
 
 const UNITS = ['un', 'kg', 'g', 'l', 'ml'] as const;
+/** Texto opcional: vazio vira null (limpa o campo). */
+const optText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullable()
+    .transform((v) => v || null);
 const Item = z.object({
   name: z.string().trim().min(1).max(80),
   unit: z.enum(UNITS),
   minQuantity: qty.optional(),
   allowNegative: z.boolean().optional(),
   active: z.boolean().optional(),
+  category: optText(40).optional(),
+  supplier: optText(80).optional(),
 });
+const Count = z.object({
+  note: z.string().trim().min(3).max(300),
+  lines: z
+    .array(z.object({ stockItemId: uuid, quantity: qty }))
+    .min(1)
+    .max(500)
+    .refine((l) => new Set(l.map((x) => x.stockItemId)).size === l.length, 'insumo repetido'),
+});
+/** Percentual com até 2 casas ("6.5"). */
+const pct = (max: number) =>
+  z
+    .string()
+    .regex(/^\d{1,2}(\.\d{1,2})?$/, 'percentual com até 2 casas')
+    .refine((v) => Number(v) <= max, `máximo ${max}%`);
+const PricingSettings = z
+  .object({
+    taxPercent: pct(60),
+    feePercent: pct(30),
+    fixedPercent: pct(80),
+    targetMargin: pct(80),
+  })
+  .refine(
+    (s) =>
+      Number(s.taxPercent) +
+        Number(s.feePercent) +
+        Number(s.fixedPercent) +
+        Number(s.targetMargin) <=
+      90,
+    'a soma dos percentuais deve ficar em até 90%',
+  );
+const ProductPricing = z.object({ targetMargin: pct(80).nullable() });
 const Entry = z.object({
   kind: z.enum(['purchase', 'loss', 'count']),
   quantity: qty,
@@ -63,7 +105,7 @@ export class StockController {
   @RequirePermission('stock:read')
   items(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
     return this.db.withTenant(ctxOf(t, u), (tx) =>
-      q(tx, `${ITEM_SELECT} ORDER BY active DESC, name`),
+      q(tx, `${ITEM_SELECT} ORDER BY s.active DESC, s.name`),
     );
   }
 
@@ -78,9 +120,18 @@ export class StockController {
     const res = await this.db.withTenant(ctxOf(t, u), async (tx) => {
       const r = await one<{ id: string }>(
         tx,
-        `INSERT INTO stock_items (tenant_id, name, unit, min_quantity, allow_negative, active)
-         VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
-        [t.id, b.name, b.unit, b.minQuantity ?? '0', b.allowNegative ?? false, b.active ?? true],
+        `INSERT INTO stock_items (tenant_id, name, unit, min_quantity, allow_negative, active, category, supplier)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+        [
+          t.id,
+          b.name,
+          b.unit,
+          b.minQuantity ?? '0',
+          b.allowNegative ?? false,
+          b.active ?? true,
+          b.category ?? null,
+          b.supplier ?? null,
+        ],
       );
       await this.audit.record(tx, {
         tenantId: t.id,
@@ -128,7 +179,9 @@ export class StockController {
         tx,
         `UPDATE stock_items SET name = COALESCE($2, name), unit = COALESCE($3, unit),
                 min_quantity = COALESCE($4::numeric, min_quantity),
-                allow_negative = COALESCE($5, allow_negative), active = COALESCE($6, active)
+                allow_negative = COALESCE($5, allow_negative), active = COALESCE($6, active),
+                category = CASE WHEN $7 THEN $8 ELSE category END,
+                supplier = CASE WHEN $9 THEN $10 ELSE supplier END
           WHERE id = $1`,
         [
           id,
@@ -137,6 +190,10 @@ export class StockController {
           b.minQuantity ?? null,
           b.allowNegative ?? null,
           b.active ?? null,
+          b.category !== undefined,
+          b.category ?? null,
+          b.supplier !== undefined,
+          b.supplier ?? null,
         ],
       );
       await this.audit.record(tx, {
@@ -182,7 +239,8 @@ export class StockController {
         `SELECT m.id::text, m.stock_item_id AS "stockItemId", s.name AS "itemName", s.unit, m.kind,
                 m.quantity::text, m.unit_cost::text AS "unitCost", m.balance_after::text AS "balanceAfter",
                 m.order_id AS "orderId", o.number AS "orderNumber", m.note, m.created_at AS "createdAt",
-                us.name AS "createdByName"
+                us.name AS "createdByName", m.count_id AS "countId",
+                round(m.quantity * m.unit_cost, 2)::text AS "value"
            FROM stock_movements m
            JOIN stock_items s ON s.id = m.stock_item_id
            LEFT JOIN orders o ON o.id = m.order_id
@@ -192,6 +250,191 @@ export class StockController {
         [f.itemId ?? null, f.limit],
       ),
     );
+  }
+
+  // ------------------------------------------------------------ inventário em lote
+  /** Contagem de vários insumos de uma vez (inventário do setor ou geral). */
+  @Post('counts')
+  @RequirePermission('stock:write')
+  count(
+    @Body(new ZodPipe(Count)) b: z.infer<typeof Count>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.stock.count(ctxOf(t, u, req), b);
+  }
+
+  @Get('counts')
+  @RequirePermission('stock:read')
+  counts(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.db.withTenant(ctxOf(t, u), (tx) =>
+      q(
+        tx,
+        `SELECT c.id, c.note, c.items_counted AS "itemsCounted", c.items_changed AS "itemsChanged",
+                c.value_delta::text AS "valueDelta", c.created_at AS "createdAt", us.name AS "createdByName"
+           FROM stock_counts c LEFT JOIN users us ON us.id = c.created_by
+          ORDER BY c.created_at DESC LIMIT 30`,
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------ precificação
+  /**
+   * Custo de cada produto e adicional pela ficha técnica (custo médio atual dos insumos),
+   * vendas dos últimos 30 dias e os parâmetros de preço. Margens e preço sugerido são
+   * calculados na tela a partir destes números.
+   */
+  @Get('pricing')
+  @RequirePermission('stock:write', 'reports:read')
+  pricing(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.db.withTenant(ctxOf(t, u), async (tx) => {
+      const settings = await one(
+        tx,
+        `SELECT tax_percent::text AS "taxPercent", fee_percent::text AS "feePercent",
+                fixed_percent::text AS "fixedPercent", target_margin::text AS "targetMargin"
+           FROM pricing_settings`,
+      );
+      const products = await q(
+        tx,
+        `SELECT p.id, p.name, c.name AS "categoryName", p.price::text, p.active,
+                rc.cost::text AS cost, (rc.cost IS NOT NULL) AS "hasRecipe",
+                coalesce(rc.missing, false) AS "missingCost",
+                pp.target_margin::text AS "targetMargin",
+                coalesce(sv.qty, 0)::text AS "sold30", coalesce(sv.revenue, 0)::text AS "revenue30"
+           FROM products p
+           JOIN categories c ON c.id = p.category_id
+           LEFT JOIN LATERAL (
+             SELECT round(sum(r.quantity * si.avg_cost), 4) AS cost, bool_or(si.avg_cost = 0) AS missing
+               FROM product_recipes r JOIN stock_items si ON si.id = r.stock_item_id
+              WHERE r.product_id = p.id) rc ON true
+           LEFT JOIN product_pricing pp ON pp.product_id = p.id
+           LEFT JOIN (
+             SELECT i.product_id, sum(i.quantity) AS qty, round(sum(i.quantity * i.unit_price), 2) AS revenue
+               FROM order_items i JOIN orders o ON o.id = i.order_id
+              WHERE o.status <> 'cancelled' AND i.status <> 'cancelled'
+                AND o.created_at >= now() - interval '30 days'
+              GROUP BY i.product_id) sv ON sv.product_id = p.id
+          ORDER BY c.position, c.name, p.position, p.name`,
+      );
+      const options = await q(
+        tx,
+        `SELECT o.id, o.name, g.name AS "groupName", o.price_delta::text AS price, o.active,
+                rc.cost::text AS cost, (rc.cost IS NOT NULL) AS "hasRecipe",
+                coalesce(rc.missing, false) AS "missingCost"
+           FROM options o
+           JOIN option_groups g ON g.id = o.group_id
+           LEFT JOIN LATERAL (
+             SELECT round(sum(r.quantity * si.avg_cost), 4) AS cost, bool_or(si.avg_cost = 0) AS missing
+               FROM option_recipes r JOIN stock_items si ON si.id = r.stock_item_id
+              WHERE r.option_id = o.id) rc ON true
+          WHERE g.active
+          ORDER BY g.name, o.position, o.name`,
+      );
+      // CMV realizado: o que as vendas consumiram, pelo custo do momento da venda.
+      const summary = await one(
+        tx,
+        `SELECT (SELECT coalesce(sum(total), 0) FROM orders
+                  WHERE status <> 'cancelled' AND created_at >= now() - interval '30 days')::text AS "revenue30",
+                (SELECT round(coalesce(-sum(m.quantity * coalesce(m.unit_cost, s.avg_cost)), 0), 2)
+                   FROM stock_movements m JOIN stock_items s ON s.id = m.stock_item_id
+                  WHERE m.kind IN ('sale','sale_reversal') AND m.created_at >= now() - interval '30 days')::text AS "cogs30",
+                (SELECT round(coalesce(-sum(m.quantity * coalesce(m.unit_cost, s.avg_cost)), 0), 2)
+                   FROM stock_movements m JOIN stock_items s ON s.id = m.stock_item_id
+                  WHERE m.kind = 'loss' AND m.created_at >= now() - interval '30 days')::text AS "losses30"`,
+      );
+      return {
+        settings: settings ?? {
+          taxPercent: '6.00',
+          feePercent: '4.00',
+          fixedPercent: '30.00',
+          targetMargin: '15.00',
+        },
+        products,
+        options,
+        summary,
+      };
+    });
+  }
+
+  @Put('pricing/settings')
+  @RequirePermission('stock:write')
+  pricingSettings(
+    @Body(new ZodPipe(PricingSettings)) b: z.infer<typeof PricingSettings>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.db.withTenant(ctxOf(t, u), async (tx) => {
+      await q(
+        tx,
+        `INSERT INTO pricing_settings (tenant_id, tax_percent, fee_percent, fixed_percent, target_margin)
+         VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (tenant_id) DO UPDATE SET tax_percent = EXCLUDED.tax_percent,
+           fee_percent = EXCLUDED.fee_percent, fixed_percent = EXCLUDED.fixed_percent,
+           target_margin = EXCLUDED.target_margin`,
+        [t.id, b.taxPercent, b.feePercent, b.fixedPercent, b.targetMargin],
+      );
+      await this.audit.record(tx, {
+        tenantId: t.id,
+        actorUserId: u.id,
+        action: 'stock.pricing_settings',
+        entity: 'tenant',
+        entityId: t.id,
+        data: b,
+        ip: req.ip,
+      });
+      return one(
+        tx,
+        `SELECT tax_percent::text AS "taxPercent", fee_percent::text AS "feePercent",
+                fixed_percent::text AS "fixedPercent", target_margin::text AS "targetMargin"
+           FROM pricing_settings`,
+      );
+    });
+  }
+
+  /** Lucro desejado próprio do produto; null volta a usar o padrão do restaurante. */
+  @Put('pricing/products/:id')
+  @RequirePermission('stock:write')
+  productPricing(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(ProductPricing)) b: z.infer<typeof ProductPricing>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.db.withTenant(ctxOf(t, u), async (tx) => {
+      const p = await one(tx, `SELECT id FROM products WHERE id = $1`, [id]);
+      if (!p) throw new NotFoundException('Produto não encontrado');
+      if (b.targetMargin === null) {
+        await q(tx, `DELETE FROM product_pricing WHERE product_id = $1`, [id]);
+      } else {
+        const s = await one<{ others: string }>(
+          tx,
+          `SELECT (tax_percent + fee_percent + fixed_percent)::text AS others FROM pricing_settings`,
+        );
+        if (Number(s?.others ?? '40') + Number(b.targetMargin) > 90)
+          throw new UnprocessableEntityException(
+            'Com esse lucro, impostos, taxas e despesas passam de 90% do preço',
+          );
+        await q(
+          tx,
+          `INSERT INTO product_pricing (tenant_id, product_id, target_margin) VALUES ($1,$2,$3)
+           ON CONFLICT (tenant_id, product_id) DO UPDATE SET target_margin = EXCLUDED.target_margin`,
+          [t.id, id, b.targetMargin],
+        );
+      }
+      await this.audit.record(tx, {
+        tenantId: t.id,
+        actorUserId: u.id,
+        action: 'stock.pricing_product',
+        entity: 'product',
+        entityId: id,
+        data: b,
+        ip: req.ip,
+      });
+      return { productId: id, targetMargin: b.targetMargin };
+    });
   }
 
   // ------------------------------------------------------------ fichas técnicas

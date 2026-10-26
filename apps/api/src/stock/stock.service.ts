@@ -10,11 +10,20 @@ import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 import { RealtimeService } from '../realtime/realtime.service';
 
+/**
+ * Insumo com o consumo médio por dia das vendas dos últimos 30 dias ("dailyUsage"), que a tela
+ * usa para estimar quantos dias o saldo ainda dura. Filtre e ordene sempre com o alias "s.".
+ */
 export const ITEM_SELECT = `
-  SELECT id, name, unit, quantity::text, min_quantity::text AS "minQuantity", avg_cost::text AS "avgCost",
-         allow_negative AS "allowNegative", active, (quantity < min_quantity) AS low,
-         round(quantity * avg_cost, 2)::text AS "stockValue"
-    FROM stock_items`;
+  SELECT s.id, s.name, s.unit, s.quantity::text, s.min_quantity::text AS "minQuantity",
+         s.avg_cost::text AS "avgCost", s.allow_negative AS "allowNegative", s.active,
+         (s.quantity < s.min_quantity) AS low, round(s.quantity * s.avg_cost, 2)::text AS "stockValue",
+         s.category, s.supplier, s.counted_at AS "countedAt", u.daily::text AS "dailyUsage"
+    FROM stock_items s
+    LEFT JOIN LATERAL (
+      SELECT round(-sum(m.quantity) / 30, 3) AS daily FROM stock_movements m
+       WHERE m.stock_item_id = s.id AND m.kind = 'sale' AND m.created_at >= now() - interval '30 days'
+    ) u ON true`;
 
 export type StockEntryKind = 'purchase' | 'loss' | 'count';
 
@@ -94,34 +103,40 @@ export class StockService {
     return back.length;
   }
 
-  /** Aplica um delta já validado (o insumo já deve estar travado). */
+  /**
+   * Aplica um delta já validado (o insumo já deve estar travado). Fora da entrada sem custo,
+   * o movimento guarda o custo médio do momento: assim venda, perda e contagem ficam
+   * valorizadas (CMV e perdas em R$) mesmo que o custo mude depois.
+   */
   private async move(
     tx: Tx,
     ctx: Ctx,
     itemId: string,
     kind: string,
     delta: string,
-    extra: { orderId?: string; note?: string; unitCost?: string } = {},
+    extra: { orderId?: string; note?: string; unitCost?: string; countId?: string } = {},
   ) {
-    const r = await one<{ quantity: string }>(
+    const r = await one<{ quantity: string; avg_cost: string }>(
       tx,
-      `UPDATE stock_items SET quantity = quantity + $2::numeric WHERE id = $1 RETURNING quantity::text`,
+      `UPDATE stock_items SET quantity = quantity + $2::numeric WHERE id = $1
+       RETURNING quantity::text, avg_cost::text`,
       [itemId, delta],
     );
     await q(
       tx,
-      `INSERT INTO stock_movements (tenant_id, stock_item_id, kind, quantity, unit_cost, balance_after, order_id, note, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+      `INSERT INTO stock_movements (tenant_id, stock_item_id, kind, quantity, unit_cost, balance_after, order_id, note, created_by, count_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [
         ctx.tenantId,
         itemId,
         kind,
         delta,
-        extra.unitCost ?? null,
+        extra.unitCost ?? (kind === 'purchase' ? null : r!.avg_cost),
         r!.quantity,
         extra.orderId ?? null,
         extra.note ?? null,
         ctx.userId,
+        extra.countId ?? null,
       ],
     );
     return r!.quantity;
@@ -169,6 +184,8 @@ export class StockService {
           throw new ConflictException(`Saldo insuficiente (${it.quantity})`);
         delta = `-${b.quantity}`;
       } else {
+        // Conferir também conta como contagem, mesmo sem diferença.
+        await q(tx, `UPDATE stock_items SET counted_at = now() WHERE id = $1`, [itemId]);
         const d = await one<{ d: string }>(tx, `SELECT ($1::numeric - $2::numeric)::text AS d`, [
           b.quantity,
           it.quantity,
@@ -199,8 +216,68 @@ export class StockService {
     return res;
   }
 
+  /**
+   * Contagem em lote (inventário): ajusta todos os insumos contados numa única transação e
+   * registra a sessão com o resultado valorizado pelo custo médio. Insumos sem diferença
+   * também ficam marcados como conferidos.
+   */
+  async count(ctx: Ctx, b: { note: string; lines: { stockItemId: string; quantity: string }[] }) {
+    const res = await this.db.withTenant(ctx, async (tx) => {
+      const lines = [...b.lines].sort((x, y) => x.stockItemId.localeCompare(y.stockItemId));
+      const rows = await q<{ id: string; name: string; delta: string; value: string }>(
+        tx,
+        `SELECT s.id, s.name, (n.q - s.quantity)::text AS delta,
+                round((n.q - s.quantity) * s.avg_cost, 2)::text AS value
+           FROM stock_items s JOIN unnest($1::uuid[], $2::numeric[]) AS n(id, q) ON n.id = s.id
+          ORDER BY s.id FOR UPDATE OF s`,
+        [lines.map((l) => l.stockItemId), lines.map((l) => l.quantity)],
+      );
+      if (rows.length !== lines.length) throw new NotFoundException('Insumo não encontrado');
+      const changed = rows.filter((r) => Number(r.delta) !== 0);
+      const valueDelta = await one<{ v: string }>(
+        tx,
+        `SELECT coalesce(sum(v), 0)::text AS v FROM unnest($1::numeric[]) v`,
+        [changed.map((r) => r.value)],
+      );
+      const c = await one<{ id: string }>(
+        tx,
+        `INSERT INTO stock_counts (tenant_id, note, items_counted, items_changed, value_delta, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+        [ctx.tenantId, b.note, rows.length, changed.length, valueDelta!.v, ctx.userId],
+      );
+      await q(tx, `UPDATE stock_items SET counted_at = now() WHERE id = ANY($1::uuid[])`, [
+        rows.map((r) => r.id),
+      ]);
+      for (const r of changed) {
+        await this.move(tx, ctx, r.id, 'adjustment', r.delta, { note: b.note, countId: c!.id });
+      }
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'stock.count_batch',
+        entity: 'stock_count',
+        entityId: c!.id,
+        data: {
+          note: b.note,
+          counted: rows.length,
+          changed: changed.map((r) => ({ name: r.name, delta: r.delta })),
+          valueDelta: valueDelta!.v,
+        },
+        ip: ctx.ip,
+      });
+      return {
+        id: c!.id,
+        itemsCounted: rows.length,
+        itemsChanged: changed.length,
+        valueDelta: valueDelta!.v,
+      };
+    });
+    this.realtime.publish(ctx.tenantId, { type: 'stock.changed' });
+    return res;
+  }
+
   async item(tx: Tx, id: string) {
-    const it = await one(tx, `${ITEM_SELECT} WHERE id = $1`, [id]);
+    const it = await one(tx, `${ITEM_SELECT} WHERE s.id = $1`, [id]);
     if (!it) throw new NotFoundException('Insumo não encontrado');
     return it;
   }

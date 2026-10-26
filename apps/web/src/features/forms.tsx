@@ -20,6 +20,39 @@ export function SelectField({
   );
 }
 
+/**
+ * Caixa de seleção com título e explicação, alinhada ao lado do texto (não em colunas).
+ * Toda a linha é clicável.
+ */
+export function CheckField({
+  label,
+  description,
+  checked,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  description?: ReactNode;
+  checked: boolean;
+  onChange(checked: boolean): void;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="check-field" data-checked={checked || undefined}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span className="check-field__text">
+        <span className="check-field__label">{label}</span>
+        {description && <span className="cm-hint">{description}</span>}
+      </span>
+    </label>
+  );
+}
+
 /** Abas simples (botões com aria-selected). */
 export function Tabs<T extends string>({
   value,
