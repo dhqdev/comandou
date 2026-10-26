@@ -113,7 +113,9 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await expect(pub.getByText('Rua Teste')).toHaveCount(0);
   await pub.screenshot({ path: `test-results/screens/${info.project.name}-rastreio.png` });
 
-  const card = page.locator('.order-card', { hasText: `#${order.number}` });
+  const card = page.locator('.dl-run', {
+    has: page.locator('.dl-run__num', { hasText: new RegExp(`^#${order.number}$`) }),
+  });
   await card.getByRole('button', { name: 'Entregue', exact: true }).click();
   await expect(page.getByText('Entrega concluída')).toBeVisible();
   await pub.reload();
