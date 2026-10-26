@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.26.0',
+    date: '2026-10-26',
+    title: 'Aviso de versão nova com botão Atualizar',
+    summary:
+      'Quando sai uma versão nova, quem está com o Comandou aberto (painel, PDV, garçom, cozinha e cardápio do cliente) vê na hora o aviso "Nova versão disponível" e escolhe quando atualizar, sem perder o que está fazendo.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Aviso "Nova versão disponível" com botão Atualizar em todas as telas, nas cores da sua loja.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O app não se recarrega mais sozinho no meio de um pedido: a versão nova espera o clique em Atualizar.',
+      },
+    ],
+  },
+  {
     version: '0.25.1',
     date: '2026-10-26',
     title: 'Voltar no app do garçom',
