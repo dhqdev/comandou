@@ -82,6 +82,17 @@ export function useRealtime(onEvent: Listener, reload?: () => void) {
   }, []);
 }
 
+/**
+ * Avisa a cada (re)conexão sem abrir conexão nova: só quem já usa o tempo real escuta. Um deploy
+ * reinicia a API, então a reconexão é o primeiro sinal de que pode ter saído versão nova.
+ */
+export function onRealtimeReady(cb: () => void): () => void {
+  reconnectListeners.add(cb);
+  return () => {
+    reconnectListeners.delete(cb);
+  };
+}
+
 export function useRealtimeStatus(): RealtimeStatus {
   const [s, setS] = useState(status);
   useEffect(() => {

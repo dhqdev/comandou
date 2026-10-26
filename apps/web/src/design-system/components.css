@@ -1061,3 +1061,77 @@ input[type='radio'] {
   margin: 0;
   color: var(--cm-text-muted);
 }
+
+/* =============================================================== Aviso de versão nova
+ * Fica por cima de tudo (até de modais) no topo: embaixo ficam a barra do garçom e o carrinho.
+ */
+.cm-update {
+  position: fixed;
+  z-index: 1000;
+  top: calc(env(safe-area-inset-top) + var(--cm-space-3));
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 2 * var(--cm-space-4));
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-3);
+  padding: 10px 10px 10px 12px;
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 35%, var(--cm-border));
+  box-shadow: var(--cm-shadow-lg);
+  animation: cm-update-in var(--cm-dur) var(--cm-ease) both;
+}
+.cm-update__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-50);
+  color: var(--cm-brand-700);
+}
+.cm-update__text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+  font-size: var(--cm-text-sm);
+}
+.cm-update__text span {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.cm-update .cm-btn {
+  flex: none;
+  min-height: 36px;
+}
+.cm-update__close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: transparent;
+  color: var(--cm-text-subtle);
+  cursor: pointer;
+}
+.cm-update__close:hover {
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+}
+@media (max-width: 420px) {
+  .cm-update__text span {
+    display: none;
+  }
+}
+@keyframes cm-update-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -12px);
+  }
+}

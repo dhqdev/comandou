@@ -1,15 +1,43 @@
 /// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { readFileSync } from 'node:fs';
 
 const API_TARGET = process.env.COMANDOU_API_URL ?? 'http://localhost:3000';
 
+/**
+ * Identificador desta build. Vai embutido no app (__APP_BUILD__) e em /version.json; quando o
+ * servidor passa a responder outro valor, o app aberto sabe que saiu versão nova.
+ */
+const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8')) as {
+  version: string;
+};
+const APP_BUILD = `${pkg.version}+${Date.now().toString(36)}`;
+
+function versionFile(): Plugin {
+  return {
+    name: 'comandou-version-file',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: JSON.stringify({ version: pkg.version, build: APP_BUILD }),
+      });
+    },
+  };
+}
+
 export default defineConfig({
+  define: { __APP_BUILD__: JSON.stringify(APP_BUILD) },
   plugins: [
     react(),
+    versionFile(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // "prompt": a versão nova fica esperando e o app mostra o botão "Atualizar" (UpdatePrompt).
+      // Trocar sozinho no meio de um pedido perderia o que estava na tela.
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Comandou',
@@ -34,7 +62,6 @@ export default defineConfig({
       workbox: {
         // Somente assets estáticos versionados vão para cache. A API NUNCA é cacheada pelo SW:
         // dados de restaurante, sessão e valores financeiros sempre vêm do servidor.
-        skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],

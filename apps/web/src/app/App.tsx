@@ -262,10 +262,19 @@ function Gate() {
 
 export function App() {
   // admin.<domínio base>: painel Super Admin, com login e sessão próprios.
-  if (isPlatformHost()) return <PlatformApp />;
+  if (isPlatformHost()) {
+    return (
+      <>
+        <PlatformApp />
+        <UpdatePrompt />
+      </>
+    );
+  }
   return (
     <BrowserRouter>
       <TenantBrand />
+      {/* Em todas as telas: painel, garçom, cozinha, cardápio do cliente e links públicos. */}
+      <UpdatePrompt />
       <ToastProvider>
         <Routes>
           {/* Rastreio público do cliente final: fora do login. */}
@@ -283,7 +292,6 @@ export function App() {
             element={
               <AuthProvider>
                 <Gate />
-                <UpdatePrompt />
               </AuthProvider>
             }
           />
