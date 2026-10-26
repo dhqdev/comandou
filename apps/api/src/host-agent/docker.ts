@@ -2,14 +2,14 @@ import { request } from 'node:http';
 
 /**
  * Cliente mínimo da API do Docker pelo socket. Só as chamadas que o painel usa: listar,
- * limpar (contêineres parados, imagens, cache de build), reiniciar serviço e ler logs.
- * Nada de criar contêiner, executar comando ou mexer em volumes.
+ * limpar (contêineres parados, imagens, cache de build, volumes anônimos sem uso), reiniciar
+ * serviço e ler logs. Nada de criar contêiner nem executar comando.
  */
 export class DockerClient {
   constructor(readonly socketPath = process.env.DOCKER_SOCKET ?? '/var/run/docker.sock') {}
 
   call<T = unknown>(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'DELETE',
     path: string,
     body?: unknown,
     opts: { raw?: boolean; timeoutMs?: number } = {},

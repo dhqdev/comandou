@@ -49,6 +49,8 @@ export interface UpdateJob {
   status: 'running' | 'done' | 'failed';
   message?: string;
   steps: UpdateStep[];
+  /** Limpeza feita ao fim da atualização (contêineres parados, imagens e volumes anônimos sem uso). */
+  cleanup?: { target: string; reclaimed: number; removed: number; error?: string }[];
 }
 
 const split = (image: string) => {
@@ -66,6 +68,8 @@ export interface UpdaterOptions {
   pollMs?: number;
   timeoutMs?: number;
   selfName?: () => Promise<string | null>;
+  /** Roda quando todos os serviços, menos o agente, já estão saudáveis na versão nova. */
+  cleanup?: () => Promise<NonNullable<UpdateJob['cleanup']>>;
 }
 
 export class Updater {
@@ -159,8 +163,19 @@ export class Updater {
 
   private async run(job: UpdateJob) {
     const self = await this.self();
+    // O agente é o último e reinicia no meio da própria troca: a limpeza vem antes dele, depois
+    // que cada serviço anterior confirmou a versão nova. Falha na limpeza não desfaz a atualização.
+    let cleaned = false;
+    const clean = async () => {
+      if (cleaned || !this.opts.cleanup) return;
+      cleaned = true;
+      job.cleanup = await this.opts
+        .cleanup()
+        .catch((e: Error) => [{ target: 'limpeza', reclaimed: 0, removed: 0, error: e.message }]);
+    };
     for (const step of job.steps) {
       if (step.status !== 'pending') continue;
+      if (step.service === self) await clean();
       step.status = 'running';
       const isSelf = step.service === self;
       try {
@@ -177,6 +192,7 @@ export class Updater {
         return;
       }
     }
+    await clean();
     job.status = 'done';
     job.finishedAt = new Date().toISOString();
   }

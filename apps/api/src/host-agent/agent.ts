@@ -79,7 +79,7 @@ export class HostAgent {
     /** Stack do Comandou (padrão: a do próprio contêiner do agente). */
     readonly stack: string | null = process.env.AGENT_STACK || null,
   ) {
-    this.updater = new Updater(docker);
+    this.updater = new Updater(docker, { cleanup: () => this.cleanupAfterUpdate() });
   }
 
   /** Nome da nossa stack: AGENT_STACK ou o rótulo do contêiner onde o agente roda. */
@@ -365,6 +365,51 @@ export class HostAgent {
       } catch (e) {
         out.push({ target, reclaimed: 0, removed: 0, error: (e as Error).message });
       }
+    }
+    return out;
+  }
+
+  /**
+   * Volumes anônimos (nome = 64 hex, criados por `VOLUME` de imagem) que nenhum contêiner usa.
+   * Volumes nomeados (banco, uploads, backups) e qualquer volume de stack NUNCA entram, mesmo
+   * que pareçam sem uso por um instante durante a troca de serviços.
+   */
+  async pruneAnonymousVolumes() {
+    const df = await this.docker.call<{
+      Volumes?: {
+        Name: string;
+        Labels?: Record<string, string> | null;
+        UsageData?: { Size: number; RefCount: number };
+      }[];
+    }>('GET', '/system/df', undefined, { timeoutMs: 120_000 });
+    const candidates = (df.Volumes ?? []).filter(
+      (v) =>
+        /^[a-f0-9]{64}$/.test(v.Name) &&
+        v.UsageData?.RefCount === 0 &&
+        !Object.keys(v.Labels ?? {}).some((k) => k.startsWith('com.docker.stack.')),
+    );
+    let removed = 0;
+    let reclaimed = 0;
+    for (const v of candidates) {
+      try {
+        await this.docker.call('DELETE', `/volumes/${v.Name}`);
+        removed++;
+        reclaimed += Math.max(v.UsageData?.Size ?? 0, 0);
+      } catch {
+        /* voltou a ser usado ou já sumiu: deixa quieto */
+      }
+    }
+    return { target: 'volumes' as const, reclaimed, removed };
+  }
+
+  /** Limpeza que roda ao fim de "Atualizar sistema", com todos os serviços já saudáveis. */
+  async cleanupAfterUpdate() {
+    const out: { target: string; reclaimed: number; removed: number; error?: string }[] =
+      await this.cleanup(['containers', 'unused-images', 'build-cache']);
+    try {
+      out.push(await this.pruneAnonymousVolumes());
+    } catch (e) {
+      out.push({ target: 'volumes', reclaimed: 0, removed: 0, error: (e as Error).message });
     }
     return out;
   }

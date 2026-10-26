@@ -155,4 +155,52 @@ describe('Atualização do sistema', () => {
     await expect(u.start('v0.12.0')).rejects.toThrow(/em andamento/);
     await finish(u);
   });
+
+  it('limpa só depois dos serviços saudáveis e antes de reiniciar o agente', async () => {
+    const f = fakeDocker();
+    const order: string[] = [];
+    const u = new Updater(
+      {
+        call: async (m: string, p: string, b?: unknown) => {
+          if (p.startsWith('/services/id-') && m === 'POST') order.push(p.split('/')[2]!);
+          return f.docker.call(m, p, b);
+        },
+      } as never,
+      {
+        sleep: async () => undefined,
+        selfName: async () => 'comandou_comandou-agent',
+        cleanup: async () => {
+          order.push('limpeza');
+          return [{ target: 'containers', reclaimed: 1, removed: 2 }];
+        },
+      },
+    );
+    await u.start('v0.11.0');
+    const job = await finish(u);
+    expect(job.status).toBe('done');
+    expect(order).toEqual([
+      'id-comandou_comandou-migrate',
+      'id-comandou_comandou-api',
+      'id-comandou_comandou-web',
+      'limpeza',
+      'id-comandou_comandou-agent',
+    ]);
+    expect(job.cleanup).toEqual([{ target: 'containers', reclaimed: 1, removed: 2 }]);
+  });
+
+  it('atualização que falha não limpa nada', async () => {
+    const f = fakeDocker({ failOn: 'comandou_comandou-api' });
+    let ran = false;
+    const u = new Updater(f.docker as never, {
+      sleep: async () => undefined,
+      selfName: async () => 'comandou_comandou-agent',
+      cleanup: async () => {
+        ran = true;
+        return [];
+      },
+    });
+    await u.start('v0.11.0');
+    await finish(u);
+    expect(ran).toBe(false);
+  });
 });

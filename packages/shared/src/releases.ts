@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.27.0',
+    date: '2026-10-26',
+    title: 'Atualizar sistema também faz a limpeza',
+    summary:
+      'Ao terminar "Atualizar sistema" no painel, o servidor limpa sozinho o que ficou sem uso, sem precisar do Portainer.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Depois que todos os serviços sobem na versão nova, o agente apaga contêineres parados, imagens antigas, cache de build e volumes anônimos sem uso.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Volumes com nome (banco, uploads, backups) nunca são apagados, e nada é limpo se a atualização falhar.',
+      },
+    ],
+  },
+  {
     version: '0.26.1',
     date: '2026-10-26',
     title: 'Cozinha com rolagem por coluna',

@@ -365,6 +365,7 @@ export interface UpdateJob {
   status: 'running' | 'done' | 'failed';
   message?: string;
   steps: UpdateStep[];
+  cleanup?: { target: string; reclaimed: number; removed: number; error?: string }[];
 }
 export interface UpdateInfo {
   latest: { version: string; url: string; publishedAt: string | null } | null;

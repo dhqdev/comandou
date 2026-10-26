@@ -10,6 +10,13 @@ const TAG_OF = (image: string) => image.slice(image.lastIndexOf(':') + 1);
 /** Serviços do próprio Comandou: imagem comandou-* com tag de versão (v1.2.3) ou latest. */
 const isOurs = (s: ServerService) => /\/comandou-[\w-]+:(v\d+\.\d+\.\d+|latest)$/.test(s.image);
 
+const CLEAN_LABEL: Record<string, string> = {
+  containers: 'contêineres parados',
+  'unused-images': 'imagens sem uso',
+  'build-cache': 'cache de build',
+  volumes: 'volumes anônimos',
+};
+
 const STEP_LEVEL: Record<UpdateStep['status'], Level> = {
   pending: 'off',
   running: 'info',
@@ -137,6 +144,16 @@ export function UpdatePanel({
             </div>
           )}
           <Steps steps={job.steps} />
+          {job.cleanup && (
+            <div className="adm-panel__body">
+              Limpeza ao fim:{' '}
+              {job.cleanup
+                .map(
+                  (c) => `${CLEAN_LABEL[c.target] ?? c.target} ${c.error ? 'falhou' : c.removed}`,
+                )
+                .join(' · ')}
+            </div>
+          )}
         </div>
       )}
 
@@ -170,6 +187,10 @@ export function UpdatePanel({
           </div>
         </div>
         <ul style={{ margin: '12px 0 0', paddingLeft: 18, display: 'grid', gap: 6 }}>
+          <li>
+            Ao terminar, limpa sozinho contêineres parados, imagens e volumes anônimos sem uso.
+            Volumes com nome (banco, uploads, backups) nunca são apagados.
+          </li>
           <li>
             Os restaurantes podem ficar alguns segundos instáveis, sobretudo se a API tiver uma
             réplica só.

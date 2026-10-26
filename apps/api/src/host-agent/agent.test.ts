@@ -88,3 +88,35 @@ describe('só a stack do Comandou na tela Servidor', () => {
     expect(calls.some((c) => c.includes('/services/portainer_agent/logs'))).toBe(false);
   });
 });
+
+describe('limpeza de volumes ao atualizar', () => {
+  it('apaga só volume anônimo sem uso; nomeados e de stack ficam', async () => {
+    const anon = 'a'.repeat(64);
+    const anonInUse = 'b'.repeat(64);
+    const anonStack = 'c'.repeat(64);
+    const deleted: string[] = [];
+    const docker = {
+      call: async (method: string, path: string) => {
+        if (method === 'GET' && path === '/system/df')
+          return {
+            Volumes: [
+              { Name: anon, UsageData: { RefCount: 0, Size: 10 } },
+              { Name: anonInUse, UsageData: { RefCount: 1, Size: 10 } },
+              { Name: anonStack, Labels: label('comandou'), UsageData: { RefCount: 0, Size: 10 } },
+              { Name: 'comandou_pgdata', UsageData: { RefCount: 0, Size: 999 } },
+              { Name: 'comandou_uploads', Labels: label('comandou'), UsageData: { RefCount: 0 } },
+            ],
+          };
+        if (method === 'DELETE') {
+          deleted.push(path);
+          return null;
+        }
+        throw new Error(`inesperado ${method} ${path}`);
+      },
+    } as unknown as DockerClient;
+    const agent = new HostAgent(undefined, docker, 10, 'comandou');
+    const r = await agent.pruneAnonymousVolumes();
+    expect(deleted).toEqual([`/volumes/${anon}`]);
+    expect(r).toEqual({ target: 'volumes', reclaimed: 10, removed: 1 });
+  });
+});

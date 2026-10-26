@@ -202,8 +202,10 @@ para trocar a tag das imagens `ghcr.io/dhqdev/comandou-*` nos serviços do Swarm
 migração, demais serviços e, por último, o próprio agente. Regras de segurança: só muda a tag
 (o repositório da imagem é sempre o que já está no serviço; prefixo em `AGENT_IMAGE_PREFIX`), só
 aceita `vX.Y.Z`, confere a imagem no registro antes de começar, para tudo se a migração falhar e
-usa o rollback do Swarm (`failure_action: rollback`) se um serviço não subir. Dados e volumes não
-são tocados. Se a stack for reaplicada no Portainer, ela volta à versão escrita nela (use `:latest`
+usa o rollback do Swarm (`failure_action: rollback`) se um serviço não subir. Com todos os serviços na versão nova (antes de reiniciar o agente), o agente limpa contêineres
+parados, imagens sem uso, cache de build e volumes **anônimos** sem uso (nome de 64 hex, sem
+rótulo de stack). Volumes com nome (banco, uploads, backups) nunca são apagados. Se a
+atualização falhar, nada é limpo. Se a stack for reaplicada no Portainer, ela volta à versão escrita nela (use `:latest`
 na stack para que “Re-pull” e o painel andem juntos). A primeira vez que esta função existe, é
 preciso atualizar a stack à mão, porque o agente em execução ainda é o antigo.
 
