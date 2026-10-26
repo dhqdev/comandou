@@ -2,7 +2,7 @@
 .home {
   --home-analysis: var(--cm-brand-600);
   --home-production: var(--cm-accent-500);
-  --home-ready: #2f9e44;
+  --home-ready: var(--cm-success);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--cm-space-4);
@@ -150,22 +150,30 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  background: color-mix(in srgb, var(--tone) 16%, var(--cm-bg));
+  background: var(--cm-bg);
 }
 .board__col + .board__col {
-  border-left: 1px solid color-mix(in srgb, var(--tone) 35%, var(--cm-border));
+  border-left: 1px solid var(--cm-border);
 }
-/* Cabeçalho forte: cor cheia da coluna (como no Anota AI), texto branco; no amarelo, escuro. */
+/* Cabeçalho discreto: fundo liso, um ponto e uma linha fina na cor da coluna. */
 .board__head {
   display: flex;
   align-items: center;
   gap: var(--cm-space-2);
-  padding: 14px 16px;
-  background: var(--tone);
-  color: #fff;
+  padding: 12px 16px;
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  border-bottom: 2px solid var(--tone);
 }
-.board__col[data-col='production'] .board__head {
-  color: #1a1613;
+.board__head h2::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: var(--tone);
+  vertical-align: 1px;
 }
 .board__head h2 {
   margin: 0;
@@ -175,17 +183,23 @@
 }
 .board__count {
   margin-left: auto;
-  font-weight: 800;
-  font-size: var(--cm-text-lg);
+  min-width: 26px;
+  padding: 1px 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text-muted);
+  text-align: center;
+  font-weight: 650;
+  font-size: var(--cm-text-sm);
 }
 .board__finish {
   margin-left: auto;
   height: 28px;
   padding: 0 10px;
-  border: 1px solid color-mix(in srgb, currentColor 55%, transparent);
+  border: 1px solid var(--cm-border-strong);
   border-radius: var(--cm-radius-sm);
-  background: color-mix(in srgb, currentColor 14%, transparent);
-  color: inherit;
+  background: var(--cm-surface);
+  color: var(--cm-text);
   font-weight: 650;
   font-size: var(--cm-text-xs);
   cursor: pointer;
@@ -213,7 +227,7 @@
 .board__skeleton {
   height: 120px;
   border-radius: var(--cm-radius-md);
-  background: color-mix(in srgb, var(--tone) 14%, var(--cm-surface));
+  background: var(--cm-surface-sunken);
   animation: home-pulse 1s infinite alternate;
 }
 @keyframes home-pulse {

@@ -567,7 +567,7 @@ function EntryModal({
         </>
       }
     >
-      <div className="st-form">
+      <div className="cm-form">
         {error && <Alert tone="danger">{error}</Alert>}
         <div className="st-preview">
           <div>
@@ -762,7 +762,7 @@ function ItemModal({
         </>
       }
     >
-      <div className="st-form">
+      <div className="cm-form">
         {error && <Alert tone="danger">{error}</Alert>}
         <div className="st-grid">
           <TextField
@@ -942,7 +942,7 @@ function RecipesTab({ items, canWrite }: { items: StockItem[]; canWrite: boolean
   if (!recipes) return <Spinner />;
   return (
     <Card title="Ficha técnica">
-      <div className="st-form">
+      <div className="cm-form">
         <p className="cm-hint" style={{ margin: 0 }}>
           Quanto de cada insumo sai por unidade vendida. Adicionais também podem ter ficha (ex.:
           bacon extra). O custo usa o custo médio atual de cada insumo.

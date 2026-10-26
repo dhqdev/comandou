@@ -638,15 +638,15 @@ function ReservationForm({
         </>
       }
     >
-      <form id="rv-form" className="rv-form" onSubmit={submit}>
+      <form id="rv-form" className="cm-form" onSubmit={submit}>
         {error && <Alert tone="danger">{error}</Alert>}
+        <h3 className="cm-form__section">Cliente</h3>
         <TextField
           label="Nome"
           required
           maxLength={80}
           value={f.name}
           onChange={set('name')}
-          wrapClass="rv-form__wide"
         />
         <TextField
           label="Celular"
@@ -665,6 +665,7 @@ function ReservationForm({
           value={f.partySize}
           onChange={set('partySize')}
         />
+        <h3 className="cm-form__section">Reserva</h3>
         <TextField label="Dia" type="date" required value={f.date} onChange={set('date')} />
         <TextField label="Horário" type="time" required value={f.time} onChange={set('time')} />
         <SelectField label="Mesa" value={f.tableId} onChange={set('tableId')}>
@@ -675,6 +676,7 @@ function ReservationForm({
             </option>
           ))}
         </SelectField>
+        <h3 className="cm-form__section">Detalhes</h3>
         <TextField
           label="Ocasião"
           maxLength={40}
@@ -694,14 +696,13 @@ function ReservationForm({
           placeholder="Cadeira de bebê, perto da janela…"
           value={f.notes}
           onChange={set('notes')}
-          wrapClass="rv-form__wide"
         />
         <TextField
-          label="Anotação da equipe (o cliente não vê)"
+          label="Anotação da equipe"
+          hint="O cliente não vê."
           maxLength={300}
           value={f.staffNotes}
           onChange={set('staffNotes')}
-          wrapClass="rv-form__wide"
         />
       </form>
     </Modal>
@@ -759,7 +760,7 @@ function SettingsModal({
         </>
       }
     >
-      <div className="rv-settings">
+      <div className="cm-form">
         {error && <Alert tone="danger">{error}</Alert>}
         <RvToggle
           label="Aceitar reservas pelo cardápio online"
@@ -774,7 +775,8 @@ function SettingsModal({
           onChange={(v) => set('autoConfirm', v)}
         />
 
-        <fieldset className="rv-fieldset">
+        <h3 className="cm-form__section">Agenda</h3>
+        <fieldset className="rv-fieldset cm-form__block">
           <legend>Dias com reserva</legend>
           <div className="rv-weekdays">
             {WEEKDAYS.map((w, i) => (
@@ -797,7 +799,7 @@ function SettingsModal({
           </div>
         </fieldset>
 
-        <div className="rv-grid">
+        <>
           <TextField
             label="Primeiro horário"
             type="time"
@@ -862,7 +864,8 @@ function SettingsModal({
             value={String(s.maxDaysAhead)}
             onChange={(e) => set('maxDaysAhead', Number(e.target.value))}
           />
-        </div>
+        </>
+        <h3 className="cm-form__section">Cliente</h3>
         <TextField
           label="Recado para o cliente"
           maxLength={300}
@@ -906,7 +909,7 @@ function RvToggle({
   onChange(v: boolean): void;
 }) {
   return (
-    <label className="rv-toggle">
+    <label className="rv-toggle cm-form__row">
       <span>
         <strong>{label}</strong>
         {hint && <small>{hint}</small>}

@@ -53,7 +53,7 @@ const esc = (s: string) =>
 function resolveColor(el: HTMLElement, c: string) {
   const m = /^var\((--[\w-]+)\)$/.exec(c.trim());
   if (!m) return c;
-  return getComputedStyle(el).getPropertyValue(m[1]!).trim() || '#ea8a0b';
+  return getComputedStyle(el).getPropertyValue(m[1]!).trim() || '#fc4b08';
 }
 
 function riderIcon(r: MapRider, color: string, selected: boolean) {

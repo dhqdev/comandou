@@ -35,11 +35,7 @@
   padding: 14px 16px;
 }
 .rp-kpi[data-main] {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--cm-brand-500) 16%, var(--cm-surface)),
-    var(--cm-surface)
-  );
+  background: var(--cm-brand-50);
   border-color: color-mix(in srgb, var(--cm-brand-500) 30%, var(--cm-border));
 }
 .rp-kpi__label {

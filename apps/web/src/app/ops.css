@@ -330,7 +330,6 @@
   position: fixed;
   inset: 0;
   background: rgb(18 15 13 / 42%);
-  backdrop-filter: blur(3px);
   animation: cm-fade var(--cm-dur) var(--cm-ease) both;
   display: grid;
   place-items: center;

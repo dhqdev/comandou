@@ -20,13 +20,8 @@
   position: absolute;
   z-index: 0;
   border-radius: calc(var(--cm-radius-md) - 3px);
-  background: color-mix(in srgb, var(--cm-surface) 82%, transparent);
-  backdrop-filter: blur(10px) saturate(1.6);
-  -webkit-backdrop-filter: blur(10px) saturate(1.6);
-  box-shadow:
-    0 1px 2px rgb(0 0 0 / 8%),
-    0 4px 14px rgb(0 0 0 / 6%),
-    inset 0 1px 0 rgb(255 255 255 / 55%);
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border-strong);
   transition:
     left 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.15),
     top 0.42s cubic-bezier(0.2, 0.9, 0.25, 1.15),
@@ -78,31 +73,14 @@
   color: var(--cm-on-brand);
 }
 
-/* Escuro: a aba ativa precisa saltar do fundo (cartão laranja com borda e texto claros). */
-:root[data-theme='dark'] .slide-tabs {
-  background: rgb(255 255 255 / 6%);
-  border-color: rgb(255 255 255 / 14%);
-}
+/* Escuro: a aba ativa é um cartão liso mais claro que a trilha, texto em destaque. */
 :root[data-theme='dark'] .slide-tabs__glider {
-  /* Laranja queimado e discreto: destaca a aba sem brilhar. */
-  background: color-mix(in srgb, #9a4f06 30%, #2a2420);
-  border: 1px solid color-mix(in srgb, #b8650f 40%, transparent);
-  box-shadow:
-    0 6px 16px -8px rgb(0 0 0 / 70%),
-    inset 0 1px 0 rgb(255 255 255 / 8%);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-:root[data-theme='dark'] .slide-tabs__tab[aria-selected='true'] .slide-tabs__count {
-  background: #b8650f;
-  color: #fff;
-}
-:root[data-theme='dark'] .slide-tabs__tab {
-  color: #cfc7c0;
+  background: var(--cm-surface-muted);
+  border-color: var(--cm-border-strong);
 }
 :root[data-theme='dark'] .slide-tabs__tab[aria-selected='true'],
 :root[data-theme='dark'] .slide-tabs__tab:hover {
-  color: #fff;
+  color: var(--cm-text);
 }
 
 /* Celular: ocupa a largura toda numa linha só, abas com altura de toque e texto no tamanho

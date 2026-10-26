@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { brandCss, brandTokens, contrast, isCustomerPath, onColor } from './brand';
 
 const SAMPLES = [
-  '#ea8a0b',
+  '#fc4b08',
   '#ffd23f',
   '#ffffff',
   '#000000',

@@ -400,7 +400,7 @@ function SettingsCard({ settings, onSaved }: { settings: PricingSettings; onSave
         )
       }
     >
-      <div className="st-form">
+      <div className="cm-form">
         <p className="cm-hint" style={{ margin: 0 }}>
           Percentuais sobre o preço de venda. Preço sugerido = custo da ficha ÷ (1 − soma). Ajuste
           com os números do seu negócio: impostos do seu regime, taxa média das maquininhas e apps e
@@ -562,7 +562,7 @@ function SimulatorModal({
         </>
       }
     >
-      <div className="st-form">
+      <div className="cm-form">
         {error && <Alert tone="danger">{error}</Alert>}
         {!product.hasRecipe && (
           <Alert tone="warning">

@@ -31,7 +31,7 @@ interface GeoResult {
   label: string;
 }
 
-const COLORS = ['#ea8a0b', '#2f9e44', '#1c7ed6', '#ae3ec9', '#e03131', '#0c8599', '#5c7cfa'];
+const COLORS = ['#fc4b08', '#2f9e44', '#1c7ed6', '#ae3ec9', '#e03131', '#0c8599', '#5c7cfa'];
 const BRAZIL: LatLng = [-15.78, -47.93];
 const TILE = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const ATTRIBUTION =

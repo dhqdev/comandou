@@ -9,7 +9,7 @@
   padding: 0 14px;
   border-radius: var(--cm-radius-sm);
   border: 1px solid transparent;
-  font-weight: 600;
+  font-weight: 550;
   font-size: var(--cm-text-sm);
   letter-spacing: -0.005em;
   line-height: 1;
@@ -25,7 +25,7 @@
   text-decoration: none;
 }
 .cm-btn:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: scale(0.99);
 }
 .cm-btn:disabled {
   opacity: 0.5;
@@ -51,21 +51,17 @@
 .cm-btn--primary {
   background: var(--cm-brand-600);
   color: var(--cm-on-brand);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 16%),
-    0 1px 2px color-mix(in srgb, var(--cm-brand-800) 30%, transparent);
 }
 .cm-btn--primary:hover:not(:disabled) {
-  background: var(--cm-brand-500);
+  background: color-mix(in srgb, var(--cm-brand-600) 88%, black);
 }
 .cm-btn--secondary {
   background: var(--cm-surface);
   border-color: var(--cm-border-strong);
   color: var(--cm-text);
-  box-shadow: var(--cm-shadow-sm);
 }
 .cm-btn--secondary:hover:not(:disabled) {
-  background: var(--cm-surface-muted);
+  background: var(--cm-surface-sunken);
   border-color: var(--cm-gray-300);
 }
 .cm-btn--ghost {
@@ -195,7 +191,7 @@ input[type='date'].cm-input::-webkit-calendar-picker-indicator {
   min-height: 56px;
   padding: 0 18px;
   border: 1px solid var(--cm-border);
-  border-radius: 14px;
+  border-radius: var(--cm-radius-md);
   background: var(--cm-surface);
   color: var(--cm-text);
   font: inherit;
@@ -216,7 +212,7 @@ input[type='date'].cm-input::-webkit-calendar-picker-indicator {
   border-color: color-mix(in srgb, var(--cm-brand-500) 55%, transparent);
   background: var(--cm-brand-50);
   color: var(--cm-brand-700);
-  font-weight: 700;
+  font-weight: 600;
 }
 .cm-option:disabled {
   opacity: 0.45;
@@ -532,9 +528,7 @@ input[type='radio'] {
   text-align: left;
   font-weight: 600;
   color: var(--cm-text-subtle);
-  font-size: var(--cm-text-2xs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: var(--cm-text-xs);
   padding: 10px var(--cm-space-4);
   border-bottom: 1px solid var(--cm-border);
   background: var(--cm-surface-muted);
@@ -613,7 +607,7 @@ input[type='radio'] {
   padding: 0;
   border-radius: var(--cm-radius-lg);
   box-shadow: var(--cm-shadow-lg);
-  width: min(520px, calc(100vw - 32px));
+  width: min(560px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   background: var(--cm-surface);
   color: var(--cm-text);
@@ -633,8 +627,7 @@ input[type='radio'] {
   overflow-y: auto;
 }
 .cm-modal::backdrop {
-  background: rgb(18 15 13 / 42%);
-  backdrop-filter: blur(3px);
+  background: rgb(10 10 12 / 45%);
   animation: cm-fade var(--cm-dur) var(--cm-ease) both;
 }
 .cm-modal__footer {
@@ -643,7 +636,7 @@ input[type='radio'] {
   gap: var(--cm-space-2);
   padding: 14px var(--cm-space-5);
   border-top: 1px solid var(--cm-border);
-  background: var(--cm-surface-muted);
+  background: var(--cm-surface);
 }
 /* No celular o modal vira uma folha que sobe de baixo (mesmo padrão do Planejai): alça em cima,
    título sem risco, rolagem só no corpo e um rodapé fixo com os botões grandes. O botão
@@ -657,7 +650,7 @@ input[type='radio'] {
     max-width: 100vw;
     margin: auto 0 var(--cm-kb, 0px);
     border: 0;
-    border-radius: 22px 22px 0 0;
+    border-radius: var(--cm-radius-lg) var(--cm-radius-lg) 0 0;
     max-height: calc(var(--cm-vvh, 100dvh) - env(safe-area-inset-top) - 12px);
     flex-direction: column;
   }
@@ -705,9 +698,8 @@ input[type='radio'] {
     flex-wrap: nowrap;
     gap: 10px;
     padding: 10px 16px calc(14px + var(--cm-sab));
-    border-top: 0;
+    border-top: 1px solid var(--cm-border);
     background: var(--cm-surface);
-    box-shadow: 0 -10px 18px -14px rgb(0 0 0 / 30%);
   }
   .cm-modal__footer > *,
   .cm-sheet__footer > *,
@@ -720,7 +712,7 @@ input[type='radio'] {
   .side-panel__foot .cm-btn {
     min-height: 48px;
     padding: 0 18px;
-    border-radius: 14px;
+    border-radius: var(--cm-radius-md);
     font-size: 15px;
     font-weight: 650;
   }
@@ -754,7 +746,7 @@ input[type='radio'] {
   .cm-modal__body .actions-row > .cm-btn,
   .cm-sheet__body .actions-row > .cm-btn {
     min-height: 48px;
-    border-radius: 14px;
+    border-radius: var(--cm-radius-md);
     white-space: normal;
     line-height: 1.2;
     text-align: center;
@@ -776,6 +768,97 @@ input[type='radio'] {
   }
 }
 
+/* =============================================================== Formulário em linhas
+ * Padrão dos modais: cada campo é uma linha (rótulo à esquerda, campo à direita, ajuda embaixo
+ * do campo), separadas por uma linha fina; blocos de assunto vêm com um título (cm-form__section).
+ * Campos soltos direto no corpo do modal já seguem o padrão; para agrupar, use
+ * <div className="cm-form"> ... </div>. No celular o rótulo fica em cima do campo.
+ */
+.cm-form {
+  display: grid;
+  gap: 0;
+  min-width: 0;
+}
+/* Grades antigas de 2 colunas dentro do formulário viram linhas, uma por campo. */
+.cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid) {
+  display: contents;
+}
+.cm-form__section {
+  margin: 0;
+  padding: var(--cm-space-5) 0 var(--cm-space-2);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  color: var(--cm-text-subtle);
+  letter-spacing: 0.02em;
+}
+.cm-form > :not(.cm-field, .cm-form__row, .cm-form__block, .cm-form__section) {
+  margin: var(--cm-space-2) 0;
+}
+.cm-form__section:first-child {
+  padding-top: 0;
+}
+:is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body) > .cm-field,
+.cm-form > :is(.cm-form__row, .cm-form__block) {
+  padding: var(--cm-space-3) 0;
+  border-bottom: 1px solid var(--cm-border);
+}
+:is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body) > .cm-field:last-child,
+.cm-form > :is(.cm-form__row, .cm-form__block):last-child,
+.cm-form > :is(.cm-field, .cm-form__row, .cm-form__block):has(+ .cm-form__section) {
+  border-bottom: 0;
+}
+.cm-form > .cm-form__section + :is(.cm-field, .cm-form__row) {
+  padding-top: var(--cm-space-2);
+}
+.cm-form > .cm-form__block {
+  display: grid;
+  gap: var(--cm-space-2);
+}
+/* Linha com texto e um controle (ex.: liga/desliga): texto à esquerda, controle à direita. */
+.cm-form__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-4);
+  min-width: 0;
+}
+.cm-form__title {
+  display: block;
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+  color: var(--cm-text);
+}
+@media (min-width: 641px) {
+  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body) > .cm-field {
+    grid-template-columns: minmax(150px, 34%) minmax(0, 1fr);
+    column-gap: var(--cm-space-5);
+    row-gap: 4px;
+    align-items: center;
+  }
+  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body) > .cm-field > .cm-label {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: start;
+    padding-top: 10px;
+  }
+  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body) > .cm-field > :not(.cm-label) {
+    grid-column: 2;
+  }
+  /* Texto de ajuda e erro ficam embaixo do campo. */
+  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body) > .cm-field > :is(.cm-input, .cm-picker) {
+    grid-row: 1;
+  }
+}
+@media (pointer: fine) {
+  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body) .cm-input:not(textarea) {
+    min-height: var(--cm-control);
+  }
+}
+.cm-hint,
+.cm-error-text {
+  line-height: 1.4;
+}
+
 /* =============================================================== Toast */
 .cm-toasts {
   position: fixed;
@@ -792,7 +875,7 @@ input[type='radio'] {
   border-radius: var(--cm-radius-md);
   background: var(--cm-gray-900);
   color: #fff;
-  box-shadow: var(--cm-shadow-lg);
+  box-shadow: var(--cm-shadow-md);
   font-size: var(--cm-text-sm);
   font-weight: 500;
   animation: cm-pop var(--cm-dur) var(--cm-ease-liquid) both;
@@ -825,7 +908,6 @@ input[type='radio'] {
     background: var(--cm-surface);
     color: var(--cm-text);
     border: 1px solid var(--cm-border);
-    box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
     font-size: 12.5px;
     animation: cm-toast-drop 180ms var(--cm-ease) both;
   }
@@ -875,10 +957,6 @@ input[type='radio'] {
   backdrop-filter: var(--cm-glass-blur);
   -webkit-backdrop-filter: var(--cm-glass-blur);
   border: 1px solid var(--cm-glass-border);
-  box-shadow:
-    var(--cm-glass-highlight),
-    0 1px 2px rgb(26 22 19 / 6%),
-    0 4px 12px -4px rgb(26 22 19 / 12%);
   pointer-events: none;
   opacity: 0;
   transition:
@@ -902,20 +980,9 @@ input[type='radio'] {
 .cm-glider[data-dir='back'] {
   transition-delay: 0ms, 70ms, 0ms, 70ms, 0ms;
 }
-/* No escuro: vidro grafite quente com um toque discreto de laranja (sem brilho forte). */
-:where(:root[data-theme='dark']) .cm-glider:not(.cm-glider--brand) {
-  background: color-mix(in srgb, #9a4f06 24%, rgb(46 41 37 / 92%));
-  border-color: color-mix(in srgb, var(--cm-brand-500) 22%, rgb(255 255 255 / 8%));
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 7%),
-    0 4px 12px -6px rgb(0 0 0 / 55%);
-}
 .cm-glider--brand {
   background: var(--cm-brand-600);
   border-color: transparent;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 18%),
-    0 2px 8px -2px color-mix(in srgb, var(--cm-brand-700) 50%, transparent);
   backdrop-filter: none;
 }
 
@@ -1080,7 +1147,7 @@ input[type='radio'] {
   border-radius: var(--cm-radius-lg);
   background: var(--cm-surface);
   color: var(--cm-text);
-  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 35%, var(--cm-border));
+  border: 1px solid var(--cm-border-strong);
   box-shadow: var(--cm-shadow-lg);
   animation: cm-update-in var(--cm-dur) var(--cm-ease) both;
 }

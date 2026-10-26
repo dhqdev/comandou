@@ -6,14 +6,7 @@
   padding: var(--cm-space-6);
   border-radius: var(--cm-radius-lg);
   border: 1px solid color-mix(in srgb, var(--cm-brand-500) 28%, var(--cm-border));
-  background:
-    radial-gradient(
-      900px 320px at -10% -40%,
-      color-mix(in srgb, var(--cm-brand-500) 16%, transparent),
-      transparent 70%
-    ),
-    var(--cm-surface);
-  box-shadow: var(--cm-shadow-md);
+  background: var(--cm-surface);
 }
 .print-hero__intro {
   display: flex;

@@ -310,7 +310,6 @@
 }
 .cm-sheet::backdrop {
   background: rgb(10 8 7 / 44%);
-  backdrop-filter: blur(3px);
   animation: cm-fade var(--cm-dur) var(--cm-ease) both;
 }
 .cm-sheet__head {
@@ -508,7 +507,7 @@
   }
   /* Rolou: o topo ganha sombra para separar do conteúdo (no escuro os dois se confundiam). */
   .cm-frame__top[data-scrolled] {
-    box-shadow: 0 6px 18px -8px rgb(0 0 0 / 55%);
+    box-shadow: 0 1px 0 var(--cm-frame-line);
   }
   .cm-frame__panel {
     grid-column: 1;
@@ -538,15 +537,8 @@
     max-width: 520px;
     margin: 0 auto;
     border-radius: 32px;
-    background: color-mix(in srgb, var(--cm-frame) 78%, transparent);
-    backdrop-filter: blur(26px) saturate(190%);
-    -webkit-backdrop-filter: blur(26px) saturate(190%);
-    border: 1px solid color-mix(in srgb, var(--cm-text) 10%, transparent);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 45%),
-      inset 0 -1px 0 rgb(0 0 0 / 6%),
-      0 10px 30px -8px rgb(0 0 0 / 28%),
-      0 2px 6px rgb(0 0 0 / 8%);
+    background: var(--cm-frame);
+    border: 1px solid var(--cm-border-strong);
   }
   .cm-tabbar__item {
     position: relative;
@@ -591,40 +583,13 @@
   .cm-tabbar__item.is-active {
     color: var(--cm-brand-700);
   }
-  .cm-tabbar__item.is-active .cm-tabbar__icon {
-    transform: translateY(-1px) scale(1.06);
-  }
-  /* O vidro do item ativo: mais claro que a barra, com brilho na borda de cima. */
+
+  /* Item ativo: fundo liso na cor da marca, sem brilho nem sombra. */
   .cm-tabbar .cm-glider {
     border-radius: 26px;
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--cm-brand-500) 22%, rgb(255 255 255 / 40%)),
-      color-mix(in srgb, var(--cm-brand-500) 14%, rgb(255 255 255 / 12%))
-    );
-    border: 1px solid color-mix(in srgb, var(--cm-brand-500) 30%, rgb(255 255 255 / 50%));
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 60%),
-      0 4px 14px -4px color-mix(in srgb, var(--cm-brand-600) 45%, transparent);
-    backdrop-filter: blur(6px) saturate(160%);
-    -webkit-backdrop-filter: blur(6px) saturate(160%);
-  }
-
-  :root[data-theme='dark'] .cm-tabbar {
-    background: color-mix(in srgb, var(--cm-frame) 72%, transparent);
-    border-color: rgb(255 255 255 / 10%);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 14%),
-      0 12px 32px -8px rgb(0 0 0 / 70%);
-  }
-  :root[data-theme='dark'] .cm-tabbar .cm-glider {
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, #9a4f06 26%, rgb(255 255 255 / 9%)),
-      color-mix(in srgb, #9a4f06 16%, rgb(255 255 255 / 3%))
-    );
-    border-color: color-mix(in srgb, var(--cm-brand-500) 22%, rgb(255 255 255 / 10%));
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 12%);
+    background: var(--cm-brand-50);
+    border: 0;
+    box-shadow: none;
   }
 
   .cm-sheet {

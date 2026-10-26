@@ -6,11 +6,7 @@
   gap: 12px;
   padding: 14px 16px;
   border-radius: var(--sf-r);
-  background: linear-gradient(
-    120deg,
-    color-mix(in srgb, var(--cm-brand-500) 16%, var(--cm-surface)),
-    var(--cm-surface)
-  );
+  background: var(--cm-brand-50);
   border: 1px solid color-mix(in srgb, var(--cm-brand-500) 28%, var(--cm-border));
   color: var(--cm-text);
   text-decoration: none;

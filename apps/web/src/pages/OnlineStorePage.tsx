@@ -168,7 +168,7 @@ function AppearanceTab({
       </Card>
       <Card title="Textos">
         <form
-          className="os-form"
+          className="cm-form"
           onSubmit={(e) => {
             e.preventDefault();
             void save({
@@ -443,7 +443,7 @@ function BannersTab({
           </>
         }
       >
-        <div className="os-form">
+        <div className="cm-form">
           <div>
             <span className="cm-label">Imagem (opcional, formato largo)</span>
             <ImagePicker

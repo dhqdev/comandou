@@ -513,7 +513,7 @@ function BulkTablesModal({
         </>
       }
     >
-      <div className="te-form">
+      <div className="cm-form">
         <div className="te-preview" aria-hidden>
           {Array.from({ length: Math.min(count, 6) }, (_, i) => (
             <TableDrawing
@@ -662,7 +662,7 @@ function EditTableModal({
       footer={footer}
     >
       {confirmDelete ? (
-        <div className="te-form">
+        <div className="cm-form">
           <Alert tone="warning">
             Excluir a mesa {table?.label}? Se ela já teve comandas, fica só desativada para não
             perder o histórico.
@@ -670,7 +670,7 @@ function EditTableModal({
           {error && <Alert tone="danger">{error}</Alert>}
         </div>
       ) : (
-        <div className="te-form">
+        <div className="cm-form">
           <div className="te-preview" aria-hidden>
             <TableDrawing shape={shape} seats={seats} label={label || '?'} size={120} />
           </div>

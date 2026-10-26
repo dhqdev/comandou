@@ -32,9 +32,7 @@
   grid-template-columns: repeat(4, 1fr);
   height: calc(var(--wt-tabs-h) + var(--cm-sab));
   padding-bottom: var(--cm-sab);
-  background: color-mix(in srgb, var(--cm-surface) 92%, transparent);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  background: var(--cm-surface);
   border-top: 1px solid var(--cm-border);
 }
 .wt[data-focused] .wt-tabs {
@@ -208,9 +206,7 @@
   min-height: var(--wt-head-h);
   margin: 0 calc(var(--wt-gutter) * -1);
   padding: 8px var(--wt-gutter);
-  background: color-mix(in srgb, var(--cm-bg) 88%, transparent);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  background: var(--cm-bg);
 }
 @media (min-width: 1024px) {
   .wt-head {
@@ -357,7 +353,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--cm-brand-400), var(--cm-brand-600));
+  background: var(--cm-brand-500);
   transition: width var(--cm-dur-slow) var(--cm-ease);
 }
 .wt-bar--lg {
@@ -621,9 +617,7 @@
   gap: 8px;
   margin: 0 calc(var(--wt-gutter) * -1);
   padding: 4px var(--wt-gutter) 10px;
-  background: color-mix(in srgb, var(--cm-bg) 88%, transparent);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: var(--cm-bg);
   border-bottom: 1px solid var(--cm-border);
 }
 @media (min-width: 1024px) {
@@ -1048,15 +1042,8 @@
   gap: 14px;
   padding: 18px;
   border-radius: var(--cm-radius-lg);
-  background:
-    radial-gradient(
-      120% 140% at 100% 0%,
-      color-mix(in srgb, var(--cm-brand-500) 30%, transparent),
-      transparent 60%
-    ),
-    var(--cm-surface);
-  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 25%, var(--cm-border));
-  box-shadow: var(--cm-shadow-sm);
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
 }
 .wt-player-card__top {
   display: flex;

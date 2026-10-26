@@ -42,13 +42,7 @@
   height: 128px;
   margin-bottom: var(--cm-space-2);
   border-radius: var(--cm-radius-lg);
-  background:
-    radial-gradient(
-      circle at 50% 120%,
-      color-mix(in srgb, var(--cm-brand-500) 28%, transparent),
-      transparent 70%
-    ),
-    var(--cm-brand-50);
+  background: var(--cm-brand-50);
 }
 .tour__icon {
   width: 72px;

@@ -333,23 +333,8 @@
 }
 
 /* Formulários */
-.rv-form {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--cm-space-3);
-}
-.rv-form .cm-alert,
-.rv-form__wide {
-  grid-column: 1 / -1;
-}
-.rv-settings {
-  display: grid;
-  gap: var(--cm-space-4);
-}
-.rv-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: var(--cm-space-3);
+.cm-form .cm-alert {
+  margin-bottom: var(--cm-space-3);
 }
 .rv-fieldset {
   border: 0;
@@ -360,7 +345,7 @@
 }
 .rv-fieldset legend {
   font-size: var(--cm-text-sm);
-  font-weight: 600;
+  font-weight: 550;
   margin-bottom: 8px;
 }
 .rv-weekdays {
@@ -371,7 +356,7 @@
 .rv-weekdays button {
   min-width: 52px;
   padding: 8px 10px;
-  border-radius: var(--cm-radius-full);
+  border-radius: var(--cm-radius-sm);
   border: 1px solid var(--cm-border);
   background: var(--cm-surface);
   color: var(--cm-text);
@@ -379,9 +364,9 @@
   cursor: pointer;
 }
 .rv-weekdays button[aria-pressed='true'] {
-  background: var(--cm-brand-600);
-  border-color: var(--cm-brand-600);
-  color: var(--cm-on-brand);
+  background: var(--cm-brand-50);
+  border-color: var(--cm-brand-500);
+  color: var(--cm-brand-700);
   font-weight: 600;
 }
 .rv-toggle {
@@ -389,8 +374,6 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--cm-space-4);
-  padding: 10px 0;
-  border-bottom: 1px solid var(--cm-border);
   cursor: pointer;
 }
 .rv-toggle > span:first-child {
@@ -442,6 +425,7 @@
   box-shadow: var(--cm-focus);
 }
 .rv-link {
+  margin-top: var(--cm-space-4);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -476,9 +460,6 @@
   }
   .rv-datepick {
     width: 100%;
-  }
-  .rv-form {
-    grid-template-columns: minmax(0, 1fr);
   }
   .rv-table {
     margin-left: 0;
