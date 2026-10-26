@@ -34,6 +34,14 @@ export const RELEASES: readonly Release[] = [
         tag: 'melhoria',
         text: 'Marcadores do mapa de áreas de entrega usam a cor da loja.',
       },
+      {
+        tag: 'correção',
+        text: 'Escolher a cor (ou letra e cantos) na Loja online agora salva sozinho, sem precisar clicar em "Salvar identidade".',
+      },
+      {
+        tag: 'novo',
+        text: 'O app instalado no celular (PWA) usa o nome, a cor e o ícone da própria loja: cada restaurante tem o seu manifesto.',
+      },
     ],
   },
   {

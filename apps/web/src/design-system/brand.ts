@@ -279,6 +279,17 @@ export function applyFavicon(url: string | null) {
   }
 }
 
+/** O app instalado (PWA) lê nome, cor e ícone do manifesto da loja, não o do Comandou. */
+export function applyManifest() {
+  let el = document.head.querySelector<HTMLLinkElement>('link[rel="manifest"]');
+  if (!el) {
+    el = document.createElement('link');
+    el.rel = 'manifest';
+    document.head.appendChild(el);
+  }
+  if (el.getAttribute('href') !== '/api/v1/store/manifest') el.href = '/api/v1/store/manifest';
+}
+
 /** Última identidade vista neste navegador: pinta antes do primeiro desenho, sem piscar laranja. */
 export function cachedBranding(): Branding | null {
   try {
@@ -305,6 +316,7 @@ export function applyBranding(b: Branding, path = window.location.pathname) {
   const colors = customer || b.staffApp;
   applyBrandCss(brandCss(b, { colors, shape: customer }));
   applyFavicon(colors ? b.faviconUrl : null);
+  applyManifest();
 }
 
 /** Avisa a página (e a prévia) que a identidade mudou. */

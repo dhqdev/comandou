@@ -3,6 +3,8 @@ import { enterPanel } from './nav';
 
 const EMAIL = process.env.E2E_EMAIL ?? 'dono@demo.local';
 const PASSWORD = process.env.E2E_PASSWORD ?? '';
+// Mexe na identidade do mesmo restaurante: roda só no desktop para os projetos não se atropelarem.
+test.skip(({ isMobile }) => isMobile, 'só no desktop');
 test.skip(!PASSWORD, 'defina E2E_PASSWORD (senha do administrador do tenant de teste)');
 
 const brand500 = (page: import('@playwright/test').Page) =>
@@ -14,7 +16,7 @@ test('a cor salva na Loja online vale em todas as telas da loja', async ({ page,
   await enterPanel(page, EMAIL, PASSWORD);
   await page.goto('/loja-online');
   await page.getByLabel('Cor principal em hexadecimal').fill('#1f6feb');
-  await page.getByRole('button', { name: 'Salvar identidade' }).click();
+  // Salva sozinho ao escolher: sem clicar em botão.
   await expect(page.getByText(/Identidade salva/)).toBeVisible();
   try {
     // Depois de salvar vale na hora e sobrevive a recarregar a página.
@@ -34,9 +36,40 @@ test('a cor salva na Loja online vale em todas as telas da loja', async ({ page,
   } finally {
     await page.goto('/loja-online');
     await page.getByRole('button', { name: 'Voltar ao padrão' }).click();
-    await page.getByRole('button', { name: 'Salvar identidade' }).click();
     await expect(page.getByText(/Identidade salva/)).toBeVisible();
   }
   await page.goto('/pedir');
   await expect.poll(() => brand500(page)).toBe('#e23a00');
+});
+
+test('seletor nativo e cores prontas salvam; o manifesto do app segue a loja', async ({ page }) => {
+  await enterPanel(page, EMAIL, PASSWORD);
+  await page.goto('/loja-online');
+  const save = async () => {
+    // Salva sozinho ao escolher: sem clicar em botão.
+    await expect(page.getByText(/Identidade salva/)).toBeVisible();
+  };
+  try {
+    // Seletor nativo (input type=color).
+    await page.getByLabel('Cor principal: outra cor').fill('#8c1c3a');
+    await save();
+    await page.goto('/pedir');
+    await expect.poll(() => brand500(page)).toBe('#8c1c3a');
+    // Cor pronta (bolinha).
+    await page.goto('/loja-online');
+    await page.getByRole('radio', { name: 'Turquesa' }).click();
+    await save();
+    await page.goto('/pedir');
+    await expect.poll(() => brand500(page)).toBe('#0f9d9a');
+    // O app instalado (PWA) usa o manifesto da loja, com a cor dela.
+    const href = await page.locator('link[rel="manifest"]').getAttribute('href');
+    expect(href).toBe('/api/v1/store/manifest');
+    const m = await page.evaluate(() => fetch('/api/v1/store/manifest').then((r) => r.json()));
+    expect(m.theme_color).toBe('#0f9d9a');
+    expect(m.icons.length).toBeGreaterThan(0);
+  } finally {
+    await page.goto('/loja-online');
+    await page.getByRole('button', { name: 'Voltar ao padrão' }).click();
+    await save();
+  }
 });

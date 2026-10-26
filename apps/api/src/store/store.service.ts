@@ -210,6 +210,51 @@ export class StoreService {
     return this.db.withTenant({ tenantId }, async (tx) => brandingOf(await this.settingsIn(tx)));
   }
 
+  /**
+   * Manifesto do app instalado (PWA) de cada restaurante: nome, cor e ícone da loja. Sem ícone
+   * próprio, valem os do Comandou.
+   */
+  manifest(tenantId: string, name: string) {
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      const s = await this.settingsIn(tx);
+      const iconId = s.faviconImageId ?? s.logoImageId;
+      const media = iconId
+        ? await one<{ content_type: string }>(tx, `SELECT content_type FROM media WHERE id = $1`, [
+            iconId,
+          ])
+        : null;
+      const icons = media
+        ? [192, 512].map((n) => ({
+            src: mediaUrl(iconId)!,
+            sizes: `${n}x${n}`,
+            type: media.content_type,
+            purpose: 'any',
+          }))
+        : [
+            { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+            { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+            {
+              src: '/icons/icon-512-maskable.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'maskable',
+            },
+          ];
+      return {
+        name,
+        short_name: name.length > 12 ? name.slice(0, 12).trim() : name,
+        description: `${name} no Comandou`,
+        lang: 'pt-BR',
+        theme_color: s.brandColor ?? '#e23a00',
+        background_color: '#f7f5f3',
+        display: 'standalone',
+        start_url: '/',
+        scope: '/',
+        icons,
+      };
+    });
+  }
+
   async updateSettings(ctx: Ctx, patch: Partial<StoreSettings>) {
     const res = await this.db.withTenant(ctx, async (tx) => {
       const cur = await this.settingsIn(tx);

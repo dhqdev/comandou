@@ -206,6 +206,16 @@ export class StoreController {
     return this.store.branding(t.id);
   }
 
+  /** Manifesto do app instalado: nome, cor e ícone da loja (cada restaurante tem o seu). */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @Get('manifest')
+  async manifest(@CurrentTenant() t: ResolvedTenant, @Res({ passthrough: true }) res: Response) {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+    return this.store.manifest(t.id, t.name);
+  }
+
   /** Cria o pedido do cliente. Exige `Idempotency-Key` (reenvio não duplica o pedido). */
   @Public()
   @Throttle({ default: { ttl: 60_000, limit: 15 } })

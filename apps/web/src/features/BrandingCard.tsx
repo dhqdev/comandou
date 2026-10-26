@@ -1,5 +1,5 @@
 import { Check, Palette, RotateCcw } from 'lucide-react';
-import { CSSProperties, useEffect, useMemo, useState } from 'react';
+import { CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import {
   brandTokens,
   BRAND_EVENT,
@@ -210,6 +210,23 @@ export function BrandingCard({
     }
   }
   const set = (p: Partial<Draft>) => setDraft((d) => ({ ...d, ...p }));
+
+  // Escolheu uma cor, letra ou canto: salva sozinho (um instante depois do último toque), sem
+  // depender do botão. A prévia ao lado já mostra a escolha enquanto isso.
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  useEffect(() => {
+    if (!canManage || !dirty || busy) return;
+    const t = window.setTimeout(
+      () =>
+        void saveRef.current(
+          draft,
+          'Identidade salva: o cardápio e o sistema já estão com as novas cores',
+        ),
+      700,
+    );
+    return () => window.clearTimeout(t);
+  }, [draft, dirty, busy, canManage]);
   const isDefault =
     !draft.brandColor &&
     !draft.accentColor &&
@@ -298,16 +315,14 @@ export function BrandingCard({
               disabled={!dirty}
               onClick={() => save(draft, 'Identidade salva: o cardápio já está com as novas cores')}
             >
-              Salvar identidade
+              Salvar agora
             </Button>
             {dirty && (
               <Button variant="ghost" disabled={busy} onClick={() => setDraft(saved)}>
                 Descartar
               </Button>
             )}
-            {dirty && (
-              <small className="bc-muted">A prévia ao lado já mostra como vai ficar.</small>
-            )}
+            {dirty && <small className="bc-muted">Salvando sozinho…</small>}
           </div>
         )}
 
