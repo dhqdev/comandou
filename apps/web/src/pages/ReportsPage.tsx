@@ -3,6 +3,8 @@ import { AlertTriangle, CalendarCheck, ChevronLeft, ChevronRight } from 'lucide-
 import { CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Card, DateInput, EmptyState, Segmented, Spinner } from '../design-system';
 import { CHANNEL_LABELS, PAYMENT_METHOD_LABELS, qty } from '../features/format';
+import { Link } from 'react-router';
+import { useCan } from '../app/auth';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import type { OrderChannel, PaymentMethod } from '@comandou/shared';
@@ -32,6 +34,13 @@ interface Sales {
   byChannel: { channel: OrderChannel; orders: number; revenue: string }[];
   received: { method: PaymentMethod; received: string; refunded: string; net: string }[];
   topProducts: ProductLine[];
+}
+
+/** Resumo do mês dos repasses aos entregadores (Entregas › Repasses). */
+interface CourierMonth {
+  delivered: number;
+  costEstimate: string;
+  pendingNet: string;
 }
 
 interface Calendar {
@@ -146,16 +155,23 @@ function CalendarView({
 }) {
   const [data, setData] = useState<Calendar | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const canPay = useCan('finance:read');
+  const [couriers, setCouriers] = useState<CourierMonth | null>(null);
   useEffect(() => {
     let alive = true;
     setData(null);
+    setCouriers(null);
     api<Calendar>(`/reports/calendar?month=${month}`)
       .then((d) => alive && (setData(d), setError(null)))
       .catch((e) => alive && setError((e as Error).message));
+    if (canPay)
+      api<{ totals: CourierMonth }>(`/courier-pay/report?month=${month}`)
+        .then((r) => alive && setCouriers(r.totals))
+        .catch(() => undefined);
     return () => {
       alive = false;
     };
-  }, [month]);
+  }, [month, canPay]);
 
   const sum = useMemo(() => {
     if (!data) return null;
@@ -255,6 +271,15 @@ function CalendarView({
               value={money(sum.ticket)}
               hint={`${sum.orders} pedidos · ${sum.cancelled} cancelados`}
             />
+            {couriers && (
+              <Link className="rp-kpi-link" to="/entregas?aba=repasses">
+                <Kpi
+                  label="Entregadores"
+                  value={money(toCents(couriers.costEstimate))}
+                  hint={`${couriers.delivered} entregas · a pagar ${brl(couriers.pendingNet)}`}
+                />
+              </Link>
+            )}
           </div>
 
           {sum.uncovered > 0 && (

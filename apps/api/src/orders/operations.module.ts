@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { CourierPayController } from '../delivery/courier-pay.controller';
+import { CourierPayService } from '../delivery/courier-pay.service';
 import { DeliveryController } from '../delivery/delivery.controller';
 import { DeliveryService } from '../delivery/delivery.service';
 import { GeocoderService } from '../delivery/geocoder.service';
@@ -53,6 +55,7 @@ import { OrdersService } from './orders.service';
     SetupController,
     StockController,
     DeliveryController,
+    CourierPayController,
     ZonesController,
     PrintingController,
     PrintAgentController,
@@ -76,6 +79,7 @@ import { OrdersService } from './orders.service';
     StockService,
     PrintingService,
     DeliveryService,
+    CourierPayService,
     ZonesService,
     GeocoderService,
     CepService,

@@ -179,3 +179,107 @@
   font-weight: 600;
   font-size: var(--cm-text-sm);
 }
+
+/* Navegação: o app usado por último fica em destaque; os outros, ao lado. */
+.run__nav {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+}
+.run__nav .cm-btn {
+  justify-content: center;
+}
+.run__earn {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 2px;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.run__earn strong {
+  color: var(--cm-success);
+  font-size: var(--cm-text-md);
+}
+
+/* Central de ganhos do entregador. */
+.earn {
+  display: grid;
+  gap: var(--cm-space-3);
+}
+.earn__hero {
+  display: grid;
+  gap: 4px;
+  padding: var(--cm-space-4);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+}
+.earn__total {
+  font-size: 2.25rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.earn__meta {
+  color: var(--cm-text-muted);
+}
+.earn__split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin: var(--cm-space-2) 0 0;
+  padding-top: var(--cm-space-3);
+  border-top: 1px solid var(--cm-border);
+}
+.earn__split dt {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.earn__split dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.earn__pending {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-3) var(--cm-space-4);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-success-bg);
+}
+.earn__pending > svg {
+  flex-shrink: 0;
+  color: var(--cm-success);
+}
+.earn__pending > div {
+  display: grid;
+  min-width: 0;
+}
+.earn__rule {
+  margin: 0;
+  font-size: var(--cm-text-sm);
+}
+.earn__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.earn__list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--cm-border);
+}
+.earn__amount {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}

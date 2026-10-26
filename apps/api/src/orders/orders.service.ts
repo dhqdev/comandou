@@ -20,6 +20,7 @@ import {
 import { AuditService } from '../audit/audit.service';
 import { MessageEvent, MessagingService } from '../messaging/messaging.service';
 import type { Ctx } from '../common/context';
+import { settleRide } from '../delivery/courier-pay.service';
 import { withIdempotency } from '../common/idempotency';
 import { nextNumber, one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
@@ -578,17 +579,20 @@ export class OrdersService {
     }
     if (o.status === 'dispatched') {
       // Saindo de "saiu para entrega": encerra a entrega em andamento e encurta o link de rastreio.
-      await q(
+      // O ganho do entregador na corrida fica gravado agora, pela regra vigente.
+      const ended = await q<{ id: string }>(
         tx,
         `UPDATE deliveries SET status = $2, finished_at = now(), failure_reason = $3,
                 tracking_expires_at = LEAST(tracking_expires_at, now() + interval '30 minutes')
-          WHERE order_id = $1 AND status = 'out'`,
+          WHERE order_id = $1 AND status = 'out' RETURNING id`,
         [
           o.id,
           to === 'completed' ? 'delivered' : 'failed',
           to === 'completed' ? null : (reason ?? null),
         ],
       );
+      for (const d of ended)
+        await settleRide(tx, d.id, to === 'completed' ? 'delivered' : 'failed');
     }
     if (to === 'cancel_requested' && !reason)
       throw new UnprocessableEntityException('Informe o motivo');

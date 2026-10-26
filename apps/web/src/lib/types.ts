@@ -422,6 +422,11 @@ export interface Delivery {
   deliveryLat: string | null;
   deliveryLng: string | null;
   notes: string | null;
+  /** Ganho do entregador gravado ao encerrar e, na rua, a estimativa se concluir. */
+  courierPay?: string | null;
+  payEstimate?: string | null;
+  /** Distância estimada da corrida (linha reta × 1,3), em metros. */
+  distanceM?: number | null;
 }
 
 export interface DeliveryZone {

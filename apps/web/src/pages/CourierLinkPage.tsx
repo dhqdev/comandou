@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { Alert, Mascot, Spinner, ThemeToggle } from '../design-system';
 import { SoundControl } from '../features/SoundControl';
+import type { CourierEarningsData } from '../features/CourierEarnings';
 import { DriverPanel } from '../features/DriverPanel';
 import { api, ApiError } from '../lib/api';
 import { useArrivalSound } from '../lib/sounds';
@@ -58,6 +59,7 @@ export function CourierLinkPage() {
     data?.deliveries.filter((d) => d.status === 'out').map((d) => d.id),
   );
 
+  const earnings = useCallback(() => api<CourierEarningsData>(`${base}/earnings`), [base]);
   const post = (url: string, json: object = {}) => api(`${base}${url}`, { method: 'POST', json });
   return (
     <main className="courier-page">
@@ -83,6 +85,7 @@ export function CourierLinkPage() {
               fail: (id, reason) => post(`/deliveries/${id}/fail`, { reason }),
               location: (id, fix) => post(`/deliveries/${id}/location`, fix),
             }}
+            earnings={earnings}
           />
         )}
       </div>

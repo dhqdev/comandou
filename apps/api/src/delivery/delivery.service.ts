@@ -13,6 +13,7 @@ import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 import { OrdersService } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { rideEstimates } from './courier-pay.service';
 
 /** Validade do link de rastreio enquanto o pedido está na rua. */
 export const TRACKING_TTL_HOURS = 4;
@@ -67,6 +68,15 @@ export async function customerMapOf(tx: Tx, deliveryId: string) {
   return { store, trail: trails[deliveryId] ?? [] };
 }
 
+/** Corridas na rua levam a estimativa do ganho do entregador (o encerrado já tem o valor gravado). */
+async function withEstimates<T extends { id: string; courierId: string; status: string }>(
+  tx: Tx,
+  rows: T[],
+) {
+  const est = await rideEstimates(tx, rows);
+  return rows.map((r) => ({ ...r, payEstimate: est[r.id] ?? null }));
+}
+
 export const DELIVERY_SELECT = `
   SELECT d.id, d.status, d.order_id AS "orderId", o.number AS "orderNumber", o.status AS "orderStatus",
          o.customer_name AS "customerName", o.customer_phone AS "customerPhone",
@@ -77,7 +87,8 @@ export const DELIVERY_SELECT = `
          d.dispatched_at AS "dispatchedAt", d.finished_at AS "finishedAt", d.failure_reason AS "failureReason",
          d.last_lat::text AS "lastLat", d.last_lng::text AS "lastLng", d.last_location_at AS "lastLocationAt",
          d.last_heading AS "lastHeading", d.last_speed::float AS "lastSpeed", d.last_accuracy AS "lastAccuracy",
-         d.tracking_expires_at AS "trackingExpiresAt"
+         d.tracking_expires_at AS "trackingExpiresAt",
+         d.courier_pay::text AS "courierPay", d.distance_m AS "distanceM"
     FROM deliveries d
     JOIN orders o ON o.id = d.order_id
     JOIN couriers c ON c.id = d.courier_id`;
@@ -108,7 +119,7 @@ export class DeliveryService {
   list(ctx: Ctx, scope: 'active' | 'today') {
     return this.db.withTenant(ctx, async (tx) => {
       const mine = !this.canManage(ctx);
-      return q(
+      const rows = await q<{ id: string; courierId: string; status: string }>(
         tx,
         `${DELIVERY_SELECT} CROSS JOIN tenants tz
           WHERE ($1 = 'active' AND d.status = 'out'
@@ -117,6 +128,7 @@ export class DeliveryService {
           ORDER BY d.dispatched_at DESC LIMIT 200`,
         [scope, mine, ctx.userId],
       );
+      return withEstimates(tx, rows);
     });
   }
 
@@ -373,15 +385,18 @@ export class DeliveryService {
   /** Tela do entregador pelo link: corridas na rua e as encerradas hoje. */
   async courierHome(tenantId: string, tenantName: string, token: string) {
     const { courier } = await this.courierCtx(tenantId, token);
-    const deliveries = await this.db.withTenant({ tenantId }, (tx) =>
-      q(
+    const deliveries = await this.db.withTenant({ tenantId }, async (tx) =>
+      withEstimates(
         tx,
-        `${DELIVERY_SELECT} CROSS JOIN tenants tz
-          WHERE d.courier_id = $1
-            AND (d.status = 'out'
-                 OR (d.dispatched_at AT TIME ZONE tz.timezone)::date = (now() AT TIME ZONE tz.timezone)::date)
-          ORDER BY d.status = 'out' DESC, d.dispatched_at DESC LIMIT 100`,
-        [courier.id],
+        await q<{ id: string; courierId: string; status: string }>(
+          tx,
+          `${DELIVERY_SELECT} CROSS JOIN tenants tz
+            WHERE d.courier_id = $1
+              AND (d.status = 'out'
+                   OR (d.dispatched_at AT TIME ZONE tz.timezone)::date = (now() AT TIME ZONE tz.timezone)::date)
+            ORDER BY d.status = 'out' DESC, d.dispatched_at DESC LIMIT 100`,
+          [courier.id],
+        ),
       ),
     );
     const store = await this.db.withTenant({ tenantId }, (tx) => storePoint(tx));

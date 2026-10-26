@@ -2,7 +2,13 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { ClientBase } from 'pg';
-import { fromCents, multiplyCents, paymentStatusFor, toCents } from '@comandou/shared';
+import {
+  fromCents,
+  multiplyCents,
+  paymentStatusFor,
+  routeDistanceM,
+  toCents,
+} from '@comandou/shared';
 import { hashPassword } from '../auth/password';
 import { distanceM, insidePolygon } from '../delivery/zones';
 import * as C from './catalog';
@@ -860,6 +866,10 @@ export async function seedDemoData(
       lng,
       iso(status === 'out' ? now - MIN : done!),
       U('attendant'),
+      // Ganho do motoboy pela regra padrão (toda a taxa de entrega), gravado ao encerrar.
+      status === 'out' ? null : routeDistanceM(store, { lat: o.lat!, lng: o.lng! }),
+      status === 'out' ? null : fromCents(o.deliveryFee),
+      status !== 'out',
     ]);
   };
   const courierFor = () => r.pick(['lucas', 'lucas', 'bruna', 'bruna', 'marcos']);
@@ -1564,8 +1574,37 @@ export async function seedDemoData(
       'last_lng',
       'last_location_at',
       'created_by',
+      'distance_m',
+      'courier_pay',
+      'payout_pending',
     ],
     deliveries,
+  );
+  // Repasses: as corridas de até 3 dias atrás já foram pagas (um Pix por motoboy por semana);
+  // as mais recentes ficam a pagar, para a central do motoboy e a tela de Repasses terem o que mostrar.
+  await c.query(
+    `WITH w AS (
+       SELECT courier_id, date_trunc('week', finished_at AT TIME ZONE 'America/Sao_Paulo')::date AS wk,
+              min((finished_at AT TIME ZONE 'America/Sao_Paulo')::date) AS first,
+              max((finished_at AT TIME ZONE 'America/Sao_Paulo')::date) AS last,
+              count(*)::int AS n, count(DISTINCT (finished_at AT TIME ZONE 'America/Sao_Paulo')::date)::int AS days,
+              COALESCE(sum(distance_m), 0)::int AS dist, sum(courier_pay) AS rides
+         FROM deliveries
+        WHERE tenant_id = $1 AND payout_pending
+          AND finished_at < date_trunc('day', now() AT TIME ZONE 'America/Sao_Paulo' - interval '3 days')
+                            AT TIME ZONE 'America/Sao_Paulo'
+        GROUP BY 1, 2),
+     p AS (
+       INSERT INTO courier_payouts (tenant_id, courier_id, period_from, period_to, deliveries, days_worked,
+              distance_m, rides, daily, gross, net, tax_regime, method, paid_at, created_by)
+       SELECT $1, courier_id, first, last, n, days, dist, rides, 0, rides, rides, 'mei', 'pix',
+              LEAST(now(), ((last + 1)::timestamp + interval '15 hours') AT TIME ZONE 'America/Sao_Paulo'), $2
+         FROM w RETURNING id, courier_id, period_from, period_to)
+     UPDATE deliveries d SET payout_pending = false, payout_id = p.id
+       FROM p
+      WHERE d.tenant_id = $1 AND d.courier_id = p.courier_id AND d.payout_pending
+        AND (d.finished_at AT TIME ZONE 'America/Sao_Paulo')::date BETWEEN p.period_from AND p.period_to`,
+    [T, U('owner')],
   );
   await bulk(
     c,

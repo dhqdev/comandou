@@ -351,3 +351,11 @@
     flex: 1;
   }
 }
+.rp-kpi-link {
+  display: grid;
+  color: inherit;
+  text-decoration: none;
+}
+.rp-kpi-link:hover .rp-kpi {
+  border-color: var(--cm-brand-300);
+}

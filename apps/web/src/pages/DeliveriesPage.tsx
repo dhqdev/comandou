@@ -26,6 +26,8 @@ import {
 } from '../design-system';
 import { useCan } from '../app/auth';
 import { minutesSince, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE, time } from '../features/format';
+import type { CourierEarningsData } from '../features/CourierEarnings';
+import { CourierPayouts } from '../features/CourierPayouts';
 import { DeliveryAreas } from '../features/DeliveryAreas';
 import { DriverPanel, routeUrl } from '../features/DriverPanel';
 import { LiveMap, RIDER_COLORS, type MapRider } from '../features/LiveMap';
@@ -54,11 +56,12 @@ const trackingUrl = (path: string) => `${window.location.origin}${path}`;
  * Entregas: despacho com entregador, acompanhamento de quem está na rua e conclusão.
  * O entregador (papel "Entregador") vê só as próprias corridas e envia a localização.
  */
-type Aba = 'despacho' | 'entregadores' | 'area' | 'hoje';
+type Aba = 'despacho' | 'entregadores' | 'area' | 'hoje' | 'repasses';
 
 export function DeliveriesPage() {
   const canManage = useCan('delivery:manage');
   const canSetup = useCan('settings:manage');
+  const canPay = useCan('finance:read');
   const [ready, setReady] = useState<Order[]>([]);
   const [out, setOut] = useState<Delivery[] | null>(null);
   const [today, setToday] = useState<Delivery[]>([]);
@@ -69,6 +72,7 @@ export function DeliveriesPage() {
   const [focus, setFocus] = useState<string | null>(null);
   const [route, setRoute] = useState<Delivery | null>(null);
   useLinkParam('aba', (a) => setAba(a as Aba));
+  const myEarnings = useCallback(() => api<CourierEarningsData>('/deliveries/my-earnings'), []);
 
   const load = useCallback(async () => {
     try {
@@ -106,7 +110,7 @@ export function DeliveriesPage() {
   );
   useArrivalSound('courier', !canManage && out ? out.map((d) => d.id) : null);
 
-  // Entregador (sem gerenciar): painel simples, só com as próprias corridas.
+  // Entregador (sem gerenciar): painel simples, só com as próprias corridas e os ganhos.
   if (!canManage) {
     return (
       <>
@@ -129,6 +133,7 @@ export function DeliveriesPage() {
               location: (id, fix) =>
                 api(`/deliveries/${id}/location`, { method: 'POST', json: fix }),
             }}
+            earnings={myEarnings}
           />
         )}
       </>
@@ -203,6 +208,7 @@ export function DeliveriesPage() {
           { value: 'entregadores', label: 'Entregadores', count: activeCouriers.length },
           { value: 'area', label: 'Área de entrega' },
           { value: 'hoje', label: 'Hoje', count: today.length },
+          ...(canPay ? [{ value: 'repasses' as const, label: 'Repasses' }] : []),
         ]}
       />
       {aba === 'despacho' && (
@@ -364,6 +370,7 @@ export function DeliveriesPage() {
         <CouriersCard couriers={couriers} out={out ?? []} colorOf={colorOf} onChanged={load} />
       )}
       {aba === 'area' && <DeliveryAreas canEdit={canSetup} />}
+      {aba === 'repasses' && canPay && <CourierPayouts />}
       <Modal open={!!link} title={link?.title ?? ''} onClose={() => setLink(null)}>
         {link && <TrackingLink path={link.path} />}
       </Modal>

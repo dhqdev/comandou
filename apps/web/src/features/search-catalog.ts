@@ -280,6 +280,17 @@ const SECTIONS: StaticEntry[] = [
     to: '/configuracoes?foco=secao-caixas',
     perms: ['settings:manage'],
   },
+  // Entregas
+  {
+    id: 'c-repasses',
+    group: 'Seções',
+    title: 'Repasses dos entregadores',
+    hint: 'Entregas',
+    words: 'motoboy pagamento ganhos comissao diaria km inss irrf rpa mei pagar entregador',
+    icon: 'delivery',
+    to: '/entregas?aba=repasses',
+    perms: ['finance:read'],
+  },
   // Loja online
   {
     id: 'c-aparencia',

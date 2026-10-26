@@ -16,7 +16,10 @@ import { brl } from '../lib/money';
 import type { Delivery } from '../lib/types';
 import { minutesSince, PAYMENT_METHOD_LABELS, time } from './format';
 import { bearing, distanceM, kmLabel, toPoint, type LatLng } from './live-geo';
+import { CourierEarnings, type CourierEarningsData } from './CourierEarnings';
 import { LiveMap, type MapRider } from './LiveMap';
+import { SlideTabs } from './SlideTabs';
+import { NAV_APPS, navUrl, preferredNavApp, rememberNavApp, type NavApp } from './nav-apps';
 import './driver-panel.css';
 
 /** Posição do GPS enviada ao restaurante (velocidade em m/s, rumo em graus, precisão em m). */
@@ -34,32 +37,63 @@ export interface DriverActions {
   location(id: string, fix: Fix): Promise<unknown>;
 }
 
+const NAV_LABEL_SHORT: Record<NavApp, string> = { waze: 'Waze', google: 'Google', apple: 'Apple' };
+
 const digits = (s: string | null) => (s ?? '').replace(/\D/g, '');
 const waPhone = (s: string | null) => {
   const d = digits(s);
   return d.length >= 12 ? d : `55${d}`;
 };
 
-/** Rota no Google Maps (ou no app de mapas do celular). Usa o ponto do mapa quando existe. */
-export function routeUrl(d: Pick<Delivery, 'deliveryLat' | 'deliveryLng' | 'deliveryAddress'>) {
-  const dest =
-    d.deliveryLat && d.deliveryLng
-      ? `${d.deliveryLat},${d.deliveryLng}`
-      : (d.deliveryAddress ?? '');
-  return `https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=${encodeURIComponent(dest)}`;
-}
-export function wazeUrl(d: Pick<Delivery, 'deliveryLat' | 'deliveryLng' | 'deliveryAddress'>) {
-  return d.deliveryLat && d.deliveryLng
-    ? `https://waze.com/ul?ll=${d.deliveryLat},${d.deliveryLng}&navigate=yes`
-    : `https://waze.com/ul?q=${encodeURIComponent(d.deliveryAddress ?? '')}&navigate=yes`;
-}
+/** Rota no Google Maps (painel do restaurante). */
+export const routeUrl = (d: Pick<Delivery, 'deliveryLat' | 'deliveryLng' | 'deliveryAddress'>) =>
+  navUrl('google', d);
 
 /**
  * Painel do entregador: feito para o celular, com botões grandes. Mostra as corridas na rua
- * (endereço, rota, contato e quanto cobrar) e as encerradas hoje. Usado pelo entregador com
- * login (tela Entregas) e pelo link do entregador (sem login).
+ * (endereço, rota no app de mapas preferido, contato, quanto cobrar e quanto ele ganha) e as
+ * encerradas hoje; na aba "Meus ganhos", a central com o que ganhou e o que falta receber.
+ * Usado pelo entregador com login (tela Entregas) e pelo link do entregador (sem login).
  */
 export function DriverPanel({
+  deliveries,
+  actions,
+  onChanged,
+  store,
+  earnings,
+}: {
+  deliveries: Delivery[];
+  actions: DriverActions;
+  onChanged(): void;
+  store?: LatLng | null;
+  /** Carrega a central de ganhos (sem ela, a aba não aparece). */
+  earnings?: () => Promise<CourierEarningsData>;
+}) {
+  const [tab, setTab] = useState<'runs' | 'earnings'>('runs');
+  const out = deliveries.filter((d) => d.status === 'out');
+  return (
+    <div className="driver">
+      {earnings && (
+        <SlideTabs<'runs' | 'earnings'>
+          label="Painel do entregador"
+          value={tab}
+          onChange={setTab}
+          tabs={[
+            { value: 'runs', label: 'Corridas', count: out.length },
+            { value: 'earnings', label: 'Meus ganhos' },
+          ]}
+        />
+      )}
+      {tab === 'earnings' && earnings ? (
+        <CourierEarnings load={earnings} />
+      ) : (
+        <Runs deliveries={deliveries} actions={actions} onChanged={onChanged} store={store} />
+      )}
+    </div>
+  );
+}
+
+function Runs({
   deliveries,
   actions,
   onChanged,
@@ -90,8 +124,13 @@ export function DriverPanel({
       destination: toPoint(d.deliveryLat, d.deliveryLng),
     })),
   ];
+  const [nav, setNav] = useState<NavApp>(preferredNavApp);
+  const pickNav = (app: NavApp) => {
+    rememberNavApp(app);
+    setNav(app);
+  };
   return (
-    <div className="driver">
+    <>
       {out.length > 0 && (
         <LiveMap
           className="driver__map"
@@ -135,7 +174,17 @@ export function DriverPanel({
           description="Quando o restaurante despachar um pedido para você, ele aparece aqui."
         />
       ) : (
-        out.map((d) => <RunCard key={d.id} d={d} me={me} actions={actions} onChanged={onChanged} />)
+        out.map((d) => (
+          <RunCard
+            key={d.id}
+            d={d}
+            me={me}
+            nav={nav}
+            onNav={pickNav}
+            actions={actions}
+            onChanged={onChanged}
+          />
+        ))
       )}
 
       {done.length > 0 && (
@@ -147,28 +196,35 @@ export function DriverPanel({
                 <span>
                   <strong>#{d.orderNumber}</strong> {d.customerName}
                 </span>
-                {d.status === 'delivered' ? (
-                  <Badge tone="success">Entregue {d.finishedAt && time(d.finishedAt)}</Badge>
-                ) : (
-                  <Badge tone="danger">Não entregue</Badge>
-                )}
+                <span className="earn__amount">
+                  {d.status === 'delivered' ? (
+                    <Badge tone="success">Entregue {d.finishedAt && time(d.finishedAt)}</Badge>
+                  ) : (
+                    <Badge tone="danger">Não entregue</Badge>
+                  )}
+                  {d.courierPay && <strong>{brl(d.courierPay)}</strong>}
+                </span>
               </li>
             ))}
           </ul>
         </>
       )}
-    </div>
+    </>
   );
 }
 
 function RunCard({
   d,
   me,
+  nav,
+  onNav,
   actions,
   onChanged,
 }: {
   d: Delivery;
   me: LatLng | null;
+  nav: NavApp;
+  onNav(app: NavApp): void;
   actions: DriverActions;
   onChanged(): void;
 }) {
@@ -210,7 +266,13 @@ function RunCard({
         <strong>{d.customerName ?? 'Cliente'}</strong>
         {d.customerPhone && <span className="cm-hint">{d.customerPhone}</span>}
       </div>
-      <a className="run__addr" href={routeUrl(d)} target="_blank" rel="noreferrer">
+      <a
+        className="run__addr"
+        href={navUrl(nav, d)}
+        target="_blank"
+        rel="noreferrer"
+        onClick={() => onNav(nav)}
+      >
         <MapPin size={18} />
         <span>{d.deliveryAddress ?? 'Endereço não informado'}</span>
       </a>
@@ -228,34 +290,47 @@ function RunCard({
           <span>Já está pago · {brl(d.total)}</span>
         )}
       </div>
-      <div className="run__links">
-        <a className="cm-btn cm-btn--secondary" href={routeUrl(d)} target="_blank" rel="noreferrer">
-          <Navigation size={16} /> Rota
-        </a>
-        <a className="cm-btn cm-btn--secondary" href={wazeUrl(d)} target="_blank" rel="noreferrer">
-          Waze
-        </a>
-        {d.customerPhone && (
-          <>
-            <a
-              className="cm-btn cm-btn--secondary"
-              href={`tel:${digits(d.customerPhone)}`}
-              aria-label="Ligar para o cliente"
-            >
-              <Phone size={16} />
-            </a>
-            <a
-              className="cm-btn cm-btn--secondary"
-              href={`https://wa.me/${waPhone(d.customerPhone)}`}
-              target="_blank"
-              rel="noreferrer"
-              aria-label="WhatsApp do cliente"
-            >
-              <MessageCircle size={16} />
-            </a>
-          </>
-        )}
+      {d.payEstimate && (
+        <div className="run__earn">
+          <span>Você ganha nesta entrega</span>
+          <strong>{brl(d.payEstimate)}</strong>
+        </div>
+      )}
+      <div className="run__nav" role="group" aria-label="Abrir a rota">
+        {[nav, ...NAV_APPS.map((a) => a.id).filter((a) => a !== nav)].map((app, i) => (
+          <a
+            key={app}
+            className={`cm-btn ${i === 0 ? 'cm-btn--primary' : 'cm-btn--secondary'}`}
+            href={navUrl(app, d)}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => onNav(app)}
+          >
+            {i === 0 && <Navigation size={16} />}
+            {i === 0 ? `Ir com ${NAV_APPS.find((a) => a.id === app)!.label}` : NAV_LABEL_SHORT[app]}
+          </a>
+        ))}
       </div>
+      {d.customerPhone && (
+        <div className="run__links">
+          <a
+            className="cm-btn cm-btn--secondary"
+            href={`tel:${digits(d.customerPhone)}`}
+            aria-label="Ligar para o cliente"
+          >
+            <Phone size={16} />
+          </a>
+          <a
+            className="cm-btn cm-btn--secondary"
+            href={`https://wa.me/${waPhone(d.customerPhone)}`}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="WhatsApp do cliente"
+          >
+            <MessageCircle size={16} />
+          </a>
+        </div>
+      )}
       {failing ? (
         <div className="inline-form">
           <TextField

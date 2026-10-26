@@ -364,3 +364,66 @@
     animation: none;
   }
 }
+
+/* Repasses aos entregadores (Entregas › Repasses). */
+.cp-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cp-kpi__hint {
+  grid-column: 2;
+  font-size: var(--cm-text-xs);
+}
+.cp-notes {
+  margin: 0;
+  line-height: 1.5;
+}
+.cp-example {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 10px var(--cm-space-3);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-sunken);
+  font-size: var(--cm-text-sm);
+}
+.cp-breakdown {
+  grid-column: 1 / -1;
+  display: grid;
+  margin: 0;
+  padding: var(--cm-space-2) var(--cm-space-3);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+}
+.cp-breakdown > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+}
+.cp-breakdown dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cp-breakdown__total {
+  border-top: 1px solid var(--cm-border);
+  font-weight: 700;
+}
+.cp-breakdown > p {
+  margin: 6px 0 0;
+}
+.cp-receipt__sign {
+  margin-top: 48px;
+  padding-top: 6px;
+  border-top: 1px solid var(--cm-text);
+  width: min(320px, 100%);
+  font-size: var(--cm-text-sm);
+}
+@media print {
+  body:has(.cp-receipt) > *:not(dialog[open]),
+  dialog[open]:has(.cp-receipt) footer,
+  dialog[open]:has(.cp-receipt) header button {
+    display: none !important;
+  }
+}
