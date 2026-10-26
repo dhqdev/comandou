@@ -471,6 +471,11 @@
   gap: var(--cm-space-3);
   align-content: start;
   min-height: 240px;
+  /* Cada coluna rola sozinha: a página fica parada e só a fila que a equipe está olhando se mexe. */
+  max-height: max(320px, calc(100dvh - 250px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 0 var(--cm-space-2) var(--cm-space-3);
   border-radius: var(--cm-radius-lg);
   background: color-mix(in srgb, var(--col) 5%, transparent);
@@ -740,6 +745,9 @@ label.option-row input[type='checkbox'] {
 @media (max-width: 760px) {
   .kds {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .kds__col {
+    max-height: max(280px, calc(var(--cm-vvh, 100dvh) - 230px));
   }
 }
 @media (max-width: 640px) {

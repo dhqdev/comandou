@@ -20,6 +20,18 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.26.1',
+    date: '2026-10-26',
+    title: 'Cozinha com rolagem por coluna',
+    summary: 'Cada coluna da Cozinha rola sozinha, sem arrastar a tela inteira.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Na Cozinha, A fazer, Preparando e Pronto têm cada uma a sua rolagem, com o título colorido fixo no topo. Funciona no computador, no tablet e no celular.',
+      },
+    ],
+  },
+  {
     version: '0.26.0',
     date: '2026-10-26',
     title: 'Aviso de versão nova com botão Atualizar',
