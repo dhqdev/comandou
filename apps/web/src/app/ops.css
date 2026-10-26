@@ -65,19 +65,30 @@
 .filters {
   display: flex;
   flex-wrap: wrap;
+  align-items: end;
   gap: var(--cm-space-3);
 }
 .filters .cm-field {
+  flex: 0 1 220px;
   min-width: 160px;
 }
-/* Celular: filtros em duas colunas iguais, sem campos de larguras diferentes. */
+/* Celular: o primeiro filtro (ex.: Dia) ocupa a linha e os outros dois ficam lado a lado,
+   do mesmo tamanho, sem um campo sobrando sozinho embaixo. */
 @media (max-width: 640px) {
   .filters {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--cm-space-2) var(--cm-space-3);
+  }
+  .filters > :first-child {
+    grid-column: 1 / -1;
   }
   .filters .cm-field {
     min-width: 0;
+  }
+  /* Botão de enviar (ex.: Cadastrar) na largura toda, embaixo. */
+  .filters > .cm-btn:last-child {
+    grid-column: 1 / -1;
   }
 }
 .link-btn {
@@ -645,6 +656,23 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) 110px auto;
   gap: var(--cm-space-2);
+}
+/* Caixinha de marcar com o texto ao lado (ex.: "Ativo"), em vez da grade de opções. */
+label.option-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+  cursor: pointer;
+}
+label.option-row input[type='checkbox'] {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--cm-brand-600);
 }
 
 @media (max-width: 1024px) {

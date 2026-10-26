@@ -519,7 +519,21 @@
   }
 }
 @media (max-width: 600px) {
-  /* Só o ícone aparece; o nome continua para leitores de tela. */
+  /* Celular, em três linhas arrumadas: canais (só ícone), busca, e loja aberta + novo pedido
+     lado a lado, do mesmo tamanho. */
+  .home__bar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--cm-space-2);
+  }
+  .home__bar > .slide-tabs,
+  .home__search {
+    grid-column: 1 / -1;
+    max-width: none;
+  }
+  .home__spacer {
+    display: none;
+  }
   .home__bar .tab-text {
     position: absolute;
     width: 1px;
@@ -531,14 +545,35 @@
   .home__bar > * {
     min-width: 0;
   }
-  .home__search {
-    flex: 1 1 100%;
-    max-width: none;
+  /* Os cinco canais cabem numa linha: cada um com a mesma largura. */
+  .home__bar .slide-tabs__tab {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0 4px;
+    gap: 4px;
   }
+  .home__bar .store-toggle,
   .home__bar .hbtn--lg {
-    flex: 1;
+    justify-content: center;
+    height: 44px;
+    min-height: 44px;
+    padding: 0 10px;
+    white-space: nowrap;
+    font-size: var(--cm-text-sm);
+  }
+  /* Sem permissão de vender: a loja aberta ocupa a linha sozinha. */
+  .home__bar .store-toggle:last-child {
+    grid-column: 1 / -1;
   }
   .home__bar .kbd {
     display: none;
+  }
+  /* Atalhos mais baixos: ícone menor e contador colado. */
+  .rail__item {
+    padding: 8px 2px;
+  }
+  .rail__item svg {
+    width: 20px;
+    height: 20px;
   }
 }

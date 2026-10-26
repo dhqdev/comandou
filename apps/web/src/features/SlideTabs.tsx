@@ -30,11 +30,19 @@ export function SlideTabs<T extends string>({
 }) {
   const wrap = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  /** Não cabe numa linha: a borda direita esmaece até chegar ao fim da rolagem. */
+  const [scroll, setScroll] = useState({ overflow: false, end: false });
 
   useLayoutEffect(() => {
     const el = wrap.current;
     if (!el) return;
+    const edge = () => {
+      const overflow = el.scrollWidth > el.clientWidth + 1;
+      const end = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+      setScroll((p) => (p.overflow === overflow && p.end === end ? p : { overflow, end }));
+    };
     const measure = () => {
+      edge();
       const active = el.querySelector<HTMLElement>('[aria-selected="true"]');
       if (!active) return setBox(null);
       setBox({
@@ -51,7 +59,11 @@ export function SlideTabs<T extends string>({
     measure();
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
     ro?.observe(el);
-    return () => ro?.disconnect();
+    el.addEventListener('scroll', edge, { passive: true });
+    return () => {
+      ro?.disconnect();
+      el.removeEventListener('scroll', edge);
+    };
   }, [value, tabs.length]);
 
   return (
@@ -60,6 +72,9 @@ export function SlideTabs<T extends string>({
       className={`slide-tabs slide-tabs--${size} ${className}`}
       role="tablist"
       aria-label={label}
+      data-count={tabs.length}
+      data-overflow={scroll.overflow || undefined}
+      data-end={scroll.end || undefined}
     >
       {box && (
         <span
