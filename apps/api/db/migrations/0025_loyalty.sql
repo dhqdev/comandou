@@ -1,4 +1,4 @@
--- 0024: programa de fidelidade do cardápio online.
+-- 0025: programa de fidelidade do cardápio online.
 -- 1) loyalty_programs: o restaurante liga o programa e escolhe a regra: pontos por real gasto ou
 --    um carimbo por pedido (com valor mínimo). Validade opcional: os pontos vencem quando o
 --    cliente passa N dias sem comprar.

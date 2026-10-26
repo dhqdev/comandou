@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.33.0',
+    date: '2026-10-26',
+    title: 'Programa de fidelidade e cardápio mais leve',
+    summary:
+      'O cliente com conta junta pontos (ou carimbos) a cada pedido concluído e troca por desconto ou produto grátis ao finalizar. O dono configura tudo em Loja online › Fidelidade e acompanha o resultado. O cardápio ficou mais minimalista: cartões menores, cantos discretos e sem gradientes.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Fidelidade: pontos por real gasto ou carimbo por pedido, validade opcional, recompensas de desconto em R$ ou produto grátis, e pedidos do balcão com o celular do cliente também contam.',
+      },
+      {
+        tag: 'novo',
+        text: 'O cliente vê o saldo no início do cardápio e na conta, acompanha o extrato e escolhe a recompensa na finalização; pedido cancelado devolve os pontos.',
+      },
+      {
+        tag: 'novo',
+        text: 'Relatório da fidelidade: clientes com saldo, vendas de quem participa, pontos dados, trocas e descontos concedidos, com os clientes que mais juntaram.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cardápio online mais minimalista: cartões e fotos menores, cantos menos arredondados, sem gradiente nem brilho, e a página Conta com cabeçalho sóbrio.',
+      },
+    ],
+  },
+  {
     version: '0.32.0',
     date: '2026-10-26',
     title: 'Central de ganhos do motoboy e repasses',
