@@ -289,6 +289,7 @@ export function HomeScreen() {
               </span>
             </div>
           </div>
+          {r.about && <p className="sf-about">{r.about}</p>}
           <ul className="sf-store__info">
             <li>
               <Clock size={15} aria-hidden /> {s.etaMin}–{s.etaMax} min
@@ -360,7 +361,6 @@ export function HomeScreen() {
             </span>
           </p>
         )}
-        {r.about && !term && <p className="sf-about">{r.about}</p>}
         {!term && <ReserveCard />}
 
         {term ? (

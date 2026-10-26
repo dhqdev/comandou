@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.24.2',
+    date: '2026-10-26',
+    title: 'Busca do cardápio mais bonita',
+    summary:
+      'A barra de busca do cardápio ganhou um visual mais leve e um contorno único na cor da loja ao tocar nela. A descrição da loja foi para dentro do cartão da loja.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Busca do cardápio: ao tocar, aparece um contorno só, suave e na cor da loja (antes ficava com borda dupla).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A descrição da loja fica no cartão, abaixo do nome, e o "Bem-vindo" fica alinhado com o cartão no computador.',
+      },
+    ],
+  },
+  {
     version: '0.24.1',
     date: '2026-10-26',
     title: 'Sons de aviso voltam a tocar',

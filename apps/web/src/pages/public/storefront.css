@@ -239,11 +239,13 @@
 }
 .sf-greet {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   padding: 0 4px;
+  min-width: 0;
 }
 .sf-greet__hello {
   margin: 0;
+  line-height: 1.3;
   color: var(--cm-text-muted);
   font-size: var(--cm-text-sm);
   font-weight: 600;
@@ -283,54 +285,85 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 52px;
-  padding: 0 14px 0 16px;
+  height: 50px;
+  padding: 0 8px 0 16px;
   border-radius: var(--sf-r);
   background: var(--cm-surface);
   border: 1px solid var(--cm-border);
-  box-shadow: var(--cm-shadow-md);
+  box-shadow: var(--cm-shadow-sm);
   color: var(--cm-text-subtle);
+  cursor: text;
   transition:
     box-shadow var(--cm-dur) var(--cm-ease),
-    border-color var(--cm-dur) var(--cm-ease);
+    border-color var(--cm-dur) var(--cm-ease),
+    color var(--cm-dur) var(--cm-ease);
 }
+.searchbox:hover {
+  border-color: var(--cm-border-strong);
+}
+/* Um anel só, na caixa: o campo por dentro não ganha contorno próprio. */
 .searchbox:focus-within {
   border-color: var(--cm-brand-500);
-  box-shadow: var(--cm-focus), var(--cm-shadow-md);
+  color: var(--cm-brand-600);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--cm-brand-500) 14%, transparent),
+    var(--cm-shadow-sm);
 }
 .searchbox input {
   flex: 1;
   min-width: 0;
   height: 100%;
+  padding: 0;
   border: 0;
+  border-radius: 0;
   outline: 0;
+  box-shadow: none;
   background: none;
   color: var(--cm-text);
+  caret-color: var(--cm-brand-500);
   font-size: 1rem; /* 16px: sem zoom no iPhone */
+  -webkit-appearance: none;
+  appearance: none;
 }
-.searchbox input::-webkit-search-cancel-button {
+.searchbox input:focus,
+.searchbox input:focus-visible {
+  outline: 0;
+  box-shadow: none;
+}
+.searchbox input::placeholder {
+  color: var(--cm-text-subtle);
+  opacity: 1;
+}
+.searchbox input::-webkit-search-cancel-button,
+.searchbox input::-webkit-search-decoration {
   display: none;
+  -webkit-appearance: none;
 }
 .searchbox button {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  flex: none;
+  width: 34px;
+  height: 34px;
   border: 0;
   border-radius: 50%;
   background: var(--cm-surface-sunken);
   color: var(--cm-text-muted);
   cursor: pointer;
 }
+.searchbox button:hover {
+  color: var(--cm-text);
+}
 
 .sf-body {
   padding-top: 8px;
 }
 .sf-about {
-  margin: 12px 0 0;
+  margin: 0;
   color: var(--cm-text-muted);
   font-size: var(--cm-text-sm);
   line-height: 1.5;
+  text-wrap: pretty;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -2233,8 +2266,13 @@
   .sf-store__name h1 {
     font-size: var(--cm-text-2xl);
   }
+  /* Texto de boas-vindas alinhado com a base do cartão da loja. */
   .sf-greet {
-    padding: 0 0 6px;
+    align-self: end;
+    padding: 0 0 20px;
+  }
+  .sf-about {
+    -webkit-line-clamp: 2;
   }
   .searchbar {
     top: var(--sf-appbar);
