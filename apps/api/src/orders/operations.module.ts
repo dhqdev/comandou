@@ -39,6 +39,8 @@ import { CustomersService } from '../store/customers.service';
 import { MediaController, StoreController } from '../store/store.controller';
 import { StoreService } from '../store/store.service';
 import { SearchController } from '../search/search.controller';
+import { LoyaltyController } from '../loyalty/loyalty.controller';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 import { OrdersController, PaymentsController } from './orders.controller';
 import { OrdersService } from './orders.service';
 
@@ -70,6 +72,7 @@ import { OrdersService } from './orders.service';
     SearchController,
     ReservationsController,
     PublicReservationsController,
+    LoyaltyController,
   ],
   providers: [
     OrdersService,
@@ -91,6 +94,7 @@ import { OrdersService } from './orders.service';
     StoreService,
     CustomersService,
     ReservationsService,
+    LoyaltyService,
   ],
 })
 export class OperationsModule {}

@@ -28,6 +28,7 @@ import { PrintingService } from '../printing/printing.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { StockService } from '../stock/stock.service';
 import { PlanService } from '../plans/plan.service';
+import { LoyaltyService, RedeemQuote } from '../loyalty/loyalty.service';
 
 export interface OrderItemInput {
   productId: string;
@@ -56,6 +57,8 @@ export interface CreateOrderInput {
     changeFor?: string;
     /** Cliente com conta aberta no cardápio (orders.customer_id). */
     customerId?: string;
+    /** Recompensa do programa de fidelidade trocada neste pedido (exige customerId). */
+    rewardId?: string;
   };
   /** Pedido mínimo (sobre o subtotal dos itens), usado pelo cardápio online. */
   minSubtotal?: string;
@@ -155,6 +158,7 @@ export class OrdersService {
     private readonly printing: PrintingService,
     private readonly messaging: MessagingService,
     private readonly plans: PlanService,
+    private readonly loyalty: LoyaltyService,
   ) {}
 
   // ---------------------------------------------------------------- consultas
@@ -367,17 +371,32 @@ export class OrdersService {
       return { p, it, chosen, unit, total };
     });
 
+    // Fidelidade: o desconto da recompensa vem do programa (não passa pelo limite de desconto da equipe).
+    let reward: RedeemQuote | null = null;
+    if (input.online?.rewardId) {
+      if (!input.online.customerId)
+        throw new UnprocessableEntityException('Entre na sua conta para usar os pontos');
+      reward = await this.loyalty.quoteRedeemIn(
+        tx,
+        input.online.customerId,
+        input.online.rewardId,
+        lines.map((l) => ({ productId: l.p.id, unitBaseCents: toCents(l.p.price) })),
+        subtotal,
+      );
+    }
+
     if (input.minSubtotal && subtotal < toCents(input.minSubtotal))
       throw new UnprocessableEntityException(
         `Pedido mínimo de R$ ${input.minSubtotal.replace('.', ',')} (sem a taxa de entrega)`,
       );
-    const discount = toCents(input.discount ?? '0');
+    const staffDiscount = toCents(input.discount ?? '0');
+    const discount = staffDiscount + (reward?.discountCents ?? 0);
     const surcharge = toCents(input.surcharge ?? '0');
     const deliveryFee = toCents(input.deliveryFee ?? '0');
     // Garçom não dá desconto nem acréscimo: isso fica com o caixa/gerente (cliente online não passa aqui).
-    if (ctx.userId && ordersLimitedToOwn(ctx.user.role) && (discount > 0 || surcharge > 0))
+    if (ctx.userId && ordersLimitedToOwn(ctx.user.role) && (staffDiscount > 0 || surcharge > 0))
       throw new ForbiddenException('Desconto e acréscimo ficam com o caixa ou o gerente');
-    this.checkDiscount(ctx, discount, subtotal);
+    this.checkDiscount(ctx, staffDiscount, subtotal);
     const total = subtotal - discount + surcharge + deliveryFee;
     if (total < 0) throw new UnprocessableEntityException('Desconto maior que o valor do pedido');
 
@@ -417,6 +436,8 @@ export class OrdersService {
         input.deliveryLocation?.lng.toFixed(6) ?? null,
       ],
     );
+    if (reward)
+      await this.loyalty.recordRedeemIn(tx, ctx.tenantId, input.online!.customerId!, order!.id, reward);
     for (const l of lines) {
       const item = await one<{ id: string }>(
         tx,
@@ -609,6 +630,9 @@ export class OrdersService {
       [o.id, to, reason ?? null],
     );
     await this.history(tx, ctx, o.id, o.status, to, reason);
+    // Fidelidade: pedido concluído rende pontos; cancelado devolve os pontos trocados nele.
+    if (to === 'completed') await this.loyalty.earnForOrderIn(tx, ctx.tenantId, o.id);
+    if (to === 'cancelled') await this.loyalty.refundForOrderIn(tx, ctx.tenantId, o.id);
     await this.audit.record(tx, {
       tenantId: ctx.tenantId,
       actorUserId: ctx.userId,

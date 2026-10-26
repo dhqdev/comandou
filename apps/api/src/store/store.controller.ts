@@ -30,6 +30,7 @@ import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { CepService, isUf } from './cep.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 import { cookieOf, CUSTOMER_COOKIE, CustomersService } from './customers.service';
 import {
   CORNER_STYLES,
@@ -104,6 +105,8 @@ const OnlineOrder = z.object({
     )
     .min(1)
     .max(60),
+  /** Recompensa do programa de fidelidade (só com a conta aberta). */
+  rewardId: uuid.optional(),
 });
 
 const Settings = z
@@ -206,6 +209,7 @@ export class StoreController {
     private readonly store: StoreService,
     private readonly customers: CustomersService,
     private readonly cep: CepService,
+    private readonly loyalty: LoyaltyService,
   ) {}
 
   @Public()
@@ -279,6 +283,15 @@ export class StoreController {
     // Com a conta aberta, o pedido entra no histórico do cliente.
     const c = await this.customers.resolve(t.id, cookieOf(req, CUSTOMER_COOKIE));
     return this.store.placeOrder(t.id, { ...b, customerId: c?.id }, requireKey(key), req.ip);
+  }
+
+  /** Programa de fidelidade: regra e recompensas; com a conta aberta, saldo e extrato. */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 120 } })
+  @Get('loyalty')
+  async loyaltyView(@CurrentTenant() t: ResolvedTenant, @Req() req: Request) {
+    const c = await this.customers.resolve(t.id, cookieOf(req, CUSTOMER_COOKIE));
+    return this.loyalty.publicView(t.id, c?.id ?? null);
   }
 
   @Public()

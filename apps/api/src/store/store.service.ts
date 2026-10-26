@@ -193,6 +193,8 @@ export interface OnlineOrderInput {
   items: { productId: string; quantity: number; notes?: string; optionIds?: string[] }[];
   /** Cliente com a conta aberta (cookie cm_cid). */
   customerId?: string;
+  /** Recompensa do programa de fidelidade trocada no pedido. */
+  rewardId?: string;
 }
 
 /** Loja online: configurações, cardápio público e pedidos feitos pelo cliente final. */
@@ -488,6 +490,7 @@ export class StoreService {
           paymentHint: input.paymentMethod,
           changeFor: input.paymentMethod === 'cash' ? input.changeFor : undefined,
           customerId: input.customerId,
+          rewardId: input.rewardId,
         },
         minSubtotal,
       },
