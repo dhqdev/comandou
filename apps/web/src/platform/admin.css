@@ -1,135 +1,25 @@
 /*
- * Painel Super Admin (admin.<domínio>): versão escura do padrão Comandou.
- * Grafite quente (ou claro, no botão sol/lua) + laranja, cantos discretos, rótulos em monoespaçada. Os componentes do
- * design system herdam estes tokens (botões, campos, tabelas e modais ficam no mesmo estilo).
+ * Painel Super Admin (admin.<domínio>): mesmo layout e tokens do app da loja (design minimalista).
+ * Sem tema próprio: --a-* só apelidam os tokens --cm-*, então claro/escuro e componentes
+ * (botões, campos, tabelas, modais) são os mesmos do app dos restaurantes.
  */
 :root[data-app='admin'] {
-  color-scheme: dark;
-  --a-bg: #0f0d0c;
-  --a-panel: #171412;
-  --a-panel-2: #1d1a17;
-  --a-line: #2a2522;
-  --a-line-strong: #3a3430;
-  --a-text: #f1ece7;
-  --a-muted: #c4bab0;
-  --a-subtle: #9a9087;
-  --a-accent: #f0921f;
-  --a-accent-ink: #1a1007;
-  --a-ok: #5ad68a;
-  --a-warn: #f2b544;
-  --a-bad: #f2706b;
-  --a-info: #6aa8ff;
-  --a-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
-  /* Texto do painel em Inter (mais nítida e legível); monoespaçada só nos logs. */
+  --a-bg: var(--cm-bg);
+  --a-panel: var(--cm-surface);
+  --a-panel-2: var(--cm-surface-muted);
+  --a-line: var(--cm-border);
+  --a-line-strong: var(--cm-border-strong);
+  --a-text: var(--cm-text);
+  --a-muted: var(--cm-text-muted);
+  --a-subtle: var(--cm-text-subtle);
+  --a-accent: var(--cm-brand-700);
+  --a-accent-ink: var(--cm-on-brand);
+  --a-ok: var(--cm-success);
+  --a-warn: var(--cm-warning);
+  --a-bad: var(--cm-danger);
+  --a-info: var(--cm-info);
+  --a-mono: var(--cm-font-mono);
   --a-ui: var(--cm-font);
-
-  --cm-bg: var(--a-bg);
-  --cm-surface: var(--a-panel);
-  --cm-surface-muted: var(--a-panel-2);
-  --cm-border: var(--a-line);
-  --cm-border-strong: var(--a-line-strong);
-  --cm-text: var(--a-text);
-  --cm-text-muted: var(--a-muted);
-  --cm-text-subtle: var(--a-subtle);
-  --cm-brand-500: var(--a-accent);
-  --cm-brand-600: var(--a-accent);
-  --cm-brand-700: var(--a-accent);
-  --cm-brand-800: #ffb59c;
-  --cm-brand-50: #26140d;
-  --cm-brand-100: #331a10;
-  --cm-on-brand: var(--a-accent-ink);
-  --cm-link: var(--a-accent);
-  --cm-surface-sunken: #0b0a09;
-  --cm-sidebar-bg: var(--a-bg);
-  --cm-glass-bg: rgb(58 52 48 / 62%);
-  --cm-glass-border: rgb(255 255 255 / 8%);
-  --cm-glass-highlight: inset 0 1px 0 rgb(255 255 255 / 7%);
-  --cm-mascot-ink: #1a1613;
-  --cm-success: var(--a-ok);
-  --cm-success-bg: #10241a;
-  --cm-warning: var(--a-warn);
-  --cm-warning-bg: #261f0e;
-  --cm-danger: var(--a-bad);
-  --cm-danger-bg: #2a1413;
-  --cm-info: var(--a-info);
-  --cm-info-bg: #111d30;
-  --cm-radius-sm: 4px;
-  --cm-radius-md: 6px;
-  --cm-radius-lg: 8px;
-  --cm-shadow-sm: none;
-  --cm-shadow-md: none;
-  --cm-shadow-lg: 0 -8px 40px rgb(0 0 0 / 55%);
-  --cm-focus: 0 0 0 2px color-mix(in srgb, var(--a-accent) 60%, transparent);
-  --cm-frame: #090807;
-  --cm-frame-line: var(--a-line);
-  --cm-sidebar-text: var(--a-muted);
-  --cm-sidebar-text-strong: var(--a-text);
-  --cm-sidebar-active: var(--a-panel-2);
-  --cm-mascot-rim: #6b625a;
-}
-/* Tema claro do painel (botão sol/lua): mesmos componentes, cores de papel. */
-:root[data-app='admin'][data-theme='light'] {
-  color-scheme: light;
-  --a-bg: #f6f4f1;
-  --a-panel: #ffffff;
-  --a-panel-2: #faf8f6;
-  --a-line: #e8e3de;
-  --a-line-strong: #d6cfc8;
-  --a-text: #1a1613;
-  --a-muted: #4f4842;
-  --a-subtle: #6e665e;
-  --a-accent: #c26a00;
-  --a-accent-ink: #1a1007;
-  --a-ok: #1f8a4c;
-  --a-warn: #b86e00;
-  --a-bad: #d0312d;
-  --a-info: #2463d1;
-  --cm-brand-500: #ea8a0b;
-  --cm-brand-600: #db7a06;
-  --cm-brand-700: #a65800;
-  --cm-brand-800: #8a4200;
-  --cm-brand-50: #fff7ed;
-  --cm-brand-100: #ffedd5;
-  --cm-link: #a65800;
-  --cm-surface-sunken: #efece8;
-  --cm-glass-bg: rgb(255 255 255 / 72%);
-  --cm-glass-border: rgb(26 22 19 / 8%);
-  --cm-glass-highlight: inset 0 1px 0 rgb(255 255 255 / 90%);
-  --cm-success-bg: #edf7ef;
-  --cm-warning-bg: #fff6e0;
-  --cm-danger-bg: #fdefee;
-  --cm-info-bg: #eef3fd;
-  --cm-shadow-sm: 0 1px 2px rgb(26 22 19 / 5%);
-  --cm-shadow-md: 0 1px 2px rgb(26 22 19 / 4%), 0 6px 20px -6px rgb(26 22 19 / 12%);
-  --cm-shadow-lg: 0 2px 6px rgb(26 22 19 / 6%), 0 24px 64px -12px rgb(26 22 19 / 28%);
-  --cm-frame: #ffffff;
-  --cm-frame-line: var(--a-line);
-  --cm-mascot-rim: none;
-}
-:root[data-app='admin'][data-theme='light'] .cm-modal::backdrop {
-  background: rgb(18 15 13 / 42%);
-}
-:root[data-app='admin'] body {
-  background: var(--a-bg);
-  font-family: var(--a-ui);
-  /* Sem 'tnum' no texto corrido: no Inter ele também alarga hífens e parênteses ("E - mail").
-     Números alinhados ficam nos valores, tabelas e colunas laterais. */
-  font-feature-settings:
-    'cv11' 1,
-    'ss03' 1;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-}
-:root[data-app='admin'] .cm-btn--primary {
-  color: var(--a-accent-ink);
-}
-:root[data-app='admin'] .cm-btn--danger {
-  color: #1b0908;
-}
-:root[data-app='admin'] .cm-input,
-:root[data-app='admin'] select.cm-input {
-  background: var(--a-bg);
 }
 
 /* ---------------------------------------------------------------- estrutura (moldura = AppFrame) */
@@ -142,10 +32,8 @@
   font-family: var(--a-ui);
   font-weight: 700;
   font-size: 15px;
-  letter-spacing: 0.06em;
-  color: var(--a-accent);
+  color: var(--a-text);
   padding: 0 10px 18px;
-  text-transform: uppercase;
 }
 .adm-logo span {
   color: var(--a-subtle);
@@ -153,8 +41,6 @@
 .adm-top__title {
   font-family: var(--a-ui);
   font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
   font-size: 15px;
 }
 .adm-top__sub {
@@ -171,7 +57,7 @@
   width: 38px;
   height: 38px;
   border: 1px solid var(--a-line-strong);
-  border-radius: 4px;
+  border-radius: var(--cm-radius-md);
   background: var(--a-panel);
   color: var(--a-text);
   cursor: pointer;
@@ -197,10 +83,8 @@
   margin: 0;
   font-family: var(--a-ui);
   font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--a-accent);
+  font-weight: 600;
+  color: var(--a-text);
   white-space: nowrap;
 }
 .adm-section__sub {
@@ -234,7 +118,7 @@
   align-content: start;
   padding: 16px;
   border: 1px solid var(--a-line);
-  border-radius: 4px;
+  border-radius: var(--cm-radius-md);
   background: var(--a-panel);
   min-width: 0;
   text-align: left;
@@ -250,8 +134,6 @@ button.adm-tile:hover {
 .adm-label {
   font-family: var(--a-ui);
   font-size: 12.5px;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
   color: var(--a-muted);
 }
 .adm-value {
@@ -324,7 +206,7 @@ button.adm-tile:hover {
 /* Painel com linhas */
 .adm-panel {
   border: 1px solid var(--a-line);
-  border-radius: 4px;
+  border-radius: var(--cm-radius-md);
   background: var(--a-panel);
   min-width: 0;
 }
@@ -444,8 +326,6 @@ a.adm-row:hover {
   border: 1px solid var(--a-line-strong);
   font-family: var(--a-ui);
   font-size: 12.5px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--a-muted);
   white-space: nowrap;
 }
@@ -482,8 +362,6 @@ a.adm-row:hover {
   color: var(--a-muted);
   font-family: var(--a-ui);
   font-size: 13.5px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   cursor: pointer;
   box-shadow: inset 0 -2px 0 transparent;
 }
@@ -505,13 +383,11 @@ a.adm-row:hover {
   min-height: 40px;
   padding: 0 14px;
   border: 1px solid var(--a-line-strong);
-  border-radius: 4px;
+  border-radius: var(--cm-radius-md);
   background: var(--a-panel);
   color: var(--a-text);
   font-family: var(--a-ui);
   font-size: 13.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   cursor: pointer;
   text-decoration: none;
 }
@@ -594,28 +470,6 @@ a.adm-row:hover {
   gap: 12px;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   align-items: start;
-}
-
-/* ---------------------------------------------------------------- modais que sobem */
-:root[data-app='admin'] .cm-modal {
-  border: 1px solid var(--a-line-strong);
-  border-radius: 6px;
-  background: var(--a-panel);
-  color: var(--a-text);
-}
-:root[data-app='admin'] .cm-modal[open] {
-  animation: adm-pop 0.18s ease-out;
-}
-:root[data-app='admin'] .cm-modal::backdrop {
-  background: rgb(0 0 0 / 62%);
-  backdrop-filter: none;
-}
-:root[data-app='admin'] .cm-modal .cm-card__title {
-  font-family: var(--a-ui);
-  font-size: 14px;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
-  color: var(--a-accent);
 }
 
 @keyframes adm-pop {
@@ -731,7 +585,7 @@ a.adm-row:hover {
 /* Passo a passo recolhível (ex.: como criar o bucket do backup) */
 .adm-help {
   border: 1px solid var(--a-line);
-  border-radius: 4px;
+  border-radius: var(--cm-radius-md);
   background: var(--a-panel);
   padding: 12px 16px;
   font-size: 14px;
@@ -772,7 +626,7 @@ a.adm-row:hover {
   align-items: center;
   gap: 12px;
   border: 1px solid var(--a-line);
-  border-radius: 4px;
+  border-radius: var(--cm-radius-md);
   background: var(--a-panel);
   padding: 12px 16px;
   margin: 12px 0;
@@ -810,8 +664,6 @@ a.adm-row:hover {
   font-family: var(--a-ui);
   font-size: 12.5px;
   font-weight: 600;
-  letter-spacing: 0.07em;
-  text-transform: uppercase;
   color: var(--a-muted);
 }
 .adm-fieldset__hint {
@@ -877,7 +729,7 @@ details.adm-fieldset[open] > summary::before {
   display: flex;
   min-width: 0;
   border: 1px solid var(--a-line-strong);
-  border-radius: 4px;
+  border-radius: var(--cm-radius-md);
   background: var(--a-bg);
 }
 .adm-addon:focus-within {
@@ -918,8 +770,6 @@ details.adm-fieldset[open] > summary::before {
   color: var(--a-muted);
   font-family: var(--a-ui);
   font-size: 12.5px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   cursor: pointer;
 }
 .adm-addon__btn:hover {
@@ -938,7 +788,7 @@ details.adm-fieldset[open] > summary::before {
   gap: 4px;
   padding: 12px 14px;
   border: 1px solid var(--a-line-strong);
-  border-radius: 4px;
+  border-radius: var(--cm-radius-md);
   background: var(--a-bg);
   cursor: pointer;
 }
@@ -970,8 +820,6 @@ details.adm-fieldset[open] > summary::before {
   border-radius: 3px;
   font-family: var(--a-ui);
   font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--a-muted);
 }
 .adm-plan-opt__detail {
@@ -1009,4 +857,12 @@ details.adm-fieldset[open] > summary::before {
 /* Números alinhados onde há colunas de valores. */
 :root[data-app='admin'] :is(.adm-row__side, .adm-kv dd, .cm-table td, .adm-meter) {
   font-variant-numeric: tabular-nums;
+}
+
+/* No celular o título da tela fica visível no topo (no app da loja o nome some). */
+@media (max-width: 860px) {
+  .adm-frame .topbar__tenant {
+    display: flex;
+    max-width: none;
+  }
 }

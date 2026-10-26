@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.30.1',
+    date: '2026-10-26',
+    title: 'Painel admin com o layout da loja',
+    summary:
+      'O painel admin agora usa o mesmo layout, cores e componentes do app da loja, no computador e no celular, com tema claro e escuro. O ícone da aba e do app instalado é o padrão do Comandou.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Admin: menu lateral, topo, cartões, campos e janelas iguais aos do app da loja, sem o tema escuro próprio.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Admin: o ícone (favicon e app instalado) é o padrão do Comandou, sem seguir a cor de nenhuma loja.',
+      },
+    ],
+  },
+  {
     version: '0.30.0',
     date: '2026-10-26',
     title: 'Fotos dos itens em todo o pedido',

@@ -19,6 +19,7 @@ import {
   useEffect,
   useState,
 } from 'react';
+import { CURRENT_RELEASE } from '@comandou/shared';
 import { BrowserRouter, Outlet, Route, Routes, useLocation } from 'react-router';
 import {
   Alert,
@@ -142,7 +143,7 @@ function PlatformLogin() {
         style={{ width: 'min(400px, 100%)', padding: 24, display: 'grid', gap: 14 }}
       >
         <div className="adm-logo" style={{ padding: 0 }}>
-          <Mascot size={22} badge /> Comandou <span>//</span> admin
+          <Mascot size={22} badge /> Comandou <span>admin</span>
         </div>
         <div className="adm-sub" style={{ whiteSpace: 'normal', marginTop: -8 }}>
           Acesso restrito à equipe da plataforma. Tudo é auditado.
@@ -301,9 +302,9 @@ function PlatformShell() {
         contentKey={`${pathname}:${tick}`}
         top={
           <>
-            <div style={{ minWidth: 0 }}>
-              <div className="adm-top__title">{titleFor(pathname)}</div>
-              <div className="adm-top__sub">{window.location.hostname}</div>
+            <div className="topbar__tenant" title={window.location.hostname}>
+              {titleFor(pathname)}
+              <span className="topbar__version">v{CURRENT_RELEASE.version}</span>
             </div>
             <span className="adm-top__spacer" />
             <button

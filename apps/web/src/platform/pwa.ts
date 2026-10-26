@@ -16,9 +16,9 @@ export function applyAdminPwa() {
   const link = (rel: string) => () => Object.assign(document.createElement('link'), { rel });
   const meta = (name: string) => () => Object.assign(document.createElement('meta'), { name });
   set('link[rel="manifest"]', link('manifest'), 'href', '/admin.webmanifest');
-  set('link[rel="apple-touch-icon"]', link('apple-touch-icon'), 'href', '/icons/admin-180.png');
-  set('link[rel="icon"]', link('icon'), 'href', '/icons/admin-192.png');
-  set('meta[name="theme-color"]', meta('theme-color'), 'content', '#0b0c0f');
+  set('link[rel="apple-touch-icon"]', link('apple-touch-icon'), 'href', '/apple-touch-icon.png');
+  set('link[rel="icon"]', link('icon'), 'href', '/favicon.svg');
+  set('meta[name="theme-color"]', meta('theme-color'), 'content', '#ffffff');
   set(
     'meta[name="apple-mobile-web-app-capable"]',
     meta('apple-mobile-web-app-capable'),

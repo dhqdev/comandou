@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 
 /**
  * Tema claro/escuro. Fica salvo neste navegador; sem escolha, segue o sistema
- * (o painel admin começa no escuro). Todas as telas usam os mesmos tokens --cm-*, então
+ * (vale também para o painel admin). Todas as telas usam os mesmos tokens --cm-*, então
  * trocar o tema aqui muda tudo junto.
  */
 export type Theme = 'light' | 'dark';
@@ -20,7 +20,6 @@ function stored(): Theme | null {
 }
 
 function systemTheme(): Theme {
-  if (document.documentElement.dataset.app === 'admin') return 'dark';
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 

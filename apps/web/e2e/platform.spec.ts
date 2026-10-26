@@ -58,7 +58,7 @@ async function adminLogin(page: Page) {
       page.getByRole('button', { name: 'Entrar' }).click(),
     ]);
     if (res.ok()) {
-      await expect(page.locator('.adm-top__title')).toHaveText('Status');
+      await expect(page.locator('.topbar__tenant')).toContainText('Status');
       return;
     }
   }
