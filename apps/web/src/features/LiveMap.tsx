@@ -53,7 +53,9 @@ const esc = (s: string) =>
 function resolveColor(el: HTMLElement, c: string) {
   const m = /^var\((--[\w-]+)\)$/.exec(c.trim());
   if (!m) return c;
-  return getComputedStyle(el).getPropertyValue(m[1]!).trim() || '#e23a00';
+  return (
+    getComputedStyle(el).getPropertyValue(m[1]!).trim() || '#e23a00'
+  ); /* só se o token faltar */
 }
 
 function riderIcon(r: MapRider, color: string, selected: boolean) {

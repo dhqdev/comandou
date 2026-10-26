@@ -37,6 +37,23 @@ export const RELEASES: readonly Release[] = [
     ],
   },
   {
+    version: '0.30.2',
+    date: '2026-10-26',
+    title: 'Cor da loja em todas as telas',
+    summary:
+      'A cor salva na Loja online passa a valer na hora, sem cache, em todas as telas da loja (PDV, salão, cozinha, garçom, entregas, cardápio e login). O painel do administrador do Comandou segue com as cores do Comandou.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'As cores e o ícone da loja não ficam mais presos em cache do navegador ou do servidor depois de salvar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Marcadores do mapa de áreas de entrega usam a cor da loja.',
+      },
+    ],
+  },
+  {
     version: '0.30.0',
     date: '2026-10-26',
     title: 'Fotos dos itens em todo o pedido',

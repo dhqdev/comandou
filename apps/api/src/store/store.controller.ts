@@ -200,7 +200,9 @@ export class StoreController {
   @Public()
   @Throttle({ default: { ttl: 60_000, limit: 120 } })
   @Get('branding')
-  branding(@CurrentTenant() t: ResolvedTenant) {
+  branding(@CurrentTenant() t: ResolvedTenant, @Res({ passthrough: true }) res: Response) {
+    // Cor salva tem de valer na hora em todas as telas: nada de cache no navegador/proxy.
+    res.setHeader('Cache-Control', 'no-store');
     return this.store.branding(t.id);
   }
 
