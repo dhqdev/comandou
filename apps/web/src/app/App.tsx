@@ -34,6 +34,7 @@ import { AuthProvider, useAuth } from './auth';
 import { ROLE_HOME, ROUTE_PERMS } from './role-home';
 import { NoAccess } from './NoAccess';
 import { UpdatePrompt } from './UpdatePrompt';
+import { WaiterEntry } from './WaiterEntry';
 
 function Home() {
   const { me } = useAuth();
@@ -134,6 +135,9 @@ function Gate() {
             </Guard>
           }
         />
+        {/* Endereço do garçom: sem sessão mostra o login do garçom; com sessão leva ao Salão. */}
+        <Route path="garcom" element={<WaiterEntry />} />
+        <Route path="garçom" element={<WaiterEntry />} />
         <Route path="configuracoes" element={<SettingsPage />} />
         <Route
           path="cardapio"

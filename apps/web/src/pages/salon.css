@@ -154,6 +154,21 @@
   font-size: var(--cm-text-lg);
 }
 
+/* Acesso do garçom: link e QR para abrir no celular */
+.waiter-access {
+  display: grid;
+  gap: var(--cm-space-4);
+}
+.waiter-access__qr {
+  justify-self: center;
+  width: min(100%, 260px);
+}
+.waiter-access__qr figcaption {
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 860px) {
   .salon .page-head > div:first-child {
     display: none;

@@ -2,15 +2,19 @@ import { toCents } from '@comandou/shared';
 import {
   ArrowRightLeft,
   BellRing,
+  ExternalLink,
   LayoutGrid,
+  Link2,
   Plus,
   Printer,
   Receipt,
   ScanLine,
   Search,
   ShoppingBag,
+  Smartphone,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import {
   Alert,
   Badge,
@@ -23,6 +27,7 @@ import {
   useToast,
 } from '../design-system';
 import { useCan } from '../app/auth';
+import { WAITER_PATH, waiterLink } from '../app/WaiterEntry';
 import { NewSaleModal } from '../features/NewSaleModal';
 import { OrderDetailModal } from '../features/OrderDetailModal';
 import { PaymentModal } from '../features/PaymentModal';
@@ -87,6 +92,7 @@ export function TablesPage() {
   const [scan, setScan] = useState(false);
   const [takeout, setTakeout] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [waiterOpen, setWaiterOpen] = useState(false);
   const [freeTable, setFreeTable] = useState<DiningTable | null>(null);
   useLinkParam('comanda', setTabId);
   useLinkParam('acao', (a) => a === 'comanda' && canOperate && setNewTab(true));
@@ -181,6 +187,15 @@ export function TablesPage() {
           {canSetup && (
             <Button variant="ghost" icon={<Printer size={16} />} onClick={() => setQrOpen(true)}>
               QR das mesas
+            </Button>
+          )}
+          {canSetup && (
+            <Button
+              variant="ghost"
+              icon={<Smartphone size={16} />}
+              onClick={() => setWaiterOpen(true)}
+            >
+              Acesso do garçom
             </Button>
           )}
           {canOperate && (
@@ -372,6 +387,7 @@ export function TablesPage() {
       {canSetup && (
         <TableQrModal open={qrOpen} onClose={() => setQrOpen(false)} tables={tables ?? []} />
       )}
+      {canSetup && <WaiterAccessModal open={waiterOpen} onClose={() => setWaiterOpen(false)} />}
     </div>
   );
 }
@@ -423,6 +439,75 @@ function TableQrModal({
         <Button icon={<Printer size={16} />} onClick={() => printQrSheet()}>
           Imprimir
         </Button>
+      </div>
+    </Modal>
+  );
+}
+
+/** Link do garçom (/garcom) com QR: ele abre no celular e entra com o próprio e-mail e senha. */
+function WaiterAccessModal({ open, onClose }: { open: boolean; onClose(): void }) {
+  const toast = useToast();
+  const canTeam = useCan('users:manage');
+  const link = waiterLink();
+  const [qr, setQr] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open || qr) return;
+    let alive = true;
+    void import('qrcode').then(async ({ default: QRCode }) => {
+      const url = await QRCode.toDataURL(link, { margin: 1, width: 360 });
+      if (alive) setQr(url);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open, qr, link]);
+  const copy = () =>
+    navigator.clipboard
+      ?.writeText(link)
+      .then(() => toast('Link copiado', 'success'))
+      .catch(() => toast(link));
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Acesso do garçom"
+      footer={
+        <>
+          <a
+            className="cm-btn cm-btn--secondary"
+            href={WAITER_PATH}
+            target="_blank"
+            rel="noreferrer"
+          >
+            <ExternalLink size={16} /> Abrir
+          </a>
+          <Button icon={<Link2 size={16} />} onClick={copy}>
+            Copiar link
+          </Button>
+        </>
+      }
+    >
+      <div className="waiter-access">
+        <p className="cm-hint" style={{ margin: 0 }}>
+          O garçom abre este endereço no celular e entra com o e-mail e a senha dele. Depois do
+          login ele cai direto no Salão, pronto para escanear a mesa e lançar pedidos.
+        </p>
+        <figure className="qr-card waiter-access__qr">
+          {qr ? <img src={qr} alt="QR Code do acesso do garçom" /> : <Spinner />}
+          <figcaption>{link}</figcaption>
+        </figure>
+        <p className="cm-hint" style={{ margin: 0 }}>
+          Cada garçom precisa de um usuário com o papel <strong>Garçom</strong>
+          {canTeam ? (
+            <>
+              {' '}
+              em <Link to="/equipe">Equipe</Link>.
+            </>
+          ) : (
+            ' (peça ao gerente).'
+          )}{' '}
+          Dica: no celular, use “Adicionar à tela inicial” para abrir como app.
+        </p>
       </div>
     </Modal>
   );

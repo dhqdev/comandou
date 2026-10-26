@@ -1,11 +1,15 @@
 import { CSSProperties, FormEvent, useEffect, useState } from 'react';
 import { Alert, Button, Logo, Mascot, TextField } from '../design-system';
+import { useLocation } from 'react-router';
 import { useAuth } from '../app/auth';
+import { isWaiterPath } from '../app/WaiterEntry';
 import { api, ApiError } from '../lib/api';
 import './login.css';
 
 export function LoginPage() {
   const { login } = useAuth();
+  // /garcom: mesmo login, com textos para o garçom (depois de entrar ele cai no Salão).
+  const waiter = isWaiterPath(useLocation().pathname);
   const [tenantName, setTenantName] = useState<string | null>(null);
   const [tenantMissing, setTenantMissing] = useState(false);
   const [email, setEmail] = useState('');
@@ -43,9 +47,19 @@ export function LoginPage() {
           <Logo size={34} />
         </div>
         <h1 className="login__title">
-          {tenantName ? `Entrar em ${tenantName}` : 'Bem-vindo de volta'}
+          {waiter
+            ? 'Acesso do garçom'
+            : tenantName
+              ? `Entrar em ${tenantName}`
+              : 'Bem-vindo de volta'}
         </h1>
-        <p className="login__sub">Acesse o painel do seu restaurante.</p>
+        <p className="login__sub">
+          {waiter
+            ? `Entre com o e-mail e a senha que o gerente cadastrou para você${
+                tenantName ? ` em ${tenantName}` : ''
+              }.`
+            : 'Acesse o painel do seu restaurante.'}
+        </p>
         {tenantMissing && (
           <Alert tone="warning">
             Restaurante não encontrado neste endereço. Confira o link enviado pelo administrador.
