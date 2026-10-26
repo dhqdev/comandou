@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.25.0',
+    date: '2026-10-26',
+    title: 'App do garçom novo, com desafios',
+    summary:
+      'O garçom tem um app só dele em /garcom, como no Anota AI e no PedidoJá: mapa de mesas e comandas, pedido rápido, cardápio com fotos e desafios com selos. Ele não acessa mais caixa, cozinha, relatórios nem configurações.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'App do garçom: mesas livres, ocupadas e em pagamento, comandas, pedido rápido (delivery ou para levar), lista de produtos por categoria e "Meus pedidos" do dia.',
+      },
+      {
+        tag: 'novo',
+        text: 'Desafios do garçom: selos por número de pedidos (Bem-vindo, Iniciante, Aprendiz… até Hall da fama) e metas do dia.',
+      },
+      {
+        tag: 'novo',
+        text: 'Salão › Garçons: lista de garçons ativos e inativos, criar garçom, desempenho do dia e link do app para compartilhar.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Garçom só lança pedidos e pede cancelamento: não muda status, não dá desconto, não vê delivery de outros, cozinha, reservas nem a loja online (bloqueado também no servidor).',
+      },
+    ],
+  },
+  {
     version: '0.24.2',
     date: '2026-10-26',
     title: 'Busca do cardápio mais bonita',
