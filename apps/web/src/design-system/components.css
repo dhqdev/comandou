@@ -802,7 +802,8 @@ input[type='radio'] {
   padding: var(--cm-space-3) 0;
   border-bottom: 1px solid var(--cm-border);
 }
-:is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body) > .cm-field:last-child,
+:is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body)
+  > .cm-field:last-child,
 .cm-form > :is(.cm-form__row, .cm-form__block):last-child,
 .cm-form > :is(.cm-field, .cm-form__row, .cm-form__block):has(+ .cm-form__section) {
   border-bottom: 0;
@@ -829,28 +830,36 @@ input[type='radio'] {
   color: var(--cm-text);
 }
 @media (min-width: 641px) {
-  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body) > .cm-field {
+  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body)
+    > .cm-field {
     grid-template-columns: minmax(150px, 34%) minmax(0, 1fr);
     column-gap: var(--cm-space-5);
     row-gap: 4px;
     align-items: center;
   }
-  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body) > .cm-field > .cm-label {
+  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body)
+    > .cm-field
+    > .cm-label {
     grid-column: 1;
     grid-row: 1 / span 2;
     align-self: start;
     padding-top: 10px;
   }
-  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body) > .cm-field > :not(.cm-label) {
+  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body)
+    > .cm-field
+    > :not(.cm-label) {
     grid-column: 2;
   }
   /* Texto de ajuda e erro ficam embaixo do campo. */
-  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body) > .cm-field > :is(.cm-input, .cm-picker) {
+  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body)
+    > .cm-field
+    > :is(.cm-input, .cm-picker) {
     grid-row: 1;
   }
 }
 @media (pointer: fine) {
-  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body) .cm-input:not(textarea) {
+  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body)
+    .cm-input:not(textarea) {
     min-height: var(--cm-control);
   }
 }

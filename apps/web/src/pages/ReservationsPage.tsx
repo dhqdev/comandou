@@ -641,13 +641,7 @@ function ReservationForm({
       <form id="rv-form" className="cm-form" onSubmit={submit}>
         {error && <Alert tone="danger">{error}</Alert>}
         <h3 className="cm-form__section">Cliente</h3>
-        <TextField
-          label="Nome"
-          required
-          maxLength={80}
-          value={f.name}
-          onChange={set('name')}
-        />
+        <TextField label="Nome" required maxLength={80} value={f.name} onChange={set('name')} />
         <TextField
           label="Celular"
           required

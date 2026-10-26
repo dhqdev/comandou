@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.28.0',
+    date: '2026-10-26',
+    title: 'Visual mais limpo e formulários em linhas',
+    summary:
+      'Laranja novo (#FC4B08), botões e cartões sem brilho nem sombra forte, modo escuro mais calmo e janelas com um campo por linha.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Cores e botões padronizados: fundo liso, linha fina no lugar de sombra e laranja só no que importa (ação principal, item ativo e foco).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Janelas de cadastro (reservas, financeiro, equipe, estoque, mesas) mostram cada campo em uma linha, com rótulo à esquerda e seções.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Modo escuro com cinzas neutros e laranja mais suave, sem cartões coloridos gritando; o PDV usa cabeçalhos discretos.',
+      },
+    ],
+  },
+  {
     version: '0.27.1',
     date: '2026-10-26',
     title: 'Menu de baixo do admin no lugar certo no iPhone',
