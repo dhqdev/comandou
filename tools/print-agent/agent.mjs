@@ -1,133 +1,68 @@
 #!/usr/bin/env node
-// Agente local de impressão do Comandou.
-// Roda no computador do restaurante (Windows, Linux ou macOS com Node.js 22+), busca os
-// trabalhos de impressão na API do restaurante e envia para as impressoras térmicas.
+// Agente de impressão do Comandou em linha de comando (servidores e Linux sem tela).
+// Para o computador do caixa, prefira o aplicativo "Comandou Impressão" (pasta desktop/).
 //
 // Variáveis:
+//   COMANDOU_CODE          código de conexão copiado do painel (CMD1-...), OU as duas abaixo:
 //   COMANDOU_URL           endereço do restaurante (ex.: https://burguer.comandou.com)
-//   COMANDOU_AGENT_TOKEN   token gerado em Impressão > Agentes (começa com "pma_")
-//   PRINTER_DEFAULT        impressora padrão: tcp://IP:9100 | file:/caminho | stdout
+//   COMANDOU_AGENT_TOKEN   token gerado em Impressão (começa com "pma_")
+//   PRINTER_DEFAULT        impressora padrão: tcp://IP:9100 | printer:NOME | file:/caminho | stdout
 //   PRINTER_<DESTINO>      impressora de um destino (ex.: PRINTER_CHAPA, PRINTER_CAIXA).
 //                          O destino é o nome do setor da cozinha (ou "Caixa"), em
 //                          maiúsculas, sem acentos, com "_" no lugar de espaços.
 //   POLL_MS                intervalo de busca (padrão 3000)
-import { appendFile } from 'node:fs/promises';
-import net from 'node:net';
-import { toEscPos } from './escpos.mjs';
+import { PrintAgent, parseConnectionCode } from './core.mjs';
+import { describePrinter, printText, targetEnvName } from './printers.mjs';
 
-const VERSION = '0.3.0';
-const BASE = (process.env.COMANDOU_URL ?? '').replace(/\/+$/, '');
-const TOKEN = process.env.COMANDOU_AGENT_TOKEN ?? '';
-const POLL_MS = Math.max(1000, Number(process.env.POLL_MS ?? 3000));
+const VERSION = '1.0.0';
 
-if (!/^https?:\/\//.test(BASE) || !TOKEN.startsWith('pma_')) {
-  console.error('Configure COMANDOU_URL (https://...) e COMANDOU_AGENT_TOKEN (pma_...).');
+let url = (process.env.COMANDOU_URL ?? '').replace(/\/+$/, '');
+let token = process.env.COMANDOU_AGENT_TOKEN ?? '';
+if (process.env.COMANDOU_CODE) {
+  try {
+    ({ url, token } = parseConnectionCode(process.env.COMANDOU_CODE));
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
+}
+if (!/^https?:\/\//.test(url) || !token.startsWith('pma_')) {
+  console.error('Configure COMANDOU_CODE (CMD1-...) ou COMANDOU_URL e COMANDOU_AGENT_TOKEN.');
   process.exit(1);
 }
-if (BASE.startsWith('http://') && !/localhost|127\.0\.0\.1/.test(BASE)) {
+if (url.startsWith('http://') && !/localhost|127\.0\.0\.1/.test(url)) {
   console.warn('Aviso: use https em produção; o token trafega no cabeçalho.');
 }
 
-function targetEnvName(target) {
-  return (
-    'PRINTER_' +
-    target
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .toUpperCase()
-      .replace(/[^A-Z0-9]+/g, '_')
-      .replace(/^_|_$/g, '')
-  );
-}
+const printerFor = (target) =>
+  process.env[targetEnvName(target)] ?? process.env.PRINTER_DEFAULT ?? 'stdout';
 
-function printerFor(target) {
-  return process.env[targetEnvName(target)] ?? process.env.PRINTER_DEFAULT ?? 'stdout';
-}
+const agent = new PrintAgent({
+  url,
+  token,
+  version: VERSION,
+  printerFor,
+  print: printText,
+  pollMs: Math.max(1000, Number(process.env.POLL_MS ?? 3000)),
+});
 
-async function api(path, body) {
-  const res = await fetch(`${BASE}/api/v1/print-agent${path}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${TOKEN}`,
-      'X-Comandou-Request': '1',
-    },
-    body: JSON.stringify(body ?? {}),
-    signal: AbortSignal.timeout(15_000),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok)
-    throw Object.assign(new Error(data.message ?? `HTTP ${res.status}`), { status: res.status });
-  return data;
-}
-
-function sendTcp(host, port, data) {
-  return new Promise((resolve, reject) => {
-    const sock = net.connect({ host, port: Number(port) });
-    sock.setTimeout(10_000, () => sock.destroy(new Error('Impressora não respondeu')));
-    sock.once('error', reject);
-    sock.once('connect', () => sock.end(data));
-    sock.once('close', (hadError) => (hadError ? undefined : resolve()));
-  });
-}
-
-async function print(printer, text) {
-  if (printer === 'stdout') {
-    process.stdout.write(`\n----- impressão -----\n${text}\n---------------------\n`);
-    return;
+agent.on('status', (s) => {
+  if (s.state === 'online' && s.restaurant)
+    console.log(`Conectado: ${s.restaurant} (agente "${s.agent}")`);
+  if (s.state === 'offline')
+    console.error(
+      `Sem conexão com o Comandou (${s.error}); nova tentativa em ${s.retryIn / 1000}s`,
+    );
+  if (s.state === 'unauthorized') {
+    console.error('Token recusado (agente desativado ou token trocado). Encerrando.');
+    process.exit(2);
   }
-  const data = toEscPos(text);
-  if (printer.startsWith('tcp://')) {
-    const [host, port = '9100'] = printer.slice(6).split(':');
-    return sendTcp(host, port, data);
-  }
-  if (printer.startsWith('file:')) return appendFile(printer.slice(5), data);
-  throw new Error(`Impressora não suportada: ${printer}`);
-}
+});
+agent.on('job', (j) => {
+  const where = `${j.kind} → ${j.target} (${describePrinter(j.printer)})`;
+  if (j.ok) console.log(`Impresso: ${where}`);
+  else console.error(`Falha: ${where}: ${j.error}`);
+});
 
-let lastBeat = 0;
-async function tick() {
-  if (Date.now() - lastBeat > 30_000) {
-    const hb = await api('/heartbeat', { version: VERSION });
-    if (!lastBeat) console.log(`Conectado: ${hb.restaurant} (agente "${hb.agent}")`);
-    lastBeat = Date.now();
-  }
-  const { jobs } = await api('/claim', { limit: 5 });
-  for (const job of jobs) {
-    const printer = printerFor(job.target);
-    try {
-      await print(printer, job.payload);
-      await api(`/jobs/${job.id}/result`, { ok: true });
-      console.log(`Impresso: ${job.kind} → ${job.target} (${printer})`);
-    } catch (err) {
-      console.error(`Falha: ${job.kind} → ${job.target} (${printer}): ${err.message}`);
-      await api(`/jobs/${job.id}/result`, {
-        ok: false,
-        error: String(err.message).slice(0, 300),
-      }).catch(() => undefined);
-    }
-  }
-}
-
-async function main() {
-  console.log(`Comandou agente de impressão v${VERSION} → ${BASE}`);
-  let wait = POLL_MS;
-  for (;;) {
-    try {
-      await tick();
-      wait = POLL_MS;
-    } catch (err) {
-      if (err.status === 401) {
-        console.error('Token recusado (agente desativado ou token trocado). Encerrando.');
-        process.exit(2);
-      }
-      wait = Math.min(wait * 2, 60_000);
-      console.error(
-        `Sem conexão com o Comandou (${err.message}); nova tentativa em ${wait / 1000}s`,
-      );
-    }
-    await new Promise((r) => setTimeout(r, wait));
-  }
-}
-
-void main();
+console.log(`Comandou agente de impressão v${VERSION} → ${url}`);
+agent.start();

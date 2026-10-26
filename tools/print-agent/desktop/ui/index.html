@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:"
+    />
+    <title>Comandou Impressão</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <!-- Conectar -->
+    <main id="view-connect" class="connect" hidden>
+      <section class="connect__hero">
+        <img src="logo.svg" alt="" class="connect__logo" />
+        <h1>Vamos ligar suas impressoras</h1>
+        <p>
+          Este aplicativo fica rodando perto do relógio e imprime as comandas sozinho. Leva um
+          minuto para configurar.
+        </p>
+        <ol class="steps">
+          <li>
+            <span class="steps__n">1</span>
+            <div>
+              No painel do Comandou, abra <strong>Impressão</strong> e clique em
+              <strong>Conectar computador</strong>.
+            </div>
+          </li>
+          <li>
+            <span class="steps__n">2</span>
+            <div>
+              Clique em <strong>Abrir no aplicativo</strong>, ou copie o código e cole ao lado.
+            </div>
+          </li>
+          <li>
+            <span class="steps__n">3</span>
+            <div>Escolha a impressora e imprima um teste. Pronto.</div>
+          </li>
+        </ol>
+      </section>
+      <section class="connect__form card">
+        <form id="connect-form">
+          <label for="code" class="label">Código de conexão</label>
+          <textarea
+            id="code"
+            rows="4"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="Cole aqui o código que começa com CMD1-"
+          ></textarea>
+          <p id="connect-error" class="error" role="alert" hidden></p>
+          <button type="submit" class="btn btn--primary btn--lg" id="connect-btn">Conectar</button>
+          <p class="hint">O código liga este computador a um único restaurante.</p>
+        </form>
+      </section>
+    </main>
+
+    <!-- Painel -->
+    <div id="view-main" class="app" hidden>
+      <header class="top">
+        <img src="logo.svg" alt="" class="top__logo" />
+        <div class="top__title">
+          <strong id="restaurant">Restaurante</strong>
+          <span id="agent-name" class="muted"></span>
+        </div>
+        <div id="status" class="pill"></div>
+      </header>
+
+      <div id="banner" class="banner" hidden></div>
+
+      <main class="grid">
+        <section class="card card--main">
+          <div class="card__head">
+            <div>
+              <h2>Impressora principal</h2>
+              <p class="muted">Recebe tudo o que não tiver impressora própria logo abaixo.</p>
+            </div>
+          </div>
+          <div class="printer-row printer-row--main" id="main-printer"></div>
+        </section>
+
+        <section class="card">
+          <div class="card__head">
+            <div>
+              <h2>Uma impressora por setor</h2>
+              <p class="muted">
+                Opcional. Ex.: bebidas saem no bar, lanches na chapa, conferência no caixa.
+              </p>
+            </div>
+          </div>
+          <div id="routes" class="routes"></div>
+        </section>
+
+        <section class="card card--log">
+          <div class="card__head">
+            <h2>Últimas impressões</h2>
+          </div>
+          <ul id="log" class="log"></ul>
+        </section>
+      </main>
+
+      <footer class="foot">
+        <label class="switch">
+          <input type="checkbox" id="autostart" />
+          <span class="switch__track"><span class="switch__thumb"></span></span>
+          Abrir junto com o computador
+        </label>
+        <span class="foot__hint muted">
+          Pode fechar esta janela: o Comandou continua imprimindo em segundo plano.
+        </span>
+        <span class="foot__links">
+          <button class="link" id="open-panel">Abrir o painel</button>
+          <button class="link link--danger" id="disconnect">Desconectar</button>
+          <span class="muted" id="version"></span>
+        </span>
+      </footer>
+    </div>
+
+    <!-- Impressora de rede -->
+    <dialog id="net-dialog" class="dialog">
+      <form method="dialog" id="net-form">
+        <h3>Impressora de rede</h3>
+        <p class="muted">
+          O IP aparece na folha de autoteste da impressora (segure o botão de avanço do papel ao
+          ligar).
+        </p>
+        <div class="net-fields">
+          <label>
+            <span class="label">IP da impressora</span>
+            <input id="net-ip" placeholder="192.168.0.50" required inputmode="decimal" />
+          </label>
+          <label>
+            <span class="label">Porta</span>
+            <input id="net-port" value="9100" required inputmode="numeric" />
+          </label>
+        </div>
+        <p id="net-error" class="error" hidden></p>
+        <div class="dialog__actions">
+          <button type="button" class="btn" id="net-cancel">Cancelar</button>
+          <button type="submit" class="btn btn--primary" value="ok">Usar esta impressora</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div id="toast" class="toast" role="status" hidden></div>
+    <script src="app.js"></script>
+  </body>
+</html>

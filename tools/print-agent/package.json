@@ -1,0 +1,95 @@
+{
+  "name": "comandou-impressao",
+  "productName": "Comandou Impressão",
+  "version": "1.0.0",
+  "description": "Liga o Comandou às impressoras térmicas do restaurante e imprime as comandas em segundo plano.",
+  "author": "Comandou",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "main": "desktop/main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "cli": "node agent.mjs",
+    "test": "node --test",
+    "dist": "electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "38.8.4",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "br.com.comandou.impressao",
+    "productName": "Comandou Impressão",
+    "executableName": "comandou-impressao",
+    "copyright": "Comandou",
+    "files": [
+      "core.mjs",
+      "printers.mjs",
+      "escpos.mjs",
+      "desktop/**/*",
+      "package.json"
+    ],
+    "protocols": [
+      {
+        "name": "Comandou Impressão",
+        "schemes": [
+          "comandou-impressao"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Comandou-Impressao-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Comandou Impressão",
+      "deleteAppDataOnUninstall": false
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "category": "public.app-category.business",
+      "identity": "-",
+      "artifactName": "Comandou-Impressao.${ext}",
+      "extendInfo": {
+        "LSUIElement": true
+      }
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Office",
+      "artifactName": "Comandou-Impressao.${ext}"
+    },
+    "publish": null
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dhqdev/comandou"
+  }
+}

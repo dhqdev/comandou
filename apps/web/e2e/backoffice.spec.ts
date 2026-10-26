@@ -151,12 +151,22 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await expect(page.getByRole('cell', { name: 'Total' })).toBeVisible();
   await shot(page, info.project.name, 'financeiro');
 
-  // Impressão: agente com token mostrado uma vez
+  // Impressão: botão de baixar o aplicativo e código de conexão mostrado uma vez
   await nav(page, 'Impressão');
-  await page.getByLabel('Nome do computador').fill(`PC ${tag}`);
-  await page.getByRole('button', { name: 'Adicionar agente' }).click();
-  dialog = page.getByRole('dialog');
-  await expect(dialog.getByLabel('Token')).toHaveValue(/^pma_/);
+  await expect(page.getByRole('link', { name: /Baixar para/ })).toHaveAttribute(
+    'href',
+    /releases\/download\/impressora\/Comandou-Impressao/,
+  );
+  await page.getByRole('button', { name: 'Conectar computador' }).first().click();
+  dialog = page.getByRole('dialog', { name: 'Conectar computador' });
+  await dialog.getByLabel('Nome do computador').fill(`PC ${tag}`);
+  await dialog.getByRole('button', { name: 'Gerar código' }).click();
+  dialog = page.getByRole('dialog', { name: `Conectar "PC ${tag}"` });
+  await expect(dialog.locator('code')).toContainText(/^CMD1-/);
+  await expect(dialog.getByRole('link', { name: 'Abrir no aplicativo' })).toHaveAttribute(
+    'href',
+    /^comandou-impressao:\/\/conectar\?codigo=CMD1-/,
+  );
   await dialog.getByRole('button', { name: 'Fechar' }).click();
   // Desativa para não deixar a fila do tenant de teste ativa.
   await page

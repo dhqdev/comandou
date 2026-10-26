@@ -385,11 +385,21 @@ const SECTIONS: StaticEntry[] = [
   },
   // Impressão
   {
+    id: 'c-app-impressao',
+    group: 'Seções',
+    title: 'Baixar aplicativo de impressão',
+    hint: 'Impressão',
+    words: 'download instalar impressora termica programa windows usb',
+    icon: 'printing',
+    to: '/impressao?foco=secao-aplicativo',
+    perms: ['printing:manage'],
+  },
+  {
     id: 'c-agentes',
     group: 'Seções',
-    title: 'Agentes de impressão',
+    title: 'Computadores conectados',
     hint: 'Impressão',
-    words: 'impressora instalar computador token',
+    words: 'agentes impressora instalar computador token codigo conectar',
     icon: 'printing',
     to: '/impressao?foco=secao-agentes',
     perms: ['printing:manage'],

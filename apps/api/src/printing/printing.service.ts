@@ -288,6 +288,14 @@ export class PrintingService {
     );
   }
 
+  /** Destinos possíveis (setores de produção ativos + "Caixa"), para o aplicativo listar as impressoras. */
+  async targets(tenantId: string) {
+    const rows = await this.db.withTenant({ tenantId }, (tx) =>
+      q<{ name: string }>(tx, `SELECT name FROM production_sectors WHERE active ORDER BY name`),
+    );
+    return [...new Set([...rows.map((r) => r.name.slice(0, 60)), 'Cozinha', 'Caixa'])];
+  }
+
   /**
    * Reserva até `limit` trabalhos. SKIP LOCKED: dois agentes nunca pegam o mesmo trabalho.
    * Trabalho reservado e não confirmado em PRINT_LEASE_SECONDS volta a ficar disponível.

@@ -634,6 +634,7 @@ describe('Impressão (agente local e fila)', () => {
     await agentPost(agentToken, '/heartbeat', {}, HOST_B).expect(401);
     const hb = (await agentPost(agentToken, '/heartbeat', { version: '0.3.0' }).expect(200)).body;
     expect(hb.agent).toBe('PC do caixa');
+    expect(hb.targets).toEqual(expect.arrayContaining(['Cozinha', 'Caixa']));
     const list = (await get('adminA', '/printing/agents').expect(200)).body as {
       name: string;
       online: boolean;

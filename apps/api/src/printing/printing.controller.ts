@@ -233,7 +233,7 @@ export class PrintAgentController {
   ) {
     const a = await this.agent(req, t);
     await this.printing.heartbeat(t.id, a.id, req.ip, b.version);
-    return { agent: a.name, restaurant: t.name };
+    return { agent: a.name, restaurant: t.name, targets: await this.printing.targets(t.id) };
   }
 
   @Post('claim')

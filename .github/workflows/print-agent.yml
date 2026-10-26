@@ -1,0 +1,84 @@
+name: Aplicativo de impressão (instaladores)
+
+# Gera o "Comandou Impressão" para Windows, macOS e Linux e publica na Release fixa "impressora".
+# O botão "Baixar" da tela Impressão aponta para
+#   https://github.com/<dono>/comandou/releases/download/impressora/<arquivo>
+# então os nomes dos arquivos nunca mudam; cada build substitui os anteriores.
+on:
+  push:
+    branches: [main]
+    paths: ['tools/print-agent/**', '.github/workflows/print-agent.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: print-agent
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Instalador (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            args: --win
+            file: Comandou-Impressao-Setup.exe
+          - os: macos-latest
+            args: --mac
+            file: Comandou-Impressao.dmg
+          - os: ubuntu-latest
+            args: --linux
+            file: Comandou-Impressao.AppImage
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: tools/print-agent
+    steps:
+      - name: Baixar o código
+        uses: actions/checkout@v4
+      - name: Instalar o Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tools/print-agent/package-lock.json
+      - name: Instalar dependências
+        run: npm ci
+      - name: Testes
+        run: node --test
+      - name: Gerar o instalador
+        run: npx electron-builder ${{ matrix.args }} --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Guardar o instalador
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.file }}
+          path: tools/print-agent/dist/${{ matrix.file }}
+          if-no-files-found: error
+
+  publish:
+    name: Publicar na Release "impressora"
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Publicar
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          ls -la out
+          if ! gh release view impressora >/dev/null 2>&1; then
+            gh release create impressora --title "Comandou Impressão (aplicativo)" --latest=false \
+              --target "$GITHUB_SHA" \
+              --notes "Instaladores do aplicativo de impressão. Baixe pela tela Impressão do Comandou."
+          fi
+          gh release upload impressora out/* --clobber
