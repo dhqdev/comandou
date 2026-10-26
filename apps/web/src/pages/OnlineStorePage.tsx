@@ -12,10 +12,12 @@ import {
   Sparkles,
   Trash2,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BRAND_PREVIEW_READY, type BrandPreviewMessage } from '../app/TenantBrand';
 import { useAuth } from '../app/auth';
 import {
   Alert,
+  Branding,
   Badge,
   Button,
   Card,
@@ -27,6 +29,7 @@ import {
   TextField,
   useToast,
 } from '../design-system';
+import { BrandingCard } from '../features/BrandingCard';
 import { ImagePicker } from '../features/ImagePicker';
 import { SlideTabs } from '../features/SlideTabs';
 import { StoreSettingsCard } from '../features/StoreSettingsCard';
@@ -72,8 +75,16 @@ function Toggle({
   );
 }
 
-/** Aparência: capa, logo, tema, títulos e o que aparece no cardápio. */
-function AppearanceTab({ onSaved, canManage }: { onSaved(): void; canManage: boolean }) {
+/** Aparência: cores, capa, logo, tema, títulos e o que aparece no cardápio. */
+function AppearanceTab({
+  onSaved,
+  onDraft,
+  canManage,
+}: {
+  onSaved(): void;
+  onDraft(b: Branding | null): void;
+  canManage: boolean;
+}) {
   const toast = useToast();
   const [s, setS] = useState<StoreSettings | null>(null);
   const [form, setForm] = useState({ headline: '', featuredTitle: '', about: '' });
@@ -105,6 +116,15 @@ function AppearanceTab({ onSaved, canManage }: { onSaved(): void; canManage: boo
   if (!s) return <Spinner />;
   return (
     <div className="os-stack">
+      <BrandingCard
+        settings={s}
+        canManage={canManage}
+        onDraft={onDraft}
+        onSaved={(x) => {
+          fill(x);
+          onSaved();
+        }}
+      />
       <Card title="Capa e logo">
         <div className="os-images">
           <div className="os-images__item">
@@ -161,7 +181,7 @@ function AppearanceTab({ onSaved, canManage }: { onSaved(): void; canManage: boo
           <TextField
             label="Título de boas-vindas"
             placeholder="Bateu a fome? Peça agora!"
-            hint="A última palavra ganha a cor laranja."
+            hint="A última palavra ganha a cor principal da loja."
             maxLength={60}
             value={form.headline}
             disabled={!canManage}
@@ -622,6 +642,30 @@ export function OnlineStorePage() {
     if (['aparencia', 'banners', 'destaques', 'funcionamento'].includes(v)) setTab(v as Tab);
   });
   const [preview, setPreview] = useState(0);
+  // Cores ainda não salvas: vão para a prévia por mensagem (e de novo a cada recarga dela).
+  const frame = useRef<HTMLIFrameElement>(null);
+  const brandDraft = useRef<Branding | null>(null);
+  const sendDraft = useCallback(() => {
+    const msg: BrandPreviewMessage = {
+      type: 'cm-brand-preview',
+      branding: brandDraft.current ?? {},
+    };
+    frame.current?.contentWindow?.postMessage(msg, window.location.origin);
+  }, []);
+  const onDraft = useCallback(
+    (b: Branding | null) => {
+      brandDraft.current = b;
+      sendDraft();
+    },
+    [sendDraft],
+  );
+  useEffect(() => {
+    const onReady = (e: MessageEvent<{ type?: string }>) => {
+      if (e.origin === window.location.origin && e.data?.type === BRAND_PREVIEW_READY) sendDraft();
+    };
+    window.addEventListener('message', onReady);
+    return () => window.removeEventListener('message', onReady);
+  }, [sendDraft]);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const refresh = useCallback(() => setPreview((n) => n + 1), []);
@@ -678,7 +722,9 @@ export function OnlineStorePage() {
             ]}
           />
           <div className="os-panel" key={tab}>
-            {tab === 'aparencia' && <AppearanceTab onSaved={refresh} canManage={canManage} />}
+            {tab === 'aparencia' && (
+              <AppearanceTab onSaved={refresh} onDraft={onDraft} canManage={canManage} />
+            )}
             {tab === 'banners' && (
               <BannersTab onSaved={refresh} products={sorted} categories={categories} />
             )}
@@ -707,7 +753,12 @@ export function OnlineStorePage() {
             />
           </div>
           <div className="os-phone">
-            <iframe key={preview} src="/pedir?previa=1" title="Prévia do cardápio online" />
+            <iframe
+              ref={frame}
+              key={preview}
+              src="/pedir?previa=1"
+              title="Prévia do cardápio online"
+            />
           </div>
           <p className="cm-hint">
             {products.some((p) => toCents(p.price) > 0)

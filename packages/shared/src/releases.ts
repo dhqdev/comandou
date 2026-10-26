@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.24.0',
+    date: '2026-10-26',
+    title: 'Cores e ícone da loja escolhidos pelo restaurante',
+    summary:
+      'Em Loja online › Aparência o restaurante escolhe a cor principal, a cor de destaque, a letra, os cantos e o ícone da aba. O cardápio inteiro (e, se quiser, o sistema da equipe) muda junto.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Cor principal e cor de destaque da loja, com cores prontas ou qualquer outra. Botões, abas, preços, selos e links do cardápio seguem a cor escolhida.',
+      },
+      {
+        tag: 'novo',
+        text: 'Os tons claros, escuros e a cor do texto por cima são calculados sozinhos e sempre ficam legíveis, também no modo escuro (com a cor mais suave).',
+      },
+      {
+        tag: 'novo',
+        text: 'Letra do cardápio (moderna, do celular, clássica ou arredondada) e cantos retos, suaves ou redondos.',
+      },
+      {
+        tag: 'novo',
+        text: 'Ícone próprio da aba do navegador e do atalho na tela inicial (sem ícone, vale o logo).',
+      },
+      {
+        tag: 'novo',
+        text: 'Opção de usar as cores da loja também no PDV, pedidos, cozinha, cardápio e demais telas da equipe.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A prévia do celular mostra as cores antes de salvar.',
+      },
+    ],
+  },
+  {
     version: '0.23.1',
     date: '2026-10-23',
     title: 'Prévia do celular, menus, abas, tema e fonte do admin',

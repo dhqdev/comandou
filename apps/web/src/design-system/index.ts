@@ -9,3 +9,4 @@ export * from './theme';
 export * from './app-frame';
 export * from './pickers';
 export * from './viewport';
+export * from './brand';

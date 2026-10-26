@@ -30,7 +30,21 @@ import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { cookieOf, CUSTOMER_COOKIE, CustomersService } from './customers.service';
-import { mediaUrl, PUBLIC_TOKEN_RE, StoreService } from './store.service';
+import {
+  CORNER_STYLES,
+  FONT_STYLES,
+  mediaUrl,
+  PUBLIC_TOKEN_RE,
+  StoreService,
+} from './store.service';
+
+/** Cor em #rrggbb (minúsculas); vazio volta para as cores do Comandou. */
+const hexColor = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .regex(/^#[0-9a-f]{6}$/, 'cor inválida (use #rrggbb)')
+  .nullable();
 
 const text = (max: number) => z.string().trim().min(1).max(max);
 const optText = (max: number) =>
@@ -119,6 +133,12 @@ const Settings = z
       .max(180)
       .nullable()
       .transform((n) => (n === null ? null : n.toFixed(6))),
+    brandColor: hexColor,
+    accentColor: hexColor,
+    fontStyle: z.enum(FONT_STYLES),
+    cornerStyle: z.enum(CORNER_STYLES),
+    faviconImageId: uuid.nullable(),
+    brandStaffApp: z.boolean(),
   })
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');
@@ -171,6 +191,17 @@ export class StoreController {
   @Get('status')
   status(@CurrentTenant() t: ResolvedTenant) {
     return this.store.publicStatus(t.id);
+  }
+
+  /**
+   * Cores, fonte, cantos e ícone do restaurante. Pública e separada do cardápio: vale também
+   * com a loja online desligada (login e sistema da equipe usam).
+   */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 120 } })
+  @Get('branding')
+  branding(@CurrentTenant() t: ResolvedTenant) {
+    return this.store.branding(t.id);
   }
 
   /** Cria o pedido do cliente. Exige `Idempotency-Key` (reenvio não duplica o pedido). */

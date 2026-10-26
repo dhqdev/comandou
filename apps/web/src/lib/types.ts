@@ -55,6 +55,13 @@ export interface StoreSettings {
   featuredTitle: string | null;
   accountsEnabled: boolean;
   showPopular: boolean;
+  /** Identidade visual: cores em #rrggbb (null = cores do Comandou). */
+  brandColor: string | null;
+  accentColor: string | null;
+  fontStyle: 'padrao' | 'sistema' | 'classica' | 'arredondada';
+  cornerStyle: 'padrao' | 'reto' | 'arredondado';
+  faviconImageId: string | null;
+  brandStaffApp: boolean;
 }
 
 export interface StoreBanner {

@@ -100,6 +100,45 @@ describe('Loja online: configurações e fotos', () => {
     await patch('adminA', '/store/settings', { etaMin: 60, etaMax: 30 }).expect(422);
   });
 
+  it('identidade visual: cores validadas, públicas e separadas por restaurante', async () => {
+    const before = (await pub.get('/store/branding').expect(200)).body;
+    expect(before).toMatchObject({ brandColor: null, fontStyle: 'padrao', staffApp: true });
+    await patch('adminA', '/store/settings', { brandColor: 'vermelho' }).expect(400);
+    await patch('adminA', '/store/settings', { fontStyle: 'comic' }).expect(400);
+    await patch('waiterA', '/store/settings', { brandColor: '#d62828' }).expect(403);
+    const s = (
+      await patch('adminA', '/store/settings', {
+        brandColor: '#D62828',
+        accentColor: '#ffd23f',
+        fontStyle: 'classica',
+        cornerStyle: 'arredondado',
+        brandStaffApp: false,
+      }).expect(200)
+    ).body;
+    expect(s).toMatchObject({ brandColor: '#d62828', accentColor: '#ffd23f' });
+    const b = (await pub.get('/store/branding').expect(200)).body;
+    expect(b).toMatchObject({
+      brandColor: '#d62828',
+      accentColor: '#ffd23f',
+      fontStyle: 'classica',
+      cornerStyle: 'arredondado',
+      staffApp: false,
+    });
+    // Outro restaurante continua com as cores do Comandou.
+    expect((await pub.get('/store/branding', HOST_B).expect(200)).body.brandColor).toBeNull();
+    // Vale mesmo com a loja online desligada (login e sistema da equipe usam).
+    await patch('adminA', '/store/settings', { enabled: false }).expect(200);
+    await pub.get('/store/branding').expect(200);
+    await patch('adminA', '/store/settings', {
+      enabled: true,
+      brandColor: null,
+      accentColor: null,
+      fontStyle: 'padrao',
+      cornerStyle: 'padrao',
+      brandStaffApp: true,
+    }).expect(200);
+  });
+
   it('envia foto, liga ao produto e serve com cache; outro restaurante não vê', async () => {
     const bad = await http
       .post('/api/v1/media')

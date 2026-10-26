@@ -31,6 +31,7 @@ import { SupportEntryPage } from '../pages/SupportEntryPage';
 import { TablesPage } from '../pages/TablesPage';
 import { AppShell } from './AppShell';
 import { AuthProvider, useAuth } from './auth';
+import { TenantBrand } from './TenantBrand';
 import { ROLE_HOME, ROUTE_PERMS } from './role-home';
 import { NoAccess } from './NoAccess';
 import { UpdatePrompt } from './UpdatePrompt';
@@ -239,6 +240,7 @@ export function App() {
   if (isPlatformHost()) return <PlatformApp />;
   return (
     <BrowserRouter>
+      <TenantBrand />
       <ToastProvider>
         <Routes>
           {/* Rastreio público do cliente final: fora do login. */}

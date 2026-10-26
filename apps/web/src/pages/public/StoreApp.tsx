@@ -232,20 +232,6 @@ export function StoreApp() {
     };
   }, [loaded, refreshStatus]);
 
-  // Ícone da aba do navegador = logo do restaurante (volta ao do Comandou ao sair do cardápio).
-  useEffect(() => {
-    const logo = menu?.restaurant.logoUrl;
-    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-    if (!logo || !link) return;
-    const previous = { href: link.href, type: link.type };
-    link.removeAttribute('type'); // a foto pode ser WebP, JPEG ou PNG
-    link.href = logo;
-    return () => {
-      link.href = previous.href;
-      link.type = previous.type;
-    };
-  }, [menu?.restaurant.logoUrl]);
-
   // Tema escolhido pelo restaurante (claro/escuro); "automático" segue o aparelho do cliente.
   useEffect(() => {
     const t = menu?.appearance.theme;

@@ -42,7 +42,41 @@ export interface StoreSettings {
   /** Ponto da loja no mapa (centro das áreas por raio e referência da busca de endereço). */
   storeLat: string | null;
   storeLng: string | null;
+  /** Identidade visual: cores em #rrggbb (null = cores do Comandou), fonte, cantos e ícone. */
+  brandColor: string | null;
+  accentColor: string | null;
+  fontStyle: FontStyle;
+  cornerStyle: CornerStyle;
+  faviconImageId: string | null;
+  /** As cores valem também no sistema da equipe. */
+  brandStaffApp: boolean;
 }
+
+export const FONT_STYLES = ['padrao', 'sistema', 'classica', 'arredondada'] as const;
+export const CORNER_STYLES = ['padrao', 'reto', 'arredondado'] as const;
+export type FontStyle = (typeof FONT_STYLES)[number];
+export type CornerStyle = (typeof CORNER_STYLES)[number];
+
+/** O que o navegador precisa para vestir a loja com a identidade do restaurante. */
+export interface Branding {
+  brandColor: string | null;
+  accentColor: string | null;
+  fontStyle: FontStyle;
+  cornerStyle: CornerStyle;
+  faviconUrl: string | null;
+  logoUrl: string | null;
+  staffApp: boolean;
+}
+
+export const brandingOf = (s: StoreSettings): Branding => ({
+  brandColor: s.brandColor,
+  accentColor: s.accentColor,
+  fontStyle: s.fontStyle,
+  cornerStyle: s.cornerStyle,
+  faviconUrl: mediaUrl(s.faviconImageId ?? s.logoImageId),
+  logoUrl: mediaUrl(s.logoImageId),
+  staffApp: s.brandStaffApp,
+});
 
 export interface BannerInput {
   title: string;
@@ -65,7 +99,9 @@ const SETTINGS_COLS = `enabled, is_open AS "isOpen", auto_accept AS "autoAccept"
   eta_max AS "etaMax", about, address, whatsapp, cover_image_id AS "coverImageId",
   logo_image_id AS "logoImageId", theme, headline, featured_title AS "featuredTitle",
   accounts_enabled AS "accountsEnabled", show_popular AS "showPopular",
-  store_lat::text AS "storeLat", store_lng::text AS "storeLng"`;
+  store_lat::text AS "storeLat", store_lng::text AS "storeLng", brand_color AS "brandColor",
+  accent_color AS "accentColor", font_style AS "fontStyle", corner_style AS "cornerStyle",
+  favicon_image_id AS "faviconImageId", brand_staff_app AS "brandStaffApp"`;
 
 const DEFAULTS: StoreSettings = {
   enabled: true,
@@ -89,6 +125,12 @@ const DEFAULTS: StoreSettings = {
   showPopular: true,
   storeLat: null,
   storeLng: null,
+  brandColor: null,
+  accentColor: null,
+  fontStyle: 'padrao',
+  cornerStyle: 'padrao',
+  faviconImageId: null,
+  brandStaffApp: true,
 };
 
 const COLUMN: Record<keyof StoreSettings, string> = {
@@ -113,6 +155,12 @@ const COLUMN: Record<keyof StoreSettings, string> = {
   showPopular: 'show_popular',
   storeLat: 'store_lat',
   storeLng: 'store_lng',
+  brandColor: 'brand_color',
+  accentColor: 'accent_color',
+  fontStyle: 'font_style',
+  cornerStyle: 'corner_style',
+  faviconImageId: 'favicon_image_id',
+  brandStaffApp: 'brand_staff_app',
 };
 
 export interface OnlineOrderInput {
@@ -155,6 +203,11 @@ export class StoreService {
 
   settings(ctx: Ctx) {
     return this.db.withTenant(ctx, (tx) => this.settingsIn(tx));
+  }
+
+  /** Identidade visual (pública: o login e o cardápio usam antes de qualquer sessão). */
+  branding(tenantId: string) {
+    return this.db.withTenant({ tenantId }, async (tx) => brandingOf(await this.settingsIn(tx)));
   }
 
   async updateSettings(ctx: Ctx, patch: Partial<StoreSettings>) {
