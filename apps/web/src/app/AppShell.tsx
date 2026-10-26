@@ -94,7 +94,7 @@ const MAIN: NavItem[] = [
     to: '/entregas',
     label: 'Entregas',
     icon: <Truck />,
-    perms: ['delivery:manage', 'delivery:operate'],
+    perms: ['delivery:manage'],
   },
   { to: '/cardapio', label: 'Cardápio', icon: <BookOpen />, perms: ['catalog:read'] },
 ];
@@ -155,12 +155,6 @@ const GROUPS: { key: string; label: string; icon: ReactNode; items: NavItem[] }[
 
 /** Abas do celular, na ordem de preferência (as 4 primeiras que o usuário pode ver). */
 const TAB_PREFERENCE = ['/', '/pedidos', '/mesas', '/cozinha', '/caixa', '/entregas', '/cardapio'];
-/** Papéis com uma tela principal própria: as abas do celular começam por ela. */
-const ROLE_TABS: Record<string, string[]> = {
-  driver: ['/entregas', '/pedidos'],
-  kitchen: ['/cozinha', '/pedidos', '/cardapio'],
-  stock: ['/estoque', '/cardapio'],
-};
 
 export function AppShell() {
   const { me, logout } = useAuth();
@@ -220,7 +214,7 @@ export function AppShell() {
       badge: i.soon ? <Badge>em breve</Badge> : undefined,
     })),
   })).filter((g) => g.children.length > 0);
-  const tabs = (ROLE_TABS[me?.user.role ?? ''] ?? TAB_PREFERENCE)
+  const tabs = TAB_PREFERENCE
     .filter((k) => main.some((m) => m.key === k))
     .slice(0, 4);
 

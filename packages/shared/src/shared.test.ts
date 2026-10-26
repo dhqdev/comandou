@@ -6,6 +6,9 @@ import {
   toCents,
   validateTenantSlug,
   roleHas,
+  DEFAULT_ROLE_PERMISSIONS,
+  ROLES,
+  ROLE_HINTS,
   isMoneyString,
   waiterLevel,
   challengeProgress,
@@ -92,6 +95,25 @@ describe('roles', () => {
       expect(roleHas('waiter', p)).toBe(false);
     for (const r of ['owner', 'manager', 'cashier', 'attendant'] as const)
       expect(roleHas(r, 'orders:manage')).toBe(true);
+  });
+  it('entregador e cozinha só têm a própria tela', () => {
+    expect(DEFAULT_ROLE_PERMISSIONS.driver).toEqual(['delivery:operate']);
+    expect(roleHas('kitchen', 'kitchen:operate')).toBe(true);
+    for (const r of ['driver', 'kitchen'] as const)
+      for (const p of ['orders:read', 'orders:write', 'customers:read', 'settings:manage'] as const)
+        expect(roleHas(r, p)).toBe(false);
+  });
+  it('a equipe tem só os sete perfis', () => {
+    expect([...ROLES]).toEqual([
+      'owner',
+      'manager',
+      'cashier',
+      'attendant',
+      'waiter',
+      'kitchen',
+      'driver',
+    ]);
+    for (const r of ROLES) expect(ROLE_HINTS[r]).toBeTruthy();
   });
 });
 

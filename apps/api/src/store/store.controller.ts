@@ -244,10 +244,16 @@ export class StoreController {
   @Public()
   @Throttle({ default: { ttl: 60_000, limit: 60 } })
   @Get('manifest')
-  async manifest(@CurrentTenant() t: ResolvedTenant, @Res({ passthrough: true }) res: Response) {
+  async manifest(
+    @CurrentTenant() t: ResolvedTenant,
+    @Query('start') start: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
-    return this.store.manifest(t.id, t.name);
+    // Atalho do link do entregador abre direto nas corridas dele (só esse endereço é aceito).
+    const courier = start && /^\/entregador\/[A-Za-z0-9_-]{20,64}$/.test(start) ? start : null;
+    return this.store.manifest(t.id, t.name, courier);
   }
 
   /** Endereço pelo CEP (rua, bairro, cidade e UF). 404 se o CEP não existe. */

@@ -26,10 +26,9 @@ import {
 } from '../design-system';
 import { useCan } from '../app/auth';
 import { minutesSince, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE, time } from '../features/format';
-import type { CourierEarningsData } from '../features/CourierEarnings';
 import { CourierPayouts } from '../features/CourierPayouts';
 import { DeliveryAreas } from '../features/DeliveryAreas';
-import { DriverPanel, routeUrl } from '../features/DriverPanel';
+import { routeUrl } from '../features/DriverPanel';
 import { LiveMap, RIDER_COLORS, type MapRider } from '../features/LiveMap';
 import {
   agoLabel,
@@ -54,7 +53,8 @@ const trackingUrl = (path: string) => `${window.location.origin}${path}`;
 
 /**
  * Entregas: despacho com entregador, acompanhamento de quem está na rua e conclusão.
- * O entregador (papel "Entregador") vê só as próprias corridas e envia a localização.
+ * O entregador não passa por aqui: tem o app próprio (driver/DriverApp), só com as corridas dele.
+ * Pelo painel, a entrega conclui sem o código do cliente (cliente sem o código, por exemplo).
  */
 type Aba = 'despacho' | 'entregadores' | 'area' | 'hoje' | 'repasses';
 
@@ -72,7 +72,6 @@ export function DeliveriesPage() {
   const [focus, setFocus] = useState<string | null>(null);
   const [route, setRoute] = useState<Delivery | null>(null);
   useLinkParam('aba', (a) => setAba(a as Aba));
-  const myEarnings = useCallback(() => api<CourierEarningsData>('/deliveries/my-earnings'), []);
 
   const load = useCallback(async () => {
     try {
@@ -102,43 +101,13 @@ export function DeliveriesPage() {
   }, load);
   useTick(5_000);
 
-  // Sons: pedido pronto esperando entregador, entrega finalizada e, para o motoboy, nova corrida.
+  // Sons: pedido pronto esperando entregador e entrega finalizada.
   useArrivalSound('delivery', canManage ? ready.map((o) => o.id) : null);
   useArrivalSound(
     'delivered',
     canManage ? today.filter((d) => d.status === 'delivered').map((d) => d.id) : null,
   );
-  useArrivalSound('courier', !canManage && out ? out.map((d) => d.id) : null);
 
-  // Entregador (sem gerenciar): painel simples, só com as próprias corridas e os ganhos.
-  if (!canManage) {
-    return (
-      <>
-        <div>
-          <h1 className="page-title">Minhas entregas</h1>
-          <p className="page-sub">Abra a rota, fale com o cliente e marque quando entregar.</p>
-        </div>
-        {error && <Alert tone="danger">{error}</Alert>}
-        {out === null ? (
-          <Spinner />
-        ) : (
-          <DriverPanel
-            deliveries={[...out, ...today]}
-            store={live.store}
-            onChanged={load}
-            actions={{
-              complete: (id) => api(`/deliveries/${id}/complete`, { method: 'POST', json: {} }),
-              fail: (id, reason) =>
-                api(`/deliveries/${id}/fail`, { method: 'POST', json: { reason } }),
-              location: (id, fix) =>
-                api(`/deliveries/${id}/location`, { method: 'POST', json: fix }),
-            }}
-            earnings={myEarnings}
-          />
-        )}
-      </>
-    );
-  }
 
   const activeCouriers = couriers.filter((c) => c.active);
   const colorOf = courierColors(couriers);

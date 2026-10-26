@@ -1,4 +1,4 @@
-import { Bike } from 'lucide-react';
+import { Bike, KeyRound } from 'lucide-react';
 import {
   agoLabel,
   distanceM,
@@ -24,6 +24,22 @@ export interface CustomerCourier {
   destination?: { lat: string | number; lng: string | number } | null;
   store?: { lat: number; lng: number } | null;
   trail?: LatLng[];
+  /** Código de entrega (4 dígitos) que o cliente passa ao entregador. */
+  code?: string | null;
+}
+
+/** Código de entrega em destaque, como no iFood: sem ele o entregador não conclui. */
+export function DeliveryCode({ code }: { code: string }) {
+  return (
+    <section className="dcode" aria-label="Código de entrega">
+      <KeyRound size={22} aria-hidden />
+      <div>
+        <strong>Código de entrega</strong>
+        <span>Informe ao entregador quando ele chegar.</span>
+      </div>
+      <span className="dcode__num">{code}</span>
+    </section>
+  );
 }
 
 /** Previsão para o cliente: minutos, distância e se o sinal está em dia. */

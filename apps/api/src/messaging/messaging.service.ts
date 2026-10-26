@@ -325,7 +325,18 @@ export class MessagingService implements OnModuleInit {
     // Meta: parâmetros do modelo, nesta ordem: {{1}} cliente, {{2}} pedido, {{3}} restaurante.
     // Baileys: o texto do restaurante com as variáveis trocadas.
     const meta = s.provider === 'meta_cloud';
-    const body = meta ? null : renderText(s[`text_${ev.col}`], vars).slice(0, 4000);
+    let body = meta ? null : renderText(s[`text_${ev.col}`], vars);
+    // Saiu para entrega: o código que o cliente passa ao entregador vai junto (texto livre).
+    if (body !== null && event === 'order.dispatched') {
+      const d = await one<{ code: string | null }>(
+        tx,
+        `SELECT confirm_code AS code FROM deliveries WHERE order_id = $1 AND status = 'out'`,
+        [orderId],
+      );
+      if (d?.code)
+        body = `${body}\n\nCódigo de entrega: *${d.code}*. Informe ao entregador quando ele chegar.`;
+    }
+    body = body?.slice(0, 4000) ?? null;
     const m = await one<{ id: string }>(
       tx,
       `INSERT INTO message_outbox (tenant_id, order_id, event, provider, to_phone, template, language, params, body)

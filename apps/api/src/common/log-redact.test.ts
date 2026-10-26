@@ -10,6 +10,14 @@ describe('maskSecretsInUrl', () => {
       '/api/v1/internal/traefik?token=[oculto]&x=1',
     );
   });
+  it('esconde o link do entregador (API e manifesto do atalho)', () => {
+    expect(maskSecretsInUrl('/api/v1/courier-app/abcDEF123_-x/earnings')).toBe(
+      '/api/v1/courier-app/[oculto]/earnings',
+    );
+    expect(maskSecretsInUrl('/api/v1/store/manifest?start=%2Fentregador%2FabcDEF123_-x')).toBe(
+      '/api/v1/store/manifest?start=%2Fentregador%2F[oculto]',
+    );
+  });
   it('não mexe nas outras rotas', () => {
     expect(maskSecretsInUrl('/api/v1/orders/123')).toBe('/api/v1/orders/123');
     expect(maskSecretsInUrl(undefined)).toBeUndefined();

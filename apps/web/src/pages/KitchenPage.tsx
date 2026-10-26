@@ -1,4 +1,14 @@
-import { Check, ChefHat, CircleCheckBig, Flame, Play, RotateCcw, Timer } from 'lucide-react';
+import {
+  Check,
+  ChefHat,
+  CircleCheckBig,
+  Flame,
+  Maximize,
+  Minimize,
+  Play,
+  RotateCcw,
+  Timer,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -154,6 +164,7 @@ export function KitchenPage() {
           <h1 className="page-title">Cozinha</h1>
           <p className="page-sub">Fila de produção por setor. Toque no item para avançar.</p>
         </div>
+        <div className="actions-row">
         <ChipGroup label="Setor">
           <button
             className="chip"
@@ -183,6 +194,8 @@ export function KitchenPage() {
             Sem setor
           </button>
         </ChipGroup>
+        <FullscreenButton />
+        </div>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
       {!board ? (
@@ -327,5 +340,29 @@ export function KitchenPage() {
         </div>
       )}
     </>
+  );
+}
+
+/** Tela cheia (a TV ou o tablet da cozinha fica só com a fila). Some onde o navegador não deixa. */
+function FullscreenButton() {
+  const [full, setFull] = useState(() => !!document.fullscreenElement);
+  useEffect(() => {
+    const sync = () => setFull(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
+  if (!document.fullscreenEnabled) return null;
+  const toggle = () =>
+    void (full ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(
+      () => undefined,
+    );
+  return (
+    <Button
+      variant="secondary"
+      icon={full ? <Minimize size={16} /> : <Maximize size={16} />}
+      onClick={toggle}
+    >
+      {full ? 'Sair da tela cheia' : 'Tela cheia'}
+    </Button>
   );
 }

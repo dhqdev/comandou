@@ -139,7 +139,11 @@ describe('Ganhos e repasses do entregador', () => {
     // 6,00 + (3,90 − 2) × 1,00
     expect(home.deliveries.find((d: { id: string }) => d.id === d1.id).payEstimate).toBe('7.90');
 
-    await pubPost(`/courier-app/${token}/deliveries/${d1.id}/complete`).expect(201);
+    const [{ code }] = await ownerQuery<{ code: string }>(
+      `SELECT confirm_code AS code FROM deliveries WHERE id = $1`,
+      [d1.id],
+    );
+    await pubPost(`/courier-app/${token}/deliveries/${d1.id}/complete`, { code }).expect(201);
     await pubPost(`/courier-app/${token}/deliveries/${d2.id}/fail`, {
       reason: 'Cliente ausente',
     }).expect(201);

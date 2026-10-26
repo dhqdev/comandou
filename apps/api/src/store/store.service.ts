@@ -226,7 +226,7 @@ export class StoreService {
    * Manifesto do app instalado (PWA) de cada restaurante: nome, cor e ícone da loja. Sem ícone
    * próprio, valem os do Comandou.
    */
-  manifest(tenantId: string, name: string) {
+  manifest(tenantId: string, name: string, startUrl: string | null = null) {
     return this.db.withTenant({ tenantId }, async (tx) => {
       const s = await this.settingsIn(tx);
       const iconId = s.faviconImageId ?? s.logoImageId;
@@ -260,8 +260,10 @@ export class StoreService {
         theme_color: s.brandColor ?? '#e23a00',
         background_color: '#f7f5f3',
         display: 'standalone',
-        start_url: '/',
+        start_url: startUrl ?? '/',
         scope: '/',
+        // Outro endereço de início é outro app instalado (o do entregador ao lado do painel).
+        ...(startUrl ? { id: startUrl } : {}),
         icons,
       };
     });
@@ -569,6 +571,7 @@ export class StoreService {
       id: string;
       courier: string;
       status: string;
+      code: string | null;
       lat: string | null;
       lng: string | null;
       at: Date | null;
@@ -577,7 +580,7 @@ export class StoreService {
       accuracy: number | null;
     }>(
       tx,
-      `SELECT d.id, split_part(c.name, ' ', 1) AS courier, d.status, d.last_lat::text AS lat,
+      `SELECT d.id, split_part(c.name, ' ', 1) AS courier, d.status, d.confirm_code AS code, d.last_lat::text AS lat,
                 d.last_lng::text AS lng, d.last_location_at AS at, d.last_heading AS heading,
                 d.last_speed::float AS speed, d.last_accuracy AS accuracy
            FROM deliveries d JOIN couriers c ON c.id = d.courier_id
@@ -613,6 +616,8 @@ export class StoreService {
         delivery && o!.status === 'dispatched'
           ? {
               name: delivery.courier,
+              // Código que o cliente passa ao entregador para concluir (só enquanto está na rua).
+              code: delivery.status === 'out' ? delivery.code : null,
               location:
                 delivery.status === 'out' && delivery.lat && delivery.lng
                   ? {

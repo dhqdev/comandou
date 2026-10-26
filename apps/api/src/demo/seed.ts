@@ -475,7 +475,7 @@ export async function seedDemoData(
   await c.query(
     `INSERT INTO tenant_fiscal_settings (tenant_id, enabled, environment, cnpj, default_ncm, updated_by)
      VALUES ($1, false, 'homologacao', '12345678000195', '21069090', $2) ON CONFLICT (tenant_id) DO NOTHING`,
-    [T, U('fiscal')],
+    [T, U('manager')],
   );
   await c.query(
     `INSERT INTO tenant_messaging_settings (tenant_id, provider, enabled, updated_by)
@@ -1228,7 +1228,7 @@ export async function seedDemoData(
       qty[k],
       null,
       note,
-      U('stock'),
+      U('manager'),
       iso(ms),
     ]);
   };
@@ -1307,7 +1307,7 @@ export async function seedDemoData(
           qty[k],
           null,
           note,
-          U('stock'),
+          U('manager'),
           iso(at(d, 16, 0)),
         ]);
       },
@@ -1328,7 +1328,7 @@ export async function seedDemoData(
           qty[k],
           null,
           'Inventário semanal',
-          U('stock'),
+          U('manager'),
           iso(at(9, 16, 30)),
         ]);
       }
@@ -1350,7 +1350,7 @@ export async function seedDemoData(
       target,
       null,
       'Contagem do inventário',
-      U('stock'),
+      U('manager'),
       iso(now - 5 * MIN),
     ]);
   }
@@ -1699,8 +1699,8 @@ export async function seedDemoData(
       paid ? 'paid' : 'open',
       paid ? localDate(Math.min(due, now)) : null,
       paid ? paidMethod : null,
-      paid ? U('finance') : null,
-      U('finance'),
+      paid ? U('manager') : null,
+      U('manager'),
       iso(due - 20 * DAY),
     ]);
   };
@@ -1786,7 +1786,7 @@ export async function seedDemoData(
   await c.query(
     `INSERT INTO finance_entries (tenant_id, kind, description, category, counterparty, amount, due_date, status, cancel_reason, created_by)
      VALUES ($1, 'payable', 'Manutenção da coifa (orçamento recusado)', 'Manutenção', 'Refrigeração Polar', '1450.00', $2, 'cancelled', 'Orçamento mais barato com outro fornecedor', $3)`,
-    [T, localDate(now - 9 * DAY), U('finance')],
+    [T, localDate(now - 9 * DAY), U('manager')],
   );
   // Conferência dos recebimentos dos últimos dias (cartão e Pix).
   for (const d of [1, 2, 3, 5]) {
@@ -1810,7 +1810,7 @@ export async function seedDemoData(
           fromCents(system + diff),
           fromCents(diff),
           diff ? 'Venda estornada pela operadora (chargeback)' : null,
-          U('finance'),
+          U('manager'),
           iso(localMidnight(d - 1) + 10 * HOUR),
         ],
       );
@@ -1849,7 +1849,7 @@ export async function seedDemoData(
         authorized ? key : null,
         authorized ? String(nfNumber) : null,
         authorized ? null : 'NCM inválido em um dos itens',
-        U('fiscal'),
+        U('manager'),
         iso(o.updatedAt + 2 * MIN),
         authorized ? iso(o.updatedAt + 2 * MIN) : null,
       ],

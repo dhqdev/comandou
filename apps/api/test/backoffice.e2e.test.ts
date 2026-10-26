@@ -84,8 +84,8 @@ beforeAll(async () => {
   ids.driverA = await addUser(fx.tenantA, 'moto1@bo-a.test', 'driver');
   ids.driver2A = await addUser(fx.tenantA, 'moto2@bo-a.test', 'driver');
   ids.cashierA = await addUser(fx.tenantA, 'caixa@bo-a.test', 'cashier');
-  ids.fiscalA = await addUser(fx.tenantA, 'fiscal@bo-a.test', 'fiscal');
-  ids.stockA = await addUser(fx.tenantA, 'estoque@bo-a.test', 'stock');
+  ids.pdvA = await addUser(fx.tenantA, 'pdv@bo-a.test', 'attendant');
+  ids.stockA = await addUser(fx.tenantA, 'estoque@bo-a.test', 'manager');
   app = await createApp(testEnv({ AUTH_LOGIN_RATE_LIMIT: '1000' }), { logger: false });
   await app.listen(0, '127.0.0.1');
   http = request(app.getHttpServer());
@@ -95,7 +95,7 @@ beforeAll(async () => {
   cookies.driverA = await login(HOST_A, 'moto1@bo-a.test');
   cookies.driver2A = await login(HOST_A, 'moto2@bo-a.test');
   cookies.cashierA = await login(HOST_A, 'caixa@bo-a.test');
-  cookies.fiscalA = await login(HOST_A, 'fiscal@bo-a.test');
+  cookies.pdvA = await login(HOST_A, 'pdv@bo-a.test');
   cookies.stockA = await login(HOST_A, 'estoque@bo-a.test');
 });
 afterAll(async () => {
@@ -604,12 +604,29 @@ describe('Entregas e rastreio', () => {
     expect(mine.map((x) => x.id)).toContain(d.delivery.id);
     expect((await get('driver2A', '/deliveries').expect(200)).body).toHaveLength(0);
     await post('driver2A', `/deliveries/${d.delivery.id}/complete`).expect(403);
+    // O entregador não vê pedidos da loja nem o código do cliente.
+    await get('driverA', '/orders').expect(403);
+    await get('driverA', '/products').expect(403);
+    expect(JSON.stringify(mine)).not.toMatch(/confirm|"code"/);
 
-    const done = (await post('driverA', `/deliveries/${d.delivery.id}/complete`).expect(201)).body;
+    // Conclui só com o código de 4 dígitos que o cliente recebeu (como no iFood).
+    const [{ code }] = await ownerQuery<{ code: string }>(
+      `SELECT confirm_code AS code FROM deliveries WHERE id = $1`,
+      [d.delivery.id],
+    );
+    expect(code).toMatch(/^[0-9]{4}$/);
+    expect(t2.code).toBe(code);
+    const wrong = code === '0000' ? '1111' : '0000';
+    await post('driverA', `/deliveries/${d.delivery.id}/complete`).expect(422);
+    await post('driverA', `/deliveries/${d.delivery.id}/complete`, { code: wrong }).expect(422);
+    await post('driverA', `/deliveries/${d.delivery.id}/complete`, { code: 'abcd' }).expect(400);
+    const done = (
+      await post('driverA', `/deliveries/${d.delivery.id}/complete`, { code }).expect(201)
+    ).body;
     expect(done).toMatchObject({ status: 'delivered', orderStatus: 'completed' });
-    await post('driverA', `/deliveries/${d.delivery.id}/complete`).expect(409);
+    await post('driverA', `/deliveries/${d.delivery.id}/complete`, { code }).expect(409);
     const t3 = (await track(tk).expect(200)).body;
-    expect(t3).toMatchObject({ status: 'delivered', location: null, trail: [] });
+    expect(t3).toMatchObject({ status: 'delivered', location: null, trail: [], code: null });
 
     // Link encurtado após a entrega; depois de expirar, 410.
     await ownerQuery(
@@ -651,6 +668,23 @@ describe('Entregas e rastreio', () => {
       status: string;
     }[];
     expect(today.find((x) => x.id === d2.delivery.id)!.status).toBe('delivered');
+  });
+
+  it('código errado várias vezes trava; o restaurante conclui sem código', async () => {
+    const o = await readyDelivery();
+    const d = (
+      await post('adminA', `/orders/${o.id}/dispatch`, { courierId: courier1.id }).expect(201)
+    ).body;
+    const [{ code }] = await ownerQuery<{ code: string }>(
+      `SELECT confirm_code AS code FROM deliveries WHERE id = $1`,
+      [d.delivery.id],
+    );
+    const wrong = code === '0000' ? '1111' : '0000';
+    for (let i = 0; i < 5; i++)
+      await post('driverA', `/deliveries/${d.delivery.id}/complete`, { code: wrong }).expect(422);
+    // Travou: nem o código certo passa mais pelo entregador.
+    await post('driverA', `/deliveries/${d.delivery.id}/complete`, { code }).expect(409);
+    await post('cashierA', `/deliveries/${d.delivery.id}/complete`).expect(201);
   });
 
   it('isolamento: B não despacha nem conclui entregas de A', async () => {
@@ -845,7 +879,7 @@ describe('Financeiro', () => {
 
   it('lança conta a pagar; baixa exige Idempotency-Key e é idempotente', async () => {
     await post('waiterA', '/finance/entries', {}).expect(403);
-    await post('fiscalA', '/finance/entries', {
+    await post('pdvA', '/finance/entries', {
       kind: 'payable',
       description: 'X',
       amount: '1.00',
@@ -925,7 +959,7 @@ describe('Financeiro', () => {
       }).expect(201)
     ).body;
     expect(c).toMatchObject({ status: 'cancelled', cancelReason: 'Evento desmarcado' });
-    const overdue = (await get('fiscalA', '/finance/entries?status=overdue').expect(200)).body as {
+    const overdue = (await get('stockA', '/finance/entries?status=overdue').expect(200)).body as {
       id: string;
     }[];
     expect(overdue.map((e) => e.id)).toEqual([old.id]);
@@ -983,11 +1017,11 @@ describe('Financeiro', () => {
       `SELECT (now() AT TIME ZONE timezone)::date::text AS today FROM tenants WHERE id = $1`,
       [fx.tenantA],
     );
-    const flow = (await get('fiscalA', `/finance/cash-flow?from=${today}&to=${today}`).expect(200))
+    const flow = (await get('stockA', `/finance/cash-flow?from=${today}&to=${today}`).expect(200))
       .body;
     expect(flow.days).toHaveLength(1);
     expect(flow.totals.sales).toBe(o.total);
-    await get('fiscalA', `/finance/cash-flow?from=${today}&to=2020-01-01`).expect(400);
+    await get('stockA', `/finance/cash-flow?from=${today}&to=2020-01-01`).expect(400);
 
     const rec = (await get('adminA', `/finance/reconciliation?day=${today}`).expect(200)).body;
     const pix = rec.methods.find((m: { method: string }) => m.method === 'pix');
@@ -1012,7 +1046,7 @@ describe('Financeiro', () => {
       method: 'pix',
       informedAmount: o.total,
     }).expect(409);
-    await post('fiscalA', '/finance/reconciliation', {
+    await post('pdvA', '/finance/reconciliation', {
       day: today,
       method: 'cash',
       informedAmount: '0',

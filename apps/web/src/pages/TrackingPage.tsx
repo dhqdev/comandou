@@ -2,7 +2,12 @@ import { Bike, CheckCircle2, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { Alert, Logo, Spinner, ThemeToggle } from '../design-system';
-import { CustomerLiveMap, customerEta, type CustomerCourier } from '../features/CustomerTrack';
+import {
+  CustomerLiveMap,
+  customerEta,
+  DeliveryCode,
+  type CustomerCourier,
+} from '../features/CustomerTrack';
 import { time } from '../features/format';
 import type { LatLng } from '../features/live-geo';
 import { api, ApiError } from '../lib/api';
@@ -14,6 +19,8 @@ interface Track {
   orderNumber: number;
   status: 'out' | 'delivered' | 'failed';
   courier: string;
+  /** Código de entrega (só enquanto está na rua). */
+  code: string | null;
   dispatchedAt: string;
   finishedAt: string | null;
   location: CustomerCourier['location'];
@@ -105,6 +112,7 @@ export function TrackingPage() {
       <div className="trk__body">
         {error && <Alert tone={data ? 'warning' : 'danger'}>{error}</Alert>}
         {!data && !error && <Spinner />}
+        {data?.status === 'out' && data.code && <DeliveryCode code={data.code} />}
         {courier && <CustomerLiveMap courier={courier} />}
         {data && (
           <section className="trk__card" aria-live="polite">

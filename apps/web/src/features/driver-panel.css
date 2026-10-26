@@ -11,27 +11,6 @@
   margin: var(--cm-space-2) 0 0;
   font-size: var(--cm-text-lg);
 }
-.driver__share {
-  display: flex;
-  align-items: center;
-  gap: var(--cm-space-3);
-  padding: var(--cm-space-3) var(--cm-space-4);
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-lg);
-  background: var(--cm-surface);
-}
-.driver__share > div {
-  display: grid;
-  flex: 1;
-  min-width: 0;
-}
-.driver__share[data-on] {
-  border-color: var(--cm-success);
-  background: var(--cm-success-bg);
-}
-.driver__share[data-on] > svg {
-  color: var(--cm-success);
-}
 .driver__done {
   list-style: none;
   margin: 0;
@@ -124,6 +103,18 @@
 }
 .run__actions .cm-btn {
   justify-content: center;
+}
+/* Código de entrega: 4 números grandes, fáceis de digitar na porta do cliente. */
+.run__code {
+  display: grid;
+  gap: var(--cm-space-3);
+}
+.run__code input {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 /* Página do link do entregador (fora do sistema). */

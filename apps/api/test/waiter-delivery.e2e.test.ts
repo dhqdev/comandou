@@ -413,8 +413,14 @@ describe('Link do entregador (sem login)', () => {
     );
     expect(row).toMatchObject({ lastLat: '-23.600000', lastHeading: 270, lastAccuracy: 900 });
     await get('adminA', '/deliveries/live-map?ids=nao-e-uuid').expect(400);
-    await pub.post(`/courier-app/${t1}/deliveries/${d1.id}/complete`, {}).expect(201);
-    await pub.post(`/courier-app/${t1}/deliveries/${d1.id}/complete`, {}).expect(409);
+    // Pelo link também só conclui com o código do cliente.
+    const [{ code }] = await ownerQuery<{ code: string }>(
+      `SELECT confirm_code AS code FROM deliveries WHERE id = $1`,
+      [d1.id],
+    );
+    await pub.post(`/courier-app/${t1}/deliveries/${d1.id}/complete`, {}).expect(422);
+    await pub.post(`/courier-app/${t1}/deliveries/${d1.id}/complete`, { code }).expect(201);
+    await pub.post(`/courier-app/${t1}/deliveries/${d1.id}/complete`, { code }).expect(409);
     await pub
       .post(`/courier-app/${t2}/deliveries/${d2.id}/fail`, { reason: 'Cliente ausente' })
       .expect(201);

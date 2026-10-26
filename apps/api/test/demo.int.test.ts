@@ -55,7 +55,7 @@ describe('Restaurante de demonstração', () => {
     );
     expect(n!.orders).toBeGreaterThan(500);
     expect(n!.statuses).toBe(8); // todas as situações de pedido aparecem
-    expect(n!.roles).toBe(10); // um usuário para cada papel
+    expect(n!.roles).toBe(7); // um usuário para cada papel
     expect(n!.no_photo).toBe(0);
     expect(n!.low).toBe(3);
     expect(n!.unpaid).toBe(0);

@@ -1,14 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useParams } from 'react-router';
-import { Alert, Mascot, Spinner, ThemeToggle } from '../design-system';
-import { SoundControl } from '../features/SoundControl';
 import type { CourierEarningsData } from '../features/CourierEarnings';
 import { DriverPanel } from '../features/DriverPanel';
+import { DriverShell, usePolling } from '../driver/DriverShell';
 import { api, ApiError } from '../lib/api';
 import { useArrivalSound } from '../lib/sounds';
 import type { Delivery } from '../lib/types';
-import '../app/shell.css';
-import '../app/ops.css';
 
 interface CourierHome {
   restaurant: string;
@@ -19,7 +16,8 @@ interface CourierHome {
 
 /**
  * Link do entregador (sem login): o restaurante manda o link pelo WhatsApp e o motoboy vê só as
- * próprias corridas, abre a rota, liga para o cliente e marca entregue. Atualiza a cada 15 s.
+ * próprias corridas, abre a rota, liga para o cliente e conclui com o código do cliente. Mesmas
+ * exigências do app com login (atalho na tela inicial e localização). Atualiza a cada 15 s.
  */
 export function CourierLinkPage() {
   const { token = '' } = useParams();
@@ -41,17 +39,7 @@ export function CourierLinkPage() {
       if (err.status === 404 || err.status === 403) setData(null);
     }
   }, [base]);
-
-  useEffect(() => {
-    void load();
-    const id = setInterval(load, 15_000);
-    const onVisible = () => document.visibilityState === 'visible' && void load();
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      clearInterval(id);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, [load]);
+  usePolling(load);
 
   // Corrida nova atribuída ao motoboy toca o som de chamada.
   useArrivalSound(
@@ -62,33 +50,25 @@ export function CourierLinkPage() {
   const earnings = useCallback(() => api<CourierEarningsData>(`${base}/earnings`), [base]);
   const post = (url: string, json: object = {}) => api(`${base}${url}`, { method: 'POST', json });
   return (
-    <main className="courier-page">
-      <div className="courier-page__inner">
-        <header className="courier-page__head">
-          <Mascot size={40} badge title="Comandou" />
-          <div>
-            <strong>{data ? `Olá, ${data.courier.name.split(' ')[0]}` : 'Entregas'}</strong>
-            <span className="cm-hint">{data?.restaurant ?? 'Painel do entregador'}</span>
-          </div>
-          <SoundControl only={['courier']} />
-          <ThemeToggle />
-        </header>
-        {error && <Alert tone={data ? 'warning' : 'danger'}>{error}</Alert>}
-        {!data && !error && <Spinner />}
-        {data && (
-          <DriverPanel
-            deliveries={data.deliveries}
-            store={data.store ? [data.store.lat, data.store.lng] : null}
-            onChanged={load}
-            actions={{
-              complete: (id) => post(`/deliveries/${id}/complete`),
-              fail: (id, reason) => post(`/deliveries/${id}/fail`, { reason }),
-              location: (id, fix) => post(`/deliveries/${id}/location`, fix),
-            }}
-            earnings={earnings}
-          />
-        )}
-      </div>
-    </main>
+    <DriverShell
+      name={data?.courier.name ?? null}
+      restaurant={data?.restaurant ?? null}
+      error={error}
+      loading={!data}
+    >
+      {data && (
+        <DriverPanel
+          deliveries={data.deliveries}
+          store={data.store ? [data.store.lat, data.store.lng] : null}
+          onChanged={load}
+          actions={{
+            complete: (id, code) => post(`/deliveries/${id}/complete`, { code }),
+            fail: (id, reason) => post(`/deliveries/${id}/fail`, { reason }),
+            location: (id, fix) => post(`/deliveries/${id}/location`, fix),
+          }}
+          earnings={earnings}
+        />
+      )}
+    </DriverShell>
   );
 }

@@ -167,3 +167,35 @@
   color: var(--cm-text);
   font-weight: 600;
 }
+
+/* Código de entrega para o cliente passar ao entregador. */
+.dcode {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--cm-brand-600);
+  border-radius: var(--cm-radius-lg, 16px);
+  background: var(--cm-brand-50);
+  color: var(--cm-text);
+}
+.dcode > svg {
+  flex-shrink: 0;
+  color: var(--cm-brand-700);
+}
+.dcode > div {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.dcode > div span {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.dcode__num {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  font-variant-numeric: tabular-nums;
+  color: var(--cm-brand-800);
+}

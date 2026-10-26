@@ -1,4 +1,4 @@
-import { ROLE_LABELS, ROLES, type Role } from '@comandou/shared';
+import { ROLE_HINTS, ROLE_LABELS, ROLES, type Role } from '@comandou/shared';
 import { UserPlus, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -244,6 +244,7 @@ function AddMemberModal({
           </option>
         ))}
       </SelectField>
+      <p className="cm-hint">{ROLE_HINTS[role]}</p>
     </Modal>
   );
 }

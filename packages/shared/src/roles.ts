@@ -1,14 +1,16 @@
+/**
+ * Perfis da equipe de um restaurante, na ordem em que aparecem ao criar alguém. O Super Admin
+ * (painel da plataforma) e o cliente do cardápio online não são papéis da equipe: têm login
+ * próprio. Estoquista, Financeiro e Fiscal viraram Gerente na migração 0025.
+ */
 export const ROLES = [
   'owner',
   'manager',
   'cashier',
+  'attendant',
   'waiter',
   'kitchen',
   'driver',
-  'attendant',
-  'stock',
-  'finance',
-  'fiscal',
 ] as const;
 export type Role = (typeof ROLES)[number];
 
@@ -16,13 +18,21 @@ export const ROLE_LABELS: Record<Role, string> = {
   owner: 'Administrador',
   manager: 'Gerente',
   cashier: 'Caixa',
+  attendant: 'PDV (balcão)',
   waiter: 'Garçom',
   kitchen: 'Cozinha',
   driver: 'Entregador',
-  attendant: 'Atendente',
-  stock: 'Estoquista',
-  finance: 'Financeiro',
-  fiscal: 'Fiscal',
+};
+
+/** O que cada perfil faz, em uma linha (tela Equipe). */
+export const ROLE_HINTS: Record<Role, string> = {
+  owner: 'Tudo, inclusive equipe, plano e domínio.',
+  manager: 'Tudo da loja, menos equipe e domínio: estoque, financeiro, nota fiscal, relatórios.',
+  cashier: 'PDV, pedidos, salão, entregas e caixa (abre, recebe e fecha).',
+  attendant: 'PDV e pedidos no balcão, salão e despacho de entregas. Não mexe no caixa.',
+  waiter: 'Só o app do garçom (/garcom): mesas, comandas e os próprios pedidos.',
+  kitchen: 'Só a tela da cozinha (/cozinha), em tela cheia.',
+  driver: 'Só as próprias entregas, concluídas com o código do cliente.',
 };
 
 /** Permissões por operação. Formato "<recurso>:<ação>". */
@@ -102,8 +112,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   ],
   /** App do garçom (/garcom): mesas, comandas e pedido rápido. Sem caixa, desconto ou status. */
   waiter: ['catalog:read', 'orders:read', 'orders:write', 'tables:operate'],
-  kitchen: ['catalog:read', 'orders:read', 'kitchen:operate'],
-  driver: ['orders:read', 'delivery:operate'],
+  /** Só a tela da cozinha (/cozinha): fila de preparo por setor. */
+  kitchen: ['catalog:read', 'kitchen:operate'],
+  /** Só as próprias corridas (/entregas): sem pedidos, cardápio ou clientes da loja. */
+  driver: ['delivery:operate'],
   attendant: [
     'catalog:read',
     'orders:read',
@@ -113,16 +125,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'delivery:manage',
     'customers:read',
   ],
-  stock: ['catalog:read', 'stock:read', 'stock:write'],
-  finance: [
-    'orders:read',
-    'cash:close',
-    'reports:read',
-    'finance:read',
-    'finance:write',
-    'stock:read',
-  ],
-  fiscal: ['orders:read', 'reports:read', 'finance:read', 'fiscal:emit', 'fiscal:manage'],
 };
 
 export function roleHas(role: Role, permission: Permission): boolean {

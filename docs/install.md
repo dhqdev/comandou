@@ -80,8 +80,8 @@ a loja online com logo, capa e banners. Serve para testar e para mostrar o siste
 - `COMANDOU_DEMO=false` desliga (não cria; um que já existe continua até ser excluído no painel).
 - Um restaurante de verdade com o mesmo endereço nunca é tocado.
 - Senha de todos os usuários: `comandou123`. E-mails: `dono@`, `gerente@`, `caixa@`, `garcom@`,
-  `garcom2@`, `cozinha@`, `entregador@`, `entregador2@`, `atendente@`, `estoque@`, `financeiro@`
-  e `fiscal@exemplo.<domínio>`. Cliente do cardápio online: celular `(11) 98888-0000`, senha
+  `garcom2@`, `cozinha@`, `entregador@`, `entregador2@` e `atendente@exemplo.<domínio>`.
+  Cliente do cardápio online: celular `(11) 98888-0000`, senha
   `cliente123`.
 - As imagens são ilustrações próprias (`apps/api/db/demo/images`, geradas por
   `tools/demo-images/generate.mjs`).

@@ -19,10 +19,24 @@ function rememberedEmail() {
   }
 }
 
+const WHO = {
+  waiter: { place: 'Salão', title: 'Acesso do garçom', cta: 'Entrar no salão' },
+  kitchen: { place: 'Cozinha', title: 'Acesso da cozinha', cta: 'Entrar na cozinha' },
+  driver: { place: 'Entregas', title: 'Acesso do entregador', cta: 'Entrar nas entregas' },
+};
+
 export function LoginPage() {
   const { login } = useAuth();
-  // /garcom: mesmo login, com textos para o garçom (depois de entrar ele cai no Salão).
-  const waiter = isWaiterPath(useLocation().pathname);
+  // /garcom, /cozinha e /entregas: mesmo login, com textos de quem usa (depois de entrar, cada um
+  // cai no próprio app).
+  const { pathname } = useLocation();
+  const who = isWaiterPath(pathname)
+    ? WHO.waiter
+    : /^\/cozinha\/?$/.test(pathname)
+      ? WHO.kitchen
+      : /^\/entregas\/?$/.test(pathname)
+        ? WHO.driver
+        : null;
   const [tenantName, setTenantName] = useState<string | null>(null);
   const [tenantMissing, setTenantMissing] = useState(false);
   const [email, setEmail] = useState(rememberedEmail);
@@ -75,9 +89,9 @@ export function LoginPage() {
 
         <div className="login__body">
           <span className="login__eyebrow">
-            <span className="cm-dot" /> {tenantName ?? (waiter ? 'Salão' : 'Painel do restaurante')}
+            <span className="cm-dot" /> {tenantName ?? who?.place ?? 'Painel do restaurante'}
           </span>
-          <h1 className="login__title">{waiter ? 'Acesso do garçom' : 'Bem-vindo de volta'}</h1>
+          <h1 className="login__title">{who?.title ?? 'Bem-vindo de volta'}</h1>
           <p className="login__sub">
             Entre com o e-mail e a senha que o responsável pelo restaurante cadastrou para você.
           </p>
@@ -143,7 +157,7 @@ export function LoginPage() {
               loading={busy}
               disabled={!email || !password || tenantMissing}
             >
-              {waiter ? 'Entrar no salão' : 'Entrar no painel'}
+              {who?.cta ?? 'Entrar no painel'}
             </Button>
             <p className="login__help">
               Esqueceu a senha? Peça ao gerente para redefinir em <b>Gestão › Equipe</b>.

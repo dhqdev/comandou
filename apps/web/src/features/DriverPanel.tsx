@@ -3,7 +3,7 @@ import {
   Banknote,
   Bike,
   CheckCircle2,
-  LocateFixed,
+  KeyRound,
   MapPin,
   MessageCircle,
   Navigation,
@@ -32,7 +32,8 @@ export interface Fix {
 }
 
 export interface DriverActions {
-  complete(id: string): Promise<unknown>;
+  /** Conclui com o código de 4 dígitos que o cliente recebeu. */
+  complete(id: string, code: string): Promise<unknown>;
   fail(id: string, reason: string): Promise<unknown>;
   location(id: string, fix: Fix): Promise<unknown>;
 }
@@ -53,7 +54,9 @@ export const routeUrl = (d: Pick<Delivery, 'deliveryLat' | 'deliveryLng' | 'deli
  * Painel do entregador: feito para o celular, com botões grandes. Mostra as corridas na rua
  * (endereço, rota no app de mapas preferido, contato, quanto cobrar e quanto ele ganha) e as
  * encerradas hoje; na aba "Meus ganhos", a central com o que ganhou e o que falta receber.
- * Usado pelo entregador com login (tela Entregas) e pelo link do entregador (sem login).
+ * A entrega só é concluída com o código que o cliente recebeu (como no iFood). A localização
+ * fica sempre ligada (o DriverGate só libera a tela com ela permitida).
+ * Usado pelo app do entregador com login e pelo link do entregador (sem login).
  */
 export function DriverPanel({
   deliveries,
@@ -136,32 +139,9 @@ function Runs({
           className="driver__map"
           riders={riders}
           store={store}
-          emptyHint={
-            sharing.on ? 'Procurando o seu GPS…' : 'Ligue a localização para ver você no mapa.'
-          }
+          emptyHint="Procurando o seu GPS…"
         />
       )}
-      <div className="driver__share" data-on={sharing.on || undefined}>
-        <LocateFixed size={20} />
-        <div>
-          <strong>{sharing.on ? 'Localização ligada' : 'Localização desligada'}</strong>
-          <span className="cm-hint">
-            {sharing.on
-              ? sharing.last
-                ? `Última enviada às ${time(sharing.last)}. O restaurante e o cliente veem você no mapa.`
-                : 'Enviando…'
-              : 'Ligue para o restaurante e o cliente acompanharem você no mapa.'}
-          </span>
-        </div>
-        <Button
-          variant={sharing.on ? 'secondary' : 'primary'}
-          size="sm"
-          onClick={sharing.toggle}
-          disabled={!out.length && !sharing.on}
-        >
-          {sharing.on ? 'Desligar' : 'Ligar'}
-        </Button>
-      </div>
       {sharing.error && <p className="form-error">{sharing.error}</p>}
 
       <h2 className="driver__title">
@@ -232,8 +212,9 @@ function RunCard({
   const dist = me && dest ? distanceM(me, dest) : null;
   const toast = useToast();
   const [busy, setBusy] = useState(false);
-  const [failing, setFailing] = useState(false);
+  const [step, setStep] = useState<'idle' | 'code' | 'fail'>('idle');
   const [reason, setReason] = useState('');
+  const [code, setCode] = useState('');
   const toCollect = d.paymentStatus !== 'paid' && toCents(d.balance) > 0;
 
   async function run(fn: () => Promise<unknown>, ok: string) {
@@ -331,7 +312,7 @@ function RunCard({
           </a>
         </div>
       )}
-      {failing ? (
+      {step === 'fail' ? (
         <div className="inline-form">
           <TextField
             label="Por que não foi entregue?"
@@ -341,7 +322,7 @@ function RunCard({
             placeholder="Ex.: cliente ausente, endereço errado"
           />
           <div className="run__actions">
-            <Button variant="secondary" size="lg" onClick={() => setFailing(false)}>
+            <Button variant="secondary" size="lg" onClick={() => setStep('idle')}>
               Voltar
             </Button>
             <Button
@@ -355,22 +336,60 @@ function RunCard({
             </Button>
           </div>
         </div>
+      ) : step === 'code' ? (
+        <form
+          className="run__code"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (code.length === 4) void run(() => actions.complete(d.id, code), 'Entrega concluída');
+          }}
+        >
+          <TextField
+            label="Código de entrega"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="[0-9]*"
+            maxLength={4}
+            placeholder="0000"
+            autoFocus
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
+            hint="Peça ao cliente: são 4 números que ele recebeu no acompanhamento do pedido."
+          />
+          <div className="run__actions">
+            <Button variant="secondary" size="lg" type="button" onClick={() => setStep('idle')}>
+              Voltar
+            </Button>
+            <Button
+              variant="success"
+              size="lg"
+              type="submit"
+              loading={busy}
+              disabled={code.length !== 4}
+              icon={<CheckCircle2 size={18} />}
+            >
+              Confirmar entrega
+            </Button>
+          </div>
+        </form>
       ) : (
         <div className="run__actions">
           <Button
             variant="secondary"
             size="lg"
             icon={<XCircle size={18} />}
-            onClick={() => setFailing(true)}
+            onClick={() => setStep('fail')}
           >
             Não consegui
           </Button>
           <Button
             variant="success"
             size="lg"
-            loading={busy}
-            icon={<CheckCircle2 size={18} />}
-            onClick={() => run(() => actions.complete(d.id), 'Entrega concluída')}
+            icon={<KeyRound size={18} />}
+            onClick={() => {
+              setCode('');
+              setStep('code');
+            }}
           >
             Entreguei
           </Button>
@@ -387,19 +406,11 @@ const SEND_MAX_MS = 20_000;
 
 /**
  * Envia a posição do celular para as corridas na rua enquanto a tela estiver aberta: a cada
- * ~25 m andados (no mínimo a cada 5 s) e, parado, a cada 20 s. Mantém a tela acesa enquanto
- * está ligado (o navegador pausa o GPS com a tela apagada). Fica ligado entre visitas.
+ * ~25 m andados (no mínimo a cada 5 s) e, parado, a cada 20 s. Sempre ligado: o entregador só
+ * chega aqui com a localização permitida. Mantém a tela acesa durante as corridas (o navegador
+ * pausa o GPS com a tela apagada).
  */
 function useShareLocation(out: Delivery[], actions: DriverActions) {
-  const KEY = 'cm-driver-share';
-  const [on, setOn] = useState(() => {
-    try {
-      return localStorage.getItem(KEY) === '1';
-    } catch {
-      return false;
-    }
-  });
-  const [last, setLast] = useState<string | null>(null);
   const [fix, setFix] = useState<Fix | null>(null);
   const [fixAt, setFixAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -408,7 +419,6 @@ function useShareLocation(out: Delivery[], actions: DriverActions) {
   ref.current = { ids, actions };
 
   useEffect(() => {
-    if (!on || !ids) return;
     if (!navigator.geolocation) {
       setError('Este aparelho não informa a localização.');
       return;
@@ -433,34 +443,25 @@ function useShareLocation(out: Delivery[], actions: DriverActions) {
         setFix(f);
         setFixAt(new Date().toISOString());
         setError(null);
+        const list = ref.current.ids.split(',').filter(Boolean);
+        if (!list.length) return;
         const now = Date.now();
         const moved = sent ? distanceM(sent.p, p) : Infinity;
         const since = sent ? now - sent.at : Infinity;
         if (since < SEND_MIN_MS || (moved < SEND_MIN_M && since < SEND_MAX_MS)) return;
         sent = { at: now, p };
-        const list = ref.current.ids.split(',').filter(Boolean);
-        void Promise.all(list.map((id) => ref.current.actions.location(id, f)))
-          .then(() => setLast(new Date().toISOString()))
-          .catch(() => undefined);
+        void Promise.all(list.map((id) => ref.current.actions.location(id, f))).catch(
+          () => undefined,
+        );
       },
-      () => setError('Permita o acesso à localização nas configurações do navegador.'),
+      () => setError('Permita o acesso à localização nas configurações do celular.'),
       { enableHighAccuracy: true, maximumAge: 5_000, timeout: 30_000 },
     );
     return () => navigator.geolocation.clearWatch(watch);
-  }, [on, ids]);
+  }, []);
 
-  useWakeLock(on && !!ids);
-
-  const toggle = () =>
-    setOn((v) => {
-      try {
-        localStorage.setItem(KEY, v ? '0' : '1');
-      } catch {
-        /* sem armazenamento: vale só agora */
-      }
-      return !v;
-    });
-  return { on, last, fix, fixAt, error, toggle };
+  useWakeLock(!!ids);
+  return { fix, fixAt, error };
 }
 
 /** Mantém a tela acesa enquanto o entregador compartilha a posição (quando o navegador deixa). */

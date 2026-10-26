@@ -38,6 +38,8 @@ import { NoAccess } from './NoAccess';
 import { UpdatePrompt } from './UpdatePrompt';
 import { WaiterEntry } from './WaiterEntry';
 import { WaiterApp } from '../waiter/WaiterApp';
+import { DriverApp } from '../driver/DriverApp';
+import { KitchenApp } from '../kitchen/KitchenApp';
 
 function Home() {
   const { me } = useAuth();
@@ -99,6 +101,9 @@ function Gate() {
   // Garçom: só o app dele (/garcom). Qualquer outro endereço leva ao mapa de mesas, mantendo o
   // ?mesa= do QR da mesa.
   if (me?.user.role === 'waiter') return <WaiterOnly />;
+  // Entregador e cozinha: só o app de cada um (/entregas e /cozinha), sem o menu da loja.
+  if (me?.user.role === 'driver') return <DriverApp />;
+  if (me?.user.role === 'kitchen') return <KitchenApp />;
   return (
     <Routes>
       {/* Gestor também abre o app do garçom (para conferir o que a equipe vê). */}

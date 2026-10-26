@@ -1,11 +1,11 @@
-/** Tela inicial de cada papel: garçom no salão, entregador nas entregas, cozinha na cozinha… */
+/**
+ * Tela inicial de cada papel com app próprio: garçom no salão, entregador nas entregas, cozinha
+ * na fila de preparo. Os outros começam no PDV.
+ */
 export const ROLE_HOME: Record<string, string> = {
   waiter: '/garcom/mesas',
   driver: '/entregas',
   kitchen: '/cozinha',
-  stock: '/estoque',
-  finance: '/financeiro',
-  fiscal: '/nota-fiscal',
 };
 
 /**
@@ -19,7 +19,7 @@ export const ROUTE_PERMS: Record<string, string[]> = {
   reservas: ['tables:operate', 'settings:manage'],
   cozinha: ['kitchen:operate', 'orders:manage'],
   caixa: ['cash:operate', 'cash:close', 'reports:read'],
-  entregas: ['delivery:manage', 'delivery:operate'],
+  entregas: ['delivery:manage'],
   cardapio: ['catalog:read'],
   'loja-online': ['settings:manage'],
   clientes: ['customers:read'],

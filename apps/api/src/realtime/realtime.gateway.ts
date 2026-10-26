@@ -78,6 +78,9 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     if (!token) return false;
     const user = await this.sessions.validate(outcome.tenant.id, token);
     if (!user) return false;
+    // O entregador não recebe os avisos da loja (pedidos e posição dos outros motoboys): o app
+    // dele atualiza as próprias corridas sozinho.
+    if (user.role === 'driver') return false;
     socket.data.tenantId = outcome.tenant.id;
     socket.data.userId = user.id;
     socket.data.token = token;

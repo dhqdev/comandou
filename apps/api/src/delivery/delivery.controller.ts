@@ -38,6 +38,14 @@ const Fix = z.object({
   speed: z.number().min(0).max(120).nullable().optional(),
   heading: z.number().min(0).max(360).nullable().optional(),
 });
+/** Código de entrega que o cliente passa ao entregador (o painel conclui sem ele). */
+const Complete = z.object({
+  code: z
+    .string()
+    .trim()
+    .regex(/^[0-9]{4}$/, 'código de 4 números')
+    .optional(),
+});
 const COURIER_COLS = `c.id, c.name, c.phone, c.user_id AS "userId", u.name AS "userName", c.active,
   c.access_created_at AS "linkCreatedAt"`;
 
@@ -185,11 +193,12 @@ export class DeliveryController {
   @RequirePermission('delivery:manage', 'delivery:operate')
   complete(
     @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(Complete)) b: z.infer<typeof Complete>,
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
     @Req() req: Request,
   ) {
-    return this.delivery.complete(ctxOf(t, u, req), id);
+    return this.delivery.complete(ctxOf(t, u, req), id, { code: b.code });
   }
 
   @Post('deliveries/:id/fail')
@@ -264,11 +273,12 @@ export class DeliveryController {
   async courierComplete(
     @Param('token') token: string,
     @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(Complete)) b: z.infer<typeof Complete>,
     @CurrentTenant() t: ResolvedTenant,
     @Req() req: Request,
   ) {
     const { ctx, courier } = await this.delivery.courierCtx(t.id, token, req.ip);
-    return this.delivery.complete(ctx, id, courier.id);
+    return this.delivery.complete(ctx, id, { viaLink: courier.id, code: b.code });
   }
 
   @Public()

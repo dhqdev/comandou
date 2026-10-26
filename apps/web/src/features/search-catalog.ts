@@ -115,7 +115,7 @@ const SCREENS: StaticEntry[] = [
     words: 'delivery motoboy entregador despachar rastreio rota',
     icon: 'delivery',
     to: '/entregas',
-    perms: ['delivery:manage', 'delivery:operate'],
+    perms: ['delivery:manage'],
   },
   {
     id: 's-cardapio',

@@ -279,15 +279,21 @@ export function applyFavicon(url: string | null) {
   }
 }
 
-/** O app instalado (PWA) lê nome, cor e ícone do manifesto da loja, não o do Comandou. */
-export function applyManifest() {
+/**
+ * O app instalado (PWA) lê nome, cor e ícone do manifesto da loja, não o do Comandou. No link do
+ * entregador (sem login), o atalho abre no próprio link, e não no login do painel.
+ */
+export function applyManifest(path = window.location.pathname) {
   let el = document.head.querySelector<HTMLLinkElement>('link[rel="manifest"]');
   if (!el) {
     el = document.createElement('link');
     el.rel = 'manifest';
     document.head.appendChild(el);
   }
-  if (el.getAttribute('href') !== '/api/v1/store/manifest') el.href = '/api/v1/store/manifest';
+  const href = /^\/entregador\/[A-Za-z0-9_-]{20,64}$/.test(path)
+    ? `/api/v1/store/manifest?start=${encodeURIComponent(path)}`
+    : '/api/v1/store/manifest';
+  if (el.getAttribute('href') !== href) el.href = href;
 }
 
 /** Última identidade vista neste navegador: pinta antes do primeiro desenho, sem piscar laranja. */
@@ -316,7 +322,7 @@ export function applyBranding(b: Branding, path = window.location.pathname) {
   const colors = customer || b.staffApp;
   applyBrandCss(brandCss(b, { colors, shape: customer }));
   applyFavicon(colors ? b.faviconUrl : null);
-  applyManifest();
+  applyManifest(path);
 }
 
 /** Avisa a página (e a prévia) que a identidade mudou. */

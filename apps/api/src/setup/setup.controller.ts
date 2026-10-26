@@ -67,7 +67,7 @@ export class SetupController {
   ) {}
 
   @Get('sectors')
-  @RequirePermission('orders:read')
+  @RequirePermission('orders:read', 'kitchen:operate')
   sectors(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
     return this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
       q(tx, `SELECT ${SECTOR_COLS} FROM production_sectors ORDER BY name`),

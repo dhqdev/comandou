@@ -22,10 +22,7 @@ export interface DemoUser {
     | 'waiter'
     | 'kitchen'
     | 'driver'
-    | 'attendant'
-    | 'stock'
-    | 'finance'
-    | 'fiscal';
+    | 'attendant';
 }
 
 export const USERS: DemoUser[] = [
@@ -38,9 +35,6 @@ export const USERS: DemoUser[] = [
   { key: 'driver', email: 'entregador', name: 'Lucas Ferreira', role: 'driver' },
   { key: 'driver2', email: 'entregador2', name: 'Bruna Martins', role: 'driver' },
   { key: 'attendant', email: 'atendente', name: 'Fernanda Rocha', role: 'attendant' },
-  { key: 'stock', email: 'estoque', name: 'Diego Santos', role: 'stock' },
-  { key: 'finance', email: 'financeiro', name: 'Patrícia Gomes', role: 'finance' },
-  { key: 'fiscal', email: 'fiscal', name: 'Rodrigo Nunes', role: 'fiscal' },
 ];
 
 export const SECTORS = [

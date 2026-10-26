@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { CustomerLiveMap, type CustomerCourier } from '../../features/CustomerTrack';
+import { CustomerLiveMap, DeliveryCode, type CustomerCourier } from '../../features/CustomerTrack';
 import { time } from '../../features/format';
 import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
@@ -237,6 +237,7 @@ export function PublicOrderPage() {
           </section>
         )}
 
+        {o.step === 'dispatched' && o.courier?.code && <DeliveryCode code={o.courier.code} />}
         {o.step === 'dispatched' && o.courier && <CustomerLiveMap courier={o.courier} />}
 
         <section className="track__card">

@@ -1,0 +1,59 @@
+/* App do entregador: antes de começar (atalho e localização) e a moldura. */
+.dgate {
+  display: grid;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-4);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+}
+.dgate__title {
+  margin: 0;
+  font-size: var(--cm-text-xl);
+}
+.dgate__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.dgate__steps li {
+  display: flex;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-3) 0;
+  border-top: 1px solid var(--cm-border);
+}
+.dgate__steps li > div {
+  display: grid;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.dgate__steps li > div .cm-btn {
+  justify-content: center;
+}
+.dgate__icon {
+  flex-shrink: 0;
+  color: var(--cm-brand-700);
+}
+.dgate__steps li[data-done] .dgate__icon {
+  color: var(--cm-success);
+}
+.dgate .cm-hint svg {
+  vertical-align: -2px;
+}
+.dshell__out {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--cm-radius-md);
+  background: transparent;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.dshell__out:hover {
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+}

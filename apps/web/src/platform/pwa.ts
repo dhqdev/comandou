@@ -42,12 +42,25 @@ export function applyAdminPwa() {
     'content',
     'Comandou Admin',
   );
+}
 
+/**
+ * Guarda o pedido de instalação do Chrome/Android para mostrar no botão "Instalar app" (painel
+ * Super Admin, app do entregador). Roda antes do React montar, em todos os endereços.
+ */
+export function listenInstallPrompt() {
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferred = e as InstallPromptEvent;
+    window.dispatchEvent(new Event('cm-installable'));
+  });
+  window.addEventListener('appinstalled', () => {
+    deferred = null;
   });
 }
+
+/** O navegador já ofereceu a instalação (Chrome/Android)? No iPhone, nunca: é pelo Compartilhar. */
+export const canPromptInstall = () => deferred !== null;
 
 interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;

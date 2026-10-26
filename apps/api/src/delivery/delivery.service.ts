@@ -4,9 +4,10 @@ import {
   GoneException,
   Injectable,
   NotFoundException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { roleHas } from '@comandou/shared';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomInt } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
 import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
@@ -17,6 +18,12 @@ import { rideEstimates } from './courier-pay.service';
 
 /** Validade do link de rastreio enquanto o pedido está na rua. */
 export const TRACKING_TTL_HOURS = 4;
+
+/** Erros de código aceitos antes de travar a entrega (aí só o restaurante conclui). */
+export const CONFIRM_MAX_ATTEMPTS = 5;
+
+/** Código de entrega de 4 dígitos (como o do iFood): o cliente informa ao entregador. */
+export const newConfirmCode = () => String(randomInt(0, 10_000)).padStart(4, '0');
 
 const trackingHash = (token: string) => createHash('sha256').update(token).digest();
 
@@ -146,13 +153,23 @@ export class DeliveryService {
       ]);
       if (!c) throw new NotFoundException('Entregador não encontrado');
       if (!c.active) throw new ConflictException('Entregador inativo');
-      await this.orders.transitionInTx(tx, ctx, o, 'dispatched');
+      // A corrida (com o código de entrega) nasce antes da mudança de status: o aviso de
+      // "saiu para entrega" no WhatsApp, gravado na transição, já leva o código.
       const d = await one<{ id: string }>(
         tx,
-        `INSERT INTO deliveries (tenant_id, order_id, courier_id, tracking_hash, tracking_expires_at, created_by)
-         VALUES ($1,$2,$3,$4, now() + make_interval(hours => $5), $6) RETURNING id`,
-        [ctx.tenantId, orderId, courierId, token.hash, TRACKING_TTL_HOURS, ctx.userId],
+        `INSERT INTO deliveries (tenant_id, order_id, courier_id, tracking_hash, tracking_expires_at, created_by, confirm_code)
+         VALUES ($1,$2,$3,$4, now() + make_interval(hours => $5), $6, $7) RETURNING id`,
+        [
+          ctx.tenantId,
+          orderId,
+          courierId,
+          token.hash,
+          TRACKING_TTL_HOURS,
+          ctx.userId,
+          newConfirmCode(),
+        ],
       );
+      await this.orders.transitionInTx(tx, ctx, o, 'dispatched');
       await this.audit.record(tx, {
         tenantId: ctx.tenantId,
         actorUserId: ctx.userId,
@@ -182,9 +199,12 @@ export class DeliveryService {
       status: string;
       courier_user: string | null;
       courier_id: string;
+      confirm_code: string | null;
+      confirm_attempts: number;
     }>(
       tx,
-      `SELECT d.id, d.status, c.user_id AS courier_user, d.courier_id FROM deliveries d JOIN couriers c ON c.id = d.courier_id
+      `SELECT d.id, d.status, c.user_id AS courier_user, d.courier_id, d.confirm_code, d.confirm_attempts
+         FROM deliveries d JOIN couriers c ON c.id = d.courier_id
         WHERE d.id = $1 FOR UPDATE OF d`,
       [id],
     );
@@ -195,16 +215,57 @@ export class DeliveryService {
     return { o, d: d! };
   }
 
-  async complete(ctx: Ctx, id: string, viaLink?: string) {
+  /**
+   * Conclui a entrega. O entregador (login ou link) precisa do código que o cliente recebeu;
+   * quem gerencia as entregas conclui pelo painel sem código (cliente sem o código, por exemplo).
+   * Cada código errado conta; no limite, a corrida trava para o entregador.
+   */
+  async complete(ctx: Ctx, id: string, opts: { viaLink?: string; code?: string } = {}) {
     let orderId = '';
-    const res = await this.db.withTenant(ctx, async (tx) => {
-      const { o } = await this.lockOut(tx, ctx, id, viaLink);
-      orderId = o.id;
-      await this.orders.transitionInTx(tx, ctx, o, 'completed', 'Entrega concluída');
-      return one(tx, `${DELIVERY_SELECT} WHERE d.id = $1`, [id]);
-    });
-    this.publish(ctx, id, orderId);
-    return res;
+    let wrong = false;
+    const byCourier = !!opts.viaLink || !this.canManage(ctx);
+    try {
+      const res = await this.db.withTenant(ctx, async (tx) => {
+        const { o, d } = await this.lockOut(tx, ctx, id, opts.viaLink);
+        // Corrida que saiu antes do código existir (migração 0025) conclui sem ele.
+        if (byCourier && d.confirm_code) {
+          if (d.confirm_attempts >= CONFIRM_MAX_ATTEMPTS)
+            throw new ConflictException(
+              'Código bloqueado depois de várias tentativas. Peça para o restaurante concluir.',
+            );
+          if (!opts.code) throw new UnprocessableEntityException('Digite o código do cliente');
+          if (opts.code !== d.confirm_code) {
+            wrong = true;
+            const left = CONFIRM_MAX_ATTEMPTS - d.confirm_attempts - 1;
+            throw new UnprocessableEntityException(
+              left > 0
+                ? `Código errado. Confira com o cliente (${left} ${left === 1 ? 'tentativa' : 'tentativas'}).`
+                : 'Código errado. Peça para o restaurante concluir.',
+            );
+          }
+        }
+        orderId = o.id;
+        await this.orders.transitionInTx(
+          tx,
+          ctx,
+          o,
+          'completed',
+          byCourier || !d.confirm_code ? 'Entrega concluída' : 'Entrega concluída pelo restaurante',
+        );
+        return one(tx, `${DELIVERY_SELECT} WHERE d.id = $1`, [id]);
+      });
+      this.publish(ctx, id, orderId);
+      return res;
+    } catch (e) {
+      // A transação foi desfeita: o erro conta numa gravação à parte.
+      if (wrong)
+        await this.db.withTenant(ctx, (tx) =>
+          q(tx, `UPDATE deliveries SET confirm_attempts = confirm_attempts + 1 WHERE id = $1`, [
+            id,
+          ]),
+        );
+      throw e;
+    }
   }
 
   /** Entrega não realizada: o pedido volta para "pronto" e pode sair de novo. */
@@ -428,9 +489,10 @@ export class DeliveryService {
         dest_lat: string | null;
         dest_lng: string | null;
         id: string;
+        code: string | null;
       }>(
         tx,
-        `SELECT d.id, d.status, d.tracking_expires_at < now() AS expired, o.number AS order_number,
+        `SELECT d.id, d.status, d.confirm_code AS code, d.tracking_expires_at < now() AS expired, o.number AS order_number,
                 split_part(c.name, ' ', 1) AS courier, d.dispatched_at, d.finished_at,
                 d.last_lat::text AS lat, d.last_lng::text AS lng, d.last_location_at AS location_at,
                 d.last_heading AS heading, d.last_speed::float AS speed, d.last_accuracy AS accuracy,
@@ -449,6 +511,8 @@ export class DeliveryService {
       orderNumber: d.order_number,
       status: d.status,
       courier: d.courier,
+      // Quem tem o link é o cliente: ele passa este código ao entregador na porta.
+      code: out ? d.code : null,
       dispatchedAt: d.dispatched_at,
       finishedAt: d.finished_at,
       location:
