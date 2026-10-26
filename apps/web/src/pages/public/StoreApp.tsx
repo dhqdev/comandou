@@ -23,6 +23,7 @@ import {
 import { CartScreen } from './CartScreen';
 import { StoreProvider, useStore } from './context';
 import { FavoritesScreen, HomeScreen } from './HomeScreen';
+import { LoyaltyScreen } from './LoyaltyScreens';
 import { OrdersScreen } from './OrdersScreen';
 import { ProductScreen } from './ProductScreen';
 import { ReservationStatusScreen, ReserveScreen } from './ReservationScreens';
@@ -166,6 +167,7 @@ function Screens() {
         <Route path="conta/enderecos" element={<AddressesScreen />} />
         <Route path="conta/senha" element={<PasswordScreen />} />
         <Route path="conta/esqueci-senha" element={<ForgotPasswordScreen />} />
+        <Route path="fidelidade" element={<LoyaltyScreen />} />
         <Route path="*" element={<HomeScreen />} />
       </Routes>
     </div>

@@ -21,6 +21,7 @@ import { brl } from '../../lib/money';
 import { useStore } from './context';
 import { setMorph } from './morph';
 import { PublicBanner, PublicProduct, recentOrders } from './store';
+import { LoyaltyStrip } from './LoyaltyScreens';
 import { ReserveCard } from './ReservationScreens';
 import { HeartButton, Photo } from './ui';
 
@@ -361,6 +362,7 @@ export function HomeScreen() {
             </span>
           </p>
         )}
+        {!term && <LoyaltyStrip />}
         {!term && <ReserveCard />}
 
         {term ? (

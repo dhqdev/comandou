@@ -288,3 +288,82 @@ export interface PinnedQuote {
   lng: number;
   quote: DeliveryQuote;
 }
+
+/** Programa de fidelidade da loja (GET /store/loyalty). */
+export interface LoyaltyReward {
+  id: string;
+  name: string;
+  cost: number;
+  kind: 'discount' | 'product';
+  /** Desconto em reais; no produto grátis, o preço base dele hoje. */
+  amount: string | null;
+  productId: string | null;
+  productName: string | null;
+  imageUrl: string | null;
+}
+export interface LoyaltyEntry {
+  id: string;
+  kind: 'earn' | 'redeem' | 'refund' | 'expire' | 'adjust';
+  points: number;
+  discount: string | null;
+  note: string | null;
+  createdAt: string;
+  orderNumber: number | null;
+}
+export type PublicLoyalty =
+  | { enabled: false }
+  | {
+      enabled: true;
+      mode: 'points' | 'stamps';
+      pointsPerReal: string;
+      stampMinOrder: string;
+      expiryDays: number | null;
+      rewards: LoyaltyReward[];
+      account: {
+        balance: number;
+        expiresAt: string | null;
+        pending: number;
+        history: LoyaltyEntry[];
+      } | null;
+    };
+export type LoyaltyOn = Extract<PublicLoyalty, { enabled: true }>;
+
+/** Mesma conta da API: pontos (R$ × pontos por real, para baixo) ou 1 carimbo acima do mínimo. */
+export function loyaltyPoints(l: LoyaltyOn, spentCents: number) {
+  if (spentCents <= 0) return 0;
+  if (l.mode === 'stamps') return spentCents >= toCents(l.stampMinOrder) ? 1 : 0;
+  return Math.floor((spentCents * toCents(l.pointsPerReal)) / 10_000);
+}
+export const loyaltyUnit = (l: Pick<LoyaltyOn, 'mode'>, n = 2) =>
+  l.mode === 'stamps' ? (n === 1 ? 'carimbo' : 'carimbos') : n === 1 ? 'ponto' : 'pontos';
+
+/** Frase da regra para o cliente. */
+export function loyaltyRule(l: LoyaltyOn) {
+  if (l.mode === 'stamps')
+    return toCents(l.stampMinOrder) > 0
+      ? `1 carimbo a cada pedido a partir de R$ ${l.stampMinOrder.replace('.', ',')}`
+      : '1 carimbo a cada pedido';
+  const per = Number(l.pointsPerReal);
+  return `${per.toLocaleString('pt-BR')} ${per === 1 ? 'ponto' : 'pontos'} a cada R$ 1`;
+}
+
+/**
+ * Desconto que a recompensa dá nesta sacola (centavos), ou null se não serve agora (produto
+ * grátis fora da sacola). Nunca passa do subtotal.
+ */
+export function rewardDiscount(
+  r: LoyaltyReward,
+  cart: Pick<CartLine, 'productId'>[],
+  subtotalCents: number,
+) {
+  if (r.kind === 'product' && !cart.some((l) => l.productId === r.productId)) return null;
+  return Math.min(toCents(r.amount ?? '0'), subtotalCents);
+}
+
+export const LOYALTY_LABEL: Record<LoyaltyEntry['kind'], string> = {
+  earn: 'Pedido concluído',
+  redeem: 'Troca',
+  refund: 'Devolvido (pedido cancelado)',
+  expire: 'Venceram',
+  adjust: 'Ajuste da loja',
+};

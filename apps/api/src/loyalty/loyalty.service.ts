@@ -75,7 +75,10 @@ const digits = (raw: string) => {
  * Pontos que um pedido rende. Pontos: R$ gastos (sem a taxa de entrega, já com o desconto)
  * vezes os pontos por real, arredondado para baixo. Carimbos: 1 se passar do valor mínimo.
  */
-export function pointsFor(s: Pick<LoyaltySettings, 'mode' | 'pointsPerReal' | 'stampMinOrder'>, spentCents: number) {
+export function pointsFor(
+  s: Pick<LoyaltySettings, 'mode' | 'pointsPerReal' | 'stampMinOrder'>,
+  spentCents: number,
+) {
   if (spentCents <= 0) return 0;
   if (s.mode === 'stamps') return spentCents >= toCents(s.stampMinOrder) ? 1 : 0;
   return Math.floor((spentCents * toCents(s.pointsPerReal)) / 10_000);
@@ -107,7 +110,9 @@ export class LoyaltyService {
   }
 
   private rewardsIn(tx: Tx, onlyActive = false) {
-    return q<Reward & { productName: string | null; productPrice: string | null; imageId: string | null }>(
+    return q<
+      Reward & { productName: string | null; productPrice: string | null; imageId: string | null }
+    >(
       tx,
       `SELECT ${REWARD_COLS}, p.name AS "productName", p.price::text AS "productPrice",
               p.image_id AS "imageId"
@@ -354,7 +359,10 @@ export class LoyaltyService {
       const c = await one(tx, `SELECT 1 FROM customers WHERE id = $1`, [customerId]);
       if (!c) throw new NotFoundException('Cliente não encontrado');
       const s = await this.settingsIn(tx);
-      return { ...(await this.balanceIn(tx, s, customerId)), history: await this.historyIn(tx, customerId) };
+      return {
+        ...(await this.balanceIn(tx, s, customerId)),
+        history: await this.historyIn(tx, customerId),
+      };
     });
   }
 
@@ -391,7 +399,10 @@ export class LoyaltyService {
         data: { points, note },
         ip: ctx.ip,
       });
-      return { ...(await this.balanceIn(tx, s, customerId)), history: await this.historyIn(tx, customerId) };
+      return {
+        ...(await this.balanceIn(tx, s, customerId)),
+        history: await this.historyIn(tx, customerId),
+      };
     });
   }
 
@@ -475,12 +486,26 @@ export class LoyaltyService {
     return { rewardId: r.id, name: r.name, cost: r.cost, discountCents };
   }
 
-  async recordRedeemIn(tx: Tx, tenantId: string, customerId: string, orderId: string, r: RedeemQuote) {
+  async recordRedeemIn(
+    tx: Tx,
+    tenantId: string,
+    customerId: string,
+    orderId: string,
+    r: RedeemQuote,
+  ) {
     await q(
       tx,
       `INSERT INTO loyalty_entries (tenant_id, customer_id, kind, points, order_id, reward_id, discount, note)
        VALUES ($1,$2,'redeem',$3,$4,$5,$6,$7)`,
-      [tenantId, customerId, -r.cost, orderId, r.rewardId, fromCents(r.discountCents), r.name.slice(0, 120)],
+      [
+        tenantId,
+        customerId,
+        -r.cost,
+        orderId,
+        r.rewardId,
+        fromCents(r.discountCents),
+        r.name.slice(0, 120),
+      ],
     );
   }
 
@@ -491,7 +516,12 @@ export class LoyaltyService {
   async earnForOrderIn(tx: Tx, tenantId: string, orderId: string) {
     const s = await this.settingsIn(tx);
     if (!s.enabled) return;
-    const o = await one<{ customerId: string | null; phone: string | null; spent: string; source: string }>(
+    const o = await one<{
+      customerId: string | null;
+      phone: string | null;
+      spent: string;
+      source: string;
+    }>(
       tx,
       `SELECT customer_id AS "customerId", customer_phone AS phone, (subtotal - discount)::text AS spent,
               source FROM orders WHERE id = $1`,
@@ -503,8 +533,13 @@ export class LoyaltyService {
       const d = digits(o.phone);
       if (/^[0-9]{10,11}$/.test(d))
         customerId =
-          (await one<{ id: string }>(tx, `SELECT id FROM customers WHERE phone = $1 AND blocked_at IS NULL`, [d]))
-            ?.id ?? null;
+          (
+            await one<{ id: string }>(
+              tx,
+              `SELECT id FROM customers WHERE phone = $1 AND blocked_at IS NULL`,
+              [d],
+            )
+          )?.id ?? null;
     }
     if (!customerId) return;
     const points = pointsFor(s, toCents(o.spent));

@@ -1,5 +1,6 @@
 import {
   ChevronRight,
+  Gift,
   Heart,
   KeyRound,
   LogOut,
@@ -20,7 +21,16 @@ import { SlideTabs } from '../../features/SlideTabs';
 import { api, ApiError } from '../../lib/api';
 import { useStore } from './context';
 import { AddressFields, addressPayload } from './AddressFields';
-import { AccountState, addressLine, fmtPhone, maskCep, maskPhone, SavedAddress } from './store';
+import { useLoyalty } from './LoyaltyScreens';
+import {
+  AccountState,
+  addressLine,
+  fmtPhone,
+  loyaltyUnit,
+  maskCep,
+  maskPhone,
+  SavedAddress,
+} from './store';
 import { Field, ScreenHeader, Switch } from './ui';
 
 function useAsync() {
@@ -220,6 +230,7 @@ function MenuRow({
 /** Aba "Conta": formulário de entrada ou o perfil com os atalhos. */
 export function AccountScreen() {
   const { account, logout, menu, favs } = useStore();
+  const loyalty = useLoyalty();
   const [theme] = useTheme();
   const toast = useToast();
   if (!account)
@@ -243,6 +254,18 @@ export function AccountScreen() {
             </div>
           </section>
           <nav className="mlist" aria-label="Minha conta">
+            {loyalty && (
+              <MenuRow
+                to="/pedir/fidelidade"
+                icon={<Gift size={18} />}
+                label="Fidelidade"
+                hint={
+                  loyalty.account
+                    ? `${loyalty.account.balance.toLocaleString('pt-BR')} ${loyaltyUnit(loyalty, loyalty.account.balance)}`
+                    : 'Junte pontos a cada pedido'
+                }
+              />
+            )}
             <MenuRow
               to="/pedir/pedidos"
               icon={<ReceiptText size={18} />}

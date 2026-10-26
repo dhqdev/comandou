@@ -437,7 +437,13 @@ export class OrdersService {
       ],
     );
     if (reward)
-      await this.loyalty.recordRedeemIn(tx, ctx.tenantId, input.online!.customerId!, order!.id, reward);
+      await this.loyalty.recordRedeemIn(
+        tx,
+        ctx.tenantId,
+        input.online!.customerId!,
+        order!.id,
+        reward,
+      );
     for (const l of lines) {
       const item = await one<{ id: string }>(
         tx,

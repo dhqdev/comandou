@@ -184,7 +184,11 @@ describe('Programa de fidelidade', () => {
     await complete(o.body.number);
     const after = (await client.get('/store/loyalty', ana).expect(200)).body.account;
     expect(after).toMatchObject({ balance: 51, pending: 0 });
-    expect(after.history[0]).toMatchObject({ kind: 'earn', points: 51, orderNumber: o.body.number });
+    expect(after.history[0]).toMatchObject({
+      kind: 'earn',
+      points: 51,
+      orderNumber: o.body.number,
+    });
   });
 
   it('pedido sem conta não pontua; resgate exige conta e saldo', async () => {

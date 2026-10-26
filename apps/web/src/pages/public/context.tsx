@@ -15,6 +15,7 @@ import {
   CustomerInfo,
   EMPTY_CUSTOMER,
   lineTotal,
+  PublicLoyalty,
   PublicMenu,
   PublicProduct,
   syncCart,
@@ -43,6 +44,9 @@ export interface StoreCtx {
   refreshStatus(): Promise<void>;
   /** Busca o cardápio de novo (ex.: o pedido voltou com "produto esgotado"). */
   refreshMenu(): Promise<void>;
+  /** Programa de fidelidade (null enquanto carrega). Com a conta aberta, traz o saldo. */
+  loyalty: PublicLoyalty | null;
+  refreshLoyalty(): Promise<void>;
 }
 
 const Ctx = createContext<StoreCtx | null>(null);
@@ -113,6 +117,7 @@ export function StoreProvider({
   const [favs, setFavs] = useStored<string[]>('cm-favs', []);
   const [account, setAccount] = useState<AccountState | null>(null);
   const [bump, setBump] = useState(0);
+  const [loyalty, setLoyalty] = useState<PublicLoyalty | null>(null);
 
   const index = useMemo(() => {
     const m = new Map<string, PublicProduct & { categoryId: string }>();
@@ -133,6 +138,19 @@ export function StoreProvider({
       .then(setAccount)
       .catch(() => setAccount({ customer: null, addresses: [] }));
   }, [menu.appearance.accountsEnabled]);
+
+  // Fidelidade: recarrega ao entrar ou sair da conta (o saldo é de quem está logado).
+  const customerId = account?.customer?.id;
+  const refreshLoyalty = useCallback(
+    () =>
+      api<PublicLoyalty>('/store/loyalty')
+        .then(setLoyalty)
+        .catch(() => setLoyalty((l) => l ?? { enabled: false })),
+    [],
+  );
+  useEffect(() => {
+    if (account) void refreshLoyalty();
+  }, [account === null, customerId, refreshLoyalty]);
 
   const addToCart = useCallback(
     (line: CartLine, from?: HTMLElement | null) => {
@@ -175,6 +193,8 @@ export function StoreProvider({
     setCustomer,
     refreshStatus,
     refreshMenu,
+    loyalty,
+    refreshLoyalty,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

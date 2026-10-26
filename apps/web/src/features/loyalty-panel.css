@@ -1,0 +1,91 @@
+/* Fidelidade (Loja online): regra, recompensas e resultado. Só tokens --cm-*. */
+.lp-rule {
+  margin: var(--cm-space-4) 0 0;
+}
+.lp-rewards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.lp-reward {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-3);
+  padding: 12px 0;
+  border-top: 1px solid var(--cm-border);
+}
+.lp-reward:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.lp-reward[data-off] .lp-reward__cost,
+.lp-reward[data-off] .lp-reward__text {
+  opacity: 0.55;
+}
+.lp-reward__cost {
+  display: grid;
+  justify-items: center;
+  min-width: 64px;
+  padding: 6px 8px;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-sunken);
+  line-height: 1.1;
+}
+.lp-reward__cost strong {
+  font-size: var(--cm-text-md);
+  font-variant-numeric: tabular-nums;
+}
+.lp-reward__cost small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-2xs);
+}
+.lp-reward__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.lp-reward__text small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.lp-reward__actions {
+  display: flex;
+  gap: 2px;
+}
+.lp-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1px;
+  margin-bottom: var(--cm-space-4);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  overflow: hidden;
+  background: var(--cm-border);
+}
+.lp-kpis > div {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  background: var(--cm-surface);
+}
+.lp-kpis span,
+.lp-kpis small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.lp-kpis small {
+  font-size: var(--cm-text-xs);
+}
+.lp-kpis strong {
+  font-size: var(--cm-text-xl);
+  font-variant-numeric: tabular-nums;
+}
+.lp-table {
+  overflow-x: auto;
+}
+.lp-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

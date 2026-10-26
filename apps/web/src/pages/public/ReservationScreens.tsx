@@ -154,7 +154,7 @@ export function ReserveCard() {
   return (
     <Link className="rsv-card" to="/pedir/reservar">
       <span className="rsv-card__icon">
-        <CalendarDays size={22} aria-hidden />
+        <CalendarDays size={18} aria-hidden />
       </span>
       <span className="rsv-card__text">
         <strong>Reserve sua mesa</strong>

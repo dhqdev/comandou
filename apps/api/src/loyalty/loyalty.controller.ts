@@ -42,7 +42,12 @@ const RewardFields = z.object({
   active: z.boolean(),
   position: z.number().int().min(0).max(10_000),
 });
-const RewardCreate = RewardFields.partial({ active: true, position: true, amount: true, productId: true });
+const RewardCreate = RewardFields.partial({
+  active: true,
+  position: true,
+  amount: true,
+  productId: true,
+});
 const RewardUpdate = RewardFields.partial().refine(
   (o) => Object.keys(o).length > 0,
   'nada para atualizar',

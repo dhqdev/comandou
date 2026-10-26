@@ -1,0 +1,233 @@
+/* Fidelidade no cardápio online: faixa no início, tela com saldo e bloco na finalização.
+   Sóbrio como o resto do cardápio: superfície, linha fina e a cor da loja só no destaque. */
+.loy-strip {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--sf-r);
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+  color: var(--cm-text);
+  text-decoration: none;
+  transition: border-color var(--cm-dur);
+}
+.loy-strip:hover {
+  border-color: var(--cm-border-strong);
+}
+.loy-strip > svg {
+  color: var(--cm-text-subtle);
+}
+.loy-strip__icon,
+.loy-reward__icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: var(--sf-r-sm);
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  color: var(--cm-brand-700);
+}
+.loy-strip__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.loy-strip__text strong {
+  font-size: var(--cm-text-sm);
+}
+.loy-strip__text small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tela */
+.loy-card {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+  border-radius: var(--sf-r);
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+}
+.loy-card__label {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.loy-card__balance {
+  font-size: 2.25rem;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.loy-card__balance small {
+  font-size: var(--cm-text-md);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+  letter-spacing: 0;
+}
+.loy-card__rule {
+  font-size: var(--cm-text-lg);
+}
+.loy-card__hint {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.loy-card .cta {
+  justify-self: start;
+}
+.loy-bar {
+  height: 6px;
+  margin-top: 4px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-sunken);
+  overflow: hidden;
+}
+.loy-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--cm-brand-500);
+  transition: width 0.6s var(--sf-ease);
+}
+.loy-stamps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+.loy-stamps span {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--cm-border-strong);
+  color: var(--cm-on-brand);
+}
+.loy-stamps span[data-on] {
+  border: 0;
+  background: var(--cm-brand-500);
+}
+.loy .loy-h2 {
+  margin-top: 24px;
+  font-size: var(--cm-text-md);
+}
+.loy-rewards,
+.loy-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--cm-border);
+}
+.loy-reward,
+.loy-history li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--cm-border);
+}
+.loy-reward__photo {
+  width: 36px;
+  flex: none;
+  border-radius: var(--sf-r-sm);
+}
+.loy-reward__text,
+.loy-history li > span {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.loy-reward__text small,
+.loy-history small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.loy-reward__cost {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--cm-text-muted);
+}
+.loy-reward__cost small {
+  font-weight: 500;
+}
+.loy-reward[data-ok] .loy-reward__cost {
+  color: var(--cm-brand-700);
+}
+.loy-history b {
+  font-variant-numeric: tabular-nums;
+  color: var(--cm-success);
+}
+.loy-history b[data-neg] {
+  color: var(--cm-text-muted);
+}
+.loy .loy-note {
+  margin-top: 12px;
+}
+
+/* Finalização */
+.loy-ck__head strong {
+  color: var(--cm-text);
+}
+.loy-pick {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.loy-pick__opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border-radius: var(--sf-r-sm);
+  border: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.loy-pick__opt > span:first-child {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.loy-pick__opt small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.loy-pick__opt[aria-checked='true'] {
+  border-color: var(--cm-brand-500);
+  box-shadow: inset 0 0 0 1px var(--cm-brand-500);
+}
+.loy-pick__opt[aria-checked='true'] small {
+  color: var(--cm-brand-700);
+  font-weight: 650;
+}
+.loy-pick__opt:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.loy-pick__cost {
+  font-size: var(--cm-text-xs);
+  font-weight: 650;
+  color: var(--cm-text-muted);
+  white-space: nowrap;
+}
+.sum__discount {
+  color: var(--cm-success);
+}

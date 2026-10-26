@@ -6,8 +6,8 @@
   gap: 12px;
   padding: 14px 16px;
   border-radius: var(--sf-r);
-  background: var(--cm-brand-50);
-  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 28%, var(--cm-border));
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
   color: var(--cm-text);
   text-decoration: none;
   transition: transform var(--cm-dur) var(--sf-ease);
@@ -18,12 +18,12 @@
 .rsv-card__icon {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   flex: none;
-  border-radius: 14px;
-  background: var(--cm-brand-600);
-  color: var(--cm-on-brand);
+  border-radius: var(--sf-r-sm);
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  color: var(--cm-brand-700);
 }
 .rsv-card__text {
   display: grid;

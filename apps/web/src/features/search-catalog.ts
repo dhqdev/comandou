@@ -323,6 +323,16 @@ const SECTIONS: StaticEntry[] = [
     perms: ['settings:manage'],
   },
   {
+    id: 'c-fidelidade',
+    group: 'Seções',
+    title: 'Programa de fidelidade',
+    hint: 'Loja online',
+    words: 'fidelidade pontos carimbos cartao fidelidade recompensa cashback premio cliente fiel',
+    icon: 'store',
+    to: '/loja-online?aba=fidelidade',
+    perms: ['settings:manage'],
+  },
+  {
     id: 'c-funcionamento',
     group: 'Seções',
     title: 'Horário de funcionamento',

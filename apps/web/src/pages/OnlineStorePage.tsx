@@ -31,6 +31,7 @@ import {
 } from '../design-system';
 import { BrandingCard } from '../features/BrandingCard';
 import { ImagePicker } from '../features/ImagePicker';
+import { LoyaltyPanel } from '../features/LoyaltyPanel';
 import { SlideTabs } from '../features/SlideTabs';
 import { StoreSettingsCard } from '../features/StoreSettingsCard';
 import { api, Category, Product } from '../lib/api';
@@ -40,7 +41,7 @@ import { brl } from '../lib/money';
 import type { StoreBanner, StoreSettings } from '../lib/types';
 import './online-store.css';
 
-type Tab = 'aparencia' | 'banners' | 'destaques' | 'funcionamento';
+type Tab = 'aparencia' | 'banners' | 'destaques' | 'fidelidade' | 'funcionamento';
 const BADGES = ['Novo', 'Mais vendido', 'Picante', 'Vegano', 'Promoção', 'Do chef'];
 
 function Toggle({
@@ -639,7 +640,8 @@ export function OnlineStorePage() {
   const canManage = !!me?.permissions.includes('settings:manage');
   const [tab, setTab] = useState<Tab>('aparencia');
   useLinkParam('aba', (v) => {
-    if (['aparencia', 'banners', 'destaques', 'funcionamento'].includes(v)) setTab(v as Tab);
+    if (['aparencia', 'banners', 'destaques', 'fidelidade', 'funcionamento'].includes(v))
+      setTab(v as Tab);
   });
   const [preview, setPreview] = useState(0);
   // Cores ainda não salvas: vão para a prévia por mensagem (e de novo a cada recarga dela).
@@ -685,8 +687,8 @@ export function OnlineStorePage() {
         <div>
           <h1 className="page-title">Loja online</h1>
           <p className="page-sub">
-            O cardápio em que o cliente pede pelo celular: aparência, banners, destaques e
-            funcionamento.
+            O cardápio em que o cliente pede pelo celular: aparência, banners, destaques, fidelidade
+            e funcionamento.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -718,6 +720,7 @@ export function OnlineStorePage() {
               { value: 'aparencia', label: 'Aparência' },
               { value: 'banners', label: 'Banners' },
               { value: 'destaques', label: 'Destaques' },
+              { value: 'fidelidade', label: 'Fidelidade' },
               { value: 'funcionamento', label: 'Funcionamento' },
             ]}
           />
@@ -737,6 +740,9 @@ export function OnlineStorePage() {
                   refresh();
                 }}
               />
+            )}
+            {tab === 'fidelidade' && (
+              <LoyaltyPanel canManage={canManage} products={sorted} onSaved={refresh} />
             )}
             {tab === 'funcionamento' && <StoreSettingsCard canManage={canManage} />}
           </div>

@@ -17,6 +17,7 @@ import { api, ApiError } from '../../lib/api';
 import { newIdempotencyKey } from '../../lib/idempotency';
 import { brl, parseBrlInput } from '../../lib/money';
 import { useStore } from './context';
+import { LoyaltyCheckout, useLoyalty } from './LoyaltyScreens';
 import {
   addressLine,
   CustomerInfo,
@@ -27,6 +28,7 @@ import {
   PAYMENT_OPTIONS,
   PinnedQuote,
   rememberOrder,
+  rewardDiscount,
   SavedAddress,
 } from './store';
 import { Field, Photo, ScreenHeader, Stepper, Switch } from './ui';
@@ -48,7 +50,10 @@ export function CartScreen() {
     product,
     refreshStatus,
     refreshMenu,
+    refreshLoyalty,
   } = useStore();
+  const loyalty = useLoyalty();
+  const [rewardId, setRewardId] = useState<string | null>(null);
   const navigate = useNavigate();
   const [step, setStep] = useState<'cart' | 'checkout'>('cart');
   const [notes, setNotes] = useState('');
@@ -85,7 +90,13 @@ export function CartScreen() {
   const [pinned, setPinned] = useState<PinnedQuote | null>(null);
   const zoneFee = zones && pinned?.quote.covered ? pinned.quote.fee : null;
   const fee = channel === 'delivery' ? toCents(zoneFee ?? s.deliveryFee) : 0;
-  const total = subtotal + fee;
+  // Recompensa da fidelidade: sai do valor dos itens (a API confere saldo e valor de novo).
+  const reward = rewardId ? loyalty?.rewards.find((r) => r.id === rewardId) : undefined;
+  const rewardCents =
+    reward && loyalty?.account && loyalty.account.balance >= reward.cost
+      ? (rewardDiscount(reward, cart, subtotal) ?? 0)
+      : 0;
+  const total = subtotal - rewardCents + fee;
   const minOrder = (zones && pinned?.quote.minOrder) || s.minOrder;
   const belowMin = subtotal < toCents(minOrder);
   const set = <K extends keyof CustomerInfo>(k: K, v: CustomerInfo[K]) =>
@@ -171,8 +182,11 @@ export function CartScreen() {
             optionIds: l.optionIds,
             notes: l.notes || undefined,
           })),
+          rewardId: me && rewardCents > 0 ? rewardId : undefined,
         },
       });
+      if (rewardId) setRewardId(null);
+      if (loyalty) void refreshLoyalty();
       rememberOrder({ token, number: r.number, at: new Date().toISOString() });
       attempt.current = null;
       setCart(() => []);
@@ -187,6 +201,7 @@ export function CartScreen() {
       if (err.status === 409) void refreshStatus();
       // 422 pode ser produto esgotado ou fora do cardápio: a sacola se acerta sozinha.
       if (err.status === 422) void refreshMenu();
+      if (err.status === 422 && rewardId) void refreshLoyalty();
       setError(
         err.status === 0
           ? 'Sem conexão. Toque em enviar de novo: o pedido não será duplicado.'
@@ -447,6 +462,13 @@ export function CartScreen() {
             )}
           </section>
 
+          <LoyaltyCheckout
+            cart={cart}
+            subtotal={subtotal}
+            value={rewardCents > 0 ? rewardId : null}
+            onChange={setRewardId}
+          />
+
           <Field label="Observação do pedido (opcional)" wide>
             <textarea
               rows={2}
@@ -478,6 +500,12 @@ export function CartScreen() {
                       ? brl(fromCents(fee))
                       : 'Grátis'}
                 </dd>
+              </>
+            )}
+            {rewardCents > 0 && (
+              <>
+                <dt>Fidelidade</dt>
+                <dd className="sum__discount">−{brl(fromCents(rewardCents))}</dd>
               </>
             )}
             <dt className="sum__total">Total</dt>
