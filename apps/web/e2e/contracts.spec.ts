@@ -55,8 +55,10 @@ test('Contrato: gerar, assinar pelo link e guardar o PDF assinado', async ({ pag
   dialog = page.getByRole('dialog');
   await expect(dialog.locator('.adm-tag', { hasText: 'rascunho' })).toBeVisible();
   await dialog.getByRole('button', { name: 'Copiar link' }).click();
-  const link = (await dialog.locator('code').first().textContent())!;
-  expect(link).toMatch(/\/assinar\/[A-Za-z0-9_-]{43}$/);
+  // O link aparece depois da resposta da API; antes dele, o primeiro <code> é o hash do texto.
+  const linkCode = dialog.locator('code', { hasText: '/assinar/' });
+  await expect(linkCode).toHaveText(/\/assinar\/[A-Za-z0-9_-]{43}$/);
+  const link = (await linkCode.textContent())!;
   await shot(page, info.project.name, 'contrato-painel');
 
   // Cliente abre o link (sem login), lê até o fim e assina.
