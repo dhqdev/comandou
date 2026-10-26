@@ -1,4 +1,4 @@
--- 0025: contrato digital de cada cliente, gerado e enviado pelo painel Super Admin.
+-- 0027: contrato digital de cada cliente, gerado e enviado pelo painel Super Admin.
 -- 1) platform_contract_settings: dados da contratada (quem vende o Comandou), regras padrão do
 --    contrato e o webhook do n8n que manda os e-mails. Uma linha só. O segredo do webhook fica
 --    cifrado com a INTEGRATIONS_KEY (contexto "contracts:n8n") e nunca volta para o navegador.

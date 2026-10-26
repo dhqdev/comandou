@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.35.0',
+    date: '2026-10-26',
+    title: 'Contrato digital de cada cliente',
+    summary:
+      'No painel da plataforma, cada restaurante ganhou a aba Contrato: o contrato de licença do Comandou sai pronto em PDF com os dados do cliente, vai por e-mail pelo n8n e o cliente assina pelo celular depois de ler até o fim. O PDF assinado fica guardado e o aviso chega por e-mail.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Contrato completo (plano e preço, pagamento e reajuste, vigência e rescisão, disponibilidade, suporte, NFC-e, LGPD, propriedade intelectual, limitação de responsabilidade, foro e mais), preenchido com o cadastro e o plano do cliente, com número e código de integridade (SHA-256).',
+      },
+      {
+        tag: 'novo',
+        text: 'Assinatura pelo link pessoal: o cliente só assina depois de rolar até o fim, desenhando ou digitando o nome, com CPF. Ficam registrados IP, data e hora, navegador e o hash do documento num manifesto anexado ao PDF.',
+      },
+      {
+        tag: 'novo',
+        text: 'Envio e aviso pelo n8n: e-mail com o botão de assinatura e o PDF, e, depois de assinado, o PDF final para o dono da plataforma e uma via para o cliente.',
+      },
+    ],
+  },
+  {
     version: '0.34.0',
     date: '2026-10-26',
     title: 'Perfis da equipe mais simples e código de entrega',
