@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException,
   OnModuleInit,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { allocateCents, fromCents, toCents } from '@comandou/shared';
@@ -21,6 +22,7 @@ import { QueueService, TenantJob } from '../queue/queue.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import {
   FocusClient,
+  FocusCompanyBody,
   FocusEnvironment,
   FocusResponse,
   FocusUnavailableError,
@@ -40,8 +42,12 @@ const PAYMENT_CODE: Record<string, string> = {
   other: '99',
 };
 
+export type FiscalMode = 'own' | 'managed';
+
 export interface FiscalSettingsInput {
   enabled?: boolean;
+  /** own: o restaurante informa o token da Focus; managed: o Comandou cadastra a empresa (revenda). */
+  mode?: FiscalMode;
   environment?: FocusEnvironment;
   cnpj?: string | null;
   /** string grava um token novo; null apaga; ausente mantém. */
@@ -53,8 +59,48 @@ export interface FiscalSettingsInput {
   confirmProduction?: boolean;
 }
 
+/** Dados cadastrais do emitente (vão para a Focus e ficam no banco, sem segredos). */
+export interface FiscalCompany {
+  nome: string;
+  nomeFantasia?: string | null;
+  inscricaoEstadual: string;
+  inscricaoMunicipal?: string | null;
+  /** 1 Simples Nacional; 2 Simples com excesso de sublimite; 3 Regime normal; 4 MEI. */
+  regimeTributario: 1 | 2 | 3 | 4;
+  logradouro: string;
+  numero: string;
+  complemento?: string | null;
+  bairro: string;
+  municipio: string;
+  uf: string;
+  cep: string;
+  email?: string | null;
+  telefone?: string | null;
+}
+
+export interface FiscalCompanyInput {
+  cnpj: string;
+  company: FiscalCompany;
+  /** Certificado A1 (.pfx/.p12) em base64 e a senha. Vão direto para a Focus, nunca para o banco. */
+  certificate?: { base64: string; password: string };
+  /** CSC da NFC-e (gerado no site da SEFAZ do estado), por ambiente. */
+  csc?: {
+    homologacao?: { id: string; csc: string };
+    producao?: { id: string; csc: string };
+  };
+}
+
 interface SettingsRow {
   enabled: boolean;
+  mode: FiscalMode;
+  focus_company_id: string | null;
+  token_homolog_enc: Buffer | null;
+  token_prod_enc: Buffer | null;
+  company: FiscalCompany | null;
+  certificate_valid_until: Date | null;
+  csc_homolog_set: boolean;
+  csc_prod_set: boolean;
+  focus_synced_at: Date | null;
   environment: FocusEnvironment;
   cnpj: string | null;
   token_enc: Buffer | null;
@@ -74,6 +120,21 @@ interface DocRow {
   attempts: number;
   request_payload: Record<string, unknown>;
   cancel_reason: string | null;
+}
+
+const SETTINGS_COLS = `enabled, environment, cnpj, token_enc, token_last4, default_cfop, default_code,
+  default_ncm, updated_at, mode, focus_company_id, token_homolog_enc, token_prod_enc, company,
+  certificate_valid_until, csc_homolog_set, csc_prod_set, focus_synced_at`;
+
+/** Contexto do valor cifrado: um token não decifra se for trocado de ambiente ou de restaurante. */
+const tokenContext = (tenantId: string, kind: 'own' | FocusEnvironment) =>
+  kind === 'own' ? `focus:${tenantId}` : `focus-${kind}:${tenantId}`;
+
+/** Tem token para emitir neste ambiente, no modo atual? */
+function hasTokenFor(s: SettingsRow | undefined, e: FocusEnvironment) {
+  if (!s) return false;
+  if (s.mode === 'own') return !!s.token_enc;
+  return !!(e === 'producao' ? s.token_prod_enc : s.token_homolog_enc);
 }
 
 const DOC_SELECT = `
@@ -133,16 +194,23 @@ export class FiscalService implements OnModuleInit {
 
   // ------------------------------------------------------------------ configuração
   private async settingsRow(tx: Tx) {
-    return one<SettingsRow>(
-      tx,
-      `SELECT enabled, environment, cnpj, token_enc, token_last4, default_cfop, default_code, default_ncm, updated_at
-         FROM tenant_fiscal_settings`,
-    );
+    return one<SettingsRow>(tx, `SELECT ${SETTINGS_COLS} FROM tenant_fiscal_settings`);
   }
 
   private present(s: SettingsRow | undefined) {
     return {
       enabled: s?.enabled ?? false,
+      mode: s?.mode ?? 'own',
+      /** O servidor tem o token master da Focus (cadastro guiado da empresa disponível)? */
+      managedAvailable: this.focus.masterAvailable,
+      company: s?.company ?? null,
+      focusRegistered: !!s?.focus_company_id,
+      hasHomologToken: !!s?.token_homolog_enc,
+      hasProdToken: !!s?.token_prod_enc,
+      cscHomolog: s?.csc_homolog_set ?? false,
+      cscProd: s?.csc_prod_set ?? false,
+      certificateValidUntil: s?.certificate_valid_until ?? null,
+      focusSyncedAt: s?.focus_synced_at ?? null,
       environment: s?.environment ?? 'homologacao',
       cnpj: s?.cnpj ?? null,
       hasToken: !!s?.token_enc,
@@ -168,8 +236,7 @@ export class FiscalService implements OnModuleInit {
       );
       const cur = (await one<SettingsRow>(
         tx,
-        `SELECT enabled, environment, cnpj, token_enc, token_last4, default_cfop, default_code, default_ncm, updated_at
-           FROM tenant_fiscal_settings FOR UPDATE`,
+        `SELECT ${SETTINGS_COLS} FROM tenant_fiscal_settings FOR UPDATE`,
       ))!;
       if (b.environment === 'producao' && cur.environment !== 'producao') {
         if (ctx.user.role !== 'owner')
@@ -179,6 +246,11 @@ export class FiscalService implements OnModuleInit {
             'Confirme a mudança para produção: as notas passam a ter valor fiscal',
           );
       }
+      const mode = b.mode ?? cur.mode;
+      if (mode === 'managed' && cur.mode !== 'managed' && !this.focus.masterAvailable)
+        throw new UnprocessableEntityException(
+          'O cadastro guiado da Focus NFe não está disponível neste servidor',
+        );
       let tokenEnc = cur.token_enc;
       let last4 = cur.token_last4;
       if (b.token !== undefined) {
@@ -190,7 +262,7 @@ export class FiscalService implements OnModuleInit {
             throw new UnprocessableEntityException(
               'Servidor sem INTEGRATIONS_KEY: não é possível guardar o token com segurança',
             );
-          tokenEnc = seal(this.env.INTEGRATIONS_KEY, b.token, `focus:${ctx.tenantId}`);
+          tokenEnc = seal(this.env.INTEGRATIONS_KEY, b.token, tokenContext(ctx.tenantId, 'own'));
           last4 = b.token.slice(-4);
         }
       }
@@ -202,12 +274,27 @@ export class FiscalService implements OnModuleInit {
         defaultCode: b.defaultCode ?? cur.default_code,
         defaultNcm: b.defaultNcm !== undefined ? b.defaultNcm : cur.default_ncm,
       };
-      if (next.enabled && (!next.cnpj || !tokenEnc))
-        throw new UnprocessableEntityException('Para ativar a emissão, informe o CNPJ e o token');
+      const probe = { ...cur, mode, token_enc: tokenEnc };
+      if (next.enabled && !next.cnpj)
+        throw new UnprocessableEntityException('Para ativar a emissão, informe o CNPJ');
+      if (next.enabled && !hasTokenFor(probe, next.environment))
+        throw new UnprocessableEntityException(
+          mode === 'managed'
+            ? `Cadastre a empresa na Focus NFe antes de ativar (${next.environment === 'producao' ? 'produção' : 'homologação'} sem token)`
+            : 'Para ativar a emissão, informe o CNPJ e o token',
+        );
+      if (
+        next.enabled &&
+        mode === 'managed' &&
+        !(next.environment === 'producao' ? cur.csc_prod_set : cur.csc_homolog_set)
+      )
+        throw new UnprocessableEntityException(
+          `Informe o CSC de ${next.environment === 'producao' ? 'produção' : 'homologação'} da NFC-e antes de ativar`,
+        );
       await tx.$client.query(
         `UPDATE tenant_fiscal_settings
             SET enabled=$1, environment=$2, cnpj=$3, token_enc=$4, token_last4=$5, default_cfop=$6,
-                default_code=$7, default_ncm=$8, updated_by=$9, updated_at=now()`,
+                default_code=$7, default_ncm=$8, updated_by=$9, mode=$10, updated_at=now()`,
         [
           next.enabled,
           next.environment,
@@ -218,6 +305,7 @@ export class FiscalService implements OnModuleInit {
           next.defaultCode,
           next.defaultNcm,
           ctx.userId,
+          mode,
         ],
       );
       // Nunca registrar o token na auditoria: só se ele mudou.
@@ -227,12 +315,180 @@ export class FiscalService implements OnModuleInit {
         action: 'fiscal.settings_updated',
         entity: 'tenant_fiscal_settings',
         entityId: ctx.tenantId,
-        data: { ...next, tokenChanged: b.token !== undefined },
+        data: { ...next, mode, tokenChanged: b.token !== undefined },
         ip: ctx.ip,
       });
       return this.present(await this.settingsRow(tx));
     });
     return r;
+  }
+
+  // ------------------------------------------------------------------ empresa na Focus (revenda)
+  private assertManaged() {
+    if (!this.focus.masterAvailable)
+      throw new UnprocessableEntityException(
+        'O cadastro guiado da Focus NFe não está disponível neste servidor',
+      );
+  }
+
+  private focusError(b: FocusCompanyBody, http: number) {
+    const msg = [b.mensagem, ...(b.erros ?? []).map((e) => e.mensagem)].filter(Boolean).join('; ');
+    return msg || `A Focus NFe respondeu ${http}`;
+  }
+
+  /** Busca razão social e endereço pelo CNPJ (consulta pública da Focus) para preencher o cadastro. */
+  async lookupCnpj(cnpj: string): Promise<Partial<FiscalCompany> & { simples: boolean | null }> {
+    this.assertManaged();
+    let r: { http: number; body: FocusCompanyBody };
+    try {
+      r = await this.focus.lookupCnpj(cnpj);
+    } catch (err) {
+      throw new ServiceUnavailableException((err as Error).message);
+    }
+    if (r.http === 404) throw new NotFoundException('CNPJ não encontrado na Receita');
+    if (r.http >= 400) throw new UnprocessableEntityException(this.focusError(r.body, r.http));
+    const e = r.body.endereco ?? {};
+    const street = [e.tipo_logradouro, e.logradouro].filter(Boolean).join(' ');
+    return {
+      nome: r.body.razao_social ?? '',
+      logradouro: street,
+      numero: e.numero ?? '',
+      complemento: e.complemento ?? null,
+      bairro: e.bairro ?? '',
+      municipio: e.nome_municipio ?? '',
+      uf: e.uf ?? '',
+      cep: (e.cep ?? '').replace(/\D/g, ''),
+      regimeTributario: r.body.optante_mei ? 4 : r.body.optante_simples_nacional ? 1 : 3,
+      simples: r.body.optante_simples_nacional ?? null,
+    };
+  }
+
+  /**
+   * Cadastra (ou atualiza) a empresa do restaurante na Focus NFe com o token master do Comandou
+   * e guarda, cifrados, os tokens de homologação e de produção que a Focus devolve. O certificado
+   * A1, a senha e o CSC passam direto para a Focus: nada disso fica no banco.
+   */
+  async saveCompany(ctx: Ctx, b: FiscalCompanyInput) {
+    this.assertManaged();
+    if (!this.env.INTEGRATIONS_KEY)
+      throw new UnprocessableEntityException(
+        'Servidor sem INTEGRATIONS_KEY: não é possível guardar os tokens com segurança',
+      );
+    const key = this.env.INTEGRATIONS_KEY;
+    const cur = await this.db.withTenant(ctx, async (tx) => {
+      await this.plans.assertFeature(tx, 'fiscal');
+      return this.settingsRow(tx);
+    });
+    if (!cur?.focus_company_id && !b.certificate)
+      throw new UnprocessableEntityException('Envie o certificado digital A1 (.pfx) da empresa');
+
+    const c = b.company;
+    const payload: Record<string, unknown> = {
+      nome: c.nome,
+      nome_fantasia: c.nomeFantasia || c.nome,
+      cnpj: b.cnpj,
+      inscricao_estadual: c.inscricaoEstadual,
+      ...(c.inscricaoMunicipal ? { inscricao_municipal: c.inscricaoMunicipal } : {}),
+      regime_tributario: c.regimeTributario,
+      logradouro: c.logradouro,
+      numero: c.numero,
+      complemento: c.complemento || undefined,
+      bairro: c.bairro,
+      municipio: c.municipio,
+      uf: c.uf,
+      cep: c.cep,
+      email: c.email || undefined,
+      telefone: c.telefone || undefined,
+      habilita_nfce: true,
+      enviar_email_destinatario: false,
+      ...(b.certificate
+        ? {
+            arquivo_certificado_base64: b.certificate.base64,
+            senha_certificado: b.certificate.password,
+          }
+        : {}),
+      ...(b.csc?.homologacao
+        ? {
+            id_token_nfce_homologacao: b.csc.homologacao.id,
+            csc_nfce_homologacao: b.csc.homologacao.csc,
+          }
+        : {}),
+      ...(b.csc?.producao
+        ? {
+            id_token_nfce_producao: b.csc.producao.id,
+            csc_nfce_producao: b.csc.producao.csc,
+          }
+        : {}),
+    };
+
+    let r: { http: number; body: FocusCompanyBody };
+    try {
+      r = cur?.focus_company_id
+        ? await this.focus.updateCompany(cur.focus_company_id, payload)
+        : await this.focus.createCompany(payload);
+    } catch (err) {
+      throw new ServiceUnavailableException((err as Error).message);
+    }
+    if (r.http === 401 || r.http === 403)
+      throw new UnprocessableEntityException(
+        'A Focus NFe recusou o token master do Comandou: avise o suporte',
+      );
+    if (r.http >= 400 || r.body.id === undefined || r.body.id === null)
+      throw new UnprocessableEntityException(
+        `A Focus NFe recusou o cadastro: ${this.focusError(r.body, r.http)}`,
+      );
+
+    const companyId = String(r.body.id);
+    const tokHom = r.body.token_homologacao || null;
+    const tokProd = r.body.token_producao || null;
+    const validUntil = r.body.certificado_valido_ate
+      ? new Date(r.body.certificado_valido_ate)
+      : null;
+
+    return this.db.withTenant(ctx, async (tx) => {
+      await tx.$client.query(
+        `INSERT INTO tenant_fiscal_settings (tenant_id) VALUES ($1) ON CONFLICT (tenant_id) DO NOTHING`,
+        [ctx.tenantId],
+      );
+      await tx.$client.query(
+        `UPDATE tenant_fiscal_settings
+            SET mode = 'managed', cnpj = $1, focus_company_id = $2, company = $3,
+                token_homolog_enc = coalesce($4, token_homolog_enc),
+                token_prod_enc = coalesce($5, token_prod_enc),
+                certificate_valid_until = coalesce($6, certificate_valid_until),
+                csc_homolog_set = csc_homolog_set OR $7, csc_prod_set = csc_prod_set OR $8,
+                focus_synced_at = now(), updated_by = $9, updated_at = now()`,
+        [
+          b.cnpj,
+          companyId,
+          JSON.stringify(c),
+          tokHom ? seal(key, tokHom, tokenContext(ctx.tenantId, 'homologacao')) : null,
+          tokProd ? seal(key, tokProd, tokenContext(ctx.tenantId, 'producao')) : null,
+          validUntil && !Number.isNaN(validUntil.getTime()) ? validUntil : null,
+          !!b.csc?.homologacao,
+          !!b.csc?.producao,
+          ctx.userId,
+        ],
+      );
+      // Nunca registrar certificado, senha, CSC ou tokens na auditoria.
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: cur?.focus_company_id ? 'fiscal.company_updated' : 'fiscal.company_created',
+        entity: 'tenant_fiscal_settings',
+        entityId: ctx.tenantId,
+        data: {
+          cnpj: b.cnpj,
+          focusCompanyId: companyId,
+          company: c,
+          certificateChanged: !!b.certificate,
+          cscHomologChanged: !!b.csc?.homologacao,
+          cscProdChanged: !!b.csc?.producao,
+        },
+        ip: ctx.ip,
+      });
+      return this.present(await this.settingsRow(tx));
+    });
   }
 
   // ------------------------------------------------------------------ consulta
@@ -373,7 +629,7 @@ export class FiscalService implements OnModuleInit {
         throw new ConflictException('Pedido cancelado não recebe nota');
       await this.plans.assertFeature(tx, 'fiscal');
       const s = await this.settingsRow(tx);
-      if (!s?.enabled || !s.cnpj || !s.token_enc)
+      if (!s?.enabled || !s.cnpj || !hasTokenFor(s, s.environment))
         throw new UnprocessableEntityException(
           'Emissão fiscal desativada: configure em Ajustes > Fiscal',
         );
@@ -461,10 +717,18 @@ export class FiscalService implements OnModuleInit {
     });
   }
 
-  private token(tenantId: string, s: SettingsRow | undefined) {
-    if (!s?.token_enc || !this.env.INTEGRATIONS_KEY) return null;
+  /** Token para falar com a Focus no ambiente do documento (próprio ou o da empresa cadastrada). */
+  private token(tenantId: string, s: SettingsRow | undefined, e: FocusEnvironment) {
+    if (!s || !this.env.INTEGRATIONS_KEY) return null;
+    const sealed =
+      s.mode === 'own' ? s.token_enc : e === 'producao' ? s.token_prod_enc : s.token_homolog_enc;
+    if (!sealed) return null;
     try {
-      return open(this.env.INTEGRATIONS_KEY, s.token_enc, `focus:${tenantId}`);
+      return open(
+        this.env.INTEGRATIONS_KEY,
+        sealed,
+        tokenContext(tenantId, s.mode === 'own' ? 'own' : e),
+      );
     } catch {
       return null;
     }
@@ -571,7 +835,7 @@ export class FiscalService implements OnModuleInit {
     if (!doc) return this.logger.warn(`documento fiscal não encontrado no tenant do trabalho`);
     if (doc.status === 'processing') return this.enqueue(job.tenantId, doc.id, CHECK_JOB);
     if (doc.status !== 'pending') return; // já resolvido por outro trabalho
-    const token = this.token(job.tenantId, s);
+    const token = this.token(job.tenantId, s, doc.environment);
     if (!s?.enabled || !token) {
       await this.setDoc(job.tenantId, doc.id, {
         status: 'error',
@@ -612,7 +876,7 @@ export class FiscalService implements OnModuleInit {
     const { doc, s } = await this.load(job);
     if (!doc) return;
     if (doc.status !== 'processing' && doc.status !== 'cancelling') return;
-    const token = this.token(job.tenantId, s);
+    const token = this.token(job.tenantId, s, doc.environment);
     if (!token) {
       await this.setDoc(job.tenantId, doc.id, {
         last_error: 'Token indisponível para consultar a nota',
@@ -694,7 +958,7 @@ export class FiscalService implements OnModuleInit {
     });
     this.changed(ctx.tenantId, id, doc.order_id);
     const s = await this.db.withTenant(ctx, (tx) => this.settingsRow(tx));
-    const token = this.token(ctx.tenantId, s);
+    const token = this.token(ctx.tenantId, s, doc.environment);
     if (!token) {
       await this.setDoc(ctx.tenantId, id, {
         status: 'authorized',

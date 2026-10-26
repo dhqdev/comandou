@@ -68,6 +68,8 @@ services:
       REDIS_URL: redis://redis:6379
       # Opcional: sem ela, tokens da Focus NFe e do WhatsApp não podem ser salvos.
       INTEGRATIONS_KEY: ${INTEGRATIONS_KEY:-}
+      # Opcional: token master da Focus NFe (modo revenda da nota fiscal).
+      FOCUS_NFE_MASTER_TOKEN: ${FOCUS_NFE_MASTER_TOKEN:-}
       WHATSAPP_GATEWAY_URL: ${WHATSAPP_GATEWAY_URL:-}
       WHATSAPP_GATEWAY_TOKEN: ${WHATSAPP_GATEWAY_TOKEN:-}
       # Painel Super Admin em http://admin.${COMANDOU_BASE_DOMAIN}:8080

@@ -21,6 +21,32 @@ export interface FocusResponse {
   };
 }
 
+/** Resposta da API de empresas e da consulta de CNPJ (só os campos usados). */
+export interface FocusCompanyBody {
+  id?: number | string;
+  token_producao?: string | null;
+  token_homologacao?: string | null;
+  certificado_valido_ate?: string | null;
+  certificado_cnpj?: string | null;
+  codigo?: string;
+  mensagem?: string;
+  erros?: { mensagem?: string; campo?: string }[];
+  // consulta de CNPJ
+  razao_social?: string;
+  optante_simples_nacional?: boolean;
+  optante_mei?: boolean;
+  endereco?: {
+    logradouro?: string;
+    tipo_logradouro?: string;
+    numero?: string;
+    complemento?: string;
+    bairro?: string;
+    nome_municipio?: string;
+    uf?: string;
+    cep?: string;
+  };
+}
+
 /** Erro de rede/servidor da Focus: o trabalho deve ser tentado de novo. */
 export class FocusUnavailableError extends Error {}
 
@@ -42,7 +68,7 @@ export class FocusClient {
   private async call(
     e: FocusEnvironment,
     token: string,
-    method: 'GET' | 'POST' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
     path: string,
     body?: unknown,
   ): Promise<FocusResponse> {
@@ -77,6 +103,42 @@ export class FocusClient {
 
   cancel(e: FocusEnvironment, token: string, ref: string, justificativa: string) {
     return this.call(e, token, 'DELETE', `/v2/nfce/${encodeURIComponent(ref)}`, { justificativa });
+  }
+
+  // ---------------------------------------------------------------- empresas (modo revenda)
+  // A API de empresas só existe no servidor de produção e usa o token master da conta.
+  // Docs: https://doc.focusnfe.com.br/reference/criar_empresa
+
+  /** Há token master configurado no servidor (modo revenda disponível)? */
+  get masterAvailable() {
+    return !!this.env.FOCUS_NFE_MASTER_TOKEN;
+  }
+
+  private master() {
+    if (!this.env.FOCUS_NFE_MASTER_TOKEN) throw new Error('FOCUS_NFE_MASTER_TOKEN ausente');
+    return this.env.FOCUS_NFE_MASTER_TOKEN;
+  }
+
+  createCompany(payload: Record<string, unknown>) {
+    return this.callCompany('POST', '/v2/empresas', payload);
+  }
+
+  updateCompany(id: string, payload: Record<string, unknown>) {
+    return this.callCompany('PUT', `/v2/empresas/${encodeURIComponent(id)}`, payload);
+  }
+
+  /** Dados públicos do CNPJ (razão social e endereço) para preencher o cadastro. */
+  lookupCnpj(cnpj: string) {
+    return this.callCompany('GET', `/v2/cnpjs/${encodeURIComponent(cnpj)}`);
+  }
+
+  private async callCompany(
+    method: 'GET' | 'POST' | 'PUT',
+    path: string,
+    body?: unknown,
+  ): Promise<{ http: number; body: FocusCompanyBody }> {
+    const r = await this.call('producao', this.master(), method, path, body);
+    return r as { http: number; body: FocusCompanyBody };
   }
 
   /** URL absoluta de um arquivo devolvido pela Focus (XML/DANFE vêm como caminho relativo). */

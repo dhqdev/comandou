@@ -20,6 +20,12 @@ const HOST_A = 'fi-a.comandou.test';
 const HOST_B = 'fi-b.comandou.test';
 const CSRF = { 'X-Comandou-Request': '1' };
 const TOKEN = 'tok-homolog-abc-1234';
+// Modo revenda: token master do Comandou e os tokens que a Focus devolve para a empresa de B.
+const MASTER = 'master-comandou-0001';
+const B_HOM = 'tok-b-homolog-9876';
+const B_PROD = 'tok-b-prod-5432';
+const CERT = Buffer.from('pfx-falso-de-teste').toString('base64');
+const companies = new Map<string, Record<string, unknown>>();
 
 type Mode = 'authorize' | 'processing' | 'reject' | 'fail-once' | 'ref-used' | 'down';
 let mode: Mode = 'authorize';
@@ -38,9 +44,43 @@ function focusHandler(req: IncomingMessage, res: ServerResponse) {
       res.writeHead(code, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(b));
     };
-    const expected = `Basic ${Buffer.from(`${TOKEN}:`).toString('base64')}`;
-    if (req.headers.authorization !== expected) return send(401, { codigo: 'nao_autorizado' });
+    const basic = (t: string) => `Basic ${Buffer.from(`${t}:`).toString('base64')}`;
     const url = new URL(req.url!, 'http://x');
+    if (url.pathname.startsWith('/v2/empresas') || url.pathname.startsWith('/v2/cnpjs/')) {
+      if (req.headers.authorization !== basic(MASTER)) return send(401, {});
+      if (req.method === 'GET') {
+        if (url.pathname.endsWith('/00000000000000'))
+          return send(404, { codigo: 'nao_encontrado' });
+        return send(200, {
+          razao_social: 'RESTAURANTE B LTDA',
+          optante_simples_nacional: true,
+          optante_mei: false,
+          endereco: {
+            tipo_logradouro: 'Rua',
+            logradouro: 'das Flores',
+            numero: '10',
+            bairro: 'Centro',
+            nome_municipio: 'Curitiba',
+            uf: 'PR',
+            cep: '80000000',
+          },
+        });
+      }
+      if (body?.senha_certificado === 'errada')
+        return send(422, { codigo: 'erro_validacao', mensagem: 'Certificado ou senha inválidos' });
+      const m = /^\/v2\/empresas(?:\/(\d+))?$/.exec(url.pathname)!;
+      const id = m[1] ?? String(companies.size + 101);
+      if (m[1] && !companies.has(id)) return send(404, {});
+      companies.set(id, { ...(companies.get(id) ?? {}), ...body });
+      return send(200, {
+        id: Number(id),
+        token_homologacao: B_HOM,
+        token_producao: B_PROD,
+        certificado_valido_ate: '2027-05-01T10:00:00-03:00',
+      });
+    }
+    if (![TOKEN, B_HOM, B_PROD].some((t) => req.headers.authorization === basic(t)))
+      return send(401, { codigo: 'nao_autorizado' });
     const authorized = (ref: string) => ({
       status: 'autorizado',
       status_sefaz: '100',
@@ -225,6 +265,7 @@ beforeAll(async () => {
     testEnv({
       AUTH_LOGIN_RATE_LIMIT: '1000',
       INTEGRATIONS_KEY: randomBytes(32).toString('base64'),
+      FOCUS_NFE_MASTER_TOKEN: MASTER,
       FOCUS_NFE_URL_HOMOLOGACAO: focusUrl,
       FOCUS_NFE_URL_PRODUCAO: focusUrl,
       ...(redis ? { REDIS_URL: redis, QUEUE_PREFIX: `t${Date.now()}` } : {}),
@@ -526,5 +567,136 @@ describe('Fila', () => {
     mode = 'authorize';
     await post('adminA', `/fiscal/documents/${d.id}/sync`).expect(202);
     await waitDoc(d.id, (s) => s === 'authorized', 18_000);
+  });
+});
+
+describe('Modo revenda (token master do Comandou)', () => {
+  const company = {
+    nome: 'Restaurante B Ltda',
+    inscricaoEstadual: '123.456.789',
+    regimeTributario: 1,
+    logradouro: 'Rua das Flores',
+    numero: '10',
+    bairro: 'Centro',
+    municipio: 'Curitiba',
+    uf: 'pr',
+    cep: '80000-000',
+    email: '',
+  };
+
+  it('busca os dados do CNPJ para preencher o cadastro', async () => {
+    await get('waiterA', '/fiscal/cnpj/12345678000195').expect(403);
+    const r = (await get('adminB', '/fiscal/cnpj/98765432000110').expect(200)).body;
+    expect(r).toMatchObject({
+      nome: 'RESTAURANTE B LTDA',
+      logradouro: 'Rua das Flores',
+      municipio: 'Curitiba',
+      uf: 'PR',
+      regimeTributario: 1,
+    });
+    await get('adminB', '/fiscal/cnpj/00000000000000').expect(404);
+  });
+
+  it('cadastra a empresa na Focus e guarda só os tokens, cifrados', async () => {
+    const s0 = (await get('adminB', '/fiscal/settings').expect(200)).body;
+    expect(s0).toMatchObject({ managedAvailable: true, mode: 'own', focusRegistered: false });
+    // Primeiro cadastro exige o certificado; senha errada volta a mensagem da Focus.
+    await put('adminB', '/fiscal/company', { cnpj: '98765432000110', company }).expect(422);
+    const bad = await put('adminB', '/fiscal/company', {
+      cnpj: '98765432000110',
+      company,
+      certificate: { base64: CERT, password: 'errada' },
+    }).expect(422);
+    expect(bad.body.message).toContain('Certificado ou senha inválidos');
+
+    const s = (
+      await put('adminB', '/fiscal/company', {
+        cnpj: '98.765.432/0001-10',
+        company,
+        certificate: { base64: CERT, password: 'senha-do-pfx' },
+        csc: { homologacao: { id: '1', csc: 'ABCDEF0123456789ABCDEF' } },
+      }).expect(200)
+    ).body;
+    expect(s).toMatchObject({
+      mode: 'managed',
+      cnpj: '98765432000110',
+      focusRegistered: true,
+      hasHomologToken: true,
+      hasProdToken: true,
+      cscHomolog: true,
+      cscProd: false,
+      company: { uf: 'PR', cep: '80000000', inscricaoEstadual: '123456789' },
+    });
+    expect(new Date(s.certificateValidUntil).getUTCFullYear()).toBe(2027);
+    const sent = companies.get('101')!;
+    expect(sent).toMatchObject({
+      cnpj: '98765432000110',
+      habilita_nfce: true,
+      arquivo_certificado_base64: CERT,
+      id_token_nfce_homologacao: '1',
+    });
+    // Nem o banco nem a auditoria guardam certificado, senha, CSC ou tokens em claro.
+    const [row] = await ownerQuery<Record<string, unknown>>(
+      `SELECT * FROM tenant_fiscal_settings WHERE tenant_id = $1`,
+      [fx.tenantB],
+    );
+    const audit = await ownerQuery(`SELECT data FROM audit_log WHERE tenant_id = $1`, [fx.tenantB]);
+    const dump =
+      JSON.stringify(row, (_k, v) =>
+        v?.type === 'Buffer' ? Buffer.from(v.data).toString('latin1') : v,
+      ) + JSON.stringify(audit);
+    for (const secret of [CERT, 'senha-do-pfx', 'ABCDEF0123456789ABCDEF', B_HOM, B_PROD])
+      expect(dump).not.toContain(secret);
+    // A não enxerga o cadastro de B.
+    expect((await get('adminA', '/fiscal/settings').expect(200)).body.focusRegistered).toBe(false);
+  });
+
+  it('atualiza a mesma empresa sem reenviar o certificado', async () => {
+    await put('adminB', '/fiscal/company', {
+      cnpj: '98765432000110',
+      company: { ...company, numero: '20' },
+    }).expect(200);
+    expect(companies.size).toBe(1);
+    expect(companies.get('101')).toMatchObject({ numero: '20' });
+  });
+
+  it('ativa em homologação e emite com o token da empresa; produção exige CSC de produção', async () => {
+    await put('adminB', '/fiscal/settings', { enabled: true, defaultNcm: '21069090' }).expect(200);
+    await put('adminB', '/fiscal/settings', {
+      environment: 'producao',
+      confirmProduction: true,
+    }).expect(422);
+
+    const reg = (await post('adminB', '/cash-registers', { name: 'Caixa B' }).expect(201)).body;
+    const sess = (
+      await post('adminB', '/cash/sessions', { registerId: reg.id, openingAmount: '0.00' }).expect(
+        201,
+      )
+    ).body.id;
+    const o = (
+      await post('adminB', '/orders', {
+        channel: 'counter',
+        items: [{ productId: fx.prodB, quantity: 1 }],
+      }).expect(201)
+    ).body;
+    await post(
+      'adminB',
+      `/orders/${o.id}/payments`,
+      { cashSessionId: sess, method: 'pix', amount: o.total },
+      key(),
+    ).expect(201);
+    mode = 'authorize';
+    calls.length = 0;
+    const d = (await post('adminB', `/orders/${o.id}/nfce`).expect(202)).body;
+    const end = Date.now() + 15_000;
+    let cur = d;
+    while (cur.status !== 'authorized' && Date.now() < end) {
+      await new Promise((r) => setTimeout(r, 300));
+      cur = (await get('adminB', `/fiscal/documents/${d.id}`).expect(200)).body;
+    }
+    expect(cur.status).toBe('authorized');
+    const emit = calls.find((c) => c.method === 'POST' && c.url.startsWith('/v2/nfce'))!;
+    expect(emit.auth).toBe(`Basic ${Buffer.from(`${B_HOM}:`).toString('base64')}`);
+    expect(emit.body).toMatchObject({ cnpj_emitente: '98765432000110' });
   });
 });

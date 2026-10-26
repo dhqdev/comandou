@@ -12,6 +12,7 @@ import {
   TextField,
   useToast,
 } from '../design-system';
+import { FiscalCompanySetup } from '../features/FiscalCompanySetup';
 import { dateTime } from '../features/format';
 import { SelectField, Tabs } from '../features/forms';
 import { api } from '../lib/api';
@@ -172,9 +173,12 @@ function SettingsTab() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmProd, setConfirmProd] = useState(false);
+  /** Token próprio da Focus (true) ou cadastro guiado pelo Comandou (false, modo revenda). */
+  const [ownToken, setOwnToken] = useState(false);
 
-  const apply = (x: FiscalSettings) => {
+  const apply = (x: FiscalSettings, first = false) => {
     setS(x);
+    if (first) setOwnToken(!x.managedAvailable || (x.mode === 'own' && x.hasToken));
     setCnpj(x.cnpj ?? '');
     setCfop(x.defaultCfop);
     setCode(x.defaultCode);
@@ -183,7 +187,7 @@ function SettingsTab() {
   };
   useEffect(() => {
     api<FiscalSettings>('/fiscal/settings')
-      .then(apply)
+      .then((x) => apply(x, true))
       .catch((e: Error) => setError(e.message));
   }, []);
 
@@ -204,13 +208,17 @@ function SettingsTab() {
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    void save({
-      cnpj: cnpj.replace(/\D/g, '') || null,
-      defaultCfop: cfop,
-      defaultCode: code,
-      defaultNcm: ncm || null,
-      ...(token.trim() ? { token: token.trim() } : {}),
-    });
+    const defaults = { defaultCfop: cfop, defaultCode: code, defaultNcm: ncm || null };
+    void save(
+      ownToken
+        ? {
+            ...defaults,
+            ...(s?.mode !== 'own' ? { mode: 'own' } : {}),
+            cnpj: cnpj.replace(/\D/g, '') || null,
+            ...(token.trim() ? { token: token.trim() } : {}),
+          }
+        : { ...defaults, ...(s?.mode !== 'managed' ? { mode: 'managed' } : {}) },
+    );
   }
 
   if (!s) return error ? <Alert tone="danger">{error}</Alert> : <Spinner />;
@@ -266,27 +274,44 @@ function SettingsTab() {
           <p className="cm-hint">Só o dono do restaurante muda para produção.</p>
         )}
       </Card>
-      <Card searchId="secao-focus" title="Dados da Focus NFe e padrões dos produtos">
+      {!ownToken && <FiscalCompanySetup settings={s} onSaved={(x) => apply(x)} />}
+      {s.managedAvailable && (
+        <p className="cm-hint" style={{ margin: 0 }}>
+          {ownToken ? 'Não tem conta na Focus NFe? ' : 'Já tem conta própria na Focus NFe? '}
+          <button type="button" className="cm-linklike" onClick={() => setOwnToken(!ownToken)}>
+            {ownToken ? 'Use o cadastro guiado do Comandou' : 'Use o seu próprio token'}
+          </button>
+          {s.mode !== (ownToken ? 'own' : 'managed') && ' (salve abaixo para trocar)'}
+        </p>
+      )}
+      <Card
+        searchId="secao-focus"
+        title={ownToken ? 'Dados da Focus NFe e padrões dos produtos' : 'Padrões dos produtos'}
+      >
         <form onSubmit={submit} className="form-grid">
-          <TextField
-            label="CNPJ do emitente"
-            inputMode="numeric"
-            value={cnpj}
-            onChange={(e) => setCnpj(e.target.value)}
-            error={digits && digits.length !== 14 ? 'CNPJ com 14 dígitos' : undefined}
-          />
-          <TextField
-            label="Token da Focus NFe"
-            type="password"
-            autoComplete="off"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            hint={
-              s.hasToken
-                ? `Token salvo (final ${s.tokenLast4}). Preencha só para trocar.`
-                : 'Token do ambiente escolhido'
-            }
-          />
+          {ownToken && (
+            <>
+              <TextField
+                label="CNPJ do emitente"
+                inputMode="numeric"
+                value={cnpj}
+                onChange={(e) => setCnpj(e.target.value)}
+                error={digits && digits.length !== 14 ? 'CNPJ com 14 dígitos' : undefined}
+              />
+              <TextField
+                label="Token da Focus NFe"
+                type="password"
+                autoComplete="off"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                hint={
+                  s.hasToken
+                    ? `Token salvo (final ${s.tokenLast4}). Preencha só para trocar.`
+                    : 'Token do ambiente escolhido'
+                }
+              />
+            </>
+          )}
           <TextField
             label="CFOP padrão"
             inputMode="numeric"
@@ -311,7 +336,11 @@ function SettingsTab() {
             hint="Usado nos produtos sem NCM"
           />
           <div style={{ alignSelf: 'end' }}>
-            <Button type="submit" loading={busy} disabled={!!digits && digits.length !== 14}>
+            <Button
+              type="submit"
+              loading={busy}
+              disabled={ownToken && !!digits && digits.length !== 14}
+            >
               Salvar
             </Button>
           </div>
@@ -351,8 +380,10 @@ function SettingsTab() {
       >
         <p>
           Em produção, cada NFC-e autorizada vale perante a SEFAZ e só pode ser cancelada em até 30
-          minutos. Use o token de produção da Focus NFe e confirme que as notas de teste saíram
-          corretas.
+          minutos.{' '}
+          {s.mode === 'managed'
+            ? 'Confira se o CSC de produção foi informado no cadastro da empresa e se as notas de teste saíram corretas.'
+            : 'Use o token de produção da Focus NFe e confirme que as notas de teste saíram corretas.'}
         </p>
       </Modal>
     </>

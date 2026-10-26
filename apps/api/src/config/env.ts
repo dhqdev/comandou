@@ -60,6 +60,15 @@ const schema = z.object({
   ),
   FOCUS_NFE_URL_HOMOLOGACAO: z.string().url().default('https://homologacao.focusnfe.com.br'),
   FOCUS_NFE_URL_PRODUCAO: z.string().url().default('https://api.focusnfe.com.br'),
+  /**
+   * Token master da conta Focus NFe do Comandou (modo revenda). Com ele o painel cadastra a empresa
+   * do restaurante na Focus (certificado A1 + CSC) sem o lojista ter conta lá. Sem ele, só o modo
+   * "token próprio" fica disponível.
+   */
+  FOCUS_NFE_MASTER_TOKEN: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(8).optional(),
+  ),
   /** Graph API da Meta (WhatsApp Cloud API), com a versão no caminho. */
   WHATSAPP_GRAPH_URL: z.string().url().default('https://graph.facebook.com/v25.0'),
   /** Busca de endereço (Nominatim/OpenStreetMap) usada nas áreas de entrega. */
@@ -168,6 +177,7 @@ export const FILE_SECRET_VARS = [
   'REDIS_URL',
   'PROVISION_ADMIN_PASSWORD',
   'INTEGRATIONS_KEY',
+  'FOCUS_NFE_MASTER_TOKEN',
   'WHATSAPP_GATEWAY_TOKEN',
   'PLATFORM_DATABASE_URL',
   'PLATFORM_ADMIN_PASSWORD',

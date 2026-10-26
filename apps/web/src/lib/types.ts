@@ -433,8 +433,35 @@ export interface Reconciliation {
 
 export type FiscalStatus =
   'pending' | 'processing' | 'authorized' | 'rejected' | 'error' | 'cancelling' | 'cancelled';
+export interface FiscalCompany {
+  nome: string;
+  nomeFantasia?: string | null;
+  inscricaoEstadual: string;
+  inscricaoMunicipal?: string | null;
+  regimeTributario: 1 | 2 | 3 | 4;
+  logradouro: string;
+  numero: string;
+  complemento?: string | null;
+  bairro: string;
+  municipio: string;
+  uf: string;
+  cep: string;
+  email?: string | null;
+  telefone?: string | null;
+}
 export interface FiscalSettings {
   enabled: boolean;
+  /** own: token próprio da Focus; managed: o Comandou cadastrou a empresa (revenda). */
+  mode: 'own' | 'managed';
+  managedAvailable: boolean;
+  company: FiscalCompany | null;
+  focusRegistered: boolean;
+  hasHomologToken: boolean;
+  hasProdToken: boolean;
+  cscHomolog: boolean;
+  cscProd: boolean;
+  certificateValidUntil: string | null;
+  focusSyncedAt: string | null;
   environment: 'homologacao' | 'producao';
   cnpj: string | null;
   hasToken: boolean;
