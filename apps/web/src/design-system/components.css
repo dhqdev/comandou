@@ -804,6 +804,56 @@ input[type='radio'] {
   background: var(--cm-success);
 }
 
+@media (max-width: 640px) {
+  /* Celular: pílula discreta no topo, sem cobrir a barra de abas nem o carrinho. */
+  .cm-toasts {
+    top: calc(env(safe-area-inset-top) + 8px);
+    bottom: auto;
+    left: var(--cm-space-4);
+    right: var(--cm-space-4);
+    justify-items: center;
+    pointer-events: none;
+  }
+  .cm-toast:not(.cm-toast--danger) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--cm-surface);
+    color: var(--cm-text);
+    border: 1px solid var(--cm-border);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+    font-size: 12.5px;
+    animation: cm-toast-drop 180ms var(--cm-ease) both;
+  }
+  .cm-toast:not(.cm-toast--danger)::before {
+    content: '';
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cm-brand-500);
+  }
+  .cm-toast--success::before {
+    background: var(--cm-success);
+  }
+  .cm-toast--danger {
+    min-width: 0;
+    width: 100%;
+    max-width: 420px;
+    pointer-events: auto;
+  }
+}
+@keyframes cm-toast-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
 /* =============================================================== Indicador deslizante ("liquid glass")
  * Um único elemento desliza até o item ativo. As bordas andam com tempos diferentes:
  * a borda da frente chega antes e a de trás alcança depois, então o indicador estica
