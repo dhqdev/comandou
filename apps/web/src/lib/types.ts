@@ -145,6 +145,8 @@ export interface OrderItem {
   sectorId: string | null;
   startedAt: string | null;
   readyAt: string | null;
+  /** Foto atual do produto (null se não tiver). */
+  imageId?: string | null;
   options: { id: string; name: string; priceDelta: string }[];
 }
 export interface Payment {

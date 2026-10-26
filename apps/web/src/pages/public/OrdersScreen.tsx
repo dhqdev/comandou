@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import { brl } from '../../lib/money';
 import { useStore } from './context';
 import { AccountOrder, recentOrders, STEP_LABEL } from './store';
+import { Photo } from './ui';
 
 const TONE: Record<AccountOrder['step'], string> = {
   awaiting: 'warn',
@@ -74,6 +75,12 @@ export function OrdersScreen() {
                     <span className="ostatus" data-tone={TONE[o.step]}>
                       {STEP_LABEL[o.step]}
                     </span>
+                  </span>
+                  <span className="ocard__photos" aria-hidden>
+                    {o.items.slice(0, 4).map((it, n) => (
+                      <Photo key={n} src={it.imageUrl ?? null} alt={it.name} />
+                    ))}
+                    {o.items.length > 4 && <span>+{o.items.length - 4}</span>}
                   </span>
                   <span className="ocard__items">
                     {o.items.map((it) => `${it.quantity}× ${it.name}`).join(' · ')}

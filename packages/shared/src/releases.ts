@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.30.0',
+    date: '2026-10-26',
+    title: 'Fotos dos itens em todo o pedido',
+    summary:
+      'A foto de cada produto aparece nos itens do pedido: acompanhamento do cliente, PDV, detalhe do pedido, cozinha, comanda e app do garçom. A sacola do cardápio online ficou mais segura contra preço desatualizado, item esgotado e toque duplo.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Foto do produto nos itens do pedido (cliente, PDV, detalhe, cozinha, mesas e garçom); sem foto, aparece a inicial do nome na cor da loja.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A sacola do cardápio online confere o cardápio ao abrir: atualiza preços, tira o que saiu do cardápio e avisa quando um item esgotou antes de enviar.',
+      },
+      {
+        tag: 'correção',
+        text: 'Toque duplo em "Fazer pedido" ou "Enviar pedido" não dispara dois envios, e a observação do item no PDV e no garçom não perde o foco a cada letra.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Mensagens mais claras quando um produto saiu do cardápio ou quando um pedido já tinha sido registrado antes da conexão cair.',
+      },
+    ],
+  },
+  {
     version: '0.29.0',
     date: '2026-10-26',
     title: 'Laranja mais forte e janelas largas no notebook',

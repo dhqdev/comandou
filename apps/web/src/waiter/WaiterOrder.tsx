@@ -15,6 +15,7 @@ import {
   Badge,
   Button,
   EmptyState,
+  ItemThumb,
   Modal,
   Spinner,
   TextField,
@@ -28,12 +29,16 @@ import type { DiningTable, MenuCategory, MenuProduct, Order, Tab } from '../lib/
 import { useWaiterStats, useWide, WaiterHead } from './common';
 
 interface Line {
+  /** Identidade estável da linha (a observação muda enquanto se digita). */
+  uid: number;
   key: string;
   product: MenuProduct;
   optionIds: string[];
   quantity: number;
   notes: string;
 }
+
+let nextLineId = 1;
 
 /** Preço de exibição; o servidor recalcula e é a fonte oficial. */
 function unitCents(p: MenuProduct, optionIds: string[]) {
@@ -72,6 +77,7 @@ export function WaiterOrder() {
   const [customer, setCustomer] = useState({ name: '', phone: '', address: '', fee: '' });
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
+  const sending = useRef(false);
   const [sendError, setSendError] = useState<string | null>(null);
   // Uma chave por pedido: reenvio depois de falha de rede não duplica.
   const [idemKey, setIdemKey] = useState(newIdempotencyKey);
@@ -143,7 +149,7 @@ export function WaiterOrder() {
     setCart((c) => {
       const found = c.find((l) => l.key === key && !l.notes);
       if (found) return c.map((l) => (l === found ? { ...l, quantity: l.quantity + 1 } : l));
-      return [...c, { key, product: p, optionIds, quantity: 1, notes: '' }];
+      return [...c, { uid: nextLineId++, key, product: p, optionIds, quantity: 1, notes: '' }];
     });
   }
   function choose(p: MenuProduct) {
@@ -179,6 +185,9 @@ export function WaiterOrder() {
         : null;
 
   async function submit() {
+    // Trava contra toque duplo: o estado `busy` só chega na próxima renderização.
+    if (sending.current) return;
+    sending.current = true;
     setBusy(true);
     setSendError(null);
     try {
@@ -216,6 +225,7 @@ export function WaiterOrder() {
           : (e as Error).message,
       );
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }
@@ -462,7 +472,7 @@ function CartContent({
             .flatMap((g) => g.options)
             .filter((o) => l.optionIds.includes(o.id));
           return (
-            <li key={l.key + l.notes} className="wt-cart__line">
+            <li key={l.uid} className="wt-cart__line">
               <div className="wt-cart__top">
                 <span className="wt-stepper wt-stepper--sm">
                   <button
@@ -491,6 +501,7 @@ function CartContent({
                     <Plus size={14} />
                   </button>
                 </span>
+                <ItemThumb src={mediaUrl(l.product.imageId)} name={l.product.name} size={36} />
                 <span className="wt-cart__name">
                   <strong>{l.product.name}</strong>
                   {opts.length > 0 && <span>{opts.map((o) => o.name).join(', ')}</span>}

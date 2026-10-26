@@ -7,6 +7,7 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
 } from 'react';
 import { X } from 'lucide-react';
 import { Mascot, type MascotMood } from './mascot';
@@ -208,6 +209,59 @@ export function Skeleton({
   width?: number | string;
 }) {
   return <div className="cm-skeleton" style={{ height, width }} aria-hidden />;
+}
+
+/**
+ * Foto pequena do produto num item de pedido (sacola, PDV, cozinha, garçom). Sem foto, ou se a
+ * foto não carregar, mostra a inicial do nome sobre a cor da loja.
+ */
+export function ItemThumb({
+  src,
+  name,
+  size = 40,
+}: {
+  src: string | null | undefined;
+  name: string;
+  size?: number;
+}) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
+  const show = !!src && !failed;
+  return (
+    <span
+      className="cm-thumb"
+      data-empty={show ? undefined : ''}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.4) }}
+      aria-hidden
+    >
+      {show ? (
+        <img src={src} alt="" loading="lazy" decoding="async" onError={() => setFailed(true)} />
+      ) : (
+        (name.trim()[0] ?? '?').toUpperCase()
+      )}
+    </span>
+  );
+}
+
+/** Fileira de fotos dos itens (cartões de pedido); passa de `max` vira "+N". */
+export function ItemThumbStrip({
+  items,
+  max = 5,
+  size = 28,
+}: {
+  items: { key: string; src: string | null | undefined; name: string }[];
+  max?: number;
+  size?: number;
+}) {
+  if (!items.length) return null;
+  return (
+    <span className="cm-thumbs" aria-hidden>
+      {items.slice(0, max).map((i) => (
+        <ItemThumb key={i.key} src={i.src} name={i.name} size={size} />
+      ))}
+      {items.length > max && <span className="cm-thumbs__more">+{items.length - max}</span>}
+    </span>
+  );
 }
 
 export function Modal({

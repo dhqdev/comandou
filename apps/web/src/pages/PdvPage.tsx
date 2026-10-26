@@ -18,13 +18,14 @@ import {
 } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Alert, Mascot, Segmented, useToast } from '../design-system';
+import { Alert, ItemThumbStrip, Mascot, Segmented, useToast } from '../design-system';
 import { useAuth, useCan } from '../app/auth';
 import { NewSaleModal } from '../features/NewSaleModal';
 import { OrderDetailModal } from '../features/OrderDetailModal';
 import { SlideTabs } from '../features/SlideTabs';
 import { minutesSince, PAYMENT_STATUS_LABEL, qty, time } from '../features/format';
 import { api } from '../lib/api';
+import { mediaUrl } from '../lib/media';
 import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import { playSound, useArrivalSound } from '../lib/sounds';
@@ -130,6 +131,10 @@ function HomeCard({
         {order.channel === 'delivery' && order.deliveryAddress && (
           <span className="hcard__addr">{order.deliveryAddress}</span>
         )}
+        <ItemThumbStrip
+          items={items.map((i) => ({ key: i.id, src: mediaUrl(i.imageId), name: i.name }))}
+          size={30}
+        />
         <span className="hcard__items">
           {items
             .slice(0, 3)

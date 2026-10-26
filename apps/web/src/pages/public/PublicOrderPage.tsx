@@ -47,6 +47,7 @@ interface PublicOrder {
     quantity: string;
     total: string;
     notes: string | null;
+    imageUrl: string | null;
     options: string[];
   }[];
   courier: CustomerCourier | null;
@@ -243,6 +244,7 @@ export function PublicOrderPage() {
           <ul className="track__items">
             {o.items.map((i, n) => (
               <li key={n}>
+                <Photo src={i.imageUrl} alt={i.name} className="track__photo" />
                 <span>{Number(i.quantity)}×</span>
                 <span>
                   {i.name}

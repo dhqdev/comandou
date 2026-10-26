@@ -281,7 +281,7 @@
 }
 .cart__line {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   gap: var(--cm-space-2);
   align-items: start;
   padding-bottom: var(--cm-space-2);
@@ -598,7 +598,7 @@
 .kds-item {
   flex: 1;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
   gap: var(--cm-space-2);
   text-align: left;
   align-items: start;

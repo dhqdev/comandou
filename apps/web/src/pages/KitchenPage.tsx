@@ -1,9 +1,18 @@
 import { Check, ChefHat, CircleCheckBig, Flame, Play, RotateCcw, Timer } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, ChipGroup, EmptyState, Spinner, useToast } from '../design-system';
+import {
+  Alert,
+  Button,
+  ChipGroup,
+  EmptyState,
+  ItemThumb,
+  Spinner,
+  useToast,
+} from '../design-system';
 import { useCan } from '../app/auth';
 import { CHANNEL_LABELS, minutesSince, qty } from '../features/format';
 import { api } from '../lib/api';
+import { mediaUrl } from '../lib/media';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import { useArrivalSound } from '../lib/sounds';
 import type { OrderItem, Sector } from '../lib/types';
@@ -242,6 +251,7 @@ export function KitchenPage() {
                             }
                             aria-label={`${i.name}: ${i.status === 'pending' ? 'iniciar' : 'pronto'}`}
                           >
+                            <ItemThumb src={mediaUrl(i.imageId)} name={i.name} size={36} />
                             <span className="kds-item__qty">{qty(i.quantity)}×</span>
                             <span>
                               {i.name}

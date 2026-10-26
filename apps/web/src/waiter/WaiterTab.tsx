@@ -7,11 +7,13 @@ import {
   Badge,
   Button,
   EmptyState,
+  ItemThumb,
   Modal,
   Spinner,
   TextField,
   useToast,
 } from '../design-system';
+import { mediaUrl } from '../lib/media';
 import { ORDER_STATUS_LABELS, qty, STATUS_TONE, time } from '../features/format';
 import { sortTables } from '../features/table-state';
 import { api } from '../lib/api';
@@ -137,12 +139,15 @@ export function WaiterTab() {
                   <ul className="wt-ticket__items">
                     {o.items.map((i) => (
                       <li key={i.id} data-status={i.status}>
-                        <span>
-                          {qty(i.quantity)}× {i.name}
-                          {i.options.length > 0 && (
-                            <em> · {i.options.map((x) => x.name).join(', ')}</em>
-                          )}
-                          {i.notes && <em> · {i.notes}</em>}
+                        <span className="cm-item-line">
+                          <ItemThumb src={mediaUrl(i.imageId)} name={i.name} size={32} />
+                          <span>
+                            {qty(i.quantity)}× {i.name}
+                            {i.options.length > 0 && (
+                              <em> · {i.options.map((x) => x.name).join(', ')}</em>
+                            )}
+                            {i.notes && <em> · {i.notes}</em>}
+                          </span>
                         </span>
                         {i.status === 'ready' && <Badge tone="success">pronto</Badge>}
                       </li>

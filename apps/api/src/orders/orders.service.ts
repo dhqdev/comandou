@@ -103,6 +103,7 @@ export const ORDER_SELECT = `
              'id', i.id, 'productId', i.product_id, 'name', i.name, 'quantity', i.quantity::text,
              'unitPrice', i.unit_price::text, 'total', i.total::text, 'notes', i.notes, 'status', i.status,
              'sectorId', i.sector_id, 'startedAt', i.started_at, 'readyAt', i.ready_at,
+             'imageId', (SELECT p.image_id FROM products p WHERE p.id = i.product_id),
              'options', COALESCE((SELECT json_agg(json_build_object('id', io.option_id, 'name', io.name, 'priceDelta', io.price_delta::text))
                                   FROM order_item_options io WHERE io.order_item_id = i.id), '[]'))
            ORDER BY i.created_at, i.id) FROM order_items i WHERE i.order_id = o.id), '[]') AS items
@@ -323,7 +324,10 @@ export class OrdersService {
     let subtotal = 0;
     const lines = input.items.map((it) => {
       const p = pmap.get(it.productId);
-      if (!p || !p.active) throw new UnprocessableEntityException('Produto indisponível');
+      if (!p || !p.active)
+        throw new UnprocessableEntityException(
+          'Um dos produtos saiu do cardápio. Atualize a tela e monte o pedido de novo.',
+        );
       if (p.sold_out) throw new UnprocessableEntityException(`Produto esgotado: ${p.name}`);
       const groups = links.filter((l) => l.product_id === p.id);
       const chosen = [...new Set(it.optionIds ?? [])].map((id) => {

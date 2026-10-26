@@ -23,11 +23,13 @@ import {
   Button,
   Card,
   EmptyState,
+  ItemThumbStrip,
   Modal,
   Spinner,
   TextField,
   useToast,
 } from '../design-system';
+import { mediaUrl } from '../lib/media';
 import { useCan } from '../app/auth';
 import { WaitersModal } from '../waiter/WaitersModal';
 import { NewSaleModal } from '../features/NewSaleModal';
@@ -719,6 +721,14 @@ function TabModal({
                   <tr key={o.id} onClick={() => setOrderId(o.id)}>
                     <td>
                       <strong>#{o.number}</strong>
+                      <ItemThumbStrip
+                        items={o.items.map((i) => ({
+                          key: i.id,
+                          src: mediaUrl(i.imageId),
+                          name: i.name,
+                        }))}
+                        size={24}
+                      />
                       <div className="cm-hint">
                         {o.items.map((i) => `${Number(i.quantity)}× ${i.name}`).join(', ')}
                       </div>

@@ -192,20 +192,25 @@ export function StoreApp() {
   const [menu, setMenu] = useState<PublicMenu | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    api<PublicMenu>('/store')
-      .then((m) => {
+  const loadMenu = useCallback(
+    () =>
+      api<PublicMenu>('/store').then((m) => {
         setMenu(m);
         document.title = `${m.restaurant.name} · Cardápio`;
-      })
-      .catch((e: ApiError) =>
-        setError(
-          e.status === 404 || e.status === 403
-            ? 'Este restaurante não está recebendo pedidos online.'
-            : 'Não foi possível carregar o cardápio. Tente de novo em instantes.',
-        ),
-      );
-  }, []);
+      }),
+    [],
+  );
+  useEffect(() => {
+    loadMenu().catch((e: ApiError) =>
+      setError(
+        e.status === 404 || e.status === 403
+          ? 'Este restaurante não está recebendo pedidos online.'
+          : 'Não foi possível carregar o cardápio. Tente de novo em instantes.',
+      ),
+    );
+  }, [loadMenu]);
+  // Recarregar com o cardápio já na tela: se falhar, segue com o que já tem.
+  const refreshMenu = useCallback(() => loadMenu().catch(() => undefined), [loadMenu]);
 
   // A loja pode abrir ou fechar com o cardápio aberto: confere de tempos em tempos e ao voltar
   // para a aba, para o cliente não montar um pedido que não vai entrar.
@@ -252,7 +257,7 @@ export function StoreApp() {
     );
   if (!menu) return <Skeleton />;
   return (
-    <StoreProvider menu={menu} refreshStatus={refreshStatus}>
+    <StoreProvider menu={menu} refreshStatus={refreshStatus} refreshMenu={refreshMenu}>
       <main className="sf">
         <TopBar />
         <Screens />

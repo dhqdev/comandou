@@ -2,7 +2,8 @@ import { CHANNEL_LABELS, fromCents, toCents } from '@comandou/shared';
 import { ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Alert, Badge, EmptyState, Spinner } from '../design-system';
+import { Alert, Badge, EmptyState, ItemThumbStrip, Spinner } from '../design-system';
+import { mediaUrl } from '../lib/media';
 import { SlideTabs } from '../features/SlideTabs';
 import { ORDER_STATUS_LABELS, qty, STATUS_TONE, time } from '../features/format';
 import { api } from '../lib/api';
@@ -120,9 +121,16 @@ export function WaiterOrders() {
                   {o.tabId && <ChevronRight size={16} aria-hidden />}
                 </button>
                 {(expanded || !o.tabId) && (
-                  <p className="wt-ticket__summary">
-                    {o.items.map((i) => `${qty(i.quantity)}× ${i.name}`).join(' · ')}
-                  </p>
+                  <div className="wt-ticket__summary">
+                    <ItemThumbStrip
+                      items={o.items.map((i) => ({
+                        key: i.id,
+                        src: mediaUrl(i.imageId),
+                        name: i.name,
+                      }))}
+                    />
+                    <p>{o.items.map((i) => `${qty(i.quantity)}× ${i.name}`).join(' · ')}</p>
+                  </div>
                 )}
                 {expanded && o.deliveryAddress && (
                   <p className="wt-ticket__note">Entrega: {o.deliveryAddress}</p>

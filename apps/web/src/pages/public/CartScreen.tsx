@@ -44,7 +44,9 @@ export function CartScreen() {
     account,
     setAccount,
     subtotal,
+    product,
     refreshStatus,
+    refreshMenu,
   } = useStore();
   const navigate = useNavigate();
   const [step, setStep] = useState<'cart' | 'checkout'>('cart');
@@ -58,6 +60,13 @@ export function CartScreen() {
   const [saveAddr, setSaveAddr] = useState(true);
   // Mesma chave e mesmo token em cada nova tentativa: reenviar não duplica o pedido.
   const attempt = useRef<{ key: string; token: string } | null>(null);
+  // Trava contra toque duplo: o estado `busy` só chega na próxima renderização.
+  const sending = useRef(false);
+
+  // Abriu a sacola: confere preços e esgotados com o cardápio de agora.
+  useEffect(() => {
+    void refreshMenu();
+  }, [refreshMenu]);
 
   useEffect(() => {
     if (saved.length && addrId === 'new')
@@ -92,11 +101,20 @@ export function CartScreen() {
   const addressOk = channel !== 'delivery' || ((!!chosen || typedOk) && pinOk);
   const changeCents = toCents(parseBrlInput(changeFor) ?? '0');
   const changeOk = customer.paymentMethod !== 'cash' || !changeFor || changeCents >= total;
+  const soldOut = cart.filter((l) => product(l.productId)?.soldOut);
   const canSend =
-    !!channel && !belowMin && name.trim() && phoneOk && addressOk && changeOk && s.isOpen;
+    !!channel &&
+    !belowMin &&
+    name.trim() &&
+    phoneOk &&
+    addressOk &&
+    changeOk &&
+    s.isOpen &&
+    !soldOut.length;
 
   async function send() {
-    if (!channel) return;
+    if (!channel || sending.current) return;
+    sending.current = true;
     attempt.current ??= { key: newIdempotencyKey(), token: newOrderToken() };
     const { key, token } = attempt.current;
     setBusy(true);
@@ -169,6 +187,8 @@ export function CartScreen() {
         attempt.current = null;
       // 409 pode ser "a loja fechou": atualiza a situação para a tela mostrar fechada.
       if (err.status === 409) void refreshStatus();
+      // 422 pode ser produto esgotado ou fora do cardápio: a sacola se acerta sozinha.
+      if (err.status === 422) void refreshMenu();
       setError(
         err.status === 0
           ? 'Sem conexão. Toque em enviar de novo: o pedido não será duplicado.'
@@ -177,6 +197,7 @@ export function CartScreen() {
             : err.message,
       );
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }
@@ -209,6 +230,9 @@ export function CartScreen() {
                 <Photo src={l.imageUrl} alt={l.name} className="bag__photo" />
                 <div className="bag__info">
                   <strong>{l.name}</strong>
+                  {product(l.productId)?.soldOut && (
+                    <span className="bag__soldout">Esgotado agora · remova para continuar</span>
+                  )}
                   {l.optionNames.length > 0 && <span>{l.optionNames.join(', ')}</span>}
                   {l.notes && <span>Obs.: {l.notes}</span>}
                   <b>{brl(fromCents(lineTotal(l)))}</b>
@@ -506,6 +530,13 @@ export function CartScreen() {
               </span>
             </p>
           )}
+          {soldOut.length > 0 && (
+            <p className="form-error" role="alert">
+              {soldOut.length === 1
+                ? `${soldOut[0]!.name} esgotou. Tire da sacola para fazer o pedido.`
+                : 'Alguns itens esgotaram. Tire-os da sacola para fazer o pedido.'}
+            </p>
+          )}
           {belowMin && (
             <p className="form-hint">
               Pedido mínimo de {brl(minOrder)} (sem a entrega). Faltam{' '}
@@ -515,7 +546,7 @@ export function CartScreen() {
           {step === 'cart' ? (
             <button
               className="cta"
-              disabled={belowMin || !s.isOpen}
+              disabled={belowMin || !s.isOpen || soldOut.length > 0}
               onClick={() => setStep('checkout')}
             >
               {s.isOpen ? (

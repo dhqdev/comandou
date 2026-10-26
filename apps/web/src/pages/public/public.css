@@ -337,7 +337,13 @@
 }
 .track__items li {
   display: flex;
+  align-items: flex-start;
   gap: 8px;
+}
+.track__photo {
+  flex: none;
+  width: 44px;
+  border-radius: var(--cm-radius-sm);
 }
 .track__items li span:last-child {
   margin-left: auto;

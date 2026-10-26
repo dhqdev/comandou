@@ -1003,6 +1003,13 @@
   color: var(--cm-text-muted);
   font-style: normal;
 }
+.wt-ticket__summary {
+  display: grid;
+  gap: 6px;
+}
+.wt-ticket__summary p {
+  margin: 0;
+}
 .wt-ticket__summary,
 .wt-ticket__note {
   margin: 0;

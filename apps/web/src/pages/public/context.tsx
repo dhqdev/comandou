@@ -17,6 +17,7 @@ import {
   lineTotal,
   PublicMenu,
   PublicProduct,
+  syncCart,
   useStored,
 } from './store';
 
@@ -40,6 +41,8 @@ export interface StoreCtx {
   setCustomer(fn: (c: CustomerInfo) => CustomerInfo): void;
   /** Confere de novo se a loja está aberta (ex.: o pedido voltou com "loja fechada"). */
   refreshStatus(): Promise<void>;
+  /** Busca o cardápio de novo (ex.: o pedido voltou com "produto esgotado"). */
+  refreshMenu(): Promise<void>;
 }
 
 const Ctx = createContext<StoreCtx | null>(null);
@@ -95,10 +98,12 @@ function flyToCart(from: HTMLElement) {
 export function StoreProvider({
   menu,
   refreshStatus,
+  refreshMenu,
   children,
 }: {
   menu: PublicMenu;
   refreshStatus(): Promise<void>;
+  refreshMenu(): Promise<void>;
   children: ReactNode;
 }) {
   const [cart, setCart] = useStored<CartLine[]>('cm-cart', []);
@@ -114,9 +119,9 @@ export function StoreProvider({
     return m;
   }, [menu]);
 
-  // Tira da sacola e dos favoritos o que saiu do cardápio.
+  // Acerta a sacola (preço, foto, itens que saíram) e os favoritos com o cardápio atual.
   useEffect(() => {
-    setCart((c) => c.filter((l) => index.has(l.productId)));
+    setCart((c) => syncCart(c, (id) => index.get(id)));
     setFavs((f) => f.filter((id) => index.has(id)));
   }, [index, setCart, setFavs]);
 
@@ -167,6 +172,7 @@ export function StoreProvider({
     customer,
     setCustomer,
     refreshStatus,
+    refreshMenu,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

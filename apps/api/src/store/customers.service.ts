@@ -393,11 +393,12 @@ export class CustomersService {
         channel: string;
         total: string;
         createdAt: Date;
-        items: { name: string; quantity: number }[];
+        items: { name: string; quantity: number; imageUrl: string | null }[];
       }>(
         tx,
         `SELECT o.id, o.number, o.status, o.channel, o.total::text, o.created_at AS "createdAt",
-                COALESCE((SELECT json_agg(json_build_object('name', i.name, 'quantity', i.quantity::float8)
+                COALESCE((SELECT json_agg(json_build_object('name', i.name, 'quantity', i.quantity::float8,
+                                   'imageUrl', (SELECT '/api/v1/media/' || p.image_id FROM products p WHERE p.id = i.product_id))
                                    ORDER BY i.created_at)
                             FROM order_items i WHERE i.order_id = o.id), '[]') AS items
            FROM orders o WHERE o.customer_id = $1 ORDER BY o.created_at DESC LIMIT 50`,

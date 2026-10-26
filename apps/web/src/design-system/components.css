@@ -463,6 +463,46 @@ input[type='radio'] {
     transform: rotate(360deg);
   }
 }
+/* Foto do produto nos itens de pedido */
+.cm-thumb {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--cm-radius-xs);
+  background: var(--cm-surface-sunken);
+  font-weight: 700;
+  line-height: 1;
+}
+.cm-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cm-thumb[data-empty] {
+  background: var(--cm-brand-50);
+  color: var(--cm-brand-700);
+}
+.cm-thumbs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cm-thumbs__more {
+  margin-left: 2px;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+}
+.cm-item-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.cm-item-line > :last-child {
+  min-width: 0;
+}
 .cm-skeleton {
   border-radius: var(--cm-radius-xs);
   background: linear-gradient(

@@ -7,13 +7,14 @@ import {
   type OrderChannel,
 } from '@comandou/shared';
 import { Minus, Plus, Search, ShoppingBag, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Badge,
   Button,
   ChipGroup,
   EmptyState,
+  ItemThumb,
   Modal,
   Spinner,
   TextField,
@@ -29,12 +30,16 @@ import './sale-extras.css';
 import type { DiningTable, MenuCategory, MenuProduct, Order } from '../lib/types';
 
 interface CartLine {
+  /** Identidade estável da linha (a observação muda enquanto se digita). */
+  uid: number;
   key: string;
   product: MenuProduct;
   optionIds: string[];
   quantity: number;
   notes: string;
 }
+
+let nextLineId = 1;
 
 /** Preço de exibição calculado no cliente; o servidor recalcula e é a fonte oficial. */
 function unitCents(p: MenuProduct, optionIds: string[]) {
@@ -73,6 +78,7 @@ export function NewSaleModal({
   const [discount, setDiscount] = useState('');
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
+  const sending = useRef(false);
   const [error, setError] = useState<string | null>(null);
   // Uma chave por venda: reenvios após falha de rede não duplicam o pedido.
   const [idemKey, setIdemKey] = useState(newIdempotencyKey);
@@ -115,7 +121,7 @@ export function NewSaleModal({
     setCart((c) => {
       const found = c.find((l) => l.key === key && !l.notes);
       if (found) return c.map((l) => (l === found ? { ...l, quantity: l.quantity + 1 } : l));
-      return [...c, { key, product: p, optionIds, quantity: 1, notes: '' }];
+      return [...c, { uid: nextLineId++, key, product: p, optionIds, quantity: 1, notes: '' }];
     });
   }
 
@@ -138,6 +144,9 @@ export function NewSaleModal({
   }
 
   async function submit() {
+    // Trava contra toque duplo: o estado `busy` só chega na próxima renderização.
+    if (sending.current) return;
+    sending.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -174,6 +183,7 @@ export function NewSaleModal({
           : (e as Error).message,
       );
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }
@@ -293,7 +303,8 @@ export function NewSaleModal({
                   .flatMap((g) => g.options)
                   .filter((o) => l.optionIds.includes(o.id));
                 return (
-                  <li key={l.key + l.notes} className="cart__line">
+                  <li key={l.uid} className="cart__line">
+                    <ItemThumb src={mediaUrl(l.product.imageId)} name={l.product.name} />
                     <div className="cart__info">
                       <strong>{l.product.name}</strong>
                       {opts.length > 0 && (

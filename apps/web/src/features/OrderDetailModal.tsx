@@ -3,6 +3,7 @@ import { MessageCircle } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import {
+  ItemThumb,
   Alert,
   Badge,
   Button,
@@ -16,6 +17,7 @@ import { useCan } from '../app/auth';
 import { FiscalSection } from './FiscalSection';
 import { OrderLiveMap } from './OrderLiveMap';
 import { api } from '../lib/api';
+import { mediaUrl } from '../lib/media';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
 import { useRealtime } from '../lib/realtime';
@@ -174,11 +176,16 @@ export function OrderDetailModal({
                   }
                 >
                   <td>
-                    {qty(i.quantity)}× <strong>{i.name}</strong>
-                    {i.options.length > 0 && (
-                      <div className="cm-hint">{i.options.map((o) => o.name).join(', ')}</div>
-                    )}
-                    {i.notes && <div className="cm-hint">Obs.: {i.notes}</div>}
+                    <div className="cm-item-line">
+                      <ItemThumb src={mediaUrl(i.imageId)} name={i.name} />
+                      <div>
+                        {qty(i.quantity)}× <strong>{i.name}</strong>
+                        {i.options.length > 0 && (
+                          <div className="cm-hint">{i.options.map((o) => o.name).join(', ')}</div>
+                        )}
+                        {i.notes && <div className="cm-hint">Obs.: {i.notes}</div>}
+                      </div>
+                    </div>
                   </td>
                   <td className="cm-num">{brl(i.total)}</td>
                 </tr>

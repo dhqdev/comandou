@@ -68,6 +68,7 @@ export class KitchenService {
                 dt.label AS "tableLabel", tb.number AS "tabNumber", o.customer_name AS "customerName",
                 json_agg(json_build_object('id', i.id, 'name', i.name, 'quantity', i.quantity::text, 'notes', i.notes,
                   'status', i.status, 'startedAt', i.started_at, 'readyAt', i.ready_at, 'sectorId', i.sector_id,
+                  'imageId', (SELECT p.image_id FROM products p WHERE p.id = i.product_id),
                   'options', COALESCE((SELECT json_agg(io.name) FROM order_item_options io WHERE io.order_item_id = i.id), '[]'))
                   ORDER BY i.created_at, i.id) AS items
            FROM orders o

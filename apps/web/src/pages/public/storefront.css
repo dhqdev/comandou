@@ -1685,6 +1685,10 @@
 .bag__info span {
   color: var(--cm-text-muted);
 }
+.bag__info .bag__soldout {
+  color: var(--cm-danger);
+  font-weight: 600;
+}
 .addmore {
   display: flex;
   align-items: center;
@@ -1889,6 +1893,21 @@
 }
 .ocard__top strong {
   flex: 1;
+}
+.ocard__photos {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.ocard__photos .ph {
+  width: 40px;
+  flex: none;
+  border-radius: var(--cm-radius-sm);
+}
+.ocard__photos .ph__fallback {
+  font-size: 0.9rem;
 }
 .ocard__items {
   color: var(--cm-text-muted);

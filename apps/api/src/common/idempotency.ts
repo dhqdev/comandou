@@ -54,7 +54,10 @@ export async function withIdempotency<T>(
     );
     if (!prev) throw new ConflictException('Operação em andamento; tente novamente');
     if (prev.request_hash !== hash) {
-      throw new UnprocessableEntityException('Idempotency-Key já usada com outros dados');
+      // Na prática: a rede caiu depois de gravar e a pessoa mudou algo antes de reenviar.
+      throw new UnprocessableEntityException(
+        'Este envio já foi registrado com outros dados. Atualize a tela e confira antes de enviar de novo.',
+      );
     }
     if (prev.response === null)
       throw new ConflictException('Operação em andamento; tente novamente');

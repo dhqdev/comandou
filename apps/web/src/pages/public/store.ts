@@ -1,4 +1,4 @@
-import { multiplyCents, toCents } from '@comandou/shared';
+import { fromCents, multiplyCents, toCents } from '@comandou/shared';
 import { useEffect, useState } from 'react';
 import type { MenuGroup } from '../../lib/types';
 
@@ -96,7 +96,7 @@ export interface AccountOrder {
   channel: 'delivery' | 'pickup';
   total: string;
   createdAt: string;
-  items: { name: string; quantity: number }[];
+  items: { name: string; quantity: number; imageUrl?: string | null }[];
 }
 
 export interface CartLine {
@@ -145,6 +145,39 @@ export const PAYMENT_OPTIONS: { value: CustomerInfo['paymentMethod']; label: str
 ];
 
 export const lineTotal = (l: CartLine) => multiplyCents(toCents(l.unit), l.quantity);
+
+/**
+ * Acerta a sacola guardada no aparelho com o cardápio atual: tira o que saiu do cardápio (ou
+ * cuja opção sumiu) e atualiza preço, nome e foto. Assim o total mostrado é o que o servidor vai
+ * cobrar. Devolve a mesma lista quando nada mudou.
+ */
+export function syncCart(cart: CartLine[], product: (id: string) => PublicProduct | undefined) {
+  let changed = false;
+  const out: CartLine[] = [];
+  for (const l of cart) {
+    const p = product(l.productId);
+    const opts = p?.optionGroups.flatMap((g) => g.options) ?? [];
+    const chosen = l.optionIds.map((id) => opts.find((o) => o.id === id));
+    if (!p || chosen.some((o) => !o)) {
+      changed = true;
+      continue;
+    }
+    const unit = fromCents(
+      chosen.reduce((sum, o) => sum + toCents(o!.priceDelta), toCents(p.price)),
+    );
+    const optionNames = chosen.map((o) => o!.name);
+    if (
+      unit !== l.unit ||
+      p.name !== l.name ||
+      p.imageUrl !== l.imageUrl ||
+      optionNames.join('\u0000') !== l.optionNames.join('\u0000')
+    ) {
+      changed = true;
+      out.push({ ...l, unit, name: p.name, imageUrl: p.imageUrl, optionNames });
+    } else out.push(l);
+  }
+  return changed ? out : cart;
+}
 
 /** Estado salvo no navegador do cliente (carrinho, dados e pedidos recentes). */
 function read<T>(key: string, fallback: T): T {
