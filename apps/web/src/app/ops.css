@@ -384,23 +384,75 @@
 }
 .pay-balance,
 .tab-summary {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--cm-space-4);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--cm-space-2);
+  font-variant-numeric: tabular-nums;
+}
+/* Fundo e texto saem de tokens que existem nos dois temas: legível no claro e no escuro. */
+.tab-summary > div {
+  display: grid;
+  gap: 2px;
   padding: var(--cm-space-3) var(--cm-space-4);
   border-radius: var(--cm-radius-md);
-  background: var(--cm-brand-50);
-  color: var(--cm-brand-900);
-  font-variant-numeric: tabular-nums;
+  background: var(--cm-surface-muted);
+  border: 1px solid var(--cm-border);
+}
+.tab-summary span {
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.tab-summary strong {
+  font-size: var(--cm-text-lg);
+  color: var(--cm-text);
+}
+.tab-summary > div[data-owes] {
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  border-color: color-mix(in srgb, var(--cm-brand-500) 45%, var(--cm-border));
+}
+.tab-summary > div[data-owes] strong {
+  color: var(--cm-brand-700);
 }
 .pay-balance strong {
   font-size: var(--cm-text-xl);
 }
-.tab-summary > div {
+/* Ações da comanda: botões com contorno visível, mesma altura, lado a lado (empilham no celular). */
+.tab-actions {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--cm-space-2);
 }
-.tab-summary strong {
-  font-size: var(--cm-text-lg);
+.tab-actions .cm-btn[aria-pressed='true'] {
+  border-color: var(--cm-warning);
+  background: var(--cm-warning-bg);
+}
+.tab-actions__hint {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+.order-actions .cm-btn {
+  min-height: 44px;
+}
+@media (max-width: 640px) {
+  .order-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .order-actions .cm-btn {
+    min-height: 48px;
+    white-space: normal;
+    line-height: 1.2;
+  }
+  .tab-actions {
+    grid-template-columns: 1fr;
+  }
+  .tab-summary > div {
+    padding: var(--cm-space-2) var(--cm-space-3);
+  }
+  .tab-summary strong {
+    font-size: var(--cm-text-md);
+  }
 }
 
 /* Cozinha */

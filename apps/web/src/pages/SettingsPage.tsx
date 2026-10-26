@@ -1,5 +1,5 @@
 import { CHANNEL_LABELS, ORDER_CHANNELS, type OrderChannel } from '@comandou/shared';
-import { ChevronRight, Plus, Smartphone } from 'lucide-react';
+import { ChevronRight, LayoutGrid, Plus, Smartphone } from 'lucide-react';
 import { Link } from 'react-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, EmptyState, TextField, useToast } from '../design-system';
@@ -117,35 +117,21 @@ export function SettingsPage() {
           </table>
         )}
       </Card>
-      <Card searchId="secao-mesas" title="Mesas">
-        <SimpleForm
-          label="Número/nome da mesa"
-          max={20}
-          disabled={!canManage}
-          onSave={(v) => call('/tables', 'POST', { label: v }, 'Mesa criada')}
-        />
-        <div className="chips" style={{ marginTop: 12 }}>
-          {tables.map((t) => (
-            <span
-              key={t.id}
-              data-search-id={`mesa-${t.id}`}
-              className="chip"
-              aria-disabled={!t.active}
-            >
-              Mesa {t.label}
-              {canManage && !t.tabId && (
-                <button
-                  className="link-btn"
-                  onClick={() =>
-                    call(`/tables/${t.id}`, 'PATCH', { active: !t.active }, 'Mesa atualizada')
-                  }
-                >
-                  {t.active ? 'desativar' : 'ativar'}
-                </button>
-              )}
-            </span>
-          ))}
-        </div>
+      <Card searchId="secao-mesas" title="Mesas do salão">
+        <Link to="/mesas?editar=1" className="settings-link">
+          <LayoutGrid size={20} aria-hidden />
+          <span>
+            <strong>
+              {tables.filter((t) => t.active).length} mesas ·{' '}
+              {tables.filter((t) => t.active).reduce((s, t) => s + t.seats, 0)} lugares
+            </strong>
+            <small>
+              Crie várias mesas de uma vez, escolha formato, lugares e área (varanda, mezanino) no
+              editor visual do salão.
+            </small>
+          </span>
+          <ChevronRight size={18} aria-hidden />
+        </Link>
       </Card>
       <Card searchId="secao-caixas" title="Terminais de caixa">
         <SimpleForm

@@ -298,7 +298,7 @@ export function OrderDetailModal({
           )}
 
           {!mode && (
-            <div className="actions-row">
+            <div className="actions-row order-actions">
               {(NEXT[order.status] ?? [])
                 .filter((a) => canTransition(order.status, a.to, order.channel))
                 .map((a) => (
@@ -323,7 +323,7 @@ export function OrderDetailModal({
                 <Button onClick={() => setPaying(true)}>Receber {brl(order.balance)}</Button>
               )}
               {!['completed', 'cancelled', 'awaiting'].includes(order.status) && (
-                <Button variant="ghost" onClick={() => setMode('adjust')}>
+                <Button variant="secondary" onClick={() => setMode('adjust')}>
                   Desconto/acréscimo
                 </Button>
               )}
@@ -343,11 +343,11 @@ export function OrderDetailModal({
           )}
 
           {!mode && canPrint && order.status !== 'cancelled' && (
-            <div className="actions-row">
-              <Button variant="ghost" loading={printing} onClick={() => print('kitchen')}>
+            <div className="actions-row order-actions">
+              <Button variant="secondary" loading={printing} onClick={() => print('kitchen')}>
                 Reimprimir cozinha
               </Button>
-              <Button variant="ghost" loading={printing} onClick={() => print('receipt')}>
+              <Button variant="secondary" loading={printing} onClick={() => print('receipt')}>
                 Imprimir conferência
               </Button>
             </div>

@@ -205,12 +205,15 @@ export interface Tab {
   orders?: Order[];
 }
 
+export type TableShape = 'square' | 'round' | 'rect';
+
 export interface DiningTable {
   id: string;
   label: string;
   seats: number;
   area: string | null;
   position?: number;
+  shape: TableShape;
   active: boolean;
   tabId: string | null;
   tabNumber: number | null;

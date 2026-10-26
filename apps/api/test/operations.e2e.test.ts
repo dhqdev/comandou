@@ -48,6 +48,8 @@ const post = (w: Who, url: string, body: object = {}, idem?: string) => {
 };
 const patch = (w: Who, url: string, body: object) =>
   http.patch(`/api/v1${url}`).set('Host', hostOf(w)).set('Cookie', cookies[w]).set(CSRF).send(body);
+const del = (w: Who, url: string) =>
+  http.delete(`/api/v1${url}`).set('Host', hostOf(w)).set('Cookie', cookies[w]).set(CSRF);
 const put = (w: Who, url: string, body: object) =>
   http.put(`/api/v1${url}`).set('Host', hostOf(w)).set('Cookie', cookies[w]).set(CSRF).send(body);
 
@@ -104,6 +106,50 @@ describe('Cadastros operacionais e adicionais', () => {
     register = (await post('adminA', '/cash-registers', { name: 'Caixa 1' }).expect(201)).body;
     await post('adminA', '/tables', { label: '1' }).expect(409);
     await patch('adminA', `/products/${fx.prodA}`, { sectorId: sector.id }).expect(200);
+  });
+
+  it('editor do salão: cria várias mesas, muda formato, reordena e exclui', async () => {
+    await post('waiterA', '/tables/bulk', { count: 2 }).expect(403);
+    const made = (
+      await post('adminA', '/tables/bulk', {
+        count: 3,
+        prefix: 'V',
+        seats: 6,
+        shape: 'round',
+        area: 'Varanda',
+      }).expect(201)
+    ).body as { id: string; label: string; seats: number; shape: string; area: string }[];
+    expect(made.map((t) => t.label)).toEqual(['V1', 'V2', 'V3']);
+    expect(made.every((t) => t.seats === 6 && t.shape === 'round' && t.area === 'Varanda')).toBe(
+      true,
+    );
+    // Continua a numeração e pula as que já existem.
+    const more = (await post('adminA', '/tables/bulk', { count: 1, prefix: 'V' }).expect(201))
+      .body as { id: string; label: string; shape: string }[];
+    expect(more.map((t) => t.label)).toEqual(['V4']);
+    expect(more[0]!.shape).toBe('square');
+    await patch('adminA', `/tables/${made[0]!.id}`, { shape: 'rect' }).expect(200);
+    await patch('adminA', `/tables/${made[0]!.id}`, { shape: 'oval' }).expect(400);
+
+    const before = (await get('adminA', '/tables').expect(200)).body as { id: string }[];
+    const ids = [made[2]!.id, ...before.map((t) => t.id).filter((id) => id !== made[2]!.id)];
+    await post('adminA', '/tables/order', { ids }).expect(201);
+    const all = (await get('adminA', '/tables').expect(200)).body as {
+      id: string;
+      shape: string;
+    }[];
+    expect(all.map((t) => t.id)).toEqual(ids);
+    expect(all.find((t) => t.id === made[0]!.id)!.shape).toBe('rect');
+
+    await del('waiterA', `/tables/${made[1]!.id}`).expect(403);
+    expect((await del('adminA', `/tables/${made[1]!.id}`).expect(200)).body).toEqual({
+      deleted: true,
+      archived: false,
+    });
+    await del('adminB', `/tables/${made[2]!.id}`).expect(404);
+    // Limpa para não mexer nas contagens dos testes seguintes.
+    for (const t of [made[0]!, made[2]!, more[0]!])
+      await del('adminA', `/tables/${t.id}`).expect(200);
   });
 
   it('cria variação (1 obrigatória) e adicionais (0 a 2) e vincula ao produto', async () => {

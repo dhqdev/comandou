@@ -1,0 +1,307 @@
+/* Editor visual do salão: mesas desenhadas de cima, agrupadas por área, na cor da loja. */
+.te {
+  display: grid;
+  gap: var(--cm-space-4);
+}
+.te-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--cm-space-3);
+}
+.te-stats > div {
+  display: grid;
+  gap: 2px;
+  padding: var(--cm-space-3) var(--cm-space-4);
+  border-radius: var(--cm-radius-md);
+  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
+  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 22%, var(--cm-border));
+}
+.te-stats strong {
+  font-size: var(--cm-text-2xl);
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  color: var(--cm-text);
+  font-variant-numeric: tabular-nums;
+}
+.te-stats span {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.te-tip {
+  margin: 0;
+}
+
+.te-group {
+  display: grid;
+  gap: var(--cm-space-3);
+}
+.te-group > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cm-space-3);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--cm-border);
+}
+.te-group h3 {
+  margin: 0;
+  font-size: var(--cm-text-md);
+}
+.te-group--off {
+  opacity: 0.85;
+}
+.te-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: var(--cm-space-3);
+}
+
+/* Cartão de cada mesa */
+.te-card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: var(--cm-space-3) var(--cm-space-2);
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color var(--cm-dur) var(--cm-ease),
+    box-shadow var(--cm-dur) var(--cm-ease),
+    transform var(--cm-dur-fast) var(--cm-ease);
+}
+.te-card[data-shape='rect'] {
+  grid-column: span 2;
+}
+.te-card:hover {
+  border-color: var(--cm-brand-500);
+  box-shadow: var(--cm-shadow-md);
+}
+.te-card:active {
+  transform: scale(0.98);
+}
+.te-card[data-dragging] {
+  opacity: 0.45;
+  border-style: dashed;
+}
+.te-card__grip {
+  position: absolute;
+  top: 8px;
+  left: 6px;
+  color: var(--cm-text-subtle);
+  cursor: grab;
+}
+.te-card[data-shape='rect'] .te-drawing {
+  width: 150px;
+}
+.te-card__name {
+  font-weight: 700;
+}
+.te-card__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+}
+.te-card__meta em {
+  margin-left: 4px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  font-style: normal;
+  font-weight: 600;
+  background: var(--cm-danger-bg);
+  color: var(--cm-danger);
+}
+
+/* Desenho da mesa (SVG): tampo na cor da loja, cadeiras neutras */
+.te-drawing {
+  display: block;
+  overflow: visible;
+}
+.te-drawing__top {
+  fill: color-mix(in srgb, var(--cm-brand-500) 18%, var(--cm-surface));
+  stroke: var(--cm-brand-500);
+  stroke-width: 2.5;
+}
+.te-drawing__chair {
+  fill: var(--cm-surface-sunken);
+  stroke: var(--cm-border-strong);
+  stroke-width: 2;
+}
+.te-drawing__label {
+  fill: var(--cm-text);
+  font-weight: 750;
+  text-anchor: middle;
+  letter-spacing: -0.02em;
+}
+
+/* Formulários das folhas */
+.te-form {
+  display: grid;
+  gap: var(--cm-space-4);
+}
+.te-preview {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--cm-space-2);
+  padding: var(--cm-space-4);
+  border-radius: var(--cm-radius-lg);
+  background:
+    radial-gradient(circle at 1px 1px, var(--cm-border-strong) 1px, transparent 0) 0 0 / 16px 16px,
+    var(--cm-surface-muted);
+  border: 1px solid var(--cm-border);
+}
+.te-preview__more {
+  font-weight: 750;
+  font-size: var(--cm-text-lg);
+  color: var(--cm-text-muted);
+}
+.te-preview__caption {
+  margin: calc(var(--cm-space-2) * -1) 0 0;
+  text-align: center;
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.te-quick {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: calc(var(--cm-space-2) * -1);
+}
+.te-quick .chip {
+  justify-content: center;
+  padding: 0 6px;
+}
+
+.te-stepper {
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  align-items: center;
+  min-height: 48px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  overflow: hidden;
+}
+.te-stepper button {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  min-height: 48px;
+  border: 0;
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+  cursor: pointer;
+}
+.te-stepper button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-surface));
+  color: var(--cm-brand-700);
+}
+.te-stepper button:disabled {
+  color: var(--cm-text-subtle);
+  cursor: not-allowed;
+}
+.te-stepper__value {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+}
+.te-stepper__value input {
+  width: 4ch;
+  border: 0;
+  background: transparent;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-xl);
+  font-weight: 750;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.te-stepper__value input:focus {
+  outline: none;
+}
+.te-stepper:focus-within {
+  border-color: var(--cm-brand-500);
+  box-shadow: var(--cm-focus);
+}
+
+.te-shapes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--cm-space-2);
+}
+.te-shape {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: var(--cm-space-2);
+  border: 1.5px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.te-shape[aria-checked='true'] {
+  border-color: var(--cm-brand-500);
+  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
+  box-shadow: 0 0 0 1px var(--cm-brand-500);
+}
+.te-area {
+  display: grid;
+  gap: var(--cm-space-2);
+}
+.te-toggle {
+  display: flex;
+  gap: var(--cm-space-3);
+  align-items: flex-start;
+  padding: var(--cm-space-3);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  cursor: pointer;
+}
+.te-toggle input {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  accent-color: var(--cm-brand-600);
+}
+.te-toggle span {
+  display: grid;
+  gap: 2px;
+}
+.te-toggle small {
+  color: var(--cm-text-muted);
+}
+/* Excluir fica à esquerda do rodapé, longe do Salvar. */
+.cm-modal__footer .te-delete {
+  margin-right: auto;
+  color: var(--cm-danger);
+}
+
+@media (max-width: 640px) {
+  .te-stats strong {
+    font-size: var(--cm-text-xl);
+  }
+  .te-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .te-card[data-shape='rect'] .te-drawing {
+    width: 132px;
+  }
+  .te-card__grip {
+    display: none;
+  }
+  .cm-modal__footer .te-delete {
+    margin-right: 0;
+  }
+}

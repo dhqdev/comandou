@@ -1,6 +1,8 @@
 import {
   Body,
+  ConflictException,
   Controller,
+  Delete,
   Get,
   NotFoundException,
   Param,
@@ -20,6 +22,8 @@ import { DatabaseService } from '../database/database.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 
+const TABLE_SHAPES = ['square', 'round', 'rect'] as const;
+
 const Sector = z.object({
   name: z.string().trim().min(1).max(60),
   channels: z.array(z.enum(ORDER_CHANNELS)).min(1).optional(),
@@ -32,15 +36,26 @@ const Table = z.object({
   seats: z.number().int().min(1).max(100).optional(),
   area: z.string().trim().max(40).nullable().optional(),
   position: z.number().int().min(0).max(10_000).optional(),
+  shape: z.enum(TABLE_SHAPES).optional(),
   active: z.boolean().optional(),
 });
+/** Cria várias mesas de uma vez: "Mesa 1" a "Mesa 20" (números já usados são pulados). */
+const TableBulk = z.object({
+  count: z.number().int().min(1).max(200),
+  startAt: z.number().int().min(0).max(9_999).optional(),
+  prefix: z.string().trim().max(12).optional(),
+  seats: z.number().int().min(1).max(100).optional(),
+  area: z.string().trim().max(40).nullable().optional(),
+  shape: z.enum(TABLE_SHAPES).optional(),
+});
+const TableOrder = z.object({ ids: z.array(z.string().uuid()).min(1).max(1_000) });
 const Register = z.object({
   name: z.string().trim().min(1).max(40),
   active: z.boolean().optional(),
 });
 
 const SECTOR_COLS = `id, name, channels, warn_after_min AS "warnAfterMin", late_after_min AS "lateAfterMin", active`;
-const TABLE_COLS = `id, label, seats, area, position, active`;
+const TABLE_COLS = `id, label, seats, area, position, shape, active`;
 
 /** Cadastros operacionais: setores de produção (KDS), mesas e terminais de caixa. */
 @Controller({ version: '1' })
@@ -161,9 +176,12 @@ export class SetupController {
     return this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
       const row = await one<{ id: string }>(
         tx,
-        `INSERT INTO dining_tables (tenant_id, label, seats, area, position)
-         VALUES ($1, $2, COALESCE($3, 4), $4, COALESCE($5, 0)) RETURNING ${TABLE_COLS}`,
-        [t.id, b.label, b.seats ?? null, b.area ?? null, b.position ?? null],
+        `INSERT INTO dining_tables (tenant_id, label, seats, area, position, shape)
+         VALUES ($1, $2, COALESCE($3, 4), $4,
+                 COALESCE($5, (SELECT COALESCE(max(position) + 1, 0) FROM dining_tables)),
+                 COALESCE($6, 'square'))
+         RETURNING ${TABLE_COLS}`,
+        [t.id, b.label, b.seats ?? null, b.area || null, b.position ?? null, b.shape ?? null],
       );
       await this.audit.record(tx, {
         tenantId: t.id,
@@ -192,16 +210,18 @@ export class SetupController {
       const r = await one<{ id: string }>(
         tx,
         `UPDATE dining_tables SET label = COALESCE($2, label), seats = COALESCE($3, seats),
-           area = CASE WHEN $6 THEN $4 ELSE area END, position = COALESCE($5, position), active = COALESCE($7, active)
+           area = CASE WHEN $6 THEN $4 ELSE area END, position = COALESCE($5, position), active = COALESCE($7, active),
+           shape = COALESCE($8, shape)
          WHERE id = $1 RETURNING ${TABLE_COLS}`,
         [
           id,
           b.label ?? null,
           b.seats ?? null,
-          b.area ?? null,
+          b.area || null,
           b.position ?? null,
           b.area !== undefined,
           b.active ?? null,
+          b.shape ?? null,
         ],
       );
       if (r)
@@ -217,7 +237,118 @@ export class SetupController {
       return r;
     });
     if (!row) throw new NotFoundException('Mesa não encontrada');
+    this.realtime.publish(t.id, { type: 'menu.changed' });
     return row;
+  }
+
+  @Post('tables/bulk')
+  @RequirePermission('settings:manage')
+  createTables(
+    @Body(new ZodPipe(TableBulk)) b: z.infer<typeof TableBulk>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
+      const used = new Set(
+        (await q<{ label: string }>(tx, `SELECT lower(label) AS label FROM dining_tables`)).map(
+          (r) => r.label,
+        ),
+      );
+      // Continua a numeração: com mesas 1 a 10 cadastradas, "mais 5" cria 11 a 15.
+      const prefix = b.prefix ?? '';
+      let n =
+        b.startAt ??
+        Math.max(
+          0,
+          ...[...used].map((l) =>
+            l.startsWith(prefix.toLowerCase()) ? Number(l.slice(prefix.length)) || 0 : 0,
+          ),
+        ) + 1;
+      const labels: string[] = [];
+      while (labels.length < b.count && n < 100_000) {
+        const label = `${prefix}${n}`;
+        if (label.length <= 20 && !used.has(label.toLowerCase())) labels.push(label);
+        n += 1;
+      }
+      const rows = await q<{ id: string }>(
+        tx,
+        `INSERT INTO dining_tables (tenant_id, label, seats, area, position, shape)
+         SELECT $1::uuid, l, COALESCE($3::int, 4), $4::text,
+                (SELECT COALESCE(max(position) + 1, 0) FROM dining_tables) + i::int - 1,
+                COALESCE($5::text, 'square')
+           FROM unnest($2::text[]) WITH ORDINALITY AS x(l, i)
+         RETURNING ${TABLE_COLS}`,
+        [t.id, labels, b.seats ?? null, b.area || null, b.shape ?? null],
+      );
+      await this.audit.record(tx, {
+        tenantId: t.id,
+        actorUserId: u.id,
+        action: 'setup.tables_created',
+        entity: 'dining_table',
+        data: { ...b, labels },
+        ip: req.ip,
+      });
+      this.realtime.publish(t.id, { type: 'menu.changed' });
+      return rows;
+    });
+  }
+
+  /** Nova ordem do mapa do salão: a posição de cada mesa é o índice na lista. */
+  @Post('tables/order')
+  @RequirePermission('settings:manage')
+  async orderTables(
+    @Body(new ZodPipe(TableOrder)) b: z.infer<typeof TableOrder>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    await this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
+      q(
+        tx,
+        `UPDATE dining_tables dt SET position = x.i::int - 1
+           FROM unnest($1::uuid[]) WITH ORDINALITY AS x(id, i)
+          WHERE dt.id = x.id`,
+        [b.ids],
+      ),
+    );
+    this.realtime.publish(t.id, { type: 'menu.changed' });
+    return { ok: true };
+  }
+
+  /** Mesa sem nenhuma comanda some de vez; com histórico, só é desativada (os relatórios usam). */
+  @Delete('tables/:id')
+  @RequirePermission('settings:manage')
+  async deleteTable(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const result = await this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
+      const tab = await one<{ open: boolean }>(
+        tx,
+        `SELECT bool_or(status = 'open') AS open FROM tabs WHERE table_id = $1 HAVING count(*) > 0`,
+        [id],
+      );
+      if (tab?.open) throw new ConflictException('Feche a comanda desta mesa antes de excluir');
+      const r = tab
+        ? await one(tx, `UPDATE dining_tables SET active = false WHERE id = $1 RETURNING id`, [id])
+        : await one(tx, `DELETE FROM dining_tables WHERE id = $1 RETURNING id`, [id]);
+      if (!r) return null;
+      await this.audit.record(tx, {
+        tenantId: t.id,
+        actorUserId: u.id,
+        action: tab ? 'setup.table_updated' : 'setup.table_deleted',
+        entity: 'dining_table',
+        entityId: id,
+        data: tab ? { active: false } : {},
+        ip: req.ip,
+      });
+      return { deleted: !tab, archived: !!tab };
+    });
+    if (!result) throw new NotFoundException('Mesa não encontrada');
+    this.realtime.publish(t.id, { type: 'menu.changed' });
+    return result;
   }
 
   @Get('cash-registers')

@@ -32,11 +32,22 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   await login(page);
   await expect(page.getByText('Tempo real', { exact: true })).toBeVisible();
 
-  // Ajustes: mesa e terminal de caixa
+  // Salão: mesa criada no editor visual
+  await nav(page, 'Salão');
+  await page.getByRole('button', { name: 'Personalizar mesas' }).click();
+  const editor = page.getByRole('dialog', { name: 'Personalizar salão' });
+  await editor.getByRole('button', { name: 'Adicionar mesas' }).click();
+  const bulk = page.getByRole('dialog', { name: 'Adicionar mesas' });
+  await bulk.getByLabel('Quantas mesas', { exact: true }).fill('1');
+  await bulk.getByLabel('Nome da mesa (opcional)').fill(`M${tag}`);
+  await bulk.getByRole('radio', { name: 'Redonda' }).click();
+  await bulk.getByRole('button', { name: 'Criar 1 mesa' }).click();
+  await expect(editor.getByText(`Mesa M${tag}`)).toBeVisible();
+  await shot(page, info.project.name, 'editor-salao');
+  await editor.getByRole('button', { name: 'Concluir' }).click();
+
+  // Ajustes: terminal de caixa
   await nav(page, 'Ajustes');
-  await page.getByLabel('Número/nome da mesa').fill(`M${tag}`);
-  await page.getByLabel('Número/nome da mesa').press('Enter');
-  await expect(page.getByText(`Mesa M${tag}`)).toBeVisible();
   await page.getByLabel('Nome do terminal').fill(`Caixa ${tag}`);
   await page.getByLabel('Nome do terminal').press('Enter');
   await expect(page.getByText(`Caixa ${tag}`)).toBeVisible();

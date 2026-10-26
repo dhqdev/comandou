@@ -1,10 +1,13 @@
 import { toCents } from '@comandou/shared';
 import {
+  Armchair,
   ArrowRightLeft,
   BellRing,
+  CircleCheck,
   ExternalLink,
   LayoutGrid,
   Link2,
+  PencilRuler,
   Plus,
   Printer,
   Receipt,
@@ -12,8 +15,9 @@ import {
   Search,
   ShoppingBag,
   Smartphone,
+  Wallet,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import {
   Alert,
@@ -33,6 +37,7 @@ import { OrderDetailModal } from '../features/OrderDetailModal';
 import { PaymentModal } from '../features/PaymentModal';
 import { QrScanner } from '../features/QrScanner';
 import { SlideTabs } from '../features/SlideTabs';
+import { TableEditor } from '../features/TableEditor';
 import './salon.css';
 import {
   minutesSince,
@@ -97,7 +102,9 @@ export function TablesPage() {
   const [qrOpen, setQrOpen] = useState(false);
   const [waiterOpen, setWaiterOpen] = useState(false);
   const [freeTable, setFreeTable] = useState<DiningTable | null>(null);
+  const [editor, setEditor] = useState(false);
   useLinkParam('comanda', setTabId);
+  useLinkParam('editar', () => canSetup && setEditor(true));
   useLinkParam('acao', (a) => a === 'comanda' && canOperate && setNewTab(true));
 
   const load = useCallback(async () => {
@@ -129,7 +136,8 @@ export function TablesPage() {
     void load();
   }, [load]);
   useRealtime((e) => {
-    if (e.type === 'tab.changed' || e.type === 'order.changed') reload();
+    if (e.type === 'tab.changed' || e.type === 'order.changed' || e.type === 'menu.changed')
+      reload();
   }, load);
 
   // Sons do salão: mesa pediu a conta e pedido de mesa pronto na cozinha.
@@ -187,6 +195,15 @@ export function TablesPage() {
   );
   const counts = { free: 0, busy: 0, paying: 0 };
   for (const t of tables ?? []) counts[tableState(t)] += 1;
+  // Mapa por área (Varanda, Mezanino...); sem área cadastrada, uma grade só, sem título.
+  const areas = useMemo(() => {
+    const m = new Map<string, DiningTable[]>();
+    for (const t of shownTables) {
+      const k = t.area?.trim() || '';
+      m.set(k, [...(m.get(k) ?? []), t]);
+    }
+    return [...m.entries()];
+  }, [shownTables]);
 
   return (
     <div className="salon">
@@ -197,13 +214,26 @@ export function TablesPage() {
         </div>
         <div className="actions-row">
           {canSetup && (
-            <Button variant="ghost" icon={<Printer size={16} />} onClick={() => setQrOpen(true)}>
+            <Button
+              variant="secondary"
+              icon={<PencilRuler size={16} />}
+              onClick={() => setEditor(true)}
+            >
+              Personalizar mesas
+            </Button>
+          )}
+          {canSetup && (
+            <Button
+              variant="secondary"
+              icon={<Printer size={16} />}
+              onClick={() => setQrOpen(true)}
+            >
               QR das mesas
             </Button>
           )}
           {canSetup && (
             <Button
-              variant="ghost"
+              variant="secondary"
               icon={<Smartphone size={16} />}
               onClick={() => setWaiterOpen(true)}
             >
@@ -258,47 +288,70 @@ export function TablesPage() {
             <EmptyState
               icon={<LayoutGrid size={20} />}
               title="Nenhuma mesa cadastrada"
-              description="Cadastre as mesas em Ajustes → Salão."
+              description={
+                canSetup
+                  ? 'Diga quantas mesas o salão tem e crie todas de uma vez.'
+                  : 'Peça ao gerente para cadastrar as mesas do salão.'
+              }
+              action={
+                canSetup && (
+                  <Button icon={<Plus size={16} />} onClick={() => setEditor(true)}>
+                    Criar mesas
+                  </Button>
+                )
+              }
             />
           </Card>
         ) : shownTables.length === 0 ? (
           <EmptyState title="Nenhuma mesa encontrada" />
         ) : (
-          <div className="table-grid">
-            {shownTables.map((t) => {
-              const st = tableState(t);
-              return (
-                <button
-                  key={t.id}
-                  data-search-id={`mesa-${t.id}`}
-                  className="table-tile"
-                  data-state={st}
-                  data-busy={!!t.tabId || undefined}
-                  onClick={() => goTable(t)}
-                  aria-label={`Mesa ${t.label} ${STATE_LABEL[st].toLowerCase()}`}
-                >
-                  <span className="table-tile__label">{t.label}</span>
-                  {t.tabId ? (
-                    <>
-                      <strong>{brl(t.tabTotal)}</strong>
-                      <span className="cm-hint table-tile__meta">
-                        {st === 'paying' ? (
-                          <>
-                            <Receipt size={12} /> conta
-                          </>
-                        ) : (
-                          `${t.openedAt ? minutesSince(t.openedAt) : 0} min`
-                        )}
-                        {t.tabCustomer ? ` · ${t.tabCustomer}` : ''}
-                      </span>
-                    </>
-                  ) : (
-                    <span className="cm-hint">Livre · {t.seats} lug.</span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          areas.map(([area, list]) => (
+            <section key={area || '-'} className="salon__area">
+              {(areas.length > 1 || area) && (
+                <h2 className="salon__area-title">
+                  {area || 'Salão principal'} <span className="cm-hint">{list.length}</span>
+                </h2>
+              )}
+              <div className="table-grid">
+                {list.map((t) => {
+                  const st = tableState(t);
+                  return (
+                    <button
+                      key={t.id}
+                      data-search-id={`mesa-${t.id}`}
+                      className="table-tile"
+                      data-state={st}
+                      data-shape={t.shape}
+                      data-busy={!!t.tabId || undefined}
+                      onClick={() => goTable(t)}
+                      aria-label={`Mesa ${t.label} ${STATE_LABEL[st].toLowerCase()}`}
+                    >
+                      <span className="table-tile__label">{t.label}</span>
+                      {t.tabId ? (
+                        <>
+                          <strong>{brl(t.tabTotal)}</strong>
+                          <span className="cm-hint table-tile__meta">
+                            {st === 'paying' ? (
+                              <>
+                                <Receipt size={12} /> conta
+                              </>
+                            ) : (
+                              `${t.openedAt ? minutesSince(t.openedAt) : 0} min`
+                            )}
+                            {t.tabCustomer ? ` · ${t.tabCustomer}` : ''}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="cm-hint table-tile__meta">
+                          <Armchair size={12} aria-hidden /> Livre · {t.seats} lug.
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ))
         )
       ) : shownTabs.length === 0 ? (
         <Card>
@@ -397,6 +450,7 @@ export function TablesPage() {
           toast('Pedido enviado', 'success');
         }}
       />
+      {canSetup && <TableEditor open={editor} onClose={() => setEditor(false)} onChanged={load} />}
       {canSetup && (
         <TableQrModal open={qrOpen} onClose={() => setQrOpen(false)} tables={tables ?? []} />
       )}
@@ -691,8 +745,46 @@ function TabModal({
       : `Comanda ${tab.number}`
     : 'Comanda';
   const label = tab?.tableLabel ? `Mesa ${tab.tableLabel}` : `Comanda ${tab?.number ?? ''}`;
+  const open = tab?.status === 'open';
+  const owes = !!tab && toCents(tab.balance) > 0;
+  // Rodapé fixo (padrão das folhas): a ação principal fica sempre à vista, grande, embaixo.
+  const footer =
+    !tab || !open ? undefined : transfer ? (
+      <Button variant="secondary" size="lg" onClick={() => setTransfer(false)}>
+        Voltar
+      </Button>
+    ) : (
+      <>
+        {canOperate && (
+          <Button
+            variant={canPay ? 'secondary' : 'primary'}
+            size="lg"
+            icon={<Plus size={18} />}
+            onClick={() => setAdding(true)}
+          >
+            Adicionar pedido
+          </Button>
+        )}
+        {canPay &&
+          (owes ? (
+            <Button size="lg" icon={<Wallet size={18} />} onClick={() => setPaying(true)}>
+              Receber {brl(tab.balance)}
+            </Button>
+          ) : (
+            <Button
+              variant="success"
+              size="lg"
+              loading={busy}
+              icon={<CircleCheck size={18} />}
+              onClick={close}
+            >
+              Fechar conta
+            </Button>
+          ))}
+      </>
+    );
   return (
-    <Modal open={!!tabId} onClose={onClose} title={title} size="lg">
+    <Modal open={!!tabId} onClose={onClose} title={title} size="lg" footer={footer}>
       {!tab ? (
         <Spinner />
       ) : (
@@ -709,15 +801,15 @@ function TabModal({
           )}
           <div className="tab-summary">
             <div>
-              <span className="cm-hint">Total</span>
+              <span>Total</span>
               <strong>{brl(tab.total)}</strong>
             </div>
             <div>
-              <span className="cm-hint">Pago</span>
+              <span>Pago</span>
               <strong>{brl(tab.paid)}</strong>
             </div>
-            <div>
-              <span className="cm-hint">Saldo</span>
+            <div data-owes={owes || undefined}>
+              <span>Saldo</span>
               <strong>{brl(tab.balance)}</strong>
             </div>
           </div>
@@ -760,22 +852,15 @@ function TabModal({
                     </button>
                   ))}
               </div>
-              <Button variant="secondary" onClick={() => setTransfer(false)}>
-                Voltar
-              </Button>
             </div>
           )}
-          {tab.status === 'open' && !transfer && (
-            <div className="actions-row">
-              {canOperate && (
-                <Button icon={<Plus size={16} />} onClick={() => setAdding(true)}>
-                  Adicionar pedido
-                </Button>
-              )}
-              {canPay && toCents(tab.balance) > 0 && (
+          {open && !transfer && (
+            <div className="tab-actions">
+              {canPay && owes && (
                 <Button
                   variant="secondary"
-                  icon={<Receipt size={16} />}
+                  size="lg"
+                  icon={<Receipt size={18} />}
                   onClick={() => setPaying(true)}
                 >
                   Receber / dividir
@@ -783,8 +868,10 @@ function TabModal({
               )}
               {canOperate && (
                 <Button
-                  variant={tab.billRequestedAt ? 'ghost' : 'secondary'}
-                  icon={<BellRing size={16} />}
+                  variant="secondary"
+                  size="lg"
+                  icon={<BellRing size={18} />}
+                  aria-pressed={!!tab.billRequestedAt}
                   onClick={() => billRequest(!tab.billRequestedAt)}
                 >
                   {tab.billRequestedAt ? 'Desfazer pedido de conta' : 'Pediu a conta'}
@@ -792,23 +879,18 @@ function TabModal({
               )}
               {canOperate && tab.tableId && (
                 <Button
-                  variant="ghost"
-                  icon={<ArrowRightLeft size={16} />}
+                  variant="secondary"
+                  size="lg"
+                  icon={<ArrowRightLeft size={18} />}
                   onClick={() => setTransfer(true)}
                 >
                   Transferir mesa
                 </Button>
               )}
-              {canPay && (
-                <Button
-                  variant="secondary"
-                  loading={busy}
-                  disabled={toCents(tab.balance) > 0}
-                  onClick={close}
-                  title={toCents(tab.balance) > 0 ? 'Receba o saldo antes de fechar' : undefined}
-                >
-                  Fechar conta
-                </Button>
+              {canPay && owes && (
+                <p className="cm-hint tab-actions__hint">
+                  Para fechar a conta, receba o saldo de {brl(tab.balance)}.
+                </p>
               )}
             </div>
           )}

@@ -67,6 +67,37 @@
   text-overflow: ellipsis;
 }
 
+/* Áreas do salão (Varanda, Mezanino...) e formato de cada mesa no mapa */
+.salon__area {
+  display: grid;
+  gap: var(--cm-space-2);
+}
+.salon__area-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: var(--cm-space-2) 0 0;
+  font-size: var(--cm-text-md);
+}
+.salon .table-tile[data-shape='round'] {
+  border-radius: 999px;
+  aspect-ratio: 1;
+  max-width: 100%;
+  padding-inline: 14%;
+}
+.salon .table-tile[data-shape='round'] > * {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.salon .table-tile[data-shape='rect'] {
+  grid-column: span 2;
+}
+.salon .table-tile[data-shape='rect'] .table-tile__label {
+  letter-spacing: 0;
+}
+
 /* Comandas */
 .tab-list {
   display: grid;
