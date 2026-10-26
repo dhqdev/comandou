@@ -139,9 +139,18 @@
   --cm-brand-50: #2a1a0b;
   --cm-brand-100: #3a240e;
   --cm-brand-200: #5c3712;
-  --cm-brand-700: #f5a033; /* laranja legível sobre o escuro */
-  --cm-brand-800: #ffc27a;
-  --cm-link: #f5a540;
+  /* Laranja mais suave no escuro: menos saturado e menos brilhante, para não cansar a vista
+     em turnos longos. O texto escuro sobre ele continua com contraste ≥ 5.9:1. */
+  --cm-brand-300: #dcae7c;
+  --cm-brand-400: #dc9c5c;
+  --cm-brand-500: #d48a45;
+  --cm-brand-600: #cc8442;
+  --cm-brand-700: #dfa66a; /* laranja legível sobre o escuro */
+  --cm-brand-800: #ecc596;
+  --cm-link: #dfa66a;
+  --cm-accent-400: #dcb54a;
+  --cm-accent-500: #d4ab38;
+  --cm-focus: 0 0 0 3px color-mix(in srgb, var(--cm-brand-500) 26%, transparent);
   --cm-frame: #0b0a09;
   --cm-frame-line: #2a2623;
   --cm-bg: #131110;
@@ -181,9 +190,18 @@
     --cm-brand-50: #2a1a0b;
     --cm-brand-100: #3a240e;
     --cm-brand-200: #5c3712;
-    --cm-brand-700: #f5a033; /* laranja legível sobre o escuro */
-    --cm-brand-800: #ffc27a;
-    --cm-link: #f5a540;
+    /* Laranja mais suave no escuro: menos saturado e menos brilhante, para não cansar a vista
+       em turnos longos. O texto escuro sobre ele continua com contraste ≥ 5.9:1. */
+    --cm-brand-300: #dcae7c;
+    --cm-brand-400: #dc9c5c;
+    --cm-brand-500: #d48a45;
+    --cm-brand-600: #cc8442;
+    --cm-brand-700: #dfa66a; /* laranja legível sobre o escuro */
+    --cm-brand-800: #ecc596;
+    --cm-link: #dfa66a;
+    --cm-accent-400: #dcb54a;
+    --cm-accent-500: #d4ab38;
+    --cm-focus: 0 0 0 3px color-mix(in srgb, var(--cm-brand-500) 26%, transparent);
     --cm-frame: #0b0a09;
     --cm-frame-line: #2a2623;
     --cm-bg: #131110;

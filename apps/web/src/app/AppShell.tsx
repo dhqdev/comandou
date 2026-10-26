@@ -2,6 +2,7 @@ import {
   BarChart3,
   Briefcase,
   CircleUserRound,
+  Compass,
   BookOpen,
   CreditCard,
   Boxes,
@@ -25,7 +26,7 @@ import {
   Wallet,
   WifiOff,
 } from 'lucide-react';
-import { ReactNode, useCallback, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { CURRENT_RELEASE } from '@comandou/shared';
 import { Outlet, useLocation } from 'react-router';
 import {
@@ -40,6 +41,7 @@ import {
 } from '../design-system';
 import { GlobalSearch, GlobalSearchTrigger, useSearchHotkey } from '../features/GlobalSearch';
 import { SoundControl } from '../features/SoundControl';
+import { WelcomeTour, tourSeen } from '../features/WelcomeTour';
 import { useSearchSpotlight } from '../lib/deep-link';
 import { useOnline } from '../lib/connectivity';
 import { useRealtimeStatus } from '../lib/realtime';
@@ -172,6 +174,7 @@ export function AppShell() {
   const unseen = useHasUnseenRelease();
   const [pwOpen, setPwOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
   const location = useLocation();
   const perms = me?.permissions;
   const allowed = useCallback(
@@ -181,6 +184,10 @@ export function AppShell() {
   const can = (item: NavItem) => allowed(item.perms);
   useSearchHotkey(() => setSearchOpen(true));
   useSearchSpotlight();
+  // Primeiro acesso deste usuário neste aparelho: apresenta as telas (não no acesso de suporte).
+  useEffect(() => {
+    if (me && !me.support && !tourSeen(me.tenant.id, me.user.id)) setTourOpen(true);
+  }, [me]);
   const initials = (me?.user.name ?? '?')
     .split(' ')
     .map((p) => p[0])
@@ -228,6 +235,9 @@ export function AppShell() {
         <span>Tema</span>
         <ThemeToggle />
       </div>
+      <button type="button" className="account__action" onClick={() => setTourOpen(true)}>
+        <Compass size={18} /> Rever apresentação
+      </button>
       <button type="button" className="account__action" onClick={() => setPwOpen(true)}>
         <KeyRound size={18} /> Trocar senha
       </button>
@@ -297,6 +307,17 @@ export function AppShell() {
         <Outlet />
       </AppFrame>
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
+      {me && (
+        <WelcomeTour
+          open={tourOpen}
+          onClose={() => setTourOpen(false)}
+          tenantId={me.tenant.id}
+          userId={me.user.id}
+          userName={me.user.name}
+          tenantName={me.tenant.name}
+          screens={[...main, ...groups]}
+        />
+      )}
       <GlobalSearch
         open={searchOpen}
         onClose={() => setSearchOpen(false)}

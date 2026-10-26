@@ -1,10 +1,23 @@
-import { CSSProperties, FormEvent, useEffect, useState } from 'react';
-import { Alert, Button, Logo, Mascot, TextField } from '../design-system';
+import { ChefHat, Eye, EyeOff, LayoutGrid, Lock, Receipt, Truck } from 'lucide-react';
+import { FormEvent, KeyboardEvent, ReactNode, useEffect, useState } from 'react';
+import { CURRENT_RELEASE } from '@comandou/shared';
 import { useLocation } from 'react-router';
+import { Alert, Button, Logo, Mascot, TextField, ThemeToggle } from '../design-system';
 import { useAuth } from '../app/auth';
 import { isWaiterPath } from '../app/WaiterEntry';
 import { api, ApiError } from '../lib/api';
 import './login.css';
+
+/** E-mail lembrado neste aparelho (a senha nunca é guardada). */
+const REMEMBER_KEY = 'cm-login-email';
+
+function rememberedEmail() {
+  try {
+    return localStorage.getItem(REMEMBER_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -12,8 +25,11 @@ export function LoginPage() {
   const waiter = isWaiterPath(useLocation().pathname);
   const [tenantName, setTenantName] = useState<string | null>(null);
   const [tenantMissing, setTenantMissing] = useState(false);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(rememberedEmail);
+  const [remember, setRemember] = useState(() => rememberedEmail() !== '');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -28,100 +44,199 @@ export function LoginPage() {
     setError(null);
     setBusy(true);
     try {
-      await login(email, password);
+      await login(email.trim(), password);
+      try {
+        if (remember) localStorage.setItem(REMEMBER_KEY, email.trim());
+        else localStorage.removeItem(REMEMBER_KEY);
+      } catch {
+        /* sem armazenamento: só não lembra */
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 429)
-        setError('Muitas tentativas. Aguarde um minuto.');
+        setError('Muitas tentativas. Aguarde um minuto e tente de novo.');
       else if (err instanceof ApiError && err.status === 401)
-        setError('E-mail ou senha inválidos.');
+        setError('E-mail ou senha incorretos. Confira e tente de novo.');
       else setError((err as Error).message);
     } finally {
       setBusy(false);
     }
   }
 
+  const onPasswordKey = (e: KeyboardEvent<HTMLInputElement>) =>
+    setCapsLock(e.getModifierState?.('CapsLock') ?? false);
+
   return (
     <div className="login">
-      <div className="login__panel">
-        <div className="login__brand">
-          <Logo size={34} />
-        </div>
-        <h1 className="login__title">
-          {waiter
-            ? 'Acesso do garçom'
-            : tenantName
-              ? `Entrar em ${tenantName}`
-              : 'Bem-vindo de volta'}
-        </h1>
-        <p className="login__sub">
-          {waiter
-            ? `Entre com o e-mail e a senha que o gerente cadastrou para você${
-                tenantName ? ` em ${tenantName}` : ''
-              }.`
-            : 'Acesse o painel do seu restaurante.'}
-        </p>
-        {tenantMissing && (
-          <Alert tone="warning">
-            Restaurante não encontrado neste endereço. Confira o link enviado pelo administrador.
-          </Alert>
-        )}
-        <form onSubmit={onSubmit} className="login__form" noValidate>
-          <TextField
-            label="E-mail"
-            type="email"
-            autoComplete="username"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <TextField
-            label="Senha"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          {error && <Alert tone="danger">{error}</Alert>}
-          <Button
-            type="submit"
-            size="lg"
-            block
-            loading={busy}
-            disabled={!email || !password || tenantMissing}
-          >
-            Entrar
-          </Button>
-        </form>
-      </div>
-      <div className="login__art" aria-hidden>
-        <div className="login__tickets">
-          <span
-            className="login__ticket"
-            style={{ '--d': '0s', '--x': '10%', '--r': '-8deg' } as CSSProperties}
-          >
-            <b>#128</b> Mesa 4 · 2x Burger
+      <main className="login__panel">
+        <header className="login__top">
+          <Logo size={32} />
+          <ThemeToggle />
+        </header>
+
+        <div className="login__body">
+          <span className="login__eyebrow">
+            <span className="cm-dot" /> {tenantName ?? (waiter ? 'Salão' : 'Painel do restaurante')}
           </span>
-          <span
-            className="login__ticket"
-            style={{ '--d': '2.3s', '--x': '52%', '--r': '5deg' } as CSSProperties}
-          >
-            <b>#129</b> Delivery · Pizza G
-          </span>
-          <span
-            className="login__ticket"
-            style={{ '--d': '4.6s', '--x': '28%', '--r': '-2deg' } as CSSProperties}
-          >
-            <b>#130</b> Balcão · Açaí 500ml
-          </span>
+          <h1 className="login__title">{waiter ? 'Acesso do garçom' : 'Bem-vindo de volta'}</h1>
+          <p className="login__sub">
+            Entre com o e-mail e a senha que o responsável pelo restaurante cadastrou para você.
+          </p>
+
+          {tenantMissing && (
+            <Alert tone="warning">
+              Restaurante não encontrado neste endereço. Confira o link enviado pelo administrador.
+            </Alert>
+          )}
+
+          <form onSubmit={onSubmit} className="login__form" noValidate>
+            <TextField
+              label="E-mail"
+              type="email"
+              inputMode="email"
+              autoComplete="username"
+              placeholder="voce@restaurante.com.br"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoFocus={!email}
+              required
+            />
+            <div className="login__password">
+              <TextField
+                label="Senha"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                placeholder="Sua senha"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyUp={onPasswordKey}
+                onKeyDown={onPasswordKey}
+                autoFocus={!!email}
+                hint={capsLock ? 'Caps Lock está ligado.' : undefined}
+                required
+              />
+              <button
+                type="button"
+                className="login__reveal"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Esconder senha' : 'Mostrar senha'}
+                title={showPassword ? 'Esconder senha' : 'Mostrar senha'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+
+            <label className="login__remember">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              Lembrar meu e-mail neste aparelho
+            </label>
+
+            {error && <Alert tone="danger">{error}</Alert>}
+
+            <Button
+              type="submit"
+              size="lg"
+              block
+              loading={busy}
+              disabled={!email || !password || tenantMissing}
+            >
+              {waiter ? 'Entrar no salão' : 'Entrar no painel'}
+            </Button>
+            <p className="login__help">
+              Esqueceu a senha? Peça ao gerente para redefinir em <b>Gestão › Equipe</b>.
+            </p>
+          </form>
         </div>
-        <Mascot size={148} animated mood="joy" className="login__mascot" />
-        <div className="login__quote">
-          Pedidos, salão, cozinha e caixa
-          <br />
-          <span>no mesmo lugar.</span>
+
+        <footer className="login__foot">
+          <span>
+            <Lock size={13} /> Conexão segura
+          </span>
+          <span>Comandou v{CURRENT_RELEASE.version}</span>
+        </footer>
+      </main>
+
+      <aside className="login__art" aria-hidden>
+        <div className="login__showcase">
+          <div className="login__board">
+            <div className="login__board-head">
+              <span>Hoje</span>
+              <span className="login__live">
+                <span className="cm-dot cm-dot--pulse" /> ao vivo
+              </span>
+            </div>
+            <div className="login__stats">
+              <div>
+                <small>Pedidos</small>
+                <b>128</b>
+              </div>
+              <div>
+                <small>Faturamento</small>
+                <b>R$ 6.940</b>
+              </div>
+              <div>
+                <small>Ticket médio</small>
+                <b>R$ 54</b>
+              </div>
+            </div>
+            <ul className="login__orders">
+              <Order
+                n="#131"
+                where="Mesa 4"
+                what="2x Burger da casa"
+                tag="Na cozinha"
+                tone="warn"
+              />
+              <Order n="#132" where="Delivery" what="Pizza grande" tag="Saiu" tone="info" />
+              <Order n="#133" where="Balcão" what="Açaí 500ml" tag="Pronto" tone="ok" />
+            </ul>
+          </div>
+          <Mascot size={96} animated mood="joy" className="login__mascot" />
         </div>
-      </div>
+
+        <div className="login__pitch">
+          <h2>
+            Pedidos, salão, cozinha e caixa
+            <span> no mesmo lugar.</span>
+          </h2>
+          <ul>
+            <Feature icon={<LayoutGrid size={16} />}>Mesas e comandas ao vivo</Feature>
+            <Feature icon={<ChefHat size={16} />}>Cozinha ligada ao salão</Feature>
+            <Feature icon={<Truck size={16} />}>Delivery e loja online</Feature>
+            <Feature icon={<Receipt size={16} />}>Caixa, estoque e relatórios</Feature>
+          </ul>
+        </div>
+      </aside>
     </div>
+  );
+}
+
+function Order(props: {
+  n: string;
+  where: string;
+  what: string;
+  tag: string;
+  tone: 'warn' | 'info' | 'ok';
+}) {
+  return (
+    <li className="login__order">
+      <b>{props.n}</b>
+      <span>
+        {props.where} · {props.what}
+      </span>
+      <em className={`login__tag login__tag--${props.tone}`}>{props.tag}</em>
+    </li>
+  );
+}
+
+function Feature({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+  return (
+    <li>
+      <span className="login__feature-icon">{icon}</span>
+      {children}
+    </li>
   );
 }
