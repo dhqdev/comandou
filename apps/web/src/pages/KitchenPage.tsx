@@ -1,10 +1,11 @@
-import { Check, ChefHat, Play, RotateCcw } from 'lucide-react';
+import { Check, ChefHat, CircleCheckBig, Flame, Play, RotateCcw, Timer } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Badge, Button, ChipGroup, EmptyState, Spinner, useToast } from '../design-system';
+import { Alert, Button, ChipGroup, EmptyState, Spinner, useToast } from '../design-system';
 import { useCan } from '../app/auth';
 import { CHANNEL_LABELS, minutesSince, qty } from '../features/format';
 import { api } from '../lib/api';
 import { useDebounced, useRealtime } from '../lib/realtime';
+import { useArrivalSound } from '../lib/sounds';
 import type { OrderItem, Sector } from '../lib/types';
 
 interface BoardOrder {
@@ -84,6 +85,19 @@ export function KitchenPage() {
     }
   }
 
+  // Som de cozinha quando entra pedido novo na fila; som de alerta no pedido de cancelamento.
+  const orders = board?.orders;
+  const seenTicket = useArrivalSound(
+    'kitchen',
+    orders
+      ?.filter((o) => o.items.some((i) => i.status === 'pending' || i.status === 'preparing'))
+      .map((o) => o.id),
+  );
+  useArrivalSound(
+    'cancel',
+    orders?.filter((o) => o.status === 'cancel_requested').map((o) => o.id),
+  );
+
   async function act(url: string, body: object = {}) {
     setBusy(url);
     try {
@@ -105,14 +119,21 @@ export function KitchenPage() {
       {
         key: 'todo',
         label: 'A fazer',
+        icon: <Timer size={18} />,
         list: orders.filter((o) => open(o) && !o.items.some((i) => i.status !== 'pending')),
       },
       {
         key: 'doing',
         label: 'Preparando',
+        icon: <Flame size={18} />,
         list: orders.filter((o) => open(o) && o.items.some((i) => i.status !== 'pending')),
       },
-      { key: 'done', label: 'Pronto', list: orders.filter((o) => !open(o)) },
+      {
+        key: 'done',
+        label: 'Pronto',
+        icon: <CircleCheckBig size={18} />,
+        list: orders.filter((o) => !open(o)),
+      },
     ];
   }, [board]);
 
@@ -160,9 +181,15 @@ export function KitchenPage() {
       ) : (
         <div className="kds">
           {columns.map((c) => (
-            <section key={c.key} className="kds__col" aria-label={c.label}>
+            <section key={c.key} className="kds__col" data-col={c.key} aria-label={c.label}>
               <h2 className="kds__head">
-                {c.label} <Badge>{c.list.length}</Badge>
+                <span className="kds__head-icon" aria-hidden>
+                  {c.icon}
+                </span>
+                <span className="kds__head-label">{c.label}</span>
+                <span className="kds__count" aria-label={`${c.list.length} pedidos`}>
+                  {c.list.length}
+                </span>
               </h2>
               {c.list.length === 0 && <EmptyState icon={<ChefHat size={20} />} title="Nada aqui" />}
               {c.list.map((o) => {
@@ -240,10 +267,12 @@ export function KitchenPage() {
                               icon={<RotateCcw size={14} />}
                               onClick={() => {
                                 const reason = window.prompt('Motivo para reabrir o item');
-                                if (reason && reason.trim().length >= 3)
+                                if (reason && reason.trim().length >= 3) {
+                                  seenTicket(o.id);
                                   void act(`/kitchen/items/${i.id}/reopen`, {
                                     reason: reason.trim(),
                                   });
+                                }
                               }}
                             />
                           )}

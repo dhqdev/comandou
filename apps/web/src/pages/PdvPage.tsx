@@ -27,6 +27,7 @@ import { minutesSince, PAYMENT_STATUS_LABEL, qty, time } from '../features/forma
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
+import { playSound, useArrivalSound } from '../lib/sounds';
 import type { Order, StoreSettings } from '../lib/types';
 import '../app/home.css';
 
@@ -68,30 +69,6 @@ const CHANNEL_ICON: Record<OrderChannel, ReactNode> = {
   counter: <Store size={16} />,
   table: <Utensils size={16} />,
 };
-
-/** Bipe curto quando chega pedido novo do cardápio online (sem arquivo de áudio). */
-function beep() {
-  try {
-    const Ctx =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-    const ctx = new Ctx();
-    [0, 0.22].forEach((t) => {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.frequency.value = 880;
-      g.gain.setValueAtTime(0.0001, ctx.currentTime + t);
-      g.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + t + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t + 0.18);
-      o.connect(g).connect(ctx.destination);
-      o.start(ctx.currentTime + t);
-      o.stop(ctx.currentTime + t + 0.2);
-    });
-    window.setTimeout(() => void ctx.close(), 800);
-  } catch {
-    /* navegador sem áudio liberado: segue só com o aviso visual */
-  }
-}
 
 function HomeCard({
   order,
@@ -267,12 +244,12 @@ export function PdvPage() {
   const load = useCallback(async () => {
     try {
       const list = await api<Order[]>('/orders?active=true&limit=300');
-      // Pedido novo em análise: bipe + aviso (não na primeira carga).
+      // Pedido novo em análise: som + aviso (não na primeira carga).
       const waiting = list.filter((o) => o.status === 'awaiting');
       if (known.current) {
         const fresh = waiting.filter((o) => !known.current!.has(o.id));
         if (fresh.length) {
-          beep();
+          playSound('order');
           toast(`Novo pedido online #${fresh[0]!.number}`, 'neutral');
         }
       }
@@ -333,6 +310,21 @@ export function PdvPage() {
     };
   }, [awaiting]);
 
+  // Sons: pedido que a cozinha terminou, pronto para entrega e pedido de cancelamento do cliente.
+  const ids = (f: (o: Order) => boolean) => orders?.filter(f).map((o) => o.id) ?? null;
+  const seenReady = useArrivalSound(
+    'ready',
+    ids((o) => o.status === 'ready' && o.channel !== 'delivery'),
+  );
+  const seenDelivery = useArrivalSound(
+    'delivery',
+    ids((o) => o.status === 'ready' && o.channel === 'delivery'),
+  );
+  useArrivalSound(
+    'cancel',
+    ids((o) => o.status === 'cancel_requested'),
+  );
+
   // F2 abre novo pedido (atalho de caixa).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -365,6 +357,8 @@ export function PdvPage() {
 
   async function move(o: Order, to: OrderStatus) {
     setBusyId(o.id);
+    // Quem avançou o pedido não precisa ouvir o aviso de "pronto".
+    if (to === 'ready') (o.channel === 'delivery' ? seenDelivery : seenReady)(o.id);
     try {
       await api(`/orders/${o.id}/status`, {
         method: 'POST',

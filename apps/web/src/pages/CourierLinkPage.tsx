@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { Alert, Mascot, Spinner, ThemeToggle } from '../design-system';
+import { SoundControl } from '../features/SoundControl';
 import { DriverPanel } from '../features/DriverPanel';
 import { api, ApiError } from '../lib/api';
+import { useArrivalSound } from '../lib/sounds';
 import type { Delivery } from '../lib/types';
 import '../app/shell.css';
 import '../app/ops.css';
@@ -49,6 +51,12 @@ export function CourierLinkPage() {
     };
   }, [load]);
 
+  // Corrida nova atribuída ao motoboy toca o som de chamada.
+  useArrivalSound(
+    'courier',
+    data?.deliveries.filter((d) => d.status === 'out').map((d) => d.id),
+  );
+
   const post = (url: string, json: object = {}) => api(`${base}${url}`, { method: 'POST', json });
   return (
     <main className="courier-page">
@@ -59,6 +67,7 @@ export function CourierLinkPage() {
             <strong>{data ? `Olá, ${data.courier.name.split(' ')[0]}` : 'Entregas'}</strong>
             <span className="cm-hint">{data?.restaurant ?? 'Painel do entregador'}</span>
           </div>
+          <SoundControl only={['courier']} />
           <ThemeToggle />
         </header>
         {error && <Alert tone={data ? 'warning' : 'danger'}>{error}</Alert>}

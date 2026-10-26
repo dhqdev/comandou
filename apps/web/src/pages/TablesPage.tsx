@@ -45,7 +45,8 @@ import { api } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
 import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
-import type { DiningTable, Tab } from '../lib/types';
+import { useArrivalSound } from '../lib/sounds';
+import type { DiningTable, Order, Tab } from '../lib/types';
 
 type View = 'tables' | 'tabs';
 type TableState = 'free' | 'busy' | 'paying';
@@ -84,6 +85,8 @@ export function TablesPage() {
   const canSetup = useCan('settings:manage');
   const [tables, setTables] = useState<DiningTable[] | null>(null);
   const [tabs, setTabs] = useState<Tab[]>([]);
+  /** Pedidos de mesa que a cozinha terminou (para o garçom levar): só para o som de aviso. */
+  const [readyIds, setReadyIds] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tabId, setTabId] = useState<string | null>(null);
   const [newTab, setNewTab] = useState(false);
@@ -99,10 +102,12 @@ export function TablesPage() {
 
   const load = useCallback(async () => {
     try {
-      const [t, tb] = await Promise.all([
+      const [t, tb, rd] = await Promise.all([
         api<DiningTable[]>('/tables'),
         api<Tab[]>('/tabs?status=open'),
+        api<Order[]>('/orders?status=ready&channel=table').catch(() => null),
       ]);
+      setReadyIds(rd ? rd.map((o) => o.id) : null);
       // Ordem do cadastro e, no empate, número natural (2 antes de 10).
       setTables(
         t
@@ -126,6 +131,13 @@ export function TablesPage() {
   useRealtime((e) => {
     if (e.type === 'tab.changed' || e.type === 'order.changed') reload();
   }, load);
+
+  // Sons do salão: mesa pediu a conta e pedido de mesa pronto na cozinha.
+  const seenBill = useArrivalSound(
+    'bill',
+    tables === null ? null : tabs.filter((t) => t.billRequestedAt).map((t) => t.id),
+  );
+  useArrivalSound('ready', readyIds);
 
   async function openTab(tableId: string) {
     try {
@@ -339,6 +351,7 @@ export function TablesPage() {
         tables={tables ?? []}
         onClose={() => setTabId(null)}
         onChanged={load}
+        onBillRequested={seenBill}
       />
       <LooseTabModal
         open={newTab}
@@ -588,11 +601,14 @@ function TabModal({
   tables,
   onClose,
   onChanged,
+  onBillRequested,
 }: {
   tabId: string | null;
   tables: DiningTable[];
   onClose(): void;
   onChanged(): void;
+  /** Quem marcou "pediu a conta" aqui não ouve o próprio aviso. */
+  onBillRequested(tabId: string): void;
 }) {
   const toast = useToast();
   const canPay = useCan('payments:create');
@@ -642,6 +658,7 @@ function TabModal({
 
   async function billRequest(requested: boolean) {
     if (!tab) return;
+    if (requested) onBillRequested(tab.id);
     try {
       setTab(
         await api<Tab>(`/tabs/${tab.id}/bill-request`, { method: 'POST', json: { requested } }),

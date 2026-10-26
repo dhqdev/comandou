@@ -22,6 +22,7 @@ import { useLinkParam } from '../lib/deep-link';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
+import { useArrivalSound } from '../lib/sounds';
 import type { Courier, Delivery, Order } from '../lib/types';
 
 const trackingUrl = (path: string) => `${window.location.origin}${path}`;
@@ -68,6 +69,14 @@ export function DeliveriesPage() {
   useRealtime((e) => {
     if (e.type === 'delivery.changed' || e.type === 'order.changed') reload();
   }, load);
+
+  // Sons: pedido pronto esperando entregador, entrega finalizada e, para o motoboy, nova corrida.
+  useArrivalSound('delivery', canManage ? ready.map((o) => o.id) : null);
+  useArrivalSound(
+    'delivered',
+    canManage ? today.filter((d) => d.status === 'delivered').map((d) => d.id) : null,
+  );
+  useArrivalSound('courier', !canManage && out ? out.map((d) => d.id) : null);
 
   // Entregador (sem gerenciar): painel simples, só com as próprias corridas.
   if (!canManage) {

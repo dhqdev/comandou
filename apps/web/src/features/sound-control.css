@@ -1,0 +1,56 @@
+/* Botão de som na barra de cima: fica apagado quando os sons estão desligados. */
+.sound-btn:not([data-on]) {
+  color: var(--cm-text-subtle);
+}
+
+.sound-panel {
+  display: grid;
+  gap: var(--cm-space-4);
+}
+.sound-panel .switch {
+  align-items: flex-start;
+}
+.sound-panel .switch > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+.sound-panel .switch__track {
+  margin-top: 2px;
+}
+.sound-panel__master {
+  padding: var(--cm-space-3);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-muted);
+  border: 1px solid var(--cm-border);
+}
+.sound-panel__volume {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  color: var(--cm-text-muted);
+}
+.sound-panel__volume input {
+  flex: 1;
+  accent-color: var(--cm-brand-600);
+}
+.sound-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.sound-panel__list > li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-2);
+  padding: var(--cm-space-2) 0;
+  border-bottom: 1px solid var(--cm-border);
+}
+.sound-panel__list > li:last-child {
+  border-bottom: 0;
+}
+.sound-panel [data-off] {
+  opacity: 0.5;
+}

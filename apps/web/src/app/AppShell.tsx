@@ -39,6 +39,7 @@ import {
   setTheme,
 } from '../design-system';
 import { GlobalSearch, GlobalSearchTrigger, useSearchHotkey } from '../features/GlobalSearch';
+import { SoundControl } from '../features/SoundControl';
 import { useSearchSpotlight } from '../lib/deep-link';
 import { useOnline } from '../lib/connectivity';
 import { useRealtimeStatus } from '../lib/realtime';
@@ -272,6 +273,7 @@ export function AppShell() {
               <Badge tone="warning">Reconectando…</Badge>
             )}
             <GlobalSearchTrigger icon onOpen={() => setSearchOpen(true)} />
+            <SoundControl />
             <ThemeToggle />
           </>
         }
