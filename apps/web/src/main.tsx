@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
-import { applyTheme } from './design-system';
+import { applyTheme, trackViewport } from './design-system';
 import { isPlatformHost } from './platform/PlatformApp';
 import { applyAdminPwa } from './platform/pwa';
 
@@ -9,6 +9,8 @@ import { applyAdminPwa } from './platform/pwa';
 if (isPlatformHost()) applyAdminPwa();
 // Tema claro/escuro salvo neste navegador (ou o do sistema) antes do primeiro desenho.
 applyTheme();
+// Teclado do celular: as folhas que sobem de baixo acompanham a área visível.
+trackViewport();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

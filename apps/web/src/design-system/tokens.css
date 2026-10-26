@@ -129,6 +129,12 @@
   --cm-touch: 44px;
   --cm-control: 38px;
   --cm-sidebar-w: 240px;
+
+  /* Folga do risco de baixo do iPhone; com o teclado aberto ela some (viewport.ts). */
+  --cm-sab: env(safe-area-inset-bottom, 0px);
+}
+html.cm-kb-open {
+  --cm-sab: 0px;
 }
 
 /*
