@@ -22,6 +22,11 @@ import { CashService } from '../cash/cash.service';
 import { KitchenController } from '../kitchen/kitchen.controller';
 import { KitchenService } from '../kitchen/kitchen.service';
 import { ReportsController } from '../reports/reports.controller';
+import {
+  PublicReservationsController,
+  ReservationsController,
+} from '../reservations/reservations.controller';
+import { ReservationsService } from '../reservations/reservations.service';
 import { SetupController } from '../setup/setup.controller';
 import { TabsController } from '../tables/tabs.controller';
 import { TabsService } from '../tables/tabs.service';
@@ -57,6 +62,8 @@ import { OrdersService } from './orders.service';
     AccountController,
     CustomersController,
     SearchController,
+    ReservationsController,
+    PublicReservationsController,
   ],
   providers: [
     OrdersService,
@@ -75,6 +82,7 @@ import { OrdersService } from './orders.service';
     GatewayClient,
     StoreService,
     CustomersService,
+    ReservationsService,
   ],
 })
 export class OperationsModule {}

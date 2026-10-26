@@ -78,6 +78,16 @@ const SCREENS: StaticEntry[] = [
     perms: ['tables:operate', 'payments:create'],
   },
   {
+    id: 's-reservas',
+    group: 'Telas',
+    title: 'Reservas',
+    hint: 'Agenda de reservas de mesa',
+    words: 'reserva reservar agenda mesa grupo aniversario horario',
+    icon: 'tables',
+    to: '/reservas',
+    perms: ['tables:operate', 'settings:manage'],
+  },
+  {
     id: 's-cozinha',
     group: 'Telas',
     title: 'Cozinha',
@@ -160,8 +170,9 @@ const SCREENS: StaticEntry[] = [
     id: 's-relatorios',
     group: 'Telas',
     title: 'Relatórios',
-    hint: 'Vendas, ticket médio e mais vendidos',
-    words: 'relatorio vendas faturamento ticket medio dashboard numeros',
+    hint: 'Calendário de vendas, lucro, ticket médio e mais vendidos',
+    words:
+      'relatorio vendas faturamento ticket medio dashboard numeros calendario lucro margem cmv',
     icon: 'reports',
     to: '/relatorios',
     perms: ['reports:read'],

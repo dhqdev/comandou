@@ -26,6 +26,7 @@ import { PlanPage } from '../pages/PlanPage';
 import { PlatformApp, isPlatformHost } from '../platform/PlatformApp';
 import { ReleasesPage } from '../pages/ReleasesPage';
 import { ReportsPage } from '../pages/ReportsPage';
+import { ReservationsPage } from '../pages/ReservationsPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { SupportEntryPage } from '../pages/SupportEntryPage';
 import { TablesPage } from '../pages/TablesPage';
@@ -109,6 +110,14 @@ function Gate() {
           element={
             <Guard path="mesas">
               <TablesPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="reservas"
+          element={
+            <Guard path="reservas">
+              <ReservationsPage />
             </Guard>
           }
         />

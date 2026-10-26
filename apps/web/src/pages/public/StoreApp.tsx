@@ -19,6 +19,7 @@ import { StoreProvider, useStore } from './context';
 import { FavoritesScreen, HomeScreen } from './HomeScreen';
 import { OrdersScreen } from './OrdersScreen';
 import { ProductScreen } from './ProductScreen';
+import { ReservationStatusScreen, ReserveScreen } from './ReservationScreens';
 import { PublicOrderPage } from './PublicOrderPage';
 import type { PublicMenu, StoreStatus } from './store';
 import { Photo } from './ui';
@@ -43,7 +44,7 @@ function useNavTabs() {
 function BottomNav() {
   const { pathname } = useLocation();
   // Produto e sacola têm a própria barra embaixo (adicionar / finalizar).
-  const focused = /^\/pedir\/(produto|sacola)/.test(pathname);
+  const focused = /^\/pedir\/(produto|sacola|reservar)/.test(pathname);
   const tabs = useNavTabs();
   const glider = useGlider<HTMLElement>({ selector: '.tabbar__item.active' });
   return (
@@ -152,6 +153,8 @@ function Screens() {
         <Route path="favoritos" element={<FavoritesScreen />} />
         <Route path="pedidos" element={<OrdersScreen />} />
         <Route path="pedidos/:id" element={<PublicOrderPage />} />
+        <Route path="reservar" element={<ReserveScreen />} />
+        <Route path="reserva/:token" element={<ReservationStatusScreen />} />
         <Route path="conta" element={<AccountScreen />} />
         <Route path="conta/dados" element={<ProfileScreen />} />
         <Route path="conta/enderecos" element={<AddressesScreen />} />

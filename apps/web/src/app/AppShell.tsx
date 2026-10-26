@@ -4,6 +4,7 @@ import {
   CircleUserRound,
   Compass,
   BookOpen,
+  CalendarCheck,
   CreditCard,
   Boxes,
   ChefHat,
@@ -70,6 +71,12 @@ const MAIN: NavItem[] = [
     label: 'Salão',
     icon: <LayoutGrid />,
     perms: ['tables:operate', 'payments:create'],
+  },
+  {
+    to: '/reservas',
+    label: 'Reservas',
+    icon: <CalendarCheck />,
+    perms: ['tables:operate', 'settings:manage'],
   },
   {
     to: '/cozinha',

@@ -231,7 +231,7 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
 
   // Relatórios
   await nav(page, 'Relatórios');
-  await expect(page.locator('.stat', { hasText: 'Faturamento' })).toBeVisible();
+  await expect(page.locator('.rp-kpi', { hasText: 'Faturamento' })).toBeVisible();
   await shot(page, info.project.name, 'relatorios');
 });
 
@@ -244,6 +244,7 @@ test('telas novas não geram rolagem horizontal', async ({ page }) => {
     '/cozinha',
     '/caixa',
     '/relatorios',
+    '/reservas',
     '/configuracoes',
     '/cardapio',
   ]) {

@@ -1,0 +1,310 @@
+/* Reserva de mesa no cardápio online. Cores pelos tokens: seguem a cor e o tema da loja. */
+.rsv-card {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--sf-r);
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--cm-brand-500) 16%, var(--cm-surface)),
+    var(--cm-surface)
+  );
+  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 28%, var(--cm-border));
+  color: var(--cm-text);
+  text-decoration: none;
+  transition: transform var(--cm-dur) var(--sf-ease);
+}
+.rsv-card:active {
+  transform: scale(0.98);
+}
+.rsv-card__icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 14px;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+}
+.rsv-card__text {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.rsv-card__text small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.rsv-ongoing > svg:first-child {
+  margin-left: 0;
+  color: var(--cm-brand-600);
+}
+
+.rsv-lead {
+  margin: 4px 0 8px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.rsv-sec {
+  margin-top: 20px;
+}
+.rsv-sec h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+  font-size: var(--cm-text-lg);
+  font-weight: 800;
+}
+.rsv-sec h2 svg {
+  color: var(--cm-brand-600);
+}
+.rsv-party {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-weight: 700;
+}
+.rsv-hint {
+  display: block;
+  margin: 8px 0 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+
+.rsv-days {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 6px;
+  margin: 0 -2px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.rsv-day {
+  flex: none;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  width: 62px;
+  padding: 10px 0;
+  border-radius: var(--sf-r-sm);
+  border: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  cursor: pointer;
+  scroll-snap-align: start;
+  animation: rsv-pop 0.35s calc(var(--i, 0) * 30ms) var(--sf-ease) both;
+  transition:
+    background var(--cm-dur),
+    border-color var(--cm-dur),
+    transform var(--cm-dur);
+}
+.rsv-day span {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+  text-transform: uppercase;
+}
+.rsv-day strong {
+  font-size: var(--cm-text-xl);
+  line-height: 1.1;
+}
+.rsv-day[aria-selected='true'] {
+  background: var(--cm-brand-600);
+  border-color: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  transform: translateY(-2px);
+  box-shadow: var(--cm-shadow-md);
+}
+.rsv-day[aria-selected='true'] span {
+  color: inherit;
+  opacity: 0.85;
+}
+@keyframes rsv-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.rsv-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+  transition: opacity var(--cm-dur);
+}
+.rsv-slots[data-loading] {
+  opacity: 0.5;
+}
+.rsv-slot,
+.rsv-slot--sk {
+  min-height: 48px;
+}
+.rsv-slot {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0;
+  border-radius: var(--sf-r-sm);
+  border: 1px solid var(--cm-border-strong);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background var(--cm-dur),
+    border-color var(--cm-dur);
+}
+.rsv-slot small {
+  font-size: var(--cm-text-2xs);
+  font-weight: 600;
+  color: var(--cm-brand-700);
+}
+.rsv-slot[aria-pressed='true'] {
+  background: var(--cm-brand-600);
+  border-color: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+}
+.rsv-slot[aria-pressed='true'] small {
+  color: inherit;
+}
+.rsv-slot:disabled {
+  cursor: not-allowed;
+  color: var(--cm-text-subtle);
+  background: var(--cm-surface-sunken, var(--cm-surface));
+  border-style: dashed;
+  text-decoration: line-through;
+}
+
+.rsv-form .f:first-of-type {
+  margin-top: 0;
+}
+.rsv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rsv-chips button {
+  padding: 8px 14px;
+  border-radius: var(--cm-radius-full);
+  border: 1px solid var(--cm-border-strong);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.rsv-chips button[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--cm-brand-500) 16%, var(--cm-surface));
+  border-color: var(--cm-brand-500);
+  color: var(--cm-brand-800);
+}
+.rsv-note {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--sf-r-sm);
+  background: color-mix(in srgb, var(--cm-brand-500) 8%, var(--cm-surface));
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text);
+}
+.rsv-error {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--sf-r-sm);
+  background: var(--cm-danger-bg);
+  color: var(--cm-danger);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+
+/* Acompanhamento */
+.rsv-ticket {
+  margin-top: 8px;
+  padding: 18px;
+  border-radius: var(--sf-r-lg);
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+  box-shadow: var(--cm-shadow-md);
+  animation: rsv-pop 0.4s var(--sf-ease) both;
+}
+.rsv-ticket__top {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--cm-border-strong);
+}
+.rsv-ticket__top p {
+  margin: 4px 0 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.rsv-status {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: var(--cm-radius-full);
+  font-weight: 800;
+  font-size: var(--cm-text-sm);
+  background: color-mix(in srgb, var(--cm-brand-500) 16%, transparent);
+  color: var(--cm-brand-800);
+}
+.rsv-ticket[data-status='confirmed'] .rsv-status,
+.rsv-ticket[data-status='seated'] .rsv-status {
+  background: var(--cm-success-bg);
+  color: var(--cm-success);
+}
+.rsv-ticket[data-status='cancelled'] .rsv-status,
+.rsv-ticket[data-status='no_show'] .rsv-status {
+  background: var(--cm-danger-bg);
+  color: var(--cm-danger);
+}
+.rsv-ticket__info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 14px 0 0;
+}
+.rsv-ticket__info div:nth-child(2) {
+  grid-column: 1 / -1;
+}
+.rsv-ticket__info dt {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.rsv-ticket__info dd {
+  margin: 2px 0 0;
+  font-weight: 700;
+}
+.rsv-cap::first-letter {
+  text-transform: uppercase;
+}
+.rsv-code {
+  font-family: var(--cm-font-mono);
+  letter-spacing: 0.12em;
+  color: var(--cm-brand-700);
+}
+.rsv-actions {
+  display: grid;
+  gap: 0;
+  margin-top: 18px;
+}
+.rsv-actions .cta {
+  text-decoration: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rsv-day,
+  .rsv-ticket {
+    animation: none;
+  }
+}

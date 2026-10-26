@@ -20,7 +20,8 @@ export type RealtimeEvent =
       at: string;
     }
   | { type: 'print.changed' }
-  | { type: 'fiscal.changed'; documentId: string; orderId: string };
+  | { type: 'fiscal.changed'; documentId: string; orderId: string }
+  | { type: 'reservation.changed'; reservationId: string };
 
 export const tenantRoom = (tenantId: string) => `t:${tenantId}`;
 

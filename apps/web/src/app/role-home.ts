@@ -16,6 +16,7 @@ export const ROUTE_PERMS: Record<string, string[]> = {
   pdv: ['orders:write'],
   pedidos: ['orders:read'],
   mesas: ['tables:operate', 'payments:create'],
+  reservas: ['tables:operate', 'settings:manage'],
   cozinha: ['kitchen:operate', 'orders:read'],
   caixa: ['cash:operate', 'cash:close', 'reports:read'],
   entregas: ['delivery:manage', 'delivery:operate'],

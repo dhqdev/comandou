@@ -21,6 +21,7 @@ import { brl } from '../../lib/money';
 import { useStore } from './context';
 import { setMorph } from './morph';
 import { PublicBanner, PublicProduct, recentOrders } from './store';
+import { ReserveCard } from './ReservationScreens';
 import { HeartButton, Photo } from './ui';
 
 /** Produto sem escolha obrigatória pode ir direto para a sacola pelo "+". */
@@ -360,6 +361,7 @@ export function HomeScreen() {
           </p>
         )}
         {r.about && !term && <p className="sf-about">{r.about}</p>}
+        {!term && <ReserveCard />}
 
         {term ? (
           <section className="sec" aria-live="polite">
