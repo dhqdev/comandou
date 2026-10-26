@@ -147,8 +147,8 @@ export function DriverGate({ children }: { children: ReactNode }) {
               </span>
             ) : (
               <span className="cm-hint">
-                O restaurante e o cliente acompanham a entrega pelo mapa. Fica ligada enquanto o
-                app estiver aberto.
+                O restaurante e o cliente acompanham a entrega pelo mapa. Fica ligada enquanto o app
+                estiver aberto.
               </span>
             )}
             {error && <span className="form-error">{error}</span>}

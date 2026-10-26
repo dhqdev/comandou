@@ -341,7 +341,8 @@ function RunCard({
           className="run__code"
           onSubmit={(e) => {
             e.preventDefault();
-            if (code.length === 4) void run(() => actions.complete(d.id, code), 'Entrega concluída');
+            if (code.length === 4)
+              void run(() => actions.complete(d.id, code), 'Entrega concluída');
           }}
         >
           <TextField

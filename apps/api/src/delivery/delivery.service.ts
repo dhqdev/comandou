@@ -227,7 +227,7 @@ export class DeliveryService {
     try {
       const res = await this.db.withTenant(ctx, async (tx) => {
         const { o, d } = await this.lockOut(tx, ctx, id, opts.viaLink);
-        // Corrida que saiu antes do código existir (migração 0025) conclui sem ele.
+        // Corrida que saiu antes do código existir (migração 0026) conclui sem ele.
         if (byCourier && d.confirm_code) {
           if (d.confirm_attempts >= CONFIRM_MAX_ATTEMPTS)
             throw new ConflictException(

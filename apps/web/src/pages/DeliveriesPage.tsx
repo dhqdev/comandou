@@ -108,7 +108,6 @@ export function DeliveriesPage() {
     canManage ? today.filter((d) => d.status === 'delivered').map((d) => d.id) : null,
   );
 
-
   const activeCouriers = couriers.filter((c) => c.active);
   const colorOf = courierColors(couriers);
   const delivered = today.filter((d) => d.status === 'delivered');

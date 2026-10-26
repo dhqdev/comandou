@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.34.0',
+    date: '2026-10-26',
+    title: 'Perfis da equipe mais simples e código de entrega',
+    summary:
+      'A equipe agora tem 7 perfis: Administrador, Gerente, Caixa, PDV (balcão), Garçom, Cozinha e Entregador. O entregador tem um app só dele e conclui a entrega com o código de 4 dígitos que o cliente recebe, como no iFood. A cozinha abre direto na fila, com tela cheia.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Código de entrega: o cliente vê os 4 números no acompanhamento do pedido, no link de rastreio e no aviso de "saiu para entrega" do WhatsApp. O entregador digita para concluir; depois de 5 erros, só o restaurante conclui (pelo painel, sem código).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'App do entregador (/entregas): só as corridas dele e "Meus ganhos", sem menu da loja. Para usar, precisa colocar o atalho na tela inicial e permitir a localização, que fica sempre ligada. O link do entregador (sem login) segue as mesmas regras.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'App da cozinha (/cozinha): o login da cozinha abre só a fila de preparo, com botão de tela cheia para TV ou tablet.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Equipe: ao adicionar alguém, só os 7 perfis, cada um com uma linha explicando o que acessa. Quem era Estoquista, Financeiro ou Fiscal passou a Gerente.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Entregador e cozinha não acessam mais a lista de pedidos da loja; o entregador também não vê cardápio, clientes nem a posição dos outros motoboys.',
+      },
+    ],
+  },
+  {
     version: '0.33.0',
     date: '2026-10-26',
     title: 'Programa de fidelidade e cardápio mais leve',

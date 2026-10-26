@@ -1,4 +1,4 @@
--- 0025: perfis da equipe mais enxutos e código de entrega (como o iFood).
+-- 0026: perfis da equipe mais enxutos e código de entrega (como o iFood).
 -- 1) Os papéis Estoquista, Financeiro e Fiscal deixam de existir: quem tinha um deles passa a
 --    Gerente (é quem tem essas telas agora). A lista válida fica: administrador, gerente, caixa,
 --    PDV (atendente), garçom, cozinha e entregador.

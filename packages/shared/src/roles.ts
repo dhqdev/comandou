@@ -1,7 +1,7 @@
 /**
  * Perfis da equipe de um restaurante, na ordem em que aparecem ao criar alguém. O Super Admin
  * (painel da plataforma) e o cliente do cardápio online não são papéis da equipe: têm login
- * próprio. Estoquista, Financeiro e Fiscal viraram Gerente na migração 0025.
+ * próprio. Estoquista, Financeiro e Fiscal viraram Gerente na migração 0026.
  */
 export const ROLES = [
   'owner',

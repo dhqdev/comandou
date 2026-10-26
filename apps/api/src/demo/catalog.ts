@@ -15,14 +15,7 @@ export interface DemoUser {
   key: string;
   email: string;
   name: string;
-  role:
-    | 'owner'
-    | 'manager'
-    | 'cashier'
-    | 'waiter'
-    | 'kitchen'
-    | 'driver'
-    | 'attendant';
+  role: 'owner' | 'manager' | 'cashier' | 'waiter' | 'kitchen' | 'driver' | 'attendant';
 }
 
 export const USERS: DemoUser[] = [

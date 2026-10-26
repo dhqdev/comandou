@@ -214,9 +214,7 @@ export function AppShell() {
       badge: i.soon ? <Badge>em breve</Badge> : undefined,
     })),
   })).filter((g) => g.children.length > 0);
-  const tabs = TAB_PREFERENCE
-    .filter((k) => main.some((m) => m.key === k))
-    .slice(0, 4);
+  const tabs = TAB_PREFERENCE.filter((k) => main.some((m) => m.key === k)).slice(0, 4);
 
   const account = (
     <div className="account">

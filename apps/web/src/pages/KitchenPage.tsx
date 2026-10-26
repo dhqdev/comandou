@@ -165,36 +165,36 @@ export function KitchenPage() {
           <p className="page-sub">Fila de produção por setor. Toque no item para avançar.</p>
         </div>
         <div className="actions-row">
-        <ChipGroup label="Setor">
-          <button
-            className="chip"
-            role="tab"
-            aria-selected={!sectorId}
-            onClick={() => pickSector('')}
-          >
-            Todos
-          </button>
-          {sectors.map((s) => (
+          <ChipGroup label="Setor">
             <button
-              key={s.id}
               className="chip"
               role="tab"
-              aria-selected={sectorId === s.id}
-              onClick={() => pickSector(s.id)}
+              aria-selected={!sectorId}
+              onClick={() => pickSector('')}
             >
-              {s.name}
+              Todos
             </button>
-          ))}
-          <button
-            className="chip"
-            role="tab"
-            aria-selected={sectorId === 'none'}
-            onClick={() => pickSector('none')}
-          >
-            Sem setor
-          </button>
-        </ChipGroup>
-        <FullscreenButton />
+            {sectors.map((s) => (
+              <button
+                key={s.id}
+                className="chip"
+                role="tab"
+                aria-selected={sectorId === s.id}
+                onClick={() => pickSector(s.id)}
+              >
+                {s.name}
+              </button>
+            ))}
+            <button
+              className="chip"
+              role="tab"
+              aria-selected={sectorId === 'none'}
+              onClick={() => pickSector('none')}
+            >
+              Sem setor
+            </button>
+          </ChipGroup>
+          <FullscreenButton />
         </div>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
