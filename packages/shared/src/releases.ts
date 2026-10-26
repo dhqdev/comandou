@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.32.0',
+    date: '2026-10-26',
+    title: 'Central de ganhos do motoboy e repasses',
+    summary:
+      'O entregador vê quanto ganha em cada corrida, no dia, na semana e no mês, e quanto falta receber. O dono define a regra de pagamento (fixo, por km, parte da taxa, diária) e paga pela aba Repasses, com INSS, IRRF e ISS calculados conforme o regime do motoboy.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Central do entregador ("Meus ganhos"): ganho de hoje, da semana e do mês, km rodados, valor a receber já com as retenções, últimas corridas e pagamentos recebidos.',
+      },
+      {
+        tag: 'novo',
+        text: 'Entregas › Repasses: ganhos, custo para a loja, taxas de entrega cobradas, pagos e a pagar por entregador, custo por dia e recibo para imprimir. O pagamento entra no Financeiro e as retenções viram conta a pagar no dia 20.',
+      },
+      {
+        tag: 'novo',
+        text: 'Regra de pagamento da loja ou de cada motoboy: valor fixo, por km, fixo + km adicional ou parte da taxa de entrega, com mínimo, diária e percentual quando não entrega. Regime MEI, autônomo (RPA) ou CLT.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Rota em um toque no Waze, Google Maps ou Apple Mapas; o app usado por último fica em destaque. Cada corrida mostra quanto o motoboy ganha nela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Relatórios: novo indicador "Entregadores" com o custo do mês e o valor a pagar.',
+      },
+    ],
+  },
+  {
     version: '0.31.0',
     date: '2026-10-26',
     title: 'CEP, nova senha e avisos no WhatsApp',
