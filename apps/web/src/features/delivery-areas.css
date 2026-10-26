@@ -196,19 +196,19 @@
   place-items: center;
   border-radius: 50%;
   background: #fff;
-  border: 2px solid #fc4b08;
+  border: 2px solid #e23a00;
   color: #5a3300;
   font: 700 10px/1 var(--cm-font);
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
 }
 .zone-pin--center {
-  background: #fc4b08;
+  background: #e23a00;
 }
 .zone-store {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: #fc4b08;
+  background: #e23a00;
   color: #2b1600;
   border: 3px solid #fff;
   box-shadow: 0 2px 6px rgb(0 0 0 / 0.4);

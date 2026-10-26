@@ -33,7 +33,7 @@ export const DEFAULT_BRANDING: Branding = {
 };
 
 /** Cores do Comandou (para "restaurar padrão" e para a prévia). */
-export const COMANDOU_BRAND = '#fc4b08';
+export const COMANDOU_BRAND = '#e23a00';
 export const COMANDOU_ACCENT = '#f2b705';
 
 // ------------------------------------------------------------------ cor: sRGB <-> OKLCH

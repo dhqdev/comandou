@@ -768,52 +768,50 @@ input[type='radio'] {
   }
 }
 
-/* =============================================================== Formulário em linhas
- * Padrão dos modais: cada campo é uma linha (rótulo à esquerda, campo à direita, ajuda embaixo
- * do campo), separadas por uma linha fina; blocos de assunto vêm com um título (cm-form__section).
- * Campos soltos direto no corpo do modal já seguem o padrão; para agrupar, use
- * <div className="cm-form"> ... </div>. No celular o rótulo fica em cima do campo.
+/* =============================================================== Formulário dos modais
+ * Padrão: rótulo em cima do campo, um por linha (celular e PWA). No notebook (a partir de 901px)
+ * o modal abre mais largo e os campos se distribuem na horizontal, em 2 colunas (3 no modal
+ * "xl"); título de seção, aviso e campo marcado como largo ocupam a linha toda.
+ * Campos soltos direto no corpo do modal já seguem o padrão; para agrupar por assunto use
+ * <div className="cm-form"> <h3 className="cm-form__section">…</h3> campos… </div>.
  */
-.cm-form {
+.cm-form,
+.cm-modal__body:has(> .cm-field) {
   display: grid;
-  gap: 0;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--cm-space-4) var(--cm-space-6);
   min-width: 0;
 }
-/* Grades antigas de 2 colunas dentro do formulário viram linhas, uma por campo. */
+/* Grades antigas de 2 colunas dentro do formulário passam a fazer parte da grade do formulário. */
 .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid) {
   display: contents;
 }
+.cm-form .cm-field,
+.cm-modal__body > .cm-field {
+  align-content: start;
+}
 .cm-form__section {
-  margin: 0;
-  padding: var(--cm-space-5) 0 var(--cm-space-2);
+  grid-column: 1 / -1;
+  margin: var(--cm-space-2) 0 calc(-1 * var(--cm-space-1));
+  padding-top: var(--cm-space-4);
+  border-top: 1px solid var(--cm-border);
   font-size: var(--cm-text-xs);
   font-weight: 600;
   color: var(--cm-text-subtle);
   letter-spacing: 0.02em;
 }
-.cm-form > :not(.cm-field, .cm-form__row, .cm-form__block, .cm-form__section) {
-  margin: var(--cm-space-2) 0;
-}
 .cm-form__section:first-child {
+  margin-top: 0;
   padding-top: 0;
+  border-top: 0;
 }
-:is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body) > .cm-field,
-.cm-form > :is(.cm-form__row, .cm-form__block) {
-  padding: var(--cm-space-3) 0;
-  border-bottom: 1px solid var(--cm-border);
-}
-:is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body)
-  > .cm-field:last-child,
-.cm-form > :is(.cm-form__row, .cm-form__block):last-child,
-.cm-form > :is(.cm-field, .cm-form__row, .cm-form__block):has(+ .cm-form__section) {
-  border-bottom: 0;
-}
-.cm-form > .cm-form__section + :is(.cm-field, .cm-form__row) {
-  padding-top: var(--cm-space-2);
-}
-.cm-form > .cm-form__block {
-  display: grid;
-  gap: var(--cm-space-2);
+.cm-form > :not(.cm-field, .cm-form__section),
+.cm-modal__body:has(> .cm-field) > :not(.cm-field),
+.cm-form__wide,
+.st-grid__full,
+.cm-form .cm-field:has(textarea) {
+  grid-column: 1 / -1;
 }
 /* Linha com texto e um controle (ex.: liga/desliga): texto à esquerda, controle à direita. */
 .cm-form__row {
@@ -822,6 +820,12 @@ input[type='radio'] {
   justify-content: space-between;
   gap: var(--cm-space-4);
   min-width: 0;
+  padding-bottom: var(--cm-space-3);
+  border-bottom: 1px solid var(--cm-border);
+}
+.cm-form__block {
+  display: grid;
+  gap: var(--cm-space-2);
 }
 .cm-form__title {
   display: block;
@@ -829,37 +833,23 @@ input[type='radio'] {
   font-weight: 550;
   color: var(--cm-text);
 }
-@media (min-width: 641px) {
-  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body)
-    > .cm-field {
-    grid-template-columns: minmax(150px, 34%) minmax(0, 1fr);
-    column-gap: var(--cm-space-5);
-    row-gap: 4px;
-    align-items: center;
+@media (min-width: 901px) and (pointer: fine) {
+  .cm-modal--md:has(.cm-form, .cm-modal__body > .cm-field) {
+    width: min(760px, calc(100vw - 64px));
   }
-  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body)
-    > .cm-field
-    > .cm-label {
-    grid-column: 1;
-    grid-row: 1 / span 2;
-    align-self: start;
-    padding-top: 10px;
+  .cm-modal--lg:has(.cm-form, .cm-modal__body > .cm-field) {
+    width: min(900px, calc(100vw - 64px));
   }
-  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body)
-    > .cm-field
-    > :not(.cm-label) {
-    grid-column: 2;
+  .cm-form,
+  .cm-modal__body:has(> .cm-field) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  /* Texto de ajuda e erro ficam embaixo do campo. */
-  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body)
-    > .cm-field
-    > :is(.cm-input, .cm-picker) {
-    grid-row: 1;
+  .cm-modal--xl .cm-form,
+  .cm-modal--xl .cm-modal__body:has(> .cm-field) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-}
-@media (pointer: fine) {
-  :is(.cm-form, .cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid), .cm-modal__body)
-    .cm-input:not(textarea) {
+  .cm-form .cm-input:not(textarea),
+  .cm-modal__body > .cm-field .cm-input:not(textarea) {
     min-height: var(--cm-control);
   }
 }

@@ -129,7 +129,7 @@ export function Mascot({
     >
       {badge ? (
         <>
-          <rect width="64" height="64" rx="15" fill="var(--cm-brand-500, #fc4b08)" />
+          <rect width="64" height="64" rx="15" fill="var(--cm-brand-500, #e23a00)" />
           <g transform="translate(1.7 3.6) scale(.92)">{panda}</g>
         </>
       ) : (

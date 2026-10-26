@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.29.0',
+    date: '2026-10-26',
+    title: 'Laranja mais forte e janelas largas no notebook',
+    summary:
+      'O laranja padrão ficou mais forte (#E23A00) e, no notebook, as janelas de cadastro abrem mais largas com os campos lado a lado.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Laranja padrão mais forte e com melhor contraste do texto branco nos botões; quem escolheu a própria cor não muda.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No notebook, as janelas com formulário abrem mais largas e distribuem os campos em 2 colunas; no celular e no app instalado seguem em uma coluna.',
+      },
+    ],
+  },
+  {
     version: '0.28.1',
     date: '2026-10-26',
     title: 'Troca de claro e escuro sem piscar',

@@ -1,7 +1,7 @@
 /*
  * Comandou Design System — tokens.
  *
- * Identidade: sistema sóbrio e minimalista. Neutros limpos, laranja (#fc4b08) só no que importa
+ * Identidade: sistema sóbrio e minimalista. Neutros limpos, laranja (#e23a00) só no que importa
  * (ação principal, item ativo, foco). Sem gradiente, brilho nem sombra forte; separação por
  * linha fina. Cantos discretos (6–12px). O lojista pode trocar a cor (brand.ts).
  *
@@ -9,19 +9,19 @@
  */
 :root {
   color-scheme: light;
-  /* Marca — laranja Comandou (#fc4b08). Padrão do sistema; o lojista pode trocar a cor
+  /* Marca — laranja Comandou (#e23a00). Padrão do sistema; o lojista pode trocar a cor
      (brand.ts recalcula todos os tons). Usado com parcimônia: botão principal, item ativo e foco. */
-  --cm-brand-50: #fff4ef;
-  --cm-brand-100: #ffe6dc;
-  --cm-brand-200: #ffc9b3;
-  --cm-brand-300: #ff9e75;
-  --cm-brand-400: #ff7340;
-  --cm-brand-500: #fc4b08; /* laranja da marca */
-  --cm-brand-600: #e84608; /* botão primário (texto branco) */
-  --cm-brand-700: #c43a07; /* texto/ícone laranja sobre branco (5.2:1) */
-  --cm-brand-800: #962b05;
-  --cm-brand-deep: #c43a07; /* fundo laranja com texto branco (igual nos dois temas) */
-  --cm-brand-900: #4a1503;
+  --cm-brand-50: #fff2ec;
+  --cm-brand-100: #ffe2d6;
+  --cm-brand-200: #ffc2a8;
+  --cm-brand-300: #ff8a5c;
+  --cm-brand-400: #f25a24;
+  --cm-brand-500: #e23a00; /* laranja da marca */
+  --cm-brand-600: #d63400; /* botão primário (texto branco, 4.8:1) */
+  --cm-brand-700: #b02a00; /* texto/ícone laranja sobre branco (7:1) */
+  --cm-brand-800: #8a2100;
+  --cm-brand-deep: #b02a00; /* fundo laranja com texto branco (igual nos dois temas) */
+  --cm-brand-900: #4a1200;
   --cm-on-brand: #ffffff;
 
   /* Acento — Mostarda */
