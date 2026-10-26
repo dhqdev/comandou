@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { nav, settled } from './nav';
+import { nav, settled, enterPanel } from './nav';
 
 /**
  * Fluxo da Etapa 3 no navegador: cadastros → adicionais → caixa → venda com variação →
@@ -10,11 +10,7 @@ const PASSWORD = process.env.E2E_PASSWORD ?? '';
 test.skip(!PASSWORD, 'defina E2E_PASSWORD (senha do administrador do tenant de teste)');
 
 async function login(page: Page) {
-  await page.goto('/');
-  await page.getByLabel('E-mail').fill(EMAIL);
-  await page.getByLabel('Senha').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.getByText(/Olá, /)).toBeVisible();
+  await enterPanel(page, EMAIL, PASSWORD);
 }
 
 async function pickCaixa(dialog: ReturnType<Page['getByRole']>, tag: string) {

@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { expect, Page, test } from '@playwright/test';
-import { account, nav } from './nav';
+import { account, nav, enterPanel } from './nav';
 
 /**
  * Etapa 6 no navegador: painel Super Admin (admin.<base>) com senha + código do autenticador,
@@ -196,11 +196,7 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
 });
 
 test('restaurante: tela Plano sem cadastro de domínio', async ({ page }, info) => {
-  await page.goto('/');
-  await page.getByLabel('E-mail').fill(EMAIL);
-  await page.getByLabel('Senha').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.getByText(/Olá, /)).toBeVisible();
+  await enterPanel(page, EMAIL, PASSWORD);
   await nav(page, 'Plano');
   await expect(page.getByRole('heading', { name: 'Plano', exact: true, level: 1 })).toBeVisible();
   await expect(page.getByLabel('Domínio', { exact: true })).toHaveCount(0);

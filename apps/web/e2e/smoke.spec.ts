@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { nav } from './nav';
+import { nav, enterPanel, emailField, passwordField, skipTour } from './nav';
 
 const EMAIL = process.env.E2E_EMAIL ?? 'dono@demo.local';
 const PASSWORD = process.env.E2E_PASSWORD ?? '';
@@ -7,19 +7,20 @@ test.skip(!PASSWORD, 'defina E2E_PASSWORD (senha do administrador do tenant de t
 
 test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: /Entrar em/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Bem-vindo de volta' })).toBeVisible();
   await page.screenshot({
     path: `test-results/screens/${info.project.name}-login.png`,
     fullPage: true,
   });
 
-  await page.getByLabel('E-mail').fill(EMAIL);
-  await page.getByLabel('Senha').fill('senha-errada');
+  await emailField(page).fill(EMAIL);
+  await passwordField(page).fill('senha-errada');
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.getByText('E-mail ou senha inválidos.')).toBeVisible();
+  await expect(page.getByText(/E-mail ou senha incorretos/)).toBeVisible();
 
-  await page.getByLabel('Senha').fill(PASSWORD);
+  await passwordField(page).fill(PASSWORD);
   await page.getByRole('button', { name: 'Entrar' }).click();
+  await skipTour(page);
   await expect(page.getByText(/Olá, /)).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Em produção' })).toBeVisible();
   await page.screenshot({
@@ -44,18 +45,17 @@ test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => 
     fullPage: true,
   });
 
-  // Sessão sobrevive a recarregar (cookie HttpOnly, nada no localStorage).
+  // Sessão sobrevive a recarregar (cookie HttpOnly; no localStorage só a marca de
+  // apresentação vista, nada de sessão).
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Cardápio' })).toBeVisible();
-  expect(await page.evaluate(() => Object.keys(localStorage).length)).toBe(0);
+  expect(
+    await page.evaluate(() => Object.keys(localStorage).filter((k) => !k.startsWith('cm-tour:'))),
+  ).toEqual([]);
 });
 
 test('layout não gera rolagem horizontal na página', async ({ page }) => {
-  await page.goto('/');
-  await page.getByLabel('E-mail').fill(EMAIL);
-  await page.getByLabel('Senha').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page.getByText(/Olá, /)).toBeVisible();
+  await enterPanel(page, EMAIL, PASSWORD);
   for (const path of ['/', '/cardapio']) {
     await page.goto(path);
     await page.waitForLoadState('networkidle');

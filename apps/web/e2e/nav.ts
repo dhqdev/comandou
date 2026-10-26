@@ -1,4 +1,4 @@
-import { Page } from '@playwright/test';
+import { expect, Page } from '@playwright/test';
 
 /** Mesma regra do AppFrame: até 860px de largura vale a navegação do celular. */
 export const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1200) <= 860;
@@ -49,4 +49,26 @@ export async function settled(page: Page) {
       .getAnimations()
       .every((a) => a.playState !== 'running' || a.effect?.getTiming().iterations === Infinity),
   );
+}
+
+/** Campos do login do restaurante (exatos: "Lembrar meu e-mail" e "Mostrar senha" também casam). */
+export const emailField = (page: Page) => page.getByLabel('E-mail', { exact: true });
+export const passwordField = (page: Page) => page.getByLabel('Senha', { exact: true });
+
+/** No primeiro acesso de cada navegador abre a apresentação das telas: pula. */
+export async function skipTour(page: Page) {
+  await page
+    .getByRole('dialog', { name: 'Boas-vindas' })
+    .getByRole('button', { name: 'Pular' })
+    .click();
+}
+
+/** Entra no painel do restaurante, pula a apresentação e espera a saudação do PDV. */
+export async function enterPanel(page: Page, email: string, password: string) {
+  await page.goto('/');
+  await emailField(page).fill(email);
+  await passwordField(page).fill(password);
+  await page.getByRole('button', { name: 'Entrar' }).click();
+  await skipTour(page);
+  await expect(page.getByText(/Olá, /)).toBeVisible();
 }
