@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.25.1',
+    date: '2026-10-26',
+    title: 'Voltar no app do garçom',
+    summary:
+      'Todas as telas do app do garçom têm seta de voltar, para quem usa o app instalado no celular (PWA), sem botão do navegador.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Meus pedidos e Desafios ganharam a seta de voltar para o mapa de mesas; dono e gerente voltam ao Salão do painel.',
+      },
+    ],
+  },
+  {
     version: '0.25.0',
     date: '2026-10-26',
     title: 'App do garçom novo, com desafios',

@@ -32,7 +32,11 @@ export function WaiterChallenges() {
 
   return (
     <div className="wt-page">
-      <WaiterHead title="Desafios" sub="Lance pedidos para ganhar selos e subir de nível" />
+      <WaiterHead
+        title="Desafios"
+        sub="Lance pedidos para ganhar selos e subir de nível"
+        back="/garcom/mesas"
+      />
 
       <section className="wt-player-card" aria-label="Seu nível">
         <div className="wt-player-card__top">

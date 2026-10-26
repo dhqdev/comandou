@@ -2,6 +2,7 @@ import { Bike, Plus, Receipt, Rocket, ScanLine, Search, ShoppingBag } from 'luci
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Alert, Button, EmptyState, Modal, Spinner, TextField, useToast } from '../design-system';
+import { useAuth } from '../app/auth';
 import { QrScanner } from '../features/QrScanner';
 import { SlideTabs } from '../features/SlideTabs';
 import { minutesSince } from '../features/format';
@@ -22,6 +23,8 @@ type View = 'tables' | 'tabs';
 export function WaiterTables() {
   const toast = useToast();
   const navigate = useNavigate();
+  // Dono/gerente que abriu o app para conferir volta ao Salão do painel.
+  const isWaiter = useAuth().me?.user.role === 'waiter';
   const [params, setParams] = useSearchParams();
   const [tables, setTables] = useState<DiningTable[] | null>(null);
   const [tabs, setTabs] = useState<Tab[]>([]);
@@ -104,7 +107,7 @@ export function WaiterTables() {
 
   return (
     <div className="wt-page wt-page--dock">
-      <WaiterHead title="Mesas e comandas">
+      <WaiterHead title="Mesas e comandas" back={isWaiter ? undefined : '/mesas'}>
         <button
           type="button"
           className="wt-icon-btn"

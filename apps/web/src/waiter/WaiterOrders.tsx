@@ -53,7 +53,7 @@ export function WaiterOrders() {
 
   return (
     <div className="wt-page">
-      <WaiterHead title="Meus pedidos" sub="Lançados por você hoje" />
+      <WaiterHead title="Meus pedidos" sub="Lançados por você hoje" back="/garcom/mesas" />
       <div className="wt-kpis">
         <div>
           <span>Pedidos</span>
