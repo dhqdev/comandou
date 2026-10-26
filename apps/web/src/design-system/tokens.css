@@ -258,21 +258,16 @@ html.cm-kb-open {
   }
 }
 
-/* Troca de tema: a tela nova entra num círculo que cresce a partir do botão (theme.tsx). */
-.cm-theme-sweep::view-transition-old(root),
-.cm-theme-sweep::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-.cm-theme-sweep::view-transition-new(root) {
-  z-index: 2;
-}
-
-/* Sem View Transitions: fade curto em tudo. */
+/* Troca de tema (theme.tsx): fade de cores em tudo ao mesmo tempo, sem captura de tela. */
 .cm-theme-switching,
-.cm-theme-switching * {
+.cm-theme-switching *,
+.cm-theme-switching *::before,
+.cm-theme-switching *::after {
   transition:
-    background-color 0.3s var(--cm-ease),
-    border-color 0.3s var(--cm-ease),
-    color 0.2s var(--cm-ease) !important;
+    background-color 0.28s ease,
+    border-color 0.28s ease,
+    color 0.28s ease,
+    fill 0.28s ease,
+    stroke 0.28s ease,
+    box-shadow 0.28s ease !important;
 }

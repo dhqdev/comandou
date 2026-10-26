@@ -20,6 +20,18 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.28.1',
+    date: '2026-10-26',
+    title: 'Troca de claro e escuro sem piscar',
+    summary: 'Ao alternar o tema, as cores mudam num fade suave em vez de piscar a tela.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'A troca de tema não usa mais a onda em tela cheia (que piscava): fundos, bordas, textos e ícones mudam juntos num fade curto.',
+      },
+    ],
+  },
+  {
     version: '0.28.0',
     date: '2026-10-26',
     title: 'Visual mais limpo e formulários em linhas',

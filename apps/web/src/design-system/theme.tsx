@@ -1,6 +1,5 @@
 import { Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { flushSync } from 'react-dom';
 
 /**
  * Tema claro/escuro. Fica salvo neste navegador; sem escolha, segue o sistema
@@ -73,46 +72,24 @@ export function useTheme(): [Theme, (t: Theme) => void] {
   return [theme, setTheme];
 }
 
-type ViewTransitionDoc = Document & {
-  startViewTransition?: (cb: () => void) => { ready: Promise<void> };
-};
-
 /**
- * Troca o tema com uma onda que atravessa a tela a partir de onde a pessoa clicou (View
- * Transitions). Navegador sem suporte ou com "reduzir movimento": fade curto de cores.
+ * Troca o tema com um fade curto de cores (fundos, bordas, texto e ícones juntos), sem piscar:
+ * nada de captura de tela nem de camada por cima da página. "Reduzir movimento": troca na hora.
+ * O segundo argumento (ponto do clique) fica só por compatibilidade com quem chama.
  */
-export function switchTheme(next: Theme, from?: { x: number; y: number }) {
-  const doc = document as ViewTransitionDoc;
+let switchTimer: number | undefined;
+export function switchTheme(next: Theme, _from?: { x: number; y: number }) {
   const root = document.documentElement;
   const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  if (!doc.startViewTransition || reduce) {
-    root.classList.add('cm-theme-switching');
-    setTheme(next);
-    window.setTimeout(() => root.classList.remove('cm-theme-switching'), 320);
-    return;
-  }
-  const x = from?.x ?? window.innerWidth - 40;
-  const y = from?.y ?? 40;
-  const r = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
-  root.classList.add('cm-theme-sweep');
-  const vt = doc.startViewTransition(() => flushSync(() => setTheme(next)));
-  vt.ready
-    .then(() => {
-      const anim = root.animate(
-        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
-        {
-          duration: 650,
-          easing: 'cubic-bezier(0.65, 0, 0.35, 1)',
-          pseudoElement: '::view-transition-new(root)',
-        },
-      );
-      return anim.finished;
-    })
-    .catch(() => undefined)
-    .finally(() => root.classList.remove('cm-theme-sweep'));
+  if (reduce) return setTheme(next);
+  root.classList.add('cm-theme-switching');
+  // Dois quadros: a classe precisa estar valendo antes de as cores mudarem.
+  requestAnimationFrame(() => requestAnimationFrame(() => setTheme(next)));
+  window.clearTimeout(switchTimer);
+  switchTimer = window.setTimeout(() => root.classList.remove('cm-theme-switching'), 450);
 }
 
-/** Centro de um elemento clicado (origem da onda da troca de tema). */
+/** Centro de um elemento clicado. */
 export function centerOf(el: Element) {
   const b = el.getBoundingClientRect();
   return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
