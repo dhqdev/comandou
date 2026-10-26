@@ -3,6 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_BUILD } from '../lib/app-version';
 import { UpdatePrompt } from './UpdatePrompt';
 
+const freshReload = vi.fn(async () => undefined);
+vi.mock('../lib/fresh-reload', () => ({ freshReload: () => freshReload() }));
+
 vi.mock('virtual:pwa-register/react', () => ({
   useRegisterSW: () => ({
     needRefresh: [false, () => undefined],
@@ -45,6 +48,9 @@ describe('UpdatePrompt', () => {
     });
     expect(screen.getByText('Nova versão disponível')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Atualizar' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Atualizar' }));
+    expect(freshReload).toHaveBeenCalledOnce();
 
     fireEvent.click(screen.getByRole('button', { name: 'Agora não' }));
     expect(screen.queryByText('Nova versão disponível')).not.toBeInTheDocument();

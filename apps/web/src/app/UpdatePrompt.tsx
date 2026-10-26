@@ -1,46 +1,28 @@
 import { RefreshCw, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Button } from '../design-system';
 import { APP_BUILD, fetchServerBuild } from '../lib/app-version';
+import { freshReload } from '../lib/fresh-reload';
 import { onRealtimeReady } from '../lib/realtime';
 
 const POLL_MS = 60_000;
 /** O deploy reinicia a API antes de o site novo estar no ar: confere de novo depois de reconectar. */
 const AFTER_RECONNECT_S = [0, 20, 60, 180];
 
-function waitInstalled(sw: ServiceWorker, ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    const done = () => {
-      sw.removeEventListener('statechange', onChange);
-      clearTimeout(t);
-      resolve();
-    };
-    const onChange = () => {
-      if (sw.state !== 'installing') done();
-    };
-    const t = setTimeout(done, ms);
-    sw.addEventListener('statechange', onChange);
-  });
-}
-
 /**
  * Avisa em tempo real que saiu versão nova e deixa a pessoa escolher a hora de atualizar.
  * Sinais: reconexão do tempo real (deploy reinicia a API), volta para a aba e uma consulta leve
- * a /version.json a cada minuto. O service worker novo fica esperando até o clique em "Atualizar".
+ * a /version.json a cada minuto. O clique em "Atualizar" limpa os caches do app (service worker e
+ * arquivos guardados) e recarrega direto do servidor, então ninguém fica preso na versão velha.
  */
 export function UpdatePrompt() {
-  const reg = useRef<ServiceWorkerRegistration | null>(null);
   const [serverBuild, setServerBuild] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const {
     needRefresh: [needRefresh],
-  } = useRegisterSW({
-    onRegisteredSW(_url, registration) {
-      reg.current = registration ?? null;
-    },
-  });
+  } = useRegisterSW();
 
   useEffect(() => {
     let alive = true;
@@ -50,8 +32,6 @@ export function UpdatePrompt() {
       const build = await fetchServerBuild();
       if (!alive || !build || build === APP_BUILD) return;
       setServerBuild(build);
-      // Já baixa a versão nova em segundo plano, para o clique em "Atualizar" ser imediato.
-      void reg.current?.update().catch(() => undefined);
     };
     const onVisible = () => void check();
     void check();
@@ -80,22 +60,9 @@ export function UpdatePrompt() {
   const key = serverBuild ?? (needRefresh ? 'sw' : null);
   if (!key || dismissed === key) return null;
 
-  const update = async () => {
+  const update = () => {
     setBusy(true);
-    const reload = () => window.location.reload();
-    // Garantia: se o service worker não responder, recarrega do mesmo jeito.
-    setTimeout(reload, 8000);
-    const r = reg.current;
-    if (!r) return reload();
-    try {
-      if (!r.waiting) await r.update();
-      if (!r.waiting && r.installing) await waitInstalled(r.installing, 6000);
-    } catch {
-      /* sem rede para o service worker: recarrega mesmo assim */
-    }
-    if (!r.waiting) return reload();
-    navigator.serviceWorker.addEventListener('controllerchange', reload, { once: true });
-    r.waiting.postMessage({ type: 'SKIP_WAITING' });
+    void freshReload();
   };
 
   return (
@@ -107,7 +74,7 @@ export function UpdatePrompt() {
         <strong>Nova versão disponível</strong>
         <span>Atualize para usar as novidades.</span>
       </div>
-      <Button size="sm" loading={busy} onClick={() => void update()}>
+      <Button size="sm" loading={busy} onClick={update}>
         Atualizar
       </Button>
       <button

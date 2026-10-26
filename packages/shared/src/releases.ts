@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.35.1',
+    date: '2026-10-26',
+    title: 'Atualizar limpa o cache',
+    summary:
+      'Atualizar o sistema agora limpa o cache de todos os navegadores: painel, garçom, cozinha, entregador e cardápio do cliente abrem a versão nova direto do servidor, sem ficar presos numa cópia antiga.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'O botão "Atualizar" do aviso de nova versão apaga os arquivos guardados pelo app e o service worker antes de recarregar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Quem abre o app com uma cópia velha guardada no celular ou no computador recebe a versão nova na hora, com o cache limpo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No Super Admin, ao terminar "Atualizar sistema" o painel limpa o próprio cache e já abre na versão nova. A API reinicia sem nada guardado em memória.',
+      },
+    ],
+  },
+  {
     version: '0.35.0',
     date: '2026-10-26',
     title: 'Contrato digital de cada cliente',

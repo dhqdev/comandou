@@ -1,7 +1,8 @@
 import { ArrowUpCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Modal, useToast } from '../design-system';
 import { api } from '../lib/api';
+import { freshReload } from '../lib/fresh-reload';
 import { useLoad } from './OverviewPages';
 import type { ServerService, UpdateInfo, UpdateStep } from './types';
 import { Dot, Level, Section, Tag, Tile, useInterval } from './ui';
@@ -80,6 +81,18 @@ export function UpdatePanel({
   const latest = data?.latest?.version ?? null;
   const outdated = latest ? ours.filter((s) => TAG_OF(s.image) !== latest) : [];
   const upToDate = !!latest && ours.length > 0 && outdated.length === 0;
+  // Terminou de atualizar com esta tela aberta: limpa o cache do navegador e abre a versão nova.
+  // O agente reinicia por último e esquece a tarefa, então "sumiu e está tudo na última" também vale.
+  const status = data?.job?.status;
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (status === 'running') wasRunning.current = true;
+    else if (wasRunning.current && (status === 'done' || (!status && upToDate))) {
+      wasRunning.current = false;
+      toast('Sistema atualizado. Limpando o cache e abrindo a versão nova…', 'success');
+      setTimeout(() => void freshReload(), 1500);
+    }
+  }, [status, upToDate, toast]);
 
   async function start() {
     if (!latest) return;
@@ -190,6 +203,11 @@ export function UpdatePanel({
           <li>
             Ao terminar, limpa sozinho contêineres parados, imagens e volumes anônimos sem uso.
             Volumes com nome (banco, uploads, backups) nunca são apagados.
+          </li>
+          <li>
+            Os caches somem junto: a API reinicia sem nada guardado em memória, e cada navegador
+            (painel, garçom, cozinha, cardápio) apaga o cache do app ao abrir ou ao tocar em
+            &quot;Atualizar&quot;, carregando a versão nova direto do servidor.
           </li>
           <li>
             Os restaurantes podem ficar alguns segundos instáveis, sobretudo se a API tiver uma
