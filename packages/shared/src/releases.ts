@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.31.0',
+    date: '2026-10-26',
+    title: 'CEP, nova senha e avisos no WhatsApp',
+    summary:
+      'No cardápio online o cliente digita o CEP e o endereço se completa, ou digita a rua e escolhe o CEP. Quem esquece a senha recebe um código no WhatsApp da loja. O cliente é avisado no WhatsApp quando o pedido é aceito, fica pronto, sai, é entregue ou cancelado.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Endereço de entrega por CEP (ViaCEP, com BrasilAPI de reserva) e sugestão de CEP pelo nome da rua, na sacola e em Endereços.',
+      },
+      {
+        tag: 'novo',
+        text: '"Esqueci minha senha" no cardápio: código de 6 dígitos pelo WhatsApp da loja, válido por 15 minutos. A equipe também pode gerar o código na ficha do cliente.',
+      },
+      {
+        tag: 'novo',
+        text: 'Avisos no WhatsApp do cliente: pedido aceito, entregue e cancelado (além de pronto e saiu para entrega), cada um com texto próprio e liga/desliga.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Configurações da loja online ganharam cidade e UF, usadas para achar o CEP pela rua.',
+      },
+    ],
+  },
+  {
     version: '0.30.2',
     date: '2026-10-26',
     title: 'Cor da loja em todas as telas',

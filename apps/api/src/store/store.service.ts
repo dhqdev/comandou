@@ -32,6 +32,9 @@ export interface StoreSettings {
   about: string | null;
   address: string | null;
   whatsapp: string | null;
+  /** Cidade e UF da loja: o cardápio acha o CEP pelo nome da rua nesta cidade. */
+  city: string | null;
+  state: string | null;
   coverImageId: string | null;
   logoImageId: string | null;
   theme: 'auto' | 'light' | 'dark';
@@ -96,7 +99,7 @@ const MAX_BANNERS = 12;
 const SETTINGS_COLS = `enabled, is_open AS "isOpen", auto_accept AS "autoAccept",
   accepts_delivery AS "acceptsDelivery", accepts_pickup AS "acceptsPickup",
   delivery_fee::text AS "deliveryFee", min_order::text AS "minOrder", eta_min AS "etaMin",
-  eta_max AS "etaMax", about, address, whatsapp, cover_image_id AS "coverImageId",
+  eta_max AS "etaMax", about, address, whatsapp, city, state, cover_image_id AS "coverImageId",
   logo_image_id AS "logoImageId", theme, headline, featured_title AS "featuredTitle",
   accounts_enabled AS "accountsEnabled", show_popular AS "showPopular",
   store_lat::text AS "storeLat", store_lng::text AS "storeLng", brand_color AS "brandColor",
@@ -116,6 +119,8 @@ const DEFAULTS: StoreSettings = {
   about: null,
   address: null,
   whatsapp: null,
+  city: null,
+  state: null,
   coverImageId: null,
   logoImageId: null,
   theme: 'auto',
@@ -146,6 +151,8 @@ const COLUMN: Record<keyof StoreSettings, string> = {
   about: 'about',
   address: 'address',
   whatsapp: 'whatsapp',
+  city: 'city',
+  state: 'state',
   coverImageId: 'cover_image_id',
   logoImageId: 'logo_image_id',
   theme: 'theme',
@@ -174,6 +181,9 @@ export interface OnlineOrderInput {
     district: string;
     complement?: string;
     reference?: string;
+    cep?: string;
+    city?: string;
+    state?: string;
     lat?: number;
     lng?: number;
   };
@@ -364,6 +374,8 @@ export class StoreService {
           about: s.about,
           address: s.address,
           whatsapp: s.whatsapp,
+          city: s.city,
+          state: s.state,
           coverUrl: mediaUrl(s.coverImageId),
           logoUrl: mediaUrl(s.logoImageId),
         },
@@ -427,6 +439,8 @@ export class StoreService {
             `${a.street}, ${a.number}`,
             a.complement,
             a.district,
+            a.city ? `${a.city}${a.state ? `/${a.state}` : ''}` : undefined,
+            a.cep ? `CEP ${a.cep.slice(0, 5)}-${a.cep.slice(5)}` : undefined,
             a.reference ? `Ref.: ${a.reference}` : undefined,
           ]
             .filter(Boolean)

@@ -29,6 +29,9 @@ export interface PublicMenu {
     about: string | null;
     address: string | null;
     whatsapp: string | null;
+    /** Cidade e UF da loja: base para achar o CEP pelo nome da rua. */
+    city?: string | null;
+    state?: string | null;
     coverUrl: string | null;
     logoUrl: string | null;
   };
@@ -81,6 +84,9 @@ export interface SavedAddress {
   district: string;
   complement: string | null;
   reference: string | null;
+  cep?: string | null;
+  city?: string | null;
+  state?: string | null;
   isDefault: boolean;
   lat?: string | null;
   lng?: string | null;
@@ -116,9 +122,12 @@ export interface CustomerInfo {
   customerName: string;
   customerPhone: string;
   channel: 'delivery' | 'pickup';
+  cep: string;
   street: string;
   number: string;
   district: string;
+  city: string;
+  state: string;
   complement: string;
   reference: string;
   paymentMethod: 'pix' | 'credit' | 'debit' | 'cash' | 'voucher';
@@ -128,9 +137,12 @@ export const EMPTY_CUSTOMER: CustomerInfo = {
   customerName: '',
   customerPhone: '',
   channel: 'delivery',
+  cep: '',
   street: '',
   number: '',
   district: '',
+  city: '',
+  state: '',
   complement: '',
   reference: '',
   paymentMethod: 'pix',
@@ -238,6 +250,12 @@ export const fmtPhone = (digits: string) => maskPhone(digits);
 
 export const addressLine = (a: Pick<SavedAddress, 'street' | 'number' | 'district'>) =>
   `${a.street}, ${a.number} · ${a.district}`;
+
+/** CEP enquanto digita: 00000-000. */
+export function maskCep(raw: string) {
+  const d = raw.replace(/\D/g, '').slice(0, 8);
+  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
+}
 
 export const STEP_LABEL: Record<AccountOrder['step'], string> = {
   awaiting: 'Em análise',

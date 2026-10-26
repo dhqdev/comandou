@@ -29,6 +29,7 @@ import { one } from '../common/sql';
 import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
+import { CepService, isUf } from './cep.service';
 import { cookieOf, CUSTOMER_COOKIE, CustomersService } from './customers.service';
 import {
   CORNER_STYLES,
@@ -70,6 +71,21 @@ const OnlineOrder = z.object({
       district: text(80),
       complement: optText(80),
       reference: optText(120),
+      cep: z
+        .string()
+        .trim()
+        .transform((v) => v.replace(/\D/g, ''))
+        .refine((v) => !v || v.length === 8, 'CEP com 8 dígitos')
+        .optional()
+        .transform((v) => v || undefined),
+      city: optText(80),
+      state: z
+        .string()
+        .trim()
+        .toUpperCase()
+        .refine((v) => !v || isUf(v), 'UF inválida')
+        .optional()
+        .transform((v) => v || undefined),
       lat: z.number().min(-90).max(90).optional(),
       lng: z.number().min(-180).max(180).optional(),
     })
@@ -104,6 +120,19 @@ const Settings = z
     about: z.string().trim().max(500).nullable(),
     address: z.string().trim().max(300).nullable(),
     whatsapp: z.string().trim().max(30).nullable(),
+    city: z
+      .string()
+      .trim()
+      .max(80)
+      .nullable()
+      .transform((v) => v || null),
+    state: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .nullable()
+      .refine((v) => !v || isUf(v), 'UF inválida')
+      .transform((v) => v || null),
     coverImageId: uuid.nullable(),
     logoImageId: uuid.nullable(),
     theme: z.enum(['auto', 'light', 'dark']),
@@ -176,6 +205,7 @@ export class StoreController {
   constructor(
     private readonly store: StoreService,
     private readonly customers: CustomersService,
+    private readonly cep: CepService,
   ) {}
 
   @Public()
@@ -214,6 +244,26 @@ export class StoreController {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
     return this.store.manifest(t.id, t.name);
+  }
+
+  /** Endereço pelo CEP (rua, bairro, cidade e UF). 404 se o CEP não existe. */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 40 } })
+  @Get('cep/:cep')
+  async cepLookup(@Param('cep') raw: string) {
+    if (!/^[0-9]{5}-?[0-9]{3}$/.test(raw))
+      throw new UnprocessableEntityException('CEP com 8 dígitos');
+    const a = await this.cep.lookup(raw);
+    if (!a) throw new NotFoundException('CEP não encontrado');
+    return a;
+  }
+
+  /** CEPs de uma rua (o cardápio sugere enquanto o cliente digita o nome da rua). */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 40 } })
+  @Get('cep')
+  cepSearch(@Query('street') street = '', @Query('city') city = '', @Query('state') state = '') {
+    return this.cep.search(String(state).slice(0, 2), String(city), String(street));
   }
 
   /** Cria o pedido do cliente. Exige `Idempotency-Key` (reenvio não duplica o pedido). */

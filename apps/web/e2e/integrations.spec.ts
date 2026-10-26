@@ -116,7 +116,7 @@ test('integrações: dados fiscais, NFC-e no pedido e WhatsApp', async ({ page }
   await expect(page.getByRole('heading', { name: 'Conexão por QR Code' })).toBeVisible();
   await expect(page.getByText(/pode bloquear o número/)).toBeVisible();
   await page
-    .getByLabel('Texto: pedido pronto')
+    .getByLabel('Texto: pronto para retirar')
     .fill(`Oi {cliente}, pedido {pedido} pronto! ${tag}`);
   await page.getByRole('button', { name: 'Salvar textos' }).click();
   await expect(page.getByText('Textos salvos')).toBeVisible();

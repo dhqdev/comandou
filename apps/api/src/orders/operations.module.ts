@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { DeliveryController } from '../delivery/delivery.controller';
 import { DeliveryService } from '../delivery/delivery.service';
 import { GeocoderService } from '../delivery/geocoder.service';
+import { CepService } from '../store/cep.service';
 import { ZonesController } from '../delivery/zones.controller';
 import { ZonesService } from '../delivery/zones.service';
 import { FinanceController } from '../finance/finance.controller';
@@ -77,6 +78,7 @@ import { OrdersService } from './orders.service';
     DeliveryService,
     ZonesService,
     GeocoderService,
+    CepService,
     FiscalService,
     FocusClient,
     MessagingService,

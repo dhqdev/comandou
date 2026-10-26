@@ -29,6 +29,7 @@ import {
   CustomersService,
   normalizePhone,
 } from './customers.service';
+import { isUf } from './cep.service';
 import { StoreService } from './store.service';
 
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -77,6 +78,12 @@ const Profile = z
   })
   .partial();
 const Password = z.object({ current: z.string().min(1).max(200), next: password });
+const Forgot = z.object({ phone: z.string().trim().max(25) });
+const Reset = z.object({
+  phone: z.string().trim().max(25),
+  code: z.string().trim().max(12),
+  password,
+});
 const Address = z.object({
   label: optText(30),
   street: text(120),
@@ -84,6 +91,23 @@ const Address = z.object({
   district: text(80),
   complement: optText(80),
   reference: optText(120),
+  cep: z
+    .string()
+    .trim()
+    .transform((v) => v.replace(/\D/g, ''))
+    .refine((v) => !v || v.length === 8, 'CEP com 8 dígitos')
+    .nullable()
+    .optional()
+    .transform((v) => v || null),
+  city: optText(80),
+  state: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine((v) => !v || isUf(v), 'UF inválida')
+    .nullable()
+    .optional()
+    .transform((v) => v || null),
   isDefault: z.boolean().optional(),
   lat: z.number().min(-90).max(90).nullable().optional(),
   lng: z.number().min(-180).max(180).nullable().optional(),
@@ -212,6 +236,38 @@ export class AccountController {
     );
   }
 
+  /** Esqueci minha senha: manda um código pelo WhatsApp da loja (ou diz para falar com ela). */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @Post('password/forgot')
+  @HttpCode(200)
+  forgot(
+    @Body(new ZodPipe(Forgot)) b: z.infer<typeof Forgot>,
+    @CurrentTenant() t: ResolvedTenant,
+    @Req() req: Request,
+  ) {
+    return this.customers.requestReset(t.id, t.name, b.phone, req.ip);
+  }
+
+  /** Nova senha com o código recebido. Já entra na conta neste aparelho. */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @Post('password/reset')
+  @HttpCode(200)
+  async reset(
+    @Body(new ZodPipe(Reset)) b: z.infer<typeof Reset>,
+    @CurrentTenant() t: ResolvedTenant,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const r = await this.customers.resetPassword(t.id, b, {
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+    });
+    this.setCookie(res, r.session);
+    return this.customers.account(t.id, r.customer);
+  }
+
   @Public()
   @Post('addresses')
   async addAddress(
@@ -314,6 +370,19 @@ export class CustomersController {
     @CurrentUser() u: AuthenticatedUser,
   ) {
     return this.customers.detail(ctxOf(t, u), id);
+  }
+
+  /** Código para o cliente criar uma senha nova (a equipe passa para ele). */
+  @Post(':id/reset-code')
+  @HttpCode(200)
+  @RequirePermission('customers:manage')
+  resetCode(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.customers.staffResetCode(ctxOf(t, u, req), id);
   }
 
   @Patch(':id')

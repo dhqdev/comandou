@@ -1,3 +1,4 @@
+import { AddressFields, addressPayload } from './AddressFields';
 import { fromCents, toCents } from '@comandou/shared';
 import {
   Bike,
@@ -119,13 +120,7 @@ export function CartScreen() {
     const { key, token } = attempt.current;
     setBusy(true);
     setError(null);
-    const typed = {
-      street: customer.street.trim(),
-      number: customer.number.trim(),
-      district: customer.district.trim(),
-      complement: customer.complement.trim() || undefined,
-      reference: customer.reference.trim() || undefined,
-    };
+    const typed = addressPayload(customer);
     const point = zones && pinned ? { lat: pinned.lat, lng: pinned.lng } : {};
     const address =
       channel !== 'delivery'
@@ -137,6 +132,9 @@ export function CartScreen() {
               district: chosen.district,
               complement: chosen.complement || undefined,
               reference: chosen.reference || undefined,
+              cep: chosen.cep || undefined,
+              city: chosen.city || undefined,
+              state: chosen.state || undefined,
               ...point,
             }
           : { ...typed, ...point };
@@ -366,43 +364,12 @@ export function CartScreen() {
                 </div>
               )}
               {addrId === 'new' && (
-                <div className="grid2 ck-fields">
-                  <Field label="Rua" wide>
-                    <input
-                      autoComplete="address-line1"
-                      value={customer.street}
-                      maxLength={120}
-                      onChange={(e) => set('street', e.target.value)}
-                    />
-                  </Field>
-                  <Field label="Número">
-                    <input
-                      value={customer.number}
-                      maxLength={20}
-                      onChange={(e) => set('number', e.target.value)}
-                    />
-                  </Field>
-                  <Field label="Bairro">
-                    <input
-                      value={customer.district}
-                      maxLength={80}
-                      onChange={(e) => set('district', e.target.value)}
-                    />
-                  </Field>
-                  <Field label="Complemento (opcional)">
-                    <input
-                      value={customer.complement}
-                      maxLength={80}
-                      onChange={(e) => set('complement', e.target.value)}
-                    />
-                  </Field>
-                  <Field label="Ponto de referência (opcional)">
-                    <input
-                      value={customer.reference}
-                      maxLength={120}
-                      onChange={(e) => set('reference', e.target.value)}
-                    />
-                  </Field>
+                <AddressFields
+                  value={customer}
+                  onChange={(patch) => setCustomer((c) => ({ ...c, ...patch }))}
+                  city={menu.restaurant.city}
+                  state={menu.restaurant.state}
+                >
                   {me && (
                     <label className="ck-toggle f--wide">
                       <span>Salvar na minha conta</span>
@@ -413,7 +380,7 @@ export function CartScreen() {
                       />
                     </label>
                   )}
-                </div>
+                </AddressFields>
               )}
               {zones && (
                 <Suspense fallback={<p className="form-hint">Carregando o mapa…</p>}>
@@ -423,7 +390,7 @@ export function CartScreen() {
                       chosen
                         ? `${chosen.street} ${chosen.number}, ${chosen.district}`
                         : typedOk
-                          ? `${customer.street.trim()} ${customer.number.trim()}, ${customer.district.trim()}`
+                          ? `${customer.street.trim()} ${customer.number.trim()}, ${customer.district.trim()}${customer.city ? `, ${customer.city.trim()}` : ''}`
                           : ''
                     }
                     saved={

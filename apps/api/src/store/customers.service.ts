@@ -4,12 +4,13 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
 import { customerStep } from '@comandou/shared';
 import type { Request } from 'express';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
 import { DUMMY_HASH, hashPassword, verifyPassword } from '../auth/password';
 import { hashToken } from '../auth/session.service';
@@ -17,6 +18,7 @@ import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
 import { ENV, Env } from '../config/env';
 import { DatabaseService, Tx } from '../database/database.service';
+import { MessagingService } from '../messaging/messaging.service';
 
 export const CUSTOMER_COOKIE = 'cm_cid';
 export const cookieOf = (req: Request, name: string) =>
@@ -47,15 +49,23 @@ export interface AddressInput {
   district: string;
   complement?: string | null;
   reference?: string | null;
+  cep?: string | null;
+  city?: string | null;
+  state?: string | null;
   isDefault?: boolean;
   lat?: number | null;
   lng?: number | null;
 }
 
 const CUSTOMER_COLS = `id, name, phone, email, marketing_opt_in AS "marketingOptIn", created_at AS "createdAt"`;
-const ADDRESS_COLS = `id, label, street, number, district, complement, reference, is_default AS "isDefault",
-  lat::text, lng::text`;
+const ADDRESS_COLS = `id, label, street, number, district, complement, reference, cep, city, state,
+  is_default AS "isDefault", lat::text, lng::text`;
 const MAX_ADDRESSES = 10;
+/** Código de "esqueci minha senha": 6 dígitos, 15 minutos, 5 tentativas, 3 pedidos por hora. */
+const RESET_TTL_MIN = 15;
+const RESET_MAX_ATTEMPTS = 5;
+const RESET_PER_HOUR = 3;
+const resetHash = (customerId: string, code: string) => hashToken(`reset:${customerId}:${code}`);
 
 /** Texto livre vindo do cliente vira padrão ILIKE seguro. */
 const likeOf = (s: string) => `%${s.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
@@ -70,6 +80,7 @@ export class CustomersService {
   constructor(
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
+    private readonly messaging: MessagingService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -293,6 +304,146 @@ export class CustomersService {
     return { ok: true };
   }
 
+  // ------------------------------------------------------------------ esqueci minha senha
+  private async newResetCode(
+    tx: Tx,
+    tenantId: string,
+    customerId: string,
+    channel: 'whatsapp' | 'staff',
+    by?: string | null,
+  ) {
+    const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    // Um código por vez: os anteriores deixam de valer.
+    await q(
+      tx,
+      `UPDATE customer_password_resets SET used_at = now() WHERE customer_id = $1 AND used_at IS NULL`,
+      [customerId],
+    );
+    await q(
+      tx,
+      `INSERT INTO customer_password_resets (tenant_id, customer_id, code_hash, channel, expires_at, created_by)
+       VALUES ($1,$2,$3,$4, now() + make_interval(mins => $5), $6)`,
+      [tenantId, customerId, resetHash(customerId, code), channel, RESET_TTL_MIN, by ?? null],
+    );
+    return code;
+  }
+
+  /**
+   * Pede o código pelo WhatsApp da loja. A resposta é a mesma exista a conta ou não (ninguém
+   * descobre quem tem conta): diz só se a loja manda código pelo WhatsApp ou se é preciso falar
+   * com o restaurante.
+   */
+  async requestReset(tenantId: string, tenantName: string, phoneRaw: string, ip?: string) {
+    const phone = normalizePhone(phoneRaw);
+    const r = await this.db.withTenant({ tenantId }, async (tx) => {
+      const canSend = await this.messaging.canSendCode(tx);
+      if (!canSend || !phoneOk(phone)) return { canSend, code: null };
+      const c = await one<{ id: string; blocked: boolean; recent: number }>(
+        tx,
+        `SELECT c.id, c.blocked_at IS NOT NULL AS blocked,
+                (SELECT count(*)::int FROM customer_password_resets r
+                  WHERE r.customer_id = c.id AND r.created_at > now() - interval '1 hour') AS recent
+           FROM customers c WHERE c.phone = $1`,
+        [phone],
+      );
+      if (!c || c.blocked) return { canSend, code: null };
+      if (c.recent >= RESET_PER_HOUR)
+        throw new ThrottlerException(
+          'Você já pediu vários códigos. Use o último que chegou ou aguarde uma hora.',
+        );
+      const code = await this.newResetCode(tx, tenantId, c.id, 'whatsapp');
+      await this.audit.record(tx, {
+        tenantId,
+        action: 'customer.password_reset_requested',
+        entity: 'customer',
+        entityId: c.id,
+        ip,
+      });
+      return { canSend, code };
+    });
+    if (!r.canSend) return { channel: 'restaurant' as const };
+    if (r.code && !(await this.messaging.sendCode(tenantId, phone, r.code, tenantName)))
+      throw new ServiceUnavailableException(
+        'Não conseguimos mandar o código pelo WhatsApp agora. Tente de novo ou fale com o restaurante.',
+      );
+    return { channel: 'whatsapp' as const };
+  }
+
+  /** Confere o código, troca a senha, encerra as outras sessões e abre uma nova neste aparelho. */
+  async resetPassword(
+    tenantId: string,
+    input: { phone: string; code: string; password: string },
+    meta: { ip?: string; userAgent?: string },
+  ) {
+    const phone = normalizePhone(input.phone);
+    const code = input.code.replace(/\D/g, '');
+    const invalid = () => new UnauthorizedException('Código inválido ou vencido. Peça um novo.');
+    const found = await this.db.withTenant({ tenantId }, async (tx) => {
+      const r = await one<{ id: string; customer_id: string; code_hash: Buffer; attempts: number }>(
+        tx,
+        `SELECT r.id, r.customer_id, r.code_hash, r.attempts
+           FROM customer_password_resets r JOIN customers c ON c.id = r.customer_id
+          WHERE c.phone = $1 AND c.blocked_at IS NULL AND r.used_at IS NULL AND r.expires_at > now()
+          ORDER BY r.created_at DESC LIMIT 1 FOR UPDATE OF r`,
+        [phone],
+      );
+      if (!r || r.attempts >= RESET_MAX_ATTEMPTS) return null;
+      if (code.length !== 6 || !resetHash(r.customer_id, code).equals(r.code_hash)) {
+        await q(tx, `UPDATE customer_password_resets SET attempts = attempts + 1 WHERE id = $1`, [
+          r.id,
+        ]);
+        return null;
+      }
+      await q(tx, `UPDATE customer_password_resets SET used_at = now() WHERE id = $1`, [r.id]);
+      return r.customer_id;
+    });
+    if (!found) throw invalid();
+    const hash = await hashPassword(input.password);
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      await q(tx, `UPDATE customers SET password_hash = $2, last_login_at = now() WHERE id = $1`, [
+        found,
+        hash,
+      ]);
+      await q(
+        tx,
+        `UPDATE customer_sessions SET revoked_at = now() WHERE customer_id = $1 AND revoked_at IS NULL`,
+        [found],
+      );
+      await this.audit.record(tx, {
+        tenantId,
+        action: 'customer.password_reset',
+        entity: 'customer',
+        entityId: found,
+        ip: meta.ip,
+      });
+      const session = await this.newSession(tx, tenantId, found, meta.userAgent);
+      const customer = await one<Customer>(
+        tx,
+        `SELECT ${CUSTOMER_COLS} FROM customers WHERE id = $1`,
+        [found],
+      );
+      return { customer: customer!, session };
+    });
+  }
+
+  /** A equipe gera o código para passar ao cliente (quando a loja não manda pelo WhatsApp). */
+  staffResetCode(ctx: Ctx, id: string) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const c = await one(tx, `SELECT 1 FROM customers WHERE id = $1`, [id]);
+      if (!c) throw new NotFoundException('Cliente não encontrado');
+      const code = await this.newResetCode(tx, ctx.tenantId, id, 'staff', ctx.userId);
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'customer.password_reset_code',
+        entity: 'customer',
+        entityId: id,
+        ip: ctx.ip,
+      });
+      return { code, expiresInMinutes: RESET_TTL_MIN };
+    });
+  }
+
   // ------------------------------------------------------------------ endereços
   addAddress(tenantId: string, c: Customer, a: AddressInput) {
     return this.db.withTenant({ tenantId }, async (tx) => {
@@ -310,8 +461,9 @@ export class CustomersService {
         ]);
       return one(
         tx,
-        `INSERT INTO customer_addresses (tenant_id, customer_id, label, street, number, district, complement, reference, is_default, lat, lng)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING ${ADDRESS_COLS}`,
+        `INSERT INTO customer_addresses (tenant_id, customer_id, label, street, number, district, complement, reference,
+                                         is_default, lat, lng, cep, city, state)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING ${ADDRESS_COLS}`,
         [
           tenantId,
           c.id,
@@ -324,6 +476,9 @@ export class CustomersService {
           isDefault,
           a.lat?.toFixed(6) ?? null,
           a.lng?.toFixed(6) ?? null,
+          a.cep ?? null,
+          a.city ?? null,
+          a.state ?? null,
         ],
       );
     });
@@ -348,6 +503,9 @@ export class CustomersService {
         ['district', 'district'],
         ['complement', 'complement'],
         ['reference', 'reference'],
+        ['cep', 'cep'],
+        ['city', 'city'],
+        ['state', 'state'],
         ['isDefault', 'is_default'],
         ['lat', 'lat'],
         ['lng', 'lng'],

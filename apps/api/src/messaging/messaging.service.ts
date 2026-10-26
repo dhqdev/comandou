@@ -18,47 +18,98 @@ import { GatewayClient } from './gateway.client';
 import { WhatsAppClient, WhatsAppUnavailableError } from './whatsapp.client';
 import { PlanService } from '../plans/plan.service';
 
-export type MessageEvent = 'order.ready' | 'order.dispatched';
+export type MessageEvent =
+  'order.accepted' | 'order.ready' | 'order.dispatched' | 'order.delivered' | 'order.cancelled';
 export type MessagingProvider = 'baileys' | 'meta_cloud';
 
-export interface MessagingSettingsInput {
+/** Cada aviso: sufixo das colunas (text_*, template_*, notify_*) e texto padrão. */
+export const EVENTS = {
+  'order.accepted': {
+    key: 'Accepted',
+    col: 'accepted',
+    text: 'Olá, {cliente}! O {restaurante} aceitou seu pedido #{pedido} e já está preparando.',
+  },
+  'order.ready': {
+    key: 'Ready',
+    col: 'ready',
+    text: 'Olá, {cliente}! Seu pedido #{pedido} no {restaurante} está pronto para retirada.',
+  },
+  'order.dispatched': {
+    key: 'Dispatched',
+    col: 'dispatched',
+    text: 'Olá, {cliente}! Seu pedido #{pedido} do {restaurante} saiu para entrega.',
+  },
+  'order.delivered': {
+    key: 'Delivered',
+    col: 'delivered',
+    text: 'Pedido #{pedido} entregue. Obrigado por pedir no {restaurante}, {cliente}! Bom apetite.',
+  },
+  'order.cancelled': {
+    key: 'Cancelled',
+    col: 'cancelled',
+    text: 'Olá, {cliente}. Seu pedido #{pedido} no {restaurante} foi cancelado. Se tiver dúvidas, responda esta mensagem.',
+  },
+} as const satisfies Record<MessageEvent, { key: string; col: string; text: string }>;
+type EventKey = (typeof EVENTS)[MessageEvent]['key'];
+type EventCol = (typeof EVENTS)[MessageEvent]['col'];
+const EVENT_LIST = Object.values(EVENTS);
+
+type PerEventInput = {
+  [K in EventKey as `template${K}`]?: string | null;
+} & { [K in EventKey as `text${K}`]?: string } & { [K in EventKey as `notify${K}`]?: boolean };
+
+export interface MessagingSettingsInput extends PerEventInput {
   provider?: MessagingProvider;
   enabled?: boolean;
   phoneNumberId?: string | null;
   /** string grava um token novo; null apaga; ausente mantém. */
   token?: string | null;
   language?: string;
-  templateReady?: string | null;
-  templateDispatched?: string | null;
-  textReady?: string;
-  textDispatched?: string;
-  notifyReady?: boolean;
-  notifyDispatched?: boolean;
+  /** Modelo de autenticação da Meta para o código de "esqueci minha senha". */
+  templateReset?: string | null;
 }
 
-interface SettingsRow {
+type SettingsRow = {
   provider: MessagingProvider;
   enabled: boolean;
   phone_number_id: string | null;
   token_enc: Buffer | null;
   token_last4: string | null;
   language: string;
-  template_ready: string | null;
-  template_dispatched: string | null;
-  text_ready: string;
-  text_dispatched: string;
-  notify_ready: boolean;
-  notify_dispatched: boolean;
+  template_reset: string | null;
   updated_at: Date | null;
-}
+} & { [C in EventCol as `template_${C}`]: string | null } & {
+  [C in EventCol as `text_${C}`]: string;
+} & { [C in EventCol as `notify_${C}`]: boolean };
 
 const SEND_JOB = 'message.send';
-const DEFAULT_READY =
-  'Olá, {cliente}! Seu pedido #{pedido} no {restaurante} está pronto para retirada.';
-const DEFAULT_DISPATCHED =
-  'Olá, {cliente}! Seu pedido #{pedido} do {restaurante} saiu para entrega.';
-const SETTINGS_COLS = `provider, enabled, phone_number_id, token_enc, token_last4, language, template_ready,
-  template_dispatched, text_ready, text_dispatched, notify_ready, notify_dispatched, updated_at`;
+const SETTINGS_COLS = [
+  'provider',
+  'enabled',
+  'phone_number_id',
+  'token_enc',
+  'token_last4',
+  'language',
+  'template_reset',
+  'updated_at',
+  ...EVENT_LIST.flatMap((e) => [`template_${e.col}`, `text_${e.col}`, `notify_${e.col}`]),
+].join(', ');
+/** Campos simples da tela (nome na API → coluna). O token tem tratamento próprio. */
+const PLAIN_FIELDS: [keyof MessagingSettingsInput, keyof SettingsRow][] = [
+  ['provider', 'provider'],
+  ['enabled', 'enabled'],
+  ['phoneNumberId', 'phone_number_id'],
+  ['language', 'language'],
+  ['templateReset', 'template_reset'],
+  ...EVENT_LIST.flatMap(
+    (e) =>
+      [
+        [`template${e.key}`, `template_${e.col}`],
+        [`text${e.key}`, `text_${e.col}`],
+        [`notify${e.key}`, `notify_${e.col}`],
+      ] as [keyof MessagingSettingsInput, keyof SettingsRow][],
+  ),
+];
 const MSG_SELECT = `
   SELECT m.id, m.order_id AS "orderId", o.number AS "orderNumber", m.event, m.provider, m.to_phone AS "toPhone",
          m.template, m.body, m.status, m.attempts, m.last_error AS "lastError", m.created_at AS "createdAt",
@@ -115,6 +166,12 @@ export class MessagingService implements OnModuleInit {
   }
 
   private present(s: SettingsRow | undefined) {
+    const perEvent: Record<string, unknown> = {};
+    for (const e of EVENT_LIST) {
+      perEvent[`template${e.key}`] = s?.[`template_${e.col}`] ?? null;
+      perEvent[`text${e.key}`] = s?.[`text_${e.col}`] ?? e.text;
+      perEvent[`notify${e.key}`] = s?.[`notify_${e.col}`] ?? true;
+    }
     return {
       provider: s?.provider ?? 'baileys',
       enabled: s?.enabled ?? false,
@@ -122,12 +179,8 @@ export class MessagingService implements OnModuleInit {
       hasToken: !!s?.token_enc,
       tokenLast4: s?.token_last4 ?? null,
       language: s?.language ?? 'pt_BR',
-      templateReady: s?.template_ready ?? null,
-      templateDispatched: s?.template_dispatched ?? null,
-      textReady: s?.text_ready ?? DEFAULT_READY,
-      textDispatched: s?.text_dispatched ?? DEFAULT_DISPATCHED,
-      notifyReady: s?.notify_ready ?? true,
-      notifyDispatched: s?.notify_dispatched ?? true,
+      templateReset: s?.template_reset ?? null,
+      ...perEvent,
       updatedAt: s?.updated_at ?? null,
       keyConfigured: !!this.env.INTEGRATIONS_KEY,
       gatewayConfigured: this.gateway.configured,
@@ -161,45 +214,21 @@ export class MessagingService implements OnModuleInit {
         tokenEnc = seal(this.env.INTEGRATIONS_KEY, b.token, `whatsapp:${ctx.tenantId}`);
         last4 = b.token.slice(-4);
       }
-      const pick = <K extends keyof MessagingSettingsInput, V>(k: K, curV: V) =>
-        (b[k] !== undefined ? b[k] : curV) as V;
-      const next = {
-        provider: pick('provider', cur.provider),
-        enabled: pick('enabled', cur.enabled),
-        phoneNumberId: pick('phoneNumberId', cur.phone_number_id),
-        language: pick('language', cur.language),
-        templateReady: pick('templateReady', cur.template_ready),
-        templateDispatched: pick('templateDispatched', cur.template_dispatched),
-        textReady: pick('textReady', cur.text_ready),
-        textDispatched: pick('textDispatched', cur.text_dispatched),
-        notifyReady: pick('notifyReady', cur.notify_ready),
-        notifyDispatched: pick('notifyDispatched', cur.notify_dispatched),
-      };
+      const next = Object.fromEntries(
+        PLAIN_FIELDS.map(([k, col]) => [col, b[k] !== undefined ? b[k] : cur[col]]),
+      ) as Record<string, unknown>;
       if (next.enabled && !cur.enabled) await this.plans.assertFeature(tx, 'whatsapp');
-      if (next.enabled && next.provider === 'meta_cloud' && (!next.phoneNumberId || !tokenEnc))
+      if (next.enabled && next.provider === 'meta_cloud' && (!next.phone_number_id || !tokenEnc))
         throw new UnprocessableEntityException(
           'Para ativar a API oficial, informe o ID do número e o token de acesso',
         );
+      const cols = Object.keys(next);
       await tx.$client.query(
         `UPDATE tenant_messaging_settings
-            SET provider=$1, enabled=$2, phone_number_id=$3, token_enc=$4, token_last4=$5, language=$6,
-                template_ready=$7, template_dispatched=$8, text_ready=$9, text_dispatched=$10,
-                notify_ready=$11, notify_dispatched=$12, updated_by=$13, updated_at=now()`,
-        [
-          next.provider,
-          next.enabled,
-          next.phoneNumberId,
-          tokenEnc,
-          last4,
-          next.language,
-          next.templateReady,
-          next.templateDispatched,
-          next.textReady,
-          next.textDispatched,
-          next.notifyReady,
-          next.notifyDispatched,
-          ctx.userId,
-        ],
+            SET ${cols.map((c, i) => `${c} = $${i + 1}`).join(', ')},
+                token_enc = $${cols.length + 1}, token_last4 = $${cols.length + 2},
+                updated_by = $${cols.length + 3}, updated_at = now()`,
+        [...cols.map((c) => next[c]), tokenEnc, last4, ctx.userId],
       );
       await this.audit.record(tx, {
         tenantId: ctx.tenantId,
@@ -262,18 +291,18 @@ export class MessagingService implements OnModuleInit {
   }
 
   /**
-   * Grava o aviso de um pedido (pronto / saiu para entrega) dentro da transação da mudança de
-   * status e o coloca na fila. Sem WhatsApp ativo, aviso desligado, modelo ou telefone válido,
-   * não faz nada. Nunca impede a operação do pedido.
+   * Grava o aviso de um pedido (aceito, pronto, saiu, entregue, cancelado) dentro da transação
+   * da mudança de status e o coloca na fila. Sem WhatsApp ativo, aviso desligado, modelo ou
+   * telefone válido, não faz nada. Nunca impede a operação do pedido.
    */
   async stage(tx: Tx, tenantId: string, orderId: string, event: MessageEvent) {
     const s = await this.settingsRow(tx);
     if (!s?.enabled) return;
     // Plano sem WhatsApp: o aviso não sai, mas o pedido segue normalmente.
     if (!(await this.plans.hasFeature(tx, 'whatsapp'))) return;
-    const on = event === 'order.ready' ? s.notify_ready : s.notify_dispatched;
-    if (!on) return;
-    const template = event === 'order.ready' ? s.template_ready : s.template_dispatched;
+    const ev = EVENTS[event];
+    if (!s[`notify_${ev.col}`]) return;
+    const template = s[`template_${ev.col}`];
     if (s.provider === 'meta_cloud' && !template) return;
     const o = await one<{
       number: number;
@@ -296,9 +325,7 @@ export class MessagingService implements OnModuleInit {
     // Meta: parâmetros do modelo, nesta ordem: {{1}} cliente, {{2}} pedido, {{3}} restaurante.
     // Baileys: o texto do restaurante com as variáveis trocadas.
     const meta = s.provider === 'meta_cloud';
-    const body = meta
-      ? null
-      : renderText(event === 'order.ready' ? s.text_ready : s.text_dispatched, vars).slice(0, 4000);
+    const body = meta ? null : renderText(s[`text_${ev.col}`], vars).slice(0, 4000);
     const m = await one<{ id: string }>(
       tx,
       `INSERT INTO message_outbox (tenant_id, order_id, event, provider, to_phone, template, language, params, body)
@@ -317,6 +344,63 @@ export class MessagingService implements OnModuleInit {
       ],
     );
     if (m) await this.enqueue(tenantId, m.id);
+  }
+
+  /**
+   * O WhatsApp da loja consegue mandar o código de "esqueci minha senha"? (Ativo, no plano e,
+   * na API oficial, com o modelo de autenticação informado.)
+   */
+  async canSendCode(tx: Tx) {
+    const s = await this.settingsRow(tx);
+    if (!s?.enabled || !(await this.plans.hasFeature(tx, 'whatsapp'))) return false;
+    if (s.provider === 'baileys') return this.gateway.configured;
+    return !!(s.template_reset && s.phone_number_id && s.token_enc && this.env.INTEGRATIONS_KEY);
+  }
+
+  /**
+   * Manda o código de redefinição de senha na hora (sem caixa de saída: o código não fica
+   * guardado em texto em lugar nenhum). Devolve false se não deu para enviar.
+   */
+  async sendCode(tenantId: string, phoneRaw: string, code: string, restaurant: string) {
+    const phone = normalizePhone(phoneRaw);
+    if (!phone) return false;
+    const s = await this.db.withTenant({ tenantId }, (tx) => this.settingsRow(tx));
+    if (!s?.enabled) return false;
+    try {
+      if (s.provider === 'baileys') {
+        if (!this.gateway.configured) return false;
+        const r = await this.gateway.send(
+          tenantId,
+          phone,
+          `${code} é o seu código para criar uma nova senha no ${restaurant}. Vale por 15 minutos. Não passe este código para ninguém.`,
+        );
+        return r.ok;
+      }
+      const token = this.metaToken(tenantId, s);
+      if (!s.template_reset || !s.phone_number_id || !token) return false;
+      const r = await this.whatsapp.sendTemplate({
+        phoneNumberId: s.phone_number_id,
+        token,
+        to: phone,
+        template: s.template_reset,
+        language: s.language,
+        params: [code],
+        codeButton: code,
+      });
+      return r.ok;
+    } catch (err) {
+      this.logger.warn(`código de senha não enviado: ${(err as Error).message}`);
+      return false;
+    }
+  }
+
+  private metaToken(tenantId: string, s: SettingsRow) {
+    if (!s.token_enc || !this.env.INTEGRATIONS_KEY) return null;
+    try {
+      return open(this.env.INTEGRATIONS_KEY, s.token_enc, `whatsapp:${tenantId}`);
+    } catch {
+      return null;
+    }
   }
 
   /** Mensagem de teste. Meta: modelo "hello_world" (criado em toda conta nova). */
@@ -427,14 +511,7 @@ export class MessagingService implements OnModuleInit {
       if (!this.gateway.configured) return fail('Serviço de WhatsApp não configurado no servidor');
       send = () => this.gateway.send(job.tenantId, m.to_phone, m.body ?? '');
     } else {
-      let token: string | null = null;
-      if (s.token_enc && this.env.INTEGRATIONS_KEY) {
-        try {
-          token = open(this.env.INTEGRATIONS_KEY, s.token_enc, `whatsapp:${job.tenantId}`);
-        } catch {
-          token = null;
-        }
-      }
+      const token = this.metaToken(job.tenantId, s);
       if (!s.phone_number_id || !token) return fail('Token da API oficial indisponível');
       send = () =>
         this.whatsapp.sendTemplate({

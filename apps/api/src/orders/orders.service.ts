@@ -18,7 +18,7 @@ import {
   toCents,
 } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
-import { MessagingService } from '../messaging/messaging.service';
+import { MessageEvent, MessagingService } from '../messaging/messaging.service';
 import type { Ctx } from '../common/context';
 import { withIdempotency } from '../common/idempotency';
 import { nextNumber, one, q } from '../common/sql';
@@ -110,6 +110,21 @@ export const ORDER_SELECT = `
     FROM orders o
     LEFT JOIN tabs tb ON tb.id = o.tab_id
     LEFT JOIN dining_tables dt ON dt.id = tb.table_id`;
+
+/** Aviso ao cliente pelo WhatsApp que a mudança de status gera (ou null). */
+export function statusEvent(
+  from: OrderStatus,
+  to: OrderStatus,
+  channel: OrderChannel,
+): MessageEvent | null {
+  if (from === 'awaiting' && to === 'new') return 'order.accepted';
+  if (to === 'ready' && (channel === 'pickup' || channel === 'counter')) return 'order.ready';
+  if (to === 'dispatched' && channel === 'delivery') return 'order.dispatched';
+  if (from === 'dispatched' && to === 'completed') return 'order.delivered';
+  if (to === 'cancelled' && (channel === 'delivery' || channel === 'pickup'))
+    return 'order.cancelled';
+  return null;
+}
 
 /**
  * Garçom (lança pedidos mas não gere todos): só os pedidos do salão e os que ele lançou. Devolve o
@@ -433,6 +448,9 @@ export class OrdersService {
       fx.stock = await this.stock.consumeForOrder(tx, ctx, order!.id);
       fx.print = await this.printing.enqueueKitchenTickets(tx, ctx, order!.id);
     }
+    // Pedido online com aceite automático: o cliente já recebe o "pedido aceito".
+    if (online && status === 'new')
+      await this.messaging.stage(tx, ctx.tenantId, order!.id, 'order.accepted');
     await this.audit.record(tx, {
       tenantId: ctx.tenantId,
       actorUserId: ctx.userId,
@@ -597,10 +615,10 @@ export class OrdersService {
       ip: ctx.ip,
     });
     // Aviso ao cliente pelo WhatsApp: gravado nesta mesma transação (só sai se ela for gravada).
-    if (to === 'ready' && (o.channel === 'pickup' || o.channel === 'counter'))
-      await this.messaging.stage(tx, ctx.tenantId, o.id, 'order.ready');
-    if (to === 'dispatched' && o.channel === 'delivery')
-      await this.messaging.stage(tx, ctx.tenantId, o.id, 'order.dispatched');
+    // O próprio cliente cancelando pelo cardápio (sem usuário da equipe) não recebe aviso.
+    const event = statusEvent(o.status, to, o.channel);
+    if (event && (event !== 'order.cancelled' || ctx.userId))
+      await this.messaging.stage(tx, ctx.tenantId, o.id, event);
     o.status = to;
     o.version += 1;
   }

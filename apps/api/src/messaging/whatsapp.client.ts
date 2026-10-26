@@ -11,6 +11,8 @@ export interface WhatsAppSend {
   template: string;
   language: string;
   params: string[];
+  /** Modelo de autenticação (código): o botão "copiar código" leva o mesmo código. */
+  codeButton?: string;
 }
 
 export interface WhatsAppResult {
@@ -43,10 +45,27 @@ export class WhatsAppClient {
           template: {
             name: m.template,
             language: { code: m.language },
-            ...(m.params.length
+            ...(m.params.length || m.codeButton
               ? {
                   components: [
-                    { type: 'body', parameters: m.params.map((text) => ({ type: 'text', text })) },
+                    ...(m.params.length
+                      ? [
+                          {
+                            type: 'body',
+                            parameters: m.params.map((text) => ({ type: 'text', text })),
+                          },
+                        ]
+                      : []),
+                    ...(m.codeButton
+                      ? [
+                          {
+                            type: 'button',
+                            sub_type: 'url',
+                            index: '0',
+                            parameters: [{ type: 'text', text: m.codeButton }],
+                          },
+                        ]
+                      : []),
                   ],
                 }
               : {}),

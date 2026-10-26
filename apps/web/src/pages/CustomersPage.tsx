@@ -1,4 +1,4 @@
-import { Ban, MessageCircle, Search, UserCheck, Users } from 'lucide-react';
+import { Ban, KeyRound, MessageCircle, Search, UserCheck, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../app/auth';
 import { Alert, Badge, Button, Card, EmptyState, Spinner, useToast } from '../design-system';
@@ -215,6 +215,33 @@ function CustomerPanel({
                 >
                   {c.blocked ? 'Desbloquear' : 'Bloquear'}
                 </Button>
+                {!c.blocked && (
+                  <Button
+                    variant="secondary"
+                    icon={<KeyRound size={16} />}
+                    loading={busy}
+                    onClick={async () => {
+                      if (!window.confirm('Gerar um código para o cliente criar uma nova senha?'))
+                        return;
+                      setBusy(true);
+                      try {
+                        const r = await api<{ code: string; expiresInMinutes: number }>(
+                          `/customers/${c.id}/reset-code`,
+                          { method: 'POST', json: {} },
+                        );
+                        window.alert(
+                          `Código do cliente: ${r.code}\n\nPasse pelo WhatsApp. Vale por ${r.expiresInMinutes} minutos. Ele usa em "Esqueci minha senha" no cardápio.`,
+                        );
+                      } catch (e) {
+                        toast((e as Error).message, 'danger');
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                  >
+                    Código de nova senha
+                  </Button>
+                )}
               </div>
             )}
           </section>

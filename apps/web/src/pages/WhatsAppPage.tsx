@@ -14,12 +14,24 @@ import {
 import { dateTime } from '../features/format';
 import { CheckField, Tabs } from '../features/forms';
 import { api } from '../lib/api';
+import { NOTICE_KEYS, NoticeKey } from '../lib/types';
 import type { MessagingSettings, OutboxMessage, WhatsAppSession } from '../lib/types';
 
 const EVENT: Record<OutboxMessage['event'], string> = {
+  'order.accepted': 'Pedido aceito',
   'order.ready': 'Pedido pronto',
   'order.dispatched': 'Saiu para entrega',
+  'order.delivered': 'Pedido entregue',
+  'order.cancelled': 'Pedido cancelado',
   test: 'Teste',
+};
+/** Cada aviso: nome na tela e quando ele sai. */
+const NOTICE: Record<NoticeKey, { label: string; when: string }> = {
+  Accepted: { label: 'Pedido aceito', when: 'pedido online aceito pela loja' },
+  Ready: { label: 'Pronto para retirar', when: 'retirada ou balcão pronto' },
+  Dispatched: { label: 'Saiu para entrega', when: 'entregador saiu com o pedido' },
+  Delivered: { label: 'Entregue', when: 'entrega concluída' },
+  Cancelled: { label: 'Cancelado', when: 'delivery ou retirada cancelado pela loja' },
 };
 const STATUS: Record<OutboxMessage['status'], [string, 'neutral' | 'success' | 'danger']> = {
   queued: ['Na fila', 'neutral'],
@@ -95,7 +107,8 @@ export function WhatsAppPage() {
       <div>
         <h1 className="page-title">WhatsApp</h1>
         <p className="page-sub">
-          Avisos automáticos ao cliente quando o pedido fica pronto ou sai para entrega.
+          Avisos automáticos no WhatsApp do cliente a cada passo do pedido: aceito, pronto, saiu
+          para entrega, entregue ou cancelado.
         </p>
       </div>
       <Card
@@ -117,16 +130,14 @@ export function WhatsAppPage() {
           >
             {s.enabled ? 'Desativar avisos' : 'Ativar avisos'}
           </Button>
-          <CheckField
-            label="Pedido de retirada/balcão pronto"
-            checked={s.notifyReady}
-            onChange={(v) => save({ notifyReady: v })}
-          />
-          <CheckField
-            label="Delivery saiu para entrega"
-            checked={s.notifyDispatched}
-            onChange={(v) => save({ notifyDispatched: v })}
-          />
+          {NOTICE_KEYS.map((k) => (
+            <CheckField
+              key={k}
+              label={NOTICE[k].label}
+              checked={s[`notify${k}`]}
+              onChange={(v) => save({ [`notify${k}`]: v })}
+            />
+          ))}
         </div>
         {error && <Alert tone="danger">{error}</Alert>}
         <div style={{ marginTop: 12 }}>
@@ -231,7 +242,13 @@ function BaileysCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; s
   const toast = useToast();
   const [session, setSession] = useState<WhatsAppSession | null>(null);
   const [qrImg, setQrImg] = useState<string | null>(null);
-  const [texts, setTexts] = useState({ textReady: s.textReady, textDispatched: s.textDispatched });
+  const [texts, setTexts] = useState(
+    () =>
+      Object.fromEntries(NOTICE_KEYS.map((k) => [`text${k}`, s[`text${k}`]])) as Record<
+        string,
+        string
+      >,
+  );
   const [acting, setActing] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -332,30 +349,29 @@ function BaileysCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; s
           void save(texts, 'Textos salvos');
         }}
       >
-        <TextField
-          label="Texto: pedido pronto"
-          value={texts.textReady}
-          maxLength={1000}
-          onChange={(e) => setTexts({ ...texts, textReady: e.target.value })}
-        />
-        <TextField
-          label="Texto: saiu para entrega"
-          value={texts.textDispatched}
-          maxLength={1000}
-          onChange={(e) => setTexts({ ...texts, textDispatched: e.target.value })}
-        />
+        {NOTICE_KEYS.map((k) => (
+          <TextField
+            key={k}
+            label={`Texto: ${NOTICE[k].label.toLowerCase()}`}
+            hint={`Quando: ${NOTICE[k].when}`}
+            value={texts[`text${k}`]}
+            maxLength={1000}
+            onChange={(e) => setTexts({ ...texts, [`text${k}`]: e.target.value })}
+          />
+        ))}
         <div style={{ alignSelf: 'end' }}>
           <Button
             type="submit"
             loading={busy}
-            disabled={!texts.textReady.trim() || !texts.textDispatched.trim()}
+            disabled={Object.values(texts).some((t) => !t.trim())}
           >
             Salvar textos
           </Button>
         </div>
       </form>
       <p className="cm-hint">
-        Use {'{cliente}'}, {'{pedido}'} e {'{restaurante}'} no texto.
+        Use {'{cliente}'}, {'{pedido}'} e {'{restaurante}'} no texto. O código de “esqueci minha
+        senha” do cardápio também sai por este número.
       </p>
     </Card>
   );
@@ -366,8 +382,10 @@ function MetaCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; save
     phoneNumberId: s.phoneNumberId ?? '',
     token: '',
     language: s.language,
-    templateReady: s.templateReady ?? '',
-    templateDispatched: s.templateDispatched ?? '',
+    templateReset: s.templateReset ?? '',
+    ...(Object.fromEntries(
+      NOTICE_KEYS.map((k) => [`template${k}`, s[`template${k}`] ?? '']),
+    ) as Record<`template${NoticeKey}`, string>),
   });
   const tpl = /^[a-z0-9_]*$/;
   async function submit(e: FormEvent) {
@@ -376,8 +394,10 @@ function MetaCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; save
       await save({
         phoneNumberId: form.phoneNumberId.trim() || null,
         language: form.language.trim() || 'pt_BR',
-        templateReady: form.templateReady.trim() || null,
-        templateDispatched: form.templateDispatched.trim() || null,
+        templateReset: form.templateReset.trim() || null,
+        ...Object.fromEntries(
+          NOTICE_KEYS.map((k) => [`template${k}`, form[`template${k}`].trim() || null]),
+        ),
         ...(form.token.trim() ? { token: form.token.trim() } : {}),
       })
     )
@@ -416,17 +436,21 @@ function MetaCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; save
           value={form.language}
           onChange={(e) => setForm({ ...form, language: e.target.value })}
         />
+        {NOTICE_KEYS.map((k) => (
+          <TextField
+            key={k}
+            label={`Modelo: ${NOTICE[k].label.toLowerCase()}`}
+            value={form[`template${k}`]}
+            error={tpl.test(form[`template${k}`]) ? undefined : 'minúsculas, números e _'}
+            onChange={(e) => setForm({ ...form, [`template${k}`]: e.target.value })}
+          />
+        ))}
         <TextField
-          label="Modelo: pedido pronto"
-          value={form.templateReady}
-          error={tpl.test(form.templateReady) ? undefined : 'minúsculas, números e _'}
-          onChange={(e) => setForm({ ...form, templateReady: e.target.value })}
-        />
-        <TextField
-          label="Modelo: saiu para entrega"
-          value={form.templateDispatched}
-          error={tpl.test(form.templateDispatched) ? undefined : 'minúsculas, números e _'}
-          onChange={(e) => setForm({ ...form, templateDispatched: e.target.value })}
+          label="Modelo: código de nova senha"
+          value={form.templateReset}
+          error={tpl.test(form.templateReset) ? undefined : 'minúsculas, números e _'}
+          hint="Modelo de autenticação, com o código em {{1}}"
+          onChange={(e) => setForm({ ...form, templateReset: e.target.value })}
         />
         <div style={{ alignSelf: 'end' }}>
           <Button type="submit" loading={busy}>
@@ -436,8 +460,9 @@ function MetaCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; save
       </form>
       <p className="cm-hint">
         Os modelos precisam estar aprovados na Meta com três variáveis no corpo, nesta ordem:{' '}
-        {'{{1}}'} nome do cliente, {'{{2}}'} número do pedido e {'{{3}}'} nome do restaurante.
-        Mensagens iniciadas pelo restaurante são cobradas pela Meta.
+        {'{{1}}'} nome do cliente, {'{{2}}'} número do pedido e {'{{3}}'} nome do restaurante. Aviso
+        sem modelo não é enviado. O código de nova senha usa um modelo da categoria Autenticação
+        (com o botão copiar código). Mensagens iniciadas pelo restaurante são cobradas pela Meta.
       </p>
     </Card>
   );

@@ -14,12 +14,13 @@ import {
   UserRound,
 } from 'lucide-react';
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { centerOf, Mascot, switchTheme, useTheme, useToast } from '../../design-system';
 import { SlideTabs } from '../../features/SlideTabs';
 import { api, ApiError } from '../../lib/api';
 import { useStore } from './context';
-import { AccountState, addressLine, fmtPhone, maskPhone, SavedAddress } from './store';
+import { AddressFields, addressPayload } from './AddressFields';
+import { AccountState, addressLine, fmtPhone, maskCep, maskPhone, SavedAddress } from './store';
 import { Field, ScreenHeader, Switch } from './ui';
 
 function useAsync() {
@@ -172,8 +173,9 @@ function AuthForms() {
         </button>
         {mode === 'login' && (
           <p className="form-hint auth__forgot">
-            Esqueceu a senha? Fale com o restaurante
-            {menu.restaurant.whatsapp ? ' pelo WhatsApp' : ''}.
+            <Link to="/pedir/conta/esqueci-senha" state={{ phone: form.phone }}>
+              Esqueci minha senha
+            </Link>
           </p>
         )}
       </form>
@@ -387,15 +389,18 @@ export function ProfileScreen() {
 
 const EMPTY_ADDR = {
   label: '',
+  cep: '',
   street: '',
   number: '',
   district: '',
+  city: '',
+  state: '',
   complement: '',
   reference: '',
 };
 
 export function AddressesScreen() {
-  const { account, setAccount } = useStore();
+  const { account, setAccount, menu } = useStore();
   const me = useMe();
   const toast = useToast();
   const [editing, setEditing] = useState<SavedAddress | 'new' | null>(null);
@@ -415,6 +420,9 @@ export function AddressesScreen() {
         ? EMPTY_ADDR
         : {
             label: a.label ?? '',
+            cep: maskCep(a.cep ?? ''),
+            city: a.city ?? '',
+            state: a.state ?? '',
             street: a.street,
             number: a.number,
             district: a.district,
@@ -423,8 +431,6 @@ export function AddressesScreen() {
           },
     );
   }
-  const set = (k: keyof typeof EMPTY_ADDR) => (e: { target: { value: string } }) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
 
   if (editing)
     return (
@@ -445,13 +451,15 @@ export function AddressesScreen() {
           className="auth__form"
           onSubmit={async (e) => {
             e.preventDefault();
+            const p = addressPayload(form);
             const body = {
+              ...p,
               label: form.label.trim() || null,
-              street: form.street.trim(),
-              number: form.number.trim(),
-              district: form.district.trim(),
-              complement: form.complement.trim() || null,
-              reference: form.reference.trim() || null,
+              complement: p.complement ?? null,
+              reference: p.reference ?? null,
+              cep: p.cep ?? null,
+              city: p.city ?? null,
+              state: p.state ?? null,
             };
             const ok = await run(() =>
               editing === 'new'
@@ -479,29 +487,13 @@ export function AddressesScreen() {
               </button>
             ))}
           </div>
-          <Field label="Rua">
-            <input
-              required
-              maxLength={120}
-              autoComplete="address-line1"
-              value={form.street}
-              onChange={set('street')}
-            />
-          </Field>
-          <div className="grid2">
-            <Field label="Número">
-              <input required maxLength={20} value={form.number} onChange={set('number')} />
-            </Field>
-            <Field label="Bairro">
-              <input required maxLength={80} value={form.district} onChange={set('district')} />
-            </Field>
-          </div>
-          <Field label="Complemento (opcional)">
-            <input maxLength={80} value={form.complement} onChange={set('complement')} />
-          </Field>
-          <Field label="Ponto de referência (opcional)">
-            <input maxLength={120} value={form.reference} onChange={set('reference')} />
-          </Field>
+          <AddressFields
+            className="auth__form"
+            value={form}
+            onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+            city={menu.restaurant.city}
+            state={menu.restaurant.state}
+          />
           {error && <p className="form-error">{error}</p>}
           <button className="cta" disabled={busy}>
             {busy ? 'Salvando…' : 'Salvar endereço'}
@@ -632,6 +624,138 @@ export function PasswordScreen() {
           {busy ? 'Salvando…' : 'Trocar senha'}
         </button>
       </form>
+    </div>
+  );
+}
+
+/** Esqueci minha senha: código pelo WhatsApp da loja e nova senha. */
+export function ForgotPasswordScreen() {
+  const { menu, setAccount } = useStore();
+  const navigate = useNavigate();
+  const toast = useToast();
+  const prefill = (useLocation().state as { phone?: string } | null)?.phone ?? '';
+  const [step, setStep] = useState<'phone' | 'code'>('phone');
+  const [form, setForm] = useState({ phone: prefill, code: '', password: '' });
+  const [viaStore, setViaStore] = useState(false);
+  const { busy, error, run } = useAsync();
+  const wa = menu.restaurant.whatsapp?.replace(/\D/g, '');
+
+  async function ask(e: FormEvent) {
+    e.preventDefault();
+    const r = await run(() =>
+      api<{ channel: 'whatsapp' | 'restaurant' }>('/store/account/password/forgot', {
+        method: 'POST',
+        json: { phone: form.phone },
+      }),
+    );
+    if (!r) return;
+    setViaStore(r.channel === 'restaurant');
+    if (r.channel === 'whatsapp') {
+      setStep('code');
+      toast('Código enviado para o seu WhatsApp', 'success');
+    }
+  }
+  async function reset(e: FormEvent) {
+    e.preventDefault();
+    const acc = await run(() =>
+      api<AccountState>('/store/account/password/reset', { method: 'POST', json: form }),
+    );
+    if (!acc) return;
+    setAccount(acc);
+    toast('Senha alterada. Você já está dentro da conta.', 'success');
+    navigate('/pedir/conta', { replace: true });
+  }
+
+  return (
+    <div className="sf-wrap sf-page">
+      <ScreenHeader title="Esqueci minha senha" back="/pedir/conta" />
+      {viaStore ? (
+        <div className="auth__form">
+          <p>
+            {menu.restaurant.name} ainda não manda o código automático. Fale com o restaurante e
+            peça o código para criar uma nova senha.
+          </p>
+          {wa && (
+            <a
+              className="cta"
+              href={`https://wa.me/${wa.length <= 11 ? `55${wa}` : wa}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Chamar no WhatsApp
+            </a>
+          )}
+          <button type="button" className="cta cta--ghost" onClick={() => setStep('code')}>
+            Já tenho o código
+          </button>
+        </div>
+      ) : null}
+      {!viaStore || step === 'code' ? (
+        step === 'phone' ? (
+          <form className="auth__form" onSubmit={ask}>
+            <p className="form-hint">
+              Informe o celular da sua conta. Enviamos um código de 6 dígitos pelo WhatsApp.
+            </p>
+            <Field label="Celular (WhatsApp)">
+              <input
+                autoComplete="tel"
+                inputMode="tel"
+                required
+                placeholder="(11) 98888-7777"
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })}
+              />
+            </Field>
+            {error && <p className="form-error">{error}</p>}
+            <button className="cta" disabled={busy}>
+              {busy ? 'Enviando…' : 'Enviar código'}
+            </button>
+          </form>
+        ) : (
+          <form className="auth__form" onSubmit={reset}>
+            <p className="form-hint">
+              Digite o código recebido e escolha a nova senha. O código vale por 15 minutos.
+            </p>
+            {viaStore && (
+              <Field label="Celular da conta">
+                <input
+                  inputMode="tel"
+                  required
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: maskPhone(e.target.value) })}
+                />
+              </Field>
+            )}
+            <Field label="Código de 6 dígitos">
+              <input
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                required
+                maxLength={6}
+                value={form.code}
+                onChange={(e) => setForm({ ...form, code: e.target.value.replace(/\D/g, '') })}
+              />
+            </Field>
+            <Field label="Nova senha" hint="Pelo menos 6 caracteres.">
+              <input
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={6}
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+              />
+            </Field>
+            {error && <p className="form-error">{error}</p>}
+            <button className="cta" disabled={busy || form.code.length !== 6}>
+              {busy ? 'Salvando…' : 'Trocar senha'}
+            </button>
+            <button type="button" className="cta cta--ghost" onClick={() => setStep('phone')}>
+              Pedir outro código
+            </button>
+          </form>
+        )
+      ) : null}
     </div>
   );
 }

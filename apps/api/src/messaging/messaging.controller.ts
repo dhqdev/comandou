@@ -16,7 +16,7 @@ import { ctxOf } from '../common/context';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
-import { MessagingService } from './messaging.service';
+import { EVENTS, MessagingService, MessagingSettingsInput } from './messaging.service';
 
 const template = z
   .string()
@@ -34,13 +34,15 @@ const Settings = z
       .nullable(),
     token: z.string().trim().min(20).max(1000).regex(/^\S+$/, 'token sem espaços').nullable(),
     language: z.string().regex(/^[a-z]{2,3}(_[A-Z]{2})?$/, 'idioma, ex.: pt_BR'),
-    templateReady: template,
-    templateDispatched: template,
+    templateReset: template,
     provider: z.enum(['baileys', 'meta_cloud']),
-    textReady: z.string().trim().min(1).max(1000),
-    textDispatched: z.string().trim().min(1).max(1000),
-    notifyReady: z.boolean(),
-    notifyDispatched: z.boolean(),
+    ...Object.fromEntries(
+      Object.values(EVENTS).flatMap((e) => [
+        [`template${e.key}`, template],
+        [`text${e.key}`, z.string().trim().min(1).max(1000)],
+        [`notify${e.key}`, z.boolean()],
+      ]),
+    ),
   })
   .partial();
 
@@ -58,7 +60,7 @@ export class MessagingController {
   @Put('settings')
   @RequirePermission('messaging:manage')
   save(
-    @Body(new ZodPipe(Settings)) b: z.infer<typeof Settings>,
+    @Body(new ZodPipe(Settings)) b: MessagingSettingsInput,
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
     @Req() req: Request,

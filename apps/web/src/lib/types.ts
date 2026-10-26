@@ -48,6 +48,8 @@ export interface StoreSettings {
   about: string | null;
   address: string | null;
   whatsapp: string | null;
+  city: string | null;
+  state: string | null;
   coverImageId: string | null;
   logoImageId: string | null;
   theme: 'auto' | 'light' | 'dark';
@@ -569,23 +571,23 @@ export interface FiscalDocument {
   xmlUrl: string | null;
   danfeUrl: string | null;
 }
-export interface MessagingSettings {
+/** Avisos ao cliente, na ordem do pedido. */
+export const NOTICE_KEYS = ['Accepted', 'Ready', 'Dispatched', 'Delivered', 'Cancelled'] as const;
+export type NoticeKey = (typeof NOTICE_KEYS)[number];
+export type MessagingSettings = {
   provider: 'baileys' | 'meta_cloud';
   enabled: boolean;
   phoneNumberId: string | null;
   hasToken: boolean;
   tokenLast4: string | null;
   language: string;
-  templateReady: string | null;
-  templateDispatched: string | null;
-  textReady: string;
-  textDispatched: string;
-  notifyReady: boolean;
-  notifyDispatched: boolean;
+  templateReset: string | null;
   updatedAt: string | null;
   keyConfigured: boolean;
   gatewayConfigured: boolean;
-}
+} & { [K in NoticeKey as `template${K}`]: string | null } & {
+  [K in NoticeKey as `text${K}`]: string;
+} & { [K in NoticeKey as `notify${K}`]: boolean };
 export interface WhatsAppSession {
   status: 'disconnected' | 'connecting' | 'qr' | 'connected' | 'logged_out';
   qr?: string;
@@ -596,7 +598,13 @@ export interface OutboxMessage {
   id: string;
   orderId: string | null;
   orderNumber: number | null;
-  event: 'order.ready' | 'order.dispatched' | 'test';
+  event:
+    | 'order.accepted'
+    | 'order.ready'
+    | 'order.dispatched'
+    | 'order.delivered'
+    | 'order.cancelled'
+    | 'test';
   provider: 'baileys' | 'meta_cloud';
   toPhone: string;
   template: string | null;

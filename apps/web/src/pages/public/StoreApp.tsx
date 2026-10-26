@@ -13,7 +13,13 @@ import {
 import { applyTheme, Mascot, useGlider } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
-import { AccountScreen, AddressesScreen, PasswordScreen, ProfileScreen } from './AccountScreens';
+import {
+  AccountScreen,
+  AddressesScreen,
+  ForgotPasswordScreen,
+  PasswordScreen,
+  ProfileScreen,
+} from './AccountScreens';
 import { CartScreen } from './CartScreen';
 import { StoreProvider, useStore } from './context';
 import { FavoritesScreen, HomeScreen } from './HomeScreen';
@@ -159,6 +165,7 @@ function Screens() {
         <Route path="conta/dados" element={<ProfileScreen />} />
         <Route path="conta/enderecos" element={<AddressesScreen />} />
         <Route path="conta/senha" element={<PasswordScreen />} />
+        <Route path="conta/esqueci-senha" element={<ForgotPasswordScreen />} />
         <Route path="*" element={<HomeScreen />} />
       </Routes>
     </div>

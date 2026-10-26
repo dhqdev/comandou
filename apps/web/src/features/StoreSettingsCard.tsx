@@ -18,6 +18,8 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
     etaMax: '',
     address: '',
     whatsapp: '',
+    city: '',
+    state: '',
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +33,8 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
       etaMax: String(x.etaMax),
       address: x.address ?? '',
       whatsapp: x.whatsapp ?? '',
+      city: x.city ?? '',
+      state: x.state ?? '',
     });
   }
   useEffect(() => {
@@ -118,6 +122,8 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
               etaMax: Number(form.etaMax),
               address: form.address.trim() || null,
               whatsapp: form.whatsapp.trim() || null,
+              city: form.city.trim() || null,
+              state: form.state.trim().toUpperCase() || null,
             });
           }}
           style={{
@@ -173,6 +179,26 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
             value={form.address}
             onChange={set('address')}
             maxLength={300}
+            disabled={!canManage}
+          />
+          <TextField
+            label="Cidade da loja"
+            value={form.city}
+            onChange={set('city')}
+            maxLength={80}
+            hint="O cardápio acha o CEP do cliente pela rua nesta cidade"
+            disabled={!canManage}
+          />
+          <TextField
+            label="UF"
+            value={form.state}
+            onChange={(e) =>
+              setForm((f) => ({
+                ...f,
+                state: e.target.value.replace(/[^A-Za-z]/g, '').slice(0, 2),
+              }))
+            }
+            maxLength={2}
             disabled={!canManage}
           />
           {canManage && (

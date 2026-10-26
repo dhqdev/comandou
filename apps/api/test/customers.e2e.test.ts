@@ -363,4 +363,129 @@ describe('Personalização do cardápio', () => {
       .expect(403);
     await admin.send('patch', '/store/settings', { accountsEnabled: true }).expect(200);
   });
+
+  it('esqueci minha senha: sem WhatsApp na loja, a equipe passa o código', async () => {
+    // Loja sem WhatsApp ativo: o pedido de código manda falar com o restaurante.
+    const f = await c
+      .send('post', '/store/account/password/forgot', { phone: '11988887777' })
+      .expect(200);
+    expect(f.body).toEqual({ channel: 'restaurant' });
+    const list = (await admin.get('/customers').expect(200)).body.customers as {
+      id: string;
+      phone: string;
+    }[];
+    const id = list.find((x) => x.phone === '11988887777')!.id;
+    // Garçom não gera código.
+    await http
+      .post(`/api/v1/customers/${id}/reset-code`)
+      .set('Host', HOST_A)
+      .set('Cookie', staff.waiterA)
+      .set(CSRF)
+      .send({})
+      .expect(403);
+    const code = (await admin.send('post', `/customers/${id}/reset-code`, {})).body.code as string;
+    expect(code).toMatch(/^\d{6}$/);
+    const wrong = code === '000000' ? '111111' : '000000';
+    await c
+      .send('post', '/store/account/password/reset', {
+        phone: '11988887777',
+        code: wrong,
+        password: 'novasenha1',
+      })
+      .expect(401);
+    // Código de outra loja não vale aqui.
+    await c
+      .send(
+        'post',
+        '/store/account/password/reset',
+        { phone: '11988887777', code, password: 'novasenha1' },
+        undefined,
+        HOST_B,
+      )
+      .expect(401);
+    const ok = await c
+      .send('post', '/store/account/password/reset', {
+        phone: '(11) 98888-7777',
+        code,
+        password: 'novasenha1',
+      })
+      .expect(200);
+    expect(cookieFrom(ok, 'cm_cid')).toBeTruthy();
+    // O código vale uma vez só; a senha antiga morreu; as sessões antigas saíram.
+    await c
+      .send('post', '/store/account/password/reset', {
+        phone: '11988887777',
+        code,
+        password: 'outrasenha1',
+      })
+      .expect(401);
+    await c
+      .send('post', '/store/account/login', { phone: '11988887777', password: 'segredo1' })
+      .expect(401);
+    await c
+      .send('post', '/store/account/login', { phone: '11988887777', password: 'novasenha1' })
+      .expect(200);
+    expect((await c.get('/store/account', maria).expect(200)).body.customer).toBeNull();
+  });
+
+  it('o código trava depois de 5 tentativas erradas', async () => {
+    const list = (await admin.get('/customers').expect(200)).body.customers as {
+      id: string;
+      phone: string;
+    }[];
+    const id = list.find((x) => x.phone === '11988887777')!.id;
+    const code = (await admin.send('post', `/customers/${id}/reset-code`, {})).body.code as string;
+    const wrong = code === '000000' ? '111111' : '000000';
+    for (let i = 0; i < 5; i++)
+      await c
+        .send('post', '/store/account/password/reset', {
+          phone: '11988887777',
+          code: wrong,
+          password: 'tentativa1',
+        })
+        .expect(401);
+    await c
+      .send('post', '/store/account/password/reset', {
+        phone: '11988887777',
+        code,
+        password: 'tentativa1',
+      })
+      .expect(401);
+  });
+
+  it('CEP: valida o formato e guarda no endereço', async () => {
+    await c.get('/store/cep/123').expect(422);
+    await admin.send('patch', '/store/settings', { city: 'São Paulo', state: 'sp' }).expect(200);
+    const menu = (await c.get('/store').expect(200)).body;
+    expect(menu.restaurant).toMatchObject({ city: 'São Paulo', state: 'SP' });
+    await admin.send('patch', '/store/settings', { state: 'XX' }).expect(400);
+    const login = await c
+      .send('post', '/store/account/login', { phone: '11988887777', password: 'novasenha1' })
+      .expect(200);
+    const ck = cookieFrom(login, 'cm_cid')!;
+    const a = await c
+      .send(
+        'post',
+        '/store/account/addresses',
+        {
+          street: 'Praça da Sé',
+          number: '1',
+          district: 'Sé',
+          cep: '01001-000',
+          city: 'São Paulo',
+          state: 'sp',
+        },
+        ck,
+      )
+      .expect(201);
+    expect(a.body).toMatchObject({ cep: '01001000', city: 'São Paulo', state: 'SP' });
+    await c
+      .send(
+        'post',
+        '/store/account/addresses',
+        { street: 'R', number: '1', district: 'B', cep: '12' },
+        ck,
+      )
+      .expect(400);
+  });
 });

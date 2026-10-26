@@ -73,6 +73,9 @@ const schema = z.object({
   WHATSAPP_GRAPH_URL: z.string().url().default('https://graph.facebook.com/v25.0'),
   /** Busca de endereço (Nominatim/OpenStreetMap) usada nas áreas de entrega. */
   GEOCODER_URL: z.string().url().default('https://nominatim.openstreetmap.org'),
+  /** Consulta de CEP: ViaCEP (principal, também acha o CEP pela rua) e BrasilAPI (reserva). */
+  VIACEP_URL: z.string().url().default('https://viacep.com.br'),
+  BRASILAPI_URL: z.string().url().default('https://brasilapi.com.br'),
   /** Serviço interno de WhatsApp (Baileys/QR Code). Ex.: http://whatsapp-gateway:3100 */
   WHATSAPP_GATEWAY_URL: z.preprocess(
     (v) => (v === '' ? undefined : v),

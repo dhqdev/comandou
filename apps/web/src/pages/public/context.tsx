@@ -107,7 +107,9 @@ export function StoreProvider({
   children: ReactNode;
 }) {
   const [cart, setCart] = useStored<CartLine[]>('cm-cart', []);
-  const [customer, setCustomer] = useStored<CustomerInfo>('cm-customer', EMPTY_CUSTOMER);
+  const [stored, setCustomer] = useStored<CustomerInfo>('cm-customer', EMPTY_CUSTOMER);
+  // Dados salvos por versões antigas não têm os campos novos (CEP, cidade…).
+  const customer = useMemo(() => ({ ...EMPTY_CUSTOMER, ...stored }), [stored]);
   const [favs, setFavs] = useStored<string[]>('cm-favs', []);
   const [account, setAccount] = useState<AccountState | null>(null);
   const [bump, setBump] = useState(0);
