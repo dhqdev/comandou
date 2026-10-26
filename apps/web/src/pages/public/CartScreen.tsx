@@ -1,5 +1,14 @@
 import { fromCents, toCents } from '@comandou/shared';
-import { Bike, ChevronRight, MapPin, Plus, ShoppingBag, Store, UserRound } from 'lucide-react';
+import {
+  Bike,
+  ChevronRight,
+  MapPin,
+  Moon,
+  Plus,
+  ShoppingBag,
+  Store,
+  UserRound,
+} from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { SlideTabs } from '../../features/SlideTabs';
@@ -26,7 +35,17 @@ const AddressPin = lazy(() => import('./AddressPin'));
 
 /** Sacola e finalização: com a conta aberta, nome, telefone e endereços já vêm preenchidos. */
 export function CartScreen() {
-  const { menu, cart, setCart, customer, setCustomer, account, setAccount, subtotal } = useStore();
+  const {
+    menu,
+    cart,
+    setCart,
+    customer,
+    setCustomer,
+    account,
+    setAccount,
+    subtotal,
+    refreshStatus,
+  } = useStore();
   const navigate = useNavigate();
   const [step, setStep] = useState<'cart' | 'checkout'>('cart');
   const [notes, setNotes] = useState('');
@@ -148,6 +167,8 @@ export function CartScreen() {
       // Erro de regra (loja fechou, produto esgotou): o próximo envio é um pedido novo.
       if (err.status >= 400 && err.status < 500 && err.status !== 409 && err.status !== 429)
         attempt.current = null;
+      // 409 pode ser "a loja fechou": atualiza a situação para a tela mostrar fechada.
+      if (err.status === 409) void refreshStatus();
       setError(
         err.status === 0
           ? 'Sem conexão. Toque em enviar de novo: o pedido não será duplicado.'
@@ -476,7 +497,15 @@ export function CartScreen() {
               {error}
             </p>
           )}
-          {!s.isOpen && <p className="form-hint">A loja está fechada agora.</p>}
+          {!s.isOpen && (
+            <p className="closed-note" role="status">
+              <Moon size={16} aria-hidden />
+              <span>
+                A loja está fechada agora e não está recebendo pedidos. Seus itens ficam guardados
+                na sacola para quando ela abrir.
+              </span>
+            </p>
+          )}
           {belowMin && (
             <p className="form-hint">
               Pedido mínimo de {brl(minOrder)} (sem a entrega). Faltam{' '}
@@ -484,12 +513,26 @@ export function CartScreen() {
             </p>
           )}
           {step === 'cart' ? (
-            <button className="cta" disabled={belowMin} onClick={() => setStep('checkout')}>
-              Continuar <ChevronRight size={18} />
+            <button
+              className="cta"
+              disabled={belowMin || !s.isOpen}
+              onClick={() => setStep('checkout')}
+            >
+              {s.isOpen ? (
+                <>
+                  Continuar <ChevronRight size={18} />
+                </>
+              ) : (
+                'Loja fechada'
+              )}
             </button>
           ) : (
             <button className="cta" disabled={!canSend || busy} onClick={send}>
-              {busy ? 'Enviando…' : `Fazer pedido · ${brl(fromCents(total))}`}
+              {!s.isOpen
+                ? 'Loja fechada'
+                : busy
+                  ? 'Enviando…'
+                  : `Fazer pedido · ${brl(fromCents(total))}`}
             </button>
           )}
         </div>

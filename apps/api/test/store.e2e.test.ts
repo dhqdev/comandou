@@ -279,7 +279,10 @@ describe('Cardápio público e pedido do cliente', () => {
         key(),
       )
       .expect(409);
+    expect((await pub.get('/store/status').expect(200)).body).toMatchObject({ isOpen: false });
+    expect((await pub.get('/store').expect(200)).body.store.isOpen).toBe(false);
     await patch('adminA', '/store/settings', { isOpen: true, autoAccept: true }).expect(200);
+    expect((await pub.get('/store/status').expect(200)).body.isOpen).toBe(true);
     const r = await pub
       .post(
         '/store/orders',
@@ -298,6 +301,7 @@ describe('Cardápio público e pedido do cliente', () => {
   it('loja desativada some do público', async () => {
     await patch('adminA', '/store/settings', { enabled: false }).expect(200);
     await pub.get('/store').expect(404);
+    await pub.get('/store/status').expect(404);
     await patch('adminA', '/store/settings', { enabled: true }).expect(200);
   });
 });

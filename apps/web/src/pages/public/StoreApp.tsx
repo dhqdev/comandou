@@ -1,6 +1,6 @@
 import { fromCents } from '@comandou/shared';
 import { ChevronRight, Heart, House, ReceiptText, ShoppingBag, UserRound } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { NavLink, Route, Routes, useLocation, useNavigate, useNavigationType } from 'react-router';
 import { applyTheme, Mascot, useGlider } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
@@ -12,7 +12,7 @@ import { FavoritesScreen, HomeScreen } from './HomeScreen';
 import { OrdersScreen } from './OrdersScreen';
 import { ProductScreen } from './ProductScreen';
 import { PublicOrderPage } from './PublicOrderPage';
-import type { PublicMenu } from './store';
+import type { PublicMenu, StoreStatus } from './store';
 import './public.css';
 import './storefront.css';
 
@@ -150,6 +150,34 @@ export function StoreApp() {
       );
   }, []);
 
+  // A loja pode abrir ou fechar com o cardápio aberto: confere de tempos em tempos e ao voltar
+  // para a aba, para o cliente não montar um pedido que não vai entrar.
+  const loaded = !!menu;
+  const refreshStatus = useCallback(async () => {
+    const st = await api<StoreStatus>('/store/status').catch(() => null);
+    if (!st) return;
+    setMenu((m) =>
+      !m ||
+      (m.store.isOpen === st.isOpen &&
+        m.store.acceptsDelivery === st.acceptsDelivery &&
+        m.store.acceptsPickup === st.acceptsPickup)
+        ? m
+        : { ...m, store: { ...m.store, ...st } },
+    );
+  }, []);
+  useEffect(() => {
+    if (!loaded) return;
+    const tick = () => document.visibilityState === 'visible' && void refreshStatus();
+    const id = window.setInterval(tick, 45_000);
+    document.addEventListener('visibilitychange', tick);
+    window.addEventListener('focus', tick);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', tick);
+      window.removeEventListener('focus', tick);
+    };
+  }, [loaded, refreshStatus]);
+
   // Ícone da aba do navegador = logo do restaurante (volta ao do Comandou ao sair do cardápio).
   useEffect(() => {
     const logo = menu?.restaurant.logoUrl;
@@ -181,7 +209,7 @@ export function StoreApp() {
     );
   if (!menu) return <Skeleton />;
   return (
-    <StoreProvider menu={menu}>
+    <StoreProvider menu={menu} refreshStatus={refreshStatus}>
       <main className="sf">
         <Screens />
         <CartPill />

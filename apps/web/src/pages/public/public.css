@@ -66,6 +66,9 @@
   }
 }
 .closed-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   margin: 12px 0 0;
   padding: 12px 14px;
   border-radius: var(--cm-radius-md);
@@ -73,6 +76,21 @@
   color: var(--cm-warning);
   font-size: var(--cm-text-sm);
   font-weight: 600;
+}
+.closed-note > svg {
+  flex: none;
+  margin-top: 1px;
+}
+.closed-note--big {
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--cm-warning) 35%, transparent);
+  font-weight: 500;
+}
+.closed-note--big strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: var(--cm-text-md);
+  font-weight: 700;
 }
 
 /* Foto com proporção fixa */

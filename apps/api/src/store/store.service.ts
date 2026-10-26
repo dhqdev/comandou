@@ -186,6 +186,19 @@ export class StoreService {
     return res;
   }
 
+  /** Situação da loja agora (aberta, entrega, retirada): o cardápio aberto confere de tempos em tempos. */
+  publicStatus(tenantId: string) {
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      const s = await this.settingsIn(tx);
+      if (!s.enabled) throw new NotFoundException('Cardápio online desativado');
+      return {
+        isOpen: s.isOpen,
+        acceptsDelivery: s.acceptsDelivery,
+        acceptsPickup: s.acceptsPickup,
+      };
+    });
+  }
+
   /** Cardápio público: só o que o cliente precisa ver. Sem custos, fichas, setores ou dados fiscais. */
   publicMenu(tenantId: string, tenantName: string, slug: string) {
     return this.db.withTenant({ tenantId }, async (tx) => {

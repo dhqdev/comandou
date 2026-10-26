@@ -165,6 +165,14 @@ export class StoreController {
     return this.store.publicMenu(t.id, t.name, t.slug);
   }
 
+  /** Situação da loja (aberta/fechada): leve, para o cardápio aberto se atualizar sozinho. */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @Get('status')
+  status(@CurrentTenant() t: ResolvedTenant) {
+    return this.store.publicStatus(t.id);
+  }
+
   /** Cria o pedido do cliente. Exige `Idempotency-Key` (reenvio não duplica o pedido). */
   @Public()
   @Throttle({ default: { ttl: 60_000, limit: 15 } })

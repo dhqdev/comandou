@@ -38,6 +38,8 @@ export interface StoreCtx {
   logout(): Promise<void>;
   customer: CustomerInfo;
   setCustomer(fn: (c: CustomerInfo) => CustomerInfo): void;
+  /** Confere de novo se a loja está aberta (ex.: o pedido voltou com "loja fechada"). */
+  refreshStatus(): Promise<void>;
 }
 
 const Ctx = createContext<StoreCtx | null>(null);
@@ -90,7 +92,15 @@ function flyToCart(from: HTMLElement) {
   }, 90);
 }
 
-export function StoreProvider({ menu, children }: { menu: PublicMenu; children: ReactNode }) {
+export function StoreProvider({
+  menu,
+  refreshStatus,
+  children,
+}: {
+  menu: PublicMenu;
+  refreshStatus(): Promise<void>;
+  children: ReactNode;
+}) {
   const [cart, setCart] = useStored<CartLine[]>('cm-cart', []);
   const [customer, setCustomer] = useStored<CustomerInfo>('cm-customer', EMPTY_CUSTOMER);
   const [favs, setFavs] = useStored<string[]>('cm-favs', []);
@@ -156,6 +166,7 @@ export function StoreProvider({ menu, children }: { menu: PublicMenu; children: 
     },
     customer,
     setCustomer,
+    refreshStatus,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

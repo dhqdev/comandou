@@ -5,6 +5,7 @@ import {
   Clock,
   Heart,
   LayoutGrid,
+  Moon,
   Plus,
   Search,
   Sparkles,
@@ -338,9 +339,13 @@ export function HomeScreen() {
           </Link>
         )}
         {!s.isOpen && (
-          <p className="closed-note">
-            A loja está fechada agora. Você pode ver o cardápio, mas os pedidos voltam quando ela
-            abrir.
+          <p className="closed-note closed-note--big" role="status">
+            <Moon size={20} aria-hidden />
+            <span>
+              <strong>Estamos fechados agora</strong>
+              Você pode olhar o cardápio e montar a sacola, mas os pedidos só entram quando a loja
+              abrir.
+            </span>
           </p>
         )}
         {r.about && !term && <p className="sf-about">{r.about}</p>}

@@ -19,6 +19,9 @@ export interface PublicCategory {
   imageUrl: string | null;
   products: PublicProduct[];
 }
+/** Situação da loja agora (GET /store/status). */
+export type StoreStatus = Pick<PublicMenu['store'], 'isOpen' | 'acceptsDelivery' | 'acceptsPickup'>;
+
 export interface PublicMenu {
   restaurant: {
     name: string;
