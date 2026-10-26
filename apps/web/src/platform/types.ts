@@ -407,3 +407,117 @@ export interface BackupTestResult {
   canDelete: boolean;
   steps: { step: string; ok: boolean; detail?: string }[];
 }
+
+// ------------------------------------------------------------------ contratos
+export type ContractStatus = 'draft' | 'sent' | 'viewed' | 'signed' | 'cancelled';
+
+export interface ContractParty {
+  role: 'CONTRATADA' | 'CONTRATANTE';
+  name: string;
+  document: string | null;
+  address: string | null;
+  email: string | null;
+  representative: string | null;
+}
+
+/** Texto congelado do contrato (o mesmo do PDF). Item em lista = alíneas do parágrafo anterior. */
+export interface ContractContent {
+  version: 1;
+  number: string;
+  title: string;
+  issuedAt: string;
+  parties: { provider: ContractParty; customer: ContractParty };
+  terms: {
+    storeName: string;
+    systemAddress: string;
+    planName: string;
+    priceMonthly: string;
+    setupFee: string;
+    dueDay: number;
+    termMonths: number;
+    startDate: string;
+    trialDays: number;
+    slaPercent: string;
+  };
+  preamble: string;
+  clauses: { title: string; items: (string | string[])[] }[];
+  closing: string;
+}
+
+export interface ContractRow {
+  id: string;
+  tenantId: string;
+  number: string;
+  status: ContractStatus;
+  planName: string;
+  priceMonthly: string;
+  signerEmail: string | null;
+  contentHash: string;
+  pdfSha256: string;
+  signedPdfSha256: string | null;
+  expiresAt: string | null;
+  sentAt: string | null;
+  viewedAt: string | null;
+  readAt: string | null;
+  signedAt: string | null;
+  signerName: string | null;
+  signerDocument: string | null;
+  signerIp: string | null;
+  signatureKind: 'drawn' | 'typed' | null;
+  notifiedAt: string | null;
+  notifyError: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+export interface ContractEvent {
+  kind: string;
+  ip: string | null;
+  userAgent: string | null;
+  data: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface ContractDetail extends ContractRow {
+  content: ContractContent;
+  events: ContractEvent[];
+}
+
+export interface ContractSettings {
+  providerName: string;
+  providerDocument: string;
+  providerAddress: string;
+  providerEmail: string;
+  providerRepresentative: string;
+  forumCity: string;
+  dueDay: number;
+  termMonths: number;
+  slaPercent: string;
+  readjustIndex: string;
+  lateFeePercent: string;
+  lateInterestPercent: string;
+  suspendAfterDays: number;
+  supportHours: string;
+  webhookUrl: string;
+  hasWebhookSecret: boolean;
+  notifyEmail: string;
+  keyConfigured: boolean;
+  ready: boolean;
+  updatedAt: string;
+}
+
+/** O que o link público de assinatura devolve. */
+export interface PublicContract {
+  number: string;
+  status: ContractStatus;
+  contentHash: string;
+  pdfSha256: string;
+  signerEmail: string | null;
+  expiresAt: string | null;
+  readAt: string | null;
+  signedAt: string | null;
+  signerName: string | null;
+  content: ContractContent;
+}

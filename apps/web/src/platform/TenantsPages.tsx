@@ -20,6 +20,7 @@ import { AuditTable, useLoad } from './OverviewPages';
 import { ConsumptionPanel, OperationPanel } from './TenantInsights';
 import { DatabasePanel, DatabaseProgress, dbBusy } from './TenantDatabase';
 import { NewTenantModal, ProfilePanel, TIMEZONES } from './NewTenant';
+import { ContractsPanel } from './TenantContracts';
 import type { Plan, SupportLink, TeamMember, TenantDetail, TenantRow } from './types';
 import { ago, Dot, Level, Section, Tabs, Tag, Tile } from './ui';
 
@@ -209,7 +210,15 @@ const fromInputDate = (d: string) =>
   d ? new Date(`${d}T23:59:59-03:00`).toISOString() : undefined;
 
 type DetailTab =
-  'subscription' | 'profile' | 'database' | 'operation' | 'usage' | 'team' | 'domains' | 'history';
+  | 'subscription'
+  | 'profile'
+  | 'contract'
+  | 'database'
+  | 'operation'
+  | 'usage'
+  | 'team'
+  | 'domains'
+  | 'history';
 
 export function TenantDetailPage() {
   const { id } = useParams();
@@ -409,6 +418,7 @@ export function TenantDetailPage() {
           items={[
             ['subscription', 'Assinatura'],
             ['profile', 'Cadastro'],
+            ['contract', 'Contrato'],
             ['database', 'Banco de dados'],
             ['operation', 'Operação'],
             ['usage', 'Consumo'],
@@ -482,6 +492,7 @@ export function TenantDetailPage() {
         )}
 
         {tab === 'profile' && <ProfilePanel t={t} onSaved={setData} />}
+        {tab === 'contract' && <ContractsPanel t={t} />}
         {tab === 'database' && <DatabasePanel t={t} onChanged={setData} />}
         {tab === 'operation' && <OperationPanel id={t.id} team={team.data} />}
         {tab === 'usage' && <ConsumptionPanel id={t.id} />}

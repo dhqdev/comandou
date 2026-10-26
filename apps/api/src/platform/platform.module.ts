@@ -11,17 +11,26 @@ import { PlatformDb } from './platform-db.service';
 import { PlatformService } from './platform.service';
 import { PlatformBackupService } from './platform-backup.service';
 import { PlatformDatabasesService } from './platform-databases.service';
+import { ContractSignController, ContractsController } from './contracts/contracts.controller';
+import { ContractsService } from './contracts/contracts.service';
 
 /** Painel Super Admin (admin.<domínio base>): caminho privilegiado separado e auditado. */
 @Module({
   imports: [HealthModule],
-  controllers: [PlatformAuthController, PlatformController, PlatformServerController],
+  controllers: [
+    PlatformAuthController,
+    PlatformController,
+    PlatformServerController,
+    ContractsController,
+    ContractSignController,
+  ],
   providers: [
     PlatformDb,
     PlatformAuthService,
     PlatformService,
     PlatformBackupService,
     PlatformDatabasesService,
+    ContractsService,
     PlatformHostGuard,
     PlatformSessionGuard,
     ServerAgentClient,

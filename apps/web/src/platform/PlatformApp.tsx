@@ -42,6 +42,7 @@ import { AuditPage, BackupsPage, OverviewPage } from './OverviewPages';
 import { PlansPage } from './PlansPage';
 import { isStandalone, promptInstall } from './pwa';
 import { ServerPage } from './ServerPage';
+import { ContractSignPage, signToken } from './ContractSign';
 import { TenantDetailPage, TenantsPage } from './TenantsPages';
 
 /** O painel Super Admin só existe em admin.<domínio base>. */
@@ -358,6 +359,14 @@ function Gate() {
 }
 
 export function PlatformApp() {
+  // Link de assinatura de contrato: página pública, sem login do painel.
+  const token = signToken();
+  if (token)
+    return (
+      <ToastProvider>
+        <ContractSignPage token={token} />
+      </ToastProvider>
+    );
   return (
     <BrowserRouter>
       <ToastProvider>

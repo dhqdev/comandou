@@ -197,3 +197,112 @@ export const BackupSettingsBody = z.object({
 });
 export type BackupSettingsInput = z.infer<typeof BackupSettingsBody>;
 export const BackupRunRequest = z.object({ kind: z.enum(['backup', 'restore_test']) });
+
+// ------------------------------------------------------------------ contratos
+const blankEmail = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .max(254)
+  .refine((v) => v === '' || z.string().email().safeParse(v).success, 'e-mail inválido');
+const percent = (min: number, max: number) =>
+  z.coerce
+    .number()
+    .min(min)
+    .max(max)
+    .transform((v) => v.toFixed(2));
+
+/** Dados da contratada, regras padrão do contrato e o webhook do n8n. Segredo vazio = manter. */
+export const ContractSettingsBody = z.object({
+  providerName: z.string().trim().max(160),
+  providerDocument: z
+    .string()
+    .transform(digits)
+    .refine((v) => v === '' || v.length === 11 || v.length === 14, 'CPF (11) ou CNPJ (14 dígitos)'),
+  providerAddress: z.string().trim().max(240),
+  providerEmail: blankEmail,
+  providerRepresentative: z.string().trim().max(120),
+  forumCity: z.string().trim().max(80),
+  dueDay: z.number().int().min(1).max(28),
+  termMonths: z.number().int().min(1).max(60),
+  slaPercent: percent(90, 100),
+  readjustIndex: z.string().trim().min(2).max(40),
+  lateFeePercent: percent(0, 2),
+  lateInterestPercent: percent(0, 10),
+  suspendAfterDays: z.number().int().min(1).max(90),
+  supportHours: z.string().trim().min(3).max(160),
+  webhookUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .refine((v) => v === '' || /^https?:\/\/[^\s]+$/i.test(v), 'Endereço com http:// ou https://'),
+  webhookSecret: z.string().trim().max(200).optional(),
+  clearWebhookSecret: z.boolean().optional(),
+  notifyEmail: blankEmail,
+});
+export type ContractSettingsInput = z.infer<typeof ContractSettingsBody>;
+
+const money = z
+  .string()
+  .refine(isMoneyString, 'valor com até 2 casas, ex.: "99.90"')
+  .refine((v) => !v.startsWith('-'), 'valor não pode ser negativo');
+
+/** Gerar um contrato: tudo opcional (vem do plano, do cadastro e das regras padrão). */
+export const NewContract = z.object({
+  planName: z.string().trim().min(1).max(80).optional(),
+  priceMonthly: money.optional(),
+  setupFee: money.optional(),
+  dueDay: z.number().int().min(1).max(28).optional(),
+  termMonths: z.number().int().min(1).max(60).optional(),
+  startDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'data AAAA-MM-DD')
+    .optional(),
+  trialDays: z.number().int().min(0).max(90).optional(),
+  specialConditions: z.string().trim().max(3000).optional(),
+  signerEmail: blankEmail.optional(),
+});
+export type NewContractInput = z.infer<typeof NewContract>;
+
+export const SendContract = z.object({
+  email: z.string().trim().toLowerCase().email().max(254).optional(),
+  message: z.string().trim().max(1000).optional(),
+});
+export const CancelContract = z.object({ reason: z.string().trim().min(3).max(300) });
+
+/** Assinatura pelo link público. */
+export const SignContract = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(5)
+    .max(120)
+    .refine((v) => v.split(/\s+/).length >= 2, 'nome completo'),
+  document: z.string().transform(digits).refine(isCpf, 'CPF inválido'),
+  email: z.string().trim().toLowerCase().email().max(254),
+  accept: z.literal(true),
+  contentHash: z.string().regex(/^[0-9a-f]{64}$/),
+  signature: z.discriminatedUnion('kind', [
+    z.object({
+      kind: z.literal('drawn'),
+      image: z
+        .string()
+        .max(200_000)
+        .regex(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/, 'imagem PNG'),
+    }),
+    z.object({ kind: z.literal('typed'), text: z.string().trim().min(3).max(80) }),
+  ]),
+});
+export type SignContractInput = z.infer<typeof SignContract>;
+
+/** Dígitos verificadores do CPF. */
+export function isCpf(v: string): boolean {
+  if (!/^\d{11}$/.test(v) || /^(\d)\1{10}$/.test(v)) return false;
+  const dv = (len: number) => {
+    let s = 0;
+    for (let i = 0; i < len; i++) s += Number(v[i]) * (len + 1 - i);
+    const r = (s * 10) % 11;
+    return r === 10 ? 0 : r;
+  };
+  return dv(9) === Number(v[9]) && dv(10) === Number(v[10]);
+}

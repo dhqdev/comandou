@@ -16,6 +16,7 @@
     "tenant:provision:dev": "node -r @swc-node/register src/provisioning/provision-cli.ts"
   },
   "dependencies": {
+    "@comandou/shared": "workspace:*",
     "@nestjs/common": "^11.1.0",
     "@nestjs/core": "^11.1.0",
     "@nestjs/platform-express": "^11.1.0",
@@ -23,7 +24,6 @@
     "@nestjs/swagger": "^11.2.0",
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/websockets": "^11.2.7",
-    "@comandou/shared": "workspace:*",
     "@socket.io/redis-adapter": "^8.3.0",
     "bullmq": "^5.81.5",
     "cookie": "^1.1.1",
@@ -31,6 +31,7 @@
     "drizzle-orm": "^0.45.0",
     "helmet": "^8.1.0",
     "nestjs-pino": "^4.4.0",
+    "pdf-lib": "1.17.1",
     "pg": "^8.16.0",
     "pino": "^9.7.0",
     "pino-http": "^10.5.0",

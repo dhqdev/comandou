@@ -1,0 +1,349 @@
+import 'reflect-metadata';
+import type { INestApplication } from '@nestjs/common';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { createServer, Server } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { PDFDocument } from 'pdf-lib';
+import request from 'supertest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { createApp } from '../src/bootstrap';
+import { hashPassword } from '../src/auth/password';
+import { seal } from '../src/common/secret-box';
+import { totpContext } from '../src/platform/platform-auth';
+import { isCpf } from '../src/platform/platform.schemas';
+import { extenso } from '../src/platform/contracts/contract-template';
+import { pdfSafe } from '../src/platform/contracts/contract-pdf';
+import { newTotpSecret, totpCode, totpStep } from '../src/platform/totp';
+import { PLATFORM_URL, testEnv } from './env';
+import { Fixture, ownerQuery, seedTwoTenants } from './fixtures';
+
+/**
+ * Contrato digital do cliente: gerar (texto + PDF + hash), enviar pelo n8n, assinar pelo link
+ * público só depois de ler até o fim, PDF assinado guardado e aviso de volta pelo n8n.
+ */
+const ADMIN_HOST = 'admin.comandou.test';
+const CSRF = { 'X-Comandou-Request': '1' };
+const KEY = randomBytes(32).toString('base64');
+const SECRET = newTotpSecret();
+const WEBHOOK_SECRET = 'segredo-do-webhook-n8n-123';
+// 1x1 PNG transparente (assinatura "desenhada").
+const PNG =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+
+let app: INestApplication;
+let http: ReturnType<typeof request>;
+let fx: Fixture;
+let cookie = '';
+let hook: Server;
+let hookUrl = '';
+const received: {
+  headers: Record<string, string | string[] | undefined>;
+  body: any;
+  raw: string;
+}[] = [];
+let hookStatus = 200;
+
+const pget = (url: string) =>
+  http.get(`/api/v1/platform${url}`).set('Host', ADMIN_HOST).set('Cookie', cookie);
+const psend = (method: 'post' | 'put', url: string, body: object = {}) =>
+  http[method](`/api/v1/platform${url}`)
+    .set('Host', ADMIN_HOST)
+    .set(CSRF)
+    .set('Cookie', cookie)
+    .send(body);
+const sget = (url: string) => http.get(`/api/v1/platform/sign/${url}`).set('Host', ADMIN_HOST);
+const spost = (url: string, body: object = {}) =>
+  http
+    .post(`/api/v1/platform/sign/${url}`)
+    .set('Host', ADMIN_HOST)
+    .set(CSRF)
+    .set('User-Agent', 'Navegador-Teste/1.0')
+    .send(body);
+
+const settings = {
+  providerName: 'Comandou Tecnologia Ltda',
+  providerDocument: '12.345.678/0001-90',
+  providerAddress: 'Rua das Flores, 100, São Paulo/SP',
+  providerEmail: 'contato@comandou.test',
+  providerRepresentative: 'David Queiroz',
+  forumCity: 'São Paulo/SP',
+  dueDay: 10,
+  termMonths: 12,
+  slaPercent: 99.5,
+  readjustIndex: 'IPCA/IBGE',
+  lateFeePercent: 2,
+  lateInterestPercent: 1,
+  suspendAfterDays: 15,
+  supportHours: 'segunda a sábado, das 9h às 18h',
+  webhookUrl: '',
+  webhookSecret: WEBHOOK_SECRET,
+  notifyEmail: 'david@comandou.test',
+};
+
+beforeAll(async () => {
+  fx = await seedTwoTenants('ct');
+  const [{ id }] = await ownerQuery<{ id: string }>(
+    `INSERT INTO platform_admins (email, name, password_hash, totp_secret_enc)
+     VALUES ('contratos@plataforma.test', 'David', $1, '\\x00') RETURNING id`,
+    [await hashPassword('senha-super-admin-123')],
+  );
+  await ownerQuery(`UPDATE platform_admins SET totp_secret_enc = $2 WHERE id = $1`, [
+    id,
+    seal(KEY, SECRET, totpContext(id)),
+  ]);
+  const [{ id: planId }] = await ownerQuery<{ id: string }>(
+    `INSERT INTO plans (code, name, price_monthly, max_users, max_products, max_orders_month,
+                        feature_fiscal, feature_whatsapp, trial_days)
+     VALUES ('ct-pro', 'Profissional CT', 179.90, 15, 800, NULL, true, true, 14) RETURNING id`,
+  );
+  await ownerQuery(
+    `INSERT INTO subscriptions (tenant_id, plan_id, status) VALUES ($1, $2, 'active')`,
+    [fx.tenantA, planId],
+  );
+
+  hook = createServer((req, res) => {
+    let raw = '';
+    req.on('data', (c) => (raw += c));
+    req.on('end', () => {
+      received.push({ headers: req.headers, body: JSON.parse(raw), raw });
+      res.statusCode = hookStatus;
+      res.end(hookStatus === 200 ? '{"ok":true}' : 'falhou');
+    });
+  });
+  await new Promise<void>((r) => hook.listen(0, '127.0.0.1', r));
+  hookUrl = `http://127.0.0.1:${(hook.address() as AddressInfo).port}/webhook/comandou-contratos`;
+
+  app = await createApp(
+    testEnv({
+      AUTH_LOGIN_RATE_LIMIT: '1000',
+      PLATFORM_DATABASE_URL: PLATFORM_URL,
+      INTEGRATIONS_KEY: KEY,
+    }),
+    { logger: false },
+  );
+  await app.init();
+  http = request(app.getHttpServer());
+  const r = await http
+    .post('/api/v1/platform/auth/login')
+    .set('Host', ADMIN_HOST)
+    .set(CSRF)
+    .send({
+      email: 'contratos@plataforma.test',
+      password: 'senha-super-admin-123',
+      code: totpCode(SECRET, totpStep()),
+    })
+    .expect(200);
+  cookie = (r.headers['set-cookie'] as unknown as string[])
+    .find((c) => c.startsWith('cm_admin='))!
+    .split(';')[0]!;
+});
+
+afterAll(async () => {
+  await app?.close();
+  hook?.close();
+});
+
+describe('Peças do contrato', () => {
+  it('extenso, CPF e texto seguro para o PDF', () => {
+    expect(extenso(30)).toBe('trinta');
+    expect(extenso(15)).toBe('quinze');
+    expect(extenso(48)).toBe('quarenta e oito');
+    expect(extenso(100)).toBe('cem');
+    expect(extenso(120)).toBe('cento e vinte');
+    expect(isCpf('52998224725')).toBe(true);
+    expect(isCpf('52998224724')).toBe(false);
+    expect(isCpf('11111111111')).toBe(false);
+    expect(pdfSafe('Cláusula — “ação” ✓ 🍕')).toBe('Cláusula — “ação” ? ?');
+  });
+});
+
+describe('Contrato do cliente', () => {
+  let contractId = '';
+  let token = '';
+  let hash = '';
+
+  it('sem dados da contratada ou do cliente, não gera', async () => {
+    const r = await psend('post', `/tenants/${fx.tenantA}/contracts`).expect(422);
+    expect(r.body.message).toMatch(/contratada/);
+    await psend('put', '/contracts/settings', settings).expect(200);
+    const r2 = await psend('post', `/tenants/${fx.tenantA}/contracts`).expect(422);
+    expect(r2.body.message).toMatch(/Cadastro/);
+  });
+
+  it('configuração não devolve o segredo do webhook', async () => {
+    const r = await pget('/contracts/settings').expect(200);
+    expect(r.body.hasWebhookSecret).toBe(true);
+    expect(JSON.stringify(r.body)).not.toContain(WEBHOOK_SECRET);
+    expect(r.body.providerDocument).toBe('12345678000190');
+    expect(r.body.slaPercent).toBe('99.50');
+  });
+
+  it('gera o contrato com plano, cadastro e PDF com hash', async () => {
+    await psend('put', `/tenants/${fx.tenantA}/profile`, {
+      legalName: 'Restaurante A Comércio de Alimentos Ltda',
+      document: '11.222.333/0001-81',
+      contactName: 'Maria Souza',
+      billingEmail: 'financeiro@ct-a.test',
+      city: 'Campinas',
+      state: 'SP',
+    }).expect(200);
+    const r = await psend('post', `/tenants/${fx.tenantA}/contracts`, {
+      setupFee: '300.00',
+      specialConditions: 'Primeiros 3 meses com 20% de desconto.',
+    }).expect(201);
+    contractId = r.body.id;
+    hash = r.body.contentHash;
+    expect(r.body.number).toMatch(/^CMD-\d{4}-0001$/);
+    expect(r.body.status).toBe('draft');
+    expect(r.body.planName).toBe('Profissional CT');
+    expect(r.body.priceMonthly).toBe('179.90');
+    expect(r.body.signerEmail).toBe('financeiro@ct-a.test');
+    const titles = r.body.content.clauses.map((c: { title: string }) => c.title);
+    for (const t of [
+      'Proteção de dados pessoais (LGPD)',
+      'Nível de serviço (disponibilidade)',
+      'Foro',
+      'Condições especiais',
+      'Assinatura eletrônica',
+    ])
+      expect(titles).toContain(t);
+    expect(createHash('sha256').update(JSON.stringify(r.body.content)).digest('hex')).toBe(hash);
+    const pdf = await pget(`/contracts/${contractId}/pdf`)
+      .buffer(true)
+      .parse((res, cb) => {
+        const parts: Buffer[] = [];
+        res.on('data', (c: Buffer) => parts.push(c));
+        res.on('end', () => cb(null, Buffer.concat(parts)));
+      })
+      .expect(200)
+      .expect('Content-Type', 'application/pdf');
+    const doc = await PDFDocument.load(pdf.body as Buffer);
+    expect(doc.getPageCount()).toBeGreaterThanOrEqual(5);
+    expect(
+      createHash('sha256')
+        .update(pdf.body as Buffer)
+        .digest('hex'),
+    ).toBe(r.body.pdfSha256);
+  });
+
+  it('enviar sem webhook configurado avisa; com webhook manda o link e o PDF ao n8n', async () => {
+    const r = await psend('post', `/contracts/${contractId}/send`).expect(422);
+    expect(r.body.message).toMatch(/n8n/);
+    await psend('put', '/contracts/settings', {
+      ...settings,
+      webhookSecret: '',
+      webhookUrl: hookUrl,
+    }).expect(200);
+    const s = await psend('post', `/contracts/${contractId}/send`, {
+      message: 'Qualquer dúvida, me chame.',
+    }).expect(200);
+    expect(s.body.url).toMatch(/^http:\/\/admin\.comandou\.test\/assinar\/[A-Za-z0-9_-]{43}$/);
+    expect(s.body.contract.status).toBe('sent');
+    token = s.body.url.split('/').pop();
+    const call = received.at(-1)!;
+    expect(call.body.event).toBe('contract.send');
+    expect(call.headers['x-comandou-token']).toBe(WEBHOOK_SECRET);
+    expect(call.headers['x-comandou-signature']).toBe(
+      `sha256=${createHmac('sha256', WEBHOOK_SECRET).update(call.raw).digest('hex')}`,
+    );
+    expect(call.body.messages[0].to).toBe('financeiro@ct-a.test');
+    expect(call.body.messages[0].html).toContain(s.body.url);
+    expect(call.body.attachment.mimeType).toBe('application/pdf');
+    expect(Buffer.from(call.body.attachment.base64, 'base64').subarray(0, 4).toString()).toBe(
+      '%PDF',
+    );
+    // O token não fica no banco (só o hash).
+    const [row] = await ownerQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM tenant_contracts WHERE content LIKE $1`,
+      [`%${token}%`],
+    );
+    expect(row.n).toBe(0);
+  });
+
+  it('n8n fora do ar: o envio falha e o link anterior continua valendo', async () => {
+    hookStatus = 500;
+    const r = await psend('post', `/contracts/${contractId}/send`).expect(422);
+    expect(r.body.message).toMatch(/HTTP 500/);
+    hookStatus = 200;
+    await sget(token).expect(200);
+  });
+
+  it('link público: abre, mas só assina depois de ler até o fim', async () => {
+    await sget('token-que-nao-existe-0000000000000000').expect(404);
+    const o = await sget(token).expect(200);
+    expect(o.body.status).toBe('viewed');
+    expect(o.body.content.number).toBe(o.body.number);
+    const body = {
+      name: 'Maria Souza',
+      document: '529.982.247-25',
+      email: 'maria@ct-a.test',
+      accept: true,
+      contentHash: hash,
+      signature: { kind: 'drawn', image: PNG },
+    };
+    const early = await spost(token, body).expect(409);
+    expect(early.body.message).toMatch(/até o fim/);
+    await spost(`${token}/read`).expect(200);
+    await spost(token, { ...body, document: '111.111.111-11' }).expect(400);
+    await spost(token, { ...body, contentHash: '0'.repeat(64) }).expect(409);
+    const done = await spost(token, body).expect(200);
+    expect(done.body.status).toBe('signed');
+    expect(done.body.signerName).toBe('Maria Souza');
+    await spost(token, body).expect(409);
+  });
+
+  it('PDF assinado tem o manifesto, fica guardado e o aviso vai ao n8n', async () => {
+    const d = await pget(`/contracts/${contractId}`).expect(200);
+    expect(d.body.status).toBe('signed');
+    expect(d.body.signerDocument).toBe('529.982.247-25');
+    expect(d.body.notifiedAt).toBeTruthy();
+    expect(d.body.events.map((e: { kind: string }) => e.kind)).toEqual(
+      expect.arrayContaining(['created', 'sent', 'opened', 'read', 'signed', 'notified']),
+    );
+    const call = received.at(-1)!;
+    expect(call.body.event).toBe('contract.signed');
+    expect(call.body.messages.map((m: { to: string }) => m.to)).toEqual([
+      'david@comandou.test',
+      'maria@ct-a.test',
+    ]);
+    const signed = Buffer.from(call.body.attachment.base64, 'base64');
+    expect(createHash('sha256').update(signed).digest('hex')).toBe(d.body.signedPdfSha256);
+    const original = await PDFDocument.load(
+      (
+        await ownerQuery<{ pdf: Buffer }>(`SELECT pdf FROM tenant_contracts WHERE id = $1`, [
+          contractId,
+        ])
+      )[0].pdf,
+    );
+    const doc = await PDFDocument.load(signed);
+    expect(doc.getPageCount()).toBe(original.getPageCount() + 1);
+    // O cliente baixa a via dele pelo mesmo link.
+    await sget(`${token}/pdf?signed=1`).expect(200).expect('Content-Type', 'application/pdf');
+  });
+
+  it('contrato assinado não muda nem é cancelado', async () => {
+    await psend('post', `/contracts/${contractId}/cancel`, { reason: 'teste' }).expect(409);
+    await psend('post', `/contracts/${contractId}/link`).expect(409);
+    await expect(
+      ownerQuery(`UPDATE tenant_contracts SET signer_name = 'Outro' WHERE id = $1`, [contractId]),
+    ).rejects.toThrow(/não pode ser alterado/);
+  });
+
+  it('cancelar um contrato pendente derruba o link', async () => {
+    const c = await psend('post', `/tenants/${fx.tenantA}/contracts`, {}).expect(201);
+    expect(c.body.number).toMatch(/-0002$/);
+    const l = await psend('post', `/contracts/${c.body.id}/link`).expect(200);
+    const t = l.body.url.split('/').pop();
+    await sget(t).expect(200);
+    await psend('post', `/contracts/${c.body.id}/cancel`, { reason: 'valores errados' }).expect(
+      200,
+    );
+    await sget(t).expect(404);
+    const list = await pget(`/tenants/${fx.tenantA}/contracts`).expect(200);
+    expect(list.body.map((x: { status: string }) => x.status)).toEqual(['cancelled', 'signed']);
+  });
+
+  it('link público só existe em admin.<base>', async () => {
+    await http.get(`/api/v1/platform/sign/${token}`).set('Host', 'ct-a.comandou.test').expect(404);
+  });
+});
