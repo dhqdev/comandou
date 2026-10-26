@@ -340,6 +340,10 @@ export interface Delivery {
   lastLat: string | null;
   lastLng: string | null;
   lastLocationAt: string | null;
+  /** Rumo em graus (0 = norte), velocidade em m/s e precisão em metros da última posição. */
+  lastHeading: number | null;
+  lastSpeed: number | null;
+  lastAccuracy: number | null;
   paymentHint: string | null;
   changeFor: string | null;
   deliveryLat: string | null;

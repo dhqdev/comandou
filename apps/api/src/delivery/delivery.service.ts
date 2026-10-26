@@ -19,6 +19,54 @@ export const TRACKING_TTL_HOURS = 4;
 
 const trackingHash = (token: string) => createHash('sha256').update(token).digest();
 
+/** Posição enviada pelo celular do entregador. Velocidade em m/s, rumo em graus, precisão em m. */
+export interface CourierFix {
+  lat: number;
+  lng: number;
+  accuracy?: number | null;
+  speed?: number | null;
+  heading?: number | null;
+}
+
+/** Pontos com precisão pior que isso atualizam a posição, mas não entram no trajeto. */
+const TRAIL_MAX_ACCURACY_M = 150;
+/** Quantos pontos do trajeto vão para o mapa (os mais recentes). */
+const TRAIL_LIMIT = 400;
+
+type Point = [number, number];
+
+/** Trajeto de uma ou mais corridas, do mais antigo para o mais novo. */
+async function trailsOf(tx: Tx, ids: string[]): Promise<Record<string, Point[]>> {
+  if (!ids.length) return {};
+  const rows = await q<{ delivery_id: string; lat: string; lng: string }>(
+    tx,
+    `SELECT delivery_id, lat::text, lng::text FROM (
+       SELECT delivery_id, lat, lng, recorded_at,
+              row_number() OVER (PARTITION BY delivery_id ORDER BY recorded_at DESC) AS n
+         FROM delivery_positions WHERE delivery_id = ANY($1::uuid[])) x
+      WHERE n <= $2 ORDER BY recorded_at`,
+    [ids, TRAIL_LIMIT],
+  );
+  const out: Record<string, Point[]> = Object.fromEntries(ids.map((id) => [id, []]));
+  for (const r of rows) out[r.delivery_id]!.push([Number(r.lat), Number(r.lng)]);
+  return out;
+}
+
+/** Ponto da loja no mapa (cadastrado em Entregas → Área de entrega). */
+export async function storePoint(tx: Tx): Promise<{ lat: number; lng: number } | null> {
+  const s = await one<{ lat: string | null; lng: string | null }>(
+    tx,
+    `SELECT store_lat::text AS lat, store_lng::text AS lng FROM tenant_store_settings`,
+  );
+  return s?.lat && s.lng ? { lat: Number(s.lat), lng: Number(s.lng) } : null;
+}
+
+/** Trajeto e loja para o mapa do cliente (pedido ou link de rastreio). */
+export async function customerMapOf(tx: Tx, deliveryId: string) {
+  const [store, trails] = await Promise.all([storePoint(tx), trailsOf(tx, [deliveryId])]);
+  return { store, trail: trails[deliveryId] ?? [] };
+}
+
 export const DELIVERY_SELECT = `
   SELECT d.id, d.status, d.order_id AS "orderId", o.number AS "orderNumber", o.status AS "orderStatus",
          o.customer_name AS "customerName", o.customer_phone AS "customerPhone",
@@ -28,6 +76,7 @@ export const DELIVERY_SELECT = `
          d.courier_id AS "courierId", c.name AS "courierName",
          d.dispatched_at AS "dispatchedAt", d.finished_at AS "finishedAt", d.failure_reason AS "failureReason",
          d.last_lat::text AS "lastLat", d.last_lng::text AS "lastLng", d.last_location_at AS "lastLocationAt",
+         d.last_heading AS "lastHeading", d.last_speed::float AS "lastSpeed", d.last_accuracy AS "lastAccuracy",
          d.tracking_expires_at AS "trackingExpiresAt"
     FROM deliveries d
     JOIN orders o ON o.id = d.order_id
@@ -159,8 +208,8 @@ export class DeliveryService {
     return res;
   }
 
-  async location(ctx: Ctx, id: string, lat: number, lng: number, viaLink?: string) {
-    await this.db.withTenant(ctx, async (tx) => {
+  async location(ctx: Ctx, id: string, fix: CourierFix, viaLink?: string) {
+    const at = await this.db.withTenant(ctx, async (tx) => {
       const d = await one<{ status: string; courier_user: string | null; courier_id: string }>(
         tx,
         `SELECT d.status, c.user_id AS courier_user, d.courier_id FROM deliveries d JOIN couriers c ON c.id = d.courier_id WHERE d.id = $1`,
@@ -170,14 +219,59 @@ export class DeliveryService {
       if (viaLink ? d.courier_id !== viaLink : d.courier_user !== ctx.userId)
         throw new ForbiddenException('Só o entregador da corrida envia a localização');
       if (d.status !== 'out') throw new ConflictException('Esta entrega já foi encerrada');
-      await q(
+      const lat = fix.lat.toFixed(6);
+      const lng = fix.lng.toFixed(6);
+      const accuracy = fix.accuracy == null ? null : Math.round(fix.accuracy);
+      const speed = fix.speed == null ? null : fix.speed.toFixed(2);
+      const heading = fix.heading == null ? null : Math.round(fix.heading) % 360;
+      const r = await one<{ at: Date }>(
         tx,
-        `UPDATE deliveries SET last_lat = $2, last_lng = $3, last_location_at = now() WHERE id = $1`,
-        [id, lat.toFixed(6), lng.toFixed(6)],
+        `UPDATE deliveries SET last_lat = $2, last_lng = $3, last_location_at = now(),
+                last_accuracy = $4, last_speed = $5, last_heading = COALESCE($6, last_heading)
+          WHERE id = $1 RETURNING last_location_at AS at`,
+        [id, lat, lng, accuracy, speed, heading],
       );
+      if (accuracy == null || accuracy <= TRAIL_MAX_ACCURACY_M)
+        await q(
+          tx,
+          `INSERT INTO delivery_positions (tenant_id, delivery_id, lat, lng, accuracy, speed, heading)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+          [ctx.tenantId, id, lat, lng, accuracy, speed, heading],
+        );
+      return r!.at;
     });
-    this.realtime.publish(ctx.tenantId, { type: 'delivery.changed', deliveryId: id });
-    return { ok: true };
+    // A posição vai junto no aviso: o mapa do painel move a moto sem recarregar a tela.
+    this.realtime.publish(ctx.tenantId, {
+      type: 'delivery.location',
+      deliveryId: id,
+      lat: Number(fix.lat.toFixed(6)),
+      lng: Number(fix.lng.toFixed(6)),
+      heading: fix.heading == null ? null : Math.round(fix.heading) % 360,
+      speed: fix.speed ?? null,
+      at: at.toISOString(),
+    });
+    return { ok: true, at };
+  }
+
+  /** Mapa ao vivo do painel: ponto da loja e o trajeto de cada corrida pedida. */
+  liveMap(ctx: Ctx, ids: string[]) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const mine = !this.canManage(ctx);
+      const allowed = await q<{ id: string }>(
+        tx,
+        `SELECT d.id FROM deliveries d JOIN couriers c ON c.id = d.courier_id
+          WHERE d.id = ANY($1::uuid[]) AND (NOT $2 OR c.user_id = $3)`,
+        [ids, mine, ctx.userId],
+      );
+      const [store, trails] = await Promise.all([
+        storePoint(tx),
+        trailsOf(
+          tx,
+          allowed.map((a) => a.id),
+        ),
+      ]);
+      return { store, trails };
+    });
   }
 
   /** Gera um novo link de rastreio (o anterior deixa de funcionar). */
@@ -290,12 +384,14 @@ export class DeliveryService {
         [courier.id],
       ),
     );
-    return { restaurant: tenantName, courier: { name: courier.name }, deliveries };
+    const store = await this.db.withTenant({ tenantId }, (tx) => storePoint(tx));
+    return { restaurant: tenantName, courier: { name: courier.name }, deliveries, store };
   }
 
   /**
    * Consulta pública do link de rastreio. Mostra o mínimo: número e situação do pedido, primeiro
-   * nome do entregador e a última localização (só enquanto está na rua). Nunca endereço ou telefone.
+   * nome do entregador, a última localização e o trajeto (só enquanto está na rua) e o destino
+   * arredondado. Nunca endereço ou telefone.
    */
   async publicTrack(tenantId: string, tenantName: string, token: string) {
     if (!/^[A-Za-z0-9_-]{20,64}$/.test(token))
@@ -311,11 +407,19 @@ export class DeliveryService {
         lat: string | null;
         lng: string | null;
         location_at: Date | null;
+        heading: number | null;
+        speed: number | null;
+        accuracy: number | null;
+        dest_lat: string | null;
+        dest_lng: string | null;
+        id: string;
       }>(
         tx,
-        `SELECT d.status, d.tracking_expires_at < now() AS expired, o.number AS order_number,
+        `SELECT d.id, d.status, d.tracking_expires_at < now() AS expired, o.number AS order_number,
                 split_part(c.name, ' ', 1) AS courier, d.dispatched_at, d.finished_at,
-                d.last_lat::text AS lat, d.last_lng::text AS lng, d.last_location_at AS location_at
+                d.last_lat::text AS lat, d.last_lng::text AS lng, d.last_location_at AS location_at,
+                d.last_heading AS heading, d.last_speed::float AS speed, d.last_accuracy AS accuracy,
+                round(o.delivery_lat, 3)::text AS dest_lat, round(o.delivery_lng, 3)::text AS dest_lng
            FROM deliveries d JOIN orders o ON o.id = d.order_id JOIN couriers c ON c.id = d.courier_id
           WHERE d.tracking_hash = $1`,
         [trackingHash(token)],
@@ -324,6 +428,7 @@ export class DeliveryService {
     if (!d) throw new NotFoundException('Link de rastreio inválido');
     if (d.expired) throw new GoneException('Este link de rastreio expirou');
     const out = d.status === 'out';
+    const map = await this.db.withTenant({ tenantId }, (tx) => customerMapOf(tx, d.id));
     return {
       restaurant: tenantName,
       orderNumber: d.order_number,
@@ -331,7 +436,21 @@ export class DeliveryService {
       courier: d.courier,
       dispatchedAt: d.dispatched_at,
       finishedAt: d.finished_at,
-      location: out && d.lat && d.lng ? { lat: d.lat, lng: d.lng, at: d.location_at } : null,
+      location:
+        out && d.lat && d.lng
+          ? {
+              lat: d.lat,
+              lng: d.lng,
+              at: d.location_at,
+              heading: d.heading,
+              speed: d.speed,
+              accuracy: d.accuracy,
+            }
+          : null,
+      // Destino aproximado (~100 m): mostra "perto de você" sem expor o endereço exato.
+      destination: d.dest_lat && d.dest_lng ? { lat: d.dest_lat, lng: d.dest_lng } : null,
+      store: map.store,
+      trail: out ? map.trail : [],
     };
   }
 

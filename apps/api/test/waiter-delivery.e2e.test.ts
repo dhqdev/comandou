@@ -381,6 +381,38 @@ describe('Link do entregador (sem login)', () => {
     await pub
       .post(`/courier-app/${t1}/deliveries/${d1.id}/location`, { lat: -23.5, lng: -46.6 })
       .expect(201);
+    // Rastreio ao vivo: velocidade/rumo/precisão opcionais; ponto impreciso não entra no trajeto.
+    await pub
+      .post(`/courier-app/${t1}/deliveries/${d1.id}/location`, {
+        lat: -23.501,
+        lng: -46.601,
+        accuracy: 12,
+        speed: 8.5,
+        heading: 270,
+      })
+      .expect(201);
+    await pub
+      .post(`/courier-app/${t1}/deliveries/${d1.id}/location`, {
+        lat: -23.6,
+        lng: -46.7,
+        accuracy: 900,
+      })
+      .expect(201);
+    await pub
+      .post(`/courier-app/${t1}/deliveries/${d1.id}/location`, { lat: 0, lng: 0, heading: 400 })
+      .expect(400);
+    const live = (await get('adminA', `/deliveries/live-map?ids=${d1.id},${d2.id}`).expect(200))
+      .body;
+    expect(live.trails[d1.id]).toEqual([
+      [-23.5, -46.6],
+      [-23.501, -46.601],
+    ]);
+    expect(live.trails[d2.id]).toEqual([]);
+    const [row] = (await get('adminA', '/deliveries?scope=active').expect(200)).body.filter(
+      (x: { id: string }) => x.id === d1.id,
+    );
+    expect(row).toMatchObject({ lastLat: '-23.600000', lastHeading: 270, lastAccuracy: 900 });
+    await get('adminA', '/deliveries/live-map?ids=nao-e-uuid').expect(400);
     await pub.post(`/courier-app/${t1}/deliveries/${d1.id}/complete`, {}).expect(201);
     await pub.post(`/courier-app/${t1}/deliveries/${d1.id}/complete`, {}).expect(409);
     await pub

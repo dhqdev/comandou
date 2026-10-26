@@ -521,6 +521,8 @@ describe('Entregas e rastreio', () => {
     }).expect(201);
     const t2 = (await track(tk).expect(200)).body;
     expect(t2.location).toMatchObject({ lat: '-23.550520', lng: '-46.633308' });
+    expect(t2.trail).toEqual([[-23.55052, -46.633308]]);
+    expect(t2).not.toHaveProperty('address');
 
     // Entregador vê só as próprias entregas.
     const mine = (await get('driverA', '/deliveries').expect(200)).body as { id: string }[];
@@ -532,7 +534,7 @@ describe('Entregas e rastreio', () => {
     expect(done).toMatchObject({ status: 'delivered', orderStatus: 'completed' });
     await post('driverA', `/deliveries/${d.delivery.id}/complete`).expect(409);
     const t3 = (await track(tk).expect(200)).body;
-    expect(t3).toMatchObject({ status: 'delivered', location: null });
+    expect(t3).toMatchObject({ status: 'delivered', location: null, trail: [] });
 
     // Link encurtado após a entrega; depois de expirar, 410.
     await ownerQuery(

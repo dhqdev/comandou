@@ -14,6 +14,7 @@ import {
 } from '../design-system';
 import { useCan } from '../app/auth';
 import { FiscalSection } from './FiscalSection';
+import { OrderLiveMap } from './OrderLiveMap';
 import { api } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
@@ -150,6 +151,9 @@ export function OrderDetailModal({
                 .filter(Boolean)
                 .join(' · ')}
             </p>
+          )}
+          {order.channel === 'delivery' && order.status === 'dispatched' && canDispatch && (
+            <OrderLiveMap orderId={order.id} />
           )}
           {order.source === 'online' && order.paymentHint && (
             <p className="cm-hint" style={{ margin: 0 }}>

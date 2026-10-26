@@ -162,3 +162,20 @@
   flex: 1 1 260px;
   min-width: 0;
 }
+
+/* Mapa do entregador: ele, a loja e os destinos das corridas. */
+.driver__map {
+  height: min(42vh, 360px);
+}
+.run__dist {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-self: start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--cm-brand-50);
+  color: var(--cm-brand-800);
+  font-weight: 600;
+  font-size: var(--cm-text-sm);
+}

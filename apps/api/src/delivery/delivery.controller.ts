@@ -22,13 +22,21 @@ import { one, q } from '../common/sql';
 import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
-import { DeliveryService } from './delivery.service';
+import { CourierFix, DeliveryService } from './delivery.service';
 
 const Courier = z.object({
   name: z.string().trim().min(1).max(80),
   phone: z.string().trim().max(30).nullable().optional(),
   userId: uuid.nullable().optional(),
   active: z.boolean().optional(),
+});
+/** Posição do celular. Campos opcionais vêm do GPS quando o aparelho informa. */
+const Fix = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  accuracy: z.number().min(0).max(100_000).nullable().optional(),
+  speed: z.number().min(0).max(120).nullable().optional(),
+  heading: z.number().min(0).max(360).nullable().optional(),
 });
 const COURIER_COLS = `c.id, c.name, c.phone, c.user_id AS "userId", u.name AS "userName", c.active,
   c.access_created_at AS "linkCreatedAt"`;
@@ -139,6 +147,28 @@ export class DeliveryController {
     return this.delivery.list(ctxOf(t, u), f.scope);
   }
 
+  /** Mapa ao vivo: ponto da loja e trajeto das corridas pedidas (até 50 por vez). */
+  @Get('deliveries/live-map')
+  @RequirePermission('delivery:manage', 'delivery:operate')
+  liveMap(
+    @Query(
+      new ZodPipe(
+        z.object({
+          ids: z
+            .string()
+            .default('')
+            .transform((s) => s.split(',').filter(Boolean))
+            .pipe(z.array(uuid).max(50)),
+        }),
+      ),
+    )
+    f: { ids: string[] },
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.delivery.liveMap(ctxOf(t, u), f.ids);
+  }
+
   @Post('orders/:id/dispatch')
   @RequirePermission('delivery:manage')
   dispatch(
@@ -178,16 +208,12 @@ export class DeliveryController {
   @RequirePermission('delivery:operate')
   location(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body(
-      new ZodPipe(
-        z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }),
-      ),
-    )
-    b: { lat: number; lng: number },
+    @Body(new ZodPipe(Fix))
+    b: CourierFix,
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
   ) {
-    return this.delivery.location(ctxOf(t, u), id, b.lat, b.lng);
+    return this.delivery.location(ctxOf(t, u), id, b);
   }
 
   @Post('deliveries/:id/tracking-link')
@@ -265,16 +291,12 @@ export class DeliveryController {
   async courierLocation(
     @Param('token') token: string,
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body(
-      new ZodPipe(
-        z.object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) }),
-      ),
-    )
-    b: { lat: number; lng: number },
+    @Body(new ZodPipe(Fix))
+    b: CourierFix,
     @CurrentTenant() t: ResolvedTenant,
   ) {
     const { ctx, courier } = await this.delivery.courierCtx(t.id, token);
-    return this.delivery.location(ctx, id, b.lat, b.lng, courier.id);
+    return this.delivery.location(ctx, id, b, courier.id);
   }
 
   /** Rastreio público (cliente final). Sem sessão; o tenant vem do Host. */

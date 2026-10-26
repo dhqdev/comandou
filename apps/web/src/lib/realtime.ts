@@ -10,6 +10,15 @@ export type RealtimeEvent =
   | { type: 'store.changed' }
   | { type: 'stock.changed' }
   | { type: 'delivery.changed'; deliveryId: string }
+  | {
+      type: 'delivery.location';
+      deliveryId: string;
+      lat: number;
+      lng: number;
+      heading: number | null;
+      speed: number | null;
+      at: string;
+    }
   | { type: 'print.changed' }
   | { type: 'fiscal.changed'; documentId: string; orderId: string };
 

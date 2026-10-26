@@ -13,6 +13,7 @@ interface CourierHome {
   restaurant: string;
   courier: { name: string };
   deliveries: Delivery[];
+  store: { lat: number; lng: number } | null;
 }
 
 /**
@@ -75,11 +76,12 @@ export function CourierLinkPage() {
         {data && (
           <DriverPanel
             deliveries={data.deliveries}
+            store={data.store ? [data.store.lat, data.store.lng] : null}
             onChanged={load}
             actions={{
               complete: (id) => post(`/deliveries/${id}/complete`),
               fail: (id, reason) => post(`/deliveries/${id}/fail`, { reason }),
-              location: (id, lat, lng) => post(`/deliveries/${id}/location`, { lat, lng }),
+              location: (id, fix) => post(`/deliveries/${id}/location`, fix),
             }}
           />
         )}

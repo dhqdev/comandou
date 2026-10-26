@@ -13,6 +13,7 @@ import { DatabaseService, Tx } from '../database/database.service';
 import { OrdersService } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { ZonesService } from '../delivery/zones.service';
+import { customerMapOf } from '../delivery/delivery.service';
 
 export const mediaUrl = (id: string | null | undefined) => (id ? `/api/v1/media/${id}` : null);
 export const publicTokenHash = (token: string) => createHash('sha256').update(token).digest();
@@ -449,20 +450,32 @@ export class StoreService {
       [id],
     );
     const delivery = await one<{
+      id: string;
       courier: string;
       status: string;
       lat: string | null;
       lng: string | null;
       at: Date | null;
+      heading: number | null;
+      speed: number | null;
+      accuracy: number | null;
     }>(
       tx,
-      `SELECT split_part(c.name, ' ', 1) AS courier, d.status, d.last_lat::text AS lat,
-                d.last_lng::text AS lng, d.last_location_at AS at
+      `SELECT d.id, split_part(c.name, ' ', 1) AS courier, d.status, d.last_lat::text AS lat,
+                d.last_lng::text AS lng, d.last_location_at AS at, d.last_heading AS heading,
+                d.last_speed::float AS speed, d.last_accuracy AS accuracy
            FROM deliveries d JOIN couriers c ON c.id = d.courier_id
           WHERE d.order_id = $1 ORDER BY d.dispatched_at DESC LIMIT 1`,
       [id],
     );
     const s = await this.settingsIn(tx);
+    const dest = await one<{ lat: string | null; lng: string | null }>(
+      tx,
+      `SELECT delivery_lat::text AS lat, delivery_lng::text AS lng FROM orders WHERE id = $1`,
+      [id],
+    );
+    const onRoad = !!delivery && o!.status === 'dispatched' && delivery.status === 'out';
+    const map = onRoad ? await customerMapOf(tx, delivery.id) : null;
     const when = (st: string) => history.find((h) => h.to === st)?.at ?? null;
     return {
       restaurant: { name: tenantName, whatsapp: s.whatsapp, logoUrl: mediaUrl(s.logoImageId) },
@@ -486,8 +499,18 @@ export class StoreService {
               name: delivery.courier,
               location:
                 delivery.status === 'out' && delivery.lat && delivery.lng
-                  ? { lat: delivery.lat, lng: delivery.lng, at: delivery.at }
+                  ? {
+                      lat: delivery.lat,
+                      lng: delivery.lng,
+                      at: delivery.at,
+                      heading: delivery.heading,
+                      speed: delivery.speed,
+                      accuracy: delivery.accuracy,
+                    }
                   : null,
+              destination: dest?.lat && dest.lng ? { lat: dest.lat, lng: dest.lng } : null,
+              store: map?.store ?? null,
+              trail: map?.trail ?? [],
             }
           : null,
     };

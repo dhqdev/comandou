@@ -1,5 +1,17 @@
-import { Bike, Copy, Link2, MapPin, Truck } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import {
+  Bike,
+  CheckCircle2,
+  Copy,
+  Link2,
+  MapPin,
+  Navigation,
+  PackageCheck,
+  Route,
+  Timer,
+  Truck,
+  XCircle,
+} from 'lucide-react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -15,15 +27,26 @@ import {
 import { useCan } from '../app/auth';
 import { minutesSince, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE, time } from '../features/format';
 import { DeliveryAreas } from '../features/DeliveryAreas';
-import { DriverPanel } from '../features/DriverPanel';
+import { DriverPanel, routeUrl } from '../features/DriverPanel';
+import { LiveMap, RIDER_COLORS, type MapRider } from '../features/LiveMap';
+import {
+  agoLabel,
+  distanceM,
+  etaMinutes,
+  kmLabel,
+  signalOf,
+  toPoint,
+  type LatLng,
+} from '../features/live-geo';
 import { SelectField } from '../features/forms';
 import { SlideTabs } from '../features/SlideTabs';
 import { useLinkParam } from '../lib/deep-link';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
-import { useDebounced, useRealtime } from '../lib/realtime';
+import { type RealtimeEvent, useDebounced, useRealtime } from '../lib/realtime';
 import { useArrivalSound } from '../lib/sounds';
 import type { Courier, Delivery, Order } from '../lib/types';
+import './deliveries.css';
 
 const trackingUrl = (path: string) => `${window.location.origin}${path}`;
 
@@ -43,6 +66,8 @@ export function DeliveriesPage() {
   const [error, setError] = useState<string | null>(null);
   const [link, setLink] = useState<{ title: string; path: string } | null>(null);
   const [aba, setAba] = useState<Aba>('despacho');
+  const [focus, setFocus] = useState<string | null>(null);
+  const [route, setRoute] = useState<Delivery | null>(null);
   useLinkParam('aba', (a) => setAba(a as Aba));
 
   const load = useCallback(async () => {
@@ -66,9 +91,12 @@ export function DeliveriesPage() {
     void load();
   }, [load]);
   const reload = useDebounced(load);
+  const live = useLiveTrails(out, setOut);
   useRealtime((e) => {
-    if (e.type === 'delivery.changed' || e.type === 'order.changed') reload();
+    if (e.type === 'delivery.location') live.onLocation(e);
+    else if (e.type === 'delivery.changed' || e.type === 'order.changed') reload();
   }, load);
+  useTick(5_000);
 
   // Sons: pedido pronto esperando entregador, entrega finalizada e, para o motoboy, nova corrida.
   useArrivalSound('delivery', canManage ? ready.map((o) => o.id) : null);
@@ -92,13 +120,14 @@ export function DeliveriesPage() {
         ) : (
           <DriverPanel
             deliveries={[...out, ...today]}
+            store={live.store}
             onChanged={load}
             actions={{
               complete: (id) => api(`/deliveries/${id}/complete`, { method: 'POST', json: {} }),
               fail: (id, reason) =>
                 api(`/deliveries/${id}/fail`, { method: 'POST', json: { reason } }),
-              location: (id, lat, lng) =>
-                api(`/deliveries/${id}/location`, { method: 'POST', json: { lat, lng } }),
+              location: (id, fix) =>
+                api(`/deliveries/${id}/location`, { method: 'POST', json: fix }),
             }}
           />
         )}
@@ -106,84 +135,173 @@ export function DeliveriesPage() {
     );
   }
 
+  const activeCouriers = couriers.filter((c) => c.active);
+  const colorOf = courierColors(couriers);
+  const delivered = today.filter((d) => d.status === 'delivered');
+  const avgMin = delivered.length
+    ? Math.round(
+        delivered.reduce(
+          (a, d) =>
+            a +
+            (new Date(d.finishedAt ?? d.dispatchedAt).getTime() -
+              new Date(d.dispatchedAt).getTime()),
+          0,
+        ) /
+          delivered.length /
+          60_000,
+      )
+    : null;
+  const riders: MapRider[] = (out ?? []).map((d) => ({
+    id: d.id,
+    label: `#${d.orderNumber}`,
+    title: `${d.courierName} · pedido #${d.orderNumber}`,
+    position: toPoint(d.lastLat, d.lastLng),
+    heading: d.lastHeading,
+    at: d.lastLocationAt,
+    trail: live.trails[d.id] ?? [],
+    destination: toPoint(d.deliveryLat, d.deliveryLng),
+    color: colorOf(d.courierId),
+  }));
+
   return (
     <>
       <div>
         <h1 className="page-title">Entregas</h1>
         <p className="page-sub">
-          Despache pedidos prontos, acompanhe quem está na rua, mande o link para o entregador e
-          desenhe as áreas de entrega no mapa.
+          Despache os pedidos prontos e acompanhe cada entregador no mapa, ao vivo, até a porta do
+          cliente.
         </p>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
+      <div className="dl-kpis">
+        <Kpi
+          icon={<PackageCheck size={18} />}
+          label="Prontos para sair"
+          value={ready.length}
+          tone="warning"
+        />
+        <Kpi icon={<Bike size={18} />} label="Na rua agora" value={out?.length ?? 0} tone="brand" />
+        <Kpi
+          icon={<CheckCircle2 size={18} />}
+          label="Entregues hoje"
+          value={delivered.length}
+          tone="success"
+        />
+        <Kpi
+          icon={<Timer size={18} />}
+          label="Tempo médio na rua"
+          value={avgMin === null ? '—' : `${avgMin} min`}
+          tone="info"
+        />
+      </div>
       <SlideTabs<Aba>
         label="Seções de entregas"
         value={aba}
         onChange={setAba}
         tabs={[
-          { value: 'despacho', label: 'Despacho', count: ready.length + (out?.length ?? 0) },
-          {
-            value: 'entregadores',
-            label: 'Entregadores',
-            count: couriers.filter((c) => c.active).length,
-          },
+          { value: 'despacho', label: 'Ao vivo', count: ready.length + (out?.length ?? 0) },
+          { value: 'entregadores', label: 'Entregadores', count: activeCouriers.length },
           { value: 'area', label: 'Área de entrega' },
           { value: 'hoje', label: 'Hoje', count: today.length },
         ]}
       />
       {aba === 'despacho' && (
-        <>
-          <Card title={`Prontos para sair (${ready.length})`}>
-            {ready.length === 0 ? (
-              <EmptyState
-                icon={<Truck size={20} />}
-                title="Nenhum pedido de delivery pronto"
-                description="Quando a cozinha marcar um delivery como pronto, ele aparece aqui."
-              />
-            ) : couriers.filter((c) => c.active).length === 0 ? (
-              <EmptyState
-                icon={<Bike size={20} />}
-                title="Cadastre um entregador"
-                description="Na aba Entregadores, cadastre quem faz as entregas para despachar."
-              />
-            ) : (
-              <ul className="plain-list">
-                {ready.map((o) => (
-                  <DispatchRow
-                    key={o.id}
-                    order={o}
-                    couriers={couriers.filter((c) => c.active)}
-                    onDone={(path) => {
-                      setLink({ title: `Pedido #${o.number} saiu para entrega`, path });
-                      void load();
-                    }}
-                  />
-                ))}
-              </ul>
-            )}
-          </Card>
-          <Card title={`Na rua (${out?.length ?? 0})`}>
-            {out === null ? (
-              <Spinner />
-            ) : out.length === 0 ? (
-              <EmptyState icon={<Bike size={20} />} title="Nenhuma entrega em andamento" />
-            ) : (
-              <div className="order-grid">
-                {out.map((d) => (
-                  <DeliveryCard
-                    key={d.id}
-                    d={d}
-                    canManage={canManage}
-                    onLink={(path) =>
-                      setLink({ title: `Novo link do pedido #${d.orderNumber}`, path })
-                    }
-                    onChanged={load}
-                  />
-                ))}
+        <div className="dl-live">
+          <section className="dl-live__map">
+            <LiveMap
+              riders={riders}
+              store={live.store}
+              focusId={focus}
+              onSelect={(id) => {
+                setFocus((f) => (f === id ? null : id));
+                document
+                  .querySelector(`[data-delivery="${id}"]`)
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              }}
+              emptyHint={
+                out?.length
+                  ? 'Esperando o GPS do entregador. A posição aparece assim que ele ligar a localização no painel dele.'
+                  : 'Nenhum entregador na rua agora.'
+              }
+            />
+            {(out?.length ?? 0) > 0 && (
+              <div className="dl-legend" aria-label="Entregadores na rua">
+                {[...new Set((out ?? []).map((d) => d.courierId))].map((cid) => {
+                  const d = out!.find((x) => x.courierId === cid)!;
+                  return (
+                    <span key={cid} style={{ ['--rider' as string]: colorOf(cid) }}>
+                      {d.courierName.split(' ')[0]}
+                    </span>
+                  );
+                })}
               </div>
             )}
-          </Card>
-        </>
+          </section>
+          <div className="dl-live__side">
+            <section className="dl-panel">
+              <header className="dl-panel__head">
+                <h2>
+                  <PackageCheck size={18} /> Prontos para sair
+                </h2>
+                <Badge tone={ready.length ? 'warning' : 'neutral'}>{ready.length}</Badge>
+              </header>
+              {ready.length === 0 ? (
+                <p className="dl-panel__empty">
+                  Quando a cozinha marcar um delivery como pronto, ele aparece aqui.
+                </p>
+              ) : activeCouriers.length === 0 ? (
+                <EmptyState
+                  icon={<Bike size={20} />}
+                  title="Cadastre um entregador"
+                  description="Na aba Entregadores, cadastre quem faz as entregas para despachar."
+                />
+              ) : (
+                <ul className="dl-ready">
+                  {ready.map((o) => (
+                    <DispatchRow
+                      key={o.id}
+                      order={o}
+                      couriers={activeCouriers}
+                      onDone={(path) => {
+                        setLink({ title: `Pedido #${o.number} saiu para entrega`, path });
+                        void load();
+                      }}
+                    />
+                  ))}
+                </ul>
+              )}
+            </section>
+            <section className="dl-panel">
+              <header className="dl-panel__head">
+                <h2>
+                  <Bike size={18} /> Na rua
+                </h2>
+                <Badge tone={out?.length ? 'brand' : 'neutral'}>{out?.length ?? 0}</Badge>
+              </header>
+              {out === null ? (
+                <Spinner />
+              ) : out.length === 0 ? (
+                <p className="dl-panel__empty">Nenhuma entrega em andamento.</p>
+              ) : (
+                <div className="dl-runs">
+                  {out.map((d) => (
+                    <DeliveryCard
+                      key={d.id}
+                      d={d}
+                      color={colorOf(d.courierId)}
+                      selected={focus === d.id}
+                      onSelect={() => setFocus((f) => (f === d.id ? null : d.id))}
+                      onLink={(path) =>
+                        setLink({ title: `Novo link do pedido #${d.orderNumber}`, path })
+                      }
+                      onChanged={load}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        </div>
       )}
       {aba === 'hoje' && (
         <Card title="Encerradas hoje" bodyless>
@@ -197,7 +315,9 @@ export function DeliveriesPage() {
                     <th>Pedido</th>
                     <th>Entregador</th>
                     <th>Saída</th>
+                    <th>Tempo</th>
                     <th>Resultado</th>
+                    <th aria-label="Trajeto" />
                   </tr>
                 </thead>
                 <tbody>
@@ -209,6 +329,11 @@ export function DeliveriesPage() {
                       <td>{d.courierName}</td>
                       <td>{time(d.dispatchedAt)}</td>
                       <td>
+                        {d.finishedAt
+                          ? `${Math.max(1, Math.round((new Date(d.finishedAt).getTime() - new Date(d.dispatchedAt).getTime()) / 60_000))} min`
+                          : '—'}
+                      </td>
+                      <td>
                         {d.status === 'delivered' ? (
                           <Badge tone="success">
                             Entregue {d.finishedAt && time(d.finishedAt)}
@@ -216,6 +341,16 @@ export function DeliveriesPage() {
                         ) : (
                           <Badge tone="danger">Não entregue: {d.failureReason}</Badge>
                         )}
+                      </td>
+                      <td>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          icon={<Route size={14} />}
+                          onClick={() => setRoute(d)}
+                        >
+                          Trajeto
+                        </Button>
                       </td>
                     </tr>
                   ))}
@@ -226,13 +361,151 @@ export function DeliveriesPage() {
         </Card>
       )}
       {aba === 'entregadores' && (
-        <CouriersCard couriers={couriers} out={out ?? []} onChanged={load} />
+        <CouriersCard couriers={couriers} out={out ?? []} colorOf={colorOf} onChanged={load} />
       )}
       {aba === 'area' && <DeliveryAreas canEdit={canSetup} />}
       <Modal open={!!link} title={link?.title ?? ''} onClose={() => setLink(null)}>
         {link && <TrackingLink path={link.path} />}
       </Modal>
+      <Modal
+        open={!!route}
+        size="lg"
+        title={route ? `Trajeto do pedido #${route.orderNumber}` : ''}
+        onClose={() => setRoute(null)}
+      >
+        {route && <RouteReplay d={route} color={colorOf(route.courierId)} />}
+      </Modal>
     </>
+  );
+}
+
+function Kpi({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: ReactNode;
+  tone: 'brand' | 'success' | 'warning' | 'info';
+}) {
+  return (
+    <div className="dl-kpi" data-tone={tone}>
+      <span className="dl-kpi__icon">{icon}</span>
+      <span className="dl-kpi__label">{label}</span>
+      <strong className="dl-kpi__value">{value}</strong>
+    </div>
+  );
+}
+
+/** Cor fixa por entregador (pela ordem do cadastro), a mesma no mapa, na lista e na legenda. */
+function courierColors(couriers: Courier[]) {
+  const ids = [...couriers].sort((a, b) => a.id.localeCompare(b.id)).map((c) => c.id);
+  return (id: string) => {
+    const i = ids.indexOf(id);
+    return RIDER_COLORS[(i < 0 ? 0 : i) % RIDER_COLORS.length]!;
+  };
+}
+
+/** Rerender periódico para atualizar "há X s" e o sinal do GPS. */
+function useTick(ms: number) {
+  const [, set] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => set((n) => n + 1), ms);
+    return () => window.clearInterval(id);
+  }, [ms]);
+}
+
+/**
+ * Trajeto das corridas na rua. Busca o caminho quando a lista muda e, a cada posição nova que
+ * chega pelo tempo real, move a moto e estica o caminho sem recarregar a tela.
+ */
+function useLiveTrails(
+  out: Delivery[] | null,
+  setOut: (fn: (o: Delivery[] | null) => Delivery[] | null) => void,
+) {
+  const [trails, setTrails] = useState<Record<string, LatLng[]>>({});
+  const [store, setStore] = useState<LatLng | null>(null);
+  const ids = (out ?? []).map((d) => d.id).join(',');
+  useEffect(() => {
+    let stop = false;
+    void api<{ store: { lat: number; lng: number } | null; trails: Record<string, LatLng[]> }>(
+      `/deliveries/live-map?ids=${ids}`,
+    )
+      .then((r) => {
+        if (stop) return;
+        setStore(r.store ? [r.store.lat, r.store.lng] : null);
+        setTrails(r.trails);
+      })
+      .catch(() => undefined);
+    return () => {
+      stop = true;
+    };
+  }, [ids]);
+  function onLocation(e: Extract<RealtimeEvent, { type: 'delivery.location' }>) {
+    setOut((list) =>
+      list
+        ? list.map((d) =>
+            d.id === e.deliveryId
+              ? {
+                  ...d,
+                  lastLat: String(e.lat),
+                  lastLng: String(e.lng),
+                  lastHeading: e.heading ?? d.lastHeading,
+                  lastSpeed: e.speed,
+                  lastLocationAt: e.at,
+                }
+              : d,
+          )
+        : list,
+    );
+    setTrails((t) => ({ ...t, [e.deliveryId]: [...(t[e.deliveryId] ?? []), [e.lat, e.lng]] }));
+  }
+  return { trails, store, onLocation };
+}
+
+/** Caminho que o entregador fez numa corrida já encerrada. */
+function RouteReplay({ d, color }: { d: Delivery; color: string }) {
+  const [data, setData] = useState<{ store: LatLng | null; trail: LatLng[] } | null>(null);
+  useEffect(() => {
+    void api<{ store: { lat: number; lng: number } | null; trails: Record<string, LatLng[]> }>(
+      `/deliveries/live-map?ids=${d.id}`,
+    )
+      .then((r) =>
+        setData({
+          store: r.store ? [r.store.lat, r.store.lng] : null,
+          trail: r.trails[d.id] ?? [],
+        }),
+      )
+      .catch(() => setData({ store: null, trail: [] }));
+  }, [d.id]);
+  if (!data) return <Spinner />;
+  const last = data.trail.at(-1) ?? toPoint(d.lastLat, d.lastLng);
+  return (
+    <div className="dl-replay">
+      <LiveMap
+        className="dl-replay__map"
+        store={data.store}
+        riders={[
+          {
+            id: d.id,
+            label: `#${d.orderNumber}`,
+            title: d.courierName,
+            position: last,
+            trail: data.trail.slice(0, -1),
+            destination: toPoint(d.deliveryLat, d.deliveryLng),
+            color,
+          },
+        ]}
+        emptyHint="Esta corrida não tem posições registradas (o entregador não ligou a localização)."
+      />
+      <p className="cm-hint">
+        {d.courierName} saiu às {time(d.dispatchedAt)}
+        {d.finishedAt && ` e encerrou às ${time(d.finishedAt)}`} · {data.trail.length} pontos de GPS
+        registrados.
+      </p>
+    </div>
   );
 }
 
@@ -298,29 +571,32 @@ function DispatchRow({
     }
   }
   return (
-    <li style={{ flexWrap: 'wrap', gap: 8 }}>
-      <div style={{ flex: '1 1 220px' }}>
-        <strong>#{order.number}</strong> {order.customerName}
-        <div className="cm-hint">{order.deliveryAddress}</div>
+    <li className="dl-ready__row">
+      <div className="dl-ready__info">
+        <span className="dl-ready__top">
+          <strong>#{order.number}</strong> {order.customerName}
+          <span className="dl-ready__wait">pedido há {minutesSince(order.createdAt)} min</span>
+        </span>
+        <span className="cm-hint">{order.deliveryAddress}</span>
         <Badge tone={PAYMENT_STATUS_TONE[order.paymentStatus]}>
           {PAYMENT_STATUS_LABEL[order.paymentStatus]} · {brl(order.total)}
         </Badge>
       </div>
-      <div className="actions-row" style={{ alignItems: 'end' }}>
+      <div className="dl-ready__go">
         <Select
           className="cm-input"
           aria-label={`Entregador do pedido ${order.number}`}
           value={courierId}
           onChange={(e) => setCourierId(e.target.value)}
         >
-          <option value="">Entregador…</option>
+          <option value="">Escolha o entregador…</option>
           {couriers.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
             </option>
           ))}
         </Select>
-        <Button loading={busy} disabled={!courierId} onClick={go}>
+        <Button loading={busy} disabled={!courierId} icon={<Bike size={16} />} onClick={go}>
           Saiu para entrega
         </Button>
       </div>
@@ -330,20 +606,28 @@ function DispatchRow({
 
 function DeliveryCard({
   d,
-  canManage,
+  color,
+  selected,
+  onSelect,
   onLink,
   onChanged,
 }: {
   d: Delivery;
-  canManage: boolean;
+  color: string;
+  selected: boolean;
+  onSelect(): void;
   onLink(path: string): void;
   onChanged(): void;
 }) {
   const toast = useToast();
-  const isDriver = useCan('delivery:operate');
   const [busy, setBusy] = useState(false);
   const [failing, setFailing] = useState(false);
   const [reason, setReason] = useState('');
+  const pos = toPoint(d.lastLat, d.lastLng);
+  const dest = toPoint(d.deliveryLat, d.deliveryLng);
+  const signal = signalOf(d.lastLocationAt);
+  const dist = pos && dest ? distanceM(pos, dest) : null;
+  const eta = pos && dest ? etaMinutes(pos, dest, d.lastSpeed) : null;
 
   async function call(url: string, json?: object, ok?: string) {
     setBusy(true);
@@ -361,49 +645,56 @@ function DeliveryCard({
     }
   }
 
-  function sendLocation() {
-    if (!navigator.geolocation) {
-      toast('Este aparelho não informa localização', 'danger');
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (p) =>
-        void call(
-          `/deliveries/${d.id}/location`,
-          { lat: p.coords.latitude, lng: p.coords.longitude },
-          'Localização enviada',
-        ),
-      () => toast('Permita o acesso à localização para enviar', 'danger'),
-      { enableHighAccuracy: true, timeout: 15_000 },
-    );
-  }
-
   return (
-    <article className="order-card">
-      <div className="order-card__top">
-        <strong>#{d.orderNumber}</strong>
-        <span className="order-card__time">{minutesSince(d.dispatchedAt)} min na rua</span>
-      </div>
-      <div>
-        {d.customerName ?? 'Cliente'}{' '}
-        {d.customerPhone && <span className="cm-hint">· {d.customerPhone}</span>}
-      </div>
-      <div className="cm-hint">{d.deliveryAddress}</div>
-      <div className="actions-row">
-        <Badge tone="brand">{d.courierName}</Badge>
+    <article
+      className="dl-run"
+      data-delivery={d.id}
+      data-selected={selected || undefined}
+      style={{ ['--rider' as string]: color }}
+    >
+      <button type="button" className="dl-run__main" onClick={onSelect} aria-pressed={selected}>
+        <span className="dl-run__top">
+          <strong className="dl-run__num">#{d.orderNumber}</strong>
+          <span className="dl-run__courier">
+            <span className="dl-run__dot" /> {d.courierName}
+          </span>
+          <span className="dl-run__time">{minutesSince(d.dispatchedAt)} min na rua</span>
+        </span>
+        <span className="dl-run__who">
+          {d.customerName ?? 'Cliente'}
+          {d.customerPhone && <span className="cm-hint"> · {d.customerPhone}</span>}
+        </span>
+        <span className="dl-run__addr">
+          <MapPin size={14} /> {d.deliveryAddress ?? 'Endereço não informado'}
+        </span>
+        <span className="dl-run__live" data-signal={signal}>
+          <span className="dl-run__signal" />
+          {signal === 'none'
+            ? 'Aguardando o GPS do entregador'
+            : signal === 'lost'
+              ? `Sem sinal ${agoLabel(d.lastLocationAt)}`
+              : `${signal === 'live' ? 'Ao vivo' : 'Atualizado'} ${agoLabel(d.lastLocationAt)}`}
+          {eta !== null && dist !== null && (
+            <strong className="dl-run__eta">
+              {eta === 0 ? 'Chegando' : `~${eta} min`} · {kmLabel(dist)}
+            </strong>
+          )}
+        </span>
+      </button>
+      <div className="dl-run__chips">
         <Badge tone={PAYMENT_STATUS_TONE[d.paymentStatus]}>
           {d.paymentStatus === 'paid' ? 'Pago' : `Cobrar ${brl(d.balance)}`}
         </Badge>
-        {d.lastLocationAt && (
-          <a
-            className="link-btn"
-            href={`https://www.openstreetmap.org/?mlat=${d.lastLat}&mlon=${d.lastLng}#map=17/${d.lastLat}/${d.lastLng}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <MapPin size={14} style={{ verticalAlign: -2 }} /> {time(d.lastLocationAt)}
-          </a>
-        )}
+        <a className="link-btn" href={routeUrl(d)} target="_blank" rel="noreferrer">
+          <Navigation size={13} style={{ verticalAlign: -2 }} /> rota
+        </a>
+        <button
+          type="button"
+          className="link-btn"
+          onClick={() => call(`/deliveries/${d.id}/tracking-link`)}
+        >
+          <Link2 size={13} style={{ verticalAlign: -2 }} /> link do cliente
+        </button>
       </div>
       {failing ? (
         <div className="inline-form">
@@ -413,7 +704,7 @@ function DeliveryCard({
             maxLength={300}
             onChange={(e) => setReason(e.target.value)}
           />
-          <div className="actions-row">
+          <div className="dl-run__actions">
             <Button variant="secondary" onClick={() => setFailing(false)}>
               Voltar
             </Button>
@@ -433,26 +724,18 @@ function DeliveryCard({
           </div>
         </div>
       ) : (
-        <div className="actions-row">
+        <div className="dl-run__actions">
+          <Button variant="secondary" icon={<XCircle size={16} />} onClick={() => setFailing(true)}>
+            Não entregue
+          </Button>
           <Button
+            variant="success"
+            icon={<CheckCircle2 size={16} />}
             loading={busy}
             onClick={() => call(`/deliveries/${d.id}/complete`, {}, 'Entrega concluída')}
           >
             Entregue
           </Button>
-          <Button variant="ghost" onClick={() => setFailing(true)}>
-            Não entregue
-          </Button>
-          {isDriver && !canManage && (
-            <Button variant="ghost" icon={<MapPin size={16} />} onClick={sendLocation}>
-              Enviar localização
-            </Button>
-          )}
-          {canManage && (
-            <Button variant="ghost" onClick={() => call(`/deliveries/${d.id}/tracking-link`)}>
-              Novo link
-            </Button>
-          )}
         </div>
       )}
     </article>
@@ -462,10 +745,12 @@ function DeliveryCard({
 function CouriersCard({
   couriers,
   out,
+  colorOf,
   onChanged,
 }: {
   couriers: Courier[];
   out: Delivery[];
+  colorOf(id: string): string;
   onChanged(): void;
 }) {
   const toast = useToast();
@@ -569,6 +854,11 @@ function CouriersCard({
             return (
               <li key={c.id} data-search-id={`entregador-${c.id}`}>
                 <span className="courier-list__who">
+                  <span
+                    className="courier-list__dot"
+                    style={{ ['--rider' as string]: colorOf(c.id) }}
+                    aria-hidden
+                  />
                   <strong>{c.name}</strong>{' '}
                   {c.phone && <span className="cm-hint">· {c.phone}</span>}{' '}
                   {running > 0 && <Badge tone="brand">{running} na rua</Badge>}{' '}

@@ -1,0 +1,169 @@
+/* Rastreio para o cliente: mapa com a barra de previsão de chegada embaixo. */
+.ctrack {
+  display: grid;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg, 16px);
+  overflow: hidden;
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-sm);
+}
+.ctrack__map.live-map {
+  height: 340px;
+  border: 0;
+  border-radius: 0;
+}
+.ctrack__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--cm-border);
+}
+.ctrack__icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand, #fff);
+}
+.ctrack__text {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.ctrack__text strong {
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+}
+.ctrack__text span {
+  color: var(--cm-text-muted);
+  font-size: 0.85rem;
+}
+.ctrack__bar[data-signal='lost'] .ctrack__text span {
+  color: var(--cm-danger);
+}
+.ctrack__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--cm-success-bg);
+  color: var(--cm-success);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ctrack__live::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: ctrack-blink 1.4s ease-in-out infinite;
+}
+@keyframes ctrack-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ctrack__live::before {
+    animation: none;
+  }
+}
+
+/* Página do link de rastreio (/rastreio): mapa ocupando a tela e o cartão por cima, embaixo. */
+.trk {
+  position: relative;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: var(--cm-bg, var(--cm-surface-muted));
+  color: var(--cm-text);
+}
+.trk__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
+  background: var(--cm-surface);
+  border-bottom: 1px solid var(--cm-border);
+}
+.trk__bar strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.trk__body {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px 16px calc(env(safe-area-inset-bottom) + 20px);
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+.trk__body .ctrack__map.live-map {
+  height: min(56dvh, 520px);
+}
+.trk__card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg, 16px);
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-sm);
+}
+.trk__card h1 {
+  margin: 0;
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
+}
+.trk__card p {
+  margin: 0;
+  color: var(--cm-text-muted);
+}
+.trk__hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.trk__hero > svg {
+  flex-shrink: 0;
+  color: var(--tone, var(--cm-brand-700));
+}
+.trk__steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trk__steps li {
+  display: grid;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--cm-text-muted);
+}
+.trk__steps li::before {
+  content: '';
+  height: 5px;
+  border-radius: 999px;
+  background: var(--cm-border);
+}
+.trk__steps li[data-on]::before {
+  background: var(--cm-brand-600);
+}
+.trk__steps li[data-on] {
+  color: var(--cm-text);
+  font-weight: 600;
+}

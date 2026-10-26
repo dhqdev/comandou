@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
+import { CustomerLiveMap, type CustomerCourier } from '../../features/CustomerTrack';
 import { time } from '../../features/format';
 import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
@@ -48,7 +49,7 @@ interface PublicOrder {
     notes: string | null;
     options: string[];
   }[];
-  courier: { name: string; location: { lat: string; lng: string; at: string } | null } | null;
+  courier: CustomerCourier | null;
 }
 
 const HERO: Record<
@@ -125,8 +126,8 @@ export function PublicOrderPage() {
 
   useEffect(() => {
     void load();
-    // Atualiza a cada 10 s e na hora em que o cliente volta para a aba.
-    const id = window.setInterval(() => document.visibilityState === 'visible' && load(), 10_000);
+    // Atualiza a cada 8 s e na hora em que o cliente volta para a aba.
+    const id = window.setInterval(() => document.visibilityState === 'visible' && load(), 8_000);
     const onVis = () => document.visibilityState === 'visible' && load();
     document.addEventListener('visibilitychange', onVis);
     return () => {
@@ -235,16 +236,7 @@ export function PublicOrderPage() {
           </section>
         )}
 
-        {o.courier?.location && (
-          <a
-            className="btn-line"
-            href={`https://www.openstreetmap.org/?mlat=${o.courier.location.lat}&mlon=${o.courier.location.lng}#map=16/${o.courier.location.lat}/${o.courier.location.lng}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <MapPin size={16} /> Ver onde está o entregador ({time(o.courier.location.at)})
-          </a>
-        )}
+        {o.step === 'dispatched' && o.courier && <CustomerLiveMap courier={o.courier} />}
 
         <section className="track__card">
           <h2>Resumo</h2>

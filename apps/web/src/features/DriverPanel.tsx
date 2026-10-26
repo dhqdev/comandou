@@ -15,12 +15,23 @@ import { Badge, Button, EmptyState, TextField, useToast } from '../design-system
 import { brl } from '../lib/money';
 import type { Delivery } from '../lib/types';
 import { minutesSince, PAYMENT_METHOD_LABELS, time } from './format';
+import { bearing, distanceM, kmLabel, toPoint, type LatLng } from './live-geo';
+import { LiveMap, type MapRider } from './LiveMap';
 import './driver-panel.css';
+
+/** Posição do GPS enviada ao restaurante (velocidade em m/s, rumo em graus, precisão em m). */
+export interface Fix {
+  lat: number;
+  lng: number;
+  accuracy: number | null;
+  speed: number | null;
+  heading: number | null;
+}
 
 export interface DriverActions {
   complete(id: string): Promise<unknown>;
   fail(id: string, reason: string): Promise<unknown>;
-  location(id: string, lat: number, lng: number): Promise<unknown>;
+  location(id: string, fix: Fix): Promise<unknown>;
 }
 
 const digits = (s: string | null) => (s ?? '').replace(/\D/g, '');
@@ -52,16 +63,45 @@ export function DriverPanel({
   deliveries,
   actions,
   onChanged,
+  store,
 }: {
   deliveries: Delivery[];
   actions: DriverActions;
   onChanged(): void;
+  store?: LatLng | null;
 }) {
   const out = deliveries.filter((d) => d.status === 'out');
   const done = deliveries.filter((d) => d.status !== 'out');
   const sharing = useShareLocation(out, actions);
+  const me = sharing.fix ? ([sharing.fix.lat, sharing.fix.lng] as LatLng) : null;
+  const riders: MapRider[] = [
+    {
+      id: 'me',
+      label: 'Você',
+      position: me,
+      heading: sharing.fix?.heading,
+      at: sharing.fix ? sharing.fixAt : null,
+    },
+    ...out.map((d) => ({
+      id: d.id,
+      label: `#${d.orderNumber}`,
+      title: `Pedido #${d.orderNumber}`,
+      position: null,
+      destination: toPoint(d.deliveryLat, d.deliveryLng),
+    })),
+  ];
   return (
     <div className="driver">
+      {out.length > 0 && (
+        <LiveMap
+          className="driver__map"
+          riders={riders}
+          store={store}
+          emptyHint={
+            sharing.on ? 'Procurando o seu GPS…' : 'Ligue a localização para ver você no mapa.'
+          }
+        />
+      )}
       <div className="driver__share" data-on={sharing.on || undefined}>
         <LocateFixed size={20} />
         <div>
@@ -69,9 +109,9 @@ export function DriverPanel({
           <span className="cm-hint">
             {sharing.on
               ? sharing.last
-                ? `Última enviada às ${time(sharing.last)}. O cliente acompanha pelo link.`
+                ? `Última enviada às ${time(sharing.last)}. O restaurante e o cliente veem você no mapa.`
                 : 'Enviando…'
-              : 'Ligue para o cliente acompanhar você no mapa.'}
+              : 'Ligue para o restaurante e o cliente acompanharem você no mapa.'}
           </span>
         </div>
         <Button
@@ -95,7 +135,7 @@ export function DriverPanel({
           description="Quando o restaurante despachar um pedido para você, ele aparece aqui."
         />
       ) : (
-        out.map((d) => <RunCard key={d.id} d={d} actions={actions} onChanged={onChanged} />)
+        out.map((d) => <RunCard key={d.id} d={d} me={me} actions={actions} onChanged={onChanged} />)
       )}
 
       {done.length > 0 && (
@@ -123,13 +163,17 @@ export function DriverPanel({
 
 function RunCard({
   d,
+  me,
   actions,
   onChanged,
 }: {
   d: Delivery;
+  me: LatLng | null;
   actions: DriverActions;
   onChanged(): void;
 }) {
+  const dest = toPoint(d.deliveryLat, d.deliveryLng);
+  const dist = me && dest ? distanceM(me, dest) : null;
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const [failing, setFailing] = useState(false);
@@ -157,6 +201,11 @@ function RunCard({
           saiu {time(d.dispatchedAt)} · {minutesSince(d.dispatchedAt)} min
         </span>
       </header>
+      {dist !== null && (
+        <div className="run__dist">
+          <Navigation size={15} /> {dist < 80 ? 'Você chegou' : `Faltam ${kmLabel(dist)}`}
+        </div>
+      )}
       <div className="run__who">
         <strong>{d.customerName ?? 'Cliente'}</strong>
         {d.customerPhone && <span className="cm-hint">{d.customerPhone}</span>}
@@ -256,9 +305,15 @@ function RunCard({
   );
 }
 
+/** Envia quando andou isso ou quando passou o intervalo máximo, o que vier primeiro. */
+const SEND_MIN_MS = 5_000;
+const SEND_MIN_M = 25;
+const SEND_MAX_MS = 20_000;
+
 /**
- * Envia a posição do celular a cada ~30 s para as corridas na rua, enquanto a tela estiver
- * aberta. Fica ligado entre visitas (lembrado no aparelho).
+ * Envia a posição do celular para as corridas na rua enquanto a tela estiver aberta: a cada
+ * ~25 m andados (no mínimo a cada 5 s) e, parado, a cada 20 s. Mantém a tela acesa enquanto
+ * está ligado (o navegador pausa o GPS com a tela apagada). Fica ligado entre visitas.
  */
 function useShareLocation(out: Delivery[], actions: DriverActions) {
   const KEY = 'cm-driver-share';
@@ -270,6 +325,8 @@ function useShareLocation(out: Delivery[], actions: DriverActions) {
     }
   });
   const [last, setLast] = useState<string | null>(null);
+  const [fix, setFix] = useState<Fix | null>(null);
+  const [fixAt, setFixAt] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ids = out.map((d) => d.id).join(',');
   const ref = useRef({ ids, actions });
@@ -281,24 +338,43 @@ function useShareLocation(out: Delivery[], actions: DriverActions) {
       setError('Este aparelho não informa a localização.');
       return;
     }
-    let lastSent = 0;
+    let sent: { at: number; p: LatLng } | null = null;
+    let prev: LatLng | null = null;
     const watch = navigator.geolocation.watchPosition(
-      (p) => {
-        if (Date.now() - lastSent < 30_000) return;
-        lastSent = Date.now();
+      (pos) => {
+        const c = pos.coords;
+        const p: LatLng = [c.latitude, c.longitude];
+        // Alguns aparelhos não dão o rumo: calcula pelo último ponto quando andou o bastante.
+        let heading = c.heading != null && !Number.isNaN(c.heading) ? c.heading : null;
+        if (heading == null && prev && distanceM(prev, p) > 15) heading = bearing(prev, p);
+        if (!prev || distanceM(prev, p) > 15) prev = p;
+        const f: Fix = {
+          lat: p[0],
+          lng: p[1],
+          accuracy: Number.isFinite(c.accuracy) ? c.accuracy : null,
+          speed: c.speed != null && !Number.isNaN(c.speed) ? Math.max(0, c.speed) : null,
+          heading,
+        };
+        setFix(f);
+        setFixAt(new Date().toISOString());
         setError(null);
+        const now = Date.now();
+        const moved = sent ? distanceM(sent.p, p) : Infinity;
+        const since = sent ? now - sent.at : Infinity;
+        if (since < SEND_MIN_MS || (moved < SEND_MIN_M && since < SEND_MAX_MS)) return;
+        sent = { at: now, p };
         const list = ref.current.ids.split(',').filter(Boolean);
-        void Promise.all(
-          list.map((id) => ref.current.actions.location(id, p.coords.latitude, p.coords.longitude)),
-        )
+        void Promise.all(list.map((id) => ref.current.actions.location(id, f)))
           .then(() => setLast(new Date().toISOString()))
           .catch(() => undefined);
       },
       () => setError('Permita o acesso à localização nas configurações do navegador.'),
-      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 30_000 },
+      { enableHighAccuracy: true, maximumAge: 5_000, timeout: 30_000 },
     );
     return () => navigator.geolocation.clearWatch(watch);
   }, [on, ids]);
+
+  useWakeLock(on && !!ids);
 
   const toggle = () =>
     setOn((v) => {
@@ -309,5 +385,36 @@ function useShareLocation(out: Delivery[], actions: DriverActions) {
       }
       return !v;
     });
-  return { on, last, error, toggle };
+  return { on, last, fix, fixAt, error, toggle };
+}
+
+/** Mantém a tela acesa enquanto o entregador compartilha a posição (quando o navegador deixa). */
+function useWakeLock(active: boolean) {
+  useEffect(() => {
+    const wl = (
+      navigator as Navigator & {
+        wakeLock?: { request(t: 'screen'): Promise<{ release(): Promise<void> }> };
+      }
+    ).wakeLock;
+    if (!active || !wl) return;
+    let lock: { release(): Promise<void> } | null = null;
+    let stop = false;
+    const grab = () => {
+      if (document.visibilityState !== 'visible') return;
+      void wl
+        .request('screen')
+        .then((l) => {
+          if (stop) void l.release();
+          else lock = l;
+        })
+        .catch(() => undefined);
+    };
+    grab();
+    document.addEventListener('visibilitychange', grab);
+    return () => {
+      stop = true;
+      document.removeEventListener('visibilitychange', grab);
+      void lock?.release().catch(() => undefined);
+    };
+  }, [active]);
 }
