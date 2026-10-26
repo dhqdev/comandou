@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.24.1',
+    date: '2026-10-26',
+    title: 'Sons de aviso voltam a tocar',
+    summary:
+      'O botão "Testar" e os avisos de pedido, cozinha e entrega agora tocam no computador, no celular e no iPhone.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Os sons passaram a tocar como mídia do navegador (funciona com o celular no silencioso e destrava no primeiro toque), com o Web Audio como reserva.',
+      },
+    ],
+  },
+  {
     version: '0.24.0',
     date: '2026-10-26',
     title: 'Cores e ícone da loja escolhidos pelo restaurante',

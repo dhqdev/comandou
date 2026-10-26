@@ -6,7 +6,14 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
  * e escolhe o volume; a escolha fica no aparelho (cada tablet da cozinha tem a sua).
  */
 export type SoundKind =
-  'order' | 'kitchen' | 'ready' | 'delivery' | 'courier' | 'delivered' | 'bill' | 'cancel';
+  | 'order'
+  | 'kitchen'
+  | 'ready'
+  | 'delivery'
+  | 'courier'
+  | 'delivered'
+  | 'bill'
+  | 'cancel';
 
 export const SOUND_INFO: { kind: SoundKind; label: string; hint: string }[] = [
   { kind: 'order', label: 'Novo pedido', hint: 'Pedido do cardápio online esperando aceite' },
@@ -72,42 +79,7 @@ export function useSoundSettings(): SoundSettings {
   );
 }
 
-/* ------------------------------------------------------------------ áudio */
-
-let ctx: AudioContext | null = null;
-
-function audio(): AudioContext | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    if (!ctx) {
-      const Ctx =
-        window.AudioContext ??
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (!Ctx) return null;
-      ctx = new Ctx();
-    }
-    if (ctx.state === 'suspended') void ctx.resume();
-    return ctx;
-  } catch {
-    return null;
-  }
-}
-
-// Navegadores só liberam áudio depois de um toque/tecla: o primeiro gesto destrava o contexto,
-// e a partir daí os avisos tocam sozinhos.
-if (typeof window !== 'undefined') {
-  const unlock = () => {
-    const c = audio();
-    if (c && c.state === 'running') {
-      window.removeEventListener('pointerdown', unlock);
-      window.removeEventListener('keydown', unlock);
-    }
-  };
-  window.addEventListener('pointerdown', unlock);
-  window.addEventListener('keydown', unlock);
-}
-
-interface Note {
+export interface Note {
   /** Início, em segundos, a partir do toque. */
   at: number;
   freq: number;
@@ -171,6 +143,225 @@ const PATTERNS: Record<SoundKind, Note[]> = {
   ],
 };
 
+/* ------------------------------------------------------------------ áudio */
+
+/*
+ * Como o som sai: cada toque é sintetizado aqui mesmo em um WAV (sem arquivos) e tocado por um
+ * elemento <audio>. Não usamos só Web Audio porque o iPhone cala o Web Audio com a chave de
+ * silencioso ligada, e o <audio> toca como mídia. Os navegadores só liberam som depois de um
+ * gesto: no primeiro toque/clique "abençoamos" alguns elementos tocando um silêncio, e depois
+ * eles tocam os avisos sozinhos. Se ainda assim o navegador recusar, cai no Web Audio.
+ */
+
+const RATE = 44100;
+const POOL_SIZE = 3;
+let pool: HTMLAudioElement[] = [];
+let poolNext = 0;
+let unlocked = false;
+let ctx: AudioContext | null = null;
+
+function makeAudio(): HTMLAudioElement | null {
+  try {
+    const el = new Audio();
+    el.preload = 'auto';
+    el.setAttribute('playsinline', '');
+    return el;
+  } catch {
+    return null;
+  }
+}
+
+function audioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    if (!ctx) {
+      const Ctx =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return null;
+      ctx = new Ctx();
+    }
+    if (ctx.state !== 'running') void ctx.resume().catch(() => undefined);
+    return ctx;
+  } catch {
+    return null;
+  }
+}
+
+/** Codifica amostras (-1..1) como WAV PCM 16 bits mono. */
+function toWav(samples: Float32Array): Blob {
+  const buf = new ArrayBuffer(44 + samples.length * 2);
+  const v = new DataView(buf);
+  const str = (o: number, t: string) => {
+    for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i));
+  };
+  str(0, 'RIFF');
+  v.setUint32(4, 36 + samples.length * 2, true);
+  str(8, 'WAVE');
+  str(12, 'fmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, RATE, true);
+  v.setUint32(28, RATE * 2, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  str(36, 'data');
+  v.setUint32(40, samples.length * 2, true);
+  for (let i = 0; i < samples.length; i++) {
+    const x = Math.max(-1, Math.min(1, samples[i]));
+    v.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7fff, true);
+  }
+  return new Blob([buf], { type: 'audio/wav' });
+}
+
+/** Forma de onda com fase 0..1. */
+function wave(type: OscillatorType, phase: number): number {
+  switch (type) {
+    case 'square':
+      return phase < 0.5 ? 1 : -1;
+    case 'triangle':
+      return phase < 0.5 ? 4 * phase - 1 : 3 - 4 * phase;
+    case 'sawtooth':
+      return 2 * phase - 1;
+    default:
+      return Math.sin(2 * Math.PI * phase);
+  }
+}
+
+const ATTACK = 0.012;
+const FLOOR = 0.0001;
+
+/**
+ * Sintetiza o toque em amostras, com o mesmo desenho do Web Audio: ataque exponencial curto,
+ * queda exponencial até o fim da nota e glissando opcional.
+ */
+export function renderPattern(notes: Note[], volume: number): Float32Array {
+  const end = notes.reduce((m, n) => Math.max(m, n.at + n.dur), 0) + 0.05;
+  const out = new Float32Array(Math.ceil(end * RATE));
+  const master = Math.max(0.05, volume) * 0.6;
+  for (const n of notes) {
+    const peak = n.gain ?? 0.5;
+    const start = Math.floor(n.at * RATE);
+    const len = Math.floor(n.dur * RATE);
+    let phase = 0;
+    for (let i = 0; i < len && start + i < out.length; i++) {
+      const t = i / RATE;
+      const freq = n.to ? n.freq * Math.pow(n.to / n.freq, t / n.dur) : n.freq;
+      phase = (phase + freq / RATE) % 1;
+      const env =
+        t < ATTACK
+          ? FLOOR * Math.pow(peak / FLOOR, t / ATTACK)
+          : peak * Math.pow(FLOOR / peak, (t - ATTACK) / (n.dur - ATTACK));
+      out[start + i] += wave(n.type ?? 'sine', phase) * env * master;
+    }
+  }
+  return out;
+}
+
+const urls = new Map<string, string>();
+
+function soundUrl(kind: SoundKind, volume: number): string {
+  const key = `${kind}:${Math.round(volume * 100)}`;
+  let url = urls.get(key);
+  if (!url) {
+    url = URL.createObjectURL(toWav(renderPattern(PATTERNS[kind], volume)));
+    urls.set(key, url);
+  }
+  return url;
+}
+
+let silentUrl: string | null = null;
+
+/** Primeiro gesto: libera os elementos de áudio e o contexto Web Audio. */
+function unlock() {
+  if (unlocked || typeof window === 'undefined') return;
+  unlocked = true;
+  try {
+    // iOS 17+: trata o som da página como mídia (toca mesmo com a chave de silencioso).
+    const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+    if (session) session.type = 'playback';
+  } catch {
+    /* sem audioSession */
+  }
+  silentUrl ??= URL.createObjectURL(toWav(new Float32Array(RATE / 20)));
+  pool = [];
+  for (let i = 0; i < POOL_SIZE; i++) {
+    const el = makeAudio();
+    if (!el) continue;
+    el.src = silentUrl;
+    el.play().catch(() => undefined);
+    pool.push(el);
+  }
+  const c = audioContext();
+  if (c) {
+    // Um buffer mudo dentro do gesto destrava o Web Audio no Safari.
+    try {
+      const src = c.createBufferSource();
+      src.buffer = c.createBuffer(1, 1, 22050);
+      src.connect(c.destination);
+      src.start(0);
+    } catch {
+      /* ignora */
+    }
+  }
+}
+
+if (typeof window !== 'undefined') {
+  // pointerdown não conta como gesto no toque (celular): usamos os eventos que contam.
+  const onGesture = () => {
+    unlock();
+    if (unlocked) {
+      for (const ev of ['pointerup', 'touchend', 'click', 'keydown'] as const)
+        window.removeEventListener(ev, onGesture, true);
+    }
+  };
+  for (const ev of ['pointerup', 'touchend', 'click', 'keydown'] as const)
+    window.addEventListener(ev, onGesture, true);
+}
+
+/** Toca o mesmo desenho pelo Web Audio (reserva, quando o <audio> é recusado). */
+function playWebAudio(kind: SoundKind, volume: number) {
+  const c = audioContext();
+  if (!c) return;
+  const go = () => {
+    try {
+      const master = c.createGain();
+      master.gain.value = Math.max(0.05, volume) * 0.6;
+      master.connect(c.destination);
+      const t0 = c.currentTime + 0.02;
+      let end = 0;
+      for (const n of PATTERNS[kind]) {
+        const o = c.createOscillator();
+        const g = c.createGain();
+        const start = t0 + n.at;
+        const stop = start + n.dur;
+        o.type = n.type ?? 'sine';
+        o.frequency.setValueAtTime(n.freq, start);
+        if (n.to) o.frequency.exponentialRampToValueAtTime(n.to, stop);
+        g.gain.setValueAtTime(FLOOR, start);
+        g.gain.exponentialRampToValueAtTime(n.gain ?? 0.5, start + ATTACK);
+        g.gain.exponentialRampToValueAtTime(FLOOR, stop);
+        o.connect(g).connect(master);
+        o.start(start);
+        o.stop(stop + 0.02);
+        end = Math.max(end, n.at + n.dur);
+      }
+      window.setTimeout(() => master.disconnect(), (end + 0.3) * 1000);
+    } catch {
+      /* sem áudio: segue só com o aviso visual */
+    }
+  };
+  // Agenda só depois do contexto rodar: antes disso o relógio está parado e o toque se perde.
+  if (c.state === 'running') go();
+  else
+    c.resume()
+      .then(() => {
+        if (c.state === 'running') go();
+      })
+      .catch(() => undefined);
+}
+
 const lastPlayed = new Map<SoundKind, number>();
 
 /**
@@ -182,33 +373,20 @@ export function playSound(kind: SoundKind, force = false) {
   const nowMs = Date.now();
   if (!force && nowMs - (lastPlayed.get(kind) ?? 0) < 1500) return;
   lastPlayed.set(kind, nowMs);
-  const c = audio();
-  if (!c) return;
+  if (typeof window === 'undefined') return;
+  // Chamado de um clique ("Testar"): o próprio clique serve de gesto.
+  unlock();
+  const volume = settings.volume;
+  let el = pool.length ? pool[poolNext++ % pool.length] : makeAudio();
+  if (!el) return playWebAudio(kind, volume);
   try {
-    const master = c.createGain();
-    master.gain.value = Math.max(0.05, settings.volume) * 0.6;
-    master.connect(c.destination);
-    const t0 = c.currentTime + 0.02;
-    let end = 0;
-    for (const n of PATTERNS[kind]) {
-      const o = c.createOscillator();
-      const g = c.createGain();
-      const start = t0 + n.at;
-      const stop = start + n.dur;
-      o.type = n.type ?? 'sine';
-      o.frequency.setValueAtTime(n.freq, start);
-      if (n.to) o.frequency.exponentialRampToValueAtTime(n.to, stop);
-      g.gain.setValueAtTime(0.0001, start);
-      g.gain.exponentialRampToValueAtTime(n.gain ?? 0.5, start + 0.012);
-      g.gain.exponentialRampToValueAtTime(0.0001, stop);
-      o.connect(g).connect(master);
-      o.start(start);
-      o.stop(stop + 0.02);
-      end = Math.max(end, n.at + n.dur);
-    }
-    window.setTimeout(() => master.disconnect(), (end + 0.3) * 1000);
+    el.src = soundUrl(kind, volume);
+    el.currentTime = 0;
+    const p = el.play();
+    if (p) p.catch(() => playWebAudio(kind, volume));
   } catch {
-    /* sem áudio: segue só com o aviso visual */
+    el = null;
+    playWebAudio(kind, volume);
   }
 }
 
