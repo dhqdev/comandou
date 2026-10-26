@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
 import { Alert, Mascot, Spinner, ToastProvider } from '../design-system';
 import { ComingSoonPage } from '../pages/ComingSoonPage';
 import { LoginPage } from '../pages/LoginPage';
@@ -37,6 +37,7 @@ import { ROLE_HOME, ROUTE_PERMS } from './role-home';
 import { NoAccess } from './NoAccess';
 import { UpdatePrompt } from './UpdatePrompt';
 import { WaiterEntry } from './WaiterEntry';
+import { WaiterApp } from '../waiter/WaiterApp';
 
 function Home() {
   const { me } = useAuth();
@@ -54,8 +55,18 @@ function Guard({ path, children }: { path: string; children: ReactElement }) {
   return children;
 }
 
+function WaiterOnly() {
+  const { search } = useLocation();
+  return (
+    <Routes>
+      <Route path="garcom/*" element={<WaiterApp />} />
+      <Route path="*" element={<Navigate to={`/garcom/mesas${search}`} replace />} />
+    </Routes>
+  );
+}
+
 function Gate() {
-  const { status, error } = useAuth();
+  const { status, error, me } = useAuth();
   if (status === 'loading') {
     return (
       <div style={{ display: 'grid', placeItems: 'center', height: '100%' }}>
@@ -85,8 +96,13 @@ function Gate() {
     );
   }
   if (status === 'anonymous') return <LoginPage />;
+  // Garçom: só o app dele (/garcom). Qualquer outro endereço leva ao mapa de mesas, mantendo o
+  // ?mesa= do QR da mesa.
+  if (me?.user.role === 'waiter') return <WaiterOnly />;
   return (
     <Routes>
+      {/* Gestor também abre o app do garçom (para conferir o que a equipe vê). */}
+      <Route path="garcom/*" element={<WaiterApp />} />
       <Route element={<AppShell />}>
         <Route index element={<Home />} />
         <Route

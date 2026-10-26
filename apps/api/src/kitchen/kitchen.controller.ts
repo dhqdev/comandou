@@ -15,7 +15,7 @@ export class KitchenController {
   constructor(private readonly kitchen: KitchenService) {}
 
   @Get()
-  @RequirePermission('orders:read')
+  @RequirePermission('kitchen:operate', 'orders:manage')
   board(
     @Query(new ZodPipe(z.object({ sectorId: SectorParam }))) f: { sectorId?: string },
     @CurrentTenant() t: ResolvedTenant,

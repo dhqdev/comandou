@@ -1,6 +1,6 @@
 /** Tela inicial de cada papel: garçom no salão, entregador nas entregas, cozinha na cozinha… */
 export const ROLE_HOME: Record<string, string> = {
-  waiter: '/mesas',
+  waiter: '/garcom/mesas',
   driver: '/entregas',
   kitchen: '/cozinha',
   stock: '/estoque',
@@ -17,7 +17,7 @@ export const ROUTE_PERMS: Record<string, string[]> = {
   pedidos: ['orders:read'],
   mesas: ['tables:operate', 'payments:create'],
   reservas: ['tables:operate', 'settings:manage'],
-  cozinha: ['kitchen:operate', 'orders:read'],
+  cozinha: ['kitchen:operate', 'orders:manage'],
   caixa: ['cash:operate', 'cash:close', 'reports:read'],
   entregas: ['delivery:manage', 'delivery:operate'],
   cardapio: ['catalog:read'],

@@ -1,12 +1,11 @@
 import { toCents } from '@comandou/shared';
+import { sortTables, STATE_LABEL, tableFromQr, tableState } from '../features/table-state';
 import {
   Armchair,
   ArrowRightLeft,
   BellRing,
   CircleCheck,
-  ExternalLink,
   LayoutGrid,
-  Link2,
   PencilRuler,
   Plus,
   Printer,
@@ -18,7 +17,6 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router';
 import {
   Alert,
   Badge,
@@ -31,7 +29,7 @@ import {
   useToast,
 } from '../design-system';
 import { useCan } from '../app/auth';
-import { WAITER_PATH, waiterLink } from '../app/WaiterEntry';
+import { WaitersModal } from '../waiter/WaitersModal';
 import { NewSaleModal } from '../features/NewSaleModal';
 import { OrderDetailModal } from '../features/OrderDetailModal';
 import { PaymentModal } from '../features/PaymentModal';
@@ -54,30 +52,7 @@ import { useArrivalSound } from '../lib/sounds';
 import type { DiningTable, Order, Tab } from '../lib/types';
 
 type View = 'tables' | 'tabs';
-type TableState = 'free' | 'busy' | 'paying';
-
-/** Mesa "em pagamento": pediu a conta ou já pagou uma parte. */
-function tableState(t: DiningTable): TableState {
-  if (!t.tabId) return 'free';
-  if (t.billRequestedAt || toCents(t.tabPaid ?? '0') > 0) return 'paying';
-  return 'busy';
-}
-const STATE_LABEL: Record<TableState, string> = {
-  free: 'Livre',
-  busy: 'Ocupada',
-  paying: 'Em pagamento',
-};
-
-/** Lê o QR da mesa: aceita o link /mesa/<id>, o id puro ou o número da mesa. */
-export function tableFromQr(text: string, tables: DiningTable[]): DiningTable | undefined {
-  const raw = text.trim();
-  const m = raw.match(/\/mesa\/([0-9a-f-]{36})/i);
-  const id = m?.[1] ?? raw;
-  return (
-    tables.find((t) => t.id === id) ??
-    tables.find((t) => t.label.toLowerCase() === raw.replace(/^mesa\s*/i, '').toLowerCase())
-  );
-}
+export { tableFromQr };
 
 /**
  * Salão: mapa de mesas e comandas. No celular é a tela do garçom: escaneia o QR da mesa (ou
@@ -115,16 +90,7 @@ export function TablesPage() {
         api<Order[]>('/orders?status=ready&channel=table').catch(() => null),
       ]);
       setReadyIds(rd ? rd.map((o) => o.id) : null);
-      // Ordem do cadastro e, no empate, número natural (2 antes de 10).
-      setTables(
-        t
-          .filter((x) => x.active)
-          .sort(
-            (a, b) =>
-              (a.position ?? 0) - (b.position ?? 0) ||
-              a.label.localeCompare(b.label, 'pt-BR', { numeric: true }),
-          ),
-      );
+      setTables(sortTables(t));
       setTabs(tb);
       setError(null);
     } catch (e) {
@@ -237,7 +203,7 @@ export function TablesPage() {
               icon={<Smartphone size={16} />}
               onClick={() => setWaiterOpen(true)}
             >
-              Acesso do garçom
+              Garçons
             </Button>
           )}
           {canOperate && (
@@ -454,7 +420,7 @@ export function TablesPage() {
       {canSetup && (
         <TableQrModal open={qrOpen} onClose={() => setQrOpen(false)} tables={tables ?? []} />
       )}
-      {canSetup && <WaiterAccessModal open={waiterOpen} onClose={() => setWaiterOpen(false)} />}
+      {canSetup && <WaitersModal open={waiterOpen} onClose={() => setWaiterOpen(false)} />}
     </div>
   );
 }
@@ -506,75 +472,6 @@ function TableQrModal({
         <Button icon={<Printer size={16} />} onClick={() => printQrSheet()}>
           Imprimir
         </Button>
-      </div>
-    </Modal>
-  );
-}
-
-/** Link do garçom (/garcom) com QR: ele abre no celular e entra com o próprio e-mail e senha. */
-function WaiterAccessModal({ open, onClose }: { open: boolean; onClose(): void }) {
-  const toast = useToast();
-  const canTeam = useCan('users:manage');
-  const link = waiterLink();
-  const [qr, setQr] = useState<string | null>(null);
-  useEffect(() => {
-    if (!open || qr) return;
-    let alive = true;
-    void import('qrcode').then(async ({ default: QRCode }) => {
-      const url = await QRCode.toDataURL(link, { margin: 1, width: 360 });
-      if (alive) setQr(url);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [open, qr, link]);
-  const copy = () =>
-    navigator.clipboard
-      ?.writeText(link)
-      .then(() => toast('Link copiado', 'success'))
-      .catch(() => toast(link));
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Acesso do garçom"
-      footer={
-        <>
-          <a
-            className="cm-btn cm-btn--secondary"
-            href={WAITER_PATH}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <ExternalLink size={16} /> Abrir
-          </a>
-          <Button icon={<Link2 size={16} />} onClick={copy}>
-            Copiar link
-          </Button>
-        </>
-      }
-    >
-      <div className="waiter-access">
-        <p className="cm-hint" style={{ margin: 0 }}>
-          O garçom abre este endereço no celular e entra com o e-mail e a senha dele. Depois do
-          login ele cai direto no Salão, pronto para escanear a mesa e lançar pedidos.
-        </p>
-        <figure className="qr-card waiter-access__qr">
-          {qr ? <img src={qr} alt="QR Code do acesso do garçom" /> : <Spinner />}
-          <figcaption>{link}</figcaption>
-        </figure>
-        <p className="cm-hint" style={{ margin: 0 }}>
-          Cada garçom precisa de um usuário com o papel <strong>Garçom</strong>
-          {canTeam ? (
-            <>
-              {' '}
-              em <Link to="/equipe">Equipe</Link>.
-            </>
-          ) : (
-            ' (peça ao gerente).'
-          )}{' '}
-          Dica: no celular, use “Adicionar à tela inicial” para abrir como app.
-        </p>
       </div>
     </Modal>
   );

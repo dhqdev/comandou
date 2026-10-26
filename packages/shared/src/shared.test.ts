@@ -7,6 +7,9 @@ import {
   validateTenantSlug,
   roleHas,
   isMoneyString,
+  waiterLevel,
+  challengeProgress,
+  WAITER_DAILY_CHALLENGES,
 } from './index';
 
 describe('allocateCents', () => {
@@ -76,5 +79,38 @@ describe('roles', () => {
     expect(roleHas('owner', 'users:manage')).toBe(true);
     expect(roleHas('waiter', 'cash:close')).toBe(false);
     expect(roleHas('kitchen', 'catalog:write')).toBe(false);
+  });
+  it('garçom lança pedidos mas não gere pedidos, caixa nem desconto', () => {
+    expect(roleHas('waiter', 'orders:write')).toBe(true);
+    expect(roleHas('waiter', 'tables:operate')).toBe(true);
+    for (const p of [
+      'orders:manage',
+      'orders:discount',
+      'orders:cancel',
+      'payments:create',
+    ] as const)
+      expect(roleHas('waiter', p)).toBe(false);
+    for (const r of ['owner', 'manager', 'cashier', 'attendant'] as const)
+      expect(roleHas(r, 'orders:manage')).toBe(true);
+  });
+});
+
+describe('desafios do garçom', () => {
+  it('calcula o selo e o próximo', () => {
+    expect(waiterLevel(0).seal.name).toBe('Bem-vindo');
+    expect(waiterLevel(0).next?.orders).toBe(1);
+    const l = waiterLevel(3);
+    expect(l.seal.name).toBe('Iniciante');
+    expect(l.missing).toBe(2);
+    expect(l.progress).toBeCloseTo(0.5);
+    expect(waiterLevel(20).seal.name).toBe('Sênior');
+    expect(waiterLevel(9999)).toMatchObject({ missing: 0, progress: 1 });
+  });
+  it('mede o progresso das metas do dia', () => {
+    const day = { orders: 2, tables: 3, sales: '150.00' };
+    const [orders, tables, sales] = WAITER_DAILY_CHALLENGES;
+    expect(challengeProgress(orders!, day)).toBeCloseTo(0.4);
+    expect(challengeProgress(tables!, day)).toBe(1);
+    expect(challengeProgress(sales!, day)).toBeCloseTo(0.5);
   });
 });

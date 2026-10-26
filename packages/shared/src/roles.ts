@@ -31,6 +31,11 @@ export const PERMISSIONS = [
   'catalog:write',
   'orders:read',
   'orders:write',
+  /**
+   * Gerir qualquer pedido: mudar status, ajustar valores, ver delivery/balcão de todos e mexer na
+   * loja online. O garçom não tem: ele só lança pedidos e vê os do salão e os que ele lançou.
+   */
+  'orders:manage',
   /** Cancelar pedido diretamente (sem só solicitar). */
   'orders:cancel',
   /** Desconto acima do limite padrão (DISCOUNT_FREE_LIMIT_PERCENT). */
@@ -85,6 +90,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'catalog:read',
     'orders:read',
     'orders:write',
+    'orders:manage',
     'tables:operate',
     'payments:create',
     'cash:operate',
@@ -94,6 +100,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'fiscal:emit',
     'customers:read',
   ],
+  /** App do garçom (/garcom): mesas, comandas e pedido rápido. Sem caixa, desconto ou status. */
   waiter: ['catalog:read', 'orders:read', 'orders:write', 'tables:operate'],
   kitchen: ['catalog:read', 'orders:read', 'kitchen:operate'],
   driver: ['orders:read', 'delivery:operate'],
@@ -101,6 +108,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'catalog:read',
     'orders:read',
     'orders:write',
+    'orders:manage',
     'tables:operate',
     'delivery:manage',
     'customers:read',
@@ -119,4 +127,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
 
 export function roleHas(role: Role, permission: Permission): boolean {
   return DEFAULT_ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
+}
+
+/**
+ * Papel que lança pedidos mas não gere todos (o garçom): só enxerga os pedidos do salão (mesa ou
+ * comanda) e os que ele mesmo lançou, e não muda status além de pedir cancelamento.
+ */
+export function ordersLimitedToOwn(role: Role): boolean {
+  return roleHas(role, 'orders:write') && !roleHas(role, 'orders:manage');
 }

@@ -82,7 +82,7 @@ const MAIN: NavItem[] = [
     to: '/cozinha',
     label: 'Cozinha',
     icon: <ChefHat />,
-    perms: ['kitchen:operate', 'tables:operate'],
+    perms: ['kitchen:operate', 'orders:manage'],
   },
   {
     to: '/caixa',
@@ -157,7 +157,6 @@ const GROUPS: { key: string; label: string; icon: ReactNode; items: NavItem[] }[
 const TAB_PREFERENCE = ['/', '/pedidos', '/mesas', '/cozinha', '/caixa', '/entregas', '/cardapio'];
 /** Papéis com uma tela principal própria: as abas do celular começam por ela. */
 const ROLE_TABS: Record<string, string[]> = {
-  waiter: ['/mesas', '/pedidos', '/', '/cozinha'],
   driver: ['/entregas', '/pedidos'],
   kitchen: ['/cozinha', '/pedidos', '/cardapio'],
   stock: ['/estoque', '/cardapio'],

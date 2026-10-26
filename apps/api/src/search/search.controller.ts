@@ -1,5 +1,5 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { type Permission, roleHas } from '@comandou/shared';
+import { ordersLimitedToOwn, type Permission, roleHas } from '@comandou/shared';
 import { ctxOf } from '../common/context';
 import { CurrentTenant, CurrentUser } from '../common/decorators';
 import { q } from '../common/sql';
@@ -92,6 +92,8 @@ function startsWith(expr: string, word: string, idx: number) {
 
 interface Section {
   perms: Permission[];
+  /** Fica de fora para quem só vê os próprios pedidos (garçom). */
+  fullOrdersOnly?: true;
   run(tx: Tx, t: Term): Promise<SearchHit[]>;
 }
 
@@ -111,6 +113,7 @@ const hit = (h: Partial<SearchHit> & Pick<SearchHit, 'kind' | 'id' | 'title'>): 
 const SECTIONS: Section[] = [
   {
     perms: ['orders:read'],
+    fullOrdersOnly: true,
     async run(tx, t) {
       const hay = `o.number::text || ' ' || coalesce(o.customer_name, '') || ' ' ||
         coalesce(o.customer_phone, '') || ' ' || coalesce(o.delivery_address, '') || ' ' ||
@@ -607,7 +610,10 @@ export class SearchController {
   ): Promise<{ results: SearchHit[] }> {
     const term = parseTerm(typeof raw === 'string' ? raw : '');
     if (!term) return { results: [] };
-    const allowed = SECTIONS.filter((s) => s.perms.some((p) => roleHas(user.role, p)));
+    const limited = ordersLimitedToOwn(user.role);
+    const allowed = SECTIONS.filter(
+      (s) => s.perms.some((p) => roleHas(user.role, p)) && !(limited && s.fullOrdersOnly),
+    );
     const results = await this.db.withTenant(ctxOf(tenant, user), async (tx) => {
       const out: SearchHit[] = [];
       // Uma conexão por requisição: as seções rodam em sequência na mesma transação.

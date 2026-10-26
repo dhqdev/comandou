@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Headers,
   Param,
@@ -12,7 +13,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
-import { ORDER_CHANNELS, ORDER_STATUSES } from '@comandou/shared';
+import { ORDER_CHANNELS, ORDER_STATUSES, ordersLimitedToOwn } from '@comandou/shared';
 import { CashService } from '../cash/cash.service';
 import { ctxOf } from '../common/context';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
@@ -35,6 +36,11 @@ const ListQuery = z.object({
     .transform((v) => v === 'true'),
   from: z.string().datetime({ offset: true }).optional(),
   to: z.string().datetime({ offset: true }).optional(),
+  /** Só os pedidos lançados por quem pede (app do garçom: "Meus pedidos"). */
+  mine: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
   limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 
@@ -80,20 +86,27 @@ export class OrdersController {
     return this.orders.create(ctxOf(t, u, req), b, validIdempotencyKey(key));
   }
 
+  /** O garçom só pede cancelamento (com motivo); quem gere pedidos faz as demais transições. */
   @Post(':id/status')
   @RequirePermission('orders:write')
-  status(
+  async status(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodPipe(Transition)) b: z.infer<typeof Transition>,
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
     @Req() req: Request,
   ) {
-    return this.orders.transition(ctxOf(t, u, req), id, b.to, b);
+    const ctx = ctxOf(t, u, req);
+    if (ordersLimitedToOwn(u.role)) {
+      if (b.to !== 'cancel_requested')
+        throw new ForbiddenException('O garçom só pode solicitar o cancelamento');
+      await this.orders.get(ctx, id); // fora do alcance do garçom: 404
+    }
+    return this.orders.transition(ctx, id, b.to, b);
   }
 
   @Patch(':id/adjustments')
-  @RequirePermission('orders:write')
+  @RequirePermission('orders:manage')
   adjust(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodPipe(Adjust)) b: z.infer<typeof Adjust>,

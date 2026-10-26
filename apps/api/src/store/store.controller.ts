@@ -241,7 +241,7 @@ export class StoreController {
   }
 
   @Patch('settings')
-  @RequirePermission('orders:write', 'settings:manage')
+  @RequirePermission('orders:manage', 'settings:manage')
   update(
     @Body(new ZodPipe(Settings)) b: z.infer<typeof Settings>,
     @CurrentTenant() t: ResolvedTenant,

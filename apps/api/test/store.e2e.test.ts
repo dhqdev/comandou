@@ -4,8 +4,9 @@ import { randomBytes } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/bootstrap';
+import { hashPassword } from '../src/auth/password';
 import { testEnv } from './env';
-import { Fixture, PASSWORD, seedTwoTenants } from './fixtures';
+import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 
 /**
  * Cardápio online: loja pública, fotos, pedido do cliente com análise/aceite, acompanhamento e
@@ -34,7 +35,7 @@ async function login(host: string, email: string) {
   return raw.find((c) => c.startsWith('cm_sid='))!.split(';')[0];
 }
 
-type Who = 'adminA' | 'adminB' | 'waiterA';
+type Who = 'adminA' | 'adminB' | 'waiterA' | 'cashierA';
 const hostOf = (w: Who) => (w === 'adminB' ? HOST_B : HOST_A);
 const get = (w: Who, url: string) =>
   http.get(`/api/v1${url}`).set('Host', hostOf(w)).set('Cookie', cookies[w]);
@@ -70,23 +71,33 @@ const FAKE_WEBP = Buffer.concat([
 
 beforeAll(async () => {
   fx = await seedTwoTenants('loja');
+  const [cx] = await ownerQuery<{ id: string }>(
+    `INSERT INTO users (email, name, password_hash) VALUES ('caixa@loja-a.test', 'Caixa', $1) RETURNING id`,
+    [await hashPassword(PASSWORD)],
+  );
+  await ownerQuery(`INSERT INTO memberships (tenant_id, user_id, role) VALUES ($1,$2,'cashier')`, [
+    fx.tenantA,
+    cx!.id,
+  ]);
   app = await createApp(testEnv({ AUTH_LOGIN_RATE_LIMIT: '1000' }), { logger: false });
   await app.init();
   http = request(app.getHttpServer());
   cookies.adminA = await login(HOST_A, 'admin@loja-a.test');
   cookies.adminB = await login(HOST_B, 'admin@loja-b.test');
   cookies.waiterA = await login(HOST_A, 'garcom@loja-a.test');
+  cookies.cashierA = await login(HOST_A, 'caixa@loja-a.test');
 });
 afterAll(async () => {
   await app?.close();
 });
 
 describe('Loja online: configurações e fotos', () => {
-  it('começa com padrões; garçom só abre/fecha e liga o aceite automático', async () => {
+  it('começa com padrões; caixa só abre/fecha e liga o aceite automático; garçom não mexe', async () => {
     const s = (await get('adminA', '/store/settings').expect(200)).body;
     expect(s).toMatchObject({ enabled: true, isOpen: true, autoAccept: false });
-    await patch('waiterA', '/store/settings', { deliveryFee: '7.00' }).expect(403);
-    await patch('waiterA', '/store/settings', { isOpen: false }).expect(200);
+    await patch('cashierA', '/store/settings', { deliveryFee: '7.00' }).expect(403);
+    await patch('waiterA', '/store/settings', { isOpen: false }).expect(403);
+    await patch('cashierA', '/store/settings', { isOpen: false }).expect(200);
     const s2 = (
       await patch('adminA', '/store/settings', {
         isOpen: true,
@@ -226,7 +237,8 @@ describe('Cardápio público e pedido do cliente', () => {
     const kds = (await get('adminA', '/kitchen?sectorId=none').expect(200)).body;
     expect(kds.orders.some((x: { number: number }) => x.number === number)).toBe(false);
 
-    await post('waiterA', `/orders/${o.id}/status`, { to: 'new' }).expect(201);
+    await post('waiterA', `/orders/${o.id}/status`, { to: 'new' }).expect(403);
+    await post('cashierA', `/orders/${o.id}/status`, { to: 'new' }).expect(201);
     const st = (await pub.get(`/store/orders/${tk}`).expect(200)).body;
     expect(st).toMatchObject({ step: 'accepted', canCancel: false });
     expect(st.timeline.accepted).toBeTruthy();
@@ -269,8 +281,8 @@ describe('Cardápio público e pedido do cliente', () => {
       number: number;
     }[];
     const o = list.find((x) => x.number === r.body.number)!;
-    await post('waiterA', `/orders/${o.id}/status`, { to: 'cancelled' }).expect(422);
-    await post('waiterA', `/orders/${o.id}/status`, {
+    await post('cashierA', `/orders/${o.id}/status`, { to: 'cancelled' }).expect(422);
+    await post('cashierA', `/orders/${o.id}/status`, {
       to: 'cancelled',
       reason: 'Sem entregador agora',
     }).expect(201);

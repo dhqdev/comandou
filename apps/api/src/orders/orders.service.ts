@@ -11,6 +11,7 @@ import {
   fromCents,
   multiplyCents,
   OrderChannel,
+  ordersLimitedToOwn,
   OrderStatus,
   paymentStatusFor,
   roleHas,
@@ -110,6 +111,16 @@ export const ORDER_SELECT = `
     LEFT JOIN dining_tables dt ON dt.id = tb.table_id`;
 
 /**
+ * Garçom (lança pedidos mas não gere todos): só os pedidos do salão e os que ele lançou. Devolve o
+ * filtro SQL (sobre o alias "o") e acrescenta o parâmetro em `p`; undefined para quem vê tudo.
+ */
+export function ownScope(ctx: Ctx, p: unknown[]): string | undefined {
+  if (!ordersLimitedToOwn(ctx.user.role)) return undefined;
+  p.push(ctx.userId);
+  return `(o.tab_id IS NOT NULL OR o.channel = 'table' OR o.created_by = $${p.length})`;
+}
+
+/**
  * Regras de pedido. Toda alteração de estado:
  *  - roda em transação com RLS do tenant;
  *  - trava a linha do pedido (SELECT … FOR UPDATE) e confere a transição permitida;
@@ -131,7 +142,13 @@ export class OrdersService {
 
   // ---------------------------------------------------------------- consultas
   async get(ctx: Ctx, id: string) {
-    const o = await this.db.withTenant(ctx, (tx) => this.detail(tx, id));
+    const o = await this.db.withTenant(ctx, async (tx) => {
+      const p: unknown[] = [id];
+      const scope = ownScope(ctx, p);
+      if (scope && !(await one(tx, `SELECT 1 FROM orders o WHERE o.id = $1 AND ${scope}`, p)))
+        return undefined;
+      return this.detail(tx, id);
+    });
     if (!o) throw new NotFoundException('Pedido não encontrado');
     return o;
   }
@@ -165,11 +182,18 @@ export class OrdersService {
       from?: string;
       to?: string;
       active?: boolean;
+      mine?: boolean;
       limit: number;
     },
   ) {
     const where: string[] = [];
     const p: unknown[] = [];
+    const scope = ownScope(ctx, p);
+    if (scope) where.push(scope);
+    if (f.mine) {
+      p.push(ctx.userId);
+      where.push(`o.created_by = $${p.length}`);
+    }
     if (f.status?.length) {
       p.push(f.status);
       where.push(`o.status = ANY($${p.length}::text[])`);
@@ -330,6 +354,9 @@ export class OrdersService {
     const discount = toCents(input.discount ?? '0');
     const surcharge = toCents(input.surcharge ?? '0');
     const deliveryFee = toCents(input.deliveryFee ?? '0');
+    // Garçom não dá desconto nem acréscimo: isso fica com o caixa/gerente (cliente online não passa aqui).
+    if (ctx.userId && ordersLimitedToOwn(ctx.user.role) && (discount > 0 || surcharge > 0))
+      throw new ForbiddenException('Desconto e acréscimo ficam com o caixa ou o gerente');
     this.checkDiscount(ctx, discount, subtotal);
     const total = subtotal - discount + surcharge + deliveryFee;
     if (total < 0) throw new UnprocessableEntityException('Desconto maior que o valor do pedido');

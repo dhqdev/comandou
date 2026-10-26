@@ -130,7 +130,7 @@ describe('Reservas', () => {
     expect(again.code).toBe(r.code);
     const list = (
       await get(
-        'waiterA',
+        'adminA',
         `/reservations?from=${encodeURIComponent(new Date(Date.now() - 86_400_000).toISOString())}&to=${encodeURIComponent(new Date(Date.now() + 10 * 86_400_000).toISOString())}`,
       ).expect(200)
     ).body;
@@ -202,7 +202,7 @@ describe('Reservas', () => {
     ).body as { id: string; name: string }[];
     const joana = list.find((r) => r.name === 'Joana Cliente')!;
     const up = (
-      await patch('waiterA', `/reservations/${joana.id}`, {
+      await patch('adminA', `/reservations/${joana.id}`, {
         status: 'confirmed',
         tableId: table!.id,
       }).expect(200)
@@ -220,7 +220,7 @@ describe('Reservas', () => {
 
   it('equipe lança reserva por telefone sem passar pelas regras do cardápio', async () => {
     const r = (
-      await post('waiterA', '/reservations', {
+      await post('adminA', '/reservations', {
         name: 'Grupo da firma',
         phone: '11955554444',
         partySize: 20,
@@ -229,7 +229,9 @@ describe('Reservas', () => {
       }).expect(201)
     ).body;
     expect(r).toMatchObject({ status: 'confirmed', source: 'staff', partySize: 20 });
-    await post('waiterA', '/reservations', {
+    // Reservas ficam com caixa/gerente: o app do garçom não mexe nelas.
+    await get('waiterA', '/reservations').expect(403);
+    await post('adminA', '/reservations', {
       name: 'X',
       phone: '123',
       partySize: 2,

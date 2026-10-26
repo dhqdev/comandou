@@ -19,12 +19,12 @@ export function isWaiterPath(pathname: string): boolean {
 export const waiterLink = () => `${window.location.origin}${WAITER_PATH}`;
 
 /**
- * /garcom com sessão aberta: o garçom cai direto no Salão. Outra pessoa conectada no aparelho
- * (o dono testando, por exemplo) escolhe entre abrir o salão ou sair e entrar como garçom.
+ * /garcom com sessão aberta de outra pessoa (o dono testando, por exemplo): ver o app do garçom
+ * como ele vê ou sair e entrar como garçom. O garçom mesmo nem chega aqui: cai no app dele.
  */
 export function WaiterEntry() {
   const { me, logout } = useAuth();
-  if (me?.user.role === 'waiter') return <Navigate to="/mesas" replace />;
+  if (me?.user.role === 'waiter') return <Navigate to="/garcom/mesas" replace />;
   return (
     <Card>
       <EmptyState
@@ -35,8 +35,8 @@ export function WaiterEntry() {
         }). Para o garçom entrar com a conta dele, saia desta conta.`}
         action={
           <div className="actions-row" style={{ justifyContent: 'center' }}>
-            <Link className="cm-btn cm-btn--secondary" to="/mesas" replace>
-              Abrir o salão
+            <Link className="cm-btn cm-btn--secondary" to="/garcom/mesas">
+              Ver o app do garçom
             </Link>
             <Button onClick={() => void logout()}>Sair e entrar como garçom</Button>
           </div>

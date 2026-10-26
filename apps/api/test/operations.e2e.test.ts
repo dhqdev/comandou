@@ -272,8 +272,10 @@ describe('Pedidos', () => {
 
   it('desconto acima de 10% exige gerente; total nunca abaixo do pago', async () => {
     const items = [{ productId: fx.prodA, quantity: 1, optionIds: [byName(sizeGroup, 'Simples')] }];
-    await post('waiterA', '/orders', { channel: 'counter', discount: '5.00', items }).expect(403);
-    const okW = await post('waiterA', '/orders', {
+    // Garçom não dá desconto nenhum; o caixa dá até 10% sem gerente.
+    await post('waiterA', '/orders', { channel: 'counter', discount: '2.59', items }).expect(403);
+    await post('cashierA', '/orders', { channel: 'counter', discount: '5.00', items }).expect(403);
+    const okW = await post('cashierA', '/orders', {
       channel: 'counter',
       discount: '2.59',
       items,
@@ -300,24 +302,26 @@ describe('Pedidos', () => {
 
   it('máquina de estados: transição inválida → 409; versão desatualizada → 409; dispatched só delivery', async () => {
     const o = (
-      await post('waiterA', '/orders', {
+      await post('cashierA', '/orders', {
         channel: 'counter',
         items: [{ productId: fx.prodA, quantity: 1, optionIds: [byName(sizeGroup, 'Simples')] }],
       }).expect(201)
     ).body;
-    await post('waiterA', `/orders/${o.id}/status`, { to: 'completed' }).expect(409);
-    await post('waiterA', `/orders/${o.id}/status`, {
+    await post('cashierA', `/orders/${o.id}/status`, { to: 'completed' }).expect(409);
+    await post('cashierA', `/orders/${o.id}/status`, {
       to: 'ready',
       expectedVersion: o.version + 5,
     }).expect(409);
-    await post('waiterA', `/orders/${o.id}/status`, {
+    await post('cashierA', `/orders/${o.id}/status`, {
       to: 'ready',
       expectedVersion: o.version,
     }).expect(201);
-    await post('waiterA', `/orders/${o.id}/status`, { to: 'dispatched' }).expect(409);
-    await post('waiterA', `/orders/${o.id}/status`, { to: 'cancelled', reason: 'teste' }).expect(
+    await post('cashierA', `/orders/${o.id}/status`, { to: 'dispatched' }).expect(409);
+    await post('cashierA', `/orders/${o.id}/status`, { to: 'cancelled', reason: 'teste' }).expect(
       403,
     );
+    // Garçom não muda status: só pede cancelamento.
+    await post('waiterA', `/orders/${o.id}/status`, { to: 'in_production' }).expect(403);
     await post('adminA', `/orders/${o.id}/status`, { to: 'cancelled' }).expect(422);
     const c = await post('adminA', `/orders/${o.id}/status`, {
       to: 'cancelled',
@@ -339,6 +343,73 @@ describe('Pedidos', () => {
     await post('adminB', `/orders/${o.id}/status`, { to: 'ready' }).expect(404);
     const listB = (await get('adminB', '/orders').expect(200)).body as unknown[];
     expect(listB).toHaveLength(0);
+  });
+});
+
+describe('App do garçom: acesso limitado', () => {
+  const items = () => [
+    { productId: fx.prodA, quantity: 1, optionIds: [byName(sizeGroup, 'Simples')] },
+  ];
+
+  it('vê os pedidos do salão e os próprios, não o delivery dos outros', async () => {
+    const mine = (
+      await post('waiterA', '/orders', { channel: 'pickup', items: items() }).expect(201)
+    ).body;
+    const theirs = (
+      await post('adminA', '/orders', {
+        channel: 'delivery',
+        deliveryAddress: 'Rua A, 1',
+        customerPhone: '11999990000',
+        items: items(),
+      }).expect(201)
+    ).body;
+    await get('waiterA', `/orders/${mine.id}`).expect(200);
+    await get('waiterA', `/orders/${theirs.id}`).expect(404);
+    const list = (await get('waiterA', '/orders?limit=500').expect(200)).body as { id: string }[];
+    expect(list.some((o) => o.id === mine.id)).toBe(true);
+    expect(list.some((o) => o.id === theirs.id)).toBe(false);
+    const own = (await get('waiterA', '/orders?mine=true').expect(200)).body as { id: string }[];
+    expect(own.map((o) => o.id)).toContain(mine.id);
+    // Quem gere pedidos continua vendo tudo.
+    const all = (await get('cashierA', '/orders?limit=500').expect(200)).body as { id: string }[];
+    expect(all.some((o) => o.id === theirs.id)).toBe(true);
+    // Fora do alcance: nem pedir cancelamento.
+    await post('waiterA', `/orders/${theirs.id}/status`, {
+      to: 'cancel_requested',
+      reason: 'x',
+    }).expect(404);
+    const req = await post('waiterA', `/orders/${mine.id}/status`, {
+      to: 'cancel_requested',
+      reason: 'cliente desistiu',
+    }).expect(201);
+    expect(req.body.status).toBe('cancel_requested');
+  });
+
+  it('não acessa cozinha, ajustes, loja online, reservas nem caixa', async () => {
+    await get('waiterA', '/kitchen').expect(403);
+    await patch('waiterA', '/store/settings', { isOpen: false }).expect(403);
+    await get('waiterA', '/reservations').expect(403);
+    await post('waiterA', '/orders', {
+      channel: 'counter',
+      surcharge: '1.00',
+      items: items(),
+    }).expect(403);
+    await get('kitchenA', '/kitchen').expect(200);
+    await get('waiterA', '/waiters').expect(403);
+  });
+
+  it('desafios: conta os pedidos do garçom; o gerente vê a lista de garçons', async () => {
+    const me = (await get('waiterA', '/waiter/me').expect(200)).body;
+    expect(me.totalOrders).toBeGreaterThan(0);
+    expect(me.today.orders).toBeGreaterThan(0);
+    expect(Number(me.today.sales)).toBeGreaterThan(0);
+    const list = (await get('adminA', '/waiters').expect(200)).body as {
+      email: string;
+      totalOrders: number;
+    }[];
+    const w = list.find((x) => x.email === 'garcom@ops-a.test');
+    expect(w?.totalOrders).toBe(me.totalOrders);
+    expect(list.every((x) => x.email !== 'caixa@ops-a.test')).toBe(true);
   });
 });
 

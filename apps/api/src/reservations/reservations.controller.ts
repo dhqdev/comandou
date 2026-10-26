@@ -175,7 +175,7 @@ export class ReservationsController {
   constructor(private readonly reservations: ReservationsService) {}
 
   @Get('settings')
-  @RequirePermission('tables:operate', 'settings:manage')
+  @RequirePermission('orders:manage', 'settings:manage')
   settings(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
     return this.reservations.settings(ctxOf(t, u));
   }
@@ -192,7 +192,7 @@ export class ReservationsController {
   }
 
   @Get()
-  @RequirePermission('tables:operate', 'settings:manage')
+  @RequirePermission('orders:manage', 'settings:manage')
   list(
     @Query(new ZodPipe(Range)) r: z.infer<typeof Range>,
     @CurrentTenant() t: ResolvedTenant,
@@ -202,7 +202,7 @@ export class ReservationsController {
   }
 
   @Post()
-  @RequirePermission('tables:operate', 'settings:manage')
+  @RequirePermission('orders:manage', 'settings:manage')
   create(
     @Body(new ZodPipe(StaffFields)) b: z.infer<typeof StaffFields>,
     @CurrentTenant() t: ResolvedTenant,
@@ -213,7 +213,7 @@ export class ReservationsController {
   }
 
   @Patch(':id')
-  @RequirePermission('tables:operate', 'settings:manage')
+  @RequirePermission('orders:manage', 'settings:manage')
   update(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodPipe(StaffPatch)) b: z.infer<typeof StaffPatch>,
