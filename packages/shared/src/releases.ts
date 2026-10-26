@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.27.1',
+    date: '2026-10-26',
+    title: 'Menu de baixo do admin no lugar certo no iPhone',
+    summary:
+      'No app do admin instalado no iPhone, o menu de baixo voltou a encostar no fim da tela, sem a faixa vazia embaixo.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'No iOS 26, a barra de status translúcida deixava a tela do app instalado mais curta e o menu de baixo subia. A página agora ocupa a tela toda, inclusive para quem já tinha instalado, sem precisar reinstalar.',
+      },
+    ],
+  },
+  {
     version: '0.27.0',
     date: '2026-10-26',
     title: 'Atualizar sistema também faz a limpeza',

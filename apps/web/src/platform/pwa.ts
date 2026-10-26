@@ -28,8 +28,8 @@ export function applyAdminPwa() {
   set('meta[name="mobile-web-app-capable"]', meta('mobile-web-app-capable'), 'content', 'yes');
   // "black" (e não "black-translucent"): com a barra de status translúcida, o iPhone instalado
   // mede a tela mais curta pela altura dessa barra e tudo que fica preso embaixo (o menu de
-  // abas) subia e deixava uma faixa vazia. Com a barra preta sólida a página começa abaixo
-  // dela, como no app do restaurante, e o menu encosta embaixo certinho.
+  // abas) subia e deixava uma faixa vazia. O iPhone guarda esse estilo na instalação; para quem
+  // já instalou com a translúcida, a regra de display-mode: standalone em base.css corrige.
   set(
     'meta[name="apple-mobile-web-app-status-bar-style"]',
     meta('apple-mobile-web-app-status-bar-style'),

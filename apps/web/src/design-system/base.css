@@ -40,6 +40,17 @@ html {
   /* Cara de app: nada de pinça/zoom nem página deslizando para os lados. */
   touch-action: pan-x pan-y;
 }
+/* App instalado no iPhone (iOS 26): com a barra de status translúcida, a área visível fica mais
+   curta que a tela pela altura dessa barra enquanto a página é mais baixa que a tela (WebKit
+   301108), e a moldura fixa (com o menu de abas) parava acima do fim da tela, deixando uma faixa
+   vazia embaixo. Uma página da altura da tela ganha a área inteira. O teto em 100lvh evita rolar
+   quando a barra é sólida (inset 0) e o iOS mede 100lvh pela tela toda (WebKit 316008).
+   Corrige também quem instalou o admin com a barra translúcida, sem precisar reinstalar. */
+@media (display-mode: standalone) {
+  html {
+    min-height: min(100lvh, calc(100% + env(safe-area-inset-top)));
+  }
+}
 html,
 body {
   overflow-x: clip;
