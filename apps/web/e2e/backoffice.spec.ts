@@ -108,7 +108,7 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   const anon = await context.browser()!.newContext();
   const pub = await anon.newPage();
   await pub.goto(link);
-  await expect(pub.getByText('Saiu para entrega')).toBeVisible();
+  await expect(pub.getByText('Saiu da loja')).toBeVisible();
   await expect(pub.getByText(`Pedido #${order.number}`)).toBeVisible();
   await expect(pub.getByText('Rua Teste')).toHaveCount(0);
   await pub.screenshot({ path: `test-results/screens/${info.project.name}-rastreio.png` });
@@ -117,7 +117,7 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await card.getByRole('button', { name: 'Entregue', exact: true }).click();
   await expect(page.getByText('Entrega concluída')).toBeVisible();
   await pub.reload();
-  await expect(pub.getByText('Entregue', { exact: true })).toBeVisible();
+  await expect(pub.getByRole('heading', { name: 'Pedido entregue' })).toBeVisible();
   await anon.close();
 
   // A venda baixou o insumo
