@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.36.0',
+    date: '2026-10-27',
+    title: 'Relatórios inteligentes',
+    summary:
+      'Relatórios ganharam a aba Análise: o sistema compara o período com o anterior e aponta o que merece atenção, o que vende, o que dá lucro e onde agir.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Análise do período (hoje, 7 ou 30 dias, este mês, mês passado ou datas livres), com filtro por canal e comparação automática com o período anterior.',
+      },
+      {
+        tag: 'novo',
+        text: '"O que merece atenção": alertas e dicas como queda de faturamento, projeção do fechamento, custo dos insumos alto, despesas maiores que o lucro, pico e dia mais fraco, produtos em alta ou em queda, cancelamentos e cozinha demorada.',
+      },
+      {
+        tag: 'novo',
+        text: 'Engenharia de cardápio (estrelas, burros de carga, quebra-cabeças e abacaxis), curva ABC, mapa de movimento por dia e hora, clientes novos e recorrentes, vendas por pessoa da equipe e produtos parados.',
+      },
+      {
+        tag: 'novo',
+        text: 'Personalizar: escolha e ordene os blocos do relatório. Exporte os produtos para planilha ou imprima.',
+      },
+      {
+        tag: 'correção',
+        text: 'Os cartões de resumo não cortam mais valores grandes ou negativos, no notebook e no celular.',
+      },
+    ],
+  },
+  {
     version: '0.35.2',
     date: '2026-10-27',
     title: 'Detalhe do pedido mais organizado',
