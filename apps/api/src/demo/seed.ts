@@ -1261,7 +1261,10 @@ export async function seedDemoData(
         for (const [k, q] of Object.entries(e.need)) {
           const amount = round3(q);
           if (amount <= 0) continue;
-          if (e.kind === 'sale' && qty[k]! < amount)
+          // Abaixo do mínimo só os insumos de LOW_STOCK; os outros são repostos antes de chegar lá
+          // (senão o alerta muda conforme o dia e a hora em que a demo é criada).
+          const floor = C.LOW_STOCK.includes(k) ? 0 : C.STOCK_ITEMS[k]![2];
+          if (e.kind === 'sale' && qty[k]! - amount < floor)
             buy(
               k,
               round3(Math.max(amount * 4, C.STOCK_ITEMS[k]![4] / 4)),

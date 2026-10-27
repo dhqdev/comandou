@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.37.1',
+    date: '2026-10-27',
+    title: 'Restaurante de demonstração com estoque estável',
+    summary:
+      'O restaurante de demonstração passa a mostrar sempre os mesmos três insumos abaixo do mínimo, em qualquer dia e horário em que for criado.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Na demonstração, a massa de pizza às vezes aparecia abaixo do mínimo depois de um fim de semana movimentado. Agora só o bacon, o morango e o catupiry ficam no alerta de estoque baixo.',
+      },
+    ],
+  },
+  {
     version: '0.37.0',
     date: '2026-10-27',
     title: 'Cardápios, cadastro de itens, famílias e complementos',
