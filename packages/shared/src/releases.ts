@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.37.2',
+    date: '2026-10-27',
+    title: 'Cardápio com submenu na barra lateral',
+    summary:
+      'O ícone do Cardápio na barra lateral agora abre um submenu com Itens, Famílias de item, Grupos de complementos e Cardápios, como nos outros grupos do sistema. No celular, a aba Cardápio abre as mesmas quatro opções numa folha.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Cardápio virou um grupo na barra lateral: Itens, Famílias de item, Grupos de complementos e Cardápios ficam a um clique. O cadastro de um item mantém "Itens" aceso no menu.',
+      },
+      {
+        tag: 'correção',
+        text: 'O destaque do item atual nos submenus da barra lateral (Gestão, Sistema, Cardápio) às vezes aparecia deslocado ao abrir o menu.',
+      },
+    ],
+  },
+  {
     version: '0.37.1',
     date: '2026-10-27',
     title: 'Restaurante de demonstração com estoque estável',

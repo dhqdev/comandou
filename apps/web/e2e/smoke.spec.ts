@@ -28,7 +28,7 @@ test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => 
     fullPage: true,
   });
 
-  await nav(page, 'Cardápio');
+  await nav(page, 'Itens');
   await expect(page.getByRole('heading', { name: 'Cardápio' })).toBeVisible();
 
   const name = `X-Salada ${info.project.name} ${Date.now()}`;

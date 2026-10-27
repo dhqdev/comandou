@@ -28,6 +28,8 @@ export interface FrameLink {
   label: string;
   icon: ReactNode;
   end?: boolean;
+  /** Outro endereço que também acende o link (ex.: o cadastro do item acende "Itens"). */
+  also?: string;
   badge?: ReactNode;
 }
 export interface FrameItem {
@@ -53,7 +55,10 @@ function isOn(pathname: string, to: string, end?: boolean) {
 }
 function itemActive(pathname: string, it: FrameItem) {
   if (it.to) return isOn(pathname, it.to, it.end);
-  return !!it.children?.some((c) => isOn(pathname, c.to, c.end));
+  return !!it.children?.some((c) => linkOn(pathname, c));
+}
+function linkOn(pathname: string, l: FrameLink) {
+  return isOn(pathname, l.to, l.end) || (!!l.also && isOn(pathname, l.also, true));
 }
 
 export function AppFrame({
@@ -357,7 +362,10 @@ function currentScreen(pathname: string, all: FrameItem[]) {
   };
   for (const it of all) {
     if (it.to) consider(it.to, it.end, it.label, it.icon);
-    for (const c of it.children ?? []) consider(c.to, c.end, c.label, c.icon);
+    for (const c of it.children ?? []) {
+      consider(c.to, c.end, c.label, c.icon);
+      if (c.also) consider(c.also, true, c.label, c.icon);
+    }
   }
   return best as { label: string; icon: ReactNode } | null;
 }
@@ -401,6 +409,7 @@ function useTableLabels(root: RefObject<HTMLElement | null>) {
 }
 
 function FlyLinks({ links }: { links: FrameLink[] }) {
+  const { pathname } = useLocation();
   const g = useGlider<HTMLDivElement>({ selector: '.cm-flyout__link.active' });
   return (
     <div className="cm-flyout__links cm-glide" ref={g.ref}>
@@ -409,7 +418,9 @@ function FlyLinks({ links }: { links: FrameLink[] }) {
           key={l.to}
           to={l.to}
           end={l.end ?? l.to === '/'}
-          className={({ isActive }) => `cm-flyout__link ${isActive ? 'active' : ''}`}
+          className={({ isActive }) =>
+            `cm-flyout__link ${isActive || linkOn(pathname, l) ? 'active' : ''}`
+          }
           style={{ '--i': i } as CSSProperties}
           role="menuitem"
         >
@@ -430,6 +441,7 @@ function TileGrid({
   links: FrameLink[];
   actions?: { label: string; icon: ReactNode; onClick: () => void }[];
 }) {
+  const { pathname } = useLocation();
   if (!links.length && !actions.length) return null;
   return (
     <div className="cm-tiles">
@@ -438,7 +450,7 @@ function TileGrid({
           key={l.to}
           to={l.to}
           end={l.end ?? l.to === '/'}
-          className={({ isActive }) => `cm-tile ${isActive ? 'active' : ''}`}
+          className={({ isActive }) => `cm-tile ${isActive || linkOn(pathname, l) ? 'active' : ''}`}
         >
           {l.icon}
           <span>{l.label}</span>

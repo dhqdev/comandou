@@ -50,7 +50,7 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   await shot(page, info.project.name, 'ajustes');
 
   // Cardápio: produto + variação de tamanho
-  await nav(page, 'Cardápio');
+  await nav(page, 'Itens');
   const product = `Burger ${tag}`;
   await page.getByRole('button', { name: 'Adicionar item' }).click();
   await page.getByLabel('Nome do item', { exact: true }).fill(product);

@@ -83,6 +83,13 @@ export function useGlider<T extends HTMLElement = HTMLDivElement>(
     ro?.observe(box);
     const onResize = () => schedule(true);
     window.addEventListener('resize', onResize);
+    // Entrada animada (ex.: submenu da barra que desliza e itens que entram em cascata):
+    // medido no meio do movimento, o indicador ficava torto até o próximo clique.
+    const onAnimEnd = (e: AnimationEvent) => {
+      const t = e.target;
+      if (t instanceof Node && (t.contains(box) || box.contains(t))) schedule(true);
+    };
+    window.addEventListener('animationend', onAnimEnd, true);
     // Fontes carregando mudam a largura dos itens.
     document.fonts?.ready.then(() => schedule(true)).catch(() => undefined);
     return () => {
@@ -90,6 +97,7 @@ export function useGlider<T extends HTMLElement = HTMLDivElement>(
       mo.disconnect();
       ro?.disconnect();
       window.removeEventListener('resize', onResize);
+      window.removeEventListener('animationend', onAnimEnd, true);
     };
   }, [place]);
 

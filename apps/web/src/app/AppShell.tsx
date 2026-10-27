@@ -12,6 +12,7 @@ import {
   LayoutGrid,
   LogOut,
   KeyRound,
+  Layers,
   MessageCircle,
   FileText,
   Printer,
@@ -22,7 +23,9 @@ import {
   Sparkles,
   Smartphone,
   Store,
+  Tags,
   Truck,
+  UtensilsCrossed,
   Users,
   Wallet,
   WifiOff,
@@ -34,6 +37,7 @@ import {
   AppFrame,
   Badge,
   FrameItem,
+  FrameLink,
   Logo,
   Mascot,
   ThemeToggle,
@@ -58,6 +62,8 @@ interface NavItem {
   label: string;
   icon: ReactNode;
   soon?: boolean;
+  /** Subitens: o ícone abre um submenu na barra (no celular, folha de baixo). */
+  children?: FrameLink[];
   /** Mostra o item se o usuário tiver ao menos uma destas permissões. */
   perms?: string[];
 }
@@ -96,7 +102,24 @@ const MAIN: NavItem[] = [
     icon: <Truck />,
     perms: ['delivery:manage'],
   },
-  { to: '/cardapio', label: 'Cardápio', icon: <BookOpen />, perms: ['catalog:read'] },
+  {
+    to: '/cardapio',
+    label: 'Cardápio',
+    icon: <BookOpen />,
+    perms: ['catalog:read'],
+    children: [
+      {
+        to: '/cardapio',
+        end: true,
+        also: '/cardapio/itens/*',
+        label: 'Itens',
+        icon: <UtensilsCrossed />,
+      },
+      { to: '/cardapio/familias', label: 'Famílias de item', icon: <Tags /> },
+      { to: '/cardapio/complementos', label: 'Grupos de complementos', icon: <Layers /> },
+      { to: '/cardapio/cardapios', label: 'Cardápios', icon: <BookOpen /> },
+    ],
+  },
 ];
 
 /** Gestão e configurações: abrem um submenu que sai da barra (no celular, folha de baixo). */
@@ -199,9 +222,10 @@ export function AppShell() {
   const pdvTo = ROLE_HOME[me?.user.role ?? ''] ? '/pdv' : '/';
   const main: FrameItem[] = MAIN.filter(can).map((i) => ({
     key: i.to,
-    to: i.to === '/' ? pdvTo : i.to,
+    to: i.children ? undefined : i.to === '/' ? pdvTo : i.to,
     label: i.label,
     icon: i.icon,
+    children: i.children,
   }));
   const groups: FrameItem[] = GROUPS.map((g) => ({
     key: g.key,
