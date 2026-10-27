@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.41.0',
+    date: '2026-10-27',
+    title: 'Painel mais confortável no celular',
+    summary:
+      'No celular, o topo mostra o nome inteiro da tela, as janelas têm Salvar e Cancelar sempre à vista no rodapé e as listas viraram cartões sem texto espremido. Trocar de tela ou de aba agora desliza do lado tocado.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Topo do celular com o nome da tela inteiro (antes saía cortado, ex.: "Pe..."). O aviso "Tempo real" virou só a bolinha verde.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Trocar de tela pela barra de baixo ou de aba (ex.: Insumos, Inventário) desliza o conteúdo do lado tocado. Quem pediu ao aparelho para reduzir movimento não vê a animação.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Janelas que sobem de baixo seguem um padrão só: alça em cima, título fixo e Salvar/Cancelar presos no rodapé enquanto rola. Valeu para comanda avulsa, abrir caixa, sangria, suprimento, fechamento, receber pagamento e nova categoria. No pedido, o próximo passo (iniciar preparo, marcar pronto, receber) fica no rodapé.',
+      },
+      {
+        tag: 'correção',
+        text: 'Listas no celular (Equipe, Complementos, Financeiro, Caixa, Estoque): nome e detalhes em linhas próprias e textos longos quebram linha em vez de sair do quadro.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Números do topo (Clientes, Caixa, Financeiro, Entregas, Reservas) em dois por linha, compactos e com o rótulo inteiro.',
+      },
+      {
+        tag: 'correção',
+        text: 'Salão: busca de mesa voltou a ter o visual do campo e os botões do topo ficaram em grade, com "Escanear mesa" em destaque. Reservas, WhatsApp e Nota fiscal sem texto espremido.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cardápio no celular: lista de itens compacta (foto, nome, opções e preço numa linha), abas Itens/Famílias/Complementos/Cardápios numa linha só e o Salvar do cadastro do item fica preso no topo ao rolar.',
+      },
+    ],
+  },
+  {
     version: '0.40.1',
     date: '2026-10-27',
     title: 'Cardápio online mais leve e com transições',
