@@ -204,7 +204,7 @@ function Gate() {
           }
         />
         <Route
-          path="estoque"
+          path="estoque/*"
           element={
             <Guard path="estoque">
               <StockPage />

@@ -15,17 +15,19 @@ import { RealtimeService } from '../realtime/realtime.service';
  * usa para estimar quantos dias o saldo ainda dura. Filtre e ordene sempre com o alias "s.".
  */
 export const ITEM_SELECT = `
-  SELECT s.id, s.name, s.unit, s.quantity::text, s.min_quantity::text AS "minQuantity",
+  SELECT s.id, s.code, s.barcode, s.name, s.unit, s.quantity::text, s.min_quantity::text AS "minQuantity",
          s.avg_cost::text AS "avgCost", s.allow_negative AS "allowNegative", s.active,
          (s.quantity < s.min_quantity) AS low, round(s.quantity * s.avg_cost, 2)::text AS "stockValue",
-         s.category, s.supplier, s.counted_at AS "countedAt", u.daily::text AS "dailyUsage"
+         s.category, s.supplier, s.counted_at AS "countedAt", u.daily::text AS "dailyUsage",
+         s.shelf_life_days AS "shelfLifeDays", s.recipe_yield::text AS "recipeYield",
+         EXISTS (SELECT 1 FROM stock_item_recipes r WHERE r.stock_item_id = s.id) AS "hasPrep"
     FROM stock_items s
     LEFT JOIN LATERAL (
       SELECT round(-sum(m.quantity) / 30, 3) AS daily FROM stock_movements m
        WHERE m.stock_item_id = s.id AND m.kind = 'sale' AND m.created_at >= now() - interval '30 days'
     ) u ON true`;
 
-export type StockEntryKind = 'purchase' | 'loss' | 'count';
+export type StockEntryKind = 'purchase' | 'loss' | 'withdrawal' | 'count';
 
 /**
  * Estoque por ficha técnica. Toda alteração de saldo:
@@ -108,13 +110,21 @@ export class StockService {
    * o movimento guarda o custo médio do momento: assim venda, perda e contagem ficam
    * valorizadas (CMV e perdas em R$) mesmo que o custo mude depois.
    */
-  private async move(
+  async move(
     tx: Tx,
     ctx: Ctx,
     itemId: string,
     kind: string,
     delta: string,
-    extra: { orderId?: string; note?: string; unitCost?: string; countId?: string } = {},
+    extra: {
+      orderId?: string;
+      note?: string;
+      unitCost?: string;
+      countId?: string;
+      receiptId?: string;
+      productionId?: string;
+      lotId?: string;
+    } = {},
   ) {
     const r = await one<{ quantity: string; avg_cost: string }>(
       tx,
@@ -124,8 +134,9 @@ export class StockService {
     );
     await q(
       tx,
-      `INSERT INTO stock_movements (tenant_id, stock_item_id, kind, quantity, unit_cost, balance_after, order_id, note, created_by, count_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      `INSERT INTO stock_movements (tenant_id, stock_item_id, kind, quantity, unit_cost, balance_after, order_id,
+                                    note, created_by, count_id, receipt_id, production_id, lot_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
       [
         ctx.tenantId,
         itemId,
@@ -137,6 +148,9 @@ export class StockService {
         extra.note ?? null,
         ctx.userId,
         extra.countId ?? null,
+        extra.receiptId ?? null,
+        extra.productionId ?? null,
+        extra.lotId ?? null,
       ],
     );
     return r!.quantity;
@@ -145,7 +159,7 @@ export class StockService {
   /**
    * Movimento manual:
    *  - purchase (entrada): soma e recalcula o custo médio ponderado se vier custo unitário;
-   *  - loss (perda/quebra): subtrai, com motivo;
+   *  - loss (perda/quebra) e withdrawal (saída avulsa: consumo interno, doação…): subtrai, com motivo;
    *  - count (contagem/inventário): ajusta o saldo para o valor contado, com motivo.
    */
   async entry(
@@ -160,22 +174,13 @@ export class StockService {
         [itemId],
       );
       if (!it) throw new NotFoundException('Insumo não encontrado');
-      if ((b.kind === 'loss' || b.kind === 'count') && !b.note)
+      if (b.kind !== 'purchase' && !b.note)
         throw new UnprocessableEntityException('Informe o motivo');
       let delta: string;
       if (b.kind === 'purchase') {
         delta = b.quantity;
-        if (b.unitCost !== undefined) {
-          // Custo médio ponderado sobre o saldo positivo existente.
-          await q(
-            tx,
-            `UPDATE stock_items SET avg_cost = round(
-               (GREATEST(quantity, 0) * avg_cost + $2::numeric * $3::numeric) / (GREATEST(quantity, 0) + $2::numeric), 4)
-             WHERE id = $1`,
-            [itemId, b.quantity, b.unitCost],
-          );
-        }
-      } else if (b.kind === 'loss') {
+        if (b.unitCost !== undefined) await this.averageIn(tx, itemId, b.quantity, b.unitCost);
+      } else if (b.kind === 'loss' || b.kind === 'withdrawal') {
         const ok = await one<{ ok: boolean }>(tx, `SELECT ($1::numeric - $2::numeric) >= 0 AS ok`, [
           it.quantity,
           b.quantity,
@@ -274,6 +279,17 @@ export class StockService {
     });
     this.realtime.publish(ctx.tenantId, { type: 'stock.changed' });
     return res;
+  }
+
+  /** Custo médio ponderado sobre o saldo positivo existente (chame antes de somar a entrada). */
+  async averageIn(tx: Tx, itemId: string, quantity: string, unitCost: string) {
+    await q(
+      tx,
+      `UPDATE stock_items SET avg_cost = round(
+         (GREATEST(quantity, 0) * avg_cost + $2::numeric * $3::numeric) / (GREATEST(quantity, 0) + $2::numeric), 4)
+       WHERE id = $1`,
+      [itemId, quantity, unitCost],
+    );
   }
 
   async item(tx: Tx, id: string) {

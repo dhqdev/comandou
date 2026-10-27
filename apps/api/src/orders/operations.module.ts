@@ -19,6 +19,8 @@ import { PrintAgentController, PrintingController } from '../printing/printing.c
 import { PrintingService } from '../printing/printing.service';
 import { StockController } from '../stock/stock.controller';
 import { StockService } from '../stock/stock.service';
+import { StockOpsService } from '../stock/stock-ops.service';
+import { StockSectionsController } from '../stock/stock-sections.controller';
 import { UsersController } from '../users/users.controller';
 import { CashController } from '../cash/cash.controller';
 import { CashService } from '../cash/cash.service';
@@ -56,6 +58,7 @@ import { OrdersService } from './orders.service';
     ReportsController,
     SetupController,
     StockController,
+    StockSectionsController,
     DeliveryController,
     CourierPayController,
     ZonesController,
@@ -80,6 +83,7 @@ import { OrdersService } from './orders.service';
     TabsService,
     KitchenService,
     StockService,
+    StockOpsService,
     PrintingService,
     DeliveryService,
     CourierPayService,

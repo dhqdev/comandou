@@ -1633,6 +1633,57 @@ export async function seedDemoData(
       fromCents(avg[k]!),
     ]);
 
+  // Estoque › Fatores de conversão e Lotes: embalagens de compra e a validade dos perecíveis
+  // (lote não mexe no saldo, só mostra o que vence primeiro).
+  await bulk(
+    c,
+    'stock_unit_factors',
+    ['tenant_id', 'code', 'name', 'unit', 'factor', 'stock_item_id'],
+    [
+      [T, 'CX12', 'Caixa com 12', 'un', '12', null],
+      [T, 'FD6', 'Fardo com 6', 'un', '6', null],
+      [T, 'PCT24', 'Pacote com 24', 'un', '24', stockId.pao],
+      [T, 'SC25', 'Saco de 25 kg', 'kg', '25', null],
+      [T, 'GL5', 'Galão de 5 L', 'l', '5', null],
+    ],
+  );
+  const day = (ms: number) => iso(ms).slice(0, 10);
+  const lots: [string, string, number, number][] = [
+    // insumo, quantidade, fabricado há (dias), validade (dias a partir da fabricação)
+    ['alface', '3', 4, 5],
+    ['tomate', '6', 3, 7],
+    ['morango', '1', 3, 4],
+    ['mucarela', '8', 10, 30],
+    ['catupiry', '1', 20, 21],
+    ['frango', '10', 2, 4],
+    ['blend', '120', 1, 5],
+    ['sorvete', '8', 30, 180],
+  ];
+  await bulk(
+    c,
+    'stock_lots',
+    [
+      'tenant_id',
+      'stock_item_id',
+      'code',
+      'quantity',
+      'made_on',
+      'expires_on',
+      'origin',
+      'created_at',
+    ],
+    lots.map(([k, q, ago, life], i) => [
+      T,
+      stockId[k],
+      `LOTE-${String(i + 1).padStart(6, '0')}`,
+      q,
+      day(now - ago * DAY),
+      day(now - (ago - life) * DAY),
+      'manual',
+      iso(now - ago * DAY),
+    ]),
+  );
+
   // Fechamento dos caixas dos dias anteriores: esperado = soma do livro-razão.
   const notes = [
     'Faltaram R$ 2,50 de troco',

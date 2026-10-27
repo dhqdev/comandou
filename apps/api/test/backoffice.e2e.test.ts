@@ -500,6 +500,224 @@ describe('Estoque e ficha técnica', () => {
   });
 });
 
+describe('Estoque: recebimento, produção, lotes, saídas e fatores', () => {
+  let tomate: { id: string; code: string };
+  let molho: { id: string; code: string };
+  let refri: { id: string };
+  const qtyOf = async (id: string) =>
+    ((await get('stockA', `/stock/items/${id}`).expect(200)).body as { quantity: string }).quantity;
+
+  it('insumo ganha código automático e aceita código de barras e validade padrão', async () => {
+    tomate = (await post('stockA', '/stock/items', { name: 'Tomate', unit: 'kg' }).expect(201))
+      .body;
+    molho = (
+      await post('stockA', '/stock/items', { name: 'Molho', unit: 'kg', shelfLifeDays: 3 }).expect(
+        201,
+      )
+    ).body;
+    refri = (
+      await post('stockA', '/stock/items', {
+        name: 'Refri lata',
+        unit: 'un',
+        code: 'REF-1',
+        barcode: '7891000',
+      }).expect(201)
+    ).body;
+    expect(tomate.code).toMatch(/^IN-\d{6}$/);
+    expect(molho).toMatchObject({ shelfLifeDays: 3, hasPrep: false });
+    expect(refri).toMatchObject({ code: 'REF-1', barcode: '7891000' });
+    await post('stockA', '/stock/items', { name: 'Outro', unit: 'un', code: 'ref-1' }).expect(409);
+  });
+
+  it('fatores de conversão: sigla única por insumo, unidade segue o insumo', async () => {
+    await post('cashierA', '/stock/factors', {
+      code: 'CX12',
+      name: 'Caixa',
+      unit: 'un',
+      factor: '12',
+    }).expect(403);
+    const f = (
+      await post('stockA', '/stock/factors', {
+        code: 'CX12',
+        name: 'Caixa com 12',
+        unit: 'kg',
+        factor: '12',
+        stockItemId: refri.id,
+      }).expect(201)
+    ).body;
+    expect(f).toMatchObject({
+      code: 'CX12',
+      unit: 'un',
+      factor: '12.0000',
+      itemName: 'Refri lata',
+    });
+    await post('stockA', '/stock/factors', {
+      code: 'cx12',
+      name: 'Repetido',
+      unit: 'un',
+      factor: '6',
+      stockItemId: refri.id,
+    }).expect(409);
+    const g = (
+      await post('stockA', '/stock/factors', {
+        code: 'SC5',
+        name: 'Saco 5 kg',
+        unit: 'kg',
+        factor: '5',
+      }).expect(201)
+    ).body;
+    await patch('stockA', `/stock/factors/${g.id}`, {
+      code: 'SC5',
+      name: 'Saco de 5 kg',
+      unit: 'kg',
+      factor: '5',
+    }).expect(200);
+    expect((await get('stockA', '/stock/factors').expect(200)).body).toHaveLength(2);
+    expect((await get('adminB', '/stock/factors').expect(200)).body).toHaveLength(0);
+    await http
+      .delete(`/api/v1/stock/factors/${g.id}`)
+      .set('Host', HOST_B)
+      .set('Cookie', cookies.adminB!)
+      .set(CSRF)
+      .expect(404);
+  });
+
+  it('recebimento converte a unidade, calcula custo médio e cria lote com validade', async () => {
+    const r = (
+      await post('stockA', '/stock/receipts', {
+        supplier: 'Hortifruti Sul',
+        invoice: '1234',
+        receivedOn: '2026-10-20',
+        lines: [
+          // 2 sacos de 5 kg a R$ 30,00 o saco = 10 kg a R$ 6,00/kg.
+          {
+            stockItemId: tomate.id,
+            quantity: '2',
+            unit: 'SC5',
+            factor: '5',
+            unitCost: '30',
+            expiresOn: '2026-10-30',
+          },
+          { stockItemId: refri.id, quantity: '1', unit: 'CX12', factor: '12', unitCost: '36' },
+        ],
+      }).expect(201)
+    ).body;
+    expect(r).toMatchObject({ code: expect.stringMatching(/^REC-\d{6}$/), total: '96.00' });
+    expect(await get('stockA', `/stock/items/${tomate.id}`).expect(200)).toMatchObject({
+      body: { quantity: '10.000', avgCost: '6.0000' },
+    });
+    expect(await qtyOf(refri.id)).toBe('12.000');
+    const detail = (await get('stockA', `/stock/receipts/${r.id}`).expect(200)).body;
+    expect(detail.lines[0]).toMatchObject({
+      quantity: '10.000',
+      enteredQuantity: '2.000',
+      enteredUnit: 'SC5',
+      unitCost: '6.0000',
+      expiresOn: '2026-10-30',
+    });
+    expect(detail.lines[1].lotCode).toBeNull();
+    expect((await get('stockA', '/stock/receipts').expect(200)).body[0]).toMatchObject({
+      code: r.code,
+      linesCount: 2,
+    });
+    await post('stockA', '/stock/receipts', { lines: [] }).expect(400);
+    await post('adminB', '/stock/receipts', {
+      lines: [{ stockItemId: tomate.id, quantity: '1', unit: 'kg', factor: '1' }],
+    }).expect(404);
+    expect((await get('adminB', '/stock/receipts').expect(200)).body).toHaveLength(0);
+  });
+
+  it('produção baixa a ficha de preparo, dá entrada com custo e cria lote', async () => {
+    // Ficha: 4 kg de tomate rendem 2 kg de molho.
+    const m = (
+      await put('stockA', `/stock/items/${molho.id}/recipe`, {
+        yield: '2',
+        lines: [{ stockItemId: tomate.id, quantity: '4' }],
+      }).expect(200)
+    ).body;
+    expect(m).toMatchObject({ hasPrep: true, recipeYield: '2.000' });
+    await put('stockA', `/stock/items/${molho.id}/recipe`, {
+      yield: '2',
+      lines: [{ stockItemId: molho.id, quantity: '1' }],
+    }).expect(422);
+    const recipes = (await get('stockA', '/stock/item-recipes').expect(200)).body;
+    expect(recipes).toEqual([{ itemId: molho.id, stockItemId: tomate.id, quantity: '4.000' }]);
+
+    // Pede mais tomate do que tem: nada muda.
+    await post('stockA', '/stock/productions', {
+      lines: [{ stockItemId: molho.id, quantity: '6' }],
+    }).expect(409);
+    expect(await qtyOf(tomate.id)).toBe('10.000');
+
+    const out = (
+      await post('stockA', '/stock/productions', {
+        lines: [{ stockItemId: molho.id, quantity: '1.5' }],
+      }).expect(201)
+    ).body;
+    // 1,5 kg de molho = 3 kg de tomate × R$ 6,00 = R$ 18,00 (R$ 12,00/kg).
+    expect(out[0]).toMatchObject({ code: expect.stringMatching(/^PRD-/), totalCost: '18.00' });
+    expect(await qtyOf(tomate.id)).toBe('7.000');
+    expect((await get('stockA', `/stock/items/${molho.id}`).expect(200)).body).toMatchObject({
+      quantity: '1.500',
+      avgCost: '12.0000',
+    });
+    const lots = (await get('stockA', `/stock/lots?itemId=${molho.id}`).expect(200)).body;
+    expect(lots).toHaveLength(1);
+    expect(lots[0]).toMatchObject({ origin: 'production', status: 'available', quantity: '1.500' });
+    // Validade padrão do insumo: 3 dias.
+    const diff = (Date.parse(lots[0].expiresOn) - Date.parse(lots[0].madeOn)) / 86400000;
+    expect(diff).toBe(3);
+    const prods = (await get('stockA', '/stock/productions').expect(200)).body;
+    expect(prods[0]).toMatchObject({ itemName: 'Molho', lotCode: lots[0].code });
+    const movs = (
+      await get('stockA', `/stock/movements?itemId=${tomate.id}&direction=out`).expect(200)
+    ).body;
+    expect(movs[0]).toMatchObject({
+      kind: 'production',
+      quantity: '-3.000',
+      productionCode: out[0].code,
+    });
+  });
+
+  it('lotes: manual, descarte registra perda e não fecha duas vezes', async () => {
+    const lot = (
+      await post('stockA', '/stock/lots', {
+        stockItemId: tomate.id,
+        quantity: '2',
+        code: 'FORN-77',
+        madeOn: '2026-10-01',
+        expiresOn: '2026-10-25',
+      }).expect(201)
+    ).body;
+    expect(lot).toMatchObject({ code: 'FORN-77', origin: 'manual', itemName: 'Tomate' });
+    expect(await qtyOf(tomate.id)).toBe('7.000');
+    await post('cashierA', `/stock/lots/${lot.id}/close`, { status: 'discarded' }).expect(403);
+    await post('stockA', `/stock/lots/${lot.id}/close`, {
+      status: 'discarded',
+      note: 'Vencido',
+    }).expect(201);
+    expect(await qtyOf(tomate.id)).toBe('5.000');
+    await post('stockA', `/stock/lots/${lot.id}/close`, { status: 'used' }).expect(409);
+    const [mv] = (await get('stockA', `/stock/movements?itemId=${tomate.id}&limit=1`).expect(200))
+      .body;
+    expect(mv).toMatchObject({ kind: 'loss', quantity: '-2.000', lotCode: 'FORN-77' });
+    expect((await get('adminB', '/stock/lots').expect(200)).body).toHaveLength(0);
+    await post('adminB', `/stock/lots/${lot.id}/close`, { status: 'used' }).expect(404);
+  });
+
+  it('saída avulsa exige motivo e aparece nas saídas', async () => {
+    const mv = (body: object) => post('stockA', `/stock/items/${refri.id}/movements`, body);
+    await mv({ kind: 'withdrawal', quantity: '2' }).expect(422);
+    await mv({ kind: 'withdrawal', quantity: '20', note: 'Consumo interno' }).expect(409);
+    await mv({ kind: 'withdrawal', quantity: '2', note: 'Consumo interno' }).expect(201);
+    expect(await qtyOf(refri.id)).toBe('10.000');
+    const out = (await get('stockA', '/stock/movements?direction=out&limit=50').expect(200))
+      .body as { kind: string; itemName: string }[];
+    expect(out.some((m) => m.kind === 'withdrawal' && m.itemName === 'Refri lata')).toBe(true);
+    expect(out.every((m) => m.kind !== 'purchase')).toBe(true);
+  });
+});
+
 // ------------------------------------------------------------------------------- entregas
 let courier1: { id: string };
 let courier2: { id: string };

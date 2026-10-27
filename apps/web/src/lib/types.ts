@@ -304,6 +304,9 @@ export interface Member {
 export type StockUnit = 'un' | 'kg' | 'g' | 'l' | 'ml';
 export interface StockItem {
   id: string;
+  /** IN-000001 (automático) ou o código que a loja usa. */
+  code: string;
+  barcode: string | null;
   name: string;
   unit: StockUnit;
   quantity: string;
@@ -320,6 +323,12 @@ export interface StockItem {
   countedAt: string | null;
   /** Consumo médio por dia nas vendas dos últimos 30 dias; null = sem venda. */
   dailyUsage: string | null;
+  /** Validade padrão dos lotes produzidos (dias). */
+  shelfLifeDays: number | null;
+  /** Rendimento da ficha de preparo, na unidade do insumo. */
+  recipeYield: string;
+  /** Produzido na casa (tem ficha de preparo). */
+  hasPrep: boolean;
 }
 /** Sessão de inventário (contagem em lote). */
 export interface StockCount {
@@ -375,7 +384,7 @@ export interface StockMovement {
   stockItemId: string;
   itemName: string;
   unit: StockUnit;
-  kind: 'purchase' | 'adjustment' | 'sale' | 'sale_reversal' | 'loss';
+  kind: 'purchase' | 'adjustment' | 'sale' | 'sale_reversal' | 'loss' | 'production' | 'withdrawal';
   quantity: string;
   unitCost: string | null;
   balanceAfter: string;
@@ -387,6 +396,85 @@ export interface StockMovement {
   countId: string | null;
   /** Quantidade × custo do momento, em R$; null = entrada sem custo. */
   value: string | null;
+  itemCode: string;
+  receiptCode: string | null;
+  receiptId: string | null;
+  productionCode: string | null;
+  lotCode: string | null;
+}
+export type StockLotStatus = 'available' | 'used' | 'discarded';
+export interface StockLot {
+  id: string;
+  code: string;
+  stockItemId: string;
+  itemName: string;
+  itemCode: string;
+  unit: StockUnit;
+  quantity: string;
+  madeOn: string;
+  expiresOn: string | null;
+  status: StockLotStatus;
+  origin: 'receipt' | 'production' | 'manual';
+  receiptCode: string | null;
+  receiptId: string | null;
+  productionCode: string | null;
+  note: string | null;
+  createdAt: string;
+  closedAt: string | null;
+}
+export interface StockReceipt {
+  id: string;
+  code: string;
+  supplier: string | null;
+  invoice: string | null;
+  receivedOn: string;
+  note: string | null;
+  total: string;
+  createdAt: string;
+  createdByName: string | null;
+  linesCount?: number;
+  lines?: StockReceiptLine[];
+}
+export interface StockReceiptLine {
+  id: string;
+  stockItemId: string;
+  itemName: string;
+  unit: StockUnit;
+  quantity: string;
+  unitCost: string | null;
+  enteredQuantity: string;
+  enteredUnit: string;
+  factor: string;
+  lotCode: string | null;
+  expiresOn: string | null;
+  total: string | null;
+}
+export interface StockProduction {
+  id: string;
+  code: string;
+  stockItemId: string;
+  itemName: string;
+  unit: StockUnit;
+  quantity: string;
+  totalCost: string | null;
+  note: string | null;
+  createdAt: string;
+  createdByName: string | null;
+  lotCode: string | null;
+  expiresOn: string | null;
+}
+export interface StockFactor {
+  id: string;
+  code: string;
+  name: string;
+  unit: StockUnit;
+  factor: string;
+  stockItemId: string | null;
+  itemName: string | null;
+}
+/** Linha da ficha de preparo: `itemId` (preparo) leva `quantity` de `stockItemId`. */
+export interface PrepRecipeLine extends RecipeLine {
+  itemId: string;
 }
 export interface RecipeLine {
   stockItemId: string;

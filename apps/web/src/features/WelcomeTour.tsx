@@ -55,7 +55,7 @@ const ABOUT: Record<string, { title: string; text: string; tips: string[] }> = {
   },
   gestao: {
     title: 'Gestão do negócio',
-    text: 'Loja online, clientes, estoque, financeiro, relatórios e equipe ficam reunidos neste menu.',
+    text: 'Loja online, clientes, financeiro, relatórios e equipe ficam reunidos neste menu.',
     tips: ['Cadastre a equipe com o papel de cada um', 'Relatórios mostram o que mais vendeu'],
   },
   sistema: {

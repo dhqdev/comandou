@@ -43,6 +43,10 @@ const Item = z.object({
   active: z.boolean().optional(),
   category: optText(40).optional(),
   supplier: optText(80).optional(),
+  /** Vazio no cadastro = código automático (IN-000001). */
+  code: optText(30).optional(),
+  barcode: optText(40).optional(),
+  shelfLifeDays: z.number().int().min(1).max(3650).nullable().optional(),
 });
 const Count = z.object({
   note: z.string().trim().min(3).max(300),
@@ -76,7 +80,7 @@ const PricingSettings = z
   );
 const ProductPricing = z.object({ targetMargin: pct(80).nullable() });
 const Entry = z.object({
-  kind: z.enum(['purchase', 'loss', 'count']),
+  kind: z.enum(['purchase', 'loss', 'withdrawal', 'count']),
   quantity: qty,
   unitCost: unitCost.optional(),
   note: z.string().trim().min(3).max(300).optional(),
@@ -89,7 +93,13 @@ const Recipe = z.object({
 });
 const MovementsQuery = z.object({
   itemId: uuid.optional(),
-  limit: z.coerce.number().int().min(1).max(500).default(100),
+  /** "out" = só saídas (venda, perda, produção, saída avulsa, contagem para menos). */
+  direction: z.enum(['in', 'out']).optional(),
+  from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  limit: z.coerce.number().int().min(1).max(1000).default(100),
 });
 
 @Controller({ path: 'stock', version: '1' })
@@ -120,8 +130,9 @@ export class StockController {
     const res = await this.db.withTenant(ctxOf(t, u), async (tx) => {
       const r = await one<{ id: string }>(
         tx,
-        `INSERT INTO stock_items (tenant_id, name, unit, min_quantity, allow_negative, active, category, supplier)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+        `INSERT INTO stock_items (tenant_id, name, unit, min_quantity, allow_negative, active, category, supplier,
+                                  code, barcode, shelf_life_days)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
         [
           t.id,
           b.name,
@@ -131,6 +142,9 @@ export class StockController {
           b.active ?? true,
           b.category ?? null,
           b.supplier ?? null,
+          b.code ?? null,
+          b.barcode ?? null,
+          b.shelfLifeDays ?? null,
         ],
       );
       await this.audit.record(tx, {
@@ -181,7 +195,10 @@ export class StockController {
                 min_quantity = COALESCE($4::numeric, min_quantity),
                 allow_negative = COALESCE($5, allow_negative), active = COALESCE($6, active),
                 category = CASE WHEN $7 THEN $8 ELSE category END,
-                supplier = CASE WHEN $9 THEN $10 ELSE supplier END
+                supplier = CASE WHEN $9 THEN $10 ELSE supplier END,
+                code = COALESCE($11, code),
+                barcode = CASE WHEN $12 THEN $13 ELSE barcode END,
+                shelf_life_days = CASE WHEN $14 THEN $15::int ELSE shelf_life_days END
           WHERE id = $1`,
         [
           id,
@@ -194,6 +211,11 @@ export class StockController {
           b.category ?? null,
           b.supplier !== undefined,
           b.supplier ?? null,
+          b.code ?? null,
+          b.barcode !== undefined,
+          b.barcode ?? null,
+          b.shelfLifeDays !== undefined,
+          b.shelfLifeDays ?? null,
         ],
       );
       await this.audit.record(tx, {
@@ -240,14 +262,21 @@ export class StockController {
                 m.quantity::text, m.unit_cost::text AS "unitCost", m.balance_after::text AS "balanceAfter",
                 m.order_id AS "orderId", o.number AS "orderNumber", m.note, m.created_at AS "createdAt",
                 us.name AS "createdByName", m.count_id AS "countId",
-                round(m.quantity * m.unit_cost, 2)::text AS "value"
+                round(m.quantity * m.unit_cost, 2)::text AS "value", s.code AS "itemCode",
+                rc.code AS "receiptCode", rc.id AS "receiptId", pr.code AS "productionCode",
+                lt.code AS "lotCode"
            FROM stock_movements m
            JOIN stock_items s ON s.id = m.stock_item_id
            LEFT JOIN orders o ON o.id = m.order_id
            LEFT JOIN users us ON us.id = m.created_by
+           LEFT JOIN stock_receipts rc ON rc.id = m.receipt_id
+           LEFT JOIN stock_productions pr ON pr.id = m.production_id
+           LEFT JOIN stock_lots lt ON lt.id = m.lot_id
           WHERE ($1::uuid IS NULL OR m.stock_item_id = $1)
+            AND ($3::text IS NULL OR ($3 = 'out' AND m.quantity < 0) OR ($3 = 'in' AND m.quantity > 0))
+            AND ($4::date IS NULL OR m.created_at >= $4::date)
           ORDER BY m.id DESC LIMIT $2`,
-        [f.itemId ?? null, f.limit],
+        [f.itemId ?? null, f.limit, f.direction ?? null, f.from ?? null],
       ),
     );
   }

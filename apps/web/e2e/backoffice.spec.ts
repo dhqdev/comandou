@@ -54,8 +54,8 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
     price: '30.00',
   });
 
-  // Estoque: insumo, entrada e ficha técnica
-  await nav(page, 'Estoque');
+  // Estoque: insumo, entrada e ficha técnica (cada seção tem o seu item no submenu)
+  await nav(page, 'Visão geral');
   await page.getByRole('button', { name: 'Novo insumo' }).click();
   dialog = page.getByRole('dialog');
   await dialog.getByLabel('Nome').fill(`Pão ${tag}`);
@@ -69,12 +69,14 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await dialog.getByRole('button', { name: 'Registrar' }).click();
   await expect(row).toContainText('10 un');
 
-  await page.getByRole('tab', { name: 'Ficha técnica' }).click();
-  await page.getByLabel('Produto ou adicional').selectOption({ label: `Lanche ${tag}` });
-  await page.getByRole('button', { name: 'Adicionar insumo' }).click();
-  await page.getByLabel('Insumo', { exact: true }).selectOption({ label: `Pão ${tag} (un)` });
-  await page.getByLabel(/^Quantidade/).fill('1');
-  await page.getByRole('button', { name: 'Salvar ficha' }).click();
+  await nav(page, 'Fichas técnicas');
+  await page.getByRole('searchbox', { name: 'Buscar ficha' }).fill(`Lanche ${tag}`);
+  await page.getByRole('button', { name: `Lanche ${tag}` }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByRole('button', { name: 'Adicionar insumo' }).click();
+  await dialog.getByLabel('Insumo', { exact: true }).selectOption({ label: `Pão ${tag} (un)` });
+  await dialog.getByLabel(/^Quantidade/).fill('1');
+  await dialog.getByRole('button', { name: 'Salvar ficha' }).click();
   await expect(page.getByText('Ficha técnica salva')).toBeVisible();
   await shot(page, info.project.name, 'estoque');
 
@@ -123,7 +125,7 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await anon.close();
 
   // A venda baixou o insumo
-  await nav(page, 'Estoque');
+  await nav(page, 'Visão geral');
   await expect(page.getByRole('row', { name: new RegExp(`Pão ${tag}`) })).toContainText('9 un');
 
   // Financeiro: conta a pagar e baixa
@@ -184,6 +186,13 @@ test('telas da etapa 4 não geram rolagem horizontal', async ({ page }) => {
   for (const path of [
     '/entregas',
     '/estoque',
+    '/estoque/lotes',
+    '/estoque/producao',
+    '/estoque/recebimento',
+    '/estoque/recebimento/novo',
+    '/estoque/saida',
+    '/estoque/fichas',
+    '/estoque/fatores',
     '/financeiro',
     '/equipe',
     '/impressao',

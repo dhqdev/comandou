@@ -4,7 +4,13 @@ import {
   CircleUserRound,
   Compass,
   BookOpen,
+  Calculator,
   CalendarCheck,
+  ClipboardCheck,
+  Factory,
+  PackageMinus,
+  PackagePlus,
+  Ruler,
   CreditCard,
   Boxes,
   ChefHat,
@@ -63,7 +69,7 @@ interface NavItem {
   icon: ReactNode;
   soon?: boolean;
   /** Subitens: o ícone abre um submenu na barra (no celular, folha de baixo). */
-  children?: FrameLink[];
+  children?: (FrameLink & { perms?: string[] })[];
   /** Mostra o item se o usuário tiver ao menos uma destas permissões. */
   perms?: string[];
 }
@@ -120,6 +126,34 @@ const MAIN: NavItem[] = [
       { to: '/cardapio/cardapios', label: 'Cardápios', icon: <BookOpen /> },
     ],
   },
+  {
+    to: '/estoque',
+    label: 'Estoque',
+    icon: <Boxes />,
+    perms: ['stock:read'],
+    children: [
+      {
+        to: '/estoque',
+        end: true,
+        also: '/estoque/insumos/*',
+        label: 'Visão geral',
+        icon: <Boxes />,
+      },
+      { to: '/estoque/lotes', label: 'Lotes', icon: <Tags /> },
+      { to: '/estoque/producao', label: 'Produção', icon: <Factory /> },
+      { to: '/estoque/recebimento', label: 'Recebimento', icon: <PackagePlus /> },
+      { to: '/estoque/saida', label: 'Saída de estoque', icon: <PackageMinus /> },
+      { to: '/estoque/inventario', label: 'Inventário', icon: <ClipboardCheck /> },
+      { to: '/estoque/fichas', label: 'Fichas técnicas', icon: <ClipboardList /> },
+      { to: '/estoque/fatores', label: 'Fatores de conversão', icon: <Ruler /> },
+      {
+        to: '/estoque/precificacao',
+        label: 'Precificação',
+        icon: <Calculator />,
+        perms: ['stock:write', 'reports:read'],
+      },
+    ],
+  },
 ];
 
 /** Gestão e configurações: abrem um submenu que sai da barra (no celular, folha de baixo). */
@@ -136,7 +170,6 @@ const GROUPS: { key: string; label: string; icon: ReactNode; items: NavItem[] }[
         perms: ['settings:manage'],
       },
       { to: '/clientes', label: 'Clientes', icon: <Users />, perms: ['customers:read'] },
-      { to: '/estoque', label: 'Estoque', icon: <Boxes />, perms: ['stock:read'] },
       { to: '/financeiro', label: 'Financeiro', icon: <Receipt />, perms: ['finance:read'] },
       { to: '/relatorios', label: 'Relatórios', icon: <BarChart3 />, perms: ['reports:read'] },
       { to: '/equipe', label: 'Equipe', icon: <UserCog />, perms: ['users:manage'] },
@@ -225,7 +258,7 @@ export function AppShell() {
     to: i.children ? undefined : i.to === '/' ? pdvTo : i.to,
     label: i.label,
     icon: i.icon,
-    children: i.children,
+    children: i.children?.filter((c) => allowed(c.perms)).map(({ perms: _perms, ...c }) => c),
   }));
   const groups: FrameItem[] = GROUPS.map((g) => ({
     key: g.key,

@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.42.0',
+    date: '2026-10-27',
+    title: 'Estoque com seções próprias',
+    summary:
+      'O Estoque virou um menu com subabas, como o Cardápio: Visão geral, Lotes, Produção, Recebimento, Saída de estoque, Inventário, Fichas técnicas, Fatores de conversão e Precificação. Cada uma explica no topo para que serve.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Visão geral com código de cada insumo (IN-000001) e um detalhe por insumo: saldo, custo, a movimentação completa e os lotes.',
+      },
+      {
+        tag: 'novo',
+        text: 'Recebimento: lance a nota do fornecedor com vários itens de uma vez. Comprou em caixa ou fardo? Escolha a embalagem e o sistema converte quantidade e custo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Produção: molho, massa e recheio feitos na casa. Monte a ficha de preparo (o que leva e quanto rende), bipe a etiqueta ou adicione a linha, e a produção baixa os insumos, calcula o custo e cria o lote com validade.',
+      },
+      {
+        tag: 'novo',
+        text: 'Lotes com fabricação e validade: abas Vencendo e Vencidos, e o descarte de um lote registra a perda no estoque.',
+      },
+      {
+        tag: 'novo',
+        text: 'Saída de estoque: tudo o que saiu e por quê (venda, perda, produção) e a saída avulsa para consumo da equipe, doação ou cortesia.',
+      },
+      {
+        tag: 'novo',
+        text: 'Fatores de conversão: cadastre as embalagens de compra (1 CX12 = 12 un, saco de 25 kg). Quilo/grama e litro/mililitro já convertem sozinhos.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Fichas técnicas numa lista só (itens do cardápio, complementos e preparos), com custo, CMV e o aviso dos itens que ainda estão sem ficha.',
+      },
+    ],
+  },
+  {
     version: '0.41.0',
     date: '2026-10-27',
     title: 'Painel mais confortável no celular',
