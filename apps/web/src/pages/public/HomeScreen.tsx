@@ -6,6 +6,7 @@ import {
   Clock,
   Flame,
   Heart,
+  Info,
   MapPin,
   Moon,
   Plus,
@@ -221,6 +222,8 @@ interface WheelItem {
   products: PublicProduct[];
 }
 
+const flat = () => window.matchMedia?.('(min-width: 900px)').matches;
+
 /**
  * Carrossel de categorias (como no PedidoJá): rola de lado, a do meio fica maior e é a que
  * aparece embaixo. Tocar numa categoria a traz para o meio; soltar a rolagem escolhe a do meio.
@@ -260,6 +263,7 @@ function CategoryWheel({
       const a = Math.min(Math.abs(d), 3);
       el.style.setProperty('--s', String(1 - a * 0.13));
       el.style.setProperty('--y', `${a * a * 3}px`);
+      el.style.setProperty('--o', String(Math.max(0, 1 - a * 0.45)));
       if (Math.abs(d) < bestD) {
         bestD = Math.abs(d);
         best = el;
@@ -285,6 +289,8 @@ function CategoryWheel({
   useEffect(() => setLive(cur), [cur]);
 
   const onScroll = () => {
+    // No computador as categorias ficam lado a lado (sem arco): rolar não troca a categoria.
+    if (flat()) return;
     cancelAnimationFrame(frame.current);
     frame.current = requestAnimationFrame(() => {
       const id = paint();
@@ -306,13 +312,9 @@ function CategoryWheel({
       center(next.id, 'smooth');
     }
   };
-  const liveItem = items.find((c) => c.id === live) ?? items[0];
 
   return (
     <section className="wheel" aria-label="Categorias">
-      <h2 className="wheel__title" aria-live="polite">
-        {liveItem?.name}
-      </h2>
       <div className="wheel__band">
         <button
           type="button"
@@ -331,6 +333,7 @@ function CategoryWheel({
               role="tab"
               data-id={c.id}
               aria-selected={c.id === cur}
+              data-live={c.id === live || undefined}
               aria-label={c.name}
               title={c.name}
               className="wheel__item"
@@ -339,17 +342,20 @@ function CategoryWheel({
                 center(c.id, 'smooth');
               }}
             >
-              {c.icon ? (
-                <span className="wheel__icon">
+              <span className="wheel__disc">
+                {c.icon ? (
                   <c.icon size={24} />
-                </span>
-              ) : (
-                <Photo
-                  src={c.imageUrl ?? c.products.find((p) => p.imageUrl)?.imageUrl ?? null}
-                  alt={c.name}
-                  className="wheel__photo"
-                />
-              )}
+                ) : (
+                  <Photo
+                    src={c.imageUrl ?? c.products.find((p) => p.imageUrl)?.imageUrl ?? null}
+                    alt={c.name}
+                    className="wheel__photo"
+                  />
+                )}
+              </span>
+              <span className="wheel__name" aria-hidden>
+                {c.name}
+              </span>
             </button>
           ))}
         </div>
@@ -577,6 +583,10 @@ export function HomeScreen() {
       )
     : [];
   const current = wheel.find((c) => c.id === cat) ?? wheel[0];
+  // A grade entra pelo lado para onde o carrossel andou (direita = próxima categoria).
+  const catIdx = current ? wheel.indexOf(current) : 0;
+  const [slide, setSlide] = useState({ idx: catIdx, dir: 'fwd' as 'fwd' | 'back' });
+  if (slide.idx !== catIdx) setSlide({ idx: catIdx, dir: catIdx < slide.idx ? 'back' : 'fwd' });
   const shown = current ? refine(current.products, filters) : [];
 
   function pickBanner(b: PublicBanner) {
@@ -638,6 +648,7 @@ export function HomeScreen() {
           )}
         </span>
         <button type="button" className="sf-head__more" onClick={() => setSheet('info')}>
+          <Info size={15} aria-hidden />
           Mais informações
         </button>
       </section>
@@ -717,7 +728,13 @@ export function HomeScreen() {
             ) : (
               <>
                 <CategoryWheel items={wheel} cur={current!.id} onPick={setCat} />
-                <section className="sec sec--grid" key={current!.id}>
+                <section className="sec sec--grid" key={current!.id} data-dir={slide.dir}>
+                  <h2 className="sec__title sec__title--cat" aria-live="polite">
+                    {current!.name}
+                    <small>
+                      {shown.length} {shown.length === 1 ? 'item' : 'itens'}
+                    </small>
+                  </h2>
                   {shown.length ? (
                     <ProductGrid list={shown} />
                   ) : (

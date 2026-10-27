@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.40.1',
+    date: '2026-10-27',
+    title: 'Cardápio online mais leve e com transições',
+    summary:
+      'Ajuste fino no cardápio do cliente: botões e cartões em tamanhos mais equilibrados, nome de cada categoria embaixo da bolinha e transições suaves ao trocar de aba e de categoria.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Carrossel de categorias com o nome embaixo de cada bolinha; acima da grade aparece a categoria aberta e quantos itens ela tem. No computador as categorias ficam lado a lado.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Trocar de aba desliza para o lado da aba escolhida, e trocar de categoria faz os cartões entrarem pelo lado para onde o carrossel andou.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A pílula "Ver sacola" ficou clara e mais fina, sem competir com a barra de abas; barra, busca, filtro e cartões ficaram mais compactos.',
+      },
+      {
+        tag: 'melhoria',
+        text: '"Mais informações" virou um botão discreto com ícone, e os cartões ganharam um leve destaque ao passar o mouse.',
+      },
+    ],
+  },
+  {
     version: '0.40.0',
     date: '2026-10-27',
     title: 'Filtros dinâmicos nas listas e formulários compactos',

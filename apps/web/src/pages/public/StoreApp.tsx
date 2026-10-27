@@ -137,15 +137,38 @@ function CartPill() {
   );
 }
 
-/** Cada tela entra deslizando: para a frente ao abrir, para trás ao voltar. */
+/** Ordem das abas de baixo: trocar de aba desliza para o lado da aba escolhida. */
+const TAB_ORDER = ['/pedir', '/pedir/favoritos', '/pedir/pedidos', '/pedir/conta'];
+const tabIndex = (path: string) => TAB_ORDER.indexOf(path.replace(/\/+$/, '') || '/pedir');
+
+/**
+ * Cada tela entra deslizando: para a frente ao abrir, para trás ao voltar. Entre abas, o lado
+ * segue a ordem da barra (aba à direita entra pela direita).
+ */
 function Screens() {
   const location = useLocation();
   const nav = useNavigationType();
+  const [last, setLast] = useState({ path: location.pathname, dir: 'fwd', tab: false });
+  if (last.path !== location.pathname) {
+    const from = tabIndex(last.path);
+    const to = tabIndex(location.pathname);
+    const tab = from >= 0 && to >= 0;
+    setLast({
+      path: location.pathname,
+      tab,
+      dir: tab ? (to < from ? 'back' : 'fwd') : nav === 'POP' ? 'back' : 'fwd',
+    });
+  }
   useEffect(() => {
     if (nav !== 'POP') window.scrollTo({ top: 0 });
   }, [location.pathname, nav]);
   return (
-    <div className="screen" key={location.pathname} data-dir={nav === 'POP' ? 'back' : 'fwd'}>
+    <div
+      className="screen"
+      key={location.pathname}
+      data-dir={last.dir}
+      data-tab={last.tab || undefined}
+    >
       <Routes location={location}>
         <Route index element={<HomeScreen />} />
         <Route path="produto/:id" element={<ProductScreen />} />
