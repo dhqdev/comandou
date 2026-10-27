@@ -1,22 +1,26 @@
 import { toCents } from '@comandou/shared';
 import {
   Bike,
+  ChevronLeft,
   ChevronRight,
   Clock,
+  Flame,
   Heart,
-  LayoutGrid,
+  MapPin,
   Moon,
   Plus,
   Search,
+  ShoppingBag,
+  SlidersHorizontal,
   Sparkles,
   Store,
   UserRound,
   Wallet,
   X,
 } from 'lucide-react';
-import { CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Mascot } from '../../design-system';
+import { Button, Mascot, Modal } from '../../design-system';
 import { brl } from '../../lib/money';
 import { useStore } from './context';
 import { setMorph } from './morph';
@@ -57,8 +61,8 @@ function useQuickAdd() {
     );
 }
 
-/** Cartão alto (carrosséis de destaque e grade de favoritos). */
-function ProductTile({ p, i = 0 }: { p: PublicProduct; i?: number }) {
+/** Cartão do produto (grade de duas colunas): foto, coração, selo, nome, preço e "+". */
+function ProductCard({ p, i = 0 }: { p: PublicProduct; i?: number }) {
   const { favs, toggleFav } = useStore();
   const open = useOpenProduct();
   const quick = useQuickAdd();
@@ -66,85 +70,57 @@ function ProductTile({ p, i = 0 }: { p: PublicProduct; i?: number }) {
   return (
     <div
       ref={ref}
-      className="tile"
-      style={{ '--i': i } as CSSProperties}
-      data-soldout={p.soldOut || undefined}
-      role="button"
-      tabIndex={0}
-      onClick={() => open(p, ref.current)}
-      onKeyDown={(e) => e.key === 'Enter' && open(p, ref.current)}
-      aria-label={`${p.name}, ${brl(p.price)}`}
-    >
-      <Photo src={p.imageUrl} alt={p.name} ratio="1 / 1" className="tile__photo" />
-      {p.badge && <span className="badge-chip tile__badge">{p.badge}</span>}
-      <HeartButton
-        className="tile__heart"
-        on={favs.includes(p.id)}
-        onToggle={() => toggleFav(p.id)}
-      />
-      <span className="tile__name">{p.name}</span>
-      <span className="tile__foot">
-        <span className="tile__price">{p.soldOut ? 'Esgotado' : brl(p.price)}</span>
-        {!p.soldOut && (
-          <button
-            type="button"
-            className="addbtn"
-            aria-label={`Adicionar ${p.name}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (quickAddable(p)) quick(p, ref.current?.querySelector('.ph') ?? null);
-              else open(p, ref.current);
-            }}
-          >
-            <Plus size={16} />
-          </button>
-        )}
-      </span>
-    </div>
-  );
-}
-
-/** Linha da lista do cardápio: texto à esquerda, foto à direita. */
-function ProductRow({ p, i = 0 }: { p: PublicProduct; i?: number }) {
-  const open = useOpenProduct();
-  const quick = useQuickAdd();
-  const ref = useRef<HTMLDivElement>(null);
-  return (
-    <div
-      ref={ref}
-      className="prow"
+      className="pcard"
       style={{ '--i': Math.min(i, 8) } as CSSProperties}
       data-soldout={p.soldOut || undefined}
       role="button"
       tabIndex={0}
       onClick={() => open(p, ref.current)}
       onKeyDown={(e) => e.key === 'Enter' && open(p, ref.current)}
+      aria-label={`${p.name}, ${p.soldOut ? 'esgotado' : brl(p.price)}`}
     >
-      <span className="prow__body">
-        <span className="prow__name">
-          {p.name}
-          {p.badge && <span className="badge-chip badge-chip--inline">{p.badge}</span>}
-        </span>
-        {p.description && <span className="prow__desc">{p.description}</span>}
-        <span className="prow__price">{p.soldOut ? 'Esgotado' : brl(p.price)}</span>
-      </span>
-      <span className="prow__media">
-        <Photo src={p.imageUrl} alt={p.name} className="prow__photo" />
-        {!p.soldOut && (
-          <button
-            type="button"
-            className="addbtn prow__add"
-            aria-label={`Adicionar ${p.name}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (quickAddable(p)) quick(p, ref.current?.querySelector('.ph') ?? null);
-              else open(p, ref.current);
-            }}
-          >
-            <Plus size={16} />
-          </button>
+      <div className="pcard__media">
+        <Photo src={p.imageUrl} alt={p.name} ratio="4 / 3" className="pcard__photo" />
+        <HeartButton
+          className="pcard__heart"
+          on={favs.includes(p.id)}
+          onToggle={() => toggleFav(p.id)}
+        />
+        {(p.soldOut || p.badge) && (
+          <span className="pcard__badge">{p.soldOut ? 'Esgotado' : p.badge}</span>
         )}
-      </span>
+      </div>
+      <div className="pcard__body">
+        <span className="pcard__name">{p.name}</span>
+        {p.description && <span className="pcard__desc">{p.description}</span>}
+        <span className="pcard__foot">
+          <span className="pcard__price">{p.soldOut ? '—' : brl(p.price)}</span>
+          {!p.soldOut && (
+            <button
+              type="button"
+              className="addbtn"
+              aria-label={`Adicionar ${p.name}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (quickAddable(p)) quick(p, ref.current?.querySelector('.ph') ?? null);
+                else open(p, ref.current);
+              }}
+            >
+              <Plus size={16} />
+            </button>
+          )}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ProductGrid({ list }: { list: PublicProduct[] }) {
+  return (
+    <div className="pgrid">
+      {list.map((p, i) => (
+        <ProductCard key={p.id} p={p} i={i} />
+      ))}
     </div>
   );
 }
@@ -209,22 +185,327 @@ function Banners({ banners, onPick }: { banners: PublicBanner[]; onPick(b: Publi
   );
 }
 
-/** Destaca a última palavra do título com a cor da marca ("Bateu a *fome?*"). */
-function Headline({ text }: { text: string }) {
-  const words = text.trim().split(/\s+/);
-  const last = words.pop();
+type Sort = 'relevance' | 'price-asc' | 'price-desc' | 'name';
+const SORTS: { id: Sort; label: string }[] = [
+  { id: 'relevance', label: 'Ordem do cardápio' },
+  { id: 'price-asc', label: 'Menor preço' },
+  { id: 'price-desc', label: 'Maior preço' },
+  { id: 'name', label: 'Nome (A–Z)' },
+];
+interface Filters {
+  sort: Sort;
+  available: boolean;
+}
+const NO_FILTERS: Filters = { sort: 'relevance', available: false };
+
+/**
+ * Categoria e filtros escolhidos: a tela do início é remontada ao voltar do produto, então
+ * ficam aqui fora para o cliente voltar para onde estava (somem ao recarregar a página).
+ */
+const kept: { cat: string | null; filters: Filters } = { cat: null, filters: NO_FILTERS };
+
+function refine(list: PublicProduct[], f: Filters) {
+  const out = f.available ? list.filter((p) => !p.soldOut) : [...list];
+  const price = (p: PublicProduct) => toCents(p.price);
+  if (f.sort === 'price-asc') out.sort((a, b) => price(a) - price(b));
+  if (f.sort === 'price-desc') out.sort((a, b) => price(b) - price(a));
+  if (f.sort === 'name') out.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  return out;
+}
+
+interface WheelItem {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  icon?: typeof Sparkles;
+  products: PublicProduct[];
+}
+
+/**
+ * Carrossel de categorias (como no PedidoJá): rola de lado, a do meio fica maior e é a que
+ * aparece embaixo. Tocar numa categoria a traz para o meio; soltar a rolagem escolhe a do meio.
+ */
+function CategoryWheel({
+  items,
+  cur,
+  onPick,
+}: {
+  items: WheelItem[];
+  cur: string;
+  onPick(id: string): void;
+}) {
+  const track = useRef<HTMLDivElement>(null);
+  const [live, setLive] = useState(cur);
+  const settle = useRef(0);
+  const frame = useRef(0);
+  const curRef = useRef(cur);
+  curRef.current = cur;
+
+  const center = (id: string, behavior: ScrollBehavior) => {
+    const t = track.current;
+    const el = t?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`);
+    if (!t || !el) return;
+    t.scrollTo({ left: el.offsetLeft - (t.clientWidth - el.offsetWidth) / 2, behavior });
+  };
+
+  // Tamanho e altura de cada bolinha conforme a distância do meio: forma um arco.
+  const paint = () => {
+    const t = track.current;
+    if (!t) return null;
+    const mid = t.scrollLeft + t.clientWidth / 2;
+    let best: HTMLElement | null = null;
+    let bestD = Infinity;
+    for (const el of t.querySelectorAll<HTMLElement>('.wheel__item')) {
+      const d = (el.offsetLeft + el.offsetWidth / 2 - mid) / el.offsetWidth;
+      const a = Math.min(Math.abs(d), 3);
+      el.style.setProperty('--s', String(1 - a * 0.13));
+      el.style.setProperty('--y', `${a * a * 3}px`);
+      if (Math.abs(d) < bestD) {
+        bestD = Math.abs(d);
+        best = el;
+      }
+    }
+    return best?.dataset.id ?? null;
+  };
+
+  useLayoutEffect(() => {
+    center(curRef.current, 'instant');
+    paint();
+    const onResize = () => {
+      center(curRef.current, 'instant');
+      paint();
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      cancelAnimationFrame(frame.current);
+      window.clearTimeout(settle.current);
+    };
+  }, []);
+  useEffect(() => setLive(cur), [cur]);
+
+  const onScroll = () => {
+    cancelAnimationFrame(frame.current);
+    frame.current = requestAnimationFrame(() => {
+      const id = paint();
+      if (id) setLive(id);
+    });
+    // Parou de rolar: a categoria do meio passa a ser a escolhida.
+    window.clearTimeout(settle.current);
+    settle.current = window.setTimeout(() => {
+      const id = paint();
+      if (id && id !== curRef.current) onPick(id);
+    }, 140);
+  };
+
+  const step = (dir: 1 | -1) => {
+    const i = items.findIndex((c) => c.id === cur);
+    const next = items[Math.max(0, Math.min(items.length - 1, i + dir))];
+    if (next) {
+      onPick(next.id);
+      center(next.id, 'smooth');
+    }
+  };
+  const liveItem = items.find((c) => c.id === live) ?? items[0];
+
   return (
-    <h2 className="sf-greet__title">
-      {words.join(' ')} <em>{last}</em>
-    </h2>
+    <section className="wheel" aria-label="Categorias">
+      <h2 className="wheel__title" aria-live="polite">
+        {liveItem?.name}
+      </h2>
+      <div className="wheel__band">
+        <button
+          type="button"
+          className="wheel__arrow wheel__arrow--prev"
+          aria-label="Categoria anterior"
+          onClick={() => step(-1)}
+          disabled={items[0]?.id === cur}
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <div className="wheel__track" ref={track} onScroll={onScroll} role="tablist">
+          {items.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              role="tab"
+              data-id={c.id}
+              aria-selected={c.id === cur}
+              aria-label={c.name}
+              title={c.name}
+              className="wheel__item"
+              onClick={() => {
+                onPick(c.id);
+                center(c.id, 'smooth');
+              }}
+            >
+              {c.icon ? (
+                <span className="wheel__icon">
+                  <c.icon size={24} />
+                </span>
+              ) : (
+                <Photo
+                  src={c.imageUrl ?? c.products.find((p) => p.imageUrl)?.imageUrl ?? null}
+                  alt={c.name}
+                  className="wheel__photo"
+                />
+              )}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          className="wheel__arrow wheel__arrow--next"
+          aria-label="Próxima categoria"
+          onClick={() => step(1)}
+          disabled={items[items.length - 1]?.id === cur}
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/** Horário, entrega, retirada, mínimo e endereço da loja ("Mais informações"). */
+function StoreInfo({ open, onClose }: { open: boolean; onClose(): void }) {
+  const { menu } = useStore();
+  const r = menu.restaurant;
+  const s = menu.store;
+  return (
+    <Modal
+      open={open}
+      title={r.name}
+      onClose={onClose}
+      footer={<Button onClick={onClose}>Ver o cardápio</Button>}
+    >
+      <div className="sf-info">
+        <span className={`status ${s.isOpen ? 'is-open' : 'is-closed'}`}>
+          {s.isOpen ? 'Aberto agora' : 'Fechado agora'}
+        </span>
+        {r.about && <p className="sf-info__about">{r.about}</p>}
+        <ul className="sf-info__list">
+          <li>
+            <Clock size={18} aria-hidden />
+            <span>
+              <strong>Tempo de preparo e entrega</strong>
+              {s.etaMin}–{s.etaMax} min
+            </span>
+          </li>
+          {s.acceptsDelivery && (
+            <li>
+              <Bike size={18} aria-hidden />
+              <span>
+                <strong>Entrega</strong>
+                {s.deliveryZones
+                  ? 'Taxa conforme o bairro'
+                  : toCents(s.deliveryFee)
+                    ? brl(s.deliveryFee)
+                    : 'Grátis'}
+              </span>
+            </li>
+          )}
+          {s.acceptsPickup && (
+            <li>
+              <Store size={18} aria-hidden />
+              <span>
+                <strong>Retirada</strong>
+                Busque no balcão da loja
+              </span>
+            </li>
+          )}
+          {toCents(s.minOrder) > 0 && (
+            <li>
+              <Wallet size={18} aria-hidden />
+              <span>
+                <strong>Pedido mínimo</strong>
+                {brl(s.minOrder)}
+              </span>
+            </li>
+          )}
+          {r.address && (
+            <li>
+              <MapPin size={18} aria-hidden />
+              <span>
+                <strong>Endereço</strong>
+                {r.address}
+              </span>
+            </li>
+          )}
+        </ul>
+      </div>
+    </Modal>
+  );
+}
+
+/** Ordenar e esconder esgotados: vale para a categoria aberta e para a busca. */
+function FilterSheet({
+  open,
+  value,
+  count,
+  onChange,
+  onClose,
+}: {
+  open: boolean;
+  value: Filters;
+  count: number;
+  onChange(f: Filters): void;
+  onClose(): void;
+}) {
+  return (
+    <Modal
+      open={open}
+      title="Filtrar"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={() => onChange(NO_FILTERS)}>
+            Limpar
+          </Button>
+          <Button onClick={onClose}>
+            Ver {count} {count === 1 ? 'produto' : 'produtos'}
+          </Button>
+        </>
+      }
+    >
+      <div className="sf-filter">
+        <span className="sf-filter__label">Ordenar por</span>
+        <div className="sf-filter__opts" role="radiogroup" aria-label="Ordenar por">
+          {SORTS.map((o) => (
+            <button
+              key={o.id}
+              type="button"
+              role="radio"
+              aria-checked={value.sort === o.id}
+              className="sf-filter__opt"
+              onClick={() => onChange({ ...value, sort: o.id })}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        <label className="sf-filter__toggle">
+          <span>
+            <strong>Só o que está disponível</strong>
+            <small>Esconde os produtos esgotados</small>
+          </span>
+          <input
+            type="checkbox"
+            checked={value.available}
+            onChange={(e) => onChange({ ...value, available: e.target.checked })}
+          />
+        </label>
+      </div>
+    </Modal>
   );
 }
 
 export function HomeScreen() {
-  const { menu, account, product } = useStore();
+  const { menu, account, product, count } = useStore();
   const open = useOpenProduct();
   const [search, setSearch] = useState('');
-  const [cat, setCat] = useState<string>('all');
+  const [filters, setFilters] = useState<Filters>(kept.filters);
+  const [sheet, setSheet] = useState<'info' | 'filter' | null>(null);
   const [stuck, setStuck] = useState(false);
   const sentinel = useRef<HTMLDivElement>(null);
   const recent = useMemo(recentOrders, []);
@@ -232,7 +513,7 @@ export function HomeScreen() {
   const s = menu.store;
   const first = account?.customer?.name.split(' ')[0];
 
-  // A barra de busca gruda no topo e ganha sombra depois que a capa sai da tela.
+  // A busca gruda no topo e ganha uma linha embaixo depois que a capa sai da tela.
   useEffect(() => {
     const el = sentinel.current;
     if (!el) return;
@@ -242,16 +523,61 @@ export function HomeScreen() {
   }, []);
 
   const all = useMemo(() => menu.categories.flatMap((c) => c.products), [menu]);
-  const featured = all.filter((p) => p.featured);
-  const popular = menu.popular.map((id) => product(id)).filter(Boolean) as PublicProduct[];
+  const wheel = useMemo<WheelItem[]>(() => {
+    const featured = all.filter((p) => p.featured);
+    const popular = menu.popular.map((id) => product(id)).filter(Boolean) as PublicProduct[];
+    return [
+      ...(featured.length
+        ? [
+            {
+              id: '__featured',
+              name: menu.appearance.featuredTitle || 'Destaques',
+              imageUrl: null,
+              icon: Sparkles,
+              products: featured,
+            },
+          ]
+        : []),
+      ...(popular.length > 2
+        ? [
+            {
+              id: '__popular',
+              name: 'Mais pedidos',
+              imageUrl: null,
+              icon: Flame,
+              products: popular,
+            },
+          ]
+        : []),
+      ...menu.categories.filter((c) => c.products.length > 0),
+    ];
+  }, [all, menu, product]);
+  const [cat, setCatState] = useState<string>(() =>
+    wheel.some((c) => c.id === kept.cat) ? kept.cat! : (wheel[0]?.id ?? ''),
+  );
+  const setCat = (id: string) => {
+    kept.cat = id;
+    setCatState(id);
+  };
+  const changeFilters = (f: Filters) => {
+    kept.filters = f;
+    setFilters(f);
+  };
+  const filtered = filters.sort !== 'relevance' || filters.available;
+
   const term = search.trim().toLowerCase();
   const results = term
-    ? all.filter(
-        (p) =>
-          p.name.toLowerCase().includes(term) || (p.description ?? '').toLowerCase().includes(term),
+    ? refine(
+        all.filter(
+          (p) =>
+            p.name.toLowerCase().includes(term) ||
+            (p.description ?? '').toLowerCase().includes(term),
+        ),
+        filters,
       )
     : [];
-  const sections = cat === 'all' ? menu.categories : menu.categories.filter((c) => c.id === cat);
+  const current = wheel.find((c) => c.id === cat) ?? wheel[0];
+  const shown = current ? refine(current.products, filters) : [];
 
   function pickBanner(b: PublicBanner) {
     if (b.targetType === 'product') {
@@ -259,92 +585,64 @@ export function HomeScreen() {
       if (p) open(p);
     } else if (b.targetType === 'category') {
       setCat(b.targetId!);
-      document.querySelector('.catchips')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      document.querySelector('.wheel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }
 
   return (
     <>
-      {/* Capa só com a foto (nada escrito em cima, como no iFood); os dados vêm no cartão abaixo. */}
-      <header className="sf-cover">
+      {/* Topo do celular: saudação e sacola (no computador isso fica na barra do topo). */}
+      <header className="sf-top">
+        {menu.appearance.accountsEnabled ? (
+          <Link className="sf-top__avatar" to="/pedir/conta" aria-label="Minha conta">
+            {first ? first[0]!.toUpperCase() : <UserRound size={18} />}
+          </Link>
+        ) : (
+          <Photo src={r.logoUrl} alt={r.name} className="sf-top__avatar" eager />
+        )}
+        <span className="sf-top__hello">
+          <strong>{first ? `Olá, ${first}` : 'Olá!'}</strong>
+          <small>{menu.appearance.headline || 'Bateu a fome? Peça agora!'}</small>
+        </span>
+        <Link
+          className="sf-top__bag"
+          to="/pedir/sacola"
+          aria-label={count ? `Sacola com ${count} itens` : 'Sacola'}
+        >
+          <ShoppingBag size={20} />
+          {count > 0 && <span className="cartpill__count">{count}</span>}
+        </Link>
+      </header>
+
+      {/* Capa só com a foto; a logo redonda encosta nela por baixo, com nome e situação. */}
+      <div className="sf-cover">
         {r.coverUrl ? (
           <img src={r.coverUrl} alt="" className="sf-cover__img" />
         ) : (
           <div className="sf-cover__art" />
         )}
-        {menu.appearance.accountsEnabled && (
-          <Link className="sf-avatar" to="/pedir/conta" aria-label="Minha conta">
-            {first ? first[0]!.toUpperCase() : <UserRound size={18} />}
-          </Link>
-        )}
-      </header>
-
-      <section className="sf-wrap sf-store">
-        <div className="sf-store__card">
-          <div className="sf-store__head">
-            <Photo src={r.logoUrl} alt={r.name} className="sf-store__logo" eager />
-            <div className="sf-store__name">
-              <h1>{r.name}</h1>
-              <span className={`status ${s.isOpen ? 'is-open' : 'is-closed'}`}>
-                {s.isOpen ? 'Aberto agora' : 'Fechado agora'}
-              </span>
-            </div>
-          </div>
-          {r.about && <p className="sf-about">{r.about}</p>}
-          <ul className="sf-store__info">
-            <li>
-              <Clock size={15} aria-hidden /> {s.etaMin}–{s.etaMax} min
-            </li>
-            {s.acceptsDelivery && (
-              <li>
-                <Bike size={15} aria-hidden />{' '}
-                {s.deliveryZones
-                  ? 'Entrega conforme o bairro'
-                  : toCents(s.deliveryFee)
-                    ? `Entrega ${brl(s.deliveryFee)}`
-                    : 'Entrega grátis'}
-              </li>
-            )}
-            {s.acceptsPickup && (
-              <li>
-                <Store size={15} aria-hidden /> Retirada
-              </li>
-            )}
-            {toCents(s.minOrder) > 0 && (
-              <li>
-                <Wallet size={15} aria-hidden /> Mínimo {brl(s.minOrder)}
-              </li>
-            )}
-          </ul>
-        </div>
-        <div className="sf-greet">
-          <p className="sf-greet__hello">{first ? `Olá, ${first} 👋` : 'Bem-vindo! 👋'}</p>
-          <Headline text={menu.appearance.headline || 'Bateu a fome? Peça agora!'} />
-        </div>
-      </section>
-      <div ref={sentinel} aria-hidden />
-
-      <div className="searchbar" data-stuck={stuck || undefined}>
-        <div className="sf-wrap">
-          <label className="searchbox">
-            <Search size={18} aria-hidden />
-            <input
-              type="search"
-              placeholder="Buscar no cardápio"
-              aria-label="Buscar no cardápio"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {search && (
-              <button type="button" aria-label="Limpar busca" onClick={() => setSearch('')}>
-                <X size={16} />
-              </button>
-            )}
-          </label>
-        </div>
       </div>
+      <section className="sf-wrap sf-head">
+        <Photo src={r.logoUrl} alt={r.name} className="sf-head__logo" eager />
+        <h1>{r.name}</h1>
+        <span className={`status ${s.isOpen ? 'is-open' : 'is-closed'}`}>
+          {s.isOpen ? 'Aberto agora' : 'Fechado agora'}
+        </span>
+        <span className="sf-head__meta">
+          <Clock size={14} aria-hidden /> {s.etaMin}–{s.etaMax} min
+          {s.acceptsDelivery && !s.deliveryZones && (
+            <>
+              <span aria-hidden>·</span>
+              {toCents(s.deliveryFee) ? `Entrega ${brl(s.deliveryFee)}` : 'Entrega grátis'}
+            </>
+          )}
+        </span>
+        <button type="button" className="sf-head__more" onClick={() => setSheet('info')}>
+          Mais informações
+        </button>
+      </section>
 
-      <div className="sf-wrap sf-body">
+      <div className="sf-wrap sf-notes">
         {recent[0] && (
           <Link className="ongoing" to={`/pedido/${recent[0].token}`}>
             <span className="ongoing__dot" aria-hidden />
@@ -362,9 +660,39 @@ export function HomeScreen() {
             </span>
           </p>
         )}
-        {!term && <LoyaltyStrip />}
-        {!term && <ReserveCard />}
+      </div>
+      <div ref={sentinel} aria-hidden />
 
+      <div className="searchbar" data-stuck={stuck || undefined}>
+        <div className="sf-wrap searchbar__row">
+          <label className="searchbox">
+            <Search size={18} aria-hidden />
+            <input
+              type="search"
+              placeholder="Buscar produto…"
+              aria-label="Buscar no cardápio"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            {search && (
+              <button type="button" aria-label="Limpar busca" onClick={() => setSearch('')}>
+                <X size={16} />
+              </button>
+            )}
+          </label>
+          <button
+            type="button"
+            className="filterbtn"
+            aria-label="Filtrar e ordenar"
+            data-on={filtered || undefined}
+            onClick={() => setSheet('filter')}
+          >
+            <SlidersHorizontal size={19} />
+          </button>
+        </div>
+      </div>
+
+      <div className="sf-wrap sf-body">
         {term ? (
           <section className="sec" aria-live="polite">
             <h2 className="sec__title">
@@ -372,93 +700,32 @@ export function HomeScreen() {
                 ? `${results.length} ${results.length === 1 ? 'resultado' : 'resultados'}`
                 : `Nada encontrado para “${search}”`}
             </h2>
-            <div className="plist">
-              {results.map((p, i) => (
-                <ProductRow key={p.id} p={p} i={i} />
-              ))}
-            </div>
+            <ProductGrid list={results} />
           </section>
         ) : (
           <>
+            <LoyaltyStrip />
+            <ReserveCard />
             <Banners banners={menu.banners} onPick={pickBanner} />
 
-            {menu.categories.every((c) => c.products.length === 0) && (
+            {wheel.length === 0 ? (
               <div className="empty-state">
                 <Mascot size={64} />
                 <strong>O cardápio está sendo preparado</strong>
                 <p>Ainda não há pratos cadastrados. Volte em instantes!</p>
               </div>
-            )}
-
-            {menu.categories.length > 1 && (
-              <div className="catchips" role="tablist" aria-label="Categorias">
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={cat === 'all'}
-                  className="catchip"
-                  onClick={() => setCat('all')}
-                >
-                  <span className="catchip__img catchip__img--all">
-                    <LayoutGrid size={22} />
-                  </span>
-                  <span>Tudo</span>
-                </button>
-                {menu.categories.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={cat === c.id}
-                    className="catchip"
-                    onClick={() => setCat(c.id)}
-                  >
-                    <Photo
-                      src={c.imageUrl ?? c.products.find((p) => p.imageUrl)?.imageUrl ?? null}
-                      alt={c.name}
-                      className="catchip__img"
-                    />
-                    <span>{c.name}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {cat === 'all' && featured.length > 0 && (
-              <section className="sec">
-                <h2 className="sec__title">
-                  <Sparkles size={18} aria-hidden /> {menu.appearance.featuredTitle || 'Destaques'}
-                </h2>
-                <div className="hscroll">
-                  {featured.map((p, i) => (
-                    <ProductTile key={p.id} p={p} i={i} />
-                  ))}
-                </div>
-              </section>
-            )}
-            {cat === 'all' && popular.length > 2 && (
-              <section className="sec">
-                <h2 className="sec__title">Mais pedidos</h2>
-                <div className="hscroll">
-                  {popular.map((p, i) => (
-                    <ProductTile key={p.id} p={p} i={i} />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            <div className="cats" key={cat}>
-              {sections.map((c) => (
-                <section key={c.id} className="sec">
-                  <h2 className="sec__title">{c.name}</h2>
-                  <div className="plist">
-                    {c.products.map((p, i) => (
-                      <ProductRow key={p.id} p={p} i={i} />
-                    ))}
-                  </div>
+            ) : (
+              <>
+                <CategoryWheel items={wheel} cur={current!.id} onPick={setCat} />
+                <section className="sec sec--grid" key={current!.id}>
+                  {shown.length ? (
+                    <ProductGrid list={shown} />
+                  ) : (
+                    <p className="sf-empty">Nenhum produto disponível nesta categoria agora.</p>
+                  )}
                 </section>
-              ))}
-            </div>
+              </>
+            )}
           </>
         )}
 
@@ -469,6 +736,15 @@ export function HomeScreen() {
           </p>
         </footer>
       </div>
+
+      <StoreInfo open={sheet === 'info'} onClose={() => setSheet(null)} />
+      <FilterSheet
+        open={sheet === 'filter'}
+        value={filters}
+        count={term ? results.length : shown.length}
+        onChange={changeFilters}
+        onClose={() => setSheet(null)}
+      />
     </>
   );
 }
@@ -491,9 +767,9 @@ export function FavoritesScreen() {
           </Link>
         </div>
       ) : (
-        <div className="tgrid">
+        <div className="pgrid">
           {list.map((p, i) => (
-            <ProductTile key={p.id} p={p} i={i} />
+            <ProductCard key={p.id} p={p} i={i} />
           ))}
         </div>
       )}

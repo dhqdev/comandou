@@ -10,7 +10,7 @@ import {
   useNavigate,
   useNavigationType,
 } from 'react-router';
-import { applyTheme, Mascot, useGlider } from '../../design-system';
+import { applyTheme, Mascot } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
 import {
@@ -38,7 +38,7 @@ function useNavTabs() {
   const { menu, account } = useStore();
   const name = account?.customer?.name.split(' ')[0];
   return [
-    { to: '/pedir', label: 'Início', icon: House, end: true },
+    { to: '/pedir', label: 'Cardápio', icon: House, end: true },
     { to: '/pedir/favoritos', label: 'Favoritos', icon: Heart },
     { to: '/pedir/pedidos', label: 'Pedidos', icon: ReceiptText },
     ...(menu.appearance.accountsEnabled
@@ -47,27 +47,20 @@ function useNavTabs() {
   ];
 }
 
-/** Abas de baixo (celular). */
+/** Abas de baixo (celular): barra na cor da loja; a aba aberta mostra o nome. */
 function BottomNav() {
   const { pathname } = useLocation();
   // Produto e sacola têm a própria barra embaixo (adicionar / finalizar).
   const focused = /^\/pedir\/(produto|sacola|reservar)/.test(pathname);
   const tabs = useNavTabs();
-  const glider = useGlider<HTMLElement>({ selector: '.tabbar__item.active' });
   return (
-    <nav
-      className="tabbar cm-glide"
-      ref={glider.ref}
-      data-focused={focused || undefined}
-      aria-label="Navegação do cardápio"
-    >
+    <nav className="tabbar" data-focused={focused || undefined} aria-label="Navegação do cardápio">
       {tabs.map((t) => (
         <NavLink key={t.to} to={t.to} end={t.end} className="tabbar__item">
           <t.icon size={22} aria-hidden />
           <span>{t.label}</span>
         </NavLink>
       ))}
-      {glider.glider}
     </nav>
   );
 }

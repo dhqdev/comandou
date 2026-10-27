@@ -1,7 +1,7 @@
 /*
  * Cardápio online (app de pedidos do cliente final).
- * Visual de app, minimalista: capa só com foto, cartão da loja, busca que gruda no topo,
- * categorias com foto, lista como no iFood, cartões pequenos, cantos discretos, sem gradiente.
+ * Visual de app, minimalista (como no PedidoJá): capa só com foto, logo redonda no meio, busca com
+ * filtro que gruda no topo, carrossel de categorias, grade de cartões e barra flutuante embaixo.
  * Só variáveis --cm-*: a identidade do Comandou vale aqui, nos temas claro e escuro.
  */
 .sf {
@@ -105,17 +105,76 @@
   }
 }
 
-/* ---------------------------------------------------------------- capa + cartão da loja (como no iFood) */
-/* A capa é só foto: nome, horário e entrega ficam num cartão sólido logo abaixo, sempre legíveis. */
+/* ---------------------------------------------------------------- topo, capa e loja (como no PedidoJá) */
+/* Celular: saudação e sacola no alto, capa só com foto, logo redonda no meio com nome e situação. */
+.sf-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
+  background: var(--cm-surface);
+}
+.sf-top__avatar {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+  text-decoration: none;
+  font-weight: 750;
+  overflow: hidden;
+}
+.sf-top__hello {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  line-height: 1.25;
+}
+.sf-top__hello strong {
+  font-size: var(--cm-text-md);
+  font-weight: 700;
+}
+.sf-top__hello small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sf-top__bag {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+  transition: transform var(--cm-dur) var(--cm-ease);
+}
+.sf-top__bag:active {
+  transform: scale(0.92);
+}
+.sf-top__bag .cartpill__count {
+  top: -3px;
+  right: -3px;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+}
+
 .sf-cover {
   position: relative;
-  height: calc(env(safe-area-inset-top, 0px) + 168px);
+  height: 148px;
   overflow: hidden;
   background: var(--cm-brand-800);
   isolation: isolate;
 }
 .sf-cover--skeleton {
-  height: 168px;
+  height: calc(env(safe-area-inset-top, 0px) + 210px);
 }
 .sf-cover__img,
 .sf-cover__art {
@@ -131,134 +190,170 @@
 .sf-cover__art {
   background: var(--cm-brand-800);
 }
-/* Só uma sombra leve no alto, para a hora e a bateria do celular aparecerem sobre a foto. */
-.sf-cover::after {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: calc(env(safe-area-inset-top, 0px) + 64px);
-  background: linear-gradient(180deg, rgb(0 0 0 / 38%), transparent);
-}
-.sf-avatar {
-  position: absolute;
-  z-index: 1;
-  top: calc(env(safe-area-inset-top, 0px) + 12px);
-  right: 16px;
-  width: 40px;
-  height: 40px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  color: var(--cm-text);
-  text-decoration: none;
-  font-weight: 800;
-  background: var(--cm-surface);
-  box-shadow: var(--cm-shadow-md);
-  transition: transform var(--cm-dur) var(--cm-ease-liquid);
-}
-.sf-avatar:active {
-  transform: scale(0.92);
-}
 
-.sf-store {
+.sf-head {
   position: relative;
   z-index: 2;
-  margin-top: -44px;
   display: grid;
-  gap: 16px;
+  justify-items: center;
+  gap: 4px;
+  margin-top: -40px;
+  text-align: center;
   animation: sf-rise 0.45s var(--sf-ease) both;
 }
-.sf-store__card {
-  display: grid;
-  gap: 12px;
-  padding: 16px;
-  border-radius: var(--sf-r-lg);
+.sf-head__logo {
+  width: 80px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  border: 3px solid var(--cm-bg);
   background: var(--cm-surface);
-  border: 1px solid var(--cm-border);
-  box-shadow: var(--cm-shadow-sm);
 }
-.sf-store__head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-.sf-store__logo {
-  width: 56px;
-  flex: none;
-  border-radius: var(--sf-r);
-  border: 1px solid var(--cm-border);
-}
-.sf-store__name {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-.sf-store__name h1 {
+.sf-head h1 {
   margin: 0;
   font-size: var(--cm-text-xl);
-  font-weight: 800;
-  line-height: 1.15;
+  font-weight: 750;
+  line-height: 1.2;
   letter-spacing: var(--cm-tracking-tight);
   overflow-wrap: anywhere;
 }
-.sf-store .status {
+.sf-head .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--cm-text-sm);
+}
+.sf-head__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.sf-head__more {
+  margin-top: 2px;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: var(--cm-brand-700);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.sf-notes:empty {
+  display: none;
+}
+
+/* "Mais informações" e filtros (abrem no Modal do sistema: folha no celular, janela no computador). */
+.sf-info {
+  display: grid;
+  gap: 14px;
+}
+.sf-info .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.sf-info__about {
+  margin: 0;
+  color: var(--cm-text-muted);
+  line-height: 1.5;
+}
+.sf-info__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--cm-border);
+}
+.sf-info__list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--cm-border);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.sf-info__list svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--cm-text-subtle);
+}
+.sf-info__list strong {
+  display: block;
+  color: var(--cm-text);
+  font-weight: 650;
+}
+.sf-filter {
+  display: grid;
+  gap: 10px;
+}
+.sf-filter__label {
   font-size: var(--cm-text-sm);
   font-weight: 650;
 }
-.sf-store__info {
+.sf-filter__opts {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 16px;
-  margin: 0;
-  padding: 12px 0 0;
-  list-style: none;
-  border-top: 1px solid var(--cm-border);
+  gap: 8px;
+}
+.sf-filter__opt {
+  height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
   color: var(--cm-text-muted);
-  font-size: var(--cm-text-sm);
-}
-.sf-store__info li {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  white-space: nowrap;
-}
-.sf-store__info svg {
-  color: var(--cm-text-subtle);
-}
-.sf-greet {
-  display: grid;
-  gap: 4px;
-  padding: 0 4px;
-  min-width: 0;
-}
-.sf-greet__hello {
-  margin: 0;
-  line-height: 1.3;
-  color: var(--cm-text-muted);
+  font: inherit;
   font-size: var(--cm-text-sm);
   font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--cm-dur),
+    color var(--cm-dur),
+    border-color var(--cm-dur);
 }
-.sf-greet__title {
-  margin: 0;
-  font-size: clamp(1.15rem, 4.6vw, 1.5rem);
-  line-height: 1.2;
-  font-weight: 750;
-  letter-spacing: -0.02em;
-  text-wrap: balance;
+.sf-filter__opt:hover {
+  border-color: var(--cm-border-strong);
 }
-.sf-greet__title em {
-  font-style: normal;
-  color: var(--cm-brand-600);
+.sf-filter__opt[aria-checked='true'] {
+  border-color: var(--cm-brand-600);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+}
+.sf-filter__toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--cm-border);
+  cursor: pointer;
+}
+.sf-filter__toggle span {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+.sf-filter__toggle small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.sf-filter__toggle input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--cm-brand-600);
 }
 
-/* ---------------------------------------------------------------- busca (gruda no topo) */
+/* ---------------------------------------------------------------- busca + filtro (gruda no topo) */
 .searchbar {
   position: sticky;
   top: 0;
   z-index: 20;
-  margin-top: 14px;
+  margin-top: 16px;
   padding: 0 0 6px;
   transition:
     background var(--cm-dur) var(--cm-ease),
@@ -270,13 +365,20 @@
   background: var(--cm-bg);
   box-shadow: 0 1px 0 var(--cm-border);
 }
-.searchbox {
+.searchbar__row {
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 46px;
-  padding: 0 8px 0 14px;
-  border-radius: var(--sf-r);
+}
+.searchbox {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 8px 0 16px;
+  border-radius: var(--cm-radius-full);
   background: var(--cm-surface);
   border: 1px solid var(--cm-border);
   color: var(--cm-text-subtle);
@@ -342,22 +444,44 @@
 .searchbox button:hover {
   color: var(--cm-text);
 }
+/* Botão de filtro redondo, na cor da loja; um ponto avisa quando há filtro ligado. */
+.filterbtn {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  cursor: pointer;
+  transition:
+    transform var(--cm-dur) var(--cm-ease),
+    background var(--cm-dur);
+}
+.filterbtn:hover {
+  background: var(--cm-brand-700);
+}
+.filterbtn:active {
+  transform: scale(0.92);
+}
+.filterbtn[data-on]::after {
+  content: '';
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--cm-on-brand);
+  box-shadow: 0 0 0 2px var(--cm-brand-600);
+}
 
 .sf-body {
   padding-top: 8px;
 }
-.sf-about {
-  margin: 0;
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-sm);
-  line-height: 1.5;
-  text-wrap: pretty;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
 /* ---------------------------------------------------------------- banners */
 .banners {
   margin-top: 16px;
@@ -479,253 +603,218 @@
   background: var(--cm-brand-500);
 }
 
-/* ---------------------------------------------------------------- categorias com foto */
-.catchips {
-  display: flex;
-  gap: 12px;
-  margin: 18px -16px 0;
-  padding: 4px 16px 6px;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
+/* ---------------------------------------------------------------- carrossel de categorias */
+/* Rola de lado; a do meio fica maior e mais alta (arco) e é a categoria mostrada embaixo. */
+.wheel {
+  margin-top: 22px;
   scroll-margin-top: 80px;
 }
-.catchips::-webkit-scrollbar {
+.wheel__title {
+  margin: 0 0 6px;
+  text-align: center;
+  font-size: var(--cm-text-lg);
+  font-weight: 750;
+  letter-spacing: var(--cm-tracking-tight);
+  min-height: 1.4em;
+}
+.wheel__band {
+  position: relative;
+  margin: 0 -16px;
+  padding: 10px 0 6px;
+  background: var(--cm-surface-sunken);
+  /* Faixa com o alto e a base em arco. */
+  border-radius: 50% 50% 50% 50% / 26px 26px 26px 26px;
+}
+.wheel__track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px calc(50% - 36px) 32px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.wheel__track::-webkit-scrollbar {
   display: none;
 }
-.catchip {
+.wheel__item {
+  --s: 0.7;
+  --y: 0px;
   flex: none;
-  display: grid;
-  justify-items: center;
-  gap: 6px;
-  width: 64px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-xs);
-  font-weight: 600;
-  scroll-snap-align: start;
-  cursor: pointer;
-  animation: sf-rise 0.45s var(--sf-ease) both;
-}
-.catchip > span:last-child {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.catchip__img {
-  width: 56px;
-  height: 56px;
-  border-radius: var(--sf-r);
-  background: var(--cm-surface);
-  border: 1px solid var(--cm-border);
-  transition:
-    box-shadow var(--cm-dur) var(--cm-ease),
-    background var(--cm-dur);
-}
-.catchip__img--all {
+  width: 72px;
+  height: 72px;
   display: grid;
   place-items: center;
+  padding: 0;
+  border: 1px solid var(--cm-border);
+  border-radius: 50%;
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  scroll-snap-align: center;
+  cursor: pointer;
+  transform: translateY(var(--y)) scale(var(--s));
+  transition:
+    border-color var(--cm-dur),
+    box-shadow var(--cm-dur),
+    color var(--cm-dur);
+  will-change: transform;
+}
+.wheel__item[aria-selected='true'] {
+  border-color: var(--cm-brand-500);
   color: var(--cm-brand-700);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cm-brand-500) 18%, transparent);
 }
-.catchip:hover .catchip__img {
-  border-color: var(--cm-border-strong);
+.wheel__item:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
 }
-.catchip[aria-selected='true'] {
-  color: var(--cm-text);
-  font-weight: 750;
+.wheel__photo {
+  width: 100%;
+  border-radius: 50%;
+  overflow: hidden;
 }
-.catchip[aria-selected='true'] .catchip__img {
-  border-color: transparent;
-  background: color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-surface));
-  box-shadow: 0 0 0 2px var(--cm-brand-500);
+.wheel__icon {
+  display: grid;
+  place-items: center;
 }
-.catchip[aria-selected='true'] .catchip__img--all {
-  background: var(--cm-brand-500);
-  color: var(--cm-on-brand);
+.wheel__arrow {
+  display: none;
+}
+.sf-empty {
+  margin: 24px 0;
+  text-align: center;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
 }
 
-/* ---------------------------------------------------------------- seções e listas */
+/* ---------------------------------------------------------------- seções e grade de produtos */
 .sec {
   margin-top: 24px;
+}
+.sec--grid {
+  margin-top: 18px;
+  animation: sf-rise 0.35s var(--sf-ease) both;
 }
 .sec__title {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 0 0 10px;
+  margin: 0 0 12px;
   font-size: var(--cm-text-md);
   font-weight: 750;
   letter-spacing: var(--cm-tracking-tight);
 }
-.sec__title svg {
-  color: var(--cm-brand-500);
-}
-.cats {
-  animation: sf-rise 0.35s var(--sf-ease) both;
-}
-.hscroll {
-  display: flex;
+.pgrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  margin: 0 -16px;
-  padding: 2px 16px 10px;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scroll-padding-inline: 16px;
-  scrollbar-width: none;
 }
-.hscroll::-webkit-scrollbar {
-  display: none;
-}
-.hscroll .tile {
-  flex: 0 0 132px;
-  scroll-snap-align: start;
-}
-.tgrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(46%, 150px), 1fr));
-  gap: 16px 12px;
+@media (min-width: 600px) {
+  .pgrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
-/* Cartão alto: foto, coração, selo, nome, preço e "+" */
-.tile {
-  position: relative;
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  padding: 0;
-  border-radius: var(--sf-r);
-  cursor: pointer;
-  text-align: left;
-  animation: sf-rise 0.45s calc(var(--i, 0) * 55ms) var(--sf-ease) both;
-  transition: transform var(--cm-dur) var(--cm-ease);
-}
-.tile:hover .tile__photo {
-  border-color: var(--cm-border-strong);
-}
-.tile:active {
-  transform: scale(0.98);
-}
-.tile[data-soldout] {
-  opacity: 0.6;
-}
-.tile__photo {
-  border-radius: var(--sf-r);
-  border: 1px solid var(--cm-border);
-}
-.tile__badge {
-  position: absolute;
-  top: 6px;
-  left: 6px;
-}
-.tile__heart {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-}
-.tile__name {
-  padding: 0 1px;
-  font-size: var(--cm-text-sm);
-  font-weight: 600;
-  line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+/* Cartão: foto em cima (coração e selo sobre ela), nome, descrição curta, preço e "+". */
+.pcard {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   overflow: hidden;
-  min-height: 2.6em;
-}
-.tile__foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 1px;
-}
-.tile__price {
-  font-weight: 700;
-  font-size: var(--cm-text-sm);
-}
-
-/* Linha do cardápio (como no iFood): nome, descrição e preço à esquerda, foto à direita.
-   No celular é uma lista com divisórias; no computador, cartões em duas colunas. */
-.plist {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  border-top: 1px solid var(--cm-border);
-}
-.prow {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-height: 108px;
-  padding: 14px 2px;
-  border-bottom: 1px solid var(--cm-border);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-r-lg);
+  background: var(--cm-surface);
   cursor: pointer;
   text-align: left;
   animation: sf-rise 0.4s calc(var(--i, 0) * 40ms) var(--sf-ease) both;
   transition:
     transform var(--cm-dur) var(--cm-ease),
-    background var(--cm-dur),
-    box-shadow var(--cm-dur) var(--cm-ease),
     border-color var(--cm-dur);
 }
-.prow:active {
-  background: color-mix(in srgb, var(--cm-text) 4%, transparent);
+.pcard:hover {
+  border-color: var(--cm-border-strong);
 }
-.prow[data-soldout] {
-  opacity: 0.55;
+.pcard:active {
+  transform: scale(0.98);
 }
-.prow:focus-visible,
-.tile:focus-visible {
+.pcard:focus-visible {
   outline: none;
   box-shadow: var(--cm-focus);
 }
-.prow__body {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  align-content: center;
-  gap: 4px;
+.pcard[data-soldout] .pcard__photo {
+  filter: grayscale(1);
+  opacity: 0.6;
 }
-.prow__name {
-  font-weight: 600;
-  font-size: var(--cm-text-md);
-  line-height: 1.3;
+.pcard__media {
+  position: relative;
+}
+.pcard__photo {
+  border-radius: 0;
+}
+.pcard__heart {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+}
+.pcard__badge {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  max-width: calc(100% - 16px);
+  padding: 3px 9px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
   color: var(--cm-text);
+  font-size: var(--cm-text-2xs);
+  font-weight: 750;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.prow__desc {
-  color: var(--cm-text-muted);
+.pcard__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px 12px;
+}
+.pcard__name {
   font-size: var(--cm-text-sm);
-  line-height: 1.4;
+  font-weight: 650;
+  line-height: 1.3;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.prow__price {
-  margin-top: 4px;
-  font-weight: 650;
+.pcard__desc {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pcard__foot {
+  margin-top: auto;
+  padding-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pcard__price {
   font-size: var(--cm-text-sm);
-  color: var(--cm-text);
+  font-weight: 750;
 }
-.prow__media {
-  position: relative;
-  flex: none;
-  width: 92px;
-}
-.prow__photo {
-  border-radius: var(--sf-r-sm);
-  border: 1px solid var(--cm-border);
-}
-.prow__add {
-  position: absolute;
-  right: 5px;
-  bottom: 5px;
-  width: 28px;
-  height: 28px;
+.pcard .addbtn {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
 }
 
 .addbtn {
@@ -763,11 +852,6 @@
   font-weight: 800;
   letter-spacing: 0.02em;
 }
-.tile__badge.badge-chip {
-  background: var(--cm-surface);
-  color: var(--cm-text);
-  border: 1px solid var(--cm-border);
-}
 .badge-chip--inline {
   margin-left: 6px;
   vertical-align: 2px;
@@ -794,56 +878,25 @@
 }
 
 /* ---------------------------------------------------------------- abas e sacola */
+/* Barra flutuante na cor da loja (como no PedidoJá): a aba aberta vira uma pílula com o nome. */
 .tabbar {
-  /* Menu flutuante em vidro líquido, igual ao dos outros apps (ver app-frame.css). */
   position: fixed;
   z-index: 40;
-  left: 12px;
-  right: 12px;
-  bottom: calc(10px + var(--sf-safe) * 0.3);
-  max-width: 520px;
+  left: 16px;
+  right: 16px;
+  bottom: calc(12px + var(--sf-safe) * 0.5);
+  max-width: 480px;
   margin: 0 auto;
   display: flex;
-  justify-content: space-around;
-  gap: 2px;
+  align-items: center;
+  gap: 4px;
   height: var(--sf-tabbar);
-  padding: 6px;
-  border-radius: 32px;
-  background: color-mix(in srgb, var(--cm-surface) 78%, transparent);
-  backdrop-filter: blur(26px) saturate(190%);
-  -webkit-backdrop-filter: blur(26px) saturate(190%);
-  border: 1px solid color-mix(in srgb, var(--cm-text) 10%, transparent);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 40%),
-    0 10px 30px -8px rgb(0 0 0 / 28%);
+  padding: 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  box-shadow: 0 8px 24px -10px rgb(0 0 0 / 40%);
   transition: transform 0.35s var(--sf-ease);
-}
-:root[data-theme='dark'] .tabbar {
-  border-color: rgb(255 255 255 / 10%);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 14%),
-    0 12px 32px -8px rgb(0 0 0 / 70%);
-}
-.tabbar .cm-glider {
-  border-radius: 26px;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--cm-brand-500) 22%, rgb(255 255 255 / 40%)),
-    color-mix(in srgb, var(--cm-brand-500) 14%, rgb(255 255 255 / 12%))
-  );
-  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 30%, rgb(255 255 255 / 50%));
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 60%),
-    0 4px 14px -4px color-mix(in srgb, var(--cm-brand-600) 45%, transparent);
-}
-:root[data-theme='dark'] .tabbar .cm-glider {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--cm-brand-500) 30%, rgb(255 255 255 / 10%)),
-    color-mix(in srgb, var(--cm-brand-500) 18%, rgb(255 255 255 / 4%))
-  );
-  border-color: color-mix(in srgb, var(--cm-brand-500) 40%, rgb(255 255 255 / 14%));
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%);
 }
 @media (max-width: 899px) {
   .tabbar[data-focused] {
@@ -851,35 +904,50 @@
   }
 }
 .tabbar__item {
-  position: relative;
-  flex: 1;
-  max-width: 120px;
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 3px;
-  color: var(--cm-text-subtle);
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--cm-radius-full);
+  color: color-mix(in srgb, var(--cm-on-brand) 78%, transparent);
   text-decoration: none;
-  font-size: var(--cm-text-2xs);
-  font-weight: 650;
-  border-radius: var(--sf-r-sm);
-  transition: color var(--cm-dur);
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+  transition:
+    flex-grow 0.3s var(--sf-ease),
+    background var(--cm-dur),
+    color var(--cm-dur);
 }
 .tabbar__item span {
-  max-width: 84px;
+  max-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition:
+    max-width 0.3s var(--sf-ease),
+    opacity var(--cm-dur);
 }
-.tabbar__item svg {
-  transition: transform var(--cm-dur-slow) var(--cm-ease-liquid);
+.tabbar__item:active {
+  background: color-mix(in srgb, var(--cm-on-brand) 10%, transparent);
 }
 .tabbar__item.active {
-  color: var(--cm-brand-700);
+  flex-grow: 2;
+  color: var(--cm-on-brand);
+  background: color-mix(in srgb, var(--cm-on-brand) 18%, transparent);
 }
-.tabbar__item.active svg {
-  transform: translateY(-2px) scale(1.08);
+.tabbar__item.active span {
+  max-width: 110px;
+  opacity: 1;
 }
+.tabbar__item:focus-visible {
+  outline: 2px solid var(--cm-on-brand);
+  outline-offset: -2px;
+}
+
 @keyframes sf-grow {
   from {
     transform: scaleX(0);
@@ -1072,7 +1140,7 @@
     min-width: 18px;
     height: 18px;
   }
-  .sf-avatar {
+  .sf-top {
     display: none;
   }
 }
@@ -2214,39 +2282,24 @@
     max-width: var(--sf-max);
     padding: 0 24px;
   }
-  /* Capa como faixa larga dentro da coluna; o cartão da loja encosta nela por baixo. */
+  /* Capa como faixa larga dentro da coluna; a logo redonda encosta nela por baixo, no meio. */
   .sf-cover {
     max-width: calc(var(--sf-max) - 48px);
     height: 240px;
     margin: 20px auto 0;
     border-radius: var(--sf-r-lg);
   }
-  .sf-cover::after {
-    display: none;
+  .sf-head {
+    margin-top: -52px;
   }
-  .sf-store {
-    margin-top: -56px;
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-    align-items: end;
-    gap: 24px;
+  .sf-head__logo {
+    width: 104px;
   }
-  .sf-store__card {
-    margin-left: 24px;
-    padding: 20px;
-  }
-  .sf-store__logo {
-    width: 76px;
-  }
-  .sf-store__name h1 {
+  .sf-head h1 {
     font-size: var(--cm-text-2xl);
   }
-  /* Texto de boas-vindas alinhado com a base do cartão da loja. */
-  .sf-greet {
-    align-self: end;
-    padding: 0 0 20px;
-  }
-  .sf-about {
-    -webkit-line-clamp: 2;
+  .sf-notes {
+    max-width: 720px;
   }
   .searchbar {
     top: var(--sf-appbar);
@@ -2254,59 +2307,60 @@
   .searchbar[data-stuck] {
     padding: 10px 0;
   }
-
-  /* Categorias: quebram em linhas, sem rolagem lateral escondida. */
-  .catchips {
-    margin: 20px 0 0;
-    padding: 4px 0 6px;
-    flex-wrap: wrap;
-    overflow: visible;
-    gap: 14px 16px;
-  }
-  .catchip {
-    width: 76px;
-    font-size: var(--cm-text-sm);
-  }
-  .catchip__img {
-    width: 68px;
-    height: 68px;
+  .searchbar__row {
+    max-width: 720px;
   }
 
-  /* "Mais pedidos": grade (sem corte no canto) em vez de faixa que rola. */
-  .hscroll {
+  /* Carrossel: setas dos lados para quem usa mouse. */
+  .wheel__band {
     margin: 0;
-    padding: 2px 0 0;
-    overflow: visible;
+    padding: 14px 52px 8px;
+    border-radius: 50% 50% 50% 50% / 34px 34px 34px 34px;
+  }
+  .wheel__track {
+    gap: 18px;
+  }
+  .wheel__item {
+    width: 84px;
+    height: 84px;
+  }
+  .wheel__track {
+    padding-inline: calc(50% - 42px);
+  }
+  .wheel__arrow {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 16px;
-  }
-  .hscroll .tile {
-    flex: none;
-  }
-  .hscroll .tile:nth-child(n + 7) {
-    display: none;
-  }
-
-  /* Cartões da lista em duas colunas, ocupando a largura toda. */
-  .plist {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
-    border-top: 0;
-  }
-  .prow {
-    min-height: 124px;
-    padding: 14px;
-    gap: 16px;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    margin-top: -22px;
     border: 1px solid var(--cm-border);
-    border-radius: var(--sf-r);
+    border-radius: 50%;
     background: var(--cm-surface);
+    color: var(--cm-text);
+    cursor: pointer;
+    transition:
+      opacity var(--cm-dur),
+      border-color var(--cm-dur);
   }
-  .prow:hover {
+  .wheel__arrow:hover:not(:disabled) {
     border-color: var(--cm-border-strong);
   }
-  .prow__media {
-    width: 100px;
+  .wheel__arrow:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+  .wheel__arrow--prev {
+    left: 12px;
+  }
+  .wheel__arrow--next {
+    right: 12px;
+  }
+  .pgrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
   }
   .banner {
     aspect-ratio: auto;
@@ -2315,6 +2369,9 @@
   }
   .sec {
     margin-top: 34px;
+  }
+  .sec--grid {
+    margin-top: 24px;
   }
 }
 
@@ -2390,9 +2447,9 @@
   }
 }
 
-/* Telas largas: três colunas de cartões. */
+/* Telas largas: cinco colunas de cartões. */
 @media (min-width: 1200px) {
-  .plist {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .pgrid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
