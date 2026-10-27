@@ -3,65 +3,48 @@ import {
   ArrowRight,
   Bike,
   Check,
-  CircleCheckBig,
-  Clock,
-  ConciergeBell,
+  ChevronDown,
+  ChevronRight,
   ExternalLink,
   Link2,
+  ListFilter,
   Plus,
   Search,
   ShoppingBag,
   Store,
   Utensils,
-  UsersRound,
   X,
 } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Alert, ItemThumbStrip, Mascot, Segmented, useToast } from '../design-system';
+import { Alert, Segmented, useToast } from '../design-system';
 import { useAuth, useCan } from '../app/auth';
 import { NewSaleModal } from '../features/NewSaleModal';
 import { OrderDetailModal } from '../features/OrderDetailModal';
-import { SlideTabs } from '../features/SlideTabs';
 import { minutesSince, PAYMENT_STATUS_LABEL, qty, time } from '../features/format';
+import { sortTables, tableState, type TableState } from '../features/table-state';
 import { api } from '../lib/api';
-import { mediaUrl } from '../lib/media';
 import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import { playSound, useArrivalSound } from '../lib/sounds';
-import type { Order, StoreSettings } from '../lib/types';
+import type { DiningTable, Order, StoreSettings, Tab } from '../lib/types';
 import '../app/home.css';
 
 type Filter = 'all' | OrderChannel;
+type Density = 'compact' | 'full';
+type SalonView = 'tables' | 'tabs';
 
-const COLUMNS: {
-  key: string;
-  statuses: OrderStatus[];
-  label: string;
-  tone: string;
-  empty: string;
-}[] = [
-  {
-    key: 'analysis',
-    statuses: ['awaiting', 'cancel_requested'],
-    label: 'Em análise',
-    tone: 'var(--home-analysis)',
-    empty: 'Pedidos do cardápio online chegam aqui para você aceitar.',
-  },
+/** Colunas do quadro, na ordem em que o pedido anda. */
+const COLUMNS: { key: string; statuses: OrderStatus[]; label: string; tone: string }[] = [
+  { key: 'new', statuses: ['awaiting'], label: 'Novo', tone: 'var(--cm-info)' },
   {
     key: 'production',
     statuses: ['new', 'in_production'],
     label: 'Em produção',
-    tone: 'var(--home-production)',
-    empty: 'Nenhum pedido sendo preparado.',
+    tone: 'var(--cm-warning)',
   },
-  {
-    key: 'ready',
-    statuses: ['ready', 'dispatched'],
-    label: 'Prontos para entrega',
-    tone: 'var(--home-ready)',
-    empty: 'Pedidos prontos e em rota aparecem aqui.',
-  },
+  { key: 'ready', statuses: ['ready'], label: 'Prontos', tone: 'var(--cm-success)' },
+  { key: 'out', statuses: ['dispatched'], label: 'Saiu para entrega', tone: 'var(--cm-gray-500)' },
 ];
 
 const CHANNEL_ICON: Record<OrderChannel, ReactNode> = {
@@ -71,180 +54,157 @@ const CHANNEL_ICON: Record<OrderChannel, ReactNode> = {
   table: <Utensils size={16} />,
 };
 
-function HomeCard({
+const STATE_TEXT: Record<TableState, string> = {
+  free: 'livre',
+  busy: 'ocupada',
+  paying: 'em pagamento',
+};
+
+/** "agora", "12 min", "3 h", "2 d": cabe no canto do cartão. */
+function ago(mins: number) {
+  if (mins < 1) return 'agora';
+  if (mins < 60) return `${mins} min`;
+  if (mins < 1440) return `${Math.floor(mins / 60)} h`;
+  return `${Math.floor(mins / 1440)} d`;
+}
+
+/** Próximo passo do pedido, mostrado como um botão pequeno no canto do cartão. */
+function nextAction(o: Order): { label: string; to?: OrderStatus; icon: ReactNode } | null {
+  if (o.status === 'awaiting') return { label: 'Aceitar', to: 'new', icon: <Check size={16} /> };
+  if (o.status === 'new' || o.status === 'in_production')
+    return { label: 'Avançar pedido', to: 'ready', icon: <ArrowRight size={16} /> };
+  if (o.status === 'ready' && o.channel === 'delivery')
+    return { label: 'Despachar', icon: <Bike size={16} /> };
+  if (o.status === 'ready')
+    return { label: 'Finalizar', to: 'completed', icon: <Check size={16} /> };
+  if (o.status === 'dispatched')
+    return { label: 'Entregue', to: 'completed', icon: <Check size={16} /> };
+  return null;
+}
+
+function OrderCard({
   order,
   now,
+  density,
+  busy,
   onOpen,
   onMove,
-  busy,
 }: {
   order: Order;
   now: number;
+  density: Density;
+  busy: boolean;
   onOpen(step?: 'dispatch' | 'reject'): void;
   onMove(to: OrderStatus): void;
-  busy: boolean;
 }) {
   const mins = minutesSince(order.createdAt, now);
-  const who = order.tableLabel
-    ? `Mesa ${order.tableLabel}`
-    : (order.customerName ?? 'Cliente não identificado');
+  const who = order.tableLabel ? `Mesa ${order.tableLabel}` : order.customerName;
   const items = order.items.filter((i) => i.status !== 'cancelled');
-  let action: { label: string; to?: OrderStatus; icon?: ReactNode } | null = null;
-  if (order.status === 'awaiting')
-    action = { label: 'Aceitar', to: 'new', icon: <Check size={16} /> };
-  else if (order.status === 'new' || order.status === 'in_production')
-    action = { label: 'Avançar pedido', to: 'ready', icon: <ArrowRight size={16} /> };
-  else if (order.status === 'ready' && order.channel === 'delivery')
-    action = { label: 'Despachar', icon: <Bike size={16} /> };
-  else if (order.status === 'ready')
-    action = { label: 'Finalizar', to: 'completed', icon: <Check size={16} /> };
-  else if (order.status === 'dispatched')
-    action = { label: 'Entregue', to: 'completed', icon: <Check size={16} /> };
-  else if (order.status === 'cancel_requested') action = { label: 'Ver cancelamento' };
-
+  const action = nextAction(order);
   return (
     <article
       className="hcard"
       data-status={order.status}
       data-late={mins >= 30 && order.status !== 'dispatched' ? '' : undefined}
     >
+      <span className="hcard__channel" title={CHANNEL_LABELS[order.channel]}>
+        {CHANNEL_ICON[order.channel]}
+      </span>
       <button
         className="hcard__main"
         onClick={() => onOpen()}
         aria-label={`Abrir pedido ${order.number}`}
       >
         <span className="hcard__head">
-          <span className="hcard__channel" title={CHANNEL_LABELS[order.channel]}>
-            {CHANNEL_ICON[order.channel]}
-          </span>
-          <strong>Pedido #{order.number}</strong>
+          <strong>#{order.number}</strong>
           {order.source === 'online' && <span className="hcard__tag">Online</span>}
-          <span className="hcard__time" title={`Feito às ${time(order.createdAt)}`}>
-            <Clock size={13} /> {mins < 1 ? 'agora' : `${mins} min`}
-          </span>
         </span>
-        <span className="hcard__who">{who}</span>
-        {order.status === 'dispatched' && <span className="hcard__note">Saiu para entrega</span>}
-        {order.status === 'cancel_requested' && (
-          <span className="hcard__note hcard__note--danger">Cancelamento solicitado</span>
+        <span className="hcard__pills">
+          <span className="hcard__pill">{brl(order.total)}</span>
+          {who && <span className="hcard__pill hcard__pill--soft">{who}</span>}
+        </span>
+        {density === 'full' && (
+          <>
+            {order.channel === 'delivery' && order.deliveryAddress && (
+              <span className="hcard__line">{order.deliveryAddress}</span>
+            )}
+            <span className="hcard__line">
+              {items
+                .slice(0, 4)
+                .map((i) => `${qty(i.quantity)}× ${i.name}`)
+                .join(' · ')}
+              {items.length > 4 && ` · +${items.length - 4}`}
+            </span>
+            <span className={`hcard__pay hcard__pay--${order.paymentStatus}`}>
+              {PAYMENT_STATUS_LABEL[order.paymentStatus]}
+            </span>
+          </>
         )}
-        {order.channel === 'delivery' && order.deliveryAddress && (
-          <span className="hcard__addr">{order.deliveryAddress}</span>
-        )}
-        <ItemThumbStrip
-          items={items.map((i) => ({ key: i.id, src: mediaUrl(i.imageId), name: i.name }))}
-          size={30}
-        />
-        <span className="hcard__items">
-          {items
-            .slice(0, 3)
-            .map((i) => `${qty(i.quantity)}× ${i.name}`)
-            .join(' · ')}
-          {items.length > 3 && ` · +${items.length - 3}`}
-        </span>
-        <span className="hcard__foot">
-          <span className={`hcard__pay hcard__pay--${order.paymentStatus}`}>
-            {PAYMENT_STATUS_LABEL[order.paymentStatus]}
-          </span>
-          <strong>{brl(order.total)}</strong>
-        </span>
       </button>
+      <span className="hcard__time" title={`Feito às ${time(order.createdAt)}`}>
+        {ago(mins)}
+      </span>
       {action && (
-        <div className="hcard__actions">
+        <span className="hcard__actions">
           {order.status === 'awaiting' && (
-            <button className="hbtn hbtn--ghost" onClick={() => onOpen('reject')} disabled={busy}>
-              <X size={16} /> Recusar
+            <button
+              className="hcard__act hcard__act--ghost"
+              aria-label="Recusar"
+              title="Recusar"
+              disabled={busy}
+              onClick={() => onOpen('reject')}
+            >
+              <X size={16} />
             </button>
           )}
           <button
-            className={`hbtn ${order.status === 'awaiting' ? 'hbtn--primary' : ''}`}
+            className="hcard__act"
+            aria-label={action.label}
+            title={action.label}
             disabled={busy}
-            onClick={() =>
-              action!.to
-                ? onMove(action!.to)
-                : onOpen(order.status === 'ready' ? 'dispatch' : undefined)
-            }
+            onClick={() => (action.to ? onMove(action.to) : onOpen('dispatch'))}
           >
-            {action.label} {action.icon}
+            {action.icon}
           </button>
-        </div>
+        </span>
       )}
     </article>
   );
 }
 
-/** Ícone da barra da direita: dica ao passar o mouse e contador embaixo. */
-function RailButton({
-  icon,
-  tip,
-  count,
-  alert,
-  onClick,
-}: {
-  icon: ReactNode;
-  tip: string;
-  count?: number;
-  alert?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className={`rail__item ${alert ? 'is-alert' : ''}`}
-      aria-label={count === undefined ? tip : `${tip}: ${count}`}
-      data-tip={tip}
-      onClick={onClick}
-    >
-      {icon}
-      {count !== undefined && <b>{count}</b>}
-    </button>
-  );
-}
-
-/** Mesa de bistrô (tampo e pé), como no mapa de mesas. */
-function TableIcon() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M4 6h16M12 6v14M7 20h10M12 13l-5 7M12 13l5 7" />
-    </svg>
-  );
-}
-
 /**
- * Tela inicial: quadro de pedidos em 3 colunas (em análise → em produção → prontos). "Novo
- * pedido" e o detalhe do pedido abrem num painel que desliza da direita, sem perder o quadro.
+ * Tela inicial do PDV, no formato do PedidoJá: o salão (mesas e comandas) em cima e o quadro de
+ * pedidos embaixo, em colunas que seguem o andamento (novo → produção → pronto → saiu), com os
+ * totais do dia no rodapé. "Nova venda" (F2) abre o lançamento em tela cheia.
  */
 export function PdvPage() {
   const { me } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
   const canSell = useCan('orders:write');
-  const canSettings = useCan('settings:manage');
+  const canTables = useCan('tables:operate');
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [store, setStore] = useState<StoreSettings | null>(null);
+  const [tables, setTables] = useState<DiningTable[] | null>(null);
+  const [tabs, setTabs] = useState<Tab[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selling, setSelling] = useState(false);
+  const [freeTable, setFreeTable] = useState<DiningTable | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [openStep, setOpenStep] = useState<'dispatch' | 'reject' | undefined>();
   const [filter, setFilter] = useState<Filter>('all');
+  const [density, setDensity] = useState<Density>('compact');
+  const [salonView, setSalonView] = useState<SalonView>('tables');
+  const [salonOpen, setSalonOpen] = useState(true);
+  const [salonSearch, setSalonSearch] = useState('');
   /** Celular: uma coluna por vez (abas), sem arrastar a tela para o lado. */
   const [mobileCol, setMobileCol] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
   const known = useRef<Set<string> | null>(null);
-  const navigate = useNavigate();
-  /** Pedidos finalizados hoje (00:00–23:59), para o atalho da direita. */
-  const [doneToday, setDoneToday] = useState<number | null>(null);
+  /** Pedidos concluídos e cancelados hoje (00:00–23:59), para o rodapé. */
+  const [today, setToday] = useState<{ done: number; cancelled: number } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -264,15 +224,18 @@ export function PdvPage() {
       const from = new Date();
       from.setHours(0, 0, 0, 0);
       const to = new Date(from.getTime() + 86_400_000);
-      const q = new URLSearchParams({
-        from: from.toISOString(),
-        to: to.toISOString(),
-        status: 'completed',
-        limit: '500',
-      });
-      api<Order[]>(`/orders?${q}`)
-        .then((d) => setDoneToday(d.length))
-        .catch(() => setDoneToday(null));
+      const day = (status: string) =>
+        api<Order[]>(
+          `/orders?${new URLSearchParams({
+            from: from.toISOString(),
+            to: to.toISOString(),
+            status,
+            limit: '500',
+          })}`,
+        ).then((d) => d.length);
+      Promise.all([day('completed'), day('cancelled')])
+        .then(([done, cancelled]) => setToday({ done, cancelled }))
+        .catch(() => setToday(null));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -282,13 +245,24 @@ export function PdvPage() {
       .then(setStore)
       .catch(() => setStore(null));
   }, []);
+  const loadSalon = useCallback(() => {
+    if (!canTables) return;
+    Promise.all([api<DiningTable[]>('/tables'), api<Tab[]>('/tabs?status=open')])
+      .then(([t, tb]) => {
+        setTables(sortTables(t));
+        setTabs(tb);
+      })
+      .catch(() => setTables(null));
+  }, [canTables]);
   const reload = useDebounced(load);
+  const reloadSalon = useDebounced(loadSalon);
   useEffect(() => {
     void load();
     loadStore();
+    loadSalon();
     const id = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(id);
-  }, [load, loadStore]);
+  }, [load, loadStore, loadSalon]);
   useRealtime(
     (e) => {
       if (
@@ -297,11 +271,13 @@ export function PdvPage() {
         e.type === 'delivery.changed'
       )
         reload();
+      if (e.type === 'order.changed' || e.type === 'tab.changed') reloadSalon();
       if (e.type === 'store.changed') loadStore();
     },
     () => {
       void load();
       loadStore();
+      loadSalon();
     },
   );
 
@@ -309,7 +285,7 @@ export function PdvPage() {
   const awaiting = orders?.filter((o) => o.status === 'awaiting').length ?? 0;
   useEffect(() => {
     const base = 'Comandou';
-    document.title = awaiting ? `(${awaiting}) Pedidos · ${base}` : `Pedidos · ${base}`;
+    document.title = awaiting ? `(${awaiting}) PDV · ${base}` : `PDV · ${base}`;
     return () => {
       document.title = base;
     };
@@ -330,7 +306,7 @@ export function PdvPage() {
     ids((o) => o.status === 'cancel_requested'),
   );
 
-  // F2 abre novo pedido (atalho de caixa).
+  // F2 abre a nova venda (atalho de caixa).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'F2' && canSell) {
@@ -354,11 +330,17 @@ export function PdvPage() {
           (o.tableLabel ?? '').toLowerCase() === s),
     );
   }, [orders, filter, search]);
-  const countBy = (c: Filter) =>
-    (orders ?? []).filter((o) => c === 'all' || o.channel === c).length;
-  const colCount = (key: string) =>
-    visible.filter((o) => COLUMNS.find((c) => c.key === key)!.statuses.includes(o.status)).length;
-  const activeCol = mobileCol ?? COLUMNS.find((c) => colCount(c.key) > 0)?.key ?? COLUMNS[1].key;
+  const colList = (key: string) => {
+    const statuses = COLUMNS.find((c) => c.key === key)!.statuses;
+    return visible
+      .filter((o) => statuses.includes(o.status))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  };
+  const activeCol =
+    mobileCol ?? COLUMNS.find((c) => colList(c.key).length > 0)?.key ?? COLUMNS[1].key;
+  /** Pedidos com cancelamento pedido pelo cliente: precisam de resposta da loja. */
+  const requests = (orders ?? []).filter((o) => o.status === 'cancel_requested');
+  const activeCount = (orders ?? []).filter((o) => o.status !== 'cancel_requested').length;
 
   async function move(o: Order, to: OrderStatus) {
     setBusyId(o.id);
@@ -387,102 +369,242 @@ export function PdvPage() {
     }
   }
 
-  async function finishReady() {
-    const ready = visible.filter((o) => o.status === 'ready' && o.channel !== 'delivery');
-    if (!ready.length || !window.confirm(`Finalizar ${ready.length} pedido(s) pronto(s)?`)) return;
-    for (const o of ready) await move(o, 'completed');
+  // Salão: mesas (com o estado) ou comandas abertas, filtradas pela busca do bloco.
+  const salonQ = salonSearch.trim().toLowerCase();
+  const shownTables = (tables ?? []).filter(
+    (t) =>
+      !salonQ ||
+      t.label.toLowerCase().includes(salonQ) ||
+      (t.tabCustomer ?? '').toLowerCase().includes(salonQ),
+  );
+  const shownTabs = tabs.filter(
+    (t) =>
+      !salonQ ||
+      String(t.number).includes(salonQ) ||
+      (t.tableLabel ?? '').toLowerCase().includes(salonQ) ||
+      (t.customerName ?? '').toLowerCase().includes(salonQ),
+  );
+  const stateCount = (s: TableState) => (tables ?? []).filter((t) => tableState(t) === s).length;
+
+  function openTable(t: DiningTable) {
+    // Mesa livre já abre a venda aqui; ocupada abre a comanda no salão.
+    if (t.tabId) navigate(`/mesas?comanda=${t.tabId}`);
+    else if (canSell) setFreeTable(t);
+    else navigate(`/mesas?mesa=${t.id}`);
   }
 
   const storeLink = `${window.location.origin}/pedir`;
-  /** Pedidos com cancelamento pedido pelo cliente: precisam de resposta da loja. */
-  const requests = (orders ?? []).filter((o) => o.status === 'cancel_requested');
 
   return (
-    <div className="home">
-      <div className="home__bar">
-        <SlideTabs<Filter>
-          label="Filtrar por canal"
-          value={filter}
-          onChange={setFilter}
-          tabs={[
-            { value: 'all', label: 'Todos', count: countBy('all') },
-            {
-              value: 'delivery',
-              label: (
-                <>
-                  <Bike size={15} /> <span className="tab-text">Delivery</span>
-                </>
-              ),
-              count: countBy('delivery'),
-              title: 'Delivery',
-            },
-            {
-              value: 'pickup',
-              label: (
-                <>
-                  <ShoppingBag size={15} /> <span className="tab-text">Retirada</span>
-                </>
-              ),
-              count: countBy('pickup'),
-              title: 'Retirada',
-            },
-            {
-              value: 'counter',
-              label: (
-                <>
-                  <Store size={15} /> <span className="tab-text">Balcão</span>
-                </>
-              ),
-              count: countBy('counter'),
-              title: 'Balcão',
-            },
-            {
-              value: 'table',
-              label: (
-                <>
-                  <Utensils size={15} /> <span className="tab-text">Mesa</span>
-                </>
-              ),
-              count: countBy('table'),
-              title: 'Mesa',
-            },
-          ]}
-        />
-        <label className="home__search">
+    <div className="pdv">
+      <div className="pdv__bar">
+        <label className="pdv__search">
           <Search size={16} aria-hidden />
           <input
-            placeholder="Cliente, telefone ou nº do pedido"
+            placeholder="Buscar pedido, cliente ou mesa…"
             aria-label="Buscar pedido"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
-        <div className="home__spacer" />
+        <div className="pdv__spacer" />
         {store && (
-          <button
-            className={`store-toggle ${store.isOpen ? 'is-open' : ''}`}
-            onClick={() => patchStore({ isOpen: !store.isOpen })}
-            disabled={!canSell}
-            title={store.isOpen ? 'Fechar a loja online' : 'Abrir a loja online'}
-          >
-            <span className="store-toggle__dot" />
+          <label className="switch pdv__store" data-open={store.isOpen}>
+            <input
+              type="checkbox"
+              checked={store.isOpen}
+              disabled={!canSell}
+              onChange={(e) => patchStore({ isOpen: e.target.checked })}
+            />
+            <span className="switch__track" aria-hidden />
             {store.isOpen ? 'Loja aberta' : 'Loja fechada'}
-          </button>
+          </label>
         )}
+        <button
+          className="pdv__icon"
+          aria-label="Abrir o cardápio online"
+          title="Abrir o cardápio online"
+          onClick={() => window.open('/pedir', '_blank', 'noopener')}
+        >
+          <ExternalLink size={17} />
+        </button>
+        <button
+          className="pdv__icon"
+          aria-label="Copiar o link do cardápio online"
+          title="Copiar o link do cardápio online"
+          onClick={() =>
+            navigator.clipboard
+              ?.writeText(storeLink)
+              .then(() => toast('Link do cardápio copiado', 'success'))
+              .catch(() => toast(storeLink, 'neutral'))
+          }
+        >
+          <Link2 size={17} />
+        </button>
         {canSell && (
           <button
-            className="hbtn hbtn--primary hbtn--lg"
+            className="hbtn hbtn--primary pdv__new"
             onClick={() => setSelling(true)}
             title="Atalho: F2"
           >
-            <Plus size={18} /> Novo pedido <kbd className="kbd">F2</kbd>
+            <Plus size={17} /> Nova venda <kbd className="kbd">F2</kbd>
           </button>
         )}
       </div>
 
       {error && <Alert tone="danger">Não foi possível carregar os pedidos: {error}</Alert>}
 
-      <div className="home__body">
+      {canTables && tables && tables.length + tabs.length > 0 && (
+        <section className="pdv-box pdv-salon" aria-label="Salão">
+          <header className="pdv-box__head">
+            <h2>Salão</h2>
+            <button
+              className="pdv-chip"
+              aria-expanded={salonOpen}
+              onClick={() => setSalonOpen((v) => !v)}
+            >
+              {salonOpen ? 'Recolher' : 'Mostrar'}
+              <ChevronDown size={14} data-flip={salonOpen || undefined} />
+            </button>
+            {salonOpen && (
+              <label className="pdv-mini-search">
+                <Search size={14} aria-hidden />
+                <input
+                  placeholder={salonView === 'tables' ? 'Buscar mesa' : 'Buscar comanda'}
+                  aria-label="Buscar no salão"
+                  value={salonSearch}
+                  onChange={(e) => setSalonSearch(e.target.value)}
+                />
+              </label>
+            )}
+            <div className="pdv__spacer" />
+            <ul className="pdv-legend" aria-label="Mesas por estado">
+              <li data-state="free">
+                <b>{stateCount('free')}</b> Livres
+              </li>
+              <li data-state="busy">
+                <b>{stateCount('busy')}</b> Ocupadas
+              </li>
+              <li data-state="paying">
+                <b>{stateCount('paying')}</b> Em pagamento
+              </li>
+            </ul>
+            <Segmented<SalonView>
+              label="Ver no salão"
+              value={salonView}
+              onChange={(v) => {
+                setSalonView(v);
+                setSalonOpen(true);
+              }}
+              options={[
+                { value: 'tables', label: 'Mesas', count: tables.length },
+                { value: 'tabs', label: 'Comandas', count: tabs.length },
+              ]}
+            />
+          </header>
+          {salonOpen && (
+            <div className="pdv-salon__grid">
+              {salonView === 'tables' ? (
+                shownTables.length ? (
+                  shownTables.map((t) => {
+                    const st = tableState(t);
+                    return (
+                      <button
+                        key={t.id}
+                        className="pdv-table"
+                        data-state={st}
+                        aria-label={`Mesa ${t.label} ${STATE_TEXT[st]}`}
+                        onClick={() => openTable(t)}
+                      >
+                        <strong>Mesa {t.label}</strong>
+                        {t.tabId ? (
+                          <span className="pdv-table__info">
+                            {brl(t.tabTotal)}
+                            {t.openedAt && <em>{ago(minutesSince(t.openedAt, now))}</em>}
+                          </span>
+                        ) : (
+                          <span className="pdv-table__info pdv-table__info--muted">Livre</span>
+                        )}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <p className="pdv-empty">Nenhuma mesa encontrada.</p>
+                )
+              ) : shownTabs.length ? (
+                shownTabs.map((t) => (
+                  <button
+                    key={t.id}
+                    className="pdv-table"
+                    data-state={t.billRequestedAt ? 'paying' : 'busy'}
+                    aria-label={`Comanda ${t.number}`}
+                    onClick={() => navigate(`/mesas?comanda=${t.id}`)}
+                  >
+                    <strong>
+                      Comanda {t.number}
+                      {t.tableLabel && <small> · Mesa {t.tableLabel}</small>}
+                    </strong>
+                    <span className="pdv-table__info">
+                      {brl(t.total)}
+                      <em>{t.customerName ?? ago(minutesSince(t.openedAt, now))}</em>
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <p className="pdv-empty">Nenhuma comanda aberta.</p>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      <section className="pdv-box pdv-orders" aria-label="Pedidos">
+        <header className="pdv-box__head">
+          <h2>Pedidos</h2>
+          <span className="pdv-pill">{activeCount} ativos</span>
+          {store && (
+            <label className="switch pdv-chip pdv-chip--switch">
+              <input
+                type="checkbox"
+                checked={store.autoAccept}
+                disabled={!canSell}
+                onChange={(e) => patchStore({ autoAccept: e.target.checked })}
+              />
+              <span className="switch__track" aria-hidden />
+              Aceite automático
+            </label>
+          )}
+          <Segmented<Density>
+            label="Detalhe dos cartões"
+            value={density}
+            onChange={setDensity}
+            options={[
+              { value: 'compact', label: 'Compacto' },
+              { value: 'full', label: 'Completo' },
+            ]}
+          />
+          <label className="pdv-chip pdv-select">
+            <ListFilter size={14} aria-hidden />
+            <select
+              aria-label="Tipo de pedido"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as Filter)}
+            >
+              <option value="all">Todos os tipos</option>
+              {(Object.keys(CHANNEL_ICON) as OrderChannel[]).map((c) => (
+                <option key={c} value={c}>
+                  {CHANNEL_LABELS[c]}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} aria-hidden />
+          </label>
+          <div className="pdv__spacer" />
+          <Link className="pdv-chip" to="/pedidos">
+            Ver todos <ChevronRight size={14} />
+          </Link>
+        </header>
+
         <Segmented
           className="board__switch"
           label="Coluna do quadro"
@@ -491,18 +613,13 @@ export function PdvPage() {
           onChange={setMobileCol}
           options={COLUMNS.map((c) => ({
             value: c.key,
-            label: c.key === 'ready' ? 'Prontos' : c.label,
-            count: colCount(c.key),
+            label: c.key === 'out' ? 'Saiu' : c.key === 'production' ? 'Produção' : c.label,
+            count: colList(c.key).length,
           }))}
         />
         <div className="board">
           {COLUMNS.map((c) => {
-            const list = visible
-              .filter((o) => c.statuses.includes(o.status))
-              .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-            const readyToFinish =
-              c.key === 'ready' &&
-              list.some((o) => o.status === 'ready' && o.channel !== 'delivery');
+            const list = colList(c.key);
             return (
               <section
                 key={c.key}
@@ -513,60 +630,24 @@ export function PdvPage() {
               >
                 <header className="board__head">
                   <h2>{c.label}</h2>
-                  {readyToFinish && (
-                    <button className="board__finish" onClick={finishReady}>
-                      Finalizar
-                    </button>
-                  )}
                   <span className="board__count">{list.length}</span>
                 </header>
                 <div className="board__list">
-                  {c.key === 'analysis' && store && (
-                    <div className="board__info">
-                      <label className="switch">
-                        <input
-                          type="checkbox"
-                          checked={store.autoAccept}
-                          disabled={!canSell}
-                          onChange={(e) => patchStore({ autoAccept: e.target.checked })}
-                        />
-                        <span className="switch__track" aria-hidden />
-                        Aceitar pedidos automaticamente
-                      </label>
-                      <span className="cm-hint">
-                        Entrega {store.etaMin}–{store.etaMax} min ·{' '}
-                        {Number(store.deliveryFee)
-                          ? `taxa ${brl(store.deliveryFee)}`
-                          : 'taxa grátis'}
-                        {canSettings && (
-                          <>
-                            {' '}
-                            · <Link to="/configuracoes">editar</Link>
-                          </>
-                        )}
-                      </span>
-                    </div>
-                  )}
                   {orders === null ? (
                     <div className="board__skeleton" />
                   ) : list.length === 0 ? (
                     <p className="board__empty">
-                      <Mascot
-                        size={52}
-                        mood={
-                          c.key === 'production' ? 'cook' : c.key === 'ready' ? 'happy' : 'sleep'
-                        }
-                      />
-                      {c.key === 'analysis' && store?.autoAccept
-                        ? 'Todos os pedidos são aceitos automaticamente.'
-                        : c.empty}
+                      {c.key === 'new' && store?.autoAccept
+                        ? 'Aceite automático ligado'
+                        : 'Nenhum pedido'}
                     </p>
                   ) : (
                     list.map((o) => (
-                      <HomeCard
+                      <OrderCard
                         key={o.id}
                         order={o}
                         now={now}
+                        density={density}
                         busy={busyId === o.id}
                         onOpen={(step) => {
                           setOpenStep(step);
@@ -582,71 +663,52 @@ export function PdvPage() {
           })}
         </div>
 
-        <nav className="rail" aria-label="Atalhos">
-          <RailButton
-            icon={<UsersRound />}
-            tip="Solicitações de atendimento"
-            count={awaiting}
-            alert={awaiting > 0}
-            onClick={() => {
-              setFilter('all');
-              setMobileCol('analysis');
-            }}
-          />
-          <RailButton
-            icon={<ConciergeBell />}
-            tip="Solicitações de notas fiscais e ajustes no pedido"
-            count={requests.length}
-            alert={requests.length > 0}
+        <div className="pdv-foot">
+          <Link className="pdv-foot__item" to="/pedidos">
+            Concluídos hoje <b>{today?.done ?? 0}</b>
+          </Link>
+          <Link className="pdv-foot__item" to="/pedidos">
+            Cancelados hoje <b>{today?.cancelled ?? 0}</b>
+          </Link>
+          <button
+            className="pdv-foot__item"
+            data-alert={requests.length > 0 || undefined}
             onClick={() => {
               if (requests[0]) {
                 setOpenStep(undefined);
                 setOpenId(requests[0].id);
-              } else toast('Nenhuma solicitação de ajuste agora', 'neutral');
+              } else toast('Nenhum cancelamento solicitado agora', 'neutral');
             }}
-          />
-          <RailButton
-            icon={<TableIcon />}
-            tip="Mapa de mesas e comandas"
-            count={(orders ?? []).filter((o) => o.channel === 'table').length}
-            onClick={() => navigate('/mesas')}
-          />
-          <RailButton
-            icon={<CircleCheckBig />}
-            tip="Pedidos finalizados no dia entre 00:00 e 23:59"
-            count={doneToday ?? 0}
-            onClick={() => navigate('/pedidos')}
-          />
-          <span className="rail__sep" aria-hidden />
-          <RailButton
-            icon={<ExternalLink />}
-            tip="Abrir o cardápio online"
-            onClick={() => window.open('/pedir', '_blank', 'noopener')}
-          />
-          <RailButton
-            icon={<Link2 />}
-            tip="Copiar o link do cardápio online"
-            onClick={() =>
-              navigator.clipboard
-                ?.writeText(storeLink)
-                .then(() => toast('Link do cardápio copiado', 'success'))
-                .catch(() => toast(storeLink, 'neutral'))
-            }
-          />
-        </nav>
-      </div>
+          >
+            Cancelamento solicitado <b>{requests.length}</b>
+          </button>
+        </div>
+      </section>
 
       <p className="home__hint cm-hint">
         Olá, {me?.user.name.split(' ')[0]}. Pedidos do {me?.tenant.name} em tempo real.
       </p>
 
       <NewSaleModal
-        variant="panel"
         open={selling}
         onClose={() => setSelling(false)}
         onCreated={() => {
           setSelling(false);
           void load();
+        }}
+      />
+      <NewSaleModal
+        open={!!freeTable}
+        onClose={() => setFreeTable(null)}
+        preset={
+          freeTable
+            ? { channel: 'table', tableId: freeTable.id, label: `Mesa ${freeTable.label}` }
+            : undefined
+        }
+        onCreated={() => {
+          setFreeTable(null);
+          void load();
+          loadSalon();
         }}
       />
       <OrderDetailModal

@@ -93,8 +93,8 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
 
   // PDV: venda de balcão com variação, pagamento em dinheiro com troco
   await nav(page, 'PDV');
-  await page.getByRole('button', { name: /Novo pedido/ }).click();
-  dialog = page.getByRole('dialog');
+  await page.getByRole('button', { name: /Nova venda/ }).click();
+  dialog = page.getByRole('dialog', { name: 'Nova venda' });
   await dialog.getByLabel('Buscar produto').fill(product);
   await dialog.getByRole('button', { name: new RegExp(product) }).click();
   await page
@@ -108,9 +108,14 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   await expect(dialog.locator('.totals__grand').last()).toHaveText('R$ 28,50');
   await shot(page, info.project.name, 'nova-venda');
   await dialog.getByRole('button', { name: 'Enviar pedido' }).click();
-  await expect(page.getByText(/Pedido #\d+ criado/)).toBeVisible();
-  const card = page.locator('.hcard', { hasText: product }).filter({ hasText: 'R$ 28,50' }).first();
-  await expect(card).toBeVisible();
+  const created = page.getByText(/Pedido #\d+ criado/);
+  await expect(created).toBeVisible();
+  const num = (await created.textContent())!.match(/#(\d+)/)![1];
+  // Cartão compacto: número, valor e cliente (os itens aparecem no modo "Completo").
+  const card = page.locator('.hcard', {
+    has: page.getByRole('button', { name: `Abrir pedido ${num}`, exact: true }),
+  });
+  await expect(card).toContainText('R$ 28,50');
   await shot(page, info.project.name, 'pdv-kanban');
 
   await card.getByRole('button', { name: /Abrir pedido/ }).click();

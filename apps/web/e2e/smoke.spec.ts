@@ -22,7 +22,7 @@ test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => 
   await page.getByRole('button', { name: 'Entrar' }).click();
   await skipTour(page);
   await expect(page.getByText(/Olá, /)).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Em produção' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pedidos', exact: true })).toBeVisible();
   await page.screenshot({
     path: `test-results/screens/${info.project.name}-pdv.png`,
     fullPage: true,

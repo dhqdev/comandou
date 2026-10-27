@@ -8,28 +8,36 @@ import {
   toCents,
   type OrderChannel,
 } from '@comandou/shared';
-import { Minus, Plus, Search, ShoppingBag, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
-  Badge,
-  Button,
-  ChipGroup,
-  EmptyState,
-  ItemThumb,
-  Modal,
-  Spinner,
-  TextField,
-  useToast,
-  Select,
-} from '../design-system';
+  Bike,
+  Frown,
+  Minus,
+  Plus,
+  ReceiptText,
+  Search,
+  ShoppingBag,
+  ShoppingCart,
+  Store,
+  Trash2,
+  User,
+  Utensils,
+  X,
+} from 'lucide-react';
+import { ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { Alert, Button, Select, Spinner, TextField, useToast } from '../design-system';
 import { api, ApiError } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
 import { mediaUrl } from '../lib/media';
-import { SidePanel } from './SidePanel';
 import './sale-extras.css';
-import type { DiningTable, MenuCategory, MenuProduct, Order } from '../lib/types';
+import type {
+  CustomerList,
+  CustomerRow,
+  DiningTable,
+  MenuCategory,
+  MenuProduct,
+  Order,
+} from '../lib/types';
 
 interface CartLine {
   /** Identidade estável da linha (a observação muda enquanto se digita). */
@@ -43,29 +51,47 @@ interface CartLine {
 
 let nextLineId = 1;
 
+const CHANNEL_ICON: Record<OrderChannel, ReactNode> = {
+  counter: <Store size={20} />,
+  table: <Utensils size={20} />,
+  pickup: <ShoppingBag size={20} />,
+  delivery: <Bike size={20} />,
+};
+
 /** Preço de exibição calculado no cliente; o servidor recalcula e é a fonte oficial. */
 function unitCents(p: MenuProduct, optionIds: string[]) {
   return toCents(p.price) + optionsTotalCents(p.optionGroups, optionIds);
 }
 
+/** Duas letras do nome, para o produto sem foto ("Bolo Abacaxi" → "BA"). */
+function initials(name: string) {
+  const words = name.split(/\s+/).filter((w) => /^[\p{L}\d]/u.test(w));
+  return ((words[0]?.[0] ?? '') + (words[1]?.[0] ?? words[0]?.[1] ?? '')).toUpperCase();
+}
+
+/**
+ * Nova venda em tela cheia, no formato do PedidoJá: à esquerda a busca, as categorias, a grade de
+ * produtos com foto e a tabela dos itens; à direita o cliente, o tipo de atendimento e o total.
+ * No celular tudo vira uma coluna só, com o total e o botão de enviar presos embaixo.
+ */
 export function NewSaleModal({
   open,
   onClose,
   onCreated,
   preset,
-  variant = 'modal',
 }: {
   open: boolean;
   onClose(): void;
   onCreated(o: Order): void;
   preset?: { channel?: OrderChannel; tableId?: string; tabId?: string; label?: string };
-  /** "panel": desliza da direita por cima da tela inicial. */
-  variant?: 'modal' | 'panel';
 }) {
-  const Frame = variant === 'panel' ? SidePanel : Modal;
   const toast = useToast();
+  const titleId = useId();
+  const ref = useRef<HTMLDialogElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const [menu, setMenu] = useState<MenuCategory[] | null>(null);
   const [tables, setTables] = useState<DiningTable[]>([]);
+  /** null = todas as categorias. */
   const [cat, setCat] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -74,6 +100,7 @@ export function NewSaleModal({
   const [tableId, setTableId] = useState(preset?.tableId ?? '');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [suggestions, setSuggestions] = useState<CustomerRow[]>([]);
   const [address, setAddress] = useState('');
   const [deliveryFee, setDeliveryFee] = useState('');
   const [discount, setDiscount] = useState('');
@@ -83,6 +110,12 @@ export function NewSaleModal({
   const [error, setError] = useState<string | null>(null);
   // Uma chave por venda: reenvios após falha de rede não duplicam o pedido.
   const [idemKey, setIdemKey] = useState(newIdempotencyKey);
+
+  useEffect(() => {
+    const d = ref.current;
+    if (!d) return;
+    if (open && !d.open) d.showModal?.();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -103,7 +136,7 @@ export function NewSaleModal({
       .then((m) => {
         if (!alive) return;
         setMenu(m);
-        setCat((c) => (c && m.some((x) => x.id === c) ? c : (m[0]?.id ?? null)));
+        setCat((c) => (c && m.some((x) => x.id === c) ? c : null));
         const byId = new Map(m.flatMap((c) => c.products).map((p) => [p.id, p]));
         setCart((lines) => {
           const kept = lines.flatMap((l) => {
@@ -121,13 +154,31 @@ export function NewSaleModal({
     };
   }, [open, channel, toast]);
 
+  // Sugestões de clientes já cadastrados enquanto digita o nome ou o telefone.
+  useEffect(() => {
+    const q = customerName.trim();
+    if (!open || q.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+    const t = window.setTimeout(() => {
+      api<CustomerList>(`/customers?search=${encodeURIComponent(q)}`)
+        .then((d) =>
+          setSuggestions(
+            d.customers.filter((c) => !c.blocked && c.name !== customerName).slice(0, 5),
+          ),
+        )
+        .catch(() => setSuggestions([]));
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [open, customerName]);
+
   const products = useMemo(() => {
     const all = menu ?? [];
-    if (search.trim()) {
-      const s = search.trim().toLowerCase();
-      return all.flatMap((c) => c.products).filter((p) => p.name.toLowerCase().includes(s));
-    }
-    return all.find((c) => c.id === cat)?.products ?? [];
+    const s = search.trim().toLowerCase();
+    const pool =
+      cat && !s ? (all.find((c) => c.id === cat)?.products ?? []) : all.flatMap((c) => c.products);
+    return s ? pool.filter((p) => p.name.toLowerCase().includes(s)) : pool;
   }, [menu, cat, search]);
 
   const subtotal = cart.reduce(
@@ -153,6 +204,12 @@ export function NewSaleModal({
     else add(p);
   }
 
+  function setLine(l: CartLine, patch: Partial<CartLine> | null) {
+    setCart((c) =>
+      patch ? c.map((x) => (x.uid === l.uid ? { ...x, ...patch } : x)) : c.filter((x) => x !== l),
+    );
+  }
+
   function reset() {
     setCart([]);
     setCustomerName('');
@@ -165,9 +222,14 @@ export function NewSaleModal({
     setIdemKey(newIdempotencyKey());
   }
 
+  const needsTable = channel === 'table' && !preset?.tabId && !tableId;
+  const needsAddress = channel === 'delivery' && !address.trim();
+  const canSubmit = cart.length > 0 && !needsTable && !needsAddress && total >= 0;
+  const freeOrSame = tables.filter((t) => t.active);
+
   async function submit() {
     // Trava contra toque duplo: o estado `busy` só chega na próxima renderização.
-    if (sending.current) return;
+    if (sending.current || !canSubmit) return;
     sending.current = true;
     setBusy(true);
     setError(null);
@@ -195,6 +257,7 @@ export function NewSaleModal({
       });
       toast(`Pedido #${order.number} criado`, 'success');
       reset();
+      ref.current?.close();
       onCreated(order);
     } catch (e) {
       // Mantém a mesma chave: falhas não gravam a chave no servidor e, se a rede caiu
@@ -210,193 +273,265 @@ export function NewSaleModal({
     }
   }
 
-  const needsTable = channel === 'table' && !preset?.tabId && !tableId;
-  const needsAddress = channel === 'delivery' && !address.trim();
-  const freeOrSame = tables.filter((t) => t.active);
+  if (!open) return null;
+  const title = preset?.label ? `Novo pedido — ${preset.label}` : 'Nova venda';
 
   return (
-    <Frame
-      open={open}
-      onClose={onClose}
-      title={preset?.label ? `Novo pedido — ${preset.label}` : 'Novo pedido'}
-      size="xl"
+    <dialog
+      ref={ref}
+      className="nsale"
+      aria-labelledby={titleId}
+      onCancel={(e) => {
+        // Esc com a escolha de opções aberta fecha só a escolha.
+        if (picking) {
+          e.preventDefault();
+          setPicking(null);
+        }
+      }}
+      onClose={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          void submit();
+        }
+      }}
     >
-      <div className="sale">
-        <section className="sale__menu" aria-label="Cardápio">
-          <div className="sale__search">
-            <Search size={16} aria-hidden />
-            <input
-              className="cm-input"
-              placeholder="Buscar produto…"
-              aria-label="Buscar produto"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+      <div className="nsale__main">
+        <header className="nsale__head">
+          <span className="nsale__icon" aria-hidden>
+            <ReceiptText size={20} />
+          </span>
+          <div className="nsale__title">
+            <h2 id={titleId}>{title}</h2>
+            <p>Lance os produtos e informe os dados do pedido, se precisar.</p>
           </div>
-          {!search && (
-            <ChipGroup label="Categorias">
-              {(menu ?? []).map((c) => (
-                <button
-                  key={c.id}
-                  role="tab"
-                  aria-selected={c.id === cat}
-                  className="chip"
-                  onClick={() => setCat(c.id)}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </ChipGroup>
+          <button type="button" className="nsale__cancel" onClick={() => ref.current?.close()}>
+            Cancelar <kbd className="kbd">Esc</kbd>
+          </button>
+          <button
+            type="button"
+            className="nsale__x"
+            aria-label="Fechar"
+            onClick={() => ref.current?.close()}
+          >
+            <X size={20} />
+          </button>
+        </header>
+
+        <label className="nsale__search">
+          <Search size={18} aria-hidden />
+          <input
+            ref={searchRef}
+            placeholder="Buscar produto pelo nome…"
+            aria-label="Buscar produto"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter com um só resultado já lança o produto (leitor de código / digitação rápida).
+              if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey && products.length === 1) {
+                e.preventDefault();
+                choose(products[0]!);
+                setSearch('');
+              }
+            }}
+          />
+          {search && (
+            <button type="button" aria-label="Limpar busca" onClick={() => setSearch('')}>
+              <X size={16} />
+            </button>
           )}
+        </label>
+
+        <div className="nsale__cats" role="tablist" aria-label="Categorias">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={cat === null}
+            className="nsale__cat"
+            onClick={() => setCat(null)}
+          >
+            Todos
+          </button>
+          {(menu ?? []).map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              role="tab"
+              aria-selected={c.id === cat}
+              className="nsale__cat"
+              onClick={() => setCat(c.id)}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="nsale__grid" aria-label="Produtos">
           {menu === null ? (
             <Spinner />
           ) : products.length === 0 ? (
-            <EmptyState title="Nenhum produto" />
+            <p className="nsale__none">Nenhum produto encontrado.</p>
           ) : (
-            <div className="product-grid">
-              {products.map((p) => (
-                <button
-                  key={p.id}
-                  className="product-tile"
-                  disabled={p.soldOut}
-                  onClick={() => choose(p)}
-                >
-                  {p.imageId && (
-                    <img
-                      className="product-tile__img"
-                      src={mediaUrl(p.imageId)!}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                    />
-                  )}
-                  <span className="product-tile__name">{p.name}</span>
-                  <span className="product-tile__price">
-                    {p.soldOut ? <Badge tone="danger">Esgotado</Badge> : brl(p.price)}
-                  </span>
-                  {p.optionGroups.length > 0 && <span className="cm-hint">com opções</span>}
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-        <section className="sale__cart" aria-label="Carrinho">
-          <div className="chips" role="radiogroup" aria-label="Canal">
-            {ORDER_CHANNELS.map((c) => (
+            products.map((p) => (
               <button
-                key={c}
-                role="radio"
-                aria-checked={channel === c}
-                className="chip"
-                disabled={!!preset?.tabId && c !== 'table'}
-                onClick={() => setChannel(c)}
+                key={p.id}
+                type="button"
+                className="nsale__tile"
+                disabled={p.soldOut}
+                onClick={() => choose(p)}
               >
-                {CHANNEL_LABELS[c]}
+                {p.imageId ? (
+                  <img src={mediaUrl(p.imageId)!} alt="" loading="lazy" decoding="async" />
+                ) : (
+                  <span className="nsale__initials" aria-hidden>
+                    {initials(p.name)}
+                  </span>
+                )}
+                <span className="nsale__price">{p.soldOut ? 'Esgotado' : brl(p.price)}</span>
+                <span className="nsale__name">{p.name}</span>
               </button>
-            ))}
-          </div>
-          {channel === 'table' && !preset?.tabId && (
-            <label className="cm-field">
-              <span className="cm-label">Mesa</span>
-              <Select
-                className="cm-input"
-                value={tableId}
-                onChange={(e) => setTableId(e.target.value)}
-              >
-                <option value="">Selecione…</option>
-                {freeOrSame.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    Mesa {t.label} {t.tabId ? `(ocupada · ${brl(t.tabTotal)})` : '(livre)'}
-                  </option>
-                ))}
-              </Select>
-            </label>
+            ))
           )}
+        </div>
+
+        <section className="nsale__items" aria-label="Itens do pedido">
+          <h3>Itens do pedido</h3>
           {cart.length === 0 ? (
-            <EmptyState
-              icon={<ShoppingBag size={20} />}
-              title="Carrinho vazio"
-              description="Toque nos produtos para adicionar."
-            />
+            <div className="nsale__empty">
+              <Frown size={28} aria-hidden />
+              <strong>Nenhum item adicionado</strong>
+              <span>Busque um produto ou toque nele na grade acima.</span>
+            </div>
           ) : (
-            <ul className="cart">
+            <div className="nsale__table" role="table">
+              <div className="nsale__row nsale__row--head" role="row">
+                <span role="columnheader">Qtd</span>
+                <span role="columnheader">Produto</span>
+                <span role="columnheader">Complementos</span>
+                <span role="columnheader">Unitário</span>
+                <span role="columnheader">Total</span>
+                <span role="columnheader" aria-label="Remover" />
+              </div>
               {cart.map((l) => {
+                const unit = unitCents(l.product, l.optionIds);
                 const opts = l.product.optionGroups
                   .flatMap((g) => g.options)
                   .filter((o) => l.optionIds.includes(o.id));
                 return (
-                  <li key={l.uid} className="cart__line">
-                    <ItemThumb src={mediaUrl(l.product.imageId)} name={l.product.name} />
-                    <div className="cart__info">
-                      <strong>{l.product.name}</strong>
-                      {opts.length > 0 && (
-                        <span className="cm-hint">{opts.map((o) => o.name).join(', ')}</span>
+                  <div key={l.uid} className="nsale__row" role="row">
+                    <span role="cell" className="nsale__qty">
+                      {l.product.soldByWeight ? (
+                        <WeightInput
+                          name={l.product.name}
+                          value={l.quantity}
+                          onChange={(q) => setLine(l, { quantity: q })}
+                        />
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            aria-label="Diminuir"
+                            onClick={() =>
+                              setLine(l, l.quantity > 1 ? { quantity: l.quantity - 1 } : null)
+                            }
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <b>{l.quantity}</b>
+                          <button
+                            type="button"
+                            aria-label="Aumentar"
+                            onClick={() => setLine(l, { quantity: l.quantity + 1 })}
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </>
                       )}
+                    </span>
+                    <span role="cell" className="nsale__prod">
+                      <strong>{l.product.name}</strong>
                       <input
-                        className="cm-input cart__note"
                         placeholder="Observação (ex.: sem cebola)"
                         aria-label={`Observação de ${l.product.name}`}
                         value={l.notes}
                         maxLength={200}
-                        onChange={(e) =>
-                          setCart((c) =>
-                            c.map((x) => (x === l ? { ...x, notes: e.target.value } : x)),
-                          )
-                        }
+                        onChange={(e) => setLine(l, { notes: e.target.value })}
                       />
-                    </div>
-                    {l.product.soldByWeight ? (
-                      <WeightInput
-                        name={l.product.name}
-                        value={l.quantity}
-                        onChange={(q) =>
-                          setCart((c) => c.map((x) => (x === l ? { ...x, quantity: q } : x)))
-                        }
-                        onRemove={() => setCart((c) => c.filter((x) => x !== l))}
-                      />
-                    ) : (
-                      <div className="cart__qty">
-                        <Button
-                          variant="ghost"
-                          aria-label="Diminuir"
-                          icon={l.quantity > 1 ? <Minus size={14} /> : <Trash2 size={14} />}
-                          onClick={() =>
-                            setCart((c) =>
-                              l.quantity > 1
-                                ? c.map((x) => (x === l ? { ...x, quantity: x.quantity - 1 } : x))
-                                : c.filter((x) => x !== l),
-                            )
-                          }
-                        />
-                        <span>{l.quantity}</span>
-                        <Button
-                          variant="ghost"
-                          aria-label="Aumentar"
-                          icon={<Plus size={14} />}
-                          onClick={() =>
-                            setCart((c) =>
-                              c.map((x) => (x === l ? { ...x, quantity: x.quantity + 1 } : x)),
-                            )
-                          }
-                        />
-                      </div>
-                    )}
-                    <span className="cm-num">
-                      {brl(fromCents(multiplyCents(unitCents(l.product, l.optionIds), l.quantity)))}
                     </span>
-                  </li>
+                    <span role="cell" className="nsale__opts">
+                      {opts.length ? opts.map((o) => o.name).join(', ') : '—'}
+                    </span>
+                    <span role="cell" className="nsale__unit cm-num">
+                      {brl(fromCents(unit))}
+                    </span>
+                    <span role="cell" className="nsale__sum cm-num">
+                      {brl(fromCents(multiplyCents(unit, l.quantity)))}
+                    </span>
+                    <span role="cell">
+                      <button
+                        type="button"
+                        className="nsale__del"
+                        aria-label="Remover item"
+                        title="Remover item"
+                        onClick={() => setLine(l, null)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </span>
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           )}
-          <div className="sale__fields">
-            <TextField
-              label="Cliente"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              maxLength={80}
-            />
-            {(channel === 'delivery' || channel === 'pickup') && (
+        </section>
+      </div>
+
+      <aside className="nsale__side" aria-label="Dados do pedido">
+        <header className="nsale__side-head">
+          <ShoppingCart size={20} aria-hidden />
+          <strong>Pedido</strong>
+          <span className="cm-num">{brl(fromCents(Math.max(0, total)))}</span>
+        </header>
+
+        <div className="nsale__side-body">
+          <div className="nsale__group">
+            <span className="nsale__label">
+              <User size={16} aria-hidden /> Cliente
+            </span>
+            <div className="nsale__customer">
+              <TextField
+                label="Nome do cliente"
+                placeholder="Nome ou telefone"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                maxLength={80}
+                autoComplete="off"
+              />
+              {suggestions.length > 0 && (
+                <ul className="nsale__suggest" role="listbox" aria-label="Clientes cadastrados">
+                  {suggestions.map((c) => (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={false}
+                        onClick={() => {
+                          setCustomerName(c.name);
+                          setCustomerPhone(c.phone);
+                          setSuggestions([]);
+                        }}
+                      >
+                        <strong>{c.name}</strong>
+                        <span>{c.phone}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            {(channel === 'delivery' || channel === 'pickup' || customerPhone) && (
               <TextField
                 label="Telefone"
                 value={customerPhone}
@@ -404,6 +539,43 @@ export function NewSaleModal({
                 maxLength={30}
                 inputMode="tel"
               />
+            )}
+          </div>
+
+          <div className="nsale__group">
+            <span className="nsale__label">Tipo de atendimento</span>
+            <div className="nsale__types" role="radiogroup" aria-label="Tipo de atendimento">
+              {ORDER_CHANNELS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  role="radio"
+                  aria-checked={channel === c}
+                  className="nsale__type"
+                  disabled={!!preset?.tabId && c !== 'table'}
+                  onClick={() => setChannel(c)}
+                >
+                  {CHANNEL_ICON[c]}
+                  {CHANNEL_LABELS[c]}
+                </button>
+              ))}
+            </div>
+            {channel === 'table' && !preset?.tabId && (
+              <label className="cm-field">
+                <span className="cm-label">Mesa</span>
+                <Select
+                  className="cm-input"
+                  value={tableId}
+                  onChange={(e) => setTableId(e.target.value)}
+                >
+                  <option value="">Selecione…</option>
+                  {freeOrSame.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      Mesa {t.label} {t.tabId ? `(ocupada · ${brl(t.tabTotal)})` : '(livre)'}
+                    </option>
+                  ))}
+                </Select>
+              </label>
             )}
             {channel === 'delivery' && (
               <>
@@ -426,6 +598,9 @@ export function NewSaleModal({
                 />
               </>
             )}
+          </div>
+
+          <div className="nsale__group">
             <TextField
               label="Desconto"
               value={discount}
@@ -435,16 +610,27 @@ export function NewSaleModal({
               hint="Acima de 10% exige gerente"
               error={discount && !parseBrlInput(discount) ? 'Use o formato 5,00' : undefined}
             />
-            <TextField
-              label="Observação do pedido"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              maxLength={500}
-            />
+            <label className="cm-field">
+              <span className="cm-label">Observações do pedido</span>
+              <textarea
+                className="cm-input nsale__notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                maxLength={500}
+                rows={3}
+              />
+            </label>
           </div>
+        </div>
+
+        <footer className="nsale__foot">
           <dl className="totals">
-            <dt>Subtotal</dt>
-            <dd>{brl(fromCents(subtotal))}</dd>
+            {(discountCents > 0 || feeCents > 0) && (
+              <>
+                <dt>Subtotal</dt>
+                <dd>{brl(fromCents(subtotal))}</dd>
+              </>
+            )}
             {discountCents > 0 && (
               <>
                 <dt>Desconto</dt>
@@ -461,20 +647,17 @@ export function NewSaleModal({
             <dd className="totals__grand">{brl(fromCents(Math.max(0, total)))}</dd>
           </dl>
           {error && <Alert tone="danger">{error}</Alert>}
-          <Button
-            size="lg"
-            block
-            loading={busy}
-            disabled={!cart.length || needsTable || needsAddress || total < 0}
-            onClick={submit}
-          >
-            Enviar pedido
+          {(needsTable || needsAddress) && cart.length > 0 && (
+            <p className="nsale__need">
+              {needsTable ? 'Escolha a mesa para enviar.' : 'Informe o endereço de entrega.'}
+            </p>
+          )}
+          <Button size="lg" block loading={busy} disabled={!canSubmit} onClick={submit}>
+            Enviar pedido <kbd className="kbd nsale__kbd">Ctrl+Enter</kbd>
           </Button>
-          <p className="cm-hint" style={{ margin: 0 }}>
-            O pedido só aparece como criado depois da confirmação do servidor.
-          </p>
-        </section>
-      </div>
+        </footer>
+      </aside>
+
       {picking && (
         <OptionPicker
           product={picking}
@@ -482,10 +665,11 @@ export function NewSaleModal({
           onConfirm={(ids) => {
             add(picking, ids);
             setPicking(null);
+            searchRef.current?.focus();
           }}
         />
       )}
-    </Frame>
+    </dialog>
   );
 }
 
@@ -581,21 +765,18 @@ function WeightInput({
   name,
   value,
   onChange,
-  onRemove,
 }: {
   name: string;
   value: number;
   onChange(q: number): void;
-  onRemove(): void;
 }) {
   const [text, setText] = useState(() =>
     value.toLocaleString('pt-BR', { minimumFractionDigits: 3 }),
   );
   return (
-    <div className="cart__qty cart__qty--weight">
-      <Button variant="ghost" aria-label="Remover" icon={<Trash2 size={14} />} onClick={onRemove} />
+    <span className="nsale__weight">
       <input
-        className="cm-input cm-num"
+        className="cm-num"
         inputMode="decimal"
         aria-label={`Peso de ${name} em kg`}
         value={text}
@@ -605,7 +786,7 @@ function WeightInput({
           if (Number.isFinite(n) && n > 0 && n <= 999) onChange(Math.round(n * 1000) / 1000);
         }}
       />
-      <span className="cm-hint">kg</span>
-    </div>
+      <span>kg</span>
+    </span>
   );
 }

@@ -202,109 +202,6 @@
   opacity: 0.6;
 }
 
-/* Nova venda */
-.sale {
-  display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-  gap: var(--cm-space-5);
-  align-items: start;
-}
-.sale__menu,
-.sale__cart {
-  display: grid;
-  gap: var(--cm-space-3);
-  align-content: start;
-}
-.sale__search {
-  position: relative;
-}
-.sale__search svg {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--cm-text-subtle);
-}
-.sale__search .cm-input {
-  padding-left: 36px;
-  width: 100%;
-}
-.product-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: var(--cm-space-2);
-}
-.product-tile {
-  display: grid;
-  gap: 4px;
-  text-align: left;
-  align-content: start;
-  min-height: 84px;
-  padding: var(--cm-space-3);
-  border-radius: var(--cm-radius-md);
-  border: 1px solid var(--cm-border);
-  background: var(--cm-surface);
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  box-shadow: var(--cm-shadow-sm);
-  transition:
-    border-color var(--cm-dur) var(--cm-ease),
-    box-shadow var(--cm-dur) var(--cm-ease),
-    transform var(--cm-dur-fast) var(--cm-ease);
-}
-.product-tile:hover:not(:disabled) {
-  border-color: var(--cm-brand-300);
-  box-shadow: var(--cm-shadow-md);
-}
-.product-tile:active:not(:disabled) {
-  transform: scale(0.98);
-}
-.product-tile:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-.product-tile__name {
-  font-weight: 650;
-}
-.product-tile__price {
-  color: var(--cm-text);
-  font-weight: 700;
-  font-size: var(--cm-text-sm);
-}
-.cart {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: var(--cm-space-2);
-}
-.cart__line {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  gap: var(--cm-space-2);
-  align-items: start;
-  padding-bottom: var(--cm-space-2);
-  border-bottom: 1px solid var(--cm-border);
-}
-.cart__info {
-  display: grid;
-  gap: 4px;
-}
-.cart__note {
-  min-height: 32px;
-  font-size: var(--cm-text-sm);
-}
-.cart__qty {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  font-weight: 700;
-}
-.sale__fields {
-  display: grid;
-  gap: var(--cm-space-3);
-}
 .totals {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -920,9 +817,6 @@ label.option-row input[type='checkbox'] {
 }
 
 @media (max-width: 1024px) {
-  .sale {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .kds {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     overflow: visible;
@@ -940,9 +834,6 @@ label.option-row input[type='checkbox'] {
 @media (max-width: 640px) {
   .two-cols {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .product-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1216,9 +1107,4 @@ label.option-row input[type='checkbox'] {
   font-weight: 600;
   text-decoration: underline;
   cursor: pointer;
-}
-.cart__qty--weight .cm-input {
-  width: 84px;
-  min-height: 32px;
-  text-align: right;
 }
