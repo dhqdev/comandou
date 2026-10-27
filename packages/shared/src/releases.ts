@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.38.1',
+    date: '2026-10-27',
+    title: 'Filtros de Pedidos mais simples',
+    summary:
+      'A aba Pedidos ficou num cartão só, com os filtros compactos numa linha: período, status operacional, status financeiro, tipo e busca. A tabela pode ser ordenada por qualquer coluna e mostra os itens de cada pedido.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Filtre por período (de/até), Status op., Status fin. e Tipo, e busque pelo número, nome do cliente, mesa ou telefone.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Atalhos para ver só os pedidos em andamento, só os do cardápio online ou só os com cancelamento solicitado. "Limpar filtros" volta para o dia de hoje.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Clique no título da coluna para ordenar por número, data, cliente, status ou valor. O topo mostra quantos pedidos e o total do filtro.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No celular, a busca fica sempre à vista e os demais filtros abrem no botão Filtros, que mostra quantos estão ativos.',
+      },
+    ],
+  },
+  {
     version: '0.38.0',
     date: '2026-10-27',
     title: 'Cardápio online com cara nova',
