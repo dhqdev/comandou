@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.38.0',
+    date: '2026-10-27',
+    title: 'Cardápio online com cara nova',
+    summary:
+      'O cardápio que o cliente abre no celular ficou mais simples e bonito: logo redonda sobre a capa, busca com filtro, carrossel de categorias e os produtos em cartões de duas colunas.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Carrossel de categorias: o cliente arrasta para o lado e a categoria do meio aparece logo abaixo. Destaques e Mais pedidos entram como as primeiras do carrossel.',
+      },
+      {
+        tag: 'novo',
+        text: 'Botão de filtro ao lado da busca: ordenar por preço ou nome e esconder os produtos esgotados.',
+      },
+      {
+        tag: 'melhoria',
+        text: '"Mais informações" abre o horário, a entrega, a retirada, o pedido mínimo e o endereço da loja numa janela só.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Barra de baixo flutuante na cor da loja, com o nome da aba aberta.',
+      },
+    ],
+  },
+  {
     version: '0.37.2',
     date: '2026-10-27',
     title: 'Cardápio com submenu na barra lateral',
