@@ -1,0 +1,338 @@
+/* Aba Pedidos: um só cartão com título, filtros compactos numa linha e a tabela. */
+.ord-board {
+  overflow: hidden;
+}
+.ord-head {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  padding: 12px var(--cm-space-4);
+  border-bottom: 1px solid var(--cm-border);
+}
+.ord-title {
+  margin: 0 var(--cm-space-1) 0 0;
+  font-size: var(--cm-text-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.ord-icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  cursor: pointer;
+  transition:
+    color var(--cm-dur-fast) var(--cm-ease),
+    border-color var(--cm-dur-fast) var(--cm-ease);
+}
+.ord-icon-btn:hover {
+  color: var(--cm-text);
+  border-color: var(--cm-border-strong);
+}
+.ord-icon-btn[data-spin] svg {
+  animation: ord-spin 0.8s linear infinite;
+}
+@keyframes ord-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ord-icon-btn[data-spin] svg {
+    animation: none;
+  }
+}
+.ord-clear {
+  display: inline-flex;
+  white-space: nowrap;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: none;
+  color: var(--cm-link);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+.ord-clear:hover {
+  background: var(--cm-surface-muted);
+}
+.ord-count {
+  margin-left: auto;
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Filtros: controles de 34px, texto pequeno, tudo na mesma linha quando cabe. */
+.ord-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cm-space-2);
+  padding: 10px var(--cm-space-4);
+  border-bottom: 1px solid var(--cm-border);
+}
+.ord-filters .cm-input {
+  min-height: 34px;
+  height: 34px;
+  font-size: var(--cm-text-sm);
+  padding-left: 10px;
+}
+.ord-filters select.cm-input {
+  padding-right: 30px;
+  background-position: right 8px center;
+  color: var(--cm-text-muted);
+}
+.ord-filters select.cm-input[data-set] {
+  color: var(--cm-text);
+  border-color: var(--cm-brand-500);
+}
+.ord-filters > .cm-picker {
+  flex: 0 1 140px;
+  min-width: 118px;
+}
+.ord-search {
+  position: relative;
+  flex: 1 1 220px;
+  min-width: 180px;
+  max-width: 320px;
+}
+.ord-search > svg {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--cm-text-subtle);
+  pointer-events: none;
+}
+.ord-filters .ord-search .cm-input {
+  padding-left: 32px;
+}
+.ord-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+}
+.ord-range .cm-picker {
+  width: 158px;
+}
+.ord-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--cm-space-3);
+}
+.ord-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.ord-check input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--cm-brand-500);
+  cursor: pointer;
+}
+.ord-check:has(input:checked) {
+  color: var(--cm-text);
+  font-weight: 600;
+}
+.ord-alert {
+  padding: var(--cm-space-3) var(--cm-space-4) 0;
+}
+
+/* Tabela */
+.ord-scroll {
+  overflow-x: auto;
+}
+@media (min-width: 641px) {
+  .ord-table th,
+  .ord-table td {
+    padding-left: var(--cm-space-4);
+    padding-right: var(--cm-space-3);
+  }
+  .ord-table td {
+    padding-top: 10px;
+    padding-bottom: 10px;
+    vertical-align: middle;
+  }
+}
+.ord-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ord-sort svg {
+  opacity: 0.45;
+}
+.ord-sort[data-on] {
+  color: var(--cm-text);
+}
+.ord-sort[data-on] svg {
+  opacity: 1;
+  color: var(--cm-brand-500);
+}
+.cm-num .ord-sort {
+  flex-direction: row-reverse;
+}
+.ord-nowrap {
+  white-space: nowrap;
+}
+.ord-sub {
+  display: block;
+  white-space: nowrap;
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.ord-tag {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-50);
+  color: var(--cm-brand-700);
+  font-size: var(--cm-text-2xs);
+  font-weight: 600;
+  vertical-align: 1px;
+}
+.ord-col-items {
+  width: 30%;
+  max-width: 0;
+}
+.ord-items {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--cm-text-muted);
+}
+.ord-foot {
+  margin: 0;
+  padding: 10px var(--cm-space-4);
+  border-top: 1px solid var(--cm-border);
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+}
+
+/* Notebook estreito: os itens somem antes de a tabela apertar. */
+@media (max-width: 1100px) and (min-width: 641px) {
+  .ord-col-items {
+    display: none;
+  }
+}
+
+/* Botão "Filtros": só no celular. */
+.ord-more {
+  display: none;
+}
+
+/* Celular: busca + botão Filtros; aberto, o período na linha toda, os 3 selects lado a
+   lado e as opções embaixo. */
+@media (max-width: 640px) {
+  .ord-more {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid var(--cm-border-strong);
+    border-radius: var(--cm-radius-sm);
+    background: var(--cm-surface);
+    color: var(--cm-text);
+    font: inherit;
+    font-size: var(--cm-text-sm);
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .ord-more[aria-expanded='true'] {
+    border-color: var(--cm-brand-500);
+  }
+  .ord-more__n {
+    display: inline-grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: var(--cm-radius-full);
+    background: var(--cm-brand-500);
+    color: var(--cm-on-brand);
+    font-size: var(--cm-text-2xs);
+    font-weight: 700;
+  }
+  .ord-filters:not([data-open]) > :not(.ord-search):not(.ord-more) {
+    display: none;
+  }
+  .ord-search {
+    grid-column: 1 / 3;
+  }
+  .ord-filters .ord-range .cm-input {
+    padding: 0 8px;
+    font-size: var(--cm-text-sm);
+  }
+  .ord-wide {
+    display: none;
+  }
+  .ord-head {
+    padding: 10px var(--cm-space-3);
+  }
+  .ord-filters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding: 10px var(--cm-space-3);
+  }
+  .ord-range,
+  .ord-toggles {
+    grid-column: 1 / -1;
+    max-width: none;
+    min-width: 0;
+  }
+  .ord-search,
+  .ord-filters > .cm-picker {
+    min-width: 0;
+    max-width: none;
+  }
+  .ord-range .cm-picker {
+    flex: 1 1 0;
+    width: auto;
+  }
+  .ord-filters .cm-input {
+    min-height: 40px;
+    height: 40px;
+  }
+  .ord-toggles {
+    gap: 6px var(--cm-space-3);
+  }
+  .ord-check {
+    min-height: 28px;
+  }
+  .ord-col-items {
+    width: auto;
+    max-width: none;
+  }
+}
