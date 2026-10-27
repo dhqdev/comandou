@@ -1,14 +1,23 @@
-import { Ban, KeyRound, MessageCircle, Search, UserCheck, Users } from 'lucide-react';
+import { Ban, KeyRound, MessageCircle, UserCheck, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../app/auth';
-import { Alert, Badge, Button, Card, EmptyState, Spinner, useToast } from '../design-system';
+import { Alert, Badge, Button, EmptyState, Spinner, useToast } from '../design-system';
 import { CHANNEL_LABELS, dateTime, ORDER_STATUS_LABELS, STATUS_TONE } from '../features/format';
+import {
+  fold,
+  ListTable,
+  ListToolbar,
+  useListView,
+  type ListField,
+  type ListSort,
+  type ListTab,
+} from '../features/list-view';
 import { OrderDetailModal } from '../features/OrderDetailModal';
 import { SidePanel } from '../features/SidePanel';
 import { api } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
 import { brl } from '../lib/money';
-import type { CustomerDetail, CustomerList } from '../lib/types';
+import type { CustomerDetail, CustomerList, CustomerRow } from '../lib/types';
 import './online-store.css';
 
 const fmtPhone = (d: string) =>
@@ -252,13 +261,84 @@ function CustomerPanel({
   );
 }
 
+const ordersBucket = (n: number) => (n === 0 ? '0' : n === 1 ? '1' : n <= 5 ? '2-5' : '6+');
+
+const FIELDS: ListField<CustomerRow>[] = [
+  {
+    key: 'orders',
+    label: 'Pedidos',
+    value: (c) => ordersBucket(c.orders),
+    options: [
+      { value: '0', label: 'Nunca pediu' },
+      { value: '1', label: '1 pedido' },
+      { value: '2-5', label: '2 a 5 pedidos' },
+      { value: '6+', label: '6 ou mais' },
+    ],
+    pinned: true,
+  },
+  { key: 'last', label: 'Último pedido', kind: 'date', date: (c) => c.lastOrderAt, pinned: true },
+  { key: 'created', label: 'Cadastro', kind: 'date', date: (c) => c.createdAt },
+  {
+    key: 'status',
+    label: 'Situação',
+    value: (c) => (c.blocked ? 'blocked' : 'ok'),
+    options: [
+      { value: 'ok', label: 'Ativo' },
+      { value: 'blocked', label: 'Bloqueado' },
+    ],
+  },
+  {
+    key: 'optin',
+    label: 'Aceita novidades',
+    value: (c) => (c.marketingOptIn ? 'yes' : 'no'),
+    options: [
+      { value: 'yes', label: 'Sim' },
+      { value: 'no', label: 'Não' },
+    ],
+  },
+  {
+    key: 'email',
+    label: 'E-mail',
+    value: (c) => (c.email ? 'yes' : 'no'),
+    options: [
+      { value: 'yes', label: 'Com e-mail' },
+      { value: 'no', label: 'Sem e-mail' },
+    ],
+  },
+];
+
+const TABS: ListTab[] = [
+  { id: 'todos', label: 'Todos', filters: {} },
+  { id: 'recorrentes', label: 'Recorrentes', filters: { orders: ['2-5', '6+'] } },
+  { id: 'sem-pedido', label: 'Sem pedido', filters: { orders: ['0'] } },
+  { id: 'bloqueados', label: 'Bloqueados', filters: { status: ['blocked'] } },
+];
+
+const SORTS: ListSort<CustomerRow>[] = [
+  { key: 'last', label: 'Último pedido', get: (c) => c.lastOrderAt ?? '' },
+  { key: 'spent', label: 'Total gasto', get: (c) => Number(c.spent) },
+  { key: 'orders', label: 'Pedidos', get: (c) => c.orders },
+  { key: 'name', label: 'Nome', get: (c) => fold(c.name), asc: true },
+  { key: 'created', label: 'Cadastro', get: (c) => c.createdAt },
+];
+
+const searchText = (c: CustomerRow) => `${c.name} ${c.email ?? ''} ${c.phone} ${fmtPhone(c.phone)}`;
+
 /** Clientes com conta no cardápio online: quem são, quanto pedem e quando voltaram. */
 export function CustomersPage() {
   const toast = useToast();
   const [data, setData] = useState<CustomerList | null>(null);
-  const [search, setSearch] = useState('');
   const [open, setOpen] = useState<string | null>(null);
   useLinkParam('abrir', setOpen);
+  const lv = useListView({
+    id: 'clientes',
+    rows: data?.customers ?? null,
+    fields: FIELDS,
+    tabs: TABS,
+    search: searchText,
+    sorts: SORTS,
+  });
+  const search = lv.query.trim();
   const load = useCallback(
     (q: string) =>
       api<CustomerList>(`/customers?search=${encodeURIComponent(q)}`).then(setData, (e: Error) =>
@@ -267,9 +347,10 @@ export function CustomersPage() {
     [toast],
   );
   useEffect(() => {
-    const t = setTimeout(() => void load(search.trim()), search ? 250 : 0);
+    const t = setTimeout(() => void load(search), search ? 250 : 0);
     return () => clearTimeout(t);
   }, [search, load]);
+  const rows = lv.visible;
 
   return (
     <>
@@ -297,38 +378,32 @@ export function CustomersPage() {
           </div>
         </div>
       )}
-      <Card
-        title="Lista"
-        bodyless
-        actions={
-          <label className="cl-search">
-            <Search size={16} aria-hidden />
-            <input
-              className="cm-input"
-              type="search"
-              aria-label="Buscar cliente"
-              placeholder="Nome, celular ou e-mail"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </label>
-        }
-      >
-        {!data ? (
+      <section className="cm-card">
+        <ListToolbar
+          lv={lv}
+          searchLabel="Buscar cliente"
+          placeholder="Buscar: nome, celular ou e-mail"
+          summary={
+            rows &&
+            `${rows.length} ${rows.length === 1 ? 'cliente' : 'clientes'}` +
+              (data && data.customers.length >= 300 ? ' (300 mais recentes)' : '')
+          }
+        />
+        {!rows ? (
           <Spinner />
-        ) : data.customers.length === 0 ? (
+        ) : rows.length === 0 ? (
           <EmptyState
             icon={<Users size={20} />}
-            title={search ? 'Ninguém encontrado' : 'Nenhum cliente com conta ainda'}
+            title={data?.customers.length ? 'Ninguém encontrado' : 'Nenhum cliente com conta ainda'}
             description={
-              search
-                ? 'Tente outro nome ou número.'
+              data?.customers.length
+                ? 'Tente outro nome, número ou filtro.'
                 : 'Quando alguém criar conta no cardápio online (/pedir), aparece aqui.'
             }
           />
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="cm-table cm-table--click">
+          <ListTable>
+            <table className="cm-table cm-table--click lv-table">
               <thead>
                 <tr>
                   <th>Cliente</th>
@@ -340,7 +415,7 @@ export function CustomersPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.customers.map((c) => (
+                {rows.map((c) => (
                   <tr key={c.id} onClick={() => setOpen(c.id)}>
                     <td>
                       <span className="cl-name">
@@ -375,9 +450,9 @@ export function CustomersPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </ListTable>
         )}
-      </Card>
+      </section>
       {data && data.summary.total === 0 && (
         <Alert tone="info">
           Dica: em <strong>Loja online → Aparência</strong> você liga ou desliga o cadastro de

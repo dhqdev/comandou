@@ -1,0 +1,559 @@
+/* Barra das listas (estilo Frappe): abas com contagem, busca + ordenar e chips de filtro.
+   Gruda no topo do painel ao rolar; o cabeçalho da tabela gruda logo abaixo (--lv-bar-h). */
+.lv-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  padding: 0 var(--cm-space-4) 10px;
+  background: var(--cm-surface);
+  border-bottom: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md) var(--cm-radius-md) 0 0;
+}
+
+/* ---------------------------------------------------------------- abas */
+.lv-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  border-bottom: 1px solid var(--cm-border);
+  margin: 0 calc(-1 * var(--cm-space-4));
+  padding: 0 var(--cm-space-4);
+}
+.lv-tabs__list {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.lv-tabs__list::-webkit-scrollbar {
+  display: none;
+}
+.lv-tabs__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.lv-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.lv-tab > button[role='tab'] {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 42px;
+  padding: 0 10px;
+  border: 0;
+  background: none;
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: inset 0 -2px 0 transparent;
+  transition:
+    color var(--cm-dur-fast) var(--cm-ease),
+    box-shadow var(--cm-dur-fast) var(--cm-ease);
+}
+.lv-tab > button[role='tab']:hover {
+  color: var(--cm-text);
+}
+.lv-tab[data-on] > button[role='tab'] {
+  color: var(--cm-text);
+  font-weight: 650;
+  box-shadow: inset 0 -2px 0 var(--cm-brand-500);
+}
+.lv-tab__n {
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-2xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.lv-tab[data-on] .lv-tab__n {
+  background: var(--cm-brand-50);
+  color: var(--cm-brand-700);
+}
+.lv-tab__x {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: 0 4px 0 -4px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--cm-text-subtle);
+  cursor: pointer;
+}
+.lv-tab__x:hover {
+  background: var(--cm-surface-sunken);
+  color: var(--cm-danger);
+}
+.lv-savetab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  align-self: center;
+  height: 26px;
+  margin-left: 6px;
+  padding: 0 9px;
+  border: 1px dashed color-mix(in srgb, var(--cm-brand-500) 50%, var(--cm-border));
+  border-radius: var(--cm-radius-full);
+  background: none;
+  color: var(--cm-link);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.lv-savetab:hover {
+  background: var(--cm-brand-50);
+}
+
+/* ---------------------------------------------------------------- busca + ordenar */
+.lv-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 2px;
+}
+.lv-search {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.lv-search > svg {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--cm-text-subtle);
+  pointer-events: none;
+}
+.lv-bar .lv-search .cm-input {
+  min-height: 34px;
+  height: 34px;
+  padding-left: 34px;
+  border-color: var(--cm-border);
+  font-size: var(--cm-text-sm);
+}
+.lv-sort {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 34px;
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface-sunken);
+}
+.lv-sort__dir {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-right: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm) 0 0 var(--cm-radius-sm);
+  background: none;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.lv-sort__dir:hover {
+  color: var(--cm-text);
+}
+.lv-sort .cm-picker {
+  min-width: 0;
+}
+.lv-sort select.cm-input.lv-sort__field {
+  min-height: 34px;
+  height: 34px;
+  width: auto;
+  max-width: 180px;
+  padding: 0 28px 0 10px;
+  border: 0;
+  background-color: transparent;
+  background-position: right 8px center;
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+  color: var(--cm-text);
+}
+
+/* ---------------------------------------------------------------- chips */
+.lv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.lv-chip {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  max-width: 100%;
+  height: 28px;
+  border: 1px dashed var(--cm-border-strong);
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  transition:
+    background-color var(--cm-dur-fast) var(--cm-ease),
+    border-color var(--cm-dur-fast) var(--cm-ease);
+}
+.lv-chip:hover {
+  border-color: var(--cm-text-subtle);
+}
+.lv-chip[data-set] {
+  border: 1px solid transparent;
+  background: var(--cm-brand-50);
+  color: var(--cm-brand-700);
+}
+.lv-chip__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  min-width: 0;
+  padding: 0 10px;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.lv-chip[data-set] .lv-chip__btn {
+  padding-right: 4px;
+  font-weight: 600;
+}
+.lv-chip__label {
+  color: var(--cm-text-subtle);
+}
+.lv-chip[data-set] .lv-chip__label {
+  color: inherit;
+  font-weight: 500;
+}
+.lv-chip__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+  color: var(--cm-text);
+}
+.lv-chip[data-set] .lv-chip__value {
+  color: inherit;
+}
+.lv-chip__btn > svg {
+  opacity: 0.6;
+}
+.lv-chip__x {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-right: 4px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.lv-chip__x:hover {
+  background: color-mix(in srgb, var(--cm-brand-500) 16%, transparent);
+}
+.lv-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--cm-border-strong);
+}
+.lv-add,
+.lv-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: none;
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.lv-add {
+  color: var(--cm-text);
+}
+.lv-add:hover,
+.lv-clear:hover {
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+}
+.lv-summary {
+  margin-left: auto;
+  padding-left: var(--cm-space-2);
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.lv-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cm-link);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------- caixa dos filtros */
+.lv-pop {
+  position: fixed;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  box-shadow: var(--cm-shadow-lg);
+  overflow: hidden;
+  animation: lv-pop-in var(--cm-dur-fast) var(--cm-ease) both;
+}
+@keyframes lv-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lv-pop {
+    animation: none;
+  }
+}
+.lv-pop__title {
+  padding: 12px 14px 6px;
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+}
+.lv-pop__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 8px 8px;
+}
+.lv-pop__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 14px;
+  border-top: 1px solid var(--cm-border);
+}
+.lv-pop .lv-pop__search {
+  min-height: 32px;
+  height: 32px;
+  margin: 0 0 6px;
+  font-size: var(--cm-text-sm);
+}
+.lv-pop__sheet .lv-pop__search {
+  margin-bottom: 10px;
+}
+.lv-opts {
+  display: grid;
+  gap: 1px;
+}
+.lv-opts__empty {
+  margin: 8px 6px;
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+}
+.lv-opt {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.lv-opt:hover {
+  background: var(--cm-surface-muted);
+}
+.lv-opt input {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--cm-brand-500);
+  cursor: pointer;
+}
+.lv-opt__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lv-opt[data-on] .lv-opt__label {
+  font-weight: 600;
+}
+.lv-opt__n {
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.lv-range {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 2px;
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+}
+.lv-range .cm-input {
+  min-height: 32px;
+  height: 32px;
+  padding-right: 30px;
+  font-size: var(--cm-text-xs);
+  background-position: right 8px center;
+}
+/* No celular a caixa vira folha: alvos maiores para o dedo. */
+.lv-pop__sheet .lv-opt {
+  min-height: 46px;
+  padding: 6px 10px;
+  font-size: var(--cm-text-md);
+}
+.lv-pop__sheet .lv-opt input {
+  width: 18px;
+  height: 18px;
+}
+.lv-pop__sheet .lv-range .cm-input {
+  min-height: 44px;
+  height: 44px;
+  font-size: var(--cm-text-sm);
+}
+
+/* ---------------------------------------------------------------- tabela */
+.lv-scroll {
+  overflow-x: clip;
+}
+.lv-scroll[data-wide] {
+  overflow-x: auto;
+}
+.lv-table thead th {
+  position: sticky;
+  top: var(--lv-bar-h, 0px);
+  z-index: 3;
+}
+@media (min-width: 641px) {
+  .lv-table th,
+  .lv-table td {
+    padding-left: var(--cm-space-4);
+    padding-right: var(--cm-space-3);
+  }
+  .lv-table td {
+    padding-top: 9px;
+    padding-bottom: 9px;
+    vertical-align: middle;
+  }
+  .lv-table thead th {
+    box-shadow: inset 0 -1px 0 var(--cm-border);
+    border-bottom: 0;
+  }
+}
+.lv-foot {
+  margin: 0;
+  padding: 10px var(--cm-space-4);
+  border-top: 1px solid var(--cm-border);
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+}
+
+/* ---------------------------------------------------------------- celular */
+@media (max-width: 640px) {
+  .lv-bar {
+    padding: 0 var(--cm-space-3) 8px;
+    gap: 6px;
+  }
+  .lv-tabs {
+    margin: 0 calc(-1 * var(--cm-space-3));
+    padding: 0 var(--cm-space-3);
+  }
+  .lv-tab > button[role='tab'] {
+    height: 40px;
+    padding: 0 8px;
+  }
+  .lv-bar .lv-search .cm-input {
+    min-height: 40px;
+    height: 40px;
+    font-size: 16px; /* 16px: o iPhone não dá zoom ao tocar */
+  }
+  .lv-sort,
+  .lv-sort__dir {
+    height: 40px;
+  }
+  .lv-sort__dir {
+    width: 34px;
+  }
+  .lv-sort select.cm-input.lv-sort__field {
+    min-height: 40px;
+    height: 40px;
+    width: 96px;
+    max-width: 96px;
+    padding-right: 24px;
+    font-size: var(--cm-text-xs);
+    text-overflow: ellipsis;
+  }
+  /* Chips numa linha só, rolando para o lado. */
+  .lv-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 calc(-1 * var(--cm-space-3));
+    padding: 0 var(--cm-space-3);
+  }
+  .lv-chips::-webkit-scrollbar {
+    display: none;
+  }
+  .lv-chip,
+  .lv-add,
+  .lv-clear {
+    height: 32px;
+  }
+  .lv-summary {
+    padding-right: var(--cm-space-1);
+  }
+}

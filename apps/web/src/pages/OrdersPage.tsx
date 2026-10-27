@@ -1,31 +1,32 @@
 import {
   ORDER_CHANNELS,
   ORDER_STATUSES,
+  PAYMENT_METHODS,
   PAYMENT_STATUSES,
-  type OrderChannel,
   type OrderStatus,
-  type PaymentStatus,
 } from '@comandou/shared';
-import {
-  ChevronDown,
-  ChevronUp,
-  ChevronsUpDown,
-  ClipboardList,
-  RotateCw,
-  Search,
-  SlidersHorizontal,
-  X,
-} from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Badge, EmptyState, Skeleton, Select, DateInput } from '../design-system';
+import { ChevronDown, ChevronUp, ChevronsUpDown, ClipboardList, RotateCw } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Badge, EmptyState, Skeleton } from '../design-system';
 import {
   CHANNEL_LABELS,
   ORDER_STATUS_LABELS,
+  PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABEL,
   PAYMENT_STATUS_TONE,
   STATUS_TONE,
   dateTime,
 } from '../features/format';
+import {
+  dateBounds,
+  fold,
+  ListTable,
+  ListToolbar,
+  useListView,
+  type ListField,
+  type ListSort,
+  type ListTab,
+} from '../features/list-view';
 import { OrderDetailModal } from '../features/OrderDetailModal';
 import { api } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
@@ -36,14 +37,7 @@ import './orders.css';
 
 const LIMIT = 500;
 
-/** Dia local no formato do <input type="date">. */
-function isoDay(d = new Date()) {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
-}
-
-type SortKey = 'number' | 'createdAt' | 'customer' | 'status' | 'payment' | 'total';
-type Sort = { key: SortKey; dir: 'asc' | 'desc' };
+const ACTIVE: OrderStatus[] = ORDER_STATUSES.filter((s) => s !== 'completed' && s !== 'cancelled');
 
 const who = (o: Order) =>
   o.tableLabel
@@ -51,15 +45,6 @@ const who = (o: Order) =>
     : o.tabNumber
       ? `Comanda ${o.tabNumber}`
       : (o.customerName ?? '');
-
-const sortValue: Record<SortKey, (o: Order) => string | number> = {
-  number: (o) => o.number,
-  createdAt: (o) => o.createdAt,
-  customer: (o) => who(o).toLocaleLowerCase('pt-BR'),
-  status: (o) => ORDER_STATUSES.indexOf(o.status),
-  payment: (o) => PAYMENT_STATUSES.indexOf(o.paymentStatus),
-  total: (o) => Number(o.total),
-};
 
 /** Nome e telefone do cliente embaixo da mesa/comanda (ou só o telefone). */
 function subline(o: Order) {
@@ -72,39 +57,118 @@ function itemsSummary(o: Order) {
 }
 
 const digits = (s: string) => s.replace(/\D/g, '');
+const opts = <K extends string>(keys: readonly K[], labels: Record<K, string>) =>
+  keys.map((k) => ({ value: k, label: labels[k] }));
+
+const FIELDS: ListField<Order>[] = [
+  {
+    key: 'date',
+    label: 'Data',
+    kind: 'date',
+    date: (o) => o.createdAt,
+    pinned: true,
+    server: true,
+  },
+  {
+    key: 'status',
+    label: 'Status op.',
+    value: (o) => o.status,
+    options: opts(ORDER_STATUSES, ORDER_STATUS_LABELS),
+    pinned: true,
+  },
+  {
+    key: 'channel',
+    label: 'Tipo',
+    value: (o) => o.channel,
+    options: opts(ORDER_CHANNELS, CHANNEL_LABELS),
+    pinned: true,
+  },
+  {
+    key: 'payment',
+    label: 'Status fin.',
+    value: (o) => o.paymentStatus,
+    options: opts(PAYMENT_STATUSES, PAYMENT_STATUS_LABEL),
+  },
+  {
+    key: 'source',
+    label: 'Origem',
+    value: (o) => o.source ?? 'staff',
+    options: [
+      { value: 'staff', label: 'Equipe' },
+      { value: 'online', label: 'Cardápio online' },
+    ],
+  },
+  {
+    key: 'paymentHint',
+    label: 'Forma de pagamento',
+    value: (o) => [
+      ...new Set([
+        ...(o.payments ?? []).map((p) => p.method),
+        ...(o.paymentHint ? [o.paymentHint] : []),
+      ]),
+    ],
+    options: opts(PAYMENT_METHODS, PAYMENT_METHOD_LABELS),
+  },
+  {
+    key: 'table',
+    label: 'Mesa',
+    value: (o) => (o.tableLabel ? `Mesa ${o.tableLabel}` : null),
+  },
+];
+
+const TABS: ListTab[] = [
+  { id: 'hoje', label: 'Hoje', filters: { date: ['today'] } },
+  { id: 'andamento', label: 'Em andamento', filters: { date: ['today'], status: ACTIVE } },
+  {
+    id: 'receber',
+    label: 'A receber',
+    filters: { date: ['today'], payment: ['unpaid', 'partial'] },
+  },
+  { id: 'semana', label: 'Últimos 7 dias', filters: { date: ['7d'] } },
+];
+
+const SORTS: ListSort<Order>[] = [
+  { key: 'createdAt', label: 'Data', get: (o) => o.createdAt },
+  { key: 'number', label: 'Número', get: (o) => o.number },
+  { key: 'customer', label: 'Cliente / mesa', get: (o) => fold(who(o)), asc: true },
+  { key: 'status', label: 'Status op.', get: (o) => ORDER_STATUSES.indexOf(o.status), asc: true },
+  {
+    key: 'payment',
+    label: 'Status fin.',
+    get: (o) => PAYMENT_STATUSES.indexOf(o.paymentStatus),
+    asc: true,
+  },
+  { key: 'total', label: 'Valor', get: (o) => Number(o.total) },
+];
+
+const searchText = (o: Order) =>
+  `#${o.number} ${who(o)} ${o.customerName ?? ''} ${digits(o.customerPhone ?? '')} ${itemsSummary(o)}`;
 
 export function OrdersPage() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [from, setFrom] = useState(() => isoDay());
-  const [to, setTo] = useState(() => isoDay());
-  const [status, setStatus] = useState<OrderStatus | ''>('');
-  const [payment, setPayment] = useState<PaymentStatus | ''>('');
-  const [channel, setChannel] = useState<OrderChannel | ''>('');
-  const [query, setQuery] = useState('');
-  const [onlyActive, setOnlyActive] = useState(false);
-  const [onlyOnline, setOnlyOnline] = useState(false);
-  const [more, setMore] = useState(false);
-  const [sort, setSort] = useState<Sort>({ key: 'createdAt', dir: 'desc' });
   const [openId, setOpenId] = useState<string | null>(null);
   useLinkParam('abrir', setOpenId);
-
-  // Período sempre em ordem: se "até" ficar antes de "de", usa o mesmo dia nos dois.
-  const start = from <= to ? from : to;
-  const end = from <= to ? to : from;
+  const lv = useListView({
+    id: 'pedidos',
+    rows: orders,
+    fields: FIELDS,
+    tabs: TABS,
+    search: searchText,
+    sorts: SORTS,
+  });
+  const period = lv.filters.date?.[0];
 
   const load = useCallback(async () => {
-    const a = new Date(`${start}T00:00:00`);
-    const b = new Date(new Date(`${end}T00:00:00`).getTime() + 86_400_000);
-    const p = new URLSearchParams({
-      from: a.toISOString(),
-      to: b.toISOString(),
-      limit: String(LIMIT),
-    });
-    if (status) p.set('status', status);
-    if (channel) p.set('channel', channel);
-    if (onlyActive) p.set('active', 'true');
+    const p = new URLSearchParams({ limit: String(LIMIT) });
+    const b = dateBounds(period);
+    if (b) {
+      const a = new Date(`${b[0]}T00:00:00`);
+      const z = new Date(new Date(`${b[1]}T00:00:00`).getTime() + 86_400_000);
+      p.set('from', a.toISOString());
+      p.set('to', z.toISOString());
+    }
     setLoading(true);
     try {
       setOrders(await api<Order[]>(`/orders?${p}`));
@@ -114,7 +178,7 @@ export function OrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [start, end, status, channel, onlyActive]);
+  }, [period]);
   const reload = useDebounced(load);
   useEffect(() => {
     void load();
@@ -123,78 +187,27 @@ export function OrdersPage() {
     if (e.type === 'order.changed') reload();
   }, load);
 
-  const rows = useMemo(() => {
-    if (!orders) return null;
-    const q = query.trim().toLocaleLowerCase('pt-BR');
-    const qd = digits(q);
-    const list = orders.filter((o) => {
-      if (payment && o.paymentStatus !== payment) return false;
-      if (onlyOnline && o.source !== 'online') return false;
-      if (!q) return true;
-      if (
-        qd &&
-        (String(o.number) === qd || (qd.length >= 3 && digits(o.customerPhone ?? '').includes(qd)))
-      )
-        return true;
-      return `${who(o)} ${o.customerName ?? ''}`.toLocaleLowerCase('pt-BR').includes(q);
-    });
-    const get = sortValue[sort.key];
-    const dir = sort.dir === 'asc' ? 1 : -1;
-    return list.sort((a, b) => {
-      const x = get(a);
-      const y = get(b);
-      return (x < y ? -1 : x > y ? 1 : 0) * dir || (a.createdAt < b.createdAt ? 1 : -1);
-    });
-  }, [orders, query, payment, onlyOnline, sort]);
-
-  const today = isoDay();
-  const dirty =
-    from !== today ||
-    to !== today ||
-    !!status ||
-    !!payment ||
-    !!channel ||
-    !!query ||
-    onlyActive ||
-    onlyOnline;
-  const activeCount = [
-    from !== today || to !== today,
-    status,
-    payment,
-    channel,
-    onlyActive,
-    onlyOnline,
-  ].filter(Boolean).length;
-  const clear = () => {
-    setFrom(today);
-    setTo(today);
-    setStatus('');
-    setPayment('');
-    setChannel('');
-    setQuery('');
-    setOnlyActive(false);
-    setOnlyOnline(false);
-  };
+  const rows = lv.visible;
   const total =
     rows?.reduce((s, o) => (o.status === 'cancelled' ? s : s + Number(o.total)), 0) ?? 0;
 
-  const th = (key: SortKey, label: string, className?: string) => {
-    const on = sort.key === key;
-    const Icon = !on ? ChevronsUpDown : sort.dir === 'asc' ? ChevronUp : ChevronDown;
+  const th = (key: string, label: string, className?: string) => {
+    const on = lv.sort.key === key;
+    const Icon = !on ? ChevronsUpDown : lv.sort.desc ? ChevronDown : ChevronUp;
     return (
       <th
         className={className}
-        aria-sort={on ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined}
+        aria-sort={on ? (lv.sort.desc ? 'descending' : 'ascending') : undefined}
       >
         <button
           type="button"
           className="ord-sort"
           data-on={on || undefined}
           onClick={() =>
-            setSort(
+            lv.setSort(
               on
-                ? { key, dir: sort.dir === 'asc' ? 'desc' : 'asc' }
-                : { key, dir: key === 'customer' ? 'asc' : 'desc' },
+                ? { key, desc: !lv.sort.desc }
+                : { key, desc: !SORTS.find((x) => x.key === key)?.asc },
             )
           }
         >
@@ -210,138 +223,29 @@ export function OrdersPage() {
       <section className="cm-card ord-board">
         <header className="ord-head">
           <h1 className="ord-title">Pedidos</h1>
-          <button
-            type="button"
-            className="ord-icon-btn"
-            onClick={() => void load()}
-            aria-label="Atualizar"
-            title="Atualizar"
-            data-spin={loading || undefined}
-          >
-            <RotateCw size={15} aria-hidden />
-          </button>
-          {dirty && (
-            <button type="button" className="ord-clear" onClick={clear}>
-              <X size={13} aria-hidden />
-              Limpar<span className="ord-wide"> filtros</span>
-            </button>
-          )}
-          <span className="ord-count">
-            {rows === null
-              ? '…'
-              : `${rows.length} ${rows.length === 1 ? 'pedido' : 'pedidos'}${rows.length ? ` · ${brl(total.toFixed(2))}` : ''}`}
-          </span>
         </header>
-
-        <div className="ord-filters" role="search" data-open={more || undefined}>
-          <label className="ord-search">
-            <Search size={15} aria-hidden />
-            <input
-              type="search"
-              className="cm-input"
-              placeholder="Nº, cliente ou telefone"
-              aria-label="Buscar pedido"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </label>
-          {/* Celular: período, selects e opções ficam atrás deste botão. */}
-          <button
-            type="button"
-            className="ord-more"
-            aria-expanded={more}
-            onClick={() => setMore((v) => !v)}
-          >
-            <SlidersHorizontal size={15} aria-hidden />
-            Filtros
-            {activeCount > 0 && <span className="ord-more__n">{activeCount}</span>}
-          </button>
-          <div className="ord-range">
-            <DateInput
-              aria-label="De"
-              sheetTitle="Pedidos a partir de"
-              value={from}
-              max={today}
-              onChange={(e) => e.target.value && setFrom(e.target.value)}
-            />
-            <span aria-hidden>até</span>
-            <DateInput
-              aria-label="Até"
-              sheetTitle="Pedidos até"
-              value={to}
-              max={today}
-              onChange={(e) => e.target.value && setTo(e.target.value)}
-            />
-          </div>
-          <Select
-            className="cm-input"
-            aria-label="Status operacional"
-            data-set={status || undefined}
-            value={status}
-            onChange={(e) => setStatus(e.target.value as OrderStatus | '')}
-          >
-            <option value="">Status op.</option>
-            {ORDER_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {ORDER_STATUS_LABELS[s]}
-              </option>
-            ))}
-          </Select>
-          <Select
-            className="cm-input"
-            aria-label="Status financeiro"
-            data-set={payment || undefined}
-            value={payment}
-            onChange={(e) => setPayment(e.target.value as PaymentStatus | '')}
-          >
-            <option value="">Status fin.</option>
-            {PAYMENT_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {PAYMENT_STATUS_LABEL[s]}
-              </option>
-            ))}
-          </Select>
-          <Select
-            className="cm-input"
-            aria-label="Tipo"
-            data-set={channel || undefined}
-            value={channel}
-            onChange={(e) => setChannel(e.target.value as OrderChannel | '')}
-          >
-            <option value="">Tipo</option>
-            {ORDER_CHANNELS.map((c) => (
-              <option key={c} value={c}>
-                {CHANNEL_LABELS[c]}
-              </option>
-            ))}
-          </Select>
-          <div className="ord-toggles">
-            <label className="ord-check">
-              <input
-                type="checkbox"
-                checked={onlyActive}
-                onChange={(e) => setOnlyActive(e.target.checked)}
-              />
-              Só em andamento
-            </label>
-            <label className="ord-check">
-              <input
-                type="checkbox"
-                checked={onlyOnline}
-                onChange={(e) => setOnlyOnline(e.target.checked)}
-              />
-              Só cardápio online
-            </label>
-            <label className="ord-check">
-              <input
-                type="checkbox"
-                checked={status === 'cancel_requested'}
-                onChange={(e) => setStatus(e.target.checked ? 'cancel_requested' : '')}
-              />
-              Só cancelamento solicitado
-            </label>
-          </div>
-        </div>
+        <ListToolbar
+          lv={lv}
+          searchLabel="Buscar pedido"
+          placeholder="Buscar: nº, cliente, telefone, mesa ou item"
+          actions={
+            <button
+              type="button"
+              className="ord-icon-btn"
+              onClick={() => void load()}
+              aria-label="Atualizar"
+              title="Atualizar"
+              data-spin={loading || undefined}
+            >
+              <RotateCw size={15} aria-hidden />
+            </button>
+          }
+          summary={
+            rows === null
+              ? '…'
+              : `${rows.length} ${rows.length === 1 ? 'pedido' : 'pedidos'}${rows.length ? ` · ${brl(total.toFixed(2))}` : ''}`
+          }
+        />
 
         {error && (
           <div className="ord-alert">
@@ -358,16 +262,16 @@ export function OrdersPage() {
             icon={<ClipboardList size={20} />}
             title="Nenhum pedido para os filtros selecionados"
             action={
-              dirty ? (
-                <button type="button" className="ord-clear" onClick={clear}>
+              lv.active || lv.query ? (
+                <button type="button" className="ord-clear" onClick={lv.clear}>
                   Limpar filtros
                 </button>
               ) : undefined
             }
           />
         ) : (
-          <div className="ord-scroll">
-            <table className="cm-table cm-table--click ord-table">
+          <ListTable>
+            <table className="cm-table cm-table--click lv-table ord-table">
               <thead>
                 <tr>
                   {th('number', 'Nº')}
@@ -422,12 +326,12 @@ export function OrdersPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </ListTable>
         )}
         {orders?.length === LIMIT && (
-          <p className="ord-foot">
-            Mostrando os {LIMIT} pedidos mais recentes do período. Diminua o período para ver os
-            demais.
+          <p className="lv-foot">
+            Mostrando os {LIMIT} pedidos mais recentes do período. Escolha um período menor para ver
+            os demais.
           </p>
         )}
       </section>

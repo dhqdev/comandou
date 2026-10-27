@@ -1,4 +1,4 @@
-import { BookOpen, Plus, Search } from 'lucide-react';
+import { BookOpen, Plus } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
@@ -14,13 +14,27 @@ import {
 } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { ImagePicker } from '../../features/ImagePicker';
+import {
+  fold,
+  ListTable,
+  ListToolbar,
+  useListView,
+  type ListField,
+  type ListSort,
+  type ListTab,
+} from '../../features/list-view';
 import { api, Category, Product } from '../../lib/api';
 import { useLinkParam } from '../../lib/deep-link';
 import { useRealtime } from '../../lib/realtime';
 import { brl } from '../../lib/money';
 import type { Family, GroupLink, OptionGroup } from './menu-data';
 
-const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const ITEM_TABS: ListTab[] = [
+  { id: 'todos', label: 'Todos', filters: {} },
+  { id: 'disponiveis', label: 'Disponíveis', filters: { sale: ['available'], active: ['yes'] } },
+  { id: 'esgotados', label: 'Esgotados', filters: { sale: ['soldout'] } },
+  { id: 'pausados', label: 'Pausados', filters: { active: ['no'] } },
+];
 
 /** Categorias à esquerda, itens da categoria (ou da busca) à direita. */
 export function ItemsTab() {
@@ -32,12 +46,103 @@ export function ItemsTab() {
   const [families, setFamilies] = useState<Family[]>([]);
   const [groups, setGroups] = useState<OptionGroup[]>([]);
   const [links, setLinks] = useState<GroupLink[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [newCategory, setNewCategory] = useState(false);
   const newItem = (categoryId?: string | null) =>
     navigate(`/cardapio/itens/novo${categoryId ? `?categoria=${categoryId}` : ''}`);
+
+  const groupNames = useCallback(
+    (productId: string) =>
+      links
+        .filter((l) => l.productId === productId)
+        .map((l) => groups.find((g) => g.id === l.groupId)?.name)
+        .filter((n): n is string => !!n),
+    [links, groups],
+  );
+  const fields = useMemo<ListField<Product>[]>(
+    () => [
+      {
+        key: 'category',
+        label: 'Categoria',
+        value: (p) => p.categoryId,
+        options: (categories ?? []).map((c) => ({ value: c.id, label: c.name })),
+        pinned: true,
+      },
+      {
+        key: 'sale',
+        label: 'Situação',
+        value: (p) => (p.soldOut ? 'soldout' : 'available'),
+        options: [
+          { value: 'available', label: 'Disponível' },
+          { value: 'soldout', label: 'Esgotado' },
+        ],
+        pinned: true,
+      },
+      {
+        key: 'family',
+        label: 'Família',
+        value: (p) => p.familyId ?? 'none',
+        options: [
+          ...families.map((f) => ({ value: f.id, label: f.name })),
+          { value: 'none', label: 'Sem família' },
+        ],
+      },
+      {
+        key: 'active',
+        label: 'Ativo',
+        value: (p) => (p.active ? 'yes' : 'no'),
+        options: [
+          { value: 'yes', label: 'Ativo' },
+          { value: 'no', label: 'Pausado' },
+        ],
+      },
+      { key: 'groups', label: 'Complementos', value: (p) => groupNames(p.id) },
+      {
+        key: 'photo',
+        label: 'Foto',
+        value: (p) => (p.imageId ? 'yes' : 'no'),
+        options: [
+          { value: 'yes', label: 'Com foto' },
+          { value: 'no', label: 'Sem foto' },
+        ],
+      },
+      {
+        key: 'weight',
+        label: 'Venda por peso',
+        value: (p) => (p.soldByWeight ? 'yes' : 'no'),
+        options: [
+          { value: 'yes', label: 'Por peso' },
+          { value: 'no', label: 'Por unidade' },
+        ],
+      },
+    ],
+    [categories, families, groupNames],
+  );
+  const sorts = useMemo<ListSort<Product>[]>(
+    () => [
+      {
+        key: 'category',
+        label: 'Categoria',
+        get: (p) =>
+          `${String(categories?.findIndex((c) => c.id === p.categoryId) ?? 0).padStart(4, '0')} ${fold(p.name)}`,
+        asc: true,
+      },
+      { key: 'name', label: 'Nome', get: (p) => fold(p.name), asc: true },
+      { key: 'price', label: 'Preço', get: (p) => Number(p.price) },
+    ],
+    [categories],
+  );
+  const lv = useListView({
+    id: 'cardapio-itens',
+    rows: products,
+    fields,
+    tabs: ITEM_TABS,
+    search: (p) => `${p.name} ${p.code ?? ''} ${p.barcode ?? ''}`,
+    sorts,
+  });
+  const chosen = lv.filters.category ?? [];
+  const selected = chosen.length === 1 ? chosen[0]! : null;
+  const setSelected = (id: string | null) => lv.setField('category', id ? [id] : []);
 
   // Vindo da busca: abre a categoria certa (o item é destacado pelo "foco") ou um cadastro.
   useLinkParam('categoria', setSelected, categories !== null);
@@ -65,7 +170,6 @@ export function ItemsTab() {
       setFamilies(f);
       setGroups(g);
       setLinks(l);
-      setSelected((s) => s ?? c[0]?.id ?? null);
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -78,25 +182,8 @@ export function ItemsTab() {
     if (e.type === 'menu.changed') void load();
   });
 
-  const term = fold(search.trim());
-  const visible = useMemo(() => {
-    const all = products ?? [];
-    if (term)
-      return all.filter(
-        (p) =>
-          fold(p.name).includes(term) ||
-          fold(p.code ?? '').includes(term) ||
-          (p.barcode ?? '').includes(term),
-      );
-    return all.filter((p) => p.categoryId === selected);
-  }, [products, selected, term]);
+  const visible = lv.visible;
   const countBy = (id: string) => (products ?? []).filter((p) => p.categoryId === id).length;
-  const groupNames = (productId: string) =>
-    links
-      .filter((l) => l.productId === productId)
-      .map((l) => groups.find((g) => g.id === l.groupId)?.name)
-      .filter(Boolean)
-      .join(', ');
 
   async function patch(p: Product, json: Partial<Product>, msg?: string) {
     try {
@@ -162,11 +249,8 @@ export function ItemsTab() {
                   <button
                     className="cat-item"
                     style={{ flex: 1 }}
-                    aria-current={!term && c.id === selected}
-                    onClick={() => {
-                      setSearch('');
-                      setSelected(c.id);
-                    }}
+                    aria-current={c.id === selected}
+                    onClick={() => setSelected(c.id === selected ? null : c.id)}
                   >
                     {c.name}
                     <Badge>{countBy(c.id)}</Badge>
@@ -177,47 +261,42 @@ export function ItemsTab() {
           )}
         </Card>
         <Card
-          title={
-            term
-              ? `Busca: ${visible.length} ${visible.length === 1 ? 'item' : 'itens'}`
-              : (categories?.find((c) => c.id === selected)?.name ?? 'Itens')
-          }
+          title={(selected && categories?.find((c) => c.id === selected)?.name) || 'Itens'}
           bodyless
           actions={
-            canWrite &&
-            selected && (
-              <Button icon={<Plus size={16} />} onClick={() => newItem(selected)}>
+            canWrite && (
+              <Button
+                icon={<Plus size={16} />}
+                onClick={() => newItem(selected ?? categories?.[0]?.id)}
+              >
                 Adicionar item
               </Button>
             )
           }
         >
-          <div className="mn-search">
-            <Search size={16} aria-hidden />
-            <input
-              className="cm-input"
-              type="search"
-              aria-label="Buscar item"
-              placeholder="Buscar por nome, código ou código de barras"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          {products === null ? (
+          <ListToolbar
+            lv={lv}
+            searchLabel="Buscar item"
+            placeholder="Buscar por nome, código ou código de barras"
+            summary={visible && `${visible.length} ${visible.length === 1 ? 'item' : 'itens'}`}
+          />
+          {visible === null ? (
             <div style={{ padding: 16 }}>
               <Skeleton height={120} />
             </div>
           ) : visible.length === 0 ? (
             <EmptyState
               icon={<BookOpen size={20} />}
-              title={term ? 'Nenhum item encontrado' : 'Nenhum item nesta categoria'}
+              title={products?.length ? 'Nenhum item encontrado' : 'Nenhum item cadastrado'}
               description={
-                canWrite && !term ? 'Adicione o primeiro item para começar a vender.' : undefined
+                canWrite && !products?.length
+                  ? 'Adicione o primeiro item para começar a vender.'
+                  : 'Tente outra busca ou tire algum filtro.'
               }
             />
           ) : (
-            <div className="mn-table-wrap">
-              <table className="cm-table mn-items">
+            <ListTable>
+              <table className="cm-table lv-table mn-items">
                 <thead>
                   <tr>
                     <th style={{ width: 72 }}>Foto</th>
@@ -231,7 +310,7 @@ export function ItemsTab() {
                 <tbody>
                   {visible.map((p) => {
                     const fam = families.find((f) => f.id === p.familyId);
-                    const opts = groupNames(p.id);
+                    const opts = groupNames(p.id).join(', ');
                     return (
                       <tr key={p.id} data-search-id={`produto-${p.id}`}>
                         <td>
@@ -290,7 +369,7 @@ export function ItemsTab() {
                   })}
                 </tbody>
               </table>
-            </div>
+            </ListTable>
           )}
         </Card>
       </div>

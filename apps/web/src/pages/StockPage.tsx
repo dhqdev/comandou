@@ -12,7 +12,7 @@ import {
   Trash2,
   Wallet,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -26,6 +26,15 @@ import {
   useToast,
 } from '../design-system';
 import { useCan } from '../app/auth';
+import {
+  fold,
+  ListTable,
+  ListToolbar,
+  useListView,
+  type ListField,
+  type ListSort,
+  type ListTab,
+} from '../features/list-view';
 import { dateTime } from '../features/format';
 import {
   CheckField,
@@ -154,7 +163,7 @@ export function StockPage() {
       {items === null ? (
         <Spinner />
       ) : tab === 'items' ? (
-        <ItemsTab items={items} canWrite={canWrite} view={view} onView={setView} onChanged={load} />
+        <ItemsTab items={items} canWrite={canWrite} view={view} onChanged={load} />
       ) : tab === 'count' ? (
         <InventoryTab items={items} canWrite={canWrite} onChanged={load} />
       ) : tab === 'recipes' ? (
@@ -251,37 +260,105 @@ function LevelBar({ item }: { item: StockItem }) {
   );
 }
 
+const stale = (i: StockItem) => !i.countedAt || daysSince(i.countedAt) > COUNT_STALE_DAYS;
+const level = (i: StockItem) => (toMilli(i.quantity) <= 0 ? 'empty' : i.low ? 'low' : 'ok');
+
+const STOCK_FIELDS: ListField<StockItem>[] = [
+  {
+    key: 'category',
+    label: 'Categoria',
+    value: (i) => i.category ?? 'Sem categoria',
+    pinned: true,
+  },
+  {
+    key: 'supplier',
+    label: 'Fornecedor',
+    value: (i) => i.supplier ?? 'Sem fornecedor',
+    pinned: true,
+  },
+  {
+    key: 'level',
+    label: 'Saldo',
+    value: level,
+    options: [
+      { value: 'ok', label: 'Acima do mínimo' },
+      { value: 'low', label: 'Abaixo do mínimo' },
+      { value: 'empty', label: 'Zerado ou negativo' },
+    ],
+  },
+  {
+    key: 'count',
+    label: 'Contagem',
+    value: (i) => (stale(i) ? 'stale' : 'ok'),
+    options: [
+      { value: 'ok', label: `Contado nos últimos ${COUNT_STALE_DAYS} dias` },
+      { value: 'stale', label: 'Precisa conferir' },
+    ],
+  },
+  {
+    key: 'active',
+    label: 'Situação',
+    value: (i) => (i.active ? 'yes' : 'no'),
+    options: [
+      { value: 'yes', label: 'Ativo' },
+      { value: 'no', label: 'Inativo' },
+    ],
+  },
+  { key: 'unit', label: 'Unidade', value: (i) => i.unit },
+];
+
+const STOCK_TABS: ListTab[] = [
+  { id: 'all', label: 'Ativos', filters: { active: ['yes'] } },
+  { id: 'low', label: 'Acabando', filters: { active: ['yes'], level: ['low', 'empty'] } },
+  { id: 'stale', label: 'Conferir', filters: { active: ['yes'], count: ['stale'] } },
+  { id: 'inactive', label: 'Inativos', filters: { active: ['no'] } },
+];
+
+const STOCK_SORTS: ListSort<StockItem>[] = [
+  { key: 'name', label: 'Nome', get: (i) => fold(i.name), asc: true },
+  { key: 'value', label: 'Valor em estoque', get: (i) => Number(i.stockValue) },
+  {
+    key: 'days',
+    label: 'Dura (dias)',
+    get: (i) => coverageDays(i.quantity, i.dailyUsage) ?? 99999,
+    asc: true,
+  },
+  { key: 'counted', label: 'Última contagem', get: (i) => i.countedAt ?? '', asc: true },
+];
+
 function ItemsTab({
   items,
   canWrite,
   view,
-  onView,
   onChanged,
 }: {
   items: StockItem[];
   canWrite: boolean;
   view: View;
-  onView(v: View): void;
   onChanged(): void;
 }) {
   const [entry, setEntry] = useState<{ item: StockItem; kind: EntryKind } | null>(null);
   const [editing, setEditing] = useState<StockItem | 'new' | null>(null);
-  const [query, setQuery] = useState('');
-  const [category, setCategory] = useState('');
   useLinkParam('acao', (a) => a === 'insumo' && canWrite && setEditing('new'));
-  const categories = useMemo(
-    () => [...new Set(items.map((i) => i.category).filter((c): c is string => !!c))].sort(),
-    [items],
-  );
-  const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-  const shown = items.filter((i) => {
-    if (view === 'inactive' ? i.active : !i.active) return false;
-    if (view === 'low' && !(i.low || toMilli(i.quantity) <= 0)) return false;
-    if (view === 'stale' && i.countedAt && daysSince(i.countedAt) <= COUNT_STALE_DAYS) return false;
-    if (category && (i.category ?? '') !== category) return false;
-    const q = fold(query.trim());
-    return !q || fold(`${i.name} ${i.category ?? ''} ${i.supplier ?? ''}`).includes(q);
+  const lv = useListView({
+    id: 'estoque-insumos',
+    rows: items,
+    fields: STOCK_FIELDS,
+    tabs: STOCK_TABS,
+    search: (i) => `${i.name} ${i.category ?? ''} ${i.supplier ?? ''}`,
+    sorts: STOCK_SORTS,
   });
+  // Cartões do topo (Abaixo do mínimo, Para conferir) abrem a aba certa.
+  const first = useRef(true);
+  const { selectTab } = lv;
+  useEffect(() => {
+    const skip = first.current && view === 'all';
+    first.current = false;
+    if (skip) return;
+    const t = STOCK_TABS.find((x) => x.id === view);
+    if (t) selectTab(t);
+  }, [view]);
+  const shown = lv.visible ?? [];
 
   return (
     <Card
@@ -295,43 +372,12 @@ function ItemsTab({
       }
       bodyless
     >
-      <div className="st-toolbar">
-        <TextField
-          label="Buscar"
-          placeholder="Nome, categoria ou fornecedor"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          wrapClass="st-toolbar__search"
-        />
-        {categories.length > 0 && (
-          <SelectField
-            label="Categoria"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option value="">Todas</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </SelectField>
-        )}
-        <div className="cm-field">
-          <span className="cm-label">Mostrar</span>
-          <Segmented<View>
-            label="Filtro de insumos"
-            value={view}
-            onChange={onView}
-            options={[
-              { value: 'all', label: 'Ativos' },
-              { value: 'low', label: 'Acabando' },
-              { value: 'stale', label: 'Conferir' },
-              { value: 'inactive', label: 'Inativos' },
-            ]}
-          />
-        </div>
-      </div>
+      <ListToolbar
+        lv={lv}
+        searchLabel="Buscar insumo"
+        placeholder="Buscar: nome, categoria ou fornecedor"
+        summary={`${shown.length} ${shown.length === 1 ? 'insumo' : 'insumos'}`}
+      />
       {items.length === 0 ? (
         <EmptyState
           icon={<Boxes size={20} />}
@@ -345,8 +391,8 @@ function ItemsTab({
           description="Nenhum insumo com esses filtros."
         />
       ) : (
-        <div className="st-scroll">
-          <table className="cm-table st-table">
+        <ListTable>
+          <table className="cm-table lv-table st-table">
             <thead>
               <tr>
                 <th>Insumo</th>
@@ -451,7 +497,7 @@ function ItemsTab({
               })}
             </tbody>
           </table>
-        </div>
+        </ListTable>
       )}
       {entry && (
         <EntryModal
@@ -467,7 +513,9 @@ function ItemsTab({
       {editing && (
         <ItemModal
           item={editing === 'new' ? null : editing}
-          categories={categories}
+          categories={[
+            ...new Set(items.map((i) => i.category).filter((c): c is string => !!c)),
+          ].sort()}
           suppliers={[...new Set(items.map((i) => i.supplier).filter((s): s is string => !!s))]}
           onClose={() => setEditing(null)}
           onDone={() => {

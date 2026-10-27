@@ -141,7 +141,7 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
     .getByRole('button', { name: /Confirmar/ })
     .click();
   await expect(page.getByRole('dialog')).toBeHidden();
-  await page.getByLabel('Situação').selectOption('paid');
+  await page.getByRole('tab', { name: /^Pagos/ }).click();
   await expect(page.getByRole('row', { name: new RegExp(`Fornecedor ${tag}`) })).toContainText(
     'Pago',
   );

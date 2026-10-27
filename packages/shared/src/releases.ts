@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.40.0',
+    date: '2026-10-27',
+    title: 'Filtros dinâmicos nas listas e formulários compactos',
+    summary:
+      'Pedidos, Clientes, Itens do cardápio, Estoque e Financeiro ganharam a mesma barra de lista: abas com contagem, busca, filtros por qualquer campo e a opção de salvar o filtro atual como uma aba sua. Os formulários no computador ficaram mais compactos, com até três campos por linha.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Abas prontas em cada lista (ex.: Hoje, Em andamento, A receber nos Pedidos; Em aberto, Vencidos, Pagos no Financeiro), cada uma com quantos registros tem.',
+      },
+      {
+        tag: 'novo',
+        text: '"+ Filtro" escolhe qualquer campo; cada filtro abre uma lista com busca, caixas de seleção e a quantidade de cada opção. Datas têm atalhos (hoje, 7 dias, este mês) ou período livre.',
+      },
+      {
+        tag: 'novo',
+        text: '"Salvar como aba" guarda os filtros atuais com um nome, neste navegador. A aba criada pode ser apagada no X ao lado dela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Ao rolar a lista, a barra de filtros e os títulos das colunas ficam fixos no topo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Formulários e janelas no computador: rótulos menores, campos mais baixos com fundo cinza claro e até três campos por linha. No celular continua um campo por linha.',
+      },
+    ],
+  },
+  {
     version: '0.39.0',
     date: '2026-10-27',
     title: 'PDV e nova venda no estilo PedidoJá',

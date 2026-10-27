@@ -584,7 +584,8 @@ input[type='radio'] {
 .cm-table tr:last-child td {
   border-bottom: 0;
 }
-.cm-num {
+.cm-num,
+.cm-table th.cm-num {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -873,24 +874,75 @@ input[type='radio'] {
   font-weight: 550;
   color: var(--cm-text);
 }
+/* Notebook/computador (mouse): campos compactos no estilo do Frappe. Rótulo pequeno e
+   discreto, campo de 34px com fundo levemente cinza (fica branco ao focar) e até 3 campos por
+   linha. Celular e PWA continuam com um campo por linha e alvos grandes para o dedo. */
 @media (min-width: 901px) and (pointer: fine) {
   .cm-modal--md:has(.cm-form, .cm-modal__body > .cm-field) {
-    width: min(760px, calc(100vw - 64px));
+    width: min(820px, calc(100vw - 64px));
   }
   .cm-modal--lg:has(.cm-form, .cm-modal__body > .cm-field) {
-    width: min(900px, calc(100vw - 64px));
+    width: min(960px, calc(100vw - 64px));
   }
   .cm-form,
   .cm-modal__body:has(> .cm-field) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .cm-modal--xl .cm-form,
-  .cm-modal--xl .cm-modal__body:has(> .cm-field) {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--cm-space-3) var(--cm-space-5);
   }
-  .cm-form .cm-input:not(textarea),
-  .cm-modal__body > .cm-field .cm-input:not(textarea) {
-    min-height: var(--cm-control);
+  :is(.cm-form, .cm-modal__body) .cm-field {
+    gap: 5px;
+  }
+  :is(.cm-form, .cm-modal__body) .cm-label {
+    font-size: var(--cm-text-xs);
+    font-weight: 500;
+    color: var(--cm-text-muted);
+  }
+  :is(.cm-form, .cm-modal__body > .cm-field) .cm-input:not(textarea),
+  .cm-form .cm-picker > .cm-input {
+    min-height: 34px;
+    height: 34px;
+    padding-left: 10px;
+    font-size: var(--cm-text-sm);
+  }
+  :is(.cm-form, .cm-modal__body > .cm-field) select.cm-input {
+    padding-right: 30px;
+    background-position: right 9px center;
+  }
+  :is(.cm-form, .cm-modal__body > .cm-field) input[type='date'].cm-input {
+    padding-right: 34px;
+    background-position: right 9px center;
+  }
+  :is(.cm-form, .cm-modal__body > .cm-field) .cm-input {
+    border-color: transparent;
+    background-color: var(--cm-surface-sunken);
+  }
+  :is(.cm-form, .cm-modal__body > .cm-field) .cm-input:hover:not(:disabled):not(:focus) {
+    border-color: var(--cm-border-strong);
+  }
+  :is(.cm-form, .cm-modal__body > .cm-field) .cm-input:focus {
+    border-color: var(--cm-brand-500);
+    background-color: var(--cm-surface);
+  }
+  :is(.cm-form, .cm-modal__body > .cm-field) .cm-input:disabled {
+    background-color: var(--cm-surface-muted);
+  }
+  :is(.cm-form, .cm-modal__body > .cm-field) .cm-input[aria-invalid='true'] {
+    border-color: var(--cm-danger);
+  }
+  :is(.cm-form, .cm-modal__body > .cm-field) textarea.cm-input {
+    min-height: 72px;
+    padding: 8px 10px;
+    font-size: var(--cm-text-sm);
+  }
+  :is(.cm-form, .cm-modal__body) .cm-field .cm-hint {
+    font-size: var(--cm-text-2xs);
+  }
+  .cm-form__section {
+    margin-top: var(--cm-space-3);
+    font-size: var(--cm-text-sm);
+    font-weight: 650;
+    color: var(--cm-text);
+    letter-spacing: 0;
   }
 }
 .cm-hint,

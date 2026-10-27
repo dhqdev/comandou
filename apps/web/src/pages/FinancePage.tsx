@@ -1,6 +1,6 @@
-import { PAYMENT_METHODS, toCents, type PaymentMethod } from '@comandou/shared';
+import { fromCents, PAYMENT_METHODS, toCents, type PaymentMethod } from '@comandou/shared';
 import { Plus, Receipt } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -15,6 +15,15 @@ import {
 import { useCan } from '../app/auth';
 import { PAYMENT_METHOD_LABELS } from '../features/format';
 import { fmtDate, SelectField, Tabs, todayIso } from '../features/forms';
+import {
+  fold,
+  ListTable,
+  ListToolbar,
+  useListView,
+  type ListField,
+  type ListSort,
+  type ListTab,
+} from '../features/list-view';
 import { api } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
 import { newIdempotencyKey } from '../lib/idempotency';
@@ -57,46 +66,104 @@ export function FinancePage() {
   );
 }
 
+const entryStatus = (e: FinanceEntry) => (e.status === 'open' && e.overdue ? 'overdue' : e.status);
+
+const ENTRY_FIELDS: ListField<FinanceEntry>[] = [
+  {
+    key: 'kind',
+    label: 'Tipo',
+    value: (e) => e.kind,
+    options: [
+      { value: 'payable', label: 'A pagar' },
+      { value: 'receivable', label: 'A receber' },
+    ],
+    pinned: true,
+  },
+  {
+    key: 'status',
+    label: 'Situação',
+    value: entryStatus,
+    options: [
+      { value: 'open', label: 'Em aberto' },
+      { value: 'overdue', label: 'Vencido' },
+      { value: 'paid', label: 'Pago/recebido' },
+      { value: 'cancelled', label: 'Cancelado' },
+    ],
+    pinned: true,
+  },
+  { key: 'due', label: 'Vencimento', kind: 'date', date: (e) => e.dueDate, pinned: true },
+  { key: 'category', label: 'Categoria', value: (e) => e.category ?? 'Sem categoria' },
+  {
+    key: 'counterparty',
+    label: 'Fornecedor / cliente',
+    value: (e) => e.counterparty ?? 'Não informado',
+  },
+  { key: 'paidAt', label: 'Data do pagamento', kind: 'date', date: (e) => e.paidAt },
+  {
+    key: 'method',
+    label: 'Forma de pagamento',
+    value: (e) => e.paidMethod,
+    options: SETTLE_METHODS.map(([value, label]) => ({ value, label })),
+  },
+];
+
+const ENTRY_TABS: ListTab[] = [
+  { id: 'abertos', label: 'Em aberto', filters: { status: ['open', 'overdue'] } },
+  { id: 'vencidos', label: 'Vencidos', filters: { status: ['overdue'] } },
+  { id: 'pagar', label: 'A pagar', filters: { kind: ['payable'], status: ['open', 'overdue'] } },
+  {
+    id: 'receber',
+    label: 'A receber',
+    filters: { kind: ['receivable'], status: ['open', 'overdue'] },
+  },
+  { id: 'pagos', label: 'Pagos', filters: { status: ['paid'] } },
+  { id: 'todos', label: 'Todos', filters: {} },
+];
+
+const ENTRY_SORTS: ListSort<FinanceEntry>[] = [
+  { key: 'due', label: 'Vencimento', get: (e) => e.dueDate, asc: true },
+  { key: 'amount', label: 'Valor', get: (e) => Number(e.amount) },
+  { key: 'description', label: 'Descrição', get: (e) => fold(e.description), asc: true },
+];
+
 function EntriesTab() {
   const canWrite = useCan('finance:write');
-  const [kind, setKind] = useState('');
-  const [status, setStatus] = useState('open');
-  const [rows, setRows] = useState<FinanceEntry[] | null>(null);
+  const [all, setAll] = useState<FinanceEntry[] | null>(null);
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [settling, setSettling] = useState<FinanceEntry | null>(null);
   const [cancelling, setCancelling] = useState<FinanceEntry | null>(null);
-  // Conta aberta pela busca: mostra todas para ela aparecer (e ser destacada) mesmo se paga.
-  useLinkParam('conta', () => {
-    setKind('');
-    setStatus('');
+  const lv = useListView({
+    id: 'financeiro-contas',
+    rows: all,
+    fields: ENTRY_FIELDS,
+    tabs: ENTRY_TABS,
+    search: (e) => `${e.description} ${e.counterparty ?? ''} ${e.category ?? ''}`,
+    sorts: ENTRY_SORTS,
   });
+  // Conta aberta pela busca: mostra todas para ela aparecer (e ser destacada) mesmo se paga.
+  useLinkParam('conta', () => lv.selectTab(ENTRY_TABS[ENTRY_TABS.length - 1]!));
   useLinkParam('acao', (a) => a === 'conta' && canWrite && setCreating(true));
 
-  // Só a resposta da consulta mais recente vale (troca de filtro durante um carregamento).
-  const seq = useRef(0);
   const load = useCallback(async () => {
-    const mine = ++seq.current;
     try {
-      const qs = new URLSearchParams();
-      if (kind) qs.set('kind', kind);
-      if (status) qs.set('status', status);
       const [r, s] = await Promise.all([
-        api<FinanceEntry[]>(`/finance/entries?${qs}`),
+        api<FinanceEntry[]>('/finance/entries'),
         api<FinanceSummary>('/finance/summary'),
       ]);
-      if (mine !== seq.current) return;
-      setRows(r);
+      setAll(r);
       setSummary(s);
       setError(null);
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [kind, status]);
+  }, []);
   useEffect(() => {
     void load();
   }, [load]);
+  const rows = lv.visible;
+  const total = rows?.reduce((s, e) => s + toCents(e.amount), 0) ?? 0;
 
   const done = () => {
     setCreating(false);
@@ -136,20 +203,15 @@ function EntriesTab() {
         }
         bodyless
       >
-        <div className="cm-card__body filters">
-          <SelectField label="Tipo" value={kind} onChange={(e) => setKind(e.target.value)}>
-            <option value="">Todos</option>
-            <option value="payable">A pagar</option>
-            <option value="receivable">A receber</option>
-          </SelectField>
-          <SelectField label="Situação" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="open">Em aberto</option>
-            <option value="overdue">Vencidos</option>
-            <option value="paid">Pagos/recebidos</option>
-            <option value="cancelled">Cancelados</option>
-            <option value="">Todos</option>
-          </SelectField>
-        </div>
+        <ListToolbar
+          lv={lv}
+          searchLabel="Buscar lançamento"
+          placeholder="Buscar: descrição, fornecedor/cliente ou categoria"
+          summary={
+            rows &&
+            `${rows.length} ${rows.length === 1 ? 'lançamento' : 'lançamentos'} · ${brl(fromCents(total))}`
+          }
+        />
         {rows === null ? (
           <div className="cm-card__body">
             <Spinner />
@@ -157,8 +219,8 @@ function EntriesTab() {
         ) : rows.length === 0 ? (
           <EmptyState icon={<Receipt size={20} />} title="Nenhum lançamento" />
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="cm-table">
+          <ListTable>
+            <table className="cm-table lv-table">
               <thead>
                 <tr>
                   <th>Vencimento</th>
@@ -212,7 +274,7 @@ function EntriesTab() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </ListTable>
         )}
       </Card>
       {creating && <NewEntryModal onClose={() => setCreating(false)} onDone={done} />}
