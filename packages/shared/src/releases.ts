@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.37.0',
+    date: '2026-10-27',
+    title: 'Cardápios, cadastro de itens, famílias e complementos',
+    summary:
+      'O Cardápio ganhou quatro partes: Itens, Famílias, Complementos e Cardápios. Cada item tem um cadastro completo em abas (Principal, Complementos e Ficha técnica), e o restaurante passa a ter o cardápio Principal (salão e balcão) e o Delivery (entrega, retirada e cardápio online), cada um com os seus itens e preços.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Cardápios Principal e Delivery: escolha quais itens aparecem em cada um e dê preço próprio quando quiser (ex.: delivery 10% mais caro). Dá para reajustar todos de uma vez por porcentagem, criar um cardápio novo copiando outro e trocar o ativo com um toque. O PDV, o garçom e o cardápio online já usam o cardápio do canal, e o pedido é cobrado pelo preço dele.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cadastro do item em tela cheia: código (IT-000001 automático), nome, descrição, foto, categoria, família, unidade de medida, cozinha (KDS), vendido por peso, destaque e selo, preço em cada cardápio, custo e margem, NCM, CFOP, CSOSN, origem e código de barras (fixo, peso variável ou valor variável).',
+      },
+      {
+        tag: 'novo',
+        text: 'Famílias de itens (Bebidas, Lanches, Sabores de pizza…) para agrupar as vendas nos relatórios, com a opção "vendido como complemento, conta como produto" para a pizza meio a meio. Dá para marcar vários itens de uma vez.',
+      },
+      {
+        tag: 'novo',
+        text: 'Grupos de complementos com tipo (adicional, tamanho, sabores de pizza, retirar ingrediente), regra de cobrança (somar, cobrar a mais cara ou a média), mínimo e máximo, opção padrão já marcada, ordem das opções e os itens que usam o grupo, tudo na mesma tela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Ficha técnica e custo dentro do cadastro do item, com CMV, margem e markup na hora. Sem ficha, dá para informar o custo à mão.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No PDV, item vendido por peso pede o peso em kg no carrinho, e a busca de itens acha por nome, código ou código de barras.',
+      },
+    ],
+  },
+  {
     version: '0.36.0',
     date: '2026-10-27',
     title: 'Relatórios inteligentes',
