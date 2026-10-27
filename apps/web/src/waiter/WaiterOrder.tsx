@@ -1,4 +1,11 @@
-import { fromCents, multiplyCents, toCents, type OrderChannel } from '@comandou/shared';
+import {
+  defaultOptionIds,
+  fromCents,
+  multiplyCents,
+  optionsTotalCents,
+  toCents,
+  type OrderChannel,
+} from '@comandou/shared';
 import { Minus, Plus, Search, ShoppingBag, Trash2, X } from 'lucide-react';
 import {
   useEffect,
@@ -42,8 +49,7 @@ let nextLineId = 1;
 
 /** Preço de exibição; o servidor recalcula e é a fonte oficial. */
 function unitCents(p: MenuProduct, optionIds: string[]) {
-  const deltas = p.optionGroups.flatMap((g) => g.options).filter((o) => optionIds.includes(o.id));
-  return toCents(p.price) + deltas.reduce((s, o) => s + toCents(o.priceDelta), 0);
+  return toCents(p.price) + optionsTotalCents(p.optionGroups, optionIds);
 }
 
 /**
@@ -84,7 +90,7 @@ export function WaiterOrder() {
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    api<MenuCategory[]>('/menu').then(
+    api<MenuCategory[]>(`/menu?channel=${channel}`).then(
       (m) => {
         const withProducts = m.filter((c) => c.products.length > 0);
         setMenu(withProducts);
@@ -593,7 +599,18 @@ function OptionsModal({
   onConfirm(ids: string[]): void;
 }) {
   const [sel, setSel] = useState<Record<string, string[]>>({});
-  useEffect(() => setSel({}), [product]);
+  // Abre com as opções padrão do grupo já marcadas.
+  useEffect(() => {
+    const defaults = product ? defaultOptionIds(product.optionGroups) : [];
+    setSel(
+      Object.fromEntries(
+        (product?.optionGroups ?? []).map((g) => [
+          g.id,
+          g.options.filter((o) => defaults.includes(o.id)).map((o) => o.id),
+        ]),
+      ),
+    );
+  }, [product]);
   if (!product) return null;
   const valid = product.optionGroups.every((g) => {
     const n = sel[g.id]?.length ?? 0;

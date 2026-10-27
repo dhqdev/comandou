@@ -6,3 +6,4 @@ export * from './releases';
 export * from './plans';
 export * from './waiter';
 export * from './courier-pay';
+export * from './menu';

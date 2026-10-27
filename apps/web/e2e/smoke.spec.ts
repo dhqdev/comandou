@@ -33,10 +33,11 @@ test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => 
 
   const name = `X-Salada ${info.project.name} ${Date.now()}`;
   await page.getByRole('button', { name: 'Adicionar item' }).click();
-  const dialog = page.getByRole('dialog');
-  await dialog.getByLabel('Nome').fill(name);
-  await dialog.getByLabel('Preço').fill('29,90');
-  await dialog.getByRole('button', { name: 'Salvar' }).click();
+  await page.getByLabel('Nome do item', { exact: true }).fill(name);
+  await page.getByLabel('Preço', { exact: true }).fill('29,90');
+  await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(page.getByText('Item criado')).toBeVisible();
+  await page.getByRole('link', { name: 'Itens' }).click();
   const row = page.getByRole('row', { name: new RegExp(name) });
   await expect(row).toBeVisible();
   await expect(row).toContainText('29,90');

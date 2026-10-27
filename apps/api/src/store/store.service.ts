@@ -14,6 +14,7 @@ import { OrdersService } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { ZonesService } from '../delivery/zones.service';
 import { customerMapOf } from '../delivery/delivery.service';
+import { menuTreeSql } from '../catalog/menu-sql';
 
 export const mediaUrl = (id: string | null | undefined) => (id ? `/api/v1/media/${id}` : null);
 export const publicTokenHash = (token: string) => createHash('sha256').update(token).digest();
@@ -334,21 +335,9 @@ export class StoreService {
         }[];
       }>(
         tx,
-        `SELECT c.id, c.name, c.image_id AS "imageId",
-           COALESCE((SELECT json_agg(json_build_object(
-               'id', p.id, 'name', p.name, 'description', p.description, 'price', p.price::text,
-               'soldOut', p.sold_out, 'imageId', p.image_id, 'featured', p.featured, 'badge', p.badge,
-               'optionGroups', COALESCE((SELECT json_agg(json_build_object(
-                   'id', g.id, 'name', g.name, 'minSelect', g.min_select, 'maxSelect', g.max_select,
-                   'options', COALESCE((SELECT json_agg(json_build_object('id', o.id, 'name', o.name, 'priceDelta', o.price_delta::text)
-                                        ORDER BY o.position, o.name)
-                                       FROM options o WHERE o.group_id = g.id AND o.active), '[]'))
-                 ORDER BY pog.position)
-                 FROM product_option_groups pog JOIN option_groups g ON g.id = pog.group_id
-                WHERE pog.product_id = p.id AND g.active), '[]'))
-             ORDER BY p.position, p.name)
-             FROM products p WHERE p.category_id = c.id AND p.active), '[]') AS products
-           FROM categories c WHERE c.active ORDER BY c.position, c.name`,
+        // O cardápio online usa o cardápio Delivery (itens e preços dele), igual ao pedido que chega.
+        menuTreeSql(`'featured', p.featured, 'badge', p.badge,`),
+        ['delivery'],
       );
       const banners = await q<BannerInput & { id: string }>(
         tx,

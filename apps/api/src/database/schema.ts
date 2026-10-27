@@ -110,6 +110,13 @@ export const products = pgTable('products', {
   fiscalCode: text('fiscal_code'),
   fiscalOrigin: smallint('fiscal_origin'),
   fiscalUnit: text('fiscal_unit'),
+  /** Código interno (IT-000001), família dos relatórios, custo informado e código de barras. */
+  code: text('code'),
+  familyId: uuid('family_id'),
+  cost: numeric('cost', { precision: 14, scale: 2 }),
+  soldByWeight: boolean('sold_by_weight').notNull().default(false),
+  barcode: text('barcode'),
+  barcodeType: text('barcode_type').notNull().default('fixed'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });

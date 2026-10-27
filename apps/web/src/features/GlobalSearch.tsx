@@ -103,7 +103,7 @@ export function hitHref(h: SearchHit): string {
     case 'category':
       return `/cardapio?categoria=${h.id}`;
     case 'option':
-      return `/cardapio?foco=grupo-${h.id}`;
+      return `/cardapio/complementos?foco=grupo-${h.id}`;
     case 'stock_item':
       return `/estoque?foco=insumo-${h.id}`;
     case 'member':

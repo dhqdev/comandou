@@ -1217,3 +1217,8 @@ label.option-row input[type='checkbox'] {
   text-decoration: underline;
   cursor: pointer;
 }
+.cart__qty--weight .cm-input {
+  width: 84px;
+  min-height: 32px;
+  text-align: right;
+}

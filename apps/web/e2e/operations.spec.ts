@@ -53,30 +53,28 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   await nav(page, 'Cardápio');
   const product = `Burger ${tag}`;
   await page.getByRole('button', { name: 'Adicionar item' }).click();
-  let dialog = page.getByRole('dialog');
-  await dialog.getByLabel('Nome').fill(product);
-  await dialog.getByLabel('Preço').fill('20,00');
-  await dialog.getByRole('button', { name: 'Salvar' }).click();
-  await expect(page.getByRole('row', { name: new RegExp(product) })).toBeVisible();
+  await page.getByLabel('Nome do item', { exact: true }).fill(product);
+  await page.getByLabel('Preço', { exact: true }).fill('20,00');
+  await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(page.getByText('Item criado')).toBeVisible();
 
+  // Grupo de complementos (tamanho) já aplicado ao item pelo próprio cadastro do grupo.
+  await page.goto('/cardapio/complementos');
   await page.getByRole('button', { name: 'Novo grupo' }).click();
-  dialog = page.getByRole('dialog');
+  let dialog = page.getByRole('dialog');
   await dialog.getByLabel('Nome do grupo').fill(`Tamanho ${tag}`);
-  await dialog.getByRole('radio', { name: 'Variação (escolhe 1)' }).click();
+  await dialog.getByLabel('Tipo').selectOption('variation');
   await dialog.getByLabel('Opção 1').fill('Simples');
   await dialog.getByRole('button', { name: 'Mais uma opção' }).click();
   await dialog.getByLabel('Opção 2').fill('Duplo');
   await dialog.getByLabel('Preço adicional 2').fill('8,50');
+  await dialog.getByLabel('Buscar item para o grupo').fill(product);
+  await dialog.getByRole('checkbox', { name: new RegExp(product) }).check();
   await dialog.getByRole('button', { name: 'Salvar grupo' }).click();
-  await expect(page.getByText(`Tamanho ${tag}`)).toBeVisible();
+  await expect(page.getByRole('button', { name: `Tamanho ${tag}` })).toBeVisible();
 
-  await page
-    .getByRole('row', { name: new RegExp(product) })
-    .getByRole('button', { name: 'Configurar' })
-    .click();
-  dialog = page.getByRole('dialog');
-  await dialog.getByRole('checkbox', { name: new RegExp(`Tamanho ${tag}`) }).check();
-  await dialog.getByRole('button', { name: 'Salvar' }).click();
+  await page.goto('/cardapio');
+  await page.getByLabel('Buscar item').fill(product);
   await expect(page.getByRole('row', { name: new RegExp(product) })).toContainText(
     `Opções: Tamanho ${tag}`,
   );

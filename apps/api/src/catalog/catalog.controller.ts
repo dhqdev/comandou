@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Get,
   NotFoundException,
@@ -7,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Req,
 } from '@nestjs/common';
 import { and, asc, eq } from 'drizzle-orm';
@@ -16,7 +18,10 @@ import { isMoneyString } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
-import { DatabaseService } from '../database/database.service';
+import { one, q } from '../common/sql';
+import { DatabaseService, type Tx } from '../database/database.service';
+import { RealtimeService } from '../realtime/realtime.service';
+import { ensureMenus } from './menus.controller';
 import { categories, products } from '../database/schema';
 import { PlanService } from '../plans/plan.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
@@ -57,13 +62,44 @@ const fiscalFields = {
   fiscalUnit: z.string().trim().min(1).max(6).nullable(),
 };
 
+/** Cadastro do item: código interno, família, custo informado, venda por peso e código de barras. */
+const itemFields = {
+  code: z
+    .string()
+    .trim()
+    .max(30)
+    .nullable()
+    .transform((v) => (v ? v.toUpperCase() : null)),
+  familyId: z.string().uuid().nullable(),
+  cost: money.nullable(),
+  soldByWeight: z.boolean(),
+  barcode: z
+    .string()
+    .regex(/^[0-9]{4,14}$/, 'código de barras só com números (4 a 14)')
+    .nullable(),
+  barcodeType: z.enum(['fixed', 'weight', 'value']),
+};
+const MenuPrice = z.object({ menuId: z.string().uuid(), price: money.nullable() });
+
 const ProductCreate = z.object({
   categoryId: z.string().uuid(),
   sectorId: z.string().uuid().nullable().optional(),
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(1000).optional(),
   price: money,
+  imageId: z.string().uuid().nullable().optional(),
+  featured: z.boolean().optional(),
+  badge: z
+    .string()
+    .trim()
+    .max(20)
+    .nullable()
+    .optional()
+    .transform((v) => v || null),
+  /** Em quais cardápios entra (e com que preço). Sem a lista, entra em todos com o preço base. */
+  menus: z.array(MenuPrice).max(20).optional(),
   ...z.object(fiscalFields).partial().shape,
+  ...z.object(itemFields).partial().shape,
 });
 const ProductUpdate = z
   .object({
@@ -84,9 +120,40 @@ const ProductUpdate = z
       .nullable()
       .transform((v) => v || null),
     ...fiscalFields,
+    ...itemFields,
   })
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');
+const ProductMenus = z.object({ menus: z.array(MenuPrice).max(20) });
+
+/** Próximo código livre no padrão IT-000001 (os digitados à mão em outro formato não contam). */
+async function nextItemCode(tx: Tx) {
+  const r = await one<{ n: number }>(
+    tx,
+    `SELECT COALESCE(max(substring(code from '^IT-([0-9]{1,9})$')::int), 0) + 1 AS n FROM products`,
+  );
+  return `IT-${String(r?.n ?? 1).padStart(6, '0')}`;
+}
+
+async function assertFreeCode(tx: Tx, code: string | null | undefined, exceptId?: string) {
+  if (!code) return;
+  const dup = await one(
+    tx,
+    `SELECT 1 FROM products WHERE upper(code) = upper($1) AND id IS DISTINCT FROM $2::uuid`,
+    [code, exceptId ?? null],
+  );
+  if (dup) throw new ConflictException(`O código ${code} já é de outro item`);
+}
+
+async function assertFreeBarcode(tx: Tx, barcode: string | null | undefined, exceptId?: string) {
+  if (!barcode) return;
+  const dup = await one<{ name: string }>(
+    tx,
+    `SELECT name FROM products WHERE barcode = $1 AND id IS DISTINCT FROM $2::uuid`,
+    [barcode, exceptId ?? null],
+  );
+  if (dup) throw new ConflictException(`Este código de barras já é do item ${dup.name}`);
+}
 
 /** Nenhum endpoint aceita tenant_id do cliente: ele vem sempre do contexto resolvido. */
 @Controller({ version: '1' })
@@ -95,6 +162,7 @@ export class CatalogController {
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
     private readonly plans: PlanService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   @Get('categories')
@@ -203,6 +271,8 @@ export class CatalogController {
         .limit(1);
       if (!cat) throw new NotFoundException('Categoria não encontrada');
       await this.plans.assertCanAdd(tx, 'products');
+      await assertFreeCode(tx, body.code);
+      await assertFreeBarcode(tx, body.barcode);
       const [row] = await tx
         .insert(products)
         .values({
@@ -212,13 +282,35 @@ export class CatalogController {
           description: body.description ?? null,
           price: body.price,
           sectorId: body.sectorId ?? null,
+          imageId: body.imageId ?? null,
+          featured: body.featured ?? false,
+          badge: body.badge ?? null,
           ncm: body.ncm ?? null,
           cfop: body.cfop ?? null,
           fiscalCode: body.fiscalCode ?? null,
           fiscalOrigin: body.fiscalOrigin ?? null,
           fiscalUnit: body.fiscalUnit ?? null,
+          code: body.code || (await nextItemCode(tx)),
+          familyId: body.familyId ?? null,
+          cost: body.cost ?? null,
+          soldByWeight: body.soldByWeight ?? false,
+          barcode: body.barcode ?? null,
+          barcodeType: body.barcodeType ?? 'fixed',
         })
         .returning();
+      // Entra nos cardápios escolhidos; sem escolha, em todos (com o preço base).
+      const menus = await ensureMenus(tx, t.id);
+      const wanted = body.menus ?? menus.map((m) => ({ menuId: m.id, price: null }));
+      for (const m of wanted) {
+        if (!menus.some((x) => x.id === m.menuId))
+          throw new NotFoundException('Cardápio não encontrado');
+        await q(
+          tx,
+          `INSERT INTO menu_items (tenant_id, menu_id, product_id, price) VALUES ($1,$2,$3,$4)
+           ON CONFLICT (tenant_id, menu_id, product_id) DO UPDATE SET price = EXCLUDED.price`,
+          [t.id, m.menuId, row.id, m.price],
+        );
+      }
       await this.audit.record(tx, {
         tenantId: t.id,
         actorUserId: u.id,
@@ -228,6 +320,7 @@ export class CatalogController {
         data: { name: row.name, price: row.price },
         ip: req.ip,
       });
+      this.realtime.publish(t.id, { type: 'menu.changed' });
       return row;
     });
   }
@@ -251,6 +344,8 @@ export class CatalogController {
           .limit(1);
         if (cur && !cur.active) await this.plans.assertCanAdd(tx, 'products');
       }
+      await assertFreeCode(tx, body.code, id);
+      await assertFreeBarcode(tx, body.barcode, id);
       const [r] = await tx
         .update(products)
         .set(body)
@@ -270,6 +365,58 @@ export class CatalogController {
       return r;
     });
     if (!row) throw new NotFoundException('Produto não encontrado');
+    this.realtime.publish(t.id, { type: 'menu.changed' });
     return row;
+  }
+
+  /** Em quais cardápios o item aparece e com que preço (null = preço base). */
+  @Get('products/:id/menus')
+  @RequirePermission('catalog:read')
+  productMenus(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
+      q(tx, `SELECT menu_id AS "menuId", price::text FROM menu_items WHERE product_id = $1`, [id]),
+    );
+  }
+
+  /** Substitui os cardápios do item (os que não vierem na lista deixam de mostrá-lo). */
+  @Put('products/:id/menus')
+  @RequirePermission('catalog:write')
+  setProductMenus(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(ProductMenus)) body: z.infer<typeof ProductMenus>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
+      const p = await one(tx, `SELECT id FROM products WHERE id = $1`, [id]);
+      if (!p) throw new NotFoundException('Produto não encontrado');
+      const menus = await ensureMenus(tx, t.id);
+      if (body.menus.some((m) => !menus.some((x) => x.id === m.menuId)))
+        throw new NotFoundException('Cardápio não encontrado');
+      await q(tx, `DELETE FROM menu_items WHERE product_id = $1`, [id]);
+      for (const m of body.menus)
+        await q(
+          tx,
+          `INSERT INTO menu_items (tenant_id, menu_id, product_id, price) VALUES ($1,$2,$3,$4)
+           ON CONFLICT (tenant_id, menu_id, product_id) DO UPDATE SET price = EXCLUDED.price`,
+          [t.id, m.menuId, id, m.price],
+        );
+      await this.audit.record(tx, {
+        tenantId: t.id,
+        actorUserId: u.id,
+        action: 'catalog.product_menus_set',
+        entity: 'product',
+        entityId: id,
+        data: body,
+        ip: req.ip,
+      });
+      this.realtime.publish(t.id, { type: 'menu.changed' });
+      return body.menus;
+    });
   }
 }

@@ -45,19 +45,13 @@ test('integrações: dados fiscais, NFC-e no pedido e WhatsApp', async ({ page }
     name: `Suco NF ${tag}`,
     price: '9.50',
   });
-  await nav(page, 'Cardápio');
-  await page.getByRole('button', { name: cats[0].name }).first().click();
-  await page
-    .getByRole('row', { name: new RegExp(`Suco NF ${tag}`) })
-    .getByRole('button', { name: 'Configurar' })
-    .click();
-  let dialog = page.getByRole('dialog');
-  await dialog.getByLabel('NCM').fill('123');
-  await expect(dialog.getByText('8 dígitos')).toBeVisible();
-  await dialog.getByLabel('NCM').fill('22029900');
-  await dialog.getByLabel('CSOSN / CST do ICMS').fill('102');
-  await dialog.getByRole('button', { name: 'Salvar' }).click();
-  await expect(page.getByText('Produto atualizado')).toBeVisible();
+  await page.goto(`/cardapio/itens/${product.id}`);
+  await page.getByLabel('NCM').fill('123');
+  await expect(page.getByText('8 dígitos')).toBeVisible();
+  await page.getByLabel('NCM').fill('22029900');
+  await page.getByLabel('CSOSN / CST do ICMS').fill('102');
+  await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(page.getByText('Item salvo')).toBeVisible();
   const saved = await (await page.request.get(`/api/v1/products/${product.id}`)).json();
   expect(saved).toMatchObject({ ncm: '22029900', fiscalCode: '102' });
 
@@ -96,7 +90,7 @@ test('integrações: dados fiscais, NFC-e no pedido e WhatsApp', async ({ page }
   );
   await nav(page, 'Pedidos');
   await page.getByRole('row', { name: new RegExp(`^${order.number} `) }).click();
-  dialog = page.getByRole('dialog').filter({ hasText: /Pedido #/ });
+  const dialog = page.getByRole('dialog').filter({ hasText: /Pedido #/ });
   await expect(dialog.getByRole('heading', { name: 'Nota fiscal (NFC-e)' })).toBeVisible();
   await dialog.getByRole('button', { name: 'Emitir NFC-e' }).click();
   await expect(page.getByText(/Emissão fiscal desativada/)).toBeVisible();

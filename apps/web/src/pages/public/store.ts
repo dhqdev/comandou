@@ -1,4 +1,4 @@
-import { fromCents, multiplyCents, toCents } from '@comandou/shared';
+import { fromCents, multiplyCents, optionsTotalCents, toCents } from '@comandou/shared';
 import { useEffect, useState } from 'react';
 import type { MenuGroup } from '../../lib/types';
 
@@ -174,9 +174,7 @@ export function syncCart(cart: CartLine[], product: (id: string) => PublicProduc
       changed = true;
       continue;
     }
-    const unit = fromCents(
-      chosen.reduce((sum, o) => sum + toCents(o!.priceDelta), toCents(p.price)),
-    );
+    const unit = fromCents(toCents(p.price) + optionsTotalCents(p.optionGroups, l.optionIds));
     const optionNames = chosen.map((o) => o!.name);
     if (
       unit !== l.unit ||

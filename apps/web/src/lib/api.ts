@@ -88,4 +88,12 @@ export interface Product {
   fiscalCode?: string | null;
   fiscalOrigin?: number | null;
   fiscalUnit?: string | null;
+  /** Código interno (IT-000001), família, custo informado e código de barras. */
+  code?: string | null;
+  familyId?: string | null;
+  cost?: string | null;
+  soldByWeight?: boolean;
+  barcode?: string | null;
+  barcodeType?: 'fixed' | 'weight' | 'value';
+  position?: number;
 }

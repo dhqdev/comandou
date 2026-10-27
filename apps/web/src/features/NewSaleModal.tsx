@@ -1,7 +1,9 @@
 import {
   CHANNEL_LABELS,
   fromCents,
+  defaultOptionIds,
   multiplyCents,
+  optionsTotalCents,
   ORDER_CHANNELS,
   toCents,
   type OrderChannel,
@@ -43,8 +45,7 @@ let nextLineId = 1;
 
 /** Preço de exibição calculado no cliente; o servidor recalcula e é a fonte oficial. */
 function unitCents(p: MenuProduct, optionIds: string[]) {
-  const deltas = p.optionGroups.flatMap((g) => g.options).filter((o) => optionIds.includes(o.id));
-  return toCents(p.price) + deltas.reduce((s, o) => s + toCents(o.priceDelta), 0);
+  return toCents(p.price) + optionsTotalCents(p.optionGroups, optionIds);
 }
 
 export function NewSaleModal({
@@ -88,16 +89,37 @@ export function NewSaleModal({
     setChannel(preset?.channel ?? 'counter');
     setTableId(preset?.tableId ?? '');
     setError(null);
-    api<MenuCategory[]>('/menu')
-      .then((m) => {
-        setMenu(m);
-        setCat((c) => c ?? m[0]?.id ?? null);
-      })
-      .catch((e) => setError((e as Error).message));
     api<DiningTable[]>('/tables')
       .then(setTables)
       .catch(() => setTables([]));
   }, [open, preset?.channel, preset?.tableId]);
+
+  // Cada canal tem o seu cardápio (Principal no balcão/salão, Delivery na entrega/retirada):
+  // ao trocar o canal, os itens e preços do carrinho passam a ser os do novo cardápio.
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    api<MenuCategory[]>(`/menu?channel=${channel}`)
+      .then((m) => {
+        if (!alive) return;
+        setMenu(m);
+        setCat((c) => (c && m.some((x) => x.id === c) ? c : (m[0]?.id ?? null)));
+        const byId = new Map(m.flatMap((c) => c.products).map((p) => [p.id, p]));
+        setCart((lines) => {
+          const kept = lines.flatMap((l) => {
+            const p = byId.get(l.product.id);
+            return p ? [{ ...l, product: p }] : [];
+          });
+          if (kept.length < lines.length)
+            toast('Alguns itens não estão no cardápio deste canal e saíram do carrinho', 'neutral');
+          return kept;
+        });
+      })
+      .catch((e) => alive && setError((e as Error).message));
+    return () => {
+      alive = false;
+    };
+  }, [open, channel, toast]);
 
   const products = useMemo(() => {
     const all = menu ?? [];
@@ -323,31 +345,42 @@ export function NewSaleModal({
                         }
                       />
                     </div>
-                    <div className="cart__qty">
-                      <Button
-                        variant="ghost"
-                        aria-label="Diminuir"
-                        icon={l.quantity > 1 ? <Minus size={14} /> : <Trash2 size={14} />}
-                        onClick={() =>
-                          setCart((c) =>
-                            l.quantity > 1
-                              ? c.map((x) => (x === l ? { ...x, quantity: x.quantity - 1 } : x))
-                              : c.filter((x) => x !== l),
-                          )
+                    {l.product.soldByWeight ? (
+                      <WeightInput
+                        name={l.product.name}
+                        value={l.quantity}
+                        onChange={(q) =>
+                          setCart((c) => c.map((x) => (x === l ? { ...x, quantity: q } : x)))
                         }
+                        onRemove={() => setCart((c) => c.filter((x) => x !== l))}
                       />
-                      <span>{l.quantity}</span>
-                      <Button
-                        variant="ghost"
-                        aria-label="Aumentar"
-                        icon={<Plus size={14} />}
-                        onClick={() =>
-                          setCart((c) =>
-                            c.map((x) => (x === l ? { ...x, quantity: x.quantity + 1 } : x)),
-                          )
-                        }
-                      />
-                    </div>
+                    ) : (
+                      <div className="cart__qty">
+                        <Button
+                          variant="ghost"
+                          aria-label="Diminuir"
+                          icon={l.quantity > 1 ? <Minus size={14} /> : <Trash2 size={14} />}
+                          onClick={() =>
+                            setCart((c) =>
+                              l.quantity > 1
+                                ? c.map((x) => (x === l ? { ...x, quantity: x.quantity - 1 } : x))
+                                : c.filter((x) => x !== l),
+                            )
+                          }
+                        />
+                        <span>{l.quantity}</span>
+                        <Button
+                          variant="ghost"
+                          aria-label="Aumentar"
+                          icon={<Plus size={14} />}
+                          onClick={() =>
+                            setCart((c) =>
+                              c.map((x) => (x === l ? { ...x, quantity: x.quantity + 1 } : x)),
+                            )
+                          }
+                        />
+                      </div>
+                    )}
                     <span className="cm-num">
                       {brl(fromCents(multiplyCents(unitCents(l.product, l.optionIds), l.quantity)))}
                     </span>
@@ -465,7 +498,16 @@ function OptionPicker({
   onCancel(): void;
   onConfirm(ids: string[]): void;
 }) {
-  const [sel, setSel] = useState<Record<string, string[]>>({});
+  // Começa com as opções marcadas como padrão no cadastro do grupo.
+  const [sel, setSel] = useState<Record<string, string[]>>(() => {
+    const defaults = defaultOptionIds(product.optionGroups);
+    return Object.fromEntries(
+      product.optionGroups.map((g) => [
+        g.id,
+        g.options.filter((o) => defaults.includes(o.id)).map((o) => o.id),
+      ]),
+    );
+  });
   const valid = product.optionGroups.every((g) => {
     const n = sel[g.id]?.length ?? 0;
     return n >= g.minSelect && n <= g.maxSelect;
@@ -530,6 +572,40 @@ function OptionPicker({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Peso em kg do item vendido por peso (aceita "0,350"). */
+function WeightInput({
+  name,
+  value,
+  onChange,
+  onRemove,
+}: {
+  name: string;
+  value: number;
+  onChange(q: number): void;
+  onRemove(): void;
+}) {
+  const [text, setText] = useState(() =>
+    value.toLocaleString('pt-BR', { minimumFractionDigits: 3 }),
+  );
+  return (
+    <div className="cart__qty cart__qty--weight">
+      <Button variant="ghost" aria-label="Remover" icon={<Trash2 size={14} />} onClick={onRemove} />
+      <input
+        className="cm-input cm-num"
+        inputMode="decimal"
+        aria-label={`Peso de ${name} em kg`}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          const n = Number(e.target.value.replace(/\./g, '').replace(',', '.'));
+          if (Number.isFinite(n) && n > 0 && n <= 999) onChange(Math.round(n * 1000) / 1000);
+        }}
+      />
+      <span className="cm-hint">kg</span>
     </div>
   );
 }

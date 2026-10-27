@@ -1,4 +1,10 @@
-import { fromCents, multiplyCents, toCents } from '@comandou/shared';
+import {
+  defaultOptionIds,
+  fromCents,
+  multiplyCents,
+  optionsTotalCents,
+  toCents,
+} from '@comandou/shared';
 import { Check, ChevronLeft, Share2 } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -29,10 +35,15 @@ export function ProductScreen() {
   const p = product(id);
   const hero = useRef<HTMLDivElement>(null);
   const [sel, setSel] = useState<Record<string, string[]>>(() => {
-    // Escolha única obrigatória já vem com a primeira opção marcada.
+    // Opções marcadas como padrão já vêm escolhidas; escolha única obrigatória sem padrão
+    // vem com a primeira opção.
     const init: Record<string, string[]> = {};
+    const defaults = defaultOptionIds(p?.optionGroups ?? []);
     p?.optionGroups.forEach((g) => {
-      if (g.maxSelect === 1 && g.minSelect === 1 && g.options[0]) init[g.id] = [g.options[0].id];
+      const mine = g.options.filter((o) => defaults.includes(o.id)).map((o) => o.id);
+      if (mine.length) init[g.id] = mine;
+      else if (g.maxSelect === 1 && g.minSelect === 1 && g.options[0])
+        init[g.id] = [g.options[0].id];
     });
     return init;
   });
@@ -75,9 +86,7 @@ export function ProductScreen() {
 
   const options = p.optionGroups.flatMap((g) => g.options);
   const ids = Object.values(sel).flat();
-  const unit =
-    toCents(p.price) +
-    options.filter((o) => ids.includes(o.id)).reduce((s, o) => s + toCents(o.priceDelta), 0);
+  const unit = toCents(p.price) + optionsTotalCents(p.optionGroups, ids);
   const missing = p.optionGroups.filter((g) => (sel[g.id]?.length ?? 0) < g.minSelect);
   const closed = !menu.store.isOpen;
 

@@ -1,6 +1,8 @@
 import type {
+  ChargeRule,
   ItemStatus,
   OrderChannel,
+  OptionGroupKind,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
@@ -10,12 +12,18 @@ export interface MenuOption {
   id: string;
   name: string;
   priceDelta: string;
+  /** Já vem marcada ao abrir o item. */
+  isDefault?: boolean;
 }
 export interface MenuGroup {
   id: string;
   name: string;
   minSelect: number;
   maxSelect: number;
+  /** Adicional, tamanho, sabores (pizza) ou retirar ingrediente. */
+  kind?: OptionGroupKind;
+  /** Como cobra as opções escolhidas: soma, a mais cara ou a média. */
+  charge?: ChargeRule;
   options: MenuOption[];
 }
 export interface MenuProduct {
@@ -26,6 +34,8 @@ export interface MenuProduct {
   soldOut: boolean;
   sectorId: string | null;
   imageId?: string | null;
+  code?: string | null;
+  soldByWeight?: boolean;
   optionGroups: MenuGroup[];
 }
 export interface MenuCategory {

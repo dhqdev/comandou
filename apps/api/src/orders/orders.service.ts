@@ -9,6 +9,9 @@ import {
   canTransition,
   DISCOUNT_FREE_LIMIT_PERCENT,
   fromCents,
+  groupOptionCharges,
+  menuKindOf,
+  type ChargeRule,
   multiplyCents,
   OrderChannel,
   ordersLimitedToOwn,
@@ -297,7 +300,8 @@ export class OrdersService {
     if (input.channel === 'delivery' && !input.deliveryAddress)
       throw new UnprocessableEntityException('Delivery exige endereço');
 
-    // Produtos e opções vêm do banco (preço oficial).
+    // Produtos e opções vêm do banco (preço oficial). O preço e a disponibilidade são os do
+    // cardápio ativo do canal (Principal no balcão/salão, Delivery na entrega/retirada).
     const productIds = [...new Set(input.items.map((i) => i.productId))];
     const products = await q<{
       id: string;
@@ -306,10 +310,17 @@ export class OrdersService {
       sector_id: string | null;
       active: boolean;
       sold_out: boolean;
+      in_menu: boolean;
+      menu_name: string | null;
     }>(
       tx,
-      `SELECT id, name, price::text, sector_id, active, sold_out FROM products WHERE id = ANY($1::uuid[])`,
-      [productIds],
+      `SELECT p.id, p.name, COALESCE(mi.price, p.price)::text AS price, p.sector_id, p.active, p.sold_out,
+              (m.id IS NULL OR mi.product_id IS NOT NULL) AS in_menu, m.name AS menu_name
+         FROM products p
+         LEFT JOIN menus m ON m.active AND m.kind = $2
+         LEFT JOIN menu_items mi ON mi.menu_id = m.id AND mi.product_id = p.id
+        WHERE p.id = ANY($1::uuid[])`,
+      [productIds, menuKindOf(input.channel)],
     );
     const pmap = new Map(products.map((p) => [p.id, p]));
     const optionIds = [...new Set(input.items.flatMap((i) => i.optionIds ?? []))];
@@ -333,9 +344,10 @@ export class OrdersService {
       name: string;
       min_select: number;
       max_select: number;
+      charge: ChargeRule;
     }>(
       tx,
-      `SELECT pog.product_id, g.id AS group_id, g.name, g.min_select, g.max_select
+      `SELECT pog.product_id, g.id AS group_id, g.name, g.min_select, g.max_select, g.charge
          FROM product_option_groups pog JOIN option_groups g ON g.id = pog.group_id
         WHERE pog.product_id = ANY($1::uuid[]) AND g.active`,
       [productIds],
@@ -347,6 +359,10 @@ export class OrdersService {
       if (!p || !p.active)
         throw new UnprocessableEntityException(
           'Um dos produtos saiu do cardápio. Atualize a tela e monte o pedido de novo.',
+        );
+      if (!p.in_menu)
+        throw new UnprocessableEntityException(
+          `${p.name} não está no ${p.menu_name ?? 'cardápio'}`,
         );
       if (p.sold_out) throw new UnprocessableEntityException(`Produto esgotado: ${p.name}`);
       const groups = links.filter((l) => l.product_id === p.id);
@@ -365,10 +381,19 @@ export class OrdersService {
           );
         }
       }
-      const unit = toCents(p.price) + chosen.reduce((s, o) => s + toCents(o.price_delta), 0);
+      // Regra de cobrança de cada grupo (soma, maior valor, média): cada opção guarda o que cobrou.
+      const charged = groups.flatMap((g) => {
+        const mine = chosen.filter((o) => o.group_id === g.group_id);
+        const cents = groupOptionCharges(
+          g.charge,
+          mine.map((o) => toCents(o.price_delta)),
+        );
+        return mine.map((o, i) => ({ ...o, price_delta: fromCents(cents[i]!) }));
+      });
+      const unit = toCents(p.price) + charged.reduce((s, o) => s + toCents(o.price_delta), 0);
       const total = multiplyCents(unit, it.quantity);
       subtotal += total;
-      return { p, it, chosen, unit, total };
+      return { p, it, chosen: charged, unit, total };
     });
 
     // Fidelidade: o desconto da recompensa vem do programa (não passa pelo limite de desconto da equipe).

@@ -171,7 +171,7 @@ function Gate() {
         <Route path="garçom" element={<WaiterEntry />} />
         <Route path="configuracoes" element={<SettingsPage />} />
         <Route
-          path="cardapio"
+          path="cardapio/*"
           element={
             <Guard path="cardapio">
               <MenuPage />
