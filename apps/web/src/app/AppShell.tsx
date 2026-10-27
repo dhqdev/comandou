@@ -298,9 +298,10 @@ export function AppShell() {
             {!online ? (
               <Badge tone="warning">Sem conexão</Badge>
             ) : live === 'live' ? (
-              <Badge tone="success">
-                <span className="cm-dot cm-dot--pulse" /> Tempo real
-              </Badge>
+              <span className="cm-badge cm-badge--success topbar__live" title="Tempo real">
+                <span className="cm-dot cm-dot--pulse" />{' '}
+                <span className="topbar__live-text">Tempo real</span>
+              </span>
             ) : (
               <Badge tone="warning">Reconectando…</Badge>
             )}

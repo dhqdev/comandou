@@ -121,6 +121,15 @@ export interface SegmentedOption<V extends string> {
 }
 
 /**
+ * Guarda para que lado a aba trocou (-1 esquerda, 1 direita): o conteúdo que entra depois das
+ * abas desliza desse lado (CSS `cm-tab-in`, em components.css).
+ */
+export function markTabDir(from: number, to: number) {
+  if (typeof document === 'undefined' || from < 0 || to < 0 || from === to) return;
+  document.documentElement.style.setProperty('--cm-tab-dir', String(Math.sign(to - from)));
+}
+
+/**
  * Abas segmentadas com o indicador deslizante. Teclado: setas esquerda/direita, Home e End.
  */
 export function Segmented<V extends string>({
@@ -152,6 +161,7 @@ export function Segmented<V extends string>({
     else if (e.key === 'End') next = enabled.length - 1;
     if (next < 0) return;
     e.preventDefault();
+    markTabDir(i, next);
     onChange(enabled[next]!.value);
     const btn = g.ref.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]:not(:disabled)')[
       next
@@ -175,7 +185,11 @@ export function Segmented<V extends string>({
           aria-selected={o.value === value}
           tabIndex={o.value === value ? 0 : -1}
           disabled={o.disabled}
-          onClick={() => onChange(o.value)}
+          onClick={() => {
+            const at = (v: V) => options.findIndex((x) => x.value === v);
+            markTabDir(at(value), at(o.value));
+            onChange(o.value);
+          }}
         >
           {o.icon}
           {o.label}

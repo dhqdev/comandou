@@ -128,8 +128,51 @@ export function OrderDetailModal({
   const open = !!orderId;
   const title = order ? `Pedido #${order.number}` : 'Pedido';
   const Frame = variant === 'panel' ? SidePanel : Modal;
+  // Próximo passo do pedido (avançar, receber, despachar) fica no rodapé fixo: à vista mesmo
+  // rolando o detalhe. Ajustes, cancelamento e impressão continuam no corpo.
+  const nextSteps =
+    order && !mode
+      ? (NEXT[order.status] ?? []).filter((a) => canTransition(order.status, a.to, order.channel))
+      : [];
+  const canReceive =
+    !!order && !mode && canPay && order.status !== 'cancelled' && toCents(order.balance) > 0;
+  const canSend =
+    !!order && !mode && order.channel === 'delivery' && order.status === 'ready' && canDispatch;
+  const canReject = !!order && !mode && order.status === 'awaiting' && canWrite;
+  const leadIsStep = !canReceive && !canSend;
+  const footer =
+    order && (nextSteps.length || canReceive || canSend || canReject) ? (
+      <>
+        {canReject && (
+          <Button variant="secondary" onClick={() => setMode('reject')}>
+            Recusar
+          </Button>
+        )}
+        {nextSteps.map((a, i) => (
+          <Button
+            key={a.to}
+            variant={
+              (leadIsStep || order.status === 'awaiting') && i === 0 ? 'primary' : 'secondary'
+            }
+            loading={busy}
+            onClick={() => go(a.to)}
+          >
+            {a.label}
+          </Button>
+        ))}
+        {canSend && <Button onClick={() => setMode('dispatch')}>Despachar entregador</Button>}
+        {canReceive && (
+          <Button
+            variant={order.status === 'awaiting' ? 'secondary' : 'primary'}
+            onClick={() => setPaying(true)}
+          >
+            Receber {brl(order.balance)}
+          </Button>
+        )}
+      </>
+    ) : undefined;
   return (
-    <Frame open={open} onClose={onClose} title={title} size="lg">
+    <Frame open={open} onClose={onClose} title={title} size="lg" footer={footer}>
       {error && <Alert tone="danger">{error}</Alert>}
       {!order ? (
         <Spinner />
@@ -346,29 +389,6 @@ export function OrderDetailModal({
             <div className="od-actions">
               {!mode && (
                 <div className="actions-row order-actions">
-                  {(NEXT[order.status] ?? [])
-                    .filter((a) => canTransition(order.status, a.to, order.channel))
-                    .map((a) => (
-                      <Button
-                        key={a.to}
-                        variant={order.status === 'awaiting' ? 'primary' : 'secondary'}
-                        loading={busy}
-                        onClick={() => go(a.to)}
-                      >
-                        {a.label}
-                      </Button>
-                    ))}
-                  {order.status === 'awaiting' && canWrite && (
-                    <Button variant="danger" onClick={() => setMode('reject')}>
-                      Recusar
-                    </Button>
-                  )}
-                  {order.channel === 'delivery' && order.status === 'ready' && canDispatch && (
-                    <Button onClick={() => setMode('dispatch')}>Despachar entregador</Button>
-                  )}
-                  {canPay && order.status !== 'cancelled' && toCents(order.balance) > 0 && (
-                    <Button onClick={() => setPaying(true)}>Receber {brl(order.balance)}</Button>
-                  )}
                   {!['completed', 'cancelled', 'awaiting'].includes(order.status) && (
                     <Button variant="secondary" onClick={() => setMode('adjust')}>
                       Desconto/acréscimo

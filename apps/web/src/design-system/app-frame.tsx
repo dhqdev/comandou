@@ -112,6 +112,14 @@ export function AppFrame({
   const all = [...items, ...footer];
   useTableLabels(panel);
   const where = currentScreen(pathname, all);
+  // Direção da troca de tela: indo para um item mais à direita/abaixo no menu, o conteúdo
+  // entra deslizando da direita; voltando, da esquerda (como trocar de aba no celular).
+  const order = where ? where.order : -1;
+  const lastOrder = useRef(order);
+  const pageDir = order < 0 || lastOrder.current < 0 ? 0 : Math.sign(order - lastOrder.current);
+  useEffect(() => {
+    lastOrder.current = order;
+  }, [order]);
   const [scrolled, setScrolled] = useState(false);
 
   // Trocou de tela: fecha menus e volta o painel ao topo.
@@ -244,7 +252,7 @@ export function AppFrame({
         {showWhere && where && (
           <div className="cm-frame__where" aria-hidden>
             {where.icon}
-            <span>{where.label}</span>
+            <span key={where.label}>{where.label}</span>
           </div>
         )}
         {top}
@@ -259,7 +267,11 @@ export function AppFrame({
         }}
       >
         {banners}
-        <main className="cm-frame__content cm-enter" key={contentKey}>
+        <main
+          className="cm-frame__content cm-enter"
+          key={contentKey}
+          style={{ '--cm-page-dir': pageDir } as CSSProperties}
+        >
           {children}
         </main>
       </div>
@@ -355,10 +367,12 @@ export function AppFrame({
 
 /** Tela atual (o link mais específico que bate com o endereço), para o topo do celular. */
 function currentScreen(pathname: string, all: FrameItem[]) {
-  let best: { label: string; icon: ReactNode; len: number } | null = null;
+  let best: { label: string; icon: ReactNode; len: number; order: number } | null = null;
+  let order = 0;
   const consider = (to: string, end: boolean | undefined, label: string, icon: ReactNode) => {
+    order++;
     if (isOn(pathname, to, end) && (!best || to.length > best.len))
-      best = { label, icon, len: to.length };
+      best = { label, icon, len: to.length, order };
   };
   for (const it of all) {
     if (it.to) consider(it.to, it.end, it.label, it.icon);
@@ -367,7 +381,7 @@ function currentScreen(pathname: string, all: FrameItem[]) {
       if (c.also) consider(c.also, true, c.label, c.icon);
     }
   }
-  return best as { label: string; icon: ReactNode } | null;
+  return best as { label: string; icon: ReactNode; order: number } | null;
 }
 
 /**

@@ -1108,3 +1108,24 @@ label.option-row input[type='checkbox'] {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* WhatsApp: botão de ligar/desligar em cima e os avisos numa grade de tamanhos iguais. */
+.wa-notices {
+  display: grid;
+  gap: var(--cm-space-3);
+  justify-items: start;
+}
+.wa-notices__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--cm-space-2);
+  width: 100%;
+}
+@media (max-width: 640px) {
+  .wa-notices > .cm-btn {
+    width: 100%;
+  }
+  .wa-notices__list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

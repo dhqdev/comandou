@@ -120,7 +120,7 @@ export function WhatsAppPage() {
           </Badge>
         }
       >
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="wa-notices">
           <Button
             variant={s.enabled ? 'secondary' : 'primary'}
             loading={busy}
@@ -130,14 +130,16 @@ export function WhatsAppPage() {
           >
             {s.enabled ? 'Desativar avisos' : 'Ativar avisos'}
           </Button>
-          {NOTICE_KEYS.map((k) => (
-            <CheckField
-              key={k}
-              label={NOTICE[k].label}
-              checked={s[`notify${k}`]}
-              onChange={(v) => save({ [`notify${k}`]: v })}
-            />
-          ))}
+          <div className="wa-notices__list">
+            {NOTICE_KEYS.map((k) => (
+              <CheckField
+                key={k}
+                label={NOTICE[k].label}
+                checked={s[`notify${k}`]}
+                onChange={(v) => save({ [`notify${k}`]: v })}
+              />
+            ))}
+          </div>
         </div>
         {error && <Alert tone="danger">{error}</Alert>}
         <div style={{ marginTop: 12 }}>

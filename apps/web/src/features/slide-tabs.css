@@ -111,15 +111,19 @@
     min-height: 36px;
     padding: 0 10px;
   }
-  /* Quatro abas com nomes longos (ex.: Entregas): grade 2 × 2 de células iguais, tudo à vista. */
-  .slide-tabs[data-count='4'] {
+  /* Quatro abas que não cabem numa linha (ex.: Entregas): grade 2 × 2 de células iguais, tudo
+     à vista. Se couberem (ex.: Cardápio), ficam numa linha só, mais enxutas. */
+  .slide-tabs[data-count='4'] .slide-tabs__tab {
+    padding: 0 8px;
+  }
+  .slide-tabs[data-grid] {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     overflow: visible;
     -webkit-mask-image: none;
     mask-image: none;
   }
-  .slide-tabs[data-count='4'] .slide-tabs__tab {
+  .slide-tabs[data-grid] .slide-tabs__tab {
     min-width: 0;
   }
 }

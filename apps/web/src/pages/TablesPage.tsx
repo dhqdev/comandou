@@ -229,7 +229,7 @@ export function TablesPage() {
             { value: 'tabs', label: 'Comandas', count: tabs.length },
           ]}
         />
-        <label className="home__search salon__search">
+        <label className="cm-search salon__search">
           <Search size={16} aria-hidden />
           <input
             placeholder={
@@ -532,19 +532,28 @@ function LooseTabModal({
     }
   }
   return (
-    <Modal open={open} onClose={onClose} title="Comanda avulsa">
-      <div style={{ display: 'grid', gap: 16 }}>
-        <TextField
-          label="Nome do cliente (opcional)"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={80}
-        />
-        {error && <Alert tone="danger">{error}</Alert>}
-        <Button loading={busy} onClick={save}>
-          Abrir comanda
-        </Button>
-      </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Comanda avulsa"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button loading={busy} onClick={save}>
+            Abrir comanda
+          </Button>
+        </>
+      }
+    >
+      <TextField
+        label="Nome do cliente (opcional)"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        maxLength={80}
+      />
+      {error && <Alert tone="danger">{error}</Alert>}
     </Modal>
   );
 }

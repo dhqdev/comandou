@@ -131,7 +131,31 @@ export function PaymentModal({
 
   const label = target.kind === 'order' ? `pedido #${target.number}` : `comanda ${target.number}`;
   return (
-    <Modal open={open} onClose={onClose} title={`Receber — ${label}`}>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={`Receber — ${label}`}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            loading={busy}
+            disabled={
+              !parsed ||
+              !sessionId ||
+              toCents(parsed) <= 0 ||
+              toCents(parsed) > balanceCents ||
+              (method === 'cash' && !!tendered && change < 0)
+            }
+            onClick={pay}
+          >
+            Confirmar {parsed ? brl(parsed) : ''}
+          </Button>
+        </>
+      }
+    >
       <div style={{ display: 'grid', gap: 16 }}>
         <div className="pay-balance">
           <span>Saldo</span>
@@ -214,21 +238,6 @@ export function PaymentModal({
           />
         )}
         {error && <Alert tone="danger">{error}</Alert>}
-        <Button
-          size="lg"
-          block
-          loading={busy}
-          disabled={
-            !parsed ||
-            !sessionId ||
-            toCents(parsed) <= 0 ||
-            toCents(parsed) > balanceCents ||
-            (method === 'cash' && !!tendered && change < 0)
-          }
-          onClick={pay}
-        >
-          Confirmar {parsed ? brl(parsed) : ''}
-        </Button>
       </div>
     </Modal>
   );

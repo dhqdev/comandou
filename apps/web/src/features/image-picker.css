@@ -70,4 +70,8 @@
   .imgpick__remove {
     opacity: 1;
   }
+  /* Miniatura (ex.: foto da categoria): a lixeira cobria a foto; tocar troca a foto. */
+  .imgpick[data-small] .imgpick__remove {
+    display: none;
+  }
 }

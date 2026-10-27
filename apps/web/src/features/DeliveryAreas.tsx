@@ -626,7 +626,7 @@ function StoreSearch({ onPick }: { onPick(r: GeoResult): void }) {
   }
   return (
     <form className="areas__search" onSubmit={search}>
-      <label className="home__search">
+      <label className="cm-search">
         <Search size={16} aria-hidden />
         <input
           placeholder="Buscar endereço (rua, número, cidade)"

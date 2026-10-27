@@ -208,21 +208,30 @@ function OpenModal({
     }
   }
   return (
-    <Modal open={!!register} onClose={onClose} title={`Abrir ${register?.name ?? 'caixa'}`}>
-      <div style={{ display: 'grid', gap: 16 }}>
-        <TextField
-          label="Fundo de troco (dinheiro na gaveta)"
-          inputMode="decimal"
-          placeholder="0,00"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          error={!parsed ? 'Use o formato 100,00' : undefined}
-        />
-        {error && <Alert tone="danger">{error}</Alert>}
-        <Button loading={busy} disabled={!parsed} onClick={save}>
-          Abrir caixa
-        </Button>
-      </div>
+    <Modal
+      open={!!register}
+      onClose={onClose}
+      title={`Abrir ${register?.name ?? 'caixa'}`}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button loading={busy} disabled={!parsed} onClick={save}>
+            Abrir caixa
+          </Button>
+        </>
+      }
+    >
+      <TextField
+        label="Fundo de troco (dinheiro na gaveta)"
+        inputMode="decimal"
+        placeholder="0,00"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        error={!parsed ? 'Use o formato 100,00' : undefined}
+      />
+      {error && <Alert tone="danger">{error}</Alert>}
     </Modal>
   );
 }
@@ -416,6 +425,20 @@ function MovementModal({
       title={
         kind === 'supply' ? 'Suprimento (entrada de dinheiro)' : 'Sangria (retirada de dinheiro)'
       }
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            loading={busy}
+            disabled={!parsed || toCents(parsed) <= 0 || note.trim().length < 3}
+            onClick={save}
+          >
+            Registrar
+          </Button>
+        </>
+      }
     >
       <div style={{ display: 'grid', gap: 16 }}>
         {kind === 'withdrawal' && (
@@ -437,13 +460,6 @@ function MovementModal({
           maxLength={200}
         />
         {error && <Alert tone="danger">{error}</Alert>}
-        <Button
-          loading={busy}
-          disabled={!parsed || toCents(parsed) <= 0 || note.trim().length < 3}
-          onClick={save}
-        >
-          Registrar
-        </Button>
       </div>
     </Modal>
   );
@@ -499,7 +515,22 @@ function CloseModal({
     }
   }
   return (
-    <Modal open={open} onClose={onClose} title="Fechamento conferido" size="lg">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Fechamento conferido"
+      size="lg"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button loading={busy} disabled={!ready || (diff !== 0 && !note.trim())} onClick={save}>
+            Fechar caixa
+          </Button>
+        </>
+      }
+    >
       <div style={{ display: 'grid', gap: 16 }}>
         <p className="cm-hint" style={{ margin: 0 }}>
           Conte o dinheiro da gaveta e confira os comprovantes de cada forma de pagamento.
@@ -553,14 +584,6 @@ function CloseModal({
           maxLength={500}
         />
         {error && <Alert tone="danger">{error}</Alert>}
-        <Button
-          size="lg"
-          loading={busy}
-          disabled={!ready || (diff !== 0 && !note.trim())}
-          onClick={save}
-        >
-          Fechar caixa
-        </Button>
       </div>
     </Modal>
   );

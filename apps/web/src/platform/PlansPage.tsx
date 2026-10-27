@@ -175,8 +175,28 @@ function PlanModal({
   );
 
   return (
-    <Modal open title={plan ? `Plano ${plan.name}` : 'Novo plano'} onClose={onClose} size="lg">
-      <form onSubmit={submit}>
+    <Modal
+      open
+      title={plan ? `Plano ${plan.name}` : 'Novo plano'}
+      onClose={onClose}
+      size="lg"
+      footer={
+        <>
+          <Button variant="ghost" type="button" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            form="plano-form"
+            loading={busy}
+            disabled={!f.name || !priceOk || (!plan && !f.code)}
+          >
+            Salvar
+          </Button>
+        </>
+      }
+    >
+      <form id="plano-form" onSubmit={submit}>
         <div className="form-grid">
           <TextField
             label="Código"
@@ -229,14 +249,6 @@ function PlanModal({
           {check('active', 'Ativo (aceita novas assinaturas)')}
         </div>
         {error && <Alert tone="danger">{error}</Alert>}
-        <div className="cm-modal__footer" style={{ padding: 0 }}>
-          <Button variant="ghost" type="button" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button type="submit" loading={busy} disabled={!f.name || !priceOk || (!plan && !f.code)}>
-            Salvar
-          </Button>
-        </div>
       </form>
     </Modal>
   );

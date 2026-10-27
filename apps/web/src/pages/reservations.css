@@ -445,6 +445,26 @@
 }
 
 @media (max-width: 720px) {
+  /* Números do dia: grade 2 × 2 de cartões iguais (antes cada um tinha a largura do texto). */
+  .rv-kpis {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    flex: 1 1 100%;
+  }
+  .rv-kpis > .rv-kpi {
+    justify-self: stretch;
+  }
+  /* Aviso "reservas desligadas": texto em cima, botão embaixo (antes o texto ficava espremido). */
+  .rv-banner {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .rv-banner > span {
+    flex: 1 1 calc(100% - 40px);
+  }
+  .rv-banner > .cm-btn {
+    margin-left: 32px;
+  }
   .rv-slot {
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;

@@ -1,4 +1,5 @@
 import { ReactNode, useLayoutEffect, useRef, useState } from 'react';
+import { markTabDir } from '../design-system';
 import './slide-tabs.css';
 
 export interface SlideTab<T extends string> {
@@ -32,11 +33,20 @@ export function SlideTabs<T extends string>({
   const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   /** Não cabe numa linha: a borda direita esmaece até chegar ao fim da rolagem. */
   const [scroll, setScroll] = useState({ overflow: false, end: false });
+  /** Quatro abas que não cabem numa linha viram uma grade 2 × 2 (largura natural guardada). */
+  const [grid, setGrid] = useState(false);
+  const natural = useRef(0);
 
   useLayoutEffect(() => {
     const el = wrap.current;
     if (!el) return;
     const edge = () => {
+      if (tabs.length === 4) {
+        if (!el.hasAttribute('data-grid')) {
+          natural.current = el.scrollWidth;
+          if (el.scrollWidth > el.clientWidth + 1) return setGrid(true);
+        } else if (el.clientWidth >= natural.current) return setGrid(false);
+      }
       const overflow = el.scrollWidth > el.clientWidth + 1;
       const end = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
       setScroll((p) => (p.overflow === overflow && p.end === end ? p : { overflow, end }));
@@ -64,7 +74,7 @@ export function SlideTabs<T extends string>({
       ro?.disconnect();
       el.removeEventListener('scroll', edge);
     };
-  }, [value, tabs.length]);
+  }, [value, tabs.length, grid]);
 
   return (
     <div
@@ -73,6 +83,7 @@ export function SlideTabs<T extends string>({
       role="tablist"
       aria-label={label}
       data-count={tabs.length}
+      data-grid={grid || undefined}
       data-overflow={scroll.overflow || undefined}
       data-end={scroll.end || undefined}
     >
@@ -91,7 +102,11 @@ export function SlideTabs<T extends string>({
           aria-selected={t.value === value}
           className="slide-tabs__tab"
           title={t.title}
-          onClick={() => onChange(t.value)}
+          onClick={() => {
+            const at = (v: T) => tabs.findIndex((x) => x.value === v);
+            markTabDir(at(value), at(t.value));
+            onChange(t.value);
+          }}
         >
           {t.label}
           {t.count !== undefined && <span className="slide-tabs__count">{t.count}</span>}

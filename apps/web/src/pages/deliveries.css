@@ -43,9 +43,8 @@
 .dl-kpi__label {
   color: var(--cm-text-muted);
   font-size: var(--cm-text-sm);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.25;
+  min-width: 0;
 }
 .dl-kpi__value {
   font-size: var(--cm-text-xl);

@@ -44,7 +44,11 @@ export function ImagePicker({
   }
 
   return (
-    <div className="imgpick" style={{ width }}>
+    <div
+      className="imgpick"
+      style={{ width }}
+      data-small={(typeof width === 'number' && width <= 64) || undefined}
+    >
       <button
         type="button"
         className="imgpick__btn"

@@ -58,7 +58,7 @@
   display: flex;
   gap: 8px;
 }
-.areas__search .home__search {
+.areas__search .cm-search {
   flex: 1;
   min-width: 0;
   max-width: none;

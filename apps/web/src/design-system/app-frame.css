@@ -158,6 +158,18 @@
   pointer-events: none;
   animation: cm-fly-out 0.18s var(--cm-ease) both;
 }
+@keyframes cm-page-in {
+  from {
+    opacity: 0;
+    transform: translate3d(calc(var(--cm-page-dir, 0) * 28px), 6px, 0);
+  }
+}
+@keyframes cm-where-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
 @keyframes cm-fly-swap {
   from {
     opacity: 0;
@@ -470,29 +482,38 @@
   }
   .cm-frame__top {
     grid-column: 1;
-    padding: env(safe-area-inset-top) var(--cm-space-3) 0 var(--cm-space-4);
+    gap: 2px;
+    padding: env(safe-area-inset-top) var(--cm-space-2) 0 var(--cm-space-4);
+  }
+  .cm-frame__top > :is(button, .cm-theme-toggle) {
+    flex-shrink: 0;
   }
   .cm-frame__compact {
     display: flex;
     align-items: center;
   }
   /* Nome da tela atual no topo: ao rolar, o título da página some e isto fica. */
+  .cm-frame__compact {
+    margin-right: 10px;
+  }
   .cm-frame__where {
     display: flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
     flex: 1 1 auto;
+    margin-right: 6px;
     font-size: var(--cm-text-lg);
     font-weight: 750;
     letter-spacing: -0.01em;
     color: var(--cm-text);
   }
+  /* O ícone da tela já está aceso na barra de baixo: no topo fica só o nome, inteiro. */
   .cm-frame__where svg {
-    width: 20px;
-    height: 20px;
-    flex-shrink: 0;
-    color: var(--cm-brand-700);
+    display: none;
+  }
+  .cm-frame__where span {
+    animation: cm-where-in var(--cm-dur-slow) var(--cm-ease) both;
   }
   .cm-frame__where span {
     overflow: hidden;
@@ -518,6 +539,10 @@
     padding: var(--cm-space-4) var(--cm-space-4)
       calc(var(--tabbar-h) + var(--tabbar-pad) + var(--cm-space-6));
     gap: var(--cm-space-4);
+  }
+  /* Troca de tela no celular: desliza do lado do item tocado (ver --cm-page-dir no AppFrame). */
+  .cm-frame__content.cm-enter {
+    animation: cm-page-in 0.34s var(--cm-ease) backwards;
   }
   /* Menu flutuante em vidro líquido: pílula solta sobre o conteúdo, com um vidro que desliza
      até o item ativo (useGlider). */

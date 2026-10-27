@@ -340,6 +340,27 @@ input[type='radio'] {
 .cm-card__body {
   padding: var(--cm-space-5);
 }
+.cm-card__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* Celular: cartões com respiro menor (o texto ganha largura) e filtro com rótulo no cabeçalho
+   (ex.: "Situação" das notas) desce para uma linha própria, inteiro. */
+@media (max-width: 640px) {
+  .cm-card__header {
+    padding: 12px var(--cm-space-4);
+  }
+  .cm-card__body {
+    padding: var(--cm-space-4);
+  }
+  .cm-card__actions:has(.cm-field) {
+    flex: 1 1 100%;
+  }
+  .cm-card__actions > .cm-field {
+    flex: 1 1 auto;
+  }
+}
 
 /* =============================================================== Badge */
 .cm-badge {
@@ -628,17 +649,51 @@ input[type='radio'] {
   }
   .cm-table td:first-child {
     justify-content: flex-start;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2px 8px;
     text-align: left;
     font-weight: 650;
     font-size: var(--cm-text-md);
     padding-bottom: 6px;
+    overflow-wrap: anywhere;
+  }
+  /* Título do cartão: nome e selos na mesma linha; detalhes (e-mail, opções…) na linha de baixo,
+     em vez de espremidos lado a lado. */
+  .cm-table td:first-child > :is(.cm-hint, p, ul, [class$='-meta'], [class*='-meta ']) {
+    flex-basis: 100%;
+    min-width: 0;
+    font-weight: 400;
+  }
+  /* Demais células: rótulo à esquerda e o valor corre à direita dele, quebrando linha como texto
+     normal. Assim uma célula com várias peças (selo + texto + detalhe) não vira colunas
+     espremidas lado a lado. */
+  .cm-table td:not(:first-child) {
+    display: flow-root;
+    overflow-wrap: anywhere;
+  }
+  .cm-table td:not(:first-child)::before {
+    float: left;
+    margin-right: var(--cm-space-3);
+    line-height: inherit;
+  }
+  /* Escolha dentro do cartão (ex.: papel da pessoa): ao lado do rótulo, do tamanho do texto. */
+  .cm-table td:not(:first-child) > .cm-picker {
+    display: inline-flex;
+    width: auto;
+    max-width: 70%;
+    vertical-align: middle;
+  }
+  .cm-table td:not(:first-child) > .cm-picker > select {
+    width: auto;
+    min-height: 38px;
   }
   .cm-table td:first-child::before,
   .cm-table td[data-label='']::before {
     display: none;
   }
   .cm-table td:not(:first-child)[data-label=''] {
-    justify-content: flex-end;
+    text-align: right;
   }
 }
 
@@ -736,7 +791,7 @@ input[type='radio'] {
   .side-panel__foot {
     flex-shrink: 0;
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 10px;
     padding: 10px 16px calc(14px + var(--cm-sab));
     border-top: 1px solid var(--cm-border);
@@ -745,7 +800,7 @@ input[type='radio'] {
   .cm-modal__footer > *,
   .cm-sheet__footer > *,
   .side-panel__foot > * {
-    flex: 1 1 0;
+    flex: 1 0 auto;
     min-width: 0;
   }
   .cm-modal__footer .cm-btn,
@@ -757,17 +812,24 @@ input[type='radio'] {
     font-size: 15px;
     font-weight: 650;
   }
-  /* Ação principal: o dobro do espaço. Sair/Cancelar: do tamanho do texto. */
+  /* Ação principal: o dobro do espaço. Sair/Cancelar: do tamanho do texto, sempre com o mesmo
+     visual (contorno). Se não couber tudo numa linha, a ação principal desce e ocupa a linha. */
   .cm-modal__footer .cm-btn--primary,
   .cm-modal__footer .cm-btn--success,
   .cm-modal__footer .cm-btn--danger,
   .cm-sheet__footer .cm-btn--primary,
-  .side-panel__foot .cm-btn--primary {
-    flex: 2 1 0;
+  .side-panel__foot .cm-btn--primary,
+  .side-panel__foot .cm-btn--danger {
+    flex: 2 0 auto;
   }
   .cm-modal__footer .cm-btn--ghost,
-  .cm-sheet__footer .cm-btn--ghost {
+  .cm-sheet__footer .cm-btn--ghost,
+  .side-panel__foot .cm-btn--ghost {
     flex: 0 0 auto;
+    min-width: 96px;
+    border: 1px solid var(--cm-border-strong);
+    background: var(--cm-surface);
+    color: var(--cm-text);
   }
   .cm-modal__footer .cm-btn:disabled,
   .cm-sheet__footer .cm-btn:disabled {
@@ -1291,5 +1353,60 @@ input[type='radio'] {
   from {
     opacity: 0;
     transform: translate(-50%, -12px);
+  }
+}
+
+/* =============================================================== Troca de aba
+ * O conteúdo que aparece depois de um grupo de abas (Segmented, SlideTabs) entra deslizando
+ * do lado da aba tocada (--cm-tab-dir, gravado por markTabDir) e aparece aos poucos. Só o que
+ * é montado de novo anima; o que já estava na tela fica parado. Vale para as telas do painel,
+ * não para os campos dentro de modais.
+ */
+.cm-frame__content :is(.cm-seg, .slide-tabs):not(dialog *) ~ :not(dialog, .cm-modal, .cm-seg) {
+  animation: cm-tab-in 0.3s var(--cm-ease) backwards;
+}
+@keyframes cm-tab-in {
+  from {
+    opacity: 0;
+    transform: translate3d(calc(var(--cm-tab-dir, 0) * 22px), 0, 0);
+  }
+}
+
+/* =============================================================== Campo de busca com ícone
+ * <label className="cm-search"><Search/> <input …/></label> */
+.cm-search {
+  flex: 1 1 200px;
+  max-width: 380px;
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  height: 40px;
+  padding: 0 var(--cm-space-3);
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  color: var(--cm-text-subtle);
+}
+.cm-search:focus-within {
+  border-color: var(--cm-brand-500);
+  box-shadow: var(--cm-focus);
+}
+.cm-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+}
+@media (max-width: 640px) {
+  .cm-search {
+    height: 44px;
+  }
+  .cm-search input {
+    font-size: 16px;
   }
 }

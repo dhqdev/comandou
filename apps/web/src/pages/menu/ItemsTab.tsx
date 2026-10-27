@@ -313,7 +313,7 @@ export function ItemsTab() {
                     const opts = groupNames(p.id).join(', ');
                     return (
                       <tr key={p.id} data-search-id={`produto-${p.id}`}>
-                        <td>
+                        <td className="mn-items__photo">
                           <ImagePicker
                             label={`Foto de ${p.name}`}
                             value={p.imageId}
@@ -323,7 +323,7 @@ export function ItemsTab() {
                             }
                           />
                         </td>
-                        <td>
+                        <td className="mn-items__name">
                           <button
                             className="mn-item-link"
                             onClick={() => navigate(`/cardapio/itens/${p.id}`)}
@@ -340,18 +340,19 @@ export function ItemsTab() {
                         <td className="mn-hide-sm">
                           {fam ? fam.name : <span className="cm-hint">Sem família</span>}
                         </td>
-                        <td>
+                        <td className="mn-items__state">
                           {p.soldOut ? (
                             <Badge tone="danger">Esgotado</Badge>
                           ) : (
                             <Badge tone="success">Disponível</Badge>
                           )}
                         </td>
-                        <td className="cm-num">{brl(p.price)}</td>
+                        <td className="cm-num mn-items__price">{brl(p.price)}</td>
                         {canWrite && (
-                          <td className="cm-num" style={{ whiteSpace: 'nowrap' }}>
+                          <td className="cm-num mn-items__acts" style={{ whiteSpace: 'nowrap' }}>
                             <Button
                               variant="ghost"
+                              className="mn-hide-sm"
                               onClick={() => navigate(`/cardapio/itens/${p.id}`)}
                             >
                               Editar
@@ -413,8 +414,22 @@ function CategoryModal({
     }
   }
   return (
-    <Modal open={open} title="Nova categoria" onClose={onClose}>
-      <form onSubmit={submit} style={{ display: 'grid', gap: 16 }}>
+    <Modal
+      open={open}
+      title="Nova categoria"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" form="nova-categoria" loading={busy} disabled={!name.trim()}>
+            Salvar
+          </Button>
+        </>
+      }
+    >
+      <form id="nova-categoria" onSubmit={submit} style={{ display: 'grid', gap: 16 }}>
         <TextField
           label="Nome"
           value={name}
@@ -423,9 +438,6 @@ function CategoryModal({
           required
         />
         {error && <Alert tone="danger">{error}</Alert>}
-        <Button type="submit" loading={busy} disabled={!name.trim()}>
-          Salvar
-        </Button>
       </form>
     </Modal>
   );

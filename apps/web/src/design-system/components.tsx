@@ -130,7 +130,7 @@ export function Card({
       {(title || actions) && (
         <header className="cm-card__header">
           {title && <h2 className="cm-card__title">{title}</h2>}
-          {actions && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>{actions}</div>}
+          {actions && <div className="cm-card__actions">{actions}</div>}
         </header>
       )}
       {bodyless ? children : <div className="cm-card__body">{children}</div>}

@@ -163,8 +163,93 @@
   gap: var(--cm-space-3);
 }
 @media (max-width: 640px) {
-  .mn-hide-sm {
+  /* Cadastro do item/cardápio: a trilha com "Salvar" gruda no topo ao rolar o formulário. */
+  .mn-crumbs {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    flex-wrap: nowrap;
+    margin: calc(-1 * var(--cm-space-4)) calc(-1 * var(--cm-space-4)) 0;
+    padding: 8px var(--cm-space-4);
+    background: var(--cm-bg);
+    border-bottom: 1px solid var(--cm-border);
+  }
+  .mn-crumbs > :last-child {
+    flex-shrink: 0;
+  }
+  .mn-crumbs__path h1 {
+    font-size: var(--cm-text-lg);
+  }
+  .mn-hide-sm,
+  .cm-table .mn-hide-sm {
     display: none;
+  }
+  /* Lista de itens no celular: linha compacta. Foto à esquerda, nome e opções no meio, preço à
+     direita; embaixo a situação e o botão de esgotar. Tocar no nome abre o cadastro. */
+  .mn-items tbody tr {
+    display: grid;
+    grid-template-columns: 56px minmax(0, 1fr) auto;
+    grid-template-areas:
+      'photo name price'
+      'photo state acts';
+    align-items: center;
+    gap: 6px 12px;
+    padding: 12px var(--cm-space-4);
+  }
+  .mn-items tbody td {
+    padding: 0;
+    min-width: 0;
+  }
+  .mn-items tbody td::before {
+    display: none;
+  }
+  .mn-items td.mn-items__photo {
+    grid-area: photo;
+    align-self: start;
+    padding: 0;
+  }
+  .mn-items td.mn-items__photo .imgpick {
+    width: 56px !important;
+  }
+  .mn-items td.mn-items__name {
+    grid-area: name;
+    display: block;
+    text-align: left;
+    font-size: var(--cm-text-sm);
+    padding: 0;
+  }
+  .mn-items td.mn-items__name .mn-item-link {
+    font-size: var(--cm-text-md);
+    line-height: 1.25;
+  }
+  .mn-items td.mn-items__name .cm-hint {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-top: 2px;
+    font-size: var(--cm-text-xs);
+  }
+  .mn-items td.mn-items__state {
+    grid-area: state;
+    text-align: left;
+  }
+  /* "Disponível" é o normal: no celular só aparece o selo de esgotado. */
+  .mn-items td.mn-items__state .cm-badge--success {
+    display: none;
+  }
+  .mn-items td.mn-items__price {
+    grid-area: price;
+    align-self: start;
+    font-weight: 700;
+    font-size: var(--cm-text-md);
+  }
+  .mn-items td.mn-items__acts {
+    grid-area: acts;
+  }
+  .mn-items td.mn-items__acts .cm-btn {
+    min-height: 34px;
+    padding: 0 12px;
   }
 }
 
