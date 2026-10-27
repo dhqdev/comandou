@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.39.0',
+    date: '2026-10-27',
+    title: 'PDV e nova venda no estilo PedidoJá',
+    summary:
+      'A tela inicial do PDV mostra o salão em cima e os pedidos embaixo, em colunas que seguem o andamento. A nova venda abre em tela cheia, com a grade de produtos com foto, a tabela dos itens e o painel do pedido ao lado.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Salão no topo do PDV: mesas livres, ocupadas e em pagamento (ou as comandas abertas). Mesa livre já abre a venda; ocupada abre a comanda.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pedidos em quatro colunas (Novo, Em produção, Prontos, Saiu para entrega) com cartões compactos ou completos, filtro por tipo e aceite automático no cabeçalho.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Rodapé do quadro com os pedidos concluídos e cancelados no dia e os cancelamentos que o cliente pediu.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Nova venda (F2) em tela cheia: busca, categorias, produtos com foto, itens em tabela com complementos e, ao lado, cliente, tipo de atendimento e total. Ctrl+Enter envia.',
+      },
+      {
+        tag: 'novo',
+        text: 'Ao digitar o nome do cliente na venda, o sistema sugere os clientes já cadastrados e preenche o telefone.',
+      },
+    ],
+  },
+  {
     version: '0.38.1',
     date: '2026-10-27',
     title: 'Filtros de Pedidos mais simples',
