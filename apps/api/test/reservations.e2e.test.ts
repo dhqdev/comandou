@@ -273,4 +273,39 @@ describe('Calendário de vendas', () => {
     const calB = (await get('adminB', `/reports/calendar?month=${month}`).expect(200)).body;
     expect(calB.days).toHaveLength(0);
   });
+
+  it('análise do período: totais, comparação, produtos, mapa e clientes', async () => {
+    await post('adminA', '/orders', {
+      channel: 'delivery',
+      customerName: 'Joana',
+      customerPhone: '11988887777',
+      deliveryAddress: 'Rua A, 1',
+      items: [{ productId: fx.prodA, quantity: 1 }],
+    }).expect(201);
+    const today = localDate(0);
+    const from = localDate(-6);
+    const qs = `from=${from}&to=${today}`;
+    await get('waiterA', `/reports/insights?${qs}`).expect(403);
+    await get('adminA', `/reports/insights?from=${today}&to=${from}`).expect(400);
+    await get('adminA', '/reports/insights?from=2020-01-01&to=2026-01-01').expect(400);
+    const r = (await get('adminA', `/reports/insights?${qs}`).expect(200)).body;
+    expect(r.days).toBe(7);
+    expect(r.totals.orders).toBeGreaterThanOrEqual(2);
+    expect(Number(r.totals.cost)).toBeGreaterThan(0);
+    expect(r.previous).toMatchObject({ orders: expect.any(Number) });
+    expect(r.products[0]).toMatchObject({ name: 'X-Burguer A', hasRecipe: true });
+    expect(r.heat.length).toBeGreaterThan(0);
+    expect(r.daily.some((d: { day: string }) => d.day === today)).toBe(true);
+    expect(r.customers.identified).toBeGreaterThanOrEqual(1);
+    expect(r.customers.new).toBeGreaterThanOrEqual(1);
+    // Filtro de canal: só delivery.
+    const del = (await get('adminA', `/reports/insights?${qs}&channel=delivery`).expect(200)).body;
+    expect(del.channel).toBe('delivery');
+    expect(del.totals.orders).toBeLessThan(r.totals.orders);
+    expect(del.idle).toEqual([]);
+    // Restaurante B não vê as vendas de A.
+    const rb = (await get('adminB', `/reports/insights?${qs}`).expect(200)).body;
+    expect(rb.totals.orders).toBe(0);
+    expect(rb.products).toHaveLength(0);
+  });
 });

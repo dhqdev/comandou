@@ -8,6 +8,7 @@ import { useCan } from '../app/auth';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import type { OrderChannel, PaymentMethod } from '@comandou/shared';
+import { InsightsView } from './ReportsInsights';
 import './reports.css';
 
 interface ProductLine {
@@ -95,8 +96,8 @@ const monthLabel = (m: string) =>
 
 export function ReportsPage() {
   // Atalhos da busca (?foco=secao-...) apontam para seções do detalhe do dia.
-  const [view, setView] = useState<'calendar' | 'day'>(() =>
-    new URLSearchParams(window.location.search).has('foco') ? 'day' : 'calendar',
+  const [view, setView] = useState<'insights' | 'calendar' | 'day'>(() =>
+    new URLSearchParams(window.location.search).has('foco') ? 'day' : 'insights',
   );
   const [day, setDay] = useState(() => isoDay(new Date()));
   const [month, setMonth] = useState(() => isoDay(new Date()).slice(0, 7));
@@ -107,9 +108,11 @@ export function ReportsPage() {
         <div>
           <h1 className="page-title">Relatórios</h1>
           <p className="page-sub">
-            {view === 'calendar'
-              ? 'O mês dia a dia: quanto vendeu, quanto custou e quanto sobrou.'
-              : 'Faturamento (pedidos do dia) separado de recebimentos (caixa).'}
+            {view === 'insights'
+              ? 'O que mudou, o que vende, o que dá lucro e onde agir.'
+              : view === 'calendar'
+                ? 'O mês dia a dia: quanto vendeu, quanto custou e quanto sobrou.'
+                : 'Faturamento (pedidos do dia) separado de recebimentos (caixa).'}
           </p>
         </div>
         <Segmented
@@ -117,12 +120,15 @@ export function ReportsPage() {
           value={view}
           onChange={setView}
           options={[
+            { value: 'insights', label: 'Análise' },
             { value: 'calendar', label: 'Calendário' },
             { value: 'day', label: 'Dia' },
           ]}
         />
       </div>
-      {view === 'calendar' ? (
+      {view === 'insights' ? (
+        <InsightsView />
+      ) : view === 'calendar' ? (
         <CalendarView
           month={month}
           onMonth={setMonth}
