@@ -1,11 +1,10 @@
 import { canTransition, fromCents, toCents, type OrderStatus } from '@comandou/shared';
 import { MessageCircle } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import {
   ItemThumb,
   Alert,
-  Badge,
   Button,
   Modal,
   Spinner,
@@ -28,9 +27,7 @@ import {
   ORDER_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABEL,
-  PAYMENT_STATUS_TONE,
   qty,
-  STATUS_TONE,
 } from './format';
 import { PaymentModal, useOpenSessions } from './PaymentModal';
 import { SidePanel } from './SidePanel';
@@ -138,61 +135,97 @@ export function OrderDetailModal({
         <Spinner />
       ) : (
         <div className="order-detail">
-          <div className="order-detail__badges">
-            <Badge tone={STATUS_TONE[order.status]}>{ORDER_STATUS_LABELS[order.status]}</Badge>
-            <Badge tone={PAYMENT_STATUS_TONE[order.paymentStatus]}>
-              {PAYMENT_STATUS_LABEL[order.paymentStatus]}
-            </Badge>
-            <Badge>{CHANNEL_LABELS[order.channel]}</Badge>
-            {order.tableLabel && <Badge tone="brand">Mesa {order.tableLabel}</Badge>}
-            {order.tabNumber && <Badge>Comanda {order.tabNumber}</Badge>}
-          </div>
-          {(order.customerName || order.deliveryAddress || order.notes) && (
-            <p className="cm-hint" style={{ margin: 0 }}>
-              {[order.customerName, order.customerPhone, order.deliveryAddress, order.notes]
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
+          <dl className="od-facts">
+            <Fact label="Status">
+              <strong>{ORDER_STATUS_LABELS[order.status]}</strong>
+            </Fact>
+            <Fact label="Pagamento">
+              <strong className="od-pay">{PAYMENT_STATUS_LABEL[order.paymentStatus]}</strong>
+            </Fact>
+            <Fact label="Tipo">
+              {CHANNEL_LABELS[order.channel]}
+              {order.tableLabel && ` · Mesa ${order.tableLabel}`}
+              {order.tabNumber && ` · Comanda ${order.tabNumber}`}
+            </Fact>
+            <Fact label="Feito em">{dateTime(order.createdAt)}</Fact>
+          </dl>
+
+          {(order.customerName ||
+            order.customerPhone ||
+            order.deliveryAddress ||
+            order.notes ||
+            (order.source === 'online' && order.paymentHint)) && (
+            <section className="od-section">
+              <h3 className="od-section__title">Cliente</h3>
+              <dl className="od-facts">
+                {order.customerName && (
+                  <Fact label="Nome">
+                    <strong>{order.customerName}</strong>
+                  </Fact>
+                )}
+                {order.customerPhone && <Fact label="Telefone">{order.customerPhone}</Fact>}
+                {order.deliveryAddress && (
+                  <Fact label="Endereço" wide>
+                    {order.deliveryAddress}
+                  </Fact>
+                )}
+                {order.source === 'online' && order.paymentHint && (
+                  <Fact label="Vai pagar com" wide>
+                    {PAYMENT_METHOD_LABELS[order.paymentHint]}
+                    {order.changeFor && ` · troco para ${brl(order.changeFor)}`}
+                  </Fact>
+                )}
+                {order.notes && (
+                  <Fact label="Observação" wide>
+                    {order.notes}
+                  </Fact>
+                )}
+              </dl>
+            </section>
+          )}
+          {order.cancelReason && (
+            <dl className="od-facts">
+              <Fact label="Motivo do cancelamento" wide>
+                <strong>{order.cancelReason}</strong>
+              </Fact>
+            </dl>
           )}
           {order.channel === 'delivery' && order.status === 'dispatched' && canDispatch && (
             <OrderLiveMap orderId={order.id} />
           )}
-          {order.source === 'online' && order.paymentHint && (
-            <p className="cm-hint" style={{ margin: 0 }}>
-              Cardápio online · paga com {PAYMENT_METHOD_LABELS[order.paymentHint]}
-              {order.changeFor && ` (troco para ${brl(order.changeFor)})`}
-            </p>
-          )}
-          {order.cancelReason && <Alert tone="warning">Motivo: {order.cancelReason}</Alert>}
-          <table className="cm-table">
-            <tbody>
+
+          <section className="od-section">
+            <h3 className="od-section__title">
+              Itens do pedido
+              <span className="od-section__count">
+                {order.items.length} {order.items.length === 1 ? 'item' : 'itens'}
+              </span>
+            </h3>
+            <ul className="od-items">
               {order.items.map((i) => (
-                <tr
+                <li
                   key={i.id}
-                  style={
-                    i.status === 'cancelled'
-                      ? { textDecoration: 'line-through', opacity: 0.6 }
-                      : undefined
-                  }
+                  className="od-item"
+                  data-cancelled={i.status === 'cancelled' || undefined}
                 >
-                  <td>
-                    <div className="cm-item-line">
-                      <ItemThumb src={mediaUrl(i.imageId)} name={i.name} />
-                      <div>
-                        {qty(i.quantity)}× <strong>{i.name}</strong>
-                        {i.options.length > 0 && (
-                          <div className="cm-hint">{i.options.map((o) => o.name).join(', ')}</div>
-                        )}
-                        {i.notes && <div className="cm-hint">Obs.: {i.notes}</div>}
-                      </div>
+                  <ItemThumb src={mediaUrl(i.imageId)} name={i.name} />
+                  <div className="od-item__main">
+                    <div className="od-item__name">
+                      <span className="od-item__qty">{qty(i.quantity)}×</span>
+                      <strong>{i.name}</strong>
                     </div>
-                  </td>
-                  <td className="cm-num">{brl(i.total)}</td>
-                </tr>
+                    {i.options.length > 0 && (
+                      <div className="od-item__sub">{i.options.map((o) => o.name).join(', ')}</div>
+                    )}
+                    {i.notes && <div className="od-item__sub">Obs.: {i.notes}</div>}
+                  </div>
+                  <span className="od-item__price">{brl(i.total)}</span>
+                </li>
               ))}
-            </tbody>
-          </table>
-          <dl className="totals">
+            </ul>
+          </section>
+
+          <dl className="totals od-totals">
             <dt>Subtotal</dt>
             <dd>{brl(order.subtotal)}</dd>
             {toCents(order.discount) > 0 && (
@@ -209,7 +242,7 @@ export function OrderDetailModal({
             )}
             {toCents(order.deliveryFee) > 0 && (
               <>
-                <dt>Entrega</dt>
+                <dt>Taxa de entrega</dt>
                 <dd>{brl(order.deliveryFee)}</dd>
               </>
             )}
@@ -217,23 +250,28 @@ export function OrderDetailModal({
             <dd className="totals__grand">{brl(order.total)}</dd>
             <dt>Pago</dt>
             <dd>{brl(order.paidAmount)}</dd>
-            <dt>Saldo</dt>
-            <dd>{brl(order.balance)}</dd>
+            <dt>
+              <strong>Falta pagar</strong>
+            </dt>
+            <dd>
+              <strong>{brl(order.balance)}</strong>
+            </dd>
           </dl>
 
           {order.payments && order.payments.length > 0 && (
-            <div>
-              <h3 className="section-title">Pagamentos</h3>
-              <ul className="plain-list">
+            <section className="od-section">
+              <h3 className="od-section__title">Pagamentos</h3>
+              <ul className="od-rows">
                 {order.payments.map((p) => (
                   <li key={p.id}>
-                    <span>
-                      {PAYMENT_METHOD_LABELS[p.method]} · {dateTime(p.createdAt)}
-                      {toCents(p.refundedAmount) > 0 && (
-                        <Badge tone="warning">estornado {brl(p.refundedAmount)}</Badge>
-                      )}
-                    </span>
-                    <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <div>
+                      <strong>{PAYMENT_METHOD_LABELS[p.method]}</strong>
+                      <div className="od-item__sub">
+                        {dateTime(p.createdAt)}
+                        {toCents(p.refundedAmount) > 0 && ` · estornado ${brl(p.refundedAmount)}`}
+                      </div>
+                    </div>
+                    <span className="od-rows__end">
                       <strong>{brl(p.amount)}</strong>
                       {canRefund && toCents(p.amount) > toCents(p.refundedAmount) && (
                         <Button variant="ghost" onClick={() => setMode({ refund: p })}>
@@ -244,7 +282,7 @@ export function OrderDetailModal({
                   </li>
                 ))}
               </ul>
-            </div>
+            </section>
           )}
 
           <FiscalSection
@@ -305,77 +343,79 @@ export function OrderDetailModal({
           )}
 
           {!mode && (
-            <div className="actions-row order-actions">
-              {(NEXT[order.status] ?? [])
-                .filter((a) => canTransition(order.status, a.to, order.channel))
-                .map((a) => (
-                  <Button
-                    key={a.to}
-                    variant={order.status === 'awaiting' ? 'primary' : 'secondary'}
-                    loading={busy}
-                    onClick={() => go(a.to)}
-                  >
-                    {a.label}
+            <div className="od-actions">
+              {!mode && (
+                <div className="actions-row order-actions">
+                  {(NEXT[order.status] ?? [])
+                    .filter((a) => canTransition(order.status, a.to, order.channel))
+                    .map((a) => (
+                      <Button
+                        key={a.to}
+                        variant={order.status === 'awaiting' ? 'primary' : 'secondary'}
+                        loading={busy}
+                        onClick={() => go(a.to)}
+                      >
+                        {a.label}
+                      </Button>
+                    ))}
+                  {order.status === 'awaiting' && canWrite && (
+                    <Button variant="danger" onClick={() => setMode('reject')}>
+                      Recusar
+                    </Button>
+                  )}
+                  {order.channel === 'delivery' && order.status === 'ready' && canDispatch && (
+                    <Button onClick={() => setMode('dispatch')}>Despachar entregador</Button>
+                  )}
+                  {canPay && order.status !== 'cancelled' && toCents(order.balance) > 0 && (
+                    <Button onClick={() => setPaying(true)}>Receber {brl(order.balance)}</Button>
+                  )}
+                  {!['completed', 'cancelled', 'awaiting'].includes(order.status) && (
+                    <Button variant="secondary" onClick={() => setMode('adjust')}>
+                      Desconto/acréscimo
+                    </Button>
+                  )}
+                  {!['completed', 'cancelled', 'cancel_requested', 'awaiting'].includes(
+                    order.status,
+                  ) && (
+                    <Button variant="danger" onClick={() => setMode('cancel')}>
+                      {canCancel ? 'Cancelar' : 'Solicitar cancelamento'}
+                    </Button>
+                  )}
+                  {order.status === 'cancel_requested' && canCancel && (
+                    <Button variant="danger" onClick={() => setMode('cancel')}>
+                      Aprovar cancelamento
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {!mode && canPrint && order.status !== 'cancelled' && (
+                <div className="actions-row order-actions">
+                  <Button variant="secondary" loading={printing} onClick={() => print('kitchen')}>
+                    Reimprimir cozinha
                   </Button>
-                ))}
-              {order.status === 'awaiting' && canWrite && (
-                <Button variant="danger" onClick={() => setMode('reject')}>
-                  Recusar
-                </Button>
-              )}
-              {order.channel === 'delivery' && order.status === 'ready' && canDispatch && (
-                <Button onClick={() => setMode('dispatch')}>Despachar entregador</Button>
-              )}
-              {canPay && order.status !== 'cancelled' && toCents(order.balance) > 0 && (
-                <Button onClick={() => setPaying(true)}>Receber {brl(order.balance)}</Button>
-              )}
-              {!['completed', 'cancelled', 'awaiting'].includes(order.status) && (
-                <Button variant="secondary" onClick={() => setMode('adjust')}>
-                  Desconto/acréscimo
-                </Button>
-              )}
-              {!['completed', 'cancelled', 'cancel_requested', 'awaiting'].includes(
-                order.status,
-              ) && (
-                <Button variant="danger" onClick={() => setMode('cancel')}>
-                  {canCancel ? 'Cancelar' : 'Solicitar cancelamento'}
-                </Button>
-              )}
-              {order.status === 'cancel_requested' && canCancel && (
-                <Button variant="danger" onClick={() => setMode('cancel')}>
-                  Aprovar cancelamento
-                </Button>
+                  <Button variant="secondary" loading={printing} onClick={() => print('receipt')}>
+                    Imprimir conferência
+                  </Button>
+                </div>
               )}
             </div>
           )}
 
-          {!mode && canPrint && order.status !== 'cancelled' && (
-            <div className="actions-row order-actions">
-              <Button variant="secondary" loading={printing} onClick={() => print('kitchen')}>
-                Reimprimir cozinha
-              </Button>
-              <Button variant="secondary" loading={printing} onClick={() => print('receipt')}>
-                Imprimir conferência
-              </Button>
-            </div>
-          )}
-
-          {order.history && (
-            <details>
-              <summary className="cm-hint">Histórico</summary>
-              <ul className="plain-list">
+          {order.history && order.history.length > 0 && (
+            <details className="od-section od-history">
+              <summary className="od-section__title">Histórico</summary>
+              <ol className="od-timeline">
                 {order.history.map((h, i) => (
                   <li key={i}>
-                    <span>
-                      {ORDER_STATUS_LABELS[h.to]}{' '}
-                      {h.reason && <span className="cm-hint">— {h.reason}</span>}
+                    <strong>{ORDER_STATUS_LABELS[h.to]}</strong>
+                    <span className="od-item__sub">
+                      {[h.actorName, dateTime(h.at)].filter(Boolean).join(' · ')}
                     </span>
-                    <span className="cm-hint">
-                      {h.actorName} · {dateTime(h.at)}
-                    </span>
+                    {h.reason && <span className="od-item__sub">{h.reason}</span>}
                   </li>
                 ))}
-              </ul>
+              </ol>
             </details>
           )}
           <PaymentModal
@@ -390,6 +430,16 @@ export function OrderDetailModal({
         </div>
       )}
     </Frame>
+  );
+}
+
+/** Rótulo pequeno em cima, valor embaixo (bloco de informações do pedido). */
+function Fact({ label, wide, children }: { label: string; wide?: boolean; children: ReactNode }) {
+  return (
+    <div className="od-fact" data-wide={wide || undefined}>
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
   );
 }
 

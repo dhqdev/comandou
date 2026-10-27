@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.35.2',
+    date: '2026-10-27',
+    title: 'Detalhe do pedido mais organizado',
+    summary:
+      'O painel do pedido que abre de lado ficou mais limpo: informações em blocos com rótulo pequeno em cima, endereço e contato em texto menor, sem etiquetas coloridas e com negrito só no que importa.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Status, pagamento, tipo e horário do pedido no topo, e um bloco do cliente com nome, telefone, endereço, forma de pagamento e observação.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Itens alinhados com quantidade, adicionais e observação logo abaixo do nome; totais, pagamentos, nota fiscal e ações separados por linhas finas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Histórico em linha do tempo, com quem mudou e quando. Funciona igual no notebook e no celular.',
+      },
+    ],
+  },
+  {
     version: '0.35.1',
     date: '2026-10-26',
     title: 'Atualizar limpa o cache',
