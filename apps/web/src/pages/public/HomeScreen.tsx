@@ -19,13 +19,22 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
-import { CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  CSSProperties,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Button, Mascot, Modal } from '../../design-system';
 import { brl } from '../../lib/money';
 import { useStore } from './context';
 import { setMorph } from './morph';
 import { PublicBanner, PublicProduct, recentOrders } from './store';
+import { LoopRail } from './LoopRail';
 import { LoyaltyStrip } from './LoyaltyScreens';
 import { ReserveCard } from './ReservationScreens';
 import { HeartButton, Photo } from './ui';
@@ -126,44 +135,30 @@ function ProductGrid({ list }: { list: PublicProduct[] }) {
   );
 }
 
-/** Banners com rolagem por toque, encaixe e troca automática a cada 5 s. */
+/** Banners que dão a volta sem fim (para os dois lados) e trocam sozinhos a cada 5 s. */
 function Banners({ banners, onPick }: { banners: PublicBanner[]; onPick(b: PublicBanner): void }) {
-  const ref = useRef<HTMLDivElement>(null);
   const [cur, setCur] = useState(0);
-  const paused = useRef(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || banners.length < 2) return;
-    const onScroll = () => setCur(Math.round(el.scrollLeft / el.clientWidth));
-    el.addEventListener('scroll', onScroll, { passive: true });
-    const id = window.setInterval(() => {
-      if (paused.current || document.visibilityState !== 'visible') return;
-      const next = (Math.round(el.scrollLeft / el.clientWidth) + 1) % banners.length;
-      el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' });
-    }, 5000);
-    return () => {
-      el.removeEventListener('scroll', onScroll);
-      window.clearInterval(id);
-    };
-  }, [banners.length]);
+  const onIndex = useCallback((i: number) => setCur(i), []);
   if (!banners.length) return null;
   return (
-    <section className="banners" aria-label="Promoções">
-      <div
-        className="banners__track"
-        ref={ref}
-        onPointerDown={() => (paused.current = true)}
-        onPointerLeave={() => (paused.current = false)}
-      >
-        {banners.map((b, i) => (
+    <section className="banners">
+      <LoopRail
+        className="banners__rail"
+        label="Promoções"
+        items={banners}
+        keyOf={(b) => b.id}
+        auto
+        interval={5000}
+        onIndex={onIndex}
+        render={(b, i, copy) => (
           <button
-            key={b.id}
             type="button"
             className="banner"
             data-img={b.imageUrl ? '' : undefined}
             style={{ '--i': i } as CSSProperties}
             onClick={() => onPick(b)}
             disabled={b.targetType === 'none'}
+            tabIndex={copy ? -1 : undefined}
           >
             {b.imageUrl && <img src={b.imageUrl} alt="" className="banner__img" loading="lazy" />}
             <span className="banner__text">
@@ -173,8 +168,8 @@ function Banners({ banners, onPick }: { banners: PublicBanner[]; onPick(b: Publi
               {b.cta && b.targetType !== 'none' && <span className="banner__cta">{b.cta}</span>}
             </span>
           </button>
-        ))}
-      </div>
+        )}
+      />
       {banners.length > 1 && (
         <div className="banners__dots" aria-hidden>
           {banners.map((b, i) => (
@@ -224,9 +219,15 @@ interface WheelItem {
 
 const flat = () => window.matchMedia?.('(min-width: 900px)').matches;
 
+/** Cópias das categorias lado a lado no celular: a do meio é a "de verdade"; as outras dão a volta. */
+const WHEEL_COPIES = 5;
+const WHEEL_MID = Math.floor(WHEEL_COPIES / 2);
+
 /**
  * Carrossel de categorias (como no PedidoJá): rola de lado, a do meio fica maior e é a que
  * aparece embaixo. Tocar numa categoria a traz para o meio; soltar a rolagem escolhe a do meio.
+ * No celular ele não tem fim: depois da última categoria vem a primeira de novo (a lista se
+ * repete e, quando a rolagem para, volta em silêncio para a cópia do meio).
  */
 function CategoryWheel({
   items,
@@ -243,11 +244,43 @@ function CategoryWheel({
   const frame = useRef(0);
   const curRef = useRef(cur);
   curRef.current = cur;
+  const canLoop = items.length > 2;
+  const [loop, setLoop] = useState(() => canLoop && !flat());
+  const copies = loop ? WHEEL_COPIES : 1;
 
-  const center = (id: string, behavior: ScrollBehavior) => {
+  /** Largura de uma volta inteira (uma cópia da lista). */
+  const period = () => {
     const t = track.current;
-    const el = t?.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`);
-    if (!t || !el) return;
+    if (!t || !loop) return 0;
+    const first = t.querySelector<HTMLElement>(`.wheel__item[data-copy="0"]`);
+    const next = t.querySelector<HTMLElement>(`.wheel__item[data-copy="1"]`);
+    return first && next ? next.offsetLeft - first.offsetLeft : 0;
+  };
+
+  /** Rolagem parada fora da cópia do meio: pula uma volta inteira (a tela fica igual). */
+  const recenter = () => {
+    const t = track.current;
+    const p = period();
+    if (!t || !p) return;
+    let x = t.scrollLeft;
+    while (x < p * (WHEEL_MID - 0.5)) x += p;
+    while (x >= p * (WHEEL_MID + 0.5)) x -= p;
+    if (Math.abs(x - t.scrollLeft) > 1) t.scrollTo({ left: x, behavior: 'instant' });
+  };
+
+  /** Leva a categoria ao meio, usando a cópia mais perto de onde a faixa está. */
+  const center = (id: string, behavior: ScrollBehavior, preferMiddle = false) => {
+    const t = track.current;
+    if (!t) return;
+    const all = [...t.querySelectorAll<HTMLElement>(`.wheel__item[data-id="${CSS.escape(id)}"]`)];
+    const mid = t.scrollLeft + t.clientWidth / 2;
+    const el = preferMiddle
+      ? (all.find((e) => e.dataset.copy === String(loop ? WHEEL_MID : 0)) ?? all[0])
+      : all.reduce<HTMLElement | undefined>((best, e) => {
+          const d = Math.abs(e.offsetLeft + e.offsetWidth / 2 - mid);
+          return !best || d < Math.abs(best.offsetLeft + best.offsetWidth / 2 - mid) ? e : best;
+        }, undefined);
+    if (!el) return;
     t.scrollTo({ left: el.offsetLeft - (t.clientWidth - el.offsetWidth) / 2, behavior });
   };
 
@@ -273,10 +306,13 @@ function CategoryWheel({
   };
 
   useLayoutEffect(() => {
-    center(curRef.current, 'instant');
+    center(curRef.current, 'instant', true);
     paint();
     const onResize = () => {
-      center(curRef.current, 'instant');
+      // Celular ↔ computador: no computador as categorias ficam lado a lado, sem repetir.
+      const want = canLoop && !flat();
+      if (want !== loop) return setLoop(want);
+      center(curRef.current, 'instant', true);
       paint();
     };
     window.addEventListener('resize', onResize);
@@ -285,7 +321,8 @@ function CategoryWheel({
       cancelAnimationFrame(frame.current);
       window.clearTimeout(settle.current);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loop, canLoop]);
   useEffect(() => setLive(cur), [cur]);
 
   const onScroll = () => {
@@ -299,14 +336,17 @@ function CategoryWheel({
     // Parou de rolar: a categoria do meio passa a ser a escolhida.
     window.clearTimeout(settle.current);
     settle.current = window.setTimeout(() => {
+      recenter();
       const id = paint();
       if (id && id !== curRef.current) onPick(id);
     }, 140);
   };
 
   const step = (dir: 1 | -1) => {
+    const n = items.length;
     const i = items.findIndex((c) => c.id === cur);
-    const next = items[Math.max(0, Math.min(items.length - 1, i + dir))];
+    const j = loop ? (i + dir + n) % n : Math.max(0, Math.min(n - 1, i + dir));
+    const next = items[j];
     if (next) {
       onPick(next.id);
       center(next.id, 'smooth');
@@ -321,50 +361,63 @@ function CategoryWheel({
           className="wheel__arrow wheel__arrow--prev"
           aria-label="Categoria anterior"
           onClick={() => step(-1)}
-          disabled={items[0]?.id === cur}
+          disabled={!loop && items[0]?.id === cur}
         >
           <ChevronLeft size={18} />
         </button>
         <div className="wheel__track" ref={track} onScroll={onScroll} role="tablist">
-          {items.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              role="tab"
-              data-id={c.id}
-              aria-selected={c.id === cur}
-              data-live={c.id === live || undefined}
-              aria-label={c.name}
-              title={c.name}
-              className="wheel__item"
-              onClick={() => {
-                onPick(c.id);
-                center(c.id, 'smooth');
-              }}
-            >
-              <span className="wheel__disc">
-                {c.icon ? (
-                  <c.icon size={24} />
-                ) : (
-                  <Photo
-                    src={c.imageUrl ?? c.products.find((p) => p.imageUrl)?.imageUrl ?? null}
-                    alt={c.name}
-                    className="wheel__photo"
-                  />
-                )}
-              </span>
-              <span className="wheel__name" aria-hidden>
-                {c.name}
-              </span>
-            </button>
-          ))}
+          {Array.from({ length: copies }, (_, k) =>
+            items.map((c) => {
+              const copy = loop && k !== WHEEL_MID;
+              return (
+                <button
+                  key={`${k}:${c.id}`}
+                  type="button"
+                  role="tab"
+                  data-id={c.id}
+                  data-copy={k}
+                  aria-hidden={copy || undefined}
+                  tabIndex={copy ? -1 : undefined}
+                  aria-selected={c.id === cur}
+                  data-live={c.id === live || undefined}
+                  aria-label={c.name}
+                  title={c.name}
+                  className="wheel__item"
+                  onClick={(e) => {
+                    onPick(c.id);
+                    const t = track.current;
+                    const el = e.currentTarget;
+                    t?.scrollTo({
+                      left: el.offsetLeft - (t.clientWidth - el.offsetWidth) / 2,
+                      behavior: 'smooth',
+                    });
+                  }}
+                >
+                  <span className="wheel__disc">
+                    {c.icon ? (
+                      <c.icon size={24} />
+                    ) : (
+                      <Photo
+                        src={c.imageUrl ?? c.products.find((p) => p.imageUrl)?.imageUrl ?? null}
+                        alt={c.name}
+                        className="wheel__photo"
+                      />
+                    )}
+                  </span>
+                  <span className="wheel__name" aria-hidden>
+                    {c.name}
+                  </span>
+                </button>
+              );
+            }),
+          )}
         </div>
         <button
           type="button"
           className="wheel__arrow wheel__arrow--next"
           aria-label="Próxima categoria"
           onClick={() => step(1)}
-          disabled={items[items.length - 1]?.id === cur}
+          disabled={!loop && items[items.length - 1]?.id === cur}
         >
           <ChevronRight size={18} />
         </button>
