@@ -516,21 +516,70 @@
 .banners {
   margin-top: 16px;
 }
-.banners__track {
+/* Faixa sem fim (LoopRail): a lista se repete e volta para a cópia do meio ao parar. */
+.loop {
+  position: relative;
+}
+.loop__track {
   display: flex;
   gap: 12px;
   overflow-x: auto;
-  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.loop__track::-webkit-scrollbar {
+  display: none;
+}
+.loop__item {
+  flex: none;
+  min-width: 0;
+}
+.loop__arrow {
+  display: none;
+}
+@media (hover: hover) and (min-width: 900px) {
+  .loop__arrow {
+    position: absolute;
+    top: 50%;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--cm-border);
+    background: var(--cm-surface);
+    color: var(--cm-text);
+    box-shadow: var(--cm-shadow-md);
+    cursor: pointer;
+    opacity: 0;
+    translate: 0 -50%;
+    transition: opacity var(--cm-dur) var(--cm-ease);
+  }
+  .loop:hover .loop__arrow,
+  .loop__arrow:focus-visible {
+    opacity: 1;
+  }
+  .loop__arrow--prev {
+    left: 10px;
+  }
+  .loop__arrow--next {
+    right: 10px;
+  }
+}
+.banners__rail .loop__track {
+  scroll-snap-type: x mandatory;
   border-radius: var(--sf-r-lg);
 }
-.banners__track::-webkit-scrollbar {
-  display: none;
+.banners__rail .loop__item {
+  flex: 0 0 100%;
+  display: flex;
+  scroll-snap-align: center;
 }
 .banner {
   position: relative;
-  flex: 0 0 100%;
-  scroll-snap-align: center;
+  width: 100%;
   min-height: 140px;
   max-height: 240px;
   aspect-ratio: 16 / 6;
