@@ -991,6 +991,7 @@ export class FiscalService implements OnModuleInit {
    */
   async request(ctx: Ctx, orderId: string, body: NfceRequest = {}) {
     let send = false;
+    let again = false;
     const doc = await this.db.withTenant(ctx, async (tx) => {
       const o = await this.orders.lock(tx, orderId);
       const live = await one<{ id: string; kind: FiscalKind; status: FiscalStatus }>(
@@ -1069,9 +1070,11 @@ export class FiscalService implements OnModuleInit {
         'send',
       );
       send = r.status === 'pending';
+      again = !!prev;
       return r;
     });
-    if (send) await this.enqueue(ctx.tenantId, doc.id, EMIT_JOB);
+    // Reemissão da mesma nota: o id do trabalho precisa ser novo, senão a fila descarta como duplicado.
+    if (send) await this.enqueue(ctx.tenantId, doc.id, EMIT_JOB, again);
     this.changed(ctx.tenantId, doc.id, orderId);
     return this.get(ctx, doc.id);
   }
