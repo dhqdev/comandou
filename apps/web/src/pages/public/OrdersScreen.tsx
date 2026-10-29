@@ -1,3 +1,4 @@
+import { Spinner } from '../../design-system';
 import { ChevronRight, ReceiptText } from 'lucide-react';
 import { CSSProperties, useEffect, useState } from 'react';
 import { Link } from 'react-router';
@@ -48,11 +49,7 @@ export function OrdersScreen() {
           error ? (
             <p className="form-error">{error}</p>
           ) : (
-            <div className="olist">
-              {[0, 1, 2].map((i) => (
-                <div key={i} className="sk sk--order" />
-              ))}
-            </div>
+            <Spinner />
           )
         ) : orders.length === 0 ? (
           <div className="empty-state">

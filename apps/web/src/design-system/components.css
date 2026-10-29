@@ -524,20 +524,73 @@ input[type='radio'] {
 .cm-item-line > :last-child {
   min-width: 0;
 }
-.cm-skeleton {
-  border-radius: var(--cm-radius-xs);
-  background: linear-gradient(
-    90deg,
-    var(--cm-surface-sunken) 25%,
-    var(--cm-surface-muted) 50%,
-    var(--cm-surface-sunken) 75%
-  );
-  background-size: 200% 100%;
-  animation: cm-shimmer 1.3s infinite linear;
+/* Carregamento único (Spinner): ícone da loja pulsando num anel fino. Começa invisível e só
+   aparece depois de 350 ms: carga rápida e troca de tela não mostram nada. */
+.cm-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 96px;
+  padding: var(--cm-space-4);
+  animation: cm-loader-in 0.2s var(--cm-ease) 0.35s both;
 }
-@keyframes cm-shimmer {
-  to {
-    background-position: -200% 0;
+.cm-loader__mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+}
+.cm-loader__mark::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--cm-border);
+  border-top-color: var(--cm-text-muted);
+  animation: cm-spin 0.9s linear infinite;
+}
+.cm-loader__mark img {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  object-fit: cover;
+  animation: cm-loader-pulse 1.2s ease-in-out infinite;
+}
+.cm-loader--inline {
+  width: auto;
+  min-height: 0;
+  padding: 0;
+}
+.cm-loader--inline .cm-loader__mark {
+  width: 22px;
+  height: 22px;
+}
+.cm-loader--inline .cm-loader__mark img {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+.cm-loader-box {
+  display: grid;
+  place-items: center;
+}
+@keyframes cm-loader-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes cm-loader-pulse {
+  50% {
+    transform: scale(0.86);
+    opacity: 0.7;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-loader__mark::before,
+  .cm-loader__mark img {
+    animation-duration: 2.4s;
   }
 }
 
@@ -1133,9 +1186,10 @@ input[type='radio'] {
 .cm-glider[data-dir='back'] {
   transition-delay: 0ms, 70ms, 0ms, 70ms, 0ms;
 }
+/* Escolha marcada: tom suave da cor da loja com contorno, sem bloco forte de cor. */
 .cm-glider--brand {
-  background: var(--cm-brand-600);
-  border-color: transparent;
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
   backdrop-filter: none;
 }
 
@@ -1408,5 +1462,49 @@ input[type='radio'] {
   }
   .cm-search input {
     font-size: 16px;
+  }
+}
+
+/* =============================================================== Botões alinhados
+ * Em todas as telas (computador): botões lado a lado ficam numa linha só, com a mesma altura e o
+ * mesmo contorno. Nas tabelas, as ações da linha (Editar, Esgotar, Pagar, Cancelar…) usam o
+ * botão pequeno com contorno, sem quebrar a linha.
+ */
+@media (min-width: 641px) {
+  .actions-row,
+  .cm-modal__footer,
+  .side-panel__foot {
+    align-items: center;
+  }
+  .actions-row > .cm-btn,
+  .cm-modal__footer .cm-btn,
+  .page-head .cm-btn,
+  .cm-card__header .cm-btn {
+    white-space: nowrap;
+  }
+  .cm-modal__footer {
+    flex-wrap: nowrap;
+  }
+  .cm-table td .cm-btn {
+    min-height: 30px;
+    height: 30px;
+    padding: 0 10px;
+    font-size: var(--cm-text-xs);
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .cm-table td .cm-btn--icon {
+    width: 30px;
+    padding: 0;
+  }
+  .cm-table td .cm-btn--ghost {
+    border-color: var(--cm-border);
+    color: var(--cm-text);
+  }
+  .cm-table td:has(> .cm-btn) {
+    white-space: nowrap;
+  }
+  .cm-table td > .cm-btn + .cm-btn {
+    margin-left: 6px;
   }
 }

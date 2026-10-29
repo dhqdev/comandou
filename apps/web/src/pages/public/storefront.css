@@ -2579,3 +2579,10 @@
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
+
+/* Abrindo o cardápio: só o carregamento único (ícone da loja), centralizado. */
+.sf--loading {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+}

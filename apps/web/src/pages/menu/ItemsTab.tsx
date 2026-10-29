@@ -229,8 +229,7 @@ export function ItemsTab() {
         >
           {categories === null ? (
             <div style={{ padding: 16, display: 'grid', gap: 8 }}>
-              <Skeleton height={36} />
-              <Skeleton height={36} />
+              <Skeleton height={80} />
             </div>
           ) : categories.length === 0 ? (
             <EmptyState title="Sem categorias" />
