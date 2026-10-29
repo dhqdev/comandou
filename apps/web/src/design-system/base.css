@@ -180,3 +180,18 @@ svg {
     transition-duration: 1ms !important;
   }
 }
+
+/* Teclado aberto no celular (viewport.ts): o iPhone desliza a parte visível para cima e cobre o
+   resto. Toda janela fica presa ao retângulo que sobrou, sem topo cortado, sem rodapé atrás do
+   teclado e sem o fundo aparecendo por baixo. As alturas usam --cm-vvh para caber nele. */
+html.cm-kb-open dialog:modal,
+html.cm-kb-open .tc-panel {
+  top: var(--cm-vvtop, 0px);
+  bottom: var(--cm-kb, 0px);
+  max-height: var(--cm-vvh, 100dvh);
+}
+/* Folhas que sobem de baixo: um respiro em cima para a alça continuar à vista. */
+html.cm-kb-open .cm-modal:modal,
+html.cm-kb-open .cm-sheet:modal {
+  max-height: calc(var(--cm-vvh, 100dvh) - 12px);
+}

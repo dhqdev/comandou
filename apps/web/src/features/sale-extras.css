@@ -642,7 +642,6 @@
     bottom: 0;
     z-index: 2;
     background: var(--cm-surface);
-    padding-bottom: max(var(--cm-space-4), env(safe-area-inset-bottom));
-    margin-bottom: var(--cm-kb, 0px);
+    padding-bottom: max(var(--cm-space-4), var(--cm-sab));
   }
 }

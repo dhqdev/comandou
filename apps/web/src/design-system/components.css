@@ -812,14 +812,14 @@ input[type='radio'] {
 /* No celular o modal vira uma folha que sobe de baixo (mesmo padrão do Planejai): alça em cima,
    título sem risco, rolagem só no corpo e um rodapé fixo com os botões grandes. O botão
    principal ocupa o espaço que sobra; Cancelar e afins ficam do tamanho do texto ao lado.
-   Com o teclado aberto, a folha sobe junto (--cm-kb, ver viewport.ts) e o rodapé não some. */
+   Com o teclado aberto, a folha fica presa à parte visível da tela (base.css, viewport.ts). */
 @media (max-width: 640px) {
   .cm-modal,
   .cm-modal--lg,
   .cm-modal--xl {
     width: 100vw;
     max-width: 100vw;
-    margin: auto 0 var(--cm-kb, 0px);
+    margin: auto 0 0;
     border: 0;
     border-radius: var(--cm-radius-lg) var(--cm-radius-lg) 0 0;
     max-height: calc(var(--cm-vvh, 100dvh) - env(safe-area-inset-top) - 12px);

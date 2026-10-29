@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.58.1',
+    date: '2026-10-29',
+    title: 'Janelas do celular não quebram mais com o teclado',
+    summary:
+      'No iPhone, abrir o teclado dentro de uma janela (Nova venda, formulários, busca, chat) cortava os campos e mostrava a tela de trás. Agora a janela fica presa à parte visível da tela.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Com o teclado aberto, janelas e folhas acompanham a parte visível da tela: o topo não some, o total e os botões ficam logo acima do teclado e não sobra espaço em branco nem o fundo aparecendo.',
+      },
+    ],
+  },
+  {
     version: '0.58.0',
     date: '2026-10-29',
     title: 'Panda maior no topo, rosto novo e só preto e branco',
