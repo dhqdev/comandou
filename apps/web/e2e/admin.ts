@@ -23,14 +23,14 @@ function base32(s: string) {
   }
   return Buffer.from(out);
 }
-function totp(step: number) {
+export function totp(step: number) {
   const c = Buffer.alloc(8);
   c.writeBigUInt64BE(BigInt(step));
   const h = createHmac('sha1', base32(ADMIN_TOTP)).update(c).digest();
   const o = h[h.length - 1] & 15;
   return String((h.readUInt32BE(o) & 0x7fffffff) % 1_000_000).padStart(6, '0');
 }
-const stepNow = () => Math.floor(Date.now() / 30_000);
+export const stepNow = () => Math.floor(Date.now() / 30_000);
 
 /** Cada código vale uma vez: tenta o passo atual e o próximo; se já foram usados, espera. */
 export async function adminLogin(page: Page) {

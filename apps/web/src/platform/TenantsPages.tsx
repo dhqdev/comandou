@@ -11,7 +11,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { Alert, Button, Modal, Spinner, TextField, useToast, Select } from '../design-system';
 import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
@@ -251,7 +251,11 @@ export function TenantDetailPage() {
   }, [error]);
   const plans = useLoad<Plan[]>('/platform/plans').data ?? [];
   const { open, busy: opening, sheet } = useOpenTenant();
-  const [tab, setTab] = useState<DetailTab>('subscription');
+  // O e-mail "falta a sua assinatura" abre direto na aba Contrato (?aba=contrato&contrato=<id>).
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<DetailTab>(
+    params.get('aba') === 'contrato' ? 'contract' : 'subscription',
+  );
   const [sheetKind, setSheetKind] = useState<
     'suspended' | 'provisioned' | 'rename' | 'sessions' | null
   >(null);
@@ -492,7 +496,9 @@ export function TenantDetailPage() {
         )}
 
         {tab === 'profile' && <ProfilePanel t={t} onSaved={setData} />}
-        {tab === 'contract' && <ContractsPanel t={t} />}
+        {tab === 'contract' && (
+          <ContractsPanel t={t} initialOpen={params.get('contrato') ?? undefined} />
+        )}
         {tab === 'database' && <DatabasePanel t={t} onChanged={setData} />}
         {tab === 'operation' && <OperationPanel id={t.id} team={team.data} />}
         {tab === 'usage' && <ConsumptionPanel id={t.id} />}

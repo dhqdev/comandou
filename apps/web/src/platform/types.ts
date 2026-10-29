@@ -409,7 +409,13 @@ export interface BackupTestResult {
 }
 
 // ------------------------------------------------------------------ contratos
-export type ContractStatus = 'draft' | 'sent' | 'viewed' | 'signed' | 'cancelled';
+export type ContractStatus = 'draft' | 'sent' | 'viewed' | 'client_signed' | 'signed' | 'cancelled';
+
+export interface ContractGeo {
+  lat: number;
+  lng: number;
+  accuracy: number;
+}
 
 export interface ContractParty {
   role: 'CONTRATADA' | 'CONTRATANTE';
@@ -422,7 +428,7 @@ export interface ContractParty {
 
 /** Texto congelado do contrato (o mesmo do PDF). Item em lista = alíneas do parágrafo anterior. */
 export interface ContractContent {
-  version: 1;
+  version: 1 | 2;
   number: string;
   title: string;
   issuedAt: string;
@@ -463,7 +469,18 @@ export interface ContractRow {
   signerName: string | null;
   signerDocument: string | null;
   signerIp: string | null;
+  signerUserAgent: string | null;
+  signerGeo: ContractGeo | null;
   signatureKind: 'drawn' | 'typed' | null;
+  clientEvidenceSha256: string | null;
+  countersignDeadline: string | null;
+  countersignedAt: string | null;
+  countersignerName: string | null;
+  countersignerDocument: string | null;
+  countersignerEmail: string | null;
+  countersignerIp: string | null;
+  countersignKind: 'drawn' | 'typed' | null;
+  trailSha256: string | null;
   notifiedAt: string | null;
   notifyError: string | null;
   cancelledAt: string | null;
@@ -478,11 +495,30 @@ export interface ContractEvent {
   userAgent: string | null;
   data: Record<string, unknown>;
   createdAt: string;
+  hash: string | null;
 }
 
 export interface ContractDetail extends ContractRow {
   content: ContractContent;
   events: ContractEvent[];
+  clientSignature: { kind: 'drawn'; image: string } | { kind: 'typed'; text: string } | null;
+  integrity: {
+    trailOk: boolean;
+    chainedEvents: number;
+    lastHash: string | null;
+    clientEvidenceOk: boolean | null;
+  };
+}
+
+/** Assinado pelo cliente, esperando a contratada. */
+export interface PendingContract {
+  id: string;
+  tenantId: string;
+  tenantName: string;
+  number: string;
+  signerName: string;
+  signedAt: string;
+  deadline: string;
 }
 
 export interface ContractSettings {
@@ -491,6 +527,7 @@ export interface ContractSettings {
   providerAddress: string;
   providerEmail: string;
   providerRepresentative: string;
+  providerRepresentativeDocument: string;
   forumCity: string;
   dueDay: number;
   termMonths: number;
@@ -519,5 +556,7 @@ export interface PublicContract {
   readAt: string | null;
   signedAt: string | null;
   signerName: string | null;
+  countersignedAt: string | null;
+  countersignDeadline: string | null;
   content: ContractContent;
 }

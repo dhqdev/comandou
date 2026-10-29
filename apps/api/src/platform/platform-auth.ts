@@ -176,6 +176,35 @@ export class PlatformAuthService {
       });
   }
 
+  /**
+   * Confirmação de uma ação sensível (como assinar um contrato) com o código do autenticador,
+   * mesmo num navegador confiável. Código já usado é recusado, como no login.
+   */
+  async confirmCode(adminId: string, code: string): Promise<boolean> {
+    if (!this.env.INTEGRATIONS_KEY || !/^[0-9]{6}$/.test(code)) return false;
+    const [a] = await this.db.query<{ totp_secret_enc: Buffer }>(
+      `SELECT totp_secret_enc FROM platform_admins WHERE id = $1 AND disabled_at IS NULL`,
+      [adminId],
+    );
+    if (!a) return false;
+    let step: number | null = null;
+    try {
+      step = verifyTotp(
+        open(this.env.INTEGRATIONS_KEY, a.totp_secret_enc, totpContext(adminId)),
+        code,
+      );
+    } catch {
+      return false;
+    }
+    if (step === null) return false;
+    const r = await this.db.query(
+      `UPDATE platform_admins SET totp_last_step = $2 WHERE id = $1 AND totp_last_step < $2
+       RETURNING id`,
+      [adminId, step],
+    );
+    return r.length === 1;
+  }
+
   /** Id do navegador confiável (cookie válido, do mesmo admin, não revogado), ou null. */
   async trustedDevice(token: string | undefined, adminId?: string): Promise<string | null> {
     const d = await this.deviceOwner(token);
