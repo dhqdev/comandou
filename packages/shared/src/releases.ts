@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.50.2',
+    date: '2026-10-29',
+    title: 'Panda sem roupinhas e sem o canto da tela',
+    summary:
+      'Saíram o panda grande que ficava no canto da tela e as roupinhas. O panda do topo e o das telas vazias e do chat continuam com o desenho novo.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Removidos o panda flutuante do canto e o guarda-roupa com as roupinhas.',
+      },
+    ],
+  },
+  {
     version: '0.50.1',
     date: '2026-10-29',
     title: 'Ajustes visuais: botões do pedido, busca e troca de tema',
