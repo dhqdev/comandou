@@ -451,6 +451,9 @@ export interface ContractContent {
 }
 
 export interface ContractRow {
+  /** Fim da vigência (AAAA-MM-DD); o contrato é reassinado todo ano. */
+  validUntil?: string | null;
+  startDate?: string;
   id: string;
   tenantId: string;
   number: string;

@@ -52,6 +52,7 @@ import { AiSettingsBody, PlatformAiService, TenantAiBody } from './platform-ai.s
 import { PlatformDatabasesService } from './platform-databases.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
 import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
+import { BillingService } from '../billing/billing.service';
 
 const actor = (req: Request): Actor => ({ admin: req.platformAdmin!, ip: req.ip });
 
@@ -138,6 +139,7 @@ export class PlatformController {
     private readonly svc: PlatformService,
     private readonly backup: PlatformBackupService,
     private readonly databases: PlatformDatabasesService,
+    private readonly billing: BillingService,
   ) {}
 
   @Get('overview')
@@ -211,12 +213,15 @@ export class PlatformController {
   }
 
   @Put('tenants/:id/subscription')
-  setSubscription(
+  async setSubscription(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Body(new ZodPipe(SubscriptionChange)) b: z.infer<typeof SubscriptionChange>,
     @Req() req: Request,
   ) {
-    return this.svc.setSubscription(id, b, actor(req));
+    const r = await this.svc.setSubscription(id, b, actor(req));
+    // Período pago ou situação mudou: o bloqueio automático é conferido na hora.
+    await this.billing.refresh(id);
+    return r;
   }
 
   @Get('consumption')

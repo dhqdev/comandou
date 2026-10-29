@@ -238,3 +238,18 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* Aviso da cobrança (BillingBanner). */
+.billing-banner[data-level='info'] {
+  background: var(--cm-info-bg);
+  color: var(--cm-info);
+}
+.billing-banner[data-level='blocked'] {
+  background: var(--cm-danger-bg);
+  color: var(--cm-danger);
+}
+.billing-banner a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}

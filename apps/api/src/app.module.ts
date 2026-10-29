@@ -23,6 +23,9 @@ import { HealthModule } from './health/health.module';
 import { MaintenanceModule } from './maintenance/maintenance.service';
 import { PlansModule } from './plans/plans.module';
 import { PlatformModule } from './platform/platform.module';
+import { PlatformDbModule } from './platform/platform-db.module';
+import { BillingModule } from './billing/billing.module';
+import { BillingGuard } from './billing/billing.guard';
 import { OperationsModule } from './orders/operations.module';
 import { QueueModule } from './queue/queue.module';
 import { RealtimeModule } from './realtime/realtime.module';
@@ -92,18 +95,22 @@ export class AppModule {
         ChatModule,
         DomainsModule,
         HealthModule,
+        PlatformDbModule,
+        BillingModule,
         PlatformModule,
         MaintenanceModule,
       ],
       providers: [
         { provide: ENV, useValue: env },
         ThrottleStorageLifecycle,
-        // Ordem importa: rate limit → CSRF → tenant → sessão → permissão.
+        // Ordem importa: rate limit → CSRF → tenant → sessão → permissão → cobrança.
         { provide: APP_GUARD, useClass: ThrottlerGuard },
         { provide: APP_GUARD, useClass: CsrfGuard },
         { provide: APP_GUARD, useClass: TenantGuard },
         { provide: APP_GUARD, useClass: SessionGuard },
         { provide: APP_GUARD, useClass: PermissionGuard },
+        // Restaurante bloqueado pela cobrança: só lê, entra e paga.
+        { provide: APP_GUARD, useClass: BillingGuard },
         { provide: APP_FILTER, useClass: HttpExceptionFilter },
       ],
       exports: [ENV],

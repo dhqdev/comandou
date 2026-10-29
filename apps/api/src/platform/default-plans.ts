@@ -16,7 +16,7 @@ export const DEFAULT_PLANS = [
     featureFiscal: false,
     featureWhatsapp: true,
     featureCustomDomain: false,
-    trialDays: 14,
+    trialDays: 7,
     isDefault: true,
   },
   {
@@ -29,7 +29,7 @@ export const DEFAULT_PLANS = [
     featureFiscal: true,
     featureWhatsapp: true,
     featureCustomDomain: false,
-    trialDays: 14,
+    trialDays: 7,
     isDefault: false,
   },
   {
@@ -42,7 +42,7 @@ export const DEFAULT_PLANS = [
     featureFiscal: true,
     featureWhatsapp: true,
     featureCustomDomain: true,
-    trialDays: 14,
+    trialDays: 7,
     isDefault: false,
   },
 ] as const;

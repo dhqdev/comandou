@@ -55,6 +55,10 @@ const EVENT_LABEL: Record<string, string> = {
   cancelled: 'Cancelado',
 };
 
+/** AAAA-MM-DD do dia seguinte. */
+const nextDay = (d: string) =>
+  new Date(Date.parse(`${d}T12:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+
 const pdfUrl = (id: string, signed = false, download = false) =>
   `/api/v1/platform/contracts/${id}/pdf?${new URLSearchParams({
     ...(signed ? { signed: '1' } : {}),
@@ -125,6 +129,9 @@ export function ContractsPanel({ t, initialOpen }: { t: TenantDetail; initialOpe
                 </span>
                 <span className="adm-row__meta">
                   {c.planName} · {brl(c.priceMonthly)}/mês
+                  {c.validUntil
+                    ? ` · vale até ${new Date(`${c.validUntil}T12:00:00`).toLocaleDateString('pt-BR')}`
+                    : ''}
                   {c.signerEmail ? ` · ${c.signerEmail}` : ''}
                 </span>
               </span>
@@ -152,6 +159,13 @@ export function ContractsPanel({ t, initialOpen }: { t: TenantDetail; initialOpe
         <NewContractModal
           t={t}
           settings={s!}
+          renewFrom={
+            list.data
+              ?.filter((c) => c.status === 'signed' && c.validUntil)
+              .map((c) => c.validUntil!)
+              .sort()
+              .pop() ?? null
+          }
           onClose={() => setCreating(false)}
           onCreated={(c) => {
             setCreating(false);
@@ -184,9 +198,12 @@ function NewContractModal({
   settings,
   onClose,
   onCreated,
+  renewFrom,
 }: {
   t: TenantDetail;
   settings: ContractSettings;
+  /** Fim do contrato assinado atual: o novo começa no dia seguinte (renovação anual). */
+  renewFrom?: string | null;
   onClose: () => void;
   onCreated: (c: ContractDetail) => void;
 }) {
@@ -197,8 +214,8 @@ function NewContractModal({
     priceMonthly: '',
     setupFee: '',
     dueDay: String(settings.dueDay),
-    termMonths: String(settings.termMonths),
-    startDate: '',
+    termMonths: String(Math.min(12, settings.termMonths)),
+    startDate: renewFrom ? nextDay(renewFrom) : '',
     trialDays: '',
     signerEmail: t.profile.billingEmail ?? '',
     specialConditions: '',
@@ -297,7 +314,8 @@ function NewContractModal({
           label="Vigência (meses)"
           type="number"
           min={1}
-          max={60}
+          max={12}
+          hint="Até 12: o contrato é reassinado todo ano"
           value={f.termMonths}
           onChange={set('termMonths')}
           wrapClass="span-2"
@@ -307,7 +325,7 @@ function NewContractModal({
           type="date"
           value={f.startDate}
           onChange={set('startDate')}
-          hint="Vazio = hoje"
+          hint={renewFrom ? 'Renovação: começa quando o atual termina' : 'Vazio = hoje'}
           wrapClass="span-2"
         />
         <TextField
@@ -1057,7 +1075,7 @@ function ContractSettingsModal({
                 label="Vigência (meses)"
                 type="number"
                 min={1}
-                max={60}
+                max={12}
                 value={form.termMonths}
                 onChange={set('termMonths')}
                 wrapClass="span-2"

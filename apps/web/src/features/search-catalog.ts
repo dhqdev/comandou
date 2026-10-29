@@ -247,9 +247,9 @@ const SCREENS: StaticEntry[] = [
   {
     id: 's-plano',
     group: 'Telas',
-    title: 'Plano',
-    hint: 'Assinatura e uso do restaurante',
-    words: 'assinatura mensalidade pagamento limite',
+    title: 'Assinatura',
+    hint: 'Plano, pagamento, contrato e uso do restaurante',
+    words: 'plano mensalidade pagamento pix boleto cartão fatura limite contrato',
     icon: 'plan',
     to: '/plano',
     perms: ['plan:read'],

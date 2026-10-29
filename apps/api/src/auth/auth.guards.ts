@@ -8,7 +8,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Permission, roleHas } from '@comandou/shared';
 import type { Request } from 'express';
-import { PERMISSION, PUBLIC, SKIP_TENANT } from '../common/decorators';
+import { PERMISSION, PUBLIC, SKIP_CSRF, SKIP_TENANT } from '../common/decorators';
 import { SESSION_COOKIE, SessionService } from './session.service';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -21,9 +21,13 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
  */
 @Injectable()
 export class CsrfGuard implements CanActivate {
+  constructor(private readonly reflector: Reflector) {}
+
   canActivate(ctx: ExecutionContext): boolean {
     const req = ctx.switchToHttp().getRequest<Request>();
     if (SAFE_METHODS.has(req.method)) return true;
+    if (this.reflector.getAllAndOverride<boolean>(SKIP_CSRF, [ctx.getHandler(), ctx.getClass()]))
+      return true;
     if (req.get('x-comandou-request') !== '1') {
       throw new ForbiddenException('Requisição sem cabeçalho de proteção');
     }

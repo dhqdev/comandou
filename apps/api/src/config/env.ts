@@ -156,6 +156,10 @@ const schema = z.object({
   AUTH_ACCOUNT_LOCK_MINUTES: z.coerce.number().int().positive().default(15),
   /** Intervalo da limpeza de dados vencidos (sessões antigas, chaves de idempotência). 0 desliga. */
   MAINTENANCE_INTERVAL_MINUTES: z.coerce.number().int().min(0).default(360),
+  /** Ciclo da cobrança (faturas, vencidas, bloqueio automático). 0 desliga. */
+  BILLING_INTERVAL_MINUTES: z.coerce.number().int().min(0).default(30),
+  /** Endereço da API do Asaas (só para testes; o painel escolhe sandbox ou produção). */
+  ASAAS_BASE_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 

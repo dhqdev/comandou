@@ -18,6 +18,7 @@ import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
 import { AuditTable, useLoad } from './OverviewPages';
 import { ConsumptionPanel, OperationPanel } from './TenantInsights';
+import { TenantBillingPanel } from './TenantBilling';
 import { DatabasePanel, DatabaseProgress, dbBusy } from './TenantDatabase';
 import { NewTenantModal, ProfilePanel, TIMEZONES } from './NewTenant';
 import { ContractsPanel } from './TenantContracts';
@@ -489,9 +490,7 @@ export function TenantDetailPage() {
                 </Button>
               </div>
             </form>
-            <p className="adm-sub" style={{ whiteSpace: 'normal' }}>
-              A cobrança ainda é feita fora do sistema: registre aqui a situação do pagamento.
-            </p>
+            <TenantBillingPanel tenantId={t.id} />
           </div>
         )}
 

@@ -11,6 +11,7 @@ import {
   Server,
   Sparkles,
   Tags,
+  Wallet,
 } from 'lucide-react';
 import {
   createContext,
@@ -22,6 +23,7 @@ import {
   useState,
 } from 'react';
 import { CURRENT_RELEASE } from '@comandou/shared';
+import { BillingPage } from './BillingPage';
 import { BrowserRouter, Outlet, Route, Routes, useLocation } from 'react-router';
 import {
   Alert,
@@ -207,6 +209,7 @@ const NAV = [
   { to: '/servidor', label: 'Servidor', icon: Server },
   { to: '/fiscal', label: 'Fiscal', icon: FileText },
   { to: '/planos', label: 'Planos', icon: Tags },
+  { to: '/cobranca', label: 'Cobrança', icon: Wallet },
   { to: '/backups', label: 'Backups', icon: DatabaseBackup },
   { to: '/ia', label: 'IA', icon: Sparkles },
   { to: '/auditoria', label: 'Auditoria', icon: ScrollText },
@@ -358,6 +361,7 @@ function Gate() {
         <Route path="servidor" element={<ServerPage />} />
         <Route path="fiscal" element={<FiscalPage />} />
         <Route path="planos" element={<PlansPage />} />
+        <Route path="cobranca" element={<BillingPage />} />
         <Route path="backups" element={<BackupsPage />} />
         <Route path="ia" element={<AiPage />} />
         <Route path="auditoria" element={<AuditPage />} />

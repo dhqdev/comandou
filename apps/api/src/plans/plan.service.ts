@@ -134,11 +134,17 @@ export class PlanService {
     const cur = await this.current(tx);
     const limit = cur?.plan.limits[resource] ?? null;
     if (limit === null) return;
+    // Duas criações ao mesmo tempo não passam juntas do limite: uma espera a outra terminar.
+    await one(
+      tx,
+      `SELECT pg_advisory_xact_lock(hashtext(current_setting('app.tenant_id', true) || ':plan:' || $1::text))`,
+      [resource],
+    );
     const used = await this.usage(tx, resource);
     if (!withinLimit(limit, used, adding)) {
       throw new ForbiddenException(
         `Limite do plano ${cur!.plan.name} atingido: ${limit} ${RESOURCE_LABELS[resource]}. ` +
-          'Fale com o suporte para mudar de plano.',
+          'Suba de plano em Assinatura ou fale com o suporte.',
       );
     }
   }
@@ -151,7 +157,7 @@ export class PlanService {
   async assertFeature(tx: Tx, feature: PlanFeature): Promise<void> {
     if (!(await this.hasFeature(tx, feature))) {
       throw new ForbiddenException(
-        `Seu plano não inclui ${FEATURE_LABELS[feature]}. Fale com o suporte para mudar de plano.`,
+        `Seu plano não inclui ${FEATURE_LABELS[feature]}. Suba de plano em Assinatura ou fale com o suporte.`,
       );
     }
   }

@@ -144,10 +144,12 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await expect(page.getByLabel('Código do autenticador')).toBeVisible();
 });
 
-test('restaurante: tela Plano sem cadastro de domínio', async ({ page }, info) => {
+test('restaurante: tela Assinatura sem cadastro de domínio', async ({ page }, info) => {
   await enterPanel(page, EMAIL, PASSWORD);
-  await nav(page, 'Plano');
-  await expect(page.getByRole('heading', { name: 'Plano', exact: true, level: 1 })).toBeVisible();
+  await nav(page, 'Assinatura');
+  await expect(
+    page.getByRole('heading', { name: 'Assinatura', exact: true, level: 1 }),
+  ).toBeVisible();
   await expect(page.getByLabel('Domínio', { exact: true })).toHaveCount(0);
   await shot(page, info.project.name, 'plano');
 });

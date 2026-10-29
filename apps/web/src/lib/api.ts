@@ -8,6 +8,9 @@ export const TENANT_SUSPENDED_EVENT = 'cm:tenant-suspended';
 export const isSuspended = (body: unknown) =>
   (body as { code?: string } | undefined)?.code === 'tenant_suspended';
 
+/** Gravação recusada porque o restaurante está bloqueado pela cobrança. */
+export const BILLING_BLOCKED_EVENT = 'cm:billing-blocked';
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -48,6 +51,8 @@ export async function api<T>(
     const msg = (body as { message?: string } | undefined)?.message ?? `Erro ${res.status}`;
     // Restaurante suspenso no meio do uso: o app troca para a tela de aviso.
     if (isSuspended(body)) window.dispatchEvent(new Event(TENANT_SUSPENDED_EVENT));
+    if ((body as { code?: string } | undefined)?.code === 'billing_blocked')
+      window.dispatchEvent(new Event(BILLING_BLOCKED_EVENT));
     throw new ApiError(res.status, msg, body);
   }
   return body as T;

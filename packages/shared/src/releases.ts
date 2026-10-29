@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.53.0',
+    date: '2026-10-29',
+    title: 'Assinatura com pagamento por Pix, boleto e cartão',
+    summary:
+      'A mensalidade agora é cobrada pelo próprio sistema: 7 dias de teste, cada pagamento libera mais 30 dias e, sem pagamento, o sistema bloqueia sozinho até a fatura ser paga.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Tela Assinatura (antes Plano): quantos dias faltam, faturas, pagamento por Pix (QR Code e copia e cola), boleto ou cartão, e o contrato com a data de renovação.',
+      },
+      {
+        tag: 'novo',
+        text: 'Subir de plano pela própria tela: o plano novo vale na hora e só a diferença dos dias que faltam é cobrada à parte.',
+      },
+      {
+        tag: 'novo',
+        text: 'Bloqueio automático: sem pagamento até o fim do período, o sistema fica só para consulta (sem pedidos, vendas ou cadastros) e volta assim que o pagamento é confirmado. Nada é apagado.',
+      },
+      {
+        tag: 'novo',
+        text: 'Aviso no topo de todas as telas quando a fatura está para vencer, quando o sistema foi bloqueado e quando o contrato precisa ser renovado.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin › Cobrança: conta do Asaas (chave cifrada, webhook cadastrado com um clique), prazos, recebido e vencido no mês, situação de cada cliente; no restaurante, faturas com conferir, baixar e cancelar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Contrato renovado todo ano: vigência de até 12 meses, aviso 30 dias antes e o novo contrato já começa no dia seguinte ao fim do atual.',
+      },
+      {
+        tag: 'correção',
+        text: 'Limites do plano: duas criações ao mesmo tempo (produto, pessoa da equipe ou pedido) não passam mais juntas do limite.',
+      },
+    ],
+  },
+  {
     version: '0.52.1',
     date: '2026-10-29',
     title: 'Conferência de conta completa e telas sem travar no pico',

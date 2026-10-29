@@ -10,6 +10,14 @@ export const SkipTenant = () => SetMetadata(SKIP_TENANT, true);
 export const PUBLIC = 'cm:public';
 export const Public = () => SetMetadata(PUBLIC, true);
 
+/** Rota sem o cabeçalho anti-CSRF (webhook de terceiro, autenticado por token próprio). */
+export const SKIP_CSRF = 'cm:skip-csrf';
+export const SkipCsrf = () => SetMetadata(SKIP_CSRF, true);
+
+/** Rota que continua funcionando com o restaurante bloqueado pela cobrança (entrar, pagar). */
+export const ALLOW_BLOCKED = 'cm:allow-blocked';
+export const AllowWhenBlocked = () => SetMetadata(ALLOW_BLOCKED, true);
+
 export const PERMISSION = 'cm:permission';
 /** Exige ao menos UMA das permissões informadas. */
 export const RequirePermission = (...p: [Permission, ...Permission[]]) =>

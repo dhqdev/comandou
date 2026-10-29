@@ -53,6 +53,11 @@ e assinado pelas duas partes: primeiro o cliente (CONTRATANTE), depois a platafo
 11. **Nada é apagado.** Contratos e eventos só recebem inserções (o papel do painel não tem
     DELETE), e toda ação também vai para a auditoria do painel.
 
+12. **Renovação anual.** O contrato vale no máximo 12 meses (`valid_until`) e é reassinado todo
+    ano. O painel avisa 30 dias antes e, em "Gerar contrato", o novo começa no dia seguinte ao fim
+    do atual. Vencido sem o novo assinado, o sistema do cliente é bloqueado depois da tolerância
+    (padrão 15 dias) até a assinatura. Regras da cobrança em [cobranca.md](cobranca.md).
+
 Contratos assinados antes da v0.43.0 seguem o modelo antigo (a contratada concordava pelo envio)
 e continuam válidos como estão.
 

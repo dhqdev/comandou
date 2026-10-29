@@ -35,6 +35,8 @@ export interface ContractTerms {
   lateFeePercent: string;
   lateInterestPercent: string;
   suspendAfterDays: number;
+  /** Dias depois do fim do contrato, sem o novo assinado, até o bloqueio (renovação anual). */
+  renewalGraceDays?: number;
   supportHours: string;
   forumCity: string;
   specialConditions: string | null;
@@ -216,20 +218,22 @@ export function buildContract(input: {
       items: [
         `A CONTRATANTE contrata o Plano ${t.planName}, com as seguintes características:`,
         [...t.limits, ...t.features].map((x, i, a) => `${x}${i === a.length - 1 ? '.' : ';'}`),
-        'Ao atingir um limite do Plano, a Plataforma impede apenas a criação de novos registros daquele tipo (por exemplo, novos produtos ou novos Usuários). Nenhum dado é apagado por causa de limite. A CONTRATANTE pode mudar de Plano a qualquer momento, e o novo preço vale a partir da mensalidade seguinte.',
+        'Ao atingir um limite do Plano, a Plataforma impede apenas a criação de novos registros daquele tipo (por exemplo, novos produtos ou novos Usuários). Nenhum dado é apagado por causa de limite.',
+        'A CONTRATANTE pode subir para um Plano maior a qualquer momento pela própria Plataforma (tela Assinatura): o novo Plano vale na hora e a diferença proporcional aos dias que faltam do período já pago é cobrada à parte; a partir da mensalidade seguinte vale o preço do novo Plano. A mudança para um Plano menor é pedida ao suporte e vale a partir do período seguinte.',
         'Recursos novos lançados pela CONTRATADA podem ser incluídos no Plano sem custo ou oferecidos como adicional pago, à escolha da CONTRATADA, sempre com informação prévia à CONTRATANTE.',
       ],
     },
     {
       title: 'Preço, pagamento e faturamento',
       items: [
-        `Pela licença de uso, a CONTRATANTE pagará à CONTRATADA a mensalidade de ${money(t.priceMonthly)}, com vencimento todo dia ${num(t.dueDay)} de cada mês, pelo meio de pagamento indicado pela CONTRATADA (boleto, PIX, cartão ou outro).`,
+        `Pela licença de uso, a CONTRATANTE pagará à CONTRATADA a mensalidade de ${money(t.priceMonthly)} por período de 30 (trinta) dias, paga antecipadamente por boleto, PIX ou cartão, pela tela Assinatura da Plataforma ou pelo link de cobrança enviado por e-mail.`,
+        'Cada pagamento confirmado libera o uso por mais 30 (trinta) dias, contados do fim do período anterior ou, se o pagamento for feito depois do fim, do dia em que foi confirmado. A cobrança de cada período é emitida com alguns dias de antecedência e vence no último dia do período em curso.',
         Number(t.setupFee) > 0
           ? `Pela implantação (configuração inicial, cadastro do cardápio e treinamento remoto), a CONTRATANTE pagará o valor único de ${money(t.setupFee)}, junto com a primeira mensalidade.`
           : 'Não há cobrança de taxa de implantação.',
         t.trialDays > 0
-          ? `A CONTRATANTE tem ${num(t.trialDays)} dias de teste gratuito contados do início da vigência. A primeira mensalidade vence no primeiro dia de vencimento após o fim do teste.`
-          : 'A primeira mensalidade vence no primeiro dia de vencimento após o início da vigência, proporcional aos dias de uso quando a CONTRATADA assim indicar.',
+          ? `A CONTRATANTE tem ${num(t.trialDays)} dias de teste gratuito contados do início do uso da Plataforma. A primeira mensalidade vence no último dia do teste.`
+          : 'A primeira mensalidade vence no início do uso da Plataforma, no prazo indicado na cobrança.',
         'O preço inclui os tributos incidentes sobre o serviço. A CONTRATADA emitirá o documento fiscal correspondente a cada pagamento.',
         'Custos de serviços de terceiros contratados diretamente pela CONTRATANTE (como certificado digital, mensagens oficiais do WhatsApp cobradas pela Meta, meios de pagamento, mapas ou telefonia) não estão incluídos e são pagos por ela diretamente ao fornecedor, salvo quando expressamente incluídos no Plano.',
         'A cobrança é antecipada por mês de uso. Mensalidades pagas não são devolvidas por cancelamento no meio do mês, exceto nos casos previstos em lei ou neste contrato.',
@@ -239,8 +243,10 @@ export function buildContract(input: {
       title: 'Atraso e inadimplência',
       items: [
         `O atraso no pagamento sujeita a CONTRATANTE a multa de ${pct(t.lateFeePercent)} sobre o valor em atraso, juros de mora de ${pct(t.lateInterestPercent)} ao mês, calculados dia a dia, e atualização monetária pelo ${t.readjustIndex}.`,
-        `Após ${num(t.suspendAfterDays)} dias de atraso e aviso prévio por e-mail ou pela própria Plataforma com pelo menos 5 (cinco) dias de antecedência, a CONTRATADA poderá suspender o acesso à Plataforma até a regularização.`,
-        'A suspensão não apaga nenhum dado. Assim que o pagamento é confirmado, o acesso volta em até 1 (um) dia útil.',
+        t.suspendAfterDays > 0
+          ? `Não confirmado o pagamento em até ${num(t.suspendAfterDays)} ${t.suspendAfterDays === 1 ? 'dia' : 'dias'} depois do fim do período pago, a Plataforma é bloqueada automaticamente: a CONTRATANTE continua entrando para consultar os dados e pagar, mas não consegue registrar pedidos, vendas ou cadastros até a regularização. A cobrança emitida com antecedência e os avisos na própria Plataforma valem como aviso prévio.`
+          : 'Não confirmado o pagamento até o fim do período pago, a Plataforma é bloqueada automaticamente: a CONTRATANTE continua entrando para consultar os dados e pagar, mas não consegue registrar pedidos, vendas ou cadastros até a regularização. A cobrança emitida com antecedência e os avisos na própria Plataforma valem como aviso prévio.',
+        'O bloqueio não apaga nenhum dado. O acesso volta automaticamente assim que o pagamento é confirmado (PIX e cartão em minutos; boleto em até 3 (três) dias úteis, conforme o banco).',
         'Durante a suspensão, a CONTRATANTE continua podendo solicitar a exportação dos seus dados, nos termos da cláusula 8.',
       ],
     },
@@ -254,7 +260,14 @@ export function buildContract(input: {
     {
       title: 'Vigência e renovação',
       items: [
-        `Este contrato entra em vigor em ${dateBR(t.startDate)} e vale por ${num(t.termMonths)} ${t.termMonths === 1 ? 'mês' : 'meses'}, renovando-se automaticamente por períodos iguais e sucessivos, salvo manifestação contrária de qualquer das partes com 30 (trinta) dias de antecedência.`,
+        t.renewalGraceDays !== undefined
+          ? `Este contrato entra em vigor em ${dateBR(t.startDate)} e vale por ${num(t.termMonths)} ${t.termMonths === 1 ? 'mês' : 'meses'}. A cada ano as partes assinam um novo contrato, com as condições comerciais atualizadas, que a CONTRATADA envia antes do fim da vigência.`
+          : `Este contrato entra em vigor em ${dateBR(t.startDate)} e vale por ${num(t.termMonths)} ${t.termMonths === 1 ? 'mês' : 'meses'}, renovando-se automaticamente por períodos iguais e sucessivos, salvo manifestação contrária de qualquer das partes com 30 (trinta) dias de antecedência.`,
+        ...(t.renewalGraceDays !== undefined
+          ? [
+              `Terminada a vigência sem o novo contrato assinado, as condições deste continuam valendo por até ${num(t.renewalGraceDays)} ${t.renewalGraceDays === 1 ? 'dia' : 'dias'}. Depois desse prazo, a Plataforma é bloqueada nos termos da cláusula de atraso até a assinatura do novo contrato, sem perda de dados.`,
+            ]
+          : []),
         'O uso da Plataforma pela CONTRATANTE antes da assinatura deste instrumento fica regido por estas mesmas condições.',
       ],
     },

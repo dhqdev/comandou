@@ -95,6 +95,7 @@ describe('Planos padrão na instalação', () => {
   it('cria Essencial (padrão), Profissional e Premium só quando não há nenhum plano', async () => {
     await c.query('SAVEPOINT planos');
     try {
+      await c.query('DELETE FROM billing_invoices');
       await c.query('DELETE FROM subscriptions');
       await c.query('DELETE FROM plans');
       expect(await seedDefaultPlans(c)).toBe(3);

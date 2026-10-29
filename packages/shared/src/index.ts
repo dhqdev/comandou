@@ -9,3 +9,4 @@ export * from './courier-pay';
 export * from './menu';
 export * from './fiscal';
 export * from './report-doc';
+export * from './billing';

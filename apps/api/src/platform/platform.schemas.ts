@@ -229,7 +229,7 @@ export const ContractSettingsBody = z.object({
     .default(''),
   forumCity: z.string().trim().max(80),
   dueDay: z.number().int().min(1).max(28),
-  termMonths: z.number().int().min(1).max(60),
+  termMonths: z.number().int().min(1).max(12),
   slaPercent: percent(90, 100),
   readjustIndex: z.string().trim().min(2).max(40),
   lateFeePercent: percent(0, 2),
@@ -258,7 +258,7 @@ export const NewContract = z.object({
   priceMonthly: money.optional(),
   setupFee: money.optional(),
   dueDay: z.number().int().min(1).max(28).optional(),
-  termMonths: z.number().int().min(1).max(60).optional(),
+  termMonths: z.number().int().min(1).max(12).optional(),
   startDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'data AAAA-MM-DD')

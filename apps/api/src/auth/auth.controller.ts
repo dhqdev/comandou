@@ -15,7 +15,7 @@ import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { ROLE_LABELS, DEFAULT_ROLE_PERMISSIONS } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
-import { CurrentTenant, CurrentUser, Public } from '../common/decorators';
+import { AllowWhenBlocked, CurrentTenant, CurrentUser, Public } from '../common/decorators';
 import { one } from '../common/sql';
 import { ZodPipe } from '../common/zod.pipe';
 import { ENV, Env } from '../config/env';
@@ -39,6 +39,7 @@ interface LoginRow {
 }
 
 @Controller({ path: 'auth', version: '1' })
+@AllowWhenBlocked()
 export class AuthController {
   constructor(
     private readonly db: DatabaseService,

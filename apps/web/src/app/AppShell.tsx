@@ -1,3 +1,4 @@
+import { BillingBanner } from '../features/BillingBanner';
 import {
   BarChart3,
   Briefcase,
@@ -216,7 +217,7 @@ const GROUPS: { key: string; label: string; icon: ReactNode; items: NavItem[] }[
       },
       {
         to: '/plano',
-        label: 'Plano',
+        label: 'Assinatura',
         icon: <CreditCard />,
         perms: ['plan:read'],
       },
@@ -366,6 +367,7 @@ export function AppShell() {
         }
         banners={
           <>
+            <BillingBanner />
             {me?.support && (
               <div className="offline-banner support-banner" role="status">
                 Acesso de suporte: {me.support.adminName} entrou como {me.user.name}. Tudo fica

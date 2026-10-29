@@ -1,0 +1,202 @@
+/* Assinatura do restaurante (PlanPage): leve, sem enfeites, só variáveis --cm-*. */
+.sub-page {
+  display: grid;
+  gap: var(--cm-space-4);
+  max-width: 920px;
+}
+.sub-muted {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+p.sub-muted {
+  margin: var(--cm-space-2) 0 0;
+}
+.sub-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--cm-space-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--cm-space-3);
+}
+.sub-hero__left,
+.sub-hero__right {
+  display: grid;
+  gap: 2px;
+}
+.sub-hero__right {
+  text-align: right;
+}
+.sub-hero__big {
+  font-size: var(--cm-text-3xl);
+  font-weight: 600;
+  letter-spacing: var(--cm-tracking-tight);
+  line-height: 1.1;
+}
+.sub-price {
+  font-size: var(--cm-text-lg);
+  font-weight: 600;
+}
+.sub-pay {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-3);
+  margin-top: var(--cm-space-3);
+  padding-top: var(--cm-space-3);
+  border-top: 1px solid var(--cm-border);
+}
+.sub-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sub-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto 104px;
+  align-items: center;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-3) 0;
+  border-bottom: 1px solid var(--cm-border);
+}
+.sub-row:last-child {
+  border-bottom: 0;
+}
+.sub-row__main {
+  display: grid;
+  min-width: 0;
+}
+.sub-row__title {
+  font-weight: 500;
+}
+.sub-row__amount {
+  font-variant-numeric: tabular-nums;
+}
+.sub-row__action {
+  text-align: right;
+}
+.sub-link {
+  color: var(--cm-link);
+  font-size: var(--cm-text-sm);
+}
+.sub-line {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--cm-space-3);
+  flex-wrap: wrap;
+  margin: 0;
+}
+.sub-features {
+  list-style: none;
+  margin: var(--cm-space-4) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--cm-space-2);
+}
+.sub-features li {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+}
+.sub-features li .sub-muted {
+  margin-left: auto;
+}
+.sub-check {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-border-strong);
+}
+.sub-features li[data-on] .sub-check {
+  background: var(--cm-success);
+}
+.sub-plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--cm-space-3);
+}
+.sub-plan {
+  display: grid;
+  align-content: start;
+  gap: var(--cm-space-2);
+  padding: var(--cm-space-4);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+}
+.sub-plan[data-current] {
+  border-color: var(--cm-brand-300);
+  background: var(--cm-surface-muted);
+}
+.sub-plan__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--cm-space-2);
+}
+.sub-plan__list {
+  margin: 0 0 var(--cm-space-2);
+  padding-left: 18px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.sub-quote p {
+  margin: 0 0 var(--cm-space-2);
+}
+.sub-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--cm-surface-sunken);
+  border-radius: var(--cm-radius-md);
+  margin-bottom: var(--cm-space-4);
+}
+.sub-tab {
+  flex: 1;
+  border: 0;
+  background: none;
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-weight: 500;
+  padding: 8px;
+  border-radius: var(--cm-radius-sm);
+  cursor: pointer;
+}
+.sub-tab[aria-selected='true'] {
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  box-shadow: var(--cm-shadow-sm);
+}
+.sub-pix {
+  display: grid;
+  justify-items: center;
+  gap: var(--cm-space-3);
+  text-align: center;
+}
+.sub-pix img {
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-gray-0);
+  padding: 8px;
+}
+.sub-code {
+  display: block;
+  width: 100%;
+  font-family: var(--cm-font-mono);
+  font-size: var(--cm-text-xs);
+  word-break: break-all;
+  padding: var(--cm-space-2);
+  background: var(--cm-surface-sunken);
+  border-radius: var(--cm-radius-sm);
+  user-select: all;
+}
+@media (max-width: 640px) {
+  .sub-row {
+    grid-template-columns: 1fr auto;
+  }
+  .sub-row__action {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+  .sub-hero__right {
+    text-align: left;
+  }
+}

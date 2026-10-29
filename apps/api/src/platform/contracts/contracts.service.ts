@@ -7,7 +7,7 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { formatBRL, fromCents, toCents } from '@comandou/shared';
+import { contractValidUntil, formatBRL, fromCents, toCents } from '@comandou/shared';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { open, seal } from '../../common/secret-box';
@@ -109,6 +109,7 @@ interface SettingsRow {
 
 interface ContractRow {
   id: string;
+  valid_until: string | null;
   tenant_id: string;
   number: string;
   status: 'draft' | 'sent' | 'viewed' | 'client_signed' | 'signed' | 'cancelled';
@@ -150,7 +151,7 @@ const CONTRACT_COLS = `c.id, c.tenant_id, c.number, c.status, c.content, c.conte
   c.client_evidence_sha256, c.countersigned_at, c.countersigner_name, c.countersigner_document,
   c.countersigner_email, c.countersigner_ip, c.countersign_kind, c.trail_sha256,
   c.signed_pdf_sha256, c.notified_at,
-  c.notify_error, c.cancelled_at, c.cancel_reason, c.created_at,
+  c.notify_error, c.cancelled_at, c.cancel_reason, c.created_at, c.valid_until::text AS valid_until,
   (SELECT name FROM platform_admins a WHERE a.id = c.created_by) AS created_by_name`;
 
 export interface RequestMeta {
@@ -373,6 +374,8 @@ export class ContractsService {
       status: r.status,
       planName: content.terms.planName,
       priceMonthly: content.terms.priceMonthly,
+      startDate: content.terms.startDate,
+      validUntil: r.valid_until,
       signerEmail: r.signer_email,
       contentHash: r.content_hash,
       pdfSha256: r.pdf_sha256,
@@ -622,6 +625,10 @@ export class ContractsService {
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(
       new Date(),
     );
+    // Regras da cobrança automática (docs/cobranca.md) entram no texto do contrato.
+    const [bill] = await this.db.query<{ block_after_days: number; contract_grace_days: number }>(
+      `SELECT block_after_days, contract_grace_days FROM platform_billing_settings WHERE id`,
+    );
     const customer: ContractParty = {
       role: 'CONTRATANTE',
       name: t.legal_name,
@@ -649,7 +656,8 @@ export class ContractsService {
         priceMonthly: fromCents(toCents(price)),
         setupFee: fromCents(toCents(b.setupFee ?? '0')),
         dueDay: b.dueDay ?? s.due_day,
-        termMonths: b.termMonths ?? s.term_months,
+        // O contrato é reassinado todo ano: vigência de no máximo 12 meses.
+        termMonths: Math.min(12, b.termMonths ?? s.term_months),
         startDate: b.startDate ?? today,
         trialDays: b.trialDays ?? (t.sub_status === 'trialing' ? (t.trial_days ?? 0) : 0),
         limits,
@@ -658,7 +666,8 @@ export class ContractsService {
         readjustIndex: s.readjust_index,
         lateFeePercent: s.late_fee_percent,
         lateInterestPercent: s.late_interest_percent,
-        suspendAfterDays: s.suspend_after_days,
+        suspendAfterDays: bill?.block_after_days ?? s.suspend_after_days,
+        renewalGraceDays: bill?.contract_grace_days ?? 15,
         supportHours: s.support_hours,
         forumCity: s.forum_city,
         specialConditions: b.specialConditions || null,
@@ -692,9 +701,19 @@ export class ContractsService {
       const pdf = await renderContractPdf(content, hash);
       const r = await c.query<{ id: string }>(
         `INSERT INTO tenant_contracts (tenant_id, number, content, content_hash, pdf, pdf_sha256,
-                                       signer_email, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-        [tenantId, number, text, hash, Buffer.from(pdf), sha256(pdf), g.signerEmail, a.admin.id],
+                                       signer_email, created_by, valid_until)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+        [
+          tenantId,
+          number,
+          text,
+          hash,
+          Buffer.from(pdf),
+          sha256(pdf),
+          g.signerEmail,
+          a.admin.id,
+          contractValidUntil(g.terms.startDate, g.terms.termMonths),
+        ],
       );
       const cid = r.rows[0]!.id;
       await this.event(c, cid, 'created', { ip: a.ip }, { by: a.admin.name });
