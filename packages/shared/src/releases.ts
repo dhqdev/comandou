@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.57.0',
+    date: '2026-10-29',
+    title: 'O panda ganhou roupinhas, pelo macio e passeia pelo canto da tela',
+    summary:
+      'O panda do Comandou ficou mais bonito, com luz, sombra e textura de pelo. Cada pessoa da equipe pode vestir o seu: chef, garçom, entregador, atendente ou Natal. De vez em quando ele aparece no canto de baixo, acena e vai embora.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Roupa do panda (em Conta): touca de chef, boné, fone, gorro de Natal, lenço, gravatinha e cachecol, ou um dos prontos. A escolha fica salva na sua conta e vale em qualquer aparelho.',
+      },
+      {
+        tag: 'novo',
+        text: 'Passeio: o panda entra pulando pelo canto de baixo à esquerda, acena, olha em volta e sai. Tocar nele faz ele acenar e ir embora. Dá para desligar na Roupa do panda.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Panda mais bonito: pelo macio, luz vindo de cima, sombra suave no chão e brilho no nariz e nas orelhas. O assistente do chat aparece com a mesma roupa que você escolheu.',
+      },
+    ],
+  },
+  {
     version: '0.56.0',
     date: '2026-10-29',
     title: 'Quando algo trava, o sistema mostra o que fazer e leva até a tela certa',

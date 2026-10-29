@@ -1,11 +1,16 @@
 import { CSSProperties, useEffect, useId, useRef, useState } from 'react';
+import type { MascotOutfit } from '@comandou/shared';
 import { PANDA_HEAD } from './mascot';
+import { pandaFur } from './panda-fur';
+import { LOW_NECK, PandaDefs, WearHead, WearNeck } from './panda-wear';
 import './panda-live.css';
 
 /**
  * O panda do Comandou com vida: os olhos seguem o mouse (ou o dedo), passeiam sozinhos quando
  * ninguém mexe, piscam, ele respira, inclina de leve para o lado do ponteiro e, de vez em quando,
- * dá um pulinho, balança ou acena. Ao tocar, amassa e reage. Mesmo desenho do Mascot (viewBox 64).
+ * dá um pulinho, balança ou acena. Ao tocar, amassa e reage. Mesmo desenho do Mascot (viewBox 64),
+ * com luz, sombra e textura de pelo, e as roupinhas por cima (panda-wear.tsx), como o Bolinho do
+ * Planejai: a peça nova estala no lugar e ele pula feliz.
  */
 export type PandaMood =
   'idle' | 'happy' | 'joy' | 'wink' | 'wow' | 'thinking' | 'talking' | 'sleep' | 'sad' | 'dizzy';
@@ -15,7 +20,8 @@ const POKES: PandaMood[] = ['joy', 'wow', 'wink', 'happy', 'joy'];
 const RX = 1.25;
 const RY = 1.05;
 
-type Gesture = 'hop' | 'sway' | 'look' | 'shake' | 'nod';
+export type PandaGesture = 'hop' | 'sway' | 'look' | 'shake' | 'nod' | 'wave';
+type Gesture = Exclude<PandaGesture, 'wave'>;
 const GESTURES: Record<Gesture, [Keyframe[], number]> = {
   hop: [
     [
@@ -80,6 +86,10 @@ export function LivePanda({
   className = '',
   style,
   still,
+  outfit,
+  walking,
+  cue,
+  onTap,
 }: {
   size?: number;
   mood?: PandaMood;
@@ -90,6 +100,14 @@ export function LivePanda({
   style?: CSSProperties;
   /** Sem vida (miniaturas). */
   still?: boolean;
+  /** Roupinha vestida (cabeça e pescoço). */
+  outfit?: MascotOutfit;
+  /** Andando: pulinhos curtos no lugar de respirar (passeio pela tela). */
+  walking?: boolean;
+  /** Pede um gesto de fora (o `n` muda a cada pedido). */
+  cue?: { g: PandaGesture; n: number };
+  /** Toque: devolve true para não fazer a reação padrão. */
+  onTap?: () => boolean | void;
 }) {
   const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const svg = useRef<SVGSVGElement>(null);
@@ -106,7 +124,16 @@ export function LivePanda({
   const shown: PandaMood = poke ?? mood;
   const dead = still || calm();
 
-  const play = (g: Gesture) => {
+  const play = (g: PandaGesture) => {
+    if (g === 'wave') {
+      if (!dead) setWave((n) => n + 1);
+      return;
+    }
+    if (g === 'hop' && svg.current && !dead) {
+      svg.current.classList.remove('lp--hop');
+      void svg.current.getBoundingClientRect();
+      svg.current.classList.add('lp--hop');
+    }
     const el = act.current;
     if (!el || dead || typeof el.animate !== 'function') return;
     const [frames, ms] = GESTURES[g];
@@ -196,6 +223,24 @@ export function LivePanda({
     return () => clearTimeout(t);
   }, [poke, squish]);
 
+  // Gesto pedido de fora (passeio, guarda-roupa).
+  useEffect(() => {
+    if (cue) play(cue.g);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cue?.n]);
+
+  // Roupa nova: a peça estala no lugar e ele pula feliz.
+  const wearKey = `${outfit?.head ?? ''}|${outfit?.neck ?? ''}`;
+  const firstWear = useRef(wearKey);
+  const [dressing, setDressing] = useState(0);
+  useEffect(() => {
+    if (wearKey === firstWear.current || still) return;
+    firstWear.current = '';
+    setDressing((n) => n + 1);
+    if (wearKey !== '|') setPoke('joy');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wearKey]);
+
   // Humor que pede gesto.
   useEffect(() => {
     if (shown === 'joy' || shown === 'happy') play('hop');
@@ -231,6 +276,7 @@ export function LivePanda({
 
   const onPoke = () => {
     if (still) return;
+    if (onTap?.()) return;
     const now = Date.now();
     clicks.current = [...clicks.current.filter((c) => now - c < 2000), now];
     setSquish((n) => n + 1);
@@ -314,6 +360,12 @@ export function LivePanda({
       />
     );
 
+  const fur = !badge && size >= 40 ? pandaFur() : null;
+  const shadeId = `lp${uid}`;
+  const url = (n: string) => `url(#${shadeId}-${n})`;
+  const lowNeck = !!outfit?.neck && LOW_NECK.includes(outfit.neck);
+  const blush = shown === 'joy' || shown === 'happy' || shown === 'wink';
+
   const panda = (
     <g className="lp-lean" ref={lean}>
       <g className="lp-act" ref={act}>
@@ -322,21 +374,80 @@ export function LivePanda({
             {/* Patinhas: escondidas atrás da cabeça, aparecem para acenar. */}
             {!dead && (
               <g className={wave ? 'lp-paws lp-waving' : 'lp-paws'} key={wave}>
-                <ellipse className="lp-paw lp-paw-l" cx="12" cy="46" rx="5" ry="4.3" fill={ink} />
-                <ellipse className="lp-paw lp-paw-r" cx="53" cy="44" rx="5" ry="4.3" fill={ink} />
+                <ellipse
+                  className="lp-paw lp-paw-l"
+                  cx="12"
+                  cy="46"
+                  rx="5"
+                  ry="4.3"
+                  fill={url('ink')}
+                />
+                <ellipse
+                  className="lp-paw lp-paw-r"
+                  cx="53"
+                  cy="44"
+                  rx="5"
+                  ry="4.3"
+                  fill={url('ink')}
+                />
               </g>
             )}
-            <g className="lp-ears" fill={ink} stroke="var(--cm-mascot-rim, none)" strokeWidth="1.6">
+            <g
+              className="lp-ears"
+              fill={url('ink')}
+              stroke="var(--cm-mascot-rim, none)"
+              strokeWidth="1.6"
+            >
               <circle className="lp-ear lp-ear-l" cx="14" cy="19.9" r="8.2" />
               <circle className="lp-ear lp-ear-r" cx="49.8" cy="17.9" r="8.2" />
             </g>
+            {/* brilho de pelo nas orelhas */}
+            <g fill="none" stroke="#fff" strokeOpacity=".2" strokeWidth="1.3" strokeLinecap="round">
+              <path d="M9.6 15.4q2-3 5.6-3.2" />
+              <path d="M46.6 12.2q3.4-2.2 6.6-.4" />
+            </g>
+            <path d={PANDA_HEAD} fill={url('face')} />
+            {fur && (
+              <>
+                <defs>
+                  <clipPath id={`${shadeId}-head`}>
+                    <path d={PANDA_HEAD} />
+                  </clipPath>
+                  <clipPath id={`${shadeId}-ears`}>
+                    <circle cx="14" cy="19.9" r="8.2" />
+                    <circle cx="49.8" cy="17.9" r="8.2" />
+                  </clipPath>
+                </defs>
+                <image
+                  className="lp-fur"
+                  href={fur.light}
+                  width="64"
+                  height="64"
+                  clipPath={`url(#${shadeId}-head)`}
+                  preserveAspectRatio="none"
+                />
+                <image
+                  className="lp-fur"
+                  href={fur.dark}
+                  width="64"
+                  height="64"
+                  clipPath={`url(#${shadeId}-ears)`}
+                  preserveAspectRatio="none"
+                />
+              </>
+            )}
             <path
               d={PANDA_HEAD}
-              fill={face}
+              fill="none"
               stroke={ink}
               strokeWidth="2.8"
               strokeLinejoin="round"
             />
+            {outfit?.neck && (
+              <g className="lp-wear" key={`n${outfit.neck}${dressing}`}>
+                <WearNeck id={outfit.neck} u={shadeId} />
+              </g>
+            )}
             <g className="lp-look" ref={look}>
               <ellipse
                 cx="22"
@@ -344,7 +455,7 @@ export function LivePanda({
                 rx="8.8"
                 ry="5.9"
                 transform="rotate(-40 22 33.7)"
-                fill={ink}
+                fill={url('ink')}
               />
               <ellipse
                 cx="46.3"
@@ -352,7 +463,7 @@ export function LivePanda({
                 rx="7.6"
                 ry="5.3"
                 transform="rotate(30 46.3 29.4)"
-                fill={ink}
+                fill={url('ink')}
               />
               <g className="lp-lids" ref={lids}>
                 {eye(25.5, 31.9, 'l')}
@@ -364,14 +475,27 @@ export function LivePanda({
                 rx="4.2"
                 ry="2.5"
                 transform="rotate(-12 36.3 35.2)"
-                fill={ink}
+                fill={url('ink')}
+              />
+              {/* brilho do nariz */}
+              <ellipse
+                cx="37.4"
+                cy="34.2"
+                rx="1.5"
+                ry=".7"
+                transform="rotate(-12 37.4 34.2)"
+                fill="#fff"
+                opacity=".35"
               />
               {mouth}
             </g>
-            {(shown === 'joy' || shown === 'happy' || shown === 'wink') && (
-              <g fill="var(--cm-brand-300, #ff8a5c)" opacity=".55">
-                <ellipse cx="17.5" cy="41.5" rx="3" ry="1.6" />
-                <ellipse cx="51" cy="37" rx="2.6" ry="1.5" />
+            <g fill="var(--cm-brand-300, #ff8a5c)" opacity={blush ? 0.55 : 0.22}>
+              <ellipse cx="17.5" cy="41.5" rx="3" ry="1.6" />
+              <ellipse cx="51" cy="37" rx="2.6" ry="1.5" />
+            </g>
+            {outfit?.head && (
+              <g className="lp-wear lp-wear--head" key={`h${outfit.head}${dressing}`}>
+                <WearHead id={outfit.head} u={shadeId} />
               </g>
             )}
           </g>
@@ -380,8 +504,8 @@ export function LivePanda({
       {shown === 'sleep' && (
         <text
           className="lp-zzz"
-          x="55"
-          y="9"
+          x="57"
+          y={outfit?.head ? 1 : 9}
           fontSize="9"
           fontWeight="800"
           fill="currentColor"
@@ -403,7 +527,7 @@ export function LivePanda({
   return (
     <svg
       ref={svg}
-      className={`cm-mascot lp ${badge ? 'cm-mascot--badge lp--badge' : ''} ${dead ? 'lp--still' : ''} ${className}`}
+      className={`cm-mascot lp ${badge ? 'cm-mascot--badge lp--badge' : ''} ${dead ? 'lp--still' : ''} ${walking && !dead ? 'lp--walk' : ''} ${dressing ? 'lp--dress' : ''} ${className}`}
       width={size}
       height={size}
       viewBox="0 0 64 64"
@@ -414,15 +538,16 @@ export function LivePanda({
       onPointerDown={onPoke}
       data-mood={shown}
     >
+      <PandaDefs u={shadeId} />
       {badge ? (
         <>
           <defs>
-            <clipPath id={`lp${uid}`}>
+            <clipPath id={`lp${uid}-badge`}>
               <rect width="64" height="64" rx="15" />
             </clipPath>
           </defs>
           <rect width="64" height="64" rx="15" fill="var(--cm-brand-500, #e23a00)" />
-          <g clipPath={`url(#lp${uid})`}>
+          <g clipPath={`url(#lp${uid}-badge)`}>
             <g transform="translate(1.7 3.6) scale(.92)">{panda}</g>
           </g>
         </>
@@ -431,11 +556,10 @@ export function LivePanda({
           <ellipse
             className="lp-shadow"
             cx="33"
-            cy="58"
-            rx="20"
-            ry="2.6"
-            fill="#000"
-            opacity=".12"
+            cy={lowNeck ? 62.5 : 58.2}
+            rx="22"
+            ry="3.4"
+            fill={url('ground')}
           />
           {panda}
         </>

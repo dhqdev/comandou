@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { KeyboardEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LivePanda, PandaMood, useToast } from '../../design-system';
+import { useMascot } from '../mascot/state';
 import { ApiError } from '../../lib/api';
 import { mediaUrl } from '../../lib/media';
 import { useRealtimeEvents } from '../../lib/realtime';
@@ -523,11 +524,12 @@ export function AiTab({ screen, onNavigate }: { screen: string; onNavigate?: () 
 
   const name = status?.name ?? 'Comandinho';
   const off = status && !status.enabled;
+  const { outfit } = useMascot();
 
   return (
     <div className="tc-page tc-ai">
       <header className="tc-ai__head">
-        <LivePanda size={46} mood={off ? 'sleep' : mood} title={name} />
+        <LivePanda size={46} mood={off ? 'sleep' : mood} title={name} outfit={outfit} />
         <div className="tc-ai__who">
           <strong>{name}</strong>
           <small>
@@ -560,7 +562,7 @@ export function AiTab({ screen, onNavigate }: { screen: string; onNavigate?: () 
           </div>
         ) : msgs.length === 0 ? (
           <div className="tc-ai__hello">
-            <LivePanda size={104} mood={mood === 'idle' ? 'happy' : mood} />
+            <LivePanda size={104} mood={mood === 'idle' ? 'happy' : mood} outfit={outfit} />
             <p>
               Oi! Eu sou o <b>{name}</b>. Pergunte qualquer coisa sobre o Comandou que eu te guio
               passo a passo.

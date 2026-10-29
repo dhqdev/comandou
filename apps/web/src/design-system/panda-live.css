@@ -196,3 +196,69 @@
     transition: none !important;
   }
 }
+
+/* ---------- roupinhas e passeio ---------- */
+/* a peça nova "estala" no lugar com mola (como no Bolinho) */
+.lp .lp-wear {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.lp.lp--dress .lp-wear {
+  animation: lp-wear-in 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+@keyframes lp-wear-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.6);
+  }
+  60% {
+    opacity: 1;
+  }
+}
+/* pompom do gorro balança no pulinho */
+.lp .lp-pompom {
+  transform-box: fill-box;
+  transform-origin: 0 0;
+}
+.lp.lp--hop .lp-pompom {
+  animation: lp-pom 0.7s ease-out;
+}
+@keyframes lp-pom {
+  30% {
+    transform: rotate(18deg);
+  }
+  60% {
+    transform: rotate(-10deg);
+  }
+}
+/* andando: pulinhos curtos no lugar de respirar */
+.lp.lp--walk .lp-life {
+  animation: lp-walk 0.46s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes lp-walk {
+  0%,
+  100% {
+    transform: translateY(0) scale(1.05, 0.95);
+  }
+  20%,
+  80% {
+    transform: none;
+  }
+  50% {
+    transform: translateY(-4px) scale(0.97, 1.04);
+  }
+}
+.lp.lp--walk .lp-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lp-walk-shadow 0.46s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes lp-walk-shadow {
+  50% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+}
+.lp .lp-fur {
+  pointer-events: none;
+}

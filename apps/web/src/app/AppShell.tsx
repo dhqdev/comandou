@@ -41,6 +41,7 @@ import {
   Wallet,
   WifiOff,
   MessagesSquare,
+  Shirt,
 } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { CURRENT_RELEASE } from '@comandou/shared';
@@ -59,6 +60,9 @@ import { GlobalSearch, GlobalSearchTrigger, useSearchHotkey } from '../features/
 import { SoundControl } from '../features/SoundControl';
 import { openTeamChat, useChatUnread } from '../features/chat/TeamChat';
 import { WelcomeTour, tourSeen } from '../features/WelcomeTour';
+import { PandaStroll } from '../features/mascot/Stroll';
+import { openWardrobe, useMascotSync } from '../features/mascot/state';
+import { WardrobeHost } from '../features/mascot/Wardrobe';
 import { useSearchSpotlight } from '../lib/deep-link';
 import { useOnline } from '../lib/connectivity';
 import { useRealtimeStatus } from '../lib/realtime';
@@ -253,6 +257,7 @@ export function AppShell() {
   const live = useRealtimeStatus();
   const unseen = useHasUnseenRelease();
   const chatUnread = useChatUnread();
+  useMascotSync(me?.user.id);
   const [pwOpen, setPwOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
@@ -317,6 +322,9 @@ export function AppShell() {
       </div>
       <button type="button" className="account__action" onClick={() => setTourOpen(true)}>
         <Compass size={18} /> Rever apresentação
+      </button>
+      <button type="button" className="account__action" onClick={openWardrobe}>
+        <Shirt size={18} /> Roupa do panda
       </button>
       <button type="button" className="account__action" onClick={() => setPwOpen(true)}>
         <KeyRound size={18} /> Trocar senha
@@ -398,6 +406,8 @@ export function AppShell() {
         <Outlet />
       </AppFrame>
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
+      <WardrobeHost />
+      <PandaStroll />
       {me && (
         <WelcomeTour
           open={tourOpen}

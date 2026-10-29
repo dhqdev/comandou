@@ -496,3 +496,39 @@ describe('Assistente de IA', () => {
     expect((await get('waiterA', '/chat/ai').expect(200)).body.messages).toEqual([]);
   });
 });
+
+describe('Roupinha do panda', () => {
+  const put = (w: Who, body: object) =>
+    http
+      .put('/api/v1/me/mascot')
+      .set('Host', hostOf(w))
+      .set('Cookie', cookies[w])
+      .set(CSRF)
+      .send(body);
+
+  it('começa sem roupa e passeando', async () => {
+    expect((await get('waiterA', '/me/mascot').expect(200)).body).toEqual({
+      outfit: {},
+      stroll: true,
+    });
+  });
+
+  it('cada pessoa salva a sua; peça no lugar errado é recusada', async () => {
+    await put('waiterA', { outfit: { head: 'chef', neck: 'bandana' }, stroll: false }).expect(200);
+    expect((await get('waiterA', '/me/mascot').expect(200)).body).toEqual({
+      outfit: { head: 'chef', neck: 'bandana' },
+      stroll: false,
+    });
+    // a outra pessoa do mesmo restaurante e o outro restaurante não mudam
+    expect((await get('adminA', '/me/mascot').expect(200)).body.outfit).toEqual({});
+    expect((await get('adminB', '/me/mascot').expect(200)).body.outfit).toEqual({});
+    await put('waiterA', { outfit: { head: 'bowtie' }, stroll: true }).expect(400);
+    await put('waiterA', { outfit: { hat: 'chef' }, stroll: true }).expect(400);
+    // trocar de novo sobrescreve
+    await put('waiterA', { outfit: { neck: 'scarf' }, stroll: true }).expect(200);
+    expect((await get('waiterA', '/me/mascot').expect(200)).body).toEqual({
+      outfit: { neck: 'scarf' },
+      stroll: true,
+    });
+  });
+});

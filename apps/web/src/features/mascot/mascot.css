@@ -1,0 +1,199 @@
+/* =============================================================== Panda: guarda-roupa e passeio */
+
+/* ---------- guarda-roupa ---------- */
+.pw {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: var(--cm-space-5);
+}
+.pw-stage {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 48px var(--cm-space-4) var(--cm-space-5);
+  border-radius: var(--cm-radius-lg, 12px);
+  background: radial-gradient(
+    60% 65% at 50% 44%,
+    var(--cm-surface) 0%,
+    var(--cm-surface-sunken) 100%
+  );
+  color: var(--cm-text-muted);
+}
+.pw-stage__name {
+  margin-top: var(--cm-space-3);
+  font-weight: 600;
+  color: var(--cm-text);
+}
+.pw-stage__hint {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+  text-align: center;
+}
+.pw-panel {
+  display: grid;
+  gap: var(--cm-space-2);
+  align-content: start;
+  min-width: 0;
+}
+.pw-section {
+  margin-top: var(--cm-space-2);
+  font-size: var(--cm-text-2xs);
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cm-text-muted);
+}
+.pw-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: var(--cm-space-2);
+}
+.pw-tile {
+  appearance: none;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 10px 4px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--cm-radius-lg, 12px);
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text-muted);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    transform 0.12s,
+    border-color 0.12s,
+    background 0.12s;
+}
+.pw-tile:hover {
+  border-color: var(--cm-border);
+}
+.pw-tile:active {
+  transform: scale(0.95);
+}
+.pw-tile:focus-visible,
+.pw-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.pw-tile[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, transparent);
+  color: var(--cm-text);
+}
+.pw-tile__art {
+  display: grid;
+  place-items: center;
+  height: 64px;
+}
+.pw-tile__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--cm-text-2xs);
+}
+.pw-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pw-chip {
+  appearance: none;
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  cursor: pointer;
+}
+.pw-chip[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, transparent);
+}
+.pw-chip--ghost {
+  background: transparent;
+  border-color: var(--cm-border);
+}
+.pw-chip:active {
+  transform: scale(0.96);
+}
+.pw-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-4);
+  margin-top: var(--cm-space-3);
+  padding-top: var(--cm-space-3);
+  border-top: 1px solid var(--cm-border);
+  cursor: pointer;
+}
+.pw-toggle strong {
+  display: block;
+  font-size: var(--cm-text-sm);
+}
+.pw-toggle small {
+  display: block;
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+}
+@media (max-width: 720px) {
+  .pw {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pw-stage {
+    position: static;
+    padding-top: 40px;
+  }
+  .pw-grid {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  }
+}
+
+/* ---------- passeio no canto de baixo ---------- */
+/* Fica colado na barra lateral (computador) ou acima do menu de abas (celular), sempre à
+   esquerda: o canto direito é do botão do chat. */
+.pw-stroll {
+  position: fixed;
+  z-index: 40;
+  left: 84px;
+  bottom: 6px;
+  width: 200px;
+  height: 92px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.pw-stroll__walker {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  will-change: transform;
+}
+.pw-stroll__body {
+  display: block;
+  padding: 16px 4px 0;
+  transition: transform 0.18s;
+}
+.pw-stroll__body.is-left {
+  transform: scaleX(-1);
+}
+.pw-stroll.is-shown .pw-stroll__body {
+  pointer-events: auto;
+}
+@media (max-width: 860px) {
+  .pw-stroll {
+    left: 0;
+    bottom: calc(64px + 16px + env(safe-area-inset-bottom) * 0.3);
+    width: 160px;
+  }
+}
+@media print {
+  .pw-stroll {
+    display: none;
+  }
+}
