@@ -182,14 +182,18 @@
 .pb-corner > * {
   pointer-events: auto;
 }
+/* O desenho nunca bloqueia cliques no conteúdo; só os botõezinhos respondem. */
+.pb-corner .pb {
+  pointer-events: none;
+}
 .pb-corner__tools {
   position: absolute;
-  top: 6px;
-  right: -2px;
+  bottom: 4px;
+  right: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  opacity: 0;
+  opacity: 1;
   transition: opacity 0.18s;
 }
 .pb-corner:hover .pb-corner__tools,
@@ -203,8 +207,8 @@
   }
 }
 .pb-corner__btn {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   border: 1px solid var(--cm-border, #ddd);
   background: var(--cm-surface, #fff);
