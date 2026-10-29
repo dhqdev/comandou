@@ -20,6 +20,24 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.50.1',
+    date: '2026-10-29',
+    title: 'Ajustes visuais: botões do pedido, busca e troca de tema',
+    summary:
+      'Os botões da gaveta do pedido não cortam mais o texto, a caixa de busca ficou com um só contorno no foco e a troca de tema pinta a tela de uma ponta à outra.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Botões da gaveta do pedido quebram de linha em vez de cortar o texto.',
+      },
+      { tag: 'correção', text: 'Caixa de busca: contorno único ao clicar.' },
+      {
+        tag: 'melhoria',
+        text: 'Trocar entre claro e escuro pinta a tela da esquerda para a direita.',
+      },
+    ],
+  },
+  {
     version: '0.50.0',
     date: '2026-10-29',
     title: 'Panda novo, maior no canto e com roupinhas',

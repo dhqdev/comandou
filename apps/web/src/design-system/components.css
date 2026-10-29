@@ -1445,6 +1445,9 @@ input[type='radio'] {
   border-color: var(--cm-brand-500);
   box-shadow: var(--cm-focus);
 }
+.cm-search input:focus-visible {
+  box-shadow: none;
+}
 .cm-search input {
   flex: 1;
   min-width: 0;

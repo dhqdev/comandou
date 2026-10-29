@@ -72,8 +72,8 @@ export function useTheme(): [Theme, (t: Theme) => void] {
 }
 
 /**
- * Troca o tema com um fade curto de cores (fundos, bordas, texto e ícones juntos), sem piscar:
- * nada de captura de tela nem de camada por cima da página. "Reduzir movimento": troca na hora.
+ * Troca o tema pintando a tela de uma ponta à outra (View Transitions + clip-path, ver tokens.css).
+ * Sem suporte do navegador: fade curto de cores. "Reduzir movimento": troca na hora.
  * O segundo argumento (ponto do clique) fica só por compatibilidade com quem chama.
  */
 let switchTimer: number | undefined;
@@ -81,6 +81,11 @@ export function switchTheme(next: Theme, _from?: { x: number; y: number }) {
   const root = document.documentElement;
   const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   if (reduce) return setTheme(next);
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+  if (typeof doc.startViewTransition === 'function') {
+    doc.startViewTransition(() => setTheme(next));
+    return;
+  }
   root.classList.add('cm-theme-switching');
   // Dois quadros: a classe precisa estar valendo antes de as cores mudarem.
   requestAnimationFrame(() => requestAnimationFrame(() => setTheme(next)));

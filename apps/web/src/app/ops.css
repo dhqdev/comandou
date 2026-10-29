@@ -560,17 +560,16 @@
 .od-bar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
 }
 .od-bar > .cm-btn {
-  flex: 1 1 0;
-  min-width: 0;
+  flex: 1 1 auto;
+  min-width: max-content;
   height: 38px;
   min-height: 38px;
-  padding: 0 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  padding: 0 14px;
   white-space: nowrap;
 }
 .od-bar > .od-bar__cancel {
@@ -699,9 +698,6 @@
 @media (max-width: 640px) {
   .od-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .od-bar {
-    flex-wrap: wrap;
   }
   .od-bar > .cm-btn {
     flex: 1 1 40%;
