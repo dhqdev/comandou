@@ -158,10 +158,11 @@
   pointer-events: none;
   animation: cm-fly-out 0.18s var(--cm-ease) both;
 }
+/* Entrada de tela: só aparece subindo 4px, rápida e igual em toda troca (sem deslizar de lado). */
 @keyframes cm-page-in {
   from {
     opacity: 0;
-    transform: translate3d(calc(var(--cm-page-dir, 0) * 28px), 6px, 0);
+    transform: translate3d(0, 4px, 0);
   }
 }
 @keyframes cm-where-in {
@@ -296,6 +297,9 @@
 
 /* ---------------------------------------------------------------- abas de baixo (celular) */
 .cm-tabbar {
+  display: none;
+}
+.cm-frame__back {
   display: none;
 }
 
@@ -492,6 +496,26 @@
     display: flex;
     align-items: center;
   }
+  /* Tela aberta pelo "Mais": seta de voltar no lugar do logo, como no iPhone. */
+  .cm-frame__back {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    margin: 0 2px 0 -10px;
+    border: 0;
+    border-radius: var(--cm-radius-full);
+    background: none;
+    color: var(--cm-text);
+    cursor: pointer;
+  }
+  .cm-frame__back:active {
+    background: color-mix(in srgb, var(--cm-text) 8%, transparent);
+  }
+  .cm-frame__compact[data-back] {
+    display: none;
+  }
   /* Nome da tela atual no topo: ao rolar, o título da página some e isto fica. */
   .cm-frame__compact {
     margin-right: 10px;
@@ -534,6 +558,8 @@
     grid-column: 1;
     border-radius: 0;
     border-left: 0;
+    /* Rola só o conteúdo: sem "puxar demais" para cima ou para baixo (efeito elástico). */
+    overscroll-behavior-y: none;
   }
   .cm-frame__content {
     padding: var(--cm-space-4) var(--cm-space-4)
@@ -542,7 +568,7 @@
   }
   /* Troca de tela no celular: desliza do lado do item tocado (ver --cm-page-dir no AppFrame). */
   .cm-frame__content.cm-enter {
-    animation: cm-page-in 0.34s var(--cm-ease) backwards;
+    animation: cm-page-in 0.2s var(--cm-ease) backwards;
   }
   /* Menu flutuante em vidro líquido: pílula solta sobre o conteúdo, com um vidro que desliza
      até o item ativo (useGlider). */

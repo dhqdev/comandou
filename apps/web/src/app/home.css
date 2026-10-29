@@ -504,7 +504,7 @@
 .hcard__tag {
   padding: 1px 6px;
   border-radius: var(--cm-radius-xs);
-  font-size: 10px;
+  font-size: var(--cm-text-2xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;

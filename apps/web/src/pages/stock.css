@@ -641,7 +641,7 @@ button.st-kpi:hover {
   font-weight: 650;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--cm-brand-600);
+  color: var(--cm-brand-700);
 }
 .st-head .page-sub {
   max-width: 760px;

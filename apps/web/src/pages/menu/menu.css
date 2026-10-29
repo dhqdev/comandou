@@ -181,7 +181,9 @@
     font-size: var(--cm-text-lg);
   }
   .mn-hide-sm,
-  .cm-table .mn-hide-sm {
+  .cm-table .mn-hide-sm,
+  .cm-table td.mn-hide-sm,
+  .cm-table td.mn-hide-sm:not(:first-child) {
     display: none;
   }
   /* Lista de itens no celular: linha compacta. Foto à esquerda, nome e opções no meio, preço à

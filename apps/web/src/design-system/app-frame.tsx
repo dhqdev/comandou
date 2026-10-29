@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { ChevronLeft, X } from 'lucide-react';
 import {
   CSSProperties,
   RefObject,
@@ -10,8 +10,10 @@ import {
   useRef,
   useState,
 } from 'react';
-import { matchPath, NavLink, useLocation } from 'react-router';
+import { matchPath, NavLink, useLocation, useNavigate } from 'react-router';
 import { useGlider } from './glider';
+import { canAnimate, useLiquidDialog } from './liquid';
+import { inViewTransition } from './transition';
 import './app-frame.css';
 
 /**
@@ -120,6 +122,17 @@ export function AppFrame({
   useEffect(() => {
     lastOrder.current = order;
   }, [order]);
+  // Tela desenhada dentro de uma troca com foto (transition.ts): a entrada própria fica de fora.
+  const vtFor = useRef({ key: contentKey, vt: false });
+  if (vtFor.current.key !== contentKey) vtFor.current = { key: contentKey, vt: inViewTransition() };
+  // Celular: tela que não está nas abas de baixo (aberta pelo "Mais") ganha a seta de voltar no topo.
+  const navigate = useNavigate();
+  const onTab = all.some((i) => tabs.includes(i.key) && itemActive(pathname, i));
+  const goBack = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) navigate(-1);
+    else setSheet('more');
+  };
   const [scrolled, setScrolled] = useState(false);
 
   // Trocou de tela: fecha menus e volta o painel ao topo.
@@ -248,7 +261,16 @@ export function AppFrame({
       )}
 
       <header className="cm-frame__top" data-scrolled={scrolled || undefined}>
-        {brandCompact && <div className="cm-frame__compact">{brandCompact}</div>}
+        {!onTab && (
+          <button type="button" className="cm-frame__back" aria-label="Voltar" onClick={goBack}>
+            <ChevronLeft size={24} aria-hidden />
+          </button>
+        )}
+        {brandCompact && (
+          <div className="cm-frame__compact" data-back={!onTab || undefined}>
+            {brandCompact}
+          </div>
+        )}
         {showWhere && where && (
           <div className="cm-frame__where" aria-hidden>
             {where.icon}
@@ -270,6 +292,7 @@ export function AppFrame({
         <main
           className="cm-frame__content cm-enter"
           key={contentKey}
+          data-vt={vtFor.current.vt || undefined}
           style={{ '--cm-page-dir': pageDir } as CSSProperties}
         >
           {children}
@@ -398,14 +421,25 @@ function useTableLabels(root: RefObject<HTMLElement | null>) {
         const heads = [...table.querySelectorAll('thead th')].map(
           (th) => th.textContent?.trim() ?? '',
         );
-        if (!heads.length) continue;
         for (const row of table.querySelectorAll<HTMLTableRowElement>('tbody tr')) {
           let i = 0;
+          let badges = false;
           for (const td of row.cells) {
             const text = heads[i] ?? '';
-            if (td.dataset.label !== text) td.dataset.label = text;
+            if (heads.length && td.dataset.label !== text) td.dataset.label = text;
+            // célula sem rótulo que é só um selo: no celular fica na mesma linha dos outros selos
+            const badge =
+              i > 0 &&
+              !text &&
+              td.childElementCount === 1 &&
+              !!td.firstElementChild?.classList.contains('cm-badge');
+            if (td.classList.contains('cm-td--badge') !== badge)
+              td.classList.toggle('cm-td--badge', badge);
+            badges ||= badge;
             i += td.colSpan || 1;
           }
+          if (row.classList.contains('cm-tr--badges') !== badges)
+            row.classList.toggle('cm-tr--badges', badges);
         }
       }
     };
@@ -515,14 +549,13 @@ export function Sheet({
 
   useLayoutEffect(() => {
     const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) {
-      d.style.removeProperty('--drag');
-      d.showModal?.();
-      // Foco na folha (não no X): no iPhone o X ficava com o anel de foco aceso.
-      d.focus();
-    }
-    if (!open && d.open) d.close?.();
+    if (open && d && !d.open) d.style.removeProperty('--drag');
+  }, [open]);
+  // Nasce de quem foi clicado (no celular sobe de baixo) e volta ao fechar (liquid.ts).
+  const { shown } = useLiquidDialog(ref, open);
+  useLayoutEffect(() => {
+    // Foco na folha (não no X): no iPhone o X ficava com o anel de foco aceso.
+    if (open) ref.current?.focus();
   }, [open]);
 
   const onDown = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -541,8 +574,9 @@ export function Sheet({
     const d = drag.current;
     drag.current = null;
     ref.current?.removeAttribute('data-dragging');
-    ref.current?.style.removeProperty('--drag');
+    // Fechou arrastando: a folha desce dali mesmo, sem voltar para cima antes.
     if (d && d.dy > 90) onClose();
+    else ref.current?.style.removeProperty('--drag');
   };
 
   return (
@@ -551,6 +585,11 @@ export function Sheet({
       className="cm-sheet"
       tabIndex={-1}
       aria-labelledby={titleId}
+      onCancel={(e) => {
+        if (e.target !== e.currentTarget || !canAnimate(e.currentTarget)) return;
+        e.preventDefault();
+        onClose();
+      }}
       onClose={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -571,7 +610,7 @@ export function Sheet({
           <X size={18} />
         </button>
       </div>
-      <div className="cm-sheet__body">{open ? children : null}</div>
+      <div className="cm-sheet__body">{shown ? children : null}</div>
       {footer && <div className="cm-sheet__footer">{footer}</div>}
     </dialog>
   );

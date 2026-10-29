@@ -240,9 +240,10 @@ input[type='date'].cm-input::-webkit-calendar-picker-indicator {
   cursor: pointer;
 }
 .cm-cal__chip.is-on {
-  border-color: var(--cm-brand-600);
-  background: var(--cm-brand-600);
-  color: var(--cm-on-brand);
+  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  color: var(--cm-brand-700);
+  font-weight: 650;
 }
 .cm-cal__head {
   display: flex;
@@ -747,6 +748,27 @@ input[type='radio'] {
   }
   .cm-table td:not(:first-child)[data-label=''] {
     text-align: right;
+  }
+  /* Selos sem rótulo (situação, pagamento) e o valor logo depois: uma linha só, "Pronto · A pagar
+     ... R$ 91,80", em vez de um selo por linha com espaço vazio à esquerda (classes postas pelo
+     useTableLabels, app-frame.tsx). */
+  .cm-table tbody tr.cm-tr--badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 6px;
+  }
+  .cm-table td.cm-td--badge {
+    width: auto;
+    flex: 0 0 auto;
+  }
+  .cm-table td.cm-td--badge::before,
+  .cm-table tr.cm-tr--badges > td:not([data-label])::before {
+    display: none;
+  }
+  .cm-table td.cm-td--badge ~ td.cm-num {
+    width: auto;
+    flex: 1 0 auto;
   }
 }
 

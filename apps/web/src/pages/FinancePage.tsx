@@ -290,10 +290,7 @@ function Stat({ label, value, danger }: { label: string; value: string; danger?:
   return (
     <div className="stat">
       <div className="stat__label">{label}</div>
-      <div
-        className="stat__value"
-        style={danger ? { color: 'var(--cm-danger-700, #b42318)' } : undefined}
-      >
+      <div className="stat__value" style={danger ? { color: 'var(--cm-danger)' } : undefined}>
         {value}
       </div>
     </div>

@@ -287,7 +287,7 @@
   background: var(--cm-warning);
 }
 .dl-run__live[data-signal='lost'] {
-  color: var(--cm-danger);
+  color: color-mix(in srgb, var(--cm-danger) 85%, var(--cm-text));
 }
 .dl-run__live[data-signal='lost'] .dl-run__signal {
   background: var(--cm-danger);

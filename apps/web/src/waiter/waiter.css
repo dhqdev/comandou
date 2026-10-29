@@ -169,8 +169,9 @@
   background: var(--cm-surface-muted);
 }
 .wt-side__link.active {
-  background: var(--cm-brand-500);
-  color: var(--cm-on-brand);
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  color: var(--cm-brand-700);
+  font-weight: 650;
 }
 .wt-side__link.active svg {
   color: currentColor;
@@ -650,9 +651,11 @@
   cursor: pointer;
 }
 .wt-cat[aria-selected='true'] {
-  border-color: var(--cm-brand-500);
-  background: var(--cm-brand-500);
-  color: var(--cm-on-brand);
+  /* escolha marcada: tom suave, não bloco de cor (padrão das telas) */
+  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  color: var(--cm-brand-700);
+  font-weight: 650;
 }
 .wt-products {
   display: grid;

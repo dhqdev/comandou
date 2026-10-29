@@ -155,9 +155,11 @@
   border-color: var(--cm-gray-300);
 }
 .nsale__cat[aria-selected='true'] {
-  background: var(--cm-brand-600);
-  border-color: var(--cm-brand-600);
-  color: var(--cm-on-brand);
+  /* escolha marcada: tom suave, não bloco de cor (padrão das telas) */
+  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  color: var(--cm-brand-700);
+  font-weight: 650;
 }
 
 /* Grade de produtos: foto cobrindo o cartão, preço em cima e nome embaixo. */

@@ -84,7 +84,7 @@
   font-weight: 600;
 }
 .rv-week__day[data-today] .rv-week__wd {
-  color: var(--cm-brand-600);
+  color: var(--cm-brand-700);
   font-weight: 700;
 }
 .rv-week__day[aria-selected='true'] {

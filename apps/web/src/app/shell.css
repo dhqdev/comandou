@@ -31,6 +31,23 @@
   color: var(--cm-text-muted);
   font-size: var(--cm-text-sm);
 }
+/* Celular: cabeçalho enxuto. O nome da tela já está no topo; o título fica menor e a explicação
+   em letra pequena, no máximo duas linhas. */
+@media (max-width: 640px) {
+  .page-title {
+    font-size: var(--cm-text-xl);
+    letter-spacing: -0.015em;
+  }
+  .page-sub {
+    margin-top: 2px;
+    font-size: var(--cm-text-xs);
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
 .offline-banner {
   background: var(--cm-warning-bg);
   color: var(--cm-warning);

@@ -1,0 +1,199 @@
+/* Movimento e vidro no jeito do iOS (mesmo estilo do Planejai).
+   - Janelas nascem de quem foi clicado e voltam para ele (liquid.ts). Enquanto a forma anima a janela
+     fica sólida; quando ela para, liga o vidro (data-glass).
+   - Botões afundam na hora do toque e voltam com mola (sem onda colorida: jeito do iPhone).
+   - Indicadores e cartões dos painéis entram em cascata, uma vez por tela.
+   Regras: só transform e opacidade se movem, nada passa de 400 ms, hover só com mouse e, com
+   "reduzir movimento", tudo vira só esmaecer (bloco no fim). */
+
+/* ---------------------------------------------------------------- janelas */
+dialog[data-liquid][open] {
+  animation: none;
+}
+dialog[data-liquid]::backdrop {
+  animation: cm-fade 0.24s var(--cm-ease) both;
+}
+
+/* Vidro: quase sólido (o texto continua fácil de ler), desfocando o que passa atrás, com um fio de
+   luz em cima no lugar da borda. Só nas janelas centrais e nas folhas, nunca vidro sobre vidro. */
+:is(.cm-modal, .cm-sheet) {
+  transition: background-color 0.24s var(--cm-ease);
+}
+:is(.cm-modal, .cm-sheet)[data-glass] {
+  background: color-mix(in srgb, var(--cm-surface) 90%, transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(1.7);
+  backdrop-filter: blur(28px) saturate(1.7);
+  border-color: transparent;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 70%),
+    inset 0 0 0 0.5px rgb(255 255 255 / 45%),
+    0 0 0 0.5px rgb(24 24 27 / 10%),
+    0 24px 56px -18px rgb(24 24 27 / 30%),
+    0 2px 8px rgb(24 24 27 / 6%);
+}
+:is(.cm-modal, .cm-sheet)[data-glass] :is(.cm-modal__footer, .cm-sheet__footer) {
+  background: transparent;
+  border-top-color: color-mix(in srgb, var(--cm-text) 10%, transparent);
+}
+/* Sobre o vidro o cinza liso some: botão desligado ganha um véu escuro e contorno. */
+:is(.cm-modal, .cm-sheet)[data-glass] .cm-btn:disabled {
+  background: color-mix(in srgb, var(--cm-text) 7%, transparent);
+  border-color: var(--cm-border-strong);
+}
+:root[data-theme='dark'] :is(.cm-modal, .cm-sheet)[data-glass] {
+  background: color-mix(in srgb, var(--cm-surface) 88%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 9%),
+    inset 0 0 0 0.5px rgb(255 255 255 / 8%),
+    0 0 0 0.5px rgb(0 0 0 / 60%),
+    0 24px 56px -14px rgb(0 0 0 / 70%);
+}
+/* No celular a folha encosta embaixo: sem sombra pesada, só o fio de luz em cima. */
+@media (max-width: 640px) {
+  /* folha grande, com muito texto: um pouco mais opaca que a janela do computador */
+  :is(.cm-modal, .cm-sheet)[data-glass] {
+    background: color-mix(in srgb, var(--cm-surface) 95%, transparent);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 70%),
+      0 -12px 40px -14px rgb(24 24 27 / 28%);
+  }
+  :root[data-theme='dark'] :is(.cm-modal, .cm-sheet)[data-glass] {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 9%),
+      0 -12px 40px -14px rgb(0 0 0 / 75%);
+  }
+}
+/* Menos transparência ou mais contraste no sistema: vidro vira sólido. */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  :is(.cm-modal, .cm-sheet)[data-glass] {
+    background: var(--cm-surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-color: var(--cm-border-strong);
+  }
+}
+
+/* ---------------------------------------------------------------- toque */
+/* Afunda na hora; a volta é com mola (transition, para clique repetido não reiniciar nada). */
+.cm-btn,
+.cm-option {
+  transition-property: background-color, border-color, color, box-shadow, transform;
+  transition-duration:
+    var(--cm-dur-fast), var(--cm-dur-fast), var(--cm-dur-fast), var(--cm-dur-fast), 0.28s;
+  transition-timing-function:
+    var(--cm-ease), var(--cm-ease), var(--cm-ease), var(--cm-ease), var(--cm-ease-liquid);
+}
+.cm-btn:active:not(:disabled),
+.cm-option:active:not(:disabled) {
+  transform: scale(0.97);
+  transition-duration: 0.08s;
+}
+
+/* ---------------------------------------------------------------- painéis */
+/* Indicadores e cartões entram em cascata (curto: troca-se de tela o dia todo). */
+.cm-frame__content
+  :is(.stat-grid, .st-kpis, .rp-kpis, .rp-stats, .dl-kpis, .adm-grid, .rp-grid, .st-grid)
+  > * {
+  animation: cm-rise 0.28s cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
+}
+.cm-frame__content
+  :is(.stat-grid, .st-kpis, .rp-kpis, .rp-stats, .dl-kpis, .adm-grid, .rp-grid, .st-grid)
+  > :nth-child(2) {
+  animation-delay: 0.03s;
+}
+.cm-frame__content
+  :is(.stat-grid, .st-kpis, .rp-kpis, .rp-stats, .dl-kpis, .adm-grid, .rp-grid, .st-grid)
+  > :nth-child(3) {
+  animation-delay: 0.06s;
+}
+.cm-frame__content
+  :is(.stat-grid, .st-kpis, .rp-kpis, .rp-stats, .dl-kpis, .adm-grid, .rp-grid, .st-grid)
+  > :nth-child(4) {
+  animation-delay: 0.09s;
+}
+.cm-frame__content
+  :is(.stat-grid, .st-kpis, .rp-kpis, .rp-stats, .dl-kpis, .adm-grid, .rp-grid, .st-grid)
+  > :nth-child(n + 5) {
+  animation-delay: 0.12s;
+}
+@keyframes cm-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+/* Os números dos indicadores sobem e ganham foco ao aparecer. */
+:is(.stat__value, .st-kpi__value, .rp-kpi__value, .dl-kpi__value) {
+  animation: cm-num 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) 0.04s backwards;
+}
+@keyframes cm-num {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(3px);
+  }
+}
+
+/* ---------------------------------------------------------------- troca de tela */
+/* Com View Transitions (transicao em liquid.ts): a tela antiga sai enquanto a nova entra, sem
+   quadro vazio. Só o painel de conteúdo anima; moldura, menu e barra de baixo ficam parados. */
+html.cm-vt .cm-frame__panel {
+  view-transition-name: cm-main;
+}
+html.cm-vt .cm-tabbar {
+  view-transition-name: cm-tabbar;
+}
+/* tela desenhada dentro da troca: a entrada própria dela fica de fora (marca fixa por tela, ver
+   app-frame.tsx; tirar a classe depois faria a entrada rodar de novo) */
+.cm-frame__content.cm-enter[data-vt] {
+  animation: none;
+}
+::view-transition-group(cm-tabbar),
+::view-transition-new(cm-tabbar) {
+  animation: none;
+}
+::view-transition-old(cm-tabbar) {
+  display: none;
+}
+::view-transition-group(cm-main) {
+  overflow: clip;
+  animation: none;
+}
+::view-transition-old(cm-main) {
+  animation: cm-vt-out 0.14s ease-out both;
+}
+::view-transition-new(cm-main) {
+  animation: cm-vt-rise 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes cm-vt-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes cm-vt-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+}
+
+/* ---------------------------------------------------------------- reduzir movimento */
+@media (prefers-reduced-motion: reduce) {
+  .cm-btn:active:not(:disabled),
+  .cm-option:active:not(:disabled) {
+    transform: none;
+  }
+  .cm-frame__content
+    :is(.stat-grid, .st-kpis, .rp-kpis, .rp-stats, .dl-kpis, .adm-grid, .rp-grid, .st-grid)
+    > *,
+  :is(.stat__value, .st-kpi__value, .rp-kpi__value, .dl-kpi__value) {
+    animation: cm-fade 0.14s ease both;
+  }
+}
+
+/* ---------------------------------------------------------------- escuro: texto sobre cor viva */
+/* No escuro os tons de status são claros e vivos: texto branco por cima não se lê (abaixo de 3:1).
+   Contadores, o aviso de cancelamento da cozinha e o botão verde passam a usar texto escuro. */
+:root[data-theme='dark'] :is(.kds__count, .board__count, .kds-card__alert, .cm-btn--success) {
+  color: var(--cm-surface-sunken);
+}

@@ -1,6 +1,12 @@
 import type { ReactElement } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
-import { Alert, Mascot, Spinner, ToastProvider } from '../design-system';
+import {
+  Navigate,
+  Route,
+  Routes,
+  unstable_HistoryRouter as HistoryRouter,
+  useLocation,
+} from 'react-router';
+import { Alert, appHistory, Mascot, ScreenDrawn, Spinner, ToastProvider } from '../design-system';
 import { ComingSoonPage } from '../pages/ComingSoonPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MenuPage } from '../pages/MenuPage';
@@ -301,7 +307,9 @@ export function App() {
     );
   }
   return (
-    <BrowserRouter>
+    // Histórico próprio: cada troca de tela roda com foto e animação (design-system/transition.ts).
+    <HistoryRouter history={appHistory}>
+      <ScreenDrawn />
       <TenantBrand />
       {/* Em todas as telas: painel, garçom, cozinha, cardápio do cliente e links públicos. */}
       <UpdatePrompt />
@@ -327,6 +335,6 @@ export function App() {
           />
         </Routes>
       </ToastProvider>
-    </BrowserRouter>
+    </HistoryRouter>
   );
 }

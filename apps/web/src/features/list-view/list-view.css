@@ -543,15 +543,21 @@
     font-size: var(--cm-text-xs);
     text-overflow: ellipsis;
   }
-  /* Chips numa linha só, rolando para o lado. */
+  /* Sem rolar para o lado (pedido do David, 2026-10-29): abas e filtros quebram linha e
+     ficam todos à vista. */
   .lv-chips {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    margin: 0 calc(-1 * var(--cm-space-3));
-    padding: 0 var(--cm-space-3);
+    flex-wrap: wrap;
+    row-gap: 6px;
   }
-  .lv-chips::-webkit-scrollbar {
+  .lv-tabs__list {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+  .lv-tab > button[role='tab'] {
+    padding: 0 8px;
+  }
+  /* o traço entre filtros e "+ Filtro" sobra quando a linha quebra */
+  .lv-sep {
     display: none;
   }
   .lv-chip,

@@ -48,9 +48,9 @@
   /* Semânticas (estados de pedido seguem estas cores) */
   --cm-info: #2463d1;
   --cm-info-bg: #eef3fd;
-  --cm-success: #2b8a3e; /* folha */
+  --cm-success: #237a34; /* folha (escura o bastante para texto sobre o fundo verde claro) */
   --cm-success-bg: #edf7ef;
-  --cm-warning: #b86e00;
+  --cm-warning: #975a00;
   --cm-warning-bg: #fff6e0;
   --cm-danger: #d0312d;
   --cm-danger-bg: #fdefee;
@@ -64,7 +64,8 @@
   --cm-border-strong: var(--cm-gray-200);
   --cm-text: var(--cm-gray-900);
   --cm-text-muted: var(--cm-gray-600);
-  --cm-text-subtle: var(--cm-gray-500);
+  /* Texto de apoio: um tom acima do gray-500 para passar de 4,5:1 sobre branco e sobre o fundo. */
+  --cm-text-subtle: #6b6b73;
   --cm-link: var(--cm-brand-700);
   /* Moldura do app: barra lateral + topo formam uma peça só; o conteúdo fica num painel. */
   --cm-frame: #ffffff;
@@ -146,11 +147,11 @@ html.cm-kb-open {
   --cm-brand-100: #3a2017;
   --cm-brand-200: #583020;
   /* Laranja mais suave no escuro: menos saturado e brilhante, para não cansar a vista em turnos
-     longos. Texto branco sobre o botão (3.7:1, texto em negrito de controle). */
+     longos. O botão (600) é um tom mais fechado para o texto branco passar de 4,5:1. */
   --cm-brand-300: #f0a283;
   --cm-brand-400: #e6794f;
   --cm-brand-500: #dd6a40;
-  --cm-brand-600: #d25f35;
+  --cm-brand-600: #bf532c;
   --cm-brand-700: #ee8f6b; /* laranja legível sobre o escuro */
   --cm-brand-800: #f6b399;
   --cm-on-brand: #ffffff;
@@ -168,7 +169,7 @@ html.cm-kb-open {
   --cm-border-strong: #3a3a3f;
   --cm-text: #ececee;
   --cm-text-muted: #a6a6ad;
-  --cm-text-subtle: #7f7f87;
+  --cm-text-subtle: #8c8c94;
   --cm-gray-0: #1b1b1e;
   --cm-gray-25: #202023;
   --cm-gray-50: #141416;
@@ -204,11 +205,11 @@ html.cm-kb-open {
     --cm-brand-100: #3a2017;
     --cm-brand-200: #583020;
     /* Laranja mais suave no escuro: menos saturado e brilhante, para não cansar a vista em turnos
-       longos. Texto branco sobre o botão (3.7:1, texto em negrito de controle). */
+       longos. O botão (600) é um tom mais fechado para o texto branco passar de 4,5:1. */
     --cm-brand-300: #f0a283;
     --cm-brand-400: #e6794f;
     --cm-brand-500: #dd6a40;
-    --cm-brand-600: #d25f35;
+    --cm-brand-600: #bf532c;
     --cm-brand-700: #ee8f6b; /* laranja legível sobre o escuro */
     --cm-brand-800: #f6b399;
     --cm-on-brand: #ffffff;
@@ -226,7 +227,7 @@ html.cm-kb-open {
     --cm-border-strong: #3a3a3f;
     --cm-text: #ececee;
     --cm-text-muted: #a6a6ad;
-    --cm-text-subtle: #7f7f87;
+    --cm-text-subtle: #8c8c94;
     --cm-gray-0: #1b1b1e;
     --cm-gray-25: #202023;
     --cm-gray-50: #141416;
@@ -273,16 +274,16 @@ html.cm-kb-open {
 }
 
 /* Troca de tema com View Transitions: a cor nova vai pintando a tela da esquerda para a direita. */
-::view-transition-old(root),
-::view-transition-new(root) {
+html:not(.cm-vt)::view-transition-old(root),
+html:not(.cm-vt)::view-transition-new(root) {
   animation: none;
   mix-blend-mode: normal;
 }
-::view-transition-new(root) {
+html:not(.cm-vt)::view-transition-new(root) {
   animation: cm-theme-sweep 0.6s cubic-bezier(0.65, 0, 0.35, 1) both;
   z-index: 2;
 }
-::view-transition-old(root) {
+html:not(.cm-vt)::view-transition-old(root) {
   z-index: 1;
 }
 @keyframes cm-theme-sweep {

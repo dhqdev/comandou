@@ -13,6 +13,7 @@ import { X } from 'lucide-react';
 import { Mascot, type MascotMood } from './mascot';
 import { DateInput } from './pickers';
 import { cachedBranding } from './brand';
+import { canAnimate, useLiquidDialog } from './liquid';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 
@@ -305,16 +306,18 @@ export function Modal({
     const r = e.currentTarget.getBoundingClientRect();
     return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
   };
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) d.showModal?.();
-    if (!open && d.open) d.close?.();
-  }, [open]);
+  // Nasce de quem foi clicado e volta para ele ao fechar (liquid.ts).
+  const { shown } = useLiquidDialog(ref, open);
   return (
     <dialog
       ref={ref}
       className={`cm-modal cm-modal--${size}`}
+      onCancel={(e) => {
+        // Esc: fecha pelo mesmo caminho do X, com a animação de volta.
+        if (e.target !== e.currentTarget || !canAnimate(e.currentTarget)) return;
+        e.preventDefault();
+        onClose();
+      }}
       onMouseDown={(e) => {
         downOnBackdrop.current = onBackdrop(e);
       }}
@@ -335,7 +338,7 @@ export function Modal({
         </h2>
         <Button variant="ghost" onClick={onClose} aria-label="Fechar" icon={<X size={18} />} />
       </div>
-      <div className="cm-card__body cm-modal__body">{open ? children : null}</div>
+      <div className="cm-card__body cm-modal__body">{shown ? children : null}</div>
       {footer && <div className="cm-modal__footer">{footer}</div>}
     </dialog>
   );

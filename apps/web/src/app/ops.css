@@ -1082,6 +1082,8 @@ label.option-row input[type='checkbox'] {
   margin: 0;
   padding: 0;
   display: grid;
+  /* minmax(0, 1fr): uma nota com palavra comprida não alarga o cartão além da tela no celular */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--cm-space-4);
 }
 .release__title {

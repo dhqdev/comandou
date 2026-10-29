@@ -1,5 +1,6 @@
-import { ReactNode, useEffect, useId, useRef } from 'react';
+import { ReactNode, useId, useRef } from 'react';
 import { X } from 'lucide-react';
+import { canAnimate, useLiquidDialog } from '../design-system';
 import './side-panel.css';
 
 /**
@@ -39,16 +40,18 @@ export function SidePanel({
     const r = e.currentTarget.getBoundingClientRect();
     return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
   };
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) d.showModal?.();
-    if (!open && d.open) d.close?.();
-  }, [open]);
+  // Entra pela direita e, ao fechar, sai por ela (liquid.ts).
+  const { shown } = useLiquidDialog(ref, open, 'panel');
   return (
     <dialog
       ref={ref}
       className={`side-panel side-panel--${size}`}
+      onCancel={(e) => {
+        // Esc: mesmo caminho do Fechar, com a saída animada.
+        if (e.target !== e.currentTarget || !canAnimate(e.currentTarget)) return;
+        e.preventDefault();
+        onClose();
+      }}
       onClose={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -82,7 +85,7 @@ export function SidePanel({
             </button>
           </div>
         </header>
-        <div className="side-panel__body">{open ? children : null}</div>
+        <div className="side-panel__body">{shown ? children : null}</div>
         {footer && <footer className="side-panel__foot">{footer}</footer>}
       </div>
     </dialog>

@@ -20,6 +20,47 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.51.0',
+    date: '2026-10-29',
+    title: 'Janelas que nascem do botão, no jeito do iPhone',
+    summary:
+      'Toda janela agora sai do botão que você tocou e volta para ele ao fechar. A troca de tela ficou mais fluida e os textos mais fáceis de ler.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'No computador, as janelas crescem a partir do botão, linha ou cartão clicado e encolhem de volta para ele ao fechar (pelo X, pelo Esc ou clicando fora).',
+      },
+      {
+        tag: 'novo',
+        text: 'No celular, as folhas sobem de baixo e descem ao fechar, inclusive quando você arrasta a alça para baixo. O painel lateral do pedido sai pela direita.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Janelas com acabamento de vidro (desfocam levemente o que está atrás), que fica sólido para quem pediu menos transparência no sistema.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Troca de tela sem piscar: a tela antiga sai enquanto a nova entra. Botões afundam ao toque e voltam com mola; indicadores dos painéis entram em sequência.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Textos de apoio, selos de "Pago"/"Pendente" e avisos ficaram um tom mais escuros para ler bem em qualquer tela, no claro e no escuro.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Categorias da Nova venda, do garçom e do calendário marcam a escolha com tom suave e contorno, no mesmo padrão do resto do sistema.',
+      },
+      {
+        tag: 'novo',
+        text: 'No celular, telas abertas pelo "Mais" (como o Cardápio) têm a seta de voltar no topo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Celular e app instalado: a tela não "estica" mais ao puxar além do começo ou do fim, o cabeçalho das telas ficou mais enxuto e as abas e filtros das listas quebram linha em vez de rolar para o lado.',
+      },
+    ],
+  },
+  {
     version: '0.50.4',
     date: '2026-10-29',
     title: 'Volta o panda antigo em todas as telas',

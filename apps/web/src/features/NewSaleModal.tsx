@@ -24,7 +24,7 @@ import {
   X,
 } from 'lucide-react';
 import { ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Select, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, Select, Spinner, TextField, showLiquid, useToast } from '../design-system';
 import { api, ApiError } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
@@ -114,7 +114,8 @@ export function NewSaleModal({
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
-    if (open && !d.open) d.showModal?.();
+    // Nasce do botão que abriu, como as outras janelas (liquid.ts).
+    if (open && !d.open) showLiquid(d);
   }, [open]);
   /** Clique fora (no fundo escurecido): começou e terminou fora dos cartões. */
   const downOutside = useRef(false);
