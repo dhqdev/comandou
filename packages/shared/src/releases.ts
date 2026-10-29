@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.50.0',
+    date: '2026-10-29',
+    title: 'Panda novo, maior no canto e com roupinhas',
+    summary:
+      'O panda foi redesenhado com corpo inteiro, volume e detalhes, e agora fica grande no canto da tela. Toque nele para dar um oi ou abra o guarda-roupa para vesti-lo.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Panda de corpo inteiro: olhos de vidro, nariz brilhante, patas e barriga. Ele segue o mouse com o olhar, pisca, respira, pula, acena e amassa quando você toca.',
+      },
+      {
+        tag: 'novo',
+        text: 'Roupinhas: 12 itens de cabeça (chef, festa, coroa, gorro, boné, Papai Noel, caubói, bruxa, fone, laço, flor, auréola), 3 de olhos (óculos, óculos escuros, coração) e 7 de pescoço (cachecol, gravatinha, gravata, bandana, colar, medalha, avental).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O panda fica no canto inferior da tela, com botões para trocar de roupinha e para esconder. A roupinha escolhida fica salva neste aparelho e aparece também nas telas vazias e no chat.',
+      },
+    ],
+  },
+  {
     version: '0.49.0',
     date: '2026-10-29',
     title: 'Fiscal completo: NFC-e, NF-e e notas recebidas',

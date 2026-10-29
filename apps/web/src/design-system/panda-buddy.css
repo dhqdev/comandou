@@ -1,0 +1,324 @@
+/* Panda de corpo inteiro (PandaBuddy). Tudo gira e amassa a partir dos pés (100, 210). */
+.pb {
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  shape-rendering: geometricPrecision;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+.pb--still {
+  cursor: default;
+}
+.pb :is(.pb-lean, .pb-act, .pb-life, .pb-squish) {
+  transform-box: view-box;
+  transform-origin: 100px 210px;
+}
+.pb .pb-lean {
+  transition: transform 0.5s cubic-bezier(0.3, 0.7, 0.3, 1);
+}
+.pb :is(.pb-pupil, .pb-look) {
+  transition: transform 0.14s cubic-bezier(0.3, 0.7, 0.3, 1);
+}
+.pb .pb-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.07s ease-in;
+}
+.pb .pb-blinking .pb-eye {
+  transform: scaleY(0.1);
+}
+.pb .pb-breathe {
+  animation: pb-breathe 3.8s ease-in-out infinite;
+}
+@keyframes pb-breathe {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  50% {
+    transform: scale(0.99, 1.02);
+  }
+}
+.pb .pb-squish-0 {
+  animation: pb-poke 0.55s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+.pb .pb-squish-1 {
+  animation: pb-poke2 0.55s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+@keyframes pb-poke {
+  0% {
+    transform: scale(1);
+  }
+  18% {
+    transform: scale(1.08, 0.88);
+  }
+  45% {
+    transform: scale(0.97, 1.05);
+  }
+  70% {
+    transform: scale(1.02, 0.98);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes pb-poke2 {
+  0% {
+    transform: scale(1);
+  }
+  18% {
+    transform: scale(1.08, 0.88);
+  }
+  45% {
+    transform: scale(0.97, 1.05);
+  }
+  70% {
+    transform: scale(1.02, 0.98);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.pb .pb-wear {
+  transition: transform 0.3s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.pb .pb-arm {
+  transform-box: view-box;
+  transform-origin: 140px 138px;
+}
+.pb .pb-arm--wave {
+  animation: pb-wave 1.8s ease-in-out both;
+}
+@keyframes pb-wave {
+  0% {
+    transform: rotate(0);
+  }
+  14% {
+    transform: rotate(-150deg);
+  }
+  26% {
+    transform: rotate(-128deg);
+  }
+  38% {
+    transform: rotate(-152deg);
+  }
+  50% {
+    transform: rotate(-128deg);
+  }
+  62% {
+    transform: rotate(-152deg);
+  }
+  76% {
+    transform: rotate(-120deg);
+  }
+  100% {
+    transform: rotate(0);
+  }
+}
+.pb .pb-talk {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pb-talk 0.34s ease-in-out infinite alternate;
+}
+@keyframes pb-talk {
+  from {
+    transform: scaleY(0.45);
+  }
+  to {
+    transform: scaleY(1.1);
+  }
+}
+.pb .pb-zzz {
+  animation: pb-float 2.6s ease-in-out infinite;
+}
+.pb .pb-dots {
+  animation: pb-float 2.2s ease-in-out infinite;
+}
+@keyframes pb-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+.pb--still *,
+.pb--still {
+  animation: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pb * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ------------------------------------------------ panda no canto da tela */
+.pb-corner {
+  position: fixed;
+  z-index: 40;
+  left: 14px;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  width: 200px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  color: var(--cm-text-muted, #777);
+}
+@media (min-width: 861px) {
+  .pb-corner {
+    left: calc(var(--cm-sidebar-w, 240px) + 18px);
+  }
+}
+@media (max-width: 860px) {
+  .pb-corner {
+    width: 120px;
+    left: 8px;
+    bottom: calc(64px + 8px + env(safe-area-inset-bottom));
+  }
+}
+.pb-corner > * {
+  pointer-events: auto;
+}
+.pb-corner__tools {
+  position: absolute;
+  top: 6px;
+  right: -2px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.18s;
+}
+.pb-corner:hover .pb-corner__tools,
+.pb-corner:focus-within .pb-corner__tools,
+.pb-corner__tools.is-shown {
+  opacity: 1;
+}
+@media (hover: none) {
+  .pb-corner__tools {
+    opacity: 1;
+  }
+}
+.pb-corner__btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid var(--cm-border, #ddd);
+  background: var(--cm-surface, #fff);
+  color: var(--cm-text, #222);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 14%);
+}
+.pb-corner__btn:hover {
+  background: var(--cm-surface-2, #f4f4f4);
+}
+.pb-corner__tab {
+  position: fixed;
+  z-index: 40;
+  left: 14px;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--cm-border, #ddd);
+  background: var(--cm-surface, #fff);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 16%);
+}
+@media (min-width: 861px) {
+  .pb-corner__tab {
+    left: calc(var(--cm-sidebar-w, 240px) + 18px);
+  }
+}
+@media (max-width: 860px) {
+  .pb-corner__tab {
+    left: 8px;
+    bottom: calc(64px + 8px + env(safe-area-inset-bottom));
+  }
+}
+
+/* ------------------------------------------------ guarda-roupa */
+.pb-ward__stage {
+  display: grid;
+  place-items: center;
+  padding: 14px 0 12px;
+  margin-bottom: 10px;
+  border-radius: var(--cm-radius-lg, 16px);
+  background: radial-gradient(
+    60% 70% at 50% 45%,
+    var(--cm-surface-2, #f4f4f1) 0%,
+    var(--cm-surface-3, #e8e8e4) 100%
+  );
+  color: var(--cm-text-muted, #777);
+}
+.pb-ward__sec {
+  margin: 14px 0 8px;
+  font-size: 12px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--cm-text-muted, #777);
+}
+.pb-ward__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+  gap: 8px;
+}
+@media (max-width: 600px) {
+  .pb-ward__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.pb-ward__tile {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-height: 96px;
+  padding: 8px 4px;
+  border-radius: 14px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  color: var(--cm-text, #222);
+  border: 1px solid var(--cm-border, #ddd);
+  background: var(--cm-surface, #fff);
+  transition:
+    transform 0.12s,
+    border-color 0.12s;
+}
+.pb-ward__tile:hover {
+  border-color: var(--cm-gray-400, #aaa);
+}
+.pb-ward__tile:active {
+  transform: scale(0.96);
+}
+.pb-ward__tile.is-on {
+  border-color: var(--cm-brand-600, #e23a00);
+  box-shadow: 0 0 0 1px var(--cm-brand-600, #e23a00) inset;
+}
+.pb-ward__art {
+  display: grid;
+  place-items: center;
+  height: 56px;
+  margin-bottom: 4px;
+}
+.pb-ward__none {
+  font-size: 20px;
+  color: var(--cm-text-muted, #999);
+}
+@media (max-width: 860px) {
+  .pb-corner .pb {
+    width: 120px;
+    height: auto;
+  }
+}

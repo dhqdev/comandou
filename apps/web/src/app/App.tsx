@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router';
-import { Alert, Mascot, Spinner, ToastProvider } from '../design-system';
+import { Alert, Mascot, PandaCorner, Spinner, ToastProvider } from '../design-system';
 import { ComingSoonPage } from '../pages/ComingSoonPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MenuPage } from '../pages/MenuPage';
@@ -286,6 +286,7 @@ function Gate() {
       </Routes>
       {/* Chat da equipe em todas as telas (painel e app do garçom aberto pelo gestor). */}
       <TeamChat variant={pathname.startsWith('/garcom') ? 'waiter' : 'shell'} />
+      {!pathname.startsWith('/garcom') && <PandaCorner />}
     </>
   );
 }
