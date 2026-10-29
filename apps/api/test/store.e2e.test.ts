@@ -349,6 +349,35 @@ describe('Cardápio público e pedido do cliente', () => {
     expect(r.body.status).toBe('new');
   });
 
+  it('ligar o aceite automático aceita quem já estava em análise', async () => {
+    await patch('adminA', '/store/settings', { isOpen: true, autoAccept: false }).expect(200);
+    const r = await pub
+      .post(
+        '/store/orders',
+        {
+          ...customer,
+          channel: 'pickup',
+          token: token(),
+          items: [{ productId: fx.prodA, quantity: 1 }],
+        },
+        key(),
+      )
+      .expect(201);
+    expect(r.body.status).toBe('awaiting');
+    const before = (await get('adminA', '/orders?status=awaiting').expect(200)).body as {
+      id: string;
+      number: number;
+    }[];
+    const mine = before.find((o) => o.number === r.body.number)!;
+    expect(mine).toBeTruthy();
+    await patch('adminA', '/store/settings', { autoAccept: true }).expect(200);
+    const after = (await get('adminA', `/orders/${mine.id}`).expect(200)).body;
+    expect(after.status).toBe('new');
+    expect(after.acceptedAt).toBeTruthy();
+    expect((await get('adminA', '/orders?status=awaiting').expect(200)).body).toHaveLength(0);
+    await patch('adminA', '/store/settings', { autoAccept: false }).expect(200);
+  });
+
   it('loja desativada some do público', async () => {
     await patch('adminA', '/store/settings', { enabled: false }).expect(200);
     await pub.get('/store').expect(404);
