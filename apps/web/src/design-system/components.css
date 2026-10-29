@@ -1445,9 +1445,6 @@ input[type='radio'] {
   border-color: var(--cm-brand-500);
   box-shadow: var(--cm-focus);
 }
-.cm-search input:focus-visible {
-  box-shadow: none;
-}
 .cm-search input {
   flex: 1;
   min-width: 0;
@@ -1510,4 +1507,22 @@ input[type='radio'] {
   .cm-table td > .cm-btn + .cm-btn {
     margin-left: 6px;
   }
+}
+
+/* Caixas de busca com ícone: só a caixa (label) tem contorno no foco; o campo de dentro nunca
+ * desenha o seu. Qualquer caixa nova entra nesta lista. */
+:is(
+    .cm-search,
+    .pdv__search,
+    .pdv-mini-search,
+    .pdv-select,
+    .wt-search,
+    .tc-search,
+    .nsale__search,
+    .searchbox
+  )
+  :is(input, select):is(:focus, :focus-visible) {
+  outline: none;
+  box-shadow: none;
+  border-color: transparent;
 }

@@ -22,6 +22,18 @@ export const RELEASES: readonly Release[] = [
   {
     version: '0.50.2',
     date: '2026-10-29',
+    title: 'Caixas de busca com um só contorno',
+    summary: 'Em todas as caixas de busca do sistema, o contorno de foco aparece só uma vez.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Busca de pedidos, mesas, comandas, garçom, chat, nova venda e loja: sem contorno duplo ao clicar.',
+      },
+    ],
+  },
+  {
+    version: '0.50.2',
+    date: '2026-10-29',
     title: 'Panda sem roupinhas e sem o canto da tela',
     summary:
       'Saíram o panda grande que ficava no canto da tela e as roupinhas. O panda do topo e o das telas vazias e do chat continuam com o desenho novo.',
