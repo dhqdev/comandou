@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.42.1',
+    date: '2026-10-28',
+    title: 'Cardápio rola de lado sem fim',
+    summary:
+      'No celular, as categorias e os banners do cardápio online dão a volta: depois da última categoria vem a primeira de novo, para os dois lados.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Categorias do cardápio no celular: role para o lado à vontade, a faixa não acaba. As setas também dão a volta.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Banners das promoções dão a volta sem fim e continuam trocando sozinhos; no computador ganham setas ao passar o mouse.',
+      },
+    ],
+  },
+  {
     version: '0.42.0',
     date: '2026-10-27',
     title: 'Estoque com seções próprias',
