@@ -56,12 +56,12 @@ test('integrações: dados fiscais, NFC-e no pedido e WhatsApp', async ({ page }
   expect(saved).toMatchObject({ ncm: '22029900', fiscalCode: '102' });
 
   // Configuração fiscal (homologação; sem token, a emissão não ativa)
-  await nav(page, 'Nota fiscal');
-  await page.getByRole('tab', { name: 'Configuração' }).click();
+  await page.goto('/fiscal/configuracao');
   await expect(page.getByText('Homologação (teste)')).toBeVisible();
   await page.getByLabel('CNPJ do emitente').fill('12.345.678/0001-95');
   await page.getByLabel('NCM padrão').fill('21069090');
-  await page.getByRole('button', { name: 'Salvar' }).click();
+  // O último "Salvar" é o do cartão com os dados da Focus e os códigos de reserva.
+  await page.getByRole('button', { name: 'Salvar', exact: true }).last().click();
   await expect(page.getByText('Configuração salva')).toBeVisible();
   await shot(page, info.project.name, 'nota-fiscal-config');
 
@@ -91,7 +91,7 @@ test('integrações: dados fiscais, NFC-e no pedido e WhatsApp', async ({ page }
   await nav(page, 'Pedidos');
   await page.getByRole('row', { name: new RegExp(`^#${order.number} `) }).click();
   const dialog = page.getByRole('dialog').filter({ hasText: /Pedido #/ });
-  await expect(dialog.getByRole('heading', { name: 'Nota fiscal (NFC-e)' })).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Nota fiscal' })).toBeVisible();
   await dialog.getByRole('button', { name: 'Emitir NFC-e' }).click();
   await expect(page.getByText(/Emissão fiscal desativada/)).toBeVisible();
   await shot(page, info.project.name, 'pedido-nfce');
