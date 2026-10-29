@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.52.1',
+    date: '2026-10-29',
+    title: 'Conferência de conta completa e criptografia reforçada',
+    summary:
+      'A conferência impressa agora mostra cada parte do valor (taxa de entrega, desconto, acréscimo), como o cliente vai pagar, o troco e as observações.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Conferência de conta impressa: subtotal, desconto, acréscimo e taxa de entrega aparecem antes do total; o motoboy vê quanto cobrar, em que forma e quanto levar de troco.',
+      },
+      {
+        tag: 'correção',
+        text: 'Observações do item ("sem picles") e do pedido saem na conferência, e o pedido de mesa mostra a mesa ou comanda.',
+      },
+      {
+        tag: 'segurança',
+        text: 'As chaves guardadas cifradas (integrações, WhatsApp e backups) só abrem com o selo de autenticidade completo.',
+      },
+    ],
+  },
+  {
     version: '0.52.0',
     date: '2026-10-29',
     title: 'Sons de aviso novos, que ficam tocando até alguém atender',

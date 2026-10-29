@@ -48,7 +48,7 @@ export async function decryptFile(keyB64: string, input: string, output: string)
     throw new Error('Não é um backup do Comandou (formato desconhecido)');
   const salt = head.subarray(MAGIC.length, MAGIC.length + 16);
   const iv = head.subarray(MAGIC.length + 16, HEADER);
-  const d = createDecipheriv('aes-256-gcm', fileKey(keyB64, salt), iv);
+  const d = createDecipheriv('aes-256-gcm', fileKey(keyB64, salt), iv, { authTagLength: TAG });
   d.setAuthTag(tag);
   try {
     await pipeline(

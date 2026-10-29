@@ -16,7 +16,7 @@ export function seal(keyB64: string, plain: string, context: string): Buffer {
 
 export function open(keyB64: string, sealed: Buffer, context: string): string {
   const key = Buffer.from(keyB64, 'base64');
-  const d = createDecipheriv('aes-256-gcm', key, sealed.subarray(0, 12));
+  const d = createDecipheriv('aes-256-gcm', key, sealed.subarray(0, 12), { authTagLength: 16 });
   d.setAAD(Buffer.from(context));
   d.setAuthTag(sealed.subarray(12, 28));
   return Buffer.concat([d.update(sealed.subarray(28)), d.final()]).toString('utf8');

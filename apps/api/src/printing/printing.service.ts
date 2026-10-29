@@ -1,5 +1,10 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { CHANNEL_LABELS, OrderChannel } from '@comandou/shared';
+import {
+  CHANNEL_LABELS,
+  OrderChannel,
+  PAYMENT_METHOD_LABELS,
+  PaymentMethod,
+} from '@comandou/shared';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { hashToken } from '../auth/session.service';
 import type { Ctx } from '../common/context';
@@ -82,10 +87,18 @@ export class PrintingService {
       delivery_address: string | null;
       customer_phone: string | null;
       local_time: string;
+      subtotal: string;
+      discount: string;
+      surcharge: string;
+      delivery_fee: string;
+      payment_hint: PaymentMethod | null;
+      change_for: string | null;
     }>(
       tx,
       `SELECT o.number, o.channel, o.customer_name, tb.number AS tab_number, dt.label AS table_label, o.notes,
               o.total::text, o.delivery_address, o.customer_phone,
+              o.subtotal::text, o.discount::text, o.surcharge::text, o.delivery_fee::text,
+              o.payment_hint, o.change_for::text,
               to_char(o.created_at AT TIME ZONE t.timezone, 'DD/MM HH24:MI') AS local_time
          FROM orders o JOIN tenants t ON t.id = o.tenant_id
          LEFT JOIN tabs tb ON tb.id = o.tab_id LEFT JOIN dining_tables dt ON dt.id = tb.table_id
@@ -142,9 +155,24 @@ export class PrintingService {
   private async receipt(tx: Tx, orderId: string) {
     const o = await this.orderHeader(tx, orderId);
     const items = await this.items(tx, orderId);
-    const money = (v: string) => `R$ ${v.replace('.', ',')}`;
+    const paid = await q<{ method: PaymentMethod; amount: string; tendered: string | null }>(
+      tx,
+      `SELECT method, (amount - refunded_amount)::text AS amount, tendered::text
+         FROM payments WHERE order_id = $1 AND amount > refunded_amount ORDER BY created_at`,
+      [orderId],
+    );
+    const money = (v: string) => `R$ ${Number(v).toFixed(2).replace('.', ',')}`;
+    const row = (label: string, v: string) =>
+      label.slice(0, WIDTH - 15).padEnd(WIDTH - 14) + money(v).padStart(14);
+    const nonZero = (v: string) => Number(v) > 0;
     const out = [center('CONFERÊNCIA DE CONTA'), center('NÃO É DOCUMENTO FISCAL'), line('=')];
     out.push(`PEDIDO #${o.number}`.padEnd(WIDTH - 11) + o.local_time.padStart(11));
+    const where = o.table_label
+      ? `Mesa ${o.table_label}`
+      : o.tab_number
+        ? `Comanda ${o.tab_number}`
+        : CHANNEL_LABELS[o.channel];
+    out.push(where);
     if (o.customer_name) out.push(`Cliente: ${o.customer_name}`);
     if (o.channel === 'delivery') {
       if (o.customer_phone) out.push(`Tel: ${o.customer_phone}`);
@@ -155,8 +183,36 @@ export class PrintingService {
       const left = `${fmtQty(i.quantity)}x ${i.name}`.slice(0, WIDTH - 13);
       out.push(left.padEnd(WIDTH - 12) + money(i.total).padStart(12));
       for (const op of i.options) out.push(...wrap(`+ ${op}`, '   '));
+      if (i.notes) out.push(...wrap(`OBS: ${i.notes}`, '   '));
     }
-    out.push(line(), 'TOTAL'.padEnd(WIDTH - 14) + money(o.total).padStart(14), line('='));
+    out.push(line());
+    // Quebra do total: o entregador e o caixa conferem cada parte do valor.
+    const extras = [o.discount, o.surcharge, o.delivery_fee].some(nonZero);
+    if (extras) out.push(row('Subtotal', o.subtotal));
+    if (nonZero(o.discount)) out.push(row('Desconto', `-${o.discount}`));
+    if (nonZero(o.surcharge)) out.push(row('Acréscimo', o.surcharge));
+    if (nonZero(o.delivery_fee)) out.push(row('Taxa de entrega', o.delivery_fee));
+    out.push(row('TOTAL', o.total));
+    if (paid.length) {
+      out.push(line());
+      let received = 0;
+      for (const p of paid) {
+        received += Number(p.amount);
+        out.push(row(`Pago (${PAYMENT_METHOD_LABELS[p.method] ?? p.method})`, p.amount));
+        if (p.tendered && Number(p.tendered) > Number(p.amount))
+          out.push(row('  Troco', String(Number(p.tendered) - Number(p.amount))));
+      }
+      const due = Number(o.total) - received;
+      if (due > 0.004) out.push(row('FALTA PAGAR', String(due)));
+    } else if (o.payment_hint) {
+      out.push(line(), `Pagamento na entrega: ${PAYMENT_METHOD_LABELS[o.payment_hint]}`);
+      if (o.payment_hint === 'cash' && o.change_for && Number(o.change_for) > Number(o.total)) {
+        out.push(row('Troco para', o.change_for));
+        out.push(row('Levar de troco', String(Number(o.change_for) - Number(o.total))));
+      }
+    }
+    if (o.notes) out.push(line(), ...wrap(`OBS DO PEDIDO: ${o.notes}`));
+    out.push(line('='));
     return out.join('\n');
   }
 

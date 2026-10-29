@@ -1048,6 +1048,32 @@ describe('Impressão (agente local e fila)', () => {
     expect(c2.map((j) => j.id)).toContain(r[0].id);
   });
 
+  it('conferência de delivery mostra taxa de entrega, troco e observações', async () => {
+    const o = (
+      await order('cashierA', {
+        channel: 'delivery',
+        customerName: 'Carla',
+        customerPhone: '11922221111',
+        deliveryAddress: 'Rua A, 10',
+        deliveryFee: '6.00',
+        notes: 'Interfone quebrado, ligar.',
+        items: [{ productId: fx.prodA, quantity: 1, notes: 'sem picles' }],
+      }).expect(201)
+    ).body;
+    const r = (await post('cashierA', `/orders/${o.id}/print`, { kind: 'receipt' }).expect(201))
+      .body as { id: string }[];
+    const payload = (
+      await ownerQuery<{ payload: string }>(`SELECT payload FROM print_jobs WHERE id = $1`, [
+        r[0].id,
+      ])
+    )[0].payload;
+    expect(payload).toContain('Subtotal');
+    expect(payload).toMatch(/Taxa de entrega\s+R\$ 6,00/);
+    expect(payload).toContain('OBS: sem picles');
+    expect(payload).toContain('OBS DO PEDIDO: Interfone quebrado, ligar.');
+    await ownerQuery(`UPDATE print_jobs SET status = 'done' WHERE order_id = $1`, [o.id]);
+  });
+
   it('trabalho reservado e não confirmado volta para a fila após o prazo', async () => {
     const t = (await post('adminA', '/printing/test', { target: 'Caixa' }).expect(201)).body;
     const c1 = (await agentPost(agentToken, '/claim', {}).expect(200)).body.jobs as {

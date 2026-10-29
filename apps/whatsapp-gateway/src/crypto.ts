@@ -13,7 +13,7 @@ export function seal(key: Buffer, plain: Buffer, context: string): Buffer {
 }
 
 export function open(key: Buffer, sealed: Buffer, context: string): Buffer {
-  const d = createDecipheriv('aes-256-gcm', key, sealed.subarray(0, 12));
+  const d = createDecipheriv('aes-256-gcm', key, sealed.subarray(0, 12), { authTagLength: 16 });
   d.setAAD(Buffer.from(context));
   d.setAuthTag(sealed.subarray(12, 28));
   return Buffer.concat([d.update(sealed.subarray(28)), d.final()]);
