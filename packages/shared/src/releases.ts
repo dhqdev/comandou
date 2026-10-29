@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.42.2',
+    date: '2026-10-28',
+    title: 'Pedidos na coluna certa',
+    summary:
+      'O quadro de pedidos do PDV ficou mais claro e o aceite automático passou a funcionar de ponta a ponta.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'A primeira coluna do quadro agora se chama "Em análise": é onde ficam os pedidos online esperando você aceitar ou recusar. Aceitos vão para "Em produção", prontos para "Prontos".',
+      },
+      {
+        tag: 'correção',
+        text: 'Ligar o aceite automático agora aceita também os pedidos que já estavam em análise: eles vão para a produção, baixam o estoque e imprimem na cozinha.',
+      },
+      {
+        tag: 'correção',
+        text: 'Pedido online aceito automaticamente toca o som e mostra o aviso no PDV, como o pedido que espera aceite. Antes ele entrava em silêncio.',
+      },
+      {
+        tag: 'correção',
+        text: 'Os botões "Loja aberta" e "Aceite automático" ficam bloqueados para quem não pode mudá-los (garçom), em vez de dar erro ao clicar.',
+      },
+    ],
+  },
+  {
     version: '0.42.1',
     date: '2026-10-28',
     title: 'Cardápio rola de lado sem fim',
