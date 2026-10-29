@@ -221,6 +221,8 @@ export class TabsService {
       this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId: oid });
     this.realtime.publish(ctx.tenantId, { type: 'tab.changed', tabId: id });
     this.realtime.publish(ctx.tenantId, { type: 'cash.changed', sessionId: b.cashSessionId });
+    for (const p of res.payments ?? [])
+      if (p.paymentStatus === 'paid') this.cash.notifyPaid(ctx, p.orderId);
     return res;
   }
 

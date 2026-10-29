@@ -10,6 +10,8 @@ import { ZonesService } from '../delivery/zones.service';
 import { FinanceController } from '../finance/finance.controller';
 import { FiscalController } from '../fiscal/fiscal.controller';
 import { FiscalService } from '../fiscal/fiscal.service';
+import { FiscalExtraService } from '../fiscal/fiscal-extra.service';
+import { FiscalRulesService } from '../fiscal/fiscal-rules.service';
 import { FocusClient } from '../fiscal/focus.client';
 import { MessagingController } from '../messaging/messaging.controller';
 import { GatewayClient } from '../messaging/gateway.client';
@@ -91,6 +93,8 @@ import { OrdersService } from './orders.service';
     GeocoderService,
     CepService,
     FiscalService,
+    FiscalRulesService,
+    FiscalExtraService,
     FocusClient,
     MessagingService,
     WhatsAppClient,

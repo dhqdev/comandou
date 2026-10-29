@@ -35,7 +35,7 @@ export interface FiscalRule {
   notes: string | null;
 }
 
-export type FiscalRuleInput = Partial<Omit<FiscalRule, 'id' | 'code'>> & { code?: string | null };
+export type FiscalRuleInput = Partial<Omit<FiscalRule, 'code'>> & { code?: string | null };
 
 const COLS: [keyof FiscalRule, string][] = [
   ['id', 'id'],
@@ -68,7 +68,7 @@ const COLS: [keyof FiscalRule, string][] = [
 const NUMERIC = new Set(['icms_rate', 'icms_base_reduction', 'pis_rate', 'cofins_rate', 'ipi_rate',
   'cbs_rate', 'ibs_uf_rate', 'ibs_mun_rate', 'approx_tax_rate']);
 export const RULE_SELECT = COLS.map(([k, c]) =>
-  NUMERIC.has(c) ? `r.${c}::text AS "${k}"` : `r.${c} AS "${k}"`,
+  NUMERIC.has(c) ? `trim_scale(r.${c})::text AS "${k}"` : `r.${c} AS "${k}"`,
 ).join(', ');
 const WRITABLE = COLS.filter(([k]) => k !== 'id');
 

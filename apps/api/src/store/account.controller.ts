@@ -343,6 +343,22 @@ const CustomerPatch = z
       .nullable()
       .transform((v) => v || null),
     blocked: z.boolean(),
+    /** CPF ou CNPJ (destinatário da nota fiscal). */
+    document: z
+      .string()
+      .transform((v) => v.replace(/\D/g, ''))
+      .pipe(z.string().regex(/^([0-9]{11}|[0-9]{14})?$/, 'CPF com 11 dígitos ou CNPJ com 14'))
+      .nullable()
+      .transform((v) => v || null),
+    stateRegistration: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .transform((v) => (v === 'ISENTO' ? v : v.replace(/\D/g, '')))
+      .pipe(z.string().regex(/^([0-9]{2,14}|ISENTO)?$/, 'Inscrição estadual só com números ou ISENTO'))
+      .nullable()
+      .transform((v) => v || null),
+    ieIndicator: z.union([z.literal(1), z.literal(2), z.literal(9)]).nullable(),
   })
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');

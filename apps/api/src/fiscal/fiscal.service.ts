@@ -13,6 +13,7 @@ import {
 import { explainFiscalError, FiscalIssue, toCents } from '@comandou/shared';
 import { randomUUID } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
+import { CashService } from '../cash/cash.service';
 import type { Ctx } from '../common/context';
 import { open, seal } from '../common/secret-box';
 import { one, q } from '../common/sql';
@@ -232,9 +233,11 @@ export class FiscalService implements OnModuleInit {
     private readonly orders: OrdersService,
     private readonly plans: PlanService,
     private readonly rules: FiscalRulesService,
+    private readonly cash: CashService,
   ) {}
 
   onModuleInit() {
+    this.cash.onOrderPaid((ctx, orderId) => this.autoEmit(ctx, orderId));
     this.queue.register(EMIT_JOB, (d, attempt, final) => this.runEmit(d, attempt, final));
     this.queue.register(CHECK_JOB, (d, attempt, final) => this.runCheck(d, attempt, final));
   }
@@ -999,13 +1002,29 @@ export class FiscalService implements OnModuleInit {
           ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
         [o.id],
       );
-      const extra = await one<{ customer_id: string | null; customer_name: string | null; customer_phone: string | null }>(
+      const extra = await one<{
+        customer_id: string | null;
+        customer_name: string | null;
+        customer_phone: string | null;
+        channel: string;
+        delivery_address: string | null;
+      }>(
         tx,
-        `SELECT customer_id, customer_name, customer_phone FROM orders WHERE id = $1`,
+        `SELECT customer_id, customer_name, customer_phone, channel, delivery_address FROM orders WHERE id = $1`,
         [o.id],
       );
       let recipient =
         prev?.recipient ?? (await this.recipientFromCustomer(tx, extra?.customer_id ?? null, extra ?? undefined));
+      // Delivery sem endereço cadastrado: começa pelo endereço digitado no pedido e pela cidade da loja.
+      if (!prev && extra?.channel === 'delivery' && !recipient?.street && extra.delivery_address)
+        recipient = {
+          ...(recipient ?? {}),
+          name: recipient?.name ?? extra.customer_name,
+          phone: recipient?.phone ?? extra.customer_phone,
+          street: extra.delivery_address.slice(0, 60),
+          city: recipient?.city ?? s.company?.municipio ?? null,
+          state: recipient?.state ?? s.company?.uf ?? null,
+        };
       const cpf = (body.cpf ?? '').replace(/\D/g, '');
       const cnpj = (body.cnpj ?? '').replace(/\D/g, '');
       if (cpf || cnpj || body.name)

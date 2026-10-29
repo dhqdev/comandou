@@ -65,6 +65,16 @@ export class CashService {
     private readonly realtime: RealtimeService,
   ) {}
 
+  /** Quem quer saber quando um pedido fica totalmente pago (ex.: emissão automática da NFC-e). */
+  private readonly paidHooks: ((ctx: Ctx, orderId: string) => Promise<void>)[] = [];
+  onOrderPaid(hook: (ctx: Ctx, orderId: string) => Promise<void>) {
+    this.paidHooks.push(hook);
+  }
+  /** Avisa, fora da transação e sem esperar, que o pedido ficou pago. Falha aqui nunca volta ao caixa. */
+  notifyPaid(ctx: Ctx, orderId: string) {
+    for (const h of this.paidHooks) void h(ctx, orderId).catch(() => undefined);
+  }
+
   // ------------------------------------------------------------------ sessões
   async open(
     ctx: Ctx,
@@ -406,6 +416,7 @@ export class CashService {
     this.realtime.publish(ctx.tenantId, { type: 'cash.changed', sessionId: b.cashSessionId });
     const tabId = res.order?.tabId;
     if (tabId) this.realtime.publish(ctx.tenantId, { type: 'tab.changed', tabId });
+    if (res.payment?.paymentStatus === 'paid') this.notifyPaid(ctx, orderId);
     return res;
   }
 

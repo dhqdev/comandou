@@ -110,6 +110,9 @@ export const products = pgTable('products', {
   fiscalCode: text('fiscal_code'),
   fiscalOrigin: smallint('fiscal_origin'),
   fiscalUnit: text('fiscal_unit'),
+  /** Padrão fiscal próprio do item (senão vale o do NCM ou o padrão da empresa) e CEST. */
+  fiscalRuleId: uuid('fiscal_rule_id'),
+  cest: text('cest'),
   /** Código interno (IT-000001), família dos relatórios, custo informado e código de barras. */
   code: text('code'),
   familyId: uuid('family_id'),
