@@ -23,7 +23,12 @@ export interface Conversation {
   unread: number;
   updatedAt: string;
   peer: { id: string; name: string; roleLabel: string; online: boolean } | null;
-  last: { body: string; authorId: string | null; authorName: string | null; system: boolean } | null;
+  last: {
+    body: string;
+    authorId: string | null;
+    authorName: string | null;
+    system: boolean;
+  } | null;
 }
 
 export interface Member {
@@ -119,11 +124,17 @@ export const chatApi = {
       '/chat/channels',
     ),
   direct: (userId: string) => post<Conversation>('/chat/conversations/direct', { userId }),
-  create: (b: { kind: 'group' | 'channel'; name: string; description?: string; memberIds: string[] }) =>
-    post<Conversation>('/chat/conversations', b),
+  create: (b: {
+    kind: 'group' | 'channel';
+    name: string;
+    description?: string;
+    memberIds: string[];
+  }) => post<Conversation>('/chat/conversations', b),
   detail: (id: string) => api<ConversationDetail>(`/chat/conversations/${id}`),
-  update: (id: string, b: Partial<Pick<Conversation, 'name' | 'description' | 'muted' | 'pinned'>>) =>
-    api<Conversation>(`/chat/conversations/${id}`, { method: 'PATCH', json: b }),
+  update: (
+    id: string,
+    b: Partial<Pick<Conversation, 'name' | 'description' | 'muted' | 'pinned'>>,
+  ) => api<Conversation>(`/chat/conversations/${id}`, { method: 'PATCH', json: b }),
   join: (id: string) => post<Conversation>(`/chat/conversations/${id}/join`),
   leave: (id: string) => post(`/chat/conversations/${id}/leave`),
   addMembers: (id: string, userIds: string[]) =>
@@ -146,7 +157,8 @@ export const chatApi = {
   typing: (id: string) => post(`/chat/conversations/${id}/typing`),
   search: (q: string) => api<Message[]>(`/chat/search?q=${encodeURIComponent(q)}`),
   posts: () => api<Post[]>('/chat/posts'),
-  newPost: (body: string, imageId?: string | null) => post<{ id: string }>('/chat/posts', { body, imageId }),
+  newPost: (body: string, imageId?: string | null) =>
+    post<{ id: string }>('/chat/posts', { body, imageId }),
   reactPost: (id: string, emoji: string) => post(`/chat/posts/${id}/react`, { emoji }),
   pinPost: (id: string, pinned: boolean) => post(`/chat/posts/${id}/pin`, { pinned }),
   removePost: (id: string) => api(`/chat/posts/${id}`, { method: 'DELETE' }),

@@ -291,7 +291,8 @@ export class ChatController {
       throw new UnprocessableEntityException('Envie a imagem em WebP, JPEG ou PNG');
     if (body.length === 0 || body.length > MAX_IMAGE_BYTES)
       throw new UnprocessableEntityException('Imagem vazia ou maior que 3 MB');
-    if (sniff(body) !== mime) throw new UnprocessableEntityException('O arquivo não é uma imagem válida');
+    if (sniff(body) !== mime)
+      throw new UnprocessableEntityException('O arquivo não é uma imagem válida');
     const row = await this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
       const n = await one<{ n: number }>(tx, `SELECT count(*)::int AS n FROM media`);
       if (n!.n >= MAX_IMAGES_PER_TENANT)

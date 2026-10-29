@@ -139,7 +139,8 @@ export function systemPrompt(o: {
 }): string {
   const can = (perms: string[]) => perms.some((p) => roleHas(o.role, p as never));
   const screens = SCREENS.map(
-    (s) => `- ${s.name} (${s.path})${can(s.perms) ? '' : ' [sem acesso para este perfil]'}: ${s.text}`,
+    (s) =>
+      `- ${s.name} (${s.path})${can(s.perms) ? '' : ' [sem acesso para este perfil]'}: ${s.text}`,
   ).join('\n');
   const news = RELEASES.slice(0, 4)
     .map((r) => `- v${r.version} (${r.date}): ${r.title}. ${r.summary}`)

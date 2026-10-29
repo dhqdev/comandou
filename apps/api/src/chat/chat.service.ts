@@ -209,7 +209,9 @@ export class ChatService {
         r.lastBody === null && !r.lastImage
           ? null
           : {
-              body: r.lastDeleted ? 'Mensagem apagada' : r.lastBody || (r.lastImage ? '📷 Foto' : ''),
+              body: r.lastDeleted
+                ? 'Mensagem apagada'
+                : r.lastBody || (r.lastImage ? '📷 Foto' : ''),
               authorId: r.lastAuthorId,
               authorName: r.lastAuthor,
               system: !!r.lastSystem,
@@ -264,7 +266,12 @@ export class ChatService {
   /** Grupo (só quem foi chamado) ou canal (aberto: qualquer um da equipe entra). */
   async create(
     ctx: Ctx,
-    input: { kind: 'group' | 'channel'; name: string; description?: string | null; memberIds: string[] },
+    input: {
+      kind: 'group' | 'channel';
+      name: string;
+      description?: string | null;
+      memberIds: string[];
+    },
   ) {
     const me = ctx.userId!;
     const res = await this.db.withTenant(ctx, async (tx) => {
@@ -313,7 +320,8 @@ export class ChatService {
       type: 'chat.changed',
       conversationId: res.conv.id,
     });
-    if (res.ids.length) this.realtime.publishToUsers(ctx.tenantId, res.ids, { type: 'chat.notice' });
+    if (res.ids.length)
+      this.realtime.publishToUsers(ctx.tenantId, res.ids, { type: 'chat.notice' });
     if (input.kind === 'channel')
       this.realtime.publish(ctx.tenantId, { type: 'chat.changed', conversationId: res.conv.id });
     return res.conv;
@@ -442,7 +450,8 @@ export class ChatService {
           [id, me, patch.muted ?? null, patch.pinned ?? null],
         );
       if (changedInfo) {
-        if (m.kind === 'direct') throw new UnprocessableEntityException('Conversa direta não tem nome');
+        if (m.kind === 'direct')
+          throw new UnprocessableEntityException('Conversa direta não tem nome');
         if (m.role !== 'admin') throw new ForbiddenException('Só o administrador muda o nome');
         await q(
           tx,
@@ -511,7 +520,10 @@ export class ChatService {
       );
       if (gone) await this.systemMessage(tx, ctx, id, `${ctx.user.name} removeu ${gone.name}`);
     });
-    this.realtime.publishToUsers(ctx.tenantId, [userId], { type: 'chat.changed', conversationId: id });
+    this.realtime.publishToUsers(ctx.tenantId, [userId], {
+      type: 'chat.changed',
+      conversationId: id,
+    });
     await this.broadcastChange(ctx, id);
     return { ok: true };
   }
@@ -645,7 +657,10 @@ export class ChatService {
       if (m.authorId !== ctx.userId && m.member.role !== 'admin')
         throw new ForbiddenException('Só quem escreveu (ou o administrador) pode apagar');
       await q(tx, `UPDATE chat_messages SET deleted_at = now() WHERE id = $1`, [messageId]);
-      return { conversationId: m.conversationId, members: await this.memberIds(tx, m.conversationId) };
+      return {
+        conversationId: m.conversationId,
+        members: await this.memberIds(tx, m.conversationId),
+      };
     });
     this.realtime.publishToUsers(ctx.tenantId, res.members, {
       type: 'chat.message',
@@ -709,7 +724,9 @@ export class ChatService {
   async search(ctx: Ctx, term: string) {
     const like = `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
     return this.db.withTenant(ctx, async (tx) => {
-      const rows = await q<MessageRow & { conversationName: string | null; kind: ConversationKind }>(
+      const rows = await q<
+        MessageRow & { conversationName: string | null; kind: ConversationKind }
+      >(
         tx,
         `SELECT ${MSG_COLS}, c.name AS "conversationName", c.kind
            FROM ${MSG_FROM}
@@ -818,7 +835,9 @@ export class ChatService {
 
   async reactPost(ctx: Ctx, id: string, emoji: string) {
     await this.db.withTenant(ctx, async (tx) => {
-      const p = await one(tx, `SELECT 1 FROM chat_posts WHERE id = $1 AND deleted_at IS NULL`, [id]);
+      const p = await one(tx, `SELECT 1 FROM chat_posts WHERE id = $1 AND deleted_at IS NULL`, [
+        id,
+      ]);
       if (!p) throw new NotFoundException('Recado não encontrado');
       await toggleReaction(tx, 'chat_posts', id, emoji, ctx.userId!);
     });

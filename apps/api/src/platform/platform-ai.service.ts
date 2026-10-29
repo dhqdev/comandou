@@ -272,7 +272,8 @@ export class PlatformAiService {
 
   /** Modelos do OpenRouter do mais barato ao mais caro (cache de 1 hora). */
   async models(): Promise<ModelInfo[]> {
-    if (this.modelsCache && Date.now() - this.modelsCache.at < 3_600_000) return this.modelsCache.value;
+    if (this.modelsCache && Date.now() - this.modelsCache.at < 3_600_000)
+      return this.modelsCache.value;
     const value = await listModels(this.env.OPENROUTER_BASE_URL);
     this.modelsCache = { at: Date.now(), value };
     return value;

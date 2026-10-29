@@ -111,7 +111,12 @@ export class AiService {
   }
 
   /** Confere tudo antes de abrir o streaming (erros aqui viram resposta HTTP normal). */
-  async prepare(ctx: Ctx, content: string, screen: string | null, tenantName: string): Promise<Prepared> {
+  async prepare(
+    ctx: Ctx,
+    content: string,
+    screen: string | null,
+    tenantName: string,
+  ): Promise<Prepared> {
     const { c, used } = await this.config(ctx);
     if (!c.enabled || !c.api_key_enc || !this.env.INTEGRATIONS_KEY)
       throw new ServiceUnavailableException('O assistente ainda não foi ligado pelo Comandou');
@@ -122,7 +127,8 @@ export class AiService {
         {
           statusCode: HttpStatus.TOO_MANY_REQUESTS,
           code: 'ai_limit',
-          message: 'O limite de uso do assistente neste mês acabou. Fale com o suporte do Comandou.',
+          message:
+            'O limite de uso do assistente neste mês acabou. Fale com o suporte do Comandou.',
         },
         HttpStatus.TOO_MANY_REQUESTS,
       );
@@ -130,7 +136,9 @@ export class AiService {
     try {
       apiKey = open(this.env.INTEGRATIONS_KEY, c.api_key_enc, AI_KEY_CONTEXT);
     } catch {
-      throw new ServiceUnavailableException('A chave do assistente precisa ser salva de novo no painel');
+      throw new ServiceUnavailableException(
+        'A chave do assistente precisa ser salva de novo no painel',
+      );
     }
     const history = await this.db.withTenant(ctx, async (tx) => {
       const rows = await q<{ role: 'user' | 'assistant'; content: string }>(
@@ -208,7 +216,14 @@ export class AiService {
         tx,
         `INSERT INTO ai_usage (tenant_id, user_id, model, prompt_tokens, completion_tokens, cost_usd)
          VALUES ($1, $2, $3, $4, $5, $6)`,
-        [p.ctx.tenantId, p.ctx.userId, p.model, usage.promptTokens, usage.completionTokens, usage.costUsd],
+        [
+          p.ctx.tenantId,
+          p.ctx.userId,
+          p.model,
+          usage.promptTokens,
+          usage.completionTokens,
+          usage.costUsd,
+        ],
       ),
     );
     const usedAfter = p.usedBefore + tokens;

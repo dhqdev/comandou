@@ -23,7 +23,8 @@ export class OpenRouterError extends Error {
   }
 }
 
-const num = (v: unknown) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+const num = (v: unknown) =>
+  v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
 
 function friendly(status: number, body: string): string {
   if (status === 401) return 'A chave do OpenRouter foi recusada';
@@ -129,7 +130,8 @@ export class OpenRouterClient {
       headers: this.headers(),
       signal: AbortSignal.timeout(10_000),
     });
-    if (!res.ok) throw new OpenRouterError(friendly(res.status, await res.text().catch(() => '')), res.status);
+    if (!res.ok)
+      throw new OpenRouterError(friendly(res.status, await res.text().catch(() => '')), res.status);
     return ((await res.json()) as { data?: Record<string, unknown> }).data ?? {};
   }
 
@@ -153,7 +155,8 @@ export class OpenRouterClient {
     if (credits.status === 'fulfilled') {
       out.totalUsd = num(credits.value.total_credits);
       out.usedUsd = num(credits.value.total_usage);
-      if (out.totalUsd != null && out.usedUsd != null) out.remainingUsd = out.totalUsd - out.usedUsd;
+      if (out.totalUsd != null && out.usedUsd != null)
+        out.remainingUsd = out.totalUsd - out.usedUsd;
     }
     if (key.status === 'fulfilled') {
       out.keyLabel = typeof key.value.label === 'string' ? key.value.label : null;
@@ -194,7 +197,10 @@ export async function listModels(baseUrl: string): Promise<ModelInfo[]> {
     }[];
   };
   return (j.data ?? [])
-    .filter((m) => !m.architecture?.output_modalities || m.architecture.output_modalities.includes('text'))
+    .filter(
+      (m) =>
+        !m.architecture?.output_modalities || m.architecture.output_modalities.includes('text'),
+    )
     .map((m) => ({
       id: m.id,
       name: m.name ?? m.id,

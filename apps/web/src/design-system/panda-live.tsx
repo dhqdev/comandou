@@ -8,16 +8,7 @@ import './panda-live.css';
  * dá um pulinho, balança ou acena. Ao tocar, amassa e reage. Mesmo desenho do Mascot (viewBox 64).
  */
 export type PandaMood =
-  | 'idle'
-  | 'happy'
-  | 'joy'
-  | 'wink'
-  | 'wow'
-  | 'thinking'
-  | 'talking'
-  | 'sleep'
-  | 'sad'
-  | 'dizzy';
+  'idle' | 'happy' | 'joy' | 'wink' | 'wow' | 'thinking' | 'talking' | 'sleep' | 'sad' | 'dizzy';
 
 const POKES: PandaMood[] = ['joy', 'wow', 'wink', 'happy', 'joy'];
 /** Quanto a pupila anda dentro do olho (unidades do viewBox). */
@@ -335,12 +326,7 @@ export function LivePanda({
                 <ellipse className="lp-paw lp-paw-r" cx="53" cy="44" rx="5" ry="4.3" fill={ink} />
               </g>
             )}
-            <g
-              className="lp-ears"
-              fill={ink}
-              stroke="var(--cm-mascot-rim, none)"
-              strokeWidth="1.6"
-            >
+            <g className="lp-ears" fill={ink} stroke="var(--cm-mascot-rim, none)" strokeWidth="1.6">
               <circle className="lp-ear lp-ear-l" cx="14" cy="19.9" r="8.2" />
               <circle className="lp-ear lp-ear-r" cx="49.8" cy="17.9" r="8.2" />
             </g>
@@ -442,7 +428,15 @@ export function LivePanda({
         </>
       ) : (
         <>
-          <ellipse className="lp-shadow" cx="33" cy="58" rx="20" ry="2.6" fill="#000" opacity=".12" />
+          <ellipse
+            className="lp-shadow"
+            cx="33"
+            cy="58"
+            rx="20"
+            ry="2.6"
+            fill="#000"
+            opacity=".12"
+          />
           {panda}
         </>
       )}
