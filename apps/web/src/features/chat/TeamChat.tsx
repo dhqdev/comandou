@@ -53,8 +53,17 @@ export function TeamChat({
   const { pathname } = useLocation();
   const prefs = useRef(loadPrefs());
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<Tab>(prefs.current.tab ?? 'conversas');
-  const [expanded, setExpanded] = useState(!!prefs.current.expanded);
+  const [tab, setTabState] = useState<Tab>(prefs.current.tab ?? 'conversas');
+  const [expanded, setExpandedState] = useState(!!prefs.current.expanded);
+  // Só grava no armazenamento quando a pessoa muda algo (não ao abrir a página).
+  const setTab = (t: Tab) => {
+    setTabState(t);
+    savePrefs({ tab: t, expanded });
+  };
+  const setExpanded = (e: boolean) => {
+    setExpandedState(e);
+    savePrefs({ tab, expanded: e });
+  };
   const [selected, setSelected] = useState<string | null>(null);
   const [focusMsg, setFocusMsg] = useState<string | null>(null);
   const [creating, setCreating] = useState<'group' | 'channel' | null>(null);
@@ -98,8 +107,6 @@ export function TeamChat({
     void loadConvs();
     void loadPeople();
   }, [open, loadConvs, loadPeople]);
-
-  useEffect(() => savePrefs({ tab, expanded }), [tab, expanded]);
 
   // Outras telas pedem para abrir o chat (ex.: o panda do topo abre a IA).
   useEffect(() => {
@@ -285,7 +292,7 @@ export function TeamChat({
             <span className="tc-spacer" />
             <button
               className="tc-icon tc-hide-mobile"
-              onClick={() => setExpanded((v) => !v)}
+              onClick={() => setExpanded(!expanded)}
               aria-label={expanded ? 'Diminuir' : 'Aumentar'}
               title={expanded ? 'Diminuir' : 'Aumentar'}
             >
