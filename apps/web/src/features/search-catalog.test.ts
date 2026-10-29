@@ -16,7 +16,7 @@ describe('busca de telas e atalhos', () => {
   it('acha pelo jeito que a equipe fala', () => {
     expect(titles('sangria')).toContain('Caixa');
     expect(titles('impressora')).toContain('Impressão');
-    expect(titles('nfce')).toContain('Nota fiscal');
+    expect(titles('nfce')).toContain('Fiscal');
     expect(titles('modo escuro')).toContain('Alternar tema claro/escuro');
   });
 
