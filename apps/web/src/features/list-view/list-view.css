@@ -478,6 +478,12 @@
   top: var(--lv-bar-h, 0px);
   z-index: 3;
 }
+/* Tabela mais larga que o cartão (zoom alto, notebook estreito): ela rola para o lado dentro do
+   cartão, e aí o cabeçalho não pode grudar com o deslocamento da barra (ficava por cima das
+   linhas). */
+.lv-scroll[data-wide] .lv-table thead th {
+  position: static;
+}
 @media (min-width: 641px) {
   .lv-table th,
   .lv-table td {

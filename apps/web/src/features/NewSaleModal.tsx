@@ -116,6 +116,8 @@ export function NewSaleModal({
     if (!d) return;
     if (open && !d.open) d.showModal?.();
   }, [open]);
+  /** Clique fora (no fundo escurecido): começou e terminou fora dos cartões. */
+  const downOutside = useRef(false);
 
   useEffect(() => {
     if (!open) return;
@@ -290,6 +292,16 @@ export function NewSaleModal({
       }}
       onClose={(e) => {
         if (e.target === e.currentTarget) onClose();
+      }}
+      onMouseDown={(e) => {
+        downOutside.current = e.target === e.currentTarget;
+      }}
+      onClick={(e) => {
+        if (downOutside.current && e.target === e.currentTarget) {
+          if (picking) setPicking(null);
+          else ref.current?.close();
+        }
+        downOutside.current = false;
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -708,7 +720,15 @@ function OptionPicker({
     });
   }
   return (
-    <div className="picker" role="group" aria-label={`Opções de ${product.name}`}>
+    <div
+      className="picker"
+      role="group"
+      aria-label={`Opções de ${product.name}`}
+      onClick={(e) => {
+        // Clique no fundo escurecido fecha a escolha.
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
       <div className="picker__panel">
         <h3 style={{ margin: 0 }}>{product.name}</h3>
         {product.optionGroups.map((g) => {
