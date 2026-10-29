@@ -53,6 +53,60 @@ export const RELEASES: readonly Release[] = [
     ],
   },
   {
+    version: '0.43.0',
+    date: '2026-10-28',
+    title: 'Contrato com as duas assinaturas',
+    summary:
+      'O contrato do cliente agora é assinado pelos dois lados: o cliente assina primeiro (desenhando a rubrica ou digitando o nome) e o contrato volta para o painel para a plataforma assinar por último. Só então a via final vai por e-mail para os dois.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Depois que o cliente assina, o contrato fica como "falta a sua assinatura": chega um e-mail com o botão Conferir e assinar, e a tela Status avisa até o prazo de 10 dias.',
+      },
+      {
+        tag: 'novo',
+        text: 'No painel você vê a assinatura do cliente (imagem, IP, navegador e localização, se ele permitiu), assina desenhando ou digitando e confirma com o código do autenticador.',
+      },
+      {
+        tag: 'novo',
+        text: 'PDF final com as rubricas das duas partes no pé de cada página e um manifesto com as duas assinaturas, os códigos de integridade e a trilha do documento.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Trilha encadeada: cada evento do contrato guarda o código do anterior, o painel confere a cadeia ao abrir o contrato e avisa se algum registro foi alterado. A assinatura do cliente não muda mais depois de feita, nem direto no banco.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cancelar um contrato que o cliente já assinou avisa o cliente por e-mail. As regras estão no próprio contrato, na cláusula Assinatura eletrônica.',
+      },
+    ],
+  },
+  {
+    version: '0.42.2',
+    date: '2026-10-28',
+    title: 'Pedidos na coluna certa',
+    summary:
+      'O quadro de pedidos do PDV ficou mais claro e o aceite automático passou a funcionar de ponta a ponta.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'A primeira coluna do quadro agora se chama "Em análise": é onde ficam os pedidos online esperando você aceitar ou recusar. Aceitos vão para "Em produção", prontos para "Prontos".',
+      },
+      {
+        tag: 'correção',
+        text: 'Ligar o aceite automático agora aceita também os pedidos que já estavam em análise: eles vão para a produção, baixam o estoque e imprimem na cozinha.',
+      },
+      {
+        tag: 'correção',
+        text: 'Pedido online aceito automaticamente toca o som e mostra o aviso no PDV, como o pedido que espera aceite. Antes ele entrava em silêncio.',
+      },
+      {
+        tag: 'correção',
+        text: 'Os botões "Loja aberta" e "Aceite automático" ficam bloqueados para quem não pode mudá-los (garçom), em vez de dar erro ao clicar.',
+      },
+    ],
+  },
+  {
     version: '0.42.1',
     date: '2026-10-28',
     title: 'Cardápio rola de lado sem fim',

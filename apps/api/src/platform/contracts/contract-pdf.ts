@@ -65,7 +65,16 @@ class Writer {
     const out: string[] = [];
     for (const para of pdfSafe(text).split('\n')) {
       let line = '';
-      for (const word of para.split(/ +/)) {
+      for (let word of para.split(/ +/)) {
+        // Palavra maior que a linha (um hash, por exemplo): quebra no meio.
+        while (font.widthOfTextAtSize(word, size) > width && word.length > 1) {
+          let n = word.length - 1;
+          while (n > 1 && font.widthOfTextAtSize(word.slice(0, n), size) > width) n--;
+          if (line) out.push(line);
+          out.push(word.slice(0, n));
+          line = '';
+          word = word.slice(n);
+        }
         const next = line ? `${line} ${word}` : word;
         if (font.widthOfTextAtSize(next, size) <= width || !line) line = next;
         else {
@@ -280,19 +289,40 @@ export async function renderContractPdf(c: ContractContent, contentHash: string)
     w.text(`${role}: ${name}`, { font: f.bold, size: 9.5, gap: 0 });
     w.text(note, { size: 8.5, color: MUTED, gap: 26 });
   };
-  sign(
-    'CONTRATADA',
-    c.parties.provider.name || '—',
-    'Concordância pelo envio eletrônico deste instrumento.',
-  );
+  // Desde a versão 2 as duas partes assinam (o cliente primeiro, a contratada depois).
   sign(
     'CONTRATANTE',
     c.parties.customer.name,
     'Assinatura eletrônica registrada no manifesto anexo.',
   );
+  sign(
+    'CONTRATADA',
+    c.parties.provider.name || '—',
+    c.version >= 2
+      ? 'Assinatura eletrônica registrada no manifesto anexo, após a da CONTRATANTE.'
+      : 'Concordância pelo envio eletrônico deste instrumento.',
+  );
 
   footers(doc, f, c.number, contentHash);
   return doc.save();
+}
+
+export type SignatureMark = { kind: 'drawn'; png: Uint8Array } | { kind: 'typed'; text: string };
+
+export interface ManifestSigner {
+  /** CONTRATANTE (assina primeiro) ou CONTRATADA (assina depois). */
+  role: 'CONTRATANTE' | 'CONTRATADA';
+  name: string;
+  document: string;
+  email: string | null;
+  onBehalfOf: string;
+  signedAt: Date;
+  ip: string;
+  userAgent: string;
+  geo: { lat: number; lng: number; accuracy: number } | null;
+  how: string;
+  signature: SignatureMark;
+  evidenceSha256: string;
 }
 
 export interface SignatureManifest {
@@ -300,16 +330,11 @@ export interface SignatureManifest {
   contentHash: string;
   originalPdfSha256: string;
   customerName: string;
-  customerDocument: string | null;
-  signerName: string;
-  signerDocument: string;
-  signerEmail: string;
-  signedAt: Date;
-  ip: string;
-  userAgent: string;
-  signature: { kind: 'drawn'; png: Uint8Array } | { kind: 'typed'; text: string };
+  signers: ManifestSigner[];
   sentBy: string | null;
   events: { at: Date; label: string; ip?: string | null }[];
+  /** Hash final da trilha encadeada (null em contratos antigos). */
+  trailSha256: string | null;
 }
 
 export const brTime = (d: Date) =>
@@ -319,69 +344,118 @@ export const brTime = (d: Date) =>
     timeStyle: 'medium',
   }).format(d)} (horário de Brasília)`;
 
-/** Original + manifesto da assinatura (página nova no fim, com o mesmo rodapé). */
-export async function renderSignedPdf(original: Uint8Array, m: SignatureManifest) {
-  const doc = await PDFDocument.load(original);
-  const f = await fonts(doc);
-  const from = doc.getPageCount();
-  doc.setModificationDate(m.signedAt);
-  doc.setKeywords([`sha256:${m.contentHash}`, `original:${m.originalPdfSha256}`, 'assinado']);
-  const w = new Writer(doc, f);
+const cpfMask = (d: string) => d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
 
-  w.text('MANIFESTO DE ASSINATURA ELETRÔNICA', { font: f.bold, size: 13, gap: 2 });
-  w.text(`Contrato nº ${m.number} · ${m.customerName}`, { size: 9.5, color: MUTED, gap: 14 });
-
-  w.text('ASSINATURA', { font: f.bold, size: 9, color: MUTED, gap: 6 });
-  w.ensure(110);
-  const boxTop = w.y;
-  const boxH = 84;
-  w.page.drawRectangle({
-    x: MARGIN,
-    y: boxTop - boxH,
-    width: 280,
-    height: boxH,
-    borderColor: LINE,
-    borderWidth: 0.8,
-  });
-  if (m.signature.kind === 'drawn') {
-    const img = await doc.embedPng(m.signature.png);
-    const scale = Math.min(264 / img.width, (boxH - 16) / img.height, 1);
-    w.page.drawImage(img, {
-      x: MARGIN + 8,
-      y: boxTop - boxH + 8 + (boxH - 16 - img.height * scale) / 2,
+/** Assinatura dentro de uma caixa (imagem desenhada ou nome em letra cursiva). */
+async function drawMark(
+  doc: PDFDocument,
+  page: PDFPage,
+  f: Fonts,
+  mark: SignatureMark,
+  box: { x: number; y: number; w: number; h: number },
+  pad = 8,
+) {
+  if (mark.kind === 'drawn') {
+    const img = await doc.embedPng(mark.png);
+    const scale = Math.min((box.w - pad * 2) / img.width, (box.h - pad * 2) / img.height, 1);
+    page.drawImage(img, {
+      x: box.x + pad,
+      y: box.y + (box.h - img.height * scale) / 2,
       width: img.width * scale,
       height: img.height * scale,
     });
   } else {
-    let size = 28;
-    const text = pdfSafe(m.signature.text);
-    while (size > 12 && f.script.widthOfTextAtSize(text, size) > 264) size -= 1;
-    w.page.drawText(text, {
-      x: MARGIN + 12,
-      y: boxTop - boxH / 2 - size / 3,
+    const text = pdfSafe(mark.text);
+    let size = Math.min(28, box.h * 0.6);
+    while (size > 6 && f.script.widthOfTextAtSize(text, size) > box.w - pad * 2) size -= 0.5;
+    page.drawText(text, {
+      x: box.x + pad,
+      y: box.y + box.h / 2 - size / 3,
       size,
       font: f.script,
       color: rgb(0.08, 0.16, 0.4),
     });
   }
-  w.y = boxTop - boxH - 14;
+}
 
+/**
+ * Original + rubricas no pé de cada página + manifesto das assinaturas (páginas novas no fim,
+ * com o mesmo rodapé).
+ */
+export async function renderSignedPdf(original: Uint8Array, m: SignatureManifest) {
+  const doc = await PDFDocument.load(original);
+  const f = await fonts(doc);
+  const from = doc.getPageCount();
+  const last = m.signers.at(-1)!;
+  doc.setModificationDate(last.signedAt);
+  doc.setKeywords([
+    `sha256:${m.contentHash}`,
+    `original:${m.originalPdfSha256}`,
+    ...(m.trailSha256 ? [`trilha:${m.trailSha256}`] : []),
+    'assinado',
+  ]);
+
+  // Rubricas: a assinatura de cada parte, pequena, no canto de cada página do contrato.
+  const RW = 64;
+  const RH = 17;
+  for (const page of doc.getPages().slice(0, from)) {
+    let x = MARGIN + WIDTH - RW * m.signers.length - 4 * (m.signers.length - 1);
+    page.drawText('Rubricas', {
+      x: x - f.regular.widthOfTextAtSize('Rubricas', 6.5) - 6,
+      y: 51,
+      size: 6.5,
+      font: f.regular,
+      color: MUTED,
+    });
+    for (const sg of m.signers) {
+      await drawMark(doc, page, f, sg.signature, { x, y: 45, w: RW, h: RH }, 2);
+      x += RW + 4;
+    }
+  }
+
+  const w = new Writer(doc, f);
+  w.text('MANIFESTO DE ASSINATURA ELETRÔNICA', { font: f.bold, size: 13, gap: 2 });
+  w.text(`Contrato nº ${m.number} · ${m.customerName}`, { size: 9.5, color: MUTED, gap: 14 });
+
+  for (const [i, sg] of m.signers.entries()) {
+    w.text(`${i + 1}ª ASSINATURA · ${sg.role}`, { font: f.bold, size: 9, color: MUTED, gap: 6 });
+    w.ensure(110);
+    const boxTop = w.y;
+    const boxH = 84;
+    w.page.drawRectangle({
+      x: MARGIN,
+      y: boxTop - boxH,
+      width: 280,
+      height: boxH,
+      borderColor: LINE,
+      borderWidth: 0.8,
+    });
+    await drawMark(doc, w.page, f, sg.signature, { x: MARGIN, y: boxTop - boxH, w: 280, h: boxH });
+    w.y = boxTop - boxH - 14;
+    w.table([
+      ['Signatário', sg.name],
+      ['CPF do signatário', cpfMask(sg.document)],
+      ['E-mail', sg.email ?? '—'],
+      ['Em nome de', sg.onBehalfOf],
+      ['Data e hora', `${brTime(sg.signedAt)} · ${sg.signedAt.toISOString()}`],
+      ['Endereço IP', sg.ip],
+      [
+        'Localização',
+        sg.geo
+          ? `${sg.geo.lat.toFixed(5)}, ${sg.geo.lng.toFixed(5)} (precisão de ${Math.round(sg.geo.accuracy)} m, informada pelo navegador com permissão do signatário)`
+          : 'não informada (o signatário não permitiu ou o aparelho não tem)',
+      ],
+      ['Navegador', sg.userAgent || '—'],
+      ['Forma', sg.how],
+      ['Registro da assinatura', sg.evidenceSha256],
+    ]);
+  }
+
+  w.text('DOCUMENTO', { font: f.bold, size: 9, color: MUTED, gap: 6 });
   w.table([
-    ['Signatário', m.signerName],
-    ['CPF do signatário', m.signerDocument.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')],
-    ['E-mail', m.signerEmail],
-    ['Em nome de', `${m.customerName}${m.customerDocument ? ` (${m.customerDocument})` : ''}`],
-    ['Data e hora', `${brTime(m.signedAt)} · ${m.signedAt.toISOString()}`],
-    ['Endereço IP', m.ip],
-    ['Navegador', m.userAgent || '—'],
-    [
-      'Forma',
-      m.signature.kind === 'drawn'
-        ? 'Assinatura desenhada na tela'
-        : 'Assinatura digitada (nome completo)',
-    ],
     ['Hash do texto', m.contentHash],
     ['Hash do PDF original', m.originalPdfSha256],
+    ['Hash da trilha', m.trailSha256 ?? '—'],
     ['Enviado por', m.sentBy ?? '—'],
   ]);
 
@@ -394,8 +468,13 @@ export async function renderSignedPdf(original: Uint8Array, m: SignatureManifest
     170,
   );
 
+  const both = m.signers.length > 1;
   w.text(
-    'O signatário abriu o contrato pelo link pessoal enviado ao seu e-mail, percorreu o texto até o fim, informou nome e CPF, declarou ter poderes para representar a CONTRATANTE e assinou. Esta é uma assinatura eletrônica, com validade entre as partes nos termos do artigo 10, § 2º, da MP nº 2.200-2/2001 e da Lei nº 14.063/2020. Qualquer alteração deste arquivo muda o seu código de integridade, que fica guardado pela CONTRATADA para conferência.',
+    `${
+      both
+        ? 'A CONTRATANTE assinou primeiro, pelo link pessoal enviado ao seu e-mail, depois de percorrer o texto até o fim, informar nome e CPF e declarar ter poderes para representá-la. Em seguida, a CONTRATADA conferiu a assinatura da CONTRATANTE e assinou pelo painel, confirmando com o código do aplicativo autenticador.'
+        : 'O signatário abriu o contrato pelo link pessoal enviado ao seu e-mail, percorreu o texto até o fim, informou nome e CPF, declarou ter poderes para representar a CONTRATANTE e assinou.'
+    } Esta é uma assinatura eletrônica, com validade entre as partes nos termos do artigo 10, § 2º, da MP nº 2.200-2/2001 e da Lei nº 14.063/2020. Cada evento da trilha guarda o código do anterior, e qualquer alteração deste arquivo muda o seu código de integridade, que fica guardado pela CONTRATADA para conferência.`,
     { size: 8.5, color: MUTED },
   );
 
