@@ -72,6 +72,67 @@ export class PlatformService {
     private readonly databases: PlatformDatabasesService,
   ) {}
 
+  // ------------------------------------------------------------------ fiscal
+  /**
+   * Situação fiscal de todos os restaurantes (banco central + bancos próprios), sem segredos:
+   * emissão ligada, ambiente, certificado, notas autorizadas e falhas recentes. E a configuração
+   * da Focus NFe deste servidor (só se existe, nunca o valor).
+   */
+  async fiscalOverview() {
+    const SQL = `SELECT tenant_id AS "tenantId", enabled, nfe_enabled AS "nfeEnabled", mode, environment, cnpj,
+        focus_registered AS "focusRegistered", certificate_valid_until AS "certificateValidUntil",
+        authorized_30d::int AS "authorized30d", failed_7d::int AS "failed7d", pending_now::int AS "pendingNow",
+        last_authorized_at AS "lastAuthorizedAt" FROM platform_fiscal_overview()`;
+    type Row = { tenantId: string; certificateValidUntil: Date | null } & Record<string, unknown>;
+    const rows: Row[] = [...(await this.db.query<Row>(SQL))];
+    const errors: { dbName: string; error: string }[] = [];
+    for (const d of await this.db.eachDedicated<Row>(SQL)) {
+      if (d.error) errors.push({ dbName: d.dbName, error: d.error });
+      rows.push(...d.rows.filter((r) => r.tenantId === d.tenantId));
+    }
+    const tenants = await this.db.query<{
+      id: string;
+      name: string;
+      slug: string;
+      status: string;
+      featureFiscal: boolean | null;
+    }>(
+      `SELECT t.id, t.name, t.slug, t.status,
+              (SELECT p.feature_fiscal FROM subscriptions s JOIN plans p ON p.id = s.plan_id
+                WHERE s.tenant_id = t.id ORDER BY s.started_at DESC LIMIT 1) AS "featureFiscal"
+         FROM tenants t ORDER BY t.name`,
+    );
+    const byId = new Map(rows.map((r) => [r.tenantId, r]));
+    const soon = Date.now() + 30 * 86_400_000;
+    const list = tenants.map((t) => {
+      const f = byId.get(t.id);
+      const cert = f?.certificateValidUntil ? new Date(f.certificateValidUntil).getTime() : null;
+      return {
+        ...t,
+        fiscal: f ?? null,
+        certificateAlert:
+          cert === null ? null : cert < Date.now() ? 'expired' : cert < soon ? 'soon' : null,
+      };
+    });
+    return {
+      server: {
+        masterToken: !!this.env.FOCUS_NFE_MASTER_TOKEN,
+        integrationsKey: !!this.env.INTEGRATIONS_KEY,
+        urlHomologacao: this.env.FOCUS_NFE_URL_HOMOLOGACAO,
+        urlProducao: this.env.FOCUS_NFE_URL_PRODUCAO,
+      },
+      totals: {
+        enabled: list.filter((t) => t.fiscal?.enabled).length,
+        production: list.filter((t) => t.fiscal?.enabled && t.fiscal.environment === 'producao')
+          .length,
+        failed7d: list.reduce((a, t) => a + Number(t.fiscal?.failed7d ?? 0), 0),
+        certificateAlerts: list.filter((t) => t.certificateAlert).length,
+      },
+      tenants: list,
+      errors,
+    };
+  }
+
   // ------------------------------------------------------------------ consumo e operação
   /** Tráfego por restaurante desta réplica da API (só com METRICS_PER_TENANT=true). */
   private async traffic(): Promise<Map<

@@ -1,7 +1,9 @@
+import { formatDocument, IE_INDICATORS, isValidCnpj, isValidCpf } from '@comandou/shared';
 import { Ban, KeyRound, MessageCircle, UserCheck, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../app/auth';
-import { Alert, Badge, Button, EmptyState, Spinner, useToast } from '../design-system';
+import { Alert, Badge, Button, EmptyState, Spinner, TextField, useToast } from '../design-system';
+import { SelectField } from '../features/forms';
 import { CHANNEL_LABELS, dateTime, ORDER_STATUS_LABELS, STATUS_TONE } from '../features/format';
 import {
   fold,
@@ -65,7 +67,7 @@ function CustomerPanel({
     );
   }, [id, toast]);
 
-  async function save(json: { staffNotes?: string | null; blocked?: boolean }, ok: string) {
+  async function save(json: Record<string, unknown>, ok: string) {
     if (!c) return;
     setBusy(true);
     try {
@@ -182,6 +184,8 @@ function CustomerPanel({
               </ul>
             )}
           </section>
+
+          <TaxData c={c} canManage={canManage} busy={busy} save={save} />
 
           <section>
             <h3>Observações da equipe</h3>
@@ -461,5 +465,106 @@ export function CustomersPage() {
       )}
       <CustomerPanel id={open} onClose={() => setOpen(null)} onChanged={() => load(search)} />
     </>
+  );
+}
+
+/** CPF/CNPJ e inscrição estadual: usados quando o cliente pede nota (NFC-e com CPF ou NF-e). */
+function TaxData({
+  c,
+  canManage,
+  busy,
+  save,
+}: {
+  c: CustomerDetail;
+  canManage: boolean;
+  busy: boolean;
+  save(json: Record<string, unknown>, ok: string): Promise<void>;
+}) {
+  const [doc, setDoc] = useState(c.document ? formatDocument(c.document) : '');
+  const [ie, setIe] = useState(c.stateRegistration ?? '');
+  const [ind, setInd] = useState(String(c.ieIndicator ?? ''));
+  useEffect(() => {
+    setDoc(c.document ? formatDocument(c.document) : '');
+    setIe(c.stateRegistration ?? '');
+    setInd(String(c.ieIndicator ?? ''));
+  }, [c.document, c.stateRegistration, c.ieIndicator]);
+  const digits = doc.replace(/\D/g, '');
+  const docError = !digits
+    ? undefined
+    : digits.length === 11
+      ? isValidCpf(digits)
+        ? undefined
+        : 'CPF inválido'
+      : digits.length === 14
+        ? isValidCnpj(digits)
+          ? undefined
+          : 'CNPJ inválido'
+        : 'CPF tem 11 dígitos e CNPJ tem 14';
+  const company = digits.length === 14;
+  const dirty =
+    digits !== (c.document ?? '') ||
+    (ie.trim() || null) !== (c.stateRegistration ?? null) ||
+    ind !== String(c.ieIndicator ?? '');
+  return (
+    <section>
+      <h3>Dados para nota fiscal</h3>
+      <div className="form-grid">
+        <TextField
+          label="CPF ou CNPJ"
+          inputMode="numeric"
+          value={doc}
+          maxLength={18}
+          disabled={!canManage}
+          onChange={(e) => setDoc(e.target.value)}
+          error={docError}
+        />
+        {company && (
+          <>
+            <SelectField
+              label="Contribuinte do ICMS"
+              value={ind}
+              disabled={!canManage}
+              onChange={(e) => setInd(e.target.value)}
+            >
+              <option value="">Não informado</option>
+              {IE_INDICATORS.map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </SelectField>
+            <TextField
+              label="Inscrição estadual"
+              value={ie}
+              maxLength={14}
+              disabled={!canManage}
+              onChange={(e) => setIe(e.target.value.toUpperCase())}
+              hint="Só números, ou ISENTO"
+            />
+          </>
+        )}
+      </div>
+      {canManage && (
+        <Button
+          variant="secondary"
+          size="sm"
+          style={{ marginTop: 8 }}
+          loading={busy}
+          disabled={!dirty || !!docError}
+          onClick={() =>
+            void save(
+              {
+                document: digits || null,
+                stateRegistration: company ? ie.trim() || null : null,
+                ieIndicator: company && ind ? Number(ind) : null,
+              },
+              'Dados fiscais salvos',
+            )
+          }
+        >
+          Salvar dados fiscais
+        </Button>
+      )}
+    </section>
   );
 }

@@ -1,4 +1,11 @@
-import { isMoneyString, ORDER_CHANNELS, ORDER_STATUSES, PAYMENT_METHODS } from '@comandou/shared';
+import {
+  isMoneyString,
+  isValidCnpj,
+  isValidCpf,
+  ORDER_CHANNELS,
+  ORDER_STATUSES,
+  PAYMENT_METHODS,
+} from '@comandou/shared';
 import { z } from 'zod';
 
 /** Valor monetário positivo em string decimal (ex.: "12.50"). Nunca float. */
@@ -57,6 +64,14 @@ export const Payment = z.object({
   method: z.enum(PAYMENT_METHODS),
   amount: money,
   tendered: money.optional(),
+  /** CPF ou CNPJ na nota (só dígitos), guardado no pedido para a NFC-e. */
+  taxDocument: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ''))
+    .pipe(z.string().regex(/^([0-9]{11}|[0-9]{14})?$/, 'CPF com 11 ou CNPJ com 14 dígitos'))
+    .refine((v) => !v || (v.length === 11 ? isValidCpf(v) : isValidCnpj(v)), 'CPF ou CNPJ inválido')
+    .nullish()
+    .transform((v) => v || null),
 });
 
 /** Quantidade de estoque em string decimal com até 3 casas (ex.: "0.350"). Nunca float. */

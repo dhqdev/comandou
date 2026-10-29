@@ -584,7 +584,7 @@ export class CustomersService {
         tx,
         `SELECT c.id, c.name, c.phone, c.email, c.marketing_opt_in AS "marketingOptIn",
                 c.blocked_at IS NOT NULL AS blocked, c.created_at AS "createdAt",
-                c.last_login_at AS "lastLoginAt",
+                c.last_login_at AS "lastLoginAt", c.document,
                 COALESCE(st.orders, 0) AS orders, COALESCE(st.spent, '0.00') AS spent,
                 st.last_order_at AS "lastOrderAt"
            FROM customers c
@@ -593,7 +593,7 @@ export class CustomersService {
                     COALESCE(sum(o.total) FILTER (WHERE o.status <> 'cancelled'), 0)::text AS spent,
                     max(o.created_at) AS last_order_at
                FROM orders o WHERE o.customer_id = c.id) st ON true
-          WHERE $1 = '' OR c.name ILIKE $2 OR c.email ILIKE $2 OR ($3 <> '' AND c.phone LIKE $4)
+          WHERE $1 = '' OR c.name ILIKE $2 OR c.email ILIKE $2 OR ($3 <> '' AND (c.phone LIKE $4 OR c.document LIKE $4))
           ORDER BY COALESCE(st.last_order_at, c.created_at) DESC
           LIMIT 300`,
         [s, likeOf(s), digits, `%${digits}%`],
@@ -616,7 +616,8 @@ export class CustomersService {
       const c = await one(
         tx,
         `SELECT ${CUSTOMER_COLS}, staff_notes AS "staffNotes", blocked_at IS NOT NULL AS blocked,
-                last_login_at AS "lastLoginAt"
+                last_login_at AS "lastLoginAt", document, state_registration AS "stateRegistration",
+                ie_indicator AS "ieIndicator"
            FROM customers WHERE id = $1`,
         [id],
       );
@@ -653,8 +654,32 @@ export class CustomersService {
     });
   }
 
-  async update(ctx: Ctx, id: string, p: { staffNotes?: string | null; blocked?: boolean }) {
+  async update(
+    ctx: Ctx,
+    id: string,
+    p: {
+      staffNotes?: string | null;
+      blocked?: boolean;
+      document?: string | null;
+      stateRegistration?: string | null;
+      ieIndicator?: 1 | 2 | 9 | null;
+    },
+  ) {
     await this.db.withTenant(ctx, async (tx) => {
+      // Dados fiscais do cliente (destinatário da NF-e / CPF na nota).
+      const fiscal: [string, unknown][] = (
+        [
+          ['document', p.document],
+          ['state_registration', p.stateRegistration],
+          ['ie_indicator', p.ieIndicator],
+        ] as [string, unknown][]
+      ).filter(([, v]) => v !== undefined);
+      if (fiscal.length)
+        await q(
+          tx,
+          `UPDATE customers SET ${fiscal.map(([c], i) => `${c} = $${i + 2}`).join(', ')} WHERE id = $1`,
+          [id, ...fiscal.map(([, v]) => v)],
+        );
       const r = await one(
         tx,
         `UPDATE customers SET
@@ -678,7 +703,11 @@ export class CustomersService {
         action: 'customer.updated',
         entity: 'customer',
         entityId: id,
-        data: { blocked: p.blocked, notes: p.staffNotes !== undefined },
+        data: {
+          blocked: p.blocked,
+          notes: p.staffNotes !== undefined,
+          fiscal: p.document !== undefined || p.stateRegistration !== undefined,
+        },
         ip: ctx.ip,
       });
     });

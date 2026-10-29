@@ -7,4 +7,5 @@ export * from './plans';
 export * from './waiter';
 export * from './courier-pay';
 export * from './menu';
+export * from './fiscal';
 export * from './report-doc';

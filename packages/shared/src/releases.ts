@@ -20,6 +20,51 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.49.0',
+    date: '2026-10-29',
+    title: 'Fiscal completo: NFC-e, NF-e e notas recebidas',
+    summary:
+      'A nota fiscal virou um menu Fiscal com NFC-e, NF-e, notas recebidas, inutilização, padrões fiscais e configuração. Nota recusada mostra o motivo em palavras simples e onde corrigir, e é reemitida com o mesmo número.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'NF-e (modelo 55) para empresas: abra pelo pedido pago, confira o rascunho (cliente com CNPJ, endereço e inscrição estadual, natureza da operação, frete) e emita.',
+      },
+      {
+        tag: 'novo',
+        text: 'Detalhe de cada nota: venda, itens com a tributação de cada um, pagamentos, eventos, DANFE e XML. Dá para cancelar, mandar por e-mail e fazer carta de correção.',
+      },
+      {
+        tag: 'novo',
+        text: 'Padrões fiscais: CFOP, CSOSN ou CST, PIS/COFINS, IPI e IBS/CBS em regras reutilizáveis. Escolha o padrão no item do cardápio, ligue por NCM ou deixe o padrão da empresa.',
+      },
+      {
+        tag: 'novo',
+        text: 'CPF/CNPJ na nota: informe no pagamento ou no detalhe do pedido.',
+      },
+      {
+        tag: 'novo',
+        text: 'Emissão automática da NFC-e quando o pedido é quitado (ligue em Fiscal → Configuração).',
+      },
+      {
+        tag: 'novo',
+        text: 'Inutilização de números pulados, com a lista dos números que faltam.',
+      },
+      {
+        tag: 'novo',
+        text: 'Notas recebidas: as NF-e dos fornecedores para o seu CNPJ, com ciência, confirmação da compra, PDF e XML.',
+      },
+      {
+        tag: 'correção',
+        text: 'NFC-e paga com cartão ou Pix agora leva os dados do cartão que a SEFAZ exige, e a forma "Outros" leva a descrição. Antes, essas notas podiam ser recusadas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cliente com CPF/CNPJ e inscrição estadual no cadastro, usados direto na nota.',
+      },
+    ],
+  },
+  {
     version: '0.48.0',
     date: '2026-10-29',
     title: 'Chat da equipe e o Comandinho, seu guia',

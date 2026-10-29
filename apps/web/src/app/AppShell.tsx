@@ -21,6 +21,10 @@ import {
   Layers,
   MessageCircle,
   FileText,
+  FileStack,
+  Inbox,
+  Ban,
+  Scale,
   Printer,
   Receipt,
   UserCog,
@@ -153,6 +157,30 @@ const MAIN: NavItem[] = [
       },
     ],
   },
+  {
+    to: '/fiscal',
+    label: 'Fiscal',
+    icon: <FileText />,
+    perms: ['fiscal:emit', 'fiscal:manage'],
+    children: [
+      { to: '/fiscal/nfce', also: '/fiscal/nota/*', label: 'NFC-e', icon: <Receipt /> },
+      { to: '/fiscal/nfe', label: 'NF-e', icon: <FileStack /> },
+      { to: '/fiscal/recebidas', label: 'Notas recebidas', icon: <Inbox /> },
+      { to: '/fiscal/inutilizacao', label: 'Inutilização', icon: <Ban /> },
+      {
+        to: '/fiscal/padroes',
+        label: 'Padrões fiscais',
+        icon: <Scale />,
+        perms: ['fiscal:manage'],
+      },
+      {
+        to: '/fiscal/configuracao',
+        label: 'Configuração',
+        icon: <Settings />,
+        perms: ['fiscal:manage'],
+      },
+    ],
+  },
 ];
 
 /** Gestão e configurações: abrem um submenu que sai da barra (no celular, folha de baixo). */
@@ -180,12 +208,6 @@ const GROUPS: { key: string; label: string; icon: ReactNode; items: NavItem[] }[
     icon: <SlidersHorizontal />,
     items: [
       { to: '/impressao', label: 'Impressão', icon: <Printer />, perms: ['printing:manage'] },
-      {
-        to: '/nota-fiscal',
-        label: 'Nota fiscal',
-        icon: <FileText />,
-        perms: ['fiscal:emit', 'fiscal:manage'],
-      },
       {
         to: '/whatsapp',
         label: 'WhatsApp',

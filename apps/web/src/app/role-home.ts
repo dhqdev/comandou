@@ -28,7 +28,7 @@ export const ROUTE_PERMS: Record<string, string[]> = {
   relatorios: ['reports:read'],
   equipe: ['users:manage'],
   impressao: ['printing:manage'],
-  'nota-fiscal': ['fiscal:emit', 'fiscal:manage'],
+  fiscal: ['fiscal:emit', 'fiscal:manage'],
   whatsapp: ['messaging:manage'],
   plano: ['plan:read'],
 };

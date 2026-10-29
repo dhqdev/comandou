@@ -28,6 +28,8 @@ export interface PaymentInput {
   amount: string;
   /** Valor entregue pelo cliente (só dinheiro) para cálculo de troco. */
   tendered?: string;
+  /** CPF/CNPJ na nota (só dígitos). */
+  taxDocument?: string | null;
 }
 
 interface SessionRow {
@@ -64,6 +66,16 @@ export class CashService {
     private readonly orders: OrdersService,
     private readonly realtime: RealtimeService,
   ) {}
+
+  /** Quem quer saber quando um pedido fica totalmente pago (ex.: emissão automática da NFC-e). */
+  private readonly paidHooks: ((ctx: Ctx, orderId: string) => Promise<void>)[] = [];
+  onOrderPaid(hook: (ctx: Ctx, orderId: string) => Promise<void>) {
+    this.paidHooks.push(hook);
+  }
+  /** Avisa, fora da transação e sem esperar, que o pedido ficou pago. Falha aqui nunca volta ao caixa. */
+  notifyPaid(ctx: Ctx, orderId: string) {
+    for (const h of this.paidHooks) void h(ctx, orderId).catch(() => undefined);
+  }
 
   // ------------------------------------------------------------------ sessões
   async open(
@@ -392,6 +404,11 @@ export class CashService {
       withIdempotency(tx, ctx.tenantId, 'payment.create', idemKey, { orderId, ...b }, async () => {
         await this.lockSession(tx, b.cashSessionId, 'SHARE');
         const o = await this.orders.lock(tx, orderId);
+        if (b.taxDocument)
+          await tx.$client.query(`UPDATE orders SET tax_document = $2 WHERE id = $1`, [
+            o.id,
+            b.taxDocument,
+          ]);
         const amountCents = toCents(b.amount);
         const change = changeFor(b, amountCents);
         const payment = await this.applyPayment(tx, ctx, o, {
@@ -406,6 +423,7 @@ export class CashService {
     this.realtime.publish(ctx.tenantId, { type: 'cash.changed', sessionId: b.cashSessionId });
     const tabId = res.order?.tabId;
     if (tabId) this.realtime.publish(ctx.tenantId, { type: 'tab.changed', tabId });
+    if (res.payment?.paymentStatus === 'paid') this.notifyPaid(ctx, orderId);
     return res;
   }
 

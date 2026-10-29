@@ -101,7 +101,7 @@ export const ORDER_SELECT = `
          o.total::text, o.paid_amount::text AS "paidAmount", (o.total - o.paid_amount)::text AS "balance",
          o.tab_id AS "tabId", tb.number AS "tabNumber", dt.label AS "tableLabel",
          o.customer_name AS "customerName", o.customer_phone AS "customerPhone",
-         o.delivery_address AS "deliveryAddress", o.delivery_lat::text AS "deliveryLat",
+         o.delivery_address AS "deliveryAddress", o.tax_document AS "taxDocument", o.delivery_lat::text AS "deliveryLat",
          o.delivery_lng::text AS "deliveryLng", o.notes, o.cancel_reason AS "cancelReason",
          o.source, o.payment_hint AS "paymentHint", o.change_for::text AS "changeFor",
          o.accepted_at AS "acceptedAt",

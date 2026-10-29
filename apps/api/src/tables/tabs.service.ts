@@ -200,6 +200,11 @@ export class TabsService {
         if (remaining > balance)
           throw new ConflictException(`Valor maior que o saldo (${fromCents(balance)})`);
         const change = changeFor(b, remaining);
+        if (b.taxDocument)
+          await tx.$client.query(`UPDATE orders SET tax_document = $2 WHERE id = ANY($1)`, [
+            orders.map((o) => o.id),
+            b.taxDocument,
+          ]);
         const payments = [];
         for (const o of orders) {
           if (remaining === 0) break;
@@ -221,6 +226,8 @@ export class TabsService {
       this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId: oid });
     this.realtime.publish(ctx.tenantId, { type: 'tab.changed', tabId: id });
     this.realtime.publish(ctx.tenantId, { type: 'cash.changed', sessionId: b.cashSessionId });
+    for (const p of res.payments ?? [])
+      if (p.paymentStatus === 'paid') this.cash.notifyPaid(ctx, p.orderId);
     return res;
   }
 

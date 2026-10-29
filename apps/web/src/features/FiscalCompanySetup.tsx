@@ -300,6 +300,34 @@ export function FiscalCompanySetup({
               onChange={(e) => set('telefone', e.target.value)}
             />
           </div>
+          <p className="cm-hint" style={{ margin: 0 }}>
+            Vindo de outro sistema? Informe a série e o próximo número de produção para continuar a
+            numeração (deixe vazio para começar do 1).
+          </p>
+          <div className="form-grid">
+            {(
+              [
+                ['nfceSerie', 'Série da NFC-e'],
+                ['nfceProximo', 'Próximo número da NFC-e'],
+                ['nfeSerie', 'Série da NF-e'],
+                ['nfeProximo', 'Próximo número da NF-e'],
+              ] as const
+            ).map(([k, label]) => (
+              <TextField
+                key={k}
+                label={label}
+                inputMode="numeric"
+                value={c.numeracao?.[k] == null ? '' : String(c.numeracao[k])}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, '').slice(0, 9);
+                  setC((x) => ({
+                    ...x,
+                    numeracao: { ...(x.numeracao ?? {}), [k]: v ? Number(v) : null },
+                  }));
+                }}
+              />
+            ))}
+          </div>
         </div>
       )}
 

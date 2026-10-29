@@ -60,6 +60,11 @@ const fiscalFields = {
     .nullable(),
   fiscalOrigin: z.number().int().min(0).max(8).nullable(),
   fiscalUnit: z.string().trim().min(1).max(6).nullable(),
+  fiscalRuleId: z.string().uuid().nullable(),
+  cest: z
+    .string()
+    .regex(/^[0-9]{7}$/, 'CEST com 7 dígitos')
+    .nullable(),
 };
 
 /** Cadastro do item: código interno, família, custo informado, venda por peso e código de barras. */
@@ -290,6 +295,8 @@ export class CatalogController {
           fiscalCode: body.fiscalCode ?? null,
           fiscalOrigin: body.fiscalOrigin ?? null,
           fiscalUnit: body.fiscalUnit ?? null,
+          fiscalRuleId: body.fiscalRuleId ?? null,
+          cest: body.cest ?? null,
           code: body.code || (await nextItemCode(tx)),
           familyId: body.familyId ?? null,
           cost: body.cost ?? null,

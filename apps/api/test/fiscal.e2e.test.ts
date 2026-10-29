@@ -92,13 +92,98 @@ function focusHandler(req: IncomingMessage, res: ServerResponse) {
       caminho_danfe: `/notas_fiscais_consumidor/${ref}.html`,
       qrcode_url: 'https://sefaz.example/qr',
     });
-    if (req.method === 'POST' && url.pathname === '/v2/nfce') {
+    // Inutilização, CC-e, e-mail e notas recebidas (antes das rotas por referência).
+    const inut = /^\/v2\/(nfce|nfe)\/inutilizacao$/.exec(url.pathname);
+    if (inut && req.method === 'POST') {
+      if (body?.numero_inicial === '999')
+        return send(200, {
+          status: 'erro_autorizacao',
+          status_sefaz: 241,
+          mensagem_sefaz: 'Rejeição: Um número da faixa já foi utilizado',
+        });
+      return send(200, {
+        status: 'autorizado',
+        status_sefaz: 102,
+        mensagem_sefaz: 'Inutilizacao de numero homologado',
+        protocolo_sefaz: 135210002233889,
+        caminho_xml: `/arquivos/inut-${body?.numero_inicial}.xml`,
+      });
+    }
+    const cce = /^\/v2\/nfe\/([^/]+)\/carta_correcao$/.exec(url.pathname);
+    if (cce && req.method === 'POST')
+      return send(200, {
+        status: 'autorizado',
+        status_sefaz: '135',
+        mensagem_sefaz: 'Evento registrado e vinculado a NF-e',
+        numero_carta_correcao: 1,
+        caminho_xml_carta_correcao: `/arquivos/${cce[1]}-cce.xml`,
+        caminho_pdf_carta_correcao: `/arquivos/${cce[1]}-cce.pdf`,
+      });
+    if (/^\/v2\/(nfce|nfe)\/[^/]+\/email$/.test(url.pathname)) return send(200, {});
+    if (url.pathname === '/v2/nfes_recebidas' && req.method === 'GET') {
+      const v = Number(url.searchParams.get('versao') ?? 0);
+      const rows =
+        v === 0
+          ? [
+              {
+                nome_emitente: 'Distribuidora de Bebidas Ltda',
+                documento_emitente: '11222333000181',
+                chave_nfe: '41171179060190000182550010000002661875685069',
+                valor_total: '845.30',
+                data_emissao: '2026-10-20T10:00:00-03:00',
+                situacao: 'autorizada',
+                manifestacao_destinatario: null,
+                nfe_completa: false,
+                tipo_nfe: '1',
+                versao: 4,
+              },
+              {
+                nome_emitente: 'Hortifruti Bom Preço',
+                documento_emitente: '22333444000190',
+                chave_nfe: '41171179060190000182550010000002671875685060',
+                valor_total: '120.00',
+                data_emissao: '2026-10-21T08:00:00-03:00',
+                situacao: 'cancelada',
+                manifestacao_destinatario: 'ciencia',
+                nfe_completa: true,
+                tipo_nfe: '1',
+                versao: 5,
+                data_cancelamento: '2026-10-21T09:00:00-03:00',
+                justificativa_cancelamento: 'Erro no pedido',
+              },
+            ]
+          : [];
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'X-Max-Version': String(rows.length ? 5 : v),
+        'X-Total-Count': String(rows.length),
+      });
+      return res.end(JSON.stringify(rows));
+    }
+    const man = /^\/v2\/nfes_recebidas\/([0-9]{44})\/manifesto$/.exec(url.pathname);
+    if (man && req.method === 'POST')
+      return send(200, {
+        status: 'evento_registrado',
+        status_sefaz: '135',
+        mensagem_sefaz: 'Evento registrado',
+      });
+    const rfile = /^\/v2\/nfes_recebidas\/([0-9]{44})\.(xml|pdf)$/.exec(url.pathname);
+    if (rfile) {
+      res.writeHead(200, {
+        'Content-Type': rfile[2] === 'pdf' ? 'application/pdf' : 'application/xml',
+      });
+      return res.end(rfile[2] === 'pdf' ? '%PDF-1.4 falso' : '<nfe/>');
+    }
+    const emitM = /^\/v2\/(nfce|nfe)$/.exec(url.pathname);
+    if (req.method === 'POST' && emitM) {
       const ref = url.searchParams.get('ref')!;
       if (mode === 'down') return send(503, {});
       if (mode === 'fail-once' && !failed.has(ref)) {
         failed.add(ref);
         return send(500, {});
       }
+      // A Focus aceita reenviar a mesma referência de uma nota recusada (corrigida).
+      if (notes.get(ref)?.status === 'erro_autorizacao') notes.delete(ref);
       if (mode === 'ref-used' || notes.has(ref)) {
         notes.set(ref, notes.get(ref) ?? authorized(ref));
         return send(422, { codigo: 'already_processed', mensagem: 'Nota já processada' });
@@ -120,7 +205,7 @@ function focusHandler(req: IncomingMessage, res: ServerResponse) {
       notes.set(ref, r);
       return send(201, r);
     }
-    const m = /^\/v2\/nfce\/([^/]+)$/.exec(url.pathname);
+    const m = /^\/v2\/(?:nfce|nfe)\/([^/]+)$/.exec(url.pathname);
     if (m) {
       const ref = decodeURIComponent(m[1]);
       const n = notes.get(ref);
@@ -410,7 +495,65 @@ describe('Emissão de NFC-e', () => {
     });
     expect(body.formas_pagamento).toEqual([
       { forma_pagamento: '01', valor_pagamento: '10.00' },
-      { forma_pagamento: '17', valor_pagamento: '45.00' },
+      { forma_pagamento: '17', valor_pagamento: '45.00', tipo_integracao: '2' },
+    ]);
+  });
+
+  it('CPF informado no pagamento entra na NFC-e; cartão leva o grupo do cartão e "outros" a descrição', async () => {
+    mode = 'authorize';
+    const o = (
+      await post('adminA', '/orders', {
+        channel: 'counter',
+        items: [{ productId: fx.prodA, quantity: 2 }],
+      }).expect(201)
+    ).body as { id: string; total: string };
+    // CPF com dígito errado é recusado antes de cobrar.
+    await post(
+      'adminA',
+      `/orders/${o.id}/payments`,
+      {
+        cashSessionId: sessionId,
+        method: 'credit',
+        amount: '10.00',
+        taxDocument: '529.982.247-24',
+      },
+      key(),
+    ).expect(400);
+    await post(
+      'adminA',
+      `/orders/${o.id}/payments`,
+      {
+        cashSessionId: sessionId,
+        method: 'credit',
+        amount: '10.00',
+        taxDocument: '529.982.247-25',
+      },
+      key(),
+    ).expect(201);
+    await post(
+      'adminA',
+      `/orders/${o.id}/payments`,
+      { cashSessionId: sessionId, method: 'other', amount: (Number(o.total) - 10).toFixed(2) },
+      key(),
+    ).expect(201);
+    expect((await get('adminA', `/orders/${o.id}`).expect(200)).body.taxDocument).toBe(
+      '52998224725',
+    );
+    const d = (await post('cashierA', `/orders/${o.id}/nfce`).expect(202)).body;
+    expect(d.recipient).toMatchObject({ cpf: '52998224725' });
+    await waitDoc(d.id, (s) => s === 'authorized');
+    const sent = calls.find((c) => c.method === 'POST' && c.url.includes(`ref=pm-${d.id}`))!;
+    const body = sent.body as Record<string, unknown> & {
+      formas_pagamento: Record<string, string>[];
+    };
+    expect(body.cpf_destinatario).toBe('52998224725');
+    expect(body.formas_pagamento).toEqual([
+      { forma_pagamento: '03', valor_pagamento: '10.00', tipo_integracao: '2' },
+      {
+        forma_pagamento: '99',
+        valor_pagamento: (Number(o.total) - 10).toFixed(2),
+        descricao_pagamento: 'Outros',
+      },
     ]);
   });
 
@@ -450,7 +593,7 @@ describe('Emissão de NFC-e', () => {
       await c.query(`SELECT set_config('app.tenant_id', $1, true)`, [fx.tenantA]);
       await expect(
         c.query(`UPDATE fiscal_documents SET total = 1 WHERE id = $1`, [doc.id]),
-      ).rejects.toThrow(/permission denied/);
+      ).rejects.toThrow(/permission denied|já enviada não pode ser alterada/);
       await c.query('ROLLBACK');
       await c.query('BEGIN');
       await c.query(`SELECT set_config('app.tenant_id', $1, true)`, [fx.tenantA]);
@@ -498,21 +641,31 @@ describe('Emissão de NFC-e', () => {
     const d = (await post('adminA', `/orders/${o.id}/nfce`).expect(202)).body;
     const done = await waitDoc(d.id, (s) => s === 'rejected');
     expect(done).toMatchObject({ sefazStatus: '778', sefazMessage: 'NCM inexistente' });
-    // Rejeitada não bloqueia o pedido: dá para emitir outra (nova referência).
+    // A recusa vem explicada em palavras simples.
+    expect(done.issues[0]).toMatchObject({ title: 'NCM inexistente', code: '778' });
+    // Reemitir corrige e reenvia a MESMA nota, com a mesma referência (a Focus reaproveita o número).
     mode = 'authorize';
     const again = (await post('adminA', `/orders/${o.id}/nfce`).expect(202)).body;
-    expect(again.id).not.toBe(d.id);
-    await waitDoc(again.id, (s) => s === 'authorized');
+    expect(again.id).toBe(d.id);
+    const ok = await waitDoc(again.id, (s) => s === 'authorized');
+    expect(ok.attempts).toBe(2);
+    expect(ok.issues).toEqual([]);
   });
 
   it('NCM ausente é recusado antes de enviar, listando o produto', async () => {
     await patch('adminA', `/products/${fx.prodA}`, { ncm: null }).expect(200);
     const o = await paidOrder();
-    const r = await post('adminA', `/orders/${o.id}/nfce`).expect(422);
-    expect(r.body.message).toContain('X-Burguer A');
+    const sentBefore = calls.length;
+    // A nota fica com erro explicado, sem gastar chamada na SEFAZ.
+    const r = (await post('adminA', `/orders/${o.id}/nfce`).expect(202)).body;
+    expect(r.status).toBe('error');
+    expect(r.issues[0].title).toBe('Item sem NCM');
+    expect(r.issues[0].detail).toContain('X-Burguer A');
+    expect(calls.length).toBe(sentBefore);
     await put('adminA', '/fiscal/settings', { defaultNcm: '21069090' }).expect(200);
     mode = 'authorize';
-    const d = (await post('adminA', `/orders/${o.id}/nfce`).expect(202)).body;
+    const d = (await post('adminA', `/fiscal/documents/${r.id}/reissue`).expect(202)).body;
+    expect(d.id).toBe(r.id);
     await waitDoc(d.id, (s) => s === 'authorized');
   });
 });
@@ -698,5 +851,285 @@ describe('Modo revenda (token master do Comandou)', () => {
     const emit = calls.find((c) => c.method === 'POST' && c.url.startsWith('/v2/nfce'))!;
     expect(emit.auth).toBe(`Basic ${Buffer.from(`${B_HOM}:`).toString('base64')}`);
     expect(emit.body).toMatchObject({ cnpj_emitente: '98765432000110' });
+  });
+});
+
+describe('Módulo fiscal completo (padrões, NF-e, inutilização, recebidas)', () => {
+  const VALID_CPF = '52998224725';
+  let ruleId = '';
+
+  it('padrões fiscais: valida, cria e lista os itens sem padrão', async () => {
+    mode = 'authorize';
+    await post('cashierA', '/fiscal/rules', { name: 'X', cfop: '5101', icmsCst: '102' }).expect(
+      403,
+    );
+    await post('adminA', '/fiscal/rules', { name: 'X', cfop: '51', icmsCst: '102' }).expect(400);
+    const r = (
+      await post('adminA', '/fiscal/rules', {
+        name: 'Comida feita na casa',
+        cfop: '5101',
+        icmsCst: '102',
+        approxTaxRate: '13,45',
+        ibsCbsCst: '000',
+        ibsCbsClass: '000001',
+        cbsRate: '0.9',
+        ibsUfRate: '0.1',
+      }).expect(201)
+    ).body;
+    expect(r).toMatchObject({
+      code: 'PF-000001',
+      cfop: '5101',
+      approxTaxRate: '13.45',
+      isDefault: false,
+    });
+    ruleId = r.id;
+    const list = (await get('adminA', '/fiscal/rules').expect(200)).body;
+    expect(list.rules).toHaveLength(1);
+    // Sem padrão da empresa, o produto sem padrão e sem NCM ligado aparece como pendente.
+    expect(list.uncovered.map((p: { id: string }) => p.id)).toContain(fx.prodA);
+    // B não vê os padrões de A.
+    expect((await get('adminB', '/fiscal/rules').expect(200)).body.rules).toEqual([]);
+  });
+
+  it('item sem padrão fiscal vira erro explicado; ligar o NCM resolve e a reemissão usa o padrão', async () => {
+    await patch('adminA', `/products/${fx.prodA}`, { ncm: '21069090' }).expect(200);
+    const o = await paidOrder();
+    const d = (await post('adminA', `/orders/${o.id}/nfce`).expect(202)).body;
+    expect(d.status).toBe('error');
+    expect(d.issues.map((i: { title: string }) => i.title)).toContain(
+      'Item sem regra de tributação',
+    );
+    await put('adminA', '/fiscal/ncm-rules/2106.90.90', { ruleId }).expect(200);
+    await post('adminA', `/fiscal/documents/${d.id}/reissue`).expect(202);
+    await waitDoc(d.id, (s) => s === 'authorized');
+    const sent = calls
+      .filter((c) => c.method === 'POST' && c.url.includes(`ref=pm-${d.id}`))
+      .at(-1)!;
+    const item = (sent.body as { items: Record<string, string>[] }).items[0];
+    expect(item).toMatchObject({
+      cfop: '5101',
+      icms_situacao_tributaria: '102',
+      valor_total_tributos: '6.97',
+      ibs_cbs_situacao_tributaria: '000',
+      cbs_aliquota: '0.9',
+      cbs_valor: '0.47',
+    });
+    const full = (await get('adminA', `/fiscal/documents/${d.id}?full=1`).expect(200)).body;
+    expect(full.items[0]).toMatchObject({ ruleCode: 'PF-000001', ruleSource: 'ncm', cfop: '5101' });
+    expect(full.order).toMatchObject({ number: expect.any(Number), total: o.total });
+  });
+
+  it('CPF na nota: válido vai no XML; inválido vira erro antes de enviar', async () => {
+    const o = await paidOrder();
+    const bad = (
+      await post('adminA', `/orders/${o.id}/nfce`, { cpf: '111.111.111-12' }).expect(202)
+    ).body;
+    expect(bad.status).toBe('error');
+    expect(bad.issues[0].title).toBe('CPF do cliente inválido');
+    await patch('adminA', `/fiscal/documents/${bad.id}`, {
+      recipient: { cpf: VALID_CPF, name: 'Maria' },
+    }).expect(200);
+    await post('adminA', `/fiscal/documents/${bad.id}/reissue`).expect(202);
+    await waitDoc(bad.id, (s) => s === 'authorized');
+    const sent = calls.filter((c) => c.url.includes(`ref=pm-${bad.id}`)).at(-1)!;
+    expect(sent.body).toMatchObject({ cpf_destinatario: VALID_CPF, nome_destinatario: 'Maria' });
+  });
+
+  it('delivery sem CPF: rejeição 787 explicada antes; com CPF e endereço sai como entrega a domicílio', async () => {
+    const o = (
+      await post('adminA', '/orders', {
+        channel: 'delivery',
+        deliveryAddress: 'Rua das Flores, 100',
+        customerName: 'Carla',
+        customerPhone: '11999990000',
+        deliveryFee: '7.00',
+        items: [{ productId: fx.prodA, quantity: 1 }],
+      }).expect(201)
+    ).body;
+    await post(
+      'adminA',
+      `/orders/${o.id}/payments`,
+      { cashSessionId: sessionId, method: 'pix', amount: o.total },
+      key(),
+    ).expect(201);
+    const d = (await post('adminA', `/orders/${o.id}/nfce`).expect(202)).body;
+    expect(d.status).toBe('error');
+    expect(d.issues[0]).toMatchObject({ title: 'Falta o CPF ou CNPJ do cliente', code: '787' });
+    expect(d.recipient).toMatchObject({ name: 'Carla', street: 'Rua das Flores, 100' });
+    await patch('adminA', `/fiscal/documents/${d.id}`, {
+      recipient: {
+        ...d.recipient,
+        cpf: VALID_CPF,
+        street: 'Rua das Flores',
+        number: '100',
+        district: 'Centro',
+        city: 'Curitiba',
+        state: 'pr',
+      },
+    }).expect(200);
+    await post('adminA', `/fiscal/documents/${d.id}/reissue`).expect(202);
+    await waitDoc(d.id, (s) => s === 'authorized');
+    const sent = calls.filter((c) => c.url.includes(`ref=pm-${d.id}`)).at(-1)!;
+    expect(sent.body).toMatchObject({
+      presenca_comprador: '4',
+      cpf_destinatario: VALID_CPF,
+      logradouro_destinatario: 'Rua das Flores',
+      uf_destinatario: 'PR',
+    });
+  });
+
+  it('descartar nota com erro: some da lista; autorizada não se descarta', async () => {
+    const o = await paidOrder();
+    const d = (await post('adminA', `/orders/${o.id}/nfce`, { cpf: '11111111112' }).expect(202))
+      .body;
+    await post('adminA', `/fiscal/documents/${d.id}/discard`, { reason: 'teste' }).expect(200);
+    const list = (await get('adminA', '/fiscal/documents?kind=nfce&limit=500').expect(200)).body;
+    expect(list.find((x: { id: string }) => x.id === d.id)).toBeUndefined();
+    const [auth] = (await get('adminA', '/fiscal/documents?status=authorized').expect(200)).body;
+    await post('adminA', `/fiscal/documents/${auth.id}/discard`).expect(409);
+  });
+
+  it('NF-e: precisa estar ligada, nasce rascunho, corrige destinatário e emite pela /v2/nfe', async () => {
+    const o = await paidOrder();
+    await post('adminA', `/orders/${o.id}/nfe`).expect(422);
+    await put('adminA', '/fiscal/settings', {
+      nfeEnabled: true,
+      nfeNature: 'venda de mercadoria',
+    }).expect(200);
+    const d = (await post('adminA', `/orders/${o.id}/nfe`).expect(201)).body;
+    expect(d).toMatchObject({ kind: 'nfe', status: 'draft' });
+    expect(d.issues.map((i: { title: string }) => i.title)).toEqual(
+      expect.arrayContaining(['Falta o CPF ou CNPJ do cliente', 'Endereço do cliente incompleto']),
+    );
+    // Rascunho de NF-e bloqueia NFC-e da mesma venda.
+    await post('adminA', `/orders/${o.id}/nfce`).expect(409);
+    // Rascunho com problema não sai.
+    const still = (await post('adminA', `/fiscal/documents/${d.id}/reissue`).expect(202)).body;
+    expect(still.status).toBe('error');
+    await patch('adminA', `/fiscal/documents/${d.id}`, {
+      recipient: {
+        name: 'Empresa Cliente Ltda',
+        cnpj: '11.222.333/0001-81',
+        ieIndicator: 9,
+        street: 'Av. Brasil',
+        number: '50',
+        district: 'Centro',
+        city: 'Curitiba',
+        state: 'PR',
+        cep: '80000-000',
+        email: 'compras@cliente.test',
+      },
+      operation: { finalConsumer: true, info: 'Pedido de compra 123' },
+    }).expect(200);
+    await post('adminA', `/fiscal/documents/${d.id}/reissue`).expect(202);
+    const done = await waitDoc(d.id, (s) => s === 'authorized');
+    expect(done.kind).toBe('nfe');
+    const sent = calls
+      .filter((c) => c.method === 'POST' && c.url.startsWith(`/v2/nfe?ref=pm-${d.id}`))
+      .at(-1)!;
+    expect(sent.body).toMatchObject({
+      natureza_operacao: 'VENDA DE MERCADORIA',
+      finalidade_emissao: '1',
+      tipo_documento: '1',
+      consumidor_final: '1',
+      cnpj_destinatario: '11222333000181',
+      indicador_inscricao_estadual_destinatario: '9',
+      cep_destinatario: '80000000',
+      email_destinatario: 'compras@cliente.test',
+      informacoes_adicionais_contribuinte: 'Pedido de compra 123',
+    });
+    // NF-e lista separada da NFC-e.
+    const nfes = (await get('adminA', '/fiscal/documents?kind=nfe').expect(200)).body;
+    expect(nfes.map((x: { id: string }) => x.id)).toEqual([d.id]);
+  });
+
+  it('carta de correção e e-mail da NF-e autorizada', async () => {
+    const [nfe] = (await get('adminA', '/fiscal/documents?kind=nfe&status=authorized').expect(200))
+      .body;
+    await post('adminA', `/fiscal/documents/${nfe.id}/correction`, { text: 'curta' }).expect(400);
+    const r = (
+      await post('adminA', `/fiscal/documents/${nfe.id}/correction`, {
+        text: 'Corrige o complemento do endereço de entrega para sala 2',
+      }).expect(200)
+    ).body;
+    expect(r.events[0]).toMatchObject({ kind: 'correction', status: 'authorized', sequence: 1 });
+    expect(r.events[0].pdfUrl).toMatch(/cce\.pdf$/);
+    await post('adminA', `/fiscal/documents/${nfe.id}/email`, { emails: ['x@y.test'] }).expect(200);
+    const [nfce] = (
+      await get('adminA', '/fiscal/documents?kind=nfce&status=authorized').expect(200)
+    ).body;
+    await post('adminA', `/fiscal/documents/${nfce.id}/correction`, {
+      text: 'Não existe carta de correção para NFC-e',
+    }).expect(400);
+  });
+
+  it('inutilização: autorizada, recusada explicada e número já usado bloqueado', async () => {
+    const v = (
+      await post('adminA', '/fiscal/voids', {
+        kind: 'nfce',
+        series: 1,
+        from: 500,
+        to: 502,
+        reason: 'Números pulados por falha do sistema',
+      }).expect(201)
+    ).body;
+    expect(v.status).toBe('authorized');
+    const bad = await post('adminA', '/fiscal/voids', {
+      kind: 'nfe',
+      series: 1,
+      from: 999,
+      to: 999,
+      reason: 'Número pulado na troca de sistema',
+    }).expect(422);
+    expect(bad.body.message).toContain('Inutilização recusada');
+    await post('adminA', '/fiscal/voids', {
+      kind: 'nfce',
+      series: 1,
+      from: 1,
+      to: 1,
+      reason: 'Tentando inutilizar número já usado',
+    }).expect(409);
+    const list = (await get('adminA', '/fiscal/voids').expect(200)).body;
+    expect(list.map((x: { status: string }) => x.status).sort()).toEqual([
+      'authorized',
+      'rejected',
+    ]);
+    expect(Array.isArray((await get('adminA', '/fiscal/voids/gaps').expect(200)).body)).toBe(true);
+  });
+
+  it('notas recebidas: busca, manifesta e baixa o DANFE', async () => {
+    const s = (await post('adminA', '/fiscal/received/sync').expect(200)).body;
+    expect(s).toMatchObject({ fetched: 2, version: 5 });
+    // De novo: a partir da versão 5, nada novo.
+    expect((await post('adminA', '/fiscal/received/sync').expect(200)).body.fetched).toBe(0);
+    const { rows } = (await get('adminA', '/fiscal/received').expect(200)).body;
+    expect(rows).toHaveLength(2);
+    const drinks = rows.find((r: { issuerName: string }) =>
+      r.issuerName.startsWith('Distribuidora'),
+    );
+    expect(drinks).toMatchObject({ total: '845.30', manifestation: null, situation: 'autorizada' });
+    await post('adminA', `/fiscal/received/${drinks.id}/manifest`, {
+      tipo: 'nao_realizada',
+    }).expect(422);
+    await post('adminA', `/fiscal/received/${drinks.id}/manifest`, { tipo: 'ciencia' }).expect(200);
+    const after = (await get('adminA', '/fiscal/received').expect(200)).body.rows;
+    expect(after.find((r: { id: string }) => r.id === drinks.id).manifestation).toBe('ciencia');
+    const pdf = await get('adminA', `/fiscal/received/${drinks.id}/file?ext=pdf`).expect(200);
+    expect(pdf.headers['content-type']).toContain('application/pdf');
+    expect((await get('adminB', '/fiscal/received').expect(200)).body.rows).toEqual([]);
+  });
+
+  it('emissão automática: com a opção ligada, pagar o pedido já pede a NFC-e', async () => {
+    await put('adminA', '/fiscal/settings', { autoEmitNfce: true }).expect(200);
+    const o = await paidOrder();
+    const end = Date.now() + 10_000;
+    let docs: { id: string; status: string }[] = [];
+    while (!docs.length && Date.now() < end) {
+      await new Promise((r) => setTimeout(r, 300));
+      docs = (await get('adminA', `/fiscal/documents?orderId=${o.id}`).expect(200)).body;
+    }
+    expect(docs).toHaveLength(1);
+    await waitDoc(docs[0].id, (s) => s === 'authorized');
+    await put('adminA', '/fiscal/settings', { autoEmitNfce: false }).expect(200);
   });
 });

@@ -2,6 +2,7 @@ import {
   Activity,
   Building2,
   DatabaseBackup,
+  FileText,
   Download,
   CircleUserRound,
   LogOut,
@@ -41,6 +42,7 @@ import '../app/shell.css';
 import '../app/ops.css';
 import './admin.css';
 import { AuditPage, BackupsPage, OverviewPage } from './OverviewPages';
+import { FiscalPage } from './FiscalPage';
 import { AiPage } from './AiPage';
 import { PlansPage } from './PlansPage';
 import { isStandalone, promptInstall } from './pwa';
@@ -203,6 +205,7 @@ const NAV = [
   { to: '/', label: 'Status', icon: Activity },
   { to: '/restaurantes', label: 'Restaurantes', short: 'Clientes', icon: Building2 },
   { to: '/servidor', label: 'Servidor', icon: Server },
+  { to: '/fiscal', label: 'Fiscal', icon: FileText },
   { to: '/planos', label: 'Planos', icon: Tags },
   { to: '/backups', label: 'Backups', icon: DatabaseBackup },
   { to: '/ia', label: 'IA', icon: Sparkles },
@@ -353,6 +356,7 @@ function Gate() {
         <Route path="restaurantes" element={<TenantsPage />} />
         <Route path="restaurantes/:id" element={<TenantDetailPage />} />
         <Route path="servidor" element={<ServerPage />} />
+        <Route path="fiscal" element={<FiscalPage />} />
         <Route path="planos" element={<PlansPage />} />
         <Route path="backups" element={<BackupsPage />} />
         <Route path="ia" element={<AiPage />} />
