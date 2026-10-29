@@ -8,7 +8,7 @@ let cache: Fur | null | undefined;
 
 function draw(color: (a: number) => string, count: number, seed: number, edge: boolean): string {
   const c = document.createElement('canvas');
-  const K = 4; // pixels por unidade do viewBox 64
+  const K = 8; // pixels por unidade do viewBox 64 (nítido mesmo no panda grande)
   c.width = c.height = 64 * K;
   const g = c.getContext('2d');
   if (!g) return '';
@@ -24,9 +24,9 @@ function draw(color: (a: number) => string, count: number, seed: number, edge: b
     // no rosto, o pelo aparece mais perto da borda e quase some no meio (rosto limpo)
     const d = Math.min(1, Math.hypot(x - cx, (y - cy) * 1.3) / (27 * K));
     const w = edge ? 0.12 + 0.88 * d * d * d : 1;
-    const len = (1 + rnd() * 1.4) * K;
+    const len = (0.8 + rnd() * 1.1) * K;
     g.strokeStyle = color((0.25 + rnd() * 0.75) * w);
-    g.lineWidth = 0.18 * K + rnd() * 0.12 * K;
+    g.lineWidth = 0.09 * K + rnd() * 0.07 * K;
     g.beginPath();
     g.moveTo(x, y);
     g.quadraticCurveTo(
@@ -46,8 +46,8 @@ export function pandaFur(): Fur | null {
   cache = null;
   try {
     if (typeof document === 'undefined' || /jsdom/i.test(navigator.userAgent)) return null;
-    const light = draw((a) => `rgba(130, 110, 94, ${(a * 0.3).toFixed(3)})`, 2200, 7, true);
-    const dark = draw((a) => `rgba(255, 246, 236, ${(a * 0.14).toFixed(3)})`, 1400, 13, false);
+    const light = draw((a) => `rgba(96, 96, 102, ${(a * 0.34).toFixed(3)})`, 4200, 7, true);
+    const dark = draw((a) => `rgba(255, 255, 255, ${(a * 0.16).toFixed(3)})`, 2600, 13, false);
     if (light && dark) cache = { light, dark };
   } catch {
     cache = null;

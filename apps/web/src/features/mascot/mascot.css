@@ -197,3 +197,27 @@
     display: none;
   }
 }
+
+/* ---------- panda do topo (abre o guarda-roupa) ---------- */
+.pw-brand {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--cm-radius-lg, 12px);
+  background: none;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.pw-brand:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+/* na barra lateral: espaço em cima para chapéu e aceno não serem cortados */
+.cm-rail__brand:has(.pw-brand) {
+  height: auto;
+  padding: 14px 0 4px;
+  margin-bottom: 2px;
+}

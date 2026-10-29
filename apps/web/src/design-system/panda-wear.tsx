@@ -8,7 +8,8 @@ import type { MascotItemId } from '@comandou/shared';
 const INK = 'var(--cm-mascot-ink, #1a1613)';
 const line = (w: number) => ({
   stroke: INK,
-  strokeWidth: w,
+  // contorno fino, igual ao do panda: nítido, sem cara de figurinha
+  strokeWidth: w * 0.62,
   strokeLinejoin: 'round' as const,
   strokeLinecap: 'round' as const,
 });
@@ -30,17 +31,22 @@ export function PandaDefs({ u }: { u: string }) {
   );
   return (
     <defs>
-      {/* corpo: luz vindo de cima à direita, sombra quente embaixo e à esquerda */}
+      {/* corpo: luz vindo de cima à direita, sombra cinza embaixo e à esquerda (só preto e branco) */}
       <radialGradient id={`${u}-face`} cx="0.64" cy="0.22" r="0.95" fx="0.66" fy="0.2">
         <stop offset="0" style={{ stopColor: 'var(--cm-mascot-face, #fff)' }} />
-        <stop offset="0.5" stopColor="#f8f5f1" />
-        <stop offset="0.82" stopColor="#ebe5de" />
-        <stop offset="1" stopColor="#dcd4cb" />
+        <stop offset="0.55" stopColor="#f6f6f7" />
+        <stop offset="0.85" stopColor="#e6e6e8" />
+        <stop offset="1" stopColor="#d4d4d7" />
       </radialGradient>
       <linearGradient id={`${u}-ink`} x1="0" y1="0" x2="0.2" y2="1">
-        <stop offset="0" stopColor="#3b3430" />
+        <stop offset="0" stopColor="#38383b" />
         <stop offset="1" style={{ stopColor: 'var(--cm-mascot-ink, #1a1613)' }} />
       </linearGradient>
+      <radialGradient id={`${u}-iris`} cx="0.42" cy="0.36" r="0.7">
+        <stop offset="0" stopColor="#5a5a60" />
+        <stop offset="0.55" stopColor="#1e1e21" />
+        <stop offset="1" stopColor="#060607" />
+      </radialGradient>
       <radialGradient id={`${u}-ground`} cx="0.5" cy="0.5" r="0.5">
         <stop offset="0" stopColor="#000" stopOpacity="0.2" />
         <stop offset="1" stopColor="#000" stopOpacity="0" />
@@ -170,7 +176,7 @@ export function WearHead({ id, u }: { id: MascotItemId; u: string }) {
       // fone com microfone: arco por cima das orelhas, conchas nas laterais da cabeça
       return (
         <g>
-          <path d={HEADBAND} fill="none" stroke={INK} strokeWidth="5" strokeLinecap="round" />
+          <path d={HEADBAND} fill="none" stroke={INK} strokeWidth="4.2" strokeLinecap="round" />
           <path
             d={HEADBAND}
             fill="none"
@@ -183,7 +189,7 @@ export function WearHead({ id, u }: { id: MascotItemId; u: string }) {
             d="M59.6 37.6C58.6 42.6 53.6 45.6 47.4 45.2"
             fill="none"
             stroke={INK}
-            strokeWidth="1.9"
+            strokeWidth="1.4"
             strokeLinecap="round"
           />
           <ellipse cx="46.2" cy="45.1" rx="2.3" ry="1.9" fill={url('dark')} {...line(1.2)} />

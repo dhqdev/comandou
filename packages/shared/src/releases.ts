@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.58.0',
+    date: '2026-10-29',
+    title: 'Panda maior no topo, rosto novo e só preto e branco',
+    summary:
+      'O panda do topo ficou maior e veste a sua roupa; tocar nele abre a janela para trocar a roupinha. Ele também ganhou um rosto mais caprichado, contorno mais fino e pelo mais nítido, só em preto e branco.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Panda do topo maior, no lugar do quadradinho laranja. Tocar nele abre "Seu panda" para trocar a roupa, ver as expressões e ligar ou desligar o passeio.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Rosto novo: olhos com íris e brilho, nariz de panda e boquinha em "w". Saiu o rosa das bochechas; o panda agora é só preto e branco, com contorno mais fino e pelo mais nítido.',
+      },
+    ],
+  },
+  {
     version: '0.57.0',
     date: '2026-10-29',
     title: 'O panda ganhou roupinhas, pelo macio e passeia pelo canto da tela',

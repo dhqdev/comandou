@@ -51,7 +51,6 @@ import {
   Badge,
   FrameItem,
   FrameLink,
-  LivePanda,
   ThemeToggle,
   currentTheme,
   setTheme,
@@ -63,6 +62,7 @@ import { WelcomeTour, tourSeen } from '../features/WelcomeTour';
 import { PandaStroll } from '../features/mascot/Stroll';
 import { openWardrobe, useMascotSync } from '../features/mascot/state';
 import { WardrobeHost } from '../features/mascot/Wardrobe';
+import { PandaButton } from '../features/mascot/PandaButton';
 import { useSearchSpotlight } from '../lib/deep-link';
 import { useOnline } from '../lib/connectivity';
 import { useRealtimeStatus } from '../lib/realtime';
@@ -338,8 +338,8 @@ export function AppShell() {
   return (
     <>
       <AppFrame
-        brand={<LivePanda size={40} badge title="Comandou" />}
-        brandCompact={<LivePanda size={30} badge title="Comandou" />}
+        brand={<PandaButton size={60} />}
+        brandCompact={<PandaButton size={42} />}
         items={[...main, ...groups]}
         footer={[
           {

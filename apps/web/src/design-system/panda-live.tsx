@@ -287,7 +287,7 @@ export function LivePanda({
 
   const ink = 'var(--cm-mascot-ink, #1a1613)';
   const face = 'var(--cm-mascot-face, #fff)';
-  const shut = { stroke: face, strokeWidth: 1.9, strokeLinecap: 'round' as const, fill: 'none' };
+  const shut = { stroke: face, strokeWidth: 1.5, strokeLinecap: 'round' as const, fill: 'none' };
   const big = shown === 'wow';
 
   const eye = (cx: number, cy: number, side: 'l' | 'r') => {
@@ -310,61 +310,58 @@ export function LivePanda({
           strokeWidth={1.6}
         />
       );
+    // olho de verdade: branco fino em volta, íris escura com brilho, pupila e dois reflexos
+    const k = big ? 1.17 : 1;
     return (
       <g className="lp-eye">
-        <circle cx={cx} cy={cy} r={big ? 3.4 : 2.9} fill={face} />
+        <circle cx={cx} cy={cy} r={2.95 * k} fill={face} />
         <g className="lp-pupil" ref={side === 'l' ? pupilL : pupilR}>
-          <ellipse cx={cx} cy={cy} rx={big ? 1.1 : 0.95} ry={big ? 1.6 : 1.4} fill={ink} />
-          <circle cx={cx + 0.45} cy={cy - 0.65} r={0.38} fill={face} opacity={0.9} />
+          <circle cx={cx} cy={cy} r={2.05 * k} fill={`url(#lp${uid}-iris)`} />
+          <circle cx={cx} cy={cy} r={1.05 * k} fill="#050506" />
+          <circle cx={cx + 0.75 * k} cy={cy - 0.8 * k} r={0.62 * k} fill="#fff" />
+          <circle cx={cx - 0.7 * k} cy={cy + 0.75 * k} r={0.28 * k} fill="#fff" opacity={0.75} />
         </g>
       </g>
     );
   };
 
+  // boca de panda: tracinho do nariz até a boca e um "w" fino; aberta, só escura (sem rosa)
+  const lip = {
+    stroke: ink,
+    strokeWidth: 1.35,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    fill: 'none',
+  };
   const mouth =
     shown === 'wow' || shown === 'dizzy' ? (
-      <ellipse cx="40.6" cy="41" rx="1.9" ry="2.3" fill={ink} />
+      <ellipse cx="38.6" cy="41.2" rx="1.7" ry="2.1" fill={ink} />
     ) : shown === 'talking' ? (
-      <ellipse className="lp-talk" cx="40.6" cy="40.6" rx="2.2" ry="1.6" fill={ink} />
+      <ellipse className="lp-talk" cx="38.6" cy="40.8" rx="2" ry="1.5" fill={ink} />
     ) : shown === 'sad' ? (
-      <path
-        d="M37.6 41.6Q40.8 39.4 43.8 41.4"
-        stroke={ink}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        fill="none"
-      />
+      <path d="M35.2 41.4Q38.4 38.9 41.8 40.9" {...lip} />
     ) : shown === 'sleep' ? (
-      <path
-        d="M38.5 40.6q3 .8 5-1"
-        stroke={ink}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        fill="none"
-      />
+      <path d="M35.4 40.2Q37 41 38.6 40.1" {...lip} />
     ) : shown === 'joy' || shown === 'happy' ? (
       <path
-        d="M36.8 39.8Q42.5 42.6 45 37.2Z"
-        stroke={ink}
-        strokeWidth="2.2"
-        strokeLinejoin="round"
+        d="M35 39.3Q38.2 40.3 42.3 38.5Q41.5 42.3 38.4 42.5Q35.6 42.4 35 39.3Z"
         fill={ink}
+        stroke={ink}
+        strokeWidth="1"
+        strokeLinejoin="round"
       />
     ) : (
-      <path
-        d="M37.5 40.6Q42.5 41.5 44.2 37.6"
-        stroke={ink}
-        strokeWidth="2.6"
-        strokeLinecap="round"
-        fill="none"
-      />
+      <path d="M34.4 39.3Q35.9 41 37.7 39.4Q39.8 41.3 42.6 38.6" {...lip} />
+    );
+  const philtrum =
+    shown === 'wow' || shown === 'dizzy' || shown === 'talking' ? null : (
+      <path d="M37.2 37.3L37.6 39.2" {...lip} />
     );
 
   const fur = !badge && size >= 40 ? pandaFur() : null;
   const shadeId = `lp${uid}`;
   const url = (n: string) => `url(#${shadeId}-${n})`;
   const lowNeck = !!outfit?.neck && LOW_NECK.includes(outfit.neck);
-  const blush = shown === 'joy' || shown === 'happy' || shown === 'wink';
 
   const panda = (
     <g className="lp-lean" ref={lean}>
@@ -440,7 +437,7 @@ export function LivePanda({
               d={PANDA_HEAD}
               fill="none"
               stroke={ink}
-              strokeWidth="2.8"
+              strokeWidth="1.7"
               strokeLinejoin="round"
             />
             {outfit?.neck && (
@@ -469,29 +466,16 @@ export function LivePanda({
                 {eye(25.5, 31.9, 'l')}
                 {eye(44.9, 28.8, 'r')}
               </g>
-              <ellipse
-                cx="36.3"
-                cy="35.2"
-                rx="4.2"
-                ry="2.5"
-                transform="rotate(-12 36.3 35.2)"
-                fill={url('ink')}
-              />
-              {/* brilho do nariz */}
-              <ellipse
-                cx="37.4"
-                cy="34.2"
-                rx="1.5"
-                ry=".7"
-                transform="rotate(-12 37.4 34.2)"
-                fill="#fff"
-                opacity=".35"
-              />
+              {/* nariz de panda: triângulo arredondado, com brilho em cima */}
+              <g transform="translate(36.6 35.3) rotate(-10)">
+                <path
+                  d="M-3.9 -1.7Q0 -3.1 3.9 -1.7Q4.4 0.4 0.9 2.1Q0 2.5 -0.9 2.1Q-4.4 0.4 -3.9 -1.7Z"
+                  fill={url('ink')}
+                />
+                <ellipse cx="0.6" cy="-1.3" rx="1.6" ry=".55" fill="#fff" opacity=".4" />
+              </g>
+              {philtrum}
               {mouth}
-            </g>
-            <g fill="var(--cm-brand-300, #ff8a5c)" opacity={blush ? 0.55 : 0.22}>
-              <ellipse cx="17.5" cy="41.5" rx="3" ry="1.6" />
-              <ellipse cx="51" cy="37" rx="2.6" ry="1.5" />
             </g>
             {outfit?.head && (
               <g className="lp-wear lp-wear--head" key={`h${outfit.head}${dressing}`}>
