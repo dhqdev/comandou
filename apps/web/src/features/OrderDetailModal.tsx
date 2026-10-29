@@ -1,10 +1,32 @@
-import { canTransition, fromCents, toCents, type OrderStatus } from '@comandou/shared';
-import { MessageCircle } from 'lucide-react';
-import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import {
+  canTransition,
+  fromCents,
+  toCents,
+  type ItemStatus,
+  type OrderStatus,
+} from '@comandou/shared';
+import {
+  Bike,
+  CalendarClock,
+  CreditCard,
+  MapPin,
+  MessageCircle,
+  MessageSquare,
+  MoreHorizontal,
+  Phone,
+  ShoppingBag,
+  Timer,
+  User,
+  UtensilsCrossed,
+  Wallet,
+  XCircle,
+} from 'lucide-react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import {
   ItemThumb,
   Alert,
+  Badge,
   Button,
   Modal,
   Spinner,
@@ -27,7 +49,9 @@ import {
   ORDER_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABEL,
+  PAYMENT_STATUS_TONE,
   qty,
+  STATUS_TONE,
 } from './format';
 import { PaymentModal, useOpenSessions } from './PaymentModal';
 import { SidePanel } from './SidePanel';
@@ -47,14 +71,14 @@ const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }[]>> =
 export function OrderDetailModal({
   orderId,
   onClose,
-  variant = 'modal',
+  variant = 'panel',
   startWith,
 }: {
   orderId: string | null;
   onClose(): void;
   /** Abre já no passo de despachar o entregador ou de recusar o pedido. */
   startWith?: 'dispatch' | 'reject';
-  /** "panel": desliza da direita (tela inicial de pedidos). */
+  /** "panel" (padrão): desliza da direita, como uma gaveta. */
   variant?: 'modal' | 'panel';
 }) {
   const toast = useToast();
@@ -126,10 +150,9 @@ export function OrderDetailModal({
   }
 
   const open = !!orderId;
-  const title = order ? `Pedido #${order.number}` : 'Pedido';
   const Frame = variant === 'panel' ? SidePanel : Modal;
-  // Próximo passo do pedido (avançar, receber, despachar) fica no rodapé fixo: à vista mesmo
-  // rolando o detalhe. Ajustes, cancelamento e impressão continuam no corpo.
+  // Próximo passo do pedido (avançar, receber, despachar) fica no rodapé fixo, numa linha só,
+  // junto com cancelar e o menu de impressão/ajustes: à vista mesmo rolando o detalhe.
   const nextSteps =
     order && !mode
       ? (NEXT[order.status] ?? []).filter((a) => canTransition(order.status, a.to, order.channel))
@@ -140,107 +163,206 @@ export function OrderDetailModal({
     !!order && !mode && order.channel === 'delivery' && order.status === 'ready' && canDispatch;
   const canReject = !!order && !mode && order.status === 'awaiting' && canWrite;
   const leadIsStep = !canReceive && !canSend;
-  const footer =
-    order && (nextSteps.length || canReceive || canSend || canReject) ? (
-      <>
-        {canReject && (
-          <Button variant="secondary" onClick={() => setMode('reject')}>
-            Recusar
-          </Button>
+  const canAdjust = !!order && !['completed', 'cancelled', 'awaiting'].includes(order.status);
+  const cancelLabel = !order
+    ? null
+    : order.status === 'cancel_requested'
+      ? canCancel
+        ? 'Aprovar cancelamento'
+        : null
+      : ['completed', 'cancelled', 'awaiting'].includes(order.status)
+        ? null
+        : canCancel
+          ? 'Cancelar pedido'
+          : 'Solicitar cancelamento';
+  const more: MenuAction[] = order
+    ? [
+        ...(canAdjust ? [{ label: 'Desconto ou acréscimo', run: () => setMode('adjust') }] : []),
+        ...(canPrint && order.status !== 'cancelled'
+          ? [
+              { label: 'Reimprimir na cozinha', run: () => void print('kitchen') },
+              { label: 'Imprimir conferência', run: () => void print('receipt') },
+            ]
+          : []),
+      ]
+    : [];
+  const hasBar =
+    !!order &&
+    !mode &&
+    (nextSteps.length > 0 || canReceive || canSend || canReject || !!cancelLabel || more.length);
+
+  const header = order ? (
+    <span className="odh">
+      <span className="odh__icon" aria-hidden>
+        <ChannelIcon channel={order.channel} />
+      </span>
+      <span className="odh__text">
+        <span className="odh__title">Pedido #{order.number}</span>
+        <span className="odh__chips">
+          <span className="odh__chip">{CHANNEL_LABELS[order.channel]}</span>
+          {order.tableLabel && <span className="odh__chip">Mesa {order.tableLabel}</span>}
+          {order.tabNumber && <span className="odh__chip">Comanda {order.tabNumber}</span>}
+          {order.source === 'online' && <span className="odh__chip">Cardápio online</span>}
+        </span>
+      </span>
+    </span>
+  ) : (
+    'Pedido'
+  );
+
+  const footer = order ? (
+    <div className="od-foot">
+      <dl className="od-sum">
+        <dt>Subtotal</dt>
+        <dd>{brl(order.subtotal)}</dd>
+        {toCents(order.discount) > 0 && (
+          <>
+            <dt>Desconto</dt>
+            <dd>− {brl(order.discount)}</dd>
+          </>
         )}
-        {nextSteps.map((a, i) => (
-          <Button
-            key={a.to}
-            variant={
-              (leadIsStep || order.status === 'awaiting') && i === 0 ? 'primary' : 'secondary'
-            }
-            loading={busy}
-            onClick={() => go(a.to)}
-          >
-            {a.label}
-          </Button>
-        ))}
-        {canSend && <Button onClick={() => setMode('dispatch')}>Despachar entregador</Button>}
-        {canReceive && (
-          <Button
-            variant={order.status === 'awaiting' ? 'secondary' : 'primary'}
-            onClick={() => setPaying(true)}
-          >
-            Receber {brl(order.balance)}
-          </Button>
+        {toCents(order.surcharge) > 0 && (
+          <>
+            <dt>Acréscimo</dt>
+            <dd>{brl(order.surcharge)}</dd>
+          </>
         )}
-      </>
-    ) : undefined;
+        {toCents(order.deliveryFee) > 0 && (
+          <>
+            <dt>Taxa de entrega</dt>
+            <dd>{brl(order.deliveryFee)}</dd>
+          </>
+        )}
+        <dt className="od-sum__total">Total do pedido</dt>
+        <dd className="od-sum__total">{brl(order.total)}</dd>
+        {toCents(order.paidAmount) > 0 && toCents(order.balance) > 0 && (
+          <>
+            <dt>Pago</dt>
+            <dd>{brl(order.paidAmount)}</dd>
+            <dt>Falta pagar</dt>
+            <dd>
+              <strong>{brl(order.balance)}</strong>
+            </dd>
+          </>
+        )}
+      </dl>
+      {hasBar && (
+        <div className="od-bar">
+          {more.length > 0 && <MoreMenu actions={more} busy={printing} />}
+          {cancelLabel && (
+            <Button
+              variant="secondary"
+              className="od-bar__cancel"
+              onClick={() => setMode('cancel')}
+            >
+              <XCircle size={15} aria-hidden /> {cancelLabel}
+            </Button>
+          )}
+          {canReject && (
+            <Button variant="secondary" onClick={() => setMode('reject')}>
+              Recusar
+            </Button>
+          )}
+          {nextSteps.map((a, i) => (
+            <Button
+              key={a.to}
+              variant={
+                (leadIsStep || order.status === 'awaiting') && i === 0 ? 'primary' : 'secondary'
+              }
+              loading={busy}
+              onClick={() => go(a.to)}
+            >
+              {a.label}
+            </Button>
+          ))}
+          {canSend && <Button onClick={() => setMode('dispatch')}>Despachar entregador</Button>}
+          {canReceive && (
+            <Button
+              variant={order.status === 'awaiting' ? 'secondary' : 'primary'}
+              onClick={() => setPaying(true)}
+            >
+              Receber {brl(order.balance)}
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  ) : undefined;
+
+  const showClient = !!(
+    order &&
+    (order.customerName || order.customerPhone || order.deliveryAddress)
+  );
   return (
-    <Frame open={open} onClose={onClose} title={title} size="lg" footer={footer}>
+    <Frame open={open} onClose={onClose} title={header} size="md" footer={footer}>
       {error && <Alert tone="danger">{error}</Alert>}
       {!order ? (
-        <Spinner />
+        !error && <Spinner />
       ) : (
         <div className="order-detail">
-          <dl className="od-facts">
-            <Fact label="Status">
-              <strong>{ORDER_STATUS_LABELS[order.status]}</strong>
-            </Fact>
-            <Fact label="Pagamento">
-              <strong className="od-pay">{PAYMENT_STATUS_LABEL[order.paymentStatus]}</strong>
-            </Fact>
-            <Fact label="Tipo">
-              {CHANNEL_LABELS[order.channel]}
-              {order.tableLabel && ` · Mesa ${order.tableLabel}`}
-              {order.tabNumber && ` · Comanda ${order.tabNumber}`}
-            </Fact>
-            <Fact label="Feito em">{dateTime(order.createdAt)}</Fact>
-          </dl>
-
-          {(order.customerName ||
-            order.customerPhone ||
-            order.deliveryAddress ||
-            order.notes ||
-            (order.source === 'online' && order.paymentHint)) && (
-            <section className="od-section">
-              <h3 className="od-section__title">Cliente</h3>
-              <dl className="od-facts">
-                {order.customerName && (
-                  <Fact label="Nome">
-                    <strong>{order.customerName}</strong>
-                  </Fact>
-                )}
-                {order.customerPhone && <Fact label="Telefone">{order.customerPhone}</Fact>}
-                {order.deliveryAddress && (
-                  <Fact label="Endereço" wide>
-                    {order.deliveryAddress}
-                  </Fact>
-                )}
-                {order.source === 'online' && order.paymentHint && (
-                  <Fact label="Vai pagar com" wide>
-                    {PAYMENT_METHOD_LABELS[order.paymentHint]}
-                    {order.changeFor && ` · troco para ${brl(order.changeFor)}`}
-                  </Fact>
-                )}
-                {order.notes && (
-                  <Fact label="Observação" wide>
-                    {order.notes}
-                  </Fact>
-                )}
-              </dl>
-            </section>
-          )}
-          {order.cancelReason && (
+          <div className="od-card">
             <dl className="od-facts">
-              <Fact label="Motivo do cancelamento" wide>
-                <strong>{order.cancelReason}</strong>
+              {showClient && (
+                <Fact icon={<User size={15} />} label="Cliente">
+                  {order.customerName || '—'}
+                </Fact>
+              )}
+              {showClient && (
+                <Fact icon={<Phone size={15} />} label="Telefone">
+                  {order.customerPhone || '—'}
+                </Fact>
+              )}
+              <Fact icon={<CalendarClock size={15} />} label="Feito em">
+                {dateTime(order.createdAt)}
               </Fact>
+              <Fact icon={<Timer size={15} />} label="Status do pedido">
+                <Badge tone={STATUS_TONE[order.status]}>{ORDER_STATUS_LABELS[order.status]}</Badge>
+              </Fact>
+              <Fact icon={<CreditCard size={15} />} label="Pagamento">
+                <span className="od-pay">
+                  <Badge tone={PAYMENT_STATUS_TONE[order.paymentStatus]}>
+                    {PAYMENT_STATUS_LABEL[order.paymentStatus]}
+                  </Badge>
+                </span>
+              </Fact>
+              {order.source === 'online' && order.paymentHint && (
+                <Fact icon={<Wallet size={15} />} label="Vai pagar com">
+                  {PAYMENT_METHOD_LABELS[order.paymentHint]}
+                  {order.changeFor && ` · troco para ${brl(order.changeFor)}`}
+                </Fact>
+              )}
+              {order.deliveryAddress && (
+                <Fact icon={<MapPin size={15} />} label="Endereço" wide>
+                  {order.deliveryAddress}
+                </Fact>
+              )}
             </dl>
-          )}
+            <div className="od-note">
+              <MessageSquare size={15} aria-hidden />
+              <div>
+                <span>Observação do pedido</span>
+                <strong>{order.notes || 'Sem observação'}</strong>
+              </div>
+            </div>
+            {order.cancelReason && (
+              <div className="od-note" data-tone="danger">
+                <XCircle size={15} aria-hidden />
+                <div>
+                  <span>Motivo do cancelamento</span>
+                  <strong>{order.cancelReason}</strong>
+                </div>
+              </div>
+            )}
+          </div>
+
           {order.channel === 'delivery' && order.status === 'dispatched' && canDispatch && (
             <OrderLiveMap orderId={order.id} />
           )}
 
-          <section className="od-section">
-            <h3 className="od-section__title">
+          <section className="od-block">
+            <h3 className="od-block__title">
               Itens do pedido
-              <span className="od-section__count">
+              <span className="od-pill">
                 {order.items.length} {order.items.length === 1 ? 'item' : 'itens'}
               </span>
             </h3>
@@ -251,59 +373,35 @@ export function OrderDetailModal({
                   className="od-item"
                   data-cancelled={i.status === 'cancelled' || undefined}
                 >
-                  <ItemThumb src={mediaUrl(i.imageId)} name={i.name} />
-                  <div className="od-item__main">
-                    <div className="od-item__name">
-                      <span className="od-item__qty">{qty(i.quantity)}×</span>
-                      <strong>{i.name}</strong>
+                  <div className="od-item__top">
+                    <ItemThumb src={mediaUrl(i.imageId)} name={i.name} size={32} />
+                    <div className="od-item__main">
+                      <div className="od-item__name">
+                        <strong>{i.name}</strong>
+                        <span className="od-item__status">{ITEM_STATUS_LABEL[i.status]}</span>
+                      </div>
+                      {i.options.length > 0 && (
+                        <div className="od-item__sub">
+                          {i.options.map((o) => o.name).join(' · ')}
+                        </div>
+                      )}
+                      {i.notes && <div className="od-item__sub">Obs.: {i.notes}</div>}
                     </div>
-                    {i.options.length > 0 && (
-                      <div className="od-item__sub">{i.options.map((o) => o.name).join(', ')}</div>
-                    )}
-                    {i.notes && <div className="od-item__sub">Obs.: {i.notes}</div>}
                   </div>
-                  <span className="od-item__price">{brl(i.total)}</span>
+                  <div className="od-item__bottom">
+                    <span>
+                      {qty(i.quantity)} UN × {brl(i.unitPrice)}
+                    </span>
+                    <strong>{brl(i.total)}</strong>
+                  </div>
                 </li>
               ))}
             </ul>
           </section>
 
-          <dl className="totals od-totals">
-            <dt>Subtotal</dt>
-            <dd>{brl(order.subtotal)}</dd>
-            {toCents(order.discount) > 0 && (
-              <>
-                <dt>Desconto</dt>
-                <dd>− {brl(order.discount)}</dd>
-              </>
-            )}
-            {toCents(order.surcharge) > 0 && (
-              <>
-                <dt>Acréscimo</dt>
-                <dd>{brl(order.surcharge)}</dd>
-              </>
-            )}
-            {toCents(order.deliveryFee) > 0 && (
-              <>
-                <dt>Taxa de entrega</dt>
-                <dd>{brl(order.deliveryFee)}</dd>
-              </>
-            )}
-            <dt className="totals__grand">Total</dt>
-            <dd className="totals__grand">{brl(order.total)}</dd>
-            <dt>Pago</dt>
-            <dd>{brl(order.paidAmount)}</dd>
-            <dt>
-              <strong>Falta pagar</strong>
-            </dt>
-            <dd>
-              <strong>{brl(order.balance)}</strong>
-            </dd>
-          </dl>
-
-          {order.payments && order.payments.length > 0 && (
-            <section className="od-section">
-              <h3 className="od-section__title">Pagamentos</h3>
+          <section className="od-block od-card">
+            <h3 className="od-block__title">Pagamentos</h3>
+            {order.payments && order.payments.length > 0 ? (
               <ul className="od-rows">
                 {order.payments.map((p) => (
                   <li key={p.id}>
@@ -311,13 +409,14 @@ export function OrderDetailModal({
                       <strong>{PAYMENT_METHOD_LABELS[p.method]}</strong>
                       <div className="od-item__sub">
                         {dateTime(p.createdAt)}
+                        {p.createdByName && ` · ${p.createdByName}`}
                         {toCents(p.refundedAmount) > 0 && ` · estornado ${brl(p.refundedAmount)}`}
                       </div>
                     </div>
                     <span className="od-rows__end">
                       <strong>{brl(p.amount)}</strong>
                       {canRefund && toCents(p.amount) > toCents(p.refundedAmount) && (
-                        <Button variant="ghost" onClick={() => setMode({ refund: p })}>
+                        <Button variant="ghost" size="sm" onClick={() => setMode({ refund: p })}>
                           Estornar
                         </Button>
                       )}
@@ -325,20 +424,26 @@ export function OrderDetailModal({
                   </li>
                 ))}
               </ul>
-            </section>
-          )}
+            ) : (
+              <p className="od-empty">Nenhum pagamento registrado.</p>
+            )}
+          </section>
 
-          <FiscalSection
-            orderId={order.id}
-            paid={order.paymentStatus === 'paid'}
-            cancelled={order.status === 'cancelled' || order.status === 'cancel_requested'}
-            taxDocument={order.taxDocument ?? null}
-          />
+          <div className="od-card">
+            <FiscalSection
+              orderId={order.id}
+              paid={order.paymentStatus === 'paid'}
+              cancelled={order.status === 'cancelled' || order.status === 'cancel_requested'}
+              taxDocument={order.taxDocument ?? null}
+            />
+          </div>
 
           {mode === 'cancel' && (
             <ReasonForm
               label="Motivo do cancelamento"
-              confirm="Cancelar pedido"
+              confirm={
+                order.status === 'cancel_requested' ? 'Aprovar cancelamento' : 'Cancelar pedido'
+              }
               danger
               busy={busy}
               onCancel={() => setMode(null)}
@@ -386,46 +491,9 @@ export function OrderDetailModal({
             />
           )}
 
-          {!mode && (
-            <div className="od-actions">
-              {!mode && (
-                <div className="actions-row order-actions">
-                  {!['completed', 'cancelled', 'awaiting'].includes(order.status) && (
-                    <Button variant="secondary" onClick={() => setMode('adjust')}>
-                      Desconto/acréscimo
-                    </Button>
-                  )}
-                  {!['completed', 'cancelled', 'cancel_requested', 'awaiting'].includes(
-                    order.status,
-                  ) && (
-                    <Button variant="danger" onClick={() => setMode('cancel')}>
-                      {canCancel ? 'Cancelar' : 'Solicitar cancelamento'}
-                    </Button>
-                  )}
-                  {order.status === 'cancel_requested' && canCancel && (
-                    <Button variant="danger" onClick={() => setMode('cancel')}>
-                      Aprovar cancelamento
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {!mode && canPrint && order.status !== 'cancelled' && (
-                <div className="actions-row order-actions">
-                  <Button variant="secondary" loading={printing} onClick={() => print('kitchen')}>
-                    Reimprimir cozinha
-                  </Button>
-                  <Button variant="secondary" loading={printing} onClick={() => print('receipt')}>
-                    Imprimir conferência
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-
           {order.history && order.history.length > 0 && (
-            <details className="od-section od-history">
-              <summary className="od-section__title">Histórico</summary>
+            <details className="od-block od-history">
+              <summary className="od-block__title">Histórico</summary>
               <ol className="od-timeline">
                 {order.history.map((h, i) => (
                   <li key={i}>
@@ -454,12 +522,100 @@ export function OrderDetailModal({
   );
 }
 
+const ITEM_STATUS_LABEL: Record<ItemStatus, string> = {
+  pending: 'Pendente',
+  preparing: 'Em preparo',
+  ready: 'Pronto',
+  cancelled: 'Cancelado',
+};
+
+function ChannelIcon({ channel }: { channel: Order['channel'] }) {
+  if (channel === 'delivery') return <Bike size={18} />;
+  if (channel === 'table') return <UtensilsCrossed size={18} />;
+  return <ShoppingBag size={18} />;
+}
+
+interface MenuAction {
+  label: string;
+  run(): void;
+}
+
+/** Botão "⋯" com as ações menos usadas (ajuste e impressão): mantém o rodapé numa linha só. */
+function MoreMenu({ actions, busy }: { actions: MenuAction[]; busy?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', away);
+    document.addEventListener('keydown', esc, true);
+    return () => {
+      document.removeEventListener('pointerdown', away);
+      document.removeEventListener('keydown', esc, true);
+    };
+  }, [open]);
+  return (
+    <div className="od-more" ref={box}>
+      <Button
+        variant="secondary"
+        aria-label="Mais ações"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        loading={busy}
+        icon={<MoreHorizontal size={16} />}
+        onClick={() => setOpen((v) => !v)}
+      />
+      {open && (
+        <div className="od-more__menu" role="menu">
+          {actions.map((a) => (
+            <button
+              key={a.label}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                a.run();
+              }}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Rótulo pequeno em cima, valor embaixo (bloco de informações do pedido). */
-function Fact({ label, wide, children }: { label: string; wide?: boolean; children: ReactNode }) {
+function Fact({
+  label,
+  icon,
+  wide,
+  children,
+}: {
+  label: string;
+  icon: ReactNode;
+  wide?: boolean;
+  children: ReactNode;
+}) {
   return (
     <div className="od-fact" data-wide={wide || undefined}>
-      <dt>{label}</dt>
-      <dd>{children}</dd>
+      <span className="od-fact__icon" aria-hidden>
+        {icon}
+      </span>
+      <div>
+        <dt>{label}</dt>
+        <dd>{children}</dd>
+      </div>
     </div>
   );
 }

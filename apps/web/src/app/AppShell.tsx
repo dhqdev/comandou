@@ -48,8 +48,7 @@ import {
   Badge,
   FrameItem,
   FrameLink,
-  Logo,
-  Mascot,
+  LivePanda,
   ThemeToggle,
   currentTheme,
   setTheme,
@@ -327,8 +326,8 @@ export function AppShell() {
   return (
     <>
       <AppFrame
-        brand={<Mascot size={40} badge title="Comandou" />}
-        brandCompact={<Logo size={30} wordmark={false} />}
+        brand={<LivePanda size={40} badge title="Comandou" />}
+        brandCompact={<LivePanda size={30} badge title="Comandou" />}
         items={[...main, ...groups]}
         footer={[
           {

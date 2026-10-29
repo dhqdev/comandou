@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { HealthModule } from '../health/health.module';
 import { PlatformAuthService, PlatformHostGuard, PlatformSessionGuard } from './platform-auth';
 import {
+  PlatformAiController,
   PlatformAuthController,
   PlatformController,
   PlatformServerController,
@@ -10,6 +11,7 @@ import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
 import { PlatformDb } from './platform-db.service';
 import { PlatformService } from './platform.service';
 import { PlatformBackupService } from './platform-backup.service';
+import { PlatformAiService } from './platform-ai.service';
 import { PlatformDatabasesService } from './platform-databases.service';
 import { ContractSignController, ContractsController } from './contracts/contracts.controller';
 import { ContractsService } from './contracts/contracts.service';
@@ -20,6 +22,7 @@ import { ContractsService } from './contracts/contracts.service';
   controllers: [
     PlatformAuthController,
     PlatformController,
+    PlatformAiController,
     PlatformServerController,
     ContractsController,
     ContractSignController,
@@ -29,6 +32,7 @@ import { ContractsService } from './contracts/contracts.service';
     PlatformAuthService,
     PlatformService,
     PlatformBackupService,
+    PlatformAiService,
     PlatformDatabasesService,
     ContractsService,
     PlatformHostGuard,

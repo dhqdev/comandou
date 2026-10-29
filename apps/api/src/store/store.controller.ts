@@ -376,12 +376,12 @@ export class StoreController {
   }
 }
 
-const IMAGE_TYPES = new Set(['image/webp', 'image/jpeg', 'image/png']);
-const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
-const MAX_IMAGES_PER_TENANT = 3000;
+export const IMAGE_TYPES = new Set(['image/webp', 'image/jpeg', 'image/png']);
+export const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+export const MAX_IMAGES_PER_TENANT = 3000;
 
 /** Confere a assinatura do arquivo: o Content-Type do cliente não basta. */
-function sniff(b: Buffer): string | null {
+export function sniff(b: Buffer): string | null {
   if (
     b.length > 12 &&
     b.toString('ascii', 0, 4) === 'RIFF' &&

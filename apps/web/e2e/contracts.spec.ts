@@ -1,11 +1,12 @@
 import { expect, Page, test } from '@playwright/test';
-import { ADMIN_PASSWORD, ADMIN_TOTP, adminLogin } from './admin';
+import { ADMIN_PASSWORD, ADMIN_TOTP, adminLogin, stepNow, totp } from './admin';
 import { nav } from './nav';
 
 /**
  * Contrato digital do cliente no navegador: o painel configura a contratada, gera o contrato e
- * copia o link; o cliente abre o link, só consegue assinar depois de ler até o fim, assina
- * desenhando e baixa a via assinada; o painel mostra o contrato assinado.
+ * copia o link; o cliente abre o link, só consegue assinar depois de ler até o fim e assina
+ * desenhando; a contratada confere a assinatura dele e assina por último, com o código do
+ * autenticador; o PDF final fica guardado e o cliente baixa a via pelo mesmo link.
  */
 test.skip(!ADMIN_PASSWORD || !ADMIN_TOTP, 'defina E2E_ADMIN_PASSWORD e E2E_ADMIN_TOTP');
 
@@ -37,6 +38,8 @@ test('Contrato: gerar, assinar pelo link e guardar o PDF assinado', async ({ pag
   await dialog.getByLabel('CNPJ').fill('12345678000195');
   await expect(dialog.getByLabel('CNPJ')).toHaveValue('12.345.678/0001-95');
   await dialog.getByLabel('Foro (cidade/UF)').fill('São Paulo/SP');
+  await dialog.getByLabel('Representante (quem assina)').fill('Dono Comandou Teste');
+  await dialog.getByLabel('CPF do representante').fill('11144477735');
   await shot(page, info.project.name, 'contrato-configurar');
   await dialog.getByRole('button', { name: 'Salvar', exact: true }).click();
   await expect(page.getByText('Configuração salva')).toBeVisible();
@@ -90,19 +93,44 @@ test('Contrato: gerar, assinar pelo link e guardar o PDF assinado', async ({ pag
   await client.getByText('Li todo o contrato').click();
   await shot(client, info.project.name, 'contrato-assinar');
   await client.getByRole('button', { name: 'Assinar contrato' }).click();
+  // O cliente assina primeiro; a via final só sai depois da contratada.
+  await expect(client.getByRole('heading', { name: 'Assinatura recebida' })).toBeVisible();
+  await shot(client, info.project.name, 'contrato-recebido');
+
+  // O painel mostra "falta a sua assinatura", a assinatura do cliente e o formulário da contratada.
+  await dialog.getByRole('button', { name: 'Fechar' }).click();
+  await page.getByRole('tab', { name: 'Cadastro' }).click();
+  await page.getByRole('tab', { name: 'Contrato' }).click();
+  await page.locator('.adm-row', { hasText: 'falta a sua assinatura' }).first().click();
+  dialog = page.getByRole('dialog');
+  await expect(dialog.locator('.adm-value', { hasText: 'Dona Demo da Silva' })).toBeVisible();
+  await expect(dialog.locator('.adm-sigbox img')).toBeVisible();
+  await expect(dialog.getByLabel('Nome completo')).toHaveValue('Dono Comandou Teste');
+  await expect(dialog.getByLabel('CPF', { exact: true })).toHaveValue('111.444.777-35');
+  await dialog.getByRole('tab', { name: 'Digitar' }).click();
+  await dialog.getByText('Conferi a assinatura').click();
+  // Cada código vale uma vez (o do login já foi usado): tenta o próximo e, se preciso, espera.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    if (attempt > 0) await page.waitForTimeout((30 - ((Date.now() / 1000) % 30) + 1) * 1000);
+    await dialog.getByLabel('Código do autenticador').fill(totp(stepNow() + 1));
+    await shot(page, info.project.name, 'contrato-contra-assinar');
+    const [res] = await Promise.all([
+      page.waitForResponse((r) => r.url().includes('/countersign')),
+      dialog.getByRole('button', { name: 'Assinar e enviar a via final' }).click(),
+    ]);
+    if (res.ok()) break;
+  }
+  await expect(dialog.getByRole('link', { name: 'Baixar assinado' })).toBeVisible();
+  await expect(dialog.getByText('2ª assinatura · contratada')).toBeVisible();
+  await expect(dialog.getByText(/Trilha conferida agora/)).toBeVisible();
+  await shot(page, info.project.name, 'contrato-painel-assinado');
+
+  // O cliente baixa a via final pelo mesmo link.
+  await client.reload();
   await expect(client.getByRole('heading', { name: 'Contrato assinado' })).toBeVisible();
   const download = client.waitForEvent('download');
   await client.getByRole('link', { name: 'Baixar contrato assinado' }).click();
   expect((await download).suggestedFilename()).toMatch(/-assinado\.pdf$/);
   await shot(client, info.project.name, 'contrato-assinado');
   await client.close();
-
-  // O painel mostra o contrato assinado e o PDF guardado.
-  await dialog.getByRole('button', { name: 'Fechar' }).click();
-  await page.getByRole('tab', { name: 'Cadastro' }).click();
-  await page.getByRole('tab', { name: 'Contrato' }).click();
-  await page.locator('.adm-row', { hasText: 'assinado' }).first().click();
-  dialog = page.getByRole('dialog');
-  await expect(dialog.getByText('Dona Demo da Silva')).toBeVisible();
-  await expect(dialog.getByRole('link', { name: 'Baixar assinado' })).toBeVisible();
 });

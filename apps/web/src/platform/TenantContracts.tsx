@@ -5,9 +5,14 @@ import {
   Download,
   FileSignature,
   FileText,
+  MapPin,
+  PenLine,
   Plus,
   Send,
   Settings2,
+  ShieldAlert,
+  ShieldCheck,
+  Type,
 } from 'lucide-react';
 import { FormEvent, useId, useState } from 'react';
 import { Alert, Button, Modal, Spinner, TextField, useToast } from '../design-system';
@@ -15,9 +20,11 @@ import { dateTime } from '../features/format';
 import { api } from '../lib/api';
 import { brl, parseBrlInput } from '../lib/money';
 import { useLoad } from './OverviewPages';
+import { askGeo, SignaturePad } from './ContractSign';
 import { maskDocument } from './NewTenant';
 import type {
   ContractDetail,
+  ContractGeo,
   ContractRow,
   ContractSettings,
   ContractStatus,
@@ -29,6 +36,7 @@ export const CONTRACT_STATUS: Record<ContractStatus, [string, Level]> = {
   draft: ['rascunho', 'off'],
   sent: ['enviado', 'info'],
   viewed: ['aberto pelo cliente', 'warn'],
+  client_signed: ['falta a sua assinatura', 'warn'],
   signed: ['assinado', 'ok'],
   cancelled: ['cancelado', 'off'],
 };
@@ -39,9 +47,11 @@ const EVENT_LABEL: Record<string, string> = {
   sent: 'Enviado por e-mail',
   opened: 'Aberto pelo cliente',
   read: 'Lido até o fim',
-  signed: 'Assinado',
-  notified: 'Aviso de assinatura enviado',
-  notify_failed: 'Aviso de assinatura falhou',
+  signed: 'Assinado pelo cliente',
+  countersigned: 'Assinado por você (contratada)',
+  countersign_denied: 'Código do autenticador recusado',
+  notified: 'Aviso por e-mail enviado',
+  notify_failed: 'Aviso por e-mail falhou',
   cancelled: 'Cancelado',
 };
 
@@ -52,12 +62,12 @@ const pdfUrl = (id: string, signed = false, download = false) =>
   })}`;
 
 /** Aba "Contrato" do restaurante: gerar, enviar, acompanhar e guardar o contrato assinado. */
-export function ContractsPanel({ t }: { t: TenantDetail }) {
+export function ContractsPanel({ t, initialOpen }: { t: TenantDetail; initialOpen?: string }) {
   const list = useLoad<ContractRow[]>(`/platform/tenants/${t.id}/contracts`);
   const settings = useLoad<ContractSettings>('/platform/contracts/settings');
   const [creating, setCreating] = useState(false);
   const [configuring, setConfiguring] = useState(false);
-  const [open, setOpen] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(initialOpen ?? null);
   const s = settings.data;
   const missingProfile = !t.profile.legalName || !t.profile.document;
 
@@ -119,12 +129,14 @@ export function ContractsPanel({ t }: { t: TenantDetail }) {
                 </span>
               </span>
               <span className="adm-row__side">
-                {c.signedAt
-                  ? `assinado ${ago(c.signedAt)}`
-                  : c.sentAt
-                    ? `enviado ${ago(c.sentAt)}`
-                    : `gerado ${ago(c.createdAt)}`}
-                {c.status === 'signed' && c.notifyError && (
+                {c.status === 'client_signed' && c.countersignDeadline
+                  ? `cliente assinou ${ago(c.signedAt!)} · assine até ${new Date(c.countersignDeadline).toLocaleDateString('pt-BR')}`
+                  : c.signedAt
+                    ? `assinado ${ago(c.countersignedAt ?? c.signedAt)}`
+                    : c.sentAt
+                      ? `enviado ${ago(c.sentAt)}`
+                      : `gerado ${ago(c.createdAt)}`}
+                {(c.status === 'signed' || c.status === 'client_signed') && c.notifyError && (
                   <>
                     <br />
                     aviso não enviado
@@ -157,6 +169,7 @@ export function ContractsPanel({ t }: { t: TenantDetail }) {
       {open && (
         <ContractSheet
           id={open}
+          settings={s ?? null}
           canEmail={!!s?.webhookUrl}
           onClose={() => setOpen(null)}
           onChanged={() => list.reload()}
@@ -336,13 +349,173 @@ function NewContractModal({
   );
 }
 
+const mapUrl = (g: ContractGeo) =>
+  `https://www.openstreetmap.org/?mlat=${g.lat}&mlon=${g.lng}#map=17/${g.lat}/${g.lng}`;
+
+function GeoLine({ geo }: { geo: ContractGeo | null }) {
+  if (!geo) return <>localização não informada</>;
+  return (
+    <a href={mapUrl(geo)} target="_blank" rel="noreferrer">
+      <MapPin size={12} /> {geo.lat.toFixed(5)}, {geo.lng.toFixed(5)} (±{geo.accuracy} m)
+    </a>
+  );
+}
+
+/** Assinatura da contratada: depois do cliente, conferindo a dele, com o código do autenticador. */
+function CountersignForm({
+  c,
+  settings,
+  onDone,
+}: {
+  c: ContractDetail;
+  settings: ContractSettings | null;
+  onDone: (c: ContractDetail) => void;
+}) {
+  const toast = useToast();
+  const [name, setName] = useState(settings?.providerRepresentative ?? '');
+  const [doc, setDoc] = useState(maskDocument(settings?.providerRepresentativeDocument ?? ''));
+  const [kind, setKind] = useState<'drawn' | 'typed'>('drawn');
+  const [png, setPng] = useState<string | null>(null);
+  const [typed, setTyped] = useState(settings?.providerRepresentative ?? '');
+  const [accept, setAccept] = useState(false);
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const late = !!c.countersignDeadline && new Date(c.countersignDeadline).getTime() < Date.now();
+  const ready =
+    !late &&
+    name.trim().split(/\s+/).length >= 2 &&
+    doc.replace(/\D/g, '').length === 11 &&
+    (kind === 'drawn' ? !!png : typed.trim().length >= 3) &&
+    accept &&
+    /^\d{6}$/.test(code);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (!ready) return;
+    setBusy(true);
+    try {
+      const geo = await askGeo(5000);
+      const r = await api<ContractDetail>(`/platform/contracts/${c.id}/countersign`, {
+        method: 'POST',
+        json: {
+          name: name.trim(),
+          document: doc,
+          accept: true,
+          contentHash: c.contentHash,
+          clientEvidenceSha256: c.clientEvidenceSha256,
+          code,
+          signature: kind === 'drawn' ? { kind, image: png } : { kind, text: typed.trim() },
+          ...(geo ? { geo } : {}),
+        },
+      });
+      toast(
+        r.notifyError
+          ? 'Contrato assinado. O e-mail não saiu: use Reenviar aviso.'
+          : 'Contrato assinado. A via final foi para os dois e-mails.',
+        r.notifyError ? 'neutral' : 'success',
+      );
+      onDone(r);
+    } catch (err) {
+      setCode('');
+      toast((err as Error).message, 'danger');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (late)
+    return (
+      <Alert tone="warning">
+        Passou o prazo para a sua assinatura. Pela regra do contrato a assinatura do cliente perdeu
+        o efeito: cancele este e gere um contrato novo.
+      </Alert>
+    );
+
+  return (
+    <form className="adm-panel" onSubmit={submit} noValidate>
+      <div className="adm-panel__body" style={{ display: 'grid', gap: 12 }}>
+        <div className="adm-label">Sua assinatura (contratada)</div>
+        <div className="adm-form">
+          <TextField
+            label="Nome completo"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            wrapClass="span-3"
+          />
+          <TextField
+            label="CPF"
+            inputMode="numeric"
+            value={doc}
+            onChange={(e) => setDoc(maskDocument(e.target.value).slice(0, 14))}
+            wrapClass="span-3"
+          />
+        </div>
+        <div className="cs-kind" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={kind === 'drawn'}
+            onClick={() => setKind('drawn')}
+          >
+            <PenLine size={15} /> Desenhar
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={kind === 'typed'}
+            onClick={() => setKind('typed')}
+          >
+            <Type size={15} /> Digitar
+          </button>
+        </div>
+        {kind === 'drawn' ? (
+          <SignaturePad onChange={setPng} />
+        ) : (
+          <div className="cs-typed">
+            <TextField
+              label="Seu nome como assinatura"
+              value={typed}
+              maxLength={80}
+              onChange={(e) => setTyped(e.target.value)}
+            />
+            <div className="cs-typed__preview" aria-hidden>
+              {typed || ' '}
+            </div>
+          </div>
+        )}
+        <label className="cs-accept">
+          <input type="checkbox" checked={accept} onChange={(e) => setAccept(e.target.checked)} />
+          <span>
+            Conferi a assinatura de {c.signerName} e assino este contrato em nome de{' '}
+            {c.content.parties.provider.name}.
+          </span>
+        </label>
+        <TextField
+          label="Código do autenticador"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+          value={code}
+          onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          hint="Os 6 dígitos do aplicativo, pedidos sempre que você assina."
+        />
+        <Button type="submit" size="lg" block loading={busy} disabled={!ready}>
+          <FileSignature size={16} /> Assinar e enviar a via final
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function ContractSheet({
   id,
+  settings,
   canEmail,
   onClose,
   onChanged,
 }: {
   id: string;
+  settings: ContractSettings | null;
   canEmail: boolean;
   onClose: () => void;
   onChanged: () => void;
@@ -393,7 +566,9 @@ function ContractSheet({
         <Spinner />
       </Modal>
     );
-  const pending = c.status !== 'signed' && c.status !== 'cancelled';
+  // Ainda dá para (re)enviar ao cliente: ele não assinou.
+  const pending = c.status === 'draft' || c.status === 'sent' || c.status === 'viewed';
+  const canCancel = pending || c.status === 'client_signed';
   const to = email ?? c.signerEmail ?? '';
 
   return (
@@ -496,7 +671,7 @@ function ContractSheet({
               <Copy size={14} /> Copiar link
             </button>
           )}
-          {c.status === 'signed' && c.notifyError && (
+          {(c.status === 'signed' || c.status === 'client_signed') && c.notifyError && (
             <button
               className="adm-action"
               disabled={busy === 'notify'}
@@ -512,7 +687,7 @@ function ContractSheet({
               <BellRing size={14} /> Reenviar aviso
             </button>
           )}
-          {pending && (
+          {canCancel && (
             <button className="adm-action adm-action--danger" onClick={() => setMode('cancel')}>
               <Ban size={14} /> Cancelar
             </button>
@@ -553,33 +728,88 @@ function ContractSheet({
             label="Motivo (fica no histórico)"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            hint="O link de assinatura deixa de funcionar."
+            hint={
+              c.status === 'client_signed'
+                ? 'O cliente já assinou: ele recebe um e-mail avisando que a assinatura perdeu o efeito.'
+                : 'O link de assinatura deixa de funcionar.'
+            }
           />
         )}
 
-        {c.status === 'signed' && (
+        {c.signedAt && (
           <div className="adm-grid">
             <div className="adm-tile">
-              <span className="adm-label">Assinado por</span>
+              <span className="adm-label">1ª assinatura · cliente</span>
+              {c.clientSignature && (
+                <div className="adm-sigbox">
+                  {c.clientSignature.kind === 'drawn' ? (
+                    <img src={c.clientSignature.image} alt={`Assinatura de ${c.signerName}`} />
+                  ) : (
+                    <span className="cs-typed__preview">{c.clientSignature.text}</span>
+                  )}
+                </div>
+              )}
               <span className="adm-value" style={{ fontSize: 16 }}>
                 {c.signerName}
               </span>
-              <span className="adm-sub">
+              <span className="adm-sub" style={{ whiteSpace: 'normal' }}>
                 CPF {c.signerDocument} · {c.signerEmail}
+                <br />
+                {dateTime(c.signedAt)} · IP {c.signerIp} ·{' '}
+                {c.signatureKind === 'drawn' ? 'desenhada' : 'digitada'}
+                <br />
+                <GeoLine geo={c.signerGeo} />
+                {c.signerUserAgent && (
+                  <>
+                    <br />
+                    {c.signerUserAgent}
+                  </>
+                )}
               </span>
             </div>
-            <div className="adm-tile">
-              <span className="adm-label">Quando</span>
-              <span className="adm-value" style={{ fontSize: 16 }}>
-                {dateTime(c.signedAt!)}
-              </span>
-              <span className="adm-sub">
-                IP {c.signerIp} · {c.signatureKind === 'drawn' ? 'desenhada' : 'digitada'}
-              </span>
-            </div>
+            {c.countersignedAt ? (
+              <div className="adm-tile">
+                <span className="adm-label">2ª assinatura · contratada</span>
+                <span className="adm-value" style={{ fontSize: 16 }}>
+                  {c.countersignerName}
+                </span>
+                <span className="adm-sub" style={{ whiteSpace: 'normal' }}>
+                  CPF {c.countersignerDocument} · {c.countersignerEmail}
+                  <br />
+                  {dateTime(c.countersignedAt)} · IP {c.countersignerIp} · com o autenticador
+                </span>
+              </div>
+            ) : c.status === 'signed' ? (
+              <div className="adm-tile">
+                <span className="adm-label">Contratada</span>
+                <span className="adm-sub" style={{ whiteSpace: 'normal' }}>
+                  Contrato do modelo antigo: a contratada concordou pelo envio, sem assinar depois.
+                </span>
+              </div>
+            ) : (
+              <div className="adm-tile">
+                <span className="adm-label">2ª assinatura · contratada</span>
+                <span className="adm-value" style={{ fontSize: 16 }}>
+                  Falta você
+                </span>
+                {c.countersignDeadline && (
+                  <span className="adm-sub">prazo até {dateTime(c.countersignDeadline)}</span>
+                )}
+              </div>
+            )}
           </div>
         )}
-        {c.status === 'signed' && c.notifyError && (
+        {c.status === 'client_signed' && (
+          <CountersignForm
+            c={c}
+            settings={settings}
+            onDone={(x) => {
+              setData(x);
+              onChanged();
+            }}
+          />
+        )}
+        {(c.status === 'signed' || c.status === 'client_signed') && c.notifyError && (
           <Alert tone="warning">O aviso pelo n8n não foi enviado: {c.notifyError}</Alert>
         )}
         {c.status === 'cancelled' && <Alert tone="info">Cancelado: {c.cancelReason}</Alert>}
@@ -593,9 +823,9 @@ function ContractSheet({
               <div key={i} className="adm-row">
                 <Dot
                   level={
-                    e.kind === 'signed'
+                    e.kind === 'signed' || e.kind === 'countersigned'
                       ? 'ok'
-                      : e.kind === 'notify_failed'
+                      : e.kind === 'notify_failed' || e.kind === 'countersign_denied'
                         ? 'bad'
                         : e.kind === 'cancelled'
                           ? 'off'
@@ -619,12 +849,32 @@ function ContractSheet({
           </div>
         </div>
 
+        {c.integrity.chainedEvents > 0 &&
+          (c.integrity.trailOk && c.integrity.clientEvidenceOk !== false ? (
+            <div className="adm-sub" style={{ whiteSpace: 'normal' }}>
+              <ShieldCheck size={12} /> Trilha conferida agora: {c.integrity.chainedEvents} eventos
+              encadeados, nenhum alterado
+              {c.integrity.clientEvidenceOk ? '; assinatura do cliente íntegra' : ''}.
+            </div>
+          ) : (
+            <Alert tone="danger">
+              <ShieldAlert size={14} /> A trilha deste contrato não confere: algum registro foi
+              alterado direto no banco. Guarde o PDF assinado e veja a auditoria.
+            </Alert>
+          ))}
+
         <div className="adm-sub" style={{ whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
           <FileSignature size={12} /> Hash do texto (SHA-256): <code>{c.contentHash}</code>
           {c.signedPdfSha256 && (
             <>
               <br />
               Hash do PDF assinado: <code>{c.signedPdfSha256}</code>
+            </>
+          )}
+          {c.trailSha256 && (
+            <>
+              <br />
+              Hash da trilha: <code>{c.trailSha256}</code>
             </>
           )}
         </div>
@@ -669,6 +919,7 @@ function ContractSettingsModal({
       providerAddress: s.providerAddress,
       providerEmail: s.providerEmail,
       providerRepresentative: s.providerRepresentative,
+      providerRepresentativeDocument: maskDocument(s.providerRepresentativeDocument),
       forumCity: s.forumCity,
       dueDay: String(s.dueDay),
       termMonths: String(s.termMonths),
@@ -685,7 +936,12 @@ function ContractSettingsModal({
   const set = (k: keyof SettingsForm) => (e: { target: { value: string } }) =>
     setF({
       ...form!,
-      [k]: k === 'providerDocument' ? maskDocument(e.target.value) : e.target.value,
+      [k]:
+        k === 'providerDocument'
+          ? maskDocument(e.target.value)
+          : k === 'providerRepresentativeDocument'
+            ? maskDocument(e.target.value).slice(0, 14)
+            : e.target.value,
     });
   const n = (v: string) => Number(v.replace(',', '.'));
 
@@ -763,17 +1019,25 @@ function ContractSettingsModal({
                 wrapClass="span-2"
               />
               <TextField
-                label="Representante"
+                label="Representante (quem assina)"
                 value={form.providerRepresentative}
                 onChange={set('providerRepresentative')}
-                wrapClass="span-3"
+                wrapClass="span-2"
+              />
+              <TextField
+                label="CPF do representante"
+                inputMode="numeric"
+                value={form.providerRepresentativeDocument}
+                onChange={set('providerRepresentativeDocument')}
+                hint="Preenche a sua assinatura"
+                wrapClass="span-2"
               />
               <TextField
                 label="E-mail para comunicações"
                 type="email"
                 value={form.providerEmail}
                 onChange={set('providerEmail')}
-                wrapClass="span-3"
+                wrapClass="span-2"
               />
             </div>
           </fieldset>

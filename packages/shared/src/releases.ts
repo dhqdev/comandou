@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.46.0',
+    version: '0.49.0',
     date: '2026-10-29',
     title: 'Fiscal completo: NFC-e, NF-e e notas recebidas',
     summary:
@@ -61,6 +61,151 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'melhoria',
         text: 'Cliente com CPF/CNPJ e inscrição estadual no cadastro, usados direto na nota.',
+      },
+    ],
+  },
+  {
+    version: '0.48.0',
+    date: '2026-10-29',
+    title: 'Chat da equipe e o Comandinho, seu guia',
+    summary:
+      'Todas as telas ganharam um botãozinho redondo no canto que abre o chat da equipe: conversas, grupos, canais, mural e avisos. Na aba IA, o panda Comandinho tira dúvidas sobre o sistema e guia a equipe passo a passo.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Chat da equipe em todas as telas (painel, garçom, cozinha e entregador): conversa direta, grupos, canais abertos, fotos, emojis, reações, respostas, @menções, “digitando…” e confirmação de leitura.',
+      },
+      {
+        tag: 'novo',
+        text: 'Abas Conversas, Pessoas, Mural, IA e Avisos. No celular o chat ocupa a tela inteira, com as abas embaixo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Comandinho, o assistente de IA: sabe em que tela você está e explica como fazer cada coisa. Mostra a barra de uso do mês e avisa o gestor em 80% e 100% do limite.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O panda do topo ficou vivo: acompanha o mouse com os olhos, pisca, acena e reage ao toque.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin › IA: chave do OpenRouter (guardada cifrada), modelo, saldo da conta, gasto e tokens do mês, gráfico de 30 dias e o consumo de cada restaurante com barra e limite próprio.',
+      },
+    ],
+  },
+  {
+    version: '0.47.0',
+    date: '2026-10-29',
+    title: 'Relatórios com painel e Excel',
+    summary:
+      'A aba Relatórios virou uma lista de relatórios por assunto, cada um com o seu painel (indicadores, gráficos e tabelas) e o botão Baixar Excel, que gera uma planilha caprichada com gráficos e uma aba por tabela.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Quanto vendi e quanto sobrou: Resultado (com comparação com a semana e o mês anteriores), Vendas (extrato) com as formas de pagamento, Vendas ao longo do tempo e Ticket médio e formas de pagamento.',
+      },
+      {
+        tag: 'novo',
+        text: 'Onde estou perdendo dinheiro: Perdas e controle por operador, Cancelamentos (motivo, itens, quem pediu e quem autorizou) e Fechamentos de caixa (esperado × contado e como o dinheiro esperado se forma).',
+      },
+      {
+        tag: 'novo',
+        text: 'Cardápio: Produtos por família e categoria, e Engenharia de cardápio com carro-chefe, popular de margem baixa, rentável que vende pouco, candidato a sair e curva ABC.',
+      },
+      {
+        tag: 'novo',
+        text: 'Operação e equipe: Pedidos por hora com o mapa da semana e Vendas por funcionário. Delivery: por bairro, por motoboy e frete arrecadado. Clientes: novos, que voltaram, quem mais compra e quem parou de comprar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Baixar Excel: planilha com cabeçalho do restaurante, indicadores com o período anterior, gráficos do próprio Excel, filtros, totais e barras de dados.',
+      },
+    ],
+  },
+  {
+    version: '0.44.0',
+    date: '2026-10-29',
+    title: 'Telas mais limpas e alinhadas',
+    summary:
+      'Pedidos com tabela compacta e o detalhe numa gaveta à direita, botões alinhados numa linha em todas as telas, nada saindo das colunas com zoom e um só carregamento: o ícone da loja.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Detalhe do pedido em gaveta lateral: cliente, telefone, horário, status e pagamento num bloco só, itens em cartões com quantidade × preço, resumo de valores e todos os botões numa linha no rodapé (ajuste e impressão ficam no botão "…").',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Tabela de Pedidos menor e sem quebra de linha: com zoom alto ou notebook estreito, os itens e o tipo vão para baixo do cliente e a tabela sempre cabe no cartão.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Botões das linhas das tabelas (Editar, Esgotar, Pagar, Cancelar, Desativar…) com o mesmo tamanho e contorno, sempre numa linha só. Escolhas marcadas usam um tom suave, sem blocos fortes de cor.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Um só carregamento em todo o sistema: o ícone da loja girando, e só quando a carga demora. Trocar de tela não pisca nada.',
+      },
+      {
+        tag: 'correção',
+        text: 'Todo modal fecha ao clicar fora no computador, inclusive a Nova venda e a escolha de opções do produto.',
+      },
+      {
+        tag: 'correção',
+        text: 'Cabeçalho das listas não fica mais por cima das linhas quando a tabela precisa rolar para o lado.',
+      },
+    ],
+  },
+  {
+    version: '0.43.0',
+    date: '2026-10-28',
+    title: 'Contrato com as duas assinaturas',
+    summary:
+      'O contrato do cliente agora é assinado pelos dois lados: o cliente assina primeiro (desenhando a rubrica ou digitando o nome) e o contrato volta para o painel para a plataforma assinar por último. Só então a via final vai por e-mail para os dois.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Depois que o cliente assina, o contrato fica como "falta a sua assinatura": chega um e-mail com o botão Conferir e assinar, e a tela Status avisa até o prazo de 10 dias.',
+      },
+      {
+        tag: 'novo',
+        text: 'No painel você vê a assinatura do cliente (imagem, IP, navegador e localização, se ele permitiu), assina desenhando ou digitando e confirma com o código do autenticador.',
+      },
+      {
+        tag: 'novo',
+        text: 'PDF final com as rubricas das duas partes no pé de cada página e um manifesto com as duas assinaturas, os códigos de integridade e a trilha do documento.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Trilha encadeada: cada evento do contrato guarda o código do anterior, o painel confere a cadeia ao abrir o contrato e avisa se algum registro foi alterado. A assinatura do cliente não muda mais depois de feita, nem direto no banco.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cancelar um contrato que o cliente já assinou avisa o cliente por e-mail. As regras estão no próprio contrato, na cláusula Assinatura eletrônica.',
+      },
+    ],
+  },
+  {
+    version: '0.42.2',
+    date: '2026-10-28',
+    title: 'Pedidos na coluna certa',
+    summary:
+      'O quadro de pedidos do PDV ficou mais claro e o aceite automático passou a funcionar de ponta a ponta.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'A primeira coluna do quadro agora se chama "Em análise": é onde ficam os pedidos online esperando você aceitar ou recusar. Aceitos vão para "Em produção", prontos para "Prontos".',
+      },
+      {
+        tag: 'correção',
+        text: 'Ligar o aceite automático agora aceita também os pedidos que já estavam em análise: eles vão para a produção, baixam o estoque e imprimem na cozinha.',
+      },
+      {
+        tag: 'correção',
+        text: 'Pedido online aceito automaticamente toca o som e mostra o aviso no PDV, como o pedido que espera aceite. Antes ele entrava em silêncio.',
+      },
+      {
+        tag: 'correção',
+        text: 'Os botões "Loja aberta" e "Aceite automático" ficam bloqueados para quem não pode mudá-los (garçom), em vez de dar erro ao clicar.',
       },
     ],
   },

@@ -21,7 +21,13 @@ export type RealtimeEvent =
     }
   | { type: 'print.changed' }
   | { type: 'fiscal.changed'; documentId: string; orderId: string }
-  | { type: 'reservation.changed'; reservationId: string };
+  | { type: 'reservation.changed'; reservationId: string }
+  | { type: 'chat.message'; conversationId: string; messageId: string; authorId: string | null }
+  | { type: 'chat.changed'; conversationId?: string }
+  | { type: 'chat.read'; conversationId: string; userId: string }
+  | { type: 'chat.typing'; conversationId: string; userId: string; name: string }
+  | { type: 'chat.mural' }
+  | { type: 'chat.notice' };
 
 type Listener = (e: RealtimeEvent) => void;
 type StatusListener = (s: RealtimeStatus) => void;
@@ -91,6 +97,23 @@ export function onRealtimeReady(cb: () => void): () => void {
   return () => {
     reconnectListeners.delete(cb);
   };
+}
+
+/**
+ * Escuta os eventos sem abrir conexão (quem não usa o tempo real, como o entregador, não recebe
+ * nada e depende de consultar de tempos em tempos).
+ */
+export function useRealtimeEvents(onEvent: Listener, connect = true) {
+  const ev = useRef(onEvent);
+  ev.current = onEvent;
+  useEffect(() => {
+    if (connect) ensureSocket();
+    const l: Listener = (e) => ev.current(e);
+    listeners.add(l);
+    return () => {
+      listeners.delete(l);
+    };
+  }, [connect]);
 }
 
 export function useRealtimeStatus(): RealtimeStatus {

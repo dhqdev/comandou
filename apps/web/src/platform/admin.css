@@ -866,3 +866,112 @@ details.adm-fieldset[open] > summary::before {
     max-width: none;
   }
 }
+
+/* IA (OpenRouter) */
+.adm-ai-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.adm-ai-hero > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.adm-ai-hero .adm-sub {
+  white-space: normal;
+}
+.adm-ai-chart {
+  padding: 12px 14px;
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+.adm-ai-chart .adm-spark {
+  height: 72px;
+}
+.adm-ai-chart__axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--a-subtle);
+}
+.adm-ai-row {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--a-line);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.adm-ai-row:hover {
+  background: var(--a-hover, rgba(127, 127, 127, 0.06));
+}
+.adm-ai-row .adm-row__side small,
+.adm-ai-off {
+  color: var(--a-subtle);
+  font-weight: 400;
+}
+.adm-ai-edit .adm-row__main {
+  gap: 10px;
+}
+.adm-ai-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.adm-ai-inline input,
+.adm-ai-mode input {
+  accent-color: var(--a-accent);
+}
+.adm-ai-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.adm-ai-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--a-line);
+  font-size: 13px;
+  cursor: pointer;
+}
+.adm-ai-mode.is-on {
+  border-color: var(--a-accent);
+}
+.adm-ai-search {
+  margin-bottom: 10px;
+  max-width: 360px;
+}
+.adm-ai-row .adm-row__meta,
+.adm-ai-chart .adm-row__meta {
+  white-space: normal;
+}
+
+/* Assinatura do cliente no contrato (o traço é escuro: fundo sempre claro). */
+.adm-sigbox {
+  display: grid;
+  place-items: center start;
+  height: 72px;
+  padding: 6px 10px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--cm-radius-sm);
+  background: #fff;
+  overflow: hidden;
+}
+.adm-sigbox img {
+  max-height: 60px;
+  max-width: 100%;
+}
+.adm-sigbox .cs-typed__preview {
+  color: #13285f;
+  border: 0;
+  padding: 0;
+  background: none;
+}

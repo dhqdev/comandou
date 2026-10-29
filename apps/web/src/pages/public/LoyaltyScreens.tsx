@@ -1,3 +1,4 @@
+import { Spinner } from '../../design-system';
 import { fromCents } from '@comandou/shared';
 import { Check, ChevronRight, Gift } from 'lucide-react';
 import { Link } from 'react-router';
@@ -106,7 +107,7 @@ export function LoyaltyScreen() {
   if (!loyalty)
     return (
       <div className="sf-wrap sf-page">
-        <div className="sk sk--banner" />
+        <Spinner />
       </div>
     );
   if (!l)

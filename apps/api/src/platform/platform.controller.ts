@@ -48,6 +48,7 @@ import {
 } from './platform.schemas';
 import { Actor, PlatformService } from './platform.service';
 import { PlatformBackupService } from './platform-backup.service';
+import { AiSettingsBody, PlatformAiService, TenantAiBody } from './platform-ai.service';
 import { PlatformDatabasesService } from './platform-databases.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
 import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
@@ -474,5 +475,50 @@ export class PlatformServerController {
     );
     await this.audit(req, 'logs_viewed', { service: name });
     return r;
+  }
+}
+
+const AiTest = z.object({
+  apiKey: z.string().trim().max(300).optional(),
+  model: AiSettingsBody.shape.model,
+});
+
+/** Assistente de IA: chave do OpenRouter, modelo, limites e consumo de cada restaurante. */
+@Controller({ path: 'platform/ai', version: '1' })
+@SkipTenant()
+@Public()
+@UseGuards(PlatformHostGuard, PlatformSessionGuard)
+export class PlatformAiController {
+  constructor(private readonly ai: PlatformAiService) {}
+
+  @Get()
+  overview(@Query('fresh') fresh?: string) {
+    return this.ai.overview(fresh === '1');
+  }
+
+  @Get('models')
+  models() {
+    return this.ai.models();
+  }
+
+  @Put('settings')
+  save(@Body(new ZodPipe(AiSettingsBody)) b: z.infer<typeof AiSettingsBody>, @Req() req: Request) {
+    return this.ai.save(b, actor(req));
+  }
+
+  @Post('test')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  test(@Body(new ZodPipe(AiTest)) b: z.infer<typeof AiTest>) {
+    return this.ai.test(b.apiKey, b.model);
+  }
+
+  @Put('tenants/:id')
+  saveTenant(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(TenantAiBody)) b: z.infer<typeof TenantAiBody>,
+    @Req() req: Request,
+  ) {
+    return this.ai.saveTenant(id, b, actor(req));
   }
 }

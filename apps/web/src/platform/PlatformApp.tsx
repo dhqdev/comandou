@@ -9,6 +9,7 @@ import {
   RefreshCw,
   ScrollText,
   Server,
+  Sparkles,
   Tags,
 } from 'lucide-react';
 import {
@@ -27,6 +28,7 @@ import {
   AppFrame,
   Button,
   FrameItem,
+  LivePanda,
   Mascot,
   Modal,
   Spinner,
@@ -41,6 +43,7 @@ import '../app/ops.css';
 import './admin.css';
 import { AuditPage, BackupsPage, OverviewPage } from './OverviewPages';
 import { FiscalPage } from './FiscalPage';
+import { AiPage } from './AiPage';
 import { PlansPage } from './PlansPage';
 import { isStandalone, promptInstall } from './pwa';
 import { ServerPage } from './ServerPage';
@@ -205,6 +208,7 @@ const NAV = [
   { to: '/fiscal', label: 'Fiscal', icon: FileText },
   { to: '/planos', label: 'Planos', icon: Tags },
   { to: '/backups', label: 'Backups', icon: DatabaseBackup },
+  { to: '/ia', label: 'IA', icon: Sparkles },
   { to: '/auditoria', label: 'Auditoria', icon: ScrollText },
 ];
 /** Abas do celular; o resto fica em "Mais". */
@@ -297,8 +301,8 @@ function PlatformShell() {
     <>
       <AppFrame
         className="adm-frame"
-        brand={<Mascot size={40} badge title="Comandou Admin" />}
-        brandCompact={<Mascot size={28} badge title="Comandou Admin" />}
+        brand={<LivePanda size={40} badge title="Comandou Admin" />}
+        brandCompact={<LivePanda size={28} badge title="Comandou Admin" />}
         showWhere={false}
         items={items}
         footer={[{ key: 'conta', label: 'Conta', icon: <CircleUserRound />, panel: account }]}
@@ -355,6 +359,7 @@ function Gate() {
         <Route path="fiscal" element={<FiscalPage />} />
         <Route path="planos" element={<PlansPage />} />
         <Route path="backups" element={<BackupsPage />} />
+        <Route path="ia" element={<AiPage />} />
         <Route path="auditoria" element={<AuditPage />} />
         <Route path="*" element={<OverviewPage />} />
       </Route>
