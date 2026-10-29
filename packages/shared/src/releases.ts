@@ -22,7 +22,7 @@ export const RELEASES: readonly Release[] = [
   {
     version: '0.52.1',
     date: '2026-10-29',
-    title: 'Conferência de conta completa e criptografia reforçada',
+    title: 'Conferência de conta completa e telas sem travar no pico',
     summary:
       'A conferência impressa agora mostra cada parte do valor (taxa de entrega, desconto, acréscimo), como o cliente vai pagar, o troco e as observações.',
     notes: [
@@ -33,6 +33,10 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'correção',
         text: 'Observações do item ("sem picles") e do pedido saem na conferência, e o pedido de mesa mostra a mesa ou comanda.',
+      },
+      {
+        tag: 'correção',
+        text: 'Restaurante cheio não trava mais as telas: o limite de acessos por minuto passou a valer para cada pessoa, e não para todos os aparelhos que saem pelo mesmo Wi-Fi.',
       },
       {
         tag: 'segurança',

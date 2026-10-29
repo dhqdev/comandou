@@ -10,6 +10,12 @@ import { ChatModule } from './chat/chat.module';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 import { maskSecretsInUrl } from './common/log-redact';
 import { RedisThrottlerStorage } from './common/redis-throttler.storage';
+import {
+  clientIp,
+  IP_LIMIT_FACTOR,
+  sessionOrIpTracker,
+  skipsDefault,
+} from './common/throttle-tracker';
 import { ENV, Env } from './config/env';
 import { DatabaseModule } from './database/database.module';
 import { DomainsModule } from './domains/domains.module';
@@ -57,7 +63,21 @@ export class AppModule {
           },
         }),
         ThrottlerModule.forRoot({
-          throttlers: [{ name: 'default', ttl: 60_000, limit: env.RATE_LIMIT_PER_MINUTE }],
+          throttlers: [
+            {
+              name: 'default',
+              ttl: 60_000,
+              limit: env.RATE_LIMIT_PER_MINUTE,
+              getTracker: sessionOrIpTracker,
+            },
+            {
+              name: 'ip',
+              ttl: 60_000,
+              limit: env.RATE_LIMIT_PER_MINUTE * IP_LIMIT_FACTOR,
+              getTracker: clientIp,
+              skipIf: skipsDefault,
+            },
+          ],
           storage: throttleStorage,
         }),
         DatabaseModule,

@@ -88,6 +88,32 @@ describe('Limite de requisições', () => {
     }
   });
 
+  it('equipe no mesmo Wi-Fi: cada sessão tem a sua cota; cookie inventado conta pelo IP', async () => {
+    const env = testEnv({ AUTH_LOGIN_RATE_LIMIT: '1000', RATE_LIMIT_PER_MINUTE: '4' });
+    const a = await createApp(env, { logger: false });
+    await a.init();
+    try {
+      const cookieOf = async (email: string) =>
+        (await login(a, HOST_A, email, PASSWORD)).headers['set-cookie']![0].split(';')[0];
+      const caixa = await cookieOf('admin@sec-a.test');
+      const garcom = await cookieOf('garcom@sec-a.test');
+      const me = (cookie: string) =>
+        request(a.getHttpServer()).get('/api/v1/auth/me').set('Host', HOST_A).set('Cookie', cookie);
+      const s1: number[] = [];
+      for (let i = 0; i < 5; i++) s1.push((await me(caixa)).status);
+      expect(s1).toEqual([200, 200, 200, 200, 429]);
+      // Outra pessoa do mesmo restaurante (mesmo IP) não foi afetada.
+      expect((await me(garcom)).status).toBe(200);
+      // Trocar o cookie a cada requisição não fura o teto por IP (4 × 5 = 20).
+      const fake: number[] = [];
+      for (let i = 0; i < 20; i++)
+        fake.push((await me(`cm_sid=${'x'.repeat(40)}${String(i).padStart(3, '0')}`)).status);
+      expect(fake.at(-1)).toBe(429);
+    } finally {
+      await a.close();
+    }
+  });
+
   it.skipIf(!REDIS)('vale para as réplicas juntas (Redis compartilhado)', async () => {
     const prefix = `sec${Date.now().toString(36)}`;
     const env = testEnv({ AUTH_LOGIN_RATE_LIMIT: '3', REDIS_URL: REDIS!, QUEUE_PREFIX: prefix });
