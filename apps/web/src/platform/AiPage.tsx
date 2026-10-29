@@ -533,7 +533,7 @@ function SettingsSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview)
           {test && (
             <Alert tone={test.ok ? 'info' : 'danger'}>
               {test.ok
-                ? `Funcionou em ${(test.ms / 1000).toFixed(1)} s: “${test.reply}”${test.usage ? ` · ${test.usage.promptTokens + test.usage.completionTokens} tokens` : ''}`
+                ? `Funcionou em ${(test.ms / 1000).toFixed(1)} s: “${(test.reply ?? '').replace(/[*_#`]/g, '')}”${test.usage ? ` · ${test.usage.promptTokens + test.usage.completionTokens} tokens` : ''}`
                 : `Não funcionou: ${test.error}`}
             </Alert>
           )}
