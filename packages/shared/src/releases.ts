@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.52.0',
+    date: '2026-10-29',
+    title: 'Sons de aviso novos, que ficam tocando até alguém atender',
+    summary:
+      'Os avisos ganharam timbres de sino, marimba e kalimba. O pedido novo fica apitando até ser aceito, e dá para gravar o próprio som.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Pedido do cardápio online esperando aceite e pedido de cancelamento ficam tocando de novo (a cada 10 s, ou o intervalo que você escolher) até alguém resolver. O botão de som balança enquanto isso e tem "Silenciar 2 min".',
+      },
+      {
+        tag: 'novo',
+        text: 'Grave seu próprio som pelo microfone (até 15 s) ou escolha um arquivo, e use em qualquer aviso. Fica guardado só no aparelho em que foi gravado.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Sons refeitos com timbre de instrumento (campainha, marimba, sinos de vento, kalimba), mais agradáveis e sem chiado. Cada aviso pode trocar de timbre em Sons de aviso.',
+      },
+      {
+        tag: 'correção',
+        text: 'Os sons agora tocam pelo modo de mídia também em produção (antes a política de segurança do site barrava e o iPhone podia ficar mudo com a chave de silencioso).',
+      },
+    ],
+  },
+  {
     version: '0.51.0',
     date: '2026-10-29',
     title: 'Janelas que nascem do botão, no jeito do iPhone',

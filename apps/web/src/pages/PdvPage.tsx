@@ -26,7 +26,7 @@ import { sortTables, tableState, type TableState } from '../features/table-state
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
-import { playSound, useArrivalSound } from '../lib/sounds';
+import { playSound, useArrivalSound, useRepeatingSound } from '../lib/sounds';
 import type { DiningTable, Order, StoreSettings, Tab } from '../lib/types';
 import '../app/home.css';
 
@@ -313,6 +313,9 @@ export function PdvPage() {
     'cancel',
     ids((o) => o.status === 'cancel_requested'),
   );
+  // Fica apitando enquanto houver pedido esperando aceite ou pedido de cancelamento sem resposta.
+  useRepeatingSound('order', awaiting > 0);
+  useRepeatingSound('cancel', orders?.some((o) => o.status === 'cancel_requested') ?? false);
 
   // F2 abre a nova venda (atalho de caixa).
   useEffect(() => {

@@ -54,3 +54,90 @@
 .sound-panel [data-off] {
   opacity: 0.5;
 }
+
+/* Aviso repetindo: o botão balança de leve até alguém atender ou silenciar. */
+.sound-btn[data-ringing] {
+  color: var(--cm-brand-600);
+  animation: sound-ring 1.6s ease-in-out infinite;
+}
+@keyframes sound-ring {
+  0%,
+  60%,
+  100% {
+    transform: rotate(0);
+  }
+  10%,
+  30%,
+  50% {
+    transform: rotate(-12deg);
+  }
+  20%,
+  40% {
+    transform: rotate(12deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sound-btn[data-ringing] {
+    animation: none;
+  }
+}
+.sound-panel__ringing {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  padding: var(--cm-space-3);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-muted);
+  border: 1px solid var(--cm-brand-500);
+  color: var(--cm-text);
+}
+.sound-panel__ringing > span {
+  flex: 1;
+}
+.sound-panel__repeat,
+.sound-panel__custom {
+  display: grid;
+  gap: var(--cm-space-2);
+  padding-bottom: var(--cm-space-3);
+  border-bottom: 1px solid var(--cm-border);
+}
+.sound-panel__custom > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+.sound-panel__custom-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cm-space-2);
+}
+.sound-panel__rec {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  font-size: 0.85rem;
+  color: var(--cm-text-muted);
+}
+.sound-panel__error {
+  color: var(--cm-danger);
+}
+.sound-panel__row {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-1);
+  flex-shrink: 0;
+}
+.sound-panel__select {
+  width: auto;
+  min-width: 0;
+  max-width: 11rem;
+  padding-block: 6px;
+}
+@media (max-width: 520px) {
+  .sound-panel__list > li {
+    flex-wrap: wrap;
+  }
+  .sound-panel__row {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
