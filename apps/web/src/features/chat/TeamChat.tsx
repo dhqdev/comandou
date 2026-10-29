@@ -393,7 +393,14 @@ export function TeamChat({
                 pollMs={pollMs}
               />
             ) : tab === 'ia' ? (
-              <AiTab screen={pathname} />
+              <AiTab
+                screen={pathname}
+                // Link do assistente para uma tela: no celular (ou com o chat ampliado) o painel
+                // cobre a tela, então fecha para a pessoa ver onde chegou.
+                onNavigate={() => {
+                  if (expanded || window.matchMedia?.('(max-width: 640px)').matches) setOpen(false);
+                }}
+              />
             ) : (
               <NoticesTab
                 onOpenConversation={openConversation}

@@ -155,6 +155,7 @@ export class AiService {
       );
       return rows;
     });
+    const state = await this.snapshot(ctx);
     const turns: ChatTurn[] = [
       {
         role: 'system',
@@ -165,6 +166,7 @@ export class AiService {
           tenantName,
           screen,
           now: new Date(),
+          state,
         }),
       },
       ...history,
@@ -179,6 +181,77 @@ export class AiService {
       usedBefore: used,
       turns,
     };
+  }
+
+  /**
+   * Retrato curto da operação para o assistente diagnosticar ("não consigo receber" com o caixa
+   * fechado, por exemplo). Uma consulta só; se falhar, o assistente segue sem ele.
+   */
+  async snapshot(ctx: Ctx): Promise<string[]> {
+    try {
+      const r = await this.db.withTenant(ctx, (tx) =>
+        one<{
+          cash_open: number;
+          tabs_open: number;
+          tabs_bill: number;
+          orders_active: number;
+          orders_cancel_req: number;
+          sold_out: number;
+          store_enabled: boolean | null;
+          store_open: boolean | null;
+          fiscal_enabled: boolean | null;
+          fiscal_env: string | null;
+          fiscal_cnpj: boolean | null;
+          fiscal_cert_until: string | null;
+          printers_online: number;
+          printers: number;
+          whatsapp: boolean | null;
+        }>(
+          tx,
+          `SELECT
+             (SELECT count(*)::int FROM cash_sessions WHERE status = 'open') AS cash_open,
+             (SELECT count(*)::int FROM tabs WHERE status = 'open') AS tabs_open,
+             (SELECT count(*)::int FROM tabs WHERE status = 'open' AND bill_requested_at IS NOT NULL) AS tabs_bill,
+             (SELECT count(*)::int FROM orders
+               WHERE status IN ('awaiting', 'new', 'in_production', 'ready', 'dispatched')) AS orders_active,
+             (SELECT count(*)::int FROM orders WHERE status = 'cancel_requested') AS orders_cancel_req,
+             (SELECT count(*)::int FROM products WHERE active AND sold_out) AS sold_out,
+             (SELECT enabled FROM tenant_store_settings LIMIT 1) AS store_enabled,
+             (SELECT is_open FROM tenant_store_settings LIMIT 1) AS store_open,
+             (SELECT enabled FROM tenant_fiscal_settings LIMIT 1) AS fiscal_enabled,
+             (SELECT environment FROM tenant_fiscal_settings LIMIT 1) AS fiscal_env,
+             (SELECT cnpj IS NOT NULL FROM tenant_fiscal_settings LIMIT 1) AS fiscal_cnpj,
+             (SELECT certificate_valid_until::text FROM tenant_fiscal_settings LIMIT 1) AS fiscal_cert_until,
+             (SELECT count(*)::int FROM print_agents
+               WHERE active AND last_seen_at > now() - interval '2 minutes') AS printers_online,
+             (SELECT count(*)::int FROM print_agents WHERE active) AS printers,
+             (SELECT enabled FROM tenant_messaging_settings LIMIT 1) AS whatsapp`,
+        ),
+      );
+      if (!r) return [];
+      const out = [
+        r.cash_open
+          ? `Caixa: ${r.cash_open} aberto(s).`
+          : 'Caixa: nenhum aberto (sem caixa aberto não dá para receber).',
+        `Comandas abertas: ${r.tabs_open}${r.tabs_bill ? ` (${r.tabs_bill} pediram a conta)` : ''}.`,
+        `Pedidos em andamento: ${r.orders_active}${r.orders_cancel_req ? `; ${r.orders_cancel_req} com cancelamento pedido esperando aprovação` : ''}.`,
+        `Itens esgotados no cardápio: ${r.sold_out}.`,
+        r.store_enabled
+          ? `Loja online: ligada, ${r.store_open === false ? 'fechada agora' : 'aberta'}.`
+          : 'Loja online: desligada.',
+        r.fiscal_enabled
+          ? `Nota fiscal: ligada em ${r.fiscal_env === 'producao' ? 'produção' : 'homologação (teste)'}${r.fiscal_cert_until ? `, certificado vale até ${r.fiscal_cert_until.slice(0, 10)}` : ', sem certificado'}.`
+          : `Nota fiscal: desligada${r.fiscal_cnpj ? '' : ' (CNPJ não informado)'}.`,
+        r.printers
+          ? `Impressão: ${r.printers_online} de ${r.printers} computador(es) de impressão online.`
+          : 'Impressão: nenhum computador de impressão conectado.',
+        `WhatsApp: ${r.whatsapp ? 'ligado' : 'desligado'}.`,
+      ];
+      return out;
+    } catch (e) {
+      this.logger.warn(`Retrato da operação falhou: ${(e as Error).message}`);
+      return [];
+    }
   }
 
   /** Conversa com o modelo, grava a resposta e o uso. */

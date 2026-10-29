@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.56.0',
+    date: '2026-10-29',
+    title: 'Quando algo trava, o sistema mostra o que fazer e leva até a tela certa',
+    summary:
+      'Caixa fechado, comanda já fechada, item esgotado, nota sem certificado ou impressora desligada: em vez de só o erro, aparece o que fazer e um botão que abre a tela que resolve. O assistente do chat também passou a mandar links direto para as telas.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Avisos que guiam: ao receber, fechar comanda, lançar pedido, emitir nota, imprimir ou despachar, o aviso diz o que fazer e tem o botão para a tela certa (por exemplo, "Abrir o caixa"). Quem não tem acesso àquela tela vê a quem pedir.',
+      },
+      {
+        tag: 'novo',
+        text: 'O assistente do chat da equipe conhece todas as telas, seções e atalhos do sistema e responde com links que levam direto até lá.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O assistente vê um retrato da loja na hora (caixa aberto, comandas, pedidos em andamento, itens esgotados, loja online, nota fiscal, impressão e WhatsApp) e consegue dizer por que algo não está funcionando.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No app do garçom, os avisos levam ao mapa de mesas dele, e o assistente fala das telas que o garçom, a cozinha e o entregador usam.',
+      },
+    ],
+  },
+  {
     version: '0.55.0',
     date: '2026-10-29',
     title: 'PDV inteiro na tela, chat mais discreto e troca de tema em círculo',

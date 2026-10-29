@@ -10,3 +10,5 @@ export * from './menu';
 export * from './fiscal';
 export * from './report-doc';
 export * from './billing';
+export * from './nav-catalog';
+export * from './fix-hints';

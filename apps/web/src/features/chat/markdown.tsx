@@ -1,12 +1,26 @@
+import { ArrowRight } from 'lucide-react';
 import { Fragment, ReactNode } from 'react';
+import { Link } from 'react-router';
 
 /**
  * Markdown bem pequeno para as respostas do assistente: parágrafos, listas (- e 1.),
- * **negrito**, *itálico* e `código`. Monta elementos do React (nada de HTML cru).
+ * **negrito**, *itálico*, `código` e [tela](/caminho), que vira um botão para a tela.
+ * Monta elementos do React (nada de HTML cru).
  */
-function inline(text: string, key: string): ReactNode[] {
+
+/** Só caminhos internos do app ("/caixa", "/fiscal/configuracao?foco=…"); nada de fora. */
+export function safeAppPath(raw: string): string | null {
+  const p = raw.trim();
+  if (!/^\/(?!\/)[\w\-./?=&%#àáâãçéêíóôõú]*$/i.test(p)) return null;
+  if (p.includes('..')) return null;
+  return p;
+}
+
+type Go = (() => void) | undefined;
+
+function inline(text: string, key: string, onGo?: Go): ReactNode[] {
   const out: ReactNode[] = [];
-  const re = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*)/g;
+  const re = /(\[[^\]\n]+\]\([^)\s]+\)|\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*)/g;
   let last = 0;
   let m: RegExpExecArray | null;
   let n = 0;
@@ -14,7 +28,22 @@ function inline(text: string, key: string): ReactNode[] {
     if (m.index > last) out.push(text.slice(last, m.index));
     const t = m[0];
     const k = `${key}-${n++}`;
-    if (t.startsWith('**')) out.push(<strong key={k}>{t.slice(2, -2)}</strong>);
+    const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(t);
+    if (link) {
+      const to = safeAppPath(link[2]!);
+      const label = link[1]!.replace(/\*\*/g, '');
+      out.push(
+        to ? (
+          <Link key={k} className="tc-golink" to={to} onClick={onGo}>
+            {label}
+            <ArrowRight size={12} aria-hidden />
+          </Link>
+        ) : (
+          <strong key={k}>{label}</strong>
+        ),
+      );
+    } else if (t.startsWith('**'))
+      out.push(<strong key={k}>{inline(t.slice(2, -2), k, onGo)}</strong>);
     else if (t.startsWith('`')) out.push(<code key={k}>{t.slice(1, -1)}</code>);
     else out.push(<em key={k}>{t.slice(1, -1)}</em>);
     last = m.index + t.length;
@@ -23,7 +52,7 @@ function inline(text: string, key: string): ReactNode[] {
   return out;
 }
 
-export function Markdown({ text }: { text: string }) {
+export function Markdown({ text, onNavigate }: { text: string; onNavigate?: () => void }) {
   const lines = text.replace(/\r/g, '').split('\n');
   const blocks: ReactNode[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
@@ -36,7 +65,7 @@ export function Markdown({ text }: { text: string }) {
           {para.map((l, i) => (
             <Fragment key={i}>
               {i > 0 && <br />}
-              {inline(l, `${k}-${i}`)}
+              {inline(l, `${k}-${i}`, onNavigate)}
             </Fragment>
           ))}
         </p>,
@@ -47,7 +76,9 @@ export function Markdown({ text }: { text: string }) {
   const flushList = () => {
     if (list) {
       const k = `l${blocks.length}`;
-      const items = list.items.map((it, i) => <li key={i}>{inline(it, `${k}-${i}`)}</li>);
+      const items = list.items.map((it, i) => (
+        <li key={i}>{inline(it, `${k}-${i}`, onNavigate)}</li>
+      ));
       blocks.push(list.ordered ? <ol key={k}>{items}</ol> : <ul key={k}>{items}</ul>);
       list = null;
     }
@@ -73,7 +104,7 @@ export function Markdown({ text }: { text: string }) {
       flushList();
       blocks.push(
         <p key={`h${blocks.length}`}>
-          <strong>{inline(h[1]!, `h${blocks.length}`)}</strong>
+          <strong>{inline(h[1]!, `h${blocks.length}`, onNavigate)}</strong>
         </p>,
       );
     } else {

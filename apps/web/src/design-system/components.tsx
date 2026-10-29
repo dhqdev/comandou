@@ -14,6 +14,7 @@ import { Mascot, type MascotMood } from './mascot';
 import { DateInput } from './pickers';
 import { cachedBranding } from './brand';
 import { canAnimate, useLiquidDialog } from './liquid';
+import { FixSteps, useFixPlan } from './fix-guide';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 
@@ -159,6 +160,17 @@ export function Alert({
   tone?: 'info' | 'warning' | 'danger';
   children: ReactNode;
 }) {
+  // Erro conhecido (caixa fechado, comanda fechada…): além do erro, o que fazer e onde.
+  const plan = useFixPlan(tone !== 'info' && typeof children === 'string' ? children : null);
+  if (plan)
+    return (
+      <div className={`cm-alert cm-alert--${tone} cm-alert--guide`} role="alert">
+        <div>
+          <p className="cm-fix__error">{children}</p>
+          <FixSteps plan={plan} />
+        </div>
+      </div>
+    );
   return (
     <div className={`cm-alert cm-alert--${tone}`} role={tone === 'danger' ? 'alert' : 'status'}>
       {children}

@@ -1,4 +1,12 @@
-import { CURRENT_RELEASE, RELEASES, ROLE_LABELS, roleHas, type Role } from '@comandou/shared';
+import {
+  CURRENT_RELEASE,
+  FIX_HINTS,
+  RELEASES,
+  ROLE_LABELS,
+  roleHas,
+  STATIC_ENTRIES,
+  type Role,
+} from '@comandou/shared';
 
 /**
  * O que o assistente sabe do Comandou: as telas, para que servem e os caminhos mais comuns.
@@ -96,10 +104,10 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     text: 'impressoras térmicas por setor (cozinha, bar, caixa) via o agente de impressão instalado num computador da loja; teste de impressão e fila de impressões.',
   },
   {
-    path: '/nota-fiscal',
-    name: 'Nota fiscal',
+    path: '/fiscal/nfce',
+    name: 'Fiscal (nota fiscal)',
     perms: ['fiscal:emit', 'fiscal:manage'],
-    text: 'NFC-e pela Focus NFe: dados da empresa, certificado A1, CSC, ambiente (homologação para testar, produção para valer), padrões fiscais dos produtos (NCM, CFOP) e notas emitidas, canceladas ou com erro.',
+    text: 'NFC-e e NF-e pela Focus NFe: notas emitidas, canceladas ou recusadas (cada recusa explica o motivo e o que corrigir), Configuração (dados da empresa, certificado A1, CSC, homologação para testar e produção para valer), Padrões fiscais (NCM, CFOP, CST), Inutilização e Notas recebidas. A NFC-e sai do detalhe do pedido depois de pago, ou sozinha se a emissão automática estiver ligada.',
   },
   {
     path: '/whatsapp',
@@ -109,9 +117,15 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
   },
   {
     path: '/plano',
-    name: 'Plano',
+    name: 'Assinatura (plano)',
     perms: ['plan:read'],
-    text: 'plano contratado e limites.',
+    text: 'plano contratado, limites, contrato e pagamento da assinatura.',
+  },
+  {
+    path: '/novidades',
+    name: 'Novidades',
+    perms: [],
+    text: 'o que mudou em cada versão do sistema.',
   },
   {
     path: '/configuracoes',
@@ -136,8 +150,13 @@ export function systemPrompt(o: {
   tenantName: string;
   screen?: string | null;
   now: Date;
+  /** Retrato da operação agora (caixa, comandas, nota, impressão…), uma linha por item. */
+  state?: string[];
 }): string {
-  const can = (perms: string[]) => perms.some((p) => roleHas(o.role, p as never));
+  const app = OWN_APPS[o.role];
+  // Garçom, cozinha e entregador só abrem o app deles: as telas da loja ficam sem acesso.
+  const can = (perms: string[]) =>
+    !app && (perms.length === 0 || perms.some((p) => roleHas(o.role, p as never)));
   const screens = SCREENS.map(
     (s) =>
       `- ${s.name} (${s.path})${can(s.perms) ? '' : ' [sem acesso para este perfil]'}: ${s.text}`,
@@ -151,8 +170,10 @@ export function systemPrompt(o: {
 Regras:
 - Responda em português do Brasil, curto, simpático e direto. Use listas numeradas para passos e **negrito** no nome dos botões e telas.
 - Fale só do que existe no Comandou (lista abaixo). Se não souber ou a função não existir, diga com franqueza e sugira o caminho mais próximo ou falar com o suporte do Comandou.
-- Você não vê os dados do restaurante nem faz ações no sistema: oriente onde clicar.
-- Se a pessoa não tiver acesso a uma tela, diga que é preciso pedir ao administrador.
+- Sempre que mandar a pessoa a uma tela, coloque o link clicável no formato [Nome da tela](/caminho), usando só caminhos das listas abaixo (nunca invente caminho nem endereço de fora). Prefira o link mais exato (a seção, não só a tela). Não ponha link para tela marcada [sem acesso].
+- Quando a pessoa contar um erro ou algo que a impede (não consegue receber, fechar a comanda, emitir nota, imprimir…), diga a causa provável, o que fazer em passos curtos e o link da tela que resolve. Use "Impedimentos comuns" e "Estado agora".
+- Você não faz ações no sistema: oriente onde clicar. Dos dados você só conhece o "Estado agora"; para números e listas, mande à tela certa.
+- Se a pessoa não tiver acesso a uma tela, diga a quem pedir (administrador, gerente ou caixa).
 - Nunca peça senhas, tokens ou dados de cartão.
 
 Quem pergunta: ${o.userName}, perfil ${ROLE_LABELS[o.role] ?? o.role}, no restaurante "${o.tenantName}".
@@ -163,7 +184,37 @@ Navegação: no computador, barra lateral de ícones (Gestão e Sistema abrem su
 
 Telas:
 ${screens}
+${app ? `\nApp de ${ROLE_LABELS[o.role]} (o que esta pessoa usa):\n${app}\n` : ''}
+Links diretos (seções e atalhos):
+${links(can) || '- nenhum para este perfil'}
 
+Impedimentos comuns (problema: o que fazer → tela):
+${FIX_HINTS.map((h) => `- ${h.problem}: ${h.what}${h.to && can(h.perms ?? []) ? ` → ${h.to}` : h.ask ? ` (${h.ask})` : ''}`).join('\n')}
+${o.state?.length ? `\nEstado agora no restaurante:\n${o.state.map((l) => `- ${l}`).join('\n')}\n` : ''}
 Novidades recentes:
 ${news}`;
+}
+
+/** Apps próprios de cada papel, com os caminhos que existem neles. */
+const OWN_APPS: Partial<Record<Role, string>> = {
+  waiter:
+    '- Mesas (/garcom/mesas): mapa do salão; tocar na mesa abre a comanda para lançar itens, pedir a conta, transferir e pedir cancelamento (o caixa aprova).\n- Meus pedidos (/garcom/pedidos): os pedidos que você lançou e o andamento.\n- Desafios (/garcom/desafios): metas e selos do garçom.\nReceber, dar desconto e fechar a conta ficam com o caixa.',
+  kitchen:
+    '- Cozinha (/cozinha): fila de preparo por setor; tocar no item começa o preparo e marca pronto.',
+  driver:
+    '- Entregas (/entregas): suas corridas; abrir no mapa, iniciar e concluir com o código de 4 dígitos que o cliente recebe.',
+};
+
+/** Seções e atalhos do catálogo de navegação (o mesmo da busca do topo). */
+function links(can: (perms: string[]) => boolean): string {
+  return STATIC_ENTRIES.filter(
+    (e) =>
+      e.to &&
+      !e.external &&
+      !e.action &&
+      !SCREENS.some((s) => s.path === e.to) &&
+      can(e.perms ?? []),
+  )
+    .map((e) => `- ${e.title}${e.hint ? ` (${e.hint})` : ''}: ${e.to}`)
+    .join('\n');
 }

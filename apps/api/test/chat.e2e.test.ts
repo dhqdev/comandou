@@ -436,6 +436,11 @@ describe('Assistente de IA', () => {
     expect(msgs[0].role).toBe('system');
     expect(msgs[0].content).toContain('Tela aberta agora: Caixa');
     expect(msgs[0].content).toContain('Garçom A');
+    // Conhece os links das telas, os impedimentos e o estado da loja.
+    expect(msgs[0].content).toContain('/garcom/mesas');
+    expect(msgs[0].content).toContain('Caixa fechado ao receber');
+    expect(msgs[0].content).toMatch(/Caixa: (nenhum aberto|\d+ aberto)/);
+    expect(msgs[0].content).toContain('Impressão:');
     const s = (await get('waiterA', '/chat/ai').expect(200)).body;
     expect(s.messages.map((m: { role: string }) => m.role)).toEqual(['user', 'assistant']);
     expect(s.usage).toMatchObject({ used: 660, limit: 1000, percent: 66 });

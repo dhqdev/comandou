@@ -1,6 +1,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import { api, ApiError, isSuspended, Me, TENANT_SUSPENDED_EVENT } from '../lib/api';
 import { closeRealtime } from '../lib/realtime';
+import { setGuideAccess } from '../design-system/fix-guide';
 
 interface AuthState {
   status: 'loading' | 'anonymous' | 'authenticated' | 'unavailable' | 'suspended';
@@ -56,6 +57,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     closeRealtime();
     setState({ status: 'anonymous' });
   }, []);
+
+  // Avisos de erro com o caminho para resolver: precisam saber o que a pessoa pode abrir.
+  const me = state.me;
+  useEffect(() => {
+    setGuideAccess(me ? { perms: me.permissions, role: me.user.role } : null);
+    return () => setGuideAccess(null);
+  }, [me]);
 
   return <Ctx.Provider value={{ ...state, login, logout, refresh }}>{children}</Ctx.Provider>;
 }

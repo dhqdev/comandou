@@ -14,3 +14,4 @@ export * from './brand';
 export * from './panda-live';
 export * from './liquid';
 export * from './transition';
+export * from './fix-guide';

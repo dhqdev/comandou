@@ -181,9 +181,7 @@ export function PaymentModal({
           <strong>{brl(target.balance)}</strong>
         </div>
         {sessions !== null && sessions.length === 0 ? (
-          <Alert tone="warning">
-            Nenhum caixa aberto. Abra um caixa na tela Caixa para receber pagamentos.
-          </Alert>
+          <Alert tone="warning">Nenhum caixa aberto para receber pagamentos.</Alert>
         ) : (
           <label className="cm-field">
             <span className="cm-label">Caixa</span>

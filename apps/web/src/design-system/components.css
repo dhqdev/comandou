@@ -1164,6 +1164,112 @@ input[type='radio'] {
   }
 }
 
+/* =============================================================== Caminho para resolver
+ * Erro conhecido vira um aviso com o que fazer e um botão para a tela certa (fix-guide.tsx).
+ */
+.cm-alert--guide > div {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.cm-fix__error {
+  margin: 0;
+  font-weight: 600;
+}
+.cm-fix {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.cm-fix__what {
+  margin: 0;
+  color: var(--cm-text);
+  line-height: 1.45;
+}
+.cm-fix__go {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background var(--cm-dur) var(--cm-ease),
+    border-color var(--cm-dur) var(--cm-ease),
+    transform 160ms var(--cm-ease);
+}
+.cm-fix__go:hover {
+  border-color: var(--cm-border-strong);
+  background: var(--cm-surface-muted);
+}
+.cm-fix__go:active {
+  transform: scale(0.97);
+}
+.cm-fix__go svg {
+  transition: transform var(--cm-dur) var(--cm-ease);
+}
+.cm-fix__go:hover svg {
+  transform: translateX(2px);
+}
+.cm-fix__go:focus-visible {
+  outline: 2px solid var(--cm-focus);
+  outline-offset: 2px;
+}
+.cm-toast.cm-toast--guide {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 400px;
+  padding: 14px 14px 14px 16px;
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  border: 1px solid var(--cm-border);
+  border-left: 3px solid var(--cm-danger);
+  box-shadow: var(--cm-shadow-lg);
+  font-weight: 400;
+  /* Só o botão e o fechar recebem toque: o resto do aviso não bloqueia a tela de baixo. */
+  pointer-events: none;
+}
+.cm-toast--guide .cm-fix__go,
+.cm-toast--guide .cm-toast__close {
+  pointer-events: auto;
+}
+.cm-toast__body {
+  display: grid;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.cm-toast--guide .cm-fix__error {
+  color: var(--cm-danger);
+}
+.cm-toast--guide .cm-fix__what {
+  color: var(--cm-text-subtle);
+}
+.cm-toast__close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: -4px -4px 0 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cm-text-subtle);
+  cursor: pointer;
+}
+.cm-toast__close:hover {
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+}
+
 /* =============================================================== Indicador deslizante ("liquid glass")
  * Um único elemento desliza até o item ativo. As bordas andam com tempos diferentes:
  * a borda da frente chega antes e a de trás alcança depois, então o indicador estica

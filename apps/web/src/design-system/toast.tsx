@@ -1,10 +1,14 @@
+import { X } from 'lucide-react';
 import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
+import { currentFixPlan, FixSteps, type FixPlan } from './fix-guide';
 
 type Tone = 'neutral' | 'success' | 'danger';
 interface Toast {
   id: number;
   message: string;
   tone: Tone;
+  /** Erro conhecido: o que fazer e para onde ir. */
+  plan?: FixPlan | null;
 }
 
 // No celular, confirmações viram uma pílula pequena no topo que some rápido;
@@ -16,28 +20,49 @@ const ToastCtx = createContext<(message: string, tone?: Tone) => void>(() => und
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const push = useCallback((message: string, tone: Tone = 'neutral') => {
-    const id = Date.now() + Math.random();
-    const quiet = tone !== 'danger' && isMobile();
-    // Uma pílula por vez: a nova substitui a anterior em vez de empilhar.
-    setToasts((t) => [
-      ...(quiet ? t.filter((x) => x.tone === 'danger') : t),
-      { id, message, tone },
-    ]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), quiet ? 1800 : 4000);
-  }, []);
+  const drop = useCallback((id: number) => setToasts((t) => t.filter((x) => x.id !== id)), []);
+  const push = useCallback(
+    (message: string, tone: Tone = 'neutral') => {
+      const id = Date.now() + Math.random();
+      const quiet = tone !== 'danger' && isMobile();
+      const plan = tone === 'danger' ? currentFixPlan(message) : null;
+      // Uma pílula por vez: a nova substitui a anterior em vez de empilhar. O mesmo erro
+      // guiado não se repete na pilha.
+      setToasts((t) => [
+        ...(quiet ? t.filter((x) => x.tone === 'danger') : t).filter(
+          (x) => !(plan && x.message === message),
+        ),
+        { id, message, tone, plan },
+      ]);
+      // Com o caminho para resolver, fica mais tempo: dá para ler e tocar no botão.
+      setTimeout(() => drop(id), quiet ? 1800 : plan ? 9000 : 4000);
+    },
+    [drop],
+  );
   return (
     <ToastCtx.Provider value={push}>
       {children}
       <div className="cm-toasts" aria-live="polite">
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            className={`cm-toast ${t.tone !== 'neutral' ? `cm-toast--${t.tone}` : ''}`}
-          >
-            {t.message}
-          </div>
-        ))}
+        {toasts.map((t) =>
+          t.plan ? (
+            <div key={t.id} className="cm-toast cm-toast--danger cm-toast--guide" role="alert">
+              <div className="cm-toast__body">
+                <p className="cm-fix__error">{t.message}</p>
+                <FixSteps plan={t.plan} onGo={() => drop(t.id)} />
+              </div>
+              <button className="cm-toast__close" aria-label="Fechar" onClick={() => drop(t.id)}>
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <div
+              key={t.id}
+              className={`cm-toast ${t.tone !== 'neutral' ? `cm-toast--${t.tone}` : ''}`}
+            >
+              {t.message}
+            </div>
+          ),
+        )}
       </div>
     </ToastCtx.Provider>
   );

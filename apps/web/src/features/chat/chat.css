@@ -1537,6 +1537,44 @@
   font-family: var(--cm-font-mono);
   font-size: 0.92em;
 }
+
+/* Link do assistente para uma tela do sistema: pílula discreta que leva até lá. */
+.tc-golink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 1px 0;
+  padding: 1px 9px 1px 10px;
+  border: 1px solid var(--cm-border);
+  border-radius: 999px;
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font-weight: 600;
+  font-size: 0.95em;
+  line-height: 1.6;
+  text-decoration: none;
+  white-space: nowrap;
+  vertical-align: baseline;
+  transition:
+    background var(--cm-dur) var(--cm-ease),
+    border-color var(--cm-dur) var(--cm-ease);
+}
+.tc-golink:hover {
+  border-color: var(--cm-border-strong);
+  background: var(--cm-surface-muted);
+}
+.tc-golink svg {
+  color: var(--cm-text-subtle);
+  transition: transform var(--cm-dur) var(--cm-ease);
+}
+.tc-golink:hover svg {
+  transform: translateX(2px);
+}
+.tc-golink:focus-visible {
+  outline: 2px solid var(--cm-focus);
+  outline-offset: 2px;
+}
+
 .tc-caret {
   display: inline-block;
   width: 7px;

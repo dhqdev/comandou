@@ -308,6 +308,7 @@ export function NoticesTab({
 
 const SUGGESTIONS: Record<string, string[]> = {
   default: [
+    'Tem algo travando a loja agora?',
     'Como abro e fecho o caixa?',
     'Como cadastro um produto com foto?',
     'Como conecto a impressora da cozinha?',
@@ -328,7 +329,7 @@ const SUGGESTIONS: Record<string, string[]> = {
     'Como faço o inventário?',
     'O que é fator de conversão?',
   ],
-  '/nota-fiscal': [
+  '/fiscal': [
     'O que preciso para emitir NFC-e?',
     'Como envio o certificado A1?',
     'Nota rejeitada: o que fazer?',
@@ -344,6 +345,7 @@ const SUGGESTIONS: Record<string, string[]> = {
     'Como pago os entregadores?',
   ],
   '/mesas': [
+    'Não consigo fechar a comanda',
     'Como transfiro itens de mesa?',
     'Como divido a conta?',
     'Como edito o desenho do salão?',
@@ -410,7 +412,7 @@ export function UsageBar({
   );
 }
 
-export function AiTab({ screen }: { screen: string }) {
+export function AiTab({ screen, onNavigate }: { screen: string; onNavigate?: () => void }) {
   const toast = useToast();
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [msgs, setMsgs] = useState<AiMessage[]>([]);
@@ -584,7 +586,7 @@ export function AiTab({ screen }: { screen: string }) {
                 <LivePanda size={28} mood={m.streaming ? 'talking' : 'idle'} still={!m.streaming} />
                 <div className="tc-ai__text">
                   {m.content ? (
-                    <Markdown text={m.content} />
+                    <Markdown text={m.content} onNavigate={onNavigate} />
                   ) : (
                     <span className="tc-typing tc-typing--inline">
                       <i />
