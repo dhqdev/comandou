@@ -11,4 +11,3 @@ export * from './pickers';
 export * from './viewport';
 export * from './brand';
 export * from './panda-live';
-export * from './panda-buddy';

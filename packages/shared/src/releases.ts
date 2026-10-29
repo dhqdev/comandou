@@ -20,6 +20,18 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.50.4',
+    date: '2026-10-29',
+    title: 'Volta o panda antigo em todas as telas',
+    summary: 'O panda de corpo inteiro foi retirado de tudo. Ficou só o panda de sempre.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Removido o panda novo das telas vazias, do chat e da IA; todas voltam a usar o panda de antes.',
+      },
+    ],
+  },
+  {
     version: '0.50.3',
     date: '2026-10-29',
     title: 'Caixas de busca com um só contorno',

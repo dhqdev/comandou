@@ -1,6 +1,5 @@
 import { CSSProperties, useEffect, useId, useRef, useState } from 'react';
 import { PANDA_HEAD } from './mascot';
-import { PandaBuddy } from './panda-buddy';
 import './panda-live.css';
 
 /**
@@ -73,7 +72,7 @@ const calm = () =>
   typeof window !== 'undefined' &&
   !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-function LivePandaFace({
+export function LivePanda({
   size = 48,
   mood = 'idle',
   badge,
@@ -443,14 +442,4 @@ function LivePandaFace({
       )}
     </svg>
   );
-}
-
-/** Panda animado. Pequeno ou no selo da marca: só a carinha; grande: o panda de corpo inteiro. */
-export function LivePanda(props: Parameters<typeof LivePandaFace>[0]) {
-  const { size = 48, badge, still, mood, title, className, style } = props;
-  if (!badge && !still && size >= 64)
-    return (
-      <PandaBuddy size={size} mood={mood} title={title} className={className} style={style} wave />
-    );
-  return <LivePandaFace {...props} />;
 }
