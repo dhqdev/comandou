@@ -209,9 +209,7 @@ export class ChatService {
         r.lastBody === null && !r.lastImage
           ? null
           : {
-              body: r.lastDeleted
-                ? 'Mensagem apagada'
-                : r.lastBody || (r.lastImage ? '📷 Foto' : ''),
+              body: r.lastDeleted ? 'Mensagem apagada' : r.lastBody || (r.lastImage ? 'Foto' : ''),
               authorId: r.lastAuthorId,
               authorName: r.lastAuthor,
               system: !!r.lastSystem,
@@ -597,7 +595,7 @@ export class ChatService {
               conv.kind === 'direct'
                 ? `${ctx.user.name} mencionou você`
                 : `${ctx.user.name} mencionou você em "${conv.name}"`,
-            body: body.slice(0, 300) || '📷 Foto',
+            body: body.slice(0, 300) || 'Foto',
             conversationId: id,
           });
       }

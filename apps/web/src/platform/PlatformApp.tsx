@@ -1,5 +1,6 @@
 import {
   Activity,
+  BrainCircuit,
   Building2,
   DatabaseBackup,
   FileText,
@@ -9,7 +10,6 @@ import {
   RefreshCw,
   ScrollText,
   Server,
-  Sparkles,
   Tags,
   Wallet,
 } from 'lucide-react';
@@ -211,7 +211,7 @@ const NAV = [
   { to: '/planos', label: 'Planos', icon: Tags },
   { to: '/cobranca', label: 'Cobrança', icon: Wallet },
   { to: '/backups', label: 'Backups', icon: DatabaseBackup },
-  { to: '/ia', label: 'IA', icon: Sparkles },
+  { to: '/ia', label: 'IA', icon: BrainCircuit },
   { to: '/auditoria', label: 'Auditoria', icon: ScrollText },
 ];
 /** Abas do celular; o resto fica em "Mais". */

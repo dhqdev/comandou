@@ -455,7 +455,7 @@ function ReservationCard({
 
       {(r.occasion || r.notes || r.staffNotes || r.cancelReason) && (
         <div className="rv-card__notes">
-          {r.occasion && <span className="rv-chip">🎉 {r.occasion}</span>}
+          {r.occasion && <span className="rv-chip">{r.occasion}</span>}
           {r.notes && <p>“{r.notes}”</p>}
           {r.staffNotes && (
             <p className="rv-card__staff">

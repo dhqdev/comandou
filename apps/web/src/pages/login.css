@@ -151,25 +151,10 @@
   align-items: center;
   gap: var(--cm-space-10);
   padding: clamp(32px, 6vw, 80px);
-  background:
-    radial-gradient(circle at 85% 10%, rgb(255 255 255 / 28%), transparent 45%),
-    radial-gradient(
-      circle at 10% 95%,
-      color-mix(in srgb, var(--cm-brand-800) 45%, transparent),
-      transparent 55%
-    ),
-    linear-gradient(160deg, var(--cm-brand-400), var(--cm-brand-600));
-  color: var(--cm-on-brand);
-}
-.login__art::after {
-  /* textura de pontinhos, discreta */
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgb(255 255 255 / 16%) 1px, transparent 1px);
-  background-size: 22px 22px;
-  mask-image: linear-gradient(180deg, #000, transparent 85%);
-  pointer-events: none;
+  /* Painel neutro e liso: sem degradê, brilho, textura nem bloco de cor. */
+  background: var(--cm-bg);
+  border-left: 1px solid var(--cm-frame-line);
+  color: var(--cm-text);
 }
 .login__showcase {
   position: relative;
@@ -179,17 +164,11 @@
 /* Cartão "ao vivo": sempre claro, como um print do painel. */
 .login__board {
   padding: var(--cm-space-5);
-  border: 1px solid rgb(255 255 255 / 55%);
-  border-radius: 16px;
-  background: rgb(255 255 255 / 86%);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  box-shadow:
-    0 30px 60px -20px rgb(60 25 0 / 45%),
-    inset 0 1px 0 rgb(255 255 255 / 90%);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: #fff;
+  box-shadow: 0 12px 32px -16px rgb(24 24 27 / 18%);
   color: #1a1613;
-  transform: rotate(-1.5deg);
-  animation: login-float 7s ease-in-out infinite;
 }
 .login__board-head {
   display: flex;
@@ -290,7 +269,7 @@
   right: -28px;
   bottom: -40px;
   color: #1a1613;
-  filter: drop-shadow(0 14px 24px rgb(60 25 0 / 35%));
+  filter: drop-shadow(0 8px 16px rgb(24 24 27 / 16%));
 }
 .login__pitch {
   position: relative;
@@ -300,14 +279,12 @@
 .login__pitch h2 {
   margin: 0 0 var(--cm-space-5);
   font-size: clamp(1.6rem, 2.6vw, 2.4rem);
-  font-weight: 750;
-  line-height: 1.1;
-  letter-spacing: -0.035em;
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
 }
 .login__pitch h2 span {
   display: block;
-  color: #fff;
-  text-shadow: 0 2px 14px rgb(60 25 0 / 30%);
 }
 .login__pitch ul {
   display: grid;
@@ -316,8 +293,9 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-weight: 600;
+  font-weight: 500;
   font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
 }
 .login__pitch li {
   display: flex;
@@ -330,53 +308,19 @@
   height: 30px;
   display: grid;
   place-items: center;
-  border-radius: 9px;
-  background: rgb(255 255 255 / 32%);
-  border: 1px solid rgb(255 255 255 / 40%);
-}
-/* No escuro a vitrine vira um painel grafite com o brilho da marca, sem um bloco laranja
-   enorme na tela. */
-:root[data-theme='dark'] .login__art {
-  background:
-    radial-gradient(
-      circle at 80% 8%,
-      color-mix(in srgb, var(--cm-brand-500) 40%, transparent),
-      transparent 50%
-    ),
-    radial-gradient(
-      circle at 10% 100%,
-      color-mix(in srgb, var(--cm-brand-600) 26%, transparent),
-      transparent 55%
-    ),
-    var(--cm-frame);
-  border-left: 1px solid var(--cm-frame-line);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
   color: var(--cm-text);
 }
-:root[data-theme='dark'] .login__art::after {
-  background-image: radial-gradient(rgb(255 255 255 / 6%) 1px, transparent 1px);
+/* No escuro a vitrine vira um painel grafite liso. */
+:root[data-theme='dark'] .login__art {
+  background: var(--cm-frame);
 }
 :root[data-theme='dark'] .login__board {
-  border-color: rgb(255 255 255 / 30%);
-  box-shadow: 0 30px 60px -20px rgb(0 0 0 / 70%);
+  border-color: rgb(255 255 255 / 12%);
+  box-shadow: 0 16px 40px -16px rgb(0 0 0 / 70%);
   filter: brightness(0.94);
-}
-:root[data-theme='dark'] .login__pitch h2 span {
-  color: var(--cm-brand-700);
-  text-shadow: none;
-}
-:root[data-theme='dark'] .login__feature-icon {
-  background: color-mix(in srgb, var(--cm-brand-500) 18%, transparent);
-  border-color: color-mix(in srgb, var(--cm-brand-500) 30%, transparent);
-  color: var(--cm-brand-700);
-}
-@keyframes login-float {
-  0%,
-  100% {
-    translate: 0 0;
-  }
-  50% {
-    translate: 0 -8px;
-  }
 }
 @keyframes login-slide {
   from {

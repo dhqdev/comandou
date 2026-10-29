@@ -3,9 +3,9 @@ import { RefreshCw } from 'lucide-react';
 import { Alert, Button, Card, LivePanda, Spinner, TextField, useToast } from '../design-system';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
-import { ago, Dot, levelFor, Section, Sparkline, Tile } from './ui';
+import { ago, Dot, levelFor, PageHead, Section, Sparkline, Tile } from './ui';
 
-interface ModelInfo {
+export interface ModelInfo {
   id: string;
   name: string;
   promptPerM: number;
@@ -13,7 +13,7 @@ interface ModelInfo {
   context: number | null;
 }
 
-interface Account {
+export interface Account {
   totalUsd: number | null;
   usedUsd: number | null;
   remainingUsd: number | null;
@@ -25,7 +25,7 @@ interface Account {
   error: string | null;
 }
 
-interface TenantUse {
+export interface TenantUse {
   id: string;
   name: string;
   slug: string;
@@ -44,7 +44,7 @@ interface TenantUse {
   totalTokens: number;
 }
 
-interface AiOverview {
+export interface AiOverview {
   settings: {
     enabled: boolean;
     hasApiKey: boolean;
@@ -88,6 +88,15 @@ export function AiPage() {
   if (!o) return <Spinner />;
   return (
     <>
+      <PageHead
+        page
+        title="Assistente de IA"
+        sub={
+          <span>
+            {o.settings.enabled ? `${o.settings.assistantName} · ${o.settings.model}` : 'Desligado'}
+          </span>
+        }
+      />
       <StatusSection o={o} onRefresh={() => setFresh(Date.now())} />
       <TenantsSection o={o} onChanged={data.reload} />
       <SettingsSection o={o} onSaved={(n) => data.setData(n)} />
@@ -107,8 +116,7 @@ function StatusSection({ o, onRefresh }: { o: AiOverview; onRefresh(): void }) {
   );
   return (
     <Section
-      title="Assistente de IA"
-      sub={s.enabled ? `${s.assistantName} · ${s.model}` : 'desligado'}
+      title="Saldo e uso"
       actions={
         <Button variant="ghost" size="sm" onClick={onRefresh} icon={<RefreshCw size={14} />}>
           Atualizar saldo

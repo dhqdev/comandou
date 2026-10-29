@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.54.0',
+    date: '2026-10-29',
+    title: 'Painel super admin mais leve e o sistema sem enfeites',
+    summary:
+      'O painel admin ganhou um visual mais limpo e uma visão geral de cada cliente numa tela só. No sistema todo saíram os emojis e enfeites.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Ficha do restaurante abre na "Visão geral": assinatura e quantos dias faltam, uso do plano contra os limites (equipe, produtos e pedidos), contrato, cadastro e o que falta preencher, operação, nota fiscal, assistente de IA, banco, equipe e domínios. Cada cartão leva à aba certa.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Painel admin mais leve: números lado a lado numa peça só, etiquetas em pílula de tom suave, cores só no que pede atenção e títulos de tela com as ações na mesma linha.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Lista de restaurantes em colunas (plano, situação e pedidos do mês), com as iniciais de cada cliente. No restaurante, "Abrir sistema" e "Suspender" ficam à mão e o resto vai para o botão de mais ações.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Sem emojis e enfeites no sistema: saíram os emojis de textos e avisos, os ícones de brilho, foguete e confete, e o degradê com pontinhos da tela de entrada, que agora é lisa.',
+      },
+    ],
+  },
+  {
     version: '0.53.0',
     date: '2026-10-29',
     title: 'Assinatura com pagamento por Pix, boleto e cartão',

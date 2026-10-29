@@ -19,11 +19,12 @@ import { api } from '../lib/api';
 import { AuditTable, useLoad } from './OverviewPages';
 import { ConsumptionPanel, OperationPanel } from './TenantInsights';
 import { TenantBillingPanel } from './TenantBilling';
+import { TenantOverview } from './TenantOverview';
 import { DatabasePanel, DatabaseProgress, dbBusy } from './TenantDatabase';
 import { NewTenantModal, ProfilePanel, TIMEZONES } from './NewTenant';
 import { ContractsPanel } from './TenantContracts';
 import type { Plan, SupportLink, TeamMember, TenantDetail, TenantRow } from './types';
-import { ago, Dot, Level, Section, Tabs, Tag, Tile } from './ui';
+import { ago, Dot, Level, Monogram, MoreMenu, PageHead, Tabs, Tag } from './ui';
 
 export const TENANT_STATUS: Record<string, [string, Level]> = {
   provisioned: ['ativo', 'ok'],
@@ -119,90 +120,132 @@ export function TenantsPage() {
   const q = new URLSearchParams({ ...(search ? { search } : {}), ...(status ? { status } : {}) });
   const { data, error } = useLoad<TenantRow[]>(`/platform/tenants?${q}`);
   const { open, busy, sheet } = useOpenTenant();
+  const navigate = useNavigate();
   return (
-    <Section
-      title="Restaurantes"
-      sub={data ? `${data.length}` : undefined}
-      actions={
-        <button className="adm-action adm-action--primary" onClick={() => setCreating(true)}>
-          <Plus size={14} /> Novo
-        </button>
-      }
-    >
-      <div className="adm-search">
-        <input
-          className="cm-input"
-          placeholder="buscar por nome ou endereço"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          aria-label="Buscar"
-        />
-        <Select
-          className="cm-input"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          aria-label="Situação"
-        >
-          <option value="">todas</option>
-          {Object.entries(TENANT_STATUS).map(([k, [l]]) => (
-            <option key={k} value={k}>
-              {l}
-            </option>
-          ))}
-        </Select>
-      </div>
-      {error && <Alert tone="danger">{error}</Alert>}
-      <div className="adm-panel">
-        {!data ? (
-          <div className="adm-panel__body">
-            <Spinner />
-          </div>
-        ) : data.length === 0 ? (
-          <div className="adm-empty">Nenhum restaurante encontrado</div>
-        ) : (
-          <div className="adm-rows">
-            {data.map((t) => (
-              <div key={t.id} className="adm-row">
-                <Dot level={TENANT_STATUS[t.status]?.[1] ?? 'off'} />
-                <Link
-                  to={`/restaurantes/${t.id}`}
-                  className="adm-row__main"
-                  style={{ color: 'inherit', textDecoration: 'none' }}
-                >
-                  <span className="adm-row__title">{t.name}</span>
-                  <span className="adm-row__meta">
-                    {t.slug}.{baseDomain()}
-                    {t.city ? ` · ${t.city}${t.state ? `/${t.state}` : ''}` : ''} ·{' '}
-                    {t.dbName ? 'banco próprio' : 'banco central'} · {t.planName ?? 'sem plano'}
-                    {t.subscriptionStatus && t.subscriptionStatus !== 'active'
-                      ? ` (${SUBSCRIPTION_LABELS[t.subscriptionStatus as keyof typeof SUBSCRIPTION_LABELS] ?? t.subscriptionStatus})`
-                      : ''}
-                  </span>
-                </Link>
-                <span className="adm-row__side">
-                  {t.ordersMonth} ped/mês
-                  <br />
-                  {t.lastOrderAt ? ago(t.lastOrderAt) : '—'}
-                </span>
-                {t.status === 'provisioned' && (
-                  <button
-                    className="adm-icon-btn"
-                    title="Abrir o sistema do restaurante"
-                    aria-label={`Abrir ${t.name}`}
-                    aria-busy={busy === t.id}
-                    onClick={() => open(t.id)}
-                  >
-                    <ExternalLink size={16} />
-                  </button>
-                )}
-              </div>
+    <>
+      <PageHead
+        page
+        title="Restaurantes"
+        sub={
+          data ? (
+            <span>{data.length === 1 ? '1 cliente' : `${data.length} clientes`}</span>
+          ) : undefined
+        }
+        actions={
+          <button className="adm-action adm-action--primary" onClick={() => setCreating(true)}>
+            <Plus size={15} /> Novo
+          </button>
+        }
+      />
+      <div className="adm-section">
+        <div className="adm-search">
+          <input
+            className="cm-input"
+            placeholder="Buscar por nome ou endereço"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Buscar"
+          />
+          <Select
+            className="cm-input"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            aria-label="Situação"
+          >
+            <option value="">Todas as situações</option>
+            {Object.entries(TENANT_STATUS).map(([k, [l]]) => (
+              <option key={k} value={k}>
+                {l}
+              </option>
             ))}
-          </div>
-        )}
+          </Select>
+        </div>
+        {error && <Alert tone="danger">{error}</Alert>}
+        <div className="adm-panel">
+          {!data ? (
+            <div className="adm-panel__body">
+              <Spinner />
+            </div>
+          ) : data.length === 0 ? (
+            <div className="adm-empty">Nenhum restaurante encontrado</div>
+          ) : (
+            <div>
+              <div className="adm-tlist__row adm-tlist__head" aria-hidden>
+                <span />
+                <span>Restaurante</span>
+                <span>Plano</span>
+                <span>Situação</span>
+                <span className="adm-tlist__cell--num">Pedidos no mês</span>
+                <span />
+              </div>
+              {data.map((t) => {
+                const subLabel =
+                  t.subscriptionStatus && t.subscriptionStatus !== 'active'
+                    ? (SUBSCRIPTION_LABELS[
+                        t.subscriptionStatus as keyof typeof SUBSCRIPTION_LABELS
+                      ] ?? t.subscriptionStatus)
+                    : null;
+                return (
+                  <div
+                    key={t.id}
+                    className="adm-tlist__row is-link"
+                    onClick={() => navigate(`/restaurantes/${t.id}`)}
+                  >
+                    <Monogram name={t.name} />
+                    <span className="adm-tlist__cell">
+                      <Link
+                        to={`/restaurantes/${t.id}`}
+                        className="adm-row__title"
+                        style={{ color: 'var(--a-text)', textDecoration: 'none' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {t.name}
+                      </Link>
+                      <span className="adm-row__meta">
+                        {t.slug}.{baseDomain()}
+                        {t.city ? ` · ${t.city}${t.state ? `/${t.state}` : ''}` : ''}
+                      </span>
+                    </span>
+                    <span className="adm-tlist__cell adm-tlist__plan">
+                      <span>{t.planName ?? 'Sem plano'}</span>
+                      {subLabel && <span className="adm-row__meta">{subLabel}</span>}
+                    </span>
+                    <span className="adm-tlist__cell adm-tlist__status">
+                      <StatusTag status={t.status} />
+                    </span>
+                    <span className="adm-tlist__cell adm-tlist__cell--num">
+                      <span style={{ color: 'var(--a-text)' }}>{t.ordersMonth}</span>
+                      <span className="adm-row__meta">
+                        {t.lastOrderAt ? ago(t.lastOrderAt) : 'sem pedidos'}
+                      </span>
+                    </span>
+                    <span className="adm-tlist__open">
+                      {t.status === 'provisioned' && (
+                        <button
+                          type="button"
+                          className="adm-icon-btn"
+                          title="Abrir o sistema do restaurante"
+                          aria-label={`Abrir ${t.name}`}
+                          aria-busy={busy === t.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void open(t.id);
+                          }}
+                        >
+                          <ExternalLink size={16} />
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
       {creating && <NewTenantModal onClose={() => setCreating(false)} />}
       {sheet}
-    </Section>
+    </>
   );
 }
 
@@ -211,6 +254,7 @@ const fromInputDate = (d: string) =>
   d ? new Date(`${d}T23:59:59-03:00`).toISOString() : undefined;
 
 type DetailTab =
+  | 'overview'
   | 'subscription'
   | 'profile'
   | 'contract'
@@ -255,7 +299,7 @@ export function TenantDetailPage() {
   // O e-mail "falta a sua assinatura" abre direto na aba Contrato (?aba=contrato&contrato=<id>).
   const [params] = useSearchParams();
   const [tab, setTab] = useState<DetailTab>(
-    params.get('aba') === 'contrato' ? 'contract' : 'subscription',
+    params.get('aba') === 'contrato' ? 'contract' : 'overview',
   );
   const [sheetKind, setSheetKind] = useState<
     'suspended' | 'provisioned' | 'rename' | 'sessions' | null
@@ -331,61 +375,76 @@ export function TenantDetailPage() {
 
   return (
     <>
-      <Link to="/restaurantes" className="adm-sub" style={{ display: 'inline-flex', gap: 6 }}>
-        <ArrowLeft size={14} /> restaurantes
+      <Link to="/restaurantes" className="adm-back">
+        <ArrowLeft size={14} /> Restaurantes
       </Link>
-      <Section title={t.name} sub={<StatusTag status={t.status} />}>
-        <div className="adm-sub">
-          {address} · criado {dateTime(t.createdAt)} ·{' '}
-          {TIMEZONES.find(([v]) => v === t.timezone)?.[1] ?? t.timezone} ·{' '}
-          {t.owners.map((o) => o.email).join(', ') || 'sem administrador'}
-        </div>
-        <div className="adm-actions">
-          {t.status === 'provisioned' && (
-            <button
-              className="adm-action adm-action--primary"
-              disabled={!!opening}
-              onClick={() => open(t.id)}
-            >
-              <ExternalLink size={14} /> {opening ? 'Abrindo…' : 'Abrir sistema'}
-            </button>
-          )}
-          <button
-            className="adm-action"
-            onClick={() =>
-              navigator.clipboard
-                ?.writeText(tenantUrl(t.slug))
-                .then(() => toast('Endereço copiado', 'success'))
-            }
-          >
-            <Copy size={14} /> Copiar endereço
-          </button>
-          <button
-            className="adm-action"
-            onClick={() => {
-              setNewName(t.name);
-              setSheetKind('rename');
-            }}
-          >
-            <Pencil size={14} /> Renomear
-          </button>
-          <button className="adm-action" onClick={() => setSheetKind('sessions')}>
-            <LogOut size={14} /> Encerrar sessões
-          </button>
-          {t.status === 'provisioned' && (
-            <button
-              className="adm-action adm-action--danger"
-              onClick={() => setSheetKind('suspended')}
-            >
-              <Pause size={14} /> Suspender
-            </button>
-          )}
-          {t.status === 'suspended' && (
-            <button className="adm-action" onClick={() => setSheetKind('provisioned')}>
-              <Play size={14} /> Reativar
-            </button>
-          )}
-        </div>
+      <div className="adm-section">
+        <PageHead
+          lead={<Monogram name={t.name} size={48} />}
+          title={
+            <>
+              {t.name} <StatusTag status={t.status} />
+            </>
+          }
+          sub={
+            <>
+              <span>{address}</span>
+              <span>{TIMEZONES.find(([v]) => v === t.timezone)?.[1] ?? t.timezone}</span>
+              <span>desde {new Date(t.createdAt).toLocaleDateString('pt-BR')}</span>
+            </>
+          }
+          actions={
+            <>
+              {t.status === 'provisioned' && (
+                <button
+                  className="adm-action adm-action--primary"
+                  disabled={!!opening}
+                  onClick={() => open(t.id)}
+                >
+                  <ExternalLink size={15} /> {opening ? 'Abrindo…' : 'Abrir sistema'}
+                </button>
+              )}
+              {t.status === 'provisioned' && (
+                <button
+                  className="adm-action adm-action--danger"
+                  onClick={() => setSheetKind('suspended')}
+                >
+                  <Pause size={15} /> Suspender
+                </button>
+              )}
+              {t.status === 'suspended' && (
+                <button className="adm-action" onClick={() => setSheetKind('provisioned')}>
+                  <Play size={15} /> Reativar
+                </button>
+              )}
+              <MoreMenu
+                items={[
+                  {
+                    label: 'Copiar endereço',
+                    icon: <Copy size={16} />,
+                    onClick: () =>
+                      void navigator.clipboard
+                        ?.writeText(tenantUrl(t.slug))
+                        .then(() => toast('Endereço copiado', 'success')),
+                  },
+                  {
+                    label: 'Renomear',
+                    icon: <Pencil size={16} />,
+                    onClick: () => {
+                      setNewName(t.name);
+                      setSheetKind('rename');
+                    },
+                  },
+                  {
+                    label: 'Encerrar sessões',
+                    icon: <LogOut size={16} />,
+                    onClick: () => setSheetKind('sessions'),
+                  },
+                ]}
+              />
+            </>
+          }
+        />
         <DatabaseProgress t={t} />
         {t.status === 'suspended' && (
           <Alert tone="warning">Suspenso: ninguém entra nem opera. Nenhum dado foi apagado.</Alert>
@@ -399,28 +458,14 @@ export function TenantDetailPage() {
               .join('; ')}
           </Alert>
         )}
-        <div className="adm-grid">
-          <Tile label="Equipe ativa" value={t.usage.users} />
-          <Tile label="Produtos" value={t.usage.products} />
-          <Tile
-            label="Pedidos no mês"
-            value={t.usage.ordersMonth}
-            sub={t.usage.lastOrderAt ? `último ${ago(t.usage.lastOrderAt)}` : 'nenhum pedido'}
-          />
-          <Tile
-            label="Falhas em 7 dias"
-            value={t.usage.fiscalErrors + t.usage.messageFailures}
-            level={t.usage.fiscalErrors + t.usage.messageFailures ? 'warn' : undefined}
-            sub={`${t.usage.fiscalErrors} NFC-e · ${t.usage.messageFailures} WhatsApp`}
-          />
-        </div>
-      </Section>
+      </div>
 
       <div className="adm-section">
         <Tabs
           value={tab}
           onChange={setTab}
           items={[
+            ['overview', 'Visão geral'],
             ['subscription', 'Assinatura'],
             ['profile', 'Cadastro'],
             ['contract', 'Contrato'],
@@ -432,6 +477,8 @@ export function TenantDetailPage() {
             ['history', 'Histórico'],
           ]}
         />
+
+        {tab === 'overview' && <TenantOverview t={t} team={team.data} plans={plans} go={setTab} />}
 
         {tab === 'subscription' && (
           <div className="adm-panel adm-panel__body">

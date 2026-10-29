@@ -1,4 +1,5 @@
-import { ReactNode, useEffect, useRef } from 'react';
+import { MoreHorizontal } from 'lucide-react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useGlider } from '../design-system';
 
 /** Peças visuais do painel Super Admin (ver admin.css). */
@@ -69,14 +70,11 @@ export function levelFor(percent: number | null | undefined, warn = 70, bad = 90
   return percent >= bad ? 'bad' : percent >= warn ? 'warn' : 'ok';
 }
 
-export function Meter({ percent, segments = 20 }: { percent: number; segments?: number }) {
-  const on = Math.round((Math.min(Math.max(percent, 0), 100) / 100) * segments);
-  const level = levelFor(percent);
+export function Meter({ percent }: { percent: number }) {
+  const width = Math.min(Math.max(percent, 0), 100);
   return (
-    <span className="adm-meter" data-level={level} aria-hidden>
-      {Array.from({ length: segments }, (_, i) => (
-        <i key={i} className={i < on ? 'on' : ''} />
-      ))}
+    <span className="adm-meter" data-level={levelFor(percent)} aria-hidden>
+      <i style={{ width: `${width}%` }} />
     </span>
   );
 }
@@ -210,4 +208,130 @@ export function ago(iso: string | null | undefined) {
   if (s < 3600) return `há ${Math.floor(s / 60)} min`;
   if (s < 86400) return `há ${Math.floor(s / 3600)} h`;
   return `há ${Math.floor(s / 86400)} d`;
+}
+
+/** Iniciais do nome num quadrado neutro (lista e cabeçalho do restaurante). */
+export function Monogram({ name, size = 36 }: { name: string; size?: number }) {
+  const letters =
+    name
+      .replace(/[^\p{L}\p{N} ]/gu, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 2 || /^\p{N}/u.test(w))
+      .slice(0, 2)
+      .map((w) => w[0]!.toUpperCase())
+      .join('') || name.slice(0, 1).toUpperCase();
+  return (
+    <span
+      className="adm-mono"
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.36) }}
+      aria-hidden
+    >
+      {letters}
+    </span>
+  );
+}
+
+/** Cabeçalho de tela: título grande, linha de apoio e ações à direita (numa linha só). */
+export function PageHead({
+  title,
+  sub,
+  lead,
+  actions,
+  page,
+}: {
+  title: ReactNode;
+  sub?: ReactNode;
+  lead?: ReactNode;
+  actions?: ReactNode;
+  /** Tela do menu (cabeçalho mais enxuto no celular). */
+  page?: boolean;
+}) {
+  return (
+    <header className={`adm-head${page ? ' adm-head--page' : ''}`}>
+      {lead}
+      <div className="adm-head__text">
+        <h1 className="adm-head__title">{title}</h1>
+        {sub && <div className="adm-head__sub">{sub}</div>}
+      </div>
+      {actions && <div className="adm-head__actions">{actions}</div>}
+    </header>
+  );
+}
+
+/** Botão "…" com ações menos usadas; fecha ao clicar fora ou com Esc. */
+export function MoreMenu({
+  items,
+  label = 'Mais ações',
+}: {
+  items: {
+    label: string;
+    icon?: ReactNode;
+    onClick: () => void;
+    danger?: boolean;
+    hidden?: boolean;
+  }[];
+  label?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', away);
+    document.addEventListener('keydown', esc, true);
+    return () => {
+      document.removeEventListener('pointerdown', away);
+      document.removeEventListener('keydown', esc, true);
+    };
+  }, [open]);
+  return (
+    <div className="adm-more" ref={box}>
+      <button
+        type="button"
+        className="adm-action adm-action--icon"
+        aria-label={label}
+        title={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <MoreHorizontal size={16} />
+      </button>
+      {open && (
+        <div className="adm-more__menu" role="menu">
+          {items
+            .filter((i) => !i.hidden)
+            .map((i) => (
+              <button
+                key={i.label}
+                type="button"
+                role="menuitem"
+                className={i.danger ? 'is-danger' : undefined}
+                onClick={() => {
+                  setOpen(false);
+                  i.onClick();
+                }}
+              >
+                {i.icon}
+                {i.label}
+              </button>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Dias inteiros até a data (negativo = já passou). */
+export function daysUntil(iso: string | null | undefined) {
+  if (!iso) return null;
+  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000);
 }

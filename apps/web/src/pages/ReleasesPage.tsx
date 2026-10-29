@@ -1,5 +1,5 @@
 import { RELEASES, type ReleaseTag } from '@comandou/shared';
-import { Sparkles } from 'lucide-react';
+import {} from 'lucide-react';
 import { useEffect } from 'react';
 import { Badge, Card } from '../design-system';
 import { markReleasesSeen } from '../lib/releases';
@@ -35,7 +35,7 @@ export function ReleasesPage() {
             <Card
               title={
                 <span className="release__title">
-                  <Sparkles size={18} aria-hidden /> v{r.version} · {r.title}
+                  v{r.version} · {r.title}
                 </span>
               }
               actions={

@@ -1258,7 +1258,7 @@ function IdleCard({ data }: { data: InsightsData }) {
   return (
     <Card title="Produtos parados">
       {data.idle.length === 0 ? (
-        <p className="cm-hint">Todo produto ativo vendeu pelo menos uma vez. 👏</p>
+        <p className="cm-hint">Todo produto ativo vendeu pelo menos uma vez.</p>
       ) : (
         <>
           <p className="rp-lead">

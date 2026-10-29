@@ -11,7 +11,7 @@ import {
   interstateCfop,
   type CodeList,
 } from '@comandou/shared';
-import { Plus, Sparkles, Trash2 } from 'lucide-react';
+import { ListPlus, Plus, Trash2 } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { useCan } from '../../app/auth';
@@ -193,7 +193,7 @@ export function RulesSection() {
             <>
               <Button
                 variant="ghost"
-                icon={<Sparkles size={16} />}
+                icon={<ListPlus size={16} />}
                 loading={busy}
                 onClick={suggested}
               >
@@ -224,7 +224,7 @@ export function RulesSection() {
           <Card bodyless>
             {rules.length === 0 ? (
               <EmptyState
-                icon={<Sparkles size={20} />}
+                icon={<ListPlus size={20} />}
                 title="Nenhum padrão fiscal ainda"
                 description={
                   'Comece pelos padrões sugeridos para o seu regime (comida, bebida com ST, revenda) e ajuste com a contabilidade. ' +

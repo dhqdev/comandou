@@ -9,7 +9,6 @@ import {
   Plus,
   RotateCw,
   Smartphone,
-  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -559,9 +558,9 @@ function HighlightsTab({
   return (
     <Card title="Destaques e selos">
       <p className="cm-hint" style={{ margin: '0 0 14px' }}>
-        <Sparkles size={14} style={{ verticalAlign: -2 }} /> Pratos em destaque aparecem numa faixa
-        no topo do cardápio ({featured} agora). O selo é uma etiqueta curta no cartão, como “Novo”
-        ou “Picante”. Fotos e preços continuam em <strong>Cardápio</strong>.
+        Pratos em destaque aparecem numa faixa no topo do cardápio ({featured} agora). O selo é uma
+        etiqueta curta no cartão, como “Novo” ou “Picante”. Fotos e preços continuam em{' '}
+        <strong>Cardápio</strong>.
       </p>
       <datalist id="os-badges">
         {BADGES.map((b) => (

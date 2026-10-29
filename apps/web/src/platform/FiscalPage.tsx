@@ -2,9 +2,9 @@ import { Alert, Spinner } from '../design-system';
 import { dateTime } from '../features/format';
 import { useNavigate } from 'react-router';
 import { useLoad } from './OverviewPages';
-import { ago, Dot, Level, Section, Tag, Tile } from './ui';
+import { ago, Dot, Level, PageHead, Section, Tag, Tile } from './ui';
 
-interface FiscalRow {
+export interface FiscalRow {
   id: string;
   name: string;
   slug: string;
@@ -25,7 +25,7 @@ interface FiscalRow {
     lastAuthorizedAt: string | null;
   } | null;
 }
-interface FiscalOverview {
+export interface FiscalOverview {
   server: {
     masterToken: boolean;
     integrationsKey: boolean;
@@ -59,6 +59,11 @@ export function FiscalPage() {
   });
   return (
     <>
+      <PageHead
+        page
+        title="Nota fiscal"
+        sub={<span>Quem emite, em que ambiente, certificados e recusas</span>}
+      />
       <Section title="Servidor" sub="Configuração da emissão neste servidor">
         <div className="adm-grid">
           <Tile
@@ -104,7 +109,7 @@ export function FiscalPage() {
         </Alert>
       )}
       <Section title="Restaurantes">
-        <div className="adm-rows">
+        <div className="adm-panel adm-rows">
           {rows.map((t) => {
             const f = t.fiscal;
             const meta = f?.enabled

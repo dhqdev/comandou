@@ -7,7 +7,7 @@ import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
 import type { BackupFolders, BackupRun, BackupSettings, BackupTestResult, DbJob } from './types';
 import { Link } from 'react-router';
-import { ago, bytes, Dot, Level, Section } from './ui';
+import { ago, bytes, Dot, Level, PageHead, Section } from './ui';
 
 const WEEKDAYS = ['Nunca', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
 const TRIGGER: Record<string, string> = {
@@ -78,6 +78,17 @@ export function BackupsPage() {
   if (!s) return <Spinner />;
   return (
     <>
+      <PageHead
+        page
+        title="Backups"
+        sub={
+          <span>
+            {s.destination === 'local'
+              ? 'Cada banco na sua pasta, cifrado, no próprio servidor'
+              : 'Cada banco na sua pasta, cifrado, no Backblaze B2'}
+          </span>
+        }
+      />
       <StatusSection s={s} runs={runs.data} onChange={() => (settings.reload(), runs.reload())} />
       <FoldersSection local={s.destination === 'local'} />
       <SettingsSection s={s} onSaved={(n) => settings.setData(n)} />
@@ -124,14 +135,7 @@ function StatusSection({
       ? free / s.local.totalBytes < 0.1
       : false;
   return (
-    <Section
-      title="Backups"
-      sub={
-        dest === 'local'
-          ? 'cada banco na sua pasta, cifrado, no próprio servidor'
-          : 'cada banco na sua pasta, cifrado, no Backblaze B2'
-      }
-    >
+    <Section title="Situação">
       {dest === 'local' && (
         <Alert tone={lowDisk ? 'danger' : 'warning'}>
           <span>
@@ -364,7 +368,7 @@ function SettingsSection({ s, onSaved }: { s: BackupSettings; onSaved(n: BackupS
                 <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
                   {test.steps.map((st) => (
                     <li key={st.step}>
-                      {st.ok ? '✓' : '✗'} {st.step}
+                      {st.ok ? 'ok' : 'falhou'}: {st.step}
                       {st.detail ? `: ${st.detail}` : ''}
                     </li>
                   ))}

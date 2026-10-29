@@ -10,7 +10,8 @@ import type {
   PendingContract,
   ServerStatus,
 } from './types';
-import { ago, bytes, Dot, Level, levelFor, Section, Tile } from './ui';
+import { ChevronRight } from 'lucide-react';
+import { ago, bytes, Dot, Level, levelFor, PageHead, Section, Tile } from './ui';
 import { useNavigate } from 'react-router';
 
 export { bytes };
@@ -111,43 +112,89 @@ export function OverviewPage() {
       to: '/restaurantes',
     });
 
+  const health: { label: string; level: Level; value: string; to?: string; sub?: string }[] = [
+    ...(
+      [
+        ['Banco de dados', data.health.database],
+        ['Redis (filas e tempo real)', data.health.redis],
+        ['WhatsApp', data.health.whatsappGateway],
+      ] as const
+    ).map(([label, st]) => ({ label, level: HEALTH[st][1], value: HEALTH[st][0] })),
+    {
+      label: 'Fila de tarefas',
+      level: data.queue ? ('ok' as Level) : ('off' as Level),
+      value: data.queue
+        ? `${(data.queue.waiting ?? 0) + (data.queue.active ?? 0)} na fila`
+        : 'sem Redis',
+      sub: data.queue
+        ? Object.entries(data.queue)
+            .filter(([, v]) => v)
+            .map(([k, v]) => `${k} ${v}`)
+            .join(' · ') || undefined
+        : undefined,
+    },
+    {
+      label: 'Último backup',
+      level: b,
+      value: ago(data.backups.backup.lastOkAt),
+      sub: data.backups.backup.lastOkAt ? dateTime(data.backups.backup.lastOkAt) : undefined,
+      to: '/backups',
+    },
+    {
+      label: 'Teste de restauração',
+      level: r,
+      value: ago(data.backups.restoreTest.lastOkAt),
+      sub: data.backups.restoreTest.lastOkAt
+        ? dateTime(data.backups.restoreTest.lastOkAt)
+        : undefined,
+      to: '/backups',
+    },
+  ];
+
   return (
     <>
-      <Section title="Resumo" sub={`v${data.version}`}>
-        <div className="adm-grid">
-          <Tile
-            label="Restaurantes ativos"
-            value={data.tenants.provisioned ?? 0}
-            sub={`${data.tenants.suspended ?? 0} suspenso(s)`}
-            onClick={() => navigate('/restaurantes')}
-          />
-          <Tile
-            label="Assinaturas"
-            value={
-              <>
-                {data.subscriptions.active ?? 0}
-                <small> ativas</small>
-              </>
-            }
-            sub={`${data.subscriptions.trialing ?? 0} em teste · ${data.subscriptions.past_due ?? 0} pendente(s)`}
-            level={data.subscriptions.past_due ? 'warn' : undefined}
-          />
-          <Tile
-            label="Alertas"
-            value={alerts.length}
-            level={alerts.length ? 'warn' : 'ok'}
-            sub={alerts[0]?.text ?? 'tudo certo'}
-          />
-          <Tile
-            label="Falhas em 7 dias"
-            value={data.last7Days.fiscalErrors + data.last7Days.messageFailures}
-            sub={`${data.last7Days.fiscalErrors} NFC-e · ${data.last7Days.messageFailures} WhatsApp`}
-            level={
-              data.last7Days.fiscalErrors + data.last7Days.messageFailures ? 'warn' : undefined
-            }
-          />
-        </div>
-      </Section>
+      <PageHead
+        page
+        title="Status"
+        sub={
+          <>
+            <span>Comandou v{data.version}</span>
+            <span>
+              {alerts.length === 0
+                ? 'tudo certo'
+                : alerts.length === 1
+                  ? '1 alerta'
+                  : `${alerts.length} alertas`}
+            </span>
+          </>
+        }
+      />
+      <div className="adm-grid">
+        <Tile
+          label="Restaurantes ativos"
+          value={data.tenants.provisioned ?? 0}
+          sub={`${data.tenants.suspended ?? 0} suspenso(s)`}
+          onClick={() => navigate('/restaurantes')}
+        />
+        <Tile
+          label="Assinaturas ativas"
+          value={data.subscriptions.active ?? 0}
+          sub={`${data.subscriptions.trialing ?? 0} em teste · ${data.subscriptions.past_due ?? 0} pendente(s)`}
+          level={data.subscriptions.past_due ? 'warn' : undefined}
+        />
+        <Tile
+          label="Alertas"
+          value={alerts.length}
+          level={alerts.length ? 'warn' : undefined}
+          sub={alerts.length ? 'veja abaixo' : 'tudo certo'}
+        />
+        <Tile
+          label="Falhas em 7 dias"
+          value={data.last7Days.fiscalErrors + data.last7Days.messageFailures}
+          sub={`${data.last7Days.fiscalErrors} NFC-e · ${data.last7Days.messageFailures} WhatsApp`}
+          level={data.last7Days.fiscalErrors + data.last7Days.messageFailures ? 'warn' : undefined}
+        />
+      </div>
 
       {alerts.length > 0 && (
         <Section title="Alertas">
@@ -158,7 +205,7 @@ export function OverviewPage() {
                   <button key={i} className="adm-row" onClick={() => navigate(a.to!)}>
                     <Dot level={a.level} />
                     <span className="adm-row__main">{a.text}</span>
-                    <span className="adm-row__side">ver ›</span>
+                    <ChevronRight size={16} className="adm-row__go" />
                   </button>
                 ) : (
                   <div key={i} className="adm-row">
@@ -172,105 +219,101 @@ export function OverviewPage() {
         </Section>
       )}
 
-      <Section title="Servidor" sub={s ? s.host.hostname : undefined}>
-        {!server.data ? (
-          <Spinner />
-        ) : !s ? (
-          <div className="adm-panel adm-empty">
-            Agente do servidor não instalado. Veja “Servidor” para ativar.
-          </div>
-        ) : (
-          <div className="adm-grid">
-            <Tile
-              label="CPU"
-              value={s.host.cpu.percent === null ? '—' : `${s.host.cpu.percent.toFixed(1)}%`}
-              level={levelFor(s.host.cpu.percent)}
-              sub={`${s.host.cores} núcleos · carga ${s.host.load[0].toFixed(2)}`}
-              meter={s.host.cpu.percent}
+      <div className="adm-two">
+        <Section title="Servidor" sub={s ? s.host.hostname : undefined}>
+          {!server.data ? (
+            <Spinner />
+          ) : !s ? (
+            <button
+              type="button"
+              className="adm-panel adm-empty"
+              style={{ cursor: 'pointer', font: 'inherit' }}
               onClick={() => navigate('/servidor')}
-            />
-            <Tile
-              label="Memória"
-              value={`${memPct!.toFixed(1)}%`}
-              level={levelFor(memPct)}
-              sub={`${bytes(s.host.memory.used)} de ${bytes(s.host.memory.total)}`}
-              meter={memPct}
-              onClick={() => navigate('/servidor')}
-            />
-            <Tile
-              label="Disco /"
-              value={diskPct === null ? '—' : `${diskPct.toFixed(1)}%`}
-              level={levelFor(diskPct, 80, 90)}
-              sub={disk ? `${bytes(disk.free)} livres` : ''}
-              meter={diskPct}
-              onClick={() => navigate('/servidor')}
-            />
-            <Tile
-              label="Containers"
-              value={
-                docker ? (
-                  <>
-                    {docker.containers.running}
-                    <small>/{docker.containers.total}</small>
-                  </>
-                ) : (
-                  '—'
-                )
-              }
-              level={badServices.length ? 'bad' : docker ? 'ok' : 'off'}
-              sub={
-                docker
-                  ? `${docker.services.length} serviços · ${badServices.length} com problema`
-                  : 'Docker indisponível'
-              }
-              onClick={() => navigate('/servidor')}
-            />
-          </div>
-        )}
-      </Section>
+            >
+              Agente do servidor não instalado. Veja “Servidor” para ativar.
+            </button>
+          ) : (
+            <div className="adm-grid adm-grid--2">
+              <Tile
+                label="CPU"
+                value={s.host.cpu.percent === null ? '—' : `${s.host.cpu.percent.toFixed(1)}%`}
+                level={levelFor(s.host.cpu.percent)}
+                sub={`${s.host.cores} núcleos · carga ${s.host.load[0].toFixed(2)}`}
+                meter={s.host.cpu.percent}
+                onClick={() => navigate('/servidor')}
+              />
+              <Tile
+                label="Memória"
+                value={`${memPct!.toFixed(1)}%`}
+                level={levelFor(memPct)}
+                sub={`${bytes(s.host.memory.used)} de ${bytes(s.host.memory.total)}`}
+                meter={memPct}
+                onClick={() => navigate('/servidor')}
+              />
+              <Tile
+                label="Disco /"
+                value={diskPct === null ? '—' : `${diskPct.toFixed(1)}%`}
+                level={levelFor(diskPct, 80, 90)}
+                sub={disk ? `${bytes(disk.free)} livres` : ''}
+                meter={diskPct}
+                onClick={() => navigate('/servidor')}
+              />
+              <Tile
+                label="Containers"
+                value={
+                  docker ? (
+                    <>
+                      {docker.containers.running}
+                      <small>/{docker.containers.total}</small>
+                    </>
+                  ) : (
+                    '—'
+                  )
+                }
+                level={badServices.length ? 'bad' : undefined}
+                sub={
+                  docker
+                    ? `${docker.services.length} serviços · ${badServices.length} com problema`
+                    : 'Docker indisponível'
+                }
+                onClick={() => navigate('/servidor')}
+              />
+            </div>
+          )}
+        </Section>
 
-      <Section title="Saúde">
-        <div className="adm-grid">
-          {(
-            [
-              ['Banco de dados', data.health.database],
-              ['Redis', data.health.redis],
-              ['WhatsApp', data.health.whatsappGateway],
-            ] as const
-          ).map(([label, st]) => (
-            <Tile key={label} label={label} value={HEALTH[st][0]} level={HEALTH[st][1]} />
-          ))}
-          <Tile
-            label="Fila"
-            value={data.queue ? (data.queue.waiting ?? 0) + (data.queue.active ?? 0) : '—'}
-            sub={
-              data.queue
-                ? Object.entries(data.queue)
-                    .map(([k, v]) => `${k} ${v}`)
-                    .join(' · ')
-                : 'sem Redis'
-            }
-          />
-          <Tile
-            label="Último backup"
-            value={ago(data.backups.backup.lastOkAt)}
-            level={b}
-            sub={data.backups.backup.lastOkAt ? dateTime(data.backups.backup.lastOkAt) : 'nenhum'}
-            onClick={() => navigate('/backups')}
-          />
-          <Tile
-            label="Teste de restauração"
-            value={ago(data.backups.restoreTest.lastOkAt)}
-            level={r}
-            sub={
-              data.backups.restoreTest.lastOkAt
-                ? dateTime(data.backups.restoreTest.lastOkAt)
-                : 'nenhum'
-            }
-            onClick={() => navigate('/backups')}
-          />
-        </div>
-      </Section>
+        <Section title="Saúde">
+          <div className="adm-panel">
+            <div className="adm-rows">
+              {health.map((h) => {
+                const body = (
+                  <>
+                    <Dot level={h.level} />
+                    <span className="adm-row__main">
+                      <span>{h.label}</span>
+                      {h.sub && <span className="adm-row__meta">{h.sub}</span>}
+                    </span>
+                    <span
+                      className={`adm-row__side ${h.level === 'bad' || h.level === 'warn' ? `adm-text--${h.level}` : ''}`}
+                    >
+                      {h.value}
+                    </span>
+                  </>
+                );
+                return h.to ? (
+                  <button key={h.label} className="adm-row" onClick={() => navigate(h.to!)}>
+                    {body}
+                  </button>
+                ) : (
+                  <div key={h.label} className="adm-row">
+                    {body}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </Section>
+      </div>
     </>
   );
 }
@@ -339,9 +382,14 @@ export function AuditTable({ rows }: { rows: AuditRow[] }) {
 export function AuditPage() {
   const { data, error } = useLoad<AuditRow[]>('/platform/audit?limit=300');
   return (
-    <Section title="Auditoria" sub="toda ação no painel">
+    <>
+      <PageHead
+        page
+        title="Auditoria"
+        sub={<span>Toda ação feita no painel fica registrada aqui.</span>}
+      />
       {error && <Alert tone="danger">{error}</Alert>}
       <div className="adm-panel">{!data ? <Spinner /> : <AuditTable rows={data} />}</div>
-    </Section>
+    </>
   );
 }

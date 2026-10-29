@@ -1,4 +1,4 @@
-import { CalendarCheck, CalendarDays, ChevronRight, Clock, PartyPopper, Users } from 'lucide-react';
+import { CalendarCheck, CalendarDays, ChevronRight, Clock, UserRound, Users } from 'lucide-react';
 import { CSSProperties, FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Mascot, useToast } from '../../design-system';
@@ -380,7 +380,7 @@ export function ReserveScreen() {
       {step2 && (
         <form className="rsv-sec rsv-form" onSubmit={submit} id="rsv-form">
           <h2>
-            <PartyPopper size={18} aria-hidden /> Seus dados
+            <UserRound size={18} aria-hidden /> Seus dados
           </h2>
           <Field label="Seu nome">
             <input

@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Flame,
   Heart,
   Info,
   MapPin,
@@ -13,8 +12,9 @@ import {
   Search,
   ShoppingBag,
   SlidersHorizontal,
-  Sparkles,
+  Star,
   Store,
+  TrendingUp,
   UserRound,
   Wallet,
   X,
@@ -213,7 +213,7 @@ interface WheelItem {
   id: string;
   name: string;
   imageUrl: string | null;
-  icon?: typeof Sparkles;
+  icon?: typeof Star;
   products: PublicProduct[];
 }
 
@@ -592,7 +592,7 @@ export function HomeScreen() {
               id: '__featured',
               name: menu.appearance.featuredTitle || 'Destaques',
               imageUrl: null,
-              icon: Sparkles,
+              icon: Star,
               products: featured,
             },
           ]
@@ -603,7 +603,7 @@ export function HomeScreen() {
               id: '__popular',
               name: 'Mais pedidos',
               imageUrl: null,
-              icon: Flame,
+              icon: TrendingUp,
               products: popular,
             },
           ]

@@ -15,6 +15,7 @@ import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useLoad } from './OverviewPages';
 import type { Plan } from './types';
+import { PageHead } from './ui';
 
 const limitText = (v: number | null) => (v === null ? 'sem limite' : String(v));
 
@@ -23,18 +24,21 @@ export function PlansPage() {
   const [editing, setEditing] = useState<Plan | 'new' | null>(null);
   return (
     <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Planos</h1>
-          <p className="page-sub">
-            Preço, limites e recursos. Trocar o plano de um restaurante nunca apaga dados: os
-            limites só impedem criar mais.
-          </p>
-        </div>
-        <Button icon={<Plus size={16} />} onClick={() => setEditing('new')}>
-          Novo plano
-        </Button>
-      </div>
+      <PageHead
+        page
+        title="Planos"
+        sub={
+          <span>
+            Preço, limites e recursos. Trocar o plano nunca apaga dados: os limites só impedem criar
+            mais.
+          </span>
+        }
+        actions={
+          <button className="adm-action adm-action--primary" onClick={() => setEditing('new')}>
+            <Plus size={15} /> Novo plano
+          </button>
+        }
+      />
       {error && <Alert tone="danger">{error}</Alert>}
       <Card bodyless>
         {!data ? (

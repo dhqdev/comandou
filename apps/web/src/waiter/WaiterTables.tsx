@@ -1,4 +1,4 @@
-import { Bike, Plus, Receipt, Rocket, ScanLine, Search, ShoppingBag } from 'lucide-react';
+import { Bike, Plus, Receipt, ScanLine, Search, ShoppingBag } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Alert, Button, EmptyState, Modal, Spinner, TextField, useToast } from '../design-system';
@@ -246,7 +246,7 @@ export function WaiterTables() {
           variant="secondary"
           size="lg"
           block
-          icon={<Rocket size={18} />}
+          icon={<ShoppingBag size={18} />}
           onClick={() => setQuick(true)}
         >
           Delivery / Para levar

@@ -345,7 +345,7 @@ export function ConversationView({
             </button>
           )}
           {!loading && msgs.length === 0 && (
-            <div className="tc-msgs__empty">Nenhuma mensagem ainda. Diga um oi! 👋</div>
+            <div className="tc-msgs__empty">Nenhuma mensagem ainda.</div>
           )}
           {msgs.map((m) => {
             const day = dayKey(m.createdAt);
@@ -701,7 +701,7 @@ function Composer({
           {editing ? <Pencil size={14} /> : <CornerUpLeft size={14} />}
           <span>
             <b>{editing ? 'Editando mensagem' : `Respondendo ${reply!.authorName ?? ''}`}</b>
-            <small>{(editing ?? reply)!.body || '📷 Foto'}</small>
+            <small>{(editing ?? reply)!.body || 'Foto'}</small>
           </span>
           <button
             className="tc-icon"

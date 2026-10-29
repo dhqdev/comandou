@@ -268,7 +268,7 @@ function CalendarView({
               hint={
                 sum.growth === null
                   ? `${sum.orders} pedidos`
-                  : `${sum.growth >= 0 ? '▲' : '▼'} ${Math.abs(sum.growth).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% vs. mês anterior`
+                  : `${sum.growth >= 0 ? '+' : '−'}${Math.abs(sum.growth).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}% vs. mês anterior`
               }
               tone={sum.growth === null ? undefined : sum.growth >= 0 ? 'up' : 'down'}
               main

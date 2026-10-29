@@ -272,7 +272,7 @@ export function KitchenPage() {
                               {i.options.length > 0 && (
                                 <span className="kds-item__opts">{i.options.join(' · ')}</span>
                               )}
-                              {i.notes && <span className="kds-item__note">⚠ {i.notes}</span>}
+                              {i.notes && <span className="kds-item__note">Obs.: {i.notes}</span>}
                             </span>
                             <span className="kds-item__icon">
                               {i.status === 'pending' ? (

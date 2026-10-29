@@ -15,6 +15,7 @@ import {
   Section,
   Sparkline,
   Tabs,
+  PageHead,
   Tag,
   Tile,
   useInterval,
@@ -66,7 +67,8 @@ export function ServerPage() {
   if (!data.enabled)
     return (
       <>
-        <Section title="Servidor">
+        <PageHead page title="Servidor" sub={<span>Agente não instalado</span>} />
+        <Section title="Como ativar">
           <div className="adm-panel adm-panel__body">
             <p style={{ marginTop: 0 }}>
               O agente do servidor ainda não está instalado. Ele é um serviço pequeno da própria
@@ -102,7 +104,17 @@ export function ServerPage() {
 
   return (
     <>
-      <Section title="Servidor" sub={`${h.hostname} · ligado há ${duration(h.uptimeSec)}`}>
+      <PageHead
+        page
+        title="Servidor"
+        sub={
+          <>
+            <span>{h.hostname}</span>
+            <span>ligado há {duration(h.uptimeSec)}</span>
+          </>
+        }
+      />
+      <Section title="Agora">
         <div className="adm-grid">
           <Tile
             label="CPU"

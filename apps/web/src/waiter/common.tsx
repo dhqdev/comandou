@@ -1,5 +1,5 @@
 import { type WaiterDay, type WaiterSeal } from '@comandou/shared';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ArrowLeft, Star } from 'lucide-react';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -123,7 +123,7 @@ export function Seal({
       />
       {seal.orders === 0 ? (
         <g transform="translate(30 35)" style={{ color: '#fff' }}>
-          <Sparkles width={40} height={40} strokeWidth={2.2} />
+          <Star width={40} height={40} strokeWidth={2.2} />
         </g>
       ) : (
         <text
