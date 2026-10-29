@@ -234,7 +234,8 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
 
   // Relatórios
   await nav(page, 'Relatórios');
-  await expect(page.locator('.rp-kpi[data-main]', { hasText: 'Faturamento' })).toBeVisible();
+  await page.locator('.rd-card', { hasText: 'Resultado' }).first().click();
+  await expect(page.locator('.rp-kpi[data-main]').first()).toBeVisible();
   await shot(page, info.project.name, 'relatorios');
 });
 
