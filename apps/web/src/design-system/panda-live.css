@@ -1,0 +1,198 @@
+/* =============================================================== Panda com vida (LivePanda)
+ * Tudo gira e amassa a partir do "queixo" (32, 54). Os olhos são movidos pelo JS (inline).
+ */
+.lp {
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  shape-rendering: geometricPrecision;
+}
+.lp--still {
+  cursor: default;
+}
+.lp :is(.lp-lean, .lp-act, .lp-life, .lp-squish) {
+  transform-box: view-box;
+  transform-origin: 32px 54px;
+}
+.lp .lp-lean {
+  transition: transform 0.5s cubic-bezier(0.3, 0.7, 0.3, 1);
+}
+.lp :is(.lp-pupil, .lp-look) {
+  transition: transform 0.14s cubic-bezier(0.3, 0.7, 0.3, 1);
+}
+.lp .lp-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.07s ease-in;
+}
+.lp .lp-blinking .lp-eye {
+  transform: scaleY(0.1);
+}
+/* respira devagar */
+.lp .lp-breathe {
+  animation: lp-breathe 3.6s ease-in-out infinite;
+}
+@keyframes lp-breathe {
+  0%,
+  100% {
+    transform: scale(1, 1);
+  }
+  50% {
+    transform: scale(0.99, 1.025);
+  }
+}
+/* toque: amassa e volta */
+.lp .lp-squish-0 {
+  animation: lp-poke 0.55s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+.lp .lp-squish-1 {
+  animation: lp-poke2 0.55s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+@keyframes lp-poke {
+  18% {
+    transform: scale(1.1, 0.86);
+  }
+  45% {
+    transform: scale(0.96, 1.05);
+  }
+  70% {
+    transform: scale(1.02, 0.98);
+  }
+}
+@keyframes lp-poke2 {
+  18% {
+    transform: scale(1.1, 0.86);
+  }
+  45% {
+    transform: scale(0.96, 1.05);
+  }
+  70% {
+    transform: scale(1.02, 0.98);
+  }
+}
+/* orelhas mexem quando ele reage */
+.lp .lp-ear {
+  transform-box: fill-box;
+  transform-origin: 50% 90%;
+}
+.lp[data-mood='joy'] .lp-ear-l,
+.lp[data-mood='wow'] .lp-ear-l {
+  animation: lp-ear-l 0.5s ease-out;
+}
+.lp[data-mood='joy'] .lp-ear-r,
+.lp[data-mood='wow'] .lp-ear-r {
+  animation: lp-ear-r 0.5s ease-out;
+}
+@keyframes lp-ear-l {
+  40% {
+    transform: rotate(-14deg);
+  }
+}
+@keyframes lp-ear-r {
+  40% {
+    transform: rotate(14deg);
+  }
+}
+/* falando: a boca abre e fecha */
+.lp .lp-talk {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lp-talk 0.32s ease-in-out infinite alternate;
+}
+@keyframes lp-talk {
+  from {
+    transform: scale(1, 0.35);
+  }
+  to {
+    transform: scale(0.9, 1.15);
+  }
+}
+/* pensando: bolinhas sobem */
+.lp .lp-dots circle {
+  opacity: 0.25;
+  animation: lp-dot 1.2s ease-in-out infinite;
+}
+.lp .lp-dots circle:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.lp .lp-dots circle:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes lp-dot {
+  50% {
+    opacity: 0.85;
+  }
+}
+.lp .lp-zzz {
+  animation: lp-z 2.4s ease-in-out infinite;
+}
+@keyframes lp-z {
+  50% {
+    transform: translate(2px, -3px);
+    opacity: 0.35;
+  }
+}
+/* patinhas: atrás da cabeça; no aceno, a da direita sobe e balança */
+.lp .lp-paw {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(0.3);
+  opacity: 0;
+}
+.lp .lp-waving .lp-paw-r {
+  animation: lp-wave-r 1.7s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+.lp .lp-waving .lp-paw-l {
+  animation: lp-wave-l 1.7s ease-out both;
+}
+@keyframes lp-wave-r {
+  0% {
+    opacity: 0;
+    transform: translate(-6px, 0) scale(0.3);
+  }
+  13% {
+    opacity: 1;
+    transform: translate(6px, -16px) rotate(-22deg) scale(1);
+  }
+  25% {
+    transform: translate(8px, -18px) rotate(20deg) scale(1);
+  }
+  37% {
+    transform: translate(6px, -16px) rotate(-20deg) scale(1);
+  }
+  49% {
+    transform: translate(8px, -18px) rotate(20deg) scale(1);
+  }
+  74% {
+    opacity: 1;
+    transform: translate(7px, -17px) rotate(6deg) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-6px, 0) scale(0.3);
+  }
+}
+@keyframes lp-wave-l {
+  0% {
+    opacity: 0;
+    transform: translate(4px, 0) scale(0.3);
+  }
+  16%,
+  76% {
+    opacity: 1;
+    transform: translate(-2px, 1px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(4px, 0) scale(0.3);
+  }
+}
+.lp--badge .lp-paws {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp,
+  .lp * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -11,7 +11,7 @@ import { tenantAcceptsTraffic } from '@comandou/shared';
 import { SESSION_COOKIE, SessionService } from '../auth/session.service';
 import { ENV, Env } from '../config/env';
 import { TenantResolverService } from '../tenancy/tenant-resolver.service';
-import { RealtimeService, tenantRoom } from './realtime.service';
+import { RealtimeService, tenantRoom, userRoom } from './realtime.service';
 
 const REVALIDATE_MS = 60_000;
 
@@ -94,7 +94,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       socket.disconnect(true);
       return;
     }
-    await socket.join(tenantRoom(tenantId));
+    await socket.join([tenantRoom(tenantId), userRoom(tenantId, socket.data.userId as string)]);
     socket.emit('ready', { tenantId });
     // A cada minuto: sessão ainda válida e restaurante ainda ativo (suspenso desconecta).
     const timer = setInterval(() => {

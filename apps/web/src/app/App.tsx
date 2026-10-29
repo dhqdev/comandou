@@ -40,6 +40,7 @@ import { WaiterEntry } from './WaiterEntry';
 import { WaiterApp } from '../waiter/WaiterApp';
 import { DriverApp } from '../driver/DriverApp';
 import { KitchenApp } from '../kitchen/KitchenApp';
+import { TeamChat } from '../features/chat/TeamChat';
 
 function Home() {
   const { me } = useAuth();
@@ -69,6 +70,7 @@ function WaiterOnly() {
 
 function Gate() {
   const { status, error, me } = useAuth();
+  const { pathname } = useLocation();
   if (status === 'loading') {
     return (
       <div style={{ display: 'grid', placeItems: 'center', height: '100%' }}>
@@ -100,168 +102,190 @@ function Gate() {
   if (status === 'anonymous') return <LoginPage />;
   // Garçom: só o app dele (/garcom). Qualquer outro endereço leva ao mapa de mesas, mantendo o
   // ?mesa= do QR da mesa.
-  if (me?.user.role === 'waiter') return <WaiterOnly />;
+  if (me?.user.role === 'waiter')
+    return (
+      <>
+        <WaiterOnly />
+        <TeamChat variant="waiter" />
+      </>
+    );
   // Entregador e cozinha: só o app de cada um (/entregas e /cozinha), sem o menu da loja.
-  if (me?.user.role === 'driver') return <DriverApp />;
-  if (me?.user.role === 'kitchen') return <KitchenApp />;
+  if (me?.user.role === 'driver')
+    return (
+      <>
+        <DriverApp />
+        <TeamChat variant="driver" />
+      </>
+    );
+  if (me?.user.role === 'kitchen')
+    return (
+      <>
+        <KitchenApp />
+        <TeamChat variant="kitchen" />
+      </>
+    );
   return (
-    <Routes>
-      {/* Gestor também abre o app do garçom (para conferir o que a equipe vê). */}
-      <Route path="garcom/*" element={<WaiterApp />} />
-      <Route element={<AppShell />}>
-        <Route index element={<Home />} />
-        <Route
-          path="pdv"
-          element={
-            <Guard path="pdv">
-              <PdvPage />
-            </Guard>
-          }
-        />
-        <Route
-          path="pedidos"
-          element={
-            <Guard path="pedidos">
-              <OrdersPage />
-            </Guard>
-          }
-        />
-        <Route
-          path="mesas"
-          element={
-            <Guard path="mesas">
-              <TablesPage />
-            </Guard>
-          }
-        />
-        <Route
-          path="reservas"
-          element={
-            <Guard path="reservas">
-              <ReservationsPage />
-            </Guard>
-          }
-        />
-        <Route
-          path="cozinha"
-          element={
-            <Guard path="cozinha">
-              <KitchenPage />
-            </Guard>
-          }
-        />
-        <Route
-          path="caixa"
-          element={
-            <Guard path="caixa">
-              <CashPage />
-            </Guard>
-          }
-        />
-        <Route
-          path="relatorios"
-          element={
-            <Guard path="relatorios">
-              <ReportsPage />
-            </Guard>
-          }
-        />
-        {/* Endereço do garçom: sem sessão mostra o login do garçom; com sessão leva ao Salão. */}
-        <Route path="garcom" element={<WaiterEntry />} />
-        <Route path="garçom" element={<WaiterEntry />} />
-        <Route path="configuracoes" element={<SettingsPage />} />
-        <Route
-          path="cardapio/*"
-          element={
-            <Guard path="cardapio">
-              <MenuPage />
-            </Guard>
-          }
-        />
-        <Route
-          path="loja-online"
-          element={
-            <Guard path="loja-online">
-              <OnlineStorePage />
-            </Guard>
-          }
-        />
-        <Route
-          path="clientes"
-          element={
-            <Guard path="clientes">
-              <CustomersPage />
-            </Guard>
-          }
-        />
-        <Route path="novidades" element={<ReleasesPage />} />
-        <Route
-          path="entregas"
-          element={
-            <Guard path="entregas">
-              <DeliveriesPage />
-            </Guard>
-          }
-        />
-        <Route
-          path="estoque/*"
-          element={
-            <Guard path="estoque">
-              <StockPage />
-            </Guard>
-          }
-        />
-        <Route
-          path="financeiro"
-          element={
-            <Guard path="financeiro">
-              <FinancePage />
-            </Guard>
-          }
-        />
-        <Route
-          path="equipe"
-          element={
-            <Guard path="equipe">
-              <TeamPage />
-            </Guard>
-          }
-        />
-        <Route
-          path="impressao"
-          element={
-            <Guard path="impressao">
-              <PrintingPage />
-            </Guard>
-          }
-        />
-        <Route
-          path="nota-fiscal"
-          element={
-            <Guard path="nota-fiscal">
-              <FiscalPage />
-            </Guard>
-          }
-        />
-        <Route
-          path="whatsapp"
-          element={
-            <Guard path="whatsapp">
-              <WhatsAppPage />
-            </Guard>
-          }
-        />
-        <Route
-          path="plano"
-          element={
-            <Guard path="plano">
-              <PlanPage />
-            </Guard>
-          }
-        />
-        <Route path="*" element={<ComingSoonPage title="Página não encontrada" />} />
-      </Route>
-    </Routes>
+    <>
+      <Routes>
+        {/* Gestor também abre o app do garçom (para conferir o que a equipe vê). */}
+        <Route path="garcom/*" element={<WaiterApp />} />
+        <Route element={<AppShell />}>
+          <Route index element={<Home />} />
+          <Route
+            path="pdv"
+            element={
+              <Guard path="pdv">
+                <PdvPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="pedidos"
+            element={
+              <Guard path="pedidos">
+                <OrdersPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="mesas"
+            element={
+              <Guard path="mesas">
+                <TablesPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="reservas"
+            element={
+              <Guard path="reservas">
+                <ReservationsPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="cozinha"
+            element={
+              <Guard path="cozinha">
+                <KitchenPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="caixa"
+            element={
+              <Guard path="caixa">
+                <CashPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="relatorios"
+            element={
+              <Guard path="relatorios">
+                <ReportsPage />
+              </Guard>
+            }
+          />
+          {/* Endereço do garçom: sem sessão mostra o login do garçom; com sessão leva ao Salão. */}
+          <Route path="garcom" element={<WaiterEntry />} />
+          <Route path="garçom" element={<WaiterEntry />} />
+          <Route path="configuracoes" element={<SettingsPage />} />
+          <Route
+            path="cardapio/*"
+            element={
+              <Guard path="cardapio">
+                <MenuPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="loja-online"
+            element={
+              <Guard path="loja-online">
+                <OnlineStorePage />
+              </Guard>
+            }
+          />
+          <Route
+            path="clientes"
+            element={
+              <Guard path="clientes">
+                <CustomersPage />
+              </Guard>
+            }
+          />
+          <Route path="novidades" element={<ReleasesPage />} />
+          <Route
+            path="entregas"
+            element={
+              <Guard path="entregas">
+                <DeliveriesPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="estoque/*"
+            element={
+              <Guard path="estoque">
+                <StockPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="financeiro"
+            element={
+              <Guard path="financeiro">
+                <FinancePage />
+              </Guard>
+            }
+          />
+          <Route
+            path="equipe"
+            element={
+              <Guard path="equipe">
+                <TeamPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="impressao"
+            element={
+              <Guard path="impressao">
+                <PrintingPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="nota-fiscal"
+            element={
+              <Guard path="nota-fiscal">
+                <FiscalPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="whatsapp"
+            element={
+              <Guard path="whatsapp">
+                <WhatsAppPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="plano"
+            element={
+              <Guard path="plano">
+                <PlanPage />
+              </Guard>
+            }
+          />
+          <Route path="*" element={<ComingSoonPage title="Página não encontrada" />} />
+        </Route>
+      </Routes>
+      {/* Chat da equipe em todas as telas (painel e app do garçom aberto pelo gestor). */}
+      <TeamChat variant={pathname.startsWith('/garcom') ? 'waiter' : 'shell'} />
+    </>
   );
 }
 

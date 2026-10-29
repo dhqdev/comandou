@@ -17,6 +17,9 @@ const CENTRAL_ONLY = new Set([
   'tenant_databases',
   'tenant_db_jobs',
   'backup_runs',
+  // Assistente de IA: o painel soma o uso de todos os restaurantes no banco central.
+  'tenant_ai_settings',
+  'ai_usage',
 ]);
 const NOT_COPIED = new Set(['support_access_tokens']);
 

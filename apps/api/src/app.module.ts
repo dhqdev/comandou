@@ -6,6 +6,7 @@ import { AuditModule } from './audit/audit.module';
 import { CsrfGuard, PermissionGuard, SessionGuard } from './auth/auth.guards';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { ChatModule } from './chat/chat.module';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 import { maskSecretsInUrl } from './common/log-redact';
 import { RedisThrottlerStorage } from './common/redis-throttler.storage';
@@ -68,6 +69,7 @@ export class AppModule {
         PlansModule,
         CatalogModule,
         OperationsModule,
+        ChatModule,
         DomainsModule,
         HealthModule,
         PlatformModule,
