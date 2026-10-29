@@ -21,6 +21,7 @@ import { PlatformHostGuard, PlatformSessionGuard } from '../platform-auth';
 import {
   CancelContract,
   ContractSettingsBody,
+  CountersignContract,
   NewContract,
   SendContract,
   SignContract,
@@ -85,6 +86,12 @@ export class ContractsController {
     return this.svc.create(id, b, actor(req));
   }
 
+  /** Assinados pelo cliente, esperando a contratada (aviso no painel). */
+  @Get('contracts/pending')
+  pending() {
+    return this.svc.pending();
+  }
+
   @Get('contracts/:cid')
   detail(@Param('cid', new ParseUUIDPipe()) cid: string) {
     return this.svc.detail(cid);
@@ -131,7 +138,19 @@ export class ContractsController {
   @HttpCode(200)
   @Throttle({ default: { ttl: 60_000, limit: 6 } })
   notify(@Param('cid', new ParseUUIDPipe()) cid: string, @Req() req: Request) {
-    return this.svc.renotify(cid, actor(req));
+    return this.svc.renotify(cid, actor(req), origin(req));
+  }
+
+  /** Assinatura da contratada (depois do cliente), com o código do autenticador. */
+  @Post('contracts/:cid/countersign')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  countersign(
+    @Param('cid', new ParseUUIDPipe()) cid: string,
+    @Body(new ZodPipe(CountersignContract)) b: z.infer<typeof CountersignContract>,
+    @Req() req: Request,
+  ) {
+    return this.svc.countersign(cid, b, actor(req), { userAgent: req.get('user-agent') });
   }
 }
 
@@ -166,7 +185,11 @@ export class ContractSignController {
     @Body(new ZodPipe(SignContract)) b: z.infer<typeof SignContract>,
     @Req() req: Request,
   ) {
-    return this.svc.sign(token, b, meta(req));
+    return this.svc.sign(token, b, {
+      ...meta(req),
+      origin: origin(req),
+      forwardedFor: req.get('x-forwarded-for'),
+    });
   }
 
   @Get(':token/pdf')

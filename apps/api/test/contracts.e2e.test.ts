@@ -286,10 +286,72 @@ describe('Contrato do cliente', () => {
     await spost(`${token}/read`).expect(200);
     await spost(token, { ...body, document: '111.111.111-11' }).expect(400);
     await spost(token, { ...body, contentHash: '0'.repeat(64) }).expect(409);
-    const done = await spost(token, body).expect(200);
-    expect(done.body.status).toBe('signed');
+    const done = await spost(token, {
+      ...body,
+      geo: { lat: -22.90556, lng: -47.06083, accuracy: 35 },
+    }).expect(200);
+    expect(done.body.status).toBe('client_signed');
     expect(done.body.signerName).toBe('Maria Souza');
+    expect(done.body.countersignDeadline).toBeTruthy();
     await spost(token, body).expect(409);
+  });
+
+  it('cliente assinou: a contratada recebe o aviso para assinar e o cliente o recibo', async () => {
+    const d = await pget(`/contracts/${contractId}`).expect(200);
+    expect(d.body.status).toBe('client_signed');
+    expect(d.body.signedPdfSha256).toBeNull();
+    expect(d.body.signerGeo).toEqual({ lat: -22.90556, lng: -47.06083, accuracy: 35 });
+    expect(d.body.clientSignature.kind).toBe('drawn');
+    expect(d.body.integrity).toMatchObject({ trailOk: true, clientEvidenceOk: true });
+    const call = received.at(-1)!;
+    expect(call.body.event).toBe('contract.client_signed');
+    expect(call.body.messages.map((m: { to: string }) => m.to)).toEqual([
+      'david@comandou.test',
+      'maria@ct-a.test',
+    ]);
+    expect(call.body.messages[0].html).toContain(
+      `/restaurantes/${fx.tenantA}?aba=contrato&amp;contrato=${contractId}`,
+    );
+    expect(call.body.attachment).toBeNull();
+    const p = await pget('/contracts/pending').expect(200);
+    expect(p.body.map((x: { id: string }) => x.id)).toContain(contractId);
+    // O cliente não consegue trocar a assinatura dele (nem direto no banco).
+    await expect(
+      ownerQuery(`UPDATE tenant_contracts SET signer_name = 'Outro' WHERE id = $1`, [contractId]),
+    ).rejects.toThrow(/não pode ser alterado/);
+    await psend('post', `/contracts/${contractId}/link`).expect(409);
+  });
+
+  it('a contratada assina por último, com o código do autenticador', async () => {
+    const d = await pget(`/contracts/${contractId}`).expect(200);
+    const body = {
+      name: 'David Queiroz',
+      document: '111.444.777-35',
+      accept: true,
+      contentHash: hash,
+      clientEvidenceSha256: d.body.clientEvidenceSha256,
+      code: '000000',
+      signature: { kind: 'typed', text: 'David Queiroz' },
+    };
+    const bad = await psend('post', `/contracts/${contractId}/countersign`, body).expect(422);
+    expect(bad.body.message).toMatch(/autenticador/);
+    await psend('post', `/contracts/${contractId}/countersign`, {
+      ...body,
+      code: totpCode(SECRET, totpStep() + 1),
+      clientEvidenceSha256: '0'.repeat(64),
+    }).expect(409);
+    const code = totpCode(SECRET, totpStep() + 1);
+    const ok = await psend('post', `/contracts/${contractId}/countersign`, {
+      ...body,
+      code,
+    }).expect(200);
+    expect(ok.body.status).toBe('signed');
+    expect(ok.body.countersignerName).toBe('David Queiroz');
+    expect(ok.body.countersignerEmail).toBe('contratos@plataforma.test');
+    expect(ok.body.trailSha256).toMatch(/^[0-9a-f]{64}$/);
+    expect(ok.body.integrity).toMatchObject({ trailOk: true, clientEvidenceOk: true });
+    // Depois de completo, não se assina de novo.
+    await psend('post', `/contracts/${contractId}/countersign`, { ...body, code }).expect(409);
   });
 
   it('PDF assinado tem o manifesto, fica guardado e o aviso vai ao n8n', async () => {
@@ -298,13 +360,25 @@ describe('Contrato do cliente', () => {
     expect(d.body.signerDocument).toBe('529.982.247-25');
     expect(d.body.notifiedAt).toBeTruthy();
     expect(d.body.events.map((e: { kind: string }) => e.kind)).toEqual(
-      expect.arrayContaining(['created', 'sent', 'opened', 'read', 'signed', 'notified']),
+      expect.arrayContaining([
+        'created',
+        'sent',
+        'opened',
+        'read',
+        'signed',
+        'countersign_denied',
+        'countersigned',
+        'notified',
+      ]),
     );
     const call = received.at(-1)!;
     expect(call.body.event).toBe('contract.signed');
+    expect(call.body.contract.trailSha256).toBe(d.body.trailSha256);
     expect(call.body.messages.map((m: { to: string }) => m.to)).toEqual([
       'david@comandou.test',
+      'contratos@plataforma.test',
       'maria@ct-a.test',
+      'financeiro@ct-a.test',
     ]);
     const signed = Buffer.from(call.body.attachment.base64, 'base64');
     expect(createHash('sha256').update(signed).digest('hex')).toBe(d.body.signedPdfSha256);
@@ -316,7 +390,8 @@ describe('Contrato do cliente', () => {
       )[0].pdf,
     );
     const doc = await PDFDocument.load(signed);
-    expect(doc.getPageCount()).toBe(original.getPageCount() + 1);
+    expect(doc.getPageCount()).toBeGreaterThan(original.getPageCount());
+    expect(doc.getKeywords()).toContain(`trilha:${d.body.trailSha256}`);
     // O cliente baixa a via dele pelo mesmo link.
     await sget(`${token}/pdf?signed=1`).expect(200).expect('Content-Type', 'application/pdf');
   });
@@ -325,8 +400,19 @@ describe('Contrato do cliente', () => {
     await psend('post', `/contracts/${contractId}/cancel`, { reason: 'teste' }).expect(409);
     await psend('post', `/contracts/${contractId}/link`).expect(409);
     await expect(
-      ownerQuery(`UPDATE tenant_contracts SET signer_name = 'Outro' WHERE id = $1`, [contractId]),
+      ownerQuery(`UPDATE tenant_contracts SET countersigner_name = 'Outro' WHERE id = $1`, [
+        contractId,
+      ]),
     ).rejects.toThrow(/não pode ser alterado/);
+  });
+
+  it('mexer num evento da trilha aparece na conferência', async () => {
+    await ownerQuery(
+      `UPDATE tenant_contract_events SET ip = '10.9.9.9' WHERE contract_id = $1 AND kind = 'read'`,
+      [contractId],
+    );
+    const d = await pget(`/contracts/${contractId}`).expect(200);
+    expect(d.body.integrity.trailOk).toBe(false);
   });
 
   it('cancelar um contrato pendente derruba o link', async () => {
@@ -335,6 +421,15 @@ describe('Contrato do cliente', () => {
     const l = await psend('post', `/contracts/${c.body.id}/link`).expect(200);
     const t = l.body.url.split('/').pop();
     await sget(t).expect(200);
+    await psend('post', `/contracts/${c.body.id}/countersign`, {
+      name: 'David Queiroz',
+      document: '111.444.777-35',
+      accept: true,
+      contentHash: c.body.contentHash,
+      clientEvidenceSha256: '0'.repeat(64),
+      code: '123456',
+      signature: { kind: 'typed', text: 'David' },
+    }).expect(409);
     await psend('post', `/contracts/${c.body.id}/cancel`, { reason: 'valores errados' }).expect(
       200,
     );

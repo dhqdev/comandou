@@ -2,7 +2,14 @@ import { useEffect, useState } from 'react';
 import { Alert, Spinner } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
-import type { AuditRow, BackupSettings, HealthState, Overview, ServerStatus } from './types';
+import type {
+  AuditRow,
+  BackupSettings,
+  HealthState,
+  Overview,
+  PendingContract,
+  ServerStatus,
+} from './types';
 import { ago, bytes, Dot, Level, levelFor, Section, Tile } from './ui';
 import { useNavigate } from 'react-router';
 
@@ -41,6 +48,7 @@ export function OverviewPage() {
   const { data, error } = useLoad<Overview>('/platform/overview');
   const server = useLoad<ServerStatus>('/platform/server');
   const backup = useLoad<BackupSettings>('/platform/backups/settings');
+  const contracts = useLoad<PendingContract[]>('/platform/contracts/pending');
   const navigate = useNavigate();
   if (error) return <Alert tone="danger">{error}</Alert>;
   if (!data) return <Spinner />;
@@ -89,6 +97,12 @@ export function OverviewPage() {
       level: levelFor(diskPct, 80, 90),
       text: `Disco em ${diskPct.toFixed(0)}%`,
       to: '/servidor',
+    });
+  for (const c of contracts.data ?? [])
+    alerts.push({
+      level: new Date(c.deadline).getTime() - Date.now() < 2 * 86400_000 ? 'bad' : 'warn',
+      text: `Falta a sua assinatura no contrato ${c.number} (${c.tenantName}), até ${new Date(c.deadline).toLocaleDateString('pt-BR')}`,
+      to: `/restaurantes/${c.tenantId}?aba=contrato&contrato=${c.id}`,
     });
   if (data.tenants.failed)
     alerts.push({
