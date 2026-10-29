@@ -197,9 +197,9 @@ const SCREENS: StaticEntry[] = [
     id: 's-relatorios',
     group: 'Telas',
     title: 'Relatórios',
-    hint: 'Calendário de vendas, lucro, ticket médio e mais vendidos',
+    hint: 'Resultado, extrato, cancelamentos, caixa, produtos, delivery e clientes, com Excel',
     words:
-      'relatorio vendas faturamento ticket medio dashboard numeros calendario lucro margem cmv',
+      'relatorio vendas faturamento ticket medio dashboard numeros calendario lucro margem cmv excel planilha extrato cancelamentos fechamento caixa perdas motoboy bairro frete clientes engenharia curva abc',
     icon: 'reports',
     to: '/relatorios',
     perms: ['reports:read'],
