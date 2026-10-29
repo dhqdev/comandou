@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { centerOf, Mascot, switchTheme, useTheme, useToast } from '../../design-system';
+import { centerOf, Mascot, Spinner, switchTheme, useTheme, useToast } from '../../design-system';
 import { SlideTabs } from '../../features/SlideTabs';
 import { api, ApiError } from '../../lib/api';
 import { useStore } from './context';
@@ -236,7 +236,7 @@ export function AccountScreen() {
   if (!account)
     return (
       <div className="sf-wrap sf-page">
-        <div className="sk sk--banner" />
+        <Spinner />
       </div>
     );
   const me = account.customer;

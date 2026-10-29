@@ -89,7 +89,7 @@ test('integrações: dados fiscais, NFC-e no pedido e WhatsApp', async ({ page }
     `e2e-nf-${tag}`,
   );
   await nav(page, 'Pedidos');
-  await page.getByRole('row', { name: new RegExp(`^${order.number} `) }).click();
+  await page.getByRole('row', { name: new RegExp(`^#${order.number} `) }).click();
   const dialog = page.getByRole('dialog').filter({ hasText: /Pedido #/ });
   await expect(dialog.getByRole('heading', { name: 'Nota fiscal (NFC-e)' })).toBeVisible();
   await dialog.getByRole('button', { name: 'Emitir NFC-e' }).click();

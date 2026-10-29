@@ -1,10 +1,10 @@
-import { CheckCircle2, Download, Eraser, FileText, Lock, PenLine, Type } from 'lucide-react';
+import { CheckCircle2, Clock, Download, Eraser, FileText, Lock, PenLine, Type } from 'lucide-react';
 import { FormEvent, PointerEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Mascot, Spinner, TextField, ThemeToggle } from '../design-system';
 import { api, ApiError } from '../lib/api';
 import { brl } from '../lib/money';
 import { maskDocument } from './NewTenant';
-import type { ContractContent, PublicContract } from './types';
+import type { ContractContent, ContractGeo, PublicContract } from './types';
 import './contract-sign.css';
 
 /** O link de assinatura é admin.<base>/assinar/<token>. */
@@ -12,6 +12,32 @@ export const signToken = (path = window.location.pathname) =>
   /^\/assinar\/([A-Za-z0-9_-]{30,60})\/?$/.exec(path)?.[1] ?? null;
 
 const fmtDate = (iso: string) => iso.slice(0, 10).split('-').reverse().join('/');
+
+/**
+ * Localização do aparelho para o registro da assinatura. Só com a permissão da pessoa; se ela
+ * negar, demorar ou o aparelho não tiver, a assinatura segue sem (o IP fica registrado sempre).
+ */
+export function askGeo(timeoutMs = 8000): Promise<ContractGeo | undefined> {
+  if (!('geolocation' in navigator)) return Promise.resolve(undefined);
+  return new Promise((resolve) => {
+    const t = window.setTimeout(() => resolve(undefined), timeoutMs);
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        window.clearTimeout(t);
+        resolve({
+          lat: Math.round(p.coords.latitude * 1e6) / 1e6,
+          lng: Math.round(p.coords.longitude * 1e6) / 1e6,
+          accuracy: Math.round(p.coords.accuracy),
+        });
+      },
+      () => {
+        window.clearTimeout(t);
+        resolve(undefined);
+      },
+      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60_000 },
+    );
+  });
+}
 
 function ContractText({ c }: { c: ContractContent }) {
   const t = c.terms;
@@ -75,7 +101,7 @@ function ContractText({ c }: { c: ContractContent }) {
 }
 
 /** Quadro para desenhar a assinatura com o dedo ou o mouse. */
-function SignaturePad({ onChange }: { onChange: (png: string | null) => void }) {
+export function SignaturePad({ onChange }: { onChange: (png: string | null) => void }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const last = useRef<{ x: number; y: number } | null>(null);
@@ -222,6 +248,7 @@ export function ContractSignPage({ token }: { token: string }) {
     setBusy(true);
     setSignError(null);
     try {
+      const geo = await askGeo();
       const r = await api<PublicContract>(base, {
         method: 'POST',
         json: {
@@ -231,6 +258,7 @@ export function ContractSignPage({ token }: { token: string }) {
           accept: true,
           contentHash: c.contentHash,
           signature: kind === 'drawn' ? { kind, image: png } : { kind, text: typed.trim() },
+          ...(geo ? { geo } : {}),
         },
       });
       setC(r);
@@ -277,6 +305,32 @@ export function ContractSignPage({ token }: { token: string }) {
       </div>
     );
 
+  if (c.status === 'client_signed')
+    return (
+      <div className="cs-page">
+        {header}
+        <main className="cs-main">
+          <div className="cs-done">
+            <Clock size={44} className="cs-done__icon" />
+            <h1>Assinatura recebida</h1>
+            <p>
+              {c.signerName} assinou o contrato nº {c.number}
+              {c.signedAt ? ` em ${new Date(c.signedAt).toLocaleString('pt-BR')}` : ''}. Agora{' '}
+              {c.content.parties.provider.name} confere e assina
+              {c.countersignDeadline
+                ? ` até ${new Date(c.countersignDeadline).toLocaleDateString('pt-BR')}`
+                : ''}
+              . A via final, com as duas assinaturas, chega no seu e-mail.
+            </p>
+            <a className="cm-btn cm-btn--secondary cm-btn--lg" href={`/api/v1${base}/pdf`}>
+              <FileText size={18} /> Baixar o contrato
+            </a>
+            <p className="cs-hash">Código de integridade do texto: {c.contentHash}</p>
+          </div>
+        </main>
+      </div>
+    );
+
   if (c.status === 'signed')
     return (
       <div className="cs-page">
@@ -286,9 +340,10 @@ export function ContractSignPage({ token }: { token: string }) {
             <CheckCircle2 size={44} className="cs-done__icon" />
             <h1>Contrato assinado</h1>
             <p>
-              {c.signerName} assinou o contrato nº {c.number}
-              {c.signedAt ? ` em ${new Date(c.signedAt).toLocaleString('pt-BR')}` : ''}. Uma via foi
-              enviada para o seu e-mail.
+              {c.countersignedAt
+                ? `O contrato nº ${c.number} está assinado por ${c.signerName} e por ${c.content.parties.provider.name} (concluído em ${new Date(c.countersignedAt).toLocaleString('pt-BR')}).`
+                : `${c.signerName} assinou o contrato nº ${c.number}${c.signedAt ? ` em ${new Date(c.signedAt).toLocaleString('pt-BR')}` : ''}.`}{' '}
+              Uma via foi enviada para o seu e-mail.
             </p>
             <a className="cm-btn cm-btn--primary cm-btn--lg" href={`/api/v1${base}/pdf?signed=1`}>
               <Download size={18} /> Baixar contrato assinado
@@ -410,7 +465,8 @@ export function ContractSignPage({ token }: { token: string }) {
           <p className="cs-legal">
             Assinatura eletrônica (MP 2.200-2/2001, art. 10, § 2º, e Lei 14.063/2020). Ficam
             registrados nome, CPF, e-mail, data e hora, IP, navegador e o código de integridade do
-            documento.
+            documento. Se você permitir, a localização do aparelho também. Você assina primeiro;
+            depois {c.content.parties.provider.name} assina e a via final chega no seu e-mail.
           </p>
         </form>
       </main>

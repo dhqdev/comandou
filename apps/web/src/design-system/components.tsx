@@ -12,6 +12,7 @@ import {
 import { X } from 'lucide-react';
 import { Mascot, type MascotMood } from './mascot';
 import { DateInput } from './pickers';
+import { cachedBranding } from './brand';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 
@@ -192,23 +193,34 @@ export function EmptyState({
   );
 }
 
-export function Spinner({ label = 'Carregando' }: { label?: string }) {
+/** Ícone da loja (favicon); sem ícone, o logo; sem nenhum, o do Comandou. */
+function storeIcon() {
+  const b = cachedBranding();
+  return b?.faviconUrl || b?.logoUrl || '/favicon.svg';
+}
+
+/**
+ * O ÚNICO indicador de carregamento do sistema: o ícone da loja pulsando dentro de um anel.
+ * Só aparece se a carga demorar (atraso no CSS): troca rápida de tela não pisca nada.
+ * `inline` é a versão pequena para dentro de uma linha (ex.: caixa de busca).
+ */
+export function Spinner({ label = 'Carregando', inline }: { label?: string; inline?: boolean }) {
   return (
-    <span role="status" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-      <span className="cm-spinner" aria-hidden />
+    <span role="status" className={`cm-loader${inline ? ' cm-loader--inline' : ''}`}>
+      <span className="cm-loader__mark" aria-hidden>
+        <img src={storeIcon()} alt="" decoding="async" />
+      </span>
       <span className="cm-sr-only">{label}</span>
     </span>
   );
 }
-
-export function Skeleton({
-  height = 16,
-  width = '100%',
-}: {
-  height?: number;
-  width?: number | string;
-}) {
-  return <div className="cm-skeleton" style={{ height, width }} aria-hidden />;
+/** Mesmo carregamento, ocupando a altura do conteúdo que vai chegar (não pula o layout). */
+export function Skeleton({ height = 16 }: { height?: number; width?: number | string }) {
+  return (
+    <div className="cm-loader-box" style={{ minHeight: height }}>
+      <Spinner />
+    </div>
+  );
 }
 
 /**
@@ -273,7 +285,7 @@ export function Modal({
   size = 'md',
 }: {
   open: boolean;
-  title: string;
+  title: ReactNode;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;

@@ -271,6 +271,7 @@ export class StoreService {
   }
 
   async updateSettings(ctx: Ctx, patch: Partial<StoreSettings>) {
+    const accepted: string[] = [];
     const res = await this.db.withTenant(ctx, async (tx) => {
       const cur = await this.settingsIn(tx);
       const next = { ...cur, ...patch };
@@ -294,9 +295,34 @@ export class StoreService {
         data: { changes: patch },
         ip: ctx.ip,
       });
+      // Ligou o aceite automático: quem já estava "em análise" é aceito agora, como os próximos.
+      if (next.autoAccept && !cur.autoAccept) {
+        const waiting = await q<{ id: string }>(
+          tx,
+          `SELECT id FROM orders WHERE status = 'awaiting' ORDER BY created_at, id`,
+        );
+        for (const w of waiting) {
+          // Um pedido que não dá para aceitar (ex.: falta estoque) fica em análise; os outros seguem.
+          await q(tx, `SAVEPOINT auto_accept`);
+          try {
+            const o = await this.orders.lock(tx, w.id);
+            if (o.status !== 'awaiting') continue;
+            await this.orders.transitionInTx(tx, ctx, o, 'new', 'Aceite automático ligado');
+            accepted.push(o.id);
+          } catch {
+            await q(tx, `ROLLBACK TO SAVEPOINT auto_accept`);
+          }
+        }
+      }
       return this.settingsIn(tx);
     });
     this.realtime.publish(ctx.tenantId, { type: 'store.changed' });
+    for (const id of accepted)
+      this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId: id, status: 'new' });
+    if (accepted.length) {
+      this.realtime.publish(ctx.tenantId, { type: 'stock.changed' });
+      this.realtime.publish(ctx.tenantId, { type: 'print.changed' });
+    }
     return res;
   }
 

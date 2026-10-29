@@ -490,7 +490,7 @@ export function GlobalSearch({
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKey}
           />
-          {waiting && <Spinner label="Buscando" />}
+          {waiting && <Spinner inline label="Buscando" />}
           <button type="button" className="gsearch__close" onClick={onClose} aria-label="Fechar">
             <X size={18} className="gsearch__x" />
             <span className="gsearch__esc">Esc</span>

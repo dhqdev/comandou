@@ -13,22 +13,77 @@ import type { PoolClient } from 'pg';
 import { open, seal } from '../../common/secret-box';
 import { ENV, Env } from '../../config/env';
 import { TenantDatabaseUnavailable } from '../../database/tenant-database';
+import { PlatformAuthService } from '../platform-auth';
 import type { Actor } from '../platform.service';
 import { PlatformDb, platformAudit } from '../platform-db.service';
 import type {
   ContractSettingsInput,
+  CountersignContractInput,
   NewContractInput,
   SignContractInput,
 } from '../platform.schemas';
-import { brTime, contractSummary, renderContractPdf, renderSignedPdf } from './contract-pdf';
+import {
+  brTime,
+  contractSummary,
+  ManifestSigner,
+  renderContractPdf,
+  renderSignedPdf,
+  SignatureMark,
+} from './contract-pdf';
 import { buildContract, ContractContent, ContractParty, formatDocument } from './contract-template';
 
 export const WEBHOOK_SECRET_CONTEXT = 'contracts:n8n';
 /** Validade do link de assinatura. */
 const LINK_DAYS = 30;
+/** Prazo da contratada para assinar depois do cliente (cláusula "Assinatura eletrônica"). */
+export const COUNTERSIGN_DAYS = 10;
 
 const sha256 = (b: Uint8Array | string) => createHash('sha256').update(b).digest('hex');
 const tokenHash = (t: string) => createHash('sha256').update(t).digest();
+
+/** JSON com as chaves em ordem (o jsonb do Postgres não guarda a ordem original). */
+function sortKeys(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(sortKeys);
+  if (v && typeof v === 'object' && !(v instanceof Date))
+    return Object.fromEntries(
+      Object.keys(v as object)
+        .sort()
+        .map((k) => [k, sortKeys((v as Record<string, unknown>)[k])]),
+    );
+  return v;
+}
+export const canonical = (v: unknown) => JSON.stringify(sortKeys(v));
+
+export interface TrailEvent {
+  contractId: string;
+  kind: string;
+  ip: string | null;
+  userAgent: string | null;
+  data: Record<string, unknown>;
+  at: Date;
+}
+/** Elo da trilha: sha256(hash anterior + evento). */
+export const eventHash = (prev: string | null, e: TrailEvent) =>
+  sha256(
+    `${prev ?? ''}\n${canonical([e.contractId, e.kind, e.ip, e.userAgent, e.data, e.at.toISOString()])}`,
+  );
+
+type Geo = { lat: number; lng: number; accuracy: number } | null;
+
+/** PNG da assinatura desenhada (data URL) ou erro legível. */
+function signaturePng(s: { kind: 'drawn'; image: string } | { kind: 'typed'; text: string }) {
+  if (s.kind !== 'drawn') return null;
+  const png = Buffer.from(s.image.slice(s.image.indexOf(',') + 1), 'base64');
+  const MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (png.length < 60 || !png.subarray(0, 8).equals(MAGIC))
+    throw new UnprocessableEntityException('Assinatura inválida: desenhe de novo');
+  return png;
+}
+
+const HOW: Record<string, string> = {
+  drawn: 'Assinatura desenhada na tela',
+  typed: 'Assinatura digitada (nome completo)',
+};
 
 interface SettingsRow {
   provider_name: string;
@@ -36,6 +91,7 @@ interface SettingsRow {
   provider_address: string;
   provider_email: string;
   provider_representative: string;
+  provider_representative_document: string;
   forum_city: string;
   due_day: number;
   term_months: number;
@@ -55,7 +111,7 @@ interface ContractRow {
   id: string;
   tenant_id: string;
   number: string;
-  status: 'draft' | 'sent' | 'viewed' | 'signed' | 'cancelled';
+  status: 'draft' | 'sent' | 'viewed' | 'client_signed' | 'signed' | 'cancelled';
   content: string;
   content_hash: string;
   pdf_sha256: string;
@@ -68,7 +124,17 @@ interface ContractRow {
   signer_name: string | null;
   signer_document: string | null;
   signer_ip: string | null;
+  signer_user_agent: string | null;
+  signer_geo: Geo;
   signature_kind: string | null;
+  client_evidence_sha256: string | null;
+  countersigned_at: Date | null;
+  countersigner_name: string | null;
+  countersigner_document: string | null;
+  countersigner_email: string | null;
+  countersigner_ip: string | null;
+  countersign_kind: string | null;
+  trail_sha256: string | null;
   signed_pdf_sha256: string | null;
   notified_at: Date | null;
   notify_error: string | null;
@@ -80,7 +146,10 @@ interface ContractRow {
 
 const CONTRACT_COLS = `c.id, c.tenant_id, c.number, c.status, c.content, c.content_hash, c.pdf_sha256,
   c.signer_email, c.token_expires_at, c.sent_at, c.viewed_at, c.read_at, c.signed_at, c.signer_name,
-  c.signer_document, c.signer_ip, c.signature_kind, c.signed_pdf_sha256, c.notified_at,
+  c.signer_document, c.signer_ip, c.signer_user_agent, c.signer_geo, c.signature_kind,
+  c.client_evidence_sha256, c.countersigned_at, c.countersigner_name, c.countersigner_document,
+  c.countersigner_email, c.countersigner_ip, c.countersign_kind, c.trail_sha256,
+  c.signed_pdf_sha256, c.notified_at,
   c.notify_error, c.cancelled_at, c.cancel_reason, c.created_at,
   (SELECT name FROM platform_admins a WHERE a.id = c.created_by) AS created_by_name`;
 
@@ -97,7 +166,8 @@ const EVENT_LABEL: Record<string, string> = {
   sent: 'Enviado por e-mail',
   opened: 'Aberto pelo signatário',
   read: 'Lido até o fim pelo signatário',
-  signed: 'Assinado',
+  signed: 'Assinado pela CONTRATANTE',
+  countersigned: 'Assinado pela CONTRATADA',
 };
 
 const esc = (s: string) =>
@@ -138,6 +208,7 @@ export class ContractsService {
   constructor(
     @Inject(ENV) private readonly env: Env,
     private readonly db: PlatformDb,
+    private readonly auth: PlatformAuthService,
   ) {}
 
   // ------------------------------------------------------------------ configuração
@@ -152,6 +223,7 @@ export class ContractsService {
       providerAddress: r.provider_address,
       providerEmail: r.provider_email,
       providerRepresentative: r.provider_representative,
+      providerRepresentativeDocument: r.provider_representative_document,
       forumCity: r.forum_city,
       dueDay: r.due_day,
       termMonths: r.term_months,
@@ -191,7 +263,8 @@ export class ContractsService {
                 forum_city = $6, due_day = $7, term_months = $8, sla_percent = $9,
                 readjust_index = $10, late_fee_percent = $11, late_interest_percent = $12,
                 suspend_after_days = $13, support_hours = $14, webhook_url = $15,
-                webhook_secret_enc = $16, notify_email = $17, updated_at = now(), updated_by = $18`,
+                webhook_secret_enc = $16, notify_email = $17, updated_at = now(), updated_by = $18,
+                provider_representative_document = $19`,
         [
           b.providerName,
           b.providerDocument,
@@ -211,6 +284,7 @@ export class ContractsService {
           secret,
           b.notifyEmail,
           a.admin.id,
+          b.providerRepresentativeDocument,
         ],
       );
       await platformAudit(c, {
@@ -311,7 +385,23 @@ export class ContractsService {
       signerName: r.signer_name,
       signerDocument: r.signer_document ? formatDocument(r.signer_document) : null,
       signerIp: r.signer_ip,
+      signerUserAgent: r.signer_user_agent,
+      signerGeo: r.signer_geo,
       signatureKind: r.signature_kind,
+      clientEvidenceSha256: r.client_evidence_sha256,
+      countersignDeadline:
+        r.status === 'client_signed' && r.signed_at
+          ? new Date(r.signed_at.getTime() + COUNTERSIGN_DAYS * 86400_000)
+          : null,
+      countersignedAt: r.countersigned_at,
+      countersignerName: r.countersigner_name,
+      countersignerDocument: r.countersigner_document
+        ? formatDocument(r.countersigner_document)
+        : null,
+      countersignerEmail: r.countersigner_email,
+      countersignerIp: r.countersigner_ip,
+      countersignKind: r.countersign_kind,
+      trailSha256: r.trail_sha256,
       notifiedAt: r.notified_at,
       notifyError: r.notify_error,
       cancelledAt: r.cancelled_at,
@@ -341,12 +431,96 @@ export class ContractsService {
 
   async detail(id: string) {
     const r = await this.row(id);
-    const events = await this.db.query(
-      `SELECT kind, ip, user_agent AS "userAgent", data, created_at AS "createdAt"
+    const rows = await this.db.query<{
+      kind: string;
+      ip: string | null;
+      user_agent: string | null;
+      data: Record<string, unknown>;
+      created_at: Date;
+      prev_hash: string | null;
+      hash: string | null;
+    }>(
+      `SELECT kind, ip, user_agent, data, created_at, prev_hash, hash
          FROM tenant_contract_events WHERE contract_id = $1 ORDER BY id`,
       [id],
     );
-    return { ...this.view(r), content: JSON.parse(r.content) as ContractContent, events };
+    const [img] = await this.db.query<{ signature_image: Buffer | null }>(
+      `SELECT signature_image FROM tenant_contracts WHERE id = $1`,
+      [id],
+    );
+    // A assinatura do cliente aparece no painel para a contratada conferir antes de assinar.
+    const clientSignature =
+      r.signed_at && img?.signature_image
+        ? r.signature_kind === 'drawn'
+          ? {
+              kind: 'drawn' as const,
+              image: `data:image/png;base64,${img.signature_image.toString('base64')}`,
+            }
+          : { kind: 'typed' as const, text: img.signature_image.toString('utf8') }
+        : null;
+    return {
+      ...this.view(r),
+      content: JSON.parse(r.content) as ContractContent,
+      clientSignature,
+      integrity: this.verifyTrail(id, rows, r, img?.signature_image ?? null),
+      events: rows.map((e) => ({
+        kind: e.kind,
+        ip: e.ip,
+        userAgent: e.user_agent,
+        data: e.data,
+        createdAt: e.created_at,
+        hash: e.hash,
+      })),
+    };
+  }
+
+  /**
+   * Confere a trilha encadeada (cada evento aponta para o hash do anterior e o hash bate com o
+   * conteúdo) e o registro da assinatura do cliente. Eventos de antes da v0.43 não têm hash.
+   */
+  private verifyTrail(
+    contractId: string,
+    rows: {
+      kind: string;
+      ip: string | null;
+      user_agent: string | null;
+      data: Record<string, unknown>;
+      created_at: Date;
+      prev_hash: string | null;
+      hash: string | null;
+    }[],
+    r: ContractRow,
+    signatureImage: Buffer | null,
+  ) {
+    let prev: string | null = null;
+    let chained = 0;
+    let ok = true;
+    for (const e of rows) {
+      if (e.hash) {
+        const expect = eventHash(prev, {
+          contractId,
+          kind: e.kind,
+          ip: e.ip,
+          userAgent: e.user_agent,
+          data: e.data,
+          at: e.created_at,
+        });
+        if (e.prev_hash !== prev || e.hash !== expect) ok = false;
+        chained++;
+      }
+      prev = e.hash;
+    }
+    let clientOk: boolean | null = null;
+    const signed = rows.find((e) => e.kind === 'signed' && e.data?.evidence);
+    if (signed && r.client_evidence_sha256) {
+      const ev = signed.data.evidence as Record<string, unknown>;
+      clientOk =
+        sha256(canonical(ev)) === r.client_evidence_sha256 &&
+        ev.contentHash === r.content_hash &&
+        (!signatureImage || ev.signatureSha256 === sha256(signatureImage));
+    }
+    if (r.trail_sha256 && !rows.some((e) => e.hash === r.trail_sha256)) ok = false;
+    return { trailOk: ok, chainedEvents: chained, lastHash: prev, clientEvidenceOk: clientOk };
   }
 
   async pdf(id: string, signed: boolean) {
@@ -538,29 +712,49 @@ export class ContractsService {
     return this.detail(id);
   }
 
+  /** Acrescenta um evento à trilha, encadeado ao anterior. Devolve o hash do evento. */
   private async event(
     c: PoolClient,
     contractId: string,
     kind: string,
     meta: { ip?: string; userAgent?: string },
     data: Record<string, unknown> = {},
-  ) {
+  ): Promise<string> {
+    // Um evento por vez em cada contrato, para a cadeia não bifurcar.
+    await c.query(`SELECT pg_advisory_xact_lock(hashtext('tenant_contract_events:' || $1))`, [
+      contractId,
+    ]);
+    const prev =
+      (
+        await c.query<{ hash: string | null }>(
+          `SELECT hash FROM tenant_contract_events WHERE contract_id = $1 ORDER BY id DESC LIMIT 1`,
+          [contractId],
+        )
+      ).rows[0]?.hash ?? null;
+    const e: TrailEvent = {
+      contractId,
+      kind,
+      ip: meta.ip?.slice(0, 64) ?? null,
+      userAgent: meta.userAgent?.slice(0, 300) ?? null,
+      // Passa pelo JSON para o hash ver exatamente o que o jsonb vai devolver.
+      data: JSON.parse(JSON.stringify(data)) as Record<string, unknown>,
+      at: new Date(),
+    };
+    const hash = eventHash(prev, e);
     await c.query(
-      `INSERT INTO tenant_contract_events (contract_id, kind, ip, user_agent, data)
-       VALUES ($1,$2,$3,$4,$5)`,
-      [
-        contractId,
-        kind,
-        meta.ip?.slice(0, 64) ?? null,
-        meta.userAgent?.slice(0, 300) ?? null,
-        JSON.stringify(data),
-      ],
+      `INSERT INTO tenant_contract_events (contract_id, kind, ip, user_agent, data, created_at,
+                                           prev_hash, hash)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [contractId, kind, e.ip, e.userAgent, JSON.stringify(e.data), e.at, prev, hash],
     );
+    return hash;
   }
 
   /** Novo link de assinatura (o anterior deixa de valer). */
   private async issueLink(c: PoolClient, r: ContractRow, email: string | null, origin: string) {
     if (r.status === 'signed') throw new ConflictException('Este contrato já foi assinado');
+    if (r.status === 'client_signed')
+      throw new ConflictException('O cliente já assinou: falta a assinatura da contratada');
     if (r.status === 'cancelled') throw new ConflictException('Este contrato foi cancelado');
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + LINK_DAYS * 86400_000);
@@ -667,11 +861,11 @@ export class ContractsService {
   }
 
   async cancel(id: string, reason: string, a: Actor) {
-    await this.db.tx(async (c) => {
+    const before = await this.db.tx(async (c) => {
       const r = await this.row(id, c, true);
       if (r.status === 'signed')
         throw new ConflictException('Contrato assinado não pode ser cancelado (gere um aditivo)');
-      if (r.status === 'cancelled') return;
+      if (r.status === 'cancelled') return null;
       await c.query(
         `UPDATE tenant_contracts SET status = 'cancelled', cancelled_at = now(), cancel_reason = $2,
                 token_hash = NULL WHERE id = $1`,
@@ -684,18 +878,44 @@ export class ContractsService {
         entity: 'contract',
         entityId: id,
         tenantId: r.tenant_id,
-        data: { number: r.number, reason },
+        data: { number: r.number, reason, afterClientSigned: r.status === 'client_signed' },
         ip: a.ip,
       });
+      return r;
     });
+    // O cliente já tinha assinado: ele precisa saber que a assinatura dele perdeu o efeito.
+    if (before?.status === 'client_signed' && before.signer_email) {
+      const s = await this.settingsRow();
+      const content = JSON.parse(before.content) as ContractContent;
+      const paragraphs = [
+        `Olá, ${before.signer_name}!`,
+        `${content.parties.provider.name} cancelou o contrato nº ${before.number} de ${content.parties.customer.name}, que você tinha assinado. A sua assinatura perdeu o efeito e nada foi cobrado por ele.`,
+        `Motivo informado: ${reason}`,
+      ];
+      await this.webhook(s, {
+        event: 'contract.cancelled',
+        contract: { id, number: before.number, customer: content.parties.customer.name, reason },
+        messages: [
+          {
+            to: before.signer_email,
+            toName: before.signer_name,
+            subject: `Contrato ${before.number} cancelado`,
+            html: emailHtml('Contrato cancelado', paragraphs),
+            text: paragraphs.join('\n\n'),
+          },
+        ] satisfies WebhookMessage[],
+        attachment: null,
+      }).catch((e: Error) => this.log.warn(`aviso de cancelamento ${before.number}: ${e.message}`));
+    }
     return this.detail(id);
   }
 
-  /** Reenvia o aviso de contrato assinado (se o n8n estava fora na hora). */
-  async renotify(id: string, a: Actor) {
+  /** Reenvia o aviso da etapa atual (se o n8n estava fora na hora). */
+  async renotify(id: string, a: Actor, origin: string) {
     const r = await this.row(id);
-    if (r.status !== 'signed') throw new ConflictException('Contrato ainda não assinado');
-    await this.notifySigned(id);
+    if (r.status === 'client_signed') await this.notifyClientSigned(id, origin);
+    else if (r.status === 'signed') await this.notifySigned(id);
+    else throw new ConflictException('Contrato ainda não assinado');
     await this.db.tx((c) =>
       platformAudit(c, {
         adminId: a.admin.id,
@@ -703,11 +923,36 @@ export class ContractsService {
         entity: 'contract',
         entityId: id,
         tenantId: r.tenant_id,
-        data: { number: r.number },
+        data: { number: r.number, status: r.status },
         ip: a.ip,
       }),
     );
     return this.detail(id);
+  }
+
+  /** Contratos que o cliente já assinou e esperam a assinatura da contratada. */
+  async pending() {
+    const rows = await this.db.query<{
+      id: string;
+      tenant_id: string;
+      tenant_name: string;
+      number: string;
+      signer_name: string;
+      signed_at: Date;
+    }>(
+      `SELECT c.id, c.tenant_id, t.name AS tenant_name, c.number, c.signer_name, c.signed_at
+         FROM tenant_contracts c JOIN tenants t ON t.id = c.tenant_id
+        WHERE c.status = 'client_signed' ORDER BY c.signed_at`,
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      tenantId: r.tenant_id,
+      tenantName: r.tenant_name,
+      number: r.number,
+      signerName: r.signer_name,
+      signedAt: r.signed_at,
+      deadline: new Date(r.signed_at.getTime() + COUNTERSIGN_DAYS * 86400_000),
+    }));
   }
 
   // ------------------------------------------------------------------ link público
@@ -736,6 +981,11 @@ export class ContractsService {
       readAt: r.read_at,
       signedAt: r.signed_at,
       signerName: r.signer_name,
+      countersignedAt: r.countersigned_at,
+      countersignDeadline:
+        r.status === 'client_signed' && r.signed_at
+          ? new Date(r.signed_at.getTime() + COUNTERSIGN_DAYS * 86400_000)
+          : null,
       content,
     };
   }
@@ -784,73 +1034,46 @@ export class ContractsService {
     return this.pdf(r.id, signed);
   }
 
-  async sign(token: string, b: SignContractInput, meta: Omit<RequestMeta, 'origin'>) {
-    let png: Buffer | null = null;
-    if (b.signature.kind === 'drawn') {
-      png = Buffer.from(b.signature.image.slice(b.signature.image.indexOf(',') + 1), 'base64');
-      const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-      if (png.length < 60 || !png.subarray(0, 8).equals(PNG))
-        throw new UnprocessableEntityException('Assinatura inválida: desenhe de novo');
-    }
+  /**
+   * 1ª assinatura (CONTRATANTE). O contrato fica aguardando a contratada; a assinatura do cliente
+   * vira um registro com hash (client_evidence_sha256) que não muda mais.
+   */
+  async sign(token: string, b: SignContractInput, meta: RequestMeta & { forwardedFor?: string }) {
+    const png = signaturePng(b.signature);
     const id = await this.db.tx(async (c) => {
       const r = await this.byToken(token, c, true);
-      if (r.status === 'signed') throw new ConflictException('Este contrato já foi assinado');
+      if (r.status === 'signed' || r.status === 'client_signed')
+        throw new ConflictException('Este contrato já foi assinado');
       if (r.status !== 'sent' && r.status !== 'viewed')
         throw new ConflictException('Este contrato não está aguardando assinatura');
       if (!r.read_at) throw new ConflictException('Role o contrato até o fim antes de assinar');
       if (b.contentHash !== r.content_hash)
         throw new ConflictException('O contrato mudou desde que a página foi aberta. Recarregue.');
-      const content = JSON.parse(r.content) as ContractContent;
-      const [{ pdf }] = (
-        await c.query<{ pdf: Buffer }>(`SELECT pdf FROM tenant_contracts WHERE id = $1`, [r.id])
-      ).rows as [{ pdf: Buffer }];
-      const events = (
-        await c.query<{ kind: string; ip: string | null; created_at: Date; data: { to?: string } }>(
-          `SELECT kind, ip, created_at, data FROM tenant_contract_events
-            WHERE contract_id = $1 AND kind IN ('created', 'sent', 'opened', 'read') ORDER BY id`,
-          [r.id],
-        )
-      ).rows;
       const signedAt = new Date();
-      const sentBy = (
-        await c.query<{ by: string | null }>(
-          `SELECT data->>'by' AS by FROM tenant_contract_events
-            WHERE contract_id = $1 AND kind IN ('sent', 'link') ORDER BY id DESC LIMIT 1`,
-          [r.id],
-        )
-      ).rows[0]?.by;
-      const signedPdf = await renderSignedPdf(new Uint8Array(pdf), {
-        number: r.number,
+      const image = png ?? Buffer.from(b.signature.kind === 'typed' ? b.signature.text : '');
+      const ip = meta.ip?.slice(0, 64) ?? null;
+      const userAgent = meta.userAgent?.slice(0, 300) ?? null;
+      const evidence = {
+        contract: r.number,
+        role: 'CONTRATANTE',
         contentHash: r.content_hash,
-        originalPdfSha256: r.pdf_sha256,
-        customerName: content.parties.customer.name,
-        customerDocument: content.parties.customer.document,
-        signerName: b.name,
-        signerDocument: b.document,
-        signerEmail: b.email,
-        signedAt,
-        ip: meta.ip ?? '—',
-        userAgent: meta.userAgent ?? '',
-        signature:
-          b.signature.kind === 'drawn'
-            ? { kind: 'drawn', png: new Uint8Array(png!) }
-            : { kind: 'typed', text: b.signature.text },
-        sentBy: sentBy
-          ? `${content.parties.provider.name} (${sentBy})`
-          : content.parties.provider.name,
-        events: [
-          ...events.map((e) => ({
-            at: e.created_at,
-            label: `${EVENT_LABEL[e.kind] ?? e.kind}${e.data?.to ? ` para ${e.data.to}` : ''}`,
-            ip: e.kind === 'opened' || e.kind === 'read' ? e.ip : null,
-          })),
-          { at: signedAt, label: `Assinado por ${b.name}`, ip: meta.ip ?? null },
-        ],
-      });
+        pdfSha256: r.pdf_sha256,
+        name: b.name,
+        document: b.document,
+        email: b.email,
+        signedAt: signedAt.toISOString(),
+        ip,
+        userAgent,
+        geo: b.geo ?? null,
+        kind: b.signature.kind,
+        signatureSha256: sha256(image),
+      };
+      const evidenceSha256 = sha256(canonical(evidence));
       await c.query(
-        `UPDATE tenant_contracts SET status = 'signed', signed_at = $2, signer_name = $3,
+        `UPDATE tenant_contracts SET status = 'client_signed', signed_at = $2, signer_name = $3,
                 signer_document = $4, signer_email = $5, signer_ip = $6, signer_user_agent = $7,
-                signature_kind = $8, signature_image = $9, signed_pdf = $10, signed_pdf_sha256 = $11
+                signature_kind = $8, signature_image = $9, signer_geo = $10,
+                signer_forwarded_for = $11, client_evidence_sha256 = $12
           WHERE id = $1`,
         [
           r.id,
@@ -858,73 +1081,408 @@ export class ContractsService {
           b.name,
           b.document,
           b.email,
-          meta.ip?.slice(0, 64) ?? null,
-          meta.userAgent?.slice(0, 300) ?? null,
+          ip,
+          userAgent,
           b.signature.kind,
-          png ?? Buffer.from(b.signature.kind === 'typed' ? b.signature.text : ''),
-          Buffer.from(signedPdf),
-          sha256(signedPdf),
+          image,
+          b.geo ? JSON.stringify(b.geo) : null,
+          meta.forwardedFor?.slice(0, 300) ?? null,
+          evidenceSha256,
         ],
       );
       await this.event(c, r.id, 'signed', meta, {
         name: b.name,
         email: b.email,
-        signedPdfSha256: sha256(signedPdf),
+        evidence,
+        evidenceSha256,
+        forwardedFor: meta.forwardedFor?.slice(0, 300) ?? null,
       });
       await platformAudit(c, {
         action: 'platform.contract_signed',
         entity: 'contract',
         entityId: r.id,
         tenantId: r.tenant_id,
-        data: { number: r.number, signer: b.name, email: b.email },
+        data: { number: r.number, signer: b.name, email: b.email, role: 'CONTRATANTE' },
         ip: meta.ip,
       });
       return r.id;
     });
-    // Aviso ao dono da plataforma e via para o signatário. Falha aqui não desfaz a assinatura.
-    await this.notifySigned(id).catch(() => undefined);
+    // Aviso para a contratada assinar e recibo para o cliente. Falha aqui não desfaz a assinatura.
+    await this.notifyClientSigned(id, meta.origin).catch(() => undefined);
     return this.publicView(await this.row(id));
   }
 
-  /** contract.signed para o n8n: PDF assinado para o e-mail de aviso e cópia ao signatário. */
+  /**
+   * 2ª assinatura (CONTRATADA), no painel: só depois do cliente, dentro do prazo, conferindo que o
+   * texto e a assinatura do cliente são os que estavam na tela e com o código do autenticador.
+   * Gera o PDF final (rubricas + manifesto das duas assinaturas) e manda a via aos dois.
+   */
+  async countersign(
+    id: string,
+    b: CountersignContractInput,
+    a: Actor,
+    meta: { userAgent?: string },
+  ) {
+    const png = signaturePng(b.signature);
+    const check = (r: ContractRow) => {
+      if (r.status === 'signed') throw new ConflictException('Este contrato já foi assinado');
+      if (r.status !== 'client_signed')
+        throw new ConflictException('A contratada só assina depois do cliente');
+      if (Date.now() > r.signed_at!.getTime() + COUNTERSIGN_DAYS * 86400_000)
+        throw new ConflictException(
+          `Passou o prazo de ${COUNTERSIGN_DAYS} dias para assinar: cancele e gere um contrato novo`,
+        );
+      if (b.contentHash !== r.content_hash || b.clientEvidenceSha256 !== r.client_evidence_sha256)
+        throw new ConflictException('O contrato mudou desde que a tela foi aberta. Recarregue.');
+    };
+    check(await this.row(id));
+    if (!(await this.auth.confirmCode(a.admin.id, b.code))) {
+      await this.db.tx(async (c) => {
+        await this.event(
+          c,
+          id,
+          'countersign_denied',
+          { ip: a.ip, userAgent: meta.userAgent },
+          {
+            by: a.admin.name,
+          },
+        );
+        await platformAudit(c, {
+          adminId: a.admin.id,
+          action: 'platform.contract_countersign_denied',
+          entity: 'contract',
+          entityId: id,
+          ip: a.ip,
+        });
+      });
+      throw new UnprocessableEntityException('Código do autenticador inválido ou já usado');
+    }
+
+    await this.db.tx(async (c) => {
+      const r = await this.row(id, c, true);
+      check(r);
+      const content = JSON.parse(r.content) as ContractContent;
+      const [blob] = (
+        await c.query<{ pdf: Buffer; signature_image: Buffer }>(
+          `SELECT pdf, signature_image FROM tenant_contracts WHERE id = $1`,
+          [id],
+        )
+      ).rows as [{ pdf: Buffer; signature_image: Buffer }];
+      const at = new Date();
+      const image = png ?? Buffer.from(b.signature.kind === 'typed' ? b.signature.text : '');
+      const ip = a.ip?.slice(0, 64) ?? null;
+      const userAgent = meta.userAgent?.slice(0, 300) ?? null;
+      const evidence = {
+        contract: r.number,
+        role: 'CONTRATADA',
+        contentHash: r.content_hash,
+        clientEvidenceSha256: r.client_evidence_sha256,
+        adminId: a.admin.id,
+        name: b.name,
+        document: b.document,
+        email: a.admin.email,
+        signedAt: at.toISOString(),
+        ip,
+        userAgent,
+        geo: b.geo ?? null,
+        kind: b.signature.kind,
+        signatureSha256: sha256(image),
+        confirmedWith: 'totp',
+      };
+      const evidenceSha256 = sha256(canonical(evidence));
+      // O evento entra antes do PDF: o hash dele fecha a trilha impressa no manifesto.
+      const trail = await this.event(
+        c,
+        id,
+        'countersigned',
+        { ip: a.ip, userAgent: meta.userAgent },
+        { name: b.name, by: a.admin.name, evidence, evidenceSha256 },
+      );
+      const events = (
+        await c.query<{
+          kind: string;
+          ip: string | null;
+          created_at: Date;
+          data: { to?: string; name?: string };
+        }>(
+          `SELECT kind, ip, created_at, data FROM tenant_contract_events
+            WHERE contract_id = $1
+              AND kind IN ('created', 'sent', 'opened', 'read', 'signed', 'countersigned')
+            ORDER BY id`,
+          [id],
+        )
+      ).rows;
+      const sentBy = (
+        await c.query<{ by: string | null }>(
+          `SELECT data->>'by' AS by FROM tenant_contract_events
+            WHERE contract_id = $1 AND kind IN ('sent', 'link') ORDER BY id DESC LIMIT 1`,
+          [id],
+        )
+      ).rows[0]?.by;
+      const mark = (kind: string | null, img: Buffer): SignatureMark =>
+        kind === 'drawn'
+          ? { kind: 'drawn', png: new Uint8Array(img) }
+          : { kind: 'typed', text: img.toString('utf8') };
+      const signers: ManifestSigner[] = [
+        {
+          role: 'CONTRATANTE',
+          name: r.signer_name!,
+          document: r.signer_document!,
+          email: r.signer_email,
+          onBehalfOf: `${content.parties.customer.name}${content.parties.customer.document ? ` (${content.parties.customer.document})` : ''}`,
+          signedAt: r.signed_at!,
+          ip: r.signer_ip ?? '—',
+          userAgent: r.signer_user_agent ?? '',
+          geo: r.signer_geo,
+          how: HOW[r.signature_kind ?? 'typed']!,
+          signature: mark(r.signature_kind, blob.signature_image),
+          evidenceSha256: r.client_evidence_sha256!,
+        },
+        {
+          role: 'CONTRATADA',
+          name: b.name,
+          document: b.document,
+          email: a.admin.email,
+          onBehalfOf: `${content.parties.provider.name}${content.parties.provider.document ? ` (${content.parties.provider.document})` : ''}`,
+          signedAt: at,
+          ip: ip ?? '—',
+          userAgent: userAgent ?? '',
+          geo: b.geo ?? null,
+          how: `${HOW[b.signature.kind]} · confirmada com o código do aplicativo autenticador`,
+          signature: mark(b.signature.kind, image),
+          evidenceSha256,
+        },
+      ];
+      const signedPdf = await renderSignedPdf(new Uint8Array(blob.pdf), {
+        number: r.number,
+        contentHash: r.content_hash,
+        originalPdfSha256: r.pdf_sha256,
+        customerName: content.parties.customer.name,
+        signers,
+        sentBy: sentBy
+          ? `${content.parties.provider.name} (${sentBy})`
+          : content.parties.provider.name,
+        events: events.map((e) => ({
+          at: e.created_at,
+          label:
+            e.kind === 'signed' || e.kind === 'countersigned'
+              ? `${EVENT_LABEL[e.kind]} (${e.data?.name ?? ''})`
+              : `${EVENT_LABEL[e.kind] ?? e.kind}${e.data?.to ? ` para ${e.data.to}` : ''}`,
+          ip: e.kind === 'created' || e.kind === 'sent' ? null : e.ip,
+        })),
+        trailSha256: trail,
+      });
+      await c.query(
+        `UPDATE tenant_contracts SET status = 'signed', countersigned_at = $2,
+                countersigner_admin_id = $3, countersigner_name = $4, countersigner_document = $5,
+                countersigner_email = $6, countersigner_ip = $7, countersigner_user_agent = $8,
+                countersigner_geo = $9, countersign_kind = $10, countersign_image = $11,
+                countersign_evidence_sha256 = $12, trail_sha256 = $13, signed_pdf = $14,
+                signed_pdf_sha256 = $15, notified_at = NULL, notify_error = NULL,
+                token_expires_at = greatest(token_expires_at, now() + make_interval(days => $16))
+          WHERE id = $1`,
+        [
+          id,
+          at,
+          a.admin.id,
+          b.name,
+          b.document,
+          a.admin.email,
+          ip,
+          userAgent,
+          b.geo ? JSON.stringify(b.geo) : null,
+          b.signature.kind,
+          image,
+          evidenceSha256,
+          trail,
+          Buffer.from(signedPdf),
+          sha256(signedPdf),
+          LINK_DAYS,
+        ],
+      );
+      await platformAudit(c, {
+        adminId: a.admin.id,
+        action: 'platform.contract_countersigned',
+        entity: 'contract',
+        entityId: id,
+        tenantId: r.tenant_id,
+        data: { number: r.number, signer: b.name, signedPdfSha256: sha256(signedPdf) },
+        ip: a.ip,
+      });
+    });
+    // Via final para os dois lados. Falha aqui não desfaz a assinatura (dá para reenviar).
+    await this.notifySigned(id).catch(() => undefined);
+    return this.detail(id);
+  }
+
+  /** Destinatários sem repetir (mesmo e-mail com letras diferentes conta uma vez). */
+  private uniqueTo(messages: WebhookMessage[]) {
+    const seen = new Set<string>();
+    return messages.filter((m) => {
+      const k = m.to.trim().toLowerCase();
+      if (!k || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }
+
+  /** Manda ao n8n e registra o resultado (notified_at / notify_error e a trilha). */
+  private async deliver(
+    id: string,
+    number: string,
+    payload: Record<string, unknown>,
+    to: string[],
+  ) {
+    const s = await this.settingsRow();
+    const errorOf = (e: unknown) => (e as Error).message.slice(0, 300);
+    try {
+      await this.webhook(s, payload);
+      await this.db.tx(async (c) => {
+        await c.query(
+          `UPDATE tenant_contracts SET notified_at = now(), notify_error = NULL WHERE id = $1`,
+          [id],
+        );
+        await this.event(c, id, 'notified', {}, { to, event: payload.event });
+      });
+    } catch (e) {
+      this.log.warn(`aviso do contrato ${number} não enviado: ${errorOf(e)}`);
+      await this.db.tx(async (c) => {
+        await c.query(`UPDATE tenant_contracts SET notify_error = $2 WHERE id = $1`, [
+          id,
+          errorOf(e),
+        ]);
+        await this.event(c, id, 'notify_failed', {}, { error: errorOf(e), event: payload.event });
+      });
+      throw e;
+    }
+  }
+
+  /** contract.client_signed: "falta a sua assinatura" para a contratada e recibo para o cliente. */
+  private async notifyClientSigned(id: string, origin: string) {
+    const s = await this.settingsRow();
+    const r = await this.row(id);
+    if (r.status !== 'client_signed') return;
+    const content = JSON.parse(r.content) as ContractContent;
+    const when = brTime(r.signed_at!);
+    const deadline = brTime(new Date(r.signed_at!.getTime() + COUNTERSIGN_DAYS * 86400_000));
+    const panelUrl = `${origin}/restaurantes/${r.tenant_id}?aba=contrato&contrato=${id}`;
+    const to = s.notify_email || content.parties.provider.email;
+    const messages: WebhookMessage[] = [];
+    if (to) {
+      const p = [
+        `${r.signer_name} assinou o contrato nº ${r.number} de ${content.parties.customer.name} (${content.terms.storeName}).`,
+        `Data e hora: ${when}. IP: ${r.signer_ip ?? '—'}.`,
+        `Agora falta a sua assinatura. Confira a assinatura do cliente e assine pelo painel até ${deadline.replace(' (horário de Brasília)', '')}. Depois disso a via final vai por e-mail para vocês dois.`,
+      ];
+      messages.push({
+        to,
+        subject: `Falta a sua assinatura · contrato ${r.number} · ${content.terms.storeName}`,
+        html: emailHtml('O cliente assinou. Falta você.', p, {
+          label: 'Conferir e assinar',
+          url: panelUrl,
+        }),
+        text: `${p.join('\n\n')}\n\n${panelUrl}`,
+      });
+    }
+    if (r.signer_email) {
+      const p = [
+        `Olá, ${r.signer_name}!`,
+        `Recebemos a sua assinatura do contrato nº ${r.number} de ${content.parties.customer.name} em ${when}.`,
+        `Agora ${content.parties.provider.name} confere e assina. Assim que isso acontecer, a via final, com as duas assinaturas, chega neste e-mail.`,
+        `Código de integridade do texto (SHA-256): ${r.content_hash}`,
+      ];
+      messages.push({
+        to: r.signer_email,
+        toName: r.signer_name,
+        subject: `Recebemos a sua assinatura · contrato ${r.number}`,
+        html: emailHtml('Assinatura recebida', p),
+        text: p.join('\n\n'),
+      });
+    }
+    const list = this.uniqueTo(messages);
+    await this.deliver(
+      id,
+      r.number,
+      {
+        event: 'contract.client_signed',
+        contract: {
+          id,
+          number: r.number,
+          customer: content.parties.customer.name,
+          store: content.terms.storeName,
+          signedAt: r.signed_at!.toISOString(),
+          signerName: r.signer_name,
+          signerEmail: r.signer_email,
+          signerIp: r.signer_ip,
+          contentHash: r.content_hash,
+          countersignUrl: panelUrl,
+        },
+        notifyEmail: to,
+        messages: list,
+        attachment: null,
+      },
+      list.map((m) => m.to),
+    );
+  }
+
+  /** contract.signed: via final (duas assinaturas) para a contratada e para o cliente. */
   private async notifySigned(id: string) {
     const s = await this.settingsRow();
-    const [r] = await this.db.query<ContractRow & { signed_pdf: Buffer; tenant_id: string }>(
+    const [r] = await this.db.query<ContractRow & { signed_pdf: Buffer }>(
       `SELECT ${CONTRACT_COLS}, c.signed_pdf FROM tenant_contracts c WHERE c.id = $1`,
       [id],
     );
-    if (!r) return;
+    if (!r || r.status !== 'signed') return;
     const content = JSON.parse(r.content) as ContractContent;
-    const when = brTime(r.signed_at!);
+    const done = r.countersigned_at ?? r.signed_at!;
+    const when = brTime(done);
     const to = s.notify_email || content.parties.provider.email;
+    const both = !!r.countersigned_at;
+    const finalText = both
+      ? `${r.signer_name} (CONTRATANTE) e ${r.countersigner_name} (CONTRATADA) assinaram o contrato nº ${r.number} de ${content.parties.customer.name} (${content.terms.storeName}). Concluído em ${when}.`
+      : `${r.signer_name} assinou o contrato nº ${r.number} de ${content.parties.customer.name} (${content.terms.storeName}) em ${when}.`;
     const messages: WebhookMessage[] = [];
     if (to)
       messages.push({
         to,
         subject: `Contrato ${r.number} assinado · ${content.terms.storeName}`,
         html: emailHtml('Contrato assinado', [
-          `${r.signer_name} assinou o contrato nº ${r.number} de ${content.parties.customer.name} (${content.terms.storeName}).`,
-          `Data e hora: ${when}. IP: ${r.signer_ip ?? '—'}.`,
+          finalText,
           `Plano ${content.terms.planName}, mensalidade ${formatBRL(toCents(content.terms.priceMonthly))}.`,
-          'O PDF assinado, com o manifesto da assinatura, está anexado e guardado no painel (Restaurantes → cliente → Contrato).',
+          'O PDF final, com as rubricas e o manifesto das assinaturas, está anexado e guardado no painel (Restaurantes → cliente → Contrato).',
         ]),
-        text: `${r.signer_name} assinou o contrato ${r.number} de ${content.parties.customer.name} em ${when}.`,
+        text: finalText,
       });
-    if (r.signer_email)
+    if (r.countersigner_email && r.countersigner_email !== to)
       messages.push({
-        to: r.signer_email,
-        toName: r.signer_name,
+        to: r.countersigner_email,
+        toName: r.countersigner_name,
+        subject: `Sua via do contrato ${r.number} assinado`,
+        html: emailHtml('Contrato assinado', [finalText, 'A via final está anexada.']),
+        text: finalText,
+      });
+    const customerTo = [r.signer_email, content.parties.customer.email].filter(
+      (x): x is string => !!x,
+    );
+    for (const addr of customerTo)
+      messages.push({
+        to: addr,
+        toName: addr === r.signer_email ? r.signer_name : content.parties.customer.representative,
         subject: `Sua via do contrato ${r.number} assinado`,
         html: emailHtml('Contrato assinado com sucesso', [
-          `Olá, ${r.signer_name}!`,
-          `Obrigado por assinar o contrato do Comandou de ${content.parties.customer.name}. Sua via assinada está anexada a este e-mail.`,
+          `Olá${addr === r.signer_email ? `, ${r.signer_name}` : ''}!`,
+          both
+            ? `O contrato do Comandou de ${content.parties.customer.name} está assinado pelas duas partes. A via final, com as rubricas e o manifesto das assinaturas, está anexada a este e-mail.`
+            : `Obrigado por assinar o contrato do Comandou de ${content.parties.customer.name}. Sua via assinada está anexada a este e-mail.`,
           `Código de integridade do texto (SHA-256): ${r.content_hash}`,
         ]),
         text: `Sua via do contrato ${r.number} assinado está anexada.`,
       });
-    const errorOf = (e: unknown) => (e as Error).message.slice(0, 300);
-    try {
-      await this.webhook(s, {
+    const list = this.uniqueTo(messages);
+    await this.deliver(
+      id,
+      r.number,
+      {
         event: 'contract.signed',
         contract: {
           id,
@@ -934,38 +1492,27 @@ export class ContractsService {
           store: content.terms.storeName,
           planName: content.terms.planName,
           priceMonthly: content.terms.priceMonthly,
-          signedAt: r.signed_at!.toISOString(),
+          signedAt: done.toISOString(),
+          clientSignedAt: r.signed_at!.toISOString(),
           signerName: r.signer_name,
           signerEmail: r.signer_email,
           signerIp: r.signer_ip,
+          countersignedAt: r.countersigned_at?.toISOString() ?? null,
+          countersignerName: r.countersigner_name,
+          countersignerIp: r.countersigner_ip,
           contentHash: r.content_hash,
           signedPdfSha256: r.signed_pdf_sha256,
+          trailSha256: r.trail_sha256,
         },
         notifyEmail: to,
-        messages,
+        messages: list,
         attachment: {
           fileName: `contrato-${r.number}-assinado.pdf`,
           mimeType: 'application/pdf',
           base64: r.signed_pdf.toString('base64'),
         },
-      });
-      await this.db.tx(async (c) => {
-        await c.query(
-          `UPDATE tenant_contracts SET notified_at = now(), notify_error = NULL WHERE id = $1`,
-          [id],
-        );
-        await this.event(c, id, 'notified', {}, { to: messages.map((m) => m.to) });
-      });
-    } catch (e) {
-      this.log.warn(`aviso do contrato ${r.number} não enviado: ${errorOf(e)}`);
-      await this.db.tx(async (c) => {
-        await c.query(`UPDATE tenant_contracts SET notify_error = $2 WHERE id = $1`, [
-          id,
-          errorOf(e),
-        ]);
-        await this.event(c, id, 'notify_failed', {}, { error: errorOf(e) });
-      });
-      throw e;
-    }
+      },
+      list.map((m) => m.to),
+    );
   }
 }

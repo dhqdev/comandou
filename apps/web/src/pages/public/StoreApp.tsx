@@ -10,7 +10,7 @@ import {
   useNavigate,
   useNavigationType,
 } from 'react-router';
-import { applyTheme, Mascot } from '../../design-system';
+import { applyTheme, Mascot, Spinner } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
 import {
@@ -192,22 +192,8 @@ function Screens() {
 
 function Skeleton() {
   return (
-    <main className="sf" aria-busy="true">
-      <div className="sf-cover sf-cover--skeleton" />
-      <div className="sf-wrap">
-        <div className="sk sk--search" />
-        <div className="sk-row">
-          {Array.from({ length: 5 }, (_, i) => (
-            <div key={i} className="sk sk--chip" />
-          ))}
-        </div>
-        <div className="sk sk--banner" />
-        <div className="sk-grid">
-          {Array.from({ length: 4 }, (_, i) => (
-            <div key={i} className="sk sk--product" />
-          ))}
-        </div>
-      </div>
+    <main className="sf sf--loading" aria-busy="true">
+      <Spinner label="Abrindo o cardápio" />
     </main>
   );
 }

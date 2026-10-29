@@ -27,6 +27,18 @@ export function SidePanel({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  /** Só fecha se o clique começou e terminou no fundo (arrastar uma seleção para fora não fecha). */
+  const downOutside = useRef(false);
+  const outside = (e: {
+    target: EventTarget;
+    currentTarget: HTMLDialogElement;
+    clientX: number;
+    clientY: number;
+  }) => {
+    if (e.target !== e.currentTarget) return false;
+    const r = e.currentTarget.getBoundingClientRect();
+    return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+  };
   useEffect(() => {
     const d = ref.current;
     if (!d) return;
@@ -40,22 +52,33 @@ export function SidePanel({
       onClose={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      onMouseDown={(e) => {
+        downOutside.current = outside(e);
+      }}
       onClick={(e) => {
         // Clique no fundo escurecido (fora do painel) fecha.
-        const r = e.currentTarget.getBoundingClientRect();
-        const outside =
-          e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
-        if (e.target === e.currentTarget && outside) onClose();
+        if (downOutside.current && outside(e)) onClose();
+        downOutside.current = false;
       }}
       aria-labelledby={titleId}
     >
       <div className="side-panel__inner">
         <header className="side-panel__head">
-          <h2 id={titleId}>{title}</h2>
+          <h2 id={titleId} className="side-panel__title">
+            {title}
+          </h2>
           <div className="side-panel__actions">
             {actions}
-            <button className="side-panel__close" onClick={onClose} aria-label="Fechar">
-              <X size={18} />
+            <button
+              type="button"
+              className="side-panel__close"
+              onClick={onClose}
+              aria-label="Fechar"
+              title="Fechar (Esc)"
+            >
+              <X size={16} aria-hidden />
+              <span className="side-panel__close-text">Fechar</span>
+              <kbd className="side-panel__kbd">Esc</kbd>
             </button>
           </div>
         </header>

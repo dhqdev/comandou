@@ -222,6 +222,11 @@ export const ContractSettingsBody = z.object({
   providerAddress: z.string().trim().max(240),
   providerEmail: blankEmail,
   providerRepresentative: z.string().trim().max(120),
+  providerRepresentativeDocument: z
+    .string()
+    .transform(digits)
+    .refine((v) => v === '' || isCpf(v), 'CPF inválido')
+    .default(''),
   forumCity: z.string().trim().max(80),
   dueDay: z.number().int().min(1).max(28),
   termMonths: z.number().int().min(1).max(60),
@@ -270,29 +275,55 @@ export const SendContract = z.object({
 });
 export const CancelContract = z.object({ reason: z.string().trim().min(3).max(300) });
 
-/** Assinatura pelo link público. */
+const signatureInput = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('drawn'),
+    image: z
+      .string()
+      .max(200_000)
+      .regex(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/, 'imagem PNG'),
+  }),
+  z.object({ kind: z.literal('typed'), text: z.string().trim().min(3).max(80) }),
+]);
+/** Localização que o navegador informou (só se a pessoa permitiu). */
+const geoInput = z
+  .object({
+    lat: z.number().min(-90).max(90),
+    lng: z.number().min(-180).max(180),
+    accuracy: z.number().min(0).max(1_000_000),
+  })
+  .optional();
+const fullName = z
+  .string()
+  .trim()
+  .min(5)
+  .max(120)
+  .refine((v) => v.split(/\s+/).length >= 2, 'nome completo');
+const hex64 = z.string().regex(/^[0-9a-f]{64}$/);
+
+/** Assinatura pelo link público (CONTRATANTE, sempre a primeira). */
 export const SignContract = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(5)
-    .max(120)
-    .refine((v) => v.split(/\s+/).length >= 2, 'nome completo'),
+  name: fullName,
   document: z.string().transform(digits).refine(isCpf, 'CPF inválido'),
   email: z.string().trim().toLowerCase().email().max(254),
   accept: z.literal(true),
-  contentHash: z.string().regex(/^[0-9a-f]{64}$/),
-  signature: z.discriminatedUnion('kind', [
-    z.object({
-      kind: z.literal('drawn'),
-      image: z
-        .string()
-        .max(200_000)
-        .regex(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/, 'imagem PNG'),
-    }),
-    z.object({ kind: z.literal('typed'), text: z.string().trim().min(3).max(80) }),
-  ]),
+  contentHash: hex64,
+  signature: signatureInput,
+  geo: geoInput,
 });
+/** Assinatura da CONTRATADA no painel, depois do cliente, com o código do autenticador. */
+export const CountersignContract = z.object({
+  name: fullName,
+  document: z.string().transform(digits).refine(isCpf, 'CPF inválido'),
+  accept: z.literal(true),
+  contentHash: hex64,
+  /** O registro da assinatura do cliente que o admin viu na tela (não pode ter mudado). */
+  clientEvidenceSha256: hex64,
+  code: z.string().regex(/^[0-9]{6}$/, 'código de 6 dígitos'),
+  signature: signatureInput,
+  geo: geoInput,
+});
+export type CountersignContractInput = z.infer<typeof CountersignContract>;
 export type SignContractInput = z.infer<typeof SignContract>;
 
 /** Dígitos verificadores do CPF. */

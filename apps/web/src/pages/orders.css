@@ -30,19 +30,6 @@
   color: var(--cm-text);
   border-color: var(--cm-border-strong);
 }
-.ord-icon-btn[data-spin] svg {
-  animation: ord-spin 0.8s linear infinite;
-}
-@keyframes ord-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .ord-icon-btn[data-spin] svg {
-    animation: none;
-  }
-}
 .ord-clear {
   display: inline-flex;
   white-space: nowrap;
@@ -91,19 +78,61 @@
 .ord-nowrap {
   white-space: nowrap;
 }
+.ord-muted {
+  color: var(--cm-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.ord-num {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+/* Tabela compacta: texto menor, nada quebra em duas linhas; o que não cabe vira "…". */
+.ord-table {
+  font-size: var(--cm-text-sm);
+}
+.ord-table td {
+  white-space: nowrap;
+}
+.ord-table .cm-badge {
+  height: 20px;
+  padding: 0 6px;
+  font-size: var(--cm-text-2xs);
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  line-height: 20px;
+  vertical-align: middle;
+}
+.ord-col-who {
+  width: 22%;
+  max-width: 0;
+}
+.ord-who {
+  display: grid;
+  min-width: 0;
+}
+.ord-who__main,
+.ord-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .ord-sub {
   display: block;
-  white-space: nowrap;
   color: var(--cm-text-subtle);
   font-size: var(--cm-text-xs);
   font-variant-numeric: tabular-nums;
+}
+.ord-narrow-type {
+  display: none;
 }
 .ord-tag {
   margin-left: 6px;
   padding: 1px 6px;
   border-radius: var(--cm-radius-full);
-  background: var(--cm-brand-50);
-  color: var(--cm-brand-700);
+  background: var(--cm-surface-muted);
+  color: var(--cm-text-muted);
   font-size: var(--cm-text-2xs);
   font-weight: 600;
   vertical-align: 1px;
@@ -119,10 +148,37 @@
   white-space: nowrap;
   color: var(--cm-text-muted);
 }
-/* Notebook estreito: os itens somem antes de a tabela apertar. */
-@media (max-width: 1100px) and (min-width: 641px) {
+/* Notebook estreito ou zoom alto: os itens somem antes de a tabela apertar; depois o tipo vai
+   para baixo do cliente. A tabela sempre cabe no cartão. */
+@media (min-width: 641px) {
+  .ord-table th,
+  .ord-table td {
+    padding-left: 12px;
+    padding-right: 8px;
+  }
+  .ord-table th:first-child,
+  .ord-table td:first-child {
+    padding-left: var(--cm-space-4);
+  }
+  .ord-table th:last-child,
+  .ord-table td:last-child {
+    padding-right: var(--cm-space-4);
+  }
+}
+@media (max-width: 1180px) and (min-width: 641px) {
   .ord-col-items {
     display: none;
+  }
+}
+@media (max-width: 1000px) and (min-width: 641px) {
+  .ord-col-type {
+    display: none;
+  }
+  .ord-col-who {
+    width: 34%;
+  }
+  .ord-narrow-type {
+    display: inline;
   }
 }
 
@@ -130,8 +186,12 @@
   .ord-head {
     padding: 12px var(--cm-space-3) 0;
   }
-  .ord-col-items {
+  .ord-col-items,
+  .ord-col-who {
     width: auto;
     max-width: none;
+  }
+  .ord-table td {
+    white-space: normal;
   }
 }
