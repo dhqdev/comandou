@@ -72,18 +72,39 @@ export function useTheme(): [Theme, (t: Theme) => void] {
 }
 
 /**
- * Troca o tema pintando a tela de uma ponta à outra (View Transitions + clip-path, ver tokens.css).
- * Sem suporte do navegador: fade curto de cores. "Reduzir movimento": troca na hora.
- * O segundo argumento (ponto do clique) fica só por compatibilidade com quem chama.
+ * Troca o tema com um círculo que nasce do ponto do clique e se abre até cobrir a tela
+ * (View Transitions + clip-path circle, ver tokens.css). Sem ponto (teclado), nasce do meio da
+ * tela. Sem suporte do navegador: fade curto de cores. "Reduzir movimento": troca na hora.
  */
 let switchTimer: number | undefined;
-export function switchTheme(next: Theme, _from?: { x: number; y: number }) {
+type Vt = { ready: Promise<void> };
+export function switchTheme(next: Theme, from?: { x: number; y: number }) {
   const root = document.documentElement;
   const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   if (reduce) return setTheme(next);
-  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => Vt };
   if (typeof doc.startViewTransition === 'function') {
-    doc.startViewTransition(() => setTheme(next));
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const x = from?.x ?? w / 2;
+    const y = from?.y ?? h / 2;
+    // Raio até o canto mais distante: o círculo termina cobrindo a tela inteira.
+    const r = Math.hypot(Math.max(x, w - x), Math.max(y, h - y));
+    const t = doc.startViewTransition(() => setTheme(next));
+    t.ready
+      .then(() =>
+        root
+          .animate(
+            { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${r}px at ${x}px ${y}px)`] },
+            {
+              duration: 560,
+              easing: 'cubic-bezier(0.65, 0, 0.35, 1)',
+              pseudoElement: '::view-transition-new(root)',
+            },
+          )
+          .finished.catch(() => undefined),
+      )
+      .catch(() => undefined);
     return;
   }
   root.classList.add('cm-theme-switching');
@@ -93,13 +114,18 @@ export function switchTheme(next: Theme, _from?: { x: number; y: number }) {
   switchTimer = window.setTimeout(() => root.classList.remove('cm-theme-switching'), 450);
 }
 
+/** Ponto do clique (ou o centro do botão, quando veio do teclado). */
+export function clickPoint(e: { clientX: number; clientY: number; detail: number }, el: Element) {
+  return e.detail > 0 ? { x: e.clientX, y: e.clientY } : centerOf(el);
+}
+
 /** Centro de um elemento clicado. */
 export function centerOf(el: Element) {
   const b = el.getBoundingClientRect();
   return { x: b.left + b.width / 2, y: b.top + b.height / 2 };
 }
 
-/** Botão sol/lua que alterna o tema, com a onda que passa pela tela. */
+/** Botão sol/lua que alterna o tema, com o círculo que se abre a partir do clique. */
 export function ThemeToggle({ className = '' }: { className?: string }) {
   const [theme] = useTheme();
   const next: Theme = theme === 'dark' ? 'light' : 'dark';
@@ -111,7 +137,7 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
       aria-label={label}
       title={label}
       data-theme-now={theme}
-      onClick={(e) => switchTheme(next, centerOf(e.currentTarget))}
+      onClick={(e) => switchTheme(next, clickPoint(e, e.currentTarget))}
     >
       <Sun size={18} className="cm-theme-toggle__sun" />
       <Moon size={18} className="cm-theme-toggle__moon" />

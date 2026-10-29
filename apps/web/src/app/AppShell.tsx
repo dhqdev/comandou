@@ -40,6 +40,7 @@ import {
   Users,
   Wallet,
   WifiOff,
+  MessagesSquare,
 } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { CURRENT_RELEASE } from '@comandou/shared';
@@ -56,6 +57,7 @@ import {
 } from '../design-system';
 import { GlobalSearch, GlobalSearchTrigger, useSearchHotkey } from '../features/GlobalSearch';
 import { SoundControl } from '../features/SoundControl';
+import { openTeamChat, useChatUnread } from '../features/chat/TeamChat';
 import { WelcomeTour, tourSeen } from '../features/WelcomeTour';
 import { useSearchSpotlight } from '../lib/deep-link';
 import { useOnline } from '../lib/connectivity';
@@ -250,6 +252,7 @@ export function AppShell() {
   const online = useOnline();
   const live = useRealtimeStatus();
   const unseen = useHasUnseenRelease();
+  const chatUnread = useChatUnread();
   const [pwOpen, setPwOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
@@ -341,6 +344,15 @@ export function AppShell() {
           { key: 'conta', label: 'Conta', icon: <CircleUserRound />, panel: account },
         ]}
         tabs={tabs}
+        moreActions={[
+          {
+            key: 'conversas',
+            label: 'Conversas',
+            icon: <MessagesSquare />,
+            badge: chatUnread,
+            onClick: () => openTeamChat(),
+          },
+        ]}
         contentKey={location.pathname}
         top={
           <>

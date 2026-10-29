@@ -1,4 +1,4 @@
-import { ChevronLeft, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import {
   CSSProperties,
   RefObject,
@@ -75,6 +75,7 @@ export function AppFrame({
   contentKey,
   className = '',
   showWhere = true,
+  moreActions = [],
 }: {
   /** Topo da barra lateral (logo). */
   brand: ReactNode;
@@ -94,6 +95,14 @@ export function AppFrame({
   className?: string;
   /** No celular, mostra no topo o nome da tela atual (o painel admin já tem título próprio). */
   showWhere?: boolean;
+  /** Botões largos no topo da folha "Mais" do celular (ex.: Conversas da equipe). */
+  moreActions?: {
+    key: string;
+    label: string;
+    icon: ReactNode;
+    badge?: number;
+    onClick: () => void;
+  }[];
 }) {
   const { pathname } = useLocation();
   const [sheet, setSheet] = useState<string | null>(null);
@@ -357,6 +366,30 @@ export function AppFrame({
         {sheetItem?.panel}
         {sheetItems && (
           <div className="cm-sheet-menu">
+            {moreActions.length > 0 && (
+              <div className="cm-sheet-menu__wide-list">
+                {moreActions.map((a) => (
+                  <button
+                    key={a.key}
+                    type="button"
+                    className="cm-sheet-menu__wide"
+                    onClick={() => {
+                      setSheet(null);
+                      a.onClick();
+                    }}
+                  >
+                    <span className="cm-sheet-menu__wide-icon">{a.icon}</span>
+                    <span className="cm-sheet-menu__wide-label">{a.label}</span>
+                    {!!a.badge && (
+                      <span className="cm-sheet-menu__wide-badge">
+                        {a.badge > 99 ? '99+' : a.badge}
+                      </span>
+                    )}
+                    <ChevronRight size={18} aria-hidden className="cm-sheet-menu__wide-go" />
+                  </button>
+                ))}
+              </div>
+            )}
             <TileGrid
               links={sheetItems
                 .filter((it) => it.to)

@@ -3,13 +3,13 @@
  * as abas vão para baixo e a conversa entra por cima da lista.
  */
 .tc-fab {
-  --fab-bottom: 20px;
+  --fab-bottom: 12px;
   position: fixed;
   z-index: 55;
-  right: 20px;
+  right: 12px;
   bottom: var(--fab-bottom);
-  width: 54px;
-  height: 54px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   border: 0;
   display: grid;
@@ -44,15 +44,15 @@
 }
 .tc-fab__badge {
   position: absolute;
-  top: -3px;
-  right: -3px;
-  min-width: 21px;
-  height: 21px;
-  padding: 0 6px;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
   border-radius: 999px;
   background: var(--cm-danger);
   color: #fff;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 750;
   display: grid;
   place-items: center;
@@ -69,8 +69,8 @@
 .tc-peek {
   position: fixed;
   z-index: 55;
-  right: 20px;
-  bottom: calc(var(--fab-bottom, 20px) + 66px);
+  right: 12px;
+  bottom: calc(var(--fab-bottom, 12px) + 52px);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -116,9 +116,9 @@
 .tc-panel {
   position: fixed;
   z-index: 56;
-  right: 20px;
-  bottom: calc(var(--fab-bottom, 20px) + 66px);
-  width: min(920px, calc(100vw - 40px));
+  right: 12px;
+  bottom: calc(var(--fab-bottom, 12px) + 52px);
+  width: min(920px, calc(100vw - 24px));
   height: min(640px, calc(100dvh - 120px));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -137,10 +137,10 @@
 .tc-panel.is-expanded {
   top: 20px;
   left: calc(var(--cm-rail-w, 84px) + 20px);
-  right: 20px;
+  right: 12px;
   width: auto;
   height: auto;
-  bottom: calc(var(--fab-bottom, 20px) + 66px);
+  bottom: calc(var(--fab-bottom, 12px) + 52px);
 }
 @keyframes tc-open {
   from {
@@ -1562,17 +1562,20 @@
 
 /* ---------------------------------------------------------------- posição do botão em cada app */
 @media (max-width: 860px) {
-  .tc-fab--shell,
+  /* No celular o painel não tem botão flutuante: o chat abre por "Conversas" na folha Mais. */
+  .tc-fab--shell {
+    display: none;
+  }
   .tc-peek--shell {
-    --fab-bottom: calc(64px + 10px + env(safe-area-inset-bottom) * 0.3 + 14px);
+    bottom: calc(64px + 10px + env(safe-area-inset-bottom) * 0.3 + 14px);
   }
   .tc-fab {
-    right: 14px;
-    width: 50px;
-    height: 50px;
+    right: 12px;
+    width: 46px;
+    height: 46px;
   }
   .tc-peek {
-    right: 14px;
+    right: 12px;
   }
 }
 @media (max-width: 1023px) {

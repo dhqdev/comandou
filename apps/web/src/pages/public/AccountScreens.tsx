@@ -14,9 +14,9 @@ import {
   Trash2,
   UserRound,
 } from 'lucide-react';
-import { FormEvent, ReactNode, useEffect, useState } from 'react';
+import { FormEvent, MouseEvent, ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
-import { centerOf, Mascot, Spinner, switchTheme, useTheme, useToast } from '../../design-system';
+import { clickPoint, Mascot, Spinner, switchTheme, useTheme, useToast } from '../../design-system';
 import { SlideTabs } from '../../features/SlideTabs';
 import { api, ApiError } from '../../lib/api';
 import { useStore } from './context';
@@ -204,7 +204,7 @@ function MenuRow({
   icon: ReactNode;
   label: string;
   hint?: string;
-  onClick?(): void;
+  onClick?(e: MouseEvent<HTMLButtonElement>): void;
 }) {
   const inner = (
     <>
@@ -305,10 +305,9 @@ export function AccountScreen() {
             icon={theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
             label={theme === 'dark' ? 'Tema escuro' : 'Tema claro'}
             hint="Toque para trocar"
-            onClick={() => {
-              const el = document.activeElement;
-              switchTheme(theme === 'dark' ? 'light' : 'dark', el ? centerOf(el) : undefined);
-            }}
+            onClick={(e) =>
+              switchTheme(theme === 'dark' ? 'light' : 'dark', clickPoint(e, e.currentTarget))
+            }
           />
         )}
         {me && (

@@ -384,7 +384,7 @@
   border-top: 3px solid var(--tone);
   border-radius: var(--cm-radius-md);
   background: var(--cm-surface);
-  height: max(300px, calc(var(--cm-vvh, 100dvh) - 500px));
+  min-height: 0;
 }
 .board__head {
   display: flex;
@@ -495,10 +495,16 @@
 .hcard__main:focus-visible::after {
   box-shadow: var(--cm-focus);
 }
+.hcard__main > * {
+  min-width: 0;
+}
+/* Coluna estreita: a etiqueta (Online) desce para a linha de baixo em vez de passar por cima
+   do tempo. */
 .hcard__head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 2px 6px;
   font-size: var(--cm-text-sm);
 }
 .hcard__tag {
@@ -565,6 +571,31 @@
   display: flex;
   gap: 4px;
   margin-top: 6px;
+}
+/* Coluna estreita (tela pequena com as quatro colunas lado a lado): os botões descem para uma
+   linha própria, para o valor e o nome do cliente não ficarem cortados. */
+.board__col {
+  container-type: inline-size;
+}
+@container (max-width: 250px) {
+  .hcard__actions {
+    grid-column: 2 / -1;
+    grid-row: 3;
+    justify-self: end;
+    margin-top: 4px;
+  }
+}
+/* Mais estreita ainda: sai o ícone do canal (o tipo continua no detalhe do pedido). */
+@container (max-width: 200px) {
+  .hcard {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .hcard__channel {
+    display: none;
+  }
+  .hcard__actions {
+    grid-column: 1 / -1;
+  }
 }
 .hcard__act {
   display: grid;
@@ -637,6 +668,59 @@
   color: #fff;
 }
 
+/* A tela do PDV cabe inteira na altura da janela, em qualquer tamanho: a barra, o salão e o
+   rodapé ficam do tamanho deles e o quadro de pedidos ocupa o resto. Quem rola é só a lista de
+   cada coluna (e a grade do salão, se tiver muitas mesas). Janela baixa demais: aí sim a página
+   rola, para nada ficar espremido. */
+.cm-frame__content:has(> .pdv) {
+  grid-template-rows: minmax(0, 1fr);
+}
+@media (min-width: 861px) {
+  .cm-frame__content:has(> .pdv) {
+    padding-bottom: var(--cm-space-4);
+  }
+  /* Respiro à direita do rodapé para o botão do chat, no canto, não cobrir o último total. */
+  .pdv-foot {
+    padding-right: 28px;
+  }
+}
+.pdv {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.pdv > * {
+  flex: none;
+}
+.pdv > .pdv-orders {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+}
+.pdv-orders > * {
+  flex: none;
+}
+.pdv-orders > .board {
+  flex: 1 1 0;
+  min-height: 200px;
+}
+.pdv-salon__grid {
+  max-height: clamp(72px, 18dvh, 152px);
+}
+/* Janela baixa: uma linha de mesas (as outras rolam dentro da grade). */
+@media (max-height: 700px) {
+  .pdv-salon__grid {
+    max-height: 66px;
+  }
+}
+/* Janela estreita: o "Ver todos" sai para o cabeçalho caber numa linha (o menu Pedidos leva ao
+   mesmo lugar). */
+@media (max-width: 1000px) {
+  .pdv-orders__all {
+    display: none;
+  }
+}
+
 /* Abas das colunas: só no celular. */
 .pdv-orders > .board__switch {
   display: none;
@@ -646,12 +730,13 @@
     display: none;
   }
 }
-@media (max-width: 1024px) {
-  .board {
+/* Tela estreita e alta (tablet em pé): duas colunas em cima e duas embaixo. Estreita e baixa:
+   continuam as quatro lado a lado, para cada uma ter altura de lista. */
+@media (max-width: 1024px) and (min-height: 900px) {
+  .pdv-orders > .board {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .board__col {
-    height: 380px;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    min-height: 440px;
   }
 }
 @media (max-width: 760px) {
@@ -659,12 +744,10 @@
   .pdv-orders > .board__switch {
     display: flex;
   }
-  .board {
+  .pdv-orders > .board {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .board__col {
-    height: auto;
-    min-height: 240px;
+    grid-template-rows: minmax(0, 1fr);
+    min-height: 260px;
   }
   .board__col:not([data-on='true']) {
     display: none;
@@ -672,20 +755,53 @@
   .board__head {
     display: none;
   }
+  /* Totais do dia em três quadradinhos lado a lado (número em cima, nome embaixo). */
   .pdv-foot {
-    grid-template-columns: minmax(0, 1fr);
     gap: var(--cm-space-2);
+  }
+  .pdv-foot__item {
+    flex-direction: column-reverse;
+    justify-content: center;
+    gap: 2px;
+    height: auto;
+    min-height: 50px;
+    padding: 6px 4px;
+    font-size: var(--cm-text-2xs);
+    line-height: 1.15;
+    text-align: center;
   }
   .pdv-box {
     padding: var(--cm-space-3);
   }
+  /* Salão numa linha de mesas (rola dentro se tiver mais); a busca de mesa fica na busca do
+     topo. Os botões do cabeçalho ficam pequenos e lado a lado, como no computador. */
   .pdv-mini-search {
-    order: 9;
-    width: 100%;
+    display: none;
+  }
+  .pdv-salon__grid {
+    max-height: 66px;
+  }
+  .pdv-box__head .cm-seg {
+    width: auto;
+    padding: 2px;
+  }
+  .pdv-box__head .cm-seg__item {
+    flex: none;
+    min-height: 30px;
+    font-size: var(--cm-text-xs);
   }
 }
 @media (max-width: 600px) {
   /* Celular: busca numa linha; loja aberta, atalhos e nova venda na de baixo. */
+  /* Cabeçalhos mais curtos para sobrar altura ao quadro: "Recolher" vira só a seta e o
+     "Ver todos" sai (a aba Pedidos, embaixo, leva ao mesmo lugar). */
+  .pdv-chip__text,
+  .pdv-orders__all {
+    display: none;
+  }
+  .pdv-box__head {
+    gap: 6px;
+  }
   .pdv__bar {
     flex-wrap: wrap;
   }
@@ -715,7 +831,7 @@
   }
   .pdv-salon__grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    max-height: 132px;
+    max-height: 62px;
   }
   .pdv-table {
     min-height: 58px;

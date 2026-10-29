@@ -1,5 +1,5 @@
 import { Bell, Maximize2, Megaphone, MessageCircle, Minimize2, Users, X } from 'lucide-react';
-import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocation } from 'react-router';
 import { LivePanda, useToast } from '../../design-system';
 import { useRealtimeEvents } from '../../lib/realtime';
@@ -14,6 +14,29 @@ import './chat.css';
 type Tab = 'conversas' | 'pessoas' | 'mural' | 'ia' | 'avisos';
 /** Outras telas abrem o chat disparando este evento (detail: { tab }). */
 export const OPEN_CHAT_EVENT = 'cm:open-chat';
+
+/** Abre o chat da equipe de qualquer lugar (ex.: "Conversas" na folha Mais do celular). */
+export function openTeamChat(tab?: Tab) {
+  window.dispatchEvent(new CustomEvent(OPEN_CHAT_EVENT, { detail: { tab } }));
+}
+
+// Total de mensagens e avisos não lidos, para a bolinha do "Conversas" no celular.
+let unreadTotal = 0;
+const unreadSubs = new Set<() => void>();
+function setUnreadTotal(n: number) {
+  if (n === unreadTotal) return;
+  unreadTotal = n;
+  unreadSubs.forEach((f) => f());
+}
+export function useChatUnread() {
+  return useSyncExternalStore(
+    (f) => {
+      unreadSubs.add(f);
+      return () => unreadSubs.delete(f);
+    },
+    () => unreadTotal,
+  );
+}
 
 const STORE = 'cm.chat';
 function loadPrefs(): { tab?: Tab; expanded?: boolean } {
@@ -184,8 +207,10 @@ export function TeamChat({
     }
   };
 
-  if (!me) return null;
   const total = summary.unread + summary.notices;
+  useEffect(() => setUnreadTotal(total), [total]);
+  useEffect(() => () => setUnreadTotal(0), []);
+  if (!me) return null;
   const listTab = tab === 'conversas' || tab === 'pessoas';
 
   const TABS: { key: Tab; label: string; icon: ReactNode; badge?: number }[] = [
@@ -276,7 +301,7 @@ export function TeamChat({
         aria-label={open ? 'Fechar chat da equipe' : 'Abrir chat da equipe'}
         aria-expanded={open}
       >
-        {open ? <X size={22} /> : <MessageCircle size={24} />}
+        {open ? <X size={18} /> : <MessageCircle size={20} />}
         {!open && total > 0 && <span className="tc-fab__badge">{total > 99 ? '99+' : total}</span>}
       </button>
 

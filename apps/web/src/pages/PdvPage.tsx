@@ -471,10 +471,11 @@ export function PdvPage() {
             <h2>Salão</h2>
             <button
               className="pdv-chip"
+              aria-label={salonOpen ? 'Recolher o salão' : 'Mostrar o salão'}
               aria-expanded={salonOpen}
               onClick={() => setSalonOpen((v) => !v)}
             >
-              {salonOpen ? 'Recolher' : 'Mostrar'}
+              <span className="pdv-chip__text">{salonOpen ? 'Recolher' : 'Mostrar'}</span>
               <ChevronDown size={14} data-flip={salonOpen || undefined} />
             </button>
             {salonOpen && (
@@ -611,7 +612,7 @@ export function PdvPage() {
             <ChevronDown size={14} aria-hidden />
           </label>
           <div className="pdv__spacer" />
-          <Link className="pdv-chip" to="/pedidos">
+          <Link className="pdv-chip pdv-orders__all" to="/pedidos">
             Ver todos <ChevronRight size={14} />
           </Link>
         </header>

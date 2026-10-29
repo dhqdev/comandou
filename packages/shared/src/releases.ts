@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.55.0',
+    date: '2026-10-29',
+    title: 'PDV inteiro na tela, chat mais discreto e troca de tema em círculo',
+    summary:
+      'O PDV cabe na altura da janela sem rolar a página, o botão do chat ficou menor e no canto, e no celular o chat abre por "Conversas" no Mais.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'PDV: salão, quadro de pedidos e totais do dia aparecem juntos em qualquer tamanho de tela. Só a lista de cada coluna (e a grade de mesas, se tiver muitas) rola por dentro.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cartões de pedido em colunas estreitas não se sobrepõem mais: a etiqueta Online e os botões descem de linha para o valor e o cliente ficarem legíveis.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Botão do chat da equipe menor e mais colado no canto da tela no computador.',
+      },
+      {
+        tag: 'novo',
+        text: 'Celular: o botão flutuante do chat saiu das telas. O chat (conversas, pessoas, mural, IA e avisos) abre por "Conversas" no topo do menu Mais, com o número de mensagens não lidas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Troca entre tema claro e escuro: a cor nova se abre num círculo a partir do ponto onde você clicou.',
+      },
+    ],
+  },
+  {
     version: '0.54.0',
     date: '2026-10-29',
     title: 'Painel super admin mais leve e o sistema sem enfeites',
