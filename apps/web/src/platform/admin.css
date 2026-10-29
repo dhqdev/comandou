@@ -953,3 +953,25 @@ details.adm-fieldset[open] > summary::before {
 .adm-ai-chart .adm-row__meta {
   white-space: normal;
 }
+
+/* Assinatura do cliente no contrato (o traço é escuro: fundo sempre claro). */
+.adm-sigbox {
+  display: grid;
+  place-items: center start;
+  height: 72px;
+  padding: 6px 10px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--cm-radius-sm);
+  background: #fff;
+  overflow: hidden;
+}
+.adm-sigbox img {
+  max-height: 60px;
+  max-width: 100%;
+}
+.adm-sigbox .cs-typed__preview {
+  color: #13285f;
+  border: 0;
+  padding: 0;
+  background: none;
+}

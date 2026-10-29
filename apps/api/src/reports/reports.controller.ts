@@ -1,10 +1,13 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, NotFoundException, Param, Query, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
 import { one, q } from '../common/sql';
 import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
+import { buildReport, hasReport } from './catalog';
+import { reportFileName, reportToXlsx } from './report-xlsx';
 
 /**
  * Custo estimado de cada item vendido: ficha técnica do produto + das opções escolhidas, pelo
@@ -32,6 +35,19 @@ const Period = z
     to: Day,
     channel: z.enum(['counter', 'table', 'delivery', 'pickup']).optional(),
   })
+  .refine((r) => r.from <= r.to, 'período inválido')
+  .refine(
+    (r) => (Date.parse(r.to) - Date.parse(r.from)) / 86_400_000 <= 366,
+    'período máximo de 1 ano',
+  )
+  .refine(
+    (r) => Number(r.from.slice(0, 4)) >= 2000 && Number(r.to.slice(0, 4)) <= 2100,
+    'data inválida',
+  );
+
+/** Período dos relatórios do catálogo (datas no fuso do restaurante, "to" inclusive). */
+const DocPeriod = z
+  .object({ from: Day, to: Day })
   .refine((r) => r.from <= r.to, 'período inválido')
   .refine(
     (r) => (Date.parse(r.to) - Date.parse(r.from)) / 86_400_000 <= 366,
@@ -432,5 +448,50 @@ export class ReportsController {
         expenses,
       };
     });
+  }
+
+  /**
+   * Relatórios do catálogo da aba Relatórios (Resultado, Extrato, Cancelamentos, Produtos…):
+   * indicadores, gráficos e tabelas do período, comparados com o período anterior.
+   */
+  @Get('catalog/:id')
+  @RequirePermission('reports:read')
+  report(
+    @Param('id') id: string,
+    @Query(new ZodPipe(DocPeriod)) r: z.infer<typeof DocPeriod>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    if (!hasReport(id)) throw new NotFoundException('Relatório não encontrado');
+    return this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
+      buildReport(tx, id, r.from, r.to),
+    );
+  }
+
+  /** O mesmo relatório como planilha do Excel (.xlsx), com gráficos e uma aba por tabela. */
+  @Get('catalog/:id/xlsx')
+  @RequirePermission('reports:read')
+  async reportXlsx(
+    @Param('id') id: string,
+    @Query(new ZodPipe(DocPeriod)) r: z.infer<typeof DocPeriod>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    if (!hasReport(id)) throw new NotFoundException('Relatório não encontrado');
+    const doc = await this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
+      buildReport(tx, id, r.from, r.to),
+    );
+    const name = reportFileName(doc);
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${name}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+    );
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(reportToXlsx(doc));
   }
 }

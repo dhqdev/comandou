@@ -36,7 +36,7 @@ type SalonView = 'tables' | 'tabs';
 
 /** Colunas do quadro, na ordem em que o pedido anda. */
 const COLUMNS: { key: string; statuses: OrderStatus[]; label: string; tone: string }[] = [
-  { key: 'new', statuses: ['awaiting'], label: 'Novo', tone: 'var(--cm-info)' },
+  { key: 'new', statuses: ['awaiting'], label: 'Em análise', tone: 'var(--cm-info)' },
   {
     key: 'production',
     statuses: ['new', 'in_production'],
@@ -174,7 +174,7 @@ function OrderCard({
 
 /**
  * Tela inicial do PDV, no formato do PedidoJá: o salão (mesas e comandas) em cima e o quadro de
- * pedidos embaixo, em colunas que seguem o andamento (novo → produção → pronto → saiu), com os
+ * pedidos embaixo, em colunas que seguem o andamento (em análise → produção → pronto → saiu), com os
  * totais do dia no rodapé. "Nova venda" (F2) abre o lançamento em tela cheia.
  */
 export function PdvPage() {
@@ -182,6 +182,7 @@ export function PdvPage() {
   const toast = useToast();
   const navigate = useNavigate();
   const canSell = useCan('orders:write');
+  const canManage = useCan('orders:manage');
   const canTables = useCan('tables:operate');
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [store, setStore] = useState<StoreSettings | null>(null);
@@ -209,16 +210,23 @@ export function PdvPage() {
   const load = useCallback(async () => {
     try {
       const list = await api<Order[]>('/orders?active=true&limit=300');
-      // Pedido novo em análise: som + aviso (não na primeira carga).
-      const waiting = list.filter((o) => o.status === 'awaiting');
+      // Pedido online que acabou de chegar: som + aviso (não na primeira carga). Vale também para o
+      // que o aceite automático já mandou para a produção, senão ele entra sem ninguém perceber.
+      const online = list.filter((o) => o.source === 'online');
       if (known.current) {
-        const fresh = waiting.filter((o) => !known.current!.has(o.id));
-        if (fresh.length) {
+        const fresh = online.filter((o) => !known.current!.has(o.id));
+        const first = fresh.find((o) => o.status === 'awaiting') ?? fresh[0];
+        if (first) {
           playSound('order');
-          toast(`Novo pedido online #${fresh[0]!.number}`, 'neutral');
+          toast(
+            first.status === 'awaiting'
+              ? `Novo pedido online #${first.number}: aceite ou recuse`
+              : `Novo pedido online #${first.number} (aceito automaticamente)`,
+            'neutral',
+          );
         }
       }
-      known.current = new Set(waiting.map((o) => o.id));
+      known.current = new Set(online.map((o) => o.id));
       setOrders(list);
       setError(null);
       const from = new Date();
@@ -413,7 +421,7 @@ export function PdvPage() {
             <input
               type="checkbox"
               checked={store.isOpen}
-              disabled={!canSell}
+              disabled={!canManage}
               onChange={(e) => patchStore({ isOpen: e.target.checked })}
             />
             <span className="switch__track" aria-hidden />
@@ -567,7 +575,7 @@ export function PdvPage() {
               <input
                 type="checkbox"
                 checked={store.autoAccept}
-                disabled={!canSell}
+                disabled={!canManage}
                 onChange={(e) => patchStore({ autoAccept: e.target.checked })}
               />
               <span className="switch__track" aria-hidden />
@@ -613,7 +621,14 @@ export function PdvPage() {
           onChange={setMobileCol}
           options={COLUMNS.map((c) => ({
             value: c.key,
-            label: c.key === 'out' ? 'Saiu' : c.key === 'production' ? 'Produção' : c.label,
+            label:
+              c.key === 'out'
+                ? 'Saiu'
+                : c.key === 'production'
+                  ? 'Produção'
+                  : c.key === 'new'
+                    ? 'Análise'
+                    : c.label,
             count: colList(c.key).length,
           }))}
         />

@@ -401,9 +401,9 @@
   border-color: var(--cm-border-strong);
 }
 .rp-chip[aria-pressed='true'] {
-  background: var(--cm-brand-600);
-  border-color: var(--cm-brand-600);
-  color: var(--cm-on-brand);
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
+  color: var(--cm-text);
 }
 .rp-filters__row {
   display: flex;

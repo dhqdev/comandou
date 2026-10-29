@@ -3,12 +3,13 @@ import { AlertTriangle, CalendarCheck, ChevronLeft, ChevronRight } from 'lucide-
 import { CSSProperties, useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Card, DateInput, EmptyState, Segmented, Spinner } from '../design-system';
 import { CHANNEL_LABELS, PAYMENT_METHOD_LABELS, qty } from '../features/format';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { useCan } from '../app/auth';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import type { OrderChannel, PaymentMethod } from '@comandou/shared';
 import { InsightsView } from './ReportsInsights';
+import { ReportCatalog, ReportDocView } from './ReportDocView';
 import './reports.css';
 
 interface ProductLine {
@@ -95,12 +96,22 @@ const monthLabel = (m: string) =>
   });
 
 export function ReportsPage() {
+  const [params, setParams] = useSearchParams();
   // Atalhos da busca (?foco=secao-...) apontam para seções do detalhe do dia.
-  const [view, setView] = useState<'insights' | 'calendar' | 'day'>(() =>
-    new URLSearchParams(window.location.search).has('foco') ? 'day' : 'insights',
+  const [view, setView] = useState<'reports' | 'insights' | 'calendar' | 'day'>(() =>
+    new URLSearchParams(window.location.search).has('foco') ? 'day' : 'reports',
   );
   const [day, setDay] = useState(() => isoDay(new Date()));
   const [month, setMonth] = useState(() => isoDay(new Date()).slice(0, 7));
+  // Relatório aberto fica no endereço (?relatorio=…): o "voltar" do navegador volta à lista.
+  const open = view === 'reports' ? params.get('relatorio') : null;
+  const openReport = (id: string | null) => {
+    const next = new URLSearchParams(params);
+    if (id) next.set('relatorio', id);
+    else next.delete('relatorio');
+    setParams(next, { replace: !id });
+    window.scrollTo({ top: 0 });
+  };
 
   return (
     <>
@@ -108,25 +119,37 @@ export function ReportsPage() {
         <div>
           <h1 className="page-title">Relatórios</h1>
           <p className="page-sub">
-            {view === 'insights'
-              ? 'O que mudou, o que vende, o que dá lucro e onde agir.'
-              : view === 'calendar'
-                ? 'O mês dia a dia: quanto vendeu, quanto custou e quanto sobrou.'
-                : 'Faturamento (pedidos do dia) separado de recebimentos (caixa).'}
+            {view === 'reports'
+              ? 'Escolha um relatório: cada um tem o seu painel e baixa em Excel.'
+              : view === 'insights'
+                ? 'O que mudou, o que vende, o que dá lucro e onde agir.'
+                : view === 'calendar'
+                  ? 'O mês dia a dia: quanto vendeu, quanto custou e quanto sobrou.'
+                  : 'Faturamento (pedidos do dia) separado de recebimentos (caixa).'}
           </p>
         </div>
         <Segmented
           label="Visão"
           value={view}
-          onChange={setView}
+          onChange={(v) => {
+            setView(v);
+            if (v !== 'reports' && open) openReport(null);
+          }}
           options={[
+            { value: 'reports', label: 'Relatórios' },
             { value: 'insights', label: 'Análise' },
             { value: 'calendar', label: 'Calendário' },
             { value: 'day', label: 'Dia' },
           ]}
         />
       </div>
-      {view === 'insights' ? (
+      {view === 'reports' ? (
+        open ? (
+          <ReportDocView key={open} id={open} onBack={() => openReport(null)} />
+        ) : (
+          <ReportCatalog onOpen={openReport} />
+        )
+      ) : view === 'insights' ? (
         <InsightsView />
       ) : view === 'calendar' ? (
         <CalendarView

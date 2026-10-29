@@ -57,6 +57,12 @@
   min-width: 140px;
   flex: 1;
 }
+/* Campos, escolhas e botão com a mesma altura, alinhados pela base. */
+.inline-add .chip,
+.inline-add > .cm-btn {
+  min-height: var(--cm-control);
+  height: var(--cm-control);
+}
 .two-cols {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -133,12 +139,13 @@
 .chip:hover:not(:disabled) {
   border-color: var(--cm-gray-300);
 }
+/* Marcado: tom suave da cor da loja, sem bloco colorido forte. */
 .chip[aria-selected='true'],
 .chip[aria-checked='true'],
 .chip[aria-pressed='true'] {
-  background: var(--cm-brand-600);
-  border-color: var(--cm-brand-600);
-  color: var(--cm-on-brand);
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
+  color: var(--cm-text);
 }
 /* Com o indicador deslizante, quem pinta o fundo é ele. */
 .chips.cm-glide .chip[aria-selected='true'],
@@ -271,17 +278,47 @@
 /* Detalhe do pedido / comanda */
 .order-detail {
   display: grid;
-  gap: var(--cm-space-4);
+  gap: 12px;
 }
-/* Blocos do detalhe: rótulo pequeno e apagado em cima, valor em texto pequeno embaixo; sem cor,
-   separação só por linha fina. Nome, status e valores em negrito. */
+/* Detalhe do pedido (gaveta da direita): blocos em cartões discretos, textos pequenos, rótulo
+   apagado em cima e valor embaixo, ícones finos. Cor só nos selos de status. */
+.order-detail .section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cm-space-2);
+  margin: 0 0 var(--cm-space-2);
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--cm-text);
+}
+.od-card {
+  display: grid;
+  gap: var(--cm-space-3);
+  padding: 12px 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-muted);
+  min-width: 0;
+}
+.od-card:empty {
+  display: none;
+}
 .od-facts {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: var(--cm-space-3) var(--cm-space-4);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 14px;
   margin: 0;
 }
 .od-fact {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.od-fact > div {
   display: grid;
   gap: 2px;
   min-width: 0;
@@ -289,54 +326,89 @@
 .od-fact[data-wide] {
   grid-column: 1 / -1;
 }
+.od-fact__icon {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+  color: var(--cm-text-muted);
+}
+.od-fact__icon svg {
+  width: 14px;
+  height: 14px;
+}
 .od-fact dt {
-  font-size: var(--cm-text-xs);
+  font-size: var(--cm-text-2xs);
   color: var(--cm-text-muted);
 }
 .od-fact dd {
   margin: 0;
-  font-size: var(--cm-text-sm);
-  line-height: 1.4;
+  font-size: var(--cm-text-xs);
+  font-weight: 650;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
-.od-section {
-  display: grid;
-  gap: var(--cm-space-3);
-  padding-top: var(--cm-space-4);
-  border-top: 1px solid var(--cm-border);
+.od-fact .cm-badge {
+  height: 18px;
+  padding: 0 6px;
+  font-size: var(--cm-text-2xs);
 }
-.od-section__title,
-.order-detail .section-title {
+.od-note {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+}
+.od-note > svg {
+  flex: none;
+  margin-top: 2px;
+}
+.od-note > div {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+.od-note span {
+  font-size: var(--cm-text-2xs);
+}
+.od-note strong {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text);
+  overflow-wrap: anywhere;
+}
+.od-note[data-tone='danger'] > svg,
+.od-note[data-tone='danger'] strong {
+  color: var(--cm-danger);
+}
+.od-block {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.od-block__title {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: var(--cm-space-2);
   margin: 0;
-  font-size: var(--cm-text-md);
+  font-size: var(--cm-text-sm);
   font-weight: 700;
-  text-transform: none;
-  letter-spacing: 0;
   color: var(--cm-text);
 }
-.order-detail .section-title {
-  margin-bottom: var(--cm-space-2);
-}
-/* Nota fiscal e ações também separadas por linha fina, como as outras partes. */
-.order-detail > div:has(> .section-title),
-.od-actions {
-  padding-top: var(--cm-space-4);
-  border-top: 1px solid var(--cm-border);
-}
-.od-actions {
-  display: grid;
-  gap: var(--cm-space-2);
-}
-.od-actions:empty {
-  display: none;
-}
-.od-section__count {
-  font-size: var(--cm-text-xs);
-  font-weight: 500;
+.od-pill {
+  padding: 1px 8px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-full);
+  font-size: var(--cm-text-2xs);
+  font-weight: 600;
   color: var(--cm-text-muted);
 }
 .od-items,
@@ -346,58 +418,77 @@
   margin: 0;
   padding: 0;
 }
+.od-items {
+  display: grid;
+  gap: 8px;
+}
 .od-item {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: start;
-  gap: var(--cm-space-3);
-  padding: var(--cm-space-3) 0;
-  border-bottom: 1px solid var(--cm-border);
-}
-.od-item:first-child {
-  padding-top: 0;
-}
-.od-item:last-child {
-  border-bottom: 0;
-  padding-bottom: 0;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
 }
 .od-item[data-cancelled] {
-  text-decoration: line-through;
   opacity: 0.55;
+}
+.od-item[data-cancelled] .od-item__name strong {
+  text-decoration: line-through;
+}
+.od-item__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
 }
 .od-item__main {
   display: grid;
   gap: 2px;
   min-width: 0;
+  flex: 1;
 }
 .od-item__name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
   font-size: var(--cm-text-sm);
-  line-height: 1.35;
+  line-height: 1.3;
+  min-width: 0;
 }
-.od-item__qty {
-  margin-right: 6px;
+.od-item__name strong {
+  overflow-wrap: anywhere;
+}
+.od-item__status {
+  padding: 1px 6px;
+  border-radius: var(--cm-radius-xs);
+  background: var(--cm-surface-muted);
   color: var(--cm-text-muted);
-  font-variant-numeric: tabular-nums;
+  font-size: var(--cm-text-2xs);
+  font-weight: 600;
+  white-space: nowrap;
 }
 .od-item__sub {
   font-size: var(--cm-text-xs);
   line-height: 1.4;
   color: var(--cm-text-muted);
+  overflow-wrap: anywhere;
 }
-.od-item__price {
-  font-size: var(--cm-text-sm);
-  font-weight: 650;
+.od-item__bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--cm-space-3);
+  padding-top: 8px;
+  border-top: 1px dashed var(--cm-border);
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
-.od-totals {
-  padding-top: var(--cm-space-4);
-  border-top: 1px solid var(--cm-border);
+.od-item__bottom strong {
   font-size: var(--cm-text-sm);
-}
-.od-totals dt strong,
-.od-totals dd strong {
   color: var(--cm-text);
+  white-space: nowrap;
 }
 .od-rows {
   display: grid;
@@ -407,18 +498,120 @@
   justify-content: space-between;
   align-items: center;
   gap: var(--cm-space-3);
-  padding: var(--cm-space-2) 0;
+  padding: 6px 0;
   font-size: var(--cm-text-sm);
   border-bottom: 1px solid var(--cm-border);
+  min-width: 0;
 }
 .od-rows > li:last-child {
   border-bottom: 0;
+  padding-bottom: 0;
+}
+.od-rows > li > div {
+  min-width: 0;
 }
 .od-rows__end {
   display: flex;
   align-items: center;
   gap: var(--cm-space-2);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.od-empty {
+  margin: 0;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+}
+/* Rodapé fixo: resumo de valores e, embaixo, todos os botões numa linha só. */
+.od-foot {
+  display: grid;
+  gap: 10px;
+  flex-basis: 100%;
+  min-width: 0;
+}
+.od-sum {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 0;
+  margin: 0;
+  padding: 10px 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-muted);
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.od-sum dd {
+  margin: 0;
+  padding-left: var(--cm-space-3);
+  text-align: right;
+}
+.od-sum strong {
+  color: var(--cm-text);
+}
+.od-sum__total {
+  padding-top: 6px;
+  border-top: 1px solid var(--cm-border);
+  font-size: var(--cm-text-md);
+  font-weight: 700;
+  color: var(--cm-text);
+}
+.od-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.od-bar > .cm-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 38px;
+  min-height: 38px;
+  padding: 0 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.od-bar > .od-bar__cancel {
+  color: var(--cm-danger);
+}
+.od-more {
+  position: relative;
+  flex: none;
+}
+.od-more > .cm-btn {
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+}
+.od-more__menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  z-index: 10;
+  display: grid;
+  min-width: 210px;
+  padding: 4px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-lg);
+}
+.od-more__menu > button {
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.od-more__menu > button:hover,
+.od-more__menu > button:focus-visible {
+  background: var(--cm-surface-muted);
 }
 /* Histórico em linha do tempo: um traço fino ligando os passos, sem cor. */
 .od-history > summary {
@@ -439,7 +632,7 @@
 .od-timeline {
   display: grid;
   gap: var(--cm-space-3);
-  margin-top: var(--cm-space-3);
+  margin-top: var(--cm-space-2);
   padding-left: var(--cm-space-4);
   border-left: 1px solid var(--cm-border);
 }
@@ -460,10 +653,60 @@
   background: var(--cm-surface);
   border: 1px solid var(--cm-text-subtle);
 }
+/* Cabeçalho da gaveta: ícone do tipo, número e etiquetas (mesa, comanda, origem). */
+.odh {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.odh__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-muted);
+  border: 1px solid var(--cm-border);
+  color: var(--cm-text-muted);
+}
+.odh__text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.odh__title {
+  font-size: var(--cm-text-md);
+  font-weight: 700;
+  line-height: 1.2;
+}
+.odh__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.odh__chip {
+  padding: 1px 7px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-xs);
+  background: var(--cm-surface-muted);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-2xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
 @media (max-width: 640px) {
   .od-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--cm-space-3);
+  }
+  .od-bar {
+    flex-wrap: wrap;
+  }
+  .od-bar > .cm-btn {
+    flex: 1 1 40%;
+    height: 46px;
+    min-height: 46px;
   }
 }
 .pay-balance,

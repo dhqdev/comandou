@@ -49,7 +49,8 @@ export interface ContractClause {
 }
 
 export interface ContractContent {
-  version: 1;
+  /** 1 = só o cliente assinava; 2 = cliente primeiro, contratada depois. */
+  version: 1 | 2;
   number: string;
   title: string;
   issuedAt: string;
@@ -430,10 +431,11 @@ export function buildContract(input: {
     {
       title: 'Assinatura eletrônica',
       items: [
-        'As partes reconhecem a validade deste contrato assinado por meio eletrônico, nos termos do artigo 10, § 2º, da Medida Provisória nº 2.200-2/2001, da Lei nº 14.063/2020 e do artigo 107 do Código Civil, admitindo como meio de comprovação de autoria e integridade a assinatura eletrônica realizada pelo link pessoal enviado ao e-mail da CONTRATANTE.',
-        'A assinatura fica registrada com nome, CPF e e-mail do signatário, imagem da assinatura, data e hora, endereço IP, navegador utilizado e o código de integridade (hash SHA-256) do documento, informações que integram o manifesto de assinatura anexo a este contrato.',
-        'O signatário declara ter poderes para representar a CONTRATANTE e assinar este contrato em seu nome.',
-        'A CONTRATADA manifesta sua concordância com este contrato por meio do envio eletrônico deste instrumento à CONTRATANTE.',
+        'As partes reconhecem a validade deste contrato assinado por meio eletrônico, nos termos do artigo 10, § 2º, da Medida Provisória nº 2.200-2/2001, da Lei nº 14.063/2020 e do artigo 107 do Código Civil, admitindo como meio de comprovação de autoria e integridade as assinaturas eletrônicas descritas nesta cláusula.',
+        'A CONTRATANTE assina primeiro, pelo link pessoal enviado ao seu e-mail, desenhando a assinatura na tela ou digitando o nome completo, somente depois de percorrer todo o texto. Em seguida, a CONTRATADA confere a assinatura da CONTRATANTE e assina pelo seu painel, confirmando com o código de um aplicativo autenticador. O contrato só se completa com as duas assinaturas, e cada parte recebe por e-mail a via final em PDF.',
+        'Cada assinatura fica registrada com nome, CPF e e-mail do signatário, imagem da assinatura (que também aparece como rubrica em cada página), data e hora, endereço IP, navegador utilizado, localização informada pelo aparelho quando o signatário permitir e o código de integridade (hash SHA-256) do documento. Os eventos do documento (envio, abertura, leitura e assinaturas) formam uma trilha encadeada por códigos de integridade. Essas informações integram o manifesto de assinatura anexo a este contrato.',
+        'O signatário de cada parte declara ter poderes para representá-la e assinar este contrato em seu nome.',
+        'Se a CONTRATADA não assinar em até 10 (dez) dias depois da assinatura da CONTRATANTE, ou cancelar o envio informando o motivo, a CONTRATANTE será avisada e a assinatura dela perde o efeito, sem custo para nenhuma das partes.',
       ],
     },
     {
@@ -463,7 +465,7 @@ export function buildContract(input: {
   });
 
   return {
-    version: 1,
+    version: 2,
     number: input.number,
     title: 'Contrato de licença de uso de software (SaaS) e prestação de serviços',
     issuedAt: input.issuedAt,

@@ -147,7 +147,6 @@ const searchText = (o: Order) =>
 export function OrdersPage() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
   useLinkParam('abrir', setOpenId);
   const lv = useListView({
@@ -169,14 +168,11 @@ export function OrdersPage() {
       p.set('from', a.toISOString());
       p.set('to', z.toISOString());
     }
-    setLoading(true);
     try {
       setOrders(await api<Order[]>(`/orders?${p}`));
       setError(null);
     } catch (e) {
       setError((e as Error).message);
-    } finally {
-      setLoading(false);
     }
   }, [period]);
   const reload = useDebounced(load);
@@ -235,7 +231,6 @@ export function OrdersPage() {
               onClick={() => void load()}
               aria-label="Atualizar"
               title="Atualizar"
-              data-spin={loading || undefined}
             >
               <RotateCw size={15} aria-hidden />
             </button>
@@ -276,8 +271,8 @@ export function OrdersPage() {
                 <tr>
                   {th('number', 'Nº')}
                   {th('createdAt', 'Data')}
-                  <th>Tipo</th>
-                  {th('customer', 'Cliente / mesa')}
+                  <th className="ord-col-type">Tipo</th>
+                  {th('customer', 'Cliente / mesa', 'ord-col-who')}
                   <th className="ord-col-items">Itens</th>
                   {th('status', 'Status op.')}
                   {th('payment', 'Status fin.')}
@@ -292,20 +287,27 @@ export function OrdersPage() {
                     tabIndex={0}
                     onKeyDown={(e) => e.key === 'Enter' && setOpenId(o.id)}
                   >
-                    <td>
-                      <strong>{o.number}</strong>
-                    </td>
-                    <td className="ord-nowrap">{dateTime(o.createdAt)}</td>
                     <td className="ord-nowrap">
+                      <strong className="ord-num">#{o.number}</strong>
+                    </td>
+                    <td className="ord-nowrap ord-muted">{dateTime(o.createdAt)}</td>
+                    <td className="ord-nowrap ord-col-type">
                       <span>
                         {CHANNEL_LABELS[o.channel]}
                         {o.source === 'online' && <span className="ord-tag">online</span>}
                       </span>
                     </td>
-                    <td>
-                      <span>
-                        {who(o) || '—'}
-                        {subline(o) && <span className="ord-sub">{subline(o)}</span>}
+                    <td className="ord-col-who">
+                      <span className="ord-who">
+                        <span className="ord-who__main">{who(o) || '—'}</span>
+                        <span className="ord-sub">
+                          <span className="ord-narrow-type">
+                            {CHANNEL_LABELS[o.channel]}
+                            {o.source === 'online' && ' online'}
+                            {subline(o) && ' · '}
+                          </span>
+                          {subline(o)}
+                        </span>
                       </span>
                     </td>
                     <td className="ord-col-items">
