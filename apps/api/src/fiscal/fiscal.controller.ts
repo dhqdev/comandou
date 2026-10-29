@@ -41,8 +41,18 @@ const Settings = z
     confirmProduction: z.boolean(),
     mode: z.enum(['own', 'managed']),
     nfeEnabled: z.boolean(),
-    nfceNature: z.string().trim().min(1).max(60).transform((v) => v.toUpperCase()),
-    nfeNature: z.string().trim().min(1).max(60).transform((v) => v.toUpperCase()),
+    nfceNature: z
+      .string()
+      .trim()
+      .min(1)
+      .max(60)
+      .transform((v) => v.toUpperCase()),
+    nfeNature: z
+      .string()
+      .trim()
+      .min(1)
+      .max(60)
+      .transform((v) => v.toUpperCase()),
     additionalInfo: z
       .string()
       .trim()
@@ -164,7 +174,14 @@ const Recipient = z.object({
     .nullish()
     .transform((v) => (v ? (v === 'ISENTO' ? v : v.replace(/\D/g, '')) : null)),
   ieIndicator: z.union([z.literal(1), z.literal(2), z.literal(9)]).nullish(),
-  email: z.string().trim().email('E-mail inválido').max(120).nullish().or(z.literal('')).transform((v) => v || null),
+  email: z
+    .string()
+    .trim()
+    .email('E-mail inválido')
+    .max(120)
+    .nullish()
+    .or(z.literal(''))
+    .transform((v) => v || null),
   phone: optText(20),
   street: optText(60),
   number: optText(60),
@@ -191,7 +208,12 @@ const DocPatch = z
     customerId: z.string().uuid().nullable(),
     operation: z
       .object({
-        nature: z.string().trim().min(1).max(60).transform((v) => v.toUpperCase()),
+        nature: z
+          .string()
+          .trim()
+          .min(1)
+          .max(60)
+          .transform((v) => v.toUpperCase()),
         purpose: z.enum(['1', '2', '3', '4']),
         presence: z.enum(['0', '1', '2', '3', '4', '5', '9']),
         finalConsumer: z.boolean(),
@@ -208,7 +230,9 @@ const Discard = z.object({ reason: optText(255) }).default({ reason: null });
 const Correction = z.object({
   text: z.string().trim().min(15, 'Carta de correção com pelo menos 15 caracteres').max(1000),
 });
-const Email = z.object({ emails: z.array(z.string().trim().email('E-mail inválido')).min(1).max(5) });
+const Email = z.object({
+  emails: z.array(z.string().trim().email('E-mail inválido')).min(1).max(5),
+});
 const pctField = (max = 100) =>
   z
     .union([z.string(), z.number()])
@@ -217,7 +241,12 @@ const pctField = (max = 100) =>
     .refine((v) => Number(v) <= max, `até ${max}%`)
     .nullable();
 const Rule = z.object({
-  code: z.string().trim().max(20).nullish().transform((v) => (v ? v.toUpperCase() : undefined)),
+  code: z
+    .string()
+    .trim()
+    .max(20)
+    .nullish()
+    .transform((v) => (v ? v.toUpperCase() : undefined)),
   name: text(80),
   scope: z.enum(['all', 'nfce', 'nfe']),
   active: z.boolean(),

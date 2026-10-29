@@ -200,6 +200,11 @@ export class TabsService {
         if (remaining > balance)
           throw new ConflictException(`Valor maior que o saldo (${fromCents(balance)})`);
         const change = changeFor(b, remaining);
+        if (b.taxDocument)
+          await tx.$client.query(`UPDATE orders SET tax_document = $2 WHERE id = ANY($1)`, [
+            orders.map((o) => o.id),
+            b.taxDocument,
+          ]);
         const payments = [];
         for (const o of orders) {
           if (remaining === 0) break;

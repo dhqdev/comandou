@@ -226,6 +226,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON fiscal_rules, fiscal_ncm_rules TO comand
 GRANT SELECT, INSERT ON fiscal_events, fiscal_voids TO comandou_app;
 GRANT SELECT, INSERT, UPDATE ON fiscal_received TO comandou_app;
 
+-- ---------------------------------------------------------------- CPF/CNPJ na nota
+-- Pedido no caixa: o cliente diz o CPF ao pagar e a NFC-e (manual ou automática) sai com ele.
+ALTER TABLE orders ADD COLUMN tax_document text
+  CHECK (tax_document IS NULL OR tax_document ~ '^([0-9]{11}|[0-9]{14})$');
+
 -- ---------------------------------------------------------------- painel da plataforma
 -- Situação fiscal de cada restaurante, sem segredos (nada de token, certificado ou CSC).
 CREATE FUNCTION platform_fiscal_overview()

@@ -237,7 +237,8 @@ export function isValidCnpj(v: string): boolean {
   const d = v.replace(/\D/g, '');
   if (!/^\d{14}$/.test(d) || /^(\d)\1{13}$/.test(d)) return false;
   const calc = (n: number) => {
-    const w = n === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const w =
+      n === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
     const s = w.reduce((a, x, i) => a + x * Number(d[i]), 0);
     const r = s % 11;
     return r < 2 ? 0 : 11 - r;
@@ -364,7 +365,8 @@ const BY_CODE: Record<string, Omit<FiscalIssue, 'code'>> = {
   },
   '703': {
     title: 'Data de emissão no futuro',
-    detail: 'O relógio do servidor está adiantado em relação à SEFAZ. Aguarde alguns minutos e reemita.',
+    detail:
+      'O relógio do servidor está adiantado em relação à SEFAZ. Aguarde alguns minutos e reemita.',
     fix: 'retry',
   },
   '704': {
@@ -387,7 +389,8 @@ const BY_CODE: Record<string, Omit<FiscalIssue, 'code'>> = {
   },
   '865': {
     title: 'Pagamentos menores que o total',
-    detail: 'A soma das formas de pagamento não fecha com o valor da nota. Confira os pagamentos do pedido.',
+    detail:
+      'A soma das formas de pagamento não fecha com o valor da nota. Confira os pagamentos do pedido.',
     fix: 'payment',
   },
   '869': {
@@ -420,7 +423,8 @@ const BY_TEXT: [RegExp, Omit<FiscalIssue, 'code'>][] = [
     /csosn|\bcst\b|situa[cç][aã]o tribut/i,
     {
       title: 'Situação tributária incompatível',
-      detail: 'O CST/CSOSN do padrão fiscal não combina com o regime ou com o CFOP. Corrija o padrão fiscal.',
+      detail:
+        'O CST/CSOSN do padrão fiscal não combina com o regime ou com o CFOP. Corrija o padrão fiscal.',
       fix: 'rules',
     },
   ],
@@ -428,7 +432,8 @@ const BY_TEXT: [RegExp, Omit<FiscalIssue, 'code'>][] = [
     /certificado/i,
     {
       title: 'Problema no certificado digital',
-      detail: 'Confira se o certificado A1 está válido e é da empresa emitente (Fiscal > Configuração).',
+      detail:
+        'Confira se o certificado A1 está válido e é da empresa emitente (Fiscal > Configuração).',
       fix: 'certificate',
     },
   ],
@@ -487,7 +492,12 @@ export function explainFiscalError(
   const known = BY_CODE[c];
   if (known) return { ...known, code: c || undefined };
   const hit = BY_TEXT.find(([re]) => re.test(msg));
-  if (hit) return { ...hit[1], detail: `${hit[1].detail}${msg ? ` (SEFAZ: ${msg})` : ''}`, code: c || undefined };
+  if (hit)
+    return {
+      ...hit[1],
+      detail: `${hit[1].detail}${msg ? ` (SEFAZ: ${msg})` : ''}`,
+      code: c || undefined,
+    };
   return {
     title: 'A SEFAZ recusou a nota',
     detail: msg
@@ -521,7 +531,8 @@ export function suggestedRules(regime: number | null | undefined): SuggestedRule
         pisCst: '01',
         cofinsCst: '01',
         isDefault: true,
-        notes: 'Lanches e pratos feitos na casa. Alíquotas de ICMS, PIS e COFINS: confirme com a contabilidade.',
+        notes:
+          'Lanches e pratos feitos na casa. Alíquotas de ICMS, PIS e COFINS: confirme com a contabilidade.',
       },
       {
         name: 'Bebidas com substituição tributária',
@@ -530,7 +541,8 @@ export function suggestedRules(regime: number | null | undefined): SuggestedRule
         icmsCst: '60',
         pisCst: '04',
         cofinsCst: '04',
-        notes: 'Refrigerante, cerveja e água compradas com ICMS-ST já retido (informe o CEST no item).',
+        notes:
+          'Refrigerante, cerveja e água compradas com ICMS-ST já retido (informe o CEST no item).',
       },
     ];
   return [

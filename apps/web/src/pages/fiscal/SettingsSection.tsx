@@ -1,166 +1,23 @@
-import { FileText } from 'lucide-react';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { useAuth, useCan } from '../app/auth';
+import { FormEvent, useEffect, useState } from 'react';
+import { useAuth } from '../../app/auth';
 import {
   Alert,
   Badge,
   Button,
   Card,
-  EmptyState,
   Modal,
   Spinner,
   TextField,
   useToast,
-} from '../design-system';
-import { FiscalCompanySetup } from '../features/FiscalCompanySetup';
-import { dateTime } from '../features/format';
-import { SelectField, Tabs } from '../features/forms';
-import { api } from '../lib/api';
-import { brl } from '../lib/money';
-import { useDebounced, useRealtime } from '../lib/realtime';
-import type { FiscalDocument, FiscalSettings, FiscalStatus } from '../lib/types';
+} from '../../design-system';
+import { FiscalCompanySetup } from '../../features/FiscalCompanySetup';
+import { CheckField } from '../../features/forms';
+import { api } from '../../lib/api';
+import type { FiscalSettings } from '../../lib/types';
+import { FiscalHead } from './common';
 
-export const FISCAL_STATUS: Record<
-  FiscalStatus,
-  [string, 'neutral' | 'info' | 'success' | 'warning' | 'danger']
-> = {
-  pending: ['Na fila', 'neutral'],
-  processing: ['Processando na SEFAZ', 'info'],
-  authorized: ['Autorizada', 'success'],
-  rejected: ['Rejeitada', 'danger'],
-  error: ['Erro', 'danger'],
-  cancelling: ['Cancelando', 'warning'],
-  cancelled: ['Cancelada', 'neutral'],
-};
-
-/** Nota fiscal ao consumidor (NFC-e) pela Focus NFe: notas emitidas e configuração. */
-export function FiscalPage() {
-  const canManage = useCan('fiscal:manage');
-  const [tab, setTab] = useState<'docs' | 'settings'>('docs');
-  return (
-    <>
-      <div>
-        <h1 className="page-title">Nota fiscal</h1>
-        <p className="page-sub">NFC-e emitida pela Focus NFe a partir dos pedidos pagos.</p>
-      </div>
-      {canManage && (
-        <Tabs<typeof tab>
-          value={tab}
-          onChange={setTab}
-          items={[
-            ['docs', 'Notas emitidas'],
-            ['settings', 'Configuração'],
-          ]}
-        />
-      )}
-      {tab === 'docs' || !canManage ? <DocumentsTab /> : <SettingsTab />}
-    </>
-  );
-}
-
-function DocumentsTab() {
-  const [status, setStatus] = useState<FiscalStatus | ''>('');
-  const [docs, setDocs] = useState<FiscalDocument[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const load = useCallback(async () => {
-    try {
-      setDocs(
-        await api<FiscalDocument[]>(
-          `/fiscal/documents?limit=100${status ? `&status=${status}` : ''}`,
-        ),
-      );
-      setError(null);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }, [status]);
-  useEffect(() => {
-    void load();
-  }, [load]);
-  const reload = useDebounced(load);
-  useRealtime((e) => {
-    if (e.type === 'fiscal.changed') reload();
-  }, load);
-
-  return (
-    <Card
-      searchId="secao-notas"
-      title="Notas"
-      actions={
-        <SelectField
-          label="Situação"
-          value={status}
-          onChange={(e) => setStatus(e.target.value as FiscalStatus | '')}
-        >
-          <option value="">Todas</option>
-          {Object.entries(FISCAL_STATUS).map(([k, [l]]) => (
-            <option key={k} value={k}>
-              {l}
-            </option>
-          ))}
-        </SelectField>
-      }
-    >
-      {error && <Alert tone="danger">{error}</Alert>}
-      {docs === null ? (
-        <Spinner />
-      ) : docs.length === 0 ? (
-        <EmptyState
-          icon={<FileText size={20} />}
-          title="Nenhuma nota"
-          description="Emita a NFC-e pelo detalhe de um pedido pago."
-        />
-      ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table className="cm-table">
-            <thead>
-              <tr>
-                <th>Pedido</th>
-                <th>Nota</th>
-                <th>Situação</th>
-                <th>Quando</th>
-                <th className="cm-num">Total</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {docs.map((d) => (
-                <tr key={d.id}>
-                  <td>#{d.orderNumber}</td>
-                  <td>
-                    {d.number ? `${d.number} / série ${d.series}` : '—'}
-                    {d.environment === 'homologacao' && (
-                      <div>
-                        <Badge tone="warning">homologação</Badge>
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <Badge tone={FISCAL_STATUS[d.status][1]}>{FISCAL_STATUS[d.status][0]}</Badge>
-                    {(d.sefazMessage || d.lastError) && d.status !== 'authorized' && (
-                      <div className="cm-hint">{d.lastError ?? d.sefazMessage}</div>
-                    )}
-                  </td>
-                  <td>{dateTime(d.authorizedAt ?? d.createdAt)}</td>
-                  <td className="cm-num">{brl(d.total)}</td>
-                  <td className="cm-num">
-                    {d.danfeUrl && d.status === 'authorized' && (
-                      <a href={d.danfeUrl} target="_blank" rel="noreferrer noopener">
-                        DANFE
-                      </a>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function SettingsTab() {
+/** Configuração da emissão: ambiente, conta na Focus, cadastro da empresa e como as notas saem. */
+export function SettingsSection() {
   const toast = useToast();
   const { me } = useAuth();
   const isOwner = me?.user.role === 'owner';
@@ -224,7 +81,10 @@ function SettingsTab() {
   if (!s) return error ? <Alert tone="danger">{error}</Alert> : <Spinner />;
   const digits = cnpj.replace(/\D/g, '');
   return (
-    <>
+    <div className="fi-page">
+      <FiscalHead title="Configuração">
+        Ambiente, conta na Focus NFe, cadastro da empresa e como as notas saem.
+      </FiscalHead>
       <Card
         searchId="secao-emissao"
         title="Emissão"
@@ -274,6 +134,7 @@ function SettingsTab() {
           <p className="cm-hint">Só o dono do restaurante muda para produção.</p>
         )}
       </Card>
+      <OutputCard s={s} busy={busy} save={save} />
       {!ownToken && <FiscalCompanySetup settings={s} onSaved={(x) => apply(x)} />}
       {s.managedAvailable && (
         <p className="cm-hint" style={{ margin: 0 }}>
@@ -286,7 +147,7 @@ function SettingsTab() {
       )}
       <Card
         searchId="secao-focus"
-        title={ownToken ? 'Dados da Focus NFe e padrões dos produtos' : 'Padrões dos produtos'}
+        title={ownToken ? 'Dados da Focus NFe e códigos de reserva' : 'Códigos de reserva'}
       >
         <form onSubmit={submit} className="form-grid">
           {ownToken && (
@@ -347,8 +208,9 @@ function SettingsTab() {
         </form>
         {error && <Alert tone="danger">{error}</Alert>}
         <p className="cm-hint">
-          Os códigos fiscais dependem do regime do restaurante. Confirme CFOP, CSOSN/CST e NCM com a
-          sua contabilidade e teste em homologação antes de ir para produção.
+          Usados só enquanto não houver nenhum padrão fiscal ativo (Fiscal → Padrões fiscais). O NCM
+          padrão vale para os produtos sem NCM. Confirme os códigos com a sua contabilidade e teste
+          em homologação antes de ir para produção.
         </p>
       </Card>
       <Modal
@@ -379,13 +241,108 @@ function SettingsTab() {
         }
       >
         <p>
-          Em produção, cada NFC-e autorizada vale perante a SEFAZ e só pode ser cancelada em até 30
-          minutos.{' '}
+          Em produção, cada nota autorizada vale perante a SEFAZ. A NFC-e só pode ser cancelada em
+          até 30 minutos e a NF-e em até 24 horas.{' '}
           {s.mode === 'managed'
             ? 'Confira se o CSC de produção foi informado no cadastro da empresa e se as notas de teste saíram corretas.'
             : 'Use o token de produção da Focus NFe e confirme que as notas de teste saíram corretas.'}
         </p>
       </Modal>
-    </>
+    </div>
+  );
+}
+
+/** Como as notas saem: tipos ligados, natureza da operação, observação, automático e e-mail. */
+function OutputCard({
+  s,
+  busy,
+  save,
+}: {
+  s: FiscalSettings;
+  busy: boolean;
+  save(json: Record<string, unknown>, ok?: string): Promise<boolean>;
+}) {
+  const [nfceNature, setNfceNature] = useState(s.nfceNature);
+  const [nfeNature, setNfeNature] = useState(s.nfeNature);
+  const [info, setInfo] = useState(s.additionalInfo ?? '');
+  useEffect(() => {
+    setNfceNature(s.nfceNature);
+    setNfeNature(s.nfeNature);
+    setInfo(s.additionalInfo ?? '');
+  }, [s.nfceNature, s.nfeNature, s.additionalInfo]);
+  const dirty =
+    nfceNature !== s.nfceNature || nfeNature !== s.nfeNature || info !== (s.additionalInfo ?? '');
+  return (
+    <Card searchId="secao-saida" title="Como as notas saem">
+      <div className="fi-checks">
+        <CheckField
+          label="Emitir a NFC-e sozinho quando o pedido for pago"
+          description="Ao quitar o pedido no caixa, a NFC-e vai para a fila sem ninguém clicar. Se o cliente informou CPF no pagamento, ele entra na nota."
+          checked={s.autoEmitNfce}
+          disabled={busy}
+          onChange={(v) =>
+            void save(
+              { autoEmitNfce: v },
+              v ? 'Emissão automática ligada' : 'Emissão automática desligada',
+            )
+          }
+        />
+        <CheckField
+          label="Emitir NF-e (modelo 55)"
+          description="Para vender a empresas ou a quem pede nota com endereço e inscrição estadual. A empresa precisa estar habilitada para NF-e na SEFAZ do estado."
+          checked={s.nfeEnabled}
+          disabled={busy}
+          onChange={(v) => void save({ nfeEnabled: v }, v ? 'NF-e ligada' : 'NF-e desligada')}
+        />
+        <CheckField
+          label="Mandar a nota por e-mail ao cliente"
+          description="Quando o destinatário tem e-mail, ele recebe o PDF e o XML assim que a nota é autorizada."
+          checked={s.emailCustomer}
+          disabled={busy}
+          onChange={(v) => void save({ emailCustomer: v })}
+        />
+      </div>
+      <form
+        className="form-grid"
+        onSubmit={(e: FormEvent) => {
+          e.preventDefault();
+          void save({ nfceNature, nfeNature, additionalInfo: info || null });
+        }}
+      >
+        <TextField
+          label="Natureza da operação na NFC-e"
+          value={nfceNature}
+          maxLength={60}
+          onChange={(e) => setNfceNature(e.target.value.toUpperCase())}
+        />
+        <TextField
+          label="Natureza da operação na NF-e"
+          value={nfeNature}
+          maxLength={60}
+          onChange={(e) => setNfeNature(e.target.value.toUpperCase())}
+          hint="Pode ser trocada em cada NF-e"
+        />
+        <label className="cm-field fi-textarea">
+          <span className="cm-label">Observação em todas as notas (opcional)</span>
+          <textarea
+            className="cm-input"
+            rows={3}
+            maxLength={2000}
+            value={info}
+            onChange={(e) => setInfo(e.target.value)}
+            placeholder="Ex.: Documento emitido por ME ou EPP optante pelo Simples Nacional."
+          />
+        </label>
+        <div style={{ alignSelf: 'end' }}>
+          <Button
+            type="submit"
+            loading={busy}
+            disabled={!dirty || !nfceNature.trim() || !nfeNature.trim()}
+          >
+            Salvar
+          </Button>
+        </div>
+      </form>
+    </Card>
   );
 }

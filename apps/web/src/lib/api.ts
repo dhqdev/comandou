@@ -88,6 +88,9 @@ export interface Product {
   fiscalCode?: string | null;
   fiscalOrigin?: number | null;
   fiscalUnit?: string | null;
+  /** Padrão fiscal próprio do item (senão o do NCM ou o padrão da empresa) e CEST. */
+  fiscalRuleId?: string | null;
+  cest?: string | null;
   /** Código interno (IT-000001), família, custo informado e código de barras. */
   code?: string | null;
   familyId?: string | null;

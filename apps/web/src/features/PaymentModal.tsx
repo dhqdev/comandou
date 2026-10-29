@@ -1,5 +1,8 @@
 import {
+  formatDocument,
   fromCents,
+  isValidCnpj,
+  isValidCpf,
   PAYMENT_METHODS,
   splitCents,
   toCents,
@@ -69,6 +72,7 @@ export function PaymentModal({
   const [amount, setAmount] = useState(brInput(target.balance));
   const [tendered, setTendered] = useState('');
   const [parts, setParts] = useState(1);
+  const [taxDoc, setTaxDoc] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idemKey, setIdemKey] = useState(newIdempotencyKey);
@@ -78,6 +82,7 @@ export function PaymentModal({
     setAmount(brInput(target.balance));
     setTendered('');
     setParts(1);
+    setTaxDoc('');
     setError(null);
     setIdemKey(newIdempotencyKey());
   }, [open, target.balance]);
@@ -87,6 +92,18 @@ export function PaymentModal({
   const change =
     method === 'cash' && parsed && tenderedParsed ? toCents(tenderedParsed) - toCents(parsed) : 0;
   const balanceCents = toCents(target.balance);
+  const taxDigits = taxDoc.replace(/\D/g, '');
+  const taxError = !taxDigits
+    ? undefined
+    : taxDigits.length === 11
+      ? isValidCpf(taxDigits)
+        ? undefined
+        : 'CPF inválido'
+      : taxDigits.length === 14
+        ? isValidCnpj(taxDigits)
+          ? undefined
+          : 'CNPJ inválido'
+        : 'CPF tem 11 dígitos e CNPJ tem 14';
 
   function split(n: number) {
     setParts(n);
@@ -109,6 +126,7 @@ export function PaymentModal({
           method,
           amount: parsed,
           tendered: method === 'cash' && tenderedParsed ? tenderedParsed : undefined,
+          taxDocument: taxDigits || undefined,
         },
       });
       toast(
@@ -145,6 +163,7 @@ export function PaymentModal({
             disabled={
               !parsed ||
               !sessionId ||
+              !!taxError ||
               toCents(parsed) <= 0 ||
               toCents(parsed) > balanceCents ||
               (method === 'cash' && !!tendered && change < 0)
@@ -237,6 +256,17 @@ export function PaymentModal({
             }
           />
         )}
+        <TextField
+          label="CPF/CNPJ na nota (opcional)"
+          inputMode="numeric"
+          placeholder="Só se o cliente pedir"
+          value={taxDoc}
+          maxLength={18}
+          onChange={(e) => setTaxDoc(e.target.value)}
+          onBlur={() => taxDigits && !taxError && setTaxDoc(formatDocument(taxDigits))}
+          error={taxError}
+          hint={!taxError && taxDigits ? 'A NFC-e deste pedido sai com este documento.' : undefined}
+        />
         {error && <Alert tone="danger">{error}</Alert>}
       </div>
     </Modal>

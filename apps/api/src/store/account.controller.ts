@@ -355,7 +355,9 @@ const CustomerPatch = z
       .trim()
       .toUpperCase()
       .transform((v) => (v === 'ISENTO' ? v : v.replace(/\D/g, '')))
-      .pipe(z.string().regex(/^([0-9]{2,14}|ISENTO)?$/, 'Inscrição estadual só com números ou ISENTO'))
+      .pipe(
+        z.string().regex(/^([0-9]{2,14}|ISENTO)?$/, 'Inscrição estadual só com números ou ISENTO'),
+      )
       .nullable()
       .transform((v) => v || null),
     ieIndicator: z.union([z.literal(1), z.literal(2), z.literal(9)]).nullable(),

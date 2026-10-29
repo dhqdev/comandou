@@ -19,7 +19,13 @@ import { fmtFactor, fmtPct } from '../../features/pricing';
 import { fmtCost, toMilli, valueCents } from '../../features/stock-math';
 import { api, type Category, type Product } from '../../lib/api';
 import { brl, parseBrlInput } from '../../lib/money';
-import type { RecipeLine, Sector, StockItem } from '../../lib/types';
+import type {
+  FiscalRule,
+  FiscalRulesResponse,
+  RecipeLine,
+  Sector,
+  StockItem,
+} from '../../lib/types';
 import { FamilyModal } from './FamiliesTab';
 import { GroupEditor } from './GroupsTab';
 import {
@@ -58,6 +64,8 @@ interface Form {
   cfop: string;
   fiscalCode: string;
   fiscalOrigin: string;
+  fiscalRuleId: string;
+  cest: string;
   barcodeType: 'fixed' | 'weight' | 'value';
   barcode: string;
 }
@@ -82,6 +90,8 @@ const blank = (categoryId: string): Form => ({
   cfop: '',
   fiscalCode: '',
   fiscalOrigin: '',
+  fiscalRuleId: '',
+  cest: '',
   barcodeType: 'fixed',
   barcode: '',
 });
@@ -106,6 +116,8 @@ const formOf = (p: Product): Form => ({
   cfop: p.cfop ?? '',
   fiscalCode: p.fiscalCode ?? '',
   fiscalOrigin: p.fiscalOrigin == null ? '' : String(p.fiscalOrigin),
+  fiscalRuleId: p.fiscalRuleId ?? '',
+  cest: p.cest ?? '',
   barcodeType: p.barcodeType ?? 'fixed',
   barcode: p.barcode ?? '',
 });
@@ -130,6 +142,12 @@ export function ItemEditor() {
   const [product, setProduct] = useState<Product | null>(null);
   const [form, setForm] = useState<Form | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [fiscalRules, setFiscalRules] = useState<FiscalRule[]>([]);
+  useEffect(() => {
+    api<FiscalRulesResponse>('/fiscal/rules')
+      .then((r) => setFiscalRules(r.rules.filter((x) => x.active)))
+      .catch(() => setFiscalRules([]));
+  }, []);
   const [families, setFamilies] = useState<Family[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
   const [menus, setMenus] = useState<MenuDef[]>([]);
@@ -246,6 +264,7 @@ export function ItemEditor() {
         cfop: form.cfop && !/^\d{4}$/.test(form.cfop) ? '4 dígitos' : undefined,
         fiscalCode:
           form.fiscalCode && !/^\d{2,3}$/.test(form.fiscalCode) ? '2 ou 3 dígitos' : undefined,
+        cest: form.cest && !/^\d{7}$/.test(form.cest) ? '7 dígitos' : undefined,
         barcode:
           form.barcode && !/^\d{4,14}$/.test(form.barcode) ? 'Só números, de 4 a 14' : undefined,
         menus: Object.values(menuSel).some((m) => m.on && m.price && !parseBrlInput(m.price))
@@ -287,6 +306,8 @@ export function ItemEditor() {
         cfop: form.cfop || null,
         fiscalCode: form.fiscalCode || null,
         fiscalOrigin: form.fiscalOrigin === '' ? null : Number(form.fiscalOrigin),
+        fiscalRuleId: form.fiscalRuleId || null,
+        cest: form.cest || null,
       };
       const menusBody = Object.entries(menuSel)
         .filter(([, m]) => m.on)
@@ -629,6 +650,28 @@ export function ItemEditor() {
             </div>
 
             <h3 className="cm-form__section">Fiscal e código de barras</h3>
+            <SelectField
+              label="Padrão fiscal"
+              value={form.fiscalRuleId}
+              onChange={(e) => set('fiscalRuleId', e.target.value)}
+            >
+              <option value="">Automático (pelo NCM ou o padrão da empresa)</option>
+              {fiscalRules.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.code} · {r.name} (CFOP {r.cfop}, {r.icmsCst})
+                </option>
+              ))}
+            </SelectField>
+            <TextField
+              label="CEST"
+              inputMode="numeric"
+              maxLength={7}
+              placeholder="Só com substituição tributária"
+              value={form.cest}
+              error={errs.cest}
+              hint="Bebidas e outros itens com ICMS-ST (7 dígitos)."
+              onChange={(e) => set('cest', e.target.value.replace(/\D/g, ''))}
+            />
             <TextField
               label="NCM"
               inputMode="numeric"
@@ -643,7 +686,7 @@ export function ItemEditor() {
               label="CFOP"
               inputMode="numeric"
               maxLength={4}
-              placeholder="Padrão da nota"
+              placeholder="Vem do padrão fiscal"
               value={form.cfop}
               error={errs.cfop}
               onChange={(e) => set('cfop', e.target.value.replace(/\D/g, ''))}
@@ -652,7 +695,7 @@ export function ItemEditor() {
               label="CSOSN / CST do ICMS"
               inputMode="numeric"
               maxLength={3}
-              placeholder="Padrão da nota"
+              placeholder="Vem do padrão fiscal"
               value={form.fiscalCode}
               error={errs.fiscalCode}
               onChange={(e) => set('fiscalCode', e.target.value.replace(/\D/g, ''))}

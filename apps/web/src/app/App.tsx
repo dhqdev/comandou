@@ -9,7 +9,7 @@ import { OnlineStorePage } from '../pages/OnlineStorePage';
 import { CashPage } from '../pages/CashPage';
 import { DeliveriesPage } from '../pages/DeliveriesPage';
 import { FinancePage } from '../pages/FinancePage';
-import { FiscalPage } from '../pages/FiscalPage';
+import { FiscalPage } from '../pages/fiscal/FiscalPage';
 import { WhatsAppPage } from '../pages/WhatsAppPage';
 import { PrintingPage } from '../pages/PrintingPage';
 import { StockPage } from '../pages/StockPage';
@@ -236,13 +236,14 @@ function Gate() {
           }
         />
         <Route
-          path="nota-fiscal"
+          path="fiscal/*"
           element={
-            <Guard path="nota-fiscal">
+            <Guard path="fiscal">
               <FiscalPage />
             </Guard>
           }
         />
+        <Route path="nota-fiscal" element={<Navigate to="/fiscal/nfce" replace />} />
         <Route
           path="whatsapp"
           element={

@@ -13,11 +13,7 @@ import { DatabaseService, Tx } from '../database/database.service';
 import { FiscalService } from './fiscal.service';
 import { FiscalKind, FocusClient, FocusReceived, FocusResponse } from './focus.client';
 
-const fold = (s: string) =>
-  s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
+const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 /** Situação de manifestação aceita pela SEFAZ. */
 export type ManifestType = 'ciencia' | 'confirmacao' | 'desconhecimento' | 'nao_realizada';
@@ -37,7 +33,8 @@ export class FiscalExtraService {
 
   private async creds(ctx: Ctx) {
     const s = await this.db.withTenant(ctx, (tx) => this.fiscal.settingsRow(tx));
-    if (!s?.cnpj) throw new UnprocessableEntityException('Configure o CNPJ em Fiscal > Configuração');
+    if (!s?.cnpj)
+      throw new UnprocessableEntityException('Configure o CNPJ em Fiscal > Configuração');
     const token = this.fiscal.token(ctx.tenantId, s, s.environment);
     if (!token)
       throw new UnprocessableEntityException(
@@ -92,7 +89,8 @@ export class FiscalExtraService {
     ctx: Ctx,
     b: { kind: FiscalKind; series: number; from: number; to: number; reason: string },
   ) {
-    if (b.to < b.from) throw new UnprocessableEntityException('O número final é menor que o inicial');
+    if (b.to < b.from)
+      throw new UnprocessableEntityException('O número final é menor que o inicial');
     const { token, env, cnpj } = await this.creds(ctx);
     const used = await this.db.withTenant(ctx, (tx) =>
       one<{ number: string }>(
@@ -122,7 +120,11 @@ export class FiscalExtraService {
     }
     const r = res.body;
     const status =
-      r.status === 'autorizado' ? 'authorized' : r.status === 'erro_autorizacao' ? 'rejected' : 'error';
+      r.status === 'autorizado'
+        ? 'authorized'
+        : r.status === 'erro_autorizacao'
+          ? 'rejected'
+          : 'error';
     const msg =
       r.mensagem_sefaz ??
       ([r.mensagem, ...(r.erros ?? []).map((e) => e.mensagem)].filter(Boolean).join('; ') ||
@@ -222,11 +224,7 @@ export class FiscalExtraService {
     return { fetched, version };
   }
 
-  private async upsertReceived(
-    tx: Tx,
-    tenantId: string,
-    n: FocusReceived,
-  ) {
+  private async upsertReceived(tx: Tx, tenantId: string, n: FocusReceived) {
     if (!/^[0-9]{44}$/.test(n.chave_nfe ?? '')) return;
     const situation = ['autorizada', 'cancelada', 'denegada'].includes(n.situacao ?? '')
       ? n.situacao
@@ -283,7 +281,12 @@ export class FiscalExtraService {
       throw new ServiceUnavailableException((err as Error).message);
     }
     const msg = res.body.mensagem_sefaz ?? res.body.mensagem ?? '';
-    const ok = res.http < 300 && (res.body.status === 'evento_registrado' || res.body.status_sefaz == 135 || /registrad|duplicidade/i.test(msg) || !res.body.status);
+    const ok =
+      res.http < 300 &&
+      (res.body.status === 'evento_registrado' ||
+        res.body.status_sefaz == 135 ||
+        /registrad|duplicidade/i.test(msg) ||
+        !res.body.status);
     if (!ok)
       throw new UnprocessableEntityException(
         `Manifestação recusada: ${msg || res.body.mensagem || `HTTP ${res.http}`}`,
@@ -340,7 +343,10 @@ export class FiscalExtraService {
         ...remote
           .filter((r) => r.codigo && /^[0-9]{8}$/.test(r.codigo) && !seen.has(r.codigo))
           .slice(0, 40)
-          .map((r) => ({ code: r.codigo!, description: r.descricao_completa ?? r.descricao ?? '' })),
+          .map((r) => ({
+            code: r.codigo!,
+            description: r.descricao_completa ?? r.descricao ?? '',
+          })),
       ];
     } catch {
       return local;

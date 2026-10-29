@@ -117,6 +117,10 @@ export interface CustomerDetail {
   lastLoginAt: string | null;
   staffNotes: string | null;
   blocked: boolean;
+  /** CPF ou CNPJ e inscrição estadual (destinatário da nota fiscal). */
+  document?: string | null;
+  stateRegistration?: string | null;
+  ieIndicator?: 1 | 2 | 9 | null;
   addresses: {
     id: string;
     label: string | null;
@@ -190,6 +194,8 @@ export interface Order {
   customerName: string | null;
   customerPhone: string | null;
   deliveryAddress: string | null;
+  /** CPF/CNPJ na nota, informado no pagamento. */
+  taxDocument?: string | null;
   notes: string | null;
   cancelReason: string | null;
   /** staff = lançado pela equipe; online = cardápio online (cliente final). */
@@ -612,7 +618,16 @@ export interface Reconciliation {
 }
 
 export type FiscalStatus =
-  'pending' | 'processing' | 'authorized' | 'rejected' | 'error' | 'cancelling' | 'cancelled';
+  | 'draft'
+  | 'pending'
+  | 'processing'
+  | 'authorized'
+  | 'rejected'
+  | 'error'
+  | 'cancelling'
+  | 'cancelled'
+  | 'discarded';
+export type FiscalKind = 'nfce' | 'nfe';
 export interface FiscalCompany {
   nome: string;
   nomeFantasia?: string | null;
@@ -628,6 +643,12 @@ export interface FiscalCompany {
   cep: string;
   email?: string | null;
   telefone?: string | null;
+  numeracao?: {
+    nfceSerie?: number | null;
+    nfceProximo?: number | null;
+    nfeSerie?: number | null;
+    nfeProximo?: number | null;
+  } | null;
 }
 export interface FiscalSettings {
   enabled: boolean;
@@ -651,11 +672,194 @@ export interface FiscalSettings {
   defaultNcm: string | null;
   updatedAt: string | null;
   keyConfigured: boolean;
+  nfeEnabled: boolean;
+  nfceNature: string;
+  nfeNature: string;
+  additionalInfo: string | null;
+  autoEmitNfce: boolean;
+  emailCustomer: boolean;
+  regime: 1 | 2 | 3 | 4 | null;
+  receivedSyncedAt: string | null;
+}
+/** Problema da nota em palavras simples (antes do envio ou a recusa da SEFAZ explicada). */
+export interface FiscalIssue {
+  title: string;
+  detail: string;
+  fix?: 'recipient' | 'items' | 'rules' | 'settings' | 'payment' | 'certificate' | 'retry' | 'none';
+  code?: string;
+}
+export interface FiscalRecipient {
+  name?: string | null;
+  cpf?: string | null;
+  cnpj?: string | null;
+  ie?: string | null;
+  ieIndicator?: 1 | 2 | 9 | null;
+  email?: string | null;
+  phone?: string | null;
+  street?: string | null;
+  number?: string | null;
+  complement?: string | null;
+  district?: string | null;
+  city?: string | null;
+  state?: string | null;
+  cep?: string | null;
+}
+export interface FiscalOperation {
+  nature?: string;
+  purpose?: '1' | '2' | '3' | '4';
+  presence?: string;
+  finalConsumer?: boolean;
+  freight?: string;
+  info?: string | null;
+  referencedKey?: string | null;
+  lineRules?: Record<string, string>;
+}
+export interface FiscalDocumentDetail extends FiscalDocument {
+  operation: FiscalOperation | null;
+  order: {
+    id: string;
+    number: number;
+    channel: string;
+    source: string;
+    status: string;
+    createdAt: string;
+    subtotal: string;
+    discount: string;
+    surcharge: string;
+    deliveryFee: string;
+    total: string;
+    customerName: string | null;
+    customerPhone: string | null;
+    deliveryAddress: string | null;
+    customerId: string | null;
+    paid: string;
+    change: string;
+  } | null;
+  nature: string | null;
+  presence: string | null;
+  localDestino: string | null;
+  info: string | null;
+  items: {
+    number: number;
+    name: string;
+    quantity: string;
+    unitPrice: string;
+    total: string;
+    discount: string | null;
+    other: string | null;
+    freight: string | null;
+    ncm: string | null;
+    cest: string | null;
+    cfop: string;
+    cst: string;
+    origin: string;
+    pisCst: string | null;
+    cofinsCst: string | null;
+    icmsValue: string;
+    ipiValue: string;
+    cbsValue: string | null;
+    ibsValue: string | null;
+    approxTaxes: string | null;
+    itemId: string | null;
+    productId: string;
+    ruleId: string | null;
+    ruleCode: string | null;
+    ruleName: string | null;
+    ruleSource: 'product' | 'ncm' | 'default' | 'line' | 'legacy' | null;
+  }[];
+  payments: { code: string; amount: string }[];
+  events: {
+    id: string;
+    kind: 'correction' | 'email';
+    sequence: number | null;
+    text: string;
+    status: 'authorized' | 'rejected' | 'sent' | 'error';
+    sefazMessage: string | null;
+    createdAt: string;
+    xmlUrl: string | null;
+    pdfUrl: string | null;
+  }[];
+}
+export interface FiscalRule {
+  id: string;
+  code: string;
+  name: string;
+  scope: 'all' | 'nfce' | 'nfe';
+  active: boolean;
+  isDefault: boolean;
+  cfop: string;
+  cfopInterstate: string | null;
+  icmsCst: string;
+  icmsOrigin: number;
+  icmsRate: string | null;
+  icmsBaseReduction: string | null;
+  pisCst: string;
+  pisRate: string | null;
+  cofinsCst: string;
+  cofinsRate: string | null;
+  ipiCst: string | null;
+  ipiRate: string | null;
+  ibsCbsCst: string | null;
+  ibsCbsClass: string | null;
+  cbsRate: string | null;
+  ibsUfRate: string | null;
+  ibsMunRate: string | null;
+  benefitCode: string | null;
+  approxTaxRate: string | null;
+  notes: string | null;
+  products?: number;
+  ncms?: string[];
+}
+export interface FiscalRulesResponse {
+  rules: FiscalRule[];
+  links: { ncm: string; ruleId: string; products: number }[];
+  uncovered: { id: string; name: string; code: string | null; ncm: string | null }[];
+}
+export interface FiscalVoid {
+  id: string;
+  kind: FiscalKind;
+  environment: 'homologacao' | 'producao';
+  series: number;
+  numberFrom: number;
+  numberTo: number;
+  reason: string;
+  status: 'authorized' | 'rejected' | 'error';
+  sefazStatus: string | null;
+  sefazMessage: string | null;
+  protocol: string | null;
+  createdAt: string;
+  createdByName: string | null;
+}
+export interface FiscalReceived {
+  id: string;
+  accessKey: string;
+  issuerName: string | null;
+  issuerDocument: string | null;
+  total: string | null;
+  issuedAt: string | null;
+  situation: 'autorizada' | 'cancelada' | 'denegada';
+  manifestation: 'ciencia' | 'confirmacao' | 'desconhecimento' | 'nao_realizada' | null;
+  manifestedAt: string | null;
+  manifestReason: string | null;
+  complete: boolean;
+  correctionText: string | null;
+  cancelledAt: string | null;
+  cancelReason: string | null;
 }
 export interface FiscalDocument {
   id: string;
   orderId: string;
   orderNumber: number;
+  orderChannel: string;
+  kind: FiscalKind;
+  issues: FiscalIssue[];
+  recipient: FiscalRecipient | null;
+  recipientName: string | null;
+  customerId: string | null;
+  protocol: string | null;
+  updatedAt: string;
+  discardedAt: string | null;
+  discardReason: string | null;
   environment: 'homologacao' | 'producao';
   status: FiscalStatus;
   attempts: number;

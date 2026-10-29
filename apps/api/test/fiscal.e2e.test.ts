@@ -162,10 +162,16 @@ function focusHandler(req: IncomingMessage, res: ServerResponse) {
     }
     const man = /^\/v2\/nfes_recebidas\/([0-9]{44})\/manifesto$/.exec(url.pathname);
     if (man && req.method === 'POST')
-      return send(200, { status: 'evento_registrado', status_sefaz: '135', mensagem_sefaz: 'Evento registrado' });
+      return send(200, {
+        status: 'evento_registrado',
+        status_sefaz: '135',
+        mensagem_sefaz: 'Evento registrado',
+      });
     const rfile = /^\/v2\/nfes_recebidas\/([0-9]{44})\.(xml|pdf)$/.exec(url.pathname);
     if (rfile) {
-      res.writeHead(200, { 'Content-Type': rfile[2] === 'pdf' ? 'application/pdf' : 'application/xml' });
+      res.writeHead(200, {
+        'Content-Type': rfile[2] === 'pdf' ? 'application/pdf' : 'application/xml',
+      });
       return res.end(rfile[2] === 'pdf' ? '%PDF-1.4 falso' : '<nfe/>');
     }
     const emitM = /^\/v2\/(nfce|nfe)$/.exec(url.pathname);
@@ -489,7 +495,65 @@ describe('Emissão de NFC-e', () => {
     });
     expect(body.formas_pagamento).toEqual([
       { forma_pagamento: '01', valor_pagamento: '10.00' },
-      { forma_pagamento: '17', valor_pagamento: '45.00' },
+      { forma_pagamento: '17', valor_pagamento: '45.00', tipo_integracao: '2' },
+    ]);
+  });
+
+  it('CPF informado no pagamento entra na NFC-e; cartão leva o grupo do cartão e "outros" a descrição', async () => {
+    mode = 'authorize';
+    const o = (
+      await post('adminA', '/orders', {
+        channel: 'counter',
+        items: [{ productId: fx.prodA, quantity: 2 }],
+      }).expect(201)
+    ).body as { id: string; total: string };
+    // CPF com dígito errado é recusado antes de cobrar.
+    await post(
+      'adminA',
+      `/orders/${o.id}/payments`,
+      {
+        cashSessionId: sessionId,
+        method: 'credit',
+        amount: '10.00',
+        taxDocument: '529.982.247-24',
+      },
+      key(),
+    ).expect(400);
+    await post(
+      'adminA',
+      `/orders/${o.id}/payments`,
+      {
+        cashSessionId: sessionId,
+        method: 'credit',
+        amount: '10.00',
+        taxDocument: '529.982.247-25',
+      },
+      key(),
+    ).expect(201);
+    await post(
+      'adminA',
+      `/orders/${o.id}/payments`,
+      { cashSessionId: sessionId, method: 'other', amount: (Number(o.total) - 10).toFixed(2) },
+      key(),
+    ).expect(201);
+    expect((await get('adminA', `/orders/${o.id}`).expect(200)).body.taxDocument).toBe(
+      '52998224725',
+    );
+    const d = (await post('cashierA', `/orders/${o.id}/nfce`).expect(202)).body;
+    expect(d.recipient).toMatchObject({ cpf: '52998224725' });
+    await waitDoc(d.id, (s) => s === 'authorized');
+    const sent = calls.find((c) => c.method === 'POST' && c.url.includes(`ref=pm-${d.id}`))!;
+    const body = sent.body as Record<string, unknown> & {
+      formas_pagamento: Record<string, string>[];
+    };
+    expect(body.cpf_destinatario).toBe('52998224725');
+    expect(body.formas_pagamento).toEqual([
+      { forma_pagamento: '03', valor_pagamento: '10.00', tipo_integracao: '2' },
+      {
+        forma_pagamento: '99',
+        valor_pagamento: (Number(o.total) - 10).toFixed(2),
+        descricao_pagamento: 'Outros',
+      },
     ]);
   });
 
@@ -796,7 +860,9 @@ describe('Módulo fiscal completo (padrões, NF-e, inutilização, recebidas)', 
 
   it('padrões fiscais: valida, cria e lista os itens sem padrão', async () => {
     mode = 'authorize';
-    await post('cashierA', '/fiscal/rules', { name: 'X', cfop: '5101', icmsCst: '102' }).expect(403);
+    await post('cashierA', '/fiscal/rules', { name: 'X', cfop: '5101', icmsCst: '102' }).expect(
+      403,
+    );
     await post('adminA', '/fiscal/rules', { name: 'X', cfop: '51', icmsCst: '102' }).expect(400);
     const r = (
       await post('adminA', '/fiscal/rules', {
@@ -810,7 +876,12 @@ describe('Módulo fiscal completo (padrões, NF-e, inutilização, recebidas)', 
         ibsUfRate: '0.1',
       }).expect(201)
     ).body;
-    expect(r).toMatchObject({ code: 'PF-000001', cfop: '5101', approxTaxRate: '13.45', isDefault: false });
+    expect(r).toMatchObject({
+      code: 'PF-000001',
+      cfop: '5101',
+      approxTaxRate: '13.45',
+      isDefault: false,
+    });
     ruleId = r.id;
     const list = (await get('adminA', '/fiscal/rules').expect(200)).body;
     expect(list.rules).toHaveLength(1);
@@ -825,11 +896,15 @@ describe('Módulo fiscal completo (padrões, NF-e, inutilização, recebidas)', 
     const o = await paidOrder();
     const d = (await post('adminA', `/orders/${o.id}/nfce`).expect(202)).body;
     expect(d.status).toBe('error');
-    expect(d.issues.map((i: { title: string }) => i.title)).toContain('Item sem regra de tributação');
+    expect(d.issues.map((i: { title: string }) => i.title)).toContain(
+      'Item sem regra de tributação',
+    );
     await put('adminA', '/fiscal/ncm-rules/2106.90.90', { ruleId }).expect(200);
     await post('adminA', `/fiscal/documents/${d.id}/reissue`).expect(202);
     await waitDoc(d.id, (s) => s === 'authorized');
-    const sent = calls.filter((c) => c.method === 'POST' && c.url.includes(`ref=pm-${d.id}`)).at(-1)!;
+    const sent = calls
+      .filter((c) => c.method === 'POST' && c.url.includes(`ref=pm-${d.id}`))
+      .at(-1)!;
     const item = (sent.body as { items: Record<string, string>[] }).items[0];
     expect(item).toMatchObject({
       cfop: '5101',
@@ -917,7 +992,10 @@ describe('Módulo fiscal completo (padrões, NF-e, inutilização, recebidas)', 
   it('NF-e: precisa estar ligada, nasce rascunho, corrige destinatário e emite pela /v2/nfe', async () => {
     const o = await paidOrder();
     await post('adminA', `/orders/${o.id}/nfe`).expect(422);
-    await put('adminA', '/fiscal/settings', { nfeEnabled: true, nfeNature: 'venda de mercadoria' }).expect(200);
+    await put('adminA', '/fiscal/settings', {
+      nfeEnabled: true,
+      nfeNature: 'venda de mercadoria',
+    }).expect(200);
     const d = (await post('adminA', `/orders/${o.id}/nfe`).expect(201)).body;
     expect(d).toMatchObject({ kind: 'nfe', status: 'draft' });
     expect(d.issues.map((i: { title: string }) => i.title)).toEqual(
@@ -946,7 +1024,9 @@ describe('Módulo fiscal completo (padrões, NF-e, inutilização, recebidas)', 
     await post('adminA', `/fiscal/documents/${d.id}/reissue`).expect(202);
     const done = await waitDoc(d.id, (s) => s === 'authorized');
     expect(done.kind).toBe('nfe');
-    const sent = calls.filter((c) => c.method === 'POST' && c.url.startsWith(`/v2/nfe?ref=pm-${d.id}`)).at(-1)!;
+    const sent = calls
+      .filter((c) => c.method === 'POST' && c.url.startsWith(`/v2/nfe?ref=pm-${d.id}`))
+      .at(-1)!;
     expect(sent.body).toMatchObject({
       natureza_operacao: 'VENDA DE MERCADORIA',
       finalidade_emissao: '1',
@@ -964,7 +1044,8 @@ describe('Módulo fiscal completo (padrões, NF-e, inutilização, recebidas)', 
   });
 
   it('carta de correção e e-mail da NF-e autorizada', async () => {
-    const [nfe] = (await get('adminA', '/fiscal/documents?kind=nfe&status=authorized').expect(200)).body;
+    const [nfe] = (await get('adminA', '/fiscal/documents?kind=nfe&status=authorized').expect(200))
+      .body;
     await post('adminA', `/fiscal/documents/${nfe.id}/correction`, { text: 'curta' }).expect(400);
     const r = (
       await post('adminA', `/fiscal/documents/${nfe.id}/correction`, {
@@ -974,7 +1055,9 @@ describe('Módulo fiscal completo (padrões, NF-e, inutilização, recebidas)', 
     expect(r.events[0]).toMatchObject({ kind: 'correction', status: 'authorized', sequence: 1 });
     expect(r.events[0].pdfUrl).toMatch(/cce\.pdf$/);
     await post('adminA', `/fiscal/documents/${nfe.id}/email`, { emails: ['x@y.test'] }).expect(200);
-    const [nfce] = (await get('adminA', '/fiscal/documents?kind=nfce&status=authorized').expect(200)).body;
+    const [nfce] = (
+      await get('adminA', '/fiscal/documents?kind=nfce&status=authorized').expect(200)
+    ).body;
     await post('adminA', `/fiscal/documents/${nfce.id}/correction`, {
       text: 'Não existe carta de correção para NFC-e',
     }).expect(400);
@@ -1007,7 +1090,10 @@ describe('Módulo fiscal completo (padrões, NF-e, inutilização, recebidas)', 
       reason: 'Tentando inutilizar número já usado',
     }).expect(409);
     const list = (await get('adminA', '/fiscal/voids').expect(200)).body;
-    expect(list.map((x: { status: string }) => x.status).sort()).toEqual(['authorized', 'rejected']);
+    expect(list.map((x: { status: string }) => x.status).sort()).toEqual([
+      'authorized',
+      'rejected',
+    ]);
     expect(Array.isArray((await get('adminA', '/fiscal/voids/gaps').expect(200)).body)).toBe(true);
   });
 
@@ -1018,9 +1104,13 @@ describe('Módulo fiscal completo (padrões, NF-e, inutilização, recebidas)', 
     expect((await post('adminA', '/fiscal/received/sync').expect(200)).body.fetched).toBe(0);
     const { rows } = (await get('adminA', '/fiscal/received').expect(200)).body;
     expect(rows).toHaveLength(2);
-    const drinks = rows.find((r: { issuerName: string }) => r.issuerName.startsWith('Distribuidora'));
+    const drinks = rows.find((r: { issuerName: string }) =>
+      r.issuerName.startsWith('Distribuidora'),
+    );
     expect(drinks).toMatchObject({ total: '845.30', manifestation: null, situation: 'autorizada' });
-    await post('adminA', `/fiscal/received/${drinks.id}/manifest`, { tipo: 'nao_realizada' }).expect(422);
+    await post('adminA', `/fiscal/received/${drinks.id}/manifest`, {
+      tipo: 'nao_realizada',
+    }).expect(422);
     await post('adminA', `/fiscal/received/${drinks.id}/manifest`, { tipo: 'ciencia' }).expect(200);
     const after = (await get('adminA', '/fiscal/received').expect(200)).body.rows;
     expect(after.find((r: { id: string }) => r.id === drinks.id).manifestation).toBe('ciencia');

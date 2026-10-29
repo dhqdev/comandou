@@ -117,7 +117,13 @@ export class FocusClient {
     return { http: res.status, body: json };
   }
 
-  emit(e: FocusEnvironment, token: string, ref: string, payload: unknown, kind: FiscalKind = 'nfce') {
+  emit(
+    e: FocusEnvironment,
+    token: string,
+    ref: string,
+    payload: unknown,
+    kind: FiscalKind = 'nfce',
+  ) {
     return this.call(e, token, 'POST', `/v2/${kind}?ref=${encodeURIComponent(ref)}`, payload);
   }
 
@@ -183,13 +189,7 @@ export class FocusClient {
   }
 
   /** Manifestação do destinatário (ciência, confirmação, desconhecimento, não realizada). */
-  manifest(
-    e: FocusEnvironment,
-    token: string,
-    key: string,
-    tipo: string,
-    justificativa?: string,
-  ) {
+  manifest(e: FocusEnvironment, token: string, key: string, tipo: string, justificativa?: string) {
     return this.call(e, token, 'POST', `/v2/nfes_recebidas/${encodeURIComponent(key)}/manifesto`, {
       tipo,
       ...(justificativa ? { justificativa } : {}),
@@ -201,7 +201,8 @@ export class FocusClient {
     const r = await this.raw(e, token, `/v2/nfes_recebidas/${encodeURIComponent(key)}.${ext}`);
     if (r.status >= 400) return null;
     return {
-      type: r.headers.get('content-type') ?? (ext === 'xml' ? 'application/xml' : 'application/pdf'),
+      type:
+        r.headers.get('content-type') ?? (ext === 'xml' ? 'application/xml' : 'application/pdf'),
       data: Buffer.from(await r.arrayBuffer()),
     };
   }
@@ -214,7 +215,11 @@ export class FocusClient {
       : `descricao=${encodeURIComponent(query)}`;
     const r = await this.raw(e, token, `/v2/ncms?${qs}`);
     if (r.status >= 400) return [];
-    const body = (await r.json().catch(() => [])) as { codigo?: string; descricao_completa?: string; descricao?: string }[];
+    const body = (await r.json().catch(() => [])) as {
+      codigo?: string;
+      descricao_completa?: string;
+      descricao?: string;
+    }[];
     return Array.isArray(body) ? body : [];
   }
 

@@ -185,7 +185,13 @@ const DOC_SELECT = `
     FROM fiscal_documents d JOIN orders o ON o.id = d.order_id`;
 
 /** Estados "vivos": a venda já tem nota (ou rascunho) e não recebe outra. */
-export const LIVE_STATUSES: FiscalStatus[] = ['draft', 'pending', 'processing', 'authorized', 'cancelling'];
+export const LIVE_STATUSES: FiscalStatus[] = [
+  'draft',
+  'pending',
+  'processing',
+  'authorized',
+  'cancelling',
+];
 /** Estados em que a nota ainda pode ser corrigida e reemitida. */
 const EDITABLE: FiscalStatus[] = ['draft', 'rejected', 'error'];
 const EMIT_JOB = 'fiscal.emit';
@@ -592,7 +598,14 @@ export class FiscalService implements OnModuleInit {
             AND ($4::date IS NULL OR d.created_at >= $4::date)
             AND ($5::date IS NULL OR d.created_at < $5::date + 1)
           ORDER BY d.created_at DESC LIMIT $6`,
-        [f.orderId ?? null, f.status ?? null, f.kind ?? null, f.from ?? null, f.to ?? null, f.limit],
+        [
+          f.orderId ?? null,
+          f.status ?? null,
+          f.kind ?? null,
+          f.from ?? null,
+          f.to ?? null,
+          f.limit,
+        ],
       );
       return rows.map((r) => this.withUrls(r));
     });
@@ -609,11 +622,10 @@ export class FiscalService implements OnModuleInit {
     return this.db.withTenant(ctx, async (tx) => {
       const r = await one(tx, `${DOC_SELECT} WHERE d.id = $1`, [id]);
       if (!r) throw new NotFoundException('Nota não encontrada');
-      const raw = (await one<{ request_payload: Record<string, unknown>; operation: Operation | null }>(
-        tx,
-        `SELECT request_payload, operation FROM fiscal_documents WHERE id = $1`,
-        [id],
-      ))!;
+      const raw = (await one<{
+        request_payload: Record<string, unknown>;
+        operation: Operation | null;
+      }>(tx, `SELECT request_payload, operation FROM fiscal_documents WHERE id = $1`, [id]))!;
       const order = await one(
         tx,
         `SELECT o.id, o.number, o.channel, o.source, o.status, o.created_at AS "createdAt",
@@ -701,7 +713,9 @@ export class FiscalService implements OnModuleInit {
     const saved = r.issues as FiscalIssue[] | null;
     if (saved?.length) return saved;
     if (r.status === 'rejected')
-      return [explainFiscalError(r.sefazStatus as string, (r.sefazMessage ?? r.lastError) as string)];
+      return [
+        explainFiscalError(r.sefazStatus as string, (r.sefazMessage ?? r.lastError) as string),
+      ];
     if (r.status === 'error' && r.lastError)
       return [{ title: 'Não foi possível emitir', detail: String(r.lastError), fix: 'retry' }];
     return [];
@@ -1008,13 +1022,16 @@ export class FiscalService implements OnModuleInit {
         customer_phone: string | null;
         channel: string;
         delivery_address: string | null;
+        tax_document: string | null;
       }>(
         tx,
-        `SELECT customer_id, customer_name, customer_phone, channel, delivery_address FROM orders WHERE id = $1`,
+        `SELECT customer_id, customer_name, customer_phone, channel, delivery_address, tax_document
+           FROM orders WHERE id = $1`,
         [o.id],
       );
       let recipient =
-        prev?.recipient ?? (await this.recipientFromCustomer(tx, extra?.customer_id ?? null, extra ?? undefined));
+        prev?.recipient ??
+        (await this.recipientFromCustomer(tx, extra?.customer_id ?? null, extra ?? undefined));
       // Delivery sem endereço cadastrado: começa pelo endereço digitado no pedido e pela cidade da loja.
       if (!prev && extra?.channel === 'delivery' && !recipient?.street && extra.delivery_address)
         recipient = {
@@ -1025,8 +1042,13 @@ export class FiscalService implements OnModuleInit {
           city: recipient?.city ?? s.company?.municipio ?? null,
           state: recipient?.state ?? s.company?.uf ?? null,
         };
-      const cpf = (body.cpf ?? '').replace(/\D/g, '');
-      const cnpj = (body.cnpj ?? '').replace(/\D/g, '');
+      // CPF/CNPJ pedido agora; senão o informado no pagamento (se a nota ainda não tem um).
+      const asked =
+        !body.cpf && !body.cnpj && extra?.tax_document && !recipient?.cpf && !recipient?.cnpj
+          ? extra.tax_document
+          : '';
+      const cpf = (body.cpf ?? (asked.length === 11 ? asked : '')).replace(/\D/g, '');
+      const cnpj = (body.cnpj ?? (asked.length === 14 ? asked : '')).replace(/\D/g, '');
       if (cpf || cnpj || body.name)
         recipient = {
           ...(recipient ?? {}),
@@ -1254,11 +1276,9 @@ export class FiscalService implements OnModuleInit {
     const documentId = String(job.documentId ?? '');
     if (!/^[0-9a-f-]{36}$/i.test(documentId)) throw new Error('trabalho fiscal sem documentId');
     return this.db.withTenant({ tenantId: job.tenantId }, async (tx) => {
-      const doc = await one<DocRow>(
-        tx,
-        `SELECT ${DOC_COLS} FROM fiscal_documents WHERE id = $1`,
-        [documentId],
-      );
+      const doc = await one<DocRow>(tx, `SELECT ${DOC_COLS} FROM fiscal_documents WHERE id = $1`, [
+        documentId,
+      ]);
       const s = await this.settingsRow(tx);
       return { doc, s };
     });
@@ -1581,7 +1601,9 @@ export class FiscalService implements OnModuleInit {
   /** Carta de correção de uma NF-e autorizada (texto de 15 a 1000 caracteres, até 20 por nota). */
   async correction(ctx: Ctx, id: string, text: string) {
     const { doc, s, seq } = await this.db.withTenant(ctx, async (tx) => {
-      const d = await one<DocRow>(tx, `SELECT ${DOC_COLS} FROM fiscal_documents WHERE id = $1`, [id]);
+      const d = await one<DocRow>(tx, `SELECT ${DOC_COLS} FROM fiscal_documents WHERE id = $1`, [
+        id,
+      ]);
       if (!d) throw new NotFoundException('Nota não encontrada');
       if (d.kind !== 'nfe') throw new BadRequestException('Carta de correção só existe para NF-e');
       if (d.status !== 'authorized')
@@ -1605,7 +1627,9 @@ export class FiscalService implements OnModuleInit {
     const ok = res.body.status === 'autorizado';
     const msg =
       res.body.mensagem_sefaz ??
-      [res.body.mensagem, ...(res.body.erros ?? []).map((e) => e.mensagem)].filter(Boolean).join('; ');
+      [res.body.mensagem, ...(res.body.erros ?? []).map((e) => e.mensagem)]
+        .filter(Boolean)
+        .join('; ');
     await this.db.withTenant(ctx, async (tx) => {
       await tx.$client.query(
         `INSERT INTO fiscal_events (tenant_id, document_id, kind, sequence, text, status, sefaz_status,
@@ -1645,7 +1669,9 @@ export class FiscalService implements OnModuleInit {
   /** Manda o DANFE e o XML de uma nota autorizada para os e-mails informados (a Focus envia). */
   async email(ctx: Ctx, id: string, emails: string[]) {
     const { doc, s } = await this.db.withTenant(ctx, async (tx) => {
-      const d = await one<DocRow>(tx, `SELECT ${DOC_COLS} FROM fiscal_documents WHERE id = $1`, [id]);
+      const d = await one<DocRow>(tx, `SELECT ${DOC_COLS} FROM fiscal_documents WHERE id = $1`, [
+        id,
+      ]);
       if (!d) throw new NotFoundException('Nota não encontrada');
       if (!['authorized', 'cancelled'].includes(d.status))
         throw new ConflictException('Só nota autorizada ou cancelada pode ser enviada');
@@ -1664,7 +1690,14 @@ export class FiscalService implements OnModuleInit {
       tx.$client.query(
         `INSERT INTO fiscal_events (tenant_id, document_id, kind, text, status, sefaz_message, created_by)
          VALUES ($1,$2,'email',$3,$4,$5,$6)`,
-        [ctx.tenantId, id, emails.join(', '), ok ? 'sent' : 'error', res.body.mensagem ?? null, ctx.userId],
+        [
+          ctx.tenantId,
+          id,
+          emails.join(', '),
+          ok ? 'sent' : 'error',
+          res.body.mensagem ?? null,
+          ctx.userId,
+        ],
       ),
     );
     if (!ok)

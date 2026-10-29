@@ -5,7 +5,7 @@ import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 
-/** Padrão fiscal: a regra de tributação de um item (ver migração 0030). */
+/** Padrão fiscal: a regra de tributação de um item (ver migração 0032). */
 export interface FiscalRule {
   id: string;
   code: string;
@@ -65,8 +65,17 @@ const COLS: [keyof FiscalRule, string][] = [
   ['approxTaxRate', 'approx_tax_rate'],
   ['notes', 'notes'],
 ];
-const NUMERIC = new Set(['icms_rate', 'icms_base_reduction', 'pis_rate', 'cofins_rate', 'ipi_rate',
-  'cbs_rate', 'ibs_uf_rate', 'ibs_mun_rate', 'approx_tax_rate']);
+const NUMERIC = new Set([
+  'icms_rate',
+  'icms_base_reduction',
+  'pis_rate',
+  'cofins_rate',
+  'ipi_rate',
+  'cbs_rate',
+  'ibs_uf_rate',
+  'ibs_mun_rate',
+  'approx_tax_rate',
+]);
 export const RULE_SELECT = COLS.map(([k, c]) =>
   NUMERIC.has(c) ? `trim_scale(r.${c})::text AS "${k}"` : `r.${c} AS "${k}"`,
 ).join(', ');
@@ -119,13 +128,21 @@ export class FiscalRulesService {
   }
 
   private async getRow(tx: Tx, id: string) {
-    const r = await one<FiscalRule>(tx, `SELECT ${RULE_SELECT} FROM fiscal_rules r WHERE r.id = $1`, [id]);
+    const r = await one<FiscalRule>(
+      tx,
+      `SELECT ${RULE_SELECT} FROM fiscal_rules r WHERE r.id = $1`,
+      [id],
+    );
     if (!r) throw new NotFoundException('Padrão fiscal não encontrado');
     return r;
   }
 
   private async write(tx: Tx, ctx: Ctx, id: string | null, b: FiscalRuleInput) {
-    if (b.isDefault) await tx.$client.query(`UPDATE fiscal_rules SET is_default = false WHERE is_default AND id IS DISTINCT FROM $1`, [id]);
+    if (b.isDefault)
+      await tx.$client.query(
+        `UPDATE fiscal_rules SET is_default = false WHERE is_default AND id IS DISTINCT FROM $1`,
+        [id],
+      );
     const fields = WRITABLE.filter(([k]) => b[k] !== undefined);
     if (id) {
       if (fields.length) {
@@ -215,7 +232,8 @@ export class FiscalRulesService {
   /** Liga (ou desliga, com ruleId null) um NCM a um padrão fiscal. */
   setNcm(ctx: Ctx, ncm: string, ruleId: string | null) {
     return this.db.withTenant(ctx, async (tx) => {
-      if (ruleId === null) await tx.$client.query(`DELETE FROM fiscal_ncm_rules WHERE ncm = $1`, [ncm]);
+      if (ruleId === null)
+        await tx.$client.query(`DELETE FROM fiscal_ncm_rules WHERE ncm = $1`, [ncm]);
       else {
         await this.getRow(tx, ruleId);
         await tx.$client.query(

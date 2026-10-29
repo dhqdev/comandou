@@ -28,6 +28,8 @@ export interface PaymentInput {
   amount: string;
   /** Valor entregue pelo cliente (só dinheiro) para cálculo de troco. */
   tendered?: string;
+  /** CPF/CNPJ na nota (só dígitos). */
+  taxDocument?: string | null;
 }
 
 interface SessionRow {
@@ -402,6 +404,11 @@ export class CashService {
       withIdempotency(tx, ctx.tenantId, 'payment.create', idemKey, { orderId, ...b }, async () => {
         await this.lockSession(tx, b.cashSessionId, 'SHARE');
         const o = await this.orders.lock(tx, orderId);
+        if (b.taxDocument)
+          await tx.$client.query(`UPDATE orders SET tax_document = $2 WHERE id = $1`, [
+            o.id,
+            b.taxDocument,
+          ]);
         const amountCents = toCents(b.amount);
         const change = changeFor(b, amountCents);
         const payment = await this.applyPayment(tx, ctx, o, {

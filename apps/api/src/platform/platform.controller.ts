@@ -144,6 +144,12 @@ export class PlatformController {
     return this.svc.overview();
   }
 
+  /** Nota fiscal em todos os restaurantes: emissão, ambiente, certificado e falhas. */
+  @Get('fiscal')
+  fiscal() {
+    return this.svc.fiscalOverview();
+  }
+
   @Get('tenants')
   tenants(@Query('search') search?: string, @Query('status') status?: string) {
     return this.svc.listTenants({

@@ -10,6 +10,9 @@ import {
 } from '@comandou/shared';
 import type { FiscalRule, RuleSource } from './fiscal-rules.service';
 
+/** Formas que exigem o grupo de cartão: crédito, débito e Pix. */
+const CARD_CODES = new Set(['03', '04', '17']);
+
 /** Destinatário da nota (cliente). Na NFC-e é opcional, exceto no delivery. */
 export interface Recipient {
   name?: string | null;
@@ -161,7 +164,8 @@ export function recipientIssues(
     if (!cpf && !cnpj)
       out.push({
         title: 'Falta o CPF ou CNPJ do cliente',
-        detail: 'A NF-e sempre identifica o destinatário. Escolha o cliente ou preencha o CPF/CNPJ.',
+        detail:
+          'A NF-e sempre identifica o destinatário. Escolha o cliente ou preencha o CPF/CNPJ.',
         fix: 'recipient',
       });
     if (!r?.name?.trim())
@@ -307,7 +311,11 @@ export function composeNote(input: ComposeInput) {
   const delivery = order.channel === 'delivery';
 
   if (!items.length)
-    issues.push({ title: 'Pedido sem itens', detail: 'Não há itens cobrados para a nota.', fix: 'none' });
+    issues.push({
+      title: 'Pedido sem itens',
+      detail: 'Não há itens cobrados para a nota.',
+      fix: 'none',
+    });
   const totals = items.map((i) => i.totalCents);
   const itemsSum = totals.reduce((a, b) => a + b, 0);
   if (items.length && itemsSum !== order.subtotalCents)
@@ -323,7 +331,9 @@ export function composeNote(input: ComposeInput) {
       fix: 'none',
     });
 
-  const noNcm = [...new Set(items.filter((i) => !i.ncm && !settings.defaultNcm).map((i) => i.name))];
+  const noNcm = [
+    ...new Set(items.filter((i) => !i.ncm && !settings.defaultNcm).map((i) => i.name)),
+  ];
   if (noNcm.length)
     issues.push({
       title: noNcm.length === 1 ? 'Item sem NCM' : 'Itens sem NCM',
@@ -347,7 +357,13 @@ export function composeNote(input: ComposeInput) {
       ruleId: rule?.id ?? null,
       ruleCode: rule?.code ?? null,
       ruleName: rule?.name ?? null,
-      source: rule ? (operation.lineRules?.[i.id] === rule.id ? 'line' : i.source) : settings.strictRules ? null : 'legacy',
+      source: rule
+        ? operation.lineRules?.[i.id] === rule.id
+          ? 'line'
+          : i.source
+        : settings.strictRules
+          ? null
+          : 'legacy',
     });
     return rule;
   });
@@ -359,7 +375,10 @@ export function composeNote(input: ComposeInput) {
     });
   if (wrongRegime.size)
     issues.push({
-      title: input.regime === 3 ? 'CSOSN em empresa fora do Simples' : 'CST em empresa do Simples Nacional',
+      title:
+        input.regime === 3
+          ? 'CSOSN em empresa fora do Simples'
+          : 'CST em empresa do Simples Nacional',
       detail: `${input.regime === 3 ? 'No regime normal o ICMS usa CST de 2 dígitos' : 'No Simples Nacional o ICMS usa CSOSN de 3 dígitos'}. Corrija o padrão fiscal ${[...wrongRegime].join(', ')}.`,
       fix: 'rules',
     });
@@ -371,7 +390,8 @@ export function composeNote(input: ComposeInput) {
     if (p !== '1' && !/^[0-9]{44}$/.test(digits(operation.referencedKey)))
       issues.push({
         title: 'Falta a nota referenciada',
-        detail: 'NF-e complementar, de ajuste ou de devolução precisa da chave (44 dígitos) da nota original.',
+        detail:
+          'NF-e complementar, de ajuste ou de devolução precisa da chave (44 dígitos) da nota original.',
         fix: 'items',
       });
   }
@@ -394,7 +414,10 @@ export function composeNote(input: ComposeInput) {
 
   const recipientUf = (recipient?.state ?? '').toUpperCase();
   const interstate =
-    kind === 'nfe' && !!input.issuerUf && !!recipientUf && recipientUf !== input.issuerUf.toUpperCase();
+    kind === 'nfe' &&
+    !!input.issuerUf &&
+    !!recipientUf &&
+    recipientUf !== input.issuerUf.toUpperCase();
 
   const payloadItems = items.map((i, n) => {
     const rule = resolved[n];
@@ -431,10 +454,17 @@ export function composeNote(input: ComposeInput) {
     natureza_operacao: (operation.nature || settings.nature).slice(0, 60),
     ...recipientPayload(kind, recipient),
     items: payloadItems,
-    formas_pagamento: input.payments.map((p) => ({
-      forma_pagamento: PAYMENT_CODES[p.method] ?? '99',
-      valor_pagamento: p.net,
-    })),
+    formas_pagamento: input.payments.map((p) => {
+      const code = PAYMENT_CODES[p.method] ?? '99';
+      return {
+        forma_pagamento: code,
+        valor_pagamento: p.net,
+        // Cartão e Pix pedem o grupo do cartão; sem maquininha integrada vai "não integrado" (2).
+        ...(CARD_CODES.has(code) ? { tipo_integracao: '2' } : {}),
+        // "Outros" (99) exige a descrição do meio de pagamento.
+        ...(code === '99' ? { descricao_pagamento: 'Outros' } : {}),
+      };
+    }),
     ...(info ? { informacoes_adicionais_contribuinte: info.slice(0, 2000) } : {}),
   };
   if (kind === 'nfce') {
@@ -449,7 +479,8 @@ export function composeNote(input: ComposeInput) {
       tipo_documento: '1',
       finalidade_emissao: purpose,
       consumidor_final: operation.finalConsumer === false ? '0' : '1',
-      presenca_comprador: operation.presence ?? (delivery ? '4' : order.source === 'online' ? '2' : '1'),
+      presenca_comprador:
+        operation.presence ?? (delivery ? '4' : order.source === 'online' ? '2' : '1'),
       local_destino: interstate ? '2' : '1',
       modalidade_frete: operation.freight ?? (freightCents > 0 ? '0' : '9'),
       ...(purpose !== '1' && operation.referencedKey

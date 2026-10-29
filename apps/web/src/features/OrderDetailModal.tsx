@@ -332,6 +332,7 @@ export function OrderDetailModal({
             orderId={order.id}
             paid={order.paymentStatus === 'paid'}
             cancelled={order.status === 'cancelled' || order.status === 'cancel_requested'}
+            taxDocument={order.taxDocument ?? null}
           />
 
           {mode === 'cancel' && (
