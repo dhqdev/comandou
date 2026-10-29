@@ -21,9 +21,18 @@ export type RealtimeEvent =
     }
   | { type: 'print.changed' }
   | { type: 'fiscal.changed'; documentId: string; orderId: string }
-  | { type: 'reservation.changed'; reservationId: string };
+  | { type: 'reservation.changed'; reservationId: string }
+  // Chat da equipe: só os ids; a tela busca o conteúdo pela API (que confere quem participa).
+  | { type: 'chat.message'; conversationId: string; messageId: string; authorId: string | null }
+  | { type: 'chat.changed'; conversationId?: string }
+  | { type: 'chat.read'; conversationId: string; userId: string }
+  | { type: 'chat.typing'; conversationId: string; userId: string; name: string }
+  | { type: 'chat.mural' }
+  | { type: 'chat.notice' };
 
 export const tenantRoom = (tenantId: string) => `t:${tenantId}`;
+/** Sala de uma pessoa (todas as abas/aparelhos dela neste restaurante). */
+export const userRoom = (tenantId: string, userId: string) => `u:${tenantId}:${userId}`;
 
 /**
  * Publica eventos para os clientes de UM restaurante (sala do tenant).
@@ -44,6 +53,18 @@ export class RealtimeService {
     if (!this.server) return;
     try {
       this.server.to(tenantRoom(tenantId)).emit('event', event);
+    } catch (err) {
+      this.logger.warn(`falha ao publicar evento: ${(err as Error).message}`);
+    }
+  }
+
+  /** Só para estas pessoas (chat: quem participa da conversa). */
+  publishToUsers(tenantId: string, userIds: Iterable<string>, event: RealtimeEvent) {
+    if (!this.server) return;
+    const rooms = [...new Set(userIds)].map((u) => userRoom(tenantId, u));
+    if (!rooms.length) return;
+    try {
+      this.server.to(rooms).emit('event', event);
     } catch (err) {
       this.logger.warn(`falha ao publicar evento: ${(err as Error).message}`);
     }

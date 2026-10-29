@@ -71,6 +71,8 @@ const schema = z.object({
   ),
   /** Graph API da Meta (WhatsApp Cloud API), com a versão no caminho. */
   WHATSAPP_GRAPH_URL: z.string().url().default('https://graph.facebook.com/v25.0'),
+  /** OpenRouter (assistente de IA). A chave fica no painel Super Admin, cifrada no banco. */
+  OPENROUTER_BASE_URL: z.string().url().default('https://openrouter.ai/api/v1'),
   /** Busca de endereço (Nominatim/OpenStreetMap) usada nas áreas de entrega. */
   GEOCODER_URL: z.string().url().default('https://nominatim.openstreetmap.org'),
   /** Consulta de CEP: ViaCEP (principal, também acha o CEP pela rua) e BrasilAPI (reserva). */
