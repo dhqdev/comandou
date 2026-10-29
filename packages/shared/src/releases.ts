@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.50.2',
+    version: '0.50.3',
     date: '2026-10-29',
     title: 'Caixas de busca com um só contorno',
     summary: 'Em todas as caixas de busca do sistema, o contorno de foco aparece só uma vez.',
