@@ -25,8 +25,12 @@ import { UpdatePanel } from './UpdatePanel';
 
 const rate = (bps: number | null) => (bps === null ? '—' : `${bytes(bps)}/s`);
 
+/** Serviço de execução única (migração) que já terminou bem: 0 rodando é o esperado. */
+const finished = (s: ServerService) => s.running === 0 && s.taskState === 'complete';
+
 function serviceLevel(s: ServerService): Level {
   if (s.desired === 0) return 'off';
+  if (finished(s)) return 'ok';
   if (s.desired !== null && s.running < s.desired) return s.running === 0 ? 'bad' : 'warn';
   return 'ok';
 }
@@ -279,7 +283,11 @@ export function ServerPage() {
                       </span>
                     </span>
                     <span className="adm-row__side">
-                      {s.mode === 'global' ? `${s.running} global` : `${s.running}/${s.desired}`}
+                      {finished(s)
+                        ? 'concluído'
+                        : s.mode === 'global'
+                          ? `${s.running} global`
+                          : `${s.running}/${s.desired}`}
                     </span>
                   </button>
                 ))}
@@ -393,9 +401,11 @@ function ServiceSheet({
         <dt>Situação</dt>
         <dd>
           <Tag level={serviceLevel(service)}>
-            {service.mode === 'global'
-              ? `${service.running} rodando (global)`
-              : `${service.running} de ${service.desired} rodando`}
+            {finished(service)
+              ? 'Terminou sem erro (roda uma vez a cada atualização)'
+              : service.mode === 'global'
+                ? `${service.running} rodando (global)`
+                : `${service.running} de ${service.desired} rodando`}
           </Tag>
         </dd>
         <dt>Imagem</dt>

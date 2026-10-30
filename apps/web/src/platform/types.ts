@@ -225,6 +225,8 @@ export interface ServerService {
   updatedAt: string;
   updateState: string | null;
   lastError: string | null;
+  /** Estado da tarefa mais nova ("complete" = execução única que terminou bem). */
+  taskState?: string | null;
 }
 export interface ServerContainer {
   id: string;

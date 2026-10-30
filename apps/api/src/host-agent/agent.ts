@@ -36,6 +36,7 @@ interface DockerTask {
   ServiceID: string;
   DesiredState: string;
   Status: { State: string; Err?: string; Timestamp?: string };
+  CreatedAt?: string;
 }
 
 export const CLEANUP_TARGETS = ['containers', 'images', 'unused-images', 'build-cache'] as const;
@@ -240,6 +241,11 @@ export class HostAgent {
             (t) => t.DesiredState === 'shutdown' && ['failed', 'rejected'].includes(t.Status.State),
           )
           .sort((a, b) => (b.Status.Timestamp ?? '').localeCompare(a.Status.Timestamp ?? ''))[0];
+        // Tarefa mais nova: num serviço de execução única (migração) "complete" quer dizer que
+        // terminou bem, e 0/1 rodando é o normal.
+        const newest = [...mine].sort((a, b) =>
+          (b.CreatedAt ?? '').localeCompare(a.CreatedAt ?? ''),
+        )[0];
         return {
           id: s.ID,
           name: s.Spec.Name,
@@ -251,6 +257,7 @@ export class HostAgent {
           updatedAt: s.UpdatedAt,
           updateState: s.UpdateStatus?.State ?? null,
           lastError: failing?.Status.Err ?? null,
+          taskState: newest?.Status.State ?? null,
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name));

@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.58.2',
+    date: '2026-10-30',
+    title: 'Migração aparece como concluída no Servidor',
+    summary:
+      'O serviço de migração roda uma vez a cada atualização e depois para. O painel mostrava isso como "0/1" em vermelho, como se estivesse fora do ar. Agora aparece "concluído".',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Super Admin › Servidor: serviço de execução única que terminou sem erro aparece como "concluído", não como parado.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Atualizar sistema espera até 15 minutos pela migração (baixar a imagem e passar por todos os bancos dos restaurantes pode passar de 5 minutos).',
+      },
+    ],
+  },
+  {
     version: '0.58.1',
     date: '2026-10-29',
     title: 'Janelas do celular não quebram mais com o teclado',

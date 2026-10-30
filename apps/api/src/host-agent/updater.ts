@@ -211,9 +211,11 @@ export class Updater {
       };
     }
     const startedAt = Date.now();
+    // A migração baixa a imagem e passa por todos os bancos de restaurante: tem mais tempo.
+    const limit = migrate ? this.timeoutMs * 3 : this.timeoutMs;
     await this.docker.call('POST', `/services/${s.ID}/update?version=${s.Version.Index}`, spec);
     if (isSelf) return;
-    while (Date.now() - startedAt < this.timeoutMs) {
+    while (Date.now() - startedAt < limit) {
       await this.sleep(this.pollMs);
       if (migrate) {
         const tasks = await this.docker.call<Task[]>(
@@ -234,6 +236,10 @@ export class Updater {
       if (st && /rollback|paused/.test(st))
         throw new Error(`a versão nova não subiu; o Swarm voltou para a anterior (${st})`);
     }
-    throw new Error('demorou demais para atualizar');
+    throw new Error(
+      migrate
+        ? 'a migração ainda não terminou; veja os logs do serviço e tente atualizar de novo'
+        : 'demorou demais para atualizar',
+    );
   }
 }
