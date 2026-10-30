@@ -1,0 +1,471 @@
+{
+  "cafe-expresso": {
+    "id": "38d2db7b26eb31fe",
+    "subset": "test",
+    "author": "Party Lin",
+    "title": "二世谷車站咖啡廳",
+    "source": "https://www.flickr.com/photos/party0/5228552617"
+  },
+  "cafe-cappuccino": {
+    "id": "03e20f16eafbf89a",
+    "subset": "test",
+    "author": "Joanna Bourne",
+    "title": "Latte with a dsign",
+    "source": "https://www.flickr.com/photos/66992990@N00/8381412852"
+  },
+  "cafe-latte": {
+    "id": "8ddbe71a5ac1d646",
+    "subset": "test",
+    "author": "Matt Wunderle",
+    "title": "Luck Bros Coffee",
+    "source": "https://www.flickr.com/photos/wunderle/8336664208"
+  },
+  "cafe-coado": {
+    "id": "a358a9eb26b043d3",
+    "subset": "validation",
+    "author": "Masahiko Satoh",
+    "title": "今日始めてのコーヒー",
+    "source": "https://www.flickr.com/photos/masahiko/5101167255"
+  },
+  "cafe-chocolate-quente": {
+    "id": "ef8ab729f1850d16",
+    "subset": "test",
+    "author": "jeffreyw",
+    "title": "Puny human!  Feed me hot chocolate.",
+    "source": "https://www.flickr.com/photos/jeffreyww/6422114111/in/photostream/"
+  },
+  "cafe-mocha": {
+    "id": "2c65b99fa5749644",
+    "subset": "test",
+    "author": "Brad Greenlee",
+    "title": "Mmmmmm",
+    "source": "https://www.flickr.com/photos/bgreenlee/263449919"
+  },
+  "cafe-cha": {
+    "id": "27389f8572c5a413",
+    "subset": "test",
+    "author": "bigbrand .",
+    "title": "106",
+    "source": "https://www.flickr.com/photos/118895729@N03/14384110147"
+  },
+  "cafe-latte-gatinho": {
+    "id": "282af40d0a1bf7c8",
+    "subset": "validation",
+    "author": "JC Awe",
+    "title": "Coffee Art in 3D",
+    "source": "https://www.flickr.com/photos/qqjawe/8452733327"
+  },
+  "gelado-frappe": {
+    "id": "6604fadece5b81fa",
+    "subset": "test",
+    "focus": 0.35,
+    "author": "Horia Varlan",
+    "title": "Frappe choco drink in transparent glass with yellow straw",
+    "source": "https://www.flickr.com/photos/horiavarlan/4269028564"
+  },
+  "gelado-limonada-suica": {
+    "id": "aed02644a065d81e",
+    "subset": "test",
+    "author": "AngryJulieMonday",
+    "title": "Does my lemonade look more fancy because it is in this glass and has a straw?",
+    "source": "https://www.flickr.com/photos/angryjuliemonday/5979910121"
+  },
+  "gelado-pink-lemonade": {
+    "id": "37b9c09967af0565",
+    "subset": "test",
+    "focus": 0.45,
+    "author": "Marcos Joel Reis",
+    "title": "Still life drink",
+    "source": "https://www.flickr.com/photos/marcosjoel/6023767755"
+  },
+  "gelado-cha-limao": {
+    "id": "0058e2b10cee7ef9",
+    "subset": "test",
+    "author": "lamarotte",
+    "title": "Rhum-Coca",
+    "source": "https://www.flickr.com/photos/29588615@N07/2765139015"
+  },
+  "gelado-suco-melancia": {
+    "id": "a5d8d88b9e3401af",
+    "subset": "validation",
+    "author": "Personal Creations",
+    "title": "Watermelon Margarita or Mojito",
+    "source": "https://www.flickr.com/photos/personalcreations/14888830500"
+  },
+  "gelado-suco-verde": {
+    "id": "7f1fe1759e629add",
+    "subset": "test",
+    "author": "Ippei Suzuki",
+    "title": "グリーンスムージー、セロリ入り",
+    "source": "https://www.flickr.com/photos/is_kyoto_jp/8685123194"
+  },
+  "gelado-smoothies": {
+    "id": "56d23ecefed18fbb",
+    "subset": "test",
+    "author": "Andrew_Writer",
+    "title": "20060627_0004",
+    "source": "https://www.flickr.com/photos/dragontomato/3615667749"
+  },
+  "gelado-suco-abacaxi": {
+    "id": "e9aea5f80bde1d53",
+    "subset": "test",
+    "author": "Ruth Hartnup",
+    "title": "Don Juan Diablo cocktail",
+    "source": "https://www.flickr.com/photos/ruthanddave/2786421607"
+  },
+  "padaria-croissant-amendoas": {
+    "id": "3ad02019ef9f66b7",
+    "subset": "test",
+    "author": "Faruk Ateş",
+    "title": "Almond croissant",
+    "source": "https://www.flickr.com/photos/kurafire/8231372179"
+  },
+  "padaria-croissant": {
+    "id": "e97e27695c8cfb5d",
+    "subset": "test",
+    "author": "PentaxLimited",
+    "title": "ティーンカーベル ブーランジェリー クロワッサン プレーン",
+    "source": "https://www.flickr.com/photos/pentaxlimited/3893063313"
+  },
+  "padaria-pain-chocolat": {
+    "id": "269cb2df447f4baa",
+    "subset": "test",
+    "author": "Barbara  Samuel",
+    "title": "pain au chocolat",
+    "source": "https://www.flickr.com/photos/60255232@N00/4533917238"
+  },
+  "padaria-rolinho-canela": {
+    "id": "00c6c3288773471d",
+    "subset": "validation",
+    "author": "Joy",
+    "title": "Making caramel apple cinnamon rolls",
+    "source": "https://www.flickr.com/photos/joyosity/15519385738"
+  },
+  "padaria-pastel-nata": {
+    "id": "6b8d3d4ced312fc6",
+    "subset": "test",
+    "author": "Meg Zimbeck",
+    "title": "antiga confeitaria de bélem: pasteis de nata",
+    "source": "https://www.flickr.com/photos/mufoo/2190048674"
+  },
+  "padaria-pao-fermentacao": {
+    "id": "5ee329c8db3d9687",
+    "subset": "test",
+    "author": "winestem",
+    "title": "Awesomized",
+    "source": "https://www.flickr.com/photos/winestem/11711682844"
+  },
+  "padaria-chala": {
+    "id": "072b52a6df5da64d",
+    "subset": "test",
+    "author": "Ruth Hartnup",
+    "title": "Challah loaves",
+    "source": "https://www.flickr.com/photos/ruthanddave/671970657"
+  },
+  "padaria-bagel": {
+    "id": "a2fae04d8953211e",
+    "subset": "test",
+    "author": "blinq",
+    "title": "we made bagels",
+    "source": "https://www.flickr.com/photos/blinq/16980342179"
+  },
+  "brunch-benedict": {
+    "id": "25ae553537304160",
+    "subset": "test",
+    "focus": 0.45,
+    "author": "loppear",
+    "title": "Eggs benedict with portabella, spinach, blue cheese hollandaise",
+    "source": "https://www.flickr.com/photos/24062889@N00/4916753912"
+  },
+  "brunch-ingles": {
+    "id": "89ce40ac4bcd0dd4",
+    "subset": "test",
+    "author": "Javier Leiva",
+    "title": "Grange Strathmore Hotel | Desayuno inglés completo",
+    "source": "https://www.flickr.com/photos/catorze/5189405808"
+  },
+  "brunch-avocado-toast": {
+    "id": "3176e7cb69461bfd",
+    "subset": "test",
+    "author": "Michael Miller",
+    "title": "Avocado Toast",
+    "source": "https://www.flickr.com/photos/millermz/18404313373"
+  },
+  "brunch-rabanada": {
+    "id": "514aab4e8a272df6",
+    "subset": "test",
+    "author": "Ed  Casabian",
+    "title": "Captain Crunch French Toast @ Blue Moon Cafe",
+    "source": "https://www.flickr.com/photos/casabian/6244691736"
+  },
+  "brunch-panqueca-banana": {
+    "id": "7406393b12ce459b",
+    "subset": "test",
+    "author": "JF10",
+    "title": "Desayuno",
+    "source": "https://www.flickr.com/photos/jf10/2580429915"
+  },
+  "brunch-panqueca-mirtilo": {
+    "id": "9bddfd8a3f4f75d4",
+    "subset": "test",
+    "author": "David Blaikie",
+    "title": "Blueberry Pancakes for Breakfast",
+    "source": "https://www.flickr.com/photos/nikonvscanon/4516719772"
+  },
+  "brunch-waffle-morango": {
+    "id": "11babf1bbdd39e51",
+    "subset": "test",
+    "author": "JFXie",
+    "title": "Breakfast at Keys",
+    "source": "https://www.flickr.com/photos/jfxie/8664928657"
+  },
+  "brunch-iogurte-granola": {
+    "id": "7db5db2dd2d1850d",
+    "subset": "validation",
+    "author": "LisÊckart",
+    "title": "Desayuno saludable",
+    "source": "https://www.flickr.com/photos/85118314@N07/7882515644/"
+  },
+  "brunch-parfait": {
+    "id": "13c5b65f8a08db98",
+    "subset": "test",
+    "focus": 0.3,
+    "author": "Nan Palmero",
+    "title": "NYLO Hotel Plano Parfait",
+    "source": "https://www.flickr.com/photos/nanpalmero/14187897179"
+  },
+  "brunch-prato-aurora": {
+    "id": "6011478695d8eb7b",
+    "subset": "test",
+    "author": "Tara Sturm",
+    "title": "Birthday Breakfast",
+    "source": "https://www.flickr.com/photos/taradsturm/5771684879"
+  },
+  "brunch-ovos-mexidos": {
+    "id": "453e93923f45dce3",
+    "subset": "test",
+    "author": "Phil Whitehouse",
+    "title": "Birthday breakfast",
+    "source": "https://www.flickr.com/photos/philliecasablanca/7410943982"
+  },
+  "sand-misto-quente": {
+    "id": "f9cf7cec793a2988",
+    "subset": "test",
+    "author": "Mirymah ~✿",
+    "title": "- \"رسِالة صباحيّة؛ إطمئن،إن الله بِك و بقلبكَ عليمٌ رحيم .\"🍞☕️",
+    "source": "https://www.flickr.com/photos/all7lwa/20205967719"
+  },
+  "sand-croque-madame": {
+    "id": "e7941e67475f6d2a",
+    "subset": "validation",
+    "author": "Bob Peters",
+    "title": "5912",
+    "source": "https://www.flickr.com/photos/22179048@N05/14821114719"
+  },
+  "sand-club": {
+    "id": "f75c874dcc66ef80",
+    "subset": "test",
+    "author": "Jim G",
+    "title": "Western Melt at IHOP",
+    "source": "https://www.flickr.com/photos/jimg944/8660985963"
+  },
+  "sand-panini": {
+    "id": "6086703a844cc9e0",
+    "subset": "test",
+    "author": "Glen MacLarty",
+    "title": "Pulled pork sandwich",
+    "source": "https://www.flickr.com/photos/glenmaclarty/5679306448/"
+  },
+  "sand-natural": {
+    "id": "ca4089af7c43b46a",
+    "subset": "validation",
+    "author": "mriggen",
+    "title": "for Teddie: Husky's Deli",
+    "source": "https://www.flickr.com/photos/riggenransom/6967850057"
+  },
+  "sand-burger": {
+    "id": "c902e587813e212f",
+    "subset": "test",
+    "author": "Armando Aguayo Rivera",
+    "title": "Hamburguesa // Fotografía de Producto",
+    "source": "https://www.flickr.com/photos/armandoh2o/8128967697"
+  },
+  "sand-burger-fritas": {
+    "id": "5eae631d4ff71e89",
+    "subset": "test",
+    "author": "iamkaspar",
+    "title": "Truck-Stop French Fries",
+    "source": "https://www.flickr.com/photos/pacroon/2776256262"
+  },
+  "sand-frango": {
+    "id": "2dc28a8086b2ef29",
+    "subset": "test",
+    "author": "David Stubbart",
+    "title": "Sidewalk-4.13.14-44",
+    "source": "https://www.flickr.com/photos/shoot-the-breeze/13827411364"
+  },
+  "salada-abacate": {
+    "id": "97aee0dc6b04b3e6",
+    "subset": "validation",
+    "author": "Caroline'sPlantBasedDiet.com",
+    "title": "Avocado, black olive and sundried tomato salad",
+    "source": "https://www.flickr.com/photos/carolinesplantbaseddietcom/10327314803"
+  },
+  "salada-frango": {
+    "id": "4cce11c322e2b778",
+    "subset": "test",
+    "author": "dpotera",
+    "title": "Casa Viart, Platja d'Aro",
+    "source": "https://www.flickr.com/photos/e_calamar/7557030976"
+  },
+  "salada-melancia": {
+    "id": "866793170ff1896d",
+    "subset": "test",
+    "author": "Kai 'Oswald' Seidler",
+    "title": "#Psychodad kocht wieder: Wassermelonen-Salat mit Feta und Minze",
+    "source": "https://www.flickr.com/photos/kaiseidler/9432745935"
+  },
+  "salada-salmao": {
+    "id": "bf500de0cf2fc53b",
+    "subset": "validation",
+    "author": "cédric Icower",
+    "title": "Salade minceur saumon cru + algues",
+    "source": "https://www.flickr.com/photos/128662668@N02/16010064205"
+  },
+  "doce-cheesecake": {
+    "id": "207d316f3c7ecda9",
+    "subset": "test",
+    "author": "Ali from Riyadh : )",
+    "title": "Untitled",
+    "source": "https://www.flickr.com/photos/rainsong/12704830354"
+  },
+  "doce-bolo-chocolate": {
+    "id": "2e07294b3b2c6cb8",
+    "subset": "test",
+    "author": "Andreas Ivarsson",
+    "title": "London julshopping 2LAX11",
+    "source": "https://www.flickr.com/photos/andreasivarsson/6545666147"
+  },
+  "doce-torta-limao": {
+    "id": "e45ec8a41cee660e",
+    "subset": "test",
+    "author": "Audrey",
+    "title": "Banana and Chocolate Mousse",
+    "source": "https://www.flickr.com/photos/moohaha/2687566079"
+  },
+  "doce-torta-morango": {
+    "id": "bf96710e63ceca5e",
+    "subset": "test",
+    "author": "思弦 張",
+    "title": "20110514-日本自由行-380",
+    "source": "https://www.flickr.com/photos/small_0323/5736643534"
+  },
+  "doce-torta-frutas": {
+    "id": "bd25662b4f1821a1",
+    "subset": "test",
+    "focus": 0.5,
+    "author": "Hajime NAKANO",
+    "title": "Pie @ IKEA Funabashi",
+    "source": "https://www.flickr.com/photos/jetalone/331566322"
+  },
+  "doce-cupcake": {
+    "id": "bff3e167dd9ba4e8",
+    "subset": "test",
+    "focus": 0.4,
+    "author": "april",
+    "title": "Untitled",
+    "source": "https://www.flickr.com/photos/rottnapples/5362963136"
+  },
+  "doce-cookies": {
+    "id": "1e37b28f58ae32c1",
+    "subset": "validation",
+    "author": "sonictk",
+    "title": "Muffins",
+    "source": "https://www.flickr.com/photos/sonictk/336385339"
+  },
+  "doce-brownie-sorvete": {
+    "id": "c66f4b5f59d72dbb",
+    "subset": "validation",
+    "author": "Salvatore D'Alia",
+    "title": "Hazelnut Cake - Grandma's recipe",
+    "source": "https://www.flickr.com/photos/saldalia/8253455578"
+  },
+  "doce-bolo-banana": {
+    "id": "a60c3dce4fb97a0d",
+    "subset": "test",
+    "author": "Whitney",
+    "title": "Fall Quick Bread",
+    "source": "https://www.flickr.com/photos/whitneyinchicago/5193020156"
+  },
+  "sorvete-sorbet": {
+    "id": "e53a3b8cfedc3837",
+    "subset": "test",
+    "author": "Angela Schmeidel Randall",
+    "title": "Cranberry Sorbet with Clementines and Mint",
+    "source": "https://www.flickr.com/photos/arandall/3138859555"
+  },
+  "sorvete-taca": {
+    "id": "bfaae3db9126ecf1",
+    "subset": "validation",
+    "author": "suhakri_hsu",
+    "title": "movenpick ice cream",
+    "source": "https://www.flickr.com/photos/suhakri/3845825768"
+  },
+  "sorvete-cookie": {
+    "id": "ead0f500089ce485",
+    "subset": "test",
+    "author": "punctuated",
+    "title": "Homemade White Chocolate Macadamia Nut Pizzokie",
+    "source": "https://www.flickr.com/photos/lainetrees/6713138167"
+  },
+  "sorvete-waffle": {
+    "id": "d556a96131c8068c",
+    "subset": "test",
+    "focus": 0.35,
+    "author": "Hajime NAKANO",
+    "title": "Waffle @ A&W (Panthip Plaza)",
+    "source": "https://www.flickr.com/photos/jetalone/345303501"
+  },
+  "combo-manha": {
+    "id": "3ed80637de3d1a46",
+    "subset": "test",
+    "author": "Jeremy Keith",
+    "title": "Cappuccino and pastry #foodspotting",
+    "source": "https://www.flickr.com/photos/adactio/6197018045"
+  },
+  "combo-burger": {
+    "id": "3e7cd1bd017f5919",
+    "subset": "validation",
+    "author": "Hank Hession",
+    "title": "DSCF2121",
+    "source": "https://www.flickr.com/photos/hankhession/15520194976/"
+  },
+  "capa": {
+    "id": "dfdab21193319655",
+    "subset": "test",
+    "author": "Kevin McDonagh",
+    "title": "P1000150",
+    "source": "https://www.flickr.com/photos/appletv/3586367059"
+  },
+  "banner-croissant": {
+    "id": "b7fb8a5cc670b3c5",
+    "subset": "validation",
+    "author": "Alex Brown",
+    "title": "The croissants of AFNOR",
+    "source": "https://www.flickr.com/photos/alexbrn/4161994329"
+  },
+  "banner-brunch": {
+    "id": "db2628b64415d323",
+    "subset": "test",
+    "author": "blackeiffel",
+    "title": "Bouchon Bistro - Vegas",
+    "source": "https://www.flickr.com/photos/blackeiffel/5737929998/"
+  },
+  "banner-cafe": {
+    "id": "aedc176b8bdbec31",
+    "subset": "test",
+    "author": "fto mizno",
+    "title": "#espresso へ",
+    "source": "https://www.flickr.com/photos/ftomiz/14291086538"
+  }
+}

@@ -3,6 +3,8 @@
  * Só dados: a gravação fica em seed.ts. Imagens em db/demo/images (geradas por
  * tools/demo-images/generate.mjs).
  */
+import { join } from 'node:path';
+import type { DemoCatalog } from './types';
 
 export const DEMO_NAME = 'Casa Brasa';
 export const DEMO_PASSWORD = 'comandou123';
@@ -1065,3 +1067,98 @@ export const SUPPLIERS: [string, string, string][] = [
   ['Bebidas', 'Fornecedores', 'Distribuidora de Bebidas SP'],
   ['Embalagens', 'Fornecedores', 'Embalagens Kraft & Cia'],
 ];
+
+/** Casa Brasa inteira no formato que seed.ts grava. */
+export const CASA_BRASA: DemoCatalog = {
+  name: DEMO_NAME,
+  password: DEMO_PASSWORD,
+  customerPassword: DEMO_CUSTOMER_PASSWORD,
+  imagesDir: join(__dirname, '..', '..', 'db', 'demo', 'images'),
+  seed: 20261023,
+  location: STORE_LOCATION,
+  store: {
+    about:
+      'Hambúrguer na brasa e pizza de forno a lenha desde 2014. Ingredientes frescos, pão brioche da casa e massa de fermentação natural. Restaurante de demonstração do Comandou.',
+    address: 'Rua dos Pinheiros, 870 - Pinheiros, São Paulo - SP',
+    whatsapp: '(11) 98765-4321',
+    headline: 'Bateu a fome? A brasa tá acesa!',
+    featuredTitle: 'Os queridinhos da casa',
+    deliveryFee: '8.00',
+    minOrder: '25.00',
+    eta: [30, 50],
+  },
+  users: USERS,
+  sectors: SECTORS,
+  drinkSector: 'bar',
+  categories: CATEGORIES,
+  optionGroups: OPTION_GROUPS,
+  products: PRODUCTS,
+  basket: {
+    mains: ['combos', 'burgers', 'pizzas'],
+    sides: ['porcoes', 'saladas'],
+    drinks: ['bebidas'],
+    sweets: ['sobremesas'],
+  },
+  stockItems: STOCK_ITEMS,
+  stockCategory: STOCK_CATEGORY,
+  lowStock: LOW_STOCK,
+  losses: [
+    ['tomate', 1.2, 18, 'Tomates passados'],
+    ['alface', 0.8, 11, 'Validade vencida'],
+    ['sorvete', 1, 6, 'Freezer desligou à noite'],
+  ],
+  adjustments: [
+    ['oleo', -1.5],
+    ['cebola', 0.6],
+  ],
+  lots: [
+    ['alface', '3', 4, 5],
+    ['tomate', '6', 3, 7],
+    ['morango', '1', 3, 4],
+    ['mucarela', '8', 10, 30],
+    ['catupiry', '1', 20, 21],
+    ['frango', '10', 2, 4],
+    ['blend', '120', 1, 5],
+    ['sorvete', '8', 30, 180],
+  ],
+  packItem: 'pao',
+  tables: TABLES,
+  couriers: COURIERS,
+  customers: CUSTOMERS,
+  walkIn: WALK_IN,
+  itemNotes: ITEM_NOTES,
+  zones: ZONES,
+  banners: BANNERS,
+  monthlyBills: MONTHLY_BILLS,
+  suppliers: SUPPLIERS,
+  extraReceivables: [
+    ['Evento corporativo (50 pessoas)', 'Eventos', 'Agência Pinheiros Digital', '3750.00', -6],
+    ['Aniversário no mezanino (sinal)', 'Eventos', 'Cliente particular', '800.00', 12],
+  ],
+  cancelledBill: [
+    'Manutenção da coifa (orçamento recusado)',
+    'Manutenção',
+    'Refrigeração Polar',
+    '1450.00',
+    'Orçamento mais barato com outro fornecedor',
+  ],
+  busy: [34, 0, 22, 24, 28, 40, 46],
+  shifts: [
+    { start: [11, 30], hours: 3, share: 0.4 },
+    { start: [18, 30], hours: 4.4, share: 0.6 },
+  ],
+  hours: { open: [10, 30], withdrawal: [21, 0], close: [23, 50] },
+  channelMix: { table: 0.36, counter: 0.14, delivery: 0.36 },
+  prepMin: [12, 24],
+  liveCustomers: [
+    'Mariana Oliveira',
+    'Rafael Santos',
+    'Camila Rodrigues',
+    'Gustavo Pereira',
+    'Beatriz Lima',
+    'Thiago Almeida',
+    'Felipe Costa',
+    'Larissa Carvalho',
+  ],
+  liveTables: ['5', '3', '1', '8'],
+};

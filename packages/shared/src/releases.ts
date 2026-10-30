@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.61.0',
+    date: '2026-10-30',
+    title: 'Nova demonstração: Aurora Café & Padaria, com fotos reais',
+    summary:
+      'Além da Casa Brasa, o sistema agora sobe com uma segunda empresa de exemplo: uma cafeteria e padaria com logo própria, fotos reais em todos os produtos e todas as partes do sistema preenchidas, do cardápio ao contrato.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Aurora Café & Padaria em aurora.<domínio>: 61 produtos com fotos reais, adicionais e ficha técnica, 3 setores, 14 mesas, ~1.500 pedidos dos últimos 30 dias em todos os canais, caixa, financeiro, entregadores com repasse e posição no mapa, áreas de entrega, banners e cardápio de entrega com preço próprio.',
+      },
+      {
+        tag: 'novo',
+        text: 'Tudo o que vai além do básico também vem preenchido: estoque com fornecedores, recebimentos, contagem, lotes e produção; fidelidade; reservas; conversas e mural da equipe; regras fiscais; conversa com o Comandinho e o panda com roupinhas.',
+      },
+      {
+        tag: 'novo',
+        text: 'No Super Admin a Aurora aparece com cadastro, assinatura paga e faturas. Com os dados da contratada preenchidos, o contrato já chega assinado pelo cliente, esperando a contra-assinatura. Nada é enviado por e-mail.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Variável COMANDOU_DEMO2_SLUG muda o endereço da Aurora ou a desliga (false). As fotos são do Open Images (licença CC BY 2.0), com autor e link de cada uma registrados.',
+      },
+    ],
+  },
+  {
     version: '0.60.0',
     date: '2026-10-30',
     title: 'Conversa do cliente com a loja, direto no cardápio',

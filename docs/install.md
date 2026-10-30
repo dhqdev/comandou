@@ -59,7 +59,8 @@ scripts/install.sh
 | `COMANDOU_BACKUP=off` | sobe sem backup (não recomendado) |
 | `COMANDOU_WILDCARD_TLS=1` | certificado coringa `*.domínio` (exige DNS-01 no Traefik) |
 | `COMANDOU_DEMO` | restaurante de demonstração: `true` (padrão, cria uma vez), `reset` (recria a cada subida) ou `false` |
-| `COMANDOU_DEMO_SLUG` | endereço da demonstração (padrão `exemplo` → `exemplo.domínio`) |
+| `COMANDOU_DEMO_SLUG` | endereço da Casa Brasa (padrão `exemplo` → `exemplo.domínio`) |
+| `COMANDOU_DEMO2_SLUG` | endereço da Aurora Café & Padaria (padrão `aurora`; `false` desliga só ela) |
 
 **Portainer / `docker stack deploy` na mão:** crie os Docker secrets de
 [deploy.md](deploy.md#secrets) (inclui os dois do Super Admin, abaixo), defina as variáveis da
@@ -85,6 +86,24 @@ a loja online com logo, capa e banners. Serve para testar e para mostrar o siste
   `cliente123`.
 - As imagens são ilustrações próprias (`apps/api/db/demo/images`, geradas por
   `tools/demo-images/generate.mjs`).
+
+### Aurora Café & Padaria
+
+A segunda demonstração (`https://aurora.<domínio>`) é uma cafeteria e padaria artesanal na Vila
+Madalena, com **fotos reais** em todos os produtos e a logo própria, e usa todas as partes do
+sistema: 61 produtos em 9 categorias, adicionais e ficha técnica, 3 setores (barista, cozinha,
+vitrine), ~1.500 pedidos em 30 dias (mesa, balcão, entrega e retirada), caixa e financeiro,
+estoque com fornecedores, recebimentos, contagem, lotes, produção e itens abaixo do mínimo,
+cardápio de entrega com preço próprio, fidelidade, reservas, conversas e mural da equipe,
+entregadores com repasse e posição no mapa, regras fiscais e notas, conversa com o Comandinho e o
+panda com roupinhas. No Super Admin ela aparece com cadastro, assinatura paga no plano
+Profissional e faturas; se os dados da contratada estiverem preenchidos em *Contrato*, o contrato
+já vem assinado pelo cliente, esperando a contra-assinatura.
+
+- Mesmos e-mails da Casa Brasa, em `@aurora.<domínio>` (dona: `dono@`, Helena Duarte), senha
+  `comandou123`. Cliente do cardápio online: `(11) 97777-0000`, senha `cliente123`.
+- As fotos vêm do Open Images (Flickr, licença CC BY 2.0); autor e link de cada uma estão em
+  `apps/api/db/demo/aurora/credits.json`. Para trocar: `tools/demo-images/aurora`.
 
 ## Super Admin
 

@@ -1,6 +1,7 @@
 import { Client } from 'pg';
 import { afterAll, describe, expect, it } from 'vitest';
 import { purgeTenantRows } from '../src/backup/tenant-copy';
+import { AURORA } from '../src/demo/aurora';
 import { demoMode, ensureDemoRestaurant } from '../src/demo/demo';
 import { OWNER_URL } from './env';
 import { ownerQuery } from './fixtures';
@@ -101,4 +102,57 @@ describe('Restaurante de demonstração', () => {
       await ownerQuery(`DELETE FROM tenants WHERE slug = 'nao-demo'`);
     }
   }, 120_000);
+
+  it('Aurora: segunda demonstração com tudo preenchido e sem produto sem foto', async () => {
+    const aurora = { ...opts, slug: 'aurora-teste', emailDomain: 'aurora-teste.comandou.test' };
+    try {
+      expect(
+        await ensureDemoRestaurant({
+          ...aurora,
+          mode: 'reset',
+          catalog: AURORA,
+          baseDomain: 'comandou.test',
+        }),
+      ).toBe('created');
+      const [t] = await ownerQuery<{ id: string; name: string }>(
+        `SELECT id, name FROM tenants WHERE slug = 'aurora-teste'`,
+      );
+      expect(t!.name).toBe(AURORA.name);
+      const [n] = await ownerQuery<Record<string, number>>(
+        `SELECT (SELECT count(*)::int FROM orders WHERE tenant_id = $1) AS orders,
+                (SELECT count(DISTINCT status)::int FROM orders WHERE tenant_id = $1) AS statuses,
+                (SELECT count(*)::int FROM products WHERE tenant_id = $1) AS products,
+                (SELECT count(*)::int FROM products WHERE tenant_id = $1 AND image_id IS NULL) AS no_photo,
+                (SELECT count(*)::int FROM stock_items WHERE tenant_id = $1 AND quantity < min_quantity) AS low,
+                (SELECT count(*)::int FROM stock_items WHERE tenant_id = $1 AND quantity < 0) AS negative,
+                (SELECT count(*)::int FROM chat_posts WHERE tenant_id = $1) AS posts,
+                (SELECT count(*)::int FROM reservations WHERE tenant_id = $1) AS reservations,
+                (SELECT count(*)::int FROM loyalty_entries WHERE tenant_id = $1) AS loyalty,
+                (SELECT count(*)::int FROM stock_receipts WHERE tenant_id = $1) AS receipts,
+                (SELECT count(*)::int FROM subscriptions WHERE tenant_id = $1 AND status = 'active') AS subs`,
+        [t!.id],
+      );
+      expect(n!.orders).toBeGreaterThan(500);
+      expect(n!.statuses).toBe(8);
+      expect(n!.products).toBe(AURORA.products.length);
+      expect(n!.no_photo).toBe(0);
+      expect(n!.low).toBe(AURORA.lowStock.length);
+      expect(n!.negative).toBe(0);
+      expect(n!.posts).toBeGreaterThan(0);
+      expect(n!.reservations).toBeGreaterThan(0);
+      expect(n!.loyalty).toBeGreaterThan(0);
+      expect(n!.receipts).toBeGreaterThan(0);
+      expect(n!.subs).toBe(1);
+    } finally {
+      const [t] = await ownerQuery<{ id: string }>(
+        `SELECT id FROM tenants WHERE slug = 'aurora-teste'`,
+      );
+      if (t) {
+        const c = new Client({ connectionString: OWNER_URL });
+        await c.connect();
+        await purgeTenantRows(c, t.id, true);
+        await c.end();
+      }
+    }
+  }, 180_000);
 });

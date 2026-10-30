@@ -1,0 +1,530 @@
+{
+  "cafe-expresso": {
+    "author": "Party Lin",
+    "title": "二世谷車站咖啡廳",
+    "source": "https://www.flickr.com/photos/party0/5228552617",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "cafe-cappuccino": {
+    "author": "Joanna Bourne",
+    "title": "Latte with a dsign",
+    "source": "https://www.flickr.com/photos/66992990@N00/8381412852",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "cafe-latte": {
+    "author": "Matt Wunderle",
+    "title": "Luck Bros Coffee",
+    "source": "https://www.flickr.com/photos/wunderle/8336664208",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "cafe-coado": {
+    "author": "Masahiko Satoh",
+    "title": "今日始めてのコーヒー",
+    "source": "https://www.flickr.com/photos/masahiko/5101167255",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "cafe-chocolate-quente": {
+    "author": "jeffreyw",
+    "title": "Puny human!  Feed me hot chocolate.",
+    "source": "https://www.flickr.com/photos/jeffreyww/6422114111/in/photostream/",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "cafe-mocha": {
+    "author": "Brad Greenlee",
+    "title": "Mmmmmm",
+    "source": "https://www.flickr.com/photos/bgreenlee/263449919",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "cafe-cha": {
+    "author": "bigbrand .",
+    "title": "106",
+    "source": "https://www.flickr.com/photos/118895729@N03/14384110147",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "cafe-latte-gatinho": {
+    "author": "JC Awe",
+    "title": "Coffee Art in 3D",
+    "source": "https://www.flickr.com/photos/qqjawe/8452733327",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "gelado-frappe": {
+    "author": "Horia Varlan",
+    "title": "Frappe choco drink in transparent glass with yellow straw",
+    "source": "https://www.flickr.com/photos/horiavarlan/4269028564",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "gelado-limonada-suica": {
+    "author": "AngryJulieMonday",
+    "title": "Does my lemonade look more fancy because it is in this glass and has a straw?",
+    "source": "https://www.flickr.com/photos/angryjuliemonday/5979910121",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "gelado-pink-lemonade": {
+    "author": "Marcos Joel Reis",
+    "title": "Still life drink",
+    "source": "https://www.flickr.com/photos/marcosjoel/6023767755",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "gelado-cha-limao": {
+    "author": "lamarotte",
+    "title": "Rhum-Coca",
+    "source": "https://www.flickr.com/photos/29588615@N07/2765139015",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "gelado-suco-melancia": {
+    "author": "Personal Creations",
+    "title": "Watermelon Margarita or Mojito",
+    "source": "https://www.flickr.com/photos/personalcreations/14888830500",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "gelado-suco-verde": {
+    "author": "Ippei Suzuki",
+    "title": "グリーンスムージー、セロリ入り",
+    "source": "https://www.flickr.com/photos/is_kyoto_jp/8685123194",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "gelado-smoothies": {
+    "author": "Andrew_Writer",
+    "title": "20060627_0004",
+    "source": "https://www.flickr.com/photos/dragontomato/3615667749",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "gelado-suco-abacaxi": {
+    "author": "Ruth Hartnup",
+    "title": "Don Juan Diablo cocktail",
+    "source": "https://www.flickr.com/photos/ruthanddave/2786421607",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "padaria-croissant-amendoas": {
+    "author": "Faruk Ateş",
+    "title": "Almond croissant",
+    "source": "https://www.flickr.com/photos/kurafire/8231372179",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "padaria-croissant": {
+    "author": "PentaxLimited",
+    "title": "ティーンカーベル ブーランジェリー クロワッサン プレーン",
+    "source": "https://www.flickr.com/photos/pentaxlimited/3893063313",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "padaria-pain-chocolat": {
+    "author": "Barbara  Samuel",
+    "title": "pain au chocolat",
+    "source": "https://www.flickr.com/photos/60255232@N00/4533917238",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "padaria-rolinho-canela": {
+    "author": "Joy",
+    "title": "Making caramel apple cinnamon rolls",
+    "source": "https://www.flickr.com/photos/joyosity/15519385738",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "padaria-pastel-nata": {
+    "author": "Meg Zimbeck",
+    "title": "antiga confeitaria de bélem: pasteis de nata",
+    "source": "https://www.flickr.com/photos/mufoo/2190048674",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "padaria-pao-fermentacao": {
+    "author": "winestem",
+    "title": "Awesomized",
+    "source": "https://www.flickr.com/photos/winestem/11711682844",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "padaria-chala": {
+    "author": "Ruth Hartnup",
+    "title": "Challah loaves",
+    "source": "https://www.flickr.com/photos/ruthanddave/671970657",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "padaria-bagel": {
+    "author": "blinq",
+    "title": "we made bagels",
+    "source": "https://www.flickr.com/photos/blinq/16980342179",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "brunch-benedict": {
+    "author": "loppear",
+    "title": "Eggs benedict with portabella, spinach, blue cheese hollandaise",
+    "source": "https://www.flickr.com/photos/24062889@N00/4916753912",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "brunch-ingles": {
+    "author": "Javier Leiva",
+    "title": "Grange Strathmore Hotel | Desayuno inglés completo",
+    "source": "https://www.flickr.com/photos/catorze/5189405808",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "brunch-avocado-toast": {
+    "author": "Michael Miller",
+    "title": "Avocado Toast",
+    "source": "https://www.flickr.com/photos/millermz/18404313373",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "brunch-rabanada": {
+    "author": "Ed  Casabian",
+    "title": "Captain Crunch French Toast @ Blue Moon Cafe",
+    "source": "https://www.flickr.com/photos/casabian/6244691736",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "brunch-panqueca-banana": {
+    "author": "JF10",
+    "title": "Desayuno",
+    "source": "https://www.flickr.com/photos/jf10/2580429915",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "brunch-panqueca-mirtilo": {
+    "author": "David Blaikie",
+    "title": "Blueberry Pancakes for Breakfast",
+    "source": "https://www.flickr.com/photos/nikonvscanon/4516719772",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "brunch-waffle-morango": {
+    "author": "JFXie",
+    "title": "Breakfast at Keys",
+    "source": "https://www.flickr.com/photos/jfxie/8664928657",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "brunch-iogurte-granola": {
+    "author": "LisÊckart",
+    "title": "Desayuno saludable",
+    "source": "https://www.flickr.com/photos/85118314@N07/7882515644/",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "brunch-parfait": {
+    "author": "Nan Palmero",
+    "title": "NYLO Hotel Plano Parfait",
+    "source": "https://www.flickr.com/photos/nanpalmero/14187897179",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "brunch-prato-aurora": {
+    "author": "Tara Sturm",
+    "title": "Birthday Breakfast",
+    "source": "https://www.flickr.com/photos/taradsturm/5771684879",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "brunch-ovos-mexidos": {
+    "author": "Phil Whitehouse",
+    "title": "Birthday breakfast",
+    "source": "https://www.flickr.com/photos/philliecasablanca/7410943982",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "sand-misto-quente": {
+    "author": "Mirymah ~✿",
+    "title": "- \"رسِالة صباحيّة؛ إطمئن،إن الله بِك و بقلبكَ عليمٌ رحيم .\"🍞☕️",
+    "source": "https://www.flickr.com/photos/all7lwa/20205967719",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "sand-croque-madame": {
+    "author": "Bob Peters",
+    "title": "5912",
+    "source": "https://www.flickr.com/photos/22179048@N05/14821114719",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "sand-club": {
+    "author": "Jim G",
+    "title": "Western Melt at IHOP",
+    "source": "https://www.flickr.com/photos/jimg944/8660985963",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "sand-panini": {
+    "author": "Glen MacLarty",
+    "title": "Pulled pork sandwich",
+    "source": "https://www.flickr.com/photos/glenmaclarty/5679306448/",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "sand-natural": {
+    "author": "mriggen",
+    "title": "for Teddie: Husky's Deli",
+    "source": "https://www.flickr.com/photos/riggenransom/6967850057",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "sand-burger": {
+    "author": "Armando Aguayo Rivera",
+    "title": "Hamburguesa // Fotografía de Producto",
+    "source": "https://www.flickr.com/photos/armandoh2o/8128967697",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "sand-burger-fritas": {
+    "author": "iamkaspar",
+    "title": "Truck-Stop French Fries",
+    "source": "https://www.flickr.com/photos/pacroon/2776256262",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "sand-frango": {
+    "author": "David Stubbart",
+    "title": "Sidewalk-4.13.14-44",
+    "source": "https://www.flickr.com/photos/shoot-the-breeze/13827411364",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "salada-abacate": {
+    "author": "Caroline'sPlantBasedDiet.com",
+    "title": "Avocado, black olive and sundried tomato salad",
+    "source": "https://www.flickr.com/photos/carolinesplantbaseddietcom/10327314803",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "salada-frango": {
+    "author": "dpotera",
+    "title": "Casa Viart, Platja d'Aro",
+    "source": "https://www.flickr.com/photos/e_calamar/7557030976",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "salada-melancia": {
+    "author": "Kai 'Oswald' Seidler",
+    "title": "#Psychodad kocht wieder: Wassermelonen-Salat mit Feta und Minze",
+    "source": "https://www.flickr.com/photos/kaiseidler/9432745935",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "salada-salmao": {
+    "author": "cédric Icower",
+    "title": "Salade minceur saumon cru + algues",
+    "source": "https://www.flickr.com/photos/128662668@N02/16010064205",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "doce-cheesecake": {
+    "author": "Ali from Riyadh : )",
+    "title": "Untitled",
+    "source": "https://www.flickr.com/photos/rainsong/12704830354",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "doce-bolo-chocolate": {
+    "author": "Andreas Ivarsson",
+    "title": "London julshopping 2LAX11",
+    "source": "https://www.flickr.com/photos/andreasivarsson/6545666147",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "doce-torta-limao": {
+    "author": "Audrey",
+    "title": "Banana and Chocolate Mousse",
+    "source": "https://www.flickr.com/photos/moohaha/2687566079",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "doce-torta-morango": {
+    "author": "思弦 張",
+    "title": "20110514-日本自由行-380",
+    "source": "https://www.flickr.com/photos/small_0323/5736643534",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "doce-torta-frutas": {
+    "author": "Hajime NAKANO",
+    "title": "Pie @ IKEA Funabashi",
+    "source": "https://www.flickr.com/photos/jetalone/331566322",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "doce-cupcake": {
+    "author": "april",
+    "title": "Untitled",
+    "source": "https://www.flickr.com/photos/rottnapples/5362963136",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "doce-cookies": {
+    "author": "sonictk",
+    "title": "Muffins",
+    "source": "https://www.flickr.com/photos/sonictk/336385339",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "doce-brownie-sorvete": {
+    "author": "Salvatore D'Alia",
+    "title": "Hazelnut Cake - Grandma's recipe",
+    "source": "https://www.flickr.com/photos/saldalia/8253455578",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "doce-bolo-banana": {
+    "author": "Whitney",
+    "title": "Fall Quick Bread",
+    "source": "https://www.flickr.com/photos/whitneyinchicago/5193020156",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "sorvete-sorbet": {
+    "author": "Angela Schmeidel Randall",
+    "title": "Cranberry Sorbet with Clementines and Mint",
+    "source": "https://www.flickr.com/photos/arandall/3138859555",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "sorvete-taca": {
+    "author": "suhakri_hsu",
+    "title": "movenpick ice cream",
+    "source": "https://www.flickr.com/photos/suhakri/3845825768",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "sorvete-cookie": {
+    "author": "punctuated",
+    "title": "Homemade White Chocolate Macadamia Nut Pizzokie",
+    "source": "https://www.flickr.com/photos/lainetrees/6713138167",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "sorvete-waffle": {
+    "author": "Hajime NAKANO",
+    "title": "Waffle @ A&W (Panthip Plaza)",
+    "source": "https://www.flickr.com/photos/jetalone/345303501",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "combo-manha": {
+    "author": "Jeremy Keith",
+    "title": "Cappuccino and pastry #foodspotting",
+    "source": "https://www.flickr.com/photos/adactio/6197018045",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "combo-burger": {
+    "author": "Hank Hession",
+    "title": "DSCF2121",
+    "source": "https://www.flickr.com/photos/hankhession/15520194976/",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "capa": {
+    "author": "Kevin McDonagh",
+    "title": "P1000150",
+    "source": "https://www.flickr.com/photos/appletv/3586367059",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "banner-croissant": {
+    "author": "Alex Brown",
+    "title": "The croissants of AFNOR",
+    "source": "https://www.flickr.com/photos/alexbrn/4161994329",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "banner-brunch": {
+    "author": "blackeiffel",
+    "title": "Bouchon Bistro - Vegas",
+    "source": "https://www.flickr.com/photos/blackeiffel/5737929998/",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  },
+  "banner-cafe": {
+    "author": "fto mizno",
+    "title": "#espresso へ",
+    "source": "https://www.flickr.com/photos/ftomiz/14291086538",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+    "dataset": "Open Images (Google)"
+  }
+}

@@ -11,10 +11,12 @@ import {
 } from '@comandou/shared';
 import { hashPassword } from '../auth/password';
 import { distanceM, insidePolygon } from '../delivery/zones';
-import * as C from './catalog';
+import { CASA_BRASA } from './catalog';
+import { seedDemoExtras } from './extras';
+import type { DemoCatalog, DemoProduct } from './types';
 
-/** Fotos e logo do restaurante de demonstração (geradas por tools/demo-images). */
-export const DEMO_IMAGES_DIR = join(__dirname, '..', '..', 'db', 'demo', 'images');
+/** Fotos e logo da Casa Brasa (geradas por tools/demo-images). */
+export const DEMO_IMAGES_DIR = CASA_BRASA.imagesDir;
 /** Linha do audit_log que marca o restaurante como já preenchido (nunca preenche duas vezes). */
 export const DEMO_MARKER = 'demo.seeded';
 
@@ -98,11 +100,19 @@ const iso = (ms: number) => new Date(ms).toISOString();
 export async function seedDemoData(
   c: ClientBase,
   tenantId: string,
-  opts: { now?: Date; emailDomain: string; days?: number; log?: (m: string) => void },
+  opts: {
+    now?: Date;
+    emailDomain: string;
+    days?: number;
+    log?: (m: string) => void;
+    /** Qual demonstração gravar (padrão: Casa Brasa). */
+    catalog?: DemoCatalog;
+  },
 ): Promise<DemoSeedResult> {
   const now = (opts.now ?? new Date()).getTime();
   const days = opts.days ?? 30;
-  const r = rng(20261023);
+  const C = opts.catalog ?? CASA_BRASA;
+  const r = rng(C.seed);
   const T = tenantId;
   const log = opts.log ?? (() => undefined);
 
@@ -114,9 +124,9 @@ export async function seedDemoData(
   const localDate = (ms: number) => new Date(ms - TZ_OFFSET).toISOString().slice(0, 10);
 
   // ------------------------------------------------------------------ equipe
-  const pw = await hashPassword(C.DEMO_PASSWORD);
+  const pw = await hashPassword(C.password);
   const userId: Record<string, string> = {};
-  for (const u of C.USERS) {
+  for (const u of C.users) {
     const email = `${u.email}@${opts.emailDomain}`;
     const row = await c.query<{ id: string }>(
       `INSERT INTO users (email, name, password_hash, created_at) VALUES ($1, $2, $3, $4)
@@ -133,12 +143,13 @@ export async function seedDemoData(
   const U = (k: string) => userId[k]!;
 
   // ------------------------------------------------------------------ fotos
-  const manifest = JSON.parse(
-    readFileSync(join(DEMO_IMAGES_DIR, 'manifest.json'), 'utf8'),
-  ) as Record<string, { width: number; height: number }>;
+  const manifest = JSON.parse(readFileSync(join(C.imagesDir, 'manifest.json'), 'utf8')) as Record<
+    string,
+    { width: number; height: number }
+  >;
   const media: Record<string, string> = {};
   for (const [name, m] of Object.entries(manifest)) {
-    const bytes = readFileSync(join(DEMO_IMAGES_DIR, `${name}.webp`));
+    const bytes = readFileSync(join(C.imagesDir, `${name}.webp`));
     const id = randomUUID();
     media[name] = id;
     await c.query(
@@ -150,7 +161,7 @@ export async function seedDemoData(
 
   // ------------------------------------------------------------------ cardápio
   const sectorId: Record<string, string> = {};
-  for (const s of C.SECTORS) {
+  for (const s of C.sectors) {
     sectorId[s.key] = randomUUID();
     await c.query(
       `INSERT INTO production_sectors (id, tenant_id, name, channels, warn_after_min, late_after_min)
@@ -164,7 +175,7 @@ export async function seedDemoData(
     c,
     'categories',
     ['id', 'tenant_id', 'name', 'position', 'image_id'],
-    C.CATEGORIES.map((cat, i) => {
+    C.categories.map((cat, i) => {
       categoryId[cat.key] = randomUUID();
       return [categoryId[cat.key], T, cat.name, i, media[cat.image]];
     }),
@@ -173,7 +184,7 @@ export async function seedDemoData(
   const groupId: Record<string, string> = {};
   const options: Record<string, { id: string; name: string; delta: number }[]> = {};
   const optionRecipes: unknown[][] = [];
-  for (const g of C.OPTION_GROUPS) {
+  for (const g of C.optionGroups) {
     groupId[g.key] = randomUUID();
     await c.query(
       `INSERT INTO option_groups (id, tenant_id, name, min_select, max_select) VALUES ($1,$2,$3,$4,$5)`,
@@ -197,7 +208,7 @@ export async function seedDemoData(
 
   const stockId: Record<string, string> = {};
   const stockCost: Record<string, number> = {};
-  for (const [key, [name, unit, min, cost]] of Object.entries(C.STOCK_ITEMS)) {
+  for (const [key, [name, unit, min, cost]] of Object.entries(C.stockItems)) {
     stockId[key] = randomUUID();
     stockCost[key] = toCents(cost);
     await c.query(
@@ -211,7 +222,7 @@ export async function seedDemoData(
         min,
         cost,
         iso(now - (days + 2) * DAY),
-        C.STOCK_CATEGORY[key] ?? null,
+        C.stockCategory[key] ?? null,
       ],
     );
   }
@@ -222,11 +233,11 @@ export async function seedDemoData(
     optionRecipes.map(([t, o, item, q]) => [t, o, stockId[item as string], q]),
   );
 
-  interface P extends C.DemoProduct {
+  interface P extends DemoProduct {
     id: string;
     cents: number;
   }
-  const products: P[] = C.PRODUCTS.map((p) => ({
+  const products: P[] = C.products.map((p) => ({
     ...p,
     id: randomUUID(),
     cents: toCents(p.price),
@@ -288,16 +299,16 @@ export async function seedDemoData(
   await bulk(
     c,
     'dining_tables',
-    ['id', 'tenant_id', 'label', 'seats', 'area', 'position'],
-    C.TABLES.map((t, i) => {
+    ['id', 'tenant_id', 'label', 'seats', 'area', 'position', 'shape'],
+    C.tables.map((t, i) => {
       tableId[t.label] = randomUUID();
-      return [tableId[t.label], T, t.label, t.seats, t.area, i];
+      return [tableId[t.label], T, t.label, t.seats, t.area, i, t.shape ?? 'square'];
     }),
   );
 
   const courierId: Record<string, string> = {};
   const courierToken = randomBytes(24).toString('base64url');
-  for (const k of C.COURIERS) {
+  for (const k of C.couriers) {
     courierId[k.key] = randomUUID();
     const link = k.user === null;
     await c.query(
@@ -315,8 +326,8 @@ export async function seedDemoData(
     );
   }
 
-  const store = C.STORE_LOCATION;
-  for (const [i, z] of C.ZONES.entries()) {
+  const store = C.location;
+  for (const [i, z] of C.zones.entries()) {
     await c.query(
       `INSERT INTO delivery_zones (tenant_id, name, color, kind, polygon, center_lat, center_lng, radius_m,
                                    fee, min_order, eta_min, eta_max, position)
@@ -339,14 +350,14 @@ export async function seedDemoData(
     );
   }
   const zoneFee = (lat: number, lng: number) => {
-    for (const z of C.ZONES) {
+    for (const z of C.zones) {
       const inside =
         z.kind === 'radius'
           ? distanceM([store.lat, store.lng], [lat, lng]) <= z.radius
           : insidePolygon([lat, lng], z.polygon);
       if (inside) return toCents(z.fee);
     }
-    return toCents(C.ZONES[C.ZONES.length - 1]!.fee);
+    return toCents(C.zones[C.zones.length - 1]!.fee);
   };
 
   await c.query(
@@ -354,20 +365,24 @@ export async function seedDemoData(
         accepts_pickup, delivery_fee, min_order, eta_min, eta_max, about, address, whatsapp,
         cover_image_id, logo_image_id, theme, headline, featured_title, accounts_enabled, show_popular,
         store_lat, store_lng)
-     VALUES ($1, true, true, false, true, true, '8.00', '25.00', 30, 50, $2, $3, $4, $5, $6, 'auto',
+     VALUES ($1, true, true, false, true, true, $11, $12, $13, $14, $2, $3, $4, $5, $6, 'auto',
              $7, $8, true, true, $9, $10)
      ON CONFLICT (tenant_id) DO NOTHING`,
     [
       T,
-      'Hambúrguer na brasa e pizza de forno a lenha desde 2014. Ingredientes frescos, pão brioche da casa e massa de fermentação natural. Restaurante de demonstração do Comandou.',
-      'Rua dos Pinheiros, 870 - Pinheiros, São Paulo - SP',
-      '(11) 98765-4321',
+      C.store.about,
+      C.store.address,
+      C.store.whatsapp,
       media.capa,
       media.logo,
-      'Bateu a fome? A brasa tá acesa!',
-      'Os queridinhos da casa',
+      C.store.headline,
+      C.store.featuredTitle,
       store.lat,
       store.lng,
+      C.store.deliveryFee,
+      C.store.minOrder,
+      C.store.eta[0],
+      C.store.eta[1],
     ],
   );
   await bulk(
@@ -384,7 +399,7 @@ export async function seedDemoData(
       'target_id',
       'position',
     ],
-    C.BANNERS.map((b, i) => {
+    C.banners.map((b, i) => {
       const product = 'product' in b ? byKey[b.product] : undefined;
       const category = 'category' in b ? categoryId[b.category] : undefined;
       return [
@@ -401,8 +416,8 @@ export async function seedDemoData(
     }),
   );
 
-  const customerPw = await hashPassword(C.DEMO_CUSTOMER_PASSWORD);
-  const customers = C.CUSTOMERS.map((cu, i) => ({
+  const customerPw = await hashPassword(C.customerPassword);
+  const customers = C.customers.map((cu, i) => ({
     ...cu,
     id: randomUUID(),
     hasAccount: i < 16,
@@ -580,6 +595,7 @@ export async function seedDemoData(
     return s!;
   };
 
+  const groupMin = Object.fromEntries(C.optionGroups.map((g) => [g.key, g.min]));
   const pickGroup = (key: string): { id: string; name: string; delta: number }[] => {
     const os = options[key]!;
     switch (key) {
@@ -596,20 +612,23 @@ export async function seedDemoData(
       case 'acai':
         return [os[0]!, os[1]!, ...(r.chance(0.5) ? [os[3]!] : [])];
       default:
+        // Grupo opcional de outra demonstração: às vezes uma opção, às vezes nenhuma.
+        if (!(groupMin[key] ?? 1)) return r.chance(0.3) ? [r.pick(os)] : [];
         return [os[r.chance(0.55) ? 0 : r.int(0, os.length - 1)]!];
     }
   };
   const optRecipe = new Map<string, [string, number]>();
-  for (const g of C.OPTION_GROUPS)
+  for (const g of C.optionGroups)
     g.options.forEach(([, , item, q], i) => {
       if (item) optRecipe.set(options[g.key]![i]!.id, [item, q!]);
     });
 
   const available = products.filter((p) => !p.soldOut);
-  const mains = available.filter((p) => ['combos', 'burgers', 'pizzas'].includes(p.category));
-  const sides = available.filter((p) => ['porcoes', 'saladas'].includes(p.category));
-  const drinks = available.filter((p) => p.category === 'bebidas');
-  const sweets = available.filter((p) => p.category === 'sobremesas');
+  const mains = available.filter((p) => C.basket.mains.includes(p.category));
+  const sides = available.filter((p) => C.basket.sides.includes(p.category));
+  const drinks = available.filter((p) => C.basket.drinks.includes(p.category));
+  const sweets = available.filter((p) => C.basket.sweets.includes(p.category));
+  const odds = C.basketOdds ?? { side: 0.55, sweet: 0.18 };
 
   const line = (p: P, qty = 1): Item => {
     const chosen = (p.groups ?? []).flatMap(pickGroup);
@@ -627,7 +646,7 @@ export async function seedDemoData(
       qty,
       unit,
       total: multiplyCents(unit, qty),
-      notes: r.chance(0.08) ? r.pick(C.ITEM_NOTES) : null,
+      notes: r.chance(0.08) ? r.pick(C.itemNotes) : null,
       sectorId: sectorId[p.sector]!,
       status: 'pending',
       startedAt: null,
@@ -639,10 +658,10 @@ export async function seedDemoData(
   const basket = (people: number): Item[] => {
     const items: Item[] = [];
     for (let i = 0; i < people; i++) items.push(line(r.weighted(mains)));
-    if (r.chance(0.55)) items.push(line(r.weighted(sides)));
+    if (sides.length && r.chance(odds.side)) items.push(line(r.weighted(sides)));
     const nDrinks = r.int(0, people);
     for (let i = 0; i < nDrinks; i++) items.push(line(r.weighted(drinks)));
-    if (r.chance(0.18)) items.push(line(r.weighted(sweets)));
+    if (sweets.length && r.chance(odds.sweet)) items.push(line(r.weighted(sweets)));
     // Itens iguais sem adicionais viram uma linha com quantidade.
     const merged: Item[] = [];
     for (const it of items) {
@@ -769,7 +788,7 @@ export async function seedDemoData(
       return o;
     }
     go('in_production', U('kitchen'), r.int(1, 3) * MIN);
-    const prep = (spec.prepMin ?? r.int(12, 24)) * MIN;
+    const prep = (spec.prepMin ?? r.int(C.prepMin[0], C.prepMin[1])) * MIN;
     for (const it of o.items) {
       it.startedAt = t;
       it.status = 'preparing';
@@ -777,7 +796,7 @@ export async function seedDemoData(
     if (target === 'in_production') {
       // Bebidas já saíram; o resto ainda na chapa/forno.
       for (const it of o.items)
-        if (it.sectorId === sectorId.bar) {
+        if (it.sectorId === sectorId[C.drinkSector]) {
           it.status = 'ready';
           it.readyAt = t + 2 * MIN;
         }
@@ -786,7 +805,8 @@ export async function seedDemoData(
     go('ready', U('kitchen'), prep);
     for (const it of o.items) {
       it.status = 'ready';
-      it.readyAt = it.sectorId === sectorId.bar ? (it.startedAt ?? t) + r.int(2, 5) * MIN : t;
+      it.readyAt =
+        it.sectorId === sectorId[C.drinkSector] ? (it.startedAt ?? t) + r.int(2, 5) * MIN : t;
     }
     if (target === 'ready') return o;
     if (spec.channel === 'delivery') {
@@ -872,22 +892,38 @@ export async function seedDemoData(
       status !== 'out',
     ]);
   };
-  const courierFor = () => r.pick(['lucas', 'lucas', 'bruna', 'bruna', 'marcos']);
+  // Motoboys da casa fazem o dobro de corridas do freelancer.
+  const courierPool = C.couriers.flatMap((k) => (k.user ? [k.key, k.key] : [k.key]));
+  const courierFor = () => r.pick(courierPool);
+  const ownCourier = C.couriers.find((k) => k.user)!.key;
+  const freelancer = (C.couriers.find((k) => !k.user) ?? C.couriers[0]!).key;
 
-  const BUSY = [34, 0, 22, 24, 28, 40, 46]; // domingo a sábado (segunda fechado)
+  const BUSY = C.busy; // domingo a sábado (0 = fechado)
   const randomCustomer = () => r.pick(customers);
+  const mix = C.channelMix;
+  const pickShift = (x: number) => {
+    let acc = 0;
+    for (const s of C.shifts) {
+      acc += s.share;
+      if (x < acc) return s;
+    }
+    return C.shifts[C.shifts.length - 1]!;
+  };
 
   /** Um dia de movimento (histórico ou hoje até `until`). */
   const simulateDay = (daysAgo: number, until: number | null) => {
     const weekday = new Date(localMidnight(daysAgo) - TZ_OFFSET + 12 * HOUR).getUTCDay();
     const base = BUSY[weekday]!;
-    const opened = daysAgo === 0 ? Math.min(at(0, 10, 30), now - 4 * HOUR) : at(daysAgo, 10, 30);
+    const opened =
+      daysAgo === 0
+        ? Math.min(at(0, ...C.hours.open), now - 4 * HOUR)
+        : at(daysAgo, ...C.hours.open);
     if (!base && daysAgo !== 0) return; // segunda: fechado
     const session = {
       id: randomUUID(),
       number: sessions.length + 1,
       openedAt: opened,
-      closedAt: daysAgo === 0 ? null : at(daysAgo, 23, 50),
+      closedAt: daysAgo === 0 ? null : at(daysAgo, ...C.hours.close),
       day: daysAgo,
     };
     sessions.push(session);
@@ -905,19 +941,23 @@ export async function seedDemoData(
     ]);
     const n = daysAgo === 0 ? Math.round((base || 24) * 0.6) : base + r.int(-3, 4);
     for (let i = 0; i < n; i++) {
-      const lunch = r.chance(0.4);
-      const t0 = lunch
-        ? at(daysAgo, 11, 30) + r.next() * 3 * HOUR
-        : at(daysAgo, 18, 30) + r.next() * 4.4 * HOUR;
+      const shift = pickShift(r.next());
+      const t0 = at(daysAgo, ...shift.start) + r.next() * shift.hours * HOUR;
       if (until !== null && t0 > until) continue;
       const x = r.next();
       const channel: Channel =
-        x < 0.36 ? 'table' : x < 0.5 ? 'counter' : x < 0.86 ? 'delivery' : 'pickup';
+        x < mix.table
+          ? 'table'
+          : x < mix.table + mix.counter
+            ? 'counter'
+            : x < mix.table + mix.counter + mix.delivery
+              ? 'delivery'
+              : 'pickup';
       const cancel = r.chance(0.035);
       if (channel === 'table') {
         tabNo += 1;
         const tabId = randomUUID();
-        const label = r.pick(C.TABLES).label;
+        const label = r.pick(C.tables).label;
         const people = r.int(1, 4);
         const waiter = r.pick([U('waiter'), U('waiter2')]);
         const first = makeOrder({
@@ -975,7 +1015,7 @@ export async function seedDemoData(
         people: r.chance(0.3) ? 2 : 1,
         online,
         customer: cu,
-        walkIn: cu ? undefined : r.pick(C.WALK_IN),
+        walkIn: cu ? undefined : r.pick(C.walkIn),
         cancelReason: cancel
           ? online
             ? r.pick(['Endereço fora da área de entrega', 'Item esgotado na hora'])
@@ -1002,7 +1042,7 @@ export async function seedDemoData(
         null,
         'Sangria para o cofre',
         U('manager'),
-        iso(at(daysAgo, 21, 0)),
+        iso(at(daysAgo, ...C.hours.withdrawal)),
       ]);
     }
   };
@@ -1045,7 +1085,7 @@ export async function seedDemoData(
       channel: 'delivery',
       target: 'awaiting',
       online: true,
-      customer: cust('Mariana Oliveira'),
+      customer: cust(C.liveCustomers[0]!),
       people: 2,
     }),
   );
@@ -1055,13 +1095,13 @@ export async function seedDemoData(
       channel: 'pickup',
       target: 'awaiting',
       online: true,
-      customer: cust('Rafael Santos'),
+      customer: cust(C.liveCustomers[1]!),
     }),
   );
   const counterNew = makeOrder({ t0: ago(1), channel: 'counter', target: 'new', walkIn: 'João' });
   pay(counterNew, ago(1), 'debit', total(counterNew), U('cashier'));
   live.push(counterNew);
-  const t5 = liveTab('5', null, 4, U('waiter'), null);
+  const t5 = liveTab(C.liveTables[0], null, 4, U('waiter'), null);
   live.push(
     makeOrder({
       t0: ago(3),
@@ -1077,13 +1117,13 @@ export async function seedDemoData(
       t0: ago(9),
       channel: 'delivery',
       target: 'in_production',
-      customer: cust('Camila Rodrigues'),
+      customer: cust(C.liveCustomers[2]!),
       people: 2,
       createdBy: U('attendant'),
       prepMin: 15,
     }),
   );
-  const t3 = liveTab('3', null, 40, U('waiter2'), null);
+  const t3 = liveTab(C.liveTables[1], null, 40, U('waiter2'), null);
   const t3a = makeOrder({
     t0: ago(38),
     channel: 'table',
@@ -1110,7 +1150,7 @@ export async function seedDemoData(
       channel: 'pickup',
       target: 'in_production',
       online: true,
-      customer: cust('Gustavo Pereira'),
+      customer: cust(C.liveCustomers[3]!),
     }),
   );
   const readyDelivery = makeOrder({
@@ -1118,7 +1158,7 @@ export async function seedDemoData(
     channel: 'delivery',
     target: 'ready',
     online: true,
-    customer: cust('Beatriz Lima'),
+    customer: cust(C.liveCustomers[4]!),
     prepMin: 14,
   });
   live.push(readyDelivery);
@@ -1135,21 +1175,21 @@ export async function seedDemoData(
     t0: ago(38),
     channel: 'delivery',
     target: 'dispatched',
-    customer: cust('Thiago Almeida'),
+    customer: cust(C.liveCustomers[5]!),
     createdBy: U('attendant'),
     prepMin: 15,
   });
-  deliver(out1, 'lucas', 'out');
+  deliver(out1, ownCourier, 'out');
   live.push(out1);
   const out2 = makeOrder({
     t0: ago(33),
     channel: 'delivery',
     target: 'dispatched',
     online: true,
-    customer: cust('Felipe Costa'),
+    customer: cust(C.liveCustomers[6]!),
     prepMin: 14,
   });
-  deliver(out2, 'marcos', 'out');
+  deliver(out2, freelancer, 'out');
   live.push(out2);
   live.push(
     makeOrder({
@@ -1157,11 +1197,11 @@ export async function seedDemoData(
       channel: 'delivery',
       target: 'cancel_requested',
       online: true,
-      customer: cust('Larissa Carvalho'),
+      customer: cust(C.liveCustomers[7]!),
       cancelReason: 'Cliente ligou pedindo para cancelar',
     }),
   );
-  const t1 = liveTab('1', null, 70, U('waiter'), 2);
+  const t1 = liveTab(C.liveTables[2], null, 70, U('waiter'), 2);
   live.push(
     makeOrder({
       t0: ago(66),
@@ -1183,7 +1223,7 @@ export async function seedDemoData(
       createdBy: U('waiter'),
     }),
   );
-  const t8 = liveTab('8', null, 30, U('waiter2'), null);
+  const t8 = liveTab(C.liveTables[3], null, 30, U('waiter2'), null);
   live.push(
     makeOrder({
       t0: ago(28),
@@ -1210,7 +1250,7 @@ export async function seedDemoData(
 
   // ------------------------------------------------------------------ estoque (cronológico)
   const qty: Record<string, number> = Object.fromEntries(
-    Object.keys(C.STOCK_ITEMS).map((k) => [k, 0]),
+    Object.keys(C.stockItems).map((k) => [k, 0]),
   );
   const avg: Record<string, number> = { ...stockCost };
   const stockRows: unknown[][] = [];
@@ -1241,8 +1281,8 @@ export async function seedDemoData(
     events.push({
       at: at(d, 9, 15),
       run: () => {
-        for (const [k, [, unit, , , target]] of Object.entries(C.STOCK_ITEMS)) {
-          if (d < 4 && C.LOW_STOCK.includes(k)) continue; // última compra atrasada: alerta de estoque baixo
+        for (const [k, [, unit, , , target]] of Object.entries(C.stockItems)) {
+          if (d < 4 && C.lowStock.includes(k)) continue; // última compra atrasada: alerta de estoque baixo
           const want = target - qty[k]!;
           buy(
             k,
@@ -1263,11 +1303,11 @@ export async function seedDemoData(
           if (amount <= 0) continue;
           // Abaixo do mínimo só os insumos de LOW_STOCK; os outros são repostos antes de chegar lá
           // (senão o alerta muda conforme o dia e a hora em que a demo é criada).
-          const floor = C.LOW_STOCK.includes(k) ? 0 : C.STOCK_ITEMS[k]![2];
+          const floor = C.lowStock.includes(k) ? 0 : C.stockItems[k]![2];
           if (e.kind === 'sale' && qty[k]! - amount < floor)
             buy(
               k,
-              round3(Math.max(amount * 4, C.STOCK_ITEMS[k]![4] / 4)),
+              round3(Math.max(amount * 4, C.stockItems[k]![4] / 4)),
               e.at - 5 * MIN,
               'Compra emergencial no atacarejo',
             );
@@ -1289,11 +1329,7 @@ export async function seedDemoData(
     });
   }
   // Perdas e um inventário para a tela de movimentos ficar completa.
-  const losses: [string, number, number, string][] = [
-    ['tomate', 1.2, 18, 'Tomates passados'],
-    ['alface', 0.8, 11, 'Validade vencida'],
-    ['sorvete', 1, 6, 'Freezer desligou à noite'],
-  ];
+  const losses = C.losses;
   for (const [k, q, d, note] of losses)
     events.push({
       at: at(d, 16, 0),
@@ -1318,8 +1354,7 @@ export async function seedDemoData(
   events.push({
     at: at(9, 16, 30),
     run: () => {
-      for (const k of ['oleo', 'cebola']) {
-        const delta = k === 'oleo' ? -1.5 : 0.6;
+      for (const [k, delta] of C.adjustments) {
         if (qty[k]! + delta < 0) continue;
         qty[k] = round3(qty[k]! + delta);
         stockRows.push([
@@ -1339,8 +1374,8 @@ export async function seedDemoData(
   });
   events.sort((a, b) => a.at - b.at).forEach((e) => e.run());
   // Contagem desta manhã achou menos que o sistema: estes insumos ficam abaixo do mínimo.
-  for (const k of C.LOW_STOCK) {
-    const target = round3(C.STOCK_ITEMS[k]![2] * 0.5);
+  for (const k of C.lowStock) {
+    const target = round3(C.stockItems[k]![2] * 0.5);
     const delta = round3(target - qty[k]!);
     if (delta >= 0) continue;
     qty[k] = target;
@@ -1642,23 +1677,14 @@ export async function seedDemoData(
     [
       [T, 'CX12', 'Caixa com 12', 'un', '12', null],
       [T, 'FD6', 'Fardo com 6', 'un', '6', null],
-      [T, 'PCT24', 'Pacote com 24', 'un', '24', stockId.pao],
+      [T, 'PCT24', 'Pacote com 24', 'un', '24', stockId[C.packItem]],
       [T, 'SC25', 'Saco de 25 kg', 'kg', '25', null],
       [T, 'GL5', 'Galão de 5 L', 'l', '5', null],
     ],
   );
   const day = (ms: number) => iso(ms).slice(0, 10);
-  const lots: [string, string, number, number][] = [
-    // insumo, quantidade, fabricado há (dias), validade (dias a partir da fabricação)
-    ['alface', '3', 4, 5],
-    ['tomate', '6', 3, 7],
-    ['morango', '1', 3, 4],
-    ['mucarela', '8', 10, 30],
-    ['catupiry', '1', 20, 21],
-    ['frango', '10', 2, 4],
-    ['blend', '120', 1, 5],
-    ['sorvete', '8', 30, 180],
-  ];
+  // insumo, quantidade, fabricado há (dias), validade (dias a partir da fabricação)
+  const lots = C.lots;
   await bulk(
     c,
     'stock_lots',
@@ -1760,7 +1786,7 @@ export async function seedDemoData(
   };
   for (const back of [1, 0, -1]) {
     const ref = new Date(now - TZ_OFFSET);
-    for (const [desc, cat, who, amount, dueDay] of C.MONTHLY_BILLS) {
+    for (const [desc, cat, who, amount, dueDay] of C.monthlyBills) {
       const due = Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() - back, dueDay, 12) + TZ_OFFSET;
       const month = new Date(due - TZ_OFFSET).toLocaleDateString('pt-BR', {
         month: 'long',
@@ -1779,7 +1805,7 @@ export async function seedDemoData(
     }
   }
   for (let d = days; d >= -10; d -= 7)
-    for (const [desc, cat, who] of C.SUPPLIERS)
+    for (const [desc, cat, who] of C.suppliers)
       addEntry(
         'payable',
         desc,
@@ -1799,24 +1825,16 @@ export async function seedDemoData(
       localMidnight(d) + 12 * HOUR,
       'transfer',
     );
-  addEntry(
-    'receivable',
-    'Evento corporativo (50 pessoas)',
-    'Eventos',
-    'Agência Pinheiros Digital',
-    375000,
-    localMidnight(-6) + 12 * HOUR,
-    'pix',
-  );
-  addEntry(
-    'receivable',
-    'Aniversário no mezanino (sinal)',
-    'Eventos',
-    'Cliente particular',
-    80000,
-    localMidnight(12) + 12 * HOUR,
-    'pix',
-  );
+  for (const [desc, cat, who, amount, dueDaysAgo] of C.extraReceivables)
+    addEntry(
+      'receivable',
+      desc,
+      cat,
+      who,
+      toCents(amount),
+      localMidnight(dueDaysAgo) + 12 * HOUR,
+      'pix',
+    );
   await bulk(
     c,
     'finance_entries',
@@ -1839,8 +1857,8 @@ export async function seedDemoData(
   );
   await c.query(
     `INSERT INTO finance_entries (tenant_id, kind, description, category, counterparty, amount, due_date, status, cancel_reason, created_by)
-     VALUES ($1, 'payable', 'Manutenção da coifa (orçamento recusado)', 'Manutenção', 'Refrigeração Polar', '1450.00', $2, 'cancelled', 'Orçamento mais barato com outro fornecedor', $3)`,
-    [T, localDate(now - 9 * DAY), U('manager')],
+     VALUES ($1, 'payable', $4, $5, $6, $7, $2, 'cancelled', $8, $3)`,
+    [T, localDate(now - 9 * DAY), U('manager'), ...C.cancelledBill],
   );
   // Conferência dos recebimentos dos últimos dias (cartão e Pix).
   for (const d of [1, 2, 3, 5]) {
@@ -1917,12 +1935,47 @@ export async function seedDemoData(
     [
       T,
       `test:${randomUUID()}`,
-      'TESTE DE IMPRESSAO\nCasa Brasa\nDestino: Cozinha',
+      `TESTE DE IMPRESSAO\n${C.name}\nDestino: Cozinha`,
       agentId,
       iso(now - 26 * HOUR),
       U('manager'),
     ],
   );
+
+  // ------------------------------------------------------------------ além do básico
+  if (C.extras)
+    await seedDemoExtras(c, C.extras, {
+      T,
+      now,
+      days,
+      rand: r,
+      U,
+      users: C.users,
+      media,
+      byKey,
+      categoryId,
+      sectorId,
+      tableId,
+      stockId,
+      stockCost,
+      customers: customers.map((cu) => ({
+        id: cu.id,
+        name: cu.name,
+        phone: cu.phone,
+        hasAccount: cu.hasAccount,
+      })),
+      orders: orders.map((o) => ({
+        id: o.id,
+        number: o.number,
+        status: o.status,
+        channel: o.channel,
+        customerId: o.customerId,
+        createdAt: o.createdAt,
+        total: total(o),
+      })),
+      at,
+      localDate,
+    });
 
   // ------------------------------------------------------------------ contadores e marcação
   await bulk(
@@ -1945,7 +1998,7 @@ export async function seedDemoData(
   );
   return {
     orders: orders.length,
-    users: C.USERS.map((u) => `${u.email}@${opts.emailDomain}`),
+    users: C.users.map((u) => `${u.email}@${opts.emailDomain}`),
     courierLink: courierToken,
   };
 }

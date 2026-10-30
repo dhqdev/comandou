@@ -4,8 +4,10 @@ import { dropDatabase } from '../backup/db-jobs';
 import { purgeTenantRows } from '../backup/tenant-copy';
 import { migrate } from '../database/migrator';
 import { databaseUrl, tenantDatabaseName } from '../database/tenant-database';
-import { DEMO_NAME } from './catalog';
+import { CASA_BRASA } from './catalog';
+import { seedDemoPlatform } from './platform';
 import { DEMO_MARKER, seedDemoData } from './seed';
+import type { DemoCatalog } from './types';
 
 export type DemoMode = 'off' | 'on' | 'reset';
 
@@ -19,6 +21,10 @@ export interface DemoOptions {
   databaseMode: 'dedicated' | 'shared';
   log: (m: string) => void;
   now?: Date;
+  /** Qual demonstração (padrão: Casa Brasa). */
+  catalog?: DemoCatalog;
+  /** Domínio da stack (link do contrato da demonstração). */
+  baseDomain?: string;
 }
 
 /** COMANDOU_DEMO: true/1/sim → cria uma vez; reset/recriar → apaga e cria de novo; resto → desligado. */
@@ -63,6 +69,7 @@ export async function ensureDemoRestaurant(
   o: DemoOptions,
 ): Promise<'created' | 'exists' | 'skipped'> {
   if (o.mode === 'off') return 'skipped';
+  const catalog = o.catalog ?? CASA_BRASA;
   const v = validateTenantSlug(o.slug);
   if (!v.ok) throw new Error(`endereço do restaurante de demonstração inválido: ${v.reason}`);
   const pool = new Pool({ connectionString: o.ownerUrl, max: 2 });
@@ -89,7 +96,7 @@ export async function ensureDemoRestaurant(
     if (!t) {
       const { rows } = await pool.query<{ id: string }>(
         `INSERT INTO tenants (slug, name, status) VALUES ($1, $2, 'provisioning') RETURNING id`,
-        [o.slug, DEMO_NAME],
+        [o.slug, catalog.name],
       );
       await pool.query(
         `INSERT INTO platform_audit_log (action, entity, entity_id, tenant_id, data)
@@ -133,14 +140,19 @@ export async function ensureDemoRestaurant(
           await c.query(
             `INSERT INTO tenants (id, slug, name, status) VALUES ($1, $2, $3, 'provisioned')
              ON CONFLICT (id) DO NOTHING`,
-            [t!.id, o.slug, DEMO_NAME],
+            [t!.id, o.slug, catalog.name],
           );
         const done = await c.query(`SELECT 1 FROM audit_log WHERE tenant_id = $1 AND action = $2`, [
           t!.id,
           DEMO_MARKER,
         ]);
         if (done.rowCount) return null;
-        return seedDemoData(c, t!.id, { emailDomain: o.emailDomain, log: o.log, now: o.now });
+        return seedDemoData(c, t!.id, {
+          emailDomain: o.emailDomain,
+          log: o.log,
+          now: o.now,
+          catalog,
+        });
       }),
     );
 
@@ -154,6 +166,15 @@ export async function ensureDemoRestaurant(
         `INSERT INTO tenant_provisioning_steps (tenant_id, step, status, attempts) VALUES ($1, $2, 'done', 1)
          ON CONFLICT (tenant_id, step) DO UPDATE SET status = 'done', last_error = NULL, updated_at = now()`,
         [t.id, step],
+      );
+    if (result && catalog.platform)
+      await seedDemoPlatform(pool, t.id, catalog, {
+        baseDomain: o.baseDomain ?? 'comandou.com',
+        slug: o.slug,
+        ownerEmail: result.users[0]!,
+        log: o.log,
+      }).catch((e) =>
+        o.log(`demonstração: painel da plataforma incompleto (${(e as Error).message})`),
       );
     await pool.query(
       `UPDATE platform_audit_log SET data = data || '{"seeded": true}'::jsonb
