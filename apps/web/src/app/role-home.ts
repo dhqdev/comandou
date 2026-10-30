@@ -31,4 +31,5 @@ export const ROUTE_PERMS: Record<string, string[]> = {
   fiscal: ['fiscal:emit', 'fiscal:manage'],
   whatsapp: ['messaging:manage'],
   plano: ['plan:read'],
+  chamados: ['plan:read'],
 };

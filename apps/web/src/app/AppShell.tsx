@@ -228,6 +228,7 @@ const GROUPS: { key: string; label: string; icon: ReactNode; items: NavItem[] }[
         icon: <MessageCircle />,
         perms: ['messaging:manage'],
       },
+      { to: '/chamados', label: 'Chamados', icon: <LifeBuoy />, perms: ['plan:read'] },
       {
         to: '/plano',
         label: 'Assinatura',

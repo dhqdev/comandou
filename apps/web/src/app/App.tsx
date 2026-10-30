@@ -26,6 +26,10 @@ const MenuPage = lazyPage(
   () => import('../pages/MenuPage'),
   (m) => m.MenuPage,
 );
+const TicketsPage = lazyPage(
+  () => import('../pages/TicketsPage'),
+  (m) => m.TicketsPage,
+);
 const CustomersPage = lazyPage(
   () => import('../pages/CustomersPage'),
   (m) => m.CustomersPage,
@@ -346,6 +350,14 @@ function Gate() {
             element={
               <Guard path="clientes">
                 <CustomersPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="chamados/:id?"
+            element={
+              <Guard path="chamados">
+                <TicketsPage />
               </Guard>
             }
           />

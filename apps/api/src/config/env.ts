@@ -73,6 +73,10 @@ const schema = z.object({
   WHATSAPP_GRAPH_URL: z.string().url().default('https://graph.facebook.com/v25.0'),
   /** OpenRouter (assistente de IA). A chave fica no painel Super Admin, cifrada no banco. */
   OPENROUTER_BASE_URL: z.string().url().default('https://openrouter.ai/api/v1'),
+  /** API do GitHub usada pela esteira de chamados (troca só nos testes). */
+  GITHUB_API_URL: z.string().url().default('https://api.github.com'),
+  /** De quantos em quantos segundos a esteira de chamados procura trabalho (0 = parada). */
+  TICKETS_PIPELINE_SECONDS: z.coerce.number().int().min(0).max(3600).default(10),
   /** Busca de endereço (Nominatim/OpenStreetMap) usada nas áreas de entrega. */
   GEOCODER_URL: z.string().url().default('https://nominatim.openstreetmap.org'),
   /** Consulta de CEP: ViaCEP (principal, também acha o CEP pela rua) e BrasilAPI (reserva). */

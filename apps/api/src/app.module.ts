@@ -24,6 +24,7 @@ import { MaintenanceModule } from './maintenance/maintenance.service';
 import { PlansModule } from './plans/plans.module';
 import { PlatformModule } from './platform/platform.module';
 import { PlatformDbModule } from './platform/platform-db.module';
+import { TicketsModule } from './tickets/tickets.module';
 import { BillingModule } from './billing/billing.module';
 import { BillingGuard } from './billing/billing.guard';
 import { OperationsModule } from './orders/operations.module';
@@ -100,6 +101,7 @@ export class AppModule {
         BillingModule,
         PlatformModule,
         SupportDeskModule,
+        TicketsModule,
         MaintenanceModule,
       ],
       providers: [

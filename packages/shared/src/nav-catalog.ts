@@ -255,6 +255,16 @@ const SCREENS: StaticEntry[] = [
     perms: ['plan:read'],
   },
   {
+    id: 's-chamados',
+    group: 'Telas',
+    title: 'Chamados',
+    hint: 'Relatar um problema ou pedir melhoria à equipe do Comandou',
+    words: 'suporte ajuda problema erro bug chamado ticket melhoria reclamacao',
+    icon: 'news',
+    to: '/chamados',
+    perms: ['plan:read'],
+  },
+  {
     id: 's-ajustes',
     group: 'Telas',
     title: 'Ajustes',

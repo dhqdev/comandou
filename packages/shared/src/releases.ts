@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.65.0',
+    date: '2026-10-30',
+    title: 'Chamados: conte o problema e acompanhe a solução',
+    summary:
+      'Nova tela Chamados (Sistema › Chamados): o dono e o gerente contam o que não funciona ou o que falta, com fotos e vídeos, e acompanham cada passo até ficar resolvido.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Abra um chamado com resumo, assunto, quanto atrapalha, descrição e fotos ou vídeos da tela. Ele recebe um número (#CH-0001).',
+      },
+      {
+        tag: 'novo',
+        text: 'Andamento sempre à vista: Recebido, Em análise, Aprovado, Em desenvolvimento, Em testes e Resolvido. Se não for feito, o motivo aparece ali.',
+      },
+      {
+        tag: 'novo',
+        text: 'Converse com a equipe do Comandou dentro do chamado, com fotos e vídeos, e veja a bolinha quando houver resposta.',
+      },
+    ],
+  },
+  {
     version: '0.64.0',
     date: '2026-10-30',
     title: 'Fale com a Comandou pelo chat',

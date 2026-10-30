@@ -5,6 +5,7 @@ import {
   Database,
   DatabaseBackup,
   FileText,
+  KanbanSquare,
   Download,
   CircleUserRound,
   LogOut,
@@ -47,6 +48,7 @@ import './admin.css';
 import { AuditPage, BackupsPage, OverviewPage } from './OverviewPages';
 import { FiscalPage } from './FiscalPage';
 import { AiPage } from './AiPage';
+import { TicketsBoardPage } from './TicketsBoard';
 import { PlansPage } from './PlansPage';
 import { isStandalone, promptInstall } from './pwa';
 import { ServerPage } from './ServerPage';
@@ -207,6 +209,7 @@ const NAV = [
   { to: '/', label: 'Status', icon: Activity },
   { to: '/restaurantes', label: 'Restaurantes', short: 'Clientes', icon: Building2 },
   { to: '/conversas', label: 'Conversas', icon: MessagesSquare },
+  { to: '/chamados', label: 'Chamados', icon: KanbanSquare },
   { to: '/servidor', label: 'Servidor', icon: Server },
   { to: '/bancos', label: 'Bancos', icon: Database },
   { to: '/fiscal', label: 'Fiscal', icon: FileText },
@@ -384,6 +387,7 @@ function Gate() {
         <Route path="cobranca" element={<BillingPage />} />
         <Route path="backups" element={<BackupsPage />} />
         <Route path="ia" element={<AiPage />} />
+        <Route path="chamados" element={<TicketsBoardPage />} />
         <Route path="auditoria" element={<AuditPage />} />
         <Route path="*" element={<OverviewPage />} />
       </Route>
