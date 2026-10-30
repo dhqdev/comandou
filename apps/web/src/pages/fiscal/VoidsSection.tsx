@@ -135,45 +135,50 @@ export function VoidsSection() {
 
       {canManage && (
         <Card title="Inutilizar números">
-          <form className="form-grid" onSubmit={submit}>
-            <SelectField
-              label="Tipo"
-              value={kind}
-              onChange={(e) => setKind(e.target.value as FiscalKind)}
-            >
-              <option value="nfce">NFC-e</option>
-              <option value="nfe">NF-e</option>
-            </SelectField>
-            <TextField
-              label="Série"
-              inputMode="numeric"
-              value={series}
-              maxLength={3}
-              onChange={(e) => setSeries(e.target.value.replace(/\D/g, ''))}
-            />
-            <TextField
-              label="Do número"
-              inputMode="numeric"
-              value={from}
-              onChange={(e) => setFrom(e.target.value.replace(/\D/g, ''))}
-            />
-            <TextField
-              label="Até o número"
-              inputMode="numeric"
-              value={to}
-              placeholder={from}
-              onChange={(e) => setTo(e.target.value.replace(/\D/g, ''))}
-              error={to && from && Number(to) < Number(from) ? 'Menor que o inicial' : undefined}
-            />
-            <TextField
-              label="Justificativa"
-              value={reason}
-              maxLength={255}
-              onChange={(e) => setReason(e.target.value)}
-              hint="Mínimo de 15 caracteres. Ex.: falha no sistema durante a emissão."
-              className="fi-span"
-            />
-            <div style={{ alignSelf: 'end' }}>
+          <form className="fi-tab" onSubmit={submit}>
+            <div className="fi-fields">
+              <SelectField
+                label="Tipo"
+                value={kind}
+                onChange={(e) => setKind(e.target.value as FiscalKind)}
+              >
+                <option value="nfce">NFC-e</option>
+                <option value="nfe">NF-e</option>
+              </SelectField>
+              <TextField
+                label="Série"
+                inputMode="numeric"
+                value={series}
+                maxLength={3}
+                onChange={(e) => setSeries(e.target.value.replace(/\D/g, ''))}
+              />
+              <TextField
+                label="Do número"
+                inputMode="numeric"
+                value={from}
+                onChange={(e) => setFrom(e.target.value.replace(/\D/g, ''))}
+              />
+              <TextField
+                label="Até o número"
+                inputMode="numeric"
+                value={to}
+                placeholder={from}
+                onChange={(e) => setTo(e.target.value.replace(/\D/g, ''))}
+                error={to && from && Number(to) < Number(from) ? 'Menor que o inicial' : undefined}
+              />
+              <TextField
+                label="Justificativa"
+                value={reason}
+                maxLength={255}
+                onChange={(e) => setReason(e.target.value)}
+                hint="Mínimo de 15 caracteres. Ex.: falha no sistema durante a emissão."
+                wrapClass="fi-span"
+              />
+            </div>
+            <div className="fi-actions">
+              <span className="cm-hint" style={{ marginRight: 'auto', alignSelf: 'center' }}>
+                Não tem volta: o número nunca mais pode virar nota.
+              </span>
               <Button
                 type="submit"
                 variant="danger"
@@ -190,7 +195,6 @@ export function VoidsSection() {
             </div>
           </form>
           {formError && <Alert tone="danger">{formError}</Alert>}
-          <p className="cm-hint">Inutilizar não tem volta: o número nunca mais pode virar nota.</p>
         </Card>
       )}
 

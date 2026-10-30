@@ -1219,6 +1219,32 @@ label.option-row input[type='checkbox'] {
   gap: 12px;
   margin-top: 8px;
 }
+/* Computador: campos das grades de formulário mais baixos e com texto menor (telas menos "grandes"). */
+@media (pointer: fine) {
+  .form-grid .cm-input {
+    min-height: var(--cm-control);
+    font-size: var(--cm-text-sm);
+  }
+  .form-grid .cm-label {
+    font-size: var(--cm-text-xs);
+    font-weight: 600;
+    color: var(--cm-text-muted);
+  }
+  .form-grid .cm-field {
+    gap: 4px;
+  }
+}
+/* Textos das mensagens do WhatsApp: um por linha, inteiro à vista. */
+.wa-texts {
+  display: grid;
+  gap: var(--cm-space-3);
+  margin-top: var(--cm-space-4);
+  max-width: 820px;
+}
+.wa-texts__actions {
+  display: flex;
+  justify-content: flex-end;
+}
 .mono-break {
   font-family: var(--cm-font-mono, ui-monospace, monospace);
   word-break: break-all;

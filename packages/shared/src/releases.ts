@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.66.0',
+    date: '2026-10-30',
+    title: 'Nota fiscal pronta para testar, com telas menores',
+    summary:
+      'A configuração da nota fiscal ficou em abas curtas (Empresa, NFC-e, NF-e e Geral), com um resumo do que falta para emitir e uma explicação curta em cada campo.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Resumo no topo da configuração: ambiente, o que falta para emitir (empresa, certificado, CSC, token, padrão fiscal) e o botão de ligar a emissão.',
+      },
+      {
+        tag: 'novo',
+        text: 'Conta própria na Focus NFe com um token de homologação e outro de produção. Antes era um só, e trocar para produção usava o token de teste.',
+      },
+      {
+        tag: 'novo',
+        text: 'Botão Sincronizar Focus: busca de novo os tokens e a validade do certificado da empresa cadastrada.',
+      },
+      {
+        tag: 'novo',
+        text: 'CPF/CNPJ da contabilidade no cadastro da empresa (alguns estados exigem).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Padrões fiscais: nova aba Onde vale, com os itens e os NCMs ligados ao padrão e o padrão da empresa, na ordem em que a nota procura.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Campos das telas fiscais mais baixos e organizados; inutilização com a justificativa inteira à vista; textos do WhatsApp um por linha.',
+      },
+    ],
+  },
+  {
     version: '0.65.0',
     date: '2026-10-30',
     title: 'Chamados: conte o problema e acompanhe a solução',

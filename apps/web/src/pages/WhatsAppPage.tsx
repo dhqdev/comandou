@@ -344,8 +344,7 @@ function BaileysCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; s
         </div>
       )}
       <form
-        className="form-grid"
-        style={{ marginTop: 16 }}
+        className="wa-texts"
         onSubmit={(e: FormEvent) => {
           e.preventDefault();
           void save(texts, 'Textos salvos');
@@ -361,7 +360,7 @@ function BaileysCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; s
             onChange={(e) => setTexts({ ...texts, [`text${k}`]: e.target.value })}
           />
         ))}
-        <div style={{ alignSelf: 'end' }}>
+        <div className="wa-texts__actions">
           <Button
             type="submit"
             loading={busy}

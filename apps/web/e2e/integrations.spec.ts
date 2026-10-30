@@ -57,12 +57,23 @@ test('integrações: dados fiscais, NFC-e no pedido e WhatsApp', async ({ page }
 
   // Configuração fiscal (homologação; sem token, a emissão não ativa)
   await page.goto('/fiscal/configuracao');
-  await expect(page.getByText('Homologação (teste)')).toBeVisible();
+  await expect(page.getByText('Notas de teste, sem valor fiscal.')).toBeVisible();
+  // Conta própria na Focus (com token master no servidor, aparece a escolha entre os dois jeitos).
+  const own = page.getByRole('radio', { name: /Tenho conta na Focus/ });
+  if (await own.count()) await own.check();
   await page.getByLabel('CNPJ do emitente').fill('12.345.678/0001-95');
+  await page.getByRole('button', { name: 'Salvar', exact: true }).click();
+  await expect(page.getByText('Configuração salva').first()).toBeVisible();
+  await page.getByRole('tab', { name: 'Geral', exact: true }).click();
   await page.getByLabel('NCM padrão').fill('21069090');
-  // O último "Salvar" é o do cartão com os dados da Focus e os códigos de reserva.
-  await page.getByRole('button', { name: 'Salvar', exact: true }).last().click();
-  await expect(page.getByText('Configuração salva')).toBeVisible();
+  // O outro projeto (celular/computador) pode já ter salvo o mesmo NCM: aí não há o que salvar.
+  const saveNcm = page.getByRole('button', { name: 'Salvar', exact: true });
+  if (await saveNcm.isEnabled()) {
+    await saveNcm.click();
+    await expect(page.getByText('Configuração salva').first()).toBeVisible();
+  }
+  const fiscal = await (await page.request.get('/api/v1/fiscal/settings')).json();
+  expect(fiscal).toMatchObject({ cnpj: '12345678000195', defaultNcm: '21069090' });
   await shot(page, info.project.name, 'nota-fiscal-config');
 
   // Pedido pago: o detalhe mostra a NFC-e; com a emissão desativada, a API recusa e a tela avisa.

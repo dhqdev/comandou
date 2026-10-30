@@ -257,6 +257,10 @@ export class FocusClient {
     return this.callCompany('POST', '/v2/empresas', payload);
   }
 
+  getCompany(id: string) {
+    return this.callCompany('GET', `/v2/empresas/${encodeURIComponent(id)}`);
+  }
+
   updateCompany(id: string, payload: Record<string, unknown>) {
     return this.callCompany('PUT', `/v2/empresas/${encodeURIComponent(id)}`, payload);
   }

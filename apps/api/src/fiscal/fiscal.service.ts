@@ -55,8 +55,11 @@ export interface FiscalSettingsInput {
   mode?: FiscalMode;
   environment?: FocusEnvironment;
   cnpj?: string | null;
-  /** string grava um token novo; null apaga; ausente mantém. */
+  /** string grava um token novo; null apaga; ausente mantém. Token antigo, vale nos dois ambientes. */
   token?: string | null;
+  /** Token próprio da Focus por ambiente (a Focus dá um para homologação e outro para produção). */
+  tokenHomolog?: string | null;
+  tokenProd?: string | null;
   defaultCfop?: string;
   defaultCode?: string;
   defaultNcm?: string | null;
@@ -87,6 +90,8 @@ export interface FiscalCompany {
   cep: string;
   email?: string | null;
   telefone?: string | null;
+  /** CPF ou CNPJ do escritório de contabilidade (alguns estados exigem para liberar o XML). */
+  contabilidade?: string | null;
   /** Série e próximo número em produção (para continuar a numeração de outro sistema). */
   numeracao?: {
     nfceSerie?: number | null;
@@ -165,11 +170,20 @@ const DOC_COLS = `id, order_id, kind, ref, environment, status, attempts, reques
 const tokenContext = (tenantId: string, kind: 'own' | FocusEnvironment) =>
   kind === 'own' ? `focus:${tenantId}` : `focus-${kind}:${tenantId}`;
 
+/**
+ * Token cifrado para o ambiente e o contexto que o abre. Os dois modos guardam um token por
+ * ambiente; no modo próprio, o token antigo (um só) continua valendo quando falta o do ambiente.
+ */
+function sealedToken(s: SettingsRow, e: FocusEnvironment) {
+  const byEnv = e === 'producao' ? s.token_prod_enc : s.token_homolog_enc;
+  if (byEnv) return { sealed: byEnv, kind: e } as const;
+  if (s.mode === 'own' && s.token_enc) return { sealed: s.token_enc, kind: 'own' } as const;
+  return null;
+}
+
 /** Tem token para emitir neste ambiente, no modo atual? */
 function hasTokenFor(s: SettingsRow | undefined, e: FocusEnvironment) {
-  if (!s) return false;
-  if (s.mode === 'own') return !!s.token_enc;
-  return !!(e === 'producao' ? s.token_prod_enc : s.token_homolog_enc);
+  return !!s && !!sealedToken(s, e);
 }
 
 const DOC_SELECT = `
@@ -261,8 +275,8 @@ export class FiscalService implements OnModuleInit {
       managedAvailable: this.focus.masterAvailable,
       company: s?.company ?? null,
       focusRegistered: !!s?.focus_company_id,
-      hasHomologToken: !!s?.token_homolog_enc,
-      hasProdToken: !!s?.token_prod_enc,
+      hasHomologToken: !!s && hasTokenFor(s, 'homologacao'),
+      hasProdToken: !!s && hasTokenFor(s, 'producao'),
       cscHomolog: s?.csc_homolog_set ?? false,
       cscProd: s?.csc_prod_set ?? false,
       certificateValidUntil: s?.certificate_valid_until ?? null,
@@ -330,6 +344,18 @@ export class FiscalService implements OnModuleInit {
           last4 = b.token.slice(-4);
         }
       }
+      // Tokens por ambiente (modo próprio): string grava, null apaga, ausente mantém.
+      const envToken = (v: string | null | undefined, e: FocusEnvironment, cur: Buffer | null) => {
+        if (v === undefined) return cur;
+        if (v === null) return null;
+        if (!this.env.INTEGRATIONS_KEY)
+          throw new UnprocessableEntityException(
+            'Servidor sem INTEGRATIONS_KEY: não é possível guardar o token com segurança',
+          );
+        return seal(this.env.INTEGRATIONS_KEY, v, tokenContext(ctx.tenantId, e));
+      };
+      const homologEnc = envToken(b.tokenHomolog, 'homologacao', cur.token_homolog_enc);
+      const prodEnc = envToken(b.tokenProd, 'producao', cur.token_prod_enc);
       const next = {
         enabled: b.enabled ?? cur.enabled,
         environment: b.environment ?? cur.environment,
@@ -344,14 +370,20 @@ export class FiscalService implements OnModuleInit {
         autoEmitNfce: b.autoEmitNfce ?? cur.auto_emit_nfce,
         emailCustomer: b.emailCustomer ?? cur.email_customer,
       };
-      const probe = { ...cur, mode, token_enc: tokenEnc };
+      const probe = {
+        ...cur,
+        mode,
+        token_enc: tokenEnc,
+        token_homolog_enc: homologEnc,
+        token_prod_enc: prodEnc,
+      };
       if (next.enabled && !next.cnpj)
         throw new UnprocessableEntityException('Para ativar a emissão, informe o CNPJ');
       if (next.enabled && !hasTokenFor(probe, next.environment))
         throw new UnprocessableEntityException(
           mode === 'managed'
             ? `Cadastre a empresa na Focus NFe antes de ativar (${next.environment === 'producao' ? 'produção' : 'homologação'} sem token)`
-            : 'Para ativar a emissão, informe o CNPJ e o token',
+            : `Para ativar a emissão, informe o token de ${next.environment === 'producao' ? 'produção' : 'homologação'} da Focus NFe`,
         );
       if (
         next.enabled &&
@@ -366,7 +398,7 @@ export class FiscalService implements OnModuleInit {
             SET enabled=$1, environment=$2, cnpj=$3, token_enc=$4, token_last4=$5, default_cfop=$6,
                 default_code=$7, default_ncm=$8, updated_by=$9, mode=$10, nfe_enabled=$11,
                 nfce_nature=$12, nfe_nature=$13, additional_info=$14, auto_emit_nfce=$15,
-                email_customer=$16, updated_at=now()`,
+                email_customer=$16, token_homolog_enc=$17, token_prod_enc=$18, updated_at=now()`,
         [
           next.enabled,
           next.environment,
@@ -384,6 +416,8 @@ export class FiscalService implements OnModuleInit {
           next.additionalInfo,
           next.autoEmitNfce,
           next.emailCustomer,
+          homologEnc,
+          prodEnc,
         ],
       );
       // Nunca registrar o token na auditoria: só se ele mudou.
@@ -393,7 +427,12 @@ export class FiscalService implements OnModuleInit {
         action: 'fiscal.settings_updated',
         entity: 'tenant_fiscal_settings',
         entityId: ctx.tenantId,
-        data: { ...next, mode, tokenChanged: b.token !== undefined },
+        data: {
+          ...next,
+          mode,
+          tokenChanged:
+            b.token !== undefined || b.tokenHomolog !== undefined || b.tokenProd !== undefined,
+        },
         ip: ctx.ip,
       });
       return this.present(await this.settingsRow(tx));
@@ -478,6 +517,7 @@ export class FiscalService implements OnModuleInit {
       cep: c.cep,
       email: c.email || undefined,
       telefone: c.telefone || undefined,
+      ...(c.contabilidade ? { cpf_cnpj_contabilidade: c.contabilidade.replace(/\D/g, '') } : {}),
       habilita_nfce: true,
       habilita_nfe: true,
       habilita_manifestacao: true,
@@ -570,6 +610,66 @@ export class FiscalService implements OnModuleInit {
           cscHomologChanged: !!b.csc?.homologacao,
           cscProdChanged: !!b.csc?.producao,
         },
+        ip: ctx.ip,
+      });
+      return this.present(await this.settingsRow(tx));
+    });
+  }
+
+  /**
+   * Busca na Focus a empresa já cadastrada (modo revenda) e atualiza os tokens e a validade do
+   * certificado. Serve para quando o cadastro foi mexido no painel da Focus ou o certificado foi
+   * renovado por lá.
+   */
+  async syncCompany(ctx: Ctx) {
+    this.assertManaged();
+    if (!this.env.INTEGRATIONS_KEY)
+      throw new UnprocessableEntityException(
+        'Servidor sem INTEGRATIONS_KEY: não é possível guardar os tokens com segurança',
+      );
+    const key = this.env.INTEGRATIONS_KEY;
+    const cur = await this.db.withTenant(ctx, (tx) => this.settingsRow(tx));
+    if (!cur?.focus_company_id)
+      throw new UnprocessableEntityException('Cadastre a empresa na Focus NFe primeiro');
+    let r: { http: number; body: FocusCompanyBody };
+    try {
+      r = await this.focus.getCompany(cur.focus_company_id);
+    } catch (err) {
+      throw new ServiceUnavailableException((err as Error).message);
+    }
+    if (r.http === 404)
+      throw new UnprocessableEntityException(
+        'A empresa não foi encontrada na Focus NFe: cadastre de novo em Empresa',
+      );
+    if (r.http >= 400)
+      throw new UnprocessableEntityException(
+        `A Focus NFe não respondeu à sincronização: ${this.focusError(r.body, r.http)}`,
+      );
+    const tokHom = r.body.token_homologacao || null;
+    const tokProd = r.body.token_producao || null;
+    const validUntil = r.body.certificado_valido_ate
+      ? new Date(r.body.certificado_valido_ate)
+      : null;
+    return this.db.withTenant(ctx, async (tx) => {
+      await tx.$client.query(
+        `UPDATE tenant_fiscal_settings
+            SET token_homolog_enc = coalesce($1, token_homolog_enc),
+                token_prod_enc = coalesce($2, token_prod_enc),
+                certificate_valid_until = coalesce($3, certificate_valid_until),
+                focus_synced_at = now(), updated_at = now()`,
+        [
+          tokHom ? seal(key, tokHom, tokenContext(ctx.tenantId, 'homologacao')) : null,
+          tokProd ? seal(key, tokProd, tokenContext(ctx.tenantId, 'producao')) : null,
+          validUntil && !Number.isNaN(validUntil.getTime()) ? validUntil : null,
+        ],
+      );
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'fiscal.company_synced',
+        entity: 'tenant_fiscal_settings',
+        entityId: ctx.tenantId,
+        data: { focusCompanyId: cur.focus_company_id },
         ip: ctx.ip,
       });
       return this.present(await this.settingsRow(tx));
@@ -1290,15 +1390,10 @@ export class FiscalService implements OnModuleInit {
   /** Token para falar com a Focus no ambiente pedido (próprio ou o da empresa cadastrada). */
   token(tenantId: string, s: SettingsRow | undefined, e: FocusEnvironment) {
     if (!s || !this.env.INTEGRATIONS_KEY) return null;
-    const sealed =
-      s.mode === 'own' ? s.token_enc : e === 'producao' ? s.token_prod_enc : s.token_homolog_enc;
-    if (!sealed) return null;
+    const t = sealedToken(s, e);
+    if (!t) return null;
     try {
-      return open(
-        this.env.INTEGRATIONS_KEY,
-        sealed,
-        tokenContext(tenantId, s.mode === 'own' ? 'own' : e),
-      );
+      return open(this.env.INTEGRATIONS_KEY, t.sealed, tokenContext(tenantId, t.kind));
     } catch {
       return null;
     }

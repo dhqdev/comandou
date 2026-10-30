@@ -367,7 +367,7 @@ export function DocumentDetail() {
 
       {isNfe && (
         <Card title="Operação">
-          <div className="form-grid">
+          <div className="fi-fields">
             <TextField
               label="Natureza da operação"
               value={op.nature ?? ''}
@@ -459,7 +459,7 @@ export function DocumentDetail() {
             endereço de entrega.
           </p>
         )}
-        <div className="form-grid">
+        <div className="fi-fields">
           <TextField
             label="Nome"
             value={rec.name ?? ''}

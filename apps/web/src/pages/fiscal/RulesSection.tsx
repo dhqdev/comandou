@@ -11,7 +11,7 @@ import {
   interstateCfop,
   type CodeList,
 } from '@comandou/shared';
-import { ListPlus, Plus, Trash2 } from 'lucide-react';
+import { ListPlus, Plus, Trash2, X } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { useCan } from '../../app/auth';
@@ -26,7 +26,7 @@ import {
   TextField,
   useToast,
 } from '../../design-system';
-import { CheckField, SelectField } from '../../features/forms';
+import { CheckField, SelectField, Tabs } from '../../features/forms';
 import { api } from '../../lib/api';
 import type { FiscalRule, FiscalRulesResponse, FiscalSettings } from '../../lib/types';
 import { FiscalHead } from './common';
@@ -180,7 +180,6 @@ export function RulesSection() {
   }
 
   const rules = data?.rules ?? [];
-  const byId = useMemo(() => new Map(rules.map((r) => [r.id, r])), [rules]);
   const hasDefault = rules.some((r) => r.isDefault && r.active);
 
   return (
@@ -206,8 +205,8 @@ export function RulesSection() {
           )
         }
       >
-        Cada item da nota usa um padrão: o escolhido no item do cardápio, senão o ligado ao NCM do
-        item, senão o padrão da empresa. Confirme os códigos com a sua contabilidade.
+        Como cada item é tributado na nota. Ordem: 1º padrão ligado ao item, 2º ao NCM, 3º o padrão
+        da empresa. Confirme os códigos com a contabilidade.
       </FiscalHead>
 
       {data === null ? (
@@ -241,7 +240,7 @@ export function RulesSection() {
                       <th>CFOP</th>
                       <th>ICMS</th>
                       <th>PIS/COFINS</th>
-                      <th className="cm-num">Itens</th>
+                      <th>Onde vale</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -278,9 +277,14 @@ export function RulesSection() {
                         <td>
                           {r.pisCst}/{r.cofinsCst}
                         </td>
-                        <td className="cm-num">
-                          {r.products ?? 0}
-                          {!!r.ncms?.length && <div className="cm-hint">+{r.ncms.length} NCM</div>}
+                        <td className="cm-hint">
+                          {[
+                            r.isDefault && 'todos os outros',
+                            r.products ? `${r.products} ite${r.products === 1 ? 'm' : 'ns'}` : '',
+                            r.ncms?.length ? `${r.ncms.length} NCM` : '',
+                          ]
+                            .filter(Boolean)
+                            .join(' · ') || 'nenhum item'}
                         </td>
                       </tr>
                     ))}
@@ -290,16 +294,11 @@ export function RulesSection() {
             )}
           </Card>
 
-          {rules.length > 0 && (
-            <NcmLinks data={data} byId={byId} canManage={canManage} onChanged={load} />
-          )}
-
           {data.uncovered.length > 0 && (
             <Card title={`Itens sem padrão (${data.uncovered.length})`}>
               <p className="cm-hint" style={{ marginTop: 0 }}>
-                Estes itens não têm padrão próprio, nem NCM ligado, e não há padrão da empresa.
-                Escolha o padrão no cadastro do item, em <Link to="/cardapio">Cardápio</Link>, ou
-                ligue o NCM acima.
+                Sem padrão ligado ao item nem ao NCM, e não há padrão da empresa. Abra um padrão e
+                use a aba Onde vale, ou escolha no item em <Link to="/cardapio">Cardápio</Link>.
               </p>
               <ul className="fi-list">
                 {data.uncovered.slice(0, 30).map((p) => (
@@ -318,6 +317,7 @@ export function RulesSection() {
         <RuleEditor
           rule={editing === 'new' ? null : editing}
           regime={regime}
+          rules={rules}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
@@ -329,137 +329,36 @@ export function RulesSection() {
   );
 }
 
-/** Ligação NCM → padrão: todo item com aquele NCM (e sem padrão próprio) usa o padrão. */
-function NcmLinks({
-  data,
-  byId,
-  canManage,
-  onChanged,
-}: {
-  data: FiscalRulesResponse;
-  byId: Map<string, FiscalRule>;
-  canManage: boolean;
-  onChanged(): void;
-}) {
-  const toast = useToast();
-  const [ncm, setNcm] = useState('');
-  const [ruleId, setRuleId] = useState(data.rules[0]?.id ?? '');
-  const [hints, setHints] = useState<{ code: string; description: string }[]>([]);
-  const [busy, setBusy] = useState(false);
-  const digits = ncm.replace(/\D/g, '');
-
-  useEffect(() => {
-    const term = ncm.trim();
-    if (term.length < 2) return setHints([]);
-    const t = setTimeout(() => {
-      api<{ code: string; description: string }[]>(`/fiscal/ncm?q=${encodeURIComponent(term)}`)
-        .then(setHints)
-        .catch(() => setHints([]));
-    }, 300);
-    return () => clearTimeout(t);
-  }, [ncm]);
-
-  async function link(code: string, id: string | null) {
-    setBusy(true);
-    try {
-      await api(`/fiscal/ncm-rules/${code}`, { method: 'PUT', json: { ruleId: id } });
-      toast(id ? 'NCM ligado ao padrão' : 'Ligação removida', 'success');
-      setNcm('');
-      onChanged();
-    } catch (e) {
-      toast((e as Error).message, 'danger');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Card title="Padrão por NCM">
-      <p className="cm-hint" style={{ marginTop: 0 }}>
-        Útil para bebidas: ligue o NCM das bebidas com substituição tributária a um padrão e todos
-        os itens com esse NCM seguem a mesma regra, sem abrir item por item.
-      </p>
-      {data.links.length > 0 && (
-        <ul className="fi-list fi-links">
-          {data.links.map((l) => (
-            <li key={l.ncm}>
-              <strong className="mono-break">{l.ncm}</strong>
-              <span>→ {byId.get(l.ruleId)?.name ?? 'padrão removido'}</span>
-              <span className="cm-hint">{l.products} itens</span>
-              {canManage && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={`Remover ligação do NCM ${l.ncm}`}
-                  icon={<Trash2 size={14} />}
-                  disabled={busy}
-                  onClick={() => void link(l.ncm, null)}
-                />
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      {canManage && (
-        <form
-          className="form-grid"
-          onSubmit={(e: FormEvent) => {
-            e.preventDefault();
-            void link(digits, ruleId);
-          }}
-        >
-          <TextField
-            label="NCM"
-            inputMode="numeric"
-            list="fi-ncm-hints"
-            value={ncm}
-            onChange={(e) => setNcm(e.target.value)}
-            placeholder="Código ou nome, ex.: refrigerante"
-            error={
-              digits && digits.length !== 8 && !/[a-z]/i.test(ncm) ? 'NCM com 8 dígitos' : undefined
-            }
-          />
-          <datalist id="fi-ncm-hints">
-            {hints.map((h) => (
-              <option key={h.code} value={h.code}>
-                {h.description}
-              </option>
-            ))}
-          </datalist>
-          <SelectField label="Padrão" value={ruleId} onChange={(e) => setRuleId(e.target.value)}>
-            {data.rules.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </SelectField>
-          <div style={{ alignSelf: 'end' }}>
-            <Button type="submit" loading={busy} disabled={digits.length !== 8 || !ruleId}>
-              Ligar
-            </Button>
-          </div>
-        </form>
-      )}
-    </Card>
-  );
+type EditorTab = 'impostos' | 'reforma' | 'onde';
+interface ProductLite {
+  id: string;
+  name: string;
+  ncm: string | null;
+  fiscalRuleId: string | null;
 }
 
 function RuleEditor({
   rule,
   regime,
+  rules,
   onClose,
   onSaved,
 }: {
   rule: FiscalRule | null;
   regime: number | null;
+  rules: FiscalRule[];
   onClose(): void;
   onSaved(): void;
 }) {
   const toast = useToast();
   const [f, setF] = useState<Form>(() => toForm(rule, regime));
+  const [tab, setTab] = useState<EditorTab>('impostos');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [products, setProducts] = useState<ProductLite[]>([]);
+  const [items, setItems] = useState<string[]>(rule?.productIds ?? []);
+  const [ncms, setNcms] = useState<string[]>(rule?.ncms ?? []);
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((x) => ({ ...x, [k]: v }));
   const icmsList = icmsCodesFor(regime);
   const regimeMismatch = regime !== null && !icmsMatchesRegime(f.icmsCst, regime);
@@ -467,15 +366,30 @@ function RuleEditor({
   const pisWithRate = ['01', '02'].includes(f.pisCst);
   const cofinsWithRate = ['01', '02'].includes(f.cofinsCst);
 
+  useEffect(() => {
+    api<ProductLite[]>('/products')
+      .then(setProducts)
+      .catch(() => setProducts([]));
+  }, []);
+
+  const same = (a: string[], b: string[]) =>
+    a.length === b.length && [...a].sort().join() === [...b].sort().join();
+  const linksChanged = !same(items, rule?.productIds ?? []) || !same(ncms, rule?.ncms ?? []);
+
   async function save(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await api(rule ? `/fiscal/rules/${rule.id}` : '/fiscal/rules', {
+      const saved = await api<FiscalRule>(rule ? `/fiscal/rules/${rule.id}` : '/fiscal/rules', {
         method: rule ? 'PATCH' : 'POST',
         json: fromForm(f),
       });
+      if (linksChanged)
+        await api(`/fiscal/rules/${saved.id}/links`, {
+          method: 'PUT',
+          json: { productIds: items, ncms },
+        });
       toast('Padrão salvo', 'success');
       onSaved();
     } catch (err) {
@@ -537,179 +451,184 @@ function RuleEditor({
         </>
       }
     >
-      <form id="fi-rule-form" className="fi-form" onSubmit={save}>
+      <form id="fi-rule-form" className="fi-tab fi-dense" onSubmit={save}>
         {confirmDelete && rule && (
           <Alert tone="warning">
             Os {rule.products ?? 0} itens com este padrão passam a usar o padrão do NCM ou o da
             empresa.
           </Alert>
         )}
-        <fieldset className="fi-fieldset">
-          <legend>Geral</legend>
-          <div className="form-grid">
-            <TextField
-              label="Nome"
-              value={f.name}
-              maxLength={80}
-              onChange={(e) => set('name', e.target.value)}
-            />
-            <TextField
-              label="Código"
-              value={f.code}
-              maxLength={20}
-              placeholder="Automático"
-              onChange={(e) => set('code', e.target.value.toUpperCase())}
-            />
-            <SelectField
-              label="Vale para"
-              value={f.scope}
-              onChange={(e) => set('scope', e.target.value)}
-            >
-              <option value="all">NFC-e e NF-e</option>
-              <option value="nfce">Só NFC-e</option>
-              <option value="nfe">Só NF-e</option>
-            </SelectField>
-          </div>
-          <div className="fi-checks">
-            <CheckField
-              label="Padrão da empresa"
-              description="Usado nos itens sem padrão próprio e sem NCM ligado."
-              checked={f.isDefault}
-              onChange={(v) => set('isDefault', v)}
-            />
-            <CheckField label="Ativo" checked={f.active} onChange={(v) => set('active', v)} />
-          </div>
-        </fieldset>
+        <div className="fi-fields">
+          <TextField
+            label="Nome"
+            value={f.name}
+            maxLength={80}
+            onChange={(e) => set('name', e.target.value)}
+            hint="Ex.: Comida feita na casa, Bebida com ST"
+          />
+          <TextField
+            label="Código"
+            value={f.code}
+            maxLength={20}
+            placeholder="Automático"
+            onChange={(e) => set('code', e.target.value.toUpperCase())}
+          />
+          <SelectField
+            label="Vale para"
+            value={f.scope}
+            onChange={(e) => set('scope', e.target.value)}
+          >
+            <option value="all">NFC-e e NF-e</option>
+            <option value="nfce">Só NFC-e</option>
+            <option value="nfe">Só NF-e</option>
+          </SelectField>
+        </div>
+        <label className="fi-inline-check">
+          <input
+            type="checkbox"
+            checked={f.active}
+            onChange={(e) => set('active', e.target.checked)}
+          />
+          Ativo
+        </label>
 
-        <fieldset className="fi-fieldset">
-          <legend>Operação e ICMS</legend>
-          <div className="form-grid">
-            <TextField
-              label="CFOP"
-              inputMode="numeric"
-              list="fi-cfops"
-              maxLength={4}
-              value={f.cfop}
-              onChange={(e) => set('cfop', e.target.value.replace(/\D/g, ''))}
-              hint={CFOPS.find(([c]) => c === f.cfop)?.[1].split(' · ')[1]}
-            />
-            <TextField
-              label="CFOP fora do estado (NF-e)"
-              inputMode="numeric"
-              maxLength={4}
-              value={f.cfopInterstate}
-              placeholder={f.cfop.length === 4 ? interstateCfop(f.cfop) : ''}
-              onChange={(e) => set('cfopInterstate', e.target.value.replace(/\D/g, ''))}
-              hint="Vazio: troca o 5 inicial por 6"
-            />
-            <datalist id="fi-cfops">
-              {CFOPS.map(([c, l]) => (
-                <option key={c} value={c}>
-                  {l}
-                </option>
-              ))}
-            </datalist>
-            <SelectField
-              label={regime === 3 ? 'CST do ICMS' : 'CSOSN'}
-              value={f.icmsCst}
-              onChange={(e) => set('icmsCst', e.target.value)}
-            >
-              {!icmsList.some(([c]) => c === f.icmsCst) && (
-                <option value={f.icmsCst}>{f.icmsCst}</option>
-              )}
-              <Options list={icmsList} />
-            </SelectField>
-            <SelectField
-              label="Origem"
-              value={f.icmsOrigin}
-              onChange={(e) => set('icmsOrigin', e.target.value)}
-            >
-              <Options list={ICMS_ORIGINS} />
-            </SelectField>
-            {withRate && (
-              <>
-                <TextField
-                  label="Alíquota do ICMS (%)"
-                  inputMode="decimal"
-                  value={f.icmsRate}
-                  onChange={(e) => set('icmsRate', e.target.value)}
-                />
-                <TextField
-                  label="Redução da base (%)"
-                  inputMode="decimal"
-                  value={f.icmsBaseReduction}
-                  onChange={(e) => set('icmsBaseReduction', e.target.value)}
-                />
-              </>
-            )}
-            <TextField
-              label="Código de benefício (cBenef)"
-              value={f.benefitCode}
-              maxLength={10}
-              onChange={(e) => set('benefitCode', e.target.value.toUpperCase())}
-              hint="Só nos estados que exigem (ex.: PR, RJ, RS) com isenção ou redução"
-            />
-          </div>
-          {regimeMismatch && (
-            <Alert tone="danger">
-              {regime === 3
-                ? 'Empresa no regime normal usa CST de 2 dígitos, não CSOSN.'
-                : 'Empresa do Simples Nacional usa CSOSN de 3 dígitos, não CST.'}{' '}
-              A SEFAZ recusa a nota.
-            </Alert>
-          )}
-        </fieldset>
+        <Tabs<EditorTab>
+          value={tab}
+          onChange={setTab}
+          items={[
+            ['impostos', 'Impostos'],
+            ['reforma', 'IBS/CBS'],
+            ['onde', 'Onde vale'],
+          ]}
+        />
 
-        <fieldset className="fi-fieldset">
-          <legend>PIS e COFINS</legend>
-          <div className="form-grid">
-            <SelectField
-              label="CST do PIS"
-              value={f.pisCst}
-              onChange={(e) => set('pisCst', e.target.value)}
-            >
-              <Options list={CST_PIS_COFINS} />
-            </SelectField>
-            {pisWithRate && (
+        {tab === 'impostos' && (
+          <>
+            <h3 className="fi-sub">Operação e ICMS</h3>
+            <div className="fi-fields">
               <TextField
-                label="Alíquota do PIS (%)"
-                inputMode="decimal"
-                value={f.pisRate}
-                onChange={(e) => set('pisRate', e.target.value)}
-                placeholder="0,65"
+                label="CFOP"
+                inputMode="numeric"
+                list="fi-cfops"
+                maxLength={4}
+                value={f.cfop}
+                onChange={(e) => set('cfop', e.target.value.replace(/\D/g, ''))}
+                hint={CFOPS.find(([c]) => c === f.cfop)?.[1].split(' · ')[1] ?? 'Tipo da operação'}
               />
-            )}
-            <SelectField
-              label="CST da COFINS"
-              value={f.cofinsCst}
-              onChange={(e) => set('cofinsCst', e.target.value)}
-            >
-              <Options list={CST_PIS_COFINS} />
-            </SelectField>
-            {cofinsWithRate && (
               <TextField
-                label="Alíquota da COFINS (%)"
-                inputMode="decimal"
-                value={f.cofinsRate}
-                onChange={(e) => set('cofinsRate', e.target.value)}
-                placeholder="3"
+                label="CFOP fora do estado"
+                inputMode="numeric"
+                maxLength={4}
+                value={f.cfopInterstate}
+                placeholder={f.cfop.length === 4 ? interstateCfop(f.cfop) : ''}
+                onChange={(e) => set('cfopInterstate', e.target.value.replace(/\D/g, ''))}
+                hint="Só NF-e. Vazio: troca 5 por 6"
               />
-            )}
-          </div>
-        </fieldset>
-
-        {f.scope !== 'nfce' && (
-          <fieldset className="fi-fieldset">
-            <legend>IPI (só NF-e, para indústria)</legend>
-            <div className="form-grid">
+              <datalist id="fi-cfops">
+                {CFOPS.map(([c, l]) => (
+                  <option key={c} value={c}>
+                    {l}
+                  </option>
+                ))}
+              </datalist>
               <SelectField
-                label="CST do IPI"
-                value={f.ipiCst}
-                onChange={(e) => set('ipiCst', e.target.value)}
+                label={regime === 3 ? 'CST do ICMS' : 'CSOSN'}
+                value={f.icmsCst}
+                onChange={(e) => set('icmsCst', e.target.value)}
               >
-                <Options list={CST_IPI} empty="Sem IPI" />
+                {!icmsList.some(([c]) => c === f.icmsCst) && (
+                  <option value={f.icmsCst}>{f.icmsCst}</option>
+                )}
+                <Options list={icmsList} />
               </SelectField>
-              {f.ipiCst && (
+              <SelectField
+                label="Origem"
+                value={f.icmsOrigin}
+                onChange={(e) => set('icmsOrigin', e.target.value)}
+              >
+                <Options list={ICMS_ORIGINS} />
+              </SelectField>
+              {withRate && (
+                <>
+                  <TextField
+                    label="Alíquota do ICMS (%)"
+                    inputMode="decimal"
+                    value={f.icmsRate}
+                    onChange={(e) => set('icmsRate', e.target.value)}
+                  />
+                  <TextField
+                    label="Redução da base (%)"
+                    inputMode="decimal"
+                    value={f.icmsBaseReduction}
+                    onChange={(e) => set('icmsBaseReduction', e.target.value)}
+                  />
+                </>
+              )}
+              <TextField
+                label="cBenef"
+                value={f.benefitCode}
+                maxLength={10}
+                onChange={(e) => set('benefitCode', e.target.value.toUpperCase())}
+                hint="Código de benefício. Só onde o estado exige"
+              />
+            </div>
+            {regimeMismatch && (
+              <Alert tone="danger">
+                {regime === 3
+                  ? 'Empresa no regime normal usa CST de 2 dígitos, não CSOSN.'
+                  : 'Empresa do Simples Nacional usa CSOSN de 3 dígitos, não CST.'}{' '}
+                A SEFAZ recusa a nota.
+              </Alert>
+            )}
+
+            <h3 className="fi-sub">PIS e COFINS</h3>
+            <div className="fi-fields">
+              <SelectField
+                label="CST do PIS"
+                value={f.pisCst}
+                onChange={(e) => set('pisCst', e.target.value)}
+              >
+                <Options list={CST_PIS_COFINS} />
+              </SelectField>
+              {pisWithRate && (
+                <TextField
+                  label="Alíquota do PIS (%)"
+                  inputMode="decimal"
+                  value={f.pisRate}
+                  onChange={(e) => set('pisRate', e.target.value)}
+                  placeholder="0,65"
+                />
+              )}
+              <SelectField
+                label="CST da COFINS"
+                value={f.cofinsCst}
+                onChange={(e) => set('cofinsCst', e.target.value)}
+              >
+                <Options list={CST_PIS_COFINS} />
+              </SelectField>
+              {cofinsWithRate && (
+                <TextField
+                  label="Alíquota da COFINS (%)"
+                  inputMode="decimal"
+                  value={f.cofinsRate}
+                  onChange={(e) => set('cofinsRate', e.target.value)}
+                  placeholder="3"
+                />
+              )}
+            </div>
+
+            <h3 className="fi-sub">Outros</h3>
+            <div className="fi-fields">
+              {f.scope !== 'nfce' && (
+                <SelectField
+                  label="CST do IPI (NF-e)"
+                  value={f.ipiCst}
+                  onChange={(e) => set('ipiCst', e.target.value)}
+                >
+                  <Options list={CST_IPI} empty="Sem IPI" />
+                </SelectField>
+              )}
+              {f.scope !== 'nfce' && f.ipiCst && (
                 <TextField
                   label="Alíquota do IPI (%)"
                   inputMode="decimal"
@@ -717,95 +636,273 @@ function RuleEditor({
                   onChange={(e) => set('ipiRate', e.target.value)}
                 />
               )}
+              <TextField
+                label="Tributos aproximados (%)"
+                inputMode="decimal"
+                value={f.approxTaxRate}
+                onChange={(e) => set('approxTaxRate', e.target.value)}
+                hint="Valor que sai no cupom (Lei da transparência)"
+              />
+              <TextField
+                label="Anotação"
+                wrapClass="fi-w2"
+                value={f.notes}
+                maxLength={500}
+                onChange={(e) => set('notes', e.target.value)}
+                hint="Só para a equipe. Não sai na nota"
+              />
             </div>
-          </fieldset>
+          </>
         )}
 
-        <fieldset className="fi-fieldset">
-          <legend>Reforma tributária (IBS e CBS)</legend>
-          <p className="cm-hint" style={{ marginTop: 0 }}>
-            Em 2026 os campos são de teste, sem recolhimento. Deixe vazio se a sua contabilidade
-            ainda não orientou.
-          </p>
-          <div className="form-grid">
-            <SelectField
-              label="CST do IBS/CBS"
-              value={f.ibsCbsCst}
-              onChange={(e) => set('ibsCbsCst', e.target.value)}
-            >
-              <Options list={CST_IBS_CBS} empty="Não informar" />
-            </SelectField>
-            {f.ibsCbsCst && (
-              <>
-                <SelectField
-                  label="Classificação tributária"
-                  value={f.ibsCbsClass}
-                  onChange={(e) => set('ibsCbsClass', e.target.value)}
-                >
-                  {f.ibsCbsClass && !IBS_CBS_CLASSES.some(([c]) => c === f.ibsCbsClass) && (
-                    <option value={f.ibsCbsClass}>{f.ibsCbsClass}</option>
-                  )}
-                  <Options list={IBS_CBS_CLASSES} empty="Escolha" />
-                </SelectField>
-                <TextField
-                  label="CBS (%)"
-                  inputMode="decimal"
-                  value={f.cbsRate}
-                  onChange={(e) => set('cbsRate', e.target.value)}
-                />
-                <TextField
-                  label="IBS estadual (%)"
-                  inputMode="decimal"
-                  value={f.ibsUfRate}
-                  onChange={(e) => set('ibsUfRate', e.target.value)}
-                />
-                <TextField
-                  label="IBS municipal (%)"
-                  inputMode="decimal"
-                  value={f.ibsMunRate}
-                  onChange={(e) => set('ibsMunRate', e.target.value)}
-                />
-                <div style={{ alignSelf: 'end' }}>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() =>
-                      setF((x) => ({
-                        ...x,
-                        cbsRate: pct(IBS_CBS_TEST_RATES.cbs),
-                        ibsUfRate: pct(IBS_CBS_TEST_RATES.ibsUf),
-                        ibsMunRate: pct(IBS_CBS_TEST_RATES.ibsMun),
-                      }))
-                    }
+        {tab === 'reforma' && (
+          <>
+            <p className="cm-hint fi-note">
+              Reforma tributária. Em 2026 os campos são de teste, sem recolhimento. Deixe vazio se a
+              contabilidade ainda não orientou.
+            </p>
+            <div className="fi-fields">
+              <SelectField
+                label="CST do IBS/CBS"
+                value={f.ibsCbsCst}
+                onChange={(e) => set('ibsCbsCst', e.target.value)}
+              >
+                <Options list={CST_IBS_CBS} empty="Não informar" />
+              </SelectField>
+              {f.ibsCbsCst && (
+                <>
+                  <SelectField
+                    label="Classificação tributária"
+                    value={f.ibsCbsClass}
+                    onChange={(e) => set('ibsCbsClass', e.target.value)}
                   >
-                    Usar alíquotas de teste
-                  </Button>
-                </div>
-              </>
+                    {f.ibsCbsClass && !IBS_CBS_CLASSES.some(([c]) => c === f.ibsCbsClass) && (
+                      <option value={f.ibsCbsClass}>{f.ibsCbsClass}</option>
+                    )}
+                    <Options list={IBS_CBS_CLASSES} empty="Escolha" />
+                  </SelectField>
+                  <TextField
+                    label="CBS (%)"
+                    inputMode="decimal"
+                    value={f.cbsRate}
+                    onChange={(e) => set('cbsRate', e.target.value)}
+                  />
+                  <TextField
+                    label="IBS estadual (%)"
+                    inputMode="decimal"
+                    value={f.ibsUfRate}
+                    onChange={(e) => set('ibsUfRate', e.target.value)}
+                  />
+                  <TextField
+                    label="IBS municipal (%)"
+                    inputMode="decimal"
+                    value={f.ibsMunRate}
+                    onChange={(e) => set('ibsMunRate', e.target.value)}
+                  />
+                </>
+              )}
+            </div>
+            {f.ibsCbsCst && (
+              <div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setF((x) => ({
+                      ...x,
+                      cbsRate: pct(IBS_CBS_TEST_RATES.cbs),
+                      ibsUfRate: pct(IBS_CBS_TEST_RATES.ibsUf),
+                      ibsMunRate: pct(IBS_CBS_TEST_RATES.ibsMun),
+                    }))
+                  }
+                >
+                  Usar alíquotas de teste
+                </Button>
+              </div>
             )}
-          </div>
-        </fieldset>
+          </>
+        )}
 
-        <fieldset className="fi-fieldset">
-          <legend>Outros</legend>
-          <div className="form-grid">
-            <TextField
-              label="Tributos aproximados (%)"
-              inputMode="decimal"
-              value={f.approxTaxRate}
-              onChange={(e) => set('approxTaxRate', e.target.value)}
-              hint="Lei da transparência: valor aproximado de tributos no cupom"
-            />
-            <TextField
-              label="Anotação"
-              value={f.notes}
-              maxLength={500}
-              onChange={(e) => set('notes', e.target.value)}
-            />
-          </div>
-        </fieldset>
+        {tab === 'onde' && (
+          <WhereItApplies
+            rule={rule}
+            rules={rules}
+            products={products}
+            items={items}
+            setItems={setItems}
+            ncms={ncms}
+            setNcms={setNcms}
+            isDefault={f.isDefault}
+            setDefault={(v) => set('isDefault', v)}
+          />
+        )}
         {error && <Alert tone="danger">{error}</Alert>}
       </form>
     </Modal>
+  );
+}
+
+/** Regra de aplicação: 1º itens, 2º NCMs, 3º padrão da empresa. */
+function WhereItApplies({
+  rule,
+  rules,
+  products,
+  items,
+  setItems,
+  ncms,
+  setNcms,
+  isDefault,
+  setDefault,
+}: {
+  rule: FiscalRule | null;
+  rules: FiscalRule[];
+  products: ProductLite[];
+  items: string[];
+  setItems(v: string[]): void;
+  ncms: string[];
+  setNcms(v: string[]): void;
+  isDefault: boolean;
+  setDefault(v: boolean): void;
+}) {
+  const [pick, setPick] = useState('');
+  const [ncm, setNcm] = useState('');
+  const [hints, setHints] = useState<{ code: string; description: string }[]>([]);
+  const digits = ncm.replace(/\D/g, '');
+  const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
+  const ruleName = (id: string | null) =>
+    id && id !== rule?.id ? rules.find((r) => r.id === id)?.name : undefined;
+  const otherDefault = rules.find((r) => r.isDefault && r.id !== rule?.id);
+
+  useEffect(() => {
+    const term = ncm.trim();
+    if (term.length < 2) return setHints([]);
+    const t = setTimeout(() => {
+      api<{ code: string; description: string }[]>(`/fiscal/ncm?q=${encodeURIComponent(term)}`)
+        .then(setHints)
+        .catch(() => setHints([]));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [ncm]);
+
+  const addNcm = () => {
+    if (digits.length === 8 && !ncms.includes(digits)) setNcms([...ncms, digits]);
+    setNcm('');
+  };
+
+  return (
+    <>
+      <p className="cm-hint fi-note">
+        A nota procura nesta ordem: o item, depois o NCM do item, por último o padrão da empresa.
+      </p>
+
+      <div className="fi-subwrap">
+        <h3 className="fi-sub">1º Itens ligados</h3>
+        <p className="cm-hint">Exceção pontual: este item usa este padrão, seja qual for o NCM.</p>
+      </div>
+      <div className="fi-chips">
+        {items.map((id) => (
+          <span key={id} className="fi-chip">
+            {byId.get(id)?.name ?? 'Item'}
+            <button
+              type="button"
+              aria-label={`Tirar ${byId.get(id)?.name ?? 'item'}`}
+              onClick={() => setItems(items.filter((x) => x !== id))}
+            >
+              <X size={12} />
+            </button>
+          </span>
+        ))}
+        <select
+          className="cm-input fi-add"
+          aria-label="Adicionar item"
+          value={pick}
+          onChange={(e) => {
+            const id = e.target.value;
+            if (id && !items.includes(id)) setItems([...items, id]);
+            setPick('');
+          }}
+        >
+          <option value="">+ Adicionar item</option>
+          {products
+            .filter((p) => !items.includes(p.id))
+            .map((p) => {
+              const other = ruleName(p.fiscalRuleId);
+              return (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                  {other ? ` (hoje: ${other})` : ''}
+                </option>
+              );
+            })}
+        </select>
+      </div>
+
+      <div className="fi-subwrap">
+        <h3 className="fi-sub">2º NCMs ligados</h3>
+        <p className="cm-hint">
+          Todo item com um destes NCMs usa este padrão. Bom para bebidas com ST.
+        </p>
+      </div>
+      <div className="fi-chips">
+        {ncms.map((n) => (
+          <span key={n} className="fi-chip mono-break">
+            {n}
+            <button
+              type="button"
+              aria-label={`Tirar NCM ${n}`}
+              onClick={() => setNcms(ncms.filter((x) => x !== n))}
+            >
+              <X size={12} />
+            </button>
+          </span>
+        ))}
+        <input
+          className="cm-input fi-add"
+          aria-label="NCM para ligar"
+          inputMode="numeric"
+          list="fi-ncm-hints"
+          value={ncm}
+          placeholder="+ NCM ou nome"
+          onChange={(e) => setNcm(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addNcm();
+            }
+          }}
+        />
+        <datalist id="fi-ncm-hints">
+          {hints.map((h) => (
+            <option key={h.code} value={h.code}>
+              {h.description}
+            </option>
+          ))}
+        </datalist>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          disabled={digits.length !== 8}
+          onClick={addNcm}
+        >
+          Ligar
+        </Button>
+      </div>
+
+      <div className="fi-subwrap">
+        <h3 className="fi-sub">3º Padrão da empresa</h3>
+      </div>
+      <CheckField
+        label="Usar nos itens que não acharem outro padrão"
+        description={
+          otherDefault
+            ? `Hoje é "${otherDefault.name}". Marcar aqui troca.`
+            : 'Sem padrão da empresa, item sem item ou NCM ligado trava a nota.'
+        }
+        checked={isDefault}
+        onChange={setDefault}
+      />
+    </>
   );
 }

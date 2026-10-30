@@ -48,6 +48,16 @@ function focusHandler(req: IncomingMessage, res: ServerResponse) {
     const url = new URL(req.url!, 'http://x');
     if (url.pathname.startsWith('/v2/empresas') || url.pathname.startsWith('/v2/cnpjs/')) {
       if (req.headers.authorization !== basic(MASTER)) return send(401, {});
+      const got = /^\/v2\/empresas\/(\d+)$/.exec(url.pathname);
+      if (req.method === 'GET' && got) {
+        if (!companies.has(got[1])) return send(404, {});
+        return send(200, {
+          id: Number(got[1]),
+          token_homologacao: B_HOM,
+          token_producao: B_PROD,
+          certificado_valido_ate: '2028-02-10T10:00:00-03:00',
+        });
+      }
       if (req.method === 'GET') {
         if (url.pathname.endsWith('/00000000000000'))
           return send(404, { codigo: 'nao_encontrado' });
@@ -419,6 +429,24 @@ describe('Configuração fiscal', () => {
     expect(JSON.stringify(audit)).not.toContain(TOKEN);
     // B não vê a configuração de A.
     expect((await get('adminB', '/fiscal/settings').expect(200)).body.hasToken).toBe(false);
+  });
+
+  it('token próprio por ambiente: produção tem o seu, homologação segue com o antigo', async () => {
+    const A_PROD = 'tok-a-producao-8888';
+    const s = (await put('adminA', '/fiscal/settings', { tokenProd: A_PROD }).expect(200)).body;
+    expect(s).toMatchObject({ hasHomologToken: true, hasProdToken: true });
+    expect(JSON.stringify(s)).not.toContain(A_PROD);
+    const [row] = await ownerQuery<{ token_prod_enc: Buffer }>(
+      `SELECT token_prod_enc FROM tenant_fiscal_settings WHERE tenant_id = $1`,
+      [fx.tenantA],
+    );
+    expect(row.token_prod_enc.toString('latin1')).not.toContain(A_PROD);
+    const audit = await ownerQuery<{ data: unknown }>(
+      `SELECT data FROM audit_log WHERE tenant_id = $1 AND action = 'fiscal.settings_updated'`,
+      [fx.tenantA],
+    );
+    expect(JSON.stringify(audit)).not.toContain(A_PROD);
+    await put('adminA', '/fiscal/settings', { tokenProd: 'curto' }).expect(400);
   });
 
   it('produção exige o dono e confirmação explícita', async () => {
@@ -813,6 +841,15 @@ describe('Modo revenda (token master do Comandou)', () => {
     expect(companies.get('101')).toMatchObject({ numero: '20' });
   });
 
+  it('sincroniza com a Focus: tokens e validade do certificado atualizados', async () => {
+    await post('waiterA', '/fiscal/company/sync').expect(403);
+    await post('adminA', '/fiscal/company/sync').expect(422);
+    const s = (await post('adminB', '/fiscal/company/sync').expect(200)).body;
+    expect(s.certificateValidUntil).toMatch(/^2028-02-10/);
+    expect(s).toMatchObject({ hasHomologToken: true, hasProdToken: true });
+    expect(JSON.stringify(s)).not.toContain(B_HOM);
+  });
+
   it('ativa em homologação e emite com o token da empresa; produção exige CSC de produção', async () => {
     await put('adminB', '/fiscal/settings', { enabled: true, defaultNcm: '21069090' }).expect(200);
     await put('adminB', '/fiscal/settings', {
@@ -1131,5 +1168,38 @@ describe('Módulo fiscal completo (padrões, NF-e, inutilização, recebidas)', 
     expect(docs).toHaveLength(1);
     await waitDoc(docs[0].id, (s) => s === 'authorized');
     await put('adminA', '/fiscal/settings', { autoEmitNfce: false }).expect(200);
+  });
+});
+
+describe('Onde o padrão vale (itens e NCMs ligados)', () => {
+  it('troca a lista de itens e de NCMs do padrão; outro restaurante não mexe', async () => {
+    const r = (
+      await post('adminA', '/fiscal/rules', {
+        name: 'Bebidas',
+        cfop: '5405',
+        icmsCst: '500',
+      }).expect(201)
+    ).body;
+    await put('cashierA', `/fiscal/rules/${r.id}/links`, { ncms: ['22021000'] }).expect(403);
+    await put('adminA', `/fiscal/rules/${r.id}/links`, { ncms: ['2202'] }).expect(400);
+    await put('adminA', `/fiscal/rules/${r.id}/links`, {
+      productIds: [fx.prodA],
+      ncms: ['22021000', '22029900'],
+    }).expect(200);
+    let rule = (await get('adminA', '/fiscal/rules').expect(200)).body.rules.find(
+      (x: { id: string }) => x.id === r.id,
+    );
+    expect(rule).toMatchObject({ productIds: [fx.prodA], ncms: ['22021000', '22029900'] });
+    // Tirar da lista desliga.
+    await put('adminA', `/fiscal/rules/${r.id}/links`, {
+      productIds: [],
+      ncms: ['22021000'],
+    }).expect(200);
+    rule = (await get('adminA', '/fiscal/rules').expect(200)).body.rules.find(
+      (x: { id: string }) => x.id === r.id,
+    );
+    expect(rule).toMatchObject({ productIds: [], ncms: ['22021000'] });
+    // B não acha o padrão de A, nem liga o próprio produto nele.
+    await put('adminB', `/fiscal/rules/${r.id}/links`, { productIds: [fx.prodB] }).expect(404);
   });
 });

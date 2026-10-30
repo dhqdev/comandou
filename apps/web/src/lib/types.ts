@@ -647,6 +647,8 @@ export interface FiscalCompany {
   cep: string;
   email?: string | null;
   telefone?: string | null;
+  /** CPF/CNPJ da contabilidade (alguns estados exigem). */
+  contabilidade?: string | null;
   numeracao?: {
     nfceSerie?: number | null;
     nfceProximo?: number | null;
@@ -813,6 +815,7 @@ export interface FiscalRule {
   notes: string | null;
   products?: number;
   ncms?: string[];
+  productIds?: string[];
 }
 export interface FiscalRulesResponse {
   rules: FiscalRule[];

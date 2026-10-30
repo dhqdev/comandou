@@ -339,3 +339,293 @@
     min-width: 120px;
   }
 }
+
+/* ===================================================== campos compactos (configuração e padrões) */
+.fi-page .cm-field,
+.fi-dense .cm-field,
+.fi-form .cm-field {
+  gap: 4px;
+}
+.fi-page .cm-label,
+.fi-dense .cm-label,
+.fi-form .cm-label {
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.fi-page .cm-input,
+.fi-dense .cm-input,
+.fi-form .cm-input {
+  min-height: var(--cm-control);
+  font-size: var(--cm-text-sm);
+}
+.fi-page textarea.cm-input,
+.fi-dense textarea.cm-input,
+.fi-form textarea.cm-input {
+  min-height: 60px;
+  padding: var(--cm-space-2) var(--cm-space-3);
+}
+.fi-page .check-field,
+.fi-dense .check-field,
+.fi-form .check-field {
+  padding: var(--cm-space-2) var(--cm-space-3);
+}
+/* Celular: o campo volta ao tamanho de toque. */
+@media (pointer: coarse) {
+  .fi-page .cm-input,
+  .fi-dense .cm-input,
+  .fi-form .cm-input {
+    min-height: var(--cm-touch);
+    font-size: var(--cm-text-md);
+  }
+}
+
+.fi-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr));
+  gap: var(--cm-space-3) var(--cm-space-4);
+  align-items: start;
+  min-width: 0;
+}
+.fi-w2 {
+  grid-column: span 2;
+}
+@media (max-width: 520px) {
+  .fi-fields {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
+  }
+  .fi-w2 {
+    grid-column: 1 / -1;
+  }
+}
+.fi-cnpj {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cm-space-2);
+  min-width: 0;
+}
+.fi-cnpj > .cm-field {
+  flex: 1;
+}
+.fi-cnpj > .cm-btn {
+  margin-top: 20px;
+}
+.fi-file {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.fi-sub {
+  margin: var(--cm-space-2) 0 0;
+  padding-top: var(--cm-space-3);
+  border-top: 1px solid var(--cm-border);
+  font-size: var(--cm-text-xs);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cm-text-muted);
+}
+.fi-tab > .fi-sub:first-child,
+.fi-tab > .fi-subwrap:first-child .fi-sub {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.fi-subwrap {
+  display: grid;
+  gap: 2px;
+}
+.fi-subwrap .cm-hint {
+  margin: 0;
+}
+.fi-ok {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.fi-ok svg {
+  color: var(--cm-success);
+}
+.fi-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--cm-space-2);
+}
+
+/* abas da configuração */
+.fi-tabs {
+  padding: var(--cm-space-3) var(--cm-space-4) 0;
+}
+.fi-tabbody {
+  padding: var(--cm-space-4);
+}
+.fi-tab {
+  display: grid;
+  gap: var(--cm-space-3);
+  min-width: 0;
+}
+.fi-connect {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: var(--cm-space-2);
+  margin-bottom: var(--cm-space-4);
+}
+.fi-radio {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cm-space-2);
+  padding: var(--cm-space-2) var(--cm-space-3);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+  cursor: pointer;
+}
+.fi-radio[data-on] {
+  border-color: color-mix(in srgb, var(--cm-brand-500) 45%, var(--cm-border));
+  background: color-mix(in srgb, var(--cm-brand-500) 6%, var(--cm-surface));
+}
+.fi-radio input {
+  flex-shrink: 0;
+  margin: 2px 0 0;
+  accent-color: var(--cm-brand-500);
+}
+.fi-radio > span {
+  display: grid;
+  gap: 2px;
+  font-size: var(--cm-text-sm);
+}
+
+/* resumo do que falta */
+.fi-status {
+  display: grid;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-3) var(--cm-space-4);
+}
+.fi-status__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-2) var(--cm-space-4);
+}
+.fi-status__env {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cm-space-2);
+  min-width: 0;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.fi-status__env strong {
+  color: var(--cm-text);
+  font-weight: 600;
+}
+.fi-status__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cm-space-2);
+}
+.fi-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cm-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.fi-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px dashed var(--cm-border-strong);
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+  text-decoration: none;
+  cursor: default;
+}
+:is(button, a).fi-step {
+  cursor: pointer;
+}
+:is(button, a).fi-step:hover {
+  border-color: var(--cm-brand-500);
+  color: var(--cm-text);
+}
+.fi-steps li[data-done] .fi-step {
+  border-style: solid;
+  border-color: transparent;
+  background: var(--cm-success-bg);
+  color: var(--cm-success);
+}
+@media (max-width: 640px) {
+  .fi-status__actions {
+    width: 100%;
+  }
+  .fi-status__actions > * {
+    flex: 1 1 auto;
+  }
+  .fi-tabs {
+    padding: var(--cm-space-3) var(--cm-space-3) 0;
+  }
+  .fi-tabbody {
+    padding: var(--cm-space-3);
+  }
+}
+
+/* editor do padrão: onde vale */
+.fi-inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.fi-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cm-space-2);
+}
+.fi-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 4px 0 10px;
+  border-radius: 999px;
+  background: var(--cm-surface-muted);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+}
+.fi-chip button {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.fi-chip button:hover {
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+}
+.fi-dense .fi-add,
+.fi-form .fi-add,
+.fi-add {
+  width: auto;
+  min-width: 180px;
+  max-width: 100%;
+  min-height: 32px;
+  font-size: var(--cm-text-xs);
+}

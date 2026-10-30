@@ -99,11 +99,14 @@ export class FiscalRulesService {
 
   list(ctx: Ctx) {
     return this.db.withTenant(ctx, async (tx) => {
-      const rules = await q<FiscalRule & { products: number; ncms: string[] }>(
+      const rules = await q<
+        FiscalRule & { products: number; ncms: string[]; productIds: string[] }
+      >(
         tx,
         `SELECT ${RULE_SELECT},
                 (SELECT count(*)::int FROM products p WHERE p.fiscal_rule_id = r.id) AS products,
-                coalesce((SELECT array_agg(n.ncm ORDER BY n.ncm) FROM fiscal_ncm_rules n WHERE n.rule_id = r.id), '{}') AS ncms
+                coalesce((SELECT array_agg(n.ncm ORDER BY n.ncm) FROM fiscal_ncm_rules n WHERE n.rule_id = r.id), '{}') AS ncms,
+                coalesce((SELECT array_agg(p.id ORDER BY p.name) FROM products p WHERE p.fiscal_rule_id = r.id), '{}') AS "productIds"
            FROM fiscal_rules r ORDER BY r.is_default DESC, r.active DESC, r.code`,
       );
       const links = await q<{ ncm: string; ruleId: string; products: number }>(
@@ -226,6 +229,50 @@ export class FiscalRulesService {
         created++;
       }
       return { created };
+    });
+  }
+
+  /**
+   * Onde o padrão vale: troca a lista inteira de itens (produtos) e/ou de NCMs ligados a ele.
+   * Item ou NCM que estava em outro padrão passa para este.
+   */
+  setLinks(ctx: Ctx, id: string, b: { productIds?: string[]; ncms?: string[] }) {
+    return this.db.withTenant(ctx, async (tx) => {
+      await this.getRow(tx, id);
+      if (b.productIds) {
+        await tx.$client.query(
+          `UPDATE products SET fiscal_rule_id = NULL
+            WHERE fiscal_rule_id = $1 AND NOT (id = ANY($2::uuid[]))`,
+          [id, b.productIds],
+        );
+        if (b.productIds.length)
+          await tx.$client.query(
+            `UPDATE products SET fiscal_rule_id = $1 WHERE id = ANY($2::uuid[])`,
+            [id, b.productIds],
+          );
+      }
+      if (b.ncms) {
+        await tx.$client.query(
+          `DELETE FROM fiscal_ncm_rules WHERE rule_id = $1 AND NOT (ncm = ANY($2::text[]))`,
+          [id, b.ncms],
+        );
+        for (const ncm of new Set(b.ncms))
+          await tx.$client.query(
+            `INSERT INTO fiscal_ncm_rules (tenant_id, ncm, rule_id) VALUES ($1, $2, $3)
+             ON CONFLICT (tenant_id, ncm) DO UPDATE SET rule_id = EXCLUDED.rule_id`,
+            [ctx.tenantId, ncm, id],
+          );
+      }
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'fiscal.rule_links_set',
+        entity: 'fiscal_rule',
+        entityId: id,
+        data: { products: b.productIds?.length ?? null, ncms: b.ncms ?? null },
+        ip: ctx.ip,
+      });
+      return { ok: true };
     });
   }
 

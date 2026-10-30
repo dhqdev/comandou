@@ -35,6 +35,8 @@ const Settings = z
       .pipe(digits('14', 'CNPJ com 14 dígitos'))
       .nullable(),
     token: z.string().trim().min(8).max(200).regex(/^\S+$/, 'token sem espaços').nullable(),
+    tokenHomolog: z.string().trim().min(8).max(200).regex(/^\S+$/, 'token sem espaços').nullable(),
+    tokenProd: z.string().trim().min(8).max(200).regex(/^\S+$/, 'token sem espaços').nullable(),
     defaultCfop: digits('4', 'CFOP com 4 dígitos'),
     defaultCode: digits('2,3', 'CSOSN/CST com 2 ou 3 dígitos'),
     defaultNcm: digits('8', 'NCM com 8 dígitos').nullable(),
@@ -112,6 +114,12 @@ const Company = z.object({
       .pipe(digits('8', 'CEP com 8 dígitos')),
     email: z.string().trim().email('E-mail inválido').max(120).nullish().or(z.literal('')),
     telefone: optText(20),
+    contabilidade: z
+      .string()
+      .transform((v) => v.replace(/\D/g, ''))
+      .pipe(z.string().regex(/^([0-9]{11}|[0-9]{14})?$/, 'CPF com 11 ou CNPJ com 14 dígitos'))
+      .nullish()
+      .transform((v) => v || null),
     numeracao: z
       .object({
         nfceSerie: z.number().int().min(0).max(999).nullish(),
@@ -280,6 +288,10 @@ const Rule = z.object({
 const RuleCreate = Rule.partial().required({ name: true, cfop: true, icmsCst: true });
 const RulePatch = Rule.partial().refine((o) => Object.keys(o).length > 0, 'nada para atualizar');
 const NcmRule = z.object({ ruleId: z.string().uuid().nullable() });
+const RuleLinks = z.object({
+  productIds: z.array(z.string().uuid()).max(2000).optional(),
+  ncms: z.array(digits('8', 'NCM com 8 dígitos')).max(500).optional(),
+});
 const ncmParam = z
   .string()
   .transform((v) => v.replace(/\D/g, ''))
@@ -339,6 +351,18 @@ export class FiscalController {
       ...b,
       company: { ...b.company, email: b.company.email || null },
     });
+  }
+
+  /** Busca a empresa na Focus NFe e atualiza tokens e validade do certificado. */
+  @Post('fiscal/company/sync')
+  @HttpCode(200)
+  @RequirePermission('fiscal:manage')
+  syncCompany(
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.fiscal.syncCompany(ctxOf(t, u, req));
   }
 
   @Get('fiscal/cnpj/:cnpj')
@@ -512,6 +536,19 @@ export class FiscalController {
     @Req() req: Request,
   ) {
     return this.rules.remove(ctxOf(t, u, req), id);
+  }
+
+  /** Onde o padrão vale: a lista inteira de itens e de NCMs ligados a ele. */
+  @Put('fiscal/rules/:id/links')
+  @RequirePermission('fiscal:manage')
+  setLinks(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(RuleLinks)) b: z.infer<typeof RuleLinks>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.rules.setLinks(ctxOf(t, u, req), id, b);
   }
 
   @Put('fiscal/ncm-rules/:ncm')
