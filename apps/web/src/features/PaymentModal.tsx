@@ -322,9 +322,7 @@ export function PaymentModal({
             </Select>
           </label>
         )}
-        {target.kind === 'tab' && (
-          <SplitPicker value={parts} min={Math.max(paidCount + 1, 1)} onChange={split} />
-        )}
+        <SplitPicker value={parts} min={Math.max(paidCount + 1, 1)} onChange={split} />
         {parts > 1 && (
           <ol className="pay-parts" aria-label="Partes da conta">
             {plan.map((p, i) => (
