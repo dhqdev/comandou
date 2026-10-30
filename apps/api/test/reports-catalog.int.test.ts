@@ -145,4 +145,25 @@ describe('Relatórios do catálogo', () => {
     );
     expect(doc.kpis[0]).toMatchObject({ label: 'Vendido', value: Number(db!.v) });
   });
+  it('garçons: pontuação e desafios batem com os pedidos de cada garçom', async () => {
+    const doc = (await get(owner, `/reports/catalog/garcons?${qs}`).expect(200)).body as ReportDoc;
+    const [t] = await ownerQuery<{ id: string }>(`SELECT id FROM tenants WHERE slug = $1`, [slug]);
+    const db = await ownerQuery<{ name: string; total: number; period: number }>(
+      `SELECT u.name, count(o.id)::int AS total,
+              count(o.id) FILTER (WHERE o.created_at >= ($2::date::timestamp AT TIME ZONE 'America/Sao_Paulo')
+                AND o.created_at < (($3::date + 1)::timestamp AT TIME ZONE 'America/Sao_Paulo'))::int AS period
+         FROM memberships m JOIN users u ON u.id = m.user_id
+         LEFT JOIN orders o ON o.created_by = u.id AND o.status <> 'cancelled' AND o.tenant_id = $1
+        WHERE m.tenant_id = $1 AND m.role = 'waiter' GROUP BY u.name`,
+      [t!.id, localDate(-29), localDate(0)],
+    );
+    const table = doc.tables.find((x) => x.id === 'pontuacao')!;
+    expect(table.rows.length).toBe(db.length);
+    for (const w of db) {
+      const row = table.rows.find((r) => r.name === w.name)!;
+      expect(row).toMatchObject({ total: w.total, orders: w.period });
+    }
+    expect(doc.tables.map((x) => x.id)).toEqual(['pontuacao', 'desafios', 'hoje']);
+    expect(Number(doc.kpis[0]!.value)).toBeGreaterThan(0);
+  });
 });

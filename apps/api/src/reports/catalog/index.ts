@@ -2,6 +2,7 @@ import { findReport, type ReportDoc } from '@comandou/shared';
 import type { Tx } from '../../database/database.service';
 import { type Built, type Period, resolvePeriod } from './kit';
 import { bairros, clientes, engenharia, equipe, frete, horarios, motoboys, produtos } from './more';
+import { garcons } from './waiters';
 import { cancelamentos, evolucao, extrato, fechamentos, perdas, resultado, ticket } from './sales';
 
 /** Cada relatório do catálogo (REPORT_GROUPS) e quem o monta. */
@@ -17,6 +18,7 @@ const BUILDERS: Record<string, (p: Period) => Promise<Built>> = {
   engenharia,
   horarios,
   equipe,
+  garcons,
   bairros,
   motoboys,
   frete,

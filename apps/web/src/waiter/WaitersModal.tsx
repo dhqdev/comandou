@@ -1,6 +1,17 @@
-import { waiterLevel } from '@comandou/shared';
-import { Copy, ExternalLink, Plus, QrCode, Search } from 'lucide-react';
+import { challengeProgress, WAITER_DAILY_CHALLENGES, waiterLevel } from '@comandou/shared';
+import {
+  BarChart3,
+  ChevronDown,
+  CircleCheck,
+  Copy,
+  ExternalLink,
+  Plus,
+  QrCode,
+  Search,
+  Target,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Alert, Button, EmptyState, Modal, Spinner, TextField, useToast } from '../design-system';
 import { useCan } from '../app/auth';
 import { WAITER_PATH, waiterLink } from '../app/WaiterEntry';
@@ -18,6 +29,7 @@ interface WaiterRow {
   lastSeenAt: string | null;
   totalOrders: number;
   todayOrders: number;
+  todayTables: number;
   todaySales: string;
 }
 
@@ -30,6 +42,9 @@ type View = 'active' | 'revoked';
 export function WaitersModal({ open, onClose }: { open: boolean; onClose(): void }) {
   const toast = useToast();
   const canTeam = useCan('users:manage');
+  const canReports = useCan('reports:read');
+  const navigate = useNavigate();
+  const [openId, setOpenId] = useState<string | null>(null);
   const [rows, setRows] = useState<WaiterRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>('active');
@@ -94,6 +109,18 @@ export function WaitersModal({ open, onClose }: { open: boolean; onClose(): void
         size="lg"
         footer={
           <>
+            {canReports && (
+              <Button
+                variant="secondary"
+                icon={<BarChart3 size={16} />}
+                onClick={() => {
+                  onClose();
+                  navigate('/relatorios?relatorio=garcons');
+                }}
+              >
+                Ranking
+              </Button>
+            )}
             <a
               className="cm-btn cm-btn--secondary"
               href={WAITER_PATH}
@@ -158,28 +185,101 @@ export function WaitersModal({ open, onClose }: { open: boolean; onClose(): void
             <ul className="wt-admin__list">
               {shown.map((w) => {
                 const lv = waiterLevel(w.totalOrders);
+                const day = { orders: w.todayOrders, tables: w.todayTables, sales: w.todaySales };
+                const done = WAITER_DAILY_CHALLENGES.filter(
+                  (c) => challengeProgress(c, day) >= 1,
+                ).length;
+                const expanded = openId === w.id;
                 return (
-                  <li key={w.id} className="wt-admin__row">
-                    <Seal seal={lv.seal} earned={w.status === 'active'} size={36} />
-                    <span className="wt-admin__who">
-                      <strong>{w.name}</strong>
-                      <span>{w.email}</span>
-                      <span>
-                        {lv.seal.name} · {w.totalOrders} pedidos no total
-                      </span>
-                    </span>
-                    <span className="wt-admin__today">
-                      <strong>{w.todayOrders}</strong>
-                      <span>hoje · {brl(w.todaySales)}</span>
-                    </span>
-                    {canTeam && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setStatus(w, w.status === 'active' ? 'revoked' : 'active')}
+                  <li key={w.id} className="wt-admin__item" data-open={expanded || undefined}>
+                    <div className="wt-admin__row">
+                      <Seal seal={lv.seal} earned={w.status === 'active'} size={36} />
+                      <button
+                        type="button"
+                        className="wt-admin__who"
+                        aria-expanded={expanded}
+                        aria-controls={`wt-score-${w.id}`}
+                        onClick={() => setOpenId(expanded ? null : w.id)}
                       >
-                        {w.status === 'active' ? 'Desativar' : 'Reativar'}
-                      </Button>
+                        <strong>{w.name}</strong>
+                        <span>{w.email}</span>
+                        <span>
+                          {lv.seal.name} · {w.totalOrders} pedidos · desafios hoje {done}/
+                          {WAITER_DAILY_CHALLENGES.length}
+                        </span>
+                      </button>
+                      <span className="wt-admin__today">
+                        <strong>{w.todayOrders}</strong>
+                        <span>hoje · {brl(w.todaySales)}</span>
+                      </span>
+                      <button
+                        type="button"
+                        className="wt-admin__toggle"
+                        aria-label={expanded ? 'Fechar pontuação' : 'Ver pontuação e desafios'}
+                        aria-expanded={expanded}
+                        onClick={() => setOpenId(expanded ? null : w.id)}
+                      >
+                        <ChevronDown size={18} aria-hidden />
+                      </button>
+                      {canTeam && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setStatus(w, w.status === 'active' ? 'revoked' : 'active')}
+                        >
+                          {w.status === 'active' ? 'Desativar' : 'Reativar'}
+                        </Button>
+                      )}
+                    </div>
+                    {expanded && (
+                      <div className="wt-admin__score" id={`wt-score-${w.id}`}>
+                        <p className="wt-admin__next">
+                          {lv.next ? (
+                            <>
+                              Selo <strong>{lv.seal.name}</strong>. Faltam{' '}
+                              <strong>{lv.missing}</strong>{' '}
+                              {lv.missing === 1 ? 'pedido' : 'pedidos'} para{' '}
+                              <strong>{lv.next.name}</strong>.
+                            </>
+                          ) : (
+                            'Conquistou todos os selos.'
+                          )}
+                        </p>
+                        <span className="wt-bar" aria-hidden>
+                          <span style={{ width: `${Math.round(lv.progress * 100)}%` }} />
+                        </span>
+                        <div className="wt-challenges">
+                          {WAITER_DAILY_CHALLENGES.map((c) => {
+                            const p = challengeProgress(c, day);
+                            const value =
+                              c.metric === 'sales'
+                                ? `${brl(day.sales)} de ${brl(c.target.toFixed(2))}`
+                                : `${day[c.metric]} de ${c.target}`;
+                            return (
+                              <article
+                                key={c.id}
+                                className="wt-challenge"
+                                data-done={p >= 1 || undefined}
+                              >
+                                <span className="wt-challenge__icon" aria-hidden>
+                                  {p >= 1 ? <CircleCheck size={20} /> : <Target size={20} />}
+                                </span>
+                                <div className="wt-challenge__body">
+                                  <strong>{c.title}</strong>
+                                  <span className="wt-bar" aria-hidden>
+                                    <span style={{ width: `${Math.round(p * 100)}%` }} />
+                                  </span>
+                                </div>
+                                <span className="wt-challenge__value">{value}</span>
+                              </article>
+                            );
+                          })}
+                        </div>
+                        <p className="cm-hint">
+                          Desafios de hoje. O histórico por período e o ranking ficam em Relatórios
+                          › Pontuação e desafios dos garçons.
+                        </p>
+                      </div>
                     )}
                   </li>
                 );

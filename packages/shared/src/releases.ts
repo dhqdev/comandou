@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.67.0',
+    date: '2026-10-30',
+    title: 'Pontuação e desafios dos garçons para o gestor',
+    summary:
+      'O dono e o gerente agora veem o selo, os desafios do dia e o ranking de cada garçom, em Relatórios e em Meus garçons.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Relatórios › Operação e equipe › Pontuação e desafios dos garçons: ranking por desafios cumpridos, selo atual e quanto falta para o próximo, selos ganhos, pedidos, mesas e vendido no período, quais desafios cada um cumpre e o placar de hoje. Baixa em Excel como os outros.',
+      },
+      {
+        tag: 'novo',
+        text: 'Em Salão › Garçons, toque no garçom para abrir a pontuação dele: progresso até o próximo selo e os quatro desafios de hoje. O botão Ranking leva direto ao relatório.',
+      },
+    ],
+  },
+  {
     version: '0.66.1',
     date: '2026-10-30',
     title: 'Instalação em um comando com o repositório privado',

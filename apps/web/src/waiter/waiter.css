@@ -1264,14 +1264,64 @@
   padding: 0;
   list-style: none;
 }
+.wt-admin__item {
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+}
 .wt-admin__row {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-md);
-  background: var(--cm-surface);
+}
+button.wt-admin__who {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wt-admin__toggle {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.wt-admin__toggle:hover {
+  background: color-mix(in srgb, var(--cm-text) 8%, transparent);
+}
+.wt-admin__toggle svg {
+  transition: transform var(--cm-dur-fast) var(--cm-ease);
+}
+.wt-admin__item[data-open] .wt-admin__toggle svg {
+  transform: rotate(180deg);
+}
+.wt-admin__score {
+  display: grid;
+  gap: 10px;
+  padding: 4px 12px 12px;
+}
+.wt-admin__score .cm-hint,
+.wt-admin__next {
+  margin: 0;
+  font-size: var(--cm-text-sm);
+}
+.wt-admin__score .wt-challenge {
+  padding: 10px;
+}
+.wt-admin__score .wt-challenge__icon {
+  width: 34px;
+  height: 34px;
 }
 .wt-admin__who,
 .wt-admin__today {

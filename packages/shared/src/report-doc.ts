@@ -201,6 +201,12 @@ export const REPORT_GROUPS: readonly ReportGroup[] = [
         description:
           'Consumo, contas, ticket por conta, taxa de serviço e cancelamentos de cada garçom ou operador.',
       },
+      {
+        id: 'garcons',
+        title: 'Pontuação e desafios dos garçons',
+        description:
+          'Selo de cada garçom, desafios do dia cumpridos no período, ranking e o placar de hoje.',
+      },
     ],
   },
   {
