@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.63.0',
+    date: '2026-10-30',
+    title: 'Apresentação guiada pelas telas',
+    summary:
+      'No primeiro acesso, a apresentação passa pelas telas de verdade e enquadra o botão que você deve tocar: loja online, cardápio, equipe, caixa e venda. Funciona no celular e no computador.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Tour guiado: cada passo abre a tela, escurece o resto e destaca o botão da vez (Adicionar item, Adicionar pessoa, Abrir caixa, Nova venda) e onde ele fica no menu.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Poucos passos, na ordem de quem está começando, e só com as telas que a pessoa pode usar. Dá para rever em Conta › Rever apresentação.',
+      },
+    ],
+  },
+  {
     version: '0.62.2',
     date: '2026-10-30',
     title: 'Cardápio com a cor da loja no topo',

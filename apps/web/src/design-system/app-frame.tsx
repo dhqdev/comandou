@@ -189,6 +189,7 @@ export function AppFrame({
           to={it.to}
           end={it.end ?? it.to === '/'}
           aria-label={it.label}
+          data-tour-key={it.key}
           className={`cm-rail__item ${active ? 'is-active' : ''}`}
         >
           {body}
@@ -200,6 +201,7 @@ export function AppFrame({
         key={it.key}
         type="button"
         data-rail-key={it.key}
+        data-tour-key={it.key}
         className={`cm-rail__item ${active ? 'is-active' : ''}`}
         aria-expanded={hasMenu ? open === it.key : undefined}
         aria-haspopup={hasMenu ? 'menu' : undefined}
@@ -329,6 +331,7 @@ export function AppFrame({
                 to={it.to}
                 end={it.end ?? it.to === '/'}
                 aria-label={it.label}
+                data-tour-key={it.key}
                 className={`cm-tabbar__item ${active ? 'is-active' : ''}`}
               >
                 {inner}
@@ -337,6 +340,7 @@ export function AppFrame({
               <button
                 key={it.key}
                 type="button"
+                data-tour-key={it.key}
                 className={`cm-tabbar__item ${active ? 'is-active' : ''}`}
                 onClick={() => (it.children || it.panel ? setSheet(it.key) : it.onClick?.())}
               >
@@ -346,6 +350,7 @@ export function AppFrame({
           })}
         <button
           type="button"
+          data-tour-key="more"
           className={`cm-tabbar__item ${sheet === 'more' || (!sheet && !all.some((i) => tabs.includes(i.key) && itemActive(pathname, i))) ? 'is-active' : ''}`}
           onClick={() => setSheet('more')}
         >

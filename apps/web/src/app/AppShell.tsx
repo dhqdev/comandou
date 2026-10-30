@@ -441,7 +441,8 @@ export function AppShell() {
           userId={me.user.id}
           userName={me.user.name}
           tenantName={me.tenant.name}
-          screens={[...main, ...groups]}
+          items={[...main, ...groups]}
+          tabs={tabs}
         />
       )}
       <GlobalSearch
