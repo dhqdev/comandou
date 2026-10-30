@@ -24,7 +24,7 @@ import { CHANNEL_LABELS, minutesSince, qty } from '../features/format';
 import { api } from '../lib/api';
 import { mediaUrl } from '../lib/media';
 import { useDebounced, useRealtime } from '../lib/realtime';
-import { useArrivalSound, useRepeatingSound } from '../lib/sounds';
+import { useArrivalSound, useRepeatingSoundForNew } from '../lib/sounds';
 import type { OrderItem, Sector } from '../lib/types';
 
 interface BoardOrder {
@@ -116,7 +116,10 @@ export function KitchenPage() {
     'cancel',
     orders?.filter((o) => o.status === 'cancel_requested').map((o) => o.id),
   );
-  useRepeatingSound('cancel', orders?.some((o) => o.status === 'cancel_requested') ?? false);
+  useRepeatingSoundForNew(
+    'cancel',
+    orders?.filter((o) => o.status === 'cancel_requested').map((o) => o.id),
+  );
 
   async function act(url: string, body: object = {}) {
     setBusy(url);

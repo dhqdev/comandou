@@ -98,6 +98,19 @@ textarea {
   color: inherit;
   letter-spacing: inherit;
 }
+/* Lista aberta do <select>: no Windows ela pinta fundo branco com o texto claro do tema escuro.
+   Cor explícita nas opções deixa legível nos dois temas. */
+select {
+  color-scheme: inherit;
+}
+select option,
+select optgroup {
+  background-color: var(--cm-surface);
+  color: var(--cm-text);
+}
+select option:disabled {
+  color: var(--cm-text-subtle);
+}
 img,
 video {
   max-width: 100%;

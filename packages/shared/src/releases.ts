@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.59.1',
+    date: '2026-10-30',
+    title: 'Sino só com pedido novo e PDV mais limpo',
+    summary:
+      'Abrir o app não faz mais o sino tocar: ele só apita quando chega um pedido novo. O PDV ficou só com os pedidos, o chat abre na hora e as listas de escolha ficaram legíveis no modo escuro.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'O sino que repete até alguém atender só toca por pedido ou cancelamento que chegou depois de abrir a tela. O que já estava esperando não dispara o som ao abrir.',
+      },
+      {
+        tag: 'correção',
+        text: 'No modo escuro, a lista que abre ao tocar num campo de escolha (como Ordenar por) tinha fundo branco com letra clara. Agora segue o tema.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A bolinha do chat abre e fecha a conversa na hora, sem animação.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O PDV não mostra mais o bloco do Salão. Mesas e comandas continuam na tela Salão.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O app do entregador funciona direto no navegador: não precisa mais colocar o atalho na tela inicial. Só a localização continua obrigatória.',
+      },
+    ],
+  },
+  {
     version: '0.59.0',
     date: '2026-10-30',
     title: 'Conta dividida: uma parte por pessoa',

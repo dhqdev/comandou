@@ -20,16 +20,7 @@
     0 8px 24px -6px color-mix(in srgb, var(--cm-brand-700) 55%, transparent),
     0 2px 6px rgb(0 0 0 / 12%);
   cursor: pointer;
-  transition:
-    transform var(--cm-dur) var(--cm-ease-liquid),
-    background var(--cm-dur-fast);
   -webkit-tap-highlight-color: transparent;
-}
-.tc-fab:hover {
-  transform: translateY(-2px) scale(1.04);
-}
-.tc-fab:active {
-  transform: scale(0.94);
 }
 .tc-fab:focus-visible {
   outline: none;
@@ -130,8 +121,7 @@
     0 24px 60px -16px rgb(0 0 0 / 30%),
     0 4px 14px rgb(0 0 0 / 8%);
   overflow: hidden;
-  transform-origin: bottom right;
-  animation: tc-open 0.28s var(--cm-ease) both;
+  /* Abre na hora, sem efeito (pedido do dono). */
   font-size: var(--cm-text-sm);
 }
 .tc-panel.is-expanded {
@@ -1637,13 +1627,6 @@
     border-radius: 0;
     border: 0;
     padding-top: env(safe-area-inset-top);
-    animation: tc-sheet 0.3s var(--cm-ease) both;
-  }
-  @keyframes tc-sheet {
-    from {
-      transform: translateY(24px);
-      opacity: 0;
-    }
   }
   .tc-fab.is-open {
     display: none;

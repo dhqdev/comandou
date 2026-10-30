@@ -743,6 +743,20 @@ export function useRepeatingSound(kind: SoundKind, active: boolean) {
 }
 
 /**
+ * Igual a `useRepeatingSound`, mas só apita por itens que chegaram depois que a tela abriu.
+ * O que já estava na lista na primeira carga não toca: abrir o app não dispara o sino.
+ */
+export function useRepeatingSoundForNew(
+  kind: SoundKind,
+  ids: readonly string[] | null | undefined,
+) {
+  const initial = useRef<Set<string> | null>(null);
+  if (ids && !initial.current) initial.current = new Set(ids);
+  const start = initial.current;
+  useRepeatingSound(kind, !!ids && !!start && ids.some((id) => !start.has(id)));
+}
+
+/**
  * Toca `kind` quando aparece na lista um id que ainda não estava lá (a primeira carga não toca).
  * Devolve `seen(id)`, para marcar algo que o próprio usuário fez e não tocar o aviso para ele.
  */

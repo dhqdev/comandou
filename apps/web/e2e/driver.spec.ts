@@ -3,7 +3,7 @@ import { emailField, enterPanel, passwordField } from './nav';
 
 /**
  * App do entregador e da cozinha: cada um entra pelo próprio endereço e vê só a sua tela.
- * O entregador precisa do atalho na tela inicial e da localização, e conclui com o código do
+ * O entregador precisa da localização (não precisa instalar o app), e conclui com o código do
  * cliente (que aparece no rastreio).
  */
 const EMAIL = process.env.E2E_EMAIL ?? 'dono@demo.local';
@@ -20,21 +20,13 @@ async function apiPost<T>(page: Page, path: string, data: object): Promise<T> {
 }
 
 /** Celular com o app aberto pelo atalho (display-mode: standalone) e o GPS permitido. */
-async function installedPhone(browser: Browser, baseURL: string, installed = true) {
-  const ctx = await browser.newContext({
+/** Celular no navegador comum (sem instalar o app), com ou sem a localização permitida. */
+async function phone(browser: Browser, baseURL: string, gps = true) {
+  return browser.newContext({
     baseURL,
-    permissions: ['geolocation'],
+    permissions: gps ? ['geolocation'] : [],
     geolocation: { latitude: -23.55, longitude: -46.63 },
   });
-  if (installed)
-    await ctx.addInitScript(() => {
-      const real = window.matchMedia.bind(window);
-      window.matchMedia = (q: string) =>
-        q.includes('display-mode: standalone')
-          ? ({ ...real(q), matches: true, media: q } as MediaQueryList)
-          : real(q);
-    });
-  return ctx;
 }
 
 async function signIn(page: Page, path: string, email: string, password: string, cta: string) {
@@ -44,7 +36,7 @@ async function signIn(page: Page, path: string, email: string, password: string,
   await page.getByRole('button', { name: cta }).click();
 }
 
-test('entregador: só as corridas, atalho e localização obrigatórios, conclui com o código', async ({
+test('entregador: só as corridas, localização obrigatória, conclui com o código', async ({
   page,
   browser,
   baseURL,
@@ -90,16 +82,16 @@ test('entregador: só as corridas, atalho e localização obrigatórios, conclui
   expect(code).toMatch(/^[0-9]{4}$/);
   await anon.close();
 
-  // Sem o atalho na tela inicial, não libera as corridas.
-  const browserCtx = await installedPhone(browser, baseURL!, false);
+  // Sem a localização, não libera as corridas.
+  const browserCtx = await phone(browser, baseURL!, false);
   let moto = await browserCtx.newPage();
   await signIn(moto, '/entregas', email, 'senha-do-moto-1', 'Entrar nas entregas');
   await expect(moto.getByRole('heading', { name: 'Antes de começar' })).toBeVisible();
   await expect(moto.getByText(`#${order.number}`)).toHaveCount(0);
   await browserCtx.close();
 
-  // Pelo atalho e com GPS: só as corridas, sem o menu da loja.
-  const app = await installedPhone(browser, baseURL!);
+  // No navegador, sem atalho na tela inicial, e com GPS: só as corridas, sem o menu da loja.
+  const app = await phone(browser, baseURL!);
   moto = await app.newPage();
   await signIn(moto, '/entregas', email, 'senha-do-moto-1', 'Entrar nas entregas');
   await expect(moto.getByText(`Olá, Moto`)).toBeVisible();

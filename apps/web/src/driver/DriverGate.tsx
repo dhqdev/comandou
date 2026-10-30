@@ -1,11 +1,8 @@
-import { CheckCircle2, Download, LocateFixed, Share, SquarePlus } from 'lucide-react';
+import { LocateFixed } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { Button } from '../design-system';
-import { canPromptInstall, isStandalone, promptInstall } from '../platform/pwa';
 
 type Geo = 'checking' | 'prompt' | 'granted' | 'denied' | 'unsupported';
-
-const ios = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
 
 /** Situação da permissão de localização, acompanhando mudanças (o motoboy pode desligar). */
 function useGeoPermission() {
@@ -59,86 +56,28 @@ function useGeoPermission() {
   return { geo, error, ask };
 }
 
-/** O app já está instalado na tela inicial (aberto pelo atalho)? */
-function useInstalled() {
-  const [installed, setInstalled] = useState(isStandalone);
-  const [installable, setInstallable] = useState(canPromptInstall);
-  useEffect(() => {
-    const mq = window.matchMedia?.('(display-mode: standalone)');
-    const sync = () => setInstalled(isStandalone());
-    const offer = () => setInstallable(canPromptInstall());
-    mq?.addEventListener?.('change', sync);
-    window.addEventListener('cm-installable', offer);
-    window.addEventListener('appinstalled', sync);
-    return () => {
-      mq?.removeEventListener?.('change', sync);
-      window.removeEventListener('cm-installable', offer);
-      window.removeEventListener('appinstalled', sync);
-    };
-  }, []);
-  return { installed, installable, setInstallable };
-}
-
 /**
- * Antes de mostrar as corridas, o entregador precisa (1) abrir pelo atalho na tela inicial
- * (app instalado) e (2) deixar a localização permitida. Sem os dois, a tela só explica como.
+ * Antes de mostrar as corridas, o entregador precisa deixar a localização permitida. Não precisa
+ * instalar o app na tela inicial: funciona direto no navegador.
  */
 export function DriverGate({ children }: { children: ReactNode }) {
-  const { installed, installable, setInstallable } = useInstalled();
   const { geo, error, ask } = useGeoPermission();
 
-  if (installed && geo === 'granted') return <>{children}</>;
+  if (geo === 'granted') return <>{children}</>;
   if (geo === 'checking') return null;
-
-  const install = async () => {
-    await promptInstall();
-    setInstallable(canPromptInstall());
-  };
 
   return (
     <section className="dgate" aria-label="Antes de começar">
       <h1 className="dgate__title">Antes de começar</h1>
-      <p className="cm-hint">
-        Para receber corridas, o app precisa estar na tela inicial e com a localização ligada.
-      </p>
+      <p className="cm-hint">Para receber corridas, deixe a localização do celular ligada.</p>
       <ol className="dgate__steps">
-        <li data-done={installed || undefined}>
+        <li>
           <span className="dgate__icon" aria-hidden>
-            {installed ? <CheckCircle2 size={22} /> : <SquarePlus size={22} />}
-          </span>
-          <div>
-            <strong>Colocar o atalho na tela inicial</strong>
-            {installed ? (
-              <span className="cm-hint">Pronto.</span>
-            ) : ios() ? (
-              <span className="cm-hint">
-                No Safari, toque em <Share size={14} aria-label="Compartilhar" /> Compartilhar e em{' '}
-                <b>Adicionar à Tela de Início</b>. Depois abra o Comandou pelo ícone novo.
-              </span>
-            ) : installable ? (
-              <span className="cm-hint">Instale e depois abra pelo ícone novo.</span>
-            ) : (
-              <span className="cm-hint">
-                No Chrome, toque no menu ⋮ e em <b>Instalar app</b> (ou{' '}
-                <b>Adicionar à tela inicial</b>). Depois abra pelo ícone novo.
-              </span>
-            )}
-            {!installed && installable && (
-              <Button size="lg" icon={<Download size={18} />} onClick={() => void install()}>
-                Instalar o app
-              </Button>
-            )}
-          </div>
-        </li>
-        <li data-done={geo === 'granted' || undefined}>
-          <span className="dgate__icon" aria-hidden>
-            {geo === 'granted' ? <CheckCircle2 size={22} /> : <LocateFixed size={22} />}
+            <LocateFixed size={22} />
           </span>
           <div>
             <strong>Permitir a localização</strong>
-            {geo === 'granted' ? (
-              <span className="cm-hint">Pronto.</span>
-            ) : geo === 'unsupported' ? (
+            {geo === 'unsupported' ? (
               <span className="cm-hint">Este aparelho não informa a localização.</span>
             ) : geo === 'denied' ? (
               <span className="cm-hint">
@@ -153,12 +92,7 @@ export function DriverGate({ children }: { children: ReactNode }) {
             )}
             {error && <span className="form-error">{error}</span>}
             {(geo === 'prompt' || geo === 'denied') && (
-              <Button
-                size="lg"
-                variant={installed ? 'primary' : 'secondary'}
-                icon={<LocateFixed size={18} />}
-                onClick={ask}
-              >
+              <Button size="lg" icon={<LocateFixed size={18} />} onClick={ask}>
                 {geo === 'denied' ? 'Tentar de novo' : 'Permitir localização'}
               </Button>
             )}
