@@ -12,7 +12,7 @@ export class DockerClient {
     method: 'GET' | 'POST' | 'DELETE',
     path: string,
     body?: unknown,
-    opts: { raw?: boolean; timeoutMs?: number } = {},
+    opts: { raw?: boolean; timeoutMs?: number; headers?: Record<string, string> } = {},
   ): Promise<T> {
     return new Promise((resolve, reject) => {
       const data = body === undefined ? undefined : JSON.stringify(body);
@@ -21,9 +21,12 @@ export class DockerClient {
           socketPath: this.socketPath,
           path: `/v1.43${path}`,
           method,
-          headers: data
-            ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
-            : {},
+          headers: {
+            ...opts.headers,
+            ...(data
+              ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }
+              : {}),
+          },
           timeout: opts.timeoutMs ?? 60_000,
         },
         (res) => {

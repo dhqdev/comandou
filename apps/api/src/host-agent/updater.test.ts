@@ -204,3 +204,19 @@ describe('Atualização do sistema', () => {
     expect(ran).toBe(false);
   });
 });
+
+describe('registryAuthFromEnv', () => {
+  it('monta o login do GHCR só com usuário e token', async () => {
+    const { registryAuthFromEnv } = await import('./updater');
+    expect(registryAuthFromEnv('ghcr.io/dhqdev/comandou-', {})).toBeNull();
+    const a = registryAuthFromEnv('ghcr.io/dhqdev/comandou-', {
+      AGENT_REGISTRY_USER: 'dhqdev',
+      AGENT_REGISTRY_TOKEN: 'ghp_x',
+    })!;
+    expect(JSON.parse(Buffer.from(a, 'base64url').toString())).toEqual({
+      username: 'dhqdev',
+      password: 'ghp_x',
+      serveraddress: 'ghcr.io',
+    });
+  });
+});

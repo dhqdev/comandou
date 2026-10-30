@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import type { DockerClient } from './docker';
 
 /**
@@ -62,12 +63,30 @@ const split = (image: string) => {
     : { repo: clean, tag: 'latest' };
 };
 
+/** Credencial do registro a partir do ambiente do agente (null se não configurada). */
+export function registryAuthFromEnv(prefix: string, env = process.env): string | null {
+  const user = env.AGENT_REGISTRY_USER;
+  const token = env.AGENT_REGISTRY_TOKEN_FILE
+    ? readFileSync(env.AGENT_REGISTRY_TOKEN_FILE, 'utf8').trim()
+    : env.AGENT_REGISTRY_TOKEN;
+  if (!user || !token) return null;
+  const serveraddress = prefix.split('/')[0] || 'ghcr.io';
+  return Buffer.from(JSON.stringify({ username: user, password: token, serveraddress })).toString(
+    'base64url',
+  );
+}
+
 export interface UpdaterOptions {
   prefix?: string;
   sleep?: (ms: number) => Promise<void>;
   pollMs?: number;
   timeoutMs?: number;
   selfName?: () => Promise<string | null>;
+  /**
+   * Login do registro (X-Registry-Auth, base64 de {username, password, serveraddress}) para
+   * imagens privadas no GHCR. Padrão: AGENT_REGISTRY_USER + AGENT_REGISTRY_TOKEN(_FILE).
+   */
+  registryAuth?: string | null;
   /** Roda quando todos os serviços, menos o agente, já estão saudáveis na versão nova. */
   cleanup?: () => Promise<NonNullable<UpdateJob['cleanup']>>;
 }
@@ -78,6 +97,7 @@ export class Updater {
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly pollMs: number;
   private readonly timeoutMs: number;
+  private readonly authHeaders: Record<string, string>;
 
   constructor(
     private readonly docker: Pick<DockerClient, 'call'>,
@@ -87,6 +107,9 @@ export class Updater {
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
     this.pollMs = opts.pollMs ?? 3000;
     this.timeoutMs = opts.timeoutMs ?? 5 * 60_000;
+    const auth =
+      opts.registryAuth === undefined ? registryAuthFromEnv(this.prefix) : opts.registryAuth;
+    this.authHeaders = auth ? { 'X-Registry-Auth': auth } : {};
   }
 
   current() {
@@ -140,7 +163,10 @@ export class Updater {
     for (const s of steps.filter((x) => x.status === 'pending')) {
       const image = s.image;
       await this.docker
-        .call('GET', `/distribution/${image}/json`, undefined, { timeoutMs: 30_000 })
+        .call('GET', `/distribution/${image}/json`, undefined, {
+          timeoutMs: 30_000,
+          headers: this.authHeaders,
+        })
         .catch((e: Error) => {
           throw new Error(`a imagem ${image} não está disponível: ${e.message}`);
         });
@@ -213,7 +239,10 @@ export class Updater {
     const startedAt = Date.now();
     // A migração baixa a imagem e passa por todos os bancos de restaurante: tem mais tempo.
     const limit = migrate ? this.timeoutMs * 3 : this.timeoutMs;
-    await this.docker.call('POST', `/services/${s.ID}/update?version=${s.Version.Index}`, spec);
+    // Com login, o Swarm repassa a credencial aos nós (igual a `--with-registry-auth`).
+    await this.docker.call('POST', `/services/${s.ID}/update?version=${s.Version.Index}`, spec, {
+      headers: this.authHeaders,
+    });
     if (isSelf) return;
     while (Date.now() - startedAt < limit) {
       await this.sleep(this.pollMs);

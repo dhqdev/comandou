@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.62.1',
+    date: '2026-10-30',
+    title: 'Atualizações com o repositório privado',
+    summary:
+      'O painel volta a achar versões novas mesmo com o código no GitHub privado: olha direto as imagens publicadas, ou usa um token do GitHub se você configurar um.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Servidor → Versão: com o repositório privado, a última versão vem das tags das imagens no GHCR.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Opcional: UPDATE_GITHUB_TOKEN na API e login do registro no agente, para quando as imagens também forem privadas.',
+      },
+    ],
+  },
+  {
     version: '0.62.0',
     date: '2026-10-30',
     title: 'Trocar de servidor de banco pelo painel',

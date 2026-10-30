@@ -197,7 +197,15 @@ sessão como o dono (ou o membro escolhido na aba Equipe), de no máximo 2 horas
 ### Atualizar o sistema pelo painel
 
 Tela “Servidor” → seção “Versão”. O painel consulta a última release do GitHub
-(`UPDATE_RELEASES_REPO`, padrão `dhqdev/comandou`) e o botão “Atualizar sistema” pede ao agente
+(`UPDATE_RELEASES_REPO`, padrão `dhqdev/comandou`). Com o repositório **privado**, essa consulta
+precisa de `UPDATE_GITHUB_TOKEN` na API (token fino só leitura, permissão *Contents: read* no
+repositório); sem token, o painel olha as próprias imagens no GHCR (`UPDATE_IMAGE_PREFIX`) e usa a
+maior tag `vX.Y.Z` presente em todas, o que basta enquanto os pacotes forem públicos. Se os
+pacotes também ficarem privados: use um token clássico com `read:packages` em
+`UPDATE_GITHUB_TOKEN` e, no agente, `AGENT_REGISTRY_USER` + `AGENT_REGISTRY_TOKEN` (ou `_FILE`);
+o agente manda esse login ao Docker ao conferir a imagem e ao atualizar cada serviço (como
+`--with-registry-auth`). Os nós do Swarm também precisam de `docker login ghcr.io` para o
+“Re-pull” do Portainer. O botão “Atualizar sistema” pede ao agente o botão “Atualizar sistema” pede ao agente
 para trocar a tag das imagens `ghcr.io/dhqdev/comandou-*` nos serviços do Swarm, nesta ordem:
 migração, demais serviços e, por último, o próprio agente. Regras de segurança: só muda a tag
 (o repositório da imagem é sempre o que já está no serviço; prefixo em `AGENT_IMAGE_PREFIX`), só

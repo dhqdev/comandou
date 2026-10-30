@@ -111,6 +111,13 @@ const schema = z.object({
     .string()
     .regex(/^[\w.-]+\/[\w.-]+$/)
     .default('dhqdev/comandou'),
+  /**
+   * Token do GitHub (só leitura) para achar a última versão com o repositório privado. Sem ele,
+   * o painel olha as tags das imagens no GHCR, que basta enquanto os pacotes forem públicos.
+   */
+  UPDATE_GITHUB_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
+  /** Prefixo das imagens do Comandou no GHCR (mesmo valor de AGENT_IMAGE_PREFIX do agente). */
+  UPDATE_IMAGE_PREFIX: z.string().default('ghcr.io/dhqdev/comandou-'),
   HOST_AGENT_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
   HOST_AGENT_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(24).optional()),
   /**
@@ -194,6 +201,7 @@ export const FILE_SECRET_VARS = [
   'METRICS_TOKEN',
   'TRAEFIK_PROVIDER_TOKEN',
   'HOST_AGENT_TOKEN',
+  'UPDATE_GITHUB_TOKEN',
 ] as const;
 
 /**

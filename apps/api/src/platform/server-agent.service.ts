@@ -43,26 +43,103 @@ export interface LatestRelease {
   publishedAt: string | null;
 }
 
-/** Última versão publicada no GitHub (consulta pública, guardada por 10 minutos). */
+const SEMVER = /^v(\d+)\.(\d+)\.(\d+)$/;
+const byVersion = (a: string, b: string) => {
+  const x = SEMVER.exec(a)!.slice(1).map(Number);
+  const y = SEMVER.exec(b)!.slice(1).map(Number);
+  return x[0]! - y[0]! || x[1]! - y[1]! || x[2]! - y[2]!;
+};
+/** Imagens que toda versão publica; a versão só conta quando existe em todas. */
+const IMAGES = ['api', 'web', 'backup', 'whatsapp-gateway'];
+
+/**
+ * Última versão publicada (guardada por 10 minutos). Primeiro pergunta às Releases do GitHub
+ * (com UPDATE_GITHUB_TOKEN, se houver: obrigatório quando o repositório é privado). Se não der,
+ * olha as próprias imagens no GHCR: a maior tag vX.Y.Z presente em todas. As imagens são o que a
+ * atualização usa, então isso funciona mesmo com o repositório privado e sem token.
+ */
 @Injectable()
 export class ReleaseFeed {
   private cache?: { at: number; value: LatestRelease };
   constructor(@Inject(ENV) private readonly env: Env) {}
 
-  /** Separado para os testes trocarem por uma resposta fixa. */
-  fetchLatest = async (): Promise<LatestRelease> => {
+  private get token() {
+    return this.env.UPDATE_GITHUB_TOKEN;
+  }
+
+  private async fromReleases(): Promise<LatestRelease> {
     const res = await fetch(
       `https://api.github.com/repos/${this.env.UPDATE_RELEASES_REPO}/releases/latest`,
       {
-        headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'comandou-painel' },
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'comandou-painel',
+          ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+        },
         signal: AbortSignal.timeout(10_000),
       },
     );
+    if (res.status === 404 || res.status === 401 || res.status === 403)
+      throw new Error(
+        this.token
+          ? `GitHub respondeu ${res.status}: confira se o token tem acesso ao repositório`
+          : `GitHub respondeu ${res.status} (repositório privado? configure UPDATE_GITHUB_TOKEN)`,
+      );
     if (!res.ok) throw new Error(`GitHub respondeu ${res.status}`);
     const r = (await res.json()) as { tag_name?: string; html_url?: string; published_at?: string };
-    if (!r.tag_name || !/^v\d+\.\d+\.\d+$/.test(r.tag_name))
-      throw new Error('release sem versão válida');
+    if (!r.tag_name || !SEMVER.test(r.tag_name)) throw new Error('release sem versão válida');
     return { version: r.tag_name, url: r.html_url ?? '', publishedAt: r.published_at ?? null };
+  }
+
+  /** Tags vX.Y.Z de uma imagem no GHCR (pública: token anônimo; privada: usuário + token). */
+  private async ghcrTags(repo: string): Promise<string[]> {
+    const auth: Record<string, string> = this.token
+      ? { Authorization: `Basic ${Buffer.from(`token:${this.token}`).toString('base64')}` }
+      : {};
+    const t = await fetch(`https://ghcr.io/token?scope=repository:${repo}:pull`, {
+      headers: auth,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!t.ok) throw new Error(`GHCR respondeu ${t.status}`);
+    const { token } = (await t.json()) as { token?: string };
+    const res = await fetch(`https://ghcr.io/v2/${repo}/tags/list?n=10000`, {
+      headers: { Authorization: `Bearer ${token ?? ''}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok)
+      throw new Error(
+        `GHCR respondeu ${res.status}${res.status === 401 || res.status === 403 ? ' (imagens privadas? configure UPDATE_GITHUB_TOKEN)' : ''}`,
+      );
+    const r = (await res.json()) as { tags?: string[] };
+    return (r.tags ?? []).filter((x) => SEMVER.test(x));
+  }
+
+  private async fromImages(): Promise<LatestRelease> {
+    if (!this.env.UPDATE_IMAGE_PREFIX.startsWith('ghcr.io/'))
+      throw new Error('UPDATE_IMAGE_PREFIX precisa ser do GHCR (ghcr.io/dono/nome-)');
+    const base = this.env.UPDATE_IMAGE_PREFIX.slice('ghcr.io/'.length);
+    const lists = await Promise.all(IMAGES.map((i) => this.ghcrTags(`${base}${i}`)));
+    const common = lists[0]!.filter((v) => lists.every((l) => l.includes(v))).sort(byVersion);
+    const version = common.at(-1);
+    if (!version) throw new Error('nenhuma versão publicada nas imagens');
+    return {
+      version,
+      url: `https://github.com/${this.env.UPDATE_RELEASES_REPO}/releases/tag/${version}`,
+      publishedAt: null,
+    };
+  }
+
+  /** Separado para os testes trocarem por uma resposta fixa. */
+  fetchLatest = async (): Promise<LatestRelease> => {
+    try {
+      return await this.fromReleases();
+    } catch (e) {
+      try {
+        return await this.fromImages();
+      } catch (e2) {
+        throw new Error(`${(e as Error).message}; imagens: ${(e2 as Error).message}`);
+      }
+    }
   };
 
   async latest(): Promise<{ latest: LatestRelease | null; error?: string }> {

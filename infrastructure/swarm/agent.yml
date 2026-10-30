@@ -20,6 +20,10 @@ services:
       AGENT_TOKEN_FILE: /run/secrets/comandou_agent_token
       HOST_PROC: /host/proc
       HOST_ROOT: /host/root
+      # Opcional: só se as imagens no GHCR ficarem privadas. Usuário do GitHub e um token com
+      # read:packages; o agente usa para conferir e baixar as imagens ao atualizar.
+      AGENT_REGISTRY_USER: ${GHCR_USER:-}
+      AGENT_REGISTRY_TOKEN: ${GHCR_TOKEN:-}
     secrets: [comandou_agent_token]
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
