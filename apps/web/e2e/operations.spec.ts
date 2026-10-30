@@ -179,10 +179,11 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   await tabPay.getByRole('button', { name: '2', exact: true }).click();
   await expect(tabPay.getByLabel('Valor')).toHaveValue('20,00');
   await shot(page, info.project.name, 'dividir-conta');
-  await tabPay.getByRole('button', { name: /Confirmar/ }).click();
-  await expect(dialog.locator('.tab-summary')).toContainText('R$ 20,00');
-  await dialog.getByRole('button', { name: 'Receber / dividir' }).click();
-  await tabPay.getByRole('button', { name: /Confirmar R\$ 20,00/ }).click();
+  // Cada pessoa paga a sua parte; a janela passa sozinha para a próxima.
+  await tabPay.getByRole('button', { name: /Receber parte 1 · R\$ 20,00/ }).click();
+  await expect(tabPay.locator('.pay-balance')).toContainText('Falta');
+  await tabPay.getByRole('button', { name: /Receber parte 2 · R\$ 20,00/ }).click();
+  await expect(page.getByRole('dialog', { name: /^Receber — comanda/ })).toBeHidden();
   await expect(dialog.getByRole('button', { name: 'Fechar conta' })).toBeEnabled();
   await dialog.getByRole('button', { name: 'Fechar conta' }).click();
   await expect(page.getByText(/há 1 pedido\(s\) ainda em produção/i)).toBeVisible();
