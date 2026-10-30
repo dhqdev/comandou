@@ -1,6 +1,7 @@
 import { formatDocument } from '@comandou/shared';
 import type { ReactNode } from 'react';
 import { Alert, Badge } from '../../design-system';
+import { TourButton } from '../../features/tour/PageTour';
 import type { FiscalDocument, FiscalIssue, FiscalKind, FiscalStatus } from '../../lib/types';
 
 type Tone = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
@@ -117,7 +118,10 @@ export function FiscalHead({
           <h1 className="page-title">{title}</h1>
           {children && <p className="page-sub">{children}</p>}
         </div>
-        {actions && <div className="fi-head__actions">{actions}</div>}
+        <div className="fi-head__actions">
+          <TourButton tour="fiscal" />
+          {actions}
+        </div>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
     </>

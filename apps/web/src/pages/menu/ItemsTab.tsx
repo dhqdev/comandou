@@ -11,6 +11,7 @@ import {
   Skeleton,
   TextField,
   useToast,
+  HelpScope,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { ImagePicker } from '../../features/ImagePicker';
@@ -28,6 +29,7 @@ import { useLinkParam } from '../../lib/deep-link';
 import { useRealtime } from '../../lib/realtime';
 import { brl } from '../../lib/money';
 import type { Family, GroupLink, OptionGroup } from './menu-data';
+import { CATEGORY_HELP } from '../../features/help/menu-help';
 
 const ITEM_TABS: ListTab[] = [
   { id: 'todos', label: 'Todos', filters: {} },
@@ -413,31 +415,33 @@ function CategoryModal({
     }
   }
   return (
-    <Modal
-      open={open}
-      title="Nova categoria"
-      onClose={onClose}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button type="submit" form="nova-categoria" loading={busy} disabled={!name.trim()}>
-            Salvar
-          </Button>
-        </>
-      }
-    >
-      <form id="nova-categoria" onSubmit={submit} style={{ display: 'grid', gap: 16 }}>
-        <TextField
-          label="Nome"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={80}
-          required
-        />
-        {error && <Alert tone="danger">{error}</Alert>}
-      </form>
-    </Modal>
+    <HelpScope dict={CATEGORY_HELP}>
+      <Modal
+        open={open}
+        title="Nova categoria"
+        onClose={onClose}
+        footer={
+          <>
+            <Button variant="ghost" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="submit" form="nova-categoria" loading={busy} disabled={!name.trim()}>
+              Salvar
+            </Button>
+          </>
+        }
+      >
+        <form id="nova-categoria" onSubmit={submit} style={{ display: 'grid', gap: 16 }}>
+          <TextField
+            label="Nome"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={80}
+            required
+          />
+          {error && <Alert tone="danger">{error}</Alert>}
+        </form>
+      </Modal>
+    </HelpScope>
   );
 }

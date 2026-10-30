@@ -10,11 +10,13 @@ import {
   Spinner,
   TextField,
   useToast,
+  HelpScope,
 } from '../../design-system';
 import { SelectField } from '../../features/forms';
 import { api } from '../../lib/api';
 import type { FiscalKind, FiscalVoid } from '../../lib/types';
 import { FiscalHead, fmtDateTime, KIND_LABEL } from './common';
+import { VOID_HELP } from '../../features/help/fiscal-help';
 
 interface Gap {
   kind: FiscalKind;
@@ -95,165 +97,169 @@ export function VoidsSection() {
   }
 
   return (
-    <div className="fi-page">
-      <FiscalHead title="Inutilização" error={error}>
-        Quando um número de nota é pulado (falha na emissão, nota apagada), a SEFAZ precisa saber
-        que ele não será usado. Inutilize até o dia 10 do mês seguinte.
-      </FiscalHead>
+    <HelpScope dict={VOID_HELP}>
+      <div className="fi-page">
+        <FiscalHead title="Inutilização" error={error}>
+          Quando um número de nota é pulado (falha na emissão, nota apagada), a SEFAZ precisa saber
+          que ele não será usado. Inutilize até o dia 10 do mês seguinte.
+        </FiscalHead>
 
-      {gapRanges.length > 0 && (
-        <Card title="Números pulados">
-          <p className="cm-hint" style={{ marginTop: 0 }}>
-            Estes números ficaram entre notas emitidas e não têm nota nem inutilização.
-          </p>
-          <ul className="fi-list fi-links">
-            {gapRanges.map((g) => (
-              <li key={`${g.kind}-${g.series}-${g.from}`}>
-                <strong>{KIND_LABEL[g.kind]}</strong>
-                <span>
-                  série {g.series} · {g.from === g.to ? `nº ${g.from}` : `nº ${g.from} a ${g.to}`}
-                </span>
-                {canManage && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setKind(g.kind);
-                      setSeries(String(g.series));
-                      setFrom(String(g.from));
-                      setTo(String(g.to));
-                    }}
-                  >
-                    Preencher
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
-      {canManage && (
-        <Card title="Inutilizar números">
-          <form className="fi-tab" onSubmit={submit}>
-            <div className="fi-fields">
-              <SelectField
-                label="Tipo"
-                value={kind}
-                onChange={(e) => setKind(e.target.value as FiscalKind)}
-              >
-                <option value="nfce">NFC-e</option>
-                <option value="nfe">NF-e</option>
-              </SelectField>
-              <TextField
-                label="Série"
-                inputMode="numeric"
-                value={series}
-                maxLength={3}
-                onChange={(e) => setSeries(e.target.value.replace(/\D/g, ''))}
-              />
-              <TextField
-                label="Do número"
-                inputMode="numeric"
-                value={from}
-                onChange={(e) => setFrom(e.target.value.replace(/\D/g, ''))}
-              />
-              <TextField
-                label="Até o número"
-                inputMode="numeric"
-                value={to}
-                placeholder={from}
-                onChange={(e) => setTo(e.target.value.replace(/\D/g, ''))}
-                error={to && from && Number(to) < Number(from) ? 'Menor que o inicial' : undefined}
-              />
-              <TextField
-                label="Justificativa"
-                value={reason}
-                maxLength={255}
-                onChange={(e) => setReason(e.target.value)}
-                hint="Mínimo de 15 caracteres. Ex.: falha no sistema durante a emissão."
-                wrapClass="fi-span"
-              />
-            </div>
-            <div className="fi-actions">
-              <span className="cm-hint" style={{ marginRight: 'auto', alignSelf: 'center' }}>
-                Não tem volta: o número nunca mais pode virar nota.
-              </span>
-              <Button
-                type="submit"
-                variant="danger"
-                loading={busy}
-                disabled={
-                  !from ||
-                  !series ||
-                  reason.trim().length < 15 ||
-                  (!!to && Number(to) < Number(from))
-                }
-              >
-                Inutilizar
-              </Button>
-            </div>
-          </form>
-          {formError && <Alert tone="danger">{formError}</Alert>}
-        </Card>
-      )}
-
-      <Card bodyless title="Histórico">
-        {rows === null ? (
-          <div className="cm-card__body">
-            <Spinner />
-          </div>
-        ) : rows.length === 0 ? (
-          <EmptyState
-            icon={<Ban size={20} />}
-            title="Nenhuma inutilização"
-            description="Os pedidos de inutilização aparecem aqui."
-          />
-        ) : (
-          <div className="fi-table-wrap">
-            <table className="cm-table fi-table">
-              <thead>
-                <tr>
-                  <th>Números</th>
-                  <th>Situação</th>
-                  <th>Quando</th>
-                  <th>Justificativa</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((v) => (
-                  <tr key={v.id}>
-                    <td>
-                      <strong>
-                        {KIND_LABEL[v.kind]} · série {v.series}
-                      </strong>
-                      <div className="cm-hint">
-                        {v.numberFrom === v.numberTo
-                          ? `nº ${v.numberFrom}`
-                          : `nº ${v.numberFrom} a ${v.numberTo}`}
-                        {v.environment === 'homologacao' && ' · homologação'}
-                      </div>
-                    </td>
-                    <td>
-                      <Badge tone={v.status === 'authorized' ? 'success' : 'danger'}>
-                        {v.status === 'authorized' ? 'Inutilizada' : 'Recusada'}
-                      </Badge>
-                      {v.status !== 'authorized' && v.sefazMessage && (
-                        <div className="cm-hint fi-row__why">{v.sefazMessage}</div>
-                      )}
-                    </td>
-                    <td>
-                      {fmtDateTime(v.createdAt)}
-                      {v.createdByName && <div className="cm-hint">{v.createdByName}</div>}
-                    </td>
-                    <td>{v.reason}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {gapRanges.length > 0 && (
+          <Card title="Números pulados">
+            <p className="cm-hint" style={{ marginTop: 0 }}>
+              Estes números ficaram entre notas emitidas e não têm nota nem inutilização.
+            </p>
+            <ul className="fi-list fi-links">
+              {gapRanges.map((g) => (
+                <li key={`${g.kind}-${g.series}-${g.from}`}>
+                  <strong>{KIND_LABEL[g.kind]}</strong>
+                  <span>
+                    série {g.series} · {g.from === g.to ? `nº ${g.from}` : `nº ${g.from} a ${g.to}`}
+                  </span>
+                  {canManage && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setKind(g.kind);
+                        setSeries(String(g.series));
+                        setFrom(String(g.from));
+                        setTo(String(g.to));
+                      }}
+                    >
+                      Preencher
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Card>
         )}
-      </Card>
-    </div>
+
+        {canManage && (
+          <Card title="Inutilizar números">
+            <form className="fi-tab" onSubmit={submit}>
+              <div className="fi-fields">
+                <SelectField
+                  label="Tipo"
+                  value={kind}
+                  onChange={(e) => setKind(e.target.value as FiscalKind)}
+                >
+                  <option value="nfce">NFC-e</option>
+                  <option value="nfe">NF-e</option>
+                </SelectField>
+                <TextField
+                  label="Série"
+                  inputMode="numeric"
+                  value={series}
+                  maxLength={3}
+                  onChange={(e) => setSeries(e.target.value.replace(/\D/g, ''))}
+                />
+                <TextField
+                  label="Do número"
+                  inputMode="numeric"
+                  value={from}
+                  onChange={(e) => setFrom(e.target.value.replace(/\D/g, ''))}
+                />
+                <TextField
+                  label="Até o número"
+                  inputMode="numeric"
+                  value={to}
+                  placeholder={from}
+                  onChange={(e) => setTo(e.target.value.replace(/\D/g, ''))}
+                  error={
+                    to && from && Number(to) < Number(from) ? 'Menor que o inicial' : undefined
+                  }
+                />
+                <TextField
+                  label="Justificativa"
+                  value={reason}
+                  maxLength={255}
+                  onChange={(e) => setReason(e.target.value)}
+                  hint="Mínimo de 15 caracteres. Ex.: falha no sistema durante a emissão."
+                  wrapClass="fi-span"
+                />
+              </div>
+              <div className="fi-actions">
+                <span className="cm-hint" style={{ marginRight: 'auto', alignSelf: 'center' }}>
+                  Não tem volta: o número nunca mais pode virar nota.
+                </span>
+                <Button
+                  type="submit"
+                  variant="danger"
+                  loading={busy}
+                  disabled={
+                    !from ||
+                    !series ||
+                    reason.trim().length < 15 ||
+                    (!!to && Number(to) < Number(from))
+                  }
+                >
+                  Inutilizar
+                </Button>
+              </div>
+            </form>
+            {formError && <Alert tone="danger">{formError}</Alert>}
+          </Card>
+        )}
+
+        <Card bodyless title="Histórico">
+          {rows === null ? (
+            <div className="cm-card__body">
+              <Spinner />
+            </div>
+          ) : rows.length === 0 ? (
+            <EmptyState
+              icon={<Ban size={20} />}
+              title="Nenhuma inutilização"
+              description="Os pedidos de inutilização aparecem aqui."
+            />
+          ) : (
+            <div className="fi-table-wrap">
+              <table className="cm-table fi-table">
+                <thead>
+                  <tr>
+                    <th>Números</th>
+                    <th>Situação</th>
+                    <th>Quando</th>
+                    <th>Justificativa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((v) => (
+                    <tr key={v.id}>
+                      <td>
+                        <strong>
+                          {KIND_LABEL[v.kind]} · série {v.series}
+                        </strong>
+                        <div className="cm-hint">
+                          {v.numberFrom === v.numberTo
+                            ? `nº ${v.numberFrom}`
+                            : `nº ${v.numberFrom} a ${v.numberTo}`}
+                          {v.environment === 'homologacao' && ' · homologação'}
+                        </div>
+                      </td>
+                      <td>
+                        <Badge tone={v.status === 'authorized' ? 'success' : 'danger'}>
+                          {v.status === 'authorized' ? 'Inutilizada' : 'Recusada'}
+                        </Badge>
+                        {v.status !== 'authorized' && v.sefazMessage && (
+                          <div className="cm-hint fi-row__why">{v.sefazMessage}</div>
+                        )}
+                      </td>
+                      <td>
+                        {fmtDateTime(v.createdAt)}
+                        {v.createdByName && <div className="cm-hint">{v.createdByName}</div>}
+                      </td>
+                      <td>{v.reason}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </div>
+    </HelpScope>
   );
 }

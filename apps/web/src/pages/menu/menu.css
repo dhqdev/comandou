@@ -468,3 +468,22 @@
     justify-content: end;
   }
 }
+
+/* Título com o botão Tutorial ao lado; no cadastro do item, Tutorial + Salvar à direita. */
+.mn-head__title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--cm-space-2) var(--cm-space-3);
+}
+.mn-crumbs__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+}
+@media (max-width: 640px) {
+  /* Na trilha que gruda no topo, o Tutorial vira só o ícone. */
+  .mn-crumbs .tour-btn__text {
+    display: none;
+  }
+}

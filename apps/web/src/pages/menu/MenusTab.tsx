@@ -11,12 +11,14 @@ import {
   Skeleton,
   TextField,
   useToast,
+  HelpScope,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { SelectField } from '../../features/forms';
 import { api } from '../../lib/api';
 import { useRealtime } from '../../lib/realtime';
 import { MENU_KIND, type MenuDef } from './menu-data';
+import { MENUS_HELP } from '../../features/help/menu-help';
 
 /** Cardápios do restaurante: o ativo de cada tipo vale nos canais dele. */
 export function MenusTab() {
@@ -179,62 +181,64 @@ function NewMenuModal({
     }
   }
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Novo cardápio"
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button loading={busy} disabled={!name.trim()} onClick={save}>
-            Criar cardápio
-          </Button>
-        </>
-      }
-    >
-      <div className="cm-form">
-        <TextField
-          label="Nome"
-          wrapClass="cm-form__wide"
-          placeholder="Ex.: Delivery fim de semana"
-          value={name}
-          maxLength={60}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <SelectField
-          label="Tipo"
-          value={kind}
-          onChange={(e) => setKind(e.target.value as MenuKind)}
-        >
-          {(Object.keys(MENU_KIND) as MenuKind[]).map((k) => (
-            <option key={k} value={k}>
-              {MENU_KIND[k].label} ({MENU_KIND[k].where.toLowerCase()})
-            </option>
-          ))}
-        </SelectField>
-        <SelectField
-          label="Começar com"
-          value={copyFrom}
-          onChange={(e) => setCopyFrom(e.target.value)}
-        >
-          <option value="">Todos os itens, no preço do item</option>
-          {menus.map((m) => (
-            <option key={m.id} value={m.id}>
-              Uma cópia de {m.name}
-            </option>
-          ))}
-        </SelectField>
-        {willPause && (
-          <p className="cm-hint cm-form__wide" style={{ margin: 0 }}>
-            <BookMarked size={14} aria-hidden /> Já existe um cardápio {MENU_KIND[kind].label}{' '}
-            ativo. O novo começa pausado: quando estiver pronto, toque em Ativar e ele substitui o
-            atual.
-          </p>
-        )}
-        {error && <Alert tone="danger">{error}</Alert>}
-      </div>
-    </Modal>
+    <HelpScope dict={MENUS_HELP}>
+      <Modal
+        open={open}
+        onClose={onClose}
+        title="Novo cardápio"
+        footer={
+          <>
+            <Button variant="ghost" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button loading={busy} disabled={!name.trim()} onClick={save}>
+              Criar cardápio
+            </Button>
+          </>
+        }
+      >
+        <div className="cm-form">
+          <TextField
+            label="Nome"
+            wrapClass="cm-form__wide"
+            placeholder="Ex.: Delivery fim de semana"
+            value={name}
+            maxLength={60}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <SelectField
+            label="Tipo"
+            value={kind}
+            onChange={(e) => setKind(e.target.value as MenuKind)}
+          >
+            {(Object.keys(MENU_KIND) as MenuKind[]).map((k) => (
+              <option key={k} value={k}>
+                {MENU_KIND[k].label} ({MENU_KIND[k].where.toLowerCase()})
+              </option>
+            ))}
+          </SelectField>
+          <SelectField
+            label="Começar com"
+            value={copyFrom}
+            onChange={(e) => setCopyFrom(e.target.value)}
+          >
+            <option value="">Todos os itens, no preço do item</option>
+            {menus.map((m) => (
+              <option key={m.id} value={m.id}>
+                Uma cópia de {m.name}
+              </option>
+            ))}
+          </SelectField>
+          {willPause && (
+            <p className="cm-hint cm-form__wide" style={{ margin: 0 }}>
+              <BookMarked size={14} aria-hidden /> Já existe um cardápio {MENU_KIND[kind].label}{' '}
+              ativo. O novo começa pausado: quando estiver pronto, toque em Ativar e ele substitui o
+              atual.
+            </p>
+          )}
+          {error && <Alert tone="danger">{error}</Alert>}
+        </div>
+      </Modal>
+    </HelpScope>
   );
 }

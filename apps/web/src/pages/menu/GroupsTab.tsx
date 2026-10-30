@@ -11,6 +11,8 @@ import {
   Skeleton,
   TextField,
   useToast,
+  HelpScope,
+  HelpTip,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { SelectField } from '../../features/forms';
@@ -25,6 +27,7 @@ import {
   type GroupLink,
   type OptionGroup,
 } from './menu-data';
+import { GROUP_HELP } from '../../features/help/menu-help';
 
 /** Lista dos grupos de complementos; o editor abre por cima. */
 export function GroupsTab() {
@@ -308,233 +311,240 @@ export function GroupEditor({
 
   const free = kind === 'remove';
   return (
-    <Modal
-      open={!!group}
-      onClose={onClose}
-      size="xl"
-      title={isNew ? 'Novo grupo de complementos' : name || 'Grupo'}
-      footer={
-        canWrite && (
-          <>
-            <Button variant="ghost" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button loading={busy} disabled={!valid} onClick={save}>
-              Salvar grupo
-            </Button>
-          </>
-        )
-      }
-    >
-      <div className="cm-form">
-        <TextField
-          label="Nome do grupo"
-          wrapClass="cm-form__wide"
-          placeholder="Ex.: Adicionais do burger"
-          value={name}
-          maxLength={80}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <SelectField
-          label="Tipo"
-          value={kind}
-          onChange={(e) => changeKind(e.target.value as OptionGroupKind)}
-        >
-          {Object.entries(GROUP_KIND).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v.label}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField
-          label="Cobrança"
-          value={charge}
-          disabled={free}
-          onChange={(e) => setCharge(e.target.value as ChargeRule)}
-        >
-          {Object.entries(CHARGE).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </SelectField>
-        <div className="cm-field mn-minmax">
+    <HelpScope dict={GROUP_HELP}>
+      <Modal
+        open={!!group}
+        onClose={onClose}
+        size="xl"
+        title={isNew ? 'Novo grupo de complementos' : name || 'Grupo'}
+        footer={
+          canWrite && (
+            <>
+              <Button variant="ghost" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button loading={busy} disabled={!valid} onClick={save}>
+                Salvar grupo
+              </Button>
+            </>
+          )
+        }
+      >
+        <div className="cm-form">
           <TextField
-            label="Mínimo"
-            inputMode="numeric"
-            value={min}
-            onChange={(e) => setMin(e.target.value.replace(/\D/g, ''))}
+            label="Nome do grupo"
+            wrapClass="cm-form__wide"
+            placeholder="Ex.: Adicionais do burger"
+            value={name}
+            maxLength={80}
+            onChange={(e) => setName(e.target.value)}
           />
-          <TextField
-            label="Máximo"
-            inputMode="numeric"
-            value={max}
-            error={rangeErr}
-            onChange={(e) => setMax(e.target.value.replace(/\D/g, ''))}
-          />
-        </div>
-        <p className="cm-hint mn-note">
-          {GROUP_KIND[kind].hint}{' '}
-          {minN > 0 ? 'Obrigatório: o pedido só segue com a escolha feita.' : 'Opcional.'}
-        </p>
-        {!isNew && (
-          <label className="mn-check cm-form__wide">
-            <input
-              type="checkbox"
-              checked={!active}
-              onChange={(e) => setActive(!e.target.checked)}
+          <SelectField
+            label="Tipo"
+            value={kind}
+            onChange={(e) => changeKind(e.target.value as OptionGroupKind)}
+          >
+            {Object.entries(GROUP_KIND).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v.label}
+              </option>
+            ))}
+          </SelectField>
+          <SelectField
+            label="Cobrança"
+            value={charge}
+            disabled={free}
+            onChange={(e) => setCharge(e.target.value as ChargeRule)}
+          >
+            {Object.entries(CHARGE).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </SelectField>
+          <div className="cm-field mn-minmax">
+            <TextField
+              label="Mínimo"
+              inputMode="numeric"
+              value={min}
+              onChange={(e) => setMin(e.target.value.replace(/\D/g, ''))}
             />
-            Pausar o grupo (some do PDV, do garçom e do cardápio online)
-          </label>
-        )}
-
-        <h3 className="cm-form__section">Opções do grupo</h3>
-        <div className="mn-opts cm-form__wide">
-          <div className="mn-opts__head" aria-hidden>
-            <span>Opção</span>
-            <span>Preço</span>
-            <span>Padrão</span>
-            <span>Disponível</span>
-            <span />
+            <TextField
+              label="Máximo"
+              inputMode="numeric"
+              value={max}
+              error={rangeErr}
+              onChange={(e) => setMax(e.target.value.replace(/\D/g, ''))}
+            />
           </div>
-          {rows.map((r, i) => (
-            <div key={r.key} className="mn-opts__row">
-              <input
-                className="cm-input"
-                aria-label={`Opção ${i + 1}`}
-                placeholder={free ? 'Ex.: Sem cebola' : 'Ex.: Bacon'}
-                value={r.name}
-                maxLength={80}
-                onChange={(e) =>
-                  setRows((x) =>
-                    x.map((y) => (y.key === r.key ? { ...y, name: e.target.value } : y)),
-                  )
-                }
-              />
-              <input
-                className="cm-input cm-num"
-                aria-label={`Preço adicional ${i + 1}`}
-                inputMode="decimal"
-                placeholder="R$ 0,00"
-                disabled={free}
-                value={r.price}
-                aria-invalid={priceErr(r) || undefined}
-                onChange={(e) =>
-                  setRows((x) =>
-                    x.map((y) => (y.key === r.key ? { ...y, price: e.target.value } : y)),
-                  )
-                }
-              />
-              <label className="mn-opts__check">
+          <p className="cm-hint mn-note">
+            {GROUP_KIND[kind].hint}{' '}
+            {minN > 0 ? 'Obrigatório: o pedido só segue com a escolha feita.' : 'Opcional.'}
+          </p>
+          {!isNew && (
+            <span className="cm-label-row cm-form__wide">
+              <label className="mn-check">
                 <input
                   type="checkbox"
-                  aria-label={`Padrão ${i + 1}`}
-                  checked={r.isDefault}
-                  onChange={(e) =>
-                    setRows((x) =>
-                      x.map((y) => (y.key === r.key ? { ...y, isDefault: e.target.checked } : y)),
-                    )
-                  }
+                  checked={!active}
+                  onChange={(e) => setActive(!e.target.checked)}
                 />
-                <span className="mn-opts__label">Padrão</span>
+                Pausar o grupo (some do PDV, do garçom e do cardápio online)
               </label>
-              <label className="mn-opts__check">
-                <input
-                  type="checkbox"
-                  aria-label={`Disponível ${i + 1}`}
-                  checked={r.active}
-                  onChange={(e) =>
-                    setRows((x) =>
-                      x.map((y) => (y.key === r.key ? { ...y, active: e.target.checked } : y)),
-                    )
-                  }
-                />
-                <span className="mn-opts__label">Disponível</span>
-              </label>
-              <span className="mn-opts__tools">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Subir opção"
-                  icon={<ArrowUp size={14} />}
-                  disabled={i === 0}
-                  onClick={() => move(i, -1)}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Descer opção"
-                  icon={<ArrowDown size={14} />}
-                  disabled={i === rows.length - 1}
-                  onClick={() => move(i, 1)}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label="Remover opção"
-                  icon={<Trash2 size={14} />}
-                  disabled={rows.length === 1}
-                  onClick={() => setRows((x) => x.filter((y) => y.key !== r.key))}
-                />
-              </span>
-            </div>
-          ))}
-          {defaults > maxN && (
-            <span className="cm-error-text">
-              Há mais opções padrão ({defaults}) do que o máximo ({maxN}).
+              <HelpTip label="Pausar o grupo" />
             </span>
           )}
-          <div>
-            <Button
-              variant="secondary"
-              icon={<Plus size={14} />}
-              onClick={() => setRows((x) => [...x, emptyRow()])}
-            >
-              Mais uma opção
-            </Button>
-          </div>
-          {charge !== 'sum' && !free && filled.length > 1 && (
-            <p className="cm-hint" style={{ margin: 0 }}>
-              Exemplo: escolhendo {filled[0]!.name || 'a 1ª'} e {filled[1]!.name || 'a 2ª'}, o
-              cliente paga {charge === 'max' ? 'só a mais cara' : 'a média das duas'}.
-            </p>
-          )}
-        </div>
 
-        <h3 className="cm-form__section">Itens que usam este grupo ({usedBy.length})</h3>
-        <div className="mn-picker cm-form__wide">
-          <div className="mn-search mn-search--flat">
-            <Search size={16} aria-hidden />
-            <input
-              className="cm-input"
-              type="search"
-              aria-label="Buscar item para o grupo"
-              placeholder="Buscar item"
-              value={pickSearch}
-              onChange={(e) => setPickSearch(e.target.value)}
-            />
-          </div>
-          <div className="mn-picker__list">
-            {pickable.map((p) => (
-              <label key={p.id} className="mn-check">
+          <h3 className="cm-form__section cm-sec-help">
+            Opções do grupo <HelpTip label="Opções do grupo" />
+          </h3>
+          <div className="mn-opts cm-form__wide">
+            <div className="mn-opts__head" aria-hidden>
+              <span>Opção</span>
+              <span>Preço</span>
+              <span>Padrão</span>
+              <span>Disponível</span>
+              <span />
+            </div>
+            {rows.map((r, i) => (
+              <div key={r.key} className="mn-opts__row">
                 <input
-                  type="checkbox"
-                  checked={usedBy.includes(p.id)}
+                  className="cm-input"
+                  aria-label={`Opção ${i + 1}`}
+                  placeholder={free ? 'Ex.: Sem cebola' : 'Ex.: Bacon'}
+                  value={r.name}
+                  maxLength={80}
                   onChange={(e) =>
-                    setUsedBy((u) =>
-                      e.target.checked ? [...u, p.id] : u.filter((x) => x !== p.id),
+                    setRows((x) =>
+                      x.map((y) => (y.key === r.key ? { ...y, name: e.target.value } : y)),
                     )
                   }
                 />
-                <span>{p.name}</span>
-                <span className="cm-hint">{brl(p.price)}</span>
-              </label>
+                <input
+                  className="cm-input cm-num"
+                  aria-label={`Preço adicional ${i + 1}`}
+                  inputMode="decimal"
+                  placeholder="R$ 0,00"
+                  disabled={free}
+                  value={r.price}
+                  aria-invalid={priceErr(r) || undefined}
+                  onChange={(e) =>
+                    setRows((x) =>
+                      x.map((y) => (y.key === r.key ? { ...y, price: e.target.value } : y)),
+                    )
+                  }
+                />
+                <label className="mn-opts__check">
+                  <input
+                    type="checkbox"
+                    aria-label={`Padrão ${i + 1}`}
+                    checked={r.isDefault}
+                    onChange={(e) =>
+                      setRows((x) =>
+                        x.map((y) => (y.key === r.key ? { ...y, isDefault: e.target.checked } : y)),
+                      )
+                    }
+                  />
+                  <span className="mn-opts__label">Padrão</span>
+                </label>
+                <label className="mn-opts__check">
+                  <input
+                    type="checkbox"
+                    aria-label={`Disponível ${i + 1}`}
+                    checked={r.active}
+                    onChange={(e) =>
+                      setRows((x) =>
+                        x.map((y) => (y.key === r.key ? { ...y, active: e.target.checked } : y)),
+                      )
+                    }
+                  />
+                  <span className="mn-opts__label">Disponível</span>
+                </label>
+                <span className="mn-opts__tools">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Subir opção"
+                    icon={<ArrowUp size={14} />}
+                    disabled={i === 0}
+                    onClick={() => move(i, -1)}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Descer opção"
+                    icon={<ArrowDown size={14} />}
+                    disabled={i === rows.length - 1}
+                    onClick={() => move(i, 1)}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Remover opção"
+                    icon={<Trash2 size={14} />}
+                    disabled={rows.length === 1}
+                    onClick={() => setRows((x) => x.filter((y) => y.key !== r.key))}
+                  />
+                </span>
+              </div>
             ))}
-            {!pickable.length && <span className="cm-hint">Nenhum item.</span>}
+            {defaults > maxN && (
+              <span className="cm-error-text">
+                Há mais opções padrão ({defaults}) do que o máximo ({maxN}).
+              </span>
+            )}
+            <div>
+              <Button
+                variant="secondary"
+                icon={<Plus size={14} />}
+                onClick={() => setRows((x) => [...x, emptyRow()])}
+              >
+                Mais uma opção
+              </Button>
+            </div>
+            {charge !== 'sum' && !free && filled.length > 1 && (
+              <p className="cm-hint" style={{ margin: 0 }}>
+                Exemplo: escolhendo {filled[0]!.name || 'a 1ª'} e {filled[1]!.name || 'a 2ª'}, o
+                cliente paga {charge === 'max' ? 'só a mais cara' : 'a média das duas'}.
+              </p>
+            )}
           </div>
+
+          <h3 className="cm-form__section">Itens que usam este grupo ({usedBy.length})</h3>
+          <div className="mn-picker cm-form__wide">
+            <div className="mn-search mn-search--flat">
+              <Search size={16} aria-hidden />
+              <input
+                className="cm-input"
+                type="search"
+                aria-label="Buscar item para o grupo"
+                placeholder="Buscar item"
+                value={pickSearch}
+                onChange={(e) => setPickSearch(e.target.value)}
+              />
+            </div>
+            <div className="mn-picker__list">
+              {pickable.map((p) => (
+                <label key={p.id} className="mn-check">
+                  <input
+                    type="checkbox"
+                    checked={usedBy.includes(p.id)}
+                    onChange={(e) =>
+                      setUsedBy((u) =>
+                        e.target.checked ? [...u, p.id] : u.filter((x) => x !== p.id),
+                      )
+                    }
+                  />
+                  <span>{p.name}</span>
+                  <span className="cm-hint">{brl(p.price)}</span>
+                </label>
+              ))}
+              {!pickable.length && <span className="cm-hint">Nenhum item.</span>}
+            </div>
+          </div>
+          {error && <Alert tone="danger">{error}</Alert>}
         </div>
-        {error && <Alert tone="danger">{error}</Alert>}
-      </div>
-    </Modal>
+      </Modal>
+    </HelpScope>
   );
 }

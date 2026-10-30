@@ -1654,3 +1654,137 @@ input[type='radio'] {
   box-shadow: none;
   border-color: transparent;
 }
+
+/* =============================================================== Ajuda de campo (?)
+ * Bolinha discreta ao lado do rótulo; o balão explica o campo e leva à tela relacionada.
+ */
+.cm-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+.cm-help {
+  flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 999px;
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color var(--cm-dur-fast) var(--cm-ease),
+    border-color var(--cm-dur-fast) var(--cm-ease),
+    background-color var(--cm-dur-fast) var(--cm-ease);
+}
+/* Área de toque maior que o desenho no celular. */
+.cm-help {
+  position: relative;
+}
+.cm-help::after {
+  content: '';
+  position: absolute;
+  inset: -10px;
+}
+.cm-help:hover,
+.cm-help[aria-expanded='true'] {
+  color: var(--cm-text);
+  border-color: color-mix(in srgb, var(--cm-brand-500) 60%, var(--cm-border-strong));
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+}
+.cm-help:focus-visible {
+  outline: 2px solid var(--cm-brand-500);
+  outline-offset: 2px;
+}
+.cm-help-bubble {
+  position: fixed;
+  z-index: 1002;
+  top: -9999px;
+  left: -9999px;
+  width: min(320px, calc(100vw - 16px));
+  padding: var(--cm-space-3);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  box-shadow: var(--cm-shadow-lg, 0 12px 32px rgb(0 0 0 / 0.18));
+  font-size: var(--cm-text-sm);
+  line-height: 1.45;
+  text-align: left;
+  font-weight: 400;
+}
+.cm-help-bubble:not([data-placed]) {
+  visibility: hidden;
+}
+.cm-help-bubble__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--cm-space-2);
+  margin-bottom: 4px;
+}
+.cm-help-bubble__head button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: -4px -4px 0 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.cm-help-bubble p {
+  margin: 0;
+  color: var(--cm-text-muted);
+}
+.cm-help-bubble p + p {
+  margin-top: 6px;
+}
+.cm-help-bubble__ex b {
+  color: var(--cm-text);
+  font-weight: 600;
+}
+.cm-help-bubble__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: var(--cm-space-2);
+  font-weight: 600;
+  color: var(--cm-link, var(--cm-brand-700, var(--cm-text)));
+  text-decoration: none;
+}
+.cm-help-bubble__link:hover {
+  text-decoration: underline;
+}
+/* CheckField com ajuda: o "?" fica no canto, fora do <label> (não marca a caixa). */
+.cm-help-wrap {
+  position: relative;
+  min-width: 0;
+}
+.cm-help-wrap > .check-field {
+  padding-right: calc(var(--cm-space-3) + 26px);
+}
+.cm-help-wrap .check-field__text {
+  padding-right: 22px;
+}
+.cm-help-wrap > .cm-help {
+  position: absolute;
+  top: var(--cm-space-3);
+  right: var(--cm-space-3);
+}
+/* Título de seção com ajuda. */
+.cm-sec-help {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

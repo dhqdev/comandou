@@ -7,6 +7,8 @@ import {
   Badge,
   Button,
   Card,
+  HelpLabel,
+  HelpTip,
   Modal,
   Spinner,
   TextField,
@@ -148,6 +150,7 @@ export function SettingsSection() {
         <div className="fi-tabbody">
           {tab === 'empresa' && (
             <div data-search-id="secao-focus">
+              {s.managedAvailable && <HelpLabel as="span">Como conectar à Focus NFe</HelpLabel>}
               {s.managedAvailable && (
                 <div
                   className="fi-connect"
@@ -722,7 +725,7 @@ function GeneralTab({ s, busy, save }: { s: FiscalSettings; busy: boolean; save:
         onChange={(v) => void save({ emailCustomer: v })}
       />
       <label className="cm-field">
-        <span className="cm-label">Observação em todas as notas</span>
+        <HelpLabel as="span">Observação em todas as notas</HelpLabel>
         <textarea
           className="cm-input"
           rows={2}
@@ -780,7 +783,9 @@ function GeneralTab({ s, busy, save }: { s: FiscalSettings; busy: boolean; save:
 function Sub({ title, hint, children }: { title: string; hint?: string; children?: ReactNode }) {
   return (
     <div className="fi-subwrap">
-      <h3 className="fi-sub">{title}</h3>
+      <h3 className="fi-sub cm-sec-help">
+        {title} <HelpTip label={title} />
+      </h3>
       {hint && <p className="cm-hint">{hint}</p>}
       {children}
     </div>

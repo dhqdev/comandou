@@ -10,12 +10,13 @@ import {
 } from '@comandou/shared';
 import { Check } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Button, Modal, TextField, useToast, Select } from '../design-system';
+import { Alert, Button, HelpScope, Modal, TextField, useToast, Select } from '../design-system';
 import { api, ApiError } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
 import type { CashSession } from '../lib/types';
 import { PAYMENT_METHOD_LABELS } from './format';
+import { PAYMENT_FISCAL_HELP } from './help/fiscal-help';
 
 const SESSION_KEY = 'pm.cashSession';
 const brInput = (v: string) => v.replace('.', ',');
@@ -276,140 +277,148 @@ export function PaymentModal({
 
   const label = target.kind === 'order' ? `pedido #${target.number}` : `comanda ${target.number}`;
   return (
-    <Modal
-      open={open}
-      onClose={close}
-      title={`Receber — ${label}`}
-      footer={
-        <>
-          <Button variant="ghost" onClick={close}>
-            {paidCount > 0 ? 'Fechar' : 'Cancelar'}
-          </Button>
-          <Button
-            loading={busy}
-            disabled={
-              !parsed ||
-              !sessionId ||
-              !!taxError ||
-              toCents(parsed) <= 0 ||
-              toCents(parsed) > remainingCents ||
-              (method === 'cash' && !!tendered && change < 0)
-            }
-            onClick={pay}
-          >
-            {parts > 1 ? `Receber parte ${current + 1} · ` : 'Confirmar '}
-            {parsed ? brl(parsed) : ''}
-          </Button>
-        </>
-      }
-    >
-      <div style={{ display: 'grid', gap: 16 }}>
-        <div className="pay-balance">
-          <span>{paidCount > 0 ? 'Falta' : 'Saldo'}</span>
-          <strong>{brl(fromCents(remainingCents))}</strong>
-        </div>
-        {sessions !== null && sessions.length === 0 ? (
-          <Alert tone="warning">Nenhum caixa aberto para receber pagamentos.</Alert>
-        ) : (
-          <label className="cm-field">
-            <span className="cm-label">Caixa</span>
-            <Select className="cm-input" value={sessionId} onChange={(e) => choose(e.target.value)}>
-              {(sessions ?? []).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.registerName} · sessão {s.number}
-                </option>
-              ))}
-            </Select>
-          </label>
-        )}
-        <SplitPicker value={parts} min={Math.max(paidCount + 1, 1)} onChange={split} />
-        {parts > 1 && (
-          <ol className="pay-parts" aria-label="Partes da conta">
-            {plan.map((p, i) => (
-              <li key={i}>
-                <button
-                  type="button"
-                  className="pay-part"
-                  data-paid={p.paid ? true : undefined}
-                  aria-current={i === current && !p.paid ? 'step' : undefined}
-                  disabled={!!p.paid || busy}
-                  onClick={() => goTo(plan, i)}
-                >
-                  <span className="pay-part__who">Pessoa {i + 1}</span>
-                  <strong>{brl(fromCents(p.cents))}</strong>
-                  <span className="pay-part__state">
-                    {p.paid ? (
-                      <>
-                        <Check size={14} aria-hidden /> {PAYMENT_METHOD_LABELS[p.paid]}
-                      </>
-                    ) : i === current ? (
-                      'agora'
-                    ) : (
-                      'a receber'
-                    )}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ol>
-        )}
-        <div className="chips" role="radiogroup" aria-label="Forma de pagamento">
-          {PAYMENT_METHODS.map((m) => (
-            <button
-              key={m}
-              className="chip"
-              role="radio"
-              aria-checked={method === m}
-              onClick={() => setMethod(m)}
+    <HelpScope dict={PAYMENT_FISCAL_HELP}>
+      <Modal
+        open={open}
+        onClose={close}
+        title={`Receber — ${label}`}
+        footer={
+          <>
+            <Button variant="ghost" onClick={close}>
+              {paidCount > 0 ? 'Fechar' : 'Cancelar'}
+            </Button>
+            <Button
+              loading={busy}
+              disabled={
+                !parsed ||
+                !sessionId ||
+                !!taxError ||
+                toCents(parsed) <= 0 ||
+                toCents(parsed) > remainingCents ||
+                (method === 'cash' && !!tendered && change < 0)
+              }
+              onClick={pay}
             >
-              {PAYMENT_METHOD_LABELS[m]}
-            </button>
-          ))}
-        </div>
-        <TextField
-          label={parts > 1 ? `Valor da pessoa ${current + 1}` : 'Valor'}
-          inputMode="decimal"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          hint={
-            parts > 1 && parsed && toCents(parsed) !== plan[current]?.cents
-              ? 'O que sobrar é redividido entre as próximas pessoas.'
-              : undefined
-          }
-          error={
-            amount && !parsed
-              ? 'Use o formato 12,90'
-              : parsed && toCents(parsed) > remainingCents
-                ? 'Maior que o saldo'
-                : undefined
-          }
-        />
-        {method === 'cash' && (
+              {parts > 1 ? `Receber parte ${current + 1} · ` : 'Confirmar '}
+              {parsed ? brl(parsed) : ''}
+            </Button>
+          </>
+        }
+      >
+        <div style={{ display: 'grid', gap: 16 }}>
+          <div className="pay-balance">
+            <span>{paidCount > 0 ? 'Falta' : 'Saldo'}</span>
+            <strong>{brl(fromCents(remainingCents))}</strong>
+          </div>
+          {sessions !== null && sessions.length === 0 ? (
+            <Alert tone="warning">Nenhum caixa aberto para receber pagamentos.</Alert>
+          ) : (
+            <label className="cm-field">
+              <span className="cm-label">Caixa</span>
+              <Select
+                className="cm-input"
+                value={sessionId}
+                onChange={(e) => choose(e.target.value)}
+              >
+                {(sessions ?? []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.registerName} · sessão {s.number}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          )}
+          <SplitPicker value={parts} min={Math.max(paidCount + 1, 1)} onChange={split} />
+          {parts > 1 && (
+            <ol className="pay-parts" aria-label="Partes da conta">
+              {plan.map((p, i) => (
+                <li key={i}>
+                  <button
+                    type="button"
+                    className="pay-part"
+                    data-paid={p.paid ? true : undefined}
+                    aria-current={i === current && !p.paid ? 'step' : undefined}
+                    disabled={!!p.paid || busy}
+                    onClick={() => goTo(plan, i)}
+                  >
+                    <span className="pay-part__who">Pessoa {i + 1}</span>
+                    <strong>{brl(fromCents(p.cents))}</strong>
+                    <span className="pay-part__state">
+                      {p.paid ? (
+                        <>
+                          <Check size={14} aria-hidden /> {PAYMENT_METHOD_LABELS[p.paid]}
+                        </>
+                      ) : i === current ? (
+                        'agora'
+                      ) : (
+                        'a receber'
+                      )}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
+          <div className="chips" role="radiogroup" aria-label="Forma de pagamento">
+            {PAYMENT_METHODS.map((m) => (
+              <button
+                key={m}
+                className="chip"
+                role="radio"
+                aria-checked={method === m}
+                onClick={() => setMethod(m)}
+              >
+                {PAYMENT_METHOD_LABELS[m]}
+              </button>
+            ))}
+          </div>
           <TextField
-            label="Valor entregue (troco)"
+            label={parts > 1 ? `Valor da pessoa ${current + 1}` : 'Valor'}
             inputMode="decimal"
-            placeholder="0,00"
-            value={tendered}
-            onChange={(e) => setTendered(e.target.value)}
-            hint={change > 0 ? `Troco: ${brl(fromCents(change))}` : undefined}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            hint={
+              parts > 1 && parsed && toCents(parsed) !== plan[current]?.cents
+                ? 'O que sobrar é redividido entre as próximas pessoas.'
+                : undefined
+            }
             error={
-              tendered && (!tenderedParsed || change < 0) ? 'Menor que o valor pago' : undefined
+              amount && !parsed
+                ? 'Use o formato 12,90'
+                : parsed && toCents(parsed) > remainingCents
+                  ? 'Maior que o saldo'
+                  : undefined
             }
           />
-        )}
-        <TextField
-          label="CPF/CNPJ na nota (opcional)"
-          inputMode="numeric"
-          placeholder="Só se o cliente pedir"
-          value={taxDoc}
-          maxLength={18}
-          onChange={(e) => setTaxDoc(e.target.value)}
-          onBlur={() => taxDigits && !taxError && setTaxDoc(formatDocument(taxDigits))}
-          error={taxError}
-          hint={!taxError && taxDigits ? 'A NFC-e deste pedido sai com este documento.' : undefined}
-        />
-        {error && <Alert tone="danger">{error}</Alert>}
-      </div>
-    </Modal>
+          {method === 'cash' && (
+            <TextField
+              label="Valor entregue (troco)"
+              inputMode="decimal"
+              placeholder="0,00"
+              value={tendered}
+              onChange={(e) => setTendered(e.target.value)}
+              hint={change > 0 ? `Troco: ${brl(fromCents(change))}` : undefined}
+              error={
+                tendered && (!tenderedParsed || change < 0) ? 'Menor que o valor pago' : undefined
+              }
+            />
+          )}
+          <TextField
+            label="CPF/CNPJ na nota (opcional)"
+            inputMode="numeric"
+            placeholder="Só se o cliente pedir"
+            value={taxDoc}
+            maxLength={18}
+            onChange={(e) => setTaxDoc(e.target.value)}
+            onBlur={() => taxDigits && !taxError && setTaxDoc(formatDocument(taxDigits))}
+            error={taxError}
+            hint={
+              !taxError && taxDigits ? 'A NFC-e deste pedido sai com este documento.' : undefined
+            }
+          />
+          {error && <Alert tone="danger">{error}</Alert>}
+        </div>
+      </Modal>
+    </HelpScope>
   );
 }

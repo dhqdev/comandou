@@ -2,11 +2,22 @@ import { fromCents, toCents } from '@comandou/shared';
 import { ArrowLeft, Search } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { Alert, Badge, Button, Card, Skeleton, TextField, useToast } from '../../design-system';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  Skeleton,
+  TextField,
+  useToast,
+  HelpLabel,
+  HelpScope,
+} from '../../design-system';
 import { useCan } from '../../app/auth';
 import { api, type Category, type Product } from '../../lib/api';
 import { brl, parseBrlInput } from '../../lib/money';
 import { MENU_KIND, priceDiff, toInput, type MenuDef } from './menu-data';
+import { MENUS_HELP } from '../../features/help/menu-help';
 
 interface Row {
   on: boolean;
@@ -160,142 +171,144 @@ export function MenuEditor() {
   }
 
   return (
-    <>
-      <div className="mn-crumbs">
-        <div className="mn-crumbs__path">
-          <Link to="/cardapio/cardapios" className="mn-crumbs__back">
-            <ArrowLeft size={16} aria-hidden /> Cardápios
-          </Link>
-          <span aria-hidden>/</span>
-          <h1>{menu?.name ?? 'Cardápio'}</h1>
-          {menu && (menu.active ? <Badge tone="success">Ativo</Badge> : <Badge>Pausado</Badge>)}
-        </div>
-        {canWrite && menu && (
-          <div className="actions-row">
-            {!menu.active && (
-              <Button variant="ghost" onClick={remove}>
-                Apagar
-              </Button>
-            )}
-            <Button variant="secondary" onClick={toggleActive}>
-              {menu.active ? 'Pausar' : 'Ativar'}
-            </Button>
-            <Button loading={busy} disabled={invalid || !dirty} onClick={save}>
-              Salvar
-            </Button>
+    <HelpScope dict={MENUS_HELP}>
+      <>
+        <div className="mn-crumbs">
+          <div className="mn-crumbs__path">
+            <Link to="/cardapio/cardapios" className="mn-crumbs__back">
+              <ArrowLeft size={16} aria-hidden /> Cardápios
+            </Link>
+            <span aria-hidden>/</span>
+            <h1>{menu?.name ?? 'Cardápio'}</h1>
+            {menu && (menu.active ? <Badge tone="success">Ativo</Badge> : <Badge>Pausado</Badge>)}
           </div>
-        )}
-      </div>
-      {error && <Alert tone="danger">{error}</Alert>}
-      {!menu ? (
-        !error && <Skeleton height={240} />
-      ) : (
-        <>
-          <Card>
-            <div className="cm-form">
-              <TextField
-                label="Nome do cardápio"
-                value={name}
-                maxLength={60}
-                disabled={!canWrite}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  setDirty(true);
-                }}
-              />
-              <div className="cm-field">
-                <span className="cm-label">Vale em</span>
-                <span className="mn-static">
-                  {MENU_KIND[menu.kind].label}: {MENU_KIND[menu.kind].where.toLowerCase()}
-                </span>
-              </div>
+          {canWrite && menu && (
+            <div className="actions-row">
               {!menu.active && (
-                <p className="cm-hint cm-form__wide" style={{ margin: 0 }}>
-                  Pausado: não aparece em lugar nenhum. Ao ativar, ele substitui o{' '}
-                  {MENU_KIND[menu.kind].label} atual.
-                </p>
+                <Button variant="ghost" onClick={remove}>
+                  Apagar
+                </Button>
               )}
+              <Button variant="secondary" onClick={toggleActive}>
+                {menu.active ? 'Pausar' : 'Ativar'}
+              </Button>
+              <Button loading={busy} disabled={invalid || !dirty} onClick={save}>
+                Salvar
+              </Button>
             </div>
-          </Card>
-          <Card title={`Itens no cardápio (${onCount} de ${products.length})`} bodyless>
-            <div className="mn-toolbar">
-              <div className="mn-search mn-search--flat">
-                <Search size={16} aria-hidden />
-                <input
-                  className="cm-input"
-                  type="search"
-                  aria-label="Buscar item no cardápio"
-                  placeholder="Buscar item"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+          )}
+        </div>
+        {error && <Alert tone="danger">{error}</Alert>}
+        {!menu ? (
+          !error && <Skeleton height={240} />
+        ) : (
+          <>
+            <Card>
+              <div className="cm-form">
+                <TextField
+                  label="Nome do cardápio"
+                  value={name}
+                  maxLength={60}
+                  disabled={!canWrite}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setDirty(true);
+                  }}
                 />
-              </div>
-              {canWrite && (
-                <div className="mn-toolbar__tools">
-                  <Button variant="ghost" size="sm" onClick={() => bulk({ on: true })}>
-                    Marcar todos
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => bulk({ price: '' })}>
-                    Usar preço do item
-                  </Button>
-                  <span className="mn-pct">
-                    <input
-                      className="cm-input cm-num"
-                      aria-label="Reajuste em %"
-                      inputMode="decimal"
-                      placeholder="+10"
-                      value={pct}
-                      onChange={(e) => setPct(e.target.value)}
-                    />
-                    <span>%</span>
-                    <Button variant="secondary" size="sm" disabled={!pctOk} onClick={applyPct}>
-                      Reajustar
-                    </Button>
+                <div className="cm-field">
+                  <HelpLabel as="span">Vale em</HelpLabel>
+                  <span className="mn-static">
+                    {MENU_KIND[menu.kind].label}: {MENU_KIND[menu.kind].where.toLowerCase()}
                   </span>
                 </div>
-              )}
-            </div>
-            {grouped.map(({ c, items }) => (
-              <section key={c.id} className="mn-menu-cat">
-                <h3>{c.name}</h3>
-                {items.map((p) => {
-                  const r = rows[p.id]!;
-                  const parsed = r.price ? parseBrlInput(r.price) : null;
-                  const diff = parsed ? priceDiff(toCents(p.price), toCents(parsed)) : null;
-                  return (
-                    <div key={p.id} className="mn-menu-row" data-off={!r.on || undefined}>
-                      <label className="mn-check">
-                        <input
-                          type="checkbox"
-                          checked={r.on}
-                          disabled={!canWrite}
-                          onChange={(e) => set(p.id, { on: e.target.checked })}
-                        />
-                        <span>
-                          <strong>{p.name}</strong>
-                          {p.code && <small className="cm-hint"> {p.code}</small>}
-                        </span>
-                      </label>
-                      <span className="mn-menu-row__base cm-hint">Item: {brl(p.price)}</span>
+                {!menu.active && (
+                  <p className="cm-hint cm-form__wide" style={{ margin: 0 }}>
+                    Pausado: não aparece em lugar nenhum. Ao ativar, ele substitui o{' '}
+                    {MENU_KIND[menu.kind].label} atual.
+                  </p>
+                )}
+              </div>
+            </Card>
+            <Card title={`Itens no cardápio (${onCount} de ${products.length})`} bodyless>
+              <div className="mn-toolbar">
+                <div className="mn-search mn-search--flat">
+                  <Search size={16} aria-hidden />
+                  <input
+                    className="cm-input"
+                    type="search"
+                    aria-label="Buscar item no cardápio"
+                    placeholder="Buscar item"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                {canWrite && (
+                  <div className="mn-toolbar__tools">
+                    <Button variant="ghost" size="sm" onClick={() => bulk({ on: true })}>
+                      Marcar todos
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => bulk({ price: '' })}>
+                      Usar preço do item
+                    </Button>
+                    <span className="mn-pct">
                       <input
                         className="cm-input cm-num"
-                        aria-label={`Preço de ${p.name} neste cardápio`}
+                        aria-label="Reajuste em %"
                         inputMode="decimal"
-                        placeholder={brl(p.price)}
-                        disabled={!canWrite || !r.on}
-                        value={r.price}
-                        aria-invalid={(r.price && !parsed) || undefined}
-                        onChange={(e) => set(p.id, { price: e.target.value })}
+                        placeholder="+10"
+                        value={pct}
+                        onChange={(e) => setPct(e.target.value)}
                       />
-                      <span className="mn-menu-row__diff">{diff ?? ''}</span>
-                    </div>
-                  );
-                })}
-              </section>
-            ))}
-          </Card>
-        </>
-      )}
-    </>
+                      <span>%</span>
+                      <Button variant="secondary" size="sm" disabled={!pctOk} onClick={applyPct}>
+                        Reajustar
+                      </Button>
+                    </span>
+                  </div>
+                )}
+              </div>
+              {grouped.map(({ c, items }) => (
+                <section key={c.id} className="mn-menu-cat">
+                  <h3>{c.name}</h3>
+                  {items.map((p) => {
+                    const r = rows[p.id]!;
+                    const parsed = r.price ? parseBrlInput(r.price) : null;
+                    const diff = parsed ? priceDiff(toCents(p.price), toCents(parsed)) : null;
+                    return (
+                      <div key={p.id} className="mn-menu-row" data-off={!r.on || undefined}>
+                        <label className="mn-check">
+                          <input
+                            type="checkbox"
+                            checked={r.on}
+                            disabled={!canWrite}
+                            onChange={(e) => set(p.id, { on: e.target.checked })}
+                          />
+                          <span>
+                            <strong>{p.name}</strong>
+                            {p.code && <small className="cm-hint"> {p.code}</small>}
+                          </span>
+                        </label>
+                        <span className="mn-menu-row__base cm-hint">Item: {brl(p.price)}</span>
+                        <input
+                          className="cm-input cm-num"
+                          aria-label={`Preço de ${p.name} neste cardápio`}
+                          inputMode="decimal"
+                          placeholder={brl(p.price)}
+                          disabled={!canWrite || !r.on}
+                          value={r.price}
+                          aria-invalid={(r.price && !parsed) || undefined}
+                          onChange={(e) => set(p.id, { price: e.target.value })}
+                        />
+                        <span className="mn-menu-row__diff">{diff ?? ''}</span>
+                      </div>
+                    );
+                  })}
+                </section>
+              ))}
+            </Card>
+          </>
+        )}
+      </>
+    </HelpScope>
   );
 }

@@ -1,6 +1,6 @@
 import { Search, ShieldCheck } from 'lucide-react';
 import { useRef, useState } from 'react';
-import { Alert, Button, TextField, useToast } from '../design-system';
+import { Alert, Button, HelpLabel, TextField, useToast } from '../design-system';
 import { api } from '../lib/api';
 import type { FiscalCompany, FiscalSettings } from '../lib/types';
 import { SelectField } from './forms';
@@ -278,9 +278,7 @@ export function FiscalCompanySetup({
       )}
       <div className="fi-fields">
         <div className="cm-field fi-w2">
-          <label className="cm-label" htmlFor="fi-cert">
-            Arquivo do certificado
-          </label>
+          <HelpLabel htmlFor="fi-cert">Arquivo do certificado</HelpLabel>
           <input
             id="fi-cert"
             ref={fileRef}

@@ -16,22 +16,24 @@ import {
   X,
 } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Alert, Segmented, useToast } from '../design-system';
 import { useAuth, useCan } from '../app/auth';
 import { NewSaleModal } from '../features/NewSaleModal';
 import { OrderDetailModal } from '../features/OrderDetailModal';
 import { minutesSince, PAYMENT_STATUS_LABEL, qty, time } from '../features/format';
+import { sortTables, tableState, type TableState } from '../features/table-state';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import { playSound, useArrivalSound, useRepeatingSoundForNew } from '../lib/sounds';
 import { SupportButton, useSupportUnread } from '../features/store-chat/SupportInbox';
-import type { Order, StoreSettings } from '../lib/types';
+import type { DiningTable, Order, StoreSettings, Tab } from '../lib/types';
 import '../app/home.css';
 
 type Filter = 'all' | OrderChannel;
 type Density = 'compact' | 'full';
+type SalonView = 'tables' | 'tabs';
 
 /** Colunas do quadro, na ordem em que o pedido anda. */
 const COLUMNS: { key: string; statuses: OrderStatus[]; label: string; tone: string }[] = [
@@ -51,6 +53,12 @@ const CHANNEL_ICON: Record<OrderChannel, ReactNode> = {
   pickup: <ShoppingBag size={16} />,
   counter: <Store size={16} />,
   table: <Utensils size={16} />,
+};
+
+const STATE_TEXT: Record<TableState, string> = {
+  free: 'livre',
+  busy: 'ocupada',
+  paying: 'em pagamento',
 };
 
 /** "agora", "12 min", "3 h", "2 d": cabe no canto do cartão. */
@@ -173,16 +181,24 @@ function OrderCard({
 export function PdvPage() {
   const { me } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
   const canSell = useCan('orders:write');
   const canManage = useCan('orders:manage');
+  const canTables = useCan('tables:operate');
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [store, setStore] = useState<StoreSettings | null>(null);
+  const [tables, setTables] = useState<DiningTable[] | null>(null);
+  const [tabs, setTabs] = useState<Tab[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selling, setSelling] = useState(false);
+  const [freeTable, setFreeTable] = useState<DiningTable | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [openStep, setOpenStep] = useState<'dispatch' | 'reject' | undefined>();
   const [filter, setFilter] = useState<Filter>('all');
   const [density, setDensity] = useState<Density>('compact');
+  const [salonView, setSalonView] = useState<SalonView>('tables');
+  const [salonOpen, setSalonOpen] = useState(true);
+  const [salonSearch, setSalonSearch] = useState('');
   /** Celular: uma coluna por vez (abas), sem arrastar a tela para o lado. */
   const [mobileCol, setMobileCol] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -238,13 +254,24 @@ export function PdvPage() {
       .then(setStore)
       .catch(() => setStore(null));
   }, []);
+  const loadSalon = useCallback(() => {
+    if (!canTables) return;
+    Promise.all([api<DiningTable[]>('/tables'), api<Tab[]>('/tabs?status=open')])
+      .then(([t, tb]) => {
+        setTables(sortTables(t));
+        setTabs(tb);
+      })
+      .catch(() => setTables(null));
+  }, [canTables]);
   const reload = useDebounced(load);
+  const reloadSalon = useDebounced(loadSalon);
   useEffect(() => {
     void load();
     loadStore();
+    loadSalon();
     const id = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(id);
-  }, [load, loadStore]);
+  }, [load, loadStore, loadSalon]);
   useRealtime(
     (e) => {
       if (
@@ -253,11 +280,13 @@ export function PdvPage() {
         e.type === 'delivery.changed'
       )
         reload();
+      if (e.type === 'order.changed' || e.type === 'tab.changed') reloadSalon();
       if (e.type === 'store.changed') loadStore();
     },
     () => {
       void load();
       loadStore();
+      loadSalon();
     },
   );
 
@@ -366,6 +395,30 @@ export function PdvPage() {
     }
   }
 
+  // Salão: mesas (com o estado) ou comandas abertas, filtradas pela busca do bloco.
+  const salonQ = salonSearch.trim().toLowerCase();
+  const shownTables = (tables ?? []).filter(
+    (t) =>
+      !salonQ ||
+      t.label.toLowerCase().includes(salonQ) ||
+      (t.tabCustomer ?? '').toLowerCase().includes(salonQ),
+  );
+  const shownTabs = tabs.filter(
+    (t) =>
+      !salonQ ||
+      String(t.number).includes(salonQ) ||
+      (t.tableLabel ?? '').toLowerCase().includes(salonQ) ||
+      (t.customerName ?? '').toLowerCase().includes(salonQ),
+  );
+  const stateCount = (s: TableState) => (tables ?? []).filter((t) => tableState(t) === s).length;
+
+  function openTable(t: DiningTable) {
+    // Mesa livre já abre a venda aqui; ocupada abre a comanda no salão.
+    if (t.tabId) navigate(`/mesas?comanda=${t.tabId}`);
+    else if (canSell) setFreeTable(t);
+    else navigate(`/mesas?mesa=${t.id}`);
+  }
+
   const storeLink = `${window.location.origin}/pedir`;
 
   return (
@@ -427,6 +480,111 @@ export function PdvPage() {
       </div>
 
       {error && <Alert tone="danger">Não foi possível carregar os pedidos: {error}</Alert>}
+
+      {canTables && tables && tables.length + tabs.length > 0 && (
+        <section className="pdv-box pdv-salon" aria-label="Salão">
+          <header className="pdv-box__head">
+            <h2>Salão</h2>
+            <button
+              className="pdv-chip"
+              aria-label={salonOpen ? 'Recolher o salão' : 'Mostrar o salão'}
+              aria-expanded={salonOpen}
+              onClick={() => setSalonOpen((v) => !v)}
+            >
+              <span className="pdv-chip__text">{salonOpen ? 'Recolher' : 'Mostrar'}</span>
+              <ChevronDown size={14} data-flip={salonOpen || undefined} />
+            </button>
+            {salonOpen && (
+              <label className="pdv-mini-search">
+                <Search size={14} aria-hidden />
+                <input
+                  placeholder={salonView === 'tables' ? 'Buscar mesa' : 'Buscar comanda'}
+                  aria-label="Buscar no salão"
+                  value={salonSearch}
+                  onChange={(e) => setSalonSearch(e.target.value)}
+                />
+              </label>
+            )}
+            <div className="pdv__spacer" />
+            <ul className="pdv-legend" aria-label="Mesas por estado">
+              <li data-state="free">
+                <b>{stateCount('free')}</b> Livres
+              </li>
+              <li data-state="busy">
+                <b>{stateCount('busy')}</b> Ocupadas
+              </li>
+              <li data-state="paying">
+                <b>{stateCount('paying')}</b> Em pagamento
+              </li>
+            </ul>
+            <Segmented<SalonView>
+              label="Ver no salão"
+              value={salonView}
+              onChange={(v) => {
+                setSalonView(v);
+                setSalonOpen(true);
+              }}
+              options={[
+                { value: 'tables', label: 'Mesas', count: tables.length },
+                { value: 'tabs', label: 'Comandas', count: tabs.length },
+              ]}
+            />
+          </header>
+          {salonOpen && (
+            <div className="pdv-salon__grid">
+              {salonView === 'tables' ? (
+                shownTables.length ? (
+                  shownTables.map((t) => {
+                    const st = tableState(t);
+                    return (
+                      <button
+                        key={t.id}
+                        className="pdv-table"
+                        data-state={st}
+                        aria-label={`Mesa ${t.label} ${STATE_TEXT[st]}`}
+                        onClick={() => openTable(t)}
+                      >
+                        <strong>Mesa {t.label}</strong>
+                        {t.tabId ? (
+                          <span className="pdv-table__info">
+                            {brl(t.tabTotal)}
+                            {t.openedAt && <em>{ago(minutesSince(t.openedAt, now))}</em>}
+                          </span>
+                        ) : (
+                          <span className="pdv-table__info pdv-table__info--muted">Livre</span>
+                        )}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <p className="pdv-empty">Nenhuma mesa encontrada.</p>
+                )
+              ) : shownTabs.length ? (
+                shownTabs.map((t) => (
+                  <button
+                    key={t.id}
+                    className="pdv-table"
+                    data-state={t.billRequestedAt ? 'paying' : 'busy'}
+                    aria-label={`Comanda ${t.number}`}
+                    onClick={() => navigate(`/mesas?comanda=${t.id}`)}
+                  >
+                    <strong>
+                      Comanda {t.number}
+                      {t.tableLabel && <small> · Mesa {t.tableLabel}</small>}
+                    </strong>
+                    <span className="pdv-table__info">
+                      {brl(t.total)}
+                      <em>{t.customerName ?? ago(minutesSince(t.openedAt, now))}</em>
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <p className="pdv-empty">Nenhuma comanda aberta.</p>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="pdv-box pdv-orders" aria-label="Pedidos">
         <header className="pdv-box__head">
@@ -572,6 +730,20 @@ export function PdvPage() {
         onCreated={() => {
           setSelling(false);
           void load();
+        }}
+      />
+      <NewSaleModal
+        open={!!freeTable}
+        onClose={() => setFreeTable(null)}
+        preset={
+          freeTable
+            ? { channel: 'table', tableId: freeTable.id, label: `Mesa ${freeTable.label}` }
+            : undefined
+        }
+        onCreated={() => {
+          setFreeTable(null);
+          void load();
+          loadSalon();
         }}
       />
       <OrderDetailModal

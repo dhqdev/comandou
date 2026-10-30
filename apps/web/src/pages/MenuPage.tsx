@@ -1,5 +1,6 @@
 import { Route, Routes, useLocation, useNavigate } from 'react-router';
 import { SlideTabs } from '../features/SlideTabs';
+import { TourButton } from '../features/tour/PageTour';
 import { FamiliesTab } from './menu/FamiliesTab';
 import { GroupsTab } from './menu/GroupsTab';
 import { ItemEditor } from './menu/ItemEditor';
@@ -52,7 +53,10 @@ function MenuSections() {
     <>
       <div className="mn-head">
         <div>
-          <h1 className="page-title">Cardápio</h1>
+          <div className="mn-head__title">
+            <h1 className="page-title">Cardápio</h1>
+            <TourButton tour="cardapio" />
+          </div>
           <p className="page-sub">{current.sub}</p>
         </div>
         <SlideTabs<Section>

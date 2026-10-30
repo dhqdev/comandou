@@ -10,11 +10,13 @@ import {
   Spinner,
   TextField,
   useToast,
+  HelpScope,
 } from '../../design-system';
 import { api } from '../../lib/api';
 import { brl } from '../../lib/money';
 import type { FiscalReceived } from '../../lib/types';
 import { FiscalHead, fmtDateTime, fmtDoc } from './common';
+import { RECEIVED_HELP } from '../../features/help/fiscal-help';
 
 type Manifest = NonNullable<FiscalReceived['manifestation']>;
 const MANIFEST: Record<Manifest, [string, 'info' | 'success' | 'danger' | 'warning']> = {
@@ -214,99 +216,103 @@ function ReceivedModal({
 
   const final = note.manifestation && note.manifestation !== 'ciencia';
   return (
-    <Modal open size="lg" title={note.issuerName ?? 'Nota recebida'} onClose={onClose}>
-      <div className="fi-form">
-        <div className="fi-kv">
-          <span>CNPJ</span>
-          <strong>{fmtDoc(note.issuerDocument)}</strong>
-        </div>
-        <div className="fi-kv">
-          <span>Emitida em</span>
-          <strong>{fmtDateTime(note.issuedAt)}</strong>
-        </div>
-        <div className="fi-kv">
-          <span>Valor</span>
-          <strong>{note.total ? brl(note.total) : '—'}</strong>
-        </div>
-        <div className="fi-kv">
-          <span>Chave</span>
-          <strong className="mono-break">{note.accessKey}</strong>
-        </div>
-        {note.manifestation && (
+    <HelpScope dict={RECEIVED_HELP}>
+      <Modal open size="lg" title={note.issuerName ?? 'Nota recebida'} onClose={onClose}>
+        <div className="fi-form">
           <div className="fi-kv">
-            <span>Manifestação</span>
-            <strong>
-              {MANIFEST[note.manifestation][0]} · {fmtDateTime(note.manifestedAt)}
-            </strong>
+            <span>CNPJ</span>
+            <strong>{fmtDoc(note.issuerDocument)}</strong>
           </div>
-        )}
-        {note.cancelReason && (
-          <p className="cm-hint">Cancelada pelo fornecedor: {note.cancelReason}</p>
-        )}
-        {note.correctionText && <p className="cm-hint">Carta de correção: {note.correctionText}</p>}
-        <div className="fi-head__actions">
-          <a
-            className="cm-btn cm-btn--secondary"
-            href={file('pdf')}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            DANFE (PDF)
-          </a>
-          <a
-            className="cm-btn cm-btn--ghost"
-            href={file('xml')}
-            target="_blank"
-            rel="noreferrer noopener"
-          >
-            XML
-          </a>
-        </div>
-        {canManage && note.situation === 'autorizada' && !final && (
-          <section>
-            <h2 className="fi-section-title">Manifestar</h2>
-            <div className="fi-manifest">
-              {ACTIONS.filter(([t]) => t !== note.manifestation).map(([tipo, label, help]) => (
-                <div key={tipo} className="fi-manifest__item">
-                  <div>
-                    <strong>{label}</strong>
-                    <p className="cm-hint">{help}</p>
+          <div className="fi-kv">
+            <span>Emitida em</span>
+            <strong>{fmtDateTime(note.issuedAt)}</strong>
+          </div>
+          <div className="fi-kv">
+            <span>Valor</span>
+            <strong>{note.total ? brl(note.total) : '—'}</strong>
+          </div>
+          <div className="fi-kv">
+            <span>Chave</span>
+            <strong className="mono-break">{note.accessKey}</strong>
+          </div>
+          {note.manifestation && (
+            <div className="fi-kv">
+              <span>Manifestação</span>
+              <strong>
+                {MANIFEST[note.manifestation][0]} · {fmtDateTime(note.manifestedAt)}
+              </strong>
+            </div>
+          )}
+          {note.cancelReason && (
+            <p className="cm-hint">Cancelada pelo fornecedor: {note.cancelReason}</p>
+          )}
+          {note.correctionText && (
+            <p className="cm-hint">Carta de correção: {note.correctionText}</p>
+          )}
+          <div className="fi-head__actions">
+            <a
+              className="cm-btn cm-btn--secondary"
+              href={file('pdf')}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              DANFE (PDF)
+            </a>
+            <a
+              className="cm-btn cm-btn--ghost"
+              href={file('xml')}
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              XML
+            </a>
+          </div>
+          {canManage && note.situation === 'autorizada' && !final && (
+            <section>
+              <h2 className="fi-section-title">Manifestar</h2>
+              <div className="fi-manifest">
+                {ACTIONS.filter(([t]) => t !== note.manifestation).map(([tipo, label, help]) => (
+                  <div key={tipo} className="fi-manifest__item">
+                    <div>
+                      <strong>{label}</strong>
+                      <p className="cm-hint">{help}</p>
+                    </div>
+                    <Button
+                      variant={tipo === 'desconhecimento' ? 'danger' : 'secondary'}
+                      size="sm"
+                      loading={busy === tipo}
+                      disabled={!!busy}
+                      onClick={() =>
+                        tipo === 'nao_realizada' ? setAsking(tipo) : void manifest(tipo)
+                      }
+                    >
+                      {label}
+                    </Button>
                   </div>
+                ))}
+              </div>
+              {asking === 'nao_realizada' && (
+                <div className="fi-form">
+                  <TextField
+                    label="Justificativa"
+                    value={reason}
+                    maxLength={255}
+                    onChange={(e) => setReason(e.target.value)}
+                    hint="Mínimo de 15 caracteres"
+                  />
                   <Button
-                    variant={tipo === 'desconhecimento' ? 'danger' : 'secondary'}
-                    size="sm"
-                    loading={busy === tipo}
-                    disabled={!!busy}
-                    onClick={() =>
-                      tipo === 'nao_realizada' ? setAsking(tipo) : void manifest(tipo)
-                    }
+                    loading={busy === 'nao_realizada'}
+                    disabled={reason.trim().length < 15}
+                    onClick={() => void manifest('nao_realizada')}
                   >
-                    {label}
+                    Enviar
                   </Button>
                 </div>
-              ))}
-            </div>
-            {asking === 'nao_realizada' && (
-              <div className="fi-form">
-                <TextField
-                  label="Justificativa"
-                  value={reason}
-                  maxLength={255}
-                  onChange={(e) => setReason(e.target.value)}
-                  hint="Mínimo de 15 caracteres"
-                />
-                <Button
-                  loading={busy === 'nao_realizada'}
-                  disabled={reason.trim().length < 15}
-                  onClick={() => void manifest('nao_realizada')}
-                >
-                  Enviar
-                </Button>
-              </div>
-            )}
-          </section>
-        )}
-      </div>
-    </Modal>
+              )}
+            </section>
+          )}
+        </div>
+      </Modal>
+    </HelpScope>
   );
 }

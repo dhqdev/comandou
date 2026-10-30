@@ -2,11 +2,12 @@ import { formatDocument, isValidCnpj, isValidCpf } from '@comandou/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useCan } from '../app/auth';
-import { Alert, Badge, Button, TextField, useToast } from '../design-system';
+import { Alert, Badge, Button, TextField, useToast, HelpScope } from '../design-system';
 import { api } from '../lib/api';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import type { FiscalDocument } from '../lib/types';
 import { docTitle, KIND_LABEL, StatusBadge } from '../pages/fiscal/common';
+import { PAYMENT_FISCAL_HELP } from './help/fiscal-help';
 
 const LIVE = ['draft', 'pending', 'processing', 'authorized', 'cancelling'];
 const WORKING = ['pending', 'processing', 'cancelling'];
@@ -97,104 +98,106 @@ export function FiscalSection({
   const canRequest = canEmit && paid && !cancelled && (!doc || !LIVE.includes(doc.status));
   const issue = doc && doc.status !== 'authorized' ? doc.issues?.[0] : undefined;
   return (
-    <div className="fi-order">
-      <h3 className="section-title">Nota fiscal</h3>
-      {doc ? (
-        <div className="fi-order__doc">
-          <div className="fi-order__line">
-            <StatusBadge status={doc.status} />
-            <strong>
-              {KIND_LABEL[doc.kind]} {doc.number ? docTitle(doc) : ''}
-            </strong>
-            {doc.environment === 'homologacao' && <Badge tone="warning">homologação</Badge>}
-          </div>
-          {(doc.recipient?.cpf || doc.recipient?.cnpj) && (
-            <span className="cm-hint">
-              {doc.recipient.cpf ? 'CPF' : 'CNPJ'} na nota:{' '}
-              {formatDocument(doc.recipient.cpf ?? doc.recipient.cnpj ?? '')}
-            </span>
-          )}
-          {issue ? (
-            <Alert tone="danger">
-              <strong>{issue.title}.</strong> {issue.detail}
-            </Alert>
-          ) : (
-            doc.status === 'authorized' &&
-            doc.sefazMessage && <Alert tone="warning">{doc.sefazMessage}</Alert>
-          )}
-          <div className="fi-order__actions">
-            <Link className="cm-btn cm-btn--secondary" to={`/fiscal/nota/${doc.id}`}>
-              {doc.status === 'draft'
-                ? 'Abrir rascunho'
-                : ['rejected', 'error'].includes(doc.status)
-                  ? 'Corrigir e reemitir'
-                  : 'Abrir nota'}
-            </Link>
-            {doc.danfeUrl && doc.status === 'authorized' && (
-              <a
-                className="cm-btn cm-btn--ghost"
-                href={doc.danfeUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-              >
-                {doc.kind === 'nfe' ? 'DANFE' : 'Cupom'}
-              </a>
+    <HelpScope dict={PAYMENT_FISCAL_HELP}>
+      <div className="fi-order">
+        <h3 className="section-title">Nota fiscal</h3>
+        {doc ? (
+          <div className="fi-order__doc">
+            <div className="fi-order__line">
+              <StatusBadge status={doc.status} />
+              <strong>
+                {KIND_LABEL[doc.kind]} {doc.number ? docTitle(doc) : ''}
+              </strong>
+              {doc.environment === 'homologacao' && <Badge tone="warning">homologação</Badge>}
+            </div>
+            {(doc.recipient?.cpf || doc.recipient?.cnpj) && (
+              <span className="cm-hint">
+                {doc.recipient.cpf ? 'CPF' : 'CNPJ'} na nota:{' '}
+                {formatDocument(doc.recipient.cpf ?? doc.recipient.cnpj ?? '')}
+              </span>
             )}
-            {canEmit && WORKING.includes(doc.status) && (
-              <Button
-                variant="ghost"
-                loading={busy === 'sync'}
-                onClick={() =>
-                  run(
-                    'sync',
-                    () => api(`/fiscal/documents/${doc.id}/sync`, { method: 'POST' }),
-                    'Consultando a nota',
-                  )
-                }
-              >
-                Atualizar
-              </Button>
+            {issue ? (
+              <Alert tone="danger">
+                <strong>{issue.title}.</strong> {issue.detail}
+              </Alert>
+            ) : (
+              doc.status === 'authorized' &&
+              doc.sefazMessage && <Alert tone="warning">{doc.sefazMessage}</Alert>
             )}
+            <div className="fi-order__actions">
+              <Link className="cm-btn cm-btn--secondary" to={`/fiscal/nota/${doc.id}`}>
+                {doc.status === 'draft'
+                  ? 'Abrir rascunho'
+                  : ['rejected', 'error'].includes(doc.status)
+                    ? 'Corrigir e reemitir'
+                    : 'Abrir nota'}
+              </Link>
+              {doc.danfeUrl && doc.status === 'authorized' && (
+                <a
+                  className="cm-btn cm-btn--ghost"
+                  href={doc.danfeUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  {doc.kind === 'nfe' ? 'DANFE' : 'Cupom'}
+                </a>
+              )}
+              {canEmit && WORKING.includes(doc.status) && (
+                <Button
+                  variant="ghost"
+                  loading={busy === 'sync'}
+                  onClick={() =>
+                    run(
+                      'sync',
+                      () => api(`/fiscal/documents/${doc.id}/sync`, { method: 'POST' }),
+                      'Consultando a nota',
+                    )
+                  }
+                >
+                  Atualizar
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      ) : (
-        <p className="cm-hint" style={{ margin: 0 }}>
-          {paid
-            ? 'Nenhuma nota emitida.'
-            : 'A nota é emitida depois que o pedido estiver totalmente pago.'}
-        </p>
-      )}
-      {canRequest && (
-        <div className="fi-order__emit">
-          <TextField
-            label="CPF/CNPJ na nota (opcional)"
-            inputMode="numeric"
-            placeholder="Só se o cliente pedir"
-            value={taxDoc}
-            maxLength={18}
-            onChange={(e) => setTaxDoc(e.target.value)}
-            onBlur={() => digits && !taxError && setTaxDoc(formatDocument(digits))}
-            error={taxError}
-          />
-          <div className="fi-order__actions">
-            <Button
-              variant="secondary"
-              loading={busy === 'nfce'}
-              disabled={!!taxError || !!busy}
-              onClick={emitNfce}
-            >
-              {doc?.kind === 'nfce' ? 'Emitir NFC-e de novo' : 'Emitir NFC-e'}
-            </Button>
-            <Button variant="ghost" loading={busy === 'nfe'} disabled={!!busy} onClick={openNfe}>
-              Emitir NF-e
-            </Button>
-          </div>
+        ) : (
           <p className="cm-hint" style={{ margin: 0 }}>
-            NFC-e é o cupom do consumidor. NF-e é para empresa ou cliente que pede nota com endereço
-            e inscrição estadual: abre um rascunho para conferir antes.
+            {paid
+              ? 'Nenhuma nota emitida.'
+              : 'A nota é emitida depois que o pedido estiver totalmente pago.'}
           </p>
-        </div>
-      )}
-    </div>
+        )}
+        {canRequest && (
+          <div className="fi-order__emit">
+            <TextField
+              label="CPF/CNPJ na nota (opcional)"
+              inputMode="numeric"
+              placeholder="Só se o cliente pedir"
+              value={taxDoc}
+              maxLength={18}
+              onChange={(e) => setTaxDoc(e.target.value)}
+              onBlur={() => digits && !taxError && setTaxDoc(formatDocument(digits))}
+              error={taxError}
+            />
+            <div className="fi-order__actions">
+              <Button
+                variant="secondary"
+                loading={busy === 'nfce'}
+                disabled={!!taxError || !!busy}
+                onClick={emitNfce}
+              >
+                {doc?.kind === 'nfce' ? 'Emitir NFC-e de novo' : 'Emitir NFC-e'}
+              </Button>
+              <Button variant="ghost" loading={busy === 'nfe'} disabled={!!busy} onClick={openNfe}>
+                Emitir NF-e
+              </Button>
+            </div>
+            <p className="cm-hint" style={{ margin: 0 }}>
+              NFC-e é o cupom do consumidor. NF-e é para empresa ou cliente que pede nota com
+              endereço e inscrição estadual: abre um rascunho para conferir antes.
+            </p>
+          </div>
+        )}
+      </div>
+    </HelpScope>
   );
 }

@@ -25,11 +25,14 @@ import {
   Spinner,
   TextField,
   useToast,
+  HelpScope,
+  HelpTip,
 } from '../../design-system';
 import { CheckField, SelectField, Tabs } from '../../features/forms';
 import { api } from '../../lib/api';
 import type { FiscalRule, FiscalRulesResponse, FiscalSettings } from '../../lib/types';
 import { FiscalHead } from './common';
+import { RULE_HELP } from '../../features/help/fiscal-help';
 
 const SCOPE_LABEL: Record<FiscalRule['scope'], string> = {
   all: 'NFC-e e NF-e',
@@ -415,331 +418,338 @@ function RuleEditor({
   }
 
   return (
-    <Modal
-      open
-      size="lg"
-      title={rule ? `Padrão ${rule.code}` : 'Novo padrão fiscal'}
-      onClose={onClose}
-      footer={
-        <>
-          {rule &&
-            (confirmDelete ? (
-              <Button variant="danger" loading={busy} onClick={remove}>
-                Confirmar: apagar
-              </Button>
-            ) : (
-              <Button
-                variant="ghost"
-                icon={<Trash2 size={16} />}
-                onClick={() => setConfirmDelete(true)}
-              >
-                Apagar
-              </Button>
-            ))}
-          <span style={{ flex: 1 }} />
-          <Button variant="ghost" onClick={onClose}>
-            Fechar
-          </Button>
-          <Button
-            type="submit"
-            form="fi-rule-form"
-            loading={busy}
-            disabled={!f.name.trim() || f.cfop.length !== 4}
-          >
-            Salvar
-          </Button>
-        </>
-      }
-    >
-      <form id="fi-rule-form" className="fi-tab fi-dense" onSubmit={save}>
-        {confirmDelete && rule && (
-          <Alert tone="warning">
-            Os {rule.products ?? 0} itens com este padrão passam a usar o padrão do NCM ou o da
-            empresa.
-          </Alert>
-        )}
-        <div className="fi-fields">
-          <TextField
-            label="Nome"
-            value={f.name}
-            maxLength={80}
-            onChange={(e) => set('name', e.target.value)}
-            hint="Ex.: Comida feita na casa, Bebida com ST"
-          />
-          <TextField
-            label="Código"
-            value={f.code}
-            maxLength={20}
-            placeholder="Automático"
-            onChange={(e) => set('code', e.target.value.toUpperCase())}
-          />
-          <SelectField
-            label="Vale para"
-            value={f.scope}
-            onChange={(e) => set('scope', e.target.value)}
-          >
-            <option value="all">NFC-e e NF-e</option>
-            <option value="nfce">Só NFC-e</option>
-            <option value="nfe">Só NF-e</option>
-          </SelectField>
-        </div>
-        <label className="fi-inline-check">
-          <input
-            type="checkbox"
-            checked={f.active}
-            onChange={(e) => set('active', e.target.checked)}
-          />
-          Ativo
-        </label>
-
-        <Tabs<EditorTab>
-          value={tab}
-          onChange={setTab}
-          items={[
-            ['impostos', 'Impostos'],
-            ['reforma', 'IBS/CBS'],
-            ['onde', 'Onde vale'],
-          ]}
-        />
-
-        {tab === 'impostos' && (
+    <HelpScope dict={RULE_HELP}>
+      <Modal
+        open
+        size="lg"
+        title={rule ? `Padrão ${rule.code}` : 'Novo padrão fiscal'}
+        onClose={onClose}
+        footer={
           <>
-            <h3 className="fi-sub">Operação e ICMS</h3>
-            <div className="fi-fields">
-              <TextField
-                label="CFOP"
-                inputMode="numeric"
-                list="fi-cfops"
-                maxLength={4}
-                value={f.cfop}
-                onChange={(e) => set('cfop', e.target.value.replace(/\D/g, ''))}
-                hint={CFOPS.find(([c]) => c === f.cfop)?.[1].split(' · ')[1] ?? 'Tipo da operação'}
-              />
-              <TextField
-                label="CFOP fora do estado"
-                inputMode="numeric"
-                maxLength={4}
-                value={f.cfopInterstate}
-                placeholder={f.cfop.length === 4 ? interstateCfop(f.cfop) : ''}
-                onChange={(e) => set('cfopInterstate', e.target.value.replace(/\D/g, ''))}
-                hint="Só NF-e. Vazio: troca 5 por 6"
-              />
-              <datalist id="fi-cfops">
-                {CFOPS.map(([c, l]) => (
-                  <option key={c} value={c}>
-                    {l}
-                  </option>
-                ))}
-              </datalist>
-              <SelectField
-                label={regime === 3 ? 'CST do ICMS' : 'CSOSN'}
-                value={f.icmsCst}
-                onChange={(e) => set('icmsCst', e.target.value)}
-              >
-                {!icmsList.some(([c]) => c === f.icmsCst) && (
-                  <option value={f.icmsCst}>{f.icmsCst}</option>
-                )}
-                <Options list={icmsList} />
-              </SelectField>
-              <SelectField
-                label="Origem"
-                value={f.icmsOrigin}
-                onChange={(e) => set('icmsOrigin', e.target.value)}
-              >
-                <Options list={ICMS_ORIGINS} />
-              </SelectField>
-              {withRate && (
-                <>
-                  <TextField
-                    label="Alíquota do ICMS (%)"
-                    inputMode="decimal"
-                    value={f.icmsRate}
-                    onChange={(e) => set('icmsRate', e.target.value)}
-                  />
-                  <TextField
-                    label="Redução da base (%)"
-                    inputMode="decimal"
-                    value={f.icmsBaseReduction}
-                    onChange={(e) => set('icmsBaseReduction', e.target.value)}
-                  />
-                </>
-              )}
-              <TextField
-                label="cBenef"
-                value={f.benefitCode}
-                maxLength={10}
-                onChange={(e) => set('benefitCode', e.target.value.toUpperCase())}
-                hint="Código de benefício. Só onde o estado exige"
-              />
-            </div>
-            {regimeMismatch && (
-              <Alert tone="danger">
-                {regime === 3
-                  ? 'Empresa no regime normal usa CST de 2 dígitos, não CSOSN.'
-                  : 'Empresa do Simples Nacional usa CSOSN de 3 dígitos, não CST.'}{' '}
-                A SEFAZ recusa a nota.
-              </Alert>
-            )}
-
-            <h3 className="fi-sub">PIS e COFINS</h3>
-            <div className="fi-fields">
-              <SelectField
-                label="CST do PIS"
-                value={f.pisCst}
-                onChange={(e) => set('pisCst', e.target.value)}
-              >
-                <Options list={CST_PIS_COFINS} />
-              </SelectField>
-              {pisWithRate && (
-                <TextField
-                  label="Alíquota do PIS (%)"
-                  inputMode="decimal"
-                  value={f.pisRate}
-                  onChange={(e) => set('pisRate', e.target.value)}
-                  placeholder="0,65"
-                />
-              )}
-              <SelectField
-                label="CST da COFINS"
-                value={f.cofinsCst}
-                onChange={(e) => set('cofinsCst', e.target.value)}
-              >
-                <Options list={CST_PIS_COFINS} />
-              </SelectField>
-              {cofinsWithRate && (
-                <TextField
-                  label="Alíquota da COFINS (%)"
-                  inputMode="decimal"
-                  value={f.cofinsRate}
-                  onChange={(e) => set('cofinsRate', e.target.value)}
-                  placeholder="3"
-                />
-              )}
-            </div>
-
-            <h3 className="fi-sub">Outros</h3>
-            <div className="fi-fields">
-              {f.scope !== 'nfce' && (
-                <SelectField
-                  label="CST do IPI (NF-e)"
-                  value={f.ipiCst}
-                  onChange={(e) => set('ipiCst', e.target.value)}
-                >
-                  <Options list={CST_IPI} empty="Sem IPI" />
-                </SelectField>
-              )}
-              {f.scope !== 'nfce' && f.ipiCst && (
-                <TextField
-                  label="Alíquota do IPI (%)"
-                  inputMode="decimal"
-                  value={f.ipiRate}
-                  onChange={(e) => set('ipiRate', e.target.value)}
-                />
-              )}
-              <TextField
-                label="Tributos aproximados (%)"
-                inputMode="decimal"
-                value={f.approxTaxRate}
-                onChange={(e) => set('approxTaxRate', e.target.value)}
-                hint="Valor que sai no cupom (Lei da transparência)"
-              />
-              <TextField
-                label="Anotação"
-                wrapClass="fi-w2"
-                value={f.notes}
-                maxLength={500}
-                onChange={(e) => set('notes', e.target.value)}
-                hint="Só para a equipe. Não sai na nota"
-              />
-            </div>
-          </>
-        )}
-
-        {tab === 'reforma' && (
-          <>
-            <p className="cm-hint fi-note">
-              Reforma tributária. Em 2026 os campos são de teste, sem recolhimento. Deixe vazio se a
-              contabilidade ainda não orientou.
-            </p>
-            <div className="fi-fields">
-              <SelectField
-                label="CST do IBS/CBS"
-                value={f.ibsCbsCst}
-                onChange={(e) => set('ibsCbsCst', e.target.value)}
-              >
-                <Options list={CST_IBS_CBS} empty="Não informar" />
-              </SelectField>
-              {f.ibsCbsCst && (
-                <>
-                  <SelectField
-                    label="Classificação tributária"
-                    value={f.ibsCbsClass}
-                    onChange={(e) => set('ibsCbsClass', e.target.value)}
-                  >
-                    {f.ibsCbsClass && !IBS_CBS_CLASSES.some(([c]) => c === f.ibsCbsClass) && (
-                      <option value={f.ibsCbsClass}>{f.ibsCbsClass}</option>
-                    )}
-                    <Options list={IBS_CBS_CLASSES} empty="Escolha" />
-                  </SelectField>
-                  <TextField
-                    label="CBS (%)"
-                    inputMode="decimal"
-                    value={f.cbsRate}
-                    onChange={(e) => set('cbsRate', e.target.value)}
-                  />
-                  <TextField
-                    label="IBS estadual (%)"
-                    inputMode="decimal"
-                    value={f.ibsUfRate}
-                    onChange={(e) => set('ibsUfRate', e.target.value)}
-                  />
-                  <TextField
-                    label="IBS municipal (%)"
-                    inputMode="decimal"
-                    value={f.ibsMunRate}
-                    onChange={(e) => set('ibsMunRate', e.target.value)}
-                  />
-                </>
-              )}
-            </div>
-            {f.ibsCbsCst && (
-              <div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() =>
-                    setF((x) => ({
-                      ...x,
-                      cbsRate: pct(IBS_CBS_TEST_RATES.cbs),
-                      ibsUfRate: pct(IBS_CBS_TEST_RATES.ibsUf),
-                      ibsMunRate: pct(IBS_CBS_TEST_RATES.ibsMun),
-                    }))
-                  }
-                >
-                  Usar alíquotas de teste
+            {rule &&
+              (confirmDelete ? (
+                <Button variant="danger" loading={busy} onClick={remove}>
+                  Confirmar: apagar
                 </Button>
-              </div>
-            )}
+              ) : (
+                <Button
+                  variant="ghost"
+                  icon={<Trash2 size={16} />}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  Apagar
+                </Button>
+              ))}
+            <span style={{ flex: 1 }} />
+            <Button variant="ghost" onClick={onClose}>
+              Fechar
+            </Button>
+            <Button
+              type="submit"
+              form="fi-rule-form"
+              loading={busy}
+              disabled={!f.name.trim() || f.cfop.length !== 4}
+            >
+              Salvar
+            </Button>
           </>
-        )}
+        }
+      >
+        <form id="fi-rule-form" className="fi-tab fi-dense" onSubmit={save}>
+          {confirmDelete && rule && (
+            <Alert tone="warning">
+              Os {rule.products ?? 0} itens com este padrão passam a usar o padrão do NCM ou o da
+              empresa.
+            </Alert>
+          )}
+          <div className="fi-fields">
+            <TextField
+              label="Nome"
+              value={f.name}
+              maxLength={80}
+              onChange={(e) => set('name', e.target.value)}
+              hint="Ex.: Comida feita na casa, Bebida com ST"
+            />
+            <TextField
+              label="Código"
+              value={f.code}
+              maxLength={20}
+              placeholder="Automático"
+              onChange={(e) => set('code', e.target.value.toUpperCase())}
+            />
+            <SelectField
+              label="Vale para"
+              value={f.scope}
+              onChange={(e) => set('scope', e.target.value)}
+            >
+              <option value="all">NFC-e e NF-e</option>
+              <option value="nfce">Só NFC-e</option>
+              <option value="nfe">Só NF-e</option>
+            </SelectField>
+          </div>
+          <span className="cm-label-row">
+            <label className="fi-inline-check">
+              <input
+                type="checkbox"
+                checked={f.active}
+                onChange={(e) => set('active', e.target.checked)}
+              />
+              Ativo
+            </label>
+            <HelpTip label="Ativo" />
+          </span>
 
-        {tab === 'onde' && (
-          <WhereItApplies
-            rule={rule}
-            rules={rules}
-            products={products}
-            items={items}
-            setItems={setItems}
-            ncms={ncms}
-            setNcms={setNcms}
-            isDefault={f.isDefault}
-            setDefault={(v) => set('isDefault', v)}
+          <Tabs<EditorTab>
+            value={tab}
+            onChange={setTab}
+            items={[
+              ['impostos', 'Impostos'],
+              ['reforma', 'IBS/CBS'],
+              ['onde', 'Onde vale'],
+            ]}
           />
-        )}
-        {error && <Alert tone="danger">{error}</Alert>}
-      </form>
-    </Modal>
+
+          {tab === 'impostos' && (
+            <>
+              <h3 className="fi-sub">Operação e ICMS</h3>
+              <div className="fi-fields">
+                <TextField
+                  label="CFOP"
+                  inputMode="numeric"
+                  list="fi-cfops"
+                  maxLength={4}
+                  value={f.cfop}
+                  onChange={(e) => set('cfop', e.target.value.replace(/\D/g, ''))}
+                  hint={
+                    CFOPS.find(([c]) => c === f.cfop)?.[1].split(' · ')[1] ?? 'Tipo da operação'
+                  }
+                />
+                <TextField
+                  label="CFOP fora do estado"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={f.cfopInterstate}
+                  placeholder={f.cfop.length === 4 ? interstateCfop(f.cfop) : ''}
+                  onChange={(e) => set('cfopInterstate', e.target.value.replace(/\D/g, ''))}
+                  hint="Só NF-e. Vazio: troca 5 por 6"
+                />
+                <datalist id="fi-cfops">
+                  {CFOPS.map(([c, l]) => (
+                    <option key={c} value={c}>
+                      {l}
+                    </option>
+                  ))}
+                </datalist>
+                <SelectField
+                  label={regime === 3 ? 'CST do ICMS' : 'CSOSN'}
+                  value={f.icmsCst}
+                  onChange={(e) => set('icmsCst', e.target.value)}
+                >
+                  {!icmsList.some(([c]) => c === f.icmsCst) && (
+                    <option value={f.icmsCst}>{f.icmsCst}</option>
+                  )}
+                  <Options list={icmsList} />
+                </SelectField>
+                <SelectField
+                  label="Origem"
+                  value={f.icmsOrigin}
+                  onChange={(e) => set('icmsOrigin', e.target.value)}
+                >
+                  <Options list={ICMS_ORIGINS} />
+                </SelectField>
+                {withRate && (
+                  <>
+                    <TextField
+                      label="Alíquota do ICMS (%)"
+                      inputMode="decimal"
+                      value={f.icmsRate}
+                      onChange={(e) => set('icmsRate', e.target.value)}
+                    />
+                    <TextField
+                      label="Redução da base (%)"
+                      inputMode="decimal"
+                      value={f.icmsBaseReduction}
+                      onChange={(e) => set('icmsBaseReduction', e.target.value)}
+                    />
+                  </>
+                )}
+                <TextField
+                  label="cBenef"
+                  value={f.benefitCode}
+                  maxLength={10}
+                  onChange={(e) => set('benefitCode', e.target.value.toUpperCase())}
+                  hint="Código de benefício. Só onde o estado exige"
+                />
+              </div>
+              {regimeMismatch && (
+                <Alert tone="danger">
+                  {regime === 3
+                    ? 'Empresa no regime normal usa CST de 2 dígitos, não CSOSN.'
+                    : 'Empresa do Simples Nacional usa CSOSN de 3 dígitos, não CST.'}{' '}
+                  A SEFAZ recusa a nota.
+                </Alert>
+              )}
+
+              <h3 className="fi-sub">PIS e COFINS</h3>
+              <div className="fi-fields">
+                <SelectField
+                  label="CST do PIS"
+                  value={f.pisCst}
+                  onChange={(e) => set('pisCst', e.target.value)}
+                >
+                  <Options list={CST_PIS_COFINS} />
+                </SelectField>
+                {pisWithRate && (
+                  <TextField
+                    label="Alíquota do PIS (%)"
+                    inputMode="decimal"
+                    value={f.pisRate}
+                    onChange={(e) => set('pisRate', e.target.value)}
+                    placeholder="0,65"
+                  />
+                )}
+                <SelectField
+                  label="CST da COFINS"
+                  value={f.cofinsCst}
+                  onChange={(e) => set('cofinsCst', e.target.value)}
+                >
+                  <Options list={CST_PIS_COFINS} />
+                </SelectField>
+                {cofinsWithRate && (
+                  <TextField
+                    label="Alíquota da COFINS (%)"
+                    inputMode="decimal"
+                    value={f.cofinsRate}
+                    onChange={(e) => set('cofinsRate', e.target.value)}
+                    placeholder="3"
+                  />
+                )}
+              </div>
+
+              <h3 className="fi-sub">Outros</h3>
+              <div className="fi-fields">
+                {f.scope !== 'nfce' && (
+                  <SelectField
+                    label="CST do IPI (NF-e)"
+                    value={f.ipiCst}
+                    onChange={(e) => set('ipiCst', e.target.value)}
+                  >
+                    <Options list={CST_IPI} empty="Sem IPI" />
+                  </SelectField>
+                )}
+                {f.scope !== 'nfce' && f.ipiCst && (
+                  <TextField
+                    label="Alíquota do IPI (%)"
+                    inputMode="decimal"
+                    value={f.ipiRate}
+                    onChange={(e) => set('ipiRate', e.target.value)}
+                  />
+                )}
+                <TextField
+                  label="Tributos aproximados (%)"
+                  inputMode="decimal"
+                  value={f.approxTaxRate}
+                  onChange={(e) => set('approxTaxRate', e.target.value)}
+                  hint="Valor que sai no cupom (Lei da transparência)"
+                />
+                <TextField
+                  label="Anotação"
+                  wrapClass="fi-w2"
+                  value={f.notes}
+                  maxLength={500}
+                  onChange={(e) => set('notes', e.target.value)}
+                  hint="Só para a equipe. Não sai na nota"
+                />
+              </div>
+            </>
+          )}
+
+          {tab === 'reforma' && (
+            <>
+              <p className="cm-hint fi-note">
+                Reforma tributária. Em 2026 os campos são de teste, sem recolhimento. Deixe vazio se
+                a contabilidade ainda não orientou.
+              </p>
+              <div className="fi-fields">
+                <SelectField
+                  label="CST do IBS/CBS"
+                  value={f.ibsCbsCst}
+                  onChange={(e) => set('ibsCbsCst', e.target.value)}
+                >
+                  <Options list={CST_IBS_CBS} empty="Não informar" />
+                </SelectField>
+                {f.ibsCbsCst && (
+                  <>
+                    <SelectField
+                      label="Classificação tributária"
+                      value={f.ibsCbsClass}
+                      onChange={(e) => set('ibsCbsClass', e.target.value)}
+                    >
+                      {f.ibsCbsClass && !IBS_CBS_CLASSES.some(([c]) => c === f.ibsCbsClass) && (
+                        <option value={f.ibsCbsClass}>{f.ibsCbsClass}</option>
+                      )}
+                      <Options list={IBS_CBS_CLASSES} empty="Escolha" />
+                    </SelectField>
+                    <TextField
+                      label="CBS (%)"
+                      inputMode="decimal"
+                      value={f.cbsRate}
+                      onChange={(e) => set('cbsRate', e.target.value)}
+                    />
+                    <TextField
+                      label="IBS estadual (%)"
+                      inputMode="decimal"
+                      value={f.ibsUfRate}
+                      onChange={(e) => set('ibsUfRate', e.target.value)}
+                    />
+                    <TextField
+                      label="IBS municipal (%)"
+                      inputMode="decimal"
+                      value={f.ibsMunRate}
+                      onChange={(e) => set('ibsMunRate', e.target.value)}
+                    />
+                  </>
+                )}
+              </div>
+              {f.ibsCbsCst && (
+                <div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setF((x) => ({
+                        ...x,
+                        cbsRate: pct(IBS_CBS_TEST_RATES.cbs),
+                        ibsUfRate: pct(IBS_CBS_TEST_RATES.ibsUf),
+                        ibsMunRate: pct(IBS_CBS_TEST_RATES.ibsMun),
+                      }))
+                    }
+                  >
+                    Usar alíquotas de teste
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+
+          {tab === 'onde' && (
+            <WhereItApplies
+              rule={rule}
+              rules={rules}
+              products={products}
+              items={items}
+              setItems={setItems}
+              ncms={ncms}
+              setNcms={setNcms}
+              isDefault={f.isDefault}
+              setDefault={(v) => set('isDefault', v)}
+            />
+          )}
+          {error && <Alert tone="danger">{error}</Alert>}
+        </form>
+      </Modal>
+    </HelpScope>
   );
 }
 
@@ -797,7 +807,9 @@ function WhereItApplies({
       </p>
 
       <div className="fi-subwrap">
-        <h3 className="fi-sub">1º Itens ligados</h3>
+        <h3 className="fi-sub cm-sec-help">
+          1º Itens ligados <HelpTip label="Itens ligados" />
+        </h3>
         <p className="cm-hint">Exceção pontual: este item usa este padrão, seja qual for o NCM.</p>
       </div>
       <div className="fi-chips">
@@ -839,7 +851,9 @@ function WhereItApplies({
       </div>
 
       <div className="fi-subwrap">
-        <h3 className="fi-sub">2º NCMs ligados</h3>
+        <h3 className="fi-sub cm-sec-help">
+          2º NCMs ligados <HelpTip label="NCMs ligados" />
+        </h3>
         <p className="cm-hint">
           Todo item com um destes NCMs usa este padrão. Bom para bebidas com ST.
         </p>

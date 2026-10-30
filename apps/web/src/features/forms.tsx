@@ -1,5 +1,5 @@
 import { ReactNode, SelectHTMLAttributes, useId } from 'react';
-import { Segmented, Select } from '../design-system';
+import { HelpTip, Segmented, Select, useHelp } from '../design-system';
 
 /** Campo de seleção com rótulo, no mesmo visual do TextField. */
 export function SelectField({
@@ -8,11 +8,21 @@ export function SelectField({
   ...rest
 }: SelectHTMLAttributes<HTMLSelectElement> & { label: string; children: ReactNode }) {
   const id = useId();
+  const help = useHelp(label);
   return (
     <div className="cm-field">
-      <label className="cm-label" htmlFor={id}>
-        {label}
-      </label>
+      {help ? (
+        <span className="cm-label-row">
+          <label className="cm-label" htmlFor={id}>
+            {label}
+          </label>
+          <HelpTip label={label} entry={help} />
+        </span>
+      ) : (
+        <label className="cm-label" htmlFor={id}>
+          {label}
+        </label>
+      )}
       <Select id={id} className="cm-input" {...rest}>
         {children}
       </Select>
@@ -37,7 +47,8 @@ export function CheckField({
   onChange(checked: boolean): void;
   disabled?: boolean;
 }) {
-  return (
+  const help = useHelp(label);
+  const box = (
     <label className="check-field" data-checked={checked || undefined}>
       <input
         type="checkbox"
@@ -50,6 +61,13 @@ export function CheckField({
         {description && <span className="cm-hint">{description}</span>}
       </span>
     </label>
+  );
+  if (!help) return box;
+  return (
+    <div className="cm-help-wrap">
+      {box}
+      <HelpTip label={label} entry={help} />
+    </div>
   );
 }
 

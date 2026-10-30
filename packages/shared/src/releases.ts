@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.68.0',
+    date: '2026-10-30',
+    title: 'Mesas de volta no PDV e tutoriais do Cardápio e da Nota fiscal',
+    summary:
+      'O bloco do Salão voltou ao PDV. Cardápio e Nota fiscal ganharam um botão Tutorial que mostra cada parte da tela passo a passo, e cada campo ganhou um "?" que explica o que é e leva à tela ligada.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'PDV: as mesas e comandas voltaram para cima dos pedidos, com livres, ocupadas e em pagamento. Mesa livre abre a venda ali mesmo; ocupada abre a comanda.',
+      },
+      {
+        tag: 'novo',
+        text: 'Botão Tutorial no Cardápio, no cadastro do item e em todas as telas da Nota fiscal: o tour abre cada aba, enquadra o bloco e explica o que preencher, sem salvar nada.',
+      },
+      {
+        tag: 'novo',
+        text: 'Ponto de interrogação ao lado de cada campo do Cardápio, da configuração fiscal, dos padrões fiscais, da NF-e, da inutilização e do CPF na nota: explica o campo, dá exemplo e tem link para a tela relacionada.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Apresentação do primeiro acesso mais completa: passa por loja online, cardápio, complementos, ajustes, equipe, caixa, PDV com as mesas, salão, pedidos, cozinha e nota fiscal. Rever em Conta › Rever apresentação.',
+      },
+    ],
+  },
+  {
     version: '0.67.0',
     date: '2026-10-30',
     title: 'Pontuação e desafios dos garçons para o gestor',

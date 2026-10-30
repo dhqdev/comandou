@@ -10,12 +10,14 @@ import {
   Skeleton,
   TextField,
   useToast,
+  HelpScope,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { CheckField } from '../../features/forms';
 import { api, type Product } from '../../lib/api';
 import { useRealtime } from '../../lib/realtime';
 import type { Family } from './menu-data';
+import { FAMILY_HELP } from '../../features/help/menu-help';
 
 /** Famílias de itens: agrupam as vendas nos relatórios. */
 export function FamiliesTab() {
@@ -186,80 +188,82 @@ export function FamilyModal({
   }
 
   return (
-    <Modal
-      open={!!family}
-      onClose={onClose}
-      size="lg"
-      title={isNew ? 'Nova família' : name || 'Família'}
-      footer={
-        canWrite && (
-          <>
-            <Button variant="ghost" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button loading={busy} disabled={!name.trim()} onClick={save}>
-              Salvar
-            </Button>
-          </>
-        )
-      }
-    >
-      <div className="cm-form">
-        <TextField
-          label="Nome da família"
-          wrapClass="cm-form__wide"
-          placeholder="Ex.: Bebidas"
-          value={name}
-          maxLength={60}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <div className="cm-form__wide mn-checks">
-          <CheckField
-            label="Inativa"
-            description="Some da escolha de família no cadastro do item."
-            checked={!active}
-            onChange={(v) => setActive(!v)}
+    <HelpScope dict={FAMILY_HELP}>
+      <Modal
+        open={!!family}
+        onClose={onClose}
+        size="lg"
+        title={isNew ? 'Nova família' : name || 'Família'}
+        footer={
+          canWrite && (
+            <>
+              <Button variant="ghost" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button loading={busy} disabled={!name.trim()} onClick={save}>
+                Salvar
+              </Button>
+            </>
+          )
+        }
+      >
+        <div className="cm-form">
+          <TextField
+            label="Nome da família"
+            wrapClass="cm-form__wide"
+            placeholder="Ex.: Bebidas"
+            value={name}
+            maxLength={60}
+            onChange={(e) => setName(e.target.value)}
           />
-          <CheckField
-            label="Vendido como complemento, conta como produto"
-            description="Ligue na família dos sabores de pizza: na análise de cardápio a pizza meio a meio conta meia de cada sabor. Bordas e adicionais ficam em famílias com esta opção desligada."
-            checked={countsAsProduct}
-            onChange={setCountsAsProduct}
-          />
-        </div>
-        <h3 className="cm-form__section">Itens desta família ({members.length})</h3>
-        <div className="mn-picker cm-form__wide">
-          <div className="mn-search mn-search--flat">
-            <Search size={16} aria-hidden />
-            <input
-              className="cm-input"
-              type="search"
-              aria-label="Buscar item para a família"
-              placeholder="Buscar item"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+          <div className="cm-form__wide mn-checks">
+            <CheckField
+              label="Inativa"
+              description="Some da escolha de família no cadastro do item."
+              checked={!active}
+              onChange={(v) => setActive(!v)}
+            />
+            <CheckField
+              label="Vendido como complemento, conta como produto"
+              description="Ligue na família dos sabores de pizza: na análise de cardápio a pizza meio a meio conta meia de cada sabor. Bordas e adicionais ficam em famílias com esta opção desligada."
+              checked={countsAsProduct}
+              onChange={setCountsAsProduct}
             />
           </div>
-          <div className="mn-picker__list">
-            {list.map((p) => (
-              <label key={p.id} className="mn-check">
-                <input
-                  type="checkbox"
-                  checked={members.includes(p.id)}
-                  disabled={!canWrite}
-                  onChange={(e) =>
-                    setMembers((m) =>
-                      e.target.checked ? [...m, p.id] : m.filter((x) => x !== p.id),
-                    )
-                  }
-                />
-                <span>{p.name}</span>
-              </label>
-            ))}
+          <h3 className="cm-form__section">Itens desta família ({members.length})</h3>
+          <div className="mn-picker cm-form__wide">
+            <div className="mn-search mn-search--flat">
+              <Search size={16} aria-hidden />
+              <input
+                className="cm-input"
+                type="search"
+                aria-label="Buscar item para a família"
+                placeholder="Buscar item"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="mn-picker__list">
+              {list.map((p) => (
+                <label key={p.id} className="mn-check">
+                  <input
+                    type="checkbox"
+                    checked={members.includes(p.id)}
+                    disabled={!canWrite}
+                    onChange={(e) =>
+                      setMembers((m) =>
+                        e.target.checked ? [...m, p.id] : m.filter((x) => x !== p.id),
+                      )
+                    }
+                  />
+                  <span>{p.name}</span>
+                </label>
+              ))}
+            </div>
           </div>
+          {error && <Alert tone="danger">{error}</Alert>}
         </div>
-        {error && <Alert tone="danger">{error}</Alert>}
-      </div>
-    </Modal>
+      </Modal>
+    </HelpScope>
   );
 }

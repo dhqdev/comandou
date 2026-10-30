@@ -15,6 +15,7 @@ import { DateInput } from './pickers';
 import { cachedBranding } from './brand';
 import { canAnimate, useLiquidDialog } from './liquid';
 import { FixSteps, useFixPlan } from './fix-guide';
+import { HelpTip, useHelp } from './help-tip';
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 
@@ -77,11 +78,22 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
   const autoId = useId();
   const inputId = id ?? autoId;
   const describedBy = error ? `${inputId}-err` : hint ? `${inputId}-hint` : undefined;
+  const help = useHelp(label);
+  const labelEl = (
+    <label className="cm-label" htmlFor={inputId}>
+      {label}
+    </label>
+  );
   return (
     <div className={wrapClass ? `cm-field ${wrapClass}` : 'cm-field'}>
-      <label className="cm-label" htmlFor={inputId}>
-        {label}
-      </label>
+      {help ? (
+        <span className="cm-label-row">
+          {labelEl}
+          <HelpTip label={label} entry={help} />
+        </span>
+      ) : (
+        labelEl
+      )}
       {type === 'date' ? (
         <DateInput
           ref={ref}

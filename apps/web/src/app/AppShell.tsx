@@ -66,6 +66,7 @@ import {
   useSupportUnread,
 } from '../features/store-chat/SupportInbox';
 import { WelcomeTour, tourSeen } from '../features/WelcomeTour';
+import { PageTourHost } from '../features/tour/PageTour';
 import { PandaStroll } from '../features/mascot/Stroll';
 import { openWardrobe, useMascotSync } from '../features/mascot/state';
 import { WardrobeHost } from '../features/mascot/Wardrobe';
@@ -452,6 +453,7 @@ export function AppShell() {
           tabs={tabs}
         />
       )}
+      {me && <PageTourHost items={[...main, ...groups]} tabs={tabs} />}
       <GlobalSearch
         open={searchOpen}
         onClose={() => setSearchOpen(false)}

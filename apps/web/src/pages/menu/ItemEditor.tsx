@@ -11,6 +11,9 @@ import {
   Skeleton,
   TextField,
   useToast,
+  HelpLabel,
+  HelpScope,
+  HelpTip,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { CheckField, fmtQty, parseQtyInput, SelectField, Tabs } from '../../features/forms';
@@ -41,6 +44,8 @@ import {
   type OptionGroup,
 } from './menu-data';
 import '../stock.css';
+import { ITEM_HELP } from '../../features/help/menu-help';
+import { TourButton } from '../../features/tour/PageTour';
 
 type Tab = 'principal' | 'complementos' | 'ficha';
 
@@ -369,614 +374,620 @@ export function ItemEditor() {
     });
 
   return (
-    <>
-      <div className="mn-crumbs">
-        <div className="mn-crumbs__path">
-          <Link to="/cardapio" className="mn-crumbs__back">
-            <ArrowLeft size={16} aria-hidden /> Itens
-          </Link>
-          <span aria-hidden>/</span>
-          <h1>{title}</h1>
-          {product && !product.active && <Badge>Pausado</Badge>}
-          {product?.soldOut && <Badge tone="danger">Esgotado</Badge>}
+    <HelpScope dict={ITEM_HELP}>
+      <>
+        <div className="mn-crumbs">
+          <div className="mn-crumbs__path">
+            <Link to="/cardapio" className="mn-crumbs__back">
+              <ArrowLeft size={16} aria-hidden /> Itens
+            </Link>
+            <span aria-hidden>/</span>
+            <h1>{title}</h1>
+            {product && !product.active && <Badge>Pausado</Badge>}
+            {product?.soldOut && <Badge tone="danger">Esgotado</Badge>}
+          </div>
+          <div className="mn-crumbs__tools">
+            <TourButton tour="item" />
+            {canWrite && (
+              <Button loading={busy} disabled={invalid} onClick={save} title={firstErr?.[1]}>
+                Salvar
+              </Button>
+            )}
+          </div>
         </div>
-        {canWrite && (
-          <Button loading={busy} disabled={invalid} onClick={save} title={firstErr?.[1]}>
-            Salvar
-          </Button>
-        )}
-      </div>
-      <Tabs<Tab>
-        value={tab}
-        onChange={setTab}
-        items={[
-          ['principal', 'Principal'],
-          ['complementos', `Complementos${groupIds.length ? ` (${groupIds.length})` : ''}`],
-          ['ficha', 'Ficha técnica'],
-        ]}
-      />
-      {error && <Alert tone="danger">{error}</Alert>}
-      {!form ? (
-        !error && <Skeleton height={320} />
-      ) : tab === 'principal' ? (
-        <Card>
-          <div className="mn-item-top">
-            <div className="mn-item-photo">
-              <ImagePicker
-                label="Foto do item"
-                width={148}
-                value={form.imageId}
-                disabled={!canWrite}
-                onChange={(img) => set('imageId', img)}
-              />
-              <span className="cm-hint">Foto quadrada; pode arrastar o arquivo.</span>
+        <Tabs<Tab>
+          value={tab}
+          onChange={setTab}
+          items={[
+            ['principal', 'Principal'],
+            ['complementos', `Complementos${groupIds.length ? ` (${groupIds.length})` : ''}`],
+            ['ficha', 'Ficha técnica'],
+          ]}
+        />
+        {error && <Alert tone="danger">{error}</Alert>}
+        {!form ? (
+          !error && <Skeleton height={320} />
+        ) : tab === 'principal' ? (
+          <Card>
+            <div className="mn-item-top">
+              <div className="mn-item-photo">
+                <ImagePicker
+                  label="Foto do item"
+                  width={148}
+                  value={form.imageId}
+                  disabled={!canWrite}
+                  onChange={(img) => set('imageId', img)}
+                />
+                <span className="cm-hint">Foto quadrada; pode arrastar o arquivo.</span>
+              </div>
+              <div className="cm-form">
+                <TextField
+                  label="Código (opcional)"
+                  placeholder={isNew ? 'Gerado ao salvar (IT-000001)' : undefined}
+                  value={form.code}
+                  maxLength={30}
+                  onChange={(e) => set('code', e.target.value.toUpperCase())}
+                />
+                <TextField
+                  label="Nome do item"
+                  value={form.name}
+                  maxLength={120}
+                  error={form.name && errs.name}
+                  onChange={(e) => set('name', e.target.value)}
+                  required
+                />
+                <div className="cm-field cm-form__wide">
+                  <HelpLabel htmlFor="item-desc">Descrição (opcional)</HelpLabel>
+                  <textarea
+                    id="item-desc"
+                    className="cm-input"
+                    rows={3}
+                    maxLength={1000}
+                    placeholder="Ingredientes, tamanho, observações"
+                    value={form.description}
+                    onChange={(e) => set('description', e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="cm-form">
+
+            <div className="cm-form mn-item-form">
+              <h3 className="cm-form__section">Venda</h3>
+              <SelectField
+                label="Categoria"
+                value={form.categoryId}
+                onChange={(e) => set('categoryId', e.target.value)}
+              >
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </SelectField>
               <TextField
-                label="Código (opcional)"
-                placeholder={isNew ? 'Gerado ao salvar (IT-000001)' : undefined}
-                value={form.code}
-                maxLength={30}
-                onChange={(e) => set('code', e.target.value.toUpperCase())}
-              />
-              <TextField
-                label="Nome do item"
-                value={form.name}
-                maxLength={120}
-                error={form.name && errs.name}
-                onChange={(e) => set('name', e.target.value)}
+                label="Preço"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={form.price}
+                error={form.price ? errs.price : undefined}
+                hint={
+                  form.soldByWeight
+                    ? 'Preço do quilo'
+                    : 'Preço base, usado nos cardápios sem preço próprio'
+                }
+                onChange={(e) => set('price', e.target.value)}
                 required
               />
-              <div className="cm-field cm-form__wide">
-                <label className="cm-label" htmlFor="item-desc">
-                  Descrição (opcional)
-                </label>
-                <textarea
-                  id="item-desc"
-                  className="cm-input"
-                  rows={3}
-                  maxLength={1000}
-                  placeholder="Ingredientes, tamanho, observações"
-                  value={form.description}
-                  onChange={(e) => set('description', e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="cm-form mn-item-form">
-            <h3 className="cm-form__section">Venda</h3>
-            <SelectField
-              label="Categoria"
-              value={form.categoryId}
-              onChange={(e) => set('categoryId', e.target.value)}
-            >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </SelectField>
-            <TextField
-              label="Preço"
-              inputMode="decimal"
-              placeholder="0,00"
-              value={form.price}
-              error={form.price ? errs.price : undefined}
-              hint={
-                form.soldByWeight
-                  ? 'Preço do quilo'
-                  : 'Preço base, usado nos cardápios sem preço próprio'
-              }
-              onChange={(e) => set('price', e.target.value)}
-              required
-            />
-            <SelectField
-              label="Unidade de medida"
-              value={form.unit}
-              onChange={(e) => set('unit', e.target.value)}
-            >
-              {UNITS.map(([u, label]) => (
-                <option key={u} value={u}>
-                  {u} · {label}
-                </option>
-              ))}
-              {!UNITS.some(([u]) => u === form.unit) && (
-                <option value={form.unit}>{form.unit}</option>
-              )}
-            </SelectField>
-            <div className="cm-field">
-              <span className="mn-label-row">
-                <label className="cm-label" htmlFor="item-family">
-                  Família
-                </label>
-                {canWrite && (
-                  <button type="button" className="link-btn" onClick={() => setNewFamily(true)}>
-                    + Nova
-                  </button>
-                )}
-              </span>
-              <Select
-                id="item-family"
-                value={form.familyId}
-                onChange={(e) => set('familyId', e.target.value)}
+              <SelectField
+                label="Unidade de medida"
+                value={form.unit}
+                onChange={(e) => set('unit', e.target.value)}
               >
-                <option value="">Sem família</option>
-                {families
-                  .filter((f) => f.active || f.id === form.familyId)
-                  .map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}
-                    </option>
-                  ))}
-              </Select>
-              <span className="cm-hint">Agrupa as vendas deste item nos relatórios.</span>
-            </div>
-            <SelectField
-              label="Cozinha (KDS)"
-              value={form.sectorId}
-              onChange={(e) => set('sectorId', e.target.value)}
-            >
-              <option value="">Nenhuma</option>
-              {sectors.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </SelectField>
-            <TextField
-              label="Selo no cardápio online (opcional)"
-              placeholder="Ex.: Novo, Picante"
-              maxLength={20}
-              value={form.badge}
-              onChange={(e) => set('badge', e.target.value)}
-            />
-            <div className="cm-form__wide mn-checks">
-              <CheckField
-                label="Vendido por peso"
-                description="O preço é do quilo e a quantidade vai em kg (balança ou digitada)."
-                checked={form.soldByWeight}
-                onChange={(v) => {
-                  set('soldByWeight', v);
-                  if (v) set('unit', 'KG');
-                  else if (form.unit === 'KG') set('unit', 'UN');
-                }}
+                {UNITS.map(([u, label]) => (
+                  <option key={u} value={u}>
+                    {u} · {label}
+                  </option>
+                ))}
+                {!UNITS.some(([u]) => u === form.unit) && (
+                  <option value={form.unit}>{form.unit}</option>
+                )}
+              </SelectField>
+              <div className="cm-field">
+                <span className="mn-label-row">
+                  <HelpLabel htmlFor="item-family">Família</HelpLabel>
+                  {canWrite && (
+                    <button type="button" className="link-btn" onClick={() => setNewFamily(true)}>
+                      + Nova
+                    </button>
+                  )}
+                </span>
+                <Select
+                  id="item-family"
+                  value={form.familyId}
+                  onChange={(e) => set('familyId', e.target.value)}
+                >
+                  <option value="">Sem família</option>
+                  {families
+                    .filter((f) => f.active || f.id === form.familyId)
+                    .map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.name}
+                      </option>
+                    ))}
+                </Select>
+                <span className="cm-hint">Agrupa as vendas deste item nos relatórios.</span>
+              </div>
+              <SelectField
+                label="Cozinha (KDS)"
+                value={form.sectorId}
+                onChange={(e) => set('sectorId', e.target.value)}
+              >
+                <option value="">Nenhuma</option>
+                {sectors.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </SelectField>
+              <TextField
+                label="Selo no cardápio online (opcional)"
+                placeholder="Ex.: Novo, Picante"
+                maxLength={20}
+                value={form.badge}
+                onChange={(e) => set('badge', e.target.value)}
               />
-              <CheckField
-                label="Destaque no cardápio online"
-                description="Aparece no topo, na faixa de destaques."
-                checked={form.featured}
-                onChange={(v) => set('featured', v)}
-              />
-              {!isNew && (
-                <>
-                  <CheckField
-                    label="Esgotado"
-                    description="Continua no cardápio, mas não dá para pedir."
-                    checked={form.soldOut}
-                    onChange={(v) => set('soldOut', v)}
-                  />
-                  <CheckField
-                    label="Pausado"
-                    description="Sai de todos os cardápios até ser reativado."
-                    checked={!form.active}
-                    onChange={(v) => set('active', !v)}
-                  />
-                </>
-              )}
-            </div>
+              <div className="cm-form__wide mn-checks">
+                <CheckField
+                  label="Vendido por peso"
+                  description="O preço é do quilo e a quantidade vai em kg (balança ou digitada)."
+                  checked={form.soldByWeight}
+                  onChange={(v) => {
+                    set('soldByWeight', v);
+                    if (v) set('unit', 'KG');
+                    else if (form.unit === 'KG') set('unit', 'UN');
+                  }}
+                />
+                <CheckField
+                  label="Destaque no cardápio online"
+                  description="Aparece no topo, na faixa de destaques."
+                  checked={form.featured}
+                  onChange={(v) => set('featured', v)}
+                />
+                {!isNew && (
+                  <>
+                    <CheckField
+                      label="Esgotado"
+                      description="Continua no cardápio, mas não dá para pedir."
+                      checked={form.soldOut}
+                      onChange={(v) => set('soldOut', v)}
+                    />
+                    <CheckField
+                      label="Pausado"
+                      description="Sai de todos os cardápios até ser reativado."
+                      checked={!form.active}
+                      onChange={(v) => set('active', !v)}
+                    />
+                  </>
+                )}
+              </div>
 
-            <h3 className="cm-form__section">Cardápios</h3>
-            <div className="cm-form__wide mn-item-menus">
-              {menus.map((m) => {
-                const sel = menuSel[m.id] ?? { on: false, price: '' };
-                const parsed = sel.price ? parseBrlInput(sel.price) : null;
-                const diff = parsed ? priceDiff(priceCents, toCents(parsed)) : null;
-                return (
-                  <div key={m.id} className="mn-item-menu" data-off={!sel.on || undefined}>
-                    <label className="mn-check">
+              <h3 className="cm-form__section cm-sec-help">
+                Cardápios <HelpTip label="Cardápios" />
+              </h3>
+              <div className="cm-form__wide mn-item-menus">
+                {menus.map((m) => {
+                  const sel = menuSel[m.id] ?? { on: false, price: '' };
+                  const parsed = sel.price ? parseBrlInput(sel.price) : null;
+                  const diff = parsed ? priceDiff(priceCents, toCents(parsed)) : null;
+                  return (
+                    <div key={m.id} className="mn-item-menu" data-off={!sel.on || undefined}>
+                      <label className="mn-check">
+                        <input
+                          type="checkbox"
+                          checked={sel.on}
+                          onChange={(e) =>
+                            setMenuSel((x) => ({ ...x, [m.id]: { ...sel, on: e.target.checked } }))
+                          }
+                        />
+                        <span>
+                          <strong>{m.name}</strong>
+                          <span className="cm-hint">
+                            {' '}
+                            {MENU_KIND[m.kind].where}
+                            {!m.active && ' · pausado'}
+                          </span>
+                        </span>
+                      </label>
                       <input
-                        type="checkbox"
-                        checked={sel.on}
+                        className="cm-input cm-num"
+                        aria-label={`Preço no ${m.name}`}
+                        inputMode="decimal"
+                        placeholder={priceParsed ? brl(priceParsed) : 'Preço do item'}
+                        disabled={!sel.on}
+                        value={sel.price}
+                        aria-invalid={(sel.price && !parsed) || undefined}
                         onChange={(e) =>
-                          setMenuSel((x) => ({ ...x, [m.id]: { ...sel, on: e.target.checked } }))
+                          setMenuSel((x) => ({ ...x, [m.id]: { ...sel, price: e.target.value } }))
                         }
                       />
-                      <span>
-                        <strong>{m.name}</strong>
-                        <span className="cm-hint">
-                          {' '}
-                          {MENU_KIND[m.kind].where}
-                          {!m.active && ' · pausado'}
-                        </span>
-                      </span>
-                    </label>
-                    <input
-                      className="cm-input cm-num"
-                      aria-label={`Preço no ${m.name}`}
-                      inputMode="decimal"
-                      placeholder={priceParsed ? brl(priceParsed) : 'Preço do item'}
-                      disabled={!sel.on}
-                      value={sel.price}
-                      aria-invalid={(sel.price && !parsed) || undefined}
-                      onChange={(e) =>
-                        setMenuSel((x) => ({ ...x, [m.id]: { ...sel, price: e.target.value } }))
-                      }
-                    />
-                    <span className="mn-menu-row__diff">{diff ?? ''}</span>
-                  </div>
-                );
-              })}
-              <span className="cm-hint">
-                Preço vazio usa o preço do item. Ex.: no delivery, cobrar 10% a mais por causa da
-                taxa do app.
-              </span>
-            </div>
-
-            <h3 className="cm-form__section">Custo e margem</h3>
-            <TextField
-              label="Custo"
-              inputMode="decimal"
-              placeholder="0,00"
-              value={hasRecipe ? (recipeCents / 100).toFixed(2).replace('.', ',') : form.cost}
-              disabled={hasRecipe}
-              error={errs.cost}
-              hint={
-                hasRecipe
-                  ? 'Calculado pela ficha técnica (custo médio dos insumos).'
-                  : 'Sem ficha técnica, os relatórios usam este custo.'
-              }
-              onChange={(e) => set('cost', e.target.value)}
-            />
-            <div className="st-preview st-preview--compact cm-form__wide">
-              <div>
-                <span>Preço</span>
-                <strong>{formatBRL(priceCents)}</strong>
-              </div>
-              <div>
-                <span>Custo</span>
-                <strong>{costCents === null ? '—' : formatBRL(costCents)}</strong>
-              </div>
-              <div
-                data-tone={marginPct === null ? undefined : marginPct < 0 ? 'danger' : 'success'}
-              >
-                <span>Margem</span>
-                <strong>{fmtPct(marginPct)}</strong>
-              </div>
-              <div>
-                <span>Markup</span>
-                <strong>{costCents ? fmtFactor(priceCents / costCents) : '—'}</strong>
-              </div>
-            </div>
-
-            <h3 className="cm-form__section">Fiscal e código de barras</h3>
-            <SelectField
-              label="Padrão fiscal"
-              value={form.fiscalRuleId}
-              onChange={(e) => set('fiscalRuleId', e.target.value)}
-            >
-              <option value="">Automático (pelo NCM ou o padrão da empresa)</option>
-              {fiscalRules.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.code} · {r.name} (CFOP {r.cfop}, {r.icmsCst})
-                </option>
-              ))}
-            </SelectField>
-            <TextField
-              label="CEST"
-              inputMode="numeric"
-              maxLength={7}
-              placeholder="Só com substituição tributária"
-              value={form.cest}
-              error={errs.cest}
-              hint="Bebidas e outros itens com ICMS-ST (7 dígitos)."
-              onChange={(e) => set('cest', e.target.value.replace(/\D/g, ''))}
-            />
-            <TextField
-              label="NCM"
-              inputMode="numeric"
-              maxLength={8}
-              placeholder="Ex.: 21069090"
-              value={form.ncm}
-              error={errs.ncm}
-              hint="Classificação fiscal, exigida na NFC-e. Vazio usa o NCM padrão."
-              onChange={(e) => set('ncm', e.target.value.replace(/\D/g, ''))}
-            />
-            <TextField
-              label="CFOP"
-              inputMode="numeric"
-              maxLength={4}
-              placeholder="Vem do padrão fiscal"
-              value={form.cfop}
-              error={errs.cfop}
-              onChange={(e) => set('cfop', e.target.value.replace(/\D/g, ''))}
-            />
-            <TextField
-              label="CSOSN / CST do ICMS"
-              inputMode="numeric"
-              maxLength={3}
-              placeholder="Vem do padrão fiscal"
-              value={form.fiscalCode}
-              error={errs.fiscalCode}
-              onChange={(e) => set('fiscalCode', e.target.value.replace(/\D/g, ''))}
-            />
-            <SelectField
-              label="Origem"
-              value={form.fiscalOrigin}
-              onChange={(e) => set('fiscalOrigin', e.target.value)}
-            >
-              <option value="">Padrão (0, nacional)</option>
-              {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-                <option key={n} value={String(n)}>
-                  {n}
-                </option>
-              ))}
-            </SelectField>
-            <div className="cm-field">
-              <span className="cm-label">Tipo de código de barras</span>
-              <div className="mn-radios" role="radiogroup" aria-label="Tipo de código de barras">
-                {(
-                  [
-                    ['fixed', 'Fixo'],
-                    ['weight', 'Peso variável'],
-                    ['value', 'Valor variável'],
-                  ] as const
-                ).map(([v, label]) => (
-                  <label key={v} className="mn-check">
-                    <input
-                      type="radio"
-                      name="barcode-type"
-                      checked={form.barcodeType === v}
-                      onChange={() => set('barcodeType', v)}
-                    />
-                    {label}
-                  </label>
-                ))}
-              </div>
-              <span className="cm-hint">
-                Peso e valor variável: etiqueta de balança (começa com 2).
-              </span>
-            </div>
-            <TextField
-              label="Código de barras (EAN)"
-              inputMode="numeric"
-              maxLength={14}
-              placeholder="Ex.: 7891000000017"
-              value={form.barcode}
-              error={errs.barcode}
-              hint="Usado para achar o item na leitura do scanner e na busca."
-              onChange={(e) => set('barcode', e.target.value.replace(/\D/g, ''))}
-            />
-          </div>
-        </Card>
-      ) : tab === 'complementos' ? (
-        <Card title="Grupos de complementos do item">
-          <div className="mn-linked">
-            <p className="cm-hint" style={{ margin: 0 }}>
-              Aparecem nesta ordem ao pedir o item (no PDV, no garçom e no cardápio online).
-            </p>
-            {linked.length === 0 && (
-              <p className="mn-empty">Nenhum grupo. Adicione tamanhos, adicionais ou sabores.</p>
-            )}
-            {linked.map((g, i) => (
-              <div key={g.id} className="mn-linked__row">
-                <div>
-                  <strong>{g.name}</strong>
-                  <div className="mn-item-meta">
-                    <span>{GROUP_KIND[g.kind]?.label}</span>
-                    <span>{groupRule(g)}</span>
-                    {!g.active && <span>Pausado</span>}
-                  </div>
-                  <div className="cm-hint mn-clamp">
-                    {g.options
-                      .filter((o) => o.active)
-                      .map((o) =>
-                        toCents(o.priceDelta) > 0 ? `${o.name} (+${brl(o.priceDelta)})` : o.name,
-                      )
-                      .join(', ')}
-                  </div>
-                </div>
-                {canWrite && (
-                  <span className="mn-opts__tools">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-label={`Subir ${g.name}`}
-                      icon={<ArrowUp size={14} />}
-                      disabled={i === 0}
-                      onClick={() => moveGroup(i, -1)}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-label={`Descer ${g.name}`}
-                      icon={<ArrowDown size={14} />}
-                      disabled={i === linked.length - 1}
-                      onClick={() => moveGroup(i, 1)}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-label={`Tirar ${g.name}`}
-                      icon={<X size={14} />}
-                      onClick={() => setGroupIds((ids) => ids.filter((x) => x !== g.id))}
-                    />
-                  </span>
-                )}
-              </div>
-            ))}
-            {canWrite && (
-              <div className="mn-linked__add">
-                <SelectField
-                  label="Adicionar grupo"
-                  value={addGroup}
-                  onChange={(e) => {
-                    if (e.target.value) setGroupIds((ids) => [...ids, e.target.value]);
-                    setAddGroup('');
-                  }}
-                >
-                  <option value="">Escolha um grupo…</option>
-                  {available.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name} · {groupRule(g)}
-                    </option>
-                  ))}
-                </SelectField>
-                <Button
-                  variant="secondary"
-                  icon={<Plus size={16} />}
-                  onClick={() => setNewGroup(true)}
-                >
-                  Criar grupo
-                </Button>
-              </div>
-            )}
-          </div>
-        </Card>
-      ) : (
-        <Card title="Ficha técnica">
-          {!canStock ? (
-            <p className="cm-hint">A ficha técnica fica com quem cuida do estoque.</p>
-          ) : (
-            <div className="st-recipe">
-              <p className="cm-hint" style={{ margin: 0 }}>
-                Quanto de cada insumo sai por unidade vendida{form.soldByWeight ? ' (por kg)' : ''}.
-                A venda baixa o estoque e o custo entra nos relatórios.
-              </p>
-              {stockItems.length === 0 && (
-                <p className="cm-hint" style={{ margin: 0 }}>
-                  Cadastre os insumos em <Link to="/estoque">Estoque</Link> para montar a ficha.
-                </p>
-              )}
-              {lines.length > 0 && (
-                <div className="st-recipe__head" aria-hidden>
-                  <span>Insumo</span>
-                  <span>Quantidade</span>
-                  <span className="cm-num">Custo</span>
-                  <span />
-                </div>
-              )}
-              {lines.map((l, idx) => {
-                const it = itemById.get(l.stockItemId);
-                const pl = parsedLines[idx]!;
-                return (
-                  <div key={idx} className="st-recipe__line">
-                    <SelectField
-                      label="Insumo"
-                      value={l.stockItemId}
-                      disabled={!canStockWrite}
-                      onChange={(e) =>
-                        setLines((ls) =>
-                          ls.map((x, i) => (i === idx ? { ...x, stockItemId: e.target.value } : x)),
-                        )
-                      }
-                    >
-                      <option value="">Escolha…</option>
-                      {stockItems
-                        .filter((i) => i.active || i.id === l.stockItemId)
-                        .map((i) => (
-                          <option key={i.id} value={i.id}>
-                            {i.name} ({i.unit})
-                          </option>
-                        ))}
-                    </SelectField>
-                    <TextField
-                      label={`Quantidade${it ? ` (${it.unit})` : ''}`}
-                      inputMode="decimal"
-                      value={l.quantity}
-                      disabled={!canStockWrite}
-                      onChange={(e) =>
-                        setLines((ls) =>
-                          ls.map((x, i) => (i === idx ? { ...x, quantity: e.target.value } : x)),
-                        )
-                      }
-                    />
-                    <div className="st-recipe__cost">
-                      <span className="cm-hint">Custo</span>
-                      <strong>
-                        {formatBRL(
-                          it && pl.quantity ? valueCents(toMilli(pl.quantity), it.avgCost) : 0,
-                        )}
-                      </strong>
-                      {it && (
-                        <span className="cm-hint">
-                          {fmtCost(it.avgCost)}/{it.unit}
-                        </span>
-                      )}
+                      <span className="mn-menu-row__diff">{diff ?? ''}</span>
                     </div>
-                    {canStockWrite && (
+                  );
+                })}
+                <span className="cm-hint">
+                  Preço vazio usa o preço do item. Ex.: no delivery, cobrar 10% a mais por causa da
+                  taxa do app.
+                </span>
+              </div>
+
+              <h3 className="cm-form__section">Custo e margem</h3>
+              <TextField
+                label="Custo"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={hasRecipe ? (recipeCents / 100).toFixed(2).replace('.', ',') : form.cost}
+                disabled={hasRecipe}
+                error={errs.cost}
+                hint={
+                  hasRecipe
+                    ? 'Calculado pela ficha técnica (custo médio dos insumos).'
+                    : 'Sem ficha técnica, os relatórios usam este custo.'
+                }
+                onChange={(e) => set('cost', e.target.value)}
+              />
+              <div className="st-preview st-preview--compact cm-form__wide">
+                <div>
+                  <span>Preço</span>
+                  <strong>{formatBRL(priceCents)}</strong>
+                </div>
+                <div>
+                  <span>Custo</span>
+                  <strong>{costCents === null ? '—' : formatBRL(costCents)}</strong>
+                </div>
+                <div
+                  data-tone={marginPct === null ? undefined : marginPct < 0 ? 'danger' : 'success'}
+                >
+                  <span>Margem</span>
+                  <strong>{fmtPct(marginPct)}</strong>
+                </div>
+                <div>
+                  <span>Markup</span>
+                  <strong>{costCents ? fmtFactor(priceCents / costCents) : '—'}</strong>
+                </div>
+              </div>
+
+              <h3 className="cm-form__section">Fiscal e código de barras</h3>
+              <SelectField
+                label="Padrão fiscal"
+                value={form.fiscalRuleId}
+                onChange={(e) => set('fiscalRuleId', e.target.value)}
+              >
+                <option value="">Automático (pelo NCM ou o padrão da empresa)</option>
+                {fiscalRules.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.code} · {r.name} (CFOP {r.cfop}, {r.icmsCst})
+                  </option>
+                ))}
+              </SelectField>
+              <TextField
+                label="CEST"
+                inputMode="numeric"
+                maxLength={7}
+                placeholder="Só com substituição tributária"
+                value={form.cest}
+                error={errs.cest}
+                hint="Bebidas e outros itens com ICMS-ST (7 dígitos)."
+                onChange={(e) => set('cest', e.target.value.replace(/\D/g, ''))}
+              />
+              <TextField
+                label="NCM"
+                inputMode="numeric"
+                maxLength={8}
+                placeholder="Ex.: 21069090"
+                value={form.ncm}
+                error={errs.ncm}
+                hint="Classificação fiscal, exigida na NFC-e. Vazio usa o NCM padrão."
+                onChange={(e) => set('ncm', e.target.value.replace(/\D/g, ''))}
+              />
+              <TextField
+                label="CFOP"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="Vem do padrão fiscal"
+                value={form.cfop}
+                error={errs.cfop}
+                onChange={(e) => set('cfop', e.target.value.replace(/\D/g, ''))}
+              />
+              <TextField
+                label="CSOSN / CST do ICMS"
+                inputMode="numeric"
+                maxLength={3}
+                placeholder="Vem do padrão fiscal"
+                value={form.fiscalCode}
+                error={errs.fiscalCode}
+                onChange={(e) => set('fiscalCode', e.target.value.replace(/\D/g, ''))}
+              />
+              <SelectField
+                label="Origem"
+                value={form.fiscalOrigin}
+                onChange={(e) => set('fiscalOrigin', e.target.value)}
+              >
+                <option value="">Padrão (0, nacional)</option>
+                {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                  <option key={n} value={String(n)}>
+                    {n}
+                  </option>
+                ))}
+              </SelectField>
+              <div className="cm-field">
+                <HelpLabel as="span">Tipo de código de barras</HelpLabel>
+                <div className="mn-radios" role="radiogroup" aria-label="Tipo de código de barras">
+                  {(
+                    [
+                      ['fixed', 'Fixo'],
+                      ['weight', 'Peso variável'],
+                      ['value', 'Valor variável'],
+                    ] as const
+                  ).map(([v, label]) => (
+                    <label key={v} className="mn-check">
+                      <input
+                        type="radio"
+                        name="barcode-type"
+                        checked={form.barcodeType === v}
+                        onChange={() => set('barcodeType', v)}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+                <span className="cm-hint">
+                  Peso e valor variável: etiqueta de balança (começa com 2).
+                </span>
+              </div>
+              <TextField
+                label="Código de barras (EAN)"
+                inputMode="numeric"
+                maxLength={14}
+                placeholder="Ex.: 7891000000017"
+                value={form.barcode}
+                error={errs.barcode}
+                hint="Usado para achar o item na leitura do scanner e na busca."
+                onChange={(e) => set('barcode', e.target.value.replace(/\D/g, ''))}
+              />
+            </div>
+          </Card>
+        ) : tab === 'complementos' ? (
+          <Card title="Grupos de complementos do item">
+            <div className="mn-linked">
+              <p className="cm-hint" style={{ margin: 0 }}>
+                Aparecem nesta ordem ao pedir o item (no PDV, no garçom e no cardápio online).
+              </p>
+              {linked.length === 0 && (
+                <p className="mn-empty">Nenhum grupo. Adicione tamanhos, adicionais ou sabores.</p>
+              )}
+              {linked.map((g, i) => (
+                <div key={g.id} className="mn-linked__row">
+                  <div>
+                    <strong>{g.name}</strong>
+                    <div className="mn-item-meta">
+                      <span>{GROUP_KIND[g.kind]?.label}</span>
+                      <span>{groupRule(g)}</span>
+                      {!g.active && <span>Pausado</span>}
+                    </div>
+                    <div className="cm-hint mn-clamp">
+                      {g.options
+                        .filter((o) => o.active)
+                        .map((o) =>
+                          toCents(o.priceDelta) > 0 ? `${o.name} (+${brl(o.priceDelta)})` : o.name,
+                        )
+                        .join(', ')}
+                    </div>
+                  </div>
+                  {canWrite && (
+                    <span className="mn-opts__tools">
                       <Button
                         variant="ghost"
-                        aria-label="Remover insumo"
-                        icon={<Trash2 size={16} />}
-                        onClick={() => setLines((ls) => ls.filter((_, i) => i !== idx))}
+                        size="sm"
+                        aria-label={`Subir ${g.name}`}
+                        icon={<ArrowUp size={14} />}
+                        disabled={i === 0}
+                        onClick={() => moveGroup(i, -1)}
                       />
-                    )}
-                  </div>
-                );
-              })}
-              {lines.length > 0 && (
-                <div className="st-preview st-preview--compact">
-                  <div>
-                    <span>Preço de venda</span>
-                    <strong>{formatBRL(priceCents)}</strong>
-                  </div>
-                  <div data-tone="brand">
-                    <span>Custo da ficha</span>
-                    <strong>{formatBRL(recipeCents)}</strong>
-                  </div>
-                  <div>
-                    <span>CMV</span>
-                    <strong>
-                      {priceCents > 0 ? fmtPct((recipeCents / priceCents) * 100) : '—'}
-                    </strong>
-                  </div>
-                  <div>
-                    <span>Markup</span>
-                    <strong>{recipeCents > 0 ? fmtFactor(priceCents / recipeCents) : '—'}</strong>
-                  </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Descer ${g.name}`}
+                        icon={<ArrowDown size={14} />}
+                        disabled={i === linked.length - 1}
+                        onClick={() => moveGroup(i, 1)}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Tirar ${g.name}`}
+                        icon={<X size={14} />}
+                        onClick={() => setGroupIds((ids) => ids.filter((x) => x !== g.id))}
+                      />
+                    </span>
+                  )}
                 </div>
-              )}
-              {errs.recipe && <span className="cm-error-text">{errs.recipe}</span>}
-              {canStockWrite && stockItems.length > 0 && (
-                <div>
+              ))}
+              {canWrite && (
+                <div className="mn-linked__add">
+                  <SelectField
+                    label="Adicionar grupo"
+                    value={addGroup}
+                    onChange={(e) => {
+                      if (e.target.value) setGroupIds((ids) => [...ids, e.target.value]);
+                      setAddGroup('');
+                    }}
+                  >
+                    <option value="">Escolha um grupo…</option>
+                    {available.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name} · {groupRule(g)}
+                      </option>
+                    ))}
+                  </SelectField>
                   <Button
                     variant="secondary"
                     icon={<Plus size={16} />}
-                    onClick={() => setLines((ls) => [...ls, { stockItemId: '', quantity: '' }])}
+                    onClick={() => setNewGroup(true)}
                   >
-                    Adicionar insumo
+                    Criar grupo
                   </Button>
                 </div>
               )}
-              <p className="cm-hint" style={{ margin: 0 }}>
-                A ficha é salva junto com o item, no botão Salvar.
-              </p>
             </div>
-          )}
-        </Card>
-      )}
-      <GroupEditor
-        group={newGroup ? 'new' : null}
-        canWrite={canWrite}
-        onClose={() => setNewGroup(false)}
-        onSaved={(g) => {
-          setNewGroup(false);
-          setGroups((x) => [...x, g]);
-          setGroupIds((ids) => [...ids, g.id]);
-        }}
-      />
-      <FamilyModal
-        family={newFamily ? 'new' : null}
-        products={allProducts}
-        canWrite={canWrite}
-        onClose={() => setNewFamily(false)}
-        onSaved={(f) => {
-          setNewFamily(false);
-          setFamilies((x) => [...x, f]);
-          set('familyId', f.id);
-        }}
-      />
-    </>
+          </Card>
+        ) : (
+          <Card title="Ficha técnica">
+            {!canStock ? (
+              <p className="cm-hint">A ficha técnica fica com quem cuida do estoque.</p>
+            ) : (
+              <div className="st-recipe">
+                <p className="cm-hint" style={{ margin: 0 }}>
+                  Quanto de cada insumo sai por unidade vendida
+                  {form.soldByWeight ? ' (por kg)' : ''}. A venda baixa o estoque e o custo entra
+                  nos relatórios.
+                </p>
+                {stockItems.length === 0 && (
+                  <p className="cm-hint" style={{ margin: 0 }}>
+                    Cadastre os insumos em <Link to="/estoque">Estoque</Link> para montar a ficha.
+                  </p>
+                )}
+                {lines.length > 0 && (
+                  <div className="st-recipe__head" aria-hidden>
+                    <span>Insumo</span>
+                    <span>Quantidade</span>
+                    <span className="cm-num">Custo</span>
+                    <span />
+                  </div>
+                )}
+                {lines.map((l, idx) => {
+                  const it = itemById.get(l.stockItemId);
+                  const pl = parsedLines[idx]!;
+                  return (
+                    <div key={idx} className="st-recipe__line">
+                      <SelectField
+                        label="Insumo"
+                        value={l.stockItemId}
+                        disabled={!canStockWrite}
+                        onChange={(e) =>
+                          setLines((ls) =>
+                            ls.map((x, i) =>
+                              i === idx ? { ...x, stockItemId: e.target.value } : x,
+                            ),
+                          )
+                        }
+                      >
+                        <option value="">Escolha…</option>
+                        {stockItems
+                          .filter((i) => i.active || i.id === l.stockItemId)
+                          .map((i) => (
+                            <option key={i.id} value={i.id}>
+                              {i.name} ({i.unit})
+                            </option>
+                          ))}
+                      </SelectField>
+                      <TextField
+                        label={`Quantidade${it ? ` (${it.unit})` : ''}`}
+                        inputMode="decimal"
+                        value={l.quantity}
+                        disabled={!canStockWrite}
+                        onChange={(e) =>
+                          setLines((ls) =>
+                            ls.map((x, i) => (i === idx ? { ...x, quantity: e.target.value } : x)),
+                          )
+                        }
+                      />
+                      <div className="st-recipe__cost">
+                        <span className="cm-hint">Custo</span>
+                        <strong>
+                          {formatBRL(
+                            it && pl.quantity ? valueCents(toMilli(pl.quantity), it.avgCost) : 0,
+                          )}
+                        </strong>
+                        {it && (
+                          <span className="cm-hint">
+                            {fmtCost(it.avgCost)}/{it.unit}
+                          </span>
+                        )}
+                      </div>
+                      {canStockWrite && (
+                        <Button
+                          variant="ghost"
+                          aria-label="Remover insumo"
+                          icon={<Trash2 size={16} />}
+                          onClick={() => setLines((ls) => ls.filter((_, i) => i !== idx))}
+                        />
+                      )}
+                    </div>
+                  );
+                })}
+                {lines.length > 0 && (
+                  <div className="st-preview st-preview--compact">
+                    <div>
+                      <span>Preço de venda</span>
+                      <strong>{formatBRL(priceCents)}</strong>
+                    </div>
+                    <div data-tone="brand">
+                      <span>Custo da ficha</span>
+                      <strong>{formatBRL(recipeCents)}</strong>
+                    </div>
+                    <div>
+                      <span>CMV</span>
+                      <strong>
+                        {priceCents > 0 ? fmtPct((recipeCents / priceCents) * 100) : '—'}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>Markup</span>
+                      <strong>{recipeCents > 0 ? fmtFactor(priceCents / recipeCents) : '—'}</strong>
+                    </div>
+                  </div>
+                )}
+                {errs.recipe && <span className="cm-error-text">{errs.recipe}</span>}
+                {canStockWrite && stockItems.length > 0 && (
+                  <div>
+                    <Button
+                      variant="secondary"
+                      icon={<Plus size={16} />}
+                      onClick={() => setLines((ls) => [...ls, { stockItemId: '', quantity: '' }])}
+                    >
+                      Adicionar insumo
+                    </Button>
+                  </div>
+                )}
+                <p className="cm-hint" style={{ margin: 0 }}>
+                  A ficha é salva junto com o item, no botão Salvar.
+                </p>
+              </div>
+            )}
+          </Card>
+        )}
+        <GroupEditor
+          group={newGroup ? 'new' : null}
+          canWrite={canWrite}
+          onClose={() => setNewGroup(false)}
+          onSaved={(g) => {
+            setNewGroup(false);
+            setGroups((x) => [...x, g]);
+            setGroupIds((ids) => [...ids, g.id]);
+          }}
+        />
+        <FamilyModal
+          family={newFamily ? 'new' : null}
+          products={allProducts}
+          canWrite={canWrite}
+          onClose={() => setNewFamily(false)}
+          onSaved={(f) => {
+            setNewFamily(false);
+            setFamilies((x) => [...x, f]);
+            set('familyId', f.id);
+          }}
+        />
+      </>
+    </HelpScope>
   );
 }
