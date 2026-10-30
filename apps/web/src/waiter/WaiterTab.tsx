@@ -1,4 +1,4 @@
-import { toCents } from '@comandou/shared';
+import { fromCents, splitCents, toCents } from '@comandou/shared';
 import { ArrowRightLeft, BellRing, Plus, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
@@ -20,6 +20,8 @@ import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useRealtime } from '../lib/realtime';
 import type { DiningTable, Order, Tab } from '../lib/types';
+import { SplitPicker } from '../features/PaymentModal';
+import '../app/ops.css';
 import { WaiterHead } from './common';
 
 /** Pedido que ainda dá para pedir cancelamento (o caixa/gerente aprova). */
@@ -37,6 +39,7 @@ export function WaiterTab() {
   const [error, setError] = useState<string | null>(null);
   const [transfer, setTransfer] = useState(false);
   const [cancelOf, setCancelOf] = useState<Order | null>(null);
+  const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -58,15 +61,23 @@ export function WaiterTab() {
       void load();
   }, load);
 
-  async function billRequest(requested: boolean) {
+  async function billRequest(requested: boolean, splitParts = 1) {
     if (!tab) return;
     setBusy(true);
     try {
       setTab(
-        await api<Tab>(`/tabs/${tab.id}/bill-request`, { method: 'POST', json: { requested } }),
+        await api<Tab>(`/tabs/${tab.id}/bill-request`, {
+          method: 'POST',
+          json: { requested, splitParts: requested && splitParts > 1 ? splitParts : null },
+        }),
       );
+      setAsking(false);
       toast(
-        requested ? 'Caixa avisado: a mesa pediu a conta' : 'Pedido de conta desfeito',
+        requested
+          ? splitParts > 1
+            ? `Caixa avisado: conta dividida em ${splitParts}`
+            : 'Caixa avisado: a mesa pediu a conta'
+          : 'Pedido de conta desfeito',
         'success',
       );
     } catch (e) {
@@ -103,7 +114,16 @@ export function WaiterTab() {
           {!open && <Alert tone="info">Esta comanda já foi fechada no caixa.</Alert>}
           {tab.billRequestedAt && open && (
             <Alert tone="warning">
-              Pediu a conta às {time(tab.billRequestedAt)}. O caixa já foi avisado.
+              Pediu a conta às {time(tab.billRequestedAt)}
+              {tab.billSplitParts
+                ? `, dividida em ${tab.billSplitParts} (${splitCents(
+                    toCents(tab.balance),
+                    tab.billSplitParts,
+                  )
+                    .map((c) => brl(fromCents(c)))
+                    .join(' + ')})`
+                : ''}
+              . O caixa já foi avisado.
             </Alert>
           )}
           <div className="wt-summary">
@@ -179,7 +199,7 @@ export function WaiterTab() {
                 icon={<BellRing size={18} />}
                 aria-pressed={!!tab.billRequestedAt}
                 aria-label={tab.billRequestedAt ? 'Desfazer pedido de conta' : 'Pediu a conta'}
-                onClick={() => billRequest(!tab.billRequestedAt)}
+                onClick={() => (tab.billRequestedAt ? void billRequest(false) : setAsking(true))}
               >
                 <span className="wt-hide-sm">
                   {tab.billRequestedAt ? 'Desfazer conta' : 'Pediu a conta'}
@@ -220,6 +240,15 @@ export function WaiterTab() {
           }}
         />
       )}
+      {tab && (
+        <BillRequestModal
+          open={asking}
+          balance={tab.balance}
+          busy={busy}
+          onClose={() => setAsking(false)}
+          onConfirm={(n) => void billRequest(true, n)}
+        />
+      )}
       <CancelRequestModal
         order={cancelOf}
         onClose={() => setCancelOf(null)}
@@ -230,6 +259,73 @@ export function WaiterTab() {
         }}
       />
     </div>
+  );
+}
+
+/**
+ * "Pediu a conta": o garçom já diz em quantas pessoas a mesa vai dividir. Mostra quanto dá para
+ * cada um (para falar na mesa) e o caixa abre o recebimento com uma parte por pessoa.
+ */
+function BillRequestModal({
+  open,
+  balance,
+  busy,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  balance: string;
+  busy: boolean;
+  onClose(): void;
+  onConfirm(parts: number): void;
+}) {
+  const [parts, setParts] = useState(1);
+  useEffect(() => {
+    if (open) setParts(1);
+  }, [open]);
+  const cents = toCents(balance);
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Pediu a conta"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button loading={busy} icon={<BellRing size={18} />} onClick={() => onConfirm(parts)}>
+            Avisar o caixa
+          </Button>
+        </>
+      }
+    >
+      <div style={{ display: 'grid', gap: 16 }}>
+        <div className="wt-summary wt-summary--one">
+          <div>
+            <span>Saldo da mesa</span>
+            <strong>{brl(balance)}</strong>
+          </div>
+        </div>
+        <SplitPicker value={parts} onChange={setParts} />
+        {parts > 1 ? (
+          <ol className="pay-parts" aria-label="Quanto fica para cada um">
+            {splitCents(cents, parts).map((c, i) => (
+              <li key={i}>
+                <div className="pay-part">
+                  <span className="pay-part__who">Pessoa {i + 1}</span>
+                  <strong>{brl(fromCents(c))}</strong>
+                </div>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p className="cm-hint" style={{ margin: 0 }}>
+            Vai dividir? Escolha em quantas pessoas: o caixa já recebe uma parte por vez.
+          </p>
+        )}
+      </div>
+    </Modal>
   );
 }
 

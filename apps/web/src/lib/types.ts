@@ -229,6 +229,8 @@ export interface Tab {
   balance: string;
   orderCount: number;
   billRequestedAt: string | null;
+  /** Em quantas partes a mesa quer dividir a conta (marcado com "pediu a conta"). */
+  billSplitParts?: number | null;
   orders?: Order[];
 }
 

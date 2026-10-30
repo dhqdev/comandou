@@ -704,7 +704,9 @@ function TabModal({
                 hour: '2-digit',
                 minute: '2-digit',
               })}
-              .
+              {tab.billSplitParts
+                ? `, dividida em ${tab.billSplitParts}. Ao receber, já vem uma parte por pessoa.`
+                : '.'}
             </Alert>
           )}
           <div className="tab-summary">
@@ -828,7 +830,13 @@ function TabModal({
               void load();
               onChanged();
             }}
-            target={{ kind: 'tab', id: tab.id, number: tab.number, balance: tab.balance }}
+            target={{
+              kind: 'tab',
+              id: tab.id,
+              number: tab.number,
+              balance: tab.balance,
+              splitParts: tab.billSplitParts,
+            }}
           />
           <OrderDetailModal
             orderId={orderId}

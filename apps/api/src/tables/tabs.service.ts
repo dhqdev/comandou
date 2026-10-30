@@ -17,7 +17,7 @@ import { RealtimeService } from '../realtime/realtime.service';
 const TAB_SELECT = `
   SELECT tb.id, tb.number, tb.status, tb.customer_name AS "customerName", tb.table_id AS "tableId",
          dt.label AS "tableLabel", tb.opened_at AS "openedAt", tb.closed_at AS "closedAt",
-         tb.bill_requested_at AS "billRequestedAt",
+         tb.bill_requested_at AS "billRequestedAt", tb.bill_split_parts AS "billSplitParts",
          COALESCE(sum(o.total) FILTER (WHERE o.status <> 'cancelled'), 0)::text AS total,
          COALESCE(sum(o.paid_amount), 0)::text AS paid,
          COALESCE(sum(o.total - o.paid_amount) FILTER (WHERE o.status <> 'cancelled'), 0)::text AS balance,
@@ -113,15 +113,16 @@ export class TabsService {
    * Garçom marca (ou desmarca) que a mesa pediu a conta. O salão mostra a mesa "em pagamento"
    * e o caixa vê quem está esperando para pagar.
    */
-  async requestBill(ctx: Ctx, id: string, requested: boolean) {
+  async requestBill(ctx: Ctx, id: string, requested: boolean, splitParts: number | null = null) {
     const res = await this.db.withTenant(ctx, async (tx) => {
       const tab = await this.lockTab(tx, id);
       if (tab.status !== 'open') throw new ConflictException('Comanda não está aberta');
       await q(
         tx,
         `UPDATE tabs SET bill_requested_at = CASE WHEN $2 THEN COALESCE(bill_requested_at, now()) END,
-                bill_requested_by = CASE WHEN $2 THEN $3::uuid END WHERE id = $1`,
-        [id, requested, ctx.userId],
+                bill_requested_by = CASE WHEN $2 THEN $3::uuid END,
+                bill_split_parts = CASE WHEN $2 AND $4::int > 1 THEN $4::int END WHERE id = $1`,
+        [id, requested, ctx.userId, splitParts],
       );
       await this.audit.record(tx, {
         tenantId: ctx.tenantId,

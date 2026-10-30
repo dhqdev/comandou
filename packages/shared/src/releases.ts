@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.59.0',
+    date: '2026-10-30',
+    title: 'Conta dividida: uma parte por pessoa',
+    summary:
+      'Ao dividir a conta da comanda, o caixa já recebe uma parte por pessoa, cada uma com a sua forma de pagamento, sem escolher tudo de novo a cada vez. O garçom também pode dizer em quantas pessoas a mesa vai dividir ao pedir a conta.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Receber › Dividir em N mostra as N partes (Pessoa 1, Pessoa 2...). Depois de confirmar uma, a janela já passa para a próxima com o valor certo; as pagas ficam marcadas com a forma de pagamento.',
+      },
+      {
+        tag: 'novo',
+        text: 'Se alguém pagar um valor diferente, o que sobra é redividido entre quem ainda falta. Dá para tocar numa parte para receber fora da ordem e aumentar o número de pessoas (botão +, até 20).',
+      },
+      {
+        tag: 'novo',
+        text: 'Garçom: "Pediu a conta" pergunta em quantas pessoas dividir e mostra quanto fica para cada um. O caixa vê o aviso e o recebimento já abre dividido.',
+      },
+    ],
+  },
+  {
     version: '0.58.2',
     date: '2026-10-30',
     title: 'Migração aparece como concluída no Servidor',

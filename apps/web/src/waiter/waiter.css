@@ -928,6 +928,9 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
 }
+.wt-summary--one {
+  grid-template-columns: 1fr;
+}
 .wt-summary > div,
 .wt-kpis > div {
   display: grid;

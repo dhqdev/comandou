@@ -179,6 +179,26 @@ describe('Garçom: pedir a conta', () => {
     ).body;
     expect(off.billRequestedAt).toBeNull();
   });
+
+  it('pede a conta já dividida: o caixa recebe em quantas partes', async () => {
+    const table = (await post('adminA', '/tables', { label: 'M-div' }).expect(201)).body;
+    const tab = (await post('waiterA', '/tabs', { tableId: table.id }).expect(201)).body;
+    const r = (
+      await post('waiterA', `/tabs/${tab.id}/bill-request`, {
+        requested: true,
+        splitParts: 4,
+      }).expect(201)
+    ).body;
+    expect(r.billSplitParts).toBe(4);
+    await post('waiterA', `/tabs/${tab.id}/bill-request`, {
+      requested: true,
+      splitParts: 99,
+    }).expect(400);
+    const off = (
+      await post('waiterA', `/tabs/${tab.id}/bill-request`, { requested: false }).expect(201)
+    ).body;
+    expect(off.billSplitParts).toBeNull();
+  });
 });
 
 describe('Áreas de entrega e taxa por área', () => {

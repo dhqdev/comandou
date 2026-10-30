@@ -740,6 +740,79 @@
 .pay-balance strong {
   font-size: var(--cm-text-xl);
 }
+/* "Dividir em": rótulo em cima e os 7 botões numa linha só, até no celular. */
+.split-picker {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 56px));
+}
+.split-picker > .cm-label {
+  grid-column: 1 / -1;
+}
+.split-picker > .chip {
+  justify-content: center;
+  padding: 0;
+  font-variant-numeric: tabular-nums;
+}
+/* Conta dividida: uma linha por pessoa; a da vez fica marcada e as pagas mostram a forma. */
+.pay-parts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--cm-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pay-part {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: var(--cm-space-2) var(--cm-space-3);
+  border-radius: var(--cm-radius-md);
+  border: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+button.pay-part {
+  cursor: pointer;
+}
+.pay-part__who,
+.pay-part__state {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+}
+.pay-part__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.pay-part[aria-current='step'] {
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
+}
+.pay-part[aria-current='step'] .pay-part__state {
+  color: var(--cm-brand-700);
+  font-weight: 600;
+}
+.pay-part[data-paid] {
+  cursor: default;
+  background: var(--cm-success-bg);
+  border-color: color-mix(in srgb, var(--cm-success) 40%, var(--cm-border));
+}
+.pay-part[data-paid] .pay-part__state {
+  color: var(--cm-success);
+  font-weight: 600;
+}
+.pay-part:disabled {
+  opacity: 1;
+}
+@media (max-width: 480px) {
+  .pay-parts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 /* Ações da comanda: botões com contorno visível, mesma altura, lado a lado (empilham no celular). */
 .tab-actions {
   display: grid;
