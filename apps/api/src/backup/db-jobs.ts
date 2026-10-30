@@ -1,7 +1,13 @@
 import { readdirSync } from 'node:fs';
-import { Client, type Pool, type PoolClient } from 'pg';
+import { Client, Pool, type PoolClient } from 'pg';
 import { migrate, MIGRATIONS_DIR } from '../database/migrator';
-import { databaseUrl, TENANT_DB_NAME_RE } from '../database/tenant-database';
+import {
+  databaseUrl,
+  DbServer,
+  maintenanceUrl,
+  serverOf,
+  TENANT_DB_NAME_RE,
+} from '../database/tenant-database';
 import { backupDatabase, backupKey, JobContext } from './jobs';
 import { copyTenant, purgeTenantRows } from './tenant-copy';
 
@@ -10,7 +16,8 @@ import { copyTenant, purgeTenantRows } from './tenant-copy';
  * serviço de backup com a conexão do dono:
  *  - create: cria o banco do restaurante, aplica as migrações e cadastra o administrador;
  *  - move:   copia um restaurante do banco central para um banco só dele e troca o apontamento;
- *  - delete: backup final na pasta do restaurante, apaga o banco e o cadastro.
+ *  - delete: backup final na pasta do restaurante, apaga o banco e o cadastro;
+ *  - transfer: copia o banco do restaurante para outro servidor Postgres, confere e troca.
  * Cada etapa aparece no painel (coluna step). Nada aqui grava senhas ou URLs no log.
  */
 export interface DbJob {
@@ -18,7 +25,7 @@ export interface DbJob {
   tenant_id: string;
   tenant_slug: string;
   tenant_name: string;
-  kind: 'create' | 'move' | 'delete';
+  kind: 'create' | 'move' | 'delete' | 'transfer';
   payload: Record<string, unknown>;
 }
 
@@ -31,6 +38,46 @@ export interface DbJobContext {
   /** Espera antes de copiar/apagar, para as réplicas da API esquecerem o banco antigo. */
   settleMs?: number;
   migrationsDir?: string;
+  /** Conexões de manutenção abertas em outros servidores durante o trabalho (fechadas no fim). */
+  servers?: Map<string, Pool>;
+}
+
+/**
+ * Conexão do dono no banco de manutenção de um servidor, para criar e apagar bancos. O servidor
+ * principal usa a própria conexão do banco central.
+ */
+export function serverPool(ctx: DbJobContext, server: DbServer | null): Pool {
+  if (!server) return ctx.pool;
+  ctx.servers ??= new Map();
+  const key = `${server.host}:${server.port}`;
+  let pool = ctx.servers.get(key);
+  if (!pool) {
+    pool = new Pool({ connectionString: maintenanceUrl(ctx.ownerUrl, server), max: 2 });
+    pool.on('error', () => undefined);
+    ctx.servers.set(key, pool);
+  }
+  return pool;
+}
+
+async function closeServers(ctx: DbJobContext) {
+  const pools = [...(ctx.servers?.values() ?? [])];
+  ctx.servers?.clear();
+  await Promise.all(pools.map((p) => p.end().catch(() => undefined)));
+}
+
+/** Servidor cadastrado no painel (null = principal). */
+async function serverById(ctx: DbJobContext, id: string | null | undefined) {
+  if (!id) return null;
+  const { rows } = await ctx.pool.query<{
+    id: string;
+    name: string;
+    host: string;
+    port: number;
+    ssl: string;
+    status: string;
+  }>(`SELECT id, name, host, port, ssl, status FROM platform_db_servers WHERE id = $1`, [id]);
+  if (!rows[0]) throw new Error('Servidor de banco não encontrado');
+  return { ...rows[0], server: serverOf(rows[0])! };
 }
 
 const APP_ROLES = ['comandou_app', 'comandou_platform'];
@@ -118,30 +165,36 @@ async function checkMigrationsUpToDate(ctx: DbJobContext) {
     );
 }
 
-async function databaseExists(pool: Pool, name: string) {
+export async function databaseExists(pool: Pool, name: string) {
   const { rowCount } = await pool.query(`SELECT 1 FROM pg_database WHERE datname = $1`, [name]);
   return !!rowCount;
 }
 
 /** Cria (se ainda não existe) o banco do restaurante, fecha para o público e aplica as migrações. */
-async function ensureDatabase(ctx: DbJobContext, job: DbJob, dbName: string) {
+async function ensureDatabase(
+  ctx: DbJobContext,
+  job: DbJob,
+  dbName: string,
+  server: DbServer | null = null,
+) {
   if (!TENANT_DB_NAME_RE.test(dbName)) throw new Error('nome de banco inválido');
   await checkMigrationsUpToDate(ctx);
-  await step(ctx, job, `Criando o banco ${dbName}`);
-  if (!(await databaseExists(ctx.pool, dbName))) {
-    const priv = await databasePrivileges(ctx.pool);
+  await step(ctx, job, `Criando o banco ${dbName}${server ? ` em ${server.host}` : ''}`);
+  const pool = serverPool(ctx, server);
+  if (!(await databaseExists(pool, dbName))) {
+    const priv = await databasePrivileges(pool);
     if (!priv.canCreateDatabases)
       throw new Error(
         'O papel dono do banco não pode criar bancos. Rode uma vez no contêiner do Postgres: ' +
           'psql -U postgres -c "ALTER ROLE comandou_owner CREATEDB" -c "GRANT pg_signal_backend TO comandou_owner" ' +
           '(ou informe DATABASE_ADMIN_URL ao serviço de backup).',
       );
-    await ctx.pool.query(`CREATE DATABASE "${dbName}" ENCODING 'UTF8' TEMPLATE template0`);
+    await pool.query(`CREATE DATABASE "${dbName}" ENCODING 'UTF8' TEMPLATE template0`);
   }
-  await ctx.pool.query(`REVOKE ALL ON DATABASE "${dbName}" FROM PUBLIC`);
-  for (const r of APP_ROLES) await ctx.pool.query(`GRANT CONNECT ON DATABASE "${dbName}" TO ${r}`);
+  await pool.query(`REVOKE ALL ON DATABASE "${dbName}" FROM PUBLIC`);
+  for (const r of APP_ROLES) await pool.query(`GRANT CONNECT ON DATABASE "${dbName}" TO ${r}`);
   await step(ctx, job, 'Aplicando as migrações');
-  await migrate(databaseUrl(ctx.ownerUrl, dbName), ctx.migrationsDir, () => undefined);
+  await migrate(databaseUrl(ctx.ownerUrl, dbName, server), ctx.migrationsDir, () => undefined);
 }
 
 /** Apaga um banco de restaurante. Fecha a porta antes e derruba quem ainda estiver conectado. */
@@ -201,7 +254,7 @@ async function withClient<T>(url: string, fn: (c: Client) => Promise<T>): Promis
 }
 
 /** Dados do restaurante (cadastro, administrador e padrões) dentro do banco novo. */
-async function seedTenant(ctx: DbJobContext, job: DbJob, dbName: string) {
+async function seedTenant(ctx: DbJobContext, job: DbJob, dbName: string, server: DbServer | null) {
   let payload = job.payload as {
     adminEmail?: string;
     adminName?: string;
@@ -226,7 +279,7 @@ async function seedTenant(ctx: DbJobContext, job: DbJob, dbName: string) {
   }>(`SELECT slug, name, timezone, currency FROM tenants WHERE id = $1`, [job.tenant_id]);
   if (!t[0]) throw new Error('Restaurante não encontrado no banco central');
   await step(ctx, job, 'Cadastrando o administrador');
-  await withClient(databaseUrl(ctx.ownerUrl, dbName), async (c) => {
+  await withClient(databaseUrl(ctx.ownerUrl, dbName, server), async (c) => {
     await c.query('BEGIN');
     try {
       await c.query(
@@ -289,11 +342,20 @@ async function failJob(ctx: DbJobContext, job: DbJob, error: string) {
 }
 
 async function registry(ctx: DbJobContext, tenantId: string) {
-  const { rows } = await ctx.pool.query<{ db_name: string; status: string }>(
-    `SELECT db_name, status FROM tenant_databases WHERE tenant_id = $1`,
+  const { rows } = await ctx.pool.query<{
+    db_name: string;
+    status: string;
+    server_id: string | null;
+    host: string | null;
+    port: number | null;
+    ssl: string | null;
+  }>(
+    `SELECT d.db_name, d.status, d.server_id, s.host, s.port, s.ssl
+       FROM tenant_databases d LEFT JOIN platform_db_servers s ON s.id = d.server_id
+      WHERE d.tenant_id = $1`,
     [tenantId],
   );
-  return rows[0] ?? null;
+  return rows[0] ? { ...rows[0], server: serverOf(rows[0]) } : null;
 }
 
 // ---------------------------------------------------------------------------------- criar
@@ -302,10 +364,10 @@ async function runCreate(ctx: DbJobContext, job: DbJob) {
   if (!reg) throw new Error('Registro do banco não encontrado');
   let current = 'database';
   try {
-    await ensureDatabase(ctx, job, reg.db_name);
+    await ensureDatabase(ctx, job, reg.db_name, reg.server);
     await provisioningStep(ctx, job.tenant_id, 'database', 'done');
     current = 'admin_user';
-    await seedTenant(ctx, job, reg.db_name);
+    await seedTenant(ctx, job, reg.db_name, reg.server);
     await provisioningStep(ctx, job.tenant_id, 'admin_user', 'done');
     current = 'activate';
     await step(ctx, job, 'Liberando o acesso');
@@ -342,10 +404,16 @@ async function runCreate(ctx: DbJobContext, job: DbJob) {
 
 // ---------------------------------------------------------------------------------- mover
 /** Copia do central para o banco novo; só troca o apontamento depois de conferir as contagens. */
-async function moveIntoOwnDatabase(ctx: DbJobContext, job: DbJob, dbName: string, status: string) {
-  await ensureDatabase(ctx, job, dbName);
+async function moveIntoOwnDatabase(
+  ctx: DbJobContext,
+  job: DbJob,
+  dbName: string,
+  status: string,
+  server: DbServer | null = null,
+) {
+  await ensureDatabase(ctx, job, dbName, server);
   await step(ctx, job, 'Copiando os dados');
-  const dbUrl = databaseUrl(ctx.ownerUrl, dbName);
+  const dbUrl = databaseUrl(ctx.ownerUrl, dbName, server);
   const report = await withClient(ctx.ownerUrl, (src) =>
     withClient(dbUrl, (dst) => copyTenant(src, dst, job.tenant_id, ctx.log)),
   );
@@ -365,7 +433,7 @@ async function runMove(ctx: DbJobContext, job: DbJob) {
   try {
     await step(ctx, job, 'Esperando as conexões em uso terminarem');
     await sleep(ctx.settleMs ?? 15_000);
-    const report = await moveIntoOwnDatabase(ctx, job, reg.db_name, previous);
+    const report = await moveIntoOwnDatabase(ctx, job, reg.db_name, previous, reg.server);
     await step(ctx, job, 'Trocando para o banco novo');
     await tx(ctx.pool, async (c) => {
       await c.query(
@@ -384,6 +452,7 @@ async function runMove(ctx: DbJobContext, job: DbJob) {
     }
     await finishJob(ctx, job, {
       database: reg.db_name,
+      ...(reg.server ? { server: reg.server.host } : {}),
       copied: report.tables,
       rows: report.rows,
       ...cleanup,
@@ -391,7 +460,7 @@ async function runMove(ctx: DbJobContext, job: DbJob) {
   } catch (e) {
     if (!switched) {
       // Volta tudo como era: o restaurante segue no banco central.
-      await dropDatabase(ctx.pool, reg.db_name).catch(() => undefined);
+      await dropDatabase(serverPool(ctx, reg.server), reg.db_name).catch(() => undefined);
       await ctx.pool
         .query(`DELETE FROM tenant_databases WHERE tenant_id = $1 AND status = 'moving'`, [
           job.tenant_id,
@@ -442,7 +511,7 @@ async function runDelete(ctx: DbJobContext, job: DbJob) {
         database: reg!.db_name,
         tenantId: job.tenant_id,
         slug: job.tenant_slug,
-        url: databaseUrl(ctx.ownerUrl, reg!.db_name),
+        url: databaseUrl(ctx.ownerUrl, reg!.db_name, reg!.server),
       };
       const b = await backupDatabase(
         { ...bctx, trigger: 'painel' },
@@ -458,7 +527,7 @@ async function runDelete(ctx: DbJobContext, job: DbJob) {
     }
     if (reg) {
       await step(ctx, job, `Apagando o banco ${reg.db_name}`);
-      await dropDatabase(ctx.pool, reg.db_name);
+      await dropDatabase(serverPool(ctx, reg.server), reg.db_name);
       dropped = true;
       result.database = reg.db_name;
     }
@@ -487,7 +556,7 @@ async function runDelete(ctx: DbJobContext, job: DbJob) {
   } catch (e) {
     if (createdForDelete && !purgedCentral && reg) {
       // Os dados continuam no banco central: desfaz o banco temporário.
-      await dropDatabase(ctx.pool, reg.db_name).catch(() => undefined);
+      await dropDatabase(serverPool(ctx, reg.server), reg.db_name).catch(() => undefined);
       await ctx.pool
         .query(`DELETE FROM tenant_databases WHERE tenant_id = $1`, [job.tenant_id])
         .catch(() => undefined);
@@ -515,11 +584,189 @@ async function runDelete(ctx: DbJobContext, job: DbJob) {
   }
 }
 
+// ---------------------------------------------------------------------------------- trocar de servidor
+/**
+ * Leva o banco de um restaurante para outro servidor Postgres (ideia do "backup + restore de um
+ * site" do Frappe, mas sem arquivo no meio): cria o banco no destino com as mesmas migrações,
+ * copia tudo numa fotografia consistente, confere a contagem de cada tabela e só então troca o
+ * apontamento. Se algo falhar antes da troca, o restaurante segue onde estava e o banco novo é
+ * apagado. O banco antigo só é apagado depois da troca (com backup antes, se houver backup).
+ */
+async function runTransfer(ctx: DbJobContext, job: DbJob) {
+  const p = job.payload as { previousStatus?: string; toServerId?: string | null };
+  const previous = p.previousStatus ?? 'provisioned';
+  const reg = await registry(ctx, job.tenant_id);
+  if (!reg || reg.status !== 'transferring') throw new Error('Registro da mudança não encontrado');
+  const from = reg.server;
+  const to = (await serverById(ctx, p.toServerId))?.server ?? null;
+  const sameServer = (a: DbServer | null, b: DbServer | null) =>
+    (a?.host ?? null) === (b?.host ?? null) && (a?.port ?? null) === (b?.port ?? null);
+  if (sameServer(from, to)) throw new Error('O restaurante já está neste servidor');
+  const fromUrl = databaseUrl(ctx.ownerUrl, reg.db_name, from);
+  const toUrl = databaseUrl(ctx.ownerUrl, reg.db_name, to);
+  const target = serverPool(ctx, to);
+  let created = false;
+  let switched = false;
+  try {
+    await step(ctx, job, 'Conferindo o servidor de destino');
+    await checkServer(target);
+    if (await databaseExists(target, reg.db_name)) {
+      // Um banco com o mesmo nome no destino: só reaproveita se estiver vazio (tentativa anterior).
+      const used = await withClient(toUrl, (c) =>
+        c
+          .query<{ n: string }>(`SELECT count(*)::text AS n FROM tenants`)
+          .then((r) => Number(r.rows[0].n))
+          .catch(() => 0),
+      );
+      if (used)
+        throw new Error(
+          `O servidor de destino já tem um banco ${reg.db_name} com dados (é o mesmo servidor com outro endereço?). Nada foi mudado.`,
+        );
+    } else created = true;
+
+    await step(ctx, job, 'Esperando as conexões em uso terminarem');
+    await sleep(ctx.settleMs ?? 15_000);
+    let safety: Record<string, unknown> = {};
+    if (ctx.backup) {
+      await step(ctx, job, 'Fazendo um backup antes da mudança');
+      const bctx = ctx.backup();
+      const t = { database: reg.db_name, tenantId: job.tenant_id, slug: job.tenant_slug };
+      const b = await backupDatabase(
+        { ...bctx, trigger: 'painel' },
+        { ...t, url: fromUrl },
+        backupKey(bctx.prefix, t, new Date()),
+        { beforeTransfer: true, jobId: job.id },
+      );
+      safety = { backupKey: b.key };
+    }
+    await ensureDatabase(ctx, job, reg.db_name, to);
+    await step(ctx, job, 'Copiando os dados para o novo servidor');
+    const report = await withClient(fromUrl, (src) =>
+      withClient(toUrl, (dst) => copyTenant(src, dst, job.tenant_id, ctx.log, { allUsers: true })),
+    );
+    await step(ctx, job, 'Trocando para o novo servidor');
+    await tx(ctx.pool, async (c) => {
+      await c.query(
+        `UPDATE tenant_databases SET server_id = $2, status = 'ready', ready_at = now(), last_error = NULL
+          WHERE tenant_id = $1`,
+        [job.tenant_id, p.toServerId ?? null],
+      );
+      await c.query(`UPDATE tenants SET status = $2 WHERE id = $1`, [job.tenant_id, previous]);
+    });
+    switched = true;
+    await step(ctx, job, 'Apagando o banco no servidor antigo');
+    let cleanup: Record<string, unknown> = {};
+    try {
+      await sleep(Math.min(ctx.settleMs ?? 15_000, 15_000));
+      await dropDatabase(serverPool(ctx, from), reg.db_name);
+    } catch (e) {
+      cleanup = { warning: `O banco antigo não foi apagado: ${(e as Error).message}` };
+    }
+    await finishJob(ctx, job, {
+      database: reg.db_name,
+      from: from?.host ?? 'principal',
+      to: to?.host ?? 'principal',
+      copied: report.tables,
+      rows: report.rows,
+      ...safety,
+      ...cleanup,
+    });
+  } catch (e) {
+    if (!switched) {
+      // Volta tudo como era: o restaurante continua no servidor de origem.
+      if (created) await dropDatabase(target, reg.db_name).catch(() => undefined);
+      await ctx.pool
+        .query(
+          `UPDATE tenant_databases SET status = 'ready', last_error = $2
+            WHERE tenant_id = $1 AND status = 'transferring'`,
+          [job.tenant_id, (e as Error).message.slice(0, 1000)],
+        )
+        .catch(() => undefined);
+      await ctx.pool
+        .query(`UPDATE tenants SET status = $2 WHERE id = $1 AND status = 'moving'`, [
+          job.tenant_id,
+          previous,
+        ])
+        .catch(() => undefined);
+    }
+    throw e;
+  }
+}
+
+/** O servidor aceita o dono e ele pode criar bancos. */
+async function checkServer(pool: Pool) {
+  const priv = await databasePrivileges(pool);
+  if (!priv.canCreateDatabases)
+    throw new Error(
+      'No servidor de destino o papel comandou_owner não pode criar bancos: rode lá ' +
+        '"ALTER ROLE comandou_owner CREATEDB" e "GRANT pg_signal_backend TO comandou_owner".',
+    );
+  const { rows } = await pool.query<{ n: number }>(
+    `SELECT count(*)::int AS n FROM pg_roles WHERE rolname = ANY($1)`,
+    [APP_ROLES],
+  );
+  if (rows[0].n !== APP_ROLES.length)
+    throw new Error(
+      'No servidor de destino faltam os papéis comandou_app e comandou_platform (mesmas senhas do servidor principal).',
+    );
+}
+
+/**
+ * Conferência de um servidor pelo serviço de backup (papel dono): versão, permissões, papéis da
+ * aplicação, quantos bancos do Comandou existem lá e quanto ocupam. Nunca lança.
+ */
+export async function inspectServer(ownerUrl: string, server: DbServer | null) {
+  const started = Date.now();
+  const c = new Client({
+    connectionString: maintenanceUrl(ownerUrl, server),
+    connectionTimeoutMillis: 8_000,
+  });
+  try {
+    await c.connect();
+    const { rows } = await c.query<{
+      version: string;
+      createdb: boolean;
+      signal: boolean;
+      roles: number;
+      dbs: number;
+      bytes: string;
+    }>(
+      `SELECT current_setting('server_version') AS version,
+              (SELECT rolcreatedb FROM pg_roles WHERE rolname = current_user) AS createdb,
+              pg_has_role(current_user, 'pg_signal_backend', 'MEMBER') AS signal,
+              (SELECT count(*)::int FROM pg_roles WHERE rolname IN ('comandou_app','comandou_platform')) AS roles,
+              (SELECT count(*)::int FROM pg_database WHERE datname ~ '^comandou_') AS dbs,
+              (SELECT coalesce(sum(pg_database_size(datname)), 0)::text FROM pg_database
+                WHERE datname ~ '^comandou' AND has_database_privilege(datname, 'CONNECT')) AS bytes`,
+    );
+    const r = rows[0];
+    return {
+      ok: r.createdb && r.signal && r.roles === 2,
+      latencyMs: Date.now() - started,
+      version: r.version,
+      canCreateDatabases: r.createdb,
+      canTerminate: r.signal,
+      appRoles: r.roles === 2,
+      databases: r.dbs,
+      bytes: Number(r.bytes),
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      latencyMs: Date.now() - started,
+      error: (e as Error).message.replace(/postgres(ql)?:\/\/[^\s"']+/g, '<banco>').slice(0, 300),
+    };
+  } finally {
+    await c.end().catch(() => undefined);
+  }
+}
+
 /** Executa um trabalho já reservado e registra o resultado. Nunca lança. */
 export async function runDbJob(ctx: DbJobContext, job: DbJob): Promise<'done' | 'failed'> {
   try {
     if (job.kind === 'create') await runCreate(ctx, job);
     else if (job.kind === 'move') await runMove(ctx, job);
+    else if (job.kind === 'transfer') await runTransfer(ctx, job);
     else await runDelete(ctx, job);
     ctx.log(`banco ${job.tenant_slug}: ${job.kind} concluído`);
     return 'done';
@@ -528,5 +775,7 @@ export async function runDbJob(ctx: DbJobContext, job: DbJob): Promise<'done' | 
     ctx.log(`banco ${job.tenant_slug}: ${job.kind} FALHOU: ${msg}`);
     await failJob(ctx, job, msg).catch(() => undefined);
     return 'failed';
+  } finally {
+    await closeServers(ctx);
   }
 }

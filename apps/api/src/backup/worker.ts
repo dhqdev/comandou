@@ -5,6 +5,7 @@ import {
   databasePrivileges,
   DbJobContext,
   grantDatabasePrivileges,
+  inspectServer,
   requeueJob,
   runDbJob,
 } from './db-jobs';
@@ -19,6 +20,7 @@ import {
   withJobLock,
 } from './runtime';
 import { LocalStore, localSpace, localUsage } from './store';
+import { serverOf } from '../database/tenant-database';
 
 /**
  * Serviço de backup (imagem comandou-backup). A cada 15 s:
@@ -54,6 +56,7 @@ async function main() {
       .catch((e: Error) => log(`não foi possível dar a permissão de criar bancos: ${e.message}`));
   }
 
+  let mainServer: unknown = null;
   const heartbeat = async () => {
     const priv = await databasePrivileges(pool).catch(() => null);
     await pool
@@ -66,18 +69,35 @@ async function main() {
             canCreateDatabases: priv?.canCreateDatabases ?? null,
             canTerminate: priv?.canTerminate ?? null,
             local: await localInfo(pool, env),
+            mainServer,
           },
         ],
       )
       .catch((e: Error) => log(`banco indisponível: ${e.message}`));
   };
   const beat = setInterval(heartbeat, 30_000);
+  // Servidores de banco extras (painel → Bancos): conferidos a cada minuto, ou na hora quando o
+  // painel pede (checked_at vazio).
+  let lastServers = 0;
+  const servers = async () => {
+    const force = await pool
+      .query(`SELECT 1 FROM platform_db_servers WHERE checked_at IS NULL LIMIT 1`)
+      .then((r) => !!r.rowCount)
+      .catch(() => false);
+    if (!force && Date.now() - lastServers < 60_000) return;
+    lastServers = Date.now();
+    mainServer = { ...(await inspectServer(env.ownerUrl, null)), at: new Date() };
+    await checkServers(pool, env.ownerUrl).catch((e: Error) =>
+      log(`servidores de banco: ${e.message}`),
+    );
+  };
   log('serviço de backup iniciado; configuração no painel Super Admin → Backups');
 
   const jobs = dbJobsLoop(pool, env, () => stopping);
 
   while (!stopping) {
     await heartbeat();
+    await servers();
     try {
       await tick(pool, env);
     } catch (e) {
@@ -156,6 +176,20 @@ async function dbJobsLoop(pool: Pool, env: BackupEnv, stopping: () => boolean) {
     });
   }
   await (listener as Client | null)?.end().catch(() => undefined);
+}
+
+/** Confere cada servidor cadastrado com o papel dono e grava o resultado para o painel. */
+async function checkServers(pool: Pool, ownerUrl: string) {
+  const { rows } = await pool.query<{ id: string; host: string; port: number; ssl: string }>(
+    `SELECT id, host, port, ssl FROM platform_db_servers ORDER BY name`,
+  );
+  for (const r of rows) {
+    const result = await inspectServer(ownerUrl, serverOf(r));
+    await pool.query(
+      `UPDATE platform_db_servers SET check_result = $2, checked_at = now() WHERE id = $1`,
+      [r.id, result],
+    );
+  }
 }
 
 /** Pasta local para o painel: onde fica, espaço livre e quanto os backups ocupam. */

@@ -126,9 +126,22 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await expect(page.getByText('Restaurante criado').first()).toBeVisible();
   await nav(page, 'Backups');
   await expect(page.getByRole('heading', { name: 'Backups' })).toBeVisible();
+  // Bancos: o servidor principal com os restaurantes de banco próprio (o criado acima incluído).
+  await nav(page, 'Bancos');
+  await expect(page.getByRole('heading', { name: 'Bancos' })).toBeVisible();
+  await expect(page.getByText('Servidor principal')).toBeVisible();
+  await expect(page.getByRole('link', { name: `Cantina ${tag}` })).toBeVisible();
 
   // Nenhuma tela do painel rola na horizontal (celular e computador).
-  for (const path of ['/', '/restaurantes', '/servidor', '/planos', '/backups', '/auditoria']) {
+  for (const path of [
+    '/',
+    '/restaurantes',
+    '/servidor',
+    '/bancos',
+    '/planos',
+    '/backups',
+    '/auditoria',
+  ]) {
     await page.goto(`${ADMIN_URL}${path}`);
     await page.waitForLoadState('networkidle');
     const overflow = await page.evaluate(

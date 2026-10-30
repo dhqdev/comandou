@@ -9,7 +9,7 @@ import type { PoolClient } from 'pg';
 import { hashPassword } from '../auth/password';
 import { isConfigured, SETTINGS_SQL, type BackupSettingsRow } from '../backup/backup-settings';
 import { ENV, Env } from '../config/env';
-import { tenantDatabaseName } from '../database/tenant-database';
+import { serverOf, tenantDatabaseName } from '../database/tenant-database';
 import { insertInitialSubscription } from '../provisioning/provision';
 import { PlatformDb, platformAudit } from './platform-db.service';
 import type { Actor } from './platform.service';
@@ -19,12 +19,12 @@ import { saveProfile } from './tenant-profile';
 /** Serviço de backup é considerado vivo se avisou nos últimos 2 minutos. */
 const WORKER_ALIVE_MS = 120_000;
 
-const JOB_COLS = `id::text, kind, status, step, error, reason, result, tenant_slug AS "tenantSlug",
+export const JOB_COLS = `id::text, kind, status, step, error, reason, result, tenant_slug AS "tenantSlug",
   tenant_name AS "tenantName", tenant_id AS "tenantId", created_at AS "createdAt",
   started_at AS "startedAt", finished_at AS "finishedAt"`;
 
 /** Avisa o serviço de backup que há trabalho (entregue quando a transação confirma). */
-const notify = (c: PoolClient) => c.query(`SELECT pg_notify('comandou_db_jobs', 'novo')`);
+export const notify = (c: PoolClient) => c.query(`SELECT pg_notify('comandou_db_jobs', 'novo')`);
 
 /** Pasta do restaurante no bucket de backup. */
 export function tenantBackupFolder(prefix: string, slug: string) {
@@ -71,8 +71,16 @@ export class PlatformDatabasesService {
       last_error: string | null;
       created_at: Date;
       ready_at: Date | null;
+      server_id: string | null;
+      server_name: string | null;
+      host: string | null;
+      port: number | null;
+      ssl: string | null;
     }>(
-      `SELECT db_name, status, last_error, created_at, ready_at FROM tenant_databases WHERE tenant_id = $1`,
+      `SELECT d.db_name, d.status, d.last_error, d.created_at, d.ready_at, d.server_id,
+              s.name AS server_name, s.host, s.port, s.ssl
+         FROM tenant_databases d LEFT JOIN platform_db_servers s ON s.id = d.server_id
+        WHERE d.tenant_id = $1`,
       [tenantId],
     );
     const [t] = await this.db.query<{ slug: string }>(`SELECT slug FROM tenants WHERE id = $1`, [
@@ -89,9 +97,9 @@ export class PlatformDatabasesService {
       [tenantId],
     );
     let sizeBytes: number | null = null;
-    if (row && (row.status === 'ready' || row.status === 'deleting')) {
+    if (row && ['ready', 'deleting', 'transferring'].includes(row.status)) {
       sizeBytes = await this.db
-        .poolOf(row.db_name)
+        .poolOf(row.db_name, serverOf(row))
         .query<{ b: string }>(`SELECT pg_database_size(current_database())::text AS b`)
         .then((r) => Number(r.rows[0].b))
         .catch(() => null);
@@ -103,6 +111,9 @@ export class PlatformDatabasesService {
       status: row?.status ?? 'ready',
       lastError: row?.last_error ?? null,
       readyAt: row?.ready_at ?? null,
+      server: row?.server_id
+        ? { id: row.server_id, name: row.server_name!, host: row.host! }
+        : null,
       sizeBytes,
       backupFolder: t && s ? tenantBackupFolder(s.prefix, t.slug) : null,
       lastBackup: lastBackup ?? null,
@@ -138,6 +149,7 @@ export class PlatformDatabasesService {
     ]);
     if (taken.length) throw new ConflictException(`O banco ${dbName} já está em uso`);
     const passwordHash = await hashPassword(b.adminPassword);
+    const serverId = await this.defaultServer();
     return this.db.tx(async (c) => {
       const { rows } = await c.query<{ id: string }>(
         `INSERT INTO tenants (slug, name, status, timezone) VALUES ($1, $2, 'provisioning', $3)
@@ -147,8 +159,8 @@ export class PlatformDatabasesService {
       const id = rows[0].id;
       if (b.profile) await saveProfile(c, id, b.profile);
       await c.query(
-        `INSERT INTO tenant_databases (tenant_id, db_name, status) VALUES ($1, $2, 'creating')`,
-        [id, dbName],
+        `INSERT INTO tenant_databases (tenant_id, db_name, status, server_id) VALUES ($1, $2, 'creating', $3)`,
+        [id, dbName, serverId],
       );
       await insertInitialSubscription(c, id, b.planCode);
       await c.query(
@@ -181,6 +193,7 @@ export class PlatformDatabasesService {
           planCode: b.planCode ?? null,
           timezone: b.timezone ?? 'America/Sao_Paulo',
           database: dbName,
+          serverId,
         },
         ip: a.ip,
       });
@@ -189,7 +202,15 @@ export class PlatformDatabasesService {
     });
   }
 
-  private async activeJob(c: PoolClient, tenantId: string) {
+  /** Servidor onde nascem os restaurantes novos (null = principal). */
+  async defaultServer(): Promise<string | null> {
+    const [r] = await this.db.query<{ id: string }>(
+      `SELECT id FROM platform_db_servers WHERE accepts_new AND status = 'active' LIMIT 1`,
+    );
+    return r?.id ?? null;
+  }
+
+  async activeJob(c: PoolClient, tenantId: string) {
     const r = await c.query(
       `SELECT 1 FROM tenant_db_jobs WHERE tenant_id = $1 AND status IN ('queued','running')`,
       [tenantId],
@@ -245,7 +266,8 @@ export class PlatformDatabasesService {
    * Restaurante antigo (no banco central) ganha banco próprio. Fica sem acesso por alguns
    * segundos ou minutos, conforme o tamanho; os dados são copiados e conferidos antes da troca.
    */
-  async move(tenantId: string, a: Actor) {
+  async move(tenantId: string, a: Actor, server?: string | null) {
+    const serverId = server === undefined ? await this.defaultServer() : server;
     await this.db.tx(async (c) => {
       const t = (
         await c.query<{ slug: string; name: string; status: string }>(
@@ -263,8 +285,8 @@ export class PlatformDatabasesService {
       const taken = await c.query(`SELECT 1 FROM tenant_databases WHERE db_name = $1`, [dbName]);
       if (taken.rowCount) throw new ConflictException(`O banco ${dbName} já está em uso`);
       await c.query(
-        `INSERT INTO tenant_databases (tenant_id, db_name, status) VALUES ($1, $2, 'moving')`,
-        [tenantId, dbName],
+        `INSERT INTO tenant_databases (tenant_id, db_name, status, server_id) VALUES ($1, $2, 'moving', $3)`,
+        [tenantId, dbName, serverId],
       );
       await c.query(`UPDATE tenants SET status = 'moving' WHERE id = $1`, [tenantId]);
       await c.query(

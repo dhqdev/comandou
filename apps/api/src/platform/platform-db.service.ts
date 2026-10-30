@@ -2,10 +2,17 @@ import { Inject, Injectable, OnModuleDestroy } from '@nestjs/common';
 import { Pool, PoolClient, QueryResultRow } from 'pg';
 import { ENV, Env } from '../config/env';
 import {
+  DbServer,
+  dedicated,
   RegistryDatabaseRouter,
+  serverOf,
   TenantDatabaseLocation,
   TenantDatabaseRow,
 } from '../database/tenant-database';
+
+/** Registro com o servidor de cada banco (o painel lê a tabela direto). */
+export const REGISTRY_SQL = `SELECT d.tenant_id, d.db_name, d.status, d.server_id, s.host, s.port, s.ssl, s.name AS server_name
+  FROM tenant_databases d LEFT JOIN platform_db_servers s ON s.id = d.server_id`;
 
 /** Acesso do painel ao banco de UM restaurante (central ou próprio). */
 export interface TenantDbHandle {
@@ -55,14 +62,13 @@ export class PlatformDb implements OnModuleDestroy {
         cacheMs: 0, // painel: sempre a situação atual (poucas consultas)
         lookup: async (tenantId) =>
           (
-            await pool.query<TenantDatabaseRow>(
-              'SELECT db_name, status FROM tenant_databases WHERE tenant_id = $1',
-              [tenantId],
-            )
+            await pool.query<TenantDatabaseRow>(`${REGISTRY_SQL} WHERE d.tenant_id = $1`, [
+              tenantId,
+            ])
           ).rows[0] ?? null,
         decide: (row) =>
-          row.status === 'ready' || row.status === 'deleting'
-            ? { kind: 'dedicated', dbName: row.db_name }
+          row.status === 'ready' || row.status === 'deleting' || row.status === 'transferring'
+            ? dedicated(row)
             : row.status === 'moving'
               ? { kind: 'shared' }
               : 'unavailable',
@@ -73,7 +79,10 @@ export class PlatformDb implements OnModuleDestroy {
   /** Banco do restaurante para ler equipe, sessões, uso... e gravar na auditoria dele. */
   async tenantDb(tenantId: string): Promise<TenantDbHandle> {
     const location = await this.router!.locationOf(tenantId);
-    const pool = location.kind === 'shared' ? this.pool! : this.router!.poolOf(location.dbName);
+    const pool =
+      location.kind === 'shared'
+        ? this.pool!
+        : this.router!.poolOf(location.dbName, location.server);
     return {
       location,
       query: async <R extends QueryResultRow>(sql: string, p: unknown[] = []) =>
@@ -90,15 +99,15 @@ export class PlatformDb implements OnModuleDestroy {
     sql: string,
     p: unknown[] = [],
   ): Promise<{ tenantId: string; dbName: string; rows: R[]; error?: string }[]> {
-    const dbs = await this.query<{ tenant_id: string; db_name: string }>(
-      `SELECT tenant_id, db_name FROM tenant_databases WHERE status = 'ready' ORDER BY db_name`,
-    );
+    const dbs = await this.query<
+      { tenant_id: string; db_name: string } & Parameters<typeof serverOf>[0]
+    >(`${REGISTRY_SQL} WHERE d.status = 'ready' ORDER BY d.db_name`);
     const out: { tenantId: string; dbName: string; rows: R[]; error?: string }[] = [];
     for (let i = 0; i < dbs.length; i += 6) {
       const part = await Promise.all(
         dbs.slice(i, i + 6).map(async (d) => {
           try {
-            const rows = (await this.poolOf(d.db_name).query<R>(sql, p)).rows;
+            const rows = (await this.poolOf(d.db_name, serverOf(d)).query<R>(sql, p)).rows;
             return { tenantId: d.tenant_id, dbName: d.db_name, rows };
           } catch (e) {
             return {
@@ -115,9 +124,9 @@ export class PlatformDb implements OnModuleDestroy {
     return out;
   }
 
-  /** Pool de um banco de restaurante pelo nome (somatórios do painel). */
-  poolOf(dbName: string): Pool {
-    return this.router!.poolOf(dbName);
+  /** Pool de um banco de restaurante pelo nome e servidor (somatórios do painel). */
+  poolOf(dbName: string, server?: DbServer | null): Pool {
+    return this.router!.poolOf(dbName, server);
   }
 
   get enabled(): boolean {

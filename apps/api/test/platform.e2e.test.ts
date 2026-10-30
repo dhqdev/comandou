@@ -750,6 +750,8 @@ describe('Monitoramento e visão geral', () => {
   });
 
   it('visão geral, lista de restaurantes, backups e auditoria', async () => {
+    // Testes de restauração de outros arquivos (rodam fora do root) não contam aqui.
+    await ownerQuery(`DELETE FROM backup_runs WHERE kind = 'restore_test'`);
     await ownerQuery(
       `INSERT INTO backup_runs (kind, status, finished_at, object_key, size_bytes)
        VALUES ('backup', 'ok', now(), 'comandou/2026/10/x.dump.age', 1234)`,

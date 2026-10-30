@@ -144,6 +144,8 @@ export async function copyTenant(
   dst: ClientBase,
   tenantId: string,
   log: (m: string) => void = () => undefined,
+  /** allUsers: copia todas as contas do banco de origem (banco só deste restaurante). */
+  opts: { allUsers?: boolean } = {},
 ): Promise<CopyReport> {
   const versions = async (c: ClientBase) =>
     (await c.query<{ v: string }>(`SELECT version AS v FROM schema_migrations ORDER BY 1`)).rows
@@ -165,7 +167,11 @@ export async function copyTenant(
     report.tables.tenants = await copyRows(src, dst, 'tenants', 'id = $1', [tenantId], 1);
     if (report.tables.tenants !== 1)
       throw new Error('Restaurante não encontrado no banco de origem');
-    const usersWhere = `id IN (SELECT user_id FROM memberships WHERE tenant_id = $1)`;
+    // Num banco só do restaurante, todas as contas (inclusive de quem saiu da equipe e ainda
+    // aparece em pedidos antigos); no banco central, só as de quem é da equipe.
+    const usersWhere = opts.allUsers
+      ? `$1::uuid IS NOT NULL`
+      : `id IN (SELECT user_id FROM memberships WHERE tenant_id = $1)`;
     report.tables.users = await copyRows(src, dst, 'users', usersWhere, [tenantId], 500);
 
     for (const t of tables) {

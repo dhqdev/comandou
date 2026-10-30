@@ -110,3 +110,18 @@ Decisão do dono do produto: cada restaurante novo ganha o próprio banco, organ
   central e o último de cada restaurante.
 - **Desenvolvimento** (`docker-compose.yml`, sem serviço de backup): `TENANT_DATABASE_MODE=shared`
   mantém o comportamento antigo.
+
+## Nível 2: servidores de banco (0.62.0)
+
+- `platform_db_servers` (migração 0037): servidores Postgres extras, só endereço, porta e SSL.
+  Os papéis e senhas são os do servidor principal: nenhuma senha gravada no banco.
+- `tenant_databases.server_id` (vazio = principal). O roteador, o painel, o backup, as migrações
+  e a limpeza montam a conexão com o servidor do registro (`databaseUrl(base, banco, servidor)`).
+- Trabalho `transfer` na fila: confere o destino, backup antes (se ligado), cria e migra o banco
+  no destino, copia e confere tabela por tabela, troca o apontamento e só então apaga o antigo.
+  Falha antes da troca desfaz tudo. Um banco com dados no destino (mesmo servidor com outro
+  nome) cancela sem mexer em nada.
+- Painel → **Bancos**: servidores com conferência automática (serviço de backup a cada minuto,
+  API ao cadastrar/testar), "restaurantes novos aqui", desativar, **Mover todos** e troca por
+  restaurante. Overlay `infrastructure/swarm/db-server.yml` cria o `postgres-2` num nó próprio.
+  Detalhes e comparação com o Frappe em [servidores-de-banco.md](../servidores-de-banco.md).

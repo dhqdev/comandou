@@ -2,6 +2,7 @@ import {
   Activity,
   BrainCircuit,
   Building2,
+  Database,
   DatabaseBackup,
   FileText,
   Download,
@@ -48,6 +49,7 @@ import { AiPage } from './AiPage';
 import { PlansPage } from './PlansPage';
 import { isStandalone, promptInstall } from './pwa';
 import { ServerPage } from './ServerPage';
+import { DbServersPage } from './DbServersPage';
 import { ContractSignPage, signToken } from './ContractSign';
 import { TenantDetailPage, TenantsPage } from './TenantsPages';
 
@@ -203,6 +205,7 @@ const NAV = [
   { to: '/', label: 'Status', icon: Activity },
   { to: '/restaurantes', label: 'Restaurantes', short: 'Clientes', icon: Building2 },
   { to: '/servidor', label: 'Servidor', icon: Server },
+  { to: '/bancos', label: 'Bancos', icon: Database },
   { to: '/fiscal', label: 'Fiscal', icon: FileText },
   { to: '/planos', label: 'Planos', icon: Tags },
   { to: '/cobranca', label: 'Cobrança', icon: Wallet },
@@ -355,6 +358,7 @@ function Gate() {
         <Route path="restaurantes" element={<TenantsPage />} />
         <Route path="restaurantes/:id" element={<TenantDetailPage />} />
         <Route path="servidor" element={<ServerPage />} />
+        <Route path="bancos" element={<DbServersPage />} />
         <Route path="fiscal" element={<FiscalPage />} />
         <Route path="planos" element={<PlansPage />} />
         <Route path="cobranca" element={<BillingPage />} />

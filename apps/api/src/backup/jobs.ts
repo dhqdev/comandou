@@ -5,7 +5,7 @@ import { mkdtemp, readFile, rm, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Client, type Pool } from 'pg';
-import { databaseUrl } from '../database/tenant-database';
+import { databaseUrl, libpqUrl, serverOf } from '../database/tenant-database';
 import { decryptFile, encryptFile } from './backup-crypto';
 import type { BackupStore } from './store';
 
@@ -177,8 +177,17 @@ export function backupKey(prefix: string, t: Pick<BackupTarget, 'slug'>, now: Da
 /** Bancos a salvar: o central e cada banco próprio pronto. */
 export async function backupTargets(ctx: Pick<JobContext, 'pool' | 'ownerUrl'>) {
   const central = decodeURIComponent(new URL(ctx.ownerUrl).pathname.slice(1));
-  const { rows } = await ctx.pool.query<{ tenant_id: string; db_name: string; slug: string }>(
-    `SELECT d.tenant_id, d.db_name, t.slug FROM tenant_databases d JOIN tenants t ON t.id = d.tenant_id
+  const { rows } = await ctx.pool.query<{
+    tenant_id: string;
+    db_name: string;
+    slug: string;
+    host: string | null;
+    port: number | null;
+    ssl: string | null;
+  }>(
+    `SELECT d.tenant_id, d.db_name, t.slug, s.host, s.port, s.ssl
+       FROM tenant_databases d JOIN tenants t ON t.id = d.tenant_id
+       LEFT JOIN platform_db_servers s ON s.id = d.server_id
       WHERE d.status = 'ready' ORDER BY t.slug`,
   );
   const targets: BackupTarget[] = [
@@ -189,7 +198,7 @@ export async function backupTargets(ctx: Pick<JobContext, 'pool' | 'ownerUrl'>) 
       database: r.db_name,
       tenantId: r.tenant_id,
       slug: r.slug,
-      url: databaseUrl(ctx.ownerUrl, r.db_name),
+      url: databaseUrl(ctx.ownerUrl, r.db_name, serverOf(r)),
     });
   return targets;
 }
@@ -216,7 +225,7 @@ export async function backupDatabase(
       '--compress=6',
       '--no-comments',
       `--file=${dump}`,
-      `--dbname=${target.url}`,
+      `--dbname=${libpqUrl(target.url)}`,
     ]);
     const after = await stats(target.url);
     await run(bin(ctx, 'pg_restore'), ['--list', dump]);

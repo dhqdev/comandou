@@ -3,7 +3,7 @@ import { drizzle, NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool, PoolClient } from 'pg';
 import { ENV, Env } from '../config/env';
 import { schema } from './schema';
-import { RegistryDatabaseRouter, TenantDatabaseRow } from './tenant-database';
+import { DbServer, RegistryDatabaseRouter, serverOf, TenantDatabaseRow } from './tenant-database';
 
 export type Tx = NodePgDatabase<typeof schema> & { $client: PoolClient };
 
@@ -39,7 +39,7 @@ export class DatabaseService implements OnModuleDestroy {
       poolMax: env.TENANT_DATABASE_POOL_MAX,
       lookup: async (tenantId) => {
         const { rows } = await this.pool.query<TenantDatabaseRow>(
-          'SELECT db_name, status FROM app_tenant_database($1)',
+          'SELECT db_name, status, host, port, ssl FROM app_tenant_database($1)',
           [tenantId],
         );
         return rows[0] ?? null;
@@ -100,16 +100,25 @@ export class DatabaseService implements OnModuleDestroy {
   }
 
   /** Bancos próprios em uso (limpeza periódica roda em cada um). */
-  async readyDatabases(): Promise<{ tenantId: string; dbName: string; pool: Pool }[]> {
-    const rows = await this.queryUnscoped<{ tenant_id: string; db_name: string }>(
-      'SELECT tenant_id, db_name FROM app_tenant_databases_ready()',
-      [],
-    );
-    return rows.map((r) => ({
-      tenantId: r.tenant_id,
-      dbName: r.db_name,
-      pool: this.router.poolOf(r.db_name),
-    }));
+  async readyDatabases(): Promise<
+    { tenantId: string; dbName: string; server: DbServer | null; pool: Pool }[]
+  > {
+    const rows = await this.queryUnscoped<{
+      tenant_id: string;
+      db_name: string;
+      host: string | null;
+      port: number | null;
+      ssl: string | null;
+    }>('SELECT tenant_id, db_name, host, port, ssl FROM app_tenant_databases_ready()', []);
+    return rows.map((r) => {
+      const server = serverOf(r);
+      return {
+        tenantId: r.tenant_id,
+        dbName: r.db_name,
+        server,
+        pool: this.router.poolOf(r.db_name, server),
+      };
+    });
   }
 
   async ping(): Promise<boolean> {

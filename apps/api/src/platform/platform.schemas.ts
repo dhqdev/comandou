@@ -337,3 +337,30 @@ export function isCpf(v: string): boolean {
   };
   return dv(9) === Number(v[9]) && dv(10) === Number(v[10]);
 }
+
+/** Servidor Postgres extra (painel → Bancos). Usuário e senha são os do servidor principal. */
+export const DbServerBody = z.object({
+  name: z.string().trim().min(2).max(60),
+  host: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9]([a-z0-9._-]{0,251}[a-z0-9])?$/, 'endereço inválido'),
+  port: z.coerce.number().int().min(1).max(65535).default(5432),
+  ssl: z.enum(['disable', 'require']).default('disable'),
+  acceptsNew: z.boolean().default(false),
+  note: z
+    .string()
+    .trim()
+    .max(300)
+    .optional()
+    .transform((v) => v || null),
+});
+export const DbServerUpdate = DbServerBody.partial().extend({
+  status: z.enum(['active', 'retired']).optional(),
+});
+
+/** Para onde levar o banco: id do servidor ou "main" (servidor principal). */
+const ServerRef = z.union([z.literal('main'), z.string().uuid()]);
+export const TransferDatabase = z.object({ to: ServerRef });
+export const TransferAll = z.object({ from: ServerRef, to: ServerRef });

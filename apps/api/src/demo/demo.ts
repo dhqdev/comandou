@@ -3,7 +3,12 @@ import { validateTenantSlug } from '@comandou/shared';
 import { dropDatabase } from '../backup/db-jobs';
 import { purgeTenantRows } from '../backup/tenant-copy';
 import { migrate } from '../database/migrator';
-import { databaseUrl, tenantDatabaseName } from '../database/tenant-database';
+import {
+  databaseUrl,
+  maintenanceUrl,
+  serverOf,
+  tenantDatabaseName,
+} from '../database/tenant-database';
 import { CASA_BRASA } from './catalog';
 import { seedDemoPlatform } from './platform';
 import { DEMO_MARKER, seedDemoData } from './seed';
@@ -85,7 +90,11 @@ export async function ensureDemoRestaurant(
     }
     if (t && o.mode === 'reset') {
       o.log('demonstração: apagando a versão anterior para recriar');
-      if (t.dbName) await dropDatabase(pool, t.dbName);
+      if (t.dbName && t.server) {
+        // Demonstração levada para outro servidor no painel: apaga lá.
+        const other = new Pool({ connectionString: maintenanceUrl(o.ownerUrl, t.server), max: 1 });
+        await dropDatabase(other, t.dbName).finally(() => other.end());
+      } else if (t.dbName) await dropDatabase(pool, t.dbName);
       await withClient(o.ownerUrl, (c) => purgeTenantRows(c, t!.id, true));
       await pool.query(`DELETE FROM tenants WHERE id = $1`, [t.id]).catch(() => undefined);
       t = null;
@@ -103,7 +112,14 @@ export async function ensureDemoRestaurant(
          VALUES ('platform.demo_created', 'tenant', $1, $2, jsonb_build_object('slug', $3::text))`,
         [rows[0]!.id, rows[0]!.id, o.slug],
       );
-      t = { id: rows[0]!.id, demo: true, seeded: false, dbName: null, dbStatus: null };
+      t = {
+        id: rows[0]!.id,
+        demo: true,
+        seeded: false,
+        dbName: null,
+        dbStatus: null,
+        server: null,
+      };
     }
 
     let target = o.ownerUrl;
@@ -205,16 +221,27 @@ async function tenantRow(pool: Pool, slug: string) {
     seeded: boolean;
     db_name: string | null;
     db_status: string | null;
+    host: string | null;
+    port: number | null;
+    ssl: string | null;
   }>(
-    `SELECT t.id, d.db_name, d.status AS db_status,
+    `SELECT t.id, d.db_name, d.status AS db_status, s.host, s.port, s.ssl,
             EXISTS (SELECT 1 FROM platform_audit_log a WHERE a.tenant_id = t.id AND a.action = 'platform.demo_created') AS demo,
             EXISTS (SELECT 1 FROM platform_audit_log a WHERE a.tenant_id = t.id AND a.action = 'platform.demo_created'
                        AND (a.data->>'seeded')::boolean) AS seeded
        FROM tenants t LEFT JOIN tenant_databases d ON d.tenant_id = t.id
+       LEFT JOIN platform_db_servers s ON s.id = d.server_id
       WHERE t.slug = $1`,
     [slug],
   );
   const r = rows[0];
   if (!r) return null;
-  return { id: r.id, demo: r.demo, seeded: r.seeded, dbName: r.db_name, dbStatus: r.db_status };
+  return {
+    id: r.id,
+    demo: r.demo,
+    seeded: r.seeded,
+    dbName: r.db_name,
+    dbStatus: r.db_status,
+    server: serverOf(r),
+  };
 }

@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.62.0',
+    date: '2026-10-30',
+    title: 'Trocar de servidor de banco pelo painel',
+    summary:
+      'O Super Admin ganhou a tela Bancos: cadastre outro servidor Postgres e leve para lá um restaurante, ou todos, com um clique. Tudo é copiado, conferido tabela por tabela e só depois trocado.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Tela Bancos no Super Admin: o servidor principal e os servidores extras, quantos restaurantes há em cada um, espaço usado, versão do Postgres e se as permissões e senhas estão certas (conferido sozinho a cada minuto).',
+      },
+      {
+        tag: 'novo',
+        text: 'Trocar de servidor: um restaurante por vez (na aba Banco do restaurante) ou "Mover todos" de um servidor para outro. O restaurante fica parado só durante a cópia dele; com backup ligado, um backup é feito antes.',
+      },
+      {
+        tag: 'novo',
+        text: 'Escolha onde nascem os restaurantes novos, desative um servidor para esvaziá-lo e remova quando estiver vazio. Nenhuma senha é pedida nem guardada: o servidor novo usa os mesmos papéis do principal.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Se o servidor de destino já tiver um banco com dados do restaurante (o mesmo servidor cadastrado com outro endereço), a troca para sem mexer em nada. Qualquer falha antes da troca desfaz tudo e o restaurante continua onde estava.',
+      },
+    ],
+  },
+  {
     version: '0.61.1',
     date: '2026-10-30',
     title: 'Sistema abre mais rápido, principalmente no celular',

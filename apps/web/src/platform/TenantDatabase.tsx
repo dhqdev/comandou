@@ -1,9 +1,10 @@
-import { Copy, Database, RotateCcw, Trash2, Truck } from 'lucide-react';
-import { useState } from 'react';
-import { Alert, Modal, Spinner, TextField, useToast } from '../design-system';
+import { ArrowRightLeft, Copy, Database, RotateCcw, Trash2, Truck } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router';
+import { Alert, Modal, Select, Spinner, TextField, useToast } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
-import type { DbJob, TenantDatabase, TenantDetail } from './types';
+import type { DbJob, DbServers, TenantDatabase, TenantDetail } from './types';
 import { ago, bytes, Dot, Level, Tag } from './ui';
 
 export const DB_STATUS: Record<TenantDatabase['status'], [string, Level]> = {
@@ -12,12 +13,14 @@ export const DB_STATUS: Record<TenantDatabase['status'], [string, Level]> = {
   failed: ['falhou', 'bad'],
   moving: ['mudando', 'info'],
   deleting: ['sendo excluído', 'warn'],
+  transferring: ['trocando de servidor', 'info'],
 };
 
 const JOB_KIND: Record<DbJob['kind'], string> = {
   create: 'Criar banco',
   move: 'Mover para banco próprio',
   delete: 'Excluir restaurante e base',
+  transfer: 'Trocar de servidor',
 };
 const JOB_STATUS: Record<DbJob['status'], [string, Level]> = {
   queued: ['na fila', 'info'],
@@ -77,6 +80,51 @@ function WorkerAlerts({ db }: { db: TenantDatabase }) {
   );
 }
 
+/** Servidores para onde dá para levar o banco (o principal e os ativos), menos o atual. */
+function useTargets(open: boolean, current: string) {
+  const [data, setData] = useState<DbServers | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    api<DbServers>('/platform/db-servers')
+      .then(setData)
+      .catch(() => setData(null));
+  }, [open]);
+  const all = data
+    ? [
+        { id: 'main', label: `${data.main.name} (${data.main.host})`, def: data.main.acceptsNew },
+        ...data.servers
+          .filter((s) => s.status === 'active')
+          .map((s) => ({ id: s.id, label: `${s.name} (${s.host})`, def: s.acceptsNew })),
+      ]
+    : [];
+  return { loaded: !!data, targets: all.filter((x) => x.id !== current) };
+}
+
+function ServerSelect({
+  value,
+  onChange,
+  targets,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  targets: { id: string; label: string }[];
+}) {
+  return (
+    <div className="cm-field">
+      <label className="cm-label" htmlFor="db-target">
+        Servidor de destino
+      </label>
+      <Select id="db-target" value={value} onChange={(e) => onChange(e.target.value)}>
+        {targets.map((x) => (
+          <option key={x.id} value={x.id}>
+            {x.label}
+          </option>
+        ))}
+      </Select>
+    </div>
+  );
+}
+
 export function DatabasePanel({
   t,
   onChanged,
@@ -86,7 +134,14 @@ export function DatabasePanel({
 }) {
   const toast = useToast();
   const db = t.database;
-  const [sheet, setSheet] = useState<'move' | 'delete' | null>(null);
+  const [sheet, setSheet] = useState<'move' | 'delete' | 'transfer' | null>(null);
+  const current = db.kind === 'dedicated' ? (db.server?.id ?? 'main') : '';
+  const { loaded, targets } = useTargets(sheet === 'move' || sheet === 'transfer', current);
+  const [target, setTarget] = useState('');
+  useEffect(() => {
+    if (loaded && !targets.some((x) => x.id === target))
+      setTarget((targets.find((x) => x.def) ?? targets[0])?.id ?? '');
+  }, [loaded, targets, target]);
   const [confirm, setConfirm] = useState('');
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
@@ -133,6 +188,23 @@ export function DatabasePanel({
           )}{' '}
           <Tag level={level}>{label}</Tag>
         </dd>
+        {db.kind === 'dedicated' && (
+          <>
+            <dt>Servidor</dt>
+            <dd>
+              {db.server ? (
+                <>
+                  {db.server.name} <code>{db.server.host}</code>
+                </>
+              ) : (
+                'servidor principal'
+              )}{' '}
+              <Link to="/bancos" className="adm-sub">
+                ver servidores
+              </Link>
+            </dd>
+          </>
+        )}
         {db.sizeBytes !== null && (
           <>
             <dt>Tamanho</dt>
@@ -215,6 +287,14 @@ export function DatabasePanel({
               <Truck size={14} /> Mover para banco próprio
             </button>
           )}
+        {db.kind === 'dedicated' &&
+          db.status === 'ready' &&
+          !active &&
+          (t.status === 'provisioned' || t.status === 'suspended') && (
+            <button className="adm-action" onClick={() => setSheet('transfer')}>
+              <ArrowRightLeft size={14} /> Trocar de servidor
+            </button>
+          )}
         {!active && t.status !== 'deleting' && (
           <button className="adm-action adm-action--danger" onClick={() => setSheet('delete')}>
             <Trash2 size={14} /> Excluir restaurante
@@ -252,7 +332,11 @@ export function DatabasePanel({
           <button
             className="adm-action adm-action--primary"
             disabled={busy}
-            onClick={() => call('database/move', undefined, 'Mudança pedida')}
+            onClick={() =>
+              target
+                ? call('database/transfer', { to: target }, 'Mudança pedida')
+                : call('database/move', undefined, 'Mudança pedida')
+            }
           >
             <Truck size={14} /> Mover agora
           </button>
@@ -262,11 +346,50 @@ export function DatabasePanel({
           O restaurante ganha o banco <code>comandou_{t.slug.replace(/-/g, '_')}</code>, só dele, e
           os backups passam a ir para a pasta dele no backup.
         </p>
+        {targets.length > 1 && (
+          <ServerSelect value={target} onChange={setTarget} targets={targets} />
+        )}
         <p>
           Durante a cópia (de segundos a poucos minutos, conforme o tamanho) ninguém do restaurante
           consegue usar o sistema. Tudo é conferido antes da troca; se algo falhar, ele continua no
           banco central como está.
         </p>
+      </Modal>
+
+      <Modal
+        open={sheet === 'transfer'}
+        title="Trocar de servidor"
+        onClose={() => setSheet(null)}
+        footer={
+          <button
+            className="adm-action adm-action--primary"
+            disabled={busy || !target}
+            onClick={() => call('database/transfer', { to: target }, 'Troca de servidor pedida')}
+          >
+            <ArrowRightLeft size={14} /> Trocar agora
+          </button>
+        }
+      >
+        {!loaded ? (
+          <Spinner />
+        ) : targets.length === 0 ? (
+          <Alert tone="info">
+            Não há outro servidor cadastrado. Cadastre um em <Link to="/bancos">Bancos</Link>.
+          </Alert>
+        ) : (
+          <div style={{ display: 'grid', gap: 12 }}>
+            <ServerSelect value={target} onChange={setTarget} targets={targets} />
+            <p style={{ margin: 0 }}>
+              O banco <code>{db.name}</code> é copiado inteiro para o servidor escolhido, conferido
+              tabela por tabela e só então o restaurante passa a usar o novo. Com backup ligado, um
+              backup é feito antes. Depois da troca o banco antigo é apagado.
+            </p>
+            <p className="adm-sub" style={{ margin: 0, whiteSpace: 'normal' }}>
+              Durante a cópia (de segundos a poucos minutos, conforme o tamanho) ninguém do
+              restaurante consegue usar o sistema. Se algo falhar, ele continua onde está.
+            </p>
+          </div>
+        )}
       </Modal>
 
       <Modal

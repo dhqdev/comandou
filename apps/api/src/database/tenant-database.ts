@@ -1,13 +1,47 @@
 import { ServiceUnavailableException } from '@nestjs/common';
 import { Pool } from 'pg';
 
+/**
+ * Servidor Postgres extra (platform_db_servers). Só endereço, porta e SSL: usuário e senha são os
+ * mesmos da conexão do servidor principal. null/undefined = servidor principal.
+ */
+export interface DbServer {
+  host: string;
+  port: number;
+  ssl: 'disable' | 'require';
+}
+
 /** Onde ficam os dados de um restaurante (ADR 0011). */
-export type TenantDatabaseLocation = { kind: 'shared' } | { kind: 'dedicated'; dbName: string };
+export type TenantDatabaseLocation =
+  { kind: 'shared' } | { kind: 'dedicated'; dbName: string; server?: DbServer | null };
 
 /** Linha do registro (tenant_databases) de um restaurante; null = banco central. */
 export interface TenantDatabaseRow {
   db_name: string;
-  status: 'creating' | 'ready' | 'failed' | 'moving' | 'deleting';
+  status: 'creating' | 'ready' | 'failed' | 'moving' | 'deleting' | 'transferring';
+  /** Servidor (vazio = principal). */
+  host?: string | null;
+  port?: number | null;
+  ssl?: string | null;
+}
+
+/** Servidor da linha do registro (null = principal). */
+export function serverOf(row: {
+  host?: string | null;
+  port?: number | null;
+  ssl?: string | null;
+}): DbServer | null {
+  if (!row.host) return null;
+  return {
+    host: row.host,
+    port: row.port ?? 5432,
+    ssl: row.ssl === 'require' ? 'require' : 'disable',
+  };
+}
+
+/** Chave de um banco: nome sozinho no principal, servidor/nome nos outros. */
+export function databaseKey(dbName: string, server?: DbServer | null): string {
+  return server ? `${server.host}:${server.port}/${dbName}` : dbName;
 }
 
 /**
@@ -31,11 +65,43 @@ export function tenantDatabaseName(slug: string): string {
   return name;
 }
 
-/** Mesma conexão (servidor, papel e senha), outro banco. */
-export function databaseUrl(base: string, dbName: string): string {
+/**
+ * Mesmo papel e senha, outro banco. Com `server`, também outro servidor (endereço, porta e SSL);
+ * sem ele, o mesmo servidor da conexão base.
+ */
+export function databaseUrl(base: string, dbName: string, server?: DbServer | null): string {
   if (!TENANT_DB_NAME_RE.test(dbName)) throw new Error('nome de banco inválido');
+  return onServer(base, dbName, server);
+}
+
+/** Banco de manutenção ("postgres") de um servidor: criar e apagar bancos, conferir papéis. */
+export function maintenanceUrl(base: string, server?: DbServer | null): string {
+  return onServer(base, 'postgres', server);
+}
+
+function onServer(base: string, dbName: string, server?: DbServer | null): string {
   const u = new URL(base);
   u.pathname = `/${dbName}`;
+  if (server) {
+    u.hostname = server.host;
+    u.port = String(server.port);
+    u.searchParams.delete('ssl');
+    if (server.ssl === 'require') {
+      // Cifrada sem conferir o certificado (como o sslmode=require do libpq).
+      u.searchParams.set('sslmode', 'require');
+      u.searchParams.set('uselibpqcompat', 'true');
+    } else {
+      u.searchParams.delete('sslmode');
+      u.searchParams.delete('uselibpqcompat');
+    }
+  }
+  return u.toString();
+}
+
+/** A mesma URL para os programas do Postgres (pg_dump/psql não conhecem uselibpqcompat). */
+export function libpqUrl(url: string): string {
+  const u = new URL(url);
+  u.searchParams.delete('uselibpqcompat');
   return u.toString();
 }
 
@@ -64,8 +130,16 @@ export interface RegistryRouterOptions {
   maxPools?: number;
 }
 
+/** Banco próprio (com o servidor só quando não é o principal). */
+export function dedicated(row: TenantDatabaseRow): TenantDatabaseLocation {
+  const server = serverOf(row);
+  return server
+    ? { kind: 'dedicated', dbName: row.db_name, server }
+    : { kind: 'dedicated', dbName: row.db_name };
+}
+
 const appDecide = (row: TenantDatabaseRow): TenantDatabaseLocation | 'unavailable' =>
-  row.status === 'ready' ? { kind: 'dedicated', dbName: row.db_name } : 'unavailable';
+  row.status === 'ready' ? dedicated(row) : 'unavailable';
 
 /**
  * Roteador pelo registro do banco central. Um pool pequeno por banco de restaurante, aberto sob
@@ -100,12 +174,13 @@ export class RegistryDatabaseRouter implements TenantDatabaseRouter {
 
   async poolFor(tenantId: string): Promise<Pool> {
     const loc = await this.locationOf(tenantId);
-    return loc.kind === 'shared' ? this.o.central : this.poolOf(loc.dbName);
+    return loc.kind === 'shared' ? this.o.central : this.poolOf(loc.dbName, loc.server);
   }
 
-  /** Pool de um banco de restaurante pelo nome (limpeza periódica, painel). */
-  poolOf(dbName: string): Pool {
-    const hit = this.pools.get(dbName);
+  /** Pool de um banco de restaurante pelo nome e servidor (limpeza periódica, painel). */
+  poolOf(dbName: string, server?: DbServer | null): Pool {
+    const key = databaseKey(dbName, server);
+    const hit = this.pools.get(key);
     if (hit) {
       hit.used = Date.now();
       return hit.pool;
@@ -118,13 +193,13 @@ export class RegistryDatabaseRouter implements TenantDatabaseRouter {
       }
     }
     const pool = new Pool({
-      connectionString: databaseUrl(this.o.baseUrl, dbName),
+      connectionString: databaseUrl(this.o.baseUrl, dbName, server),
       max: this.o.poolMax,
       idleTimeoutMillis: this.o.idleMs,
     });
     // Banco excluído ou reiniciado derruba conexões paradas: nunca derrubar a API por isso.
     pool.on('error', () => undefined);
-    this.pools.set(dbName, { pool, used: Date.now() });
+    this.pools.set(key, { pool, used: Date.now() });
     return pool;
   }
 
@@ -134,10 +209,11 @@ export class RegistryDatabaseRouter implements TenantDatabaseRouter {
   }
 
   /** Fecha o pool de um banco (antes de excluí-lo, por exemplo). */
-  async closeDatabase(dbName: string) {
-    const hit = this.pools.get(dbName);
+  async closeDatabase(dbName: string, server?: DbServer | null) {
+    const key = databaseKey(dbName, server);
+    const hit = this.pools.get(key);
     if (!hit) return;
-    this.pools.delete(dbName);
+    this.pools.delete(key);
     await hit.pool.end().catch(() => undefined);
   }
 

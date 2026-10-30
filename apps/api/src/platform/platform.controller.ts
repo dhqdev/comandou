@@ -43,6 +43,10 @@ import {
   SystemUpdate,
   StatusChange,
   DeleteTenant,
+  DbServerBody,
+  DbServerUpdate,
+  TransferAll,
+  TransferDatabase,
   SubscriptionChange,
   SupportAccess,
 } from './platform.schemas';
@@ -50,6 +54,7 @@ import { Actor, PlatformService } from './platform.service';
 import { PlatformBackupService } from './platform-backup.service';
 import { AiSettingsBody, PlatformAiService, TenantAiBody } from './platform-ai.service';
 import { PlatformDatabasesService } from './platform-databases.service';
+import { PlatformDbServersService } from './platform-db-servers.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
 import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
 import { BillingService } from '../billing/billing.service';
@@ -139,6 +144,7 @@ export class PlatformController {
     private readonly svc: PlatformService,
     private readonly backup: PlatformBackupService,
     private readonly databases: PlatformDatabasesService,
+    private readonly dbServers: PlatformDbServersService,
     private readonly billing: BillingService,
   ) {}
 
@@ -195,6 +201,60 @@ export class PlatformController {
   ) {
     await this.databases.remove(id, b, actor(req));
     return this.svc.tenant(id);
+  }
+
+  /** Leva o banco do restaurante para outro servidor Postgres (ou para o principal). */
+  @Post('tenants/:id/database/transfer')
+  @HttpCode(200)
+  async transferDatabase(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(TransferDatabase)) b: z.infer<typeof TransferDatabase>,
+    @Req() req: Request,
+  ) {
+    await this.dbServers.transfer(id, b.to, actor(req));
+    return this.svc.tenant(id);
+  }
+
+  /** Servidores de banco: o principal e os cadastrados, com os restaurantes de cada um. */
+  @Get('db-servers')
+  dbServerList() {
+    return this.dbServers.list();
+  }
+
+  @Post('db-servers')
+  createDbServer(
+    @Body(new ZodPipe(DbServerBody)) b: z.infer<typeof DbServerBody>,
+    @Req() req: Request,
+  ) {
+    return this.dbServers.create(b, actor(req));
+  }
+
+  @Put('db-servers/:id')
+  updateDbServer(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(DbServerUpdate)) b: z.infer<typeof DbServerUpdate>,
+    @Req() req: Request,
+  ) {
+    return this.dbServers.update(id, b, actor(req));
+  }
+
+  @Post('db-servers/:id/test')
+  @HttpCode(200)
+  testDbServer(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: Request) {
+    return this.dbServers.test(id, actor(req));
+  }
+
+  @Post('db-servers/:id/remove')
+  @HttpCode(200)
+  removeDbServer(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: Request) {
+    return this.dbServers.remove(id, actor(req));
+  }
+
+  /** Todos os restaurantes de um servidor para outro (um por vez, na fila do serviço de backup). */
+  @Post('db-servers/transfer-all')
+  @HttpCode(200)
+  transferAll(@Body(new ZodPipe(TransferAll)) b: z.infer<typeof TransferAll>, @Req() req: Request) {
+    return this.dbServers.transferAll(b.from, b.to, actor(req));
   }
 
   @Get('database-jobs')

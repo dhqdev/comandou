@@ -11,6 +11,7 @@ import { PlatformService } from './platform.service';
 import { PlatformBackupService } from './platform-backup.service';
 import { PlatformAiService } from './platform-ai.service';
 import { PlatformDatabasesService } from './platform-databases.service';
+import { PlatformDbServersService } from './platform-db-servers.service';
 import { ContractSignController, ContractsController } from './contracts/contracts.controller';
 import { ContractsService } from './contracts/contracts.service';
 
@@ -30,6 +31,7 @@ import { ContractsService } from './contracts/contracts.service';
     PlatformBackupService,
     PlatformAiService,
     PlatformDatabasesService,
+    PlatformDbServersService,
     ContractsService,
     ServerAgentClient,
     ReleaseFeed,

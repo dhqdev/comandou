@@ -60,12 +60,13 @@ export interface TenantProfile {
   updatedAt: string | null;
 }
 
-export type TenantDatabaseStatus = 'creating' | 'ready' | 'failed' | 'moving' | 'deleting';
+export type TenantDatabaseStatus =
+  'creating' | 'ready' | 'failed' | 'moving' | 'deleting' | 'transferring';
 
 /** Trabalho de banco (criar, mover para banco próprio, excluir) feito pelo serviço de backup. */
 export interface DbJob {
   id: string;
-  kind: 'create' | 'move' | 'delete';
+  kind: 'create' | 'move' | 'delete' | 'transfer';
   status: 'queued' | 'running' | 'done' | 'failed';
   step: string | null;
   error: string | null;
@@ -76,6 +77,9 @@ export interface DbJob {
     finalBackupSize?: number;
     rows?: number;
     warning?: string;
+    from?: string;
+    to?: string;
+    backupKey?: string;
   };
   tenantId: string;
   tenantSlug: string;
@@ -100,6 +104,8 @@ export interface TenantDatabase {
   status: TenantDatabaseStatus;
   lastError: string | null;
   readyAt: string | null;
+  /** Servidor extra onde fica o banco (null = servidor principal). */
+  server: { id: string; name: string; host: string } | null;
   sizeBytes: number | null;
   backupFolder: string | null;
   lastBackup: LastBackup | null;
@@ -564,4 +570,66 @@ export interface PublicContract {
   countersignedAt: string | null;
   countersignDeadline: string | null;
   content: ContractContent;
+}
+
+/** Conferência de um servidor de banco pelo serviço de backup (papel dono). */
+export interface DbServerCheck {
+  ok: boolean;
+  at: string;
+  latencyMs?: number;
+  version?: string;
+  canCreateDatabases?: boolean;
+  canTerminate?: boolean;
+  appRoles?: boolean;
+  databases?: number;
+  bytes?: number;
+  error?: string;
+}
+
+/** Conferência pela API: os papéis da aplicação e do painel entram com as mesmas senhas. */
+export interface DbServerApiCheck {
+  ok: boolean;
+  at: string;
+  app: { ok: boolean; ms: number; error?: string };
+  platform: { ok: boolean; ms: number; error?: string };
+}
+
+export interface DbServerRestaurant {
+  id: string;
+  slug: string;
+  name: string;
+  status: string;
+  dbStatus: TenantDatabaseStatus;
+}
+
+export interface DbServer {
+  id: string;
+  name: string;
+  host: string;
+  port: number;
+  ssl: 'disable' | 'require';
+  acceptsNew: boolean;
+  status: 'active' | 'retired';
+  note: string | null;
+  tenants: number;
+  check: DbServerCheck | null;
+  apiCheck: DbServerApiCheck | null;
+  createdAt: string;
+  restaurants: DbServerRestaurant[];
+}
+
+export interface DbServers {
+  main: {
+    id: 'main';
+    name: string;
+    host: string;
+    port: number;
+    acceptsNew: boolean;
+    tenants: number;
+    legacyTenants: number;
+    check: DbServerCheck | null;
+    restaurants: DbServerRestaurant[];
+  };
+  servers: DbServer[];
+  worker: TenantDatabase['worker'];
 }

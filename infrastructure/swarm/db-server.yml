@@ -1,0 +1,49 @@
+# Overlay opcional: um SEGUNDO servidor Postgres para os bancos dos restaurantes (painel Super
+# Admin → Bancos). Roda num nó próprio do Swarm (outra VM), com os mesmos papéis e senhas do
+# servidor principal, na rede interna da stack. Nenhuma porta fica aberta para a internet.
+#
+#   1. Na VM nova: docker swarm join ... (o comando sai de `docker swarm join-token worker`).
+#   2. No manager: docker node update --label-add comandou.db=2 <nome do nó novo>
+#   3. docker stack deploy -c infrastructure/swarm/comandou-stack.yml \
+#        -c infrastructure/swarm/db-server.yml comandou
+#      (no Portainer: cole este arquivo no fim da stack, em "services" e "volumes").
+#   4. Painel → Bancos → Novo servidor: endereço postgres-2, porta 5432, sem SSL.
+#   5. "Mover todos" (ou um restaurante por vez) no servidor principal.
+#
+# Para um terceiro servidor, copie o serviço como postgres-3 com o rótulo comandou.db=3.
+# O banco central (cadastros, planos, painel) continua no servidor principal.
+version: '3.8'
+services:
+  postgres-2:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/comandou_pg_password
+      COMANDOU_OWNER_PASSWORD_FILE: /run/secrets/comandou_owner_password
+      COMANDOU_APP_PASSWORD_FILE: /run/secrets/comandou_app_password
+      COMANDOU_PLATFORM_PASSWORD_FILE: /run/secrets/comandou_platform_password
+    secrets:
+      [
+        comandou_pg_password,
+        comandou_owner_password,
+        comandou_app_password,
+        comandou_platform_password,
+      ]
+    volumes:
+      - comandou_pgdata2:/var/lib/postgresql/data
+    configs:
+      # Mesmo script do principal: cria os papéis com as mesmas senhas (e um banco "comandou"
+      # vazio, que fica sem uso aqui).
+      - source: comandou_pg_init
+        target: /docker-entrypoint-initdb.d/01-roles.sh
+        mode: 0555
+    networks: [comandou_internal]
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.labels.comandou.db == 2] # volume local: fixe o nó
+      restart_policy: { condition: on-failure }
+      resources:
+        limits: { memory: 1G }
+
+volumes:
+  comandou_pgdata2:
