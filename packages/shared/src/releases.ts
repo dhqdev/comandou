@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.60.0',
+    date: '2026-10-30',
+    title: 'Conversa do cliente com a loja, direto no cardápio',
+    summary:
+      'O cliente não precisa mais ir para o WhatsApp: no cardápio online tem a aba Conversa, com emojis, fotos e vídeos. A equipe responde pelo PDV, que avisa com selo, som e aviso na tela quando chega mensagem.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Aba Conversa no cardápio (celular e computador): o cliente com conta entra direto; quem não tem conta informa nome e celular. Dá para mandar texto, mais de 300 emojis, fotos (tirar na hora ou da galeria) e vídeos de até 20 MB. "Falar com a loja" no acompanhamento do pedido abre a conversa já citando o pedido.',
+      },
+      {
+        tag: 'novo',
+        text: 'Mensagens dos clientes no painel: lista de conversas com busca, não lidas e encerradas; conversa com fotos e vídeos, respostas prontas, "digitando…", lida (✓✓), último pedido do cliente e encerrar/reabrir.',
+      },
+      {
+        tag: 'novo',
+        text: 'Alertas no PDV: botão Mensagens com selo de quantas conversas esperam resposta, som próprio ("Mensagem de cliente", com repetição e silenciar como os pedidos), aviso no canto com "Responder" e notificação do computador com a aba em segundo plano.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Loja online › O que aparece: liga ou desliga a conversa; em Textos dá para escrever a mensagem de boas-vindas. Fotos e vídeos da conversa são privados (só o cliente e a equipe veem) e têm limite de espaço por restaurante; os mais antigos saem primeiro.',
+      },
+    ],
+  },
+  {
     version: '0.59.1',
     date: '2026-10-30',
     title: 'Sino só com pedido novo e PDV mais limpo',

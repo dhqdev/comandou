@@ -26,6 +26,7 @@ import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import { playSound, useArrivalSound, useRepeatingSoundForNew } from '../lib/sounds';
+import { SupportButton, useSupportUnread } from '../features/store-chat/SupportInbox';
 import type { Order, StoreSettings } from '../lib/types';
 import '../app/home.css';
 
@@ -294,6 +295,13 @@ export function PdvPage() {
     'cancel',
     ids((o) => o.status === 'cancel_requested'),
   );
+  // Cliente esperando resposta pelo cardápio: avisa até alguém abrir a conversa (só pelo que
+  // chegou depois de abrir a tela, como os pedidos).
+  const support = useSupportUnread();
+  useRepeatingSoundForNew(
+    'message',
+    support.loaded ? support.latest.map((l) => `${l.id}@${l.at}`) : null,
+  );
 
   // F2 abre a nova venda (atalho de caixa).
   useEffect(() => {
@@ -373,6 +381,7 @@ export function PdvPage() {
           />
         </label>
         <div className="pdv__spacer" />
+        <SupportButton className="pdv__chat" label="Mensagens" />
         {store && (
           <label className="switch pdv__store" data-open={store.isOpen}>
             <input

@@ -153,6 +153,13 @@ const Settings = z
       .transform((v) => v || null),
     accountsEnabled: z.boolean(),
     showPopular: z.boolean(),
+    chatEnabled: z.boolean(),
+    chatGreeting: z
+      .string()
+      .trim()
+      .max(300)
+      .nullable()
+      .transform((v) => v || null),
     storeLat: z
       .number()
       .min(-90)

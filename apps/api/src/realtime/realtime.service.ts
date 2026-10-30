@@ -28,7 +28,11 @@ export type RealtimeEvent =
   | { type: 'chat.read'; conversationId: string; userId: string }
   | { type: 'chat.typing'; conversationId: string; userId: string; name: string }
   | { type: 'chat.mural' }
-  | { type: 'chat.notice' };
+  | { type: 'chat.notice' }
+  // Conversa do cliente com a loja (cardápio online): só ids; cada lado busca pela API.
+  | { type: 'support.message'; chatId: string; messageId: string; sender: string }
+  | { type: 'support.read'; chatId: string; by: 'customer' | 'staff' }
+  | { type: 'support.typing'; chatId: string; by: 'customer' | 'staff'; name?: string };
 
 export const tenantRoom = (tenantId: string) => `t:${tenantId}`;
 /** Sala de uma pessoa (todas as abas/aparelhos dela neste restaurante). */
@@ -53,6 +57,16 @@ export class RealtimeService {
     if (!this.server) return;
     try {
       this.server.to(tenantRoom(tenantId)).emit('event', event);
+    } catch (err) {
+      this.logger.warn(`falha ao publicar evento: ${(err as Error).message}`);
+    }
+  }
+
+  /** Para uma sala específica (ex.: o aparelho do cliente na conversa com a loja). */
+  publishToRoom(room: string, event: RealtimeEvent) {
+    if (!this.server) return;
+    try {
+      this.server.to(room).emit('event', event);
     } catch (err) {
       this.logger.warn(`falha ao publicar evento: ${(err as Error).message}`);
     }

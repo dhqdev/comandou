@@ -43,6 +43,10 @@ export interface StoreSettings {
   featuredTitle: string | null;
   accountsEnabled: boolean;
   showPopular: boolean;
+  /** Conversa do cliente com a loja no cardápio (no lugar de levar ao WhatsApp). */
+  chatEnabled: boolean;
+  /** Boas-vindas que o cliente vê ao abrir a conversa (null = texto padrão). */
+  chatGreeting: string | null;
   /** Ponto da loja no mapa (centro das áreas por raio e referência da busca de endereço). */
   storeLat: string | null;
   storeLng: string | null;
@@ -103,6 +107,7 @@ const SETTINGS_COLS = `enabled, is_open AS "isOpen", auto_accept AS "autoAccept"
   eta_max AS "etaMax", about, address, whatsapp, city, state, cover_image_id AS "coverImageId",
   logo_image_id AS "logoImageId", theme, headline, featured_title AS "featuredTitle",
   accounts_enabled AS "accountsEnabled", show_popular AS "showPopular",
+  chat_enabled AS "chatEnabled", chat_greeting AS "chatGreeting",
   store_lat::text AS "storeLat", store_lng::text AS "storeLng", brand_color AS "brandColor",
   accent_color AS "accentColor", font_style AS "fontStyle", corner_style AS "cornerStyle",
   favicon_image_id AS "faviconImageId", brand_staff_app AS "brandStaffApp"`;
@@ -129,6 +134,8 @@ const DEFAULTS: StoreSettings = {
   featuredTitle: null,
   accountsEnabled: true,
   showPopular: true,
+  chatEnabled: true,
+  chatGreeting: null,
   storeLat: null,
   storeLng: null,
   brandColor: null,
@@ -161,6 +168,8 @@ const COLUMN: Record<keyof StoreSettings, string> = {
   featuredTitle: 'featured_title',
   accountsEnabled: 'accounts_enabled',
   showPopular: 'show_popular',
+  chatEnabled: 'chat_enabled',
+  chatGreeting: 'chat_greeting',
   storeLat: 'store_lat',
   storeLng: 'store_lng',
   brandColor: 'brand_color',
@@ -414,6 +423,7 @@ export class StoreService {
           headline: s.headline,
           featuredTitle: s.featuredTitle,
           accountsEnabled: s.accountsEnabled,
+          chatEnabled: s.chatEnabled,
         },
         // Banner que aponta para produto/categoria fora do cardápio vira banner sem link.
         banners: banners.map(({ imageId, active: _a, position: _p, ...b }) => {
@@ -612,7 +622,13 @@ export class StoreService {
     const map = onRoad ? await customerMapOf(tx, delivery.id) : null;
     const when = (st: string) => history.find((h) => h.to === st)?.at ?? null;
     return {
-      restaurant: { name: tenantName, whatsapp: s.whatsapp, logoUrl: mediaUrl(s.logoImageId) },
+      restaurant: {
+        name: tenantName,
+        whatsapp: s.whatsapp,
+        logoUrl: mediaUrl(s.logoImageId),
+        // Conversa pelo cardápio no lugar do WhatsApp.
+        chat: s.chatEnabled && s.enabled,
+      },
       etaMin: s.etaMin,
       etaMax: s.etaMax,
       ...o!,

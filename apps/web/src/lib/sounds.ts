@@ -6,7 +6,15 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
  * e escolhe o volume; a escolha fica no aparelho (cada tablet da cozinha tem a sua).
  */
 export type SoundKind =
-  'order' | 'kitchen' | 'ready' | 'delivery' | 'courier' | 'delivered' | 'bill' | 'cancel';
+  | 'order'
+  | 'kitchen'
+  | 'ready'
+  | 'delivery'
+  | 'courier'
+  | 'delivered'
+  | 'bill'
+  | 'cancel'
+  | 'message';
 
 export const SOUND_INFO: { kind: SoundKind; label: string; hint: string }[] = [
   { kind: 'order', label: 'Novo pedido', hint: 'Pedido do cardápio online esperando aceite' },
@@ -17,6 +25,7 @@ export const SOUND_INFO: { kind: SoundKind; label: string; hint: string }[] = [
   { kind: 'delivered', label: 'Entregue', hint: 'O entregador finalizou uma entrega' },
   { kind: 'bill', label: 'Pediu a conta', hint: 'Uma mesa pediu para fechar' },
   { kind: 'cancel', label: 'Cancelamento', hint: 'Cliente pediu para cancelar um pedido' },
+  { kind: 'message', label: 'Mensagem de cliente', hint: 'Cliente escreveu pelo cardápio online' },
 ];
 
 /** Timbres prontos que o usuário pode escolher para qualquer aviso, além do padrão de cada um. */
@@ -34,7 +43,7 @@ export const TONE_INFO: { tone: SoundTone; label: string }[] = [
 ];
 
 /** Avisos que ficam tocando de novo enquanto ninguém resolve (aceitar o pedido, responder o cancelamento). */
-export const REPEATING_KINDS: SoundKind[] = ['order', 'cancel'];
+export const REPEATING_KINDS: SoundKind[] = ['order', 'cancel', 'message'];
 
 export interface SoundSettings {
   enabled: boolean;
@@ -260,6 +269,13 @@ const PATTERNS: Record<SoundKind, Note[]> = {
     { at: 0.9, freq: E5, dur: 0.4, inst: 'marimba' },
     { at: 1.06, freq: C5, dur: 0.4, inst: 'marimba' },
     { at: 1.22, freq: A4, dur: 0.8, inst: 'marimba' },
+  ],
+  // "Plim-plim" de kalimba com uma taça no fim: mensagem nova de cliente.
+  message: [
+    { at: 0, freq: E6, dur: 0.4, inst: 'kalimba' },
+    { at: 0.12, freq: A5, dur: 0.4, inst: 'kalimba' },
+    { at: 0.24, freq: E6, dur: 0.5, inst: 'kalimba' },
+    { at: 0.4, freq: B5 * 2, dur: 1.1, inst: 'glass', gain: 0.45 },
   ],
 };
 

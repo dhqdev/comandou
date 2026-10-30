@@ -22,7 +22,7 @@ import './public.css';
 
 type Step = 'awaiting' | 'accepted' | 'ready' | 'dispatched' | 'completed';
 interface PublicOrder {
-  restaurant: { name: string; whatsapp: string | null; logoUrl: string | null };
+  restaurant: { name: string; whatsapp: string | null; logoUrl: string | null; chat?: boolean };
   etaMin: number;
   etaMax: number;
   number: number;
@@ -296,15 +296,21 @@ export function PublicOrderPage() {
         </section>
 
         <div className="track__actions">
-          {phone && (
-            <a
-              className="btn-line"
-              href={`https://wa.me/${phone.length <= 11 ? `55${phone}` : phone}?text=${encodeURIComponent(`Olá! Sobre o meu pedido #${o.number}`)}`}
-              target="_blank"
-              rel="noreferrer"
-            >
+          {o.restaurant.chat ? (
+            <Link className="btn-line" to={`/pedir/conversa?pedido=${o.number}`}>
               <MessageCircle size={16} /> Falar com a loja
-            </a>
+            </Link>
+          ) : (
+            phone && (
+              <a
+                className="btn-line"
+                href={`https://wa.me/${phone.length <= 11 ? `55${phone}` : phone}?text=${encodeURIComponent(`Olá! Sobre o meu pedido #${o.number}`)}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <MessageCircle size={16} /> Falar com a loja
+              </a>
+            )
           )}
           {o.canCancel && (
             <button className="btn-line btn-line--danger" onClick={cancel} disabled={cancelling}>

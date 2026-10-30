@@ -58,6 +58,12 @@ import {
 import { GlobalSearch, GlobalSearchTrigger, useSearchHotkey } from '../features/GlobalSearch';
 import { SoundControl } from '../features/SoundControl';
 import { openTeamChat, useChatUnread } from '../features/chat/TeamChat';
+import {
+  openSupportInbox,
+  SupportButton,
+  SupportChatHost,
+  useSupportUnread,
+} from '../features/store-chat/SupportInbox';
 import { WelcomeTour, tourSeen } from '../features/WelcomeTour';
 import { PandaStroll } from '../features/mascot/Stroll';
 import { openWardrobe, useMascotSync } from '../features/mascot/state';
@@ -257,6 +263,7 @@ export function AppShell() {
   const live = useRealtimeStatus();
   const unseen = useHasUnseenRelease();
   const chatUnread = useChatUnread();
+  const support = useSupportUnread();
   useMascotSync(me?.user.id);
   const [pwOpen, setPwOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -360,6 +367,17 @@ export function AppShell() {
             badge: chatUnread,
             onClick: () => openTeamChat(),
           },
+          ...(allowed(['orders:manage'])
+            ? [
+                {
+                  key: 'clientes-chat',
+                  label: 'Mensagens de clientes',
+                  icon: <MessageCircle />,
+                  badge: support.chats,
+                  onClick: () => openSupportInbox(),
+                },
+              ]
+            : []),
         ]}
         contentKey={location.pathname}
         top={
@@ -381,6 +399,9 @@ export function AppShell() {
               <Badge tone="warning">Reconectando…</Badge>
             )}
             <GlobalSearchTrigger icon onOpen={() => setSearchOpen(true)} />
+            {location.pathname !== '/' && location.pathname !== '/pdv' && (
+              <SupportButton className="topbar__support" />
+            )}
             <SoundControl />
             <ThemeToggle />
           </>
@@ -407,6 +428,7 @@ export function AppShell() {
       </AppFrame>
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
       <WardrobeHost />
+      <SupportChatHost />
       <PandaStroll />
       {me && (
         <WelcomeTour

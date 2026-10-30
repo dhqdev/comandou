@@ -43,6 +43,11 @@ import { CustomersService } from '../store/customers.service';
 import { MediaController, StoreController } from '../store/store.controller';
 import { StoreService } from '../store/store.service';
 import { SearchController } from '../search/search.controller';
+import {
+  PublicStoreChatController,
+  SupportChatController,
+} from '../store-chat/store-chat.controller';
+import { StoreChatService } from '../store-chat/store-chat.service';
 import { LoyaltyController } from '../loyalty/loyalty.controller';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { OrdersController, PaymentsController } from './orders.controller';
@@ -78,6 +83,8 @@ import { OrdersService } from './orders.service';
     ReservationsController,
     PublicReservationsController,
     LoyaltyController,
+    PublicStoreChatController,
+    SupportChatController,
   ],
   providers: [
     OrdersService,
@@ -103,6 +110,7 @@ import { OrdersService } from './orders.service';
     CustomersService,
     ReservationsService,
     LoyaltyService,
+    StoreChatService,
   ],
 })
 export class OperationsModule {}

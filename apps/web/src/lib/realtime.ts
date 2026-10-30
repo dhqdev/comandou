@@ -27,7 +27,10 @@ export type RealtimeEvent =
   | { type: 'chat.read'; conversationId: string; userId: string }
   | { type: 'chat.typing'; conversationId: string; userId: string; name: string }
   | { type: 'chat.mural' }
-  | { type: 'chat.notice' };
+  | { type: 'chat.notice' }
+  | { type: 'support.message'; chatId: string; messageId: string; sender: string }
+  | { type: 'support.read'; chatId: string; by: 'customer' | 'staff' }
+  | { type: 'support.typing'; chatId: string; by: 'customer' | 'staff'; name?: string };
 
 type Listener = (e: RealtimeEvent) => void;
 type StatusListener = (s: RealtimeStatus) => void;

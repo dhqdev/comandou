@@ -87,7 +87,12 @@ function AppearanceTab({
 }) {
   const toast = useToast();
   const [s, setS] = useState<StoreSettings | null>(null);
-  const [form, setForm] = useState({ headline: '', featuredTitle: '', about: '' });
+  const [form, setForm] = useState({
+    headline: '',
+    featuredTitle: '',
+    about: '',
+    chatGreeting: '',
+  });
   const [busy, setBusy] = useState(false);
   const fill = (x: StoreSettings) => {
     setS(x);
@@ -95,6 +100,7 @@ function AppearanceTab({
       headline: x.headline ?? '',
       featuredTitle: x.featuredTitle ?? '',
       about: x.about ?? '',
+      chatGreeting: x.chatGreeting ?? '',
     });
   };
   useEffect(() => {
@@ -175,6 +181,7 @@ function AppearanceTab({
               headline: form.headline.trim() || null,
               featuredTitle: form.featuredTitle.trim() || null,
               about: form.about.trim() || null,
+              chatGreeting: form.chatGreeting.trim() || null,
             });
           }}
         >
@@ -203,6 +210,15 @@ function AppearanceTab({
             disabled={!canManage}
             onChange={(e) => setForm({ ...form, about: e.target.value })}
           />
+          <TextField
+            label="Boas-vindas da conversa"
+            placeholder="Olá! Mande sua dúvida que a gente responde rapidinho. 😊"
+            hint="Aparece quando o cliente abre a Conversa no cardápio."
+            maxLength={300}
+            value={form.chatGreeting}
+            disabled={!canManage}
+            onChange={(e) => setForm({ ...form, chatGreeting: e.target.value })}
+          />
           {canManage && (
             <div>
               <Button type="submit" loading={busy}>
@@ -227,6 +243,13 @@ function AppearanceTab({
             checked={s.accountsEnabled}
             disabled={!canManage || busy}
             onChange={(v) => save({ accountsEnabled: v })}
+          />
+          <Toggle
+            label="Conversa com a loja"
+            hint="O cliente fala com vocês pelo cardápio (texto, emojis, fotos e vídeos) e a equipe responde pelo PDV, sem precisar do WhatsApp."
+            checked={s.chatEnabled}
+            disabled={!canManage || busy}
+            onChange={(v) => save({ chatEnabled: v })}
           />
         </div>
       </Card>

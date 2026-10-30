@@ -16,6 +16,7 @@ export function SidePanel({
   footer,
   size = 'md',
   actions,
+  className = '',
 }: {
   open: boolean;
   title: ReactNode;
@@ -25,6 +26,7 @@ export function SidePanel({
   size?: 'md' | 'lg' | 'xl';
   /** Botões extras no cabeçalho, ao lado do fechar. */
   actions?: ReactNode;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -45,7 +47,7 @@ export function SidePanel({
   return (
     <dialog
       ref={ref}
-      className={`side-panel side-panel--${size}`}
+      className={`side-panel side-panel--${size} ${className}`}
       onCancel={(e) => {
         // Esc: mesmo caminho do Fechar, com a saída animada.
         if (e.target !== e.currentTarget || !canAnimate(e.currentTarget)) return;

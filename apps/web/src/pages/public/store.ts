@@ -51,6 +51,8 @@ export interface PublicMenu {
     headline: string | null;
     featuredTitle: string | null;
     accountsEnabled: boolean;
+    /** Conversa com a loja pelo cardápio (no lugar do WhatsApp). */
+    chatEnabled: boolean;
   };
   banners: PublicBanner[];
   /** Ids dos produtos que mais saíram nos últimos 30 dias. */

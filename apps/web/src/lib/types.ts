@@ -67,6 +67,8 @@ export interface StoreSettings {
   featuredTitle: string | null;
   accountsEnabled: boolean;
   showPopular: boolean;
+  chatEnabled: boolean;
+  chatGreeting: string | null;
   /** Identidade visual: cores em #rrggbb (null = cores do Comandou). */
   brandColor: string | null;
   accentColor: string | null;

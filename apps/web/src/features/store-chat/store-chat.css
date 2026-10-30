@@ -1,0 +1,689 @@
+/*
+ * Conversa do cliente com a loja (cardápio online e painel da equipe).
+ * Mesmo visual dos dois lados: balões discretos, a cor da marca só nas mensagens de quem vê.
+ * Só variáveis --cm-*; funciona nos temas claro e escuro, no celular e no computador.
+ */
+.scx {
+  --scx-mine: var(--cm-brand-600);
+  --scx-on-mine: var(--cm-on-brand);
+  --scx-theirs: var(--cm-surface);
+  --scx-r: 16px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background: var(--cm-bg);
+}
+
+/* ---------------------------------------------------------------- mensagens */
+.scx-thread {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+.scx-thread__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 12px 8px;
+  max-width: 820px;
+  margin: 0 auto;
+  min-height: 100%;
+  justify-content: flex-end;
+}
+.scx-more {
+  align-self: center;
+  margin: 4px 0 8px;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+}
+.scx-greeting {
+  align-self: center;
+  max-width: min(420px, 92%);
+  margin: 8px 0 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  text-align: center;
+  line-height: 1.45;
+}
+.scx-greeting strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--cm-text);
+  font-size: var(--cm-text-md);
+}
+.scx-day {
+  position: sticky;
+  top: 6px;
+  z-index: 1;
+  align-self: center;
+  margin: 10px 0 6px;
+  padding: 3px 10px;
+  border-radius: var(--cm-radius-full);
+  background: color-mix(in srgb, var(--cm-surface) 92%, transparent);
+  border: 1px solid var(--cm-border);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  text-transform: capitalize;
+  backdrop-filter: blur(6px);
+}
+.scx-system {
+  align-self: center;
+  margin: 6px 0;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+}
+
+.scx-msg {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: min(78%, 520px);
+  margin-top: 8px;
+  animation: scx-in 0.22s var(--cm-ease) both;
+}
+.scx-msg[data-grouped] {
+  margin-top: 2px;
+}
+.scx-msg[data-mine] {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+@keyframes scx-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scx-msg {
+    animation: none;
+  }
+}
+.scx-msg__who {
+  margin: 0 10px 3px;
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.scx-bubble {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 64px;
+  padding: 7px 10px 6px;
+  border-radius: var(--scx-r);
+  border-bottom-left-radius: 6px;
+  background: var(--scx-theirs);
+  border: 1px solid var(--cm-border);
+  color: var(--cm-text);
+  overflow-wrap: anywhere;
+}
+.scx-msg[data-grouped] .scx-bubble {
+  border-top-left-radius: 6px;
+}
+.scx-msg[data-mine] .scx-bubble {
+  background: var(--scx-mine);
+  border-color: transparent;
+  color: var(--scx-on-mine);
+  border-radius: var(--scx-r);
+  border-bottom-right-radius: 6px;
+}
+.scx-msg[data-mine][data-grouped] .scx-bubble {
+  border-top-right-radius: 6px;
+}
+.scx-msg[data-pending='failed'] .scx-bubble {
+  opacity: 0.6;
+}
+.scx-text {
+  margin: 0;
+  font-size: var(--cm-text-md);
+  line-height: 1.42;
+  white-space: pre-wrap;
+}
+.scx-text a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.scx-bubble--emoji {
+  background: none !important;
+  border-color: transparent !important;
+  padding: 0 2px;
+}
+.scx-bubble--emoji .scx-text {
+  font-size: 2.6rem;
+  line-height: 1.15;
+}
+.scx-bubble--emoji .scx-meta {
+  color: var(--cm-text-subtle) !important;
+}
+.scx-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  align-self: flex-end;
+  margin-top: -2px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cm-text-subtle);
+}
+.scx-msg[data-mine] .scx-meta {
+  color: color-mix(in srgb, var(--scx-on-mine) 78%, transparent);
+}
+.scx-tick {
+  display: inline-flex;
+}
+.scx-tick[data-read] {
+  color: #7fd3ff;
+}
+.scx-retry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border: 0;
+  background: none;
+  color: var(--cm-danger);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+.scx-gone {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--cm-text-sm);
+  font-style: italic;
+  opacity: 0.8;
+}
+.scx-order {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border-radius: var(--cm-radius-md);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+.scx-order:disabled {
+  cursor: default;
+}
+
+/* Foto e vídeo dentro do balão */
+.scx-media {
+  position: relative;
+  display: block;
+  width: min(280px, 62vw);
+  max-height: 340px;
+  margin: -3px -6px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--cm-surface-sunken);
+  cursor: zoom-in;
+}
+.scx-media img,
+.scx-media video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 340px;
+  object-fit: cover;
+}
+.scx-media--video {
+  cursor: default;
+}
+.scx-media__play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: rgb(0 0 0 / 22%);
+  color: #fff;
+  cursor: pointer;
+}
+.scx-media__play svg {
+  padding: 14px;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 45%);
+  backdrop-filter: blur(4px);
+}
+
+/* Digitando… */
+.scx-typing {
+  flex-direction: row;
+  gap: 4px;
+  padding: 12px 14px;
+  min-width: 0;
+}
+.scx-typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cm-text-subtle);
+  animation: scx-dot 1.2s infinite ease-in-out;
+}
+.scx-typing span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.scx-typing span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.scx-typing__label {
+  margin: 3px 10px 0;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+}
+@keyframes scx-dot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+.scx-down {
+  position: sticky;
+  bottom: 10px;
+  left: 100%;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin: -50px 14px 10px auto;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 50%;
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  box-shadow: var(--cm-shadow-lg);
+  cursor: pointer;
+}
+.scx-down__n {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+}
+
+/* Visualizador em tela cheia */
+.scx-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom));
+  background: rgb(0 0 0 / 88%);
+  animation: scx-fade 0.18s ease both;
+}
+.scx-viewer img,
+.scx-viewer video {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  object-fit: contain;
+}
+.scx-viewer__close {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 14%);
+  color: #fff;
+  cursor: pointer;
+}
+@keyframes scx-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.scx-progress {
+  height: 3px;
+  background: var(--cm-border);
+}
+.scx-progress span {
+  display: block;
+  height: 100%;
+  background: var(--cm-brand-500);
+  transition: width 0.2s linear;
+}
+.scx-drop {
+  position: absolute;
+  inset: 8px;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--cm-brand-500);
+  border-radius: var(--cm-radius-lg);
+  background: color-mix(in srgb, var(--cm-surface) 88%, transparent);
+  color: var(--cm-text);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* ---------------------------------------------------------------- campo de mensagem */
+.scx-compose {
+  position: relative;
+  flex: none;
+  padding: 8px 10px calc(8px + var(--scx-safe, 0px));
+  border-top: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+}
+.scx-compose > * {
+  max-width: 820px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.scx-compose__off {
+  padding: 10px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  text-align: center;
+}
+.scx-compose__row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+.scx-field {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 22px;
+  background: var(--cm-bg);
+  transition: border-color var(--cm-dur-fast);
+}
+.scx-field:focus-within {
+  border-color: var(--cm-brand-500);
+  box-shadow: var(--cm-focus);
+}
+.scx-field textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 42px;
+  max-height: 150px;
+  padding: 10px 4px 10px 14px;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--cm-text);
+  /* 16px: o iPhone não dá zoom ao focar. */
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.35;
+}
+.scx-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+  transition:
+    background var(--cm-dur-fast),
+    color var(--cm-dur-fast);
+}
+.scx-icon:hover,
+.scx-icon[data-on] {
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+}
+.scx-icon--in {
+  width: 38px;
+  height: 38px;
+  margin: 2px 2px 2px 0;
+}
+.scx-send {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  cursor: pointer;
+  transition:
+    transform 0.15s var(--cm-ease),
+    opacity var(--cm-dur-fast);
+}
+.scx-send:active:not(:disabled) {
+  transform: scale(0.92);
+}
+.scx-send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.scx-attach {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.scx-attach__busy {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.scx-attach__file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 6px 6px 6px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-bg);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.scx-attach__file img,
+.scx-attach__file video {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--cm-surface-sunken);
+}
+.scx-attach__file small {
+  display: block;
+  font-weight: 400;
+  color: var(--cm-text-muted);
+}
+.scx-attach__file button,
+.scx-attach__order button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.scx-attach__order {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 10px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-sunken);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+
+.scx-emoji {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 8px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-bg);
+  overflow: hidden;
+  animation: scx-up 0.18s var(--cm-ease) both;
+}
+.scx-emoji__tabs {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-bottom: 1px solid var(--cm-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.scx-emoji__tabs button {
+  flex: 1 0 auto;
+  min-width: 38px;
+  height: 36px;
+  border: 0;
+  border-radius: var(--cm-radius-md);
+  background: transparent;
+  font-size: 20px;
+  cursor: pointer;
+  filter: grayscale(0.7);
+  opacity: 0.7;
+}
+.scx-emoji__tabs button[aria-selected='true'] {
+  background: var(--cm-surface-sunken);
+  filter: none;
+  opacity: 1;
+}
+.scx-emoji__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+  max-height: min(240px, 34vh);
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.scx-emoji__grid button {
+  height: 42px;
+  border: 0;
+  border-radius: var(--cm-radius-md);
+  background: transparent;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.12s var(--cm-ease);
+}
+.scx-emoji__grid button:hover {
+  background: var(--cm-surface-sunken);
+  transform: scale(1.12);
+}
+.scx-emoji__grid button:active {
+  transform: scale(0.9);
+}
+.scx-menu,
+.scx-quick {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+  padding: 4px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-bg);
+  animation: scx-up 0.18s var(--cm-ease) both;
+}
+.scx-menu button,
+.scx-quick button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--cm-radius-md);
+  background: transparent;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-md);
+  text-align: left;
+  cursor: pointer;
+}
+.scx-menu button:hover,
+.scx-quick button:hover {
+  background: var(--cm-surface-sunken);
+}
+.scx-quick {
+  max-height: 220px;
+  overflow-y: auto;
+}
+@keyframes scx-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (min-width: 900px) {
+  .scx-msg {
+    max-width: min(66%, 560px);
+  }
+  .scx-media {
+    width: 300px;
+  }
+}
+
+/* O contorno de foco fica no campo inteiro (não no texto nem no botão de emoji dentro dele). */
+.scx-field textarea:focus,
+.scx-field textarea:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.scx-field .scx-icon:focus-visible {
+  outline: none;
+  background: var(--cm-surface-sunken);
+}

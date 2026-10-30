@@ -1,5 +1,13 @@
 import { fromCents } from '@comandou/shared';
-import { ChevronRight, Heart, House, ReceiptText, ShoppingBag, UserRound } from 'lucide-react';
+import {
+  ChevronRight,
+  Heart,
+  House,
+  MessageCircle,
+  ReceiptText,
+  ShoppingBag,
+  UserRound,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Link,
@@ -21,6 +29,8 @@ import {
   ProfileScreen,
 } from './AccountScreens';
 import { CartScreen } from './CartScreen';
+import { StoreChatProvider, useStoreChat } from './chat';
+import { ChatScreen } from './ChatScreen';
 import { StoreProvider, useStore } from './context';
 import { FavoritesScreen, HomeScreen } from './HomeScreen';
 import { LoyaltyScreen } from './LoyaltyScreens';
@@ -36,22 +46,36 @@ import './storefront.css';
 /** Abas do cardápio: embaixo no celular, no menu do topo no computador. */
 function useNavTabs() {
   const { menu, account } = useStore();
+  const chat = useStoreChat();
   const name = account?.customer?.name.split(' ')[0];
   return [
-    { to: '/pedir', label: 'Cardápio', icon: House, end: true },
-    { to: '/pedir/favoritos', label: 'Favoritos', icon: Heart },
-    { to: '/pedir/pedidos', label: 'Pedidos', icon: ReceiptText },
+    { to: '/pedir', label: 'Cardápio', icon: House, end: true, badge: 0 },
+    { to: '/pedir/favoritos', label: 'Favoritos', icon: Heart, badge: 0 },
+    { to: '/pedir/pedidos', label: 'Pedidos', icon: ReceiptText, badge: 0 },
+    ...(chat.enabled
+      ? [{ to: '/pedir/conversa', label: 'Conversa', icon: MessageCircle, badge: chat.unread }]
+      : []),
     ...(menu.appearance.accountsEnabled
-      ? [{ to: '/pedir/conta', label: name ?? 'Entrar', icon: UserRound }]
+      ? [{ to: '/pedir/conta', label: name ?? 'Entrar', icon: UserRound, badge: 0 }]
       : []),
   ];
+}
+
+/** Bolinha com o número de respostas da loja ainda não lidas. */
+function Dot({ n }: { n: number }) {
+  if (!n) return null;
+  return (
+    <b className="sf-dot" aria-label={`${n} mensagem(ns) nova(s)`}>
+      {n > 9 ? '9+' : n}
+    </b>
+  );
 }
 
 /** Abas de baixo (celular): barra na cor da loja; a aba aberta mostra o nome. */
 function BottomNav() {
   const { pathname } = useLocation();
   // Produto e sacola têm a própria barra embaixo (adicionar / finalizar).
-  const focused = /^\/pedir\/(produto|sacola|reservar)/.test(pathname);
+  const focused = /^\/pedir\/(produto|sacola|reservar|conversa)/.test(pathname);
   const tabs = useNavTabs();
   return (
     <nav className="tabbar" data-focused={focused || undefined} aria-label="Navegação do cardápio">
@@ -59,6 +83,7 @@ function BottomNav() {
         <NavLink key={t.to} to={t.to} end={t.end} className="tabbar__item">
           <t.icon size={22} aria-hidden />
           <span>{t.label}</span>
+          <Dot n={t.badge} />
         </NavLink>
       ))}
     </nav>
@@ -85,6 +110,7 @@ function TopBar() {
             <NavLink key={t.to} to={t.to} end={t.end} className="sf-appbar__link">
               <t.icon size={18} aria-hidden />
               <span>{t.label}</span>
+              <Dot n={t.badge} />
             </NavLink>
           ))}
         </nav>
@@ -138,7 +164,13 @@ function CartPill() {
 }
 
 /** Ordem das abas de baixo: trocar de aba desliza para o lado da aba escolhida. */
-const TAB_ORDER = ['/pedir', '/pedir/favoritos', '/pedir/pedidos', '/pedir/conta'];
+const TAB_ORDER = [
+  '/pedir',
+  '/pedir/favoritos',
+  '/pedir/pedidos',
+  '/pedir/conversa',
+  '/pedir/conta',
+];
 const tabIndex = (path: string) => TAB_ORDER.indexOf(path.replace(/\/+$/, '') || '/pedir');
 
 /**
@@ -178,6 +210,7 @@ function Screens() {
         <Route path="pedidos/:id" element={<PublicOrderPage />} />
         <Route path="reservar" element={<ReserveScreen />} />
         <Route path="reserva/:token" element={<ReservationStatusScreen />} />
+        <Route path="conversa" element={<ChatScreen />} />
         <Route path="conta" element={<AccountScreen />} />
         <Route path="conta/dados" element={<ProfileScreen />} />
         <Route path="conta/enderecos" element={<AddressesScreen />} />
@@ -269,12 +302,14 @@ export function StoreApp() {
   if (!menu) return <Skeleton />;
   return (
     <StoreProvider menu={menu} refreshStatus={refreshStatus} refreshMenu={refreshMenu}>
-      <main className="sf">
-        <TopBar />
-        <Screens />
-        <CartPill />
-        <BottomNav />
-      </main>
+      <StoreChatProvider>
+        <main className="sf">
+          <TopBar />
+          <Screens />
+          <CartPill />
+          <BottomNav />
+        </main>
+      </StoreChatProvider>
     </StoreProvider>
   );
 }

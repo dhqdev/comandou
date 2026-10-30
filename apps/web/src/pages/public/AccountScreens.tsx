@@ -5,6 +5,7 @@ import {
   KeyRound,
   LogOut,
   MapPin,
+  MessageCircle,
   Moon,
   Pencil,
   Plus,
@@ -19,6 +20,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { clickPoint, Mascot, Spinner, switchTheme, useTheme, useToast } from '../../design-system';
 import { SlideTabs } from '../../features/SlideTabs';
 import { api, ApiError } from '../../lib/api';
+import { useStoreChat } from './chat';
 import { useStore } from './context';
 import { AddressFields, addressPayload } from './AddressFields';
 import { useLoyalty } from './LoyaltyScreens';
@@ -230,6 +232,7 @@ function MenuRow({
 /** Aba "Conta": formulário de entrada ou o perfil com os atalhos. */
 export function AccountScreen() {
   const { account, logout, menu, favs } = useStore();
+  const chat = useStoreChat();
   const loyalty = useLoyalty();
   const [theme] = useTheme();
   const toast = useToast();
@@ -299,6 +302,20 @@ export function AccountScreen() {
         </>
       )}
 
+      {chat.enabled && (
+        <nav className="mlist" aria-label="Ajuda">
+          <MenuRow
+            to="/pedir/conversa"
+            icon={<MessageCircle size={18} />}
+            label="Conversar com a loja"
+            hint={
+              chat.unread
+                ? `${chat.unread} mensagem(ns) nova(s)`
+                : 'Dúvidas, fotos e vídeos, direto por aqui'
+            }
+          />
+        </nav>
+      )}
       <nav className="mlist" aria-label="Preferências">
         {menu.appearance.theme === 'auto' && (
           <MenuRow
