@@ -21,6 +21,12 @@ COPY infrastructure/nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY infrastructure/nginx/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY infrastructure/nginx/security-headers-frame-self.conf /etc/nginx/snippets/security-headers-frame-self.conf
 COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
+# Instalador dentro da imagem pública: o repositório é privado, então o "um comando" sai daqui.
+# /instalar no navegador/curl devolve o get.sh; o resto é copiado pelo get.sh com docker cp.
+COPY scripts /opt/comandou-instalador/scripts
+COPY infrastructure/swarm /opt/comandou-instalador/infrastructure/swarm
+COPY infrastructure/traefik /opt/comandou-instalador/infrastructure/traefik
+COPY infrastructure/docker/postgres-init /opt/comandou-instalador/infrastructure/docker/postgres-init
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --retries=3 \
   CMD wget -qO- http://127.0.0.1:8080/healthz >/dev/null || exit 1

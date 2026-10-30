@@ -7,7 +7,8 @@ version: '3.8'
 
 services:
   traefik:
-    image: traefik:v3.1
+    # v3.6 ou mais nova: a v3.1 não conversa com o Docker 29 (o que o get.docker.com instala hoje).
+    image: traefik:v3.6
     command: ['--configFile=/etc/traefik/traefik.yml']
     ports:
       - { target: 80, published: 80, mode: host }

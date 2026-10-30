@@ -314,4 +314,4 @@ jobs:
           SHA: ${{ needs.version.outputs.sha }}
         run: |
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$SHA" --title "Comandou $TAG" --generate-notes \
-            --notes "Imagens: ghcr.io/${GITHUB_REPOSITORY_OWNER}/comandou-{api,web,whatsapp-gateway,backup}:$TAG (amd64 e arm64). O que mudou está na tela Novidades do sistema. Para colocar no ar: workflow Deploy (produção) ou scripts/get.sh."
+            --notes "Imagens: ghcr.io/${GITHUB_REPOSITORY_OWNER}/comandou-{api,web,whatsapp-gateway,backup}:$TAG (amd64 e arm64). O que mudou está na tela Novidades do sistema. Para colocar no ar: workflow Deploy (produção), botão Atualizar sistema ou curl -fsSL https://admin.comandou.com/instalar | sudo bash."

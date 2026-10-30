@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.66.1',
+    date: '2026-10-30',
+    title: 'Instalação em um comando com o repositório privado',
+    summary:
+      'O instalador agora vem dentro da imagem pública do sistema, então o comando de instalação funciona sem token mesmo com o repositório fechado.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Instalar ou atualizar um servidor por SSH voltou a funcionar: curl -fsSL https://admin.comandou.com/instalar | sudo bash. Antes o comando dava erro 404 porque buscava os arquivos no GitHub.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A versão a instalar é a última publicada nas imagens (a mesma que o botão Atualizar sistema enxerga).',
+      },
+      {
+        tag: 'correção',
+        text: 'O Traefik que o instalador coloca passou para a versão 3.6. A 3.1 não funcionava com o Docker 29, que é o que vem instalado hoje em servidor novo, e nenhum endereço abria.',
+      },
+      {
+        tag: 'correção',
+        text: 'Na primeira instalação a migração espera o banco terminar de subir (até 12 tentativas) em vez de o instalador parar com erro logo na primeira.',
+      },
+    ],
+  },
+  {
     version: '0.66.0',
     date: '2026-10-30',
     title: 'Nota fiscal pronta para testar, com telas menores',

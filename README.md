@@ -117,11 +117,13 @@ Cada garantia tem testes automatizados: ver [docs/testing.md](docs/testing.md).
 
 ## Instalar em um servidor
 
+Entre no servidor por SSH (Windows: PowerShell; Mac e Linux: Terminal) e rode:
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dhqdev/comandou/main/scripts/get.sh | sudo bash
+curl -fsSL https://admin.comandou.com/instalar | sudo bash
 ```
 
-AMD64 ou ARM64. O instalador prepara Docker/Swarm, HTTPS (Traefik) e os segredos; o Super Admin
+Ubuntu ou Debian, AMD64 ou ARM64. Não precisa de token: o instalador vem da imagem pública. O instalador prepara Docker/Swarm, HTTPS (Traefik) e os segredos; o Super Admin
 nasce do e-mail e da senha que você informa. Para atualizar, rode o mesmo comando ou use o botão
 de atualização no painel. Detalhes, stack para Portainer e alternativas:
 [docs/install.md](docs/install.md).

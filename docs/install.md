@@ -3,8 +3,10 @@
 Três jeitos, do mais simples ao mais manual. Todos usam as mesmas imagens (AMD64 e ARM64, o Docker
 escolhe a certa) e criam o Super Admin com o e-mail e a senha que você informar.
 
-> Estado: o instalador foi testado aqui com um Docker simulado (fluxo, segredos, ordem dos
-> passos). **Não foi executado num servidor real ainda.** Rode primeiro em um servidor de teste.
+> Estado (v0.66.1): instalação do zero e atualização testadas de ponta a ponta num Swarm de um
+> nó com Docker 29 (perguntas pelo terminal, Traefik, segredos, migrações, demonstrações, login do
+> Super Admin com autenticador, backup antes de atualizar). Testado em AMD64; ARM64 usa as mesmas
+> imagens multiarquitetura.
 
 ## Antes de começar
 
@@ -16,11 +18,36 @@ escolhe a certa) e criam o Super Admin com o e-mail e a senha que você informar
 
 ## 1. Um comando (recomendado)
 
+Funciona com o repositório privado e sem token: o instalador vem dentro da imagem pública
+`ghcr.io/dhqdev/comandou-web` e é servido por qualquer Comandou no ar, no endereço `/instalar`.
+
+**Do seu computador (Windows, Mac ou Linux), entre no servidor por SSH.** No Windows use o
+PowerShell ou o Terminal (o `ssh` já vem no Windows 10 e 11); no Mac e no Linux, o Terminal:
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dhqdev/comandou/main/scripts/get.sh | sudo bash
+ssh usuario@IP-DO-SERVIDOR
 ```
 
-Baixa a última Release para `/opt/comandou` e roda o instalador, que:
+**No servidor (Ubuntu ou Debian, AMD64 ou ARM64), rode:**
+
+```bash
+curl -fsSL https://admin.comandou.com/instalar | sudo bash
+```
+
+Ou tudo de uma vez, direto do seu computador (o `-t` deixa o instalador fazer as perguntas):
+
+```bash
+ssh -t usuario@IP-DO-SERVIDOR "curl -fsSL https://admin.comandou.com/instalar | sudo bash"
+```
+
+Se ainda não existe nenhum Comandou no ar para servir o `/instalar`, e o servidor já tem Docker:
+
+```bash
+docker run --rm ghcr.io/dhqdev/comandou-web:latest cat /opt/comandou-instalador/scripts/get.sh | sudo bash
+```
+
+O comando acha a última versão publicada nas imagens, copia o instalador para `/opt/comandou` e
+roda o instalador, que:
 
 1. instala o Docker se faltar e liga o Swarm de um nó só (pede confirmação);
 2. instala um Traefik com HTTPS automático se o servidor não tiver um;
@@ -32,15 +59,16 @@ Baixa a última Release para `/opt/comandou` e roda o instalador, que:
 
 Depois entre em `https://admin.<seu domínio>` com o e-mail, a senha e o código do aplicativo.
 
-Atualizar é rodar o mesmo comando de novo: ele reaproveita tudo o que já existe e não pergunta de
-novo. Versão específica: `sudo COMANDOU_VERSION=v0.7.0 bash` depois do `|`. Repositório ou imagens
-privados: `GITHUB_TOKEN=<token com leitura de contents e packages>`.
+Atualizar é rodar o mesmo comando de novo (ou o botão **Atualizar sistema** no Super Admin): ele
+reaproveita tudo o que já existe e não pergunta de novo. Versão específica:
+`sudo COMANDOU_VERSION=v0.66.1 bash` depois do `|` (o instalador vem na imagem a partir da v0.66.1).
+Com `GITHUB_TOKEN=<token com leitura de contents>` o código vem do GitHub em vez da imagem.
 
 ## 2. Já tenho o repositório (ou quero ler o script antes)
 
 ```bash
-git clone https://github.com/dhqdev/comandou.git && cd comandou
-git checkout v0.7.0   # a Release que você quer
+git clone https://github.com/dhqdev/comandou.git && cd comandou   # repositório privado: precisa de acesso
+git checkout v0.66.1   # a versão que você quer
 scripts/install.sh
 ```
 
@@ -50,7 +78,7 @@ scripts/install.sh
 
 | Variável | O quê |
 | --- | --- |
-| `COMANDOU_VERSION` | `vX.Y.Z` (padrão: última Release) |
+| `COMANDOU_VERSION` | `vX.Y.Z` (padrão: última versão publicada nas imagens) |
 | `COMANDOU_BASE_DOMAIN` | domínio do sistema |
 | `COMANDOU_ACME_EMAIL` | e-mail do Let's Encrypt (só se instalar o Traefik) |
 | `PLATFORM_ADMIN_EMAIL`, `PLATFORM_ADMIN_NAME` | login e nome do Super Admin |

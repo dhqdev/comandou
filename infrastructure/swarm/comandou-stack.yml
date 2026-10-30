@@ -146,7 +146,9 @@ services:
     networks: [comandou_internal]
     deploy:
       replicas: 1
-      restart_policy: { condition: on-failure, max_attempts: 5, delay: 10s }
+      # 12 tentativas: na primeira instalação o Postgres pode levar mais de um minuto para subir.
+      # scripts/install.sh usa o mesmo número para desistir.
+      restart_policy: { condition: on-failure, max_attempts: 12, delay: 10s }
 
   api:
     image: ghcr.io/dhqdev/comandou-api:${COMANDOU_VERSION:?defina a versão}

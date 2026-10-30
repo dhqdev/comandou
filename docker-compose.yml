@@ -99,7 +99,7 @@ services:
     networks: [edge]
 
   traefik:
-    image: traefik:v3.5
+    image: traefik:v3.6
     command:
       - --providers.docker=true
       - --providers.docker.exposedbydefault=false

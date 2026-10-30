@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Instalador do Comandou (Ubuntu/Debian, AMD64 ou ARM64). Instala e atualiza.
 #
-#   Primeira vez (um comando, baixa tudo do GitHub):
-#     curl -fsSL https://raw.githubusercontent.com/dhqdev/comandou/main/scripts/get.sh | sudo bash
+#   Primeira vez (um comando; o instalador vem das imagens públicas, sem token):
+#     curl -fsSL https://admin.comandou.com/instalar | sudo bash
 #   Ou, com o repositório já baixado:   scripts/install.sh [--yes]
 #
 # O que faz, pedindo confirmação antes de cada alteração no servidor:
@@ -98,11 +98,14 @@ if [[ -f "$DEPLOY_ENV" ]]; then
   set +a
 fi
 if [[ -z "${COMANDOU_VERSION:-}" ]]; then
-  # Sem versão: usa a última Release do GitHub (a que a Release automática publicou).
+  # Sem versão: a que o get.sh baixou ou a última publicada no GHCR.
   if [[ -f "$ROOT/.comandou-version" ]]; then COMANDOU_VERSION="$(cat "$ROOT/.comandou-version")"
   else
-    COMANDOU_VERSION="$(curl -fsSL ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
-      "https://api.github.com/repos/$REPO/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -1)"
+    # Maior vX.Y.Z publicada na imagem da API (pública no GHCR; funciona com o repositório privado).
+    name="${IMAGES#ghcr.io/}/comandou-api"
+    token="$(curl -fsSL "https://ghcr.io/token?scope=repository:$name:pull" | sed -n 's/.*"token":"\([^"]*\)".*/\1/p' || true)"
+    COMANDOU_VERSION="$(curl -fsSL -H "Authorization: Bearer $token" "https://ghcr.io/v2/$name/tags/list?n=10000" \
+      | grep -oE '"v[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' | sort -V | tail -1 || true)"
   fi
   [[ -n "$COMANDOU_VERSION" ]] || die "não achei a versão: defina COMANDOU_VERSION=vX.Y.Z"
 fi
@@ -267,13 +270,18 @@ ENVFILE
 fi
 
 step "10. Migrações e Super Admin"
-echo "Aguardando o serviço ${STACK}_migrate concluir..."
-for _ in $(seq 1 60); do
-  state="$(docker service ps "${STACK}_migrate" --format '{{.CurrentState}}' | head -1)"
-  [[ "$state" == Complete* ]] && { echo "migrações concluídas"; break; }
-  [[ "$state" == Failed* || "$state" == Rejected* ]] && die "migração falhou: docker service logs ${STACK}_migrate"
+echo "Aguardando o serviço ${STACK}_migrate concluir (na primeira vez o banco demora a subir)..."
+# Uma tentativa que falha porque o Postgres ainda está iniciando é normal: o Swarm tenta de novo
+# (max_attempts do migrate na stack). Só desiste quando todas as tentativas falharam ou o tempo acabou.
+MIGRATE_DONE=false
+for _ in $(seq 1 180); do
+  states="$(docker service ps "${STACK}_migrate" --format '{{.CurrentState}}')"
+  [[ "$(head -1 <<<"$states")" == Complete* ]] && { MIGRATE_DONE=true; echo "migrações concluídas"; break; }
+  failed="$(grep -cE '^(Failed|Rejected)' <<<"$states" || true)"
+  ((failed >= 12)) && die "migração falhou $failed vezes: docker service logs ${STACK}_migrate"
   sleep 5
 done
+$MIGRATE_DONE || die "a migração não terminou em 15 minutos: docker service logs ${STACK}_migrate"
 docker service logs "${STACK}_migrate" 2>&1 | grep -E "Super Admin" | tail -2 || true
 
 step "11. Saúde dos componentes"
