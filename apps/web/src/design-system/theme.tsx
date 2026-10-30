@@ -32,12 +32,31 @@ export function applyTheme(theme: Theme = currentTheme()) {
   const root = document.documentElement;
   root.dataset.theme = theme;
   root.style.colorScheme = theme;
-  // Barra do navegador/app instalado acompanha o fundo da moldura.
-  const meta = document.head.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-  if (meta) {
-    const frame = getComputedStyle(root).getPropertyValue('--cm-frame').trim();
-    if (frame) meta.content = frame;
+  paintBar(theme);
+}
+
+/**
+ * Cor da barra do navegador (theme-color). No cardápio é a cor do restaurante; nas telas da
+ * equipe acompanha o fundo da moldura. Não depende do CSS já ter carregado: as cores vêm
+ * prontas de applyBranding, e a moldura tem valor fixo de reserva.
+ */
+let barBrand: { light: string; dark: string } | null = null;
+export function setBarColor(c: { light: string; dark: string } | null) {
+  barBrand = c;
+  paintBar();
+}
+function paintBar(theme: Theme = currentTheme()) {
+  let meta = document.head.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    document.head.appendChild(meta);
   }
+  const frame =
+    getComputedStyle(document.documentElement).getPropertyValue('--cm-frame').trim() ||
+    (theme === 'dark' ? '#0e0e10' : '#ffffff');
+  const color = barBrand ? barBrand[theme] : frame;
+  if (meta.content !== color) meta.content = color;
 }
 
 export function setTheme(theme: Theme) {

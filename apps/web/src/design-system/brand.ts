@@ -7,6 +7,7 @@
  * até o contraste passar de 4.5:1 onde há texto: o lojista escolhe qualquer cor sem quebrar a
  * leitura. Sem cor escolhida, valem as cores do Comandou (tokens.css).
  */
+import { setBarColor } from './theme';
 
 export type FontStyle = 'padrao' | 'sistema' | 'classica' | 'arredondada';
 export type CornerStyle = 'padrao' | 'reto' | 'arredondado';
@@ -321,6 +322,11 @@ export function applyBranding(b: Branding, path = window.location.pathname) {
   const customer = isCustomerPath(path);
   const colors = customer || b.staffApp;
   applyBrandCss(brandCss(b, { colors, shape: customer }));
+  // Barra do topo do navegador: no cardápio, a cor do restaurante (ou o laranja padrão).
+  if (customer) {
+    const t = brandTokens(isHex(b.brandColor) ? b.brandColor : COMANDOU_BRAND);
+    setBarColor({ light: t.light['--cm-brand-500']!, dark: t.dark['--cm-brand-500']! });
+  } else setBarColor(null);
   applyFavicon(colors ? b.faviconUrl : null);
   applyManifest(path);
 }

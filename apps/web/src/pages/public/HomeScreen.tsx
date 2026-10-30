@@ -12,9 +12,7 @@ import {
   Search,
   ShoppingBag,
   SlidersHorizontal,
-  Star,
   Store,
-  TrendingUp,
   UserRound,
   Wallet,
   X,
@@ -213,7 +211,6 @@ interface WheelItem {
   id: string;
   name: string;
   imageUrl: string | null;
-  icon?: typeof Star;
   products: PublicProduct[];
 }
 
@@ -394,15 +391,11 @@ function CategoryWheel({
                   }}
                 >
                   <span className="wheel__disc">
-                    {c.icon ? (
-                      <c.icon size={24} />
-                    ) : (
-                      <Photo
-                        src={c.imageUrl ?? c.products.find((p) => p.imageUrl)?.imageUrl ?? null}
-                        alt={c.name}
-                        className="wheel__photo"
-                      />
-                    )}
+                    <Photo
+                      src={c.imageUrl ?? c.products.find((p) => p.imageUrl)?.imageUrl ?? null}
+                      alt={c.name}
+                      className="wheel__photo"
+                    />
                   </span>
                   <span className="wheel__name" aria-hidden>
                     {c.name}
@@ -585,14 +578,26 @@ export function HomeScreen() {
   const wheel = useMemo<WheelItem[]>(() => {
     const featured = all.filter((p) => p.featured);
     const popular = menu.popular.map((id) => product(id)).filter(Boolean) as PublicProduct[];
+    // Destaques e Mais pedidos aparecem como as outras categorias: com a foto de um produto
+    // delas (sem ícone). Cada uma pega uma foto diferente, para não ficarem iguais lado a lado.
+    const used = new Set(
+      menu.categories
+        .map((c) => c.imageUrl ?? c.products.find((p) => p.imageUrl)?.imageUrl)
+        .filter(Boolean) as string[],
+    );
+    const cover = (list: PublicProduct[]) => {
+      const withPhoto = list.filter((p) => p.imageUrl);
+      const pick = withPhoto.find((p) => !used.has(p.imageUrl!)) ?? withPhoto[0];
+      if (pick) used.add(pick.imageUrl!);
+      return pick?.imageUrl ?? null;
+    };
     return [
       ...(featured.length
         ? [
             {
               id: '__featured',
               name: menu.appearance.featuredTitle || 'Destaques',
-              imageUrl: null,
-              icon: Star,
+              imageUrl: cover(featured),
               products: featured,
             },
           ]
@@ -602,8 +607,7 @@ export function HomeScreen() {
             {
               id: '__popular',
               name: 'Mais pedidos',
-              imageUrl: null,
-              icon: TrendingUp,
+              imageUrl: cover(popular),
               products: popular,
             },
           ]

@@ -32,6 +32,8 @@ test('a cor salva na Loja online vale em todas as telas da loja', async ({ page,
       await p.goto(path);
       await expect.poll(() => brand500(p), { message: `anônimo ${path}` }).toBe('#1f6feb');
     }
+    // No cardápio, a barra do topo do navegador também fica na cor da loja.
+    await expect(p.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#1f6feb');
     await anon.close();
   } finally {
     await page.goto('/loja-online');

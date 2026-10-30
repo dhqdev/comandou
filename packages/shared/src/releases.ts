@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.62.2',
+    date: '2026-10-30',
+    title: 'Cardápio com a cor da loja no topo',
+    summary:
+      'A barra do topo do celular agora fica na cor do restaurante, e Destaques e Mais pedidos aparecem com foto, como as outras categorias.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Cardápio online: a barra do topo do navegador usa a cor escolhida pelo restaurante, e não o laranja padrão.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Carrossel de categorias: Destaques (ou o nome que a loja deu) e Mais pedidos mostram a foto de um produto delas, sem ícones.',
+      },
+    ],
+  },
+  {
     version: '0.62.1',
     date: '2026-10-30',
     title: 'Atualizações com o repositório privado',
