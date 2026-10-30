@@ -1,4 +1,5 @@
 import { Bike, KeyRound } from 'lucide-react';
+import { lazy, Suspense } from 'react';
 import {
   agoLabel,
   distanceM,
@@ -8,7 +9,9 @@ import {
   toPoint,
   type LatLng,
 } from './live-geo';
-import { LiveMap } from './LiveMap';
+
+// O mapa (Leaflet) só baixa quando a moto sai: quem só faz o pedido no cardápio não paga por ele.
+const LiveMap = lazy(() => import('./LiveMap').then((m) => ({ default: m.LiveMap })));
 import './customer-track.css';
 
 /** O que o cliente recebe sobre a corrida (link de rastreio ou acompanhamento do pedido). */
@@ -72,23 +75,25 @@ export function CustomerLiveMap({
   const first = courier.name.split(' ')[0];
   return (
     <div className={`ctrack ${className}`}>
-      <LiveMap
-        className="ctrack__map"
-        store={courier.store ? [courier.store.lat, courier.store.lng] : null}
-        riders={[
-          {
-            id: 'courier',
-            label: first ?? 'Entregador',
-            title: courier.name,
-            position: eta.pos,
-            heading: courier.location?.heading,
-            at: courier.location?.at,
-            trail: courier.trail ?? [],
-            destination: eta.dest,
-          },
-        ]}
-        emptyHint={`${first} já saiu. A posição aparece aqui assim que o GPS dele atualizar.`}
-      />
+      <Suspense fallback={<div className="ctrack__map" />}>
+        <LiveMap
+          className="ctrack__map"
+          store={courier.store ? [courier.store.lat, courier.store.lng] : null}
+          riders={[
+            {
+              id: 'courier',
+              label: first ?? 'Entregador',
+              title: courier.name,
+              position: eta.pos,
+              heading: courier.location?.heading,
+              at: courier.location?.at,
+              trail: courier.trail ?? [],
+              destination: eta.dest,
+            },
+          ]}
+          emptyHint={`${first} já saiu. A posição aparece aqui assim que o GPS dele atualizar.`}
+        />
+      </Suspense>
       <div className="ctrack__bar" data-signal={eta.signal}>
         <span className="ctrack__icon">
           <Bike size={20} />

@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { Suspense, useEffect, type ReactElement } from 'react';
 import {
   Navigate,
   Route,
@@ -9,44 +9,164 @@ import {
 import { Alert, appHistory, Mascot, ScreenDrawn, Spinner, ToastProvider } from '../design-system';
 import { ComingSoonPage } from '../pages/ComingSoonPage';
 import { LoginPage } from '../pages/LoginPage';
-import { MenuPage } from '../pages/MenuPage';
-import { CustomersPage } from '../pages/CustomersPage';
-import { OnlineStorePage } from '../pages/OnlineStorePage';
-import { CashPage } from '../pages/CashPage';
-import { DeliveriesPage } from '../pages/DeliveriesPage';
-import { FinancePage } from '../pages/FinancePage';
-import { FiscalPage } from '../pages/fiscal/FiscalPage';
-import { WhatsAppPage } from '../pages/WhatsAppPage';
-import { PrintingPage } from '../pages/PrintingPage';
-import { StockPage } from '../pages/StockPage';
-import { TeamPage } from '../pages/TeamPage';
-import { TrackingPage } from '../pages/TrackingPage';
-import { CourierLinkPage } from '../pages/CourierLinkPage';
-import { TableLinkPage } from '../pages/TableLinkPage';
-import { PublicOrderPage } from '../pages/public/PublicOrderPage';
-import { StoreApp } from '../pages/public/StoreApp';
-import { KitchenPage } from '../pages/KitchenPage';
-import { OrdersPage } from '../pages/OrdersPage';
-import { PdvPage } from '../pages/PdvPage';
-import { PlanPage } from '../pages/PlanPage';
-import { PlatformApp, isPlatformHost } from '../platform/PlatformApp';
-import { ReleasesPage } from '../pages/ReleasesPage';
-import { ReportsPage } from '../pages/ReportsPage';
-import { ReservationsPage } from '../pages/ReservationsPage';
-import { SettingsPage } from '../pages/SettingsPage';
-import { SupportEntryPage } from '../pages/SupportEntryPage';
-import { TablesPage } from '../pages/TablesPage';
 import { AppShell } from './AppShell';
 import { AuthProvider, useAuth } from './auth';
 import { TenantBrand } from './TenantBrand';
 import { ROLE_HOME, ROUTE_PERMS } from './role-home';
 import { NoAccess } from './NoAccess';
+import { PageLoading } from './PageLoading';
 import { UpdatePrompt } from './UpdatePrompt';
 import { WaiterEntry } from './WaiterEntry';
-import { WaiterApp } from '../waiter/WaiterApp';
-import { DriverApp } from '../driver/DriverApp';
-import { KitchenApp } from '../kitchen/KitchenApp';
 import { TeamChat } from '../features/chat/TeamChat';
+import { isPlatformHost } from '../platform/host';
+import { lazyPage, preloadPages } from '../lib/lazy-page';
+
+// Cada tela vira um arquivo separado no build (o app abre mais rápido, principalmente no celular).
+const MenuPage = lazyPage(
+  () => import('../pages/MenuPage'),
+  (m) => m.MenuPage,
+);
+const CustomersPage = lazyPage(
+  () => import('../pages/CustomersPage'),
+  (m) => m.CustomersPage,
+);
+const OnlineStorePage = lazyPage(
+  () => import('../pages/OnlineStorePage'),
+  (m) => m.OnlineStorePage,
+);
+const CashPage = lazyPage(
+  () => import('../pages/CashPage'),
+  (m) => m.CashPage,
+);
+const DeliveriesPage = lazyPage(
+  () => import('../pages/DeliveriesPage'),
+  (m) => m.DeliveriesPage,
+);
+const FinancePage = lazyPage(
+  () => import('../pages/FinancePage'),
+  (m) => m.FinancePage,
+);
+const FiscalPage = lazyPage(
+  () => import('../pages/fiscal/FiscalPage'),
+  (m) => m.FiscalPage,
+);
+const WhatsAppPage = lazyPage(
+  () => import('../pages/WhatsAppPage'),
+  (m) => m.WhatsAppPage,
+);
+const PrintingPage = lazyPage(
+  () => import('../pages/PrintingPage'),
+  (m) => m.PrintingPage,
+);
+const StockPage = lazyPage(
+  () => import('../pages/StockPage'),
+  (m) => m.StockPage,
+);
+const TeamPage = lazyPage(
+  () => import('../pages/TeamPage'),
+  (m) => m.TeamPage,
+);
+const TrackingPage = lazyPage(
+  () => import('../pages/TrackingPage'),
+  (m) => m.TrackingPage,
+);
+const CourierLinkPage = lazyPage(
+  () => import('../pages/CourierLinkPage'),
+  (m) => m.CourierLinkPage,
+);
+const TableLinkPage = lazyPage(
+  () => import('../pages/TableLinkPage'),
+  (m) => m.TableLinkPage,
+);
+const PublicOrderPage = lazyPage(
+  () => import('../pages/public/PublicOrderPage'),
+  (m) => m.PublicOrderPage,
+);
+const StoreApp = lazyPage(
+  () => import('../pages/public/StoreApp'),
+  (m) => m.StoreApp,
+);
+const KitchenPage = lazyPage(
+  () => import('../pages/KitchenPage'),
+  (m) => m.KitchenPage,
+);
+const OrdersPage = lazyPage(
+  () => import('../pages/OrdersPage'),
+  (m) => m.OrdersPage,
+);
+const PdvPage = lazyPage(
+  () => import('../pages/PdvPage'),
+  (m) => m.PdvPage,
+);
+const PlanPage = lazyPage(
+  () => import('../pages/PlanPage'),
+  (m) => m.PlanPage,
+);
+const ReleasesPage = lazyPage(
+  () => import('../pages/ReleasesPage'),
+  (m) => m.ReleasesPage,
+);
+const ReportsPage = lazyPage(
+  () => import('../pages/ReportsPage'),
+  (m) => m.ReportsPage,
+);
+const ReservationsPage = lazyPage(
+  () => import('../pages/ReservationsPage'),
+  (m) => m.ReservationsPage,
+);
+const SettingsPage = lazyPage(
+  () => import('../pages/SettingsPage'),
+  (m) => m.SettingsPage,
+);
+const SupportEntryPage = lazyPage(
+  () => import('../pages/SupportEntryPage'),
+  (m) => m.SupportEntryPage,
+);
+const TablesPage = lazyPage(
+  () => import('../pages/TablesPage'),
+  (m) => m.TablesPage,
+);
+const WaiterApp = lazyPage(
+  () => import('../waiter/WaiterApp'),
+  (m) => m.WaiterApp,
+);
+const DriverApp = lazyPage(
+  () => import('../driver/DriverApp'),
+  (m) => m.DriverApp,
+);
+const KitchenApp = lazyPage(
+  () => import('../kitchen/KitchenApp'),
+  (m) => m.KitchenApp,
+);
+const PlatformApp = lazyPage(
+  () => import('../platform/PlatformApp'),
+  (m) => m.PlatformApp,
+);
+
+/** Telas do painel: baixadas em segundo plano depois da primeira, para a troca ser instantânea. */
+const PANEL_PAGES = [
+  PdvPage,
+  OrdersPage,
+  TablesPage,
+  ReservationsPage,
+  KitchenPage,
+  CashPage,
+  ReportsPage,
+  SettingsPage,
+  MenuPage,
+  OnlineStorePage,
+  CustomersPage,
+  ReleasesPage,
+  DeliveriesPage,
+  StockPage,
+  FinancePage,
+  TeamPage,
+  PrintingPage,
+  FiscalPage,
+  WhatsAppPage,
+  PlanPage,
+  WaiterApp,
+];
 
 function Home() {
   const { me } = useAuth();
@@ -74,9 +194,17 @@ function WaiterOnly() {
   );
 }
 
+const OWN_APP_ROLES = ['waiter', 'driver', 'kitchen'];
+
 function Gate() {
   const { status, error, me } = useAuth();
   const { pathname } = useLocation();
+  const role = me?.user.role;
+  // Painel aberto: baixa as outras telas em segundo plano (garçom, entregador e cozinha não precisam).
+  useEffect(() => {
+    if (!role || OWN_APP_ROLES.includes(role)) return;
+    return preloadPages(PANEL_PAGES);
+  }, [role]);
   if (status === 'loading') {
     return (
       <div style={{ display: 'grid', placeItems: 'center', height: '100%' }}>
@@ -301,7 +429,9 @@ export function App() {
   if (isPlatformHost()) {
     return (
       <>
-        <PlatformApp />
+        <Suspense fallback={<PageLoading />}>
+          <PlatformApp />
+        </Suspense>
         <UpdatePrompt />
       </>
     );
@@ -314,26 +444,28 @@ export function App() {
       {/* Em todas as telas: painel, garçom, cozinha, cardápio do cliente e links públicos. */}
       <UpdatePrompt />
       <ToastProvider>
-        <Routes>
-          {/* Rastreio público do cliente final: fora do login. */}
-          <Route path="/rastreio/:token" element={<TrackingPage />} />
-          {/* Cardápio online e acompanhamento do pedido do cliente final: fora do login. */}
-          <Route path="/pedir/*" element={<StoreApp />} />
-          <Route path="/pedido/:token" element={<PublicOrderPage />} />
-          {/* Link do entregador (sem login) e QR Code colado na mesa. */}
-          <Route path="/entregador/:token" element={<CourierLinkPage />} />
-          <Route path="/mesa/:id" element={<TableLinkPage />} />
-          {/* Link de acesso do suporte (painel Super Admin): troca o token por uma sessão. */}
-          <Route path="/suporte" element={<SupportEntryPage />} />
-          <Route
-            path="*"
-            element={
-              <AuthProvider>
-                <Gate />
-              </AuthProvider>
-            }
-          />
-        </Routes>
+        <Suspense fallback={<PageLoading />}>
+          <Routes>
+            {/* Rastreio público do cliente final: fora do login. */}
+            <Route path="/rastreio/:token" element={<TrackingPage />} />
+            {/* Cardápio online e acompanhamento do pedido do cliente final: fora do login. */}
+            <Route path="/pedir/*" element={<StoreApp />} />
+            <Route path="/pedido/:token" element={<PublicOrderPage />} />
+            {/* Link do entregador (sem login) e QR Code colado na mesa. */}
+            <Route path="/entregador/:token" element={<CourierLinkPage />} />
+            <Route path="/mesa/:id" element={<TableLinkPage />} />
+            {/* Link de acesso do suporte (painel Super Admin): troca o token por uma sessão. */}
+            <Route path="/suporte" element={<SupportEntryPage />} />
+            <Route
+              path="*"
+              element={
+                <AuthProvider>
+                  <Gate />
+                </AuthProvider>
+              }
+            />
+          </Routes>
+        </Suspense>
       </ToastProvider>
     </HistoryRouter>
   );

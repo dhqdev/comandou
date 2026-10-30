@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.61.1',
+    date: '2026-10-30',
+    title: 'Sistema abre mais rápido, principalmente no celular',
+    summary:
+      'Antes o sistema baixava todas as telas de uma vez ao abrir. Agora baixa só a tela que você abriu e traz as outras em segundo plano, então a primeira abertura fica bem mais leve e trocar de tela continua instantâneo.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Primeira abertura cerca de três vezes mais leve: o cardápio online do cliente não baixa mais o painel, e garçom, cozinha e entregador baixam só o app deles.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Depois que o painel abre, as outras telas chegam em segundo plano, sem atrasar o que está na tela. O mapa da entrega só baixa quando a moto sai.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Limpeza de código que não era mais usado.',
+      },
+    ],
+  },
+  {
     version: '0.61.0',
     date: '2026-10-30',
     title: 'Nova demonstração: Aurora Café & Padaria, com fotos reais',

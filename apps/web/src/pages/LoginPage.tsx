@@ -1,6 +1,5 @@
 import { ChefHat, Eye, EyeOff, LayoutGrid, Lock, Receipt, Truck } from 'lucide-react';
 import { FormEvent, KeyboardEvent, ReactNode, useEffect, useState } from 'react';
-import { CURRENT_RELEASE } from '@comandou/shared';
 import { useLocation } from 'react-router';
 import { Alert, Button, Logo, Mascot, TextField, ThemeToggle } from '../design-system';
 import { useAuth } from '../app/auth';
@@ -169,7 +168,7 @@ export function LoginPage() {
           <span>
             <Lock size={13} /> Conexão segura
           </span>
-          <span>Comandou v{CURRENT_RELEASE.version}</span>
+          <span>Comandou v{__APP_VERSION__}</span>
         </footer>
       </main>
 

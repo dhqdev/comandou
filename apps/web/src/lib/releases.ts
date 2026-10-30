@@ -1,4 +1,3 @@
-import { CURRENT_RELEASE } from '@comandou/shared';
 import { useSyncExternalStore } from 'react';
 
 const KEY = 'pm.releaseSeen';
@@ -15,7 +14,7 @@ function read(): string | null {
 /** Grava a versão vista só quando a pessoa abre a tela Novidades (nada é gravado antes). */
 export function markReleasesSeen() {
   try {
-    localStorage.setItem(KEY, CURRENT_RELEASE.version);
+    localStorage.setItem(KEY, __APP_VERSION__);
   } catch {
     /* armazenamento indisponível */
   }
@@ -31,5 +30,5 @@ export function useHasUnseenRelease(): boolean {
     read,
     () => null,
   );
-  return seen !== CURRENT_RELEASE.version;
+  return seen !== __APP_VERSION__;
 }

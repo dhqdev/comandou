@@ -948,13 +948,3 @@ export interface TenantSubscription {
   } | null;
   usage: { users: number; products: number; orders_month: number };
 }
-export interface TenantDomain {
-  id: string;
-  hostname: string;
-  verified: boolean;
-  verifiedAt: string | null;
-  lastCheckedAt: string | null;
-  lastError: string | null;
-  createdAt: string;
-  dns: { txtName: string; txtValue: string; cnameTarget: string };
-}

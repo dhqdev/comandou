@@ -22,19 +22,6 @@ export interface TenantDatabaseRouter {
   close(): Promise<void>;
 }
 
-/** Só o banco central (testes e ferramentas que não precisam do registro). */
-export class SharedDatabaseRouter implements TenantDatabaseRouter {
-  constructor(private readonly shared: Pool) {}
-  async poolFor(_tenantId: string): Promise<Pool> {
-    return this.shared;
-  }
-  async locationOf(_tenantId: string): Promise<TenantDatabaseLocation> {
-    return { kind: 'shared' };
-  }
-  forget() {}
-  async close() {}
-}
-
 export const TENANT_DB_NAME_RE = /^comandou_[a-z0-9_]{1,54}$/;
 
 /** Nome do banco de um restaurante a partir do endereço: pizzaria-do-ze → comandou_pizzaria_do_ze. */

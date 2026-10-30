@@ -22,7 +22,6 @@ import {
   useEffect,
   useState,
 } from 'react';
-import { CURRENT_RELEASE } from '@comandou/shared';
 import { BillingPage } from './BillingPage';
 import { BrowserRouter, Outlet, Route, Routes, useLocation } from 'react-router';
 import {
@@ -53,9 +52,6 @@ import { ContractSignPage, signToken } from './ContractSign';
 import { TenantDetailPage, TenantsPage } from './TenantsPages';
 
 /** O painel Super Admin só existe em admin.<domínio base>. */
-export function isPlatformHost(hostname = window.location.hostname): boolean {
-  return hostname.startsWith('admin.');
-}
 
 interface Admin {
   id: string;
@@ -315,7 +311,7 @@ function PlatformShell() {
           <>
             <div className="topbar__tenant" title={window.location.hostname}>
               {titleFor(pathname)}
-              <span className="topbar__version">v{CURRENT_RELEASE.version}</span>
+              <span className="topbar__version">v{__APP_VERSION__}</span>
             </div>
             <span className="adm-top__spacer" />
             <button

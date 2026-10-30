@@ -14,6 +14,16 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
   version: string;
 };
 const APP_BUILD = `${pkg.version}+${Date.now().toString(36)}`;
+/**
+ * Versão mostrada no app (topo e login). Vem do package.json da raiz, que o teste de releases.ts
+ * mantém igual à última entrada de Novidades; assim a lista inteira de novidades (pesada) só é
+ * baixada quando a tela Novidades abre.
+ */
+const rootPkg = JSON.parse(
+  readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
+) as {
+  version: string;
+};
 
 function versionFile(): Plugin {
   return {
@@ -30,7 +40,10 @@ function versionFile(): Plugin {
 }
 
 export default defineConfig({
-  define: { __APP_BUILD__: JSON.stringify(APP_BUILD) },
+  define: {
+    __APP_BUILD__: JSON.stringify(APP_BUILD),
+    __APP_VERSION__: JSON.stringify(rootPkg.version),
+  },
   plugins: [
     react(),
     versionFile(),

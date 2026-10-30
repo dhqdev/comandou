@@ -43,8 +43,8 @@ import {
   MessagesSquare,
   Shirt,
 } from 'lucide-react';
-import { ReactNode, useCallback, useEffect, useState } from 'react';
-import { CURRENT_RELEASE } from '@comandou/shared';
+import { ReactNode, Suspense, useCallback, useEffect, useState } from 'react';
+import { PageLoading } from './PageLoading';
 import { Outlet, useLocation } from 'react-router';
 import {
   AppFrame,
@@ -384,7 +384,7 @@ export function AppShell() {
           <>
             <div className="topbar__tenant" title={me?.tenant.name}>
               {me?.tenant.name}
-              <span className="topbar__version">v{CURRENT_RELEASE.version}</span>
+              <span className="topbar__version">v{__APP_VERSION__}</span>
             </div>
             <GlobalSearchTrigger onOpen={() => setSearchOpen(true)} />
             <div className="topbar__spacer" />
@@ -424,7 +424,10 @@ export function AppShell() {
           </>
         }
       >
-        <Outlet />
+        {/* A tela que ainda está chegando não apaga o menu nem o topo. */}
+        <Suspense fallback={<PageLoading />}>
+          <Outlet />
+        </Suspense>
       </AppFrame>
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
       <WardrobeHost />

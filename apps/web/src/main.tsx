@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
 import { applyBranding, applyTheme, cachedBranding, trackViewport } from './design-system';
-import { isPlatformHost } from './platform/PlatformApp';
+import { isPlatformHost } from './platform/host';
 import { reloadIfStale } from './lib/fresh-reload';
 import { applyAdminPwa, listenInstallPrompt } from './platform/pwa';
 
