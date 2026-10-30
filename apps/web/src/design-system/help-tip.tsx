@@ -87,7 +87,8 @@ export function HelpTip({
         ref={btn}
         type="button"
         className={className ? `cm-help ${className}` : 'cm-help'}
-        aria-label={`O que é ${label}?`}
+        aria-label="Ajuda deste campo"
+        title={`O que é ${label.replace(/ \(opcional\)$/i, '')}?`}
         aria-expanded={open}
         data-help={label}
         onClick={(e) => {
