@@ -29,6 +29,7 @@ import { BillingGuard } from './billing/billing.guard';
 import { OperationsModule } from './orders/operations.module';
 import { QueueModule } from './queue/queue.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { SupportDeskModule } from './support-desk/support-desk.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { TenantGuard } from './tenancy/tenant.guard';
 
@@ -98,6 +99,7 @@ export class AppModule {
         PlatformDbModule,
         BillingModule,
         PlatformModule,
+        SupportDeskModule,
         MaintenanceModule,
       ],
       providers: [

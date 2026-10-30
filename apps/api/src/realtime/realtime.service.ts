@@ -32,7 +32,10 @@ export type RealtimeEvent =
   // Conversa do cliente com a loja (cardápio online): só ids; cada lado busca pela API.
   | { type: 'support.message'; chatId: string; messageId: string; sender: string }
   | { type: 'support.read'; chatId: string; by: 'customer' | 'staff' }
-  | { type: 'support.typing'; chatId: string; by: 'customer' | 'staff'; name?: string };
+  | { type: 'support.typing'; chatId: string; by: 'customer' | 'staff'; name?: string }
+  // Conversa do restaurante com a Comandou (suporte da plataforma): o dono/gerente busca pela API.
+  | { type: 'help.message'; messageId: string; sender: string }
+  | { type: 'help.read' };
 
 export const tenantRoom = (tenantId: string) => `t:${tenantId}`;
 /** Sala de uma pessoa (todas as abas/aparelhos dela neste restaurante). */

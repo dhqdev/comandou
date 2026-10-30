@@ -4,6 +4,7 @@ import {
   Briefcase,
   CircleUserRound,
   Compass,
+  LifeBuoy,
   BookOpen,
   Calculator,
   CalendarCheck,
@@ -327,6 +328,11 @@ export function AppShell() {
         <span>Tema</span>
         <ThemeToggle />
       </div>
+      {me?.permissions.includes('plan:read') && (
+        <button type="button" className="account__action" onClick={() => openTeamChat('suporte')}>
+          <LifeBuoy size={18} /> Falar com a Comandou
+        </button>
+      )}
       <button type="button" className="account__action" onClick={() => setTourOpen(true)}>
         <Compass size={18} /> Rever apresentação
       </button>

@@ -60,7 +60,7 @@ const Search = z.string().trim().max(60).optional();
 const Status = z.object({ status: z.enum(['open', 'closed']) });
 
 /** Confere tipo, tamanho e assinatura de uma foto ou vídeo enviado no corpo da requisição. */
-function checkFile(body: unknown, type: string | undefined) {
+export function checkFile(body: unknown, type: string | undefined) {
   const mime = (type ?? '').split(';')[0].trim().toLowerCase();
   const isVideo = CHAT_VIDEO_TYPES.has(mime);
   if ((!CHAT_IMAGE_TYPES.has(mime) && !isVideo) || !Buffer.isBuffer(body))
@@ -82,7 +82,11 @@ function checkFile(body: unknown, type: string | undefined) {
  * Entrega a foto/vídeo. Vídeo aceita pedaços (Range): o iPhone só toca vídeo que vem assim.
  * Privado: só o cliente da conversa e a equipe chegam aqui.
  */
-function sendFile(req: Request, res: Response, f: { contentType: string; bytes: Buffer }): void {
+export function sendFile(
+  req: Request,
+  res: Response,
+  f: { contentType: string; bytes: Buffer },
+): void {
   const total = f.bytes.length;
   res.setHeader('Content-Type', f.contentType);
   res.setHeader('Cache-Control', 'private, max-age=86400, immutable');

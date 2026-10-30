@@ -1328,3 +1328,27 @@ button.adm-card:hover {
 .adm-text--bad {
   color: var(--a-bad);
 }
+
+/* ---------------------------------------------------------------- Conversas (suporte) */
+.adm-support {
+  display: flex;
+  height: calc(100dvh - 210px);
+  min-height: 420px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  overflow: hidden;
+  background: var(--cm-surface);
+}
+.adm-support > .sinbox {
+  flex: 1;
+}
+.adm-support__plan {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+@media (max-width: 760px) {
+  .adm-support {
+    height: calc(100dvh - 240px - env(safe-area-inset-bottom));
+    min-height: 360px;
+  }
+}

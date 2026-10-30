@@ -1396,6 +1396,37 @@
 }
 
 /* IA */
+/* ---------------------------------------------------------------- suporte da Comandou */
+.tc-help {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.tc-help > .scx {
+  flex: 1;
+}
+.tc-help__head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+}
+.tc-help__who {
+  display: grid;
+  line-height: 1.25;
+}
+.tc-help__who strong {
+  font-size: var(--cm-text-sm);
+}
+.tc-help__who small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+
 .tc-ai {
   grid-template-rows: auto auto minmax(0, 1fr) auto;
 }

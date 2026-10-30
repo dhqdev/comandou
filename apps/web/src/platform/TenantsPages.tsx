@@ -5,6 +5,7 @@ import {
   ExternalLink,
   KeyRound,
   LogOut,
+  MessagesSquare,
   Pause,
   Pencil,
   Play,
@@ -404,6 +405,9 @@ export function TenantDetailPage() {
                   <ExternalLink size={15} /> {opening ? 'Abrindo…' : 'Abrir sistema'}
                 </button>
               )}
+              <button className="adm-action" onClick={() => navigate(`/conversas?r=${t.id}`)}>
+                <MessagesSquare size={15} /> Conversar
+              </button>
               {t.status === 'provisioned' && (
                 <button
                   className="adm-action adm-action--danger"

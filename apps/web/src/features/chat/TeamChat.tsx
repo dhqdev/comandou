@@ -1,17 +1,28 @@
-import { Bell, Maximize2, Megaphone, MessageCircle, Minimize2, Users, X } from 'lucide-react';
+import {
+  Bell,
+  LifeBuoy,
+  Maximize2,
+  Megaphone,
+  MessageCircle,
+  Minimize2,
+  Users,
+  X,
+} from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocation } from 'react-router';
 import { LivePanda, useToast } from '../../design-system';
 import { useRealtimeEvents } from '../../lib/realtime';
 import { useAuth } from '../../app/auth';
+import { api } from '../../lib/api';
 import { chatApi, Conversation, Person } from './chat-api';
 import { ConversationView } from './ConversationView';
+import { HelpTab } from './HelpTab';
 import { ConversationList, NewConversation, PeopleList } from './Lists';
 import { AiTab, MuralTab, NoticesTab } from './Tabs';
 import { Avatar } from './util';
 import './chat.css';
 
-type Tab = 'conversas' | 'pessoas' | 'mural' | 'ia' | 'avisos';
+type Tab = 'conversas' | 'pessoas' | 'mural' | 'ia' | 'avisos' | 'suporte';
 /** Outras telas abrem o chat disparando este evento (detail: { tab }). */
 export const OPEN_CHAT_EVENT = 'cm:open-chat';
 
@@ -63,7 +74,8 @@ interface Peek {
 
 /**
  * Chat interno da equipe, em todas as telas: botão redondo no canto que abre o painel com as
- * abas Conversas, Pessoas, Mural, IA e Avisos. No celular o painel ocupa a tela inteira.
+ * abas Conversas, Pessoas, Mural, IA, Avisos e Suporte (dono e gerente falam com a Comandou).
+ * No celular o painel ocupa a tela inteira.
  * `variant` ajusta a posição do botão para não cobrir a barra de baixo de cada app.
  */
 export function TeamChat({
@@ -104,7 +116,20 @@ export function TeamChat({
   // Entregador não usa o tempo real: confere mais vezes.
   const pollMs = variant === 'driver' ? 6000 : 20000;
 
-  const loadSummary = useCallback(() => chatApi.summary().then(setSummary, () => undefined), []);
+  // Suporte da Comandou: só quem vê o plano (dono e gerente), e só se o servidor tiver o painel.
+  const canHelp = !!me?.permissions.includes('plan:read');
+  const [help, setHelp] = useState({ available: false, unread: 0 });
+  const loadHelp = useCallback(() => {
+    if (!canHelp) return Promise.resolve();
+    return api<{ available: boolean; unread: number }>('/help/chat/unread').then(
+      (h) => setHelp({ available: h.available, unread: h.unread }),
+      () => undefined,
+    );
+  }, [canHelp]);
+  const loadSummary = useCallback(() => {
+    void loadHelp();
+    return chatApi.summary().then(setSummary, () => undefined);
+  }, [loadHelp]);
   const loadConvs = useCallback(
     () =>
       chatApi
@@ -160,6 +185,7 @@ export function TeamChat({
       if (openRef.current) void loadConvs();
     }
     if (e.type === 'chat.notice') void loadSummary();
+    if (e.type === 'help.message' && e.sender === 'admin') void loadHelp();
     // Mensagem nova de outra pessoa com o chat fechado: mostra uma prévia no canto.
     if (
       e.type === 'chat.message' &&
@@ -207,7 +233,8 @@ export function TeamChat({
     }
   };
 
-  const total = summary.unread + summary.notices;
+  const helpUnread = help.available && tab !== 'suporte' ? help.unread : 0;
+  const total = summary.unread + summary.notices + (open && tab === 'suporte' ? 0 : help.unread);
   useEffect(() => setUnreadTotal(total), [total]);
   useEffect(() => () => setUnreadTotal(0), []);
   if (!me) return null;
@@ -224,6 +251,16 @@ export function TeamChat({
     { key: 'mural', label: 'Mural', icon: <Megaphone size={20} /> },
     { key: 'ia', label: 'IA', icon: <LivePanda size={24} still /> },
     { key: 'avisos', label: 'Avisos', icon: <Bell size={20} />, badge: summary.notices },
+    ...(canHelp && help.available
+      ? [
+          {
+            key: 'suporte' as const,
+            label: 'Suporte',
+            icon: <LifeBuoy size={20} />,
+            badge: helpUnread,
+          },
+        ]
+      : []),
   ];
 
   let side: ReactNode = null;
@@ -401,6 +438,8 @@ export function TeamChat({
                   if (expanded || window.matchMedia?.('(max-width: 640px)').matches) setOpen(false);
                 }}
               />
+            ) : tab === 'suporte' && canHelp ? (
+              <HelpTab pollMs={pollMs} onRead={() => setHelp((h) => ({ ...h, unread: 0 }))} />
             ) : (
               <NoticesTab
                 onOpenConversation={openConversation}

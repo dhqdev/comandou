@@ -8,6 +8,7 @@ import {
   Download,
   CircleUserRound,
   LogOut,
+  MessagesSquare,
   RefreshCw,
   ScrollText,
   Server,
@@ -51,6 +52,7 @@ import { isStandalone, promptInstall } from './pwa';
 import { ServerPage } from './ServerPage';
 import { DbServersPage } from './DbServersPage';
 import { ContractSignPage, signToken } from './ContractSign';
+import { SUPPORT_CHANGED_EVENT, SupportPage } from './SupportPage';
 import { TenantDetailPage, TenantsPage } from './TenantsPages';
 
 /** O painel Super Admin só existe em admin.<domínio base>. */
@@ -204,6 +206,7 @@ function PlatformLogin() {
 const NAV = [
   { to: '/', label: 'Status', icon: Activity },
   { to: '/restaurantes', label: 'Restaurantes', short: 'Clientes', icon: Building2 },
+  { to: '/conversas', label: 'Conversas', icon: MessagesSquare },
   { to: '/servidor', label: 'Servidor', icon: Server },
   { to: '/bancos', label: 'Bancos', icon: Database },
   { to: '/fiscal', label: 'Fiscal', icon: FileText },
@@ -214,7 +217,7 @@ const NAV = [
   { to: '/auditoria', label: 'Auditoria', icon: ScrollText },
 ];
 /** Abas do celular; o resto fica em "Mais". */
-const TABS = ['/', '/restaurantes', '/servidor', '/planos'];
+const TABS = ['/', '/restaurantes', '/conversas', '/servidor'];
 
 function titleFor(path: string) {
   if (path === '/') return 'Status';
@@ -255,6 +258,21 @@ function PlatformShell() {
   const [tick, setTick] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const standalone = isStandalone();
+  // Mensagens novas dos restaurantes: bolinha no "Conversas".
+  const [supportUnread, setSupportUnread] = useState(0);
+  useEffect(() => {
+    const load = () =>
+      api<{ chats: number }>('/platform/support/unread')
+        .then((r) => setSupportUnread(r.chats))
+        .catch(() => undefined);
+    void load();
+    const t = setInterval(() => !document.hidden && void load(), 20_000);
+    window.addEventListener(SUPPORT_CHANGED_EVENT, load);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener(SUPPORT_CHANGED_EVENT, load);
+    };
+  }, []);
 
   const refresh = () => {
     setTick((t) => t + 1);
@@ -272,6 +290,7 @@ function PlatformShell() {
     label,
     short,
     icon: <Icon />,
+    dot: to === '/conversas' && supportUnread > 0,
   }));
   const account = (
     <div className="account">
@@ -357,6 +376,7 @@ function Gate() {
         <Route index element={<OverviewPage />} />
         <Route path="restaurantes" element={<TenantsPage />} />
         <Route path="restaurantes/:id" element={<TenantDetailPage />} />
+        <Route path="conversas" element={<SupportPage />} />
         <Route path="servidor" element={<ServerPage />} />
         <Route path="bancos" element={<DbServersPage />} />
         <Route path="fiscal" element={<FiscalPage />} />

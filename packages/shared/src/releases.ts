@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.64.0',
+    date: '2026-10-30',
+    title: 'Fale com a Comandou pelo chat',
+    summary:
+      'O dono e o gerente agora conversam direto com a equipe da Comandou pela aba Suporte do chat, com texto, emojis, fotos e vídeos do problema.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Aba Suporte no chat do sistema (e em Conta › Falar com a Comandou): mande a dúvida ou o erro com foto ou vídeo da tela e acompanhe a resposta ali mesmo, com aviso de mensagem nova.',
+      },
+      {
+        tag: 'novo',
+        text: 'Funciona mesmo com o sistema bloqueado pela cobrança, para dar para pedir ajuda.',
+      },
+    ],
+  },
+  {
     version: '0.63.0',
     date: '2026-10-30',
     title: 'Apresentação guiada pelas telas',

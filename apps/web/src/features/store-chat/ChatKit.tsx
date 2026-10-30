@@ -292,7 +292,7 @@ function Thread({
                 {!mine && !grouped && side === 'customer' && m.authorName && (
                   <span className="scx-msg__who">{m.authorName}</span>
                 )}
-                {!mine && !grouped && side === 'staff' && m.sender === 'staff' && (
+                {!mine && !grouped && side === 'staff' && m.authorName && (
                   <span className="scx-msg__who">{m.authorName}</span>
                 )}
                 {mine && !grouped && side === 'staff' && m.authorName && (
