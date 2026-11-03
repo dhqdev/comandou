@@ -5,9 +5,9 @@ onlyBuiltDependencies:
   - '@swc/core'
   - esbuild
 # Baileys aponta o libsignal para um git via SSH, que o CI não consegue clonar.
-# Fixamos o mesmo commit via HTTPS.
+# Usamos o libsignal@6.0.0 do npm, publicado do mesmo commit (gitHead bcea72d).
 overrides:
-  libsignal: git+https://github.com/whiskeysockets/libsignal-node.git#bcea72df9ec34d9d9140ab30619cf479c7c144c7
+  libsignal: 6.0.0
   # GHSA-r3ph-w7gj-g6xm (vem pelo @nestjs/swagger).
   'js-yaml@>=5.0.0 <5.4.1': ^5.4.1
   # GHSA-27r3-jxmh-p828 e GHSA-q7qp-rjg7-q26m (vêm pelo @nestjs/platform-express).
