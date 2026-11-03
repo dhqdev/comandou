@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.69.3',
+    date: '2026-11-03',
+    title: 'Cobrança da assinatura confirma o pagamento sozinha, mesmo sem o aviso do Asaas',
+    summary:
+      'O restaurante que paga é liberado mesmo quando o aviso do Asaas se perde, ninguém recebe a mesma cobrança duas vezes e estorno tira de volta os dias que o pagamento tinha liberado.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Cobrança: a cada ciclo o sistema confere no Asaas as faturas em aberto. Pagamento cujo aviso (webhook) não chegou libera os 30 dias e tira o bloqueio do mesmo jeito.',
+      },
+      {
+        tag: 'correção',
+        text: 'Cobrança: se o envio de uma fatura ao Asaas cair no meio, o reenvio reaproveita a cobrança que já foi criada lá, sem cobrar o cliente em dobro.',
+      },
+      {
+        tag: 'correção',
+        text: 'Cobrança: estorno, chargeback ou pagamento desfeito no Asaas tira os 30 dias que aquela mensalidade tinha liberado (e devolve se o pagamento voltar).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cobrança: "Baixar" no painel também dá baixa no Asaas, então o cliente para de receber a cobrança daquela fatura.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cobrança: aviso do Asaas que chega antes da fatura terminar de ser gravada é ligado à fatura certa pela referência.',
+      },
+    ],
+  },
+  {
     version: '0.69.2',
     date: '2026-11-03',
     title: 'App do garçom, do entregador e Cardápio mais bonitos e mais fluidos no celular',

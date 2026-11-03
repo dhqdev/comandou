@@ -61,9 +61,20 @@ continuam manuais até alguém ligar na aba Assinatura do restaurante.
   com `externalReference` = id da fatura. Falha de rede fica na fatura e o ciclo tenta de novo.
 - O webhook confere o token em tempo constante, guarda cada evento uma vez só e **consulta o
   Asaas** para saber a situação real da cobrança (o corpo do aviso só diz qual é).
+- **Sem depender só do webhook.** A cada ciclo, antes de aplicar bloqueios, o sistema consulta no
+  Asaas as faturas em aberto já enviadas: pagamento cujo aviso se perdeu (servidor fora do ar, fila
+  do webhook pausada) libera do mesmo jeito. Aviso que chega antes de o id da cobrança ser gravado
+  é ligado à fatura pelo `externalReference`.
+- **Sem cobrança em dobro.** Antes de criar uma cobrança, o sistema procura no Asaas uma já criada
+  com o mesmo `externalReference` (envio anterior que caiu antes de gravar a resposta) e a
+  reaproveita.
+- **Estorno desfaz.** Estorno, chargeback, "recebido em dinheiro" desfeito ou cobrança apagada
+  depois de paga tiram os 30 dias que aquela mensalidade liberou (auditoria
+  `platform.billing_payment_reverted`); se o pagamento for confirmado de novo, os dias voltam.
+  Baixa manual só é desfeita por estorno.
 - O bloqueio é lido por um guard global (`BillingGuard`) com cache de 30 segundos por réplica.
   Rotas liberadas durante o bloqueio: entrar e sair (`/auth`) e as da assinatura (`/subscription`).
-- No painel, cada fatura tem **Conferir** (consulta o Asaas), **Baixar** (pago fora do Asaas) e
+- No painel, cada fatura tem **Conferir** (consulta o Asaas), **Baixar** (pago fora do Asaas; dá baixa também no Asaas, para o cliente não pagar de novo) e
   **Cancelar** (cancela também no Asaas). Tudo vai para a auditoria.
 - Os limites do plano (equipe, produtos, pedidos no mês) são conferidos com uma trava por
   restaurante: duas criações ao mesmo tempo não passam juntas do limite.

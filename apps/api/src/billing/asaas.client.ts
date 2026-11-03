@@ -152,6 +152,24 @@ export class AsaasClient {
     return this.call<AsaasPayment>('GET', `/payments/${encodeURIComponent(id)}`);
   }
 
+  /** Cobrança já criada para esta fatura (envio anterior que caiu antes de gravar a resposta). */
+  async paymentByReference(externalReference: string): Promise<AsaasPayment | null> {
+    const r = await this.call<{ data?: AsaasPayment[] }>(
+      'GET',
+      `/payments?externalReference=${encodeURIComponent(externalReference)}&limit=10`,
+    );
+    return r?.data?.find((p) => !p.deleted && p.externalReference === externalReference) ?? null;
+  }
+
+  /** Baixa no Asaas de um pagamento recebido por fora (o cliente para de receber a cobrança). */
+  receiveInCash(id: string, r: { paymentDate: string; value: number }) {
+    return this.call<AsaasPayment>('POST', `/payments/${encodeURIComponent(id)}/receiveInCash`, {
+      paymentDate: r.paymentDate,
+      value: r.value,
+      notifyCustomer: false,
+    });
+  }
+
   pixQrCode(id: string) {
     return this.call<{ encodedImage: string; payload: string; expirationDate?: string }>(
       'GET',

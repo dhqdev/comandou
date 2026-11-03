@@ -98,6 +98,19 @@ function asaasHandler(req: IncomingMessage, res: ServerResponse) {
         bankSlipUrl: `https://sandbox.asaas.test/b/${id}`,
       });
     }
+    if (req.method === 'GET' && (m = url.match(/^\/payments\?externalReference=([^&]+)/))) {
+      const ref = decodeURIComponent(m[1]!);
+      return send(200, {
+        data: [...fake.payments.values()].filter((p) => p.externalReference === ref && !p.deleted),
+      });
+    }
+    if (req.method === 'POST' && (m = url.match(/^\/payments\/([^/]+)\/receiveInCash$/))) {
+      const p = fake.payments.get(m[1]!);
+      if (!p) return send(404, { errors: [{ description: 'não existe' }] });
+      p.status = 'RECEIVED_IN_CASH';
+      p.paymentDate = body.paymentDate;
+      return send(200, p);
+    }
     if ((m = url.match(/^\/payments\/([^/]+)$/))) {
       const p = fake.payments.get(m[1]!);
       if (!p) return send(404, { errors: [{ description: 'não existe' }] });
@@ -420,7 +433,18 @@ describe('Ciclo: 7 dias de teste, pagou +30 dias, não pagou bloqueia', () => {
       `SELECT id FROM billing_invoices WHERE tenant_id = $1 AND kind = 'upgrade'`,
       [fx.tenantA],
     );
+    const [sent] = await ownerQuery<{ provider_id: string }>(
+      `SELECT provider_id FROM billing_invoices WHERE id = $1`,
+      [inv!.id],
+    );
     await psend('post', `/billing/invoices/${inv!.id}/paid`).expect(200);
+    // A baixa vai também para o Asaas: o cliente não recebe mais a cobrança.
+    expect(fake.payments.get(sent!.provider_id)!.status).toBe('RECEIVED_IN_CASH');
+    // Conferir no Asaas depois mantém a baixa.
+    await billing.sync(inv!.id);
+    expect(
+      (await ownerQuery(`SELECT status FROM billing_invoices WHERE id = $1`, [inv!.id]))[0],
+    ).toMatchObject({ status: 'paid' });
     await psend('post', `/billing/invoices/${inv!.id}/cancel`).expect(409);
     const v = await pget(`/billing/tenants/${fx.tenantA}`).expect(200);
     expect(v.body.invoices.find((i: { id: string }) => i.id === inv!.id).status).toBe('paid');
@@ -428,6 +452,124 @@ describe('Ciclo: 7 dias de teste, pagou +30 dias, não pagou bloqueia', () => {
     expect(o.body.tenants.find((t: { id: string }) => t.id === fx.tenantA).billingMode).toBe(
       'asaas',
     );
+  });
+});
+
+describe('Baixa sem depender só do webhook', () => {
+  let token = '';
+  let monthly = '';
+  let payId = '';
+  let before = 0;
+
+  it('envio que caiu no meio não cria cobrança em dobro no Asaas', async () => {
+    token = (await psend('post', '/billing/webhook/token').expect(200)).body.token;
+    const [s] = await ownerQuery<{ id: string }>(
+      `SELECT id FROM subscriptions WHERE tenant_id = $1 AND status <> 'cancelled'`,
+      [fx.tenantA],
+    );
+    const [inv] = await ownerQuery<{ id: string }>(
+      `INSERT INTO billing_invoices (tenant_id, subscription_id, kind, description, amount, due_date,
+                                     environment, last_error)
+       VALUES ($1, $2, 'manual', 'Avulsa que caiu', 25.00, current_date + 3, 'sandbox', 'timeout')
+       RETURNING id`,
+      [fx.tenantA, s!.id],
+    );
+    // O Asaas chegou a criar a cobrança, mas a resposta se perdeu.
+    const orphan = `pay_${fake.payments.size + 1}`;
+    fake.payments.set(orphan, {
+      id: orphan,
+      customer: fake.customers[0]!.id,
+      status: 'PENDING',
+      value: 25,
+      dueDate: '2099-01-01',
+      description: 'Avulsa que caiu',
+      externalReference: inv!.id,
+      billingType: 'UNDEFINED',
+    });
+    const size = fake.payments.size;
+    await billing.runCycle();
+    expect(fake.payments.size).toBe(size);
+    const [row] = await ownerQuery<{ provider_id: string; last_error: string | null }>(
+      `SELECT provider_id, last_error FROM billing_invoices WHERE id = $1`,
+      [inv!.id],
+    );
+    expect(row).toMatchObject({ provider_id: orphan, last_error: null });
+  });
+
+  it('webhook perdido: o ciclo confere no Asaas e libera os 30 dias', async () => {
+    before = (await sub(fx.tenantA)).current_period_end!.getTime();
+    await psend('post', `/billing/tenants/${fx.tenantA}/charge`).expect(200);
+    const [inv] = await ownerQuery<{ id: string; provider_id: string }>(
+      `SELECT id, provider_id FROM billing_invoices
+        WHERE tenant_id = $1 AND kind = 'monthly' AND status = 'pending'`,
+      [fx.tenantA],
+    );
+    monthly = inv!.id;
+    payId = inv!.provider_id;
+    fake.payments.get(payId)!.status = 'RECEIVED';
+    fake.payments.get(payId)!.paymentDate = new Date().toISOString().slice(0, 10);
+    // Nenhum aviso chega; só o ciclo.
+    const r = await billing.runCycle();
+    expect(r!.synced).toBeGreaterThanOrEqual(1);
+    const [row] = await ownerQuery<{ status: string }>(
+      `SELECT status FROM billing_invoices WHERE id = $1`,
+      [monthly],
+    );
+    expect(row!.status).toBe('paid');
+    expect((await sub(fx.tenantA)).current_period_end!.getTime()).toBe(before + 30 * DAY);
+  });
+
+  it('estorno depois de pago tira os 30 dias que o pagamento liberou', async () => {
+    fake.payments.get(payId)!.status = 'REFUNDED';
+    await hook(token, {
+      id: 'evt_refund',
+      event: 'PAYMENT_REFUNDED',
+      payment: { id: payId },
+    }).expect(200);
+    expect((await sub(fx.tenantA)).current_period_end!.getTime()).toBe(before);
+    const [row] = await ownerQuery<{ status: string; applied_at: Date | null }>(
+      `SELECT status, applied_at FROM billing_invoices WHERE id = $1`,
+      [monthly],
+    );
+    expect(row).toMatchObject({ status: 'refunded', applied_at: null });
+    const audit = await ownerQuery(
+      `SELECT 1 FROM platform_audit_log WHERE action = 'platform.billing_payment_reverted' AND entity_id = $1`,
+      [monthly],
+    );
+    expect(audit).toHaveLength(1);
+  });
+
+  it('aviso que chega antes de gravar o id da cobrança acha a fatura pelo externalReference', async () => {
+    const [s] = await ownerQuery<{ id: string }>(
+      `SELECT id FROM subscriptions WHERE tenant_id = $1 AND status <> 'cancelled'`,
+      [fx.tenantA],
+    );
+    const [inv] = await ownerQuery<{ id: string }>(
+      `INSERT INTO billing_invoices (tenant_id, subscription_id, kind, description, amount, due_date, environment)
+       VALUES ($1, $2, 'manual', 'Avulsa corrida', 30.00, current_date + 3, 'sandbox') RETURNING id`,
+      [fx.tenantA, s!.id],
+    );
+    const id = `pay_${fake.payments.size + 1}`;
+    fake.payments.set(id, {
+      id,
+      customer: fake.customers[0]!.id,
+      status: 'CONFIRMED',
+      value: 30,
+      dueDate: '2099-01-01',
+      description: 'Avulsa corrida',
+      externalReference: inv!.id,
+      billingType: 'CREDIT_CARD',
+    });
+    await hook(token, {
+      id: 'evt_race',
+      event: 'PAYMENT_CONFIRMED',
+      payment: { id, externalReference: inv!.id },
+    }).expect(200);
+    const [row] = await ownerQuery<{ status: string; provider_id: string }>(
+      `SELECT status, provider_id FROM billing_invoices WHERE id = $1`,
+      [inv!.id],
+    );
+    expect(row).toMatchObject({ status: 'paid', provider_id: id });
   });
 });
 

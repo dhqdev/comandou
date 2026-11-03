@@ -13,6 +13,7 @@ import {
 import {
   accessUntil,
   addDays,
+  BILLING_PERIOD_DAYS,
   BLOCK_LABELS,
   BlockReason,
   contractPhase,
@@ -106,6 +107,7 @@ interface InvoiceRow {
   environment: string | null;
   provider_id: string | null;
   applied_at: Date | null;
+  billing_type: string | null;
 }
 
 const SUB_SQL = `SELECT s.id, s.tenant_id, s.plan_id, s.status, s.trial_ends_at, s.current_period_end,
@@ -119,6 +121,8 @@ const INVOICE_COLS = `i.id, i.kind, i.description, i.amount::text AS amount, i.d
   i.bank_slip_url AS "bankSlipUrl", i.billing_type AS "billingType", i.paid_at AS "paidAt",
   i.provider_id IS NOT NULL AS "sent", i.last_error AS "lastError", i.environment,
   i.created_at AS "createdAt", i.data`;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const dateBR = (d: Date | string) => spDate(d).split('-').reverse().join('/');
 
@@ -542,8 +546,15 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
 
   private async cycle(now: Date) {
     const s = await this.settingsRow();
-    const out = { created: 0, sent: 0, blocked: 0, unblocked: 0, errors: 0 };
+    const out = { synced: 0, created: 0, sent: 0, blocked: 0, unblocked: 0, errors: 0 };
     const errors: string[] = [];
+    // Antes de bloquear alguém: pagamento que o webhook não avisou também libera.
+    if (s.enabled && s.api_key_enc) {
+      const r = await this.reconcile(s);
+      out.synced = r.synced;
+      out.errors += r.errors.length;
+      errors.push(...r.errors);
+    }
     const subs = await this.db.query<SubRow>(`${SUB_SQL} AND t.status = 'provisioned'`);
     for (const sub of subs) {
       try {
@@ -577,6 +588,36 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       `UPDATE platform_billing_settings SET last_cycle_at = now(), last_cycle_error = $1 WHERE id`,
       [errors.length ? errors.join(' | ').slice(0, 500) : null],
     );
+    return out;
+  }
+
+  /**
+   * Confere no Asaas as faturas em aberto já enviadas. Se o aviso do webhook se perdeu (servidor
+   * fora do ar, fila do webhook pausada no Asaas), o pagamento é aplicado do mesmo jeito no ciclo
+   * seguinte. Só age quando a situação mudou de verdade (paga, estornada ou apagada).
+   */
+  private async reconcile(s: SettingsRow) {
+    const open = await this.db.query<{ id: string; tenant_id: string; provider_id: string }>(
+      `SELECT id, tenant_id, provider_id FROM billing_invoices
+        WHERE provider_id IS NOT NULL AND status IN ('pending', 'overdue')
+          AND coalesce(environment, $1) = $1
+        ORDER BY due_date, created_at LIMIT 200`,
+      [s.environment],
+    );
+    const out = { synced: 0, errors: [] as string[] };
+    if (!open.length) return out;
+    const client = this.client(s);
+    for (const inv of open) {
+      try {
+        const p = await client.payment(inv.provider_id);
+        const st = invoiceStatusOf(p);
+        if (st === 'pending' || st === 'overdue') continue;
+        await this.applyPayment(inv.id, p);
+        out.synced++;
+      } catch (e) {
+        out.errors.push(`${inv.tenant_id}: conferir fatura ${inv.id}: ${(e as Error).message}`);
+      }
+    }
     return out;
   }
 
@@ -684,15 +725,19 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
            FROM platform_contract_settings WHERE id`,
       );
       const today = spDate();
-      const p = await client.createPayment({
-        customer,
-        value: Number(inv.amount),
-        dueDate: inv.due_date < today ? today : inv.due_date,
-        description: inv.description,
-        externalReference: inv.id,
-        fine: late ? Number(late.fee) : undefined,
-        interest: late ? Number(late.interest) : undefined,
-      });
+      // Envio anterior pode ter criado a cobrança e caído antes de gravar a resposta: reaproveita,
+      // para o cliente não receber duas cobranças da mesma fatura.
+      const p =
+        (await client.paymentByReference(inv.id)) ??
+        (await client.createPayment({
+          customer,
+          value: Number(inv.amount),
+          dueDate: inv.due_date < today ? today : inv.due_date,
+          description: inv.description,
+          externalReference: inv.id,
+          fine: late ? Number(late.fee) : undefined,
+          interest: late ? Number(late.interest) : undefined,
+        }));
       await this.db.query(
         `UPDATE billing_invoices SET provider_id = $2, invoice_url = $3, bank_slip_url = $4,
                 environment = $5, last_error = NULL
@@ -716,13 +761,16 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
     const tenantId = await this.db.tx(async (c) => {
       const inv = (
         await c.query<InvoiceRow>(
-          `SELECT id, tenant_id, subscription_id, kind, status, applied_at, period_start
+          `SELECT id, tenant_id, subscription_id, kind, status, applied_at, period_start, billing_type
              FROM billing_invoices WHERE id = $1 FOR UPDATE`,
           [invoiceId],
         )
       ).rows[0];
       if (!inv) throw new NotFoundException('Fatura não encontrada');
       if (inv.status === 'cancelled' && status !== 'paid') return inv.tenant_id;
+      // Baixa manual no painel vale mesmo que o Asaas diga "a pagar" ou apague a cobrança (só estorno desfaz).
+      if (inv.status === 'paid' && inv.billing_type === 'MANUAL' && status !== 'refunded')
+        return inv.tenant_id;
       const paidAt =
         status === 'paid'
           ? p?.clientPaymentDate || p?.paymentDate || p?.confirmedDate
@@ -776,6 +824,24 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
           data: { kind: inv.kind, manual: !!manual, billingType: p?.billingType ?? null },
           ip: manual?.ip,
         });
+      } else if (status !== 'paid' && inv.applied_at) {
+        // Estorno, chargeback, "recebido em dinheiro" desfeito ou cobrança apagada depois de paga:
+        // os 30 dias que esse pagamento liberou saem (e voltam se ele for confirmado de novo).
+        if (inv.kind === 'monthly')
+          await c.query(
+            `UPDATE subscriptions
+                SET current_period_end = current_period_end - make_interval(days => $2)
+              WHERE id = $1 AND current_period_end IS NOT NULL`,
+            [inv.subscription_id, BILLING_PERIOD_DAYS],
+          );
+        await c.query(`UPDATE billing_invoices SET applied_at = NULL WHERE id = $1`, [inv.id]);
+        await platformAudit(c, {
+          action: 'platform.billing_payment_reverted',
+          entity: 'invoice',
+          entityId: inv.id,
+          tenantId: inv.tenant_id,
+          data: { kind: inv.kind, status, asaasStatus: p?.status ?? null },
+        });
       }
       return inv.tenant_id;
     });
@@ -828,10 +894,31 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       return { ok: true };
     }
     try {
-      const [inv] = await this.db.query<{ id: string }>(
+      let [inv] = await this.db.query<{ id: string }>(
         `SELECT id FROM billing_invoices WHERE provider_id = $1`,
         [paymentId],
       );
+      let p: AsaasPayment | null = null;
+      const ref = (e.data.payment as { externalReference?: unknown }).externalReference;
+      if (!inv && typeof ref === 'string' && UUID.test(ref)) {
+        // Aviso chegou antes de gravarmos o id da cobrança (ou o envio caiu no meio): o
+        // externalReference é o id da fatura. Confirma no Asaas antes de ligar as duas.
+        const [byRef] = await this.db.query<{ id: string }>(
+          `SELECT id FROM billing_invoices WHERE id = $1 AND provider_id IS NULL`,
+          [ref],
+        );
+        if (byRef) {
+          p = await this.client(s).payment(paymentId);
+          if (p.externalReference === byRef.id) {
+            await this.db.query(
+              `UPDATE billing_invoices SET provider_id = $2, environment = $3, last_error = NULL
+                WHERE id = $1 AND provider_id IS NULL`,
+              [byRef.id, paymentId, s.environment],
+            );
+            inv = byRef;
+          }
+        }
+      }
       if (!inv) {
         await this.db.query(
           `UPDATE billing_events SET processed_at = now(), error = 'cobrança fora do Comandou' WHERE id = $1`,
@@ -839,7 +926,7 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
         );
         return { ok: true, ignored: 'desconhecida' };
       }
-      const p = await this.client(s).payment(paymentId);
+      p ??= await this.client(s).payment(paymentId);
       if (e.data.event === 'PAYMENT_DELETED') p.deleted = true;
       await this.applyPayment(inv.id, p);
       await this.db.query(
@@ -984,6 +1071,19 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
     const inv = await this.invoiceOf(id);
     if (!['pending', 'overdue'].includes(inv.status))
       throw new ConflictException('Só fatura em aberto pode ser baixada');
+    if (inv.provider_id) {
+      // Dá baixa também no Asaas, para o cliente parar de receber a cobrança e não pagar duas
+      // vezes. Se o Asaas recusar (ex.: já pago lá), a baixa local vale do mesmo jeito.
+      const s = await this.settingsRow();
+      try {
+        await this.client(s).receiveInCash(inv.provider_id, {
+          paymentDate: spDate(),
+          value: Number(inv.amount),
+        });
+      } catch (e) {
+        this.logger.warn(`baixa no Asaas da fatura ${id} falhou: ${(e as Error).message}`);
+      }
+    }
     const tenantId = await this.applyPayment(id, null, a);
     return this.view(tenantId, true);
   }
