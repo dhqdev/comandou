@@ -294,7 +294,12 @@ function BaileysCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; s
       searchId="secao-qr"
       title="Conexão por QR Code"
       actions={
-        session && <Badge tone={SESSION[session.status][1]}>{SESSION[session.status][0]}</Badge>
+        session &&
+        (session.reconnecting ? (
+          <Badge tone="info">Reconectando…</Badge>
+        ) : (
+          <Badge tone={SESSION[session.status][1]}>{SESSION[session.status][0]}</Badge>
+        ))
       }
     >
       <Alert tone="warning">

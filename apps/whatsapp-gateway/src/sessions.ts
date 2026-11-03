@@ -1,4 +1,7 @@
 import { removeAuthState, savedTenants, useEncryptedAuthState } from './auth-store.js';
+import { parseInbound, type InboundMessage, type WAMessageLike, type WAKey } from './inbound.js';
+
+export type { InboundMessage, WAMessageLike, WAKey } from './inbound.js';
 
 export type SessionStatus = 'disconnected' | 'connecting' | 'qr' | 'connected' | 'logged_out';
 
@@ -11,19 +14,36 @@ export interface ConnectionUpdate {
 /** Conteúdo de uma mensagem já enviada (para o Baileys reenviar quando o destino pedir). */
 export type SentContent = { conversation: string };
 
+export type PresenceType = 'available' | 'unavailable' | 'composing' | 'recording' | 'paused';
+
+type MessageContent = { text: string } | { react: { text: string; key: WAKey } };
+
 /** O mínimo do socket do Baileys que usamos (permite um socket falso nos testes). */
 export interface SocketLike {
   ev: {
     on(event: 'connection.update', fn: (u: ConnectionUpdate) => void): void;
     on(event: 'creds.update', fn: () => void): void;
+    on(
+      event: 'messages.upsert',
+      fn: (u: { messages: WAMessageLike[]; type: string }) => void,
+    ): void;
   };
+  /** WebSocket por baixo: qualquer quadro recebido prova que a conexão está viva. */
+  ws?: { isOpen?: boolean; on?(event: 'message', fn: () => void): unknown };
   user?: { id: string } | null;
   sendMessage(
     jid: string,
-    content: { text: string },
+    content: MessageContent,
   ): Promise<{ key?: { id?: string | null } } | undefined>;
   /** Descobre o JID real do número (no Brasil, com ou sem o 9). */
   onWhatsApp?(...jids: string[]): Promise<{ jid: string; exists: unknown }[] | undefined>;
+  /** "online", "digitando...", "gravando áudio..." e "parou de digitar". */
+  sendPresenceUpdate?(type: PresenceType, jid?: string): Promise<void>;
+  /** Marca como lida (os dois tiques azuis no celular do cliente). */
+  readMessages?(keys: WAKey[]): Promise<void>;
+  /** Consulta crua ao servidor (usada para o ping antes de enviar). */
+  query?(node: unknown, timeoutMs?: number): Promise<unknown>;
+  generateMessageTag?(): string;
   logout(): Promise<void>;
   end(err?: Error): void;
 }
@@ -37,6 +57,42 @@ export interface SocketOptions {
 
 export type SocketFactory = (auth: AuthState, opts: SocketOptions) => SocketLike;
 
+/** Tempos da conexão. Os padrões valem para produção; os testes encurtam. */
+export interface Timings {
+  /** de quanto em quanto tempo o vigia confere as conexões */
+  heartbeatMs: number;
+  /** ping do próprio Baileys (também passado ao socket em main.ts) */
+  keepAliveMs: number;
+  /** conexão aberta sem receber NADA do servidor por esse tempo = meio-aberta: derruba e religa */
+  staleMs: number;
+  /** sem QR nem conexão aberta nesse tempo = o servidor não respondeu: tenta de novo */
+  openTimeoutMs: number;
+  /** espera entre tentativas: base * 2^tentativa, até o máximo (nunca desiste) */
+  backoffBaseMs: number;
+  backoffMaxMs: number;
+  /** quanto um envio espera a religação em andamento antes de responder "desconectado" */
+  sendWaitMs: number;
+  /** depois de responder, o número fica "online" por esse tempo e volta a "offline" */
+  onlineMs: number;
+}
+
+export const DEFAULT_TIMINGS: Timings = {
+  heartbeatMs: 15_000,
+  keepAliveMs: 20_000,
+  staleMs: 90_000,
+  openTimeoutMs: 45_000,
+  backoffBaseMs: 1_000,
+  backoffMaxMs: 60_000,
+  sendWaitMs: 12_000,
+  onlineMs: 60_000,
+};
+
+export interface ManagerOptions {
+  timings?: Partial<Timings>;
+  /** Mensagem de cliente que chegou (só conversas individuais; grupos e status ficam de fora). */
+  onInbound?: (msg: InboundMessage) => void;
+}
+
 interface Session {
   sock?: SocketLike;
   /** Muda a cada conexão nova ou logout: eventos e timers de uma geração antiga são ignorados. */
@@ -48,12 +104,27 @@ interface Session {
   error?: string;
   retries: number;
   timer?: NodeJS.Timeout;
+  /** Sem QR nem "open" nesse prazo: o servidor não respondeu. */
+  openTimer?: NodeJS.Timeout;
+  /** Lendo as credenciais do disco (o socket ainda não existe). */
+  opening?: boolean;
+  /** Já pareado (leu o QR Code alguma vez): queda vira religação, nunca QR novo. */
+  registered: boolean;
+  /** Último quadro recebido do servidor (ping, mensagem, qualquer coisa). */
+  lastRecvAt: number;
   /** Remoção da sessão em disco em andamento (um start novo espera terminar). */
   removing?: Promise<void>;
   /** Número → JID confirmado no WhatsApp. */
   jids: Map<string, string | null>;
   /** Últimas mensagens enviadas (id → texto), para reenvio a pedido do destino. */
   recent: Map<string, string>;
+  /** Envios esperando a conexão voltar. */
+  waiters: Set<() => void>;
+  /** "online" ligado e o timer que volta para "offline". */
+  online: boolean;
+  onlineTimer?: NodeJS.Timeout;
+  /** "digitando..." pendente por conversa: chamar de novo renova em vez de piscar. */
+  pauseTimers: Map<string, NodeJS.Timeout>;
 }
 
 /** Códigos de desconexão do Baileys (DisconnectReason). */
@@ -69,10 +140,19 @@ const R = {
 const RECENT_MAX = 300;
 const JID_CACHE_MAX = 2000;
 const SEND_TIMEOUT_MS = 15_000;
+const EXTRA_TIMEOUT_MS = 5_000;
+export const MAX_TYPING_MS = 25_000;
 
 function statusCode(err: unknown): number | undefined {
   const e = err as { output?: { statusCode?: number } } | undefined;
   return e?.output?.statusCode;
+}
+
+/** Erro de envio que significa "o socket morreu por baixo" (vale derrubar, religar e tentar de novo). */
+export function isConnectionError(err: unknown) {
+  const code = statusCode(err);
+  if (code !== undefined && [428, 408, 440, 503].includes(code)) return true;
+  return /^connection (closed|terminated|was lost|failure)/i.test((err as Error)?.message ?? '');
 }
 
 function remember<K, V>(map: Map<K, V>, k: K, v: V, max: number) {
@@ -99,22 +179,41 @@ function withTimeout<T>(p: Promise<T>, ms: number, msg: string): Promise<T> {
   ]).finally(() => clearTimeout(t));
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Destino de um envio: número (o gateway acha o JID) ou o JID de uma conversa que chegou. */
+export type Target = { to: string } | { jid: string };
+
 /**
  * Uma conexão do WhatsApp por restaurante. A sessão (credenciais) fica cifrada em disco e é
- * reaberta ao iniciar o serviço. Desconexão comum reconecta com espera crescente. Paradas
- * definitivas não reconectam: "deslogado"/"bloqueado" (apaga a sessão e pede novo QR Code),
- * QR Code que ninguém leu (apaga a sessão incompleta) e "sessão aberta em outro lugar".
+ * reaberta ao iniciar o serviço. Paradas definitivas não reconectam: "deslogado"/"bloqueado"
+ * (apaga a sessão e pede novo QR Code), QR Code que ninguém leu (apaga a sessão incompleta) e
+ * "sessão aberta em outro lugar".
+ *
+ * Religação (a mesma do Planejai): qualquer outra queda de uma sessão pareada tenta de novo com
+ * espera crescente, sem desistir. A cada 15 s um vigia confere cada conexão: socket fechado sem
+ * aviso ou mudo há mais de 90 s (meio-aberto, comum depois de horas sem conversa, quando NAT ou
+ * proxy derrubam a conexão TCP ociosa sem avisar) é derrubado e religado; sessão pareada sem
+ * socket também. Um envio com a conexão parada há mais tempo que o ping manda um ping antes, e
+ * com a conexão caída espera a religação (até sendWaitMs) em vez de falhar na hora.
  */
 export class SessionManager {
   private readonly sessions = new Map<string, Session>();
   private closed = false;
+  private readonly t: Timings;
+  private readonly heartbeat: NodeJS.Timeout;
 
   constructor(
     private readonly dataDir: string,
     private readonly key: Buffer,
     private readonly factory: SocketFactory,
     private readonly log: (msg: string) => void = () => undefined,
-  ) {}
+    private readonly opts: ManagerOptions = {},
+  ) {
+    this.t = { ...DEFAULT_TIMINGS, ...opts.timings };
+    this.heartbeat = setInterval(() => this.watchdog(), this.t.heartbeatMs);
+    this.heartbeat.unref();
+  }
 
   /** Reabre as sessões salvas. Uma sessão com problema não impede as outras. */
   async restoreAll() {
@@ -129,11 +228,16 @@ export class SessionManager {
 
   status(tenantId: string) {
     const s = this.sessions.get(tenantId);
+    const reconnecting = s?.status === 'connecting' && s.registered;
     return {
       status: s?.status ?? 'disconnected',
       qr: s?.status === 'qr' ? s.qr : undefined,
       phone: s?.phone,
       error: s?.status === 'disconnected' || s?.status === 'logged_out' ? s.error : undefined,
+      ...(reconnecting ? { reconnecting: true } : {}),
+      ...(s?.status === 'connected' && s.sock
+        ? { lastActivityAt: new Date(s.lastRecvAt).toISOString() }
+        : {}),
     };
   }
 
@@ -145,8 +249,13 @@ export class SessionManager {
       gen: 0,
       status: 'connecting',
       retries: 0,
+      registered: false,
+      lastRecvAt: Date.now(),
       jids: new Map(),
       recent: new Map(),
+      waiters: new Set(),
+      online: false,
+      pauseTimers: new Map(),
     };
     s.status = 'connecting';
     s.error = undefined;
@@ -166,7 +275,14 @@ export class SessionManager {
 
   private async connect(tenantId: string, s: Session, gen: number, restoring = false) {
     if (this.closed || s.gen !== gen) return;
-    const { state, saveCreds } = await useEncryptedAuthState(this.dataDir, tenantId, this.key);
+    s.opening = true;
+    let auth: Awaited<ReturnType<typeof useEncryptedAuthState>>;
+    try {
+      auth = await useEncryptedAuthState(this.dataDir, tenantId, this.key);
+    } finally {
+      s.opening = false;
+    }
+    const { state, saveCreds } = auth;
     if (this.closed || s.gen !== gen) return; // logout durante a leitura
     if (restoring && !state.creds.me) {
       // Pasta de um QR Code que nunca foi lido: não fica gerando QR sozinho a cada reinício.
@@ -174,6 +290,8 @@ export class SessionManager {
       await removeAuthState(this.dataDir, tenantId);
       return;
     }
+    if (state.creds.me) s.registered = true;
+    this.dropSocket(s); // nunca dois sockets da mesma conta (o WhatsApp derruba um com 440)
     const sock = this.factory(state, {
       getMessage: async (k) => {
         const text = k.id ? s.recent.get(k.id) : undefined;
@@ -181,26 +299,119 @@ export class SessionManager {
       },
     });
     s.sock = sock;
+    s.online = false;
+    s.lastRecvAt = Date.now();
     const current = () => s.sock === sock && s.gen === gen;
+    // Qualquer quadro do servidor (inclusive a resposta do ping) prova que o socket está vivo.
+    sock.ws?.on?.('message', () => {
+      if (current()) s.lastRecvAt = Date.now();
+    });
+    s.openTimer = setTimeout(() => {
+      if (!current() || s.status === 'connected' || s.status === 'qr') return;
+      this.dropSocket(s);
+      if (s.registered) {
+        this.log(`restaurante ${tenantId}: o WhatsApp não respondeu; tentando de novo`);
+        this.scheduleReconnect(tenantId, s, gen);
+      } else {
+        s.gen++;
+        s.status = 'disconnected';
+        s.error = 'O WhatsApp não respondeu. Verifique a internet do servidor e tente de novo.';
+        this.wake(s);
+      }
+    }, this.t.openTimeoutMs);
+    s.openTimer.unref();
     sock.ev.on('creds.update', () => {
       if (!current()) return; // socket antigo não grava por cima (nem recria pasta apagada)
       void saveCreds().catch((e: Error) => this.log(`creds: ${e.message}`));
     });
     sock.ev.on('connection.update', (u) => {
       if (!current()) return; // evento de um socket antigo
+      if ((u.qr || u.connection === 'open' || u.connection === 'close') && s.openTimer) {
+        clearTimeout(s.openTimer);
+        s.openTimer = undefined;
+      }
       if (u.qr) {
         s.status = 'qr';
         s.qr = u.qr;
       }
       if (u.connection === 'open') {
+        const after = s.retries;
         s.status = 'connected';
         s.qr = undefined;
         s.error = undefined;
         s.retries = 0;
+        s.registered = true;
+        s.lastRecvAt = Date.now();
         s.phone = sock.user?.id?.split(':')[0]?.split('@')[0];
+        if (after) this.log(`restaurante ${tenantId}: WhatsApp de volta (${after} tentativas)`);
+        this.wake(s);
       }
       if (u.connection === 'close') this.onClose(tenantId, s, gen, u, !!state.creds.me);
     });
+    sock.ev.on('messages.upsert', ({ messages, type }) => {
+      if (!current()) return;
+      s.lastRecvAt = Date.now();
+      if (type !== 'notify' || !this.opts.onInbound) return;
+      for (const raw of messages) {
+        const msg = parseInbound(tenantId, raw);
+        if (!msg) continue;
+        try {
+          this.opts.onInbound(msg);
+        } catch (e) {
+          this.log(
+            `restaurante ${tenantId}: mensagem recebida não repassada (${(e as Error).message})`,
+          );
+        }
+      }
+    });
+  }
+
+  /** Larga o socket atual sem tratar a queda dele (os eventos de um socket antigo são ignorados). */
+  private dropSocket(s: Session) {
+    if (s.openTimer) clearTimeout(s.openTimer);
+    s.openTimer = undefined;
+    if (s.onlineTimer) clearTimeout(s.onlineTimer);
+    s.onlineTimer = undefined;
+    for (const t of s.pauseTimers.values()) clearTimeout(t);
+    s.pauseTimers.clear();
+    s.online = false;
+    const sock = s.sock;
+    s.sock = undefined;
+    try {
+      sock?.end();
+    } catch {
+      /* já fechado */
+    }
+  }
+
+  private wake(s: Session) {
+    for (const w of [...s.waiters]) w();
+  }
+
+  private waitChange(s: Session, ms: number) {
+    return new Promise<void>((resolve) => {
+      const done = () => {
+        clearTimeout(timer);
+        s.waiters.delete(done);
+        resolve();
+      };
+      const timer = setTimeout(done, ms);
+      s.waiters.add(done);
+    });
+  }
+
+  /** Nova tentativa com espera crescente (ou na hora). Nunca desiste de uma sessão pareada. */
+  private scheduleReconnect(tenantId: string, s: Session, gen: number, immediate = false) {
+    if (this.closed || s.gen !== gen) return;
+    if (s.timer) clearTimeout(s.timer);
+    s.status = 'connecting';
+    const delay = immediate
+      ? 0
+      : Math.min(this.t.backoffMaxMs, this.t.backoffBaseMs * 2 ** Math.min(s.retries++, 16));
+    s.timer = setTimeout(() => {
+      s.timer = undefined;
+      void this.reconnect(tenantId, s, gen);
+    }, delay);
   }
 
   private onClose(
@@ -210,7 +421,7 @@ export class SessionManager {
     u: ConnectionUpdate,
     registered: boolean,
   ) {
-    s.sock = undefined;
+    this.dropSocket(s); // o Baileys já fechou este
     const code = statusCode(u.lastDisconnect?.error);
     const stop = (status: SessionStatus, error: string, wipe: boolean) => {
       s.gen++;
@@ -219,12 +430,14 @@ export class SessionManager {
       s.error = error;
       if (wipe) {
         s.phone = undefined;
+        s.registered = false;
         s.jids.clear();
         s.removing = removeAuthState(this.dataDir, tenantId).catch((e: Error) =>
           this.log(`restaurante ${tenantId}: sessão não apagada (${e.message})`),
         );
       }
       this.log(`restaurante ${tenantId}: ${error}`);
+      this.wake(s);
     };
     if (code === R.loggedOut || code === R.multideviceMismatch)
       return stop('logged_out', 'O aparelho foi desconectado no celular.', true);
@@ -238,11 +451,10 @@ export class SessionManager {
       );
     if (!registered && code === R.timedOut)
       return stop('disconnected', 'O QR Code expirou sem ser lido. Gere outro.', true);
-    s.status = 'connecting';
+    if (code !== R.restartRequired)
+      this.log(`restaurante ${tenantId}: conexão caiu (código ${code ?? '?'}); reconectando`);
     // Depois de ler o QR Code o WhatsApp pede para reiniciar a conexão: na hora, sem espera.
-    const delay =
-      code === R.restartRequired ? 0 : Math.min(60_000, 1000 * 2 ** Math.min(s.retries++, 6));
-    s.timer = setTimeout(() => void this.reconnect(tenantId, s, gen), delay);
+    this.scheduleReconnect(tenantId, s, gen, code === R.restartRequired);
   }
 
   private async reconnect(tenantId: string, s: Session, gen: number) {
@@ -250,9 +462,113 @@ export class SessionManager {
       await this.connect(tenantId, s, gen);
     } catch (e) {
       if (s.gen !== gen) return;
+      s.gen++;
       s.status = 'disconnected';
       s.error = 'Não foi possível abrir a sessão salva. Desconecte e conecte de novo.';
       this.log(`restaurante ${tenantId}: reconexão falhou (${(e as Error).message})`);
+      this.wake(s);
+    }
+  }
+
+  /**
+   * Vigia (a cada heartbeatMs): conexão aberta mas fechada por baixo ou muda há mais de staleMs
+   * é derrubada e religada; sessão pareada sem socket e sem religação agendada volta a tentar.
+   */
+  watchdog(now = Date.now()) {
+    if (this.closed) return;
+    for (const [tenantId, s] of this.sessions) {
+      if (s.timer || s.opening) continue; // religação já agendada ou em andamento
+      if (s.status === 'connected' && s.sock) {
+        const wsOpen = s.sock.ws?.isOpen !== false;
+        const idle = now - s.lastRecvAt;
+        if (wsOpen && idle <= this.t.staleMs) continue;
+        this.log(
+          `restaurante ${tenantId}: ${
+            wsOpen ? `conexão muda há ${Math.round(idle / 1000)}s` : 'websocket fechado sem aviso'
+          }; religando`,
+        );
+        this.dropSocket(s);
+        this.scheduleReconnect(tenantId, s, s.gen, true);
+      } else if (s.status === 'connecting' && !s.sock && s.registered) {
+        this.scheduleReconnect(tenantId, s, s.gen, true);
+      }
+    }
+  }
+
+  /** O socket morreu por baixo (ping ou envio falhou): derruba e religa na hora. */
+  private broken(tenantId: string, s: Session, sock: SocketLike, why: string) {
+    if (s.sock !== sock) return;
+    this.log(`restaurante ${tenantId}: ${why}; religando`);
+    this.dropSocket(s);
+    this.scheduleReconnect(tenantId, s, s.gen, true);
+  }
+
+  private async ping(sock: SocketLike, timeoutMs: number) {
+    if (!sock.query || !sock.generateMessageTag) return true;
+    try {
+      await sock.query(
+        {
+          tag: 'iq',
+          attrs: { id: sock.generateMessageTag(), to: 's.whatsapp.net', type: 'get', xmlns: 'w:p' },
+          content: [{ tag: 'ping', attrs: {} }],
+        },
+        timeoutMs,
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Socket pronto para enviar. Conexão caída de uma sessão pareada: espera a religação (até
+   * waitMs). Conexão parada há mais tempo que o ping: manda um ping antes, para não mandar
+   * mensagem por um socket meio-aberto.
+   */
+  private async ready(
+    tenantId: string,
+    waitMs = this.t.sendWaitMs,
+  ): Promise<[Session, SocketLike]> {
+    const s = this.sessions.get(tenantId);
+    if (!s) throw new NotConnectedError();
+    const deadline = Date.now() + waitMs;
+    for (let probes = 0; ; probes++) {
+      const sock = s.sock;
+      if (s.status === 'connected' && sock) {
+        if (probes > 0 || Date.now() - s.lastRecvAt < this.t.keepAliveMs * 1.5) return [s, sock];
+        if (await this.ping(sock, Math.min(8000, Math.max(1000, deadline - Date.now())))) {
+          if (s.sock === sock) s.lastRecvAt = Date.now();
+          return [s, sock];
+        }
+        this.broken(tenantId, s, sock, 'sem resposta ao ping antes do envio');
+      }
+      if (this.closed || !s.registered || s.status !== 'connecting') throw new NotConnectedError();
+      const left = deadline - Date.now();
+      if (left <= 0)
+        throw new NotConnectedError('WhatsApp reconectando; tente de novo em instantes');
+      await this.waitChange(s, left);
+    }
+  }
+
+  /** Roda uma ação no socket; se ele morrer no meio, religa e tenta mais uma vez. */
+  private async run<T>(
+    tenantId: string,
+    fn: (s: Session, sock: SocketLike) => Promise<T>,
+    waitMs?: number,
+  ): Promise<T> {
+    const [s, sock] = await this.ready(tenantId, waitMs);
+    try {
+      return await fn(s, sock);
+    } catch (e) {
+      if (!isConnectionError(e)) throw e;
+      this.broken(
+        tenantId,
+        s,
+        sock,
+        `envio falhou com a conexão quebrada (${(e as Error).message})`,
+      );
+      const [s2, sock2] = await this.ready(tenantId, waitMs);
+      return fn(s2, sock2);
     }
   }
 
@@ -261,14 +577,18 @@ export class SessionManager {
     const sock = s?.sock;
     if (s) {
       if (s.timer) clearTimeout(s.timer);
+      s.timer = undefined;
       s.gen++;
-      s.sock = undefined;
+      s.sock = undefined; // dropSocket encerraria o socket antes do logout
+      this.dropSocket(s);
       s.status = 'logged_out';
+      s.registered = false;
       s.phone = undefined;
       s.qr = undefined;
       s.error = undefined;
       s.jids.clear();
       s.recent.clear();
+      this.wake(s);
     }
     try {
       await sock?.logout();
@@ -296,37 +616,169 @@ export class SessionManager {
     return jid;
   }
 
-  async send(tenantId: string, to: string, text: string) {
-    const s = this.sessions.get(tenantId);
-    const sock = s?.sock;
-    if (!s || !sock || s.status !== 'connected') throw new NotConnectedError();
-    const jid = await this.resolveJid(s, sock, to);
+  private async target(s: Session, sock: SocketLike, t: Target) {
+    if ('jid' in t) return t.jid;
+    const jid = await this.resolveJid(s, sock, t.to);
     if (!jid) throw new NotOnWhatsAppError();
-    const r = await withTimeout(
-      sock.sendMessage(jid, { text }),
-      SEND_TIMEOUT_MS,
-      'WhatsApp não confirmou o envio a tempo',
+    return jid;
+  }
+
+  /** Liga o "online" do número por um tempo (e volta para "offline", para o celular notificar). */
+  private async goOnline(s: Session, sock: SocketLike, ms = this.t.onlineMs) {
+    if (!sock.sendPresenceUpdate) return;
+    if (s.onlineTimer) clearTimeout(s.onlineTimer);
+    s.onlineTimer = setTimeout(() => {
+      s.onlineTimer = undefined;
+      if (s.sock !== sock || !s.online) return;
+      s.online = false;
+      void sock.sendPresenceUpdate?.('unavailable').catch(() => undefined);
+    }, ms);
+    s.onlineTimer.unref();
+    if (s.online) return;
+    s.online = true;
+    await withTimeout(sock.sendPresenceUpdate('available'), EXTRA_TIMEOUT_MS, 'presença').catch(
+      () => undefined,
     );
-    const id = r?.key?.id ?? null;
-    if (id) remember(s.recent, id, text, RECENT_MAX);
-    return { id };
+  }
+
+  private async goOffline(s: Session, sock: SocketLike) {
+    if (s.onlineTimer) clearTimeout(s.onlineTimer);
+    s.onlineTimer = undefined;
+    s.online = false;
+    await sock.sendPresenceUpdate?.('unavailable');
+  }
+
+  /** "digitando..." (ou "gravando áudio...") na conversa por ms; chamar de novo renova. */
+  private async startTyping(
+    s: Session,
+    sock: SocketLike,
+    jid: string,
+    ms: number,
+    kind: 'typing' | 'recording' = 'typing',
+  ) {
+    if (!sock.sendPresenceUpdate) return;
+    await this.goOnline(s, sock, Math.max(this.t.onlineMs, ms));
+    clearTimeout(s.pauseTimers.get(jid));
+    await withTimeout(
+      sock.sendPresenceUpdate(kind === 'recording' ? 'recording' : 'composing', jid),
+      EXTRA_TIMEOUT_MS,
+      'presença',
+    );
+    const t = setTimeout(() => {
+      s.pauseTimers.delete(jid);
+      if (s.sock === sock) void sock.sendPresenceUpdate?.('paused', jid).catch(() => undefined);
+    }, ms);
+    t.unref();
+    s.pauseTimers.set(jid, t);
+  }
+
+  /**
+   * Envia texto. Com typingMs mostra "digitando..." antes (resposta com cara de gente) e o número
+   * fica "online" um pouco depois; sem, sai direto (avisos de pedido).
+   */
+  async send(tenantId: string, dest: Target, text: string, typingMs = 0) {
+    return this.run(tenantId, async (s, sock) => {
+      const jid = await this.target(s, sock, dest);
+      if (typingMs > 0) {
+        const ms = Math.min(typingMs, 8000);
+        await this.startTyping(s, sock, jid, ms + 1000).catch(() => undefined);
+        await sleep(ms);
+      }
+      const r = await withTimeout(
+        sock.sendMessage(jid, { text }),
+        SEND_TIMEOUT_MS,
+        'WhatsApp não confirmou o envio a tempo',
+      );
+      if (typingMs > 0 && s.sock === sock) {
+        clearTimeout(s.pauseTimers.get(jid));
+        s.pauseTimers.delete(jid);
+        void sock.sendPresenceUpdate?.('paused', jid).catch(() => undefined);
+        void this.goOnline(s, sock); // fica "online" mais um pouco e volta a "offline"
+      }
+      const id = r?.key?.id ?? null;
+      if (id) remember(s.recent, id, text, RECENT_MAX);
+      return { id, jid };
+    });
+  }
+
+  async typing(tenantId: string, dest: Target, ms: number, kind?: 'typing' | 'recording') {
+    await this.run(
+      tenantId,
+      async (s, sock) =>
+        this.startTyping(
+          s,
+          sock,
+          await this.target(s, sock, dest),
+          Math.min(ms, MAX_TYPING_MS),
+          kind,
+        ),
+      EXTRA_TIMEOUT_MS,
+    );
+    return { ok: true };
+  }
+
+  /** Marca a mensagem recebida como lida (tiques azuis no celular do cliente). */
+  async markRead(tenantId: string, jid: string, id: string) {
+    await this.run(
+      tenantId,
+      async (_s, sock) => {
+        if (!sock.readMessages) return;
+        await withTimeout(
+          sock.readMessages([{ remoteJid: jid, id, fromMe: false }]),
+          EXTRA_TIMEOUT_MS,
+          'WhatsApp não confirmou a leitura',
+        );
+      },
+      EXTRA_TIMEOUT_MS,
+    );
+    return { ok: true };
+  }
+
+  /** Reação (emoji) numa mensagem recebida; emoji vazio tira a reação. */
+  async react(tenantId: string, jid: string, id: string, emoji: string) {
+    await this.run(
+      tenantId,
+      async (_s, sock) => {
+        await withTimeout(
+          sock.sendMessage(jid, {
+            react: { text: emoji, key: { remoteJid: jid, id, fromMe: false } },
+          }),
+          EXTRA_TIMEOUT_MS,
+          'WhatsApp não confirmou a reação',
+        );
+      },
+      EXTRA_TIMEOUT_MS,
+    );
+    return { ok: true };
+  }
+
+  /** "online" por ms (padrão onlineMs) ou "offline" na hora. */
+  async presence(tenantId: string, state: 'available' | 'unavailable', ms?: number) {
+    await this.run(
+      tenantId,
+      async (s, sock) =>
+        state === 'available' ? this.goOnline(s, sock, ms) : this.goOffline(s, sock),
+      EXTRA_TIMEOUT_MS,
+    );
+    return { ok: true };
   }
 
   close() {
     this.closed = true;
+    clearInterval(this.heartbeat);
     for (const s of this.sessions.values()) {
       if (s.timer) clearTimeout(s.timer);
+      s.timer = undefined;
       s.gen++;
-      const sock = s.sock;
-      s.sock = undefined;
-      sock?.end();
+      this.dropSocket(s);
+      this.wake(s);
     }
   }
 }
 
 export class NotConnectedError extends Error {
-  constructor() {
-    super('WhatsApp do restaurante não está conectado');
+  constructor(msg = 'WhatsApp do restaurante não está conectado') {
+    super(msg);
   }
 }
 

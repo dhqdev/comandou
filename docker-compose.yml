@@ -36,6 +36,7 @@ services:
     environment:
       GATEWAY_TOKEN: ${WHATSAPP_GATEWAY_TOKEN:-}
       SESSION_KEY: ${WHATSAPP_SESSION_KEY:-}
+      INBOUND_URL: http://api:3000/api/v1/internal/whatsapp/inbound
     volumes:
       - wadata:/data
     networks: [internal, edge]

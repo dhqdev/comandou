@@ -20,6 +20,40 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.71.1',
+    date: '2026-11-03',
+    title:
+      'WhatsApp não para mais de responder depois de horas parado, e agora mostra "digitando..."',
+    summary:
+      'A conexão do WhatsApp por QR Code se cuida sozinha: percebe quando a linha morreu sem avisar e religa na hora. Também recebe as mensagens dos clientes e mostra "online", "digitando..." e os tiques azuis, a base para o atendimento por IA.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'WhatsApp: depois de muito tempo sem conversa a conexão podia ficar "meio aberta" (parecia conectada, mas nada saía nem chegava). Agora um vigia confere cada conexão a cada 15 segundos e religa a que ficou muda, e o WhatsApp recebe um sinal a cada 20 segundos para a rede não derrubar a conexão parada.',
+      },
+      {
+        tag: 'correção',
+        text: 'WhatsApp: antes de enviar com a conexão parada há um tempo, o sistema confere se ela ainda responde; se caiu, religa e espera voltar em vez de falhar na hora. Se a conexão morre no meio do envio, religa e manda de novo uma vez.',
+      },
+      {
+        tag: 'correção',
+        text: 'WhatsApp: se o servidor do WhatsApp não responde ao conectar, o sistema tenta de novo sozinho, sem ficar preso em "conectando".',
+      },
+      {
+        tag: 'novo',
+        text: 'WhatsApp: as mensagens que os clientes mandam para o número da loja chegam ao sistema (texto, foto com legenda, áudio, localização e respostas de botão; grupos e status ficam de fora), inclusive de contatos com número escondido.',
+      },
+      {
+        tag: 'novo',
+        text: 'WhatsApp: o sistema pode mostrar "digitando..." antes de responder, marcar a mensagem do cliente como lida (tiques azuis), reagir com emoji e ficar "online" enquanto atende. Depois de um minuto volta a "offline", para o celular da loja continuar recebendo as notificações.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'WhatsApp: conferido que cada restaurante conecta o próprio número, com a sessão separada das outras. Envio, mensagem recebida, queda e desconexão de um não mexem nos outros (agora com teste de várias lojas conectadas ao mesmo tempo).',
+      },
+    ],
+  },
+  {
     version: '0.71.0',
     date: '2026-11-03',
     title: 'Aba Tokens no Super Admin: suas chaves de API, limite de cada cliente e tokens extras',

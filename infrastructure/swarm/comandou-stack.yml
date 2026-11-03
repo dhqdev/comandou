@@ -66,13 +66,15 @@ services:
         limits: { memory: 256M }
 
   # WhatsApp por QR Code (Baileys). Uma sessão por restaurante, cifrada no volume. Só na rede interna:
-  # apenas a API fala com ele, com token próprio.
+  # só ele e a API se falam, com token próprio (a API manda enviar; ele entrega o que chega).
   whatsapp-gateway:
     image: ghcr.io/dhqdev/comandou-whatsapp-gateway:${COMANDOU_VERSION:?defina a versão}
     init: true
     environment:
       GATEWAY_TOKEN_FILE: /run/secrets/comandou_wa_gateway_token
       SESSION_KEY_FILE: /run/secrets/comandou_wa_session_key
+      # Mensagens que os clientes mandam vão para a API (atendimento por IA), com o mesmo token.
+      INBOUND_URL: http://api:3000/api/v1/internal/whatsapp/inbound
       LOG_LEVEL: info
     secrets: [comandou_wa_gateway_token, comandou_wa_session_key]
     volumes:

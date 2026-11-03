@@ -6,7 +6,12 @@ import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/bootstrap';
+import { GatewayClient } from '../src/messaging/gateway.client';
 import { normalizePhone } from '../src/messaging/messaging.service';
+import {
+  WhatsAppInboundService,
+  type WhatsAppInbound,
+} from '../src/messaging/whatsapp-inbound.service';
 import { testEnv } from './env';
 import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 
@@ -26,6 +31,7 @@ const GW_TOKEN = 'token-interno-gateway-de-teste-123';
 let gwConnected = true;
 const gwSent: { tenant: string; to: string; text: string }[] = [];
 const gwStarted = new Set<string>();
+const gwExtras: { tenant: string; action: string; body: Record<string, unknown> }[] = [];
 
 let app: INestApplication;
 let meta: Server;
@@ -113,7 +119,10 @@ beforeAll(async () => {
       };
       if (req.headers.authorization !== `Bearer ${GW_TOKEN}`)
         return send(401, { error: 'não autorizado' });
-      const m = /^\/v1\/sessions\/([0-9a-f-]{36})(?:\/(start|logout|messages))?$/.exec(req.url!);
+      const m =
+        /^\/v1\/sessions\/([0-9a-f-]{36})(?:\/(start|logout|messages|typing|read|react|presence))?$/.exec(
+          req.url!,
+        );
       if (!m) return send(404, {});
       const [, tenant, action] = m;
       const state = () =>
@@ -132,6 +141,10 @@ beforeAll(async () => {
         return send(200, { status: 'logged_out' });
       }
       const body = JSON.parse(raw || '{}') as { to: string; text: string };
+      if (action !== 'messages') {
+        gwExtras.push({ tenant, action, body });
+        return send(200, { ok: true });
+      }
       if (!gwStarted.has(tenant) || !gwConnected)
         return send(409, { error: 'WhatsApp do restaurante não está conectado' });
       gwSent.push({ tenant, ...body });
@@ -407,6 +420,71 @@ describe('WhatsApp por QR Code (Baileys, padrão)', () => {
     expect((await get('adminA', '/messaging/session').expect(200)).body.status).toBe(
       'disconnected',
     );
+  });
+});
+
+describe('mensagens recebidas e recursos do Baileys', () => {
+  const inbound = (body: object, token = GW_TOKEN) =>
+    http
+      .post('/api/v1/internal/whatsapp/inbound')
+      .set('Authorization', `Bearer ${token}`)
+      .send(body);
+  const msg = (id: string) => ({
+    tenantId: fx.tenantA,
+    id,
+    jid: '123456789012345@lid',
+    from: '5511987654321',
+    kind: 'text',
+    text: 'Oi, ainda tem pizza?',
+    pushName: 'Ana',
+    timestamp: '2026-11-03T12:00:00.000Z',
+  });
+
+  it('só o gateway (com o token) entrega; cada mensagem chega uma vez e na ordem', async () => {
+    const svc = app.get(WhatsAppInboundService);
+    const got: WhatsAppInbound[] = [];
+    const off = svc.onMessage(async (m) => {
+      await new Promise((r) => setTimeout(r, m.id === 'W1' ? 50 : 0)); // a 1ª demora mais
+      got.push(m);
+    });
+    await inbound(msg('W1'), 'token-errado-token-errado-123').expect(404);
+    await inbound({ ...msg('W1'), jid: '120363@g.us' }).expect(400);
+    expect((await inbound(msg('W1')).expect(202)).body).toEqual({ accepted: true });
+    expect((await inbound(msg('W1')).expect(202)).body).toEqual({ accepted: false }); // repetida
+    await inbound(msg('W2')).expect(202);
+    await svc.idle();
+    off();
+    expect(got.map((m) => m.id)).toEqual(['W1', 'W2']);
+    expect(got[0]).toMatchObject({ tenantId: fx.tenantA, from: '5511987654321', pushName: 'Ana' });
+    expect(got[0].timestamp).toBeInstanceOf(Date);
+  });
+
+  it('cliente do gateway: responde no JID com digitando, marca lido, reage e fica online', async () => {
+    const gw = app.get(GatewayClient);
+    gwStarted.add(fx.tenantA);
+    gwConnected = true;
+    const jid = '123456789012345@lid';
+    expect(await gw.markRead(fx.tenantA, jid, 'W1')).toBe(true);
+    expect(await gw.typing(fx.tenantA, jid, 3000)).toBe(true);
+    expect(await gw.react(fx.tenantA, jid, 'W1', '👍')).toBe(true);
+    expect(await gw.presence(fx.tenantA, 'available')).toBe(true);
+    const r = await gw.send(fx.tenantA, jid, 'Tem sim!', { typingMs: 1500 });
+    expect(r.ok).toBe(true);
+    expect(gwSent.at(-1)).toMatchObject({
+      tenant: fx.tenantA,
+      jid,
+      text: 'Tem sim!',
+      typingMs: 1500,
+    });
+    expect(gwExtras.map((e) => [e.action, e.body])).toEqual([
+      ['read', { jid, id: 'W1' }],
+      ['typing', { jid, ms: 3000, kind: 'typing' }],
+      ['react', { jid, id: 'W1', emoji: '👍' }],
+      ['presence', { state: 'available' }],
+    ]);
+    // número continua funcionando como antes (avisos de pedido)
+    await gw.send(fx.tenantA, '5511987654321', 'oi');
+    expect(gwSent.at(-1)).toEqual({ tenant: fx.tenantA, to: '5511987654321', text: 'oi' });
   });
 });
 

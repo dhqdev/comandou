@@ -943,6 +943,8 @@ export interface WhatsAppSession {
   qr?: string;
   phone?: string;
   error?: string;
+  /** caiu e está religando sozinha (sessão já pareada) */
+  reconnecting?: boolean;
 }
 export interface OutboxMessage {
   id: string;

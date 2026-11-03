@@ -6,8 +6,9 @@ import makeWASocket, {
   type WAVersion,
 } from 'baileys';
 import pino from 'pino';
+import { InboundForwarder } from './forwarder.js';
 import { createGatewayServer } from './server.js';
-import { SessionManager, type SocketLike } from './sessions.js';
+import { DEFAULT_TIMINGS, SessionManager, type SocketLike } from './sessions.js';
 
 /** Lê VAR ou VAR_FILE (Docker secret). */
 function secret(name: string): string | undefined {
@@ -40,6 +41,13 @@ async function refreshVersion() {
 }
 setInterval(() => void refreshVersion(), 12 * 3600_000).unref();
 
+// Mensagens que os clientes mandam vão para a API (o atendimento por IA responde por lá).
+// Ex.: http://api:3000/api/v1/internal/whatsapp/inbound. Sem a variável, não repassa nada.
+const inboundUrl = process.env.INBOUND_URL?.trim() || undefined;
+const forwarder = inboundUrl
+  ? new InboundForwarder(inboundUrl, token, (msg) => logger.warn(msg))
+  : undefined;
+
 const sessions = new SessionManager(
   dataDir,
   key,
@@ -50,11 +58,20 @@ const sessions = new SessionManager(
       auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, baileysLogger) },
       logger: baileysLogger,
       browser: Browsers.ubuntu('Comandou'),
+      // "offline" ao conectar: o celular do restaurante continua recebendo as notificações.
+      // O gateway fica "online" só enquanto responde (digitando...) e volta sozinho.
       markOnlineOnConnect: false,
       syncFullHistory: false,
       shouldSyncHistoryMessage: () => false,
+      generateHighQualityLinkPreview: false,
+      // Ping a cada 20 s: NAT/proxy costuma matar conexão TCP ociosa sem avisar (era isso que
+      // fazia o WhatsApp parar de responder depois de horas sem conversa).
+      keepAliveIntervalMs: DEFAULT_TIMINGS.keepAliveMs,
+      connectTimeoutMs: 30_000,
+      defaultQueryTimeoutMs: 60_000,
     }) as unknown as SocketLike,
   (msg) => logger.info(msg),
+  { onInbound: forwarder ? (m) => forwarder.push(m) : undefined },
 );
 
 const server = createGatewayServer(sessions, token);
@@ -65,6 +82,7 @@ void refreshVersion()
 
 for (const sig of ['SIGTERM', 'SIGINT'] as const)
   process.on(sig, () => {
+    forwarder?.close();
     sessions.close();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 5000).unref();

@@ -5,10 +5,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { tenantDir, useEncryptedAuthState } from './auth-store.js';
+import { InboundForwarder } from './forwarder.js';
 import { createGatewayServer } from './server.js';
 import {
   brazilVariants,
   SessionManager,
+  type InboundMessage,
   type ConnectionUpdate,
   type SocketLike,
   type SocketOptions,
@@ -22,6 +24,14 @@ class FakeSocket implements SocketLike {
   handlers: Record<string, ((u: ConnectionUpdate) => void)[]> = {};
   user: { id: string } | null = null;
   sent: { jid: string; text: string }[] = [];
+  presences: string[] = [];
+  reads: unknown[] = [];
+  reacts: unknown[] = [];
+  ws = { isOpen: true, on: () => undefined };
+  /** Falha o próximo envio como se o socket tivesse morrido por baixo. */
+  failNext = false;
+  query?: SocketLike['query'];
+  generateMessageTag?: () => string;
   ended = false;
   loggedOut = false;
   /** Números que "têm WhatsApp" (JID devolvido pela consulta). */
@@ -35,7 +45,19 @@ class FakeSocket implements SocketLike {
   emit(u: ConnectionUpdate) {
     for (const h of this.handlers['connection.update'] ?? []) h(u);
   }
-  async sendMessage(jid: string, c: { text: string }) {
+  emitUpsert(messages: unknown[], type = 'notify') {
+    for (const h of this.handlers['messages.upsert'] ?? [])
+      (h as unknown as (u: unknown) => void)({ messages, type });
+  }
+  async sendMessage(jid: string, c: { text: string } | { react: unknown }) {
+    if (this.failNext) {
+      this.failNext = false;
+      throw Object.assign(new Error('Connection Closed'), { output: { statusCode: 428 } });
+    }
+    if ('react' in c) {
+      this.reacts.push({ jid, ...c });
+      return { key: { id: 'R' } };
+    }
     this.sent.push({ jid, text: c.text });
     return { key: { id: `MSG${this.sent.length}` } };
   }
@@ -44,6 +66,12 @@ class FakeSocket implements SocketLike {
       .map((j) => j.split('@')[0])
       .filter((n) => this.accounts.has(n))
       .map((n) => ({ jid: `${n}@s.whatsapp.net`, exists: true }));
+  }
+  async sendPresenceUpdate(type: string, jid?: string) {
+    this.presences.push(jid ? `${type}:${jid}` : type);
+  }
+  async readMessages(keys: unknown[]) {
+    this.reads.push(...keys);
   }
   async logout() {
     this.loggedOut = true;
@@ -137,7 +165,7 @@ describe('sessões e API interna', () => {
     });
     socks[0].user = { id: '5511999990000:12@s.whatsapp.net' };
     socks[0].emit({ connection: 'open' });
-    expect(await (await call(`/v1/sessions/${t}`)).json()).toEqual({
+    expect(await (await call(`/v1/sessions/${t}`)).json()).toMatchObject({
       status: 'connected',
       phone: '5511999990000',
     });
@@ -150,7 +178,7 @@ describe('sessões e API interna', () => {
         text: 'Pedido pronto',
       })
     ).json();
-    expect(sent).toEqual({ id: 'MSG1' });
+    expect(sent).toEqual({ id: 'MSG1', jid: '5511987654321@s.whatsapp.net' });
     expect(socks[0].sent[0]).toEqual({
       jid: '5511987654321@s.whatsapp.net',
       text: 'Pedido pronto',
@@ -311,5 +339,354 @@ describe('reabrir sessões ao iniciar', () => {
     expect(brazilVariants('551187654321')).toEqual(['551187654321', '5511987654321']);
     expect(brazilVariants('551132654321')).toEqual(['551132654321']); // fixo
     expect(brazilVariants('14155550123')).toEqual(['14155550123']);
+  });
+});
+
+describe('religação e recursos do Baileys', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wa-'));
+  const socks: FakeSocket[] = [];
+  const inbound: InboundMessage[] = [];
+  const mgr = new SessionManager(
+    dir,
+    key,
+    (_state, opts) => {
+      const s = new FakeSocket();
+      s.opts = opts;
+      socks.push(s);
+      return s;
+    },
+    undefined,
+    {
+      timings: {
+        heartbeatMs: 3_600_000, // o teste chama o vigia na mão
+        staleMs: 1000,
+        keepAliveMs: 1, // só o socket com query (teste do ping) pinga de verdade
+        openTimeoutMs: 150,
+        backoffBaseMs: 10,
+        sendWaitMs: 1500,
+        onlineMs: 100,
+      },
+      onInbound: (m) => inbound.push(m),
+    },
+  );
+  const server = createGatewayServer(mgr, TOKEN);
+  let base = '';
+  const call = (path: string, body?: object) =>
+    fetch(`${base}${path}`, {
+      method: body ? 'POST' : 'GET',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  /** Sessão nova já conectada (pareada). */
+  async function connected() {
+    const t = randomUUID();
+    await mgr.start(t);
+    const sock = socks.at(-1)!;
+    sock.user = { id: '5511999990000:3@s.whatsapp.net' };
+    sock.emit({ connection: 'open' });
+    return { t, sock };
+  }
+  /** Espera o próximo socket (religação) e abre a conexão. */
+  async function nextOpen(prev: FakeSocket) {
+    for (let i = 0; i < 100 && socks.at(-1) === prev; i++) await wait(10);
+    const s = socks.at(-1)!;
+    expect(s).not.toBe(prev);
+    s.user = prev.user;
+    s.emit({ connection: 'open' });
+    return s;
+  }
+
+  beforeAll(async () => {
+    await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
+    base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+  afterAll(() => {
+    mgr.close();
+    server.close();
+  });
+
+  it('vigia derruba conexão muda (meio-aberta) e religa sozinho', async () => {
+    const { t, sock } = await connected();
+    mgr.watchdog(Date.now()); // acabou de receber: nada muda
+    expect(socks.at(-1)).toBe(sock);
+    mgr.watchdog(Date.now() + 5000); // 5 s sem nada do servidor (limite do teste: 1 s)
+    expect(sock.ended).toBe(true);
+    expect(mgr.status(t)).toMatchObject({ status: 'connecting', reconnecting: true });
+    await nextOpen(sock);
+    expect(mgr.status(t).status).toBe('connected');
+    await mgr.logout(t);
+  });
+
+  it('vigia religa websocket fechado sem evento de close', async () => {
+    const { t, sock } = await connected();
+    sock.ws.isOpen = false;
+    mgr.watchdog();
+    expect(sock.ended).toBe(true);
+    await nextOpen(sock);
+    expect(mgr.status(t).status).toBe('connected');
+    await mgr.logout(t);
+  });
+
+  it('servidor que não responde ao conectar: tenta de novo', async () => {
+    const t = randomUUID();
+    await mgr.start(t);
+    const a = socks.at(-1)!;
+    a.emit({ connection: 'open' });
+    close(a, 428);
+    // o socket da religação nunca responde (nem QR, nem open): o prazo vence e vem outro
+    for (let i = 0; i < 100 && socks.at(-1) === a; i++) await wait(10);
+    const mute = socks.at(-1)!;
+    await nextOpen(mute);
+    expect(mute.ended).toBe(true);
+    expect(mgr.status(t).status).toBe('connected');
+    await mgr.logout(t);
+  });
+
+  it('envio com a conexão caindo espera a religação em vez de falhar', async () => {
+    const { t, sock } = await connected();
+    close(sock, 428);
+    const sending = call(`/v1/sessions/${t}/messages`, {
+      to: '5511987654321',
+      text: 'Pedido pronto',
+    });
+    const s2 = await nextOpen(sock);
+    const r = await sending;
+    expect(r.status).toBe(200);
+    expect(s2.sent.at(-1)!.text).toBe('Pedido pronto');
+    await mgr.logout(t);
+  });
+
+  it('socket que morre no meio do envio: religa e manda de novo uma vez', async () => {
+    const { t, sock } = await connected();
+    sock.failNext = true;
+    const sending = mgr.send(t, { to: '5511987654321' }, 'oi');
+    const s2 = await nextOpen(sock);
+    expect(await sending).toMatchObject({ id: 'MSG1' });
+    expect(sock.sent).toHaveLength(0);
+    expect(s2.sent).toHaveLength(1);
+    await mgr.logout(t);
+  });
+
+  it('parado há muito tempo: ping antes de enviar; sem resposta, religa', async () => {
+    const { t, sock } = await connected();
+    let pings = 0;
+    sock.generateMessageTag = () => 'tag';
+    sock.query = async () => {
+      pings++;
+      throw new Error('Timed Out');
+    };
+    await wait(5); // parado há mais que o ping (no teste, 1 ms)
+    const sending = mgr.send(t, { to: '5511987654321' }, 'oi');
+    const s2 = await nextOpen(sock);
+    await sending;
+    expect(pings).toBe(1);
+    expect(s2.sent).toHaveLength(1);
+    await mgr.logout(t);
+  });
+
+  it('QR Code ainda não lido: enviar responde 409 na hora', async () => {
+    const t = randomUUID();
+    await mgr.start(t);
+    socks.at(-1)!.emit({ qr: 'QR' });
+    const started = Date.now();
+    expect(
+      (await call(`/v1/sessions/${t}/messages`, { to: '5511987654321', text: 'x' })).status,
+    ).toBe(409);
+    expect(Date.now() - started).toBeLessThan(500);
+    await mgr.logout(t);
+  });
+
+  it('repassa mensagens de clientes (texto, legenda, LID) e ignora grupo, status e as próprias', async () => {
+    const { t, sock } = await connected();
+    inbound.length = 0;
+    sock.emitUpsert([
+      {
+        key: { remoteJid: '5511987654321@s.whatsapp.net', id: 'A1' },
+        message: { conversation: 'Oi, tem pizza?' },
+        pushName: 'Ana',
+        messageTimestamp: 1_760_000_000,
+      },
+      {
+        key: {
+          remoteJid: '123456789012345@lid',
+          id: 'A2',
+          senderPn: '5511911112222@s.whatsapp.net',
+        },
+        message: { ephemeralMessage: { message: { extendedTextMessage: { text: 'quero 2' } } } },
+      },
+      {
+        key: { remoteJid: '5511987654321@s.whatsapp.net', id: 'A3' },
+        message: { imageMessage: { caption: 'essa aqui' } },
+      },
+      {
+        key: { remoteJid: '120363000000000000@g.us', id: 'G1', participant: '5511@s.whatsapp.net' },
+        message: { conversation: 'grupo' },
+      },
+      { key: { remoteJid: 'status@broadcast', id: 'S1' }, message: { conversation: 'status' } },
+      {
+        key: { remoteJid: '5511987654321@s.whatsapp.net', id: 'M1', fromMe: true },
+        message: { conversation: 'minha' },
+      },
+      {
+        key: { remoteJid: '5511987654321@s.whatsapp.net', id: 'P1' },
+        message: { protocolMessage: { type: 0 } },
+      },
+      {
+        key: { remoteJid: '5511987654321@s.whatsapp.net', id: 'R1' },
+        message: { reactionMessage: { text: '👍' } },
+      },
+    ]);
+    sock.emitUpsert(
+      [
+        {
+          key: { remoteJid: '5511987654321@s.whatsapp.net', id: 'H1' },
+          message: { conversation: 'histórico' },
+        },
+      ],
+      'append',
+    );
+    expect(inbound.map((m) => [m.id, m.kind, m.text, m.from, m.jid])).toEqual([
+      ['A1', 'text', 'Oi, tem pizza?', '5511987654321', '5511987654321@s.whatsapp.net'],
+      ['A2', 'text', 'quero 2', '5511911112222', '123456789012345@lid'],
+      ['A3', 'image', 'essa aqui', '5511987654321', '5511987654321@s.whatsapp.net'],
+    ]);
+    expect(inbound[0]).toMatchObject({
+      tenantId: t,
+      pushName: 'Ana',
+      timestamp: '2025-10-09T08:53:20.000Z',
+    });
+    await mgr.logout(t);
+  });
+
+  it('digitando, lido, reação e online pelo HTTP; responde no JID da conversa', async () => {
+    const { t, sock } = await connected();
+    const jid = '123456789012345@lid';
+    expect((await call(`/v1/sessions/${t}/read`, { jid, id: 'A2' })).status).toBe(200);
+    expect(sock.reads).toEqual([{ remoteJid: jid, id: 'A2', fromMe: false }]);
+    expect((await call(`/v1/sessions/${t}/typing`, { jid, ms: 50 })).status).toBe(200);
+    expect(sock.presences).toEqual(['available', `composing:${jid}`]);
+    await wait(80);
+    expect(sock.presences.at(-1)).toBe(`paused:${jid}`);
+    const r = await call(`/v1/sessions/${t}/messages`, { jid, text: 'Temos sim!', typingMs: 30 });
+    expect(await r.json()).toMatchObject({ jid });
+    expect(sock.sent.at(-1)).toEqual({ jid, text: 'Temos sim!' });
+    expect(sock.presences.at(-1)).toBe(`paused:${jid}`);
+    await wait(150); // passou o tempo de "online": volta a offline (o celular notifica de novo)
+    expect(sock.presences.at(-1)).toBe('unavailable');
+    expect((await call(`/v1/sessions/${t}/react`, { jid, id: 'A2', emoji: '👍' })).status).toBe(
+      200,
+    );
+    expect(sock.reacts).toHaveLength(1);
+    expect((await call(`/v1/sessions/${t}/presence`, { state: 'available' })).status).toBe(200);
+    expect(sock.presences.at(-1)).toBe('available');
+    // validação
+    expect((await call(`/v1/sessions/${t}/read`, { jid: '120363@g.us', id: 'A2' })).status).toBe(
+      422,
+    );
+    expect((await call(`/v1/sessions/${t}/presence`, { state: 'x' })).status).toBe(422);
+    expect(
+      (await call(`/v1/sessions/${t}/messages`, { jid: 'status@broadcast', text: 'x' })).status,
+    ).toBe(422);
+    await mgr.logout(t);
+  });
+
+  it('cada restaurante com o próprio número, ao mesmo tempo e isolado dos outros', async () => {
+    // conexões de vários restaurantes abertas ao mesmo tempo, cada uma com o seu número
+    const lojas: { t: string; sock: FakeSocket; phone: string }[] = [];
+    for (const phone of ['5511911110001', '5521922220002', '5531933330003']) {
+      const t = randomUUID();
+      await mgr.start(t);
+      const sock = socks.at(-1)!;
+      sock.user = { id: `${phone}:7@s.whatsapp.net` };
+      sock.emit({ connection: 'open' });
+      lojas.push({ t, sock, phone });
+    }
+    // cada sessão tem a própria pasta cifrada e o próprio número
+    for (const l of lojas) {
+      expect(mgr.status(l.t)).toMatchObject({ status: 'connected', phone: l.phone });
+      expect(existsSync(tenantDir(dir, l.t))).toBe(true);
+    }
+    // envios em paralelo: cada um sai só pelo socket do seu restaurante
+    await Promise.all(
+      lojas.map((l, i) =>
+        call(`/v1/sessions/${l.t}/messages`, { to: '5511987654321', text: `loja ${i}` }),
+      ),
+    );
+    lojas.forEach((l, i) => expect(l.sock.sent.map((m) => m.text)).toEqual([`loja ${i}`]));
+    // mensagem recebida vem marcada com o restaurante do número que recebeu
+    inbound.length = 0;
+    lojas[1].sock.emitUpsert([
+      {
+        key: { remoteJid: '5511987654321@s.whatsapp.net', id: 'X1' },
+        message: { conversation: 'oi' },
+      },
+    ]);
+    expect(inbound.map((m) => m.tenantId)).toEqual([lojas[1].t]);
+    // queda e logout de um não mexem nos outros
+    const before = socks.length;
+    close(lojas[0].sock, 428);
+    await mgr.logout(lojas[2].t);
+    expect(existsSync(tenantDir(dir, lojas[2].t))).toBe(false);
+    expect(mgr.status(lojas[1].t).status).toBe('connected');
+    for (let i = 0; i < 100 && socks.length === before; i++) await wait(10);
+    const back = socks.at(-1)!;
+    back.user = lojas[0].sock.user;
+    back.emit({ connection: 'open' });
+    expect(mgr.status(lojas[0].t)).toMatchObject({ status: 'connected', phone: lojas[0].phone });
+    expect(lojas[1].sock.ended).toBe(false);
+    await Promise.all([mgr.logout(lojas[0].t), mgr.logout(lojas[1].t)]);
+  });
+
+  const close = (sock: FakeSocket, statusCode: number) =>
+    sock.emit({ connection: 'close', lastDisconnect: { error: { output: { statusCode } } } });
+});
+
+describe('entrega das mensagens recebidas para a API', () => {
+  const msg = (id: string): InboundMessage => ({
+    tenantId: randomUUID(),
+    id,
+    jid: '5511987654321@s.whatsapp.net',
+    from: '5511987654321',
+    kind: 'text',
+    text: 'oi',
+    pushName: null,
+    timestamp: new Date().toISOString(),
+  });
+
+  it('manda na ordem, com o token, e tenta de novo quando a API está fora', async () => {
+    const got: { id: string; auth: string | null }[] = [];
+    let fails = 1;
+    const fake = (async (_url: string, init: RequestInit) => {
+      if (fails-- > 0) return new Response('', { status: 503 });
+      const body = JSON.parse(String(init.body));
+      got.push({ id: body.id, auth: new Headers(init.headers).get('authorization') });
+      return new Response('{}', { status: 200 });
+    }) as unknown as typeof fetch;
+    const f = new InboundForwarder('http://api/x', TOKEN, undefined, [5, 5], fake);
+    f.push(msg('1'));
+    f.push(msg('2'));
+    for (let i = 0; i < 50 && got.length < 2; i++) await new Promise((r) => setTimeout(r, 5));
+    expect(got).toEqual([
+      { id: '1', auth: `Bearer ${TOKEN}` },
+      { id: '2', auth: `Bearer ${TOKEN}` },
+    ]);
+  });
+
+  it('desiste da mensagem recusada (4xx) ou depois das tentativas, sem travar a fila', async () => {
+    const seen: string[] = [];
+    const fake = (async (_u: string, init: RequestInit) => {
+      const id = JSON.parse(String(init.body)).id as string;
+      seen.push(id);
+      if (id === 'bad') return new Response('', { status: 422 });
+      if (id === 'down') throw new Error('ECONNREFUSED');
+      return new Response('{}', { status: 200 });
+    }) as unknown as typeof fetch;
+    const f = new InboundForwarder('http://api/x', TOKEN, undefined, [5], fake);
+    f.push(msg('bad'));
+    f.push(msg('down'));
+    f.push(msg('ok'));
+    for (let i = 0; i < 50 && f.pending; i++) await new Promise((r) => setTimeout(r, 5));
+    expect(seen).toEqual(['bad', 'down', 'down', 'ok']);
   });
 });
