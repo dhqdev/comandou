@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.72.0',
+    date: '2026-11-03',
+    title: 'Sininho de novidades na barra de cima',
+    summary:
+      'Um sininho no topo mostra o que saiu de novo no sistema, com o número do que você ainda não viu. Cada novidade fica ali por 2 dias e depois some sozinha.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Sininho na barra de cima, ao lado do som e do tema: um toque abre as novidades recentes com o que mudou em cada versão.',
+      },
+      {
+        tag: 'novo',
+        text: 'Contador do que ainda não foi visto neste aparelho. Ao abrir, tudo fica marcado como lido.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cada novidade some sozinha 2 dias depois do dia em que saiu, sem precisar limpar. O histórico completo continua em Novidades.',
+      },
+    ],
+  },
+  {
     version: '0.71.1',
     date: '2026-11-03',
     title:

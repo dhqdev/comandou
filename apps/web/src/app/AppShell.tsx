@@ -57,6 +57,7 @@ import {
   setTheme,
 } from '../design-system';
 import { GlobalSearch, GlobalSearchTrigger, useSearchHotkey } from '../features/GlobalSearch';
+import { NewsBell } from '../features/NewsBell';
 import { SoundControl } from '../features/SoundControl';
 import { openTeamChat, useChatUnread } from '../features/chat/TeamChat';
 import {
@@ -410,6 +411,7 @@ export function AppShell() {
             {location.pathname !== '/' && location.pathname !== '/pdv' && (
               <SupportButton className="topbar__support" />
             )}
+            <NewsBell />
             <SoundControl />
             <ThemeToggle />
           </>
