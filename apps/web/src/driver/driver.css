@@ -42,18 +42,45 @@
 .dgate .cm-hint svg {
   vertical-align: -2px;
 }
-.dshell__out {
+/* Botões do cabeçalho: mesmo formato do som e do tema (redondos, sem borda). */
+.dshell__btn {
+  position: relative;
   display: inline-grid;
   place-items: center;
+  flex: none;
   width: 40px;
   height: 40px;
   border: 0;
-  border-radius: var(--cm-radius-md);
+  border-radius: 50%;
   background: transparent;
   color: var(--cm-text-muted);
   cursor: pointer;
 }
-.dshell__out:hover {
-  background: var(--cm-surface-sunken);
-  color: var(--cm-text);
+@media (hover: hover) and (pointer: fine) {
+  .dshell__btn:hover {
+    background: color-mix(in srgb, var(--cm-text) 6%, transparent);
+    color: var(--cm-text);
+  }
+}
+.dshell__badge {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--cm-bg);
+  animation: cm-pop 0.24s var(--cm-ease) both;
+}
+.courier-page__head .cm-theme-toggle {
+  flex: none;
+  width: 40px;
+  height: 40px;
 }

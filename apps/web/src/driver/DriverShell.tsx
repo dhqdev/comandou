@@ -1,6 +1,7 @@
-import { LogOut } from 'lucide-react';
+import { LogOut, MessagesSquare } from 'lucide-react';
 import { type ReactNode, useEffect } from 'react';
 import { Alert, Mascot, Spinner, ThemeToggle } from '../design-system';
+import { openTeamChat, useChatUnread } from '../features/chat/TeamChat';
 import { SoundControl } from '../features/SoundControl';
 import { DriverGate } from './DriverGate';
 import '../app/shell.css';
@@ -17,6 +18,7 @@ export function DriverShell({
   error,
   loading,
   onLogout,
+  chat,
   children,
 }: {
   name: string | null;
@@ -24,6 +26,8 @@ export function DriverShell({
   error?: string | null;
   loading?: boolean;
   onLogout?: () => void;
+  /** Mostra o botão do chat da equipe (só no app com login; o link não tem chat). */
+  chat?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -35,10 +39,11 @@ export function DriverShell({
             <strong>{name ? `Olá, ${name.split(' ')[0]}` : 'Entregas'}</strong>
             <span className="cm-hint">{restaurant ?? 'Painel do entregador'}</span>
           </div>
+          {chat && <ChatButton />}
           <SoundControl only={['courier']} />
           <ThemeToggle />
           {onLogout && (
-            <button type="button" className="dshell__out" onClick={onLogout} aria-label="Sair">
+            <button type="button" className="dshell__btn" onClick={onLogout} aria-label="Sair">
               <LogOut size={18} />
             </button>
           )}
@@ -49,6 +54,26 @@ export function DriverShell({
         </DriverGate>
       </div>
     </main>
+  );
+}
+
+/** Chat da equipe no cabeçalho, com a bolinha de não lidas (no lugar do botão redondo flutuante). */
+function ChatButton() {
+  const unread = useChatUnread();
+  return (
+    <button
+      type="button"
+      className="dshell__btn"
+      onClick={() => openTeamChat()}
+      aria-label={unread > 0 ? `Chat da equipe, ${unread} não lidas` : 'Chat da equipe'}
+    >
+      <MessagesSquare size={18} />
+      {unread > 0 && (
+        <b className="dshell__badge" aria-hidden>
+          {unread > 99 ? '99+' : unread}
+        </b>
+      )}
+    </button>
   );
 }
 

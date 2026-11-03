@@ -6,12 +6,14 @@ import {
   LayoutGrid,
   LogOut,
   Medal,
+  MessagesSquare,
   WifiOff,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { type CSSProperties, useCallback, useEffect, useState } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router';
 import { Modal, ThemeToggle } from '../design-system';
 import { useAuth } from '../app/auth';
+import { openTeamChat, useChatUnread } from '../features/chat/TeamChat';
 import { api } from '../lib/api';
 import { useOnline } from '../lib/connectivity';
 import { useDebounced, useRealtime, useRealtimeStatus } from '../lib/realtime';
@@ -55,8 +57,11 @@ export function WaiterApp() {
     if (e.type === 'order.changed') reload();
   }, load);
 
-  // Lançando pedido ou dentro da comanda: tela cheia, sem as abas de baixo.
-  const focused = /^\/garcom\/(pedido|comanda)/.test(pathname);
+  const chatUnread = useChatUnread();
+  // Lançando pedido ou dentro da comanda: tela cheia, sem as abas de baixo. "/garcom/pedidos"
+  // (Meus pedidos) é uma aba como as outras e mantém a barra.
+  const focused = /^\/garcom\/(pedido|comanda)(\/|$)/.test(pathname);
+  const tab = NAV.findIndex((n) => pathname.startsWith(n.to));
   const level = waiterLevel(stats?.totalOrders ?? 0);
   const initials = (me?.user.name ?? '?')
     .split(' ')
@@ -130,13 +135,34 @@ export function WaiterApp() {
           </Routes>
         </main>
 
-        <nav className="wt-tabs" aria-label="Telas do garçom">
+        <nav
+          className="wt-tabs"
+          aria-label="Telas do garçom"
+          style={{ '--wt-tab': tab } as CSSProperties}
+          data-tab={tab >= 0 ? tab : undefined}
+        >
+          <span className="wt-tabs__pill" aria-hidden />
           {NAV.map((n) => (
             <NavLink key={n.to} to={n.to} className="wt-tabs__item">
               {n.icon}
               <span>{n.label}</span>
             </NavLink>
           ))}
+          {/* No celular o chat da equipe fica aqui, não num botão por cima dos preços. */}
+          <button
+            type="button"
+            className="wt-tabs__item"
+            onClick={() => openTeamChat()}
+            aria-label={chatUnread > 0 ? `Chat, ${chatUnread} não lidas` : 'Chat'}
+          >
+            <MessagesSquare />
+            <span>Chat</span>
+            {chatUnread > 0 && (
+              <b className="wt-tabs__badge" aria-hidden>
+                {chatUnread > 99 ? '99+' : chatUnread}
+              </b>
+            )}
+          </button>
           <button type="button" className="wt-tabs__item" onClick={() => setAccount(true)}>
             <CircleUserRound />
             <span>Conta</span>

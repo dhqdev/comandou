@@ -1637,15 +1637,21 @@
     right: 12px;
   }
 }
+/* Garçom (celular/tablet) e entregador: o chat abre pela aba "Chat" e pelo botão do cabeçalho;
+   um botão redondo por cima cobria preços e endereços. Só a prévia de mensagem nova aparece. */
 @media (max-width: 1023px) {
-  .tc-fab--waiter,
+  .tc-fab--waiter {
+    display: none;
+  }
   .tc-peek--waiter {
-    --fab-bottom: calc(64px + env(safe-area-inset-bottom) + 84px);
+    --fab-bottom: calc(64px + env(safe-area-inset-bottom) - 40px);
   }
 }
-.tc-fab--driver,
+.tc-fab--driver {
+  display: none;
+}
 .tc-peek--driver {
-  --fab-bottom: calc(env(safe-area-inset-bottom) + 18px);
+  --fab-bottom: calc(env(safe-area-inset-bottom) - 40px);
 }
 
 /* ---------------------------------------------------------------- celular: tela cheia */

@@ -1,7 +1,13 @@
 /* Painel do entregador: uma coluna, botões grandes, fácil de usar com uma mão. */
-.driver {
+.driver,
+.driver__view,
+.driver__runs {
   display: grid;
+  /* coluna que encolhe: botão largo ("Ir com Apple Mapas") não empurra a tela para o lado */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--cm-space-3);
+}
+.driver {
   max-width: 640px;
 }
 .driver__title {
@@ -31,6 +37,7 @@
 
 .run {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--cm-space-3);
   padding: var(--cm-space-4);
   border: 1px solid var(--cm-border);
@@ -117,31 +124,48 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Página do link do entregador (fora do sistema). */
+/* Moldura do app do entregador (com login ou pelo link): cabeçalho preso em cima, uma coluna. */
 .courier-page {
   min-height: 100dvh;
   background: var(--cm-bg);
   color: var(--cm-text);
-  padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 24px);
+  padding: 0 16px calc(env(safe-area-inset-bottom) + 24px);
 }
 .courier-page__inner {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--cm-space-3);
   max-width: 640px;
   margin: 0 auto;
 }
 .courier-page__head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
-  gap: var(--cm-space-3);
+  gap: 4px;
+  margin: 0 -16px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 10px 16px;
+  background: var(--cm-bg);
 }
 .courier-page__head > div {
   display: grid;
   flex: 1;
   min-width: 0;
+  margin-left: 8px;
 }
 .courier-page__head strong {
   font-size: var(--cm-text-lg);
+  letter-spacing: var(--cm-tracking-tight);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.courier-page__head .cm-hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Lista de entregadores (tela Entregas → Entregadores) */
@@ -156,7 +180,7 @@
 
 /* Mapa do entregador: ele, a loja e os destinos das corridas. */
 .driver__map {
-  height: min(42vh, 360px);
+  height: min(38vh, 320px);
 }
 .run__dist {
   display: inline-flex;
@@ -174,11 +198,14 @@
 /* Navegação: o app usado por último fica em destaque; os outros, ao lado. */
 .run__nav {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 8px;
 }
 .run__nav .cm-btn {
   justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .run__earn {
   display: flex;

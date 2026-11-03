@@ -177,6 +177,159 @@ html.cm-vt .cm-tabbar {
   }
 }
 
+/* ---------------------------------------------------------------- apps de rua e salão */
+/* Garçom (/garcom), entregador (/entregas) e as listas do Cardápio seguem o mesmo movimento do painel: a tela nova sobe
+   enquanto a antiga some, a barra de abas fica parada, listas entram em cascata uma vez e tudo que
+   se toca afunda na hora. Curto e discreto: são telas usadas o turno inteiro. */
+html.cm-vt .wt-main {
+  view-transition-name: cm-main;
+}
+html.cm-vt .wt-tabs {
+  view-transition-name: cm-tabbar;
+}
+:is(
+    .wt-grid,
+    .wt-list,
+    .wt-kpis,
+    .wt-summary,
+    .wt-quick,
+    .wt-challenges,
+    .wt-seals,
+    .wt-admin__list
+  )
+  > *,
+:is(.driver__runs, .driver__done, .earn, .earn__list, .dgate__steps, .cat-list, .mn-items tbody)
+  > * {
+  animation: cm-rise 0.28s cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
+}
+:is(
+    .wt-grid,
+    .wt-list,
+    .wt-kpis,
+    .wt-summary,
+    .wt-quick,
+    .wt-challenges,
+    .wt-seals,
+    .wt-admin__list
+  )
+  > :nth-child(2),
+:is(.driver__runs, .driver__done, .earn, .earn__list, .dgate__steps, .cat-list, .mn-items tbody)
+  > :nth-child(2) {
+  animation-delay: 0.03s;
+}
+:is(
+    .wt-grid,
+    .wt-list,
+    .wt-kpis,
+    .wt-summary,
+    .wt-quick,
+    .wt-challenges,
+    .wt-seals,
+    .wt-admin__list
+  )
+  > :nth-child(3),
+:is(.driver__runs, .driver__done, .earn, .earn__list, .dgate__steps, .cat-list, .mn-items tbody)
+  > :nth-child(3) {
+  animation-delay: 0.06s;
+}
+:is(
+    .wt-grid,
+    .wt-list,
+    .wt-kpis,
+    .wt-summary,
+    .wt-quick,
+    .wt-challenges,
+    .wt-seals,
+    .wt-admin__list
+  )
+  > :nth-child(4),
+:is(.driver__runs, .driver__done, .earn, .earn__list, .dgate__steps, .cat-list, .mn-items tbody)
+  > :nth-child(4) {
+  animation-delay: 0.09s;
+}
+:is(
+    .wt-grid,
+    .wt-list,
+    .wt-kpis,
+    .wt-summary,
+    .wt-quick,
+    .wt-challenges,
+    .wt-seals,
+    .wt-admin__list
+  )
+  > :nth-child(5),
+:is(.driver__runs, .driver__done, .earn, .earn__list, .dgate__steps, .cat-list, .mn-items tbody)
+  > :nth-child(5) {
+  animation-delay: 0.12s;
+}
+:is(
+    .wt-grid,
+    .wt-list,
+    .wt-kpis,
+    .wt-summary,
+    .wt-quick,
+    .wt-challenges,
+    .wt-seals,
+    .wt-admin__list
+  )
+  > :nth-child(n + 6),
+:is(.driver__runs, .driver__done, .earn, .earn__list, .dgate__steps, .cat-list, .mn-items tbody)
+  > :nth-child(n + 6) {
+  animation-delay: 0.15s;
+}
+/* Troca de aba dentro da tela (Corridas/Meus ganhos) e de passo no cartão da corrida. */
+.driver__view,
+.run__step {
+  animation: cm-enter 0.24s var(--cm-ease) both;
+}
+/* Toque: cartões e linhas afundam de leve; a volta é com mola. */
+:is(
+  .wt-table,
+  .wt-row,
+  .wt-new-tab,
+  .wt-quick__opt,
+  .wt-product__main,
+  .wt-ticket__head--btn,
+  .wt-cartbar,
+  .wt-icon-btn,
+  .run__addr,
+  .dshell__btn
+) {
+  transition-property: background-color, border-color, color, box-shadow, transform;
+  transition-duration:
+    var(--cm-dur-fast), var(--cm-dur-fast), var(--cm-dur-fast), var(--cm-dur-fast), 0.28s;
+  transition-timing-function:
+    var(--cm-ease), var(--cm-ease), var(--cm-ease), var(--cm-ease), var(--cm-ease-liquid);
+  -webkit-tap-highlight-color: transparent;
+}
+:is(
+    .wt-table,
+    .wt-row,
+    .wt-new-tab,
+    .wt-quick__opt,
+    .wt-ticket__head--btn,
+    .wt-cartbar,
+    .run__addr
+  ):active:not(:disabled) {
+  transform: scale(0.98);
+  transition-duration: 0.08s;
+}
+:is(.wt-icon-btn, .dshell__btn):active {
+  transform: scale(0.92);
+  transition-duration: 0.08s;
+}
+.wt-product__main:active:not(:disabled) {
+  transform: scale(0.99);
+  transition-duration: 0.08s;
+}
+/* Quantidade no produto e barra do pedido aparecem com um pulo curto, não de uma vez. */
+.wt-stepper {
+  animation: cm-pop 0.22s var(--cm-ease-liquid) both;
+}
+.wt-dock {
+  animation: cm-enter 0.26s var(--cm-ease) both;
+}
+
 /* ---------------------------------------------------------------- reduzir movimento */
 @media (prefers-reduced-motion: reduce) {
   .cm-btn:active:not(:disabled),
@@ -186,8 +339,35 @@ html.cm-vt .cm-tabbar {
   .cm-frame__content
     :is(.stat-grid, .st-kpis, .rp-kpis, .rp-stats, .dl-kpis, .adm-grid, .rp-grid, .st-grid)
     > *,
-  :is(.stat__value, .st-kpi__value, .rp-kpi__value, .dl-kpi__value) {
+  :is(.stat__value, .st-kpi__value, .rp-kpi__value, .dl-kpi__value),
+  :is(
+      .wt-grid,
+      .wt-list,
+      .wt-kpis,
+      .wt-summary,
+      .wt-quick,
+      .wt-challenges,
+      .wt-seals,
+      .wt-admin__list
+    )
+    > *,
+  :is(.driver__runs, .driver__done, .earn, .earn__list, .dgate__steps, .cat-list, .mn-items tbody)
+    > *,
+  :is(.driver__view, .run__step, .wt-stepper, .wt-dock) {
     animation: cm-fade 0.14s ease both;
+  }
+  :is(
+    .wt-table,
+    .wt-row,
+    .wt-new-tab,
+    .wt-quick__opt,
+    .wt-product__main,
+    .wt-cartbar,
+    .run__addr
+  ):active,
+  :is(.wt-icon-btn, .dshell__btn):active,
+  .wt-tabs__item:active svg {
+    transform: none;
   }
 }
 

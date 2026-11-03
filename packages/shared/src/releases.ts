@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.69.2',
+    date: '2026-11-03',
+    title: 'App do garçom, do entregador e Cardápio mais bonitos e mais fluidos no celular',
+    summary:
+      'As telas de rua e de salão seguem o mesmo padrão do painel: troca de tela suave, listas que entram em cascata, toque que responde na hora e nada escondido atrás do botão do chat.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Garçom: em "Meus pedidos" a barra de baixo sumia; agora fica em todas as abas.',
+      },
+      {
+        tag: 'correção',
+        text: 'Entregador e garçom (Desafios): a tela não passa mais da largura do celular nem corta botões na direita.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O chat da equipe virou a aba "Chat" no garçom e um botão no cabeçalho do entregador, com a bolinha de não lidas. O botão redondo não cobre mais preços nem endereços.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Garçom: a aba ativa ganha um fundo que desliza de uma aba para outra; troca de tela, mesas, pedidos e desafios entram com movimento curto.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Entregador: cabeçalho fixo no topo, botões "Ligar" e "WhatsApp" com nome, e o código de entrega aparece com transição.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cardápio no celular: as categorias viram fichas com foto que rolam para o lado e os itens aparecem logo abaixo, sem rolar a lista inteira.',
+      },
+    ],
+  },
+  {
     version: '0.69.0',
     date: '2026-11-03',
     title:

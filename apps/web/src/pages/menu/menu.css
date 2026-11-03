@@ -487,3 +487,82 @@
     display: none;
   }
 }
+
+/* Categorias no celular/tablet: trilho de fichas que rola para o lado (como no app do garçom), com
+   os itens logo abaixo. Antes era uma lista alta e o item escolhido ficava fora da tela. */
+.cat-item {
+  transition:
+    background-color var(--cm-dur) var(--cm-ease),
+    color var(--cm-dur) var(--cm-ease),
+    transform 0.28s var(--cm-ease-liquid);
+  -webkit-tap-highlight-color: transparent;
+}
+.cat-item:active {
+  transform: scale(0.98);
+  transition-duration: 0.08s;
+}
+@media (max-width: 1024px) {
+  .menu-grid {
+    gap: var(--cm-space-3);
+  }
+  .menu-grid > .cm-card:first-child .cm-card__header {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+  .menu-grid .cat-list {
+    display: flex;
+    gap: 8px;
+    padding: 12px var(--cm-space-4) 14px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: var(--cm-space-4);
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+  }
+  .menu-grid .cat-list::-webkit-scrollbar {
+    display: none;
+  }
+  .menu-grid .cat-list > li {
+    flex: none;
+    position: relative;
+    gap: 0 !important;
+    scroll-snap-align: start;
+  }
+  /* A foto fica dentro da ficha, à esquerda; tocar nela troca a foto, no nome escolhe. */
+  .menu-grid .cat-list > li > .imgpick {
+    position: absolute;
+    left: 4px;
+    top: 4px;
+    z-index: 1;
+    width: 32px !important;
+  }
+  .menu-grid .cat-list > li > .imgpick .imgpick__btn {
+    border-radius: 50%;
+  }
+  .menu-grid .cat-list > li:has(> .imgpick) .cat-item {
+    padding-left: 42px;
+  }
+  .menu-grid .cat-item {
+    gap: 8px;
+    min-height: 40px;
+    padding: 0 6px 0 14px;
+    border: 1px solid var(--cm-border);
+    border-radius: var(--cm-radius-full);
+    background: var(--cm-surface);
+    color: var(--cm-text-muted);
+    white-space: nowrap;
+  }
+  .menu-grid .cat-item .cm-badge {
+    min-width: 22px;
+    justify-content: center;
+    border-radius: var(--cm-radius-full);
+  }
+  .menu-grid .cat-item[aria-current='true'] {
+    /* escolha marcada: tom suave, não bloco de cor (padrão das telas) */
+    border-color: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
+    background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+    color: var(--cm-brand-700);
+  }
+}

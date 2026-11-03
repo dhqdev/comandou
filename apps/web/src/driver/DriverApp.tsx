@@ -59,6 +59,7 @@ export function DriverApp() {
             error={error}
             loading={!data}
             onLogout={() => void logout()}
+            chat
           >
             {data && (
               <DriverPanel

@@ -93,11 +93,13 @@ export function DriverPanel({
           ]}
         />
       )}
-      {tab === 'earnings' && earnings ? (
-        <CourierEarnings load={earnings} />
-      ) : (
-        <Runs deliveries={deliveries} actions={actions} onChanged={onChanged} store={store} />
-      )}
+      <div key={tab} className="driver__view">
+        {tab === 'earnings' && earnings ? (
+          <CourierEarnings load={earnings} />
+        ) : (
+          <Runs deliveries={deliveries} actions={actions} onChanged={onChanged} store={store} />
+        )}
+      </div>
     </div>
   );
 }
@@ -160,17 +162,19 @@ function Runs({
           description="Quando o restaurante despachar um pedido para você, ele aparece aqui."
         />
       ) : (
-        out.map((d) => (
-          <RunCard
-            key={d.id}
-            d={d}
-            me={me}
-            nav={nav}
-            onNav={pickNav}
-            actions={actions}
-            onChanged={onChanged}
-          />
-        ))
+        <div className="driver__runs">
+          {out.map((d) => (
+            <RunCard
+              key={d.id}
+              d={d}
+              me={me}
+              nav={nav}
+              onNav={pickNav}
+              actions={actions}
+              onChanged={onChanged}
+            />
+          ))}
+        </div>
       )}
 
       {done.length > 0 && (
@@ -306,7 +310,7 @@ function RunCard({
             href={`tel:${digits(d.customerPhone)}`}
             aria-label="Ligar para o cliente"
           >
-            <Phone size={16} />
+            <Phone size={16} /> Ligar
           </a>
           <a
             className="cm-btn cm-btn--secondary"
@@ -315,12 +319,12 @@ function RunCard({
             rel="noreferrer"
             aria-label="WhatsApp do cliente"
           >
-            <MessageCircle size={16} />
+            <MessageCircle size={16} /> WhatsApp
           </a>
         </div>
       )}
       {step === 'fail' ? (
-        <div className="inline-form">
+        <div key="fail" className="inline-form run__step">
           <TextField
             label="Por que não foi entregue?"
             value={reason}
@@ -345,7 +349,8 @@ function RunCard({
         </div>
       ) : step === 'code' ? (
         <form
-          className="run__code"
+          key="code"
+          className="run__code run__step"
           onSubmit={(e) => {
             e.preventDefault();
             if (code.length === 4)
