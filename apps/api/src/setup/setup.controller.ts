@@ -30,6 +30,12 @@ const Sector = z.object({
   warnAfterMin: z.number().int().min(0).max(600).optional(),
   lateAfterMin: z.number().int().min(0).max(600).optional(),
   active: z.boolean().optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .nullable()
+    .optional(),
+  position: z.number().int().min(0).max(10_000).optional(),
 });
 const Table = z.object({
   label: z.string().trim().min(1).max(20),
@@ -54,7 +60,7 @@ const Register = z.object({
   active: z.boolean().optional(),
 });
 
-const SECTOR_COLS = `id, name, channels, warn_after_min AS "warnAfterMin", late_after_min AS "lateAfterMin", active`;
+export const SECTOR_COLS = `id, name, channels, warn_after_min AS "warnAfterMin", late_after_min AS "lateAfterMin", active, color, position`;
 const TABLE_COLS = `id, label, seats, area, position, shape, active`;
 
 /** Cadastros operacionais: setores de produção (KDS), mesas e terminais de caixa. */
@@ -70,7 +76,7 @@ export class SetupController {
   @RequirePermission('orders:read', 'kitchen:operate')
   sectors(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
     return this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
-      q(tx, `SELECT ${SECTOR_COLS} FROM production_sectors ORDER BY name`),
+      q(tx, `SELECT ${SECTOR_COLS} FROM production_sectors ORDER BY position, name`),
     );
   }
 
@@ -85,10 +91,19 @@ export class SetupController {
     return this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
       const row = await one<{ id: string }>(
         tx,
-        `INSERT INTO production_sectors (tenant_id, name, channels, warn_after_min, late_after_min)
-         VALUES ($1, $2, COALESCE($3, ARRAY['counter','table','delivery','pickup']), COALESCE($4, 10), COALESCE($5, 20))
+        `INSERT INTO production_sectors (tenant_id, name, channels, warn_after_min, late_after_min, color, position)
+         VALUES ($1, $2, COALESCE($3, ARRAY['counter','table','delivery','pickup']), COALESCE($4, 10), COALESCE($5, 20), $6,
+                 COALESCE($7, (SELECT COALESCE(max(position) + 1, 0) FROM production_sectors)))
          RETURNING ${SECTOR_COLS}`,
-        [t.id, b.name, b.channels ?? null, b.warnAfterMin ?? null, b.lateAfterMin ?? null],
+        [
+          t.id,
+          b.name,
+          b.channels ?? null,
+          b.warnAfterMin ?? null,
+          b.lateAfterMin ?? null,
+          b.color ?? null,
+          b.position ?? null,
+        ],
       );
       await this.audit.record(tx, {
         tenantId: t.id,
@@ -118,7 +133,8 @@ export class SetupController {
         `UPDATE production_sectors SET
            name = COALESCE($2, name), channels = COALESCE($3, channels),
            warn_after_min = COALESCE($4, warn_after_min), late_after_min = COALESCE($5, late_after_min),
-           active = COALESCE($6, active)
+           active = COALESCE($6, active),
+           color = CASE WHEN $7::boolean THEN $8 ELSE color END, position = COALESCE($9, position)
          WHERE id = $1 RETURNING ${SECTOR_COLS}`,
         [
           id,
@@ -127,6 +143,9 @@ export class SetupController {
           b.warnAfterMin ?? null,
           b.lateAfterMin ?? null,
           b.active ?? null,
+          b.color !== undefined,
+          b.color ?? null,
+          b.position ?? null,
         ],
       );
       if (r)

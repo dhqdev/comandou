@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client';
 export type RealtimeEvent =
   | { type: 'order.changed'; orderId: string; status?: string }
   | { type: 'kitchen.changed'; orderId: string }
+  | { type: 'kitchen.settings' }
   | { type: 'tab.changed'; tabId: string }
   | { type: 'cash.changed'; sessionId: string }
   | { type: 'menu.changed' }

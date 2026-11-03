@@ -161,12 +161,23 @@ export async function seedDemoData(
 
   // ------------------------------------------------------------------ cardápio
   const sectorId: Record<string, string> = {};
-  for (const s of C.sectors) {
+  // Cada cozinha com uma cor e na ordem do catálogo (é assim que aparece na escolha da tela).
+  const sectorColors = ['#e23a00', '#2563eb', '#16a34a', '#7c3aed', '#d97706', '#0d9488'];
+  for (const [i, s] of C.sectors.entries()) {
     sectorId[s.key] = randomUUID();
     await c.query(
-      `INSERT INTO production_sectors (id, tenant_id, name, channels, warn_after_min, late_after_min)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [sectorId[s.key], T, s.name, [...s.channels], s.warn, s.late],
+      `INSERT INTO production_sectors (id, tenant_id, name, channels, warn_after_min, late_after_min, color, position)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        sectorId[s.key],
+        T,
+        s.name,
+        [...s.channels],
+        s.warn,
+        s.late,
+        sectorColors[i % sectorColors.length],
+        i,
+      ],
     );
   }
   const categoryId: Record<string, string> = {};

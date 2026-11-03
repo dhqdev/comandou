@@ -453,6 +453,22 @@ describe('Cozinha (KDS)', () => {
     expect(bump.body.orderStatus).toBe('ready');
   });
 
+  it('config da tela: cozinhas ativas e o que aparece; imprimir sem impressora avisa', async () => {
+    const cfg = (await get('kitchenA', '/kitchen/config').expect(200)).body;
+    expect(cfg.kitchens.some((k: { id: string }) => k.id === sector.id)).toBe(true);
+    expect(cfg.display).toMatchObject({ askKitchen: true, channelTabs: true });
+    await get('waiterA', '/kitchen/config').expect(403);
+    const o = (
+      await post('waiterA', '/orders', {
+        channel: 'counter',
+        items: [{ productId: fx.prodA, quantity: 1, optionIds: [byName(sizeGroup, 'Simples')] }],
+      }).expect(201)
+    ).body;
+    if (!cfg.hasPrinter)
+      await post('kitchenA', `/kitchen/orders/${o.id}/print`, { sectorId: sector.id }).expect(409);
+    await post('waiterA', `/kitchen/orders/${o.id}/print`, {}).expect(403);
+  });
+
   it('kitchen de B não mexe em item de A', async () => {
     const o = (
       await post('waiterA', '/orders', {

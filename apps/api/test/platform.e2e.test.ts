@@ -973,6 +973,57 @@ describe('Controle do restaurante e acesso de suporte', () => {
   });
 });
 
+describe('Cozinha pelo Super Admin', () => {
+  it('cadastra cozinhas com cor e tipos de pedido e decide o que a tela mostra', async () => {
+    const base = (await pget(`/tenants/${fx.tenantA}/kitchen`).expect(200)).body;
+    expect(base.display.timer).toBe(true);
+    const body = {
+      name: 'Chapa',
+      channels: ['delivery', 'counter'],
+      warnAfterMin: 8,
+      lateAfterMin: 15,
+      color: '#2563eb',
+      active: true,
+      position: 0,
+    };
+    await psend('post', `/tenants/${fx.tenantA}/kitchen/sectors`, {
+      ...body,
+      color: 'azul',
+    }).expect(400);
+    const created = (
+      await psend('post', `/tenants/${fx.tenantA}/kitchen/sectors`, body).expect(201)
+    ).body;
+    const chapa = created.kitchens.find((k: { name: string }) => k.name === 'Chapa');
+    expect(chapa).toMatchObject({ color: '#2563eb', channels: ['delivery', 'counter'] });
+    await psend('post', `/tenants/${fx.tenantA}/kitchen/sectors`, {
+      ...body,
+      name: 'chapa',
+    }).expect(409);
+    await psend('put', `/tenants/${fx.tenantA}/kitchen/sectors/${chapa.id}`, {
+      ...body,
+      name: 'Chapa quente',
+    }).expect(200);
+    await psend('put', `/tenants/${fx.tenantA}/kitchen/display`, { photos: false }).expect(200);
+    await psend('put', `/tenants/${fx.tenantA}/kitchen/display`, { hack: true }).expect(400);
+    const after = (await pget(`/tenants/${fx.tenantA}/kitchen`).expect(200)).body;
+    expect(after.display).toMatchObject({ photos: false, timer: true });
+
+    // A tela da cozinha do restaurante lê o que o Super Admin decidiu; o B não vê nada do A.
+    const { cookie } = await tenantLogin(HOST_A, 'admin@pf-a.test');
+    const cfg = (await tget(HOST_A, cookie, '/kitchen/config').expect(200)).body;
+    expect(cfg.display.photos).toBe(false);
+    expect(cfg.kitchens.map((k: { name: string }) => k.name)).toContain('Chapa quente');
+    expect(cfg.hasPrinter).toBe(false);
+    const b = (await pget(`/tenants/${fx.tenantB}/kitchen`).expect(200)).body;
+    expect(b.kitchens.some((k: { name: string }) => k.name === 'Chapa quente')).toBe(false);
+    expect(b.display.photos).toBe(true);
+    const [log] = await ownerQuery<{ action: string }>(
+      `SELECT action FROM platform_audit_log WHERE action LIKE 'platform.tenant.kitchen%' ORDER BY id DESC LIMIT 1`,
+    );
+    expect(log!.action).toBe('platform.tenant.kitchen_display');
+  });
+});
+
 describe('Servidor (agente)', () => {
   it('situação e espaço do Docker pelo agente; sem sessão do painel, 401', async () => {
     await pget('/server', '').expect(401);

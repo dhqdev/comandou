@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.76.0',
+    date: '2026-11-03',
+    title: 'Cozinha com várias telas: Bar, Chapa, Forno...',
+    summary:
+      'Cada tela da cozinha escolhe qual cozinha mostra e guarda a escolha. Os pedidos chegam separados por Delivery, Mesa, Balcão e Retirada, em colunas mais fáceis de ler, com cronômetro, impressão da comanda e ajustes de tema, cor, layout e som no próprio aparelho.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Ao abrir a cozinha, o aparelho pergunta qual cozinha vai exibir (Bar, Chapa, Fritadeira...) e lembra a escolha. Dá para trocar a qualquer momento pela seta ao lado do nome.',
+      },
+      {
+        tag: 'novo',
+        text: 'Abas por tipo de pedido (Todos, Delivery, Mesa, Balcão, Retirada) com a contagem de cada uma, e só os tipos que aquela cozinha recebe.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Colunas A fazer, Preparando e Pronto redesenhadas: número grande, tipo do pedido, mesa ou cliente, cronômetro que muda de cor no aviso e no atraso, e botões "Iniciar preparo" e "Tudo pronto" no próprio cartão.',
+      },
+      {
+        tag: 'novo',
+        text: 'Imprimir a comanda pelo cartão: vai para a impressora da loja quando há uma ligada, ou sai pela impressora do próprio aparelho, só com os itens daquela cozinha.',
+      },
+      {
+        tag: 'novo',
+        text: 'Configurações da tela: tema claro ou escuro, cor de destaque, layout em colunas ou lista, tamanho do texto, som com volume e teste, onde imprimir e de quanto em quanto tempo conferir a fila.',
+      },
+      {
+        tag: 'novo',
+        text: 'Topo com tempo médio de espera e quantos pedidos estão atrasados, relógio e faixa de baixo com o total de cada item ainda por fazer.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin: aba Cozinha em cada restaurante para cadastrar as cozinhas com cor, escolher que tipo de pedido cada uma recebe e ligar ou desligar o que aparece na tela (cronômetro, fotos, adicionais, observações, coluna Pronto, impressão...). Vale na hora para as telas abertas.',
+      },
+    ],
+  },
+  {
     version: '0.75.0',
     date: '2026-11-03',
     title: 'Assistente de IA: o gerente configura como a IA atende os clientes',

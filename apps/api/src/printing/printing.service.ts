@@ -112,6 +112,11 @@ export class PrintingService {
     return { token, hash: hashToken(token) };
   }
 
+  /** Há impressora da loja ligada (agente ativo)? A tela da cozinha usa para escolher onde imprimir. */
+  hasPrinter(tx: Tx) {
+    return this.hasActiveAgent(tx);
+  }
+
   private async hasActiveAgent(tx: Tx) {
     return !!(await one(tx, `SELECT 1 FROM print_agents WHERE active LIMIT 1`));
   }
@@ -845,8 +850,12 @@ export class PrintingService {
     return n;
   }
 
-  /** Reimpressão (comanda de cozinha) ou conferência de conta, sob demanda. */
-  async printOrder(ctx: Ctx, orderId: string, kind: 'kitchen' | 'receipt') {
+  /**
+   * Reimpressão (comanda de cozinha) ou conferência de conta, sob demanda.
+   * `onlySector` (só comanda de cozinha): imprime só os itens daquela cozinha ('none' = itens
+   * sem cozinha). É o que a tela do KDS usa, para cada cozinha imprimir só o que ela faz.
+   */
+  async printOrder(ctx: Ctx, orderId: string, kind: 'kitchen' | 'receipt', onlySector?: string) {
     const res = await this.db.withTenant(ctx, async (tx) => {
       if (!(await this.hasActiveAgent(tx)))
         throw new ConflictException('Nenhum agente de impressão ativo. Configure em Impressão.');
@@ -866,7 +875,12 @@ export class PrintingService {
             WHERE i.order_id = $1 AND i.status <> 'cancelled'`,
           [orderId],
         );
-        for (const s of sectors) {
+        const wanted =
+          onlySector === undefined
+            ? sectors
+            : sectors.filter((s) => s.sector_id === (onlySector === 'none' ? null : onlySector));
+        if (!wanted.length) throw new ConflictException('Nada desta cozinha para imprimir');
+        for (const s of wanted) {
           const name = s.name ?? 'Cozinha';
           const t = await this.kitchenTicket(tx, orderId, s.sector_id, name);
           if (t.count)

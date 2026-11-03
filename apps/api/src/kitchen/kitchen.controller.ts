@@ -31,6 +31,24 @@ export class KitchenController {
     return this.kitchen.board(ctxOf(t, u), f.sectorId);
   }
 
+  @Get('config')
+  @RequirePermission('kitchen:operate', 'orders:manage')
+  config(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.kitchen.config(ctxOf(t, u));
+  }
+
+  @Post('orders/:id/print')
+  @RequirePermission('kitchen:operate')
+  print(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(z.object({ sectorId: SectorParam }).default({}))) b: { sectorId?: string },
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.kitchen.print(ctxOf(t, u, req), id, b.sectorId);
+  }
+
   @Post('items/:id/:action')
   @RequirePermission('kitchen:operate')
   item(

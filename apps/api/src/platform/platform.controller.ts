@@ -65,6 +65,11 @@ import { PlatformDb, platformAudit } from './platform-db.service';
 import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
 import { BillingService } from '../billing/billing.service';
 import { PlatformSitesService } from './platform-sites.service';
+import {
+  KitchenDisplayBody,
+  KitchenSectorBody,
+  PlatformKitchenService,
+} from './platform-kitchen.service';
 
 const actor = (req: Request): Actor => ({ admin: req.platformAdmin!, ip: req.ip });
 
@@ -155,7 +160,42 @@ export class PlatformController {
     private readonly dbServers: PlatformDbServersService,
     private readonly billing: BillingService,
     private readonly sites: PlatformSitesService,
+    private readonly kitchen: PlatformKitchenService,
   ) {}
+
+  /** Cozinhas do restaurante e o que as telas da cozinha mostram (aba "Cozinha"). */
+  @Get('tenants/:id/kitchen')
+  kitchenSettings(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.kitchen.get(id);
+  }
+
+  @Put('tenants/:id/kitchen/display')
+  kitchenDisplay(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(KitchenDisplayBody)) b: z.infer<typeof KitchenDisplayBody>,
+    @Req() req: Request,
+  ) {
+    return this.kitchen.saveDisplay(id, b, actor(req));
+  }
+
+  @Post('tenants/:id/kitchen/sectors')
+  kitchenCreate(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(KitchenSectorBody)) b: z.infer<typeof KitchenSectorBody>,
+    @Req() req: Request,
+  ) {
+    return this.kitchen.createSector(id, b, actor(req));
+  }
+
+  @Put('tenants/:id/kitchen/sectors/:sectorId')
+  kitchenUpdate(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('sectorId', new ParseUUIDPipe()) sectorId: string,
+    @Body(new ZodPipe(KitchenSectorBody)) b: z.infer<typeof KitchenSectorBody>,
+    @Req() req: Request,
+  ) {
+    return this.kitchen.updateSector(id, sectorId, b, actor(req));
+  }
 
   /** Status em tempo real de cada restaurante (site, domínios, banco, WhatsApp, backup). */
   @Get('sites')

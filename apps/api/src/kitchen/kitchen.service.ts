@@ -5,12 +5,13 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { roleHas } from '@comandou/shared';
+import { normalizeKitchenDisplay, roleHas } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 import { OrderRow, OrdersService } from '../orders/orders.service';
+import { PrintingService } from '../printing/printing.service';
 import { RealtimeService } from '../realtime/realtime.service';
 
 type ItemAction = 'start' | 'ready' | 'reopen';
@@ -28,7 +29,33 @@ export class KitchenService {
     private readonly audit: AuditService,
     private readonly orders: OrdersService,
     private readonly realtime: RealtimeService,
+    private readonly printing: PrintingService,
   ) {}
+
+  /**
+   * O que a tela da cozinha precisa para montar: as cozinhas ativas (para o aparelho escolher),
+   * o que o Super Admin deixou aparecer e se há impressora da loja ligada.
+   */
+  config(ctx: Ctx) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const [kitchens, settings, hasPrinter] = await Promise.all([
+        q(
+          tx,
+          `SELECT id, name, channels, color, warn_after_min AS "warnAfterMin", late_after_min AS "lateAfterMin"
+             FROM production_sectors WHERE active ORDER BY position, name`,
+        ),
+        one<{ display: unknown }>(tx, `SELECT display FROM kitchen_settings`),
+        this.printing.hasPrinter(tx),
+      ]);
+      return { kitchens, display: normalizeKitchenDisplay(settings?.display), hasPrinter };
+    });
+  }
+
+  /** Reimprime a comanda pela impressora da loja, só com os itens desta cozinha. */
+  async print(ctx: Ctx, orderId: string, sectorId?: string) {
+    const jobs = await this.printing.printOrder(ctx, orderId, 'kitchen', sectorId);
+    return { queued: jobs.length };
+  }
 
   /** Fila do setor (sectorId = 'none' para itens sem setor). Inclui limites de aviso/atraso. */
   board(ctx: Ctx, sectorId?: string) {
@@ -41,9 +68,10 @@ export class KitchenService {
               warnAfterMin: number;
               lateAfterMin: number;
               channels: string[];
+              color: string | null;
             }>(
               tx,
-              `SELECT id, name, warn_after_min AS "warnAfterMin", late_after_min AS "lateAfterMin", channels FROM production_sectors WHERE id = $1`,
+              `SELECT id, name, warn_after_min AS "warnAfterMin", late_after_min AS "lateAfterMin", channels, color FROM production_sectors WHERE id = $1`,
               [sectorId],
             )
           : undefined;

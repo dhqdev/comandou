@@ -16,6 +16,7 @@ import { ContractSignController, ContractsController } from './contracts/contrac
 import { ContractsService } from './contracts/contracts.service';
 import { PlatformSitesService } from './platform-sites.service';
 import { GatewayClient } from '../messaging/gateway.client';
+import { PlatformKitchenService } from './platform-kitchen.service';
 
 /** Painel Super Admin (admin.<domínio base>): caminho privilegiado separado e auditado. */
 @Module({
@@ -36,6 +37,7 @@ import { GatewayClient } from '../messaging/gateway.client';
     PlatformDbServersService,
     ContractsService,
     PlatformSitesService,
+    PlatformKitchenService,
     GatewayClient,
     ServerAgentClient,
     ReleaseFeed,

@@ -24,6 +24,7 @@ import { TenantOverview } from './TenantOverview';
 import { DatabasePanel, DatabaseProgress, dbBusy } from './TenantDatabase';
 import { NewTenantModal, ProfilePanel, TIMEZONES } from './NewTenant';
 import { ContractsPanel } from './TenantContracts';
+import { KitchenPanel } from './TenantKitchen';
 import type { Plan, SupportLink, TeamMember, TenantDetail, TenantRow } from './types';
 import { ago, Dot, Level, Monogram, MoreMenu, PageHead, Tabs, Tag } from './ui';
 
@@ -261,6 +262,7 @@ type DetailTab =
   | 'contract'
   | 'database'
   | 'operation'
+  | 'kitchen'
   | 'usage'
   | 'team'
   | 'domains'
@@ -300,7 +302,11 @@ export function TenantDetailPage() {
   // O e-mail "falta a sua assinatura" abre direto na aba Contrato (?aba=contrato&contrato=<id>).
   const [params] = useSearchParams();
   const [tab, setTab] = useState<DetailTab>(
-    params.get('aba') === 'contrato' ? 'contract' : 'overview',
+    params.get('aba') === 'contrato'
+      ? 'contract'
+      : params.get('aba') === 'cozinha'
+        ? 'kitchen'
+        : 'overview',
   );
   const [sheetKind, setSheetKind] = useState<
     'suspended' | 'provisioned' | 'rename' | 'sessions' | null
@@ -475,6 +481,7 @@ export function TenantDetailPage() {
             ['contract', 'Contrato'],
             ['database', 'Banco de dados'],
             ['operation', 'Operação'],
+            ['kitchen', 'Cozinha'],
             ['usage', 'Consumo'],
             ['team', `Equipe (${team.data?.length ?? '…'})`],
             ['domains', `Domínios (${t.domains.length})`],
@@ -551,6 +558,7 @@ export function TenantDetailPage() {
         )}
         {tab === 'database' && <DatabasePanel t={t} onChanged={setData} />}
         {tab === 'operation' && <OperationPanel id={t.id} team={team.data} />}
+        {tab === 'kitchen' && <KitchenPanel t={t} />}
         {tab === 'usage' && <ConsumptionPanel id={t.id} />}
 
         {tab === 'team' && (

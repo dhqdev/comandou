@@ -374,6 +374,14 @@ html.cm-vt .wt-tabs {
 /* ---------------------------------------------------------------- escuro: texto sobre cor viva */
 /* No escuro os tons de status são claros e vivos: texto branco por cima não se lê (abaixo de 3:1).
    Contadores, o aviso de cancelamento da cozinha e o botão verde passam a usar texto escuro. */
-:root[data-theme='dark'] :is(.kds__count, .board__count, .kds-card__alert, .cm-btn--success) {
+:root[data-theme='dark']
+  :is(
+    .board__count,
+    .kds-card__alert,
+    .kds-flag,
+    [data-status='preparing'] .kds-item__icon,
+    [data-status='ready'] .kds-item__icon,
+    .cm-btn--success
+  ) {
   color: var(--cm-surface-sunken);
 }

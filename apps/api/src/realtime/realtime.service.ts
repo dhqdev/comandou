@@ -4,6 +4,8 @@ import type { Server } from 'socket.io';
 export type RealtimeEvent =
   | { type: 'order.changed'; orderId: string; status?: string; version?: number }
   | { type: 'kitchen.changed'; orderId: string }
+  // O Super Admin mudou as cozinhas ou o que a tela da cozinha mostra.
+  | { type: 'kitchen.settings' }
   | { type: 'tab.changed'; tabId: string }
   | { type: 'cash.changed'; sessionId: string }
   | { type: 'menu.changed' }
