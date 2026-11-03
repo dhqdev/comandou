@@ -33,11 +33,13 @@ export function totp(step: number) {
 export const stepNow = () => Math.floor(Date.now() / 30_000);
 
 /** Cada código vale uma vez: tenta o passo atual e o próximo; se já foram usados, espera. */
-export async function adminLogin(page: Page) {
+/** `remember`: marca "Lembrar este aparelho" (o navegador passa a entrar sem o código). */
+export async function adminLogin(page: Page, opts: { remember?: boolean } = {}) {
   await page.goto(ADMIN_URL);
   await expect(page.getByLabel('Código do autenticador')).toBeVisible();
   await page.getByLabel('E-mail').fill(ADMIN_EMAIL);
   await page.getByLabel('Senha').fill(ADMIN_PASSWORD);
+  if (opts.remember) await page.getByLabel(/Lembrar este aparelho/).check();
   for (let attempt = 0; attempt < 6; attempt++) {
     if (attempt > 0 && attempt % 2 === 0)
       await page.waitForTimeout((30 - ((Date.now() / 1000) % 30) + 1) * 1000);

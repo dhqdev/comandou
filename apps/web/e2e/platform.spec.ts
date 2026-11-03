@@ -32,7 +32,7 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await expect(page.getByText('E-mail, senha ou código inválidos.')).toBeVisible();
   await shot(page, info.project.name, 'admin-login');
 
-  await adminLogin(page);
+  await adminLogin(page, { remember: true });
   await expect(page.getByText('Banco de dados').first()).toBeVisible();
   await shot(page, info.project.name, 'admin-visao-geral');
 
@@ -151,7 +151,7 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   }
 
   await account(page, 'Sair');
-  // Depois do primeiro login com código, este navegador fica confiável: só senha.
+  // Entrou com código e marcou "Lembrar este aparelho": o navegador fica confiável, só senha.
   await expect(page.getByText(/Navegador confiável/)).toBeVisible();
   await page.getByRole('button', { name: 'Usar código' }).click();
   await expect(page.getByLabel('Código do autenticador')).toBeVisible();
