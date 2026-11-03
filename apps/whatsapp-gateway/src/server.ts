@@ -1,6 +1,6 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { timingSafeEqual, createHash } from 'node:crypto';
-import { NotConnectedError, SessionManager } from './sessions.js';
+import { NotConnectedError, NotOnWhatsAppError, SessionManager } from './sessions.js';
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const ROUTE = new RegExp(`^/v1/sessions/(${UUID})(?:/(start|logout|messages))?$`, 'i');
@@ -40,6 +40,7 @@ export function createGatewayServer(sessions: SessionManager, token: string) {
         return send(res, 200, await sessions.send(tenantId, to, text));
       } catch (e) {
         if (e instanceof NotConnectedError) return send(res, 409, { error: e.message });
+        if (e instanceof NotOnWhatsAppError) return send(res, 422, { error: e.message });
         return send(res, 502, { error: (e as Error).message.slice(0, 200) });
       }
     }

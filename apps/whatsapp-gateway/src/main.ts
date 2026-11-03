@@ -1,5 +1,10 @@
 import { readFileSync } from 'node:fs';
-import makeWASocket, { Browsers, makeCacheableSignalKeyStore } from 'baileys';
+import makeWASocket, {
+  Browsers,
+  fetchLatestBaileysVersion,
+  makeCacheableSignalKeyStore,
+  type WAVersion,
+} from 'baileys';
 import pino from 'pino';
 import { createGatewayServer } from './server.js';
 import { SessionManager, type SocketLike } from './sessions.js';
@@ -23,11 +28,25 @@ const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
 // O Baileys registra muita coisa (inclusive dados de mensagens): fica só em "error".
 const baileysLogger = logger.child({ module: 'baileys' }, { level: 'error' });
 
+// Versão do WhatsApp Web anunciada na conexão. A que vem no pacote envelhece e o WhatsApp passa
+// a recusar (erro 405): busca a atual ao iniciar e a cada 12 h; sem rede, fica a do pacote.
+let waVersion: WAVersion | undefined;
+async function refreshVersion() {
+  const r = await fetchLatestBaileysVersion({ timeout: 5000 }).catch(() => undefined);
+  if (r?.isLatest) waVersion = r.version;
+  logger.info(
+    `versão do WhatsApp Web: ${(r?.version ?? []).join('.')}${r?.isLatest ? '' : ' (do pacote)'}`,
+  );
+}
+setInterval(() => void refreshVersion(), 12 * 3600_000).unref();
+
 const sessions = new SessionManager(
   dataDir,
   key,
-  (state) =>
+  (state, { getMessage }) =>
     makeWASocket({
+      ...(waVersion ? { version: waVersion } : {}),
+      getMessage,
       auth: { creds: state.creds, keys: makeCacheableSignalKeyStore(state.keys, baileysLogger) },
       logger: baileysLogger,
       browser: Browsers.ubuntu('Comandou'),
@@ -40,7 +59,9 @@ const sessions = new SessionManager(
 
 const server = createGatewayServer(sessions, token);
 server.listen(port, '0.0.0.0', () => logger.info(`whatsapp-gateway ouvindo na porta ${port}`));
-void sessions.restoreAll().catch((e: Error) => logger.error(`restaurar sessões: ${e.message}`));
+void refreshVersion()
+  .then(() => sessions.restoreAll())
+  .catch((e: Error) => logger.error(`restaurar sessões: ${e.message}`));
 
 for (const sig of ['SIGTERM', 'SIGINT'] as const)
   process.on(sig, () => {

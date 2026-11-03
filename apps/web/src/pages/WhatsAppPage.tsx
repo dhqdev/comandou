@@ -306,6 +306,9 @@ function BaileysCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; s
         <Alert tone="info">O serviço de WhatsApp ainda não está ligado neste servidor.</Alert>
       ) : (
         <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
+          {session?.error && session.status !== 'connected' && (
+            <Alert tone="warning">{session.error}</Alert>
+          )}
           {session?.status === 'connected' && (
             <p style={{ margin: 0 }}>Número conectado: +{session.phone}</p>
           )}
@@ -331,7 +334,9 @@ function BaileysCard({ s, busy, save }: { s: MessagingSettings; busy: boolean; s
                 Conectar WhatsApp
               </Button>
             )}
-            {(session?.status === 'connected' || session?.status === 'qr') && (
+            {(session?.status === 'connected' ||
+              session?.status === 'qr' ||
+              session?.status === 'connecting') && (
               <Button
                 variant="ghost"
                 loading={acting}

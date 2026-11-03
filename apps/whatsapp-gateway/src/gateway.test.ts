@@ -1,12 +1,18 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { mkdtempSync, readdirSync, readFileSync, existsSync, cpSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, existsSync, cpSync, writeFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { tenantDir, useEncryptedAuthState } from './auth-store.js';
 import { createGatewayServer } from './server.js';
-import { SessionManager, type ConnectionUpdate, type SocketLike } from './sessions.js';
+import {
+  brazilVariants,
+  SessionManager,
+  type ConnectionUpdate,
+  type SocketLike,
+  type SocketOptions,
+} from './sessions.js';
 
 const key = randomBytes(32);
 const TOKEN = 'token-interno-de-teste-1234567890';
@@ -18,6 +24,9 @@ class FakeSocket implements SocketLike {
   sent: { jid: string; text: string }[] = [];
   ended = false;
   loggedOut = false;
+  /** Números que "têm WhatsApp" (JID devolvido pela consulta). */
+  accounts = new Set(['5511987654321', '551187654321', '5511999990000']);
+  opts?: SocketOptions;
   ev = {
     on: (event: string, fn: (u: ConnectionUpdate) => void) => {
       (this.handlers[event] ??= []).push(fn);
@@ -29,6 +38,12 @@ class FakeSocket implements SocketLike {
   async sendMessage(jid: string, c: { text: string }) {
     this.sent.push({ jid, text: c.text });
     return { key: { id: `MSG${this.sent.length}` } };
+  }
+  async onWhatsApp(...jids: string[]) {
+    return jids
+      .map((j) => j.split('@')[0])
+      .filter((n) => this.accounts.has(n))
+      .map((n) => ({ jid: `${n}@s.whatsapp.net`, exists: true }));
   }
   async logout() {
     this.loggedOut = true;
@@ -75,8 +90,9 @@ describe('sessão cifrada em disco', () => {
 describe('sessões e API interna', () => {
   const dir = mkdtempSync(join(tmpdir(), 'wa-'));
   const socks: FakeSocket[] = [];
-  const mgr = new SessionManager(dir, key, () => {
+  const mgr = new SessionManager(dir, key, (_state, opts) => {
     const s = new FakeSocket();
+    s.opts = opts;
     socks.push(s);
     return s;
   });
@@ -174,5 +190,126 @@ describe('sessões e API interna', () => {
     expect(out.status).toBe('logged_out');
     expect(second.loggedOut).toBe(true);
     expect(existsSync(tenantDir(dir, t2))).toBe(false);
+  });
+
+  const close = (sock: FakeSocket, statusCode: number) =>
+    sock.emit({ connection: 'close', lastDisconnect: { error: { output: { statusCode } } } });
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  it('acha o JID certo (com ou sem o 9), recusa número sem WhatsApp e guarda para reenvio', async () => {
+    const t3 = randomUUID();
+    await call(`/v1/sessions/${t3}/start`, 'POST');
+    const sock = socks.at(-1)!;
+    sock.emit({ connection: 'open' });
+    // Conta antiga, sem o 9: o envio vai para o JID que o WhatsApp devolveu.
+    sock.accounts.delete('5511987654321');
+    const r = await call(`/v1/sessions/${t3}/messages`, 'POST', {
+      to: '5511987654321',
+      text: 'Saiu para entrega',
+    });
+    expect(r.status).toBe(200);
+    expect(sock.sent.at(-1)!.jid).toBe('551187654321@s.whatsapp.net');
+    const { id } = await r.json();
+    expect(await sock.opts!.getMessage({ id })).toEqual({ conversation: 'Saiu para entrega' });
+    // Sem WhatsApp: 422 (a API marca como falha, sem ficar tentando).
+    const no = await call(`/v1/sessions/${t3}/messages`, 'POST', {
+      to: '5521912345678',
+      text: 'x',
+    });
+    expect(no.status).toBe(422);
+    await call(`/v1/sessions/${t3}/logout`, 'POST');
+  });
+
+  it('QR Code não lido expira sem reconectar e apaga a sessão incompleta', async () => {
+    const t4 = randomUUID();
+    await call(`/v1/sessions/${t4}/start`, 'POST');
+    const sock = socks.at(-1)!;
+    sock.emit({ qr: 'QR' });
+    const n = socks.length;
+    close(sock, 408);
+    await wait(1200);
+    expect(socks.length).toBe(n);
+    const st = await (await call(`/v1/sessions/${t4}`)).json();
+    expect(st.status).toBe('disconnected');
+    expect(st.error).toMatch(/expirou/);
+    expect(existsSync(tenantDir(dir, t4))).toBe(false);
+    // Dá para gerar outro QR Code.
+    expect((await (await call(`/v1/sessions/${t4}/start`, 'POST')).json()).status).toBe(
+      'connecting',
+    );
+    expect(socks.length).toBe(n + 1);
+    await call(`/v1/sessions/${t4}/logout`, 'POST');
+  });
+
+  it('reinício pedido pelo WhatsApp reconecta na hora; sessão aberta em outro lugar para', async () => {
+    const t5 = randomUUID();
+    await call(`/v1/sessions/${t5}/start`, 'POST');
+    const a = socks.at(-1)!;
+    close(a, 515);
+    await wait(50);
+    const b = socks.at(-1)!;
+    expect(b).not.toBe(a);
+    b.emit({ connection: 'open' });
+    const n = socks.length;
+    close(b, 440);
+    await wait(1200);
+    expect(socks.length).toBe(n);
+    const st = await (await call(`/v1/sessions/${t5}`)).json();
+    expect(st.status).toBe('disconnected');
+    expect(existsSync(tenantDir(dir, t5))).toBe(true); // credenciais mantidas
+    // Evento atrasado do socket antigo não muda nada.
+    a.emit({ connection: 'open' });
+    expect((await (await call(`/v1/sessions/${t5}`)).json()).status).toBe('disconnected');
+    await call(`/v1/sessions/${t5}/logout`, 'POST');
+  });
+
+  it('logout durante a espera da reconexão cancela a reconexão', async () => {
+    const t6 = randomUUID();
+    await call(`/v1/sessions/${t6}/start`, 'POST');
+    const a = socks.at(-1)!;
+    a.emit({ connection: 'open' });
+    close(a, 428);
+    const n = socks.length;
+    await call(`/v1/sessions/${t6}/logout`, 'POST');
+    await wait(1200);
+    expect(socks.length).toBe(n);
+    expect((await (await call(`/v1/sessions/${t6}`)).json()).status).toBe('logged_out');
+  });
+});
+
+describe('reabrir sessões ao iniciar', () => {
+  it('pula a pasta de QR nunca lido e não trava nas outras se uma estiver corrompida', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wa-'));
+    const pending = randomUUID();
+    await useEncryptedAuthState(dir, pending, key).then((a) => a.saveCreds());
+    const bad = randomUUID();
+    const b = await useEncryptedAuthState(dir, bad, key);
+    b.state.creds.me = { id: '5511999990000:1@s.whatsapp.net' };
+    await b.saveCreds();
+    const good = randomUUID();
+    const g = await useEncryptedAuthState(dir, good, key);
+    g.state.creds.me = { id: '5511999990001:1@s.whatsapp.net' };
+    await g.saveCreds();
+    // Corrompe a sessão "bad".
+    const f = readdirSync(tenantDir(dir, bad))[0];
+    writeFileSync(join(tenantDir(dir, bad), f), randomBytes(64));
+    const opened: string[] = [];
+    const mgr = new SessionManager(dir, key, (state) => {
+      opened.push(state.creds.me!.id);
+      return new FakeSocket();
+    });
+    await mgr.restoreAll();
+    expect(opened).toEqual(['5511999990001:1@s.whatsapp.net']);
+    expect(existsSync(tenantDir(dir, pending))).toBe(false);
+    expect(mgr.status(good).status).toBe('connecting');
+    expect(mgr.status(bad)).toMatchObject({ status: 'disconnected' });
+    mgr.close();
+  });
+
+  it('variações do celular brasileiro', () => {
+    expect(brazilVariants('5511987654321')).toEqual(['5511987654321', '551187654321']);
+    expect(brazilVariants('551187654321')).toEqual(['551187654321', '5511987654321']);
+    expect(brazilVariants('551132654321')).toEqual(['551132654321']); // fixo
+    expect(brazilVariants('14155550123')).toEqual(['14155550123']);
   });
 });

@@ -452,6 +452,8 @@ export class MessagingService implements OnModuleInit {
       );
       if (!m) throw new NotFoundException('Mensagem não encontrada');
       if (m.status === 'sent') throw new ConflictException('Mensagem já enviada');
+      // Na fila: o envio já está em andamento; um segundo trabalho mandaria o aviso duas vezes.
+      if (m.status === 'queued') throw new ConflictException('Mensagem já está na fila de envio');
       await tx.$client.query(
         `UPDATE message_outbox SET status = 'queued', last_error = NULL WHERE id = $1`,
         [id],
@@ -534,7 +536,16 @@ export class MessagingService implements OnModuleInit {
           params: m.params ?? [],
         });
     }
-    await this.update(job.tenantId, id, { attempts: m.attempts + 1 });
+    // Marca a tentativa só se ninguém mexeu desde a leitura: dois trabalhos da mesma mensagem
+    // (ex.: "reenviar" clicado enquanto a fila ainda tentava) não mandam o aviso duas vezes.
+    const claimed = await this.db.withTenant({ tenantId: job.tenantId }, (tx) =>
+      tx.$client.query(
+        `UPDATE message_outbox SET attempts = attempts + 1
+          WHERE id = $1 AND status = 'queued' AND attempts = $2`,
+        [id, m.attempts],
+      ),
+    );
+    if (!claimed.rowCount) return;
     try {
       const r = await send();
       if (r.ok)
