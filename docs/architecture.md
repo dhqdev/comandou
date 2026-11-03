@@ -41,7 +41,7 @@
 | `realtime` | ✅ | Socket.IO em `/api/ws`, sala por tenant, adapter Redis opcional (`REDIS_URL`) |
 | `setup` | ✅ | setores de produção, mesas, terminais de caixa |
 | `provisioning` | ✅ | idempotente e retomável; CLI e painel Super Admin, com plano |
-| `platform` | ✅ | painel Super Admin em `admin.<base>`, papel `comandou_platform`, senha + TOTP (navegador confiável lembra o 2º fator), auditoria própria |
+| `platform` | ✅ | painel Super Admin em `admin.<base>`, papel `comandou_platform`, senha + TOTP (navegador confiável, só com "lembrar este aparelho", dispensa o 2º fator por 30 dias), auditoria própria |
 | `plans` | ✅ | planos, assinaturas, limites e recursos por plano |
 | `domains` | ✅ | domínio próprio com verificação TXT; provider HTTP do Traefik |
 | `health` | ✅ | `live`, `ready` (banco, Redis, WhatsApp) e métricas Prometheus (inclui idade do último backup) |

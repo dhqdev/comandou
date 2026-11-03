@@ -552,6 +552,18 @@ function NfceTab({
           )
         }
       />
+      <CheckField
+        label="Imprimir o cupom da NFC-e na impressora do caixa"
+        description="Quando a nota é autorizada, o cupom com QR Code sai na térmica do caixa (app de impressão do Comandou)."
+        checked={s.printNfce}
+        disabled={busy}
+        onChange={(v) =>
+          void save(
+            { printNfce: v },
+            v ? 'Cupom da NFC-e vai sair na impressora' : 'Cupom da NFC-e não será impresso',
+          )
+        }
+      />
       <div className="fi-fields">
         <TextField
           label="Natureza da operação"

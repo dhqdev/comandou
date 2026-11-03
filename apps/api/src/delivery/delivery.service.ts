@@ -6,12 +6,14 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { roleHas } from '@comandou/shared';
+import { fromCents, PaymentMethod, roleHas, toCents } from '@comandou/shared';
 import { createHash, randomBytes, randomInt } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
 import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
+import { CashService } from '../cash/cash.service';
+import { withIdempotency } from '../common/idempotency';
 import { OrdersService } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { rideEstimates } from './courier-pay.service';
@@ -95,7 +97,9 @@ export const DELIVERY_SELECT = `
          d.last_lat::text AS "lastLat", d.last_lng::text AS "lastLng", d.last_location_at AS "lastLocationAt",
          d.last_heading AS "lastHeading", d.last_speed::float AS "lastSpeed", d.last_accuracy AS "lastAccuracy",
          d.tracking_expires_at AS "trackingExpiresAt",
-         d.courier_pay::text AS "courierPay", d.distance_m AS "distanceM"
+         d.courier_pay::text AS "courierPay", d.distance_m AS "distanceM",
+         d.collect_status AS "collectStatus", d.collect_amount::text AS "collectAmount",
+         d.collect_method AS "collectMethod", d.settled_at AS "settledAt"
     FROM deliveries d
     JOIN orders o ON o.id = d.order_id
     JOIN couriers c ON c.id = d.courier_id`;
@@ -112,6 +116,7 @@ export class DeliveryService {
     private readonly audit: AuditService,
     private readonly orders: OrdersService,
     private readonly realtime: RealtimeService,
+    private readonly cash: CashService,
   ) {}
 
   private newToken() {
@@ -182,6 +187,7 @@ export class DeliveryService {
       return one<{ id: string }>(tx, `${DELIVERY_SELECT} WHERE d.id = $1`, [d!.id]);
     });
     this.publish(ctx, res!.id, orderId);
+    this.orders.notifyDispatched(ctx, orderId);
     return { delivery: res, trackingPath: `/rastreio/${token.token}` };
   }
 
@@ -220,7 +226,11 @@ export class DeliveryService {
    * quem gerencia as entregas conclui pelo painel sem código (cliente sem o código, por exemplo).
    * Cada código errado conta; no limite, a corrida trava para o entregador.
    */
-  async complete(ctx: Ctx, id: string, opts: { viaLink?: string; code?: string } = {}) {
+  async complete(
+    ctx: Ctx,
+    id: string,
+    opts: { viaLink?: string; code?: string; method?: PaymentMethod } = {},
+  ) {
     let orderId = '';
     let wrong = false;
     const byCourier = !!opts.viaLink || !this.canManage(ctx);
@@ -251,6 +261,7 @@ export class DeliveryService {
           o,
           'completed',
           byCourier || !d.confirm_code ? 'Entrega concluída' : 'Entrega concluída pelo restaurante',
+          { collectMethod: opts.method ?? null },
         );
         return one(tx, `${DELIVERY_SELECT} WHERE d.id = $1`, [id]);
       });
@@ -266,6 +277,113 @@ export class DeliveryService {
         );
       throw e;
     }
+  }
+
+  // ------------------------------------------------------------------ acerto do entregador
+  /**
+   * Entregas concluídas com dinheiro na mão do entregador, ainda sem acerto no caixa, por
+   * entregador. É a lista que o caixa confere quando o motoboy volta.
+   */
+  pendingCollections(ctx: Ctx) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const rows = await q<{
+        id: string;
+        courierId: string;
+        courierName: string;
+        collectAmount: string;
+        collectMethod: PaymentMethod | null;
+      }>(
+        tx,
+        `${DELIVERY_SELECT} WHERE d.collect_status = 'pending' ORDER BY c.name, d.finished_at`,
+      );
+      const byCourier = new Map<
+        string,
+        { courierId: string; courierName: string; total: number; deliveries: typeof rows }
+      >();
+      for (const r of rows) {
+        const g = byCourier.get(r.courierId) ?? {
+          courierId: r.courierId,
+          courierName: r.courierName,
+          total: 0,
+          deliveries: [],
+        };
+        g.total += toCents(r.collectAmount ?? '0');
+        g.deliveries.push(r);
+        byCourier.set(r.courierId, g);
+      }
+      return [...byCourier.values()].map((g) => ({ ...g, total: fromCents(g.total) }));
+    });
+  }
+
+  /**
+   * Acerto de uma entrega: o caixa recebe do entregador o que ficou em aberto no pedido. Vira um
+   * pagamento normal na sessão de caixa informada (entra no esperado do fechamento).
+   */
+  async settle(
+    ctx: Ctx,
+    id: string,
+    b: { cashSessionId: string; method?: PaymentMethod },
+    idemKey: string,
+  ) {
+    let orderId = '';
+    let paid = false;
+    const res = await this.db.withTenant(ctx, (tx) =>
+      withIdempotency(tx, ctx.tenantId, 'delivery.settle', idemKey, { id, ...b }, async () => {
+        const session = await one<{ status: string }>(
+          tx,
+          `SELECT status FROM cash_sessions WHERE id = $1 FOR SHARE`,
+          [b.cashSessionId],
+        );
+        if (!session) throw new NotFoundException('Sessão de caixa não encontrada');
+        if (session.status !== 'open')
+          throw new ConflictException('Caixa fechado: abra um caixa para continuar');
+        const cur = await one<{ order_id: string }>(
+          tx,
+          `SELECT order_id FROM deliveries WHERE id = $1`,
+          [id],
+        );
+        if (!cur) throw new NotFoundException('Entrega não encontrada');
+        const o = await this.orders.lock(tx, cur.order_id);
+        orderId = o.id;
+        const d = await one<{ collect_status: string; collect_method: PaymentMethod | null }>(
+          tx,
+          `SELECT collect_status, collect_method FROM deliveries WHERE id = $1 FOR UPDATE`,
+          [id],
+        );
+        if (d!.collect_status !== 'pending')
+          throw new ConflictException('Esta entrega não tem acerto pendente');
+        const balance = toCents(o.total) - toCents(o.paid_amount);
+        const method = b.method ?? d!.collect_method ?? 'cash';
+        if (balance > 0) {
+          const p = await this.cash.applyPayment(tx, ctx, o, {
+            cashSessionId: b.cashSessionId,
+            method,
+            amountCents: balance,
+          });
+          paid = p.paymentStatus === 'paid';
+        }
+        await q(
+          tx,
+          `UPDATE deliveries SET collect_status = 'settled', settled_at = now(), settled_by = $2,
+                  collect_method = $3 WHERE id = $1`,
+          [id, ctx.userId, method],
+        );
+        await this.audit.record(tx, {
+          tenantId: ctx.tenantId,
+          actorUserId: ctx.userId,
+          action: 'delivery.settled',
+          entity: 'delivery',
+          entityId: id,
+          data: { orderId: o.id, amount: fromCents(Math.max(balance, 0)), method },
+          ip: ctx.ip,
+        });
+        return one(tx, `${DELIVERY_SELECT} WHERE d.id = $1`, [id]);
+      }),
+    );
+    this.publish(ctx, id, orderId);
+    this.realtime.publish(ctx.tenantId, { type: 'cash.changed', sessionId: b.cashSessionId });
+    if (paid) this.cash.notifyPaid(ctx, orderId);
+    return res;
   }
 
   /** Entrega não realizada: o pedido volta para "pronto" e pode sair de novo. */

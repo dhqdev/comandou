@@ -70,12 +70,17 @@ function ago(mins: number) {
 }
 
 /** Próximo passo do pedido, mostrado como um botão pequeno no canto do cartão. */
-function nextAction(o: Order): { label: string; to?: OrderStatus; icon: ReactNode } | null {
+function nextAction(
+  o: Order,
+): { label: string; to?: OrderStatus; open?: boolean; icon: ReactNode } | null {
   if (o.status === 'awaiting') return { label: 'Aceitar', to: 'new', icon: <Check size={16} /> };
   if (o.status === 'new' || o.status === 'in_production')
     return { label: 'Avançar pedido', to: 'ready', icon: <ArrowRight size={16} /> };
   if (o.status === 'ready' && o.channel === 'delivery')
     return { label: 'Despachar', icon: <Bike size={16} /> };
+  // Com saldo em aberto, finalizar abre o pedido para receber (não conclui sem pagamento).
+  if (o.status === 'ready' && Number(o.balance) > 0)
+    return { label: 'Receber e finalizar', open: true, icon: <Check size={16} /> };
   if (o.status === 'ready')
     return { label: 'Finalizar', to: 'completed', icon: <Check size={16} /> };
   if (o.status === 'dispatched')
@@ -163,7 +168,9 @@ function OrderCard({
             aria-label={action.label}
             title={action.label}
             disabled={busy}
-            onClick={() => (action.to ? onMove(action.to) : onOpen('dispatch'))}
+            onClick={() =>
+              action.to ? onMove(action.to) : action.open ? onOpen() : onOpen('dispatch')
+            }
           >
             {action.icon}
           </button>

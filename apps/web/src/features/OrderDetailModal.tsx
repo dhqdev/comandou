@@ -42,7 +42,7 @@ import { mediaUrl } from '../lib/media';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
 import { useRealtime } from '../lib/realtime';
-import type { Order, Payment } from '../lib/types';
+import type { Order, OrderItem, Payment } from '../lib/types';
 import {
   CHANNEL_LABELS,
   dateTime,
@@ -107,7 +107,14 @@ export function OrderDetailModal({
   }
   const [paying, setPaying] = useState(false);
   const [mode, setMode] = useState<
-    null | 'cancel' | 'reject' | 'adjust' | 'dispatch' | { refund: Payment }
+    | null
+    | 'cancel'
+    | 'reject'
+    | 'adjust'
+    | 'dispatch'
+    | 'receivable'
+    | { refund: Payment }
+    | { cancelItem: OrderItem }
   >(null);
 
   const load = useCallback(async () => {
@@ -130,17 +137,37 @@ export function OrderDetailModal({
     if (e.type === 'kitchen.changed' && e.orderId === orderId) void load();
   }, load);
 
-  async function go(to: OrderStatus, reason?: string) {
+  async function go(to: OrderStatus, reason?: string, receivable?: boolean) {
     if (!order) return;
     setBusy(true);
     try {
       setOrder(
         await api<Order>(`/orders/${order.id}/status`, {
           method: 'POST',
-          json: { to, reason, expectedVersion: order.version },
+          json: { to, reason, expectedVersion: order.version, receivable },
         }),
       );
       setMode(null);
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+      void load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancelItem(item: OrderItem, reason: string) {
+    if (!order) return;
+    setBusy(true);
+    try {
+      setOrder(
+        await api<Order>(`/orders/${order.id}/items/${item.id}/cancel`, {
+          method: 'POST',
+          json: { reason },
+        }),
+      );
+      setMode(null);
+      toast(`${item.name} cancelado`, 'success');
     } catch (e) {
       toast((e as Error).message, 'danger');
       void load();
@@ -153,10 +180,25 @@ export function OrderDetailModal({
   const Frame = variant === 'panel' ? SidePanel : Modal;
   // Próximo passo do pedido (avançar, receber, despachar) fica no rodapé fixo, numa linha só,
   // junto com cancelar e o menu de impressão/ajustes: à vista mesmo rolando o detalhe.
+  const hasBalance = !!order && toCents(order.balance) > 0;
+  // Concluir com saldo em aberto só vale saindo da rua (vira acerto do entregador) ou "a receber".
   const nextSteps =
     order && !mode
-      ? (NEXT[order.status] ?? []).filter((a) => canTransition(order.status, a.to, order.channel))
+      ? (NEXT[order.status] ?? []).filter(
+          (a) =>
+            canTransition(order.status, a.to, order.channel) &&
+            !(a.to === 'completed' && hasBalance && order.status !== 'dispatched'),
+        )
       : [];
+  const canReceivable =
+    !!order &&
+    canCancel &&
+    hasBalance &&
+    order.status !== 'dispatched' &&
+    canTransition(order.status, 'completed', order.channel);
+  const activeItems = order ? order.items.filter((i) => i.status !== 'cancelled').length : 0;
+  const canCancelItem =
+    !!order && !mode && canCancel && !['completed', 'cancelled'].includes(order.status);
   const canReceive =
     !!order && !mode && canPay && order.status !== 'cancelled' && toCents(order.balance) > 0;
   const canSend =
@@ -178,6 +220,9 @@ export function OrderDetailModal({
   const more: MenuAction[] = order
     ? [
         ...(canAdjust ? [{ label: 'Desconto ou acréscimo', run: () => setMode('adjust') }] : []),
+        ...(canReceivable
+          ? [{ label: 'Concluir a receber (fiado)', run: () => setMode('receivable') }]
+          : []),
         ...(canPrint && order.status !== 'cancelled'
           ? [
               { label: 'Reimprimir na cozinha', run: () => void print('kitchen') },
@@ -344,6 +389,15 @@ export function OrderDetailModal({
                 <strong>{order.notes || 'Sem observação'}</strong>
               </div>
             </div>
+            {order.receivableAt && (
+              <div className="od-note" data-tone="danger">
+                <Wallet size={15} aria-hidden />
+                <div>
+                  <span>Concluído a receber · {dateTime(order.receivableAt)}</span>
+                  <strong>{order.receivableReason || '—'}</strong>
+                </div>
+              </div>
+            )}
             {order.cancelReason && (
               <div className="od-note" data-tone="danger">
                 <XCircle size={15} aria-hidden />
@@ -386,7 +440,20 @@ export function OrderDetailModal({
                         </div>
                       )}
                       {i.notes && <div className="od-item__sub">Obs.: {i.notes}</div>}
+                      {i.cancelReason && (
+                        <div className="od-item__sub">Cancelado: {i.cancelReason}</div>
+                      )}
                     </div>
+                    {canCancelItem && i.status !== 'cancelled' && activeItems > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Cancelar ${i.name}`}
+                        onClick={() => setMode({ cancelItem: i })}
+                      >
+                        <XCircle size={14} aria-hidden /> Cancelar
+                      </Button>
+                    )}
                   </div>
                   <div className="od-item__bottom">
                     <span>
@@ -480,7 +547,26 @@ export function OrderDetailModal({
               onCancel={() => setMode(null)}
             />
           )}
-          {mode && typeof mode === 'object' && (
+          {mode === 'receivable' && (
+            <ReasonForm
+              label={`Por que concluir com ${brl(order.balance)} em aberto? (fica em "Concluídos em aberto")`}
+              confirm="Concluir a receber"
+              busy={busy}
+              onCancel={() => setMode(null)}
+              onConfirm={(r) => go('completed', r, true)}
+            />
+          )}
+          {mode && typeof mode === 'object' && 'cancelItem' in mode && (
+            <ReasonForm
+              label={`Motivo do cancelamento de ${mode.cancelItem.name}`}
+              confirm="Cancelar item"
+              danger
+              busy={busy}
+              onCancel={() => setMode(null)}
+              onConfirm={(r) => void cancelItem(mode.cancelItem, r)}
+            />
+          )}
+          {mode && typeof mode === 'object' && 'refund' in mode && (
             <RefundForm
               payment={mode.refund}
               onCancel={() => setMode(null)}

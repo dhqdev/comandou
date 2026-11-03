@@ -76,6 +76,10 @@ const client = {
   },
 };
 
+/** Corpo da transição: concluir sem pagamento só como "a receber" (o teste não passa pelo caixa). */
+const step = (to: string) =>
+  to === 'completed' ? { to, receivable: true, reason: 'Fiado do teste' } : { to };
+
 /** Leva o pedido até "concluído" pela equipe. */
 async function complete(number: number) {
   const list = (await admin.get('/orders?active=true').expect(200)).body as {
@@ -84,7 +88,7 @@ async function complete(number: number) {
   }[];
   const o = list.find((x) => x.number === number)!;
   for (const to of ['new', 'ready', 'completed'])
-    await admin.send('post', `/orders/${o.id}/status`, { to }).expect(201);
+    await admin.send('post', `/orders/${o.id}/status`, step(to)).expect(201);
   return o.id;
 }
 
@@ -259,7 +263,7 @@ describe('Programa de fidelidade', () => {
       .set('Idempotency-Key', key())
       .expect(201);
     for (const to of ['ready', 'completed'])
-      await admin.send('post', `/orders/${o.body.id}/status`, { to }).expect(201);
+      await admin.send('post', `/orders/${o.body.id}/status`, step(to)).expect(201);
     expect((await client.get('/store/loyalty', ana).expect(200)).body.account.balance).toBe(61);
   });
 

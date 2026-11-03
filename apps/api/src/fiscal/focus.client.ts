@@ -39,6 +39,8 @@ export interface FocusResponse {
     caminho_xml_nota_fiscal?: string;
     caminho_danfe?: string;
     qrcode_url?: string;
+    /** Endereço de consulta da NFC-e pela chave (varia por estado). */
+    url_consulta_nf?: string;
     codigo?: string;
     mensagem?: string;
     erros?: { mensagem?: string; campo?: string }[];

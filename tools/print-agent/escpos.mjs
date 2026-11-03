@@ -59,13 +59,41 @@ export function encodeCp860(text) {
 const ESC = 0x1b;
 const GS = 0x1d;
 
+/** Linha do texto que vira QR Code (ex.: o QR da NFC-e). Igual a QR_MARK da API. */
+export const QR_MARK = '@@QR@@';
+
+/**
+ * QR Code nativo (GS ( k, modelo 2), centralizado. Funciona nas térmicas ESC/POS atuais
+ * (Epson, Elgin, Bematech, Daruma, Tanca). Tamanho do módulo 5 e correção de erro M.
+ */
+export function qrCode(data, size = 5) {
+  const bytes = Buffer.from(String(data), 'utf8');
+  const len = bytes.length + 3;
+  return Buffer.concat([
+    Buffer.from([ESC, 0x61, 1]), // ESC a 1  centraliza
+    Buffer.from([GS, 0x28, 0x6b, 4, 0, 0x31, 0x41, 0x32, 0]), // modelo 2
+    Buffer.from([GS, 0x28, 0x6b, 3, 0, 0x31, 0x43, size]), // tamanho do módulo
+    Buffer.from([GS, 0x28, 0x6b, 3, 0, 0x31, 0x45, 0x31]), // correção de erro M
+    Buffer.from([GS, 0x28, 0x6b, len & 0xff, (len >> 8) & 0xff, 0x31, 0x50, 0x30]), // guarda
+    bytes,
+    Buffer.from([GS, 0x28, 0x6b, 3, 0, 0x31, 0x51, 0x30]), // imprime
+    Buffer.from('\n'),
+    Buffer.from([ESC, 0x61, 0]), // ESC a 0  volta a alinhar à esquerda
+  ]);
+}
+
 /** Documento completo: inicializa, seleciona CP860, imprime, avança e corta. */
 export function toEscPos(text) {
+  const body = [];
+  for (const line of text.replace(/\r\n?/g, '\n').split('\n')) {
+    if (line.startsWith(QR_MARK)) body.push(qrCode(line.slice(QR_MARK.length)));
+    else body.push(encodeCp860(`${line}\n`));
+  }
   return Buffer.concat([
     Buffer.from([ESC, 0x40]), // ESC @  inicializa
     Buffer.from([ESC, 0x74, 3]), // ESC t 3  página de código CP860
-    encodeCp860(text.replace(/\r\n?/g, '\n')),
-    Buffer.from('\n\n\n\n'),
+    ...body,
+    Buffer.from('\n\n\n'),
     Buffer.from([GS, 0x56, 66, 0]), // GS V 66 0  avança e corta (parcial)
   ]);
 }

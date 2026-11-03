@@ -50,6 +50,8 @@ export const Transition = z.object({
   to: z.enum(ORDER_STATUSES),
   reason: z.string().trim().max(300).optional(),
   expectedVersion: z.number().int().positive().optional(),
+  /** Concluir com saldo como "a receber" (exige gerente e motivo). */
+  receivable: z.boolean().optional(),
 });
 
 export const Adjust = z

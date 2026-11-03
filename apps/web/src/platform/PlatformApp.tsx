@@ -68,7 +68,7 @@ interface PlatformAuth {
   status: 'loading' | 'anonymous' | 'authenticated' | 'unavailable';
   admin?: Admin;
   error?: string;
-  login(email: string, password: string, code: string): Promise<void>;
+  login(email: string, password: string, code: string, remember?: boolean): Promise<void>;
   logout(): Promise<void>;
 }
 const Ctx = createContext<PlatformAuth | null>(null);
@@ -91,8 +91,11 @@ function PlatformAuthProvider({ children }: { children: ReactNode }) {
     void refresh();
   }, [refresh]);
   const login = useCallback(
-    async (email: string, password: string, code: string) => {
-      await api('/platform/auth/login', { method: 'POST', json: { email, password, code } });
+    async (email: string, password: string, code: string, remember = false) => {
+      await api('/platform/auth/login', {
+        method: 'POST',
+        json: { email, password, code, remember },
+      });
       await refresh();
     },
     [refresh],
@@ -109,6 +112,7 @@ function PlatformLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
+  const [remember, setRemember] = useState(false);
   /** Navegador confiável: já entrou com o código antes, então o campo some. */
   const [trusted, setTrusted] = useState(false);
   useEffect(() => {
@@ -127,7 +131,7 @@ function PlatformLogin() {
     setError(null);
     setBusy(true);
     try {
-      await login(email, password, trusted ? '' : code);
+      await login(email, password, trusted ? '' : code, !trusted && remember);
     } catch (err) {
       if (err instanceof ApiError && err.status === 429)
         setError('Muitas tentativas. Aguarde um minuto.');
@@ -187,8 +191,18 @@ function PlatformLogin() {
             maxLength={6}
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            hint="6 dígitos do aplicativo autenticador. Depois disso, este navegador fica lembrado."
+            hint="6 dígitos do aplicativo autenticador."
           />
+        )}
+        {!trusted && (
+          <label className="adm-sub" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+            />
+            Lembrar este aparelho por 30 dias (só em computador seu)
+          </label>
         )}
         {error && <Alert tone="danger">{error}</Alert>}
         <Button

@@ -5,6 +5,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/bootstrap';
 import { hashPassword } from '../src/auth/password';
+import { withinHours } from '../src/store/store.service';
 import { testEnv } from './env';
 import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 
@@ -378,10 +379,66 @@ describe('Cardápio público e pedido do cliente', () => {
     await patch('adminA', '/store/settings', { autoAccept: false }).expect(200);
   });
 
+  it('horário de funcionamento: fora dele a loja fecha sozinha e recusa pedido', async () => {
+    const all = [0, 1, 2, 3, 4, 5, 6];
+    await patch('adminA', '/store/settings', {
+      hoursEnabled: true,
+      hours: [{ day: 9, open: '10:00', close: '11:00' }],
+    }).expect(400);
+    await patch('adminA', '/store/settings', {
+      hoursEnabled: true,
+      hours: [{ day: 1, open: '25:00', close: '11:00' }],
+    }).expect(400);
+    // Ligado e sem nenhum turno: fechada o tempo todo.
+    await patch('cashierA', '/store/settings', { hoursEnabled: true, hours: [] }).expect(403);
+    const closed = (
+      await patch('adminA', '/store/settings', { isOpen: true, hoursEnabled: true, hours: [] })
+    ).body;
+    expect(closed).toMatchObject({ isOpen: true, hoursEnabled: true, openNow: false });
+    expect((await pub.get('/store/status').expect(200)).body.isOpen).toBe(false);
+    expect((await pub.get('/store').expect(200)).body.store.isOpen).toBe(false);
+    const body = {
+      ...customer,
+      channel: 'pickup',
+      token: token(),
+      items: [{ productId: fx.prodA, quantity: 1 }],
+    };
+    await pub.post('/store/orders', body, key()).expect(409);
+    // Turno de 24h todos os dias (abre e fecha no mesmo horário): aberta.
+    const open = (
+      await patch('adminA', '/store/settings', {
+        hours: all.map((day) => ({ day, open: '00:00', close: '00:00' })),
+      }).expect(200)
+    ).body;
+    expect(open.openNow).toBe(true);
+    expect(open.hours).toHaveLength(7);
+    expect((await pub.get('/store/status').expect(200)).body.isOpen).toBe(true);
+    await patch('adminA', '/store/settings', { hoursEnabled: false }).expect(200);
+  });
+
   it('loja desativada some do público', async () => {
     await patch('adminA', '/store/settings', { enabled: false }).expect(200);
     await pub.get('/store').expect(404);
     await pub.get('/store/status').expect(404);
     await patch('adminA', '/store/settings', { enabled: true }).expect(200);
+  });
+});
+
+describe('Horário da loja (regra pura)', () => {
+  const h = [
+    { day: 1, open: '11:00', close: '15:00' },
+    { day: 5, open: '18:00', close: '02:00' },
+  ];
+  it('dentro, fora e turno que vira a meia-noite', () => {
+    expect(withinHours(h, 1, '11:00')).toBe(true);
+    expect(withinHours(h, 1, '14:59')).toBe(true);
+    expect(withinHours(h, 1, '15:00')).toBe(false);
+    expect(withinHours(h, 2, '12:00')).toBe(false);
+    expect(withinHours(h, 5, '23:30')).toBe(true);
+    // Madrugada de sábado ainda é o turno de sexta.
+    expect(withinHours(h, 6, '01:59')).toBe(true);
+    expect(withinHours(h, 6, '02:00')).toBe(false);
+    expect(withinHours(h, 5, '01:00')).toBe(false);
+    expect(withinHours([], 3, '12:00')).toBe(false);
   });
 });

@@ -362,6 +362,19 @@ describe('Ciclo: 7 dias de teste, pagou +30 dias, não pagou bloqueia', () => {
     const product = { categoryId: fx.catA, name: 'Bloqueado', price: '10.00' };
     const blocked = await tpost(HOST_A, ownerA, '/products', product).expect(403);
     expect(blocked.body.code).toBe('billing_blocked');
+    // Venda nova fica bloqueada (pedido e comanda)...
+    const newOrder = await tpost(HOST_A, ownerA, '/orders', {
+      channel: 'counter',
+      items: [{ productId: fx.prodA, quantity: 1 }],
+    }).expect(403);
+    expect(newOrder.body.code).toBe('billing_blocked');
+    await tpost(HOST_A, ownerA, '/tabs', { customerName: 'Bloqueio' }).expect(403);
+    // ...mas o que termina a venda já feita passa do bloqueio (aqui cai no 404 do pedido).
+    const none = '00000000-0000-4000-8000-000000000000';
+    const moved = await tpost(HOST_A, ownerA, `/orders/${none}/status`, { to: 'ready' });
+    expect(moved.status).not.toBe(403);
+    const fiscal = await tpost(HOST_A, ownerA, `/fiscal/documents/${none}/print`, {});
+    expect(fiscal.status).not.toBe(403);
     // Ler e entrar continuam funcionando.
     await tget(HOST_A, ownerA, '/products').expect(200);
     await tenantLogin(HOST_A, 'admin@bl-a.test');

@@ -83,6 +83,54 @@ export class StockService {
     return needs.length;
   }
 
+  /**
+   * Devolve ao estoque o que um item cancelado consumiu (produto + adicionais). Só age se o
+   * pedido já baixou estoque; o movimento leva o pedido, então cancelar o pedido depois não
+   * devolve duas vezes (restoreForOrder soma o que sobrou).
+   */
+  async restoreForItem(tx: Tx, ctx: Ctx, orderId: string, itemId: string): Promise<number> {
+    const consumed = await one(
+      tx,
+      `SELECT 1 FROM stock_movements WHERE order_id = $1 AND kind = 'sale' LIMIT 1`,
+      [orderId],
+    );
+    if (!consumed) return 0;
+    const back = await q<{ stock_item_id: string; q: string }>(
+      tx,
+      `WITH need AS (
+         SELECT r.stock_item_id, r.quantity * i.quantity AS q
+           FROM order_items i JOIN product_recipes r ON r.product_id = i.product_id
+          WHERE i.id = $1
+         UNION ALL
+         SELECT r.stock_item_id, r.quantity * i.quantity
+           FROM order_item_options io
+           JOIN order_items i ON i.id = io.order_item_id
+           JOIN option_recipes r ON r.option_id = io.option_id
+          WHERE i.id = $1)
+       SELECT n.stock_item_id, least(round(sum(n.q), 3),
+                -(SELECT coalesce(sum(m.quantity), 0) FROM stock_movements m
+                   WHERE m.order_id = $2 AND m.stock_item_id = n.stock_item_id
+                     AND m.kind IN ('sale','sale_reversal')))::text AS q
+         FROM need n GROUP BY n.stock_item_id
+       HAVING least(round(sum(n.q), 3),
+                -(SELECT coalesce(sum(m.quantity), 0) FROM stock_movements m
+                   WHERE m.order_id = $2 AND m.stock_item_id = n.stock_item_id
+                     AND m.kind IN ('sale','sale_reversal'))) > 0
+        ORDER BY n.stock_item_id`,
+      [itemId, orderId],
+    );
+    if (!back.length) return 0;
+    await q(tx, `SELECT id FROM stock_items WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE`, [
+      back.map((b) => b.stock_item_id),
+    ]);
+    for (const b of back)
+      await this.move(tx, ctx, b.stock_item_id, 'sale_reversal', b.q, {
+        orderId,
+        note: 'Item cancelado',
+      });
+    return back.length;
+  }
+
   /** Devolve ao estoque o que um pedido consumiu (cancelamento). Idempotente. */
   async restoreForOrder(tx: Tx, ctx: Ctx, orderId: string): Promise<number> {
     const back = await q<{ stock_item_id: string; q: string }>(

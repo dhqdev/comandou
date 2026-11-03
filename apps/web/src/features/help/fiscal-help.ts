@@ -92,6 +92,10 @@ export const FISCAL_HELP: HelpDict = {
     text: 'Ligado: ao fechar a conta no caixa, a NFC-e sai sem ninguém clicar. Desligado: a nota é emitida pelo botão no pedido ou em Fiscal › NFC-e.',
     link: { to: '/caixa', label: 'Abrir o caixa' },
   },
+  'Imprimir o cupom da NFC-e na impressora do caixa': {
+    text: 'Ligado: quando a SEFAZ autoriza a NFC-e, o cupom com QR Code sai sozinho na impressora térmica do caixa (pelo app de impressão do Comandou). Para reimprimir, use "Imprimir cupom" na nota.',
+    link: { to: '/impressao', label: 'Abrir Impressão' },
+  },
   'Natureza da operação': {
     text: 'Texto que descreve a venda e sai impresso na nota. Para restaurante o comum é "VENDA AO CONSUMIDOR" (NFC-e) ou "VENDA DE MERCADORIA" (NF-e).',
   },

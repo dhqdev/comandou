@@ -1,9 +1,11 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   CHANNEL_LABELS,
+  fromCents,
   OrderChannel,
   PAYMENT_METHOD_LABELS,
   PaymentMethod,
+  toCents,
 } from '@comandou/shared';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { hashToken } from '../auth/session.service';
@@ -11,6 +13,27 @@ import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 import { RealtimeService } from '../realtime/realtime.service';
+
+/**
+ * Linha especial do texto de impressão: o agente troca por um QR Code ESC/POS nativo.
+ * Agentes antigos imprimem a linha como texto (o endereço continua legível).
+ */
+export const QR_MARK = '@@QR@@';
+
+/** Forma de pagamento da NFC-e (código tPag) em palavras, como no DANFE. */
+const TPAG_LABELS: Record<string, string> = {
+  '01': 'Dinheiro',
+  '02': 'Cheque',
+  '03': 'Cartão de Crédito',
+  '04': 'Cartão de Débito',
+  '05': 'Crédito Loja',
+  '10': 'Vale Alimentação',
+  '11': 'Vale Refeição',
+  '15': 'Boleto',
+  '17': 'PIX',
+  '90': 'Sem pagamento',
+  '99': 'Outros',
+};
 
 /** Tempo que um agente tem para confirmar a impressão antes de o trabalho voltar para a fila. */
 export const PRINT_LEASE_SECONDS = 60;
@@ -214,6 +237,256 @@ export class PrintingService {
     if (o.notes) out.push(line(), ...wrap(`OBS DO PEDIDO: ${o.notes}`));
     out.push(line('='));
     return out.join('\n');
+  }
+
+  /**
+   * DANFE da NFC-e em 42 colunas (leiaute do Manual do DANFE NFC-e, versão resumida para bobina):
+   * emitente, itens, totais, pagamentos, chave de acesso, consumidor, número/protocolo e QR Code.
+   */
+  async fiscalReceipt(tx: Tx, documentId: string): Promise<string | null> {
+    const d = await one<{
+      kind: string;
+      status: string;
+      environment: string;
+      payload: {
+        items?: Record<string, string>[];
+        formas_pagamento?: { forma_pagamento: string; valor_pagamento: string }[];
+        cpf_destinatario?: string;
+        cnpj_destinatario?: string;
+        nome_destinatario?: string;
+        logradouro_destinatario?: string;
+        numero_destinatario?: string;
+        bairro_destinatario?: string;
+        municipio_destinatario?: string;
+        uf_destinatario?: string;
+      };
+      access_key: string | null;
+      number: string | null;
+      series: string | null;
+      protocol: string | null;
+      qrcode_url: string | null;
+      consult_url: string | null;
+      authorized: string | null;
+      total: string;
+      cnpj: string | null;
+      company: Record<string, string> | null;
+    }>(
+      tx,
+      `SELECT d.kind, d.status, d.environment, d.request_payload AS payload, d.access_key, d.number, d.series,
+              d.protocol, d.qrcode_url, d.consult_url, d.total::text,
+              to_char(d.authorized_at AT TIME ZONE t.timezone, 'DD/MM/YYYY HH24:MI:SS') AS authorized,
+              s.cnpj, s.company
+         FROM fiscal_documents d JOIN tenants t ON t.id = d.tenant_id
+         LEFT JOIN tenant_fiscal_settings s ON s.tenant_id = d.tenant_id
+        WHERE d.id = $1`,
+      [documentId],
+    );
+    if (!d || d.kind !== 'nfce' || d.status !== 'authorized') return null;
+    const brl = (cents: number) => fromCents(cents).replace('.', ',');
+    const cents = (v: string | undefined) => (v ? toCents(v) : 0);
+    const row = (label: string, v: string) =>
+      label.slice(0, WIDTH - 15).padEnd(WIDTH - 14) + v.padStart(14);
+    const c = d.company ?? {};
+    const cnpj = (d.cnpj ?? '').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+    const out: string[] = [];
+    out.push(...wrap(String(c.nomeFantasia || c.nome || '')).map(center));
+    if (c.nomeFantasia && c.nome) out.push(...wrap(String(c.nome)).map(center));
+    out.push(center(`CNPJ ${cnpj}${c.inscricaoEstadual ? ` IE ${c.inscricaoEstadual}` : ''}`));
+    const addr = [
+      [c.logradouro, c.numero].filter(Boolean).join(', '),
+      c.bairro,
+      [c.municipio, c.uf].filter(Boolean).join('/'),
+    ]
+      .filter(Boolean)
+      .join(' - ');
+    if (addr) out.push(...wrap(addr).map(center));
+    out.push(line('='));
+    out.push(center('DANFE NFC-e - Documento Auxiliar da Nota'));
+    out.push(center('Fiscal de Consumidor Eletrônica'));
+    if (d.environment !== 'producao') {
+      out.push(center('EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO'));
+      out.push(center('SEM VALOR FISCAL'));
+    }
+    out.push(line());
+    out.push('#  DESCRIÇÃO                                '.slice(0, WIDTH));
+    out.push('   QTD UN x VL UNIT                 VL TOTAL'.slice(0, WIDTH));
+    out.push(line());
+    let gross = 0;
+    let discount = 0;
+    let other = 0;
+    let taxes = 0;
+    const items = d.payload.items ?? [];
+    for (const i of items) {
+      const total = cents(i.valor_bruto);
+      gross += total;
+      discount += cents(i.valor_desconto);
+      other += cents(i.valor_outras_despesas) + cents(i.valor_frete);
+      taxes += cents(i.valor_total_tributos);
+      out.push(...wrap(`${i.numero_item} ${i.codigo_produto?.slice(0, 8) ?? ''} ${i.descricao}`));
+      const unit = Number(i.valor_unitario_comercial ?? 0)
+        .toFixed(2)
+        .replace('.', ',');
+      out.push(
+        `   ${fmtQty(i.quantidade_comercial ?? '1')} ${i.unidade_comercial ?? 'UN'} x ${unit}`.padEnd(
+          WIDTH - 12,
+        ) + brl(total).padStart(12),
+      );
+    }
+    out.push(line());
+    out.push(row('Qtde. total de itens', String(items.length)));
+    out.push(row('Valor total R$', brl(gross)));
+    if (discount) out.push(row('Descontos R$', brl(discount)));
+    if (other) out.push(row('Acréscimos R$', brl(other)));
+    out.push(row('Valor a pagar R$', brl(gross - discount + other)));
+    out.push(row('FORMA DE PAGAMENTO', 'VALOR PAGO R$'));
+    for (const p of d.payload.formas_pagamento ?? [])
+      out.push(
+        row(TPAG_LABELS[p.forma_pagamento] ?? p.forma_pagamento, brl(cents(p.valor_pagamento))),
+      );
+    out.push(line());
+    out.push(center('Consulte pela Chave de Acesso em'));
+    if (d.consult_url) out.push(...wrap(d.consult_url).map(center));
+    const key = (d.access_key ?? '').replace(/\D/g, '');
+    if (key) out.push(...wrap(key.replace(/(\d{4})(?=\d)/g, '$1 ')).map(center));
+    out.push(line());
+    const doc = d.payload.cnpj_destinatario
+      ? `CNPJ ${d.payload.cnpj_destinatario}`
+      : d.payload.cpf_destinatario
+        ? `CPF ${d.payload.cpf_destinatario.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4')}`
+        : null;
+    if (!doc) out.push(center('CONSUMIDOR NÃO IDENTIFICADO'));
+    else {
+      out.push(
+        ...wrap(
+          `CONSUMIDOR - ${doc}${d.payload.nome_destinatario ? ` - ${d.payload.nome_destinatario}` : ''}`,
+        ).map(center),
+      );
+      const dest = [
+        [d.payload.logradouro_destinatario, d.payload.numero_destinatario]
+          .filter(Boolean)
+          .join(', '),
+        d.payload.bairro_destinatario,
+        [d.payload.municipio_destinatario, d.payload.uf_destinatario].filter(Boolean).join('/'),
+      ]
+        .filter(Boolean)
+        .join(' - ');
+      if (dest) out.push(...wrap(dest).map(center));
+    }
+    out.push(line());
+    out.push(
+      center(`NFC-e nº ${d.number ?? '-'} Série ${d.series ?? '-'} ${d.authorized ?? ''}`.trim()),
+    );
+    if (d.protocol) out.push(center(`Protocolo de autorização: ${d.protocol}`));
+    if (d.authorized) out.push(center(`Data de autorização: ${d.authorized}`));
+    if (d.qrcode_url) out.push(`${QR_MARK}${d.qrcode_url}`);
+    if (taxes)
+      out.push(
+        ...wrap(`Tributos totais incidentes (Lei Federal 12.741/2012): R$ ${brl(taxes)}`).map(
+          center,
+        ),
+      );
+    out.push(line('='));
+    return out.join('\n');
+  }
+
+  /**
+   * Cupom da NFC-e autorizada na impressora do caixa. Automático só uma vez por nota; a
+   * reimpressão (pela tela) sempre gera um trabalho novo. Sem agente ativo, não faz nada.
+   */
+  async enqueueFiscalReceipt(
+    tenantId: string,
+    documentId: string,
+    by: string | null,
+    reprint = false,
+  ): Promise<boolean> {
+    const queued = await this.db.withTenant({ tenantId }, async (tx) => {
+      if (!(await this.hasActiveAgent(tx))) {
+        if (reprint)
+          throw new ConflictException('Nenhum agente de impressão ativo. Configure em Impressão.');
+        return false;
+      }
+      const text = await this.fiscalReceipt(tx, documentId);
+      if (!text) {
+        if (reprint) throw new ConflictException('Só NFC-e autorizada tem cupom para imprimir');
+        return false;
+      }
+      const order = await one<{ order_id: string }>(
+        tx,
+        `SELECT order_id FROM fiscal_documents WHERE id = $1`,
+        [documentId],
+      );
+      const r = await one(
+        tx,
+        `INSERT INTO print_jobs (tenant_id, dedupe_key, kind, target, order_id, payload, created_by)
+         VALUES ($1,$2,'fiscal_receipt','Caixa',$3,$4,$5) ON CONFLICT (tenant_id, dedupe_key) DO NOTHING RETURNING id`,
+        [
+          tenantId,
+          reprint ? `fiscal:${documentId}:${randomUUID()}` : `fiscal:${documentId}`,
+          order?.order_id ?? null,
+          reprint ? `*** 2ª VIA ***\n${text}` : text,
+          by,
+        ],
+      );
+      return !!r;
+    });
+    if (queued) this.realtime.publish(tenantId, { type: 'print.changed' });
+    return queued;
+  }
+
+  /** Aviso de item cancelado para o setor que produz o item (a cozinha para de fazer). */
+  async enqueueItemCancel(
+    tx: Tx,
+    ctx: Ctx,
+    orderId: string,
+    itemId: string,
+    reason: string,
+  ): Promise<number> {
+    if (!(await this.hasActiveAgent(tx))) return 0;
+    const i = await one<{
+      name: string;
+      quantity: string;
+      sector: string | null;
+      options: string[];
+    }>(
+      tx,
+      `SELECT i.name, i.quantity::text, s.name AS sector,
+              COALESCE((SELECT array_agg(io.name ORDER BY io.name) FROM order_item_options io WHERE io.order_item_id = i.id), '{}') AS options
+         FROM order_items i LEFT JOIN production_sectors s ON s.id = i.sector_id WHERE i.id = $1`,
+      [itemId],
+    );
+    if (!i) return 0;
+    const o = await this.orderHeader(tx, orderId);
+    const where = o.table_label
+      ? `Mesa ${o.table_label}`
+      : o.tab_number
+        ? `Comanda ${o.tab_number}`
+        : CHANNEL_LABELS[o.channel];
+    const text = [
+      center('*** ITEM CANCELADO ***'),
+      center((i.sector ?? 'Cozinha').toUpperCase()),
+      line('='),
+      `PEDIDO #${o.number}`.padEnd(WIDTH - 11) + o.local_time.padStart(11),
+      where,
+      line(),
+      ...wrap(`${fmtQty(i.quantity)}x ${i.name}`),
+      ...i.options.flatMap((op) => wrap(`+ ${op}`, '   ')),
+      ...wrap(`MOTIVO: ${reason}`),
+      line('='),
+    ].join('\n');
+    const r = await one(
+      tx,
+      `INSERT INTO print_jobs (tenant_id, dedupe_key, kind, target, order_id, payload, created_by)
+       VALUES ($1,$2,'kitchen_cancel',$3,$4,$5,$6) ON CONFLICT (tenant_id, dedupe_key) DO NOTHING RETURNING id`,
+      [
+        ctx.tenantId,
+        `order:${orderId}:item:${itemId}:cancel`,
+        (i.sector ?? 'Cozinha').slice(0, 60),
+        orderId,
+        text,
+        ctx.userId,
+      ],
+    );
+    return r ? 1 : 0;
   }
 
   /** Enfileira as comandas de cozinha de um pedido novo, uma por setor. Sem agente ativo, não faz nada. */

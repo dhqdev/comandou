@@ -16,7 +16,13 @@ import { z } from 'zod';
 import { ORDER_CHANNELS, ORDER_STATUSES, ordersLimitedToOwn } from '@comandou/shared';
 import { CashService } from '../cash/cash.service';
 import { ctxOf } from '../common/context';
-import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
+import {
+  AllowWhenBlocked,
+  BlockWhenBilling,
+  CurrentTenant,
+  CurrentUser,
+  RequirePermission,
+} from '../common/decorators';
 import { requireKey, validIdempotencyKey } from '../common/idempotency';
 import { Adjust, CreateOrder, money, Payment, reason, Transition, uuid } from '../common/schemas';
 import { ZodPipe } from '../common/zod.pipe';
@@ -41,11 +47,18 @@ const ListQuery = z.object({
     .enum(['true', 'false'])
     .optional()
     .transform((v) => v === 'true'),
+  /** Concluídos com saldo a pagar ("a receber" ou aguardando o acerto do entregador). */
+  openBalance: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
   limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 
 const Refund = z.object({ cashSessionId: uuid, amount: money, reason });
 
+/** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
+@AllowWhenBlocked()
 @Controller({ path: 'orders', version: '1' })
 export class OrdersController {
   constructor(
@@ -75,6 +88,7 @@ export class OrdersController {
 
   /** Cria pedido. Envie `Idempotency-Key` para que reenvios (rede instável) não dupliquem o pedido. */
   @Post()
+  @BlockWhenBilling()
   @RequirePermission('orders:write')
   create(
     @Body(new ZodPipe(CreateOrder)) b: z.infer<typeof CreateOrder>,
@@ -117,6 +131,20 @@ export class OrdersController {
     return this.orders.adjust(ctxOf(t, u, req), id, b);
   }
 
+  /** Cancela um item do pedido (com motivo). Exige gerente. */
+  @Post(':id/items/:itemId/cancel')
+  @RequirePermission('orders:cancel')
+  cancelItem(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('itemId', new ParseUUIDPipe()) itemId: string,
+    @Body(new ZodPipe(z.object({ reason }))) b: { reason: string },
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.orders.cancelItem(ctxOf(t, u, req), id, itemId, b.reason);
+  }
+
   @Post(':id/move')
   @RequirePermission('tables:operate')
   move(
@@ -144,6 +172,8 @@ export class OrdersController {
   }
 }
 
+/** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
+@AllowWhenBlocked()
 @Controller({ path: 'payments', version: '1' })
 export class PaymentsController {
   constructor(private readonly cash: CashService) {}

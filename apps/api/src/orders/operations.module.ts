@@ -35,7 +35,7 @@ import {
 } from '../reservations/reservations.controller';
 import { ReservationsService } from '../reservations/reservations.service';
 import { SetupController } from '../setup/setup.controller';
-import { TabsController } from '../tables/tabs.controller';
+import { SalonController, TabsController } from '../tables/tabs.controller';
 import { TabsService } from '../tables/tabs.service';
 import { WaitersController } from '../tables/waiters.controller';
 import { AccountController, CustomersController } from '../store/account.controller';
@@ -59,6 +59,7 @@ import { OrdersService } from './orders.service';
     OrdersController,
     PaymentsController,
     TabsController,
+    SalonController,
     WaitersController,
     KitchenController,
     CashController,

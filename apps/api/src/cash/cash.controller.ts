@@ -13,7 +13,12 @@ import type { Request } from 'express';
 import { z } from 'zod';
 import { PAYMENT_METHODS } from '@comandou/shared';
 import { ctxOf } from '../common/context';
-import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
+import {
+  AllowWhenBlocked,
+  CurrentTenant,
+  CurrentUser,
+  RequirePermission,
+} from '../common/decorators';
 import { requireKey, validIdempotencyKey } from '../common/idempotency';
 import { money, uuid } from '../common/schemas';
 import { ZodPipe } from '../common/zod.pipe';
@@ -40,6 +45,8 @@ const Close = z.object({
   note: z.string().trim().max(500).optional(),
 });
 
+/** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
+@AllowWhenBlocked()
 @Controller({ path: 'cash/sessions', version: '1' })
 export class CashController {
   constructor(private readonly cash: CashService) {}

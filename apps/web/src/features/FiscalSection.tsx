@@ -142,6 +142,21 @@ export function FiscalSection({
                   {doc.kind === 'nfe' ? 'DANFE' : 'Cupom'}
                 </a>
               )}
+              {canEmit && doc.kind === 'nfce' && doc.status === 'authorized' && (
+                <Button
+                  variant="ghost"
+                  loading={busy === 'print'}
+                  onClick={() =>
+                    run(
+                      'print',
+                      () => api(`/fiscal/documents/${doc.id}/print`, { method: 'POST' }),
+                      'Cupom enviado para a impressora do caixa',
+                    )
+                  }
+                >
+                  Imprimir cupom
+                </Button>
+              )}
               {canEmit && WORKING.includes(doc.status) && (
                 <Button
                   variant="ghost"

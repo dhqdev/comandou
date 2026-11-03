@@ -10,7 +10,7 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { explainFiscalError, FiscalIssue, toCents } from '@comandou/shared';
+import { explainFiscalError, FiscalIssue, fromCents, toCents } from '@comandou/shared';
 import { randomUUID } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
 import { CashService } from '../cash/cash.service';
@@ -20,6 +20,7 @@ import { one, q } from '../common/sql';
 import { ENV, Env } from '../config/env';
 import { DatabaseService, Tx } from '../database/database.service';
 import { OrdersService } from '../orders/orders.service';
+import { PrintingService } from '../printing/printing.service';
 import { QueueService, TenantJob } from '../queue/queue.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { composeNote, ComposeItem, Operation, Recipient } from './fiscal-compose';
@@ -71,6 +72,8 @@ export interface FiscalSettingsInput {
   additionalInfo?: string | null;
   autoEmitNfce?: boolean;
   emailCustomer?: boolean;
+  /** Imprime o cupom da NFC-e autorizada na impressora do caixa (agente de impressão). */
+  printNfce?: boolean;
 }
 
 /** Dados cadastrais do emitente (vão para a Focus e ficam no banco, sem segredos). */
@@ -137,14 +140,22 @@ export interface SettingsRow {
   nfe_nature: string;
   additional_info: string | null;
   auto_emit_nfce: boolean;
+  print_nfce: boolean;
   email_customer: boolean;
   received_version: string;
   received_synced_at: Date | null;
 }
 
+/** Do que a nota trata: um pedido, ou a comanda inteira (todos os pedidos não cancelados). */
+interface Scope {
+  orderId: string;
+  tabId: string | null;
+}
+
 interface DocRow {
   id: string;
   order_id: string;
+  tab_id: string | null;
   kind: FiscalKind;
   ref: string;
   environment: FocusEnvironment;
@@ -161,9 +172,9 @@ interface DocRow {
 const SETTINGS_COLS = `enabled, environment, cnpj, token_enc, token_last4, default_cfop, default_code,
   default_ncm, updated_at, mode, focus_company_id, token_homolog_enc, token_prod_enc, company,
   certificate_valid_until, csc_homolog_set, csc_prod_set, focus_synced_at, nfe_enabled, nfce_nature,
-  nfe_nature, additional_info, auto_emit_nfce, email_customer, received_version::text, received_synced_at`;
+  nfe_nature, additional_info, auto_emit_nfce, print_nfce, email_customer, received_version::text, received_synced_at`;
 
-const DOC_COLS = `id, order_id, kind, ref, environment, status, attempts, request_payload, cancel_reason,
+const DOC_COLS = `id, order_id, tab_id, kind, ref, environment, status, attempts, request_payload, cancel_reason,
   recipient, operation, customer_id, number`;
 
 /** Contexto do valor cifrado: um token não decifra se for trocado de ambiente ou de restaurante. */
@@ -188,6 +199,7 @@ function hasTokenFor(s: SettingsRow | undefined, e: FocusEnvironment) {
 
 const DOC_SELECT = `
   SELECT d.id, d.order_id AS "orderId", o.number AS "orderNumber", o.channel AS "orderChannel",
+         d.tab_id AS "tabId", (SELECT t.number FROM tabs t WHERE t.id = d.tab_id) AS "tabNumber",
          d.kind, d.ref, d.environment,
          d.status, d.attempts, d.total::text, d.sefaz_status AS "sefazStatus", d.sefaz_message AS "sefazMessage",
          d.access_key AS "accessKey", d.number, d.series, d.xml_path AS "xmlPath", d.danfe_path AS "danfePath",
@@ -254,10 +266,13 @@ export class FiscalService implements OnModuleInit {
     private readonly plans: PlanService,
     private readonly rules: FiscalRulesService,
     private readonly cash: CashService,
+    private readonly printing: PrintingService,
   ) {}
 
   onModuleInit() {
     this.cash.onOrderPaid((ctx, orderId) => this.autoEmit(ctx, orderId));
+    this.orders.onDispatched((ctx, orderId) => this.autoEmit(ctx, orderId));
+    this.orders.onTabClosed((ctx, tabId) => this.autoEmitTab(ctx, tabId));
     this.queue.register(EMIT_JOB, (d, attempt, final) => this.runEmit(d, attempt, final));
     this.queue.register(CHECK_JOB, (d, attempt, final) => this.runCheck(d, attempt, final));
   }
@@ -295,6 +310,7 @@ export class FiscalService implements OnModuleInit {
       additionalInfo: s?.additional_info ?? null,
       autoEmitNfce: s?.auto_emit_nfce ?? false,
       emailCustomer: s?.email_customer ?? false,
+      printNfce: s?.print_nfce ?? true,
       regime: s?.company?.regimeTributario ?? null,
       receivedSyncedAt: s?.received_synced_at ?? null,
       /** O servidor tem a chave que cifra o token? Sem ela não dá para salvar token. */
@@ -369,6 +385,7 @@ export class FiscalService implements OnModuleInit {
         additionalInfo: b.additionalInfo !== undefined ? b.additionalInfo : cur.additional_info,
         autoEmitNfce: b.autoEmitNfce ?? cur.auto_emit_nfce,
         emailCustomer: b.emailCustomer ?? cur.email_customer,
+        printNfce: b.printNfce ?? cur.print_nfce,
       };
       const probe = {
         ...cur,
@@ -398,7 +415,8 @@ export class FiscalService implements OnModuleInit {
             SET enabled=$1, environment=$2, cnpj=$3, token_enc=$4, token_last4=$5, default_cfop=$6,
                 default_code=$7, default_ncm=$8, updated_by=$9, mode=$10, nfe_enabled=$11,
                 nfce_nature=$12, nfe_nature=$13, additional_info=$14, auto_emit_nfce=$15,
-                email_customer=$16, token_homolog_enc=$17, token_prod_enc=$18, updated_at=now()`,
+                email_customer=$16, token_homolog_enc=$17, token_prod_enc=$18, print_nfce=$19,
+                updated_at=now()`,
         [
           next.enabled,
           next.environment,
@@ -418,6 +436,7 @@ export class FiscalService implements OnModuleInit {
           next.emailCustomer,
           homologEnc,
           prodEnc,
+          next.printNfce,
         ],
       );
       // Nunca registrar o token na auditoria: só se ele mudou.
@@ -826,11 +845,13 @@ export class FiscalService implements OnModuleInit {
   private async compose(
     tx: Tx,
     kind: FiscalKind,
-    orderId: string,
+    scope: Scope,
     s: SettingsRow,
     recipient: Recipient | null,
     operation: Operation,
   ) {
+    const orderIds = await this.scopeOrders(tx, scope);
+    // Comanda: a nota soma todos os pedidos não cancelados (as rodadas da mesa).
     const o = (await one<{
       channel: string;
       source: string;
@@ -839,11 +860,18 @@ export class FiscalService implements OnModuleInit {
       surcharge: string;
       delivery_fee: string;
       total: string;
+      paid: string;
+      payment_hint: string | null;
     }>(
       tx,
-      `SELECT channel, source, subtotal::text, discount::text, surcharge::text, delivery_fee::text, total::text
-         FROM orders WHERE id = $1`,
-      [orderId],
+      `SELECT (array_agg(channel ORDER BY created_at, id))[1] AS channel,
+              (array_agg(source ORDER BY created_at, id))[1] AS source,
+              sum(subtotal)::text AS subtotal, sum(discount)::text AS discount,
+              sum(surcharge)::text AS surcharge, sum(delivery_fee)::text AS delivery_fee,
+              sum(total)::text AS total, sum(paid_amount)::text AS paid,
+              (array_agg(payment_hint ORDER BY created_at, id))[1] AS payment_hint
+         FROM orders WHERE id = ANY($1::uuid[])`,
+      [orderIds],
     ))!;
     const rows = await q<{
       id: string;
@@ -863,9 +891,9 @@ export class FiscalService implements OnModuleInit {
       `SELECT i.id, i.product_id, i.name, i.quantity::text, i.total::text,
               p.ncm, p.cest, p.cfop, p.fiscal_code, p.fiscal_origin, p.fiscal_unit, p.fiscal_rule_id
          FROM order_items i JOIN products p ON p.id = i.product_id
-        WHERE i.order_id = $1 AND i.status <> 'cancelled' AND i.total > 0
+        WHERE i.order_id = ANY($1::uuid[]) AND i.status <> 'cancelled' AND i.total > 0
         ORDER BY i.created_at, i.id`,
-      [orderId],
+      [orderIds],
     );
     const resolved = await this.rules.resolve(
       tx,
@@ -896,9 +924,17 @@ export class FiscalService implements OnModuleInit {
     const payments = await q<{ method: string; net: string }>(
       tx,
       `SELECT method, sum(amount - refunded_amount)::text AS net FROM payments
-        WHERE order_id = $1 GROUP BY method HAVING sum(amount - refunded_amount) > 0 ORDER BY method`,
-      [orderId],
+        WHERE order_id = ANY($1::uuid[]) GROUP BY method HAVING sum(amount - refunded_amount) > 0 ORDER BY method`,
+      [orderIds],
     );
+    // Delivery pago na entrega: a nota sai antes, com a forma que o cliente escolheu (a receber).
+    const due = toCents(o.total) - toCents(o.paid);
+    if (o.channel === 'delivery' && due > 0) {
+      const method = o.payment_hint ?? 'other';
+      const cur = payments.find((p) => p.method === method);
+      if (cur) cur.net = fromCents(toCents(cur.net) + due);
+      else payments.push({ method, net: fromCents(due) });
+    }
     const res = composeNote({
       kind,
       cnpj: s.cnpj ?? '',
@@ -997,15 +1033,37 @@ export class FiscalService implements OnModuleInit {
     return s;
   }
 
-  private async assertPaid(tx: Tx, orderId: string) {
-    const r = (await one<{ ok: boolean }>(
+  /** Pedidos que a nota cobre: o pedido, ou os pedidos não cancelados da comanda. */
+  private async scopeOrders(tx: Tx, scope: Scope): Promise<string[]> {
+    if (!scope.tabId) return [scope.orderId];
+    const rows = await q<{ id: string }>(
       tx,
-      `SELECT (SELECT coalesce(sum(amount - refunded_amount), 0) FROM payments WHERE order_id = $1)
-              = (SELECT total FROM orders WHERE id = $1) AS ok`,
-      [orderId],
+      `SELECT id FROM orders WHERE tab_id = $1 AND status <> 'cancelled' ORDER BY created_at, id`,
+      [scope.tabId],
+    );
+    return rows.length ? rows.map((r) => r.id) : [scope.orderId];
+  }
+
+  /**
+   * A nota sai com a venda paga. Exceção: delivery pago na entrega, que leva a NFC-e junto com a
+   * mercadoria (a forma de pagamento é a que o cliente escolheu; o acerto do entregador recebe).
+   */
+  private async assertPaid(tx: Tx, scope: Scope) {
+    const ids = await this.scopeOrders(tx, scope);
+    const r = (await one<{ ok: boolean; delivery: boolean }>(
+      tx,
+      `SELECT (SELECT coalesce(sum(amount - refunded_amount), 0) FROM payments WHERE order_id = ANY($1::uuid[]))
+              = (SELECT sum(total) FROM orders WHERE id = ANY($1::uuid[])) AS ok,
+              bool_and(channel = 'delivery' AND status IN ('ready','dispatched','completed')) AS delivery
+         FROM orders WHERE id = ANY($1::uuid[])`,
+      [ids],
     ))!;
-    if (!r.ok)
-      throw new UnprocessableEntityException('A nota só é emitida com o pedido totalmente pago');
+    if (!r.ok && !r.delivery)
+      throw new UnprocessableEntityException(
+        scope.tabId
+          ? 'A nota da comanda só é emitida com a conta toda paga'
+          : 'A nota só é emitida com o pedido totalmente pago',
+      );
   }
 
   /** Grava uma nota (nova ou reaproveitada) com o conteúdo montado. */
@@ -1013,7 +1071,7 @@ export class FiscalService implements OnModuleInit {
     tx: Tx,
     ctx: Ctx,
     kind: FiscalKind,
-    orderId: string,
+    scope: Scope,
     s: SettingsRow,
     reuseId: string | null,
     recipient: Recipient | null,
@@ -1021,7 +1079,8 @@ export class FiscalService implements OnModuleInit {
     operation: Operation,
     target: 'draft' | 'send' | 'hold',
   ) {
-    const c = await this.compose(tx, kind, orderId, s, recipient, operation);
+    const orderId = scope.orderId;
+    const c = await this.compose(tx, kind, scope, s, recipient, operation);
     const status: FiscalStatus =
       target === 'draft' ? 'draft' : target === 'hold' || c.issues.length ? 'error' : 'pending';
     const id = reuseId ?? randomUUID();
@@ -1046,8 +1105,8 @@ export class FiscalService implements OnModuleInit {
     } else {
       await tx.$client.query(
         `INSERT INTO fiscal_documents (id, tenant_id, order_id, kind, ref, environment, total, request_payload,
-            created_by, status, recipient, customer_id, operation, issues)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+            created_by, status, recipient, customer_id, operation, issues, tab_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
         [
           id,
           ctx.tenantId,
@@ -1063,6 +1122,7 @@ export class FiscalService implements OnModuleInit {
           customerId,
           JSON.stringify(c.operation),
           c.issues.length ? JSON.stringify(c.issues) : null,
+          scope.tabId,
         ],
       );
     }
@@ -1074,6 +1134,7 @@ export class FiscalService implements OnModuleInit {
       entityId: id,
       data: {
         orderId,
+        ...(scope.tabId ? { tabId: scope.tabId } : {}),
         environment: s.environment,
         total: c.total,
         status,
@@ -1093,13 +1154,56 @@ export class FiscalService implements OnModuleInit {
     let send = false;
     let again = false;
     const doc = await this.db.withTenant(ctx, async (tx) => {
-      const o = await this.orders.lock(tx, orderId);
-      const live = await one<{ id: string; kind: FiscalKind; status: FiscalStatus }>(
+      const pre = await one<{ tab_id: string | null }>(
         tx,
-        `SELECT id, kind, status FROM fiscal_documents WHERE order_id = $1 AND status = ANY($2) LIMIT 1`,
-        [o.id, LIVE_STATUSES],
+        `SELECT tab_id FROM orders WHERE id = $1`,
+        [orderId],
       );
-      if (live && live.kind === 'nfce') return live;
+      if (!pre) throw new NotFoundException('Pedido não encontrado');
+      // Pedido de comanda: uma NFC-e só, da conta inteira, depois que a conta fecha.
+      // Travas na ordem do caixa: comanda → pedidos (por data, id).
+      let o: Awaited<ReturnType<OrdersService['lock']>>;
+      let ids: string[];
+      if (pre.tab_id) {
+        const tab = await one<{ status: string }>(
+          tx,
+          `SELECT status FROM tabs WHERE id = $1 FOR UPDATE`,
+          [pre.tab_id],
+        );
+        if (tab?.status === 'open')
+          throw new ConflictException(
+            'A NFC-e da comanda sai quando a conta fecha (uma nota para a mesa toda)',
+          );
+        const rows = await q<{ id: string }>(
+          tx,
+          `SELECT id FROM orders WHERE tab_id = $1 AND status <> 'cancelled' ORDER BY created_at, id FOR UPDATE`,
+          [pre.tab_id],
+        );
+        if (!rows.length) throw new ConflictException('Comanda sem pedidos para a nota');
+        ids = rows.map((r) => r.id);
+        o = await this.orders.lock(tx, ids[0]!);
+      } else {
+        o = await this.orders.lock(tx, orderId);
+        ids = [o.id];
+      }
+      const scope: Scope = { orderId: o.id, tabId: pre.tab_id };
+      const live = await one<{
+        id: string;
+        kind: FiscalKind;
+        status: FiscalStatus;
+        tab_id: string | null;
+      }>(
+        tx,
+        `SELECT id, kind, status, tab_id FROM fiscal_documents
+          WHERE (order_id = ANY($1::uuid[]) OR ($3::uuid IS NOT NULL AND tab_id = $3)) AND status = ANY($2)
+          LIMIT 1`,
+        [ids, LIVE_STATUSES, scope.tabId],
+      );
+      if (live && live.kind === 'nfce' && live.tab_id === scope.tabId) return live;
+      if (live && live.kind === 'nfce')
+        throw new ConflictException(
+          'Um pedido desta comanda já tem NFC-e própria: cancele essa nota para emitir a da mesa',
+        );
       if (live)
         throw new ConflictException(
           live.status === 'draft'
@@ -1109,13 +1213,14 @@ export class FiscalService implements OnModuleInit {
       if (o.status === 'cancelled' || o.status === 'cancel_requested')
         throw new ConflictException('Pedido cancelado não recebe nota');
       const s = await this.assertReady(tx, 'nfce');
-      await this.assertPaid(tx, o.id);
+      await this.assertPaid(tx, scope);
       const prev = await one<DocRow>(
         tx,
         `SELECT ${DOC_COLS} FROM fiscal_documents
-          WHERE order_id = $1 AND kind = 'nfce' AND status IN ('rejected','error')
+          WHERE kind = 'nfce' AND status IN ('rejected','error')
+            AND (CASE WHEN $2::uuid IS NULL THEN order_id = $1 AND tab_id IS NULL ELSE tab_id = $2 END)
           ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
-        [o.id],
+        [o.id, scope.tabId],
       );
       const extra = await one<{
         customer_id: string | null;
@@ -1126,9 +1231,14 @@ export class FiscalService implements OnModuleInit {
         tax_document: string | null;
       }>(
         tx,
-        `SELECT customer_id, customer_name, customer_phone, channel, delivery_address, tax_document
-           FROM orders WHERE id = $1`,
-        [o.id],
+        `SELECT (array_agg(customer_id) FILTER (WHERE customer_id IS NOT NULL))[1] AS customer_id,
+                (array_agg(customer_name ORDER BY created_at) FILTER (WHERE customer_name IS NOT NULL))[1] AS customer_name,
+                (array_agg(customer_phone) FILTER (WHERE customer_phone IS NOT NULL))[1] AS customer_phone,
+                (array_agg(channel ORDER BY created_at))[1] AS channel,
+                (array_agg(delivery_address) FILTER (WHERE delivery_address IS NOT NULL))[1] AS delivery_address,
+                (array_agg(tax_document ORDER BY created_at DESC) FILTER (WHERE tax_document IS NOT NULL))[1] AS tax_document
+           FROM orders WHERE id = ANY($1::uuid[])`,
+        [ids],
       );
       let recipient =
         prev?.recipient ??
@@ -1161,7 +1271,7 @@ export class FiscalService implements OnModuleInit {
         tx,
         ctx,
         'nfce',
-        o.id,
+        scope,
         s,
         prev?.id ?? null,
         recipient,
@@ -1196,7 +1306,7 @@ export class FiscalService implements OnModuleInit {
       if (o.status === 'cancelled' || o.status === 'cancel_requested')
         throw new ConflictException('Pedido cancelado não recebe nota');
       const s = await this.assertReady(tx, 'nfe');
-      await this.assertPaid(tx, o.id);
+      await this.assertPaid(tx, { orderId: o.id, tabId: null });
       const extra = (await one<{
         customer_id: string | null;
         customer_name: string | null;
@@ -1217,7 +1327,18 @@ export class FiscalService implements OnModuleInit {
         finalConsumer: recipient?.ieIndicator !== 1,
         info: null,
       };
-      return this.store(tx, ctx, 'nfe', o.id, s, null, recipient, customerId, operation, 'draft');
+      return this.store(
+        tx,
+        ctx,
+        'nfe',
+        { orderId: o.id, tabId: null },
+        s,
+        null,
+        recipient,
+        customerId,
+        operation,
+        'draft',
+      );
     });
     this.changed(ctx.tenantId, doc.id, orderId);
     return this.detail(ctx, doc.id);
@@ -1252,7 +1373,7 @@ export class FiscalService implements OnModuleInit {
         tx,
         ctx,
         d.kind,
-        d.order_id,
+        { orderId: d.order_id, tabId: d.tab_id },
         s,
         d.id,
         recipient,
@@ -1273,13 +1394,13 @@ export class FiscalService implements OnModuleInit {
     const orderId = await this.db.withTenant(ctx, async (tx) => {
       const d = await this.lockEditable(tx, id);
       const s = await this.assertReady(tx, d.kind);
-      await this.assertPaid(tx, d.order_id);
+      await this.assertPaid(tx, { orderId: d.order_id, tabId: d.tab_id });
       const { lines: _l, ...op } = d.operation ?? {};
       const r = await this.store(
         tx,
         ctx,
         d.kind,
-        d.order_id,
+        { orderId: d.order_id, tabId: d.tab_id },
         s,
         d.id,
         d.recipient,
@@ -1335,10 +1456,14 @@ export class FiscalService implements OnModuleInit {
       const on = await this.db.withTenant(ctx, async (tx) => {
         const s = await this.settingsRow(tx);
         if (!s?.enabled || !s.auto_emit_nfce) return false;
+        // Pedido de comanda espera o fechamento da conta (uma nota para a mesa toda).
+        // Delivery sai com a nota na expedição, mesmo pago na entrega.
         const r = await one<{ ok: boolean }>(
           tx,
           `SELECT o.status NOT IN ('cancelled','cancel_requested')
-                  AND (SELECT coalesce(sum(amount - refunded_amount), 0) FROM payments WHERE order_id = o.id) = o.total
+                  AND o.tab_id IS NULL
+                  AND ((SELECT coalesce(sum(amount - refunded_amount), 0) FROM payments WHERE order_id = o.id) = o.total
+                       OR (o.channel = 'delivery' AND o.status IN ('dispatched','completed')))
                   AND o.total > 0
                   AND NOT EXISTS (SELECT 1 FROM fiscal_documents f WHERE f.order_id = o.id AND f.status <> 'discarded') AS ok
              FROM orders o WHERE o.id = $1`,
@@ -1349,6 +1474,34 @@ export class FiscalService implements OnModuleInit {
       if (on) await this.request(ctx, orderId);
     } catch (err) {
       this.logger.warn(`emissão automática da NFC-e falhou: ${(err as Error).message}`);
+    }
+  }
+
+  /** Conta da comanda fechada: emite a NFC-e da mesa toda, se a emissão automática estiver ligada. */
+  async autoEmitTab(ctx: Ctx, tabId: string) {
+    try {
+      const first = await this.db.withTenant(ctx, async (tx) => {
+        const s = await this.settingsRow(tx);
+        if (!s?.enabled || !s.auto_emit_nfce) return null;
+        const r = await one<{ id: string }>(
+          tx,
+          `SELECT o.id FROM orders o
+            WHERE o.tab_id = $1 AND o.status <> 'cancelled'
+              AND NOT EXISTS (SELECT 1 FROM fiscal_documents f
+                               WHERE (f.tab_id = $1 OR f.order_id = o.id) AND f.status <> 'discarded')
+            ORDER BY o.created_at, o.id LIMIT 1`,
+          [tabId],
+        );
+        const total = await one<{ total: string }>(
+          tx,
+          `SELECT coalesce(sum(total), 0)::text AS total FROM orders WHERE tab_id = $1 AND status <> 'cancelled'`,
+          [tabId],
+        );
+        return r && toCents(total!.total) > 0 ? r.id : null;
+      });
+      if (first) await this.request(ctx, first);
+    } catch (err) {
+      this.logger.warn(`emissão automática da NFC-e da comanda falhou: ${(err as Error).message}`);
     }
   }
 
@@ -1452,11 +1605,13 @@ export class FiscalService implements OnModuleInit {
             xml_path: b.caminho_xml_nota_fiscal ?? null,
             danfe_path: b.caminho_danfe ?? null,
             qrcode_url: b.qrcode_url ?? null,
+            consult_url: b.url_consulta_nf ?? null,
             authorized_at: new Date(),
           },
           `fiscal.${label}_authorized`,
         );
         void this.emailOnAuthorize(tenantId, doc);
+        if (label === 'nfce') void this.printOnAuthorize(tenantId, doc);
         return 'authorized';
       case 'processando_autorizacao':
         await this.setDoc(tenantId, doc.id, { ...common, status: 'processing' });
@@ -1507,6 +1662,23 @@ export class FiscalService implements OnModuleInit {
         return 'rejected';
       }
     }
+  }
+
+  /** Cupom da NFC-e na impressora do caixa, se ligado na configuração (e houver agente). */
+  private async printOnAuthorize(tenantId: string, doc: DocRow) {
+    try {
+      const s = await this.db.withTenant({ tenantId }, (tx) => this.settingsRow(tx));
+      if (s && !s.print_nfce) return;
+      await this.printing.enqueueFiscalReceipt(tenantId, doc.id, null);
+    } catch (err) {
+      this.logger.warn(`cupom da NFC-e não impresso: ${(err as Error).message}`);
+    }
+  }
+
+  /** Reimpressão do cupom da NFC-e pela tela. */
+  async print(ctx: Ctx, id: string) {
+    await this.printing.enqueueFiscalReceipt(ctx.tenantId, id, ctx.userId ?? null, true);
+    return { ok: true };
   }
 
   /** Manda o DANFE/XML para o e-mail do cliente, se ligado na configuração. */

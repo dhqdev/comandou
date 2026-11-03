@@ -109,6 +109,8 @@ const OnlineOrder = z.object({
   rewardId: uuid.optional(),
 });
 
+const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Hora no formato HH:MM');
+
 const Settings = z
   .object({
     enabled: z.boolean(),
@@ -178,6 +180,18 @@ const Settings = z
     cornerStyle: z.enum(CORNER_STYLES),
     faviconImageId: uuid.nullable(),
     brandStaffApp: z.boolean(),
+    hoursEnabled: z.boolean(),
+    hours: z
+      .array(
+        z
+          .object({
+            day: z.number().int().min(0).max(6),
+            open: hhmm,
+            close: hhmm,
+          })
+          .strict(),
+      )
+      .max(21),
   })
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');

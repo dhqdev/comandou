@@ -20,6 +20,56 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.69.0',
+    date: '2026-11-03',
+    title:
+      'Dinheiro e nota fiscal sob controle: acerto do entregador, NFC-e da mesa e cupom na térmica',
+    summary:
+      'Pedido só conclui pago (ou "a receber" com motivo), o caixa faz o acerto do entregador, a NFC-e sai para a comanda inteira e para o delivery pago na entrega, e o cupom fiscal imprime na térmica. Também: cancelar um item, taxa de serviço, horário automático da loja e login do painel mais seguro.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Pedido com saldo não é mais concluído por engano: o PDV abre o pedido para receber. Quem pode cancelar conclui "a receber" (fiado) com motivo, e os pedidos ficam na aba "Concluídos em aberto".',
+      },
+      {
+        tag: 'novo',
+        text: 'Entregas › Acerto: o que cada entregador recebeu na porta, por pedido. O caixa confere e lança no caixa aberto, com a forma de pagamento. O app do entregador pergunta como o cliente pagou.',
+      },
+      {
+        tag: 'correção',
+        text: 'Delivery pago na entrega agora tem NFC-e: a nota sai quando o pedido vai para a rua (com a emissão automática ligada) ou pelo botão.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Mesa com várias rodadas tem uma NFC-e só, com a conta inteira, emitida quando a conta fecha.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cupom da NFC-e na impressora térmica do caixa, com QR Code, assim que a nota é autorizada; "Imprimir cupom" tira a 2ª via. Liga e desliga em Fiscal › Configuração. App de impressão 1.1.0.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cancelar um item do pedido (gerente), com motivo: o total é refeito, o estoque volta e a cozinha recebe o aviso de cancelamento.',
+      },
+      {
+        tag: 'novo',
+        text: 'Taxa de serviço: defina o percentual em Ajustes e ela entra sozinha nas comandas novas. Na comanda dá para tirar ou recolocar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Horário de funcionamento da loja online por dia da semana, com mais de um turno e turno que passa da meia-noite: fora do horário a loja fecha sozinha e não aceita pedido.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Assinatura bloqueada não trava mais o caixa: receber, fechar conta, despachar e emitir nota continuam funcionando; só pedido e comanda novos ficam bloqueados.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Painel da plataforma: o navegador só fica lembrado se marcar "Lembrar este aparelho", e por 30 dias (antes eram 400).',
+      },
+    ],
+  },
+  {
     version: '0.68.0',
     date: '2026-10-30',
     title: 'Mesas de volta no PDV e tutoriais do Cardápio e da Nota fiscal',

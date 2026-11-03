@@ -20,8 +20,11 @@ import { verifyTotp } from './totp';
 export const PLATFORM_COOKIE = 'cm_admin';
 /** Navegador confiável: com ele o login do painel não pede o código do autenticador. */
 export const PLATFORM_DEVICE_COOKIE = 'cm_admin_device';
-/** Quanto tempo o navegador fica confiável (limite de cookie dos navegadores: 400 dias). */
-export const TRUSTED_DEVICE_DAYS = 400;
+/**
+ * Quanto tempo o navegador fica confiável. Curto de propósito: o painel mexe em todos os
+ * restaurantes, então um notebook perdido não pode entrar sem código por mais de um mês.
+ */
+export const TRUSTED_DEVICE_DAYS = 30;
 /** O cookie do painel só vai para as rotas do painel. */
 export const PLATFORM_COOKIE_PATH = '/api/v1/platform';
 
@@ -60,13 +63,14 @@ export class PlatformAuthService {
    * Senha + código de 6 dígitos do aplicativo autenticador. Mesma resposta para qualquer falha
    * (e-mail, senha ou código), tempo parecido e auditoria de cada tentativa.
    * Num navegador confiável (cookie de dispositivo do mesmo admin) o código não é pedido;
-   * depois de um login com código, o navegador passa a ser confiável.
+   * depois de um login com código, o navegador só passa a ser confiável se o admin marcar
+   * "lembrar este aparelho" (`meta.remember`).
    */
   async login(
     email: string,
     password: string,
     code: string,
-    meta: { ip?: string; userAgent?: string; deviceToken?: string },
+    meta: { ip?: string; userAgent?: string; deviceToken?: string; remember?: boolean },
   ): Promise<{
     token: string;
     expiresAt: Date;
@@ -144,7 +148,7 @@ export class PlatformAuthService {
           await c.query(`UPDATE platform_trusted_devices SET last_used_at = now() WHERE id = $1`, [
             trusted,
           ]);
-        } else {
+        } else if (meta.remember) {
           device = {
             token: randomBytes(32).toString('base64url'),
             expiresAt: new Date(Date.now() + TRUSTED_DEVICE_DAYS * 86400_000),
@@ -220,8 +224,10 @@ export class PlatformAuthService {
       `SELECT d.id, d.admin_id, a.email::text AS email
          FROM platform_trusted_devices d JOIN platform_admins a ON a.id = d.admin_id
         WHERE d.token_hash = $1 AND d.revoked_at IS NULL AND d.expires_at > now()
+          -- Aparelhos lembrados antes do prazo curto também vencem no prazo novo.
+          AND d.created_at > now() - make_interval(days => $2)
           AND a.disabled_at IS NULL`,
-      [hashToken(token)],
+      [hashToken(token), TRUSTED_DEVICE_DAYS],
     );
     const r = rows[0];
     return r ? { id: r.id, adminId: r.admin_id, email: r.email } : null;

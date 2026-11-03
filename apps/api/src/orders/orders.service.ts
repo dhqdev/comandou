@@ -69,6 +69,14 @@ export interface CreateOrderInput {
   deliveryLocation?: { lat: number; lng: number };
 }
 
+/** Opções de uma transição que não cabem no motivo. */
+export interface TransitionExtra {
+  /** Concluir com saldo como "a receber" (fiado), com motivo. Exige `orders:cancel`. */
+  receivable?: boolean;
+  /** Forma que o entregador recebeu na porta (vai para o acerto). */
+  collectMethod?: string | null;
+}
+
 export interface OrderRow {
   id: string;
   number: number;
@@ -104,12 +112,14 @@ export const ORDER_SELECT = `
          o.delivery_address AS "deliveryAddress", o.tax_document AS "taxDocument", o.delivery_lat::text AS "deliveryLat",
          o.delivery_lng::text AS "deliveryLng", o.notes, o.cancel_reason AS "cancelReason",
          o.source, o.payment_hint AS "paymentHint", o.change_for::text AS "changeFor",
-         o.accepted_at AS "acceptedAt",
+         o.accepted_at AS "acceptedAt", o.receivable_at AS "receivableAt",
+         o.receivable_reason AS "receivableReason",
          o.version, o.created_at AS "createdAt", o.updated_at AS "updatedAt",
          COALESCE((SELECT json_agg(json_build_object(
              'id', i.id, 'productId', i.product_id, 'name', i.name, 'quantity', i.quantity::text,
              'unitPrice', i.unit_price::text, 'total', i.total::text, 'notes', i.notes, 'status', i.status,
              'sectorId', i.sector_id, 'startedAt', i.started_at, 'readyAt', i.ready_at,
+             'cancelReason', i.cancel_reason,
              'imageId', (SELECT p.image_id FROM products p WHERE p.id = i.product_id),
              'options', COALESCE((SELECT json_agg(json_build_object('id', io.option_id, 'name', io.name, 'priceDelta', io.price_delta::text))
                                   FROM order_item_options io WHERE io.order_item_id = i.id), '[]'))
@@ -117,6 +127,16 @@ export const ORDER_SELECT = `
     FROM orders o
     LEFT JOIN tabs tb ON tb.id = o.tab_id
     LEFT JOIN dining_tables dt ON dt.id = tb.table_id`;
+
+/**
+ * Taxa de serviço em centavos: percentual ("10.00") sobre a base (itens com desconto),
+ * arredondada para o centavo mais próximo.
+ */
+export function serviceFeeCents(baseCents: number, percent: string | null): number {
+  if (!percent || baseCents <= 0) return 0;
+  const hundredths = toCents(percent); // "10.00" → 1000 (centésimos de ponto percentual)
+  return Math.round((baseCents * hundredths) / 10_000);
+}
 
 /** Aviso ao cliente pelo WhatsApp que a mudança de status gera (ou null). */
 export function statusEvent(
@@ -164,6 +184,25 @@ export class OrdersService {
     private readonly loyalty: LoyaltyService,
   ) {}
 
+  // ---------------------------------------------------------------- avisos depois do COMMIT
+  private readonly dispatchedHooks: ((ctx: Ctx, orderId: string) => Promise<void>)[] = [];
+  private readonly tabClosedHooks: ((ctx: Ctx, tabId: string) => Promise<void>)[] = [];
+  /** Pedido saiu para entrega (ex.: NFC-e do delivery vai junto com a mercadoria). */
+  onDispatched(hook: (ctx: Ctx, orderId: string) => Promise<void>) {
+    this.dispatchedHooks.push(hook);
+  }
+  /** Conta da comanda fechada (ex.: NFC-e da mesa toda). */
+  onTabClosed(hook: (ctx: Ctx, tabId: string) => Promise<void>) {
+    this.tabClosedHooks.push(hook);
+  }
+  /** Sem esperar e sem devolver erro: o aviso nunca desfaz a operação. */
+  notifyDispatched(ctx: Ctx, orderId: string) {
+    for (const h of this.dispatchedHooks) void h(ctx, orderId).catch(() => undefined);
+  }
+  notifyTabClosed(ctx: Ctx, tabId: string) {
+    for (const h of this.tabClosedHooks) void h(ctx, tabId).catch(() => undefined);
+  }
+
   // ---------------------------------------------------------------- consultas
   async get(ctx: Ctx, id: string) {
     const o = await this.db.withTenant(ctx, async (tx) => {
@@ -207,6 +246,8 @@ export class OrdersService {
       to?: string;
       active?: boolean;
       mine?: boolean;
+      /** Concluídos com saldo a pagar (a receber ou aguardando o acerto do entregador). */
+      openBalance?: boolean;
       limit: number;
     },
   ) {
@@ -223,6 +264,7 @@ export class OrdersService {
       where.push(`o.status = ANY($${p.length}::text[])`);
     }
     if (f.active) where.push(`o.status NOT IN ('completed','cancelled')`);
+    if (f.openBalance) where.push(`o.status = 'completed' AND o.paid_amount < o.total`);
     if (f.channel) {
       p.push(f.channel);
       where.push(`o.channel = $${p.length}`);
@@ -286,14 +328,16 @@ export class OrdersService {
       );
       tabId = open?.id ?? (await this.openTab(tx, ctx, { tableId: input.tableId })).id;
     }
+    let serviceFee: string | null = null;
     if (tabId) {
-      const tab = await one<{ status: string }>(
+      const tab = await one<{ status: string; service_fee_percent: string | null }>(
         tx,
-        `SELECT status FROM tabs WHERE id = $1 FOR UPDATE`,
+        `SELECT status, service_fee_percent::text FROM tabs WHERE id = $1 FOR UPDATE`,
         [tabId],
       );
       if (!tab) throw new NotFoundException('Comanda não encontrada');
       if (tab.status !== 'open') throw new ConflictException('Comanda não está aberta');
+      serviceFee = tab.service_fee_percent;
     }
     if (input.channel === 'table' && !tabId)
       throw new UnprocessableEntityException('Pedido de mesa exige mesa ou comanda');
@@ -416,12 +460,22 @@ export class OrdersService {
       );
     const staffDiscount = toCents(input.discount ?? '0');
     const discount = staffDiscount + (reward?.discountCents ?? 0);
-    const surcharge = toCents(input.surcharge ?? '0');
+    const staffSurcharge = toCents(input.surcharge ?? '0');
     const deliveryFee = toCents(input.deliveryFee ?? '0');
     // Garçom não dá desconto nem acréscimo: isso fica com o caixa/gerente (cliente online não passa aqui).
-    if (ctx.userId && ordersLimitedToOwn(ctx.user.role) && (staffDiscount > 0 || surcharge > 0))
+    if (
+      ctx.userId &&
+      ordersLimitedToOwn(ctx.user.role) &&
+      (staffDiscount > 0 || staffSurcharge > 0)
+    )
       throw new ForbiddenException('Desconto e acréscimo ficam com o caixa ou o gerente');
     this.checkDiscount(ctx, staffDiscount, subtotal);
+    // Comanda com taxa de serviço: o acréscimo do pedido é a taxa sobre os itens (com desconto),
+    // a não ser que o caixa informe outro valor.
+    const surcharge =
+      input.surcharge === undefined && serviceFee
+        ? serviceFeeCents(subtotal - discount, serviceFee)
+        : staffSurcharge;
     const total = subtotal - discount + surcharge + deliveryFee;
     if (total < 0) throw new UnprocessableEntityException('Desconto maior que o valor do pedido');
 
@@ -536,9 +590,13 @@ export class OrdersService {
 
   async openTab(tx: Tx, ctx: Ctx, input: { tableId?: string; customerName?: string }) {
     const number = await nextNumber(tx, ctx.tenantId, 'tab');
+    // A comanda nasce com a taxa de serviço configurada no salão (o caixa pode tirar depois).
     const tab = await one<{ id: string; number: number }>(
       tx,
-      `INSERT INTO tabs (tenant_id, number, table_id, customer_name, opened_by) VALUES ($1,$2,$3,$4,$5) RETURNING id, number`,
+      `INSERT INTO tabs (tenant_id, number, table_id, customer_name, opened_by, service_fee_percent)
+       VALUES ($1,$2,$3,$4,$5,
+               (SELECT NULLIF(service_fee_percent, 0) FROM salon_settings WHERE tenant_id = $1))
+       RETURNING id, number`,
       [ctx.tenantId, number, input.tableId ?? null, input.customerName ?? null, ctx.userId],
     );
     await this.audit.record(tx, {
@@ -555,10 +613,12 @@ export class OrdersService {
 
   /** Pedido com nota fiscal emitida (ou em emissão) não é cancelado nem estornado sem cancelar a nota. */
   async assertNoLiveFiscalDocument(tx: Tx, orderId: string, action: string) {
+    // A nota da comanda cobre todos os pedidos dela.
     const doc = await one<{ status: string }>(
       tx,
       `SELECT status FROM fiscal_documents
-        WHERE order_id = $1 AND status IN ('pending','processing','authorized','cancelling') LIMIT 1`,
+        WHERE (order_id = $1 OR tab_id = (SELECT tab_id FROM orders WHERE id = $1))
+          AND status IN ('pending','processing','authorized','cancelling') LIMIT 1`,
       [orderId],
     );
     if (doc)
@@ -598,10 +658,33 @@ export class OrdersService {
   }
 
   /** Aplica a transição dentro de uma transação já aberta (usado também pela cozinha). */
-  async transitionInTx(tx: Tx, ctx: Ctx, o: OrderRow, to: OrderStatus, reason?: string) {
+  async transitionInTx(
+    tx: Tx,
+    ctx: Ctx,
+    o: OrderRow,
+    to: OrderStatus,
+    reason?: string,
+    extra: TransitionExtra = {},
+  ) {
     if (o.status === to) return;
     if (!canTransition(o.status, to, o.channel)) {
       throw new ConflictException(`Transição inválida: ${o.status} → ${to}`);
+    }
+    // Concluir com saldo: só a entrega (vai para o acerto do entregador) ou "a receber" pelo gerente.
+    const balance = toCents(o.total) - toCents(o.paid_amount);
+    if (to === 'completed' && balance > 0 && o.status !== 'dispatched') {
+      if (!extra.receivable)
+        throw new ConflictException(
+          'Pedido com saldo a pagar: receba antes de concluir, ou conclua como "a receber"',
+        );
+      if (!roleHas(ctx.user.role, 'orders:cancel'))
+        throw new ForbiddenException('Concluir sem pagamento ("a receber") exige o gerente');
+      if (!reason) throw new UnprocessableEntityException('Informe o motivo do "a receber"');
+      await q(
+        tx,
+        `UPDATE orders SET receivable_at = now(), receivable_by = $2, receivable_reason = $3 WHERE id = $1`,
+        [o.id, ctx.userId, reason],
+      );
     }
     // Recusar um pedido em análise não exige gerente: nada foi produzido, cobrado ou baixado.
     const rejecting = o.status === 'awaiting' && to === 'cancelled';
@@ -632,15 +715,23 @@ export class OrdersService {
     if (o.status === 'dispatched') {
       // Saindo de "saiu para entrega": encerra a entrega em andamento e encurta o link de rastreio.
       // O ganho do entregador na corrida fica gravado agora, pela regra vigente.
+      // Entregue com saldo: o valor fica com o entregador até o acerto no caixa.
+      const collect = to === 'completed' && balance > 0;
       const ended = await q<{ id: string }>(
         tx,
         `UPDATE deliveries SET status = $2, finished_at = now(), failure_reason = $3,
-                tracking_expires_at = LEAST(tracking_expires_at, now() + interval '30 minutes')
+                tracking_expires_at = LEAST(tracking_expires_at, now() + interval '30 minutes'),
+                collect_status = CASE WHEN $4 THEN 'pending' ELSE collect_status END,
+                collect_amount = CASE WHEN $4 THEN $5::numeric END,
+                collect_method = CASE WHEN $4 THEN COALESCE($6, (SELECT payment_hint FROM orders WHERE id = $1)) END
           WHERE order_id = $1 AND status = 'out' RETURNING id`,
         [
           o.id,
           to === 'completed' ? 'delivered' : 'failed',
           to === 'completed' ? null : (reason ?? null),
+          collect,
+          fromCents(Math.max(balance, 0)),
+          extra.collectMethod ?? null,
         ],
       );
       for (const d of ended)
@@ -686,7 +777,7 @@ export class OrdersService {
     ctx: Ctx,
     id: string,
     to: OrderStatus,
-    opts: { reason?: string; expectedVersion?: number },
+    opts: { reason?: string; expectedVersion?: number; receivable?: boolean },
   ) {
     const res = await this.db.withTenant(ctx, async (tx) => {
       const o = await this.lock(tx, id);
@@ -696,7 +787,7 @@ export class OrdersService {
       if (opts.expectedVersion !== undefined && opts.expectedVersion !== o.version) {
         throw new ConflictException('O pedido foi alterado por outra pessoa; atualize a tela');
       }
-      await this.transitionInTx(tx, ctx, o, to, opts.reason);
+      await this.transitionInTx(tx, ctx, o, to, opts.reason, { receivable: opts.receivable });
       return this.detail(tx, id);
     });
     this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId: id, status: to });
@@ -713,9 +804,26 @@ export class OrdersService {
       const o = await this.lock(tx, id);
       if (o.status === 'completed' || o.status === 'cancelled')
         throw new ConflictException('Pedido encerrado');
+      await this.assertNoLiveFiscalDocument(tx, o.id, 'mudar o valor');
       const subtotal = toCents(o.subtotal);
       const discount = b.discount !== undefined ? toCents(b.discount) : toCents(o.discount);
-      const surcharge = b.surcharge !== undefined ? toCents(b.surcharge) : toCents(o.surcharge);
+      // Comanda com taxa de serviço: mudar o desconto refaz a taxa (se o acréscimo não veio junto).
+      const fee =
+        b.surcharge === undefined && o.tab_id
+          ? (
+              await one<{ p: string | null }>(
+                tx,
+                `SELECT service_fee_percent::text AS p FROM tabs WHERE id = $1`,
+                [o.tab_id],
+              )
+            )?.p
+          : null;
+      const surcharge =
+        b.surcharge !== undefined
+          ? toCents(b.surcharge)
+          : fee
+            ? serviceFeeCents(subtotal - discount, fee)
+            : toCents(o.surcharge);
       this.checkDiscount(ctx, discount, subtotal);
       const total = subtotal - discount + surcharge + toCents(o.delivery_fee);
       const paid = toCents(o.paid_amount);
@@ -751,6 +859,116 @@ export class OrdersService {
   }
 
   /**
+   * Cancela UM item do pedido (pedido errado, item que acabou, cliente desistiu). Exige
+   * `orders:cancel` e motivo; refaz subtotal e total (e a taxa de serviço da comanda), devolve
+   * o estoque do item e avisa o setor que produz. Não pode deixar o total abaixo do já pago
+   * nem mexer em pedido com NFC-e viva. O último item se cancela cancelando o pedido.
+   */
+  async cancelItem(ctx: Ctx, orderId: string, itemId: string, reason: string) {
+    if (!roleHas(ctx.user.role, 'orders:cancel'))
+      throw new ForbiddenException('Cancelar item exige autorização do gerente');
+    const fx = { stock: 0, print: 0 };
+    const res = await this.db.withTenant(ctx, async (tx) => {
+      const o = await this.lock(tx, orderId);
+      if (o.status === 'completed' || o.status === 'cancelled')
+        throw new ConflictException('Pedido encerrado: não dá para cancelar item');
+      await this.assertNoLiveFiscalDocument(tx, o.id, 'cancelar um item');
+      const item = await one<{ name: string; status: string; total: string }>(
+        tx,
+        `SELECT name, status, total::text FROM order_items WHERE id = $1 AND order_id = $2 FOR UPDATE`,
+        [itemId, o.id],
+      );
+      if (!item) throw new NotFoundException('Item não encontrado neste pedido');
+      if (item.status === 'cancelled') throw new ConflictException('Item já cancelado');
+      const others = await one<{ n: number }>(
+        tx,
+        `SELECT count(*)::int AS n FROM order_items WHERE order_id = $1 AND id <> $2 AND status <> 'cancelled'`,
+        [o.id, itemId],
+      );
+      if (!others!.n)
+        throw new ConflictException('É o último item do pedido: cancele o pedido inteiro');
+      const subtotal = toCents(o.subtotal) - toCents(item.total);
+      const discount = toCents(o.discount);
+      if (discount > subtotal)
+        throw new ConflictException(
+          'O desconto ficaria maior que o pedido: ajuste o desconto antes de cancelar o item',
+        );
+      const tab = o.tab_id
+        ? await one<{ service_fee_percent: string | null }>(
+            tx,
+            `SELECT service_fee_percent::text FROM tabs WHERE id = $1`,
+            [o.tab_id],
+          )
+        : null;
+      const surcharge = tab?.service_fee_percent
+        ? serviceFeeCents(subtotal - discount, tab.service_fee_percent)
+        : toCents(o.surcharge);
+      const total = subtotal - discount + surcharge + toCents(o.delivery_fee);
+      const paid = toCents(o.paid_amount);
+      if (total < paid)
+        throw new ConflictException(
+          'O pedido já tem pagamento acima do novo total: estorne a diferença antes de cancelar o item',
+        );
+      await q(
+        tx,
+        `UPDATE order_items SET status = 'cancelled', cancel_reason = $2, cancelled_by = $3, cancelled_at = now()
+          WHERE id = $1`,
+        [itemId, reason, ctx.userId],
+      );
+      await q(
+        tx,
+        `UPDATE orders SET subtotal = $2, surcharge = $3, total = $4, payment_status = $5,
+                version = version + 1 WHERE id = $1`,
+        [
+          o.id,
+          fromCents(subtotal),
+          fromCents(surcharge),
+          fromCents(total),
+          paymentStatusFor(total, paid),
+        ],
+      );
+      if (o.status !== 'awaiting') {
+        fx.stock = await this.stock.restoreForItem(tx, ctx, o.id, itemId);
+        fx.print = await this.printing.enqueueItemCancel(tx, ctx, o.id, itemId, reason);
+      }
+      // Sobrou só item pronto: o pedido fica pronto (a cozinha não espera o que saiu).
+      if (o.status === 'in_production' || o.status === 'new') {
+        const pending = await one<{ n: number }>(
+          tx,
+          `SELECT count(*)::int AS n FROM order_items WHERE order_id = $1 AND status IN ('pending','preparing')`,
+          [o.id],
+        );
+        if (!pending!.n) {
+          o.version += 1;
+          await this.transitionInTx(tx, ctx, o, 'ready', 'Itens restantes prontos');
+        }
+      }
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'order.item_cancelled',
+        entity: 'order',
+        entityId: o.id,
+        data: {
+          itemId,
+          name: item.name,
+          total: item.total,
+          reason,
+          newTotal: fromCents(total),
+        },
+        ip: ctx.ip,
+      });
+      return this.detail(tx, o.id);
+    });
+    this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId });
+    this.realtime.publish(ctx.tenantId, { type: 'kitchen.changed', orderId });
+    if (fx.stock) this.realtime.publish(ctx.tenantId, { type: 'stock.changed' });
+    if (fx.print) this.realtime.publish(ctx.tenantId, { type: 'print.changed' });
+    if (res?.tabId) this.realtime.publish(ctx.tenantId, { type: 'tab.changed', tabId: res.tabId });
+    return res;
+  }
+
+  /**
    * Move o pedido inteiro para outra comanda aberta (transferência entre mesas/comandas).
    * Ordem de travas: comandas (por id) → pedido, a mesma do pagamento de comanda, evitando deadlock.
    */
@@ -779,6 +997,7 @@ export class OrdersService {
         throw new ConflictException('O pedido foi alterado; tente novamente');
       if (o.status === 'cancelled' || o.status === 'completed')
         throw new ConflictException('Pedido encerrado');
+      await this.assertNoLiveFiscalDocument(tx, o.id, 'mover o pedido');
       fromTab = o.tab_id;
       await q(tx, `UPDATE orders SET tab_id = $2, version = version + 1 WHERE id = $1`, [
         id,

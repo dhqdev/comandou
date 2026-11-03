@@ -9,6 +9,7 @@ import { createApp } from '../src/bootstrap';
 import { hashPassword } from '../src/auth/password';
 import { testEnv } from './env';
 import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
+import { fromCents, toCents } from '@comandou/shared';
 
 /**
  * Etapa 5: NFC-e pela Focus NFe, com um servidor falso no lugar da Focus (homologação).
@@ -525,6 +526,80 @@ describe('Emissão de NFC-e', () => {
       { forma_pagamento: '01', valor_pagamento: '10.00' },
       { forma_pagamento: '17', valor_pagamento: '45.00', tipo_integracao: '2' },
     ]);
+  });
+
+  it('comanda: uma NFC-e para a mesa toda, só depois que a conta fecha', async () => {
+    mode = 'authorize';
+    const table = (await post('adminA', '/tables', { label: 'NF-M1' }).expect(201)).body;
+    const mk = async () =>
+      (
+        await post('adminA', '/orders', {
+          channel: 'table',
+          tableId: table.id,
+          items: [{ productId: fx.prodA, quantity: 1 }],
+        }).expect(201)
+      ).body as { id: string; tabId: string; total: string };
+    const o1 = await mk();
+    const o2 = await mk();
+    expect(o2.tabId).toBe(o1.tabId);
+    for (const o of [o1, o2]) {
+      await post('adminA', `/orders/${o.id}/status`, { to: 'ready' }).expect(201);
+      await post(
+        'adminA',
+        `/orders/${o.id}/payments`,
+        { cashSessionId: sessionId, method: 'pix', amount: o.total },
+        key(),
+      ).expect(201);
+    }
+    // Conta ainda aberta: a nota espera (senão um pedido novo ficaria fora dela).
+    await post('cashierA', `/orders/${o1.id}/nfce`).expect(409);
+    await post('adminA', `/tabs/${o1.tabId}/close`).expect(201);
+    const d = (await post('cashierA', `/orders/${o1.id}/nfce`).expect(202)).body;
+    expect(d.tabId).toBe(o1.tabId);
+    // O outro pedido da comanda devolve a mesma nota.
+    expect((await post('cashierA', `/orders/${o2.id}/nfce`).expect(202)).body.id).toBe(d.id);
+    const done = await waitDoc(d.id, (st) => st === 'authorized');
+    expect(done.total).toBe(fromCents(toCents(o1.total) + toCents(o2.total)));
+  });
+
+  it('cupom da NFC-e: sai na impressora do caixa ao autorizar e reimprime como 2ª via', async () => {
+    mode = 'authorize';
+    await post('adminA', '/printing/agents', { name: 'PC do caixa NF' }).expect(201);
+    const o = await paidOrder();
+    const d = (await post('cashierA', `/orders/${o.id}/nfce`).expect(202)).body;
+    await waitDoc(d.id, (st) => st === 'authorized');
+    const jobs = async () =>
+      ownerQuery<{ payload: string }>(
+        `SELECT payload FROM print_jobs WHERE kind = 'fiscal_receipt' AND dedupe_key LIKE $1`,
+        [`fiscal:${d.id}%`],
+      );
+    const end = Date.now() + 5_000;
+    while (!(await jobs()).length && Date.now() < end) await new Promise((r) => setTimeout(r, 200));
+    const [first] = await jobs();
+    expect(first.payload).toContain('DANFE NFC-e');
+    expect(first.payload).toContain('@@QR@@');
+    await post('waiterA', `/fiscal/documents/${d.id}/print`).expect(403);
+    await post('cashierA', `/fiscal/documents/${d.id}/print`).expect(201);
+    const all = await jobs();
+    expect(all).toHaveLength(2);
+    expect(all.some((j) => j.payload.startsWith('*** 2ª VIA ***'))).toBe(true);
+  });
+
+  it('delivery pago na entrega: a NFC-e sai com o pedido na rua', async () => {
+    mode = 'authorize';
+    const courier = (await post('adminA', '/couriers', { name: 'Moto NF' }).expect(201)).body;
+    const o = (
+      await post('adminA', '/orders', {
+        channel: 'delivery',
+        deliveryAddress: 'Rua NF, 1',
+        customerName: 'Cliente NF',
+        items: [{ productId: fx.prodA, quantity: 1 }],
+      }).expect(201)
+    ).body as { id: string; total: string };
+    await post('adminA', `/orders/${o.id}/status`, { to: 'ready' }).expect(201);
+    await post('adminA', `/orders/${o.id}/dispatch`, { courierId: courier.id }).expect(201);
+    const d = (await post('cashierA', `/orders/${o.id}/nfce`).expect(202)).body;
+    expect(d.total).toBe(o.total);
   });
 
   it('CPF informado no pagamento entra na NFC-e; cartão leva o grupo do cartão e "outros" a descrição', async () => {

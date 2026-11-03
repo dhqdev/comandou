@@ -7,6 +7,7 @@ import {
   isValidCnpj,
   isValidCpf,
   PAYMENT_CODES,
+  toCents,
 } from '@comandou/shared';
 import type { FiscalRule, RuleSource } from './fiscal-rules.service';
 
@@ -396,7 +397,7 @@ export function composeNote(input: ComposeInput) {
       });
   }
 
-  const paid = input.payments.reduce((a, p) => a + Math.round(Number(p.net) * 100), 0);
+  const paid = input.payments.reduce((a, p) => a + toCents(p.net), 0);
   if (paid !== order.totalCents)
     issues.push({
       title: 'Pedido não está totalmente pago',
