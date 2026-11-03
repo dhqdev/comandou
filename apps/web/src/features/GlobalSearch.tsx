@@ -1,5 +1,6 @@
 import { ROLE_LABELS, type OrderStatus, type Role } from '@comandou/shared';
 import {
+  Bot,
   ArrowRight,
   BarChart3,
   BookOpen,
@@ -176,6 +177,7 @@ const STATIC_ICON: Record<StaticIcon, ReactNode> = {
   printing: <Printer />,
   fiscal: <FileText />,
   whatsapp: <MessageCircle />,
+  ai: <Bot />,
   plan: <CreditCard />,
   settings: <Settings />,
   news: <Sparkles />,

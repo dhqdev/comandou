@@ -30,6 +30,7 @@ export const ROUTE_PERMS: Record<string, string[]> = {
   impressao: ['printing:manage'],
   fiscal: ['fiscal:emit', 'fiscal:manage'],
   whatsapp: ['messaging:manage'],
+  'assistente-ia': ['settings:manage'],
   plano: ['plan:read'],
   chamados: ['plan:read'],
 };

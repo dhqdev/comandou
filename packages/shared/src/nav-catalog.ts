@@ -21,6 +21,7 @@ export type StaticIcon =
   | 'printing'
   | 'fiscal'
   | 'whatsapp'
+  | 'ai'
   | 'plan'
   | 'settings'
   | 'news'
@@ -243,6 +244,17 @@ const SCREENS: StaticEntry[] = [
     icon: 'whatsapp',
     to: '/whatsapp',
     perms: ['messaging:manage'],
+  },
+  {
+    id: 's-assistente-ia',
+    group: 'Telas',
+    title: 'Assistente de IA',
+    hint: 'Como a IA atende os clientes no WhatsApp e o que ela oferece',
+    words:
+      'ia inteligencia artificial robo bot chatbot atendente virtual atendimento automatico whatsapp responder clientes',
+    icon: 'ai',
+    to: '/assistente-ia',
+    perms: ['settings:manage'],
   },
   {
     id: 's-plano',
@@ -647,6 +659,30 @@ const SECTIONS: StaticEntry[] = [
   },
 ];
 
+// Assistente de IA
+const AI_SECTIONS: StaticEntry[] = [
+  {
+    id: 'c-ia-cardapio',
+    group: 'Seções',
+    title: 'Itens que a IA pode oferecer',
+    hint: 'Assistente de IA',
+    words: 'cardapio ia produtos liberar esconder robo',
+    icon: 'ai',
+    to: '/assistente-ia?foco=secao-ia-cardapio',
+    perms: ['settings:manage'],
+  },
+  {
+    id: 'c-ia-teste',
+    group: 'Seções',
+    title: 'Testar a conversa da IA',
+    hint: 'Assistente de IA',
+    words: 'testar ia robo simular cliente',
+    icon: 'ai',
+    to: '/assistente-ia?foco=secao-ia-teste',
+    perms: ['settings:manage'],
+  },
+];
+
 const SHORTCUTS: StaticEntry[] = [
   {
     id: 'a-pedido',
@@ -754,4 +790,9 @@ const SHORTCUTS: StaticEntry[] = [
   },
 ];
 
-export const STATIC_ENTRIES: StaticEntry[] = [...SCREENS, ...SECTIONS, ...SHORTCUTS];
+export const STATIC_ENTRIES: StaticEntry[] = [
+  ...SCREENS,
+  ...SECTIONS,
+  ...AI_SECTIONS,
+  ...SHORTCUTS,
+];

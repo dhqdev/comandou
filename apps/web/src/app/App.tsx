@@ -54,6 +54,10 @@ const FiscalPage = lazyPage(
   () => import('../pages/fiscal/FiscalPage'),
   (m) => m.FiscalPage,
 );
+const AiAgentPage = lazyPage(
+  () => import('../pages/AiAgentPage'),
+  (m) => m.AiAgentPage,
+);
 const WhatsAppPage = lazyPage(
   () => import('../pages/WhatsAppPage'),
   (m) => m.WhatsAppPage,
@@ -168,6 +172,7 @@ const PANEL_PAGES = [
   PrintingPage,
   FiscalPage,
   WhatsAppPage,
+  AiAgentPage,
   PlanPage,
   WaiterApp,
 ];
@@ -416,6 +421,14 @@ function Gate() {
             element={
               <Guard path="whatsapp">
                 <WhatsAppPage />
+              </Guard>
+            }
+          />
+          <Route
+            path="assistente-ia"
+            element={
+              <Guard path="assistente-ia">
+                <AiAgentPage />
               </Guard>
             }
           />

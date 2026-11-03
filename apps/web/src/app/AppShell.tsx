@@ -15,6 +15,7 @@ import {
   Ruler,
   CreditCard,
   Boxes,
+  Bot,
   ChefHat,
   ClipboardList,
   LayoutGrid,
@@ -229,6 +230,12 @@ const GROUPS: { key: string; label: string; icon: ReactNode; items: NavItem[] }[
         label: 'WhatsApp',
         icon: <MessageCircle />,
         perms: ['messaging:manage'],
+      },
+      {
+        to: '/assistente-ia',
+        label: 'Assistente de IA',
+        icon: <Bot />,
+        perms: ['settings:manage'],
       },
       { to: '/chamados', label: 'Chamados', icon: <LifeBuoy />, perms: ['plan:read'] },
       {

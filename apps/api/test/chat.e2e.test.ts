@@ -4,8 +4,10 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { randomBytes } from 'node:crypto';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/bootstrap';
+import { AiAgentService } from '../src/chat/ai-agent.service';
+import { GatewayClient } from '../src/messaging/gateway.client';
 import { hashPassword } from '../src/auth/password';
 import { seal } from '../src/common/secret-box';
 import { totpContext } from '../src/platform/platform-auth';
@@ -37,7 +39,12 @@ type Who = 'adminA' | 'waiterA' | 'adminB';
 const hostOf = (w: Who) => (w === 'adminB' ? HOST_B : HOST_A);
 const get = (w: Who, url: string) =>
   http.get(`/api/v1${url}`).set('Host', hostOf(w)).set('Cookie', cookies[w]);
-const send = (w: Who, method: 'post' | 'patch' | 'delete', url: string, body: object = {}) =>
+const send = (
+  w: Who,
+  method: 'post' | 'patch' | 'delete' | 'put',
+  url: string,
+  body: object = {},
+) =>
   http[method](`/api/v1${url}`)
     .set('Host', hostOf(w))
     .set('Cookie', cookies[w])
@@ -92,6 +99,14 @@ function fakeOpenRouter() {
       }
       if (req.url === '/chat/completions') {
         res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+        const msgs = (body?.messages ?? []) as { content: string }[];
+        if (msgs[msgs.length - 1]?.content.includes('quero um atendente')) {
+          res.write(
+            `data: ${JSON.stringify({ choices: [{ delta: { content: 'Já chamo alguém. [[ATENDENTE]]' } }], usage: { prompt_tokens: 100, completion_tokens: 10, cost: 0 } })}\n\n`,
+          );
+          res.end('data: [DONE]\n\n');
+          return;
+        }
         res.write(': OPENROUTER PROCESSING\n\n');
         res.write(
           `data: ${JSON.stringify({ choices: [{ delta: { content: 'Para abrir o caixa, ' } }] })}\n\n`,
@@ -605,6 +620,128 @@ describe('Assistente de IA', () => {
   it('apaga a própria conversa', async () => {
     await send('waiterA', 'delete', '/chat/ai/messages').expect(200);
     expect((await get('waiterA', '/chat/ai').expect(200)).body.messages).toEqual([]);
+  });
+});
+
+describe('IA que atende o cliente (configurada pelo gerente)', () => {
+  const lastSystem = () => {
+    const c = orCalls.filter((x) => x.path === '/chat/completions').pop()!;
+    return (c.body!.messages as { role: string; content: string }[])[0].content;
+  };
+
+  beforeAll(async () => {
+    await psend('put', `/ai/tenants/${fx.tenantA}`, { enabled: true, monthlyTokens: 0 }).expect(
+      200,
+    );
+  });
+
+  it('só gerente e dono abrem a configuração', async () => {
+    await get('waiterA', '/ai-agent').expect(403);
+    const o = (await get('adminA', '/ai-agent').expect(200)).body;
+    expect(o).toMatchObject({
+      available: true,
+      settings: { whatsappEnabled: false, tone: 'friendly', showPrices: true },
+    });
+  });
+
+  it('salva a configuração e o teste usa o que foi salvo', async () => {
+    const o = (
+      await send('adminA', 'put', '/ai-agent', {
+        agentName: 'Lu',
+        tone: 'formal',
+        about: 'Estacionamento grátis na frente.',
+        rules: 'Nunca prometer brinde.',
+      }).expect(200)
+    ).body;
+    expect(o.settings).toMatchObject({ agentName: 'Lu', tone: 'formal' });
+    const r = (
+      await send('adminA', 'post', '/ai-agent/test', {
+        messages: [{ role: 'user', content: 'Tem hambúrguer?' }],
+      }).expect(200)
+    ).body;
+    expect(r.text).toBe('Para abrir o caixa, vá em **Caixa**.');
+    const sys = lastSystem();
+    expect(sys).toContain('Você é Lu');
+    expect(sys).toContain('Estacionamento grátis na frente.');
+    expect(sys).toContain('Nunca prometer brinde.');
+    expect(sys).toContain('X-Burguer A — R$ 25,90');
+    expect(sys).toContain('/pedir');
+    // O rascunho da tela vale no teste sem salvar.
+    await send('adminA', 'post', '/ai-agent/test', {
+      messages: [{ role: 'user', content: 'oi' }],
+      draft: { agentName: 'Rascunho', showPrices: false },
+    }).expect(200);
+    expect(lastSystem()).toContain('Você é Rascunho');
+    expect(lastSystem()).not.toContain('R$ 25,90');
+    expect((await get('adminA', '/ai-agent').expect(200)).body.settings.agentName).toBe('Lu');
+  });
+
+  it('a IA só enxerga os itens liberados pelo gerente', async () => {
+    const items = (await get('adminA', '/ai-agent/menu').expect(200)).body;
+    expect(items).toEqual([expect.objectContaining({ id: fx.prodA, aiVisible: true })]);
+    await send('adminA', 'put', '/ai-agent/menu', { ids: [fx.prodA], visible: false }).expect(200);
+    await send('adminA', 'post', '/ai-agent/test', {
+      messages: [{ role: 'user', content: 'cardápio?' }],
+    }).expect(200);
+    expect(lastSystem()).not.toContain('X-Burguer A');
+    expect(lastSystem()).toContain('nenhum item liberado');
+    await send('adminA', 'put', '/ai-agent/menu', { all: true, visible: true }).expect(200);
+    expect((await get('adminA', '/ai-agent/menu').expect(200)).body[0].aiVisible).toBe(true);
+    // Outro restaurante só vê o próprio cardápio e não mexe no de A.
+    const b = (await get('adminB', '/ai-agent/menu').expect(200)).body;
+    expect(b.map((x: { id: string }) => x.id)).toEqual([fx.prodB]);
+    await send('adminB', 'put', '/ai-agent/menu', { ids: [fx.prodA], visible: false }).expect(200);
+    expect((await get('adminA', '/ai-agent/menu').expect(200)).body[0].aiVisible).toBe(true);
+  });
+
+  it('WhatsApp: responde só com o atendimento ligado e passa para a equipe quando pedem', async () => {
+    const agent = app.get(AiAgentService);
+    const msg = { tenantId: fx.tenantA, from: '5511999990000', text: 'Tem X-Burguer?' };
+    expect(await agent.handle(msg)).toBeNull();
+    await send('adminA', 'put', '/ai-agent', { whatsappEnabled: true }).expect(200);
+    const r = await agent.handle({ ...msg, pushName: 'Maria' });
+    expect(r).toMatchObject({ text: 'Para abrir o caixa, vá em **Caixa**.', handoff: false });
+    expect(r!.typingMs).toBeGreaterThanOrEqual(1200);
+    expect(lastSystem()).toContain('Nome do cliente no WhatsApp: Maria');
+    const h = await agent.handle({ ...msg, text: 'quero um atendente' });
+    expect(h).toMatchObject({ text: 'Já chamo alguém.', handoff: true });
+    // A conversa guarda a memória curta e fica pausada para a equipe.
+    const sent = orCalls.filter((x) => x.path === '/chat/completions').pop()!;
+    expect((sent.body!.messages as unknown[]).length).toBe(4);
+    expect(await agent.handle({ ...msg, text: 'oi?' })).toBeNull();
+    const n = (await get('adminA', '/chat/notices').expect(200)).body;
+    expect(n[0].title).toContain('Cliente pediu atendimento no WhatsApp: Maria');
+    const usage = await ownerQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM ai_usage WHERE tenant_id = $1 AND user_id IS NULL`,
+      [fx.tenantA],
+    );
+    expect(usage[0].n).toBeGreaterThanOrEqual(2);
+  });
+
+  it('mensagem recebida: marca como lida, digita e responde na mesma conversa', async () => {
+    const gw = app.get(GatewayClient);
+    const read = vi.spyOn(gw, 'markRead').mockResolvedValue(true);
+    const typing = vi.spyOn(gw, 'typing').mockResolvedValue(true);
+    const sendWa = vi.spyOn(gw, 'send').mockResolvedValue({ ok: true, messageId: 'x' });
+    await app.get(AiAgentService).onWhatsApp({
+      tenantId: fx.tenantA,
+      id: 'MSG1',
+      jid: '123456789012345@lid',
+      from: null,
+      kind: 'text',
+      text: 'Vocês entregam?',
+      pushName: 'João',
+      timestamp: new Date(),
+    });
+    expect(read).toHaveBeenCalledWith(fx.tenantA, '123456789012345@lid', 'MSG1');
+    expect(typing).toHaveBeenCalled();
+    expect(sendWa).toHaveBeenCalledWith(
+      fx.tenantA,
+      '123456789012345@lid',
+      'Para abrir o caixa, vá em **Caixa**.',
+      expect.objectContaining({ typingMs: expect.any(Number) }),
+    );
+    vi.restoreAllMocks();
   });
 });
 

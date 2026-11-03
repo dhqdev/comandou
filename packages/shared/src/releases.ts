@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.75.0',
+    date: '2026-11-03',
+    title: 'Assistente de IA: o gerente configura como a IA atende os clientes',
+    summary:
+      'Nova tela em Sistema > Assistente de IA. O gerente escolhe o nome, o jeito de falar, as boas-vindas, o que a IA sabe da casa e o que ela não deve fazer, marca os itens do cardápio que ela pode oferecer e testa a conversa antes de ligar o atendimento no WhatsApp.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Assistente de IA (gerente e dono): nome do atendente, jeito de falar (simpático, formal ou descontraído) com exemplo, boas-vindas, "Sobre a casa", regras e a frase para chamar uma pessoa. Cada campo tem o "?" explicando com exemplo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Itens que a IA pode oferecer: lista do cardápio por categoria, com busca e marcar/desmarcar todos. A IA só fala dos itens marcados, com o preço do cardápio Delivery, e avisa quando um item está esgotado.',
+      },
+      {
+        tag: 'novo',
+        text: 'O que a IA pode fazer: sugerir itens e adicionais, informar preços e mandar o link do cardápio online. Ela nunca fecha pedido, dá desconto ou pede dados de cartão.',
+      },
+      {
+        tag: 'novo',
+        text: 'Testar a conversa: o gerente escreve como se fosse o cliente e vê a resposta com o que está na tela, mesmo sem salvar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Atendimento no WhatsApp: ligar ou desligar, responder sempre ou só com a loja aberta. Quando o cliente pede uma pessoa, a IA avisa a equipe no chat e fica quieta na conversa por 12 horas. O uso conta no mesmo limite mensal da IA (e nos tokens extras).',
+      },
+    ],
+  },
+  {
     version: '0.74.0',
     date: '2026-11-03',
     title: 'Comprovante de fechamento com modelo próprio e NFC-e mesmo com a SEFAZ fora do ar',

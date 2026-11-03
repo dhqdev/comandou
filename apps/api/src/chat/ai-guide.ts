@@ -116,6 +116,12 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     text: 'conectar o WhatsApp da loja lendo o QR Code e escolher os avisos automáticos ao cliente (pedido aceito, pronto, saiu, entregue).',
   },
   {
+    path: '/assistente-ia',
+    name: 'Assistente de IA',
+    perms: ['settings:manage'],
+    text: 'o gerente configura a IA que atende os clientes no WhatsApp: ligar o atendimento, nome, jeito de falar, boas-vindas, sobre a casa, o que ela não deve fazer, quais itens do cardápio ela pode oferecer e um teste da conversa como se fosse o cliente.',
+  },
+  {
     path: '/plano',
     name: 'Assinatura (plano)',
     perms: ['plan:read'],
