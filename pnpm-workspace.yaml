@@ -13,3 +13,5 @@ overrides:
   # GHSA-27r3-jxmh-p828 e GHSA-q7qp-rjg7-q26m (vêm pelo @nestjs/platform-express).
   'body-parser@>=2.0.0 <2.4.0': ^2.4.0
   'multer@>=2.0.0 <2.5.0': ^2.5.0
+  # GHSA-mrwp-f3q8-3g9p (vem pelo baileys > axios, no whatsapp-gateway).
+  'follow-redirects@>=1.16.0 <1.16.2': ^1.16.2
