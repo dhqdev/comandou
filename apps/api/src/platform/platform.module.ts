@@ -14,6 +14,8 @@ import { PlatformDatabasesService } from './platform-databases.service';
 import { PlatformDbServersService } from './platform-db-servers.service';
 import { ContractSignController, ContractsController } from './contracts/contracts.controller';
 import { ContractsService } from './contracts/contracts.service';
+import { PlatformSitesService } from './platform-sites.service';
+import { GatewayClient } from '../messaging/gateway.client';
 
 /** Painel Super Admin (admin.<domínio base>): caminho privilegiado separado e auditado. */
 @Module({
@@ -33,6 +35,8 @@ import { ContractsService } from './contracts/contracts.service';
     PlatformDatabasesService,
     PlatformDbServersService,
     ContractsService,
+    PlatformSitesService,
+    GatewayClient,
     ServerAgentClient,
     ReleaseFeed,
   ],

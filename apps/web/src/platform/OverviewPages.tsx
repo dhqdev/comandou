@@ -13,6 +13,7 @@ import type {
 import { ChevronRight } from 'lucide-react';
 import { ago, bytes, Dot, Level, levelFor, PageHead, Section, Tile } from './ui';
 import { useNavigate } from 'react-router';
+import { SitesTable, SitesTiles, useSites, useSitesFilter } from './SitesStatus';
 
 export { bytes };
 
@@ -51,8 +52,42 @@ export function OverviewPage() {
   const backup = useLoad<BackupSettings>('/platform/backups/settings');
   const contracts = useLoad<PendingContract[]>('/platform/contracts/pending');
   const navigate = useNavigate();
-  if (error) return <Alert tone="danger">{error}</Alert>;
-  if (!data) return <Spinner />;
+  const sites = useSites();
+  const [filter, setFilter] = useSitesFilter();
+  const sitesBlock = (alertCount: number) => (
+    <>
+      <SitesTiles
+        report={sites.data}
+        alerts={alertCount}
+        onFilter={(f) => {
+          setFilter(f);
+          document.querySelector('.adm-sites__bar')?.scrollIntoView({ block: 'start' });
+        }}
+      />
+      <SitesTable
+        report={sites.data}
+        error={sites.error}
+        loading={sites.loading}
+        filter={filter}
+        setFilter={setFilter}
+        onReload={() => void sites.reload()}
+      />
+    </>
+  );
+  if (error)
+    return (
+      <>
+        <Alert tone="danger">{error}</Alert>
+        {sitesBlock(0)}
+      </>
+    );
+  if (!data)
+    return (
+      <>
+        <PageHead page title="Status" />
+        {sitesBlock(0)}
+      </>
+    );
   const b = backupLevel(data.backups.backup.lastOkAt, 26);
   const r = backupLevel(data.backups.restoreTest.lastOkAt, 24 * 8);
   const s = server.data?.enabled ? server.data : null;
@@ -134,6 +169,14 @@ export function OverviewPage() {
         : undefined,
     },
     {
+      label: 'Falhas em 7 dias',
+      level: (data.last7Days.fiscalErrors + data.last7Days.messageFailures
+        ? 'warn'
+        : 'ok') as Level,
+      value: String(data.last7Days.fiscalErrors + data.last7Days.messageFailures),
+      sub: `${data.last7Days.fiscalErrors} NFC-e · ${data.last7Days.messageFailures} WhatsApp`,
+    },
+    {
       label: 'Último backup',
       level: b,
       value: ago(data.backups.backup.lastOkAt),
@@ -160,6 +203,10 @@ export function OverviewPage() {
           <>
             <span>Comandou v{data.version}</span>
             <span>
+              {data.subscriptions.active ?? 0} assinatura(s) ativa(s)
+              {data.subscriptions.past_due ? ` · ${data.subscriptions.past_due} pendente(s)` : ''}
+            </span>
+            <span>
               {alerts.length === 0
                 ? 'tudo certo'
                 : alerts.length === 1
@@ -169,35 +216,10 @@ export function OverviewPage() {
           </>
         }
       />
-      <div className="adm-grid">
-        <Tile
-          label="Restaurantes ativos"
-          value={data.tenants.provisioned ?? 0}
-          sub={`${data.tenants.suspended ?? 0} suspenso(s)`}
-          onClick={() => navigate('/restaurantes')}
-        />
-        <Tile
-          label="Assinaturas ativas"
-          value={data.subscriptions.active ?? 0}
-          sub={`${data.subscriptions.trialing ?? 0} em teste · ${data.subscriptions.past_due ?? 0} pendente(s)`}
-          level={data.subscriptions.past_due ? 'warn' : undefined}
-        />
-        <Tile
-          label="Alertas"
-          value={alerts.length}
-          level={alerts.length ? 'warn' : undefined}
-          sub={alerts.length ? 'veja abaixo' : 'tudo certo'}
-        />
-        <Tile
-          label="Falhas em 7 dias"
-          value={data.last7Days.fiscalErrors + data.last7Days.messageFailures}
-          sub={`${data.last7Days.fiscalErrors} NFC-e · ${data.last7Days.messageFailures} WhatsApp`}
-          level={data.last7Days.fiscalErrors + data.last7Days.messageFailures ? 'warn' : undefined}
-        />
-      </div>
+      {sitesBlock(alerts.length)}
 
       {alerts.length > 0 && (
-        <Section title="Alertas">
+        <Section title="Alertas da plataforma">
           <div className="adm-panel">
             <div className="adm-rows">
               {alerts.map((a, i) =>

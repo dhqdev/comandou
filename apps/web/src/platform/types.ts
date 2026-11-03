@@ -633,3 +633,45 @@ export interface DbServers {
   servers: DbServer[];
   worker: TenantDatabase['worker'];
 }
+
+/** Status em tempo real de cada restaurante (tela inicial do painel). */
+export interface SiteCheck {
+  ok: boolean;
+  http: number | null;
+  ms: number | null;
+  error?: string;
+}
+export type SiteState = 'online' | 'attention' | 'offline' | 'suspended' | 'setup';
+export interface SiteStatus {
+  id: string;
+  slug: string;
+  name: string;
+  status: string;
+  planName: string | null;
+  subscriptionStatus: string | null;
+  host: string;
+  state: SiteState;
+  issues: string[];
+  web: SiteCheck | null;
+  domains: { hostname: string; verified: boolean; check: SiteCheck | null }[];
+  database: {
+    kind: 'dedicated' | 'shared';
+    name: string | null;
+    status: string | null;
+    server: string | null;
+    check: SiteCheck | null;
+  };
+  whatsapp: {
+    status: 'disconnected' | 'connecting' | 'qr' | 'connected' | 'logged_out' | 'unknown';
+    phone: string | null;
+  } | null;
+  backup: { lastOkAt: string | null; lastStatus: string | null; lastAt: string | null };
+  lastOrderAt: string | null;
+  ordersMonth: number;
+}
+export interface SitesReport {
+  checkedAt: string;
+  baseDomain: string;
+  whatsappGateway: HealthState;
+  sites: SiteStatus[];
+}

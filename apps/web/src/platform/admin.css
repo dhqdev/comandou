@@ -1352,3 +1352,206 @@ button.adm-card:hover {
     min-height: 360px;
   }
 }
+
+/* ---------------------------------------------------------------- status dos sites (tela inicial) */
+.adm-text--ok {
+  color: var(--a-ok);
+}
+.adm-spin {
+  animation: adm-spin 0.8s linear infinite;
+}
+.adm-action--sm {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+.adm-sites__bar {
+  align-items: center;
+}
+.adm-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.adm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--cm-radius-full);
+  background: var(--a-panel);
+  color: var(--a-muted);
+  font-family: var(--a-ui);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background var(--cm-dur-fast) var(--cm-ease),
+    border-color var(--cm-dur-fast) var(--cm-ease);
+}
+.adm-chip span {
+  font-variant-numeric: tabular-nums;
+  color: var(--a-subtle);
+}
+.adm-chip:hover {
+  background: var(--a-panel-2);
+  color: var(--a-text);
+}
+.adm-chip[aria-pressed='true'] {
+  border-color: var(--a-accent);
+  color: var(--a-text);
+  font-weight: 500;
+}
+.adm-chip[aria-pressed='true'] span {
+  color: var(--a-accent);
+}
+.adm-sites__row {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1.4fr) 128px minmax(0, 1fr) 140px 110px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--a-line);
+  transition: background var(--cm-dur-fast) var(--cm-ease);
+}
+.adm-sites__row:first-child {
+  border-top: 0;
+}
+.adm-sites__row.is-link {
+  cursor: pointer;
+}
+.adm-sites__row.is-link:hover {
+  background: var(--a-panel-2);
+}
+/* Problema chama atenção só por uma linha fina à esquerda (sem cartão colorido). */
+.adm-sites__row--bad {
+  box-shadow: inset 3px 0 0 var(--a-bad);
+}
+.adm-sites__row--warn {
+  box-shadow: inset 3px 0 0 var(--a-warn);
+}
+.adm-sites__head {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  font-size: 12px;
+  color: var(--a-subtle);
+  background: var(--a-panel-2);
+}
+.adm-sites__cell {
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  gap: 3px;
+  font-size: 13px;
+  color: var(--a-muted);
+}
+.adm-sites__cell code,
+.adm-sites__host {
+  font-family: var(--a-mono);
+  font-size: 12.5px;
+  color: var(--a-text);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.adm-sites__site .adm-row__title {
+  max-width: 100%;
+  color: var(--a-text);
+}
+.adm-sites__domain {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+}
+.adm-sites__issues {
+  font-size: 12.5px;
+  white-space: normal;
+}
+.adm-sites__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.adm-sites__db > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.adm-sites__foot {
+  white-space: normal;
+}
+@media (max-width: 1100px) {
+  .adm-sites__row {
+    grid-template-columns: 120px minmax(0, 1fr) 118px minmax(0, 0.9fr) 120px;
+  }
+  .adm-sites__row > .adm-sites__backup {
+    display: none;
+  }
+}
+@media (max-width: 860px) {
+  .adm-sites__head {
+    display: none;
+  }
+  /* Celular: cartão em linhas (situação e ações em cima, detalhes embaixo). */
+  .adm-sites__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 12px;
+    padding: 14px;
+  }
+  .adm-sites__row > .adm-sites__site {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .adm-sites__row > .adm-sites__state {
+    grid-column: 1;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .adm-sites__row > .adm-sites__actions {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .adm-sites__row > .adm-sites__db,
+  .adm-sites__row > .adm-sites__wa,
+  .adm-sites__row > .adm-sites__backup {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    grid-column: 1 / -1;
+  }
+  .adm-sites__row > .adm-sites__backup::before {
+    content: 'Backup';
+    font-size: 12px;
+    color: var(--a-subtle);
+  }
+  .adm-sites__row > .adm-sites__wa::before {
+    content: 'WhatsApp';
+    font-size: 12px;
+    color: var(--a-subtle);
+  }
+  .adm-sites__bar .adm-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    width: 100%;
+  }
+  .adm-chip {
+    flex: none;
+    min-height: 38px;
+  }
+}
+.adm-sites__cell > * {
+  max-width: 100%;
+}
+@media (max-width: 860px) {
+  .adm-sites__row > .adm-sites__wa--none {
+    display: none;
+  }
+}

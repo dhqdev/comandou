@@ -58,6 +58,7 @@ import { PlatformDbServersService } from './platform-db-servers.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
 import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
 import { BillingService } from '../billing/billing.service';
+import { PlatformSitesService } from './platform-sites.service';
 
 const actor = (req: Request): Actor => ({ admin: req.platformAdmin!, ip: req.ip });
 
@@ -147,7 +148,14 @@ export class PlatformController {
     private readonly databases: PlatformDatabasesService,
     private readonly dbServers: PlatformDbServersService,
     private readonly billing: BillingService,
+    private readonly sites: PlatformSitesService,
   ) {}
+
+  /** Status em tempo real de cada restaurante (site, domínios, banco, WhatsApp, backup). */
+  @Get('sites')
+  siteStatus(@Query('fresh') fresh?: string) {
+    return this.sites.report(fresh === '1');
+  }
 
   @Get('overview')
   overview() {

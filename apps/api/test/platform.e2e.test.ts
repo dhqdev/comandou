@@ -11,6 +11,7 @@ import { hashPassword } from '../src/auth/password';
 import { seal } from '../src/common/secret-box';
 import { DomainVerifier } from '../src/domains/domains.controller';
 import { ReleaseFeed } from '../src/platform/server-agent.service';
+import { PlatformSitesService } from '../src/platform/platform-sites.service';
 import type { CleanupTarget, HostAgent } from '../src/host-agent/agent';
 import { agentServer } from '../src/host-agent/server';
 import { totpContext } from '../src/platform/platform-auth';
@@ -786,6 +787,58 @@ describe('Monitoramento e visão geral', () => {
         'platform.tenant_created',
       ]),
     );
+  });
+});
+
+describe('Status dos sites', () => {
+  it('cada restaurante: site pelo endereço público, banco e backup; suspenso não é testado', async () => {
+    // A rede é trocada por uma chamada direta à API com o Host do restaurante (mesmo caminho).
+    const probed: string[] = [];
+    app.get(PlatformSitesService).probeSite = async (host: string) => {
+      probed.push(host);
+      const t0 = Date.now();
+      const r = await http.get('/api/v1/health/site').set('Host', host);
+      return r.status === 200
+        ? { ok: true, http: 200, ms: Date.now() - t0 }
+        : { ok: false, http: r.status, ms: Date.now() - t0, error: `respondeu ${r.status}` };
+    };
+    // A rota pública de teste do site: só no host de um restaurante, sem detalhes.
+    expect((await http.get('/api/v1/health/site').set('Host', HOST_A).expect(200)).body).toEqual({
+      status: 'ok',
+    });
+    await http.get('/api/v1/health/site').set('Host', 'nada.comandou.test').expect(404);
+    await http.get('/api/v1/platform/sites').set('Host', HOST_A).expect(404);
+    await http.get('/api/v1/platform/sites').set('Host', ADMIN_HOST).expect(401);
+
+    await psend('post', `/tenants/${fx.tenantB}/status`, {
+      status: 'suspended',
+      reason: 'Teste do status',
+    }).expect(200);
+    try {
+      const r = (await pget('/sites?fresh=1').expect(200)).body;
+      expect(r.baseDomain).toBe('comandou.test');
+      const a = r.sites.find((x: { slug: string }) => x.slug === 'pf-a');
+      const b = r.sites.find((x: { slug: string }) => x.slug === 'pf-b');
+      expect(a).toMatchObject({
+        host: HOST_A,
+        state: expect.stringMatching(/^(online|attention)$/),
+        web: { ok: true, http: 200 },
+        database: { check: { ok: true } },
+      });
+      expect(a.issues.filter((i: string) => /^(Site|Banco):/.test(i))).toEqual([]);
+      expect(b).toMatchObject({ state: 'suspended', web: null });
+      expect(probed).toContain(HOST_A);
+      expect(probed).not.toContain(HOST_B);
+    } finally {
+      await psend('post', `/tenants/${fx.tenantB}/status`, {
+        status: 'provisioned',
+        reason: 'Fim do teste',
+      }).expect(200);
+    }
+    // Sem "fresh", a rodada recente é reaproveitada (várias abas não refazem tudo).
+    const before = probed.length;
+    await pget('/sites').expect(200);
+    expect(probed.length).toBe(before);
   });
 });
 

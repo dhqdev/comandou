@@ -82,6 +82,14 @@ const schema = z.object({
   /** Consulta de CEP: ViaCEP (principal, também acha o CEP pela rua) e BrasilAPI (reserva). */
   VIACEP_URL: z.string().url().default('https://viacep.com.br'),
   BRASILAPI_URL: z.string().url().default('https://brasilapi.com.br'),
+  /**
+   * Porta do teste "site no ar" do painel (https://<slug>.<base>:<porta>/api/v1/health/site).
+   * Vazia = porta padrão (443 com COOKIE_SECURE=true, 80 sem). Em dev local: 5173 (Vite).
+   */
+  SITE_CHECK_PORT: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.coerce.number().int().min(1).max(65535).optional(),
+  ),
   /** Serviço interno de WhatsApp (Baileys/QR Code). Ex.: http://whatsapp-gateway:3100 */
   WHATSAPP_GATEWAY_URL: z.preprocess(
     (v) => (v === '' ? undefined : v),

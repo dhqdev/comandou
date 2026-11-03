@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.70.0',
+    date: '2026-11-03',
+    title: 'Super Admin: status de cada site em tempo real logo depois do login',
+    summary:
+      'A tela inicial do painel mostra todos os restaurantes com a situação do site, do banco, do WhatsApp e do backup, atualizando sozinha a cada 15 segundos.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Status: cada site é testado pelo endereço público (o mesmo caminho do cliente) e mostra se está online, o código HTTP e o tempo de resposta. Domínios próprios verificados também são testados.',
+      },
+      {
+        tag: 'novo',
+        text: 'Na mesma linha: banco do restaurante (central ou próprio, servidor e tempo de resposta), WhatsApp (conectado, aguardando QR ou desconectado) e último backup bom.',
+      },
+      {
+        tag: 'novo',
+        text: 'Busca e filtros (fora do ar, com atenção, WhatsApp desconectado, suspensos), com os problemas no topo. Ações por site: entrar no sistema já logado e abrir o site numa nova aba.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Números do topo resumem sites, bancos, WhatsApp, backups e alertas; os alertas, o servidor e a saúde da plataforma continuam logo abaixo.',
+      },
+    ],
+  },
+  {
     version: '0.69.3',
     date: '2026-11-03',
     title: 'Cobrança da assinatura confirma o pagamento sozinha, mesmo sem o aviso do Asaas',
