@@ -53,6 +53,31 @@ export const RELEASES: readonly Release[] = [
     ],
   },
   {
+    version: '0.69.1',
+    date: '2026-11-03',
+    title: 'WhatsApp por QR Code mais estável e avisos que chegam no número certo',
+    summary:
+      'Os avisos pelo WhatsApp encontram o número certo do cliente (com ou sem o 9), a conexão por QR Code não fica presa tentando reconectar e a tela mostra por que o WhatsApp desconectou.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Aviso para celular cadastrado no WhatsApp sem o 9 agora chega: o sistema pergunta ao WhatsApp qual é o número certo. Número sem WhatsApp vira falha na hora, sem ficar tentando.',
+      },
+      {
+        tag: 'correção',
+        text: 'QR Code que ninguém leu expira e pede um novo, em vez de ficar gerando QR para sempre. Sessão aberta em outro lugar ou número bloqueado param de reconectar e a tela mostra o motivo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Depois de ler o QR Code a conexão fecha na hora, e dá para desconectar enquanto ela ainda está "conectando".',
+      },
+      {
+        tag: 'correção',
+        text: '"Reenviar" um aviso que ainda está na fila não manda mais a mensagem duas vezes.',
+      },
+    ],
+  },
+  {
     version: '0.69.0',
     date: '2026-11-03',
     title:
