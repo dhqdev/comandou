@@ -89,6 +89,7 @@ export class PlatformAuthController {
       ip: req.ip,
       userAgent: req.get('user-agent'),
       deviceToken: this.deviceCookie(req),
+      remember: b.remember,
     });
     res.cookie(PLATFORM_COOKIE, r.token, {
       httpOnly: true,

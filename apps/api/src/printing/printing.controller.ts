@@ -17,7 +17,13 @@ import type { Request } from 'express';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
 import { ctxOf } from '../common/context';
-import { CurrentTenant, CurrentUser, Public, RequirePermission } from '../common/decorators';
+import {
+  AllowWhenBlocked,
+  CurrentTenant,
+  CurrentUser,
+  Public,
+  RequirePermission,
+} from '../common/decorators';
 import { one, q } from '../common/sql';
 import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService } from '../database/database.service';
@@ -40,6 +46,8 @@ const AGENT_COLS = `id, name, active, last_seen_at AS "lastSeenAt", version, cre
   (last_seen_at > now() - interval '2 minutes') AS online`;
 
 /** Configuração de impressão (agentes e fila) para a equipe do restaurante. */
+/** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
+@AllowWhenBlocked()
 @Controller({ version: '1' })
 export class PrintingController {
   constructor(
@@ -210,6 +218,8 @@ export class PrintingController {
  * API do agente local de impressão. Sem sessão de usuário: autentica pelo token do agente
  * (Authorization: Bearer pma_...), sempre no host do restaurante (o tenant vem do Host).
  */
+/** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
+@AllowWhenBlocked()
 @Controller({ path: 'print-agent', version: '1' })
 @Public()
 @Throttle({ default: { ttl: 60_000, limit: 120 } })

@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   NotFoundException,
   Param,
   ParseUUIDPipe,
@@ -16,7 +17,15 @@ import type { Request } from 'express';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
 import { ctxOf } from '../common/context';
-import { CurrentTenant, CurrentUser, Public, RequirePermission } from '../common/decorators';
+import {
+  AllowWhenBlocked,
+  CurrentTenant,
+  CurrentUser,
+  Public,
+  RequirePermission,
+} from '../common/decorators';
+import { PAYMENT_METHODS } from '@comandou/shared';
+import { requireKey } from '../common/idempotency';
 import { reason, uuid } from '../common/schemas';
 import { one, q } from '../common/sql';
 import { ZodPipe } from '../common/zod.pipe';
@@ -45,10 +54,15 @@ const Complete = z.object({
     .trim()
     .regex(/^[0-9]{4}$/, 'código de 4 números')
     .optional(),
+  /** Como o cliente pagou na porta, quando o pedido ainda tinha saldo (vai para o acerto). */
+  method: z.enum(PAYMENT_METHODS).optional(),
 });
+const Settle = z.object({ cashSessionId: uuid, method: z.enum(PAYMENT_METHODS).optional() });
 const COURIER_COLS = `c.id, c.name, c.phone, c.user_id AS "userId", u.name AS "userName", c.active,
   c.access_created_at AS "linkCreatedAt"`;
 
+/** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
+@AllowWhenBlocked()
 @Controller({ version: '1' })
 export class DeliveryController {
   constructor(
@@ -198,7 +212,28 @@ export class DeliveryController {
     @CurrentUser() u: AuthenticatedUser,
     @Req() req: Request,
   ) {
-    return this.delivery.complete(ctxOf(t, u, req), id, { code: b.code });
+    return this.delivery.complete(ctxOf(t, u, req), id, { code: b.code, method: b.method });
+  }
+
+  /** Acertos pendentes: o que cada entregador recebeu na porta e ainda não entregou no caixa. */
+  @Get('deliveries/collections')
+  @RequirePermission('payments:create')
+  collections(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.delivery.pendingCollections(ctxOf(t, u));
+  }
+
+  /** Acerto de uma entrega no caixa (vira pagamento na sessão). Exige `Idempotency-Key`. */
+  @Post('deliveries/:id/settle')
+  @RequirePermission('payments:create')
+  settle(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(Settle)) b: z.infer<typeof Settle>,
+    @Headers('idempotency-key') key: string | undefined,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.delivery.settle(ctxOf(t, u, req), id, b, requireKey(key));
   }
 
   @Post('deliveries/:id/fail')
@@ -278,7 +313,11 @@ export class DeliveryController {
     @Req() req: Request,
   ) {
     const { ctx, courier } = await this.delivery.courierCtx(t.id, token, req.ip);
-    return this.delivery.complete(ctx, id, { viaLink: courier.id, code: b.code });
+    return this.delivery.complete(ctx, id, {
+      viaLink: courier.id,
+      code: b.code,
+      method: b.method,
+    });
   }
 
   @Public()

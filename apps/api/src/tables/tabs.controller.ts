@@ -5,6 +5,7 @@ import {
   Headers,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Req,
@@ -12,7 +13,13 @@ import {
 import type { Request } from 'express';
 import { z } from 'zod';
 import { ctxOf } from '../common/context';
-import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
+import {
+  AllowWhenBlocked,
+  BlockWhenBilling,
+  CurrentTenant,
+  CurrentUser,
+  RequirePermission,
+} from '../common/decorators';
 import { requireKey } from '../common/idempotency';
 import { Payment, uuid } from '../common/schemas';
 import { ZodPipe } from '../common/zod.pipe';
@@ -24,7 +31,16 @@ const OpenTab = z.object({
   customerName: z.string().trim().max(80).optional(),
 });
 const TabPayment = Payment.extend({ orderIds: z.array(uuid).min(1).max(100).optional() });
+/** Percentual da taxa de serviço ("10" ou "10.5"), de 0 a 30. */
+const percent = z
+  .string()
+  .regex(/^\d{1,2}(\.\d{1,2})?$/, 'percentual com até 2 casas')
+  .refine((v) => Number(v) <= 30, 'no máximo 30%');
+const ServiceFee = z.object({ percent: percent.nullable() });
+const SalonSettings = z.object({ serviceFeePercent: percent });
 
+/** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
+@AllowWhenBlocked()
 @Controller({ path: 'tabs', version: '1' })
 export class TabsController {
   constructor(private readonly tabs: TabsService) {}
@@ -51,6 +67,7 @@ export class TabsController {
   }
 
   @Post()
+  @BlockWhenBilling()
   @RequirePermission('tables:operate')
   open(
     @Body(new ZodPipe(OpenTab)) b: z.infer<typeof OpenTab>,
@@ -107,6 +124,19 @@ export class TabsController {
     return this.tabs.pay(ctxOf(t, u, req), id, b, requireKey(key));
   }
 
+  /** Liga, muda ou tira a taxa de serviço da comanda (o cliente pode recusar). */
+  @Post(':id/service-fee')
+  @RequirePermission('orders:manage')
+  serviceFee(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(ServiceFee)) b: z.infer<typeof ServiceFee>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.tabs.setServiceFee(ctxOf(t, u, req), id, b.percent);
+  }
+
   @Post(':id/close')
   @RequirePermission('payments:create')
   close(
@@ -116,5 +146,28 @@ export class TabsController {
     @Req() req: Request,
   ) {
     return this.tabs.close(ctxOf(t, u, req), id);
+  }
+}
+
+/** Configuração do salão: taxa de serviço padrão das comandas novas. */
+@Controller({ path: 'salon', version: '1' })
+export class SalonController {
+  constructor(private readonly tabs: TabsService) {}
+
+  @Get('settings')
+  @RequirePermission('orders:read')
+  get(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.tabs.salonSettings(ctxOf(t, u));
+  }
+
+  @Patch('settings')
+  @RequirePermission('settings:manage')
+  save(
+    @Body(new ZodPipe(SalonSettings)) b: z.infer<typeof SalonSettings>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.tabs.saveSalonSettings(ctxOf(t, u, req), b);
   }
 }

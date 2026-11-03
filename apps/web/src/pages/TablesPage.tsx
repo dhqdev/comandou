@@ -558,6 +558,8 @@ function LooseTabModal({
   );
 }
 
+const pct = (v: string) => `${Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`;
+
 function TabModal({
   tabId,
   tables,
@@ -575,7 +577,16 @@ function TabModal({
   const toast = useToast();
   const canPay = useCan('payments:create');
   const canOperate = useCan('tables:operate');
+  const canManage = useCan('orders:manage');
   const [tab, setTab] = useState<Tab | null>(null);
+  /** Taxa de serviço padrão do salão (Configurações), para religar numa comanda sem taxa. */
+  const [defaultFee, setDefaultFee] = useState<string>('0.00');
+  useEffect(() => {
+    if (!tabId) return;
+    api<{ serviceFeePercent: string }>('/salon/settings')
+      .then((r) => setDefaultFee(r.serviceFeePercent))
+      .catch(() => undefined);
+  }, [tabId]);
   const [adding, setAdding] = useState(false);
   const [paying, setPaying] = useState(false);
   const [transfer, setTransfer] = useState(false);
@@ -630,6 +641,17 @@ function TabModal({
         requested ? 'Caixa avisado: mesa pediu a conta' : 'Pedido de conta desfeito',
         'success',
       );
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    }
+  }
+
+  async function setFee(percent: string | null) {
+    if (!tab) return;
+    try {
+      setTab(await api<Tab>(`/tabs/${tab.id}/service-fee`, { method: 'POST', json: { percent } }));
+      onChanged();
+      toast(percent ? 'Taxa de serviço cobrada' : 'Taxa de serviço retirada', 'success');
     } catch (e) {
       toast((e as Error).message, 'danger');
     }
@@ -723,6 +745,28 @@ function TabModal({
               <strong>{brl(tab.balance)}</strong>
             </div>
           </div>
+          {open && (tab.serviceFeePercent || Number(defaultFee) > 0) && (
+            <div className="tab-fee">
+              {tab.serviceFeePercent ? (
+                <span>
+                  Taxa de serviço {pct(tab.serviceFeePercent)} ·{' '}
+                  <strong>{brl(tab.serviceFee ?? '0')}</strong>
+                </span>
+              ) : (
+                <span>Sem taxa de serviço nesta comanda</span>
+              )}
+              {canManage &&
+                (tab.serviceFeePercent ? (
+                  <Button variant="ghost" size="sm" onClick={() => void setFee(null)}>
+                    Tirar taxa
+                  </Button>
+                ) : (
+                  <Button variant="ghost" size="sm" onClick={() => void setFee(defaultFee)}>
+                    Cobrar {pct(defaultFee)}
+                  </Button>
+                ))}
+            </div>
+          )}
           {(tab.orders ?? []).length === 0 ? (
             <EmptyState title="Nenhum pedido nesta comanda" />
           ) : (

@@ -15,6 +15,7 @@ import { Badge, Button, EmptyState, TextField, useToast } from '../design-system
 import { brl } from '../lib/money';
 import type { Delivery } from '../lib/types';
 import { minutesSince, PAYMENT_METHOD_LABELS, time } from './format';
+import { SelectField } from './forms';
 import { bearing, distanceM, kmLabel, toPoint, type LatLng } from './live-geo';
 import { CourierEarnings, type CourierEarningsData } from './CourierEarnings';
 import { LiveMap, type MapRider } from './LiveMap';
@@ -31,9 +32,14 @@ export interface Fix {
   heading: number | null;
 }
 
+const COLLECT_METHODS = ['cash', 'pix', 'debit', 'credit', 'voucher', 'other'] as const;
+
 export interface DriverActions {
-  /** Conclui com o código de 4 dígitos que o cliente recebeu. */
-  complete(id: string, code: string): Promise<unknown>;
+  /**
+   * Conclui com o código de 4 dígitos que o cliente recebeu. `method`: como o entregador
+   * recebeu o valor em aberto (vai para o acerto no caixa).
+   */
+  complete(id: string, code: string, method?: string): Promise<unknown>;
   fail(id: string, reason: string): Promise<unknown>;
   location(id: string, fix: Fix): Promise<unknown>;
 }
@@ -216,6 +222,7 @@ function RunCard({
   const [reason, setReason] = useState('');
   const [code, setCode] = useState('');
   const toCollect = d.paymentStatus !== 'paid' && toCents(d.balance) > 0;
+  const [method, setMethod] = useState<string>(d.paymentHint ?? 'cash');
 
   async function run(fn: () => Promise<unknown>, ok: string) {
     setBusy(true);
@@ -342,7 +349,10 @@ function RunCard({
           onSubmit={(e) => {
             e.preventDefault();
             if (code.length === 4)
-              void run(() => actions.complete(d.id, code), 'Entrega concluída');
+              void run(
+                () => actions.complete(d.id, code, toCollect ? method : undefined),
+                'Entrega concluída',
+              );
           }}
         >
           <TextField
@@ -357,6 +367,19 @@ function RunCard({
             onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 4))}
             hint="Peça ao cliente: são 4 números que ele recebeu no acompanhamento do pedido."
           />
+          {toCollect && (
+            <SelectField
+              label={`Como recebeu ${brl(d.balance)}?`}
+              value={method}
+              onChange={(e) => setMethod(e.target.value)}
+            >
+              {COLLECT_METHODS.map((m) => (
+                <option key={m} value={m}>
+                  {PAYMENT_METHOD_LABELS[m]}
+                </option>
+              ))}
+            </SelectField>
+          )}
           <div className="run__actions">
             <Button variant="secondary" size="lg" type="button" onClick={() => setStep('idle')}>
               Voltar

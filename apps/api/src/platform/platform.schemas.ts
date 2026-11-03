@@ -10,6 +10,8 @@ export const LoginInput = z.object({
     .trim()
     .regex(/^([0-9]{6})?$/, 'código de 6 dígitos')
     .default(''),
+  /** Lembrar este navegador por TRUSTED_DEVICE_DAYS (sem pedir o código de novo). */
+  remember: z.boolean().default(false),
 });
 
 /** Fusos do Brasil que o painel oferece ao criar o restaurante. */

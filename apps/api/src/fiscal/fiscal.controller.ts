@@ -16,7 +16,12 @@ import {
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { ctxOf } from '../common/context';
-import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
+import {
+  AllowWhenBlocked,
+  CurrentTenant,
+  CurrentUser,
+  RequirePermission,
+} from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { FiscalExtraService } from './fiscal-extra.service';
@@ -63,6 +68,7 @@ const Settings = z
       .transform((v) => v || null),
     autoEmitNfce: z.boolean(),
     emailCustomer: z.boolean(),
+    printNfce: z.boolean(),
   })
   .partial();
 
@@ -313,6 +319,8 @@ const Cancel = z.object({
 });
 
 /** Nota fiscal ao consumidor (NFC-e). O restaurante vem sempre do Host, nunca do corpo. */
+/** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
+@AllowWhenBlocked()
 @Controller({ version: '1' })
 export class FiscalController {
   constructor(
@@ -443,6 +451,17 @@ export class FiscalController {
     @CurrentUser() u: AuthenticatedUser,
   ) {
     return this.fiscal.reissue(ctxOf(t, u), id);
+  }
+
+  /** Reimprime o cupom (DANFE) da NFC-e autorizada na impressora do caixa. */
+  @Post('fiscal/documents/:id/print')
+  @RequirePermission('fiscal:emit')
+  print(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.fiscal.print(ctxOf(t, u), id);
   }
 
   /** Apaga (descarta) nota não autorizada. Autorizada só se cancela. */

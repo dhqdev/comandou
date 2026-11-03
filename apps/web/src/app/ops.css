@@ -706,6 +706,15 @@
   }
 }
 .pay-balance,
+/* Taxa de serviço da comanda: uma linha com o valor e o botão de tirar/cobrar. */
+.tab-fee {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-2);
+  color: var(--cm-text-muted);
+  font-size: 0.9rem;
+}
 .tab-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

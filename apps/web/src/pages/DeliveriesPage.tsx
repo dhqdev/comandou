@@ -26,6 +26,7 @@ import {
 } from '../design-system';
 import { useCan } from '../app/auth';
 import { minutesSince, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE, time } from '../features/format';
+import { CourierCollections } from '../features/CourierCollections';
 import { CourierPayouts } from '../features/CourierPayouts';
 import { DeliveryAreas } from '../features/DeliveryAreas';
 import { routeUrl } from '../features/DriverPanel';
@@ -56,12 +57,13 @@ const trackingUrl = (path: string) => `${window.location.origin}${path}`;
  * O entregador não passa por aqui: tem o app próprio (driver/DriverApp), só com as corridas dele.
  * Pelo painel, a entrega conclui sem o código do cliente (cliente sem o código, por exemplo).
  */
-type Aba = 'despacho' | 'entregadores' | 'area' | 'hoje' | 'repasses';
+type Aba = 'despacho' | 'entregadores' | 'area' | 'hoje' | 'acerto' | 'repasses';
 
 export function DeliveriesPage() {
   const canManage = useCan('delivery:manage');
   const canSetup = useCan('settings:manage');
   const canPay = useCan('finance:read');
+  const canSettle = useCan('payments:create');
   const [ready, setReady] = useState<Order[]>([]);
   const [out, setOut] = useState<Delivery[] | null>(null);
   const [today, setToday] = useState<Delivery[]>([]);
@@ -176,6 +178,7 @@ export function DeliveriesPage() {
           { value: 'entregadores', label: 'Entregadores', count: activeCouriers.length },
           { value: 'area', label: 'Área de entrega' },
           { value: 'hoje', label: 'Hoje', count: today.length },
+          ...(canSettle ? [{ value: 'acerto' as const, label: 'Acerto' }] : []),
           ...(canPay ? [{ value: 'repasses' as const, label: 'Repasses' }] : []),
         ]}
       />
@@ -338,6 +341,7 @@ export function DeliveriesPage() {
         <CouriersCard couriers={couriers} out={out ?? []} colorOf={colorOf} onChanged={load} />
       )}
       {aba === 'area' && <DeliveryAreas canEdit={canSetup} />}
+      {aba === 'acerto' && canSettle && <CourierCollections />}
       {aba === 'repasses' && canPay && <CourierPayouts />}
       <Modal open={!!link} title={link?.title ?? ''} onClose={() => setLink(null)}>
         {link && <TrackingLink path={link.path} />}

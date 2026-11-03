@@ -62,7 +62,7 @@ export function CourierLinkPage() {
           store={data.store ? [data.store.lat, data.store.lng] : null}
           onChanged={load}
           actions={{
-            complete: (id, code) => post(`/deliveries/${id}/complete`, { code }),
+            complete: (id, code, method) => post(`/deliveries/${id}/complete`, { code, method }),
             fail: (id, reason) => post(`/deliveries/${id}/fail`, { reason }),
             location: (id, fix) => post(`/deliveries/${id}/location`, fix),
           }}

@@ -124,6 +124,12 @@ const TABS: ListTab[] = [
     label: 'A receber',
     filters: { date: ['today'], payment: ['unpaid', 'partial'] },
   },
+  {
+    // Concluídos sem pagar tudo (fiado / acerto pendente do entregador): a cobrar.
+    id: 'em-aberto',
+    label: 'Concluídos em aberto',
+    filters: { date: ['30d'], status: ['completed'], payment: ['unpaid', 'partial'] },
+  },
   { id: 'semana', label: 'Últimos 7 dias', filters: { date: ['7d'] } },
 ];
 

@@ -58,6 +58,38 @@ export interface StoreSettings {
   faviconImageId: string | null;
   /** As cores valem também no sistema da equipe. */
   brandStaffApp: boolean;
+  /** Horário de funcionamento: fora dele a loja fica fechada sozinha, mesmo com isOpen ligado. */
+  hoursEnabled: boolean;
+  hours: StoreHour[];
+}
+
+/** Um turno do dia da semana (0 = domingo). close menor que open = vira a meia-noite. */
+export interface StoreHour {
+  day: number;
+  open: string;
+  close: string;
+}
+
+const minutes = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h! * 60 + m!;
+};
+
+/**
+ * A loja está dentro do horário em `dow` (0 = domingo) às `hhmm` (hora local do restaurante)?
+ * Um turno que passa da meia-noite (ex.: 18:00 a 02:00) vale também na madrugada do dia seguinte.
+ */
+export function withinHours(hours: StoreHour[], dow: number, hhmm: string): boolean {
+  const now = minutes(hhmm);
+  const yesterday = (dow + 6) % 7;
+  return hours.some((h) => {
+    const open = minutes(h.open);
+    const close = minutes(h.close);
+    if (close > open) return h.day === dow && now >= open && now < close;
+    // Turno que vira a noite (ou 24h quando open = close).
+    if (h.day === dow && now >= open) return true;
+    return h.day === yesterday && now < close;
+  });
 }
 
 export const FONT_STYLES = ['padrao', 'sistema', 'classica', 'arredondada'] as const;
@@ -110,7 +142,8 @@ const SETTINGS_COLS = `enabled, is_open AS "isOpen", auto_accept AS "autoAccept"
   chat_enabled AS "chatEnabled", chat_greeting AS "chatGreeting",
   store_lat::text AS "storeLat", store_lng::text AS "storeLng", brand_color AS "brandColor",
   accent_color AS "accentColor", font_style AS "fontStyle", corner_style AS "cornerStyle",
-  favicon_image_id AS "faviconImageId", brand_staff_app AS "brandStaffApp"`;
+  favicon_image_id AS "faviconImageId", brand_staff_app AS "brandStaffApp",
+  hours_enabled AS "hoursEnabled", hours`;
 
 const DEFAULTS: StoreSettings = {
   enabled: true,
@@ -144,6 +177,8 @@ const DEFAULTS: StoreSettings = {
   cornerStyle: 'padrao',
   faviconImageId: null,
   brandStaffApp: true,
+  hoursEnabled: false,
+  hours: [],
 };
 
 const COLUMN: Record<keyof StoreSettings, string> = {
@@ -178,6 +213,8 @@ const COLUMN: Record<keyof StoreSettings, string> = {
   cornerStyle: 'corner_style',
   faviconImageId: 'favicon_image_id',
   brandStaffApp: 'brand_staff_app',
+  hoursEnabled: 'hours_enabled',
+  hours: 'hours',
 };
 
 export interface OnlineOrderInput {
@@ -223,8 +260,30 @@ export class StoreService {
     return s ?? { ...DEFAULTS };
   }
 
+  /**
+   * A loja recebe pedido agora? O botão "aberta" ligado e, com horário configurado, dentro do
+   * horário na hora local do restaurante.
+   */
+  async openNowIn(tx: Tx, s: StoreSettings): Promise<boolean> {
+    if (!s.isOpen) return false;
+    if (!s.hoursEnabled) return true;
+    const now = await one<{ dow: number; hhmm: string }>(
+      tx,
+      `SELECT extract(dow FROM now() AT TIME ZONE z.tz)::int AS dow,
+              to_char(now() AT TIME ZONE z.tz, 'HH24:MI') AS hhmm
+         FROM (SELECT COALESCE((SELECT timezone FROM tenants WHERE id = app_current_tenant()),
+                               'America/Sao_Paulo') AS tz) z`,
+    );
+    return withinHours(s.hours ?? [], now!.dow, now!.hhmm);
+  }
+
+  private async withOpenNow(tx: Tx) {
+    const s = await this.settingsIn(tx);
+    return { ...s, openNow: await this.openNowIn(tx, s) };
+  }
+
   settings(ctx: Ctx) {
-    return this.db.withTenant(ctx, (tx) => this.settingsIn(tx));
+    return this.db.withTenant(ctx, (tx) => this.withOpenNow(tx));
   }
 
   /** Identidade visual (pública: o login e o cardápio usam antes de qualquer sessão). */
@@ -293,7 +352,8 @@ export class StoreService {
         `INSERT INTO tenant_store_settings (tenant_id, ${cols.join(', ')})
          VALUES ($1, ${keys.map((_, i) => `$${i + 2}`).join(', ')})
          ON CONFLICT (tenant_id) DO UPDATE SET ${cols.map((c) => `${c} = EXCLUDED.${c}`).join(', ')}`,
-        [ctx.tenantId, ...keys.map((k) => next[k])],
+        // jsonb vai como texto JSON (o driver mandaria array no formato do Postgres).
+        [ctx.tenantId, ...keys.map((k) => (k === 'hours' ? JSON.stringify(next[k]) : next[k]))],
       );
       await this.audit.record(tx, {
         tenantId: ctx.tenantId,
@@ -323,7 +383,7 @@ export class StoreService {
           }
         }
       }
-      return this.settingsIn(tx);
+      return this.withOpenNow(tx);
     });
     this.realtime.publish(ctx.tenantId, { type: 'store.changed' });
     for (const id of accepted)
@@ -341,7 +401,7 @@ export class StoreService {
       const s = await this.settingsIn(tx);
       if (!s.enabled) throw new NotFoundException('Cardápio online desativado');
       return {
-        isOpen: s.isOpen,
+        isOpen: await this.openNowIn(tx, s),
         acceptsDelivery: s.acceptsDelivery,
         acceptsPickup: s.acceptsPickup,
       };
@@ -408,7 +468,7 @@ export class StoreService {
           logoUrl: mediaUrl(s.logoImageId),
         },
         store: {
-          isOpen: s.isOpen,
+          isOpen: await this.openNowIn(tx, s),
           acceptsDelivery: s.acceptsDelivery,
           acceptsPickup: s.acceptsPickup,
           deliveryFee: s.deliveryFee,
@@ -451,9 +511,12 @@ export class StoreService {
   async placeOrder(tenantId: string, input: OnlineOrderInput, key: string, ip?: string) {
     const ctx = onlineCtx(tenantId);
     ctx.ip = ip;
-    const s = await this.db.withTenant(ctx, (tx) => this.settingsIn(tx));
+    const { s, openNow } = await this.db.withTenant(ctx, async (tx) => {
+      const st = await this.settingsIn(tx);
+      return { s: st, openNow: await this.openNowIn(tx, st) };
+    });
     if (!s.enabled) throw new NotFoundException('Cardápio online desativado');
-    if (!s.isOpen)
+    if (!openNow)
       throw new ConflictException('A loja está fechada agora. Tente novamente mais tarde.');
     if (input.channel === 'delivery' && !s.acceptsDelivery)
       throw new UnprocessableEntityException('Esta loja não está fazendo entregas agora');

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Button, Card, TextField, useToast } from '../design-system';
 import { api } from '../lib/api';
 import { parseBrlInput } from '../lib/money';
-import type { StoreSettings } from '../lib/types';
+import type { StoreHour, StoreSettings } from '../lib/types';
 
 const money = (v: string) => v.replace('.', ',');
 
@@ -94,7 +94,7 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
           {(
             [
               ['enabled', 'Cardápio online ligado'],
-              ['isOpen', 'Loja aberta agora'],
+              ['isOpen', s.hoursEnabled ? 'Loja aberta (no horário)' : 'Loja aberta agora'],
               ['autoAccept', 'Aceitar pedidos automaticamente'],
               ['acceptsDelivery', 'Faz entrega'],
               ['acceptsPickup', 'Aceita retirada'],
@@ -209,7 +209,134 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
             </div>
           )}
         </form>
+        <HoursEditor
+          key={JSON.stringify(s.hours) + s.hoursEnabled}
+          settings={s}
+          canManage={canManage}
+          busy={busy}
+          onSave={(patch) => save(patch, 'Horário salvo')}
+        />
       </div>
     </Card>
+  );
+}
+
+const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/**
+ * Horário de funcionamento: com ele ligado, a loja fecha e abre sozinha. Um dia pode ter mais de
+ * um turno (almoço e jantar); fechar antes de abrir (18:00 a 02:00) vira a meia-noite.
+ */
+function HoursEditor({
+  settings,
+  canManage,
+  busy,
+  onSave,
+}: {
+  settings: StoreSettings;
+  canManage: boolean;
+  busy: boolean;
+  onSave(patch: Partial<StoreSettings>): Promise<void>;
+}) {
+  const [enabled, setEnabled] = useState(settings.hoursEnabled);
+  const [hours, setHours] = useState<StoreHour[]>(
+    settings.hours.length
+      ? settings.hours
+      : [1, 2, 3, 4, 5, 6, 0].map((day) => ({ day, open: '11:00', close: '23:00' })),
+  );
+  const valid = hours.every((h) => HHMM.test(h.open) && HHMM.test(h.close));
+  const update = (i: number, patch: Partial<StoreHour>) =>
+    setHours((hs) => hs.map((h, j) => (j === i ? { ...h, ...patch } : h)));
+  const order = [1, 2, 3, 4, 5, 6, 0];
+  return (
+    <div style={{ display: 'grid', gap: 10 }}>
+      <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <input
+          type="checkbox"
+          checked={enabled}
+          disabled={!canManage || busy}
+          onChange={(e) => setEnabled(e.target.checked)}
+        />
+        <strong>Abrir e fechar sozinha no horário</strong>
+      </label>
+      {settings.hoursEnabled && (
+        <p className="cm-hint" style={{ margin: 0 }}>
+          Agora: {settings.openNow ? 'recebendo pedidos' : 'fechada para pedidos'}
+          {!settings.isOpen && ' (o botão "Loja aberta" está desligado)'}.
+        </p>
+      )}
+      {enabled && (
+        <div style={{ display: 'grid', gap: 6 }}>
+          {order.map((day) => {
+            const shifts = hours.map((h, i) => ({ h, i })).filter((x) => x.h.day === day);
+            return (
+              <div
+                key={day}
+                style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}
+              >
+                <span style={{ width: 80 }}>{DAYS[day]}</span>
+                {shifts.length === 0 && <span className="cm-hint">Fechado</span>}
+                {shifts.map(({ h, i }) => (
+                  <span key={i} style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                    <input
+                      type="time"
+                      aria-label={`${DAYS[day]}: abre`}
+                      value={h.open}
+                      disabled={!canManage}
+                      onChange={(e) => update(i, { open: e.target.value })}
+                    />
+                    às
+                    <input
+                      type="time"
+                      aria-label={`${DAYS[day]}: fecha`}
+                      value={h.close}
+                      disabled={!canManage}
+                      onChange={(e) => update(i, { close: e.target.value })}
+                    />
+                    {canManage && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Tirar turno de ${DAYS[day]}`}
+                        onClick={() => setHours((hs) => hs.filter((_, j) => j !== i))}
+                      >
+                        ×
+                      </Button>
+                    )}
+                  </span>
+                ))}
+                {canManage && shifts.length < 3 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setHours((hs) => [...hs, { day, open: '18:00', close: '23:00' }])
+                    }
+                  >
+                    + turno
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+          <span className="cm-hint">
+            Fechar antes de abrir (ex.: 18:00 às 02:00) vale até a madrugada do dia seguinte.
+          </span>
+        </div>
+      )}
+      {canManage && (
+        <div>
+          <Button
+            variant="secondary"
+            loading={busy}
+            disabled={!valid}
+            onClick={() => void onSave({ hoursEnabled: enabled, hours })}
+          >
+            Salvar horário
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }

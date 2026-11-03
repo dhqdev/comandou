@@ -132,6 +132,7 @@ export function SettingsPage() {
           </span>
           <ChevronRight size={18} aria-hidden />
         </Link>
+        <ServiceFeeForm disabled={!canManage} />
       </Card>
       <Card searchId="secao-caixas" title="Terminais de caixa">
         <SimpleForm
@@ -152,6 +153,56 @@ export function SettingsPage() {
         </ul>
       </Card>
     </>
+  );
+}
+
+/** Taxa de serviço que entra sozinha nas comandas novas (0 = desligada). */
+function ServiceFeeForm({ disabled }: { disabled?: boolean }) {
+  const toast = useToast();
+  const [v, setV] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    api<{ serviceFeePercent: string }>('/salon/settings')
+      .then((r) => setV(String(Number(r.serviceFeePercent)).replace('.', ',')))
+      .catch(() => undefined);
+  }, []);
+  const value = v.trim().replace(',', '.') || '0';
+  const valid = /^\d{1,2}(\.\d{1,2})?$/.test(value) && Number(value) <= 30;
+  return (
+    <form
+      className="inline-add"
+      data-search-id="taxa-servico"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        try {
+          await api('/salon/settings', { method: 'PATCH', json: { serviceFeePercent: value } });
+          toast(
+            Number(value) > 0
+              ? `Taxa de serviço de ${v}% nas comandas novas`
+              : 'Taxa de serviço desligada',
+            'success',
+          );
+        } catch (err) {
+          toast((err as Error).message, 'danger');
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <TextField
+        label="Taxa de serviço (%)"
+        inputMode="decimal"
+        value={v}
+        onChange={(e) => setV(e.target.value.replace(/[^\d,.]/g, ''))}
+        maxLength={5}
+        disabled={disabled}
+        hint="Entra sozinha nas comandas novas (ex.: 10). Na comanda dá para tirar. 0 desliga."
+      />
+      <Button type="submit" loading={busy} disabled={disabled || !valid}>
+        Salvar
+      </Button>
+    </form>
   );
 }
 

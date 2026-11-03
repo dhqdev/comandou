@@ -76,6 +76,17 @@ export interface StoreSettings {
   cornerStyle: 'padrao' | 'reto' | 'arredondado';
   faviconImageId: string | null;
   brandStaffApp: boolean;
+  /** Horário de funcionamento: fora dele a loja fecha sozinha. */
+  hoursEnabled: boolean;
+  hours: StoreHour[];
+  /** Recebe pedido agora (botão "aberta" + horário). Só na leitura. */
+  openNow?: boolean;
+}
+/** Um turno do dia (0 = domingo). close menor que open = vira a meia-noite. */
+export interface StoreHour {
+  day: number;
+  open: string;
+  close: string;
 }
 
 export interface StoreBanner {
@@ -166,6 +177,8 @@ export interface OrderItem {
   /** Foto atual do produto (null se não tiver). */
   imageId?: string | null;
   options: { id: string; name: string; priceDelta: string }[];
+  /** Motivo do cancelamento do item (status cancelled). */
+  cancelReason?: string | null;
 }
 export interface Payment {
   id: string;
@@ -200,6 +213,9 @@ export interface Order {
   taxDocument?: string | null;
   notes: string | null;
   cancelReason: string | null;
+  /** Concluído "a receber" (fiado): quando e por quê. */
+  receivableAt?: string | null;
+  receivableReason?: string | null;
   /** staff = lançado pela equipe; online = cardápio online (cliente final). */
   source?: 'staff' | 'online';
   paymentHint?: PaymentMethod | null;
@@ -233,6 +249,9 @@ export interface Tab {
   billRequestedAt: string | null;
   /** Em quantas partes a mesa quer dividir a conta (marcado com "pediu a conta"). */
   billSplitParts?: number | null;
+  /** Taxa de serviço da comanda (%), null = sem taxa; serviceFee = valor somado. */
+  serviceFeePercent?: string | null;
+  serviceFee?: string;
   orders?: Order[];
 }
 
@@ -535,6 +554,18 @@ export interface Delivery {
   payEstimate?: string | null;
   /** Distância estimada da corrida (linha reta × 1,3), em metros. */
   distanceM?: number | null;
+  /** Acerto do entregador: pending = recebeu na porta e ainda não prestou contas no caixa. */
+  collectStatus?: 'none' | 'pending' | 'settled';
+  collectAmount?: string | null;
+  collectMethod?: PaymentMethod | null;
+  settledAt?: string | null;
+}
+/** O que cada entregador tem para acertar no caixa. */
+export interface CourierCollection {
+  courierId: string;
+  courierName: string;
+  total: string;
+  deliveries: Delivery[];
 }
 
 export interface DeliveryZone {
@@ -683,6 +714,8 @@ export interface FiscalSettings {
   nfeNature: string;
   additionalInfo: string | null;
   autoEmitNfce: boolean;
+  /** Imprime o cupom da NFC-e na impressora do caixa quando a nota é autorizada. */
+  printNfce: boolean;
   emailCustomer: boolean;
   regime: 1 | 2 | 3 | 4 | null;
   receivedSyncedAt: string | null;
@@ -857,6 +890,9 @@ export interface FiscalDocument {
   id: string;
   orderId: string;
   orderNumber: number;
+  /** Nota da comanda inteira (mesa). */
+  tabId?: string | null;
+  tabNumber?: number | null;
   orderChannel: string;
   kind: FiscalKind;
   issues: FiscalIssue[];

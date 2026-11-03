@@ -89,12 +89,17 @@ async function createAdmin() {
   return id;
 }
 
-const adminLogin = (code: string, password = ADMIN_PASSWORD, host = ADMIN_HOST) =>
+const adminLogin = (
+  code: string,
+  password = ADMIN_PASSWORD,
+  host = ADMIN_HOST,
+  extra: { remember?: boolean } = {},
+) =>
   http
     .post('/api/v1/platform/auth/login')
     .set('Host', host)
     .set(CSRF)
-    .send({ email: ADMIN_EMAIL, password, code });
+    .send({ email: ADMIN_EMAIL, password, code, ...extra });
 
 const pget = (url: string, cookie = adminCookie) =>
   http.get(`/api/v1/platform${url}`).set('Host', ADMIN_HOST).set('Cookie', cookie);
@@ -256,6 +261,8 @@ describe('Login do Super Admin', () => {
     const r = await adminLogin(code).expect(200);
     const raw = r.headers['set-cookie'] as unknown as string[];
     const c = raw.find((x) => x.startsWith('cm_admin='))!;
+    // Sem marcar "lembrar este aparelho", o navegador não fica confiável.
+    expect(raw.some((x) => x.startsWith('cm_admin_device='))).toBe(false);
     expect(c).toMatch(/Path=\/api\/v1\/platform/);
     expect(c).toMatch(/HttpOnly/);
     expect(c).toMatch(/SameSite=Strict/);
@@ -267,12 +274,17 @@ describe('Login do Super Admin', () => {
     await tget(HOST_A, adminCookie, '/auth/me').expect(401);
   });
 
-  it('navegador confiável: depois do código, entra só com a senha; sem o cookie, pede código', async () => {
-    const r = await adminLogin(totpCode(SECRET, totpStep() + 1)).expect(200);
+  it('navegador confiável: só com "lembrar", por 30 dias; depois entra só com a senha', async () => {
+    const r = await adminLogin(totpCode(SECRET, totpStep() + 1), ADMIN_PASSWORD, ADMIN_HOST, {
+      remember: true,
+    }).expect(200);
     const raw = r.headers['set-cookie'] as unknown as string[];
     const d = raw.find((x) => x.startsWith('cm_admin_device='))!;
     expect(d).toMatch(/Path=\/api\/v1\/platform/);
     expect(d).toMatch(/HttpOnly/);
+    const expires = new Date(/Expires=([^;]+)/.exec(d)![1]!).getTime();
+    expect(expires - Date.now()).toBeLessThanOrEqual(30 * 86400_000 + 60_000);
+    expect(expires - Date.now()).toBeGreaterThan(29 * 86400_000);
     const device = d.split(';')[0];
     const noCode = (cookie?: string, password = ADMIN_PASSWORD) => {
       const req = http.post('/api/v1/platform/auth/login').set('Host', ADMIN_HOST).set(CSRF);

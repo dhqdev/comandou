@@ -4,20 +4,22 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { fromCents, toCents } from '@comandou/shared';
+import { fromCents, paymentStatusFor, toCents } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import { CashService, changeFor, PaymentInput } from '../cash/cash.service';
 import type { Ctx } from '../common/context';
 import { withIdempotency } from '../common/idempotency';
 import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
-import { ORDER_SELECT, OrderRow, OrdersService } from '../orders/orders.service';
+import { ORDER_SELECT, OrderRow, OrdersService, serviceFeeCents } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
 
 const TAB_SELECT = `
   SELECT tb.id, tb.number, tb.status, tb.customer_name AS "customerName", tb.table_id AS "tableId",
          dt.label AS "tableLabel", tb.opened_at AS "openedAt", tb.closed_at AS "closedAt",
          tb.bill_requested_at AS "billRequestedAt", tb.bill_split_parts AS "billSplitParts",
+         tb.service_fee_percent::text AS "serviceFeePercent",
+         COALESCE(sum(o.surcharge) FILTER (WHERE o.status <> 'cancelled'), 0)::text AS "serviceFee",
          COALESCE(sum(o.total) FILTER (WHERE o.status <> 'cancelled'), 0)::text AS total,
          COALESCE(sum(o.paid_amount), 0)::text AS paid,
          COALESCE(sum(o.total - o.paid_amount) FILTER (WHERE o.status <> 'cancelled'), 0)::text AS balance,
@@ -136,6 +138,85 @@ export class TabsService {
     });
     this.realtime.publish(ctx.tenantId, { type: 'tab.changed', tabId: id });
     return res;
+  }
+
+  /**
+   * Liga, muda ou tira a taxa de serviço da comanda (o cliente pode recusar). Refaz o acréscimo
+   * de cada pedido da comanda; pedido já pago acima do novo total precisa de estorno antes.
+   */
+  async setServiceFee(ctx: Ctx, id: string, percent: string | null) {
+    const changed: string[] = [];
+    const res = await this.db.withTenant(ctx, async (tx) => {
+      const tab = await this.lockTab(tx, id);
+      if (tab.status !== 'open') throw new ConflictException('Comanda não está aberta');
+      const value = percent && toCents(percent) > 0 ? percent : null;
+      const orders = (await this.lockOrders(tx, id)).filter((o) => o.status !== 'cancelled');
+      for (const o of orders) {
+        const base = toCents(o.subtotal) - toCents(o.discount);
+        const surcharge = serviceFeeCents(base, value);
+        if (surcharge === toCents(o.surcharge)) continue;
+        await this.orders.assertNoLiveFiscalDocument(tx, o.id, 'mudar a taxa de serviço');
+        const total = base + surcharge + toCents(o.delivery_fee);
+        const paid = toCents(o.paid_amount);
+        if (total < paid)
+          throw new ConflictException(
+            `Pedido #${o.number} já foi pago com a taxa: estorne a diferença antes de tirar a taxa`,
+          );
+        await q(
+          tx,
+          `UPDATE orders SET surcharge = $2, total = $3, payment_status = $4, version = version + 1 WHERE id = $1`,
+          [o.id, fromCents(surcharge), fromCents(total), paymentStatusFor(total, paid)],
+        );
+        changed.push(o.id);
+      }
+      await q(tx, `UPDATE tabs SET service_fee_percent = $2 WHERE id = $1`, [id, value]);
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: value ? 'tab.service_fee_set' : 'tab.service_fee_removed',
+        entity: 'tab',
+        entityId: id,
+        data: { percent: value, orders: changed.length },
+        ip: ctx.ip,
+      });
+      return this.detail(tx, id);
+    });
+    for (const oid of changed)
+      this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId: oid });
+    this.realtime.publish(ctx.tenantId, { type: 'tab.changed', tabId: id });
+    return res;
+  }
+
+  /** Taxa de serviço padrão das comandas novas (0 = sem taxa). */
+  async salonSettings(ctx: Ctx) {
+    const r = await this.db.withTenant(ctx, (tx) =>
+      one<{ serviceFeePercent: string }>(
+        tx,
+        `SELECT service_fee_percent::text AS "serviceFeePercent" FROM salon_settings`,
+      ),
+    );
+    return { serviceFeePercent: r?.serviceFeePercent ?? '0.00' };
+  }
+
+  async saveSalonSettings(ctx: Ctx, b: { serviceFeePercent: string }) {
+    await this.db.withTenant(ctx, async (tx) => {
+      await q(
+        tx,
+        `INSERT INTO salon_settings (tenant_id, service_fee_percent) VALUES ($1, $2)
+         ON CONFLICT (tenant_id) DO UPDATE SET service_fee_percent = EXCLUDED.service_fee_percent`,
+        [ctx.tenantId, b.serviceFeePercent],
+      );
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'salon.settings_updated',
+        entity: 'salon_settings',
+        entityId: ctx.tenantId,
+        data: b,
+        ip: ctx.ip,
+      });
+    });
+    return this.salonSettings(ctx);
   }
 
   /** Transferência de mesa: a comanda inteira vai para outra mesa livre. */
@@ -279,6 +360,7 @@ export class TabsService {
         status: 'completed',
       });
     this.realtime.publish(ctx.tenantId, { type: 'tab.changed', tabId: id });
+    this.orders.notifyTabClosed(ctx, id);
     return res;
   }
 }

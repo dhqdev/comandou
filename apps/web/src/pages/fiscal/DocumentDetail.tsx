@@ -10,6 +10,7 @@ import {
   Download,
   FileText,
   Mail,
+  Printer,
   RefreshCw,
   Send,
   Trash2,
@@ -185,6 +186,11 @@ export function DocumentDetail() {
       toast('Consultando a nota', 'success');
       await load();
     });
+  const printReceipt = () =>
+    run('print', async () => {
+      await api(`/fiscal/documents/${id}/print`, { method: 'POST' });
+      toast('Cupom enviado para a impressora do caixa', 'success');
+    });
   const pickCustomer = (c: CustomerHit) =>
     run('customer', async () => {
       apply(
@@ -272,6 +278,16 @@ export function DocumentDetail() {
                   >
                     <FileText size={16} /> {isNfe ? 'DANFE' : 'Cupom (DANFE)'}
                   </a>
+                )}
+                {!isNfe && canEmit && doc.status === 'authorized' && (
+                  <Button
+                    variant="ghost"
+                    icon={<Printer size={16} />}
+                    loading={busy === 'print'}
+                    onClick={printReceipt}
+                  >
+                    Imprimir cupom
+                  </Button>
                 )}
                 {doc.xmlUrl && (
                   <a

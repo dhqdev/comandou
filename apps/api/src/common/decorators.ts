@@ -17,6 +17,12 @@ export const SkipCsrf = () => SetMetadata(SKIP_CSRF, true);
 /** Rota que continua funcionando com o restaurante bloqueado pela cobrança (entrar, pagar). */
 export const ALLOW_BLOCKED = 'cm:allow-blocked';
 export const AllowWhenBlocked = () => SetMetadata(ALLOW_BLOCKED, true);
+/**
+ * Restaurante bloqueado pela cobrança: rotas de controladores liberados (receber, fechar caixa,
+ * nota fiscal, impressão, cozinha, entregas) continuam; esta marca bloqueia uma rota mesmo
+ * assim (o que começa venda nova: pedido novo, comanda nova).
+ */
+export const BlockWhenBilling = () => SetMetadata(ALLOW_BLOCKED, false);
 
 export const PERMISSION = 'cm:permission';
 /** Exige ao menos UMA das permissões informadas. */

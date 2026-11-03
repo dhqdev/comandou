@@ -2,7 +2,12 @@ import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req } from '@
 import type { Request } from 'express';
 import { z } from 'zod';
 import { ctxOf } from '../common/context';
-import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
+import {
+  AllowWhenBlocked,
+  CurrentTenant,
+  CurrentUser,
+  RequirePermission,
+} from '../common/decorators';
 import { uuid } from '../common/schemas';
 import { ZodPipe } from '../common/zod.pipe';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
@@ -10,6 +15,8 @@ import { KitchenService } from './kitchen.service';
 
 const SectorParam = z.union([uuid, z.literal('none')]).optional();
 
+/** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
+@AllowWhenBlocked()
 @Controller({ path: 'kitchen', version: '1' })
 export class KitchenController {
   constructor(private readonly kitchen: KitchenService) {}
