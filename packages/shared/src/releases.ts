@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.71.0',
+    date: '2026-11-03',
+    title: 'Aba Tokens no Super Admin: suas chaves de API, limite de cada cliente e tokens extras',
+    summary:
+      'Tudo de chave e token ficou numa aba só: a sua chave do OpenRouter (sistema e esteira) separada da dos restaurantes, o uso de cada uma, o limite do mês de cada cliente e os tokens extras que só o Super Admin doa ou retira.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Super Admin › Tokens: duas chaves do OpenRouter. A sua é usada pela esteira de chamados e pelos testes do painel (e pode ser a mesma do CI); a dos restaurantes é a que o assistente de cada cliente gasta. Cada uma mostra o uso de hoje, do mês, desde sempre e o limite da chave.',
+      },
+      {
+        tag: 'novo',
+        text: 'Tokens extras: o Super Admin doa (ou retira) tokens para um restaurante, com motivo. Eles não vencem e só são gastos depois que o limite do mês acaba. Só o painel muda isso; o restaurante apenas vê o saldo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Extrato de uso: cada chamada de IA com a chave que pagou, o restaurante ou a parte do sistema (esteira, teste), tokens, quanto saiu dos extras e o custo. As doações e retiradas ficam no extrato e na auditoria.',
+      },
+      {
+        tag: 'novo',
+        text: 'Todas as chaves do sistema num lugar: Asaas, Focus NFe, WhatsApp, GitHub, backups, servidor. Mostra o que está configurado, o que falta e onde trocar, sem nunca mostrar o valor.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Assistente da equipe: com tokens extras, ele continua respondendo depois do limite do mês e a barra de uso mostra quantos extras sobram.',
+      },
+      {
+        tag: 'segurança',
+        text: 'O uso de IA do restaurante passa a ser gravado por uma função do banco que trava a conta do restaurante, para duas respostas ao mesmo tempo nunca gastarem o mesmo token extra.',
+      },
+    ],
+  },
+  {
     version: '0.70.0',
     date: '2026-11-03',
     title: 'Super Admin: status de cada site em tempo real logo depois do login',

@@ -24,6 +24,7 @@ import { useRealtimeEvents } from '../../lib/realtime';
 import {
   AiMessage,
   AiStatus,
+  AiUsage,
   askAi,
   chatApi,
   Notice,
@@ -380,11 +381,13 @@ export function UsageBar({
   used,
   limit,
   percent,
+  bonus = 0,
   compact,
 }: {
   used: number;
   limit: number;
   percent: number | null;
+  bonus?: number;
   compact?: boolean;
 }) {
   if (!limit)
@@ -407,10 +410,17 @@ export function UsageBar({
         <small>
           Uso do mês: <b>{p.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%</b> ·{' '}
           {fmtInt(used)} de {fmtInt(limit)} tokens
+          {bonus > 0 && <> · +{fmtInt(bonus)} extras</>}
         </small>
       )}
     </div>
   );
+}
+
+/** Acabou o limite do mês e os tokens extras. */
+function aiBlocked(u: AiUsage) {
+  if (u.available !== undefined) return u.available !== null && u.available <= 0;
+  return !!u.limit && u.used >= u.limit;
 }
 
 export function AiTab({ screen, onNavigate }: { screen: string; onNavigate?: () => void }) {
@@ -483,8 +493,8 @@ export function AiTab({ screen, onNavigate }: { screen: string; onNavigate?: () 
           ? {
               ...s,
               usage: done.usage,
-              enabled: !(done.usage.limit && done.usage.used >= done.usage.limit),
-              reason: done.usage.limit && done.usage.used >= done.usage.limit ? 'limit' : s.reason,
+              enabled: !aiBlocked(done.usage),
+              reason: aiBlocked(done.usage) ? 'limit' : s.reason,
             }
           : s,
       );

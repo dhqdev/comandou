@@ -295,7 +295,7 @@ export function TicketsBoardPage() {
       {(!s.hasGithubToken || !s.aiReady || !s.enabled) && (
         <Alert tone="warning">
           {!s.enabled ? 'Agentes desligados: os chamados entram e esperam você mover à mão. ' : ''}
-          {!s.aiReady ? 'Falta a chave do OpenRouter (Super Admin › IA). ' : ''}
+          {!s.aiReady ? 'Falta a chave do OpenRouter (Super Admin › Tokens). ' : ''}
           {!s.hasGithubToken
             ? 'Falta o token do GitHub para criar branch e PR (repositório privado): clique em Configurar e siga o passo a passo.'
             : ''}
@@ -1327,13 +1327,13 @@ function PipelineConfig({
         </label>
         <TextField
           label="Modelo dos agentes no OpenRouter"
-          placeholder={`vazio = o mesmo do assistente (${s.effectiveModel || 'Super Admin › IA'})`}
-          hint="Para mexer em código, prefira um modelo forte (ex.: anthropic/claude-sonnet-4.5). A chave é a mesma de Super Admin › IA."
+          placeholder={`vazio = o mesmo do assistente (${s.effectiveModel || 'Super Admin › Tokens'})`}
+          hint="Para mexer em código, prefira um modelo forte (ex.: anthropic/claude-sonnet-4.5). A chave é a sua, em Super Admin › Tokens (ou a dos restaurantes, se você não colocou a sua)."
           value={f.model}
           onChange={(e) => set('model', e.target.value)}
         />
         {!s.aiReady && (
-          <Alert tone="warning">Falta a chave do OpenRouter em Super Admin › IA.</Alert>
+          <Alert tone="warning">Falta a chave do OpenRouter em Super Admin › Tokens.</Alert>
         )}
 
         <h3 className="tk-block__label" style={{ margin: '6px 0 0' }}>

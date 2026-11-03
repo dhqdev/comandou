@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { Link } from 'react-router';
+import { Gift, KeyRound, MinusCircle, RefreshCw } from 'lucide-react';
 import { Alert, Button, Card, LivePanda, Spinner, TextField, useToast } from '../design-system';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
-import { ago, Dot, levelFor, PageHead, Section, Sparkline, Tile } from './ui';
+import { ago, Dot, Level, levelFor, PageHead, Section, Sparkline, Tabs, Tag, Tile } from './ui';
 
 export interface ModelInfo {
   id: string;
@@ -33,6 +34,12 @@ export interface TenantUse {
   enabled: boolean;
   override: number | null;
   limit: number;
+  /** Tokens extras que sobram (doados pelo Super Admin; não vencem). */
+  bonus: number;
+  bonusUsed: number;
+  granted: number;
+  /** Limite que sobra no mês + extras; null = sem limite. */
+  available: number | null;
   tokens: number;
   promptTokens: number;
   completionTokens: number;
@@ -44,11 +51,53 @@ export interface TenantUse {
   totalTokens: number;
 }
 
+export type KeyKind = 'owner' | 'clients';
+
+export interface UsageEntry {
+  id: string;
+  key: KeyKind;
+  source: string;
+  sourceLabel: string;
+  tenantId: string | null;
+  tenantName: string | null;
+  ref: string | null;
+  model: string;
+  tokens: number;
+  bonus: number;
+  costUsd: number;
+  at: string;
+}
+
+export interface Grant {
+  id: string;
+  tenantId?: string;
+  tenantName?: string;
+  delta: number;
+  balanceAfter: number;
+  note: string | null;
+  adminName: string | null;
+  at: string;
+}
+
+export interface SecretItem {
+  id: string;
+  label: string;
+  group: 'ia' | 'pagamentos' | 'fiscal' | 'whatsapp' | 'desenvolvimento' | 'servidor';
+  configured: boolean;
+  required: boolean;
+  where: 'tokens' | 'painel' | 'env';
+  link: string | null;
+  envVar: string | null;
+  hint: string;
+}
+
 export interface AiOverview {
   settings: {
     enabled: boolean;
     hasApiKey: boolean;
     keyReadable: boolean;
+    hasOwnerKey: boolean;
+    ownerKeyReadable: boolean;
     keyConfigured: boolean;
     model: string;
     modelPrice: ModelInfo | null;
@@ -58,9 +107,20 @@ export interface AiOverview {
     updatedAt: string;
   };
   account: Account | null;
+  ownerAccount: Account | null;
+  systemKey: KeyKind | null;
   month: { tokens: number; costUsd: number; calls: number };
-  days: { day: string; tokens: number; costUsd: number }[];
+  system: {
+    tokens: number;
+    costUsd: number;
+    calls: number;
+    bySource: { source: string; label: string; tokens: number; costUsd: number; calls: number }[];
+  };
+  days: { day: string; tokens: number; costUsd: number; system: number }[];
   tenants: TenantUse[];
+  log: UsageEntry[];
+  grants: Grant[];
+  inventory: SecretItem[];
 }
 
 const int = (n: number) => new Intl.NumberFormat('pt-BR').format(Math.round(n));
@@ -77,8 +137,9 @@ const perM = (m: ModelInfo) =>
     : `US$ ${m.promptPerM.toFixed(2)} entrada · US$ ${m.completionPerM.toFixed(2)} saída por 1 mi`;
 
 /**
- * IA (OpenRouter): chave e modelo do assistente, saldo da conta, consumo do mês e quanto cada
- * restaurante gastou, com a barra até o limite e o ajuste do limite por cliente.
+ * Tokens (uma aba só para tudo de chave e token): a sua chave do OpenRouter (sistema e esteira) e
+ * a dos restaurantes, saldo e uso de cada uma, limite do mês por restaurante, tokens extras que só
+ * o Super Admin doa ou retira, extrato de uso e o inventário de todas as chaves do sistema.
  */
 export function AiPage() {
   const [fresh, setFresh] = useState(0);
@@ -90,15 +151,20 @@ export function AiPage() {
     <>
       <PageHead
         page
-        title="Assistente de IA"
+        title="Tokens e chaves de API"
         sub={
           <span>
-            {o.settings.enabled ? `${o.settings.assistantName} · ${o.settings.model}` : 'Desligado'}
+            {o.settings.enabled
+              ? `${o.settings.assistantName} · ${o.settings.model}`
+              : 'Assistente desligado'}
           </span>
         }
       />
       <StatusSection o={o} onRefresh={() => setFresh(Date.now())} />
+      <KeysSection o={o} onSaved={(n) => data.setData(n)} />
       <TenantsSection o={o} onChanged={data.reload} />
+      <UsageSection o={o} />
+      <InventorySection items={o.inventory} />
       <SettingsSection o={o} onSaved={(n) => data.setData(n)} />
     </>
   );
@@ -110,7 +176,11 @@ function StatusSection({ o, onRefresh }: { o: AiOverview; onRefresh(): void }) {
   const low = a?.remainingUsd != null && a.remainingUsd <= s.lowBalanceUsd;
   const balancePct =
     a?.remainingUsd != null && a.totalUsd ? (a.remainingUsd / a.totalUsd) * 100 : null;
-  const overLimit = o.tenants.filter((t) => t.percent !== null && t.percent >= 100);
+  // Passou do limite e sem extras: parou de responder. Com extras, segue gastando deles.
+  const overLimit = o.tenants.filter((t) => t.enabled && t.available === 0);
+  const onBonus = o.tenants.filter(
+    (t) => t.enabled && t.percent !== null && t.percent >= 100 && (t.available ?? 0) > 0,
+  );
   const nearLimit = o.tenants.filter(
     (t) => t.percent !== null && t.percent >= 80 && t.percent < 100,
   );
@@ -155,10 +225,16 @@ function StatusSection({ o, onRefresh }: { o: AiOverview; onRefresh(): void }) {
         </Alert>
       )}
       {a?.error && s.hasApiKey && <Alert tone="warning">{a.error}</Alert>}
+      {onBonus.length > 0 && (
+        <Alert tone="info">
+          {onBonus.map((t) => t.name).join(', ')} já {onBonus.length > 1 ? 'passaram' : 'passou'} do
+          limite e {onBonus.length > 1 ? 'estão' : 'está'} usando os tokens extras.
+        </Alert>
+      )}
       {(overLimit.length > 0 || nearLimit.length > 0) && (
         <Alert tone={overLimit.length ? 'danger' : 'warning'}>
           {overLimit.length > 0 &&
-            `${overLimit.map((t) => t.name).join(', ')} ${overLimit.length > 1 ? 'chegaram' : 'chegou'} ao limite do mês. `}
+            `${overLimit.map((t) => t.name).join(', ')} ${overLimit.length > 1 ? 'chegaram' : 'chegou'} ao limite do mês e não ${overLimit.length > 1 ? 'têm' : 'tem'} tokens extras. `}
           {nearLimit.length > 0 &&
             `${nearLimit.map((t) => t.name).join(', ')} já ${nearLimit.length > 1 ? 'passaram' : 'passou'} de 80%.`}
         </Alert>
@@ -166,7 +242,7 @@ function StatusSection({ o, onRefresh }: { o: AiOverview; onRefresh(): void }) {
       <div className="adm-grid">
         <Tile
           label="Saldo no OpenRouter"
-          value={usd(a?.remainingUsd)}
+          value={usd(a?.remainingUsd ?? o.ownerAccount?.remainingUsd)}
           level={a?.remainingUsd == null ? 'off' : low ? 'bad' : 'ok'}
           sub={
             a?.totalUsd != null
@@ -178,25 +254,27 @@ function StatusSection({ o, onRefresh }: { o: AiOverview; onRefresh(): void }) {
           meter={balancePct}
         />
         <Tile
-          label="Gasto este mês"
+          label="Gasto dos restaurantes"
           value={usd(o.month.costUsd, 2)}
-          sub={a?.keyDayUsd != null ? `hoje ${usd(a.keyDayUsd)} na chave` : 'somado das conversas'}
+          sub={`${compact(o.month.tokens)} tokens · ${int(o.month.calls)} pergunta(s) este mês`}
         />
         <Tile
-          label="Tokens este mês"
-          value={compact(o.month.tokens)}
-          sub={`${int(o.month.tokens)} tokens`}
+          label="Seu uso (sistema)"
+          value={usd(o.system.costUsd, 2)}
+          sub={`${compact(o.system.tokens)} tokens · ${int(o.system.calls)} chamada(s) este mês`}
         />
         <Tile
-          label="Perguntas este mês"
-          value={int(o.month.calls)}
-          sub={`${o.tenants.filter((t) => t.calls > 0).length} restaurante(s) usando`}
+          label="Tokens extras doados"
+          value={compact(o.tenants.reduce((n, t) => n + t.bonus, 0))}
+          sub={`sobrando em ${o.tenants.filter((t) => t.bonus > 0).length} restaurante(s)`}
         />
       </div>
       <div className="adm-panel adm-ai-chart">
-        <div className="adm-row__meta">Tokens por dia · últimos 30 dias</div>
+        <div className="adm-row__meta">
+          Tokens por dia (restaurantes + sistema) · últimos 30 dias
+        </div>
         <Sparkline
-          values={o.days.map((d) => d.tokens)}
+          values={o.days.map((d) => d.tokens + d.system)}
           color="var(--a-accent)"
           label="Tokens por dia nos últimos 30 dias"
         />
@@ -207,6 +285,13 @@ function StatusSection({ o, onRefresh }: { o: AiOverview; onRefresh(): void }) {
       </div>
     </Section>
   );
+}
+
+/** Vermelho só quando parou (sem limite e sem extras); usando extras fica amarelo. */
+function tenantLevel(t: TenantUse): Level {
+  if (t.available === 0) return 'bad';
+  if (t.percent !== null && t.percent >= 100) return 'warn';
+  return levelFor(t.percent, 80, 100);
 }
 
 function TenantsSection({ o, onChanged }: { o: AiOverview; onChanged(): void }) {
@@ -248,9 +333,9 @@ function TenantsSection({ o, onChanged }: { o: AiOverview; onChanged(): void }) 
                 type="button"
                 className="adm-row adm-row--bar adm-ai-row"
                 onClick={() => setEditing(t.id)}
-                title="Ajustar limite"
+                title="Ajustar limite e doar tokens"
               >
-                <Dot level={!t.enabled ? 'off' : levelFor(t.percent, 80, 100)} />
+                <Dot level={!t.enabled ? 'off' : tenantLevel(t)} />
                 <span className="adm-row__main">
                   <span className="adm-row__title">
                     {t.name}
@@ -264,13 +349,14 @@ function TenantsSection({ o, onChanged }: { o: AiOverview; onChanged(): void }) 
                       style={{
                         width: `${t.limit > 0 ? Math.min(Math.max(t.percent ?? 0, t.tokens ? 1.5 : 0), 100) : t.tokens ? 100 : 0}%`,
                       }}
-                      data-level={levelFor(t.percent, 80, 100)}
+                      data-level={tenantLevel(t)}
                     />
                   </span>
                   <span className="adm-row__meta">
                     {compact(t.tokens)} de {t.limit > 0 ? compact(t.limit) : '∞'} tokens
-                    {t.percent !== null ? ` (${t.percent.toLocaleString('pt-BR')}%)` : ''} ·{' '}
-                    {t.users} pessoa(s) · {t.calls} pergunta(s)
+                    {t.percent !== null ? ` (${t.percent.toLocaleString('pt-BR')}%)` : ''}
+                    {t.bonus > 0 ? ` · +${compact(t.bonus)} extras` : ''} · {t.users} pessoa(s) ·{' '}
+                    {t.calls} pergunta(s)
                   </span>
                 </span>
                 <span className="adm-row__side">
@@ -326,52 +412,513 @@ function TenantEditor({
     }
   }
   return (
-    <form className="adm-row adm-ai-edit" onSubmit={save}>
-      <span className="adm-row__main">
-        <span className="adm-row__title">{t.name}</span>
-        <label className="adm-ai-inline">
-          <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-          Assistente ligado neste restaurante
-        </label>
-        <div className="adm-ai-modes" role="radiogroup" aria-label="Limite do mês">
-          {(
-            [
-              ['default', `Padrão (${defaultLimit ? compact(defaultLimit) : 'sem limite'})`],
-              ['custom', 'Limite próprio'],
-              ['none', 'Sem limite'],
-            ] as const
-          ).map(([k, label]) => (
-            <label key={k} className={`adm-ai-mode ${mode === k ? 'is-on' : ''}`}>
-              <input
-                type="radio"
-                name={`mode-${t.id}`}
-                checked={mode === k}
-                onChange={() => setMode(k)}
-              />
-              {label}
-            </label>
+    <div className="adm-row adm-ai-edit">
+      <form className="adm-row__main" onSubmit={save}>
+        <span className="adm-row__main">
+          <span className="adm-row__title">{t.name}</span>
+          <label className="adm-ai-inline">
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(e) => setEnabled(e.target.checked)}
+            />
+            Assistente ligado neste restaurante
+          </label>
+          <div className="adm-ai-modes" role="radiogroup" aria-label="Limite do mês">
+            {(
+              [
+                ['default', `Padrão (${defaultLimit ? compact(defaultLimit) : 'sem limite'})`],
+                ['custom', 'Limite próprio'],
+                ['none', 'Sem limite'],
+              ] as const
+            ).map(([k, label]) => (
+              <label key={k} className={`adm-ai-mode ${mode === k ? 'is-on' : ''}`}>
+                <input
+                  type="radio"
+                  name={`mode-${t.id}`}
+                  checked={mode === k}
+                  onChange={() => setMode(k)}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          {mode === 'custom' && (
+            <TextField
+              label="Tokens por mês"
+              inputMode="numeric"
+              value={value}
+              onChange={(e) => setValue(e.target.value.replace(/\D/g, ''))}
+              hint={value ? `${int(Number(value))} tokens` : undefined}
+              autoFocus
+            />
+          )}
+          <div className="adm-form-actions">
+            <Button type="button" variant="ghost" size="sm" onClick={() => onClose(false)}>
+              Cancelar
+            </Button>
+            <Button type="submit" size="sm" loading={busy}>
+              Salvar
+            </Button>
+          </div>
+        </span>
+      </form>
+      <GrantBox t={t} onDone={() => onClose(true)} />
+    </div>
+  );
+}
+
+const QUICK_GRANTS = [50_000, 100_000, 500_000, 1_000_000];
+
+/** Doar ou retirar tokens extras (não vencem; gastos só depois do limite do mês) + extrato. */
+function GrantBox({ t, onDone }: { t: TenantUse; onDone(): void }) {
+  const toast = useToast();
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState<'add' | 'remove' | null>(null);
+  const hist = useLoad<{ usage: UsageEntry[]; grants: Grant[] }>(
+    `/platform/ai/tenants/${t.id}/history`,
+  );
+  async function send(sign: 1 | -1) {
+    const n = Number(amount || 0);
+    if (!n) return;
+    setBusy(sign > 0 ? 'add' : 'remove');
+    try {
+      const r = await api<{ bonus: number; delta: number }>(`/platform/ai/tenants/${t.id}/tokens`, {
+        method: 'POST',
+        json: { delta: sign * n, note: note.trim() || undefined },
+      });
+      toast(
+        r.delta > 0
+          ? `${int(r.delta)} tokens doados para ${t.name}`
+          : `${int(-r.delta)} tokens retirados de ${t.name}`,
+        'success',
+      );
+      onDone();
+    } catch (err) {
+      toast((err as Error).message, 'danger');
+    } finally {
+      setBusy(null);
+    }
+  }
+  return (
+    <div className="adm-ai-grant">
+      <div className="adm-ai-grant__head">
+        <Gift size={16} aria-hidden />
+        <strong>Tokens extras</strong>
+        <span className="adm-sub">
+          sobram {int(t.bonus)} · só são gastos depois do limite do mês e não vencem
+        </span>
+      </div>
+      <div className="adm-ai-modes" aria-label="Valores rápidos">
+        {QUICK_GRANTS.map((n) => (
+          <button
+            key={n}
+            type="button"
+            className={`adm-ai-mode ${Number(amount) === n ? 'is-on' : ''}`}
+            onClick={() => setAmount(String(n))}
+          >
+            +{compact(n)}
+          </button>
+        ))}
+      </div>
+      <div className="adm-ai-grant__form">
+        <TextField
+          label="Quantidade de tokens"
+          inputMode="numeric"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))}
+          hint={amount ? `${int(Number(amount))} tokens` : undefined}
+        />
+        <TextField
+          label="Motivo (opcional)"
+          value={note}
+          maxLength={200}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Ex.: cortesia, compra de pacote"
+        />
+      </div>
+      <div className="adm-form-actions">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          icon={<MinusCircle size={14} />}
+          onClick={() => send(-1)}
+          loading={busy === 'remove'}
+          disabled={!!busy || !Number(amount) || t.bonus <= 0}
+        >
+          Retirar
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          icon={<Gift size={14} />}
+          onClick={() => send(1)}
+          loading={busy === 'add'}
+          disabled={!!busy || !Number(amount)}
+        >
+          Doar tokens
+        </Button>
+      </div>
+      {hist.data && hist.data.grants.length > 0 && (
+        <ul className="adm-ai-ledger" aria-label="Extrato de tokens extras">
+          {hist.data.grants.slice(0, 8).map((g) => (
+            <li key={g.id}>
+              <Tag level={g.delta > 0 ? 'ok' : 'warn'}>
+                {g.delta > 0 ? '+' : '−'}
+                {compact(Math.abs(g.delta))}
+              </Tag>
+              <span>
+                {g.note || (g.delta > 0 ? 'Doação' : 'Retirada')}
+                <small>
+                  {' '}
+                  · {g.adminName ?? 'Super Admin'} · {ago(g.at)} · saldo {compact(g.balanceAfter)}
+                </small>
+              </span>
+            </li>
           ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Corpo do PUT /settings com os valores atuais, para salvar só uma chave. */
+const settingsBody = (s: AiOverview['settings']) => ({
+  enabled: s.enabled,
+  model: s.model,
+  assistantName: s.assistantName,
+  defaultMonthlyTokens: s.defaultMonthlyTokens,
+  lowBalanceUsd: s.lowBalanceUsd,
+});
+
+/** As duas chaves do OpenRouter: a sua (sistema e esteira) e a dos restaurantes. */
+function KeysSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview): void }) {
+  return (
+    <Section title="Chaves de API" sub="OpenRouter · cifradas, nunca aparecem de novo">
+      <div className="adm-ai-keys">
+        <KeyCard kind="owner" o={o} onSaved={onSaved} />
+        <KeyCard kind="clients" o={o} onSaved={onSaved} />
+      </div>
+    </Section>
+  );
+}
+
+function KeyCard({
+  kind,
+  o,
+  onSaved,
+}: {
+  kind: KeyKind;
+  o: AiOverview;
+  onSaved(n: AiOverview): void;
+}) {
+  const toast = useToast();
+  const s = o.settings;
+  const owner = kind === 'owner';
+  const has = owner ? s.hasOwnerKey : s.hasApiKey;
+  const readable = owner ? s.ownerKeyReadable : s.keyReadable;
+  const acc = owner ? o.ownerAccount : o.account;
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState<'save' | 'test' | 'clear' | null>(null);
+  const [test, setTest] = useState<TestResult | null>(null);
+  // Uso no OpenRouter que não passou pelo Comandou (esteira fora do sistema, CI, scripts).
+  const tracked = owner ? o.system.costUsd : o.month.costUsd;
+  const outside = acc?.keyMonthUsd != null ? Math.max(0, acc.keyMonthUsd - tracked) : null;
+  const level: Level = !has
+    ? owner
+      ? 'off'
+      : 'bad'
+    : !readable
+      ? 'bad'
+      : acc?.error
+        ? 'warn'
+        : 'ok';
+
+  async function save(extra: Record<string, unknown>, what: 'save' | 'clear') {
+    setBusy(what);
+    try {
+      const n = await api<AiOverview>('/platform/ai/settings', {
+        method: 'PUT',
+        json: { ...settingsBody(s), ...extra },
+      });
+      onSaved(n);
+      setValue('');
+      setTest(null);
+      toast(what === 'clear' ? 'Sua chave foi apagada' : 'Chave salva', 'success');
+    } catch (err) {
+      toast((err as Error).message, 'danger');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function runTest() {
+    setBusy('test');
+    setTest(null);
+    try {
+      setTest(
+        await api<TestResult>('/platform/ai/test', {
+          method: 'POST',
+          json: { apiKey: value.trim() || undefined, key: kind, model: s.model },
+        }),
+      );
+    } catch (err) {
+      toast((err as Error).message, 'danger');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <Card>
+      <form
+        className="adm-ai-key"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (value.trim())
+            void save(owner ? { ownerApiKey: value.trim() } : { apiKey: value.trim() }, 'save');
+        }}
+      >
+        <div className="adm-ai-key__head">
+          <KeyRound size={18} aria-hidden />
+          <div>
+            <strong>{owner ? 'Sua chave' : 'Chave dos restaurantes'}</strong>
+            <span className="adm-sub">
+              {owner
+                ? 'Esteira de chamados, testes e o que mais o sistema fizer por você. Use a mesma no CI.'
+                : 'O assistente do chat e do WhatsApp de cada restaurante gasta desta chave.'}
+            </span>
+          </div>
+          <Tag level={level}>
+            {!has
+              ? owner
+                ? 'usando a dos restaurantes'
+                : 'falta a chave'
+              : !readable
+                ? 'salve de novo'
+                : acc?.keyLabel || 'salva'}
+          </Tag>
         </div>
-        {mode === 'custom' && (
-          <TextField
-            label="Tokens por mês"
-            inputMode="numeric"
-            value={value}
-            onChange={(e) => setValue(e.target.value.replace(/\D/g, ''))}
-            hint={value ? `${int(Number(value))} tokens` : undefined}
-            autoFocus
-          />
+        <dl className="adm-ai-key__stats">
+          <div>
+            <dt>Hoje</dt>
+            <dd>{usd(acc?.keyDayUsd)}</dd>
+          </div>
+          <div>
+            <dt>Este mês</dt>
+            <dd>{usd(acc?.keyMonthUsd)}</dd>
+          </div>
+          <div>
+            <dt>Desde sempre</dt>
+            <dd>{usd(acc?.keyTotalUsd)}</dd>
+          </div>
+          <div>
+            <dt>Limite da chave</dt>
+            <dd>{acc?.keyLimitUsd != null ? usd(acc.keyLimitUsd) : 'sem limite'}</dd>
+          </div>
+        </dl>
+        <p className="adm-sub">
+          {owner
+            ? `Pelo sistema este mês: ${usd(o.system.costUsd)} em ${int(o.system.calls)} chamada(s)${o.system.bySource.length ? ` (${o.system.bySource.map((x) => `${x.label} ${compact(x.tokens)}`).join(', ')})` : ''}.`
+            : `Pelos restaurantes este mês: ${usd(o.month.costUsd)} em ${int(o.month.calls)} pergunta(s).`}
+          {outside !== null &&
+            outside > 0.0001 &&
+            ` Fora do Comandou (CI, scripts), aprox.: ${usd(outside)}.`}
+        </p>
+        {acc?.error && has && <Alert tone="warning">{acc.error}</Alert>}
+        <TextField
+          label={has ? 'Trocar a chave' : 'Colar a chave'}
+          type="password"
+          autoComplete="new-password"
+          value={value}
+          placeholder={has ? '•••••••• (salva)' : 'sk-or-v1-…'}
+          onChange={(e) => setValue(e.target.value.trim())}
+          hint={
+            owner
+              ? 'Crie uma chave só sua em openrouter.ai › Keys (com limite, se quiser).'
+              : 'Crie em openrouter.ai › Keys. Dica: ponha um limite de gasto na própria chave.'
+          }
+        />
+        {test && (
+          <Alert tone={test.ok ? 'info' : 'danger'}>
+            {test.ok
+              ? `Funcionou em ${(test.ms / 1000).toFixed(1)} s${test.usage ? ` · ${test.usage.promptTokens + test.usage.completionTokens} tokens` : ''}`
+              : `Não funcionou: ${test.error}`}
+          </Alert>
         )}
         <div className="adm-form-actions">
-          <Button type="button" variant="ghost" size="sm" onClick={() => onClose(false)}>
-            Cancelar
+          {owner && has && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => save({ clearOwnerKey: true }, 'clear')}
+              loading={busy === 'clear'}
+              disabled={!!busy}
+            >
+              Apagar
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={runTest}
+            loading={busy === 'test'}
+            disabled={!!busy || (!value && !readable)}
+          >
+            Testar
           </Button>
-          <Button type="submit" size="sm" loading={busy}>
-            Salvar
+          <Button type="submit" size="sm" loading={busy === 'save'} disabled={!!busy || !value}>
+            Salvar chave
           </Button>
         </div>
-      </span>
-    </form>
+      </form>
+    </Card>
+  );
+}
+
+/** Extrato: cada chamada de IA, de qual chave saiu, quem usou e quanto custou. */
+function UsageSection({ o }: { o: AiOverview }) {
+  const [tab, setTab] = useState<'all' | KeyKind | 'grants'>('all');
+  const list = tab === 'all' ? o.log : o.log.filter((x) => x.key === tab);
+  return (
+    <Section title="Extrato de uso" sub="as últimas chamadas e doações">
+      <Tabs
+        value={tab}
+        onChange={setTab}
+        items={[
+          ['all', 'Tudo'],
+          ['clients', 'Restaurantes'],
+          ['owner', 'Sistema'],
+          ['grants', 'Doações'],
+        ]}
+      />
+      <div className="adm-panel">
+        <div className="adm-rows">
+          {tab === 'grants'
+            ? o.grants.map((g) => (
+                <div key={g.id} className="adm-row">
+                  <Dot level={g.delta > 0 ? 'ok' : 'warn'} />
+                  <span className="adm-row__main">
+                    <span className="adm-row__title">
+                      {g.tenantName} · {g.delta > 0 ? 'doação' : 'retirada'}
+                    </span>
+                    <span className="adm-row__meta">
+                      {g.note || 'sem motivo'} · {g.adminName ?? 'Super Admin'} · saldo{' '}
+                      {int(g.balanceAfter)}
+                    </span>
+                  </span>
+                  <span className="adm-row__side">
+                    {g.delta > 0 ? '+' : '−'}
+                    {int(Math.abs(g.delta))}
+                    <br />
+                    <small>{ago(g.at)}</small>
+                  </span>
+                </div>
+              ))
+            : list.map((x) => (
+                <div key={x.id} className="adm-row">
+                  <Dot level={x.key === 'owner' ? 'info' : x.bonus > 0 ? 'warn' : 'ok'} />
+                  <span className="adm-row__main">
+                    <span className="adm-row__title">
+                      {x.key === 'owner' ? `Sistema · ${x.sourceLabel}` : x.tenantName}
+                      {x.key === 'clients' && (
+                        <small className="adm-ai-off"> · {x.sourceLabel}</small>
+                      )}
+                      {x.ref && <small className="adm-ai-off"> · {x.ref}</small>}
+                    </span>
+                    <span className="adm-row__meta">
+                      {int(x.tokens)} tokens
+                      {x.bonus > 0 ? ` (${int(x.bonus)} dos extras)` : ''} · {x.model} ·{' '}
+                      {x.key === 'owner' ? 'sua chave' : 'chave dos restaurantes'}
+                    </span>
+                  </span>
+                  <span className="adm-row__side">
+                    {usd(x.costUsd, 4)}
+                    <br />
+                    <small>{ago(x.at)}</small>
+                  </span>
+                </div>
+              ))}
+          {(tab === 'grants' ? o.grants.length : list.length) === 0 && (
+            <div className="adm-empty">Nada por aqui ainda.</div>
+          )}
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+const GROUP_LABEL: Record<SecretItem['group'], string> = {
+  ia: 'Inteligência artificial',
+  pagamentos: 'Pagamentos e contratos',
+  fiscal: 'Nota fiscal',
+  whatsapp: 'WhatsApp',
+  desenvolvimento: 'Desenvolvimento',
+  servidor: 'Servidor',
+};
+
+/** Todas as chaves e tokens do sistema: o que falta e onde trocar (o valor nunca aparece). */
+function InventorySection({ items }: { items: SecretItem[] }) {
+  const missing = items.filter((i) => i.required && !i.configured);
+  const groups = Object.keys(GROUP_LABEL) as SecretItem['group'][];
+  return (
+    <Section
+      title="Todas as chaves do sistema"
+      sub={`${items.filter((i) => i.configured).length} de ${items.length} configuradas`}
+    >
+      {missing.length > 0 && (
+        <Alert tone="warning">
+          Faltam chaves necessárias: {missing.map((i) => i.label).join(', ')}.
+        </Alert>
+      )}
+      <div className="adm-panel">
+        <div className="adm-rows">
+          {groups.flatMap((g) => {
+            const list = items.filter((i) => i.group === g);
+            if (!list.length) return [];
+            return [
+              <div key={`h-${g}`} className="adm-ai-inv__group">
+                {GROUP_LABEL[g]}
+              </div>,
+              ...list.map((i) => (
+                <div key={i.id} className="adm-row">
+                  <Dot level={i.configured ? 'ok' : i.required ? 'bad' : 'off'} />
+                  <span className="adm-row__main">
+                    <span className="adm-row__title">{i.label}</span>
+                    <span className="adm-row__meta">{i.hint}</span>
+                  </span>
+                  <span className="adm-row__side">
+                    <Tag level={i.configured ? 'ok' : i.required ? 'bad' : undefined}>
+                      {i.configured ? 'configurada' : i.required ? 'falta' : 'opcional'}
+                    </Tag>
+                    <br />
+                    <small>
+                      {i.where === 'tokens' ? (
+                        'nesta aba'
+                      ) : i.where === 'env' ? (
+                        <code>{i.envVar}</code>
+                      ) : i.link ? (
+                        <Link to={i.link}>trocar no painel</Link>
+                      ) : (
+                        'no painel'
+                      )}
+                    </small>
+                  </span>
+                </div>
+              )),
+            ];
+          })}
+        </div>
+      </div>
+      <p className="adm-sub">
+        As marcadas com <code>NOME</code> ficam no arquivo .env do servidor (por segurança, não dá
+        para trocar pelo navegador). As outras você troca nesta aba ou na tela indicada.
+      </p>
+    </Section>
   );
 }
 
@@ -450,7 +997,7 @@ function SettingsSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview)
       setTest(
         await api<TestResult>('/platform/ai/test', {
           method: 'POST',
-          json: { apiKey: b.apiKey, model: b.model },
+          json: { key: 'clients', model: b.model },
         }),
       );
     } catch (err) {
@@ -461,23 +1008,10 @@ function SettingsSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview)
   }
 
   return (
-    <Section title="OpenRouter" sub="chave, modelo e limites (só o super admin vê)">
+    <Section title="Assistente" sub="modelo, nome e limite padrão (só o super admin muda)">
       <Card>
         <form onSubmit={save}>
           <div className="adm-backup-grid">
-            <TextField
-              label="Chave da API (OpenRouter)"
-              type="password"
-              autoComplete="new-password"
-              value={f.apiKey}
-              placeholder={s.hasApiKey ? '•••••••• (salva)' : 'sk-or-v1-…'}
-              onChange={(e) => set('apiKey')(e.target.value.trim())}
-              hint={
-                s.hasApiKey
-                  ? 'Deixe em branco para manter a salva. Fica cifrada; nunca é mostrada.'
-                  : 'Crie em openrouter.ai › Keys'
-              }
-            />
             <TextField
               label="Modelo"
               list="adm-ai-models"
@@ -551,7 +1085,7 @@ function SettingsSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview)
               variant="secondary"
               onClick={runTest}
               loading={busy === 'test'}
-              disabled={!!busy || (!f.apiKey && !s.hasApiKey) || !f.model.trim()}
+              disabled={!!busy || !s.hasApiKey || !f.model.trim()}
             >
               Testar
             </Button>

@@ -220,7 +220,8 @@ export class TicketsService {
     this.need();
     const s = await this.settingsRow();
     const [ai] = await this.db.query<{ model: string; has_key: boolean; enabled: boolean }>(
-      `SELECT model, api_key_enc IS NOT NULL AS has_key, enabled FROM platform_ai_settings WHERE id`,
+      `SELECT model, (api_key_enc IS NOT NULL OR owner_api_key_enc IS NOT NULL) AS has_key, enabled
+         FROM platform_ai_settings WHERE id`,
     );
     return {
       enabled: s.enabled,

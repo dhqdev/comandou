@@ -100,6 +100,10 @@ export interface AiMessage {
 export interface AiUsage {
   used: number;
   limit: number;
+  /** Tokens extras liberados pelo Comandou (gastos depois do limite do mês). */
+  bonus?: number;
+  /** Quanto ainda dá para usar (limite que sobra + extras); null = sem limite. */
+  available?: number | null;
   percent: number | null;
 }
 

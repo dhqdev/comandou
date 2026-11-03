@@ -52,7 +52,13 @@ import {
 } from './platform.schemas';
 import { Actor, PlatformService } from './platform.service';
 import { PlatformBackupService } from './platform-backup.service';
-import { AiSettingsBody, PlatformAiService, TenantAiBody } from './platform-ai.service';
+import {
+  AiSettingsBody,
+  AiTestBody,
+  PlatformAiService,
+  TenantAiBody,
+  TokenGrantBody,
+} from './platform-ai.service';
 import { PlatformDatabasesService } from './platform-databases.service';
 import { PlatformDbServersService } from './platform-db-servers.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
@@ -552,12 +558,7 @@ export class PlatformServerController {
   }
 }
 
-const AiTest = z.object({
-  apiKey: z.string().trim().max(300).optional(),
-  model: AiSettingsBody.shape.model,
-});
-
-/** Assistente de IA: chave do OpenRouter, modelo, limites e consumo de cada restaurante. */
+/** Aba Tokens: chaves do OpenRouter, modelo, limites, tokens extras e o uso de cada um. */
 @Controller({ path: 'platform/ai', version: '1' })
 @SkipTenant()
 @Public()
@@ -583,8 +584,28 @@ export class PlatformAiController {
   @Post('test')
   @HttpCode(200)
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
-  test(@Body(new ZodPipe(AiTest)) b: z.infer<typeof AiTest>) {
-    return this.ai.test(b.apiKey, b.model);
+  test(@Body(new ZodPipe(AiTestBody)) b: z.infer<typeof AiTestBody>, @Req() req: Request) {
+    return this.ai.test(b, actor(req));
+  }
+
+  @Get('usage')
+  usage() {
+    return this.ai.usageLog(200);
+  }
+
+  @Get('tenants/:id/history')
+  tenantHistory(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.ai.tenantHistory(id);
+  }
+
+  @Post('tenants/:id/tokens')
+  @HttpCode(200)
+  grant(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(TokenGrantBody)) b: z.infer<typeof TokenGrantBody>,
+    @Req() req: Request,
+  ) {
+    return this.ai.grant(id, b, actor(req));
   }
 
   @Put('tenants/:id')

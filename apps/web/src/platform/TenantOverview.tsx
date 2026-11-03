@@ -314,7 +314,7 @@ export function TenantOverview({
       <Card
         icon={<BrainCircuit size={16} />}
         title="Assistente de IA"
-        onClick={() => navigate('/ia')}
+        onClick={() => navigate('/tokens')}
       >
         {ai.data === null ? (
           <Note>{ai.error ? 'indisponível' : 'carregando…'}</Note>

@@ -230,7 +230,7 @@ const NAV = [
   { to: '/planos', label: 'Planos', icon: Tags },
   { to: '/cobranca', label: 'Cobrança', icon: Wallet },
   { to: '/backups', label: 'Backups', icon: DatabaseBackup },
-  { to: '/ia', label: 'IA', icon: BrainCircuit },
+  { to: '/tokens', label: 'Tokens', icon: BrainCircuit },
   { to: '/auditoria', label: 'Auditoria', icon: ScrollText },
 ];
 /** Abas do celular; o resto fica em "Mais". */
@@ -400,6 +400,7 @@ function Gate() {
         <Route path="planos" element={<PlansPage />} />
         <Route path="cobranca" element={<BillingPage />} />
         <Route path="backups" element={<BackupsPage />} />
+        <Route path="tokens" element={<AiPage />} />
         <Route path="ia" element={<AiPage />} />
         <Route path="chamados" element={<TicketsBoardPage />} />
         <Route path="auditoria" element={<AuditPage />} />

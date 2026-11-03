@@ -7,9 +7,8 @@ import {
 } from '@nestjs/common';
 import { levelLabel, nextStage, stageInfo, kindLabel } from '@comandou/shared';
 import type { PoolClient } from 'pg';
-import { AI_KEY_CONTEXT } from '../chat/ai.service';
 import { ChatTurn, OpenRouterClient } from '../chat/openrouter';
-import { open } from '../common/secret-box';
+import { KeyRow, recordSystemUsage, systemKey } from '../platform/ai-keys';
 import { ENV, Env } from '../config/env';
 import { PlatformDb } from '../platform/platform-db.service';
 import { GitHubClient, GitHubError } from './github';
@@ -364,21 +363,18 @@ export class PipelineService implements OnApplicationBootstrap, OnModuleDestroy 
   }
 
   // ------------------------------------------------------------------ IA
+  /** A esteira usa a chave do dono (Super Admin › Tokens); sem ela, a dos restaurantes. */
   private async ai(): Promise<{ client: OpenRouterClient; model: string } | null> {
-    const [r] = await this.db.query<{ api_key_enc: Buffer | null; model: string }>(
-      `SELECT api_key_enc, model FROM platform_ai_settings WHERE id`,
+    const [r] = await this.db.query<KeyRow & { model: string }>(
+      `SELECT api_key_enc, owner_api_key_enc, model FROM platform_ai_settings WHERE id`,
     );
-    if (!r?.api_key_enc || !this.env.INTEGRATIONS_KEY) return null;
-    try {
-      const key = open(this.env.INTEGRATIONS_KEY, r.api_key_enc, AI_KEY_CONTEXT);
-      const s = await this.tickets.settingsRow();
-      return {
-        client: new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key),
-        model: s.model || r.model,
-      };
-    } catch {
-      return null;
-    }
+    const k = r ? systemKey(this.env.INTEGRATIONS_KEY, r) : null;
+    if (!k) return null;
+    const s = await this.tickets.settingsRow();
+    return {
+      client: new OpenRouterClient(this.env.OPENROUTER_BASE_URL, k.key),
+      model: s.model || r!.model,
+    };
   }
 
   private async ask(ctx: Ctx, task: string, input: string, maxTokens = 1500) {
@@ -394,6 +390,12 @@ export class PipelineService implements OnApplicationBootstrap, OnModuleDestroy 
     });
     ctx.tokens += res.usage.promptTokens + res.usage.completionTokens;
     ctx.cost += res.usage.costUsd;
+    await recordSystemUsage(this.db, {
+      source: 'esteira',
+      ref: code(ctx.t.number),
+      model: ai.model,
+      usage: res.usage,
+    }).catch((e: Error) => this.logger.warn(`Uso da esteira não registrado: ${e.message}`));
     const j = parseJson(res.text);
     if (!j) throw new Error('A IA não respondeu no formato combinado; tento de novo');
     return j;
@@ -478,7 +480,7 @@ export class PipelineService implements OnApplicationBootstrap, OnModuleDestroy 
       ctx.set.pain = t.title;
       ctx.set.priority = t.urgency as TicketRow['priority'];
       ctx.out = { note: 'Sem IA: triagem simples' };
-      ctx.log.push('Triagem sem IA (configure a chave em Super Admin › IA).');
+      ctx.log.push('Triagem sem IA (configure a chave em Super Admin › Tokens).');
     }
     // Demanda que você mesmo criou já nasce aprovada.
     if (t.source === 'admin') return { kind: 'goto', stage: 'priorizacao' };

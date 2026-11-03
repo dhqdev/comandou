@@ -491,6 +491,117 @@ describe('Assistente de IA', () => {
     expect(JSON.stringify(audit)).not.toContain('sk-or-teste');
   });
 
+  it('Super Admin doa tokens extras: gastos só depois do limite, e retirar não fica negativo', async () => {
+    await psend('put', `/ai/tenants/${fx.tenantA}`, { enabled: true, monthlyTokens: null }).expect(
+      200,
+    );
+    expect((await get('waiterA', '/chat/ai').expect(200)).body.reason).toBe('limit');
+    // Restaurante não doa para si mesmo.
+    const self = await http
+      .post(`/api/v1/platform/ai/tenants/${fx.tenantA}/tokens`)
+      .set('Host', HOST_A)
+      .set('Cookie', cookies.adminA)
+      .send({ delta: 5000 });
+    expect([403, 404]).toContain(self.status);
+    await psend('post', `/ai/tenants/${fx.tenantA}/tokens`, { delta: 0 }).expect(400);
+    const g = (
+      await psend('post', `/ai/tenants/${fx.tenantA}/tokens`, {
+        delta: 2000,
+        note: 'cortesia',
+      }).expect(200)
+    ).body;
+    expect(g).toMatchObject({ ok: true, bonus: 2000, delta: 2000 });
+    const s = (await get('waiterA', '/chat/ai').expect(200)).body;
+    expect(s).toMatchObject({
+      enabled: true,
+      usage: { limit: 1000, bonus: 2000, available: 2000 },
+    });
+    await send('waiterA', 'post', '/chat/ai/messages', { content: 'E agora?' })
+      .buffer(true)
+      .parse((r, cb) => {
+        r.on('data', () => undefined);
+        r.on('end', () => cb(null, ''));
+      })
+      .expect(200);
+    const [u] = await ownerQuery<{ source: string; bonus_tokens: number }>(
+      `SELECT source, bonus_tokens FROM ai_usage WHERE tenant_id = $1 ORDER BY id DESC LIMIT 1`,
+      [fx.tenantA],
+    );
+    expect(u).toEqual({ source: 'chat', bonus_tokens: 660 });
+    expect((await get('waiterA', '/chat/ai').expect(200)).body.usage).toMatchObject({
+      bonus: 1340,
+      available: 1340,
+    });
+    const out = (
+      await psend('post', `/ai/tenants/${fx.tenantA}/tokens`, { delta: -99999 }).expect(200)
+    ).body;
+    expect(out).toMatchObject({ bonus: 0, delta: -1340 });
+    await psend('post', `/ai/tenants/${fx.tenantA}/tokens`, { delta: -1 }).expect(422);
+    expect((await get('waiterA', '/chat/ai').expect(200)).body.reason).toBe('limit');
+    const o = (await pget('/ai').expect(200)).body;
+    const a = o.tenants.find((t: { id: string }) => t.id === fx.tenantA);
+    expect(a).toMatchObject({ bonus: 0, granted: 2000, bonusUsed: 660, available: 0 });
+    expect(o.grants.slice(0, 2).map((x: { delta: number }) => x.delta)).toEqual([-1340, 2000]);
+    expect(o.grants[1]).toMatchObject({ note: 'cortesia', tenantName: expect.any(String) });
+    expect(o.log[0]).toMatchObject({ key: 'clients', source: 'chat', tenantId: fx.tenantA });
+    const h = (await pget(`/ai/tenants/${fx.tenantA}/history`).expect(200)).body;
+    expect(h.grants).toHaveLength(2);
+    expect(h.usage.every((x: { tenantId: string }) => x.tenantId === fx.tenantA)).toBe(true);
+    const audit = await ownerQuery<{ action: string }>(
+      `SELECT action FROM platform_audit_log WHERE action LIKE 'platform.ai_tokens_%'`,
+    );
+    expect(audit.map((x) => x.action).sort()).toEqual([
+      'platform.ai_tokens_granted',
+      'platform.ai_tokens_removed',
+    ]);
+  });
+
+  it('sua chave (sistema e esteira) fica separada, cifrada e com extrato próprio', async () => {
+    let o = (await pget('/ai').expect(200)).body;
+    expect(o.settings.hasOwnerKey).toBe(false);
+    expect(o.systemKey).toBe('clients');
+    const base = {
+      enabled: true,
+      model: 'google/gemini-2.5-flash-lite',
+      assistantName: 'Comandinho',
+      defaultMonthlyTokens: 1000,
+      lowBalanceUsd: 2,
+    };
+    o = (await psend('put', '/ai/settings', { ...base, ownerApiKey: 'sk-or-teste' }).expect(200))
+      .body;
+    expect(o.settings).toMatchObject({ hasOwnerKey: true, ownerKeyReadable: true });
+    expect(o.systemKey).toBe('owner');
+    expect(o.ownerAccount).toMatchObject({ keyLimitUsd: 10 });
+    expect(JSON.stringify(o)).not.toContain('sk-or-teste');
+    const [row] = await ownerQuery<{ k: Buffer }>(
+      `SELECT owner_api_key_enc AS k FROM platform_ai_settings`,
+    );
+    expect(row.k.toString()).not.toContain('sk-or-teste');
+    const t = (
+      await psend('post', '/ai/test', { key: 'owner', model: 'google/gemini-2.5-flash-lite' })
+    ).body;
+    expect(t.ok).toBe(true);
+    o = (await pget('/ai').expect(200)).body;
+    expect(o.system.calls).toBeGreaterThanOrEqual(1);
+    expect(o.log[0]).toMatchObject({ key: 'owner', source: 'teste', ref: 'sua chave' });
+    // Inventário: tudo o que o sistema precisa, sem nenhum valor.
+    const ids = o.inventory.map((i: { id: string }) => i.id);
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        'openrouter_owner',
+        'openrouter_clients',
+        'asaas_api',
+        'focus_master',
+      ]),
+    );
+    expect(o.inventory.find((i: { id: string }) => i.id === 'openrouter_owner').configured).toBe(
+      true,
+    );
+    o = (await psend('put', '/ai/settings', { ...base, clearOwnerKey: true }).expect(200)).body;
+    expect(o.settings.hasOwnerKey).toBe(false);
+    expect(o.systemKey).toBe('clients');
+  });
+
   it('apaga a própria conversa', async () => {
     await send('waiterA', 'delete', '/chat/ai/messages').expect(200);
     expect((await get('waiterA', '/chat/ai').expect(200)).body.messages).toEqual([]);

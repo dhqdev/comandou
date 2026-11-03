@@ -13,6 +13,7 @@ import { ENV, Env } from '../config/env';
 import { DatabaseService } from '../database/database.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { systemPrompt } from './ai-guide';
+import { availableTokens, loadAiQuota, recordAiUsage } from './ai-quota';
 import { ChatService } from './chat.service';
 import { ChatTurn, OpenRouterClient, OpenRouterError } from './openrouter';
 
@@ -22,17 +23,6 @@ export const AI_KEY_CONTEXT = 'ai:openrouter';
 const HISTORY = 10;
 /** Avisa os gestores quando o restaurante passa destas porcentagens do limite do mês. */
 const WARN_AT = [80, 100];
-/** Início do mês no relógio de Brasília. */
-const MONTH_START = `date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo'`;
-
-interface Config {
-  enabled: boolean;
-  tenant_enabled: boolean;
-  model: string;
-  assistant_name: string;
-  api_key_enc: Buffer | null;
-  monthly_tokens: number;
-}
 
 export interface Prepared {
   ctx: Ctx;
@@ -41,6 +31,7 @@ export interface Prepared {
   apiKey: string;
   limit: number;
   usedBefore: number;
+  bonus: number;
   turns: ChatTurn[];
 }
 
@@ -61,28 +52,24 @@ export class AiService {
   ) {}
 
   private async config(ctx: Ctx) {
-    return this.db.withCentral(ctx, async (tx) => {
-      const c = await one<Config>(tx, `SELECT * FROM app_ai_config()`);
-      const used = await one<{ n: number }>(
-        tx,
-        `SELECT coalesce(sum(prompt_tokens + completion_tokens), 0)::int AS n
-           FROM ai_usage WHERE created_at >= ${MONTH_START}`,
-      );
-      return { c: c!, used: used!.n };
-    });
+    const qt = await this.db.withCentral(ctx, (tx) => loadAiQuota(tx));
+    return { c: qt.config, used: qt.used, blocked: qt.blocked };
   }
 
-  private usageView(used: number, limit: number) {
+  /** Uso do mês para a tela: limite, extras doados pelo Comandou e quanto ainda dá. */
+  private usageView(used: number, limit: number, bonus: number) {
     return {
       used,
       limit,
+      bonus,
+      available: availableTokens(limit, used, bonus),
       percent: limit > 0 ? Math.min(100, Math.round((used / limit) * 1000) / 10) : null,
     };
   }
 
   /** O que a aba IA precisa para abrir: ligado ou não, nome, uso do mês e a conversa. */
   async status(ctx: Ctx) {
-    const { c, used } = await this.config(ctx);
+    const { c, used, blocked } = await this.config(ctx);
     const messages = await this.db.withTenant(ctx, (tx) =>
       q<{ id: string; role: 'user' | 'assistant'; content: string; createdAt: Date }>(
         tx,
@@ -98,14 +85,14 @@ export class AiService {
         ? 'tenant'
         : !this.env.INTEGRATIONS_KEY
           ? 'platform'
-          : c.monthly_tokens > 0 && used >= c.monthly_tokens
+          : blocked
             ? 'limit'
             : null;
     return {
       enabled: reason === null,
       reason,
       name: c.assistant_name,
-      usage: this.usageView(used, c.monthly_tokens),
+      usage: this.usageView(used, c.monthly_tokens, c.bonus_tokens),
       messages,
     };
   }
@@ -117,12 +104,12 @@ export class AiService {
     screen: string | null,
     tenantName: string,
   ): Promise<Prepared> {
-    const { c, used } = await this.config(ctx);
+    const { c, used, blocked } = await this.config(ctx);
     if (!c.enabled || !c.api_key_enc || !this.env.INTEGRATIONS_KEY)
       throw new ServiceUnavailableException('O assistente ainda não foi ligado pelo Comandou');
     if (!c.tenant_enabled)
       throw new ServiceUnavailableException('O assistente está desligado para este restaurante');
-    if (c.monthly_tokens > 0 && used >= c.monthly_tokens)
+    if (blocked)
       throw new HttpException(
         {
           statusCode: HttpStatus.TOO_MANY_REQUESTS,
@@ -179,6 +166,7 @@ export class AiService {
       apiKey,
       limit: c.monthly_tokens,
       usedBefore: used,
+      bonus: c.bonus_tokens,
       turns,
     };
   }
@@ -284,33 +272,21 @@ export class AiService {
         [p.ctx.tenantId, p.ctx.userId, answer.slice(0, 12000), tokens],
       ),
     );
-    await this.db.withCentral(p.ctx, (tx) =>
-      q(
-        tx,
-        `INSERT INTO ai_usage (tenant_id, user_id, model, prompt_tokens, completion_tokens, cost_usd)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [
-          p.ctx.tenantId,
-          p.ctx.userId,
-          p.model,
-          usage.promptTokens,
-          usage.completionTokens,
-          usage.costUsd,
-        ],
-      ),
+    const rec = await this.db.withCentral(p.ctx, (tx) =>
+      recordAiUsage(tx, { userId: p.ctx.userId, model: p.model, usage, source: 'chat' }),
     );
-    const usedAfter = p.usedBefore + tokens;
-    await this.warnIfCrossed(p, usedAfter);
+    const usedAfter = Math.max(rec.usedMonth, p.usedBefore + tokens);
+    await this.warnIfCrossed(p, usedAfter, rec.bonusLeft);
     return {
       id: saved!.id,
       content: answer,
       createdAt: saved!.createdAt,
-      usage: this.usageView(usedAfter, p.limit),
+      usage: this.usageView(usedAfter, p.limit, rec.bonusLeft),
     };
   }
 
   /** Passou de 80% ou 100% do limite do mês: aviso para administradores e gerentes. */
-  private async warnIfCrossed(p: Prepared, usedAfter: number) {
+  private async warnIfCrossed(p: Prepared, usedAfter: number, bonusLeft: number) {
     if (p.limit <= 0) return;
     const before = (p.usedBefore / p.limit) * 100;
     const after = (usedAfter / p.limit) * 100;
@@ -330,7 +306,9 @@ export class AiService {
               : `O assistente ${p.name} já usou ${crossed}% do limite do mês`,
           body:
             crossed >= 100
-              ? 'Até o mês virar, ele não responde. Para aumentar o limite, fale com o suporte do Comandou.'
+              ? bonusLeft > 0
+                ? `Agora ele usa os tokens extras que o Comandou liberou (sobram ${bonusLeft.toLocaleString('pt-BR')}).`
+                : 'Até o mês virar, ele não responde. Para aumentar o limite, fale com o suporte do Comandou.'
               : 'Quando chegar a 100%, ele para de responder até o próximo mês.',
         });
       return rows.map((r) => r.id);

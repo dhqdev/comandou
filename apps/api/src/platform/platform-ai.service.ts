@@ -1,16 +1,27 @@
 import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { z } from 'zod';
-import { AI_KEY_CONTEXT } from '../chat/ai.service';
+import { MONTH_START } from '../chat/ai-quota';
 import { listModels, ModelInfo, OpenRouterClient } from '../chat/openrouter';
-import { open, seal } from '../common/secret-box';
+import { seal } from '../common/secret-box';
 import { ENV, Env } from '../config/env';
+import {
+  CLIENT_KEY_CONTEXT,
+  KeyKind,
+  OWNER_KEY_CONTEXT,
+  openKey,
+  recordSystemUsage,
+} from './ai-keys';
 import type { Actor } from './platform.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
 
 export const AiSettingsBody = z.object({
   enabled: z.boolean(),
-  /** Vazio mantém a chave salva. */
+  /** Chave dos restaurantes. Vazio mantém a salva. */
   apiKey: z.string().trim().max(300).optional(),
+  /** Sua chave (sistema e esteira). Vazio mantém a salva. */
+  ownerApiKey: z.string().trim().max(300).optional(),
+  /** Apaga a sua chave (o sistema volta a usar a dos restaurantes). */
+  clearOwnerKey: z.boolean().optional(),
   model: z
     .string()
     .trim()
@@ -27,9 +38,28 @@ export const TenantAiBody = z.object({
   monthlyTokens: z.number().int().min(0).max(1_000_000_000).nullable(),
 });
 
+/** Doar (positivo) ou retirar (negativo) tokens extras de um restaurante. Só o Super Admin. */
+export const TokenGrantBody = z.object({
+  delta: z
+    .number()
+    .int()
+    .min(-1_000_000_000)
+    .max(1_000_000_000)
+    .refine((n) => n !== 0, 'Informe quantos tokens'),
+  note: z.string().trim().max(200).optional(),
+});
+
+export const AiTestBody = z.object({
+  apiKey: z.string().trim().max(300).optional(),
+  /** Qual chave salva testar quando apiKey vem vazio. */
+  key: z.enum(['owner', 'clients']).default('clients'),
+  model: AiSettingsBody.shape.model,
+});
+
 interface Row {
   enabled: boolean;
   api_key_enc: Buffer | null;
+  owner_api_key_enc: Buffer | null;
   model: string;
   assistant_name: string;
   default_monthly_tokens: number;
@@ -37,15 +67,23 @@ interface Row {
   updated_at: Date;
 }
 
-const MONTH_START = `date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo'`;
+type Account = Awaited<ReturnType<OpenRouterClient['account']>>;
+
+const SOURCE_LABEL: Record<string, string> = {
+  chat: 'Chat da equipe',
+  whatsapp: 'WhatsApp',
+  esteira: 'Esteira de chamados',
+  teste: 'Teste no painel',
+};
 
 /**
- * Assistente de IA no painel Super Admin: chave do OpenRouter (cifrada, nunca volta para o
- * navegador), modelo, limite padrão por restaurante, saldo da conta e o consumo de cada cliente.
+ * Aba Tokens do Super Admin: as duas chaves do OpenRouter (a sua, para o sistema e a esteira, e
+ * a dos restaurantes), cifradas e que nunca voltam para o navegador; modelo; limite do mês de
+ * cada restaurante e os tokens extras que só o Super Admin doa; extrato de uso e o inventário de
+ * todas as outras chaves do sistema.
  */
 @Injectable()
 export class PlatformAiService {
-  private accountCache: { at: number; value: unknown } | null = null;
   private modelsCache: { at: number; value: ModelInfo[] } | null = null;
 
   constructor(
@@ -58,89 +96,145 @@ export class PlatformAiService {
     return r!;
   }
 
-  private key(r: Row): string | null {
-    if (!r.api_key_enc || !this.env.INTEGRATIONS_KEY) return null;
-    try {
-      return open(this.env.INTEGRATIONS_KEY, r.api_key_enc, AI_KEY_CONTEXT);
-    } catch {
-      return null;
-    }
+  private key(r: Row, kind: KeyKind = 'clients'): string | null {
+    return openKey(this.env.INTEGRATIONS_KEY, r, kind);
   }
 
-  private async account(r: Row, fresh = false) {
-    const key = this.key(r);
+  private accounts: Partial<Record<KeyKind, { at: number; value: Account }>> = {};
+
+  /** Saldo e uso da chave no OpenRouter (cache de 1 minuto por chave). */
+  private async account(r: Row, fresh = false, kind: KeyKind = 'clients'): Promise<Account | null> {
+    const key = this.key(r, kind);
     if (!key) return null;
-    if (!fresh && this.accountCache && Date.now() - this.accountCache.at < 60_000)
-      return this.accountCache.value as Awaited<ReturnType<OpenRouterClient['account']>>;
+    const hit = this.accounts[kind];
+    if (!fresh && hit && Date.now() - hit.at < 60_000) return hit.value;
     const value = await new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key).account();
-    if (!value.error || value.remainingUsd !== null) this.accountCache = { at: Date.now(), value };
+    if (!value.error || value.remainingUsd !== null)
+      this.accounts[kind] = { at: Date.now(), value };
     return value;
   }
 
-  /** Tudo da tela: configuração, saldo do OpenRouter, consumo do mês e por restaurante. */
+  /**
+   * Tudo da aba Tokens: as duas chaves (saldo e uso no OpenRouter), consumo do mês, cada
+   * restaurante com limite e tokens extras, o extrato de uso e as outras chaves do sistema.
+   */
   async overview(fresh = false) {
     const r = await this.row();
     // Preço do modelo: só o que já estiver em cache (a lista completa vem em /models).
     if (!this.modelsCache) void this.models().catch(() => undefined);
     const models = this.modelsCache?.value ?? [];
-    const [account, tenants, month, days] = await Promise.all([
-      this.account(r, fresh).catch((e: Error) => ({ error: e.message }) as never),
-      this.db.query<{
-        id: string;
-        name: string;
-        slug: string;
-        status: string;
-        enabled: boolean | null;
-        override: number | null;
-        tokens: number;
-        prompt: number;
-        completion: number;
-        cost: string;
-        calls: number;
-        users: number;
-        lastAt: Date | null;
-        totalTokens: number;
-      }>(
-        `SELECT t.id, t.name, t.slug, t.status, s.enabled, s.monthly_tokens AS override,
-                coalesce(m.tokens, 0)::int AS tokens, coalesce(m.prompt, 0)::int AS prompt,
-                coalesce(m.completion, 0)::int AS completion, coalesce(m.cost, 0) AS cost,
-                coalesce(m.calls, 0)::int AS calls, coalesce(m.users, 0)::int AS users,
-                a.last_at AS "lastAt", coalesce(a.total, 0)::bigint::float8 AS "totalTokens"
-           FROM tenants t
-           LEFT JOIN tenant_ai_settings s ON s.tenant_id = t.id
-           LEFT JOIN (
-             SELECT tenant_id, sum(prompt_tokens + completion_tokens) AS tokens,
-                    sum(prompt_tokens) AS prompt, sum(completion_tokens) AS completion,
-                    sum(cost_usd) AS cost, count(*) AS calls, count(DISTINCT user_id) AS users
-               FROM ai_usage WHERE created_at >= ${MONTH_START} GROUP BY tenant_id) m
-             ON m.tenant_id = t.id
-           LEFT JOIN (
-             SELECT tenant_id, max(created_at) AS last_at, sum(prompt_tokens + completion_tokens) AS total
-               FROM ai_usage GROUP BY tenant_id) a ON a.tenant_id = t.id
-          WHERE t.status <> 'deleting'
-          ORDER BY coalesce(m.tokens, 0) DESC, t.name`,
-      ),
-      this.db.query<{ tokens: number; cost: string; calls: number }>(
-        `SELECT coalesce(sum(prompt_tokens + completion_tokens), 0)::bigint::float8 AS tokens,
-                coalesce(sum(cost_usd), 0) AS cost, count(*)::int AS calls
-           FROM ai_usage WHERE created_at >= ${MONTH_START}`,
-      ),
-      this.db.query<{ day: string; tokens: number; cost: string }>(
-        `SELECT to_char(d, 'YYYY-MM-DD') AS day,
-                coalesce(sum(u.prompt_tokens + u.completion_tokens), 0)::bigint::float8 AS tokens,
-                coalesce(sum(u.cost_usd), 0) AS cost
-           FROM generate_series((now() AT TIME ZONE 'America/Sao_Paulo')::date - 29,
-                                (now() AT TIME ZONE 'America/Sao_Paulo')::date, '1 day') d
-           LEFT JOIN ai_usage u ON (u.created_at AT TIME ZONE 'America/Sao_Paulo')::date = d
-          GROUP BY d ORDER BY d`,
-      ),
-    ]);
+    const accountOf = (kind: KeyKind) =>
+      this.account(r, fresh, kind).catch((e: Error) => ({ error: e.message }) as Account);
+    const [account, ownerAccount, tenants, month, system, days, log, grants, inventory] =
+      await Promise.all([
+        accountOf('clients'),
+        accountOf('owner'),
+        this.db.query<{
+          id: string;
+          name: string;
+          slug: string;
+          status: string;
+          enabled: boolean | null;
+          override: number | null;
+          bonus: number;
+          tokens: number;
+          prompt: number;
+          completion: number;
+          bonusUsed: number;
+          cost: string;
+          calls: number;
+          users: number;
+          lastAt: Date | null;
+          totalTokens: number;
+          granted: number;
+        }>(
+          `SELECT t.id, t.name, t.slug, t.status, s.enabled, s.monthly_tokens AS override,
+                  coalesce(s.bonus_tokens, 0)::float8 AS bonus,
+                  coalesce(m.tokens, 0)::float8 AS tokens, coalesce(m.prompt, 0)::float8 AS prompt,
+                  coalesce(m.completion, 0)::float8 AS completion,
+                  coalesce(m.bonus_used, 0)::float8 AS "bonusUsed", coalesce(m.cost, 0) AS cost,
+                  coalesce(m.calls, 0)::int AS calls, coalesce(m.users, 0)::int AS users,
+                  a.last_at AS "lastAt", coalesce(a.total, 0)::float8 AS "totalTokens",
+                  coalesce(g.granted, 0)::float8 AS granted
+             FROM tenants t
+             LEFT JOIN tenant_ai_settings s ON s.tenant_id = t.id
+             LEFT JOIN (
+               SELECT tenant_id, sum(prompt_tokens + completion_tokens) AS tokens,
+                      sum(prompt_tokens) AS prompt, sum(completion_tokens) AS completion,
+                      sum(bonus_tokens) AS bonus_used,
+                      sum(cost_usd) AS cost, count(*) AS calls, count(DISTINCT user_id) AS users
+                 FROM ai_usage WHERE created_at >= ${MONTH_START} GROUP BY tenant_id) m
+               ON m.tenant_id = t.id
+             LEFT JOIN (
+               SELECT tenant_id, max(created_at) AS last_at, sum(prompt_tokens + completion_tokens) AS total
+                 FROM ai_usage GROUP BY tenant_id) a ON a.tenant_id = t.id
+             LEFT JOIN (
+               SELECT tenant_id, sum(delta) FILTER (WHERE delta > 0) AS granted
+                 FROM platform_ai_token_grants GROUP BY tenant_id) g ON g.tenant_id = t.id
+            WHERE t.status <> 'deleting'
+            ORDER BY coalesce(m.tokens, 0) DESC, t.name`,
+        ),
+        this.db.query<{ tokens: number; cost: string; calls: number }>(
+          `SELECT coalesce(sum(prompt_tokens + completion_tokens), 0)::float8 AS tokens,
+                  coalesce(sum(cost_usd), 0) AS cost, count(*)::int AS calls
+             FROM ai_usage WHERE created_at >= ${MONTH_START}`,
+        ),
+        this.db.query<{ source: string; tokens: number; cost: string; calls: number }>(
+          `SELECT source, coalesce(sum(prompt_tokens + completion_tokens), 0)::float8 AS tokens,
+                  coalesce(sum(cost_usd), 0) AS cost, count(*)::int AS calls
+             FROM platform_ai_usage WHERE created_at >= ${MONTH_START}
+            GROUP BY source ORDER BY 2 DESC`,
+        ),
+        this.db.query<{ day: string; tokens: number; cost: string; system: number }>(
+          `SELECT to_char(d, 'YYYY-MM-DD') AS day,
+                  coalesce((SELECT sum(u.prompt_tokens + u.completion_tokens) FROM ai_usage u
+                             WHERE (u.created_at AT TIME ZONE 'America/Sao_Paulo')::date = d), 0)::float8 AS tokens,
+                  coalesce((SELECT sum(u.cost_usd) FROM ai_usage u
+                             WHERE (u.created_at AT TIME ZONE 'America/Sao_Paulo')::date = d), 0) AS cost,
+                  coalesce((SELECT sum(p.prompt_tokens + p.completion_tokens) FROM platform_ai_usage p
+                             WHERE (p.created_at AT TIME ZONE 'America/Sao_Paulo')::date = d), 0)::float8 AS system
+             FROM generate_series((now() AT TIME ZONE 'America/Sao_Paulo')::date - 29,
+                                  (now() AT TIME ZONE 'America/Sao_Paulo')::date, '1 day') d
+            ORDER BY d`,
+        ),
+        this.usageLog(),
+        this.db.query<{
+          id: string;
+          tenantId: string;
+          tenantName: string;
+          delta: number;
+          balanceAfter: number;
+          note: string | null;
+          adminName: string | null;
+          at: Date;
+        }>(
+          `SELECT g.id::text, g.tenant_id AS "tenantId", t.name AS "tenantName",
+                  g.delta::float8 AS delta, g.balance_after::float8 AS "balanceAfter", g.note,
+                  a.name AS "adminName", g.created_at AS at
+             FROM platform_ai_token_grants g
+             JOIN tenants t ON t.id = g.tenant_id
+             LEFT JOIN platform_admins a ON a.id = g.admin_id
+            ORDER BY g.created_at DESC, g.id DESC LIMIT 30`,
+        ),
+        this.inventory(),
+      ]);
     const price = models.find((m) => m.id === r.model) ?? null;
+    const systemTotal = system.reduce(
+      (acc, x) => ({
+        tokens: acc.tokens + x.tokens,
+        costUsd: acc.costUsd + Number(x.cost),
+        calls: acc.calls + x.calls,
+      }),
+      { tokens: 0, costUsd: 0, calls: 0 },
+    );
+    const ownerReady = !!this.key(r, 'owner');
     return {
       settings: {
         enabled: r.enabled,
         hasApiKey: !!r.api_key_enc,
         keyReadable: !!this.key(r),
+        hasOwnerKey: !!r.owner_api_key_enc,
+        ownerKeyReadable: ownerReady,
         keyConfigured: !!this.env.INTEGRATIONS_KEY,
         model: r.model,
         modelPrice: price,
@@ -150,12 +244,30 @@ export class PlatformAiService {
         updatedAt: r.updated_at,
       },
       account,
+      ownerAccount,
+      /** Qual chave o sistema (esteira, testes) está usando agora. */
+      systemKey: ownerReady ? 'owner' : this.key(r) ? 'clients' : null,
       month: {
         tokens: month[0]!.tokens,
         costUsd: Number(month[0]!.cost),
         calls: month[0]!.calls,
       },
-      days: days.map((d) => ({ day: d.day, tokens: d.tokens, costUsd: Number(d.cost) })),
+      system: {
+        ...systemTotal,
+        bySource: system.map((x) => ({
+          source: x.source,
+          label: SOURCE_LABEL[x.source] ?? x.source,
+          tokens: x.tokens,
+          costUsd: Number(x.cost),
+          calls: x.calls,
+        })),
+      },
+      days: days.map((d) => ({
+        day: d.day,
+        tokens: d.tokens,
+        costUsd: Number(d.cost),
+        system: d.system,
+      })),
       tenants: tenants.map((t) => {
         const limit = t.override ?? r.default_monthly_tokens;
         return {
@@ -166,6 +278,10 @@ export class PlatformAiService {
           enabled: t.enabled ?? true,
           override: t.override,
           limit,
+          bonus: t.bonus,
+          bonusUsed: t.bonusUsed,
+          granted: t.granted,
+          available: limit > 0 ? Math.max(0, limit - t.tokens) + t.bonus : null,
           tokens: t.tokens,
           promptTokens: t.prompt,
           completionTokens: t.completion,
@@ -177,26 +293,275 @@ export class PlatformAiService {
           totalTokens: t.totalTokens,
         };
       }),
+      log,
+      grants,
+      inventory,
     };
+  }
+
+  /** Extrato das últimas chamadas de IA: restaurantes (chave deles) e o próprio sistema (sua). */
+  async usageLog(limit = 60, tenantId?: string) {
+    const rows = await this.db.query<{
+      id: string;
+      key: KeyKind;
+      source: string;
+      tenantId: string | null;
+      tenantName: string | null;
+      ref: string | null;
+      model: string;
+      tokens: number;
+      bonus: number;
+      cost: string;
+      at: Date;
+    }>(
+      `SELECT * FROM (
+         SELECT 'r' || u.id AS id, 'clients' AS key, u.source, u.tenant_id AS "tenantId",
+                t.name AS "tenantName", NULL::text AS ref, u.model,
+                (u.prompt_tokens + u.completion_tokens)::float8 AS tokens,
+                u.bonus_tokens::float8 AS bonus, u.cost_usd AS cost, u.created_at AS at
+           FROM ai_usage u JOIN tenants t ON t.id = u.tenant_id
+          WHERE ($2::uuid IS NULL OR u.tenant_id = $2)
+         UNION ALL
+         SELECT 's' || p.id, 'owner', p.source, NULL, NULL, p.ref, p.model,
+                (p.prompt_tokens + p.completion_tokens)::float8, 0, p.cost_usd, p.created_at
+           FROM platform_ai_usage p
+          WHERE $2::uuid IS NULL
+       ) x ORDER BY at DESC LIMIT $1`,
+      [limit, tenantId ?? null],
+    );
+    return rows.map(({ cost, ...x }) => ({
+      ...x,
+      sourceLabel: SOURCE_LABEL[x.source] ?? x.source,
+      costUsd: Number(cost),
+    }));
+  }
+
+  /**
+   * Todas as chaves e tokens que o sistema precisa, num lugar só: se está configurada e onde
+   * se troca (aqui, em outra tela do painel ou no .env do servidor). Nunca devolve o valor.
+   */
+  async inventory() {
+    const [[b], [bk], [ct], [pp]] = await Promise.all([
+      this.db
+        .query<{ api: boolean; hook: boolean; env: string }>(
+          `SELECT api_key_enc IS NOT NULL AS api, webhook_token_enc IS NOT NULL AS hook,
+                  environment AS env FROM platform_billing_settings WHERE id`,
+        )
+        .catch(() => []),
+      this.db
+        .query<{ ok: boolean }>(
+          `SELECT secret_enc IS NOT NULL AS ok FROM platform_backup_settings WHERE id`,
+        )
+        .catch(() => []),
+      this.db
+        .query<{ ok: boolean; url: boolean }>(
+          `SELECT webhook_secret_enc IS NOT NULL AS ok, webhook_url <> '' AS url
+             FROM platform_contract_settings WHERE id`,
+        )
+        .catch(() => []),
+      this.db
+        .query<{ ok: boolean }>(
+          `SELECT github_token_enc IS NOT NULL AS ok FROM platform_pipeline_settings WHERE id`,
+        )
+        .catch(() => []),
+    ]);
+    const r = await this.row();
+    const e = this.env;
+    type Item = {
+      id: string;
+      label: string;
+      group: 'ia' | 'pagamentos' | 'fiscal' | 'whatsapp' | 'desenvolvimento' | 'servidor';
+      configured: boolean;
+      required: boolean;
+      where: 'tokens' | 'painel' | 'env';
+      link: string | null;
+      envVar: string | null;
+      hint: string;
+    };
+    const items: Item[] = [
+      {
+        id: 'integrations_key',
+        label: 'Chave mestra das integrações',
+        group: 'servidor',
+        configured: !!e.INTEGRATIONS_KEY,
+        required: true,
+        where: 'env',
+        link: null,
+        envVar: 'INTEGRATIONS_KEY',
+        hint: 'Cifra todas as outras chaves no banco. Trocar exige salvar as chaves de novo.',
+      },
+      {
+        id: 'openrouter_owner',
+        label: 'OpenRouter · sua chave (sistema e esteira)',
+        group: 'ia',
+        configured: !!r.owner_api_key_enc,
+        required: false,
+        where: 'tokens',
+        link: null,
+        envVar: null,
+        hint: 'Sem ela, a esteira e os testes usam a chave dos restaurantes.',
+      },
+      {
+        id: 'openrouter_clients',
+        label: 'OpenRouter · chave dos restaurantes',
+        group: 'ia',
+        configured: !!r.api_key_enc,
+        required: true,
+        where: 'tokens',
+        link: null,
+        envVar: null,
+        hint: 'O assistente do chat e do WhatsApp de cada restaurante gasta desta chave.',
+      },
+      {
+        id: 'asaas_api',
+        label: `Asaas · chave da API${b ? ` (${b.env === 'production' ? 'produção' : 'sandbox'})` : ''}`,
+        group: 'pagamentos',
+        configured: !!b?.api,
+        required: true,
+        where: 'painel',
+        link: '/cobranca',
+        envVar: null,
+        hint: 'Gera as faturas dos clientes e confirma o pagamento sozinho.',
+      },
+      {
+        id: 'asaas_webhook',
+        label: 'Asaas · token do webhook',
+        group: 'pagamentos',
+        configured: !!b?.hook,
+        required: true,
+        where: 'painel',
+        link: '/cobranca',
+        envVar: null,
+        hint: 'Sem ele o pagamento não libera o cliente automaticamente.',
+      },
+      {
+        id: 'focus_master',
+        label: 'Focus NFe · token de revenda',
+        group: 'fiscal',
+        configured: !!e.FOCUS_NFE_MASTER_TOKEN,
+        required: false,
+        where: 'env',
+        link: '/fiscal',
+        envVar: 'FOCUS_NFE_MASTER_TOKEN',
+        hint: 'Cadastra as empresas na Focus pelo painel (modo gerenciado). O token de cada restaurante fica na tela Fiscal dele.',
+      },
+      {
+        id: 'whatsapp_gateway',
+        label: 'WhatsApp · token do gateway Baileys',
+        group: 'whatsapp',
+        configured: !!e.WHATSAPP_GATEWAY_TOKEN,
+        required: !!e.WHATSAPP_GATEWAY_URL,
+        where: 'env',
+        link: null,
+        envVar: 'WHATSAPP_GATEWAY_TOKEN',
+        hint: 'A API e o gateway do WhatsApp conversam com este token.',
+      },
+      {
+        id: 'github_pipeline',
+        label: 'GitHub · token da esteira de chamados',
+        group: 'desenvolvimento',
+        configured: !!pp?.ok,
+        required: false,
+        where: 'painel',
+        link: '/chamados',
+        envVar: null,
+        hint: 'A esteira abre PRs no repositório com ele.',
+      },
+      {
+        id: 'github_update',
+        label: 'GitHub · token das atualizações',
+        group: 'desenvolvimento',
+        configured: !!e.UPDATE_GITHUB_TOKEN,
+        required: false,
+        where: 'env',
+        link: '/servidor',
+        envVar: 'UPDATE_GITHUB_TOKEN',
+        hint: 'Lê as versões novas no GitHub (só precisa com repositório privado).',
+      },
+      {
+        id: 'backup_secret',
+        label: 'Backups · segredo do bucket S3',
+        group: 'servidor',
+        configured: !!bk?.ok,
+        required: false,
+        where: 'painel',
+        link: '/backups',
+        envVar: null,
+        hint: 'Envia as cópias do banco para fora do servidor.',
+      },
+      {
+        id: 'contracts_webhook',
+        label: 'Contratos · segredo do webhook',
+        group: 'pagamentos',
+        configured: !!ct?.ok,
+        required: !!ct?.url,
+        where: 'painel',
+        link: '/restaurantes',
+        envVar: null,
+        hint: 'Assina os avisos de contrato enviados para o seu webhook.',
+      },
+      {
+        id: 'host_agent',
+        label: 'Agente do servidor',
+        group: 'servidor',
+        configured: !!e.HOST_AGENT_TOKEN,
+        required: !!e.HOST_AGENT_URL,
+        where: 'env',
+        link: '/servidor',
+        envVar: 'HOST_AGENT_TOKEN',
+        hint: 'Atualizar, reiniciar e ver logs pela tela Servidor.',
+      },
+      {
+        id: 'traefik',
+        label: 'Traefik · domínios próprios',
+        group: 'servidor',
+        configured: !!e.TRAEFIK_PROVIDER_TOKEN,
+        required: false,
+        where: 'env',
+        link: null,
+        envVar: 'TRAEFIK_PROVIDER_TOKEN',
+        hint: 'Libera o HTTPS dos domínios próprios dos restaurantes.',
+      },
+      {
+        id: 'metrics',
+        label: 'Métricas (Prometheus)',
+        group: 'servidor',
+        configured: !!e.METRICS_TOKEN,
+        required: false,
+        where: 'env',
+        link: null,
+        envVar: 'METRICS_TOKEN',
+        hint: 'Protege o endpoint /api/v1/metrics.',
+      },
+    ];
+    return items;
   }
 
   async save(b: AiSettingsInput, a: Actor) {
     const current = await this.row();
     let enc = current.api_key_enc;
-    if (b.apiKey) {
+    let ownerEnc = current.owner_api_key_enc;
+    if (b.apiKey || b.ownerApiKey) {
       if (!this.env.INTEGRATIONS_KEY)
         throw new UnprocessableEntityException(
           'Servidor sem INTEGRATIONS_KEY: não é possível guardar a chave com segurança',
         );
-      enc = seal(this.env.INTEGRATIONS_KEY, b.apiKey, AI_KEY_CONTEXT);
-      this.accountCache = null;
     }
-    if (b.enabled && !enc) throw new UnprocessableEntityException('Informe a chave do OpenRouter');
+    if (b.apiKey) {
+      enc = seal(this.env.INTEGRATIONS_KEY!, b.apiKey, CLIENT_KEY_CONTEXT);
+      delete this.accounts.clients;
+    }
+    if (b.clearOwnerKey) ownerEnc = null;
+    if (b.ownerApiKey)
+      ownerEnc = seal(this.env.INTEGRATIONS_KEY!, b.ownerApiKey, OWNER_KEY_CONTEXT);
+    if (b.ownerApiKey || b.clearOwnerKey) delete this.accounts.owner;
+    if (b.enabled && !enc)
+      throw new UnprocessableEntityException('Informe a chave do OpenRouter dos restaurantes');
     await this.db.tx(async (c) => {
       await c.query(
         `UPDATE platform_ai_settings SET enabled = $1, api_key_enc = $2, model = $3,
                 assistant_name = $4, default_monthly_tokens = $5, low_balance_usd = $6,
-                updated_at = now(), updated_by = $7
+                owner_api_key_enc = $8, updated_at = now(), updated_by = $7
           WHERE id`,
         [
           b.enabled,
@@ -206,14 +571,15 @@ export class PlatformAiService {
           b.defaultMonthlyTokens,
           b.lowBalanceUsd,
           a.admin.id,
+          ownerEnc,
         ],
       );
-      const { apiKey: _k, ...safe } = b;
+      const { apiKey: _k, ownerApiKey: _o, ...safe } = b;
       await platformAudit(c, {
         adminId: a.admin.id,
         action: 'platform.ai_settings_updated',
         entity: 'ai',
-        data: { ...safe, apiKeyChanged: !!b.apiKey },
+        data: { ...safe, apiKeyChanged: !!b.apiKey, ownerKeyChanged: !!b.ownerApiKey },
         ip: a.ip,
       });
     });
@@ -244,20 +610,98 @@ export class PlatformAiService {
     return { ok: true };
   }
 
-  /** Testa a chave (a do formulário ou a salva) com uma pergunta curtinha. */
-  async test(apiKey: string | undefined, model: string) {
+  /**
+   * Doa (ou retira) tokens extras de um restaurante. Os extras não vencem e só são gastos depois
+   * do limite do mês. Fica no extrato com quem fez; retirar nunca deixa o saldo negativo.
+   */
+  async grant(tenantId: string, b: z.infer<typeof TokenGrantBody>, a: Actor) {
+    return this.db.tx(async (c) => {
+      const t = await c.query<{ name: string }>(`SELECT name FROM tenants WHERE id = $1`, [
+        tenantId,
+      ]);
+      if (!t.rowCount) throw new UnprocessableEntityException('Restaurante não encontrado');
+      await c.query(
+        `INSERT INTO tenant_ai_settings (tenant_id) VALUES ($1) ON CONFLICT (tenant_id) DO NOTHING`,
+        [tenantId],
+      );
+      // Trava a linha: uma resposta da IA ao mesmo tempo não gasta o extra que está saindo.
+      const cur = await c.query<{ bonus: string }>(
+        `SELECT bonus_tokens AS bonus FROM tenant_ai_settings WHERE tenant_id = $1 FOR UPDATE`,
+        [tenantId],
+      );
+      const before = Number(cur.rows[0]!.bonus);
+      const delta = b.delta < 0 ? -Math.min(before, -b.delta) : b.delta;
+      if (delta === 0)
+        throw new UnprocessableEntityException(
+          'Este restaurante não tem tokens extras para retirar',
+        );
+      const after = before + delta;
+      await c.query(
+        `UPDATE tenant_ai_settings SET bonus_tokens = $2, updated_at = now() WHERE tenant_id = $1`,
+        [tenantId, after],
+      );
+      await c.query(
+        `INSERT INTO platform_ai_token_grants (tenant_id, delta, balance_after, note, admin_id)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [tenantId, delta, after, b.note || null, a.admin.id],
+      );
+      await platformAudit(c, {
+        adminId: a.admin.id,
+        action: delta > 0 ? 'platform.ai_tokens_granted' : 'platform.ai_tokens_removed',
+        entity: 'tenant',
+        entityId: tenantId,
+        tenantId,
+        data: { delta, balanceAfter: after, note: b.note || null },
+        ip: a.ip,
+      });
+      return { ok: true, bonus: after, delta, tenantName: t.rows[0]!.name };
+    });
+  }
+
+  /** Extrato de um restaurante: últimas chamadas e as doações/retiradas de tokens. */
+  async tenantHistory(tenantId: string) {
+    const [usage, grants] = await Promise.all([
+      this.usageLog(50, tenantId),
+      this.db.query(
+        `SELECT g.id::text, g.delta::float8 AS delta, g.balance_after::float8 AS "balanceAfter",
+                g.note, a.name AS "adminName", g.created_at AS at
+           FROM platform_ai_token_grants g
+           LEFT JOIN platform_admins a ON a.id = g.admin_id
+          WHERE g.tenant_id = $1 ORDER BY g.created_at DESC, g.id DESC LIMIT 50`,
+        [tenantId],
+      ),
+    ]);
+    return { usage, grants };
+  }
+
+  /**
+   * Testa uma chave (a digitada ou uma das salvas) com uma pergunta curtinha. O teste com
+   * uma chave salva entra no extrato do sistema.
+   */
+  async test(b: z.infer<typeof AiTestBody>, a?: Actor) {
     const r = await this.row();
-    const key = apiKey || this.key(r);
+    const key = b.apiKey || this.key(r, b.key);
     if (!key) throw new UnprocessableEntityException('Informe a chave do OpenRouter');
     const client = new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key);
     const started = Date.now();
     try {
       const out = await client.stream(
-        model,
+        b.model,
         [{ role: 'user', content: 'Responda só: "Olá! Estou pronto para ajudar."' }],
         () => undefined,
         { maxTokens: 30 },
       );
+      await recordSystemUsage(this.db, {
+        source: 'teste',
+        ref: b.apiKey
+          ? 'chave digitada'
+          : b.key === 'owner'
+            ? 'sua chave'
+            : 'chave dos restaurantes',
+        model: b.model,
+        usage: out.usage,
+        adminId: a?.admin.id,
+      }).catch(() => undefined);
       return {
         ok: true,
         reply: out.text.trim().slice(0, 200),
