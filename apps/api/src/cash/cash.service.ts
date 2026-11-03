@@ -194,6 +194,207 @@ export class CashService {
     return { ...(s as { id: string }), expected, byKind, movements };
   }
 
+  /**
+   * Linha do tempo do caixa: um registro por evento (abertura, venda por pedido, suprimento,
+   * sangria, estorno), com os valores separados por forma de pagamento, e os totais da tela.
+   * `sessionId` = um terminal; sem ele = todos os caixas abertos.
+   */
+  async timeline(ctx: Ctx, sessionId?: string) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const sessions = await q<{
+        id: string;
+        number: number;
+        status: 'open' | 'closed';
+        registerId: string;
+        registerName: string;
+        openingAmount: string;
+        openedAt: string;
+        closedAt: string | null;
+        openedByName: string | null;
+      }>(
+        tx,
+        `SELECT s.id, s.number, s.status, s.register_id AS "registerId", r.name AS "registerName",
+                s.opening_amount::text AS "openingAmount", s.opened_at AS "openedAt",
+                s.closed_at AS "closedAt", uo.name AS "openedByName"
+           FROM cash_sessions s JOIN cash_registers r ON r.id = s.register_id
+           LEFT JOIN users uo ON uo.id = s.opened_by
+          WHERE ${sessionId ? 's.id = $1' : "s.status = 'open'"}
+          ORDER BY s.opened_at`,
+        sessionId ? [sessionId] : [],
+      );
+      if (sessionId && !sessions.length)
+        throw new NotFoundException('Sessão de caixa não encontrada');
+      const ids = sessions.map((s) => s.id);
+      const movements = ids.length
+        ? await q<{
+            id: string;
+            sessionId: string;
+            kind: 'opening' | 'sale' | 'supply' | 'withdrawal' | 'refund';
+            method: PaymentMethod;
+            amount: string;
+            note: string | null;
+            orderId: string | null;
+            createdAt: string;
+            createdByName: string | null;
+          }>(
+            tx,
+            `SELECT m.id::text, m.cash_session_id AS "sessionId", m.kind, m.method, m.amount::text,
+                    m.note, m.order_id AS "orderId", m.created_at AS "createdAt", u.name AS "createdByName"
+               FROM cash_movements m LEFT JOIN users u ON u.id = m.created_by
+              WHERE m.cash_session_id = ANY($1::uuid[])
+              ORDER BY m.created_at, m.id`,
+            [ids],
+          )
+        : [];
+      const orderIds = [
+        ...new Set(movements.map((m) => m.orderId).filter((x): x is string => !!x)),
+      ];
+      const orders = orderIds.length
+        ? await q<{
+            id: string;
+            number: number;
+            channel: string;
+            deliveryFee: string;
+            discount: string;
+            surcharge: string;
+            status: string;
+            paymentStatus: string;
+          }>(
+            tx,
+            `SELECT id, number, channel, delivery_fee::text AS "deliveryFee", discount::text,
+                    surcharge::text, status, payment_status AS "paymentStatus"
+               FROM orders WHERE id = ANY($1::uuid[])`,
+            [orderIds],
+          )
+        : [];
+      const fiscal = orderIds.length
+        ? await q<{ orderId: string; id: string; status: string; kind: string }>(
+            tx,
+            `SELECT DISTINCT ON (order_id) order_id AS "orderId", id, status, kind
+               FROM fiscal_documents
+              WHERE order_id = ANY($1::uuid[]) AND status <> 'discarded'
+              ORDER BY order_id, (status IN ('draft','pending','processing','authorized','cancelling')) DESC,
+                       created_at DESC`,
+            [orderIds],
+          )
+        : [];
+      const orderById = new Map(orders.map((o) => [o.id, o]));
+      const fiscalByOrder = new Map(fiscal.map((f) => [f.orderId, f]));
+      const sessionById = new Map(sessions.map((s) => [s.id, s]));
+
+      type Event = {
+        id: string;
+        at: string;
+        kind: 'opening' | 'sale' | 'supply' | 'withdrawal' | 'refund';
+        sessionId: string;
+        sessionNumber: number;
+        registerName: string;
+        orderId: string | null;
+        orderNumber: number | null;
+        channel: string | null;
+        deliveryFee: string;
+        discount: string;
+        amounts: Totals;
+        note: string | null;
+        createdByName: string | null;
+        orderPaid: boolean;
+        fiscal: { id: string; status: string; kind: string } | null;
+      };
+      const events: Event[] = [];
+      const saleByKey = new Map<string, Event>();
+      const base = (sessionId: string, m?: (typeof movements)[number]) => {
+        const s = sessionById.get(sessionId)!;
+        return {
+          sessionId,
+          sessionNumber: s.number,
+          registerName: s.registerName,
+          note: m?.note ?? null,
+          createdByName: m?.createdByName ?? null,
+        };
+      };
+      const t = {
+        sold: 0,
+        deliveryFees: 0,
+        surcharges: 0,
+        moved: 0,
+        supplies: 0,
+        withdrawals: 0,
+      };
+      // A abertura sempre aparece (mesmo com fundo zero, que não gera movimento).
+      for (const s of sessions) {
+        if (movements.some((m) => m.sessionId === s.id && m.kind === 'opening')) continue;
+        events.push({
+          ...base(s.id),
+          id: `open-${s.id}`,
+          at: s.openedAt,
+          kind: 'opening',
+          orderId: null,
+          orderNumber: null,
+          channel: null,
+          deliveryFee: '0.00',
+          discount: '0.00',
+          amounts: zero(),
+          createdByName: s.openedByName,
+          orderPaid: false,
+          fiscal: null,
+        });
+      }
+      const counted = new Set<string>();
+      for (const m of movements) {
+        const cents = toCents(m.amount);
+        t.moved += cents;
+        if (m.kind === 'supply') t.supplies += cents;
+        if (m.kind === 'withdrawal') t.withdrawals -= cents;
+        if (m.kind === 'sale' || m.kind === 'refund') t.sold += cents;
+        const o = m.orderId ? orderById.get(m.orderId) : undefined;
+        const key = `${m.sessionId}:${m.orderId}`;
+        if (m.kind === 'sale' && saleByKey.has(key)) {
+          saleByKey.get(key)!.amounts[m.method] += cents;
+          continue;
+        }
+        const ev: Event = {
+          ...base(m.sessionId, m),
+          id: m.id,
+          at: m.createdAt,
+          kind: m.kind,
+          orderId: m.orderId,
+          orderNumber: o?.number ?? null,
+          channel: o?.channel ?? null,
+          deliveryFee: m.kind === 'sale' && o ? o.deliveryFee : '0.00',
+          discount: m.kind === 'sale' && o ? o.discount : '0.00',
+          amounts: zero(),
+          orderPaid: o?.paymentStatus === 'paid' && o.status !== 'cancelled',
+          fiscal: m.orderId ? (fiscalByOrder.get(m.orderId) ?? null) : null,
+        };
+        ev.amounts[m.method] = cents;
+        if (m.kind === 'opening') ev.createdByName = sessionById.get(m.sessionId)!.openedByName;
+        if (m.kind === 'sale' && o) {
+          saleByKey.set(key, ev);
+          if (!counted.has(o.id)) {
+            counted.add(o.id);
+            t.deliveryFees += toCents(o.deliveryFee);
+            t.surcharges += toCents(o.surcharge);
+          }
+        }
+        events.push(ev);
+      }
+      events.sort((a, b) => +new Date(a.at) - +new Date(b.at));
+      return {
+        sessions,
+        totals: {
+          sold: fromCents(t.sold),
+          deliveryFees: fromCents(t.deliveryFees),
+          surcharges: fromCents(t.surcharges),
+          moved: fromCents(t.moved),
+          closedOrders: counted.size,
+          supplies: fromCents(t.supplies),
+          withdrawals: fromCents(t.withdrawals),
+        },
+        events: events.map((e) => ({ ...e, amounts: toStrings(e.amounts) })),
+      };
+    });
+  }
+
   private async lockSession(tx: Tx, id: string, mode: 'SHARE' | 'UPDATE'): Promise<SessionRow> {
     const s = await one<SessionRow>(
       tx,

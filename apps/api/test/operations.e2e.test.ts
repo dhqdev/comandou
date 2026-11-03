@@ -836,6 +836,44 @@ describe('Fechamento de caixa', () => {
     expect(s2.expected.cash).toBe('171.24');
   });
 
+  it('linha do tempo: abertura primeiro, uma venda por pedido, totais batem com o esperado', async () => {
+    const s = (await get('cashierA', `/cash/sessions/${session.id}`).expect(200)).body;
+    const tl = (await get('cashierA', `/cash/sessions/${session.id}/timeline`).expect(200)).body;
+    type Ev = {
+      kind: string;
+      orderId: string | null;
+      amounts: Record<string, string>;
+      at: string;
+    };
+    const events = tl.events as Ev[];
+    expect(events[0].kind).toBe('opening');
+    expect(events[0].amounts.cash).toBe('100.00');
+    const times = events.map((e) => +new Date(e.at));
+    expect(times).toEqual([...times].sort((a, b) => a - b));
+    // Pedido pago em duas formas vira um registro só, com as duas colunas.
+    const sales = events.filter((e) => e.kind === 'sale');
+    expect(new Set(sales.map((e) => e.orderId)).size).toBe(sales.length);
+    expect(sales.some((e) => e.amounts.cash === '20.00' && e.amounts.pix === '31.80')).toBe(true);
+    expect(tl.totals.closedOrders).toBe(sales.length);
+    expect(tl.totals.supplies).toBe('50.00');
+    expect(tl.totals.withdrawals).toBe('30.00');
+    const expectedTotal = Object.values(s.expected as Record<string, string>).reduce(
+      (a, v) => a + toCents(v),
+      0,
+    );
+    expect(toCents(tl.totals.moved)).toBe(expectedTotal);
+    // Soma das colunas da linha do tempo = esperado de cada forma.
+    for (const m of Object.keys(s.expected)) {
+      const sum = events.reduce((a, e) => a + toCents(e.amounts[m] ?? '0'), 0);
+      expect(sum).toBe(toCents(s.expected[m]));
+    }
+    // Todos os caixas abertos inclui esta sessão.
+    const all = (await get('cashierA', '/cash/sessions/open/timeline').expect(200)).body;
+    expect(all.sessions.map((x: { id: string }) => x.id)).toContain(session.id);
+    await get('waiterA', `/cash/sessions/${session.id}/timeline`).expect(403);
+    await get('adminB', `/cash/sessions/${session.id}/timeline`).expect(404);
+  });
+
   it('fechamento: diferença exige observação; idempotente; caixa fechado recusa pagamentos', async () => {
     const s = (await get('cashierA', `/cash/sessions/${session.id}`).expect(200)).body;
     const counted = { ...s.expected, cash: fromCents(toCents(s.expected.cash) - 100) };

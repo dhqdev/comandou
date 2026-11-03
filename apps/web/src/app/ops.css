@@ -1091,7 +1091,104 @@ button.pay-part {
   text-align: center;
 }
 
-/* Caixa */
+/* Caixa: cabeçalho com ações, totais e linha do tempo */
+.cash-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--cm-space-3);
+  flex-wrap: wrap;
+}
+.cash-head__info {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-3);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.cash-head__title {
+  font-size: var(--cm-text-lg);
+  font-weight: 600;
+}
+.cash-head__terminal {
+  width: auto;
+  min-width: 160px;
+}
+.cash-head__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  flex-wrap: wrap;
+}
+.cash-stats {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: var(--cm-space-3);
+}
+.cash-timeline {
+  min-width: 0;
+}
+.cash-timeline__head {
+  padding: var(--cm-space-5) var(--cm-space-5) var(--cm-space-3);
+}
+.cash-timeline__title {
+  font-size: var(--cm-text-xl);
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+.cash-timeline__head .cm-hint {
+  margin: 0;
+}
+.cash-timeline__scroll {
+  overflow-x: auto;
+}
+.cash-table td,
+.cash-table th {
+  white-space: nowrap;
+}
+.cash-table td[data-zero] {
+  color: var(--cm-text-muted);
+}
+.cash-table tr[data-kind='withdrawal'] td:first-child,
+.cash-table tr[data-kind='refund'] td:first-child {
+  box-shadow: inset 3px 0 0 var(--cm-danger);
+}
+.cash-table tr[data-kind='opening'] td:first-child,
+.cash-table tr[data-kind='supply'] td:first-child {
+  box-shadow: inset 3px 0 0 var(--cm-success);
+}
+.cash-table__ref {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--cm-link, var(--cm-text));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+@media (max-width: 640px) {
+  .cash-head__actions {
+    width: 100%;
+  }
+  .cash-head__actions > .cm-btn {
+    flex: 1 1 auto;
+  }
+  .cash-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .cash-stats .stat__value {
+    font-size: var(--cm-text-xl);
+  }
+  /* No cartão do celular, só o que tem valor: zeros e células vazias somem. */
+  .cash-table td[data-zero],
+  .cash-table td:empty {
+    display: none;
+  }
+  .cash-table tr[data-kind] td:first-child {
+    box-shadow: none;
+  }
+}
+
 .register-grid,
 .group-grid {
   display: grid;

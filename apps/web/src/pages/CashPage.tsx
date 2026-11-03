@@ -1,6 +1,14 @@
-import { fromCents, PAYMENT_METHODS, toCents, type PaymentMethod } from '@comandou/shared';
-import { ArrowDownCircle, ArrowUpCircle, Lock, Wallet } from 'lucide-react';
+import {
+  CHANNEL_LABELS,
+  fromCents,
+  PAYMENT_METHODS,
+  toCents,
+  type OrderChannel,
+  type PaymentMethod,
+} from '@comandou/shared';
+import { ArrowDownCircle, ArrowUpCircle, Lock, LockOpen, Wallet } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router';
 import {
   Alert,
   Badge,
@@ -8,37 +16,117 @@ import {
   Card,
   EmptyState,
   Modal,
+  Segmented,
+  Select,
   Spinner,
   TextField,
   useToast,
 } from '../design-system';
 import { useCan } from '../app/auth';
+import { OrderDetailModal } from '../features/OrderDetailModal';
 import { dateTime, PAYMENT_METHOD_LABELS } from '../features/format';
 import { api } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
-import type { CashRegister, CashSession } from '../lib/types';
+import type {
+  CashRegister,
+  CashSession,
+  CashTimeline,
+  CashTimelineEvent,
+  FiscalStatus,
+} from '../lib/types';
+import { StatusBadge } from './fiscal/common';
 
-const KIND_LABEL: Record<string, string> = {
-  opening: 'Abertura',
-  sale: 'Venda',
-  supply: 'Suprimento',
-  withdrawal: 'Sangria',
-  refund: 'Estorno',
-};
+const TERMINAL_KEY = 'cash.terminal';
+const BASE_METHODS: PaymentMethod[] = ['cash', 'credit', 'debit', 'pix'];
+const LIVE_FISCAL = ['draft', 'pending', 'processing', 'authorized', 'cancelling'];
 
+function readTerminal() {
+  try {
+    return localStorage.getItem(TERMINAL_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+function saveTerminal(id: string) {
+  try {
+    localStorage.setItem(TERMINAL_KEY, id);
+  } catch {
+    /* armazenamento indisponível */
+  }
+}
+
+/** O evento e de onde ele veio, como o operador fala no balcão. */
+function describe(e: CashTimelineEvent): { event: string; origin: string; ref: string } {
+  const cx = `CX-${String(e.sessionNumber).padStart(6, '0')}`;
+  switch (e.kind) {
+    case 'opening':
+      return { event: 'Suprimento', origin: 'Abertura', ref: cx };
+    case 'supply':
+      return { event: 'Suprimento', origin: 'Manual', ref: e.note ?? cx };
+    case 'withdrawal':
+      return { event: 'Sangria', origin: 'Manual', ref: e.note ?? cx };
+    case 'refund':
+      return {
+        event: 'Estorno',
+        origin: e.channel ? CHANNEL_LABELS[e.channel as OrderChannel] : 'Pedido',
+        ref: e.orderNumber ? `#${e.orderNumber}` : cx,
+      };
+    default:
+      return {
+        event: 'Venda',
+        origin: e.channel ? CHANNEL_LABELS[e.channel as OrderChannel] : 'Pedido',
+        ref: e.orderNumber ? `#${e.orderNumber}` : cx,
+      };
+  }
+}
+
+/**
+ * Caixa do PDV: totais desde a abertura, ações do terminal (suprimento, sangria, abrir e fechar)
+ * e a linha do tempo com um registro por evento, separado por forma de pagamento.
+ */
 export function CashPage() {
+  const toast = useToast();
   const canOperate = useCan('cash:operate');
+  const canClose = useCan('cash:close');
+  const canEmit = useCan('fiscal:emit');
+  const canWriteOrders = useCan('orders:write');
+  const canManagePrint = useCan('printing:manage');
+  const canPrint = canWriteOrders || canManagePrint;
   const [registers, setRegisters] = useState<CashRegister[] | null>(null);
   const [history, setHistory] = useState<CashSession[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [opening, setOpening] = useState<CashRegister | null>(null);
-  useLinkParam('sessao', setSelected);
+  const [terminalId, setTerminalId] = useState(readTerminal);
+  const [scope, setScope] = useState<'terminal' | 'all'>('terminal');
+  /** Sessão antiga aberta pelo histórico ou por link (só leitura, se já fechada). */
+  const [viewing, setViewing] = useState<string | null>(null);
+  useLinkParam('sessao', setViewing);
+  const [timeline, setTimeline] = useState<CashTimeline | null>(null);
+  const [session, setSession] = useState<CashSession | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [opening, setOpening] = useState<CashRegister | null>(null);
+  const [mov, setMov] = useState<null | 'supply' | 'withdrawal'>(null);
+  const [closing, setClosing] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [orderId, setOrderId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  const terminal =
+    registers?.find((r) => r.id === terminalId) ??
+    registers?.find((r) => r.openSessionId) ??
+    registers?.[0] ??
+    null;
+  /** Sessão em que Suprimento, Sangria e Fechar caixa agem. */
+  const actionSessionId = viewing ?? terminal?.openSessionId ?? null;
+  const timelineUrl = viewing
+    ? `/cash/sessions/${viewing}/timeline`
+    : scope === 'all'
+      ? '/cash/sessions/open/timeline'
+      : terminal?.openSessionId
+        ? `/cash/sessions/${terminal.openSessionId}/timeline`
+        : null;
+
+  const loadRegisters = useCallback(async () => {
     try {
       const [r, h] = await Promise.all([
         api<CashRegister[]>('/cash-registers'),
@@ -46,32 +134,82 @@ export function CashPage() {
       ]);
       setRegisters(r.filter((x) => x.active));
       setHistory(h);
-      setSelected((s) => s ?? r.find((x) => x.openSessionId)?.openSessionId ?? null);
       setError(null);
     } catch (e) {
       setError((e as Error).message);
     }
   }, []);
+  const loadTimeline = useCallback(async () => {
+    try {
+      const [t, s] = await Promise.all([
+        timelineUrl ? api<CashTimeline>(timelineUrl) : Promise.resolve(null),
+        actionSessionId
+          ? api<CashSession>(`/cash/sessions/${actionSessionId}`)
+          : Promise.resolve(null),
+      ]);
+      setTimeline(t);
+      setSession(s);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, [timelineUrl, actionSessionId]);
+  const loadAll = useCallback(async () => {
+    await Promise.all([loadRegisters(), loadTimeline()]);
+  }, [loadRegisters, loadTimeline]);
   useEffect(() => {
-    void load();
-  }, [load]);
-  const reload = useDebounced(load);
+    void loadRegisters();
+  }, [loadRegisters]);
+  useEffect(() => {
+    void loadTimeline();
+  }, [loadTimeline]);
+  const reload = useDebounced(loadAll);
   useRealtime((e) => {
-    if (e.type === 'cash.changed') reload();
-  }, load);
+    if (e.type === 'cash.changed' || e.type === 'fiscal.changed') reload();
+  }, loadAll);
 
-  return (
-    <>
-      <div>
+  function chooseTerminal(id: string) {
+    setTerminalId(id);
+    saveTerminal(id);
+    setViewing(null);
+    setScope('terminal');
+  }
+
+  async function run(key: string, fn: () => Promise<unknown>, ok: string) {
+    setBusy(key);
+    try {
+      await fn();
+      toast(ok, 'success');
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    } finally {
+      setBusy(null);
+      void loadTimeline();
+    }
+  }
+  const emitNfce = (id: string) =>
+    run(
+      `nfce-${id}`,
+      () => api(`/orders/${id}/nfce`, { method: 'POST', json: {} }),
+      'NFC-e enviada para emissão',
+    );
+  const reprint = (id: string) =>
+    run(
+      `print-${id}`,
+      () => api(`/orders/${id}/print`, { method: 'POST', json: { kind: 'receipt' } }),
+      'Comprovante enviado para a impressora',
+    );
+
+  if (registers === null)
+    return (
+      <>
         <h1 className="page-title">Caixa</h1>
-        <p className="page-sub">
-          Abertura, suprimento, sangria e fechamento conferido por terminal.
-        </p>
-      </div>
-      {error && <Alert tone="danger">{error}</Alert>}
-      {registers === null ? (
-        <Spinner />
-      ) : registers.length === 0 ? (
+        {error ? <Alert tone="danger">{error}</Alert> : <Spinner />}
+      </>
+    );
+  if (registers.length === 0)
+    return (
+      <>
+        <h1 className="page-title">Caixa</h1>
         <Card>
           <EmptyState
             icon={<Wallet size={20} />}
@@ -79,34 +217,257 @@ export function CashPage() {
             description="Cadastre um terminal em Ajustes."
           />
         </Card>
-      ) : (
-        <div className="register-grid">
-          {registers.map((r) => (
-            <div
-              key={r.id}
-              data-search-id={`caixa-${r.id}`}
-              className="register-tile"
-              data-open={!!r.openSessionId || undefined}
+      </>
+    );
+
+  const shown = timeline?.sessions ?? [];
+  const isOpen = session?.status === 'open';
+  const methods = PAYMENT_METHODS.filter(
+    (m) =>
+      BASE_METHODS.includes(m) || (timeline?.events ?? []).some((e) => toCents(e.amounts[m]) !== 0),
+  );
+  const multi = shown.length > 1 || (scope === 'all' && !viewing);
+  const t = timeline?.totals;
+
+  let headline: string;
+  if (viewing && session) {
+    headline =
+      session.status === 'open'
+        ? `${session.registerName} · aberto em ${dateTime(session.openedAt)} por ${session.openedByName ?? '—'}`
+        : `${session.registerName} · sessão ${session.number}, fechada em ${session.closedAt ? dateTime(session.closedAt) : '—'}`;
+  } else if (scope === 'all') {
+    headline =
+      shown.length === 0
+        ? 'Nenhum caixa aberto'
+        : shown.length === 1
+          ? `1 caixa aberto · ${shown[0]!.registerName}`
+          : `${shown.length} caixas abertos`;
+  } else if (terminal?.openSessionId && session) {
+    headline = `Aberto em ${dateTime(session.openedAt)} por ${session.openedByName ?? '—'}`;
+  } else {
+    headline = `${terminal?.name ?? 'Caixa'} fechado`;
+  }
+
+  return (
+    <>
+      <h1 className="page-title cm-sr-only">Caixa</h1>
+      {error && <Alert tone="danger">{error}</Alert>}
+      <div className="cash-head" data-search-id={terminal ? `caixa-${terminal.id}` : undefined}>
+        <div className="cash-head__info">
+          <strong className="cash-head__title">{headline}</strong>
+          {registers.length > 1 && (
+            <Select
+              className="cm-input cash-head__terminal"
+              aria-label="Terminal"
+              value={terminal?.id ?? ''}
+              onChange={(e) => chooseTerminal(e.target.value)}
             >
-              <strong>{r.name}</strong>
-              {r.openSessionId ? (
-                <>
-                  <Badge tone="success">Aberto</Badge>
-                  <Button variant="secondary" onClick={() => setSelected(r.openSessionId)}>
-                    Ver movimento
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Badge>Fechado</Badge>
-                  {canOperate && <Button onClick={() => setOpening(r)}>Abrir caixa</Button>}
-                </>
+              {registers.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                  {r.openSessionId ? ' · aberto' : ''}
+                </option>
+              ))}
+            </Select>
+          )}
+        </div>
+        <div className="cash-head__actions">
+          {viewing ? (
+            <Button variant="secondary" onClick={() => setViewing(null)}>
+              Voltar ao caixa atual
+            </Button>
+          ) : (
+            <Segmented
+              label="Quais caixas mostrar"
+              value={scope}
+              onChange={setScope}
+              options={[
+                { value: 'terminal', label: 'Este terminal' },
+                { value: 'all', label: 'Todos os caixas' },
+              ]}
+            />
+          )}
+          {isOpen && canOperate && (
+            <>
+              <Button
+                variant="secondary"
+                icon={<ArrowDownCircle size={16} />}
+                onClick={() => setMov('supply')}
+              >
+                Suprimento
+              </Button>
+              <Button
+                variant="secondary"
+                icon={<ArrowUpCircle size={16} />}
+                onClick={() => setMov('withdrawal')}
+              >
+                Sangria
+              </Button>
+            </>
+          )}
+          {isOpen && canClose && (
+            <Button icon={<Lock size={16} />} onClick={() => setClosing(true)}>
+              Fechar caixa
+            </Button>
+          )}
+          {!viewing && terminal && !terminal.openSessionId && canOperate && (
+            <Button icon={<LockOpen size={16} />} onClick={() => setOpening(terminal)}>
+              Abrir caixa
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {session?.status === 'closed' && (
+        <Alert tone={toCents(session.difference ?? '0') === 0 ? 'info' : 'warning'}>
+          Fechado em {session.closedAt && dateTime(session.closedAt)} por {session.closedByName}.
+          Diferença: <DiffValue value={session.difference ?? '0'} />
+          {session.closingNote && ` — ${session.closingNote}`}
+        </Alert>
+      )}
+
+      {t && (
+        <div className="stat-grid cash-stats">
+          <Stat label="Total vendido desde a abertura" value={brl(t.sold)} />
+          <Stat label="Frete arrecadado" value={brl(t.deliveryFees)} />
+          <Stat label="Acréscimos (taxa e serviço)" value={brl(t.surcharges)} />
+          <Stat label="Movimentado no caixa" value={brl(t.moved)} />
+          <Stat label="Contas fechadas" value={String(t.closedOrders)} />
+          <Stat label="Suprimentos" value={brl(t.supplies)} />
+          <Stat label="Sangrias" value={brl(t.withdrawals)} />
+          {session && !multi && (
+            <Stat
+              label={isOpen ? 'Dinheiro esperado' : 'Dinheiro esperado no fechamento'}
+              value={brl(
+                session.status === 'closed' && session.closedExpected
+                  ? session.closedExpected.cash
+                  : session.expected.cash,
               )}
-            </div>
-          ))}
+            />
+          )}
         </div>
       )}
-      {selected && <SessionPanel sessionId={selected} onChanged={load} />}
+
+      <section
+        className="cm-card cash-timeline"
+        data-search-id={actionSessionId ? `sessao-${actionSessionId}` : undefined}
+      >
+        <header className="cash-timeline__head">
+          <h2 className="cash-timeline__title">Linha do tempo do caixa</h2>
+          <p className="cm-hint">Primeiro registro: valor de abertura em dinheiro</p>
+        </header>
+        {!timeline ? (
+          <EmptyState
+            icon={<Wallet size={20} />}
+            title={`${terminal?.name ?? 'Caixa'} fechado`}
+            description={
+              canOperate
+                ? 'Abra o caixa com o fundo de troco para começar a registrar o turno.'
+                : 'Peça para quem opera o caixa abrir o turno.'
+            }
+          />
+        ) : timeline.events.length === 0 ? (
+          <EmptyState title="Nenhum caixa aberto" />
+        ) : (
+          <div className="cash-timeline__scroll">
+            <table className="cm-table cash-table">
+              <thead>
+                <tr>
+                  <th>Data e hora</th>
+                  <th>Evento</th>
+                  <th>Origem</th>
+                  <th>Referência</th>
+                  {multi && <th>Terminal</th>}
+                  <th className="cm-num">Frete</th>
+                  <th className="cm-num">Desconto</th>
+                  {methods.map((m) => (
+                    <th key={m} className="cm-num">
+                      {COLUMN_LABEL[m]}
+                    </th>
+                  ))}
+                  <th>NFC-e</th>
+                  <th>Fechamento</th>
+                </tr>
+              </thead>
+              <tbody>
+                {timeline.events.map((e) => {
+                  const d = describe(e);
+                  const sale = e.kind === 'sale' && e.orderId;
+                  const fiscalLive = e.fiscal && LIVE_FISCAL.includes(e.fiscal.status);
+                  return (
+                    <tr key={e.id} data-kind={e.kind}>
+                      <td className="cash-table__when">{dateTime(e.at)}</td>
+                      <td>{d.event}</td>
+                      <td>{d.origin}</td>
+                      <td>
+                        {e.orderId ? (
+                          <button
+                            type="button"
+                            className="cash-table__ref"
+                            onClick={() => setOrderId(e.orderId)}
+                          >
+                            {d.ref}
+                          </button>
+                        ) : (
+                          <span title={e.createdByName ?? undefined}>{d.ref}</span>
+                        )}
+                      </td>
+                      {multi && <td>{e.registerName}</td>}
+                      <td className="cm-num" data-zero={toCents(e.deliveryFee) === 0 || undefined}>
+                        {brl(e.deliveryFee)}
+                      </td>
+                      <td className="cm-num" data-zero={toCents(e.discount) === 0 || undefined}>
+                        {brl(e.discount)}
+                      </td>
+                      {methods.map((m) => (
+                        <td
+                          key={m}
+                          className="cm-num"
+                          data-zero={toCents(e.amounts[m]) === 0 || undefined}
+                          style={{
+                            color: toCents(e.amounts[m]) < 0 ? 'var(--cm-danger)' : undefined,
+                          }}
+                        >
+                          {brl(e.amounts[m])}
+                        </td>
+                      ))}
+                      <td>
+                        {sale && e.fiscal && fiscalLive ? (
+                          <Link to={`/fiscal/nota/${e.fiscal.id}`} aria-label="Ver nota fiscal">
+                            <StatusBadge status={e.fiscal.status as FiscalStatus} />
+                          </Link>
+                        ) : sale && canEmit && e.orderPaid ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            loading={busy === `nfce-${e.orderId}`}
+                            onClick={() => emitNfce(e.orderId!)}
+                          >
+                            Emitir NFC-e
+                          </Button>
+                        ) : null}
+                      </td>
+                      <td>
+                        {sale && canPrint && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            loading={busy === `print-${e.orderId}`}
+                            onClick={() => reprint(e.orderId!)}
+                          >
+                            Reimprimir
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       <Card title="Sessões recentes" bodyless>
         {history.length === 0 ? (
           <EmptyState title="Nenhuma sessão" />
@@ -125,7 +486,12 @@ export function CashPage() {
               </thead>
               <tbody>
                 {history.map((s) => (
-                  <tr key={s.id} onClick={() => setSelected(s.id)}>
+                  <tr
+                    key={s.id}
+                    data-search-id={`sessao-${s.id}`}
+                    aria-selected={viewing === s.id || undefined}
+                    onClick={() => setViewing(s.id)}
+                  >
                     <td>{s.number}</td>
                     <td>{s.registerName}</td>
                     <td>
@@ -148,16 +514,62 @@ export function CashPage() {
           </div>
         )}
       </Card>
+
       <OpenModal
         register={opening}
         onClose={() => setOpening(null)}
-        onOpened={(s) => {
+        onOpened={() => {
           setOpening(null);
-          setSelected(s.id);
-          void load();
+          setViewing(null);
+          setScope('terminal');
+          void loadAll();
         }}
       />
+      {session && (
+        <>
+          <MovementModal
+            kind={mov}
+            sessionId={session.id}
+            cashExpected={session.expected.cash}
+            onClose={() => setMov(null)}
+            onDone={() => {
+              setMov(null);
+              void loadTimeline();
+            }}
+          />
+          <CloseModal
+            open={closing}
+            session={session}
+            onClose={() => setClosing(false)}
+            onDone={() => {
+              setClosing(false);
+              // Fica na sessão que acabou de fechar, para conferir a diferença.
+              setViewing(session.id);
+              void loadRegisters();
+            }}
+          />
+        </>
+      )}
+      <OrderDetailModal orderId={orderId} onClose={() => setOrderId(null)} />
     </>
+  );
+}
+
+const COLUMN_LABEL: Record<PaymentMethod, string> = {
+  cash: 'Dinheiro',
+  credit: 'Cartão de crédito',
+  debit: 'Cartão de débito',
+  pix: 'PIX',
+  voucher: 'Vale-refeição',
+  other: 'Outros',
+};
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="cm-card stat">
+      <div className="stat__label">{label}</div>
+      <div className="stat__value">{value}</div>
+    </div>
   );
 }
 
@@ -233,148 +645,6 @@ function OpenModal({
       />
       {error && <Alert tone="danger">{error}</Alert>}
     </Modal>
-  );
-}
-
-function SessionPanel({ sessionId, onChanged }: { sessionId: string; onChanged(): void }) {
-  const toast = useToast();
-  const canOperate = useCan('cash:operate');
-  const canClose = useCan('cash:close');
-  const [s, setS] = useState<CashSession | null>(null);
-  const [mov, setMov] = useState<null | 'supply' | 'withdrawal'>(null);
-  const [closing, setClosing] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      setS(await api<CashSession>(`/cash/sessions/${sessionId}`));
-    } catch (e) {
-      toast((e as Error).message, 'danger');
-    }
-  }, [sessionId, toast]);
-  useEffect(() => {
-    void load();
-  }, [load]);
-  useRealtime((e) => {
-    if (e.type === 'cash.changed' && e.sessionId === sessionId) void load();
-  }, load);
-
-  if (!s) return <Spinner />;
-  const methods = PAYMENT_METHODS.filter((m) => m === 'cash' || toCents(s.expected[m]) !== 0);
-  return (
-    <Card
-      searchId={`sessao-${s.id}`}
-      title={`${s.registerName} · sessão ${s.number}`}
-      actions={
-        s.status === 'open' && (
-          <>
-            {canOperate && (
-              <Button
-                variant="secondary"
-                icon={<ArrowDownCircle size={16} />}
-                onClick={() => setMov('supply')}
-              >
-                Suprimento
-              </Button>
-            )}
-            {canOperate && (
-              <Button
-                variant="secondary"
-                icon={<ArrowUpCircle size={16} />}
-                onClick={() => setMov('withdrawal')}
-              >
-                Sangria
-              </Button>
-            )}
-            {canClose && (
-              <Button icon={<Lock size={16} />} onClick={() => setClosing(true)}>
-                Fechar caixa
-              </Button>
-            )}
-          </>
-        )
-      }
-    >
-      <div className="stat-grid">
-        {methods.map((m) => (
-          <div key={m} className="cm-card stat">
-            <div className="stat__label">
-              {PAYMENT_METHOD_LABELS[m]}{' '}
-              {s.status === 'open' ? 'esperado' : 'esperado no fechamento'}
-            </div>
-            <div className="stat__value">
-              {brl(s.status === 'closed' && s.closedExpected ? s.closedExpected[m] : s.expected[m])}
-            </div>
-            {s.status === 'closed' && s.counted && (
-              <div className="cm-hint">Contado: {brl(s.counted[m])}</div>
-            )}
-          </div>
-        ))}
-      </div>
-      {s.status === 'closed' && (
-        <Alert tone={toCents(s.difference ?? '0') === 0 ? 'info' : 'warning'}>
-          Fechado em {s.closedAt && dateTime(s.closedAt)} por {s.closedByName}. Diferença:{' '}
-          <DiffValue value={s.difference ?? '0'} />
-          {s.closingNote && ` — ${s.closingNote}`}
-        </Alert>
-      )}
-      <h3 className="section-title">Movimentos</h3>
-      {(s.movements ?? []).length === 0 ? (
-        <EmptyState title="Sem movimentos" />
-      ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table className="cm-table">
-            <thead>
-              <tr>
-                <th>Hora</th>
-                <th>Tipo</th>
-                <th>Forma</th>
-                <th>Detalhe</th>
-                <th className="cm-num">Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {s.movements!.map((m) => (
-                <tr key={m.id}>
-                  <td>{dateTime(m.createdAt)}</td>
-                  <td>{KIND_LABEL[m.kind]}</td>
-                  <td>{PAYMENT_METHOD_LABELS[m.method]}</td>
-                  <td>
-                    {m.orderNumber ? `Pedido #${m.orderNumber}` : ''} {m.note}{' '}
-                    <span className="cm-hint">{m.createdByName}</span>
-                  </td>
-                  <td
-                    className="cm-num"
-                    style={{ color: toCents(m.amount) < 0 ? 'var(--cm-danger)' : undefined }}
-                  >
-                    {brl(m.amount)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      <MovementModal
-        kind={mov}
-        sessionId={s.id}
-        cashExpected={s.expected.cash}
-        onClose={() => setMov(null)}
-        onDone={() => {
-          setMov(null);
-          void load();
-        }}
-      />
-      <CloseModal
-        open={closing}
-        session={s}
-        onClose={() => setClosing(false)}
-        onDone={() => {
-          setClosing(false);
-          void load();
-          onChanged();
-        }}
-      />
-    </Card>
   );
 }
 

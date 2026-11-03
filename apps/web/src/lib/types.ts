@@ -319,6 +319,51 @@ export interface CashSession {
   }[];
 }
 
+export interface CashTimelineEvent {
+  id: string;
+  at: string;
+  kind: 'opening' | 'sale' | 'supply' | 'withdrawal' | 'refund';
+  sessionId: string;
+  sessionNumber: number;
+  registerName: string;
+  orderId: string | null;
+  orderNumber: number | null;
+  channel: string | null;
+  deliveryFee: string;
+  discount: string;
+  amounts: Record<PaymentMethod, string>;
+  note: string | null;
+  createdByName: string | null;
+  orderPaid: boolean;
+  fiscal: { id: string; status: string; kind: string } | null;
+}
+
+/** Linha do tempo do caixa: um terminal ou todos os caixas abertos. */
+export interface CashTimeline {
+  sessions: Pick<
+    CashSession,
+    | 'id'
+    | 'number'
+    | 'status'
+    | 'registerId'
+    | 'registerName'
+    | 'openingAmount'
+    | 'openedAt'
+    | 'closedAt'
+    | 'openedByName'
+  >[];
+  totals: {
+    sold: string;
+    deliveryFees: string;
+    surcharges: string;
+    moved: string;
+    closedOrders: number;
+    supplies: string;
+    withdrawals: string;
+  };
+  events: CashTimelineEvent[];
+}
+
 // ---------------------------------------------------------------- Etapa 4 (retaguarda)
 export interface Member {
   id: string;

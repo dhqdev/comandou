@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.73.0',
+    date: '2026-11-03',
+    title: 'Caixa com linha do tempo: tudo o que entrou e saiu, evento por evento',
+    summary:
+      'A aba Caixa mostra os totais do turno no topo e, embaixo, a linha do tempo com cada venda, suprimento e sangria separados por forma de pagamento. Abrir e fechar o caixa é feito na mesma tela.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Caixa: totais desde a abertura (vendido, frete, acréscimos, movimentado, contas fechadas, suprimentos, sangrias e dinheiro esperado).',
+      },
+      {
+        tag: 'novo',
+        text: 'Linha do tempo do caixa: abertura, vendas (um registro por pedido, mesmo pago em mais de uma forma), suprimentos, sangrias e estornos, com frete, desconto e colunas de dinheiro, cartão de crédito, cartão de débito e PIX.',
+      },
+      {
+        tag: 'novo',
+        text: 'Em cada venda: Emitir NFC-e (ou a situação da nota, que abre a nota fiscal) e Reimprimir o comprovante. Tocar no número do pedido abre o pedido.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Este terminal ou Todos os caixas abertos, com o terminal escolhido lembrado no aparelho. Suprimento, Sangria, Abrir caixa e Fechar caixa ficam no topo da tela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Sessões antigas abrem com a mesma linha do tempo e o resultado do fechamento. No celular, cada evento vira um cartão só com o que tem valor.',
+      },
+    ],
+  },
+  {
     version: '0.72.0',
     date: '2026-11-03',
     title: 'Sininho de novidades na barra de cima',

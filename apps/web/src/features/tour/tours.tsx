@@ -57,7 +57,7 @@ export const WELCOME_STOPS: TourStop[] = [
     text: 'Informe o troco inicial em Abrir caixa. No fim do dia você fecha e confere o total de cada forma de pagamento. Ainda não tem terminal? Ele é criado em Sistema › Ajustes.',
     targets: [
       { button: 'Abrir caixa' },
-      { button: 'Ver movimento' },
+      { button: 'Fechar caixa' },
       { css: '.cm-empty', text: 'terminal' },
     ],
   },

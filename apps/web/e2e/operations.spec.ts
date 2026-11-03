@@ -22,6 +22,14 @@ async function pickCaixa(dialog: ReturnType<Page['getByRole']>, tag: string) {
 const shot = (page: Page, project: string, name: string) =>
   page.screenshot({ path: `test-results/screens/${project}-${name}.png`, fullPage: true });
 
+/** Escolhe o terminal do teste no seletor do caixa (só aparece com mais de um terminal). */
+async function pickTerminal(page: Page, tag: string) {
+  const select = page.getByLabel('Terminal');
+  if (!(await select.count())) return;
+  const value = await select.locator('option', { hasText: `Caixa ${tag}` }).getAttribute('value');
+  await select.selectOption(value!);
+}
+
 test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info) => {
   test.setTimeout(120_000);
   const tag = `${info.project.name.slice(0, 1)}${Date.now().toString(36).slice(-5)}`;
@@ -82,14 +90,13 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
 
   // Caixa: abrir com fundo de troco
   await nav(page, 'Caixa');
-  const tile = page.locator('.register-tile', { hasText: `Caixa ${tag}` });
-  await tile.getByRole('button', { name: 'Abrir caixa' }).click();
+  await pickTerminal(page, tag);
+  await page.getByRole('button', { name: 'Abrir caixa' }).click();
   dialog = page.getByRole('dialog');
   await dialog.getByLabel(/Fundo de troco/).fill('100,00');
   await dialog.getByRole('button', { name: 'Abrir caixa' }).click();
-  await expect(
-    page.getByRole('heading', { name: new RegExp(`Caixa ${tag} · sessão`) }),
-  ).toBeVisible();
+  await expect(page.getByText(/^Aberto em /)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Linha do tempo do caixa' })).toBeVisible();
 
   // PDV: venda de balcão com variação, pagamento em dinheiro com troco
   await nav(page, 'PDV');
@@ -210,10 +217,9 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
 
   // Caixa: sangria e fechamento com diferença (exige observação)
   await nav(page, 'Caixa');
-  await page
-    .locator('.register-tile', { hasText: `Caixa ${tag}` })
-    .getByRole('button', { name: 'Ver movimento' })
-    .click();
+  await pickTerminal(page, tag);
+  await expect(page.locator('.cash-table tr[data-kind="sale"]').first()).toBeVisible();
+  await shot(page, info.project.name, 'caixa-linha-do-tempo');
   await page.getByRole('button', { name: 'Sangria' }).click();
   dialog = page.getByRole('dialog').filter({ hasText: 'Sangria' });
   await dialog.getByLabel('Valor').fill('10,00');

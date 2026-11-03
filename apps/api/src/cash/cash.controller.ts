@@ -62,6 +62,24 @@ export class CashController {
     return this.cash.list(ctxOf(t, u), f.status);
   }
 
+  /** Linha do tempo de todos os caixas abertos (eventos + totais). */
+  @Get('open/timeline')
+  @RequirePermission('cash:operate', 'cash:close', 'reports:read')
+  openTimeline(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.cash.timeline(ctxOf(t, u));
+  }
+
+  /** Linha do tempo de uma sessão (um terminal). */
+  @Get(':id/timeline')
+  @RequirePermission('cash:operate', 'cash:close', 'reports:read')
+  timeline(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.cash.timeline(ctxOf(t, u), id);
+  }
+
   @Get(':id')
   @RequirePermission('cash:operate', 'cash:close', 'reports:read')
   get(
