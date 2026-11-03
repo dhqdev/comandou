@@ -1,4 +1,9 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import {
   CHANNEL_LABELS,
   fromCents,
@@ -13,12 +18,23 @@ import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import {
+  checkTemplate,
+  DEFAULT_TEMPLATES,
+  formatMoney,
+  renderTemplate,
+  sampleData,
+  TemplateError,
+  TemplateKind,
+} from './templates';
 
 /**
  * Linha especial do texto de impressão: o agente troca por um QR Code ESC/POS nativo.
  * Agentes antigos imprimem a linha como texto (o endereço continua legível).
  */
 export const QR_MARK = '@@QR@@';
+/** Separa as vias do cupom fiscal: cada via vira um trabalho (o agente corta o papel entre elas). */
+const VIA_BREAK = '\n@@VIA@@\n';
 
 /** Forma de pagamento da NFC-e (código tPag) em palavras, como no DANFE. */
 const TPAG_LABELS: Record<string, string> = {
@@ -39,6 +55,7 @@ const TPAG_LABELS: Record<string, string> = {
 export const PRINT_LEASE_SECONDS = 60;
 export const PRINT_MAX_ATTEMPTS = 5;
 const WIDTH = 42;
+const num = (v: string | null | undefined) => Number(v ?? 0) || 0;
 
 export const JOB_SELECT = `
   SELECT j.id, j.kind, j.target, j.status, j.attempts, j.order_id AS "orderId", o.number AS "orderNumber",
@@ -47,6 +64,9 @@ export const JOB_SELECT = `
     FROM print_jobs j
     LEFT JOIN orders o ON o.id = j.order_id
     LEFT JOIN print_agents a ON a.id = j.claimed_by`;
+
+/** Conferência de um pedido ou da comanda inteira (mesa com várias rodadas). */
+export type ReceiptScope = { kind: 'order' | 'tab'; id: string };
 
 interface TicketItem {
   name: string;
@@ -116,9 +136,10 @@ export class PrintingService {
       delivery_fee: string;
       payment_hint: PaymentMethod | null;
       change_for: string | null;
+      store_name: string;
     }>(
       tx,
-      `SELECT o.number, o.channel, o.customer_name, tb.number AS tab_number, dt.label AS table_label, o.notes,
+      `SELECT o.number, o.channel, t.name AS store_name, o.customer_name, tb.number AS tab_number, dt.label AS table_label, o.notes,
               o.total::text, o.delivery_address, o.customer_phone,
               o.subtotal::text, o.discount::text, o.surcharge::text, o.delivery_fee::text,
               o.payment_hint, o.change_for::text,
@@ -145,6 +166,271 @@ export class PrintingService {
     );
   }
 
+  // ----------------------------------------------------------- modelos (Liquid)
+  /**
+   * Texto do modelo salvo pelo restaurante, ou null para usar o leiaute embutido. Um modelo com
+   * erro nunca deixa de imprimir: cai no leiaute padrão.
+   */
+  private async custom(
+    tx: Tx,
+    kind: TemplateKind,
+    data: Record<string, unknown>,
+  ): Promise<string | null> {
+    const t = await one<{ body: string }>(tx, `SELECT body FROM print_templates WHERE kind = $1`, [
+      kind,
+    ]);
+    if (!t) return null;
+    try {
+      return await renderTemplate(t.body, { largura: WIDTH, ...data });
+    } catch {
+      return null;
+    }
+  }
+
+  private orderData(o: Awaited<ReturnType<PrintingService['orderHeader']>>) {
+    const local = o.table_label
+      ? `Mesa ${o.table_label}`
+      : o.tab_number
+        ? `Comanda ${o.tab_number}`
+        : CHANNEL_LABELS[o.channel];
+    const trocoPara =
+      o.payment_hint === 'cash' && o.change_for && num(o.change_for) > num(o.total)
+        ? num(o.change_for)
+        : 0;
+    return {
+      numero: o.number,
+      hora: o.local_time,
+      canal: CHANNEL_LABELS[o.channel],
+      local,
+      mesa: o.table_label,
+      comanda: o.tab_number,
+      cliente: o.customer_name,
+      telefone: o.customer_phone,
+      endereco: o.delivery_address,
+      entrega: o.channel === 'delivery',
+      observacao: o.notes,
+      pagar_na_entrega: o.payment_hint ? PAYMENT_METHOD_LABELS[o.payment_hint] : null,
+      troco_para: trocoPara,
+      troco_para_formatado: formatMoney(trocoPara),
+      levar_de_troco: trocoPara ? trocoPara - num(o.total) : 0,
+    };
+  }
+
+  private itemData(i: TicketItem & { total?: string }) {
+    return {
+      nome: i.name,
+      quantidade: i.quantity,
+      total: num(i.total),
+      total_formatado: formatMoney(i.total ?? '0'),
+      opcoes: i.options,
+      observacao: i.notes,
+    };
+  }
+
+  async listTemplates(ctx: Ctx) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const rows = await q<{ kind: TemplateKind; body: string; updated_at: Date }>(
+        tx,
+        `SELECT kind, body, updated_at FROM print_templates`,
+      );
+      return (Object.keys(DEFAULT_TEMPLATES) as TemplateKind[]).map((kind) => {
+        const r = rows.find((x) => x.kind === kind);
+        return {
+          kind,
+          body: r?.body ?? null,
+          updatedAt: r?.updated_at ?? null,
+          default: DEFAULT_TEMPLATES[kind],
+        };
+      });
+    });
+  }
+
+  /** Valida e salva o modelo. Erro de sintaxe volta como 422 com a explicação. */
+  async saveTemplate(tx: Tx, ctx: Ctx, kind: TemplateKind, body: string) {
+    try {
+      checkTemplate(body);
+      await renderTemplate(body, sampleData(kind, 'Restaurante'));
+    } catch (err) {
+      if (err instanceof TemplateError) throw new UnprocessableEntityException(err.message);
+      throw err;
+    }
+    await tx.$client.query(
+      `INSERT INTO print_templates (tenant_id, kind, body, updated_by) VALUES ($1,$2,$3,$4)
+       ON CONFLICT (tenant_id, kind) DO UPDATE SET body = excluded.body, updated_by = excluded.updated_by`,
+      [ctx.tenantId, kind, body, ctx.userId ?? null],
+    );
+  }
+
+  /**
+   * Prévia do modelo com um pedido de verdade (o último, ou o escolhido) ou com dados de exemplo.
+   */
+  async previewTemplate(ctx: Ctx, kind: TemplateKind, body: string, orderId?: string | null) {
+    return this.db.withTenant(ctx, async (tx) => {
+      let data: Record<string, unknown> | null = null;
+      if (kind !== 'fiscal_footer') {
+        const o = orderId
+          ? await one<{ id: string }>(tx, `SELECT id FROM orders WHERE id = $1`, [orderId])
+          : await one<{ id: string }>(
+              tx,
+              `SELECT id FROM orders WHERE status <> 'cancelled' ORDER BY created_at DESC LIMIT 1`,
+            );
+        if (o) data = await this.templateData(tx, kind, o.id);
+      }
+      if (!data) {
+        const t = await one<{ name: string }>(tx, `SELECT name FROM tenants LIMIT 1`);
+        data = sampleData(kind, t?.name ?? 'Restaurante');
+      }
+      try {
+        return { text: await renderTemplate(body, { largura: WIDTH, ...data }), width: WIDTH };
+      } catch (err) {
+        if (err instanceof TemplateError) throw new UnprocessableEntityException(err.message);
+        throw err;
+      }
+    });
+  }
+
+  /**
+   * Comprovante de fechamento (conferência) como texto, para mostrar na tela antes de imprimir.
+   * Usa o modelo do restaurante, se houver.
+   */
+  async receiptPreview(ctx: Ctx, scope: ReceiptScope) {
+    return this.db.withTenant(ctx, async (tx) => {
+      if (
+        scope.kind === 'order' &&
+        !(await one(tx, `SELECT 1 FROM orders WHERE id = $1`, [scope.id]))
+      )
+        throw new NotFoundException('Pedido não encontrado');
+      const agent = await this.hasActiveAgent(tx);
+      return { text: await this.receipt(tx, scope), width: WIDTH, agent };
+    });
+  }
+
+  /** Manda a conferência da comanda inteira para a impressora do caixa. */
+  async printTabReceipt(ctx: Ctx, tabId: string) {
+    const res = await this.db.withTenant(ctx, async (tx) => {
+      if (!(await this.hasActiveAgent(tx)))
+        throw new ConflictException('Nenhum agente de impressão ativo. Configure em Impressão.');
+      const payload = await this.receipt(tx, { kind: 'tab', id: tabId });
+      const r = await one<{ id: string }>(
+        tx,
+        `INSERT INTO print_jobs (tenant_id, dedupe_key, kind, target, payload, created_by)
+         VALUES ($1,$2,'receipt','Caixa',$3,$4) RETURNING id`,
+        [ctx.tenantId, `tab:${tabId}:receipt:${randomUUID()}`, payload, ctx.userId],
+      );
+      return one(tx, `${JOB_SELECT} WHERE j.id = $1`, [r!.id]);
+    });
+    this.realtime.publish(ctx.tenantId, { type: 'print.changed' });
+    return res;
+  }
+
+  /** Mesmos dados que a impressão usa, para a prévia. */
+  private async templateData(tx: Tx, kind: TemplateKind, orderId: string) {
+    if (kind === 'receipt')
+      return (await this.receiptData(tx, { kind: 'order', id: orderId })).data;
+    const o = await this.orderHeader(tx, orderId);
+    const items = await this.items(tx, orderId);
+    return this.kitchenData(o, 'Cozinha', items);
+  }
+
+  private kitchenData(
+    o: Awaited<ReturnType<PrintingService['orderHeader']>>,
+    sectorName: string,
+    items: TicketItem[],
+  ) {
+    return {
+      loja: { nome: o.store_name },
+      setor: sectorName,
+      pedido: this.orderData(o),
+      itens: items.map((i) => this.itemData(i)),
+    };
+  }
+
+  /** Cabeçalho da comanda inteira (mesa): soma dos pedidos não cancelados. */
+  private async tabHeader(tx: Tx, tabId: string) {
+    const o = await one<
+      Awaited<ReturnType<PrintingService['orderHeader']>> & { order_ids: string[] }
+    >(
+      tx,
+      `SELECT tb.number AS number, 'table' AS channel, tb.customer_name, tb.number AS tab_number,
+              dt.label AS table_label, NULL AS notes, t.name AS store_name,
+              COALESCE(sum(o.total), 0)::text AS total, NULL AS delivery_address, NULL AS customer_phone,
+              COALESCE(sum(o.subtotal), 0)::text AS subtotal, COALESCE(sum(o.discount), 0)::text AS discount,
+              COALESCE(sum(o.surcharge), 0)::text AS surcharge, COALESCE(sum(o.delivery_fee), 0)::text AS delivery_fee,
+              NULL AS payment_hint, NULL AS change_for,
+              to_char(tb.opened_at AT TIME ZONE t.timezone, 'DD/MM HH24:MI') AS local_time,
+              COALESCE(array_agg(o.id ORDER BY o.created_at) FILTER (WHERE o.id IS NOT NULL), '{}') AS order_ids
+         FROM tabs tb JOIN tenants t ON t.id = tb.tenant_id
+         LEFT JOIN dining_tables dt ON dt.id = tb.table_id
+         LEFT JOIN orders o ON o.tab_id = tb.id AND o.status <> 'cancelled'
+        WHERE tb.id = $1
+        GROUP BY tb.id, dt.label, t.name, t.timezone`,
+      [tabId],
+    );
+    if (!o) throw new NotFoundException('Comanda não encontrada');
+    return o;
+  }
+
+  private async receiptData(tx: Tx, scope: ReceiptScope) {
+    let o: Awaited<ReturnType<PrintingService['orderHeader']>>;
+    let orderIds: string[];
+    if (scope.kind === 'tab') {
+      const h = await this.tabHeader(tx, scope.id);
+      o = h;
+      orderIds = h.order_ids;
+    } else {
+      o = await this.orderHeader(tx, scope.id);
+      orderIds = [scope.id];
+    }
+    const items = (await Promise.all(orderIds.map((id) => this.items(tx, id)))).flat();
+    const paid = await q<{ method: PaymentMethod; amount: string; tendered: string | null }>(
+      tx,
+      `SELECT method, (amount - refunded_amount)::text AS amount, tendered::text
+         FROM payments WHERE order_id = ANY($1::uuid[]) AND amount > refunded_amount ORDER BY created_at`,
+      [orderIds],
+    );
+    const extra = await one<{ address: string | null; now: string }>(
+      tx,
+      `SELECT (SELECT address FROM tenant_store_settings LIMIT 1) AS address,
+              to_char(now() AT TIME ZONE (SELECT timezone FROM tenants LIMIT 1), 'DD/MM/YYYY HH24:MI:SS') AS now`,
+    );
+    const received = paid.reduce((a, p) => a + num(p.amount), 0);
+    const falta = Math.max(0, Math.round((num(o.total) - received) * 100) / 100);
+    const t = {
+      subtotal: num(o.subtotal),
+      desconto: num(o.discount),
+      acrescimo: num(o.surcharge),
+      entrega: num(o.delivery_fee),
+      total: num(o.total),
+      falta,
+    };
+    const data = {
+      loja: { nome: o.store_name, endereco: extra?.address ?? null },
+      impresso_em: extra?.now ?? null,
+      comanda_inteira: scope.kind === 'tab',
+      pedidos: orderIds.length,
+      pedido: this.orderData(o),
+      itens: items.map((i) => this.itemData(i)),
+      totais: {
+        ...t,
+        tem_extras: t.desconto > 0 || t.acrescimo > 0 || t.entrega > 0,
+        ...Object.fromEntries(
+          Object.entries(t).map(([k, v]) => [`${k}_formatado`, formatMoney(v)]),
+        ),
+      },
+      pagamentos: paid.map((p) => {
+        const troco = p.tendered ? Math.max(0, num(p.tendered) - num(p.amount)) : 0;
+        return {
+          forma: PAYMENT_METHOD_LABELS[p.method] ?? p.method,
+          valor: num(p.amount),
+          valor_formatado: formatMoney(p.amount),
+          troco,
+          troco_formatado: formatMoney(troco),
+        };
+      }),
+    };
+    return { o, items, paid, data };
+  }
+
   private async kitchenTicket(
     tx: Tx,
     orderId: string,
@@ -153,6 +439,8 @@ export class PrintingService {
   ) {
     const o = await this.orderHeader(tx, orderId);
     const items = await this.items(tx, orderId, sectorId);
+    const custom = await this.custom(tx, 'kitchen_ticket', this.kitchenData(o, sectorName, items));
+    if (custom !== null) return { text: custom, count: items.length };
     const where = o.table_label
       ? `Mesa ${o.table_label}`
       : o.tab_number
@@ -175,21 +463,21 @@ export class PrintingService {
     return { text: out.join('\n'), count: items.length };
   }
 
-  private async receipt(tx: Tx, orderId: string) {
-    const o = await this.orderHeader(tx, orderId);
-    const items = await this.items(tx, orderId);
-    const paid = await q<{ method: PaymentMethod; amount: string; tendered: string | null }>(
-      tx,
-      `SELECT method, (amount - refunded_amount)::text AS amount, tendered::text
-         FROM payments WHERE order_id = $1 AND amount > refunded_amount ORDER BY created_at`,
-      [orderId],
-    );
+  private async receipt(tx: Tx, scope: ReceiptScope) {
+    const { o, items, paid, data } = await this.receiptData(tx, scope);
+    const custom = await this.custom(tx, 'receipt', data);
+    if (custom !== null) return custom;
     const money = (v: string) => `R$ ${Number(v).toFixed(2).replace('.', ',')}`;
     const row = (label: string, v: string) =>
       label.slice(0, WIDTH - 15).padEnd(WIDTH - 14) + money(v).padStart(14);
     const nonZero = (v: string) => Number(v) > 0;
-    const out = [center('CONFERÊNCIA DE CONTA'), center('NÃO É DOCUMENTO FISCAL'), line('=')];
-    out.push(`PEDIDO #${o.number}`.padEnd(WIDTH - 11) + o.local_time.padStart(11));
+    const out: string[] = [];
+    if (o.store_name) out.push(...wrap(o.store_name).map(center));
+    if (data.loja.endereco) out.push(...wrap(data.loja.endereco).map(center));
+    out.push(center('CONFERÊNCIA DE CONTA'), center('NÃO É DOCUMENTO FISCAL'), line('='));
+    const head = scope.kind === 'tab' ? `COMANDA ${o.number}` : `PEDIDO #${o.number}`;
+    out.push(head.padEnd(WIDTH - 11) + o.local_time.padStart(11));
+    if (data.impresso_em) out.push(`Impresso em ${data.impresso_em}`);
     const where = o.table_label
       ? `Mesa ${o.table_label}`
       : o.tab_number
@@ -213,7 +501,7 @@ export class PrintingService {
     const extras = [o.discount, o.surcharge, o.delivery_fee].some(nonZero);
     if (extras) out.push(row('Subtotal', o.subtotal));
     if (nonZero(o.discount)) out.push(row('Desconto', `-${o.discount}`));
-    if (nonZero(o.surcharge)) out.push(row('Acréscimo', o.surcharge));
+    if (nonZero(o.surcharge)) out.push(row('Taxa de serviço', o.surcharge));
     if (nonZero(o.delivery_fee)) out.push(row('Taxa de entrega', o.delivery_fee));
     out.push(row('TOTAL', o.total));
     if (paid.length) {
@@ -270,12 +558,18 @@ export class PrintingService {
       total: string;
       cnpj: string | null;
       company: Record<string, string> | null;
+      contingency: boolean;
+      settled: boolean;
+      emitted: string | null;
+      store_name: string;
     }>(
       tx,
       `SELECT d.kind, d.status, d.environment, d.request_payload AS payload, d.access_key, d.number, d.series,
               d.protocol, d.qrcode_url, d.consult_url, d.total::text,
               to_char(d.authorized_at AT TIME ZONE t.timezone, 'DD/MM/YYYY HH24:MI:SS') AS authorized,
-              s.cnpj, s.company
+              s.cnpj, s.company, d.contingency, d.contingency_settled_at IS NOT NULL AS settled,
+              to_char(d.created_at AT TIME ZONE t.timezone, 'DD/MM/YYYY HH24:MI:SS') AS emitted,
+              t.name AS store_name
          FROM fiscal_documents d JOIN tenants t ON t.id = d.tenant_id
          LEFT JOIN tenant_fiscal_settings s ON s.tenant_id = d.tenant_id
         WHERE d.id = $1`,
@@ -306,6 +600,12 @@ export class PrintingService {
     if (d.environment !== 'producao') {
       out.push(center('EMITIDA EM AMBIENTE DE HOMOLOGAÇÃO'));
       out.push(center('SEM VALOR FISCAL'));
+    }
+    // Contingência offline (Manual do DANFE NFC-e): aviso logo no começo do cupom.
+    const pendingContingency = d.contingency && !d.settled;
+    if (d.contingency) {
+      out.push(center('EMITIDA EM CONTINGÊNCIA'));
+      if (pendingContingency) out.push(center('Pendente de autorização'));
     }
     out.push(line());
     out.push('#  DESCRIÇÃO                                '.slice(0, WIDTH));
@@ -376,8 +676,12 @@ export class PrintingService {
     out.push(
       center(`NFC-e nº ${d.number ?? '-'} Série ${d.series ?? '-'} ${d.authorized ?? ''}`.trim()),
     );
-    if (d.protocol) out.push(center(`Protocolo de autorização: ${d.protocol}`));
-    if (d.authorized) out.push(center(`Data de autorização: ${d.authorized}`));
+    if (pendingContingency) {
+      if (d.emitted) out.push(center(`Emissão: ${d.emitted}`));
+    } else {
+      if (d.protocol) out.push(center(`Protocolo de autorização: ${d.protocol}`));
+      if (d.authorized) out.push(center(`Data de autorização: ${d.authorized}`));
+    }
     if (d.qrcode_url) out.push(`${QR_MARK}${d.qrcode_url}`);
     if (taxes)
       out.push(
@@ -385,8 +689,21 @@ export class PrintingService {
           center,
         ),
       );
+    // Rodapé livre do restaurante (modelo), depois de todos os campos obrigatórios.
+    const footer = await this.custom(tx, 'fiscal_footer', {
+      loja: { nome: d.store_name },
+      nota: { numero: d.number, serie: d.series, chave: key, contingencia: d.contingency },
+    });
+    if (footer) out.push(line(), footer);
     out.push(line('='));
-    return out.join('\n');
+    const text = out.join('\n');
+    // Em contingência saem duas vias: a do consumidor e a que fica no estabelecimento.
+    if (pendingContingency)
+      return [
+        `${text}\n${center('VIA DO CONSUMIDOR')}`,
+        `${text}\n${center('VIA DO ESTABELECIMENTO')}`,
+      ].join(VIA_BREAK);
+    return text;
   }
 
   /**
@@ -415,19 +732,26 @@ export class PrintingService {
         `SELECT order_id FROM fiscal_documents WHERE id = $1`,
         [documentId],
       );
-      const r = await one(
-        tx,
-        `INSERT INTO print_jobs (tenant_id, dedupe_key, kind, target, order_id, payload, created_by)
-         VALUES ($1,$2,'fiscal_receipt','Caixa',$3,$4,$5) ON CONFLICT (tenant_id, dedupe_key) DO NOTHING RETURNING id`,
-        [
-          tenantId,
-          reprint ? `fiscal:${documentId}:${randomUUID()}` : `fiscal:${documentId}`,
-          order?.order_id ?? null,
-          reprint ? `*** 2ª VIA ***\n${text}` : text,
-          by,
-        ],
-      );
-      return !!r;
+      let any = false;
+      const vias = text.split(VIA_BREAK);
+      for (const [n, via] of vias.entries()) {
+        const r = await one(
+          tx,
+          `INSERT INTO print_jobs (tenant_id, dedupe_key, kind, target, order_id, payload, created_by)
+           VALUES ($1,$2,'fiscal_receipt','Caixa',$3,$4,$5) ON CONFLICT (tenant_id, dedupe_key) DO NOTHING RETURNING id`,
+          [
+            tenantId,
+            reprint
+              ? `fiscal:${documentId}:${randomUUID()}`
+              : `fiscal:${documentId}${n ? `:via${n + 1}` : ''}`,
+            order?.order_id ?? null,
+            reprint ? `*** 2ª VIA ***\n${via}` : via,
+            by,
+          ],
+        );
+        any ||= !!r;
+      }
+      return any;
     });
     if (queued) this.realtime.publish(tenantId, { type: 'print.changed' });
     return queued;
@@ -530,7 +854,11 @@ export class PrintingService {
       if (!o) throw new NotFoundException('Pedido não encontrado');
       const jobs: { target: string; payload: string; kind: string }[] = [];
       if (kind === 'receipt') {
-        jobs.push({ target: 'Caixa', payload: await this.receipt(tx, orderId), kind: 'receipt' });
+        jobs.push({
+          target: 'Caixa',
+          payload: await this.receipt(tx, { kind: 'order', id: orderId }),
+          kind: 'receipt',
+        });
       } else {
         const sectors = await q<{ sector_id: string | null; name: string | null }>(
           tx,

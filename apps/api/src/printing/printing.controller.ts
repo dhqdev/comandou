@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   NotFoundException,
@@ -8,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UnauthorizedException,
@@ -30,6 +32,7 @@ import { DatabaseService } from '../database/database.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { JOB_SELECT, PrintingService } from './printing.service';
+import { TEMPLATE_KINDS, TEMPLATE_MAX, TemplateKind } from './templates';
 
 const Agent = z.object({ name: z.string().trim().min(1).max(60), active: z.boolean().optional() });
 const JobsQuery = z.object({
@@ -41,6 +44,13 @@ const PrintOrder = z.object({ kind: z.enum(['kitchen', 'receipt']) });
 const Claim = z.object({ limit: z.number().int().min(1).max(20).default(5) });
 const Heartbeat = z.object({ version: z.string().trim().max(40).optional() });
 const Result = z.object({ ok: z.boolean(), error: z.string().max(300).optional() });
+
+const Kind = z.enum(TEMPLATE_KINDS);
+const TemplateBody = z.object({ body: z.string().min(1).max(TEMPLATE_MAX) });
+const Preview = TemplateBody.extend({
+  kind: Kind,
+  orderId: z.string().uuid().nullable().optional(),
+});
 
 const AGENT_COLS = `id, name, active, last_seen_at AS "lastSeenAt", version, created_at AS "createdAt",
   (last_seen_at > now() - interval '2 minutes') AS online`;
@@ -92,6 +102,75 @@ export class PrintingController {
       });
       return { agent: a, token };
     });
+  }
+
+  // ------------------------------------------------------------- modelos de impressão
+  /** Modelos (Liquid) da conferência, da comanda da cozinha e do rodapé do cupom fiscal. */
+  @Get('printing/templates')
+  @RequirePermission('printing:manage')
+  templates(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.printing.listTemplates(ctxOf(t, u));
+  }
+
+  @Put('printing/templates/:kind')
+  @RequirePermission('printing:manage')
+  saveTemplate(
+    @Param('kind', new ZodPipe(Kind)) kind: TemplateKind,
+    @Body(new ZodPipe(TemplateBody)) b: z.infer<typeof TemplateBody>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const ctx = ctxOf(t, u);
+    return this.db.withTenant(ctx, async (tx) => {
+      await this.printing.saveTemplate(tx, ctx, kind, b.body);
+      await this.audit.record(tx, {
+        tenantId: t.id,
+        actorUserId: u.id,
+        action: 'printing.template_saved',
+        entity: 'print_template',
+        entityId: t.id,
+        data: { kind, length: b.body.length },
+        ip: req.ip,
+      });
+      return { ok: true };
+    });
+  }
+
+  /** Volta ao leiaute padrão do Comandou. */
+  @Delete('printing/templates/:kind')
+  @RequirePermission('printing:manage')
+  resetTemplate(
+    @Param('kind', new ZodPipe(Kind)) kind: TemplateKind,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.db.withTenant(ctxOf(t, u), async (tx) => {
+      await tx.$client.query(`DELETE FROM print_templates WHERE kind = $1`, [kind]);
+      await this.audit.record(tx, {
+        tenantId: t.id,
+        actorUserId: u.id,
+        action: 'printing.template_reset',
+        entity: 'print_template',
+        entityId: t.id,
+        data: { kind },
+        ip: req.ip,
+      });
+      return { ok: true };
+    });
+  }
+
+  /** Prévia: monta o texto com o último pedido (ou o escolhido), sem imprimir nada. */
+  @Post('printing/templates/preview')
+  @HttpCode(200)
+  @RequirePermission('printing:manage')
+  previewTemplate(
+    @Body(new ZodPipe(Preview)) b: z.infer<typeof Preview>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.printing.previewTemplate(ctxOf(t, u), b.kind, b.body, b.orderId ?? null);
   }
 
   @Patch('printing/agents/:id')
@@ -198,6 +277,39 @@ export class PrintingController {
     @CurrentUser() u: AuthenticatedUser,
   ) {
     return this.printing.testPage(ctxOf(t, u), b.target);
+  }
+
+  /** Comprovante de fechamento (conferência) do pedido, para ver antes de imprimir. */
+  @Get('orders/:id/receipt')
+  @RequirePermission('orders:read')
+  orderReceipt(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.printing.receiptPreview(ctxOf(t, u), { kind: 'order', id });
+  }
+
+  /** Comprovante de fechamento da comanda inteira (mesa com várias rodadas). */
+  @Get('tabs/:id/receipt')
+  @RequirePermission('orders:read')
+  tabReceipt(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.printing.receiptPreview(ctxOf(t, u), { kind: 'tab', id });
+  }
+
+  @Post('tabs/:id/print')
+  @RequirePermission('tables:operate', 'payments:create', 'printing:manage')
+  printTab(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.printing.printTabReceipt(ctxOf(t, u, req), id);
   }
 
   /** Reimprimir comanda de cozinha ou imprimir conferência de conta. */

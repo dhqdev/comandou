@@ -1575,3 +1575,20 @@ label.option-row input[type='checkbox'] {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Comprovante de fechamento: papel da bobina na tela */
+.receipt-paper {
+  margin: var(--cm-space-3) auto 0;
+  padding: var(--cm-space-4) var(--cm-space-3);
+  background: #fffef8;
+  color: #1a1a1a;
+  border: 1px dashed var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre;
+}

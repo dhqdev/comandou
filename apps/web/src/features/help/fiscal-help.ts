@@ -96,6 +96,9 @@ export const FISCAL_HELP: HelpDict = {
     text: 'Ligado: quando a SEFAZ autoriza a NFC-e, o cupom com QR Code sai sozinho na impressora térmica do caixa (pelo app de impressão do Comandou). Para reimprimir, use "Imprimir cupom" na nota.',
     link: { to: '/impressao', label: 'Abrir Impressão' },
   },
+  'Continuar vendendo se a SEFAZ cair (contingência)': {
+    text: 'Ligado: se a SEFAZ do estado estiver fora do ar, a NFC-e sai mesmo assim com "EMITIDA EM CONTINGÊNCIA", em duas vias, e a Focus NFe manda a nota quando a SEFAZ voltar (prazo de 24 horas). Enquanto está pendente, a nota não pode ser cancelada. Santa Catarina não aceita.',
+  },
   'Natureza da operação': {
     text: 'Texto que descreve a venda e sai impresso na nota. Para restaurante o comum é "VENDA AO CONSUMIDOR" (NFC-e) ou "VENDA DE MERCADORIA" (NF-e).',
   },

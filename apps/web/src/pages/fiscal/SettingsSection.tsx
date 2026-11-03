@@ -564,6 +564,15 @@ function NfceTab({
           )
         }
       />
+      <CheckField
+        label="Continuar vendendo se a SEFAZ cair (contingência)"
+        description="Se a SEFAZ estiver fora do ar, a NFC-e sai mesmo assim com o aviso EMITIDA EM CONTINGÊNCIA, em duas vias, e a Focus NFe envia a nota quando a SEFAZ voltar. Vale no próximo salvar da empresa. Santa Catarina não aceita."
+        checked={s.contingencyOffline}
+        disabled={busy}
+        onChange={(v) =>
+          void save({ contingencyOffline: v }, v ? 'Contingência ligada' : 'Contingência desligada')
+        }
+      />
       <div className="fi-fields">
         <TextField
           label="Natureza da operação"

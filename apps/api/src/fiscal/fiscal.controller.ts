@@ -69,6 +69,7 @@ const Settings = z
     autoEmitNfce: z.boolean(),
     emailCustomer: z.boolean(),
     printNfce: z.boolean(),
+    contingencyOffline: z.boolean(),
   })
   .partial();
 

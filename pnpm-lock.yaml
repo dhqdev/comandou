@@ -66,6 +66,9 @@ importers:
       helmet:
         specifier: ^8.1.0
         version: 8.3.0
+      liquidjs:
+        specifier: 10.30.0
+        version: 10.30.0
       nestjs-pino:
         specifier: ^4.4.0
         version: 4.6.1(@nestjs/common@11.2.7(reflect-metadata@0.2.2)(rxjs@7.8.2))(pino-http@10.5.0)(pino@9.14.0)(rxjs@7.8.2)
@@ -2412,6 +2415,10 @@ packages:
     resolution: {integrity: sha512-FQN4MRfuJeHf7cBbBMJFXhKSDq+2kAArBlmRBvcvFE5BB1HZKXtSFASDhdlz9zOYwxh8lDdnvmMOe/+5cdoEdg==}
     engines: {node: '>= 0.8'}
 
+  commander@10.0.1:
+    resolution: {integrity: sha512-y4Mg2tXshplEbSGzx7amzPwKKOCGuoSRP/CjEdwwk0FOGlUbq6lKuoyDZTNZkmxHdJtp54hdfY/JUrdL7Xfdug==}
+    engines: {node: '>=14'}
+
   commander@2.20.3:
     resolution: {integrity: sha512-GpVkmM8vF2vQUkj2LvZmD35JxeJOLCwJ9cUkugyk2nuhbv3+mJvpLYYt+0+USMxE+oj+ey/lJEnhZw75x/OMcQ==}
 
@@ -3195,8 +3202,8 @@ packages:
     resolution: {integrity: sha512-qsda+H8jTaUaN/x5vzW2rzc+8Rw4TAQ/4KjB46IwK5VH+IlVeeeje/EoZRpiXvIqjFgK84QffqPztGI3VBLG1A==}
     engines: {node: '>=6'}
 
-  libsignal@git+https://github.com/whiskeysockets/libsignal-node.git#bcea72df9ec34d9d9140ab30619cf479c7c144c7:
-    resolution: {commit: bcea72df9ec34d9d9140ab30619cf479c7c144c7, repo: https://github.com/whiskeysockets/libsignal-node.git, type: git}
+  libsignal@git+https://git@github.com:whiskeysockets/libsignal-node.git#bcea72df9ec34d9d9140ab30619cf479c7c144c7:
+    resolution: {commit: bcea72df9ec34d9d9140ab30619cf479c7c144c7, repo: git@github.com:whiskeysockets/libsignal-node.git, type: git}
     version: 6.0.0
 
   lightningcss-android-arm64@1.33.0:
@@ -3268,6 +3275,11 @@ packages:
   lightningcss@1.33.0:
     resolution: {integrity: sha512-WkUDrojuJs0xkgGf2udWxa3yGBRxPtxUkB79i6aCZLRgc7PM8fZe9TosfPDcvEpQZbuFASnHYmRLBLUbmLOIIA==}
     engines: {node: '>= 12.0.0'}
+
+  liquidjs@10.30.0:
+    resolution: {integrity: sha512-Fw4wA+8CZsJkaeLEIlPE3AoponfjEZhj7FQvYNcAEcg7jNRik7mEMoaco382FBdrYlykVf6w4vClPNctz2OYjg==}
+    engines: {node: '>=16'}
+    hasBin: true
 
   load-esm@1.0.3:
     resolution: {integrity: sha512-v5xlu8eHD1+6r8EHTg6hfmO97LN8ugKtiXcy5e6oN72iD2r6u0RPfLl6fxM+7Wnh2ZRq15o0russMst44WauPA==}
@@ -6471,7 +6483,7 @@ snapshots:
       '@hapi/boom': 9.1.4
       async-mutex: 0.5.0
       axios: 1.20.0
-      libsignal: git+https://github.com/whiskeysockets/libsignal-node.git#bcea72df9ec34d9d9140ab30619cf479c7c144c7
+      libsignal: git+https://git@github.com:whiskeysockets/libsignal-node.git#bcea72df9ec34d9d9140ab30619cf479c7c144c7
       music-metadata: 11.16.1
       pino: 9.14.0
       protobufjs: 7.6.6
@@ -6600,6 +6612,8 @@ snapshots:
   combined-stream@1.0.8:
     dependencies:
       delayed-stream: 1.0.0
+
+  commander@10.0.1: {}
 
   commander@2.20.3: {}
 
@@ -7405,7 +7419,7 @@ snapshots:
 
   leven@3.1.0: {}
 
-  libsignal@git+https://github.com/whiskeysockets/libsignal-node.git#bcea72df9ec34d9d9140ab30619cf479c7c144c7:
+  libsignal@git+https://git@github.com:whiskeysockets/libsignal-node.git#bcea72df9ec34d9d9140ab30619cf479c7c144c7:
     dependencies:
       curve25519-js: 0.0.4
       protobufjs: 7.6.6
@@ -7458,6 +7472,10 @@ snapshots:
       lightningcss-linux-x64-musl: 1.33.0
       lightningcss-win32-arm64-msvc: 1.33.0
       lightningcss-win32-x64-msvc: 1.33.0
+
+  liquidjs@10.30.0:
+    dependencies:
+      commander: 10.0.1
 
   load-esm@1.0.3: {}
 

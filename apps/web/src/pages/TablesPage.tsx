@@ -10,6 +10,7 @@ import {
   Plus,
   Printer,
   Receipt,
+  ReceiptText,
   ScanLine,
   Search,
   ShoppingBag,
@@ -35,6 +36,7 @@ import { WaitersModal } from '../waiter/WaitersModal';
 import { NewSaleModal } from '../features/NewSaleModal';
 import { OrderDetailModal } from '../features/OrderDetailModal';
 import { PaymentModal } from '../features/PaymentModal';
+import { ReceiptPreview } from '../features/ReceiptPreview';
 import { QrScanner } from '../features/QrScanner';
 import { SlideTabs } from '../features/SlideTabs';
 import { TableEditor } from '../features/TableEditor';
@@ -592,6 +594,8 @@ function TabModal({
   const [transfer, setTransfer] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Comprovante de fechamento na tela (antes ou logo depois de fechar a conta). */
+  const [receipt, setReceipt] = useState<{ afterClose: boolean } | null>(null);
 
   const load = useCallback(async () => {
     if (!tabId) return;
@@ -621,7 +625,7 @@ function TabModal({
       await api(`/tabs/${tab.id}/close`, { method: 'POST' });
       toast(`Conta da comanda ${tab.number} fechada`, 'success');
       onChanged();
-      onClose();
+      setReceipt({ afterClose: true });
     } catch (e) {
       toast((e as Error).message, 'danger');
     } finally {
@@ -695,6 +699,14 @@ function TabModal({
             Adicionar pedido
           </Button>
         )}
+        <Button
+          variant="secondary"
+          size="lg"
+          icon={<ReceiptText size={18} />}
+          onClick={() => setReceipt({ afterClose: false })}
+        >
+          Comprovante
+        </Button>
         {canPay &&
           (owes ? (
             <Button size="lg" icon={<Wallet size={18} />} onClick={() => setPaying(true)}>
@@ -887,6 +899,14 @@ function TabModal({
             onClose={() => {
               setOrderId(null);
               void load();
+            }}
+          />
+          <ReceiptPreview
+            target={receipt ? { kind: 'tab', id: tab.id } : null}
+            onClose={() => {
+              const after = receipt?.afterClose;
+              setReceipt(null);
+              if (after) onClose();
             }}
           />
         </div>

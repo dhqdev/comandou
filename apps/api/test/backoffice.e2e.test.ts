@@ -1098,6 +1098,65 @@ describe('Impressão (agente local e fila)', () => {
     await agentPost(agent2Token, `/jobs/${t.id}/result`, { ok: true }).expect(200);
   });
 
+  it('modelos de impressão (Liquid): valida, mostra prévia, imprime e volta ao padrão', async () => {
+    await get('waiterA', '/printing/templates').expect(403);
+    const list = (await get('adminA', '/printing/templates').expect(200)).body as {
+      kind: string;
+      body: string | null;
+      default: string;
+    }[];
+    expect(list.map((t) => t.kind)).toEqual(['receipt', 'kitchen_ticket', 'fiscal_footer']);
+    expect(list.every((t) => t.body === null && t.default.length > 20)).toBe(true);
+    // Erro de sintaxe, filtro desconhecido e tentativa de ler arquivo são recusados.
+    await put('adminA', '/printing/templates/receipt', { body: '{% for i in itens %}' }).expect(
+      422,
+    );
+    await put('adminA', '/printing/templates/receipt', { body: '{{ x | nao_existe }}' }).expect(
+      422,
+    );
+    const inc = await put('adminA', '/printing/templates/receipt', {
+      body: '{% include "/etc/passwd" %}',
+    }).expect(422);
+    expect(inc.body.message).toContain('não podem incluir');
+    await put('adminA', '/printing/templates/outro', { body: 'x' }).expect(400);
+
+    const body = `{{ "CONTA DA CASA" | centro }}
+{% for item in itens %}{{ item.quantidade | qtd | append: "x " | append: item.nome | linha: item.total_formatado }}
+{% endfor %}{{ "TOTAL" | linha: totais.total_formatado }}
+{{ loja.nome }}`;
+    const pv = (
+      await post('adminA', '/printing/templates/preview', { kind: 'receipt', body }).expect(200)
+    ).body;
+    expect(pv.text).toContain('CONTA DA CASA');
+    expect(pv.text).toMatch(/TOTAL\s+R\$ \d/);
+    await put('adminA', '/printing/templates/receipt', { body }).expect(200);
+
+    const o = (await counterOrder(1).expect(201)).body;
+    await post('adminA', `/orders/${o.id}/print`, { kind: 'receipt' }).expect(201);
+    const jobs = await ownerQuery<{ payload: string }>(
+      `SELECT payload FROM print_jobs WHERE order_id = $1 AND kind = 'receipt'`,
+      [o.id],
+    );
+    expect(jobs[0].payload).toContain('CONTA DA CASA');
+    expect(jobs[0].payload).not.toContain('CONFERÊNCIA DE CONTA');
+    // Cada restaurante tem os seus modelos.
+    const b = (await get('adminB', '/printing/templates').expect(200)).body as { body: string }[];
+    expect(b.every((t) => t.body === null)).toBe(true);
+    // Voltar ao padrão.
+    await http
+      .delete('/api/v1/printing/templates/receipt')
+      .set('Host', HOST_A)
+      .set('Cookie', cookies.adminA)
+      .set(CSRF)
+      .expect(200);
+    await post('adminA', `/orders/${o.id}/print`, { kind: 'receipt' }).expect(201);
+    const after = await ownerQuery<{ payload: string }>(
+      `SELECT payload FROM print_jobs WHERE order_id = $1 AND kind = 'receipt' ORDER BY created_at DESC LIMIT 1`,
+      [o.id],
+    );
+    expect(after[0].payload).toContain('CONFERÊNCIA DE CONTA');
+  });
+
   it('desativar ou trocar o token bloqueia o agente; B não vê a fila de A', async () => {
     const list = (await get('adminA', '/printing/agents').expect(200)).body as {
       id: string;

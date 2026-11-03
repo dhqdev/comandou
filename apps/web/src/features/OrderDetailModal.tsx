@@ -38,6 +38,7 @@ import { useCan } from '../app/auth';
 import { FiscalSection } from './FiscalSection';
 import { OrderLiveMap } from './OrderLiveMap';
 import { api } from '../lib/api';
+import { ReceiptPreview } from './ReceiptPreview';
 import { mediaUrl } from '../lib/media';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
@@ -93,6 +94,7 @@ export function OrderDetailModal({
   const canManagePrint = useCan('printing:manage');
   const canPrint = canWrite || canManagePrint;
   const [printing, setPrinting] = useState(false);
+  const [receiptOpen, setReceiptOpen] = useState(false);
   async function print(kind: 'kitchen' | 'receipt') {
     if (!orderId) return;
     setPrinting(true);
@@ -226,7 +228,7 @@ export function OrderDetailModal({
         ...(canPrint && order.status !== 'cancelled'
           ? [
               { label: 'Reimprimir na cozinha', run: () => void print('kitchen') },
-              { label: 'Imprimir conferência', run: () => void print('receipt') },
+              { label: 'Comprovante de fechamento', run: () => setReceiptOpen(true) },
             ]
           : []),
       ]
@@ -601,6 +603,10 @@ export function OrderDetailModal({
               void load();
             }}
             target={{ kind: 'order', id: order.id, number: order.number, balance: order.balance }}
+          />
+          <ReceiptPreview
+            target={receiptOpen ? { kind: 'order', id: order.id } : null}
+            onClose={() => setReceiptOpen(false)}
           />
         </div>
       )}

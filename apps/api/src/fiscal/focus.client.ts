@@ -41,6 +41,10 @@ export interface FocusResponse {
     qrcode_url?: string;
     /** Endereço de consulta da NFC-e pela chave (varia por estado). */
     url_consulta_nf?: string;
+    /** Emitida em contingência offline (SEFAZ fora do ar): a Focus transmite depois. */
+    contingencia_offline?: boolean | string;
+    /** A SEFAZ já recebeu a nota emitida em contingência? */
+    contingencia_offline_efetivada?: boolean | string;
     codigo?: string;
     mensagem?: string;
     erros?: { mensagem?: string; campo?: string }[];

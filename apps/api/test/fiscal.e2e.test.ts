@@ -28,7 +28,10 @@ const B_PROD = 'tok-b-prod-5432';
 const CERT = Buffer.from('pfx-falso-de-teste').toString('base64');
 const companies = new Map<string, Record<string, unknown>>();
 
-type Mode = 'authorize' | 'processing' | 'reject' | 'fail-once' | 'ref-used' | 'down';
+type Mode =
+  'authorize' | 'processing' | 'reject' | 'fail-once' | 'ref-used' | 'down' | 'contingency';
+/** Contingência offline: a SEFAZ já recebeu a nota que a Focus emitiu sem ela? */
+let contingencySettled = false;
 let mode: Mode = 'authorize';
 let cancelMode: 'ok' | 'refuse' = 'ok';
 const notes = new Map<string, Record<string, unknown>>();
@@ -208,6 +211,16 @@ function focusHandler(req: IncomingMessage, res: ServerResponse) {
         notes.set(ref, r);
         return send(201, r);
       }
+      if (mode === 'contingency') {
+        // SEFAZ fora do ar: a Focus autoriza em contingência e transmite depois.
+        const r = {
+          ...authorized(ref),
+          contingencia_offline: true,
+          contingencia_offline_efetivada: false,
+        };
+        notes.set(ref, { ...r, offline: true });
+        return send(201, r);
+      }
       if (mode === 'processing') {
         notes.set(ref, { status: 'processando_autorizacao', pending: true });
         return send(202, { status: 'processando_autorizacao' });
@@ -227,6 +240,14 @@ function focusHandler(req: IncomingMessage, res: ServerResponse) {
           const r = authorized(ref);
           notes.set(ref, r);
           return send(200, { status: 'processando_autorizacao' });
+        }
+        if (n.offline) {
+          const { offline: _o, ...rest } = n;
+          return send(200, {
+            ...rest,
+            contingencia_offline_efetivada: contingencySettled,
+            ...(contingencySettled ? { protocolo: '141260000123456' } : {}),
+          });
         }
         return send(200, n);
       }
@@ -551,6 +572,15 @@ describe('Emissão de NFC-e', () => {
         key(),
       ).expect(201);
     }
+    // Comprovante de fechamento da mesa: as duas rodadas num papel só, pagas.
+    const rc = (await get('waiterA', `/tabs/${o1.tabId}/receipt`).expect(200)).body;
+    expect(rc.text).toContain('CONFERÊNCIA DE CONTA');
+    expect(rc.text).toContain('Mesa NF-M1');
+    expect(rc.text.match(/1x X-Burguer A/g)).toHaveLength(2);
+    expect(rc.text).not.toContain('FALTA PAGAR');
+    const total = fromCents(toCents(o1.total) + toCents(o2.total)).replace('.', ',');
+    expect(rc.text).toMatch(new RegExp(`TOTAL\\s+R\\$ ${total}`));
+    await get('adminB', `/tabs/${o1.tabId}/receipt`).expect(404);
     // Conta ainda aberta: a nota espera (senão um pedido novo ficaria fora dela).
     await post('cashierA', `/orders/${o1.id}/nfce`).expect(409);
     await post('adminA', `/tabs/${o1.tabId}/close`).expect(201);
@@ -583,6 +613,50 @@ describe('Emissão de NFC-e', () => {
     const all = await jobs();
     expect(all).toHaveLength(2);
     expect(all.some((j) => j.payload.startsWith('*** 2ª VIA ***'))).toBe(true);
+  });
+
+  it('SEFAZ fora do ar: NFC-e em contingência sai em duas vias, não cancela e se confirma depois', async () => {
+    mode = 'contingency';
+    contingencySettled = false;
+    const o = await paidOrder();
+    const d = (await post('cashierA', `/orders/${o.id}/nfce`).expect(202)).body;
+    const done = await waitDoc(d.id, (st) => st === 'authorized');
+    expect(done).toMatchObject({ contingency: true, contingencySettledAt: null });
+    const jobs = async () =>
+      ownerQuery<{ payload: string; dedupe_key: string }>(
+        `SELECT payload, dedupe_key FROM print_jobs WHERE kind = 'fiscal_receipt' AND dedupe_key LIKE $1 ORDER BY dedupe_key`,
+        [`fiscal:${d.id}%`],
+      );
+    const end = Date.now() + 5_000;
+    while ((await jobs()).length < 2 && Date.now() < end)
+      await new Promise((r) => setTimeout(r, 200));
+    const vias = await jobs();
+    expect(vias).toHaveLength(2);
+    for (const v of vias) {
+      expect(v.payload).toContain('EMITIDA EM CONTINGÊNCIA');
+      expect(v.payload).toContain('Pendente de autorização');
+      expect(v.payload).not.toContain('Protocolo de autorização');
+    }
+    expect(vias.map((v) => v.payload.includes('VIA DO ESTABELECIMENTO'))).toContain(true);
+    expect(vias.map((v) => v.payload.includes('VIA DO CONSUMIDOR'))).toContain(true);
+    // Antes de a SEFAZ receber, não dá para cancelar.
+    const c = await post('managerA', `/fiscal/documents/${d.id}/cancel`, {
+      reason: 'Cliente desistiu da compra',
+    }).expect(409);
+    expect(c.body.message).toContain('contingência');
+    // A SEFAZ voltou e recebeu: "Atualizar" confirma a nota.
+    contingencySettled = true;
+    await post('cashierA', `/fiscal/documents/${d.id}/sync`).expect(202);
+    const end2 = Date.now() + 8_000;
+    let cur = done;
+    while (!cur.contingencySettledAt && Date.now() < end2) {
+      await new Promise((r) => setTimeout(r, 300));
+      cur = (await get('adminA', `/fiscal/documents/${d.id}`).expect(200)).body;
+    }
+    expect(cur).toMatchObject({ status: 'authorized', contingency: true });
+    expect(cur.contingencySettledAt).toBeTruthy();
+    expect(cur.protocol).toBe('141260000123456');
+    mode = 'authorize';
   });
 
   it('delivery pago na entrega: a NFC-e sai com o pedido na rua', async () => {
@@ -888,6 +962,7 @@ describe('Modo revenda (token master do Comandou)', () => {
     expect(sent).toMatchObject({
       cnpj: '98765432000110',
       habilita_nfce: true,
+      habilita_contingencia_offline_nfce: true,
       arquivo_certificado_base64: CERT,
       id_token_nfce_homologacao: '1',
     });

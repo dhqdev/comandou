@@ -153,3 +153,58 @@
     flex-direction: column;
   }
 }
+
+/* Modelos de impressão (Liquid) */
+.print-tpl {
+  display: grid;
+  gap: var(--cm-space-3);
+}
+.print-tpl__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--cm-space-4);
+}
+.print-tpl__area {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--cm-text-sm);
+  min-height: 320px;
+  resize: vertical;
+  white-space: pre;
+  overflow-x: auto;
+}
+.print-tpl__side {
+  display: grid;
+  align-content: start;
+  gap: var(--cm-space-2);
+  min-width: 0;
+}
+.print-tpl__paper {
+  margin: 0;
+  padding: var(--cm-space-3);
+  background: #fffef8;
+  color: #1a1a1a;
+  border: 1px dashed var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  width: 100%;
+  max-width: 46ch;
+  overflow-x: auto;
+  white-space: pre;
+}
+.print-tpl__vars {
+  margin: 0;
+  padding-left: 1.1em;
+  display: grid;
+  gap: 4px;
+  font-size: var(--cm-text-sm);
+}
+.print-tpl__vars code {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .print-tpl__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

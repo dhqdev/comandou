@@ -640,7 +640,7 @@ export interface PrintAgent {
 }
 export interface PrintJob {
   id: string;
-  kind: 'kitchen_ticket' | 'receipt' | 'test';
+  kind: 'kitchen_ticket' | 'receipt' | 'test' | 'fiscal_receipt' | 'kitchen_cancel';
   target: string;
   status: 'queued' | 'printing' | 'done' | 'failed';
   attempts: number;
@@ -761,6 +761,8 @@ export interface FiscalSettings {
   autoEmitNfce: boolean;
   /** Imprime o cupom da NFC-e na impressora do caixa quando a nota é autorizada. */
   printNfce: boolean;
+  /** NFC-e em contingência offline quando a SEFAZ cai (vale no próximo salvar da empresa). */
+  contingencyOffline: boolean;
   emailCustomer: boolean;
   regime: 1 | 2 | 3 | 4 | null;
   receivedSyncedAt: string | null;
@@ -965,6 +967,10 @@ export interface FiscalDocument {
   cancelledAt: string | null;
   xmlUrl: string | null;
   danfeUrl: string | null;
+  /** Emitida em contingência offline (SEFAZ fora do ar na hora da venda). */
+  contingency?: boolean;
+  /** Quando a SEFAZ recebeu a nota emitida em contingência (null = ainda pendente). */
+  contingencySettledAt?: string | null;
 }
 /** Avisos ao cliente, na ordem do pedido. */
 export const NOTICE_KEYS = ['Accepted', 'Ready', 'Dispatched', 'Delivered', 'Cancelled'] as const;

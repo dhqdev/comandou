@@ -259,7 +259,10 @@ export function DocumentDetail() {
                     Apagar nota
                   </Button>
                 )}
-                {['pending', 'processing', 'cancelling'].includes(doc.status) && (
+                {(['pending', 'processing', 'cancelling'].includes(doc.status) ||
+                  (doc.status === 'authorized' &&
+                    doc.contingency &&
+                    !doc.contingencySettledAt)) && (
                   <Button
                     variant="ghost"
                     icon={<RefreshCw size={16} />}
@@ -313,7 +316,7 @@ export function DocumentDetail() {
                     Carta de correção
                   </Button>
                 )}
-                {doc.status === 'authorized' && (
+                {doc.status === 'authorized' && !(doc.contingency && !doc.contingencySettledAt) && (
                   <Button
                     variant="ghost"
                     icon={<XCircle size={16} />}
@@ -375,6 +378,16 @@ export function DocumentDetail() {
               <a href={doc.qrcodeUrl} target="_blank" rel="noreferrer noopener">
                 Consultar na SEFAZ (QR Code)
               </a>
+            )}
+            {doc.status === 'authorized' && doc.contingency && !doc.contingencySettledAt && (
+              <Alert tone="warning">
+                Emitida em contingência: a SEFAZ estava fora do ar na hora da venda. O cupom vale
+                para o cliente e a Focus NFe envia a nota sozinha quando a SEFAZ voltar (prazo de 24
+                horas). Até lá, não dá para cancelar.
+              </Alert>
+            )}
+            {doc.status === 'authorized' && doc.contingency && doc.contingencySettledAt && (
+              <Alert tone="info">Emitida em contingência e já recebida pela SEFAZ.</Alert>
             )}
             {doc.lastError && doc.status === 'authorized' && (
               <Alert tone="warning">{doc.lastError}</Alert>

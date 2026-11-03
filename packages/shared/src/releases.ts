@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.74.0',
+    date: '2026-11-03',
+    title: 'Comprovante de fechamento com modelo próprio e NFC-e mesmo com a SEFAZ fora do ar',
+    summary:
+      'Ao fechar a mesa ou a comanda, o comprovante aparece na tela para conferir e imprimir. O formato do comprovante, da comanda da cozinha e do rodapé do cupom fiscal agora é editável, e a NFC-e continua saindo quando a SEFAZ cai.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Comprovante de fechamento: na mesa/comanda (botão "Comprovante" e logo depois de fechar a conta) e no pedido, com pré-visualização e Imprimir. Sem o app de impressão, imprime pelo navegador.',
+      },
+      {
+        tag: 'novo',
+        text: 'Impressão > Modelos de impressão: edite o comprovante de fechamento, a comanda da cozinha e o rodapé do cupom fiscal com variáveis e laços (linguagem Liquid, parecida com o Jinja), com prévia do último pedido e "Voltar ao padrão".',
+      },
+      {
+        tag: 'novo',
+        text: 'NFC-e em contingência offline: com a SEFAZ fora do ar, o cupom sai com "EMITIDA EM CONTINGÊNCIA" em duas vias (consumidor e estabelecimento) e a nota é confirmada sozinha quando a SEFAZ volta. Opção em Fiscal > Configuração.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Nota em contingência mostra "contingência pendente" na lista e só pode ser cancelada depois que a SEFAZ recebe.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Comprovante da mesa junta todas as rodadas num papel só, com o endereço da loja e a hora da impressão.',
+      },
+      {
+        tag: 'correção',
+        text: 'Cancelamento de nota recusado pela SEFAZ às vezes vinha sem o motivo.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Modelos de impressão não leem arquivos nem rodam código, e têm limite de tamanho, tempo e memória.',
+      },
+    ],
+  },
+  {
     version: '0.73.0',
     date: '2026-11-03',
     title: 'Caixa com linha do tempo: tudo o que entrou e saiu, evento por evento',

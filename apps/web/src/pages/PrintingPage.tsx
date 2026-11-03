@@ -20,6 +20,7 @@ import {
   PRINT_AGENT_DOWNLOADS,
   type DesktopOs,
 } from '../features/print-agent';
+import { PrintTemplatesCard } from '../features/PrintTemplates';
 import { api } from '../lib/api';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import type { PrintAgent, PrintJob } from '../lib/types';
@@ -29,6 +30,8 @@ const KIND: Record<PrintJob['kind'], string> = {
   kitchen_ticket: 'Comanda',
   receipt: 'Conferência',
   test: 'Teste',
+  fiscal_receipt: 'Cupom fiscal',
+  kitchen_cancel: 'Item cancelado',
 };
 const STATUS: Record<PrintJob['status'], [string, 'neutral' | 'info' | 'success' | 'danger']> = {
   queued: ['Na fila', 'neutral'],
@@ -217,6 +220,8 @@ export function PrintingPage() {
           </div>
         )}
       </Card>
+
+      <PrintTemplatesCard />
 
       <ConnectModal
         open={connectOpen}

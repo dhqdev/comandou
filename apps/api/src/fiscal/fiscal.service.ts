@@ -74,6 +74,8 @@ export interface FiscalSettingsInput {
   emailCustomer?: boolean;
   /** Imprime o cupom da NFC-e autorizada na impressora do caixa (agente de impressão). */
   printNfce?: boolean;
+  /** NFC-e em contingência offline quando a SEFAZ cai (vai para o cadastro na Focus). */
+  contingencyOffline?: boolean;
 }
 
 /** Dados cadastrais do emitente (vão para a Focus e ficam no banco, sem segredos). */
@@ -141,6 +143,7 @@ export interface SettingsRow {
   additional_info: string | null;
   auto_emit_nfce: boolean;
   print_nfce: boolean;
+  contingency_offline: boolean;
   email_customer: boolean;
   received_version: string;
   received_synced_at: Date | null;
@@ -167,15 +170,17 @@ interface DocRow {
   operation: Operation | null;
   customer_id: string | null;
   number: string | null;
+  contingency: boolean;
+  contingency_settled_at: Date | null;
 }
 
 const SETTINGS_COLS = `enabled, environment, cnpj, token_enc, token_last4, default_cfop, default_code,
   default_ncm, updated_at, mode, focus_company_id, token_homolog_enc, token_prod_enc, company,
   certificate_valid_until, csc_homolog_set, csc_prod_set, focus_synced_at, nfe_enabled, nfce_nature,
-  nfe_nature, additional_info, auto_emit_nfce, print_nfce, email_customer, received_version::text, received_synced_at`;
+  nfe_nature, additional_info, auto_emit_nfce, print_nfce, email_customer, received_version::text, received_synced_at, contingency_offline`;
 
 const DOC_COLS = `id, order_id, tab_id, kind, ref, environment, status, attempts, request_payload, cancel_reason,
-  recipient, operation, customer_id, number`;
+  recipient, operation, customer_id, number, contingency, contingency_settled_at`;
 
 /** Contexto do valor cifrado: um token não decifra se for trocado de ambiente ou de restaurante. */
 const tokenContext = (tenantId: string, kind: 'own' | FocusEnvironment) =>
@@ -207,7 +212,8 @@ const DOC_SELECT = `
          d.issues, d.recipient, d.customer_id AS "customerId", d.protocol,
          coalesce(d.recipient->>'name', o.customer_name) AS "recipientName",
          d.created_at AS "createdAt", d.updated_at AS "updatedAt", d.authorized_at AS "authorizedAt",
-         d.cancelled_at AS "cancelledAt", d.discarded_at AS "discardedAt", d.discard_reason AS "discardReason"
+         d.cancelled_at AS "cancelledAt", d.discarded_at AS "discardedAt", d.discard_reason AS "discardReason",
+         d.contingency, d.contingency_settled_at AS "contingencySettledAt"
     FROM fiscal_documents d JOIN orders o ON o.id = d.order_id`;
 
 /** Estados "vivos": a venda já tem nota (ou rascunho) e não recebe outra. */
@@ -224,6 +230,13 @@ const EMIT_JOB = 'fiscal.emit';
 const CHECK_JOB = 'fiscal.check';
 /** Consultas de uma nota "em processamento": 2s, 4s, 8s... (~8 min no total). */
 const CHECK_ATTEMPTS = 8;
+/**
+ * NFC-e autorizada em contingência offline: consulta até a SEFAZ receber. Começa em 1 minuto e
+ * dobra a cada tentativa (2s, 4s, 8s...): 16 tentativas cobrem cerca de 18 horas, dentro do prazo
+ * de 24 horas que a SEFAZ dá para transmitir.
+ */
+const CONTINGENCY_JOB = 'fiscal.contingency';
+const CONTINGENCY_ATTEMPTS = 16;
 const KIND_LABEL: Record<FiscalKind, string> = { nfce: 'NFC-e', nfe: 'NF-e' };
 
 /** O que pode vir no pedido de NFC-e pelo caixa (CPF na nota). */
@@ -275,6 +288,9 @@ export class FiscalService implements OnModuleInit {
     this.orders.onTabClosed((ctx, tabId) => this.autoEmitTab(ctx, tabId));
     this.queue.register(EMIT_JOB, (d, attempt, final) => this.runEmit(d, attempt, final));
     this.queue.register(CHECK_JOB, (d, attempt, final) => this.runCheck(d, attempt, final));
+    this.queue.register(CONTINGENCY_JOB, (d, attempt, final) =>
+      this.runContingency(d, attempt, final),
+    );
   }
 
   // ------------------------------------------------------------------ configuração
@@ -311,6 +327,7 @@ export class FiscalService implements OnModuleInit {
       autoEmitNfce: s?.auto_emit_nfce ?? false,
       emailCustomer: s?.email_customer ?? false,
       printNfce: s?.print_nfce ?? true,
+      contingencyOffline: s?.contingency_offline ?? true,
       regime: s?.company?.regimeTributario ?? null,
       receivedSyncedAt: s?.received_synced_at ?? null,
       /** O servidor tem a chave que cifra o token? Sem ela não dá para salvar token. */
@@ -386,6 +403,7 @@ export class FiscalService implements OnModuleInit {
         autoEmitNfce: b.autoEmitNfce ?? cur.auto_emit_nfce,
         emailCustomer: b.emailCustomer ?? cur.email_customer,
         printNfce: b.printNfce ?? cur.print_nfce,
+        contingencyOffline: b.contingencyOffline ?? cur.contingency_offline,
       };
       const probe = {
         ...cur,
@@ -416,7 +434,7 @@ export class FiscalService implements OnModuleInit {
                 default_code=$7, default_ncm=$8, updated_by=$9, mode=$10, nfe_enabled=$11,
                 nfce_nature=$12, nfe_nature=$13, additional_info=$14, auto_emit_nfce=$15,
                 email_customer=$16, token_homolog_enc=$17, token_prod_enc=$18, print_nfce=$19,
-                updated_at=now()`,
+                contingency_offline=$20, updated_at=now()`,
         [
           next.enabled,
           next.environment,
@@ -437,6 +455,7 @@ export class FiscalService implements OnModuleInit {
           homologEnc,
           prodEnc,
           next.printNfce,
+          next.contingencyOffline,
         ],
       );
       // Nunca registrar o token na auditoria: só se ele mudou.
@@ -541,6 +560,10 @@ export class FiscalService implements OnModuleInit {
       habilita_nfe: true,
       habilita_manifestacao: true,
       enviar_email_destinatario: false,
+      // SEFAZ fora do ar: a Focus emite a NFC-e em contingência e transmite sozinha quando voltar.
+      // Santa Catarina não aceita NFC-e em contingência offline (rejeição 702).
+      habilita_contingencia_offline_nfce: (cur?.contingency_offline ?? true) && c.uf !== 'SC',
+      reaproveita_numero_nfce_contingencia: true,
       ...(n.nfceSerie ? { serie_nfce_producao: String(n.nfceSerie) } : {}),
       ...(n.nfceProximo ? { proximo_numero_nfce_producao: String(n.nfceProximo) } : {}),
       ...(n.nfeSerie ? { serie_nfe_producao: String(n.nfeSerie) } : {}),
@@ -1441,11 +1464,16 @@ export class FiscalService implements OnModuleInit {
 
   /** Reenfileira uma nota parada (pendente ou em processamento), por exemplo após queda do Redis. */
   async sync(ctx: Ctx, id: string) {
-    const d = await this.get(ctx, id);
+    const d = (await this.get(ctx, id)) as Awaited<ReturnType<FiscalService['get']>> & {
+      contingency?: boolean;
+      contingencySettledAt?: Date | null;
+    };
     const status = d.status as FiscalStatus;
     if (status === 'pending') await this.enqueue(ctx.tenantId, id, EMIT_JOB, true);
     else if (status === 'processing' || status === 'cancelling')
       await this.enqueue(ctx.tenantId, id, CHECK_JOB, true);
+    else if (status === 'authorized' && d.contingency && !d.contingencySettledAt)
+      await this.enqueue(ctx.tenantId, id, CONTINGENCY_JOB, true);
     else throw new ConflictException('Nota sem nada a sincronizar');
     return d;
   }
@@ -1513,8 +1541,9 @@ export class FiscalService implements OnModuleInit {
         {
           // Id fixo evita o mesmo trabalho duplicado na fila; o manual ganha um sufixo próprio.
           jobId: `${job}-${documentId}${manual ? `-${Date.now()}` : ''}`,
-          attempts: job === CHECK_JOB ? CHECK_ATTEMPTS : 5,
-          delayMs: job === CHECK_JOB ? 3000 : 0,
+          attempts:
+            job === CHECK_JOB ? CHECK_ATTEMPTS : job === CONTINGENCY_JOB ? CONTINGENCY_ATTEMPTS : 5,
+          delayMs: job === CHECK_JOB ? 3000 : job === CONTINGENCY_JOB ? (manual ? 0 : 60_000) : 0,
         },
       );
     } catch (err) {
@@ -1590,7 +1619,31 @@ export class FiscalService implements OnModuleInit {
       last_error: null,
     };
     switch (b.status) {
-      case 'autorizado':
+      case 'autorizado': {
+        // Contingência offline: vale para o cliente, mas a SEFAZ ainda vai receber (até 24 h).
+        const offline = b.contingencia_offline === true || b.contingencia_offline === 'true';
+        const settled =
+          !offline ||
+          b.contingencia_offline_efetivada === true ||
+          b.contingencia_offline_efetivada === 'true';
+        const wasPending = doc.contingency && !doc.contingency_settled_at;
+        if (doc.status === 'authorized' && wasPending) {
+          // Já autorizada em contingência: só falta saber se a SEFAZ recebeu.
+          if (settled)
+            await this.setDoc(
+              tenantId,
+              doc.id,
+              {
+                ...common,
+                contingency_settled_at: new Date(),
+                protocol: b.protocolo != null ? String(b.protocolo) : null,
+                qrcode_url: b.qrcode_url ?? null,
+                xml_path: b.caminho_xml_nota_fiscal ?? null,
+              },
+              `fiscal.${label}_contingency_settled`,
+            );
+          return 'authorized';
+        }
         await this.setDoc(
           tenantId,
           doc.id,
@@ -1607,12 +1660,16 @@ export class FiscalService implements OnModuleInit {
             qrcode_url: b.qrcode_url ?? null,
             consult_url: b.url_consulta_nf ?? null,
             authorized_at: new Date(),
+            contingency: offline,
+            contingency_settled_at: offline && settled ? new Date() : null,
           },
-          `fiscal.${label}_authorized`,
+          offline ? `fiscal.${label}_authorized_contingency` : `fiscal.${label}_authorized`,
         );
         void this.emailOnAuthorize(tenantId, doc);
         if (label === 'nfce') void this.printOnAuthorize(tenantId, doc);
+        if (offline && !settled) await this.enqueue(tenantId, doc.id, CONTINGENCY_JOB);
         return 'authorized';
+      }
       case 'processando_autorizacao':
         await this.setDoc(tenantId, doc.id, { ...common, status: 'processing' });
         return 'processing';
@@ -1638,7 +1695,19 @@ export class FiscalService implements OnModuleInit {
             ...common,
             status: 'rejected',
             ...(b.numero ? { number: b.numero, series: b.serie ?? null } : {}),
-            issues: JSON.stringify([explainFiscalError(common.sefaz_status, b.mensagem_sefaz)]),
+            issues: JSON.stringify([
+              ...(doc.contingency
+                ? [
+                    {
+                      title: 'Nota em contingência recusada pela SEFAZ',
+                      detail:
+                        'O cupom foi entregue ao cliente enquanto a SEFAZ estava fora, mas ao transmitir ela recusou. Corrija o motivo abaixo e emita de novo: o número é o mesmo.',
+                      fix: 'retry' as const,
+                    },
+                  ]
+                : []),
+              explainFiscalError(common.sefaz_status, b.mensagem_sefaz),
+            ]),
           },
           `fiscal.${label}_rejected`,
         );
@@ -1802,6 +1871,44 @@ export class FiscalService implements OnModuleInit {
     }
   }
 
+  /**
+   * Consumidor de "fiscal.contingency": a NFC-e saiu em contingência offline e a Focus transmite
+   * para a SEFAZ quando ela volta. Consulta até a nota ser recebida (ou recusada).
+   */
+  async runContingency(job: TenantJob, _attempt: number, final: boolean) {
+    const { doc, s } = await this.load(job);
+    if (!doc || doc.status !== 'authorized' || !doc.contingency || doc.contingency_settled_at)
+      return;
+    const token = this.token(job.tenantId, s, doc.environment);
+    if (!token) return;
+    let res: FocusResponse;
+    try {
+      res = await this.focus.get(doc.environment, token, doc.ref, doc.kind);
+    } catch (err) {
+      if (final) return;
+      throw err;
+    }
+    if (res.http !== 200 || !res.body.status) {
+      if (final) return;
+      throw new Error(`consulta da contingência respondeu ${res.http}`);
+    }
+    await this.apply(job.tenantId, doc, res);
+    const settled =
+      res.body.status !== 'autorizado' ||
+      res.body.contingencia_offline_efetivada === true ||
+      res.body.contingencia_offline_efetivada === 'true';
+    if (!settled) {
+      if (final) {
+        await this.setDoc(job.tenantId, doc.id, {
+          last_error:
+            'A SEFAZ ainda não recebeu esta NFC-e emitida em contingência. Use "Atualizar" e, se passar de 24 horas, fale com a contabilidade.',
+        });
+        return;
+      }
+      throw new Error('contingência ainda não transmitida');
+    }
+  }
+
   // ------------------------------------------------------------------ cancelamento
   /** Cancela uma nota autorizada (NFC-e: até 30 minutos; NF-e: até 24 horas, na maioria dos estados). */
   async cancel(ctx: Ctx, id: string, reason: string) {
@@ -1814,6 +1921,10 @@ export class FiscalService implements OnModuleInit {
       if (!d) throw new NotFoundException('Nota não encontrada');
       if (d.status !== 'authorized')
         throw new ConflictException('Só nota autorizada pode ser cancelada');
+      if (d.contingency && !d.contingency_settled_at)
+        throw new ConflictException(
+          'Nota emitida em contingência: espere a SEFAZ recebê-la para cancelar (use "Atualizar")',
+        );
       await tx.$client.query(
         `UPDATE fiscal_documents SET status = 'cancelling', cancel_reason = $2, last_error = NULL WHERE id = $1`,
         [id, reason],
@@ -1854,17 +1965,17 @@ export class FiscalService implements OnModuleInit {
       return this.get(ctx, id);
     }
     const msg =
-      res.body.mensagem_sefaz ??
+      res.body.mensagem_sefaz ||
       [res.body.mensagem, ...(res.body.erros ?? []).map((e) => e.mensagem)]
         .filter(Boolean)
-        .join('; ') ??
+        .join('; ') ||
       `HTTP ${res.http}`;
     await this.setDoc(ctx.tenantId, id, {
       status: 'authorized',
       cancel_reason: null,
       last_error: `Cancelamento recusado: ${msg}`.slice(0, 500),
     });
-    throw new UnprocessableEntityException(`Cancelamento recusado: ${msg || `HTTP ${res.http}`}`);
+    throw new UnprocessableEntityException(`Cancelamento recusado: ${msg}`);
   }
 
   // ------------------------------------------------------------------ CC-e e e-mail

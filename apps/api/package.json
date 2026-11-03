@@ -1,6 +1,6 @@
 {
   "name": "@comandou/api",
-  "version": "0.73.0",
+  "version": "0.74.0",
   "private": true,
   "description": "API NestJS do Comandou (monólito modular).",
   "scripts": {
@@ -30,6 +30,7 @@
     "cookie-parser": "^1.4.7",
     "drizzle-orm": "^0.45.0",
     "helmet": "^8.1.0",
+    "liquidjs": "10.30.0",
     "nestjs-pino": "^4.4.0",
     "pdf-lib": "1.17.1",
     "pg": "^8.16.0",

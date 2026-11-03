@@ -184,6 +184,11 @@ export function DocumentsList({ kind }: { kind: FiscalKind }) {
                     </td>
                     <td>
                       <StatusBadge status={d.status} />
+                      {d.status === 'authorized' && d.contingency && !d.contingencySettledAt && (
+                        <div>
+                          <Badge tone="warning">contingência pendente</Badge>
+                        </div>
+                      )}
                       {d.issues[0] && d.status !== 'authorized' && (
                         <div className="cm-hint fi-row__why">{d.issues[0].title}</div>
                       )}
