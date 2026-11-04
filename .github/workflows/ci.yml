@@ -103,7 +103,8 @@ jobs:
   e2e:
     name: 1. Ponta a ponta (navegador e backup)
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    # Playwright 1.56 não instala o Chromium no ubuntu-latest novo (26.04).
+    runs-on: ubuntu-24.04
     needs: check
     env:
       # Valores só de teste (banco descartável do CI), nunca usados em produção.
