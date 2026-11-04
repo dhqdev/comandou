@@ -220,16 +220,16 @@ export const MENU_STOPS: TourStop[] = [
     targets: [{ button: 'Novo grupo' }],
   },
   {
+    path: '/cardapio/cardapios',
+    title: 'Cardápios',
+    text: 'Principal vale no balcão e no salão; Delivery vale na entrega e no cardápio online. Cada um tem os seus itens e preços; dentro dele, Reajustar preços muda todos de uma vez.',
+    targets: [{ button: 'Novo cardápio' }],
+  },
+  {
     path: '/cardapio/familias',
     title: 'Famílias',
     text: 'Agrupam as vendas nos relatórios, mesmo com itens em categorias diferentes. O cliente não vê.',
     targets: [{ button: 'Nova família' }],
-  },
-  {
-    path: '/cardapio/cardapios',
-    title: 'Cardápios',
-    text: 'Principal vale no balcão e no salão; Delivery vale na entrega e no cardápio online. Cada um tem os seus itens e preços.',
-    targets: [{ button: 'Novo cardápio' }],
   },
 ];
 

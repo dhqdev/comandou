@@ -72,6 +72,10 @@ export interface Category {
   position: number;
   active: boolean;
   imageId?: string | null;
+  /** Emoji da categoria (aparece quando não há foto). */
+  icon?: string | null;
+  /** Cozinha (KDS) dos itens da categoria. */
+  sectorId?: string | null;
 }
 
 export interface Product {

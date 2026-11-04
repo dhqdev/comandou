@@ -84,6 +84,10 @@ export const categories = pgTable('categories', {
   active: boolean('active').notNull().default(true),
   /** Foto da categoria (tabela media). */
   imageId: uuid('image_id'),
+  /** Emoji da categoria (sem foto, aparece no lugar dela). */
+  icon: text('icon'),
+  /** Cozinha (KDS) padrão dos itens da categoria. */
+  sectorId: uuid('sector_id'),
   createdAt: ts('created_at').notNull().defaultNow(),
   updatedAt: ts('updated_at').notNull().defaultNow(),
 });

@@ -1,18 +1,7 @@
-import { BookOpen, Plus } from 'lucide-react';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { BookOpen, Pencil, Plus } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  EmptyState,
-  Modal,
-  Skeleton,
-  TextField,
-  useToast,
-  HelpScope,
-} from '../../design-system';
+import { Alert, Badge, Button, Card, EmptyState, Skeleton, useToast } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { ImagePicker } from '../../features/ImagePicker';
 import {
@@ -29,7 +18,8 @@ import { useLinkParam } from '../../lib/deep-link';
 import { useRealtime } from '../../lib/realtime';
 import { brl } from '../../lib/money';
 import type { Family, GroupLink, OptionGroup } from './menu-data';
-import { CATEGORY_HELP } from '../../features/help/menu-help';
+import type { Sector } from '../../lib/types';
+import { CategoryModal, categoryIcon } from './CategoryModal';
 
 const ITEM_TABS: ListTab[] = [
   { id: 'todos', label: 'Todos', filters: {} },
@@ -49,7 +39,8 @@ export function ItemsTab() {
   const [groups, setGroups] = useState<OptionGroup[]>([]);
   const [links, setLinks] = useState<GroupLink[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [newCategory, setNewCategory] = useState(false);
+  const [catModal, setCatModal] = useState<Category | 'new' | null>(null);
+  const [sectors, setSectors] = useState<Sector[]>([]);
   const newItem = (categoryId?: string | null) =>
     navigate(`/cardapio/itens/novo${categoryId ? `?categoria=${categoryId}` : ''}`);
 
@@ -152,7 +143,7 @@ export function ItemsTab() {
     'acao',
     (a) => {
       if (!canWrite) return;
-      if (a === 'categoria') setNewCategory(true);
+      if (a === 'categoria') setCatModal('new');
       if (a === 'produto' && categories?.length) newItem(selected ?? categories[0]?.id);
     },
     categories !== null,
@@ -180,6 +171,12 @@ export function ItemsTab() {
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    if (!canWrite) return;
+    api<Sector[]>('/sectors')
+      .then((s) => setSectors(s.filter((x) => x.active)))
+      .catch(() => setSectors([]));
+  }, [canWrite]);
   useRealtime((e) => {
     if (e.type === 'menu.changed') void load();
   });
@@ -222,7 +219,7 @@ export function ItemsTab() {
               <Button
                 variant="secondary"
                 icon={<Plus size={16} />}
-                onClick={() => setNewCategory(true)}
+                onClick={() => setCatModal('new')}
               >
                 Nova
               </Button>
@@ -253,9 +250,22 @@ export function ItemsTab() {
                     aria-current={c.id === selected}
                     onClick={() => setSelected(c.id === selected ? null : c.id)}
                   >
-                    {c.name}
+                    <span>
+                      {!c.imageId && <span aria-hidden>{categoryIcon(c)} </span>}
+                      {c.name}
+                    </span>
                     <Badge>{countBy(c.id)}</Badge>
                   </button>
+                  {canWrite && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Editar categoria ${c.name}`}
+                      title="Editar categoria"
+                      icon={<Pencil size={14} />}
+                      onClick={() => setCatModal(c)}
+                    />
+                  )}
                 </li>
               ))}
             </ul>
@@ -302,7 +312,6 @@ export function ItemsTab() {
                   <tr>
                     <th style={{ width: 72 }}>Foto</th>
                     <th>Item</th>
-                    <th className="mn-hide-sm">Família</th>
                     <th>Situação</th>
                     <th className="cm-num">Preço</th>
                     {canWrite && <th />}
@@ -310,7 +319,6 @@ export function ItemsTab() {
                 </thead>
                 <tbody>
                   {visible.map((p) => {
-                    const fam = families.find((f) => f.id === p.familyId);
                     const opts = groupNames(p.id).join(', ');
                     return (
                       <tr key={p.id} data-search-id={`produto-${p.id}`}>
@@ -335,11 +343,11 @@ export function ItemsTab() {
                             {p.code && <span>{p.code}</span>}
                             {!p.active && <span>Pausado</span>}
                             {p.soldByWeight && <span>Por peso</span>}
+                            {!selected && (
+                              <span>{categories?.find((c) => c.id === p.categoryId)?.name}</span>
+                            )}
                           </div>
                           {opts && <div className="cm-hint">Opções: {opts}</div>}
-                        </td>
-                        <td className="mn-hide-sm">
-                          {fam ? fam.name : <span className="cm-hint">Sem família</span>}
                         </td>
                         <td className="mn-items__state">
                           {p.soldOut ? (
@@ -376,72 +384,18 @@ export function ItemsTab() {
         </Card>
       </div>
       <CategoryModal
-        open={newCategory}
-        onClose={() => setNewCategory(false)}
+        open={catModal !== null}
+        category={catModal === 'new' ? null : catModal}
+        sectors={sectors}
+        onClose={() => setCatModal(null)}
         onSaved={async (c) => {
-          setNewCategory(false);
-          toast('Categoria criada', 'success');
+          const isNew = catModal === 'new';
+          setCatModal(null);
+          toast(isNew ? 'Categoria criada' : 'Categoria salva', 'success');
           await load();
-          setSelected(c.id);
+          if (isNew) setSelected(c.id);
         }}
       />
     </>
-  );
-}
-
-function CategoryModal({
-  open,
-  onClose,
-  onSaved,
-}: {
-  open: boolean;
-  onClose(): void;
-  onSaved(c: Category): void;
-}) {
-  const [name, setName] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    try {
-      const c = await api<Category>('/categories', { method: 'POST', json: { name } });
-      setName('');
-      onSaved(c);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <HelpScope dict={CATEGORY_HELP}>
-      <Modal
-        open={open}
-        title="Nova categoria"
-        onClose={onClose}
-        footer={
-          <>
-            <Button variant="ghost" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" form="nova-categoria" loading={busy} disabled={!name.trim()}>
-              Salvar
-            </Button>
-          </>
-        }
-      >
-        <form id="nova-categoria" onSubmit={submit} style={{ display: 'grid', gap: 16 }}>
-          <TextField
-            label="Nome"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={80}
-            required
-          />
-          {error && <Alert tone="danger">{error}</Alert>}
-        </form>
-      </Modal>
-    </HelpScope>
   );
 }

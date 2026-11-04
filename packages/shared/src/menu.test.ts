@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { defaultOptionIds, groupOptionCharges, menuKindOf, optionsTotalCents } from './menu';
+import {
+  adjustPriceCents,
+  defaultOptionIds,
+  groupOptionCharges,
+  menuKindOf,
+  optionsTotalCents,
+} from './menu';
 
 describe('cobrança dos complementos', () => {
   it('soma por padrão', () => {
@@ -35,5 +41,34 @@ describe('cobrança dos complementos', () => {
     expect(menuKindOf('table')).toBe('principal');
     expect(menuKindOf('counter')).toBe('principal');
     expect(menuKindOf('pickup')).toBe('delivery');
+  });
+});
+
+describe('reajuste de preços em massa', () => {
+  it('aplica o percentual sem arredondar', () => {
+    expect(adjustPriceCents(3990, 10, 'none')).toBe(4389);
+    expect(adjustPriceCents(3990, -10, 'none')).toBe(3591);
+    expect(adjustPriceCents(1000, 15.5, 'none')).toBe(1155);
+  });
+  it('aumento arredonda para cima no final escolhido', () => {
+    expect(adjustPriceCents(3990, 5, 'x90')).toBe(4190); // 41,895
+    expect(adjustPriceCents(3990, 1, 'x90')).toBe(4090); // 40,30 -> 40,90
+    expect(adjustPriceCents(3990, 10, 'x99')).toBe(4399);
+    expect(adjustPriceCents(3990, 10, 'x50')).toBe(4400);
+    expect(adjustPriceCents(3990, 10, 'x00')).toBe(4400);
+  });
+  it('redução arredonda para baixo e nunca zera o preço', () => {
+    expect(adjustPriceCents(3990, -10, 'x90')).toBe(3590);
+    expect(adjustPriceCents(3990, -10, 'x00')).toBe(3500);
+    expect(adjustPriceCents(100, -90, 'x90')).toBe(90);
+    expect(adjustPriceCents(100, -90, 'x00')).toBe(100);
+  });
+  it('só arredondar vai para o final mais próximo', () => {
+    expect(adjustPriceCents(4212, 0, 'x90')).toBe(3990 + 100 * 2); // 42,12 -> 41,90
+    expect(adjustPriceCents(4260, 0, 'x90')).toBe(4290);
+    expect(adjustPriceCents(4224, 0, 'x50')).toBe(4200);
+  });
+  it('sem preço continua sem preço', () => {
+    expect(adjustPriceCents(0, 20, 'x90')).toBe(0);
   });
 });

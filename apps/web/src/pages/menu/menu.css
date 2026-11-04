@@ -291,8 +291,297 @@
   border-bottom: 1px solid var(--cm-border);
 }
 .mn-menu-row {
-  grid-template-columns: minmax(0, 1fr) auto 130px 56px;
+  grid-template-columns: minmax(0, 1fr) auto 130px 56px auto;
   padding: var(--cm-space-2) var(--cm-space-4);
+}
+.mn-menu-row[data-off] .cm-thumb {
+  opacity: 0.5;
+}
+.mn-menu-row__item {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-3);
+  min-width: 0;
+}
+.mn-menu-row__name {
+  display: grid;
+  min-width: 0;
+}
+.mn-menu-row__name strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mn-menu-row__acts {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+}
+@media (max-width: 720px) {
+  /* Celular: nome em cima; preço, diferença e liga/desliga embaixo. */
+  .mn-menu-row {
+    grid-template-columns: minmax(0, 1fr) 56px auto;
+    row-gap: var(--cm-space-2);
+  }
+  .mn-menu-row__item {
+    grid-column: 1 / -1;
+  }
+  .mn-menu-row__base {
+    display: none;
+  }
+}
+
+/* Categorias do editor do cardápio em abas (chips) que rolam de lado. */
+.mn-chips {
+  display: flex;
+  gap: var(--cm-space-2);
+  padding: var(--cm-space-3) var(--cm-space-4);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--cm-border);
+  scrollbar-width: thin;
+}
+.mn-chip-wrap {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+.mn-chip {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 var(--cm-space-3);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.mn-chip:hover {
+  border-color: var(--cm-border-strong);
+}
+.mn-chip[aria-selected='true'] {
+  border-color: var(--cm-brand-600);
+  background: var(--cm-brand-50, var(--cm-surface-muted));
+  color: var(--cm-brand-700, var(--cm-brand-600));
+}
+.mn-chip-wrap:has(.mn-chip__edit) .mn-chip {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.mn-chip__n {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+}
+.mn-chip__edit {
+  display: inline-grid;
+  place-items: center;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--cm-brand-600);
+  border-left: 0;
+  border-radius: 0 var(--cm-radius-full) var(--cm-radius-full) 0;
+  background: var(--cm-surface);
+  color: var(--cm-brand-600);
+  cursor: pointer;
+}
+.mn-chip:focus-visible,
+.mn-chip__edit:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+
+/* Liga/desliga do item no cardápio. */
+.mn-switch {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+.mn-switch input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.mn-switch input:disabled {
+  cursor: default;
+}
+.mn-switch span {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-border-strong);
+  transition: background 0.2s;
+}
+.mn-switch span::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+  transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.25, 1.2);
+}
+.mn-switch input:checked + span {
+  background: var(--cm-brand-600);
+}
+.mn-switch input:checked + span::after {
+  transform: translateX(18px);
+}
+.mn-switch input:focus-visible + span {
+  box-shadow: var(--cm-focus);
+}
+
+/* Reajustar preços: campos lado a lado e prévia. */
+.mn-adjust {
+  display: grid;
+  gap: var(--cm-space-4);
+}
+.mn-adjust__fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--cm-space-3);
+}
+@media (max-width: 640px) {
+  .mn-adjust__fields {
+    grid-template-columns: 1fr;
+  }
+}
+.mn-adjust__preview {
+  display: grid;
+  gap: var(--cm-space-2);
+  min-height: 56px;
+  padding: var(--cm-space-3) var(--cm-space-4);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-muted);
+  font-size: var(--cm-text-sm);
+}
+.mn-adjust__preview ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.mn-adjust__preview li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--cm-space-3);
+}
+.mn-adjust__preview li > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mn-adjust__price {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.mn-adjust__price s {
+  color: var(--cm-text-subtle);
+}
+
+/* Nova categoria: nome com o ícone escolhido e grade de emojis. */
+.mn-cat-form {
+  display: grid;
+  gap: var(--cm-space-4);
+}
+.mn-cat-form__name {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--cm-space-3);
+}
+.mn-cat-form__name > :last-child {
+  flex: 1;
+}
+.mn-cat-form__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  font-size: 28px;
+}
+.mn-icons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.mn-icons legend {
+  margin-bottom: var(--cm-space-2);
+  padding: 0;
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--cm-text-muted);
+}
+.mn-icons__btn {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border: 1px solid transparent;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-muted);
+  font-size: 20px;
+  cursor: pointer;
+}
+.mn-icons__btn:hover {
+  border-color: var(--cm-border-strong);
+}
+.mn-icons__btn[aria-pressed='true'] {
+  border-color: var(--cm-brand-600);
+  box-shadow: 0 0 0 1px var(--cm-brand-600);
+  background: var(--cm-surface);
+}
+.mn-icons__btn:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.mn-editor-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+@media (max-width: 640px) {
+  .mn-editor-actions {
+    flex-wrap: nowrap;
+    gap: 4px;
+  }
+  .mn-editor-actions .mn-btn-text {
+    display: none;
+  }
+  .mn-editor-actions .cm-btn:not(.cm-btn--primary) {
+    padding-inline: 10px;
+  }
+  /* A trilha fica só com a seta (o nome do cardápio já aparece no título). */
+  .mn-crumbs:has(.mn-editor-actions) .mn-crumbs__back {
+    font-size: 0;
+  }
+  .mn-crumbs:has(.mn-editor-actions) .mn-crumbs__path > span,
+  .mn-crumbs:has(.mn-editor-actions) .mn-crumbs__path .cm-badge {
+    display: none;
+  }
+  .mn-crumbs:has(.mn-editor-actions) .mn-crumbs__path {
+    flex: 1;
+  }
 }
 .mn-item-menu[data-off],
 .mn-menu-row[data-off] {
@@ -333,17 +622,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--cm-space-2);
-}
-.mn-pct {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--cm-text-sm);
-  color: var(--cm-text-muted);
-}
-.mn-pct .cm-input {
-  width: 72px;
-  min-height: 32px;
 }
 
 /* Opções do grupo: nome, preço, padrão, disponível e ferramentas. */

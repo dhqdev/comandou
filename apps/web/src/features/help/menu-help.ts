@@ -90,6 +90,10 @@ export const CATEGORY_HELP: HelpDict = {
   'Foto da categoria': {
     text: 'Imagem pequena que aparece ao lado do nome da categoria no cardápio online.',
   },
+  'Cozinha (KDS)': {
+    text: 'Para qual tela de cozinha (ou impressora) vão os itens desta categoria. Ao trocar, todos os itens dela passam para a cozinha escolhida; um item ainda pode ter a sua própria.',
+    link: { to: '/configuracoes?foco=secao-setores', label: 'Criar ou editar cozinhas' },
+  },
 };
 
 export const FAMILY_HELP: HelpDict = {
@@ -149,6 +153,17 @@ export const MENUS_HELP: HelpDict = {
     text: 'Onde este cardápio é usado. O tipo não muda depois de criado; para outro uso, crie outro cardápio.',
   },
   'Itens no cardápio': {
-    text: 'Marque os itens que aparecem neste cardápio. O preço vazio usa o preço do item; preencha para cobrar diferente aqui. Reajustar aplica um % em todos de uma vez.',
+    text: 'Ligue os itens que aparecem neste cardápio. O preço vazio usa o preço do item; preencha para cobrar diferente aqui. Reajustar preços aplica um % em todos de uma vez.',
+  },
+  Percentual: {
+    text: 'Quanto subir ou baixar, em %. Use número negativo para baixar.',
+    example: '10 para subir 10%, -5 para baixar 5%',
+  },
+  Arredondar: {
+    text: 'Deixa o preço com um final redondo. No aumento arredonda para cima e na redução para baixo. Pode usar só o arredondamento, sem percentual.',
+    example: 'R$ 43,89 vira R$ 43,90',
+  },
+  Categoria: {
+    text: 'Reajusta só os itens de uma categoria, ou de todas.',
   },
 };

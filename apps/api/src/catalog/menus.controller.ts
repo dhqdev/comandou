@@ -14,7 +14,15 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
-import { isMoneyString } from '@comandou/shared';
+import {
+  adjustPriceCents,
+  fromCents,
+  isMoneyString,
+  PRICE_ADJUST_MAX,
+  PRICE_ADJUST_MIN,
+  PRICE_ROUNDINGS,
+  toCents,
+} from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
 import { one, q } from '../common/sql';
@@ -41,6 +49,29 @@ const MenuUpdate = z
 const MenuItems = z.object({
   items: z.array(z.object({ productId: z.string().uuid(), price: money.nullable() })).max(5000),
 });
+
+const PriceAdjust = z
+  .object({
+    percent: z.number().min(PRICE_ADJUST_MIN).max(PRICE_ADJUST_MAX),
+    rounding: z.enum(PRICE_ROUNDINGS as [string, ...string[]]),
+    /** Só os itens desta categoria; sem ela, o cardápio todo. */
+    categoryId: z.string().uuid().nullable().optional(),
+    /** Também os complementos dos itens (valem em todos os cardápios). */
+    options: z.boolean().default(false),
+    /** true = só calcula a prévia, sem gravar. */
+    preview: z.boolean().default(false),
+  })
+  .refine(
+    (b) => b.percent !== 0 || b.rounding !== 'none',
+    'informe o percentual ou o arredondamento',
+  );
+
+interface PriceChange {
+  id: string;
+  name: string;
+  from: string;
+  to: string;
+}
 
 export interface MenuRow {
   id: string;
@@ -278,6 +309,94 @@ export class MenusController {
       });
       this.realtime.publish(t.id, { type: 'menu.changed' });
       return { items: b.items.length };
+    });
+  }
+
+  /**
+   * Reajustar preços: percentual e arredondamento nos itens do cardápio (de uma categoria ou de
+   * todas). O preço reajustado vira preço próprio deste cardápio; os outros não mudam. Com
+   * `options`, reajusta também os complementos dos itens, que valem em todos os cardápios.
+   */
+  @Post('menus/:id/price-adjust')
+  @RequirePermission('catalog:write')
+  adjustPrices(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(PriceAdjust)) b: z.infer<typeof PriceAdjust>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
+      const m = await one(tx, `SELECT id FROM menus WHERE id = $1 FOR UPDATE`, [id]);
+      if (!m) throw new NotFoundException('Cardápio não encontrado');
+      const rounding = b.rounding as (typeof PRICE_ROUNDINGS)[number];
+      const next = (price: string) =>
+        fromCents(adjustPriceCents(toCents(price), b.percent, rounding));
+      const cat = b.categoryId ?? null;
+      const rows = await q<{ id: string; name: string; price: string }>(
+        tx,
+        `SELECT p.id, p.name, COALESCE(mi.price, p.price)::text AS price
+           FROM menu_items mi JOIN products p ON p.id = mi.product_id
+          WHERE mi.menu_id = $1 AND ($2::uuid IS NULL OR p.category_id = $2)
+          ORDER BY p.position, p.name`,
+        [id, cat],
+      );
+      const items: PriceChange[] = rows
+        .map((r) => ({ id: r.id, name: r.name, from: r.price, to: next(r.price) }))
+        .filter((r) => r.to !== r.from);
+      const options: PriceChange[] = b.options
+        ? (
+            await q<{ id: string; name: string; price: string }>(
+              tx,
+              `SELECT o.id, g.name || ': ' || o.name AS name, o.price_delta::text AS price
+                 FROM options o JOIN option_groups g ON g.id = o.group_id
+                WHERE o.price_delta > 0 AND o.group_id IN (
+                  SELECT pog.group_id FROM product_option_groups pog
+                    JOIN menu_items mi ON mi.product_id = pog.product_id AND mi.menu_id = $1
+                    JOIN products p ON p.id = pog.product_id
+                   WHERE $2::uuid IS NULL OR p.category_id = $2)
+                ORDER BY g.name, o.position, o.name`,
+              [id, cat],
+            )
+          )
+            .map((r) => ({ id: r.id, name: r.name, from: r.price, to: next(r.price) }))
+            .filter((r) => r.to !== r.from)
+        : [];
+      if (!b.preview && (items.length || options.length)) {
+        if (items.length)
+          await q(
+            tx,
+            `UPDATE menu_items mi SET price = x.price
+               FROM unnest($2::uuid[], $3::numeric[]) AS x(product_id, price)
+              WHERE mi.menu_id = $1 AND mi.product_id = x.product_id`,
+            [id, items.map((i) => i.id), items.map((i) => i.to)],
+          );
+        if (options.length)
+          await q(
+            tx,
+            `UPDATE options o SET price_delta = x.price
+               FROM unnest($1::uuid[], $2::numeric[]) AS x(id, price) WHERE o.id = x.id`,
+            [options.map((o) => o.id), options.map((o) => o.to)],
+          );
+        await q(tx, `UPDATE menus SET updated_at = now() WHERE id = $1`, [id]);
+        await this.audit.record(tx, {
+          tenantId: t.id,
+          actorUserId: u.id,
+          action: 'catalog.menu_prices_adjusted',
+          entity: 'menu',
+          entityId: id,
+          data: {
+            percent: b.percent,
+            rounding: b.rounding,
+            categoryId: cat,
+            items: items.length,
+            options: options.length,
+          },
+          ip: req.ip,
+        });
+        this.realtime.publish(t.id, { type: 'menu.changed' });
+      }
+      return { applied: !b.preview, items, options };
     });
   }
 }

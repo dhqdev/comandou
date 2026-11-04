@@ -17,11 +17,6 @@ const SECTIONS: { value: Section; label: string; sub: string }[] = [
     sub: 'Categorias e itens que aparecem no PDV, no garçom e no cardápio online.',
   },
   {
-    value: 'familias',
-    label: 'Famílias',
-    sub: 'Agrupam as vendas nos relatórios, independente da categoria.',
-  },
-  {
     value: 'complementos',
     label: 'Complementos',
     sub: 'Grupos de adicionais, tamanhos, sabores e ingredientes para retirar.',
@@ -29,7 +24,12 @@ const SECTIONS: { value: Section; label: string; sub: string }[] = [
   {
     value: 'cardapios',
     label: 'Cardápios',
-    sub: 'Quais itens e preços valem no salão e no delivery.',
+    sub: 'Quais itens e preços valem no salão e no delivery. Reajuste os preços de uma vez.',
+  },
+  {
+    value: 'familias',
+    label: 'Famílias',
+    sub: 'Só para os relatórios: juntam as vendas de itens parecidos. O cliente não vê.',
   },
 ];
 

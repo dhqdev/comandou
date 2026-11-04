@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.83.0',
+    date: '2026-11-04',
+    title: 'Cardápio mais fácil e reajuste de preços de uma vez',
+    summary:
+      'O editor de cada cardápio ficou mais direto: categorias em abas no topo, itens com foto, preço e um botão de liga/desliga. Agora dá para reajustar todos os preços de uma vez (por percentual, com arredondamento e por categoria) e criar categorias com ícone e cozinha.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Reajustar preços no cardápio: percentual para subir ou baixar, arredondamento (,90, ,99, ,50 ou inteiro), filtro por categoria e prévia antes de aplicar. Pode incluir os complementos.',
+      },
+      {
+        tag: 'novo',
+        text: 'Nova categoria com ícone (emoji) e cozinha (KDS). Trocar a cozinha da categoria leva todos os itens dela, e item novo já nasce nessa cozinha.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Editor do cardápio com categorias em abas, foto do item, unidade, liga/desliga e lápis para editar o item. No celular os botões do topo viram ícones.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Aba Itens mais limpa: sem a coluna Família, com a categoria embaixo do nome e lápis para editar cada categoria. Famílias (só para relatórios) foi para o fim das abas.',
+      },
+    ],
+  },
+  {
     version: '0.82.0',
     date: '2026-11-04',
     title: 'Cardápio e checkout melhores no notebook',

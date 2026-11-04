@@ -31,9 +31,13 @@ const money = z
   .refine(isMoneyString, 'valor monetário com até 2 casas, ex.: "12.90"')
   .refine((v) => !v.startsWith('-'), 'valor não pode ser negativo');
 
+/** Emoji da categoria (um símbolo, com variações de cor e junções). */
+const icon = z.string().trim().min(1).max(16).nullable();
 const CategoryCreate = z.object({
   name: z.string().trim().min(1).max(80),
   position: z.number().int().min(0).max(10_000).optional(),
+  icon: icon.optional(),
+  sectorId: z.string().uuid().nullable().optional(),
 });
 const CategoryUpdate = z
   .object({
@@ -41,6 +45,9 @@ const CategoryUpdate = z
     position: z.number().int().min(0).max(10_000),
     active: z.boolean(),
     imageId: z.string().uuid().nullable(),
+    icon,
+    /** Cozinha da categoria: os itens dela passam a ir para essa cozinha. */
+    sectorId: z.string().uuid().nullable(),
   })
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');
@@ -140,6 +147,12 @@ async function nextItemCode(tx: Tx) {
   return `IT-${String(r?.n ?? 1).padStart(6, '0')}`;
 }
 
+/** Cozinha (setor de produção) do restaurante; outra id vira 404, não erro de banco. */
+async function assertSector(tx: Tx, sectorId: string) {
+  const s = await one(tx, `SELECT id FROM production_sectors WHERE id = $1`, [sectorId]);
+  if (!s) throw new NotFoundException('Cozinha não encontrada');
+}
+
 async function assertFreeCode(tx: Tx, code: string | null | undefined, exceptId?: string) {
   if (!code) return;
   const dup = await one(
@@ -187,9 +200,16 @@ export class CatalogController {
     @Req() req: Request,
   ) {
     return this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
+      if (body.sectorId) await assertSector(tx, body.sectorId);
       const [row] = await tx
         .insert(categories)
-        .values({ tenantId: t.id, name: body.name, position: body.position ?? 0 })
+        .values({
+          tenantId: t.id,
+          name: body.name,
+          position: body.position ?? 0,
+          icon: body.icon ?? null,
+          sectorId: body.sectorId ?? null,
+        })
         .returning();
       await this.audit.record(tx, {
         tenantId: t.id,
@@ -214,11 +234,18 @@ export class CatalogController {
     @Req() req: Request,
   ) {
     const row = await this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
+      if (body.sectorId) await assertSector(tx, body.sectorId);
       const [r] = await tx
         .update(categories)
         .set(body)
         .where(and(eq(categories.id, id), eq(categories.tenantId, t.id)))
         .returning();
+      // Escolher a cozinha da categoria leva todos os itens dela para essa cozinha.
+      if (r && body.sectorId !== undefined)
+        await q(tx, `UPDATE products SET sector_id = $2 WHERE category_id = $1`, [
+          id,
+          body.sectorId,
+        ]);
       if (r) {
         await this.audit.record(tx, {
           tenantId: t.id,
@@ -270,7 +297,7 @@ export class CatalogController {
   ) {
     return this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
       const [cat] = await tx
-        .select({ id: categories.id })
+        .select({ id: categories.id, sectorId: categories.sectorId })
         .from(categories)
         .where(eq(categories.id, body.categoryId))
         .limit(1);
@@ -286,7 +313,8 @@ export class CatalogController {
           name: body.name,
           description: body.description ?? null,
           price: body.price,
-          sectorId: body.sectorId ?? null,
+          // Sem cozinha informada, o item vai para a cozinha da categoria.
+          sectorId: body.sectorId === undefined ? cat.sectorId : body.sectorId,
           imageId: body.imageId ?? null,
           featured: body.featured ?? false,
           badge: body.badge ?? null,

@@ -1,12 +1,13 @@
-import { fromCents, toCents } from '@comandou/shared';
-import { ArrowLeft, Search } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { toCents } from '@comandou/shared';
+import { ArrowLeft, Pause, Pencil, Percent, Play, Plus, Search, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import {
   Alert,
   Badge,
   Button,
   Card,
+  ItemThumb,
   Skeleton,
   TextField,
   useToast,
@@ -15,16 +16,23 @@ import {
 } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { api, type Category, type Product } from '../../lib/api';
+import { mediaUrl } from '../../lib/media';
 import { brl, parseBrlInput } from '../../lib/money';
-import { MENU_KIND, priceDiff, toInput, type MenuDef } from './menu-data';
+import type { Sector } from '../../lib/types';
 import { MENUS_HELP } from '../../features/help/menu-help';
+import { CategoryModal, categoryIcon } from './CategoryModal';
+import { MENU_KIND, priceDiff, toInput, type MenuDef } from './menu-data';
+import { PriceAdjustModal } from './PriceAdjustModal';
 
 interface Row {
   on: boolean;
   price: string;
 }
 
-/** Itens do cardápio e preço próprio de cada um (vazio = preço do item). */
+/**
+ * Editor do cardápio: categorias em abas, itens com foto, preço próprio e liga/desliga.
+ * Reajustar preços muda vários de uma vez; Nova categoria cria com ícone e cozinha.
+ */
 export function MenuEditor() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
@@ -34,44 +42,56 @@ export function MenuEditor() {
   const [name, setName] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [sectors, setSectors] = useState<Sector[]>([]);
   const [rows, setRows] = useState<Record<string, Row>>({});
+  const [catSel, setCatSel] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [pct, setPct] = useState('');
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [adjusting, setAdjusting] = useState(false);
+  const [catModal, setCatModal] = useState<Category | 'new' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const [menus, c, p, items] = await Promise.all([
-          api<MenuDef[]>('/menus'),
-          api<Category[]>('/categories'),
-          api<Product[]>('/products'),
-          api<{ productId: string; price: string | null }[]>(`/menus/${id}/items`),
-        ]);
-        const m = menus.find((x) => x.id === id);
-        if (!m) throw new Error('Cardápio não encontrado');
-        setMenu(m);
-        setName(m.name);
-        setCategories(c);
-        setProducts(p);
-        const map: Record<string, Row> = {};
-        for (const prod of p) {
-          const it = items.find((i) => i.productId === prod.id);
-          map[prod.id] = { on: !!it, price: toInput(it?.price) };
-        }
-        setRows(map);
-      } catch (e) {
-        setError((e as Error).message);
+  const load = useCallback(async () => {
+    try {
+      const [menus, c, p, items] = await Promise.all([
+        api<MenuDef[]>('/menus'),
+        api<Category[]>('/categories'),
+        api<Product[]>('/products'),
+        api<{ productId: string; price: string | null }[]>(`/menus/${id}/items`),
+      ]);
+      const m = menus.find((x) => x.id === id);
+      if (!m) throw new Error('Cardápio não encontrado');
+      setMenu(m);
+      setName(m.name);
+      setCategories(c);
+      setProducts(p);
+      const map: Record<string, Row> = {};
+      for (const prod of p) {
+        const it = items.find((i) => i.productId === prod.id);
+        map[prod.id] = { on: !!it, price: toInput(it?.price) };
       }
-    })();
+      setRows(map);
+      setDirty(false);
+    } catch (e) {
+      setError((e as Error).message);
+    }
   }, [id]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  useEffect(() => {
+    if (!canWrite) return;
+    api<Sector[]>('/sectors')
+      .then((s) => setSectors(s.filter((x) => x.active)))
+      .catch(() => setSectors([]));
+  }, [canWrite]);
 
   const term = search.trim().toLowerCase();
   const grouped = useMemo(
     () =>
       categories
+        .filter((c) => !catSel || c.id === catSel)
         .map((c) => ({
           c,
           items: products.filter(
@@ -82,8 +102,8 @@ export function MenuEditor() {
                 (p.code ?? '').toLowerCase().includes(term)),
           ),
         }))
-        .filter((g) => g.items.length),
-    [categories, products, term],
+        .filter((g) => g.items.length || g.c.id === catSel),
+    [categories, products, term, catSel],
   );
   const set = (pid: string, r: Partial<Row>) => {
     setDirty(true);
@@ -92,23 +112,9 @@ export function MenuEditor() {
   const visibleIds = grouped.flatMap((g) => g.items.map((p) => p.id));
   const onCount = Object.values(rows).filter((r) => r.on).length;
   const invalid = Object.values(rows).some((r) => r.on && r.price && !parseBrlInput(r.price));
-  const pctN = Number(pct.replace(',', '.'));
-  const pctOk = pct.trim() !== '' && Number.isFinite(pctN) && pctN > -90 && pctN <= 300;
+  const countIn = (cid: string) =>
+    products.filter((p) => p.categoryId === cid && rows[p.id]?.on).length;
 
-  function applyPct() {
-    if (!pctOk) return;
-    setDirty(true);
-    setRows((x) => {
-      const copy = { ...x };
-      for (const pid of visibleIds) {
-        const p = products.find((y) => y.id === pid)!;
-        if (!copy[pid]!.on) continue;
-        const cents = Math.round((toCents(p.price) * (100 + pctN)) / 100);
-        copy[pid] = { ...copy[pid]!, price: toInput(fromCents(cents)) };
-      }
-      return copy;
-    });
-  }
   function bulk(r: Partial<Row>) {
     setDirty(true);
     setRows((x) => {
@@ -116,6 +122,12 @@ export function MenuEditor() {
       for (const pid of visibleIds) copy[pid] = { ...copy[pid]!, ...r };
       return copy;
     });
+  }
+
+  /** Sai para outra tela; com alterações não salvas, pergunta antes. */
+  function leave(to: string) {
+    if (dirty && !window.confirm('Sair sem salvar as alterações do cardápio?')) return;
+    navigate(to);
   }
 
   async function save() {
@@ -170,6 +182,8 @@ export function MenuEditor() {
     }
   }
 
+  const selectedCat = categories.find((c) => c.id === catSel) ?? null;
+
   return (
     <HelpScope dict={MENUS_HELP}>
       <>
@@ -180,17 +194,48 @@ export function MenuEditor() {
             </Link>
             <span aria-hidden>/</span>
             <h1>{menu?.name ?? 'Cardápio'}</h1>
+            {menu && <Badge tone="info">{MENU_KIND[menu.kind].label}</Badge>}
             {menu && (menu.active ? <Badge tone="success">Ativo</Badge> : <Badge>Pausado</Badge>)}
           </div>
           {canWrite && menu && (
-            <div className="actions-row">
+            <div className="actions-row mn-editor-actions">
+              {/* No celular os botões viram só o ícone (o nome fica no aria-label). */}
               {!menu.active && (
-                <Button variant="ghost" onClick={remove}>
-                  Apagar
+                <Button
+                  variant="ghost"
+                  icon={<Trash2 size={16} />}
+                  aria-label="Apagar"
+                  title="Apagar"
+                  onClick={remove}
+                >
+                  <span className="mn-btn-text">Apagar</span>
                 </Button>
               )}
-              <Button variant="secondary" onClick={toggleActive}>
-                {menu.active ? 'Pausar' : 'Ativar'}
+              <Button
+                variant="ghost"
+                icon={menu.active ? <Pause size={16} /> : <Play size={16} />}
+                aria-label={menu.active ? 'Pausar' : 'Ativar'}
+                onClick={toggleActive}
+              >
+                <span className="mn-btn-text">{menu.active ? 'Pausar' : 'Ativar'}</span>
+              </Button>
+              <Button
+                variant="secondary"
+                icon={<Percent size={16} />}
+                aria-label="Reajustar preços"
+                title="Reajustar preços"
+                onClick={() => setAdjusting(true)}
+              >
+                <span className="mn-btn-text">Reajustar preços</span>
+              </Button>
+              <Button
+                variant="secondary"
+                icon={<Plus size={16} />}
+                aria-label="Nova categoria"
+                title="Nova categoria"
+                onClick={() => setCatModal('new')}
+              >
+                <span className="mn-btn-text">Nova categoria</span>
               </Button>
               <Button loading={busy} disabled={invalid || !dirty} onClick={save}>
                 Salvar
@@ -229,7 +274,41 @@ export function MenuEditor() {
                 )}
               </div>
             </Card>
+            {/* Cartões extras por tipo de cardápio (ex.: integração) entram aqui. */}
             <Card title={`Itens no cardápio (${onCount} de ${products.length})`} bodyless>
+              <div className="mn-chips" role="tablist" aria-label="Categorias do cardápio">
+                <button
+                  role="tab"
+                  className="mn-chip"
+                  aria-selected={!catSel}
+                  onClick={() => setCatSel(null)}
+                >
+                  Todas <span className="mn-chip__n">{onCount}</span>
+                </button>
+                {categories.map((c) => (
+                  <span key={c.id} className="mn-chip-wrap">
+                    <button
+                      role="tab"
+                      className="mn-chip"
+                      aria-selected={c.id === catSel}
+                      onClick={() => setCatSel(c.id === catSel ? null : c.id)}
+                    >
+                      <span aria-hidden>{categoryIcon(c)}</span> {c.name}{' '}
+                      <span className="mn-chip__n">{countIn(c.id)}</span>
+                    </button>
+                    {canWrite && c.id === catSel && (
+                      <button
+                        className="mn-chip__edit"
+                        aria-label={`Editar categoria ${c.name}`}
+                        title="Editar categoria"
+                        onClick={() => setCatModal(c)}
+                      >
+                        <Pencil size={13} aria-hidden />
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </div>
               <div className="mn-toolbar">
                 <div className="mn-search mn-search--flat">
                   <Search size={16} aria-hidden />
@@ -245,49 +324,62 @@ export function MenuEditor() {
                 {canWrite && (
                   <div className="mn-toolbar__tools">
                     <Button variant="ghost" size="sm" onClick={() => bulk({ on: true })}>
-                      Marcar todos
+                      Ligar todos
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => bulk({ price: '' })}>
                       Usar preço do item
                     </Button>
-                    <span className="mn-pct">
-                      <input
-                        className="cm-input cm-num"
-                        aria-label="Reajuste em %"
-                        inputMode="decimal"
-                        placeholder="+10"
-                        value={pct}
-                        onChange={(e) => setPct(e.target.value)}
-                      />
-                      <span>%</span>
-                      <Button variant="secondary" size="sm" disabled={!pctOk} onClick={applyPct}>
-                        Reajustar
-                      </Button>
-                    </span>
+                    <Button
+                      size="sm"
+                      icon={<Plus size={14} />}
+                      onClick={() =>
+                        leave(`/cardapio/itens/novo${catSel ? `?categoria=${catSel}` : ''}`)
+                      }
+                    >
+                      Novo item
+                    </Button>
                   </div>
                 )}
               </div>
+              {grouped.length === 0 && (
+                <p className="cm-hint" style={{ padding: 16, margin: 0 }}>
+                  {term ? 'Nenhum item encontrado.' : 'Nenhuma categoria ainda.'}
+                </p>
+              )}
               {grouped.map(({ c, items }) => (
                 <section key={c.id} className="mn-menu-cat">
-                  <h3>{c.name}</h3>
+                  {!catSel && (
+                    <h3>
+                      <span aria-hidden>{categoryIcon(c)}</span> {c.name}
+                    </h3>
+                  )}
+                  {items.length === 0 && (
+                    <p className="cm-hint" style={{ padding: '8px 16px', margin: 0 }}>
+                      Nenhum item em {selectedCat?.name ?? c.name}.
+                    </p>
+                  )}
                   {items.map((p) => {
                     const r = rows[p.id]!;
                     const parsed = r.price ? parseBrlInput(r.price) : null;
                     const diff = parsed ? priceDiff(toCents(p.price), toCents(parsed)) : null;
                     return (
                       <div key={p.id} className="mn-menu-row" data-off={!r.on || undefined}>
-                        <label className="mn-check">
-                          <input
-                            type="checkbox"
-                            checked={r.on}
-                            disabled={!canWrite}
-                            onChange={(e) => set(p.id, { on: e.target.checked })}
-                          />
-                          <span>
+                        <span className="mn-menu-row__item">
+                          <ItemThumb src={mediaUrl(p.imageId)} name={p.name} size={40} />
+                          <span className="mn-menu-row__name">
                             <strong>{p.name}</strong>
-                            {p.code && <small className="cm-hint"> {p.code}</small>}
+                            <small className="cm-hint">
+                              {[
+                                p.code,
+                                p.fiscalUnit || 'UN',
+                                !p.active && 'Pausado',
+                                p.soldOut && 'Esgotado',
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </small>
                           </span>
-                        </label>
+                        </span>
                         <span className="mn-menu-row__base cm-hint">Item: {brl(p.price)}</span>
                         <input
                           className="cm-input cm-num"
@@ -300,6 +392,29 @@ export function MenuEditor() {
                           onChange={(e) => set(p.id, { price: e.target.value })}
                         />
                         <span className="mn-menu-row__diff">{diff ?? ''}</span>
+                        <span className="mn-menu-row__acts">
+                          <span className="mn-switch">
+                            <input
+                              type="checkbox"
+                              role="switch"
+                              aria-label={`${p.name} no cardápio`}
+                              checked={r.on}
+                              disabled={!canWrite}
+                              onChange={(e) => set(p.id, { on: e.target.checked })}
+                            />
+                            <span aria-hidden />
+                          </span>
+                          {canWrite && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              aria-label={`Editar ${p.name}`}
+                              title="Editar item"
+                              icon={<Pencil size={15} />}
+                              onClick={() => leave(`/cardapio/itens/${p.id}`)}
+                            />
+                          )}
+                        </span>
                       </div>
                     );
                   })}
@@ -308,6 +423,38 @@ export function MenuEditor() {
             </Card>
           </>
         )}
+        {menu && (
+          <PriceAdjustModal
+            open={adjusting}
+            menuId={menu.id}
+            menuName={menu.name}
+            categories={categories}
+            blocked={dirty}
+            initialCategoryId={catSel}
+            onClose={() => setAdjusting(false)}
+            onApplied={async (r) => {
+              setAdjusting(false);
+              const n = r.items.length + r.options.length;
+              toast(`${n} ${n === 1 ? 'preço reajustado' : 'preços reajustados'}`, 'success');
+              await load();
+            }}
+          />
+        )}
+        <CategoryModal
+          open={catModal !== null}
+          category={catModal === 'new' ? null : catModal}
+          sectors={sectors}
+          onClose={() => setCatModal(null)}
+          onSaved={(c) => {
+            const isNew = catModal === 'new';
+            setCatModal(null);
+            setCategories((list) =>
+              isNew ? [...list, c] : list.map((x) => (x.id === c.id ? c : x)),
+            );
+            if (isNew) setCatSel(c.id);
+            toast(isNew ? 'Categoria criada' : 'Categoria salva', 'success');
+          }}
+        />
       </>
     </HelpScope>
   );

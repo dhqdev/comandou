@@ -190,7 +190,9 @@ export function ItemEditor() {
         setAllProducts(all);
         if (isNew) {
           const cat = params.get('categoria') ?? c[0]?.id ?? '';
-          setForm(blank(cat));
+          // Item novo já vem com a cozinha da categoria.
+          const sector = c.find((x) => x.id === cat)?.sectorId ?? '';
+          setForm({ ...blank(cat), sectorId: sector });
           // Item novo entra nos cardápios ativos, com o preço do item.
           setMenuSel(Object.fromEntries(m.map((x) => [x.id, { on: x.active, price: '' }])));
           setGroupIds([]);
@@ -456,7 +458,11 @@ export function ItemEditor() {
               <SelectField
                 label="Categoria"
                 value={form.categoryId}
-                onChange={(e) => set('categoryId', e.target.value)}
+                onChange={(e) => {
+                  set('categoryId', e.target.value);
+                  const sector = categories.find((c) => c.id === e.target.value)?.sectorId;
+                  if (isNew && sector && !form.sectorId) set('sectorId', sector);
+                }}
               >
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
