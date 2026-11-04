@@ -61,6 +61,7 @@ export const sessions = pgTable('sessions', {
   ip: inet('ip'),
   userAgent: text('user_agent'),
   supportAdminName: text('support_admin_name'),
+  remember: boolean('remember').notNull().default(false),
 });
 
 export const auditLog = pgTable('audit_log', {

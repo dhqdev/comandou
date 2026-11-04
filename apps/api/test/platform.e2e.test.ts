@@ -305,6 +305,35 @@ describe('Login do Super Admin', () => {
     trustedLogin = () => noCode(device);
   });
 
+  it('aparelho lembrado: a sessão fica aberta, sem limite de inatividade, e se renova com o uso', async () => {
+    const r = await trustedLogin().expect(200);
+    const c = (r.headers['set-cookie'] as unknown as string[]).find((x) =>
+      x.startsWith('cm_admin='),
+    )!;
+    const days = (cookie: string) =>
+      (new Date(/Expires=([^;]+)/.exec(cookie)![1]!).getTime() - Date.now()) / 86400_000;
+    expect(days(c)).toBeGreaterThan(29);
+    const cookie = c.split(';')[0];
+    // Horas sem abrir o painel: a sessão comum já teria caído; a lembrada continua.
+    await ownerQuery(
+      `UPDATE platform_sessions SET last_seen_at = now() - interval '6 hours',
+              expires_at = now() + interval '3 days'
+        WHERE remember AND revoked_at IS NULL`,
+    );
+    const me = await pget('/auth/me', cookie).expect(200);
+    const renewed = (me.headers['set-cookie'] as unknown as string[]).find((x) =>
+      x.startsWith('cm_admin='),
+    )!;
+    expect(renewed).toMatch(/Path=\/api\/v1\/platform/);
+    expect(days(renewed)).toBeGreaterThan(29);
+    // Sessão comum (sem lembrar) cai depois do tempo sem uso.
+    await ownerQuery(
+      `UPDATE platform_sessions SET last_seen_at = now() - interval '6 hours' WHERE NOT remember`,
+    );
+    await pget('/auth/me').expect(401);
+    adminCookie = cookie;
+  });
+
   it('logout revoga a sessão no servidor (o navegador continua confiável)', async () => {
     const r = await trustedLogin().expect(200);
     const cookie = (r.headers['set-cookie'] as unknown as string[])

@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
 import { randomBytes } from 'node:crypto';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { DUMMY_HASH, verifyPassword } from '../auth/password';
 import { hashToken } from '../auth/session.service';
 import { open } from '../common/secret-box';
@@ -27,6 +27,16 @@ export const PLATFORM_DEVICE_COOKIE = 'cm_admin_device';
 export const TRUSTED_DEVICE_DAYS = 30;
 /** O cookie do painel só vai para as rotas do painel. */
 export const PLATFORM_COOKIE_PATH = '/api/v1/platform';
+
+/** Cookies do painel: só para as rotas do painel, sem sair do próprio site. */
+export const platformCookieOptions = (env: Env, expires: Date) =>
+  ({
+    httpOnly: true,
+    secure: env.COOKIE_SECURE,
+    sameSite: 'strict',
+    path: PLATFORM_COOKIE_PATH,
+    expires,
+  }) as const;
 
 export interface PlatformAdmin {
   id: string;
@@ -131,16 +141,24 @@ export class PlatformAuthService {
           return null;
         }
         const token = randomBytes(32).toString('base64url');
-        const expiresAt = new Date(Date.now() + this.env.PLATFORM_SESSION_TTL_HOURS * 3600_000);
+        // Aparelho lembrado (agora ou antes): a sessão fica aberta e se renova a cada uso.
+        const remember = !!trusted || !!meta.remember;
+        const expiresAt = new Date(
+          Date.now() +
+            (remember
+              ? this.env.PLATFORM_REMEMBER_DAYS * 86400_000
+              : this.env.PLATFORM_SESSION_TTL_HOURS * 3600_000),
+        );
         const s = await c.query<{ id: string }>(
-          `INSERT INTO platform_sessions (admin_id, token_hash, expires_at, ip, user_agent)
-         VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+          `INSERT INTO platform_sessions (admin_id, token_hash, expires_at, ip, user_agent, remember)
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
           [
             a!.id,
             hashToken(token),
             expiresAt,
             meta.ip ?? null,
             meta.userAgent?.slice(0, 300) ?? null,
+            remember,
           ],
         );
         let device: { token: string; expiresAt: Date } | undefined;
@@ -233,8 +251,12 @@ export class PlatformAuthService {
     return r ? { id: r.id, adminId: r.admin_id, email: r.email } : null;
   }
 
-  /** Sessão válida, não revogada, dentro do prazo e usada há menos de PLATFORM_IDLE_MINUTES. */
-  async validate(token: string): Promise<PlatformAdmin | null> {
+  /**
+   * Sessão válida, não revogada e dentro do prazo. A comum também expira após PLATFORM_IDLE_MINUTES
+   * sem uso; a lembrada não tem limite de inatividade e, a cada dia de uso, o prazo volta a ser
+   * PLATFORM_REMEMBER_DAYS (`renewedUntil`: o cookie precisa ser regravado com a data nova).
+   */
+  async validate(token: string): Promise<(PlatformAdmin & { renewedUntil?: Date }) | null> {
     if (!token || token.length > 100) return null;
     const rows = await this.db.query<{
       session_id: string;
@@ -242,21 +264,34 @@ export class PlatformAuthService {
       email: string;
       name: string;
       last_seen_at: Date;
+      expires_at: Date;
+      remember: boolean;
     }>(
-      `SELECT s.id AS session_id, a.id, a.email::text AS email, a.name, s.last_seen_at
+      `SELECT s.id AS session_id, a.id, a.email::text AS email, a.name, s.last_seen_at,
+              s.expires_at, s.remember
          FROM platform_sessions s JOIN platform_admins a ON a.id = s.admin_id
         WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > now()
           AND a.disabled_at IS NULL
-          AND s.last_seen_at > now() - make_interval(mins => $2)`,
+          AND (s.remember OR s.last_seen_at > now() - make_interval(mins => $2))`,
       [hashToken(token), this.env.PLATFORM_IDLE_MINUTES],
     );
     const r = rows[0];
     if (!r) return null;
-    if (Date.now() - r.last_seen_at.getTime() > 30_000)
+    const full = this.env.PLATFORM_REMEMBER_DAYS * 86400_000;
+    const renewedUntil =
+      r.remember && r.expires_at.getTime() - Date.now() < full - 86400_000
+        ? new Date(Date.now() + full)
+        : undefined;
+    if (renewedUntil)
+      await this.db.query(
+        `UPDATE platform_sessions SET last_seen_at = now(), expires_at = $2 WHERE id = $1`,
+        [r.session_id, renewedUntil],
+      );
+    else if (Date.now() - r.last_seen_at.getTime() > 30_000)
       await this.db.query(`UPDATE platform_sessions SET last_seen_at = now() WHERE id = $1`, [
         r.session_id,
       ]);
-    return { id: r.id, email: r.email, name: r.name, sessionId: r.session_id };
+    return { id: r.id, email: r.email, name: r.name, sessionId: r.session_id, renewedUntil };
   }
 
   async logout(admin: PlatformAdmin, ip?: string) {
@@ -296,14 +331,23 @@ export class PlatformHostGuard implements CanActivate {
 
 @Injectable()
 export class PlatformSessionGuard implements CanActivate {
-  constructor(private readonly auth: PlatformAuthService) {}
+  constructor(
+    private readonly auth: PlatformAuthService,
+    @Inject(ENV) private readonly env: Env,
+  ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
     const req = ctx.switchToHttp().getRequest<Request>();
     const token = (req.cookies as Record<string, string> | undefined)?.[PLATFORM_COOKIE];
     const admin = token ? await this.auth.validate(token) : null;
     if (!admin) throw new UnauthorizedException('Sessão do painel necessária');
-    req.platformAdmin = admin;
+    const { renewedUntil, ...current } = admin;
+    if (renewedUntil)
+      ctx
+        .switchToHttp()
+        .getResponse<Response>()
+        .cookie(PLATFORM_COOKIE, token, platformCookieOptions(this.env, renewedUntil));
+    req.platformAdmin = current;
     return true;
   }
 }

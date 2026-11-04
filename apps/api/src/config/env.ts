@@ -30,6 +30,11 @@ const schema = z.object({
     .positive()
     .max(24 * 30)
     .default(12),
+  /**
+   * "Manter conectado" no login do restaurante: a sessão vale estes dias e se renova a cada uso,
+   * então quem usa o aparelho pelo menos uma vez nesse prazo não precisa entrar de novo.
+   */
+  SESSION_REMEMBER_DAYS: z.coerce.number().int().positive().max(180).default(60),
   /** Cookie Secure=true exige HTTPS. Em dev local via http fica false. */
   COOKIE_SECURE: z
     .enum(['true', 'false'])
@@ -115,6 +120,11 @@ const schema = z.object({
     .positive()
     .max(24 * 60)
     .default(30),
+  /**
+   * Sessão do painel com "Lembrar este aparelho": vale estes dias, renovada a cada uso e sem o
+   * limite de inatividade. Ações sensíveis (assinar contrato) continuam pedindo o código.
+   */
+  PLATFORM_REMEMBER_DAYS: z.coerce.number().int().positive().max(90).default(30),
   /** Token do endpoint /api/v1/metrics (Prometheus). Sem ele, o endpoint não existe. */
   METRICS_TOKEN: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(24).optional()),
   /** Agente do servidor (painel Super Admin → Servidor). Sem URL, a tela mostra "não instalado". */

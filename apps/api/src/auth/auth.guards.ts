@@ -2,14 +2,16 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Permission, roleHas } from '@comandou/shared';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { PERMISSION, PUBLIC, SKIP_CSRF, SKIP_TENANT } from '../common/decorators';
-import { SESSION_COOKIE, SessionService } from './session.service';
+import { ENV, Env } from '../config/env';
+import { SESSION_COOKIE, sessionCookieOptions, SessionService } from './session.service';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -51,6 +53,7 @@ export class SessionGuard implements CanActivate {
   constructor(
     private readonly sessions: SessionService,
     private readonly reflector: Reflector,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -60,9 +63,16 @@ export class SessionGuard implements CanActivate {
     const req = ctx.switchToHttp().getRequest<Request>();
     const token = (req.cookies as Record<string, string> | undefined)?.[SESSION_COOKIE];
     if (!req.tenant || !token) throw new UnauthorizedException('Sessão necessária');
-    const user = await this.sessions.validate(req.tenant.id, token);
+    const user = await this.sessions.validate(req.tenant.id, token, true);
     if (!user) throw new UnauthorizedException('Sessão inválida ou expirada');
-    req.user = user;
+    const { renewedUntil, ...authenticated } = user;
+    // "Manter conectado": o prazo andou, então o cookie também anda (senão o navegador o apagaria).
+    if (renewedUntil)
+      ctx
+        .switchToHttp()
+        .getResponse<Response>()
+        .cookie(SESSION_COOKIE, token, sessionCookieOptions(this.env, renewedUntil));
+    req.user = authenticated;
     return true;
   }
 }

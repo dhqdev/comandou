@@ -26,14 +26,19 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   // Código errado é recusado.
   await page.goto(ADMIN_URL);
   await page.getByLabel('E-mail').fill(ADMIN_EMAIL);
-  await page.getByLabel('Senha').fill(ADMIN_PASSWORD);
+  await page.getByLabel('Senha', { exact: true }).fill(ADMIN_PASSWORD);
   await page.getByLabel('Código do autenticador').fill('000000');
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page.getByText('E-mail, senha ou código inválidos.')).toBeVisible();
   await shot(page, info.project.name, 'admin-login');
 
-  await adminLogin(page, { remember: true });
+  await adminLogin(page);
   await expect(page.getByText('Banco de dados').first()).toBeVisible();
+  // Aparelho lembrado: o painel continua conectado (cookie de semanas, não de horas).
+  const session = (await page.context().cookies()).find((c) => c.name === 'cm_admin');
+  expect(session!.expires * 1000 - Date.now()).toBeGreaterThan(7 * 86400_000);
+  await page.reload();
+  await expect(page.locator('.topbar__tenant')).toContainText('Status');
   await shot(page, info.project.name, 'admin-visao-geral');
 
   // Plano novo
@@ -151,7 +156,7 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   }
 
   await account(page, 'Sair');
-  // Entrou com código e marcou "Lembrar este aparelho": o navegador fica confiável, só senha.
+  // Entrou com código e "Lembrar este aparelho" marcado: o navegador fica confiável, só senha.
   await expect(page.getByText(/Navegador confiável/)).toBeVisible();
   await page.getByRole('button', { name: 'Usar código' }).click();
   await expect(page.getByLabel('Código do autenticador')).toBeVisible();

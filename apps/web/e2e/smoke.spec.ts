@@ -22,6 +22,9 @@ test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => 
   await page.getByRole('button', { name: 'Entrar' }).click();
   await skipTour(page);
   await expect(page.getByText(/Olá, /)).toBeVisible();
+  // Fica conectado no aparelho: o cookie vale semanas e não some ao fechar o app.
+  const session = (await page.context().cookies()).find((c) => c.name === 'cm_sid');
+  expect(session!.expires * 1000 - Date.now()).toBeGreaterThan(7 * 86400_000);
   await expect(page.getByRole('heading', { name: 'Pedidos', exact: true })).toBeVisible();
   await page.screenshot({
     path: `test-results/screens/${info.project.name}-pdv.png`,
@@ -47,12 +50,14 @@ test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => 
   });
 
   // Sessão sobrevive a recarregar (cookie HttpOnly; no localStorage só a marca de
-  // apresentação vista e as cores da loja em cache, nada de sessão).
+  // apresentação vista, as cores da loja em cache e o e-mail do login, nada de sessão).
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Cardápio' })).toBeVisible();
+  const kept = new Set(['cm-brand', 'cm-login-email']);
   expect(
-    await page.evaluate(() =>
-      Object.keys(localStorage).filter((k) => !k.startsWith('cm-tour:') && k !== 'cm-brand'),
+    await page.evaluate(
+      (k) => Object.keys(localStorage).filter((x) => !x.startsWith('cm-tour:') && !k.includes(x)),
+      [...kept],
     ),
   ).toEqual([]);
 });

@@ -56,6 +56,7 @@ import { DbServersPage } from './DbServersPage';
 import { ContractSignPage, signToken } from './ContractSign';
 import { SUPPORT_CHANGED_EVENT, SupportPage } from './SupportPage';
 import { TenantDetailPage, TenantsPage } from './TenantsPages';
+import { AuthShell, deskFocus, PasswordField } from '../pages/AuthShell';
 
 /** O painel Super Admin só existe em admin.<domínio base>. */
 
@@ -112,9 +113,11 @@ function PlatformLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
-  const [remember, setRemember] = useState(false);
+  /** Marcado por padrão: o aparelho fica lembrado e o painel continua aberto (sessão renovada). */
+  const [remember, setRemember] = useState(true);
   /** Navegador confiável: já entrou com o código antes, então o campo some. */
   const [trusted, setTrusted] = useState(false);
+  const [desk] = useState(deskFocus);
   useEffect(() => {
     api<{ trusted: boolean; email?: string }>('/platform/auth/device')
       .then((d) => {
@@ -149,60 +152,61 @@ function PlatformLogin() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: 16 }}>
-      <form
-        onSubmit={onSubmit}
-        noValidate
-        className="adm-panel"
-        style={{ width: 'min(400px, 100%)', padding: 24, display: 'grid', gap: 14 }}
-      >
-        <div className="adm-logo" style={{ padding: 0 }}>
-          <Mascot size={22} badge /> Comandou <span>admin</span>
-        </div>
-        <div className="adm-sub" style={{ whiteSpace: 'normal', marginTop: -8 }}>
-          Acesso restrito à equipe da plataforma. Tudo é auditado.
-        </div>
+    <AuthShell
+      place="Super Admin"
+      title="Painel da plataforma"
+      sub="Acesso restrito à equipe. Tudo fica na auditoria."
+      pitch={
+        <>
+          Todos os restaurantes
+          <span> num painel só.</span>
+        </>
+      }
+    >
+      <form onSubmit={onSubmit} className="login__form" noValidate>
         <TextField
           label="E-mail"
           type="email"
+          inputMode="email"
           autoComplete="username"
+          autoCapitalize="none"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          autoFocus={desk && !email}
         />
-        <TextField
-          label="Senha"
-          type="password"
+        <PasswordField
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          autoFocus={desk && !!email}
         />
         {trusted ? (
-          <div className="adm-sub" style={{ whiteSpace: 'normal' }}>
-            Navegador confiável: o código do autenticador não é pedido aqui.{' '}
-            <button type="button" className="adm-link" onClick={() => setTrusted(false)}>
+          <p className="login__note">
+            Navegador confiável: aqui não pede o código.{' '}
+            <button type="button" className="login__link" onClick={() => setTrusted(false)}>
               Usar código
             </button>
-          </div>
+          </p>
         ) : (
-          <TextField
-            label="Código do autenticador"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            hint="6 dígitos do aplicativo autenticador."
-          />
-        )}
-        {!trusted && (
-          <label className="adm-sub" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input
-              type="checkbox"
-              checked={remember}
-              onChange={(e) => setRemember(e.target.checked)}
+          <>
+            <TextField
+              label="Código do autenticador"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
             />
-            Lembrar este aparelho por 30 dias (só em computador seu)
-          </label>
+            <label className="login__check">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              Lembrar este aparelho e continuar conectado
+            </label>
+          </>
         )}
         {error && <Alert tone="danger">{error}</Alert>}
         <Button
@@ -215,7 +219,7 @@ function PlatformLogin() {
           Entrar
         </Button>
       </form>
-    </div>
+    </AuthShell>
   );
 }
 

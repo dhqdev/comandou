@@ -22,6 +22,7 @@ import { ENV, Env } from '../config/env';
 import {
   PLATFORM_COOKIE,
   PLATFORM_COOKIE_PATH,
+  platformCookieOptions,
   PLATFORM_DEVICE_COOKIE,
   PlatformAuthService,
   PlatformHostGuard,
@@ -103,21 +104,13 @@ export class PlatformAuthController {
       deviceToken: this.deviceCookie(req),
       remember: b.remember,
     });
-    res.cookie(PLATFORM_COOKIE, r.token, {
-      httpOnly: true,
-      secure: this.env.COOKIE_SECURE,
-      sameSite: 'strict',
-      path: PLATFORM_COOKIE_PATH,
-      expires: r.expiresAt,
-    });
+    res.cookie(PLATFORM_COOKIE, r.token, platformCookieOptions(this.env, r.expiresAt));
     if (r.device)
-      res.cookie(PLATFORM_DEVICE_COOKIE, r.device.token, {
-        httpOnly: true,
-        secure: this.env.COOKIE_SECURE,
-        sameSite: 'strict',
-        path: PLATFORM_COOKIE_PATH,
-        expires: r.device.expiresAt,
-      });
+      res.cookie(
+        PLATFORM_DEVICE_COOKIE,
+        r.device.token,
+        platformCookieOptions(this.env, r.device.expiresAt),
+      );
     return { admin: r.admin, expiresAt: r.expiresAt };
   }
 

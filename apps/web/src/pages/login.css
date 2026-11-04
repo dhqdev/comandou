@@ -1,6 +1,11 @@
-/* Tela de login: formulário à esquerda, vitrine do produto na cor da marca à direita. */
+/*
+ * Telas de entrada (AuthShell), no padrão do Planejai.
+ * Notebook: formulário à esquerda, painel liso com o mascote à direita.
+ * Celular (PWA): sem cartão e sem enfeite; título grande, campos cheios de 52px, botão de 52px e a
+ * ajuda no pé da tela.
+ */
 .login {
-  min-height: 100%;
+  min-height: 100dvh;
   display: grid;
   grid-template-columns: minmax(380px, 520px) 1fr;
   background: var(--cm-surface);
@@ -21,53 +26,48 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--cm-space-3);
   width: 100%;
-  max-width: 400px;
+  max-width: 380px;
   margin: 0 auto;
   padding: var(--cm-space-10) 0;
   animation: cm-enter var(--cm-dur-slow) var(--cm-ease) both;
 }
-.login__eyebrow {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 100%;
-  padding: 5px 12px;
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-full);
-  background: var(--cm-surface-muted);
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-xs);
-  font-weight: 600;
+.login__place {
+  margin-bottom: var(--cm-space-2);
   overflow: hidden;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.login__eyebrow .cm-dot {
-  flex-shrink: 0;
-  color: var(--cm-brand-500);
-}
 .login__title {
-  margin: var(--cm-space-2) 0 0;
+  margin: 0;
   font-size: var(--cm-text-3xl);
-  font-weight: 750;
+  font-weight: 700;
   line-height: 1.1;
   letter-spacing: -0.035em;
 }
 .login__sub {
-  margin: 0 0 var(--cm-space-3);
+  margin: var(--cm-space-2) 0 0;
   color: var(--cm-text-muted);
-  line-height: 1.55;
+  line-height: 1.5;
+}
+.login__body > .cm-alert {
+  margin-top: var(--cm-space-5);
 }
 .login__form {
   display: grid;
   gap: var(--cm-space-4);
+  margin-top: var(--cm-space-6);
 }
 .login__form .cm-input {
   min-height: 48px;
 }
+.login__form .cm-btn {
+  margin-top: var(--cm-space-1);
+}
+
 /* Olho de mostrar/esconder senha, dentro do campo. */
 .login__password {
   position: relative;
@@ -78,7 +78,7 @@
 .login__reveal {
   position: absolute;
   right: 4px;
-  /* abaixo do rótulo e do espaço do campo, centrado nos 48px do input */
+  /* abaixo do rótulo, centrado no campo */
   top: calc(var(--cm-text-sm) * var(--cm-leading) + 6px + 4px);
   width: 40px;
   height: 40px;
@@ -92,7 +92,6 @@
 }
 .login__reveal:hover {
   color: var(--cm-text);
-  background: var(--cm-surface-sunken);
 }
 .login__reveal:focus-visible {
   outline: none;
@@ -102,25 +101,50 @@
   color: var(--cm-warning);
   font-weight: 600;
 }
-.login__remember {
+
+/* Linha de opção (lembrar aparelho) e texto pequeno dentro do formulário. */
+.login__check {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: calc(-1 * var(--cm-space-1));
   color: var(--cm-text-muted);
   font-size: var(--cm-text-sm);
   cursor: pointer;
   user-select: none;
 }
-.login__remember input {
+.login__check input {
+  flex-shrink: 0;
   width: 18px;
   height: 18px;
   margin: 0;
   accent-color: var(--cm-brand-600);
 }
+.login__note {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  line-height: 1.5;
+}
+.login__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.login__foot {
+  display: grid;
+  justify-items: center;
+  gap: var(--cm-space-2);
+  text-align: center;
+}
 .login__help {
   margin: 0;
-  text-align: center;
   color: var(--cm-text-subtle);
   font-size: var(--cm-text-sm);
 }
@@ -128,218 +152,41 @@
   color: var(--cm-text-muted);
   font-weight: 600;
 }
-.login__foot {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--cm-space-4);
+.login__version {
   color: var(--cm-text-subtle);
-  font-size: var(--cm-text-xs);
-}
-.login__foot span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  font-size: var(--cm-text-2xs);
 }
 
-/* Vitrine: fundo na cor da marca (segue a cor escolhida pela loja e o tema). */
+/* Painel do notebook: liso, neutro, só o mascote e uma frase. */
 .login__art {
-  position: relative;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: var(--cm-space-10);
+  gap: var(--cm-space-8);
   padding: clamp(32px, 6vw, 80px);
-  /* Painel neutro e liso: sem degradê, brilho, textura nem bloco de cor. */
   background: var(--cm-bg);
   border-left: 1px solid var(--cm-frame-line);
   color: var(--cm-text);
+  text-align: center;
 }
-.login__showcase {
-  position: relative;
-  z-index: 1;
-  width: min(520px, 100%);
-}
-/* Cartão "ao vivo": sempre claro, como um print do painel. */
-.login__board {
-  padding: var(--cm-space-5);
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-lg);
-  background: #fff;
-  box-shadow: 0 12px 32px -16px rgb(24 24 27 / 18%);
-  color: #1a1613;
-}
-.login__board-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 700;
-}
-.login__live {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: #2b8a3e;
-  font-size: var(--cm-text-xs);
-  font-weight: 600;
-}
-.login__stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--cm-space-2);
-  margin: var(--cm-space-4) 0;
-}
-.login__stats div {
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #f7f5f3;
-}
-.login__stats small {
-  display: block;
-  color: #645c54;
-  font-size: var(--cm-text-2xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.login__stats b {
-  font-size: var(--cm-text-lg);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
-.login__orders {
-  display: grid;
-  gap: 6px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.login__order {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border: 1px solid #efece8;
-  border-radius: 10px;
-  background: #fff;
-  font-size: var(--cm-text-sm);
-  animation: login-slide 0.6s var(--cm-ease) both;
-}
-.login__order:nth-child(2) {
-  animation-delay: 0.15s;
-}
-.login__order:nth-child(3) {
-  animation-delay: 0.3s;
-}
-.login__order b {
-  color: #a65800;
-  font-variant-numeric: tabular-nums;
-}
-.login__order span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.login__tag {
-  padding: 2px 8px;
-  border-radius: var(--cm-radius-full);
-  font-size: var(--cm-text-2xs);
-  font-style: normal;
-  font-weight: 700;
-}
-.login__tag--warn {
-  background: #fff6e0;
-  color: #b86e00;
-}
-.login__tag--info {
-  background: #eef3fd;
-  color: #2463d1;
-}
-.login__tag--ok {
-  background: #edf7ef;
-  color: #2b8a3e;
-}
-.login__mascot {
-  --cm-mascot-ink: #1a1613;
-  --cm-mascot-face: #fff;
-  --cm-mascot-rim: none;
-  position: absolute;
-  right: -28px;
-  bottom: -40px;
-  color: #1a1613;
-  filter: drop-shadow(0 8px 16px rgb(24 24 27 / 16%));
+:root[data-theme='dark'] .login__art {
+  background: var(--cm-frame);
 }
 .login__pitch {
-  position: relative;
-  z-index: 1;
-  width: min(520px, 100%);
-}
-.login__pitch h2 {
-  margin: 0 0 var(--cm-space-5);
-  font-size: clamp(1.6rem, 2.6vw, 2.4rem);
+  max-width: 420px;
+  margin: 0;
+  font-size: clamp(1.5rem, 2.4vw, 2.2rem);
   font-weight: 650;
   line-height: 1.15;
   letter-spacing: -0.03em;
 }
-.login__pitch h2 span {
+.login__pitch span {
   display: block;
-}
-.login__pitch ul {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--cm-space-3) var(--cm-space-5);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-weight: 500;
-  font-size: var(--cm-text-sm);
   color: var(--cm-text-muted);
 }
-.login__pitch li {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.login__feature-icon {
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--cm-radius-md);
-  background: var(--cm-surface);
-  border: 1px solid var(--cm-border);
-  color: var(--cm-text);
-}
-/* No escuro a vitrine vira um painel grafite liso. */
-:root[data-theme='dark'] .login__art {
-  background: var(--cm-frame);
-}
-:root[data-theme='dark'] .login__board {
-  border-color: rgb(255 255 255 / 12%);
-  box-shadow: 0 16px 40px -16px rgb(0 0 0 / 70%);
-  filter: brightness(0.94);
-}
-@keyframes login-slide {
-  from {
-    opacity: 0;
-    transform: translateX(16px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .login__board,
-  .login__order {
-    animation: none;
-  }
-}
-@media (max-width: 1100px) {
-  .login__pitch ul {
-    grid-template-columns: 1fr;
-  }
-}
-/* Celular/tablet em pé: só o formulário, com uma faixa da marca no topo. */
+
+/* Celular e tablet em pé: só o formulário, sem cartão nem painel. */
 @media (max-width: 860px) {
   .login {
     grid-template-columns: 1fr;
@@ -348,14 +195,74 @@
     display: none;
   }
   .login__panel {
-    border-top: 4px solid var(--cm-brand-500);
-    padding: var(--cm-space-5) var(--cm-space-4)
-      calc(var(--cm-space-5) + env(safe-area-inset-bottom));
+    padding: calc(var(--cm-space-4) + env(safe-area-inset-top)) var(--cm-space-6)
+      calc(var(--cm-space-4) + env(safe-area-inset-bottom));
   }
+  /* o bloco fica um pouco acima do meio; a ajuda desce para o pé */
   .login__body {
-    padding: var(--cm-space-8) 0;
+    justify-content: flex-start;
+    max-width: 440px;
+    padding: clamp(32px, 12dvh, 120px) 0 var(--cm-space-8);
   }
   .login__title {
-    font-size: var(--cm-text-2xl);
+    font-size: 30px;
+    letter-spacing: -0.03em;
+  }
+  .login__sub {
+    font-size: 15px;
+  }
+  .login__form {
+    gap: var(--cm-space-3);
+    margin-top: 28px;
+  }
+  /* rótulo pequeno e cinza; o campo é cheio, sem borda, e acende no foco */
+  .login__form .cm-label {
+    margin-left: 4px;
+    color: var(--cm-text-muted);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .login__form .cm-input {
+    min-height: 52px;
+    padding: 0 16px;
+    border-color: transparent;
+    border-radius: 14px;
+    background: var(--cm-surface-sunken);
+    font-size: 16px;
+  }
+  .login__form .cm-input:focus {
+    background: var(--cm-surface);
+    border-color: var(--cm-brand-500);
+  }
+  .login__password .cm-input {
+    padding-right: 52px;
+  }
+  .login__reveal {
+    right: 6px;
+    top: calc(13px * var(--cm-leading) + 6px + 6px);
+  }
+  .login__form .cm-btn {
+    min-height: 52px;
+    margin-top: var(--cm-space-3);
+    border-radius: 14px;
+    font-size: 16px;
+  }
+}
+/* Celular baixinho (iPhone SE e parecidos): tudo um pouco mais junto. */
+@media (max-width: 860px) and (max-height: 700px) {
+  .login__body {
+    padding-top: var(--cm-space-6);
+  }
+  .login__title {
+    font-size: 26px;
+  }
+  .login__form .cm-input,
+  .login__form .cm-btn {
+    min-height: 48px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login__body {
+    animation: none;
   }
 }

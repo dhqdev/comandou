@@ -14,12 +14,12 @@ let app: INestApplication;
 let fx: Fixture;
 let http: ReturnType<typeof request>;
 
-async function login(host: string, email: string, password = PASSWORD) {
+async function login(host: string, email: string, password = PASSWORD, remember?: boolean) {
   const res = await http
     .post('/api/v1/auth/login')
     .set('Host', host)
     .set(CSRF)
-    .send({ email, password });
+    .send({ email, password, remember });
   const raw = res.headers['set-cookie'] as unknown as string[] | undefined;
   const cookie = raw?.find((c) => c.startsWith('cm_sid='))?.split(';')[0];
   return { res, cookie: cookie ?? '', raw: raw ?? [] };
@@ -115,6 +115,45 @@ describe('Autenticação', () => {
     const { cookie } = await login(HOST_A, 'admin@api-a.test');
     await http.get('/api/v1/auth/me').set('Host', HOST_A).set('Cookie', cookie).expect(200);
     await http.get('/api/v1/auth/me').set('Host', HOST_B).set('Cookie', cookie).expect(401);
+  });
+
+  it('manter conectado: a sessão vale semanas e o prazo anda a cada uso', async () => {
+    const days = (c: string) =>
+      (new Date(/Expires=([^;]+)/.exec(c)![1]!).getTime() - Date.now()) / 86400_000;
+    const plain = await login(HOST_A, 'admin@api-a.test');
+    expect(days(plain.raw.find((x) => x.startsWith('cm_sid='))!)).toBeLessThan(1);
+    const kept = await login(HOST_A, 'admin@api-a.test', PASSWORD, true);
+    expect(days(kept.raw.find((x) => x.startsWith('cm_sid='))!)).toBeGreaterThan(59);
+    // Uso no mesmo dia não regrava nada.
+    const same = await http
+      .get('/api/v1/auth/me')
+      .set('Host', HOST_A)
+      .set('Cookie', kept.cookie)
+      .expect(200);
+    expect(same.headers['set-cookie']).toBeUndefined();
+    // Perto de vencer: o próximo uso renova o banco e o cookie.
+    const token = kept.cookie.slice('cm_sid='.length);
+    await ownerQuery(
+      `UPDATE sessions SET expires_at = now() + interval '2 days'
+        WHERE token_hash = sha256(convert_to($1, 'UTF8'))`,
+      [token],
+    );
+    const me = await http
+      .get('/api/v1/auth/me')
+      .set('Host', HOST_A)
+      .set('Cookie', kept.cookie)
+      .expect(200);
+    const renewed = (me.headers['set-cookie'] as unknown as string[]).find((x) =>
+      x.startsWith('cm_sid='),
+    )!;
+    expect(renewed).toMatch(/HttpOnly/i);
+    expect(days(renewed)).toBeGreaterThan(59);
+    const [row] = await ownerQuery<{ d: number }>(
+      `SELECT extract(epoch FROM expires_at - now()) / 86400 AS d FROM sessions
+        WHERE token_hash = sha256(convert_to($1, 'UTF8'))`,
+      [token],
+    );
+    expect(Number(row.d)).toBeGreaterThan(59);
   });
 
   it('logout revoga a sessão no servidor', async () => {

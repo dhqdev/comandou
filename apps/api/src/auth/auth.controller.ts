@@ -22,11 +22,13 @@ import { ENV, Env } from '../config/env';
 import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { DUMMY_HASH, verifyPassword } from './password';
-import { hashToken, SESSION_COOKIE, SessionService } from './session.service';
+import { hashToken, SESSION_COOKIE, sessionCookieOptions, SessionService } from './session.service';
 
 const LoginSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   password: z.string().min(1).max(200),
+  /** Manter conectado neste aparelho (a tela marca por padrão). */
+  remember: z.boolean().optional().default(false),
 });
 type LoginInput = z.infer<typeof LoginSchema>;
 const SupportSchema = z.object({ token: z.string().min(20).max(100) });
@@ -106,6 +108,7 @@ export class AuthController {
       const s = await this.sessions.create(tx, tenant.id, row.user_id, {
         ip: req.ip,
         userAgent: req.get('user-agent'),
+        remember: body.remember,
       });
       await this.audit.record(tx, {
         tenantId: tenant.id,
@@ -116,13 +119,7 @@ export class AuthController {
         ip: req.ip,
       });
       // Cookie host-only (sem Domain): não é compartilhado entre subdomínios de restaurantes.
-      res.cookie(SESSION_COOKIE, s.token, {
-        httpOnly: true,
-        secure: this.env.COOKIE_SECURE,
-        sameSite: 'lax',
-        path: '/',
-        expires: s.expiresAt,
-      });
+      res.cookie(SESSION_COOKIE, s.token, sessionCookieOptions(this.env, s.expiresAt));
       return { user: { id: row.user_id, name: row.name, role: row.role }, expiresAt: s.expiresAt };
     });
   }
@@ -163,13 +160,7 @@ export class AuthController {
         data: { by: 'platform', admin: row.admin_name },
         ip: req.ip,
       });
-      res.cookie(SESSION_COOKIE, s.token, {
-        httpOnly: true,
-        secure: this.env.COOKIE_SECURE,
-        sameSite: 'lax',
-        path: '/',
-        expires: s.expiresAt,
-      });
+      res.cookie(SESSION_COOKIE, s.token, sessionCookieOptions(this.env, s.expiresAt));
       return { expiresAt: s.expiresAt };
     });
   }

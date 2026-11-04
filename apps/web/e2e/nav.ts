@@ -51,7 +51,7 @@ export async function settled(page: Page) {
   );
 }
 
-/** Campos do login do restaurante (exatos: "Lembrar meu e-mail" e "Mostrar senha" também casam). */
+/** Campos do login do restaurante (exatos: "Mostrar senha" também casa com "Senha"). */
 export const emailField = (page: Page) => page.getByLabel('E-mail', { exact: true });
 export const passwordField = (page: Page) => page.getByLabel('Senha', { exact: true });
 

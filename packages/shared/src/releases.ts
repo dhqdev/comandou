@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.77.0',
+    date: '2026-11-03',
+    title: 'Login mais simples e bonito, e você só entra uma vez em cada aparelho',
+    summary:
+      'Todas as telas de entrada (painel, garçom, cozinha, entregas e Super Admin) ficaram no estilo limpo do Planejai, pensadas primeiro para o celular. E depois do primeiro login o aparelho fica conectado: não precisa entrar de novo.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Login no celular e no app instalado: sem cartão nem enfeite, título grande, campos e botão de 52px, ajuda no pé da tela e sem o teclado abrindo sozinho ao abrir a tela. No computador, formulário à esquerda e um painel liso com o mascote.',
+      },
+      {
+        tag: 'novo',
+        text: 'Fica conectado: quem entra no painel, no app do garçom, da cozinha ou das entregas continua conectado naquele aparelho. A sessão se renova a cada uso (vale 60 dias sem abrir); para trocar de pessoa, use Sair.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin: "Lembrar este aparelho" vem marcado. Depois do primeiro login com o código, o painel fica aberto no aparelho por até 30 dias sem uso, renovando sozinho, e o próximo login nem pede o código. Assinar contrato continua pedindo o código.',
+      },
+    ],
+  },
+  {
     version: '0.76.0',
     date: '2026-11-03',
     title: 'Cozinha com várias telas: Bar, Chapa, Forno...',

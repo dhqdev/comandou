@@ -46,7 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      await api('/auth/login', { method: 'POST', json: { email, password } });
+      // Fica conectado neste aparelho (a sessão se renova com o uso); "Sair" encerra.
+      await api('/auth/login', { method: 'POST', json: { email, password, remember: true } });
       await refresh();
     },
     [refresh],
