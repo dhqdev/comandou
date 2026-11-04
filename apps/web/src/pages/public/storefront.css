@@ -2550,66 +2550,7 @@
   }
 }
 
-/* Endereço com CEP: consulta e sugestão de rua */
-.cep-input {
-  position: relative;
-  display: block;
-}
-.cep-input__spin,
-.street-field__spin {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  margin-top: -8px;
-  color: var(--cm-text-muted);
-  animation: cm-spin 0.8s linear infinite;
-}
-.street-field {
-  position: relative;
-}
-.street-field__spin {
-  top: 38px;
-}
-.street-hits {
-  position: absolute;
-  z-index: 20;
-  left: 0;
-  right: 0;
-  top: calc(100% - 4px);
-  margin: 0;
-  padding: 4px;
-  list-style: none;
-  max-height: 260px;
-  overflow-y: auto;
-  background: var(--cm-surface);
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-sm, 6px);
-}
-.street-hits button {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  width: 100%;
-  min-height: 44px;
-  padding: 8px 10px;
-  text-align: left;
-  border: 0;
-  background: transparent;
-  color: var(--cm-text);
-  font: inherit;
-  cursor: pointer;
-}
-.street-hits button:hover,
-.street-hits button:focus-visible {
-  background: var(--cm-brand-50, rgba(0, 0, 0, 0.05));
-}
-.street-hits strong,
-.street-hits small {
-  display: block;
-}
-.street-hits small {
-  color: var(--cm-text-muted);
-}
+/* Endereço com CEP: o resto (campo, lista de ruas) está em features/street-hits.css */
 .city-uf {
   display: grid;
   grid-template-columns: 1fr 72px;

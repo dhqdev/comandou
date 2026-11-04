@@ -2,8 +2,10 @@ import { Search, ShieldCheck } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Alert, Button, HelpLabel, TextField, useToast } from '../design-system';
 import { api } from '../lib/api';
+import { maskCep, useCepAutofill } from '../lib/cep';
 import type { FiscalCompany, FiscalSettings } from '../lib/types';
 import { SelectField } from './forms';
+import { StreetHits } from './StreetHits';
 
 const EMPTY: FiscalCompany = {
   nome: '',
@@ -80,6 +82,21 @@ export function FiscalCompanySetup({
 
   const set = <K extends keyof FiscalCompany>(k: K, v: FiscalCompany[K]) =>
     setC((x) => ({ ...x, [k]: v }));
+  const numberRef = useRef<HTMLInputElement>(null);
+  const cepFill = useCepAutofill(
+    { cep: c.cep, street: c.logradouro, city: c.municipio, state: c.uf },
+    (a, from) => {
+      setC((x) => ({
+        ...x,
+        ...(from === 'street' ? { cep: maskCep(a.cep) } : {}),
+        logradouro: a.street || x.logradouro,
+        bairro: a.district || x.bairro,
+        municipio: a.city || x.municipio,
+        uf: a.state || x.uf,
+      }));
+      if (a.street) numberRef.current?.focus();
+    },
+  );
   const digits = cnpj.replace(/\D/g, '');
   const acc = (c.contabilidade ?? '').replace(/\D/g, '');
   const companyOk =
@@ -206,17 +223,39 @@ export function FiscalCompanySetup({
         <TextField
           label="CEP"
           inputMode="numeric"
+          autoComplete="postal-code"
+          placeholder="00000-000"
           maxLength={9}
           value={c.cep}
-          onChange={(e) => set('cep', e.target.value.replace(/[^\d-]/g, ''))}
+          hint={cepFill.cepHint}
+          onChange={(e) => {
+            cepFill.cepTyped();
+            set('cep', maskCep(e.target.value));
+          }}
         />
+        <div className="street-field fi-w2">
+          <TextField
+            label="Rua"
+            value={c.logradouro}
+            hint={cepFill.streetHint}
+            role="combobox"
+            aria-expanded={cepFill.open}
+            aria-controls="fiscal-street-hits"
+            aria-autocomplete="list"
+            onChange={(e) => {
+              cepFill.streetTyped();
+              set('logradouro', e.target.value);
+            }}
+            onFocus={() => cepFill.hits.length && cepFill.setOpen(true)}
+            onBlur={cepFill.streetLeft}
+            onKeyDown={(e) => e.key === 'Escape' && cepFill.setOpen(false)}
+          />
+          {cepFill.open && (
+            <StreetHits id="fiscal-street-hits" hits={cepFill.hits} onPick={cepFill.pick} />
+          )}
+        </div>
         <TextField
-          label="Rua"
-          wrapClass="fi-w2"
-          value={c.logradouro}
-          onChange={(e) => set('logradouro', e.target.value)}
-        />
-        <TextField
+          ref={numberRef}
           label="Número"
           value={c.numero}
           onChange={(e) => set('numero', e.target.value)}
@@ -240,7 +279,7 @@ export function FiscalCompanySetup({
           label="UF"
           maxLength={2}
           value={c.uf}
-          onChange={(e) => set('uf', e.target.value.toUpperCase())}
+          onChange={(e) => set('uf', e.target.value.replace(/[^A-Za-z]/g, '').toUpperCase())}
         />
         <TextField
           label="E-mail fiscal"

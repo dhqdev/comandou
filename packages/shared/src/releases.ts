@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.80.0',
+    date: '2026-11-04',
+    title: 'Endereço completo pelo CEP ou pelo nome da rua',
+    summary:
+      'Nos endereços do cardápio online, da empresa (fiscal) e do cliente da nota, digitar o CEP preenche rua, bairro, cidade e UF, e digitar o nome da rua mostra os CEPs dessa rua na cidade para escolher. Com um único resultado, o CEP já entra ao sair do campo.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'A consulta de CEP parava quando a ViaCEP bloqueava ou demorava e chegava a guardar "CEP não encontrado" por uma semana. Agora tenta também BrasilAPI e OpenCEP, não guarda falhas e, se o servidor não alcançar nenhum serviço, o próprio navegador consulta a ViaCEP.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Busca pela rua mais esperta: acha "Av. Paulista", "Rua Augusta" ou nomes sem acento, e põe primeiro as ruas que começam pelo que foi digitado.',
+      },
+      {
+        tag: 'novo',
+        text: 'CEP e busca pela rua também no cadastro da empresa (fiscal) e no endereço do cliente da nota.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Mensagens claras na rua: falta cidade/UF para buscar, nenhuma rua com esse nome, ou busca fora do ar.',
+      },
+    ],
+  },
+  {
     version: '0.79.0',
     date: '2026-11-04',
     title: 'Fechar conta do pedido em painel lateral, via de entrega e cancelar item à vista',

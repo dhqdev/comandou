@@ -16,7 +16,7 @@ import {
   Trash2,
   XCircle,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import {
   Alert,
@@ -32,7 +32,9 @@ import {
 } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { SelectField } from '../../features/forms';
+import { StreetHits } from '../../features/StreetHits';
 import { api } from '../../lib/api';
+import { useCepAutofill } from '../../lib/cep';
 import { brl } from '../../lib/money';
 import { useDebounced, useRealtime } from '../../lib/realtime';
 import type {
@@ -131,6 +133,22 @@ export function DocumentDetail() {
     setOp((o) => ({ ...o, [k]: v }));
     setDirty(true);
   };
+  const recNumber = useRef<HTMLInputElement>(null);
+  const cepFill = useCepAutofill(
+    { cep: rec.cep ?? '', street: rec.street ?? '', city: rec.city ?? '', state: rec.state ?? '' },
+    (a, from) => {
+      setRec((r) => ({
+        ...r,
+        ...(from === 'street' ? { cep: a.cep } : {}),
+        street: (a.street || r.street || null)?.slice(0, 60) ?? null,
+        district: (a.district || r.district || null)?.slice(0, 60) ?? null,
+        city: (a.city || r.city || null)?.slice(0, 60) ?? null,
+        state: a.state || r.state || null,
+      }));
+      setDirty(true);
+      if (a.street) recNumber.current?.focus();
+    },
+  );
 
   const patchBody = useMemo(() => {
     const clean = Object.fromEntries(
@@ -542,13 +560,41 @@ export function DocumentDetail() {
               />
             )}
             <TextField
-              label="Logradouro"
-              value={rec.street ?? ''}
+              label="CEP"
+              inputMode="numeric"
+              value={rec.cep ?? ''}
               disabled={!editable}
-              maxLength={60}
-              onChange={(e) => setR('street', e.target.value)}
+              hint={editable ? cepFill.cepHint : undefined}
+              onChange={(e) => {
+                cepFill.cepTyped();
+                setR('cep', e.target.value.replace(/\D/g, '').slice(0, 8));
+              }}
             />
+            <div className="street-field">
+              <TextField
+                label="Logradouro"
+                value={rec.street ?? ''}
+                disabled={!editable}
+                maxLength={60}
+                hint={editable ? cepFill.streetHint : undefined}
+                role="combobox"
+                aria-expanded={cepFill.open}
+                aria-controls="rec-street-hits"
+                aria-autocomplete="list"
+                onChange={(e) => {
+                  cepFill.streetTyped();
+                  setR('street', e.target.value);
+                }}
+                onFocus={() => cepFill.hits.length && cepFill.setOpen(true)}
+                onBlur={cepFill.streetLeft}
+                onKeyDown={(e) => e.key === 'Escape' && cepFill.setOpen(false)}
+              />
+              {cepFill.open && editable && (
+                <StreetHits id="rec-street-hits" hits={cepFill.hits} onPick={cepFill.pick} />
+              )}
+            </div>
             <TextField
+              ref={recNumber}
               label="Número"
               value={rec.number ?? ''}
               disabled={!editable}
@@ -582,13 +628,6 @@ export function DocumentDetail() {
               disabled={!editable}
               maxLength={2}
               onChange={(e) => setR('state', e.target.value.toUpperCase())}
-            />
-            <TextField
-              label="CEP"
-              inputMode="numeric"
-              value={rec.cep ?? ''}
-              disabled={!editable}
-              onChange={(e) => setR('cep', e.target.value.replace(/\D/g, '').slice(0, 8))}
             />
             {isNfe && (
               <TextField

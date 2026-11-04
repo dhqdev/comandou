@@ -251,11 +251,7 @@ export const fmtPhone = (digits: string) => maskPhone(digits);
 export const addressLine = (a: Pick<SavedAddress, 'street' | 'number' | 'district'>) =>
   `${a.street}, ${a.number} · ${a.district}`;
 
-/** CEP enquanto digita: 00000-000. */
-export function maskCep(raw: string) {
-  const d = raw.replace(/\D/g, '').slice(0, 8);
-  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
-}
+export { maskCep } from '../../lib/cep';
 
 export const STEP_LABEL: Record<AccountOrder['step'], string> = {
   awaiting: 'Em análise',

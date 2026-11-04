@@ -84,9 +84,13 @@ const schema = z.object({
   TICKETS_PIPELINE_SECONDS: z.coerce.number().int().min(0).max(3600).default(10),
   /** Busca de endereço (Nominatim/OpenStreetMap) usada nas áreas de entrega. */
   GEOCODER_URL: z.string().url().default('https://nominatim.openstreetmap.org'),
-  /** Consulta de CEP: ViaCEP (principal, também acha o CEP pela rua) e BrasilAPI (reserva). */
+  /**
+   * Consulta de CEP: ViaCEP (principal, também acha o CEP pela rua), BrasilAPI e OpenCEP
+   * (reservas quando a ViaCEP falha ou não conhece o CEP).
+   */
   VIACEP_URL: z.string().url().default('https://viacep.com.br'),
   BRASILAPI_URL: z.string().url().default('https://brasilapi.com.br'),
+  OPENCEP_URL: z.string().url().default('https://opencep.com'),
   /**
    * Porta do teste "site no ar" do painel (https://<slug>.<base>:<porta>/api/v1/health/site).
    * Vazia = porta padrão (443 com COOKIE_SECURE=true, 80 sem). Em dev local: 5173 (Vite).
