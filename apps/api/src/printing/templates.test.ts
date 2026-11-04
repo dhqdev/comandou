@@ -20,6 +20,18 @@ describe('modelos de impressão (Liquid)', () => {
     expect(receipt).toMatch(/^TOTAL\s+R\$ 73,48$/m);
   });
 
+  it('via de entrega: cobrar na porta, troco e endereço', async () => {
+    const out = await renderTemplate(
+      DEFAULT_TEMPLATES.delivery_slip,
+      sampleData('delivery_slip', 'BarBizan Burger'),
+    );
+    expect(out).toContain('VIA DE ENTREGA');
+    expect(out).toContain('Rua das Flores, 120');
+    expect(out).toMatch(/^TOTAL A COBRAR:\s+R\$ 73,80$/m);
+    expect(out).toMatch(/^Levar de troco:\s+R\$ 6,20$/m);
+    expect(out).toContain('Pagamento: Dinheiro');
+  });
+
   it('filtros: dinheiro, linha, centro, qtd e quebra', async () => {
     const out = await renderTemplate(
       `{{ 1234.5 | dinheiro }}|{{ "A" | linha: "B" }}|{{ "2.500" | qtd }}|{{ "oi" | centro }}`,

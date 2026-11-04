@@ -142,13 +142,16 @@ export class PrintingService {
       payment_hint: PaymentMethod | null;
       change_for: string | null;
       store_name: string;
+      /** Data e hora completas do pedido (via de entrega). A comanda inteira não tem. */
+      full_time?: string;
     }>(
       tx,
       `SELECT o.number, o.channel, t.name AS store_name, o.customer_name, tb.number AS tab_number, dt.label AS table_label, o.notes,
               o.total::text, o.delivery_address, o.customer_phone,
               o.subtotal::text, o.discount::text, o.surcharge::text, o.delivery_fee::text,
               o.payment_hint, o.change_for::text,
-              to_char(o.created_at AT TIME ZONE t.timezone, 'DD/MM HH24:MI') AS local_time
+              to_char(o.created_at AT TIME ZONE t.timezone, 'DD/MM HH24:MI') AS local_time,
+              to_char(o.created_at AT TIME ZONE t.timezone, 'DD/MM/YYYY HH24:MI:SS') AS full_time
          FROM orders o JOIN tenants t ON t.id = o.tenant_id
          LEFT JOIN tabs tb ON tb.id = o.tab_id LEFT JOIN dining_tables dt ON dt.id = tb.table_id
         WHERE o.id = $1`,
@@ -277,7 +280,9 @@ export class PrintingService {
           ? await one<{ id: string }>(tx, `SELECT id FROM orders WHERE id = $1`, [orderId])
           : await one<{ id: string }>(
               tx,
-              `SELECT id FROM orders WHERE status <> 'cancelled' ORDER BY created_at DESC LIMIT 1`,
+              `SELECT id FROM orders WHERE status <> 'cancelled' AND ($1::boolean IS FALSE OR channel = 'delivery')
+                ORDER BY created_at DESC LIMIT 1`,
+              [kind === 'delivery_slip'],
             );
         if (o) data = await this.templateData(tx, kind, o.id);
       }
@@ -332,6 +337,7 @@ export class PrintingService {
   private async templateData(tx: Tx, kind: TemplateKind, orderId: string) {
     if (kind === 'receipt')
       return (await this.receiptData(tx, { kind: 'order', id: orderId })).data;
+    if (kind === 'delivery_slip') return (await this.deliveryData(tx, orderId)).data;
     const o = await this.orderHeader(tx, orderId);
     const items = await this.items(tx, orderId);
     return this.kitchenData(o, 'Cozinha', items);
@@ -530,6 +536,86 @@ export class PrintingService {
     if (o.notes) out.push(line(), ...wrap(`OBS DO PEDIDO: ${o.notes}`));
     out.push(line('='));
     return out.join('\n');
+  }
+
+  /** Variáveis da via de entrega: as da conferência + data completa e quanto cobrar na porta. */
+  private async deliveryData(tx: Tx, orderId: string) {
+    const r = await this.receiptData(tx, { kind: 'order', id: orderId });
+    const cobrar = r.data.totais.falta;
+    const trocoPara = r.data.pedido.troco_para > cobrar ? r.data.pedido.troco_para : 0;
+    const data = {
+      ...r.data,
+      pedido: {
+        ...r.data.pedido,
+        data: r.o.full_time ?? r.o.local_time,
+        cobrar,
+        cobrar_formatado: formatMoney(cobrar),
+        pago: cobrar <= 0,
+        levar_de_troco: trocoPara ? Math.round((trocoPara - cobrar) * 100) / 100 : 0,
+        levar_de_troco_formatado: formatMoney(trocoPara ? trocoPara - cobrar : 0),
+      },
+    };
+    return { ...r, data };
+  }
+
+  /**
+   * Via de entrega: vai com o motoboy. Loja, pedido, cliente com telefone e endereço completo,
+   * itens, quanto cobrar na porta, como o cliente vai pagar, troco e a observação do pedido.
+   * Personalizável em Impressão > Modelos (tipo "delivery_slip").
+   */
+  private async deliverySlip(tx: Tx, orderId: string) {
+    const { o, items, paid, data } = await this.deliveryData(tx, orderId);
+    const custom = await this.custom(tx, 'delivery_slip', data);
+    if (custom !== null) return custom;
+    const money = (v: string | number) => formatMoney(v);
+    const row = (label: string, v: string | number) =>
+      label.slice(0, WIDTH - 15).padEnd(WIDTH - 14) + money(v).padStart(14);
+    const nonZero = (v: string) => Number(v) > 0;
+    const out = [...wrap(o.store_name).map(center), center('VIA DE ENTREGA'), line('=')];
+    out.push(`Pedido: #${o.number}`, `Data: ${data.pedido.data}`, line());
+    if (o.customer_name) out.push(...wrap(`Cliente: ${o.customer_name}`));
+    if (o.customer_phone) out.push(`Telefone: ${o.customer_phone}`);
+    if (o.delivery_address) out.push(...wrap(o.delivery_address));
+    if (o.channel !== 'delivery') out.push(CHANNEL_LABELS[o.channel]);
+    out.push(line());
+    for (const i of items) {
+      const left = `${fmtQty(i.quantity)}x ${i.name}`.slice(0, WIDTH - 13);
+      out.push(left.padEnd(WIDTH - 12) + money(i.total).padStart(12));
+      for (const op of i.options) out.push(...wrap(`+ ${op}`, '   '));
+      if (i.notes) out.push(...wrap(`OBS: ${i.notes}`, '   '));
+    }
+    out.push(line());
+    out.push(row('Subtotal:', o.subtotal));
+    if (nonZero(o.discount)) out.push(row('Desconto:', `-${o.discount}`));
+    if (nonZero(o.surcharge)) out.push(row('Acréscimo:', o.surcharge));
+    if (nonZero(o.delivery_fee)) out.push(row('Taxa de entrega:', o.delivery_fee));
+    const due = data.pedido.cobrar;
+    if (due > 0) {
+      out.push(row('TOTAL A COBRAR:', due));
+      if (paid.length) out.push(row('Já pago:', num(o.total) - due));
+      if (o.payment_hint) out.push(`Pagamento: ${PAYMENT_METHOD_LABELS[o.payment_hint]}`);
+      if (data.pedido.levar_de_troco > 0) {
+        out.push(row('Troco para:', data.pedido.troco_para));
+        out.push(row('Levar de troco:', data.pedido.levar_de_troco));
+      }
+    } else {
+      out.push(row('TOTAL:', o.total), center('*** PAGO - NÃO COBRAR ***'));
+      const methods = [...new Set(paid.map((p) => PAYMENT_METHOD_LABELS[p.method] ?? p.method))];
+      if (methods.length) out.push(`Pago com: ${methods.join(', ')}`);
+    }
+    if (o.notes) out.push(...wrap(`Obs.: ${o.notes}`));
+    out.push(line('='));
+    return out.join('\n');
+  }
+
+  /** Via de entrega como texto, para a prévia na tela antes de imprimir. */
+  async deliverySlipPreview(ctx: Ctx, orderId: string) {
+    return this.db.withTenant(ctx, async (tx) => {
+      if (!(await one(tx, `SELECT 1 FROM orders WHERE id = $1`, [orderId])))
+        throw new NotFoundException('Pedido não encontrado');
+      const agent = await this.hasActiveAgent(tx);
+      return { text: await this.deliverySlip(tx, orderId), width: WIDTH, agent };
+    });
   }
 
   /**
@@ -851,11 +937,16 @@ export class PrintingService {
   }
 
   /**
-   * Reimpressão (comanda de cozinha) ou conferência de conta, sob demanda.
+   * Reimpressão (comanda de cozinha), conferência de conta ou via de entrega, sob demanda.
    * `onlySector` (só comanda de cozinha): imprime só os itens daquela cozinha ('none' = itens
    * sem cozinha). É o que a tela do KDS usa, para cada cozinha imprimir só o que ela faz.
    */
-  async printOrder(ctx: Ctx, orderId: string, kind: 'kitchen' | 'receipt', onlySector?: string) {
+  async printOrder(
+    ctx: Ctx,
+    orderId: string,
+    kind: 'kitchen' | 'receipt' | 'delivery',
+    onlySector?: string,
+  ) {
     const res = await this.db.withTenant(ctx, async (tx) => {
       if (!(await this.hasActiveAgent(tx)))
         throw new ConflictException('Nenhum agente de impressão ativo. Configure em Impressão.');
@@ -867,6 +958,12 @@ export class PrintingService {
           target: 'Caixa',
           payload: await this.receipt(tx, { kind: 'order', id: orderId }),
           kind: 'receipt',
+        });
+      } else if (kind === 'delivery') {
+        jobs.push({
+          target: 'Caixa',
+          payload: await this.deliverySlip(tx, orderId),
+          kind: 'delivery_slip',
         });
       } else {
         const sectors = await q<{ sector_id: string | null; name: string | null }>(

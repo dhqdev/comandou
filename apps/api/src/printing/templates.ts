@@ -6,11 +6,16 @@ import { Liquid } from 'liquidjs';
  * código: não acessa arquivos, rede nem o processo. Aqui ainda limitamos tamanho, tempo e
  * memória de cada impressão e desligamos {% include %}/{% render %} (não há arquivos).
  *
- * Só a conferência de conta, a comanda da cozinha e o rodapé do cupom fiscal são editáveis. O
+ * Só a conferência de conta, a via de entrega, a comanda da cozinha e o rodapé do cupom fiscal são editáveis. O
  * corpo do cupom fiscal (DANFE NFC-e) segue o leiaute obrigatório da SEFAZ e não muda.
  */
 
-export const TEMPLATE_KINDS = ['receipt', 'kitchen_ticket', 'fiscal_footer'] as const;
+export const TEMPLATE_KINDS = [
+  'receipt',
+  'delivery_slip',
+  'kitchen_ticket',
+  'fiscal_footer',
+] as const;
 export type TemplateKind = (typeof TEMPLATE_KINDS)[number];
 export const TEMPLATE_MAX = 8000;
 /** Colunas de uma bobina de 80 mm na fonte normal. */
@@ -160,6 +165,34 @@ Pagamento na entrega: {{ pedido.pagar_na_entrega }}
 {% endif %}{% endif %}{% if pedido.observacao %}{{ "-" | traco }}
 {{ "OBS DO PEDIDO: " | append: pedido.observacao | quebra }}
 {% endif %}{{ "=" | traco }}`,
+  delivery_slip: `{{ loja.nome | centro }}
+{{ "VIA DE ENTREGA" | centro }}
+{{ "=" | traco }}
+Pedido: #{{ pedido.numero }}
+Data: {{ pedido.data }}
+{{ "-" | traco }}
+{% if pedido.cliente %}{{ "Cliente: " | append: pedido.cliente | quebra }}
+{% endif %}{% if pedido.telefone %}Telefone: {{ pedido.telefone }}
+{% endif %}{% if pedido.endereco %}{{ pedido.endereco | quebra }}
+{% endif %}{% unless pedido.entrega %}{{ pedido.canal }}
+{% endunless %}{{ "-" | traco }}
+{% for item in itens %}{{ item.quantidade | qtd | append: "x " | append: item.nome | linha: item.total_formatado }}
+{% for op in item.opcoes %}{{ "+ " | append: op | quebra: 3 }}
+{% endfor %}{% if item.observacao %}{{ "OBS: " | append: item.observacao | quebra: 3 }}
+{% endif %}{% endfor %}{{ "-" | traco }}
+{{ "Subtotal:" | linha: totais.subtotal_formatado }}
+{% if totais.desconto > 0 %}{{ "Desconto:" | linha: totais.desconto_formatado }}
+{% endif %}{% if totais.acrescimo > 0 %}{{ "Acréscimo:" | linha: totais.acrescimo_formatado }}
+{% endif %}{% if totais.entrega > 0 %}{{ "Taxa de entrega:" | linha: totais.entrega_formatado }}
+{% endif %}{% if pedido.pago %}{{ "TOTAL:" | linha: totais.total_formatado }}
+{{ "*** PAGO - NÃO COBRAR ***" | centro }}
+{% for p in pagamentos %}Pago com: {{ p.forma }}
+{% endfor %}{% else %}{{ "TOTAL A COBRAR:" | linha: pedido.cobrar_formatado }}
+{% if pedido.pagar_na_entrega %}Pagamento: {{ pedido.pagar_na_entrega }}
+{% endif %}{% if pedido.levar_de_troco > 0 %}{{ "Troco para:" | linha: pedido.troco_para_formatado }}
+{{ "Levar de troco:" | linha: pedido.levar_de_troco_formatado }}
+{% endif %}{% endif %}{% if pedido.observacao %}{{ "Obs.: " | append: pedido.observacao | quebra }}
+{% endif %}{{ "=" | traco }}`,
   kitchen_ticket: `{{ setor | upcase | centro }}
 {{ "=" | traco }}
 {{ "PEDIDO #" | append: pedido.numero | linha: pedido.hora }}
@@ -217,6 +250,40 @@ export function sampleData(kind: TemplateKind, storeName: string): Record<string
     impresso_em: '03/11/2026 19:58:10',
   };
   if (kind === 'kitchen_ticket') return { ...base, setor: 'Cozinha', pedido, itens };
+  if (kind === 'delivery_slip') {
+    const entrega = {
+      ...pedido,
+      canal: 'Delivery',
+      local: 'Delivery',
+      mesa: null,
+      entrega: true,
+      data: '03/11/2026 19:42:10',
+      pagar_na_entrega: 'Dinheiro',
+      troco_para: 80,
+      troco_para_formatado: money(80),
+      cobrar: 73.8,
+      cobrar_formatado: money(73.8),
+      pago: false,
+      levar_de_troco: 6.2,
+      levar_de_troco_formatado: money(6.2),
+    };
+    const totais = {
+      subtotal: 66.8,
+      desconto: 0,
+      acrescimo: 0,
+      entrega: 7,
+      total: 73.8,
+      falta: 73.8,
+      tem_extras: true,
+      subtotal_formatado: money(66.8),
+      desconto_formatado: money(0),
+      acrescimo_formatado: money(0),
+      entrega_formatado: money(7),
+      total_formatado: money(73.8),
+      falta_formatado: money(73.8),
+    };
+    return { ...base, pedido: entrega, itens, totais, pagamentos: [] };
+  }
   if (kind === 'fiscal_footer') return { ...base, pedido, nota: { numero: '1234', serie: '1' } };
   return {
     ...base,

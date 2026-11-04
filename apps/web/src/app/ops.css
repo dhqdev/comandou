@@ -490,6 +490,29 @@
   color: var(--cm-text);
   white-space: nowrap;
 }
+/* "Cancelar item" embaixo de cada item, discreto mas à vista (só para o gerente). */
+.od-item__cancel {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface);
+  color: var(--cm-danger);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+.od-item__cancel:hover {
+  border-color: var(--cm-danger);
+}
+.od-item .inline-form {
+  padding-top: 4px;
+}
 .od-rows {
   display: grid;
 }
@@ -574,6 +597,9 @@
 }
 .od-bar > .od-bar__cancel {
   color: var(--cm-danger);
+}
+.od-foot > .od-slip {
+  height: 40px;
 }
 .od-more {
   position: relative;

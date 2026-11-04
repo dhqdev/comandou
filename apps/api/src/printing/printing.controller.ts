@@ -40,7 +40,7 @@ const JobsQuery = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
 const Target = z.object({ target: z.string().trim().min(1).max(60) });
-const PrintOrder = z.object({ kind: z.enum(['kitchen', 'receipt']) });
+const PrintOrder = z.object({ kind: z.enum(['kitchen', 'receipt', 'delivery']) });
 const Claim = z.object({ limit: z.number().int().min(1).max(20).default(5) });
 const Heartbeat = z.object({ version: z.string().trim().max(40).optional() });
 const Result = z.object({ ok: z.boolean(), error: z.string().max(300).optional() });
@@ -288,6 +288,17 @@ export class PrintingController {
     @CurrentUser() u: AuthenticatedUser,
   ) {
     return this.printing.receiptPreview(ctxOf(t, u), { kind: 'order', id });
+  }
+
+  /** Via de entrega do pedido (vai com o motoboy), para ver antes de imprimir. */
+  @Get('orders/:id/delivery-slip')
+  @RequirePermission('orders:read')
+  orderDeliverySlip(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.printing.deliverySlipPreview(ctxOf(t, u), id);
   }
 
   /** Comprovante de fechamento da comanda inteira (mesa com várias rodadas). */

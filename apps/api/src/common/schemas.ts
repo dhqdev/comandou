@@ -55,10 +55,16 @@ export const Transition = z.object({
 });
 
 export const Adjust = z
-  .object({ discount: money.optional(), surcharge: money.optional(), reason })
+  .object({
+    discount: money.optional(),
+    surcharge: money.optional(),
+    /** Frete (taxa de entrega) do pedido, ao fechar a conta. */
+    deliveryFee: money.optional(),
+    reason,
+  })
   .refine(
-    (b) => b.discount !== undefined || b.surcharge !== undefined,
-    'informe desconto ou acréscimo',
+    (b) => b.discount !== undefined || b.surcharge !== undefined || b.deliveryFee !== undefined,
+    'informe desconto, acréscimo ou frete',
   );
 
 export const Payment = z.object({

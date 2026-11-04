@@ -3,7 +3,12 @@ import { useEffect, useState } from 'react';
 import { Alert, Button, Modal, Spinner, useToast } from '../design-system';
 import { api } from '../lib/api';
 
-export type ReceiptTarget = { kind: 'order' | 'tab'; id: string };
+export type ReceiptTarget = {
+  kind: 'order' | 'tab';
+  id: string;
+  /** "delivery": via de entrega do pedido (vai com o motoboy). Padrão: conferência. */
+  doc?: 'receipt' | 'delivery';
+};
 
 /** Imprime um texto de bobina pelo navegador (sem o app de impressão). */
 function browserPrint(text: string) {
@@ -39,15 +44,16 @@ export function ReceiptPreview({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const base = target ? `/${target.kind === 'tab' ? 'tabs' : 'orders'}/${target.id}` : null;
+  const delivery = target?.kind === 'order' && target.doc === 'delivery';
 
   useEffect(() => {
     setData(null);
     setError(null);
     if (!base) return;
-    api<{ text: string; agent: boolean }>(`${base}/receipt`)
+    api<{ text: string; agent: boolean }>(`${base}/${delivery ? 'delivery-slip' : 'receipt'}`)
       .then(setData)
       .catch((e: Error) => setError(e.message));
-  }, [base]);
+  }, [base, delivery]);
 
   async function print() {
     if (!data || !target) return;
@@ -58,7 +64,11 @@ export function ReceiptPreview({
     setBusy(true);
     try {
       if (target.kind === 'tab') await api(`${base}/print`, { method: 'POST' });
-      else await api(`${base}/print`, { method: 'POST', json: { kind: 'receipt' } });
+      else
+        await api(`${base}/print`, {
+          method: 'POST',
+          json: { kind: delivery ? 'delivery' : 'receipt' },
+        });
       toast('Enviado para a impressora do caixa', 'success');
       onClose();
     } catch (e) {
@@ -72,7 +82,7 @@ export function ReceiptPreview({
     <Modal
       open={!!target}
       onClose={onClose}
-      title="Comprovante de fechamento"
+      title={delivery ? 'Via de entrega' : 'Comprovante de fechamento'}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>

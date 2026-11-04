@@ -14,6 +14,7 @@ import {
   MessageSquare,
   MoreHorizontal,
   Phone,
+  Printer,
   ShoppingBag,
   Timer,
   User,
@@ -54,7 +55,8 @@ import {
   qty,
   STATUS_TONE,
 } from './format';
-import { PaymentModal, useOpenSessions } from './PaymentModal';
+import { CloseOrderPanel } from './CloseOrderPanel';
+import { useOpenSessions } from './PaymentModal';
 import { SidePanel } from './SidePanel';
 
 const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }[]>> = {
@@ -94,7 +96,7 @@ export function OrderDetailModal({
   const canManagePrint = useCan('printing:manage');
   const canPrint = canWrite || canManagePrint;
   const [printing, setPrinting] = useState(false);
-  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [previewKind, setPreviewKind] = useState<'receipt' | 'delivery' | null>(null);
   async function print(kind: 'kitchen' | 'receipt') {
     if (!orderId) return;
     setPrinting(true);
@@ -226,17 +228,21 @@ export function OrderDetailModal({
           ? [{ label: 'Concluir a receber (fiado)', run: () => setMode('receivable') }]
           : []),
         ...(canPrint && order.status !== 'cancelled'
-          ? [
-              { label: 'Reimprimir na cozinha', run: () => void print('kitchen') },
-              { label: 'Comprovante de fechamento', run: () => setReceiptOpen(true) },
-            ]
+          ? [{ label: 'Reimprimir na cozinha', run: () => void print('kitchen') }]
           : []),
       ]
     : [];
+  const canPrintSlip = !!order && !mode && canPrint && order.status !== 'cancelled';
   const hasBar =
     !!order &&
     !mode &&
-    (nextSteps.length > 0 || canReceive || canSend || canReject || !!cancelLabel || more.length);
+    (nextSteps.length > 0 ||
+      canReceive ||
+      canSend ||
+      canReject ||
+      !!cancelLabel ||
+      more.length ||
+      canPrintSlip);
 
   const header = order ? (
     <span className="odh">
@@ -326,12 +332,33 @@ export function OrderDetailModal({
           {canReceive && (
             <Button
               variant={order.status === 'awaiting' ? 'secondary' : 'primary'}
+              icon={<Wallet size={15} />}
               onClick={() => setPaying(true)}
             >
-              Receber {brl(order.balance)}
+              Fechar conta
+            </Button>
+          )}
+          {canPrintSlip && (
+            <Button
+              variant="secondary"
+              icon={<Printer size={15} />}
+              onClick={() => setPreviewKind('receipt')}
+            >
+              Imprimir pedido
             </Button>
           )}
         </div>
+      )}
+      {canPrintSlip && order.channel === 'delivery' && (
+        <Button
+          variant="secondary"
+          block
+          className="od-slip"
+          icon={<Bike size={15} />}
+          onClick={() => setPreviewKind('delivery')}
+        >
+          Imprimir via de entrega
+        </Button>
       )}
     </div>
   ) : undefined;
@@ -446,16 +473,6 @@ export function OrderDetailModal({
                         <div className="od-item__sub">Cancelado: {i.cancelReason}</div>
                       )}
                     </div>
-                    {canCancelItem && i.status !== 'cancelled' && activeItems > 1 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Cancelar ${i.name}`}
-                        onClick={() => setMode({ cancelItem: i })}
-                      >
-                        <XCircle size={14} aria-hidden /> Cancelar
-                      </Button>
-                    )}
                   </div>
                   <div className="od-item__bottom">
                     <span>
@@ -463,6 +480,32 @@ export function OrderDetailModal({
                     </span>
                     <strong>{brl(i.total)}</strong>
                   </div>
+                  {canCancelItem && i.status !== 'cancelled' && (
+                    <button
+                      type="button"
+                      className="od-item__cancel"
+                      aria-label={`Cancelar ${i.name}`}
+                      onClick={() =>
+                        // O último item só sai cancelando o pedido inteiro (regra do servidor).
+                        setMode(activeItems > 1 ? { cancelItem: i } : 'cancel')
+                      }
+                    >
+                      <XCircle size={14} aria-hidden /> Cancelar item
+                    </button>
+                  )}
+                  {mode &&
+                    typeof mode === 'object' &&
+                    'cancelItem' in mode &&
+                    mode.cancelItem.id === i.id && (
+                      <ReasonForm
+                        label={`Motivo do cancelamento de ${i.name}`}
+                        confirm="Cancelar item"
+                        danger
+                        busy={busy}
+                        onCancel={() => setMode(null)}
+                        onConfirm={(r) => void cancelItem(i, r)}
+                      />
+                    )}
                 </li>
               ))}
             </ul>
@@ -558,16 +601,6 @@ export function OrderDetailModal({
               onConfirm={(r) => go('completed', r, true)}
             />
           )}
-          {mode && typeof mode === 'object' && 'cancelItem' in mode && (
-            <ReasonForm
-              label={`Motivo do cancelamento de ${mode.cancelItem.name}`}
-              confirm="Cancelar item"
-              danger
-              busy={busy}
-              onCancel={() => setMode(null)}
-              onConfirm={(r) => void cancelItem(mode.cancelItem, r)}
-            />
-          )}
           {mode && typeof mode === 'object' && 'refund' in mode && (
             <RefundForm
               payment={mode.refund}
@@ -595,18 +628,19 @@ export function OrderDetailModal({
               </ol>
             </details>
           )}
-          <PaymentModal
+          <CloseOrderPanel
+            order={order}
             open={paying}
             onClose={() => setPaying(false)}
-            onPaid={() => {
+            onDone={(o) => {
               setPaying(false);
+              if (o) setOrder(o);
               void load();
             }}
-            target={{ kind: 'order', id: order.id, number: order.number, balance: order.balance }}
           />
           <ReceiptPreview
-            target={receiptOpen ? { kind: 'order', id: order.id } : null}
-            onClose={() => setReceiptOpen(false)}
+            target={previewKind ? { kind: 'order', id: order.id, doc: previewKind } : null}
+            onClose={() => setPreviewKind(null)}
           />
         </div>
       )}

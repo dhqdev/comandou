@@ -15,6 +15,8 @@ async function login(page: Page) {
 
 async function pickCaixa(dialog: ReturnType<Page['getByRole']>, tag: string) {
   const select = dialog.getByLabel('Caixa');
+  // O "Fechar conta" do pedido só mostra o seletor com mais de um caixa aberto.
+  if (!(await select.count())) return;
   const value = await select.locator('option', { hasText: `Caixa ${tag}` }).getAttribute('value');
   await select.selectOption(value!);
 }
@@ -129,14 +131,17 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
 
   await card.getByRole('button', { name: /Abrir pedido/ }).click();
   dialog = page.getByRole('dialog').filter({ hasText: /Pedido #/ });
-  await dialog.getByRole('button', { name: /Receber/ }).click();
-  const pay = page.getByRole('dialog').filter({ hasText: 'Receber — pedido' });
+  // Fechar conta: painel lateral com taxa, frete, desconto e os meios de pagamento.
+  await dialog.getByRole('button', { name: 'Fechar conta' }).click();
+  const pay = page.getByRole('dialog', { name: /^Fechar conta/ });
+  await expect(pay.getByText('Itens da conta')).toBeVisible();
   await pickCaixa(pay, tag);
-  await pay.getByRole('radio', { name: 'Dinheiro' }).click();
-  await pay.getByLabel(/Valor entregue/).fill('50,00');
+  await pay.getByLabel('Meio de pagamento 1').selectOption('cash');
+  await pay.getByLabel('Valor 1').fill('50,00');
   await expect(pay.getByText('Troco: R$ 21,50')).toBeVisible();
-  await pay.getByRole('button', { name: /Confirmar/ }).click();
-  await expect(page.getByText('Pagamento confirmado. Troco: R$ 21,50')).toBeVisible();
+  await shot(page, info.project.name, 'fechar-conta');
+  await pay.locator('.cop-bar').getByRole('button', { name: 'Fechar conta' }).click();
+  await expect(page.getByText('Conta fechada. Troco: R$ 21,50')).toBeVisible();
   await expect(dialog.locator('.od-pay', { hasText: /^Pago$/ })).toBeVisible();
   await shot(page, info.project.name, 'pedido-pago');
   await dialog.getByRole('button', { name: 'Fechar' }).click();

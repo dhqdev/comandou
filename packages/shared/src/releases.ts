@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.79.0',
+    date: '2026-11-04',
+    title: 'Fechar conta do pedido em painel lateral, via de entrega e cancelar item à vista',
+    summary:
+      'No painel do pedido, "Fechar conta" abre um painel que desliza da direita com taxa de serviço, frete, desconto, pagamento imediato ou posterior (a receber), vários meios de pagamento e divisão por pessoa. O pedido também ganhou "Imprimir pedido", "Imprimir via de entrega" com pré-visualização e "Cancelar item" embaixo de cada item.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Fechar conta: itens à esquerda e, à direita, taxa de serviço (%), frete, desconto em R$ ou %, Imediato ou Posterior (a receber), um ou mais meios de pagamento e "Dividir por" com o valor por pessoa. Dinheiro acima do total vira troco.',
+      },
+      {
+        tag: 'novo',
+        text: 'Via de entrega para o motoboy: cliente, telefone, endereço, itens, quanto cobrar na porta, forma de pagamento e troco. Pré-visualiza antes de imprimir e, sem o app de impressão, imprime pelo navegador.',
+      },
+      {
+        tag: 'novo',
+        text: 'A via de entrega tem modelo próprio em Impressão > Modelos de impressão (Liquid, parecido com o Jinja), com prévia do último delivery.',
+      },
+      {
+        tag: 'melhoria',
+        text: '"Cancelar item" fica embaixo de cada item do pedido, com o motivo logo ali. No último item, ele leva ao cancelamento do pedido inteiro.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'As regras continuam: "a receber" exige o gerente e o motivo, e o pedido só é concluído quando a conta zera.',
+      },
+    ],
+  },
+  {
     version: '0.78.0',
     date: '2026-11-04',
     title: 'CrowdSec: o servidor passa a bloquear robôs, força bruta no login e IPs de ataque',

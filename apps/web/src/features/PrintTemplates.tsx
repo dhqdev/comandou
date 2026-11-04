@@ -4,7 +4,7 @@ import { Alert, Badge, Button, Card, Spinner, useToast } from '../design-system'
 import { api } from '../lib/api';
 import { Tabs } from './forms';
 
-type Kind = 'receipt' | 'kitchen_ticket' | 'fiscal_footer';
+type Kind = 'receipt' | 'delivery_slip' | 'kitchen_ticket' | 'fiscal_footer';
 interface Template {
   kind: Kind;
   body: string | null;
@@ -14,6 +14,7 @@ interface Template {
 
 const LABEL: Record<Kind, string> = {
   receipt: 'Conferência de conta',
+  delivery_slip: 'Via de entrega',
   kitchen_ticket: 'Comanda da cozinha',
   fiscal_footer: 'Rodapé do cupom fiscal',
 };
@@ -21,6 +22,8 @@ const LABEL: Record<Kind, string> = {
 const HELP: Record<Kind, string> = {
   receipt:
     'Papel que o cliente confere antes de pagar. Não é documento fiscal: você pode mudar tudo.',
+  delivery_slip:
+    'Vai com o motoboy: cliente, telefone, endereço, itens, quanto cobrar na porta e o troco. Sai pelo botão "Imprimir via de entrega" do pedido.',
   kitchen_ticket: 'Sai em cada setor (cozinha, bar) quando o pedido entra.',
   fiscal_footer:
     'Só o final do cupom da NFC-e é seu (agradecimento, Wi-Fi, redes sociais). O resto do cupom segue o modelo obrigatório da SEFAZ e não muda.',
@@ -41,6 +44,18 @@ const VARS: Record<Kind, [string, string][]> = {
     ],
     ['totais.*', 'subtotal, desconto, acrescimo, entrega, total, falta (+ _formatado)'],
     ['pagamentos (lista)', 'p.forma, p.valor_formatado, p.troco_formatado'],
+  ],
+  delivery_slip: [
+    ['loja.nome', 'nome do restaurante'],
+    ['pedido.numero / pedido.data', 'número, data e hora completas do pedido'],
+    ['pedido.cliente / pedido.telefone / pedido.endereco', 'para quem e onde entregar'],
+    ['pedido.cobrar_formatado / pedido.pago', 'quanto cobrar na porta (pago = nada a cobrar)'],
+    ['pedido.pagar_na_entrega', 'como o cliente disse que vai pagar'],
+    ['pedido.troco_para_formatado / pedido.levar_de_troco_formatado', 'troco'],
+    ['pedido.observacao', 'observação do pedido'],
+    ['itens (lista)', 'item.nome, item.quantidade, item.total_formatado, item.opcoes'],
+    ['totais.*', 'subtotal, desconto, acrescimo, entrega, total (+ _formatado)'],
+    ['pagamentos (lista)', 'p.forma, p.valor_formatado'],
   ],
   kitchen_ticket: [
     ['setor', 'nome do setor (Cozinha, Bar…)'],
@@ -64,7 +79,7 @@ const FILTERS: [string, string][] = [
 
 /**
  * Modelos de impressão em Liquid (a mesma ideia do Jinja): o restaurante muda o que sai na
- * conferência, na comanda da cozinha e no rodapé do cupom fiscal, com prévia antes de salvar.
+ * conferência, na via de entrega, na comanda da cozinha e no rodapé do cupom fiscal, com prévia antes de salvar.
  */
 export function PrintTemplatesCard() {
   const toast = useToast();
@@ -73,6 +88,7 @@ export function PrintTemplatesCard() {
   const [kind, setKind] = useState<Kind>('receipt');
   const [draft, setDraft] = useState<Record<Kind, string>>({
     receipt: '',
+    delivery_slip: '',
     kitchen_ticket: '',
     fiscal_footer: '',
   });

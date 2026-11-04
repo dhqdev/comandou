@@ -798,8 +798,12 @@ export class OrdersService {
     return res;
   }
 
-  /** Desconto/acréscimo após a criação. Não pode deixar o total abaixo do já pago. */
-  async adjust(ctx: Ctx, id: string, b: { discount?: string; surcharge?: string; reason: string }) {
+  /** Desconto/acréscimo/frete após a criação. Não pode deixar o total abaixo do já pago. */
+  async adjust(
+    ctx: Ctx,
+    id: string,
+    b: { discount?: string; surcharge?: string; deliveryFee?: string; reason: string },
+  ) {
     const res = await this.db.withTenant(ctx, async (tx) => {
       const o = await this.lock(tx, id);
       if (o.status === 'completed' || o.status === 'cancelled')
@@ -825,16 +829,20 @@ export class OrdersService {
             ? serviceFeeCents(subtotal - discount, fee)
             : toCents(o.surcharge);
       this.checkDiscount(ctx, discount, subtotal);
-      const total = subtotal - discount + surcharge + toCents(o.delivery_fee);
+      const deliveryFee =
+        b.deliveryFee !== undefined ? toCents(b.deliveryFee) : toCents(o.delivery_fee);
+      const total = subtotal - discount + surcharge + deliveryFee;
       const paid = toCents(o.paid_amount);
       if (total < paid) throw new ConflictException('Novo total ficaria menor que o valor já pago');
       await q(
         tx,
-        `UPDATE orders SET discount = $2, surcharge = $3, total = $4, payment_status = $5, version = version + 1 WHERE id = $1`,
+        `UPDATE orders SET discount = $2, surcharge = $3, delivery_fee = $4, total = $5, payment_status = $6,
+                version = version + 1 WHERE id = $1`,
         [
           id,
           fromCents(discount),
           fromCents(surcharge),
+          fromCents(deliveryFee),
           fromCents(total),
           paymentStatusFor(total, paid),
         ],
@@ -846,8 +854,12 @@ export class OrdersService {
         entity: 'order',
         entityId: id,
         data: {
-          from: { discount: o.discount, surcharge: o.surcharge },
-          to: { discount: fromCents(discount), surcharge: fromCents(surcharge) },
+          from: { discount: o.discount, surcharge: o.surcharge, deliveryFee: o.delivery_fee },
+          to: {
+            discount: fromCents(discount),
+            surcharge: fromCents(surcharge),
+            deliveryFee: fromCents(deliveryFee),
+          },
           reason: b.reason,
         },
         ip: ctx.ip,

@@ -1074,6 +1074,58 @@ describe('Impressão (agente local e fila)', () => {
     await ownerQuery(`UPDATE print_jobs SET status = 'done' WHERE order_id = $1`, [o.id]);
   });
 
+  it('via de entrega: prévia, frete no fechamento, impressão e modelo próprio', async () => {
+    const o = (
+      await order('cashierA', {
+        channel: 'delivery',
+        customerName: 'Thiago',
+        customerPhone: '19982362030',
+        deliveryAddress: 'Avenida Antonio Barbosa, 130, Centro, Vinhedo',
+        notes: 'Troco para 100',
+        items: [{ productId: fx.prodA, quantity: 1 }],
+      }).expect(201)
+    ).body;
+    // Como no pedido do cardápio online: o cliente vai pagar em dinheiro, troco para 100.
+    await ownerQuery(`UPDATE orders SET payment_hint = 'cash', change_for = 100 WHERE id = $1`, [
+      o.id,
+    ]);
+    await get('adminB', `/orders/${o.id}/delivery-slip`).expect(404);
+    // Fechar conta: o caixa põe o frete (e a taxa) e o total refaz.
+    const adj = (
+      await patch('cashierA', `/orders/${o.id}/adjustments`, {
+        deliveryFee: '7.00',
+        reason: 'Ajuste no fechamento da conta',
+      }).expect(200)
+    ).body;
+    expect(adj.deliveryFee).toBe('7.00');
+    expect(Number(adj.total)).toBeCloseTo(Number(o.subtotal) + 7, 2);
+    const pv = (await get('cashierA', `/orders/${o.id}/delivery-slip`).expect(200)).body;
+    expect(pv.text).toContain('VIA DE ENTREGA');
+    expect(pv.text).toContain('Telefone: 19982362030');
+    expect(pv.text).toContain('Avenida Antonio Barbosa, 130');
+    expect(pv.text).toMatch(/Taxa de entrega:\s+R\$ 7,00/);
+    expect(pv.text).toMatch(/TOTAL A COBRAR:\s+R\$ \d/);
+    expect(pv.text).toContain('Pagamento: Dinheiro');
+    expect(pv.text).toMatch(/Levar de troco:/);
+    expect(pv.agent).toBe(true);
+    const r = (await post('cashierA', `/orders/${o.id}/print`, { kind: 'delivery' }).expect(201))
+      .body as { id: string; kind: string }[];
+    expect(r[0].kind).toBe('delivery_slip');
+    // Modelo próprio do restaurante para a via.
+    await put('adminA', '/printing/templates/delivery_slip', {
+      body: '{{ "ENTREGA #" | append: pedido.numero }} {{ pedido.cobrar_formatado }}',
+    }).expect(200);
+    const mine = (await get('cashierA', `/orders/${o.id}/delivery-slip`).expect(200)).body;
+    expect(mine.text).toMatch(new RegExp(`^ENTREGA #${o.number} R\\$ `));
+    await http
+      .delete('/api/v1/printing/templates/delivery_slip')
+      .set('Host', HOST_A)
+      .set('Cookie', cookies.adminA)
+      .set(CSRF)
+      .expect(200);
+    await ownerQuery(`UPDATE print_jobs SET status = 'done' WHERE order_id = $1`, [o.id]);
+  });
+
   it('trabalho reservado e não confirmado volta para a fila após o prazo', async () => {
     const t = (await post('adminA', '/printing/test', { target: 'Caixa' }).expect(201)).body;
     const c1 = (await agentPost(agentToken, '/claim', {}).expect(200)).body.jobs as {
@@ -1105,7 +1157,12 @@ describe('Impressão (agente local e fila)', () => {
       body: string | null;
       default: string;
     }[];
-    expect(list.map((t) => t.kind)).toEqual(['receipt', 'kitchen_ticket', 'fiscal_footer']);
+    expect(list.map((t) => t.kind)).toEqual([
+      'receipt',
+      'delivery_slip',
+      'kitchen_ticket',
+      'fiscal_footer',
+    ]);
     expect(list.every((t) => t.body === null && t.default.length > 20)).toBe(true);
     // Erro de sintaxe, filtro desconhecido e tentativa de ler arquivo são recusados.
     await put('adminA', '/printing/templates/receipt', { body: '{% for i in itens %}' }).expect(
