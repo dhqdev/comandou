@@ -1,0 +1,124 @@
+/* Cardápio de integração com o iFood. */
+.ifd-card {
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg, 12px);
+  background: var(--cm-surface);
+  padding: var(--cm-space-4);
+  display: grid;
+  gap: var(--cm-space-3);
+}
+.ifd-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-3);
+  flex-wrap: wrap;
+}
+.ifd-card__head h2 {
+  margin: 0;
+  font-size: var(--cm-text-md, 1rem);
+}
+.ifd-card__head p {
+  margin: 2px 0 0;
+}
+.ifd-card__body {
+  border-top: 1px solid var(--cm-border);
+  padding-top: var(--cm-space-3);
+  display: grid;
+  gap: var(--cm-space-2);
+}
+.ifd-card__body p {
+  margin: 0;
+}
+.ifd-summary {
+  font-size: var(--cm-text-sm);
+}
+.ifd-summary--success {
+  color: var(--cm-success, #15803d);
+}
+.ifd-summary--warning {
+  color: var(--cm-warning, #b45309);
+}
+.ifd-summary--danger {
+  color: var(--cm-danger, #b91c1c);
+}
+.ifd-link {
+  justify-self: start;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--cm-brand-deep, var(--cm-text));
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.ifd-errors {
+  margin: 0;
+  padding-left: 1.2em;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+  display: grid;
+  gap: 2px;
+}
+.ifd-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-3);
+  flex-wrap: wrap;
+  padding: var(--cm-space-3) var(--cm-space-4);
+  border-bottom: 1px solid var(--cm-border);
+}
+.ifd-bar__text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  font-size: var(--cm-text-sm);
+}
+.ifd-bar__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cm-space-2);
+}
+.ifd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 10px;
+  border: 1px solid var(--cm-border);
+  border-radius: 999px;
+  max-width: 100%;
+}
+.ifd-chip__x {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.ifd-chip__x:hover {
+  background: var(--cm-surface-muted);
+  color: var(--cm-danger, #b91c1c);
+}
+.ifd-steps {
+  margin: 0;
+  padding-left: 1.3em;
+  display: grid;
+  gap: 4px;
+  font-size: var(--cm-text-sm);
+}
+.ifd-code {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-align: center;
+  padding: var(--cm-space-3);
+  border: 1px dashed var(--cm-border-strong);
+  border-radius: var(--cm-radius-md);
+}

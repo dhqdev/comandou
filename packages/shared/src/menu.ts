@@ -7,10 +7,11 @@ import { toCents } from './money';
 /** sum = soma as opções; max = cobra só a mais cara; average = média das escolhidas (pizza meio a meio). */
 export type ChargeRule = 'sum' | 'max' | 'average';
 export type OptionGroupKind = 'additional' | 'variation' | 'flavor' | 'remove';
-export type MenuKind = 'principal' | 'delivery';
+/** ifood = cardápio de integração: não vale em canal nenhum do Comandou, vai para o iFood. */
+export type MenuKind = 'principal' | 'delivery' | 'ifood';
 
 /** O Principal vale no balcão e no salão; o Delivery, na entrega e na retirada. */
-export function menuKindOf(channel: string): MenuKind {
+export function menuKindOf(channel: string): Exclude<MenuKind, 'ifood'> {
   return channel === 'delivery' || channel === 'pickup' ? 'delivery' : 'principal';
 }
 

@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.84.0',
+    date: '2026-11-04',
+    title: 'Cardápio de integração com o iFood',
+    summary:
+      'Novo tipo de cardápio, Integração: ligue a sua loja do iFood e o Comandou manda itens, categorias, preços, complementos e disponibilidade para o iFood conforme você edita. O botão Sincronizar com o iFood envia na hora e mostra o resumo da última sincronização.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Cardápios > Ligar loja do iFood: a loja autoriza o Comandou no Portal do Parceiro e fica ligada a este restaurante (outro restaurante não consegue ligar a mesma loja).',
+      },
+      {
+        tag: 'novo',
+        text: 'Cardápio do tipo Integração, ligado a uma loja do iFood. Item novo é criado no iFood, item editado é atualizado e item que sai do cardápio ou é desativado fica indisponível lá (nada é apagado).',
+      },
+      {
+        tag: 'novo',
+        text: 'Envio automático: com o cardápio ativo, cada alteração vai sozinha para o iFood em instantes, mandando só o que mudou (preço e disponibilidade vão pelo caminho rápido do iFood).',
+      },
+      {
+        tag: 'novo',
+        text: 'Cartão Cardápio no iFood com a data da última sincronização e o resumo (criados, atualizados, sem alteração e deixados indisponíveis), e a lista do que deu erro.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'As fotos dos itens vão para o iFood em JPG: o aparelho converte as fotos em WebP ao tocar em Sincronizar.',
+      },
+    ],
+  },
+  {
     version: '0.83.0',
     date: '2026-11-04',
     title: 'Cardápio mais fácil e reajuste de preços de uma vez',

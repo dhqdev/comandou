@@ -78,6 +78,21 @@ const schema = z.object({
   WHATSAPP_GRAPH_URL: z.string().url().default('https://graph.facebook.com/v25.0'),
   /** OpenRouter (assistente de IA). A chave fica no painel Super Admin, cifrada no banco. */
   OPENROUTER_BASE_URL: z.string().url().default('https://openrouter.ai/api/v1'),
+  /**
+   * Integração com o iFood (cardápio). Credenciais do aplicativo do Comandou no Portal do
+   * Desenvolvedor do iFood. Sem elas, o cardápio de integração fica indisponível.
+   * centralized = um app para todas as lojas (cada loja autoriza no Portal do Parceiro);
+   * distributed = cada loja autoriza com um código (userCode) e o Comandou guarda o refresh token.
+   */
+  IFOOD_API_URL: z.string().url().default('https://merchant-api.ifood.com.br'),
+  IFOOD_APP_MODE: z.enum(['centralized', 'distributed']).default('centralized'),
+  IFOOD_CLIENT_ID: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(8).optional()),
+  IFOOD_CLIENT_SECRET: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(8).optional(),
+  ),
+  /** Segundos de espera depois de uma alteração antes de mandar ao iFood (junta várias edições). */
+  IFOOD_SYNC_DELAY_SECONDS: z.coerce.number().int().min(0).max(3600).default(20),
   /** API do GitHub usada pela esteira de chamados (troca só nos testes). */
   GITHUB_API_URL: z.string().url().default('https://api.github.com'),
   /** De quantos em quantos segundos a esteira de chamados procura trabalho (0 = parada). */
@@ -250,6 +265,7 @@ export const FILE_SECRET_VARS = [
   'PROVISION_ADMIN_PASSWORD',
   'INTEGRATIONS_KEY',
   'FOCUS_NFE_MASTER_TOKEN',
+  'IFOOD_CLIENT_SECRET',
   'WHATSAPP_GATEWAY_TOKEN',
   'PLATFORM_DATABASE_URL',
   'PLATFORM_ADMIN_PASSWORD',

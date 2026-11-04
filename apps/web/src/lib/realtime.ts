@@ -8,6 +8,7 @@ export type RealtimeEvent =
   | { type: 'tab.changed'; tabId: string }
   | { type: 'cash.changed'; sessionId: string }
   | { type: 'menu.changed' }
+  | { type: 'ifood.sync'; menuId: string }
   | { type: 'store.changed' }
   | { type: 'stock.changed' }
   | { type: 'delivery.changed'; deliveryId: string }

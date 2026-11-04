@@ -18,6 +18,11 @@ export interface MenuDef {
   items: number;
   customPrices: number;
   updatedAt?: string;
+  /** Cardápio de integração: a loja do iFood que recebe. */
+  ifoodConnectionId?: string | null;
+  ifoodMerchantName?: string | null;
+  ifoodSyncedAt?: string | null;
+  ifoodSyncStatus?: 'running' | 'ok' | 'partial' | 'error' | null;
 }
 
 export interface OptionGroup {
@@ -48,6 +53,7 @@ export interface GroupLink {
 export const MENU_KIND: Record<MenuKind, { label: string; where: string }> = {
   principal: { label: 'Principal', where: 'Balcão, salão, garçom e mesa' },
   delivery: { label: 'Delivery', where: 'Entrega, retirada e cardápio online' },
+  ifood: { label: 'Integração', where: 'iFood (vai para a loja ligada)' },
 };
 
 export const GROUP_KIND: Record<OptionGroupKind, { label: string; hint: string }> = {
@@ -78,6 +84,10 @@ export const UNITS: [string, string][] = [
   ['GF', 'Garrafa'],
   ['PRT', 'Porção'],
 ];
+
+/** "Onde vale" em minúsculas, sem estragar o nome iFood. */
+export const kindWhere = (k: MenuKind) =>
+  MENU_KIND[k].where.toLowerCase().replace('ifood', 'iFood');
 
 export const groupRule = (g: { minSelect: number; maxSelect: number }) =>
   g.minSelect === 1 && g.maxSelect === 1

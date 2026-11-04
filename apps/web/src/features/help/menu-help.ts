@@ -141,7 +141,10 @@ export const MENUS_HELP: HelpDict = {
     example: 'Delivery fim de semana',
   },
   Tipo: {
-    text: 'Principal vale no balcão, no salão, no garçom e na mesa. Delivery vale na entrega, na retirada e no cardápio online. Só um de cada tipo fica ativo.',
+    text: 'Principal vale no balcão, no salão, no garçom e na mesa. Delivery vale na entrega, na retirada e no cardápio online. Só um de cada tipo fica ativo. Integração vai para a sua loja no iFood (um por loja).',
+  },
+  Integração: {
+    text: 'A loja do iFood que recebe este cardápio. Itens, preços, complementos e disponibilidade vão sozinhos a cada alteração; o botão Sincronizar manda tudo na hora (e as fotos).',
   },
   'Começar com': {
     text: 'De onde vêm os itens do cardápio novo: todos os itens no preço base, ou uma cópia de um cardápio que já existe (com os preços dele).',

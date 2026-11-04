@@ -21,7 +21,9 @@ import { brl, parseBrlInput } from '../../lib/money';
 import type { Sector } from '../../lib/types';
 import { MENUS_HELP } from '../../features/help/menu-help';
 import { CategoryModal, categoryIcon } from './CategoryModal';
-import { MENU_KIND, priceDiff, toInput, type MenuDef } from './menu-data';
+import { kindWhere, MENU_KIND, priceDiff, toInput, type MenuDef } from './menu-data';
+import { IfoodConnectionField } from './IfoodConnections';
+import { IfoodSyncCard } from './IfoodSyncCard';
 import { PriceAdjustModal } from './PriceAdjustModal';
 
 interface Row {
@@ -263,18 +265,40 @@ export function MenuEditor() {
                 <div className="cm-field">
                   <HelpLabel as="span">Vale em</HelpLabel>
                   <span className="mn-static">
-                    {MENU_KIND[menu.kind].label}: {MENU_KIND[menu.kind].where.toLowerCase()}
+                    {MENU_KIND[menu.kind].label}: {kindWhere(menu.kind)}
                   </span>
                 </div>
-                {!menu.active && (
-                  <p className="cm-hint cm-form__wide" style={{ margin: 0 }}>
-                    Pausado: não aparece em lugar nenhum. Ao ativar, ele substitui o{' '}
-                    {MENU_KIND[menu.kind].label} atual.
-                  </p>
+                {menu.kind === 'ifood' && (
+                  <IfoodConnectionField
+                    menu={menu}
+                    disabled={!canWrite}
+                    onChange={(c) => setMenu({ ...menu, ...c })}
+                  />
                 )}
+                {menu.kind === 'ifood'
+                  ? !menu.active && (
+                      <p className="cm-hint cm-form__wide" style={{ margin: 0 }}>
+                        Pausado: as alterações só vão ao iFood quando você tocar em Sincronizar.
+                      </p>
+                    )
+                  : !menu.active && (
+                      <p className="cm-hint cm-form__wide" style={{ margin: 0 }}>
+                        Pausado: não aparece em lugar nenhum. Ao ativar, ele substitui o{' '}
+                        {MENU_KIND[menu.kind].label} atual.
+                      </p>
+                    )}
               </div>
             </Card>
             {/* Cartões extras por tipo de cardápio (ex.: integração) entram aqui. */}
+            {menu.kind === 'ifood' && (
+              <IfoodSyncCard
+                key={menu.ifoodConnectionId ?? 'sem-loja'}
+                menuId={menu.id}
+                active={menu.active}
+                canWrite={canWrite}
+                dirty={dirty}
+              />
+            )}
             <Card title={`Itens no cardápio (${onCount} de ${products.length})`} bodyless>
               <div className="mn-chips" role="tablist" aria-label="Categorias do cardápio">
                 <button

@@ -17,7 +17,9 @@ import { useCan } from '../../app/auth';
 import { SelectField } from '../../features/forms';
 import { api } from '../../lib/api';
 import { useRealtime } from '../../lib/realtime';
-import { MENU_KIND, type MenuDef } from './menu-data';
+import { kindWhere, MENU_KIND, type MenuDef } from './menu-data';
+import { IfoodConnectionsBar, useIfoodConnections } from './IfoodConnections';
+import { ifoodLabel } from './ifood';
 import { MENUS_HELP } from '../../features/help/menu-help';
 
 /** Cardápios do restaurante: o ativo de cada tipo vale nos canais dele. */
@@ -28,6 +30,7 @@ export function MenusTab() {
   const [menus, setMenus] = useState<MenuDef[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const ifood = useIfoodConnections();
   const load = useCallback(async () => {
     try {
       setMenus(await api<MenuDef[]>('/menus'));
@@ -45,7 +48,12 @@ export function MenusTab() {
   async function activate(m: MenuDef) {
     try {
       await api(`/menus/${m.id}`, { method: 'PATCH', json: { active: true } });
-      toast(`${m.name} agora vale em ${MENU_KIND[m.kind].where.toLowerCase()}`, 'success');
+      toast(
+        m.kind === 'ifood'
+          ? `${m.name}: envio automático ao iFood ligado`
+          : `${m.name} agora vale em ${MENU_KIND[m.kind].where.toLowerCase()}`,
+        'success',
+      );
       await load();
     } catch (e) {
       toast((e as Error).message, 'danger');
@@ -68,8 +76,10 @@ export function MenusTab() {
       <p className="mn-banner">
         O cardápio <strong>Principal</strong> vale no balcão, no salão, no garçom e na mesa. O{' '}
         <strong>Delivery</strong> vale na entrega, na retirada e no cardápio online. Cada um tem os
-        seus itens e pode ter preços próprios; sem preço próprio, vale o preço do item.
+        seus itens e pode ter preços próprios; sem preço próprio, vale o preço do item. O de{' '}
+        <strong>Integração</strong> vai para a sua loja no iFood.
       </p>
+      <IfoodConnectionsBar {...ifood} />
       {menus === null ? (
         <div style={{ padding: 16 }}>
           <Skeleton height={100} />
@@ -98,6 +108,9 @@ export function MenusTab() {
                     </button>
                     <div className="mn-item-meta">
                       <span>{MENU_KIND[m.kind].label}</span>
+                      {m.kind === 'ifood' && m.ifoodMerchantName && (
+                        <span>{ifoodLabel({ merchantName: m.ifoodMerchantName })}</span>
+                      )}
                       {m.customPrices > 0 && (
                         <span>
                           {m.customPrices}{' '}
@@ -133,6 +146,7 @@ export function MenusTab() {
       <NewMenuModal
         open={creating}
         menus={menus ?? []}
+        ifood={ifood}
         onClose={() => setCreating(false)}
         onSaved={(id) => {
           setCreating(false);
@@ -146,32 +160,46 @@ export function MenusTab() {
 function NewMenuModal({
   open,
   menus,
+  ifood,
   onClose,
   onSaved,
 }: {
   open: boolean;
   menus: MenuDef[];
+  ifood: ReturnType<typeof useIfoodConnections>;
   onClose(): void;
   onSaved(id: string): void;
 }) {
   const [name, setName] = useState('');
   const [kind, setKind] = useState<MenuKind>('delivery');
   const [copyFrom, setCopyFrom] = useState('');
+  const [connectionId, setConnectionId] = useState('');
+  const freeStores = ifood.list.filter((c) => !c.menuId && c.status === 'connected');
+  const kinds = (Object.keys(MENU_KIND) as MenuKind[]).filter(
+    (k) => k !== 'ifood' || !!ifood.status?.configured,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (!open) return;
     setName('');
     setCopyFrom('');
+    setConnectionId('');
     setError(null);
   }, [open]);
-  const willPause = menus.some((m) => m.kind === kind && m.active);
+  const isIfood = kind === 'ifood';
+  const willPause = !isIfood && menus.some((m) => m.kind === kind && m.active);
   async function save() {
     setBusy(true);
     try {
       const m = await api<{ id: string }>('/menus', {
         method: 'POST',
-        json: { name: name.trim(), kind, copyFromId: copyFrom || undefined },
+        json: {
+          name: name.trim(),
+          kind,
+          copyFromId: copyFrom || undefined,
+          ifoodConnectionId: isIfood ? connectionId : undefined,
+        },
       });
       onSaved(m.id);
     } catch (e) {
@@ -191,7 +219,11 @@ function NewMenuModal({
             <Button variant="ghost" onClick={onClose}>
               Cancelar
             </Button>
-            <Button loading={busy} disabled={!name.trim()} onClick={save}>
+            <Button
+              loading={busy}
+              disabled={!name.trim() || (isIfood && !connectionId)}
+              onClick={save}
+            >
               Criar cardápio
             </Button>
           </>
@@ -211,12 +243,28 @@ function NewMenuModal({
             value={kind}
             onChange={(e) => setKind(e.target.value as MenuKind)}
           >
-            {(Object.keys(MENU_KIND) as MenuKind[]).map((k) => (
+            {kinds.map((k) => (
               <option key={k} value={k}>
-                {MENU_KIND[k].label} ({MENU_KIND[k].where.toLowerCase()})
+                {MENU_KIND[k].label} ({kindWhere(k)})
               </option>
             ))}
           </SelectField>
+          {isIfood && (
+            <SelectField
+              label="Integração"
+              value={connectionId}
+              onChange={(e) => setConnectionId(e.target.value)}
+            >
+              <option value="">
+                {freeStores.length ? 'Escolha a loja do iFood' : 'Ligue uma loja do iFood antes'}
+              </option>
+              {freeStores.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {ifoodLabel(c)}
+                </option>
+              ))}
+            </SelectField>
+          )}
           <SelectField
             label="Começar com"
             value={copyFrom}
@@ -229,6 +277,12 @@ function NewMenuModal({
               </option>
             ))}
           </SelectField>
+          {isIfood && (
+            <p className="cm-hint cm-form__wide" style={{ margin: 0 }}>
+              Itens, preços, complementos e disponibilidade deste cardápio vão para o iFood
+              sozinhos, a cada alteração. Item que sai do cardápio fica indisponível no iFood.
+            </p>
+          )}
           {willPause && (
             <p className="cm-hint cm-form__wide" style={{ margin: 0 }}>
               <BookMarked size={14} aria-hidden /> Já existe um cardápio {MENU_KIND[kind].label}{' '}

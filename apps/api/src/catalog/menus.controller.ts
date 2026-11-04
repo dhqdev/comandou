@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -38,12 +39,18 @@ const money = z
 
 const MenuCreate = z.object({
   name: z.string().trim().min(1).max(60),
-  kind: z.enum(['principal', 'delivery']),
+  kind: z.enum(['principal', 'delivery', 'ifood']),
   /** Começa com os itens (e preços) de outro cardápio; sem ele, com todos os itens no preço base. */
   copyFromId: z.string().uuid().optional(),
+  /** Cardápio do iFood: a loja do iFood que recebe este cardápio. */
+  ifoodConnectionId: z.string().uuid().optional(),
 });
 const MenuUpdate = z
-  .object({ name: z.string().trim().min(1).max(60), active: z.boolean() })
+  .object({
+    name: z.string().trim().min(1).max(60),
+    active: z.boolean(),
+    ifoodConnectionId: z.string().uuid().nullable(),
+  })
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');
 const MenuItems = z.object({
@@ -76,7 +83,7 @@ interface PriceChange {
 export interface MenuRow {
   id: string;
   name: string;
-  kind: 'principal' | 'delivery';
+  kind: 'principal' | 'delivery' | 'ifood';
   active: boolean;
 }
 
@@ -125,6 +132,9 @@ export class MenusController {
       return q(
         tx,
         `SELECT m.id, m.name, m.kind, m.active, m.updated_at AS "updatedAt",
+                m.ifood_connection_id AS "ifoodConnectionId",
+                (SELECT c.merchant_name FROM ifood_connections c WHERE c.id = m.ifood_connection_id) AS "ifoodMerchantName",
+                m.ifood_synced_at AS "ifoodSyncedAt", m.ifood_sync_status AS "ifoodSyncStatus",
                 (SELECT count(*)::int FROM menu_items mi JOIN products p ON p.id = mi.product_id
                   WHERE mi.menu_id = m.id AND p.active) AS items,
                 (SELECT count(*)::int FROM menu_items mi WHERE mi.menu_id = m.id AND mi.price IS NOT NULL) AS "customPrices"
@@ -144,12 +154,18 @@ export class MenusController {
     return this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
       const menus = await ensureMenus(tx, t.id);
       if (menus.length >= 20) throw new ConflictException('Limite de 20 cardápios');
+      const ifood = b.kind === 'ifood';
+      if (ifood) await this.checkConnection(tx, b.ifoodConnectionId, null);
+      else if (b.ifoodConnectionId)
+        throw new BadRequestException('Só o cardápio do iFood escolhe uma loja do iFood');
       // Se já há um ativo do mesmo tipo, o novo nasce pausado: ativar troca um pelo outro.
-      const active = !menus.some((m) => m.kind === b.kind && m.active);
+      // Cardápios do iFood são um por loja e já nascem enviando.
+      const active = ifood || !menus.some((m) => m.kind === b.kind && m.active);
       const m = await one<{ id: string }>(
         tx,
-        `INSERT INTO menus (tenant_id, name, kind, active) VALUES ($1,$2,$3,$4) RETURNING id`,
-        [t.id, b.name, b.kind, active],
+        `INSERT INTO menus (tenant_id, name, kind, active, ifood_connection_id)
+         VALUES ($1,$2,$3,$4,$5) RETURNING id`,
+        [t.id, b.name, b.kind, active, ifood ? b.ifoodConnectionId : null],
       );
       if (b.copyFromId) {
         if (!menus.some((x) => x.id === b.copyFromId))
@@ -195,8 +211,20 @@ export class MenusController {
         id,
       ]);
       if (!cur) return undefined;
+      if (b.ifoodConnectionId !== undefined) {
+        if (cur.kind !== 'ifood')
+          throw new BadRequestException('Só o cardápio do iFood escolhe uma loja do iFood');
+        await this.checkConnection(tx, b.ifoodConnectionId, id);
+        await q(tx, `UPDATE menus SET ifood_connection_id = $2 WHERE id = $1`, [
+          id,
+          b.ifoodConnectionId,
+        ]);
+        // Outra loja: o que foi enviado para a anterior não vale para a nova.
+        await q(tx, `DELETE FROM ifood_sync_map WHERE menu_id = $1`, [id]);
+      }
       // Ativar troca: o outro ativo do mesmo tipo é pausado na mesma transação.
-      if (b.active)
+      // (Cardápios do iFood não trocam: cada um vai para a sua loja.)
+      if (b.active && cur.kind !== 'ifood')
         await q(tx, `UPDATE menus SET active = false WHERE kind = $1 AND active AND id <> $2`, [
           cur.kind,
           id,
@@ -233,9 +261,11 @@ export class MenusController {
     @Req() req: Request,
   ) {
     await this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
-      const cur = await one<MenuRow>(tx, `SELECT id, name, active FROM menus WHERE id = $1`, [id]);
+      const cur = await one<MenuRow>(tx, `SELECT id, name, kind, active FROM menus WHERE id = $1`, [
+        id,
+      ]);
       if (!cur) throw new NotFoundException('Cardápio não encontrado');
-      if (cur.active)
+      if (cur.active && cur.kind !== 'ifood')
         throw new ConflictException(
           'Pause o cardápio (ou ative outro do mesmo tipo) antes de apagar',
         );
@@ -251,6 +281,27 @@ export class MenusController {
       });
     });
     return { ok: true };
+  }
+
+  /** A loja do iFood existe e não está em outro cardápio. */
+  private async checkConnection(
+    tx: Tx,
+    connectionId: string | null | undefined,
+    menuId: string | null,
+  ) {
+    if (!connectionId) {
+      if (menuId) return;
+      throw new BadRequestException('Escolha a loja do iFood que recebe este cardápio');
+    }
+    const c = await one<{ menu_id: string | null }>(
+      tx,
+      `SELECT (SELECT m.id FROM menus m WHERE m.ifood_connection_id = c.id) AS menu_id
+         FROM ifood_connections c WHERE c.id = $1`,
+      [connectionId],
+    );
+    if (!c) throw new NotFoundException('Loja do iFood não encontrada');
+    if (c.menu_id && c.menu_id !== menuId)
+      throw new ConflictException('Essa loja do iFood já tem um cardápio');
   }
 
   @Get('menus/:id/items')

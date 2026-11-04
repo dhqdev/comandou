@@ -9,6 +9,8 @@ export type RealtimeEvent =
   | { type: 'tab.changed'; tabId: string }
   | { type: 'cash.changed'; sessionId: string }
   | { type: 'menu.changed' }
+  // Sincronização de um cardápio com o iFood começou ou terminou.
+  | { type: 'ifood.sync'; menuId: string }
   | { type: 'store.changed' }
   | { type: 'stock.changed' }
   | { type: 'delivery.changed'; deliveryId: string }
@@ -53,12 +55,25 @@ export const userRoom = (tenantId: string, userId: string) => `u:${tenantId}:${u
 export class RealtimeService {
   private server?: Server;
   private readonly logger = new Logger('Realtime');
+  private readonly listeners: ((tenantId: string, event: RealtimeEvent) => void)[] = [];
+
+  /** Outros módulos reagem aos sinais do restaurante (ex.: cardápio mudou → enviar ao iFood). */
+  onPublish(fn: (tenantId: string, event: RealtimeEvent) => void) {
+    this.listeners.push(fn);
+  }
 
   attach(server: Server) {
     this.server = server;
   }
 
   publish(tenantId: string, event: RealtimeEvent) {
+    for (const fn of this.listeners) {
+      try {
+        fn(tenantId, event);
+      } catch (err) {
+        this.logger.warn(`ouvinte falhou: ${(err as Error).message}`);
+      }
+    }
     if (!this.server) return;
     try {
       this.server.to(tenantRoom(tenantId)).emit('event', event);

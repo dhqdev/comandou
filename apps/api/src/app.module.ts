@@ -20,6 +20,7 @@ import { ENV, Env } from './config/env';
 import { DatabaseModule } from './database/database.module';
 import { DomainsModule } from './domains/domains.module';
 import { HealthModule } from './health/health.module';
+import { IfoodModule } from './integrations/ifood/ifood.module';
 import { MaintenanceModule } from './maintenance/maintenance.service';
 import { PlansModule } from './plans/plans.module';
 import { PlatformModule } from './platform/platform.module';
@@ -93,6 +94,7 @@ export class AppModule {
         QueueModule,
         PlansModule,
         CatalogModule,
+        IfoodModule,
         OperationsModule,
         ChatModule,
         DomainsModule,
