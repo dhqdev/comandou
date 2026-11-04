@@ -1331,6 +1331,43 @@ describe('Financeiro', () => {
     });
   });
 
+  it('mês financeiro: o gerente escolhe o dia de início e o resumo segue o período', async () => {
+    const def = (await get('stockA', '/finance/settings').expect(200)).body;
+    expect(def.monthStartDay).toBe(1);
+    expect(def.currentMonth.from.slice(8)).toBe('01');
+    await put('pdvA', '/finance/settings', { monthStartDay: 5 }).expect(403);
+    await get('waiterA', '/finance/settings').expect(403);
+    await put('adminA', '/finance/settings', { monthStartDay: 0 }).expect(400);
+    await put('adminA', '/finance/settings', { monthStartDay: 32 }).expect(400);
+    const saved = (await put('adminA', '/finance/settings', { monthStartDay: 20 }).expect(200))
+      .body;
+    expect(saved.monthStartDay).toBe(20);
+    expect(saved.currentMonth.from.slice(8)).toBe('20');
+    expect(saved.currentMonth.to.slice(8)).toBe('19');
+    // Outro restaurante continua no mês do calendário.
+    expect((await get('adminB', '/finance/settings').expect(200)).body.monthStartDay).toBe(1);
+    // Sem período, o resumo usa o mês atual do restaurante.
+    const cur = (await get('adminA', '/finance/summary').expect(200)).body;
+    expect(cur.month).toMatchObject({ ...saved.currentMonth, monthStartDay: 20 });
+    // Mês de 20/10 a 19/11: a luz (paga em 22/10) entra como paga; o cancelado não conta.
+    const oct = (await get('adminA', '/finance/summary?from=2026-10-20&to=2026-11-19').expect(200))
+      .body;
+    expect(oct.month).toMatchObject({
+      from: '2026-10-20',
+      to: '2026-11-19',
+      paid: '350.40',
+      payableDue: '350.40',
+      payableLeft: '0.00',
+      receivableDue: '0.00',
+    });
+    const before = (
+      await get('adminA', '/finance/summary?from=2026-09-20&to=2026-10-19').expect(200)
+    ).body;
+    expect(before.month).toMatchObject({ paid: '0.00', payableDue: '0.00' });
+    await get('adminA', '/finance/summary?from=2026-10-20').expect(400);
+    await put('adminA', '/finance/settings', { monthStartDay: 1 }).expect(200);
+  });
+
   it('o banco não deixa a aplicação alterar valor de lançamento nem apagar', async () => {
     const c = new Client({ connectionString: APP_URL });
     await c.connect();

@@ -8,11 +8,20 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   Query,
   Req,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { PAYMENT_METHODS, fromCents, isMoneyString, toCents } from '@comandou/shared';
+import {
+  FINANCE_MONTH_START_MAX,
+  FINANCE_MONTH_START_MIN,
+  PAYMENT_METHODS,
+  financeMonth,
+  fromCents,
+  isMoneyString,
+  toCents,
+} from '@comandou/shared';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
@@ -48,6 +57,13 @@ const Period = z
     (p) => Date.parse(p.to) - Date.parse(p.from) <= 366 * 86_400_000,
     'período máximo de 1 ano',
   );
+const SummaryQuery = z
+  .object({ from: isoDate.optional(), to: isoDate.optional() })
+  .refine((p) => !p.from === !p.to, 'informe o início e o fim do período')
+  .refine((p) => !p.from || !p.to || p.from <= p.to, 'período inválido');
+const Settings = z.object({
+  monthStartDay: z.number().int().min(FINANCE_MONTH_START_MIN).max(FINANCE_MONTH_START_MAX),
+});
 const Reconcile = z.object({
   day: isoDate,
   method: z.enum(PAYMENT_METHODS),
@@ -202,11 +218,60 @@ export class FinanceController {
     });
   }
 
+  /**
+   * Mês financeiro: o dia em que o mês começa (ex.: 5 = do dia 5 ao dia 4 do mês seguinte),
+   * o "hoje" no fuso do restaurante e o mês atual já calculado.
+   */
+  @Get('settings')
+  @RequirePermission('finance:read')
+  settings(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.db.withTenant(ctxOf(t, u), (tx) => this.loadSettings(tx));
+  }
+
+  @Put('settings')
+  @RequirePermission('finance:write')
+  saveSettings(
+    @Body(new ZodPipe(Settings)) b: z.infer<typeof Settings>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.db.withTenant(ctxOf(t, u), async (tx) => {
+      const before = await this.loadSettings(tx);
+      await q(
+        tx,
+        `INSERT INTO finance_settings (tenant_id, month_start_day, updated_by) VALUES ($1, $2, $3)
+         ON CONFLICT (tenant_id) DO UPDATE SET month_start_day = EXCLUDED.month_start_day,
+           updated_by = EXCLUDED.updated_by`,
+        [t.id, b.monthStartDay, u.id],
+      );
+      await this.audit.record(tx, {
+        tenantId: t.id,
+        actorUserId: u.id,
+        action: 'finance.settings_updated',
+        entity: 'finance_settings',
+        data: { monthStartDay: b.monthStartDay, before: before.monthStartDay },
+        ip: req.ip,
+      });
+      return this.loadSettings(tx);
+    });
+  }
+
+  /**
+   * Resumo das contas em aberto + o mês financeiro (o atual, ou o período from/to pedido):
+   * o que vence no mês, o que já foi pago/recebido nele e o que ainda falta.
+   */
   @Get('summary')
   @RequirePermission('finance:read')
-  summary(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
-    return this.db.withTenant(ctxOf(t, u), (tx) =>
-      one(
+  summary(
+    @Query(new ZodPipe(SummaryQuery)) p: z.infer<typeof SummaryQuery>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.db.withTenant(ctxOf(t, u), async (tx) => {
+      const s = await this.loadSettings(tx);
+      const period = p.from && p.to ? { from: p.from, to: p.to } : s.currentMonth;
+      const open = await one<Record<string, string>>(
         tx,
         `WITH today AS (SELECT (now() AT TIME ZONE timezone)::date AS d FROM tenants)
          SELECT COALESCE(sum(amount) FILTER (WHERE kind = 'payable'), 0)::numeric(14,2)::text AS "payableOpen",
@@ -217,8 +282,40 @@ export class FinanceController {
                 COALESCE(sum(amount) FILTER (WHERE kind = 'receivable' AND due_date BETWEEN today.d AND today.d + 7), 0)::numeric(14,2)::text AS "receivableNext7"
            FROM today LEFT JOIN finance_entries e ON e.status = 'open'
           GROUP BY today.d`,
-      ),
-    );
+      );
+      const month = await one<Record<string, string>>(
+        tx,
+        `SELECT COALESCE(sum(amount) FILTER (WHERE kind = 'payable' AND due_date BETWEEN $1 AND $2), 0)::numeric(14,2)::text AS "payableDue",
+                COALESCE(sum(amount) FILTER (WHERE kind = 'payable' AND status = 'paid' AND paid_at BETWEEN $1 AND $2), 0)::numeric(14,2)::text AS "paid",
+                COALESCE(sum(amount) FILTER (WHERE kind = 'payable' AND status = 'open' AND due_date BETWEEN $1 AND $2), 0)::numeric(14,2)::text AS "payableLeft",
+                COALESCE(sum(amount) FILTER (WHERE kind = 'receivable' AND due_date BETWEEN $1 AND $2), 0)::numeric(14,2)::text AS "receivableDue",
+                COALESCE(sum(amount) FILTER (WHERE kind = 'receivable' AND status = 'paid' AND paid_at BETWEEN $1 AND $2), 0)::numeric(14,2)::text AS "received",
+                COALESCE(sum(amount) FILTER (WHERE kind = 'receivable' AND status = 'open' AND due_date BETWEEN $1 AND $2), 0)::numeric(14,2)::text AS "receivableLeft"
+           FROM finance_entries WHERE status <> 'cancelled'`,
+        [period.from, period.to],
+      );
+      const cash = await one<{ sales: string; refunds: string }>(
+        tx,
+        `SELECT COALESCE(sum(m.amount) FILTER (WHERE m.kind = 'sale'), 0)::numeric(14,2)::text AS sales,
+                COALESCE(-sum(m.amount) FILTER (WHERE m.kind = 'refund'), 0)::numeric(14,2)::text AS refunds
+           FROM cash_movements m CROSS JOIN tenants tz
+          WHERE m.kind IN ('sale','refund')
+            AND m.created_at >= ($1::date::timestamp AT TIME ZONE tz.timezone)
+            AND m.created_at < (($2::date + 1)::timestamp AT TIME ZONE tz.timezone)`,
+        [period.from, period.to],
+      );
+      // Saldo do mês em centavos inteiros: vendas + recebidas − estornos − pagas.
+      const net = fromCents(
+        toCents(cash!.sales) +
+          toCents(month!.received!) -
+          toCents(cash!.refunds) -
+          toCents(month!.paid!),
+      );
+      return {
+        ...open,
+        month: { ...period, monthStartDay: s.monthStartDay, ...month, ...cash, net },
+      };
+    });
   }
 
   /**
@@ -368,6 +465,17 @@ export class FinanceController {
       [day],
     );
     return new Map(rows.map((r) => [r.method, r.net]));
+  }
+
+  private async loadSettings(tx: Tx) {
+    const r = await one<{ day: number | null; today: string }>(
+      tx,
+      `SELECT (SELECT month_start_day FROM finance_settings) AS day,
+              (now() AT TIME ZONE timezone)::date::text AS today FROM tenants`,
+    );
+    const monthStartDay = r?.day ?? 1;
+    const today = r!.today;
+    return { monthStartDay, today, currentMonth: financeMonth(today, monthStartDay) };
   }
 
   private async lock(tx: Tx, id: string) {

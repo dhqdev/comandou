@@ -83,7 +83,7 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     path: '/financeiro',
     name: 'Financeiro',
     perms: ['finance:read'],
-    text: 'contas a pagar e a receber, categorias e fluxo de caixa.',
+    text: 'contas a pagar e a receber, categorias e fluxo de caixa. O gerente escolhe em "Dia de início do mês" o dia em que o mês financeiro começa (ex.: dia 5, quando recebe); os totais do mês, a aba "Do mês" e o fluxo de caixa seguem esse período.',
   },
   {
     path: '/relatorios',

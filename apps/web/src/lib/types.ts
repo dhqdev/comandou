@@ -672,6 +672,28 @@ export interface FinanceSummary {
   receivableOpen: string;
   receivableOverdue: string;
   receivableNext7: string;
+  /** Mês financeiro pedido (ou o atual): vence, pago/recebido e o que falta nele. */
+  month: FinanceMonthSummary;
+}
+export interface FinanceMonthSummary {
+  from: string;
+  to: string;
+  monthStartDay: number;
+  payableDue: string;
+  paid: string;
+  payableLeft: string;
+  receivableDue: string;
+  received: string;
+  receivableLeft: string;
+  sales: string;
+  refunds: string;
+  net: string;
+}
+export interface FinanceSettings {
+  monthStartDay: number;
+  /** Hoje no fuso do restaurante (AAAA-MM-DD). */
+  today: string;
+  currentMonth: { from: string; to: string; year: number; month: number };
 }
 export interface CashFlowDay {
   day: string;

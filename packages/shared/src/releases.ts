@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.81.0',
+    date: '2026-11-04',
+    title: 'Mês financeiro no dia que você escolher',
+    summary:
+      'No Financeiro, o gerente escolhe em que dia o mês começa (por exemplo, dia 5, quando o dinheiro entra). O mês passa a ir do dia 5 até o dia 4 do mês seguinte, e os totais do mês, as contas do mês e o fluxo de caixa seguem esse período.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Botão "Dia de início do mês" no Financeiro, com um exemplo do período antes de salvar. Dia 1 continua sendo o mês do calendário; nos meses mais curtos que o dia escolhido, o mês começa no último dia.',
+      },
+      {
+        tag: 'novo',
+        text: 'Resumo do mês no topo das contas: vendas recebidas, contas recebidas e pagas, saldo do mês e o que ainda falta pagar e receber. As setas mostram os meses anteriores e os próximos.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Aba "Do mês" nas contas (o que vence no mês financeiro) e o fluxo de caixa já abre com as datas do mês escolhido.',
+      },
+    ],
+  },
+  {
     version: '0.80.0',
     date: '2026-11-04',
     title: 'Endereço completo pelo CEP ou pelo nome da rua',

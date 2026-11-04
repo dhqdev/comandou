@@ -147,6 +147,17 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await expect(page.getByRole('row', { name: new RegExp(`Fornecedor ${tag}`) })).toContainText(
     'Pago',
   );
+  // Mês financeiro: o gerente escolhe o dia em que o mês começa.
+  await page.getByRole('button', { name: 'Dia de início do mês' }).click();
+  dialog = page.getByRole('dialog');
+  // Os dois navegadores (e uma nova tentativa) usam o mesmo restaurante: troca entre 5 e 10.
+  const startDay = dialog.getByLabel('O mês começa no dia');
+  const nextDay = (await startDay.inputValue()) === '5' ? '10' : '5';
+  await startDay.selectOption(nextDay);
+  await expect(dialog).toContainText('Mês de');
+  await dialog.getByRole('button', { name: 'Salvar' }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+  await expect(page.getByLabel('Mês financeiro')).toContainText(`começa todo dia ${nextDay}`);
   await page.getByRole('tab', { name: 'Fluxo de caixa' }).click();
   await expect(page.getByRole('cell', { name: 'Total' })).toBeVisible();
   await shot(page, info.project.name, 'financeiro');

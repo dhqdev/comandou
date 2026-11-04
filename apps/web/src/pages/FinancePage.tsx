@@ -1,5 +1,14 @@
-import { fromCents, PAYMENT_METHODS, toCents, type PaymentMethod } from '@comandou/shared';
-import { Plus, Receipt } from 'lucide-react';
+import {
+  financeMonth,
+  financeMonthName,
+  financeMonthRange,
+  fromCents,
+  PAYMENT_METHODS,
+  toCents,
+  type FinanceMonth,
+  type PaymentMethod,
+} from '@comandou/shared';
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, Receipt } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -28,7 +37,13 @@ import { api } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
-import type { CashFlowDay, FinanceEntry, FinanceSummary, Reconciliation } from '../lib/types';
+import type {
+  CashFlowDay,
+  FinanceEntry,
+  FinanceSettings,
+  FinanceSummary,
+  Reconciliation,
+} from '../lib/types';
 
 const SETTLE_METHODS: [string, string][] = [
   ...PAYMENT_METHODS.map((m) => [m, PAYMENT_METHOD_LABELS[m]] as [string, string]),
@@ -37,12 +52,29 @@ const SETTLE_METHODS: [string, string][] = [
 ];
 const methodLabel = (m: string) => SETTLE_METHODS.find(([k]) => k === m)?.[1] ?? m;
 
-/** Financeiro: contas a pagar e a receber, fluxo de caixa e conciliação diária. */
+/**
+ * Financeiro: contas a pagar e a receber, fluxo de caixa e conciliação diária.
+ * O mês financeiro começa no dia que o gerente escolhe (ex.: dia 5, quando o dinheiro entra):
+ * os totais do mês, a aba "Do mês" das contas e o fluxo de caixa seguem esse período.
+ */
 export function FinancePage() {
   const [tab, setTab] = useState<'entries' | 'flow' | 'reconcile'>('entries');
   useLinkParam('aba', (v) => {
     if (v === 'entries' || v === 'flow' || v === 'reconcile') setTab(v);
   });
+  const toast = useToast();
+  const [settings, setSettings] = useState<FinanceSettings | null>(null);
+  const [offset, setOffset] = useState(0);
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    api<FinanceSettings>('/finance/settings')
+      .then(setSettings)
+      .catch((e: Error) => toast(e.message, 'danger'));
+  }, [toast]);
+  const period = useMemo(
+    () => (settings ? financeMonth(settings.today, settings.monthStartDay, offset) : null),
+    [settings, offset],
+  );
   return (
     <>
       <div>
@@ -52,6 +84,15 @@ export function FinancePage() {
           pagamento.
         </p>
       </div>
+      {settings && period && (
+        <MonthBar
+          period={period}
+          startDay={settings.monthStartDay}
+          current={offset === 0}
+          onShift={(n) => setOffset((o) => (n === 0 ? 0 : o + n))}
+          onEdit={() => setEditing(true)}
+        />
+      )}
       <Tabs<typeof tab>
         value={tab}
         onChange={setTab}
@@ -61,8 +102,159 @@ export function FinancePage() {
           ['reconcile', 'Conciliação'],
         ]}
       />
-      {tab === 'entries' ? <EntriesTab /> : tab === 'flow' ? <FlowTab /> : <ReconcileTab />}
+      {tab === 'entries' ? (
+        <EntriesTab period={period} />
+      ) : tab === 'flow' ? (
+        <FlowTab period={period} />
+      ) : (
+        <ReconcileTab />
+      )}
+      {editing && settings && (
+        <MonthStartModal
+          current={settings.monthStartDay}
+          onClose={() => setEditing(false)}
+          onSaved={(s) => {
+            setSettings(s);
+            setOffset(0);
+            setEditing(false);
+            toast(
+              s.monthStartDay === 1
+                ? 'O mês financeiro agora segue o calendário'
+                : `O mês financeiro agora começa todo dia ${s.monthStartDay}`,
+              'success',
+            );
+          }}
+        />
+      )}
     </>
+  );
+}
+
+/** Mês financeiro em uso, com setas para ver os meses anteriores e o dia de início. */
+function MonthBar({
+  period,
+  startDay,
+  current,
+  onShift,
+  onEdit,
+}: {
+  period: FinanceMonth;
+  startDay: number;
+  current: boolean;
+  onShift(n: number): void;
+  onEdit(): void;
+}) {
+  const canWrite = useCan('finance:write');
+  return (
+    <div className="finance-month" aria-label="Mês financeiro">
+      <div className="finance-month__nav">
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Mês anterior"
+          icon={<ChevronLeft size={16} />}
+          onClick={() => onShift(-1)}
+        />
+        <div className="finance-month__label">
+          <strong>Mês de {financeMonthName(period)}</strong>
+          <span className="cm-hint">
+            {financeMonthRange(period)}
+            {startDay === 1 ? ' · mês do calendário' : ` · começa todo dia ${startDay}`}
+          </span>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label="Próximo mês"
+          icon={<ChevronRight size={16} />}
+          onClick={() => onShift(1)}
+        />
+      </div>
+      <div className="actions-row">
+        {!current && (
+          <Button variant="secondary" size="sm" onClick={() => onShift(0)}>
+            Mês atual
+          </Button>
+        )}
+        {canWrite && (
+          <Button variant="secondary" size="sm" icon={<CalendarDays size={16} />} onClick={onEdit}>
+            Dia de início do mês
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const START_DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
+
+function MonthStartModal({
+  current,
+  onClose,
+  onSaved,
+}: {
+  current: number;
+  onClose(): void;
+  onSaved(s: FinanceSettings): void;
+}) {
+  const [day, setDay] = useState(current);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Exemplo com o mês de hoje, para a pessoa ver como fica antes de salvar.
+  const example = financeMonth(todayIso(), day);
+  async function save() {
+    setBusy(true);
+    setError(null);
+    try {
+      onSaved(
+        await api<FinanceSettings>('/finance/settings', {
+          method: 'PUT',
+          json: { monthStartDay: day },
+        }),
+      );
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Modal
+      open
+      title="Dia de início do mês"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button loading={busy} disabled={day === current} onClick={save}>
+            Salvar
+          </Button>
+        </>
+      }
+    >
+      {error && <Alert tone="danger">{error}</Alert>}
+      <p className="cm-hint">
+        Escolha o dia em que o seu mês começa, por exemplo o dia em que você recebe. Os totais do
+        mês, as contas do mês e o fluxo de caixa passam a usar esse período.
+      </p>
+      <SelectField
+        label="O mês começa no dia"
+        value={String(day)}
+        onChange={(e) => setDay(Number(e.target.value))}
+      >
+        {START_DAYS.map((d) => (
+          <option key={d} value={d}>
+            {d === 1 ? '1 (mês do calendário)' : d}
+          </option>
+        ))}
+      </SelectField>
+      <Alert tone="info">
+        Mês de {financeMonthName(example)}: de {fmtDate(example.from)} até {fmtDate(example.to)}.
+        {day > 28 && ' Nos meses mais curtos, o mês começa no último dia.'}
+      </Alert>
+    </Modal>
   );
 }
 
@@ -126,7 +318,13 @@ const ENTRY_SORTS: ListSort<FinanceEntry>[] = [
   { key: 'description', label: 'Descrição', get: (e) => fold(e.description), asc: true },
 ];
 
-function EntriesTab() {
+const monthTab = (p: FinanceMonth): ListTab => ({
+  id: 'mes',
+  label: 'Do mês',
+  filters: { due: [`range:${p.from}:${p.to}`] },
+});
+
+function EntriesTab({ period }: { period: FinanceMonth | null }) {
   const canWrite = useCan('finance:write');
   const [all, setAll] = useState<FinanceEntry[] | null>(null);
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
@@ -134,11 +332,16 @@ function EntriesTab() {
   const [creating, setCreating] = useState(false);
   const [settling, setSettling] = useState<FinanceEntry | null>(null);
   const [cancelling, setCancelling] = useState<FinanceEntry | null>(null);
+  // "Do mês": contas que vencem no mês financeiro escolhido em cima.
+  const tabs = useMemo(
+    () => (period ? [ENTRY_TABS[0]!, monthTab(period), ...ENTRY_TABS.slice(1)] : ENTRY_TABS),
+    [period],
+  );
   const lv = useListView({
     id: 'financeiro-contas',
     rows: all,
     fields: ENTRY_FIELDS,
-    tabs: ENTRY_TABS,
+    tabs,
     search: (e) => `${e.description} ${e.counterparty ?? ''} ${e.category ?? ''}`,
     sorts: ENTRY_SORTS,
   });
@@ -146,11 +349,19 @@ function EntriesTab() {
   useLinkParam('conta', () => lv.selectTab(ENTRY_TABS[ENTRY_TABS.length - 1]!));
   useLinkParam('acao', (a) => a === 'conta' && canWrite && setCreating(true));
 
+  // Trocou o mês com a aba "Do mês" aberta: a aba acompanha o novo período.
+  const { tab: currentTab, selectTab } = lv;
+  useEffect(() => {
+    if (period && currentTab?.id === 'mes') selectTab(monthTab(period));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period?.from, period?.to]);
+
+  const range = period ? `?from=${period.from}&to=${period.to}` : '';
   const load = useCallback(async () => {
     try {
       const [r, s] = await Promise.all([
         api<FinanceEntry[]>('/finance/entries'),
-        api<FinanceSummary>('/finance/summary'),
+        api<FinanceSummary>(`/finance/summary${range}`),
       ]);
       setAll(r);
       setSummary(s);
@@ -158,7 +369,7 @@ function EntriesTab() {
     } catch (e) {
       setError((e as Error).message);
     }
-  }, []);
+  }, [range]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -175,6 +386,27 @@ function EntriesTab() {
   return (
     <>
       {error && <Alert tone="danger">{error}</Alert>}
+      {summary && period && (
+        <Card title={`Mês de ${financeMonthName(period)} · ${financeMonthRange(period)}`}>
+          <div className="stat-grid">
+            <Stat label="Vendas recebidas" value={brl(summary.month.sales)} />
+            <Stat label="Contas recebidas" value={brl(summary.month.received)} />
+            <Stat label="Contas pagas" value={brl(summary.month.paid)} />
+            <Stat
+              label="Saldo do mês"
+              value={brl(summary.month.net)}
+              danger={toCents(summary.month.net) < 0}
+            />
+            <Stat label="Ainda a pagar no mês" value={brl(summary.month.payableLeft)} />
+            <Stat label="Ainda a receber no mês" value={brl(summary.month.receivableLeft)} />
+          </div>
+          {toCents(summary.month.refunds) > 0 && (
+            <p className="cm-hint">
+              Saldo já descontados {brl(summary.month.refunds)} de estornos.
+            </p>
+          )}
+        </Card>
+      )}
       {summary && (
         <div className="stat-grid">
           <Stat label="A pagar (em aberto)" value={brl(summary.payableOpen)} />
@@ -515,9 +747,15 @@ function CancelModal({
   );
 }
 
-function FlowTab() {
-  const [from, setFrom] = useState(todayIso(-6));
-  const [to, setTo] = useState(todayIso(7));
+function FlowTab({ period }: { period: FinanceMonth | null }) {
+  // Começa no mês financeiro escolhido em cima; as datas ainda podem ser trocadas à mão.
+  const [from, setFrom] = useState(period?.from ?? todayIso(-6));
+  const [to, setTo] = useState(period?.to ?? todayIso(7));
+  useEffect(() => {
+    if (!period) return;
+    setFrom(period.from);
+    setTo(period.to);
+  }, [period]);
   const [data, setData] = useState<{
     days: CashFlowDay[];
     totals: Omit<CashFlowDay, 'day'>;

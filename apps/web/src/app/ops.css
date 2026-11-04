@@ -1418,3 +1418,46 @@ label.option-row input[type='checkbox'] {
   overflow-x: auto;
   white-space: pre;
 }
+
+/* Financeiro: mês financeiro em uso (começa no dia escolhido pelo gerente). */
+.finance-month {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-3) var(--cm-space-4);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+}
+.finance-month__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  min-width: 0;
+}
+.finance-month__label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.finance-month__label strong::first-letter {
+  text-transform: uppercase;
+}
+@media (max-width: 640px) {
+  .finance-month {
+    padding: var(--cm-space-3);
+  }
+  .finance-month__nav {
+    width: 100%;
+    justify-content: space-between;
+    text-align: center;
+  }
+  .finance-month > .actions-row {
+    width: 100%;
+  }
+  .finance-month > .actions-row > .cm-btn {
+    flex: 1;
+  }
+}

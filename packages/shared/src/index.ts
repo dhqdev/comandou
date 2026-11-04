@@ -15,3 +15,4 @@ export * from './fix-hints';
 export * from './mascot';
 export * from './tickets';
 export * from './kitchen';
+export * from './finance-month';
