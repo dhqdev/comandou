@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { nav, settled, enterPanel } from './nav';
+import { nav, settled, enterPanel, expectNoHorizontalScroll } from './nav';
 
 /**
  * Fluxo da Etapa 3 no navegador: cadastros → adicionais → caixa → venda com variação →
@@ -260,7 +260,7 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
 
 test('telas novas não geram rolagem horizontal', async ({ page }) => {
   await login(page);
-  for (const path of [
+  await expectNoHorizontalScroll(page, [
     '/',
     '/pedidos',
     '/mesas',
@@ -270,12 +270,5 @@ test('telas novas não geram rolagem horizontal', async ({ page }) => {
     '/reservas',
     '/configuracoes',
     '/cardapio',
-  ]) {
-    await page.goto(path);
-    await page.waitForLoadState('networkidle');
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - window.innerWidth,
-    );
-    expect(overflow, path).toBeLessThanOrEqual(0);
-  }
+  ]);
 });

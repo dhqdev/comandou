@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { account, nav, enterPanel } from './nav';
+import { account, nav, enterPanel, expectNoHorizontalScroll } from './nav';
 import { ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_TOTP, ADMIN_URL, adminLogin } from './admin';
 
 /**
@@ -138,7 +138,7 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await expect(page.getByRole('link', { name: `Cantina ${tag}` })).toBeVisible();
 
   // Nenhuma tela do painel rola na horizontal (celular e computador).
-  for (const path of [
+  await expectNoHorizontalScroll(page, [
     '/',
     '/restaurantes',
     '/servidor',
@@ -146,14 +146,7 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
     '/planos',
     '/backups',
     '/auditoria',
-  ]) {
-    await page.goto(`${ADMIN_URL}${path}`);
-    await page.waitForLoadState('networkidle');
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - window.innerWidth,
-    );
-    expect(overflow, path).toBeLessThanOrEqual(0);
-  }
+  ]);
 
   await account(page, 'Sair');
   // Entrou com código e "Lembrar este aparelho" marcado: o navegador fica confiável, só senha.

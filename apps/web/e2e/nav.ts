@@ -1,4 +1,4 @@
-import { expect, Page } from '@playwright/test';
+import { expect, Page, Request } from '@playwright/test';
 
 /** Mesma regra do AppFrame: até 860px de largura vale a navegação do celular. */
 export const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1200) <= 860;
@@ -71,4 +71,55 @@ export async function enterPanel(page: Page, email: string, password: string) {
   await page.getByRole('button', { name: 'Entrar' }).click();
   await skipTour(page);
   await expect(page.getByText(/Olá, /)).toBeVisible();
+}
+
+/**
+ * Confere que nenhuma das telas rola na horizontal.
+ *
+ * Troca de tela pelo roteador (como um clique no menu), sem recarregar a página: no CI o
+ * Vite de desenvolvimento leva vários segundos por recarga e o teste estourava o tempo.
+ * Antes de medir, espera a rede ficar quieta (meio segundo sem pedido aberto) e os
+ * indicadores de carregamento sumirem, para medir a tela já com os dados.
+ */
+export async function expectNoHorizontalScroll(page: Page, paths: string[]) {
+  const pending = new Set<Request>();
+  let lastActivity = Date.now();
+  const start = (r: Request) => {
+    pending.add(r);
+    lastActivity = Date.now();
+  };
+  const end = (r: Request) => {
+    pending.delete(r);
+    lastActivity = Date.now();
+  };
+  page.on('request', start);
+  page.on('requestfinished', end);
+  page.on('requestfailed', end);
+  try {
+    for (const path of paths) {
+      await page.evaluate((p) => {
+        window.history.pushState(null, '', p);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }, path);
+      await expect(page).toHaveURL((u) => u.pathname === path);
+      await expect
+        .poll(
+          () =>
+            pending.size === 0 && Date.now() - lastActivity >= 500
+              ? 'quieta'
+              : `abertos: ${[...pending].map((r) => r.url()).join(', ') || 'nenhum'}`,
+          { message: `rede quieta em ${path}`, timeout: 15_000, intervals: [100] },
+        )
+        .toBe('quieta');
+      await expect(page.locator('.cm-loader:not(.cm-loader--inline)'), path).toHaveCount(0);
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - window.innerWidth,
+      );
+      expect(overflow, path).toBeLessThanOrEqual(0);
+    }
+  } finally {
+    page.off('request', start);
+    page.off('requestfinished', end);
+    page.off('requestfailed', end);
+  }
 }

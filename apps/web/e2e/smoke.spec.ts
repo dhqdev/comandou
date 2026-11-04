@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { nav, enterPanel, emailField, passwordField, skipTour } from './nav';
+import {
+  nav,
+  enterPanel,
+  emailField,
+  passwordField,
+  skipTour,
+  expectNoHorizontalScroll,
+} from './nav';
 
 const EMAIL = process.env.E2E_EMAIL ?? 'dono@demo.local';
 const PASSWORD = process.env.E2E_PASSWORD ?? '';
@@ -64,12 +71,5 @@ test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => 
 
 test('layout não gera rolagem horizontal na página', async ({ page }) => {
   await enterPanel(page, EMAIL, PASSWORD);
-  for (const path of ['/', '/cardapio']) {
-    await page.goto(path);
-    await page.waitForLoadState('networkidle');
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - window.innerWidth,
-    );
-    expect(overflow, path).toBeLessThanOrEqual(0);
-  }
+  await expectNoHorizontalScroll(page, ['/', '/cardapio']);
 });

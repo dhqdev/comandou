@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { nav, enterPanel } from './nav';
+import { nav, enterPanel, expectNoHorizontalScroll } from './nav';
 
 /**
  * Fluxo da Etapa 4 no navegador: equipe → estoque com ficha técnica → delivery com
@@ -194,7 +194,7 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
 
 test('telas da etapa 4 não geram rolagem horizontal', async ({ page }) => {
   await login(page);
-  for (const path of [
+  await expectNoHorizontalScroll(page, [
     '/entregas',
     '/estoque',
     '/estoque/lotes',
@@ -208,12 +208,5 @@ test('telas da etapa 4 não geram rolagem horizontal', async ({ page }) => {
     '/equipe',
     '/impressao',
     '/novidades',
-  ]) {
-    await page.goto(path);
-    await page.waitForLoadState('networkidle');
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - window.innerWidth,
-    );
-    expect(overflow, path).toBeLessThanOrEqual(0);
-  }
+  ]);
 });

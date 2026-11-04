@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { nav, enterPanel } from './nav';
+import { nav, enterPanel, expectNoHorizontalScroll } from './nav';
 
 /**
  * Fluxo da Etapa 5 no navegador, sem contas reais de Focus NFe ou WhatsApp:
@@ -138,12 +138,5 @@ test('integrações: dados fiscais, NFC-e no pedido e WhatsApp', async ({ page }
 
 test('telas da etapa 5 não geram rolagem horizontal', async ({ page }) => {
   await login(page);
-  for (const path of ['/nota-fiscal', '/whatsapp']) {
-    await page.goto(path);
-    await page.waitForLoadState('networkidle');
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - window.innerWidth,
-    );
-    expect(overflow, path).toBeLessThanOrEqual(0);
-  }
+  await expectNoHorizontalScroll(page, ['/nota-fiscal', '/whatsapp']);
 });
