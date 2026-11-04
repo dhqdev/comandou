@@ -1709,6 +1709,12 @@ input[type='radio'] {
   z-index: 1002;
   top: -9999px;
   left: -9999px;
+  /* Como popover (camada de cima, acima das janelas): sem o centralizado padrão do navegador. */
+  right: auto;
+  bottom: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
   width: min(320px, calc(100vw - 16px));
   padding: var(--cm-space-3);
   border: 1px solid var(--cm-border);

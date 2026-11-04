@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.84.1',
+    date: '2026-11-04',
+    title: 'Ajuda (?) funcionando dentro das janelas',
+    summary:
+      'O "?" ao lado dos campos agora abre a explicação também dentro das janelas (como Reajustar preços, Nova categoria e Novo cardápio). Antes o balão abria por trás da janela e não dava para ver nem clicar.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Balão de ajuda aparece por cima das janelas, com o X e o link clicáveis; Esc fecha só o balão.',
+      },
+    ],
+  },
+  {
     version: '0.84.0',
     date: '2026-11-04',
     title: 'Cardápio de integração com o iFood',

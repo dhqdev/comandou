@@ -120,8 +120,23 @@ function HelpBubble({
   const id = useId();
   const inRouter = useInRouterContext();
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  // Dentro de uma janela (<dialog> com showModal) o resto da página fica inerte: o balão nasce
+  // dentro da própria janela para dar para clicar no X e no link.
+  const [host] = useState<HTMLElement>(
+    () => anchor.current?.closest<HTMLElement>('dialog[open]') ?? document.body,
+  );
 
   useLayoutEffect(() => {
+    // As janelas ficam na camada de cima do navegador e escondiam o balão. Como "popover", ele
+    // também entra nessa camada, por cima da janela, sem ser cortado pela rolagem dela.
+    const el = box.current as (HTMLDivElement & { showPopover?: () => void }) | null;
+    if (el?.showPopover && !el.matches(':popover-open')) {
+      try {
+        el.showPopover();
+      } catch {
+        /* navegador antigo: fica como antes */
+      }
+    }
     const place = () => {
       const a = anchor.current?.getBoundingClientRect();
       const b = box.current;
@@ -152,6 +167,8 @@ function HelpBubble({
     };
     const key = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // Fecha só o balão, não a janela em volta.
+        e.preventDefault();
         e.stopPropagation();
         onClose();
         anchor.current?.focus();
@@ -169,6 +186,7 @@ function HelpBubble({
     <div
       ref={box}
       className="cm-help-bubble"
+      popover="manual"
       role="dialog"
       aria-labelledby={id}
       data-placed={pos ? true : undefined}
@@ -197,7 +215,7 @@ function HelpBubble({
           </a>
         ))}
     </div>,
-    document.body,
+    host,
   );
 }
 
