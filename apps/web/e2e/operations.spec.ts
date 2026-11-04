@@ -219,6 +219,11 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   dialog = page.getByRole('dialog').filter({ hasText: `Mesa M${tag}` });
   await dialog.getByRole('button', { name: 'Fechar conta' }).click();
   await expect(page.getByText(/Conta da comanda \d+ fechada/)).toBeVisible();
+  // Depois de fechar, abre a prévia do comprovante de fechamento.
+  const receipt = page.getByRole('dialog', { name: 'Comprovante de fechamento' });
+  await expect(receipt).toBeVisible();
+  await receipt.getByRole('button', { name: 'Fechar', exact: true }).first().click();
+  await expect(receipt).toBeHidden();
   await expect(page.getByRole('button', { name: `Mesa M${tag} livre` })).toBeVisible();
   await shot(page, info.project.name, 'salao');
 
