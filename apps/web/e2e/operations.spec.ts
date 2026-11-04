@@ -24,6 +24,8 @@ const shot = (page: Page, project: string, name: string) =>
 
 /** Escolhe o terminal do teste no seletor do caixa (só aparece com mais de um terminal). */
 async function pickTerminal(page: Page, tag: string) {
+  // Espera a tela carregar os terminais; antes disso o seletor ainda não existe.
+  await expect(page.locator('.cash-head')).toBeVisible();
   const select = page.getByLabel('Terminal');
   if (!(await select.count())) return;
   const value = await select.locator('option', { hasText: `Caixa ${tag}` }).getAttribute('value');
