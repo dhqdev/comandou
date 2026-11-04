@@ -111,14 +111,17 @@ export function Field({
   children,
   wide,
   hint,
+  className,
 }: {
   label: string;
   children: ReactNode;
   wide?: boolean;
   hint?: ReactNode;
+  /** Classe extra (posição do campo na grade do notebook). */
+  className?: string;
 }) {
   return (
-    <label className={`f ${wide ? 'f--wide' : ''}`}>
+    <label className={['f', wide && 'f--wide', className].filter(Boolean).join(' ')}>
       <span>{label}</span>
       {children}
       {hint && <small className="f__hint">{hint}</small>}

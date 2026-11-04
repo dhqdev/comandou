@@ -233,9 +233,9 @@ export function CartScreen() {
     );
 
   return (
-    <div className="sf-wrap sf-page sf-page--bar">
+    <div className="sf-wrap sf-page sf-page--bar cart-page">
       {step === 'cart' ? (
-        <>
+        <div className="cart-main">
           <ScreenHeader title="Sua sacola" />
           <ul className="bag">
             {cart.map((l, i) => (
@@ -268,7 +268,7 @@ export function CartScreen() {
           <Link className="addmore" to="/pedir">
             <Plus size={16} /> Adicionar mais itens
           </Link>
-        </>
+        </div>
       ) : (
         <div className="checkout">
           <header className="screen-head">
@@ -487,6 +487,7 @@ export function CartScreen() {
 
       <div className="checkout-bar">
         <div className="checkout-bar__inner">
+          <h2 className="checkout-bar__title">Resumo do pedido</h2>
           <dl className="sum">
             <dt>Subtotal</dt>
             <dd>{brl(fromCents(subtotal))}</dd>

@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.82.0',
+    date: '2026-11-04',
+    title: 'Cardápio e checkout melhores no notebook',
+    summary:
+      'No notebook, o cardápio online usa a tela toda, com mais produtos por linha. A sacola e o checkout ganharam duas colunas: o formulário à esquerda, com campos menores e organizados lado a lado, e o resumo do pedido fixo à direita. No celular nada muda.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Cardápio online ocupa a largura toda do notebook, com até 6 produtos por linha.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Checkout no notebook com campos mais baixos e endereço em linhas (CEP e rua, número, bairro, cidade e UF).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Resumo do pedido e botão de finalizar ficam fixos ao lado, sem a barra no rodapé.',
+      },
+    ],
+  },
+  {
     version: '0.81.0',
     date: '2026-11-04',
     title: 'Mês financeiro no dia que você escolher',

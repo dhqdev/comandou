@@ -68,7 +68,7 @@ export function AddressFields({
 
   return (
     <div className={className}>
-      <Field label="CEP" hint={cep.cepHint}>
+      <Field label="CEP" className="af-cep" hint={cep.cepHint}>
         <span className="cep-input">
           <input
             inputMode="numeric"
@@ -107,7 +107,7 @@ export function AddressFields({
         {cep.searching && <Loader2 size={16} className="street-field__spin" aria-hidden />}
         {cep.open && <StreetHits id="street-hits" hits={cep.hits} onPick={cep.pick} />}
       </div>
-      <Field label="Número">
+      <Field label="Número" className="af-num">
         <input
           ref={number}
           value={value.number}
@@ -115,7 +115,7 @@ export function AddressFields({
           onChange={(e) => onChange({ number: e.target.value })}
         />
       </Field>
-      <Field label="Bairro">
+      <Field label="Bairro" className="af-district">
         <input
           value={value.district}
           maxLength={80}
@@ -142,14 +142,14 @@ export function AddressFields({
           />
         </Field>
       </div>
-      <Field label="Complemento (opcional)">
+      <Field label="Complemento (opcional)" className="af-half">
         <input
           value={value.complement}
           maxLength={80}
           onChange={(e) => onChange({ complement: e.target.value })}
         />
       </Field>
-      <Field label="Ponto de referência (opcional)">
+      <Field label="Ponto de referência (opcional)" className="af-half">
         <input
           value={value.reference}
           maxLength={120}

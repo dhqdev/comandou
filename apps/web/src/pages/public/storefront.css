@@ -1205,7 +1205,7 @@
     max-width: var(--sf-max);
     height: 100%;
     margin: 0 auto;
-    padding: 0 24px;
+    padding: 0 clamp(24px, 2.5vw, 40px);
     display: flex;
     align-items: center;
     gap: 24px;
@@ -2435,15 +2435,20 @@
 /* ---------------------------------------------------------------- computador: a página ocupa a largura toda */
 @media (min-width: 900px) {
   .sf {
-    --sf-max: 1280px;
+    /* Cardápio usa a tela toda do notebook (com respiro nas bordas); só monitor muito largo para. */
+    --sf-max: 1840px;
   }
   .sf-wrap {
     max-width: var(--sf-max);
-    padding: 0 24px;
+    padding: 0 clamp(24px, 2.5vw, 40px);
+  }
+  /* Telas de leitura (pedidos, conta, reservas) seguem numa coluna confortável. */
+  .sf-wrap.sf-page {
+    max-width: 1280px;
   }
   /* Capa como faixa larga dentro da coluna; a logo redonda encosta nela por baixo, no meio. */
   .sf-cover {
-    max-width: calc(var(--sf-max) - 48px);
+    max-width: calc(100% - 2 * clamp(24px, 2.5vw, 40px));
     height: 240px;
     margin: 20px auto 0;
     border-radius: var(--sf-r-lg);
@@ -2567,6 +2572,138 @@
 @media (min-width: 1200px) {
   .pgrid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+/* Notebook grande e monitor: seis colunas, a grade ocupa a largura toda. */
+@media (min-width: 1500px) {
+  .pgrid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .sf-cover {
+    height: 280px;
+  }
+}
+
+/* ---------------------------------------------------------------- sacola e checkout no notebook */
+.checkout-bar__title {
+  display: none;
+}
+@media (min-width: 900px) {
+  /* Duas colunas: itens ou formulário à esquerda, resumo fixo ao lado (sem barra no rodapé). */
+  .sf-wrap.cart-page {
+    max-width: 1120px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 28px;
+    align-items: start;
+    padding-bottom: 48px;
+  }
+  .cart-page .checkout-bar {
+    position: sticky;
+    top: calc(var(--sf-appbar) + 24px);
+    margin-top: 58px;
+    padding: 18px 20px 20px;
+    border: 1px solid var(--cm-border);
+    border-radius: var(--sf-r);
+    background: var(--cm-surface);
+    backdrop-filter: none;
+    box-shadow: none;
+    animation: sf-rise 0.4s var(--sf-ease) both;
+  }
+  .cart-page .checkout-bar__inner {
+    max-width: none;
+    gap: 12px;
+  }
+  .cart-page .checkout-bar__title {
+    display: block;
+    margin: 0 0 2px;
+    font-size: var(--cm-text-md);
+    font-weight: 800;
+  }
+  .cart-page:has(.checkout) .checkout-bar {
+    margin-top: 66px;
+  }
+  .cart-page .sum {
+    column-gap: 0;
+  }
+  .cart-page .sum__total {
+    padding-top: 8px;
+    border-top: 1px solid var(--cm-border);
+  }
+  .cart-page .cta {
+    flex: none;
+    min-height: 46px;
+    font-size: var(--cm-text-sm);
+  }
+
+  /* Formulário mais enxuto: cartões com respiro, campos baixos e rótulos pequenos. */
+  .checkout {
+    gap: 12px;
+  }
+  .checkout .ck-card {
+    padding: 18px 20px 20px;
+  }
+  .checkout .ck-card__title {
+    margin-bottom: 2px;
+    font-size: var(--cm-text-sm);
+  }
+  .checkout .f {
+    gap: 4px;
+    margin-top: 10px;
+    font-size: var(--cm-text-xs);
+  }
+  .checkout .f input,
+  .checkout .f textarea {
+    min-height: 40px;
+    padding: 8px 12px;
+  }
+  .checkout .f textarea {
+    min-height: 64px;
+    resize: vertical;
+  }
+  .checkout .pill {
+    min-height: 36px;
+    padding: 0 14px;
+  }
+  .checkout .ck-login {
+    padding: 10px 12px;
+  }
+  .checkout .street-field__spin {
+    top: 33px;
+  }
+
+  /* Endereço numa grade de 12: CEP + rua, número + bairro + cidade/UF, complemento + referência. */
+  .checkout .ck-fields {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+  }
+  .checkout .ck-fields > * {
+    grid-column: span 6;
+  }
+  .checkout .ck-fields > .f--wide {
+    grid-column: 1 / -1;
+  }
+  .checkout .ck-fields > .af-cep {
+    grid-column: span 4;
+  }
+  .checkout .ck-fields > .street-field {
+    grid-column: span 8;
+  }
+  .checkout .ck-fields > .af-num {
+    grid-column: span 2;
+  }
+  .checkout .ck-fields > .af-district {
+    grid-column: span 4;
+  }
+  .checkout .ck-fields > .city-uf {
+    grid-column: span 6;
+    grid-template-columns: 1fr 64px;
+  }
+}
+/* Fonte menor só com mouse: no iPad (toque) 16px evita o zoom ao focar o campo. */
+@media (min-width: 900px) and (hover: hover) {
+  .checkout .f input,
+  .checkout .f textarea {
+    font-size: var(--cm-text-sm);
   }
 }
 
