@@ -165,6 +165,14 @@ Só a API passa por ele. Migrações e o painel Super Admin continuam direto no 
 de sessão). Para voltar, faça o deploy sem o overlay. A senha no endereço não pode ter caracteres
 que precisem de escape em URL (as geradas com `openssl rand -hex` servem).
 
+### CrowdSec (bloqueio de ataques)
+
+Opcional, recomendado. Stack `crowdsec` que lê o log do Traefik e bloqueia IPs de ataque pelo
+plugin do CrowdSec no próprio Traefik. Liga com `sudo scripts/crowdsec.sh` (ou no final do
+instalador), que faz na ordem certa: plugin no Traefik, CrowdSec no ar e só então o bloqueio nas
+rotas (overlay [`infrastructure/swarm/crowdsec.yml`](../infrastructure/swarm/crowdsec.yml), que o
+instalador inclui com `COMANDOU_CROWDSEC=1` no `deploy.env`). Tudo em [crowdsec.md](crowdsec.md).
+
 ### Agente do servidor (tela “Servidor” do painel)
 
 O painel Super Admin mostra CPU, memória, disco e rede da VM, os serviços e containers do Docker,

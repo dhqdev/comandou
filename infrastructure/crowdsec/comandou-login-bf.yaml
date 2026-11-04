@@ -1,0 +1,25 @@
+# Força bruta no login do Comandou (equipe, Super Admin e conta do cliente na loja).
+# Conta respostas de erro do login por IP (senha errada = 401; limite da API = 429). Mais de 15
+# erros seguidos em poucos minutos bloqueia o IP (4 h, padrão do CrowdSec). Um restaurante com
+# todos no mesmo Wi-Fi não chega nisso digitando a senha errada de vez em quando.
+type: leaky
+name: comandou/login-bf
+description: 'Muitas tentativas de login com erro no Comandou'
+filter: >-
+  evt.Meta.log_type == 'http_access-log' &&
+  evt.Meta.http_verb == 'POST' &&
+  evt.Meta.http_path matches '^/api/v1/(auth|platform/auth|store/account)/login' &&
+  evt.Meta.http_status in ['400', '401', '403', '429']
+groupby: evt.Meta.source_ip
+capacity: 15
+leakspeed: 20s
+blackhole: 5m
+labels:
+  service: http
+  confidence: 3
+  spoofable: 0
+  classification:
+    - attack.T1110
+  behavior: 'http:bruteforce'
+  label: 'Comandou: força bruta no login'
+  remediation: true

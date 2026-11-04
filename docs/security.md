@@ -11,6 +11,7 @@ houve teste de invasão por terceiros; recomendamos um antes de abrir para muito
 | Sessão roubada | cookie HttpOnly, host-only, `Secure` em produção, SameSite; token só em hash no banco; CSP restritiva no Nginx | `api.e2e.test.ts` |
 | CSRF | cabeçalho `X-Comandou-Request` exigido em toda escrita + SameSite | `api.e2e.test.ts` |
 | Força bruta no login | limite por IP (compartilhado entre réplicas via Redis) e **bloqueio temporário por conta** (10 senhas erradas em 15 min, vale para qualquer IP); mesma resposta para conta inexistente | `security.e2e.test.ts`, `platform.e2e.test.ts` |
+| Robôs, varreduras e IPs de ataque | CrowdSec opcional no Traefik: lê o log de acesso, bloqueia por 4 h quem varre falhas ou força o login (mais de 15 erros seguidos), recebe a lista da comunidade; webhook do Asaas, status e métricas nunca são bloqueados; CrowdSec fora do ar não derruba os sites ([crowdsec.md](crowdsec.md)) | `internal.controller.test.ts` |
 | Painel da plataforma | só em `admin.<base>`, senha + TOTP com código de uso único, papel próprio no banco, auditoria | `platform.e2e.test.ts` |
 | Pagamento duplicado | chave de idempotência, trava da linha do pedido, conferência do saldo | `operations.e2e.test.ts`; teste de carga com 100 disputas sem nenhuma duplicação |
 | Vazamento por log | pino sem cookies, `Authorization` e `Set-Cookie`; token do link de rastreio mascarado na API e fora do log do Nginx | `log-redact.test.ts`; Nginx conferido localmente |

@@ -10,7 +10,8 @@
 #   - cria a rede network_public e instala um Traefik (HTTPS automático) se não houver um;
 #   - pergunta domínio, e-mail e senha do Super Admin; gera os demais
 #     segredos sozinho como Docker secrets (nunca grava senha em arquivo nem no log);
-#   - sobe a stack, espera as migrações e confere a saúde.
+#   - sobe a stack, espera as migrações e confere a saúde;
+#   - oferece ligar o CrowdSec (scripts/crowdsec.sh, docs/crowdsec.md).
 # NÃO remove serviços, volumes, redes nem secrets existentes: o que já existe é reaproveitado.
 #
 # Sem perguntas (automação): defina as variáveis listadas em docs/install.md e use --yes.
@@ -251,6 +252,16 @@ echo "Serviços afetados: ${STACK}_postgres, ${STACK}_redis, ${STACK}_whatsapp-g
 FILES=(-c "$ROOT/infrastructure/swarm/comandou-stack.yml")
 [[ "${COMANDOU_WILDCARD_TLS:-}" == "1" ]] && FILES+=(-c "$ROOT/infrastructure/swarm/wildcard.yml")
 [[ "${COMANDOU_BACKUP:-on}" == "off" ]] && FILES+=(-c "$ROOT/infrastructure/swarm/no-backup.yml")
+# CrowdSec (docs/crowdsec.md): só com a stack crowdsec no ar (sem ela não haveria quem consultar).
+if [[ "${COMANDOU_CROWDSEC:-}" == "1" ]]; then
+  if docker service inspect crowdsec_crowdsec >/dev/null 2>&1 && secret_exists comandou_crowdsec_bouncer_key; then
+    FILES+=(-c "$ROOT/infrastructure/swarm/crowdsec.yml")
+    [[ "${COMANDOU_WILDCARD_TLS:-}" == "1" ]] && FILES+=(-c "$ROOT/infrastructure/swarm/wildcard-crowdsec.yml")
+    echo "CrowdSec: bloqueio ligado"
+  else
+    echo "AVISO: COMANDOU_CROWDSEC=1, mas a stack crowdsec não está no ar: subindo sem o bloqueio. Rode scripts/crowdsec.sh."
+  fi
+fi
 confirm "Aplicar a stack '$STACK' na versão $COMANDOU_VERSION?" || die "cancelado pelo operador"
 docker stack deploy --with-registry-auth "${FILES[@]}" "$STACK"
 
@@ -264,6 +275,8 @@ TRAEFIK_ENTRYPOINT=$TRAEFIK_ENTRYPOINT
 TRAEFIK_CERT_RESOLVER=$TRAEFIK_CERT_RESOLVER
 ${COMANDOU_BACKUP:+COMANDOU_BACKUP=$COMANDOU_BACKUP}
 ${COMANDOU_WILDCARD_TLS:+COMANDOU_WILDCARD_TLS=$COMANDOU_WILDCARD_TLS}
+${COMANDOU_CROWDSEC:+COMANDOU_CROWDSEC=$COMANDOU_CROWDSEC}
+${CROWDSEC_TRUSTED_IPS:+CROWDSEC_TRUSTED_IPS=$CROWDSEC_TRUSTED_IPS}
 ENVFILE
   $SUDO chmod 600 "$DEPLOY_ENV"
   echo "configuração (sem segredos) salva em $DEPLOY_ENV"
@@ -290,5 +303,16 @@ if [[ -n "${COMANDOU_HEALTH_URL:-}" ]]; then
   "$ROOT/scripts/healthcheck.sh" "$COMANDOU_HEALTH_URL" || die "health check falhou"
 else
   echo "Defina COMANDOU_HEALTH_URL=https://<restaurante>.$COMANDOU_BASE_DOMAIN para verificar pelo endereço público."
+fi
+if [[ -z "${COMANDOU_CROWDSEC:-}" ]] && ! $ASSUME_YES && have_tty; then
+  echo
+  echo "Proteção extra (opcional): o CrowdSec bloqueia robôs, força bruta no login e IPs que já"
+  echo "atacaram outros servidores. Detalhes em docs/crowdsec.md; dá para ligar depois com scripts/crowdsec.sh."
+  if confirm "Ligar o CrowdSec agora?"; then
+    "$ROOT/scripts/crowdsec.sh" || echo "AVISO: o CrowdSec não foi ligado (os sites seguem no ar). Veja docs/crowdsec.md."
+  else
+    # Não pergunta de novo nas próximas atualizações (scripts/crowdsec.sh liga quando quiser).
+    echo "COMANDOU_CROWDSEC=0" | $SUDO tee -a "$DEPLOY_ENV" >/dev/null || true
+  fi
 fi
 echo; echo "Instalação concluída. Super Admin: https://admin.$COMANDOU_BASE_DOMAIN  Log: $LOG"

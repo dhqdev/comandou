@@ -86,6 +86,8 @@ scripts/install.sh
 | `COMANDOU_ADMIN_TOTP_SECRET` | chave do autenticador em base32 (16+ caracteres), obrigatória sem terminal |
 | `COMANDOU_BACKUP=off` | sobe sem backup (não recomendado) |
 | `COMANDOU_WILDCARD_TLS=1` | certificado coringa `*.domínio` (exige DNS-01 no Traefik) |
+| `COMANDOU_CROWDSEC=1` | inclui o bloqueio do CrowdSec (gravado por `scripts/crowdsec.sh`; ver [crowdsec.md](crowdsec.md)) |
+| `CROWDSEC_TRUSTED_IPS` | IPs que o CrowdSec nunca bloqueia, separados por vírgula |
 | `COMANDOU_DEMO` | restaurante de demonstração: `true` (padrão, cria uma vez), `reset` (recria a cada subida) ou `false` |
 | `COMANDOU_DEMO_SLUG` | endereço da Casa Brasa (padrão `exemplo` → `exemplo.domínio`) |
 | `COMANDOU_DEMO2_SLUG` | endereço da Aurora Café & Padaria (padrão `aurora`; `false` desliga só ela) |

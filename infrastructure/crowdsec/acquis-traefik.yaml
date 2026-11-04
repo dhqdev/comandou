@@ -1,0 +1,8 @@
+# Lê os logs do serviço do Traefik pelo Docker (Swarm). Pega o serviço "traefik" de qualquer
+# stack: traefik_traefik (instalador do Comandou, SetupOrion e a maioria das instalações).
+# Se o seu tem outro nome, troque a expressão abaixo e rode scripts/crowdsec.sh de novo.
+source: docker
+service_name_regexp:
+  - '^(.+_)?traefik$'
+labels:
+  type: traefik

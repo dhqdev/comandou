@@ -173,6 +173,36 @@ const schema = z.object({
   ),
   TRAEFIK_API_SERVICE: z.string().default('comandou-api@swarm'),
   TRAEFIK_WEB_SERVICE: z.string().default('comandou-web@swarm'),
+  /**
+   * CrowdSec (docs/crowdsec.md): com o bouncer ligado, o provider HTTP passa todas as rotas pelo
+   * middleware do plugin do CrowdSec no Traefik, menos os caminhos que nunca podem ser
+   * bloqueados (webhook do Asaas, teste de status, métricas). Ligue depois de o Traefik ter o
+   * plugin (scripts/crowdsec.sh faz nessa ordem); sem o plugin, roteadores de reserva mantêm os
+   * sites no ar, só sem bloqueio.
+   */
+  CROWDSEC_BOUNCER: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  /** Nome do plugin na configuração estática do Traefik (experimental.plugins.<nome>). */
+  CROWDSEC_PLUGIN_NAME: z.string().default('crowdsec'),
+  /** LAPI do CrowdSec (host:porta) vista pelo Traefik, na rede network_public. */
+  CROWDSEC_LAPI_HOST: z.string().default('crowdsec_crowdsec:8080'),
+  /** Chave do bouncer (a mesma do secret comandou_crowdsec_bouncer_key). */
+  CROWDSEC_BOUNCER_KEY: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(16).optional(),
+  ),
+  /** IPs ou faixas (separados por vírgula) que o bouncer nunca bloqueia, além das redes privadas. */
+  CROWDSEC_TRUSTED_IPS: z
+    .string()
+    .default('')
+    .transform((v) =>
+      v
+        .split(/[\s,]+/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
   /** Requisições por minuto por IP em cada rota (padrão geral; algumas rotas têm limite próprio). */
   RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(300),
   /** Tentativas de login por IP por minuto. */
@@ -222,6 +252,7 @@ export const FILE_SECRET_VARS = [
   'PLATFORM_ADMIN_TOTP_SECRET',
   'METRICS_TOKEN',
   'TRAEFIK_PROVIDER_TOKEN',
+  'CROWDSEC_BOUNCER_KEY',
   'HOST_AGENT_TOKEN',
   'UPDATE_GITHUB_TOKEN',
 ] as const;

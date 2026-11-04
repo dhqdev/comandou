@@ -1,0 +1,16 @@
+# Overlay: bloqueio do CrowdSec nas rotas do Comandou (docs/crowdsec.md). Só bloqueia com o plugin
+# do CrowdSec no Traefik e a stack `crowdsec` no ar (sem eles os sites seguem no ar, sem bloqueio).
+# Quem liga pela primeira vez é scripts/crowdsec.sh, que faz nessa ordem e grava
+# COMANDOU_CROWDSEC=1 em /etc/comandou/deploy.env; daí em diante o instalador inclui este arquivo.
+version: '3.8'
+services:
+  api:
+    environment:
+      CROWDSEC_BOUNCER: 'true'
+      CROWDSEC_BOUNCER_KEY_FILE: /run/secrets/comandou_crowdsec_bouncer_key
+      CROWDSEC_TRUSTED_IPS: ${CROWDSEC_TRUSTED_IPS:-}
+    secrets:
+      - comandou_crowdsec_bouncer_key
+
+secrets:
+  comandou_crowdsec_bouncer_key: { external: true }

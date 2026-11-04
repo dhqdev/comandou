@@ -1,0 +1,13 @@
+# Overlay: com certificado coringa (wildcard.yml) e CrowdSec ligado, põe o bloqueio também nos
+# roteadores dos restaurantes (que nesse modo vêm dos labels, não do provider HTTP). O
+# instalador inclui sozinho quando COMANDOU_WILDCARD_TLS=1 e COMANDOU_CROWDSEC=1.
+version: '3.8'
+services:
+  api:
+    deploy:
+      labels:
+        - traefik.http.routers.comandou-api.middlewares=comandou-crowdsec@http
+  web:
+    deploy:
+      labels:
+        - traefik.http.routers.comandou-web.middlewares=comandou-crowdsec@http

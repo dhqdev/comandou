@@ -1,0 +1,13 @@
+# O que o CrowdSec não conta como ataque no Comandou.
+#
+# Rotas da API (/api/...): a API já tem limite por minuto, bloqueio por conta e respostas 401/403/
+# 404 normais do dia a dia (sessão vencida, permissão, pedido apagado). Num restaurante todos os
+# aparelhos (PDV, cozinha, garçons e clientes no cardápio) saem pelo mesmo IP do Wi-Fi: contar isso
+# como ataque bloquearia o restaurante inteiro. O login continua contando (comandou/login-bf).
+# Webhook do Asaas, teste de status do Super Admin e métricas também ficam de fora.
+name: comandou/whitelist
+description: 'Comandou: rotas da API, webhooks e testes de status não contam como ataque'
+whitelist:
+  reason: 'comandou: rota da API ou caminho de sistema'
+  expression:
+    - "evt.Meta.http_path startsWith '/api/' && !(evt.Meta.http_path matches '^/api/v1/(auth|platform/auth|store/account)/login')"

@@ -31,3 +31,10 @@ certificatesResolvers:
       email: @ACME_EMAIL@
       storage: /letsencrypt/acme-http.json
       httpChallenge: { entryPoint: web }
+# Plugin do CrowdSec (docs/crowdsec.md). Sozinho não bloqueia nada: só vale quando a API põe o
+# middleware nas rotas, o que scripts/crowdsec.sh liga depois de subir o CrowdSec.
+experimental:
+  plugins:
+    crowdsec:
+      moduleName: github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
+      version: v1.8.1

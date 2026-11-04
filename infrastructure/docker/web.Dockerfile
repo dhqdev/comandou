@@ -26,6 +26,7 @@ COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
 COPY scripts /opt/comandou-instalador/scripts
 COPY infrastructure/swarm /opt/comandou-instalador/infrastructure/swarm
 COPY infrastructure/traefik /opt/comandou-instalador/infrastructure/traefik
+COPY infrastructure/crowdsec /opt/comandou-instalador/infrastructure/crowdsec
 COPY infrastructure/docker/postgres-init /opt/comandou-instalador/infrastructure/docker/postgres-init
 EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s --retries=3 \

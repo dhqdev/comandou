@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.78.0',
+    date: '2026-11-04',
+    title: 'CrowdSec: o servidor passa a bloquear robôs, força bruta no login e IPs de ataque',
+    summary:
+      'O Comandou ganhou o CrowdSec, uma proteção gratuita que lê o tráfego do servidor, reconhece ataques e bloqueia o IP do atacante por algumas horas, além de barrar IPs que já atacaram outros servidores no mundo. Liga com um comando no servidor (docs/crowdsec.md) e não bloqueia pagamentos, o teste de status nem o uso normal dos restaurantes.',
+    notes: [
+      {
+        tag: 'segurança',
+        text: 'CrowdSec: robôs procurando falhas (/wp-login.php, /.env, painéis de administração, ataques conhecidos) e ferramentas de ataque são bloqueados no Traefik, antes de chegar ao sistema. O bloqueio dura 4 horas.',
+      },
+      {
+        tag: 'segurança',
+        text: 'CrowdSec: mais de 15 erros seguidos de login do mesmo IP em poucos minutos (equipe, Super Admin ou conta do cliente na loja) bloqueiam o IP. Soma-se ao limite por minuto e ao bloqueio por conta que já existiam.',
+      },
+      {
+        tag: 'segurança',
+        text: 'CrowdSec: o servidor recebe a lista da comunidade com IPs que atacaram outros servidores e já os barra na primeira visita.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Nunca bloqueados: o aviso de pagamento do Asaas, o teste de status do Super Admin, os health checks, as métricas e o próprio servidor. O uso normal da API também não conta como ataque, porque num restaurante todos os aparelhos saem pelo mesmo IP do Wi-Fi.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Se o CrowdSec parar, os sites continuam no ar (só sem o bloqueio). O comando scripts/crowdsec.sh liga tudo na ordem certa, confere cada passo, mostra quem está bloqueado (--status) e desliga sem derrubar nada (--off). Numa instalação nova, o instalador oferece ligar no final.',
+      },
+    ],
+  },
+  {
     version: '0.77.0',
     date: '2026-11-03',
     title: 'Login mais simples e bonito, e você só entra uma vez em cada aparelho',

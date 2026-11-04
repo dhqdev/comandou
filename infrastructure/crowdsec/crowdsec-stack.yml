@@ -1,0 +1,75 @@
+# CrowdSec para o Comandou (docs/crowdsec.md). Instalado por scripts/crowdsec.sh, como stack
+# separada (`crowdsec`), no mesmo servidor do Traefik.
+#
+# O que faz: lê o log de acesso do Traefik (pelo Docker, sem arquivo novo no disco), reconhece
+# robôs procurando falhas, força bruta no login e ataques conhecidos, e bloqueia o IP por algumas
+# horas. Também recebe a lista da comunidade CrowdSec com IPs que já atacaram outros servidores.
+# Quem bloqueia de fato é o plugin do CrowdSec dentro do Traefik (middleware que a API do Comandou
+# coloca nas rotas), que consulta este serviço a cada minuto. Se este serviço cair, os sites
+# continuam no ar, só sem bloqueio.
+#
+# Pré-requisitos: rede network_public e o secret comandou_crowdsec_bouncer_key (o script cria).
+version: '3.8'
+
+services:
+  crowdsec:
+    image: crowdsecurity/crowdsec:v1.8.2
+    environment:
+      # Leitor do log do Traefik e cenários de ataque por HTTP (varredura, CVEs, força bruta),
+      # e a lista de "bons robôs" (Google, Bing...) que nunca são bloqueados.
+      COLLECTIONS: crowdsecurity/traefik crowdsecurity/whitelist-good-actors
+      # Opcional: liga este servidor ao painel app.crowdsec.net (gratuito). Ver docs/crowdsec.md.
+      ENROLL_KEY: ${CROWDSEC_ENROLL_KEY:-}
+      ENROLL_INSTANCE_NAME: ${CROWDSEC_INSTANCE_NAME:-comandou}
+      TZ: America/Sao_Paulo
+    # Só leitura: o CrowdSec só lê os logs do Traefik pelo Docker. Fica no nó manager (onde o
+    # Swarm entrega os logs dos serviços).
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - crowdsec_data:/var/lib/crowdsec/data
+      - crowdsec_config:/etc/crowdsec
+    configs:
+      - source: crowdsec_acquis_traefik
+        target: /etc/crowdsec/acquis.d/traefik.yaml
+      - source: crowdsec_comandou_whitelist
+        target: /etc/crowdsec/parsers/s02-enrich/comandou-whitelist.yaml
+      - source: crowdsec_comandou_login_bf
+        target: /etc/crowdsec/scenarios/comandou-login-bf.yaml
+    secrets:
+      # Registra o bouncer "traefik" com a mesma chave que a API do Comandou entrega ao Traefik.
+      - source: comandou_crowdsec_bouncer_key
+        target: bouncer_key_traefik
+    # Na network_public para o Traefik alcançar a LAPI (crowdsec_crowdsec:8080). Sem portas
+    # publicadas: nada disso fica aberto para a internet.
+    networks: [network_public]
+    deploy:
+      replicas: 1
+      placement:
+        constraints: [node.role == manager]
+      restart_policy: { condition: any, delay: 10s }
+      resources:
+        limits: { memory: 512M }
+
+networks:
+  network_public:
+    external: true
+
+volumes:
+  crowdsec_data:
+  crowdsec_config:
+
+# Configs do Docker não mudam depois de criadas: scripts/crowdsec.sh põe no nome um resumo do
+# conteúdo (CROWDSEC_CONF_VERSION), então editar um destes arquivos e rodar o script de novo aplica.
+configs:
+  crowdsec_acquis_traefik:
+    name: crowdsec_acquis_traefik_${CROWDSEC_CONF_VERSION:-1}
+    file: ./acquis-traefik.yaml
+  crowdsec_comandou_whitelist:
+    name: crowdsec_comandou_whitelist_${CROWDSEC_CONF_VERSION:-1}
+    file: ./comandou-whitelist.yaml
+  crowdsec_comandou_login_bf:
+    name: crowdsec_comandou_login_bf_${CROWDSEC_CONF_VERSION:-1}
+    file: ./comandou-login-bf.yaml
+
+secrets:
+  comandou_crowdsec_bouncer_key: { external: true }
