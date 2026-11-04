@@ -52,7 +52,7 @@ export function DeviceSettings() {
   return (
     <Card searchId="secao-aparelho" title="Este aparelho">
       <div className="device-settings">
-        <p className="page-sub">
+        <p className="device-settings__hint">
           Vale só para este aparelho. Use numa maquininha com Android e navegador (Sunmi, PAX,
           Gertec, Positivo, Ingenico) ou num tablet de balcão.
           {detected && <b> Este aparelho parece uma maquininha.</b>}

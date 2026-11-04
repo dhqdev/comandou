@@ -39,6 +39,10 @@ export const RELEASES: readonly Release[] = [
         text: 'O "?" dentro das janelas não abria em navegadores sem a camada de cima (iOS até o 16, Android antigo e maquininhas): o balão agora fica preso dentro da janela e aparece inteiro.',
       },
       {
+        tag: 'correção',
+        text: 'Ler o QR Code da mesa pela câmera (garçom e Salão) voltou a funcionar no servidor: o cabeçalho de segurança do site bloqueava a câmera.',
+      },
+      {
         tag: 'melhoria',
         text: 'Caixa no celular estreito (320 px): os valores não quebram mais no meio ("R$ 1.279,52" numa linha só).',
       },

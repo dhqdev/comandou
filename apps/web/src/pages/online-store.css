@@ -409,7 +409,7 @@
   display: grid;
   gap: var(--cm-space-4);
 }
-.device-settings .page-sub {
+.device-settings p {
   margin: 0;
 }
 .device-settings__row {
