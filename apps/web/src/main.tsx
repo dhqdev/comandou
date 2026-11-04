@@ -4,6 +4,7 @@ import { App } from './app/App';
 import { applyBranding, applyTheme, cachedBranding, trackViewport } from './design-system';
 import { isPlatformHost } from './platform/host';
 import { reloadIfStale } from './lib/fresh-reload';
+import { applyPosMode } from './lib/pos-device';
 import { applyAdminPwa, listenInstallPrompt } from './platform/pwa';
 
 // admin.<domínio>: manifesto, ícone e tema do painel antes do primeiro desenho.
@@ -21,6 +22,8 @@ applyTheme();
 void reloadIfStale();
 // Teclado do celular: as folhas que sobem de baixo acompanham a área visível.
 trackViewport();
+// Maquininha (Smart POS): botões maiores para o dedo, antes do primeiro desenho.
+applyPosMode();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

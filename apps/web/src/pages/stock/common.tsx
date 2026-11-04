@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Alert } from '../../design-system';
+import { TourButton } from '../../features/tour/PageTour';
 import { api } from '../../lib/api';
 import { useDebounced, useRealtime } from '../../lib/realtime';
 import type { StockFactor, StockItem, StockMovement, StockUnit } from '../../lib/types';
@@ -90,7 +91,10 @@ export function StockHead({
           <h1 className="page-title">{title}</h1>
           <p className="page-sub">{children}</p>
         </div>
-        {actions && <div className="st-head__actions">{actions}</div>}
+        <div className="st-head__actions">
+          <TourButton tour="estoque" />
+          {actions}
+        </div>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
     </>

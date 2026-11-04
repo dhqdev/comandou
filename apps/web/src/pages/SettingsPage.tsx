@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, EmptyState, TextField, useToast } from '../design-system';
 import { useCan } from '../app/auth';
 import { api } from '../lib/api';
+import { DeviceSettings } from '../features/DeviceSettings';
 import type { CashRegister, DiningTable, Sector } from '../lib/types';
 import './online-store.css';
 
@@ -50,10 +51,13 @@ export function SettingsPage() {
     <>
       <div>
         <h1 className="page-title">Ajustes</h1>
-        <p className="page-sub">Setores de produção, mesas e terminais de caixa.</p>
+        <p className="page-sub">
+          Setores de produção, mesas, terminais de caixa e os ajustes deste aparelho (maquininha).
+        </p>
       </div>
       {!canManage && <Alert tone="info">Somente gerentes alteram estes cadastros.</Alert>}
       {error && <Alert tone="danger">{error}</Alert>}
+      <DeviceSettings />
       <Card searchId="secao-loja" title="Loja online">
         <Link to="/loja-online" className="settings-link">
           <Smartphone size={20} aria-hidden />

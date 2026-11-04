@@ -403,3 +403,29 @@
 .cl-orders li > strong {
   text-align: right;
 }
+
+/* Ajustes › Este aparelho (features/DeviceSettings.tsx) */
+.device-settings {
+  display: grid;
+  gap: var(--cm-space-4);
+}
+.device-settings .page-sub {
+  margin: 0;
+}
+.device-settings__row {
+  display: grid;
+  gap: var(--cm-space-2);
+  justify-items: start;
+}
+.device-settings__row .cm-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.device-settings__row [role='tablist'] {
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+.device-settings__hint {
+  color: var(--cm-text-muted);
+}

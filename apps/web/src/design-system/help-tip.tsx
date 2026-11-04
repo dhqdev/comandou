@@ -31,6 +31,11 @@ export interface HelpEntry {
 
 export type HelpDict = Record<string, HelpEntry>;
 
+/** Navegador com a "camada de cima" para balões (Chrome 114+, Safari 17+, Firefox 125+). */
+const POPOVER =
+  typeof HTMLElement !== 'undefined' &&
+  typeof (HTMLElement.prototype as { showPopover?: unknown }).showPopover === 'function';
+
 const HelpCtx = createContext<HelpDict | null>(null);
 
 /** "Código (opcional)" e "código" acham a mesma explicação. */
@@ -130,25 +135,44 @@ function HelpBubble({
     // As janelas ficam na camada de cima do navegador e escondiam o balão. Como "popover", ele
     // também entra nessa camada, por cima da janela, sem ser cortado pela rolagem dela.
     const el = box.current as (HTMLDivElement & { showPopover?: () => void }) | null;
-    if (el?.showPopover && !el.matches(':popover-open')) {
+    let onTop = false;
+    if (el && POPOVER && !el.matches(':popover-open')) {
       try {
-        el.showPopover();
+        el.showPopover!();
+        onTop = true;
       } catch {
-        /* navegador antigo: fica como antes */
+        /* segue pelo caminho dos navegadores antigos */
       }
-    }
+    } else if (el && POPOVER) onTop = true;
     const place = () => {
       const a = anchor.current?.getBoundingClientRect();
       const b = box.current;
       if (!a || !b) return;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
+      // Sem popover (iOS até o 16, Android/maquininhas com navegador antigo) o balão fica DENTRO
+      // da janela. A janela tem vidro (backdrop-filter) e corta o que passa da borda: aí "fixed"
+      // conta a partir do canto da janela, não da tela, e o balão sumia fora dela. Medimos onde
+      // fica o zero de verdade e prendemos o balão dentro da área visível da janela.
+      const inDialog = !onTop && host !== document.body;
+      const area = inDialog
+        ? host.getBoundingClientRect()
+        : { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
       const w = b.offsetWidth;
       const h = b.offsetHeight;
       let top = a.bottom + 8;
-      if (top + h > vh - 8) top = Math.max(8, a.top - h - 8);
-      const left = Math.min(Math.max(8, a.left + a.width / 2 - w / 2), vw - w - 8);
-      setPos({ top: Math.round(top), left: Math.round(left) });
+      if (top + h > area.bottom - 8) top = Math.max(area.top + 8, a.top - h - 8);
+      const left = Math.min(
+        Math.max(area.left + 8, a.left + a.width / 2 - w / 2),
+        area.right - w - 8,
+      );
+      let ox = 0;
+      let oy = 0;
+      if (inDialog) {
+        const r = b.getBoundingClientRect();
+        const cs = getComputedStyle(b);
+        ox = r.left - (parseFloat(cs.left) || 0);
+        oy = r.top - (parseFloat(cs.top) || 0);
+      }
+      setPos({ top: Math.round(top - oy), left: Math.round(Math.max(area.left, left) - ox) });
     };
     place();
     window.addEventListener('resize', place);
@@ -157,7 +181,7 @@ function HelpBubble({
       window.removeEventListener('resize', place);
       window.removeEventListener('scroll', place, true);
     };
-  }, [anchor]);
+  }, [anchor, host]);
 
   useEffect(() => {
     const down = (e: PointerEvent) => {
@@ -186,7 +210,7 @@ function HelpBubble({
     <div
       ref={box}
       className="cm-help-bubble"
-      popover="manual"
+      popover={POPOVER ? 'manual' : undefined}
       role="dialog"
       aria-labelledby={id}
       data-placed={pos ? true : undefined}
