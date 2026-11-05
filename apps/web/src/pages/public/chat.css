@@ -1,7 +1,9 @@
 /*
  * Tela da conversa com a loja no cardápio (/pedir/conversa).
  * Celular: ocupa a tela toda (sem as abas de baixo) e acompanha o teclado.
- * Computador: cartão no meio, abaixo da barra do topo.
+ * Tablet: abaixo da barra do topo, de ponta a ponta.
+ * Notebook: ocupa a área ao lado do menu, com a conversa num cartão grande e, nas telas mais
+ * largas, uma coluna com a loja, os pedidos do cliente e como a conversa funciona.
  */
 .sfchat {
   position: fixed;
@@ -13,6 +15,19 @@
 }
 .sfchat .scx {
   --scx-safe: env(safe-area-inset-bottom, 0px);
+  /* Fundo da conversa: um pontilhado leve na cor da loja. */
+  background-color: color-mix(in srgb, var(--cm-brand-500) 4%, var(--cm-bg));
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--cm-brand-500) 18%, transparent) 1px,
+    transparent 1.6px
+  );
+  background-size: 18px 18px;
+}
+.sfchat__main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 /* iPhone com teclado aberto: a conversa fica no pedaço visível da tela (viewport.ts). */
 html.cm-kb-open .sfchat {
@@ -126,9 +141,7 @@ html.cm-kb-open .sfchat .scx {
 
 @media (min-width: 900px) {
   .sfchat {
-    inset: calc(var(--sf-appbar, 68px) + 16px) 0 16px;
-    width: min(860px, calc(100% - 32px));
-    margin: 0 auto;
+    inset: calc(var(--sf-appbar, 0px) + 16px) 16px 16px;
     border: 1px solid var(--cm-border);
     border-radius: var(--cm-radius-lg);
     overflow: hidden;
@@ -137,6 +150,281 @@ html.cm-kb-open .sfchat .scx {
   .sfchat__head {
     padding-top: 10px;
   }
+}
+
+/* ---------------------------------------------------------------- notebook */
+.sf[data-layout='desktop'] .sfchat {
+  inset: 0 0 0 var(--sf-side);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  box-shadow: none;
+  background: var(--sf-page, var(--cm-bg));
+}
+.sf[data-layout='desktop'] .sfchat__main {
+  min-width: 0;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r, 20px);
+  overflow: hidden;
+  background: var(--cm-surface);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.04),
+    0 18px 40px -26px rgb(0 0 0 / 0.3);
+}
+.sf[data-layout='desktop'] .sfchat__head {
+  gap: 12px;
+  padding: 14px 22px;
+}
+/* O menu do lado já leva de volta ao cardápio. */
+.sf[data-layout='desktop'] .sfchat__head .iconbtn {
+  display: none;
+}
+.sf[data-layout='desktop'] .sfchat__logo {
+  width: 46px;
+  height: 46px;
+}
+.sf[data-layout='desktop'] .sfchat__who strong {
+  font-size: var(--cm-text-lg);
+}
+.sf[data-layout='desktop'] .sfchat .scx-thread__inner {
+  max-width: none;
+  padding: 16px 28px 10px;
+}
+.sf[data-layout='desktop'] .sfchat .scx-compose {
+  padding: 12px 22px 14px;
+}
+.sf[data-layout='desktop'] .sfchat .scx-compose > * {
+  max-width: none;
+}
+.sf[data-layout='desktop'] .sfchat__scroll {
+  display: grid;
+  align-content: center;
+}
+
+.sfchat__aside {
+  display: none;
+}
+@media (min-width: 1180px) {
+  .sf[data-layout='desktop'] .sfchat {
+    grid-template-columns: minmax(0, 1fr) clamp(300px, 24vw, 360px);
+  }
+  .sf[data-layout='desktop'] .sfchat__aside {
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+}
+.sfchat-card {
+  flex: none;
+  padding: 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r, 20px);
+  background: var(--cm-surface);
+}
+.sfchat-card__title {
+  margin: 0;
+  font-size: var(--cm-text-md);
+  font-weight: 750;
+}
+.sfchat-card__hint {
+  margin: 2px 0 12px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.sfchat-facts {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.sfchat-facts li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  line-height: 1.35;
+}
+.sfchat-facts svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--cm-brand-600);
+}
+
+/* Loja: capa, logo, situação e o jeito de entregar. */
+.sfchat-store {
+  padding: 0;
+  overflow: hidden;
+}
+.sfchat-store__cover {
+  height: 84px;
+  background: linear-gradient(135deg, var(--cm-brand-500), var(--cm-brand-800));
+}
+.sfchat-store__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.sfchat-store__id {
+  position: relative;
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  margin: -34px 16px 0;
+}
+.sfchat-store__logo {
+  width: 66px;
+  height: 66px;
+  border: 3px solid var(--cm-surface);
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--cm-surface-sunken);
+  box-shadow: 0 6px 14px -6px rgb(0 0 0 / 0.35);
+}
+.sfchat-store__id > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+}
+.sfchat-store__id strong {
+  overflow: hidden;
+  font-size: var(--cm-text-lg);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sfchat-store__id .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--cm-text-sm);
+}
+.sfchat-store__about {
+  display: -webkit-box;
+  margin: 8px 16px 0;
+  overflow: hidden;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  line-height: 1.45;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.sfchat-store .sfchat-facts {
+  margin: 12px 16px 16px;
+}
+
+/* Pedidos do cliente: tocar manda a próxima mensagem com o número do pedido. */
+.sfchat-orders {
+  display: grid;
+  gap: 8px;
+}
+.sfchat-order {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: 14px;
+  background: var(--cm-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.2s var(--cm-ease),
+    background 0.2s var(--cm-ease),
+    transform 0.2s var(--cm-ease);
+}
+.sfchat-order:hover {
+  border-color: color-mix(in srgb, var(--cm-brand-500) 45%, var(--cm-border));
+  background: color-mix(in srgb, var(--cm-brand-500) 5%, var(--cm-surface));
+}
+.sfchat-order:active {
+  transform: scale(0.98);
+}
+.sfchat-order[aria-pressed='true'] {
+  border-color: var(--cm-brand-500);
+  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
+}
+.sfchat-order:focus-visible {
+  outline: 2px solid var(--cm-brand-500);
+  outline-offset: 2px;
+}
+.sfchat-order__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-surface));
+  color: var(--cm-brand-700);
+}
+.sfchat-order__txt {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+}
+.sfchat-order__txt strong {
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+}
+.sfchat-order__txt small {
+  overflow: hidden;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sfchat-order > svg {
+  flex: none;
+  color: var(--cm-text-subtle);
+}
+
+/* Como funciona: desenho do celular com a conversa e as dicas. */
+.sfchat-help {
+  display: grid;
+  gap: 4px;
+  overflow: hidden;
+}
+.sfchat-help__art {
+  margin: -16px -16px 12px;
+  padding: 16px 28px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-border));
+  background: color-mix(in srgb, var(--cm-brand-500) 9%, var(--cm-surface));
+}
+.sfchat-help__art .art {
+  max-width: 210px;
+  margin: 0 auto;
+}
+.sfchat-help > strong {
+  font-size: var(--cm-text-md);
+  font-weight: 800;
+}
+.sfchat-help > p {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  line-height: 1.45;
+}
+.sfchat-help__wa {
+  justify-self: start;
+  margin-top: 12px;
+  color: var(--cm-brand-700);
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
 }
 
 /* Bolinha de mensagens não lidas nas abas */
@@ -172,4 +460,25 @@ html.cm-kb-open .sfchat .scx {
 }
 .tabbar .sf-dot {
   box-shadow: 0 0 0 2px var(--cm-brand-600);
+}
+
+/* Notebook de tela baixa: a coluna fica só com o essencial para caber sem rolar. */
+@media (max-height: 820px) {
+  .sfchat-store__about,
+  .sfchat-card__hint,
+  .sfchat-help .sfchat-facts {
+    display: none;
+  }
+  .sfchat-store__cover {
+    height: 72px;
+  }
+  .sfchat-card__title {
+    margin-bottom: 10px;
+  }
+  .sfchat-help__art {
+    padding-top: 10px;
+  }
+  .sfchat-help__art .art {
+    max-width: 150px;
+  }
 }

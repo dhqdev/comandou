@@ -193,3 +193,52 @@ export function DeliveryArt({
     <PickupArt className={className} />
   );
 }
+
+/** Celular com a conversa e dois balões saindo dele (a loja digitando e a sua mensagem). */
+export function ChatArt({ live = false, className = '' }: { live?: boolean; className?: string }) {
+  return (
+    <svg
+      className={`art art--chat ${className}`}
+      data-live={live || undefined}
+      viewBox="0 0 260 170"
+      aria-hidden
+      focusable="false"
+    >
+      <ellipse className="art-shadow" cx="134" cy="158" rx="70" ry="6" />
+      <path className="art-spark" d="M30 10v14M23 17h14" />
+      <path className="art-spark" d="M214 18v10M209 23h10" />
+      {/* celular */}
+      <rect className="art-ink art-phone" x="96" y="12" width="80" height="142" rx="14" />
+      <rect className="art-screen" x="103" y="25" width="66" height="116" rx="6" />
+      <rect className="art-notch" x="124" y="17.5" width="24" height="3.5" rx="1.75" />
+      <rect className="art-chip-theirs" x="108" y="34" width="38" height="11" rx="5.5" />
+      <rect className="art-chip-mine" x="126" y="51" width="38" height="11" rx="5.5" />
+      <rect className="art-chip-theirs" x="108" y="68" width="28" height="11" rx="5.5" />
+      <rect className="art-chip-photo" x="130" y="85" width="34" height="26" rx="5" />
+      <path className="art-chip-hill" d="M132 109 L142 97 L149 104 L154 99 L162 109 Z" />
+      <circle className="art-chip-sun" cx="155" cy="92" r="3" />
+      <rect className="art-chip-theirs" x="107" y="124" width="58" height="10" rx="5" />
+      {/* balão da loja, digitando */}
+      <path
+        className="art-ink art-white"
+        d="M26 34 H86 A14 14 0 0 1 100 48 V62 A14 14 0 0 1 86 76 H44 L24 90 L30 76 H26 A14 14 0 0 1 12 62 V48 A14 14 0 0 1 26 34 Z"
+      />
+      <g className="art-typing">
+        <circle cx="38" cy="55" r="5.5" />
+        <circle cx="56" cy="55" r="5.5" />
+        <circle cx="74" cy="55" r="5.5" />
+      </g>
+      {/* sua mensagem */}
+      <path
+        className="art-ink art-brand"
+        d="M174 84 H234 A14 14 0 0 1 248 98 V110 A14 14 0 0 1 234 124 H232 L238 138 L218 124 H174 A14 14 0 0 1 160 110 V98 A14 14 0 0 1 174 84 Z"
+      />
+      <path className="art-msg-line" d="M174 99 H224 M174 110 H204" />
+      <path
+        className="art-ink art-heart"
+        strokeWidth="2.5"
+        d="M232 72 C221 64 220 52 228 51 C231 51 232 53 232 55 C232 53 233 51 236 51 C244 52 243 64 232 72 Z"
+      />
+    </svg>
+  );
+}

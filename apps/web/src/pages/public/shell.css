@@ -1298,9 +1298,3 @@
 .sf[data-layout='desktop'] .sf-page {
   padding-top: 24px;
 }
-/* Conversa no notebook: cartão no meio da área ao lado do menu. */
-.sf[data-layout='desktop'] .sfchat {
-  left: var(--sf-side);
-  inset-block: 16px;
-  width: min(860px, calc(100vw - var(--sf-side) - 48px));
-}

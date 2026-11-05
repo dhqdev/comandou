@@ -218,3 +218,90 @@
     animation: none !important;
   }
 }
+
+/* Conversa (ChatArt): celular, balões e os três pontinhos de "digitando". */
+.art-phone {
+  fill: #3a2a22;
+}
+.art-screen {
+  fill: #fff6ee;
+}
+.art-notch {
+  fill: #6b5a50;
+}
+.art-chip-theirs {
+  fill: #eadfd6;
+}
+.art-chip-mine {
+  fill: var(--cm-brand-500);
+}
+.art-chip-photo {
+  fill: #cfe7ff;
+}
+.art-chip-hill {
+  fill: var(--cm-accent-400);
+}
+.art-chip-sun {
+  fill: #ffd34d;
+}
+.art-typing circle {
+  fill: #9b8b80;
+}
+.art-msg-line {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 4.5;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+.art-heart {
+  fill: #ff5a4e;
+}
+.art-spark {
+  fill: none;
+  stroke: var(--cm-accent-400);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+.art[data-live] .art-typing circle {
+  animation: art-typing 1.2s ease-in-out infinite;
+}
+.art[data-live] .art-typing circle:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.art[data-live] .art-typing circle:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.art[data-live] .art-heart {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: art-beat 2.4s ease-in-out infinite;
+}
+@keyframes art-typing {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.55;
+  }
+  30% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+@keyframes art-beat {
+  0%,
+  70%,
+  100% {
+    transform: scale(1);
+  }
+  80% {
+    transform: scale(1.18);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .art[data-live] .art-typing circle,
+  .art[data-live] .art-heart {
+    animation: none;
+  }
+}

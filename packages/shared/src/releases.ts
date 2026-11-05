@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.92.0',
+    date: '2026-11-05',
+    title: 'Conversa com a loja ocupando a tela no notebook',
+    summary:
+      'No notebook, a conversa do cliente com a loja deixou de ser uma caixa estreita no meio da tela. Agora ela ocupa todo o espaço ao lado do menu e ganhou uma coluna com a loja, os pedidos do cliente e um desenho de como a conversa funciona.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Cardápio online, Conversa no notebook: a conversa ocupa a largura da tela, com um fundo pontilhado na cor da loja.',
+      },
+      {
+        tag: 'novo',
+        text: 'Coluna ao lado da conversa com a capa e a situação da loja, o tempo de entrega, a retirada e o endereço.',
+      },
+      {
+        tag: 'novo',
+        text: '"Falar sobre um pedido": tocar num pedido recente já manda a próxima mensagem com o número dele.',
+      },
+    ],
+  },
+  {
     version: '0.91.1',
     date: '2026-11-05',
     title: 'Comandas do Salão sem texto vazando',

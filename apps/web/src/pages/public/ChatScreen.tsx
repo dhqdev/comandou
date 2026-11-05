@@ -1,12 +1,28 @@
-import { ChevronLeft, MessageCircle } from 'lucide-react';
+import {
+  BellRing,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  ImagePlus,
+  MapPin,
+  MessageCircle,
+  ReceiptText,
+  Smile,
+  Store,
+} from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Mascot, Spinner, useToast } from '../../design-system';
+import { dateTime } from '../../features/format';
 import { ChatMessage, ChatPane, mergeMessages } from '../../features/store-chat/ChatKit';
 import { api, ApiError } from '../../lib/api';
+import { brl } from '../../lib/money';
+import { ChatArt } from './art';
 import { useStoreChat } from './chat';
 import { useStore } from './context';
-import { maskPhone } from './store';
+import { useLayout } from './sections';
+import { deliveryFeeText, StoreStatusLine } from './Shell';
+import { type AccountOrder, maskPhone, recentOrders, STEP_LABEL } from './store';
 import { Field, Photo } from './ui';
 import './chat.css';
 
@@ -88,6 +104,149 @@ function GuestStart({ onStarted }: { onStarted(s: ChatState): void }) {
   );
 }
 
+/** Link do WhatsApp da loja (com o 55 do Brasil quando o número vem sem o país). */
+function waLink(phone: string | null) {
+  const wa = phone?.replace(/\D/g, '');
+  return wa ? `https://wa.me/${wa.length <= 11 ? `55${wa}` : wa}` : null;
+}
+
+/**
+ * Coluna ao lado da conversa no notebook: a loja, os pedidos do cliente (tocar num deles manda
+ * a próxima mensagem com o número do pedido) e como a conversa funciona.
+ */
+function ChatAside({
+  open,
+  canAsk,
+  orderNumber,
+  onAsk,
+}: {
+  open: boolean;
+  canAsk: boolean;
+  orderNumber: number | null;
+  onAsk(n: number): void;
+}) {
+  const { menu, account } = useStore();
+  const me = account?.customer;
+  const r = menu.restaurant;
+  const s = menu.store;
+  const [mine, setMine] = useState<AccountOrder[] | null>(null);
+
+  useEffect(() => {
+    if (!me || !canAsk) return;
+    api<AccountOrder[]>('/store/account/orders')
+      .then(setMine)
+      .catch(() => setMine([]));
+  }, [me?.id, canAsk]);
+
+  const orders = (
+    me
+      ? (mine ?? []).map((o) => ({
+          number: o.number,
+          hint: `${STEP_LABEL[o.step]} · ${brl(o.total)}`,
+        }))
+      : recentOrders().map((o) => ({ number: o.number, hint: dateTime(o.at) }))
+  ).slice(0, 3);
+  const wa = waLink(r.whatsapp);
+
+  return (
+    <aside className="sfchat__aside" aria-label={`Sobre ${r.name}`}>
+      <section className="sfchat-card sfchat-store">
+        <div className="sfchat-store__cover">
+          {r.coverUrl && <Photo src={r.coverUrl} alt="" className="sfchat-store__img" />}
+        </div>
+        <div className="sfchat-store__id">
+          <Photo src={r.logoUrl} alt={r.name} className="sfchat-store__logo" />
+          <span>
+            <strong>{r.name}</strong>
+            <StoreStatusLine />
+          </span>
+        </div>
+        {r.about && <p className="sfchat-store__about">{r.about}</p>}
+        <ul className="sfchat-facts">
+          {s.acceptsDelivery && (
+            <li>
+              <Clock size={15} aria-hidden />
+              <span>
+                {s.etaMin}–{s.etaMax} min · {deliveryFeeText(s)}
+              </span>
+            </li>
+          )}
+          {s.acceptsPickup && (
+            <li>
+              <Store size={15} aria-hidden />
+              <span>Retirada no balcão</span>
+            </li>
+          )}
+          {r.address && (
+            <li>
+              <MapPin size={15} aria-hidden />
+              <span>{r.address}</span>
+            </li>
+          )}
+        </ul>
+      </section>
+
+      {canAsk && orders.length > 0 && (
+        <section className="sfchat-card">
+          <h2 className="sfchat-card__title">Falar sobre um pedido</h2>
+          <p className="sfchat-card__hint">Escolha um e a mensagem vai com o número dele.</p>
+          <div className="sfchat-orders">
+            {orders.map((o) => (
+              <button
+                key={o.number}
+                type="button"
+                className="sfchat-order"
+                aria-pressed={orderNumber === o.number}
+                onClick={() => onAsk(o.number)}
+              >
+                <span className="sfchat-order__icon">
+                  <ReceiptText size={17} aria-hidden />
+                </span>
+                <span className="sfchat-order__txt">
+                  <strong>Pedido #{o.number}</strong>
+                  <small>{o.hint}</small>
+                </span>
+                <ChevronRight size={16} aria-hidden />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="sfchat-card sfchat-help">
+        <div className="sfchat-help__art">
+          <ChatArt live={open} />
+        </div>
+        <strong>{open ? 'A equipe responde por aqui' : 'Deixe sua mensagem'}</strong>
+        <p>
+          {open
+            ? 'A resposta chega nesta tela, sem precisar sair do cardápio.'
+            : 'A loja está fechada agora. A resposta chega aqui assim que ela abrir.'}
+        </p>
+        <ul className="sfchat-facts">
+          <li>
+            <ImagePlus size={15} aria-hidden />
+            <span>Fotos e vídeos: clique no clipe ou arraste para a conversa</span>
+          </li>
+          <li>
+            <Smile size={15} aria-hidden />
+            <span>Emojis no botão dentro do campo</span>
+          </li>
+          <li>
+            <BellRing size={15} aria-hidden />
+            <span>Uma bolinha no menu avisa quando a loja responder</span>
+          </li>
+        </ul>
+        {wa && (
+          <a className="sfchat-help__wa" href={wa} target="_blank" rel="noreferrer">
+            Prefere o WhatsApp? Chamar a loja
+          </a>
+        )}
+      </section>
+    </aside>
+  );
+}
+
 /** Conversa do cliente com a loja (/pedir/conversa), no lugar de levar ao WhatsApp. */
 export function ChatScreen() {
   const { menu, account } = useStore();
@@ -102,6 +261,7 @@ export function ChatScreen() {
   const orderNumber = Number(params.get('pedido')) || null;
   const r = menu.restaurant;
   const loggedIn = !!account?.customer;
+  const wide = useLayout() === 'desktop';
 
   const load = useCallback(async () => {
     try {
@@ -161,6 +321,15 @@ export function ChatScreen() {
     p.delete('pedido');
     setParams(p, { replace: true });
   };
+  const askAbout = (n: number) => {
+    const p = new URLSearchParams(params);
+    p.set('pedido', String(n));
+    setParams(p, { replace: true });
+    requestAnimationFrame(() =>
+      document.querySelector<HTMLTextAreaElement>('.sfchat .scx-field textarea')?.focus(),
+    );
+  };
+  const storeOpen = state?.storeOpen ?? menu.store.isOpen;
 
   const head = (
     <header className="sfchat__head">
@@ -175,10 +344,10 @@ export function ChatScreen() {
       <Photo src={r.logoUrl} alt={r.name} className="sfchat__logo" eager />
       <div className="sfchat__who">
         <strong>{r.name}</strong>
-        <small data-open={state?.storeOpen ?? menu.store.isOpen}>
+        <small data-open={storeOpen}>
           {typing
             ? 'digitando…'
-            : (state?.storeOpen ?? menu.store.isOpen)
+            : storeOpen
               ? 'Loja aberta · responde por aqui'
               : 'Loja fechada · responde quando abrir'}
         </small>
@@ -201,18 +370,13 @@ export function ChatScreen() {
       </div>
     );
   } else if (!state.enabled) {
-    const wa = r.whatsapp?.replace(/\D/g, '');
+    const wa = waLink(r.whatsapp);
     body = (
       <div className="sfchat__center">
         <MessageCircle size={36} />
         <p>Esta loja não está atendendo por mensagem no cardápio.</p>
         {wa && (
-          <a
-            className="btn-line"
-            href={`https://wa.me/${wa.length <= 11 ? `55${wa}` : wa}`}
-            target="_blank"
-            rel="noreferrer"
-          >
+          <a className="btn-line" href={wa} target="_blank" rel="noreferrer">
             Chamar no WhatsApp
           </a>
         )}
@@ -281,10 +445,16 @@ export function ChatScreen() {
     );
   }
 
+  const chatting = !!state?.enabled && (!!state.chat || loggedIn);
   return (
-    <div className="sfchat">
-      {head}
-      <div className="sfchat__body">{body}</div>
+    <div className="sfchat" data-wide={wide || undefined}>
+      <div className="sfchat__main">
+        {head}
+        <div className="sfchat__body">{body}</div>
+      </div>
+      {wide && (
+        <ChatAside open={storeOpen} canAsk={chatting} orderNumber={orderNumber} onAsk={askAbout} />
+      )}
     </div>
   );
 }
