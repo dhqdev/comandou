@@ -130,12 +130,18 @@ function Conversation({
   const [orderId, setOrderId] = useState<string | null>(null);
   const timer = useRef<number | undefined>(undefined);
 
+  // onChanged pode mudar a cada desenho de quem está em volta. Guardado num ref, ele não refaz o
+  // "load" abaixo: antes, cada aviso de não lida trocava a função, a conversa voltava ao
+  // carregando e o texto que a equipe estava digitando sumia (botão Enviar apagado).
+  const changedRef = useRef(onChanged);
+  changedRef.current = onChanged;
+
   const markRead = useCallback(() => {
     if (document.visibilityState !== 'visible') return;
     void api(`/support/chats/${id}/read`, { method: 'POST' })
-      .then(onChanged)
+      .then(() => changedRef.current())
       .catch(() => undefined);
-  }, [id, onChanged]);
+  }, [id]);
 
   const load = useCallback(async () => {
     try {
@@ -151,8 +157,11 @@ function Conversation({
     }
   }, [id, markRead, toast]);
 
+  // Só outra conversa volta ao carregando; recarregar a mesma mantém o que está na tela.
   useEffect(() => {
     setD(null);
+  }, [id]);
+  useEffect(() => {
     void load();
   }, [load]);
 
@@ -491,6 +500,7 @@ export function SupportChatHost() {
         }
     }
   }, [can]);
+  const refreshUnread = useCallback(() => void refresh(), [refresh]);
 
   useEffect(() => {
     void refresh();
@@ -579,7 +589,7 @@ export function SupportChatHost() {
           void refresh();
         }}
       >
-        <Inbox initial={start} onRefreshUnread={() => void refresh()} />
+        <Inbox initial={start} onRefreshUnread={refreshUnread} />
       </SidePanel>
     </>
   );

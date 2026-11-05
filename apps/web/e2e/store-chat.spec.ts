@@ -24,7 +24,8 @@ test('cliente conversa com a loja pelo cardápio e o PDV responde', async ({
   });
   const c = await customer.newPage();
   const phone = info.project.name === 'mobile' ? '11955554444' : '11955553333';
-  const who = info.project.name === 'mobile' ? 'Cliente Celular' : 'Cliente Notebook';
+  // Nome único por execução: uma nova tentativa (retry) não pode achar a conversa da anterior.
+  const who = `${info.project.name === 'mobile' ? 'Cliente Celular' : 'Cliente Notebook'} ${Date.now().toString(36)}`;
 
   // Cliente sem conta: nome e celular, depois a conversa.
   await c.goto('/pedir/conversa');

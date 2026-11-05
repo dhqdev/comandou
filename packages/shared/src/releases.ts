@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.85.1',
+    date: '2026-11-05',
+    title: 'Resposta do chat da loja não some mais',
+    summary:
+      'Na conversa com o cliente da loja online, o texto que a equipe estava digitando podia sumir sozinho quando o contador de mensagens não lidas atualizava. Agora a conversa fica como está até você enviar.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Chat da loja: o texto digitado na resposta não é mais apagado quando chega aviso de mensagem não lida.',
+      },
+    ],
+  },
+  {
     version: '0.85.0',
     date: '2026-11-04',
     title: 'Modo maquininha, tutorial do Estoque e ajuda em aparelhos antigos',
