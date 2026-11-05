@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   HttpCode,
@@ -26,12 +27,25 @@ import {
 import { ZodPipe } from '../common/zod.pipe';
 import { PlatformHostGuard, PlatformSessionGuard } from '../platform/platform-auth';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
-import { BillingService, BillingSettingsBody, ManualInvoiceBody } from './billing.service';
+import {
+  BillingService,
+  BillingSettingsBody,
+  CardBody,
+  ManualInvoiceBody,
+} from './billing.service';
 
 const actor = (req: Request) => ({ admin: req.platformAdmin!, ip: req.ip });
 const origin = (req: Request) => `${req.protocol}://${req.get('host')}`;
 const Mode = z.object({ mode: z.enum(['manual', 'asaas']) });
 const Upgrade = z.object({ planId: z.string().uuid() });
+const PayMethodBody = z.object({ method: z.enum(['pix', 'boleto', 'card']) });
+
+/** Ações que mexem em dinheiro ou no plano: só o administrador (dono) do restaurante. */
+function ownerOnly(u: AuthenticatedUser) {
+  if (u.role !== 'owner')
+    throw new ForbiddenException('Só o administrador do restaurante mexe na assinatura');
+  return { id: u.id, name: u.name };
+}
 
 /** Super Admin → Cobrança: conta do Asaas, regras e faturas de cada cliente. */
 @Controller({ path: 'platform/billing', version: '1' })
@@ -192,5 +206,84 @@ export class TenantBillingController {
     if (u.role !== 'owner')
       throw new ForbiddenException('Só o administrador do restaurante troca o plano');
     return this.svc.upgrade(t.id, b.planId, { id: u.id, name: u.name });
+  }
+
+  /** Plano menor: vale no próximo período (no teste grátis, na hora). */
+  @Post('downgrade')
+  @HttpCode(200)
+  @RequirePermission('plan:read')
+  downgrade(
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Body(new ZodPipe(Upgrade)) b: z.infer<typeof Upgrade>,
+  ) {
+    return this.svc.scheduleDowngrade(t.id, b.planId, ownerOnly(u));
+  }
+
+  @Delete('downgrade')
+  @RequirePermission('plan:read')
+  cancelDowngrade(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.svc.cancelDowngrade(t.id, ownerOnly(u));
+  }
+
+  @Put('pay-method')
+  @RequirePermission('plan:read')
+  payMethod(
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Body(new ZodPipe(PayMethodBody)) b: z.infer<typeof PayMethodBody>,
+  ) {
+    return this.svc.setPayMethod(t.id, b.method, ownerOnly(u));
+  }
+
+  /** Salva o cartão no Asaas (só o token fica aqui) e liga a cobrança automática nele. */
+  @Post('card')
+  @HttpCode(200)
+  @RequirePermission('plan:read')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  saveCard(
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Body(new ZodPipe(CardBody)) b: z.infer<typeof CardBody>,
+    @Req() req: Request,
+  ) {
+    return this.svc.saveCard(t.id, b, req.ip ?? '0.0.0.0', ownerOnly(u));
+  }
+
+  @Delete('card')
+  @RequirePermission('plan:read')
+  removeCard(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.svc.removeCard(t.id, ownerOnly(u));
+  }
+
+  /** Paga agora uma fatura com o cartão salvo. */
+  @Post('invoices/:iid/card')
+  @HttpCode(200)
+  @RequirePermission('plan:read')
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  chargeCard(
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Param('iid', ParseUUIDPipe) iid: string,
+  ) {
+    ownerOnly(u);
+    return this.svc.chargeCard(iid, t.id);
+  }
+}
+
+/**
+ * Planos para a página pública /precos (qualquer endereço do Comandou, sem login). Sai direto do
+ * Super Admin → Planos: o que mudar lá aparece aqui na hora.
+ */
+@Controller({ path: 'public/plans', version: '1' })
+@SkipTenant()
+@Public()
+@Throttle({ default: { ttl: 60_000, limit: 60 } })
+export class PublicPlansController {
+  constructor(private readonly svc: BillingService) {}
+
+  @Get()
+  list() {
+    return this.svc.publicPlans();
   }
 }

@@ -55,6 +55,8 @@ const fake = {
   payments: new Map<string, FakePayment>(),
   webhooks: [] as { url: string; authToken: string }[],
   keys: new Set<string>(),
+  tokenized: [] as { customer: string; remoteIp: string; number: string }[],
+  decline: false,
 };
 function asaasHandler(req: IncomingMessage, res: ServerResponse) {
   let raw = '';
@@ -103,6 +105,29 @@ function asaasHandler(req: IncomingMessage, res: ServerResponse) {
       return send(200, {
         data: [...fake.payments.values()].filter((p) => p.externalReference === ref && !p.deleted),
       });
+    }
+    if (req.method === 'POST' && url === '/creditCard/tokenize') {
+      fake.tokenized.push({
+        customer: body.customer,
+        remoteIp: body.remoteIp,
+        number: body.creditCard.number,
+      });
+      return send(200, {
+        creditCardNumber: String(body.creditCard.number).slice(-4),
+        creditCardBrand: 'VISA',
+        creditCardToken: `tok_${fake.tokenized.length}_segredo`,
+      });
+    }
+    if (req.method === 'POST' && (m = url.match(/^\/payments\/([^/]+)\/payWithCreditCard$/))) {
+      const p = fake.payments.get(m[1]!);
+      if (!p) return send(404, { errors: [{ description: 'não existe' }] });
+      if (!String(body.creditCardToken).startsWith('tok_'))
+        return send(400, { errors: [{ description: 'token inválido' }] });
+      if (fake.decline) return send(400, { errors: [{ description: 'Transação não autorizada' }] });
+      p.status = 'CONFIRMED';
+      p.billingType = 'CREDIT_CARD';
+      p.paymentDate = new Date().toISOString().slice(0, 10);
+      return send(200, p);
     }
     if (req.method === 'POST' && (m = url.match(/^\/payments\/([^/]+)\/receiveInCash$/))) {
       const p = fake.payments.get(m[1]!);
@@ -602,5 +627,182 @@ describe('Contrato reassinado todo ano', () => {
     await billing.refresh(fx.tenantB);
     expect((await sub(fx.tenantB)).block_reason).toBeNull();
     expect(c).toBeTruthy();
+  });
+});
+
+describe('Página de preços, cartão automático e plano menor', () => {
+  let ownerA = '';
+  const card = {
+    holderName: 'Maria da Silva',
+    number: '4111 1111 1111 1111',
+    expiry: '12/30',
+    ccv: '123',
+    document: '123.456.789-09',
+    email: 'maria@bl-a.test',
+    phone: '(11) 99999-0000',
+    postalCode: '01310-100',
+    addressNumber: '100',
+  };
+  const subRow = async () =>
+    (
+      await ownerQuery<{
+        plan_id: string;
+        pay_method: string | null;
+        scheduled_plan_id: string | null;
+        current_period_end: Date;
+      }>(
+        `SELECT plan_id, pay_method, scheduled_plan_id, current_period_end FROM subscriptions
+          WHERE tenant_id = $1 AND status <> 'cancelled'`,
+        [fx.tenantA],
+      )
+    )[0]!;
+
+  it('/precos lê os planos do Super Admin, sem login e em qualquer endereço', async () => {
+    await ownerQuery(
+      `UPDATE plans SET tagline = 'Para crescer', highlights = '["Tudo do Básico","NFC-e"]',
+              featured = true WHERE id = $1`,
+      [plans.pro],
+    );
+    const r = await http.get('/api/v1/public/plans').set('Host', 'www.comandou.test').expect(200);
+    const pro = r.body.plans.find((p: { id: string }) => p.id === plans.pro);
+    expect(pro).toMatchObject({
+      name: 'Pro BL',
+      tagline: 'Para crescer',
+      highlights: ['Tudo do Básico', 'NFC-e'],
+      featured: true,
+      priceMonthly: '180.00',
+    });
+    expect(pro.code).toBeUndefined();
+    await http.get('/api/v1/public/plans').set('Host', HOST_B).expect(200);
+    await ownerQuery(`UPDATE plans SET show_public = false WHERE id = $1`, [plans.pro]);
+    const hidden = await http.get('/api/v1/public/plans').set('Host', 'www.comandou.test');
+    expect(hidden.body.plans.some((p: { id: string }) => p.id === plans.pro)).toBe(false);
+    await ownerQuery(`UPDATE plans SET show_public = true WHERE id = $1`, [plans.pro]);
+  });
+
+  it('cartão só com o cartão automático ligado no painel e só pelo administrador', async () => {
+    ownerA = await tenantLogin(HOST_A, 'admin@bl-a.test');
+    await tpost(HOST_A, ownerA, '/subscription/card', card).expect(409);
+    await psend('put', '/billing/settings', {
+      ...settings,
+      apiKey: undefined,
+      cardEnabled: true,
+      salesContact: '11 99999-0000',
+    }).expect(200);
+    const pub = await http.get('/api/v1/public/plans').set('Host', 'www.comandou.test');
+    expect(pub.body.salesContact).toBe('11 99999-0000');
+    const waiter = await tenantLogin(HOST_A, 'garcom@bl-a.test');
+    await tpost(HOST_A, waiter, '/subscription/card', card).expect(403);
+    await tpost(HOST_A, ownerA, '/subscription/card', {
+      ...card,
+      number: '4111 1111 1111 1112',
+    }).expect(400);
+  });
+
+  it('salva só o token cifrado, a bandeira e o final; liga o automático', async () => {
+    const r = await tpost(HOST_A, ownerA, '/subscription/card', card).expect(200);
+    expect(r.body).toMatchObject({ brand: 'VISA', last4: '1111' });
+    expect(fake.tokenized.at(-1)!.number).toBe('4111111111111111');
+    const [row] = await ownerQuery<{ token_enc: Buffer; last4: string }>(
+      `SELECT token_enc, last4 FROM billing_cards WHERE tenant_id = $1`,
+      [fx.tenantA],
+    );
+    expect(row!.last4).toBe('1111');
+    expect(row!.token_enc.toString('latin1')).not.toContain('segredo');
+    expect(row!.token_enc.toString('latin1')).not.toContain('4111');
+    expect((await subRow()).pay_method).toBe('card');
+    const v = await tget(HOST_A, ownerA, '/subscription/billing').expect(200);
+    expect(v.body.payment).toMatchObject({
+      method: 'card',
+      card: { brand: 'VISA', last4: '1111' },
+    });
+    expect(JSON.stringify(v.body)).not.toContain('tok_');
+  });
+
+  it('no vencimento o ciclo cobra no cartão e libera mais 30 dias', async () => {
+    await psend('post', `/billing/tenants/${fx.tenantA}/charge`).expect(200);
+    const before = (await subRow()).current_period_end.getTime();
+    const [inv] = await ownerQuery<{ id: string; provider_id: string }>(
+      `SELECT id, provider_id FROM billing_invoices
+        WHERE tenant_id = $1 AND kind = 'monthly' AND status = 'pending'`,
+      [fx.tenantA],
+    );
+    // Antes do vencimento não cobra.
+    await billing.runCycle(new Date(before - 3 * DAY));
+    expect(fake.payments.get(inv!.provider_id)!.status).toBe('PENDING');
+    await billing.runCycle(new Date(before - 60_000));
+    expect(fake.payments.get(inv!.provider_id)!.status).toBe('CONFIRMED');
+    const [paid] = await ownerQuery<{ status: string; billing_type: string }>(
+      `SELECT status, billing_type FROM billing_invoices WHERE id = $1`,
+      [inv!.id],
+    );
+    expect(paid).toMatchObject({ status: 'paid', billing_type: 'CREDIT_CARD' });
+    expect((await subRow()).current_period_end.getTime()).toBe(before + 30 * DAY);
+  });
+
+  it('cartão recusado: guarda o motivo, tenta uma vez por dia e a fatura segue aberta', async () => {
+    fake.decline = true;
+    const today = new Date().toISOString().slice(0, 10);
+    const r = await psend('post', `/billing/tenants/${fx.tenantA}/invoices`, {
+      description: 'Avulsa no cartão',
+      amount: '15.00',
+      dueDate: today,
+    }).expect(201);
+    const inv = r.body.invoices.find(
+      (i: { description: string }) => i.description === 'Avulsa no cartão',
+    );
+    await billing.runCycle();
+    await billing.runCycle();
+    const [row] = await ownerQuery<{
+      status: string;
+      data: { cardError: string; cardTries: number };
+    }>(`SELECT status, data FROM billing_invoices WHERE id = $1`, [inv.id]);
+    expect(row!.status).toBe('pending');
+    expect(row!.data.cardError).toContain('não autorizada');
+    expect(row!.data.cardTries).toBe(1);
+    fake.decline = false;
+    const pay = await tpost(HOST_A, ownerA, `/subscription/invoices/${inv.id}/card`, {}).expect(
+      200,
+    );
+    expect(pay.body.ok).toBe(true);
+  });
+
+  it('plano menor: agenda para o próximo período, a mensalidade sai com o preço novo', async () => {
+    expect((await subRow()).plan_id).toBe(plans.pro);
+    await tpost(HOST_A, ownerA, '/subscription/downgrade', { planId: plans.pro }).expect(409);
+    const r = await tpost(HOST_A, ownerA, '/subscription/downgrade', {
+      planId: plans.basic,
+    }).expect(200);
+    expect(r.body.immediate).toBe(false);
+    let s = await subRow();
+    expect(s).toMatchObject({ plan_id: plans.pro, scheduled_plan_id: plans.basic });
+    await psend('post', `/billing/tenants/${fx.tenantA}/charge`).expect(200);
+    const open = () =>
+      ownerQuery<{ amount: string; plan_id: string; period_start: Date }>(
+        `SELECT amount::text AS amount, plan_id, period_start FROM billing_invoices
+          WHERE tenant_id = $1 AND kind = 'monthly' AND status = 'pending'`,
+        [fx.tenantA],
+      );
+    expect((await open())[0]).toMatchObject({ amount: '90.00', plan_id: plans.basic });
+    // Desistiu: a mensalidade volta ao preço do plano atual.
+    await http
+      .delete('/api/v1/subscription/downgrade')
+      .set('Host', HOST_A)
+      .set(CSRF)
+      .set('Cookie', ownerA)
+      .expect(200);
+    expect((await open())[0]).toMatchObject({ amount: '180.00', plan_id: plans.pro });
+    await tpost(HOST_A, ownerA, '/subscription/downgrade', { planId: plans.basic }).expect(200);
+    const [next] = await open();
+    expect(next).toMatchObject({ amount: '90.00', plan_id: plans.basic });
+    // Começou o período novo: o plano vira o menor.
+    await billing.runCycle(new Date(next!.period_start.getTime() + 60_000));
+    s = await subRow();
+    expect(s).toMatchObject({ plan_id: plans.basic, scheduled_plan_id: null });
+    const audit = await ownerQuery(
+      `SELECT 1 FROM platform_audit_log WHERE action = 'tenant.plan_downgraded' AND tenant_id = $1`,
+      [fx.tenantA],
+    );
+    expect(audit.length).toBeGreaterThan(0);
   });
 });

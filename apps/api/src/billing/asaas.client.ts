@@ -184,6 +184,50 @@ export class AsaasClient {
     );
   }
 
+  /**
+   * Guarda o cartão no Asaas e devolve o token (tokenização precisa estar liberada na conta).
+   * Os dados do cartão só passam por aqui a caminho do Asaas: nunca são gravados nem logados.
+   */
+  tokenizeCard(t: {
+    customer: string;
+    remoteIp: string;
+    card: {
+      holderName: string;
+      number: string;
+      expiryMonth: string;
+      expiryYear: string;
+      ccv: string;
+    };
+    holder: {
+      name: string;
+      email: string;
+      cpfCnpj: string;
+      postalCode: string;
+      addressNumber: string;
+      phone: string;
+    };
+  }) {
+    return this.call<{
+      creditCardNumber: string;
+      creditCardBrand: string;
+      creditCardToken: string;
+    }>('POST', '/creditCard/tokenize', {
+      customer: t.customer,
+      creditCard: t.card,
+      creditCardHolderInfo: { ...t.holder, mobilePhone: t.holder.phone },
+      remoteIp: t.remoteIp,
+    });
+  }
+
+  /** Paga uma cobrança já criada com o cartão salvo (token). Recusa do banco volta como erro. */
+  payWithCardToken(id: string, token: string, remoteIp: string) {
+    return this.call<AsaasPayment>(
+      'POST',
+      `/payments/${encodeURIComponent(id)}/payWithCreditCard`,
+      { creditCardToken: token, remoteIp },
+    );
+  }
+
   cancelPayment(id: string) {
     return this.call<{ deleted: boolean }>('DELETE', `/payments/${encodeURIComponent(id)}`);
   }

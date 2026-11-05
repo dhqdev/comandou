@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { ExternalLink, Plus } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import {
   Alert,
@@ -14,8 +14,13 @@ import {
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useLoad } from './OverviewPages';
+import { baseDomain } from './TenantsPages';
 import type { Plan } from './types';
 import { PageHead } from './ui';
+
+/** Página pública de preços: www.<domínio>/precos (a mesma página abre em qualquer restaurante). */
+export const pricingUrl = () =>
+  `${window.location.protocol}//www.${baseDomain()}${window.location.port ? `:${window.location.port}` : ''}/precos`;
 
 const limitText = (v: number | null) => (v === null ? 'sem limite' : String(v));
 
@@ -34,11 +39,24 @@ export function PlansPage() {
           </span>
         }
         actions={
-          <button className="adm-action adm-action--primary" onClick={() => setEditing('new')}>
-            <Plus size={15} /> Novo plano
-          </button>
+          <>
+            <a className="adm-action" href={pricingUrl()} target="_blank" rel="noreferrer">
+              <ExternalLink size={15} /> Ver página de preços
+            </a>
+            <button className="adm-action adm-action--primary" onClick={() => setEditing('new')}>
+              <Plus size={15} /> Novo plano
+            </button>
+          </>
         }
       />
+      <Alert tone="info">
+        <strong>O que você mudar aqui aparece na hora em dois lugares:</strong> na página pública de
+        preços (<code>/precos</code>, com os cartões e a tabela de comparação) e na tela{' '}
+        <strong>Assinatura</strong> de cada restaurante, onde o cliente sobe ou desce de plano.
+        Planos inativos ou com “Mostrar na página de preços” desmarcado não aparecem para quem ainda
+        não assina. Mudar o preço vale para a <strong>próxima mensalidade</strong> de quem já está
+        no plano; as faturas já geradas não mudam.
+      </Alert>
       {error && <Alert tone="danger">{error}</Alert>}
       <Card bodyless>
         {!data ? (
@@ -67,8 +85,10 @@ export function PlansPage() {
                   <tr key={p.id} onClick={() => setEditing(p)}>
                     <td>
                       <strong>{p.name}</strong> <span className="cm-hint">{p.code}</span>
-                      <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+                      <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
                         {p.isDefault && <Badge tone="brand">padrão</Badge>}
+                        {p.featured && <Badge tone="success">mais escolhido</Badge>}
+                        {p.active && !p.showPublic && <Badge>fora da página de preços</Badge>}
                         {!p.active && <Badge>inativo</Badge>}
                         {p.trialDays > 0 && <Badge tone="info">{p.trialDays} dias de teste</Badge>}
                       </div>
@@ -132,7 +152,16 @@ function PlanModal({
     featureCustomDomain: plan?.featureCustomDomain ?? false,
     isDefault: plan?.isDefault ?? false,
     active: plan?.active ?? true,
+    tagline: plan?.tagline ?? '',
+    highlights: (plan?.highlights ?? []).join('\n'),
+    featured: plan?.featured ?? false,
+    showPublic: plan?.showPublic ?? true,
+    sortOrder: String(plan?.sortOrder ?? 0),
   });
+  const highlights = f.highlights
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof f) => (v: string | boolean) => setF((x) => ({ ...x, [k]: v }));
@@ -158,6 +187,11 @@ function PlanModal({
       featureCustomDomain: f.featureCustomDomain,
       isDefault: f.isDefault,
       active: f.active,
+      tagline: f.tagline.trim(),
+      highlights,
+      featured: f.featured,
+      showPublic: f.showPublic,
+      sortOrder: Number(f.sortOrder || 0),
     };
     try {
       if (plan) await api(`/platform/plans/${plan.id}`, { method: 'PUT', json: body });
@@ -193,7 +227,7 @@ function PlanModal({
             type="submit"
             form="plano-form"
             loading={busy}
-            disabled={!f.name || !priceOk || (!plan && !f.code)}
+            disabled={!f.name || !priceOk || (!plan && !f.code) || highlights.length > 8}
           >
             Salvar
           </Button>
@@ -245,12 +279,57 @@ function PlanModal({
             hint="Vazio = sem limite"
           />
         </div>
-        <div style={{ display: 'grid', gap: 8, margin: '16px 0' }}>
+        <p className="adm-sub" style={{ whiteSpace: 'normal', margin: '8px 0 0' }}>
+          Limites: o restaurante não consegue <strong>criar</strong> além disso (nada é apagado).
+          Vazio = sem limite. Teste grátis: dias liberados sem pagar para quem começa neste plano.
+        </p>
+        <h4 style={{ margin: '20px 0 8px' }}>Recursos e situação</h4>
+        <div style={{ display: 'grid', gap: 8 }}>
           {check('featureFiscal', 'Inclui nota fiscal (NFC-e)')}
           {check('featureWhatsapp', 'Inclui mensagens no WhatsApp')}
           {check('featureCustomDomain', 'Inclui domínio próprio')}
           {check('isDefault', 'Plano padrão dos novos restaurantes')}
           {check('active', 'Ativo (aceita novas assinaturas)')}
+        </div>
+        <h4 style={{ margin: '20px 0 4px' }}>Página de preços e tela Assinatura</h4>
+        <p className="adm-sub" style={{ whiteSpace: 'normal', margin: '0 0 12px' }}>
+          Como este plano aparece para o cliente em <code>/precos</code> e na tela Assinatura. A
+          tabela de comparação usa o preço, o teste, os limites e os recursos acima sozinha.
+        </p>
+        <div className="form-grid">
+          <TextField
+            label="Frase curta"
+            value={f.tagline}
+            maxLength={160}
+            onChange={(e) => set('tagline')(e.target.value)}
+            hint="Ex.: Para quem está começando. Aparece embaixo do preço."
+          />
+          <TextField
+            label="Ordem na página"
+            inputMode="numeric"
+            value={f.sortOrder}
+            onChange={(e) => set('sortOrder')(e.target.value.replace(/\D/g, '').slice(0, 3))}
+            hint="Menor aparece primeiro; empate ordena pelo preço"
+          />
+        </div>
+        <label className="cm-field" style={{ display: 'grid', gap: 4, marginTop: 12 }}>
+          <span className="cm-label">Destaques do cartão (um por linha, até 8)</span>
+          <textarea
+            className="cm-input"
+            rows={4}
+            value={f.highlights}
+            onChange={(e) => set('highlights')(e.target.value)}
+            placeholder={'Até 5 pessoas na equipe\nCardápio online\nNota fiscal (NFC-e)'}
+          />
+          <span className={highlights.length > 8 ? 'cm-error-text' : 'cm-hint'}>
+            {highlights.length > 8
+              ? `São ${highlights.length} linhas: deixe no máximo 8`
+              : 'Vazio = o sistema monta sozinho com os limites e recursos acima.'}
+          </span>
+        </label>
+        <div style={{ display: 'grid', gap: 8, margin: '12px 0 16px' }}>
+          {check('showPublic', 'Mostrar na página de preços (/precos)')}
+          {check('featured', 'Destacar como “Mais escolhido”')}
         </div>
         {error && <Alert tone="danger">{error}</Alert>}
       </form>

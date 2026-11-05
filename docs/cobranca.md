@@ -23,9 +23,12 @@ aplica sozinho.
    **Assinatura**. O plano novo vale na hora (limites maiores já) e a diferença proporcional aos
    dias que faltam vira uma fatura à parte, com vencimento curto (padrão: 3 dias). Durante o teste
    não há cobrança. Abaixo de R$ 5,00 (mínimo do Asaas) a troca sai sem custo. A mensalidade do
-   próximo período que ainda estiver aberta é refeita com o preço novo. Plano menor só pelo
-   suporte.
-7. **Contrato anual.** O contrato vale 12 meses e é reassinado todo ano. O painel avisa a
+   próximo período que ainda estiver aberta é refeita com o preço novo.
+7. **Descer de plano.** Também em **Assinatura**, pelo administrador. No teste grátis vale na
+   hora; com mensalidade, fica agendado e vale quando começa o próximo período (a mensalidade
+   desse período já sai com o preço menor). Sem cobrança nem devolução. Dá para desfazer até a
+   data. Plano sem mensalidade só pelo suporte.
+8. **Contrato anual.** O contrato vale 12 meses e é reassinado todo ano. O painel avisa a
    renovação 30 dias antes; o botão "Gerar contrato" já começa o novo no dia seguinte ao fim do
    atual. Vencido sem o novo assinado, o sistema bloqueia depois da tolerância (padrão 15 dias),
    do mesmo jeito que a falta de pagamento, e libera assim que o contrato novo é assinado.
@@ -38,6 +41,30 @@ aplica sozinho.
 
 Ao ligar a cobrança no painel, toda assinatura **nova** nasce automática. As que já existiam
 continuam manuais até alguém ligar na aba Assinatura do restaurante.
+
+## Forma de pagamento (tela Assinatura)
+
+- **Pix** (padrão) ou **boleto**: a fatura sai sozinha antes do fim, o Asaas manda por e-mail e o
+  Pix/linha digitável aparecem na tela Assinatura. A cobrança no Asaas é sempre "o cliente escolhe"
+  (Pix, boleto ou cartão); a preferência só muda o que a tela mostra primeiro.
+- **Cartão automático**: o administrador cadastra o cartão; os dados vão direto ao Asaas
+  (`/creditCard/tokenize`) e aqui fica só o token **cifrado** (INTEGRATIONS_KEY), a bandeira e o
+  final (tabela `billing_cards`, só a plataforma lê). No ciclo, toda fatura em aberto que vence
+  hoje (ou já venceu) é paga com o token (`/payments/{id}/payWithCreditCard`); a diferença de
+  troca de plano sai na hora. Recusou: o motivo fica na fatura, o restaurante vê o aviso, e o
+  ciclo tenta de novo uma vez por dia, até 3 vezes. Pix e boleto seguem valendo.
+- Para ligar: peça ao Asaas para liberar a **tokenização de cartão** na conta e marque
+  **Liberar cartão automático** em Super Admin → Cobrança. Sem isso, a opção aparece como
+  "Em breve".
+
+## Página de preços (/precos)
+
+Pública, sem login, em `www.<domínio>/precos` (e em qualquer endereço de restaurante). Lê
+`GET /api/v1/public/plans`: planos **ativos** com **Mostrar na página de preços** marcado, na
+ordem escolhida. Frase, destaques e "Mais escolhido" vêm de Super Admin → Planos; a tabela de
+comparação usa preço, teste, limites e recursos. O botão "Falar com a gente" usa o contato de
+vendas de Super Admin → Cobrança (número vira WhatsApp). No endereço do restaurante, o botão do
+plano leva para Assinatura já com a troca aberta.
 
 ## Configuração (Super Admin → Cobrança)
 

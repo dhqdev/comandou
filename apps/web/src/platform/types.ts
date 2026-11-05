@@ -147,6 +147,11 @@ export interface Plan {
   trialDays: number;
   isDefault: boolean;
   active: boolean;
+  tagline: string;
+  highlights: string[];
+  featured: boolean;
+  showPublic: boolean;
+  sortOrder: number;
   subscribers: number;
 }
 

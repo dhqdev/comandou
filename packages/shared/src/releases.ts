@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.86.0',
+    date: '2026-11-05',
+    title: 'Assinatura nova, cartão automático e página de preços',
+    summary:
+      'A tela Assinatura foi redesenhada: dias que faltam, pagar em um toque, cobrança automática no cartão, Pix gerado sozinho e troca de plano para cima ou para baixo. E o Comandou ganhou a página pública /precos, com os planos e a tabela de comparação, que acompanha o que for mudado no Super Admin.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Assinatura: cadastre um cartão e a mensalidade sai sozinha no dia do vencimento. Se o banco recusar, tentamos de novo e o Pix e o boleto continuam valendo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Assinatura: escolha pagar por Pix (a fatura sai sozinha dias antes e chega no e-mail), boleto ou cartão automático.',
+      },
+      {
+        tag: 'novo',
+        text: 'Mudar para um plano menor pela própria tela: vale a partir do próximo mês, com a mensalidade já no preço novo, e dá para desfazer até lá.',
+      },
+      {
+        tag: 'novo',
+        text: 'Página /precos: planos, tabela de comparação e perguntas frequentes, sem login. Preço, limites, frase, destaques e "Mais escolhido" vêm do Super Admin › Planos.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Tela Assinatura em duas colunas, mais limpa: plano e pagamento à esquerda; planos, forma de pagamento e faturas à direita.',
+      },
+    ],
+  },
+  {
     version: '0.85.1',
     date: '2026-11-05',
     title: 'Resposta do chat da loja não some mais',

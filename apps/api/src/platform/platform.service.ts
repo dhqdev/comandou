@@ -50,7 +50,8 @@ const PLAN_COLS = `id, code, name, price_monthly AS "priceMonthly", max_users AS
   max_products AS "maxProducts", max_orders_month AS "maxOrdersMonth",
   feature_fiscal AS "featureFiscal", feature_whatsapp AS "featureWhatsapp",
   feature_custom_domain AS "featureCustomDomain", trial_days AS "trialDays",
-  is_default AS "isDefault", active, created_at AS "createdAt"`;
+  is_default AS "isDefault", active, tagline, highlights, featured,
+  show_public AS "showPublic", sort_order AS "sortOrder", created_at AS "createdAt"`;
 
 const SUB_COLS = `s.id, s.status, s.plan_id AS "planId", s.started_at AS "startedAt",
   s.trial_ends_at AS "trialEndsAt", s.current_period_end AS "currentPeriodEnd",
@@ -845,6 +846,11 @@ export class PlatformService {
       b.trialDays,
       b.isDefault,
       b.active,
+      b.tagline,
+      JSON.stringify(b.highlights),
+      b.featured,
+      b.showPublic,
+      b.sortOrder,
     ];
   }
 
@@ -866,8 +872,9 @@ export class PlatformService {
         row = (
           await c.query(
             `INSERT INTO plans (code, name, price_monthly, max_users, max_products, max_orders_month,
-               feature_fiscal, feature_whatsapp, feature_custom_domain, trial_days, is_default, active)
-             VALUES ($12,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING ${PLAN_COLS}`,
+               feature_fiscal, feature_whatsapp, feature_custom_domain, trial_days, is_default, active,
+               tagline, highlights, featured, show_public, sort_order)
+             VALUES ($17,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING ${PLAN_COLS}`,
             [...this.planValues(b), b.code],
           )
         ).rows[0];
@@ -901,8 +908,9 @@ export class PlatformService {
         await c.query(
           `UPDATE plans SET name=$1, price_monthly=$2, max_users=$3, max_products=$4, max_orders_month=$5,
              feature_fiscal=$6, feature_whatsapp=$7, feature_custom_domain=$8, trial_days=$9,
-             is_default=$10, active=$11
-           WHERE id = $12 RETURNING ${PLAN_COLS}`,
+             is_default=$10, active=$11, tagline=$12, highlights=$13, featured=$14,
+             show_public=$15, sort_order=$16
+           WHERE id = $17 RETURNING ${PLAN_COLS}`,
           [...this.planValues(b), id],
         )
       ).rows[0];

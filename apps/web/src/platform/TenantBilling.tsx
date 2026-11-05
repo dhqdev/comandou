@@ -17,7 +17,12 @@ interface View {
     blockReason: 'payment' | 'contract' | null;
     blockedAt: string | null;
     priceMonthly: string;
+    scheduledPlan?: { name: string; priceMonthly: string; startsAt: string | null } | null;
   } | null;
+  payment?: {
+    method: 'pix' | 'boleto' | 'card' | null;
+    card: { brand: string; last4: string; holderName: string; savedBy?: string | null } | null;
+  };
   invoices: AdminInvoice[];
   contract: {
     number: string | null;
@@ -119,6 +124,29 @@ export function TenantBillingPanel({
                 !s.blockReason &&
                 ` · bloqueia em ${day(s.blockOn)} sem pagamento`}
             </span>
+            {s.billingMode === 'asaas' && (
+              <span>
+                Pagamento:{' '}
+                {v.payment?.method === 'card' && v.payment.card ? (
+                  <>
+                    <Tag level="ok">cartão automático</Tag> {v.payment.card.brand} ••••{' '}
+                    {v.payment.card.last4} ({v.payment.card.holderName}
+                    {v.payment.card.savedBy ? `, cadastrado por ${v.payment.card.savedBy}` : ''})
+                  </>
+                ) : v.payment?.method === 'boleto' ? (
+                  'boleto (o restaurante paga cada fatura)'
+                ) : (
+                  'Pix (o restaurante paga cada fatura; a fatura sai sozinha antes do fim)'
+                )}
+              </span>
+            )}
+            {s.scheduledPlan && (
+              <span>
+                Troca agendada pelo restaurante: <Tag level="warn">{s.scheduledPlan.name}</Tag> a
+                partir de {day(s.scheduledPlan.startsAt)} ({brl(s.scheduledPlan.priceMonthly)} por
+                mês). A mensalidade desse período já sai com o preço novo.
+              </span>
+            )}
             <span>
               Contrato:{' '}
               {v.contract.validUntil

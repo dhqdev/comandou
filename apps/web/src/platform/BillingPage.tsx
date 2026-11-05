@@ -28,6 +28,8 @@ interface Settings {
   upgradeDueDays: number;
   contractRenewalDays: number;
   contractGraceDays: number;
+  cardEnabled: boolean;
+  salesContact: string;
   accountName: string | null;
   lastCycleAt: string | null;
   lastCycleError: string | null;
@@ -301,6 +303,8 @@ type Form = {
   upgradeDueDays: string;
   contractRenewalDays: string;
   contractGraceDays: string;
+  cardEnabled: boolean;
+  salesContact: string;
 };
 const toForm = (s: Settings): Form => ({
   enabled: s.enabled,
@@ -311,6 +315,8 @@ const toForm = (s: Settings): Form => ({
   upgradeDueDays: String(s.upgradeDueDays),
   contractRenewalDays: String(s.contractRenewalDays),
   contractGraceDays: String(s.contractGraceDays),
+  cardEnabled: s.cardEnabled,
+  salesContact: s.salesContact ?? '',
 });
 
 function SettingsSection({ o, onSaved }: { o: Overview; onSaved(n: Overview): void }) {
@@ -340,6 +346,8 @@ function SettingsSection({ o, onSaved }: { o: Overview; onSaved(n: Overview): vo
           upgradeDueDays: Number(f.upgradeDueDays || 0),
           contractRenewalDays: Number(f.contractRenewalDays || 0),
           contractGraceDays: Number(f.contractGraceDays || 0),
+          cardEnabled: f.cardEnabled,
+          salesContact: f.salesContact.trim(),
         },
       });
       onSaved(n);
@@ -433,6 +441,41 @@ function SettingsSection({ o, onSaved }: { o: Overview; onSaved(n: Overview): vo
             />
             Cobrança automática ligada (gera faturas e bloqueia quem não paga)
           </label>
+          <div className="adm-kv" style={{ display: 'grid', gap: 10, margin: '0 0 16px' }}>
+            <strong>Cartão de crédito automático</strong>
+            <span className="adm-sub" style={{ whiteSpace: 'normal' }}>
+              Com isto ligado, o administrador do restaurante cadastra um cartão na tela Assinatura
+              e a mensalidade é cobrada sozinha no dia do vencimento (a diferença de troca de plano,
+              na hora). Se o banco recusar, tentamos de novo por até 3 dias e a fatura continua com
+              Pix e boleto. O Comandou guarda só o token do Asaas (cifrado), a bandeira e os 4
+              últimos números.
+            </span>
+            <span className="adm-sub" style={{ whiteSpace: 'normal' }}>
+              <strong>Antes de ligar:</strong> peça ao Asaas para liberar a{' '}
+              <em>tokenização de cartão</em> na sua conta (Asaas › Minha conta › Integrações, ou
+              pelo gerente de conta). Sem isso, o cadastro do cartão é recusado. Teste primeiro no
+              ambiente sandbox com o cartão 5162 3060 0482 9590.
+            </span>
+            <label className="adm-check">
+              <input
+                type="checkbox"
+                checked={f.cardEnabled}
+                onChange={(e) => set('cardEnabled')(e.target.checked)}
+              />
+              Liberar cartão automático para os restaurantes
+            </label>
+            <span className="adm-sub" style={{ whiteSpace: 'normal' }}>
+              Pix e boleto não precisam de nada: a fatura sai sozinha {f.invoiceDaysBefore || 5}{' '}
+              dias antes do fim, o Asaas manda por e-mail e o Pix aparece na tela Assinatura.
+            </span>
+          </div>
+          <TextField
+            label="Contato de vendas da página de preços"
+            value={f.salesContact}
+            onChange={(e) => set('salesContact')(e.target.value)}
+            placeholder="11 99999-9999, vendas@seudominio.com ou https://…"
+            hint="Botão “Falar com a gente” de /precos. Número vira link do WhatsApp; e-mail vira e-mail; link abre como está."
+          />
           {error && <Alert tone="danger">{error}</Alert>}
           <div className="adm-form-actions" style={{ flexWrap: 'wrap' }}>
             <Button type="submit" loading={busy === 'save'}>

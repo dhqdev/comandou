@@ -139,6 +139,12 @@ export const PlanBody = z.object({
   trialDays: z.number().int().min(0).max(90).default(0),
   isDefault: z.boolean().default(false),
   active: z.boolean().default(true),
+  // Página pública /precos (e cartões da tela Assinatura do restaurante).
+  tagline: z.string().trim().max(160).default(''),
+  highlights: z.array(z.string().trim().min(1).max(120)).max(8).default([]),
+  featured: z.boolean().default(false),
+  showPublic: z.boolean().default(true),
+  sortOrder: z.number().int().min(0).max(999).default(0),
 });
 export type PlanInput = z.infer<typeof PlanBody>;
 export const NewPlan = PlanBody.extend({

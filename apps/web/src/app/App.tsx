@@ -106,6 +106,10 @@ const PdvPage = lazyPage(
   () => import('../pages/PdvPage'),
   (m) => m.PdvPage,
 );
+const PricingPage = lazyPage(
+  () => import('../pages/PricingPage'),
+  (m) => m.PricingPage,
+);
 const PlanPage = lazyPage(
   () => import('../pages/PlanPage'),
   (m) => m.PlanPage,
@@ -481,6 +485,9 @@ export function App() {
             <Route path="/mesa/:id" element={<TableLinkPage />} />
             {/* Link de acesso do suporte (painel Super Admin): troca o token por uma sessão. */}
             <Route path="/suporte" element={<SupportEntryPage />} />
+            {/* Planos e preços (público): sai do Super Admin → Planos. */}
+            <Route path="/precos" element={<PricingPage />} />
+            <Route path="/preços" element={<PricingPage />} />
             <Route
               path="*"
               element={

@@ -47,6 +47,10 @@ export const BillingSettingsBody = z.object({
   upgradeDueDays: z.number().int().min(1).max(10),
   contractRenewalDays: z.number().int().min(7).max(90),
   contractGraceDays: z.number().int().min(0).max(60),
+  /** Cartão automático (precisa da tokenização liberada pelo Asaas na conta). */
+  cardEnabled: z.boolean().default(false),
+  /** WhatsApp, e-mail ou link mostrado no botão "Falar com a gente" de /precos. */
+  salesContact: z.string().trim().max(200).default(''),
 });
 export type BillingSettingsInput = z.infer<typeof BillingSettingsBody>;
 
@@ -75,6 +79,8 @@ interface SettingsRow {
   webhook_id: string | null;
   last_cycle_at: Date | null;
   last_cycle_error: string | null;
+  card_enabled: boolean;
+  sales_contact: string;
   updated_at: Date;
 }
 
@@ -91,7 +97,60 @@ interface SubRow {
   plan_name: string;
   price_monthly: string;
   tenant_status: string;
+  pay_method: PayMethod | null;
+  scheduled_plan_id: string | null;
+  scheduled_at: Date | null;
+  scheduled_plan_name: string | null;
+  scheduled_price: string | null;
 }
+
+export type PayMethod = 'pix' | 'boleto' | 'card';
+
+/** Cartão para salvar no Asaas. Só passa por aqui a caminho do Asaas: nada disso é gravado. */
+export const CardBody = z.object({
+  holderName: z.string().trim().min(3).max(120),
+  number: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ''))
+    .refine((v) => /^\d{13,19}$/.test(v) && luhn(v), 'número do cartão inválido'),
+  expiry: z
+    .string()
+    .trim()
+    .regex(/^(0[1-9]|1[0-2])\/(\d{2}|\d{4})$/, 'validade MM/AA'),
+  ccv: z.string().regex(/^\d{3,4}$/, 'código de segurança com 3 ou 4 números'),
+  document: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ''))
+    .refine((v) => v.length === 11 || v.length === 14, 'CPF ou CNPJ do titular'),
+  email: z.string().trim().email().max(254),
+  phone: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ''))
+    .refine((v) => v.length >= 10 && v.length <= 11, 'telefone com DDD'),
+  postalCode: z
+    .string()
+    .transform((v) => v.replace(/\D/g, ''))
+    .refine((v) => v.length === 8, 'CEP com 8 números'),
+  addressNumber: z.string().trim().min(1).max(10),
+});
+
+/** Conferência do número do cartão (dígito verificador). */
+export function luhn(digits: string): boolean {
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let d = Number(digits[digits.length - 1 - i]);
+    if (i % 2 === 1) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
+    sum += d;
+  }
+  return sum % 10 === 0;
+}
+
+const CARD_CONTEXT = (tenantId: string) => `billing:card:${tenantId}`;
+/** Tentativas automáticas no cartão por fatura (uma por dia). */
+const CARD_MAX_TRIES = 3;
 
 interface InvoiceRow {
   id: string;
@@ -112,8 +171,11 @@ interface InvoiceRow {
 
 const SUB_SQL = `SELECT s.id, s.tenant_id, s.plan_id, s.status, s.trial_ends_at, s.current_period_end,
          s.billing_mode, s.blocked_at, s.block_reason, p.name AS plan_name,
-         p.price_monthly::text AS price_monthly, t.status AS tenant_status
+         p.price_monthly::text AS price_monthly, t.status AS tenant_status,
+         s.pay_method, s.scheduled_plan_id, s.scheduled_at, sp.name AS scheduled_plan_name,
+         sp.price_monthly::text AS scheduled_price
     FROM subscriptions s JOIN plans p ON p.id = s.plan_id JOIN tenants t ON t.id = s.tenant_id
+    LEFT JOIN plans sp ON sp.id = s.scheduled_plan_id
    WHERE s.status <> 'cancelled'`;
 
 const INVOICE_COLS = `i.id, i.kind, i.description, i.amount::text AS amount, i.due_date::text AS "dueDate",
@@ -202,6 +264,8 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       upgradeDueDays: s.upgrade_due_days,
       contractRenewalDays: s.contract_renewal_days,
       contractGraceDays: s.contract_grace_days,
+      cardEnabled: s.card_enabled,
+      salesContact: s.sales_contact,
       accountName: s.account_name,
       lastCycleAt: s.last_cycle_at,
       lastCycleError: s.last_cycle_error,
@@ -305,6 +369,7 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
                 contract_renewal_days = $8, contract_grace_days = $9,
                 account_name = CASE WHEN $10 THEN NULL ELSE account_name END,
                 webhook_id = CASE WHEN $10 THEN NULL ELSE webhook_id END,
+                card_enabled = $12, sales_contact = $13,
                 updated_at = now(), updated_by = $11
           WHERE id`,
         [
@@ -319,6 +384,8 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
           b.contractGraceDays,
           envChanged || !!b.apiKey,
           a.admin.id,
+          b.cardEnabled,
+          b.salesContact,
         ],
       );
       const { apiKey: _k, ...safe } = b;
@@ -440,6 +507,7 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
    */
   private async evaluate(c: PoolClient, sub: SubRow, s: SettingsRow, now: Date) {
     const today = spDate(now);
+    if (sub.scheduled_plan_id) await this.applyScheduled(c, sub, now);
     await c.query(
       `UPDATE billing_invoices SET status = 'overdue'
         WHERE subscription_id = $1 AND status = 'pending' AND due_date < $2::date`,
@@ -497,6 +565,37 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
     return changed;
   }
 
+  /**
+   * Troca agendada para plano menor: vale quando começa o período cobrado com o plano novo
+   * (a mensalidade dele já saiu com o preço menor). Até lá, o restaurante usa o plano atual.
+   */
+  private async applyScheduled(c: PoolClient, sub: SubRow, now: Date) {
+    const hit = await c.query(
+      `SELECT 1 FROM billing_invoices
+        WHERE subscription_id = $1 AND kind = 'monthly' AND plan_id = $2
+          AND status NOT IN ('cancelled', 'refunded') AND period_start <= $3 LIMIT 1`,
+      [sub.id, sub.scheduled_plan_id, now],
+    );
+    if (!hit.rowCount) return;
+    await c.query(
+      `UPDATE subscriptions SET plan_id = scheduled_plan_id, scheduled_plan_id = NULL,
+              scheduled_at = NULL
+        WHERE id = $1 AND scheduled_plan_id = $2`,
+      [sub.id, sub.scheduled_plan_id],
+    );
+    await platformAudit(c, {
+      action: 'tenant.plan_downgraded',
+      entity: 'subscription',
+      entityId: sub.id,
+      tenantId: sub.tenant_id,
+      data: { from: sub.plan_name, to: sub.scheduled_plan_name },
+    });
+    sub.plan_id = sub.scheduled_plan_id!;
+    sub.plan_name = sub.scheduled_plan_name!;
+    sub.price_monthly = sub.scheduled_price!;
+    sub.scheduled_plan_id = null;
+  }
+
   /** Reavalia um restaurante agora (depois de pagamento ou mudança no painel). */
   async refresh(tenantId: string, now = new Date()) {
     if (!this.db.enabled) return;
@@ -546,7 +645,15 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
 
   private async cycle(now: Date) {
     const s = await this.settingsRow();
-    const out = { synced: 0, created: 0, sent: 0, blocked: 0, unblocked: 0, errors: 0 };
+    const out = {
+      synced: 0,
+      created: 0,
+      sent: 0,
+      charged: 0,
+      blocked: 0,
+      unblocked: 0,
+      errors: 0,
+    };
     const errors: string[] = [];
     // Antes de bloquear alguém: pagamento que o webhook não avisou também libera.
     if (s.enabled && s.api_key_enc) {
@@ -583,6 +690,14 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
           ORDER BY created_at LIMIT 50`,
       );
       for (const p of pending) if (await this.push(p.id)) out.sent++;
+      if (s.card_enabled) {
+        const r = await this.autoCharge(now);
+        out.charged = r.charged;
+        if (r.errors.length) {
+          out.errors += r.errors.length;
+          errors.push(...r.errors);
+        }
+      }
     }
     await this.db.query(
       `UPDATE platform_billing_settings SET last_cycle_at = now(), last_cycle_error = $1 WHERE id`,
@@ -642,6 +757,11 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!force && !invoiceDue(until, s.invoice_days_before, now)) return false;
     const due = spDate(until) < spDate(now) ? spDate(now) : spDate(until);
     const end = addDays(until, 30);
+    // Troca agendada para um plano menor: o próximo período já sai com o plano e o preço novos.
+    const next =
+      sub.scheduled_plan_id && sub.scheduled_price && toCents(sub.scheduled_price) > 0
+        ? { id: sub.scheduled_plan_id, name: sub.scheduled_plan_name!, price: sub.scheduled_price }
+        : { id: sub.plan_id, name: sub.plan_name, price: sub.price_monthly };
     const r = await this.db.query<{ id: string }>(
       `INSERT INTO billing_invoices (tenant_id, subscription_id, kind, plan_id, description, amount,
                                      period_start, due_date, environment, data)
@@ -652,16 +772,13 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       [
         sub.tenant_id,
         sub.id,
-        sub.plan_id,
-        `Comandou · Plano ${sub.plan_name} · 30 dias (${dateBR(until)} a ${dateBR(end)})`.slice(
-          0,
-          200,
-        ),
-        sub.price_monthly,
+        next.id,
+        `Comandou · Plano ${next.name} · 30 dias (${dateBR(until)} a ${dateBR(end)})`.slice(0, 200),
+        next.price,
         until,
         due,
         s.environment,
-        JSON.stringify({ planName: sub.plan_name }),
+        JSON.stringify({ planName: next.name }),
       ],
     );
     if (!r[0]) return false;
@@ -1164,13 +1281,17 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       featureFiscal: boolean;
       featureWhatsapp: boolean;
       featureCustomDomain: boolean;
+      tagline: string;
+      highlights: string[];
+      featured: boolean;
     }>(
       `SELECT id, code, name, price_monthly::text AS "priceMonthly", max_users AS "maxUsers",
               max_products AS "maxProducts", max_orders_month AS "maxOrdersMonth",
               feature_fiscal AS "featureFiscal", feature_whatsapp AS "featureWhatsapp",
-              feature_custom_domain AS "featureCustomDomain"
-         FROM plans WHERE active ORDER BY price_monthly, name`,
+              feature_custom_domain AS "featureCustomDomain", tagline, highlights, featured
+         FROM plans WHERE active ORDER BY sort_order, price_monthly, name`,
     );
+    const card = sub ? await this.cardOf(tenantId, s.environment) : null;
     const until = sub
       ? accessUntil({
           status: sub.status,
@@ -1187,6 +1308,20 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
         environment: admin ? s.environment : undefined,
         blockAfterDays: s.block_after_days,
         upgradeDueDays: s.upgrade_due_days,
+        invoiceDaysBefore: s.invoice_days_before,
+        cardAvailable: s.enabled && s.card_enabled,
+      },
+      payment: {
+        method: sub?.pay_method ?? null,
+        card: card
+          ? {
+              brand: card.brand,
+              last4: card.last4,
+              holderName: card.holder_name,
+              savedAt: card.created_at,
+              savedBy: card.created_by,
+            }
+          : null,
       },
       subscription: sub
         ? {
@@ -1206,6 +1341,15 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
             blockedAt: sub.blocked_at,
             blockReason: sub.block_reason,
             blockLabel: sub.block_reason ? BLOCK_LABELS[sub.block_reason] : null,
+            scheduledPlan: sub.scheduled_plan_id
+              ? {
+                  id: sub.scheduled_plan_id,
+                  name: sub.scheduled_plan_name,
+                  priceMonthly: sub.scheduled_price,
+                  startsAt: until,
+                  scheduledAt: sub.scheduled_at,
+                }
+              : null,
           }
         : null,
       invoices,
@@ -1329,7 +1473,12 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
         sub.status === 'trialing'
           ? { cents: 0, amount: '0.00', days: 0 }
           : upgradeCharge(sub.price_monthly, plan.price, until);
-      await c.query(`UPDATE subscriptions SET plan_id = $2 WHERE id = $1`, [sub.id, plan.id]);
+      // Subir de plano desfaz uma troca agendada para plano menor.
+      await c.query(
+        `UPDATE subscriptions SET plan_id = $2, scheduled_plan_id = NULL, scheduled_at = NULL
+          WHERE id = $1`,
+        [sub.id, plan.id],
+      );
       let invoiceId: string | null = null;
       if (charge.cents > 0) {
         invoiceId = (
@@ -1376,7 +1525,14 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
     });
     if (result.invoiceId) await this.push(result.invoiceId);
     for (const r of result.reprice) await this.reprice(r.id, r.provider_id, result.plan);
-    return { charge: result.charge.amount, invoiceId: result.invoiceId };
+    // Cartão automático: a diferença já sai no cartão salvo (se recusar, fica Pix e boleto).
+    let card: { ok: boolean; error?: string } | null = null;
+    if (result.invoiceId && result.sub.pay_method === 'card' && s.card_enabled)
+      card = await this.chargeCard(result.invoiceId, tenantId).catch((e: Error) => ({
+        ok: false,
+        error: e.message,
+      }));
+    return { charge: result.charge.amount, invoiceId: result.invoiceId, card };
   }
 
   /** Mensalidade aberta depois da troca: cancela a antiga e gera outra com o preço do plano novo. */
@@ -1450,5 +1606,365 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       ...charge,
       total: fromCents(charge.cents),
     };
+  }
+
+  // ------------------------------------------------------------------ plano menor
+  /**
+   * Troca para um plano mais barato, pelo administrador do restaurante. Sem cobrança e sem
+   * devolução: no teste grátis vale na hora; com mensalidade, vale no próximo período (a
+   * mensalidade seguinte já sai com o preço novo). Subir de plano desfaz o agendamento.
+   */
+  async scheduleDowngrade(tenantId: string, planId: string, by: { id: string; name: string }) {
+    const s = await this.settingsRow();
+    const result = await this.db.tx(async (c) => {
+      const sub = (
+        await c.query<SubRow>(`${SUB_SQL} AND s.tenant_id = $1 FOR UPDATE OF s`, [tenantId])
+      ).rows[0];
+      if (!sub) throw new ConflictException('Restaurante sem assinatura: fale com o suporte');
+      if (sub.billing_mode !== 'asaas' || !s.enabled)
+        throw new ConflictException('Troca de plano pelo suporte: fale com a gente');
+      const plan = (
+        await c.query<{ id: string; name: string; price: string; active: boolean }>(
+          `SELECT id, name, price_monthly::text AS price, active FROM plans WHERE id = $1`,
+          [planId],
+        )
+      ).rows[0];
+      if (!plan || !plan.active) throw new NotFoundException('Plano não encontrado');
+      if (plan.id === sub.plan_id) throw new ConflictException('Este já é o seu plano');
+      if (toCents(plan.price) >= toCents(sub.price_monthly))
+        throw new ConflictException('Para um plano maior, use "Subir para este"');
+      if (toCents(plan.price) === 0)
+        throw new ConflictException('Para o plano sem mensalidade, fale com o suporte');
+      const now = new Date();
+      const trial = sub.status === 'trialing';
+      if (trial) {
+        await c.query(
+          `UPDATE subscriptions SET plan_id = $2, scheduled_plan_id = NULL, scheduled_at = NULL
+            WHERE id = $1`,
+          [sub.id, plan.id],
+        );
+      } else {
+        await c.query(
+          `UPDATE subscriptions SET scheduled_plan_id = $2, scheduled_at = now() WHERE id = $1`,
+          [sub.id, plan.id],
+        );
+      }
+      // Mensalidade do próximo período ainda não paga: refeita com o preço menor.
+      const pend = await c.query<{ id: string; provider_id: string | null }>(
+        `SELECT id, provider_id FROM billing_invoices
+          WHERE subscription_id = $1 AND kind = 'monthly' AND status IN ('pending', 'overdue')
+            AND (period_start > $2 OR $3)`,
+        [sub.id, now, trial],
+      );
+      await platformAudit(c, {
+        action: trial ? 'tenant.plan_downgraded' : 'tenant.plan_downgrade_scheduled',
+        entity: 'subscription',
+        entityId: sub.id,
+        tenantId,
+        data: { from: sub.plan_name, to: plan.name, by: by.name, userId: by.id },
+      });
+      const until = accessUntil({
+        status: sub.status,
+        trialEndsAt: sub.trial_ends_at,
+        currentPeriodEnd: sub.current_period_end,
+      });
+      return { plan, reprice: pend.rows, trial, startsAt: trial ? now : until };
+    });
+    for (const r of result.reprice) await this.reprice(r.id, r.provider_id, result.plan);
+    await this.refresh(tenantId);
+    return { immediate: result.trial, startsAt: result.startsAt };
+  }
+
+  /** Desiste da troca agendada: a mensalidade do próximo período volta ao preço do plano atual. */
+  async cancelDowngrade(tenantId: string, by: { id: string; name: string }) {
+    const result = await this.db.tx(async (c) => {
+      const sub = (
+        await c.query<SubRow>(`${SUB_SQL} AND s.tenant_id = $1 FOR UPDATE OF s`, [tenantId])
+      ).rows[0];
+      if (!sub?.scheduled_plan_id) throw new ConflictException('Nenhuma troca agendada');
+      await c.query(
+        `UPDATE subscriptions SET scheduled_plan_id = NULL, scheduled_at = NULL WHERE id = $1`,
+        [sub.id],
+      );
+      const pend = await c.query<{ id: string; provider_id: string | null }>(
+        `SELECT id, provider_id FROM billing_invoices
+          WHERE subscription_id = $1 AND kind = 'monthly' AND status IN ('pending', 'overdue')
+            AND plan_id = $2`,
+        [sub.id, sub.scheduled_plan_id],
+      );
+      await platformAudit(c, {
+        action: 'tenant.plan_downgrade_cancelled',
+        entity: 'subscription',
+        entityId: sub.id,
+        tenantId,
+        data: { keep: sub.plan_name, dropped: sub.scheduled_plan_name, by: by.name },
+      });
+      return {
+        reprice: pend.rows,
+        plan: { id: sub.plan_id, name: sub.plan_name, price: sub.price_monthly },
+      };
+    });
+    for (const r of result.reprice) await this.reprice(r.id, r.provider_id, result.plan);
+    return { ok: true };
+  }
+
+  // ------------------------------------------------------------------ forma de pagamento
+  private async cardOf(tenantId: string, environment: string) {
+    const [row] = await this.db.query<{
+      token_enc: Buffer;
+      brand: string;
+      last4: string;
+      holder_name: string;
+      remote_ip: string;
+      created_at: Date;
+      created_by: string | null;
+    }>(`SELECT * FROM billing_cards WHERE tenant_id = $1 AND environment = $2`, [
+      tenantId,
+      environment,
+    ]);
+    return row ?? null;
+  }
+
+  /** Pix, boleto ou cartão (automático). Cartão só com um cartão salvo. */
+  async setPayMethod(tenantId: string, method: PayMethod, by: { id: string; name: string }) {
+    const s = await this.settingsRow();
+    if (method === 'card') {
+      if (!s.card_enabled) throw new ConflictException('Cartão automático ainda não disponível');
+      if (!(await this.cardOf(tenantId, s.environment)))
+        throw new ConflictException('Cadastre um cartão primeiro');
+    }
+    await this.db.tx(async (c) => {
+      const r = await c.query(
+        `UPDATE subscriptions SET pay_method = $2 WHERE tenant_id = $1 AND status <> 'cancelled'`,
+        [tenantId, method],
+      );
+      if (!r.rowCount) throw new NotFoundException('Restaurante sem assinatura');
+      await platformAudit(c, {
+        action: 'tenant.billing_pay_method',
+        entity: 'subscription',
+        tenantId,
+        data: { method, by: by.name, userId: by.id },
+      });
+    });
+    return { method };
+  }
+
+  /**
+   * Salva o cartão no Asaas (token) e liga a cobrança automática nele. O número, a validade e o
+   * código do cartão vão direto ao Asaas: aqui fica só o token cifrado, a bandeira e o final.
+   * Fatura que já venceu (ou vence hoje) é cobrada na hora.
+   */
+  async saveCard(
+    tenantId: string,
+    b: z.infer<typeof CardBody>,
+    remoteIp: string,
+    by: { id: string; name: string },
+  ) {
+    const s = await this.settingsRow();
+    if (!s.enabled || !s.card_enabled)
+      throw new ConflictException('Cartão automático ainda não disponível');
+    if (!this.env.INTEGRATIONS_KEY)
+      throw new ServiceUnavailableException('Servidor sem chave para guardar o cartão');
+    const [sub] = await this.db.query<SubRow>(`${SUB_SQL} AND s.tenant_id = $1`, [tenantId]);
+    if (!sub) throw new ConflictException('Restaurante sem assinatura: fale com o suporte');
+    if (sub.billing_mode !== 'asaas')
+      throw new ConflictException('A cobrança deste restaurante é combinada com o suporte');
+    const client = this.client(s);
+    const customer = await this.customer(tenantId, s, client);
+    const [mm, yy] = b.expiry.split('/') as [string, string];
+    let t: { creditCardNumber: string; creditCardBrand: string; creditCardToken: string };
+    try {
+      t = await client.tokenizeCard({
+        customer,
+        remoteIp,
+        card: {
+          holderName: b.holderName,
+          number: b.number,
+          expiryMonth: mm,
+          expiryYear: yy.length === 2 ? `20${yy}` : yy,
+          ccv: b.ccv,
+        },
+        holder: {
+          name: b.holderName,
+          email: b.email,
+          cpfCnpj: b.document,
+          postalCode: b.postalCode,
+          addressNumber: b.addressNumber,
+          phone: b.phone,
+        },
+      });
+    } catch (e) {
+      if (e instanceof AsaasError && e.status >= 400 && e.status < 500)
+        throw new UnprocessableEntityException(
+          e.status === 401 || e.status === 403
+            ? 'O Asaas recusou: a tokenização de cartão não está liberada na conta'
+            : `Cartão recusado: ${e.message.replace(/^Asaas: /, '')}`,
+        );
+      throw e;
+    }
+    const last4 = (t.creditCardNumber || b.number).replace(/\D/g, '').slice(-4);
+    await this.db.tx(async (c) => {
+      await c.query(
+        `INSERT INTO billing_cards (tenant_id, environment, token_enc, brand, last4, holder_name,
+                                    remote_ip, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (tenant_id, environment) DO UPDATE
+           SET token_enc = EXCLUDED.token_enc, brand = EXCLUDED.brand, last4 = EXCLUDED.last4,
+               holder_name = EXCLUDED.holder_name, remote_ip = EXCLUDED.remote_ip,
+               created_by = EXCLUDED.created_by, created_at = now()`,
+        [
+          tenantId,
+          s.environment,
+          seal(this.env.INTEGRATIONS_KEY!, t.creditCardToken, CARD_CONTEXT(tenantId)),
+          (t.creditCardBrand || 'Cartão').slice(0, 30),
+          last4,
+          b.holderName.slice(0, 120),
+          remoteIp.slice(0, 64),
+          by.name.slice(0, 120),
+        ],
+      );
+      await c.query(
+        `UPDATE subscriptions SET pay_method = 'card' WHERE tenant_id = $1 AND status <> 'cancelled'`,
+        [tenantId],
+      );
+      await platformAudit(c, {
+        action: 'tenant.billing_card_saved',
+        entity: 'subscription',
+        tenantId,
+        data: { brand: t.creditCardBrand, last4, by: by.name, userId: by.id },
+      });
+    });
+    // Fatura em aberto que já venceu (ou vence hoje) sai no cartão novo agora.
+    const due = await this.db.query<{ id: string }>(
+      `SELECT id FROM billing_invoices WHERE tenant_id = $1 AND status IN ('pending', 'overdue')
+          AND (due_date <= $2::date OR kind = 'upgrade')`,
+      [tenantId, spDate()],
+    );
+    const charged: { ok: boolean; error?: string }[] = [];
+    for (const d of due)
+      charged.push(
+        await this.chargeCard(d.id, tenantId).catch((e: Error) => ({
+          ok: false,
+          error: e.message,
+        })),
+      );
+    return { brand: t.creditCardBrand, last4, charged };
+  }
+
+  async removeCard(tenantId: string, by: { id: string; name: string }) {
+    await this.db.tx(async (c) => {
+      await c.query(`DELETE FROM billing_cards WHERE tenant_id = $1`, [tenantId]);
+      await c.query(
+        `UPDATE subscriptions SET pay_method = 'pix'
+          WHERE tenant_id = $1 AND status <> 'cancelled' AND pay_method = 'card'`,
+        [tenantId],
+      );
+      await platformAudit(c, {
+        action: 'tenant.billing_card_removed',
+        entity: 'subscription',
+        tenantId,
+        data: { by: by.name, userId: by.id },
+      });
+    });
+    return { ok: true };
+  }
+
+  /**
+   * Cobra uma fatura no cartão salvo. Aprovado: aplica o pagamento na hora. Recusado: a fatura
+   * continua com Pix e boleto, e o motivo fica nela (o restaurante vê na tela Assinatura).
+   */
+  async chargeCard(invoiceId: string, tenantId?: string): Promise<{ ok: boolean; error?: string }> {
+    const s = await this.settingsRow();
+    if (!s.enabled || !s.card_enabled)
+      throw new ConflictException('Cartão automático ainda não disponível');
+    let inv = await this.invoiceOf(invoiceId, tenantId);
+    if (!['pending', 'overdue'].includes(inv.status))
+      throw new ConflictException('Fatura sem pagamento em aberto');
+    const card = await this.cardOf(inv.tenant_id, s.environment);
+    if (!card) throw new ConflictException('Nenhum cartão salvo');
+    const token = this.reveal(card.token_enc, CARD_CONTEXT(inv.tenant_id));
+    if (!token) throw new ServiceUnavailableException('Não deu para ler o cartão salvo');
+    if (!inv.provider_id) {
+      await this.push(inv.id);
+      inv = await this.invoiceOf(invoiceId, tenantId);
+      if (!inv.provider_id)
+        throw new ServiceUnavailableException(
+          'A cobrança ainda não foi criada no banco. Tente de novo em alguns minutos.',
+        );
+    }
+    const today = spDate();
+    try {
+      const p = await this.client(s).payWithCardToken(inv.provider_id, token, card.remote_ip);
+      await this.db.query(
+        `UPDATE billing_invoices
+            SET data = data || jsonb_build_object('cardTriedOn', $2::text, 'cardError', NULL,
+                                                  'card', $3::text)
+          WHERE id = $1`,
+        [inv.id, today, `${card.brand} •••• ${card.last4}`],
+      );
+      await this.applyPayment(inv.id, { ...p, billingType: p.billingType ?? 'CREDIT_CARD' });
+      return { ok: invoiceStatusOf(p) === 'paid' };
+    } catch (e) {
+      const declined = e instanceof AsaasError && e.status >= 400 && e.status < 500;
+      const msg = declined
+        ? (e as Error).message.replace(/^Asaas: /, '').slice(0, 200)
+        : 'Asaas fora do ar; tentamos de novo';
+      await this.db.query(
+        `UPDATE billing_invoices
+            SET data = data || jsonb_build_object(
+                  'cardTriedOn', $2::text, 'cardError', $3::text,
+                  'cardTries', coalesce((data->>'cardTries')::int, 0) + 1)
+          WHERE id = $1`,
+        [inv.id, today, msg],
+      );
+      if (!declined) throw e;
+      return { ok: false, error: msg };
+    }
+  }
+
+  /**
+   * Cartão automático, no ciclo: cobra no dia do vencimento (e a diferença de troca de plano na
+   * hora). Recusou? Tenta de novo nos dias seguintes, até 3 vezes; Pix e boleto seguem valendo.
+   */
+  private async autoCharge(now: Date) {
+    const today = spDate(now);
+    const due = await this.db.query<{ id: string; tenant_id: string }>(
+      `SELECT i.id, i.tenant_id FROM billing_invoices i
+         JOIN subscriptions s ON s.id = i.subscription_id
+         JOIN billing_cards c ON c.tenant_id = i.tenant_id AND c.environment = $1
+        WHERE s.status <> 'cancelled' AND s.pay_method = 'card' AND s.billing_mode = 'asaas'
+          AND i.status IN ('pending', 'overdue') AND i.provider_id IS NOT NULL
+          AND (i.due_date <= $2::date OR i.kind = 'upgrade')
+          AND coalesce((i.data->>'cardTries')::int, 0) < $3
+          AND coalesce(i.data->>'cardTriedOn', '') <> $4
+        ORDER BY i.due_date LIMIT 100`,
+      [(await this.settingsRow()).environment, today, CARD_MAX_TRIES, today],
+    );
+    const out = { charged: 0, errors: [] as string[] };
+    for (const d of due) {
+      try {
+        if ((await this.chargeCard(d.id)).ok) out.charged++;
+      } catch (e) {
+        out.errors.push(`${d.tenant_id}: cartão: ${(e as Error).message}`);
+      }
+    }
+    return out;
+  }
+
+  // ------------------------------------------------------------------ página de preços
+  /** Planos para /precos (público): só os ativos marcados para aparecer na página. */
+  async publicPlans() {
+    if (!this.db.enabled) return { plans: [], salesContact: '' };
+    const plans = await this.db.query(
+      `SELECT id, name, price_monthly::text AS "priceMonthly", trial_days AS "trialDays",
+              max_users AS "maxUsers", max_products AS "maxProducts",
+              max_orders_month AS "maxOrdersMonth", feature_fiscal AS "featureFiscal",
+              feature_whatsapp AS "featureWhatsapp", feature_custom_domain AS "featureCustomDomain",
+              tagline, highlights, featured
+         FROM plans WHERE active AND show_public
+        ORDER BY sort_order, price_monthly, name`,
+    );
+    const s = await this.settingsRow();
+    return { plans, salesContact: s.sales_contact };
   }
 }
