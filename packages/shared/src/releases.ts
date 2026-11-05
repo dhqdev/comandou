@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.91.0',
+    date: '2026-11-05',
+    title: 'CEP que preenche o endereço em todo lugar',
+    summary:
+      'Digitar o CEP preenche rua, bairro, cidade e UF, e digitar o nome da rua mostra os CEPs para escolher. Isso agora vale no cardápio online, no PDV, no app do garçom, na Loja online, na nota fiscal, no cartão da assinatura e no painel Super Admin. A consulta ficou mais rápida e tem reservas quando um serviço de CEP falha.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'A consulta de CEP pergunta a três serviços ao mesmo tempo e responde com o primeiro que achar. Se o servidor não conseguir, o próprio navegador pergunta à ViaCEP e à BrasilAPI.',
+      },
+      {
+        tag: 'correção',
+        text: 'A busca do CEP pelo nome da rua usa a cidade da Loja online ou, sem ela, a cidade da empresa na nota fiscal. Se o servidor não achar, o navegador procura de novo sem o "Rua" ou "Av." do começo.',
+      },
+      {
+        tag: 'novo',
+        text: 'PDV e garçom: o endereço de entrega ganhou CEP, rua com sugestões, número, complemento, bairro e cidade.',
+      },
+      {
+        tag: 'novo',
+        text: 'Loja online, contrato e cadastro de restaurante: o CEP preenche o endereço e a cidade. No cartão da assinatura, o CEP mostra o endereço achado para conferir.',
+      },
+    ],
+  },
+  {
     version: '0.90.0',
     date: '2026-11-05',
     title: 'Puxar para recarregar no app',
