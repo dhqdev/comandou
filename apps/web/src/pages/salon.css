@@ -1,39 +1,16 @@
-/* Salão / tela do garçom: mesas por situação, comandas e ações grandes no celular. */
+/*
+ * Salão: abas no topo (Mesas, Comandas, Delivery, Para levar), filtros em pílulas e um
+ * visual enxuto: mesas desenhadas de cima com as cadeiras, comandas como cupons e pedidos
+ * de entrega com a linha do tempo.
+ */
 .salon {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--cm-space-4);
   padding-bottom: var(--cm-space-4);
 }
-.salon__bar {
-  display: flex;
-  gap: var(--cm-space-3);
-  flex-wrap: wrap;
-  align-items: center;
-}
-.salon__bar > .slide-tabs {
-  flex: 0 0 auto;
-}
-.salon__search {
-  max-width: 420px;
-}
-.salon__legend {
-  display: flex;
-  gap: var(--cm-space-4);
-  flex-wrap: wrap;
-  font-size: var(--cm-text-sm);
-  color: var(--cm-text-muted);
-}
-.salon__legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.salon__legend span::before {
-  content: '';
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--state-color);
+.salon > * {
+  min-width: 0;
 }
 [data-state='free'] {
   --state-color: var(--cm-success);
@@ -47,116 +24,541 @@
   --state-color: var(--cm-warning);
   --state-bg: var(--cm-warning-bg);
 }
-.salon .table-tile[data-state] {
-  border: 1.5px solid color-mix(in srgb, var(--state-color) 55%, transparent);
-  background: var(--state-bg);
+
+/* Abas e filtros */
+.salon__tabs {
+  justify-self: start;
 }
-.salon .table-tile[data-state='free'] {
-  border-style: dashed;
-}
-.salon .table-tile[data-state]:hover {
-  border-color: var(--state-color);
-}
-.table-tile__meta {
+.salon-tab {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  max-width: 100%;
-  overflow: hidden;
+  gap: 6px;
+}
+.salon__bar {
+  display: flex;
+  gap: var(--cm-space-3);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+.salon__search {
+  flex: 0 1 320px;
+  min-width: 200px;
+}
+.salon-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.salon-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-full);
+  background: transparent;
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+  cursor: pointer;
   white-space: nowrap;
-  text-overflow: ellipsis;
+  transition:
+    background var(--cm-dur) var(--cm-ease),
+    color var(--cm-dur) var(--cm-ease),
+    border-color var(--cm-dur) var(--cm-ease);
+}
+.salon-pill:hover {
+  color: var(--cm-text);
+  border-color: var(--cm-border-strong);
+}
+.salon-pill[aria-checked='true'] {
+  background: var(--cm-text);
+  border-color: var(--cm-text);
+  color: var(--cm-surface);
+}
+.salon-pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--state-color);
+}
+.salon-pill__count {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+.salon-empty {
+  padding: var(--cm-space-6) 0;
+  border: 1px dashed var(--cm-border);
+  border-radius: var(--cm-radius-lg);
 }
 
-/* Áreas do salão (Varanda, Mezanino...) e formato de cada mesa no mapa */
+/* Áreas do salão (Varanda, Mezanino...) */
 .salon__area {
   display: grid;
-  gap: var(--cm-space-2);
+  gap: var(--cm-space-3);
 }
 .salon__area-title {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   margin: var(--cm-space-2) 0 0;
-  font-size: var(--cm-text-md);
+  font-size: var(--cm-text-xs);
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cm-text-muted);
 }
-.salon .table-tile[data-shape='round'] {
-  border-radius: 999px;
+.salon__area-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--cm-border);
+}
+.salon__area-title span {
+  font-variant-numeric: tabular-nums;
+  color: var(--cm-text-subtle);
+}
+
+/* Mapa: piso pontilhado discreto com as mesas vistas de cima */
+.floor {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  grid-auto-flow: dense;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-3);
+  border-radius: var(--cm-radius-lg);
+  background:
+    radial-gradient(
+        circle,
+        color-mix(in srgb, var(--cm-text) 9%, transparent) 1px,
+        transparent 1.2px
+      )
+      0 0 / 16px 16px,
+    var(--cm-surface-muted, var(--cm-surface));
+  border: 1px solid var(--cm-border);
+}
+.tbl {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto;
+  justify-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 6px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--cm-radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background var(--cm-dur) var(--cm-ease),
+    border-color var(--cm-dur) var(--cm-ease),
+    transform var(--cm-dur-fast) var(--cm-ease);
+}
+.tbl:hover {
+  background: color-mix(in srgb, var(--cm-surface) 80%, transparent);
+  border-color: var(--cm-border);
+}
+.tbl:active {
+  transform: scale(0.97);
+}
+.tbl:focus-visible {
+  outline: 2px solid var(--cm-focus);
+  outline-offset: 2px;
+}
+.tbl[data-shape='rect'] {
+  grid-column: span 2;
+}
+.tbl__art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  max-width: 124px;
   aspect-ratio: 1;
-  max-width: 100%;
-  padding-inline: 14%;
 }
-.salon .table-tile[data-shape='round'] > * {
+.tbl[data-shape='rect'] .tbl__art {
+  max-width: 198px;
+  aspect-ratio: 1.6;
+}
+.tglyph {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.tglyph__top {
+  fill: var(--cm-surface);
+  stroke: var(--cm-border-strong);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  transition:
+    fill var(--cm-dur) var(--cm-ease),
+    stroke var(--cm-dur) var(--cm-ease);
+}
+.tglyph__chair {
+  fill: none;
+  stroke: var(--cm-border-strong);
+  stroke-width: 1.2;
+  transition:
+    fill var(--cm-dur) var(--cm-ease),
+    stroke var(--cm-dur) var(--cm-ease);
+}
+.tbl[data-state='free']:hover .tglyph__top {
+  stroke: var(--state-color);
+}
+.tbl[data-state='free']:hover .tglyph__chair {
+  stroke: color-mix(in srgb, var(--state-color) 70%, transparent);
+}
+.tbl:not([data-state='free']) .tglyph__top {
+  fill: var(--state-bg);
+  stroke: var(--state-color);
+  stroke-dasharray: none;
+}
+.tbl:not([data-state='free']) .tglyph__chair {
+  fill: color-mix(in srgb, var(--state-color) 55%, transparent);
+  stroke: none;
+}
+.tbl[data-state='paying'] .tglyph__top {
+  animation: tbl-pulse 1.8s var(--cm-ease) infinite;
+}
+@keyframes tbl-pulse {
+  50% {
+    stroke-width: 4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tbl[data-state='paying'] .tglyph__top {
+    animation: none;
+  }
+}
+.tbl__label {
+  position: relative;
+  max-width: 52%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--cm-text-xl);
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.tbl[data-shape='rect'] .tbl__label {
+  max-width: 64%;
+}
+.tbl__time {
+  position: absolute;
+  top: 4%;
+  right: 2%;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+  font-size: var(--cm-text-2xs, 11px);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--cm-text-muted);
+  box-shadow: var(--cm-shadow-sm);
+}
+.tbl__time[data-long] {
+  color: var(--cm-danger);
+}
+.tbl[data-state='paying'] .tbl__time {
+  color: var(--cm-warning);
+}
+.tbl__info {
+  display: grid;
+  justify-items: center;
+  max-width: 100%;
+  min-height: 34px;
+  font-size: var(--cm-text-sm);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+.tbl__who {
   max-width: 100%;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-.salon .table-tile[data-shape='rect'] {
-  grid-column: span 2;
-}
-.salon .table-tile[data-shape='rect'] .table-tile__label {
-  letter-spacing: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
 }
 
-/* Comandas */
-.tab-list {
+/* Comandas: cupons com picote */
+.tickets {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: var(--cm-space-3);
 }
-.tab-row {
+.ticket {
+  --ticket-bg: var(--cm-surface);
+  position: relative;
+  display: grid;
+  gap: 6px;
+  padding: var(--cm-space-3) var(--cm-space-4) var(--cm-space-3);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--ticket-bg);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--cm-dur) var(--cm-ease),
+    box-shadow var(--cm-dur) var(--cm-ease),
+    transform var(--cm-dur-fast) var(--cm-ease);
+}
+.ticket:hover {
+  border-color: var(--cm-border-strong);
+  box-shadow: var(--cm-shadow-md);
+}
+.ticket:active {
+  transform: scale(0.98);
+}
+.ticket[data-paying] {
+  --ticket-bg: var(--cm-warning-bg);
+  border-color: color-mix(in srgb, var(--cm-warning) 50%, transparent);
+}
+.ticket__top {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+}
+.ticket__num {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  font-size: var(--cm-text-2xl);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.ticket__num small {
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--cm-text-subtle);
+}
+.ticket__where {
+  display: inline-flex;
+  white-space: nowrap;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 2px 9px;
+  border-radius: var(--cm-radius-full);
+  background: color-mix(in srgb, var(--cm-text) 6%, transparent);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+}
+.ticket__flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-warning);
+  color: #fff;
+  font-size: var(--cm-text-xs);
+  font-weight: 650;
+}
+.ticket__who {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+}
+/* Picote: linha tracejada com dois "furos" nas bordas */
+.ticket__cut {
+  position: relative;
+  height: 1px;
+  margin: 4px calc(-1 * var(--cm-space-4));
+  background: repeating-linear-gradient(90deg, var(--cm-border-strong) 0 5px, transparent 5px 10px);
+}
+.ticket__cut::before,
+.ticket__cut::after {
+  content: '';
+  position: absolute;
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--cm-bg);
+  border: 1px solid var(--cm-border);
+}
+.ticket__cut::before {
+  left: -8px;
+  clip-path: inset(0 0 0 50%);
+}
+.ticket__cut::after {
+  right: -8px;
+  clip-path: inset(0 50% 0 0);
+}
+.ticket__foot {
   display: flex;
   align-items: center;
   gap: var(--cm-space-3);
-  padding: var(--cm-space-3) var(--cm-space-4);
+  font-variant-numeric: tabular-nums;
+}
+.ticket__foot strong {
+  margin-left: auto;
+  font-size: var(--cm-text-lg);
+}
+.ticket__bar {
+  flex: 1;
+  max-width: 120px;
+  height: 4px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--cm-text) 10%, transparent);
+  overflow: hidden;
+}
+.ticket__bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--cm-success);
+}
+
+/* Delivery e para levar: cartões com a linha do tempo do pedido */
+.order-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--cm-space-3);
+}
+.order-card {
+  display: grid;
+  gap: var(--cm-space-3);
+  padding: var(--cm-space-4);
   border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-md);
+  border-radius: var(--cm-radius-lg);
   background: var(--cm-surface);
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
-  min-height: 64px;
+  transition:
+    border-color var(--cm-dur) var(--cm-ease),
+    box-shadow var(--cm-dur) var(--cm-ease),
+    transform var(--cm-dur-fast) var(--cm-ease);
 }
-.tab-row:hover {
-  border-color: var(--cm-brand-400);
+.order-card:hover {
+  border-color: var(--cm-border-strong);
+  box-shadow: var(--cm-shadow-md);
 }
-.tab-row[data-paying] {
+.order-card:active {
+  transform: scale(0.98);
+}
+.order-card[data-step='2'] {
+  border-color: color-mix(in srgb, var(--cm-success) 55%, transparent);
+}
+.order-card[data-alert] {
   border-color: var(--cm-warning);
   background: var(--cm-warning-bg);
 }
-.tab-row__num {
-  display: grid;
-  place-items: center;
-  min-width: 44px;
-  height: 44px;
-  padding: 0 6px;
-  border-radius: var(--cm-radius-md);
-  background: var(--cm-surface-sunken);
-  font-weight: 750;
-  font-size: var(--cm-text-lg);
+.order-card__head,
+.order-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-2);
   font-variant-numeric: tabular-nums;
 }
-.tab-row__who {
+.order-card__num {
+  font-size: var(--cm-text-lg);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.order-card__time {
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.order-card__time[data-late] {
+  color: var(--cm-danger);
+}
+.order-card__who {
   display: grid;
-  flex: 1;
+  gap: 2px;
   min-width: 0;
 }
-.tab-row__who .cm-hint {
+.order-card__who strong,
+.order-card__who .cm-hint {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.tab-row__total {
-  display: grid;
-  justify-items: end;
-  gap: 2px;
-  font-variant-numeric: tabular-nums;
+.order-card__who .cm-hint svg {
+  vertical-align: -2px;
 }
-
-/* Botão de "para levar" fica no fim da tela; no celular, preso acima do menu inferior. */
-.salon__dock {
-  max-width: 420px;
+.order-card__flag {
+  padding: 6px 10px;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-warning);
+  color: #fff;
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+  text-align: center;
+}
+.order-card__foot strong {
+  font-size: var(--cm-text-md);
+}
+.order-track {
+  display: flex;
+}
+.order-track__step {
+  position: relative;
+  flex: 1;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  color: var(--cm-text-subtle);
+}
+/* Trilho entre as bolinhas */
+.order-track__step::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--cm-border);
+}
+.order-track__step:first-child::before {
+  display: none;
+}
+.order-track__step[data-done]::before {
+  background: var(--cm-success);
+}
+.order-track__step i {
+  position: relative;
+  z-index: 1;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cm-surface);
+  border: 2px solid var(--cm-border-strong);
+}
+.order-track__step[data-done] i {
+  background: var(--cm-success);
+  border-color: var(--cm-success);
+}
+.order-track__step[data-done] small {
+  color: var(--cm-text);
+}
+.order-track__step small {
+  font-size: 11px;
+  font-weight: 600;
 }
 
 /* Folha de QR das mesas */
@@ -204,52 +606,65 @@
   .salon .page-head > div:first-child {
     display: none;
   }
-  /* Ações do salão: "Escanear mesa" em cima, ocupando a linha; as outras em grade 2 × 2. */
+  /* Ações: a principal da aba em cima, ocupando a linha; as de ajuste em fileira abaixo. */
   .salon .page-head .actions-row {
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: var(--cm-space-2);
   }
   .salon .page-head .actions-row > .cm-btn {
     min-width: 0;
-    min-height: 42px;
+    min-height: 40px;
+    padding-inline: 4px;
+    font-size: var(--cm-text-xs);
+    white-space: normal;
+    line-height: 1.15;
+  }
+  .salon .page-head .actions-row > .cm-btn:not(:last-child) svg {
+    display: none;
   }
   .salon .page-head .actions-row > .cm-btn:last-child {
     grid-column: 1 / -1;
     order: -1;
     min-height: 46px;
+    font-size: var(--cm-text-md);
   }
-  .salon__bar > .slide-tabs {
-    flex: 1 1 100%;
+  .salon__tabs {
+    justify-self: stretch;
   }
-  .salon__bar > .slide-tabs .slide-tabs__tab,
-  .salon__bar > .slide-tabs [role='tab'] {
+  .salon__tabs [role='tab'] {
     flex: 1;
   }
-  .salon__search {
-    flex: 1 1 100%;
-    max-width: none;
-  }
-  .salon .table-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .salon__bar {
+    flex-direction: column-reverse;
+    align-items: stretch;
+    flex-wrap: nowrap;
     gap: var(--cm-space-2);
   }
-  .salon .table-tile {
-    min-height: 92px;
+  .salon__search {
+    flex: 1 1 auto;
+  }
+  .salon-pills {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: calc(-1 * var(--cm-space-4));
+    padding-inline: var(--cm-space-4);
+  }
+  .salon-pills::-webkit-scrollbar {
+    display: none;
+  }
+  .floor {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--cm-space-1);
     padding: var(--cm-space-2);
   }
-  .salon .table-tile__label {
-    font-size: var(--cm-text-xl);
+  .tbl__label {
+    font-size: var(--cm-text-lg);
   }
-  .salon__dock {
-    position: sticky;
-    bottom: calc(var(--tabbar-h, 64px) + var(--tabbar-pad, 10px) + 10px);
-    max-width: none;
-    z-index: 2;
-  }
-  .salon__dock .cm-btn {
-    background: var(--cm-surface);
-    box-shadow: var(--cm-shadow-md);
+  .tickets,
+  .order-cards {
+    grid-template-columns: 1fr;
   }
 }

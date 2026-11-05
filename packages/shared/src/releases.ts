@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.87.0',
+    date: '2026-11-05',
+    title: 'Salão de cara nova',
+    summary:
+      'O Salão ganhou abas no topo para Mesas, Comandas, Delivery e Para levar, com filtros rápidos em cada uma. As mesas aparecem desenhadas de cima, no formato cadastrado e com uma cadeira por lugar; as comandas viraram cupons e os pedidos de entrega mostram em que etapa estão.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Salão: abas Mesas, Comandas, Delivery e Para levar no topo, cada uma com a sua ação principal (escanear mesa, comanda avulsa, novo delivery, novo para levar).',
+      },
+      {
+        tag: 'novo',
+        text: 'Salão: filtros em pílulas (livres, ocupadas, em pagamento; pediram a conta, de mesa, avulsas; na cozinha, prontos, em rota) com a contagem de cada um.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Mapa de mesas: cada mesa é desenhada de cima (redonda, quadrada ou retangular) com as cadeiras em volta; a cor mostra se está livre, ocupada ou pedindo a conta, com o tempo de mesa no canto.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Comandas em formato de cupom, com barra do quanto já foi pago; delivery e para levar com a linha do pedido (recebido, preparo, pronto, em rota) e destaque para o que espera aceite.',
+      },
+    ],
+  },
+  {
     version: '0.86.0',
     date: '2026-11-05',
     title: 'Assinatura nova, cartão automático e página de preços',

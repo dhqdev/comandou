@@ -886,52 +886,6 @@ button.pay-part {
   }
 }
 
-/* Salão */
-.table-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-  gap: var(--cm-space-3);
-}
-.table-tile {
-  display: grid;
-  gap: 4px;
-  justify-items: center;
-  align-content: center;
-  min-height: 110px;
-  min-width: 0;
-  padding: var(--cm-space-3);
-  border-radius: var(--cm-radius-md);
-  border: 1.5px dashed var(--cm-border-strong);
-  background: var(--cm-surface);
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  transition:
-    border-color var(--cm-dur) var(--cm-ease),
-    box-shadow var(--cm-dur) var(--cm-ease),
-    transform var(--cm-dur-fast) var(--cm-ease);
-}
-.table-tile:hover {
-  border-color: var(--cm-brand-400);
-  box-shadow: var(--cm-shadow-md);
-}
-.table-tile:active {
-  transform: scale(0.98);
-}
-.table-tile[data-busy] {
-  border-style: solid;
-  border-color: var(--cm-brand-600);
-  background: var(--cm-brand-50);
-}
-.table-tile__label {
-  font-size: var(--cm-text-2xl);
-  font-weight: 750;
-  letter-spacing: -0.03em;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  text-align: center;
-}
-
 /* Caixa: cabeçalho com ações, totais e linha do tempo */
 .cash-head {
   display: flex;
