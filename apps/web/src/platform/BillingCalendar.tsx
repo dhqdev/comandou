@@ -119,7 +119,7 @@ export function CalendarSection() {
   };
 
   const totalOf = (items: CalItem[]) => items.reduce((t, i) => t + toCents(i.amount), 0);
-  const days = cal ? [...byDay.keys()].filter((d) => !picked || d === picked) : [];
+  const days = cal ? [...byDay.keys()].sort().filter((d) => !picked || d === picked) : [];
 
   return (
     <Section title="Calendário de recebimentos" sub="em que dia cada cliente paga e quanto">
