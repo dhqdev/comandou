@@ -1,18 +1,10 @@
 import { AddressFields, addressPayload } from './AddressFields';
 import { fromCents, toCents } from '@comandou/shared';
-import {
-  Bike,
-  ChevronRight,
-  MapPin,
-  Moon,
-  Plus,
-  ShoppingBag,
-  Store,
-  UserRound,
-} from 'lucide-react';
+import { Bike, ChevronRight, MapPin, Moon, Plus, Store, UserRound } from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { SlideTabs } from '../../features/SlideTabs';
+import { MotoboyArt } from './art';
 import { api, ApiError } from '../../lib/api';
 import { newIdempotencyKey } from '../../lib/idempotency';
 import { brl, parseBrlInput } from '../../lib/money';
@@ -55,7 +47,11 @@ export function CartScreen() {
   const loyalty = useLoyalty();
   const [rewardId, setRewardId] = useState<string | null>(null);
   const navigate = useNavigate();
-  const [step, setStep] = useState<'cart' | 'checkout'>('cart');
+  // "Finalizar pedido" na sacola ao lado (notebook) já abre a finalização.
+  const jumpToCheckout = !!(useLocation().state as { checkout?: boolean } | null)?.checkout;
+  const [step, setStep] = useState<'cart' | 'checkout'>(() =>
+    jumpToCheckout && cart.length > 0 ? 'checkout' : 'cart',
+  );
   const [notes, setNotes] = useState('');
   const [changeFor, setChangeFor] = useState('');
   const [busy, setBusy] = useState(false);
@@ -220,9 +216,7 @@ export function CartScreen() {
       <div className="sf-wrap sf-page">
         <ScreenHeader title="Sacola" />
         <div className="empty-state">
-          <span className="empty-state__icon">
-            <ShoppingBag size={26} />
-          </span>
+          <MotoboyArt className="empty-state__art" />
           <strong>Sua sacola está vazia</strong>
           <p>Escolha algo gostoso no cardápio.</p>
           <Link className="cta cta--inline" to="/pedir">

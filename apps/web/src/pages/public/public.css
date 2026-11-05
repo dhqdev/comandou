@@ -239,6 +239,10 @@
   box-shadow: 0 0 0 8px color-mix(in srgb, var(--tone, var(--cm-brand-600)) 16%, transparent);
   margin-bottom: 8px;
 }
+.track__art {
+  width: min(240px, 80%);
+  margin: -6px 0 2px;
+}
 .track__badge[data-live] {
   animation: breathe 2.4s ease-in-out infinite;
 }

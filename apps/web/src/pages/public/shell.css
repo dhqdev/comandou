@@ -1,0 +1,1306 @@
+/*
+ * Cardápio online: capa, cartão da entrega e a moldura de cada tela.
+ * - Celular: capa de ponta a ponta, conta e sacola sobre a foto, menu de baixo (magic-nav.css).
+ * - Tablet (700–1099px, como no totem): barra no topo, categorias numa coluna à esquerda, todas as
+ *   seções em sequência e a barra do pedido presa embaixo.
+ * - Notebook (1100px+): menu lateral fixo com abas e categorias, conteúdo compacto no meio e, nas
+ *   telas largas, a sacola ao lado.
+ */
+
+/* ================================================================ capa e loja (todas as telas) */
+.sf-store {
+  position: relative;
+}
+.sf-cover {
+  position: relative;
+  height: 168px;
+  overflow: hidden;
+  background: var(--cm-brand-800);
+  isolation: isolate;
+}
+.sf-cover__img,
+.sf-cover__art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+}
+.sf-cover__img {
+  object-fit: cover;
+  animation: sf-cover-in 0.8s var(--sf-ease) both;
+}
+@keyframes sf-cover-in {
+  from {
+    transform: scale(1.06);
+  }
+}
+/* Sem capa: a cor da loja com bolinhas de confete (desenho leve, sem foto). */
+.sf-cover__art {
+  background-color: var(--cm-brand-700);
+  background-image:
+    radial-gradient(
+      circle at 18% 30%,
+      color-mix(in srgb, #fff 16%, transparent) 0 6px,
+      transparent 7px
+    ),
+    radial-gradient(
+      circle at 72% 22%,
+      color-mix(in srgb, #fff 12%, transparent) 0 10px,
+      transparent 11px
+    ),
+    radial-gradient(
+      circle at 86% 70%,
+      color-mix(in srgb, #fff 14%, transparent) 0 5px,
+      transparent 6px
+    ),
+    radial-gradient(
+      circle at 40% 76%,
+      color-mix(in srgb, #fff 10%, transparent) 0 14px,
+      transparent 15px
+    );
+}
+/* Celular: conta e sacola em bolinhas de vidro sobre a foto. */
+.sf-cover__bar {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  left: 14px;
+  right: 14px;
+  display: flex;
+  justify-content: space-between;
+}
+.sf-glass {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--cm-glass-border);
+  background: color-mix(in srgb, var(--cm-surface) 84%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--cm-text);
+  text-decoration: none;
+  font-weight: 800;
+  box-shadow: 0 6px 16px -10px rgb(0 0 0 / 0.5);
+  transition: transform var(--cm-dur) var(--cm-ease);
+}
+.sf-glass:active {
+  transform: scale(0.92);
+}
+.sf-glass .cartpill__count {
+  top: -4px;
+  right: -4px;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  box-shadow: 0 0 0 2px var(--cm-surface);
+}
+
+/* Logo redonda encostada na capa, nome e situação ao lado. */
+.sf-head {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 16px 0;
+  animation: sf-rise 0.45s var(--sf-ease) both;
+}
+.sf-head__logo {
+  width: 80px;
+  flex: none;
+  margin-top: -46px;
+  border-radius: 50%;
+  border: 4px solid var(--sf-page);
+  background: var(--cm-surface);
+  box-shadow: 0 8px 18px -12px rgb(0 0 0 / 0.55);
+}
+.sf-head__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.sf-head h1 {
+  margin: 0;
+  font-size: var(--cm-text-xl);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: var(--cm-tracking-tight);
+  overflow-wrap: anywhere;
+}
+.sf-head__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.sf-head__meta .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.sf-head__eta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.sf-head__info {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--cm-border);
+  border-radius: 50%;
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  cursor: pointer;
+  transition:
+    color var(--cm-dur),
+    border-color var(--cm-dur),
+    transform var(--cm-dur) var(--cm-ease);
+}
+.sf-head__info:hover {
+  color: var(--cm-brand-700);
+  border-color: color-mix(in srgb, var(--cm-brand-500) 45%, var(--cm-border));
+}
+.sf-head__info:active {
+  transform: scale(0.92);
+}
+
+/* ================================================================ cartão da entrega (motoboy) */
+.sf-intro {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+.sf-intro .ongoing {
+  margin: 0;
+}
+.sf-ride {
+  container: ride / inline-size;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 16%, transparent);
+  border-radius: var(--sf-card-r);
+  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
+  isolation: isolate;
+  animation: sf-rise 0.5s 0.05s var(--sf-ease) both;
+}
+.sf-ride[data-closed] {
+  border-color: color-mix(in srgb, var(--cm-warning) 30%, transparent);
+  background: var(--cm-warning-bg);
+}
+.sf-ride__top {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-height: 118px;
+  padding: 14px 0 0 18px;
+}
+/* Sol atrás do desenho e a estradinha por onde a moto passa. */
+.sf-ride__top::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  right: -30px;
+  top: -28px;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--cm-accent-400) 26%, transparent);
+}
+.sf-ride[data-closed] .sf-ride__top::before {
+  background: color-mix(in srgb, var(--cm-warning) 14%, transparent);
+}
+.sf-ride__top::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  right: 0;
+  bottom: 7px;
+  width: 50%;
+  border-top: 3px dashed color-mix(in srgb, var(--cm-brand-700) 20%, transparent);
+}
+.sf-ride__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  align-content: center;
+  gap: 3px;
+  padding-bottom: 12px;
+}
+.sf-ride__hello {
+  color: var(--cm-brand-700);
+  font-size: var(--cm-text-xs);
+  font-weight: 750;
+}
+.sf-ride__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1.14rem;
+  font-weight: 800;
+  line-height: 1.18;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.sf-ride[data-closed] .sf-ride__title {
+  color: var(--cm-warning);
+}
+.sf-ride__sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  line-height: 1.35;
+}
+.sf-ride__art {
+  flex: none;
+  width: min(48%, 210px);
+  margin: 0 -4px -6px 0;
+  align-self: flex-end;
+}
+/* Faixa de baixo: tempo, taxa e "Mais informações" (abre os detalhes da loja). */
+.sf-ride__info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 44px;
+  padding: 0 12px 0 18px;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--cm-brand-500) 14%, transparent);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--cm-dur);
+}
+.sf-ride__info:hover {
+  background: color-mix(in srgb, var(--cm-brand-500) 4%, var(--cm-surface));
+}
+.sf-ride__info > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.sf-ride__info svg {
+  flex: none;
+  color: var(--cm-brand-600);
+}
+.sf-ride__more {
+  margin-left: auto;
+  color: var(--cm-brand-700);
+  font-weight: 750;
+}
+.sf-ride__info:focus-visible {
+  outline: none;
+  box-shadow: inset var(--cm-focus);
+}
+/* Cartão estreito: só a seta (o botão inteiro abre as informações). */
+@container ride (max-width: 430px) {
+  .sf-ride__more-txt {
+    display: none;
+  }
+}
+
+/* Fidelidade e reserva: cartões baixos, lado a lado quando cabe. */
+.sf-perks {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+.sf-perks:empty {
+  display: none;
+}
+.sf-perks > .loy-strip,
+.sf-perks > .rsv-card,
+.sf-perks > .ongoing {
+  margin: 0;
+  border-radius: var(--sf-card-r);
+}
+.sf-perks .rsv-card {
+  padding: 12px 14px;
+}
+.sf-perks .rsv-card__text small {
+  font-size: var(--cm-text-xs);
+}
+@media (min-width: 560px) {
+  .sf-perks:has(> :nth-child(2)) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Banner do celular cresce com o texto (título e frase cabem inteiros). */
+.sf .banner {
+  aspect-ratio: auto;
+  min-height: 150px;
+  max-height: none;
+}
+
+/* ================================================================ tablet e notebook (seções) */
+.sf-home[data-mode='sections'] .sf-sec {
+  scroll-margin-top: calc(var(--sf-appbar) + 78px);
+}
+.sf-home[data-mode='sections'] .sf-sec + .sf-sec {
+  margin-top: 28px;
+}
+.sf-home[data-mode='sections'] .sec__title--cat {
+  justify-content: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+  font-size: var(--cm-text-lg);
+}
+.sf-home[data-mode='sections'] .sec__title--cat small {
+  padding: 2px 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text-muted);
+}
+
+/* ================================================================ tablet (estilo totem) */
+.sf[data-layout='tablet'] {
+  --sf-tabbar: 0px;
+  --sf-appbar: 64px;
+  padding-bottom: 112px;
+}
+/* Barra do topo: loja, abas e sacola. */
+.sf-appbar {
+  position: sticky;
+  top: 0;
+  z-index: 45;
+  height: var(--sf-appbar);
+  background: color-mix(in srgb, var(--cm-surface) 94%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--cm-border);
+}
+.sf-appbar__inner {
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.sf-appbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--cm-text);
+  text-decoration: none;
+}
+.sf-appbar__brand > span {
+  display: grid;
+  min-width: 0;
+  line-height: 1.2;
+}
+.sf-appbar__brand strong {
+  font-size: var(--cm-text-md);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sf-appbar__brand .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--cm-text-2xs);
+}
+.sf-appbar__logo {
+  width: 40px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--cm-border);
+}
+.sf-appbar__nav {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.sf-appbar__link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: var(--cm-radius-full);
+  color: var(--cm-text-muted);
+  text-decoration: none;
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+  transition:
+    background var(--cm-dur),
+    color var(--cm-dur);
+}
+.sf-appbar__link:hover {
+  color: var(--cm-text);
+  background: color-mix(in srgb, var(--cm-text) 6%, transparent);
+}
+.sf-appbar__link.active {
+  color: var(--cm-brand-700);
+  background: color-mix(in srgb, var(--cm-brand-500) 14%, transparent);
+}
+.sf-appbar__link .sf-dot {
+  position: static;
+  margin-left: 2px;
+}
+.sf-appbar__cart {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 16px 0 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  text-decoration: none;
+  font-weight: 750;
+  font-size: var(--cm-text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: transform var(--cm-dur) var(--cm-ease);
+}
+.sf-appbar__cart:active {
+  transform: scale(0.97);
+}
+.sf-appbar__cart[data-empty] {
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text-muted);
+}
+.sf-appbar__bag {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+.sf-appbar__bag[data-bump] {
+  animation: sf-pop 0.45s var(--cm-ease-liquid);
+}
+.sf-appbar__bag .cartpill__count {
+  top: -6px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+}
+/* Tablet em pé: as abas mostram só o ícone (o nome aparece na aba aberta). */
+@media (max-width: 939px) {
+  .sf-appbar__link:not(.active) span {
+    display: none;
+  }
+}
+
+/* Início no tablet: coluna de categorias à esquerda e o cardápio ao lado. */
+.sf[data-layout='tablet'] .sf-home {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr);
+}
+.sf-rail {
+  position: sticky;
+  top: var(--sf-appbar);
+  z-index: 5;
+  height: calc(100dvh - var(--sf-appbar));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 8px 120px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  background: var(--cm-surface);
+  border-right: 1px solid var(--cm-border);
+}
+.sf-rail::-webkit-scrollbar {
+  display: none;
+}
+.sf-rail__item {
+  position: relative;
+  flex: none;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 10px 4px 9px;
+  border: 0;
+  border-radius: var(--sf-card-r);
+  background: none;
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  font-weight: 650;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background var(--cm-dur),
+    color var(--cm-dur);
+}
+.sf-rail__item span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sf-rail__photo {
+  width: 60px;
+  border-radius: 18px;
+  box-shadow: 0 0 0 1px var(--cm-border);
+  transition:
+    transform 0.3s var(--cm-ease-liquid),
+    box-shadow var(--cm-dur);
+}
+.sf-rail__item:active .sf-rail__photo {
+  transform: scale(0.94);
+}
+.sf-rail__item[aria-current='true'] {
+  background: color-mix(in srgb, var(--cm-brand-500) 11%, var(--cm-surface));
+  color: var(--cm-brand-700);
+  font-weight: 750;
+}
+.sf-rail__item[aria-current='true']::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 14px;
+  bottom: 14px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--cm-brand-600);
+  animation: sf-rail-in 0.3s var(--cm-ease-liquid);
+}
+.sf-rail__item[aria-current='true'] .sf-rail__photo {
+  box-shadow: 0 0 0 2px var(--cm-brand-500);
+}
+@keyframes sf-rail-in {
+  from {
+    transform: scaleY(0);
+  }
+}
+.sf[data-layout='tablet'] .sf-home__main {
+  min-width: 0;
+  padding: 16px 20px 0;
+}
+.sf-home__main > * {
+  min-width: 0;
+}
+.sf:not([data-layout='phone']) .sf-home .sf-wrap {
+  max-width: none;
+  padding: 0;
+}
+/* Capa como faixa com cantos e o nome da loja por cima, num degradê escuro. */
+.sf:not([data-layout='phone']) .sf-cover {
+  height: auto;
+  min-height: 172px;
+  border-radius: var(--sf-card-r);
+}
+.sf:not([data-layout='phone']) .sf-cover::after {
+  content: '';
+  position: absolute;
+  inset: 40% 0 0;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.62), transparent);
+}
+.sf:not([data-layout='phone']) .sf-cover__bar {
+  display: none;
+}
+.sf:not([data-layout='phone']) .sf-store {
+  display: flex;
+  flex-direction: column;
+}
+.sf:not([data-layout='phone']) .sf-cover {
+  flex: 1;
+}
+.sf:not([data-layout='phone']) .sf-head {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 0 16px 14px;
+  align-items: center;
+  color: #fff;
+}
+.sf:not([data-layout='phone']) .sf-head__logo {
+  width: 68px;
+  margin: 0;
+  border: 3px solid #fff;
+}
+.sf:not([data-layout='phone']) .sf-head h1 {
+  font-size: var(--cm-text-2xl);
+  text-shadow: 0 1px 8px rgb(0 0 0 / 0.35);
+}
+.sf:not([data-layout='phone']) .sf-head__meta {
+  color: rgb(255 255 255 / 0.9);
+}
+.sf:not([data-layout='phone']) .sf-head__meta .status {
+  padding: 1px 8px 1px 6px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+}
+.sf:not([data-layout='phone']) .sf-head__info {
+  margin: 0;
+  border-color: rgb(255 255 255 / 0.4);
+  background: rgb(255 255 255 / 0.16);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+}
+.sf:not([data-layout='phone']) .searchbar {
+  top: var(--sf-appbar);
+  margin-top: 14px;
+}
+.sf:not([data-layout='phone']) .searchbar[data-stuck] {
+  padding: 10px 0;
+}
+.sf[data-layout='tablet'] .searchbox,
+.sf[data-layout='tablet'] .filterbtn {
+  height: 50px;
+}
+.sf[data-layout='tablet'] .filterbtn {
+  width: 50px;
+}
+.sf[data-layout='tablet'] .pgrid {
+  grid-template-columns: repeat(auto-fill, minmax(188px, 1fr));
+  gap: 14px;
+}
+/* Cartão de totem: foto grande, preço e o botão "Adicionar" largo para o dedo. */
+.sf[data-layout='tablet'] .pcard__foot {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.sf[data-layout='tablet'] .pcard .addbtn {
+  width: 100%;
+  height: 42px;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  border-radius: var(--cm-radius-full);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 750;
+}
+.sf[data-layout='tablet'] .addbtn__txt {
+  display: inline;
+}
+/* Tablet deitado (toque, com o menu lateral): o mesmo botão largo do totem. */
+@media (hover: none) and (pointer: coarse) {
+  .sf[data-layout='desktop'] .pcard__foot {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .sf[data-layout='desktop'] .pcard .addbtn {
+    width: 100%;
+    height: 42px;
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    border-radius: var(--cm-radius-full);
+    font: inherit;
+    font-size: var(--cm-text-sm);
+    font-weight: 750;
+  }
+  .sf[data-layout='desktop'] .addbtn__txt {
+    display: inline;
+  }
+}
+.sf[data-layout='tablet'] .banner {
+  aspect-ratio: auto;
+  height: 168px;
+}
+
+/* Barra do pedido presa embaixo (como no totem): itens, total e "Ver sacola". */
+.sf-orderbar {
+  position: fixed;
+  z-index: 41;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px 16px calc(10px + var(--sf-safe));
+  background: color-mix(in srgb, var(--cm-surface) 94%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-top: 1px solid var(--cm-border);
+  box-shadow: 0 -12px 30px -20px rgb(0 0 0 / 0.35);
+  transition:
+    transform 0.4s var(--sf-ease),
+    opacity 0.25s;
+}
+.sf-orderbar[data-hidden] {
+  transform: translateY(110%);
+  opacity: 0;
+  pointer-events: none;
+}
+.sf-orderbar__inner {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.sf-orderbar__bag {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-surface));
+  color: var(--cm-brand-700);
+}
+.sf-orderbar__bag[data-bump] {
+  animation: sf-pop 0.45s var(--cm-ease-liquid);
+}
+.sf-orderbar__bag .cartpill__count {
+  top: -4px;
+  right: -4px;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  box-shadow: 0 0 0 2px var(--cm-surface);
+}
+.sf-orderbar__sum {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  line-height: 1.2;
+}
+.sf-orderbar__sum small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+}
+.sf-orderbar__sum strong {
+  font-size: var(--cm-text-xl);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.sf-orderbar__cta {
+  flex: none;
+  min-height: 52px;
+  padding: 0 26px;
+  border-radius: var(--cm-radius-full);
+}
+
+/* ================================================================ notebook */
+.sf[data-layout='desktop'] {
+  --sf-tabbar: 0px;
+  --sf-appbar: 0px;
+  --sf-side: 256px;
+  --sf-cart: 340px;
+  display: grid;
+  grid-template-columns: var(--sf-side) minmax(0, 1fr);
+  align-items: start;
+  padding-bottom: 0;
+}
+@media (min-width: 1280px) {
+  .sf[data-layout='desktop'][data-browse] {
+    grid-template-columns: var(--sf-side) minmax(0, 1fr) var(--sf-cart);
+  }
+}
+@media (min-width: 1680px) {
+  .sf[data-layout='desktop'] {
+    --sf-side: 272px;
+    --sf-cart: 380px;
+  }
+}
+.sf-main {
+  min-width: 0;
+}
+.sf[data-layout='desktop'] .sf-main {
+  min-height: 100dvh;
+  padding-bottom: 32px;
+}
+
+/* Menu lateral: loja, abas, categorias (com a da tela marcada) e a sacola. */
+.sf-side {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 14px 14px;
+  background: var(--cm-surface);
+  border-right: 1px solid var(--cm-border);
+}
+.sf-side__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 6px 16px;
+  color: var(--cm-text);
+  text-decoration: none;
+}
+.sf-side__brand > span {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+  line-height: 1.2;
+}
+.sf-side__brand strong {
+  font-size: var(--cm-text-md);
+  font-weight: 800;
+  letter-spacing: var(--cm-tracking-tight);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sf-side__brand .status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--cm-text-xs);
+}
+.sf-side__logo {
+  width: 44px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--cm-border);
+}
+.sf-side__nav {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--cm-border);
+}
+.sf-side__link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: var(--sf-r);
+  color: var(--cm-text-muted);
+  text-decoration: none;
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+  transition:
+    background var(--cm-dur),
+    color var(--cm-dur);
+}
+.sf-side__link:hover {
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+}
+.sf-side__link.active {
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  color: var(--cm-brand-700);
+  font-weight: 750;
+}
+.sf-side__link.active::before {
+  content: '';
+  position: absolute;
+  left: -14px;
+  top: 9px;
+  bottom: 9px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--cm-brand-600);
+}
+.sf-side__link .sf-dot {
+  position: static;
+  margin-left: auto;
+}
+.sf-side__cats {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 -6px;
+  padding: 12px 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.sf-side__title {
+  padding: 0 10px 6px;
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+  font-weight: 700;
+}
+.sf-side__cat {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 46px;
+  padding: 5px 10px 5px 6px;
+  border: 0;
+  border-radius: var(--sf-r);
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--cm-dur),
+    color var(--cm-dur);
+}
+.sf-side__cat:hover {
+  background: var(--cm-surface-sunken);
+}
+.sf-side__thumb {
+  width: 36px;
+  flex: none;
+  border-radius: 11px;
+}
+.sf-side__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sf-side__cat small {
+  min-width: 22px;
+  padding: 1px 6px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-2xs);
+  font-weight: 700;
+  text-align: center;
+}
+.sf-side__cat[aria-current='true'] {
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  color: var(--cm-brand-700);
+  font-weight: 750;
+}
+.sf-side__cat[aria-current='true'] small {
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+}
+.sf-side__cat:focus-visible,
+.sf-side__link:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.sf-side__foot {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--cm-border);
+}
+.sf-side__cart {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 14px 0 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  text-decoration: none;
+  font-size: var(--cm-text-sm);
+  font-weight: 750;
+  transition:
+    transform var(--cm-dur) var(--cm-ease),
+    background var(--cm-dur);
+}
+.sf-side__cart:hover {
+  background: var(--cm-brand-700);
+}
+.sf-side__cart:active {
+  transform: scale(0.98);
+}
+.sf-side__cart > span:nth-child(2) {
+  flex: 1;
+}
+.sf-side__cart strong {
+  font-variant-numeric: tabular-nums;
+}
+.sf-side__cart[data-empty] {
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text-muted);
+}
+.sf-side__bag {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
+.sf-side__bag[data-bump] {
+  animation: sf-pop 0.45s var(--cm-ease-liquid);
+}
+.sf-side__bag .cartpill__count {
+  top: -6px;
+  right: -8px;
+  min-width: 18px;
+  height: 18px;
+  background: var(--cm-surface);
+  color: var(--cm-brand-700);
+}
+/* Com a sacola aberta ao lado, o botão do menu sai (o pedido já está na tela). */
+@media (min-width: 1280px) {
+  .sf[data-browse] .sf-side__cart {
+    display: none;
+  }
+}
+.sf-side__ride {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 8px 6px;
+  border-radius: var(--sf-card-r);
+  background: color-mix(in srgb, var(--cm-brand-500) 9%, var(--cm-surface));
+}
+.sf-side__art {
+  width: 92px;
+  flex: none;
+}
+.sf-side__ride > span {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  line-height: 1.25;
+}
+.sf-side__ride strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--cm-text-sm);
+}
+.sf-side__ride small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+@media (max-height: 720px) {
+  .sf-side__ride {
+    display: none;
+  }
+}
+
+/* Conteúdo do notebook: compacto, com a capa e o cartão da entrega lado a lado. */
+.sf[data-layout='desktop'] .sf-home__main {
+  padding: 20px clamp(20px, 2vw, 32px) 0;
+}
+.sf[data-layout='desktop'] .sf-home {
+  display: block;
+}
+/* Capa e cartão da entrega lado a lado, na mesma altura. */
+.sf[data-layout='desktop'] .sf-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr);
+  gap: 16px;
+}
+.sf[data-layout='desktop'] .sf-intro {
+  margin: 0;
+}
+.sf[data-layout='desktop'] .sf-intro .sf-ride {
+  flex: 1;
+}
+.sf[data-layout='desktop'] .sf-intro {
+  display: flex;
+  flex-direction: column;
+}
+.sf[data-layout='desktop'] .sf-cover {
+  min-height: 196px;
+}
+.sf[data-layout='desktop'] .sf-ride__art {
+  width: min(50%, 220px);
+}
+.sf[data-layout='desktop'] .searchbar__row {
+  max-width: none;
+}
+.sf[data-layout='desktop'] .searchbar[data-stuck] {
+  background: var(--sf-page);
+}
+.sf[data-layout='desktop'] .pgrid {
+  grid-template-columns: repeat(auto-fill, minmax(164px, 1fr));
+  gap: 14px;
+}
+.sf[data-layout='desktop'] .banner {
+  aspect-ratio: auto;
+  height: 168px;
+  padding: 22px 28px;
+}
+.sf[data-layout='desktop'] .sf-perks {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.sf[data-layout='desktop'] .store-foot {
+  margin-top: 36px;
+}
+
+/* Sacola ao lado (notebook largo): presa na altura da tela, itens rolam por dentro. */
+.sf-cart {
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 18px 18px;
+  background: var(--cm-surface);
+  border-left: 1px solid var(--cm-border);
+}
+@media (max-width: 1279px) {
+  .sf-cart {
+    display: none;
+  }
+}
+.sf-cart__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sf-cart__head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--cm-text-lg);
+  font-weight: 800;
+  letter-spacing: var(--cm-tracking-tight);
+}
+.sf-cart__head small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-weight: 650;
+}
+.sf-cart__icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-surface));
+  color: var(--cm-brand-700);
+}
+.sf-cart__icon[data-bump] {
+  animation: sf-pop 0.45s var(--cm-ease-liquid);
+}
+.sf-cart__empty {
+  flex: 1;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  text-align: center;
+}
+.sf-cart__empty p {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.sf-cart__art {
+  width: 190px;
+  margin-bottom: 8px;
+}
+.sf-cart__lines {
+  flex: 1;
+  min-height: 0;
+  margin: 0 -6px;
+  padding: 0 6px;
+  overflow-y: auto;
+  list-style: none;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+}
+.sf-cart__line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--cm-border);
+  animation: sf-rise 0.35s var(--sf-ease) both;
+}
+.sf-cart__photo {
+  width: 52px;
+  flex: none;
+  border-radius: 12px;
+}
+.sf-cart__info {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+  font-size: var(--cm-text-sm);
+  line-height: 1.3;
+}
+.sf-cart__info strong {
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sf-cart__info small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sf-cart__info .sf-cart__soldout {
+  color: var(--cm-danger);
+  font-weight: 650;
+}
+.sf-cart__info b {
+  font-variant-numeric: tabular-nums;
+}
+.sf-cart .stepper--sm {
+  height: 36px;
+}
+.sf-cart .stepper--sm button {
+  width: 28px;
+  height: 28px;
+}
+.sf-cart__foot {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+.sf-cart__foot .sum {
+  column-gap: 0;
+}
+.sf-cart__foot .sum__total {
+  padding-top: 8px;
+  border-top: 1px solid var(--cm-border);
+}
+.sf-cart__hint {
+  text-align: center;
+  font-size: var(--cm-text-xs);
+}
+.sf-cart__foot .cta {
+  min-height: 50px;
+  border-radius: var(--cm-radius-full);
+}
+
+/* Telas internas no notebook: começam mais perto do topo (sem barra em cima). */
+.sf[data-layout='desktop'] .sf-page {
+  padding-top: 24px;
+}
+/* Conversa no notebook: cartão no meio da área ao lado do menu. */
+.sf[data-layout='desktop'] .sfchat {
+  left: var(--sf-side);
+  inset-block: 16px;
+  width: min(860px, calc(100vw - var(--sf-side) - 48px));
+}

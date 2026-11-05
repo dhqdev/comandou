@@ -26,11 +26,24 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useNavigationType } from 'react-router';
 import { Button, Mascot, Modal } from '../../design-system';
 import { brl } from '../../lib/money';
+import { DeliveryArt } from './art';
 import { useStore } from './context';
-import { setMorph } from './morph';
+import { reducedMotion, setMorph } from './morph';
+import {
+  buildSections,
+  onJump,
+  requestJump,
+  type Section,
+  sectionPhoto,
+  setActiveSection,
+  takePendingJump,
+  useActiveSection,
+  useLayout,
+} from './sections';
+import { deliveryFeeText, StoreStatusLine } from './Shell';
 import { PublicBanner, PublicProduct, recentOrders } from './store';
 import { LoopRail } from './LoopRail';
 import { LoyaltyStrip } from './LoyaltyScreens';
@@ -115,6 +128,7 @@ function ProductCard({ p, i = 0 }: { p: PublicProduct; i?: number }) {
               }}
             >
               <Plus size={16} />
+              <span className="addbtn__txt">Adicionar</span>
             </button>
           )}
         </span>
@@ -207,12 +221,7 @@ function refine(list: PublicProduct[], f: Filters) {
   return out;
 }
 
-interface WheelItem {
-  id: string;
-  name: string;
-  imageUrl: string | null;
-  products: PublicProduct[];
-}
+type WheelItem = Section;
 
 const flat = () => window.matchMedia?.('(min-width: 900px)').matches;
 
@@ -552,8 +561,228 @@ function FilterSheet({
   );
 }
 
+/** Capa da loja com a logo, o nome e a situação. No celular, conta e sacola ficam sobre a foto. */
+function StoreHeader({ onInfo }: { onInfo(): void }) {
+  const { menu, account, count } = useStore();
+  const r = menu.restaurant;
+  const s = menu.store;
+  const first = account?.customer?.name.split(' ')[0];
+  return (
+    <section className="sf-store">
+      <div className="sf-cover">
+        {r.coverUrl ? (
+          <img src={r.coverUrl} alt="" className="sf-cover__img" />
+        ) : (
+          <div className="sf-cover__art" />
+        )}
+        <div className="sf-cover__bar">
+          {menu.appearance.accountsEnabled ? (
+            <Link className="sf-glass" to="/pedir/conta" aria-label="Minha conta">
+              {first ? first[0]!.toUpperCase() : <UserRound size={19} />}
+            </Link>
+          ) : (
+            <span />
+          )}
+          <Link
+            className="sf-glass"
+            to="/pedir/sacola"
+            aria-label={count ? `Sacola com ${count} itens` : 'Sacola'}
+          >
+            <ShoppingBag size={19} />
+            {count > 0 && <span className="cartpill__count">{count}</span>}
+          </Link>
+        </div>
+      </div>
+      <div className="sf-head">
+        <Photo src={r.logoUrl} alt={r.name} className="sf-head__logo" eager />
+        <div className="sf-head__text">
+          <h1>{r.name}</h1>
+          <span className="sf-head__meta">
+            <StoreStatusLine />
+            <span aria-hidden>·</span>
+            <span className="sf-head__eta">
+              <Clock size={13} aria-hidden /> {s.etaMin}–{s.etaMax} min
+            </span>
+          </span>
+        </div>
+        <button
+          type="button"
+          className="sf-head__info"
+          onClick={onInfo}
+          aria-label="Mais informações da loja"
+          title="Mais informações"
+        >
+          <Info size={18} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Cartão da entrega, com o motoboy desenhado (ou a lojinha, se a loja só tem retirada): frase da
+ * loja e, na faixa de baixo, tempo, taxa e "Mais informações". Com a loja fechada, avisa aqui.
+ */
+function RideCard({ onInfo }: { onInfo(): void }) {
+  const { menu, account } = useStore();
+  const s = menu.store;
+  const first = account?.customer?.name.split(' ')[0];
+  const delivery = s.acceptsDelivery;
+  return (
+    <section className="sf-ride" data-closed={!s.isOpen || undefined}>
+      <div className="sf-ride__top">
+        <div className="sf-ride__text">
+          {s.isOpen ? (
+            <>
+              <span className="sf-ride__hello">{first ? `Olá, ${first}!` : 'Olá!'}</span>
+              <strong className="sf-ride__title">
+                {menu.appearance.headline || 'Bateu a fome? Peça agora!'}
+              </strong>
+              <small className="sf-ride__sub">
+                {delivery ? 'A gente leva até você' : 'Peça e retire na loja'}
+              </small>
+            </>
+          ) : (
+            <span role="status">
+              <strong className="sf-ride__title">
+                <Moon size={18} aria-hidden /> Estamos fechados agora
+              </strong>
+              <small className="sf-ride__sub">
+                Dá para montar a sacola; os pedidos entram quando a loja abrir.
+              </small>
+            </span>
+          )}
+        </div>
+        <DeliveryArt delivery={delivery} ride={s.isOpen} className="sf-ride__art" />
+      </div>
+      <button
+        type="button"
+        className="sf-ride__info"
+        onClick={onInfo}
+        aria-label="Mais informações da loja"
+      >
+        <span>
+          <Clock size={15} aria-hidden /> {s.etaMin}–{s.etaMax} min
+        </span>
+        {delivery ? (
+          <span>
+            <Bike size={15} aria-hidden /> {deliveryFeeText(s)}
+          </span>
+        ) : (
+          s.acceptsPickup && (
+            <span>
+              <Store size={15} aria-hidden /> Retirada na loja
+            </span>
+          )
+        )}
+        <span className="sf-ride__more">
+          <span className="sf-ride__more-txt">Mais informações</span>
+          <ChevronRight size={16} aria-hidden />
+        </span>
+      </button>
+    </section>
+  );
+}
+
+/** Coluna de categorias do tablet (como no totem): foto e nome, a da tela fica marcada. */
+function CategoryRail({ sections }: { sections: Section[] }) {
+  const active = useActiveSection();
+  const box = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = box.current?.querySelector<HTMLElement>('[aria-current="true"]');
+    const b = box.current;
+    if (!el || !b) return;
+    if (el.offsetTop < b.scrollTop || el.offsetTop + el.offsetHeight > b.scrollTop + b.clientHeight)
+      b.scrollTo({
+        top: el.offsetTop - b.clientHeight / 2 + el.offsetHeight / 2,
+        behavior: 'smooth',
+      });
+  }, [active]);
+  return (
+    <nav className="sf-rail" aria-label="Categorias" ref={box}>
+      {sections.map((c) => (
+        <button
+          key={c.id}
+          type="button"
+          className="sf-rail__item"
+          aria-current={active === c.id}
+          onClick={() => requestJump(c.id)}
+        >
+          <Photo src={sectionPhoto(c)} alt={c.name} className="sf-rail__photo" />
+          <span>{c.name}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+/**
+ * Rolagem que marca a seção na tela (o menu lateral e a coluna do tablet seguem) e o pulo até a
+ * seção tocada. Durante o pulo a marcação fica parada, para não piscar as do meio do caminho.
+ */
+function useScrollSpy(ids: string[], on: boolean) {
+  const key = ids.join('|');
+  useEffect(() => {
+    if (!on || !ids.length) return;
+    let frame = 0;
+    let lockUntil = 0;
+    // A seção vale a partir de quando passa de um terço da área visível (abaixo da busca).
+    const line = () => {
+      const top = document.querySelector('.searchbar')?.getBoundingClientRect().bottom ?? 0;
+      return top + (window.innerHeight - top) * 0.3;
+    };
+    const spy = () => {
+      frame = 0;
+      if (performance.now() < lockUntil) return;
+      const y = line();
+      let cur = ids[0]!;
+      for (const id of ids) {
+        const el = document.getElementById(`sec-${id}`);
+        if (!el) continue;
+        if (el.getBoundingClientRect().top <= y) cur = id;
+        else break;
+      }
+      const doc = document.documentElement;
+      if (window.scrollY > 0 && window.innerHeight + window.scrollY >= doc.scrollHeight - 4)
+        cur = ids[ids.length - 1]!;
+      setActiveSection(cur);
+    };
+    const onScroll = () => {
+      if (performance.now() < lockUntil) lockUntil = Math.max(lockUntil, performance.now() + 160);
+      if (!frame) frame = requestAnimationFrame(spy);
+    };
+    const jump = (id: string, smooth: boolean) => {
+      const el = document.getElementById(`sec-${id}`);
+      if (!el) return;
+      lockUntil = performance.now() + 900;
+      setActiveSection(id);
+      el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+    };
+    const off = onJump((id) => jump(id, !reducedMotion()));
+    const pending = takePendingJump();
+    if (pending) requestAnimationFrame(() => jump(pending, false));
+    else spy();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      off();
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+    // A lista de seções muda só quando o cardápio muda.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, on]);
+}
+
+/** Onde o início estava (tablet e notebook): ao voltar do produto, a página volta para lá. */
+let keptScroll = 0;
+
 export function HomeScreen() {
-  const { menu, account, product, count } = useStore();
+  const { menu, product } = useStore();
+  const layout = useLayout();
+  const sectionsMode = layout !== 'phone';
+  const nav = useNavigationType();
   const open = useOpenProduct();
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Filters>(kept.filters);
@@ -562,8 +791,6 @@ export function HomeScreen() {
   const sentinel = useRef<HTMLDivElement>(null);
   const recent = useMemo(recentOrders, []);
   const r = menu.restaurant;
-  const s = menu.store;
-  const first = account?.customer?.name.split(' ')[0];
 
   // A busca gruda no topo e ganha uma linha embaixo depois que a capa sai da tela.
   useEffect(() => {
@@ -575,46 +802,7 @@ export function HomeScreen() {
   }, []);
 
   const all = useMemo(() => menu.categories.flatMap((c) => c.products), [menu]);
-  const wheel = useMemo<WheelItem[]>(() => {
-    const featured = all.filter((p) => p.featured);
-    const popular = menu.popular.map((id) => product(id)).filter(Boolean) as PublicProduct[];
-    // Destaques e Mais pedidos aparecem como as outras categorias: com a foto de um produto
-    // delas (sem ícone). Cada uma pega uma foto diferente, para não ficarem iguais lado a lado.
-    const used = new Set(
-      menu.categories
-        .map((c) => c.imageUrl ?? c.products.find((p) => p.imageUrl)?.imageUrl)
-        .filter(Boolean) as string[],
-    );
-    const cover = (list: PublicProduct[]) => {
-      const withPhoto = list.filter((p) => p.imageUrl);
-      const pick = withPhoto.find((p) => !used.has(p.imageUrl!)) ?? withPhoto[0];
-      if (pick) used.add(pick.imageUrl!);
-      return pick?.imageUrl ?? null;
-    };
-    return [
-      ...(featured.length
-        ? [
-            {
-              id: '__featured',
-              name: menu.appearance.featuredTitle || 'Destaques',
-              imageUrl: cover(featured),
-              products: featured,
-            },
-          ]
-        : []),
-      ...(popular.length > 2
-        ? [
-            {
-              id: '__popular',
-              name: 'Mais pedidos',
-              imageUrl: cover(popular),
-              products: popular,
-            },
-          ]
-        : []),
-      ...menu.categories.filter((c) => c.products.length > 0),
-    ];
-  }, [all, menu, product]);
+  const wheel = useMemo(() => buildSections(menu), [menu]);
   const [cat, setCatState] = useState<string>(() =>
     wheel.some((c) => c.id === kept.cat) ? kept.cat! : (wheel[0]?.id ?? ''),
   );
@@ -645,89 +833,53 @@ export function HomeScreen() {
   const [slide, setSlide] = useState({ idx: catIdx, dir: 'fwd' as 'fwd' | 'back' });
   if (slide.idx !== catIdx) setSlide({ idx: catIdx, dir: catIdx < slide.idx ? 'back' : 'fwd' });
   const shown = current ? refine(current.products, filters) : [];
+  const lists = useMemo(
+    () => wheel.map((c) => ({ ...c, products: refine(c.products, filters) })),
+    [wheel, filters],
+  );
+  const listed = sectionsMode ? lists.reduce((n, c) => n + c.products.length, 0) : shown.length;
+
+  useScrollSpy(
+    wheel.map((c) => c.id),
+    sectionsMode && !term,
+  );
+
+  // Tablet e notebook: voltar do produto devolve a página para onde estava.
+  useLayoutEffect(() => {
+    if (!sectionsMode) return;
+    if (nav === 'POP' && keptScroll) window.scrollTo({ top: keptScroll, behavior: 'instant' });
+    return () => {
+      keptScroll = window.scrollY;
+    };
+    // Só ao abrir e sair do início.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sectionsMode]);
 
   function pickBanner(b: PublicBanner) {
     if (b.targetType === 'product') {
       const p = product(b.targetId!);
       if (p) open(p);
     } else if (b.targetType === 'category') {
+      if (sectionsMode) return requestJump(b.targetId!);
       setCat(b.targetId!);
       document.querySelector('.wheel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }
 
-  return (
+  const body = (
     <>
-      {/* Topo do celular: saudação e sacola (no computador isso fica na barra do topo). */}
-      <header className="sf-top">
-        {menu.appearance.accountsEnabled ? (
-          <Link className="sf-top__avatar" to="/pedir/conta" aria-label="Minha conta">
-            {first ? first[0]!.toUpperCase() : <UserRound size={18} />}
-          </Link>
-        ) : (
-          <Photo src={r.logoUrl} alt={r.name} className="sf-top__avatar" eager />
-        )}
-        <span className="sf-top__hello">
-          <strong>{first ? `Olá, ${first}` : 'Olá!'}</strong>
-          <small>{menu.appearance.headline || 'Bateu a fome? Peça agora!'}</small>
-        </span>
-        <Link
-          className="sf-top__bag"
-          to="/pedir/sacola"
-          aria-label={count ? `Sacola com ${count} itens` : 'Sacola'}
-        >
-          <ShoppingBag size={20} />
-          {count > 0 && <span className="cartpill__count">{count}</span>}
-        </Link>
-      </header>
-
-      {/* Capa só com a foto; a logo redonda encosta nela por baixo, com nome e situação. */}
-      <div className="sf-cover">
-        {r.coverUrl ? (
-          <img src={r.coverUrl} alt="" className="sf-cover__img" />
-        ) : (
-          <div className="sf-cover__art" />
-        )}
-      </div>
-      <section className="sf-wrap sf-head">
-        <Photo src={r.logoUrl} alt={r.name} className="sf-head__logo" eager />
-        <h1>{r.name}</h1>
-        <span className={`status ${s.isOpen ? 'is-open' : 'is-closed'}`}>
-          {s.isOpen ? 'Aberto agora' : 'Fechado agora'}
-        </span>
-        <span className="sf-head__meta">
-          <Clock size={14} aria-hidden /> {s.etaMin}–{s.etaMax} min
-          {s.acceptsDelivery && !s.deliveryZones && (
-            <>
-              <span aria-hidden>·</span>
-              {toCents(s.deliveryFee) ? `Entrega ${brl(s.deliveryFee)}` : 'Entrega grátis'}
-            </>
+      <div className="sf-hero">
+        <StoreHeader onInfo={() => setSheet('info')} />
+        <div className="sf-wrap sf-intro">
+          <RideCard onInfo={() => setSheet('info')} />
+          {recent[0] && (
+            <Link className="ongoing" to={`/pedido/${recent[0].token}`}>
+              <span className="ongoing__dot" aria-hidden />
+              Acompanhe seu pedido #{recent[0].number}
+              <ChevronRight size={16} />
+            </Link>
           )}
-        </span>
-        <button type="button" className="sf-head__more" onClick={() => setSheet('info')}>
-          <Info size={15} aria-hidden />
-          Mais informações
-        </button>
-      </section>
-
-      <div className="sf-wrap sf-notes">
-        {recent[0] && (
-          <Link className="ongoing" to={`/pedido/${recent[0].token}`}>
-            <span className="ongoing__dot" aria-hidden />
-            Acompanhe seu pedido #{recent[0].number}
-            <ChevronRight size={16} />
-          </Link>
-        )}
-        {!s.isOpen && (
-          <p className="closed-note closed-note--big" role="status">
-            <Moon size={20} aria-hidden />
-            <span>
-              <strong>Estamos fechados agora</strong>
-              Você pode olhar o cardápio e montar a sacola, mas os pedidos só entram quando a loja
-              abrir.
-            </span>
-          </p>
-        )}
+        </div>
       </div>
       <div ref={sentinel} aria-hidden />
 
@@ -737,7 +889,7 @@ export function HomeScreen() {
             <Search size={18} aria-hidden />
             <input
               type="search"
-              placeholder="Buscar produto…"
+              placeholder={`Buscar em ${r.name}…`}
               aria-label="Buscar no cardápio"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -772,8 +924,10 @@ export function HomeScreen() {
           </section>
         ) : (
           <>
-            <LoyaltyStrip />
-            <ReserveCard />
+            <div className="sf-perks">
+              <LoyaltyStrip />
+              <ReserveCard />
+            </div>
             <Banners banners={menu.banners} onPick={pickBanner} />
 
             {wheel.length === 0 ? (
@@ -782,6 +936,27 @@ export function HomeScreen() {
                 <strong>O cardápio está sendo preparado</strong>
                 <p>Ainda não há pratos cadastrados. Volte em instantes!</p>
               </div>
+            ) : sectionsMode ? (
+              lists.map((c) => (
+                <section
+                  key={c.id}
+                  id={`sec-${c.id}`}
+                  className="sec sf-sec"
+                  aria-labelledby={`sec-${c.id}-t`}
+                >
+                  <h2 className="sec__title sec__title--cat" id={`sec-${c.id}-t`}>
+                    {c.name}
+                    <small>
+                      {c.products.length} {c.products.length === 1 ? 'item' : 'itens'}
+                    </small>
+                  </h2>
+                  {c.products.length ? (
+                    <ProductGrid list={c.products} />
+                  ) : (
+                    <p className="sf-empty">Nenhum produto disponível nesta categoria agora.</p>
+                  )}
+                </section>
+              ))
             ) : (
               <>
                 <CategoryWheel items={wheel} cur={current!.id} onPick={setCat} />
@@ -810,16 +985,23 @@ export function HomeScreen() {
           </p>
         </footer>
       </div>
+    </>
+  );
+
+  return (
+    <div className="sf-home" data-mode={sectionsMode ? 'sections' : 'wheel'}>
+      {layout === 'tablet' && wheel.length > 0 && <CategoryRail sections={wheel} />}
+      <div className="sf-home__main">{body}</div>
 
       <StoreInfo open={sheet === 'info'} onClose={() => setSheet(null)} />
       <FilterSheet
         open={sheet === 'filter'}
         value={filters}
-        count={term ? results.length : shown.length}
+        count={term ? results.length : listed}
         onChange={changeFilters}
         onClose={() => setSheet(null)}
       />
-    </>
+    </div>
   );
 }
 

@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.88.0',
+    date: '2026-11-05',
+    title: 'Cardápio online com cara de app',
+    summary:
+      'O cardápio online ficou com um jeito próprio para cada tela. No celular, o menu de baixo ganhou uma bolinha que desliza até a aba aberta. No tablet, ele parece um totem de pedido, com as categorias numa coluna e a barra do pedido sempre à mão. No notebook, as categorias ficam num menu do lado e a sacola fica aberta ao lado do cardápio. Tudo com desenhos de motoboy e da loja.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Celular: menu de baixo animado. A aba aberta sobe para uma bolinha na cor da loja, encaixada num recorte da barra, e os dois deslizam juntos ao trocar de aba.',
+      },
+      {
+        tag: 'novo',
+        text: 'Tablet: layout de totem, com abas no topo, categorias com foto numa coluna à esquerda, todas as seções em sequência e a barra "Ver sacola" presa embaixo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Notebook: menu lateral com a loja, as abas e as categorias. Tocar numa categoria rola o cardápio até ela, e rolar o cardápio marca a categoria que está na tela.',
+      },
+      {
+        tag: 'novo',
+        text: 'Notebook largo: a sacola fica aberta ao lado do cardápio, com quantidade de cada item, entrega ou retirada, total e o botão que já abre a finalização.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Desenhos de motoboy e da loja no topo do cardápio, na sacola vazia, nos pedidos e no acompanhamento (saiu para entrega ou pronto para retirar).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cardápio no computador mais compacto: cabeçalho com a capa, cartões de produto menores e com botão "Adicionar", sem espaços sobrando.',
+      },
+    ],
+  },
+  {
     version: '0.87.0',
     date: '2026-11-05',
     title: 'Salão de cara nova',

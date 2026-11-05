@@ -39,12 +39,17 @@ import { ProductScreen } from './ProductScreen';
 import { ReservationStatusScreen, ReserveScreen } from './ReservationScreens';
 import { PublicOrderPage } from './PublicOrderPage';
 import type { PublicMenu, StoreStatus } from './store';
+import { MagicNav, type MagicTab } from './MagicNav';
+import { useLayout } from './sections';
+import { CartPanel, OrderBar, SideBar, StoreStatusLine } from './Shell';
 import { Photo } from './ui';
 import './public.css';
 import './storefront.css';
+// Depois do storefront.css: a moldura do tablet e do notebook ajusta as peças comuns.
+import './shell.css';
 
-/** Abas do cardápio: embaixo no celular, no menu do topo no computador. */
-function useNavTabs() {
+/** Abas do cardápio: embaixo no celular, no topo no tablet e no menu lateral no notebook. */
+function useNavTabs(): MagicTab[] {
   const { menu, account } = useStore();
   const chat = useStoreChat();
   const name = account?.customer?.name.split(' ')[0];
@@ -70,29 +75,19 @@ function Dot({ n }: { n: number }) {
     </b>
   );
 }
+const dot = (n: number) => <Dot n={n} />;
 
-/** Abas de baixo (celular): barra na cor da loja; a aba aberta mostra o nome. */
+/** Abas de baixo (celular): a aba aberta sobe numa bolinha encaixada na barra. */
 function BottomNav() {
   const { pathname } = useLocation();
   // Produto e sacola têm a própria barra embaixo (adicionar / finalizar).
   const focused = /^\/pedir\/(produto|sacola|reservar|conversa)/.test(pathname);
-  const tabs = useNavTabs();
-  return (
-    <nav className="tabbar" data-focused={focused || undefined} aria-label="Navegação do cardápio">
-      {tabs.map((t) => (
-        <NavLink key={t.to} to={t.to} end={t.end} className="tabbar__item">
-          <t.icon size={22} aria-hidden />
-          <span>{t.label}</span>
-          <Dot n={t.badge} />
-        </NavLink>
-      ))}
-    </nav>
-  );
+  return <MagicNav tabs={useNavTabs()} hidden={focused} label="Navegação do cardápio" dot={dot} />;
 }
 
 /**
- * Barra do topo no computador (como no iFood): loja à esquerda, menu e sacola à direita. Fica
- * presa no topo e não cobre a capa nem o conteúdo.
+ * Barra do topo no tablet (como no totem): loja à esquerda, abas e sacola à direita. Fica presa
+ * no topo e não cobre a capa nem o conteúdo.
  */
 function TopBar() {
   const { menu, count, subtotal, bump } = useStore();
@@ -103,7 +98,10 @@ function TopBar() {
       <div className="sf-appbar__inner">
         <Link to="/pedir" className="sf-appbar__brand">
           <Photo src={r.logoUrl} alt={r.name} className="sf-appbar__logo" eager />
-          <strong>{r.name}</strong>
+          <span>
+            <strong>{r.name}</strong>
+            <StoreStatusLine />
+          </span>
         </Link>
         <nav className="sf-appbar__nav" aria-label="Menu do cardápio">
           {tabs.map((t) => (
@@ -223,6 +221,35 @@ function Screens() {
   );
 }
 
+/**
+ * Moldura do cardápio conforme a tela: abas embaixo no celular, barra no topo e barra do pedido
+ * no tablet, menu lateral e sacola ao lado no notebook.
+ */
+function Chrome() {
+  const layout = useLayout();
+  const { pathname } = useLocation();
+  const tabs = useNavTabs();
+  // Telas de escolher produto (início e favoritos): no notebook largo a sacola fica ao lado.
+  const browse = /^\/pedir(\/favoritos)?\/?$/.test(pathname);
+  return (
+    <main className="sf" data-layout={layout} data-browse={browse || undefined}>
+      {layout === 'desktop' && <SideBar tabs={tabs} dot={dot} />}
+      <div className="sf-main">
+        {layout === 'tablet' && <TopBar />}
+        <Screens />
+      </div>
+      {layout === 'desktop' && browse && <CartPanel />}
+      {layout === 'tablet' && <OrderBar />}
+      {layout === 'phone' && (
+        <>
+          <CartPill />
+          <BottomNav />
+        </>
+      )}
+    </main>
+  );
+}
+
 function Skeleton() {
   return (
     <main className="sf sf--loading" aria-busy="true">
@@ -303,12 +330,7 @@ export function StoreApp() {
   return (
     <StoreProvider menu={menu} refreshStatus={refreshStatus} refreshMenu={refreshMenu}>
       <StoreChatProvider>
-        <main className="sf">
-          <TopBar />
-          <Screens />
-          <CartPill />
-          <BottomNav />
-        </main>
+        <Chrome />
       </StoreChatProvider>
     </StoreProvider>
   );

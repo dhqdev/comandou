@@ -1,0 +1,220 @@
+/*
+ * Ilustrações do cardápio (art.tsx): estilo desenho, traço escuro e cores chapadas.
+ * A moto, a caixa e o toldo usam a cor da loja; a jaqueta, a cor de destaque.
+ * As cores fixas (pneu, calça, vidro, papel da sacola) são do desenho e valem nos dois temas.
+ */
+.art {
+  --art-ink: #2b1d16;
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.art .art-ink {
+  stroke: var(--art-ink);
+  stroke-width: 3;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.art-none {
+  fill: none;
+}
+.art-shadow {
+  fill: var(--art-ink);
+  opacity: 0.12;
+}
+.art-white {
+  fill: #fff;
+}
+.art-brand {
+  fill: var(--cm-brand-500);
+}
+.art-brand-deep {
+  fill: var(--cm-brand-600);
+}
+.art-brand-dark {
+  fill: var(--cm-brand-800);
+}
+.art-accent {
+  fill: var(--cm-accent-400);
+}
+.art-seat {
+  fill: #3a2a22;
+}
+.art-pants {
+  fill: #3d4a66;
+}
+.art-red {
+  fill: #ff5a4e;
+}
+.art-light {
+  fill: #ffd34d;
+}
+.art-glass {
+  fill: #cfe7ff;
+}
+.art-tire,
+.art-glove,
+.art-visor,
+.art-knob,
+.art-sign {
+  fill: var(--art-ink);
+}
+.art-hub {
+  fill: #e9e4df;
+}
+.art-spoke {
+  stroke: var(--art-ink);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.art-fork {
+  stroke: #bdb5ae;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+.art-shine,
+.art-stripe,
+.art-visor-shine,
+.art-glass-shine {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+.art-stripe {
+  stroke-width: 4;
+  opacity: 0.85;
+}
+.art-visor-shine {
+  stroke-width: 2.5;
+  opacity: 0.7;
+}
+.art-glass-shine {
+  opacity: 0.9;
+}
+.art-helmet-stripe {
+  fill: none;
+  stroke: var(--cm-brand-500);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+.art-cutlery {
+  fill: none;
+  stroke: var(--cm-brand-600);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+.art-sole {
+  stroke: var(--cm-brand-500);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.art-wind path {
+  fill: none;
+  stroke: var(--art-ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.3;
+}
+.art-wall {
+  fill: #fff6ee;
+}
+.art-sign-line {
+  stroke: var(--cm-accent-400);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+.art-open {
+  stroke: #2b8a3e;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.art-kraft {
+  fill: #d9a066;
+}
+.art-kraft-dark {
+  fill: #c48650;
+}
+.art-pot {
+  fill: #c9733f;
+}
+.art-leaf {
+  fill: #5cb85c;
+}
+/* Tema escuro: o traço clareia um pouco para não sumir no fundo escuro. */
+:root[data-theme='dark'] .art {
+  --art-ink: #1a1210;
+}
+:root[data-theme='dark'] .art-wind path,
+:root[data-theme='dark'] .art-shadow {
+  stroke: #fff;
+  fill: #000;
+}
+
+/* ---------------------------------------------------------------- moto andando */
+.art[data-ride] .art-wheel {
+  animation: art-spin 0.55s linear infinite;
+}
+.art[data-ride] .art-body {
+  animation: art-bump 0.36s ease-in-out infinite alternate;
+}
+.art[data-ride] .art-wind path {
+  animation: art-wind 0.9s linear infinite;
+}
+.art[data-ride] .art-wind path:nth-child(2) {
+  animation-delay: -0.3s;
+}
+.art[data-ride] .art-wind path:nth-child(3) {
+  animation-delay: -0.6s;
+}
+.art[data-ride] .art-puff circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: art-puff 1.1s ease-out infinite;
+}
+.art[data-ride] .art-puff circle:nth-child(2) {
+  animation-delay: -0.55s;
+}
+@keyframes art-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes art-bump {
+  to {
+    transform: translateY(-1.6px);
+  }
+}
+@keyframes art-wind {
+  0% {
+    transform: translateX(10px);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateX(-16px);
+    opacity: 0;
+  }
+}
+@keyframes art-puff {
+  0% {
+    transform: translateX(6px) scale(0.4);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-10px) scale(1.15);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .art[data-ride] * {
+    animation: none !important;
+  }
+}

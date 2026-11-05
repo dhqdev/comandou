@@ -17,6 +17,7 @@ import { CustomerLiveMap, DeliveryCode, type CustomerCourier } from '../../featu
 import { time } from '../../features/format';
 import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
+import { MotoboyArt, PickupArt } from './art';
 import { Photo } from './ui';
 import './public.css';
 
@@ -202,12 +203,18 @@ export function PublicOrderPage() {
           style={{ ['--tone' as string]: hero.tone }}
           aria-live="polite"
         >
-          <span
-            className="track__badge"
-            data-live={o.step !== 'completed' && o.step !== 'cancelled' ? '' : undefined}
-          >
-            <Icon size={28} />
-          </span>
+          {o.step === 'dispatched' ? (
+            <MotoboyArt ride className="track__art" />
+          ) : o.step === 'ready' && o.channel === 'pickup' ? (
+            <PickupArt className="track__art" />
+          ) : (
+            <span
+              className="track__badge"
+              data-live={o.step !== 'completed' && o.step !== 'cancelled' ? '' : undefined}
+            >
+              <Icon size={28} />
+            </span>
+          )}
           <span className="cm-hint">Pedido #{o.number}</span>
           <h1>{hero.title}</h1>
           <p>{hero.text(o)}</p>

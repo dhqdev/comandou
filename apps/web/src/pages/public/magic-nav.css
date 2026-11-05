@@ -1,0 +1,135 @@
+/*
+ * Menu de baixo do celular (MagicNav.tsx): barra clara flutuando, com um recorte onde a bolinha
+ * da aba aberta fica encaixada. Recorte e bolinha deslizam juntos.
+ */
+.mnav {
+  position: fixed;
+  z-index: 40;
+  left: 10px;
+  right: 10px;
+  bottom: calc(10px + var(--sf-safe, 0px) * 0.6);
+  max-width: 480px;
+  height: 64px;
+  margin: 0 auto;
+  transition: transform 0.4s var(--sf-ease, ease);
+  -webkit-tap-highlight-color: transparent;
+}
+.mnav[data-hidden] {
+  transform: translateY(170%);
+}
+.mnav__bg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.16)) drop-shadow(0 1px 1px rgb(0 0 0 / 0.06));
+}
+.mnav__bar {
+  fill: var(--cm-surface);
+  stroke: color-mix(in srgb, var(--cm-border) 70%, transparent);
+  stroke-width: 1;
+}
+/* Fundo do recorte: a cor da página (parece um buraco na barra, sem o cardápio por trás). */
+.mnav__well {
+  fill: color-mix(in srgb, var(--cm-text) 5%, var(--sf-page, var(--cm-bg)));
+}
+:root[data-theme='dark'] .mnav__bg {
+  filter: drop-shadow(0 10px 22px rgb(0 0 0 / 0.5));
+}
+/* Bolinha da aba aberta (a posição vem do JS, junto com o recorte). */
+.mnav__blob {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 49px;
+  height: 49px;
+  border-radius: 50%;
+  background: var(--cm-brand-600);
+  box-shadow:
+    0 6px 14px -6px rgb(0 0 0 / 0.35),
+    inset 0 -3px 0 rgb(0 0 0 / 0.1);
+  transform: scale(0);
+  will-change: transform;
+  pointer-events: none;
+}
+.mnav__items {
+  position: relative;
+  display: flex;
+  height: 100%;
+  padding: 0 var(--mnav-pad, 12px);
+}
+.mnav__item {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  color: var(--cm-text-muted);
+  text-decoration: none;
+  outline: none;
+}
+.mnav__icon {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  translate: -50% 0;
+  transition:
+    transform 0.5s cubic-bezier(0.34, 1.5, 0.64, 1),
+    color 0.3s var(--cm-ease);
+}
+.mnav__label {
+  position: absolute;
+  bottom: 7px;
+  left: 50%;
+  max-width: 100%;
+  translate: -50% 0;
+  padding: 0 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--cm-brand-700);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.25s var(--cm-ease),
+    transform 0.4s var(--cm-ease-liquid);
+}
+/* Aba aberta: o ícone sobe para dentro da bolinha e o nome aparece embaixo dela. */
+.mnav__item[data-on] .mnav__icon {
+  transform: translateY(-32px);
+  color: var(--cm-on-brand);
+  transition-delay: 0.06s;
+}
+.mnav__item[data-on] .mnav__label {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0.12s;
+}
+.mnav__item:not([data-on]):active .mnav__icon {
+  transform: scale(0.86);
+}
+.mnav__item:focus-visible .mnav__icon {
+  outline: 2px solid var(--cm-brand-500);
+  outline-offset: 6px;
+  border-radius: 50%;
+}
+/* Bolinha de mensagens novas, no canto do ícone. */
+.mnav .sf-dot {
+  position: absolute;
+  top: -7px;
+  left: 14px;
+  box-shadow: 0 0 0 2px var(--cm-surface);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mnav__icon,
+  .mnav__label {
+    transition: none;
+  }
+}
