@@ -2,6 +2,7 @@ import { Printer } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Alert, Button, Modal, Spinner, useToast } from '../design-system';
 import { api } from '../lib/api';
+import { paperCss } from '../lib/pos-device';
 
 export type ReceiptTarget = {
   kind: 'order' | 'tab';
@@ -19,8 +20,9 @@ function browserPrint(text: string) {
   const pre = doc.createElement('pre');
   pre.textContent = text;
   const style = doc.createElement('style');
-  style.textContent =
-    '@page{margin:4mm}body{margin:0}pre{font:12px/1.3 ui-monospace,Menlo,Consolas,monospace;white-space:pre;margin:0}';
+  // Largura da bobina deste aparelho (58 mm na maquininha, 80 mm no caixa): Ajustes › Este aparelho.
+  const paper = paperCss();
+  style.textContent = `${paper.page}body{margin:0}pre{font:${paper.font}/1.3 ui-monospace,Menlo,Consolas,monospace;white-space:pre;margin:0}`;
   doc.head.appendChild(style);
   doc.body.appendChild(pre);
   frame.contentWindow!.focus();

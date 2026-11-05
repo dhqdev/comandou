@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.85.0',
+    date: '2026-11-04',
+    title: 'Modo maquininha, tutorial do Estoque e ajuda em aparelhos antigos',
+    summary:
+      'O Comandou agora tem um modo maquininha para Smart POS com Android (Sunmi, PAX, Gertec, Positivo, Ingenico): botões maiores para o dedo e impressão na bobina de 58 mm. O Estoque ganhou um tutorial passo a passo e o "?" dos campos abre também em iPhone, iPad e maquininhas com navegador mais antigo.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Ajustes › Este aparelho: modo maquininha (automático, ligado ou desligado) e largura da bobina (58 ou 80 mm) para comprovante e comanda impressos pelo navegador, com impressão de teste.',
+      },
+      {
+        tag: 'novo',
+        text: 'Botão Tutorial em todas as telas do Estoque: insumos, fichas técnicas, recebimento, fatores, produção, lotes, saídas, inventário e precificação, na ordem de quem está começando.',
+      },
+      {
+        tag: 'correção',
+        text: 'O "?" dentro das janelas não abria em navegadores sem a camada de cima (iOS até o 16, Android antigo e maquininhas): o balão agora fica preso dentro da janela e aparece inteiro.',
+      },
+      {
+        tag: 'correção',
+        text: 'Ler o QR Code da mesa pela câmera (garçom e Salão) voltou a funcionar no servidor: o cabeçalho de segurança do site bloqueava a câmera.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Caixa no celular estreito (320 px): os valores não quebram mais no meio ("R$ 1.279,52" numa linha só).',
+      },
+    ],
+  },
+  {
     version: '0.84.1',
     date: '2026-11-04',
     title: 'Ajuda (?) funcionando dentro das janelas',

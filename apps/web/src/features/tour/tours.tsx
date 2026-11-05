@@ -374,3 +374,109 @@ export const fiscalEnds: TourEnds = {
     ),
   },
 };
+
+/* ------------------------------------------------------------------ Estoque */
+
+export const STOCK_STOPS: TourStop[] = [
+  {
+    path: '/estoque',
+    title: 'Como o estoque funciona',
+    text: (
+      <>
+        Você cadastra os <b>insumos</b> (pão, carne, queijo) e diz na <b>ficha técnica</b> quanto
+        cada item do cardápio gasta. A cada venda o sistema baixa os insumos sozinho. As entradas
+        vêm do <b>Recebimento</b>; o resto é conferência.
+      </>
+    ),
+    targets: [{ css: '.st-kpis' }, { css: '.page-head' }],
+  },
+  {
+    path: '/estoque',
+    title: 'Insumos',
+    text: (
+      <>
+        Cada linha é um insumo, com saldo, mínimo, custo médio e quantos dias ainda dura. Os botões
+        da linha são atalhos: <b>Entrada</b> (chegou sem nota), <b>Perda</b> (estragou),{' '}
+        <b>Contar</b> (conferir um só) e <b>Editar</b>. Comece em <b>Novo insumo</b>.
+      </>
+    ),
+    targets: [{ button: 'Novo insumo' }],
+  },
+  {
+    path: '/estoque/fichas',
+    title: 'Fichas técnicas (o passo mais importante)',
+    text: (
+      <>
+        A receita de cada item: quanto de cada insumo sai por unidade vendida. Item sem ficha{' '}
+        <b>não baixa estoque</b>. Atenção: se faltar insumo, a venda é recusada (a não ser que o
+        insumo permita saldo negativo, em Editar).
+      </>
+    ),
+    targets: [{ button: 'Ficha de preparo' }, { css: '.page-head' }],
+  },
+  {
+    path: '/estoque/recebimento',
+    title: 'Recebimento',
+    text: 'Quando a mercadoria chega do fornecedor: lance a nota com vários itens de uma vez. A quantidade entra no saldo e o custo médio é recalculado.',
+    targets: [{ button: 'Novo recebimento' }],
+  },
+  {
+    path: '/estoque/fatores',
+    title: 'Fatores de conversão',
+    text: 'Você compra em caixa ou fardo, mas controla em unidade ou kg. Ex.: CX = 12 un. Depois, no recebimento, é só escolher CX.',
+    targets: [{ button: 'Novo fator' }, { css: '.page-head' }],
+  },
+  {
+    path: '/estoque/producao',
+    title: 'Produção',
+    text: 'Para o que você prepara na cozinha (molho, massa, hambúrguer moldado): a produção tira os ingredientes e põe o preparo pronto no estoque.',
+    targets: [{ css: '.page-head' }],
+  },
+  {
+    path: '/estoque/lotes',
+    title: 'Lotes e validade',
+    text: 'Opcional. Guarda data de fabricação e validade de cada leva, para usar primeiro o que vence antes.',
+    targets: [{ button: 'Novo lote' }, { css: '.page-head' }],
+  },
+  {
+    path: '/estoque/saida',
+    title: 'Saída de estoque',
+    text: 'O histórico de tudo que saiu e por quê: vendas, perdas, produção e retiradas (ex.: consumo da equipe).',
+    targets: [{ button: 'Nova saída avulsa' }, { css: '.page-head' }],
+  },
+  {
+    path: '/estoque/inventario',
+    title: 'Inventário',
+    text: 'Uma vez por semana ou por mês, conte a prateleira, digite o que achou e conclua: o sistema ajusta os saldos e mostra a diferença em reais.',
+    targets: [{ css: '.page-head' }],
+  },
+  {
+    path: '/estoque/precificacao',
+    title: 'Precificação',
+    text: 'Com as fichas prontas, aqui você vê o custo de cada prato, o lucro e o preço sugerido. Nada muda o preço sozinho.',
+    targets: [{ css: '.page-head' }],
+  },
+];
+
+export const stockEnds: TourEnds = {
+  intro: {
+    title: 'Tutorial do Estoque',
+    text: (
+      <>
+        Vamos passar por cada parte, na ordem de quem está começando: insumos, fichas técnicas,
+        recebimento, fatores, produção, lotes, saídas, inventário e precificação. Nada é salvo
+        durante o tutorial. {HELP_TIP}
+      </>
+    ),
+  },
+  outro: {
+    title: 'Estoque explicado!',
+    targets: [{ css: '[data-tour-button]' }],
+    text: (
+      <>
+        Ordem para começar: <b>insumos → fichas técnicas → recebimento</b>. Para rever, toque em{' '}
+        <b>Tutorial</b>.
+      </>
+    ),
+  },
+};

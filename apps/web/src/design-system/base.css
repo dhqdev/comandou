@@ -208,3 +208,24 @@ html.cm-kb-open .cm-modal:modal,
 html.cm-kb-open .cm-sheet:modal {
   max-height: calc(var(--cm-vvh, 100dvh) - 12px);
 }
+
+/* Maquininha (Smart POS, lib/pos-device.ts): tela pequena, toque com o dedo e processador fraco.
+   Botões e campos com área de toque de 44px, "?" maior e sem o vidro desfocado (pesado na placa
+   de vídeo delas). */
+html.cm-pos .cm-btn {
+  min-height: 44px;
+}
+html.cm-pos :is(input, select, textarea):not([type='checkbox'], [type='radio']) {
+  min-height: 44px;
+  font-size: 16px;
+}
+html.cm-pos .cm-help {
+  width: 26px;
+  height: 26px;
+  font-size: 14px;
+}
+html.cm-pos :is(.cm-modal, .cm-sheet)[data-glass] {
+  background: var(--cm-surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}

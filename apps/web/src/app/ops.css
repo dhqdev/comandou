@@ -1020,6 +1020,13 @@ button.pay-part {
   .cash-stats .stat__value {
     font-size: var(--cm-text-xl);
   }
+}
+/* Celular estreito e maquininha (320-360px): o valor cabe numa linha, sem quebrar "R$ 1.279,52". */
+@media (max-width: 380px) {
+  .cash-stats .stat__value {
+    font-size: var(--cm-text-lg);
+    white-space: nowrap;
+  }
   /* No cartão do celular, só o que tem valor: zeros e células vazias somem. */
   .cash-table td[data-zero],
   .cash-table td:empty {
