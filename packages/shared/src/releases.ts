@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.91.1',
+    date: '2026-11-05',
+    title: 'Comandas do Salão sem texto vazando',
+    summary:
+      'Na aba Comandas do Salão, o selo "conta", o valor e o tempo podiam sair para fora do cupom. Agora tudo cabe no cartão em qualquer tela, e o tempo aberto aparece curto (10 h 17, 6 d) em vez de milhares de minutos.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Salão › Comandas: cupom reorganizado (número e selo de conta em cima; mesa, cliente e tempo na linha de baixo) e textos longos cortados com reticências.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Salão: tempo de mesa, de comanda e de pedido em minutos, horas ou dias.',
+      },
+    ],
+  },
+  {
     version: '0.91.0',
     date: '2026-11-05',
     title: 'CEP que preenche o endereço em todo lugar',

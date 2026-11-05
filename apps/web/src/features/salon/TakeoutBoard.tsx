@@ -2,7 +2,7 @@ import { Bike, MapPin, Phone, ShoppingBag } from 'lucide-react';
 import { Badge, EmptyState } from '../../design-system';
 import { brl } from '../../lib/money';
 import type { Order } from '../../lib/types';
-import { minutesSince, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from '../format';
+import { elapsed, minutesSince, PAYMENT_STATUS_LABEL, PAYMENT_STATUS_TONE } from '../format';
 
 export type TakeoutChannel = 'delivery' | 'pickup';
 export type TakeoutFilter = 'all' | 'kitchen' | 'ready' | 'route';
@@ -75,7 +75,7 @@ export function TakeoutBoard({
             <span className="order-card__head">
               <span className="order-card__num">#{o.number}</span>
               <span className="order-card__time" data-late={mins >= 40 || undefined}>
-                {mins} min
+                {elapsed(mins)}
               </span>
             </span>
             <span className="order-card__who">

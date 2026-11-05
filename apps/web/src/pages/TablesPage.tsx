@@ -56,6 +56,7 @@ import {
 } from '../features/salon/TakeoutBoard';
 import './salon.css';
 import {
+  elapsed,
   minutesSince,
   ORDER_STATUS_LABELS,
   PAYMENT_STATUS_LABEL,
@@ -622,7 +623,7 @@ function TableTile({ table: t, onOpen }: { table: DiningTable; onOpen(): void })
         {t.tabId && (
           <span className="tbl__time" data-long={mins >= 90 || undefined}>
             {st === 'paying' ? <Receipt size={11} aria-hidden /> : null}
-            {st === 'paying' ? 'conta' : `${mins}′`}
+            {st === 'paying' ? 'conta' : elapsed(mins)}
           </span>
         )}
       </span>
@@ -646,6 +647,7 @@ function TableTile({ table: t, onOpen }: { table: DiningTable; onOpen(): void })
 function TabTicket({ tab: t, onOpen }: { tab: Tab; onOpen(): void }) {
   const total = toCents(t.total);
   const paidPct = total > 0 ? Math.min(100, Math.round((toCents(t.paid) / total) * 100)) : 0;
+  const mins = minutesSince(t.openedAt);
   return (
     <button
       className="ticket"
@@ -658,19 +660,24 @@ function TabTicket({ tab: t, onOpen }: { tab: Tab; onOpen(): void }) {
           <small>Nº</small>
           {t.number}
         </span>
+        {t.billRequestedAt && (
+          <span className="ticket__flag" title="Pediu a conta">
+            <BellRing size={12} aria-hidden />
+            <span>conta</span>
+          </span>
+        )}
+      </span>
+      <span className="ticket__meta">
         <span className="ticket__where">
           {t.tableLabel ? <Utensils size={13} aria-hidden /> : <Receipt size={13} aria-hidden />}
           {t.tableLabel ? `Mesa ${t.tableLabel}` : 'Avulsa'}
         </span>
-        {t.billRequestedAt && (
-          <span className="ticket__flag">
-            <BellRing size={12} aria-hidden /> conta
-          </span>
-        )}
-      </span>
-      <span className="ticket__who">
-        {t.customerName ?? `${t.orderCount} pedido(s)`}
-        <span className="cm-hint"> · {minutesSince(t.openedAt)} min</span>
+        <span className="ticket__who">
+          {t.customerName ?? `${t.orderCount} ${t.orderCount === 1 ? 'pedido' : 'pedidos'}`}
+        </span>
+        <span className="ticket__age" data-long={mins >= 180 || undefined}>
+          {elapsed(mins)}
+        </span>
       </span>
       <span className="ticket__cut" aria-hidden />
       <span className="ticket__foot">

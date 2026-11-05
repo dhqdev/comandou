@@ -48,5 +48,19 @@ export function minutesSince(iso: string, now = Date.now()) {
   return Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60_000));
 }
 
+/**
+ * Tempo decorrido curto para cartões: "12 min", "2 h 05", "3 d". Comanda esquecida aberta
+ * há dias não vira "8808 min".
+ */
+export function elapsed(min: number): string {
+  if (min < 60) return `${min} min`;
+  if (min < 24 * 60) {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return m ? `${h} h ${String(m).padStart(2, '0')}` : `${h} h`;
+  }
+  return `${Math.floor(min / (24 * 60))} d`;
+}
+
 export const qty = (q: string) =>
   Number.isInteger(Number(q)) ? String(Number(q)) : q.replace('.', ',');
