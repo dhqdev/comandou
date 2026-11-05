@@ -134,8 +134,10 @@ test('cozinha: login próprio em /cozinha, só a fila e tela cheia', async ({
   const ctx = await browser.newContext({ baseURL });
   const k = await ctx.newPage();
   await signIn(k, '/cozinha', email, 'senha-da-cozinha-1', 'Entrar na cozinha');
-  await expect(k.getByRole('heading', { name: 'Cozinha' })).toBeVisible();
-  await expect(k.getByRole('button', { name: 'Tela cheia' })).toBeVisible();
+  // A abinha de tela cheia do topo já aparece na tela de login: espera o KDS abrir de verdade.
+  const kds = k.locator('.kapp');
+  await expect(kds.getByRole('heading', { name: 'Cozinha' })).toBeVisible();
+  await expect(kds.getByRole('button', { name: 'Tela cheia' })).toBeVisible();
   await expect(k.locator('.cm-rail, .cm-tabbar')).toHaveCount(0);
   await k.goto('/caixa');
   await expect(k).toHaveURL(/\/cozinha$/);
