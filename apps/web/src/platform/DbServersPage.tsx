@@ -42,6 +42,7 @@ function health(c: Card): [string, Level] {
  * Bancos: em qual servidor Postgres fica o banco de cada restaurante, e a troca com um clique
  * (de um restaurante ou de todos). Quem copia é o serviço de backup, um restaurante por vez.
  */
+/** Aba "Bancos" da tela Infraestrutura (InfraPage). */
 export function DbServersPage() {
   const toast = useToast();
   const { data, error, reload } = useLoad<DbServers>('/platform/db-servers');
@@ -114,8 +115,6 @@ export function DbServersPage() {
   return (
     <>
       <PageHead
-        page
-        title="Bancos"
         sub={
           <span>
             Cada restaurante tem o próprio banco. Escolha em qual servidor ele fica e mude com um

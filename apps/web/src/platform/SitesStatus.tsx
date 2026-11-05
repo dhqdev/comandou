@@ -117,7 +117,7 @@ export function SitesTiles({
         value={`${dbOk} ok`}
         sub={dbBad ? `${dbBad} sem resposta` : 'todos respondendo'}
         level={dbBad ? 'bad' : undefined}
-        onClick={() => navigate('/bancos')}
+        onClick={() => navigate('/servidor/bancos')}
       />
       <Tile
         label="WhatsApp"
@@ -143,7 +143,7 @@ export function SitesTiles({
         value={`${bkOk} em dia`}
         sub={`${live.length - bkOk} com atenção`}
         level={live.length - bkOk ? 'warn' : undefined}
-        onClick={() => navigate('/backups')}
+        onClick={() => navigate('/servidor/backups')}
       />
       <Tile
         label="Alertas"

@@ -340,8 +340,6 @@ export function OverviewPage() {
   );
 }
 
-export { BackupsPage } from './BackupsPage';
-
 export const ACTION_LABELS: Record<string, string> = {
   'platform.login': 'Entrou no painel',
   'platform.login_failed': 'Tentativa de login recusada',

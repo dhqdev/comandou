@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.93.0',
+    date: '2026-11-05',
+    title: 'Super Admin: Infraestrutura numa aba só e calendário de recebimentos',
+    summary:
+      'Servidor, Bancos e Backups viraram uma aba só, a Infraestrutura, com uma aba para cada parte. Na Cobrança, um calendário mostra em que dia cada cliente paga e quanto, e as configurações ganharam explicações com exemplos.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Super Admin: Servidor, Bancos e Backups juntos na tela Infraestrutura (/servidor, /servidor/bancos, /servidor/backups). Os endereços antigos continuam funcionando.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cobrança: calendário do mês com o que já entrou, as faturas enviadas, as vencidas e a previsão das próximas mensalidades de cada cliente. Toque num dia para ver quem paga e quanto.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cobrança: configurações separadas em grupos (Asaas, mensalidade, contrato, cartão, página de preços), cada campo com o limite aceito e um exemplo, e uma linha do tempo com os números escolhidos.',
+      },
+    ],
+  },
+  {
     version: '0.92.0',
     date: '2026-11-05',
     title: 'Conversa com a loja ocupando a tela no notebook',

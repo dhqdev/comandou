@@ -2,8 +2,6 @@ import {
   Activity,
   BrainCircuit,
   Building2,
-  Database,
-  DatabaseBackup,
   FileText,
   KanbanSquare,
   Download,
@@ -26,7 +24,7 @@ import {
   useState,
 } from 'react';
 import { BillingPage } from './BillingPage';
-import { BrowserRouter, Outlet, Route, Routes, useLocation } from 'react-router';
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 import {
   Alert,
   AppFrame,
@@ -45,14 +43,13 @@ import { api, ApiError } from '../lib/api';
 import '../app/shell.css';
 import '../app/ops.css';
 import './admin.css';
-import { AuditPage, BackupsPage, OverviewPage } from './OverviewPages';
+import { AuditPage, OverviewPage } from './OverviewPages';
 import { FiscalPage } from './FiscalPage';
 import { AiPage } from './AiPage';
 import { TicketsBoardPage } from './TicketsBoard';
 import { PlansPage } from './PlansPage';
 import { isStandalone, promptInstall } from './pwa';
-import { ServerPage } from './ServerPage';
-import { DbServersPage } from './DbServersPage';
+import { InfraPage } from './InfraPage';
 import { ContractSignPage, signToken } from './ContractSign';
 import { SUPPORT_CHANGED_EVENT, SupportPage } from './SupportPage';
 import { TenantDetailPage, TenantsPage } from './TenantsPages';
@@ -228,12 +225,10 @@ const NAV = [
   { to: '/restaurantes', label: 'Restaurantes', short: 'Clientes', icon: Building2 },
   { to: '/conversas', label: 'Conversas', icon: MessagesSquare },
   { to: '/chamados', label: 'Chamados', icon: KanbanSquare },
-  { to: '/servidor', label: 'Servidor', icon: Server },
-  { to: '/bancos', label: 'Bancos', icon: Database },
+  { to: '/servidor', label: 'Infraestrutura', short: 'Infra', icon: Server },
   { to: '/fiscal', label: 'Fiscal', icon: FileText },
   { to: '/planos', label: 'Planos', icon: Tags },
   { to: '/cobranca', label: 'Cobrança', icon: Wallet },
-  { to: '/backups', label: 'Backups', icon: DatabaseBackup },
   { to: '/tokens', label: 'Tokens', icon: BrainCircuit },
   { to: '/auditoria', label: 'Auditoria', icon: ScrollText },
 ];
@@ -398,12 +393,13 @@ function Gate() {
         <Route path="restaurantes" element={<TenantsPage />} />
         <Route path="restaurantes/:id" element={<TenantDetailPage />} />
         <Route path="conversas" element={<SupportPage />} />
-        <Route path="servidor" element={<ServerPage />} />
-        <Route path="bancos" element={<DbServersPage />} />
+        <Route path="servidor/*" element={<InfraPage />} />
+        {/* Endereços antigos: Bancos e Backups agora são abas da Infraestrutura. */}
+        <Route path="bancos" element={<Navigate to="/servidor/bancos" replace />} />
+        <Route path="backups" element={<Navigate to="/servidor/backups" replace />} />
         <Route path="fiscal" element={<FiscalPage />} />
         <Route path="planos" element={<PlansPage />} />
         <Route path="cobranca" element={<BillingPage />} />
-        <Route path="backups" element={<BackupsPage />} />
         <Route path="tokens" element={<AiPage />} />
         <Route path="ia" element={<AiPage />} />
         <Route path="chamados" element={<TicketsBoardPage />} />

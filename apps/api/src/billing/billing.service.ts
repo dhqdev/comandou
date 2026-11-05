@@ -18,6 +18,7 @@ import {
   BlockReason,
   contractPhase,
   daysLeft,
+  forecastDueDates,
   fromCents,
   invoiceDue,
   paymentBlocked,
@@ -270,6 +271,121 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       lastCycleAt: s.last_cycle_at,
       lastCycleError: s.last_cycle_error,
       updatedAt: s.updated_at,
+    };
+  }
+
+  /**
+   * Calendário de recebimentos de um mês (AAAA-MM): o que entrou (faturas pagas, no dia do
+   * pagamento), o que está em aberto ou vencido (no vencimento) e a previsão das próximas
+   * mensalidades de cada cliente (último dia liberado e, depois, a cada 30 dias).
+   */
+  async calendar(month: string, now = new Date()) {
+    const [y, m] = month.split('-').map(Number) as [number, number];
+    const from = `${month}-01`;
+    const to = `${month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`;
+    const today = spDate(now);
+    const subs = await this.db.query<SubRow & { name: string }>(
+      `SELECT x.*, t.name FROM (${SUB_SQL}) x JOIN tenants t ON t.id = x.tenant_id
+        WHERE t.status <> 'deleting' ORDER BY t.name`,
+    );
+    const invoices = await this.db.query<{
+      id: string;
+      kind: string;
+      amount: string;
+      dueDate: string;
+      paidAt: Date | null;
+      status: string;
+      billingType: string | null;
+      tenantId: string;
+      tenantName: string;
+    }>(
+      `SELECT i.id, i.kind, i.amount::text AS amount, i.due_date::text AS "dueDate",
+              i.paid_at AS "paidAt", i.status, i.billing_type AS "billingType",
+              t.id AS "tenantId", t.name AS "tenantName"
+         FROM billing_invoices i JOIN tenants t ON t.id = i.tenant_id
+        WHERE (i.status = 'paid'
+               AND (coalesce(i.paid_at, i.due_date::timestamptz) AT TIME ZONE 'America/Sao_Paulo')::date
+                   BETWEEN $1::date AND $2::date)
+           OR (i.status IN ('pending', 'overdue') AND i.due_date BETWEEN $1::date AND $2::date)
+        ORDER BY i.due_date, t.name`,
+      [from, to],
+    );
+    // Períodos que já têm mensalidade (paga ou em aberto) não entram na previsão.
+    const billed = await this.db.query<{ subscription_id: string; period_start: Date }>(
+      `SELECT subscription_id, period_start FROM billing_invoices
+        WHERE kind = 'monthly' AND status NOT IN ('cancelled', 'refunded')
+          AND period_start >= $1::date - 45`,
+      [from],
+    );
+    const billedBy = new Map<string, Set<string>>();
+    for (const b of billed) {
+      const set = billedBy.get(b.subscription_id) ?? new Set<string>();
+      set.add(spDate(b.period_start));
+      billedBy.set(b.subscription_id, set);
+    }
+    const autoBy = new Map(subs.map((x) => [x.tenant_id, x.billing_mode === 'asaas']));
+    const items: {
+      date: string;
+      tenantId: string;
+      tenantName: string;
+      amount: string;
+      status: 'paid' | 'pending' | 'overdue' | 'forecast';
+      kind: string;
+      auto: boolean;
+      billingType: string | null;
+      invoiceId: string | null;
+      planName: string | null;
+    }[] = invoices.map((i) => ({
+      date: i.status === 'paid' && i.paidAt ? spDate(i.paidAt) : i.dueDate,
+      tenantId: i.tenantId,
+      tenantName: i.tenantName,
+      amount: i.amount,
+      status: i.status as 'paid' | 'pending' | 'overdue',
+      kind: i.kind,
+      auto: autoBy.get(i.tenantId) ?? false,
+      billingType: i.billingType,
+      invoiceId: i.id,
+      planName: null,
+    }));
+    for (const x of subs) {
+      if (x.tenant_status === 'suspended') continue;
+      const price = x.scheduled_plan_id && x.scheduled_price ? x.scheduled_price : x.price_monthly;
+      if (toCents(price) <= 0) continue;
+      const until = accessUntil({
+        status: x.status,
+        trialEndsAt: x.trial_ends_at,
+        currentPeriodEnd: x.current_period_end,
+      });
+      for (const date of forecastDueDates(until, from, to, today, billedBy.get(x.id))) {
+        items.push({
+          date,
+          tenantId: x.tenant_id,
+          tenantName: x.name,
+          amount: price,
+          status: 'forecast',
+          kind: 'monthly',
+          auto: x.billing_mode === 'asaas',
+          billingType: x.pay_method === 'card' ? 'CREDIT_CARD' : null,
+          invoiceId: null,
+          planName: x.scheduled_plan_id ? x.scheduled_plan_name : x.plan_name,
+        });
+      }
+    }
+    items.sort((a, b) => a.date.localeCompare(b.date) || a.tenantName.localeCompare(b.tenantName));
+    const sum = (st: string) =>
+      fromCents(items.filter((i) => i.status === st).reduce((t, i) => t + toCents(i.amount), 0));
+    return {
+      month,
+      from,
+      to,
+      today,
+      totals: {
+        paid: sum('paid'),
+        pending: sum('pending'),
+        overdue: sum('overdue'),
+        forecast: sum('forecast'),
+      },
+      items,
     };
   }
 

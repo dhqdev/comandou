@@ -239,7 +239,8 @@ export function PageHead({
   actions,
   page,
 }: {
-  title: ReactNode;
+  /** Sem título: só a linha de explicação e as ações (tela dentro de uma aba). */
+  title?: ReactNode;
   sub?: ReactNode;
   lead?: ReactNode;
   actions?: ReactNode;
@@ -250,7 +251,7 @@ export function PageHead({
     <header className={`adm-head${page ? ' adm-head--page' : ''}`}>
       {lead}
       <div className="adm-head__text">
-        <h1 className="adm-head__title">{title}</h1>
+        {title && <h1 className="adm-head__title">{title}</h1>}
         {sub && <div className="adm-head__sub">{sub}</div>}
       </div>
       {actions && <div className="adm-head__actions">{actions}</div>}

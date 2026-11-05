@@ -9,11 +9,13 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import type { Request } from 'express';
+import { spDate } from '@comandou/shared';
 import { z } from 'zod';
 import {
   AllowWhenBlocked,
@@ -58,6 +60,13 @@ export class BillingAdminController {
   @Get()
   overview() {
     return this.svc.overview();
+  }
+
+  /** Calendário de recebimentos do mês (?month=AAAA-MM; sem ele, o mês atual). */
+  @Get('calendar')
+  calendar(@Query('month') month?: string) {
+    const m = month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month) ? month : spDate().slice(0, 7);
+    return this.svc.calendar(m);
   }
 
   @Put('settings')

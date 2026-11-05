@@ -58,6 +58,7 @@ const CLEANUP: { key: string; title: string; text: string }[] = [
   },
 ];
 
+/** Aba "Servidor" da tela Infraestrutura (InfraPage). */
 export function ServerPage() {
   const { data, error, reload } = useLoad<ServerStatus>('/platform/server');
   const [tab, setTab] = useState<'services' | 'containers'>('services');
@@ -71,7 +72,7 @@ export function ServerPage() {
   if (!data.enabled)
     return (
       <>
-        <PageHead page title="Servidor" sub={<span>Agente não instalado</span>} />
+        <PageHead sub={<span>Agente não instalado</span>} />
         <Section title="Como ativar">
           <div className="adm-panel adm-panel__body">
             <p style={{ marginTop: 0 }}>
@@ -109,8 +110,6 @@ export function ServerPage() {
   return (
     <>
       <PageHead
-        page
-        title="Servidor"
         sub={
           <>
             <span>{h.hostname}</span>

@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { spDate } from '@comandou/shared';
 import type { INestApplication } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http';
@@ -477,6 +478,35 @@ describe('Ciclo: 7 dias de teste, pagou +30 dias, não pagou bloqueia', () => {
     expect(o.body.tenants.find((t: { id: string }) => t.id === fx.tenantA).billingMode).toBe(
       'asaas',
     );
+  });
+
+  it('calendário: o que entrou, o que está em aberto e a previsão de cada cliente', async () => {
+    type Item = { tenantId: string; status: string; date: string; amount: string };
+    const s = await sub(fx.tenantA);
+    const until = s.current_period_end ?? s.trial_ends_at!;
+    const due = spDate(until);
+    const cal = (m: string) => pget(`/billing/calendar?month=${m}`).expect(200);
+    // O próximo vencimento do cliente aparece no dia certo, com o valor do plano.
+    const first = await cal(due.slice(0, 7));
+    const hit = first.body.items.find((i: Item) => i.tenantId === fx.tenantA && i.date === due);
+    expect(hit).toBeTruthy();
+    expect(['forecast', 'pending']).toContain(hit.status);
+    // E o seguinte, 30 dias depois, como previsão.
+    const next = spDate(new Date(new Date(until).getTime() + 30 * DAY));
+    const second = await cal(next.slice(0, 7));
+    expect(
+      second.body.items.find(
+        (i: Item) => i.tenantId === fx.tenantA && i.date === next && i.status === 'forecast',
+      ),
+    ).toBeTruthy();
+    // A troca de plano paga hoje entra como recebida no mês atual.
+    const now = await cal(spDate().slice(0, 7));
+    expect(now.body.items.some((i: Item) => i.tenantId === fx.tenantA && i.status === 'paid')).toBe(
+      true,
+    );
+    expect(Number(now.body.totals.paid)).toBeGreaterThan(0);
+    // Mês inválido cai no mês atual.
+    expect((await cal('2026-13')).body.month).toBe(spDate().slice(0, 7));
   });
 });
 

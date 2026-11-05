@@ -12,6 +12,7 @@ import { Alert, Button, Card, Spinner, TextField, useToast } from '../design-sys
 import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
+import { CalendarSection } from './BillingCalendar';
 import { useLoad } from './OverviewPages';
 import { ago, Dot, Level, Section, Tag, Tile } from './ui';
 
@@ -120,6 +121,7 @@ export function BillingPage() {
   return (
     <>
       <StatusSection o={o} onRan={data.reload} />
+      <CalendarSection />
       <TenantsSection o={o} />
       <InvoicesSection o={o} />
       <SettingsSection o={o} onSaved={(n) => data.setData(n)} />
@@ -319,6 +321,28 @@ const toForm = (s: Settings): Form => ({
   salesContact: s.salesContact ?? '',
 });
 
+/** Linha do tempo de exemplo com os números do formulário (vencimento no dia 10). */
+function example(f: Form) {
+  const before = Number(f.invoiceDaysBefore || 0);
+  const grace = Number(f.blockAfterDays || 0);
+  const sent = 10 - before;
+  const sentDay = sent >= 1 ? `dia ${sent}` : `dia ${30 + sent} do mês anterior`;
+  return (
+    <>
+      Exemplo com os números abaixo: se o cliente pagou até o dia 10, a fatura chega no{' '}
+      <strong>{sentDay}</strong>, vence no <strong>dia 10</strong> e, sem pagamento,{' '}
+      {grace ? (
+        <>
+          o acesso é bloqueado no <strong>dia {10 + grace}</strong>
+        </>
+      ) : (
+        'o acesso é bloqueado logo depois do dia 10'
+      )}
+      .
+    </>
+  );
+}
+
 function SettingsSection({ o, onSaved }: { o: Overview; onSaved(n: Overview): void }) {
   const toast = useToast();
   const s = o.settings;
@@ -374,88 +398,125 @@ function SettingsSection({ o, onSaved }: { o: Overview; onSaved(n: Overview): vo
     }
   }
   return (
-    <Section title="Asaas" sub="chave, webhook e regras (só o super admin vê)">
+    <Section title="Configurações" sub="Asaas, prazos e regras (só o super admin vê)">
       <Card>
         <form onSubmit={save}>
-          <div className="adm-backup-grid">
-            <SelectField
-              label="Ambiente"
-              value={f.environment}
-              onChange={(e) => set('environment')(e.target.value)}
-            >
-              <option value="sandbox">Sandbox (testes)</option>
-              <option value="production">Produção (cobrança de verdade)</option>
-            </SelectField>
-            <TextField
-              label="Chave da API do Asaas"
-              type="password"
-              autoComplete="new-password"
-              value={f.apiKey}
-              placeholder={s.hasApiKey ? '•••••••• (salva)' : '$aact_…'}
-              onChange={(e) => set('apiKey')(e.target.value.trim())}
-              hint={
-                s.hasApiKey
-                  ? 'Deixe em branco para manter a salva. Fica cifrada; nunca é mostrada.'
-                  : 'No Asaas: Integrações › Chaves de API. Use a do mesmo ambiente.'
-              }
-            />
-            <TextField
-              label="Fatura sai quantos dias antes"
-              inputMode="numeric"
-              value={f.invoiceDaysBefore}
-              onChange={num('invoiceDaysBefore')}
-              hint="1 a 20 dias antes do fim do período"
-            />
-            <TextField
-              label="Tolerância até bloquear (dias)"
-              inputMode="numeric"
-              value={f.blockAfterDays}
-              onChange={num('blockAfterDays')}
-              hint="0 = bloqueia logo que o período acaba sem pagamento"
-            />
-            <TextField
-              label="Prazo da troca de plano (dias)"
-              inputMode="numeric"
-              value={f.upgradeDueDays}
-              onChange={num('upgradeDueDays')}
-              hint="Vencimento da diferença proporcional"
-            />
-            <TextField
-              label="Avisar renovação do contrato (dias antes)"
-              inputMode="numeric"
-              value={f.contractRenewalDays}
-              onChange={num('contractRenewalDays')}
-            />
-            <TextField
-              label="Contrato vencido: bloquear depois de (dias)"
-              inputMode="numeric"
-              value={f.contractGraceDays}
-              onChange={num('contractGraceDays')}
-            />
+          <div className="adm-form-group">
+            <h3 className="adm-form-group__title">1. Conexão com o Asaas</h3>
+            <p className="adm-form-group__lead">
+              O Asaas emite as faturas (Pix, boleto e cartão), manda por e-mail para o restaurante e
+              avisa o Comandou quando o pagamento cai.
+            </p>
+            <div className="adm-backup-grid">
+              <SelectField
+                label="Ambiente"
+                value={f.environment}
+                onChange={(e) => set('environment')(e.target.value)}
+              >
+                <option value="sandbox">Sandbox (testes, sem dinheiro de verdade)</option>
+                <option value="production">Produção (cobra os clientes de verdade)</option>
+              </SelectField>
+              <TextField
+                label="Chave da API do Asaas"
+                type="password"
+                autoComplete="new-password"
+                value={f.apiKey}
+                placeholder={s.hasApiKey ? '•••••••• (salva)' : '$aact_…'}
+                onChange={(e) => set('apiKey')(e.target.value.trim())}
+                hint={
+                  s.hasApiKey
+                    ? 'Já tem uma chave salva: deixe em branco para manter. Ela fica cifrada e nunca é mostrada de novo.'
+                    : 'No Asaas: Integrações › Chaves de API › Gerar chave. A chave de sandbox só funciona no ambiente Sandbox, e a de produção só em Produção.'
+                }
+              />
+            </div>
+            <label className="adm-check" style={{ marginTop: 14 }}>
+              <input
+                type="checkbox"
+                checked={f.enabled}
+                onChange={(e) => set('enabled')(e.target.checked)}
+              />
+              Cobrança automática ligada
+            </label>
+            <p className="adm-form-group__note">
+              <strong>Ligada:</strong> o Comandou gera as faturas sozinho, manda pelo Asaas, dá
+              baixa quando o cliente paga e bloqueia quem não paga. <strong>Desligada:</strong>{' '}
+              ninguém é cobrado nem bloqueado automaticamente; você dá baixa à mão na ficha de cada
+              restaurante.
+            </p>
           </div>
-          <label className="adm-check" style={{ margin: '16px 0' }}>
-            <input
-              type="checkbox"
-              checked={f.enabled}
-              onChange={(e) => set('enabled')(e.target.checked)}
-            />
-            Cobrança automática ligada (gera faturas e bloqueia quem não paga)
-          </label>
-          <div className="adm-kv" style={{ display: 'grid', gap: 10, margin: '0 0 16px' }}>
-            <strong>Cartão de crédito automático</strong>
-            <span className="adm-sub" style={{ whiteSpace: 'normal' }}>
+
+          <div className="adm-form-group">
+            <h3 className="adm-form-group__title">
+              2. Mensalidade: quando cobrar e quando bloquear
+            </h3>
+            <p className="adm-form-group__lead">
+              Cada pagamento libera 30 dias de uso. A mensalidade vence no último dia liberado.{' '}
+              {example(f)}
+            </p>
+            <div className="adm-backup-grid">
+              <TextField
+                label="Mandar a fatura quantos dias antes do vencimento"
+                inputMode="numeric"
+                value={f.invoiceDaysBefore}
+                onChange={num('invoiceDaysBefore')}
+                hint="De 1 a 20. Ex.: 5 = o cliente recebe a fatura 5 dias antes do último dia pago, com tempo para pagar."
+              />
+              <TextField
+                label="Dias de tolerância depois do vencimento"
+                inputMode="numeric"
+                value={f.blockAfterDays}
+                onChange={num('blockAfterDays')}
+                hint="De 0 a 15. Quantos dias o restaurante continua usando sem ter pago. 0 = bloqueia assim que o período acaba."
+              />
+              <TextField
+                label="Prazo para pagar a troca de plano (dias)"
+                inputMode="numeric"
+                value={f.upgradeDueDays}
+                onChange={num('upgradeDueDays')}
+                hint="De 1 a 10. Quem sobe de plano paga só a diferença dos dias que faltam; essa fatura vence em tantos dias. O plano novo vale na hora."
+              />
+            </div>
+          </div>
+
+          <div className="adm-form-group">
+            <h3 className="adm-form-group__title">3. Contrato anual</h3>
+            <p className="adm-form-group__lead">
+              O contrato vale 12 meses. Perto do fim, o restaurante vê um aviso para assinar o novo.
+            </p>
+            <div className="adm-backup-grid">
+              <TextField
+                label="Avisar a renovação quantos dias antes"
+                inputMode="numeric"
+                value={f.contractRenewalDays}
+                onChange={num('contractRenewalDays')}
+                hint="De 7 a 90. Ex.: 30 = o aviso de renovação aparece no sistema do restaurante 30 dias antes do contrato vencer."
+              />
+              <TextField
+                label="Bloquear quantos dias depois do contrato vencer"
+                inputMode="numeric"
+                value={f.contractGraceDays}
+                onChange={num('contractGraceDays')}
+                hint="De 0 a 60. Se o contrato novo não for assinado, o acesso é bloqueado depois desses dias. 0 = bloqueia no dia seguinte ao vencimento."
+              />
+            </div>
+          </div>
+
+          <div className="adm-form-group">
+            <h3 className="adm-form-group__title">4. Cartão de crédito automático</h3>
+            <p className="adm-form-group__lead">
               Com isto ligado, o administrador do restaurante cadastra um cartão na tela Assinatura
               e a mensalidade é cobrada sozinha no dia do vencimento (a diferença de troca de plano,
               na hora). Se o banco recusar, tentamos de novo por até 3 dias e a fatura continua com
               Pix e boleto. O Comandou guarda só o token do Asaas (cifrado), a bandeira e os 4
               últimos números.
-            </span>
-            <span className="adm-sub" style={{ whiteSpace: 'normal' }}>
+            </p>
+            <p className="adm-form-group__note">
               <strong>Antes de ligar:</strong> peça ao Asaas para liberar a{' '}
               <em>tokenização de cartão</em> na sua conta (Asaas › Minha conta › Integrações, ou
               pelo gerente de conta). Sem isso, o cadastro do cartão é recusado. Teste primeiro no
-              ambiente sandbox com o cartão 5162 3060 0482 9590.
-            </span>
+              ambiente Sandbox com o cartão 5162 3060 0482 9590.
+            </p>
             <label className="adm-check">
               <input
                 type="checkbox"
@@ -464,18 +525,23 @@ function SettingsSection({ o, onSaved }: { o: Overview; onSaved(n: Overview): vo
               />
               Liberar cartão automático para os restaurantes
             </label>
-            <span className="adm-sub" style={{ whiteSpace: 'normal' }}>
+            <p className="adm-form-group__note">
               Pix e boleto não precisam de nada: a fatura sai sozinha {f.invoiceDaysBefore || 5}{' '}
-              dias antes do fim, o Asaas manda por e-mail e o Pix aparece na tela Assinatura.
-            </span>
+              dia(s) antes do vencimento, o Asaas manda por e-mail e o Pix aparece na tela
+              Assinatura do restaurante.
+            </p>
           </div>
-          <TextField
-            label="Contato de vendas da página de preços"
-            value={f.salesContact}
-            onChange={(e) => set('salesContact')(e.target.value)}
-            placeholder="11 99999-9999, vendas@seudominio.com ou https://…"
-            hint="Botão “Falar com a gente” de /precos. Número vira link do WhatsApp; e-mail vira e-mail; link abre como está."
-          />
+
+          <div className="adm-form-group">
+            <h3 className="adm-form-group__title">5. Página de preços</h3>
+            <TextField
+              label="Contato de vendas da página de preços"
+              value={f.salesContact}
+              onChange={(e) => set('salesContact')(e.target.value)}
+              placeholder="11 99999-9999, vendas@seudominio.com ou https://…"
+              hint="É o botão “Falar com a gente” da página /precos. Número de telefone vira link do WhatsApp, e-mail abre o e-mail e link abre como está."
+            />
+          </div>
           {error && <Alert tone="danger">{error}</Alert>}
           <div className="adm-form-actions" style={{ flexWrap: 'wrap' }}>
             <Button type="submit" loading={busy === 'save'}>

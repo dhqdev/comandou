@@ -121,7 +121,8 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await expect(page.getByRole('button', { name: 'Suspender' })).toBeVisible();
 
   // Ranking de consumo na tela do servidor (aparece mesmo sem o agente)
-  await nav(page, 'Servidor');
+  await nav(page, 'Infraestrutura');
+  await expect(page.getByRole('heading', { name: 'Infraestrutura' })).toBeVisible();
   await expect(page.getByText('Consumo por restaurante')).toBeVisible();
   await expect(page.getByRole('link', { name: new RegExp(`Cantina ${tag}`) })).toBeVisible();
 
@@ -129,11 +130,14 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await nav(page, 'Auditoria');
   await expect(page.getByText(`Teste E2E ${tag}`)).toBeVisible();
   await expect(page.getByText('Restaurante criado').first()).toBeVisible();
-  await nav(page, 'Backups');
-  await expect(page.getByRole('heading', { name: 'Backups' })).toBeVisible();
+  // Servidor, Bancos e Backups são abas da mesma tela (Infraestrutura).
+  await nav(page, 'Infraestrutura');
+  await page.getByRole('tab', { name: 'Backups' }).click();
+  await expect(page).toHaveURL(/\/servidor\/backups$/);
+  await expect(page.getByRole('heading', { name: 'Histórico' })).toBeVisible();
   // Bancos: o servidor principal com os restaurantes de banco próprio (o criado acima incluído).
-  await nav(page, 'Bancos');
-  await expect(page.getByRole('heading', { name: 'Bancos' })).toBeVisible();
+  await page.getByRole('tab', { name: 'Bancos' }).click();
+  await expect(page).toHaveURL(/\/servidor\/bancos$/);
   await expect(page.getByText('Servidor principal')).toBeVisible();
   await expect(page.getByRole('link', { name: `Cantina ${tag}` })).toBeVisible();
 
@@ -142,9 +146,10 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
     '/',
     '/restaurantes',
     '/servidor',
-    '/bancos',
+    '/servidor/bancos',
+    '/servidor/backups',
     '/planos',
-    '/backups',
+    '/cobranca',
     '/auditoria',
   ]);
 

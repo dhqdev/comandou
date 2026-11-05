@@ -54,6 +54,7 @@ const toBody = (f: Form) => ({
  * Backups → Backblaze B2. O serviço de backup (comandou-backup) lê esta configuração, faz o
  * backup diário de TODOS os restaurantes (banco inteiro, inclusive fotos), cifra e envia ao bucket.
  */
+/** Aba "Backups" da tela Infraestrutura (InfraPage). */
 export function BackupsPage() {
   const settings = useLoad<BackupSettings>('/platform/backups/settings');
   const runs = useLoad<BackupRun[]>('/platform/backups');
@@ -79,8 +80,6 @@ export function BackupsPage() {
   return (
     <>
       <PageHead
-        page
-        title="Backups"
         sub={
           <span>
             {s.destination === 'local'

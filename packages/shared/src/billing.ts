@@ -85,6 +85,34 @@ export function invoiceDue(until: Date | string, daysBefore: number, now = new D
   return now.getTime() >= new Date(until).getTime() - daysBefore * DAY;
 }
 
+/**
+ * Próximos vencimentos de mensalidade (AAAA-MM-DD, horário de Brasília) entre `from` e `to`:
+ * o último dia liberado (`until`) e, depois, a cada 30 dias. Pula as datas que já passaram
+ * (antes de `today`) e os períodos que já têm fatura (`billed`, pela data de início).
+ */
+export function forecastDueDates(
+  until: Date | string | null,
+  from: string,
+  to: string,
+  today: string,
+  billed: ReadonlySet<string> = new Set(),
+): string[] {
+  if (!until) return [];
+  let d = new Date(until);
+  // Período muito antigo: pula direto para perto do intervalo pedido.
+  const behind = Math.floor(
+    (new Date(`${from}T12:00:00-03:00`).getTime() - d.getTime()) / (BILLING_PERIOD_DAYS * DAY),
+  );
+  if (behind > 1) d = new Date(d.getTime() + (behind - 1) * BILLING_PERIOD_DAYS * DAY);
+  const out: string[] = [];
+  for (; spDate(d) <= to; d = new Date(d.getTime() + BILLING_PERIOD_DAYS * DAY)) {
+    const k = spDate(d);
+    if (k < from || k < today || billed.has(k)) continue;
+    out.push(k);
+  }
+  return out;
+}
+
 /** Bloqueia quando passou do fim + tolerância (em dias). */
 export function paymentBlocked(
   until: Date | string | null,

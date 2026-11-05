@@ -4,6 +4,7 @@ import {
   contractPhase,
   contractValidUntil,
   daysLeft,
+  forecastDueDates,
   invoiceDue,
   paymentBlocked,
   periodAfterPayment,
@@ -71,5 +72,35 @@ describe('cobrança: 7 dias de teste, pagou +30 dias, não pagou bloqueia', () =
     expect(contractPhase('2027-10-28', 30, 15, at('2027-10-10T12:00:00Z'))).toBe('renewal');
     expect(contractPhase('2027-10-28', 30, 15, at('2027-11-02T12:00:00Z'))).toBe('expired');
     expect(contractPhase('2027-10-28', 30, 15, at('2027-11-20T12:00:00Z'))).toBe('blocked');
+  });
+});
+
+describe('calendário de recebimentos', () => {
+  it('vence no último dia liberado e depois a cada 30 dias', () => {
+    expect(
+      forecastDueDates('2026-11-05T15:00:00Z', '2026-11-01', '2026-12-31', '2026-11-01'),
+    ).toEqual(['2026-11-05', '2026-12-05']);
+  });
+
+  it('pula o que já passou e o período que já tem fatura', () => {
+    expect(
+      forecastDueDates(
+        '2026-11-05T15:00:00Z',
+        '2026-11-01',
+        '2026-12-31',
+        '2026-11-06',
+        new Set(['2026-12-05']),
+      ),
+    ).toEqual([]);
+    expect(forecastDueDates(null, '2026-11-01', '2026-11-30', '2026-11-01')).toEqual([]);
+  });
+
+  it('período antigo continua no mesmo passo de 30 dias', () => {
+    const until = '2025-01-10T15:00:00Z';
+    const got = forecastDueDates(until, '2026-11-01', '2026-11-30', '2026-11-01');
+    expect(got).toHaveLength(1);
+    const steps =
+      (new Date(`${got[0]}T15:00:00Z`).getTime() - new Date(until).getTime()) / 86_400_000;
+    expect(steps % 30).toBe(0);
   });
 });
