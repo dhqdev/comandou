@@ -326,7 +326,7 @@ describe('Cardápio público e pedido do cliente', () => {
         },
         key(),
       )
-      .expect(400);
+      .expect(422);
     await patch('adminA', '/store/settings', { minOrder: '30.00' }).expect(200);
     await pub
       .post(

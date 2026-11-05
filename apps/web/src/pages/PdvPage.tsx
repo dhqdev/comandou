@@ -1,4 +1,4 @@
-import { CHANNEL_LABELS, type OrderChannel, type OrderStatus } from '@comandou/shared';
+import { CHANNEL_LABELS, type OrderChannel, type OrderStatus, qtyLabel } from '@comandou/shared';
 import {
   ArrowRight,
   Bike,
@@ -21,7 +21,7 @@ import { Alert, Segmented, useToast } from '../design-system';
 import { useAuth, useCan } from '../app/auth';
 import { NewSaleModal } from '../features/NewSaleModal';
 import { OrderDetailModal } from '../features/OrderDetailModal';
-import { minutesSince, PAYMENT_STATUS_LABEL, qty, time } from '../features/format';
+import { minutesSince, PAYMENT_STATUS_LABEL, time } from '../features/format';
 import { sortTables, tableState, type TableState } from '../features/table-state';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
@@ -137,7 +137,7 @@ function OrderCard({
             <span className="hcard__line">
               {items
                 .slice(0, 4)
-                .map((i) => `${qty(i.quantity)}× ${i.name}`)
+                .map((i) => `${qtyLabel(i.quantity, i.unit)} ${i.name}`)
                 .join(' · ')}
               {items.length > 4 && ` · +${items.length - 4}`}
             </span>

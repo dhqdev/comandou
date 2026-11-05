@@ -19,6 +19,9 @@ import {
   paymentStatusFor,
   roleHas,
   toCents,
+  isValidKg,
+  ONLINE_WEIGHT_MAX_G,
+  WEIGHT_MAX_KG,
 } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import { MessageEvent, MessagingService } from '../messaging/messaging.service';
@@ -117,7 +120,7 @@ export const ORDER_SELECT = `
          o.version, o.created_at AS "createdAt", o.updated_at AS "updatedAt",
          COALESCE((SELECT json_agg(json_build_object(
              'id', i.id, 'productId', i.product_id, 'name', i.name, 'quantity', i.quantity::text,
-             'unitPrice', i.unit_price::text, 'total', i.total::text, 'notes', i.notes, 'status', i.status,
+             'unit', i.unit, 'unitPrice', i.unit_price::text, 'total', i.total::text, 'notes', i.notes, 'status', i.status,
              'sectorId', i.sector_id, 'startedAt', i.started_at, 'readyAt', i.ready_at,
              'cancelReason', i.cancel_reason,
              'imageId', (SELECT p.image_id FROM products p WHERE p.id = i.product_id),
@@ -354,12 +357,13 @@ export class OrdersService {
       sector_id: string | null;
       active: boolean;
       sold_out: boolean;
+      sold_by_weight: boolean;
       in_menu: boolean;
       menu_name: string | null;
     }>(
       tx,
       `SELECT p.id, p.name, COALESCE(mi.price, p.price)::text AS price, p.sector_id, p.active, p.sold_out,
-              (m.id IS NULL OR mi.product_id IS NOT NULL) AS in_menu, m.name AS menu_name
+              p.sold_by_weight, (m.id IS NULL OR mi.product_id IS NOT NULL) AS in_menu, m.name AS menu_name
          FROM products p
          LEFT JOIN menus m ON m.active AND m.kind = $2
          LEFT JOIN menu_items mi ON mi.menu_id = m.id AND mi.product_id = p.id
@@ -409,6 +413,15 @@ export class OrdersService {
           `${p.name} não está no ${p.menu_name ?? 'cardápio'}`,
         );
       if (p.sold_out) throw new UnprocessableEntityException(`Produto esgotado: ${p.name}`);
+      // Item por peso: a quantidade é o peso em kg (até 3 casas). Os demais vão em unidades inteiras.
+      if (p.sold_by_weight) {
+        if (!isValidKg(it.quantity, input.online ? ONLINE_WEIGHT_MAX_G / 1000 : WEIGHT_MAX_KG))
+          throw new UnprocessableEntityException(`${p.name}: informe o peso em kg (ex.: 0,350)`);
+      } else if (!Number.isInteger(it.quantity)) {
+        throw new UnprocessableEntityException(
+          `${p.name} é vendido por unidade: a quantidade precisa ser inteira`,
+        );
+      }
       const groups = links.filter((l) => l.product_id === p.id);
       const chosen = [...new Set(it.optionIds ?? [])].map((id) => {
         const o = omap.get(id);
@@ -526,8 +539,8 @@ export class OrdersService {
     for (const l of lines) {
       const item = await one<{ id: string }>(
         tx,
-        `INSERT INTO order_items (tenant_id, order_id, product_id, name, quantity, unit_price, total, notes, sector_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
+        `INSERT INTO order_items (tenant_id, order_id, product_id, name, quantity, unit_price, total, notes, sector_id, unit)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
         [
           ctx.tenantId,
           order!.id,
@@ -538,6 +551,7 @@ export class OrdersService {
           fromCents(l.total),
           l.it.notes ?? null,
           l.p.sector_id,
+          l.p.sold_by_weight ? 'kg' : 'un',
         ],
       );
       for (const o of l.chosen) {

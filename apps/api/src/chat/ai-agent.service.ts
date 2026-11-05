@@ -85,6 +85,8 @@ interface MenuRow {
   category: string;
   price: string;
   soldOut: boolean;
+  /** Preço por kg (sorveteria, comida por quilo). */
+  soldByWeight: boolean;
   aiVisible: boolean;
 }
 
@@ -212,7 +214,7 @@ export class AiAgentService implements OnModuleInit {
       q<MenuRow>(
         tx,
         `SELECT p.id, p.name, c.name AS category, p.price::text AS price, p.sold_out AS "soldOut",
-                p.ai_visible AS "aiVisible"
+                p.sold_by_weight AS "soldByWeight", p.ai_visible AS "aiVisible"
            FROM products p JOIN categories c ON c.id = p.category_id
           WHERE p.active AND c.active
           ORDER BY c.position, c.name, p.position, p.name`,
@@ -268,6 +270,7 @@ export class AiAgentService implements OnModuleInit {
             description: p.description,
             price: p.price,
             soldOut: p.soldOut,
+            soldByWeight: !!p.soldByWeight,
             optionGroups: (p.optionGroups ?? []).map((g) => ({
               name: g.name,
               minSelect: g.minSelect,

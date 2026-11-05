@@ -98,7 +98,13 @@ const OnlineOrder = z.object({
     .array(
       z.object({
         productId: uuid,
-        quantity: z.number().int().min(1).max(50),
+        // Unidades (1 a 50) ou, no item vendido por peso, o peso em kg (0,1 a 5 kg, até 3 casas).
+        // A API confere item a item qual das duas vale.
+        quantity: z
+          .number()
+          .positive()
+          .max(50)
+          .refine((n) => Math.abs(n * 1000 - Math.round(n * 1000)) < 1e-6, 'até 3 casas decimais'),
         notes: optText(200),
         optionIds: z.array(uuid).max(50).optional(),
       }),

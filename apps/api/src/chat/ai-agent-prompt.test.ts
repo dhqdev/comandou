@@ -146,3 +146,43 @@ describe('hoursText e typingMs', () => {
     expect(typingMs('x'.repeat(1000))).toBe(6000);
   });
 });
+
+describe('venda por peso', () => {
+  const kilo: AgentMenuCategory[] = [
+    {
+      name: 'Sorvetes',
+      products: [
+        {
+          name: 'Sorvete self-service',
+          description: null,
+          price: '69.90',
+          soldOut: false,
+          soldByWeight: true,
+          optionGroups: [],
+        },
+      ],
+    },
+  ];
+
+  it('mostra o preço do kg e ensina a conta', () => {
+    expect(menuText(kilo, true)).toContain('Sorvete self-service — R$ 69,90 o kg (POR PESO)');
+    const p = customerPrompt({ ...base, menu: kilo });
+    expect(p).toContain('vendidos no quilo');
+    expect(p).toContain('o valor certo é o da balança');
+  });
+
+  it('sem preço liberado, marca o item mas não faz conta', () => {
+    expect(menuText(kilo, false)).toContain('Sorvete self-service (POR PESO)');
+    const p = customerPrompt({
+      ...base,
+      menu: kilo,
+      settings: { ...AGENT_DEFAULTS, showPrices: false },
+    });
+    expect(p).toContain('vendidos no quilo');
+    expect(p).not.toContain('faça a conta');
+  });
+
+  it('cardápio sem item por peso não ganha a regra', () => {
+    expect(customerPrompt(base)).not.toContain('POR PESO');
+  });
+});

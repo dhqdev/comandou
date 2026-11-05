@@ -5,6 +5,7 @@ import {
   optionsTotalCents,
   toCents,
 } from '@comandou/shared';
+import { Scale } from 'lucide-react';
 import { Check, ChevronLeft, Share2 } from 'lucide-react';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -47,7 +48,8 @@ export function ProductScreen() {
     });
     return init;
   });
-  const [qty, setQty] = useState(1);
+  // Item por peso: a quantidade é o peso em kg (começa em 500 g).
+  const [qty, setQty] = useState(() => (p?.soldByWeight ? 0.5 : 1));
   const [notes, setNotes] = useState('');
   const [shake, setShake] = useState(false);
 
@@ -124,6 +126,7 @@ export function ProductScreen() {
         optionIds: ids,
         optionNames: options.filter((o) => ids.includes(o.id)).map((o) => o.name),
         quantity: qty,
+        weight: p!.soldByWeight || undefined,
         notes: notes.trim(),
       },
       hero.current,
@@ -177,9 +180,18 @@ export function ProductScreen() {
         {p.badge && <span className="badge-chip">{p.badge}</span>}
         <div className="pdp__head">
           <h1>{p.name}</h1>
-          <strong>{brl(p.price)}</strong>
+          <strong>
+            {brl(p.price)}
+            {p.soldByWeight && <small className="pdp__per">/kg</small>}
+          </strong>
         </div>
         {p.description && <p className="pdp__desc">{p.description}</p>}
+        {p.soldByWeight && (
+          <p className="pdp__weight">
+            <Scale size={16} aria-hidden />
+            Vendido por peso: escolha quanto quer embaixo, de 100 g a 5 kg. O preço é do quilo.
+          </p>
+        )}
 
         {p.optionGroups.length > 0 && <h2 className="pdp__section">Personalize</h2>}
         {p.optionGroups.map((g) => {
@@ -279,7 +291,11 @@ export function ProductScreen() {
 
       <div className="addbar">
         <div className="addbar__inner">
-          <Stepper value={qty} onChange={(n) => setQty(Math.max(1, n))} />
+          {p.soldByWeight ? (
+            <Stepper grams value={qty} onChange={setQty} />
+          ) : (
+            <Stepper value={qty} onChange={(n) => setQty(Math.max(1, n))} />
+          )}
           <button
             className="cta addbar__cta"
             disabled={p.soldOut}

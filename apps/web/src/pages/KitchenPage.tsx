@@ -3,6 +3,7 @@ import {
   KITCHEN_COLORS,
   type KitchenDisplay,
   type OrderChannel,
+  qtyLabel,
 } from '@comandou/shared';
 import {
   Bike,
@@ -284,7 +285,7 @@ export function KitchenPage({
     for (const o of visible)
       for (const i of o.items)
         if (i.status === 'pending' || i.status === 'preparing')
-          m.set(i.name, (m.get(i.name) ?? 0) + Number(i.quantity));
+          m.set(i.name, (m.get(i.name) ?? 0) + (i.unit === 'kg' ? 1 : Number(i.quantity)));
     return [...m.entries()].sort((a, b) => b[1] - a[1]);
   }, [visible]);
 
@@ -689,7 +690,7 @@ function OrderCard({
               aria-label={`${i.name}: ${i.status === 'pending' ? 'iniciar' : 'pronto'}`}
             >
               {display.photos && <ItemThumb src={mediaUrl(i.imageId)} name={i.name} size={40} />}
-              <span className="kds-item__qty">{qty(i.quantity)}×</span>
+              <span className="kds-item__qty">{qtyLabel(i.quantity, i.unit)}</span>
               <span className="kds-item__text">
                 <span className="kds-item__name">{i.name}</span>
                 {display.options && i.options.length > 0 && (

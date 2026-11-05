@@ -1,4 +1,4 @@
-import { fromCents, splitCents, toCents } from '@comandou/shared';
+import { fromCents, splitCents, toCents, qtyLabel } from '@comandou/shared';
 import { ArrowRightLeft, BellRing, Plus, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
@@ -14,7 +14,7 @@ import {
   useToast,
 } from '../design-system';
 import { mediaUrl } from '../lib/media';
-import { ORDER_STATUS_LABELS, qty, STATUS_TONE, time } from '../features/format';
+import { ORDER_STATUS_LABELS, STATUS_TONE, time } from '../features/format';
 import { sortTables } from '../features/table-state';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
@@ -162,7 +162,7 @@ export function WaiterTab() {
                         <span className="cm-item-line">
                           <ItemThumb src={mediaUrl(i.imageId)} name={i.name} size={32} />
                           <span>
-                            {qty(i.quantity)}× {i.name}
+                            {qtyLabel(i.quantity, i.unit)} {i.name}
                             {i.options.length > 0 && (
                               <em> · {i.options.map((x) => x.name).join(', ')}</em>
                             )}

@@ -90,7 +90,8 @@ export function TakeoutBoard({
                 </span>
               ) : (
                 <span className="cm-hint">
-                  {o.items.reduce((n, i) => n + Number(i.quantity), 0)} item(ns)
+                  {o.items.reduce((n, i) => n + (i.unit === 'kg' ? 1 : Number(i.quantity)), 0)}{' '}
+                  item(ns)
                 </span>
               )}
             </span>

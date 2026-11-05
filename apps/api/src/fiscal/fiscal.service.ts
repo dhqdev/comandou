@@ -912,7 +912,10 @@ export class FiscalService implements OnModuleInit {
     }>(
       tx,
       `SELECT i.id, i.product_id, i.name, i.quantity::text, i.total::text,
-              p.ncm, p.cest, p.cfop, p.fiscal_code, p.fiscal_origin, p.fiscal_unit, p.fiscal_rule_id
+              p.ncm, p.cest, p.cfop, p.fiscal_code, p.fiscal_origin,
+              -- Item vendido por peso sai na nota em KG quando o cadastro não diz outra unidade.
+              COALESCE(p.fiscal_unit, CASE WHEN i.unit = 'kg' THEN 'KG' END) AS fiscal_unit,
+              p.fiscal_rule_id
          FROM order_items i JOIN products p ON p.id = i.product_id
         WHERE i.order_id = ANY($1::uuid[]) AND i.status <> 'cancelled' AND i.total > 0
         ORDER BY i.created_at, i.id`,

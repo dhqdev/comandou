@@ -105,6 +105,8 @@ export interface Product {
   familyId?: string | null;
   cost?: string | null;
   soldByWeight?: boolean;
+  /** Tara em kg ("0.020"). */
+  weightTare?: string;
   barcode?: string | null;
   barcodeType?: 'fixed' | 'weight' | 'value';
   position?: number;

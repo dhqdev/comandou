@@ -11,6 +11,8 @@ export interface PublicProduct {
   imageUrl: string | null;
   featured: boolean;
   badge: string | null;
+  /** Vendido por peso: o preço é do kg e o cliente escolhe quanto quer. */
+  soldByWeight?: boolean;
   optionGroups: MenuGroup[];
 }
 export interface PublicCategory {
@@ -104,7 +106,7 @@ export interface AccountOrder {
   channel: 'delivery' | 'pickup';
   total: string;
   createdAt: string;
-  items: { name: string; quantity: number; imageUrl?: string | null }[];
+  items: { name: string; quantity: number; unit?: string; imageUrl?: string | null }[];
 }
 
 export interface CartLine {
@@ -116,9 +118,15 @@ export interface CartLine {
   unit: string;
   optionIds: string[];
   optionNames: string[];
+  /** Unidades, ou o peso em kg quando `weight`. */
   quantity: number;
+  /** Item vendido por peso (o preço `unit` é o do kg). */
+  weight?: boolean;
   notes: string;
 }
+
+/** Quantos itens a linha soma no contador da sacola (item por peso conta 1). */
+export const lineCount = (l: CartLine) => (l.weight ? 1 : l.quantity);
 
 export interface CustomerInfo {
   customerName: string;
@@ -172,7 +180,8 @@ export function syncCart(cart: CartLine[], product: (id: string) => PublicProduc
     const p = product(l.productId);
     const opts = p?.optionGroups.flatMap((g) => g.options) ?? [];
     const chosen = l.optionIds.map((id) => opts.find((o) => o.id === id));
-    if (!p || chosen.some((o) => !o)) {
+    // Item que passou a ser (ou deixou de ser) vendido por peso: a quantidade muda de sentido.
+    if (!p || chosen.some((o) => !o) || !!p.soldByWeight !== !!l.weight) {
       changed = true;
       continue;
     }

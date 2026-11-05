@@ -146,7 +146,7 @@ export const DEFAULT_TEMPLATES: Record<TemplateKind, string> = {
 {% endif %}{% if pedido.entrega %}{% if pedido.telefone %}Tel: {{ pedido.telefone }}
 {% endif %}{{ "Entrega: " | append: pedido.endereco | quebra }}
 {% endif %}{{ "-" | traco }}
-{% for item in itens %}{{ item.quantidade | qtd | append: "x " | append: item.nome | linha: item.total_formatado }}
+{% for item in itens %}{{ item.quantidade_formatada | append: " " | append: item.nome | linha: item.total_formatado }}
 {% for op in item.opcoes %}{{ "+ " | append: op | quebra: 3 }}
 {% endfor %}{% if item.observacao %}{{ "OBS: " | append: item.observacao | quebra: 3 }}
 {% endif %}{% endfor %}{{ "-" | traco }}
@@ -176,7 +176,7 @@ Data: {{ pedido.data }}
 {% endif %}{% if pedido.endereco %}{{ pedido.endereco | quebra }}
 {% endif %}{% unless pedido.entrega %}{{ pedido.canal }}
 {% endunless %}{{ "-" | traco }}
-{% for item in itens %}{{ item.quantidade | qtd | append: "x " | append: item.nome | linha: item.total_formatado }}
+{% for item in itens %}{{ item.quantidade_formatada | append: " " | append: item.nome | linha: item.total_formatado }}
 {% for op in item.opcoes %}{{ "+ " | append: op | quebra: 3 }}
 {% endfor %}{% if item.observacao %}{{ "OBS: " | append: item.observacao | quebra: 3 }}
 {% endif %}{% endfor %}{{ "-" | traco }}
@@ -198,7 +198,7 @@ Data: {{ pedido.data }}
 {{ "PEDIDO #" | append: pedido.numero | linha: pedido.hora }}
 {{ pedido.local }}{% if pedido.cliente %} - {{ pedido.cliente }}{% endif %}
 {{ "-" | traco }}
-{% for item in itens %}{{ item.quantidade | qtd | append: "x " | append: item.nome | quebra }}
+{% for item in itens %}{{ item.quantidade_formatada | append: " " | append: item.nome | quebra }}
 {% for op in item.opcoes %}{{ "+ " | append: op | quebra: 3 }}
 {% endfor %}{% if item.observacao %}{{ "OBS: " | append: item.observacao | quebra: 3 }}
 {% endif %}{% endfor %}{% if pedido.observacao %}{{ "-" | traco }}
@@ -230,6 +230,8 @@ export function sampleData(kind: TemplateKind, storeName: string): Record<string
     {
       nome: 'X-Burger da casa',
       quantidade: '2.000',
+      unidade: 'un',
+      quantidade_formatada: '2x',
       total: 59.8,
       total_formatado: money(59.8),
       opcoes: ['Bacon extra'],
@@ -238,6 +240,8 @@ export function sampleData(kind: TemplateKind, storeName: string): Record<string
     {
       nome: 'Refrigerante lata',
       quantidade: '1.000',
+      unidade: 'un',
+      quantidade_formatada: '1x',
       total: 7,
       total_formatado: money(7),
       opcoes: [],

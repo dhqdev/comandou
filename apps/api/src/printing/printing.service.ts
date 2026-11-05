@@ -11,6 +11,7 @@ import {
   PAYMENT_METHOD_LABELS,
   PaymentMethod,
   toCents,
+  qtyTicket,
 } from '@comandou/shared';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { hashToken } from '../auth/session.service';
@@ -71,6 +72,8 @@ export type ReceiptScope = { kind: 'order' | 'tab'; id: string };
 interface TicketItem {
   name: string;
   quantity: string;
+  /** 'kg' no item vendido por peso (a quantidade é o peso). */
+  unit?: string;
   notes: string | null;
   options: string[];
 }
@@ -80,7 +83,8 @@ const center = (s: string) => {
   const t = s.slice(0, WIDTH);
   return ' '.repeat(Math.floor((WIDTH - t.length) / 2)) + t;
 };
-const fmtQty = (q: string) => q.replace(/\.?0+$/, '');
+/** "0.500" → "0.5" (nota fiscal). */
+const fmtQty = (q: string) => (q.includes('.') ? q.replace(/\.?0+$/, '') : q);
 const wrap = (s: string, indent = '') => {
   const out: string[] = [];
   let cur = '';
@@ -164,7 +168,7 @@ export class PrintingService {
   private async items(tx: Tx, orderId: string, sectorId?: string | null) {
     return q<TicketItem & { sector_id: string | null; sector_name: string | null; total: string }>(
       tx,
-      `SELECT i.name, i.quantity::text, i.notes, i.total::text, i.sector_id, s.name AS sector_name,
+      `SELECT i.name, i.quantity::text, i.unit, i.notes, i.total::text, i.sector_id, s.name AS sector_name,
               COALESCE((SELECT array_agg(io.name ORDER BY io.name) FROM order_item_options io WHERE io.order_item_id = i.id), '{}') AS options
          FROM order_items i LEFT JOIN production_sectors s ON s.id = i.sector_id
         WHERE i.order_id = $1 AND i.status <> 'cancelled'
@@ -228,6 +232,9 @@ export class PrintingService {
     return {
       nome: i.name,
       quantidade: i.quantity,
+      /** "un" ou "kg" (item vendido por peso) e a quantidade pronta: "2x" ou "0,350kg". */
+      unidade: i.unit ?? 'un',
+      quantidade_formatada: qtyTicket(i.quantity, i.unit),
       total: num(i.total),
       total_formatado: formatMoney(i.total ?? '0'),
       opcoes: i.options,
@@ -465,7 +472,7 @@ export class PrintingService {
       line(),
     ];
     for (const i of items) {
-      out.push(...wrap(`${fmtQty(i.quantity)}x ${i.name}`));
+      out.push(...wrap(`${qtyTicket(i.quantity, i.unit)} ${i.name}`));
       for (const op of i.options) out.push(...wrap(`+ ${op}`, '   '));
       if (i.notes) out.push(...wrap(`OBS: ${i.notes}`, '   '));
     }
@@ -502,7 +509,7 @@ export class PrintingService {
     }
     out.push(line());
     for (const i of items) {
-      const left = `${fmtQty(i.quantity)}x ${i.name}`.slice(0, WIDTH - 13);
+      const left = `${qtyTicket(i.quantity, i.unit)} ${i.name}`.slice(0, WIDTH - 13);
       out.push(left.padEnd(WIDTH - 12) + money(i.total).padStart(12));
       for (const op of i.options) out.push(...wrap(`+ ${op}`, '   '));
       if (i.notes) out.push(...wrap(`OBS: ${i.notes}`, '   '));
@@ -579,7 +586,7 @@ export class PrintingService {
     if (o.channel !== 'delivery') out.push(CHANNEL_LABELS[o.channel]);
     out.push(line());
     for (const i of items) {
-      const left = `${fmtQty(i.quantity)}x ${i.name}`.slice(0, WIDTH - 13);
+      const left = `${qtyTicket(i.quantity, i.unit)} ${i.name}`.slice(0, WIDTH - 13);
       out.push(left.padEnd(WIDTH - 12) + money(i.total).padStart(12));
       for (const op of i.options) out.push(...wrap(`+ ${op}`, '   '));
       if (i.notes) out.push(...wrap(`OBS: ${i.notes}`, '   '));
@@ -860,11 +867,12 @@ export class PrintingService {
     const i = await one<{
       name: string;
       quantity: string;
+      unit: string;
       sector: string | null;
       options: string[];
     }>(
       tx,
-      `SELECT i.name, i.quantity::text, s.name AS sector,
+      `SELECT i.name, i.quantity::text, i.unit, s.name AS sector,
               COALESCE((SELECT array_agg(io.name ORDER BY io.name) FROM order_item_options io WHERE io.order_item_id = i.id), '{}') AS options
          FROM order_items i LEFT JOIN production_sectors s ON s.id = i.sector_id WHERE i.id = $1`,
       [itemId],
@@ -883,7 +891,7 @@ export class PrintingService {
       `PEDIDO #${o.number}`.padEnd(WIDTH - 11) + o.local_time.padStart(11),
       where,
       line(),
-      ...wrap(`${fmtQty(i.quantity)}x ${i.name}`),
+      ...wrap(`${qtyTicket(i.quantity, i.unit)} ${i.name}`),
       ...i.options.flatMap((op) => wrap(`+ ${op}`, '   ')),
       ...wrap(`MOTIVO: ${reason}`),
       line('='),

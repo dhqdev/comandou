@@ -40,7 +40,7 @@ const VARS: Record<Kind, [string, string][]> = {
     ['pedido.observacao', 'observação do pedido'],
     [
       'itens (lista)',
-      'item.nome, item.quantidade, item.total_formatado, item.opcoes, item.observacao',
+      'item.nome, item.quantidade, item.quantidade_formatada (2x ou 0,350kg), item.unidade (un ou kg), item.total_formatado, item.opcoes, item.observacao',
     ],
     ['totais.*', 'subtotal, desconto, acrescimo, entrega, total, falta (+ _formatado)'],
     ['pagamentos (lista)', 'p.forma, p.valor_formatado, p.troco_formatado'],
@@ -53,14 +53,14 @@ const VARS: Record<Kind, [string, string][]> = {
     ['pedido.pagar_na_entrega', 'como o cliente disse que vai pagar'],
     ['pedido.troco_para_formatado / pedido.levar_de_troco_formatado', 'troco'],
     ['pedido.observacao', 'observação do pedido'],
-    ['itens (lista)', 'item.nome, item.quantidade, item.total_formatado, item.opcoes'],
+    ['itens (lista)', 'item.nome, item.quantidade_formatada, item.total_formatado, item.opcoes'],
     ['totais.*', 'subtotal, desconto, acrescimo, entrega, total (+ _formatado)'],
     ['pagamentos (lista)', 'p.forma, p.valor_formatado'],
   ],
   kitchen_ticket: [
     ['setor', 'nome do setor (Cozinha, Bar…)'],
     ['pedido.*', 'numero, hora, local, cliente, observacao'],
-    ['itens (lista)', 'item.nome, item.quantidade, item.opcoes, item.observacao'],
+    ['itens (lista)', 'item.nome, item.quantidade_formatada, item.opcoes, item.observacao'],
   ],
   fiscal_footer: [
     ['loja.nome', 'nome do restaurante'],

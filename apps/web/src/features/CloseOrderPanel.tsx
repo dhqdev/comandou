@@ -7,6 +7,7 @@ import {
   isValidCpf,
   PAYMENT_METHODS,
   toCents,
+  qtyLabel,
 } from '@comandou/shared';
 import { Minus, Plus, Printer, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -25,7 +26,7 @@ import {
   splitRows,
   type PayRow,
 } from './close-math';
-import { PAYMENT_METHOD_LABELS, qty } from './format';
+import { PAYMENT_METHOD_LABELS } from './format';
 import { PAYMENT_FISCAL_HELP } from './help/fiscal-help';
 import { useOpenSessions } from './PaymentModal';
 import { ReceiptPreview } from './ReceiptPreview';
@@ -399,7 +400,8 @@ export function CloseOrderPanel({
                     <strong className="cop-num">{money(toCents(i.total))}</strong>
                   </div>
                   <span className="cop-item__sub">
-                    {qty(i.quantity)}× {money(toCents(i.unitPrice))}
+                    {qtyLabel(i.quantity, i.unit)} × {money(toCents(i.unitPrice))}
+                    {i.unit === 'kg' ? '/kg' : ''}
                     {i.options.length > 0 && ` · ${i.options.map((o) => o.name).join(', ')}`}
                   </span>
                   {i.notes && <span className="cop-item__sub">Obs.: {i.notes}</span>}

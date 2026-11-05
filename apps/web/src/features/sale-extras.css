@@ -321,23 +321,26 @@
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-.nsale__weight {
+.nsale__qty .nsale__weight {
   display: inline-flex;
+  width: auto;
+  height: auto;
   align-items: center;
   gap: 4px;
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-xs);
-}
-.nsale__weight input {
-  width: 70px;
-  height: 30px;
-  padding: 0 6px;
+  min-height: 30px;
+  padding: 0 8px;
   border: 1px solid var(--cm-border-strong);
   border-radius: var(--cm-radius-sm);
   background: var(--cm-surface);
   color: var(--cm-text);
   font: inherit;
   font-size: var(--cm-text-sm);
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.nsale__qty .nsale__weight:hover {
+  border-color: var(--cm-brand-500);
 }
 .nsale__prod {
   display: grid;

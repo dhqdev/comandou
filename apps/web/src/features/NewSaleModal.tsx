@@ -5,6 +5,7 @@ import {
   multiplyCents,
   optionsTotalCents,
   ORDER_CHANNELS,
+  qtyLabel,
   toCents,
   type OrderChannel,
 } from '@comandou/shared';
@@ -14,6 +15,7 @@ import {
   Minus,
   Plus,
   ReceiptText,
+  Scale,
   Search,
   ShoppingBag,
   ShoppingCart,
@@ -31,6 +33,7 @@ import { brl, parseBrlInput } from '../lib/money';
 import { mediaUrl } from '../lib/media';
 import './sale-extras.css';
 import { AddressQuick } from './AddressQuick';
+import { WeighForm } from './WeighForm';
 import type {
   CustomerList,
   CustomerRow,
@@ -97,6 +100,12 @@ export function NewSaleModal({
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartLine[]>([]);
   const [picking, setPicking] = useState<MenuProduct | null>(null);
+  /** Item por peso esperando o peso da balança (com os complementos já escolhidos). */
+  const [weighing, setWeighing] = useState<{
+    product: MenuProduct;
+    optionIds: string[];
+    line?: CartLine;
+  } | null>(null);
   const [channel, setChannel] = useState<OrderChannel>(preset?.channel ?? 'counter');
   const [tableId, setTableId] = useState(preset?.tableId ?? '');
   const [customerName, setCustomerName] = useState('');
@@ -193,8 +202,17 @@ export function NewSaleModal({
   const feeCents = channel === 'delivery' ? toCents(parseBrlInput(deliveryFee) ?? '0') : 0;
   const total = subtotal - discountCents + feeCents;
 
-  function add(p: MenuProduct, optionIds: string[] = []) {
+  function add(p: MenuProduct, optionIds: string[] = [], kg?: number) {
     const key = `${p.id}:${[...optionIds].sort().join(',')}`;
+    if (p.soldByWeight) {
+      // Cada pesagem é uma linha (dois potes de sorvete são duas linhas com pesos diferentes).
+      if (kg === undefined) return setWeighing({ product: p, optionIds });
+      setCart((c) => [
+        ...c,
+        { uid: nextLineId++, key, product: p, optionIds, quantity: kg, notes: '' },
+      ]);
+      return;
+    }
     setCart((c) => {
       const found = c.find((l) => l.key === key && !l.notes);
       if (found) return c.map((l) => (l === found ? { ...l, quantity: l.quantity + 1 } : l));
@@ -287,7 +305,10 @@ export function NewSaleModal({
       aria-labelledby={titleId}
       onCancel={(e) => {
         // Esc com a escolha de opções aberta fecha só a escolha.
-        if (picking) {
+        if (weighing) {
+          e.preventDefault();
+          setWeighing(null);
+        } else if (picking) {
           e.preventDefault();
           setPicking(null);
         }
@@ -300,7 +321,8 @@ export function NewSaleModal({
       }}
       onClick={(e) => {
         if (downOutside.current && e.target === e.currentTarget) {
-          if (picking) setPicking(null);
+          if (weighing) setWeighing(null);
+          else if (picking) setPicking(null);
           else ref.current?.close();
         }
         downOutside.current = false;
@@ -403,7 +425,9 @@ export function NewSaleModal({
                     {initials(p.name)}
                   </span>
                 )}
-                <span className="nsale__price">{p.soldOut ? 'Esgotado' : brl(p.price)}</span>
+                <span className="nsale__price">
+                  {p.soldOut ? 'Esgotado' : `${brl(p.price)}${p.soldByWeight ? '/kg' : ''}`}
+                </span>
                 <span className="nsale__name">{p.name}</span>
               </button>
             ))
@@ -437,11 +461,16 @@ export function NewSaleModal({
                   <div key={l.uid} className="nsale__row" role="row">
                     <span role="cell" className="nsale__qty">
                       {l.product.soldByWeight ? (
-                        <WeightInput
-                          name={l.product.name}
-                          value={l.quantity}
-                          onChange={(q) => setLine(l, { quantity: q })}
-                        />
+                        <button
+                          type="button"
+                          className="nsale__weight"
+                          aria-label={`Peso de ${l.product.name}: ${qtyLabel(l.quantity, 'kg')}. Alterar`}
+                          onClick={() =>
+                            setWeighing({ product: l.product, optionIds: l.optionIds, line: l })
+                          }
+                        >
+                          <Scale size={14} aria-hidden /> {qtyLabel(l.quantity, 'kg')}
+                        </button>
                       ) : (
                         <>
                           <button
@@ -479,6 +508,7 @@ export function NewSaleModal({
                     </span>
                     <span role="cell" className="nsale__unit cm-num">
                       {brl(fromCents(unit))}
+                      {l.product.soldByWeight ? '/kg' : ''}
                     </span>
                     <span role="cell" className="nsale__sum cm-num">
                       {brl(fromCents(multiplyCents(unit, l.quantity)))}
@@ -673,9 +703,35 @@ export function NewSaleModal({
           onConfirm={(ids) => {
             add(picking, ids);
             setPicking(null);
-            searchRef.current?.focus();
+            if (!picking.soldByWeight) searchRef.current?.focus();
           }}
         />
+      )}
+      {weighing && (
+        <div
+          className="picker"
+          role="group"
+          aria-label={`Peso de ${weighing.product.name}`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setWeighing(null);
+          }}
+        >
+          <div className="picker__panel">
+            <WeighForm
+              product={weighing.product}
+              kgCents={unitCents(weighing.product, weighing.optionIds)}
+              initialKg={weighing.line?.quantity}
+              confirmLabel={weighing.line ? 'Salvar peso' : 'Adicionar'}
+              onCancel={() => setWeighing(null)}
+              onConfirm={(kg) => {
+                if (weighing.line) setLine(weighing.line, { quantity: kg });
+                else add(weighing.product, weighing.optionIds, kg);
+                setWeighing(null);
+                searchRef.current?.focus();
+              }}
+            />
+          </div>
+        </div>
       )}
     </dialog>
   );
@@ -773,36 +829,5 @@ function OptionPicker({
         </div>
       </div>
     </div>
-  );
-}
-
-/** Peso em kg do item vendido por peso (aceita "0,350"). */
-function WeightInput({
-  name,
-  value,
-  onChange,
-}: {
-  name: string;
-  value: number;
-  onChange(q: number): void;
-}) {
-  const [text, setText] = useState(() =>
-    value.toLocaleString('pt-BR', { minimumFractionDigits: 3 }),
-  );
-  return (
-    <span className="nsale__weight">
-      <input
-        className="cm-num"
-        inputMode="decimal"
-        aria-label={`Peso de ${name} em kg`}
-        value={text}
-        onChange={(e) => {
-          setText(e.target.value);
-          const n = Number(e.target.value.replace(/\./g, '').replace(',', '.'));
-          if (Number.isFinite(n) && n > 0 && n <= 999) onChange(Math.round(n * 1000) / 1000);
-        }}
-      />
-      <span>kg</span>
-    </span>
   );
 }

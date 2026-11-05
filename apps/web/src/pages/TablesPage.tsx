@@ -1,4 +1,4 @@
-import { toCents } from '@comandou/shared';
+import { toCents, qtyLabel } from '@comandou/shared';
 import {
   sortTables,
   STATE_LABEL,
@@ -1058,7 +1058,7 @@ function TabModal({
                         size={24}
                       />
                       <div className="cm-hint">
-                        {o.items.map((i) => `${Number(i.quantity)}× ${i.name}`).join(', ')}
+                        {o.items.map((i) => `${qtyLabel(i.quantity, i.unit)} ${i.name}`).join(', ')}
                       </div>
                     </td>
                     <td>

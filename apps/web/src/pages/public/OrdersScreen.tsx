@@ -1,3 +1,4 @@
+import { qtyLabel } from '@comandou/shared';
 import { Spinner } from '../../design-system';
 import { ChevronRight, ReceiptText } from 'lucide-react';
 import { CSSProperties, useEffect, useState } from 'react';
@@ -79,7 +80,9 @@ export function OrdersScreen() {
                     {o.items.length > 4 && <span>+{o.items.length - 4}</span>}
                   </span>
                   <span className="ocard__items">
-                    {o.items.map((it) => `${it.quantity}× ${it.name}`).join(' · ')}
+                    {o.items
+                      .map((it) => `${qtyLabel(it.quantity, it.unit)} ${it.name}`)
+                      .join(' · ')}
                   </span>
                   <span className="ocard__foot">
                     <span>{dateTime(o.createdAt)}</span>

@@ -4,6 +4,7 @@ import {
   toCents,
   type ItemStatus,
   type OrderStatus,
+  qtyLabel,
 } from '@comandou/shared';
 import {
   Bike,
@@ -476,7 +477,9 @@ export function OrderDetailModal({
                   </div>
                   <div className="od-item__bottom">
                     <span>
-                      {qty(i.quantity)} UN × {brl(i.unitPrice)}
+                      {i.unit === 'kg'
+                        ? `${qtyLabel(i.quantity, 'kg')} × ${brl(i.unitPrice)}/kg`
+                        : `${qty(i.quantity)} UN × ${brl(i.unitPrice)}`}
                     </span>
                     <strong>{brl(i.total)}</strong>
                   </div>

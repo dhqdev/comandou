@@ -1,0 +1,76 @@
+/* Pesar item vendido por peso (WeighForm) */
+.weigh {
+  display: grid;
+  gap: var(--cm-space-3);
+}
+.weigh__head {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-3);
+}
+.weigh__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--cm-radius-md);
+  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  color: var(--cm-brand-600);
+  flex: none;
+}
+.weigh__title {
+  margin: 0;
+  font-size: var(--cm-text-lg);
+}
+.weigh__label {
+  font-weight: 650;
+}
+.weigh__input {
+  font-size: 1.6rem;
+  font-weight: 700;
+  text-align: center;
+  min-height: 56px;
+}
+.weigh__quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cm-space-2);
+}
+.weigh__chip {
+  flex: 1 1 0;
+  min-width: 64px;
+  min-height: 40px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.weigh__chip:hover {
+  border-color: var(--cm-brand-600);
+}
+.weigh__sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cm-space-2);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.weigh__sum strong {
+  margin-left: auto;
+  color: var(--cm-text);
+  font-size: var(--cm-text-xl);
+}
+.weigh__err {
+  color: var(--cm-danger);
+  font-weight: 600;
+}
+.weigh__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--cm-space-2);
+}

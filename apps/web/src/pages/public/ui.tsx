@@ -1,3 +1,10 @@
+import {
+  formatGrams,
+  kgToGrams,
+  ONLINE_WEIGHT_MAX_G,
+  ONLINE_WEIGHT_MIN_G,
+  ONLINE_WEIGHT_STEP_G,
+} from '@comandou/shared';
 import { ChevronLeft, Heart, Minus, Plus, Trash2 } from 'lucide-react';
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -53,12 +60,46 @@ export function Stepper({
   onChange,
   min = 1,
   size = 'md',
+  grams,
 }: {
   value: number;
   onChange(n: number): void;
   min?: number;
   size?: 'sm' | 'md';
+  /** Item vendido por peso: `value` é o peso em kg e o passo é de 50 g (de 100 g a 5 kg). */
+  grams?: boolean;
 }) {
+  if (grams) {
+    const g = kgToGrams(value);
+    const canRemove = min === 0 && g - ONLINE_WEIGHT_STEP_G < ONLINE_WEIGHT_MIN_G;
+    return (
+      <div className={`stepper stepper--${size} stepper--weight`}>
+        <button
+          type="button"
+          aria-label="Menos peso"
+          onClick={() =>
+            g - ONLINE_WEIGHT_STEP_G >= ONLINE_WEIGHT_MIN_G
+              ? onChange((g - ONLINE_WEIGHT_STEP_G) / 1000)
+              : min === 0 && onChange(0)
+          }
+          disabled={!canRemove && g - ONLINE_WEIGHT_STEP_G < ONLINE_WEIGHT_MIN_G}
+        >
+          {canRemove ? <Trash2 size={15} /> : <Minus size={15} />}
+        </button>
+        <span aria-live="polite" key={g} className="stepper__n">
+          {formatGrams(g)}
+        </span>
+        <button
+          type="button"
+          aria-label="Mais peso"
+          disabled={g + ONLINE_WEIGHT_STEP_G > ONLINE_WEIGHT_MAX_G}
+          onClick={() => onChange(Math.min(ONLINE_WEIGHT_MAX_G, g + ONLINE_WEIGHT_STEP_G) / 1000)}
+        >
+          <Plus size={15} />
+        </button>
+      </div>
+    );
+  }
   return (
     <div className={`stepper stepper--${size}`}>
       <button

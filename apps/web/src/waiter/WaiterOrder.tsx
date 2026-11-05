@@ -3,10 +3,11 @@ import {
   fromCents,
   multiplyCents,
   optionsTotalCents,
+  qtyLabel,
   toCents,
   type OrderChannel,
 } from '@comandou/shared';
-import { Minus, Plus, Search, ShoppingBag, Trash2, X } from 'lucide-react';
+import { Minus, Plus, Scale, Search, ShoppingBag, Trash2, X } from 'lucide-react';
 import {
   useEffect,
   useMemo,
@@ -35,6 +36,7 @@ import { brl, parseBrlInput } from '../lib/money';
 import type { DiningTable, MenuCategory, MenuProduct, Order, Tab } from '../lib/types';
 import { useWaiterStats, useWide, WaiterHead } from './common';
 import { AddressQuick } from '../features/AddressQuick';
+import { WeighForm } from '../features/WeighForm';
 
 interface Line {
   /** Identidade estável da linha (a observação muda enquanto se digita). */
@@ -47,6 +49,15 @@ interface Line {
 }
 
 let nextLineId = 1;
+
+interface Weighing {
+  product: MenuProduct;
+  optionIds: string[];
+  line?: Line;
+}
+
+/** Itens da linha para os contadores: item por peso conta como 1 (uma pesagem). */
+const lineCount = (l: Line) => (l.product.soldByWeight ? 1 : l.quantity);
 
 /** Preço de exibição; o servidor recalcula e é a fonte oficial. */
 function unitCents(p: MenuProduct, optionIds: string[]) {
@@ -80,6 +91,8 @@ export function WaiterOrder() {
   const [active, setActive] = useState<string | null>(null);
   const [cart, setCart] = useState<Line[]>([]);
   const [picking, setPicking] = useState<MenuProduct | null>(null);
+  /** Item por peso esperando o peso da balança (ou a linha cujo peso vai mudar). */
+  const [weighing, setWeighing] = useState<Weighing | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [customer, setCustomer] = useState({ name: '', phone: '', address: '', fee: '' });
   const [notes, setNotes] = useState('');
@@ -151,8 +164,17 @@ export function WaiterOrder() {
     document.getElementById(`wt-cat-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function add(p: MenuProduct, optionIds: string[] = []) {
+  function add(p: MenuProduct, optionIds: string[] = [], kg?: number) {
     const key = `${p.id}:${[...optionIds].sort().join(',')}`;
+    if (p.soldByWeight) {
+      // Cada pesagem vira uma linha: dois pratos são duas linhas com pesos diferentes.
+      if (kg === undefined) return setWeighing({ product: p, optionIds });
+      setCart((c) => [
+        ...c,
+        { uid: nextLineId++, key, product: p, optionIds, quantity: kg, notes: '' },
+      ]);
+      return;
+    }
     setCart((c) => {
       const found = c.find((l) => l.key === key && !l.notes);
       if (found) return c.map((l) => (l === found ? { ...l, quantity: l.quantity + 1 } : l));
@@ -164,20 +186,20 @@ export function WaiterOrder() {
     if (p.optionGroups.length) setPicking(p);
     else add(p);
   }
-  /** Quantidade do produto no carrinho (todas as variações). */
+  /** Quantidade do produto no carrinho (todas as variações; item por peso conta as pesagens). */
   const inCart = (id: string) =>
-    cart.filter((l) => l.product.id === id).reduce((s, l) => s + l.quantity, 0);
+    cart.filter((l) => l.product.id === id).reduce((s, l) => s + lineCount(l), 0);
   function decProduct(id: string) {
     setCart((c) => {
       const last = [...c].reverse().find((l) => l.product.id === id);
       if (!last) return c;
-      return last.quantity > 1
+      return last.quantity > 1 && !last.product.soldByWeight
         ? c.map((l) => (l === last ? { ...l, quantity: l.quantity - 1 } : l))
         : c.filter((l) => l !== last);
     });
   }
 
-  const count = cart.reduce((s, l) => s + l.quantity, 0);
+  const count = cart.reduce((s, l) => s + lineCount(l), 0);
   const subtotal = cart.reduce(
     (s, l) => s + multiplyCents(unitCents(l.product, l.optionIds), l.quantity),
     0,
@@ -242,6 +264,7 @@ export function WaiterOrder() {
     <CartContent
       cart={cart}
       setCart={setCart}
+      onWeigh={setWeighing}
       channel={channel}
       customer={customer}
       setCustomer={setCustomer}
@@ -347,10 +370,18 @@ export function WaiterOrder() {
                         <span className="wt-product__text">
                           <strong>{p.name}</strong>
                           {p.description && <span>{p.description}</span>}
-                          {p.optionGroups.length > 0 && <em>com opções</em>}
+                          {p.soldByWeight ? (
+                            <em>por peso</em>
+                          ) : (
+                            p.optionGroups.length > 0 && <em>com opções</em>
+                          )}
                         </span>
                         <span className="wt-product__price">
-                          {p.soldOut ? <Badge tone="danger">Esgotado</Badge> : brl(p.price)}
+                          {p.soldOut ? (
+                            <Badge tone="danger">Esgotado</Badge>
+                          ) : (
+                            `${brl(p.price)}${p.soldByWeight ? '/kg' : ''}`
+                          )}
                         </span>
                       </button>
                       {n > 0 && (
@@ -434,6 +465,28 @@ export function WaiterOrder() {
           setPicking(null);
         }}
       />
+      <Modal
+        open={!!weighing}
+        onClose={() => setWeighing(null)}
+        title={weighing?.line ? 'Alterar peso' : 'Pesar'}
+      >
+        {weighing && (
+          <WeighForm
+            product={weighing.product}
+            kgCents={unitCents(weighing.product, weighing.optionIds)}
+            initialKg={weighing.line?.quantity}
+            confirmLabel={weighing.line ? 'Salvar peso' : 'Adicionar'}
+            onCancel={() => setWeighing(null)}
+            onConfirm={(kg) => {
+              const line = weighing.line;
+              if (line)
+                setCart((c) => c.map((x) => (x.uid === line.uid ? { ...x, quantity: kg } : x)));
+              else add(weighing.product, weighing.optionIds, kg);
+              setWeighing(null);
+            }}
+          />
+        )}
+      </Modal>
     </div>
   );
 }
@@ -441,6 +494,7 @@ export function WaiterOrder() {
 function CartContent({
   cart,
   setCart,
+  onWeigh,
   channel,
   customer,
   setCustomer,
@@ -451,6 +505,7 @@ function CartContent({
 }: {
   cart: Line[];
   setCart: Dispatch<SetStateAction<Line[]>>;
+  onWeigh(w: Weighing): void;
   channel: OrderChannel;
   customer: { name: string; phone: string; address: string; fee: string };
   setCustomer: Dispatch<
@@ -481,33 +536,56 @@ function CartContent({
           return (
             <li key={l.uid} className="wt-cart__line">
               <div className="wt-cart__top">
-                <span className="wt-stepper wt-stepper--sm">
-                  <button
-                    type="button"
-                    aria-label="Diminuir"
-                    onClick={() =>
-                      setCart((c) =>
-                        l.quantity > 1
-                          ? c.map((x) => (x === l ? { ...x, quantity: x.quantity - 1 } : x))
-                          : c.filter((x) => x !== l),
-                      )
-                    }
-                  >
-                    {l.quantity > 1 ? <Minus size={14} /> : <Trash2 size={14} />}
-                  </button>
-                  <span>{l.quantity}</span>
-                  <button
-                    type="button"
-                    aria-label="Aumentar"
-                    onClick={() =>
-                      setCart((c) =>
-                        c.map((x) => (x === l ? { ...x, quantity: x.quantity + 1 } : x)),
-                      )
-                    }
-                  >
-                    <Plus size={14} />
-                  </button>
-                </span>
+                {l.product.soldByWeight ? (
+                  <span className="wt-weight">
+                    <button
+                      type="button"
+                      className="wt-weight__btn"
+                      aria-label={`Peso de ${l.product.name}: ${qtyLabel(l.quantity, 'kg')}. Alterar`}
+                      onClick={() =>
+                        onWeigh({ product: l.product, optionIds: l.optionIds, line: l })
+                      }
+                    >
+                      <Scale size={14} aria-hidden /> {qtyLabel(l.quantity, 'kg')}
+                    </button>
+                    <button
+                      type="button"
+                      className="wt-weight__del"
+                      aria-label={`Tirar ${l.product.name}`}
+                      onClick={() => setCart((c) => c.filter((x) => x !== l))}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </span>
+                ) : (
+                  <span className="wt-stepper wt-stepper--sm">
+                    <button
+                      type="button"
+                      aria-label="Diminuir"
+                      onClick={() =>
+                        setCart((c) =>
+                          l.quantity > 1
+                            ? c.map((x) => (x === l ? { ...x, quantity: x.quantity - 1 } : x))
+                            : c.filter((x) => x !== l),
+                        )
+                      }
+                    >
+                      {l.quantity > 1 ? <Minus size={14} /> : <Trash2 size={14} />}
+                    </button>
+                    <span>{l.quantity}</span>
+                    <button
+                      type="button"
+                      aria-label="Aumentar"
+                      onClick={() =>
+                        setCart((c) =>
+                          c.map((x) => (x === l ? { ...x, quantity: x.quantity + 1 } : x)),
+                        )
+                      }
+                    >
+                      <Plus size={14} />
+                    </button>
+                  </span>
+                )}
                 <ItemThumb src={mediaUrl(l.product.imageId)} name={l.product.name} size={36} />
                 <span className="wt-cart__name">
                   <strong>{l.product.name}</strong>

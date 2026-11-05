@@ -821,6 +821,32 @@
   width: 30px;
   height: 30px;
 }
+/* Item vendido por peso no carrinho: o peso (toque para mudar) e a lixeira. */
+.wt-weight {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.wt-weight__btn,
+.wt-weight__del {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.wt-weight__del {
+  padding: 0 9px;
+  color: var(--cm-text-muted);
+}
 .wt-cartbar {
   display: flex;
   align-items: center;

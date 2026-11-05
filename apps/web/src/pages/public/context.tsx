@@ -1,3 +1,4 @@
+import { kgToGrams, ONLINE_WEIGHT_MAX_G } from '@comandou/shared';
 import {
   createContext,
   ReactNode,
@@ -14,6 +15,7 @@ import {
   CartLine,
   CustomerInfo,
   EMPTY_CUSTOMER,
+  lineCount,
   lineTotal,
   PublicLoyalty,
   PublicMenu,
@@ -158,7 +160,14 @@ export function StoreProvider({
         const same = c.find((x) => x.key === line.key);
         return same
           ? c.map((x) =>
-              x === same ? { ...x, quantity: Math.min(50, x.quantity + line.quantity) } : x,
+              x === same
+                ? {
+                    ...x,
+                    quantity: x.weight
+                      ? Math.min(ONLINE_WEIGHT_MAX_G, kgToGrams(x.quantity + line.quantity)) / 1000
+                      : Math.min(50, x.quantity + line.quantity),
+                  }
+                : x,
             )
           : [...c, line];
       });
@@ -175,7 +184,7 @@ export function StoreProvider({
     cart,
     setCart,
     addToCart,
-    count: cart.reduce((n, l) => n + l.quantity, 0),
+    count: cart.reduce((n, l) => n + lineCount(l), 0),
     subtotal: cart.reduce((n, l) => n + lineTotal(l), 0),
     bump,
     favs,

@@ -50,9 +50,9 @@ import { LoyaltyStrip } from './LoyaltyScreens';
 import { ReserveCard } from './ReservationScreens';
 import { HeartButton, Photo } from './ui';
 
-/** Produto sem escolha obrigatória pode ir direto para a sacola pelo "+". */
+/** Produto sem escolha obrigatória pode ir direto para a sacola pelo "+" (por peso abre o item). */
 const quickAddable = (p: PublicProduct) =>
-  !p.soldOut && p.optionGroups.every((g) => g.minSelect === 0);
+  !p.soldOut && !p.soldByWeight && p.optionGroups.every((g) => g.minSelect === 0);
 
 function useOpenProduct() {
   const navigate = useNavigate();
@@ -98,7 +98,7 @@ function ProductCard({ p, i = 0 }: { p: PublicProduct; i?: number }) {
       tabIndex={0}
       onClick={() => open(p, ref.current)}
       onKeyDown={(e) => e.key === 'Enter' && open(p, ref.current)}
-      aria-label={`${p.name}, ${p.soldOut ? 'esgotado' : brl(p.price)}`}
+      aria-label={`${p.name}, ${p.soldOut ? 'esgotado' : `${brl(p.price)}${p.soldByWeight ? ' o quilo' : ''}`}`}
     >
       <div className="pcard__media">
         <Photo src={p.imageUrl} alt={p.name} ratio="4 / 3" className="pcard__photo" />
@@ -115,7 +115,10 @@ function ProductCard({ p, i = 0 }: { p: PublicProduct; i?: number }) {
         <span className="pcard__name">{p.name}</span>
         {p.description && <span className="pcard__desc">{p.description}</span>}
         <span className="pcard__foot">
-          <span className="pcard__price">{p.soldOut ? '—' : brl(p.price)}</span>
+          <span className="pcard__price">
+            {p.soldOut ? '—' : brl(p.price)}
+            {!p.soldOut && p.soldByWeight && <small>/kg</small>}
+          </span>
           {!p.soldOut && (
             <button
               type="button"

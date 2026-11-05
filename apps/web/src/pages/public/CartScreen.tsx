@@ -247,6 +247,7 @@ export function CartScreen() {
                 <Stepper
                   min={0}
                   size="sm"
+                  grams={l.weight}
                   value={l.quantity}
                   onChange={(n) =>
                     setCart((c) =>

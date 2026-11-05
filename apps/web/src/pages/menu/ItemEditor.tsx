@@ -59,6 +59,8 @@ interface Form {
   price: string;
   unit: string;
   soldByWeight: boolean;
+  /** Tara em gramas (texto do campo): pote, prato ou marmita descontado do peso da balança. */
+  weightTareG: string;
   sectorId: string;
   featured: boolean;
   badge: string;
@@ -85,6 +87,7 @@ const blank = (categoryId: string): Form => ({
   price: '',
   unit: 'UN',
   soldByWeight: false,
+  weightTareG: '',
   sectorId: '',
   featured: false,
   badge: '',
@@ -111,6 +114,7 @@ const formOf = (p: Product): Form => ({
   price: toInput(p.price),
   unit: p.fiscalUnit ?? 'UN',
   soldByWeight: !!p.soldByWeight,
+  weightTareG: Number(p.weightTare ?? 0) > 0 ? String(Math.round(Number(p.weightTare) * 1000)) : '',
   sectorId: p.sectorId ?? '',
   featured: !!p.featured,
   badge: p.badge ?? '',
@@ -274,6 +278,10 @@ export function ItemEditor() {
         cest: form.cest && !/^\d{7}$/.test(form.cest) ? '7 dígitos' : undefined,
         barcode:
           form.barcode && !/^\d{4,14}$/.test(form.barcode) ? 'Só números, de 4 a 14' : undefined,
+        weightTare:
+          form.soldByWeight && form.weightTareG && !/^\d{1,4}$/.test(form.weightTareG.trim())
+            ? 'Em gramas, só números (ex.: 20)'
+            : undefined,
         menus: Object.values(menuSel).some((m) => m.on && m.price && !parseBrlInput(m.price))
           ? 'Preço inválido'
           : undefined,
@@ -306,6 +314,9 @@ export function ItemEditor() {
         familyId: form.familyId || null,
         cost: hasRecipe ? null : costParsed,
         soldByWeight: form.soldByWeight,
+        weightTare: form.soldByWeight
+          ? (Number(form.weightTareG.trim() || '0') / 1000).toFixed(3)
+          : '0.000',
         barcode: form.barcode || null,
         barcodeType: form.barcodeType,
         fiscalUnit: form.unit || null,
@@ -553,6 +564,19 @@ export function ItemEditor() {
                     else if (form.unit === 'KG') set('unit', 'UN');
                   }}
                 />
+                {form.soldByWeight && (
+                  <TextField
+                    label="Tara (g)"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={form.weightTareG}
+                    error={errs.weightTare}
+                    hint="Peso do pote, prato ou marmita. É descontado do que a balança mostra."
+                    onChange={(e) =>
+                      set('weightTareG', e.target.value.replace(/\D/g, '').slice(0, 4))
+                    }
+                  />
+                )}
                 <CheckField
                   label="Destaque no cardápio online"
                   description="Aparece no topo, na faixa de destaques."

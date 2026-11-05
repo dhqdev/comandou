@@ -44,7 +44,12 @@ export const ITEM_HELP: HelpDict = {
     example: 'Novo, Picante, Vegano',
   },
   'Vendido por peso': {
-    text: 'Ligue para itens vendidos no quilo (self-service, frios). O preço passa a ser do quilo e a quantidade é digitada ou lida da balança.',
+    text: 'Ligue para itens vendidos no quilo (sorveteria, self-service, açougue, frios). O preço passa a ser do quilo. No PDV, no salão e no app do garçom, ao tocar no item abre a pesagem: digite o que a balança mostra (0,350 · 350 g · 1,2 kg). No cardápio online o cliente escolhe o peso, de 100 g a 5 kg.',
+    example: 'Sorvete R$ 60,00/kg: 350 g = R$ 21,00',
+  },
+  'Tara (g)': {
+    text: 'Peso do pote, prato ou marmita. Na pesagem o sistema desconta a tara do que a balança mostra e cobra só o peso líquido.',
+    example: 'Pote de 20 g: balança 370 g → cobra 350 g',
   },
   'Destaque no cardápio online': {
     text: 'Coloca o item na faixa de destaques, no topo do cardápio online.',

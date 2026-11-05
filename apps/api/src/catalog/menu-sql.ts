@@ -9,7 +9,7 @@ export function menuTreeSql(extra: string) {
      COALESCE((SELECT json_agg(json_build_object(
          'id', p.id, 'name', p.name, 'description', p.description,
          'price', COALESCE(mi.price, p.price)::text, 'soldOut', p.sold_out, 'imageId', p.image_id,
-         'soldByWeight', p.sold_by_weight, ${extra}
+         'soldByWeight', p.sold_by_weight, 'weightTare', p.weight_tare::text, ${extra}
          'optionGroups', COALESCE((SELECT json_agg(json_build_object(
              'id', g.id, 'name', g.name, 'minSelect', g.min_select, 'maxSelect', g.max_select,
              'kind', g.kind, 'charge', g.charge,

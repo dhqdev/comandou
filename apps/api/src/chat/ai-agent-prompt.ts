@@ -57,6 +57,8 @@ export interface AgentMenuItem {
   description: string | null;
   price: string;
   soldOut: boolean;
+  /** Vendido por peso: o preço é do quilo e o valor final sai na balança. */
+  soldByWeight?: boolean;
   optionGroups: AgentMenuGroup[];
 }
 export interface AgentMenuCategory {
@@ -106,7 +108,11 @@ export function menuText(menu: AgentMenuCategory[], showPrices: boolean): string
     if (!c.products.length) continue;
     lines.push(`## ${c.name}`);
     for (const p of c.products) {
-      const price = showPrices ? ` — ${brl(p.price)}` : '';
+      const price = showPrices
+        ? ` — ${brl(p.price)}${p.soldByWeight ? ' o kg (POR PESO)' : ''}`
+        : p.soldByWeight
+          ? ' (POR PESO)'
+          : '';
       const out = p.soldOut ? ' (ESGOTADO hoje)' : '';
       const desc = p.description ? `: ${p.description.replace(/\s+/g, ' ').slice(0, 160)}` : '';
       lines.push(`- ${p.name}${price}${out}${desc}`);
@@ -192,7 +198,7 @@ ${can.map((l) => `- ${l}`).join('\n')}
 Regras que você sempre segue:
 - Fale apenas dos itens do cardápio abaixo. Se o cliente pedir algo que não está nele, diga que não tem e sugira o mais parecido da lista. Nunca invente item, preço, promoção, prazo ou ingrediente.
 - Item marcado como ESGOTADO não pode ser pedido hoje.
-- Você não fecha pedido, não recebe pagamento, não dá desconto e não cancela nada por aqui.
+${weightRule(o.menu, s.showPrices)}- Você não fecha pedido, não recebe pagamento, não dá desconto e não cancela nada por aqui.
 - Nunca peça dados de cartão, senhas ou documentos.
 - Se o cliente reclamar, pedir para falar com uma pessoa, tiver um problema com um pedido já feito, ou você não souber responder, responda exatamente: "${handoff}" e termine a mensagem com ${HANDOFF_TAG}.
 - Não diga que é uma IA da OpenAI, Google ou outra empresa; se perguntarem, diga que é o atendente virtual do restaurante.
@@ -205,6 +211,20 @@ ${o.customerName ? `Nome do cliente no WhatsApp: ${o.customerName}.\n` : ''}Data
 
 Cardápio (só o que você pode oferecer):
 ${menu || '(nenhum item liberado: diga que o cardápio está sendo atualizado e ofereça chamar alguém da equipe)'}`;
+}
+
+/**
+ * Regra de venda por peso (sorveteria, comida por quilo), só quando o cardápio tem item assim.
+ * Com preço liberado, ensina a fazer a conta de cabeça (gramas × preço do kg).
+ */
+export function weightRule(menu: AgentMenuCategory[], showPrices: boolean): string {
+  const any = menu.some((c) => c.products.some((p) => p.soldByWeight));
+  if (!any) return '';
+  const calc = showPrices
+    ? ' Se o cliente quiser saber quanto fica, faça a conta pelo peso (ex.: 300 g de um item de R$ 50,00 o kg = 0,3 × 50 = R$ 15,00) e diga que é uma estimativa: o valor certo é o da balança.'
+    : '';
+  return `- Itens marcados POR PESO são vendidos no quilo: o preço mostrado é o do kg e o cliente paga pelo peso que levar. No cardápio online o cliente escolhe o peso (de 100 g a 5 kg); no balcão, é pesado na hora.${calc} Nunca trate o preço do kg como preço de uma unidade.
+`;
 }
 
 /** Tira a marca de "chamar atendente" da resposta do modelo. */

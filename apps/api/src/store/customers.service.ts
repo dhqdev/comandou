@@ -551,11 +551,11 @@ export class CustomersService {
         channel: string;
         total: string;
         createdAt: Date;
-        items: { name: string; quantity: number; imageUrl: string | null }[];
+        items: { name: string; quantity: number; unit: string; imageUrl: string | null }[];
       }>(
         tx,
         `SELECT o.id, o.number, o.status, o.channel, o.total::text, o.created_at AS "createdAt",
-                COALESCE((SELECT json_agg(json_build_object('name', i.name, 'quantity', i.quantity::float8,
+                COALESCE((SELECT json_agg(json_build_object('name', i.name, 'quantity', i.quantity::float8, 'unit', i.unit,
                                    'imageUrl', (SELECT '/api/v1/media/' || p.image_id FROM products p WHERE p.id = i.product_id))
                                    ORDER BY i.created_at)
                             FROM order_items i WHERE i.order_id = o.id), '[]') AS items
@@ -644,7 +644,7 @@ export class CustomersService {
       );
       const favorites = await q(
         tx,
-        `SELECT i.name, sum(i.quantity)::int AS quantity
+        `SELECT i.name, sum(CASE WHEN i.unit = 'kg' THEN 1 ELSE i.quantity END)::int AS quantity
            FROM order_items i JOIN orders o ON o.id = i.order_id
           WHERE o.customer_id = $1 AND o.status <> 'cancelled'
           GROUP BY i.name ORDER BY 2 DESC, 1 LIMIT 5`,

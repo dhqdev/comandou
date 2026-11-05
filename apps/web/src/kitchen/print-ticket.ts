@@ -1,3 +1,4 @@
+import { qtyTicket } from '@comandou/shared';
 import { paperWidth, type PaperWidth } from '../lib/pos-device';
 
 /**
@@ -10,7 +11,13 @@ export interface TicketData {
   number: number;
   where: string;
   time: string;
-  items: { quantity: string; name: string; options: string[]; notes: string | null }[];
+  items: {
+    quantity: string;
+    unit?: string;
+    name: string;
+    options: string[];
+    notes: string | null;
+  }[];
   notes: string | null;
 }
 
@@ -25,7 +32,7 @@ export function ticketHtml(t: TicketData, paper: PaperWidth = '80') {
   const items = t.items
     .map(
       (i) =>
-        `<li><b>${esc(i.quantity)}x</b> ${esc(i.name)}${i.options
+        `<li><b>${esc(qtyTicket(i.quantity, i.unit))}</b> ${esc(i.name)}${i.options
           .map((o) => `<div class="op">+ ${esc(o)}</div>`)
           .join('')}${i.notes ? `<div class="ob">OBS: ${esc(i.notes)}</div>` : ''}</li>`,
     )

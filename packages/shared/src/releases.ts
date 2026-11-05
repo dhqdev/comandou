@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.94.0',
+    date: '2026-11-05',
+    title: 'Venda por peso para sorveteria e restaurante por quilo',
+    summary:
+      'Item vendido por peso agora funciona em toda a venda: o preço é do quilo, o sistema pede o peso ao lançar (PDV, salão e app do garçom), desconta a tara do pote ou do prato e mostra o peso no pedido, na cozinha, no cupom e na nota. No cardápio online o cliente escolhe quanto quer. A IA do WhatsApp e o assistente da equipe já sabem explicar.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Cardápio › Itens: com "Vendido por peso" ligado, o item ganha o campo Tara (g), o peso do pote, prato ou marmita, descontado do que a balança mostra.',
+      },
+      {
+        tag: 'novo',
+        text: 'PDV, Salão e app do garçom: tocar num item por peso abre a pesagem. Aceita 0,350, 350 g ou 1,2 kg, tem atalhos de 100 g a 1 kg e mostra o valor na hora. Cada pesagem vira uma linha, e tocar no peso da linha permite corrigir.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cardápio online: no item por peso o cliente escolhe o peso de 50 em 50 g (100 g a 5 kg), e o preço aparece "/kg".',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pedidos, comandas, cozinha (KDS), cupom impresso e acompanhamento do cliente mostram "350 g" em vez de "0,35×". A nota fiscal sai em KG quando o item não tem outra unidade.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'IA do WhatsApp: entende que o preço do item por peso é do quilo, faz a conta de uma porção (ex.: 300 g) e avisa que o valor final é o da balança. O assistente da equipe ensina a cadastrar e vender por peso.',
+      },
+      {
+        tag: 'correção',
+        text: 'Item vendido por unidade não aceita mais quantidade quebrada (como 1,5) no pedido.',
+      },
+    ],
+  },
+  {
     version: '0.93.0',
     date: '2026-11-05',
     title: 'Super Admin: Infraestrutura numa aba só e calendário de recebimentos',

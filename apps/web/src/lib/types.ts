@@ -36,6 +36,8 @@ export interface MenuProduct {
   imageId?: string | null;
   code?: string | null;
   soldByWeight?: boolean;
+  /** Tara em kg ("0.020") descontada do peso da balança. */
+  weightTare?: string;
   optionGroups: MenuGroup[];
 }
 export interface MenuCategory {
@@ -167,6 +169,8 @@ export interface OrderItem {
   productId: string;
   name: string;
   quantity: string;
+  /** 'kg' quando o item foi vendido por peso (a quantidade é o peso). */
+  unit?: 'un' | 'kg';
   unitPrice: string;
   total: string;
   notes: string | null;

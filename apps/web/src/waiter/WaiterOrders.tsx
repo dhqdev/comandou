@@ -1,11 +1,11 @@
-import { CHANNEL_LABELS, fromCents, toCents } from '@comandou/shared';
+import { CHANNEL_LABELS, fromCents, toCents, qtyLabel } from '@comandou/shared';
 import { ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Alert, Badge, EmptyState, ItemThumbStrip, Spinner } from '../design-system';
 import { mediaUrl } from '../lib/media';
 import { SlideTabs } from '../features/SlideTabs';
-import { ORDER_STATUS_LABELS, qty, STATUS_TONE, time } from '../features/format';
+import { ORDER_STATUS_LABELS, STATUS_TONE, time } from '../features/format';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
@@ -129,7 +129,9 @@ export function WaiterOrders() {
                         name: i.name,
                       }))}
                     />
-                    <p>{o.items.map((i) => `${qty(i.quantity)}× ${i.name}`).join(' · ')}</p>
+                    <p>
+                      {o.items.map((i) => `${qtyLabel(i.quantity, i.unit)} ${i.name}`).join(' · ')}
+                    </p>
                   </div>
                 )}
                 {expanded && o.deliveryAddress && (

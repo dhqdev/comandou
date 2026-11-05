@@ -4,6 +4,7 @@ import {
   PAYMENT_METHODS,
   PAYMENT_STATUSES,
   type OrderStatus,
+  qtyLabel,
 } from '@comandou/shared';
 import { ChevronDown, ChevronUp, ChevronsUpDown, ClipboardList, RotateCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -53,7 +54,7 @@ function subline(o: Order) {
 }
 
 function itemsSummary(o: Order) {
-  return o.items.map((i) => `${Number(i.quantity)}× ${i.name}`).join(', ');
+  return o.items.map((i) => `${qtyLabel(i.quantity, i.unit)} ${i.name}`).join(', ');
 }
 
 const digits = (s: string) => s.replace(/\D/g, '');

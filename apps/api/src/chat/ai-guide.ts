@@ -59,7 +59,7 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     path: '/cardapio',
     name: 'Cardápio',
     perms: ['catalog:read'],
-    text: 'submenu Itens (cadastro com preço, foto, complementos, ficha técnica e dados fiscais), Famílias de item, Grupos de complementos e Cardápios (Principal para salão/balcão e Delivery).',
+    text: 'submenu Itens (cadastro com preço, foto, complementos, ficha técnica e dados fiscais), Famílias de item, Grupos de complementos e Cardápios (Principal para salão/balcão e Delivery). Venda por peso (sorveteria, restaurante por quilo, açougue): no cadastro do item ligue **Vendido por peso**; o preço passa a ser o do kg e dá para informar a **tara** (peso do pote ou prato, descontado do que a balança mostra). Ao lançar o item no PDV, no salão ou no app do garçom, o sistema pede o peso (aceita 0,350, 350 g ou 1,2 kg); no cardápio online o cliente escolhe o peso de 100 g a 5 kg. Cupom, cozinha e nota mostram o peso (a nota sai em KG).',
   },
   {
     path: '/estoque',
@@ -204,7 +204,7 @@ ${news}`;
 /** Apps próprios de cada papel, com os caminhos que existem neles. */
 const OWN_APPS: Partial<Record<Role, string>> = {
   waiter:
-    '- Mesas (/garcom/mesas): mapa do salão; tocar na mesa abre a comanda para lançar itens, pedir a conta, transferir e pedir cancelamento (o caixa aprova).\n- Meus pedidos (/garcom/pedidos): os pedidos que você lançou e o andamento.\n- Desafios (/garcom/desafios): metas e selos do garçom.\nReceber, dar desconto e fechar a conta ficam com o caixa.',
+    '- Mesas (/garcom/mesas): mapa do salão; tocar na mesa abre a comanda para lançar itens (item vendido por peso pede o peso da balança), pedir a conta, transferir e pedir cancelamento (o caixa aprova).\n- Meus pedidos (/garcom/pedidos): os pedidos que você lançou e o andamento.\n- Desafios (/garcom/desafios): metas e selos do garçom.\nReceber, dar desconto e fechar a conta ficam com o caixa.',
   kitchen:
     '- Cozinha (/cozinha): fila de preparo por setor; tocar no item começa o preparo e marca pronto.',
   driver:

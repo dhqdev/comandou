@@ -1048,6 +1048,28 @@
   color: var(--cm-text-muted);
   line-height: 1.55;
 }
+.pdp__per,
+.pcard__price small {
+  font-size: 0.7em;
+  font-weight: 700;
+  color: var(--cm-text-muted);
+}
+.pdp__weight {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--sf-r-sm);
+  background: var(--cm-surface-sunken);
+  font-size: var(--cm-text-sm);
+  line-height: 1.45;
+}
+.pdp__weight svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--cm-brand-600);
+}
 .pdp__section {
   margin: 14px 0 0;
   font-size: var(--cm-text-lg);
@@ -1431,6 +1453,16 @@
   text-align: center;
   font-weight: 800;
   animation: sf-pop 0.3s var(--cm-ease-liquid);
+}
+/* Item vendido por peso: o número vira "350 g" / "1,250 kg". */
+.stepper--weight .stepper__n {
+  min-width: 68px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.stepper--weight.stepper--sm .stepper__n {
+  min-width: 60px;
+  font-size: var(--cm-text-sm);
 }
 
 .f {

@@ -1,4 +1,4 @@
-import { PAYMENT_METHOD_LABELS, type PaymentMethod } from '@comandou/shared';
+import { PAYMENT_METHOD_LABELS, type PaymentMethod, qtyLabel } from '@comandou/shared';
 import {
   Bike,
   Check,
@@ -46,6 +46,7 @@ interface PublicOrder {
   items: {
     name: string;
     quantity: string;
+    unit?: string;
     total: string;
     notes: string | null;
     imageUrl: string | null;
@@ -253,7 +254,7 @@ export function PublicOrderPage() {
             {o.items.map((i, n) => (
               <li key={n}>
                 <Photo src={i.imageUrl} alt={i.name} className="track__photo" />
-                <span>{Number(i.quantity)}×</span>
+                <span>{qtyLabel(i.quantity, i.unit)}</span>
                 <span>
                   {i.name}
                   {i.options.length > 0 && <small>{i.options.join(', ')}</small>}

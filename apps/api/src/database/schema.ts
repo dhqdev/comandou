@@ -123,6 +123,8 @@ export const products = pgTable('products', {
   familyId: uuid('family_id'),
   cost: numeric('cost', { precision: 14, scale: 2 }),
   soldByWeight: boolean('sold_by_weight').notNull().default(false),
+  /** Tara em kg descontada do peso da balança (só para item vendido por peso). */
+  weightTare: numeric('weight_tare', { precision: 6, scale: 3 }).notNull().default('0'),
   barcode: text('barcode'),
   barcodeType: text('barcode_type').notNull().default('fixed'),
   createdAt: ts('created_at').notNull().defaultNow(),

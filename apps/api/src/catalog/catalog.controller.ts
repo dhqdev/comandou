@@ -85,6 +85,8 @@ const itemFields = {
   familyId: z.string().uuid().nullable(),
   cost: money.nullable(),
   soldByWeight: z.boolean(),
+  /** Tara em kg (pote, prato) descontada do peso lido na balança: "0.020". */
+  weightTare: z.string().regex(/^\d(\.\d{1,3})?$/, 'tara em kg, até 3 casas (ex.: 0.020)'),
   barcode: z
     .string()
     .regex(/^[0-9]{4,14}$/, 'código de barras só com números (4 a 14)')
@@ -329,6 +331,7 @@ export class CatalogController {
           familyId: body.familyId ?? null,
           cost: body.cost ?? null,
           soldByWeight: body.soldByWeight ?? false,
+          weightTare: body.weightTare ?? '0',
           barcode: body.barcode ?? null,
           barcodeType: body.barcodeType ?? 'fixed',
         })

@@ -468,7 +468,7 @@ export class StoreService {
             `SELECT i.product_id AS id FROM order_items i JOIN orders o ON o.id = i.order_id
               WHERE o.created_at > now() - interval '30 days' AND o.status <> 'cancelled'
                 AND i.product_id IS NOT NULL
-              GROUP BY i.product_id ORDER BY sum(i.quantity) DESC LIMIT 10`,
+              GROUP BY i.product_id ORDER BY sum(CASE WHEN i.unit = 'kg' THEN 1 ELSE i.quantity END) DESC LIMIT 10`,
           )
         : [];
       const zoneCount = await one<{ n: number }>(
@@ -668,7 +668,7 @@ export class StoreService {
     );
     const items = await q(
       tx,
-      `SELECT i.name, i.quantity::text, i.total::text, i.notes, i.status,
+      `SELECT i.name, i.quantity::text, i.unit, i.total::text, i.notes, i.status,
                 (SELECT '/api/v1/media/' || p.image_id FROM products p WHERE p.id = i.product_id) AS "imageUrl",
                 COALESCE((SELECT json_agg(io.name) FROM order_item_options io WHERE io.order_item_id = i.id), '[]') AS options
            FROM order_items i WHERE i.order_id = $1 ORDER BY i.created_at, i.id`,
