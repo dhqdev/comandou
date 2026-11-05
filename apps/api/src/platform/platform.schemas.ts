@@ -372,3 +372,49 @@ export const DbServerUpdate = DbServerBody.partial().extend({
 const ServerRef = z.union([z.literal('main'), z.string().uuid()]);
 export const TransferDatabase = z.object({ to: ServerRef });
 export const TransferAll = z.object({ from: ServerRef, to: ServerRef });
+
+/** Migrar cliente: outra instalação do Comandou (stack de destino). */
+export const StackBody = z.object({
+  name: z.string().trim().min(2).max(60),
+  url: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(
+      /^https?:\/\/[a-z0-9.-]+(:[0-9]{1,5})?\/?$/,
+      'endereço do painel, ex.: https://admin.dominio.com.br',
+    )
+    .transform((v) => v.replace(/\/$/, '')),
+  /** Token gerado no painel de lá (Infraestrutura → Migrações → Receber). Vazio = mantém. */
+  token: z.string().trim().max(200).optional(),
+  note: z
+    .string()
+    .trim()
+    .max(300)
+    .transform((v) => v || null)
+    .nullable()
+    .default(null),
+});
+
+export const NewMigration = z.object({
+  tenantId: z.string().uuid(),
+  stackId: z.string().uuid(),
+  mode: z.enum(['move', 'copy']).default('move'),
+  /** Endereço no destino; vazio = o mesmo de hoje. */
+  targetSlug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(40)
+    .transform((v) => v || null)
+    .nullable()
+    .default(null)
+    .refine((v) => v === null || validateTenantSlug(v).ok, 'endereço inválido'),
+  backupBefore: z.boolean().default(true),
+  keepSuspended: z.boolean().default(false),
+  dropAtOrigin: z.boolean().default(false),
+  /** Segue mesmo com a INTEGRATIONS_KEY diferente (tokens de integrações precisam ser refeitos). */
+  ignoreKeyMismatch: z.boolean().default(false),
+});
+
+export const ReceiverBody = z.object({ enabled: z.boolean() });

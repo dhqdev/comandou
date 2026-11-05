@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.95.0',
+    date: '2026-11-05',
+    title: 'Migrar um cliente inteiro para outro servidor',
+    summary:
+      'No painel Super Admin › Infraestrutura › Migrações dá para escolher um restaurante e levar tudo dele (banco, fotos, equipe, pedidos, cadastro, domínios e assinatura) para outra instalação do Comandou num servidor novo, em seis fases acompanhadas na tela: preparar, enviar, criar, restaurar, virar e encerrar.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Super Admin › Infraestrutura › Migrações: cadastre a stack do servidor novo (endereço do painel de lá e o token que ele gera) e use "Migrar cliente". O pacote é o banco do restaurante, com tamanho e sha256, enviado em blocos e conferido do outro lado.',
+      },
+      {
+        tag: 'novo',
+        text: 'O servidor novo instala o cliente sozinho: cria o cadastro e o banco, restaura, aplica as migrações da versão dele e confere as contagens de cada tabela antes da virada.',
+      },
+      {
+        tag: 'novo',
+        text: 'Depois da virada, o endereço antigo leva cada página para o mesmo lugar no endereço novo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Opções: só copiar (fica uma cópia suspensa lá para conferir), backup de segurança antes, deixar suspenso no destino e apagar o banco antigo no fim (com backup final).',
+      },
+      {
+        tag: 'segurança',
+        text: 'Se algo falhar antes da virada, o destino apaga o que criou e o restaurante volta a funcionar onde estava. O servidor novo só aceita pacotes com o token gerado nele, e a migração para se a chave das integrações for diferente.',
+      },
+    ],
+  },
+  {
     version: '0.94.0',
     date: '2026-11-05',
     title: 'Venda por peso para sorveteria e restaurante por quilo',

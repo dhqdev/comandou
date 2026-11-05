@@ -14,6 +14,7 @@ export const DB_STATUS: Record<TenantDatabase['status'], [string, Level]> = {
   moving: ['mudando', 'info'],
   deleting: ['sendo excluído', 'warn'],
   transferring: ['trocando de servidor', 'info'],
+  receiving: ['chegando de outro servidor', 'info'],
 };
 
 const JOB_KIND: Record<DbJob['kind'], string> = {
@@ -21,6 +22,8 @@ const JOB_KIND: Record<DbJob['kind'], string> = {
   move: 'Mover para banco próprio',
   delete: 'Excluir restaurante e base',
   transfer: 'Trocar de servidor',
+  migrate: 'Migrar para outro servidor',
+  receive: 'Receber de outro servidor',
 };
 const JOB_STATUS: Record<DbJob['status'], [string, Level]> = {
   queued: ['na fila', 'info'],

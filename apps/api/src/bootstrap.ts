@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { Env } from './config/env';
+import { CHUNK_LIMIT } from './migration/protocol';
 
 export async function createApp(
   env: Env,
@@ -30,6 +31,8 @@ export async function createApp(
     type: ['video/mp4', 'video/webm', 'video/quicktime'],
     limit: '20mb',
   });
+  // Migrar cliente: blocos do pacote vindos da instalação de origem (rota confere o token).
+  app.useBodyParser('raw', { type: 'application/octet-stream', limit: CHUNK_LIMIT });
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.enableShutdownHooks();

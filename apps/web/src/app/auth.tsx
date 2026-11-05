@@ -1,11 +1,21 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
-import { api, ApiError, isSuspended, Me, TENANT_SUSPENDED_EVENT } from '../lib/api';
+import {
+  api,
+  ApiError,
+  isSuspended,
+  Me,
+  movedTo,
+  TENANT_MOVED_EVENT,
+  TENANT_SUSPENDED_EVENT,
+} from '../lib/api';
 import { closeRealtime } from '../lib/realtime';
 import { setGuideAccess } from '../design-system/fix-guide';
 
 interface AuthState {
-  status: 'loading' | 'anonymous' | 'authenticated' | 'unavailable' | 'suspended';
+  status: 'loading' | 'anonymous' | 'authenticated' | 'unavailable' | 'suspended' | 'moved';
   me?: Me;
+  /** Endereço novo do restaurante (quando mudou de servidor). */
+  movedTo?: string;
   error?: string;
   login(email: string, password: string): Promise<void>;
   logout(): Promise<void>;
@@ -15,7 +25,7 @@ interface AuthState {
 const Ctx = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<Pick<AuthState, 'status' | 'me' | 'error'>>({
+  const [state, setState] = useState<Pick<AuthState, 'status' | 'me' | 'error' | 'movedTo'>>({
     status: 'loading',
   });
 
@@ -26,6 +36,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) setState({ status: 'anonymous' });
       else if (e instanceof ApiError && isSuspended(e.body)) setState({ status: 'suspended' });
+      else if (e instanceof ApiError && movedTo(e.body) !== null)
+        setState({ status: 'moved', movedTo: movedTo(e.body) || undefined });
       else setState({ status: 'unavailable', error: (e as Error).message });
     }
   }, []);
@@ -40,8 +52,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       closeRealtime();
       setState({ status: 'suspended' });
     };
+    const onMoved = (e: Event) => {
+      closeRealtime();
+      setState({ status: 'moved', movedTo: (e as CustomEvent<string>).detail || undefined });
+    };
     window.addEventListener(TENANT_SUSPENDED_EVENT, onSuspended);
-    return () => window.removeEventListener(TENANT_SUSPENDED_EVENT, onSuspended);
+    window.addEventListener(TENANT_MOVED_EVENT, onMoved);
+    return () => {
+      window.removeEventListener(TENANT_SUSPENDED_EVENT, onSuspended);
+      window.removeEventListener(TENANT_MOVED_EVENT, onMoved);
+    };
   }, []);
 
   const login = useCallback(

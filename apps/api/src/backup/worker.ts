@@ -143,6 +143,9 @@ async function dbJobsLoop(pool: Pool, env: BackupEnv, stopping: () => boolean) {
       pool,
       ownerUrl: env.ownerUrl,
       log,
+      integrationsKey: env.integrationsKey,
+      workDir: env.workDir,
+      pgBin: env.pgBin,
       backup: backupDestination(s, env.localDir)
         ? () => jobContext(pool, env, s, 'painel', log)
         : undefined,

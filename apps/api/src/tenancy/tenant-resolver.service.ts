@@ -29,4 +29,12 @@ export class TenantResolverService {
     if (!tenant) return { ok: false, reason: 'not-found' };
     return { ok: true, tenant };
   }
+
+  /** Endereço novo de um restaurante que foi para outra instalação (ou null). */
+  async movedTo(tenantId: string): Promise<string | null> {
+    const rows = await this.db
+      .queryUnscoped<{ url: string | null }>('SELECT app_tenant_moved_to($1) AS url', [tenantId])
+      .catch(() => []);
+    return rows[0]?.url ?? null;
+  }
 }

@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  GoneException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { tenantAcceptsTraffic } from '@comandou/shared';
@@ -34,6 +35,15 @@ export class TenantGuard implements CanActivate {
     if (!outcome.ok) {
       if (outcome.reason === 'invalid-host') throw new BadRequestException('Host inválido');
       throw new NotFoundException('Restaurante não encontrado');
+    }
+    if (outcome.tenant.status === 'migrated') {
+      // Foi para outra instalação: o site antigo só aponta o endereço novo.
+      const movedTo = await this.resolver.movedTo(outcome.tenant.id);
+      throw new GoneException({
+        message: 'Este restaurante mudou de endereço',
+        code: 'tenant_moved',
+        movedTo,
+      });
     }
     if (!tenantAcceptsTraffic(outcome.tenant.status)) {
       // Suspenso pelo painel: login, sessões abertas, cardápio online e agentes ficam bloqueados.

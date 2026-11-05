@@ -5,6 +5,7 @@ import {
   PlatformAuthController,
   PlatformCepController,
   PlatformController,
+  PlatformReceiveController,
   PlatformServerController,
 } from './platform.controller';
 import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
@@ -13,6 +14,8 @@ import { PlatformBackupService } from './platform-backup.service';
 import { PlatformAiService } from './platform-ai.service';
 import { PlatformDatabasesService } from './platform-databases.service';
 import { PlatformDbServersService } from './platform-db-servers.service';
+import { PlatformMigrationsService } from './platform-migrations.service';
+import { PlatformReceiveService } from './platform-receive.service';
 import { ContractSignController, ContractsController } from './contracts/contracts.controller';
 import { ContractsService } from './contracts/contracts.service';
 import { PlatformSitesService } from './platform-sites.service';
@@ -29,6 +32,7 @@ import { CepService } from '../store/cep.service';
     PlatformController,
     PlatformAiController,
     PlatformServerController,
+    PlatformReceiveController,
     ContractsController,
     ContractSignController,
   ],
@@ -38,6 +42,8 @@ import { CepService } from '../store/cep.service';
     PlatformAiService,
     PlatformDatabasesService,
     PlatformDbServersService,
+    PlatformMigrationsService,
+    PlatformReceiveService,
     ContractsService,
     PlatformSitesService,
     PlatformKitchenService,

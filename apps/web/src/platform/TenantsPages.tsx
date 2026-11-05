@@ -37,6 +37,7 @@ export const TENANT_STATUS: Record<string, [string, Level]> = {
   requested: ['solicitado', 'off'],
   moving: ['mudando de banco', 'info'],
   deleting: ['sendo excluído', 'warn'],
+  migrated: ['migrado para outro servidor', 'off'],
 };
 const SUB_LEVEL: Record<string, Level> = {
   trialing: 'info',

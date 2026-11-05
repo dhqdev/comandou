@@ -125,3 +125,17 @@ Decisão do dono do produto: cada restaurante novo ganha o próprio banco, organ
   API ao cadastrar/testar), "restaurantes novos aqui", desativar, **Mover todos** e troca por
   restaurante. Overlay `infrastructure/swarm/db-server.yml` cria o `postgres-2` num nó próprio.
   Detalhes e comparação com o Frappe em [servidores-de-banco.md](../servidores-de-banco.md).
+
+## Nível 3: migrar o cliente para outra instalação (0.95.0)
+
+- Painel → Infraestrutura → **Migrações**: escolhe o restaurante e a stack de destino (outra
+  instalação do Comandou) e o serviço de backup faz as fases preparar → enviar → criar →
+  restaurar → virar → encerrar, como o "Movimento de Site" do Frappe.
+- O pacote é o `pg_dump` do banco do restaurante (sha256, blocos de 4 MB) mais as linhas dele no
+  banco central (cadastro, domínios, perfil, assinatura, IA e cobrança). O destino restaura, aplica
+  as migrações dele e confere as contagens; só então vira. Falha antes da virada desfaz os dois lados.
+- O destino só aceita com o token que ele mesmo gerou (hash no banco); o token na origem fica
+  cifrado com a `INTEGRATIONS_KEY`. A migração para se as chaves forem diferentes.
+- Depois da virada o restaurante fica `migrated` aqui, com `moved_to`: a API responde 410
+  `tenant_moved` e o site leva para o endereço novo. Detalhes em
+  [migrar-cliente.md](../migrar-cliente.md).

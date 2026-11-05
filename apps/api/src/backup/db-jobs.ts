@@ -10,6 +10,8 @@ import {
 } from '../database/tenant-database';
 import { backupDatabase, backupKey, JobContext } from './jobs';
 import { copyTenant, purgeTenantRows } from './tenant-copy';
+import type { RemoteStack } from '../migration/stack-client';
+import { runMigrate, runReceive } from './migration-jobs';
 
 /**
  * Trabalhos de banco pedidos pelo painel Super Admin (tabela tenant_db_jobs), executados pelo
@@ -25,7 +27,7 @@ export interface DbJob {
   tenant_id: string;
   tenant_slug: string;
   tenant_name: string;
-  kind: 'create' | 'move' | 'delete' | 'transfer';
+  kind: 'create' | 'move' | 'delete' | 'transfer' | 'migrate' | 'receive';
   payload: Record<string, unknown>;
 }
 
@@ -40,6 +42,14 @@ export interface DbJobContext {
   migrationsDir?: string;
   /** Conexões de manutenção abertas em outros servidores durante o trabalho (fechadas no fim). */
   servers?: Map<string, Pool>;
+  /** Migrar cliente: abre o token da stack de destino e monta o pacote. */
+  integrationsKey?: string;
+  workDir?: string;
+  pgBin?: string;
+  /** Troca o cliente HTTP do destino (testes). */
+  remote?: (stack: { id: string; url: string; token: string }) => RemoteStack;
+  /** Intervalo entre as perguntas ao destino durante a instalação lá. */
+  pollMs?: number;
 }
 
 /**
@@ -66,7 +76,7 @@ async function closeServers(ctx: DbJobContext) {
 }
 
 /** Servidor cadastrado no painel (null = principal). */
-async function serverById(ctx: DbJobContext, id: string | null | undefined) {
+export async function serverById(ctx: DbJobContext, id: string | null | undefined) {
   if (!id) return null;
   const { rows } = await ctx.pool.query<{
     id: string;
@@ -80,8 +90,8 @@ async function serverById(ctx: DbJobContext, id: string | null | undefined) {
   return { ...rows[0], server: serverOf(rows[0])! };
 }
 
-const APP_ROLES = ['comandou_app', 'comandou_platform'];
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+export const APP_ROLES = ['comandou_app', 'comandou_platform'];
+export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Pega o próximo trabalho da fila (um por vez). */
 export async function claimJob(pool: Pool): Promise<DbJob | null> {
@@ -102,7 +112,7 @@ export async function requeueJob(pool: Pool, id: string, step: string) {
   );
 }
 
-async function step(ctx: DbJobContext, job: DbJob, text: string) {
+export async function step(ctx: DbJobContext, job: DbJob, text: string) {
   ctx.log(`banco ${job.tenant_slug}: ${text}`);
   await ctx.pool.query(`UPDATE tenant_db_jobs SET step = $2 WHERE id = $1`, [job.id, text]);
 }
@@ -223,7 +233,7 @@ export async function dropDatabase(pool: Pool, dbName: string) {
 }
 
 /** Transação numa conexão só do pool (BEGIN/COMMIT direto no pool cairiam em conexões diferentes). */
-async function tx<T>(pool: Pool, fn: (c: PoolClient) => Promise<T>): Promise<T> {
+export async function tx<T>(pool: Pool, fn: (c: PoolClient) => Promise<T>): Promise<T> {
   const c = await pool.connect();
   try {
     await c.query('BEGIN');
@@ -243,7 +253,7 @@ async function purgeCentral(ctx: DbJobContext, tenantId: string, everything = fa
   return withClient(ctx.ownerUrl, (c) => purgeTenantRows(c, tenantId, everything));
 }
 
-async function withClient<T>(url: string, fn: (c: Client) => Promise<T>): Promise<T> {
+export async function withClient<T>(url: string, fn: (c: Client) => Promise<T>): Promise<T> {
   const c = new Client({ connectionString: url });
   await c.connect();
   try {
@@ -326,7 +336,7 @@ async function seedTenant(ctx: DbJobContext, job: DbJob, dbName: string, server:
   });
 }
 
-async function finishJob(ctx: DbJobContext, job: DbJob, result: Record<string, unknown>) {
+export async function finishJob(ctx: DbJobContext, job: DbJob, result: Record<string, unknown>) {
   await ctx.pool.query(
     `UPDATE tenant_db_jobs SET status = 'done', finished_at = now(), step = 'Concluído',
             result = result || $2::jsonb, payload = '{}'::jsonb WHERE id = $1`,
@@ -341,7 +351,7 @@ async function failJob(ctx: DbJobContext, job: DbJob, error: string) {
   );
 }
 
-async function registry(ctx: DbJobContext, tenantId: string) {
+export async function registry(ctx: DbJobContext, tenantId: string) {
   const { rows } = await ctx.pool.query<{
     db_name: string;
     status: string;
@@ -694,7 +704,7 @@ async function runTransfer(ctx: DbJobContext, job: DbJob) {
 }
 
 /** O servidor aceita o dono e ele pode criar bancos. */
-async function checkServer(pool: Pool) {
+export async function checkServer(pool: Pool) {
   const priv = await databasePrivileges(pool);
   if (!priv.canCreateDatabases)
     throw new Error(
@@ -767,6 +777,8 @@ export async function runDbJob(ctx: DbJobContext, job: DbJob): Promise<'done' | 
     if (job.kind === 'create') await runCreate(ctx, job);
     else if (job.kind === 'move') await runMove(ctx, job);
     else if (job.kind === 'transfer') await runTransfer(ctx, job);
+    else if (job.kind === 'migrate') await runMigrate(ctx, job);
+    else if (job.kind === 'receive') await runReceive(ctx, job);
     else await runDelete(ctx, job);
     ctx.log(`banco ${job.tenant_slug}: ${job.kind} concluído`);
     return 'done';

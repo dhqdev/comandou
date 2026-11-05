@@ -50,6 +50,9 @@ import {
   DbServerUpdate,
   TransferAll,
   TransferDatabase,
+  NewMigration,
+  ReceiverBody,
+  StackBody,
   SubscriptionChange,
   SupportAccess,
 } from './platform.schemas';
@@ -68,6 +71,9 @@ import { PlatformDb, platformAudit } from './platform-db.service';
 import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
 import { BillingService } from '../billing/billing.service';
 import { PlatformSitesService } from './platform-sites.service';
+import { PlatformMigrationsService } from './platform-migrations.service';
+import { PlatformReceiveService } from './platform-receive.service';
+import { CHUNK_LIMIT, type Manifest } from '../migration/protocol';
 import { CepService } from '../store/cep.service';
 import {
   KitchenDisplayBody,
@@ -182,7 +188,76 @@ export class PlatformController {
     private readonly billing: BillingService,
     private readonly sites: PlatformSitesService,
     private readonly kitchen: PlatformKitchenService,
+    private readonly migrations: PlatformMigrationsService,
+    private readonly receiver: PlatformReceiveService,
   ) {}
+
+  // ---------------------------------------------------------- migrar cliente (origem)
+  /** Stacks de destino, restaurantes que podem sair e as migrações recentes. */
+  @Get('migrations')
+  migrationList() {
+    return this.migrations.list();
+  }
+
+  @Get('migrations/:id')
+  migration(@Param('id') id: string) {
+    return this.migrations.get(id);
+  }
+
+  @Post('migrations')
+  createMigration(
+    @Body(new ZodPipe(NewMigration)) b: z.infer<typeof NewMigration>,
+    @Req() req: Request,
+  ) {
+    return this.migrations.create(b, actor(req));
+  }
+
+  @Post('migrations/:id/cancel')
+  @HttpCode(200)
+  cancelMigration(@Param('id') id: string, @Req() req: Request) {
+    return this.migrations.cancel(id, actor(req));
+  }
+
+  @Post('stacks')
+  createStack(@Body(new ZodPipe(StackBody)) b: z.infer<typeof StackBody>, @Req() req: Request) {
+    return this.migrations.createStack(b, actor(req));
+  }
+
+  @Put('stacks/:id')
+  updateStack(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(StackBody)) b: z.infer<typeof StackBody>,
+    @Req() req: Request,
+  ) {
+    return this.migrations.updateStack(id, b, actor(req));
+  }
+
+  @Post('stacks/:id/test')
+  @HttpCode(200)
+  testStack(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.migrations.test(id);
+  }
+
+  @Post('stacks/:id/remove')
+  @HttpCode(200)
+  removeStack(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: Request) {
+    return this.migrations.removeStack(id, actor(req));
+  }
+
+  // ---------------------------------------------------------- migrar cliente (destino)
+  /** Recebimento de restaurantes vindos de outra instalação: ligado, token e o que chegou. */
+  @Get('receiver')
+  receiverSettings() {
+    return this.receiver.settings();
+  }
+
+  @Put('receiver')
+  configureReceiver(
+    @Body(new ZodPipe(ReceiverBody)) b: z.infer<typeof ReceiverBody>,
+    @Req() req: Request,
+  ) {
+    return this.receiver.configure(b.enabled, actor(req));
+  }
 
   /** Cozinhas do restaurante e o que as telas da cozinha mostram (aba "Cozinha"). */
   @Get('tenants/:id/kitchen')
@@ -676,5 +751,78 @@ export class PlatformAiController {
     @Req() req: Request,
   ) {
     return this.ai.saveTenant(id, b, actor(req));
+  }
+}
+
+/**
+ * Rotas que a instalação de ORIGEM chama para mandar um restaurante para cá. Sem sessão do
+ * painel: valem só com o token de recebimento gerado aqui (Infraestrutura → Migrações).
+ */
+@Controller({ path: 'platform/receive', version: '1' })
+@SkipTenant()
+@Public()
+@UseGuards(PlatformHostGuard)
+@Throttle({ default: { ttl: 60_000, limit: 600 } })
+export class PlatformReceiveController {
+  constructor(private readonly svc: PlatformReceiveService) {}
+
+  private auth(req: Request) {
+    return this.svc.authorize(req.get('authorization'));
+  }
+
+  @Get('hello')
+  async hello(@Req() req: Request) {
+    await this.auth(req);
+    return this.svc.hello();
+  }
+
+  @Get('check')
+  async check(@Req() req: Request, @Query('slug') slug = '', @Query('tenantId') tenantId = '') {
+    await this.auth(req);
+    return this.svc.slugCheck(String(slug), String(tenantId));
+  }
+
+  @Post()
+  async open(@Req() req: Request, @Body() body: Manifest) {
+    await this.auth(req);
+    if (!body || typeof body !== 'object' || typeof body.tenantId !== 'string')
+      throw new UnprocessableEntityException('Manifesto inválido');
+    return this.svc.open(body);
+  }
+
+  @Put(':id/chunks/:idx')
+  async chunk(@Req() req: Request, @Param('id') id: string, @Param('idx') idx: string) {
+    await this.auth(req);
+    const data = req.body as unknown;
+    if (!Buffer.isBuffer(data) || data.length > CHUNK_LIMIT)
+      throw new UnprocessableEntityException('Envie o bloco como application/octet-stream');
+    return this.svc.putChunk(id, Number(idx), data);
+  }
+
+  @Get(':id')
+  async view(@Req() req: Request, @Param('id') id: string) {
+    await this.auth(req);
+    return this.svc.view(id);
+  }
+
+  @Post(':id/install')
+  @HttpCode(200)
+  async install(@Req() req: Request, @Param('id') id: string) {
+    await this.auth(req);
+    return this.svc.install(id);
+  }
+
+  @Post(':id/activate')
+  @HttpCode(200)
+  async activate(@Req() req: Request, @Param('id') id: string) {
+    await this.auth(req);
+    return this.svc.activate(id);
+  }
+
+  @Post(':id/discard')
+  @HttpCode(200)
+  async discard(@Req() req: Request, @Param('id') id: string) {
+    await this.auth(req);
+    return this.svc.discard(id);
   }
 }

@@ -36,6 +36,7 @@ por site. A comparação:
 | `bench new-site --db-host` | Servidor marcado "restaurantes novos aqui" | **0.62** |
 | `bench backup` + `bench restore` em outro servidor | **Trocar de servidor**: cópia direta, conferida, sem arquivo no meio, com backup antes | **0.62** |
 | Mover vários sites de servidor | **Mover todos**: um por vez, cada um parado só durante a própria cópia | **0.62** |
+| Mover um site para outro bench/servidor (Movimento de Site) | **Migrar cliente** para outra instalação, em fases ([migrar-cliente.md](migrar-cliente.md)) | **0.95** |
 
 Diferenças de propósito: no Comandou nenhuma senha de banco fica gravada (os servidores extras
 usam os mesmos papéis e senhas do principal) e a troca é feita pelo serviço de backup, não pela
@@ -99,6 +100,7 @@ restaurantes; nada é apagado no servidor) → desligue a VM.
 ## Limites
 
 - O banco central (`comandou`) continua no servidor principal. Para trocar a VM principal inteira,
-  use o backup e o instalador (docs/backups.md, "Restaurar de verdade (desastre)").
+  use o backup e o instalador (docs/backups.md, "Restaurar de verdade (desastre)"). Para levar um
+  restaurante para outra instalação, veja [migrar-cliente.md](migrar-cliente.md).
 - O tempo parado de cada restaurante é o tempo da cópia: segundos para restaurantes comuns,
   alguns minutos para bancos com muitas fotos.

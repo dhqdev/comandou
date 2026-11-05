@@ -211,7 +211,7 @@ function WaiterOnly() {
 const OWN_APP_ROLES = ['waiter', 'driver', 'kitchen'];
 
 function Gate() {
-  const { status, error, me } = useAuth();
+  const { status, error, me, movedTo } = useAuth();
   const { pathname } = useLocation();
   const role = me?.user.role;
   // Painel aberto: baixa as outras telas em segundo plano (garçom, entregador e cozinha não precisam).
@@ -244,6 +244,24 @@ function Gate() {
           O acesso a este sistema está pausado. Nenhum dado foi apagado: assim que for reativado,
           tudo volta como estava. Fale com o suporte do Comandou.
         </p>
+      </main>
+    );
+  }
+  if (status === 'moved') {
+    return (
+      <main className="cm-suspended" role="alert">
+        <Mascot size={88} mood="happy" />
+        <h1>Mudamos de endereço</h1>
+        <p>
+          Este restaurante agora funciona num servidor novo, com tudo o que já estava aqui.
+          {movedTo ? ' Use o endereço abaixo e salve nos favoritos.' : ''}
+        </p>
+        {movedTo && (
+          <a className="cm-btn cm-btn--primary" href={movedTo}>
+            {movedTo.replace(/^https?:\/\//, '')}
+          </a>
+        )}
+        {!movedTo && <p>Se continuar vendo esta tela, o endereço ainda está sendo atualizado.</p>}
       </main>
     );
   }

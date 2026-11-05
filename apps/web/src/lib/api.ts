@@ -8,6 +8,26 @@ export const TENANT_SUSPENDED_EVENT = 'cm:tenant-suspended';
 export const isSuspended = (body: unknown) =>
   (body as { code?: string } | undefined)?.code === 'tenant_suspended';
 
+/** Restaurante que foi para outro servidor: o endereço novo vem na resposta (410). */
+export const TENANT_MOVED_EVENT = 'cm:tenant-moved';
+export const movedTo = (body: unknown): string | null => {
+  const b = body as { code?: string; movedTo?: string | null } | undefined;
+  return b?.code === 'tenant_moved' ? (b.movedTo ?? '') : null;
+};
+
+/** Leva para o mesmo caminho no endereço novo (só se for outro endereço, para não dar volta). */
+export function followMove(url: string): boolean {
+  try {
+    const to = new URL(url);
+    if (!/^https?:$/.test(to.protocol) || to.host === window.location.host) return false;
+    const { pathname, search, hash } = window.location;
+    window.location.replace(`${to.origin}${pathname}${search}${hash}`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Gravação recusada porque o restaurante está bloqueado pela cobrança. */
 export const BILLING_BLOCKED_EVENT = 'cm:billing-blocked';
 
@@ -51,6 +71,10 @@ export async function api<T>(
     const msg = (body as { message?: string } | undefined)?.message ?? `Erro ${res.status}`;
     // Restaurante suspenso no meio do uso: o app troca para a tela de aviso.
     if (isSuspended(body)) window.dispatchEvent(new Event(TENANT_SUSPENDED_EVENT));
+    // Mudou de servidor: o site antigo leva cada página para o mesmo lugar no endereço novo.
+    const moved = movedTo(body);
+    if (moved !== null && !followMove(moved))
+      window.dispatchEvent(new CustomEvent(TENANT_MOVED_EVENT, { detail: moved }));
     if ((body as { code?: string } | undefined)?.code === 'billing_blocked')
       window.dispatchEvent(new Event(BILLING_BLOCKED_EVENT));
     throw new ApiError(res.status, msg, body);

@@ -52,12 +52,12 @@ type Stats = Record<'tenants' | 'orders' | 'payments' | 'media' | 'migrations', 
   lastMigration: string;
 };
 
-function bin(ctx: Pick<JobContext, 'pgBin'>, name: string) {
+export function bin(ctx: Pick<JobContext, 'pgBin'>, name: string) {
   return ctx.pgBin ? join(ctx.pgBin, name) : name;
 }
 
 /** Roda um programa; em erro, devolve as últimas linhas da saída de erro (sem a URL do banco). */
-function run(cmd: string, args: string[], env: NodeJS.ProcessEnv = {}): Promise<string> {
+export function run(cmd: string, args: string[], env: NodeJS.ProcessEnv = {}): Promise<string> {
   return new Promise((resolve, reject) => {
     const p = spawn(cmd, args, {
       env: { ...process.env, ...env },
@@ -85,7 +85,7 @@ function run(cmd: string, args: string[], env: NodeJS.ProcessEnv = {}): Promise<
   });
 }
 
-async function sha256File(file: string) {
+export async function sha256File(file: string) {
   const h = createHash('sha256');
   await pipeline(createReadStream(file), h);
   return h.digest('hex');

@@ -222,7 +222,10 @@ export class PlatformSitesService {
   private async build(): Promise<SitesReport> {
     const base = this.env.COMANDOU_BASE_DOMAIN;
     const [tenants, domains, backups, central, gateway] = await Promise.all([
-      this.platform.listTenants({}) as unknown as Promise<TenantListRow[]>,
+      // Quem foi para outra instalação não roda mais aqui (aparece em Infraestrutura → Migrações).
+      (this.platform.listTenants({}) as unknown as Promise<TenantListRow[]>).then((l) =>
+        l.filter((t) => t.status !== 'migrated'),
+      ),
       this.db.query<{ tenantId: string; hostname: string; verified: boolean }>(
         `SELECT tenant_id AS "tenantId", hostname::text AS hostname, verified_at IS NOT NULL AS verified
            FROM tenant_domains WHERE removed_at IS NULL ORDER BY created_at`,

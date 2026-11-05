@@ -61,12 +61,12 @@ export interface TenantProfile {
 }
 
 export type TenantDatabaseStatus =
-  'creating' | 'ready' | 'failed' | 'moving' | 'deleting' | 'transferring';
+  'creating' | 'ready' | 'failed' | 'moving' | 'deleting' | 'transferring' | 'receiving';
 
 /** Trabalho de banco (criar, mover para banco próprio, excluir) feito pelo serviço de backup. */
 export interface DbJob {
   id: string;
-  kind: 'create' | 'move' | 'delete' | 'transfer';
+  kind: 'create' | 'move' | 'delete' | 'transfer' | 'migrate' | 'receive';
   status: 'queued' | 'running' | 'done' | 'failed';
   step: string | null;
   error: string | null;
@@ -679,4 +679,119 @@ export interface SitesReport {
   baseDomain: string;
   whatsappGateway: HealthState;
   sites: SiteStatus[];
+}
+
+// ------------------------------------------------------------ migrar cliente (outra instalação)
+export type MigrationPhaseName =
+  'preparar' | 'enviar' | 'criar' | 'restaurar' | 'virar' | 'encerrar';
+
+export interface MigrationPhase {
+  name: MigrationPhaseName;
+  status: 'pendente' | 'rodando' | 'ok' | 'falhou' | 'pulada' | 'desfeita';
+  startedAt: string | null;
+  finishedAt: string | null;
+  detail: string | null;
+}
+
+export interface Migration {
+  id: string;
+  code: string;
+  tenantId: string;
+  tenantSlug: string;
+  tenantName: string;
+  stackId: string | null;
+  stackName: string;
+  mode: 'move' | 'copy';
+  options: {
+    targetSlug?: string;
+    backupBefore?: boolean;
+    keepSuspended?: boolean;
+    dropAtOrigin?: boolean;
+    ignoreKeyMismatch?: boolean;
+    previousStatus?: string;
+  };
+  status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled';
+  phase: MigrationPhaseName | null;
+  phases: MigrationPhase[];
+  package: {
+    size?: number;
+    sha256?: string;
+    chunkSize?: number;
+    chunks?: number;
+    sent?: number;
+    tables?: number;
+    rows?: number;
+    database?: string;
+  };
+  remoteUrl: string | null;
+  result: {
+    warning?: string;
+    backupKey?: string;
+    finalBackupKey?: string;
+    url?: string;
+    droppedAtOrigin?: string;
+    destination?: { version: string; baseDomain: string; sameKey: boolean };
+  };
+  error: string | null;
+  createdAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface StackCheck {
+  ok: boolean;
+  ms: number;
+  version?: string;
+  baseDomain?: string;
+  missingMigrations?: number;
+  firstMissing?: string | null;
+  sameKey?: boolean;
+  workerAlive?: boolean;
+  error?: string;
+  at: string;
+}
+
+export interface Stack {
+  id: string;
+  name: string;
+  url: string;
+  tokenHint: string | null;
+  note: string | null;
+  check: StackCheck | null;
+  createdAt: string;
+}
+
+export interface Migrations {
+  keyFingerprint: string | null;
+  migrations: number;
+  stacks: Stack[];
+  tenants: { id: string; slug: string; name: string; status: string; ready: boolean }[];
+  list: Migration[];
+  worker: { alive: boolean; lastSeenAt: string | null };
+}
+
+export interface Reception {
+  id: string;
+  tenantId: string;
+  tenantSlug: string;
+  tenantName: string;
+  source: { code?: string; url?: string | null; version?: string; slug?: string };
+  mode: 'move' | 'copy';
+  status: 'receiving' | 'installing' | 'restored' | 'active' | 'failed' | 'discarded';
+  step: string | null;
+  error: string | null;
+  createdAt: string;
+  finishedAt: string | null;
+  size: string | null;
+}
+
+export interface Receiver {
+  enabled: boolean;
+  tokenHint: string | null;
+  baseDomain: string;
+  adminUrl: string;
+  keyFingerprint: string | null;
+  receptions: Reception[];
+  /** Só na resposta de "ligar": o token aparece uma vez. */
+  token?: string | null;
 }
