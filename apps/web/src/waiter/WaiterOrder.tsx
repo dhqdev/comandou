@@ -34,6 +34,7 @@ import { mediaUrl } from '../lib/media';
 import { brl, parseBrlInput } from '../lib/money';
 import type { DiningTable, MenuCategory, MenuProduct, Order, Tab } from '../lib/types';
 import { useWaiterStats, useWide, WaiterHead } from './common';
+import { AddressQuick } from '../features/AddressQuick';
 
 interface Line {
   /** Identidade estável da linha (a observação muda enquanto se digita). */
@@ -547,12 +548,9 @@ function CartContent({
           />
           {channel === 'delivery' && (
             <>
-              <TextField
-                label="Endereço de entrega"
+              <AddressQuick
                 value={customer.address}
-                onChange={set('address')}
-                maxLength={300}
-                required
+                onChange={(address) => setCustomer((c) => ({ ...c, address }))}
               />
               <TextField
                 label="Taxa de entrega"

@@ -1,5 +1,7 @@
 import { ExternalLink, Link2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { maskCep, useCepAutofill } from '../lib/cep';
+import { StreetHits } from './StreetHits';
 import { Alert, Button, Card, TextField, useToast } from '../design-system';
 import { api } from '../lib/api';
 import { parseBrlInput } from '../lib/money';
@@ -174,31 +176,9 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
             maxLength={30}
             disabled={!canManage}
           />
-          <TextField
-            label="Endereço (aparece na retirada)"
-            value={form.address}
-            onChange={set('address')}
-            maxLength={300}
-            disabled={!canManage}
-          />
-          <TextField
-            label="Cidade da loja"
-            value={form.city}
-            onChange={set('city')}
-            maxLength={80}
-            hint="O cardápio acha o CEP do cliente pela rua nesta cidade"
-            disabled={!canManage}
-          />
-          <TextField
-            label="UF"
-            value={form.state}
-            onChange={(e) =>
-              setForm((f) => ({
-                ...f,
-                state: e.target.value.replace(/[^A-Za-z]/g, '').slice(0, 2),
-              }))
-            }
-            maxLength={2}
+          <StoreAddressFields
+            value={form}
+            onChange={(p) => setForm((f) => ({ ...f, ...p }))}
             disabled={!canManage}
           />
           {canManage && (
@@ -338,5 +318,101 @@ function HoursEditor({
         </div>
       )}
     </div>
+  );
+}
+
+type StoreAddress = { address: string; city: string; state: string };
+
+/**
+ * Endereço da loja: o CEP preenche rua, bairro, cidade e UF; o nome da rua (no começo do campo
+ * Endereço) acha o CEP na cidade da loja. O endereço continua sendo uma linha livre.
+ */
+function StoreAddressFields({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: StoreAddress;
+  onChange(p: Partial<StoreAddress>): void;
+  disabled: boolean;
+}) {
+  const [cep, setCep] = useState('');
+  const addressRef = useRef<HTMLInputElement>(null);
+  const listId = useId();
+  // Só o nome da rua (antes da vírgula) vai para a busca do CEP.
+  const street = value.address.split(/[,\-–]/)[0] ?? '';
+
+  const fill = useCepAutofill({ cep, street, city: value.city, state: value.state }, (a) => {
+    setCep(maskCep(a.cep));
+    const head = a.street ? `${a.street}, ` : value.address;
+    const tail = [a.district, `CEP ${maskCep(a.cep)}`].filter(Boolean).join(' - ');
+    onChange({
+      address: a.street ? `${head} - ${tail}` : value.address,
+      city: a.city || value.city,
+      state: a.state || value.state,
+    });
+    // Cursor logo depois da rua, para digitar o número.
+    requestAnimationFrame(() => {
+      const el = addressRef.current;
+      if (!el || !a.street) return;
+      el.focus();
+      el.setSelectionRange(head.length, head.length);
+    });
+  });
+
+  return (
+    <>
+      <TextField
+        label="CEP da loja"
+        inputMode="numeric"
+        autoComplete="postal-code"
+        placeholder="00000-000"
+        maxLength={9}
+        value={cep}
+        hint={fill.cepHint}
+        onChange={(e) => {
+          fill.cepTyped();
+          setCep(maskCep(e.target.value));
+        }}
+        disabled={disabled}
+      />
+      <div className="street-field" style={{ gridColumn: '1 / -1' }}>
+        <TextField
+          ref={addressRef}
+          label="Endereço (aparece na retirada)"
+          value={value.address}
+          maxLength={300}
+          hint={fill.streetHint}
+          role="combobox"
+          aria-expanded={fill.open}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          onChange={(e) => {
+            fill.streetTyped();
+            onChange({ address: e.target.value });
+          }}
+          onFocus={() => fill.hits.length && fill.setOpen(true)}
+          onBlur={fill.streetLeft}
+          onKeyDown={(e) => e.key === 'Escape' && fill.setOpen(false)}
+          disabled={disabled}
+        />
+        {fill.open && <StreetHits id={listId} hits={fill.hits} onPick={fill.pick} />}
+      </div>
+      <TextField
+        label="Cidade da loja"
+        value={value.city}
+        onChange={(e) => onChange({ city: e.target.value })}
+        maxLength={80}
+        hint="O cardápio acha o CEP do cliente pela rua nesta cidade"
+        disabled={disabled}
+      />
+      <TextField
+        label="UF"
+        value={value.state}
+        onChange={(e) => onChange({ state: e.target.value.replace(/[^A-Za-z]/g, '').slice(0, 2) })}
+        maxLength={2}
+        disabled={disabled}
+      />
+    </>
   );
 }

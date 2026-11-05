@@ -183,6 +183,28 @@ describe('Loja online: configurações e fotos', () => {
 });
 
 describe('Cardápio público e pedido do cliente', () => {
+  it('cidade do restaurante para achar o CEP pela rua: Loja online, senão a nota fiscal', async () => {
+    await ownerQuery(
+      `INSERT INTO tenant_fiscal_settings (tenant_id, company)
+       VALUES ($1, '{"municipio":"Campinas","uf":"SP"}'::jsonb)
+       ON CONFLICT (tenant_id) DO UPDATE SET company = EXCLUDED.company`,
+      [fx.tenantA],
+    );
+    const before = await pub.get('/store/region').expect(200);
+    expect(before.body).toEqual({ city: 'Campinas', state: 'SP' });
+    await patch('adminA', '/store/settings', { city: 'Santos', state: 'SP' }).expect(200);
+    expect((await pub.get('/store/region').expect(200)).body).toEqual({
+      city: 'Santos',
+      state: 'SP',
+    });
+    // O outro restaurante não herda nada.
+    expect((await pub.get('/store/region', HOST_B).expect(200)).body).toEqual({
+      city: null,
+      state: null,
+    });
+    await patch('adminA', '/store/settings', { city: null, state: null }).expect(200);
+  });
+
   it('mostra o cardápio sem login, com foto, sem dados internos', async () => {
     const m = (await pub.get('/store').expect(200)).body;
     expect(m.restaurant.name).toContain('Restaurante A');

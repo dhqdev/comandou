@@ -4,6 +4,7 @@ import { FormEvent, ReactNode, useId, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Alert, Button, Modal, Select, TextField, useToast } from '../design-system';
 import { api } from '../lib/api';
+import { CepField } from '../features/CepField';
 import { useLoad } from './OverviewPages';
 import type { Plan, TenantDetail, TenantProfile } from './types';
 
@@ -274,22 +275,30 @@ function CityFields({
   f,
   set,
   onState,
-  wide = true,
 }: {
   f: Pick<ProfileForm, 'city' | 'state'>;
   set: (k: 'city' | 'state', v: string) => void;
   onState?: (uf: string) => void;
-  /** Ocupa a linha toda (aba Cadastro) ou divide com o fuso (Novo restaurante). */
-  wide?: boolean;
 }) {
   return (
     <>
+      <CepField
+        label="CEP"
+        wrapClass="span-2 m-span-4"
+        onFound={(a) => {
+          if (a.city) set('city', a.city);
+          if (a.state) {
+            set('state', a.state);
+            onState?.(a.state);
+          }
+        }}
+      />
       <TextField
         label="Cidade"
         value={f.city}
         onChange={(e) => set('city', e.target.value)}
         maxLength={80}
-        wrapClass={`${wide ? 'span-4' : 'span-2'} m-span-3`}
+        wrapClass="span-3 m-span-3"
       />
       <SelectBox
         label="UF"
@@ -298,7 +307,7 @@ function CityFields({
           set('state', v);
           onState?.(v);
         }}
-        className={`${wide ? 'span-2' : 'span-1'} m-span-1`}
+        className="span-1 m-span-1"
       >
         <option value="">—</option>
         {UFS.map((u) => (
@@ -452,7 +461,6 @@ export function NewTenantModal({ onClose }: { onClose(): void }) {
           <CityFields
             f={profile}
             set={setP}
-            wide={false}
             onState={(uf) => {
               if (!tzTouched) set('timezone', UF_TIMEZONE[uf] ?? 'America/Sao_Paulo');
             }}

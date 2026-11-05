@@ -173,30 +173,33 @@ export class CepService {
     const key = `cep:${cep}`;
     const c = this.hit<CepAddress | null>(key);
     if (c) return c.value;
-    let answered = false;
     const providers: [string, (cep: string) => Promise<CepAddress | null>][] = [
       ['ViaCEP', (x) => this.viaCep(x)],
       ['BrasilAPI', (x) => this.brasilApi(x)],
       ['OpenCEP', (x) => this.openCep(x)],
     ];
-    for (const [name, fn] of providers) {
-      try {
-        const a = await fn(cep);
-        answered = true;
-        if (a) {
-          this.keep(key, a, CACHE_TTL_MS);
-          return a;
-        }
-      } catch (e) {
-        this.log.warn(`${name} falhou no CEP (${(e as Error).message})`);
-      }
-    }
-    if (!answered)
+    // Todos ao mesmo tempo: o primeiro que achar o CEP responde. Um serviço lento ou bloqueado
+    // não segura a resposta (antes eram até 15 s, um atrás do outro).
+    const a = await new Promise<CepAddress | null | undefined>((resolve) => {
+      let pending = providers.length;
+      let answered = false;
+      for (const [name, fn] of providers)
+        fn(cep)
+          .then((r) => {
+            answered = true;
+            if (r) resolve(r);
+          })
+          .catch((e) => this.log.warn(`${name} falhou no CEP (${(e as Error).message})`))
+          .finally(() => {
+            if (--pending === 0) resolve(answered ? null : undefined);
+          });
+    });
+    if (a === undefined)
       throw new ServiceUnavailableException(
         'A consulta de CEP não respondeu agora. Preencha o endereço à mão.',
       );
-    this.keep(key, null, MISS_TTL_MS);
-    return null;
+    this.keep(key, a, a ? CACHE_TTL_MS : MISS_TTL_MS);
+    return a;
   }
 
   /** CEPs de uma rua na cidade (ViaCEP pede UF, cidade e pelo menos 3 letras da rua). */

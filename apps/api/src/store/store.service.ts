@@ -408,6 +408,29 @@ export class StoreService {
     });
   }
 
+  /**
+   * Cidade e UF do restaurante, para achar o CEP pela rua nos endereços (cardápio e sistema).
+   * Sem cidade na Loja online, vale a cidade da empresa na nota fiscal.
+   */
+  region(tenantId: string) {
+    return this.db.withTenant({ tenantId }, async (tx) =>
+      this.regionIn(tx, await this.settingsIn(tx)),
+    );
+  }
+
+  private async regionIn(tx: Tx, s: StoreSettings) {
+    if (s.city?.trim() && s.state?.trim())
+      return { city: s.city.trim(), state: s.state.trim().toUpperCase() };
+    const f = await one<{ city: string | null; state: string | null }>(
+      tx,
+      `SELECT company->>'municipio' AS city, company->>'uf' AS state FROM tenant_fiscal_settings`,
+    );
+    return {
+      city: s.city?.trim() || f?.city?.trim() || null,
+      state: (s.state?.trim() || f?.state?.trim() || '').toUpperCase() || null,
+    };
+  }
+
   /** Cardápio público: só o que o cliente precisa ver. Sem custos, fichas, setores ou dados fiscais. */
   publicMenu(tenantId: string, tenantName: string, slug: string) {
     return this.db.withTenant({ tenantId }, async (tx) => {
@@ -452,6 +475,7 @@ export class StoreService {
         tx,
         `SELECT count(*)::int AS n FROM delivery_zones WHERE active`,
       );
+      const region = await this.regionIn(tx, s);
       const visible = categories.filter((c) => c.products.length > 0);
       const productIds = new Set(visible.flatMap((c) => c.products.map((p) => p.id)));
       const categoryIds = new Set(visible.map((c) => c.id));
@@ -462,8 +486,8 @@ export class StoreService {
           about: s.about,
           address: s.address,
           whatsapp: s.whatsapp,
-          city: s.city,
-          state: s.state,
+          city: region.city,
+          state: region.state,
           coverUrl: mediaUrl(s.coverImageId),
           logoUrl: mediaUrl(s.logoImageId),
         },

@@ -105,4 +105,67 @@ describe('Endereço com CEP', () => {
     });
     await waitFor(() => expect(screen.getByLabelText(/^Rua/)).toHaveValue('Avenida Paulista'));
   });
+
+  it('API diz que não achou o CEP, mas a BrasilAPI conhece: preenche mesmo assim', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (u: string) =>
+        u.startsWith('https://brasilapi.com.br/api/cep/v1/01310100')
+          ? json({
+              cep: '01310100',
+              street: 'Avenida Paulista',
+              neighborhood: 'Bela Vista',
+              city: 'São Paulo',
+              state: 'SP',
+            })
+          : u.startsWith('https://viacep.com.br')
+            ? json({ erro: 'true' })
+            : json({ message: 'CEP não encontrado' }, 404),
+      ),
+    );
+    render(<Form />);
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/^CEP/), { target: { value: '01310-100' } });
+    });
+    await waitFor(() => expect(screen.getByLabelText(/^Bairro/)).toHaveValue('Bela Vista'));
+  });
+
+  it('busca pela rua sem resposta da API: o navegador procura na ViaCEP sem o "Av."', async () => {
+    const fetch = vi.fn(async (u: string) =>
+      u.startsWith('https://viacep.com.br/ws/SP/S%C3%A3o%20Paulo/Paulista/json/')
+        ? json([
+            {
+              cep: '01310-100',
+              logradouro: 'Avenida Paulista',
+              bairro: 'Bela Vista',
+              localidade: 'São Paulo',
+              uf: 'SP',
+            },
+          ])
+        : u.startsWith('https://viacep.com.br')
+          ? json([])
+          : json({ message: 'fora do ar' }, 503),
+    );
+    vi.stubGlobal('fetch', fetch);
+    render(<Form />);
+    fireEvent.change(screen.getByLabelText(/^Rua/), { target: { value: 'Av. Paulista' } });
+    const hits = await screen.findAllByRole('option', {}, { timeout: 2000 });
+    expect(hits).toHaveLength(1);
+  });
+
+  it('CEP inexistente em todos os serviços: avisa que não achou', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (u: string) =>
+        u.startsWith('https://viacep.com.br')
+          ? json({ erro: 'true' })
+          : json({ message: 'CEP não encontrado' }, 404),
+      ),
+    );
+    render(<Form />);
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/^CEP/), { target: { value: '99999-999' } });
+    });
+    expect(await screen.findByText(/CEP não encontrado/)).toBeTruthy();
+  });
 });

@@ -30,6 +30,7 @@ import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
 import { mediaUrl } from '../lib/media';
 import './sale-extras.css';
+import { AddressQuick } from './AddressQuick';
 import type {
   CustomerList,
   CustomerRow,
@@ -592,13 +593,7 @@ export function NewSaleModal({
             )}
             {channel === 'delivery' && (
               <>
-                <TextField
-                  label="Endereço de entrega"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  maxLength={300}
-                  required
-                />
+                <AddressQuick value={address} onChange={setAddress} />
                 <TextField
                   label="Taxa de entrega"
                   value={deliveryFee}

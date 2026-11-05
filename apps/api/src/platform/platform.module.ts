@@ -3,6 +3,7 @@ import { HealthModule } from '../health/health.module';
 import {
   PlatformAiController,
   PlatformAuthController,
+  PlatformCepController,
   PlatformController,
   PlatformServerController,
 } from './platform.controller';
@@ -17,12 +18,14 @@ import { ContractsService } from './contracts/contracts.service';
 import { PlatformSitesService } from './platform-sites.service';
 import { GatewayClient } from '../messaging/gateway.client';
 import { PlatformKitchenService } from './platform-kitchen.service';
+import { CepService } from '../store/cep.service';
 
 /** Painel Super Admin (admin.<domínio base>): caminho privilegiado separado e auditado. */
 @Module({
   imports: [HealthModule],
   controllers: [
     PlatformAuthController,
+    PlatformCepController,
     PlatformController,
     PlatformAiController,
     PlatformServerController,
@@ -38,6 +41,7 @@ import { PlatformKitchenService } from './platform-kitchen.service';
     ContractsService,
     PlatformSitesService,
     PlatformKitchenService,
+    CepService,
     GatewayClient,
     ServerAgentClient,
     ReleaseFeed,

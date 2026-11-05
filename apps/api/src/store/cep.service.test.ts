@@ -99,6 +99,30 @@ describe('CepService', () => {
     expect((await new CepService(env).lookup('01001000'))?.district).toBe('Sé');
   });
 
+  it('serviço lento não segura a resposta: quem achar primeiro responde', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((u: URL) =>
+        u.host === 'viacep.test'
+          ? new Promise<Response>(() => {})
+          : Promise.resolve(
+              u.host === 'brasilapi.test'
+                ? json({
+                    cep: '01001000',
+                    street: 'Praça da Sé',
+                    neighborhood: 'Sé',
+                    city: 'São Paulo',
+                    state: 'SP',
+                  })
+                : json({ erro: true }),
+            ),
+      ),
+    );
+    const t = Date.now();
+    expect((await new CepService(env).lookup('01001000'))?.street).toBe('Praça da Sé');
+    expect(Date.now() - t).toBeLessThan(1_000);
+  });
+
   it('todos fora do ar: 503 e nada fica no cache', async () => {
     const fetch = vi.fn(async () => json({}, 503));
     vi.stubGlobal('fetch', fetch);

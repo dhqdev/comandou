@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  NotFoundException,
   Inject,
   Param,
   ParseUUIDPipe,
@@ -11,6 +12,7 @@ import {
   Query,
   Req,
   Res,
+  UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -66,6 +68,7 @@ import { PlatformDb, platformAudit } from './platform-db.service';
 import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
 import { BillingService } from '../billing/billing.service';
 import { PlatformSitesService } from './platform-sites.service';
+import { CepService } from '../store/cep.service';
 import {
   KitchenDisplayBody,
   KitchenSectorBody,
@@ -138,6 +141,31 @@ export class PlatformAuthController {
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     await this.auth.logout(req.platformAdmin!, req.ip);
     res.clearCookie(PLATFORM_COOKIE, { path: PLATFORM_COOKIE_PATH });
+  }
+}
+
+/** CEP no painel Super Admin (cadastro de restaurante, contratos): mesma consulta do sistema. */
+@Controller({ path: 'platform/cep', version: '1' })
+@SkipTenant()
+@Public()
+@UseGuards(PlatformHostGuard, PlatformSessionGuard)
+export class PlatformCepController {
+  constructor(private readonly cep: CepService) {}
+
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @Get(':cep')
+  async lookup(@Param('cep') raw: string) {
+    if (!/^[0-9]{5}-?[0-9]{3}$/.test(raw))
+      throw new UnprocessableEntityException('CEP com 8 dígitos');
+    const a = await this.cep.lookup(raw);
+    if (!a) throw new NotFoundException('CEP não encontrado');
+    return a;
+  }
+
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @Get()
+  search(@Query('street') street = '', @Query('city') city = '', @Query('state') state = '') {
+    return this.cep.search(String(state).slice(0, 2), String(city), String(street));
   }
 }
 

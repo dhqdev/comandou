@@ -277,6 +277,14 @@ export class StoreController {
     return this.store.manifest(t.id, t.name, courier);
   }
 
+  /** Cidade e UF do restaurante (ponto de partida para achar o CEP pela rua). */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @Get('region')
+  region(@CurrentTenant() t: ResolvedTenant) {
+    return this.store.region(t.id);
+  }
+
   /** Endereço pelo CEP (rua, bairro, cidade e UF). 404 se o CEP não existe. */
   @Public()
   @Throttle({ default: { ttl: 60_000, limit: 40 } })

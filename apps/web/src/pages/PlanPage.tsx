@@ -11,6 +11,7 @@ import { Check, CreditCard, FileText, QrCode } from 'lucide-react';
 import { FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth, useCan } from '../app/auth';
 import { Alert, Badge, Button, Modal, Spinner, TextField, useToast } from '../design-system';
+import { useCepLookup } from '../lib/cep';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import type { TenantSubscription } from '../lib/types';
@@ -1058,6 +1059,7 @@ function CardForm({ onCancel, onSaved }: { onCancel(): void; onSaved(): void }) 
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const holderCep = useCepLookup(f.postalCode);
   const set =
     (k: keyof typeof f, fmt?: (v: string) => string) => (e: { target: { value: string } }) =>
       setF((x) => ({ ...x, [k]: fmt ? fmt(e.target.value) : e.target.value }));
@@ -1141,6 +1143,21 @@ function CardForm({ onCancel, onSaved }: { onCancel(): void; onSaved(): void }) 
         autoComplete="postal-code"
         value={f.postalCode}
         onChange={set('postalCode', (v) => onlyDigits(v, 8))}
+        hint={
+          holderCep.state === 'busy'
+            ? 'Buscando o endereço…'
+            : holderCep.address
+              ? [
+                  holderCep.address.street,
+                  holderCep.address.district,
+                  `${holderCep.address.city}/${holderCep.address.state}`,
+                ]
+                  .filter(Boolean)
+                  .join(', ')
+              : holderCep.state === 'missing'
+                ? 'CEP não encontrado. Confira.'
+                : undefined
+        }
       />
       <TextField
         label="Número do endereço"

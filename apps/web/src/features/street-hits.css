@@ -58,3 +58,35 @@
 .street-hits small {
   color: var(--cm-text-muted);
 }
+
+/* Endereço digitado pela equipe (PDV, garçom): CEP, rua com sugestões, número… */
+.addr-quick {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(140px, 100%), 1fr));
+  gap: 10px 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+.addr-quick > legend {
+  padding: 0;
+  margin-bottom: 6px;
+}
+.addr-quick__street {
+  grid-column: 1 / -1;
+}
+.addr-quick__city {
+  display: grid;
+  grid-template-columns: 1fr 64px;
+  gap: 8px;
+  grid-column: 1 / -1;
+}
+.addr-quick__spin {
+  position: absolute;
+  right: 12px;
+  top: 38px;
+  color: var(--cm-text-muted);
+  animation: cm-spin 0.8s linear infinite;
+}

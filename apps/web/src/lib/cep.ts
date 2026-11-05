@@ -17,6 +17,7 @@ export function maskCep(raw: string) {
 }
 
 const VIACEP = 'https://viacep.com.br';
+const BRASILAPI = 'https://brasilapi.com.br';
 
 function fromViaCep(r: Record<string, unknown> | null): CepAddress | null {
   if (!r || r.erro) return null;
@@ -33,28 +34,74 @@ function fromViaCep(r: Record<string, unknown> | null): CepAddress | null {
   };
 }
 
-/** A API não alcançou os serviços de CEP (bloqueio do servidor, fora do ar…). */
-const apiDown = (e: unknown) =>
-  e instanceof ApiError && (e.status === 429 || e.status >= 500 || e.status === 0);
+function fromBrasilApi(r: Record<string, unknown> | null): CepAddress | null {
+  const cep = String(r?.cep ?? '').replace(/\D/g, '');
+  if (!r || cep.length !== 8) return null;
+  return {
+    cep,
+    street: String(r.street ?? '').trim(),
+    district: String(r.neighborhood ?? '').trim(),
+    city: String(r.city ?? '').trim(),
+    state: String(r.state ?? '')
+      .trim()
+      .toUpperCase(),
+  };
+}
 
-async function direct<T>(path: string): Promise<T> {
-  const res = await fetch(`${VIACEP}${path}`, { signal: AbortSignal.timeout(6_000) });
-  if (!res.ok) throw new ApiError(res.status, 'consulta de CEP indisponível');
-  return (await res.json()) as T;
+/** Painel Super Admin tem a própria rota de CEP (lá não existe loja). */
+const base = () =>
+  typeof window !== 'undefined' && window.location.hostname.startsWith('admin.')
+    ? '/platform/cep'
+    : '/store/cep';
+
+/** GET direto do navegador. `undefined` = o serviço não respondeu direito. */
+async function direct(url: string): Promise<{ status: number; body: unknown } | undefined> {
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(6_000),
+    });
+    if (res.status >= 500 || res.status === 403 || res.status === 429) return undefined;
+    return { status: res.status, body: await res.json().catch(() => null) };
+  } catch {
+    return undefined;
+  }
+}
+
+/** O próprio navegador pergunta à ViaCEP e à BrasilAPI (null = nenhuma conhece o CEP). */
+async function lookupDirect(digits: string): Promise<CepAddress | null | undefined> {
+  const [via, br] = await Promise.all([
+    direct(`${VIACEP}/ws/${digits}/json/`).then((r) =>
+      r && (r.status === 200 || r.status === 400 || r.status === 404)
+        ? fromViaCep(r.body as Record<string, unknown>)
+        : undefined,
+    ),
+    direct(`${BRASILAPI}/api/cep/v1/${digits}`).then((r) =>
+      r && (r.status === 200 || r.status === 400 || r.status === 404)
+        ? fromBrasilApi(r.body as Record<string, unknown>)
+        : undefined,
+    ),
+  ]);
+  if (via || br) return via || br;
+  return via === undefined && br === undefined ? undefined : null;
 }
 
 /**
- * Endereço do CEP (null = CEP não existe). Pergunta à API (cache + serviços de reserva); se ela
- * não conseguir falar com os serviços, o próprio navegador pergunta à ViaCEP.
+ * Endereço do CEP (null = CEP não existe). Pergunta à API (cache + três serviços); se a API
+ * falhar ou disser que não achou, o próprio navegador ainda pergunta à ViaCEP e à BrasilAPI
+ * (o servidor pode estar bloqueado por esses serviços).
  */
 export async function lookupCep(digits: string): Promise<CepAddress | null> {
+  let apiError: unknown = null;
   try {
-    return await api<CepAddress>(`/store/cep/${digits}`);
+    return await api<CepAddress>(`${base()}/${digits}`);
   } catch (e) {
-    if (e instanceof ApiError && e.status === 404) return null;
-    if (!apiDown(e)) throw e;
-    return fromViaCep(await direct<Record<string, unknown>>(`/ws/${digits}/json/`));
+    apiError = e;
   }
+  const d = await lookupDirect(digits);
+  if (d !== undefined) return d;
+  if (apiError instanceof ApiError && apiError.status === 404) return null;
+  throw apiError;
 }
 
 /** CEPs de uma rua na cidade, com a mesma reserva pelo navegador. */
@@ -64,21 +111,41 @@ export async function searchStreet(
   state: string,
 ): Promise<CepAddress[]> {
   const qs = new URLSearchParams({ street, city, state });
+  let apiError: unknown = null;
   try {
-    return await api<CepAddress[]>(`/store/cep?${qs}`);
+    const r = await api<CepAddress[]>(`${base()}?${qs}`);
+    if (r.length) return r;
   } catch (e) {
-    if (!apiDown(e)) throw e;
-    const clean = street.replace(/[^\p{L}\p{N}\s.'-]/gu, ' ').trim();
-    const r = await direct<Record<string, unknown>[]>(
-      `/ws/${state}/${encodeURIComponent(city)}/${encodeURIComponent(clean)}/json/`,
+    apiError = e;
+  }
+  // A API não achou ou não respondeu: tenta direto na ViaCEP com o que foi digitado e sem o
+  // tipo da rua ("Rua", "Av."), que a ViaCEP não casa quando vem abreviado.
+  const clean = street
+    .replace(/[^\p{L}\p{N}\s.'-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const bare = clean.replace(STREET_TYPE, '').trim();
+  let answered = false;
+  for (const q of [...new Set([clean, bare])].filter((x) => x.replace(/\s/g, '').length >= 3)) {
+    const r = await direct(
+      `${VIACEP}/ws/${state}/${encodeURIComponent(city)}/${encodeURIComponent(q)}/json/`,
     );
+    if (!r) continue;
+    answered = true;
     const seen = new Set<string>();
-    return (Array.isArray(r) ? r : [])
+    const list = (Array.isArray(r.body) ? (r.body as Record<string, unknown>[]) : [])
       .map(fromViaCep)
       .filter((a): a is CepAddress => !!a && !seen.has(a.cep) && !!seen.add(a.cep))
       .slice(0, 10);
+    if (list.length) return list;
   }
+  if (apiError && !answered) throw apiError;
+  return [];
 }
+
+/** Tipo do logradouro no começo do que foi digitado ("Rua", "Av.", "Travessa"…). */
+const STREET_TYPE =
+  /^(rua|r|avenida|av|travessa|tv|trav|alameda|al|estrada|est|rodovia|rod|praca|praça|pca|pc|largo|lgo|viela|vila|beco|via|servidao|servidão|passagem|ladeira|quadra|qd)\.?\s+/i;
 
 export interface CepFields {
   cep: string;
@@ -234,4 +301,63 @@ export function useCepAutofill(
       }, 150);
     },
   };
+}
+
+export interface StoreRegion {
+  city: string | null;
+  state: string | null;
+}
+
+let regionCache: Promise<StoreRegion | null> | null = null;
+
+/**
+ * Cidade e UF do restaurante (Loja online ou, sem ela, a empresa da nota fiscal): ponto de
+ * partida para achar o CEP pela rua nos endereços digitados pela equipe.
+ */
+export function useStoreRegion(): StoreRegion | null {
+  const [r, setR] = useState<StoreRegion | null>(null);
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.location.hostname.startsWith('admin.')) return;
+    regionCache ??= api<StoreRegion>('/store/region').catch(() => {
+      regionCache = null;
+      return null;
+    });
+    let alive = true;
+    regionCache.then((x) => alive && setR(x));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return r;
+}
+
+/** Consulta o CEP quando tem 8 dígitos (para formulários que só têm o campo do CEP). */
+export function useCepLookup(raw: string, onFound?: (a: CepAddress) => void) {
+  const [state, setState] = useState<CepState>('idle');
+  const [address, setAddress] = useState<CepAddress | null>(null);
+  const found = useRef(onFound);
+  found.current = onFound;
+  const digits = raw.replace(/\D/g, '');
+  useEffect(() => {
+    setAddress(null);
+    if (digits.length !== 8) {
+      setState('idle');
+      return;
+    }
+    let alive = true;
+    setState('busy');
+    lookupCep(digits)
+      .then((a) => {
+        if (!alive) return;
+        if (!a) return setState('missing');
+        setState('ok');
+        setAddress(a);
+        found.current?.(a);
+      })
+      .catch(() => alive && setState('error'));
+    return () => {
+      alive = false;
+    };
+  }, [digits]);
+  return { state, address };
 }

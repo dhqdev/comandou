@@ -18,6 +18,7 @@ import { FormEvent, useId, useState } from 'react';
 import { Alert, Button, Modal, Spinner, TextField, useToast } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
+import { addressLine, CepField } from '../features/CepField';
 import { brl, parseBrlInput } from '../lib/money';
 import { useLoad } from './OverviewPages';
 import { askGeo, SignaturePad } from './ContractSign';
@@ -1022,6 +1023,20 @@ function ContractSettingsModal({
                 value={form.providerDocument}
                 onChange={set('providerDocument')}
                 wrapClass="span-2"
+              />
+              <CepField
+                label="CEP da empresa"
+                wrapClass="span-2"
+                onFound={(a) =>
+                  setF(
+                    (x) =>
+                      x && {
+                        ...x,
+                        providerAddress: addressLine(a),
+                        forumCity: x.forumCity || [a.city, a.state].filter(Boolean).join('/'),
+                      },
+                  )
+                }
               />
               <TextField
                 label="Endereço completo"
