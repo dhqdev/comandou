@@ -1,8 +1,8 @@
 /**
  * Puxar para recarregar (app instalado na tela inicial).
  *
- * O app instalado não tem barra do navegador nem o "puxar para atualizar" dele (e base.css
- * desliga o elástico da página para a moldura não sair do lugar). Aqui:
+ * O app instalado (e o navegador em tela cheia) não tem a barra nem o "puxar para atualizar" do
+ * navegador, e base.css desliga o elástico da página para a moldura não sair do lugar. Aqui:
  * - no topo da tela, puxar para baixo e segurar mostra uma bolinha que vai enchendo; passou do
  *   ponto, ela fica cheia e, ao soltar, a página recarrega. Soltar antes desiste;
  * - no fim da tela, puxar para cima estica o conteúdo um pouco (com resistência) e ele volta
@@ -93,7 +93,8 @@ export function installPullToRefresh(opts: Options = {}): () => void {
   const standalone =
     window.matchMedia?.('(display-mode: standalone)').matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true;
-  if (!opts.force && !standalone) return () => {};
+  // No navegador comum, só em tela cheia (a abinha do topo): aí também some a barra dele.
+  const enabled = () => opts.force || standalone || !!document.fullscreenElement;
   const refresh = opts.onRefresh ?? (() => window.location.reload());
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
@@ -142,7 +143,7 @@ export function installPullToRefresh(opts: Options = {}): () => void {
   const onStart = (e: TouchEvent) => {
     if (mode === 'done') return;
     reset();
-    if (e.touches.length !== 1) return;
+    if (!enabled() || e.touches.length !== 1) return;
     const target = e.target instanceof Element ? e.target : null;
     if (!target || target.closest(SKIP)) return;
     chain = scrollChain(target);
