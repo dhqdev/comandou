@@ -15,6 +15,7 @@ import { TenantBrand } from './TenantBrand';
 import { ROLE_HOME, ROUTE_PERMS } from './role-home';
 import { NoAccess } from './NoAccess';
 import { PageLoading } from './PageLoading';
+import { FullscreenTab, isPublicPath } from '../features/FullscreenTab';
 import { UpdatePrompt } from './UpdatePrompt';
 import { WaiterEntry } from './WaiterEntry';
 import { TeamChat } from '../features/chat/TeamChat';
@@ -453,6 +454,12 @@ function Gate() {
   );
 }
 
+/** Aba de tela cheia no topo de todas as telas do sistema (fora as do cliente final). */
+function ShellFullscreenTab() {
+  const { pathname } = useLocation();
+  return <FullscreenTab hidden={isPublicPath(pathname)} />;
+}
+
 export function App() {
   // admin.<domínio base>: painel Super Admin, com login e sessão próprios.
   if (isPlatformHost()) {
@@ -462,6 +469,7 @@ export function App() {
           <PlatformApp />
         </Suspense>
         <UpdatePrompt />
+        <FullscreenTab />
       </>
     );
   }
@@ -472,6 +480,7 @@ export function App() {
       <TenantBrand />
       {/* Em todas as telas: painel, garçom, cozinha, cardápio do cliente e links públicos. */}
       <UpdatePrompt />
+      <ShellFullscreenTab />
       <ToastProvider>
         <Suspense fallback={<PageLoading />}>
           <Routes>

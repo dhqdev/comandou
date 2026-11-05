@@ -70,6 +70,7 @@ import {
 } from '../lib/sounds';
 import type { OrderItem } from '../lib/types';
 import '../kitchen/kds.css';
+import { fullscreenSupported, useFullscreen } from '../features/FullscreenTab';
 
 interface BoardOrder {
   id: string;
@@ -1061,17 +1062,8 @@ function Clock({ now }: { now: number }) {
 
 /** Tela cheia (a TV ou o tablet da cozinha fica só com a fila). Some onde o navegador não deixa. */
 function FullscreenButton({ compact }: { compact?: boolean }) {
-  const [full, setFull] = useState(() => !!document.fullscreenElement);
-  useEffect(() => {
-    const sync = () => setFull(!!document.fullscreenElement);
-    document.addEventListener('fullscreenchange', sync);
-    return () => document.removeEventListener('fullscreenchange', sync);
-  }, []);
-  if (!document.fullscreenEnabled) return null;
-  const toggle = () =>
-    void (full ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(
-      () => undefined,
-    );
+  const { full, toggle } = useFullscreen();
+  if (!fullscreenSupported()) return null;
   const label = full ? 'Sair da tela cheia' : 'Tela cheia';
   if (compact)
     return (

@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.89.0',
+    date: '2026-11-05',
+    title: 'Botão de tela cheia',
+    summary:
+      'Agora tem uma abinha no topo da tela, bem no meio. Um toque nela expande o sistema para ocupar a tela toda, sem a barra do navegador. Outro toque, ou a tecla Esc, volta ao normal.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Abinha de tela cheia no topo de todas as telas do sistema: painel, PDV, salão, cardápio, garçom, cozinha, entregador e Super Admin.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'As telas do cliente (cardápio online, acompanhamento do pedido e rastreio) ficam sem a abinha. No iPhone ela não aparece, porque o Safari não deixa sites usarem a tela cheia.',
+      },
+    ],
+  },
+  {
     version: '0.88.0',
     date: '2026-11-05',
     title: 'Cardápio online com cara de app',
