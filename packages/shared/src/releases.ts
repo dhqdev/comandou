@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.90.0',
+    date: '2026-11-05',
+    title: 'Puxar para recarregar no app',
+    summary:
+      'No app instalado na tela inicial, puxar a tela para baixo lá no topo e segurar recarrega a página, como nos aplicativos do celular. No fim da tela, o conteúdo estica um pouco e volta sozinho, sem recarregar.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Puxar para recarregar: no topo de qualquer tela que rola (painel, cardápio online, garçom, entregador), puxe para baixo até a bolinha encher e a seta virar para cima, e solte. Soltar antes desiste.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Fim da tela mais macio: puxar para cima no fim da lista estica o conteúdo com resistência e ele volta sozinho ao soltar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O gesto não atrapalha janelas abertas, mapas, campos de texto nem carrosséis que deslizam para os lados.',
+      },
+    ],
+  },
+  {
     version: '0.89.0',
     date: '2026-11-05',
     title: 'Botão de tela cheia',

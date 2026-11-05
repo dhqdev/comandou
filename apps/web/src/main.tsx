@@ -1,7 +1,13 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/App';
-import { applyBranding, applyTheme, cachedBranding, trackViewport } from './design-system';
+import {
+  applyBranding,
+  applyTheme,
+  cachedBranding,
+  installPullToRefresh,
+  trackViewport,
+} from './design-system';
 import { isPlatformHost } from './platform/host';
 import { reloadIfStale } from './lib/fresh-reload';
 import { applyPosMode } from './lib/pos-device';
@@ -22,6 +28,8 @@ applyTheme();
 void reloadIfStale();
 // Teclado do celular: as folhas que sobem de baixo acompanham a área visível.
 trackViewport();
+// App instalado: puxar no topo recarrega; no fim, o conteúdo estica e volta.
+installPullToRefresh();
 // Maquininha (Smart POS): botões maiores para o dedo, antes do primeiro desenho.
 applyPosMode();
 

@@ -229,3 +229,69 @@ html.cm-pos :is(.cm-modal, .cm-sheet)[data-glass] {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+
+/* Puxar para recarregar (pull-refresh.ts): bolinha que desce do topo e enche com a puxada. */
+.cm-ptr {
+  --p: 0;
+  position: fixed;
+  top: 0;
+  left: 50%;
+  z-index: 60;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  box-shadow:
+    var(--cm-shadow-lg),
+    0 0 0 1px var(--cm-border);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -48px);
+}
+.cm-ptr svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cm-ptr__track {
+  opacity: 0.15;
+}
+.cm-ptr__ring {
+  stroke-dasharray: 100;
+  stroke-dashoffset: calc(100 - var(--p));
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+.cm-ptr__arrow {
+  transform-origin: center;
+  transition:
+    opacity 0.15s ease,
+    transform 0.2s ease;
+}
+/* Passou do ponto: a seta vira para cima ("solte para recarregar"). */
+.cm-ptr[data-armed] .cm-ptr__arrow {
+  transform: rotate(180deg);
+}
+.cm-ptr[data-armed],
+.cm-ptr[data-loading] {
+  color: var(--cm-brand-500);
+}
+.cm-ptr[data-loading] .cm-ptr__arrow {
+  opacity: 0;
+}
+.cm-ptr[data-loading] svg {
+  animation: cm-ptr-spin 0.7s linear infinite;
+}
+.cm-ptr[data-loading] .cm-ptr__ring {
+  stroke-dashoffset: 70;
+}
+@keyframes cm-ptr-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
