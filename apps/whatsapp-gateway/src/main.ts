@@ -26,6 +26,13 @@ if (key.length !== 32) throw new Error('SESSION_KEY deve ter 32 bytes em base64'
 const dataDir = process.env.DATA_DIR ?? '/data';
 const port = Number(process.env.PORT ?? 3100);
 const logger = pino({ level: process.env.LOG_LEVEL ?? 'info' });
+// Uma sessão (um restaurante) com erro assíncrono do WhatsApp não pode derrubar o processo e,
+// com ele, o WhatsApp de todos os restaurantes. Registra e segue.
+process.on('unhandledRejection', (reason) => {
+  logger.error(
+    `promessa rejeitada sem tratamento: ${reason instanceof Error ? reason.message : String(reason)}`,
+  );
+});
 // O Baileys registra muita coisa (inclusive dados de mensagens): fica só em "error".
 const baileysLogger = logger.child({ module: 'baileys' }, { level: 'error' });
 

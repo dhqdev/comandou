@@ -14,6 +14,18 @@ const schema = z.object({
   TENANT_DATABASE_MODE: z.enum(['dedicated', 'shared']).default('dedicated'),
   // Conexões por banco de restaurante em cada réplica da API (abertas sob demanda).
   TENANT_DATABASE_POOL_MAX: z.coerce.number().int().positive().max(20).default(3),
+  /**
+   * Isolamento entre restaurantes. Uma consulta da API que passar disso é cancelada pelo Postgres
+   * (0 = sem limite), para um relatório travado de um restaurante não segurar conexões de todos.
+   */
+  DATABASE_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(0).default(60_000),
+  /** Espera máxima por uma conexão livre; depois disso a requisição recebe 503 em vez de travar. */
+  DATABASE_CONNECT_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  /**
+   * Transações ao mesmo tempo de um mesmo restaurante, em cada réplica (0 = sem limite). O resto
+   * espera na fila dele, sem ocupar as conexões que os outros restaurantes usam.
+   */
+  TENANT_MAX_CONCURRENT_TX: z.coerce.number().int().min(0).default(5),
   /** Domínio base: <slug>.<COMANDOU_BASE_DOMAIN>. Ex.: comandou.com (prod) ou comandou.localhost (dev). */
   COMANDOU_BASE_DOMAIN: z
     .string()
