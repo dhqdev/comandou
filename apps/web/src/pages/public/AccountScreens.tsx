@@ -54,10 +54,27 @@ function useAsync() {
   return { busy, error, run, setError };
 }
 
+/** Quem veio da finalização do pedido (sacola) e precisa voltar para ela depois de entrar. */
+type AuthBack = { back?: 'checkout' } | null;
+
+/** Depois de entrar: volta para a finalização com a sacola como estava, ou para a tela anterior. */
+function useAfterLogin() {
+  const navigate = useNavigate();
+  const back = (useLocation().state as AuthBack)?.back;
+  return {
+    back,
+    done: (fallback: () => void) =>
+      back === 'checkout'
+        ? navigate('/pedir/sacola', { replace: true, state: { checkout: true } })
+        : fallback(),
+  };
+}
+
 /** Entrar ou criar conta (telefone + senha). */
 function AuthForms() {
   const { menu, setAccount, customer } = useStore();
   const navigate = useNavigate();
+  const after = useAfterLogin();
   const toast = useToast();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [form, setForm] = useState({
@@ -96,8 +113,10 @@ function AuthForms() {
         : 'Conta criada!',
       'success',
     );
-    // Quem veio da sacola volta para finalizar.
-    if (window.history.state?.idx > 0) navigate(-1);
+    // Quem veio da sacola volta para finalizar, com tudo o que já tinha escolhido.
+    after.done(() => {
+      if (window.history.state?.idx > 0) navigate(-1);
+    });
   }
 
   return (
@@ -185,7 +204,7 @@ function AuthForms() {
         </button>
         {mode === 'login' && (
           <p className="form-hint auth__forgot">
-            <Link to="/pedir/conta/esqueci-senha" state={{ phone: form.phone }}>
+            <Link to="/pedir/conta/esqueci-senha" state={{ phone: form.phone, back: after.back }}>
               Esqueci minha senha
             </Link>
           </p>
@@ -673,6 +692,7 @@ export function ForgotPasswordScreen() {
   const navigate = useNavigate();
   const toast = useToast();
   const prefill = (useLocation().state as { phone?: string } | null)?.phone ?? '';
+  const after = useAfterLogin();
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [form, setForm] = useState({ phone: prefill, code: '', password: '' });
   const [viaStore, setViaStore] = useState(false);
@@ -702,7 +722,7 @@ export function ForgotPasswordScreen() {
     if (!acc) return;
     setAccount(acc);
     toast('Senha alterada. Você já está dentro da conta.', 'success');
-    navigate('/pedir/conta', { replace: true });
+    after.done(() => navigate('/pedir/conta', { replace: true }));
   }
 
   return (

@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { api } from '../../lib/api';
@@ -17,6 +18,7 @@ import {
   EMPTY_CUSTOMER,
   lineCount,
   lineTotal,
+  mergeCarts,
   PublicLoyalty,
   PublicMenu,
   PublicProduct,
@@ -141,8 +143,69 @@ export function StoreProvider({
       .catch(() => setAccount({ customer: null, addresses: [] }));
   }, [menu.appearance.accountsEnabled]);
 
-  // Fidelidade: recarrega ao entrar ou sair da conta (o saldo é de quem está logado).
+  // Sacola na conta: ao entrar, a sacola deste aparelho se junta com a que estava guardada na
+  // conta (de outro aparelho ou navegador) e, daí em diante, cada mudança é salva nela.
   const customerId = account?.customer?.id;
+  const indexRef = useRef(index);
+  indexRef.current = index;
+  // Última sacola que este aparelho sabe estar igual à da conta (de quem e de quando).
+  const [cartSync, setCartSync] = useStored<{ customerId: string; at: string } | null>(
+    'cm-cart-sync',
+    null,
+  );
+  const cartSyncRef = useRef(cartSync);
+  cartSyncRef.current = cartSync;
+  // Conta cuja sacola já foi juntada: só então as mudanças vão para a conta.
+  const [cartReadyFor, setCartReadyFor] = useState<string | null>(null);
+  const pushed = useRef<string | null>(null);
+
+  useEffect(() => {
+    setCartReadyFor(null);
+    pushed.current = null;
+    if (!customerId) return;
+    let off = false;
+    api<{ lines: unknown[]; updatedAt: string | null }>('/store/account/cart')
+      .then((saved) => {
+        if (off) return;
+        const sync = cartSyncRef.current;
+        const mine = sync?.customerId === customerId;
+        // A conta mudou depois da última vez que este aparelho salvou (outro aparelho mexeu ou
+        // o pedido saiu): vale a da conta. Senão, junta com a do aparelho (nada se perde).
+        const newer = mine && !!saved.updatedAt && new Date(saved.updatedAt) > new Date(sync.at);
+        if (newer) pushed.current = JSON.stringify(saved.lines);
+        setCart((local) =>
+          syncCart(newer ? mergeCarts([], saved.lines) : mergeCarts(local, saved.lines), (id) =>
+            indexRef.current.get(id),
+          ),
+        );
+        setCartReadyFor(customerId);
+      })
+      // Sem rede: segue com a sacola do aparelho e não sobrescreve a da conta sem ter juntado.
+      .catch(() => undefined);
+    return () => {
+      off = true;
+    };
+  }, [customerId, setCart]);
+
+  useEffect(() => {
+    if (!customerId || cartReadyFor !== customerId) return;
+    const body = JSON.stringify(cart);
+    if (body === pushed.current) return;
+    const id = window.setTimeout(() => {
+      api<{ updatedAt: string | null }>('/store/account/cart', {
+        method: 'PUT',
+        json: { lines: cart },
+      })
+        .then((r) => {
+          pushed.current = body;
+          if (r.updatedAt) setCartSync({ customerId, at: r.updatedAt });
+        })
+        .catch(() => undefined);
+    }, 600);
+    return () => window.clearTimeout(id);
+  }, [cart, customerId, cartReadyFor, setCartSync]);
+
+  // Fidelidade: recarrega ao entrar ou sair da conta (o saldo é de quem está logado).
   const refreshLoyalty = useCallback(
     () =>
       api<PublicLoyalty>('/store/loyalty')
@@ -196,6 +259,9 @@ export function StoreProvider({
     setAccount,
     logout: async () => {
       await api('/store/account/logout', { method: 'POST' }).catch(() => undefined);
+      // A sacola fica guardada na conta; o aparelho volta vazio para o próximo cliente.
+      setCart(() => []);
+      setCartSync(null);
       setAccount({ customer: null, addresses: [] });
     },
     customer,
