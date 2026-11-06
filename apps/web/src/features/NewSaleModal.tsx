@@ -426,7 +426,11 @@ export function NewSaleModal({
                   </span>
                 )}
                 <span className="nsale__price">
-                  {p.soldOut ? 'Esgotado' : `${brl(p.price)}${p.soldByWeight ? '/kg' : ''}`}
+                  {p.soldOut
+                    ? p.stockOut
+                      ? 'Sem estoque'
+                      : 'Esgotado'
+                    : `${brl(p.price)}${p.soldByWeight ? '/kg' : ''}`}
                 </span>
                 <span className="nsale__name">{p.name}</span>
               </button>

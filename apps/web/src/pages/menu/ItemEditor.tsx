@@ -19,7 +19,7 @@ import { useCan } from '../../app/auth';
 import { CheckField, fmtQty, parseQtyInput, SelectField, Tabs } from '../../features/forms';
 import { ImagePicker } from '../../features/ImagePicker';
 import { fmtFactor, fmtPct } from '../../features/pricing';
-import { fmtCost, toMilli, valueCents } from '../../features/stock-math';
+import { fmtCost, recipeStock, toMilli, valueCents } from '../../features/stock-math';
 import { api, type Category, type Product } from '../../lib/api';
 import { brl, parseBrlInput } from '../../lib/money';
 import type {
@@ -258,6 +258,9 @@ export function ItemEditor() {
     return it && l.quantity ? s + (toMilli(l.quantity) / 1000) * Number(it.avgCost) * 100 : s;
   }, 0);
   const hasRecipe = parsedLines.some((l) => l.stockItemId && l.quantity);
+  // Com o estoque de hoje: quantas unidades dá para vender e qual insumo falta.
+  const stockNow = recipeStock(parsedLines, itemById, !!form?.soldByWeight);
+  const stockOut = canStock && stockNow.missing.length > 0;
   const priceParsed = form ? parseBrlInput(form.price) : null;
   const priceCents = priceParsed ? toCents(priceParsed) : 0;
   const costParsed = form?.cost ? parseBrlInput(form.cost) : null;
@@ -398,6 +401,7 @@ export function ItemEditor() {
             <h1>{title}</h1>
             {product && !product.active && <Badge>Pausado</Badge>}
             {product?.soldOut && <Badge tone="danger">Esgotado</Badge>}
+            {!product?.soldOut && stockOut && <Badge tone="danger">Sem estoque</Badge>}
           </div>
           <div className="mn-crumbs__tools">
             <TourButton tour="item" />
@@ -878,8 +882,10 @@ export function ItemEditor() {
               <div className="st-recipe">
                 <p className="cm-hint" style={{ margin: 0 }}>
                   Quanto de cada insumo sai por unidade vendida
-                  {form.soldByWeight ? ' (por kg)' : ''}. A venda baixa o estoque e o custo entra
-                  nos relatórios.
+                  {form.soldByWeight
+                    ? ' (por 1 kg vendido: cada venda baixa a ficha × o peso, 350 g baixam 0,35 da ficha)'
+                    : ''}
+                  . A venda baixa o estoque e o custo entra nos relatórios.
                 </p>
                 {stockItems.length === 0 && (
                   <p className="cm-hint" style={{ margin: 0 }}>
@@ -943,6 +949,18 @@ export function ItemEditor() {
                             {fmtCost(it.avgCost)}/{it.unit}
                           </span>
                         )}
+                        {it && (
+                          <span
+                            className="cm-hint"
+                            style={
+                              stockNow.lines.find((x) => x.stockItemId === it.id)?.short
+                                ? { color: 'var(--cm-danger)', fontWeight: 600 }
+                                : undefined
+                            }
+                          >
+                            Tem {fmtQty(it.quantity)} {it.unit}
+                          </span>
+                        )}
                       </div>
                       {canStockWrite && (
                         <Button
@@ -955,6 +973,15 @@ export function ItemEditor() {
                     </div>
                   );
                 })}
+                {stockNow.lines.length > 0 && (
+                  <Alert tone={stockOut ? 'danger' : 'info'}>
+                    {stockOut
+                      ? `Sem estoque: falta ${stockNow.missing.join(', ')}. O item não vende até dar entrada no estoque.`
+                      : stockNow.portions === null
+                        ? 'Tem estoque para vender.'
+                        : `Com o estoque de hoje dá para vender ${stockNow.portions} ${stockNow.portions === 1 ? 'unidade' : 'unidades'}.`}
+                  </Alert>
+                )}
                 {lines.length > 0 && (
                   <div className="st-preview st-preview--compact">
                     <div>

@@ -57,3 +57,60 @@ export function coverageDays(quantity: string, dailyUsage: string | null): numbe
   if (daily <= 0) return null;
   return Math.max(0, Math.floor(toMilli(quantity) / daily));
 }
+
+/** Linha da ficha com o saldo do insumo: quanto precisa, quanto tem e quantas unidades dá. */
+export interface RecipeStockLine {
+  stockItemId: string;
+  name: string;
+  unit: string;
+  need: string;
+  have: string;
+  /** Unidades que este insumo sozinho ainda dá (null = pode ficar negativo ou venda por peso). */
+  portions: number | null;
+  short: boolean;
+}
+
+/** Quanto dá para vender de um item com o estoque de hoje, e o que falta. */
+export interface RecipeStock {
+  /** Unidades que ainda dá para vender; null = sem limite (sem ficha, por peso, negativo liberado). */
+  portions: number | null;
+  /** Nomes dos insumos que não dão para mais uma unidade: com algum, o item não vende. */
+  missing: string[];
+  lines: RecipeStockLine[];
+}
+
+/**
+ * Mesma regra do servidor: o item trava quando algum insumo não dá para mais uma unidade.
+ * Insumo que pode ficar negativo nunca trava; item por peso (ficha por kg) só trava se zerar.
+ */
+export function recipeStock(
+  lines: { stockItemId: string; quantity: string | null }[],
+  byId: Map<string, { name: string; unit: string; quantity: string; allowNegative: boolean }>,
+  byWeight = false,
+): RecipeStock {
+  const out: RecipeStockLine[] = [];
+  for (const l of lines) {
+    const it = byId.get(l.stockItemId);
+    if (!it || !l.quantity) continue;
+    const need = toMilli(l.quantity);
+    if (need <= 0) continue;
+    const have = toMilli(it.quantity);
+    const portions = it.allowNegative || byWeight ? null : Math.max(0, Math.floor(have / need));
+    const short = !it.allowNegative && (byWeight ? have <= 0 : have < need);
+    out.push({
+      stockItemId: l.stockItemId,
+      name: it.name,
+      unit: it.unit,
+      need: l.quantity,
+      have: it.quantity,
+      portions,
+      short,
+    });
+  }
+  const limits = out.map((l) => l.portions).filter((p): p is number => p !== null);
+  return {
+    portions: limits.length ? Math.min(...limits) : null,
+    missing: out.filter((l) => l.short).map((l) => l.name),
+    lines: out,
+  };
+}

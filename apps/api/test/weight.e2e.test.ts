@@ -23,6 +23,8 @@ const post = (url: string, body: object, idem?: string) => {
   if (idem) r.set('Idempotency-Key', idem);
   return r.send(body);
 };
+const put = (url: string, body: object) =>
+  http.put(`/api/v1${url}`).set('Host', HOST_A).set('Cookie', cookie).set(CSRF).send(body);
 const get = (url: string) => http.get(`/api/v1${url}`).set('Host', HOST_A).set('Cookie', cookie);
 
 beforeAll(async () => {
@@ -111,5 +113,35 @@ describe('Venda por peso', () => {
       { channel: 'counter', items: [{ productId: kilo, quantity: 0.3505 }] },
       crypto.randomUUID(),
     ).expect(400);
+  });
+
+  it('a ficha do item por peso é por 1 kg: a baixa é a ficha × o peso vendido', async () => {
+    const leite = (await post('/stock/items', { name: 'Base de sorvete', unit: 'kg' }).expect(201))
+      .body;
+    await post(`/stock/items/${leite.id}/movements`, { kind: 'purchase', quantity: '1' }).expect(
+      201,
+    );
+    // 1 kg de sorvete vendido leva 1,1 kg de base (perda na máquina).
+    await put(`/stock/recipes/products/${kilo}`, {
+      lines: [{ stockItemId: leite.id, quantity: '1.1' }],
+    }).expect(200);
+    // Menos de 1 kg de ficha no estoque não trava o item por peso: só trava quando zera.
+    const av = (await get('/stock/availability').expect(200)).body as {
+      productId: string;
+      out: boolean;
+      portions: number | null;
+    }[];
+    expect(av.find((a) => a.productId === kilo)).toMatchObject({ out: false, portions: null });
+    await post(
+      '/orders',
+      { channel: 'counter', items: [{ productId: kilo, quantity: 0.35 }] },
+      crypto.randomUUID(),
+    ).expect(201);
+    const items = (await get('/stock/items').expect(200)).body as {
+      id: string;
+      quantity: string;
+    }[];
+    // 1,000 − 1,1 × 0,350 = 0,615.
+    expect(items.find((i) => i.id === leite.id)!.quantity).toBe('0.615');
   });
 });

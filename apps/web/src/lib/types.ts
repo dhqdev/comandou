@@ -31,7 +31,10 @@ export interface MenuProduct {
   name: string;
   description: string | null;
   price: string;
+  /** Esgotado à mão ou sem estoque pela ficha técnica: não vende. */
   soldOut: boolean;
+  /** Sem estoque pela ficha técnica (algum insumo acabou). */
+  stockOut?: boolean;
   sectorId: string | null;
   imageId?: string | null;
   code?: string | null;

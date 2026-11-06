@@ -378,7 +378,7 @@ export function WaiterOrder() {
                         </span>
                         <span className="wt-product__price">
                           {p.soldOut ? (
-                            <Badge tone="danger">Esgotado</Badge>
+                            <Badge tone="danger">{p.stockOut ? 'Sem estoque' : 'Esgotado'}</Badge>
                           ) : (
                             `${brl(p.price)}${p.soldByWeight ? '/kg' : ''}`
                           )}

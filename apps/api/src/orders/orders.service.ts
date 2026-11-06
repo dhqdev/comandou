@@ -32,6 +32,7 @@ import { nextNumber, one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 import { PrintingService } from '../printing/printing.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { PRODUCT_STOCK_MISSING } from '../stock/availability-sql';
 import { StockService } from '../stock/stock.service';
 import { PlanService } from '../plans/plan.service';
 import { LoyaltyService, RedeemQuote } from '../loyalty/loyalty.service';
@@ -357,13 +358,14 @@ export class OrdersService {
       sector_id: string | null;
       active: boolean;
       sold_out: boolean;
+      stock_missing: string[];
       sold_by_weight: boolean;
       in_menu: boolean;
       menu_name: string | null;
     }>(
       tx,
       `SELECT p.id, p.name, COALESCE(mi.price, p.price)::text AS price, p.sector_id, p.active, p.sold_out,
-              p.sold_by_weight, (m.id IS NULL OR mi.product_id IS NOT NULL) AS in_menu, m.name AS menu_name
+              ${PRODUCT_STOCK_MISSING} AS stock_missing, p.sold_by_weight, (m.id IS NULL OR mi.product_id IS NOT NULL) AS in_menu, m.name AS menu_name
          FROM products p
          LEFT JOIN menus m ON m.active AND m.kind = $2
          LEFT JOIN menu_items mi ON mi.menu_id = m.id AND mi.product_id = p.id
@@ -413,6 +415,11 @@ export class OrdersService {
           `${p.name} não está no ${p.menu_name ?? 'cardápio'}`,
         );
       if (p.sold_out) throw new UnprocessableEntityException(`Produto esgotado: ${p.name}`);
+      // Ficha técnica sem estoque para mais uma unidade: não vende (a baixa conferiria de novo).
+      if (p.stock_missing.length)
+        throw new ConflictException(
+          `Estoque insuficiente: ${p.name} está sem estoque (falta ${p.stock_missing.join(', ')}). Dê entrada no estoque para vender.`,
+        );
       // Item por peso: a quantidade é o peso em kg (até 3 casas). Os demais vão em unidades inteiras.
       if (p.sold_by_weight) {
         if (!isValidKg(it.quantity, input.online ? ONLINE_WEIGHT_MAX_G / 1000 : WEIGHT_MAX_KG))
