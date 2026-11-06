@@ -4,6 +4,7 @@ import { Pool, PoolClient } from 'pg';
 import { ENV, Env } from '../config/env';
 import { schema } from './schema';
 import { DbServer, RegistryDatabaseRouter, serverOf, TenantDatabaseRow } from './tenant-database';
+import { TenantLimiter } from './tenant-limiter';
 
 export type Tx = NodePgDatabase<typeof schema> & { $client: PoolClient };
 
@@ -28,15 +29,38 @@ export class DatabaseService implements OnModuleDestroy {
   readonly router: RegistryDatabaseRouter;
   /** Nome do banco central (o das URLs de conexão). */
   readonly centralName: string;
+  /**
+   * Pool de uma conexão só para o teste de saúde. Com o pool principal cheio (horário de pico),
+   * o teste ainda responde: o balanceador não tira todas as réplicas do ar por fila, só por banco
+   * fora do ar de verdade.
+   */
+  private readonly healthPool: Pool;
+  /** Vagas por restaurante: um restaurante sozinho não ocupa o pool inteiro. */
+  readonly limiter: TenantLimiter;
+  private readonly statementTimeout: string;
 
   constructor(@Inject(ENV) env: Env) {
     this.centralName = decodeURIComponent(new URL(env.DATABASE_URL).pathname.slice(1));
-    this.pool = new Pool({ connectionString: env.DATABASE_URL, max: env.DATABASE_POOL_MAX });
+    this.pool = new Pool({
+      connectionString: env.DATABASE_URL,
+      max: env.DATABASE_POOL_MAX,
+      connectionTimeoutMillis: env.DATABASE_CONNECT_TIMEOUT_MS,
+    });
     this.pool.on('error', () => undefined);
+    this.healthPool = new Pool({
+      connectionString: env.DATABASE_URL,
+      max: 1,
+      connectionTimeoutMillis: 3_000,
+      query_timeout: 3_000,
+    });
+    this.healthPool.on('error', () => undefined);
+    this.limiter = new TenantLimiter(env.TENANT_MAX_CONCURRENT_TX, env.DATABASE_CONNECT_TIMEOUT_MS);
+    this.statementTimeout = String(env.DATABASE_STATEMENT_TIMEOUT_MS);
     this.router = new RegistryDatabaseRouter({
       central: this.pool,
       baseUrl: env.DATABASE_URL,
       poolMax: env.TENANT_DATABASE_POOL_MAX,
+      connectTimeoutMs: env.DATABASE_CONNECT_TIMEOUT_MS,
       lookup: async (tenantId) => {
         const { rows } = await this.pool.query<TenantDatabaseRow>(
           'SELECT db_name, status, host, port, ssl FROM app_tenant_database($1)',
@@ -50,7 +74,9 @@ export class DatabaseService implements OnModuleDestroy {
   /** Transação no banco do restaurante (central ou próprio), com o RLS dele. */
   async withTenant<T>(scope: TenantScope, fn: (tx: Tx) => Promise<T>): Promise<T> {
     checkScope(scope);
-    return this.transaction(await this.router.poolFor(scope.tenantId), scope, fn);
+    return this.limiter.run(scope.tenantId, async () =>
+      this.transaction(await this.router.poolFor(scope.tenantId), scope, fn),
+    );
   }
 
   /**
@@ -59,16 +85,17 @@ export class DatabaseService implements OnModuleDestroy {
    */
   async withCentral<T>(scope: TenantScope, fn: (tx: Tx) => Promise<T>): Promise<T> {
     checkScope(scope);
-    return this.transaction(this.pool, scope, fn);
+    return this.limiter.run(scope.tenantId, () => this.transaction(this.pool, scope, fn));
   }
 
   private async transaction<T>(pool: Pool, scope: TenantScope, fn: (tx: Tx) => Promise<T>) {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      // statement_timeout LOCAL: vale só nesta transação (funciona igual atrás do PgBouncer).
       await client.query(
-        "SELECT set_config('app.tenant_id', $1, true), set_config('app.user_id', $2, true)",
-        [scope.tenantId, scope.userId ?? ''],
+        "SELECT set_config('app.tenant_id', $1, true), set_config('app.user_id', $2, true), set_config('statement_timeout', $3, true)",
+        [scope.tenantId, scope.userId ?? '', this.statementTimeout],
       );
       const tx = drizzle(client, { schema }) as Tx;
       const result = await fn(tx);
@@ -95,8 +122,10 @@ export class DatabaseService implements OnModuleDestroy {
     params: unknown[],
   ): Promise<R[]> {
     checkScope({ tenantId });
-    const { rows } = await (await this.router.poolFor(tenantId)).query<R>(sql, params);
-    return rows;
+    return this.limiter.run(tenantId, async () => {
+      const { rows } = await (await this.router.poolFor(tenantId)).query<R>(sql, params);
+      return rows;
+    });
   }
 
   /** Bancos próprios em uso (limpeza periódica roda em cada um). */
@@ -122,13 +151,14 @@ export class DatabaseService implements OnModuleDestroy {
   }
 
   async ping(): Promise<boolean> {
-    await this.pool.query('SELECT 1');
+    await this.healthPool.query('SELECT 1');
     return true;
   }
 
   async onModuleDestroy() {
     await this.router.close();
     await this.pool.end();
+    await this.healthPool.end();
   }
 }
 

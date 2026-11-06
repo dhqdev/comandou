@@ -128,6 +128,8 @@ export interface RegistryRouterOptions {
   idleMs?: number;
   /** Máximo de pools abertos ao mesmo tempo; o menos usado é fechado. */
   maxPools?: number;
+  /** Espera máxima por uma conexão livre (pool cheio ou banco fora): erro em vez de travar. */
+  connectTimeoutMs?: number;
 }
 
 /** Banco próprio (com o servidor só quando não é o principal). */
@@ -161,6 +163,7 @@ export class RegistryDatabaseRouter implements TenantDatabaseRouter {
       cacheMs: 10_000,
       idleMs: 15_000,
       maxPools: 100,
+      connectTimeoutMs: 10_000,
       decide: appDecide,
       ...opts,
     };
@@ -196,6 +199,7 @@ export class RegistryDatabaseRouter implements TenantDatabaseRouter {
       connectionString: databaseUrl(this.o.baseUrl, dbName, server),
       max: this.o.poolMax,
       idleTimeoutMillis: this.o.idleMs,
+      connectionTimeoutMillis: this.o.connectTimeoutMs,
     });
     // Banco excluído ou reiniciado derruba conexões paradas: nunca derrubar a API por isso.
     pool.on('error', () => undefined);
