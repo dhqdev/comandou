@@ -10,6 +10,7 @@ import {
 } from './design-system';
 import { isPlatformHost } from './platform/host';
 import { reloadIfStale } from './lib/fresh-reload';
+import { ErrorBoundary, ErrorFallback } from './lib/error-boundary';
 import { applyPosMode } from './lib/pos-device';
 import { applyAdminPwa, listenInstallPrompt } from './platform/pwa';
 
@@ -35,6 +36,9 @@ applyPosMode();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {/* Último recurso: um erro fora das telas não deixa o app em branco. */}
+    <ErrorBoundary fallback={ErrorFallback}>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );

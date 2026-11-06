@@ -76,6 +76,7 @@ import { useHasUnseenRelease } from '../lib/releases';
 import { ChangePasswordModal } from '../pages/TeamPage';
 import { useAuth } from './auth';
 import { ROLE_HOME } from './role-home';
+import { ErrorBoundary, ErrorFallback } from '../lib/error-boundary';
 import './shell.css';
 import './ops.css';
 
@@ -299,6 +300,8 @@ export function AppShell() {
   const main: FrameItem[] = MAIN.filter(can).map((i) => ({
     key: i.to,
     to: i.children ? undefined : i.to === '/' ? pdvTo : i.to,
+    // O PDV também abre por /pdv (links e atalhos): o topo e o menu mostram "PDV" nos dois.
+    also: i.to === '/' && pdvTo === '/' ? '/pdv' : undefined,
     label: i.label,
     icon: i.icon,
     children: i.children?.filter((c) => allowed(c.perms)).map(({ perms: _perms, ...c }) => c),
@@ -435,7 +438,10 @@ export function AppShell() {
       >
         {/* A tela que ainda está chegando não apaga o menu nem o topo. */}
         <Suspense fallback={<PageLoading />}>
-          <Outlet />
+          {/* Erro numa tela fica nela: o menu continua e trocar de tela volta ao normal. */}
+          <ErrorBoundary resetKey={location.pathname} fallback={ErrorFallback}>
+            <Outlet />
+          </ErrorBoundary>
         </Suspense>
       </AppFrame>
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
