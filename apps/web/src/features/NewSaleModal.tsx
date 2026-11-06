@@ -29,6 +29,7 @@ import { ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Select, Spinner, TextField, showLiquid, useToast } from '../design-system';
 import { api, ApiError } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
+import { isOfflineResult } from '../lib/offline';
 import { brl, parseBrlInput } from '../lib/money';
 import { mediaUrl } from '../lib/media';
 import './sale-extras.css';
@@ -277,7 +278,8 @@ export function NewSaleModal({
           })),
         },
       });
-      toast(`Pedido #${order.number} criado`, 'success');
+      // Sem internet o pedido fica no aparelho (lib/offline.ts): o aviso sai da faixa offline.
+      if (!isOfflineResult(order)) toast(`Pedido #${order.number} criado`, 'success');
       reset();
       ref.current?.close();
       onCreated(order);

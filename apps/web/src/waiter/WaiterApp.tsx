@@ -7,7 +7,6 @@ import {
   LogOut,
   Medal,
   MessagesSquare,
-  WifiOff,
 } from 'lucide-react';
 import { type CSSProperties, useCallback, useEffect, useState } from 'react';
 import { Navigate, NavLink, Route, Routes, useLocation } from 'react-router';
@@ -16,6 +15,7 @@ import { useAuth } from '../app/auth';
 import { openTeamChat, useChatUnread } from '../features/chat/TeamChat';
 import { api } from '../lib/api';
 import { useOnline } from '../lib/connectivity';
+import { OfflineBanner } from '../app/OfflineBanner';
 import { useDebounced, useRealtime, useRealtimeStatus } from '../lib/realtime';
 import { ChangePasswordModal } from '../pages/TeamPage';
 import { Seal, WaiterStats, WaiterStatsContext } from './common';
@@ -113,12 +113,7 @@ export function WaiterApp() {
         </aside>
 
         <main className="wt-main">
-          {!online && (
-            <div className="wt-offline" role="status">
-              <WifiOff size={14} /> Sem conexão. Os pedidos voltam a ser enviados quando a internet
-              voltar.
-            </div>
-          )}
+          <OfflineBanner className="wt-offline" />
           {online && live === 'offline' && (
             <div className="wt-offline" role="status">
               Reconectando ao restaurante…

@@ -1,5 +1,5 @@
 import { DynamicModule, Module, OnApplicationShutdown, RequestMethod } from '@nestjs/common';
-import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { AuditModule } from './audit/audit.module';
@@ -9,6 +9,7 @@ import { CatalogModule } from './catalog/catalog.module';
 import { ChatModule } from './chat/chat.module';
 import { HttpExceptionFilter } from './common/http-exception.filter';
 import { maskSecretsInUrl } from './common/log-redact';
+import { OpReplayInterceptor } from './common/op-replay.interceptor';
 import { RedisThrottlerStorage } from './common/redis-throttler.storage';
 import {
   clientIp,
@@ -118,6 +119,8 @@ export class AppModule {
         // Restaurante bloqueado pela cobrança: só lê, entra e paga.
         { provide: APP_GUARD, useClass: BillingGuard },
         { provide: APP_FILTER, useClass: HttpExceptionFilter },
+        // Gravação reenviada pela fila offline do app não se repete (X-Comandou-Op).
+        { provide: APP_INTERCEPTOR, useClass: OpReplayInterceptor },
       ],
       exports: [ENV],
     };

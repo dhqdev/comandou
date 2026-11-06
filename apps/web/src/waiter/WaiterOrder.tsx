@@ -31,6 +31,7 @@ import {
 } from '../design-system';
 import { api, ApiError } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
+import { isOfflineResult } from '../lib/offline';
 import { mediaUrl } from '../lib/media';
 import { brl, parseBrlInput } from '../lib/money';
 import type { DiningTable, MenuCategory, MenuProduct, Order, Tab } from '../lib/types';
@@ -240,7 +241,8 @@ export function WaiterOrder() {
           })),
         },
       });
-      toast(`Pedido #${order.number} enviado`, 'success');
+      // Sem internet o pedido fica no aparelho (lib/offline.ts): o aviso sai da faixa offline.
+      if (!isOfflineResult(order)) toast(`Pedido #${order.number} enviado`, 'success');
       setCart([]);
       setIdemKey(newIdempotencyKey());
       reloadStats();

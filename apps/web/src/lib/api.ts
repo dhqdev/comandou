@@ -1,3 +1,18 @@
+import {
+  browserOnline,
+  cachedRead,
+  enqueue,
+  hasUnsyncedId,
+  needsInternet,
+  newOpKey,
+  offlineEnabled,
+  offlineResult,
+  OP_HEADER,
+  pendingRead,
+  resolveTempIds,
+  saveRead,
+} from './offline';
+
 /**
  * Cliente HTTP da API. A API é servida no MESMO domínio do restaurante sob /api
  * (sem CORS). O cookie de sessão é HttpOnly: o frontend nunca lê nem guarda o token.
@@ -42,11 +57,53 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(
-  path: string,
+  rawPath: string,
   init: RequestInit & { json?: unknown } = {},
 ): Promise<T> {
-  const { json, headers, ...rest } = init;
+  const { json: rawJson, headers, ...rest } = init;
   const method = (rest.method ?? 'GET').toUpperCase();
+  const reading = method === 'GET' || method === 'HEAD';
+  // Modo offline (lib/offline.ts): leitura guardada sem internet; gravação vai para a fila.
+  const offline = offlineEnabled();
+  // Registro criado sem internet que já subiu: usa o id de verdade.
+  const path = offline ? resolveTempIds(rawPath) : rawPath;
+  const json =
+    offline && rawJson !== undefined && JSON.stringify(rawJson).includes('offline-')
+      ? (JSON.parse(resolveTempIds(JSON.stringify(rawJson))) as unknown)
+      : rawJson;
+  const queueable =
+    offline &&
+    !reading &&
+    needsInternet(method, path, json === undefined ? rest.body : undefined) === null;
+  const opKey = queueable ? (headerOf(headers, OP_HEADER) ?? newOpKey()) : undefined;
+
+  const whenOffline = async (): Promise<T> => {
+    if (offline && reading) {
+      const hit = await cachedRead<T>(path);
+      if (hit) return hit.body;
+    }
+    if (queueable) {
+      const op = await enqueue(method, path, json, plainHeaders(headers ?? {}), opKey!);
+      return offlineResult(op) as T;
+    }
+    const why =
+      offline && !reading
+        ? needsInternet(method, path, json === undefined ? rest.body : undefined)
+        : null;
+    throw new ApiError(0, why ? `Sem conexão. ${why}` : 'Sem conexão com o servidor');
+  };
+
+  // Registro que só existe neste aparelho: o servidor ainda não o conhece.
+  if (offline && hasUnsyncedId(path)) {
+    if (reading) {
+      const local = pendingRead(path);
+      if (local) return local.body as T;
+    } else if (queueable) return whenOffline();
+  }
+
+  // Sem rede nenhuma: nem tenta (o fetch demoraria a falhar).
+  if (offline && !browserOnline()) return whenOffline();
+
   let res: Response;
   try {
     res = await fetch(`/api/v1${path}`, {
@@ -57,17 +114,22 @@ export async function api<T>(
         Accept: 'application/json',
         ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}),
         // Exigido pela API em métodos que alteram estado (proteção CSRF).
-        ...(method !== 'GET' && method !== 'HEAD' ? { 'X-Comandou-Request': '1' } : {}),
+        ...(!reading ? { 'X-Comandou-Request': '1' } : {}),
+        // Se a resposta se perder e a gravação for para a fila, o reenvio não duplica.
+        ...(opKey ? { [OP_HEADER]: opKey } : {}),
         ...headers,
       },
       body: json !== undefined ? JSON.stringify(json) : rest.body,
     });
   } catch {
-    throw new ApiError(0, 'Sem conexão com o servidor');
+    return whenOffline();
   }
   if (res.status === 204) return undefined as T;
   const body = await res.json().catch(() => undefined);
   if (!res.ok) {
+    // Servidor fora do ar (gateway) também conta como sem conexão para a fila.
+    if (offline && (res.status === 502 || res.status === 503 || res.status === 504))
+      return whenOffline();
     const msg = (body as { message?: string } | undefined)?.message ?? `Erro ${res.status}`;
     // Restaurante suspenso no meio do uso: o app troca para a tela de aviso.
     if (isSuspended(body)) window.dispatchEvent(new Event(TENANT_SUSPENDED_EVENT));
@@ -79,7 +141,21 @@ export async function api<T>(
       window.dispatchEvent(new Event(BILLING_BLOCKED_EVENT));
     throw new ApiError(res.status, msg, body);
   }
+  if (offline && method === 'GET') void saveRead(path, body);
   return body as T;
+}
+
+function headerOf(h: HeadersInit | undefined, name: string): string | undefined {
+  if (!h) return undefined;
+  const lower = name.toLowerCase();
+  for (const [k, v] of Object.entries(plainHeaders(h))) if (k.toLowerCase() === lower) return v;
+  return undefined;
+}
+
+function plainHeaders(h: HeadersInit): Record<string, string> {
+  if (h instanceof Headers) return Object.fromEntries(h.entries());
+  if (Array.isArray(h)) return Object.fromEntries(h);
+  return { ...(h as Record<string, string>) };
 }
 
 export interface Me {

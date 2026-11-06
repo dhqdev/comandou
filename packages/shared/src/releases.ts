@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.98.0',
+    date: '2026-11-06',
+    title: 'Funciona sem internet: salva no aparelho e sobe quando a conexão volta',
+    summary:
+      'Se a internet cair, o sistema continua aberto com os últimos dados e o que você salvar (pedidos, clientes, cardápio, mesas, estoque e o resto) fica guardado no aparelho, mesmo fechando ou recarregando. Quando a conexão volta, tudo vai para a nuvem sozinho, na ordem, sem duplicar.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Sem internet, uma faixa no topo avisa que o que for salvo fica só neste aparelho e mostra quantas alterações esperam para subir. Em "Ver itens" dá para conferir a lista e enviar na hora quando a conexão voltar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Telas já abertas com internet abrem de novo sem conexão, inclusive depois de fechar ou recarregar o app, com a sessão guardada no aparelho.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cada envio da fila leva uma chave única: se a rede cair depois do servidor gravar, o reenvio não cria pedido ou cadastro em dobro. O que o servidor recusar ao sincronizar aparece para revisar, tentar de novo ou descartar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pagamentos, caixa, nota fiscal, WhatsApp, impressão, envio de fotos e login continuam precisando de internet e avisam isso na hora. Ao sair, os dados guardados no aparelho são apagados; o que ainda não subiu fica para quando a mesma pessoa entrar de novo.',
+      },
+    ],
+  },
+  {
     version: '0.97.0',
     date: '2026-11-06',
     title: 'Estoque pela ficha técnica: quanto dá para vender e bloqueio quando falta',
