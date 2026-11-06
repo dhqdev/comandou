@@ -882,8 +882,10 @@ export function ItemEditor() {
               <div className="st-recipe">
                 <p className="cm-hint" style={{ margin: 0 }}>
                   Quanto de cada insumo sai por unidade vendida
-                  {form.soldByWeight ? ' (por kg)' : ''}. A venda baixa o estoque e o custo entra
-                  nos relatórios.
+                  {form.soldByWeight
+                    ? ' (por 1 kg vendido: cada venda baixa a ficha × o peso, 350 g baixam 0,35 da ficha)'
+                    : ''}
+                  . A venda baixa o estoque e o custo entra nos relatórios.
                 </p>
                 {stockItems.length === 0 && (
                   <p className="cm-hint" style={{ margin: 0 }}>

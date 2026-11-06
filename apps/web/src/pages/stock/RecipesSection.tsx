@@ -313,6 +313,7 @@ export function RecipesSection() {
                         <span className="st-name__meta">
                           {KIND[r.kind]}
                           {r.kind !== 'product' && ` · ${r.group}`}
+                          {r.byWeight && ' · ficha por 1 kg'}
                           {r.kind === 'prep' &&
                             ` · rende ${fmtQty(r.yieldQty ?? '1')} ${r.unit ?? ''}`}
                         </span>
@@ -529,7 +530,9 @@ function RecipeModal({
       <p className="cm-hint" style={{ marginTop: 0 }}>
         {row.kind === 'prep'
           ? `Quanto de cada insumo vai na receita e quanto ela rende de ${row.name}. A produção usa isso para baixar os insumos e calcular o custo.`
-          : `Quanto de cada insumo sai por 1 unidade vendida. O custo usa o custo médio atual de cada insumo.`}
+          : row.byWeight
+            ? `Item vendido por peso: a ficha é por 1 kg vendido. Cada venda baixa a ficha × o peso (350 g baixam 0,35 da ficha). O custo usa o custo médio atual de cada insumo.`
+            : `Quanto de cada insumo sai por 1 unidade vendida. O custo usa o custo médio atual de cada insumo.`}
         {row.kind === 'product' && (
           <>
             {' '}
