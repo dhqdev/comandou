@@ -24,6 +24,7 @@ import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService, Tx } from '../database/database.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
+import { AVAILABILITY_SQL } from './availability-sql';
 import { ITEM_SELECT, StockService } from './stock.service';
 
 const UNITS = ['un', 'kg', 'g', 'l', 'ml'] as const;
@@ -467,6 +468,16 @@ export class StockController {
   }
 
   // ------------------------------------------------------------ fichas técnicas
+  /**
+   * Quanto dá para vender de cada item do cardápio com o estoque de hoje, pela ficha técnica.
+   * Fica no cardápio (catalog:read) para quem cuida dos itens ver o alerta sem acesso ao estoque.
+   */
+  @Get('availability')
+  @RequirePermission('catalog:read')
+  availability(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.db.withTenant(ctxOf(t, u), (tx) => q(tx, AVAILABILITY_SQL));
+  }
+
   @Get('recipes')
   @RequirePermission('stock:read')
   recipes(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {

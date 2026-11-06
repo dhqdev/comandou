@@ -382,6 +382,44 @@ describe('Estoque e ficha técnica', () => {
     await patch('adminA', `/stock/items/${pao.id}`, { allowNegative: false }).expect(200);
   });
 
+  it('item sem estoque pela ficha aparece esgotado, com o que falta, e não vende', async () => {
+    // Deixa a carne abaixo de uma porção (a ficha pede 0,150 kg).
+    await post('stockA', `/stock/items/${carne.id}/movements`, {
+      kind: 'count',
+      quantity: '0.100',
+      note: 'Teste sem estoque',
+    }).expect(201);
+    const av = (await get('adminA', '/stock/availability').expect(200)).body as {
+      productId: string;
+      out: boolean;
+      portions: number | null;
+      missing: string[];
+      lines: { name: string; short: boolean }[];
+    }[];
+    const a = av.find((x) => x.productId === fx.prodA)!;
+    expect(a.out).toBe(true);
+    expect(a.portions).toBe(0);
+    expect(a.missing).toEqual(['Carne']);
+    expect(a.lines.find((l) => l.name === 'Pão')!.short).toBe(false);
+    // O cardápio de venda já mostra esgotado (PDV, garçom e loja online usam a mesma árvore).
+    const menu = (await get('adminA', '/menu?channel=counter').expect(200)).body as {
+      products: { id: string; soldOut: boolean; stockOut: boolean }[];
+    }[];
+    const p = menu.flatMap((c) => c.products).find((x) => x.id === fx.prodA)!;
+    expect(p).toMatchObject({ soldOut: true, stockOut: true });
+    const r = await counterOrder(1).expect(409);
+    expect(r.body.message).toContain('falta Carne');
+    // Repôs: volta a vender e a contagem de porções acompanha o saldo.
+    await post('stockA', `/stock/items/${carne.id}/movements`, {
+      kind: 'purchase',
+      quantity: '0.500',
+    }).expect(201);
+    const av2 = (await get('adminA', '/stock/availability').expect(200)).body as typeof av;
+    expect(av2.find((x) => x.productId === fx.prodA)).toMatchObject({ out: false, portions: 4 });
+    const menu2 = (await get('adminA', '/menu?channel=counter').expect(200)).body as typeof menu;
+    expect(menu2.flatMap((c) => c.products).find((x) => x.id === fx.prodA)!.soldOut).toBe(false);
+  });
+
   it('vendas simultâneas não deixam o estoque negativo', async () => {
     // Deixa só 3 pães.
     await post('stockA', `/stock/items/${pao.id}/movements`, {

@@ -102,6 +102,24 @@ export interface Category {
   sectorId?: string | null;
 }
 
+/** Quanto dá para vender de um item com o estoque de hoje, pela ficha técnica (GET /stock/availability). */
+export interface ProductAvailability {
+  productId: string;
+  /** Algum insumo não dá para mais uma unidade: o item não vende. */
+  out: boolean;
+  /** Unidades que ainda dá para vender; null = sem limite (por peso ou negativo liberado). */
+  portions: number | null;
+  missing: string[];
+  lines: {
+    stockItemId: string;
+    name: string;
+    unit: string;
+    need: string;
+    have: string;
+    short: boolean;
+  }[];
+}
+
 export interface Product {
   id: string;
   categoryId: string;

@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.96.0',
+    date: '2026-11-06',
+    title: 'Estoque pela ficha técnica: quanto dá para vender e bloqueio quando falta',
+    summary:
+      'Cada item do cardápio mostra o que leva de matéria-prima, quanto tem de cada uma e quantas unidades ainda dá para vender. Quando um insumo acaba, o item fica "Sem estoque" e não vende no PDV, no garçom nem no cardápio online até dar entrada.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Estoque › Fichas técnicas ganhou a coluna "Dá para vender" (unidades, em amarelo quando restam 5 ou menos) e a aba "Sem estoque", com o insumo que falta em cada item.',
+      },
+      {
+        tag: 'novo',
+        text: 'Na ficha técnica (no estoque e no cadastro do item) cada insumo mostra quanto tem, em vermelho o que não dá para mais uma unidade, e um aviso diz quantas unidades dá para vender.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cardápio › Itens: situação "Sem estoque" com o que falta, "Restam N unidades" quando está acabando e aviso no topo com os itens travados.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Item sem estoque pela ficha aparece esgotado sozinho no PDV, no app do garçom, no cardápio online e na IA do WhatsApp, sem precisar marcar à mão; volta a vender assim que der entrada.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O pedido com item sem estoque é recusado já na montagem, dizendo qual insumo falta. Insumo com "permitir negativo" nunca trava; item por peso só trava quando o insumo zera.',
+      },
+    ],
+  },
+  {
     version: '0.95.0',
     date: '2026-11-05',
     title: 'Migrar um cliente inteiro para outro servidor',

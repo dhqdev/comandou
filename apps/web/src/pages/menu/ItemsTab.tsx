@@ -1,6 +1,6 @@
 import { BookOpen, Pencil, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Alert, Badge, Button, Card, EmptyState, Skeleton, useToast } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { ImagePicker } from '../../features/ImagePicker';
@@ -13,7 +13,7 @@ import {
   type ListSort,
   type ListTab,
 } from '../../features/list-view';
-import { api, Category, Product } from '../../lib/api';
+import { api, Category, Product, type ProductAvailability } from '../../lib/api';
 import { useLinkParam } from '../../lib/deep-link';
 import { useRealtime } from '../../lib/realtime';
 import { brl } from '../../lib/money';
@@ -24,7 +24,7 @@ import { CategoryModal, categoryIcon } from './CategoryModal';
 const ITEM_TABS: ListTab[] = [
   { id: 'todos', label: 'Todos', filters: {} },
   { id: 'disponiveis', label: 'Disponíveis', filters: { sale: ['available'], active: ['yes'] } },
-  { id: 'esgotados', label: 'Esgotados', filters: { sale: ['soldout'] } },
+  { id: 'esgotados', label: 'Esgotados', filters: { sale: ['soldout', 'nostock'] } },
   { id: 'pausados', label: 'Pausados', filters: { active: ['no'] } },
 ];
 
@@ -41,6 +41,9 @@ export function ItemsTab() {
   const [error, setError] = useState<string | null>(null);
   const [catModal, setCatModal] = useState<Category | 'new' | null>(null);
   const [sectors, setSectors] = useState<Sector[]>([]);
+  // Estoque pela ficha técnica: item com insumo acabado não vende (mesmo sem marcar esgotado).
+  const [stock, setStock] = useState<Map<string, ProductAvailability>>(new Map());
+  const stockOut = useCallback((id: string) => !!stock.get(id)?.out, [stock]);
   const newItem = (categoryId?: string | null) =>
     navigate(`/cardapio/itens/novo${categoryId ? `?categoria=${categoryId}` : ''}`);
 
@@ -64,10 +67,11 @@ export function ItemsTab() {
       {
         key: 'sale',
         label: 'Situação',
-        value: (p) => (p.soldOut ? 'soldout' : 'available'),
+        value: (p) => (p.soldOut ? 'soldout' : stockOut(p.id) ? 'nostock' : 'available'),
         options: [
           { value: 'available', label: 'Disponível' },
           { value: 'soldout', label: 'Esgotado' },
+          { value: 'nostock', label: 'Sem estoque' },
         ],
         pinned: true,
       },
@@ -109,7 +113,7 @@ export function ItemsTab() {
         ],
       },
     ],
-    [categories, families, groupNames],
+    [categories, families, groupNames, stockOut],
   );
   const sorts = useMemo<ListSort<Product>[]>(
     () => [
@@ -171,6 +175,12 @@ export function ItemsTab() {
   useEffect(() => {
     void load();
   }, [load]);
+  const loadStock = useCallback(() => {
+    api<ProductAvailability[]>('/stock/availability')
+      .then((r) => setStock(new Map(r.map((a) => [a.productId, a]))))
+      .catch(() => setStock(new Map()));
+  }, []);
+  useEffect(loadStock, [loadStock]);
   useEffect(() => {
     if (!canWrite) return;
     api<Sector[]>('/sectors')
@@ -179,7 +189,9 @@ export function ItemsTab() {
   }, [canWrite]);
   useRealtime((e) => {
     if (e.type === 'menu.changed') void load();
+    if (e.type === 'stock.changed' || e.type === 'menu.changed') loadStock();
   });
+  const outList = (products ?? []).filter((p) => p.active && !p.soldOut && stockOut(p.id));
 
   const visible = lv.visible;
   const countBy = (id: string) => (products ?? []).filter((p) => p.categoryId === id).length;
@@ -210,6 +222,18 @@ export function ItemsTab() {
   return (
     <>
       {error && <Alert tone="danger">Não foi possível carregar o cardápio: {error}</Alert>}
+      {outList.length > 0 && (
+        <Alert tone="danger">
+          <strong>
+            {outList.length === 1
+              ? `${outList[0]!.name} está sem estoque`
+              : `${outList.length} itens estão sem estoque`}
+          </strong>{' '}
+          e não dá para vender até dar entrada nos insumos
+          {outList.length === 1 ? ` (falta ${stock.get(outList[0]!.id)!.missing.join(', ')})` : ''}.{' '}
+          <Link to="/estoque/fichas">Ver fichas técnicas e estoque</Link>
+        </Alert>
+      )}
       <div className="menu-grid">
         <Card
           title="Categorias"
@@ -350,11 +374,7 @@ export function ItemsTab() {
                           {opts && <div className="cm-hint">Opções: {opts}</div>}
                         </td>
                         <td className="mn-items__state">
-                          {p.soldOut ? (
-                            <Badge tone="danger">Esgotado</Badge>
-                          ) : (
-                            <Badge tone="success">Disponível</Badge>
-                          )}
+                          <SaleState p={p} stock={stock.get(p.id)} />
                         </td>
                         <td className="cm-num mn-items__price">{brl(p.price)}</td>
                         {canWrite && (
@@ -398,4 +418,23 @@ export function ItemsTab() {
       />
     </>
   );
+}
+
+/** Situação de venda: esgotado à mão, sem estoque pela ficha (com o que falta) ou disponível. */
+function SaleState({ p, stock }: { p: Product; stock?: ProductAvailability }) {
+  if (p.soldOut) return <Badge tone="danger">Esgotado</Badge>;
+  if (stock?.out)
+    return (
+      <span title={`Falta ${stock.missing.join(', ')}`}>
+        <Badge tone="danger">Sem estoque</Badge>
+        <div className="cm-hint">Falta {stock.missing.join(', ')}</div>
+      </span>
+    );
+  if (stock && stock.portions !== null && stock.portions <= 5)
+    return (
+      <Badge tone="warning">
+        Restam {stock.portions} {stock.portions === 1 ? 'unidade' : 'unidades'}
+      </Badge>
+    );
+  return <Badge tone="success">Disponível</Badge>;
 }

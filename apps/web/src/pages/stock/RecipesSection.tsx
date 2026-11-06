@@ -25,7 +25,7 @@ import {
 } from '../../features/list-view';
 import { fmtQty, parseQtyInput, SelectField } from '../../features/forms';
 import { fmtFactor, fmtPct } from '../../features/pricing';
-import { fmtCost, toMilli } from '../../features/stock-math';
+import { fmtCost, recipeStock, toMilli, type RecipeStock } from '../../features/stock-math';
 import { api, type Product } from '../../lib/api';
 import type { MenuGroup, PrepRecipeLine, RecipeLine, StockItem } from '../../lib/types';
 import { StockHead, useStockItems } from './common';
@@ -51,7 +51,14 @@ interface Row {
   /** Preparo: rendimento e unidade. */
   yieldQty?: string;
   unit?: string;
+  /** Item vendido por peso (ficha por kg). */
+  byWeight?: boolean;
+  /** Item vendido (cardápio e complemento): quanto ainda dá para vender e o que falta. */
+  stock: RecipeStock | null;
 }
+
+/** Item com ficha que não dá para vender mais nenhuma unidade. */
+const isOut = (r: Row) => !!r.stock?.missing.length;
 
 /** Custo exato da ficha em centavos (o arredondamento fica só na exibição). */
 function costOf(lines: RecipeLine[], byId: Map<string, StockItem>, ratio = 1) {
@@ -79,17 +86,33 @@ const FIELDS: ListField<Row>[] = [
     ],
     pinned: true,
   },
+  {
+    key: 'stock',
+    label: 'Estoque',
+    value: (r) => (isOut(r) ? 'out' : 'ok'),
+    options: [
+      { value: 'out', label: 'Sem estoque' },
+      { value: 'ok', label: 'Com estoque' },
+    ],
+  },
   { key: 'group', label: 'Categoria / grupo', value: (r) => r.group },
 ];
 const TABS: ListTab[] = [
   { id: 'menu', label: 'Cardápio', filters: { kind: ['product'] } },
   { id: 'missing', label: 'Sem ficha', filters: { kind: ['product'], has: ['no'] } },
+  { id: 'out', label: 'Sem estoque', filters: { stock: ['out'] } },
   { id: 'options', label: 'Complementos', filters: { kind: ['option'] } },
   { id: 'prep', label: 'Preparos', filters: { kind: ['prep'] } },
 ];
 const SORTS: ListSort<Row>[] = [
   { key: 'name', label: 'Nome', get: (r) => fold(r.name), asc: true },
   { key: 'cost', label: 'Custo', get: (r) => r.costCents },
+  {
+    key: 'portions',
+    label: 'Dá para vender',
+    get: (r) => r.stock?.portions ?? Number.MAX_SAFE_INTEGER,
+    asc: true,
+  },
   {
     key: 'cmv',
     label: 'CMV',
@@ -145,6 +168,8 @@ export function RecipesSection() {
         priceCents: toCents(p.price),
         lines,
         costCents: costOf(lines, byId),
+        byWeight: !!p.soldByWeight,
+        stock: lines.length ? recipeStock(lines, byId, !!p.soldByWeight) : null,
       });
     }
     for (const g of groups) {
@@ -159,6 +184,7 @@ export function RecipesSection() {
           priceCents: toCents(o.priceDelta),
           lines,
           costCents: costOf(lines, byId),
+          stock: lines.length ? recipeStock(lines, byId) : null,
         });
       }
     }
@@ -175,6 +201,7 @@ export function RecipesSection() {
         costCents: costOf(lines, byId),
         yieldQty: it.recipeYield,
         unit: it.unit,
+        stock: null,
       });
     }
     return out;
@@ -191,6 +218,7 @@ export function RecipesSection() {
   });
   const shown = lv.visible ?? [];
   const missing = rows?.filter((r) => r.kind === 'product' && !r.lines.length).length ?? 0;
+  const out = rows?.filter((r) => r.kind !== 'prep' && isOut(r)) ?? [];
 
   return (
     <div className="st-page">
@@ -206,8 +234,30 @@ export function RecipesSection() {
         }
       >
         A receita de cada item: quanto de cada insumo sai por unidade vendida (ou por preparo feito
-        na casa). É ela que baixa o estoque a cada venda e calcula o custo e o CMV.
+        na casa). É ela que baixa o estoque a cada venda, calcula o custo e diz quanto ainda dá para
+        vender. Quando um insumo acaba, o item fica sem estoque e não vende até a reposição.
       </StockHead>
+      {out.length > 0 && (
+        <Alert tone="danger">
+          <strong>
+            {out.length === 1
+              ? `${out[0]!.name} está sem estoque`
+              : `${out.length} itens estão sem estoque`}
+          </strong>{' '}
+          e não dá para vender até dar entrada nos insumos
+          {out.length === 1 ? ` (falta ${out[0]!.stock!.missing.join(', ')})` : ''}. No PDV, no
+          garçom e no cardápio online eles aparecem como esgotados.{' '}
+          {lv.tab?.id !== 'out' && (
+            <button
+              type="button"
+              className="st-linkbtn"
+              onClick={() => lv.selectTab(TABS.find((t) => t.id === 'out')!)}
+            >
+              Ver quais
+            </button>
+          )}
+        </Alert>
+      )}
       {missing > 0 && (
         <Alert tone="info">
           {missing} {missing === 1 ? 'item do cardápio está' : 'itens do cardápio estão'} sem ficha:
@@ -242,6 +292,7 @@ export function RecipesSection() {
                 <tr>
                   <th>Item</th>
                   <th>Insumos</th>
+                  <th>Dá para vender</th>
                   <th className="cm-num">Custo</th>
                   <th className="cm-num">Preço</th>
                   <th className="cm-num">CMV</th>
@@ -278,6 +329,9 @@ export function RecipesSection() {
                       ) : (
                         <Badge tone="warning">sem ficha</Badge>
                       )}
+                    </td>
+                    <td>
+                      <StockCell row={r} />
                     </td>
                     <td className="cm-num">{r.lines.length ? formatBRL(r.costCents) : '—'}</td>
                     <td className="cm-num">
@@ -324,6 +378,7 @@ export function RecipesSection() {
               costCents: 0,
               yieldQty: it.recipeYield,
               unit: it.unit,
+              stock: null,
             });
           }}
         />
@@ -331,6 +386,29 @@ export function RecipesSection() {
     </div>
   );
 }
+
+/** Quanto ainda dá para vender do item com o estoque de hoje (ou o que falta). */
+function StockCell({ row }: { row: Row }) {
+  const st = row.stock;
+  if (row.kind === 'prep' || !st) return <span className="cm-hint">—</span>;
+  if (st.missing.length)
+    return (
+      <div className="st-name">
+        <Badge tone="danger">Sem estoque · não vende</Badge>
+        <span className="st-name__meta">Falta {st.missing.join(', ')}</span>
+      </div>
+    );
+  if (st.portions === null)
+    return <Badge tone="success">{row.byWeight ? 'Tem estoque' : 'Sem limite'}</Badge>;
+  return (
+    <Badge tone={st.portions <= LOW_PORTIONS ? 'warning' : 'success'}>
+      {st.portions} {st.portions === 1 ? 'unidade' : 'unidades'}
+    </Badge>
+  );
+}
+
+/** Com tão pouco para vender, o item já aparece em amarelo. */
+const LOW_PORTIONS = 5;
 
 function PickPrepModal({
   items,
@@ -464,6 +542,7 @@ function RecipeModal({
         canWrite={canWrite}
         priceCents={row.priceCents}
         unit={row.unit}
+        byWeight={row.byWeight}
       />
     </Modal>
   );
@@ -515,13 +594,17 @@ function RecipeEditor({
   canWrite,
   priceCents,
   unit,
+  byWeight,
 }: {
   editor: Editor;
   canWrite: boolean;
   priceCents: number | null;
   unit?: string;
+  byWeight?: boolean;
 }) {
   const { lines, setLines, parsed, byId, total } = editor;
+  // Item vendido: com o estoque de hoje, quantas unidades dá e qual insumo segura.
+  const stock = editor.isPrep ? null : recipeStock(parsed, byId, byWeight);
   const perUnit =
     editor.isPrep && editor.yieldParsed && Number(editor.yieldParsed) > 0
       ? total / 100 / Number(editor.yieldParsed)
@@ -599,6 +682,18 @@ function RecipeEditor({
                   {fmtCost(it.avgCost)}/{it.unit}
                 </span>
               )}
+              {it && stock && (
+                <span
+                  className="cm-hint"
+                  style={
+                    stock.lines.find((x) => x.stockItemId === it.id)?.short
+                      ? { color: 'var(--cm-danger)', fontWeight: 600 }
+                      : undefined
+                  }
+                >
+                  Tem {fmtQty(it.quantity)} {it.unit}
+                </span>
+              )}
             </div>
             {canWrite && (
               <Button
@@ -612,6 +707,15 @@ function RecipeEditor({
           </div>
         );
       })}
+      {stock && stock.lines.length > 0 && (
+        <Alert tone={stock.missing.length ? 'danger' : 'info'}>
+          {stock.missing.length
+            ? `Sem estoque: falta ${stock.missing.join(', ')}. O item não vende até dar entrada.`
+            : stock.portions === null
+              ? 'Tem estoque para vender.'
+              : `Com o estoque de hoje dá para vender ${stock.portions} ${stock.portions === 1 ? 'unidade' : 'unidades'}.`}
+        </Alert>
+      )}
       {lines.length > 0 && (
         <div className="st-preview st-preview--compact">
           {priceCents !== null && (
