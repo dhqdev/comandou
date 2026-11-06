@@ -1554,14 +1554,5 @@ export const AURORA: DemoCatalog = {
         ],
       ],
     },
-    mascot: {
-      kitchen: { head: 'chef', neck: 'bandana' },
-      waiter: { neck: 'bowtie' },
-      waiter2: { neck: 'bowtie' },
-      driver: { head: 'cap' },
-      driver2: { head: 'cap' },
-      attendant: { head: 'headset' },
-      cashier: { neck: 'scarf' },
-    },
   },
 };

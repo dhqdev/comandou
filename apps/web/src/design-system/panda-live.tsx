@@ -1,16 +1,14 @@
 import { CSSProperties, useEffect, useId, useRef, useState } from 'react';
-import type { MascotOutfit } from '@comandou/shared';
 import { PANDA_HEAD } from './mascot';
 import { pandaFur } from './panda-fur';
-import { LOW_NECK, PandaDefs, WearHead, WearNeck } from './panda-wear';
+import { PandaDefs } from './panda-defs';
 import './panda-live.css';
 
 /**
- * O panda do Comandou com vida: os olhos seguem o mouse (ou o dedo), passeiam sozinhos quando
- * ninguém mexe, piscam, ele respira, inclina de leve para o lado do ponteiro e, de vez em quando,
- * dá um pulinho, balança ou acena. Ao tocar, amassa e reage. Mesmo desenho do Mascot (viewBox 64),
- * com luz, sombra e textura de pelo, e as roupinhas por cima (panda-wear.tsx), como o Bolinho do
- * Planejai: a peça nova estala no lugar e ele pula feliz.
+ * O panda do Comandou com vida, como o Bolinho do Planejai: os olhos seguem o mouse (ou o dedo)
+ * e, quando ninguém mexe, ele fica olhando de um lado para o outro. Pisca, respira, inclina de
+ * leve para o lado do ponteiro e, de vez em quando, vira a cabeça para olhar em volta. Ao tocar,
+ * amassa e reage. Mesmo desenho do Mascot (viewBox 64), com luz, sombra e textura de pelo.
  */
 export type PandaMood =
   'idle' | 'happy' | 'joy' | 'wink' | 'wow' | 'thinking' | 'talking' | 'sleep' | 'sad' | 'dizzy';
@@ -20,8 +18,7 @@ const POKES: PandaMood[] = ['joy', 'wow', 'wink', 'happy', 'joy'];
 const RX = 1.25;
 const RY = 1.05;
 
-export type PandaGesture = 'hop' | 'sway' | 'look' | 'shake' | 'nod' | 'wave';
-type Gesture = Exclude<PandaGesture, 'wave'>;
+type Gesture = 'hop' | 'look' | 'shake' | 'nod';
 const GESTURES: Record<Gesture, [Keyframe[], number]> = {
   hop: [
     [
@@ -32,15 +29,6 @@ const GESTURES: Record<Gesture, [Keyframe[], number]> = {
       { transform: 'translateY(0) scale(1, 1)' },
     ],
     620,
-  ],
-  sway: [
-    [
-      { transform: 'rotate(0)' },
-      { transform: 'rotate(-6deg)', offset: 0.25 },
-      { transform: 'rotate(5deg)', offset: 0.6 },
-      { transform: 'rotate(0)' },
-    ],
-    1300,
   ],
   look: [
     [
@@ -86,9 +74,6 @@ export function LivePanda({
   className = '',
   style,
   still,
-  outfit,
-  walking,
-  cue,
   onTap,
 }: {
   size?: number;
@@ -100,12 +85,6 @@ export function LivePanda({
   style?: CSSProperties;
   /** Sem vida (miniaturas). */
   still?: boolean;
-  /** Roupinha vestida (cabeça e pescoço). */
-  outfit?: MascotOutfit;
-  /** Andando: pulinhos curtos no lugar de respirar (passeio pela tela). */
-  walking?: boolean;
-  /** Pede um gesto de fora (o `n` muda a cada pedido). */
-  cue?: { g: PandaGesture; n: number };
   /** Toque: devolve true para não fazer a reação padrão. */
   onTap?: () => boolean | void;
 }) {
@@ -119,21 +98,11 @@ export function LivePanda({
   const lids = useRef<SVGGElement>(null);
   const [poke, setPoke] = useState<PandaMood | null>(null);
   const [squish, setSquish] = useState(0);
-  const [wave, setWave] = useState(0);
   const clicks = useRef<number[]>([]);
   const shown: PandaMood = poke ?? mood;
   const dead = still || calm();
 
-  const play = (g: PandaGesture) => {
-    if (g === 'wave') {
-      if (!dead) setWave((n) => n + 1);
-      return;
-    }
-    if (g === 'hop' && svg.current && !dead) {
-      svg.current.classList.remove('lp--hop');
-      void svg.current.getBoundingClientRect();
-      svg.current.classList.add('lp--hop');
-    }
+  const play = (g: Gesture) => {
     const el = act.current;
     if (!el || dead || typeof el.animate !== 'function') return;
     const [frames, ms] = GESTURES[g];
@@ -176,17 +145,21 @@ export function LivePanda({
           lean.current.style.transform = `rotate(${((dx / d) * k * 5).toFixed(2)}deg)`;
       });
     };
+    // Parado: olha para um lado, depois para o outro, às vezes para a frente.
     let t: ReturnType<typeof setTimeout>;
+    let side = 1;
     const wander = () => {
       if (Date.now() - lastMove > 2500 && !document.hidden) {
         if (lean.current) lean.current.style.transform = '';
-        const r = Math.random();
-        if (r < 0.35) set(RX * 0.8, -RY * 0.3);
-        else set((Math.random() * 2 - 1) * RX, (Math.random() * 2 - 1) * RY * 0.8);
+        if (Math.random() < 0.25) set(0, 0);
+        else {
+          side = -side;
+          set(side * RX * (0.75 + Math.random() * 0.25), (Math.random() * 2 - 1) * RY * 0.15);
+        }
       }
-      t = setTimeout(wander, 800 + Math.random() * 2400);
+      t = setTimeout(wander, 1400 + Math.random() * 1800);
     };
-    set(RX * 0.8, -RY * 0.3);
+    set(RX * 0.8, 0);
     t = setTimeout(wander, 1200);
     window.addEventListener('pointermove', onMove, { passive: true });
     return () => {
@@ -223,24 +196,6 @@ export function LivePanda({
     return () => clearTimeout(t);
   }, [poke, squish]);
 
-  // Gesto pedido de fora (passeio, guarda-roupa).
-  useEffect(() => {
-    if (cue) play(cue.g);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cue?.n]);
-
-  // Roupa nova: a peça estala no lugar e ele pula feliz.
-  const wearKey = `${outfit?.head ?? ''}|${outfit?.neck ?? ''}`;
-  const firstWear = useRef(wearKey);
-  const [dressing, setDressing] = useState(0);
-  useEffect(() => {
-    if (wearKey === firstWear.current || still) return;
-    firstWear.current = '';
-    setDressing((n) => n + 1);
-    if (wearKey !== '|') setPoke('joy');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wearKey]);
-
   // Humor que pede gesto.
   useEffect(() => {
     if (shown === 'joy' || shown === 'happy') play('hop');
@@ -250,29 +205,20 @@ export function LivePanda({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shown]);
 
-  // Parado, de vez em quando ele faz alguma coisa sozinho.
+  // Parado, de vez em quando ele vira a cabeça para olhar em volta.
   useEffect(() => {
     if (dead || size < 28) return;
     let t: ReturnType<typeof setTimeout>;
     const loop = () => {
       if (!document.hidden && (mood === 'idle' || mood === 'happy')) {
-        const r = Math.random();
-        if (r < 0.35) play('hop');
-        else if (r < 0.6) play('sway');
-        else if (r < 0.8) play('look');
-        else setWave((n) => n + 1);
+        play('look');
       }
-      t = setTimeout(loop, 9000 + Math.random() * 12000);
+      t = setTimeout(loop, 7000 + Math.random() * 8000);
     };
     t = setTimeout(loop, 4000 + Math.random() * 6000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dead, mood, size]);
-
-  // Acena ao aparecer (só nos grandes).
-  useEffect(() => {
-    if (!dead && size >= 40 && !badge) setWave(1);
-  }, [dead, size, badge]);
 
   const onPoke = () => {
     if (still) return;
@@ -361,34 +307,12 @@ export function LivePanda({
   const fur = !badge && size >= 40 ? pandaFur() : null;
   const shadeId = `lp${uid}`;
   const url = (n: string) => `url(#${shadeId}-${n})`;
-  const lowNeck = !!outfit?.neck && LOW_NECK.includes(outfit.neck);
 
   const panda = (
     <g className="lp-lean" ref={lean}>
       <g className="lp-act" ref={act}>
         <g className={`lp-life ${size < 32 || dead ? '' : 'lp-breathe'}`}>
           <g className={squish ? `lp-squish lp-squish-${squish % 2}` : 'lp-squish'}>
-            {/* Patinhas: escondidas atrás da cabeça, aparecem para acenar. */}
-            {!dead && (
-              <g className={wave ? 'lp-paws lp-waving' : 'lp-paws'} key={wave}>
-                <ellipse
-                  className="lp-paw lp-paw-l"
-                  cx="12"
-                  cy="46"
-                  rx="5"
-                  ry="4.3"
-                  fill={url('ink')}
-                />
-                <ellipse
-                  className="lp-paw lp-paw-r"
-                  cx="53"
-                  cy="44"
-                  rx="5"
-                  ry="4.3"
-                  fill={url('ink')}
-                />
-              </g>
-            )}
             <g
               className="lp-ears"
               fill={url('ink')}
@@ -440,11 +364,6 @@ export function LivePanda({
               strokeWidth="1.7"
               strokeLinejoin="round"
             />
-            {outfit?.neck && (
-              <g className="lp-wear" key={`n${outfit.neck}${dressing}`}>
-                <WearNeck id={outfit.neck} u={shadeId} />
-              </g>
-            )}
             <g className="lp-look" ref={look}>
               <ellipse
                 cx="22"
@@ -477,11 +396,6 @@ export function LivePanda({
               {philtrum}
               {mouth}
             </g>
-            {outfit?.head && (
-              <g className="lp-wear lp-wear--head" key={`h${outfit.head}${dressing}`}>
-                <WearHead id={outfit.head} u={shadeId} />
-              </g>
-            )}
           </g>
         </g>
       </g>
@@ -489,7 +403,7 @@ export function LivePanda({
         <text
           className="lp-zzz"
           x="57"
-          y={outfit?.head ? 1 : 9}
+          y="9"
           fontSize="9"
           fontWeight="800"
           fill="currentColor"
@@ -511,7 +425,7 @@ export function LivePanda({
   return (
     <svg
       ref={svg}
-      className={`cm-mascot lp ${badge ? 'cm-mascot--badge lp--badge' : ''} ${dead ? 'lp--still' : ''} ${walking && !dead ? 'lp--walk' : ''} ${dressing ? 'lp--dress' : ''} ${className}`}
+      className={`cm-mascot lp ${badge ? 'cm-mascot--badge lp--badge' : ''} ${dead ? 'lp--still' : ''} ${className}`}
       width={size}
       height={size}
       viewBox="0 0 64 64"
@@ -537,14 +451,7 @@ export function LivePanda({
         </>
       ) : (
         <>
-          <ellipse
-            className="lp-shadow"
-            cx="33"
-            cy={lowNeck ? 62.5 : 58.2}
-            rx="22"
-            ry="3.4"
-            fill={url('ground')}
-          />
+          <ellipse className="lp-shadow" cx="33" cy="58.2" rx="22" ry="3.4" fill={url('ground')} />
           {panda}
         </>
       )}
