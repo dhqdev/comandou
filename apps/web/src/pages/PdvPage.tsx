@@ -22,6 +22,7 @@ import { useAuth, useCan } from '../app/auth';
 import { NewSaleModal } from '../features/NewSaleModal';
 import { OrderDetailModal } from '../features/OrderDetailModal';
 import { minutesSince, PAYMENT_STATUS_LABEL, time } from '../features/format';
+import { TabModal } from '../features/salon/TabModal';
 import { sortTables, tableState, type TableState } from '../features/table-state';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
@@ -199,6 +200,8 @@ export function PdvPage() {
   const [error, setError] = useState<string | null>(null);
   const [selling, setSelling] = useState(false);
   const [freeTable, setFreeTable] = useState<DiningTable | null>(null);
+  /** Comanda aberta no próprio PDV (toque numa mesa ocupada ou numa comanda). */
+  const [tabId, setTabId] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [openStep, setOpenStep] = useState<'dispatch' | 'reject' | undefined>();
   const [filter, setFilter] = useState<Filter>('all');
@@ -420,10 +423,17 @@ export function PdvPage() {
   const stateCount = (s: TableState) => (tables ?? []).filter((t) => tableState(t) === s).length;
 
   function openTable(t: DiningTable) {
-    // Mesa livre já abre a venda aqui; ocupada abre a comanda no salão.
-    if (t.tabId) navigate(`/mesas?comanda=${t.tabId}`);
+    // Tudo abre aqui mesmo, sem levar para o Salão: ocupada abre a comanda; livre, a venda.
+    if (t.tabId) setTabId(t.tabId);
     else if (canSell) setFreeTable(t);
-    else navigate(`/mesas?mesa=${t.id}`);
+    else
+      // Sem permissão de venda: abre a comanda vazia da mesa, como no Salão.
+      api<Tab>('/tabs', { method: 'POST', json: { tableId: t.id } })
+        .then((tab) => {
+          setTabId(tab.id);
+          loadSalon();
+        })
+        .catch((e: Error) => toast(e.message, 'danger'));
   }
 
   const storeLink = `${window.location.origin}/pedir`;
@@ -573,7 +583,7 @@ export function PdvPage() {
                     className="pdv-table"
                     data-state={t.billRequestedAt ? 'paying' : 'busy'}
                     aria-label={`Comanda ${t.number}`}
-                    onClick={() => navigate(`/mesas?comanda=${t.id}`)}
+                    onClick={() => setTabId(t.id)}
                   >
                     <strong>
                       Comanda {t.number}
@@ -752,6 +762,13 @@ export function PdvPage() {
           void load();
           loadSalon();
         }}
+      />
+      <TabModal
+        tabId={tabId}
+        tables={tables ?? []}
+        onClose={() => setTabId(null)}
+        onChanged={loadSalon}
+        onBillRequested={() => undefined}
       />
       <OrderDetailModal
         variant="panel"
