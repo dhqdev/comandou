@@ -43,6 +43,8 @@ export interface FrameItem {
   /** Link direto. Sem `to`, o item abre o submenu (`children`) ou o painel (`panel`). */
   to?: string;
   end?: boolean;
+  /** Outro endereço que também acende o item (ex.: /pdv acende "PDV" quando ele mora em /). */
+  also?: string;
   /** Bolinha de aviso no ícone. */
   dot?: boolean;
   children?: FrameLink[];
@@ -56,7 +58,7 @@ function isOn(pathname: string, to: string, end?: boolean) {
   return !!matchPath({ path: to, end: end ?? to === '/' }, pathname);
 }
 function itemActive(pathname: string, it: FrameItem) {
-  if (it.to) return isOn(pathname, it.to, it.end);
+  if (it.to) return isOn(pathname, it.to, it.end) || (!!it.also && isOn(pathname, it.also, true));
   return !!it.children?.some((c) => linkOn(pathname, c));
 }
 function linkOn(pathname: string, l: FrameLink) {
@@ -437,6 +439,7 @@ function currentScreen(pathname: string, all: FrameItem[]) {
   };
   for (const it of all) {
     if (it.to) consider(it.to, it.end, it.label, it.icon);
+    if (it.to && it.also) consider(it.also, true, it.label, it.icon);
     for (const c of it.children ?? []) {
       consider(c.to, c.end, c.label, c.icon);
       if (c.also) consider(c.also, true, c.label, c.icon);
