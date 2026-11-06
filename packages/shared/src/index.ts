@@ -12,7 +12,6 @@ export * from './report-doc';
 export * from './billing';
 export * from './nav-catalog';
 export * from './fix-hints';
-export * from './mascot';
 export * from './tickets';
 export * from './kitchen';
 export * from './finance-month';

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { ClientBase } from 'pg';
-import { fromCents, type CourierPayRule, type MascotOutfit } from '@comandou/shared';
+import { fromCents, type CourierPayRule } from '@comandou/shared';
 import type { DemoUser } from './types';
 
 /**
@@ -81,7 +81,6 @@ export interface DemoExtras {
   couriers: Record<string, { pix: string; regime: 'mei' | 'autonomo' | 'clt' }>;
   courierPay: CourierPayRule;
   ai: { monthlyTokens: number; conversation: [string, ['user' | 'assistant', string][]] };
-  mascot: Record<string, MascotOutfit>;
 }
 
 export interface ExtrasContext {
@@ -662,11 +661,5 @@ export async function seedDemoExtras(c: ClientBase, x: DemoExtras, ctx: ExtrasCo
         role === 'assistant' ? 380 + i * 40 : 0,
         iso(now - (90 - i * 2) * MIN),
       ],
-    );
-  for (const [key, outfit] of Object.entries(x.mascot))
-    await c.query(
-      `INSERT INTO mascot_prefs (tenant_id, user_id, outfit, stroll) VALUES ($1,$2,$3,true)
-       ON CONFLICT DO NOTHING`,
-      [T, U(key), JSON.stringify(outfit)],
     );
 }
