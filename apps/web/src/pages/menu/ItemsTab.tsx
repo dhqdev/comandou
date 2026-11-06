@@ -230,8 +230,9 @@ export function ItemsTab() {
               : `${outList.length} itens estão sem estoque`}
           </strong>{' '}
           e não dá para vender até dar entrada nos insumos
-          {outList.length === 1 ? ` (falta ${stock.get(outList[0]!.id)!.missing.join(', ')})` : ''}.{' '}
-          <Link to="/estoque/fichas">Ver fichas técnicas e estoque</Link>
+          {outList.length === 1
+            ? ` (falta ${stock.get(outList[0]!.id)!.missing.join(', ')})`
+            : ''}. <Link to="/estoque/fichas">Ver fichas técnicas e estoque</Link>
         </Alert>
       )}
       <div className="menu-grid">
