@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.96.0',
+    date: '2026-11-06',
+    title: 'Panda mais simples: sem roupinhas',
+    summary:
+      'O panda voltou a ser só o panda: saíram as roupinhas e o passeio pelo canto da tela. Ele fica no topo olhando de um lado para o outro, segue o mouse com os olhos e reage quando você toca nele.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Saiu a "Roupa do panda" do menu da Conta, junto com as peças, os looks prontos e o passeio no canto de baixo da tela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Parado, o panda olha para um lado e para o outro e, de vez em quando, vira a cabeça para olhar em volta, sem pulos nem acenos sozinho.',
+      },
+    ],
+  },
+  {
     version: '0.95.0',
     date: '2026-11-05',
     title: 'Migrar um cliente inteiro para outro servidor',

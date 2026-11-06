@@ -43,7 +43,6 @@ import {
   Wallet,
   WifiOff,
   MessagesSquare,
-  Shirt,
 } from 'lucide-react';
 import { ReactNode, Suspense, useCallback, useEffect, useState } from 'react';
 import { PageLoading } from './PageLoading';
@@ -69,10 +68,7 @@ import {
 } from '../features/store-chat/SupportInbox';
 import { WelcomeTour, tourSeen } from '../features/WelcomeTour';
 import { PageTourHost } from '../features/tour/PageTour';
-import { PandaStroll } from '../features/mascot/Stroll';
-import { openWardrobe, useMascotSync } from '../features/mascot/state';
-import { WardrobeHost } from '../features/mascot/Wardrobe';
-import { PandaButton } from '../features/mascot/PandaButton';
+import { PandaBrand } from '../features/mascot/PandaBrand';
 import { useSearchSpotlight } from '../lib/deep-link';
 import { useOnline } from '../lib/connectivity';
 import { useRealtimeStatus } from '../lib/realtime';
@@ -275,7 +271,6 @@ export function AppShell() {
   const unseen = useHasUnseenRelease();
   const chatUnread = useChatUnread();
   const support = useSupportUnread();
-  useMascotSync(me?.user.id);
   const [pwOpen, setPwOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
@@ -346,9 +341,6 @@ export function AppShell() {
       <button type="button" className="account__action" onClick={() => setTourOpen(true)}>
         <Compass size={18} /> Rever apresentação
       </button>
-      <button type="button" className="account__action" onClick={openWardrobe}>
-        <Shirt size={18} /> Roupa do panda
-      </button>
       <button type="button" className="account__action" onClick={() => setPwOpen(true)}>
         <KeyRound size={18} /> Trocar senha
       </button>
@@ -361,8 +353,8 @@ export function AppShell() {
   return (
     <>
       <AppFrame
-        brand={<PandaButton size={60} />}
-        brandCompact={<PandaButton size={42} />}
+        brand={<PandaBrand size={60} />}
+        brandCompact={<PandaBrand size={42} />}
         items={[...main, ...groups]}
         footer={[
           {
@@ -447,9 +439,7 @@ export function AppShell() {
         </Suspense>
       </AppFrame>
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
-      <WardrobeHost />
       <SupportChatHost />
-      <PandaStroll />
       {me && (
         <WelcomeTour
           open={tourOpen}

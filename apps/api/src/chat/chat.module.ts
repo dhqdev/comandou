@@ -5,15 +5,14 @@ import { AiAgentService } from './ai-agent.service';
 import { AiService } from './ai.service';
 import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
-import { MascotController } from './mascot.controller';
 
 /**
  * Chat interno da equipe (conversas, mural, avisos), o assistente de IA, a IA que atende o
- * cliente (configurada pelo gerente) e a roupinha do panda.
+ * cliente (configurada pelo gerente).
  */
 @Module({
   imports: [WhatsAppModule],
-  controllers: [ChatController, MascotController, AiAgentController],
+  controllers: [ChatController, AiAgentController],
   providers: [ChatService, AiService, AiAgentService],
   exports: [ChatService, AiAgentService],
 })
