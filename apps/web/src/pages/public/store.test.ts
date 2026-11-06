@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { syncCart, type CartLine, type PublicProduct } from './store';
+import { mergeCarts, syncCart, type CartLine, type PublicProduct } from './store';
 
 const burger: PublicProduct = {
   id: 'p1',
@@ -58,5 +58,25 @@ describe('syncCart', () => {
   it('tira o que saiu do cardápio ou cuja opção sumiu', () => {
     expect(syncCart([line()], find([]))).toEqual([]);
     expect(syncCart([line()], find([{ ...burger, optionGroups: [] }]))).toEqual([]);
+  });
+});
+
+describe('mergeCarts', () => {
+  it('junta a sacola do aparelho com a da conta sem perder nada', () => {
+    // O mesmo item salvo deste aparelho antes não dobra: fica a maior quantidade.
+    const local = [line({ quantity: 1 }), line({ key: 'p1:', optionIds: [], quantity: 3 })];
+    const saved = [
+      line({ quantity: 2 }),
+      line({ key: 'p2:', productId: 'p2', optionIds: [], quantity: 1 }),
+    ];
+    expect(mergeCarts(local, saved).map((l) => [l.key, l.quantity])).toEqual([
+      ['p1:o1', 2],
+      ['p2:', 1],
+      ['p1:', 3],
+    ]);
+  });
+
+  it('ignora linhas estranhas vindas da conta', () => {
+    expect(mergeCarts([line()], [null, { key: 'x' }, 'a'])).toEqual([line()]);
   });
 });

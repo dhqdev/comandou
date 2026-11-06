@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   Res,
@@ -113,6 +114,29 @@ const Address = z.object({
   lng: z.number().min(-180).max(180).nullable().optional(),
 });
 const AddressPatch = Address.partial();
+
+/**
+ * Sacola guardada na conta: as linhas como o cardápio monta. Só serve para lembrar a escolha;
+ * no pedido o servidor confere produto, opções e preço de novo.
+ */
+const CartLines = z.object({
+  lines: z
+    .array(
+      z.object({
+        key: z.string().max(2000),
+        productId: z.string().uuid(),
+        name: z.string().max(200),
+        imageUrl: z.string().max(1000).nullable(),
+        unit: z.string().max(20),
+        optionIds: z.array(z.string().uuid()).max(50),
+        optionNames: z.array(z.string().max(200)).max(50),
+        quantity: z.number().positive().max(50),
+        weight: z.boolean().optional(),
+        notes: z.string().max(200),
+      }),
+    )
+    .max(60),
+});
 
 /**
  * Conta do cliente final no cardápio online (/pedir). Rotas públicas para o login da equipe:
@@ -266,6 +290,26 @@ export class AccountController {
     });
     this.setCookie(res, r.session);
     return this.customers.account(t.id, r.customer);
+  }
+
+  /** Sacola salva na conta (para juntar com a do aparelho ao entrar). */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @Get('cart')
+  async cart(@CurrentTenant() t: ResolvedTenant, @Req() req: Request) {
+    return this.customers.cart(t.id, await this.who(t, req));
+  }
+
+  /** Guarda a sacola na conta a cada mudança (o cardápio manda com um pequeno atraso). */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 120 } })
+  @Put('cart')
+  async saveCart(
+    @Body(new ZodPipe(CartLines)) b: z.infer<typeof CartLines>,
+    @CurrentTenant() t: ResolvedTenant,
+    @Req() req: Request,
+  ) {
+    return this.customers.saveCart(t.id, await this.who(t, req), b.lines);
   }
 
   @Public()

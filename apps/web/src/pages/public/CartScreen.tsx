@@ -22,6 +22,7 @@ import {
   rememberOrder,
   rewardDiscount,
   SavedAddress,
+  useStored,
 } from './store';
 import { Field, Photo, ScreenHeader, Stepper, Switch } from './ui';
 
@@ -52,8 +53,9 @@ export function CartScreen() {
   const [step, setStep] = useState<'cart' | 'checkout'>(() =>
     jumpToCheckout && cart.length > 0 ? 'checkout' : 'cart',
   );
-  const [notes, setNotes] = useState('');
-  const [changeFor, setChangeFor] = useState('');
+  // Observação e troco ficam guardados: sair para entrar na conta e voltar não apaga.
+  const [notes, setNotes] = useStored('cm-cart-notes', '');
+  const [changeFor, setChangeFor] = useStored('cm-cart-change', '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const me = account?.customer ?? null;
@@ -187,6 +189,7 @@ export function CartScreen() {
       attempt.current = null;
       setCart(() => []);
       setNotes('');
+      setChangeFor('');
       navigate(`/pedido/${token}`);
     } catch (e) {
       const err = e as ApiError;
@@ -325,7 +328,7 @@ export function CartScreen() {
                   </Field>
                 </div>
                 {menu.appearance.accountsEnabled && (
-                  <Link className="ck-login" to="/pedir/conta">
+                  <Link className="ck-login" to="/pedir/conta" state={{ back: 'checkout' }}>
                     <span>
                       <strong>Tem conta?</strong> Entre para salvar endereços e ver seus pedidos.
                     </span>

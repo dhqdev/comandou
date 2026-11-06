@@ -45,7 +45,7 @@ const c = {
     return cookie ? r.set('Cookie', cookie) : r;
   },
   send: (
-    method: 'post' | 'patch' | 'delete',
+    method: 'post' | 'patch' | 'put' | 'delete',
     url: string,
     body: object,
     cookie?: string,
@@ -185,6 +185,39 @@ describe('Conta do cliente', () => {
     expect(acc2.addresses[0]).toMatchObject({ id: addressId, isDefault: true });
   });
 
+  it('sacola fica guardada na conta (só do dono) e esvazia quando o pedido sai', async () => {
+    const line = {
+      key: `${fx.prodA}::`,
+      productId: fx.prodA,
+      name: 'X-Burguer A',
+      imageUrl: null,
+      unit: '25.90',
+      optionIds: [],
+      optionNames: [],
+      quantity: 2,
+      notes: 'sem cebola',
+    };
+    expect((await c.get('/store/account/cart', maria).expect(200)).body).toEqual({
+      lines: [],
+      updatedAt: null,
+    });
+    await c.get('/store/account/cart').expect(401);
+    await c.send('put', '/store/account/cart', { lines: [line] }).expect(401);
+    await c
+      .send('put', '/store/account/cart', { lines: [{ ...line, productId: 'x' }] }, maria)
+      .expect(400);
+    const saved = await c.send('put', '/store/account/cart', { lines: [line] }, maria).expect(200);
+    expect(saved.body.updatedAt).toBeTruthy();
+    // Outro aparelho, mesma conta: a sacola está lá.
+    const other = cookieFrom(
+      await c
+        .send('post', '/store/account/login', { phone: '11988887777', password: 'segredo1' })
+        .expect(200),
+      'cm_cid',
+    )!;
+    expect((await c.get('/store/account/cart', other).expect(200)).body.lines).toEqual([line]);
+  });
+
   it('pedido com a conta aberta entra no histórico; cliente vê e cancela o seu', async () => {
     const r = await c
       .send(
@@ -202,6 +235,7 @@ describe('Conta do cliente', () => {
       )
       .set('Idempotency-Key', key())
       .expect(201);
+    expect((await c.get('/store/account/cart', maria).expect(200)).body.lines).toEqual([]);
     const hist = (await c.get('/store/account/orders', maria).expect(200)).body;
     expect(hist).toHaveLength(1);
     expect(hist[0]).toMatchObject({ number: r.body.number, step: 'awaiting', total: '51.80' });

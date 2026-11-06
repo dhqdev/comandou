@@ -200,6 +200,38 @@ export function syncCart(cart: CartLine[], product: (id: string) => PublicProduc
   return changed ? out : cart;
 }
 
+/** Máximo de linhas na sacola (o mesmo limite do pedido e da sacola guardada na conta). */
+export const MAX_CART_LINES = 60;
+
+/** Linha vinda da sacola guardada na conta: só aceita o formato que o cardápio monta. */
+const isLine = (l: unknown): l is CartLine => {
+  const x = l as Partial<CartLine> | null;
+  return (
+    !!x &&
+    typeof x.key === 'string' &&
+    typeof x.productId === 'string' &&
+    typeof x.quantity === 'number' &&
+    x.quantity > 0 &&
+    Array.isArray(x.optionIds) &&
+    Array.isArray(x.optionNames)
+  );
+};
+
+/**
+ * Junta a sacola montada no aparelho (antes de entrar na conta) com a que já estava guardada na
+ * conta. Nada se perde: o mesmo item (mesma chave: produto, opções e observação) fica com a maior
+ * quantidade, para não dobrar o que já tinha sido salvo deste mesmo aparelho; o resto se soma.
+ */
+export function mergeCarts(local: CartLine[], saved: unknown[]): CartLine[] {
+  const out = saved.filter(isLine);
+  for (const l of local) {
+    const i = out.findIndex((x) => x.key === l.key);
+    if (i < 0) out.push(l);
+    else out[i] = { ...out[i]!, quantity: Math.max(out[i]!.quantity, l.quantity) };
+  }
+  return out.slice(0, MAX_CART_LINES);
+}
+
 /** Estado salvo no navegador do cliente (carrinho, dados e pedidos recentes). */
 function read<T>(key: string, fallback: T): T {
   try {

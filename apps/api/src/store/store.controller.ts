@@ -323,7 +323,15 @@ export class StoreController {
   ) {
     // Com a conta aberta, o pedido entra no histórico do cliente.
     const c = await this.customers.resolve(t.id, cookieOf(req, CUSTOMER_COOKIE));
-    return this.store.placeOrder(t.id, { ...b, customerId: c?.id }, requireKey(key), req.ip);
+    const order = await this.store.placeOrder(
+      t.id,
+      { ...b, customerId: c?.id },
+      requireKey(key),
+      req.ip,
+    );
+    // Pedido feito: a sacola guardada na conta esvazia (o aparelho também limpa a dele).
+    if (c) await this.customers.saveCart(t.id, c, []).catch(() => undefined);
+    return order;
   }
 
   /** Programa de fidelidade: regra e recompensas; com a conta aberta, saldo e extrato. */

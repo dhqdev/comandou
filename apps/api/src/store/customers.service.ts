@@ -247,6 +247,31 @@ export class CustomersService {
     }));
   }
 
+  /** Sacola guardada na conta (o aparelho junta com a dele ao entrar). */
+  cart(tenantId: string, c: Customer) {
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      const r = await one<{ lines: unknown[]; updatedAt: Date | null }>(
+        tx,
+        `SELECT online_cart AS lines, online_cart_at AS "updatedAt" FROM customers WHERE id = $1`,
+        [c.id],
+      );
+      return { lines: r?.lines ?? [], updatedAt: r?.updatedAt ?? null };
+    });
+  }
+
+  /** Grava a sacola da conta como o aparelho mandou (vazia limpa). */
+  saveCart(tenantId: string, c: Customer, lines: unknown[]) {
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      const r = await one<{ updatedAt: Date }>(
+        tx,
+        `UPDATE customers SET online_cart = $2::jsonb, online_cart_at = now()
+          WHERE id = $1 RETURNING online_cart_at AS "updatedAt"`,
+        [c.id, JSON.stringify(lines)],
+      );
+      return { lines, updatedAt: r?.updatedAt ?? null };
+    });
+  }
+
   updateProfile(
     tenantId: string,
     c: Customer,
