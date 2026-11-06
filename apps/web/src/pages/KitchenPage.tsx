@@ -33,7 +33,7 @@ import {
   UtensilsCrossed,
   Volume2,
 } from 'lucide-react';
-import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   brandTokens,
@@ -118,6 +118,37 @@ const isOpen = (o: BoardOrder) =>
   o.items.some((i) => i.status === 'pending' || i.status === 'preparing');
 const colOf = (o: BoardOrder): ColKey =>
   !isOpen(o) ? 'done' : o.items.some((i) => i.status !== 'pending') ? 'doing' : 'todo';
+type ItemStatus = BoardOrder['items'][number]['status'];
+
+/**
+ * Aplica na tela, na hora, o que o toque da cozinha vai fazer no servidor (atualização otimista):
+ * o cartão já muda de coluna sem esperar a resposta nem a recarga do quadro.
+ */
+function applyLocal(
+  b: Board,
+  orderId: string,
+  change: (s: ItemStatus) => ItemStatus,
+  itemId?: string,
+): Board {
+  return {
+    ...b,
+    orders: b.orders.map((o) => {
+      if (o.id !== orderId) return o;
+      const items = o.items.map((i) =>
+        itemId && i.id !== itemId ? i : { ...i, status: change(i.status) },
+      );
+      const allReady = items.every((i) => i.status === 'ready');
+      const started = items.some((i) => i.status !== 'pending');
+      const status = allReady
+        ? 'ready'
+        : o.status === 'ready' || (started && o.status === 'new')
+          ? 'in_production'
+          : o.status;
+      return { ...o, items, status };
+    }),
+  };
+}
+
 const whereOf = (o: BoardOrder) =>
   [
     o.tableLabel ? `Mesa ${o.tableLabel}` : o.tabNumber ? `Comanda ${o.tabNumber}` : null,
@@ -190,10 +221,15 @@ export function KitchenPage({
   const kitchenName =
     sectorId === 'none' ? 'Sem cozinha' : (kitchen?.name ?? (kitchens.length ? 'Todas' : null));
 
+  // Muda a cada toque otimista: uma recarga que começou antes dele traria o quadro velho e o
+  // cartão "voltaria" de coluna por um instante, então a resposta dela é descartada.
+  const epoch = useRef(0);
   const load = useCallback(async () => {
     if (sectorId === null) return;
+    const started = epoch.current;
     try {
       const b = await api<Board>(`/kitchen${sectorId ? `?sectorId=${sectorId}` : ''}`);
+      if (epoch.current !== started) return;
       // Tempo de espera calculado com o relógio do servidor (tablets com hora errada não distorcem).
       setSkew(new Date(b.serverTime).getTime() - Date.now());
       setBoard(b);
@@ -229,17 +265,28 @@ export function KitchenPage({
   useArrivalSound('cancel', cancelIds);
   useRepeatingSoundForNew('cancel', cancelIds);
 
-  async function act(url: string, body: object = {}) {
-    setBusy(url);
+  /**
+   * Toque da cozinha: o quadro muda na hora (otimista) e o servidor confirma por trás. Se der
+   * erro, avisa e recarrega o quadro do servidor, desfazendo a mudança local.
+   */
+  async function act(
+    orderId: string,
+    url: string,
+    body: object,
+    change: (s: ItemStatus) => ItemStatus,
+    itemId?: string,
+  ) {
+    epoch.current++;
+    setBoard((b) => (b ? applyLocal(b, orderId, change, itemId) : b));
+    setBusy(orderId);
     try {
       await api(url, { method: 'POST', json: body });
-      await load();
     } catch (e) {
       toast((e as Error).message, 'danger');
-      void load();
     } finally {
-      setBusy(null);
+      setBusy((cur) => (cur === orderId ? null : cur));
     }
+    void load();
   }
 
   // Tipos de pedido que esta cozinha recebe, com a contagem do que está aberto em cada um.
@@ -525,22 +572,34 @@ export function KitchenPage({
                     display={display}
                     canOperate={canOperate}
                     canReopen={canReopen}
-                    busy={!!busy}
+                    busy={busy === o.id}
                     onItem={(i) =>
-                      act(`/kitchen/items/${i.id}/${i.status === 'pending' ? 'start' : 'ready'}`)
+                      i.status === 'pending'
+                        ? act(o.id, `/kitchen/items/${i.id}/start`, {}, () => 'preparing', i.id)
+                        : act(o.id, `/kitchen/items/${i.id}/ready`, {}, () => 'ready', i.id)
                     }
                     onReopen={(i) => {
                       const reason = window.prompt('Motivo para reabrir o item');
                       if (reason && reason.trim().length >= 3) {
                         seenTicket(o.id);
-                        void act(`/kitchen/items/${i.id}/reopen`, { reason: reason.trim() });
+                        void act(
+                          o.id,
+                          `/kitchen/items/${i.id}/reopen`,
+                          { reason: reason.trim() },
+                          () => 'preparing',
+                          i.id,
+                        );
                       }
                     }}
                     onBump={(to) =>
-                      act(`/kitchen/orders/${o.id}/bump`, {
-                        to,
-                        sectorId: sectorId || undefined,
-                      })
+                      act(
+                        o.id,
+                        `/kitchen/orders/${o.id}/bump`,
+                        { to, sectorId: sectorId || undefined },
+                        to === 'preparing'
+                          ? (s) => (s === 'pending' ? 'preparing' : s)
+                          : (s) => (s === 'pending' || s === 'preparing' ? 'ready' : s),
+                      )
                     }
                     onPrint={() => void print(o)}
                   />
