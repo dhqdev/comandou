@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router';
 import { useAuth } from '../app/auth';
 import { KitchenPage } from '../pages/KitchenPage';
 import { useOnline } from '../lib/connectivity';
+import { OfflineBanner } from '../app/OfflineBanner';
 import { useRealtimeStatus } from '../lib/realtime';
 import '../app/shell.css';
 import '../app/ops.css';
@@ -22,6 +23,7 @@ export function KitchenApp() {
         path="cozinha"
         element={
           <div className="kapp">
+            <OfflineBanner />
             <KitchenPage
               standalone
               title={me?.tenant.name}

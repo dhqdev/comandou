@@ -8,6 +8,14 @@ import {
   TENANT_MOVED_EVENT,
   TENANT_SUSPENDED_EVENT,
 } from '../lib/api';
+import {
+  cachedMe,
+  disableOffline,
+  enableOffline,
+  forgetMe,
+  offlineSnapshot,
+  saveMe,
+} from '../lib/offline';
 import { closeRealtime } from '../lib/realtime';
 import { setGuideAccess } from '../design-system/fix-guide';
 
@@ -32,10 +40,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     try {
       const me = await api<Me>('/auth/me');
+      // Liga o modo offline antes das telas pedirem os dados (lib/offline.ts).
+      await enableOffline(me.user.id);
+      void saveMe(me);
       setState({ status: 'authenticated', me });
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401) setState({ status: 'anonymous' });
-      else if (e instanceof ApiError && isSuspended(e.body)) setState({ status: 'suspended' });
+      // Sem internet: abre com a última sessão guardada neste aparelho, nos dados guardados.
+      if (
+        e instanceof ApiError &&
+        (e.status === 0 || e.status >= 502) &&
+        !isSuspended(e.body) &&
+        movedTo(e.body) === null
+      ) {
+        const saved = await cachedMe<Me>();
+        if (saved) {
+          await enableOffline(saved.user.id);
+          setState({ status: 'authenticated', me: saved });
+          return;
+        }
+      }
+      if (e instanceof ApiError && e.status === 401) {
+        void forgetMe();
+        void disableOffline();
+        setState({ status: 'anonymous' });
+      } else if (e instanceof ApiError && isSuspended(e.body)) setState({ status: 'suspended' });
       else if (e instanceof ApiError && movedTo(e.body) !== null)
         setState({ status: 'moved', movedTo: movedTo(e.body) || undefined });
       else setState({ status: 'unavailable', error: (e as Error).message });
@@ -74,7 +102,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    const pending = offlineSnapshot().pending.length;
+    if (
+      pending &&
+      !window.confirm(
+        `${pending === 1 ? 'Uma alteração ainda não foi enviada' : `${pending} alterações ainda não foram enviadas`} para a nuvem. Ela${pending === 1 ? '' : 's'} fica${pending === 1 ? '' : 'm'} guardada${pending === 1 ? '' : 's'} neste aparelho e sobe${pending === 1 ? '' : 'm'} quando você entrar de novo com internet. Sair mesmo assim?`,
+      )
+    )
+      return;
     await api('/auth/logout', { method: 'POST' }).catch(() => undefined);
+    await forgetMe();
+    await disableOffline();
     closeRealtime();
     setState({ status: 'anonymous' });
   }, []);

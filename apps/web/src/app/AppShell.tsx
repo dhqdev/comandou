@@ -41,7 +41,6 @@ import {
   UtensilsCrossed,
   Users,
   Wallet,
-  WifiOff,
   MessagesSquare,
 } from 'lucide-react';
 import { ReactNode, Suspense, useCallback, useEffect, useState } from 'react';
@@ -71,6 +70,7 @@ import { PageTourHost } from '../features/tour/PageTour';
 import { PandaBrand } from '../features/mascot/PandaBrand';
 import { useSearchSpotlight } from '../lib/deep-link';
 import { useOnline } from '../lib/connectivity';
+import { OfflineBanner } from './OfflineBanner';
 import { useRealtimeStatus } from '../lib/realtime';
 import { useHasUnseenRelease } from '../lib/releases';
 import { ChangePasswordModal } from '../pages/TeamPage';
@@ -427,12 +427,8 @@ export function AppShell() {
                 registrado. <button onClick={endSupport}>Encerrar acesso</button>
               </div>
             )}
-            {!online && (
-              <div className="offline-banner" role="status">
-                <WifiOff size={14} style={{ verticalAlign: -2 }} /> Você está offline. Pagamentos,
-                caixa e confirmação de pedidos ficam bloqueados até a conexão voltar.
-              </div>
-            )}
+            {/* Sem internet, o que for salvo fica no aparelho até a conexão voltar. */}
+            <OfflineBanner />
           </>
         }
       >
