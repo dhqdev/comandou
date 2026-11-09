@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.105.0',
+    date: '2026-11-09',
+    title: 'Cardápio mais leve e Pix direto da mesa',
+    summary:
+      'O cardápio abre bem mais rápido no celular e mostra os produtos logo de cara, com menos texto. Quem pede pelo QR Code da mesa pode pagar na hora pelo Pix, e o cardápio sugere instalar o app conforme o aparelho.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'O cardápio do cliente baixa menos da metade do que baixava para abrir (o sistema da equipe não vem mais junto). Sacola, pedidos, conversa e conta chegam em segundo plano, prontos quando o cliente toca.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Menos texto no início do cardápio: aberto, tempo e taxa ficam numa linha só embaixo do nome da loja, os cartões mostram foto, nome e preço (a descrição fica na página do produto) e os produtos aparecem mais perto do topo. O aviso grande só aparece com a loja fechada.',
+      },
+      {
+        tag: 'novo',
+        text: 'Pedido pela mesa: o cliente escolhe "Pagar agora no Pix" (paga pelo QR Code e manda o comprovante) ou "Pagar no fim", com o garçom. O comprovante aparece no PDV e na comanda; aprovado, o valor sai do saldo da mesa.',
+      },
+      {
+        tag: 'segurança',
+        text: 'A comanda não cobra um pedido que já tem comprovante do Pix esperando conferência: aprove ou recuse o comprovante antes, para o cliente não pagar duas vezes.',
+      },
+      {
+        tag: 'novo',
+        text: 'O cardápio mostra, uma vez, um aviso pequeno para instalar o app da loja: "Baixe o app" no Android, "Coloque na Tela de Início" no iPhone (com o botão de compartilhar desenhado) e "Coloque na área de trabalho" no computador. Fechou, só volta depois de um mês.',
+      },
+      {
+        tag: 'correção',
+        text: 'O app instalado pelo cardápio abre no cardápio, e não mais na tela de login da equipe.',
+      },
+    ],
+  },
+  {
     version: '0.104.3',
     date: '2026-11-09',
     title: 'Menu de baixo encostado na tela e conversa que não quebra',

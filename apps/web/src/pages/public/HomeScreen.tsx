@@ -30,7 +30,7 @@ import {
 import { Link, useNavigate, useNavigationType } from 'react-router';
 import { Button, Mascot, Modal } from '../../design-system';
 import { brl } from '../../lib/money';
-import { ClosedArt, CookingArt, DeliveryArt, FavoritesArt, SearchArt } from './art';
+import { ClosedArt, CookingArt, FavoritesArt, SearchArt } from './art';
 import { useStore } from './context';
 import { reducedMotion, setMorph } from './morph';
 import {
@@ -114,7 +114,6 @@ function ProductCard({ p, i = 0 }: { p: PublicProduct; i?: number }) {
       </div>
       <div className="pcard__body">
         <span className="pcard__name">{p.name}</span>
-        {p.description && <span className="pcard__desc">{p.description}</span>}
         <span className="pcard__foot">
           <span className="pcard__price">
             {p.soldOut ? '—' : brl(p.price)}
@@ -455,7 +454,7 @@ function StoreInfo({ open, onClose }: { open: boolean; onClose(): void }) {
               <HandPlatter size={18} aria-hidden />
               <span>
                 <strong>Mesa {table.label}</strong>
-                {tableServiceText(table.serviceFeePercent)}
+                {tableServiceText(table.serviceFeePercent, !!menu.pix)}
               </span>
             </li>
           )}
@@ -513,11 +512,10 @@ function StoreInfo({ open, onClose }: { open: boolean; onClose(): void }) {
 }
 
 /** Como a conta da mesa é paga (e a taxa de serviço, se a casa cobra). */
-function tableServiceText(percent: string | null) {
+function tableServiceText(percent: string | null, pix: boolean) {
   const fee = percent ? Number(percent) : 0;
-  return fee > 0
-    ? `O pedido vai para a conta da mesa (taxa de serviço de ${fee.toLocaleString('pt-BR')}%). Você paga no fim, com o garçom ou no caixa.`
-    : 'O pedido vai para a conta da mesa. Você paga no fim, com o garçom ou no caixa.';
+  const service = fee > 0 ? ` (serviço de ${fee.toLocaleString('pt-BR')}%)` : '';
+  return `Vai para a conta da mesa${service}. ${pix ? 'Pague pelo Pix aqui no app ou no fim, com o garçom.' : 'Você paga no fim, com o garçom.'}`;
 }
 
 /** Ordenar e esconder esgotados: vale para a categoria aberta e para a busca. */
@@ -582,9 +580,12 @@ function FilterSheet({
   );
 }
 
-/** Capa da loja com a logo, o nome e a situação. No celular, conta e sacola ficam sobre a foto. */
+/**
+ * Capa da loja com a logo, o nome e uma linha só com o essencial (aberto, tempo e entrega ou a
+ * mesa). No celular, conta e sacola ficam sobre a foto.
+ */
 function StoreHeader({ onInfo }: { onInfo(): void }) {
-  const { menu, account, count } = useStore();
+  const { menu, account, count, table } = useStore();
   const r = menu.restaurant;
   const s = menu.store;
   const first = account?.customer?.name.split(' ')[0];
@@ -618,13 +619,25 @@ function StoreHeader({ onInfo }: { onInfo(): void }) {
         <Photo src={r.logoUrl} alt={r.name} className="sf-head__logo" eager />
         <div className="sf-head__text">
           <h1>{r.name}</h1>
+          {/* Os ícones separam os itens: quebrou a linha, não sobra ponto solto no fim. */}
           <span className="sf-head__meta">
             <StoreStatusLine />
-            <span aria-hidden>·</span>
             <span className="sf-head__eta">
               <Clock size={13} aria-hidden /> {s.etaMin}–{s.etaMax} min
             </span>
+            {table ? (
+              <span className="sf-head__eta sf-head__table">
+                <HandPlatter size={13} aria-hidden /> Mesa {table.label}
+              </span>
+            ) : (
+              s.acceptsDelivery && (
+                <span className="sf-head__eta">
+                  <Bike size={13} aria-hidden /> {deliveryFeeText(s)}
+                </span>
+              )
+            )}
           </span>
+          {menu.appearance.headline && <p className="sf-head__line">{menu.appearance.headline}</p>}
         </div>
         <button
           type="button"
@@ -641,67 +654,24 @@ function StoreHeader({ onInfo }: { onInfo(): void }) {
 }
 
 /**
- * Cartão da entrega, com o motoboy desenhado (ou a lojinha, se a loja só tem retirada): frase da
- * loja e, na faixa de baixo, tempo, taxa e "Mais informações". Com a loja fechada, avisa aqui.
+ * Loja fechada (ou pedidos da mesa pausados): o único aviso grande do início. Aberta, o essencial
+ * já está na linha da capa e o cliente vai direto para os produtos.
  */
-function RideCard({ onInfo }: { onInfo(): void }) {
-  const { menu, account, table } = useStore();
-  const s = menu.store;
-  const first = account?.customer?.name.split(' ')[0];
-  const delivery = s.acceptsDelivery;
+function ClosedCard({ onInfo }: { onInfo(): void }) {
+  const { table } = useStore();
   return (
-    <section
-      className="sf-ride"
-      data-closed={!s.isOpen || undefined}
-      data-table={table ? '' : undefined}
-    >
+    <section className="sf-ride" data-closed>
       <div className="sf-ride__top">
-        <div className="sf-ride__text">
-          {s.isOpen ? (
-            <>
-              <span className="sf-ride__hello">
-                {first ? `Olá, ${first}!` : 'Olá!'}
-                {table && ` Você está na Mesa\u00a0${table.label}.`}
-              </span>
-              <strong className="sf-ride__title">
-                {menu.appearance.headline ||
-                  (table ? 'Peça daqui mesmo!' : 'Bateu a fome? Peça agora!')}
-              </strong>
-              <small className="sf-ride__sub">
-                {table
-                  ? 'A cozinha prepara e a gente leva na sua mesa'
-                  : delivery
-                    ? 'A gente leva até você'
-                    : 'Peça e retire na loja'}
-              </small>
-            </>
-          ) : table ? (
-            <span role="status">
-              <strong className="sf-ride__title">
-                <Moon size={18} aria-hidden /> Pedidos pelo celular pausados
-              </strong>
-              <small className="sf-ride__sub">
-                Você está na Mesa {table.label}. Chame o garçom para pedir.
-              </small>
-            </span>
-          ) : (
-            <span role="status">
-              <strong className="sf-ride__title">
-                <Moon size={18} aria-hidden /> Estamos fechados agora
-              </strong>
-              <small className="sf-ride__sub">
-                Dá para montar a sacola; os pedidos entram quando a loja abrir.
-              </small>
-            </span>
-          )}
+        <div className="sf-ride__text" role="status">
+          <strong className="sf-ride__title">
+            <Moon size={18} aria-hidden />{' '}
+            {table ? 'Pedidos pelo celular pausados' : 'Estamos fechados agora'}
+          </strong>
+          <small className="sf-ride__sub">
+            {table ? 'Chame o garçom para pedir.' : 'Monte a sacola; o pedido sai quando abrir.'}
+          </small>
         </div>
-        {!s.isOpen ? (
-          <ClosedArt live className="sf-ride__art" />
-        ) : table ? (
-          <CookingArt live className="sf-ride__art" />
-        ) : (
-          <DeliveryArt delivery={delivery} ride className="sf-ride__art" />
-        )}
+        <ClosedArt live className="sf-ride__art" />
       </div>
       <button
         type="button"
@@ -710,25 +680,9 @@ function RideCard({ onInfo }: { onInfo(): void }) {
         aria-label="Mais informações da loja"
       >
         <span>
-          <Clock size={15} aria-hidden /> {s.etaMin}–{s.etaMax} min
+          <Clock size={15} aria-hidden /> Horários
         </span>
-        {table ? (
-          <span>
-            <HandPlatter size={15} aria-hidden /> Mesa {table.label}
-          </span>
-        ) : delivery ? (
-          <span>
-            <Bike size={15} aria-hidden /> {deliveryFeeText(s)}
-          </span>
-        ) : (
-          s.acceptsPickup && (
-            <span>
-              <Store size={15} aria-hidden /> Retirada na loja
-            </span>
-          )
-        )}
         <span className="sf-ride__more">
-          <span className="sf-ride__more-txt">Mais informações</span>
           <ChevronRight size={16} aria-hidden />
         </span>
       </button>
@@ -922,16 +876,11 @@ export function HomeScreen() {
     <>
       <div className="sf-hero">
         <StoreHeader onInfo={() => setSheet('info')} />
-        <div className="sf-wrap sf-intro">
-          <RideCard onInfo={() => setSheet('info')} />
-          {recent[0] && (
-            <Link className="ongoing" to={`/pedido/${recent[0].token}`}>
-              <span className="ongoing__dot" aria-hidden />
-              Acompanhe seu pedido #{recent[0].number}
-              <ChevronRight size={16} />
-            </Link>
-          )}
-        </div>
+        {!menu.store.isOpen && (
+          <div className="sf-wrap sf-intro">
+            <ClosedCard onInfo={() => setSheet('info')} />
+          </div>
+        )}
       </div>
       <div ref={sentinel} aria-hidden />
 
@@ -977,7 +926,7 @@ export function HomeScreen() {
             ) : (
               <div className="empty-state empty-state--search">
                 <SearchArt live className="empty-state__art" />
-                <p>Confira se o nome está certo ou tente uma palavra mais curta, como “pizza”.</p>
+                <p>Tente outra palavra.</p>
                 <button type="button" className="cta cta--inline" onClick={() => setSearch('')}>
                   Limpar busca
                 </button>
@@ -987,6 +936,13 @@ export function HomeScreen() {
         ) : (
           <>
             <div className="sf-perks">
+              {recent[0] && (
+                <Link className="ongoing" to={`/pedido/${recent[0].token}`}>
+                  <span className="ongoing__dot" aria-hidden />
+                  Pedido #{recent[0].number}
+                  <ChevronRight size={16} />
+                </Link>
+              )}
               <LoyaltyStrip />
               {/* Quem já está sentado na mesa não precisa reservar. */}
               {!table && <ReserveCard />}
@@ -996,8 +952,7 @@ export function HomeScreen() {
             {wheel.length === 0 ? (
               <div className="empty-state">
                 <CookingArt live className="empty-state__art" />
-                <strong>O cardápio está sendo preparado</strong>
-                <p>Ainda não há pratos cadastrados. Volte em instantes!</p>
+                <strong>Cardápio em preparo</strong>
               </div>
             ) : sectionsMode ? (
               lists.map((c) => (
@@ -1009,14 +964,11 @@ export function HomeScreen() {
                 >
                   <h2 className="sec__title sec__title--cat" id={`sec-${c.id}-t`}>
                     {c.name}
-                    <small>
-                      {c.products.length} {c.products.length === 1 ? 'item' : 'itens'}
-                    </small>
                   </h2>
                   {c.products.length ? (
                     <ProductGrid list={c.products} />
                   ) : (
-                    <p className="sf-empty">Nenhum produto disponível nesta categoria agora.</p>
+                    <p className="sf-empty">Nada disponível agora.</p>
                   )}
                 </section>
               ))
@@ -1026,14 +978,11 @@ export function HomeScreen() {
                 <section className="sec sec--grid" key={current!.id} data-dir={slide.dir}>
                   <h2 className="sec__title sec__title--cat" aria-live="polite">
                     {current!.name}
-                    <small>
-                      {shown.length} {shown.length === 1 ? 'item' : 'itens'}
-                    </small>
                   </h2>
                   {shown.length ? (
                     <ProductGrid list={shown} />
                   ) : (
-                    <p className="sf-empty">Nenhum produto disponível nesta categoria agora.</p>
+                    <p className="sf-empty">Nada disponível agora.</p>
                   )}
                 </section>
               </>
@@ -1042,7 +991,6 @@ export function HomeScreen() {
         )}
 
         <footer className="store-foot">
-          {r.address && <p>{r.address}</p>}
           <p className="store-foot__brand">
             <Mascot size={20} badge /> Pedidos online por <strong>Comandou</strong>
           </p>
@@ -1078,7 +1026,7 @@ export function FavoritesScreen() {
         <div className="empty-state">
           <FavoritesArt live className="empty-state__art" />
           <strong>Nenhum favorito ainda</strong>
-          <p>Toque no coração dos pratos que você mais gosta para achar rápido aqui.</p>
+          <p>Toque no coração de um prato.</p>
           <Link className="cta cta--inline" to="/pedir">
             Ver o cardápio
           </Link>
@@ -1090,7 +1038,6 @@ export function FavoritesScreen() {
           ))}
         </div>
       )}
-      <p className="cm-hint sf-note">Favoritos ficam salvos neste aparelho.</p>
     </div>
   );
 }

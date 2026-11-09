@@ -4,7 +4,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Button } from '../design-system';
 import { APP_BUILD, fetchServerBuild } from '../lib/app-version';
 import { freshReload } from '../lib/fresh-reload';
-import { onRealtimeReady } from '../lib/realtime';
+import { onRealtimeReady } from '../lib/realtime-ready';
 
 const POLL_MS = 60_000;
 /** O deploy reinicia a API antes de o site novo estar no ar: confere de novo depois de reconectar. */

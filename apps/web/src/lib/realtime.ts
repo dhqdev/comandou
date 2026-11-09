@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { emitRealtimeReady } from './realtime-ready';
+
+export { onRealtimeReady } from './realtime-ready';
 
 export type RealtimeEvent =
   | { type: 'order.changed'; orderId: string; status?: string }
@@ -62,6 +65,7 @@ function ensureSocket() {
   socket.on('ready', () => {
     setStatus('live');
     reconnectListeners.forEach((l) => l());
+    emitRealtimeReady();
   });
   socket.on('disconnect', () => setStatus('offline'));
   socket.on('connect_error', () => setStatus('offline'));
@@ -93,17 +97,6 @@ export function useRealtime(onEvent: Listener, reload?: () => void) {
       reconnectListeners.delete(r);
     };
   }, []);
-}
-
-/**
- * Avisa a cada (re)conexão sem abrir conexão nova: só quem já usa o tempo real escuta. Um deploy
- * reinicia a API, então a reconexão é o primeiro sinal de que pode ter saído versão nova.
- */
-export function onRealtimeReady(cb: () => void): () => void {
-  reconnectListeners.add(cb);
-  return () => {
-    reconnectListeners.delete(cb);
-  };
 }
 
 /**

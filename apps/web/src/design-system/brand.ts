@@ -282,7 +282,8 @@ export function applyFavicon(url: string | null) {
 
 /**
  * O app instalado (PWA) lê nome, cor e ícone do manifesto da loja, não o do Comandou. No link do
- * entregador (sem login), o atalho abre no próprio link, e não no login do painel.
+ * entregador (sem login), o atalho abre no próprio link, e não no login do painel; no cardápio do
+ * cliente, abre no cardápio.
  */
 export function applyManifest(path = window.location.pathname) {
   let el = document.head.querySelector<HTMLLinkElement>('link[rel="manifest"]');
@@ -291,8 +292,13 @@ export function applyManifest(path = window.location.pathname) {
     el.rel = 'manifest';
     document.head.appendChild(el);
   }
-  const href = /^\/entregador\/[A-Za-z0-9_-]{20,64}$/.test(path)
-    ? `/api/v1/store/manifest?start=${encodeURIComponent(path)}`
+  const start = /^\/entregador\/[A-Za-z0-9_-]{20,64}$/.test(path)
+    ? path
+    : /^\/(pedir|pedido|mesa)(\/|$)/.test(path)
+      ? '/pedir'
+      : null;
+  const href = start
+    ? `/api/v1/store/manifest?start=${encodeURIComponent(start)}`
     : '/api/v1/store/manifest';
   if (el.getAttribute('href') !== href) el.href = href;
 }

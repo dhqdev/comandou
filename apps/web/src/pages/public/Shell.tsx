@@ -34,7 +34,7 @@ export function StoreStatusLine({
 
 /** Texto da entrega: taxa fixa, grátis ou conforme o bairro. */
 export function deliveryFeeText(s: { deliveryZones?: boolean; deliveryFee: string }) {
-  if (s.deliveryZones) return 'Taxa conforme o bairro';
+  if (s.deliveryZones) return 'Taxa por bairro';
   return toCents(s.deliveryFee) ? `Entrega ${brl(s.deliveryFee)}` : 'Entrega grátis';
 }
 

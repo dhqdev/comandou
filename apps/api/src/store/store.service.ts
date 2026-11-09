@@ -576,7 +576,8 @@ export class StoreService {
         },
         table,
         // Pix pelo cardápio: o checkout monta o QR Code com o valor (na mesa a conta é no fim).
-        pix: table ? null : publicPix(s),
+        // Na mesa também: o cliente pode pagar o pedido pelo Pix ou no fim, com o garçom.
+        pix: publicPix(s),
         appearance: {
           theme: s.theme,
           headline: s.headline,
@@ -691,8 +692,10 @@ export class StoreService {
         if (quote.minOrder) minSubtotal = quote.minOrder;
       }
     }
-    // Mesa: entra na comanda aberta dela (ou abre uma, no nome do cliente). Sem taxa de entrega,
-    // pedido mínimo nem forma de pagamento: a conta é fechada no salão.
+    // Mesa: entra na comanda aberta dela (ou abre uma, no nome do cliente). Sem taxa de entrega
+    // nem pedido mínimo. O cliente paga no fim, com o garçom, ou já pelo Pix do cardápio (o
+    // comprovante aprovado entra como pagamento deste pedido e baixa o saldo da comanda).
+    const pixNow = input.paymentMethod === 'pix' && !!pixPayeeOf(s);
     const order = await this.orders.create(
       ctx,
       {
@@ -708,9 +711,9 @@ export class StoreService {
         online: {
           tokenHash: publicTokenHash(input.token),
           autoAccept: s.autoAccept,
-          paymentHint: atTable ? undefined : input.paymentMethod,
+          paymentHint: atTable ? (pixNow ? 'pix' : undefined) : input.paymentMethod,
           // Pix pelo cardápio ligado: o pedido espera o comprovante do cliente.
-          pix: !atTable && input.paymentMethod === 'pix' && !!pixPayeeOf(s),
+          pix: pixNow,
           changeFor: !atTable && input.paymentMethod === 'cash' ? input.changeFor : undefined,
           customerId: input.customerId,
           rewardId: input.rewardId,

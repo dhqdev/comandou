@@ -8,7 +8,7 @@ import {
   ShoppingBag,
   UserRound,
 } from 'lucide-react';
-import { forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
+import { forwardRef, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   Link,
@@ -21,25 +21,16 @@ import {
 } from 'react-router';
 import { applyTheme, Mascot, Spinner } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
+import { lazyPage, preloadPages } from '../../lib/lazy-page';
 import { brl } from '../../lib/money';
-import {
-  AccountScreen,
-  AddressesScreen,
-  ForgotPasswordScreen,
-  PasswordScreen,
-  ProfileScreen,
-} from './AccountScreens';
 import { CustomerAvatar } from './avatars';
-import { CartScreen } from './CartScreen';
 import { StoreChatProvider, useStoreChat } from './chat';
-import { ChatScreen } from './ChatScreen';
 import { StoreProvider, useStore } from './context';
 import { FavoritesScreen, HomeScreen } from './HomeScreen';
 import { LoyaltyScreen } from './LoyaltyScreens';
-import { OrdersScreen } from './OrdersScreen';
 import { ProductScreen } from './ProductScreen';
 import { ReservationStatusScreen, ReserveScreen } from './ReservationScreens';
-import { PublicOrderPage } from './PublicOrderPage';
+import { InstallHint, useHomeScreenMeta } from './InstallHint';
 import {
   isTableId,
   rememberTable,
@@ -55,6 +46,59 @@ import './public.css';
 import './storefront.css';
 // Depois do storefront.css: a moldura do tablet e do notebook ajusta as peças comuns.
 import './shell.css';
+
+/*
+ * Quem abre o cardápio baixa só o início e o produto. Sacola, pedidos, conversa e conta vêm em
+ * arquivos à parte, baixados em segundo plano logo depois que o cardápio aparece (ao tocar, já
+ * estão prontos).
+ */
+const CartScreen = lazyPage(
+  () => import('./CartScreen'),
+  (m) => m.CartScreen,
+);
+const OrdersScreen = lazyPage(
+  () => import('./OrdersScreen'),
+  (m) => m.OrdersScreen,
+);
+const PublicOrderPage = lazyPage(
+  () => import('./PublicOrderPage'),
+  (m) => m.PublicOrderPage,
+);
+const ChatScreen = lazyPage(
+  () => import('./ChatScreen'),
+  (m) => m.ChatScreen,
+);
+const AccountScreen = lazyPage(
+  () => import('./AccountScreens'),
+  (m) => m.AccountScreen,
+);
+const ProfileScreen = lazyPage(
+  () => import('./AccountScreens'),
+  (m) => m.ProfileScreen,
+);
+const AddressesScreen = lazyPage(
+  () => import('./AccountScreens'),
+  (m) => m.AddressesScreen,
+);
+const PasswordScreen = lazyPage(
+  () => import('./AccountScreens'),
+  (m) => m.PasswordScreen,
+);
+const ForgotPasswordScreen = lazyPage(
+  () => import('./AccountScreens'),
+  (m) => m.ForgotPasswordScreen,
+);
+const LATER_SCREENS = [
+  CartScreen,
+  OrdersScreen,
+  AccountScreen,
+  ProfileScreen,
+  AddressesScreen,
+  PasswordScreen,
+  ForgotPasswordScreen,
+  PublicOrderPage,
+  ChatScreen,
+];
 
 /** Abas do cardápio: embaixo no celular, no topo no tablet e no menu lateral no notebook. */
 function useNavTabs(): MagicTab[] {
@@ -197,6 +241,15 @@ const TAB_ORDER = [
 ];
 const tabIndex = (path: string) => TAB_ORDER.indexOf(path.replace(/\/+$/, '') || '/pedir');
 
+/** Tela que ainda não chegou (só se o cliente tocar antes de ela baixar). */
+function ScreenLoading() {
+  return (
+    <div className="sf-wrap sf-page sf-page--loading" aria-busy="true">
+      <Spinner />
+    </div>
+  );
+}
+
 /**
  * Cada tela entra deslizando: para a frente ao abrir, para trás ao voltar. Entre abas, o lado
  * segue a ordem da barra (aba à direita entra pela direita).
@@ -225,24 +278,26 @@ function Screens() {
       data-dir={last.dir}
       data-tab={last.tab || undefined}
     >
-      <Routes location={location}>
-        <Route index element={<HomeScreen />} />
-        <Route path="produto/:id" element={<ProductScreen />} />
-        <Route path="sacola" element={<CartScreen />} />
-        <Route path="favoritos" element={<FavoritesScreen />} />
-        <Route path="pedidos" element={<OrdersScreen />} />
-        <Route path="pedidos/:id" element={<PublicOrderPage />} />
-        <Route path="reservar" element={<ReserveScreen />} />
-        <Route path="reserva/:token" element={<ReservationStatusScreen />} />
-        <Route path="conversa" element={<ChatScreen />} />
-        <Route path="conta" element={<AccountScreen />} />
-        <Route path="conta/dados" element={<ProfileScreen />} />
-        <Route path="conta/enderecos" element={<AddressesScreen />} />
-        <Route path="conta/senha" element={<PasswordScreen />} />
-        <Route path="conta/esqueci-senha" element={<ForgotPasswordScreen />} />
-        <Route path="fidelidade" element={<LoyaltyScreen />} />
-        <Route path="*" element={<HomeScreen />} />
-      </Routes>
+      <Suspense fallback={<ScreenLoading />}>
+        <Routes location={location}>
+          <Route index element={<HomeScreen />} />
+          <Route path="produto/:id" element={<ProductScreen />} />
+          <Route path="sacola" element={<CartScreen />} />
+          <Route path="favoritos" element={<FavoritesScreen />} />
+          <Route path="pedidos" element={<OrdersScreen />} />
+          <Route path="pedidos/:id" element={<PublicOrderPage />} />
+          <Route path="reservar" element={<ReserveScreen />} />
+          <Route path="reserva/:token" element={<ReservationStatusScreen />} />
+          <Route path="conversa" element={<ChatScreen />} />
+          <Route path="conta" element={<AccountScreen />} />
+          <Route path="conta/dados" element={<ProfileScreen />} />
+          <Route path="conta/enderecos" element={<AddressesScreen />} />
+          <Route path="conta/senha" element={<PasswordScreen />} />
+          <Route path="conta/esqueci-senha" element={<ForgotPasswordScreen />} />
+          <Route path="fidelidade" element={<LoyaltyScreen />} />
+          <Route path="*" element={<HomeScreen />} />
+        </Routes>
+      </Suspense>
     </div>
   );
 }
@@ -255,6 +310,12 @@ function Chrome() {
   const layout = useLayout();
   const { pathname } = useLocation();
   const tabs = useNavTabs();
+  const { menu } = useStore();
+  // Cardápio na tela: as outras telas baixam quando o navegador fica livre.
+  useEffect(() => preloadPages(LATER_SCREENS), []);
+  useHomeScreenMeta(menu.restaurant.name);
+  // Aviso de instalar o app: só nas telas de olhar o cardápio (não no meio da sacola).
+  const installSpot = /^\/pedir(\/favoritos|\/pedidos)?\/?$/.test(pathname);
   // Telas de escolher produto (início e favoritos): no notebook largo a sacola fica ao lado.
   const browse = /^\/pedir(\/favoritos)?\/?$/.test(pathname);
   return (
@@ -272,6 +333,7 @@ function Chrome() {
           <BottomNav />
         </>
       )}
+      {installSpot && <InstallHint name={menu.restaurant.name} logoUrl={menu.restaurant.logoUrl} />}
     </main>
   );
 }

@@ -29,6 +29,7 @@ import { time } from '../../features/format';
 import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
 import { BagArt, CookingArt, MotoboyArt, OrdersArt, PickupArt } from './art';
+import { InstallHint } from './InstallHint';
 import { PixPay, ReceiptPicker, sendReceipt, type ReceiptFile } from './PixPay';
 import { Photo } from './ui';
 import './public.css';
@@ -395,8 +396,12 @@ export function PublicOrderPage() {
                 <div className="track__row">
                   <HandPlatter size={15} aria-hidden />
                   <span>
-                    {atTable(o)} · você paga no fim, com o garçom ou no caixa
-                    {o.paymentStatus === 'paid' && ' (pago)'}
+                    {atTable(o)}
+                    {o.paymentStatus === 'paid'
+                      ? ' · pago'
+                      : o.pix
+                        ? ' · Pix pelo app'
+                        : ' · você paga no fim, com o garçom'}
                   </span>
                 </div>
               )}
@@ -433,6 +438,8 @@ export function PublicOrderPage() {
           </div>
         </div>
       </div>
+      {/* Esperando a comida: bom momento para sugerir o app (acompanha daqui na próxima vez). */}
+      <InstallHint name={o.restaurant.name} logoUrl={o.restaurant.logoUrl} delay={2500} />
     </main>
   );
 }

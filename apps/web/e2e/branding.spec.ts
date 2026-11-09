@@ -63,9 +63,11 @@ test('seletor nativo e cores prontas salvam; o manifesto do app segue a loja', a
     await save();
     await page.goto('/pedir');
     await expect.poll(() => brand500(page)).toBe('#0f9d9a');
-    // O app instalado (PWA) usa o manifesto da loja, com a cor dela.
+    // O app instalado (PWA) usa o manifesto da loja, com a cor dela, e abre no cardápio.
     const href = await page.locator('link[rel="manifest"]').getAttribute('href');
-    expect(href).toBe('/api/v1/store/manifest');
+    expect(href).toBe('/api/v1/store/manifest?start=%2Fpedir');
+    const own = await page.evaluate((u) => fetch(u!).then((r) => r.json()), href);
+    expect(own).toMatchObject({ start_url: '/pedir', id: '/pedir' });
     const m = await page.evaluate(() => fetch('/api/v1/store/manifest').then((r) => r.json()));
     expect(m.theme_color).toBe('#0f9d9a');
     expect(m.icons.length).toBeGreaterThan(0);

@@ -75,6 +75,8 @@ export function CartScreen() {
   );
   // Observação e troco ficam guardados: sair para entrar na conta e voltar não apaga.
   const [notes, setNotes] = useStored('cm-cart-notes', '');
+  // Na mesa: pagar agora pelo Pix do cardápio ou no fim, com o garçom (o padrão de sempre).
+  const [tablePay, setTablePay] = useStored<'later' | 'pix'>('cm-table-pay', 'later');
   const [changeFor, setChangeFor] = useStored('cm-cart-change', '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -151,9 +153,10 @@ export function CartScreen() {
   // Com áreas no mapa, o endereço só vale depois de achar o ponto dentro de uma área.
   const pinOk = !zones || !!pinned?.quote.covered;
   const addressOk = channel !== 'delivery' || ((!!chosen || typedOk) && pinOk);
-  // Pix pelo cardápio: o cliente paga agora pelo QR Code e anexa o comprovante.
-  const pixOnline = !atTable && !!menu.pix;
-  const pixChosen = pixOnline && customer.paymentMethod === 'pix';
+  // Pix pelo cardápio: o cliente paga agora pelo QR Code e anexa o comprovante. Na mesa também,
+  // se quiser (senão paga no fim, com o garçom).
+  const pixOnline = !!menu.pix;
+  const pixChosen = pixOnline && (atTable ? tablePay === 'pix' : customer.paymentMethod === 'pix');
   const feePending = zones && !pinned?.quote.covered;
   const pixCode =
     pixChosen && menu.pix && !feePending && total > 0
@@ -276,8 +279,8 @@ export function CartScreen() {
           customerPhone: phone.trim() || undefined,
           address,
           notes: notes.trim() || undefined,
-          // Na mesa a conta é paga no fim, com o garçom ou no caixa.
-          paymentMethod: atTable ? undefined : customer.paymentMethod,
+          // Na mesa: Pix agora pelo cardápio ou nada (paga no fim, com o garçom).
+          paymentMethod: atTable ? (pixChosen ? 'pix' : undefined) : customer.paymentMethod,
           changeFor:
             !atTable && customer.paymentMethod === 'cash' && changeCents > 0
               ? fromCents(changeCents)
@@ -503,7 +506,7 @@ export function CartScreen() {
                 {menu.appearance.accountsEnabled && (
                   <Link className="ck-login" to="/pedir/conta" state={{ back: 'checkout' }}>
                     <span>
-                      <strong>Tem conta?</strong> Entre para salvar endereços e ver seus pedidos.
+                      <strong>Tem conta?</strong> Entrar
                     </span>
                     <ChevronRight size={16} />
                   </Link>
@@ -513,14 +516,53 @@ export function CartScreen() {
           </section>
 
           {atTable && table ? (
-            <section className="ck-card ck-table">
+            <section
+              className="ck-card ck-table"
+              ref={sections.pay}
+              data-invalid={invalid('pay') || undefined}
+            >
               <h2 className="ck-card__title">
                 <HandPlatter size={16} /> Mesa {table.label}
               </h2>
-              <p className="form-hint">
-                O pedido vai para a conta desta mesa e a gente leva até você. Você paga no fim, com
-                o garçom ou no caixa.
-              </p>
+              {pixOnline ? (
+                <div className="pills" role="radiogroup" aria-label="Quando pagar">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={tablePay === 'pix'}
+                    className="pill"
+                    onClick={() => setTablePay('pix')}
+                  >
+                    Pagar agora no Pix
+                  </button>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={tablePay === 'later'}
+                    className="pill"
+                    onClick={() => setTablePay('later')}
+                  >
+                    Pagar no fim
+                  </button>
+                </div>
+              ) : null}
+              {!pixChosen && (
+                <p className="form-hint">
+                  {pixOnline
+                    ? 'Você paga no fim, com o garçom.'
+                    : 'Vai para a conta da mesa. Você paga no fim, com o garçom ou no caixa.'}
+                </p>
+              )}
+              {pixChosen && menu.pix && (
+                <PixPay code={pixCode} amount={fromCents(total)} payee={menu.pix}>
+                  <ReceiptPicker
+                    value={receipt}
+                    onChange={setReceipt}
+                    invalid={invalid('pay') && !receipt}
+                    disabled={busy}
+                  />
+                </PixPay>
+              )}
               {(menu.store.acceptsDelivery || menu.store.acceptsPickup) && (
                 <button type="button" className="link ck-table__leave" onClick={leaveTable}>
                   Não estou nesta mesa
@@ -698,11 +740,6 @@ export function CartScreen() {
               onChange={(e) => setNotes(e.target.value)}
             />
           </Field>
-          {!me && (
-            <p className="form-hint">
-              Seus dados ficam salvos neste aparelho para o próximo pedido.
-            </p>
-          )}
         </div>
       )}
 
@@ -804,7 +841,7 @@ export function CartScreen() {
                     <Loader2 size={18} className="ck-send__spin" aria-hidden /> Enviando seu pedido…
                   </>
                 ) : atTable ? (
-                  `Pedir para a mesa · ${brl(fromCents(total))}`
+                  `${pixChosen ? 'Pedir e pagar' : 'Pedir para a mesa'} · ${brl(fromCents(total))}`
                 ) : (
                   `Fazer pedido · ${brl(fromCents(total))}`
                 )}

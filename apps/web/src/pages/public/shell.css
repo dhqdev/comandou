@@ -28,12 +28,6 @@
 }
 .sf-cover__img {
   object-fit: cover;
-  animation: sf-cover-in 0.8s var(--sf-ease) both;
-}
-@keyframes sf-cover-in {
-  from {
-    transform: scale(1.06);
-  }
 }
 /* Sem capa: a cor da loja com bolinhas de confete (desenho leve, sem foto). */
 .sf-cover__art {
@@ -105,7 +99,6 @@
   align-items: flex-start;
   gap: 12px;
   padding: 10px 16px 0;
-  animation: sf-rise 0.45s var(--sf-ease) both;
 }
 .sf-head__logo {
   width: 80px;
@@ -134,7 +127,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 6px;
+  gap: 4px 12px;
   color: var(--cm-text-muted);
   font-size: var(--cm-text-xs);
 }
@@ -147,6 +140,19 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+}
+.sf-head__table {
+  color: var(--cm-text);
+  font-weight: 700;
+}
+/* Frase de boas-vindas da loja (só se o lojista escreveu uma): uma linha, discreta. */
+.sf-head__line {
+  margin: 2px 0 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sf-head__info {
   flex: none;
@@ -191,7 +197,6 @@
   border-radius: var(--sf-card-r);
   background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
   isolation: isolate;
-  animation: sf-rise 0.5s 0.05s var(--sf-ease) both;
 }
 .sf-ride[data-closed] {
   border-color: color-mix(in srgb, var(--cm-warning) 30%, transparent);
@@ -649,6 +654,10 @@
 }
 .sf:not([data-layout='phone']) .sf-head__meta {
   color: rgb(255 255 255 / 0.9);
+}
+.sf:not([data-layout='phone']) .sf-head__table,
+.sf:not([data-layout='phone']) .sf-head__line {
+  color: #fff;
 }
 .sf:not([data-layout='phone']) .sf-head__meta .status {
   padding: 1px 8px 1px 6px;
@@ -1120,6 +1129,10 @@
   grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr);
   gap: 16px;
 }
+/* Loja aberta: só a capa, de ponta a ponta. */
+.sf[data-layout='desktop'] .sf-hero:not(:has(> .sf-intro)) {
+  grid-template-columns: minmax(0, 1fr);
+}
 .sf[data-layout='desktop'] .sf-intro {
   margin: 0;
 }
@@ -1305,4 +1318,11 @@
 /* Telas internas no notebook: começam mais perto do topo (sem barra em cima). */
 .sf[data-layout='desktop'] .sf-page {
   padding-top: 24px;
+}
+
+/* Tela que ainda está chegando (só se tocou antes de ela baixar em segundo plano). */
+.sf-page--loading {
+  display: grid;
+  place-items: center;
+  min-height: 40vh;
 }

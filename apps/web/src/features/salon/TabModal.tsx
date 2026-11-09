@@ -24,6 +24,7 @@ import { useCan } from '../../app/auth';
 import { NewSaleModal } from '../NewSaleModal';
 import { OrderDetailModal } from '../OrderDetailModal';
 import { PaymentModal } from '../PaymentModal';
+import { PixReceiptChip } from '../PixReceipt';
 import { ReceiptPreview } from '../ReceiptPreview';
 import {
   ORDER_STATUS_LABELS,
@@ -288,6 +289,8 @@ export function TabModal({
                       <Badge tone={PAYMENT_STATUS_TONE[o.paymentStatus]}>
                         {PAYMENT_STATUS_LABEL[o.paymentStatus]}
                       </Badge>
+                      {/* Cliente pagou pelo Pix do cardápio: tocar no pedido abre o comprovante. */}
+                      {o.pixStatus && o.paymentStatus !== 'paid' && <PixReceiptChip order={o} />}
                     </td>
                     <td className="cm-num">{brl(o.total)}</td>
                   </tr>

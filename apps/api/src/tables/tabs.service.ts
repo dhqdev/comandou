@@ -31,6 +31,10 @@ const TAB_SELECT = `
 const awaitingMessage = (number: number, action: string) =>
   `O pedido #${number}, feito pelo cliente no celular, ainda espera aceite. Aceite ou recuse antes de ${action}.`;
 
+/** O cliente da mesa já pagou pelo Pix do cardápio e o comprovante espera a conferência. */
+const pixPendingMessage = (number: number) =>
+  `O cliente pagou o pedido #${number} pelo Pix e mandou o comprovante. Aprove ou recuse o comprovante antes de cobrar este pedido.`;
+
 /**
  * Comandas (atendimentos de mesa/balcão). Uma comanda agrupa pedidos até a conta ser fechada.
  * Divisão de conta: o cliente pode pagar a comanda em várias partes (por valor, ou escolhendo
@@ -105,10 +109,10 @@ export class TabsService {
   }
 
   private lockOrders(tx: Tx, tabId: string) {
-    return q<OrderRow & { created_at: string }>(
+    return q<OrderRow & { created_at: string; pix_status: string | null }>(
       tx,
       `SELECT id, number, channel, status, total::text, subtotal::text, discount::text, surcharge::text,
-              delivery_fee::text, paid_amount::text, payment_status, tab_id, version
+              delivery_fee::text, paid_amount::text, payment_status, tab_id, version, pix_status
          FROM orders WHERE tab_id = $1 ORDER BY created_at, id FOR UPDATE`,
       [tabId],
     );
@@ -282,6 +286,9 @@ export class TabsService {
         // Pedido do cliente (QR Code da mesa) ainda em análise: não se cobra o que não foi aceito.
         const waiting = orders.find((o) => o.status === 'awaiting');
         if (waiting) throw new ConflictException(awaitingMessage(waiting.number, 'cobrar'));
+        // Comprovante do Pix esperando conferência: cobrar de novo faria o cliente pagar duas vezes.
+        const pixPending = orders.find((o) => o.pix_status === 'submitted');
+        if (pixPending) throw new ConflictException(pixPendingMessage(pixPending.number));
         const balance = orders.reduce((s, o) => s + toCents(o.total) - toCents(o.paid_amount), 0);
         let remaining = toCents(b.amount);
         if (remaining <= 0) throw new UnprocessableEntityException('Valor deve ser maior que zero');

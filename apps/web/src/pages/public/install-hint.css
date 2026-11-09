@@ -1,0 +1,244 @@
+/*
+ * Aviso de instalar o app (InstallHint.tsx): cartão pequeno flutuando embaixo, com o aparelho
+ * desenhado e o ícone da loja caindo dentro dele. Entra no lugar (opacidade e escala), rápido.
+ */
+.sf-install {
+  --si-bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  position: fixed;
+  z-index: 38;
+  left: 50%;
+  bottom: var(--si-bottom);
+  width: min(calc(100% - 24px), 440px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px 10px 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: 18px;
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  box-shadow: var(--cm-shadow-lg);
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
+  animation: si-in var(--cm-spring-dur) var(--cm-spring) both;
+}
+@keyframes si-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.94);
+  }
+}
+
+/* Celular no cardápio: na altura da pílula da sacola (acima das abas) ou acima dela. */
+.sf[data-layout='phone'] .sf-install {
+  --si-bottom: calc(var(--sf-tabbar) + var(--sf-safe) + 30px);
+}
+.sf[data-layout='phone']:has(.cartpill:not([data-hidden])) .sf-install {
+  --si-bottom: calc(var(--sf-tabbar) + var(--sf-safe) + 92px);
+}
+/* Tablet: acima da barra do pedido. */
+.sf[data-layout='tablet'] .sf-install {
+  --si-bottom: calc(var(--sf-safe) + 96px);
+}
+/* Notebook: no canto do conteúdo, ao lado do menu lateral. */
+.sf[data-layout='desktop'] .sf-install {
+  left: calc(var(--sf-side) + 24px);
+  bottom: 24px;
+  width: 440px;
+  transform: none;
+  transform-origin: 0 100%;
+  animation-name: si-in-corner;
+}
+@media (min-width: 1100px) {
+  .store--track .sf-install {
+    left: 24px;
+    bottom: 24px;
+    width: 440px;
+    transform: none;
+    transform-origin: 0 100%;
+    animation-name: si-in-corner;
+  }
+}
+@keyframes si-in-corner {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+/* ------------------------------------------------ aparelho desenhado (celular ou monitor) */
+.sf-install__art {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 52px;
+}
+.sf-install__screen {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, 12px);
+  grid-auto-rows: 12px;
+  gap: 4px;
+  place-content: center;
+  width: 34px;
+  height: 50px;
+  border: 2px solid var(--cm-text);
+  border-radius: 9px;
+  background: var(--cm-surface);
+}
+/* Os outros apps: quadradinhos cinza. */
+.sf-install__screen > i {
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--cm-text) 12%, transparent);
+}
+/* Monitor: mais largo e baixo, com o pé. */
+.sf-install__art[data-device='desktop'] {
+  width: 52px;
+}
+.sf-install__art[data-device='desktop'] .sf-install__screen {
+  grid-template-columns: repeat(3, 10px);
+  grid-auto-rows: 10px;
+  gap: 3px;
+  width: 50px;
+  height: 36px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+.sf-install__art[data-device='desktop'] .sf-install__screen > i:nth-child(3) {
+  display: none;
+}
+.sf-install__art[data-device='desktop']::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  width: 18px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--cm-text);
+  transform: translateX(-50%);
+}
+
+/* O ícone da loja cai no lugar vazio, com a mola, e o aparelho dá um toque de "chegou". */
+.sf-install__slot {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cm-brand-500) 30%, transparent);
+  animation: si-drop 420ms 140ms var(--cm-spring) both;
+}
+.sf-install__slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.sf-install__slot b {
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+}
+@keyframes si-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-22px) scale(0.5);
+  }
+  55% {
+    opacity: 1;
+  }
+}
+.sf-install__screen {
+  animation: si-land 260ms 420ms var(--cm-spring-snappy) both;
+}
+@keyframes si-land {
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+/* ------------------------------------------------------------------------------- texto */
+.sf-install__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.sf-install__text strong {
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+  line-height: 1.25;
+}
+.sf-install__text small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  line-height: 1.35;
+}
+/* iPhone: o botão de Compartilhar desenhado no texto, dando um toque para chamar a atenção. */
+.sf-install__share {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  vertical-align: -5px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--cm-brand-500) 14%, transparent);
+  color: var(--cm-brand-700);
+  animation: si-nudge 700ms 700ms ease-in-out 2;
+}
+@keyframes si-nudge {
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+/* ------------------------------------------------------------------------------ botões */
+.sf-install__go {
+  flex: none;
+  height: 38px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.sf-install__go:active {
+  transform: scale(0.96);
+}
+.sf-install__go:focus-visible,
+.sf-install__close:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.sf-install__close {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.sf-install__close:hover {
+  color: var(--cm-text);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-install,
+  .sf-install__slot,
+  .sf-install__screen,
+  .sf-install__share {
+    animation: none;
+  }
+}

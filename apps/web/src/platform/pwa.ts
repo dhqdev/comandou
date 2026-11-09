@@ -56,8 +56,27 @@ export function listenInstallPrompt() {
   });
   window.addEventListener('appinstalled', () => {
     deferred = null;
+    try {
+      localStorage.setItem(INSTALLED_KEY, '1');
+    } catch {
+      /* modo privado: só não lembra */
+    }
+    window.dispatchEvent(new Event('cm-installed'));
   });
 }
+
+/** Este navegador já instalou o app (o aviso de instalar não aparece mais). */
+const INSTALLED_KEY = 'cm-app-installed';
+export function wasInstalled() {
+  try {
+    return localStorage.getItem(INSTALLED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+/** Chrome/Edge/Android já ofereceu a instalação (dá para abrir o pedido com um toque). */
+export const canPromptInstall = () => deferred !== null;
 
 interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;

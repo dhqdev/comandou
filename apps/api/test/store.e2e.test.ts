@@ -151,6 +151,17 @@ describe('Loja online: configurações e fotos', () => {
     }).expect(200);
   });
 
+  it('app instalado: o do cardápio abre no cardápio, separado do sistema da equipe', async () => {
+    const staff = (await pub.get('/store/manifest').expect(200)).body;
+    expect(staff).toMatchObject({ start_url: '/', scope: '/', display: 'standalone' });
+    expect(staff.id).toBeUndefined();
+    const menu = (await pub.get('/store/manifest?start=%2Fpedir').expect(200)).body;
+    expect(menu).toMatchObject({ start_url: '/pedir', id: '/pedir', scope: '/' });
+    // Qualquer outro endereço volta para o padrão (nada de abrir onde o link mandar).
+    const other = (await pub.get('/store/manifest?start=%2Fconfiguracoes').expect(200)).body;
+    expect(other.start_url).toBe('/');
+  });
+
   it('envia foto, liga ao produto e serve com cache; outro restaurante não vê', async () => {
     const bad = await http
       .post('/api/v1/media')

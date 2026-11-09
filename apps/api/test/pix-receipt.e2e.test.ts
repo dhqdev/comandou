@@ -107,6 +107,9 @@ const pickup = (extra: object = {}) => ({
   ...extra,
 });
 
+let tableId = '';
+let sessionId = '';
+
 describe('Pix pelo cardápio com comprovante', () => {
   it('configuração: confere a chave, guarda no formato do Pix e só liga completa', async () => {
     const off = await patch('adminA', '/store/settings', { pixEnabled: true }).expect(422);
@@ -139,9 +142,12 @@ describe('Pix pelo cardápio com comprovante', () => {
       name: 'Lanchonete São João',
       city: 'São Paulo',
     });
-    // Na mesa a conta é paga no fim: sem Pix no checkout.
+    // Na mesa também: o cliente escolhe pagar pelo Pix agora ou no fim, com o garçom.
     const table = (await post('adminA', '/tables', { label: 'PX1' }).expect(201)).body;
-    expect((await pub.get(`/store?mesa=${table.id}`).expect(200)).body.pix).toBeNull();
+    tableId = table.id;
+    expect((await pub.get(`/store?mesa=${table.id}`).expect(200)).body.pix).toMatchObject({
+      key: '52998224725',
+    });
     // Outro restaurante não tem Pix.
     expect((await pub.get('/store', HOST_B).expect(200)).body.pix).toBeNull();
   });
@@ -269,6 +275,7 @@ describe('Pix pelo cardápio com comprovante', () => {
         openingAmount: '0.00',
       }).expect(201)
     ).body;
+    sessionId = session.id;
     const k = key();
     const ok = await post('cashierA', url, { cashSessionId: session.id }, k).expect(200);
     expect(ok.body).toMatchObject({
@@ -291,6 +298,85 @@ describe('Pix pelo cardápio com comprovante', () => {
 
     const cash = (await get('cashierA', `/cash/sessions/${session.id}`).expect(200)).body;
     expect(JSON.stringify(cash)).toContain('51.80');
+  });
+
+  it('na mesa: paga pelo Pix do cardápio e a comanda só cobra o que falta', async () => {
+    const tk2 = token();
+    const r = await pub
+      .post(
+        '/store/orders',
+        {
+          channel: 'table',
+          tableId,
+          token: tk2,
+          customerName: 'Rui da Mesa',
+          paymentMethod: 'pix',
+          items: [{ productId: fx.prodA, quantity: 1 }],
+        },
+        key(),
+      )
+      .expect(201);
+    expect(r.body.pixStatus).toBe('waiting');
+    // Quem escolhe pagar no fim (sem forma de pagamento) segue como antes, sem Pix.
+    const later = await pub
+      .post(
+        '/store/orders',
+        {
+          channel: 'table',
+          tableId,
+          token: token(),
+          customerName: 'Rui da Mesa',
+          items: [{ productId: fx.prodA, quantity: 1 }],
+        },
+        key(),
+      )
+      .expect(201);
+    expect(later.body.pixStatus).toBeNull();
+
+    const list = (await get('cashierA', '/orders?active=true').expect(200)).body as {
+      id: string;
+      number: number;
+      tabId: string;
+      paymentHint: string | null;
+    }[];
+    const o = list.find((x) => x.number === r.body.number)!;
+    const o2 = list.find((x) => x.number === later.body.number)!;
+    expect(o.paymentHint).toBe('pix');
+    expect(o.tabId).toBe(o2.tabId);
+    for (const x of [o, o2])
+      await post('cashierA', `/orders/${x.id}/status`, { to: 'new' }).expect(201);
+
+    await pub.upload(`/store/orders/${tk2}/pix-receipt`, PNG, 'image/png').expect(200);
+    // Comprovante esperando conferência: cobrar a mesa agora faria o cliente pagar duas vezes.
+    const tab = (await get('cashierA', `/tabs/${o.tabId}`).expect(200)).body;
+    const blocked = await post(
+      'cashierA',
+      `/tabs/${o.tabId}/payments`,
+      { cashSessionId: sessionId, method: 'cash', amount: tab.balance },
+      key(),
+    ).expect(409);
+    expect(blocked.body.message).toMatch(/pagou o pedido #\d+ pelo Pix/);
+
+    const rid = (await get('cashierA', `/orders/${o.id}`).expect(200)).body.pixReceipt.id;
+    await post(
+      'cashierA',
+      `/orders/${o.id}/pix-receipts/${rid}/approve`,
+      { cashSessionId: sessionId },
+      key(),
+    ).expect(200);
+    const after = (await get('cashierA', `/tabs/${o.tabId}`).expect(200)).body;
+    const paidOrder = after.orders.find((x: { id: string }) => x.id === o.id);
+    expect(paidOrder).toMatchObject({ paymentStatus: 'paid', pixStatus: 'approved' });
+    // O saldo da mesa é só o pedido de quem vai pagar no fim.
+    expect(after.balance).toBe(
+      after.orders.find((x: { id: string }) => x.id === o2.id).balance as string,
+    );
+    await post(
+      'cashierA',
+      `/tabs/${o.tabId}/payments`,
+      { cashSessionId: sessionId, method: 'cash', amount: after.balance },
+      key(),
+    ).expect(201);
   });
 
   it('sem o Pix ligado, o pedido com Pix é o de sempre (paga na entrega)', async () => {

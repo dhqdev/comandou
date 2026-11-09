@@ -330,9 +330,13 @@ export class StoreController {
   ) {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
-    // Atalho do link do entregador abre direto nas corridas dele (só esse endereço é aceito).
-    const courier = start && /^\/entregador\/[A-Za-z0-9_-]{20,64}$/.test(start) ? start : null;
-    return this.store.manifest(t.id, t.name, courier);
+    // Atalho do link do entregador abre direto nas corridas dele; o do cardápio abre no cardápio
+    // (outro app instalado, separado do sistema da equipe). Só esses endereços são aceitos.
+    const own =
+      start && (start === '/pedir' || /^\/entregador\/[A-Za-z0-9_-]{20,64}$/.test(start))
+        ? start
+        : null;
+    return this.store.manifest(t.id, t.name, own);
   }
 
   /** Cidade e UF do restaurante (ponto de partida para achar o CEP pela rua). */
