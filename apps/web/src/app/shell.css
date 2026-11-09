@@ -20,6 +20,13 @@
 .topbar__spacer {
   flex: 1;
 }
+/* Título da tela com o botão Tutorial ao lado. */
+.page-title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
 .page-title {
   margin: 0;
   font-size: var(--cm-text-2xl);

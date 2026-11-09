@@ -39,6 +39,7 @@ import { mediaUrl } from '../lib/media';
 import { brl } from '../lib/money';
 import type { StoreBanner, StoreSettings } from '../lib/types';
 import './online-store.css';
+import { TourButton } from '../features/tour/PageTour';
 
 type Tab = 'aparencia' | 'banners' | 'destaques' | 'fidelidade' | 'funcionamento';
 const BADGES = ['Novo', 'Mais vendido', 'Picante', 'Vegano', 'Promoção', 'Do chef'];
@@ -707,7 +708,10 @@ export function OnlineStorePage() {
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Loja online</h1>
+          <div className="page-title-row">
+            <h1 className="page-title">Loja online</h1>
+            <TourButton tour="loja" />
+          </div>
           <p className="page-sub">
             O cardápio em que o cliente pede pelo celular: aparência, banners, destaques, fidelidade
             e funcionamento.

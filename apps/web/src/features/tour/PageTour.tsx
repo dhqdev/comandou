@@ -2,22 +2,24 @@ import { GraduationCap } from 'lucide-react';
 import { useMemo, useSyncExternalStore } from 'react';
 import { Button, type FrameItem } from '../../design-system';
 import { GuidedTour, type TourEnds, type TourStop } from './GuidedTour';
-import {
-  FISCAL_STOPS,
-  MENU_STOPS,
-  STOCK_STOPS,
-  fiscalEnds,
-  itemEnds,
-  itemTour,
-  menuEnds,
-  stockEnds,
-} from './tours';
+import * as T from './tours';
 
 /**
  * Tutoriais de cada tela: o botão "Tutorial" no topo da tela abre o tour guiado daquela parte do
  * sistema. Um só lugar (PageTourHost, no AppShell) desenha o tour, com o menu da pessoa.
  */
-export type PageTourId = 'cardapio' | 'item' | 'fiscal' | 'estoque';
+export type PageTourId =
+  | 'cardapio'
+  | 'item'
+  | 'fiscal'
+  | 'estoque'
+  | 'impressao'
+  | 'ajustes'
+  | 'caixa'
+  | 'salao'
+  | 'loja'
+  | 'entregas'
+  | 'equipe';
 
 type Running = { id: PageTourId; path: string } | null;
 
@@ -48,14 +50,26 @@ function useRunning() {
   );
 }
 
+const PLANS: Record<
+  Exclude<PageTourId, 'item'>,
+  { stops: TourStop[]; ends: TourEnds; label: string }
+> = {
+  cardapio: { stops: T.MENU_STOPS, ends: T.menuEnds, label: 'Tutorial do Cardápio' },
+  fiscal: { stops: T.FISCAL_STOPS, ends: T.fiscalEnds, label: 'Tutorial da Nota fiscal' },
+  estoque: { stops: T.STOCK_STOPS, ends: T.stockEnds, label: 'Tutorial do Estoque' },
+  impressao: { stops: T.PRINT_STOPS, ends: T.printEnds, label: 'Tutorial da Impressão' },
+  ajustes: { stops: T.SETTINGS_STOPS, ends: T.settingsEnds, label: 'Tutorial dos Ajustes' },
+  caixa: { stops: T.CASH_STOPS, ends: T.cashEnds, label: 'Tutorial do Caixa' },
+  salao: { stops: T.SALON_STOPS, ends: T.salonEnds, label: 'Tutorial do Salão' },
+  loja: { stops: T.STORE_STOPS, ends: T.storeEnds, label: 'Tutorial da Loja online' },
+  entregas: { stops: T.DELIVERY_STOPS, ends: T.deliveryEnds, label: 'Tutorial das Entregas' },
+  equipe: { stops: T.TEAM_STOPS, ends: T.teamEnds, label: 'Tutorial da Equipe' },
+};
+
 function plan(r: NonNullable<Running>): { stops: TourStop[]; ends: TourEnds; label: string } {
-  if (r.id === 'fiscal')
-    return { stops: FISCAL_STOPS, ends: fiscalEnds, label: 'Tutorial da Nota fiscal' };
-  if (r.id === 'estoque')
-    return { stops: STOCK_STOPS, ends: stockEnds, label: 'Tutorial do Estoque' };
   if (r.id === 'item')
-    return { stops: itemTour(r.path), ends: itemEnds, label: 'Tutorial do item' };
-  return { stops: MENU_STOPS, ends: menuEnds, label: 'Tutorial do Cardápio' };
+    return { stops: T.itemTour(r.path), ends: T.itemEnds, label: 'Tutorial do item' };
+  return PLANS[r.id];
 }
 
 export function PageTourHost({ items, tabs }: { items: FrameItem[]; tabs: string[] }) {

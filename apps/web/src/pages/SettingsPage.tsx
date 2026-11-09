@@ -8,6 +8,7 @@ import { api } from '../lib/api';
 import { DeviceSettings } from '../features/DeviceSettings';
 import type { CashRegister, DiningTable, Sector } from '../lib/types';
 import './online-store.css';
+import { TourButton } from '../features/tour/PageTour';
 
 export function SettingsPage() {
   const toast = useToast();
@@ -50,7 +51,10 @@ export function SettingsPage() {
   return (
     <>
       <div>
-        <h1 className="page-title">Ajustes</h1>
+        <div className="page-title-row">
+          <h1 className="page-title">Ajustes</h1>
+          <TourButton tour="ajustes" />
+        </div>
         <p className="page-sub">
           Setores de produção, mesas, terminais de caixa e os ajustes deste aparelho (maquininha).
         </p>

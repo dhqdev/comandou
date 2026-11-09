@@ -1,5 +1,17 @@
-import { Copy, Download, ExternalLink, MonitorSmartphone, Plus, Printer } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import {
+  Bluetooth,
+  Cable,
+  Copy,
+  Download,
+  ExternalLink,
+  MonitorSmartphone,
+  Network,
+  Plus,
+  Printer,
+  Usb,
+  Wifi,
+} from 'lucide-react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -25,6 +37,7 @@ import { api } from '../lib/api';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import type { PrintAgent, PrintJob } from '../lib/types';
 import './printing.css';
+import { TourButton } from '../features/tour/PageTour';
 
 const KIND: Record<PrintJob['kind'], string> = {
   kitchen_ticket: 'Comanda',
@@ -89,7 +102,10 @@ export function PrintingPage() {
   return (
     <>
       <div>
-        <h1 className="page-title">Impressão</h1>
+        <div className="page-title-row">
+          <h1 className="page-title">Impressão</h1>
+          <TourButton tour="impressao" />
+        </div>
         <p className="page-sub">
           Comandas de cozinha e conferências saem sozinhas nas impressoras térmicas do restaurante.
         </p>
@@ -97,6 +113,8 @@ export function PrintingPage() {
       {error && <Alert tone="danger">{error}</Alert>}
 
       <DownloadHero online={online} onConnect={() => setConnectOpen(true)} />
+
+      <ConnectionGuide />
 
       <Card
         searchId="secao-agentes"
@@ -262,7 +280,7 @@ function DownloadHero({ online, onConnect }: { online: boolean; onConnect: () =>
           <p className="print-hero__text">
             Instale no computador que fica ligado à impressora (normalmente o do caixa). Ele roda em
             segundo plano, perto do relógio, e imprime cada pedido na hora. Funciona com impressora
-            USB ou de rede.
+            USB, de rede (cabo ou Wi-Fi), Bluetooth ou serial.
           </p>
           <div className="print-hero__actions">
             <a className="cm-btn cm-btn--primary cm-btn--lg" href={downloadUrl(os)} download>
@@ -310,7 +328,10 @@ function DownloadHero({ online, onConnect }: { online: boolean; onConnect: () =>
           <span className="print-steps__n">3</span>
           <div>
             <strong>Escolha a impressora</strong>
-            <span>No aplicativo, selecione a impressora e clique em Testar.</span>
+            <span>
+              No aplicativo, clique em Adicionar impressora, diga como ela está ligada e imprima um
+              teste.
+            </span>
           </div>
         </li>
       </ol>
@@ -418,7 +439,115 @@ function AgentSetup({ name, token }: { name: string; token: string }) {
         <pre className="code-block">
           {`COMANDOU_CODE=<código acima> \\\nPRINTER_DEFAULT=tcp://192.168.0.50:9100 \\\nnode agent.mjs`}
         </pre>
+        <p className="cm-hint">
+          Outras impressoras: <code>serial:/dev/rfcomm0</code> (Bluetooth),{' '}
+          <code>serial:/dev/ttyUSB0?baud=19200</code> (serial), <code>file:/dev/usb/lp0</code> (USB
+          direto). Papel de 58 mm: acrescente <code>?papel=58</code>.
+        </p>
       </details>
     </div>
+  );
+}
+
+/** Tipos de ligação: o que fazer antes de abrir o aplicativo. O passo a passo completo fica no app. */
+const CONNECTIONS: { icon: ReactNode; title: string; steps: string[] }[] = [
+  {
+    icon: <Usb size={18} />,
+    title: 'USB',
+    steps: [
+      'Ligue o cabo no computador e instale o driver do fabricante.',
+      'Sem driver no Windows: adicione como "Generic / Text Only" na porta USB001.',
+      'No aplicativo: Adicionar impressora › USB.',
+    ],
+  },
+  {
+    icon: <Network size={18} />,
+    title: 'Rede com cabo',
+    steps: [
+      'Ligue o cabo da impressora no roteador.',
+      'Segure o botão FEED ao ligar: a folha de autoteste mostra o IP.',
+      'No aplicativo: Adicionar impressora › Rede. Ele procura sozinho.',
+    ],
+  },
+  {
+    icon: <Wifi size={18} />,
+    title: 'Wi-Fi',
+    steps: [
+      'Coloque a impressora no Wi-Fi do restaurante (programa do fabricante ou WPS).',
+      'Reserve o IP dela no roteador para não mudar.',
+      'No aplicativo: Adicionar impressora › Rede.',
+    ],
+  },
+  {
+    icon: <Bluetooth size={18} />,
+    title: 'Bluetooth',
+    steps: [
+      'Pareie com o computador (PIN 0000 ou 1234).',
+      'Desconecte do celular: ela aceita uma conexão por vez.',
+      'No aplicativo: Adicionar impressora › Bluetooth.',
+    ],
+  },
+  {
+    icon: <Cable size={18} />,
+    title: 'Serial (COM)',
+    steps: [
+      'Ligue o cabo RS-232 ou o adaptador USB-serial (com o driver dele).',
+      'Veja a velocidade (baud rate) na folha de autoteste.',
+      'No aplicativo: Adicionar impressora › Serial.',
+    ],
+  },
+];
+
+function ConnectionGuide() {
+  return (
+    <Card searchId="secao-ligacao" title="Como ligar a impressora">
+      <p className="cm-hint print-conn__intro">
+        Veja atrás da impressora como ela se liga e faça isto antes de abrir o aplicativo. Tem mais
+        de uma opção? Prefira a rede com cabo. O botão <strong>Ajuda</strong> do aplicativo tem o
+        passo a passo completo e os problemas mais comuns.
+      </p>
+      <div className="print-conn">
+        {CONNECTIONS.map((c) => (
+          <section key={c.title} className="print-conn__item">
+            <h3 className="print-conn__title">
+              <span className="print-conn__icon" aria-hidden>
+                {c.icon}
+              </span>
+              {c.title}
+            </h3>
+            <ol>
+              {c.steps.map((s) => (
+                <li key={s}>{s}</li>
+              ))}
+            </ol>
+          </section>
+        ))}
+      </div>
+      <details className="print-conn__trouble">
+        <summary>Saiu errado? Os problemas mais comuns</summary>
+        <ul>
+          <li>
+            <strong>Papel em branco:</strong> a bobina está virada. O lado que imprime escurece ao
+            riscar com a unha.
+          </li>
+          <li>
+            <strong>Linhas quebradas ou cortadas:</strong> bobina de 58 mm. No aplicativo, Trocar ›
+            Papel 58 mm.
+          </li>
+          <li>
+            <strong>Acentos viraram símbolos:</strong> no aplicativo, Trocar › Acentos › CP850 (ou
+            Sem acentos).
+          </li>
+          <li>
+            <strong>Parou de imprimir na rede:</strong> o IP mudou. Imprima a folha de autoteste e
+            confira; reserve o IP no roteador.
+          </li>
+          <li>
+            <strong>Comandas não saem, mas o teste sim:</strong> o computador entrou em suspensão ou
+            o aplicativo foi fechado. Veja se ele está online em Computadores conectados.
+          </li>
+        </ul>
+      </details>
+    </Card>
   );
 }

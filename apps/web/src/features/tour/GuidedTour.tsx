@@ -19,7 +19,10 @@ export interface TourStop {
   /** Tela da parada (caminho de um item ou subitem do menu, ou coberto por `also`). */
   path: string;
   title: string;
+  /** O que é e para que serve. */
   text: ReactNode;
+  /** O que fazer aqui, na ordem, com o nome exato dos botões. */
+  steps?: ReactNode[];
   /** O que enquadrar, na ordem de preferência (texto de botão ou seletor CSS). */
   targets: TourTarget[];
   /** Tocado antes de enquadrar (abrir uma aba da tela). */
@@ -359,6 +362,16 @@ export function GuidedTour({
                 ? ends.outro.text
                 : step.stop.text}
           </div>
+          {step.kind === 'stop' && !!step.stop.steps?.length && (
+            <div className="tourx__todo">
+              <span className="tourx__todo-label">O que fazer</span>
+              <ol>
+                {step.stop.steps.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ol>
+            </div>
+          )}
         </div>
 
         <div className="tourx__dots" aria-hidden>

@@ -38,6 +38,7 @@ import type {
   FiscalStatus,
 } from '../lib/types';
 import { StatusBadge } from './fiscal/common';
+import { TourButton } from '../features/tour/PageTour';
 
 const TERMINAL_KEY = 'cash.terminal';
 const BASE_METHODS: PaymentMethod[] = ['cash', 'credit', 'debit', 'pix'];
@@ -209,12 +210,15 @@ export function CashPage() {
   if (registers.length === 0)
     return (
       <>
-        <h1 className="page-title">Caixa</h1>
+        <div className="page-title-row">
+          <h1 className="page-title">Caixa</h1>
+          <TourButton tour="caixa" />
+        </div>
         <Card>
           <EmptyState
             icon={<Wallet size={20} />}
             title="Nenhum terminal de caixa"
-            description="Cadastre um terminal em Ajustes."
+            description="Cadastre um terminal em Sistema › Ajustes › Terminais de caixa (ex.: Caixa 1) e volte aqui para abrir o caixa."
           />
         </Card>
       </>
@@ -272,6 +276,7 @@ export function CashPage() {
           )}
         </div>
         <div className="cash-head__actions">
+          <TourButton tour="caixa" />
           {viewing ? (
             <Button variant="secondary" onClick={() => setViewing(null)}>
               Voltar ao caixa atual

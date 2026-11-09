@@ -208,3 +208,60 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Como ligar a impressora: um bloco por tipo de ligação. */
+.print-conn__intro {
+  margin: 0 0 var(--cm-space-4);
+}
+.print-conn {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+  gap: var(--cm-space-3);
+}
+.print-conn__item {
+  padding: var(--cm-space-3) var(--cm-space-4);
+  border-radius: var(--cm-radius-md);
+  border: 1px solid var(--cm-border);
+  background: var(--cm-surface-sunken);
+}
+.print-conn__title {
+  margin: 0 0 var(--cm-space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+}
+.print-conn__icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--cm-brand-50);
+  color: var(--cm-brand-700);
+}
+.print-conn__item ol {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  line-height: 1.5;
+}
+.print-conn__trouble {
+  margin-top: var(--cm-space-4);
+  font-size: var(--cm-text-sm);
+}
+.print-conn__trouble summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.print-conn__trouble ul {
+  margin: var(--cm-space-2) 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  color: var(--cm-text-muted);
+}

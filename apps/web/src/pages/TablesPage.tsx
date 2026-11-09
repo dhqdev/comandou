@@ -46,6 +46,7 @@ import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import { useArrivalSound } from '../lib/sounds';
 import type { DiningTable, Order, Tab } from '../lib/types';
+import { TourButton } from '../features/tour/PageTour';
 
 type View = 'tables' | 'tabs' | 'delivery' | 'pickup';
 type TableFilter = 'all' | TableState;
@@ -323,7 +324,10 @@ export function TablesPage() {
     <div className="salon" data-view={view}>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Salão</h1>
+          <div className="page-title-row">
+            <h1 className="page-title">Salão</h1>
+            <TourButton tour="salao" />
+          </div>
           <p className="page-sub">
             {counts.busy + counts.paying} de {tables?.length ?? 0} mesas ocupadas · {tabs.length}{' '}
             comanda(s) · {takeouts.length} para entregar ou levar

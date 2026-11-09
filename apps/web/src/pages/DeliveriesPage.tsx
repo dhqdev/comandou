@@ -49,6 +49,7 @@ import { type RealtimeEvent, useDebounced, useRealtime } from '../lib/realtime';
 import { useArrivalSound } from '../lib/sounds';
 import type { Courier, Delivery, Order } from '../lib/types';
 import './deliveries.css';
+import { TourButton } from '../features/tour/PageTour';
 
 const trackingUrl = (path: string) => `${window.location.origin}${path}`;
 
@@ -148,7 +149,10 @@ export function DeliveriesPage() {
     <div className="dl-page" data-fit={(live && showMap) || undefined}>
       <header className="dl-head">
         <div className="dl-head__title">
-          <h1 className="page-title">Entregas</h1>
+          <div className="page-title-row">
+            <h1 className="page-title">Entregas</h1>
+            <TourButton tour="entregas" />
+          </div>
           <p className="page-sub">
             Despache os pedidos prontos e acompanhe cada entregador no mapa, ao vivo.
           </p>

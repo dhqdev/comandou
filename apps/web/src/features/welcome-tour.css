@@ -35,7 +35,7 @@
   position: fixed;
   top: 50%;
   left: 50%;
-  width: min(360px, calc(100vw - 24px));
+  width: min(384px, calc(100vw - 24px));
   padding: 18px 18px 14px;
   border-radius: 16px;
   background: var(--cm-surface);
@@ -78,6 +78,9 @@
 .tourx__body {
   display: grid;
   gap: 8px;
+  max-height: min(58vh, 460px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   animation: tourx-in var(--cm-dur-slow) var(--cm-ease) both;
 }
 .tourx__hero {
@@ -113,6 +116,52 @@
 }
 .tourx__text b {
   color: var(--cm-text);
+}
+.tourx__todo {
+  margin-top: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--cm-brand-50);
+  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 22%, transparent);
+}
+.tourx__todo-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--cm-brand-700, var(--cm-text));
+  font-size: var(--cm-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.tourx__todo ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: todo;
+  display: grid;
+  gap: 6px;
+}
+.tourx__todo li {
+  position: relative;
+  padding-left: 26px;
+  font-size: var(--cm-text-sm);
+  line-height: 1.45;
+  counter-increment: todo;
+}
+.tourx__todo li::before {
+  content: counter(todo);
+  position: absolute;
+  left: 0;
+  top: 1px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--cm-brand-500);
+  color: var(--cm-on-brand, #1a1613);
+  font-size: 11px;
+  font-weight: 700;
 }
 .tourx__dots {
   display: flex;

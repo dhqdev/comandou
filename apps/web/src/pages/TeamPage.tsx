@@ -19,6 +19,7 @@ import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
 import type { Member } from '../lib/types';
+import { TourButton } from '../features/tour/PageTour';
 
 /** Equipe do restaurante: quem acessa, com qual papel. Só administradores alteram. */
 export function TeamPage() {
@@ -55,7 +56,10 @@ export function TeamPage() {
     <>
       <div className="page-head">
         <div>
-          <h1 className="page-title">Equipe</h1>
+          <div className="page-title-row">
+            <h1 className="page-title">Equipe</h1>
+            <TourButton tour="equipe" />
+          </div>
           <p className="page-sub">
             Quem acessa o sistema e o que cada um pode fazer. Desativar encerra o acesso na hora.
           </p>
