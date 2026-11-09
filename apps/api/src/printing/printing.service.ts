@@ -399,7 +399,9 @@ export class PrintingService {
       o = await this.orderHeader(tx, scope.id);
       orderIds = [scope.id];
     }
-    const items = (await Promise.all(orderIds.map((id) => this.items(tx, id)))).flat();
+    // Um pedido por vez: a transação tem uma conexão só.
+    const items = [];
+    for (const id of orderIds) items.push(...(await this.items(tx, id)));
     const paid = await q<{ method: PaymentMethod; amount: string; tendered: string | null }>(
       tx,
       `SELECT method, (amount - refunded_amount)::text AS amount, tendered::text

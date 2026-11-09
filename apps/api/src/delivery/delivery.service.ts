@@ -73,7 +73,8 @@ export async function storePoint(tx: Tx): Promise<{ lat: number; lng: number } |
 
 /** Trajeto e loja para o mapa do cliente (pedido ou link de rastreio). */
 export async function customerMapOf(tx: Tx, deliveryId: string) {
-  const [store, trails] = await Promise.all([storePoint(tx), trailsOf(tx, [deliveryId])]);
+  const store = await storePoint(tx);
+  const trails = await trailsOf(tx, [deliveryId]);
   return { store, trail: trails[deliveryId] ?? [] };
 }
 
@@ -454,13 +455,11 @@ export class DeliveryService {
           WHERE d.id = ANY($1::uuid[]) AND (NOT $2 OR c.user_id = $3)`,
         [ids, mine, ctx.userId],
       );
-      const [store, trails] = await Promise.all([
-        storePoint(tx),
-        trailsOf(
-          tx,
-          allowed.map((a) => a.id),
-        ),
-      ]);
+      const store = await storePoint(tx);
+      const trails = await trailsOf(
+        tx,
+        allowed.map((a) => a.id),
+      );
       return { store, trails };
     });
   }

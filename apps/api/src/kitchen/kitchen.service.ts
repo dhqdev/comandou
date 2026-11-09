@@ -38,15 +38,14 @@ export class KitchenService {
    */
   config(ctx: Ctx) {
     return this.db.withTenant(ctx, async (tx) => {
-      const [kitchens, settings, hasPrinter] = await Promise.all([
-        q(
-          tx,
-          `SELECT id, name, channels, color, warn_after_min AS "warnAfterMin", late_after_min AS "lateAfterMin"
-             FROM production_sectors WHERE active ORDER BY position, name`,
-        ),
-        one<{ display: unknown }>(tx, `SELECT display FROM kitchen_settings`),
-        this.printing.hasPrinter(tx),
-      ]);
+      // Em série: as consultas dividem a mesma conexão da transação (o pg não roda duas juntas).
+      const kitchens = await q(
+        tx,
+        `SELECT id, name, channels, color, warn_after_min AS "warnAfterMin", late_after_min AS "lateAfterMin"
+           FROM production_sectors WHERE active ORDER BY position, name`,
+      );
+      const settings = await one<{ display: unknown }>(tx, `SELECT display FROM kitchen_settings`);
+      const hasPrinter = await this.printing.hasPrinter(tx);
       return { kitchens, display: normalizeKitchenDisplay(settings?.display), hasPrinter };
     });
   }
