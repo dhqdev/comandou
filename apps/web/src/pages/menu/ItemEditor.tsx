@@ -175,6 +175,9 @@ export function ItemEditor() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Carga antiga (outro item aberto antes de terminar, ou o StrictMode montando duas vezes no
+    // desenvolvimento) não pode chegar depois e apagar o que a pessoa já digitou.
+    let live = true;
     void (async () => {
       try {
         const [c, f, s, m, g, links, all] = await Promise.all([
@@ -186,6 +189,7 @@ export function ItemEditor() {
           api<GroupLink[]>('/product-option-groups'),
           api<Product[]>('/products'),
         ]);
+        if (!live) return;
         setCategories(c);
         setFamilies(f);
         setSectors(s.filter((x) => x.active));
@@ -206,6 +210,7 @@ export function ItemEditor() {
             api<Product>(`/products/${id}`),
             api<{ menuId: string; price: string | null }[]>(`/products/${id}/menus`),
           ]);
+          if (!live) return;
           setProduct(p);
           setForm(formOf(p));
           setMenuSel(
@@ -228,6 +233,7 @@ export function ItemEditor() {
             api<StockItem[]>('/stock/items'),
             api<{ products: (RecipeLine & { productId: string })[] }>('/stock/recipes'),
           ]);
+          if (!live) return;
           setStockItems(items);
           const mine = isNew
             ? []
@@ -239,9 +245,12 @@ export function ItemEditor() {
         }
         setError(null);
       } catch (e) {
-        setError((e as Error).message);
+        if (live) setError((e as Error).message);
       }
     })();
+    return () => {
+      live = false;
+    };
   }, [id]);
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) =>
