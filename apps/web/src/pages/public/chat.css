@@ -8,10 +8,34 @@
 .sfchat {
   position: fixed;
   inset: var(--sf-appbar, 0px) 0 0 0;
-  z-index: 30;
+  /* Acima do menu de baixo (40) e da sacola (39): ao abrir a conversa, o menu que desce some
+     atrás dela, sem passar por cima do campo de mensagem. */
+  z-index: 42;
   display: flex;
   flex-direction: column;
   background: var(--cm-bg);
+  animation: sfchat-in 0.16s var(--cm-ease) backwards;
+}
+@keyframes sfchat-in {
+  from {
+    opacity: 0;
+  }
+}
+/* A tela da conversa não desliza com as outras: o deslize deixava a conversa por baixo do menu
+   que descia (a opacidade da animação prende o z-index dela dentro da tela). */
+.screen:has(> .sfchat) {
+  animation: none;
+}
+/* Com a conversa aberta, a página por trás não rola: no iPhone, com o teclado aberto, arrastar
+   o topo levava a conversa junto. */
+html.sf-chat-open,
+html.sf-chat-open body {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+html.sf-chat-open .sf:not([data-layout='desktop']) {
+  min-height: 0;
+  padding-bottom: 0;
 }
 .sfchat .scx {
   --scx-safe: env(safe-area-inset-bottom, 0px);
@@ -29,11 +53,12 @@
   display: flex;
   flex-direction: column;
 }
-/* iPhone com teclado aberto: a conversa fica no pedaço visível da tela (viewport.ts). */
+/* iPhone com teclado aberto: a conversa fica no pedaço visível da tela (viewport.ts), abaixo da
+   barra do topo do tablet quando ela ainda aparece. */
 html.cm-kb-open .sfchat {
-  top: var(--cm-vvtop, 0px);
+  top: max(var(--cm-vvtop, 0px), var(--sf-appbar, 0px));
   bottom: auto;
-  height: var(--cm-vvh, 100dvh);
+  height: calc(var(--cm-vvh, 100dvh) - max(0px, var(--sf-appbar, 0px) - var(--cm-vvtop, 0px)));
 }
 html.cm-kb-open .sfchat .scx {
   --scx-safe: 0px;

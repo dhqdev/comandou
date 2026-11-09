@@ -10,7 +10,7 @@ import {
   Smile,
   Store,
 } from 'lucide-react';
-import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Mascot, Spinner, useToast } from '../../design-system';
 import { dateTime } from '../../features/format';
@@ -315,6 +315,13 @@ export function ChatScreen() {
   useEffect(() => {
     document.title = `Conversa · ${r.name}`;
   }, [r.name]);
+
+  // A página por trás da conversa não rola enquanto ela está aberta (chat.css).
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.classList.add('sf-chat-open');
+    return () => root.classList.remove('sf-chat-open');
+  }, []);
 
   const clearOrder = () => {
     const p = new URLSearchParams(params);

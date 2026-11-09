@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.104.3',
+    date: '2026-11-09',
+    title: 'Menu de baixo encostado na tela e conversa que não quebra',
+    summary:
+      'No celular, o menu de baixo do cardápio encosta na borda da tela como num app. E a conversa com a loja não perde mais as últimas mensagens quando o teclado, os emojis ou a foto sobem.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'O menu de baixo do cardápio fica preso na borda de baixo, de ponta a ponta, e o fundo dele desce por trás do risco do iPhone. A bolinha da aba troca de lugar mais rápido.',
+      },
+      {
+        tag: 'correção',
+        text: 'Conversa: ao abrir o teclado, os emojis, a prévia da foto ou escrever várias linhas, a conversa continua mostrando as últimas mensagens. Antes elas sumiam atrás do que tinha subido.',
+      },
+      {
+        tag: 'correção',
+        text: 'A foto ou o vídeo ampliado na conversa cobre a tela inteira: no tablet a barra do topo ficava por cima do botão de fechar, e no notebook a foto passava da tela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O menu do clipe (galeria, foto, vídeo) abre flutuando em cima do botão, sem empurrar a conversa, e fecha ao tocar fora. O dia das mensagens só aparece no topo enquanto você rola, sem ficar por cima do texto.',
+      },
+      {
+        tag: 'correção',
+        text: 'Ao abrir a conversa, o menu de baixo não passa mais por cima do campo de mensagem, e a página por trás não arrasta junto com o teclado aberto no iPhone.',
+      },
+    ],
+  },
+  {
     version: '0.104.2',
     date: '2026-11-09',
     title: 'Endereço de entrega que o mapa não achava',

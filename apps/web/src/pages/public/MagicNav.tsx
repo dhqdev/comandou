@@ -8,15 +8,18 @@ import './magic-nav.css';
  * Menu de baixo do celular no estilo "magic navigation": a aba aberta sobe para uma bolinha na
  * cor da loja, encaixada num recorte da barra. Ao trocar de aba, a bolinha e o recorte deslizam
  * juntos até a aba nova (com um leve balanço). A barra é desenhada em SVG a cada quadro, com as
- * bordas do recorte arredondadas.
+ * bordas do recorte arredondadas. Ela encosta na borda de baixo e dos lados da tela, como a barra
+ * de um app: só os cantos de cima são redondos, e o fundo desce por trás do risco do iPhone.
  */
 
 /** Medidas da barra (px). */
 export const NAV = {
   /** Altura da barra. */
   h: 64,
-  /** Raio dos cantos da barra. */
+  /** Raio dos cantos de cima da barra (os de baixo encostam na tela). */
   corner: 18,
+  /** Quanto o fundo da barra desce abaixo dos 64px: cobre o risco do iPhone e a borda da tela. */
+  skirt: 80,
   /** Raio do recorte (bolinha + folga). */
   hole: 31,
   /** Raio da curva que suaviza a borda do recorte. */
@@ -37,10 +40,12 @@ export function notchReach(t = 1) {
 
 /**
  * Contorno da barra com o recorte centrado em `x`. `t` (0–1) abre o recorte: 0 é a barra lisa
- * (nenhuma aba aberta), 1 é o recorte inteiro.
+ * (nenhuma aba aberta), 1 é o recorte inteiro. Cantos de cima redondos; embaixo o contorno é reto
+ * e desce `NAV.skirt` além da barra (fica atrás do risco do iPhone e fora da tela).
  */
 export function barPath(w: number, x: number, t = 1) {
-  const { h, corner: r } = NAV;
+  const { corner: r } = NAV;
+  const bottom = NAV.h + NAV.skirt;
   const n = (v: number) => Math.round(v * 100) / 100;
   let notch = '';
   if (t > 0.01) {
@@ -62,21 +67,27 @@ export function barPath(w: number, x: number, t = 1) {
     `M0 ${r}A${r} ${r} 0 0 1 ${r} 0` +
     notch +
     `L${n(w - r)} 0A${r} ${r} 0 0 1 ${n(w)} ${r}` +
-    `L${n(w)} ${h - r}A${r} ${r} 0 0 1 ${n(w - r)} ${h}` +
-    `L${r} ${h}A${r} ${r} 0 0 1 0 ${h - r}Z`
+    `L${n(w)} ${bottom}L0 ${bottom}Z`
   );
 }
 
-/** Folga nas pontas para o recorte da primeira e da última aba não pegar o canto da barra. */
+/** Largura máxima ocupada pelas abas: no celular deitado elas não se espalham pela tela toda. */
+export const ITEMS_MAX = 520;
+
+/**
+ * Folga nas pontas para o recorte da primeira e da última aba não pegar o canto da barra. Em tela
+ * mais larga que `ITEMS_MAX`, a folga centraliza as abas (a barra continua de ponta a ponta).
+ */
 export function sidePad(w: number, count: number) {
-  if (count < 2) return 12;
+  const center = Math.max(0, (w - ITEMS_MAX) / 2);
+  if (count < 2) return Math.max(12, center);
   const need = NAV.corner + notchReach();
-  return Math.max(12, Math.ceil((need - w / (2 * count)) / (1 - 1 / count)));
+  return Math.max(12, center, Math.ceil((need - w / (2 * count)) / (1 - 1 / count)));
 }
 
 /** Balanço no fim do movimento (passa um pouco e volta). */
 const easeOutBack = (p: number) => {
-  const c1 = 1.15;
+  const c1 = 0.9;
   const c3 = c1 + 1;
   return 1 + c3 * (p - 1) ** 3 + c1 * (p - 1) ** 2;
 };
@@ -152,7 +163,8 @@ export function MagicNav({
     // Sem aba aberta, a bolinha some onde está (não viaja até a primeira aba).
     const to = target.t === 0 ? { x: from.x, t: 0 } : target;
     const start = performance.now();
-    const dur = 560;
+    // Rápido (sistema de trabalho): a bolinha chega em 0,3 s, com um balanço curto no fim.
+    const dur = 300;
     const step = (now: number) => {
       const p = Math.min(1, (now - start) / dur);
       const e = easeOutBack(p);

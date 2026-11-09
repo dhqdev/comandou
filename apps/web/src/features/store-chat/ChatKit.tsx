@@ -73,6 +73,11 @@ const coarse = () =>
 
 /* ------------------------------------------------------------------ visualizador */
 
+/**
+ * Foto ou vídeo em tela cheia. É um <dialog> aberto com showModal(): fica na camada de cima do
+ * navegador, por cima de tudo (barra do topo do tablet, menu lateral, outra janela aberta), e não
+ * pode ficar preso dentro da conversa que rola.
+ */
 function Viewer({
   item,
   onClose,
@@ -80,15 +85,27 @@ function Viewer({
   item: { kind: 'image' | 'video'; url: string } | null;
   onClose(): void;
 }) {
+  const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
-    if (!item) return;
-    const onKey = (e: globalThis.KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [item, onClose]);
+    const d = ref.current;
+    if (!d || !item) return;
+    if (!d.open) d.showModal?.();
+    return () => {
+      if (d.open) d.close?.();
+    };
+  }, [item]);
   if (!item) return null;
   return (
-    <div className="scx-viewer" role="dialog" aria-label="Ver arquivo" onClick={onClose}>
+    <dialog
+      ref={ref}
+      className="scx-viewer"
+      aria-label={item.kind === 'image' ? 'Foto' : 'Vídeo'}
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+      onClick={onClose}
+    >
       <button type="button" className="scx-viewer__close" aria-label="Fechar" onClick={onClose}>
         <X size={22} />
       </button>
@@ -97,7 +114,7 @@ function Viewer({
       ) : (
         <video src={item.url} controls autoPlay playsInline onClick={(e) => e.stopPropagation()} />
       )}
-    </div>
+    </dialog>
   );
 }
 
@@ -182,7 +199,20 @@ function Thread({
   empty,
 }: ThreadProps) {
   const box = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
+  // Dia das mensagens no topo, só enquanto rola (como no WhatsApp): parado, ele não fica por
+  // cima do texto das mensagens.
+  const [day, setDay] = useState<{ label: string; on: boolean }>({ label: '', on: false });
+  const dayTimer = useRef<number | undefined>(undefined);
+  // Rolagem feita pelo código (segurar no fim): não mostra o dia no topo.
+  const quiet = useRef(false);
+  const scrollBox = (el: HTMLDivElement, top: number) => {
+    const t = Math.max(0, Math.min(top, el.scrollHeight - el.clientHeight));
+    if (Math.abs(el.scrollTop - t) < 1) return;
+    quiet.current = true;
+    el.scrollTop = t;
+  };
   const [fresh, setFresh] = useState(0);
   const [viewer, setViewer] = useState<{ kind: 'image' | 'video'; url: string } | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -199,9 +229,9 @@ function Thread({
     const last = messages.at(-1);
     if (prevFirst.current && firstId !== prevFirst.current && prevHeight.current) {
       // Carregou mensagens antigas no topo: mantém o lugar da leitura.
-      el.scrollTop = el.scrollHeight - prevHeight.current + el.scrollTop;
+      scrollBox(el, el.scrollHeight - prevHeight.current + el.scrollTop);
     } else if (atBottom || !last || last.sender === side) {
-      el.scrollTop = el.scrollHeight;
+      scrollBox(el, el.scrollHeight);
       setFresh(0);
     } else {
       setFresh((n) => n + 1);
@@ -212,27 +242,50 @@ function Thread({
   }, [lastId, firstId, messages.length]);
 
   useLayoutEffect(() => {
-    if (typing && atBottom && box.current) box.current.scrollTop = box.current.scrollHeight;
+    if (typing && atBottom && box.current) scrollBox(box.current, box.current.scrollHeight);
   }, [typing, atBottom]);
 
-  // Fotos carregando mudam a altura: segura no fim enquanto estiver embaixo.
+  // A conversa fica presa embaixo quando algo muda de tamanho: fotos carregando (o conteúdo
+  // cresce) ou a área da conversa encolhendo porque o teclado, os emojis, a prévia da foto ou o
+  // campo de várias linhas subiram. Sem isso as últimas mensagens sumiam atrás do que subiu.
+  // Lendo mais para cima, o que estava no pé da tela continua no mesmo lugar.
   useEffect(() => {
     const el = box.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-    const inner = el.firstElementChild;
-    if (!inner) return;
+    const content = inner.current;
+    if (!el || !content || typeof ResizeObserver === 'undefined') return;
+    let boxH = el.clientHeight;
     const ro = new ResizeObserver(() => {
-      if (atBottomRef.current) el.scrollTop = el.scrollHeight;
+      const h = el.clientHeight;
+      if (atBottomRef.current) scrollBox(el, el.scrollHeight);
+      else if (h !== boxH) scrollBox(el, el.scrollTop + boxH - h);
+      boxH = h;
       prevHeight.current = el.scrollHeight;
     });
-    ro.observe(inner);
+    ro.observe(content);
+    ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  useEffect(() => () => window.clearTimeout(dayTimer.current), []);
+
+  /** Mostra o dia da mensagem que está no topo e esconde logo depois que a rolagem para. */
+  function showDay(el: HTMLDivElement) {
+    let label = '';
+    for (const d of el.querySelectorAll<HTMLElement>('.scx-thread__inner > .scx-day')) {
+      if (d.offsetTop >= el.scrollTop + 4) break;
+      label = d.textContent ?? '';
+    }
+    // Mesmo dia na tela: não redesenha a conversa a cada quadro da rolagem.
+    setDay((d) => (d.label === label && d.on === !!label ? d : { label, on: !!label }));
+    window.clearTimeout(dayTimer.current);
+    dayTimer.current = window.setTimeout(() => setDay((d) => ({ ...d, on: false })), 900);
+  }
 
   async function onScroll() {
     const el = box.current!;
     const bottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
     atBottomRef.current = bottom;
+    if (quiet.current) quiet.current = false;
+    else showDay(el);
     if (bottom !== atBottom) setAtBottom(bottom);
     if (bottom) setFresh(0);
     if (el.scrollTop < 80 && hasMore && onLoadMore && !loadingMore) {
@@ -254,7 +307,10 @@ function Thread({
   let prev: ChatMessage | undefined;
   return (
     <div className="scx-thread" ref={box} onScroll={onScroll} aria-live="polite">
-      <div className="scx-thread__inner">
+      <div className="scx-float" data-on={day.on || undefined} aria-hidden>
+        <span className="scx-day">{day.label}</span>
+      </div>
+      <div className="scx-thread__inner" ref={inner}>
         {hasMore && (
           <div className="scx-more">{loadingMore ? 'Carregando…' : 'Role para ver mais'}</div>
         )}
@@ -467,6 +523,7 @@ export function ChatPane(props: ChatPaneProps) {
   const [panel, setPanel] = useState<null | 'emoji' | 'attach' | 'quick'>(null);
   const [drag, setDrag] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
+  const compose = useRef<HTMLDivElement>(null);
   const gallery = useRef<HTMLInputElement>(null);
   const photo = useRef<HTMLInputElement>(null);
   const video = useRef<HTMLInputElement>(null);
@@ -487,6 +544,22 @@ export function ChatPane(props: ChatPaneProps) {
   useEffect(() => {
     if (autoFocus && !coarse()) input.current?.focus();
   }, [autoFocus]);
+
+  /** Item do menu do clipe: fecha o menu e abre a galeria ou a câmera. */
+  const choose = (el: { current: HTMLInputElement | null }) => {
+    setPanel(null);
+    el.current?.click();
+  };
+
+  // Menu, emojis ou respostas prontas abertos: tocar na conversa (fora do campo) fecha.
+  useEffect(() => {
+    if (!panel) return;
+    const onDown = (e: PointerEvent) => {
+      if (!compose.current?.contains(e.target as Node)) setPanel(null);
+    };
+    document.addEventListener('pointerdown', onDown);
+    return () => document.removeEventListener('pointerdown', onDown);
+  }, [panel]);
 
   // Libera as prévias locais quando saem da tela.
   useEffect(
@@ -661,7 +734,7 @@ export function ChatPane(props: ChatPaneProps) {
       )}
       {drag && <div className="scx-drop">Solte a foto ou o vídeo para enviar</div>}
 
-      <div className="scx-compose">
+      <div className="scx-compose" ref={compose}>
         {disabled && disabledHint ? (
           <div className="scx-compose__off">{disabledHint}</div>
         ) : (
@@ -717,30 +790,35 @@ export function ChatPane(props: ChatPaneProps) {
                 ))}
               </div>
             )}
-            {panel === 'attach' && (
-              <div className="scx-menu" role="menu">
-                <button type="button" role="menuitem" onClick={() => gallery.current?.click()}>
-                  <Paperclip size={18} /> Foto ou vídeo da galeria
-                </button>
-                <button type="button" role="menuitem" onClick={() => photo.current?.click()}>
-                  <Camera size={18} /> Tirar foto
-                </button>
-                <button type="button" role="menuitem" onClick={() => video.current?.click()}>
-                  <Video size={18} /> Gravar vídeo
-                </button>
-              </div>
-            )}
             <div className="scx-compose__row">
-              <button
-                type="button"
-                className="scx-icon"
-                data-on={panel === 'attach' || undefined}
-                aria-label="Enviar foto ou vídeo"
-                title="Foto ou vídeo"
-                onClick={() => setPanel((p) => (p === 'attach' ? null : 'attach'))}
-              >
-                <Paperclip size={20} />
-              </button>
+              {/* O menu do clipe flutua acima dele, sem empurrar a conversa para cima. */}
+              <div className="scx-anchor">
+                <button
+                  type="button"
+                  className="scx-icon"
+                  data-on={panel === 'attach' || undefined}
+                  aria-label="Enviar foto ou vídeo"
+                  aria-haspopup="menu"
+                  aria-expanded={panel === 'attach'}
+                  title="Foto ou vídeo"
+                  onClick={() => setPanel((p) => (p === 'attach' ? null : 'attach'))}
+                >
+                  <Paperclip size={20} />
+                </button>
+                {panel === 'attach' && (
+                  <div className="scx-menu" role="menu">
+                    <button type="button" role="menuitem" onClick={() => choose(gallery)}>
+                      <Paperclip size={18} /> Foto ou vídeo da galeria
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => choose(photo)}>
+                      <Camera size={18} /> Tirar foto
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => choose(video)}>
+                      <Video size={18} /> Gravar vídeo
+                    </button>
+                  </div>
+                )}
+              </div>
               {quickReplies && quickReplies.length > 0 && (
                 <button
                   type="button"

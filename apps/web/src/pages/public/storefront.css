@@ -883,7 +883,8 @@
   position: fixed;
   z-index: 39;
   left: 50%;
-  bottom: calc(var(--sf-tabbar) + 40px + var(--sf-safe) * 0.6);
+  /* O menu de baixo encosta na tela: 64px + o risco do iPhone, e a bolinha passa 25px acima. */
+  bottom: calc(var(--sf-tabbar) + var(--sf-safe) + 30px);
   width: min(calc(100% - 32px), 480px);
   display: flex;
   align-items: center;

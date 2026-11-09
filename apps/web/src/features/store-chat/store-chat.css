@@ -62,9 +62,6 @@
   font-size: var(--cm-text-md);
 }
 .scx-day {
-  position: sticky;
-  top: 6px;
-  z-index: 1;
   align-self: center;
   margin: 10px 0 6px;
   padding: 3px 10px;
@@ -76,6 +73,26 @@
   font-weight: 600;
   text-transform: capitalize;
   backdrop-filter: blur(6px);
+}
+/* Dia que flutua no topo enquanto a conversa rola (some quando ela para). */
+.scx-float {
+  position: sticky;
+  top: 6px;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  height: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s var(--cm-ease);
+}
+.scx-float[data-on] {
+  opacity: 1;
+  transition-duration: 0.08s;
+}
+.scx-float .scx-day {
+  margin: 0;
+  box-shadow: var(--cm-shadow-sm);
 }
 .scx-system {
   align-self: center;
@@ -90,7 +107,8 @@
   align-items: flex-start;
   max-width: min(78%, 520px);
   margin-top: 8px;
-  animation: scx-in 0.22s var(--cm-ease) both;
+  transform-origin: 0 100%;
+  animation: scx-in 0.18s var(--cm-ease) backwards;
 }
 .scx-msg[data-grouped] {
   margin-top: 2px;
@@ -98,11 +116,13 @@
 .scx-msg[data-mine] {
   align-self: flex-end;
   align-items: flex-end;
+  transform-origin: 100% 100%;
 }
+/* Mensagem nova aparece no lugar (sem subir): só um leve crescer a partir do canto dela. */
 @keyframes scx-in {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.98);
+    transform: scale(0.97);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -343,26 +363,45 @@
   line-height: 18px;
 }
 
-/* Visualizador em tela cheia */
+/* Visualizador em tela cheia: <dialog> na camada de cima, por cima de qualquer barra. */
 .scx-viewer {
   position: fixed;
   inset: 0;
-  z-index: 1000;
-  display: grid;
-  place-items: center;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
   padding: max(16px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom));
   background: rgb(0 0 0 / 88%);
-  animation: scx-fade 0.18s ease both;
+  color: #fff;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  animation: scx-fade 0.16s var(--cm-ease) both;
+}
+.scx-viewer[open] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.scx-viewer::backdrop {
+  background: transparent;
 }
 .scx-viewer img,
 .scx-viewer video {
+  display: block;
   max-width: 100%;
   max-height: 100%;
+  min-width: 0;
+  min-height: 0;
   border-radius: 8px;
   object-fit: contain;
+  animation: scx-zoom var(--cm-spring-dur, 0.26s) var(--cm-spring, ease) both;
 }
 .scx-viewer__close {
   position: absolute;
+  z-index: 1;
   top: max(12px, env(safe-area-inset-top));
   right: 12px;
   display: grid;
@@ -375,9 +414,18 @@
   color: #fff;
   cursor: pointer;
 }
+.scx-viewer__close:active {
+  transform: scale(0.94);
+}
 @keyframes scx-fade {
   from {
     opacity: 0;
+  }
+}
+@keyframes scx-zoom {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
   }
 }
 
@@ -573,7 +621,7 @@
   border-radius: var(--cm-radius-lg);
   background: var(--cm-bg);
   overflow: hidden;
-  animation: scx-up 0.18s var(--cm-ease) both;
+  animation: scx-fade 0.14s var(--cm-ease) both;
 }
 .scx-emoji__tabs {
   display: flex;
@@ -635,7 +683,33 @@
   border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-lg);
   background: var(--cm-bg);
-  animation: scx-up 0.18s var(--cm-ease) both;
+  animation: scx-fade 0.14s var(--cm-ease) both;
+}
+/* Menu do clipe: flutua acima do botão (não empurra a conversa) e cresce a partir dele. */
+.scx-anchor {
+  position: relative;
+  flex: none;
+  display: grid;
+}
+.scx-menu {
+  position: absolute;
+  z-index: 6;
+  left: -2px;
+  bottom: calc(100% + 10px);
+  width: max-content;
+  min-width: 228px;
+  max-width: calc(100vw - 24px);
+  margin: 0;
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-lg);
+  transform-origin: 20px 100%;
+  animation: scx-pop var(--cm-spring-snappy-dur, 0.28s) var(--cm-spring-snappy, ease) both;
+}
+@keyframes scx-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
 }
 .scx-menu button,
 .scx-quick button {
@@ -660,12 +734,6 @@
 .scx-quick {
   max-height: 220px;
   overflow-y: auto;
-}
-@keyframes scx-up {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
 }
 
 @media (min-width: 900px) {
