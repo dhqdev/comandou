@@ -25,15 +25,19 @@ import { ProfilePhoto } from './ProfilePhoto';
 import { useStoreChat } from './chat';
 import { useStore } from './context';
 import { AddressFields, addressPayload } from './AddressFields';
-import { useLoyalty } from './LoyaltyScreens';
+import { nextGoal, useLoyalty } from './LoyaltyScreens';
 import {
+  AccountOrder,
   AccountState,
   addressLine,
   fmtPhone,
+  LoyaltyOn,
+  loyaltyRule,
   loyaltyUnit,
   maskCep,
   maskPhone,
   SavedAddress,
+  STEP_LABEL,
 } from './store';
 import { Field, ScreenHeader, Switch } from './ui';
 
@@ -216,58 +220,92 @@ function AuthForms() {
   );
 }
 
+/** Até três fotos sobrepostas no canto do bloco (último pedido, favoritos). */
+function PhotoStack({ photos }: { photos: (string | null | undefined)[] }) {
+  const list = photos.filter((p): p is string => !!p).slice(0, 3);
+  if (!list.length) return null;
+  return (
+    <span className="acct-stack" aria-hidden>
+      {list.map((src, k) => (
+        <img key={k} src={src} alt="" loading="lazy" decoding="async" />
+      ))}
+    </span>
+  );
+}
+
 /**
- * Bloco da tela da conta: ícone em cima, nome e uma linha de apoio embaixo. Afunda ao tocar e
- * volta com a mola. `--i` escalona a entrada (um bloco logo depois do outro).
+ * Bloco da conta: ícone em cima (fotos no canto quando há), nome e uma linha curta embaixo.
+ * Afunda ao tocar e volta com a mola; `--i` escalona a entrada.
  */
 function Tile({
   to,
   icon,
   label,
   hint,
-  count,
+  photos,
   i,
-  onClick,
-  switchOn,
 }: {
-  to?: string;
+  to: string;
   icon: ReactNode;
   label: string;
   hint?: string;
-  /** Contador no canto (mensagens novas). */
-  count?: number;
+  photos?: (string | null | undefined)[];
   i: number;
-  onClick?(e: MouseEvent<HTMLButtonElement>): void;
-  /** Bloco que liga e desliga (tema): mostra a chave no canto e vira `role="switch"`. */
-  switchOn?: boolean;
 }) {
-  const inner = (
-    <>
+  return (
+    <Link className="acct-tile" to={to} style={{ '--i': i } as CSSProperties}>
       <span className="acct-tile__top">
         <span className="acct-tile__icon">{icon}</span>
-        {!!count && (
-          <span className="acct-tile__count" aria-hidden>
-            {count > 99 ? '99+' : count}
-          </span>
-        )}
-        {switchOn !== undefined && <span className="acct-tile__switch" aria-hidden />}
+        {photos && <PhotoStack photos={photos} />}
       </span>
       <span className="acct-tile__text">
         <strong>{label}</strong>
         {hint && <small>{hint}</small>}
       </span>
+    </Link>
+  );
+}
+
+/** Linha da lista de ajustes (conversa, tema, senha): ícone, nome e, à direita, o estado. */
+function Row({
+  to,
+  icon,
+  label,
+  count,
+  switchOn,
+  onClick,
+}: {
+  to?: string;
+  icon: ReactNode;
+  label: string;
+  count?: number;
+  switchOn?: boolean;
+  onClick?(e: MouseEvent<HTMLButtonElement>): void;
+}) {
+  const inner = (
+    <>
+      <span className="acct-row__icon">{icon}</span>
+      <span className="acct-row__label">{label}</span>
+      {!!count && (
+        <span className="acct-row__count" aria-label={`${count} nova(s)`}>
+          {count > 99 ? '99+' : count}
+        </span>
+      )}
+      {switchOn === undefined ? (
+        <ChevronRight className="acct-row__chev" aria-hidden />
+      ) : (
+        <span className="acct-row__switch" aria-hidden />
+      )}
     </>
   );
-  const style = { '--i': i } as CSSProperties;
   return to ? (
-    <Link className="acct-tile" to={to} style={style}>
+    <Link className="acct-row" to={to}>
       {inner}
     </Link>
   ) : (
     <button
       type="button"
-      className="acct-tile"
-      style={style}
+      className="acct-row"
       onClick={onClick}
       {...(switchOn !== undefined && { role: 'switch', 'aria-checked': switchOn })}
     >
@@ -276,23 +314,98 @@ function Tile({
   );
 }
 
-/** Aba "Conta": formulário de entrada ou o perfil, com as telas em blocos grandes. */
+const plural = (n: number, one: string, many: string) =>
+  `${n.toLocaleString('pt-BR')} ${n === 1 ? one : many}`;
+
+/** Pedido em andamento há pouco (o mais recente): aparece no topo da conta. */
+const LIVE_MS = 12 * 3600_000;
+function liveOrder(orders: AccountOrder[] | null) {
+  const o = orders?.[0];
+  if (!o || o.step === 'completed' || o.step === 'cancelled') return null;
+  return Date.now() - new Date(o.createdAt).getTime() < LIVE_MS ? o : null;
+}
+
+/** Pedidos da conta, uma vez ao abrir a tela (sem repetir: a aba Pedidos é que acompanha). */
+function useAccountOrders(on: boolean) {
+  const [orders, setOrders] = useState<AccountOrder[] | null>(null);
+  useEffect(() => {
+    if (!on) return;
+    let live = true;
+    api<AccountOrder[]>('/store/account/orders')
+      .then((o) => live && setOrders(o))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [on]);
+  return orders;
+}
+
+/** Cartão largo da fidelidade: saldo grande e a barra até a próxima recompensa. */
+function LoyaltyTile({ l, i }: { l: LoyaltyOn; i: number }) {
+  const acc = l.account;
+  const balance = acc?.balance ?? 0;
+  const goal = nextGoal(l, balance);
+  const pct = goal ? Math.min(100, Math.round((balance / goal.cost) * 100)) : 100;
+  return (
+    <Link
+      className="acct-tile acct-tile--wide acct-loy"
+      to="/pedir/fidelidade"
+      style={{ '--i': i } as CSSProperties}
+    >
+      <span className="acct-tile__top">
+        <span className="acct-tile__icon">
+          <Gift />
+        </span>
+        <span className="acct-loy__label">Fidelidade</span>
+        <ChevronRight className="acct-row__chev" aria-hidden />
+      </span>
+      <span className="acct-loy__balance">
+        {balance.toLocaleString('pt-BR')} <small>{loyaltyUnit(l, balance)}</small>
+      </span>
+      {l.rewards.length > 0 && (
+        <span className="acct-loy__bar" aria-hidden>
+          <span style={{ width: `${pct}%` }} />
+        </span>
+      )}
+      <small className="acct-loy__hint">
+        {!acc
+          ? loyaltyRule(l)
+          : goal
+            ? `Faltam ${(goal.cost - balance).toLocaleString('pt-BR')} para ${goal.name}`
+            : l.rewards.length
+              ? 'Você já pode trocar uma recompensa'
+              : loyaltyRule(l)}
+      </small>
+    </Link>
+  );
+}
+
+/**
+ * Aba "Conta": formulário de entrada ou o perfil. Foto e nome no topo, o pedido em andamento,
+ * a fidelidade e as telas em blocos grandes com o que importa de cada uma; conversa, tema e
+ * senha numa lista curta; Sair no fim.
+ */
 export function AccountScreen() {
-  const { account, logout, menu, favs } = useStore();
+  const { account, logout, menu, favs, product } = useStore();
   const chat = useStoreChat();
   const loyalty = useLoyalty();
   const [theme] = useTheme();
   const toast = useToast();
+  const me = account?.customer ?? null;
+  const orders = useAccountOrders(!!me);
   if (!account)
     return (
       <div className="sf-wrap sf-page">
         <Spinner />
       </div>
     );
-  const me = account.customer;
-  const themeTile = menu.appearance.theme === 'auto';
+  const themeRow = menu.appearance.theme === 'auto';
   const dark = theme === 'dark';
-  // Ordem de entrada de cada parte (o título do grupo entra junto com o primeiro bloco).
+  const live = liveOrder(orders);
+  const home = account.addresses.find((a) => a.isDefault) ?? account.addresses[0];
+  const favPhotos = favs.map((id) => product(id)?.imageUrl);
+  // Ordem de entrada de cada parte.
   let n = 0;
   const at = (i: number) => ({ '--i': i }) as CSSProperties;
   return (
@@ -301,110 +414,93 @@ export function AccountScreen() {
         <AuthForms />
       ) : (
         <>
-          <section className="acct__card" style={at(n++)}>
-            <ProfilePhoto me={me} size={76} />
-            <div className="acct__who">
-              <h1>{me.name}</h1>
-              <p>{fmtPhone(me.phone)}</p>
-              {me.email && <p>{me.email}</p>}
-            </div>
-          </section>
-          <section className="acct__group">
-            <h2 className="acct__title" style={at(n)}>
-              Minha conta
-            </h2>
-            <nav className="acct__tiles" aria-label="Minha conta">
-              {loyalty && (
-                <Tile
-                  i={n++}
-                  to="/pedir/fidelidade"
-                  icon={<Gift />}
-                  label="Fidelidade"
-                  hint={
-                    loyalty.account
-                      ? `${loyalty.account.balance.toLocaleString('pt-BR')} ${loyaltyUnit(loyalty, loyalty.account.balance)}`
-                      : 'Junte pontos a cada pedido'
-                  }
-                />
-              )}
-              <Tile
-                i={n++}
-                to="/pedir/pedidos"
-                icon={<ReceiptText />}
-                label="Meus pedidos"
-                hint="Acompanhe e veja o histórico"
-              />
-              <Tile
-                i={n++}
-                to="/pedir/conta/enderecos"
-                icon={<MapPin />}
-                label="Endereços"
-                hint={
-                  account.addresses.length
-                    ? `${account.addresses.length} salvo(s)`
-                    : 'Nenhum salvo ainda'
-                }
-              />
-              <Tile
-                i={n++}
-                to="/pedir/favoritos"
-                icon={<Heart />}
-                label="Favoritos"
-                hint={favs.length ? `${favs.length} prato(s)` : 'Guarde os que você mais pede'}
-              />
-              <Tile
-                i={n++}
-                to="/pedir/conta/dados"
-                icon={<UserRound />}
-                label="Meus dados"
-                hint="Nome, e-mail e promoções"
-              />
-              <Tile
-                i={n++}
-                to="/pedir/conta/senha"
-                icon={<KeyRound />}
-                label="Trocar senha"
-                hint="Para entrar com segurança"
-              />
-            </nav>
-          </section>
+          <header className="acct__hero" style={at(n++)}>
+            <ProfilePhoto me={me} size={96} />
+            <h1>{me.name}</h1>
+            <p>{fmtPhone(me.phone)}</p>
+          </header>
+          {live && (
+            <Link
+              className="acct-live"
+              to={`/pedir/pedidos/${live.id}`}
+              data-step={live.step}
+              style={at(n++)}
+            >
+              <span className="acct-live__dot" aria-hidden />
+              <span className="acct-live__text">
+                <strong>Pedido #{live.number}</strong>
+                <small>{STEP_LABEL[live.step]}</small>
+              </span>
+              <PhotoStack photos={live.items.map((it) => it.imageUrl)} />
+              <ChevronRight className="acct-row__chev" aria-hidden />
+            </Link>
+          )}
+          <nav className="acct__grid" aria-label="Minha conta">
+            {loyalty && <LoyaltyTile l={loyalty} i={n++} />}
+            <Tile
+              i={n++}
+              to="/pedir/pedidos"
+              icon={<ReceiptText />}
+              label="Pedidos"
+              photos={orders?.[0]?.items.map((it) => it.imageUrl)}
+              hint={
+                orders === null
+                  ? undefined
+                  : orders.length
+                    ? plural(
+                        orders.length,
+                        'pedido',
+                        orders.length >= 50 ? 'pedidos ou mais' : 'pedidos',
+                      )
+                    : 'Nenhum ainda'
+              }
+            />
+            <Tile
+              i={n++}
+              to="/pedir/conta/enderecos"
+              icon={<MapPin />}
+              label="Endereços"
+              hint={home ? `${home.street}, ${home.number}` : 'Nenhum ainda'}
+            />
+            <Tile
+              i={n++}
+              to="/pedir/favoritos"
+              icon={<Heart />}
+              label="Favoritos"
+              photos={favPhotos}
+              hint={favs.length ? plural(favs.length, 'prato', 'pratos') : 'Nenhum ainda'}
+            />
+            <Tile
+              i={n++}
+              to="/pedir/conta/dados"
+              icon={<UserRound />}
+              label="Meus dados"
+              hint={me.email ?? 'Nome e e-mail'}
+            />
+          </nav>
         </>
       )}
 
-      {(chat.enabled || themeTile) && (
-        <section className="acct__group">
-          <h2 className="acct__title" style={at(n)}>
-            Ajuda e preferências
-          </h2>
-          <nav className="acct__tiles" aria-label="Ajuda e preferências">
-            {chat.enabled && (
-              <Tile
-                i={n++}
-                to="/pedir/conversa"
-                icon={<MessageCircle />}
-                label="Conversar com a loja"
-                count={chat.unread}
-                hint={
-                  chat.unread
-                    ? `${chat.unread} mensagem(ns) nova(s)`
-                    : 'Dúvidas, fotos e vídeos, direto por aqui'
-                }
-              />
-            )}
-            {themeTile && (
-              <Tile
-                i={n++}
-                icon={dark ? <Moon /> : <Sun />}
-                label="Tema escuro"
-                hint={dark ? 'Ligado' : 'Desligado'}
-                switchOn={dark}
-                onClick={(e) =>
-                  switchTheme(dark ? 'light' : 'dark', clickPoint(e, e.currentTarget))
-                }
-              />
-            )}
-          </nav>
-        </section>
+      {(chat.enabled || themeRow || me) && (
+        <nav className="acct-list" aria-label="Ajuda e ajustes" style={at(n++)}>
+          {chat.enabled && (
+            <Row
+              to="/pedir/conversa"
+              icon={<MessageCircle />}
+              label="Conversar com a loja"
+              count={chat.unread}
+            />
+          )}
+          {themeRow && (
+            <Row
+              icon={dark ? <Moon /> : <Sun />}
+              label="Tema escuro"
+              switchOn={dark}
+              onClick={(e) => switchTheme(dark ? 'light' : 'dark', clickPoint(e, e.currentTarget))}
+            />
+          )}
+          {me && <Row to="/pedir/conta/senha" icon={<KeyRound />} label="Trocar senha" />}
+        </nav>
       )}
       {me && (
         <button

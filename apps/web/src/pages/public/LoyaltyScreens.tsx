@@ -28,7 +28,7 @@ export function useLoyalty(): LoyaltyOn | null {
 }
 
 /** Recompensa mais barata que o cliente ainda não alcança (a "próxima meta"). */
-function nextGoal(l: LoyaltyOn, balance: number) {
+export function nextGoal(l: LoyaltyOn, balance: number) {
   const sorted = [...l.rewards].sort((a, b) => a.cost - b.cost);
   return sorted.find((r) => r.cost > balance) ?? null;
 }
