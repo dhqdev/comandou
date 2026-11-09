@@ -173,7 +173,8 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await dialog.getByLabel('Nome do computador').fill(`PC ${tag}`);
   await dialog.getByRole('button', { name: 'Gerar código' }).click();
   dialog = page.getByRole('dialog', { name: `Conectar "PC ${tag}"` });
-  await expect(dialog.locator('code')).toContainText(/^CMD1-/);
+  // Só o código de conexão (a ajuda da linha de comando também tem exemplos em <code>).
+  await expect(dialog.locator('.print-setup__code code')).toContainText(/^CMD1-/);
   await expect(dialog.getByRole('link', { name: 'Abrir no aplicativo' })).toHaveAttribute(
     'href',
     /^comandou-impressao:\/\/conectar\?codigo=CMD1-/,

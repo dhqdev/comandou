@@ -143,6 +143,9 @@ export function AppFrame({
   const setOpen = (key: string | null) =>
     setFly((f) => (key ? { key, closing: false } : f ? { ...f, closing: true } : null));
   const [anchor, setAnchor] = useState({ top: 0, bottom: 0 });
+  // Rolagem da barra quando o submenu abriu: o aviso de rolagem chega um quadro depois, então
+  // um botão trazido à vista no próprio clique não pode fechar o submenu que acabou de abrir.
+  const flyScroll = useRef(0);
   const flyRef = useRef<HTMLDivElement>(null);
   const [flyTop, setFlyTop] = useState<number | null>(null);
   const [flySlide, setFlySlide] = useState(false);
@@ -287,6 +290,7 @@ export function AppFrame({
           if (!hasMenu) return it.onClick?.();
           const r = e.currentTarget.getBoundingClientRect();
           setAnchor({ top: r.top, bottom: r.bottom });
+          flyScroll.current = rail.ref.current?.scrollTop ?? 0;
           setOpen(open === it.key ? null : it.key);
         }}
       >
@@ -320,7 +324,9 @@ export function AppFrame({
           className="cm-rail__nav cm-glide"
           ref={rail.ref}
           // Submenu aberto fica preso à altura do botão: rolando os itens, ele fecha.
-          onScroll={() => open && setOpen(null)}
+          onScroll={(e) => {
+            if (open && Math.abs(e.currentTarget.scrollTop - flyScroll.current) > 2) setOpen(null);
+          }}
         >
           {items.map(railItem)}
           {rail.glider}
@@ -605,9 +611,11 @@ function TileGrid({ links, actions = [] }: { links: TileLink[]; actions?: TileAc
         >
           <span className="cm-tile__icon">
             {l.icon}
-            {l.dot && <span className="cm-tile__dot" aria-label="novo" />}
+            {l.dot && <span className="cm-tile__dot" aria-hidden />}
           </span>
           <span className="cm-tile__label">{l.label}</span>
+          {/* Leitor de tela ouve "Novidades, novo": o nome da tela vem primeiro. */}
+          {l.dot && <span className="cm-sr-only">, novo</span>}
           {l.badge && <span className="cm-tile__badge">{l.badge}</span>}
         </NavLink>
       ))}
