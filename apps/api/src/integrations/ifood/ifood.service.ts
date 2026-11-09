@@ -38,7 +38,6 @@ import {
 } from './ifood-sync';
 
 const SYNC_TENANT_JOB = 'ifood.sync-tenant';
-const SYNC_MENU_JOB = 'ifood.sync-menu';
 const MAX_ERRORS = 20;
 
 export interface ConnectionRow {
@@ -81,7 +80,6 @@ export class IfoodService implements OnModuleInit {
 
   onModuleInit() {
     this.queue.register(SYNC_TENANT_JOB, (d) => this.syncTenant(d));
-    this.queue.register(SYNC_MENU_JOB, (d) => this.syncMenuJob(d));
     // "Conforme o cliente coloca": qualquer mudança no cardápio agenda o envio ao iFood.
     this.realtime.onPublish((tenantId, e) => {
       if (e.type === 'menu.changed' && this.configured) void this.scheduleTenant(tenantId);
@@ -375,10 +373,6 @@ export class IfoodService implements OnModuleInit {
     }
   }
 
-  async scheduleMenu(tenantId: string, menuId: string) {
-    await this.queue.add(SYNC_MENU_JOB, { tenantId, menuId }, { attempts: 1 });
-  }
-
   private async syncTenant(d: TenantJob) {
     const menus = await this.db.withTenant({ tenantId: d.tenantId }, (tx) =>
       q<{ id: string }>(
@@ -388,10 +382,6 @@ export class IfoodService implements OnModuleInit {
       ),
     );
     for (const m of menus) await this.syncMenu(d.tenantId, m.id);
-  }
-
-  private async syncMenuJob(d: TenantJob) {
-    await this.syncMenu(d.tenantId, String(d.menuId));
   }
 
   /** Estado da última sincronização (para a tela). */

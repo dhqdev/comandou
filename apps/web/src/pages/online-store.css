@@ -23,10 +23,6 @@
   display: grid;
   gap: var(--cm-space-4);
 }
-.os-form {
-  display: grid;
-  gap: var(--cm-space-4);
-}
 .os-grid2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -360,22 +356,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-}
-.cl-search {
-  position: relative;
-  display: block;
-  width: min(320px, 100%);
-}
-.cl-search svg {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  translate: 0 -50%;
-  color: var(--cm-text-muted);
-  pointer-events: none;
-}
-.cl-search input {
-  padding-left: 36px;
 }
 
 /* Atalho em Ajustes */

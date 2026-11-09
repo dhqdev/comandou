@@ -237,7 +237,6 @@ const CHECK_ATTEMPTS = 8;
  */
 const CONTINGENCY_JOB = 'fiscal.contingency';
 const CONTINGENCY_ATTEMPTS = 16;
-const KIND_LABEL: Record<FiscalKind, string> = { nfce: 'NFC-e', nfe: 'NF-e' };
 
 /** O que pode vir no pedido de NFC-e pelo caixa (CPF na nota). */
 export interface NfceRequest {
@@ -2089,10 +2088,5 @@ export class FiscalService implements OnModuleInit {
         `A Focus NFe não enviou o e-mail: ${res.body.mensagem ?? `HTTP ${res.http}`}`,
       );
     return { ok: true };
-  }
-
-  /** Rótulo da nota para mensagens (NFC-e / NF-e). */
-  static label(kind: FiscalKind) {
-    return KIND_LABEL[kind];
   }
 }

@@ -200,27 +200,3 @@ export function Segmented<V extends string>({
     </div>
   );
 }
-
-/**
- * Grupo de chips (filtros, categorias, setores) com o indicador deslizante na cor da marca.
- * Os filhos são botões `.chip` com aria-selected/aria-pressed.
- */
-export function ChipGroup({
-  label,
-  children,
-  role = 'tablist',
-  className = '',
-}: {
-  label?: string;
-  children: ReactNode;
-  role?: string;
-  className?: string;
-}) {
-  const g = useGlider<HTMLDivElement>({ variant: 'brand' });
-  return (
-    <div ref={g.ref} className={`chips cm-glide ${className}`} role={role} aria-label={label}>
-      {children}
-      {g.glider}
-    </div>
-  );
-}

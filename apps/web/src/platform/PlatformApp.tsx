@@ -32,7 +32,6 @@ import {
   FRAME_MENU_PATH,
   FrameItem,
   LivePanda,
-  Mascot,
   Modal,
   Spinner,
   TextField,

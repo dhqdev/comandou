@@ -428,7 +428,6 @@ html.cm-kb-open .sfchat .scx {
 }
 
 /* Bolinha de mensagens não lidas nas abas */
-.tabbar__item,
 .sf-appbar__link {
   position: relative;
 }

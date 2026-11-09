@@ -2021,39 +2021,6 @@
   background: var(--cm-surface-sunken);
 }
 
-/* ---------------------------------------------------------------- esqueleto */
-.sk-row {
-  display: flex;
-  gap: 12px;
-  margin-top: 18px;
-  overflow: hidden;
-}
-.sk--search {
-  height: 52px;
-  margin-top: -28px;
-  position: relative;
-  border-radius: var(--sf-r);
-}
-.sk--chip {
-  flex: none;
-  width: 66px;
-  height: 66px;
-  border-radius: var(--sf-r);
-}
-.sk--banner {
-  height: 150px;
-  margin-top: 18px;
-  border-radius: var(--sf-r-lg);
-}
-.sk--order {
-  height: 96px;
-  border-radius: var(--sf-r);
-}
-.sf .sk--product {
-  height: 128px;
-  border-radius: var(--sf-r);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .sf *,
   .sf *::before,

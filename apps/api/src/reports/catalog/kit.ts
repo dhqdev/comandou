@@ -1,4 +1,4 @@
-import type { ReportChart, ReportDoc, ReportKpi, ReportPoint, ReportTable } from '@comandou/shared';
+import type { ReportDoc, ReportPoint } from '@comandou/shared';
 import { one, q } from '../../common/sql';
 import type { Tx } from '../../database/database.service';
 
@@ -116,10 +116,6 @@ export function topWithOthers(points: ReportPoint[], keep = 6): ReportPoint[] {
   const rest = sorted.slice(keep).reduce((s, x) => s + x.value, 0);
   return [...sorted.slice(0, keep), { label: 'Outros', value: r2(rest) }];
 }
-
-export const kpi = (k: ReportKpi) => k;
-export const chart = (c: ReportChart) => c;
-export const table = (t: ReportTable) => t;
 
 /** Chave do cliente: conta no cardápio online ou telefone (só dígitos). */
 export const CUSTOMER_KEY = `COALESCE(o.customer_id::text, NULLIF(regexp_replace(COALESCE(o.customer_phone, ''), '\\D', '', 'g'), ''))`;

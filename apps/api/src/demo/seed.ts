@@ -15,8 +15,6 @@ import { CASA_BRASA } from './catalog';
 import { seedDemoExtras } from './extras';
 import type { DemoCatalog, DemoProduct } from './types';
 
-/** Fotos e logo da Casa Brasa (geradas por tools/demo-images). */
-export const DEMO_IMAGES_DIR = CASA_BRASA.imagesDir;
 /** Linha do audit_log que marca o restaurante como já preenchido (nunca preenche duas vezes). */
 export const DEMO_MARKER = 'demo.seeded';
 

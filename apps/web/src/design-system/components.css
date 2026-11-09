@@ -962,7 +962,7 @@ input[type='radio'] {
   min-width: 0;
 }
 /* Grades antigas de 2 colunas dentro do formulário passam a fazer parte da grade do formulário. */
-.cm-form :is(.st-grid, .te-grid, .os-grid, .form-grid) {
+.cm-form :is(.st-grid, .te-grid, .form-grid) {
   display: contents;
 }
 .cm-form .cm-field,
@@ -1004,12 +1004,6 @@ input[type='radio'] {
 .cm-form__block {
   display: grid;
   gap: var(--cm-space-2);
-}
-.cm-form__title {
-  display: block;
-  font-size: var(--cm-text-sm);
-  font-weight: 550;
-  color: var(--cm-text);
 }
 /* Notebook/computador (mouse): campos compactos no estilo do Frappe. Rótulo pequeno e
    discreto, campo de 34px com fundo levemente cinza (fica branco ao focar) e até 3 campos por

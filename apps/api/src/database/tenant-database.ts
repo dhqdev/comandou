@@ -212,15 +212,6 @@ export class RegistryDatabaseRouter implements TenantDatabaseRouter {
     else this.cache.clear();
   }
 
-  /** Fecha o pool de um banco (antes de excluí-lo, por exemplo). */
-  async closeDatabase(dbName: string, server?: DbServer | null) {
-    const key = databaseKey(dbName, server);
-    const hit = this.pools.get(key);
-    if (!hit) return;
-    this.pools.delete(key);
-    await hit.pool.end().catch(() => undefined);
-  }
-
   async close() {
     const all = [...this.pools.values()];
     this.pools.clear();

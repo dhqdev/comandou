@@ -85,11 +85,6 @@ export function useKdsPrefs(): KdsPrefs {
   );
 }
 
-/** Só para testes: relê o que está salvo. */
-export function reloadKdsPrefs() {
-  prefs = read();
-}
-
 /** Tempo de espera do cartão: 04:32 até 1 hora; depois 1h05. */
 export function waitLabel(ms: number) {
   const s = Math.max(0, Math.floor(ms / 1000));

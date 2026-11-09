@@ -232,25 +232,6 @@
   display: grid;
   gap: var(--cm-space-4);
 }
-.fi-fieldset {
-  display: grid;
-  gap: var(--cm-space-3);
-  margin: 0;
-  padding: var(--cm-space-4);
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-lg);
-  min-width: 0;
-}
-.fi-fieldset legend {
-  padding: 0 var(--cm-space-2);
-  font-weight: 600;
-  color: var(--cm-text);
-}
-.fi-checks {
-  display: grid;
-  gap: var(--cm-space-2);
-  margin-bottom: var(--cm-space-3);
-}
 
 /* busca de cliente */
 .fi-picker {
@@ -331,9 +312,6 @@
   }
   .fi-head__actions > * {
     flex: 1 1 auto;
-  }
-  .fi-fieldset {
-    padding: var(--cm-space-3);
   }
   .fi-rule-select {
     min-width: 120px;

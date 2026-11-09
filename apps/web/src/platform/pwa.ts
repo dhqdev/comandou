@@ -59,9 +59,6 @@ export function listenInstallPrompt() {
   });
 }
 
-/** O navegador já ofereceu a instalação (Chrome/Android)? No iPhone, nunca: é pelo Compartilhar. */
-export const canPromptInstall = () => deferred !== null;
-
 interface InstallPromptEvent extends Event {
   prompt(): Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;

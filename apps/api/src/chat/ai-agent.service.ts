@@ -150,7 +150,7 @@ export class AiAgentService implements OnModuleInit {
   /** Tudo o que a tela do gerente precisa: configuração, situação da IA e uso do mês. */
   async overview(ctx: Ctx) {
     const settings = await this.db.withTenant(ctx, (tx) => this.settingsIn(tx));
-    const { c, used, blocked } = await this.platform(ctx);
+    const { c, used } = await this.platform(ctx);
     const reason =
       !c.enabled || !this.env.INTEGRATIONS_KEY
         ? 'platform'

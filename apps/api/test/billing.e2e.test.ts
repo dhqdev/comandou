@@ -772,7 +772,8 @@ describe('Página de preços, cartão automático e plano menor', () => {
 
   it('cartão recusado: guarda o motivo, tenta uma vez por dia e a fatura segue aberta', async () => {
     fake.decline = true;
-    const today = new Date().toISOString().slice(0, 10);
+    // Data de São Paulo, como o ciclo de cobrança (em UTC, das 21h às 24h já seria "amanhã").
+    const today = spDate();
     const r = await psend('post', `/billing/tenants/${fx.tenantA}/invoices`, {
       description: 'Avulsa no cartão',
       amount: '15.00',

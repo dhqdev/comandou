@@ -106,10 +106,6 @@ export class QueueService implements OnApplicationBootstrap, OnModuleDestroy {
     this.timers.add(t);
   }
 
-  get usesRedis(): boolean {
-    return !!this.queue;
-  }
-
   /** Redis responde? (sem Redis configurado: null) */
   async ping(): Promise<boolean | null> {
     if (!this.queue) return null;

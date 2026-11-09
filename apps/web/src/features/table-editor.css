@@ -140,11 +140,6 @@
   letter-spacing: -0.02em;
 }
 
-/* Formulários das folhas */
-.te-form {
-  display: grid;
-  gap: var(--cm-space-4);
-}
 .te-preview {
   display: flex;
   flex-wrap: wrap;

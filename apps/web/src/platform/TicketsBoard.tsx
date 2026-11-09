@@ -21,7 +21,6 @@ import {
   Paperclip,
   Play,
   Plus,
-  Search,
   Send,
   Settings2,
   X,

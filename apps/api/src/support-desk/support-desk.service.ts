@@ -90,10 +90,6 @@ export class SupportDeskService {
     private readonly realtime: RealtimeService,
   ) {}
 
-  get available() {
-    return this.pdb.enabled;
-  }
-
   private need() {
     if (!this.pdb.enabled)
       throw new ServiceUnavailableException('O suporte não está disponível neste servidor');

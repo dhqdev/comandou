@@ -28,26 +28,6 @@
   max-width: none;
   gap: 28px;
 }
-.adm-logo {
-  font-family: var(--a-ui);
-  font-weight: 700;
-  font-size: 15px;
-  color: var(--a-text);
-  padding: 0 10px 18px;
-}
-.adm-logo span {
-  color: var(--a-subtle);
-}
-.adm-top__title {
-  font-family: var(--a-ui);
-  font-weight: 700;
-  font-size: 15px;
-}
-.adm-top__sub {
-  font-family: var(--a-ui);
-  font-size: 13.5px;
-  color: var(--a-subtle);
-}
 .adm-top__spacer {
   flex: 1;
 }
@@ -621,22 +601,6 @@ a.adm-row:hover {
   background: var(--a-accent);
   box-shadow: none;
   backdrop-filter: none;
-}
-.adm-logo {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.adm-link {
-  border: 0;
-  padding: 0;
-  background: none;
-  color: var(--a-accent);
-  font: inherit;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
 }
 
 /* Passo a passo recolhível (ex.: como criar o bucket do backup) */

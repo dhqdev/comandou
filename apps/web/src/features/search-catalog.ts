@@ -4,7 +4,7 @@
  */
 import type { StaticEntry } from '@comandou/shared';
 export { STATIC_ENTRIES } from '@comandou/shared';
-export type { StaticEntry, StaticGroup, StaticIcon } from '@comandou/shared';
+export type { StaticEntry, StaticIcon } from '@comandou/shared';
 
 /** Minúsculas e sem acento: "Cardápio" e "cardapio" batem. */
 export function fold(s: string): string {

@@ -89,12 +89,6 @@ const TONES: Record<AgentTone, string> = {
   fun: 'descontraído e animado, com bom humor e emojis, sem exagerar',
 };
 
-export const TONE_LABELS: Record<AgentTone, string> = {
-  friendly: 'Simpático',
-  formal: 'Formal',
-  fun: 'Descontraído',
-};
-
 /** "12.50" → "R$ 12,50". */
 export function brl(v: string | number): string {
   const n = Number(v);

@@ -13,7 +13,7 @@ import { totpContext } from '../src/platform/platform-auth';
 import { newTotpSecret, totpCode, totpStep } from '../src/platform/totp';
 import { PipelineService } from '../src/tickets/pipeline.service';
 import { PLATFORM_URL, testEnv } from './env';
-import { Fixture, ownerQuery, PASSWORD, seedTwoTenants } from './fixtures';
+import { ownerQuery, PASSWORD, seedTwoTenants } from './fixtures';
 
 /**
  * Chamados: o restaurante abre com foto, o painel aprova e a esteira (OpenRouter e GitHub falsos)
@@ -33,7 +33,6 @@ const PNG = Buffer.from(
 
 let app: INestApplication;
 let http: ReturnType<typeof request>;
-let fx: Fixture;
 let pipeline: PipelineService;
 let admin = '';
 let ownerA = '';
@@ -288,7 +287,7 @@ async function run(id: string) {
 }
 
 beforeAll(async () => {
-  fx = await seedTwoTenants('tk');
+  await seedTwoTenants('tk');
   const [{ id }] = await ownerQuery<{ id: string }>(
     `INSERT INTO platform_admins (email, name, password_hash, totp_secret_enc)
      VALUES ('esteira@plataforma.test', 'David', $1, '\\x00') RETURNING id`,

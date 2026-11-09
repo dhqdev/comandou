@@ -1,12 +1,4 @@
-import {
-  ArrowDownWideNarrow,
-  ArrowUpNarrowWide,
-  Check,
-  ChevronDown,
-  Plus,
-  Search,
-  X,
-} from 'lucide-react';
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Plus, Search, X } from 'lucide-react';
 import {
   ReactNode,
   RefObject,

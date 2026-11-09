@@ -1,4 +1,4 @@
-import { formatBRL, fromCents, toCents } from '@comandou/shared';
+import { fromCents, toCents } from '@comandou/shared';
 import {
   AlertTriangle,
   Boxes,
@@ -13,18 +13,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Route, Routes, useNavigate } from 'react-router';
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  EmptyState,
-  Modal,
-  Segmented,
-  Spinner,
-  TextField,
-  useToast,
-} from '../design-system';
+import { Alert, Badge, Button, Card, EmptyState, Spinner } from '../design-system';
 import { useCan } from '../app/auth';
 import {
   fold,
@@ -35,21 +24,11 @@ import {
   type ListSort,
   type ListTab,
 } from '../features/list-view';
-import { CheckField, fmtQty, parseCostInput, parseQtyInput, SelectField } from '../features/forms';
-import {
-  agoLabel,
-  coverageDays,
-  daysSince,
-  fmtCost,
-  milliToQty,
-  toMilli,
-  unitCostFromTotal,
-  valueCents,
-} from '../features/stock-math';
-import { api } from '../lib/api';
+import { fmtQty } from '../features/forms';
+import { agoLabel, coverageDays, daysSince, fmtCost, toMilli } from '../features/stock-math';
 import { useLinkParam } from '../lib/deep-link';
-import { brl, parseBrlInput } from '../lib/money';
-import type { StockItem, StockUnit } from '../lib/types';
+import { brl } from '../lib/money';
+import type { StockItem } from '../lib/types';
 import { InventoryTab } from './StockInventory';
 import { PricingTab } from './StockPricing';
 import { StockHead, useStockItems } from './stock/common';

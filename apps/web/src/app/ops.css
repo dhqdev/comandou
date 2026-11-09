@@ -183,30 +183,9 @@
   box-shadow: var(--cm-shadow-md);
   transform: translateY(-1px);
 }
-.order-card__top,
-.order-card__bottom {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-}
 .order-card__time {
   font-size: var(--cm-text-xs);
   color: var(--cm-text-subtle);
-}
-.order-card__where {
-  font-size: var(--cm-text-sm);
-  color: var(--cm-text-muted);
-}
-.order-card__items {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  font-size: var(--cm-text-sm);
-}
-.order-card__items [data-cancelled] {
-  text-decoration: line-through;
-  opacity: 0.6;
 }
 
 .totals {
@@ -862,19 +841,7 @@ button.pay-part {
   grid-column: 1 / -1;
   margin: 0;
 }
-.order-actions .cm-btn {
-  min-height: 44px;
-}
 @media (max-width: 640px) {
-  .order-actions {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-  }
-  .order-actions .cm-btn {
-    min-height: 48px;
-    white-space: normal;
-    line-height: 1.2;
-  }
   .tab-actions {
     grid-template-columns: 1fr;
   }
@@ -991,51 +958,6 @@ button.pay-part {
   }
 }
 
-.register-grid,
-.group-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--cm-space-3);
-}
-.register-tile,
-.group-tile {
-  display: grid;
-  gap: var(--cm-space-2);
-  padding: var(--cm-space-4);
-  border-radius: var(--cm-radius-md);
-  border: 1px solid var(--cm-border);
-  background: var(--cm-surface);
-  justify-items: start;
-}
-.group-tile {
-  justify-items: stretch;
-}
-.register-tile[data-open] {
-  border-color: var(--cm-success);
-}
-.option-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 110px auto;
-  gap: var(--cm-space-2);
-}
-/* Caixinha de marcar com o texto ao lado (ex.: "Ativo"), em vez da grade de opções. */
-label.option-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 40px;
-  font-size: var(--cm-text-sm);
-  font-weight: 550;
-  cursor: pointer;
-}
-label.option-row input[type='checkbox'] {
-  flex: none;
-  width: 20px;
-  height: 20px;
-  margin: 0;
-  accent-color: var(--cm-brand-600);
-}
-
 @media (max-width: 640px) {
   .two-cols {
     grid-template-columns: minmax(0, 1fr);
@@ -1074,12 +996,6 @@ label.option-row input[type='checkbox'] {
   justify-content: center;
 }
 
-/* Etapa 4 ------------------------------------------------------------------------------ */
-.order-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: var(--cm-space-3);
-}
 .code-block {
   margin: 0;
   padding: var(--cm-space-3);
@@ -1089,17 +1005,6 @@ label.option-row input[type='checkbox'] {
   font-size: var(--cm-text-sm);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-.track-page {
-  min-height: 100%;
-  padding: var(--cm-space-6) var(--cm-space-4);
-  background: var(--cm-surface-muted);
-}
-.track-page__inner {
-  max-width: 480px;
-  margin: 0 auto;
-  display: grid;
-  gap: var(--cm-space-4);
 }
 .plain-list li {
   min-width: 0;
@@ -1159,187 +1064,6 @@ label.option-row input[type='checkbox'] {
 }
 .usage-bar[data-full] > span {
   background: var(--cm-danger);
-}
-
-/* Nota fiscal: cadastro guiado da empresa na Focus NFe (cores seguem a marca da loja). */
-.fx-steps {
-  list-style: none;
-  margin: var(--cm-space-4) 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--cm-space-2);
-}
-.fx-step {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: var(--cm-space-3);
-  padding: var(--cm-space-3);
-  border: 1px solid var(--cm-border-strong);
-  border-radius: 12px;
-  background: var(--cm-surface);
-  color: var(--cm-text-muted);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    border-color 0.15s,
-    background 0.15s;
-}
-.fx-step:hover {
-  border-color: var(--cm-brand-300);
-}
-.fx-step:focus-visible {
-  outline: none;
-  box-shadow: var(--cm-focus);
-}
-.fx-step[aria-current='step'] {
-  border-color: var(--cm-brand-500);
-  background: color-mix(in srgb, var(--cm-brand-500) 8%, var(--cm-surface));
-  color: var(--cm-text);
-}
-.fx-step__dot {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: var(--cm-surface-sunken);
-  color: var(--cm-text-muted);
-}
-.fx-step[aria-current='step'] .fx-step__dot {
-  background: var(--cm-brand-500);
-  color: var(--cm-on-brand);
-}
-.fx-step[data-done] .fx-step__dot {
-  background: var(--cm-success-bg);
-  color: var(--cm-success);
-}
-.fx-step__label {
-  display: flex;
-  flex-direction: column;
-  font-weight: 600;
-  font-size: var(--cm-text-sm);
-  line-height: 1.25;
-}
-.fx-step__label small {
-  font-weight: 500;
-  font-size: var(--cm-text-2xs);
-  color: var(--cm-text-subtle);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.fx-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cm-space-3);
-}
-.fx-cnpj {
-  display: flex;
-  gap: var(--cm-space-2);
-  align-items: flex-end;
-  flex-wrap: wrap;
-}
-.fx-cnpj .cm-field {
-  flex: 1 1 220px;
-  max-width: 320px;
-}
-.fx-grid {
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-}
-.fx-span-2 {
-  grid-column: span 2;
-}
-.fx-drop {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--cm-space-1);
-  padding: var(--cm-space-6) var(--cm-space-4);
-  border: 2px dashed var(--cm-border-strong);
-  border-radius: 14px;
-  background: var(--cm-surface-muted);
-  color: var(--cm-text-muted);
-  text-align: center;
-  cursor: pointer;
-  transition:
-    border-color 0.15s,
-    background 0.15s;
-}
-.fx-drop:hover,
-.fx-drop:focus-within {
-  border-color: var(--cm-brand-500);
-}
-.fx-drop[data-filled] {
-  border-style: solid;
-  border-color: var(--cm-brand-500);
-  background: color-mix(in srgb, var(--cm-brand-500) 6%, var(--cm-surface));
-  color: var(--cm-text);
-}
-.fx-drop input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-.fx-ok {
-  display: flex;
-  align-items: center;
-  gap: var(--cm-space-2);
-  margin: 0;
-  padding: var(--cm-space-3);
-  border-radius: 10px;
-  background: var(--cm-success-bg);
-  color: var(--cm-success);
-}
-.fx-csc {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--cm-space-3);
-}
-.fx-csc fieldset {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cm-space-2);
-  margin: 0;
-  padding: var(--cm-space-3);
-  border: 1px solid var(--cm-border-strong);
-  border-radius: 12px;
-}
-.fx-csc legend {
-  padding: 0 var(--cm-space-1);
-  font-weight: 600;
-  font-size: var(--cm-text-sm);
-}
-.fx-actions {
-  display: flex;
-  gap: var(--cm-space-2);
-  flex-wrap: wrap;
-  margin-top: var(--cm-space-4);
-}
-@media (max-width: 640px) {
-  .fx-steps {
-    grid-template-columns: 1fr;
-  }
-  .fx-span-2 {
-    grid-column: auto;
-  }
-  .fx-actions .cm-btn {
-    flex: 1 1 auto;
-  }
-}
-.cm-linklike {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--cm-link);
-  font: inherit;
-  font-weight: 600;
-  text-decoration: underline;
-  cursor: pointer;
 }
 
 /* WhatsApp: botão de ligar/desligar em cima e os avisos numa grade de tamanhos iguais. */

@@ -37,7 +37,6 @@
   margin-bottom: var(--cm-space-3);
   min-height: 0;
 }
-.kds-root[data-standalone] > .cm-spinner-wrap,
 .kds-root[data-standalone] > [role='status'] {
   flex: 1;
 }

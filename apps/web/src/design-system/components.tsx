@@ -1,6 +1,5 @@
 import {
   ButtonHTMLAttributes,
-  CSSProperties,
   ReactNode,
   InputHTMLAttributes,
   forwardRef,

@@ -719,11 +719,10 @@ describe('Domínio próprio', () => {
       .get('/api/v1/internal/traefik')
       .set('Authorization', `Bearer ${TRAEFIK_TOKEN}`)
       .expect(200);
-    const routers = Object.values(r.body.http.routers) as {
-      rule: string;
-      service: string;
-      tls: object;
-    }[];
+    // Só os domínios deste arquivo: outro arquivo de teste pode ter deixado um verificado no banco.
+    const routers = (
+      Object.values(r.body.http.routers) as { rule: string; service: string; tls: object }[]
+    ).filter((x) => x.rule.includes('.pf-'));
     expect(routers).toHaveLength(2);
     expect(routers.map((x) => x.rule)).toEqual([
       'Host(`pedidos.pf-b.com.br`) && PathPrefix(`/api`)',
@@ -743,7 +742,8 @@ describe('Domínio próprio', () => {
       .get('/api/v1/internal/traefik')
       .set('Authorization', `Bearer ${TRAEFIK_TOKEN}`)
       .expect(200);
-    expect(Object.keys(r.body.http.routers)).toHaveLength(0);
+    const left = Object.values(r.body.http.routers) as { rule: string }[];
+    expect(left.filter((x) => x.rule.includes('.pf-'))).toHaveLength(0);
 
     const a = await tenantLogin(HOST_A, 'admin@pf-a.test');
     const [d] = (await tget(HOST_A, a.cookie, '/domains').expect(200)).body;

@@ -16,7 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import { Alert, Segmented, useToast } from '../design-system';
 import { useAuth, useCan } from '../app/auth';
 import { NewSaleModal } from '../features/NewSaleModal';
@@ -189,7 +189,6 @@ function OrderCard({
 export function PdvPage() {
   const { me } = useAuth();
   const toast = useToast();
-  const navigate = useNavigate();
   const canSell = useCan('orders:write');
   const canManage = useCan('orders:manage');
   const canTables = useCan('tables:operate');
