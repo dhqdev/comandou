@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { mergeCarts, syncCart, type CartLine, type PublicProduct } from './store';
+import {
+  isTableId,
+  mergeCarts,
+  rememberTable,
+  storedTableId,
+  syncCart,
+  tableServiceFee,
+  type CartLine,
+  type PublicProduct,
+} from './store';
 
 const burger: PublicProduct = {
   id: 'p1',
@@ -78,5 +87,34 @@ describe('mergeCarts', () => {
 
   it('ignora linhas estranhas vindas da conta', () => {
     expect(mergeCarts([line()], [null, { key: 'x' }, 'a'])).toEqual([line()]);
+  });
+});
+
+describe('Mesa do QR Code no cardápio', () => {
+  const ID = '0b6c1d2e-3f40-4a51-8b62-7c83d94e05f6';
+
+  it('fica lembrada na aba por algumas horas e some depois', () => {
+    const now = Date.parse('2026-11-09T12:00:00Z');
+    rememberTable(ID, now);
+    expect(storedTableId(now + 60_000)).toBe(ID);
+    expect(storedTableId(now + 7 * 3_600_000)).toBeNull();
+    rememberTable(null);
+    expect(storedTableId(now)).toBeNull();
+  });
+
+  it('só aceita id de mesa de verdade', () => {
+    expect(isTableId(ID)).toBe(true);
+    expect(isTableId('mesa-5')).toBe(false);
+    expect(isTableId(null)).toBe(false);
+    sessionStorage.setItem('cm-store-table', JSON.stringify({ id: 'x', at: Date.now() }));
+    expect(storedTableId()).toBeNull();
+  });
+
+  it('taxa de serviço igual à da comanda (arredonda no centavo)', () => {
+    expect(tableServiceFee(5180, '10.00')).toBe(518);
+    expect(tableServiceFee(2590, '10.00')).toBe(259);
+    expect(tableServiceFee(999, '12.50')).toBe(125);
+    expect(tableServiceFee(5180, null)).toBe(0);
+    expect(tableServiceFee(0, '10.00')).toBe(0);
   });
 });

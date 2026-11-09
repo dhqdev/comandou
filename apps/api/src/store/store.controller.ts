@@ -57,63 +57,87 @@ const optText = (max: number) =>
     .optional()
     .transform((v) => v || undefined);
 
-const OnlineOrder = z.object({
-  channel: z.enum(['delivery', 'pickup']),
-  token: z.string().regex(PUBLIC_TOKEN_RE, 'token inválido'),
-  customerName: text(80),
-  customerPhone: z
-    .string()
-    .trim()
-    .regex(/^[0-9()+\s-]{8,20}$/, 'telefone inválido'),
-  address: z
-    .object({
-      street: text(120),
-      number: text(20),
-      district: text(80),
-      complement: optText(80),
-      reference: optText(120),
-      cep: z
-        .string()
-        .trim()
-        .transform((v) => v.replace(/\D/g, ''))
-        .refine((v) => !v || v.length === 8, 'CEP com 8 dígitos')
-        .optional()
-        .transform((v) => v || undefined),
-      city: optText(80),
-      state: z
-        .string()
-        .trim()
-        .toUpperCase()
-        .refine((v) => !v || isUf(v), 'UF inválida')
-        .optional()
-        .transform((v) => v || undefined),
-      lat: z.number().min(-90).max(90).optional(),
-      lng: z.number().min(-180).max(180).optional(),
-    })
-    .optional(),
-  notes: optText(300),
-  paymentMethod: z.enum(['cash', 'credit', 'debit', 'pix', 'voucher']),
-  changeFor: money.optional(),
-  items: z
-    .array(
-      z.object({
-        productId: uuid,
-        // Unidades (1 a 50) ou, no item vendido por peso, o peso em kg (0,1 a 5 kg, até 3 casas).
-        // A API confere item a item qual das duas vale.
-        quantity: z
-          .number()
-          .positive()
-          .max(50)
-          .refine((n) => Math.abs(n * 1000 - Math.round(n * 1000)) < 1e-6, 'até 3 casas decimais'),
-        notes: optText(200),
-        optionIds: z.array(uuid).max(50).optional(),
-      }),
-    )
-    .min(1)
-    .max(60),
-  /** Recompensa do programa de fidelidade (só com a conta aberta). */
-  rewardId: uuid.optional(),
-});
+const OnlineOrder = z
+  .object({
+    /** table = cliente sentado, pelo QR Code da mesa: o pedido vai para a comanda dela. */
+    channel: z.enum(['delivery', 'pickup', 'table']),
+    tableId: uuid.optional(),
+    token: z.string().regex(PUBLIC_TOKEN_RE, 'token inválido'),
+    customerName: text(80),
+    // Na mesa o telefone é opcional (o garçom leva até ela); na entrega e na retirada, obrigatório.
+    customerPhone: z
+      .string()
+      .trim()
+      .regex(/^[0-9()+\s-]{8,20}$/, 'telefone inválido')
+      .optional(),
+    address: z
+      .object({
+        street: text(120),
+        number: text(20),
+        district: text(80),
+        complement: optText(80),
+        reference: optText(120),
+        cep: z
+          .string()
+          .trim()
+          .transform((v) => v.replace(/\D/g, ''))
+          .refine((v) => !v || v.length === 8, 'CEP com 8 dígitos')
+          .optional()
+          .transform((v) => v || undefined),
+        city: optText(80),
+        state: z
+          .string()
+          .trim()
+          .toUpperCase()
+          .refine((v) => !v || isUf(v), 'UF inválida')
+          .optional()
+          .transform((v) => v || undefined),
+        lat: z.number().min(-90).max(90).optional(),
+        lng: z.number().min(-180).max(180).optional(),
+      })
+      .optional(),
+    notes: optText(300),
+    // Na mesa a conta é paga no fim, com o garçom ou no caixa: sem forma de pagamento no pedido.
+    paymentMethod: z.enum(['cash', 'credit', 'debit', 'pix', 'voucher']).optional(),
+    changeFor: money.optional(),
+    items: z
+      .array(
+        z.object({
+          productId: uuid,
+          // Unidades (1 a 50) ou, no item vendido por peso, o peso em kg (0,1 a 5 kg, até 3 casas).
+          // A API confere item a item qual das duas vale.
+          quantity: z
+            .number()
+            .positive()
+            .max(50)
+            .refine(
+              (n) => Math.abs(n * 1000 - Math.round(n * 1000)) < 1e-6,
+              'até 3 casas decimais',
+            ),
+          notes: optText(200),
+          optionIds: z.array(uuid).max(50).optional(),
+        }),
+      )
+      .min(1)
+      .max(60),
+    /** Recompensa do programa de fidelidade (só com a conta aberta). */
+    rewardId: uuid.optional(),
+  })
+  .superRefine((o, ctx) => {
+    if (o.channel === 'table') {
+      if (!o.tableId)
+        ctx.addIssue({ code: 'custom', path: ['tableId'], message: 'Informe a mesa' });
+      return;
+    }
+    if (!o.customerPhone)
+      ctx.addIssue({ code: 'custom', path: ['customerPhone'], message: 'telefone inválido' });
+    if (!o.paymentMethod)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['paymentMethod'],
+        message: 'Escolha a forma de pagamento',
+      });
+  });
 
 const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Hora no formato HH:MM');
 
@@ -242,8 +266,9 @@ export class StoreController {
   @Public()
   @Throttle({ default: { ttl: 60_000, limit: 120 } })
   @Get()
-  menu(@CurrentTenant() t: ResolvedTenant) {
-    return this.store.publicMenu(t.id, t.name, t.slug);
+  menu(@CurrentTenant() t: ResolvedTenant, @Query('mesa') mesa: string | undefined) {
+    // ?mesa=<id>: cliente que leu o QR Code da mesa (preços do salão e a mesa escolhida).
+    return this.store.publicMenu(t.id, t.name, t.slug, typeof mesa === 'string' ? mesa : undefined);
   }
 
   /** Situação da loja (aberta/fechada): leve, para o cardápio aberto se atualizar sozinho. */

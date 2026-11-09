@@ -40,7 +40,13 @@ import { OrdersScreen } from './OrdersScreen';
 import { ProductScreen } from './ProductScreen';
 import { ReservationStatusScreen, ReserveScreen } from './ReservationScreens';
 import { PublicOrderPage } from './PublicOrderPage';
-import type { PublicMenu, StoreStatus } from './store';
+import {
+  isTableId,
+  rememberTable,
+  storedTableId,
+  type PublicMenu,
+  type StoreStatus,
+} from './store';
 import { MagicNav, type MagicTab } from './MagicNav';
 import { useLayout } from './sections';
 import { CartPanel, OrderBar, SideBar, StoreStatusLine } from './Shell';
@@ -120,7 +126,7 @@ function TopBar() {
           <Photo src={r.logoUrl} alt={r.name} className="sf-appbar__logo" eager />
           <span>
             <strong>{r.name}</strong>
-            <StoreStatusLine />
+            <StoreStatusLine withTable />
           </span>
         </Link>
         <nav className="sf-appbar__nav" aria-label="Menu do cardápio">
@@ -278,24 +284,61 @@ function Skeleton() {
   );
 }
 
+/**
+ * Mesa do QR Code: chega como /pedir?mesa=<id> (o QR /mesa/<id> manda o cliente para cá), fica
+ * lembrada nesta aba e sai do endereço (quem compartilhar o link não manda a mesa junto).
+ */
+function useTableId() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const fromQr = new URLSearchParams(location.search).get('mesa');
+  const [id, setId] = useState<string | null>(() => {
+    if (isTableId(fromQr)) rememberTable(fromQr);
+    return isTableId(fromQr) ? fromQr : storedTableId();
+  });
+  useEffect(() => {
+    if (fromQr === null) return;
+    if (isTableId(fromQr)) {
+      rememberTable(fromQr);
+      setId(fromQr);
+    }
+    const rest = new URLSearchParams(location.search);
+    rest.delete('mesa');
+    const q = rest.toString();
+    navigate({ pathname: location.pathname, search: q ? `?${q}` : '' }, { replace: true });
+  }, [fromQr]);
+  const leave = useCallback(() => {
+    rememberTable(null);
+    setId(null);
+  }, []);
+  return [id, leave] as const;
+}
+
 /** Cardápio online do restaurante (/pedir/*): um app de pedidos para o cliente final. */
 export function StoreApp() {
   const [menu, setMenu] = useState<PublicMenu | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tableId, leaveTable] = useTableId();
 
   const loadMenu = useCallback(
     () =>
-      api<PublicMenu>('/store').then((m) => {
-        setMenu(m);
-        document.title = `${m.restaurant.name} · Cardápio`;
-      }),
-    [],
+      api<PublicMenu>(tableId ? `/store?mesa=${encodeURIComponent(tableId)}` : '/store').then(
+        (m) => {
+          // Mesa que não existe mais (QR antigo): segue no cardápio de entrega e retirada.
+          if (tableId && !m.table) rememberTable(null);
+          setMenu(m);
+          document.title = `${m.restaurant.name} · Cardápio`;
+        },
+      ),
+    [tableId],
   );
   useEffect(() => {
     loadMenu().catch((e: ApiError) =>
       setError(
         e.status === 404 || e.status === 403
-          ? 'Este restaurante não está recebendo pedidos online.'
+          ? tableId
+            ? 'Este restaurante não recebe pedidos pelo celular. Chame o garçom para pedir.'
+            : 'Este restaurante não está recebendo pedidos online.'
           : 'Não foi possível carregar o cardápio. Tente de novo em instantes.',
       ),
     );
@@ -348,7 +391,12 @@ export function StoreApp() {
     );
   if (!menu) return <Skeleton />;
   return (
-    <StoreProvider menu={menu} refreshStatus={refreshStatus} refreshMenu={refreshMenu}>
+    <StoreProvider
+      menu={menu}
+      refreshStatus={refreshStatus}
+      refreshMenu={refreshMenu}
+      leaveTable={leaveTable}
+    >
       <StoreChatProvider>
         <Chrome />
       </StoreChatProvider>

@@ -699,8 +699,9 @@ function TableQrModal({
   return (
     <Modal open={open} onClose={onClose} title="QR Code das mesas" size="xl">
       <p className="cm-hint" style={{ marginTop: 0 }}>
-        Imprima e cole um em cada mesa. O garçom escaneia pelo app e abre a comanda; o cliente que
-        aponta a câmera vê o cardápio.
+        Imprima e cole um em cada mesa. O cliente aponta a câmera e o cardápio já abre nessa mesa: o
+        pedido dele cai na comanda dela (precisa da loja online ligada). O garçom usa Escanear mesa
+        no app, ou a câmera do celular em que está logado, e abre a comanda.
       </p>
       <div className="qr-sheet">
         {tables.map((t) => (

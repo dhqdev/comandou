@@ -4,6 +4,7 @@ import {
   Check,
   ChefHat,
   CircleCheckBig,
+  HandPlatter,
   Hourglass,
   MapPin,
   MessageCircle,
@@ -29,7 +30,9 @@ interface PublicOrder {
   etaMin: number;
   etaMax: number;
   number: number;
-  channel: 'delivery' | 'pickup';
+  channel: 'delivery' | 'pickup' | 'table';
+  /** Mesa do pedido feito pelo QR Code. */
+  tableLabel?: string | null;
   step: Step | 'cancelled';
   canCancel: boolean;
   createdAt: string;
@@ -39,6 +42,8 @@ interface PublicOrder {
   subtotal: string;
   deliveryFee: string;
   discount: string;
+  /** Taxa de serviço (pedido de mesa). */
+  surcharge?: string;
   total: string;
   paymentHint: PaymentMethod | null;
   changeFor: string | null;
@@ -71,16 +76,21 @@ const HERO: Record<
     icon: ChefHat,
     tone: 'var(--cm-brand-deep)',
     title: 'Pedido em preparo',
-    text: (o) => `Previsão de ${o.etaMin} a ${o.etaMax} minutos.`,
+    text: (o) =>
+      o.channel === 'table'
+        ? `A cozinha está preparando. A gente leva na ${atTable(o)}.`
+        : `Previsão de ${o.etaMin} a ${o.etaMax} minutos.`,
   },
   ready: {
     icon: PackageCheck,
     tone: 'var(--cm-info)',
     title: 'Pedido pronto',
     text: (o) =>
-      o.channel === 'pickup'
-        ? 'Já pode retirar na loja.'
-        : 'Separado e esperando o entregador sair.',
+      o.channel === 'table'
+        ? `Saindo da cozinha para a ${atTable(o)}.`
+        : o.channel === 'pickup'
+          ? 'Já pode retirar na loja.'
+          : 'Separado e esperando o entregador sair.',
   },
   dispatched: {
     icon: Bike,
@@ -92,7 +102,12 @@ const HERO: Record<
     icon: CircleCheckBig,
     tone: 'var(--cm-success)',
     title: 'Pedido concluído',
-    text: (o) => (o.channel === 'pickup' ? 'Retirado. Bom apetite!' : 'Entregue. Bom apetite!'),
+    text: (o) =>
+      o.channel === 'pickup'
+        ? 'Retirado. Bom apetite!'
+        : o.channel === 'table'
+          ? 'Bom apetite!'
+          : 'Entregue. Bom apetite!',
   },
   cancelled: {
     icon: XCircle,
@@ -101,6 +116,9 @@ const HERO: Record<
     text: (o) => o.cancelReason ?? 'Este pedido foi cancelado.',
   },
 };
+
+const atTable = (o: Pick<PublicOrder, 'tableLabel'>) =>
+  o.tableLabel ? `Mesa ${o.tableLabel}` : 'sua mesa';
 
 /**
  * Acompanhamento do pedido. Pelo link (/pedido/:token, sem conta) ou pelo histórico da conta
@@ -186,7 +204,10 @@ export function PublicOrderPage() {
     ...(o.channel === 'delivery'
       ? [{ key: 'dispatched' as const, label: 'Saiu para entrega' }]
       : []),
-    { key: 'completed', label: o.channel === 'pickup' ? 'Retirado' : 'Entregue' },
+    {
+      key: 'completed',
+      label: o.channel === 'pickup' ? 'Retirado' : o.channel === 'table' ? 'Na mesa' : 'Entregue',
+    },
   ];
   const order: Step[] = steps.map((s) => s.key);
   const curIdx = o.step === 'cancelled' ? -1 : order.indexOf(o.step);
@@ -309,6 +330,12 @@ export function PublicOrderPage() {
                   <dd>− {brl(o.discount)}</dd>
                 </>
               )}
+              {Number(o.surcharge ?? 0) > 0 && (
+                <>
+                  <dt>{o.channel === 'table' ? 'Serviço' : 'Acréscimo'}</dt>
+                  <dd>{brl(o.surcharge!)}</dd>
+                </>
+              )}
               <dt className="sum__total">Total</dt>
               <dd className="sum__total">{brl(o.total)}</dd>
             </dl>
@@ -331,6 +358,15 @@ export function PublicOrderPage() {
               {o.channel === 'pickup' && (
                 <div className="track__row">
                   <Store size={15} aria-hidden /> <span>Retirada na loja</span>
+                </div>
+              )}
+              {o.channel === 'table' && (
+                <div className="track__row">
+                  <HandPlatter size={15} aria-hidden />
+                  <span>
+                    {atTable(o)} · você paga no fim, com o garçom ou no caixa
+                    {o.paymentStatus === 'paid' && ' (pago)'}
+                  </span>
                 </div>
               )}
             </div>

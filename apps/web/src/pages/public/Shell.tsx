@@ -1,5 +1,5 @@
 import { fromCents, toCents } from '@comandou/shared';
-import { ChevronRight, Clock, ShoppingBag } from 'lucide-react';
+import { ChevronRight, Clock, HandPlatter, ShoppingBag } from 'lucide-react';
 import { ReactNode, useEffect, useMemo, useRef } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router';
 import { SlideTabs } from '../../features/SlideTabs';
@@ -8,16 +8,26 @@ import { MotoboyArt } from './art';
 import { useStore } from './context';
 import type { MagicTab } from './MagicNav';
 import { buildSections, requestJump, sectionPhoto, useActiveSection } from './sections';
-import { lineTotal } from './store';
+import { lineTotal, type StoreChannel } from './store';
 import { Photo, Stepper } from './ui';
 
-/** Situação da loja numa linha: bolinha verde/vermelha e o texto. */
-export function StoreStatusLine({ className = '' }: { className?: string }) {
-  const { menu } = useStore();
+/**
+ * Situação da loja numa linha: bolinha verde/vermelha e o texto. Com `withTable`, a mesa do QR
+ * Code vem junto (barra do tablet e menu do notebook, que ficam à vista em todas as telas).
+ */
+export function StoreStatusLine({
+  className = '',
+  withTable = false,
+}: {
+  className?: string;
+  withTable?: boolean;
+}) {
+  const { menu, table } = useStore();
   const open = menu.store.isOpen;
   return (
     <span className={`status ${open ? 'is-open' : 'is-closed'} ${className}`}>
       {open ? 'Aberto agora' : 'Fechado agora'}
+      {withTable && table && <span className="status__table">· Mesa {table.label}</span>}
     </span>
   );
 }
@@ -28,25 +38,37 @@ export function deliveryFeeText(s: { deliveryZones?: boolean; deliveryFee: strin
   return toCents(s.deliveryFee) ? `Entrega ${brl(s.deliveryFee)}` : 'Entrega grátis';
 }
 
-/** Entrega ou retirada escolhida, entre as que a loja aceita. */
-export function useChannel() {
-  const { menu, customer, setCustomer } = useStore();
+/**
+ * Entrega ou retirada escolhida, entre as que a loja aceita. Na mesa (QR Code) o pedido é sempre
+ * para a mesa: sem escolha de entrega ou retirada.
+ */
+export function useChannel(): {
+  channels: ('delivery' | 'pickup')[];
+  channel: StoreChannel | undefined;
+  setChannel(v: 'delivery' | 'pickup'): void;
+} {
+  const { menu, customer, setCustomer, table } = useStore();
   const s = menu.store;
   const channels = [
     s.acceptsDelivery && ('delivery' as const),
     s.acceptsPickup && ('pickup' as const),
   ].filter(Boolean) as ('delivery' | 'pickup')[];
-  const channel = channels.includes(customer.channel) ? customer.channel : channels[0];
   const setChannel = (v: 'delivery' | 'pickup') => setCustomer((c) => ({ ...c, channel: v }));
+  if (table) return { channels: [], channel: 'table', setChannel };
+  const channel = channels.includes(customer.channel) ? customer.channel : channels[0];
   return { channels, channel, setChannel };
 }
+
+/** Pedido mínimo da loja: vale na entrega e na retirada, não na mesa. */
+export const minOrderOf = (s: { minOrder: string }, channel: StoreChannel | undefined) =>
+  channel === 'table' ? 0 : toCents(s.minOrder);
 
 /**
  * Menu lateral do notebook (e do tablet deitado): loja, abas, categorias e a sacola. Tocar numa
  * categoria rola o cardápio até ela; rolar o cardápio marca a categoria que está na tela.
  */
 export function SideBar({ tabs, dot }: { tabs: MagicTab[]; dot(n: number): ReactNode }) {
-  const { menu, count, subtotal, bump } = useStore();
+  const { menu, count, subtotal, bump, table } = useStore();
   const sections = useMemo(() => buildSections(menu), [menu]);
   const active = useActiveSection();
   const { pathname } = useLocation();
@@ -72,7 +94,7 @@ export function SideBar({ tabs, dot }: { tabs: MagicTab[]; dot(n: number): React
         <Photo src={r.logoUrl} alt={r.name} className="sf-side__logo" eager />
         <span>
           <strong>{r.name}</strong>
-          <StoreStatusLine />
+          <StoreStatusLine withTable />
         </span>
       </Link>
 
@@ -127,16 +149,26 @@ export function SideBar({ tabs, dot }: { tabs: MagicTab[]; dot(n: number): React
           <span>{count ? 'Ver sacola' : 'Sacola vazia'}</span>
           {count > 0 && <strong>{brl(fromCents(subtotal))}</strong>}
         </Link>
-        {s.acceptsDelivery && (
-          <div className="sf-side__ride">
-            <MotoboyArt ride={s.isOpen} className="sf-side__art" />
+        {table ? (
+          <div className="sf-side__ride sf-side__ride--table">
+            <HandPlatter size={20} aria-hidden />
             <span>
-              <strong>
-                <Clock size={13} aria-hidden /> {s.etaMin}–{s.etaMax} min
-              </strong>
-              <small>{deliveryFeeText(s)}</small>
+              <strong>Mesa {table.label}</strong>
+              <small>O pedido vai direto para a sua mesa</small>
             </span>
           </div>
+        ) : (
+          s.acceptsDelivery && (
+            <div className="sf-side__ride">
+              <MotoboyArt ride={s.isOpen} className="sf-side__art" />
+              <span>
+                <strong>
+                  <Clock size={13} aria-hidden /> {s.etaMin}–{s.etaMax} min
+                </strong>
+                <small>{deliveryFeeText(s)}</small>
+              </span>
+            </div>
+          )
         )}
       </div>
     </aside>
@@ -148,12 +180,13 @@ export function SideBar({ tabs, dot }: { tabs: MagicTab[]; dot(n: number): React
  * retirada, total e o botão que já abre a finalização.
  */
 export function CartPanel() {
-  const { cart, setCart, subtotal, count, menu, product, bump } = useStore();
+  const { cart, setCart, subtotal, count, menu, product, bump, table } = useStore();
   const { channels, channel, setChannel } = useChannel();
   const navigate = useNavigate();
   const s = menu.store;
   const fee = channel === 'delivery' && !s.deliveryZones ? toCents(s.deliveryFee) : 0;
-  const belowMin = count > 0 && subtotal < toCents(s.minOrder);
+  const minOrder = minOrderOf(s, channel);
+  const belowMin = count > 0 && subtotal < minOrder;
   const soldOut = cart.some((l) => product(l.productId)?.soldOut);
 
   return (
@@ -240,14 +273,17 @@ export function CartPanel() {
           </dl>
         ) : (
           <p className="form-hint sf-cart__hint">
-            {channel === 'delivery' ? deliveryFeeText(s) : 'Retirada no balcão da loja'}
-            {toCents(s.minOrder) > 0 && ` · Pedido mínimo ${brl(s.minOrder)}`}
+            {table
+              ? `Pedido para a Mesa ${table.label}: você paga no fim`
+              : channel === 'delivery'
+                ? deliveryFeeText(s)
+                : 'Retirada no balcão da loja'}
+            {minOrder > 0 && ` · Pedido mínimo ${brl(s.minOrder)}`}
           </p>
         )}
         {belowMin && (
           <p className="form-hint">
-            Pedido mínimo de {brl(s.minOrder)}. Faltam{' '}
-            {brl(fromCents(toCents(s.minOrder) - subtotal))}.
+            Pedido mínimo de {brl(s.minOrder)}. Faltam {brl(fromCents(minOrder - subtotal))}.
           </p>
         )}
         <button

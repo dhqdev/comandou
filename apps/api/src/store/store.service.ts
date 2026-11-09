@@ -19,6 +19,7 @@ import { menuTreeSql } from '../catalog/menu-sql';
 export const mediaUrl = (id: string | null | undefined) => (id ? `/api/v1/media/${id}` : null);
 export const publicTokenHash = (token: string) => createHash('sha256').update(token).digest();
 export const PUBLIC_TOKEN_RE = /^[A-Za-z0-9_-]{32,64}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface StoreSettings {
   enabled: boolean;
@@ -218,10 +219,13 @@ const COLUMN: Record<keyof StoreSettings, string> = {
 };
 
 export interface OnlineOrderInput {
-  channel: 'delivery' | 'pickup';
+  /** table = cliente sentado, pelo QR Code da mesa (exige `tableId`). */
+  channel: 'delivery' | 'pickup' | 'table';
+  tableId?: string;
   token: string;
   customerName: string;
-  customerPhone: string;
+  /** Obrigatório na entrega e na retirada; opcional na mesa. */
+  customerPhone?: string;
   address?: {
     street: string;
     number: string;
@@ -235,7 +239,8 @@ export interface OnlineOrderInput {
     lng?: number;
   };
   notes?: string;
-  paymentMethod: 'cash' | 'credit' | 'debit' | 'pix' | 'voucher';
+  /** Obrigatório na entrega e na retirada; na mesa a conta é paga no fim. */
+  paymentMethod?: 'cash' | 'credit' | 'debit' | 'pix' | 'voucher';
   changeFor?: string;
   items: { productId: string; quantity: number; notes?: string; optionIds?: string[] }[];
   /** Cliente com a conta aberta (cookie cm_cid). */
@@ -431,11 +436,16 @@ export class StoreService {
     };
   }
 
-  /** Cardápio público: só o que o cliente precisa ver. Sem custos, fichas, setores ou dados fiscais. */
-  publicMenu(tenantId: string, tenantName: string, slug: string) {
+  /**
+   * Cardápio público: só o que o cliente precisa ver. Sem custos, fichas, setores ou dados fiscais.
+   * Com `tableId` (QR Code da mesa), vem a mesa e os preços do salão; mesa inexistente ou
+   * desativada volta `table: null` e o cardápio normal (entrega e retirada).
+   */
+  publicMenu(tenantId: string, tenantName: string, slug: string, tableId?: string) {
     return this.db.withTenant({ tenantId }, async (tx) => {
       const s = await this.settingsIn(tx);
       if (!s.enabled) throw new NotFoundException('Cardápio online desativado');
+      const table = tableId ? await this.publicTableIn(tx, tableId) : null;
       const categories = await q<{
         id: string;
         name: string;
@@ -454,8 +464,9 @@ export class StoreService {
       }>(
         tx,
         // O cardápio online usa o cardápio Delivery (itens e preços dele), igual ao pedido que chega.
+        // Na mesa vale o Principal (o do salão), que é o que o pedido de mesa cobra.
         menuTreeSql(`'featured', p.featured, 'badge', p.badge,`),
-        ['delivery'],
+        [table ? 'principal' : 'delivery'],
       );
       const banners = await q<BannerInput & { id: string }>(
         tx,
@@ -502,6 +513,7 @@ export class StoreService {
           /** Taxa por área no mapa: o cardápio pede a localização do endereço antes do pedido. */
           deliveryZones: (zoneCount?.n ?? 0) > 0,
         },
+        table,
         appearance: {
           theme: s.theme,
           headline: s.headline,
@@ -531,6 +543,27 @@ export class StoreService {
     });
   }
 
+  /**
+   * Mesa do QR Code, para o cliente: nome e a taxa de serviço que a comanda cobra (a da comanda
+   * aberta; sem comanda, a do salão). Nada de comanda, cliente ou valores.
+   */
+  private async publicTableIn(tx: Tx, tableId: string) {
+    if (!UUID_RE.test(tableId)) return null;
+    return (
+      (await one<{ id: string; label: string; serviceFeePercent: string | null }>(
+        tx,
+        `SELECT dt.id, dt.label,
+                (CASE WHEN tb.id IS NOT NULL THEN tb.service_fee_percent
+                      ELSE (SELECT NULLIF(service_fee_percent, 0) FROM salon_settings) END)::text
+                  AS "serviceFeePercent"
+           FROM dining_tables dt
+           LEFT JOIN tabs tb ON tb.table_id = dt.id AND tb.status = 'open'
+          WHERE dt.id = $1 AND dt.active`,
+        [tableId],
+      )) ?? null
+    );
+  }
+
   /** Pedido do cliente final. Preços, taxa e pedido mínimo vêm sempre do banco. */
   async placeOrder(tenantId: string, input: OnlineOrderInput, key: string, ip?: string) {
     const ctx = onlineCtx(tenantId);
@@ -540,8 +573,16 @@ export class StoreService {
       return { s: st, openNow: await this.openNowIn(tx, st) };
     });
     if (!s.enabled) throw new NotFoundException('Cardápio online desativado');
+    const atTable = input.channel === 'table';
     if (!openNow)
-      throw new ConflictException('A loja está fechada agora. Tente novamente mais tarde.');
+      throw new ConflictException(
+        atTable
+          ? 'A loja não está recebendo pedidos pelo celular agora. Chame o garçom para pedir.'
+          : 'A loja está fechada agora. Tente novamente mais tarde.',
+      );
+    if (atTable && !input.tableId) throw new UnprocessableEntityException('Informe a mesa');
+    if (!atTable && (!input.customerPhone || !input.paymentMethod))
+      throw new UnprocessableEntityException('Informe o telefone e a forma de pagamento');
     if (input.channel === 'delivery' && !s.acceptsDelivery)
       throw new UnprocessableEntityException('Esta loja não está fazendo entregas agora');
     if (input.channel === 'pickup' && !s.acceptsPickup)
@@ -587,10 +628,13 @@ export class StoreService {
         if (quote.minOrder) minSubtotal = quote.minOrder;
       }
     }
+    // Mesa: entra na comanda aberta dela (ou abre uma, no nome do cliente). Sem taxa de entrega,
+    // pedido mínimo nem forma de pagamento: a conta é fechada no salão.
     const order = await this.orders.create(
       ctx,
       {
         channel: input.channel,
+        tableId: atTable ? input.tableId : undefined,
         customerName: input.customerName,
         customerPhone: input.customerPhone,
         deliveryAddress: address,
@@ -601,12 +645,12 @@ export class StoreService {
         online: {
           tokenHash: publicTokenHash(input.token),
           autoAccept: s.autoAccept,
-          paymentHint: input.paymentMethod,
-          changeFor: input.paymentMethod === 'cash' ? input.changeFor : undefined,
+          paymentHint: atTable ? undefined : input.paymentMethod,
+          changeFor: !atTable && input.paymentMethod === 'cash' ? input.changeFor : undefined,
           customerId: input.customerId,
           rewardId: input.rewardId,
         },
-        minSubtotal,
+        minSubtotal: atTable ? undefined : minSubtotal,
       },
       key,
     );
@@ -651,7 +695,9 @@ export class StoreService {
       subtotal: string;
       deliveryFee: string;
       discount: string;
+      surcharge: string;
       total: string;
+      tableLabel: string | null;
       paymentHint: string | null;
       changeFor: string | null;
       paymentStatus: string;
@@ -660,7 +706,10 @@ export class StoreService {
       tx,
       `SELECT number, status, channel, created_at AS "createdAt", accepted_at AS "acceptedAt",
                 customer_name AS "customerName", delivery_address AS "deliveryAddress", notes,
-                subtotal::text, delivery_fee::text AS "deliveryFee", discount::text, total::text,
+                subtotal::text, delivery_fee::text AS "deliveryFee", discount::text,
+                surcharge::text, total::text,
+                (SELECT dt.label FROM tabs tb JOIN dining_tables dt ON dt.id = tb.table_id
+                  WHERE tb.id = orders.tab_id) AS "tableLabel",
                 payment_hint AS "paymentHint", change_for::text AS "changeFor",
                 payment_status AS "paymentStatus", cancel_reason AS "cancelReason"
            FROM orders WHERE id = $1`,

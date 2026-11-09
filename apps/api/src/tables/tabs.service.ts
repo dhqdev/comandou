@@ -28,6 +28,9 @@ const TAB_SELECT = `
     LEFT JOIN dining_tables dt ON dt.id = tb.table_id
     LEFT JOIN orders o ON o.tab_id = tb.id`;
 
+const awaitingMessage = (number: number, action: string) =>
+  `O pedido #${number}, feito pelo cliente no celular, ainda espera aceite. Aceite ou recuse antes de ${action}.`;
+
 /**
  * Comandas (atendimentos de mesa/balcão). Uma comanda agrupa pedidos até a conta ser fechada.
  * Divisão de conta: o cliente pode pagar a comanda em várias partes (por valor, ou escolhendo
@@ -276,6 +279,9 @@ export class TabsService {
         if (b.orderIds && b.orderIds.some((oid) => !orders.find((o) => o.id === oid))) {
           throw new UnprocessableEntityException('Pedido inválido ou já pago para esta comanda');
         }
+        // Pedido do cliente (QR Code da mesa) ainda em análise: não se cobra o que não foi aceito.
+        const waiting = orders.find((o) => o.status === 'awaiting');
+        if (waiting) throw new ConflictException(awaitingMessage(waiting.number, 'cobrar'));
         const balance = orders.reduce((s, o) => s + toCents(o.total) - toCents(o.paid_amount), 0);
         let remaining = toCents(b.amount);
         if (remaining <= 0) throw new UnprocessableEntityException('Valor deve ser maior que zero');
@@ -323,6 +329,8 @@ export class TabsService {
       const tab = await this.lockTab(tx, id);
       if (tab.status !== 'open') throw new ConflictException('Comanda não está aberta');
       const orders = (await this.lockOrders(tx, id)).filter((o) => o.status !== 'cancelled');
+      const waiting = orders.find((o) => o.status === 'awaiting');
+      if (waiting) throw new ConflictException(awaitingMessage(waiting.number, 'fechar a conta'));
       const unpaid = orders.filter((o) => toCents(o.paid_amount) < toCents(o.total));
       if (unpaid.length)
         throw new ConflictException(`Há saldo em aberto em ${unpaid.length} pedido(s)`);

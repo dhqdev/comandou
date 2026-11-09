@@ -70,6 +70,7 @@ import { WelcomeTour, tourSeen } from '../features/WelcomeTour';
 import { PageTourHost } from '../features/tour/PageTour';
 import { PandaBrand } from '../features/mascot/PandaBrand';
 import { useSearchSpotlight } from '../lib/deep-link';
+import { rememberStaffApp } from '../lib/staff-app';
 import { useOnline } from '../lib/connectivity';
 import { OfflineBanner } from './OfflineBanner';
 import { useRealtimeStatus } from '../lib/realtime';
@@ -285,6 +286,8 @@ export function AppShell() {
   const can = (item: NavItem) => allowed(item.perms);
   useSearchHotkey(() => setSearchOpen(true));
   useSearchSpotlight();
+  // Painel aberto: o QR da mesa lido pela câmera deste aparelho volta a abrir no Salão.
+  useEffect(() => rememberStaffApp('painel'), []);
   // Primeiro acesso deste usuário neste aparelho: apresenta as telas (não no acesso de suporte).
   useEffect(() => {
     if (me && !me.support && !tourSeen(me.tenant.id, me.user.id)) setTourOpen(true);

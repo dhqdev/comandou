@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Clock,
   Heart,
+  HandPlatter,
   Info,
   MapPin,
   Moon,
@@ -433,7 +434,7 @@ function CategoryWheel({
 
 /** Horário, entrega, retirada, mínimo e endereço da loja ("Mais informações"). */
 function StoreInfo({ open, onClose }: { open: boolean; onClose(): void }) {
-  const { menu } = useStore();
+  const { menu, table } = useStore();
   const r = menu.restaurant;
   const s = menu.store;
   return (
@@ -449,6 +450,15 @@ function StoreInfo({ open, onClose }: { open: boolean; onClose(): void }) {
         </span>
         {r.about && <p className="sf-info__about">{r.about}</p>}
         <ul className="sf-info__list">
+          {table && (
+            <li>
+              <HandPlatter size={18} aria-hidden />
+              <span>
+                <strong>Mesa {table.label}</strong>
+                {tableServiceText(table.serviceFeePercent)}
+              </span>
+            </li>
+          )}
           <li>
             <Clock size={18} aria-hidden />
             <span>
@@ -456,7 +466,7 @@ function StoreInfo({ open, onClose }: { open: boolean; onClose(): void }) {
               {s.etaMin}–{s.etaMax} min
             </span>
           </li>
-          {s.acceptsDelivery && (
+          {!table && s.acceptsDelivery && (
             <li>
               <Bike size={18} aria-hidden />
               <span>
@@ -469,7 +479,7 @@ function StoreInfo({ open, onClose }: { open: boolean; onClose(): void }) {
               </span>
             </li>
           )}
-          {s.acceptsPickup && (
+          {!table && s.acceptsPickup && (
             <li>
               <Store size={18} aria-hidden />
               <span>
@@ -478,7 +488,7 @@ function StoreInfo({ open, onClose }: { open: boolean; onClose(): void }) {
               </span>
             </li>
           )}
-          {toCents(s.minOrder) > 0 && (
+          {!table && toCents(s.minOrder) > 0 && (
             <li>
               <Wallet size={18} aria-hidden />
               <span>
@@ -500,6 +510,14 @@ function StoreInfo({ open, onClose }: { open: boolean; onClose(): void }) {
       </div>
     </Modal>
   );
+}
+
+/** Como a conta da mesa é paga (e a taxa de serviço, se a casa cobra). */
+function tableServiceText(percent: string | null) {
+  const fee = percent ? Number(percent) : 0;
+  return fee > 0
+    ? `O pedido vai para a conta da mesa (taxa de serviço de ${fee.toLocaleString('pt-BR')}%). Você paga no fim, com o garçom ou no caixa.`
+    : 'O pedido vai para a conta da mesa. Você paga no fim, com o garçom ou no caixa.';
 }
 
 /** Ordenar e esconder esgotados: vale para a categoria aberta e para a busca. */
@@ -627,24 +645,45 @@ function StoreHeader({ onInfo }: { onInfo(): void }) {
  * loja e, na faixa de baixo, tempo, taxa e "Mais informações". Com a loja fechada, avisa aqui.
  */
 function RideCard({ onInfo }: { onInfo(): void }) {
-  const { menu, account } = useStore();
+  const { menu, account, table } = useStore();
   const s = menu.store;
   const first = account?.customer?.name.split(' ')[0];
   const delivery = s.acceptsDelivery;
   return (
-    <section className="sf-ride" data-closed={!s.isOpen || undefined}>
+    <section
+      className="sf-ride"
+      data-closed={!s.isOpen || undefined}
+      data-table={table ? '' : undefined}
+    >
       <div className="sf-ride__top">
         <div className="sf-ride__text">
           {s.isOpen ? (
             <>
-              <span className="sf-ride__hello">{first ? `Olá, ${first}!` : 'Olá!'}</span>
+              <span className="sf-ride__hello">
+                {first ? `Olá, ${first}!` : 'Olá!'}
+                {table && ` Você está na Mesa\u00a0${table.label}.`}
+              </span>
               <strong className="sf-ride__title">
-                {menu.appearance.headline || 'Bateu a fome? Peça agora!'}
+                {menu.appearance.headline ||
+                  (table ? 'Peça daqui mesmo!' : 'Bateu a fome? Peça agora!')}
               </strong>
               <small className="sf-ride__sub">
-                {delivery ? 'A gente leva até você' : 'Peça e retire na loja'}
+                {table
+                  ? 'A cozinha prepara e a gente leva na sua mesa'
+                  : delivery
+                    ? 'A gente leva até você'
+                    : 'Peça e retire na loja'}
               </small>
             </>
+          ) : table ? (
+            <span role="status">
+              <strong className="sf-ride__title">
+                <Moon size={18} aria-hidden /> Pedidos pelo celular pausados
+              </strong>
+              <small className="sf-ride__sub">
+                Você está na Mesa {table.label}. Chame o garçom para pedir.
+              </small>
+            </span>
           ) : (
             <span role="status">
               <strong className="sf-ride__title">
@@ -656,10 +695,12 @@ function RideCard({ onInfo }: { onInfo(): void }) {
             </span>
           )}
         </div>
-        {s.isOpen ? (
-          <DeliveryArt delivery={delivery} ride className="sf-ride__art" />
-        ) : (
+        {!s.isOpen ? (
           <ClosedArt live className="sf-ride__art" />
+        ) : table ? (
+          <CookingArt live className="sf-ride__art" />
+        ) : (
+          <DeliveryArt delivery={delivery} ride className="sf-ride__art" />
         )}
       </div>
       <button
@@ -671,7 +712,11 @@ function RideCard({ onInfo }: { onInfo(): void }) {
         <span>
           <Clock size={15} aria-hidden /> {s.etaMin}–{s.etaMax} min
         </span>
-        {delivery ? (
+        {table ? (
+          <span>
+            <HandPlatter size={15} aria-hidden /> Mesa {table.label}
+          </span>
+        ) : delivery ? (
           <span>
             <Bike size={15} aria-hidden /> {deliveryFeeText(s)}
           </span>
@@ -786,7 +831,7 @@ function useScrollSpy(ids: string[], on: boolean) {
 let keptScroll = 0;
 
 export function HomeScreen() {
-  const { menu, product } = useStore();
+  const { menu, product, table } = useStore();
   const layout = useLayout();
   const sectionsMode = layout !== 'phone';
   const nav = useNavigationType();
@@ -943,7 +988,8 @@ export function HomeScreen() {
           <>
             <div className="sf-perks">
               <LoyaltyStrip />
-              <ReserveCard />
+              {/* Quem já está sentado na mesa não precisa reservar. */}
+              {!table && <ReserveCard />}
             </div>
             <Banners banners={menu.banners} onPick={pickBanner} />
 

@@ -22,12 +22,17 @@ import {
   PublicLoyalty,
   PublicMenu,
   PublicProduct,
+  PublicTable,
   syncCart,
   useStored,
 } from './store';
 
 export interface StoreCtx {
   menu: PublicMenu;
+  /** Mesa do QR Code: o pedido vai para a comanda dela (null fora da mesa). */
+  table: PublicTable | null;
+  /** "Não estou nesta mesa": volta para entrega e retirada. */
+  leaveTable(): void;
   product(id: string): (PublicProduct & { categoryId: string }) | undefined;
   cart: CartLine[];
   setCart(fn: (c: CartLine[]) => CartLine[]): void;
@@ -107,11 +112,13 @@ export function StoreProvider({
   menu,
   refreshStatus,
   refreshMenu,
+  leaveTable,
   children,
 }: {
   menu: PublicMenu;
   refreshStatus(): Promise<void>;
   refreshMenu(): Promise<void>;
+  leaveTable(): void;
   children: ReactNode;
 }) {
   const [cart, setCart] = useStored<CartLine[]>('cm-cart', []);
@@ -243,6 +250,8 @@ export function StoreProvider({
 
   const value: StoreCtx = {
     menu,
+    table: menu.table ?? null,
+    leaveTable,
     product: (id) => index.get(id),
     cart,
     setCart,

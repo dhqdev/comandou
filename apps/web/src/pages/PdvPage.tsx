@@ -228,10 +228,14 @@ export function PdvPage() {
         const first = fresh.find((o) => o.status === 'awaiting') ?? fresh[0];
         if (first) {
           playSound('order');
+          // Pedido do cliente pelo QR Code da mesa: diz a mesa no aviso.
+          const what = first.tableLabel
+            ? `Novo pedido da Mesa ${first.tableLabel} pelo celular, #${first.number}`
+            : `Novo pedido online #${first.number}`;
           toast(
             first.status === 'awaiting'
-              ? `Novo pedido online #${first.number}: aceite ou recuse`
-              : `Novo pedido online #${first.number} (aceito automaticamente)`,
+              ? `${what}: aceite ou recuse`
+              : `${what} (aceito automaticamente)`,
             'neutral',
           );
         }

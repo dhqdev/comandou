@@ -15,6 +15,7 @@ import { useAuth } from '../app/auth';
 import { openTeamChat, useChatUnread } from '../features/chat/TeamChat';
 import { api } from '../lib/api';
 import { useOnline } from '../lib/connectivity';
+import { rememberStaffApp } from '../lib/staff-app';
 import { OfflineBanner } from '../app/OfflineBanner';
 import { useDebounced, useRealtime, useRealtimeStatus } from '../lib/realtime';
 import { ChangePasswordModal } from '../pages/TeamPage';
@@ -47,6 +48,9 @@ export function WaiterApp() {
   const [stats, setStats] = useState<WaiterStats | null>(null);
   const [account, setAccount] = useState(false);
   const [pw, setPw] = useState(false);
+
+  // QR da mesa lido pela câmera deste aparelho abre aqui, no app do garçom (lib/staff-app.ts).
+  useEffect(() => rememberStaffApp('garcom'), []);
 
   const load = useCallback(() => {
     api<WaiterStats>('/waiter/me').then(setStats, () => undefined);

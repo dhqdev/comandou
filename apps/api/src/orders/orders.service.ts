@@ -332,7 +332,15 @@ export class OrdersService {
         `SELECT id FROM tabs WHERE table_id = $1 AND status = 'open' FOR UPDATE`,
         [input.tableId],
       );
-      tabId = open?.id ?? (await this.openTab(tx, ctx, { tableId: input.tableId })).id;
+      // Cliente pedindo pelo QR Code da mesa: a comanda nova já sai com o nome dele.
+      tabId =
+        open?.id ??
+        (
+          await this.openTab(tx, ctx, {
+            tableId: input.tableId,
+            customerName: input.online ? input.customerName : undefined,
+          })
+        ).id;
     }
     let serviceFee: string | null = null;
     if (tabId) {

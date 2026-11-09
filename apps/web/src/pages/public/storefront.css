@@ -1613,6 +1613,15 @@
 .ck-card__title svg {
   color: var(--cm-brand-500);
 }
+/* Pedido para a mesa (QR Code): no lugar do endereço e do pagamento. */
+.ck-table .form-hint {
+  margin: 4px 0 0;
+}
+.ck-table__leave {
+  margin-top: 10px;
+  min-height: 32px;
+  font-size: var(--cm-text-sm);
+}
 .ck-who {
   display: flex;
   flex-wrap: wrap;

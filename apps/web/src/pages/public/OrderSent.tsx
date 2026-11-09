@@ -42,11 +42,17 @@ export function OrderSent({
   number,
   total,
   channel,
+  table,
+  awaiting = false,
   onDone,
 }: {
   number: number;
   total: string;
-  channel: 'delivery' | 'pickup';
+  channel: 'delivery' | 'pickup' | 'table';
+  /** Nome da mesa (pedido pelo QR Code). */
+  table?: string;
+  /** Entrou em análise: o restaurante ainda vai aceitar. */
+  awaiting?: boolean;
   onDone(): void;
 }) {
   const pieces = useMemo(() => confetti(28), []);
@@ -99,9 +105,13 @@ export function OrderSent({
         <p id="osent-text">
           Pedido <strong>#{number}</strong> · {brl(total)}
           <br />
-          {channel === 'delivery'
-            ? 'A loja já recebeu e vai preparar para entregar.'
-            : 'A loja já recebeu. Avisamos quando estiver pronto para retirar.'}
+          {channel === 'table'
+            ? awaiting
+              ? `A loja já recebeu. Assim que confirmar, prepara e leva na Mesa ${table ?? ''}.`
+              : `A cozinha já recebeu e a gente leva na Mesa ${table ?? ''}.`
+            : channel === 'delivery'
+              ? 'A loja já recebeu e vai preparar para entregar.'
+              : 'A loja já recebeu. Avisamos quando estiver pronto para retirar.'}
         </p>
         <button ref={btn} type="button" className="cta osent__cta" onClick={() => onDone()}>
           Acompanhar pedido <ChevronRight size={18} aria-hidden />

@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.102.0',
+    date: '2026-11-09',
+    title: 'QR Code da mesa abre o cardápio já na mesa e o pedido cai na comanda',
+    summary:
+      'O cliente que aponta a câmera para o QR Code colado na mesa abre o cardápio com a mesa já escolhida: escolhe, põe o nome e toca em Pedir para a mesa, sem endereço nem pagamento, e o pedido vai para a comanda daquela mesa. Quem é da equipe e lê o mesmo QR cai direto na comanda da mesa, no app do garçom ou no Salão.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Pedido pela mesa: o QR Code de cada mesa (Salão → QR das mesas) abre o cardápio online mostrando "Você está na Mesa 5". Na finalização só se pede o nome (WhatsApp é opcional); o pedido entra na comanda aberta da mesa ou abre uma no nome do cliente. A conta é paga no fim, com o garçom ou no caixa.',
+      },
+      {
+        tag: 'novo',
+        text: 'Na mesa valem os preços do cardápio Principal (o do salão) e a taxa de serviço da comanda aparece no resumo antes de pedir. Não há taxa de entrega nem pedido mínimo, e o acompanhamento mostra a mesa e as etapas até chegar nela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O pedido da mesa segue o aceite da loja online: com o aceite automático vai direto para a cozinha; sem ele, aparece em análise no PDV com o aviso "Novo pedido da Mesa 5 pelo celular". Enquanto um pedido do cliente espera aceite, a comanda não é cobrada nem fechada.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Equipe lendo o QR pela câmera do celular: o garçom cai na comanda da mesa (ou no pedido novo, se ela está livre) no app dele. O dono ou gerente abre no app do garçom se é o que estava usando naquele aparelho, ou no Salão do painel.',
+      },
+      {
+        tag: 'segurança',
+        text: 'A mesa só vale no próprio restaurante e se estiver ativa; com a loja fechada o cliente vê "Chame o garçom para pedir". A mesa fica lembrada só naquela aba do navegador, por até 6 horas: abrir o cardápio em casa depois não pede para a mesa por engano.',
+      },
+    ],
+  },
+  {
     version: '0.101.0',
     date: '2026-11-09',
     title: 'Administrador define uma senha nova para quem esqueceu',

@@ -1,6 +1,16 @@
 import { AddressFields, addressPayload } from './AddressFields';
 import { fromCents, toCents } from '@comandou/shared';
-import { Bike, ChevronRight, Loader2, MapPin, Moon, Plus, Store, UserRound } from 'lucide-react';
+import {
+  Bike,
+  ChevronRight,
+  HandPlatter,
+  Loader2,
+  MapPin,
+  Moon,
+  Plus,
+  Store,
+  UserRound,
+} from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { SlideTabs } from '../../features/SlideTabs';
@@ -25,8 +35,11 @@ import {
   rememberOrder,
   rewardDiscount,
   SavedAddress,
+  StoreChannel,
+  tableServiceFee,
   useStored,
 } from './store';
+import { minOrderOf, useChannel } from './Shell';
 import { Field, Photo, ScreenHeader, Stepper, Switch } from './ui';
 
 /** Mapa do endereço (Leaflet): só carrega nas lojas com áreas de entrega. */
@@ -47,6 +60,8 @@ export function CartScreen() {
     refreshStatus,
     refreshMenu,
     refreshLoyalty,
+    table,
+    leaveTable,
   } = useStore();
   const loyalty = useLoyalty();
   const [rewardId, setRewardId] = useState<string | null>(null);
@@ -66,7 +81,8 @@ export function CartScreen() {
     number: number;
     token: string;
     total: string;
-    channel: 'delivery' | 'pickup';
+    channel: StoreChannel;
+    awaiting: boolean;
   } | null>(null);
   // Tocou em "Fazer pedido" com algo faltando: marca o que falta e treme o primeiro bloco.
   const [tried, setTried] = useState(false);
@@ -96,11 +112,9 @@ export function CartScreen() {
   }, [saved.length]);
 
   const s = menu.store;
-  const channels = [
-    s.acceptsDelivery && ('delivery' as const),
-    s.acceptsPickup && ('pickup' as const),
-  ].filter(Boolean) as ('delivery' | 'pickup')[];
-  const channel = channels.includes(customer.channel) ? customer.channel : channels[0];
+  // Na mesa (QR Code) o pedido é sempre para ela; fora, entrega ou retirada.
+  const { channels, channel } = useChannel();
+  const atTable = channel === 'table';
   const zones = !!s.deliveryZones && channel === 'delivery';
   const [pinned, setPinned] = useState<PinnedQuote | null>(null);
   const zoneFee = zones && pinned?.quote.covered ? pinned.quote.fee : null;
@@ -111,9 +125,13 @@ export function CartScreen() {
     reward && loyalty?.account && loyalty.account.balance >= reward.cost
       ? (rewardDiscount(reward, cart, subtotal) ?? 0)
       : 0;
-  const total = subtotal - rewardCents + fee;
+  // Mesa com taxa de serviço: a comanda cobra a taxa sobre os itens (a API faz a mesma conta).
+  const serviceFee = atTable
+    ? tableServiceFee(subtotal - rewardCents, table?.serviceFeePercent)
+    : 0;
+  const total = subtotal - rewardCents + fee + serviceFee;
   const minOrder = (zones && pinned?.quote.minOrder) || s.minOrder;
-  const belowMin = subtotal < toCents(minOrder);
+  const belowMin = !atTable && subtotal < toCents(minOrder);
   const set = <K extends keyof CustomerInfo>(k: K, v: CustomerInfo[K]) =>
     setCustomer((c) => ({ ...c, [k]: v }));
 
@@ -121,20 +139,30 @@ export function CartScreen() {
   const phone = me ? fmtPhone(me.phone) : customer.customerPhone;
   const chosen: SavedAddress | undefined =
     addrId !== 'new' ? saved.find((a) => a.id === addrId) : undefined;
-  const phoneOk = phone.replace(/\D/g, '').length >= 10;
+  const phoneDigits = phone.replace(/\D/g, '').length;
+  // Na mesa o telefone é opcional (o garçom leva até ela); se digitar, tem de estar completo.
+  const phoneOk = phoneDigits >= 10 || (atTable && phoneDigits === 0);
   const typedOk = !!(customer.street.trim() && customer.number.trim() && customer.district.trim());
   // Com áreas no mapa, o endereço só vale depois de achar o ponto dentro de uma área.
   const pinOk = !zones || !!pinned?.quote.covered;
   const addressOk = channel !== 'delivery' || ((!!chosen || typedOk) && pinOk);
   const changeCents = toCents(parseBrlInput(changeFor) ?? '0');
-  const changeOk = customer.paymentMethod !== 'cash' || !changeFor || changeCents >= total;
+  const changeOk =
+    atTable || customer.paymentMethod !== 'cash' || !changeFor || changeCents >= total;
   const soldOut = cart.filter((l) => product(l.productId)?.soldOut);
   // O que impede o pedido e não depende do cliente digitar: o botão fica desligado.
   const blocked = !channel || belowMin || !s.isOpen || soldOut.length > 0;
   // O que falta preencher: o botão fica ligado e, ao tocar, leva até o primeiro que falta.
   const missing: { key: keyof typeof sections; text: string }[] = [
     ...(!name.trim() ? [{ key: 'who' as const, text: 'seu nome' }] : []),
-    ...(!phoneOk ? [{ key: 'who' as const, text: 'WhatsApp com DDD' }] : []),
+    ...(!phoneOk
+      ? [
+          {
+            key: 'who' as const,
+            text: atTable ? 'o WhatsApp completo, com DDD' : 'WhatsApp com DDD',
+          },
+        ]
+      : []),
     ...(channel === 'delivery' && !chosen && !typedOk
       ? [{ key: 'address' as const, text: 'rua, número e bairro' }]
       : []),
@@ -208,14 +236,16 @@ export function CartScreen() {
         headers: { 'Idempotency-Key': key },
         json: {
           channel,
+          tableId: atTable ? table?.id : undefined,
           token,
           customerName: name.trim(),
-          customerPhone: phone.trim(),
+          customerPhone: phone.trim() || undefined,
           address,
           notes: notes.trim() || undefined,
-          paymentMethod: customer.paymentMethod,
+          // Na mesa a conta é paga no fim, com o garçom ou no caixa.
+          paymentMethod: atTable ? undefined : customer.paymentMethod,
           changeFor:
-            customer.paymentMethod === 'cash' && changeCents > 0
+            !atTable && customer.paymentMethod === 'cash' && changeCents > 0
               ? fromCents(changeCents)
               : undefined,
           items: cart.map((l) => ({
@@ -231,7 +261,13 @@ export function CartScreen() {
       if (loyalty) void refreshLoyalty();
       rememberOrder({ token, number: r.number, at: new Date().toISOString() });
       attempt.current = null;
-      setSent({ number: r.number, token, total: fromCents(total), channel });
+      setSent({
+        number: r.number,
+        token,
+        total: fromCents(total),
+        channel,
+        awaiting: r.status === 'awaiting',
+      });
       setCart(() => []);
       setNotes('');
       setChangeFor('');
@@ -265,6 +301,8 @@ export function CartScreen() {
           number={sent.number}
           total={sent.total}
           channel={sent.channel}
+          table={table?.label}
+          awaiting={sent.awaiting}
           onDone={() => navigate(`/pedido/${sent.token}`, { replace: true })}
         />
       </div>
@@ -344,7 +382,7 @@ export function CartScreen() {
           {channels.length > 1 && (
             <SlideTabs
               label="Entrega ou retirada"
-              value={channel!}
+              value={channel as 'delivery' | 'pickup'}
               onChange={(v) => set('channel', v)}
               tabs={[
                 { value: 'delivery', label: 'Entrega' },
@@ -390,11 +428,13 @@ export function CartScreen() {
                     />
                   </Field>
                   <Field
-                    label="WhatsApp"
+                    label={atTable ? 'WhatsApp (opcional)' : 'WhatsApp'}
                     hint={
                       tried && !phoneOk ? (
                         <span className="form-error">
-                          Celular com DDD, para a loja falar com você
+                          {atTable
+                            ? 'Celular completo, com DDD (ou deixe em branco)'
+                            : 'Celular com DDD, para a loja falar com você'}
                         </span>
                       ) : undefined
                     }
@@ -421,7 +461,22 @@ export function CartScreen() {
             )}
           </section>
 
-          {channel === 'delivery' ? (
+          {atTable && table ? (
+            <section className="ck-card ck-table">
+              <h2 className="ck-card__title">
+                <HandPlatter size={16} /> Mesa {table.label}
+              </h2>
+              <p className="form-hint">
+                O pedido vai para a conta desta mesa e a gente leva até você. Você paga no fim, com
+                o garçom ou no caixa.
+              </p>
+              {(menu.store.acceptsDelivery || menu.store.acceptsPickup) && (
+                <button type="button" className="link ck-table__leave" onClick={leaveTable}>
+                  Não estou nesta mesa
+                </button>
+              )}
+            </section>
+          ) : channel === 'delivery' ? (
             <section
               className="ck-card"
               ref={sections.address}
@@ -518,42 +573,44 @@ export function CartScreen() {
             )
           )}
 
-          <section
-            className="ck-card"
-            ref={sections.pay}
-            data-invalid={invalid('pay') || undefined}
-          >
-            <h2 className="ck-card__title">
-              Pagamento na {channel === 'delivery' ? 'entrega' : 'retirada'}
-            </h2>
-            <div className="pills" role="radiogroup" aria-label="Forma de pagamento">
-              {PAYMENT_OPTIONS.map((o) => (
-                <button
-                  key={o.value}
-                  type="button"
-                  role="radio"
-                  aria-checked={customer.paymentMethod === o.value}
-                  className="pill"
-                  onClick={() => set('paymentMethod', o.value)}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-            {customer.paymentMethod === 'cash' && (
-              <Field label="Troco para quanto? (opcional)">
-                <input
-                  inputMode="decimal"
-                  placeholder="Ex.: 100,00"
-                  value={changeFor}
-                  onChange={(e) => setChangeFor(e.target.value)}
-                />
-                {!changeOk && (
-                  <small className="form-error">Valor menor que o total do pedido</small>
-                )}
-              </Field>
-            )}
-          </section>
+          {!atTable && (
+            <section
+              className="ck-card"
+              ref={sections.pay}
+              data-invalid={invalid('pay') || undefined}
+            >
+              <h2 className="ck-card__title">
+                Pagamento na {channel === 'delivery' ? 'entrega' : 'retirada'}
+              </h2>
+              <div className="pills" role="radiogroup" aria-label="Forma de pagamento">
+                {PAYMENT_OPTIONS.map((o) => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={customer.paymentMethod === o.value}
+                    className="pill"
+                    onClick={() => set('paymentMethod', o.value)}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              {customer.paymentMethod === 'cash' && (
+                <Field label="Troco para quanto? (opcional)">
+                  <input
+                    inputMode="decimal"
+                    placeholder="Ex.: 100,00"
+                    value={changeFor}
+                    onChange={(e) => setChangeFor(e.target.value)}
+                  />
+                  {!changeOk && (
+                    <small className="form-error">Valor menor que o total do pedido</small>
+                  )}
+                </Field>
+              )}
+            </section>
+          )}
 
           <LoyaltyCheckout
             cart={cart}
@@ -602,6 +659,12 @@ export function CartScreen() {
                 <dd className="sum__discount">−{brl(fromCents(rewardCents))}</dd>
               </>
             )}
+            {serviceFee > 0 && (
+              <>
+                <dt>Serviço ({Number(table!.serviceFeePercent).toLocaleString('pt-BR')}%)</dt>
+                <dd>{brl(fromCents(serviceFee))}</dd>
+              </>
+            )}
             <dt className="sum__total">Total</dt>
             <dd className="sum__total sum__tick" key={total}>
               {brl(fromCents(total))}
@@ -616,8 +679,9 @@ export function CartScreen() {
             <p className="closed-note" role="status">
               <Moon size={16} aria-hidden />
               <span>
-                A loja está fechada agora e não está recebendo pedidos. Seus itens ficam guardados
-                na sacola para quando ela abrir.
+                {atTable
+                  ? 'Os pedidos pelo celular estão pausados agora. Chame o garçom para pedir.'
+                  : 'A loja está fechada agora e não está recebendo pedidos. Seus itens ficam guardados na sacola para quando ela abrir.'}
               </span>
             </p>
           )}
@@ -668,6 +732,8 @@ export function CartScreen() {
                   <>
                     <Loader2 size={18} className="ck-send__spin" aria-hidden /> Enviando seu pedido…
                   </>
+                ) : atTable ? (
+                  `Pedir para a mesa · ${brl(fromCents(total))}`
                 ) : (
                   `Fazer pedido · ${brl(fromCents(total))}`
                 )}

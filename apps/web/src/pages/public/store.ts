@@ -48,6 +48,8 @@ export interface PublicMenu {
     /** A loja desenhou áreas de entrega: o endereço precisa ser confirmado no mapa. */
     deliveryZones?: boolean;
   };
+  /** Mesa do QR Code (cardápio aberto com ?mesa=); null fora dela ou mesa que não existe mais. */
+  table?: PublicTable | null;
   appearance: {
     theme: 'auto' | 'light' | 'dark';
     headline: string | null;
@@ -61,6 +63,17 @@ export interface PublicMenu {
   popular: string[];
   categories: PublicCategory[];
 }
+/** Mesa em que o cliente está sentado (leu o QR Code colado nela). */
+export interface PublicTable {
+  id: string;
+  label: string;
+  /** Taxa de serviço que a comanda da mesa cobra ("10.00"), ou null. */
+  serviceFeePercent: string | null;
+}
+
+/** Canal do pedido feito pelo cardápio: na mesa só pelo QR Code. */
+export type StoreChannel = 'delivery' | 'pickup' | 'table';
+
 export interface PublicBanner {
   id: string;
   title: string;
@@ -107,7 +120,7 @@ export interface AccountOrder {
   id: string;
   number: number;
   step: 'awaiting' | 'accepted' | 'ready' | 'dispatched' | 'completed' | 'cancelled';
-  channel: 'delivery' | 'pickup';
+  channel: StoreChannel;
   total: string;
   createdAt: string;
   items: { name: string; quantity: number; unit?: string; imageUrl?: string | null }[];
@@ -269,6 +282,42 @@ export const recentOrders = () =>
   read<RecentOrder[]>(RECENT, []).filter((o) => Date.now() - Date.parse(o.at) < 2 * 86_400_000);
 export function rememberOrder(o: RecentOrder) {
   write(RECENT, [o, ...recentOrders().filter((x) => x.token !== o.token)].slice(0, 10));
+}
+
+/**
+ * Mesa do QR Code lembrada nesta aba do navegador (sessionStorage): o cliente vai e volta entre o
+ * cardápio e o acompanhamento sem perder a mesa, e ela some ao fechar a aba ou depois de 6 horas
+ * (quem abrir o cardápio em casa no dia seguinte não pede para a mesa por engano).
+ */
+const TABLE_KEY = 'cm-store-table';
+const TABLE_TTL_MS = 6 * 3_600_000;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const isTableId = (v: string | null | undefined): v is string => !!v && UUID_RE.test(v);
+
+export function storedTableId(now = Date.now()): string | null {
+  try {
+    const raw = sessionStorage.getItem(TABLE_KEY);
+    const t = raw ? (JSON.parse(raw) as { id?: string; at?: number }) : null;
+    return t && isTableId(t.id) && typeof t.at === 'number' && now - t.at < TABLE_TTL_MS
+      ? t.id
+      : null;
+  } catch {
+    return null;
+  }
+}
+export function rememberTable(id: string | null, now = Date.now()) {
+  try {
+    if (id) sessionStorage.setItem(TABLE_KEY, JSON.stringify({ id, at: now }));
+    else sessionStorage.removeItem(TABLE_KEY);
+  } catch {
+    /* modo privado: a mesa vale só enquanto a página está aberta */
+  }
+}
+
+/** Taxa de serviço da mesa sobre os itens (centavos), na mesma conta do servidor. */
+export function tableServiceFee(baseCents: number, percent: string | null | undefined) {
+  if (!percent || baseCents <= 0) return 0;
+  return Math.round((baseCents * toCents(percent)) / 10_000);
 }
 
 /** Token aleatório do link de acompanhamento (o servidor guarda só o hash). */

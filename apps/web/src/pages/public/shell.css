@@ -1077,6 +1077,14 @@
   width: 92px;
   flex: none;
 }
+.sf-side__ride--table {
+  gap: 10px;
+  padding: 10px 12px;
+}
+.sf-side__ride--table > svg {
+  flex: none;
+  color: var(--cm-brand-600);
+}
 .sf-side__ride > span {
   display: grid;
   gap: 1px;
