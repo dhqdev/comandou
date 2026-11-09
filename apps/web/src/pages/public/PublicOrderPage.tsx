@@ -120,6 +120,15 @@ const HERO: Record<
 const atTable = (o: Pick<PublicOrder, 'tableLabel'>) =>
   o.tableLabel ? `Mesa ${o.tableLabel}` : 'sua mesa';
 
+/** Pedido já buscado antes de abrir a tela (vindo da confirmação): abre pronto, sem piscar. */
+const warm = new Map<string, PublicOrder>();
+export function prefetchOrder(token: string) {
+  const base = `/store/orders/${encodeURIComponent(token)}`;
+  void api<PublicOrder>(base)
+    .then((o) => warm.set(base, o))
+    .catch(() => undefined);
+}
+
 /**
  * Acompanhamento do pedido. Pelo link (/pedido/:token, sem conta) ou pelo histórico da conta
  * (/pedir/pedidos/:id, com o cookie do cliente).
@@ -129,7 +138,7 @@ export function PublicOrderPage() {
   const base = id
     ? `/store/account/orders/${encodeURIComponent(id)}`
     : `/store/orders/${encodeURIComponent(token)}`;
-  const [o, setO] = useState<PublicOrder | null>(null);
+  const [o, setO] = useState<PublicOrder | null>(() => warm.get(base) ?? null);
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
 

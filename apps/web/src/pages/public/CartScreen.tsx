@@ -18,6 +18,7 @@ import { MotoboyArt } from './art';
 import { CustomerAvatar } from './avatars';
 import { reducedMotion } from './morph';
 import { OrderSent } from './OrderSent';
+import { prefetchOrder } from './PublicOrderPage';
 import { api, ApiError } from '../../lib/api';
 import { newIdempotencyKey } from '../../lib/idempotency';
 import { brl, parseBrlInput } from '../../lib/money';
@@ -268,6 +269,8 @@ export function CartScreen() {
         channel,
         awaiting: r.status === 'awaiting',
       });
+      // O acompanhamento já carrega por trás da confirmação: abre pronto, sem tela vazia.
+      prefetchOrder(token);
       setCart(() => []);
       setNotes('');
       setChangeFor('');

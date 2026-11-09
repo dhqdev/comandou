@@ -16,9 +16,13 @@ const HAIR = {
   loiro: '#e9b44c',
   grisalho: '#b9b2ac',
 } as const;
+// Roupa, boné e fundo só nos tons da cor da loja (o admin troca a cor e os avatares acompanham).
 const BRAND = 'var(--cm-brand-500)';
-const ACCENT = 'var(--cm-accent-400)';
-const BRAND_SOFT = 'color-mix(in srgb, var(--cm-brand-500) 20%, #fff)';
+const ACCENT = 'var(--cm-brand-700)';
+const SHIRT_SOFT = 'color-mix(in srgb, var(--cm-brand-500) 45%, #fff)';
+const BRAND_SOFT = 'color-mix(in srgb, var(--cm-brand-500) 16%, #fff)';
+const BG_2 = 'color-mix(in srgb, var(--cm-brand-500) 9%, #fff)';
+const BG_3 = 'color-mix(in srgb, var(--cm-brand-500) 24%, #fff)';
 
 type Hair = 'curto' | 'cacheado' | 'longo' | 'coque' | 'crespo' | 'lateral' | 'nenhum';
 type Hat = 'chef' | 'bone' | 'gorro' | 'capacete';
@@ -51,7 +55,7 @@ export const AVATAR_LOOKS: Record<CustomerAvatar, Look> = {
     hair: 'cacheado',
     hairColor: HAIR.preto,
     shirt: ACCENT,
-    bg: '#ffe9c7',
+    bg: BG_2,
   },
   chef: {
     label: 'Chef',
@@ -61,7 +65,7 @@ export const AVATAR_LOOKS: Record<CustomerAvatar, Look> = {
     hat: 'chef',
     mustache: true,
     shirt: '#ffffff',
-    bg: '#d9f0e0',
+    bg: BG_3,
   },
   bone: {
     label: 'Boné',
@@ -69,8 +73,8 @@ export const AVATAR_LOOKS: Record<CustomerAvatar, Look> = {
     hair: 'curto',
     hairColor: HAIR.preto,
     hat: 'bone',
-    shirt: '#ffd34d',
-    bg: '#dbe9ff',
+    shirt: SHIRT_SOFT,
+    bg: BG_2,
   },
   oculos: {
     label: 'Óculos',
@@ -78,8 +82,8 @@ export const AVATAR_LOOKS: Record<CustomerAvatar, Look> = {
     hair: 'longo',
     hairColor: HAIR.ruivo,
     glasses: true,
-    shirt: '#5cb85c',
-    bg: '#ffe0e0',
+    shirt: SHIRT_SOFT,
+    bg: BG_3,
   },
   coque: {
     label: 'Coque',
@@ -87,8 +91,8 @@ export const AVATAR_LOOKS: Record<CustomerAvatar, Look> = {
     hair: 'coque',
     hairColor: HAIR.preto,
     earrings: true,
-    shirt: '#ff5a4e',
-    bg: '#efe3ff',
+    shirt: ACCENT,
+    bg: BG_2,
   },
   barba: {
     label: 'Barba',
@@ -96,8 +100,8 @@ export const AVATAR_LOOKS: Record<CustomerAvatar, Look> = {
     hair: 'lateral',
     hairColor: HAIR.castanho,
     beard: true,
-    shirt: '#3d4a66',
-    bg: '#ffe9c7',
+    shirt: ACCENT,
+    bg: BG_2,
   },
   gorro: {
     label: 'Gorro',
@@ -106,14 +110,14 @@ export const AVATAR_LOOKS: Record<CustomerAvatar, Look> = {
     hairColor: HAIR.castanho,
     hat: 'gorro',
     shirt: BRAND,
-    bg: '#d9f0e0',
+    bg: BG_3,
   },
   crespo: {
     label: 'Cabelo crespo',
     skin: SKIN[4],
     hair: 'crespo',
     hairColor: HAIR.preto,
-    shirt: '#ffd34d',
+    shirt: SHIRT_SOFT,
     bg: BRAND_SOFT,
   },
   capacete: {
@@ -123,7 +127,7 @@ export const AVATAR_LOOKS: Record<CustomerAvatar, Look> = {
     hairColor: HAIR.preto,
     hat: 'capacete',
     shirt: ACCENT,
-    bg: '#dbe9ff',
+    bg: BG_2,
   },
   grisalho: {
     label: 'Cabelo grisalho',
@@ -131,8 +135,8 @@ export const AVATAR_LOOKS: Record<CustomerAvatar, Look> = {
     hair: 'coque',
     hairColor: HAIR.grisalho,
     glasses: true,
-    shirt: '#b99be8',
-    bg: '#ffe0e0',
+    shirt: SHIRT_SOFT,
+    bg: BG_3,
   },
   longo: {
     label: 'Cabelo longo',
@@ -140,7 +144,7 @@ export const AVATAR_LOOKS: Record<CustomerAvatar, Look> = {
     hair: 'longo',
     hairColor: HAIR.loiro,
     shirt: BRAND,
-    bg: '#efe3ff',
+    bg: BG_2,
   },
 };
 
@@ -149,7 +153,7 @@ function Puffs({ c, fill }: { c: [number, number, number][]; fill: string }) {
   return (
     <>
       {c.map(([x, y, r], i) => (
-        <circle key={`o${i}`} cx={x} cy={y} r={r} className="av-ink-fill" strokeWidth="6" />
+        <circle key={`o${i}`} cx={x} cy={y} r={r} className="av-ink-fill" strokeWidth="4.4" />
       ))}
       {c.map(([x, y, r], i) => (
         <circle key={`f${i}`} cx={x} cy={y} r={r} fill={fill} />
@@ -350,8 +354,8 @@ export function AvatarArt({ id, className = '' }: { id: CustomerAvatar; classNam
         )}
         {l.earrings && (
           <>
-            <circle className="av-ink" fill="#ffd34d" cx="30" cy="55" r="2.6" strokeWidth="1.6" />
-            <circle className="av-ink" fill="#ffd34d" cx="70" cy="55" r="2.6" strokeWidth="1.6" />
+            <circle className="av-ink" fill={BRAND} cx="30" cy="55" r="2.6" strokeWidth="1.6" />
+            <circle className="av-ink" fill={BRAND} cx="70" cy="55" r="2.6" strokeWidth="1.6" />
           </>
         )}
         <ellipse className="av-ink av-skin" cx="50" cy="44" rx="19" ry="21" />

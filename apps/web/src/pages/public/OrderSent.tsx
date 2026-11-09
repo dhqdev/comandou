@@ -1,42 +1,18 @@
 import { ChevronRight } from 'lucide-react';
-import { CSSProperties, useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { brl } from '../../lib/money';
-import { BagArt, MotoboyArt } from './art';
+import { BagArt } from './art';
 import { reducedMotion } from './morph';
 import './order-sent.css';
 
 /** Tempo da comemoração antes de abrir o acompanhamento sozinho. */
-export const ORDER_SENT_MS = 3200;
-
-const CONFETTI_COLORS = [
-  'var(--cm-brand-500)',
-  'var(--cm-accent-400)',
-  '#ffd34d',
-  '#ff5a4e',
-  '#3ab26a',
-  '#7cc4ff',
-];
-
-/** Papeizinhos espalhados em volta do centro: posição e giro fixos (sem sorteio a cada render). */
-function confetti(n: number) {
-  return Array.from({ length: n }, (_, i) => {
-    const a = (i / n) * Math.PI * 2 + (i % 3) * 0.35;
-    const d = 120 + ((i * 47) % 110);
-    return {
-      dx: Math.round(Math.cos(a) * d),
-      dy: Math.round(Math.sin(a) * d * 0.8 - 40),
-      rot: (i * 73) % 360,
-      delay: (i % 5) * 40,
-      color: CONFETTI_COLORS[i % CONFETTI_COLORS.length]!,
-      round: i % 4 === 0,
-    };
-  });
-}
+export const ORDER_SENT_MS = 2600;
 
 /**
- * Comemoração do pedido feito: a sacola cai com o selo de "ok", papeizinhos estouram e o
- * motoboy passa (entrega). Depois de ~3 s abre o acompanhamento; "Acompanhar" abre na hora.
+ * Confirmação do pedido feito: tela inteira na cor de fundo da loja (sem fade, para não piscar),
+ * a sacola sobe com o selo e o visto se desenha. Depois de ~2,6 s abre o acompanhamento, que já
+ * veio carregado por trás (prefetchOrder); "Acompanhar" abre na hora.
  */
 export function OrderSent({
   number,
@@ -55,7 +31,6 @@ export function OrderSent({
   awaiting?: boolean;
   onDone(): void;
 }) {
-  const pieces = useMemo(() => confetti(28), []);
   const done = useRef(onDone);
   done.current = onDone;
   const btn = useRef<HTMLButtonElement>(null);
@@ -82,23 +57,6 @@ export function OrderSent({
       data-still={still || undefined}
       style={{ ['--osent-ms' as string]: `${ORDER_SENT_MS}ms` }}
     >
-      <div className="osent__burst" aria-hidden>
-        {pieces.map((p, i) => (
-          <i
-            key={i}
-            data-round={p.round || undefined}
-            style={
-              {
-                '--dx': `${p.dx}px`,
-                '--dy': `${p.dy}px`,
-                '--rot': `${p.rot}deg`,
-                '--delay': `${p.delay}ms`,
-                background: p.color,
-              } as CSSProperties
-            }
-          />
-        ))}
-      </div>
       <div className="osent__card">
         <BagArt done live className="osent__art" />
         <h2 id="osent-title">Pedido enviado!</h2>
@@ -118,7 +76,6 @@ export function OrderSent({
           <span className="osent__bar" aria-hidden />
         </button>
       </div>
-      {channel === 'delivery' && !still && <MotoboyArt ride className="osent__moto" />}
     </div>,
     // Dentro da moldura do cardápio (.sf), que guarda as variáveis de cor e raio da loja.
     document.querySelector('.sf') ?? document.body,

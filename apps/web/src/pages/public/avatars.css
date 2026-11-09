@@ -1,13 +1,13 @@
 /* Avatares do cliente (avatars.tsx): mesmo traço das ilustrações do cardápio. */
 .av {
-  --av-ink: #2b1d16;
+  --av-ink: color-mix(in srgb, var(--cm-brand-800) 70%, #1a1410);
   display: block;
   width: 100%;
   height: 100%;
 }
 .av .av-ink {
   stroke: var(--av-ink);
-  stroke-width: 2.6;
+  stroke-width: 2;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
@@ -22,13 +22,12 @@
   fill: var(--av-ink);
 }
 .av-blush {
-  fill: #ff8f8f;
-  opacity: 0.35;
+  display: none;
 }
 .av-mouth {
   fill: none;
   stroke: var(--av-ink);
-  stroke-width: 2.6;
+  stroke-width: 2.2;
   stroke-linecap: round;
 }
 .av-mouth--beard {
@@ -36,6 +35,7 @@
   opacity: 0.85;
 }
 .av-collar {
+  display: none;
   fill: none;
   stroke: var(--av-ink);
   stroke-width: 2.2;
@@ -77,8 +77,7 @@
 }
 .av-rim {
   fill: none;
-  stroke: var(--av-ink);
-  stroke-width: 3;
+  stroke: none;
 }
 
 .cavatar {

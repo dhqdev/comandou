@@ -1,190 +1,302 @@
 /*
- * Ilustrações do cardápio (art.tsx): estilo desenho, traço escuro e cores chapadas.
- * A moto, a caixa e o toldo usam a cor da loja; a jaqueta, a cor de destaque.
- * As cores fixas (pneu, calça, vidro, papel da sacola) são do desenho e valem nos dois temas.
+ * Ilustrações do cardápio (art.tsx): traço fino e só a cor da loja, em quatro tons.
+ *   --art-0  papel (branco no claro, superfície no escuro)
+ *   --art-1  cor da loja bem clara (fundos, papel, pão)
+ *   --art-2  cor da loja média (sombras de volume, detalhes)
+ *   --art-3  cor da loja (o principal de cada desenho)
+ *   --art-ink  traço, a cor da loja escura
+ * Trocar a cor da loja repinta tudo; nada de amarelo, verde ou vermelho fixo.
  */
 .art {
-  --art-ink: #2b1d16;
+  --art-ink: color-mix(in srgb, var(--cm-brand-800) 88%, #000);
+  --art-0: #fff;
+  --art-1: color-mix(in srgb, var(--cm-brand-500) 12%, #fff);
+  --art-2: color-mix(in srgb, var(--cm-brand-500) 32%, #fff);
+  --art-3: var(--cm-brand-500);
+  --art-4: var(--cm-brand-700);
   display: block;
   width: 100%;
   height: auto;
   overflow: visible;
 }
+:root[data-theme='dark'] .art {
+  --art-ink: color-mix(in srgb, var(--cm-brand-500) 30%, #0d0d0f);
+  --art-0: color-mix(in srgb, var(--cm-brand-500) 6%, #f4f4f5);
+  --art-1: color-mix(in srgb, var(--cm-brand-500) 22%, #e9e9ec);
+  --art-2: color-mix(in srgb, var(--cm-brand-500) 45%, #d4d4d8);
+}
 .art .art-ink {
   stroke: var(--art-ink);
-  stroke-width: 3;
+  stroke-width: 2.2;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
 .art-none {
   fill: none;
 }
-.art-shadow {
-  fill: var(--art-ink);
-  opacity: 0.12;
-}
-.art-white {
-  fill: #fff;
-}
-.art-brand {
+.art-shadow,
+.art-pin-shadow {
   fill: var(--cm-brand-500);
+  opacity: 0.1;
 }
-.art-brand-deep {
-  fill: var(--cm-brand-600);
+
+/* Tons */
+.art-white,
+.art-screen,
+.art-plate-in,
+.art-wall,
+.art-hub {
+  fill: var(--art-0);
 }
-.art-brand-dark {
-  fill: var(--cm-brand-800);
+.art-plate-in {
+  fill: var(--art-1);
 }
-.art-accent {
-  fill: var(--cm-accent-400);
+.art-kraft,
+.art-light,
+.art-glass,
+.art-lens,
+.art-wood,
+.art-metal,
+.art-eraser,
+.art-chip-theirs,
+.art-chip-photo,
+.art-night,
+.art-flame,
+.art-leaf {
+  fill: var(--art-1);
 }
-.art-seat {
-  fill: #3a2a22;
+.art-lens {
+  opacity: 1;
 }
-.art-pants {
-  fill: #3d4a66;
+.art-kraft-dark,
+.art-accent,
+.art-seat,
+.art-pants,
+.art-patty,
+.art-pot,
+.art-trunk,
+.art-chip-hill,
+.art-ok {
+  fill: var(--art-2);
 }
-.art-red {
-  fill: #ff5a4e;
+.art-brand,
+.art-brand-deep,
+.art-red,
+.art-heart,
+.art-chip-mine {
+  fill: var(--art-3);
 }
-.art-light {
-  fill: #ffd34d;
-}
-.art-glass {
-  fill: #cfe7ff;
-}
+.art-brand-dark,
 .art-tire,
 .art-glove,
 .art-visor,
 .art-knob,
-.art-sign {
-  fill: var(--art-ink);
+.art-sign,
+.art-tip,
+.art-phone,
+.art-question-dot {
+  fill: var(--art-4);
 }
-.art-hub {
-  fill: #e9e4df;
+.art-notch {
+  fill: var(--art-2);
 }
-.art-spoke {
+.art-chip-sun {
+  fill: var(--art-0);
+}
+.art-question-dot {
+  fill: var(--art-3);
+}
+
+/* Linhas */
+.art-spoke,
+.art-frame {
+  fill: none;
   stroke: var(--art-ink);
-  stroke-width: 2;
+  stroke-width: 1.8;
   stroke-linecap: round;
 }
 .art-fork {
-  stroke: #bdb5ae;
-  stroke-width: 2.5;
+  stroke: var(--art-2);
+  stroke-width: 2;
   stroke-linecap: round;
 }
 .art-shine,
 .art-stripe,
 .art-visor-shine,
-.art-glass-shine {
+.art-glass-shine,
+.art-msg-line,
+.art-paper-line--white {
   fill: none;
   stroke: #fff;
-  stroke-width: 3;
+  stroke-width: 2.4;
   stroke-linecap: round;
-  opacity: 0.55;
+  opacity: 0.6;
 }
-.art-stripe {
+.art-msg-line {
   stroke-width: 4;
-  opacity: 0.85;
-}
-.art-visor-shine {
-  stroke-width: 2.5;
-  opacity: 0.7;
-}
-.art-glass-shine {
   opacity: 0.9;
 }
-.art-helmet-stripe {
+.art-helmet-stripe,
+.art-sole,
+.art-sign-line,
+.art-open {
   fill: none;
-  stroke: var(--cm-brand-500);
-  stroke-width: 6;
+  stroke: var(--art-3);
+  stroke-width: 4;
   stroke-linecap: round;
 }
-.art-cutlery {
+.art-helmet-stripe {
+  stroke-width: 5;
+}
+.art-cutlery,
+.art-question {
   fill: none;
-  stroke: var(--cm-brand-600);
+  stroke: var(--art-3);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.art-question {
+  stroke-width: 5;
+}
+.art-tick,
+.art-seal-check {
+  fill: none;
+  stroke: var(--art-ink);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.art-seal-check {
+  stroke: #fff;
+  stroke-width: 4;
+}
+.art-seal .art-ok {
+  fill: var(--art-3);
+}
+.art-paper-line {
+  fill: none;
+  stroke: var(--art-1);
+  stroke-width: 4.5;
+  stroke-linecap: round;
+}
+.art-paper-line--white {
+  stroke-width: 4.5;
+  opacity: 0.85;
+}
+.art-paper-line--ink {
+  stroke: var(--art-ink);
+  opacity: 0.7;
+}
+.art-paper-line--brand {
+  stroke: var(--art-3);
+}
+.art-paper-dash,
+.art-trail {
+  fill: none;
+  stroke: var(--art-2);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 3 6;
+}
+.art-handle-ink {
+  stroke: var(--art-ink);
+  stroke-width: 15;
+  stroke-linecap: round;
+}
+.art-handle {
+  stroke: var(--art-3);
+  stroke-width: 10.6;
+  stroke-linecap: round;
+}
+.art-ring-ink {
+  fill: none;
+  stroke: var(--art-ink);
+  stroke-width: 12.4;
+}
+.art-ring {
+  fill: none;
+  stroke: var(--art-4);
+  stroke-width: 8;
+}
+.art-steam path,
+.art-wind path {
+  fill: none;
+  stroke: var(--art-2);
   stroke-width: 2.4;
   stroke-linecap: round;
 }
-.art-sole {
-  stroke: var(--cm-brand-500);
-  stroke-width: 3;
-  stroke-linecap: round;
-}
-.art-wind path {
-  fill: none;
-  stroke: var(--art-ink);
-  stroke-width: 3;
-  stroke-linecap: round;
-  opacity: 0.3;
-}
-.art-wall {
-  fill: #fff6ee;
-}
-.art-sign-line {
-  stroke: var(--cm-accent-400);
-  stroke-width: 4;
-  stroke-linecap: round;
-}
-.art-open {
-  stroke: #2b8a3e;
-  stroke-width: 3;
-  stroke-linecap: round;
-}
-.art-kraft {
-  fill: #d9a066;
-}
-.art-kraft-dark {
-  fill: #c48650;
-}
-.art-pot {
-  fill: #c9733f;
-}
-.art-leaf {
-  fill: #5cb85c;
-}
-/* Tema escuro: o traço clareia um pouco para não sumir no fundo escuro. */
-:root[data-theme='dark'] .art {
-  --art-ink: #1a1210;
-}
-:root[data-theme='dark'] .art-wind path,
-:root[data-theme='dark'] .art-shadow {
-  stroke: #fff;
-  fill: #000;
+
+/* Enfeites que deixavam o desenho carregado: fora no estilo minimalista. */
+.art-spark,
+.art-float,
+.art-seed,
+.art-ding,
+.art-crumb,
+.art-puff,
+.art-stars,
+.art-star,
+.art-glass-shine--dim {
+  display: none;
 }
 
-/* ---------------------------------------------------------------- moto andando */
+/* ---------------------------------------------------------------- movimento (só o essencial) */
+/* Motoboy andando: rodas giram e o vento passa. */
 .art[data-ride] .art-wheel {
-  animation: art-spin 0.55s linear infinite;
-}
-.art[data-ride] .art-body {
-  animation: art-bump 0.36s ease-in-out infinite alternate;
+  animation: art-spin 0.7s linear infinite;
 }
 .art[data-ride] .art-wind path {
-  animation: art-wind 0.9s linear infinite;
+  animation: art-wind 1.2s linear infinite;
 }
 .art[data-ride] .art-wind path:nth-child(2) {
-  animation-delay: -0.3s;
+  animation-delay: -0.4s;
 }
 .art[data-ride] .art-wind path:nth-child(3) {
-  animation-delay: -0.6s;
+  animation-delay: -0.8s;
 }
-.art[data-ride] .art-puff circle {
+/* Vapor subindo (panela, sacola pronta). */
+.art[data-live] .art-steam path {
+  animation: art-steam 2.6s ease-out infinite;
+}
+.art[data-live] .art-steam path:nth-child(2) {
+  animation-delay: -0.85s;
+}
+.art[data-live] .art-steam path:nth-child(3) {
+  animation-delay: -1.7s;
+}
+/* Alfinete do mapa flutua de leve. */
+.art[data-live] .art-pin {
+  animation: art-hover 3s ease-in-out infinite;
+}
+/* Digitando (conversa). */
+.art[data-live] .art-typing circle {
+  animation: art-typing 1.4s ease-in-out infinite;
+}
+.art[data-live] .art-typing circle:nth-child(2) {
+  animation-delay: 0.16s;
+}
+.art[data-live] .art-typing circle:nth-child(3) {
+  animation-delay: 0.32s;
+}
+.art-typing circle {
+  fill: var(--art-2);
+}
+/* Sacola do pedido feito: entra subindo e o visto se desenha, uma vez só. */
+.art[data-live][data-done] .art-bagbody {
+  animation: art-rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.art[data-live] .art-seal {
   transform-box: fill-box;
   transform-origin: center;
-  animation: art-puff 1.1s ease-out infinite;
+  animation: art-pop 0.32s 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-.art[data-ride] .art-puff circle:nth-child(2) {
-  animation-delay: -0.55s;
+.art[data-live] .art-seal-check {
+  stroke-dasharray: 30;
+  animation: art-draw 0.32s 0.5s ease-out both;
 }
 @keyframes art-spin {
   to {
     transform: rotate(360deg);
-  }
-}
-@keyframes art-bump {
-  to {
-    transform: translateY(-1.6px);
   }
 }
 @keyframes art-wind {
@@ -192,503 +304,52 @@
     transform: translateX(10px);
     opacity: 0;
   }
-  30% {
-    opacity: 0.35;
-  }
-  100% {
-    transform: translateX(-16px);
-    opacity: 0;
-  }
-}
-@keyframes art-puff {
-  0% {
-    transform: translateX(6px) scale(0.4);
-    opacity: 0;
-  }
-  30% {
+  40% {
     opacity: 1;
   }
   100% {
-    transform: translateX(-10px) scale(1.15);
+    transform: translateX(-14px);
     opacity: 0;
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .art[data-ride] * {
-    animation: none !important;
+@keyframes art-steam {
+  0% {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-8px);
+    opacity: 0;
   }
 }
-
-/* Conversa (ChatArt): celular, balões e os três pontinhos de "digitando". */
-.art-phone {
-  fill: #3a2a22;
-}
-.art-screen {
-  fill: #fff6ee;
-}
-.art-notch {
-  fill: #6b5a50;
-}
-.art-chip-theirs {
-  fill: #eadfd6;
-}
-.art-chip-mine {
-  fill: var(--cm-brand-500);
-}
-.art-chip-photo {
-  fill: #cfe7ff;
-}
-.art-chip-hill {
-  fill: var(--cm-accent-400);
-}
-.art-chip-sun {
-  fill: #ffd34d;
-}
-.art-typing circle {
-  fill: #9b8b80;
-}
-.art-msg-line {
-  fill: none;
-  stroke: #fff;
-  stroke-width: 4.5;
-  stroke-linecap: round;
-  opacity: 0.9;
-}
-.art-heart {
-  fill: #ff5a4e;
-}
-.art-spark {
-  fill: none;
-  stroke: var(--cm-accent-400);
-  stroke-width: 3.5;
-  stroke-linecap: round;
-}
-.art[data-live] .art-typing circle {
-  animation: art-typing 1.2s ease-in-out infinite;
-}
-.art[data-live] .art-typing circle:nth-child(2) {
-  animation-delay: 0.15s;
-}
-.art[data-live] .art-typing circle:nth-child(3) {
-  animation-delay: 0.3s;
-}
-.art[data-live] .art-heart {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: art-beat 2.4s ease-in-out infinite;
+@keyframes art-hover {
+  50% {
+    transform: translateY(-4px);
+  }
 }
 @keyframes art-typing {
   0%,
   60%,
   100% {
     transform: translateY(0);
-    opacity: 0.55;
   }
   30% {
-    transform: translateY(-5px);
-    opacity: 1;
+    transform: translateY(-4px);
   }
 }
-@keyframes art-beat {
-  0%,
-  70%,
-  100% {
-    transform: scale(1);
-  }
-  80% {
-    transform: scale(1.18);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .art[data-live] .art-typing circle,
-  .art[data-live] .art-heart {
-    animation: none;
-  }
-}
-
-/* ---------------------------------------------------------------- peças das novas ilustrações */
-.art-plate-in {
-  fill: #f1ebe5;
-}
-.art-patty {
-  fill: #6b3d2a;
-}
-.art-seed ellipse {
-  fill: #fff8ec;
-  stroke: var(--art-ink);
-  stroke-width: 1.2;
-}
-.art-ok {
-  fill: #3ab26a;
-}
-.art-tick,
-.art-seal-check {
-  fill: none;
-  stroke: #fff;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.art-seal-check {
-  stroke-width: 5;
-}
-.art-paper-line {
-  fill: none;
-  stroke: #ddd3ca;
-  stroke-width: 5;
-  stroke-linecap: round;
-}
-.art-paper-line--white {
-  stroke: #fff;
-  opacity: 0.9;
-}
-.art-paper-line--short {
-  stroke-width: 4;
-}
-.art-paper-line--ink {
-  stroke: var(--art-ink);
-  opacity: 0.8;
-}
-.art-paper-line--brand {
-  stroke: var(--cm-brand-500);
-}
-.art-paper-dash {
-  fill: none;
-  stroke: #ddd3ca;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-dasharray: 4 6;
-}
-.art-ding path {
-  fill: none;
-  stroke: var(--art-ink);
-  stroke-width: 3;
-  stroke-linecap: round;
-  opacity: 0.3;
-}
-.art-eraser {
-  fill: #ff8fa3;
-}
-.art-metal {
-  fill: #c9c2bb;
-}
-.art-wood {
-  fill: #f2c897;
-}
-.art-tip,
-.art-question-dot {
-  fill: var(--art-ink);
-}
-.art-trunk {
-  fill: #8a5a3b;
-}
-.art-frame {
-  fill: none;
-  stroke: var(--art-ink);
-  stroke-width: 2.5;
-}
-.art-trail {
-  fill: none;
-  stroke: var(--art-ink);
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-dasharray: 1 8;
-  opacity: 0.35;
-}
-.art-pin-shadow {
-  fill: var(--art-ink);
-  opacity: 0.14;
-}
-.art-flame {
-  fill: #ffb43d;
-}
-.art-steam path {
-  fill: none;
-  stroke: var(--art-ink);
-  stroke-width: 3;
-  stroke-linecap: round;
-  opacity: 0.28;
-}
-.art-crumb {
-  fill: #d9a066;
-}
-.art-handle-ink {
-  stroke: var(--art-ink);
-  stroke-width: 19;
-  stroke-linecap: round;
-}
-.art-handle {
-  stroke: var(--cm-brand-500);
-  stroke-width: 13;
-  stroke-linecap: round;
-}
-.art-lens {
-  fill: #cfe7ff;
-  opacity: 0.75;
-}
-.art-ring-ink {
-  fill: none;
-  stroke: var(--art-ink);
-  stroke-width: 16;
-}
-.art-ring {
-  fill: none;
-  stroke: var(--cm-brand-800);
-  stroke-width: 10;
-}
-.art-question {
-  fill: none;
-  stroke: var(--cm-brand-600);
-  stroke-width: 6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.art-question-dot {
-  fill: var(--cm-brand-600);
-}
-.art-star {
-  fill: #ffd34d;
-}
-.art-night {
-  fill: #9db4cc;
-}
-.art-glass-shine--dim {
-  opacity: 0.5;
-}
-
-/* ---------------------------------------------------------------- animações leves (data-live) */
-.art[data-live] .art-float path {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: art-float 3.2s ease-in-out infinite;
-}
-.art[data-live] .art-float path:nth-child(2) {
-  animation-delay: -1.1s;
-}
-.art[data-live] .art-float path:nth-child(3) {
-  animation-delay: -2.2s;
-}
-.art[data-live] .art-flag {
-  transform-box: fill-box;
-  transform-origin: 0% 100%;
-  animation: art-flag 2.6s ease-in-out infinite;
-}
-.art[data-live] .art-pencil {
-  animation: art-write 1.6s ease-in-out infinite;
-}
-.art[data-live] .art-ding path {
-  animation: art-ding 2.4s ease-out infinite;
-}
-.art[data-live] .art-bell {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: art-bell 2.4s ease-in-out infinite;
-}
-.art[data-live] .art-todo {
-  animation: art-todo 2.4s ease-in-out infinite;
-}
-.art[data-live] .art-pin {
-  animation: art-pin 1.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
-}
-.art[data-live] .art-pin-shadow {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: art-pin-shadow 1.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
-}
-.art[data-live] .art-steam path {
-  animation: art-steam 2.2s ease-out infinite;
-}
-.art[data-live] .art-steam path:nth-child(2) {
-  animation-delay: -0.7s;
-}
-.art[data-live] .art-steam path:nth-child(3) {
-  animation-delay: -1.4s;
-}
-.art[data-live] .art-lid {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: art-lid 1.1s ease-in-out infinite;
-}
-.art[data-live] .art-fire path {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: art-flicker 0.5s ease-in-out infinite alternate;
-}
-.art[data-live] .art-fire path:nth-child(2) {
-  animation-delay: -0.25s;
-}
-.art[data-live] .art-loupe {
-  transform-origin: 228px 124px;
-  animation: art-loupe 3s ease-in-out infinite;
-}
-.art[data-live] .art-star {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: art-twinkle 2.4s ease-in-out infinite;
-}
-.art[data-live] .art-star:nth-child(2) {
-  animation-delay: -0.8s;
-}
-.art[data-live] .art-star:nth-child(3) {
-  animation-delay: -1.6s;
-}
-/* Sacola: cai na tela, o selo pula e o visto se desenha (pedido enviado). */
-.art[data-live] .art-bagbody {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: art-drop 0.7s cubic-bezier(0.3, 1.4, 0.5, 1) both;
-}
-.art[data-live] .art-seal {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: art-pop 0.5s 0.55s cubic-bezier(0.3, 1.6, 0.5, 1) both;
-}
-.art[data-live] .art-seal-check {
-  stroke-dasharray: 30;
-  animation: art-draw 0.4s 0.9s ease-out both;
-}
-@keyframes art-float {
-  0%,
-  100% {
-    transform: translateY(0) rotate(-6deg);
-  }
-  50% {
-    transform: translateY(-7px) rotate(6deg);
-  }
-}
-@keyframes art-flag {
-  0%,
-  100% {
-    transform: rotate(0);
-  }
-  50% {
-    transform: rotate(-8deg) scale(1.06);
-  }
-}
-@keyframes art-write {
-  0%,
-  100% {
-    transform: translate(0, 0);
-  }
-  25% {
-    transform: translate(-3px, 2px);
-  }
-  50% {
-    transform: translate(2px, -1px);
-  }
-  75% {
-    transform: translate(-2px, 1px);
-  }
-}
-@keyframes art-ding {
-  0%,
-  55%,
-  100% {
-    opacity: 0;
-  }
-  65% {
-    opacity: 0.45;
-  }
-}
-@keyframes art-bell {
-  0%,
-  50%,
-  70%,
-  100% {
-    transform: rotate(0);
-  }
-  58% {
-    transform: rotate(-7deg);
-  }
-  64% {
-    transform: rotate(6deg);
-  }
-}
-@keyframes art-todo {
-  0%,
-  100% {
-    fill: #fff;
-  }
-  50% {
-    fill: color-mix(in srgb, var(--cm-brand-500) 30%, #fff);
-  }
-}
-@keyframes art-pin {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-9px);
-  }
-}
-@keyframes art-pin-shadow {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.16;
-  }
-  50% {
-    transform: scale(0.7);
-    opacity: 0.08;
-  }
-}
-@keyframes art-steam {
-  0% {
-    transform: translateY(8px);
-    opacity: 0;
-  }
-  35% {
-    opacity: 0.35;
-  }
-  100% {
-    transform: translateY(-10px);
-    opacity: 0;
-  }
-}
-@keyframes art-lid {
-  0%,
-  100% {
-    transform: translateY(0) rotate(0);
-  }
-  50% {
-    transform: translateY(-3px) rotate(-1.5deg);
-  }
-}
-@keyframes art-flicker {
-  to {
-    transform: scaleY(1.14) scaleX(0.92);
-  }
-}
-@keyframes art-loupe {
-  0%,
-  100% {
-    transform: rotate(0);
-  }
-  50% {
-    transform: rotate(-9deg);
-  }
-}
-@keyframes art-twinkle {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(0.6);
-    opacity: 0.5;
-  }
-}
-@keyframes art-drop {
+@keyframes art-rise {
   from {
-    transform: translateY(-40px) scale(0.9);
+    transform: translateY(10px);
     opacity: 0;
   }
 }
 @keyframes art-pop {
   from {
-    transform: scale(0);
+    transform: scale(0.6);
+    opacity: 0;
   }
 }
 @keyframes art-draw {
@@ -697,7 +358,15 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .art[data-live] * {
+  .art * {
     animation: none !important;
   }
+}
+
+/* Hambúrguer: a carne no tom escuro para não virar uma cúpula só. */
+.art--fav .art-patty {
+  fill: var(--art-4);
+}
+.art--fav .art-leaf {
+  fill: var(--art-2);
 }

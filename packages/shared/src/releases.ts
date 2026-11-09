@@ -20,6 +20,28 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.103.0',
+    date: '2026-11-09',
+    title:
+      'Cardápio online: desenhos minimalistas na cor da loja e confirmação do pedido sem piscar',
+    summary:
+      'Os desenhos do cardápio (motoboy, favoritos, pedidos, endereços, busca, loja fechada e acompanhamento) e os avatares do perfil foram refeitos com traço fino e só nos tons da cor que a loja escolheu. A tela de pedido enviado ficou mais calma e não pisca mais.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Desenhos e avatares em estilo minimalista: traço fino, sem enfeites e pintados só com a cor da loja (claro e escuro). Trocar a cor da marca repinta todos.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Animações mais curtas e discretas: rodas e vento no motoboy, vapor na panela e o visto se desenhando no pedido enviado. Saíram os confetes, o motoboy atravessando a tela e os pulos.',
+      },
+      {
+        tag: 'correção',
+        text: 'Pedido enviado não pisca mais: a confirmação entra já por cima da finalização e o acompanhamento carrega por trás, então abre pronto, sem tela vazia no meio.',
+      },
+    ],
+  },
+  {
     version: '0.102.1',
     date: '2026-11-09',
     title: 'Animações mais rápidas e janela da mesa abrindo direto no lugar',
