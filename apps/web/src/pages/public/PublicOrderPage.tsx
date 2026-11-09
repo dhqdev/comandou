@@ -9,6 +9,8 @@ import {
   MessageCircle,
   PackageCheck,
   Store,
+  UtensilsCrossed,
+  Wallet,
   XCircle,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -190,150 +192,169 @@ export function PublicOrderPage() {
   const curIdx = o.step === 'cancelled' ? -1 : order.indexOf(o.step);
   const phone = o.restaurant.whatsapp?.replace(/\D/g, '');
 
+  const live = o.step !== 'completed' && o.step !== 'cancelled';
+
+  /*
+   * Celular: uma coluna (status, código, mapa, resumo, ações). Notebook (public.css): o status e o
+   * mapa à esquerda e o resumo com as ações à direita, preso no topo, para caber sem rolar.
+   */
   return (
-    <main className="store">
+    <main className="store store--track">
       <div className="track">
-        <div className="track__top">
+        <header className="track__top">
           <Photo src={o.restaurant.logoUrl} alt={o.restaurant.name} />
           <strong>{o.restaurant.name}</strong>
-          <Link to="/pedir">Cardápio</Link>
+          <Link to="/pedir">
+            <UtensilsCrossed size={15} aria-hidden /> Cardápio
+          </Link>
+        </header>
+
+        <div className="track__main">
+          <section
+            className="track__card track__status"
+            style={{ ['--tone' as string]: hero.tone }}
+          >
+            <div className="track__hero" aria-live="polite">
+              {o.step === 'dispatched' ? (
+                <MotoboyArt ride className="track__art" />
+              ) : o.step === 'ready' && o.channel === 'pickup' ? (
+                <PickupArt className="track__art" />
+              ) : (
+                <span className="track__badge" data-live={live ? '' : undefined}>
+                  <Icon size={28} />
+                </span>
+              )}
+              <div className="track__head">
+                <span className="cm-hint">Pedido #{o.number}</span>
+                <h1>{hero.title}</h1>
+                <p>{hero.text(o)}</p>
+              </div>
+            </div>
+
+            {o.step !== 'cancelled' && (
+              <ol className="steps">
+                {steps.map((s, i) => {
+                  const state =
+                    i < curIdx || o.step === 'completed'
+                      ? 'done'
+                      : i === curIdx
+                        ? 'current'
+                        : 'todo';
+                  const at = o.timeline[s.key];
+                  return (
+                    <li key={s.key} className="step" data-state={state}>
+                      <span className="step__dot">{state === 'done' && <Check size={14} />}</span>
+                      <span className="step__label">
+                        {s.label}
+                        {state === 'current' && s.hint && <small>{s.hint}</small>}
+                      </span>
+                      <span className="step__time">{at && state !== 'todo' ? time(at) : ''}</span>
+                    </li>
+                  );
+                })}
+              </ol>
+            )}
+
+            {live && <p className="track__live">Esta página se atualiza sozinha</p>}
+          </section>
+
+          {error && <p className="form-error">{error}</p>}
+
+          {o.step === 'dispatched' && o.courier && (
+            <CustomerLiveMap courier={o.courier} className="track__map" />
+          )}
         </div>
 
-        <section
-          className="track__card track__hero"
-          style={{ ['--tone' as string]: hero.tone }}
-          aria-live="polite"
-        >
-          {o.step === 'dispatched' ? (
-            <MotoboyArt ride className="track__art" />
-          ) : o.step === 'ready' && o.channel === 'pickup' ? (
-            <PickupArt className="track__art" />
-          ) : (
-            <span
-              className="track__badge"
-              data-live={o.step !== 'completed' && o.step !== 'cancelled' ? '' : undefined}
-            >
-              <Icon size={28} />
-            </span>
-          )}
-          <span className="cm-hint">Pedido #{o.number}</span>
-          <h1>{hero.title}</h1>
-          <p>{hero.text(o)}</p>
-        </section>
+        <div className="track__side">
+          {o.step === 'dispatched' && o.courier?.code && <DeliveryCode code={o.courier.code} />}
 
-        {error && <p className="form-error">{error}</p>}
-
-        {o.step !== 'cancelled' && (
-          <section className="track__card">
-            <ol className="steps">
-              {steps.map((s, i) => {
-                const state =
-                  i < curIdx || o.step === 'completed' ? 'done' : i === curIdx ? 'current' : 'todo';
-                const at = o.timeline[s.key];
-                return (
-                  <li key={s.key} className="step" data-state={state}>
-                    <span className="step__dot">{state === 'done' && <Check size={14} />}</span>
-                    <span className="step__label">
-                      {s.label}
-                      {state === 'current' && s.hint && <small>{s.hint}</small>}
-                    </span>
-                    <span className="step__time">{at && state !== 'todo' ? time(at) : ''}</span>
-                  </li>
-                );
-              })}
-            </ol>
+          <section className="track__card track__sum">
+            <h2>Resumo</h2>
+            <ul className="track__items">
+              {o.items.map((i, n) => (
+                <li key={n}>
+                  <Photo src={i.imageUrl} alt={i.name} className="track__photo" />
+                  <span>{qtyLabel(i.quantity, i.unit)}</span>
+                  <span>
+                    {i.name}
+                    {i.options.length > 0 && <small>{i.options.join(', ')}</small>}
+                    {i.notes && <small>Obs.: {i.notes}</small>}
+                  </span>
+                  <span>{brl(i.total)}</span>
+                </li>
+              ))}
+            </ul>
+            <dl className="sum">
+              <dt>Subtotal</dt>
+              <dd>{brl(o.subtotal)}</dd>
+              {o.channel === 'delivery' && (
+                <>
+                  <dt>Entrega</dt>
+                  <dd>{Number(o.deliveryFee) ? brl(o.deliveryFee) : 'Grátis'}</dd>
+                </>
+              )}
+              {Number(o.discount) > 0 && (
+                <>
+                  <dt>Desconto</dt>
+                  <dd>− {brl(o.discount)}</dd>
+                </>
+              )}
+              <dt className="sum__total">Total</dt>
+              <dd className="sum__total">{brl(o.total)}</dd>
+            </dl>
+            <div className="track__info">
+              {o.paymentHint && (
+                <div className="track__row">
+                  <Wallet size={15} aria-hidden />
+                  <span>
+                    Pagamento: {PAYMENT_METHOD_LABELS[o.paymentHint]}
+                    {o.changeFor && ` (troco para ${brl(o.changeFor)})`}
+                    {o.paymentStatus === 'paid' && ' · pago'}
+                  </span>
+                </div>
+              )}
+              {o.deliveryAddress && (
+                <div className="track__row">
+                  <MapPin size={15} aria-hidden /> <span>{o.deliveryAddress}</span>
+                </div>
+              )}
+              {o.channel === 'pickup' && (
+                <div className="track__row">
+                  <Store size={15} aria-hidden /> <span>Retirada na loja</span>
+                </div>
+              )}
+            </div>
           </section>
-        )}
 
-        {o.step === 'dispatched' && o.courier?.code && <DeliveryCode code={o.courier.code} />}
-        {o.step === 'dispatched' && o.courier && <CustomerLiveMap courier={o.courier} />}
-
-        <section className="track__card">
-          <h2>Resumo</h2>
-          <ul className="track__items">
-            {o.items.map((i, n) => (
-              <li key={n}>
-                <Photo src={i.imageUrl} alt={i.name} className="track__photo" />
-                <span>{qtyLabel(i.quantity, i.unit)}</span>
-                <span>
-                  {i.name}
-                  {i.options.length > 0 && <small>{i.options.join(', ')}</small>}
-                  {i.notes && <small>Obs.: {i.notes}</small>}
-                </span>
-                <span>{brl(i.total)}</span>
-              </li>
-            ))}
-          </ul>
-          <dl className="sum">
-            <dt>Subtotal</dt>
-            <dd>{brl(o.subtotal)}</dd>
-            {o.channel === 'delivery' && (
-              <>
-                <dt>Entrega</dt>
-                <dd>{Number(o.deliveryFee) ? brl(o.deliveryFee) : 'Grátis'}</dd>
-              </>
+          <div className="track__actions">
+            {o.restaurant.chat ? (
+              <Link className="btn-line" to={`/pedir/conversa?pedido=${o.number}`}>
+                <MessageCircle size={16} /> Falar com a loja
+              </Link>
+            ) : (
+              phone && (
+                <a
+                  className="btn-line"
+                  href={`https://wa.me/${phone.length <= 11 ? `55${phone}` : phone}?text=${encodeURIComponent(`Olá! Sobre o meu pedido #${o.number}`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <MessageCircle size={16} /> Falar com a loja
+                </a>
+              )
             )}
-            {Number(o.discount) > 0 && (
-              <>
-                <dt>Desconto</dt>
-                <dd>− {brl(o.discount)}</dd>
-              </>
+            {o.canCancel && (
+              <button className="btn-line btn-line--danger" onClick={cancel} disabled={cancelling}>
+                <XCircle size={16} /> {cancelling ? 'Cancelando…' : 'Cancelar pedido'}
+              </button>
             )}
-            <dt className="sum__total">Total</dt>
-            <dd className="sum__total">{brl(o.total)}</dd>
-          </dl>
-          <div style={{ marginTop: 14 }}>
-            {o.paymentHint && (
-              <div className="track__row">
-                Pagamento: {PAYMENT_METHOD_LABELS[o.paymentHint]}
-                {o.changeFor && ` (troco para ${brl(o.changeFor)})`}
-                {o.paymentStatus === 'paid' && ' · pago'}
-              </div>
-            )}
-            {o.deliveryAddress && (
-              <div className="track__row">
-                <MapPin size={15} /> {o.deliveryAddress}
-              </div>
-            )}
-            {o.channel === 'pickup' && (
-              <div className="track__row">
-                <Store size={15} /> Retirada na loja
-              </div>
+            {!live && (
+              <Link className="btn-line" to="/pedir">
+                Fazer outro pedido
+              </Link>
             )}
           </div>
-        </section>
-
-        <div className="track__actions">
-          {o.restaurant.chat ? (
-            <Link className="btn-line" to={`/pedir/conversa?pedido=${o.number}`}>
-              <MessageCircle size={16} /> Falar com a loja
-            </Link>
-          ) : (
-            phone && (
-              <a
-                className="btn-line"
-                href={`https://wa.me/${phone.length <= 11 ? `55${phone}` : phone}?text=${encodeURIComponent(`Olá! Sobre o meu pedido #${o.number}`)}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <MessageCircle size={16} /> Falar com a loja
-              </a>
-            )
-          )}
-          {o.canCancel && (
-            <button className="btn-line btn-line--danger" onClick={cancel} disabled={cancelling}>
-              <XCircle size={16} /> {cancelling ? 'Cancelando…' : 'Cancelar pedido'}
-            </button>
-          )}
-          {(o.step === 'completed' || o.step === 'cancelled') && (
-            <Link className="btn-line" to="/pedir">
-              Fazer outro pedido
-            </Link>
-          )}
         </div>
-        <p className="cm-hint" style={{ textAlign: 'center' }}>
-          Esta página se atualiza sozinha.
-        </p>
       </div>
     </main>
   );

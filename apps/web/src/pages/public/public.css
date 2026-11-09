@@ -195,6 +195,20 @@
 }
 
 /* ---------------------------------------------------------------- acompanhamento */
+/*
+ * Celular: uma coluna só (as duas colunas do notebook somem com display: contents e a ordem
+ * vem de "order"). Notebook (a partir de 880px de largura útil, também dentro do cardápio com
+ * o menu lateral): status e mapa à esquerda, resumo e ações à direita, presos no topo.
+ */
+.store--track {
+  container: track / inline-size;
+}
+@media (min-width: 700px) {
+  /* Sem abas nem sacola flutuando embaixo: não precisa da folga do celular. */
+  .store--track {
+    padding-bottom: 0;
+  }
+}
 .track {
   max-width: 620px;
   margin: 0 auto;
@@ -202,18 +216,64 @@
   display: grid;
   gap: 14px;
 }
+.track__main,
+.track__side {
+  display: contents;
+}
+.track__status {
+  order: 1;
+}
+.track > * > .form-error {
+  order: 2;
+}
+.track .dcode {
+  order: 3;
+}
+.track__map {
+  order: 4;
+}
+.track__sum {
+  order: 5;
+}
+.track__actions {
+  order: 6;
+}
+
 .track__top {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
 }
 .track__top .ph {
+  flex: none;
   width: 44px;
   border-radius: var(--cm-radius-sm);
 }
+.track__top strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .track__top a {
+  flex: none;
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: var(--cm-radius-full);
+  border: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+  color: var(--cm-text);
   font-size: var(--cm-text-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+.track__top a:hover {
+  border-color: var(--cm-border-strong);
 }
 .track__card {
   background: var(--cm-surface);
@@ -221,12 +281,22 @@
   border-radius: var(--cm-radius-lg);
   padding: 18px;
 }
+
+/* Status: ícone (ou desenho), título e as etapas, num cartão só. */
+.track__status {
+  display: grid;
+  gap: 20px;
+  padding: 24px 18px 18px;
+}
 .track__hero {
   display: grid;
   gap: 6px;
   text-align: center;
   justify-items: center;
-  padding: 24px 18px;
+}
+.track__head {
+  display: grid;
+  gap: 6px;
 }
 .track__badge {
   width: 64px;
@@ -260,10 +330,36 @@
   margin: 0;
   color: var(--cm-text-muted);
 }
+.track__live {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--cm-border);
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+}
+.track__live::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cm-success);
+  animation: track-blink 1.4s ease-in-out infinite;
+}
+@keyframes track-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
 .steps {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 18px 0 0;
+  border-top: 1px solid var(--cm-border);
   display: grid;
 }
 .step {
@@ -291,6 +387,7 @@
   display: none;
 }
 .step__dot {
+  position: relative;
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -317,6 +414,13 @@
   border-color: var(--cm-brand-600);
   color: var(--cm-brand-700);
 }
+.step[data-state='current'] .step__dot::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cm-brand-600);
+}
 .step__label {
   padding-top: 3px;
   font-weight: 600;
@@ -330,12 +434,21 @@
   padding-top: 4px;
   font-size: var(--cm-text-sm);
   color: var(--cm-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Resumo */
+.track__sum {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 .track__items {
   list-style: none;
   margin: 0 0 12px;
   padding: 0;
   display: grid;
+  align-content: start;
   gap: 8px;
   font-size: var(--cm-text-sm);
 }
@@ -351,20 +464,27 @@
 }
 .track__items li span:last-child {
   margin-left: auto;
+  white-space: nowrap;
 }
 .track__items small {
   display: block;
   color: var(--cm-text-muted);
 }
+.track__info {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
 .track__row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   font-size: var(--cm-text-sm);
   color: var(--cm-text-muted);
 }
-.track__row + .track__row {
-  margin-top: 8px;
+.track__row > svg {
+  flex: none;
+  margin-top: 2px;
 }
 .track__actions {
   display: flex;
@@ -391,6 +511,156 @@
 .track h2 {
   margin: 0 0 12px;
   font-size: var(--cm-text-md);
+}
+
+/* ---- notebook: duas colunas */
+@container track (min-width: 880px) {
+  .track {
+    max-width: 1120px;
+    padding: 20px 32px 24px;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
+    align-items: start;
+    gap: 20px 24px;
+  }
+  .track__top {
+    grid-column: 1 / -1;
+  }
+  .track__top .ph {
+    width: 44px;
+  }
+  .track__top strong {
+    font-size: var(--cm-text-lg);
+  }
+  .track__main,
+  .track__side {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+  }
+  /* O resumo acompanha a tela; com muitos itens, só a lista rola e o total fica à vista. */
+  .track__side {
+    position: sticky;
+    top: 20px;
+    /* Cabeçalho (≈84px) e margem de baixo: o resumo inteiro cabe na primeira tela. */
+    max-height: calc(100dvh - 108px);
+  }
+  .track__sum {
+    flex: 0 1 auto;
+  }
+  .track__items {
+    flex: 0 1 auto;
+    min-height: 88px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin-right: -6px;
+    padding-right: 6px;
+  }
+  .track__actions {
+    flex: none;
+  }
+  .track__actions > * {
+    flex: 1 1 140px;
+    justify-content: center;
+    padding: 0 12px;
+    white-space: nowrap;
+  }
+
+  .track__status {
+    position: relative;
+    gap: 22px;
+    padding: 24px 28px;
+  }
+  .track__hero {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 24px;
+    text-align: left;
+    justify-items: start;
+  }
+  .track__badge {
+    width: 72px;
+    height: 72px;
+    margin: 8px;
+  }
+  .track__art {
+    width: 148px;
+    margin: -6px 0 -4px;
+  }
+  .track__hero h1 {
+    font-size: var(--cm-text-2xl);
+    letter-spacing: -0.02em;
+  }
+  .track__hero p {
+    font-size: var(--cm-text-lg);
+  }
+  /* "Atualiza sozinha" no canto do cartão, para não gastar uma linha. */
+  .track__live {
+    position: absolute;
+    top: 22px;
+    right: 28px;
+    padding: 0;
+    border: 0;
+  }
+
+  /* Etapas na horizontal: bolinha, nome e hora, ligadas por uma linha. */
+  .steps {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    row-gap: 8px;
+    padding-top: 22px;
+  }
+  /* subgrid: bolinhas, nomes e horas ficam na mesma altura mesmo com nome em duas linhas. */
+  .step {
+    grid-row: span 3;
+    grid-template-columns: none;
+    grid-template-rows: subgrid;
+    justify-items: center;
+    gap: 8px;
+    padding: 0 6px;
+    text-align: center;
+  }
+  .step::before {
+    left: calc(50% + 18px);
+    right: calc(-50% + 18px);
+    top: 13px;
+    bottom: auto;
+    width: auto;
+    height: 2px;
+  }
+  .step__label {
+    padding-top: 2px;
+    font-size: var(--cm-text-sm);
+  }
+  /* O cartão já diz o que falta ao lado do ícone. */
+  .step__label small {
+    display: none;
+  }
+  .step__time {
+    padding-top: 0;
+    font-size: var(--cm-text-xs);
+  }
+
+  /* Mapa do entregador ocupa o que sobra da altura da tela. */
+  /* Previsão de chegada em cima do mapa: fica à vista mesmo se o mapa passar da tela. */
+  .track__map {
+    display: flex;
+    flex-direction: column-reverse;
+  }
+  .track__map .ctrack__bar {
+    border-top: 0;
+    border-bottom: 1px solid var(--cm-border);
+  }
+  .track__map .ctrack__map.live-map {
+    height: clamp(220px, calc(100dvh - 490px), 560px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .track__live::before,
+  .track__badge[data-live] {
+    animation: none;
+  }
 }
 
 .store-foot__brand {
