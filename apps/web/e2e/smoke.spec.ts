@@ -57,10 +57,11 @@ test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => 
   });
 
   // Sessão sobrevive a recarregar (cookie HttpOnly; no localStorage só a marca de
-  // apresentação vista, as cores da loja em cache e o e-mail do login, nada de sessão).
+  // apresentação vista, as cores da loja em cache, o e-mail do login e qual app da equipe o
+  // aparelho usou por último, para o QR Code da mesa; nada de sessão).
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Cardápio' })).toBeVisible();
-  const kept = new Set(['cm-brand', 'cm-login-email']);
+  const kept = new Set(['cm-brand', 'cm-login-email', 'cm.staff.app']);
   expect(
     await page.evaluate(
       (k) => Object.keys(localStorage).filter((x) => !x.startsWith('cm-tour:') && !k.includes(x)),
