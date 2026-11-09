@@ -20,6 +20,7 @@ import { api } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
 import { brl } from '../lib/money';
 import type { CustomerDetail, CustomerList, CustomerRow } from '../lib/types';
+import { CustomerAvatar } from './public/avatars';
 import './online-store.css';
 
 const fmtPhone = (d: string) =>
@@ -30,6 +31,19 @@ const fmtPhone = (d: string) =>
       : d;
 const waLink = (d: string) => `https://wa.me/55${d}`;
 const date = (iso: string) => new Date(iso).toLocaleDateString('pt-BR');
+/** Foto ou avatar que o cliente escolheu no cardápio; sem nenhum dos dois, as iniciais. */
+function ClAvatar({
+  c,
+  lg,
+}: {
+  c: { id: string; name: string; avatar?: string | null; photoUrl?: string | null };
+  lg?: boolean;
+}) {
+  if (c.photoUrl || c.avatar)
+    return <CustomerAvatar customer={c} size={lg ? 56 : 34} className="cl-avatar-img" decorative />;
+  return <span className={`cl-avatar${lg ? ' cl-avatar--lg' : ''}`}>{initials(c.name)}</span>;
+}
+
 const initials = (name: string) =>
   name
     .split(/\s+/)
@@ -88,7 +102,7 @@ function CustomerPanel({
       ) : (
         <div className="cl-detail">
           <div className="cl-head">
-            <span className="cl-avatar cl-avatar--lg">{initials(c.name)}</span>
+            <ClAvatar c={c} lg />
             <div>
               <strong>{c.name}</strong> {c.blocked && <Badge tone="danger">Bloqueado</Badge>}
               <p>
@@ -423,7 +437,7 @@ export function CustomersPage() {
                   <tr key={c.id} onClick={() => setOpen(c.id)}>
                     <td>
                       <span className="cl-name">
-                        <span className="cl-avatar">{initials(c.name)}</span>
+                        <ClAvatar c={c} />
                         <span>
                           {c.name} {c.blocked && <Badge tone="danger">Bloqueado</Badge>}
                           {c.email && (

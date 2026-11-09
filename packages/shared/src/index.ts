@@ -16,3 +16,4 @@ export * from './tickets';
 export * from './kitchen';
 export * from './finance-month';
 export * from './weight';
+export * from './avatars';

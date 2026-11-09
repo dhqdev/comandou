@@ -2236,3 +2236,89 @@
   place-items: center;
   min-height: 100dvh;
 }
+
+/* ---------------------------------------------------------------- finalização: passos e avisos */
+/* Sacola → finalizar: o passo novo entra deslizando de lado (para trás, volta do outro lado). */
+.ck-step[data-step='checkout'] {
+  animation: ck-step-in 0.36s var(--sf-ease) both;
+}
+.ck-step[data-step='cart'] {
+  animation: ck-step-back 0.32s var(--sf-ease) both;
+}
+@keyframes ck-step-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+@keyframes ck-step-back {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+}
+/* Bloco com algo faltando: borda vermelha e uma tremidinha a cada toque em "Fazer pedido". */
+.ck-card[data-invalid] {
+  border-color: var(--cm-danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cm-danger) 14%, transparent);
+}
+.ck-card[data-invalid] .form-error {
+  margin: 10px 0 0;
+}
+.f input[aria-invalid='true'] {
+  border-color: var(--cm-danger);
+}
+.ck-missing {
+  margin: 0 0 8px;
+  color: var(--cm-danger);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.ck-who__avatar {
+  align-self: center;
+  margin-right: 2px;
+}
+.ck-who {
+  align-items: center;
+}
+/* Enviando: o botão respira e o ícone gira. */
+.ck-send[data-busy] {
+  opacity: 1;
+  cursor: progress;
+  animation: ck-busy 1.2s ease-in-out infinite;
+}
+.ck-send__spin {
+  animation: ck-spin 0.8s linear infinite;
+}
+@keyframes ck-busy {
+  50% {
+    filter: brightness(1.12);
+    transform: scale(0.985);
+  }
+}
+@keyframes ck-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* Total mudou (taxa calculada, recompensa): o número dá um pulinho. */
+.sum__tick {
+  animation: sum-tick 0.4s var(--sf-ease) both;
+}
+@keyframes sum-tick {
+  from {
+    transform: translateY(-4px) scale(1.06);
+    color: var(--cm-brand-700);
+  }
+}
+.empty-state--search {
+  padding-top: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ck-step,
+  .ck-send[data-busy],
+  .ck-send__spin,
+  .sum__tick {
+    animation: none !important;
+  }
+}

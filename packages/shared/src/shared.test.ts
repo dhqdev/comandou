@@ -136,3 +136,16 @@ describe('desafios do garçom', () => {
     expect(challengeProgress(sales!, day)).toBeCloseTo(0.5);
   });
 });
+
+describe('autoAvatar', () => {
+  it('é sempre o mesmo para a mesma conta e está na lista', async () => {
+    const { autoAvatar, CUSTOMER_AVATARS } = await import('./avatars');
+    const id = '9b7c1d2e-0000-4000-8000-000000000001';
+    expect(autoAvatar(id)).toBe(autoAvatar(id));
+    expect(CUSTOMER_AVATARS).toContain(autoAvatar(id));
+    const seen = new Set(
+      Array.from({ length: 60 }, (_, i) => autoAvatar(`${id.slice(0, -2)}${i}`)),
+    );
+    expect(seen.size).toBeGreaterThan(4);
+  });
+});

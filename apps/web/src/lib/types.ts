@@ -111,6 +111,10 @@ export interface StoreBanner {
 export interface CustomerRow {
   id: string;
   name: string;
+  /** Avatar desenhado que o cliente escolheu no cardápio (null = não escolheu). */
+  avatar?: string | null;
+  /** Foto que o cliente pôs no perfil. */
+  photoUrl?: string | null;
   phone: string;
   email: string | null;
   marketingOptIn: boolean;
@@ -128,6 +132,8 @@ export interface CustomerList {
 export interface CustomerDetail {
   id: string;
   name: string;
+  avatar?: string | null;
+  photoUrl?: string | null;
   phone: string;
   email: string | null;
   marketingOptIn: boolean;

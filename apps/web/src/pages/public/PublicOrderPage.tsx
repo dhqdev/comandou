@@ -19,7 +19,7 @@ import { CustomerLiveMap, DeliveryCode, type CustomerCourier } from '../../featu
 import { time } from '../../features/format';
 import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
-import { MotoboyArt, PickupArt } from './art';
+import { BagArt, CookingArt, MotoboyArt, OrdersArt, PickupArt } from './art';
 import { Photo } from './ui';
 import './public.css';
 
@@ -215,10 +215,20 @@ export function PublicOrderPage() {
             style={{ ['--tone' as string]: hero.tone }}
           >
             <div className="track__hero" aria-live="polite">
-              {o.step === 'dispatched' ? (
+              {o.step === 'awaiting' ? (
+                <OrdersArt live className="track__art" />
+              ) : o.step === 'accepted' ? (
+                <CookingArt live className="track__art" />
+              ) : o.step === 'ready' ? (
+                o.channel === 'pickup' ? (
+                  <PickupArt className="track__art" />
+                ) : (
+                  <BagArt live className="track__art" />
+                )
+              ) : o.step === 'dispatched' ? (
                 <MotoboyArt ride className="track__art" />
-              ) : o.step === 'ready' && o.channel === 'pickup' ? (
-                <PickupArt className="track__art" />
+              ) : o.step === 'completed' ? (
+                <BagArt done live className="track__art" />
               ) : (
                 <span className="track__badge" data-live={live ? '' : undefined}>
                   <Icon size={28} />

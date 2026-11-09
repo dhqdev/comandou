@@ -42,6 +42,10 @@ export interface Customer {
   email: string | null;
   marketingOptIn: boolean;
   createdAt: Date;
+  /** Avatar desenhado escolhido (null = o automático pelo id). */
+  avatar: string | null;
+  /** Foto enviada pelo cliente (null = mostra o avatar). */
+  photoUrl: string | null;
 }
 export interface AddressInput {
   label?: string | null;
@@ -58,7 +62,19 @@ export interface AddressInput {
   lng?: number | null;
 }
 
-const CUSTOMER_COLS = `id, name, phone, email, marketing_opt_in AS "marketingOptIn", created_at AS "createdAt"`;
+/** URL da foto do cliente com a versão (photo_at) para o cache do navegador. */
+const photoUrlSql = (p: string, base: string) =>
+  `CASE WHEN ${p}photo_at IS NULL THEN NULL ELSE ${base} || '?v=' || floor(extract(epoch FROM ${p}photo_at) * 1000)::bigint END`;
+/** Foto vista pelo próprio cliente (cookie da conta). */
+const OWN_PHOTO = `'/api/v1/store/account/photo'`;
+/** Foto vista pela equipe (aba Clientes). */
+const staffPhoto = (p: string) => `'/api/v1/customers/' || ${p}id || '/photo'`;
+const customerCols = (p = '') =>
+  `${p}id, ${p}name, ${p}phone, ${p}email, ${p}marketing_opt_in AS "marketingOptIn", ${p}created_at AS "createdAt",
+   ${p}avatar, ${photoUrlSql(p, OWN_PHOTO)} AS "photoUrl"`;
+const CUSTOMER_COLS = customerCols();
+/** Foto do perfil: até 1 MB (o navegador já manda ~30 KB, 320 × 320). */
+export const MAX_CUSTOMER_PHOTO_BYTES = 1024 * 1024;
 const ADDRESS_COLS = `id, label, street, number, district, complement, reference, cep, city, state,
   is_default AS "isDefault", lat::text, lng::text`;
 const MAX_ADDRESSES = 10;
@@ -218,8 +234,7 @@ export class CustomersService {
     return this.db.withTenant({ tenantId }, async (tx) => {
       const r = await one<Customer & { sid: string; seen: Date }>(
         tx,
-        `SELECT c.id, c.name, c.phone, c.email, c.marketing_opt_in AS "marketingOptIn",
-                c.created_at AS "createdAt", s.id AS sid, s.last_seen_at AS seen
+        `SELECT ${customerCols('c.')}, s.id AS sid, s.last_seen_at AS seen
            FROM customer_sessions s JOIN customers c ON c.id = s.customer_id
           WHERE s.token_hash = $1 AND s.revoked_at IS NULL AND s.expires_at > now()
             AND c.blocked_at IS NULL`,
@@ -285,7 +300,7 @@ export class CustomersService {
   updateProfile(
     tenantId: string,
     c: Customer,
-    p: { name?: string; email?: string | null; marketingOptIn?: boolean },
+    p: { name?: string; email?: string | null; marketingOptIn?: boolean; avatar?: string | null },
   ) {
     return this.db.withTenant({ tenantId }, async (tx) => {
       if (p.email) {
@@ -300,10 +315,50 @@ export class CustomersService {
         tx,
         `UPDATE customers SET name = COALESCE($2, name),
                 email = CASE WHEN $3::boolean THEN $4 ELSE email END,
-                marketing_opt_in = COALESCE($5, marketing_opt_in)
+                marketing_opt_in = COALESCE($5, marketing_opt_in),
+                -- Escolher um avatar troca a foto por ele.
+                avatar = CASE WHEN $6::boolean THEN $7 ELSE avatar END,
+                photo = CASE WHEN $6::boolean THEN NULL ELSE photo END,
+                photo_type = CASE WHEN $6::boolean THEN NULL ELSE photo_type END,
+                photo_at = CASE WHEN $6::boolean THEN NULL ELSE photo_at END
           WHERE id = $1 RETURNING ${CUSTOMER_COLS}`,
-        [c.id, p.name ?? null, p.email !== undefined, p.email ?? null, p.marketingOptIn ?? null],
+        [
+          c.id,
+          p.name ?? null,
+          p.email !== undefined,
+          p.email ?? null,
+          p.marketingOptIn ?? null,
+          p.avatar !== undefined,
+          p.avatar ?? null,
+        ],
       );
+    });
+  }
+
+  /** Guarda a foto do perfil (já conferida: tipo, tamanho e assinatura). */
+  setPhoto(tenantId: string, c: Customer, photo: { mime: string; bytes: Buffer } | null) {
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      const next = await one<Customer>(
+        tx,
+        `UPDATE customers SET photo = $2, photo_type = $3,
+                photo_at = CASE WHEN $2::bytea IS NULL THEN NULL ELSE clock_timestamp() END
+          WHERE id = $1 RETURNING ${CUSTOMER_COLS}`,
+        [c.id, photo?.bytes ?? null, photo?.mime ?? null],
+      );
+      return next!;
+    });
+  }
+
+  /** Bytes da foto (do próprio cliente ou, pela equipe, de qualquer cliente do restaurante). */
+  photo(scope: { tenantId: string; userId?: string | null }, id: string) {
+    return this.db.withTenant(scope, async (tx) => {
+      const r = await one<{ type: string; bytes: Buffer }>(
+        tx,
+        `SELECT photo_type AS type, photo AS bytes FROM customers WHERE id = $1 AND photo IS NOT NULL`,
+        [id],
+      );
+      if (!r) throw new NotFoundException('Sem foto');
+      return r;
     });
   }
 
@@ -618,6 +673,7 @@ export class CustomersService {
       const customers = await q(
         tx,
         `SELECT c.id, c.name, c.phone, c.email, c.marketing_opt_in AS "marketingOptIn",
+                c.avatar, ${photoUrlSql('c.', staffPhoto('c.'))} AS "photoUrl",
                 c.blocked_at IS NOT NULL AS blocked, c.created_at AS "createdAt",
                 c.last_login_at AS "lastLoginAt", c.document,
                 COALESCE(st.orders, 0) AS orders, COALESCE(st.spent, '0.00') AS spent,
@@ -689,7 +745,9 @@ export class CustomersService {
     return this.db.withTenant(ctx, async (tx) => {
       const c = await one(
         tx,
-        `SELECT ${CUSTOMER_COLS}, staff_notes AS "staffNotes", blocked_at IS NOT NULL AS blocked,
+        `SELECT id, name, phone, email, marketing_opt_in AS "marketingOptIn", created_at AS "createdAt",
+                avatar, ${photoUrlSql('', staffPhoto(''))} AS "photoUrl",
+                staff_notes AS "staffNotes", blocked_at IS NOT NULL AS blocked,
                 last_login_at AS "lastLoginAt", document, state_registration AS "stateRegistration",
                 ie_indicator AS "ieIndicator"
            FROM customers WHERE id = $1`,

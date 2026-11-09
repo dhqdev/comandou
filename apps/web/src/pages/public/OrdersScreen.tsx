@@ -8,7 +8,7 @@ import { api } from '../../lib/api';
 import { brl } from '../../lib/money';
 import { useStore } from './context';
 import { AccountOrder, recentOrders, STEP_LABEL } from './store';
-import { PickupArt } from './art';
+import { OrdersArt } from './art';
 import { Photo } from './ui';
 
 const TONE: Record<AccountOrder['step'], string> = {
@@ -55,7 +55,7 @@ export function OrdersScreen() {
           )
         ) : orders.length === 0 ? (
           <div className="empty-state">
-            <PickupArt className="empty-state__art" />
+            <OrdersArt live className="empty-state__art" />
             <strong>Nenhum pedido ainda</strong>
             <p>Quando você pedir com a conta aberta, o pedido aparece aqui.</p>
             <Link className="cta cta--inline" to="/pedir">
@@ -120,7 +120,7 @@ export function OrdersScreen() {
                 <ReceiptText size={26} />
               </span>
             ) : (
-              <PickupArt className="empty-state__art" />
+              <OrdersArt live className="empty-state__art" />
             )}
             <strong>
               {recent.length ? 'Quer ver todos os seus pedidos?' : 'Nenhum pedido por aqui'}

@@ -185,6 +185,56 @@ describe('Conta do cliente', () => {
     expect(acc2.addresses[0]).toMatchObject({ id: addressId, isDefault: true });
   });
 
+  it('foto do perfil ou avatar desenhado: só o dono e a equipe veem a foto', async () => {
+    // PNG mínimo (1×1) com a assinatura certa.
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const put = (body: Buffer, type: string, cookie?: string) => {
+      const r = http.put('/api/v1/store/account/photo').set('Host', HOST_A).set(CSRF);
+      if (cookie) r.set('Cookie', cookie);
+      return r.set('Content-Type', type).send(body);
+    };
+    const start = (await c.get('/store/account', maria).expect(200)).body.customer;
+    expect(start).toMatchObject({ avatar: null, photoUrl: null });
+
+    await c.send('patch', '/store/account', { avatar: 'nao-existe' }, maria).expect(400);
+    const a = await c.send('patch', '/store/account', { avatar: 'chef' }, maria).expect(200);
+    expect(a.body.customer).toMatchObject({ avatar: 'chef', photoUrl: null });
+
+    await put(png, 'image/png').expect(401);
+    await put(Buffer.from('não é imagem'), 'image/png', maria).expect(422);
+    await put(png, 'image/jpeg', maria).expect(422);
+    const up = await put(png, 'image/png', maria).expect(200);
+    const url: string = up.body.customer.photoUrl;
+    expect(url).toMatch(/^\/api\/v1\/store\/account\/photo\?v=\d+$/);
+    expect(up.body.customer.avatar).toBe('chef');
+    expect(JSON.stringify(up.body)).not.toContain('iVBOR');
+
+    const own = await http.get(url).set('Host', HOST_A).set('Cookie', maria).expect(200);
+    expect(own.headers['content-type']).toBe('image/png');
+    expect(Buffer.from(own.body).equals(png)).toBe(true);
+    await http.get(url).set('Host', HOST_A).expect(401);
+
+    // Equipe vê a foto na aba Clientes; o outro restaurante não.
+    const list = (await admin.get('/customers').expect(200)).body.customers;
+    const row = list.find((x: { id: string }) => x.id === start.id);
+    expect(row.photoUrl).toMatch(new RegExp(`^/api/v1/customers/${start.id}/photo\\?v=`));
+    await admin.get(`/customers/${start.id}/photo`).expect(200);
+    await admin.get(`/customers/${start.id}/photo`, 'adminB').expect(404);
+    await admin.get(`/customers/${start.id}/photo`, 'waiterA').expect(403);
+
+    // Escolher um avatar troca a foto por ele; tirar a foto volta para o avatar.
+    await put(png, 'image/png', maria).expect(200);
+    const back = await c.send('patch', '/store/account', { avatar: 'bone' }, maria).expect(200);
+    expect(back.body.customer).toMatchObject({ avatar: 'bone', photoUrl: null });
+    await put(png, 'image/png', maria).expect(200);
+    const del = await c.send('delete', '/store/account/photo', {}, maria).expect(200);
+    expect(del.body.customer).toMatchObject({ avatar: 'bone', photoUrl: null });
+    await admin.get(`/customers/${start.id}/photo`).expect(404);
+  });
+
   it('sacola fica guardada na conta (só do dono) e esvazia quando o pedido sai', async () => {
     const line = {
       key: `${fx.prodA}::`,

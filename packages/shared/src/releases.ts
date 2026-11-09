@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.99.0',
+    date: '2026-11-09',
+    title: 'Cardápio online com desenhos novos, pedido comemorado e foto no perfil',
+    summary:
+      'O cardápio do cliente ganhou desenhos no mesmo estilo do motoboy em cada tela vazia e no acompanhamento do pedido. Finalizar ficou mais claro: o botão mostra o que falta preencher e, ao enviar, uma comemoração confirma o pedido antes de abrir o acompanhamento. O cliente agora pode pôr uma foto ou escolher um avatar desenhado no perfil.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Desenhos novos no cardápio: hambúrguer com coração (Favoritos), comanda com o sininho (Pedidos), casinha com o alfinete do mapa (Endereços), lupa no prato vazio (busca sem resultado), panela no fogo (cardápio em preparo) e a lojinha de porta fechada com lua quando a loja está fechada.',
+      },
+      {
+        tag: 'novo',
+        text: 'Acompanhamento do pedido com um desenho para cada etapa: comanda chegando, panela no fogo, sacola pronta, motoboy a caminho e sacola com o selo de entregue.',
+      },
+      {
+        tag: 'novo',
+        text: 'Pedido enviado: a sacola cai com o selo de ok, papeizinhos estouram e o motoboy passa na tela. Depois de 3 segundos o acompanhamento abre sozinho (ou na hora, em "Acompanhar pedido").',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Finalizar pedido: com algum dado faltando, "Fazer pedido" leva até o campo, marca em vermelho e diz o que falta (nome, WhatsApp com DDD, endereço, ponto no mapa ou troco), em vez de ficar apagado sem explicação. Enviando, o botão mostra que está trabalhando; o total dá um pulinho quando muda.',
+      },
+      {
+        tag: 'novo',
+        text: 'Foto do perfil no cardápio: o cliente envia uma foto (recortada e reduzida no próprio celular) ou escolhe um de 12 avatares desenhados. Quem não escolhe ganha um avatar fixo. A foto aparece na aba da conta, na finalização e, para a equipe, em Clientes.',
+      },
+    ],
+  },
+  {
     version: '0.98.0',
     date: '2026-11-06',
     title: 'Funciona sem internet: salva no aparelho e sobe quando a conexão volta',

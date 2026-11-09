@@ -20,6 +20,8 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { clickPoint, Mascot, Spinner, switchTheme, useTheme, useToast } from '../../design-system';
 import { SlideTabs } from '../../features/SlideTabs';
 import { api, ApiError } from '../../lib/api';
+import { AddressArt } from './art';
+import { ProfilePhoto } from './ProfilePhoto';
 import { useStoreChat } from './chat';
 import { useStore } from './context';
 import { AddressFields, addressPayload } from './AddressFields';
@@ -269,7 +271,7 @@ export function AccountScreen() {
       ) : (
         <>
           <section className="profile">
-            <span className="profile__avatar">{me.name[0]!.toUpperCase()}</span>
+            <ProfilePhoto me={me} />
             <div>
               <h1>{me.name}</h1>
               <p>{fmtPhone(me.phone)}</p>
@@ -389,6 +391,13 @@ export function ProfileScreen() {
   return (
     <div className="sf-wrap sf-page">
       <ScreenHeader title="Meus dados" back="/pedir/conta" />
+      <div className="pphoto-row">
+        <ProfilePhoto me={me} size={64} />
+        <span>
+          <strong>Foto do perfil</strong>
+          <small>Toque para pôr uma foto ou escolher um avatar.</small>
+        </span>
+      </div>
       <form
         className="auth__form"
         onSubmit={async (e) => {
@@ -565,9 +574,7 @@ export function AddressesScreen() {
       <ScreenHeader title="Endereços" back="/pedir/conta" />
       {list.length === 0 && (
         <div className="empty-state">
-          <span className="empty-state__icon">
-            <MapPin size={26} />
-          </span>
+          <AddressArt live className="empty-state__art" />
           <strong>Nenhum endereço salvo</strong>
           <p>Salve sua casa ou trabalho e finalize os pedidos em segundos.</p>
         </div>

@@ -1,10 +1,13 @@
 import { AddressFields, addressPayload } from './AddressFields';
 import { fromCents, toCents } from '@comandou/shared';
-import { Bike, ChevronRight, MapPin, Moon, Plus, Store, UserRound } from 'lucide-react';
+import { Bike, ChevronRight, Loader2, MapPin, Moon, Plus, Store, UserRound } from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { SlideTabs } from '../../features/SlideTabs';
 import { MotoboyArt } from './art';
+import { CustomerAvatar } from './avatars';
+import { reducedMotion } from './morph';
+import { OrderSent } from './OrderSent';
 import { api, ApiError } from '../../lib/api';
 import { newIdempotencyKey } from '../../lib/idempotency';
 import { brl, parseBrlInput } from '../../lib/money';
@@ -58,6 +61,20 @@ export function CartScreen() {
   const [changeFor, setChangeFor] = useStored('cm-cart-change', '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Pedido que acabou de entrar: mostra a comemoração antes de abrir o acompanhamento.
+  const [sent, setSent] = useState<{
+    number: number;
+    token: string;
+    total: string;
+    channel: 'delivery' | 'pickup';
+  } | null>(null);
+  // Tocou em "Fazer pedido" com algo faltando: marca o que falta e treme o primeiro bloco.
+  const [tried, setTried] = useState(false);
+  const sections = {
+    who: useRef<HTMLElement>(null),
+    address: useRef<HTMLElement>(null),
+    pay: useRef<HTMLElement>(null),
+  };
   const me = account?.customer ?? null;
   const saved = account?.addresses ?? [];
   const [addrId, setAddrId] = useState<string | 'new'>('new');
@@ -112,15 +129,42 @@ export function CartScreen() {
   const changeCents = toCents(parseBrlInput(changeFor) ?? '0');
   const changeOk = customer.paymentMethod !== 'cash' || !changeFor || changeCents >= total;
   const soldOut = cart.filter((l) => product(l.productId)?.soldOut);
-  const canSend =
-    !!channel &&
-    !belowMin &&
-    name.trim() &&
-    phoneOk &&
-    addressOk &&
-    changeOk &&
-    s.isOpen &&
-    !soldOut.length;
+  // O que impede o pedido e não depende do cliente digitar: o botão fica desligado.
+  const blocked = !channel || belowMin || !s.isOpen || soldOut.length > 0;
+  // O que falta preencher: o botão fica ligado e, ao tocar, leva até o primeiro que falta.
+  const missing: { key: keyof typeof sections; text: string }[] = [
+    ...(!name.trim() ? [{ key: 'who' as const, text: 'seu nome' }] : []),
+    ...(!phoneOk ? [{ key: 'who' as const, text: 'WhatsApp com DDD' }] : []),
+    ...(channel === 'delivery' && !chosen && !typedOk
+      ? [{ key: 'address' as const, text: 'rua, número e bairro' }]
+      : []),
+    ...(channel === 'delivery' && (chosen || typedOk) && !pinOk
+      ? [{ key: 'address' as const, text: 'o ponto no mapa dentro da área de entrega' }]
+      : []),
+    ...(!changeOk ? [{ key: 'pay' as const, text: 'troco maior que o total' }] : []),
+  ];
+  const canSend = !blocked && missing.length === 0;
+  const invalid = (k: keyof typeof sections) => tried && missing.some((m) => m.key === k);
+
+  function showMissing() {
+    setTried(true);
+    const first = missing[0] && sections[missing[0].key].current;
+    first?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (!reducedMotion())
+      first?.animate?.(
+        [
+          { transform: 'translateX(0)' },
+          { transform: 'translateX(-7px)' },
+          { transform: 'translateX(7px)' },
+          { transform: 'translateX(-4px)' },
+          { transform: 'translateX(0)' },
+        ],
+        { duration: 420, easing: 'ease-in-out' },
+      );
+    first
+      ?.querySelector<HTMLElement>('input:not([disabled]), button')
+      ?.focus({ preventScroll: true });
+  }
 
   async function send() {
     if (!channel || sending.current) return;
@@ -187,10 +231,10 @@ export function CartScreen() {
       if (loyalty) void refreshLoyalty();
       rememberOrder({ token, number: r.number, at: new Date().toISOString() });
       attempt.current = null;
+      setSent({ number: r.number, token, total: fromCents(total), channel });
       setCart(() => []);
       setNotes('');
       setChangeFor('');
-      navigate(`/pedido/${token}`);
     } catch (e) {
       const err = e as ApiError;
       // Erro de regra (loja fechou, produto esgotou): o próximo envio é um pedido novo.
@@ -214,6 +258,18 @@ export function CartScreen() {
     }
   }
 
+  if (sent)
+    return (
+      <div className="sf-wrap sf-page">
+        <OrderSent
+          number={sent.number}
+          total={sent.total}
+          channel={sent.channel}
+          onDone={() => navigate(`/pedido/${sent.token}`, { replace: true })}
+        />
+      </div>
+    );
+
   if (cart.length === 0)
     return (
       <div className="sf-wrap sf-page">
@@ -232,7 +288,7 @@ export function CartScreen() {
   return (
     <div className="sf-wrap sf-page sf-page--bar cart-page">
       {step === 'cart' ? (
-        <div className="cart-main">
+        <div className="cart-main ck-step" data-step="cart">
           <ScreenHeader title="Sua sacola" />
           <ul className="bag">
             {cart.map((l, i) => (
@@ -268,13 +324,16 @@ export function CartScreen() {
           </Link>
         </div>
       ) : (
-        <div className="checkout">
+        <div className="checkout ck-step" data-step="checkout">
           <header className="screen-head">
             <button
               type="button"
               className="iconbtn"
               aria-label="Voltar para a sacola"
-              onClick={() => setStep('cart')}
+              onClick={() => {
+                setStep('cart');
+                setTried(false);
+              }}
             >
               <ChevronRight size={20} style={{ transform: 'rotate(180deg)' }} />
             </button>
@@ -294,12 +353,17 @@ export function CartScreen() {
             />
           )}
 
-          <section className="ck-card">
+          <section
+            className="ck-card"
+            ref={sections.who}
+            data-invalid={invalid('who') || undefined}
+          >
             <h2 className="ck-card__title">
               <UserRound size={16} /> Seus dados
             </h2>
             {me ? (
               <div className="ck-who">
+                <CustomerAvatar customer={me} size={40} className="ck-who__avatar" />
                 <strong>{me.name}</strong>
                 <span>{fmtPhone(me.phone)}</span>
                 <Link to="/pedir/conta/dados" className="link">
@@ -309,20 +373,38 @@ export function CartScreen() {
             ) : (
               <>
                 <div className="grid2">
-                  <Field label="Seu nome">
+                  <Field
+                    label="Seu nome"
+                    hint={
+                      tried && !name.trim() ? (
+                        <span className="form-error">Diga seu nome para a loja</span>
+                      ) : undefined
+                    }
+                  >
                     <input
                       autoComplete="name"
                       value={customer.customerName}
                       maxLength={80}
+                      aria-invalid={(tried && !name.trim()) || undefined}
                       onChange={(e) => set('customerName', e.target.value)}
                     />
                   </Field>
-                  <Field label="WhatsApp">
+                  <Field
+                    label="WhatsApp"
+                    hint={
+                      tried && !phoneOk ? (
+                        <span className="form-error">
+                          Celular com DDD, para a loja falar com você
+                        </span>
+                      ) : undefined
+                    }
+                  >
                     <input
                       autoComplete="tel"
                       inputMode="tel"
                       placeholder="(11) 98888-7777"
                       value={customer.customerPhone}
+                      aria-invalid={(tried && !phoneOk) || undefined}
                       onChange={(e) => set('customerPhone', maskPhone(e.target.value))}
                     />
                   </Field>
@@ -340,7 +422,11 @@ export function CartScreen() {
           </section>
 
           {channel === 'delivery' ? (
-            <section className="ck-card">
+            <section
+              className="ck-card"
+              ref={sections.address}
+              data-invalid={invalid('address') || undefined}
+            >
               <h2 className="ck-card__title">
                 <Bike size={16} /> Endereço de entrega
               </h2>
@@ -415,6 +501,11 @@ export function CartScreen() {
                   />
                 </Suspense>
               )}
+              {invalid('address') && (
+                <p className="form-error" role="alert">
+                  Falta {missing.find((m) => m.key === 'address')!.text}.
+                </p>
+              )}
             </section>
           ) : (
             menu.restaurant.address && (
@@ -427,7 +518,11 @@ export function CartScreen() {
             )
           )}
 
-          <section className="ck-card">
+          <section
+            className="ck-card"
+            ref={sections.pay}
+            data-invalid={invalid('pay') || undefined}
+          >
             <h2 className="ck-card__title">
               Pagamento na {channel === 'delivery' ? 'entrega' : 'retirada'}
             </h2>
@@ -508,7 +603,9 @@ export function CartScreen() {
               </>
             )}
             <dt className="sum__total">Total</dt>
-            <dd className="sum__total">{brl(fromCents(total))}</dd>
+            <dd className="sum__total sum__tick" key={total}>
+              {brl(fromCents(total))}
+            </dd>
           </dl>
           {error && (
             <p className="form-error" role="alert">
@@ -552,13 +649,30 @@ export function CartScreen() {
               )}
             </button>
           ) : (
-            <button className="cta" disabled={!canSend || busy} onClick={send}>
-              {!s.isOpen
-                ? 'Loja fechada'
-                : busy
-                  ? 'Enviando…'
-                  : `Fazer pedido · ${brl(fromCents(total))}`}
-            </button>
+            <>
+              {tried && missing.length > 0 && (
+                <p className="ck-missing" role="alert">
+                  Para enviar, falta: {missing.map((m) => m.text).join(', ')}.
+                </p>
+              )}
+              <button
+                className="cta ck-send"
+                disabled={blocked || busy}
+                data-busy={busy || undefined}
+                aria-busy={busy || undefined}
+                onClick={() => (canSend ? void send() : showMissing())}
+              >
+                {!s.isOpen ? (
+                  'Loja fechada'
+                ) : busy ? (
+                  <>
+                    <Loader2 size={18} className="ck-send__spin" aria-hidden /> Enviando seu pedido…
+                  </>
+                ) : (
+                  `Fazer pedido · ${brl(fromCents(total))}`
+                )}
+              </button>
+            </>
           )}
         </div>
       </div>

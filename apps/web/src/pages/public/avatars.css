@@ -1,0 +1,230 @@
+/* Avatares do cliente (avatars.tsx): mesmo traço das ilustrações do cardápio. */
+.av {
+  --av-ink: #2b1d16;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.av .av-ink {
+  stroke: var(--av-ink);
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.av .av-ink-fill {
+  fill: var(--av-ink);
+  stroke: var(--av-ink);
+}
+.av-skin {
+  fill: var(--av-skin);
+}
+.av-eye {
+  fill: var(--av-ink);
+}
+.av-blush {
+  fill: #ff8f8f;
+  opacity: 0.35;
+}
+.av-mouth {
+  fill: none;
+  stroke: var(--av-ink);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}
+.av-mouth--beard {
+  stroke: #fff;
+  opacity: 0.85;
+}
+.av-collar {
+  fill: none;
+  stroke: var(--av-ink);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  opacity: 0.45;
+}
+.av-glasses circle {
+  fill: #cfe7ff;
+  fill-opacity: 0.35;
+  stroke: var(--av-ink);
+  stroke-width: 2.4;
+}
+.av-glasses path {
+  fill: none;
+  stroke: var(--av-ink);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+.av-shine,
+.av-visor-shine {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  opacity: 0.6;
+}
+.av-stripe {
+  fill: none;
+  stroke: var(--cm-brand-500);
+  stroke-width: 6;
+  stroke-linecap: round;
+}
+.av-rib {
+  fill: none;
+  stroke: var(--av-ink);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  opacity: 0.35;
+}
+.av-rim {
+  fill: none;
+  stroke: var(--av-ink);
+  stroke-width: 3;
+}
+
+.cavatar {
+  display: inline-grid;
+  flex: none;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--cm-surface-sunken);
+}
+.cavatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Foto do perfil (ProfilePhoto.tsx): botão com a câmera e a folha de escolha. */
+.pphoto {
+  position: relative;
+  flex: none;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  transition: transform var(--cm-dur, 0.15s) var(--cm-ease, ease);
+}
+.pphoto:active {
+  transform: scale(0.95);
+}
+.pphoto:focus-visible {
+  outline: 3px solid var(--cm-brand-500);
+  outline-offset: 3px;
+}
+.pphoto__cam {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  border: 2px solid var(--cm-surface);
+}
+.pphoto-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.pphoto-row span {
+  display: grid;
+  gap: 2px;
+}
+.pphoto-row small {
+  color: var(--cm-text-muted);
+}
+.pphoto-sheet {
+  display: grid;
+  gap: 14px;
+}
+.pphoto-sheet__now {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.pphoto-sheet__now p {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.pphoto-sheet__actions {
+  display: grid;
+  gap: 8px;
+}
+.pphoto-sheet__title {
+  margin: 4px 0 0;
+  font-size: var(--cm-text-md);
+  font-weight: 750;
+}
+.pphoto-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.pphoto-grid__opt {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 3px solid transparent;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  transition:
+    transform 0.18s cubic-bezier(0.3, 1.5, 0.5, 1),
+    border-color 0.15s;
+}
+.pphoto-grid__opt:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.04);
+}
+.pphoto-grid__opt:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.pphoto-grid__opt[aria-checked='true'] {
+  border-color: var(--cm-brand-500);
+}
+.pphoto-grid__on {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  border: 2px solid var(--cm-surface);
+  animation: pphoto-pop 0.3s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+.pphoto-grid__busy {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--cm-surface) 70%, transparent);
+  color: var(--cm-brand-700);
+}
+@keyframes pphoto-pop {
+  from {
+    transform: scale(0);
+  }
+}
+.sf-tab-avatar {
+  border: 1.5px solid currentColor;
+}
+.cl-avatar-img {
+  box-shadow: 0 0 0 1px var(--cm-border);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pphoto-grid__on {
+    animation: none;
+  }
+}

@@ -79,6 +79,10 @@ export interface CustomerAccount {
   email: string | null;
   marketingOptIn: boolean;
   createdAt: string;
+  /** Avatar desenhado escolhido (null = o automático pela conta). */
+  avatar?: string | null;
+  /** Foto do perfil (null = mostra o avatar). */
+  photoUrl?: string | null;
 }
 export interface SavedAddress {
   id: string;

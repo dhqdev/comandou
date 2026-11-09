@@ -11,6 +11,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { brl } from '../../lib/money';
 import type { MenuGroup } from '../../lib/types';
+import { SearchArt } from './art';
 import { useStore } from './context';
 import { reducedMotion, takeMorph } from './morph';
 import { HeartButton, Photo, Stepper, Switch } from './ui';
@@ -78,6 +79,7 @@ export function ProductScreen() {
   if (!p)
     return (
       <div className="sf-wrap sf-page empty-state">
+        <SearchArt live className="empty-state__art" />
         <strong>Produto não encontrado</strong>
         <p>Ele pode ter saído do cardápio.</p>
         <Link className="cta cta--inline" to="/pedir">

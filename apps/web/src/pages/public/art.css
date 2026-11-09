@@ -305,3 +305,399 @@
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------- peças das novas ilustrações */
+.art-plate-in {
+  fill: #f1ebe5;
+}
+.art-patty {
+  fill: #6b3d2a;
+}
+.art-seed ellipse {
+  fill: #fff8ec;
+  stroke: var(--art-ink);
+  stroke-width: 1.2;
+}
+.art-ok {
+  fill: #3ab26a;
+}
+.art-tick,
+.art-seal-check {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.art-seal-check {
+  stroke-width: 5;
+}
+.art-paper-line {
+  fill: none;
+  stroke: #ddd3ca;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+.art-paper-line--white {
+  stroke: #fff;
+  opacity: 0.9;
+}
+.art-paper-line--short {
+  stroke-width: 4;
+}
+.art-paper-line--ink {
+  stroke: var(--art-ink);
+  opacity: 0.8;
+}
+.art-paper-line--brand {
+  stroke: var(--cm-brand-500);
+}
+.art-paper-dash {
+  fill: none;
+  stroke: #ddd3ca;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 4 6;
+}
+.art-ding path {
+  fill: none;
+  stroke: var(--art-ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.3;
+}
+.art-eraser {
+  fill: #ff8fa3;
+}
+.art-metal {
+  fill: #c9c2bb;
+}
+.art-wood {
+  fill: #f2c897;
+}
+.art-tip,
+.art-question-dot {
+  fill: var(--art-ink);
+}
+.art-trunk {
+  fill: #8a5a3b;
+}
+.art-frame {
+  fill: none;
+  stroke: var(--art-ink);
+  stroke-width: 2.5;
+}
+.art-trail {
+  fill: none;
+  stroke: var(--art-ink);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1 8;
+  opacity: 0.35;
+}
+.art-pin-shadow {
+  fill: var(--art-ink);
+  opacity: 0.14;
+}
+.art-flame {
+  fill: #ffb43d;
+}
+.art-steam path {
+  fill: none;
+  stroke: var(--art-ink);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.28;
+}
+.art-crumb {
+  fill: #d9a066;
+}
+.art-handle-ink {
+  stroke: var(--art-ink);
+  stroke-width: 19;
+  stroke-linecap: round;
+}
+.art-handle {
+  stroke: var(--cm-brand-500);
+  stroke-width: 13;
+  stroke-linecap: round;
+}
+.art-lens {
+  fill: #cfe7ff;
+  opacity: 0.75;
+}
+.art-ring-ink {
+  fill: none;
+  stroke: var(--art-ink);
+  stroke-width: 16;
+}
+.art-ring {
+  fill: none;
+  stroke: var(--cm-brand-800);
+  stroke-width: 10;
+}
+.art-question {
+  fill: none;
+  stroke: var(--cm-brand-600);
+  stroke-width: 6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.art-question-dot {
+  fill: var(--cm-brand-600);
+}
+.art-star {
+  fill: #ffd34d;
+}
+.art-night {
+  fill: #9db4cc;
+}
+.art-glass-shine--dim {
+  opacity: 0.5;
+}
+
+/* ---------------------------------------------------------------- animações leves (data-live) */
+.art[data-live] .art-float path {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: art-float 3.2s ease-in-out infinite;
+}
+.art[data-live] .art-float path:nth-child(2) {
+  animation-delay: -1.1s;
+}
+.art[data-live] .art-float path:nth-child(3) {
+  animation-delay: -2.2s;
+}
+.art[data-live] .art-flag {
+  transform-box: fill-box;
+  transform-origin: 0% 100%;
+  animation: art-flag 2.6s ease-in-out infinite;
+}
+.art[data-live] .art-pencil {
+  animation: art-write 1.6s ease-in-out infinite;
+}
+.art[data-live] .art-ding path {
+  animation: art-ding 2.4s ease-out infinite;
+}
+.art[data-live] .art-bell {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: art-bell 2.4s ease-in-out infinite;
+}
+.art[data-live] .art-todo {
+  animation: art-todo 2.4s ease-in-out infinite;
+}
+.art[data-live] .art-pin {
+  animation: art-pin 1.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+.art[data-live] .art-pin-shadow {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: art-pin-shadow 1.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+.art[data-live] .art-steam path {
+  animation: art-steam 2.2s ease-out infinite;
+}
+.art[data-live] .art-steam path:nth-child(2) {
+  animation-delay: -0.7s;
+}
+.art[data-live] .art-steam path:nth-child(3) {
+  animation-delay: -1.4s;
+}
+.art[data-live] .art-lid {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: art-lid 1.1s ease-in-out infinite;
+}
+.art[data-live] .art-fire path {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: art-flicker 0.5s ease-in-out infinite alternate;
+}
+.art[data-live] .art-fire path:nth-child(2) {
+  animation-delay: -0.25s;
+}
+.art[data-live] .art-loupe {
+  transform-origin: 228px 124px;
+  animation: art-loupe 3s ease-in-out infinite;
+}
+.art[data-live] .art-star {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: art-twinkle 2.4s ease-in-out infinite;
+}
+.art[data-live] .art-star:nth-child(2) {
+  animation-delay: -0.8s;
+}
+.art[data-live] .art-star:nth-child(3) {
+  animation-delay: -1.6s;
+}
+/* Sacola: cai na tela, o selo pula e o visto se desenha (pedido enviado). */
+.art[data-live] .art-bagbody {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: art-drop 0.7s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+.art[data-live] .art-seal {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: art-pop 0.5s 0.55s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+.art[data-live] .art-seal-check {
+  stroke-dasharray: 30;
+  animation: art-draw 0.4s 0.9s ease-out both;
+}
+@keyframes art-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-6deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(6deg);
+  }
+}
+@keyframes art-flag {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  50% {
+    transform: rotate(-8deg) scale(1.06);
+  }
+}
+@keyframes art-write {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-3px, 2px);
+  }
+  50% {
+    transform: translate(2px, -1px);
+  }
+  75% {
+    transform: translate(-2px, 1px);
+  }
+}
+@keyframes art-ding {
+  0%,
+  55%,
+  100% {
+    opacity: 0;
+  }
+  65% {
+    opacity: 0.45;
+  }
+}
+@keyframes art-bell {
+  0%,
+  50%,
+  70%,
+  100% {
+    transform: rotate(0);
+  }
+  58% {
+    transform: rotate(-7deg);
+  }
+  64% {
+    transform: rotate(6deg);
+  }
+}
+@keyframes art-todo {
+  0%,
+  100% {
+    fill: #fff;
+  }
+  50% {
+    fill: color-mix(in srgb, var(--cm-brand-500) 30%, #fff);
+  }
+}
+@keyframes art-pin {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-9px);
+  }
+}
+@keyframes art-pin-shadow {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.16;
+  }
+  50% {
+    transform: scale(0.7);
+    opacity: 0.08;
+  }
+}
+@keyframes art-steam {
+  0% {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+}
+@keyframes art-lid {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  50% {
+    transform: translateY(-3px) rotate(-1.5deg);
+  }
+}
+@keyframes art-flicker {
+  to {
+    transform: scaleY(1.14) scaleX(0.92);
+  }
+}
+@keyframes art-loupe {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  50% {
+    transform: rotate(-9deg);
+  }
+}
+@keyframes art-twinkle {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+}
+@keyframes art-drop {
+  from {
+    transform: translateY(-40px) scale(0.9);
+    opacity: 0;
+  }
+}
+@keyframes art-pop {
+  from {
+    transform: scale(0);
+  }
+}
+@keyframes art-draw {
+  from {
+    stroke-dashoffset: 30;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .art[data-live] * {
+    animation: none !important;
+  }
+}

@@ -1,0 +1,141 @@
+/* Comemoração do pedido feito (OrderSent.tsx). */
+.osent {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-bg));
+  overflow: hidden;
+  animation: osent-in 0.3s ease-out both;
+}
+.osent__card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: min(100%, 380px);
+  text-align: center;
+}
+.osent__art {
+  width: min(260px, 80%);
+}
+.osent h2 {
+  margin: 4px 0 0;
+  font-size: var(--cm-text-3xl, 1.9rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--cm-text);
+  animation: osent-up 0.45s 0.75s var(--sf-ease, ease-out) both;
+}
+.osent p {
+  margin: 0;
+  max-width: 32ch;
+  color: var(--cm-text-muted);
+  animation: osent-up 0.45s 0.9s var(--sf-ease, ease-out) both;
+}
+.osent p strong {
+  color: var(--cm-text);
+}
+.osent__cta {
+  position: relative;
+  overflow: hidden;
+  flex: none;
+  width: 100%;
+  margin-top: 14px;
+  animation: osent-up 0.45s 1.05s var(--sf-ease, ease-out) both;
+}
+/* Barrinha que enche até abrir o acompanhamento sozinho. */
+.osent__bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  width: 100%;
+  background: color-mix(in srgb, var(--cm-on-brand) 55%, transparent);
+  transform-origin: left;
+  animation: osent-bar var(--osent-ms, 3.2s) linear both;
+}
+.osent__burst {
+  position: absolute;
+  left: 50%;
+  top: 38%;
+  width: 0;
+  height: 0;
+}
+.osent__burst i {
+  position: absolute;
+  width: 9px;
+  height: 14px;
+  margin: -7px 0 0 -4px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: osent-confetti 1.6s calc(0.6s + var(--delay)) cubic-bezier(0.15, 0.8, 0.3, 1) both;
+}
+.osent__burst i[data-round] {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.osent__moto {
+  position: absolute;
+  bottom: 18px;
+  left: 0;
+  width: 150px;
+  animation: osent-ride 2.6s 0.5s linear both;
+}
+@keyframes osent-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes osent-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes osent-bar {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes osent-confetti {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0) scale(0.4);
+  }
+  60% {
+    opacity: 1;
+    transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), calc(var(--dy) + 90px)) rotate(calc(var(--rot) + 160deg));
+  }
+}
+@keyframes osent-ride {
+  from {
+    transform: translateX(-170px);
+  }
+  to {
+    transform: translateX(calc(100vw + 20px));
+  }
+}
+.osent[data-still] *,
+.osent[data-still] {
+  animation: none !important;
+}
+.osent[data-still] .osent__burst {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .osent *,
+  .osent {
+    animation: none !important;
+  }
+  .osent__burst {
+    display: none;
+  }
+}

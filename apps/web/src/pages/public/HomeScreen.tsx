@@ -29,7 +29,7 @@ import {
 import { Link, useNavigate, useNavigationType } from 'react-router';
 import { Button, Mascot, Modal } from '../../design-system';
 import { brl } from '../../lib/money';
-import { DeliveryArt } from './art';
+import { ClosedArt, CookingArt, DeliveryArt, FavoritesArt, SearchArt } from './art';
 import { useStore } from './context';
 import { reducedMotion, setMorph } from './morph';
 import {
@@ -656,7 +656,11 @@ function RideCard({ onInfo }: { onInfo(): void }) {
             </span>
           )}
         </div>
-        <DeliveryArt delivery={delivery} ride={s.isOpen} className="sf-ride__art" />
+        {s.isOpen ? (
+          <DeliveryArt delivery={delivery} ride className="sf-ride__art" />
+        ) : (
+          <ClosedArt live className="sf-ride__art" />
+        )}
       </div>
       <button
         type="button"
@@ -923,7 +927,17 @@ export function HomeScreen() {
                 ? `${results.length} ${results.length === 1 ? 'resultado' : 'resultados'}`
                 : `Nada encontrado para “${search}”`}
             </h2>
-            <ProductGrid list={results} />
+            {results.length ? (
+              <ProductGrid list={results} />
+            ) : (
+              <div className="empty-state empty-state--search">
+                <SearchArt live className="empty-state__art" />
+                <p>Confira se o nome está certo ou tente uma palavra mais curta, como “pizza”.</p>
+                <button type="button" className="cta cta--inline" onClick={() => setSearch('')}>
+                  Limpar busca
+                </button>
+              </div>
+            )}
           </section>
         ) : (
           <>
@@ -935,7 +949,7 @@ export function HomeScreen() {
 
             {wheel.length === 0 ? (
               <div className="empty-state">
-                <Mascot size={64} />
+                <CookingArt live className="empty-state__art" />
                 <strong>O cardápio está sendo preparado</strong>
                 <p>Ainda não há pratos cadastrados. Volte em instantes!</p>
               </div>
@@ -1016,9 +1030,7 @@ export function FavoritesScreen() {
       <h1 className="page-h1">Favoritos</h1>
       {list.length === 0 ? (
         <div className="empty-state">
-          <span className="empty-state__icon">
-            <Heart size={26} />
-          </span>
+          <FavoritesArt live className="empty-state__art" />
           <strong>Nenhum favorito ainda</strong>
           <p>Toque no coração dos pratos que você mais gosta para achar rápido aqui.</p>
           <Link className="cta cta--inline" to="/pedir">

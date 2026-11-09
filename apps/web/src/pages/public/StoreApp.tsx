@@ -8,7 +8,8 @@ import {
   ShoppingBag,
   UserRound,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useMemo, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import {
   Link,
   NavLink,
@@ -28,6 +29,7 @@ import {
   PasswordScreen,
   ProfileScreen,
 } from './AccountScreens';
+import { CustomerAvatar } from './avatars';
 import { CartScreen } from './CartScreen';
 import { StoreChatProvider, useStoreChat } from './chat';
 import { ChatScreen } from './ChatScreen';
@@ -52,7 +54,25 @@ import './shell.css';
 function useNavTabs(): MagicTab[] {
   const { menu, account } = useStore();
   const chat = useStoreChat();
-  const name = account?.customer?.name.split(' ')[0];
+  const me = account?.customer ?? null;
+  const name = me?.name.split(' ')[0];
+  // Com a conta aberta, a aba "Conta" mostra a foto ou o avatar no lugar do ícone.
+  const meIcon = useMemo(
+    () =>
+      me
+        ? (forwardRef<HTMLSpanElement, { size?: number }>(function MeIcon({ size = 20 }, _ref) {
+            return (
+              <CustomerAvatar
+                customer={me}
+                size={Number(size) + 4}
+                className="sf-tab-avatar"
+                decorative
+              />
+            );
+          }) as unknown as LucideIcon)
+        : UserRound,
+    [me],
+  );
   return [
     { to: '/pedir', label: 'Cardápio', icon: House, end: true, badge: 0 },
     { to: '/pedir/favoritos', label: 'Favoritos', icon: Heart, badge: 0 },
@@ -61,7 +81,7 @@ function useNavTabs(): MagicTab[] {
       ? [{ to: '/pedir/conversa', label: 'Conversa', icon: MessageCircle, badge: chat.unread }]
       : []),
     ...(menu.appearance.accountsEnabled
-      ? [{ to: '/pedir/conta', label: name ?? 'Entrar', icon: UserRound, badge: 0 }]
+      ? [{ to: '/pedir/conta', label: name ?? 'Entrar', icon: meIcon, badge: 0 }]
       : []),
   ];
 }

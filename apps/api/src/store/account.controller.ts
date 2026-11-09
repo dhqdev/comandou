@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   Inject,
   Param,
@@ -14,7 +15,9 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
+import { CUSTOMER_AVATARS } from '@comandou/shared';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
@@ -28,8 +31,10 @@ import {
   Customer,
   CUSTOMER_COOKIE,
   CustomersService,
+  MAX_CUSTOMER_PHOTO_BYTES,
   normalizePhone,
 } from './customers.service';
+import { IMAGE_TYPES, sniff } from './store.controller';
 import { isUf } from './cep.service';
 import { StoreService } from './store.service';
 
@@ -76,8 +81,31 @@ const Profile = z
       .refine((v) => !v || z.string().email().safeParse(v).success, 'E-mail inválido')
       .transform((v) => v || null),
     marketingOptIn: z.boolean(),
+    /** Avatar desenhado; escolher um tira a foto. null volta para o automático. */
+    avatar: z.enum(CUSTOMER_AVATARS).nullable(),
   })
   .partial();
+
+/** Confere a foto do perfil enviada no corpo (WebP, JPEG ou PNG de verdade, até 1 MB). */
+function checkPhoto(body: unknown, type: string | undefined) {
+  const mime = (type ?? '').split(';')[0].trim().toLowerCase();
+  if (!IMAGE_TYPES.has(mime) || !Buffer.isBuffer(body))
+    throw new UnprocessableEntityException('Envie a foto em JPG, PNG ou WebP');
+  if (body.length === 0 || body.length > MAX_CUSTOMER_PHOTO_BYTES)
+    throw new UnprocessableEntityException('Foto vazia ou maior que 1 MB');
+  if (sniff(body) !== mime)
+    throw new UnprocessableEntityException('O arquivo não é uma foto válida');
+  return { mime, bytes: body };
+}
+
+function sendPhoto(res: Response, f: { type: string; bytes: Buffer }) {
+  res.setHeader('Content-Type', f.type);
+  // A URL muda a cada foto nova (?v=), então pode guardar; é privada (cliente ou equipe).
+  res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Content-Length', String(f.bytes.length));
+  res.end(f.bytes);
+}
 const Password = z.object({ current: z.string().min(1).max(200), next: password });
 const Forgot = z.object({ phone: z.string().trim().max(25) });
 const Reset = z.object({
@@ -239,6 +267,37 @@ export class AccountController {
     const c = await this.who(t, req);
     const next = await this.customers.updateProfile(t.id, c, b);
     return this.customers.account(t.id, next!);
+  }
+
+  /** Foto do perfil: o corpo é a própria imagem (recortada e reduzida no navegador). */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @Put('photo')
+  async putPhoto(
+    @Body() body: unknown,
+    @Headers('content-type') type: string | undefined,
+    @CurrentTenant() t: ResolvedTenant,
+    @Req() req: Request,
+  ) {
+    const c = await this.who(t, req);
+    const next = await this.customers.setPhoto(t.id, c, checkPhoto(body, type));
+    return this.customers.account(t.id, next);
+  }
+
+  @Public()
+  @Delete('photo')
+  async deletePhoto(@CurrentTenant() t: ResolvedTenant, @Req() req: Request) {
+    const c = await this.who(t, req);
+    const next = await this.customers.setPhoto(t.id, c, null);
+    return this.customers.account(t.id, next);
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 120 } })
+  @Get('photo')
+  async photo(@CurrentTenant() t: ResolvedTenant, @Req() req: Request, @Res() res: Response) {
+    const c = await this.who(t, req);
+    sendPhoto(res, await this.customers.photo({ tenantId: t.id }, c.id));
   }
 
   @Public()
@@ -456,6 +515,18 @@ export class CustomersController {
     @CurrentUser() u: AuthenticatedUser,
   ) {
     return this.customers.detail(ctxOf(t, u), id);
+  }
+
+  /** Foto do perfil do cliente (quando ele pôs uma). */
+  @Get(':id/photo')
+  @RequirePermission('customers:read')
+  async photo(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    sendPhoto(res, await this.customers.photo(ctxOf(t, u), id));
   }
 
   /** Código para o cliente criar uma senha nova (a equipe passa para ele). */
