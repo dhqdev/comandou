@@ -239,7 +239,6 @@
 @keyframes rv-in {
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
 }
 @media (prefers-reduced-motion: reduce) {

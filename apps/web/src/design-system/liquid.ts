@@ -5,11 +5,12 @@ import { spring, SPRINGS } from './spring';
  * Janelas que nascem de quem foi clicado (jeito do iOS, "vidro líquido").
  *
  * No computador e no tablet a janela abre perto do próprio botão (ou linha, cartão...) que a abriu,
- * não no meio da tela: botão à direita, janela à direita; embaixo dele se couber. Ela sai de dentro
- * do botão e estica com mola (passa um nadinha do ponto e assenta) e, ao fechar, volta para dentro
- * dele. Só transform e opacidade se movem (rodam na placa de vídeo); o conteúdo aparece logo depois
- * da forma e o vidro (desfoque do fundo) liga só quando ela para. No celular a folha cresce do botão
- * até o lugar dela (sem botão à vista, sobe de baixo); arrastada para baixo, desce.
+ * não no meio da tela: botão à direita, janela à direita; embaixo dele se couber. Ela já nasce no
+ * lugar final e só cresce (escala rápida com mola discreta) a partir do canto mais perto do botão,
+ * sem viajar pela tela; ao fechar, encolhe para esse lado. Depois de aberta nunca desliza: se o
+ * conteúdo crescer, é empurrada para dentro da tela no mesmo quadro. Só transform e opacidade se
+ * movem (placa de vídeo) e o vidro (desfoque do fundo) liga só quando ela para. No celular a folha
+ * sobe rápido de baixo; arrastada para baixo, desce.
  *
  * "Reduzir movimento", navegador sem Web Animations e testes (jsdom) abrem e fecham na hora.
  */
@@ -69,12 +70,6 @@ function visibleRect(el: Element | null): DOMRect | null {
   if (!r.width && !r.height) return null;
   if (r.bottom < 0 || r.right < 0 || r.top > innerHeight || r.left > innerWidth) return null;
   return r;
-}
-
-function transformFrom(a: DOMRect, to: DOMRect) {
-  const sx = Math.max(0.05, a.width / to.width);
-  const sy = Math.max(0.03, a.height / to.height);
-  return `translate(${a.left - to.left}px, ${a.top - to.top}px) scale(${sx}, ${sy})`;
 }
 
 /** Folha (ocupa a largura toda da tela, presa embaixo): celular e tablet em pé. */
@@ -196,18 +191,6 @@ type Morph = { anims: Animation[]; timer: number };
 /** morph: janela/folha; panel: painel que desliza da direita. */
 export type LiquidKind = 'morph' | 'panel';
 
-/** O conteúdo aparece logo depois da forma (assim o texto nunca aparece esticado). */
-function fadeChildren(d: HTMLElement, delay: number) {
-  return Array.from(d.children).map((c) =>
-    (c as HTMLElement).animate([{ opacity: 0 }, { opacity: 1 }], {
-      duration: 110,
-      delay,
-      easing: 'ease-out',
-      fill: 'backwards',
-    }),
-  );
-}
-
 /**
  * A janela já aberta (showModal) vai para perto de quem abriu e estica a partir dele com mola,
  * passando um nadinha do tamanho e assentando. Folha (celular): cresce do botão até a folha, sem
@@ -218,25 +201,34 @@ function morphIn(d: HTMLElement, from: DOMRect | null, m: Morph, onDone: () => v
   if (!to.width || !to.height) return onDone();
   const sheet = isSheetBox(to);
   if (from && !sheet) to = placeNear(d, from, to);
-  d.style.transformOrigin = '0 0';
-  const curve = sheet ? smooth() : expand();
-  const start = from
-    ? transformFrom(from, to)
-    : sheet
-      ? `translateY(${Math.max(to.height, innerHeight - to.top)}px)`
-      : `translate(${to.width * 0.03}px, ${to.height * 0.03}px) scale(.94)`;
-  const shape = d.animate([{ transform: start }, { transform: 'none' }], curve);
-  const fade =
-    from || !sheet
-      ? [d.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 90, easing: 'ease-out' })]
-      : [];
-  m.anims = [shape, ...fade, ...(from ? fadeChildren(d, 40) : [])];
+  // Abre JÁ no lugar final: só cresce (escala) a partir do canto mais perto de quem abriu, sem
+  // viajar pela tela. Antes ela saía do botão e subia até o lugar, o que parecia "abrir embaixo e
+  // depois subir". Folha do celular: sobe rápido de baixo.
+  if (!sheet) d.style.transformOrigin = originToward(from, to);
+  const start = sheet ? `translateY(${Math.min(to.height, 140)}px)` : 'scale(.94)';
+  const shape = d.animate(
+    [{ transform: start }, { transform: 'none' }],
+    sheet ? smooth() : expand(),
+  );
+  const fade = d.animate([{ opacity: 0 }, { opacity: 1 }], {
+    duration: sheet ? 120 : 90,
+    easing: 'ease-out',
+  });
+  m.anims = [shape, fade];
   shape.onfinish = () => {
     m.anims = [];
     d.style.transformOrigin = '';
     settle(d);
     onDone();
   };
+}
+
+/** Ponto da janela mais perto de quem abriu (origem da escala); sem botão, o meio. */
+function originToward(a: DOMRect | null, to: DOMRect) {
+  if (!a) return '50% 50%';
+  const x = clamp(a.left + a.width / 2 - to.left, 0, to.width);
+  const y = clamp(a.top + a.height / 2 - to.top, 0, to.height);
+  return `${Math.round(x)}px ${Math.round(y)}px`;
 }
 
 /**
@@ -328,29 +320,19 @@ function morphOut(d: HTMLElement, anchor: Element | null, m: Morph, done: () => 
     m.timer = window.setTimeout(done, 180);
     return;
   }
-  d.style.transformOrigin = '0 0';
-  const end = from
-    ? transformFrom(from, to)
-    : `translate(${to.width * 0.03}px, ${to.height * 0.03}px) scale(.94)`;
-  Array.from(d.children).forEach((c) =>
-    m.anims.push(
-      (c as HTMLElement).animate([{ opacity: 1 }, { opacity: 0 }], {
-        duration: 70,
-        fill: 'forwards',
-      }),
-    ),
-  );
-  const dur = from ? 160 : 120;
+  // Fecha no lugar, encolhendo para o lado de quem abriu (sem viajar até o botão).
+  if (!isSheetBox(to)) d.style.transformOrigin = originToward(from, to);
+  const dur = 120;
   m.anims.push(
-    d.animate([{ transform: 'none' }, { transform: end }], {
-      duration: dur,
-      easing: CLOSE_EASE,
-      fill: 'forwards',
-    }),
-    d.animate([{ opacity: 1 }, { opacity: 1, offset: 0.55 }, { opacity: 0 }], {
-      duration: dur,
-      fill: 'forwards',
-    }),
+    d.animate(
+      [{ transform: 'none' }, { transform: isSheetBox(to) ? 'translateY(60px)' : 'scale(.95)' }],
+      {
+        duration: dur,
+        easing: CLOSE_EASE,
+        fill: 'forwards',
+      },
+    ),
+    d.animate([{ opacity: 1 }, { opacity: 0 }], { duration: dur, fill: 'forwards' }),
   );
   backdrop([{ opacity: 1 }, { opacity: 0 }], dur);
   m.timer = window.setTimeout(done, dur - 10);

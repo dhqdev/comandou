@@ -1584,7 +1584,7 @@ input[type='radio'] {
  * não para os campos dentro de modais.
  */
 .cm-frame__content :is(.cm-seg, .slide-tabs):not(dialog *) ~ :not(dialog, .cm-modal, .cm-seg) {
-  animation: cm-tab-in 0.3s var(--cm-ease) backwards;
+  animation: cm-tab-in 0.18s var(--cm-ease) backwards;
 }
 @keyframes cm-tab-in {
   from {

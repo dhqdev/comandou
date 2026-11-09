@@ -183,8 +183,10 @@ export function AppFrame({
   };
   const [scrolled, setScrolled] = useState(false);
 
-  // Trocou de tela: fecha menus e volta o painel ao topo.
-  useEffect(() => {
+  // Trocou de tela: fecha menus e volta o painel ao topo. Antes de pintar (layout effect): com
+  // useEffect a tela nova aparecia na altura em que a anterior estava rolada e depois pulava
+  // para cima.
+  useLayoutEffect(() => {
     setFly(null);
     setFlyTop(null);
     setFlySlide(false);

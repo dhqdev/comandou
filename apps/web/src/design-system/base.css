@@ -166,7 +166,6 @@ svg {
 @keyframes cm-enter {
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
 }
 @keyframes cm-fade {
@@ -177,7 +176,7 @@ svg {
 @keyframes cm-pop {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.985);
+    transform: scale(0.985);
   }
 }
 .cm-enter {

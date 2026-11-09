@@ -234,7 +234,6 @@
 @keyframes cm-page-in {
   from {
     opacity: 0;
-    transform: translate3d(0, 4px, 0);
   }
 }
 @keyframes cm-where-in {

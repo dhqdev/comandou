@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.104.1',
+    date: '2026-11-09',
+    title: 'Telas e janelas abrindo direto no lugar',
+    summary:
+      'Nenhuma tela ou janela abre mais embaixo para depois subir. Cada tela já aparece no topo, e as janelas nascem no lugar final, crescendo do lado do botão que você tocou.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Ao trocar de tela, a página volta ao topo antes de aparecer, sem mostrar a rolagem antiga e depois pular para cima.',
+      },
+      {
+        tag: 'correção',
+        text: 'As entradas de telas, abas, listas e cards agora só aparecem suavemente no lugar, sem subir de baixo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Janelas (mesa, caixa, cardápio, estoque, equipe, reservas, impressão, cozinha) abrem já na posição final e crescem a partir do botão, sem deslizar depois.',
+      },
+    ],
+  },
+  {
     version: '0.104.0',
     date: '2026-11-09',
     title: 'Pix pelo cardápio: o cliente paga com QR Code e manda o comprovante para o PDV aprovar',

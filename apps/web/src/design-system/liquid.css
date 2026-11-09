@@ -131,18 +131,15 @@ dialog[data-liquid]::backdrop {
 @keyframes cm-rise {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
 }
-/* Os números dos indicadores sobem e ganham foco ao aparecer. */
+/* Os números dos indicadores aparecem no lugar (sem subir: nada nasce embaixo e sobe). */
 :is(.stat__value, .st-kpi__value, .rp-kpi__value, .dl-kpi__value) {
   animation: cm-num 0.2s cubic-bezier(0.2, 0.9, 0.25, 1) 0.04s backwards;
 }
 @keyframes cm-num {
   from {
     opacity: 0;
-    transform: translateY(6px);
-    filter: blur(3px);
   }
 }
 
@@ -185,7 +182,6 @@ html.cm-vt .cm-tabbar {
 @keyframes cm-vt-rise {
   from {
     opacity: 0;
-    transform: translate3d(0, 8px, 0);
   }
 }
 
