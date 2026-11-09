@@ -1,5 +1,5 @@
 import { fromCents, splitCents, toCents, qtyLabel } from '@comandou/shared';
-import { ArrowRightLeft, BellRing, Plus, Undo2 } from 'lucide-react';
+import { ArrowRightLeft, BellRing, Check, Plus, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
@@ -87,6 +87,20 @@ export function WaiterTab() {
     }
   }
 
+  // Levou o pedido pronto: pago pelo Pix, conclui (e a conta paga inteira fecha sozinha).
+  async function serve(o: Order) {
+    setBusy(true);
+    try {
+      await api(`/orders/${o.id}/served`, { method: 'POST' });
+      navigator.vibrate?.(12);
+      await load();
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const title = tab
     ? tab.tableLabel
       ? `Mesa ${tab.tableLabel}`
@@ -153,7 +167,11 @@ export function WaiterTab() {
                   <header className="wt-ticket__head">
                     <strong>#{o.number}</strong>
                     <span className="cm-hint">{time(o.createdAt)}</span>
-                    <Badge tone={STATUS_TONE[o.status]}>{ORDER_STATUS_LABELS[o.status]}</Badge>
+                    {o.servedAt && o.status === 'ready' ? (
+                      <Badge tone="success">Na mesa</Badge>
+                    ) : (
+                      <Badge tone={STATUS_TONE[o.status]}>{ORDER_STATUS_LABELS[o.status]}</Badge>
+                    )}
                     <strong className="wt-ticket__total">{brl(o.total)}</strong>
                   </header>
                   <ul className="wt-ticket__items">
@@ -173,6 +191,16 @@ export function WaiterTab() {
                       </li>
                     ))}
                   </ul>
+                  {open && o.status === 'ready' && !o.servedAt && (
+                    <button
+                      type="button"
+                      className="wt-serve__done wt-ticket__serve"
+                      disabled={busy}
+                      onClick={() => void serve(o)}
+                    >
+                      <Check size={18} aria-hidden /> Entreguei na mesa
+                    </button>
+                  )}
                   {o.status === 'cancel_requested' ? (
                     <p className="wt-ticket__note">
                       Cancelamento pedido: {o.cancelReason}. Aguardando o caixa.

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   isTableId,
   mergeCarts,
+  rememberPresence,
   rememberTable,
+  storedPresence,
   storedTableId,
   syncCart,
   tableServiceFee,
@@ -116,5 +118,19 @@ describe('Mesa do QR Code no cardápio', () => {
     expect(tableServiceFee(999, '12.50')).toBe(125);
     expect(tableServiceFee(5180, null)).toBe(0);
     expect(tableServiceFee(0, '10.00')).toBe(0);
+  });
+});
+
+describe('localização confirmada na mesa', () => {
+  const ID = '0b6f8c2e-5d7a-4b8e-9f1a-2c3d4e5f6a7b';
+  const OTHER = '1c7a9d3f-6e8b-4c9f-8a2b-3d4e5f6a7b8c';
+  it('vale para a mesma mesa por 4 horas', () => {
+    const now = Date.now();
+    rememberPresence(ID, { lat: -23.55, lng: -46.63, accuracy: 20 }, now);
+    expect(storedPresence(ID, now + 60_000)).toEqual({ lat: -23.55, lng: -46.63, accuracy: 20 });
+    expect(storedPresence(OTHER, now)).toBeNull();
+    expect(storedPresence(ID, now + 5 * 3_600_000)).toBeNull();
+    rememberPresence(ID, null);
+    expect(storedPresence(ID, now)).toBeNull();
   });
 });

@@ -438,6 +438,21 @@ export class AccountController {
     return this.store.cancelByCustomer(t.id, { orderId: id }, req.ip);
   }
 
+  /** Mesa com o cliente buscando no balcão: "Já peguei" pelo histórico da conta. */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @Post('orders/:id/picked-up')
+  @HttpCode(200)
+  async pickedUp(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @Req() req: Request,
+  ) {
+    const c = await this.who(t, req);
+    await this.customers.ownOrderId(t.id, c, id);
+    return this.store.pickedUpByCustomer(t.id, { orderId: id }, req.ip);
+  }
+
   /** Comprovante do Pix pelo histórico da conta (mesmo que pelo link do pedido). */
   @Public()
   @Throttle({ default: { ttl: 60_000, limit: 10 } })

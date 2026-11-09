@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Get,
   Headers,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -49,6 +50,11 @@ const ListQuery = z.object({
     .transform((v) => v === 'true'),
   /** Concluídos com saldo a pagar ("a receber" ou aguardando o acerto do entregador). */
   openBalance: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+  /** Prontos para levar à mesa (app do garçom). */
+  toServe: z
     .enum(['true', 'false'])
     .optional()
     .transform((v) => v === 'true'),
@@ -117,6 +123,19 @@ export class OrdersController {
       await this.orders.get(ctx, id); // fora do alcance do garçom: 404
     }
     return this.orders.transition(ctx, id, b.to, b);
+  }
+
+  /** Pedido de mesa entregue na mesa ("Entreguei"). Pago, conclui; ver OrdersService.markServed. */
+  @Post(':id/served')
+  @RequirePermission('orders:write')
+  @HttpCode(200)
+  served(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.orders.markServed(ctxOf(t, u, req), id);
   }
 
   @Patch(':id/adjustments')

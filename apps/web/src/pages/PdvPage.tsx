@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   ExternalLink,
+  HandPlatter,
   Link2,
   ListFilter,
   Plus,
@@ -74,10 +75,13 @@ function ago(mins: number) {
 /** Próximo passo do pedido, mostrado como um botão pequeno no canto do cartão. */
 function nextAction(
   o: Order,
-): { label: string; to?: OrderStatus; open?: boolean; icon: ReactNode } | null {
+): { label: string; to?: OrderStatus; open?: boolean; serve?: boolean; icon: ReactNode } | null {
   if (o.status === 'awaiting') return { label: 'Aceitar', to: 'new', icon: <Check size={16} /> };
   if (o.status === 'new' || o.status === 'in_production')
     return { label: 'Avançar pedido', to: 'ready', icon: <ArrowRight size={16} /> };
+  // Mesa: o pedido pronto vai para a mesa (a conta é paga na comanda, não no cartão do pedido).
+  if (o.status === 'ready' && o.channel === 'table')
+    return { label: 'Entregue na mesa', serve: true, icon: <HandPlatter size={16} /> };
   if (o.status === 'ready' && o.channel === 'delivery')
     return { label: 'Despachar', icon: <Bike size={16} /> };
   // Com saldo em aberto, finalizar abre o pedido para receber (não conclui sem pagamento).
@@ -97,6 +101,7 @@ function OrderCard({
   busy,
   onOpen,
   onMove,
+  onServe,
   onPix,
 }: {
   order: Order;
@@ -105,6 +110,8 @@ function OrderCard({
   busy: boolean;
   onOpen(step?: 'dispatch' | 'reject'): void;
   onMove(to: OrderStatus): void;
+  /** Pedido de mesa pronto: entregue na mesa. */
+  onServe(): void;
   /** Comprovante do Pix: abre a prévia sem abrir o pedido. */
   onPix(): void;
 }) {
@@ -179,7 +186,13 @@ function OrderCard({
             title={action.label}
             disabled={busy}
             onClick={() =>
-              action.to ? onMove(action.to) : action.open ? onOpen() : onOpen('dispatch')
+              action.serve
+                ? onServe()
+                : action.to
+                  ? onMove(action.to)
+                  : action.open
+                    ? onOpen()
+                    : onOpen('dispatch')
             }
           >
             {action.icon}
@@ -386,6 +399,8 @@ export function PdvPage() {
     const s = search.trim().toLowerCase();
     return (orders ?? []).filter(
       (o) =>
+        // Pedido de mesa que já chegou na mesa sai do quadro (a conta fica na comanda).
+        !(o.channel === 'table' && o.status === 'ready' && o.servedAt) &&
         (filter === 'all' || o.channel === filter) &&
         (!s ||
           String(o.number).includes(s) ||
@@ -416,6 +431,19 @@ export function PdvPage() {
         json: { to, expectedVersion: o.version },
       });
       if (to === 'new') toast(`Pedido #${o.number} aceito e enviado para a cozinha`, 'success');
+      void load();
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+      void load();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function serve(o: Order) {
+    setBusyId(o.id);
+    try {
+      await api(`/orders/${o.id}/served`, { method: 'POST' });
       void load();
     } catch (e) {
       toast((e as Error).message, 'danger');
@@ -734,6 +762,7 @@ export function PdvPage() {
                           setOpenId(o.id);
                         }}
                         onMove={(to) => move(o, to)}
+                        onServe={() => serve(o)}
                         onPix={() => setPixId(o.id)}
                       />
                     ))

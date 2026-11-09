@@ -88,6 +88,10 @@ export interface PublicTable {
   label: string;
   /** Taxa de serviço que a comanda da mesa cobra ("10.00"), ou null. */
   serviceFeePercent: string | null;
+  /** O cliente confirma a localização (no restaurante) antes de pedir. */
+  confirmLocation?: boolean;
+  /** Pedido pronto: o cliente busca no balcão. */
+  selfPickup?: boolean;
 }
 
 /** Canal do pedido feito pelo cardápio: na mesa só pelo QR Code. */
@@ -330,6 +334,40 @@ export function rememberTable(id: string | null, now = Date.now()) {
     else sessionStorage.removeItem(TABLE_KEY);
   } catch {
     /* modo privado: a mesa vale só enquanto a página está aberta */
+  }
+}
+
+/** Onde o celular estava quando o cliente confirmou que está no restaurante. */
+export interface TablePresence {
+  lat: number;
+  lng: number;
+  accuracy: number;
+}
+const HERE_KEY = 'cm-table-here';
+/** A confirmação vale uma refeição: depois disso (ou em outra mesa) pede de novo. */
+const HERE_TTL_MS = 4 * 3_600_000;
+
+export function storedPresence(tableId: string, now = Date.now()): TablePresence | null {
+  try {
+    const raw = sessionStorage.getItem(HERE_KEY);
+    const h = raw
+      ? (JSON.parse(raw) as { tableId?: string; at?: number } & Partial<TablePresence>)
+      : null;
+    if (!h || h.tableId !== tableId || typeof h.at !== 'number' || now - h.at > HERE_TTL_MS)
+      return null;
+    if (typeof h.lat !== 'number' || typeof h.lng !== 'number' || typeof h.accuracy !== 'number')
+      return null;
+    return { lat: h.lat, lng: h.lng, accuracy: h.accuracy };
+  } catch {
+    return null;
+  }
+}
+export function rememberPresence(tableId: string, p: TablePresence | null, now = Date.now()) {
+  try {
+    if (p) sessionStorage.setItem(HERE_KEY, JSON.stringify({ tableId, at: now, ...p }));
+    else sessionStorage.removeItem(HERE_KEY);
+  } catch {
+    /* modo privado: vale enquanto a página está aberta */
   }
 }
 

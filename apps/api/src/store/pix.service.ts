@@ -200,8 +200,9 @@ export class PixService {
         idemKey,
         { orderId, receiptId, ...b },
         async () => {
-          // Travas na ordem do caixa: sessão → pedido → comprovante.
+          // Travas na ordem do caixa: sessão → comanda → pedido → comprovante.
           if (b.cashSessionId) await this.cash.lockSession(tx, b.cashSessionId, 'SHARE');
+          await this.orders.lockTabOf(tx, orderId);
           const o = await this.orders.lock(tx, orderId);
           await this.lockReceipt(tx, orderId, receiptId);
           if (o.status === 'cancelled')
@@ -240,14 +241,18 @@ export class PixService {
             data: { receiptId, paymentId, amount: fromCents(Math.max(due, 0)) },
             ip: ctx.ip,
           });
+          // Pedido de mesa que já chegou na mesa: pago agora, conclui (e a comanda pode fechar).
+          const settled = await this.orders.settleServedIn(tx, ctx, orderId);
           return {
             paid: paymentId !== null,
+            settled,
             order: await this.orders.detail(tx, orderId),
           };
         },
       ),
     );
     this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId });
+    if (res.settled?.closedTabId) this.orders.notifyTabClosed(ctx, res.settled.closedTabId);
     if (res.paid && b.cashSessionId)
       this.realtime.publish(ctx.tenantId, { type: 'cash.changed', sessionId: b.cashSessionId });
     const tabId = res.order?.tabId;

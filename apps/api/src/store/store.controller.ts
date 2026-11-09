@@ -59,6 +59,13 @@ const optText = (max: number) =>
     .optional()
     .transform((v) => v || undefined);
 
+/** Localização do celular (navigator.geolocation): ponto e precisão em metros. */
+const Presence = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  accuracy: z.number().min(0).max(100_000),
+});
+
 const OnlineOrder = z
   .object({
     /** table = cliente sentado, pelo QR Code da mesa: o pedido vai para a comanda dela. */
@@ -124,6 +131,8 @@ const OnlineOrder = z
       .max(60),
     /** Recompensa do programa de fidelidade (só com a conta aberta). */
     rewardId: uuid.optional(),
+    /** Mesa: onde o celular está (a loja confere se é no restaurante). */
+    presence: Presence.optional(),
   })
   .superRefine((o, ctx) => {
     if (o.channel === 'table') {
@@ -245,6 +254,8 @@ const Settings = z
       .max(PIX_CITY_MAX, `Cidade com até ${PIX_CITY_MAX} letras (o Pix corta o resto)`)
       .nullable()
       .transform((v) => v || null),
+    tableCheckLocation: z.boolean(),
+    tableSelfPickup: z.boolean(),
   })
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');
@@ -390,6 +401,21 @@ export class StoreController {
     return order;
   }
 
+  /**
+   * Mesa: o cliente confirma que está no restaurante antes de pedir (o celular manda onde está e a
+   * API compara com o ponto da loja). O pedido confere de novo.
+   */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  @Post('table-presence')
+  @HttpCode(200)
+  presence(
+    @Body(new ZodPipe(Presence)) b: z.infer<typeof Presence>,
+    @CurrentTenant() t: ResolvedTenant,
+  ) {
+    return this.store.tablePresence(t.id, b);
+  }
+
   /** Programa de fidelidade: regra e recompensas; com a conta aberta, saldo e extrato. */
   @Public()
   @Throttle({ default: { ttl: 60_000, limit: 120 } })
@@ -412,6 +438,15 @@ export class StoreController {
   @HttpCode(200)
   cancel(@Param('token') token: string, @CurrentTenant() t: ResolvedTenant, @Req() req: Request) {
     return this.store.cancelByCustomer(t.id, token, req.ip);
+  }
+
+  /** Mesa com o cliente buscando no balcão: ele avisa que pegou o pedido ("Já peguei"). */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @Post('orders/:token/picked-up')
+  @HttpCode(200)
+  pickedUp(@Param('token') token: string, @CurrentTenant() t: ResolvedTenant, @Req() req: Request) {
+    return this.store.pickedUpByCustomer(t.id, token, req.ip);
   }
 
   /**

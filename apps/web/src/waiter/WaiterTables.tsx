@@ -1,4 +1,14 @@
-import { Bike, Plus, Receipt, ScanLine, Search, ShoppingBag } from 'lucide-react';
+import { qtyLabel } from '@comandou/shared';
+import {
+  Bike,
+  Check,
+  HandPlatter,
+  Plus,
+  Receipt,
+  ScanLine,
+  Search,
+  ShoppingBag,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Alert, Button, EmptyState, Modal, Spinner, TextField, useToast } from '../design-system';
@@ -28,7 +38,9 @@ export function WaiterTables() {
   const [params, setParams] = useSearchParams();
   const [tables, setTables] = useState<DiningTable[] | null>(null);
   const [tabs, setTabs] = useState<Tab[]>([]);
-  const [readyIds, setReadyIds] = useState<string[] | null>(null);
+  // Pedidos de mesa prontos que ainda não chegaram na mesa (de qualquer garçom ou do QR Code).
+  const [toServe, setToServe] = useState<Order[] | null>(null);
+  const [serving, setServing] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<View>('tables');
   const [search, setSearch] = useState('');
@@ -41,11 +53,11 @@ export function WaiterTables() {
       const [t, tb, rd] = await Promise.all([
         api<DiningTable[]>('/tables'),
         api<Tab[]>('/tabs?status=open'),
-        api<Order[]>('/orders?status=ready&channel=table').catch(() => null),
+        api<Order[]>('/orders?toServe=true&limit=60').catch(() => null),
       ]);
       setTables(sortTables(t));
       setTabs(tb);
-      setReadyIds(rd ? rd.map((o) => o.id) : null);
+      if (rd) setToServe(rd.slice().reverse());
       setError(null);
     } catch (e) {
       setError((e as Error).message);
@@ -59,7 +71,24 @@ export function WaiterTables() {
     if (e.type === 'tab.changed' || e.type === 'order.changed') reload();
   }, load);
   // Aviso sonoro quando a cozinha termina um pedido de mesa (para o garçom levar).
-  useArrivalSound('ready', readyIds);
+  useArrivalSound('ready', toServe ? toServe.map((o) => o.id) : null);
+
+  // "Entreguei": sai da lista na hora; pago (Pix do cardápio), o pedido conclui e a mesa se libera.
+  async function serve(o: Order) {
+    setServing((s) => [...s, o.id]);
+    try {
+      const r = await api<Order>(`/orders/${o.id}/served`, { method: 'POST' });
+      setToServe((l) => l?.filter((x) => x.id !== o.id) ?? l);
+      navigator.vibrate?.(12);
+      if (r.status === 'completed' && r.paymentStatus === 'paid')
+        toast(`${placeOf(o)} entregue e já pago`, 'success');
+      reload();
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    } finally {
+      setServing((s) => s.filter((x) => x !== o.id));
+    }
+  }
 
   const goTable = useCallback(
     (t: DiningTable) => {
@@ -146,6 +175,47 @@ export function WaiterTables() {
           </div>
         )}
       </div>
+
+      {!!toServe?.length && (
+        <section className="wt-serve" aria-label="Prontos para levar">
+          <h2 className="wt-serve__title">
+            <HandPlatter size={16} aria-hidden /> Prontos para levar <span>{toServe.length}</span>
+          </h2>
+          <ul className="wt-serve__list">
+            {toServe.map((o) => (
+              <li
+                key={o.id}
+                className="wt-serve__row"
+                data-busy={serving.includes(o.id) || undefined}
+              >
+                <button
+                  type="button"
+                  className="wt-serve__info"
+                  onClick={() => o.tabId && navigate(`/garcom/comanda/${o.tabId}`)}
+                >
+                  <strong>{placeOf(o)}</strong>
+                  <span>
+                    #{o.number} · {itemsOf(o)}
+                  </span>
+                  <small>
+                    pronto há {readyMinutes(o)} min
+                    {o.source === 'online' ? ' · pelo QR Code' : ''}
+                    {o.paymentStatus === 'paid' ? ' · pago' : ''}
+                  </small>
+                </button>
+                <button
+                  type="button"
+                  className="wt-serve__done"
+                  disabled={serving.includes(o.id)}
+                  onClick={() => void serve(o)}
+                >
+                  <Check size={18} aria-hidden /> Entreguei
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {error && <Alert tone="danger">{error}</Alert>}
       {tables === null ? (
@@ -300,6 +370,26 @@ export function WaiterTables() {
       />
     </div>
   );
+}
+
+/** "Mesa 4" ou, na comanda avulsa, "Comanda 12". */
+const placeOf = (o: Order) =>
+  o.tableLabel ? `Mesa ${o.tableLabel}` : o.tabNumber ? `Comanda ${o.tabNumber}` : `#${o.number}`;
+
+/** "2× X-Burger, 1× Coca" (sem os cancelados). */
+const itemsOf = (o: Order) =>
+  o.items
+    .filter((i) => i.status !== 'cancelled')
+    .map((i) => `${qtyLabel(i.quantity, i.unit)} ${i.name}`)
+    .join(', ');
+
+/** Há quanto tempo a cozinha deu pronto (o item mais recente). */
+function readyMinutes(o: Order) {
+  const at = o.items.reduce<string | null>(
+    (m, i) => (i.readyAt && (!m || i.readyAt > m) ? i.readyAt : m),
+    null,
+  );
+  return minutesSince(at ?? o.createdAt);
 }
 
 function LooseTabModal({

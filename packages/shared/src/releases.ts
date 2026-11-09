@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.106.0',
+    date: '2026-11-09',
+    title: 'Mesa com localização e pedido pronto que chega até ela',
+    summary:
+      'Quem pede pelo QR Code da mesa confirma pela localização que está no restaurante. O garçom vê os pedidos prontos para levar e toca em "Entreguei"; se a loja preferir, o cliente busca no balcão. Pix pelo cardápio e reservas agora pedem a conta do cliente.',
+    notes: [
+      {
+        tag: 'segurança',
+        text: 'QR Code da mesa: antes de pedir, o celular confirma que o cliente está no restaurante (perto do ponto da loja no mapa). Foto do QR Code não faz pedido de casa. Quem já liberou a localização confirma sem tocar em nada. Dá para desligar em Loja online › Funcionamento.',
+      },
+      {
+        tag: 'novo',
+        text: 'App do garçom: "Prontos para levar" no topo das mesas, com a mesa, o que levar e há quanto tempo está pronto. Um toque em "Entreguei" e o pedido sai da lista (também na comanda, no PDV e no detalhe do pedido).',
+      },
+      {
+        tag: 'novo',
+        text: 'Pedido da mesa pago pelo Pix e entregue conclui sozinho, e a comanda paga inteira pelo Pix fecha e libera a mesa, sem ninguém precisar fechar a conta.',
+      },
+      {
+        tag: 'novo',
+        text: 'Opção "Cliente busca o pedido pronto no balcão": o acompanhamento avisa "Pronto! Busque no balcão" (o celular vibra) e o cliente toca em "Já peguei".',
+      },
+      {
+        tag: 'segurança',
+        text: 'Pix pelo cardápio só com a conta do cliente aberta: sem login, o checkout mostra "Entre para pagar pelo Pix" e volta para a finalização depois de entrar.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Reserva pelo cardápio só com cadastro: quem não entrou vê "Entre para reservar".',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O acompanhamento do pedido da mesa mostra "Na mesa" assim que o garçom entrega, e não mais só quando a conta fecha.',
+      },
+    ],
+  },
+  {
     version: '0.105.0',
     date: '2026-11-09',
     title: 'Cardápio mais leve e Pix direto da mesa',

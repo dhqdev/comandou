@@ -641,10 +641,12 @@ export class CustomersService {
         channel: string;
         total: string;
         createdAt: Date;
+        served: boolean;
         items: { name: string; quantity: number; unit: string; imageUrl: string | null }[];
       }>(
         tx,
         `SELECT o.id, o.number, o.status, o.channel, o.total::text, o.created_at AS "createdAt",
+                o.served_at IS NOT NULL AS served,
                 COALESCE((SELECT json_agg(json_build_object('name', i.name, 'quantity', i.quantity::float8, 'unit', i.unit,
                                    'imageUrl', (SELECT '/api/v1/media/' || p.image_id FROM products p WHERE p.id = i.product_id))
                                    ORDER BY i.created_at)
@@ -652,7 +654,7 @@ export class CustomersService {
            FROM orders o WHERE o.customer_id = $1 ORDER BY o.created_at DESC LIMIT 50`,
         [c.id],
       );
-      return rows.map(({ status, ...r }) => ({ ...r, step: customerStep(status) }));
+      return rows.map(({ status, served, ...r }) => ({ ...r, step: customerStep(status, served) }));
     });
   }
 

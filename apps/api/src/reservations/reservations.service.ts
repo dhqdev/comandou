@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -193,7 +194,12 @@ export class ReservationsService {
   publicConfig(tenantId: string) {
     return this.db.withTenant({ tenantId }, async (tx) => {
       const s = await this.settingsIn(tx);
-      if (!s.enabled) return { enabled: false as const };
+      // Reserva pelo cardápio só com a conta do cliente: sem contas na loja, não há reserva online.
+      const accounts = await one<{ on: boolean }>(
+        tx,
+        `SELECT accounts_enabled AS on FROM tenant_store_settings`,
+      );
+      if (!s.enabled || accounts?.on === false) return { enabled: false as const };
       const tz = await this.tz(tx);
       const today = await one<{ d: string }>(
         tx,
@@ -211,6 +217,8 @@ export class ReservationsService {
         autoConfirm: s.autoConfirm,
         today: today!.d,
         timeZone: tz,
+        /** Só quem tem a conta aberta reserva (o cardápio pede o login antes). */
+        needsAccount: true as const,
       };
     });
   }
@@ -289,6 +297,12 @@ export class ReservationsService {
 
   /** Reserva pedida pelo cliente no cardápio. Reenviar o mesmo token devolve a mesma reserva. */
   async createPublic(tenantId: string, input: PublicReservationInput, ip?: string) {
+    // Reserva pelo cardápio só com cadastro: o restaurante sabe quem vem (e o cliente acompanha).
+    if (!input.customerId)
+      throw new ForbiddenException({
+        message: 'Entre na sua conta para reservar',
+        code: 'login_required',
+      });
     const hash = publicTokenHash(input.token);
     const phone = normalizePhone(input.phone);
     if (!phoneOk(phone)) throw new UnprocessableEntityException('Telefone inválido (DDD + número)');

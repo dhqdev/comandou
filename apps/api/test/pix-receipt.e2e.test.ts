@@ -57,11 +57,13 @@ const post = (w: Who, url: string, body: object = {}, idem?: string) => {
 const patch = (w: Who, url: string, body: object) =>
   http.patch(`/api/v1${url}`).set('Host', hostOf(w)).set('Cookie', cookies[w]).set(CSRF).send(body);
 
-/** Cliente final: sem cookie. */
+/** Cliente final: sem login da equipe. O Pix pelo cardápio pede a conta dele (cm_cid). */
+const shopper = { cookie: '' };
 const pub = {
   get: (url: string, host = HOST_A) => http.get(`/api/v1${url}`).set('Host', host),
   post: (url: string, body: object, idem?: string, host = HOST_A) => {
     const r = http.post(`/api/v1${url}`).set('Host', host).set(CSRF);
+    if (shopper.cookie && host === HOST_A) r.set('Cookie', shopper.cookie);
     if (idem) r.set('Idempotency-Key', idem);
     return r.send(body);
   },
@@ -91,6 +93,15 @@ beforeAll(async () => {
     isOpen: true,
     autoAccept: false,
   }).expect(200);
+  const su = await pub
+    .post('/store/account/signup', {
+      name: 'Bia do Pix',
+      phone: '11977776666',
+      password: 'segredo1',
+    })
+    .expect(201);
+  const raw = su.headers['set-cookie'] as unknown as string[];
+  shopper.cookie = raw.find((c) => c.startsWith('cm_cid='))!.split(';')[0]!;
 });
 
 afterAll(async () => {
@@ -157,6 +168,12 @@ describe('Pix pelo cardápio com comprovante', () => {
   it('pedido com Pix espera o comprovante; o acompanhamento traz o copia e cola com o valor', async () => {
     const body = pickup();
     tk = body.token;
+    // Sem a conta aberta, o Pix pelo cardápio não vai: o cardápio leva para o login.
+    const cookie = shopper.cookie;
+    shopper.cookie = '';
+    const anon = await pub.post('/store/orders', pickup(), key()).expect(403);
+    expect(anon.body).toMatchObject({ code: 'login_required' });
+    shopper.cookie = cookie;
     const r = await pub.post('/store/orders', body, key()).expect(201);
     expect(r.body).toMatchObject({ status: 'awaiting', total: '51.80', pixStatus: 'waiting' });
 

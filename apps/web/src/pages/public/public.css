@@ -325,6 +325,36 @@
   margin: 0;
   color: var(--cm-text-muted);
 }
+/* Mesa com o cliente buscando no balcão: "Já peguei" grande, logo abaixo das etapas. */
+.track__picked {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  margin: 4px 0 14px;
+  border: 0;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+  animation: track-in 180ms ease-out both;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.track__picked:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.track__picked:disabled {
+  opacity: 0.6;
+}
+@keyframes track-in {
+  from {
+    opacity: 0;
+  }
+}
 .track__live {
   display: flex;
   align-items: center;

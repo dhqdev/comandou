@@ -118,8 +118,14 @@ export function PixSettingsCard({ canManage }: { canManage: boolean }) {
             Quem escolher Pix no checkout vê o QR Code e o Pix copia e cola já com o valor do
             pedido, paga no app do banco e anexa o comprovante. O pedido chega no PDV com o
             comprovante para você aprovar ou recusar. O dinheiro cai direto na sua conta, sem
-            intermediário.
+            intermediário. Só quem entrou na conta paga assim (o cardápio pede o login antes).
           </p>
+          {!s.accountsEnabled && (
+            <Alert tone="warning">
+              As contas de cliente estão desligadas (Aparência › O que aparece). Sem elas, o Pix
+              pelo cardápio não aparece.
+            </Alert>
+          )}
           <form
             className="cm-form"
             onSubmit={(e) => {

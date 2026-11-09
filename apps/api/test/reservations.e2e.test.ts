@@ -40,10 +40,15 @@ const post = (w: Who, url: string, body: object = {}) =>
   http.post(`/api/v1${url}`).set('Host', hostOf(w)).set('Cookie', cookies[w]).set(CSRF).send(body);
 const patch = (w: Who, url: string, body: object) =>
   http.patch(`/api/v1${url}`).set('Host', hostOf(w)).set('Cookie', cookies[w]).set(CSRF).send(body);
+/** Cliente final: reserva só com a conta aberta (cookie cm_cid). */
+const shopper = { cookie: '' };
 const pub = {
   get: (url: string, host = HOST_A) => http.get(`/api/v1${url}`).set('Host', host),
-  post: (url: string, body: object = {}, host = HOST_A) =>
-    http.post(`/api/v1${url}`).set('Host', host).set(CSRF).send(body),
+  post: (url: string, body: object = {}, host = HOST_A) => {
+    const r = http.post(`/api/v1${url}`).set('Host', host).set(CSRF);
+    if (shopper.cookie && host === HOST_A) r.set('Cookie', shopper.cookie);
+    return r.send(body);
+  },
 };
 
 /** Data local (fuso do restaurante, São Paulo) daqui a N dias. */
@@ -60,6 +65,15 @@ beforeAll(async () => {
   cookies.adminA = await login(HOST_A, 'admin@resv-a.test');
   cookies.adminB = await login(HOST_B, 'admin@resv-b.test');
   cookies.waiterA = await login(HOST_A, 'garcom@resv-a.test');
+  const su = await pub
+    .post('/store/account/signup', {
+      name: 'Joana Cliente',
+      phone: '11977771234',
+      password: 'segredo1',
+    })
+    .expect(201);
+  const raw = su.headers['set-cookie'] as unknown as string[];
+  shopper.cookie = raw.find((c) => c.startsWith('cm_cid='))!.split(';')[0]!;
 });
 afterAll(async () => {
   await app?.close();
@@ -91,7 +105,12 @@ describe('Reservas', () => {
     ).body;
     expect(s).toMatchObject({ enabled: true, opensAt: '19:00', capacity: 6 });
     const cfg = (await pub.get('/store/reservations/config').expect(200)).body;
-    expect(cfg).toMatchObject({ enabled: true, maxParty: 6, note: 'Tolerância de 15 minutos' });
+    expect(cfg).toMatchObject({
+      enabled: true,
+      maxParty: 6,
+      note: 'Tolerância de 15 minutos',
+      needsAccount: true,
+    });
     // Restaurante B continua sem reservas.
     expect((await pub.get('/store/reservations/config', HOST_B).expect(200)).body.enabled).toBe(
       false,
@@ -123,6 +142,12 @@ describe('Reservas', () => {
       startsAt: slot.startsAt,
       occasion: 'Aniversário',
     };
+    // Reserva só com cadastro: sem a conta aberta, o cardápio pede o login.
+    const cookie = shopper.cookie;
+    shopper.cookie = '';
+    const anon = await pub.post('/store/reservations', body).expect(403);
+    expect(anon.body).toMatchObject({ code: 'login_required' });
+    shopper.cookie = cookie;
     const r = (await pub.post('/store/reservations', body).expect(201)).body;
     expect(r).toMatchObject({ status: 'pending', partySize: 4, canCancel: true });
     expect(r.code).toMatch(/^[A-Z0-9]{5}$/);

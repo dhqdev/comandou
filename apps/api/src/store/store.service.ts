@@ -1,5 +1,7 @@
 import {
   ConflictException,
+  ForbiddenException,
+  HttpException,
   Injectable,
   NotFoundException,
   UnprocessableEntityException,
@@ -23,6 +25,7 @@ import { DatabaseService, Tx } from '../database/database.service';
 import { OrdersService } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { ZonesService } from '../delivery/zones.service';
+import { distanceM } from '../delivery/zones';
 import { customerMapOf } from '../delivery/delivery.service';
 import { menuTreeSql } from '../catalog/menu-sql';
 
@@ -82,6 +85,10 @@ export interface StoreSettings {
   pixKey: string | null;
   pixName: string | null;
   pixCity: string | null;
+  /** Pedido pelo QR Code da mesa só com a localização do celular perto do ponto da loja. */
+  tableCheckLocation: boolean;
+  /** Pedido da mesa pronto: o cliente busca no balcão (em vez de o garçom levar). */
+  tableSelfPickup: boolean;
 }
 
 /** Um turno do dia da semana (0 = domingo). close menor que open = vira a meia-noite. */
@@ -165,7 +172,8 @@ const SETTINGS_COLS = `enabled, is_open AS "isOpen", auto_accept AS "autoAccept"
   accent_color AS "accentColor", font_style AS "fontStyle", corner_style AS "cornerStyle",
   favicon_image_id AS "faviconImageId", brand_staff_app AS "brandStaffApp",
   hours_enabled AS "hoursEnabled", hours, pix_enabled AS "pixEnabled",
-  pix_key_type AS "pixKeyType", pix_key AS "pixKey", pix_name AS "pixName", pix_city AS "pixCity"`;
+  pix_key_type AS "pixKeyType", pix_key AS "pixKey", pix_name AS "pixName", pix_city AS "pixCity",
+  table_check_location AS "tableCheckLocation", table_self_pickup AS "tableSelfPickup"`;
 
 const DEFAULTS: StoreSettings = {
   enabled: true,
@@ -206,6 +214,8 @@ const DEFAULTS: StoreSettings = {
   pixKey: null,
   pixName: null,
   pixCity: null,
+  tableCheckLocation: true,
+  tableSelfPickup: false,
 };
 
 const COLUMN: Record<keyof StoreSettings, string> = {
@@ -247,10 +257,44 @@ const COLUMN: Record<keyof StoreSettings, string> = {
   pixKey: 'pix_key',
   pixName: 'pix_name',
   pixCity: 'pix_city',
+  tableCheckLocation: 'table_check_location',
+  tableSelfPickup: 'table_self_pickup',
 };
 
 /** Comprovantes por pedido (o cliente reenvia se a loja recusar). */
 export const MAX_PIX_RECEIPTS = 5;
+
+/**
+ * Pedido pela mesa: até onde do ponto da loja o celular pode estar. O GPS dentro do salão erra, então
+ * a precisão que o próprio celular informa entra na conta (até TABLE_SLACK_M a mais).
+ */
+export const TABLE_RADIUS_M = 150;
+export const TABLE_SLACK_M = 350;
+
+/** Onde o celular do cliente está (o navegador informa a precisão em metros). */
+export interface Presence {
+  lat: number;
+  lng: number;
+  accuracy: number;
+}
+
+/** A loja confere onde está quem pede pela mesa? (ligado e com o ponto marcado no mapa) */
+export const checksTableLocation = (s: StoreSettings) =>
+  s.tableCheckLocation && !!s.storeLat && !!s.storeLng;
+
+/** O celular está no restaurante? Sem conferência (desligada ou sem o ponto), sempre sim. */
+export function tablePresenceOf(s: StoreSettings, p: Presence | undefined) {
+  if (!checksTableLocation(s)) return { ok: true, distanceM: null };
+  if (!p) return { ok: false, distanceM: null };
+  const d = distanceM([Number(s.storeLat), Number(s.storeLng)], [p.lat, p.lng]);
+  const slack = Math.min(Math.max(p.accuracy, 0), TABLE_SLACK_M);
+  return { ok: d <= TABLE_RADIUS_M + slack, distanceM: Math.round(d) };
+}
+
+/** Recusa do pedido pela mesa longe do restaurante: o cardápio reabre a confirmação. */
+export const TABLE_LOCATION_CODE = 'table_location';
+/** Recusa do que pede a conta do cliente (Pix, reserva): o cardápio leva para o login. */
+export const LOGIN_REQUIRED_CODE = 'login_required';
 
 /** Pix da loja para o cardápio: o navegador monta o copia e cola com o valor do pedido. */
 export function publicPix(s: StoreSettings) {
@@ -293,6 +337,8 @@ export interface OnlineOrderInput {
   customerId?: string;
   /** Recompensa do programa de fidelidade trocada no pedido. */
   rewardId?: string;
+  /** Mesa: onde o celular está (a loja confere com o ponto dela no mapa). */
+  presence?: Presence;
 }
 
 /** Loja online: configurações, cardápio público e pedidos feitos pelo cliente final. */
@@ -574,10 +620,14 @@ export class StoreService {
           /** Taxa por área no mapa: o cardápio pede a localização do endereço antes do pedido. */
           deliveryZones: (zoneCount?.n ?? 0) > 0,
         },
-        table,
-        // Pix pelo cardápio: o checkout monta o QR Code com o valor (na mesa a conta é no fim).
-        // Na mesa também: o cliente pode pagar o pedido pelo Pix ou no fim, com o garçom.
-        pix: publicPix(s),
+        // Na mesa: se o cliente confirma a localização antes de pedir e se busca o pedido pronto.
+        table: table
+          ? { ...table, confirmLocation: checksTableLocation(s), selfPickup: s.tableSelfPickup }
+          : null,
+        // Pix pelo cardápio: o checkout monta o QR Code com o valor, também na mesa (o cliente
+        // paga o pedido pelo Pix ou no fim, com o garçom). Só com a conta do cliente aberta: sem
+        // contas na loja, não há Pix pelo cardápio.
+        pix: s.accountsEnabled ? publicPix(s) : null,
         appearance: {
           theme: s.theme,
           headline: s.headline,
@@ -645,6 +695,24 @@ export class StoreService {
           : 'A loja está fechada agora. Tente novamente mais tarde.',
       );
     if (atTable && !input.tableId) throw new UnprocessableEntityException('Informe a mesa');
+    // Mesa: quem pede está no restaurante (QR Code fotografado não pede de casa).
+    if (atTable && !tablePresenceOf(s, input.presence).ok)
+      throw new HttpException(
+        {
+          message: input.presence
+            ? 'Parece que você não está no restaurante. Confirme a localização de dentro do salão ou chame o garçom.'
+            : 'Confirme sua localização para pedir pela mesa',
+          code: TABLE_LOCATION_CODE,
+        },
+        428,
+      );
+    // Pix pelo cardápio (QR Code na hora): só com a conta do cliente aberta.
+    const pixNow = input.paymentMethod === 'pix' && s.accountsEnabled && !!pixPayeeOf(s);
+    if (pixNow && !input.customerId)
+      throw new ForbiddenException({
+        message: 'Entre na sua conta para pagar pelo Pix',
+        code: LOGIN_REQUIRED_CODE,
+      });
     if (!atTable && (!input.customerPhone || !input.paymentMethod))
       throw new UnprocessableEntityException('Informe o telefone e a forma de pagamento');
     if (input.channel === 'delivery' && !s.acceptsDelivery)
@@ -695,7 +763,6 @@ export class StoreService {
     // Mesa: entra na comanda aberta dela (ou abre uma, no nome do cliente). Sem taxa de entrega
     // nem pedido mínimo. O cliente paga no fim, com o garçom, ou já pelo Pix do cardápio (o
     // comprovante aprovado entra como pagamento deste pedido e baixa o saldo da comanda).
-    const pixNow = input.paymentMethod === 'pix' && !!pixPayeeOf(s);
     const order = await this.orders.create(
       ctx,
       {
@@ -779,9 +846,11 @@ export class StoreService {
       cancelReason: string | null;
       pixStatus: PixReceiptStatus | null;
       paidAmount: string;
+      servedAt: Date | null;
     }>(
       tx,
       `SELECT number, status, channel, created_at AS "createdAt", accepted_at AS "acceptedAt",
+                served_at AS "servedAt",
                 customer_name AS "customerName", delivery_address AS "deliveryAddress", notes,
                 subtotal::text, delivery_fee::text AS "deliveryFee", discount::text,
                 surcharge::text, total::text,
@@ -835,7 +904,8 @@ export class StoreService {
     const onRoad = !!delivery && o!.status === 'dispatched' && delivery.status === 'out';
     const map = onRoad ? await customerMapOf(tx, delivery.id) : null;
     const when = (st: string) => history.find((h) => h.to === st)?.at ?? null;
-    const { pixStatus, paidAmount, ...rest } = o!;
+    const { pixStatus, paidAmount, servedAt, ...rest } = o!;
+    const atTable = o!.channel === 'table';
     return {
       restaurant: {
         name: tenantName,
@@ -848,14 +918,17 @@ export class StoreService {
       etaMax: s.etaMax,
       ...rest,
       pix: pixStatus ? await this.pixViewIn(tx, id, s, { ...o!, pixStatus }) : null,
-      step: customerStep(o!.status),
+      step: customerStep(o!.status, atTable && !!servedAt),
       canCancel: o!.status === 'awaiting',
+      // Mesa: o cliente busca o pedido pronto no balcão e avisa que pegou.
+      selfPickup: atTable && s.tableSelfPickup,
+      canPickUp: atTable && s.tableSelfPickup && o!.status === 'ready' && !servedAt,
       timeline: {
         awaiting: o!.createdAt,
         accepted: o!.acceptedAt ?? when('new') ?? when('in_production'),
         ready: when('ready'),
         dispatched: when('dispatched'),
-        completed: when('completed'),
+        completed: servedAt ?? when('completed'),
         cancelled: when('cancelled'),
       },
       items,
@@ -920,6 +993,26 @@ export class StoreService {
       receipt: last ? { status: last.status, at: last.at, reason: last.reason } : null,
       canSend: open && (last?.n ?? 0) < MAX_PIX_RECEIPTS,
     };
+  }
+
+  /** O cliente confirma, antes de pedir pela mesa, que está no restaurante. */
+  async tablePresence(tenantId: string, p: Presence) {
+    const s = await this.db.withTenant({ tenantId }, (tx) => this.settingsIn(tx));
+    return tablePresenceOf(s, p);
+  }
+
+  /** Mesa com o cliente buscando no balcão: ele avisa que pegou o pedido pronto. */
+  async pickedUpByCustomer(tenantId: string, token: string | { orderId: string }, ip?: string) {
+    const ctx = onlineCtx(tenantId);
+    ctx.ip = ip;
+    const orderId = await this.db.withTenant(ctx, async (tx) => {
+      const s = await this.settingsIn(tx);
+      const id = typeof token === 'string' ? await this.byToken(tx, token) : token.orderId;
+      if (!s.tableSelfPickup) throw new ConflictException('O garçom leva o pedido até a sua mesa');
+      return id;
+    });
+    await this.orders.markServed(ctx, orderId);
+    return { ok: true };
   }
 
   /** O cliente pode desistir enquanto o pedido ainda está em análise. */

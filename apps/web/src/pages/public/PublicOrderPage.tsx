@@ -22,7 +22,7 @@ import {
   XCircle,
   Clock3,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { CustomerLiveMap, DeliveryCode, type CustomerCourier } from '../../features/CustomerTrack';
 import { time } from '../../features/format';
@@ -43,6 +43,10 @@ interface PublicOrder {
   channel: 'delivery' | 'pickup' | 'table';
   /** Mesa do pedido feito pelo QR Code. */
   tableLabel?: string | null;
+  /** Mesa em que o cliente busca o pedido pronto no balcão. */
+  selfPickup?: boolean;
+  /** Pronto e esperando no balcão: o cliente toca em "Já peguei". */
+  canPickUp?: boolean;
   step: Step | 'cancelled';
   canCancel: boolean;
   createdAt: string;
@@ -97,7 +101,9 @@ const HERO: Record<
     title: 'Pedido em preparo',
     text: (o) =>
       o.channel === 'table'
-        ? `A cozinha está preparando. A gente leva na ${atTable(o)}.`
+        ? o.selfPickup
+          ? 'A cozinha está preparando. Quando ficar pronto, avisamos aqui.'
+          : `A cozinha está preparando. A gente leva na ${atTable(o)}.`
         : `Previsão de ${o.etaMin} a ${o.etaMax} minutos.`,
   },
   ready: {
@@ -106,7 +112,9 @@ const HERO: Record<
     title: 'Pedido pronto',
     text: (o) =>
       o.channel === 'table'
-        ? `Saindo da cozinha para a ${atTable(o)}.`
+        ? o.selfPickup
+          ? 'Quando estiver com ele, toque em "Já peguei".'
+          : `O garçom já leva na ${atTable(o)}.`
         : o.channel === 'pickup'
           ? 'Já pode retirar na loja.'
           : 'Separado e esperando o entregador sair.',
@@ -125,7 +133,9 @@ const HERO: Record<
       o.channel === 'pickup'
         ? 'Retirado. Bom apetite!'
         : o.channel === 'table'
-          ? 'Bom apetite!'
+          ? o.selfPickup
+            ? 'Retirado. Bom apetite!'
+            : 'Na mesa. Bom apetite!'
           : 'Entregue. Bom apetite!',
   },
   cancelled: {
@@ -160,6 +170,7 @@ export function PublicOrderPage() {
   const [o, setO] = useState<PublicOrder | null>(() => warm.get(base) ?? null);
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [picking, setPicking] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -190,6 +201,28 @@ export function PublicOrderPage() {
   useEffect(() => {
     if (o) document.title = `Pedido #${o.number} · ${o.restaurant.name}`;
   }, [o]);
+
+  // Ficou pronto com a página aberta: o celular vibra (o cliente pode estar olhando outra coisa).
+  const step = o?.step;
+  const lastStep = useRef(step);
+  useEffect(() => {
+    if (lastStep.current && lastStep.current !== step && step === 'ready')
+      navigator.vibrate?.([120, 60, 120]);
+    lastStep.current = step;
+  }, [step]);
+
+  async function pickedUp() {
+    setPicking(true);
+    try {
+      await api(`${base}/picked-up`, { method: 'POST' });
+      navigator.vibrate?.(12);
+    } catch (e) {
+      window.alert((e as Error).message);
+    } finally {
+      await load();
+      setPicking(false);
+    }
+  }
 
   async function cancel() {
     if (!window.confirm('Cancelar este pedido?')) return;
@@ -234,7 +267,12 @@ export function PublicOrderPage() {
       : []),
     {
       key: 'completed',
-      label: o.channel === 'pickup' ? 'Retirado' : o.channel === 'table' ? 'Na mesa' : 'Entregue',
+      label:
+        o.channel === 'pickup' || (o.channel === 'table' && o.selfPickup)
+          ? 'Retirado'
+          : o.channel === 'table'
+            ? 'Na mesa'
+            : 'Entregue',
     },
   ];
   const order: Step[] = steps.map((s) => s.key);
@@ -285,7 +323,11 @@ export function PublicOrderPage() {
               )}
               <div className="track__head">
                 <span className="cm-hint">Pedido #{o.number}</span>
-                <h1>{hero.title}</h1>
+                <h1>
+                  {o.step === 'ready' && o.channel === 'table' && o.selfPickup
+                    ? 'Pronto! Busque no balcão'
+                    : hero.title}
+                </h1>
                 <p>{hero.text(o)}</p>
               </div>
             </div>
@@ -312,6 +354,17 @@ export function PublicOrderPage() {
                   );
                 })}
               </ol>
+            )}
+
+            {o.canPickUp && (
+              <button
+                type="button"
+                className="track__picked"
+                onClick={() => void pickedUp()}
+                disabled={picking}
+              >
+                <PackageCheck size={18} /> {picking ? 'Um instante…' : 'Já peguei'}
+              </button>
             )}
 
             {live && <p className="track__live">Esta página se atualiza sozinha</p>}

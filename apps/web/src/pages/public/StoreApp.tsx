@@ -31,6 +31,7 @@ import { LoyaltyScreen } from './LoyaltyScreens';
 import { ProductScreen } from './ProductScreen';
 import { ReservationStatusScreen, ReserveScreen } from './ReservationScreens';
 import { InstallHint, useHomeScreenMeta } from './InstallHint';
+import { TableHere } from './TableHere';
 import {
   isTableId,
   rememberTable,
@@ -310,7 +311,9 @@ function Chrome() {
   const layout = useLayout();
   const { pathname } = useLocation();
   const tabs = useNavTabs();
-  const { menu } = useStore();
+  const { menu, table, here } = useStore();
+  // Mesa do QR Code que confere a localização: antes de pedir, o cliente confirma que está aqui.
+  const confirmHere = !!table?.confirmLocation && !here;
   // Cardápio na tela: as outras telas baixam quando o navegador fica livre.
   useEffect(() => preloadPages(LATER_SCREENS), []);
   useHomeScreenMeta(menu.restaurant.name);
@@ -333,7 +336,10 @@ function Chrome() {
           <BottomNav />
         </>
       )}
-      {installSpot && <InstallHint name={menu.restaurant.name} logoUrl={menu.restaurant.logoUrl} />}
+      {installSpot && !confirmHere && (
+        <InstallHint name={menu.restaurant.name} logoUrl={menu.restaurant.logoUrl} />
+      )}
+      {confirmHere && <TableHere />}
     </main>
   );
 }

@@ -23,7 +23,10 @@ import {
   PublicMenu,
   PublicProduct,
   PublicTable,
+  rememberPresence,
+  storedPresence,
   syncCart,
+  type TablePresence,
   useStored,
 } from './store';
 
@@ -33,6 +36,12 @@ export interface StoreCtx {
   table: PublicTable | null;
   /** "Não estou nesta mesa": volta para entrega e retirada. */
   leaveTable(): void;
+  /**
+   * Mesa que confere a localização: onde o celular estava quando o cliente confirmou que está no
+   * restaurante (vai junto com o pedido). null = ainda não confirmou (a confirmação aparece).
+   */
+  here: TablePresence | null;
+  setHere(p: TablePresence | null): void;
   product(id: string): (PublicProduct & { categoryId: string }) | undefined;
   cart: CartLine[];
   setCart(fn: (c: CartLine[]) => CartLine[]): void;
@@ -128,6 +137,18 @@ export function StoreProvider({
   const [favs, setFavs] = useStored<string[]>('cm-favs', []);
   const [account, setAccount] = useState<AccountState | null>(null);
   const [bump, setBump] = useState(0);
+  const tableId = menu.table?.id ?? null;
+  const [here, setHereState] = useState<TablePresence | null>(() =>
+    tableId ? storedPresence(tableId) : null,
+  );
+  useEffect(() => setHereState(tableId ? storedPresence(tableId) : null), [tableId]);
+  const setHere = useCallback(
+    (p: TablePresence | null) => {
+      if (tableId) rememberPresence(tableId, p);
+      setHereState(p);
+    },
+    [tableId],
+  );
   const [loyalty, setLoyalty] = useState<PublicLoyalty | null>(null);
 
   const index = useMemo(() => {
@@ -252,6 +273,8 @@ export function StoreProvider({
     menu,
     table: menu.table ?? null,
     leaveTable,
+    here,
+    setHere,
     product: (id) => index.get(id),
     cart,
     setCart,

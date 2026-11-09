@@ -113,7 +113,14 @@ describe('Pedido pela mesa (QR Code colado na mesa)', () => {
     expect(plain.table).toBeNull();
     expect(priceOf(plain)).toBe('28.49');
     const m = (await pub.get(`/store?mesa=${table.id}`).expect(200)).body;
-    expect(m.table).toEqual({ id: table.id, label: 'QR1', serviceFeePercent: '10.00' });
+    expect(m.table).toEqual({
+      id: table.id,
+      label: 'QR1',
+      serviceFeePercent: '10.00',
+      // Sem o ponto da loja no mapa não há com o que conferir a localização.
+      confirmLocation: false,
+      selfPickup: false,
+    });
     expect(priceOf(m)).toBe('25.90');
     // Mesa inexistente, id torto ou de outro restaurante: cardápio normal, sem mesa.
     for (const bad of [randomUUIDLike(), 'nao-e-uuid'])

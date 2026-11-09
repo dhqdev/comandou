@@ -95,8 +95,12 @@ export function splitCents(totalCents: number, parts: number): number[] {
 export const CUSTOMER_STEPS = ['awaiting', 'accepted', 'ready', 'dispatched', 'completed'] as const;
 export type CustomerStep = (typeof CUSTOMER_STEPS)[number];
 
-/** Converte o status interno na etapa que o cliente entende. */
-export function customerStep(status: OrderStatus): CustomerStep | 'cancelled' {
+/**
+ * Converte o status interno na etapa que o cliente entende. Pedido de mesa já entregue (`served`)
+ * aparece concluído, mesmo que só conclua de fato quando a conta fecha.
+ */
+export function customerStep(status: OrderStatus, served = false): CustomerStep | 'cancelled' {
+  if (served && status === 'ready') return 'completed';
   switch (status) {
     case 'awaiting':
       return 'awaiting';

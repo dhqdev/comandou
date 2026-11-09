@@ -77,6 +77,13 @@ export interface CreateOrderInput {
   deliveryLocation?: { lat: number; lng: number };
 }
 
+/** O que aconteceu ao acertar um pedido de mesa entregue (concluiu? a comanda fechou?). */
+export interface Settled {
+  completed: boolean;
+  closedTabId: string | null;
+}
+const NOT_SETTLED: Settled = { completed: false, closedTabId: null };
+
 /** Opções de uma transição que não cabem no motivo. */
 export interface TransitionExtra {
   /** Concluir com saldo como "a receber" (fiado), com motivo. Exige `orders:cancel`. */
@@ -122,7 +129,7 @@ export const ORDER_SELECT = `
          o.source, o.payment_hint AS "paymentHint", o.change_for::text AS "changeFor",
          o.accepted_at AS "acceptedAt", o.receivable_at AS "receivableAt",
          o.receivable_reason AS "receivableReason",
-         o.pix_status AS "pixStatus",
+         o.pix_status AS "pixStatus", o.served_at AS "servedAt",
          CASE WHEN o.pix_status IS NOT NULL THEN (
            SELECT json_build_object('id', r.id, 'status', r.status, 'contentType', r.content_type,
                                     'createdAt', r.created_at, 'amount', r.amount::text,
@@ -276,6 +283,8 @@ export class OrdersService {
       mine?: boolean;
       /** Concluídos com saldo a pagar (a receber ou aguardando o acerto do entregador). */
       openBalance?: boolean;
+      /** Prontos para levar: pedidos de mesa prontos que ainda não chegaram na mesa. */
+      toServe?: boolean;
       limit: number;
     },
   ) {
@@ -293,6 +302,7 @@ export class OrdersService {
     }
     if (f.active) where.push(`o.status NOT IN ('completed','cancelled')`);
     if (f.openBalance) where.push(`o.status = 'completed' AND o.paid_amount < o.total`);
+    if (f.toServe) where.push(`o.channel = 'table' AND o.status = 'ready' AND o.served_at IS NULL`);
     if (f.channel) {
       p.push(f.channel);
       where.push(`o.channel = $${p.length}`);
@@ -837,6 +847,130 @@ export class OrdersService {
       await this.messaging.stage(tx, ctx.tenantId, o.id, event);
     o.status = to;
     o.version += 1;
+  }
+
+  /**
+   * Pedido de mesa chegou na mesa: o garçom tocou "Entreguei" (ou o cliente, que busca no balcão,
+   * "Já peguei"). A equipe pode marcar o que a cozinha esqueceu de dar pronto (fica pronto junto).
+   * Pago, o pedido conclui na hora; a comanda paga pelo Pix do cardápio sem mais nada em aberto
+   * fecha sozinha e a mesa fica livre.
+   */
+  async markServed(ctx: Ctx, id: string) {
+    const res = await this.db.withTenant(ctx, async (tx) => {
+      await this.lockTabOf(tx, id);
+      const o = await this.lock(tx, id);
+      if (o.channel !== 'table')
+        throw new ConflictException('Só pedidos de mesa são entregues na mesa');
+      const served = await one<{ at: Date | null }>(
+        tx,
+        `SELECT served_at AS at FROM orders WHERE id = $1`,
+        [id],
+      );
+      // Toque repetido (ou dois garçons ao mesmo tempo): já está entregue.
+      if (served?.at || o.status === 'completed')
+        return { order: await this.detail(tx, id), settled: NOT_SETTLED, changed: false };
+      const staff = ctx.userId !== null;
+      // Quem gere os pedidos (não o garçom) pode marcar o que a cozinha não deu como pronto.
+      const force = staff && !ordersLimitedToOwn(ctx.user.role);
+      if (force && (o.status === 'new' || o.status === 'in_production')) {
+        await this.transitionInTx(tx, ctx, o, 'ready', 'Entregue na mesa');
+        o.status = 'ready';
+        o.version += 1;
+      }
+      if (o.status !== 'ready')
+        throw new ConflictException(
+          o.status === 'cancelled'
+            ? `Pedido #${o.number} está cancelado`
+            : o.status === 'awaiting'
+              ? `Pedido #${o.number} ainda não foi aceito`
+              : `Pedido #${o.number} ainda está em preparo`,
+        );
+      await q(
+        tx,
+        `UPDATE orders SET served_at = now(), served_by = $2, version = version + 1 WHERE id = $1`,
+        [id, ctx.userId],
+      );
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'order.served',
+        entity: 'order',
+        entityId: id,
+        data: { number: o.number, by: staff ? 'staff' : 'customer' },
+        ip: ctx.ip,
+      });
+      const settled = await this.settleServedIn(tx, ctx, id);
+      return { order: await this.detail(tx, id), settled, changed: true };
+    });
+    if (res.changed) this.publishSettled(ctx, id, res.order?.tabId ?? null, res.settled);
+    return res.order;
+  }
+
+  /** Trava a comanda do pedido antes dele (a mesma ordem da comanda: comanda → pedidos). */
+  async lockTabOf(tx: Tx, orderId: string) {
+    await q(
+      tx,
+      `SELECT 1 FROM tabs WHERE id = (SELECT tab_id FROM orders WHERE id = $1) FOR UPDATE`,
+      [orderId],
+    );
+  }
+
+  /**
+   * Pedido de mesa entregue e pago (na entrega ou quando o Pix é aprovado depois): conclui. Se ele
+   * foi pago pelo Pix do cardápio e a comanda ficou sem saldo e sem nada em aberto, a comanda fecha
+   * sozinha: o cliente pagou e recebeu, a mesa fica livre (pedir de novo abre outra).
+   * Quem chama já travou a comanda e o pedido (lockTabOf + lock).
+   */
+  async settleServedIn(tx: Tx, ctx: Ctx, orderId: string): Promise<Settled> {
+    const o = await one<OrderRow & { served_at: Date | null; pix_status: string | null }>(
+      tx,
+      `SELECT id, number, channel, status, total::text, subtotal::text, discount::text, surcharge::text,
+              delivery_fee::text, paid_amount::text, payment_status, tab_id, version, served_at, pix_status
+         FROM orders WHERE id = $1`,
+      [orderId],
+    );
+    if (!o || o.channel !== 'table' || o.status !== 'ready' || !o.served_at) return NOT_SETTLED;
+    if (toCents(o.paid_amount) < toCents(o.total)) return NOT_SETTLED;
+    await this.transitionInTx(tx, ctx, o, 'completed', 'Entregue na mesa');
+    if (!o.tab_id || o.pix_status !== 'approved') return { completed: true, closedTabId: null };
+    const left = await one<{ open: number; due: string; number: number }>(
+      tx,
+      `SELECT count(o.id) FILTER (WHERE o.status NOT IN ('completed','cancelled'))::int AS open,
+              COALESCE(sum(o.total - o.paid_amount) FILTER (WHERE o.status <> 'cancelled'), 0)::text AS due,
+              tb.number
+         FROM tabs tb LEFT JOIN orders o ON o.tab_id = tb.id
+        WHERE tb.id = $1 AND tb.status = 'open'
+        GROUP BY tb.id`,
+      [o.tab_id],
+    );
+    if (!left || left.open > 0 || toCents(left.due) > 0)
+      return { completed: true, closedTabId: null };
+    await q(
+      tx,
+      `UPDATE tabs SET status = 'closed', closed_by = $2, closed_at = now() WHERE id = $1`,
+      [o.tab_id, ctx.userId],
+    );
+    await this.audit.record(tx, {
+      tenantId: ctx.tenantId,
+      actorUserId: ctx.userId,
+      action: 'tab.closed',
+      entity: 'tab',
+      entityId: o.tab_id,
+      data: { number: left.number, auto: 'pix_paid_and_served' },
+      ip: ctx.ip,
+    });
+    return { completed: true, closedTabId: o.tab_id };
+  }
+
+  /** Avisos depois do COMMIT de markServed/settleServedIn. */
+  publishSettled(ctx: Ctx, orderId: string, tabId: string | null, settled: Settled) {
+    this.realtime.publish(ctx.tenantId, {
+      type: 'order.changed',
+      orderId,
+      ...(settled.completed ? { status: 'completed' as const } : {}),
+    });
+    if (tabId) this.realtime.publish(ctx.tenantId, { type: 'tab.changed', tabId });
+    if (settled.closedTabId) this.notifyTabClosed(ctx, settled.closedTabId);
   }
 
   async transition(

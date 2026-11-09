@@ -1639,6 +1639,59 @@
 .ck-login span {
   flex: 1;
 }
+/* Pix escolhido sem a conta aberta: o convite para entrar no lugar do QR Code. */
+.ck-pixlogin {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 12px 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 30%, var(--cm-border));
+  border-radius: var(--sf-r);
+  background: color-mix(in srgb, var(--cm-brand-500) 8%, var(--cm-surface));
+  animation: sf-rise 180ms ease-out both;
+}
+.ck-pixlogin__icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--cm-brand-500) 16%, transparent);
+  color: var(--cm-brand-700);
+}
+.ck-pixlogin__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.ck-pixlogin__text strong {
+  font-size: var(--cm-text-sm);
+  font-weight: 750;
+}
+.ck-pixlogin__text small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.ck-pixlogin__go {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.ck-pixlogin__go:active {
+  transform: scale(0.96);
+}
 .ck-toggle {
   display: flex;
   align-items: center;

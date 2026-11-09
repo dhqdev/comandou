@@ -196,6 +196,41 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
           busy={busy}
           onSave={(patch) => save(patch, 'Horário salvo')}
         />
+        <div style={{ display: 'grid', gap: 10 }}>
+          <strong>Pedido pela mesa (QR Code)</strong>
+          {(
+            [
+              [
+                'tableCheckLocation',
+                'Conferir se o cliente está no restaurante',
+                s.storeLat && s.storeLng
+                  ? 'Antes de pedir, o celular confirma a localização perto do ponto da loja no mapa.'
+                  : 'Marque o ponto da loja no mapa (Entregas › Áreas de entrega) para a conferência valer.',
+              ],
+              [
+                'tableSelfPickup',
+                'Cliente busca o pedido pronto no balcão',
+                'Sem garçom levando: o cliente vê "Pronto" no celular, busca e toca em "Já peguei".',
+              ],
+            ] as const
+          ).map(([k, label, hint]) => (
+            <label key={k} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <input
+                type="checkbox"
+                style={{ marginTop: 3 }}
+                checked={s[k]}
+                disabled={!canManage || busy}
+                onChange={(e) => save({ [k]: e.target.checked })}
+              />
+              <span>
+                {label}
+                <span className="cm-hint" style={{ display: 'block' }}>
+                  {hint}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
       </div>
     </Card>
   );

@@ -758,7 +758,7 @@ function SettingsModal({
         {error && <Alert tone="danger">{error}</Alert>}
         <RvToggle
           label="Aceitar reservas pelo cardápio online"
-          hint="Aparece o botão “Reservar mesa” no cardápio do cliente."
+          hint="Aparece o botão “Reservar mesa” no cardápio. Só reserva quem entra na conta (com as contas de cliente ligadas na Loja online)."
           checked={s.enabled}
           onChange={(v) => set('enabled', v)}
         />

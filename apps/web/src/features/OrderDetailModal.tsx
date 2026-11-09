@@ -143,6 +143,19 @@ export function OrderDetailModal({
     if (e.type === 'kitchen.changed' && e.orderId === orderId) void load();
   }, load);
 
+  async function serve() {
+    if (!order) return;
+    setBusy(true);
+    try {
+      setOrder(await api<Order>(`/orders/${order.id}/served`, { method: 'POST' }));
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+      void load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function go(to: OrderStatus, reason?: string, receivable?: boolean) {
     if (!order) return;
     setBusy(true);
@@ -193,9 +206,18 @@ export function OrderDetailModal({
       ? (NEXT[order.status] ?? []).filter(
           (a) =>
             canTransition(order.status, a.to, order.channel) &&
-            !(a.to === 'completed' && hasBalance && order.status !== 'dispatched'),
+            !(a.to === 'completed' && hasBalance && order.status !== 'dispatched') &&
+            // Mesa: "Entregue na mesa" no lugar de concluir (pago, conclui sozinho).
+            !(a.to === 'completed' && order.channel === 'table' && !order.servedAt),
         )
       : [];
+  const canServe =
+    !!order &&
+    !mode &&
+    canWrite &&
+    order.channel === 'table' &&
+    order.status === 'ready' &&
+    !order.servedAt;
   const canReceivable =
     !!order &&
     canCancel &&
@@ -331,6 +353,15 @@ export function OrderDetailModal({
             </Button>
           ))}
           {canSend && <Button onClick={() => setMode('dispatch')}>Despachar entregador</Button>}
+          {canServe && (
+            <Button
+              variant={canReceive ? 'secondary' : 'primary'}
+              loading={busy}
+              onClick={() => void serve()}
+            >
+              Entregue na mesa
+            </Button>
+          )}
           {canReceive && (
             <Button
               variant={order.status === 'awaiting' ? 'secondary' : 'primary'}

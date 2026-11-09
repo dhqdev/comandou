@@ -92,6 +92,13 @@ export interface StoreSettings {
   pixKey: string | null;
   pixName: string | null;
   pixCity: string | null;
+  /** Ponto da loja no mapa (Entregas › Áreas de entrega). */
+  storeLat?: string | null;
+  storeLng?: string | null;
+  /** Pedido pelo QR Code da mesa só com o celular no restaurante (ponto da loja no mapa). */
+  tableCheckLocation: boolean;
+  /** Pedido da mesa pronto: o cliente busca no balcão (em vez de o garçom levar). */
+  tableSelfPickup: boolean;
   /** Recebe pedido agora (botão "aberta" + horário). Só na leitura. */
   openNow?: boolean;
 }
@@ -244,6 +251,8 @@ export interface Order {
   acceptedAt?: string | null;
   /** Pix pelo cardápio: situação do comprovante (null = não é pago assim). */
   pixStatus?: PixReceiptStatus | null;
+  /** Pedido de mesa que já chegou na mesa ("Entreguei" do garçom ou "Já peguei" do cliente). */
+  servedAt?: string | null;
   /** Último comprovante mandado (vem na lista, para o selo do cartão no PDV). */
   pixReceipt?: PixReceipt | null;
   /** Todos os comprovantes (só no detalhe do pedido), o mais novo primeiro. */

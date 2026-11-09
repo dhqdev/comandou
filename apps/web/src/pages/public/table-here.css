@@ -1,0 +1,140 @@
+/*
+ * Confirmação de que o cliente está no restaurante (TableHere.tsx), por cima do cardápio da mesa.
+ * Celular: cartão preso embaixo; notebook: no centro. Entra rápido (opacidade e escala).
+ */
+.sf-here {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  align-items: end;
+  justify-items: center;
+  padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
+  background: color-mix(in srgb, var(--cm-bg) 55%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: sf-here-fade 160ms ease-out both;
+}
+@media (min-width: 720px) {
+  .sf-here {
+    align-items: center;
+  }
+}
+@keyframes sf-here-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.sf-here__card {
+  width: min(100%, 400px);
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 28px 22px 18px;
+  border: 1px solid var(--cm-border);
+  border-radius: 24px;
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  box-shadow: var(--cm-shadow-lg);
+  text-align: center;
+  transform-origin: 50% 100%;
+  animation: sf-here-in var(--cm-spring-dur) var(--cm-spring) both;
+}
+@keyframes sf-here-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+.sf-here__card h2 {
+  margin: 8px 0 0;
+  font-size: var(--cm-text-lg);
+  font-weight: 800;
+  line-height: 1.2;
+}
+.sf-here__card p {
+  margin: 0 0 8px;
+  max-width: 32ch;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  line-height: 1.45;
+}
+.sf-here__card p.sf-here__problem {
+  color: var(--cm-danger);
+}
+
+/* Pino na cor da loja; procurando, as ondas saem dele; achou, vira o visto verde. */
+.sf-here__pin {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--cm-brand-500) 14%, transparent);
+  color: var(--cm-brand-700);
+  transition:
+    background 200ms,
+    color 200ms;
+}
+.sf-here__pin::before,
+.sf-here__pin::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--cm-brand-500);
+  opacity: 0;
+}
+[data-phase='locating'] .sf-here__pin::before,
+[data-phase='locating'] .sf-here__pin::after {
+  animation: sf-here-wave 1.2s ease-out infinite;
+}
+[data-phase='locating'] .sf-here__pin::after {
+  animation-delay: 0.6s;
+}
+@keyframes sf-here-wave {
+  from {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+[data-phase='ok'] .sf-here__pin {
+  background: var(--cm-success);
+  color: #fff;
+}
+[data-phase='ok'] .sf-here__pin svg {
+  animation: sf-here-pop 260ms var(--cm-spring-snappy) both;
+}
+@keyframes sf-here-pop {
+  from {
+    transform: scale(0.4);
+  }
+}
+
+.sf-here__go {
+  width: 100%;
+  flex: none;
+}
+.sf-here__spin {
+  animation: cm-spin 0.8s linear infinite;
+}
+.sf-here__out {
+  min-height: 40px;
+  font-size: var(--cm-text-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-here,
+  .sf-here__card,
+  .sf-here__pin::before,
+  .sf-here__pin::after,
+  [data-phase='ok'] .sf-here__pin svg {
+    animation: none;
+  }
+}

@@ -5,6 +5,7 @@ import {
   ChevronRight,
   HandPlatter,
   Loader2,
+  LockKeyhole,
   MapPin,
   Moon,
   Plus,
@@ -64,6 +65,8 @@ export function CartScreen() {
     refreshLoyalty,
     table,
     leaveTable,
+    here,
+    setHere,
   } = useStore();
   const loyalty = useLoyalty();
   const [rewardId, setRewardId] = useState<string | null>(null);
@@ -157,6 +160,8 @@ export function CartScreen() {
   // se quiser (senão paga no fim, com o garçom).
   const pixOnline = !!menu.pix;
   const pixChosen = pixOnline && (atTable ? tablePay === 'pix' : customer.paymentMethod === 'pix');
+  // O Pix pelo cardápio pede a conta aberta: o comprovante fica com quem pagou.
+  const pixLogin = pixChosen && !me;
   const feePending = zones && !pinned?.quote.covered;
   const pixCode =
     pixChosen && menu.pix && !feePending && total > 0
@@ -186,7 +191,10 @@ export function CartScreen() {
       ? [{ key: 'address' as const, text: 'o ponto no mapa dentro da área de entrega' }]
       : []),
     ...(!changeOk ? [{ key: 'pay' as const, text: 'troco maior que o total' }] : []),
-    ...(pixChosen && !receipt ? [{ key: 'pay' as const, text: 'o comprovante do Pix' }] : []),
+    ...(pixLogin ? [{ key: 'pay' as const, text: 'entrar na conta para pagar pelo Pix' }] : []),
+    ...(pixChosen && !pixLogin && !receipt
+      ? [{ key: 'pay' as const, text: 'o comprovante do Pix' }]
+      : []),
   ];
   const canSend = !blocked && missing.length === 0;
   const invalid = (k: keyof typeof sections) => tried && missing.some((m) => m.key === k);
@@ -213,6 +221,8 @@ export function CartScreen() {
 
   async function send() {
     if (!channel || sending.current) return;
+    // Mesa que confere a localização e o cliente ainda não confirmou: a confirmação aparece.
+    if (atTable && table?.confirmLocation && !here) return setHere(null);
     sending.current = true;
     attempt.current ??= { key: newIdempotencyKey(), token: newOrderToken() };
     const { key, token } = attempt.current;
@@ -292,6 +302,7 @@ export function CartScreen() {
             notes: l.notes || undefined,
           })),
           rewardId: me && rewardCents > 0 ? rewardId : undefined,
+          presence: atTable && table?.confirmLocation && here ? here : undefined,
         },
       });
       // Pix: o comprovante vai logo depois. Se falhar, o cliente manda pelo acompanhamento.
@@ -334,6 +345,11 @@ export function CartScreen() {
       // 422 pode ser produto esgotado ou fora do cardápio: a sacola se acerta sozinha.
       if (err.status === 422) void refreshMenu();
       if (err.status === 422 && rewardId) void refreshLoyalty();
+      const code = (err.body as { code?: string } | undefined)?.code;
+      // Longe do restaurante (ou a confirmação venceu): pede a localização de novo.
+      if (code === 'table_location') setHere(null);
+      // Conta que saiu (sessão vencida) e o Pix pede login: a tela mostra o "Entrar".
+      if (code === 'login_required') setAccount({ customer: null, addresses: [] });
       setError(
         err.status === 0
           ? 'Sem conexão. Toque em enviar de novo: o pedido não será duplicado.'
@@ -553,7 +569,8 @@ export function CartScreen() {
                     : 'Vai para a conta da mesa. Você paga no fim, com o garçom ou no caixa.'}
                 </p>
               )}
-              {pixChosen && menu.pix && (
+              {pixLogin && <PixLogin />}
+              {pixChosen && !pixLogin && menu.pix && (
                 <PixPay code={pixCode} amount={fromCents(total)} payee={menu.pix}>
                   <ReceiptPicker
                     value={receipt}
@@ -690,7 +707,8 @@ export function CartScreen() {
                   Você paga na {channel === 'delivery' ? 'entrega' : 'retirada'}.
                 </p>
               )}
-              {pixChosen && menu.pix && (
+              {pixLogin && <PixLogin />}
+              {pixChosen && !pixLogin && menu.pix && (
                 <PixPay
                   code={pixCode}
                   amount={fromCents(total)}
@@ -850,6 +868,24 @@ export function CartScreen() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Pix escolhido sem a conta aberta: entra (ou cria a conta) e volta para a finalização. */
+function PixLogin() {
+  return (
+    <div className="ck-pixlogin" role="note">
+      <span className="ck-pixlogin__icon" aria-hidden>
+        <LockKeyhole size={18} />
+      </span>
+      <span className="ck-pixlogin__text">
+        <strong>Entre para pagar pelo Pix</strong>
+        <small>O comprovante fica na sua conta.</small>
+      </span>
+      <Link className="ck-pixlogin__go" to="/pedir/conta" state={{ back: 'checkout' }}>
+        Entrar
+      </Link>
     </div>
   );
 }

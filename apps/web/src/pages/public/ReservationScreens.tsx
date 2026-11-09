@@ -275,6 +275,25 @@ export function ReserveScreen() {
       </div>
     );
 
+  // Reserva só com cadastro: quem não entrou vê o convite (e volta para cá depois de entrar).
+  if (!account) return <div className="sf-wrap sf-page" aria-busy="true" />;
+  if (!account.customer)
+    return (
+      <div className="sf-wrap sf-page">
+        <ScreenHeader title="Reservar mesa" />
+        <div className="empty-state">
+          <span className="empty-state__icon" aria-hidden>
+            <CalendarDays size={28} />
+          </span>
+          <strong>Entre para reservar</strong>
+          <p>A reserva fica na sua conta: você acompanha e cancela por aqui.</p>
+          <Link className="cta cta--inline" to="/pedir/conta">
+            Entrar ou criar conta
+          </Link>
+        </div>
+      </div>
+    );
+
   const step2 = !!slot;
   return (
     <div className="sf-wrap sf-page sf-page--bar rsv">
