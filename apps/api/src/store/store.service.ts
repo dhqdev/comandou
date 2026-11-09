@@ -484,7 +484,7 @@ export class StoreService {
     );
   }
 
-  private async regionIn(tx: Tx, s: StoreSettings) {
+  async regionIn(tx: Tx, s: StoreSettings) {
     if (s.city?.trim() && s.state?.trim())
       return { city: s.city.trim(), state: s.state.trim().toUpperCase() };
     const f = await one<{ city: string | null; state: string | null }>(

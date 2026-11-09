@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.104.2',
+    date: '2026-11-09',
+    title: 'Endereço de entrega que o mapa não achava',
+    summary:
+      'O cardápio agora acha muito mais endereços no mapa e nunca trava o pedido: quando não acha a casa, mostra o mapa para o cliente tocar onde mora.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'A busca no mapa procura em etapas: a casa, a rua sem o número, a rua sem "Doutor" ou "Professor", o bairro sem "Loteamento" ou "Residencial" e a cidade da loja. Antes era uma busca só, sem cidade, e qualquer palavra a mais fazia o endereço "não existir".',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O CEP do endereço corrige a grafia da rua, e uma segunda base de mapas (Photon) aceita erro de digitação.',
+      },
+      {
+        tag: 'correção',
+        text: 'Sem achar a casa, o mapa aparece mesmo assim, no bairro ou na loja: o cliente toca ou arrasta o pino até a casa e a taxa e o código Pix aparecem na hora.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O ponto marcado fica salvo no endereço da conta, e o próximo pedido já sai sem procurar.',
+      },
+    ],
+  },
+  {
     version: '0.104.1',
     date: '2026-11-09',
     title: 'Telas e janelas abrindo direto no lugar',

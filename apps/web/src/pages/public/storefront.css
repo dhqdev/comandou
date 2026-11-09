@@ -2271,9 +2271,26 @@
 }
 .addr-map .form-hint {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   align-items: center;
   margin: 0;
+}
+.addr-map .form-hint .link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* Só achou o bairro (ou nada): o cliente marca a casa no mapa. */
+.addr-map__map[data-rough] {
+  border-color: var(--cm-warning);
+}
+.addr-map__ask {
+  color: var(--cm-warning);
+  font-weight: 600;
+}
+.addr-map__ask svg {
+  flex: none;
 }
 .addr-map__locate {
   justify-self: start;

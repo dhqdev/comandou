@@ -70,7 +70,7 @@ beforeAll(async () => {
     res.setHeader('Content-Type', 'application/json');
     res.end(
       JSON.stringify(
-        u.searchParams.get('q')?.includes('Inexistente')
+        `${u.searchParams.get('q')} ${u.searchParams.get('street')}`.includes('Inexistente')
           ? []
           : [
               {
@@ -94,9 +94,12 @@ beforeAll(async () => {
     fx.tenantA,
     u.id,
   ]);
-  app = await createApp(testEnv({ AUTH_LOGIN_RATE_LIMIT: '1000', GEOCODER_URL: geoUrl }), {
-    logger: false,
-  });
+  app = await createApp(
+    testEnv({ AUTH_LOGIN_RATE_LIMIT: '1000', GEOCODER_URL: geoUrl, PHOTON_URL: '' }),
+    {
+      logger: false,
+    },
+  );
   await app.init();
   http = request(app.getHttpServer());
   cookies.adminA = await login(HOST_A, 'admin@wd-a.test');
@@ -355,6 +358,21 @@ describe('Áreas de entrega e taxa por área', () => {
     await pub.get('/store/geocode?q=ab').expect(400);
     await get('waiterA', '/geocode?q=Rua%20Teste').expect(403);
     await get('adminA', '/geocode?q=Rua%20Teste%2099').expect(200);
+  });
+
+  it('localiza o endereço do cliente em etapas e nunca deixa sem ponto', async () => {
+    const r = (
+      await pub.get('/store/locate?street=Rua%20Teste&number=10&district=Centro').expect(200)
+    ).body;
+    expect(r).toMatchObject({ lat: -23.55, lng: -46.63, precision: 'street' });
+    // Rua que o mapa não conhece: fica o bairro, para o cliente arrastar o pino.
+    const d = (
+      await pub
+        .get('/store/locate?street=Rua%20Inexistente&number=5&district=Loteamento%20Centro')
+        .expect(200)
+    ).body;
+    expect(d).toMatchObject({ precision: 'district' });
+    await pub.get('/store/locate?number=5').expect(400);
   });
 });
 

@@ -245,6 +245,26 @@ export function CartScreen() {
           setAddrId(a.id);
         }
       }
+      // Ponto marcado no mapa para um endereço salvo: fica no endereço, o próximo pedido já acha.
+      if (
+        me &&
+        chosen &&
+        zones &&
+        pinned &&
+        (Number(chosen.lat) !== pinned.lat || Number(chosen.lng) !== pinned.lng)
+      ) {
+        const at = { lat: pinned.lat, lng: pinned.lng };
+        void api('/store/account/addresses/' + chosen.id, { method: 'PATCH', json: at })
+          .then(() =>
+            setAccount({
+              customer: me,
+              addresses: saved.map((a) =>
+                a.id === chosen.id ? { ...a, lat: String(at.lat), lng: String(at.lng) } : a,
+              ),
+            }),
+          )
+          .catch(() => undefined);
+      }
       const r = await api<{ number: number; status: string; total?: string }>('/store/orders', {
         method: 'POST',
         headers: { 'Idempotency-Key': key },
@@ -571,13 +591,7 @@ export function CartScreen() {
                 <Suspense fallback={<p className="form-hint">Carregando o mapa…</p>}>
                   <AddressPin
                     key={chosen?.id ?? 'novo'}
-                    query={
-                      chosen
-                        ? `${chosen.street} ${chosen.number}, ${chosen.district}`
-                        : typedOk
-                          ? `${customer.street.trim()} ${customer.number.trim()}, ${customer.district.trim()}${customer.city ? `, ${customer.city.trim()}` : ''}`
-                          : ''
-                    }
+                    address={chosen ?? (typedOk ? customer : null)}
                     saved={
                       chosen?.lat && chosen.lng
                         ? { lat: Number(chosen.lat), lng: Number(chosen.lng) }

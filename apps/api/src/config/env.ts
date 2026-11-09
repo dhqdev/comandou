@@ -112,6 +112,11 @@ const schema = z.object({
   /** Busca de endereço (Nominatim/OpenStreetMap) usada nas áreas de entrega. */
   GEOCODER_URL: z.string().url().default('https://nominatim.openstreetmap.org'),
   /**
+   * Photon (komoot): reserva da busca de endereço, tolerante a palavra a mais ou com erro.
+   * Vazio desliga.
+   */
+  PHOTON_URL: z.union([z.string().url(), z.literal('')]).default('https://photon.komoot.io'),
+  /**
    * Consulta de CEP: ViaCEP (principal, também acha o CEP pela rua), BrasilAPI e OpenCEP
    * (reservas quando a ViaCEP falha ou não conhece o CEP).
    */

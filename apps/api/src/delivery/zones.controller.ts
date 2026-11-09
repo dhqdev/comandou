@@ -21,6 +21,7 @@ import { DatabaseService } from '../database/database.service';
 import { StoreService } from '../store/store.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { GeocoderService } from './geocoder.service';
+import type { Zone } from './zones';
 import { ZonesService } from './zones.service';
 
 const lat = z.number().min(-90).max(90);
@@ -65,6 +66,15 @@ const ZoneUpdate = ZoneFields.partial().refine(
 );
 const Point = z.object({ lat, lng });
 const Search = z.object({ q: z.string().trim().min(3).max(200) });
+const opt = (n: number) => z.string().trim().max(n).optional();
+const Locate = z.object({
+  street: z.string().trim().min(2).max(120),
+  number: opt(20),
+  district: opt(80),
+  city: opt(80),
+  state: opt(2),
+  cep: opt(9),
+});
 
 /** Áreas de entrega desenhadas no mapa + busca de endereço. */
 @Controller({ version: '1' })
@@ -153,6 +163,30 @@ export class ZonesController {
     return this.geocoder.search(f.q, near(s));
   }
 
+  /**
+   * Cliente final: endereço → ponto no mapa, com quanto o ponto diz do endereço (a casa, a rua,
+   * o bairro, a cidade ou a loja). Nunca deixa o cliente sem mapa: sem achar nada, volta o ponto
+   * da loja (ou o centro de uma área) para ele marcar a casa.
+   */
+  @Public()
+  @Get('store/locate')
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  async publicLocate(
+    @Query(new ZodPipe(Locate)) f: z.infer<typeof Locate>,
+    @CurrentTenant() t: ResolvedTenant,
+  ) {
+    const { s, region, zones } = await this.db.withTenant({ tenantId: t.id }, async (tx) => {
+      const s = await this.store.settingsIn(tx);
+      return {
+        s,
+        region: await this.store.regionIn(tx, s),
+        zones: s.storeLat && s.storeLng ? [] : await this.zones.listIn(tx),
+      };
+    });
+    const at = near(s) ?? zoneCenter(zones.filter((z) => z.active));
+    return this.geocoder.locate(f, { near: at, city: region.city, state: region.state });
+  }
+
   /** Cliente final: taxa e tempo de entrega para um ponto. A API recalcula no pedido. */
   @Public()
   @Post('store/delivery-quote')
@@ -173,4 +207,16 @@ function near(s: { storeLat: string | null; storeLng: string | null }) {
   return s.storeLat && s.storeLng
     ? { lat: Number(s.storeLat), lng: Number(s.storeLng) }
     : undefined;
+}
+
+/** Centro da primeira área (quando a loja não marcou o próprio ponto no mapa). */
+function zoneCenter(zones: Zone[]) {
+  const z = zones[0];
+  if (!z) return undefined;
+  if (z.kind === 'radius' && z.centerLat && z.centerLng)
+    return { lat: Number(z.centerLat), lng: Number(z.centerLng) };
+  if (!z.polygon?.length) return undefined;
+  const lat = z.polygon.reduce((a, p) => a + p[0], 0) / z.polygon.length;
+  const lng = z.polygon.reduce((a, p) => a + p[1], 0) / z.polygon.length;
+  return { lat, lng };
 }
