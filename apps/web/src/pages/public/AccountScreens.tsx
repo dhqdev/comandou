@@ -15,7 +15,7 @@ import {
   Trash2,
   UserRound,
 } from 'lucide-react';
-import { FormEvent, MouseEvent, ReactNode, useEffect, useState } from 'react';
+import { CSSProperties, FormEvent, MouseEvent, ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { clickPoint, Mascot, Spinner, switchTheme, useTheme, useToast } from '../../design-system';
 import { SlideTabs } from '../../features/SlideTabs';
@@ -216,41 +216,67 @@ function AuthForms() {
   );
 }
 
-function MenuRow({
+/**
+ * Bloco da tela da conta: ícone em cima, nome e uma linha de apoio embaixo. Afunda ao tocar e
+ * volta com a mola. `--i` escalona a entrada (um bloco logo depois do outro).
+ */
+function Tile({
   to,
   icon,
   label,
   hint,
+  count,
+  i,
   onClick,
+  switchOn,
 }: {
   to?: string;
   icon: ReactNode;
   label: string;
   hint?: string;
+  /** Contador no canto (mensagens novas). */
+  count?: number;
+  i: number;
   onClick?(e: MouseEvent<HTMLButtonElement>): void;
+  /** Bloco que liga e desliga (tema): mostra a chave no canto e vira `role="switch"`. */
+  switchOn?: boolean;
 }) {
   const inner = (
     <>
-      <span className="mrow__icon">{icon}</span>
-      <span className="mrow__text">
+      <span className="acct-tile__top">
+        <span className="acct-tile__icon">{icon}</span>
+        {!!count && (
+          <span className="acct-tile__count" aria-hidden>
+            {count > 99 ? '99+' : count}
+          </span>
+        )}
+        {switchOn !== undefined && <span className="acct-tile__switch" aria-hidden />}
+      </span>
+      <span className="acct-tile__text">
         <strong>{label}</strong>
         {hint && <small>{hint}</small>}
       </span>
-      <ChevronRight size={18} className="mrow__chev" />
     </>
   );
+  const style = { '--i': i } as CSSProperties;
   return to ? (
-    <Link className="mrow" to={to}>
+    <Link className="acct-tile" to={to} style={style}>
       {inner}
     </Link>
   ) : (
-    <button type="button" className="mrow" onClick={onClick}>
+    <button
+      type="button"
+      className="acct-tile"
+      style={style}
+      onClick={onClick}
+      {...(switchOn !== undefined && { role: 'switch', 'aria-checked': switchOn })}
+    >
       {inner}
     </button>
   );
 }
 
-/** Aba "Conta": formulário de entrada ou o perfil com os atalhos. */
+/** Aba "Conta": formulário de entrada ou o perfil, com as telas em blocos grandes. */
 export function AccountScreen() {
   const { account, logout, menu, favs } = useStore();
   const chat = useStoreChat();
@@ -264,101 +290,135 @@ export function AccountScreen() {
       </div>
     );
   const me = account.customer;
+  const themeTile = menu.appearance.theme === 'auto';
+  const dark = theme === 'dark';
+  // Ordem de entrada de cada parte (o título do grupo entra junto com o primeiro bloco).
+  let n = 0;
+  const at = (i: number) => ({ '--i': i }) as CSSProperties;
   return (
-    <div className="sf-wrap sf-page">
+    <div className="sf-wrap sf-page acct">
       {!me ? (
         <AuthForms />
       ) : (
         <>
-          <section className="profile">
-            <ProfilePhoto me={me} />
-            <div>
+          <section className="acct__card" style={at(n++)}>
+            <ProfilePhoto me={me} size={76} />
+            <div className="acct__who">
               <h1>{me.name}</h1>
               <p>{fmtPhone(me.phone)}</p>
+              {me.email && <p>{me.email}</p>}
             </div>
           </section>
-          <nav className="mlist" aria-label="Minha conta">
-            {loyalty && (
-              <MenuRow
-                to="/pedir/fidelidade"
-                icon={<Gift size={18} />}
-                label="Fidelidade"
+          <section className="acct__group">
+            <h2 className="acct__title" style={at(n)}>
+              Minha conta
+            </h2>
+            <nav className="acct__tiles" aria-label="Minha conta">
+              {loyalty && (
+                <Tile
+                  i={n++}
+                  to="/pedir/fidelidade"
+                  icon={<Gift />}
+                  label="Fidelidade"
+                  hint={
+                    loyalty.account
+                      ? `${loyalty.account.balance.toLocaleString('pt-BR')} ${loyaltyUnit(loyalty, loyalty.account.balance)}`
+                      : 'Junte pontos a cada pedido'
+                  }
+                />
+              )}
+              <Tile
+                i={n++}
+                to="/pedir/pedidos"
+                icon={<ReceiptText />}
+                label="Meus pedidos"
+                hint="Acompanhe e veja o histórico"
+              />
+              <Tile
+                i={n++}
+                to="/pedir/conta/enderecos"
+                icon={<MapPin />}
+                label="Endereços"
                 hint={
-                  loyalty.account
-                    ? `${loyalty.account.balance.toLocaleString('pt-BR')} ${loyaltyUnit(loyalty, loyalty.account.balance)}`
-                    : 'Junte pontos a cada pedido'
+                  account.addresses.length
+                    ? `${account.addresses.length} salvo(s)`
+                    : 'Nenhum salvo ainda'
                 }
               />
-            )}
-            <MenuRow
-              to="/pedir/pedidos"
-              icon={<ReceiptText size={18} />}
-              label="Meus pedidos"
-              hint="Acompanhe e veja o histórico"
-            />
-            <MenuRow
-              to="/pedir/conta/enderecos"
-              icon={<MapPin size={18} />}
-              label="Endereços"
-              hint={
-                account.addresses.length
-                  ? `${account.addresses.length} salvo(s)`
-                  : 'Nenhum salvo ainda'
-              }
-            />
-            <MenuRow
-              to="/pedir/favoritos"
-              icon={<Heart size={18} />}
-              label="Favoritos"
-              hint={favs.length ? `${favs.length} prato(s)` : undefined}
-            />
-            <MenuRow
-              to="/pedir/conta/dados"
-              icon={<UserRound size={18} />}
-              label="Meus dados"
-              hint={me.email ?? 'Nome, e-mail e promoções'}
-            />
-            <MenuRow to="/pedir/conta/senha" icon={<KeyRound size={18} />} label="Trocar senha" />
-          </nav>
+              <Tile
+                i={n++}
+                to="/pedir/favoritos"
+                icon={<Heart />}
+                label="Favoritos"
+                hint={favs.length ? `${favs.length} prato(s)` : 'Guarde os que você mais pede'}
+              />
+              <Tile
+                i={n++}
+                to="/pedir/conta/dados"
+                icon={<UserRound />}
+                label="Meus dados"
+                hint="Nome, e-mail e promoções"
+              />
+              <Tile
+                i={n++}
+                to="/pedir/conta/senha"
+                icon={<KeyRound />}
+                label="Trocar senha"
+                hint="Para entrar com segurança"
+              />
+            </nav>
+          </section>
         </>
       )}
 
-      {chat.enabled && (
-        <nav className="mlist" aria-label="Ajuda">
-          <MenuRow
-            to="/pedir/conversa"
-            icon={<MessageCircle size={18} />}
-            label="Conversar com a loja"
-            hint={
-              chat.unread
-                ? `${chat.unread} mensagem(ns) nova(s)`
-                : 'Dúvidas, fotos e vídeos, direto por aqui'
-            }
-          />
-        </nav>
+      {(chat.enabled || themeTile) && (
+        <section className="acct__group">
+          <h2 className="acct__title" style={at(n)}>
+            Ajuda e preferências
+          </h2>
+          <nav className="acct__tiles" aria-label="Ajuda e preferências">
+            {chat.enabled && (
+              <Tile
+                i={n++}
+                to="/pedir/conversa"
+                icon={<MessageCircle />}
+                label="Conversar com a loja"
+                count={chat.unread}
+                hint={
+                  chat.unread
+                    ? `${chat.unread} mensagem(ns) nova(s)`
+                    : 'Dúvidas, fotos e vídeos, direto por aqui'
+                }
+              />
+            )}
+            {themeTile && (
+              <Tile
+                i={n++}
+                icon={dark ? <Moon /> : <Sun />}
+                label="Tema escuro"
+                hint={dark ? 'Ligado' : 'Desligado'}
+                switchOn={dark}
+                onClick={(e) =>
+                  switchTheme(dark ? 'light' : 'dark', clickPoint(e, e.currentTarget))
+                }
+              />
+            )}
+          </nav>
+        </section>
       )}
-      <nav className="mlist" aria-label="Preferências">
-        {menu.appearance.theme === 'auto' && (
-          <MenuRow
-            icon={theme === 'dark' ? <Moon size={18} /> : <Sun size={18} />}
-            label={theme === 'dark' ? 'Tema escuro' : 'Tema claro'}
-            hint="Toque para trocar"
-            onClick={(e) =>
-              switchTheme(theme === 'dark' ? 'light' : 'dark', clickPoint(e, e.currentTarget))
-            }
-          />
-        )}
-        {me && (
-          <MenuRow
-            icon={<LogOut size={18} />}
-            label="Sair da conta"
-            onClick={async () => {
-              await logout();
-              toast('Você saiu da conta');
-            }}
-          />
-        )}
-      </nav>
+      {me && (
+        <button
+          type="button"
+          className="acct__out"
+          style={at(n++)}
+          onClick={async () => {
+            await logout();
+            toast('Você saiu da conta');
+          }}
+        >
+          <LogOut aria-hidden /> Sair da conta
+        </button>
+      )}
       <p className="store-foot__brand sf-note">
         <Mascot size={20} badge /> Pedidos online por <strong>Comandou</strong>
       </p>

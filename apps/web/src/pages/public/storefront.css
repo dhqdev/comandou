@@ -1889,94 +1889,310 @@
   gap: 8px;
 }
 
-.profile {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px;
-  border-radius: var(--sf-r);
-  color: var(--cm-text);
-  background: var(--cm-surface);
-  border: 1px solid var(--cm-border);
-  animation: sf-rise 0.45s var(--sf-ease) both;
-}
-.profile h1 {
-  margin: 0;
-  font-size: var(--cm-text-lg);
-  font-weight: 750;
-}
-.profile p {
-  margin: 2px 0 0;
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-sm);
-}
-.profile__avatar {
+/* ---------------------------------------------------------------- conta do cliente
+ * Cartão com a foto no topo e as telas em blocos grandes (ícone em cima, nome embaixo), no
+ * jeito da aba Mais do app da equipe. Celular: 2 blocos quadrados por linha; tablet e notebook:
+ * 3 por linha. Cada parte entra subindo com a mola, uma logo depois da outra (--i); o bloco
+ * afunda ao tocar e volta com a mola.
+ */
+.acct {
+  /* 18 no padrão; acompanha o "reto"/"arredondado" da loja. */
+  --acct-r: calc(var(--sf-r-lg) * 1.5);
   display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  flex: none;
-  border-radius: 50%;
-  font-size: var(--cm-text-lg);
-  font-weight: 750;
-  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
-  color: var(--cm-brand-700);
+  gap: 24px;
+  align-content: start;
 }
-.mlist {
-  display: grid;
-  margin-top: 16px;
-  border-radius: var(--sf-r);
-  background: var(--cm-surface);
-  border: 1px solid var(--cm-border);
-  overflow: hidden;
-  animation: sf-rise 0.45s 0.05s var(--sf-ease) both;
-}
-.mrow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+/* Na grade, margin: auto encolheria o formulário de entrar: ele segue com a largura toda, e as
+   abas Entrar / Criar conta dividem a largura (no celular a regra das abas já faz isso). */
+.acct > .auth {
   width: 100%;
-  padding: 12px 16px;
-  border: 0;
-  border-top: 1px solid var(--cm-border);
-  background: none;
-  color: var(--cm-text);
-  text-align: left;
-  text-decoration: none;
-  font: inherit;
-  cursor: pointer;
-  transition: background var(--cm-dur);
 }
-.mrow:first-child {
-  border-top: 0;
+.auth .slide-tabs__tab {
+  flex: 1 0 auto;
+  justify-content: center;
 }
-.mrow:hover {
-  background: var(--cm-surface-muted);
+.acct > .sf-note {
+  justify-self: center;
+  margin-top: 4px;
 }
-.mrow__icon {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  flex: none;
-  border-radius: var(--sf-r-sm);
-  background: var(--cm-surface-sunken);
-  color: var(--cm-text-muted);
+.acct__card,
+.acct__title,
+.acct-tile,
+.acct__out {
+  animation: acct-in var(--cm-spring-dur) var(--cm-spring) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
 }
-.mrow__text {
-  flex: 1;
-  display: grid;
-  gap: 1px;
+@keyframes acct-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.97);
+  }
+}
+.acct__card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--cm-border);
+  border-radius: calc(var(--acct-r) + 4px);
+  background: var(--cm-surface);
+}
+.acct__who {
   min-width: 0;
 }
-.mrow__text small {
+.acct__who h1 {
+  margin: 0;
+  font-size: var(--cm-text-xl);
+  font-weight: 750;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+.acct__who p {
+  margin: 3px 0 0;
   color: var(--cm-text-muted);
+  font-size: var(--cm-text-md);
+  font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.mrow__chev {
-  color: var(--cm-text-subtle);
+.acct__group {
+  display: grid;
+  gap: 10px;
+}
+.acct__title {
+  margin: 0 0 0 4px;
+  font-size: var(--cm-text-md);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--cm-text-muted);
+}
+.acct__tiles {
+  container-type: inline-size;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.acct-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  /* Quadrado pela largura da grade; cresce se o texto não couber (a linha toda acompanha). */
+  min-height: 150px;
+  min-height: calc((100cqi - 10px) / 2);
+  padding: 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--acct-r);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    background-color var(--cm-dur) var(--cm-ease),
+    border-color var(--cm-dur) var(--cm-ease);
+}
+@media (hover: hover) {
+  .acct-tile:hover {
+    background: var(--cm-surface-muted);
+    border-color: var(--cm-border-strong);
+  }
+}
+.acct-tile:active {
+  transform: scale(0.96);
+  background: var(--cm-surface-muted);
+  transition:
+    transform var(--cm-dur-fast) var(--cm-ease),
+    background-color var(--cm-dur-fast) var(--cm-ease);
+}
+.acct-tile:focus-visible {
+  outline: 0;
+  border-color: var(--cm-brand-500);
+  box-shadow: var(--cm-focus);
+}
+.acct-tile__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.acct-tile__icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  /* Cinza neutro que clareia no tema escuro e escurece no claro. */
+  background: color-mix(in srgb, var(--cm-text) 7%, var(--cm-surface));
+  color: var(--cm-text);
+}
+.acct-tile__icon svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.8;
+}
+.acct-tile__text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.acct-tile__text strong {
+  font-size: var(--cm-text-lg);
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+.acct-tile__text small {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.3;
+  color: var(--cm-text-muted);
+}
+.acct-tile__count {
+  display: grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 7px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  font-size: var(--cm-text-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+/* Chave do bloco de tema (o bloco inteiro é o role="switch"). */
+.acct-tile__switch {
+  position: relative;
+  flex: none;
+  width: 46px;
+  height: 28px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-border-strong);
+  transition: background-color var(--cm-dur) var(--cm-ease);
+}
+.acct-tile__switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--sf-on-photo);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 25%);
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.acct-tile[aria-checked='true'] .acct-tile__switch {
+  background: var(--cm-brand-500);
+}
+.acct-tile[aria-checked='true'] .acct-tile__switch::after {
+  transform: translateX(18px);
+}
+.acct__out {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 54px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--acct-r);
+  background: var(--cm-surface);
+  color: var(--cm-danger);
+  font: inherit;
+  font-size: var(--cm-text-md);
+  font-weight: 650;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    background-color var(--cm-dur) var(--cm-ease),
+    border-color var(--cm-dur) var(--cm-ease);
+}
+.acct__out svg {
+  width: 20px;
+  height: 20px;
+}
+@media (hover: hover) {
+  .acct__out:hover {
+    background: var(--cm-danger-bg);
+    border-color: color-mix(in srgb, var(--cm-danger) 30%, var(--cm-border));
+  }
+}
+.acct__out:active {
+  transform: scale(0.97);
+  background: var(--cm-danger-bg);
+  transition:
+    transform var(--cm-dur-fast) var(--cm-ease),
+    background-color var(--cm-dur-fast) var(--cm-ease);
+}
+.acct__out:focus-visible {
+  outline: 0;
+  box-shadow: var(--cm-focus);
+}
+/* Tablet e notebook: 3 blocos por linha, um pouco mais largos que altos. */
+@media (min-width: 600px) {
+  .acct {
+    gap: 28px;
+  }
+  .acct__card {
+    gap: 20px;
+    padding: 24px;
+  }
+  .acct__who h1 {
+    font-size: var(--cm-text-2xl);
+  }
+  .acct__tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .acct-tile {
+    /* Um pouco mais largo que alto (5 por 4). */
+    min-height: calc((100cqi - 24px) / 3 * 0.8);
+    padding: 18px;
+  }
+  /* Sem conta: os blocos de ajuda ficam na largura do formulário, 2 por linha. */
+  .auth ~ .acct__group {
+    width: 100%;
+    max-width: 440px;
+    justify-self: center;
+  }
+  .auth ~ .acct__group .acct__tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .auth ~ .acct__group .acct-tile {
+    min-height: calc((100cqi - 12px) / 2 * 0.8);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .acct__card,
+  .acct__title,
+  .acct-tile,
+  .acct__out {
+    animation: none;
+  }
+  .acct-tile,
+  .acct-tile:active,
+  .acct-tile__switch::after,
+  .acct__out,
+  .acct__out:active {
+    transition: none;
+  }
 }
 
 .addr-list {
