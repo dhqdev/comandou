@@ -1257,6 +1257,10 @@ details.adm-fieldset[open] > summary::before {
   font-size: 13px;
   color: var(--a-muted);
 }
+/* Sem isto o endereço longo passa por cima da coluna ao lado (o reticências não corta). */
+.adm-tlist__cell > * {
+  max-width: 100%;
+}
 .adm-tlist__cell--num {
   justify-items: end;
   text-align: right;

@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img alt="versão" src="https://img.shields.io/badge/vers%C3%A3o-0.20-ea8a0b" />
+  <img alt="versão" src="https://img.shields.io/badge/vers%C3%A3o-0.99-ea8a0b" />
   <img alt="NestJS" src="https://img.shields.io/badge/NestJS-11-e0234e" />
   <img alt="React" src="https://img.shields.io/badge/React-19-149eca" />
   <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-16-336791" />
@@ -19,64 +19,71 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/screens/pdv-escuro.webp" />
-  <img alt="PDV com os pedidos chegando em tempo real" src="docs/assets/screens/pdv-claro.webp" />
+  <img alt="PDV com o salão em cima e os pedidos andando por coluna embaixo" src="docs/assets/screens/pdv-claro.webp" />
 </picture>
 
 Cada restaurante tem o próprio endereço (`<restaurante>.comandou.com` ou um domínio próprio), o
 próprio banco de dados e usa PDV, salão, cozinha, caixa, cardápio online, entregas, estoque,
-financeiro, nota fiscal e avisos por WhatsApp. Funciona no computador e no celular (PWA), com tema
-claro e escuro. Os dados de um restaurante nunca aparecem para outro.
+financeiro, nota fiscal e avisos por WhatsApp. Funciona no computador, no tablet e no celular
+(instala como app), com tema claro e escuro, e continua vendendo sem internet: o que foi feito
+offline sobe sozinho quando a conexão volta. Os dados de um restaurante nunca aparecem para outro.
 
-> As telas abaixo são de um restaurante de exemplo (“Cantina da Vila”) rodando a versão 0.20.
+> As telas abaixo são do restaurante de demonstração **Casa Brasa**, que já vem instalado,
+> rodando a versão 0.99.
 
 ## Operação do dia a dia
 
 | Salão | Cozinha |
 | --- | --- |
-| ![Mapa de mesas livres, ocupadas e em pagamento](docs/assets/screens/salao-escuro.webp) | ![Fila da cozinha por setor: a fazer, preparando e pronto](docs/assets/screens/cozinha-claro.webp) |
-| Mesas livres, ocupadas e em pagamento, comandas, QR Code de cada mesa e garçom pelo celular. | Fila por setor (cozinha, bar) em tempo real, com avanço por item ou pelo pedido inteiro. |
-| **Caixa** | **Tema escuro** |
-| ![Caixa aberto com valores esperados por forma de pagamento](docs/assets/screens/caixa-escuro.webp) | ![Cozinha no tema escuro](docs/assets/screens/cozinha-escuro.webp) |
-| Abertura por terminal, suprimento, sangria e fechamento conferido por forma de pagamento. | Tema escuro em todas as telas, com o mesmo visual do claro. |
+| ![Mapa do salão com mesas livres, ocupadas e pedindo a conta](docs/assets/screens/salao-claro.webp) | ![Fila da cozinha: a fazer, preparando e pronto, com o tempo de cada pedido](docs/assets/screens/cozinha-claro.webp) |
+| Mapa por área (salão, varanda, mezanino), comandas, delivery e para levar, QR Code de cada mesa e garçom pelo celular. | Fila por setor em tempo real, com tempo de espera, aviso de cancelamento e avanço por item ou pelo pedido inteiro. |
+| **Caixa** | **Pedidos** |
+| ![Caixa aberto com a linha do tempo de vendas, suprimentos e sangrias](docs/assets/screens/caixa-escuro.webp) | ![Lista de pedidos do dia com status de operação e de pagamento](docs/assets/screens/pedidos-claro.webp) |
+| Abertura por terminal, suprimento, sangria, emissão de NFC-e e fechamento conferido por forma de pagamento. | Todos os pedidos com filtros salvos, busca por cliente, telefone, mesa ou item, e o que falta receber. |
 
 ## Cardápio online
 
-O cliente pede pelo celular ou pelo computador, cria conta, salva endereços e acompanha o pedido.
-A loja é configurada pelo próprio restaurante: capa, logo, banners, destaques e horário.
+O cliente pede pelo celular ou pelo computador, cria conta, salva endereços, junta pontos e
+acompanha o pedido. A loja é montada pelo próprio restaurante, com prévia ao vivo.
 
-| Loja no computador | Produtos e destaques |
+| Loja no computador | Tema escuro |
 | --- | --- |
-| ![Loja online com capa, banner de promoção e categorias](docs/assets/screens/loja-cliente-claro.webp) | ![Destaques da casa e mais pedidos no tema escuro](docs/assets/screens/loja-cliente-produtos-escuro.webp) |
-| **Configuração da loja (com prévia ao vivo)** | **Cardápio do restaurante** |
-| ![Configuração da loja online com prévia do celular](docs/assets/screens/loja-online-claro.webp) | ![Cadastro de categorias, produtos com foto e adicionais](docs/assets/screens/cardapio-claro.webp) |
+| ![Loja online com capa, banner da promoção, categorias e a sacola ao lado](docs/assets/screens/loja-cliente-claro.webp) | ![A mesma loja no tema escuro](docs/assets/screens/loja-cliente-escuro.webp) |
+| **Configuração da loja (com prévia do celular)** | **Cardápio do restaurante** |
+| ![Cores, letra e cantos da loja, com a prévia do celular ao lado](docs/assets/screens/loja-online-claro.webp) | ![Categorias e itens com foto, preço, situação e complementos](docs/assets/screens/cardapio-claro.webp) |
 
 ## No celular
 
 O app instala na tela inicial e parece nativo: menu inferior grande, folhas que sobem de baixo e
-cada função abre na sua tela (garçom no Salão, cozinha na Cozinha, entregador nas entregas).
+cada função abre na sua tela (garçom no Salão, cozinha na Cozinha, entregador nas Entregas).
 
 <p align="center">
-  <img src="docs/assets/screens/celular-pdv-claro.webp" width="19%" alt="PDV no celular" />
-  <img src="docs/assets/screens/celular-salao-escuro.webp" width="19%" alt="Salão no celular, tema escuro" />
-  <img src="docs/assets/screens/celular-cozinha-claro.webp" width="19%" alt="Cozinha no celular" />
-  <img src="docs/assets/screens/celular-loja-claro.webp" width="19%" alt="Loja online no celular" />
-  <img src="docs/assets/screens/celular-loja-escuro.webp" width="19%" alt="Loja online no celular, tema escuro" />
+  <img src="docs/assets/screens/celular-pdv-claro.webp" width="16%" alt="PDV no celular" />
+  <img src="docs/assets/screens/celular-salao-escuro.webp" width="16%" alt="Salão no celular, tema escuro" />
+  <img src="docs/assets/screens/celular-cozinha-claro.webp" width="16%" alt="Cozinha no celular" />
+  <img src="docs/assets/screens/celular-entregas-claro.webp" width="16%" alt="Entregas no celular" />
+  <img src="docs/assets/screens/celular-loja-claro.webp" width="16%" alt="Loja online no celular" />
+  <img src="docs/assets/screens/celular-loja-escuro.webp" width="16%" alt="Loja online no celular, tema escuro" />
 </p>
 
 ## Gestão
 
 | Relatórios | Financeiro |
 | --- | --- |
-| ![Faturamento, recebimentos por forma e mais vendidos](docs/assets/screens/relatorios-claro.webp) | ![Contas a pagar e a receber](docs/assets/screens/financeiro-claro.webp) |
+| ![Relatórios por assunto: vendas, perdas, cardápio, equipe e delivery](docs/assets/screens/relatorios-claro.webp) | ![Resumo do mês, contas a pagar e a receber](docs/assets/screens/financeiro-claro.webp) |
 | **Estoque** | **Entregas** |
-| ![Insumos com saldo, mínimo e custo médio](docs/assets/screens/estoque-escuro.webp) | ![Despacho de pedidos e entregadores na rua](docs/assets/screens/entregas-claro.webp) |
-| **Equipe** | **Entrada** |
-| ![Equipe com papéis e permissões](docs/assets/screens/equipe-claro.webp) | ![Tela de login do restaurante](docs/assets/screens/login-claro.webp) |
+| ![Insumos com saldo, mínimo, custo médio e quantos dias ainda duram](docs/assets/screens/estoque-escuro.webp) | ![Pedidos prontos para sair e entregadores na rua, no mapa](docs/assets/screens/entregas-claro.webp) |
+| **Clientes** | **Equipe** |
+| ![Clientes do cardápio online com pedidos, total gasto e último pedido](docs/assets/screens/clientes-claro.webp) | ![Equipe com o papel de cada pessoa](docs/assets/screens/equipe-claro.webp) |
+
+<p align="center">
+  <img src="docs/assets/screens/login-claro.webp" width="60%" alt="Tela de entrada do restaurante" />
+</p>
 
 ## Painel Super Admin
 
 Onde o dono da plataforma cria restaurantes (cada um com banco próprio), acompanha uso, planos,
-servidor, backups e auditoria. Entrada com senha e código do aplicativo autenticador.
+cobrança, servidor, backups e auditoria. Entrada com senha e código do aplicativo autenticador.
 
 <p align="center">
   <img src="docs/assets/screens/admin-restaurantes.webp" width="72%" alt="Lista de restaurantes no painel Super Admin" />
@@ -88,12 +95,13 @@ servidor, backups e auditoria. Entrada com senha e código do aplicativo autenti
 | Área | Recursos |
 | --- | --- |
 | **Venda** | PDV com atalhos de teclado, adicionais e variações, pedidos de balcão, mesa, retirada e delivery, descontos com limite por papel, busca global (Ctrl+K) |
-| **Salão** | Mapa de mesas e comandas, QR Code por mesa, garçom no celular (escaneia a mesa), pedir a conta, transferência, divisão sem perder centavo |
+| **Salão** | Mapa de mesas e comandas, reservas, QR Code por mesa, garçom no celular (escaneia a mesa), pedir a conta, transferência, divisão sem perder centavo |
 | **Cozinha** | Fila por setor de produção (KDS) em tempo real, avisos de atraso, avanço por item ou pedido |
 | **Caixa** | Abertura por terminal, pagamentos com troco, estornos, sangria e suprimento, fechamento conferido |
 | **Cardápio online** | Loja própria com capa, banners e destaques, contas de cliente com endereços e favoritos, acompanhamento do pedido, aceite manual ou automático |
 | **Entregas** | Áreas desenhadas no mapa (bairro ou raio) com taxa e pedido mínimo, painel do entregador com login ou link, rastreio para o cliente |
-| **Retaguarda** | Equipe e papéis, estoque com ficha técnica e custo médio, impressão local (agente ESC/POS), contas a pagar e receber, conciliação, relatórios |
+| **Retaguarda** | Equipe e papéis, estoque com ficha técnica e custo médio, contas a pagar e receber, conciliação, relatórios com exportação para Excel |
+| **Impressão** | App Comandou Impressão (Windows, Mac e Linux) para impressoras térmicas por rede/Wi-Fi, USB, serial e Bluetooth, com modelos de comanda editáveis |
 | **Integrações** | NFC-e pela Focus NFe, avisos ao cliente pelo WhatsApp (QR Code ou API oficial), filas com novas tentativas |
 | **Plataforma** | Painel Super Admin com dois fatores, banco de dados próprio por restaurante, planos e limites, domínio próprio, atualização pelo painel, backups cifrados no Backblaze B2 com teste de restauração |
 
