@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.102.1',
+    date: '2026-11-09',
+    title: 'Animações mais rápidas e janela da mesa abrindo direto no lugar',
+    summary:
+      'Todas as animações ficaram mais curtas e quase sem pulo, porque no sistema o que importa é velocidade. A janela da mesa no Salão não abre mais para baixo e depois sobe: ela já nasce no lugar certo.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Salão: ao abrir uma mesa a janela descia e depois subia quando os pedidos carregavam. Agora ela já abre num lugar onde cabe e, se o conteúdo crescer, só cresce para cima, sem deslizar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Janelas abrem em cerca de 0,25 s e fecham em 0,16 s; botões, interruptores, abas, avisos e troca de tela também ficaram mais rápidos e com mola bem mais discreta.',
+      },
+    ],
+  },
+  {
     version: '0.102.0',
     date: '2026-11-09',
     title: 'QR Code da mesa abre o cardápio já na mesa e o pedido cai na comanda',

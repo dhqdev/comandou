@@ -106,7 +106,7 @@ dialog[data-liquid]::backdrop {
 .cm-frame__content
   :is(.stat-grid, .st-kpis, .rp-kpis, .rp-stats, .dl-kpis, .adm-grid, .rp-grid, .st-grid)
   > * {
-  animation: cm-rise 0.28s cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
+  animation: cm-rise 0.2s cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
 }
 .cm-frame__content
   :is(.stat-grid, .st-kpis, .rp-kpis, .rp-stats, .dl-kpis, .adm-grid, .rp-grid, .st-grid)
@@ -136,7 +136,7 @@ dialog[data-liquid]::backdrop {
 }
 /* Os números dos indicadores sobem e ganham foco ao aparecer. */
 :is(.stat__value, .st-kpi__value, .rp-kpi__value, .dl-kpi__value) {
-  animation: cm-num 0.3s cubic-bezier(0.2, 0.9, 0.25, 1) 0.04s backwards;
+  animation: cm-num 0.2s cubic-bezier(0.2, 0.9, 0.25, 1) 0.04s backwards;
 }
 @keyframes cm-num {
   from {
@@ -172,10 +172,10 @@ html.cm-vt .cm-tabbar {
   animation: none;
 }
 ::view-transition-old(cm-main) {
-  animation: cm-vt-out 0.14s ease-out both;
+  animation: cm-vt-out 0.1s ease-out both;
 }
 ::view-transition-new(cm-main) {
-  animation: cm-vt-rise 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: cm-vt-rise 0.18s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 @keyframes cm-vt-out {
   to {
@@ -212,7 +212,7 @@ html.cm-vt .wt-tabs {
   > *,
 :is(.driver__runs, .driver__done, .earn, .earn__list, .dgate__steps, .cat-list, .mn-items tbody)
   > * {
-  animation: cm-rise 0.28s cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
+  animation: cm-rise 0.2s cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
 }
 :is(
     .wt-grid,

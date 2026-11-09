@@ -117,12 +117,12 @@ export function spring(response: number, bounce: number): Spring {
 
 /**
  * As molas do sistema (mesmos valores de tokens.css):
- * - expand: janela nascendo de quem foi clicado (elástico discreto);
+ * - expand: janela nascendo de quem foi clicado (rápida, quase sem pulo: é sistema de trabalho);
  * - snappy: toque, liga/desliga, indicadores (rápida, um pulinho);
  * - smooth: folhas e painéis (sem pulo visível).
  */
 export const SPRINGS = {
-  expand: [0.42, 0.26],
-  snappy: [0.3, 0.28],
-  smooth: [0.4, 0.04],
+  expand: [0.24, 0.08],
+  snappy: [0.2, 0.12],
+  smooth: [0.2, 0],
 } as const satisfies Record<string, readonly [number, number]>;

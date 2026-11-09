@@ -117,10 +117,13 @@ export function nearAnchor(a: DOMRect, w: number, h: number) {
           ? a.left
           : cx - w / 2;
   const bottom = area.top + area.h - EDGE;
+  // Janela que ainda carrega abre baixinha e cresce: só vai para baixo do botão se couber uma
+  // janela de tamanho comum, senão ela teria de mudar de lugar quando os dados chegam.
+  const room = Math.max(h, Math.min(area.h * 0.55, 420));
   const top =
-    a.bottom + GAP + h <= bottom
+    a.bottom + GAP + room <= bottom
       ? a.bottom + GAP
-      : a.top - GAP - h >= area.top + EDGE
+      : a.top - GAP - room >= area.top + EDGE
         ? a.top - GAP - h
         : a.top + a.height / 2 - h / 2;
   return clampTo(left, top, w, h);
@@ -141,21 +144,18 @@ function unplace(d: HTMLElement) {
 }
 
 /**
- * Conteúdo que chega depois (carregando → formulário) ou tela que muda de tamanho: se a janela
- * passou da borda, ela desliza de volta para dentro (com mola), sem pular.
+ * Conteúdo que chega depois (carregando → dados da mesa) ou tela que muda de tamanho: se a janela
+ * passou da borda, ela é empurrada para dentro no mesmo quadro (o ResizeObserver roda antes de
+ * pintar), sem deslizar: a janela só cresce para cima. Antes ela abria embaixo e subia depois.
  */
-function keepInView(d: HTMLElement, animate: boolean) {
+function keepInView(d: HTMLElement) {
   const p = placed.get(d);
-  if (!p || p.busy || !(d as HTMLDialogElement).open) return;
+  if (!p || !(d as HTMLDialogElement).open) return;
   const next = clampTo(p.left, p.top, d.offsetWidth, d.offsetHeight);
-  const dx = p.left - next.left;
-  const dy = p.top - next.top;
-  if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+  if (Math.abs(p.left - next.left) < 1 && Math.abs(p.top - next.top) < 1) return;
   p.left = next.left;
   p.top = next.top;
   setInset(d, next.left, next.top);
-  if (animate && canAnimate(d))
-    d.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], smooth());
 }
 
 /** Põe a janela (já aberta) perto de quem abriu. Devolve o retângulo final. */
@@ -164,10 +164,9 @@ function placeNear(d: HTMLElement, a: DOMRect, box: DOMRect): DOMRect {
   const { left, top } = nearAnchor(a, box.width, box.height);
   setInset(d, left, top);
   d.setAttribute('data-at', '');
-  const ro =
-    typeof ResizeObserver === 'function' ? new ResizeObserver(() => keepInView(d, true)) : null;
+  const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(() => keepInView(d)) : null;
   ro?.observe(d);
-  const onResize = () => keepInView(d, false);
+  const onResize = () => keepInView(d);
   window.addEventListener('resize', onResize);
   visualViewport?.addEventListener('resize', onResize);
   const onClose = () => unplace(d);
@@ -190,7 +189,7 @@ function settle(d: HTMLElement) {
   const p = placed.get(d);
   if (!p) return;
   p.busy = false;
-  keepInView(d, true);
+  keepInView(d);
 }
 
 type Morph = { anims: Animation[]; timer: number };
@@ -201,7 +200,7 @@ export type LiquidKind = 'morph' | 'panel';
 function fadeChildren(d: HTMLElement, delay: number) {
   return Array.from(d.children).map((c) =>
     (c as HTMLElement).animate([{ opacity: 0 }, { opacity: 1 }], {
-      duration: 170,
+      duration: 110,
       delay,
       easing: 'ease-out',
       fill: 'backwards',
@@ -229,9 +228,9 @@ function morphIn(d: HTMLElement, from: DOMRect | null, m: Morph, onDone: () => v
   const shape = d.animate([{ transform: start }, { transform: 'none' }], curve);
   const fade =
     from || !sheet
-      ? [d.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: 'ease-out' })]
+      ? [d.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 90, easing: 'ease-out' })]
       : [];
-  m.anims = [shape, ...fade, ...(from ? fadeChildren(d, 90) : [])];
+  m.anims = [shape, ...fade, ...(from ? fadeChildren(d, 40) : [])];
   shape.onfinish = () => {
     m.anims = [];
     d.style.transformOrigin = '';
@@ -275,7 +274,7 @@ export function showLiquid(
 function panelOut(d: HTMLElement, m: Morph, done: () => void) {
   m.anims.push(
     d.animate([{ transform: 'none' }, { transform: 'translateX(100%)' }], {
-      duration: 240,
+      duration: 180,
       easing: SHEET_EASE,
       fill: 'forwards',
     }),
@@ -283,7 +282,7 @@ function panelOut(d: HTMLElement, m: Morph, done: () => void) {
   try {
     m.anims.push(
       d.animate([{ opacity: 1 }, { opacity: 0 }], {
-        duration: 240,
+        duration: 180,
         fill: 'forwards',
         pseudoElement: '::backdrop',
       }),
@@ -291,7 +290,7 @@ function panelOut(d: HTMLElement, m: Morph, done: () => void) {
   } catch {
     /* sem animação no ::backdrop */
   }
-  m.timer = window.setTimeout(done, 230);
+  m.timer = window.setTimeout(done, 170);
 }
 
 /**
@@ -322,11 +321,11 @@ function morphOut(d: HTMLElement, anchor: Element | null, m: Morph, done: () => 
         { transform: cur === 'none' ? 'none' : cur },
         { transform: `translateY(${innerHeight - to.top + 24}px)` },
       ],
-      { duration: 260, easing: SHEET_EASE, fill: 'forwards' },
+      { duration: 190, easing: SHEET_EASE, fill: 'forwards' },
     );
     m.anims.push(down);
-    backdrop([{ opacity: 1 }, { opacity: 0 }], 260);
-    m.timer = window.setTimeout(done, 250);
+    backdrop([{ opacity: 1 }, { opacity: 0 }], 190);
+    m.timer = window.setTimeout(done, 180);
     return;
   }
   d.style.transformOrigin = '0 0';
@@ -336,12 +335,12 @@ function morphOut(d: HTMLElement, anchor: Element | null, m: Morph, done: () => 
   Array.from(d.children).forEach((c) =>
     m.anims.push(
       (c as HTMLElement).animate([{ opacity: 1 }, { opacity: 0 }], {
-        duration: 100,
+        duration: 70,
         fill: 'forwards',
       }),
     ),
   );
-  const dur = from ? 230 : 170;
+  const dur = from ? 160 : 120;
   m.anims.push(
     d.animate([{ transform: 'none' }, { transform: end }], {
       duration: dur,
@@ -353,7 +352,7 @@ function morphOut(d: HTMLElement, anchor: Element | null, m: Morph, done: () => 
       fill: 'forwards',
     }),
   );
-  backdrop([{ opacity: 1 }, { opacity: 0 }], 220);
+  backdrop([{ opacity: 1 }, { opacity: 0 }], dur);
   m.timer = window.setTimeout(done, dur - 10);
 }
 
