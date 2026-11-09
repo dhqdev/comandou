@@ -205,8 +205,10 @@ function Thread({
   // cima do texto das mensagens.
   const [day, setDay] = useState<{ label: string; on: boolean }>({ label: '', on: false });
   const dayTimer = useRef<number | undefined>(undefined);
-  // Rolagem feita pelo código (segurar no fim): não mostra o dia no topo.
+  // Rolagem feita pelo código (segurar no fim) ou pelo navegador quando a área mudou de tamanho:
+  // não mostra o dia no topo.
   const quiet = useRef(false);
+  const seenHeight = useRef(0);
   const scrollBox = (el: HTMLDivElement, top: number) => {
     const t = Math.max(0, Math.min(top, el.scrollHeight - el.clientHeight));
     if (Math.abs(el.scrollTop - t) < 1) return;
@@ -284,7 +286,9 @@ function Thread({
     const el = box.current!;
     const bottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
     atBottomRef.current = bottom;
-    if (quiet.current) quiet.current = false;
+    const resized = el.clientHeight !== seenHeight.current;
+    seenHeight.current = el.clientHeight;
+    if (quiet.current || resized) quiet.current = false;
     else showDay(el);
     if (bottom !== atBottom) setAtBottom(bottom);
     if (bottom) setFresh(0);

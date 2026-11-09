@@ -91,6 +91,7 @@
   transition-duration: 0.08s;
 }
 .scx-float .scx-day {
+  align-self: flex-start;
   margin: 0;
   box-shadow: var(--cm-shadow-sm);
 }
