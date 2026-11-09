@@ -206,6 +206,15 @@ button.pix-chip:focus-visible {
 .pix-review__row .cm-btn {
   flex: 1 1 auto;
 }
+/* No celular a foto fica mais baixa: os botões de aprovar aparecem sem rolar tanto. */
+@media (max-width: 759px) {
+  .pix-review__file img {
+    max-height: 42vh;
+  }
+  .pix-review__file iframe {
+    height: 50vh;
+  }
+}
 @media (min-width: 760px) {
   .pix-review {
     grid-template-columns: minmax(0, 1.25fr) minmax(240px, 1fr);

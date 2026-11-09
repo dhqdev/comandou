@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.104.0',
+    date: '2026-11-09',
+    title: 'Pix pelo cardápio: o cliente paga com QR Code e manda o comprovante para o PDV aprovar',
+    summary:
+      'Com a chave Pix da loja cadastrada, quem escolhe Pix no checkout do cardápio vê o QR Code e o Pix copia e cola já com o valor do pedido, paga no app do banco e anexa o comprovante. O pedido chega no PDV com o selo Comprovante: um toque abre a prévia ali mesmo, sem abrir o pedido, para aprovar ou recusar. O dinheiro cai direto na conta do restaurante, sem intermediário.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Loja online → aba Pix (ou Configurações → Pix pelo cardápio): tipo e chave Pix, nome de quem recebe e cidade. Antes de ligar, um Pix de teste de R$ 1,00 mostra no app do banco o nome que o cliente vai ver.',
+      },
+      {
+        tag: 'novo',
+        text: 'No checkout, Pix mostra o valor, o botão Copiar código Pix e o QR Code (para pagar com outro aparelho). O comprovante (print ou PDF do banco) é anexado antes de enviar o pedido; a foto é reduzida no próprio celular para subir rápido.',
+      },
+      {
+        tag: 'novo',
+        text: 'No PDV, o cartão do pedido mostra o selo Comprovante com a miniatura: abre a foto grande com o valor do Pix para Aprovar (o Pix entra no caixa aberto e o pedido fica pago), Aprovar e aceitar, ou Recusar com o motivo. Chega com som e aviso, e o detalhe do pedido guarda o histórico dos comprovantes.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Recusado, o cliente vê o motivo no acompanhamento do pedido e manda outro comprovante (até 5). Se o envio falhar por falta de internet, também dá para mandar de novo por lá. Os arquivos ficam guardados por 180 dias.',
+      },
+    ],
+  },
+  {
     version: '0.103.0',
     date: '2026-11-09',
     title:
