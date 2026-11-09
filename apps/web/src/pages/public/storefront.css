@@ -2547,3 +2547,8 @@
     animation: none !important;
   }
 }
+
+/* Pix pelo cardápio ligado: as outras formas dizem quando se paga. */
+.ck-pay-when {
+  margin: 8px 0 0;
+}

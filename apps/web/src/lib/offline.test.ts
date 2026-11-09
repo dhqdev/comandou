@@ -41,6 +41,7 @@ describe('o que funciona sem internet', () => {
     expect(needsInternet('POST', '/kitchen/items/1/ready')).toBeNull();
     expect(needsInternet('POST', '/orders/1/payments')).toMatch(/Pagamentos/);
     expect(needsInternet('POST', '/tabs/1/payments')).toMatch(/Pagamentos/);
+    expect(needsInternet('POST', '/orders/1/pix-receipts/2/approve')).toMatch(/Pix/);
     expect(needsInternet('POST', '/tabs/1/close')).toMatch(/conta/);
     expect(needsInternet('POST', '/cash/sessions')).toMatch(/caixa/);
     expect(needsInternet('POST', '/orders/1/nfce')).toMatch(/nota fiscal/);

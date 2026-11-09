@@ -1,5 +1,12 @@
-import { PAYMENT_METHOD_LABELS, type PaymentMethod, qtyLabel } from '@comandou/shared';
 import {
+  PAYMENT_METHOD_LABELS,
+  type PaymentMethod,
+  type PixKeyType,
+  type PixReceiptStatus,
+  qtyLabel,
+} from '@comandou/shared';
+import {
+  BadgeCheck,
   Bike,
   Check,
   ChefHat,
@@ -13,6 +20,7 @@ import {
   UtensilsCrossed,
   Wallet,
   XCircle,
+  Clock3,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -21,6 +29,7 @@ import { time } from '../../features/format';
 import { api, ApiError } from '../../lib/api';
 import { brl } from '../../lib/money';
 import { BagArt, CookingArt, MotoboyArt, OrdersArt, PickupArt } from './art';
+import { PixPay, ReceiptPicker, sendReceipt, type ReceiptFile } from './PixPay';
 import { Photo } from './ui';
 import './public.css';
 
@@ -60,6 +69,15 @@ interface PublicOrder {
     options: string[];
   }[];
   courier: CustomerCourier | null;
+  /** Pix pelo cardápio: código com o que falta pagar e como está o comprovante. */
+  pix?: {
+    status: PixReceiptStatus;
+    amount: string;
+    code: string | null;
+    payee: { name: string; keyType: PixKeyType; key: string } | null;
+    receipt: { status: string; at: string; reason: string | null } | null;
+    canSend: boolean;
+  } | null;
 }
 
 const HERO: Record<
@@ -308,6 +326,10 @@ export function PublicOrderPage() {
         <div className="track__side">
           {o.step === 'dispatched' && o.courier?.code && <DeliveryCode code={o.courier.code} />}
 
+          {o.pix && o.step !== 'cancelled' && (
+            <PixTrack pix={o.pix} path={`${base}/pix-receipt`} onSent={load} />
+          )}
+
           <section className="track__card track__sum">
             <h2>Resumo</h2>
             <ul className="track__items">
@@ -412,5 +434,106 @@ export function PublicOrderPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+/** Pagamento por Pix no acompanhamento: pagar, mandar o comprovante e ver o que a loja decidiu. */
+function PixTrack({
+  pix,
+  path,
+  onSent,
+}: {
+  pix: NonNullable<PublicOrder['pix']>;
+  path: string;
+  onSent(): Promise<void>;
+}) {
+  const [file, setFile] = useState<ReceiptFile | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Comprovante já enviado: "mandar outro" fica escondido até o cliente pedir.
+  const [again, setAgain] = useState(false);
+
+  async function send() {
+    if (!file) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await sendReceipt(path, file);
+      setFile(null);
+      setAgain(false);
+      await onSent();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const r = pix.receipt;
+  const showPay = pix.canSend && (pix.status !== 'submitted' || again);
+  return (
+    <section className="track__card track__pix">
+      <h2>Pagamento por Pix</h2>
+      {pix.status === 'approved' ? (
+        <p className="pixpay__state" data-tone="ok">
+          <BadgeCheck size={18} aria-hidden />
+          <span>
+            <strong>Pix confirmado pela loja</strong>
+            <small>O pagamento do pedido está certo. Bom apetite!</small>
+          </span>
+        </p>
+      ) : pix.status === 'submitted' && r ? (
+        <p className="pixpay__state">
+          <Clock3 size={18} aria-hidden />
+          <span>
+            <strong>Comprovante enviado às {time(r.at)}</strong>
+            <small>A loja está conferindo. Esta página avisa quando confirmar.</small>
+          </span>
+        </p>
+      ) : pix.status === 'rejected' && r ? (
+        <p className="pixpay__state" data-tone="bad">
+          <XCircle size={18} aria-hidden />
+          <span>
+            <strong>A loja recusou o comprovante</strong>
+            <small>
+              {r.reason ? `Motivo: ${r.reason}. ` : ''}Confira o valor e mande outro, ou fale com a
+              loja.
+            </small>
+          </span>
+        </p>
+      ) : null}
+      {showPay && (
+        <PixPay
+          code={pix.code}
+          amount={pix.amount}
+          payee={
+            pix.payee
+              ? { name: pix.payee.name, keyType: pix.payee.keyType, keyLabel: pix.payee.key }
+              : null
+          }
+          pending="A loja desligou o Pix pelo cardápio. Fale com a loja para pagar."
+        >
+          <ReceiptPicker value={file} onChange={setFile} disabled={busy} />
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+          <button
+            type="button"
+            className="cta pixpay__send"
+            disabled={!file || busy}
+            onClick={() => void send()}
+          >
+            {busy ? 'Enviando…' : 'Enviar comprovante'}
+          </button>
+        </PixPay>
+      )}
+      {pix.status === 'submitted' && pix.canSend && !again && (
+        <button type="button" className="link pixpay__again" onClick={() => setAgain(true)}>
+          Mandei o comprovante errado
+        </button>
+      )}
+    </section>
   );
 }

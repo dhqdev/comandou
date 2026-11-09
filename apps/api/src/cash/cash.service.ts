@@ -395,7 +395,7 @@ export class CashService {
     });
   }
 
-  private async lockSession(tx: Tx, id: string, mode: 'SHARE' | 'UPDATE'): Promise<SessionRow> {
+  async lockSession(tx: Tx, id: string, mode: 'SHARE' | 'UPDATE'): Promise<SessionRow> {
     const s = await one<SessionRow>(
       tx,
       `SELECT id, status, number, register_id FROM cash_sessions WHERE id = $1 FOR ${mode === 'SHARE' ? 'SHARE' : 'UPDATE'}`,

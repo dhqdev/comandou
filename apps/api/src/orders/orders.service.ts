@@ -68,6 +68,8 @@ export interface CreateOrderInput {
     customerId?: string;
     /** Recompensa do programa de fidelidade trocada neste pedido (exige customerId). */
     rewardId?: string;
+    /** Pix pelo cardápio: o pedido nasce esperando o comprovante (orders.pix_status). */
+    pix?: boolean;
   };
   /** Pedido mínimo (sobre o subtotal dos itens), usado pelo cardápio online. */
   minSubtotal?: string;
@@ -120,6 +122,13 @@ export const ORDER_SELECT = `
          o.source, o.payment_hint AS "paymentHint", o.change_for::text AS "changeFor",
          o.accepted_at AS "acceptedAt", o.receivable_at AS "receivableAt",
          o.receivable_reason AS "receivableReason",
+         o.pix_status AS "pixStatus",
+         CASE WHEN o.pix_status IS NOT NULL THEN (
+           SELECT json_build_object('id', r.id, 'status', r.status, 'contentType', r.content_type,
+                                    'createdAt', r.created_at, 'amount', r.amount::text,
+                                    'rejectReason', r.reject_reason, 'hasFile', r.bytes IS NOT NULL)
+             FROM pix_receipts r WHERE r.order_id = o.id ORDER BY r.created_at DESC LIMIT 1)
+         END AS "pixReceipt",
          o.version, o.created_at AS "createdAt", o.updated_at AS "updatedAt",
          COALESCE((SELECT json_agg(json_build_object(
              'id', i.id, 'productId', i.product_id, 'name', i.name, 'quantity', i.quantity::text,
@@ -240,7 +249,20 @@ export class OrdersService {
         WHERE h.order_id = $1 ORDER BY h.id`,
       [id],
     );
-    return { ...o, payments, history };
+    // Pix pelo cardápio: os comprovantes que o cliente mandou (o mais novo primeiro).
+    const pixReceipts = o.pixStatus
+      ? await q(
+          tx,
+          `SELECT r.id, r.status, r.content_type AS "contentType", r.size, r.width, r.height,
+                  r.amount::text, r.created_at AS "createdAt", r.reviewed_at AS "reviewedAt",
+                  u.name AS "reviewedByName", r.reject_reason AS "rejectReason",
+                  r.bytes IS NOT NULL AS "hasFile"
+             FROM pix_receipts r LEFT JOIN users u ON u.id = r.reviewed_by
+            WHERE r.order_id = $1 ORDER BY r.created_at DESC`,
+          [id],
+        )
+      : [];
+    return { ...o, payments, history, pixReceipts };
   }
 
   list(
@@ -529,9 +551,9 @@ export class OrdersService {
       `INSERT INTO orders (tenant_id, number, channel, status, tab_id, customer_name, customer_phone, delivery_address,
                            notes, subtotal, discount, surcharge, delivery_fee, total, created_by,
                            source, public_token_hash, payment_hint, change_for, accepted_at, customer_id,
-                           delivery_lat, delivery_lng)
+                           delivery_lat, delivery_lng, pix_status)
        VALUES ($1,$2,$3,$15,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$16,$17,$18,$19,
-               CASE WHEN $15 = 'new' AND $16 = 'online' THEN now() END, $20, $21, $22) RETURNING id`,
+               CASE WHEN $15 = 'new' AND $16 = 'online' THEN now() END, $20, $21, $22, $23) RETURNING id`,
       [
         ctx.tenantId,
         number,
@@ -555,6 +577,7 @@ export class OrdersService {
         online?.customerId ?? staffCustomerId,
         input.deliveryLocation?.lat.toFixed(6) ?? null,
         input.deliveryLocation?.lng.toFixed(6) ?? null,
+        online?.pix ? 'waiting' : null,
       ],
     );
     if (reward)

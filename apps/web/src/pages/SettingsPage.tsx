@@ -1,5 +1,5 @@
 import { CHANNEL_LABELS, ORDER_CHANNELS, type OrderChannel } from '@comandou/shared';
-import { ChevronRight, LayoutGrid, Plus, Smartphone } from 'lucide-react';
+import { ChevronRight, LayoutGrid, Plus, QrCode, Smartphone } from 'lucide-react';
 import { Link } from 'react-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, EmptyState, TextField, useToast } from '../design-system';
@@ -68,6 +68,17 @@ export function SettingsPage() {
           <span>
             <strong>Cardápio online, banners, destaques e horários</strong>
             <small>Agora tudo da loja online fica numa página só, com prévia do celular.</small>
+          </span>
+          <ChevronRight size={18} aria-hidden />
+        </Link>
+        <Link to="/loja-online?aba=pix" className="settings-link">
+          <QrCode size={20} aria-hidden />
+          <span>
+            <strong>Pix pelo cardápio</strong>
+            <small>
+              Sua chave Pix: o cliente paga pelo QR Code no checkout e manda o comprovante para o
+              PDV aprovar.
+            </small>
           </span>
           <ChevronRight size={18} aria-hidden />
         </Link>

@@ -17,7 +17,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { roleHas } from '@comandou/shared';
+import { PIX_CITY_MAX, PIX_KEY_TYPES, PIX_NAME_MAX, roleHas } from '@comandou/shared';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
@@ -26,12 +26,14 @@ import { CurrentTenant, CurrentUser, Public, RequirePermission } from '../common
 import { requireKey } from '../common/idempotency';
 import { money, uuid } from '../common/schemas';
 import { one } from '../common/sql';
+import { sniff } from '../common/file-sniff';
 import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { CepService, isUf } from './cep.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { cookieOf, CUSTOMER_COOKIE, CustomersService } from './customers.service';
+import { checkReceipt, PixService } from './pix.service';
 import {
   CORNER_STYLES,
   FONT_STYLES,
@@ -222,6 +224,27 @@ const Settings = z
           .strict(),
       )
       .max(21),
+    // Pix pelo cardápio: a chave é conferida (e posta no formato do Pix) pelo serviço.
+    pixEnabled: z.boolean(),
+    pixKeyType: z.enum(PIX_KEY_TYPES).nullable(),
+    pixKey: z
+      .string()
+      .trim()
+      .max(77)
+      .nullable()
+      .transform((v) => v || null),
+    pixName: z
+      .string()
+      .trim()
+      .max(PIX_NAME_MAX, `Nome de quem recebe com até ${PIX_NAME_MAX} letras`)
+      .nullable()
+      .transform((v) => v || null),
+    pixCity: z
+      .string()
+      .trim()
+      .max(PIX_CITY_MAX, `Cidade com até ${PIX_CITY_MAX} letras (o Pix corta o resto)`)
+      .nullable()
+      .transform((v) => v || null),
   })
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');
@@ -250,6 +273,9 @@ const BannerUpdate = BannerFields.partial().refine(
   'nada para atualizar',
 );
 
+/** Tamanho da foto do comprovante (já reduzida pelo navegador). */
+export const ReceiptDim = z.coerce.number().int().min(1).max(8192).optional();
+
 /** Campos que a operação (caixa/atendente) pode mudar direto da tela de pedidos. */
 const OPERATIONAL = new Set(['isOpen', 'autoAccept']);
 
@@ -261,6 +287,7 @@ export class StoreController {
     private readonly customers: CustomersService,
     private readonly cep: CepService,
     private readonly loyalty: LoyaltyService,
+    private readonly pix: PixService,
   ) {}
 
   @Public()
@@ -383,6 +410,27 @@ export class StoreController {
     return this.store.cancelByCustomer(t.id, token, req.ip);
   }
 
+  /**
+   * Comprovante do Pix do pedido (foto ou PDF no corpo). O link do pedido é a senha: só quem fez o
+   * pedido manda. Pode mandar outro enquanto a loja não aprovou.
+   */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @Post('orders/:token/pix-receipt')
+  @HttpCode(200)
+  pixReceipt(
+    @Param('token') token: string,
+    @Body() body: unknown,
+    @Headers('content-type') type: string | undefined,
+    @Query('w', new ZodPipe(ReceiptDim)) width: number | undefined,
+    @Query('h', new ZodPipe(ReceiptDim)) height: number | undefined,
+    @CurrentTenant() t: ResolvedTenant,
+    @Req() req: Request,
+  ) {
+    const f = checkReceipt(body, type);
+    return this.pix.submit(t.id, { token }, { ...f, width, height }, req.ip);
+  }
+
   @Get('settings')
   @RequirePermission('orders:read', 'settings:manage')
   settings(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
@@ -448,19 +496,8 @@ export const IMAGE_TYPES = new Set(['image/webp', 'image/jpeg', 'image/png']);
 export const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
 export const MAX_IMAGES_PER_TENANT = 3000;
 
-/** Confere a assinatura do arquivo: o Content-Type do cliente não basta. */
-export function sniff(b: Buffer): string | null {
-  if (
-    b.length > 12 &&
-    b.toString('ascii', 0, 4) === 'RIFF' &&
-    b.toString('ascii', 8, 12) === 'WEBP'
-  )
-    return 'image/webp';
-  if (b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
-  if (b.length > 8 && b.readUInt32BE(0) === 0x89504e47 && b.readUInt32BE(4) === 0x0d0a1a0a)
-    return 'image/png';
-  return null;
-}
+// A assinatura do arquivo fica em common/file-sniff (o comprovante do Pix usa a mesma).
+export { sniff };
 
 const Dim = z.coerce.number().int().min(1).max(4096).optional();
 

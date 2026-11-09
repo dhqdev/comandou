@@ -4,7 +4,17 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { customerStep } from '@comandou/shared';
+import {
+  customerStep,
+  formatPixKey,
+  fromCents,
+  toCents,
+  normalizePixKey,
+  PIX_KEY_TYPE_LABELS,
+  pixBrCode,
+  type PixKeyType,
+  type PixReceiptStatus,
+} from '@comandou/shared';
 import { createHash } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
 import { Ctx, onlineCtx } from '../common/context';
@@ -62,6 +72,16 @@ export interface StoreSettings {
   /** Horário de funcionamento: fora dele a loja fica fechada sozinha, mesmo com isOpen ligado. */
   hoursEnabled: boolean;
   hours: StoreHour[];
+  /**
+   * Pix pelo cardápio (sem banco nem intermediário): com a chave preenchida e ligado, quem escolhe
+   * Pix no checkout vê o QR Code com o valor e manda o comprovante; a equipe confere no PDV.
+   */
+  pixEnabled: boolean;
+  pixKeyType: PixKeyType | null;
+  /** Já no formato do Pix (só dígitos, +55..., minúsculas): conferido em updateSettings. */
+  pixKey: string | null;
+  pixName: string | null;
+  pixCity: string | null;
 }
 
 /** Um turno do dia da semana (0 = domingo). close menor que open = vira a meia-noite. */
@@ -144,7 +164,8 @@ const SETTINGS_COLS = `enabled, is_open AS "isOpen", auto_accept AS "autoAccept"
   store_lat::text AS "storeLat", store_lng::text AS "storeLng", brand_color AS "brandColor",
   accent_color AS "accentColor", font_style AS "fontStyle", corner_style AS "cornerStyle",
   favicon_image_id AS "faviconImageId", brand_staff_app AS "brandStaffApp",
-  hours_enabled AS "hoursEnabled", hours`;
+  hours_enabled AS "hoursEnabled", hours, pix_enabled AS "pixEnabled",
+  pix_key_type AS "pixKeyType", pix_key AS "pixKey", pix_name AS "pixName", pix_city AS "pixCity"`;
 
 const DEFAULTS: StoreSettings = {
   enabled: true,
@@ -180,6 +201,11 @@ const DEFAULTS: StoreSettings = {
   brandStaffApp: true,
   hoursEnabled: false,
   hours: [],
+  pixEnabled: false,
+  pixKeyType: null,
+  pixKey: null,
+  pixName: null,
+  pixCity: null,
 };
 
 const COLUMN: Record<keyof StoreSettings, string> = {
@@ -216,7 +242,27 @@ const COLUMN: Record<keyof StoreSettings, string> = {
   brandStaffApp: 'brand_staff_app',
   hoursEnabled: 'hours_enabled',
   hours: 'hours',
+  pixEnabled: 'pix_enabled',
+  pixKeyType: 'pix_key_type',
+  pixKey: 'pix_key',
+  pixName: 'pix_name',
+  pixCity: 'pix_city',
 };
+
+/** Comprovantes por pedido (o cliente reenvia se a loja recusar). */
+export const MAX_PIX_RECEIPTS = 5;
+
+/** Pix da loja para o cardápio: o navegador monta o copia e cola com o valor do pedido. */
+export function publicPix(s: StoreSettings) {
+  const p = pixPayeeOf(s);
+  return p ? { ...p, keyLabel: formatPixKey(p.keyType, p.key) } : null;
+}
+
+/** Recebedor do Pix da loja, se o Pix pelo cardápio está ligado e completo. */
+export function pixPayeeOf(s: StoreSettings) {
+  if (!s.pixEnabled || !s.pixKey || !s.pixKeyType || !s.pixName || !s.pixCity) return null;
+  return { keyType: s.pixKeyType, key: s.pixKey, name: s.pixName, city: s.pixCity };
+}
 
 export interface OnlineOrderInput {
   /** table = cliente sentado, pelo QR Code da mesa (exige `tableId`). */
@@ -350,6 +396,21 @@ export class StoreService {
       const next = { ...cur, ...patch };
       if (next.etaMax < next.etaMin)
         throw new UnprocessableEntityException('O tempo máximo deve ser maior que o mínimo');
+      // Chave Pix no formato do Pix (o mesmo texto vai no QR Code do cliente).
+      if (next.pixKey && next.pixKeyType) {
+        const key = normalizePixKey(next.pixKeyType, next.pixKey);
+        if (!key)
+          throw new UnprocessableEntityException(
+            `Chave Pix inválida para o tipo ${PIX_KEY_TYPE_LABELS[next.pixKeyType]}`,
+          );
+        next.pixKey = key;
+      } else if (next.pixKey && !next.pixKeyType) {
+        throw new UnprocessableEntityException('Escolha o tipo da chave Pix');
+      }
+      if (next.pixEnabled && !pixPayeeOf(next))
+        throw new UnprocessableEntityException(
+          'Para ligar o Pix no cardápio, preencha a chave, o nome e a cidade de quem recebe',
+        );
       const keys = Object.keys(COLUMN) as (keyof StoreSettings)[];
       const cols = keys.map((k) => COLUMN[k]);
       await q(
@@ -514,6 +575,8 @@ export class StoreService {
           deliveryZones: (zoneCount?.n ?? 0) > 0,
         },
         table,
+        // Pix pelo cardápio: o checkout monta o QR Code com o valor (na mesa a conta é no fim).
+        pix: table ? null : publicPix(s),
         appearance: {
           theme: s.theme,
           headline: s.headline,
@@ -646,6 +709,8 @@ export class StoreService {
           tokenHash: publicTokenHash(input.token),
           autoAccept: s.autoAccept,
           paymentHint: atTable ? undefined : input.paymentMethod,
+          // Pix pelo cardápio ligado: o pedido espera o comprovante do cliente.
+          pix: !atTable && input.paymentMethod === 'pix' && !!pixPayeeOf(s),
           changeFor: !atTable && input.paymentMethod === 'cash' ? input.changeFor : undefined,
           customerId: input.customerId,
           rewardId: input.rewardId,
@@ -654,10 +719,17 @@ export class StoreService {
       },
       key,
     );
-    return { number: order.number, status: order.status };
+    return {
+      number: order.number,
+      status: order.status,
+      // Total da API (o QR Code do Pix pede este valor).
+      total: (order as unknown as { total: string }).total,
+      pixStatus: (order as unknown as { pixStatus: PixReceiptStatus | null }).pixStatus ?? null,
+    };
   }
 
-  private async byToken(tx: Tx, token: string) {
+  /** Pedido pelo link do cliente (token), válido por 7 dias. */
+  async byToken(tx: Tx, token: string) {
     if (!PUBLIC_TOKEN_RE.test(token)) throw new NotFoundException('Pedido não encontrado');
     const o = await one<{ id: string; created_at: Date }>(
       tx,
@@ -702,6 +774,8 @@ export class StoreService {
       changeFor: string | null;
       paymentStatus: string;
       cancelReason: string | null;
+      pixStatus: PixReceiptStatus | null;
+      paidAmount: string;
     }>(
       tx,
       `SELECT number, status, channel, created_at AS "createdAt", accepted_at AS "acceptedAt",
@@ -711,7 +785,8 @@ export class StoreService {
                 (SELECT dt.label FROM tabs tb JOIN dining_tables dt ON dt.id = tb.table_id
                   WHERE tb.id = orders.tab_id) AS "tableLabel",
                 payment_hint AS "paymentHint", change_for::text AS "changeFor",
-                payment_status AS "paymentStatus", cancel_reason AS "cancelReason"
+                payment_status AS "paymentStatus", cancel_reason AS "cancelReason",
+                pix_status AS "pixStatus", paid_amount::text AS "paidAmount"
            FROM orders WHERE id = $1`,
       [id],
     );
@@ -757,6 +832,7 @@ export class StoreService {
     const onRoad = !!delivery && o!.status === 'dispatched' && delivery.status === 'out';
     const map = onRoad ? await customerMapOf(tx, delivery.id) : null;
     const when = (st: string) => history.find((h) => h.to === st)?.at ?? null;
+    const { pixStatus, paidAmount, ...rest } = o!;
     return {
       restaurant: {
         name: tenantName,
@@ -767,7 +843,8 @@ export class StoreService {
       },
       etaMin: s.etaMin,
       etaMax: s.etaMax,
-      ...o!,
+      ...rest,
+      pix: pixStatus ? await this.pixViewIn(tx, id, s, { ...o!, pixStatus }) : null,
       step: customerStep(o!.status),
       canCancel: o!.status === 'awaiting',
       timeline: {
@@ -801,6 +878,44 @@ export class StoreService {
               trail: map?.trail ?? [],
             }
           : null,
+    };
+  }
+
+  /**
+   * Pix do pedido, para o cliente: o QR Code com o que falta pagar (enquanto não foi aprovado) e
+   * como está o comprovante. Recusado, ele pode mandar outro.
+   */
+  private async pixViewIn(
+    tx: Tx,
+    orderId: string,
+    s: StoreSettings,
+    o: { status: string; total: string; paidAmount: string; pixStatus: PixReceiptStatus },
+  ) {
+    const last = await one<{
+      status: string;
+      at: Date;
+      reason: string | null;
+      n: number;
+    }>(
+      tx,
+      `SELECT status, created_at AS at, reject_reason AS reason,
+              (SELECT count(*)::int FROM pix_receipts WHERE order_id = $1) AS n
+         FROM pix_receipts WHERE order_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [orderId],
+    );
+    const due = fromCents(Math.max(0, toCents(o.total) - toCents(o.paidAmount)));
+    const payee = pixPayeeOf(s);
+    const open = o.status !== 'cancelled' && o.pixStatus !== 'approved' && toCents(due) > 0;
+    return {
+      status: o.pixStatus,
+      amount: due,
+      // Sem a chave (a loja desligou o Pix depois), o cliente fala com a loja.
+      code: open && payee ? pixBrCode(payee, due) : null,
+      payee: payee
+        ? { name: payee.name, keyType: payee.keyType, key: formatPixKey(payee.keyType, payee.key) }
+        : null,
+      receipt: last ? { status: last.status, at: last.at, reason: last.reason } : null,
+      canSend: open && (last?.n ?? 0) < MAX_PIX_RECEIPTS,
     };
   }
 

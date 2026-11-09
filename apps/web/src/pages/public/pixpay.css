@@ -1,0 +1,254 @@
+/* Pagar com Pix no cardápio (checkout e acompanhamento do pedido). */
+.pixpay {
+  display: grid;
+  gap: 14px;
+  margin-top: 10px;
+}
+.pixpay__pay {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+}
+.pixpay__body {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+}
+.pixpay__amount {
+  margin: 0;
+  font-size: var(--cm-text-md);
+}
+.pixpay__amount strong {
+  font-variant-numeric: tabular-nums;
+}
+.pixpay__steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.pixpay__copy {
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  border-color: var(--cm-brand-600);
+  color: var(--cm-brand-700);
+  font-weight: 700;
+  transition: transform var(--cm-spring-snappy-dur, 0.2s) var(--cm-spring-snappy, ease);
+}
+.pixpay__copy:active {
+  transform: scale(0.97);
+}
+.pixpay__copy[data-done] {
+  border-color: var(--cm-success);
+  color: var(--cm-success);
+}
+.pixpay__code {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text-muted);
+  font:
+    12px/1.4 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  text-overflow: ellipsis;
+}
+.pixpay__payee {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  overflow-wrap: anywhere;
+}
+.pixpay__pending {
+  margin: 0;
+}
+/* Celular: o QR Code vem depois do botão de copiar (no próprio celular, copiar é o caminho). */
+.pixpay__qr {
+  order: 2;
+  justify-self: center;
+}
+@media (min-width: 560px) {
+  .pixpay__pay {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+  }
+  .pixpay__qr {
+    order: 0;
+  }
+}
+
+/* Comprovante */
+.pixpay__file {
+  display: grid;
+  gap: 6px;
+}
+.pixpay__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.pixpay__drop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 12px 14px;
+  border: 1.5px dashed var(--cm-border-strong);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur, 0.2s) var(--cm-spring-snappy, ease);
+}
+.pixpay__drop:active {
+  transform: scale(0.98);
+}
+.pixpay__drop svg {
+  flex: none;
+  color: var(--cm-brand-600);
+}
+.pixpay__drop span,
+.pixpay__chosen-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.pixpay__drop small,
+.pixpay__chosen-text small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pixpay__file[data-invalid] .pixpay__drop {
+  border-color: var(--cm-danger);
+}
+.pixpay__input:focus-visible + .pixpay__drop,
+.pixpay__input:focus-visible + .pixpay__chosen {
+  box-shadow: var(--cm-focus);
+}
+.pixpay__chosen {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+}
+.pixpay__chosen-text strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--cm-success);
+}
+.pixpay__thumb {
+  flex: none;
+  width: 44px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: var(--cm-radius-sm);
+  border: 1px solid var(--cm-border);
+  background: var(--cm-surface-sunken);
+}
+.pixpay__thumb--pdf {
+  display: grid;
+  place-items: center;
+  color: var(--cm-text-muted);
+}
+.pixpay__swap {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  cursor: pointer;
+  font-size: var(--cm-text-sm);
+}
+.pixpay__spin {
+  animation: pixpay-spin 0.8s linear infinite;
+}
+@keyframes pixpay-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pixpay__spin {
+    animation: none;
+  }
+}
+
+/* Situação do comprovante no acompanhamento do pedido */
+.pixpay__state {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-sunken);
+  font-size: var(--cm-text-sm);
+}
+.pixpay__state svg {
+  flex: none;
+  margin-top: 1px;
+}
+.pixpay__state[data-tone='ok'] {
+  background: var(--cm-success-bg);
+  color: var(--cm-success);
+}
+.pixpay__state[data-tone='bad'] {
+  background: var(--cm-danger-bg, var(--cm-surface-sunken));
+  color: var(--cm-danger);
+}
+.pixpay__state span {
+  display: grid;
+  gap: 2px;
+}
+.pixpay__state small {
+  color: var(--cm-text-muted);
+}
+
+/* Enviar comprovante (o acompanhamento abre sem o CSS do cardápio: o botão se veste sozinho). */
+.pixpay__send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 50px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand, #fff);
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+  transition:
+    transform var(--cm-spring-snappy-dur, 0.2s) var(--cm-spring-snappy, ease),
+    opacity 0.2s;
+}
+.pixpay__send:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.pixpay__send:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.pixpay__again {
+  margin-top: 10px;
+  font-size: var(--cm-text-sm);
+}
+.track__pix .pixpay {
+  margin-top: 12px;
+}

@@ -382,6 +382,16 @@ const SECTIONS: StaticEntry[] = [
     perms: ['settings:manage'],
   },
   {
+    id: 'c-pix',
+    group: 'Seções',
+    title: 'Pix pelo cardápio',
+    hint: 'Loja online',
+    words: 'pix chave qr code copia e cola comprovante pagamento online pagar agora',
+    icon: 'store',
+    to: '/loja-online?aba=pix',
+    perms: ['settings:manage'],
+  },
+  {
     id: 'c-funcionamento',
     group: 'Seções',
     title: 'Horário de funcionamento',

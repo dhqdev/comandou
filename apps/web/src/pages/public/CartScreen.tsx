@@ -1,5 +1,5 @@
 import { AddressFields, addressPayload } from './AddressFields';
-import { fromCents, toCents } from '@comandou/shared';
+import { fromCents, pixBrCode, toCents } from '@comandou/shared';
 import {
   Bike,
   ChevronRight,
@@ -18,6 +18,7 @@ import { MotoboyArt } from './art';
 import { CustomerAvatar } from './avatars';
 import { reducedMotion } from './morph';
 import { OrderSent } from './OrderSent';
+import { PixPay, ReceiptPicker, sendReceipt, type ReceiptFile } from './PixPay';
 import { prefetchOrder } from './PublicOrderPage';
 import { api, ApiError } from '../../lib/api';
 import { newIdempotencyKey } from '../../lib/idempotency';
@@ -84,7 +85,10 @@ export function CartScreen() {
     total: string;
     channel: StoreChannel;
     awaiting: boolean;
+    note?: string;
   } | null>(null);
+  // Comprovante do Pix pago agora (só na memória: vai junto logo depois do pedido).
+  const [receipt, setReceipt] = useState<ReceiptFile | null>(null);
   // Tocou em "Fazer pedido" com algo faltando: marca o que falta e treme o primeiro bloco.
   const [tried, setTried] = useState(false);
   const sections = {
@@ -147,6 +151,14 @@ export function CartScreen() {
   // Com áreas no mapa, o endereço só vale depois de achar o ponto dentro de uma área.
   const pinOk = !zones || !!pinned?.quote.covered;
   const addressOk = channel !== 'delivery' || ((!!chosen || typedOk) && pinOk);
+  // Pix pelo cardápio: o cliente paga agora pelo QR Code e anexa o comprovante.
+  const pixOnline = !atTable && !!menu.pix;
+  const pixChosen = pixOnline && customer.paymentMethod === 'pix';
+  const feePending = zones && !pinned?.quote.covered;
+  const pixCode =
+    pixChosen && menu.pix && !feePending && total > 0
+      ? pixBrCode(menu.pix, fromCents(total))
+      : null;
   const changeCents = toCents(parseBrlInput(changeFor) ?? '0');
   const changeOk =
     atTable || customer.paymentMethod !== 'cash' || !changeFor || changeCents >= total;
@@ -171,6 +183,7 @@ export function CartScreen() {
       ? [{ key: 'address' as const, text: 'o ponto no mapa dentro da área de entrega' }]
       : []),
     ...(!changeOk ? [{ key: 'pay' as const, text: 'troco maior que o total' }] : []),
+    ...(pixChosen && !receipt ? [{ key: 'pay' as const, text: 'o comprovante do Pix' }] : []),
   ];
   const canSend = !blocked && missing.length === 0;
   const invalid = (k: keyof typeof sections) => tried && missing.some((m) => m.key === k);
@@ -232,7 +245,7 @@ export function CartScreen() {
           setAddrId(a.id);
         }
       }
-      const r = await api<{ number: number; status: string }>('/store/orders', {
+      const r = await api<{ number: number; status: string; total?: string }>('/store/orders', {
         method: 'POST',
         headers: { 'Idempotency-Key': key },
         json: {
@@ -258,6 +271,19 @@ export function CartScreen() {
           rewardId: me && rewardCents > 0 ? rewardId : undefined,
         },
       });
+      // Pix: o comprovante vai logo depois. Se falhar, o cliente manda pelo acompanhamento.
+      let note: string | undefined;
+      if (pixChosen && receipt) {
+        try {
+          await sendReceipt(`/store/orders/${token}/pix-receipt`, receipt);
+          note = 'Comprovante do Pix enviado. A loja confere e confirma o pagamento.';
+        } catch {
+          note = 'O comprovante não foi. Mande de novo pelo acompanhamento do pedido.';
+        }
+        if (r.total && toCents(r.total) !== total)
+          note = `O total ficou ${brl(r.total)}. Confira o Pix no acompanhamento do pedido.`;
+        setReceipt(null);
+      }
       if (rewardId) setRewardId(null);
       if (loyalty) void refreshLoyalty();
       rememberOrder({ token, number: r.number, at: new Date().toISOString() });
@@ -268,6 +294,7 @@ export function CartScreen() {
         total: fromCents(total),
         channel,
         awaiting: r.status === 'awaiting',
+        note,
       });
       // O acompanhamento já carrega por trás da confirmação: abre pronto, sem tela vazia.
       prefetchOrder(token);
@@ -306,6 +333,7 @@ export function CartScreen() {
           channel={sent.channel}
           table={table?.label}
           awaiting={sent.awaiting}
+          note={sent.note}
           onDone={() => navigate(`/pedido/${sent.token}`, { replace: true })}
         />
       </div>
@@ -583,7 +611,9 @@ export function CartScreen() {
               data-invalid={invalid('pay') || undefined}
             >
               <h2 className="ck-card__title">
-                Pagamento na {channel === 'delivery' ? 'entrega' : 'retirada'}
+                {pixOnline
+                  ? 'Pagamento'
+                  : `Pagamento na ${channel === 'delivery' ? 'entrega' : 'retirada'}`}
               </h2>
               <div className="pills" role="radiogroup" aria-label="Forma de pagamento">
                 {PAYMENT_OPTIONS.map((o) => (
@@ -599,6 +629,30 @@ export function CartScreen() {
                   </button>
                 ))}
               </div>
+              {pixOnline && !pixChosen && (
+                <p className="form-hint ck-pay-when">
+                  Você paga na {channel === 'delivery' ? 'entrega' : 'retirada'}.
+                </p>
+              )}
+              {pixChosen && menu.pix && (
+                <PixPay
+                  code={pixCode}
+                  amount={fromCents(total)}
+                  payee={menu.pix}
+                  pending={
+                    feePending
+                      ? 'Confirme o endereço no mapa: o código Pix aparece com o valor da entrega.'
+                      : undefined
+                  }
+                >
+                  <ReceiptPicker
+                    value={receipt}
+                    onChange={setReceipt}
+                    invalid={invalid('pay') && !receipt}
+                    disabled={busy}
+                  />
+                </PixPay>
+              )}
               {customer.paymentMethod === 'cash' && (
                 <Field label="Troco para quanto? (opcional)">
                   <input

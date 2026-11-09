@@ -34,7 +34,8 @@ import {
   MAX_CUSTOMER_PHOTO_BYTES,
   normalizePhone,
 } from './customers.service';
-import { IMAGE_TYPES, sniff } from './store.controller';
+import { IMAGE_TYPES, ReceiptDim, sniff } from './store.controller';
+import { checkReceipt, PixService } from './pix.service';
 import { isUf } from './cep.service';
 import { StoreService } from './store.service';
 
@@ -176,6 +177,7 @@ export class AccountController {
     private readonly customers: CustomersService,
     private readonly store: StoreService,
     @Inject(ENV) private readonly env: Env,
+    private readonly pix: PixService,
   ) {}
 
   private setCookie(res: Response, s: { token: string; expiresAt: Date }) {
@@ -434,6 +436,26 @@ export class AccountController {
     const c = await this.who(t, req);
     await this.customers.ownOrderId(t.id, c, id);
     return this.store.cancelByCustomer(t.id, { orderId: id }, req.ip);
+  }
+
+  /** Comprovante do Pix pelo histórico da conta (mesmo que pelo link do pedido). */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  @Post('orders/:id/pix-receipt')
+  @HttpCode(200)
+  async pixReceipt(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: unknown,
+    @Headers('content-type') type: string | undefined,
+    @Query('w', new ZodPipe(ReceiptDim)) width: number | undefined,
+    @Query('h', new ZodPipe(ReceiptDim)) height: number | undefined,
+    @CurrentTenant() t: ResolvedTenant,
+    @Req() req: Request,
+  ) {
+    const f = checkReceipt(body, type);
+    const c = await this.who(t, req);
+    await this.customers.ownOrderId(t.id, c, id);
+    return this.pix.submit(t.id, { orderId: id }, { ...f, width, height }, req.ip);
   }
 }
 

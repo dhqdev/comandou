@@ -5,6 +5,8 @@ import type {
   OptionGroupKind,
   OrderStatus,
   PaymentMethod,
+  PixKeyType,
+  PixReceiptStatus,
   PaymentStatus,
 } from '@comandou/shared';
 
@@ -84,6 +86,12 @@ export interface StoreSettings {
   /** Horário de funcionamento: fora dele a loja fecha sozinha. */
   hoursEnabled: boolean;
   hours: StoreHour[];
+  /** Pix pelo cardápio (chave da loja, sem banco): o cliente paga pelo QR Code e manda o comprovante. */
+  pixEnabled: boolean;
+  pixKeyType: PixKeyType | null;
+  pixKey: string | null;
+  pixName: string | null;
+  pixCity: string | null;
   /** Recebe pedido agora (botão "aberta" + horário). Só na leitura. */
   openNow?: boolean;
 }
@@ -234,6 +242,12 @@ export interface Order {
   paymentHint?: PaymentMethod | null;
   changeFor?: string | null;
   acceptedAt?: string | null;
+  /** Pix pelo cardápio: situação do comprovante (null = não é pago assim). */
+  pixStatus?: PixReceiptStatus | null;
+  /** Último comprovante mandado (vem na lista, para o selo do cartão no PDV). */
+  pixReceipt?: PixReceipt | null;
+  /** Todos os comprovantes (só no detalhe do pedido), o mais novo primeiro. */
+  pixReceipts?: PixReceipt[];
   version: number;
   createdAt: string;
   items: OrderItem[];
@@ -245,6 +259,18 @@ export interface Order {
     at: string;
     actorName: string | null;
   }[];
+}
+
+export interface PixReceipt {
+  id: string;
+  status: 'submitted' | 'approved' | 'rejected' | 'replaced';
+  contentType: string;
+  amount: string;
+  createdAt: string;
+  rejectReason: string | null;
+  hasFile: boolean;
+  reviewedAt?: string | null;
+  reviewedByName?: string | null;
 }
 
 export interface Tab {

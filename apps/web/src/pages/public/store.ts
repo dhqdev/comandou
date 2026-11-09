@@ -1,4 +1,10 @@
-import { fromCents, multiplyCents, optionsTotalCents, toCents } from '@comandou/shared';
+import {
+  fromCents,
+  multiplyCents,
+  optionsTotalCents,
+  toCents,
+  type PixKeyType,
+} from '@comandou/shared';
 import { useEffect, useState } from 'react';
 import type { MenuGroup } from '../../lib/types';
 
@@ -50,6 +56,11 @@ export interface PublicMenu {
   };
   /** Mesa do QR Code (cardápio aberto com ?mesa=); null fora dela ou mesa que não existe mais. */
   table?: PublicTable | null;
+  /**
+   * Pix da loja (pagar agora pelo QR Code e mandar o comprovante). null = Pix é pago na entrega
+   * ou na retirada, como antes.
+   */
+  pix?: PublicPix | null;
   appearance: {
     theme: 'auto' | 'light' | 'dark';
     headline: string | null;
@@ -62,6 +73,14 @@ export interface PublicMenu {
   /** Ids dos produtos que mais saíram nos últimos 30 dias. */
   popular: string[];
   categories: PublicCategory[];
+}
+/** Recebedor do Pix da loja: o checkout monta o copia e cola com o valor do pedido. */
+export interface PublicPix {
+  keyType: PixKeyType;
+  key: string;
+  keyLabel: string;
+  name: string;
+  city: string;
 }
 /** Mesa em que o cliente está sentado (leu o QR Code colado nela). */
 export interface PublicTable {

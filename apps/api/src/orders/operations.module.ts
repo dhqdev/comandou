@@ -41,6 +41,8 @@ import { WaitersController } from '../tables/waiters.controller';
 import { AccountController, CustomersController } from '../store/account.controller';
 import { CustomersService } from '../store/customers.service';
 import { MediaController, StoreController } from '../store/store.controller';
+import { PixReceiptsController } from '../store/pix.controller';
+import { PixService } from '../store/pix.service';
 import { StoreService } from '../store/store.service';
 import { SearchController } from '../search/search.controller';
 import {
@@ -87,6 +89,7 @@ import { OrdersService } from './orders.service';
     LoyaltyController,
     PublicStoreChatController,
     SupportChatController,
+    PixReceiptsController,
   ],
   providers: [
     OrdersService,
@@ -112,6 +115,7 @@ import { OrdersService } from './orders.service';
     ReservationsService,
     LoyaltyService,
     StoreChatService,
+    PixService,
   ],
 })
 export class OperationsModule {}

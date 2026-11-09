@@ -21,6 +21,7 @@ import { Alert, Segmented, useToast } from '../design-system';
 import { useAuth, useCan } from '../app/auth';
 import { NewSaleModal } from '../features/NewSaleModal';
 import { OrderDetailModal } from '../features/OrderDetailModal';
+import { PixReceiptChip, PixReceiptModal } from '../features/PixReceipt';
 import { minutesSince, PAYMENT_STATUS_LABEL, time } from '../features/format';
 import { TabModal } from '../features/salon/TabModal';
 import { sortTables, tableState, type TableState } from '../features/table-state';
@@ -96,6 +97,7 @@ function OrderCard({
   busy,
   onOpen,
   onMove,
+  onPix,
 }: {
   order: Order;
   now: number;
@@ -103,6 +105,8 @@ function OrderCard({
   busy: boolean;
   onOpen(step?: 'dispatch' | 'reject'): void;
   onMove(to: OrderStatus): void;
+  /** Comprovante do Pix: abre a prévia sem abrir o pedido. */
+  onPix(): void;
 }) {
   const mins = minutesSince(order.createdAt, now);
   const who = order.tableLabel ? `Mesa ${order.tableLabel}` : order.customerName;
@@ -148,6 +152,11 @@ function OrderCard({
           </>
         )}
       </button>
+      {order.pixStatus && (
+        <span className="hcard__pix">
+          <PixReceiptChip order={order} onOpen={onPix} />
+        </span>
+      )}
       <span className="hcard__time" title={`Feito às ${time(order.createdAt)}`}>
         {ago(mins)}
       </span>
@@ -203,6 +212,9 @@ export function PdvPage() {
   const [tabId, setTabId] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [openStep, setOpenStep] = useState<'dispatch' | 'reject' | undefined>();
+  /** Prévia do comprovante do Pix (pelo selo do cartão). */
+  const [pixId, setPixId] = useState<string | null>(null);
+  const seenPix = useRef<Set<string> | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
   const [density, setDensity] = useState<Density>('compact');
   const [salonView, setSalonView] = useState<SalonView>('tables');
@@ -241,6 +253,19 @@ export function PdvPage() {
         }
       }
       known.current = new Set(online.map((o) => o.id));
+      // Comprovante do Pix que acabou de chegar: som e aviso para alguém conferir.
+      const receipts = list.filter((o) => o.pixStatus === 'submitted' && o.pixReceipt);
+      if (seenPix.current) {
+        const fresh = receipts.find((o) => !seenPix.current!.has(o.pixReceipt!.id));
+        if (fresh) {
+          playSound('message');
+          toast(
+            `Comprovante do Pix chegou no pedido #${fresh.number}: confira e aprove`,
+            'neutral',
+          );
+        }
+      }
+      seenPix.current = new Set(receipts.map((o) => o.pixReceipt!.id));
       setOrders(list);
       setError(null);
       const from = new Date();
@@ -709,6 +734,7 @@ export function PdvPage() {
                           setOpenId(o.id);
                         }}
                         onMove={(to) => move(o, to)}
+                        onPix={() => setPixId(o.id)}
                       />
                     ))
                   )}
@@ -772,6 +798,18 @@ export function PdvPage() {
         onClose={() => setTabId(null)}
         onChanged={loadSalon}
         onBillRequested={() => undefined}
+      />
+      <PixReceiptModal
+        order={orders?.find((o) => o.id === pixId) ?? null}
+        onClose={() => {
+          setPixId(null);
+          void load();
+        }}
+        onOpenOrder={(o) => {
+          setPixId(null);
+          setOpenStep(undefined);
+          setOpenId(o.id);
+        }}
       />
       <OrderDetailModal
         variant="panel"

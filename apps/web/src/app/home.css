@@ -619,6 +619,16 @@
   gap: 4px;
   margin-top: 6px;
 }
+/* Selo do Pix (comprovante): linha própria embaixo, por cima do clique do cartão. */
+.hcard__pix {
+  position: relative;
+  z-index: 1;
+  grid-column: 2 / -1;
+  grid-row: 3;
+  justify-self: start;
+  max-width: 100%;
+  margin-top: 8px;
+}
 /* Coluna estreita (tela pequena com as quatro colunas lado a lado): os botões descem para uma
    linha própria, para o valor e o nome do cliente não ficarem cortados. */
 .board__col {
@@ -627,7 +637,7 @@
 @container (max-width: 250px) {
   .hcard__actions {
     grid-column: 2 / -1;
-    grid-row: 3;
+    grid-row: 4;
     justify-self: end;
     margin-top: 4px;
   }
@@ -640,7 +650,8 @@
   .hcard__channel {
     display: none;
   }
-  .hcard__actions {
+  .hcard__actions,
+  .hcard__pix {
     grid-column: 1 / -1;
   }
 }

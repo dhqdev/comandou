@@ -58,6 +58,7 @@ import {
 } from './format';
 import { CloseOrderPanel } from './CloseOrderPanel';
 import { useOpenSessions } from './PaymentModal';
+import { PixReceiptChip, PixReceiptReview, pixReceiptUrl } from './PixReceipt';
 import { SidePanel } from './SidePanel';
 
 const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }[]>> = {
@@ -438,6 +439,46 @@ export function OrderDetailModal({
               </div>
             )}
           </div>
+
+          {order.pixStatus && (
+            <section className="od-block od-card">
+              <h3 className="od-block__title">
+                Pix pelo cardápio <PixReceiptChip order={order} />
+              </h3>
+              {order.pixReceipts?.[0] ? (
+                <PixReceiptReview
+                  key={order.pixReceipts[0].id}
+                  order={order}
+                  receipt={order.pixReceipts[0]}
+                  onDone={(o) => setOrder(o)}
+                />
+              ) : (
+                <p className="od-empty">
+                  O cliente escolheu Pix e ainda não mandou o comprovante. Ele pode mandar pelo
+                  acompanhamento do pedido.
+                </p>
+              )}
+              {(order.pixReceipts?.length ?? 0) > 1 && (
+                <ul className="pix-history" aria-label="Comprovantes anteriores">
+                  {order.pixReceipts!.slice(1).map((r) => (
+                    <li key={r.id}>
+                      {dateTime(r.createdAt)} ·{' '}
+                      {r.status === 'replaced'
+                        ? 'trocado pelo cliente'
+                        : r.status === 'rejected'
+                          ? `recusado${r.rejectReason ? `: ${r.rejectReason}` : ''}`
+                          : r.status}{' '}
+                      {r.hasFile && (
+                        <a href={pixReceiptUrl(order.id, r.id)} target="_blank" rel="noreferrer">
+                          ver
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
 
           {order.channel === 'delivery' && order.status === 'dispatched' && canDispatch && (
             <OrderLiveMap orderId={order.id} />

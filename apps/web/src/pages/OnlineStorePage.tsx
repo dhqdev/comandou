@@ -33,6 +33,7 @@ import { ImagePicker } from '../features/ImagePicker';
 import { LoyaltyPanel } from '../features/LoyaltyPanel';
 import { SlideTabs } from '../features/SlideTabs';
 import { StoreSettingsCard } from '../features/StoreSettingsCard';
+import { PixSettingsCard } from '../features/PixSettingsCard';
 import { api, Category, Product } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
 import { mediaUrl } from '../lib/media';
@@ -41,7 +42,7 @@ import type { StoreBanner, StoreSettings } from '../lib/types';
 import './online-store.css';
 import { TourButton } from '../features/tour/PageTour';
 
-type Tab = 'aparencia' | 'banners' | 'destaques' | 'fidelidade' | 'funcionamento';
+type Tab = 'aparencia' | 'banners' | 'destaques' | 'fidelidade' | 'funcionamento' | 'pix';
 const BADGES = ['Novo', 'Mais vendido', 'Picante', 'Vegano', 'Promoção', 'Do chef'];
 
 function Toggle({
@@ -663,7 +664,7 @@ export function OnlineStorePage() {
   const canManage = !!me?.permissions.includes('settings:manage');
   const [tab, setTab] = useState<Tab>('aparencia');
   useLinkParam('aba', (v) => {
-    if (['aparencia', 'banners', 'destaques', 'fidelidade', 'funcionamento'].includes(v))
+    if (['aparencia', 'banners', 'destaques', 'fidelidade', 'funcionamento', 'pix'].includes(v))
       setTab(v as Tab);
   });
   const [preview, setPreview] = useState(0);
@@ -713,8 +714,8 @@ export function OnlineStorePage() {
             <TourButton tour="loja" />
           </div>
           <p className="page-sub">
-            O cardápio em que o cliente pede pelo celular: aparência, banners, destaques, fidelidade
-            e funcionamento.
+            O cardápio em que o cliente pede pelo celular: aparência, banners, destaques,
+            fidelidade, funcionamento e Pix.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -748,6 +749,7 @@ export function OnlineStorePage() {
               { value: 'destaques', label: 'Destaques' },
               { value: 'fidelidade', label: 'Fidelidade' },
               { value: 'funcionamento', label: 'Funcionamento' },
+              { value: 'pix', label: 'Pix' },
             ]}
           />
           <div className="os-panel" key={tab}>
@@ -771,6 +773,7 @@ export function OnlineStorePage() {
               <LoyaltyPanel canManage={canManage} products={sorted} onSaved={refresh} />
             )}
             {tab === 'funcionamento' && <StoreSettingsCard canManage={canManage} />}
+            {tab === 'pix' && <PixSettingsCard canManage={canManage} />}
           </div>
         </div>
         <aside className="os-preview" aria-label="Prévia do cardápio">

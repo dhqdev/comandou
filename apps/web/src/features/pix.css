@@ -1,0 +1,228 @@
+/* Pix pelo cardápio: QR Code, configuração da loja e o comprovante no PDV. */
+
+/* O QR Code fica sempre escuro sobre branco (o app do banco não lê ao contrário), também no
+   tema escuro. */
+.pix-qr {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  padding: 8px;
+  box-sizing: content-box;
+  border-radius: var(--cm-radius-md);
+  background: #fff;
+  border: 1px solid var(--cm-border);
+}
+.pix-qr img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+/* ------------------------------------------------------------------ configuração */
+.pix-set__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+}
+.pix-set {
+  display: grid;
+  gap: var(--cm-space-5);
+}
+.pix-set__intro {
+  margin: 0 0 var(--cm-space-4);
+  max-width: 64ch;
+}
+.pix-set__test {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-4);
+  padding-top: var(--cm-space-4);
+  border-top: 1px solid var(--cm-border);
+}
+.pix-set__test p {
+  margin: 0;
+  max-width: 40ch;
+}
+@media (min-width: 1100px) {
+  .pix-set {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+  .pix-set__test {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0 0 0 var(--cm-space-5);
+    border-top: 0;
+    border-left: 1px solid var(--cm-border);
+    width: 200px;
+  }
+}
+@media (min-width: 901px) and (pointer: fine) {
+  .pix-set .cm-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ------------------------------------------------------------------ selo no cartão do PDV */
+.pix-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  min-height: 24px;
+  padding: 2px 8px 2px 4px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  font-weight: 650;
+  white-space: nowrap;
+}
+.pix-chip svg {
+  flex: none;
+}
+span.pix-chip {
+  padding-left: 6px;
+  border-color: transparent;
+  background: var(--cm-surface-sunken);
+}
+button.pix-chip {
+  cursor: pointer;
+  border-color: color-mix(in srgb, var(--cm-info) 45%, var(--cm-border-strong));
+  color: var(--cm-info);
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    border-color var(--cm-dur);
+}
+button.pix-chip:hover {
+  border-color: var(--cm-info);
+}
+button.pix-chip:active {
+  transform: scale(0.96);
+}
+button.pix-chip:focus-visible {
+  outline: 0;
+  box-shadow: var(--cm-focus);
+}
+.pix-chip__thumb {
+  width: 18px;
+  height: 22px;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 3px;
+  background: var(--cm-surface-sunken);
+}
+.pix-chip[data-st='approved'] {
+  color: var(--cm-success);
+  background: var(--cm-success-bg);
+}
+.pix-chip[data-st='rejected'] {
+  color: var(--cm-danger);
+  background: var(--cm-danger-bg);
+}
+
+/* ------------------------------------------------------------------ conferir o comprovante */
+.pix-review__title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+}
+.pix-review {
+  display: grid;
+  gap: var(--cm-space-4);
+}
+.pix-review__file {
+  display: grid;
+  place-items: center;
+  min-height: 200px;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-sunken);
+  overflow: hidden;
+}
+.pix-review__file a {
+  display: block;
+  cursor: zoom-in;
+}
+.pix-review__file img {
+  display: block;
+  max-width: 100%;
+  max-height: min(62vh, 640px);
+  object-fit: contain;
+}
+.pix-review__file iframe {
+  width: 100%;
+  height: min(62vh, 640px);
+  border: 0;
+  background: #fff;
+}
+.pix-review__side {
+  display: grid;
+  gap: var(--cm-space-3);
+  align-content: start;
+  min-width: 0;
+}
+.pix-review__facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 4px var(--cm-space-3);
+  margin: 0;
+  font-size: var(--cm-text-sm);
+}
+.pix-review__facts dt {
+  color: var(--cm-text-muted);
+}
+.pix-review__facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.pix-review__tip {
+  margin: 0;
+}
+.pix-review__open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--cm-text-sm);
+}
+.pix-review__actions,
+.pix-review__reject {
+  display: grid;
+  gap: var(--cm-space-3);
+  padding-top: var(--cm-space-3);
+  border-top: 1px solid var(--cm-border);
+}
+.pix-review__reject {
+  padding-top: 0;
+  border-top: 0;
+}
+.pix-review__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cm-space-2);
+}
+.pix-review__row .cm-btn {
+  flex: 1 1 auto;
+}
+@media (min-width: 760px) {
+  .pix-review {
+    grid-template-columns: minmax(0, 1.25fr) minmax(240px, 1fr);
+    align-items: start;
+  }
+}
+
+/* No detalhe do pedido: histórico dos comprovantes anteriores. */
+.pix-history {
+  display: grid;
+  gap: 4px;
+  margin: var(--cm-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+}
+.pix-history a {
+  font-weight: 600;
+}

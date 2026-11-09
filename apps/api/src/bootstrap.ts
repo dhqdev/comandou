@@ -26,6 +26,8 @@ export async function createApp(
   app.useBodyParser('json', { limit: '256kb' });
   // Fotos (POST /media): o corpo é a própria imagem, já reduzida pelo navegador.
   app.useBodyParser('raw', { type: ['image/webp', 'image/jpeg', 'image/png'], limit: '3mb' });
+  // Comprovante do Pix em PDF (o que o app do banco gera), até 3 MB.
+  app.useBodyParser('raw', { type: 'application/pdf', limit: '3mb' });
   // Vídeos da conversa do cliente com a loja (até 20 MB; a rota confere tipo e assinatura).
   app.useBodyParser('raw', {
     type: ['video/mp4', 'video/webm', 'video/quicktime'],

@@ -66,6 +66,7 @@ const NEEDS_SERVER: { re: RegExp; why: string }[] = [
   { re: /^\/(auth|platform|support|suporte)(\/|$)/, why: 'Entrar e sair precisam de internet.' },
   { re: /^\/subscription(\/|$)/, why: 'A assinatura precisa de internet.' },
   { re: /\/(payments|refunds)(\/|$|\?)/, why: 'Pagamentos precisam de internet.' },
+  { re: /\/pix-receipts(\/|$|\?)/, why: 'Conferir o Pix precisa de internet.' },
   { re: /^\/(cash|cash-registers)(\/|$)/, why: 'O caixa precisa de internet.' },
   { re: /^\/tabs\/[^/]+\/(close|pay)/, why: 'Fechar a conta precisa de internet.' },
   {

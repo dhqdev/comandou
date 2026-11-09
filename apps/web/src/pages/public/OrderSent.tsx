@@ -20,6 +20,7 @@ export function OrderSent({
   channel,
   table,
   awaiting = false,
+  note,
   onDone,
 }: {
   number: number;
@@ -29,6 +30,8 @@ export function OrderSent({
   table?: string;
   /** Entrou em análise: o restaurante ainda vai aceitar. */
   awaiting?: boolean;
+  /** Linha a mais (ex.: o comprovante do Pix foi ou não). */
+  note?: string;
   onDone(): void;
 }) {
   const done = useRef(onDone);
@@ -71,6 +74,7 @@ export function OrderSent({
               ? 'A loja já recebeu e vai preparar para entregar.'
               : 'A loja já recebeu. Avisamos quando estiver pronto para retirar.'}
         </p>
+        {note && <p className="osent__note">{note}</p>}
         <button ref={btn} type="button" className="cta osent__cta" onClick={() => onDone()}>
           Acompanhar pedido <ChevronRight size={18} aria-hidden />
           <span className="osent__bar" aria-hidden />

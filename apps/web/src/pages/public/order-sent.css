@@ -87,3 +87,8 @@
     animation: none !important;
   }
 }
+/* Linha a mais (comprovante do Pix). */
+.osent .osent__note {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text);
+}
