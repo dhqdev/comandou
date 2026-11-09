@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronLeft, X } from 'lucide-react';
 import {
   CSSProperties,
   RefObject,
@@ -22,9 +22,29 @@ import './app-frame.css';
  * - Computador/tablet: barra lateral fixa só de ícones (rótulo embaixo) e topo formam uma
  *   peça só; o conteúdo fica num painel com o canto arredondado. Itens com submenu abrem
  *   um painel que "escorre" para fora da barra.
- * - Celular/PWA: barra de abas embaixo com alvos grandes; submenus e "Mais" sobem de baixo
- *   numa folha (Sheet) que fecha arrastando para baixo.
+ * - Celular/PWA: barra de abas embaixo com alvos grandes. A última aba ("Mais") abre uma tela
+ *   própria (/mais) com o cartão da conta no topo e as outras telas em grupos de blocos; o
+ *   submenu de uma aba sobe de baixo numa folha (Sheet) que fecha arrastando para baixo.
  */
+
+/** Endereço da tela "Mais" do celular (a última aba). */
+export const FRAME_MENU_PATH = '/mais';
+
+/** Conta de quem está usando: cartão no topo da tela "Mais" e o grupo "Conta" no fim dela. */
+export interface FrameAccount {
+  name: string;
+  /** Linha embaixo do nome (e-mail). */
+  sub?: string;
+  initials: string;
+  /** Papel em destaque no cartão (ex.: Dono). */
+  role?: string;
+  /** Linha final do cartão (ex.: nome do restaurante). */
+  note?: string;
+  /** Ações da conta, em blocos. `danger` vira o botão largo do fim da tela (ex.: Sair). */
+  actions: { key: string; label: string; icon: ReactNode; onClick: () => void; danger?: boolean }[];
+  /** Texto miúdo no pé da tela (ex.: versão do app). */
+  footnote?: ReactNode;
+}
 export interface FrameLink {
   to: string;
   label: string;
@@ -78,6 +98,9 @@ export function AppFrame({
   className = '',
   showWhere = true,
   moreActions = [],
+  moreActionsTitle = 'Atalhos',
+  linksTitle = 'Telas',
+  account,
 }: {
   /** Topo da barra lateral (logo). */
   brand: ReactNode;
@@ -97,7 +120,7 @@ export function AppFrame({
   className?: string;
   /** No celular, mostra no topo o nome da tela atual (o painel admin já tem título próprio). */
   showWhere?: boolean;
-  /** Botões largos no topo da folha "Mais" do celular (ex.: Conversas da equipe). */
+  /** Atalhos no topo da tela "Mais" do celular, logo abaixo da conta (ex.: Conversas da equipe). */
   moreActions?: {
     key: string;
     label: string;
@@ -105,6 +128,12 @@ export function AppFrame({
     badge?: number;
     onClick: () => void;
   }[];
+  /** Título do grupo dos atalhos (`moreActions`) na tela "Mais". */
+  moreActionsTitle?: string;
+  /** Título do grupo das telas soltas (sem submenu) que não viraram aba, na tela "Mais". */
+  linksTitle?: string;
+  /** Conta de quem está usando, para o topo da tela "Mais" (no computador segue o `panel`). */
+  account?: FrameAccount;
 }) {
   const { pathname } = useLocation();
   const [sheet, setSheet] = useState<string | null>(null);
@@ -124,7 +153,11 @@ export function AppFrame({
   const panel = useRef<HTMLDivElement>(null);
   const all = [...items, ...footer];
   useTableLabels(panel);
-  const where = currentScreen(pathname, all);
+  // Celular: a última aba ("Mais") é uma tela, com a conta no topo e as outras telas em blocos.
+  const onMenu = pathname === FRAME_MENU_PATH;
+  const where = onMenu
+    ? { label: 'Mais', icon: <MoreIcon />, order: -1 }
+    : currentScreen(pathname, all);
   // Direção da troca de tela: indo para um item mais à direita/abaixo no menu, o conteúdo
   // entra deslizando da direita; voltando, da esquerda (como trocar de aba no celular).
   const order = where ? where.order : -1;
@@ -138,11 +171,12 @@ export function AppFrame({
   if (vtFor.current.key !== contentKey) vtFor.current = { key: contentKey, vt: inViewTransition() };
   // Celular: tela que não está nas abas de baixo (aberta pelo "Mais") ganha a seta de voltar no topo.
   const navigate = useNavigate();
-  const onTab = all.some((i) => tabs.includes(i.key) && itemActive(pathname, i));
+  const onTabScreen = all.some((i) => tabs.includes(i.key) && itemActive(pathname, i));
+  const onTab = onMenu || onTabScreen;
   const goBack = () => {
     const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
     if (idx > 0) navigate(-1);
-    else setSheet('more');
+    else navigate(FRAME_MENU_PATH);
   };
   const [scrolled, setScrolled] = useState(false);
 
@@ -276,8 +310,7 @@ export function AppFrame({
     const raf = requestAnimationFrame(() => setFlySlide(true));
     return () => cancelAnimationFrame(raf);
   }, [fly, anchor]);
-  const sheetItems = sheet === 'more' ? all.filter((i) => !tabs.includes(i.key)) : null;
-  const sheetItem = sheet && sheet !== 'more' ? all.find((i) => i.key === sheet) : null;
+  const sheetItem = sheet ? all.find((i) => i.key === sheet) : null;
 
   return (
     <div className={`cm-frame ${className}`}>
@@ -355,7 +388,18 @@ export function AppFrame({
           data-vt={vtFor.current.vt || undefined}
           style={{ '--cm-page-dir': pageDir } as CSSProperties}
         >
-          {children}
+          {onMenu ? (
+            <FrameMenu
+              items={items.filter((i) => !tabs.includes(i.key))}
+              footer={footer.filter((i) => !tabs.includes(i.key))}
+              account={account}
+              actions={moreActions}
+              actionsTitle={moreActionsTitle}
+              linksTitle={linksTitle}
+            />
+          ) : (
+            children
+          )}
         </main>
       </div>
 
@@ -397,79 +441,27 @@ export function AppFrame({
               </button>
             );
           })}
-        <button
-          type="button"
+        <NavLink
+          to={FRAME_MENU_PATH}
           data-tour-key="more"
-          className={`cm-tabbar__item ${sheet === 'more' || (!sheet && !all.some((i) => tabs.includes(i.key) && itemActive(pathname, i))) ? 'is-active' : ''}`}
-          onClick={() => setSheet('more')}
+          className={`cm-tabbar__item ${onMenu || (!sheet && !onTabScreen) ? 'is-active' : ''}`}
+          onClick={() => {
+            // Já na tela "Mais": tocar de novo volta ao topo, como nas abas do iPhone.
+            if (onMenu) panel.current?.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
         >
           <span className="cm-tabbar__icon">
             <MoreIcon />
           </span>
           <span className="cm-tabbar__label">Mais</span>
-        </button>
+        </NavLink>
         {tabbar.glider}
       </nav>
 
-      <Sheet
-        open={!!sheet}
-        title={sheet === 'more' ? 'Menu' : (sheetItem?.label ?? '')}
-        onClose={() => setSheet(null)}
-      >
+      {/* Aba com submenu (ex.: Cardápio virou aba): os subitens sobem numa folha. */}
+      <Sheet open={!!sheetItem} title={sheetItem?.label ?? ''} onClose={() => setSheet(null)}>
         {sheetItem?.children && <TileGrid links={sheetItem.children} />}
         {sheetItem?.panel}
-        {sheetItems && (
-          <div className="cm-sheet-menu">
-            {moreActions.length > 0 && (
-              <div className="cm-sheet-menu__wide-list">
-                {moreActions.map((a) => (
-                  <button
-                    key={a.key}
-                    type="button"
-                    className="cm-sheet-menu__wide"
-                    onClick={() => {
-                      setSheet(null);
-                      a.onClick();
-                    }}
-                  >
-                    <span className="cm-sheet-menu__wide-icon">{a.icon}</span>
-                    <span className="cm-sheet-menu__wide-label">{a.label}</span>
-                    {!!a.badge && (
-                      <span className="cm-sheet-menu__wide-badge">
-                        {a.badge > 99 ? '99+' : a.badge}
-                      </span>
-                    )}
-                    <ChevronRight size={18} aria-hidden className="cm-sheet-menu__wide-go" />
-                  </button>
-                ))}
-              </div>
-            )}
-            <TileGrid
-              links={sheetItems
-                .filter((it) => it.to)
-                .map((it) => ({ to: it.to!, label: it.label, icon: it.icon, end: it.end }))}
-              actions={sheetItems
-                .filter((it) => !it.to && !it.children && !it.panel && it.onClick)
-                .map((it) => ({ label: it.label, icon: it.icon, onClick: it.onClick! }))}
-            />
-            {sheetItems
-              .filter((it) => it.children)
-              .map((it) => (
-                <section key={it.key}>
-                  <h3 className="cm-sheet-menu__group">{it.label}</h3>
-                  <TileGrid links={it.children!} />
-                </section>
-              ))}
-            {sheetItems
-              .filter((it) => it.panel)
-              .map((it) => (
-                <section key={it.key}>
-                  <h3 className="cm-sheet-menu__group">{it.label}</h3>
-                  {it.panel}
-                </section>
-              ))}
-          </div>
-        )}
       </Sheet>
     </div>
   );
@@ -588,13 +580,18 @@ function FlyLinks({ links }: { links: FrameLink[] }) {
   );
 }
 
-function TileGrid({
-  links,
-  actions = [],
-}: {
-  links: FrameLink[];
-  actions?: { label: string; icon: ReactNode; onClick: () => void }[];
-}) {
+type TileLink = FrameLink & { dot?: boolean };
+type TileAction = {
+  key: string;
+  label: string;
+  icon: ReactNode;
+  /** Contador no canto do bloco (ex.: mensagens não lidas). */
+  badge?: number;
+  onClick: () => void;
+};
+
+/** Blocos com ícone em cima e o nome embaixo, três por linha (tela "Mais" e folhas de submenu). */
+function TileGrid({ links, actions = [] }: { links: TileLink[]; actions?: TileAction[] }) {
   const { pathname } = useLocation();
   if (!links.length && !actions.length) return null;
   return (
@@ -606,17 +603,143 @@ function TileGrid({
           end={l.end ?? l.to === '/'}
           className={({ isActive }) => `cm-tile ${isActive || linkOn(pathname, l) ? 'active' : ''}`}
         >
-          {l.icon}
-          <span>{l.label}</span>
+          <span className="cm-tile__icon">
+            {l.icon}
+            {l.dot && <span className="cm-tile__dot" aria-label="novo" />}
+          </span>
+          <span className="cm-tile__label">{l.label}</span>
           {l.badge && <span className="cm-tile__badge">{l.badge}</span>}
         </NavLink>
       ))}
       {actions.map((a) => (
-        <button key={a.label} type="button" className="cm-tile" onClick={a.onClick}>
-          {a.icon}
-          <span>{a.label}</span>
+        <button key={a.key} type="button" className="cm-tile" onClick={a.onClick}>
+          <span className="cm-tile__icon">{a.icon}</span>
+          <span className="cm-tile__label">{a.label}</span>
+          {!!a.badge && (
+            <span className="cm-tile__count" aria-label={`${a.badge} não lidas`}>
+              {a.badge > 99 ? '99+' : a.badge}
+            </span>
+          )}
         </button>
       ))}
+    </div>
+  );
+}
+
+/**
+ * Tela "Mais" do celular (como o "Conta" dos apps do iPhone): cartão de quem está usando no
+ * topo, atalhos, as telas que não viraram aba em grupos de blocos e, no fim, a conta e o Sair.
+ */
+function FrameMenu({
+  items,
+  footer,
+  account,
+  actions,
+  actionsTitle,
+  linksTitle,
+}: {
+  items: FrameItem[];
+  footer: FrameItem[];
+  account?: FrameAccount;
+  actions: TileAction[];
+  actionsTitle: string;
+  linksTitle: string;
+}) {
+  const links = (list: FrameItem[]): TileLink[] =>
+    list
+      .filter((i) => i.to)
+      .map((i) => ({
+        to: i.to!,
+        label: i.label,
+        icon: i.icon,
+        end: i.end,
+        also: i.also,
+        dot: i.dot,
+      }));
+  const plain = (list: FrameItem[]): TileAction[] =>
+    list
+      .filter((i) => !i.to && !i.children && !i.panel && i.onClick)
+      .map((i) => ({ key: i.key, label: i.label, icon: i.icon, onClick: i.onClick! }));
+  // Com o cartão da conta, os itens do pé da barra (ex.: Novidades) vão para o grupo "Conta".
+  const loose = account ? items : [...items, ...footer];
+  type Section = {
+    key: string;
+    title: string;
+    links?: TileLink[];
+    actions?: TileAction[];
+    panel?: ReactNode;
+  };
+  const sections = (
+    [
+      { key: 'atalhos', title: actionsTitle, actions },
+      { key: 'telas', title: linksTitle, links: links(loose), actions: plain(loose) },
+      ...[...items, ...footer]
+        .filter((g) => g.children?.length)
+        .map((g) => ({ key: g.key, title: g.label, links: g.children })),
+      // Sem o cartão, o painel livre do item (ex.: conta) aparece como veio.
+      ...(account
+        ? [
+            {
+              key: 'conta',
+              title: 'Conta',
+              links: links(footer),
+              actions: [...plain(footer), ...account.actions.filter((a) => !a.danger)],
+            },
+          ]
+        : [...items, ...footer]
+            .filter((p) => p.panel)
+            .map((p) => ({ key: p.key, title: p.label, panel: p.panel }))),
+    ] as Section[]
+  ).filter((x) => x.links?.length || x.actions?.length || x.panel);
+  const danger = account?.actions.filter((a) => a.danger) ?? [];
+  let i = 0;
+  return (
+    <div className="cm-menu">
+      <h1 className="cm-sr-only">Mais</h1>
+      {account && (
+        <section className="cm-menu__card" style={{ '--i': i++ } as CSSProperties}>
+          <div className="cm-menu__who">
+            <div className="cm-menu__avatar" aria-hidden>
+              {account.initials}
+            </div>
+            <div className="cm-menu__id">
+              <div className="cm-menu__name">{account.name}</div>
+              {account.sub && <div className="cm-menu__sub">{account.sub}</div>}
+            </div>
+          </div>
+          {(account.role || account.note) && (
+            <div className="cm-menu__plan">
+              {account.role && <div className="cm-menu__role">{account.role}</div>}
+              {account.note && <div className="cm-menu__note">{account.note}</div>}
+            </div>
+          )}
+        </section>
+      )}
+      {sections.map((sec) => (
+        <section
+          key={sec.key}
+          className="cm-menu__group"
+          aria-labelledby={`cm-menu-${sec.key}`}
+          style={{ '--i': i++ } as CSSProperties}
+        >
+          <h2 className="cm-menu__title" id={`cm-menu-${sec.key}`}>
+            {sec.title}
+          </h2>
+          <TileGrid links={sec.links ?? []} actions={sec.actions} />
+          {sec.panel}
+        </section>
+      ))}
+      {danger.length > 0 && (
+        <div className="cm-menu__end" style={{ '--i': i++ } as CSSProperties}>
+          {danger.map((a) => (
+            <button key={a.key} type="button" className="cm-menu__danger" onClick={a.onClick}>
+              {a.icon}
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+      {account?.footnote && <p className="cm-menu__foot">{account.footnote}</p>}
     </div>
   );
 }

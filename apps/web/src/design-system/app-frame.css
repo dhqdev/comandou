@@ -446,74 +446,10 @@
   padding: 12px var(--cm-space-4) calc(12px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--cm-border);
 }
-.cm-sheet-menu {
-  display: grid;
-  gap: var(--cm-space-5);
-}
-.cm-sheet-menu__wide-list {
-  display: grid;
-  gap: 8px;
-}
-.cm-sheet-menu__wide {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  min-height: 56px;
-  padding: 10px 14px;
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-lg);
-  background: var(--cm-surface-muted);
-  color: var(--cm-text);
-  font: inherit;
-  font-weight: 650;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform var(--cm-dur-fast) var(--cm-ease);
-}
-.cm-sheet-menu__wide:active {
-  transform: scale(0.98);
-}
-.cm-sheet-menu__wide-icon {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--cm-brand-500) 14%, transparent);
-  color: var(--cm-brand-700);
-}
-.cm-sheet-menu__wide-icon svg {
-  width: 20px;
-  height: 20px;
-}
-.cm-sheet-menu__wide-label {
-  flex: 1;
-}
-.cm-sheet-menu__wide-badge {
-  min-width: 22px;
-  height: 22px;
-  padding: 0 7px;
-  border-radius: 999px;
-  background: var(--cm-danger);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 750;
-  display: grid;
-  place-items: center;
-}
-.cm-sheet-menu__wide-go {
-  color: var(--cm-text-subtle);
-}
-.cm-sheet-menu__group {
-  margin: 0 0 8px 2px;
-  font-size: var(--cm-text-2xs);
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--cm-text-subtle);
-}
+/* ---------------------------------------------------------------- blocos (tela "Mais" e folhas)
+ * Ícone em cima, nome embaixo, alinhados à esquerda. Ao tocar o bloco afunda rápido e volta
+ * com mola (--cm-ease-liquid), como os botões do iPhone.
+ */
 .cm-tiles {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -521,45 +457,264 @@
 }
 .cm-tile {
   position: relative;
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 6px;
-  min-height: 82px;
-  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+  min-height: 96px;
+  padding: 14px 8px 12px 12px;
   border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-lg);
-  background: var(--cm-surface-muted);
+  border-radius: 18px;
+  background: var(--cm-surface);
   color: var(--cm-text);
   font: inherit;
-  font-size: var(--cm-text-xs);
+  font-size: 14px;
   font-weight: 600;
-  text-align: center;
+  line-height: 1.22;
+  letter-spacing: -0.01em;
+  text-align: left;
   text-decoration: none;
   cursor: pointer;
-  transition: transform var(--cm-dur-fast) var(--cm-ease);
-}
-.cm-tile svg {
-  width: 22px;
-  height: 22px;
-  color: var(--cm-brand-700);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.5s var(--cm-ease-liquid),
+    background-color var(--cm-dur) var(--cm-ease),
+    border-color var(--cm-dur) var(--cm-ease);
 }
 .cm-tile:active {
-  transform: scale(0.96);
+  transform: scale(0.95);
+  background: var(--cm-surface-muted);
+  transition:
+    transform 0.1s var(--cm-ease),
+    background-color 0.1s var(--cm-ease);
+}
+@media (hover: hover) {
+  .cm-tile:hover:not(.active) {
+    background: var(--cm-surface-muted);
+    border-color: var(--cm-border-strong);
+  }
+}
+.cm-tile__icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  color: var(--cm-text);
+}
+.cm-tile__icon svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.8;
+}
+.cm-tile__label {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 .cm-tile.active {
-  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
+  border-color: color-mix(in srgb, var(--cm-brand-500) 50%, var(--cm-border));
   background: var(--cm-brand-50);
+}
+.cm-tile.active .cm-tile__icon {
+  color: var(--cm-brand-700);
+}
+.cm-tile__dot {
+  position: absolute;
+  top: -2px;
+  right: -5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--cm-brand-500);
+  box-shadow: 0 0 0 2px var(--cm-surface);
+}
+.cm-tile__count {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--cm-danger);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0;
 }
 .cm-tile__badge {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 8px;
+  right: 8px;
 }
 .cm-tile__badge .cm-badge {
   height: 18px;
   font-size: 10px;
   padding: 0 5px;
+}
+
+/* ---------------------------------------------------------------- tela "Mais" (celular)
+ * Cartão da conta no topo e grupos de blocos embaixo. Cada parte entra subindo com mola,
+ * uma logo depois da outra (--i).
+ */
+.cm-menu {
+  display: grid;
+  gap: 26px;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.cm-menu > * {
+  animation: cm-menu-in 0.6s var(--cm-ease-liquid) backwards;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+@keyframes cm-menu-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0) scale(0.98);
+  }
+}
+.cm-menu__card {
+  padding: 20px;
+  border: 1px solid var(--cm-border);
+  border-radius: 26px;
+  background: var(--cm-surface);
+}
+.cm-menu__who {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+.cm-menu__avatar {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: var(--cm-brand-100);
+  color: var(--cm-brand-800);
+  font-size: 21px;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+}
+.cm-menu__id {
+  min-width: 0;
+}
+.cm-menu__name,
+.cm-menu__sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cm-menu__name {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+.cm-menu__sub {
+  margin-top: 3px;
+  font-size: 15px;
+  color: var(--cm-text-muted);
+}
+.cm-menu__plan {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
+}
+.cm-menu__role {
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cm-text-muted);
+}
+.cm-menu__note {
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--cm-text-muted);
+}
+.cm-menu__group {
+  display: grid;
+  gap: 10px;
+}
+.cm-menu__title {
+  margin: 0 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--cm-text-muted);
+}
+.cm-menu__group > .account {
+  padding: 8px;
+  border: 1px solid var(--cm-border);
+  border-radius: 18px;
+  background: var(--cm-surface);
+}
+.cm-menu__end {
+  display: grid;
+  gap: 10px;
+}
+.cm-menu__danger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 54px;
+  border: 1px solid var(--cm-border);
+  border-radius: 18px;
+  background: var(--cm-surface);
+  color: var(--cm-danger);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 650;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 0.5s var(--cm-ease-liquid),
+    background-color var(--cm-dur) var(--cm-ease);
+}
+.cm-menu__danger svg {
+  width: 20px;
+  height: 20px;
+}
+.cm-menu__danger:active {
+  transform: scale(0.97);
+  background: var(--cm-danger-bg);
+  transition:
+    transform 0.1s var(--cm-ease),
+    background-color 0.1s var(--cm-ease);
+}
+.cm-menu__foot {
+  margin: -12px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--cm-text-subtle);
+}
+/* Tela larga (tablet deitado ou computador): mais blocos por linha. */
+@media (min-width: 600px) {
+  .cm-menu .cm-tiles {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-menu > * {
+    animation: none;
+  }
+  .cm-tile,
+  .cm-tile:active,
+  .cm-menu__danger,
+  .cm-menu__danger:active {
+    transition: none;
+  }
 }
 
 /* ---------------------------------------------------------------- botão de tema */

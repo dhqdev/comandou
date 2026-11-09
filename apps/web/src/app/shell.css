@@ -121,6 +121,9 @@
   color: var(--cm-text);
 }
 .account__action svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
   color: var(--cm-text-subtle);
 }
 

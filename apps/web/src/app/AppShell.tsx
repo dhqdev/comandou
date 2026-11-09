@@ -49,6 +49,7 @@ import {
   AppFrame,
   Badge,
   FrameAvatar,
+  FrameAccount,
   FrameItem,
   FrameLink,
   ThemeToggle,
@@ -319,6 +320,27 @@ export function AppShell() {
   })).filter((g) => g.children.length > 0);
   const tabs = TAB_PREFERENCE.filter((k) => main.some((m) => m.key === k)).slice(0, 4);
 
+  // Mesmas ações no submenu "Conta" (computador) e no fim da tela "Mais" (celular).
+  const accountActions: FrameAccount['actions'] = [
+    ...(me?.permissions.includes('plan:read')
+      ? [
+          {
+            key: 'suporte',
+            label: 'Falar com a Comandou',
+            icon: <LifeBuoy />,
+            onClick: () => openTeamChat('suporte'),
+          },
+        ]
+      : []),
+    {
+      key: 'tour',
+      label: 'Rever apresentação',
+      icon: <Compass />,
+      onClick: () => setTourOpen(true),
+    },
+    { key: 'senha', label: 'Trocar senha', icon: <KeyRound />, onClick: () => setPwOpen(true) },
+    { key: 'sair', label: 'Sair', icon: <LogOut />, onClick: logout, danger: true },
+  ];
   const account = (
     <div className="account">
       <div className="account__who">
@@ -336,20 +358,12 @@ export function AppShell() {
         <span>Tema</span>
         <ThemeToggle />
       </div>
-      {me?.permissions.includes('plan:read') && (
-        <button type="button" className="account__action" onClick={() => openTeamChat('suporte')}>
-          <LifeBuoy size={18} /> Falar com a Comandou
+      {accountActions.map((a) => (
+        <button key={a.key} type="button" className="account__action" onClick={a.onClick}>
+          {a.icon}
+          {a.label}
         </button>
-      )}
-      <button type="button" className="account__action" onClick={() => setTourOpen(true)}>
-        <Compass size={18} /> Rever apresentação
-      </button>
-      <button type="button" className="account__action" onClick={() => setPwOpen(true)}>
-        <KeyRound size={18} /> Trocar senha
-      </button>
-      <button type="button" className="account__action" onClick={logout}>
-        <LogOut size={18} /> Sair
-      </button>
+      ))}
     </div>
   );
 
@@ -375,6 +389,21 @@ export function AppShell() {
           },
         ]}
         tabs={tabs}
+        account={
+          me
+            ? {
+                name: me.user.name,
+                sub: me.user.email,
+                initials,
+                role: me.user.roleLabel,
+                note: me.tenant.name,
+                actions: accountActions,
+                footnote: `Comandou v${__APP_VERSION__}`,
+              }
+            : undefined
+        }
+        linksTitle="Operação"
+        moreActionsTitle="Conversas"
         moreActions={[
           {
             key: 'conversas',

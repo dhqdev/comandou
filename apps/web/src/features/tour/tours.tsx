@@ -121,10 +121,10 @@ export const welcomeEnds = (firstName: string, tenantName: string, phone: boolea
     menuKey: 'conta',
     text: (
       <>
-        Quando quiser rever, abra <b>{phone ? 'Mais › Conta' : 'Conta'} › Rever apresentação</b>.
-        Cardápio e Nota fiscal têm um botão <b>Tutorial</b> próprio, e cada campo tem um <b>?</b>{' '}
-        com a explicação. Dica: {phone ? 'a lupa no topo' : <b>Ctrl + K</b>} acha qualquer tela,
-        pedido ou produto.
+        Quando quiser rever, abra <b>{phone ? 'Mais' : 'Conta'} › Rever apresentação</b>. Cardápio e
+        Nota fiscal têm um botão <b>Tutorial</b> próprio, e cada campo tem um <b>?</b> com a
+        explicação. Dica: {phone ? 'a lupa no topo' : <b>Ctrl + K</b>} acha qualquer tela, pedido ou
+        produto.
       </>
     ),
   },

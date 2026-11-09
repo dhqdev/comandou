@@ -389,6 +389,8 @@ function Gate() {
               </Guard>
             }
           />
+          {/* Tela "Mais" do celular: quem desenha é a moldura (AppFrame), com o menu e a conta. */}
+          <Route path="mais" element={null} />
           <Route path="novidades" element={<ReleasesPage />} />
           <Route
             path="entregas"

@@ -6,16 +6,15 @@ export const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1200) <= 8
 /**
  * Navega pela moldura padrão (AppFrame), igual a uma pessoa:
  * - computador: ícone da barra lateral; se o item está num submenu, abre o grupo antes;
- * - celular: aba de baixo ou "Mais" (folha que sobe) e o atalho lá dentro.
+ * - celular: aba de baixo ou a tela "Mais" (última aba) e o bloco lá dentro.
  */
 export async function nav(page: Page, name: string | RegExp) {
   const exact = typeof name === 'string';
   if (isPhone(page)) {
     const tab = page.locator('.cm-tabbar').getByRole('link', { name, exact });
     if (await tab.count()) return tab.click();
-    await page.locator('.cm-tabbar').getByRole('button', { name: 'Mais' }).click();
-    await settled(page);
-    return page.getByRole('dialog').getByRole('link', { name, exact }).click();
+    await page.locator('.cm-tabbar').getByRole('link', { name: 'Mais' }).click();
+    return page.locator('.cm-menu').getByRole('link', { name, exact }).click();
   }
   const rail = page.locator('.cm-rail');
   const direct = rail.getByRole('link', { name, exact });
@@ -30,12 +29,11 @@ export async function nav(page: Page, name: string | RegExp) {
   throw new Error(`item de menu não encontrado: ${String(name)}`);
 }
 
-/** Abre "Conta" (submenu no computador, folha no celular) e clica numa ação, ex.: "Sair". */
+/** Abre "Conta" (submenu no computador, tela "Mais" no celular) e clica numa ação, ex.: "Sair". */
 export async function account(page: Page, action: string) {
   if (isPhone(page)) {
-    await page.locator('.cm-tabbar').getByRole('button', { name: 'Mais' }).click();
-    await settled(page);
-    return page.getByRole('dialog').getByRole('button', { name: action }).click();
+    await page.locator('.cm-tabbar').getByRole('link', { name: 'Mais' }).click();
+    return page.locator('.cm-menu').getByRole('button', { name: action }).click();
   }
   await page.locator('.cm-rail').getByRole('button', { name: 'Conta' }).click();
   await page.getByRole('menu').getByRole('button', { name: action }).click();

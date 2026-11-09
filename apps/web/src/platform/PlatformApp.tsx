@@ -29,6 +29,7 @@ import {
   AppFrame,
   Button,
   FrameAvatar,
+  FRAME_MENU_PATH,
   FrameItem,
   LivePanda,
   Mascot,
@@ -237,6 +238,7 @@ const TABS = ['/', '/restaurantes', '/conversas', '/servidor'];
 
 function titleFor(path: string) {
   if (path === '/') return 'Status';
+  if (path === FRAME_MENU_PATH) return 'Mais';
   return NAV.find((n) => n.to !== '/' && path.startsWith(n.to))?.label ?? 'Painel';
 }
 
@@ -351,6 +353,31 @@ function PlatformShell() {
           },
         ]}
         tabs={TABS}
+        account={
+          admin
+            ? {
+                name: admin.name,
+                sub: admin.email,
+                initials: admin.name.slice(0, 1).toUpperCase(),
+                role: 'Super Admin',
+                note: window.location.hostname,
+                actions: [
+                  ...(!standalone
+                    ? [
+                        {
+                          key: 'instalar',
+                          label: 'Instalar app',
+                          icon: <Download />,
+                          onClick: doInstall,
+                        },
+                      ]
+                    : []),
+                  { key: 'sair', label: 'Sair', icon: <LogOut />, onClick: logout, danger: true },
+                ],
+                footnote: `Comandou Admin v${__APP_VERSION__}`,
+              }
+            : undefined
+        }
         contentKey={`${pathname}:${tick}`}
         top={
           <>
@@ -411,6 +438,8 @@ function Gate() {
         <Route path="ia" element={<AiPage />} />
         <Route path="chamados" element={<TicketsBoardPage />} />
         <Route path="auditoria" element={<AuditPage />} />
+        {/* Tela "Mais" do celular: quem desenha é a moldura (AppFrame). */}
+        <Route path="mais" element={null} />
         <Route path="*" element={<OverviewPage />} />
       </Route>
     </Routes>
