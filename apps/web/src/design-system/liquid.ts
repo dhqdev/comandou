@@ -426,7 +426,12 @@ export function useLiquidDialog(
 
   useEffect(() => {
     const s = m.current;
+    const d = ref.current;
     return () => {
+      // StrictMode (desenvolvimento) desmonta e remonta de mentira com a janela ainda na tela.
+      // Cortar a mola aqui deixava a janela "ocupada" para sempre: sem vidro e sem voltar para
+      // dentro da tela quando o conteúdo crescia (o rodapé com Salvar ficava fora da tela).
+      if (d?.isConnected) return;
       clearTimeout(s.timer);
       s.anims.forEach((a) => a.cancel());
     };
