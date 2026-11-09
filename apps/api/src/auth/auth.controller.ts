@@ -66,13 +66,19 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     // Bloqueio por conta (antes de conferir a senha): vale para qualquer e-mail, exista ou não,
-    // então não revela quais contas existem.
+    // então não revela quais contas existem. Conta só as falhas depois da última senha
+    // redefinida (pelo administrador ou pelo suporte): a senha nova entra na hora.
     const failures = await this.db.withTenant({ tenantId: tenant.id }, async (tx) => {
       const r = await one<{ n: number }>(
         tx,
         `SELECT count(*)::int AS n FROM audit_log
           WHERE tenant_id = $1 AND action = 'auth.login_failed' AND data->>'email' = $2
-            AND created_at > now() - make_interval(mins => $3)`,
+            AND created_at > now() - make_interval(mins => $3)
+            AND created_at > coalesce(
+                  (SELECT max(r.created_at) FROM audit_log r
+                    WHERE r.tenant_id = $1 AND r.action = 'user.password_reset'
+                      AND r.data->>'email' = $2),
+                  '-infinity')`,
         [tenant.id, body.email, this.env.AUTH_ACCOUNT_LOCK_MINUTES],
       );
       return r?.n ?? 0;

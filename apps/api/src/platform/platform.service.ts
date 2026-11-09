@@ -602,10 +602,11 @@ export class PlatformService {
     const hash = await hashPassword(password);
     const h = await this.tenantDbOrConflict(tenantId);
     const revoked = await h.tx(async (c) => {
-      const m = await c.query(`SELECT 1 FROM memberships WHERE tenant_id = $1 AND user_id = $2`, [
-        tenantId,
-        userId,
-      ]);
+      const m = await c.query<{ email: string }>(
+        `SELECT lower(u.email::text) AS email FROM memberships m JOIN users u ON u.id = m.user_id
+          WHERE m.tenant_id = $1 AND m.user_id = $2`,
+        [tenantId, userId],
+      );
       if (!m.rowCount) throw new NotFoundException('Membro não encontrado neste restaurante');
       await c.query(`UPDATE users SET password_hash = $2 WHERE id = $1`, [userId, hash]);
       const r = await c.query(
@@ -613,10 +614,12 @@ export class PlatformService {
           WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()`,
         [userId],
       );
+      // O e-mail zera o bloqueio por senhas erradas desta conta (ver o login).
       await c.query(
         `INSERT INTO audit_log (tenant_id, action, entity, entity_id, data)
-         VALUES ($1::uuid, 'user.password_reset', 'user', $2::text, '{"by":"platform"}'::jsonb)`,
-        [tenantId, userId],
+         VALUES ($1::uuid, 'user.password_reset', 'user', $2::text,
+                 jsonb_build_object('by', 'platform', 'email', $3::text))`,
+        [tenantId, userId, m.rows[0].email],
       );
       return r.rowCount ?? 0;
     });

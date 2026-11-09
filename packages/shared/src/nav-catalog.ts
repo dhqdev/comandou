@@ -210,7 +210,7 @@ const SCREENS: StaticEntry[] = [
     group: 'Telas',
     title: 'Equipe',
     hint: 'Usuários, papéis e acessos',
-    words: 'usuarios funcionarios garcom atendente gerente acesso permissao login',
+    words: 'usuarios funcionarios garcom atendente gerente acesso permissao login senha esqueceu',
     icon: 'team',
     to: '/equipe',
     perms: ['users:manage'],

@@ -1,5 +1,5 @@
 import { ROLE_HINTS, ROLE_LABELS, ROLES, type Role } from '@comandou/shared';
-import { UserPlus, Users } from 'lucide-react';
+import { KeyRound, UserPlus, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -20,6 +20,7 @@ import { api } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
 import type { Member } from '../lib/types';
 import { TourButton } from '../features/tour/PageTour';
+import './team.css';
 
 /** Equipe do restaurante: quem acessa, com qual papel. Só administradores alteram. */
 export function TeamPage() {
@@ -28,6 +29,8 @@ export function TeamPage() {
   const [members, setMembers] = useState<Member[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  /** Quem vai ganhar senha nova (outra pessoa) ou 'self' (trocar a própria). */
+  const [pwFor, setPwFor] = useState<Member | 'self' | null>(null);
   useLinkParam('acao', (a) => a === 'pessoa' && setAdding(true));
 
   const load = useCallback(async () => {
@@ -119,26 +122,36 @@ export function TeamPage() {
                       </td>
                       <td>{m.lastSeenAt ? dateTime(m.lastSeenAt) : '—'}</td>
                       <td className="cm-num">
-                        {!self &&
-                          (m.status === 'active' ? (
-                            <Button
-                              variant="ghost"
-                              onClick={() =>
-                                update(m, { status: 'revoked' }, `${m.name} foi desativado`)
-                              }
-                            >
-                              Desativar
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              onClick={() =>
-                                update(m, { status: 'active' }, `${m.name} foi reativado`)
-                              }
-                            >
-                              Reativar
-                            </Button>
-                          ))}
+                        <div className="team-actions">
+                          <Button
+                            variant="ghost"
+                            icon={<KeyRound size={16} />}
+                            onClick={() => setPwFor(self ? 'self' : m)}
+                            aria-label={self ? 'Trocar minha senha' : `Nova senha para ${m.name}`}
+                          >
+                            {self ? 'Trocar senha' : 'Nova senha'}
+                          </Button>
+                          {!self &&
+                            (m.status === 'active' ? (
+                              <Button
+                                variant="ghost"
+                                onClick={() =>
+                                  update(m, { status: 'revoked' }, `${m.name} foi desativado`)
+                                }
+                              >
+                                Desativar
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                onClick={() =>
+                                  update(m, { status: 'active' }, `${m.name} foi reativado`)
+                                }
+                              >
+                                Reativar
+                              </Button>
+                            ))}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -148,6 +161,11 @@ export function TeamPage() {
           </div>
         )}
       </Card>
+      <ChangePasswordModal open={pwFor === 'self'} onClose={() => setPwFor(null)} />
+      <MemberPasswordModal
+        member={pwFor && pwFor !== 'self' ? pwFor : null}
+        onClose={() => setPwFor(null)}
+      />
       <AddMemberModal
         open={adding}
         onClose={() => setAdding(false)}
@@ -249,6 +267,106 @@ function AddMemberModal({
         ))}
       </SelectField>
       <p className="cm-hint">{ROLE_HINTS[role]}</p>
+    </Modal>
+  );
+}
+
+/**
+ * Senha nova para alguém da equipe que esqueceu a dela. A pessoa sai de todos os aparelhos e entra
+ * com a senha nova. Conta usada também em outro restaurante não troca aqui (só ela ou o suporte).
+ */
+function MemberPasswordModal({ member, onClose }: { member: Member | null; onClose(): void }) {
+  const toast = useToast();
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Guarda a última pessoa para o conteúdo não sumir enquanto a janela fecha.
+  const [shown, setShown] = useState<Member | null>(member);
+  if (member && member !== shown) {
+    setShown(member);
+    setNext('');
+    setConfirm('');
+    setError(null);
+  }
+  const m = member ?? shown;
+  const mismatch = confirm.length > 0 && confirm !== next;
+
+  async function save() {
+    if (!m) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/users/${m.id}/password`, { method: 'POST', json: { password: next } });
+      toast(`Senha nova salva. ${m.name} já entra com ela.`, 'success');
+      setNext('');
+      setConfirm('');
+      onClose();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={!!member}
+      title="Nova senha"
+      onClose={onClose}
+      footer={
+        m?.sharedAccount ? (
+          <Button variant="secondary" onClick={onClose}>
+            Fechar
+          </Button>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button loading={busy} disabled={next.length < 8 || next !== confirm} onClick={save}>
+              Salvar senha
+            </Button>
+          </>
+        )
+      }
+    >
+      {m && (
+        <p className="cm-hint">
+          Para <strong>{m.name}</strong> ({m.email}).
+        </p>
+      )}
+      {m?.sharedAccount ? (
+        <Alert tone="info">
+          <div>
+            Esta pessoa usa a mesma conta em outro restaurante. Por segurança, só ela pode trocar a
+            senha (em <b>Trocar minha senha</b>). Se ela esqueceu, fale com o suporte do Comandou.
+          </div>
+        </Alert>
+      ) : (
+        <>
+          {error && <Alert tone="danger">{error}</Alert>}
+          <TextField
+            label="Nova senha"
+            type="password"
+            autoComplete="new-password"
+            hint="Mínimo de 8 caracteres. Combine a entrega da senha pessoalmente."
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+          />
+          <TextField
+            label="Repita a nova senha"
+            type="password"
+            autoComplete="new-password"
+            error={mismatch ? 'As senhas não conferem' : undefined}
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+          <p className="cm-hint">
+            Ao salvar, a pessoa sai de todos os aparelhos e entra de novo com a senha nova.
+          </p>
+        </>
+      )}
     </Modal>
   );
 }

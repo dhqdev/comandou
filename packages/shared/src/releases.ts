@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.101.0',
+    date: '2026-11-09',
+    title: 'Administrador define uma senha nova para quem esqueceu',
+    summary:
+      'Na tela Equipe, cada pessoa ganhou o botão Nova senha: o administrador digita a senha nova, a pessoa sai de todos os aparelhos e já entra com ela, mesmo que tenha ficado bloqueada por errar a senha.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Equipe › Nova senha: só o administrador vê e usa. A senha nova vale na hora, encerra as sessões abertas da pessoa e acaba com o bloqueio por senhas erradas. Fica registrado na auditoria quem trocou (a senha nunca é guardada).',
+      },
+      {
+        tag: 'segurança',
+        text: 'Quem usa a mesma conta em outro restaurante não tem a senha trocada por aqui: só a própria pessoa (Trocar minha senha) ou o suporte do Comandou. Assim um restaurante nunca mexe no acesso de outro.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Na sua própria linha da Equipe aparece Trocar senha, que abre a troca da sua senha (pede a atual).',
+      },
+    ],
+  },
+  {
     version: '0.100.0',
     date: '2026-11-09',
     title: 'Janelas abrem perto de onde você tocou, com movimento de mola',

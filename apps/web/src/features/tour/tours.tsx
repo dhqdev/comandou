@@ -1232,6 +1232,9 @@ export const TEAM_STOPS: TourStop[] = [
     text: 'Quem acessa o sistema e o papel de cada um.',
     steps: [
       <>Mudou de função? Troque o papel.</>,
+      <>
+        Esqueceu a senha? Toque em <b>Nova senha</b> e passe a nova para a pessoa.
+      </>,
       <>Saiu da casa? Desative: o acesso acaba na hora.</>,
     ],
     targets: [{ css: '.cm-card' }],

@@ -386,6 +386,8 @@ export interface Member {
   status: 'active' | 'revoked';
   createdAt: string;
   lastSeenAt: string | null;
+  /** A mesma conta também entra em outro restaurante: só a pessoa troca a senha. */
+  sharedAccount: boolean;
 }
 
 export type StockUnit = 'un' | 'kg' | 'g' | 'l' | 'ml';

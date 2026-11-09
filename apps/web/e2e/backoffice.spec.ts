@@ -43,8 +43,16 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await dialog.getByLabel('Senha inicial').fill('senha-do-moto-1');
   await dialog.getByLabel('Papel').selectOption('driver');
   await dialog.getByRole('button', { name: 'Adicionar' }).click();
-  await expect(page.getByRole('row', { name: new RegExp(`Moto ${tag}`) })).toBeVisible();
+  const moto = page.getByRole('row', { name: new RegExp(`Moto ${tag}`) });
+  await expect(moto).toBeVisible();
   await shot(page, info.project.name, 'equipe');
+  // Esqueceu a senha: o administrador define uma nova.
+  await moto.getByRole('button', { name: `Nova senha para Moto ${tag}` }).click();
+  dialog = page.getByRole('dialog', { name: 'Nova senha' });
+  await dialog.getByLabel('Nova senha', { exact: true }).fill('senha-nova-moto-1');
+  await dialog.getByLabel('Repita a nova senha').fill('senha-nova-moto-1');
+  await dialog.getByRole('button', { name: 'Salvar senha' }).click();
+  await expect(page.getByText(/Senha nova salva/)).toBeVisible();
 
   // Dados de apoio: produto e categoria via API
   const cats = await (await page.request.get('/api/v1/categories')).json();

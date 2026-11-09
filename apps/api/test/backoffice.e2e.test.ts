@@ -235,7 +235,142 @@ describe('Equipe (usuários e papéis)', () => {
     await get('cashier2A', '/auth/me').expect(401);
     await login(HOST_A, 'caixa@bo-a.test', 'nova-senha-caixa');
   });
+
+  it('administrador define senha nova: a pessoa entra com ela e sai dos aparelhos', async () => {
+    const r = await post('adminA', '/users', {
+      email: 'esqueci@bo-a.test',
+      name: 'Esqueci',
+      password: 'senha-antiga-1',
+      role: 'waiter',
+    }).expect(201);
+    expect(r.body.sharedAccount).toBe(false);
+    const id = r.body.id as string;
+    cookies.forgotA = await login(HOST_A, 'esqueci@bo-a.test', 'senha-antiga-1');
+    await get('forgotA', '/auth/me').expect(200);
+
+    // Só o administrador; senha curta não passa; outra pessoa da equipe não troca.
+    for (const w of ['waiterA', 'cashierA', 'stockA', 'forgotA'])
+      await post(w, `/users/${id}/password`, { password: 'senha-nova-123' }).expect(403);
+    await post('adminA', `/users/${id}/password`, { password: 'curta' }).expect(400);
+
+    await post('adminA', `/users/${id}/password`, { password: 'senha-nova-123' }).expect(204);
+    await get('forgotA', '/auth/me').expect(401);
+    const old = await http
+      .post('/api/v1/auth/login')
+      .set('Host', HOST_A)
+      .set(CSRF)
+      .send({ email: 'esqueci@bo-a.test', password: 'senha-antiga-1' });
+    expect(old.status).toBe(401);
+    await login(HOST_A, 'esqueci@bo-a.test', 'senha-nova-123');
+
+    // Auditado sem a senha (nem o hash).
+    const audit = await ownerQuery<{ actor: string; data: Record<string, unknown> }>(
+      `SELECT actor_user_id::text AS actor, data FROM audit_log
+        WHERE tenant_id = $1 AND action = 'user.password_reset' AND entity_id = $2`,
+      [fx.tenantA, id],
+    );
+    expect(audit).toHaveLength(1);
+    expect(audit[0].data).toEqual({ by: 'team', email: 'esqueci@bo-a.test' });
+    expect(JSON.stringify(audit)).not.toContain('senha-nova-123');
+  });
+
+  it('senha nova acaba com o bloqueio por senhas erradas', async () => {
+    const list = (await get('adminA', '/users').expect(200)).body as Member[];
+    const id = list.find((u) => u.email === 'esqueci@bo-a.test')!.id;
+    const wrong = () =>
+      http
+        .post('/api/v1/auth/login')
+        .set('Host', HOST_A)
+        .set(CSRF)
+        .send({ email: 'esqueci@bo-a.test', password: 'chutando-123' });
+    // 10 falhas (somando a do teste acima) bloqueiam a conta.
+    for (let i = 0; i < 10; i++) expect([401, 429]).toContain((await wrong()).status);
+    // Bloqueada: nem a senha certa entra.
+    const locked = await http
+      .post('/api/v1/auth/login')
+      .set('Host', HOST_A)
+      .set(CSRF)
+      .send({ email: 'esqueci@bo-a.test', password: 'senha-nova-123' });
+    expect(locked.status).toBe(429);
+    await post('adminA', `/users/${id}/password`, { password: 'senha-depois-1' }).expect(204);
+    await login(HOST_A, 'esqueci@bo-a.test', 'senha-depois-1');
+  });
+
+  it('não troca a própria, a de outro restaurante nem conta usada em outro restaurante', async () => {
+    const me = (await get('adminA', '/auth/me').expect(200)).body.user;
+    await post('adminA', `/users/${me.id}/password`, { password: 'senha-nova-123' }).expect(409);
+
+    // Pessoa só de B: para A ela não existe.
+    const onlyB = (
+      await post('adminB', '/users', {
+        email: 'caixa@bo-b.test',
+        name: 'Caixa B',
+        password: 'senha-caixa-b1',
+        role: 'cashier',
+      }).expect(201)
+    ).body as Member;
+    await post('adminA', `/users/${onlyB.id}/password`, { password: 'senha-nova-123' }).expect(404);
+
+    // O administrador de B entrou na equipe de A com a conta dele (teste acima): trocar a senha
+    // aqui tomaria a conta dele em B. Recusa, e a senha de B continua a mesma.
+    const listA = (await get('adminA', '/users').expect(200)).body as Member[];
+    const shared = listA.find((u) => u.email === 'admin@bo-b.test')!;
+    expect(shared.sharedAccount).toBe(true);
+    expect(listA.find((u) => u.email === 'garcom@bo-a.test')!.sharedAccount).toBe(false);
+    const res = await post('adminA', `/users/${shared.id}/password`, {
+      password: 'tomar-a-conta-1',
+    }).expect(409);
+    expect(res.body.message).toMatch(/outro restaurante/);
+    await login(HOST_B, 'admin@bo-b.test', PASSWORD);
+    const taken = await http
+      .post('/api/v1/auth/login')
+      .set('Host', HOST_B)
+      .set(CSRF)
+      .send({ email: 'admin@bo-b.test', password: 'tomar-a-conta-1' });
+    expect(taken.status).toBe(401);
+    // Do lado de B a mesma conta também aparece como compartilhada (sem dizer com quem).
+    const listB = (await get('adminB', '/users').expect(200)).body as Member[];
+    expect(listB.find((u) => u.email === 'caixa@bo-b.test')!.sharedAccount).toBe(false);
+    expect(listB.find((u) => u.email === 'admin@bo-b.test')!.sharedAccount).toBe(true);
+  });
+
+  it('a função do banco só aceita administrador ativo do restaurante', async () => {
+    const c = new Client({ connectionString: APP_URL });
+    await c.connect();
+    try {
+      const [{ id: target }] = await ownerQuery<{ id: string }>(
+        `SELECT id FROM users WHERE email = 'esqueci@bo-a.test'`,
+      );
+      const [{ id: waiter }] = await ownerQuery<{ id: string }>(
+        `SELECT id FROM users WHERE email = 'garcom@bo-a.test'`,
+      );
+      const call = async (user: string | null) => {
+        await c.query('BEGIN');
+        try {
+          await c.query(`SELECT set_config('app.tenant_id', $1, true)`, [fx.tenantA]);
+          if (user) await c.query(`SELECT set_config('app.user_id', $1, true)`, [user]);
+          const r = await c.query(`SELECT app_set_member_password($1, 'x') AS r`, [target]);
+          return r.rows[0].r as string;
+        } finally {
+          await c.query('ROLLBACK');
+        }
+      };
+      await expect(call(null)).rejects.toMatchObject({ code: '42501' });
+      await expect(call(waiter)).rejects.toMatchObject({ code: '42501' });
+      // A API (papel da app) não grava a senha de ninguém direto na tabela.
+      await c.query('BEGIN');
+      await c.query(`SELECT set_config('app.tenant_id', $1, true)`, [fx.tenantA]);
+      await expect(
+        c.query(`UPDATE users SET password_hash = 'x' WHERE id = $1`, [target]),
+      ).rejects.toMatchObject({ code: '42501' });
+      await c.query('ROLLBACK');
+    } finally {
+      await c.end();
+    }
+  });
 });
+
+type Member = { id: string; email: string; sharedAccount: boolean };
 
 // ------------------------------------------------------------------------------- estoque
 let pao: { id: string };

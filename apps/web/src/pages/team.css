@@ -1,0 +1,7 @@
+/* Equipe: ações da linha (senha e desativar) lado a lado, à direita; no celular quebram. */
+.team-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--cm-space-2);
+  justify-content: flex-end;
+}

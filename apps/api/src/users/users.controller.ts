@@ -38,16 +38,23 @@ const UpdateMember = z
   .object({ role: z.enum(ROLES).optional(), status: z.enum(['active', 'revoked']).optional() })
   .refine((b) => b.role || b.status, 'informe papel ou situação');
 const ChangePassword = z.object({ current: z.string().min(1).max(200), next: password });
+const SetMemberPassword = z.object({ password });
 
 const MEMBER_SELECT = `
   SELECT u.id, u.name, u.email, m.role, m.status, m.created_at AS "createdAt",
-         (SELECT max(s.last_seen_at) FROM sessions s WHERE s.user_id = u.id) AS "lastSeenAt"
+         (SELECT max(s.last_seen_at) FROM sessions s WHERE s.user_id = u.id) AS "lastSeenAt",
+         app_member_account_shared(u.id) AS "sharedAccount"
     FROM memberships m JOIN users u ON u.id = m.user_id`;
+
+/** A conta também entra em outro restaurante: só a pessoa (ou o suporte) troca a senha. */
+const SHARED_ACCOUNT_MESSAGE =
+  'Esta pessoa usa a mesma conta em outro restaurante. Por segurança, só ela pode trocar a senha (em Trocar minha senha) ou o suporte do Comandou.';
 
 /**
  * Equipe do restaurante. A conta (e-mail/senha) é global; o vínculo (papel, situação) é por
- * restaurante. Por isso aqui só se altera o vínculo: desativar alguém revoga o acesso a ESTE
- * restaurante e encerra as sessões dele aqui, sem afetar outros restaurantes.
+ * restaurante. Por isso aqui se altera o vínculo: desativar alguém revoga o acesso a ESTE
+ * restaurante e encerra as sessões dele aqui, sem afetar outros restaurantes. A senha de outra
+ * pessoa só muda se a conta dela for só deste restaurante (setMemberPassword).
  */
 @Controller({ version: '1' })
 export class UsersController {
@@ -149,6 +156,56 @@ export class UsersController {
         ip: req.ip,
       });
       return one(tx, `${MEMBER_SELECT} WHERE u.id = $1`, [id]);
+    });
+  }
+
+  /**
+   * Senha nova para alguém da equipe (esqueceu a senha). Só o administrador, só para outra pessoa
+   * e só para conta exclusiva deste restaurante (ver 0055). A pessoa sai de todos os aparelhos e
+   * o bloqueio por senhas erradas dela acaba. A senha nunca é auditada.
+   */
+  @Post('users/:id/password')
+  @HttpCode(204)
+  @RequirePermission('users:manage')
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  async setMemberPassword(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(SetMemberPassword)) b: z.infer<typeof SetMemberPassword>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    if (id === u.id) throw new ConflictException('Para trocar a sua senha, use Trocar minha senha');
+    const hash = await hashPassword(b.password);
+    await this.db.withTenant(ctxOf(t, u), async (tx) => {
+      const m = await one<{ email: string; role: string }>(
+        tx,
+        `SELECT u.email, m.role FROM memberships m JOIN users u ON u.id = m.user_id WHERE u.id = $1`,
+        [id],
+      );
+      if (!m) throw new NotFoundException('Pessoa não encontrada na equipe');
+      if (m.role === 'owner' && u.role !== 'owner')
+        throw new ForbiddenException('Só um administrador pode alterar administradores');
+      const r = await one<{ r: 'ok' | 'self' | 'not_member' | 'shared' }>(
+        tx,
+        `SELECT app_set_member_password($1, $2) AS r`,
+        [id, hash],
+      );
+      if (r?.r === 'shared') throw new ConflictException(SHARED_ACCOUNT_MESSAGE);
+      if (r?.r === 'not_member') throw new NotFoundException('Pessoa não encontrada na equipe');
+      if (r?.r !== 'ok')
+        throw new ConflictException('Para trocar a sua senha, use Trocar minha senha');
+      await this.revokeSessions(tx, id);
+      await this.audit.record(tx, {
+        tenantId: t.id,
+        actorUserId: u.id,
+        action: 'user.password_reset',
+        entity: 'user',
+        entityId: id,
+        // O e-mail (como o login recebe) zera o bloqueio por senhas erradas desta conta.
+        data: { by: 'team', email: m.email.toLowerCase() },
+        ip: req.ip,
+      });
     });
   }
 
