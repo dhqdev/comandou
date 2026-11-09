@@ -52,24 +52,98 @@
   line-height: 1.15;
 }
 
-/* Ao vivo: mapa grande à esquerda, despacho e corridas à direita. */
-.dl-live {
+.dl-kpi__short {
+  display: none;
+}
+
+/* ---------------------------------------------------------------- página
+   A aba Ao vivo cabe inteira na altura da janela (como o PDV): o cabeçalho e as abas ficam do
+   tamanho deles, o mapa ocupa o resto e, se tiver muita corrida, rola só a lista de cada coluna.
+   Janela baixa demais: aí sim a página rola, para nada ficar espremido. */
+.dl-page {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(340px, 1fr);
-  gap: var(--cm-space-4);
-  align-items: start;
-}
-.dl-live__map {
-  position: sticky;
-  top: var(--cm-space-4);
-}
-.dl-live__map .live-map {
-  height: min(72vh, 680px);
-}
-.dl-live__side {
-  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--cm-space-4);
   min-width: 0;
+}
+.dl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--cm-space-3) var(--cm-space-5);
+}
+.dl-head__title {
+  min-width: 0;
+  flex: 1 1 260px;
+}
+.dl-head__title .page-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Indicadores numa faixa só, ao lado do título. */
+.dl-kpis--bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dl-kpis--bar .dl-kpi {
+  column-gap: 8px;
+  padding: 6px 12px 6px 8px;
+  box-shadow: none;
+}
+.dl-kpis--bar .dl-kpi__icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+}
+.dl-kpis--bar .dl-kpi__label {
+  font-size: var(--cm-text-xs);
+  white-space: nowrap;
+}
+.dl-kpis--bar .dl-kpi__value {
+  font-size: var(--cm-text-lg);
+  line-height: 1.1;
+}
+
+/* ---------------------------------------------------------------- Ao vivo
+   Notebook/tablet: mapa à esquerda, "Prontos" em cima e "Na rua" embaixo à direita.
+   Tela larga: mapa, "Prontos" e "Na rua" lado a lado, cada lista com a altura toda. */
+.dl-live {
+  display: grid;
+  gap: var(--cm-space-3);
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 40%, 460px);
+  grid-template-rows: fit-content(55%) minmax(0, 1fr);
+  grid-template-areas:
+    'map ready'
+    'map out';
+}
+.dl-live[data-out-empty] {
+  grid-template-rows: fit-content(calc(100% - 130px)) minmax(0, 1fr);
+}
+.dl-live__map {
+  grid-area: map;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+.dl-live__map .live-map {
+  height: 100%;
+}
+.dl-panel--ready {
+  grid-area: ready;
+}
+.dl-panel--out {
+  grid-area: out;
+}
+@media (min-width: 1280px) {
+  .dl-live,
+  .dl-live[data-out-empty] {
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 24%, 440px) clamp(340px, 26%, 460px);
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: 'map ready out';
+  }
 }
 .dl-legend {
   position: absolute;
@@ -103,13 +177,19 @@
 }
 
 .dl-panel {
-  display: grid;
-  gap: var(--cm-space-3);
-  padding: var(--cm-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  padding: 12px;
   border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-lg);
   background: var(--cm-surface);
   box-shadow: var(--cm-shadow-sm);
+}
+.dl-panel > * {
+  flex: none;
 }
 .dl-panel__head {
   display: flex;
@@ -122,7 +202,7 @@
   align-items: center;
   gap: 8px;
   margin: 0;
-  font-size: var(--cm-text-lg);
+  font-size: var(--cm-text-md);
 }
 .dl-panel__head h2 svg {
   color: var(--cm-brand-700);
@@ -132,6 +212,17 @@
   color: var(--cm-text-muted);
   font-size: var(--cm-text-sm);
 }
+/* A lista de cada coluna rola sozinha; o resto da tela fica parado. */
+.dl-panel > .dl-scroll {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  /* Respiro para a sombra/realce do cartão não ser cortado pela rolagem. */
+  margin: -3px;
+  padding: 3px;
+}
 
 /* Prontos para sair */
 .dl-ready {
@@ -139,52 +230,106 @@
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 10px;
+  align-content: start;
+  gap: 8px;
 }
 .dl-ready__row {
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px 12px;
   border-radius: var(--cm-radius-md);
   border: 1px solid color-mix(in srgb, var(--cm-warning) 35%, var(--cm-border));
   background: color-mix(in srgb, var(--cm-warning-bg) 60%, var(--cm-surface));
 }
 .dl-ready__info {
   display: grid;
-  gap: 4px;
-  justify-items: start;
+  gap: 3px;
   min-width: 0;
 }
 .dl-ready__top {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 6px;
+  gap: 4px 6px;
+  min-width: 0;
+}
+/* Nome cortado no máximo até ~9 letras; menos espaço que isso, a cobrança desce de linha. */
+.dl-ready__name {
+  min-width: min(9em, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dl-ready__wait {
-  margin-left: auto;
+  flex: none;
   color: var(--cm-text-muted);
   font-size: var(--cm-text-xs, 12px);
+}
+.dl-ready__top .cm-badge {
+  flex: none;
+  margin-left: auto;
+}
+.dl-ready__addr,
+.dl-run__addr {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+/* Na corrida, o endereço fica numa linha (inteiro ao parar o mouse); no despacho, pode quebrar. */
+.dl-run__addr {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dl-ready__addr {
+  align-items: flex-start;
+}
+.dl-ready__addr svg,
+.dl-run__addr svg {
+  flex-shrink: 0;
+  vertical-align: -2px;
+}
+.dl-ready__addr svg {
+  margin-top: 3px;
 }
 .dl-ready__go {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
 }
+.dl-ready__go .cm-input {
+  min-height: 36px;
+  font-size: var(--cm-text-sm);
+}
 .dl-ready__go .cm-btn {
+  min-height: 36px;
   white-space: nowrap;
+}
+/* Coluna estreita: escolher o entregador numa linha e o botão embaixo, nada cortado. */
+.dl-ready {
+  container-type: inline-size;
+}
+@container (max-width: 400px) {
+  .dl-ready__go {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* Corridas na rua */
 .dl-runs {
   display: grid;
-  gap: 10px;
+  align-content: start;
+  gap: 8px;
 }
 .dl-run {
   --rider: var(--cm-brand-600);
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px 12px;
   border: 1px solid var(--cm-border);
   border-left: 4px solid var(--rider);
   border-radius: var(--cm-radius-md);
@@ -199,7 +344,8 @@
 }
 .dl-run__main {
   display: grid;
-  gap: 4px;
+  gap: 3px;
+  min-width: 0;
   padding: 0;
   border: 0;
   background: none;
@@ -217,25 +363,31 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  min-width: 0;
 }
 .dl-run__num {
-  font-size: var(--cm-text-lg);
+  flex: none;
+  font-size: var(--cm-text-md);
   letter-spacing: -0.01em;
 }
 .dl-run__courier {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 8px;
+  min-width: 0;
+  padding: 1px 8px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--rider) 14%, transparent);
-  font-size: var(--cm-text-sm);
+  font-size: var(--cm-text-xs);
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dl-run__dot,
 .courier-list__dot {
   display: inline-block;
+  flex: none;
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -246,35 +398,38 @@
   vertical-align: 1px;
 }
 .dl-run__time {
+  flex: none;
   margin-left: auto;
   color: var(--cm-text-muted);
-  font-size: var(--cm-text-sm);
+  font-size: var(--cm-text-xs);
 }
-.dl-run__addr {
-  display: flex;
-  gap: 6px;
-  align-items: flex-start;
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-sm);
+.dl-run__who {
+  display: grid;
+  min-width: 0;
 }
-.dl-run__addr svg {
-  flex-shrink: 0;
-  margin-top: 2px;
+.dl-run__name {
+  min-width: 0;
+  font-size: var(--cm-text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dl-run__live {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 6px;
-  margin-top: 2px;
-  padding: 6px 10px;
-  border-radius: var(--cm-radius-md);
+  min-width: 0;
+  margin-top: 3px;
+  padding: 4px 8px;
+  border-radius: var(--cm-radius-sm);
   background: var(--cm-surface-sunken);
-  font-size: var(--cm-text-sm);
+  font-size: var(--cm-text-xs);
+  white-space: nowrap;
 }
 .dl-run__signal {
-  width: 9px;
-  height: 9px;
+  flex: none;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: var(--cm-text-muted);
 }
@@ -304,19 +459,30 @@
     box-shadow: 0 0 0 0 transparent;
   }
 }
+/* Cobrança, rota e link à esquerda; Não entregue / Entregue à direita (descem se não couber). */
+.dl-run__foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .dl-run__chips {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 4px 10px;
+  font-size: var(--cm-text-sm);
 }
 .dl-run__actions {
-  display: grid;
-  grid-template-columns: 1fr 1.4fr;
-  gap: 8px;
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
 }
 .dl-run__actions .cm-btn {
   justify-content: center;
+}
+.dl-run .inline-form .dl-run__actions {
+  justify-content: flex-end;
 }
 
 .dl-replay {
@@ -327,32 +493,114 @@
   height: min(60vh, 520px);
 }
 
-@media (max-width: 1100px) {
-  .dl-live {
-    grid-template-columns: minmax(0, 1fr);
+/* ---------------------------------------------------------------- caber na janela */
+@media (min-width: 861px) {
+  .cm-frame__content:has(> .dl-page[data-fit]) {
+    grid-template-rows: minmax(0, 1fr);
+    padding-bottom: var(--cm-space-4);
   }
-  .dl-live__map {
-    position: relative;
-    top: 0;
+  .dl-page[data-fit] {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: var(--cm-space-3);
   }
-  .dl-live__map .live-map {
-    height: min(52vh, 460px);
+  .dl-page[data-fit] > * {
+    flex: none;
+  }
+  .dl-page[data-fit] > .dl-live {
+    flex: 1 1 0;
+    min-height: 380px;
+  }
+  /* O botão redondo do chat fica no canto de baixo: a última corrida rola para cima dele. */
+  .dl-page[data-fit] .dl-panel--out > .dl-scroll {
+    padding-bottom: 44px;
   }
 }
-@media (max-width: 720px) {
-  .dl-kpis {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+
+/* ---------------------------------------------------------------- celular
+   Lista ou mapa, um de cada vez (escolhidos no seletor): nada de rolar do mapa até a lista. */
+@media (max-width: 860px) {
+  .dl-page {
+    gap: var(--cm-space-3);
   }
-  .dl-kpi {
-    padding: 10px;
+  /* O nome da tela já está no topo. */
+  .dl-head__title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
-  .dl-kpi__icon {
-    width: 32px;
-    height: 32px;
+  .dl-kpis--bar {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
   }
-  .dl-ready__go {
+  .dl-kpis--bar .dl-kpi {
+    display: grid;
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    justify-items: center;
+    padding: 6px 4px;
+    text-align: center;
+  }
+  .dl-kpis--bar .dl-kpi__icon {
+    display: none;
+  }
+  .dl-kpis--bar .dl-kpi__value {
+    order: -1;
+    font-size: var(--cm-text-md);
+    color: var(--tone);
+  }
+  .dl-kpis--bar .dl-kpi__label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 11px;
+  }
+  .dl-kpi__long {
+    display: none;
+  }
+  .dl-kpi__short {
+    display: inline;
+  }
+  .dl-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .dl-switch .slide-tabs__tab {
+    justify-content: center;
+  }
+  .dl-live,
+  .dl-live[data-out-empty] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    grid-template-areas: none;
+  }
+  .dl-live > * {
+    grid-area: auto;
+  }
+  .dl-live[data-view='mapa'] {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  /* Mapa: ocupa a tela até as abas de baixo. */
+  .cm-frame__content:has(> .dl-page[data-fit]) {
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .dl-page[data-fit] {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+  .dl-page[data-fit] > * {
+    flex: none;
+  }
+  .dl-page[data-fit] > .dl-live {
+    flex: 1 1 0;
+    min-height: 300px;
   }
   .dl-legend {
     left: 50px;
