@@ -6,7 +6,9 @@
 //   COMANDOU_CODE          código de conexão copiado do painel (CMD1-...), OU as duas abaixo:
 //   COMANDOU_URL           endereço do restaurante (ex.: https://burguer.comandou.com)
 //   COMANDOU_AGENT_TOKEN   token gerado em Impressão (começa com "pma_")
-//   PRINTER_DEFAULT        impressora padrão: tcp://IP:9100 | printer:NOME | file:/caminho | stdout
+//   PRINTER_DEFAULT        impressora padrão: tcp://IP:9100 | printer:NOME | serial:COM5 |
+//                          serial:/dev/rfcomm0 | file:/dev/usb/lp0 | stdout
+//                          (ajustes no fim: ?papel=58&acentos=850&baud=19200)
 //   PRINTER_<DESTINO>      impressora de um destino (ex.: PRINTER_CHAPA, PRINTER_CAIXA).
 //                          O destino é o nome do setor da cozinha (ou "Caixa"), em
 //                          maiúsculas, sem acentos, com "_" no lugar de espaços.
@@ -14,7 +16,7 @@
 import { PrintAgent, parseConnectionCode } from './core.mjs';
 import { describePrinter, printText, targetEnvName } from './printers.mjs';
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 
 let url = (process.env.COMANDOU_URL ?? '').replace(/\/+$/, '');
 let token = process.env.COMANDOU_AGENT_TOKEN ?? '';

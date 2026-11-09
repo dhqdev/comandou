@@ -1,52 +1,28 @@
 // Conversão de texto para ESC/POS (impressoras térmicas), sem dependências.
-// Usa a página de código CP860 (português), que cobre os acentos do PT-BR.
+//
+// Acentos: por padrão usa a página de código CP860 (português), que cobre os acentos do PT-BR.
+// Algumas impressoras só têm a CP850 (ou numeram a CP860 diferente): para elas há a opção
+// "850", e "ascii" tira os acentos (funciona em qualquer uma).
 
-const CP860 = {
-  Ç: 0x80,
-  ü: 0x81,
-  é: 0x82,
-  â: 0x83,
-  ã: 0x84,
-  à: 0x85,
-  Á: 0x86,
-  ç: 0x87,
-  ê: 0x88,
-  Ê: 0x89,
-  è: 0x8a,
-  Í: 0x8b,
-  Ô: 0x8c,
-  ì: 0x8d,
-  Ã: 0x8e,
-  Â: 0x8f,
-  É: 0x90,
-  À: 0x91,
-  È: 0x92,
-  ô: 0x93,
-  õ: 0x94,
-  ò: 0x95,
-  Ú: 0x96,
-  ù: 0x97,
-  Ì: 0x98,
-  Õ: 0x99,
-  Ü: 0x9a,
-  Ó: 0x9f,
-  á: 0xa0,
-  í: 0xa1,
-  ó: 0xa2,
-  ú: 0xa3,
-  ñ: 0xa4,
-  Ñ: 0xa5,
-  ª: 0xa6,
-  º: 0xa7,
+/** Metade de cima (0x80–0xFF) de cada página de código, na ordem dos bytes. */
+const HIGH = {
+  860: 'ÇüéâãàÁçêÊèÍÔìÃÂÉÀÈôõòÚùÌÕÜ¢£Ù₧ÓáíóúñÑªº¿Ò¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■ ',
+  850: 'ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜø£Ø×ƒáíóúñÑªº¿®¬½¼¡«»░▒▓│┤ÁÂÀ©╣║╗╝¢¥┐└┴┬├─┼ãÃ╚╔╩╦╠═╬¤ðÐÊËÈıÍÎÏ┘┌█▄¦Ì▀ÓßÔÒõÕµþÞÚÛÙýÝ¯´­±‗¾¶§÷¸°¨·¹³²■ ',
 };
+const TABLES = Object.fromEntries(
+  Object.entries(HIGH).map(([cp, s]) => [cp, new Map([...s].map((ch, i) => [ch, 0x80 + i]))]),
+);
+/** Número da tabela no comando ESC t (padrão Epson, seguido por Elgin, Bematech, Tanca...). */
+const ESC_T = { 860: 3, 850: 2 };
 
-/** Codifica texto em CP860; caracteres fora da tabela perdem o acento ou viram "?". */
-export function encodeCp860(text) {
+/** Codifica texto na página pedida; caractere fora da tabela perde o acento ou vira "?". */
+export function encodeText(text, codepage = '860') {
+  const table = TABLES[codepage];
   const out = [];
   for (const ch of text) {
     const code = ch.codePointAt(0);
     if (code === 0x0a || (code >= 0x20 && code < 0x7f)) out.push(code);
-    else if (CP860[ch] !== undefined) out.push(CP860[ch]);
+    else if (table?.has(ch)) out.push(table.get(ch));
     else {
       const plain = ch.normalize('NFD').replace(/[̀-ͯ]/g, '');
       const p = plain.codePointAt(0);
@@ -55,6 +31,9 @@ export function encodeCp860(text) {
   }
   return Buffer.from(out);
 }
+
+/** Codifica texto em CP860 (mantido para quem já usava). */
+export const encodeCp860 = (text) => encodeText(text, '860');
 
 const ESC = 0x1b;
 const GS = 0x1d;
@@ -82,16 +61,28 @@ export function qrCode(data, size = 5) {
   ]);
 }
 
-/** Documento completo: inicializa, seleciona CP860, imprime, avança e corta. */
-export function toEscPos(text) {
+/**
+ * Documento completo: inicializa, escolhe a página de código, imprime, avança e corta.
+ *
+ * As comandas têm 42 colunas. No papel de 80 mm cabem com a fonte normal; no de 58 mm
+ * (384 pontos) usa a fonte B (9 × 17), em que 42 colunas cabem numa linha.
+ *
+ * @param {string} text
+ * @param {{ paper?: 80 | 58, codepage?: '860' | '850' | 'ascii' }} [o]
+ */
+export function toEscPos(text, o = {}) {
+  const paper = o.paper === 58 ? 58 : 80;
+  const codepage = o.codepage === '850' || o.codepage === 'ascii' ? o.codepage : '860';
   const body = [];
   for (const line of text.replace(/\r\n?/g, '\n').split('\n')) {
-    if (line.startsWith(QR_MARK)) body.push(qrCode(line.slice(QR_MARK.length)));
-    else body.push(encodeCp860(`${line}\n`));
+    if (line.startsWith(QR_MARK))
+      body.push(qrCode(line.slice(QR_MARK.length), paper === 58 ? 4 : 5));
+    else body.push(encodeText(`${line}\n`, codepage));
   }
   return Buffer.concat([
     Buffer.from([ESC, 0x40]), // ESC @  inicializa
-    Buffer.from([ESC, 0x74, 3]), // ESC t 3  página de código CP860
+    ...(codepage === 'ascii' ? [] : [Buffer.from([ESC, 0x74, ESC_T[codepage]])]), // ESC t n
+    ...(paper === 58 ? [Buffer.from([ESC, 0x4d, 1])] : []), // ESC M 1  fonte B
     ...body,
     Buffer.from('\n\n\n'),
     Buffer.from([GS, 0x56, 66, 0]), // GS V 66 0  avança e corta (parcial)

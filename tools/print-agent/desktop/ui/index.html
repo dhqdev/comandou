@@ -16,28 +16,35 @@
         <img src="logo.svg" alt="" class="connect__logo" />
         <h1>Vamos ligar suas impressoras</h1>
         <p>
-          Este aplicativo fica rodando perto do relógio e imprime as comandas sozinho. Leva um
-          minuto para configurar.
+          Este aplicativo fica rodando perto do relógio e imprime as comandas sozinho. Funciona com
+          impressora USB, de rede (cabo ou Wi-Fi), Bluetooth ou serial.
         </p>
         <ol class="steps">
           <li>
             <span class="steps__n">1</span>
             <div>
-              No painel do Comandou, abra <strong>Impressão</strong> e clique em
-              <strong>Conectar computador</strong>.
+              No painel do Comandou (no navegador), abra <strong>Sistema › Impressão</strong> e
+              clique em <strong>Conectar computador</strong>.
             </div>
           </li>
           <li>
             <span class="steps__n">2</span>
             <div>
-              Clique em <strong>Abrir no aplicativo</strong>, ou copie o código e cole ao lado.
+              Clique em <strong>Abrir no aplicativo</strong>. Se não abrir sozinho, clique em
+              <strong>Copiar</strong> e cole o código aqui ao lado.
             </div>
           </li>
           <li>
             <span class="steps__n">3</span>
-            <div>Escolha a impressora e imprima um teste. Pronto.</div>
+            <div>
+              Aqui no aplicativo, clique em <strong>Adicionar impressora</strong>, diga como ela
+              está ligada e imprima um teste.
+            </div>
           </li>
         </ol>
+        <button type="button" class="btn btn--soft connect__guide" data-guide="inicio">
+          Ver o passo a passo completo
+        </button>
       </section>
       <section class="connect__form card">
         <form id="connect-form">
@@ -51,7 +58,10 @@
           ></textarea>
           <p id="connect-error" class="error" role="alert" hidden></p>
           <button type="submit" class="btn btn--primary btn--lg" id="connect-btn">Conectar</button>
-          <p class="hint">O código liga este computador a um único restaurante.</p>
+          <p class="hint">
+            O código liga este computador a um único restaurante e aparece uma vez só no painel. Se
+            perder, gere outro lá.
+          </p>
         </form>
       </section>
     </main>
@@ -65,6 +75,7 @@
           <span id="agent-name" class="muted"></span>
         </div>
         <div id="status" class="pill"></div>
+        <button type="button" class="btn btn--ghost top__help" data-guide="inicio">Ajuda</button>
       </header>
 
       <div id="banner" class="banner" hidden></div>
@@ -77,7 +88,7 @@
               <p class="muted">Recebe tudo o que não tiver impressora própria logo abaixo.</p>
             </div>
           </div>
-          <div class="printer-row printer-row--main" id="main-printer"></div>
+          <div id="main-printer"></div>
         </section>
 
         <section class="card">
@@ -86,6 +97,7 @@
               <h2>Uma impressora por setor</h2>
               <p class="muted">
                 Opcional. Ex.: bebidas saem no bar, lanches na chapa, conferência no caixa.
+                <button type="button" class="link" data-guide="setores">Como funciona?</button>
               </p>
             </div>
           </div>
@@ -117,30 +129,459 @@
       </footer>
     </div>
 
-    <!-- Impressora de rede -->
-    <dialog id="net-dialog" class="dialog">
-      <form method="dialog" id="net-form">
-        <h3>Impressora de rede</h3>
-        <p class="muted">
-          O IP aparece na folha de autoteste da impressora (segure o botão de avanço do papel ao
-          ligar).
-        </p>
-        <div class="net-fields">
-          <label>
-            <span class="label">IP da impressora</span>
-            <input id="net-ip" placeholder="192.168.0.50" required inputmode="decimal" />
-          </label>
-          <label>
-            <span class="label">Porta</span>
-            <input id="net-port" value="9100" required inputmode="numeric" />
-          </label>
+    <!-- Adicionar / trocar impressora (passo a passo) -->
+    <dialog id="pick" class="dialog dialog--wide" aria-labelledby="pick-title">
+      <div class="pick">
+        <header class="pick__head">
+          <div>
+            <h3 id="pick-title">Adicionar impressora</h3>
+            <p id="pick-sub" class="muted"></p>
+          </div>
+          <button type="button" class="icon-btn" id="pick-close" aria-label="Fechar">✕</button>
+        </header>
+        <ol class="stepper" id="pick-stepper">
+          <li data-stage="type"><span>1</span> Como está ligada</li>
+          <li data-stage="device"><span>2</span> Qual impressora</li>
+          <li data-stage="adjust"><span>3</span> Ajustes e teste</li>
+        </ol>
+        <div id="pick-body" class="pick__body"></div>
+        <footer id="pick-foot" class="pick__foot"></footer>
+      </div>
+    </dialog>
+
+    <!-- Ajuda: o passo a passo de cada tipo de ligação -->
+    <dialog id="guide" class="dialog dialog--guide" aria-labelledby="guide-title">
+      <div class="guide">
+        <header class="guide__head">
+          <h3 id="guide-title">Como ligar a impressora</h3>
+          <div class="seg" role="group" aria-label="Sistema do computador">
+            <button type="button" data-os="win">Windows</button>
+            <button type="button" data-os="mac">macOS</button>
+            <button type="button" data-os="linux">Linux</button>
+          </div>
+          <button type="button" class="icon-btn" id="guide-close" aria-label="Fechar">✕</button>
+        </header>
+        <div class="guide__wrap">
+          <nav class="guide__nav" aria-label="Assuntos">
+            <button type="button" data-section="inicio">Começar</button>
+            <button type="button" data-section="usb">USB</button>
+            <button type="button" data-section="rede">Rede com cabo</button>
+            <button type="button" data-section="wifi">Wi-Fi</button>
+            <button type="button" data-section="bluetooth">Bluetooth</button>
+            <button type="button" data-section="serial">Serial (COM)</button>
+            <button type="button" data-section="setores">Uma por setor</button>
+            <button type="button" data-section="problemas">Problemas comuns</button>
+          </nav>
+
+          <div class="guide__body" tabindex="0">
+            <!-- Começar -->
+            <section data-section="inicio">
+              <h4>Em 3 passos</h4>
+              <ol class="g-steps">
+                <li>
+                  <strong>Ligue a impressora e coloque a bobina.</strong> O lado que imprime é o de
+                  fora do rolo: risque com a unha, o lado que escurece é o certo. Feche a tampa.
+                </li>
+                <li>
+                  <strong>Ligue a impressora ao computador ou à rede</strong>, do jeito que ela
+                  aceita (veja abaixo qual é o seu).
+                </li>
+                <li>
+                  <strong>Aqui no aplicativo:</strong> Adicionar impressora → escolha como ela está
+                  ligada → escolha a impressora → <strong>Imprimir teste</strong> →
+                  <strong>Salvar</strong>.
+                </li>
+              </ol>
+              <h4>Como a minha impressora se liga?</h4>
+              <p>Olhe atrás da impressora. Muitas têm mais de um jeito:</p>
+              <ul class="g-kinds">
+                <li>
+                  <strong>Conector quadrado, igual ao de impressora comum</strong>
+                  <span
+                    >USB.
+                    <button type="button" class="link" data-goto="usb">
+                      Ver passo a passo
+                    </button></span
+                  >
+                </li>
+                <li>
+                  <strong>Entrada de cabo de internet (igual à do roteador)</strong>
+                  <span
+                    >Rede com cabo.
+                    <button type="button" class="link" data-goto="rede">
+                      Ver passo a passo
+                    </button></span
+                  >
+                </li>
+                <li>
+                  <strong>Símbolo de Wi-Fi, ou "W"/"WiFi" no nome do modelo</strong>
+                  <span
+                    >Wi-Fi.
+                    <button type="button" class="link" data-goto="wifi">
+                      Ver passo a passo
+                    </button></span
+                  >
+                </li>
+                <li>
+                  <strong>Símbolo de Bluetooth ou impressora portátil com bateria</strong>
+                  <span
+                    >Bluetooth.
+                    <button type="button" class="link" data-goto="bluetooth">
+                      Ver passo a passo
+                    </button></span
+                  >
+                </li>
+                <li>
+                  <strong>Conector largo de 9 ou 25 pinos</strong>
+                  <span
+                    >Serial (RS-232).
+                    <button type="button" class="link" data-goto="serial">
+                      Ver passo a passo
+                    </button></span
+                  >
+                </li>
+              </ul>
+              <p class="g-tip">
+                <strong>Qual escolher?</strong> Se a impressora tiver várias opções, prefira
+                <strong>rede com cabo</strong> (mais estável e não depende de um computador
+                específico), depois USB, Wi-Fi e Bluetooth.
+              </p>
+              <p class="g-tip">
+                <strong>Deixe este computador sempre ligado</strong> durante o expediente e sem
+                suspensão. É ele que manda as comandas para as impressoras.
+              </p>
+            </section>
+
+            <!-- USB -->
+            <section data-section="usb">
+              <h4>Impressora USB</h4>
+              <div class="os" data-os="win">
+                <ol class="g-steps">
+                  <li>Ligue o cabo USB no computador e ligue a impressora.</li>
+                  <li>
+                    Instale o <strong>driver do fabricante</strong> (Elgin, Bematech, Epson, Daruma,
+                    Tanca, Knup… estão no site de cada um). Depois ela aparece em
+                    <em>Configurações › Bluetooth e dispositivos › Impressoras e scanners</em>.
+                  </li>
+                  <li>
+                    <strong>Não achou o driver?</strong> Use o do próprio Windows:
+                    <em>Painel de Controle › Dispositivos e Impressoras › Adicionar impressora</em>
+                    → "A impressora que eu quero não está na lista" → "Adicionar uma impressora
+                    local ou de rede com configurações manuais" → porta
+                    <strong>USB001</strong> (Porta de impressora virtual para USB) → fabricante
+                    <strong>Generic</strong> → modelo <strong>Generic / Text Only</strong> → dê um
+                    nome, como "Térmica Caixa".
+                  </li>
+                  <li>
+                    Aqui: <strong>Adicionar impressora › USB</strong> → escolha a impressora na
+                    lista → <strong>Imprimir teste</strong>.
+                  </li>
+                </ol>
+                <p class="g-tip">
+                  Alguns modelos (Elgin, Bematech, Daruma) instalam como "porta COM virtual". Se for
+                  o seu caso, escolha
+                  <button type="button" class="link" data-goto="serial">Serial (COM)</button>.
+                </p>
+              </div>
+              <div class="os" data-os="mac">
+                <ol class="g-steps">
+                  <li>Ligue o cabo USB no Mac e ligue a impressora.</li>
+                  <li>
+                    Instale o driver do fabricante para macOS, se tiver. Depois abra
+                    <em>Ajustes do Sistema › Impressoras e Scanners › Adicionar impressora</em> e
+                    escolha a impressora.
+                  </li>
+                  <li>
+                    Sem driver: na mesma tela, em <em>Usar</em>, escolha
+                    <strong>Impressora PostScript Genérica</strong>. O Comandou manda os dados
+                    direto, sem passar pelo driver.
+                  </li>
+                  <li>
+                    Aqui: <strong>Adicionar impressora › USB</strong> → escolha → Imprimir teste.
+                  </li>
+                </ol>
+              </div>
+              <div class="os" data-os="linux">
+                <ol class="g-steps">
+                  <li>Ligue o cabo USB e ligue a impressora.</li>
+                  <li>
+                    O mais simples: <strong>Adicionar impressora › USB direto</strong> (usa
+                    <code>/dev/usb/lp0</code>, sem driver).
+                  </li>
+                  <li>
+                    Deu "sem permissão"? No terminal rode
+                    <code>sudo usermod -aG lp $USER</code> e entre de novo no computador.
+                  </li>
+                  <li>
+                    Também dá para instalar pelo CUPS (<em>Configurações › Impressoras</em>, driver
+                    "Raw" ou "Generic") e escolher em <strong>USB</strong>.
+                  </li>
+                </ol>
+              </div>
+            </section>
+
+            <!-- Rede -->
+            <section data-section="rede">
+              <h4>Impressora de rede (cabo)</h4>
+              <ol class="g-steps">
+                <li>
+                  Ligue o cabo de rede da impressora no <strong>roteador</strong> ou no switch, na
+                  mesma rede deste computador.
+                </li>
+                <li>
+                  <strong>Descubra o IP:</strong> desligue a impressora, segure o botão de avançar o
+                  papel (FEED) e ligue de novo. Solte quando começar a imprimir. A folha de
+                  autoteste mostra o <em>IP Address</em>, por exemplo 192.168.0.50.
+                </li>
+                <li>
+                  Aqui: <strong>Adicionar impressora › Rede</strong>. O aplicativo procura sozinho
+                  as impressoras da rede. Se ela não aparecer, digite o IP; a porta é
+                  <strong>9100</strong>.
+                </li>
+                <li>
+                  <strong>Deixe o IP fixo.</strong> No roteador, reserve o IP para a impressora
+                  ("reserva de DHCP" ou "IP fixo"). Se o IP mudar, as comandas param de sair.
+                </li>
+              </ol>
+              <p class="g-tip">
+                <strong>O começo do IP precisa ser igual</strong> ao do computador (192.168.0.50 e
+                192.168.0.12, por exemplo). Impressora nova às vezes vem com IP de outra faixa
+                (192.168.1.87, 192.168.123.100): mude pelo programa do fabricante ou digitando o IP
+                dela no navegador.
+              </p>
+            </section>
+
+            <!-- Wi-Fi -->
+            <section data-section="wifi">
+              <h4>Impressora Wi-Fi</h4>
+              <ol class="g-steps">
+                <li>
+                  <strong>Coloque a impressora na rede Wi-Fi do restaurante</strong> (a mesma deste
+                  computador). Os jeitos mais comuns:
+                  <ul>
+                    <li>
+                      <strong>Programa do fabricante</strong> (com o cabo USB ligado): escolha a
+                      rede e digite a senha.
+                    </li>
+                    <li>
+                      <strong>Botão WPS:</strong> aperte o WPS do roteador e, em até 2 minutos, o
+                      botão indicado no manual da impressora.
+                    </li>
+                    <li>
+                      <strong>Rede própria da impressora:</strong> ela cria uma rede (ex.:
+                      "Printer_XXXX"). Conecte o celular nela, abra o endereço do manual no
+                      navegador e escolha a sua rede Wi-Fi.
+                    </li>
+                  </ul>
+                </li>
+                <li>
+                  Imprima a <strong>folha de autoteste</strong> (segure FEED ao ligar) para ver o IP
+                  que ela recebeu.
+                </li>
+                <li>
+                  Aqui: <strong>Adicionar impressora › Rede</strong> → escolha na lista ou digite o
+                  IP (porta 9100).
+                </li>
+                <li>Reserve o IP no roteador, como na rede com cabo.</li>
+              </ol>
+              <p class="g-tip">
+                Prefira a rede de <strong>2,4 GHz</strong> e deixe a impressora perto do roteador.
+                Wi-Fi fraco atrasa ou perde comanda; na cozinha, cabo é melhor.
+              </p>
+            </section>
+
+            <!-- Bluetooth -->
+            <section data-section="bluetooth">
+              <h4>Impressora Bluetooth</h4>
+              <div class="os" data-os="win">
+                <ol class="g-steps">
+                  <li>Ligue a impressora e deixe perto do computador.</li>
+                  <li>
+                    <em
+                      >Configurações › Bluetooth e dispositivos › Adicionar dispositivo ›
+                      Bluetooth</em
+                    >
+                    → escolha a impressora (nomes comuns: MPT-II, PT-210, BlueTooth Printer). Se
+                    pedir PIN, tente <strong>0000</strong> ou <strong>1234</strong>.
+                  </li>
+                  <li>
+                    O Windows cria uma porta COM para ela. Aqui:
+                    <strong>Adicionar impressora › Bluetooth</strong> → escolha a impressora →
+                    Imprimir teste.
+                  </li>
+                  <li>
+                    <strong>Não apareceu na lista?</strong> Em
+                    <em
+                      >Bluetooth e dispositivos › Dispositivos › Mais configurações de Bluetooth ›
+                      Portas COM</em
+                    >, clique em Adicionar → "De saída" → escolha a impressora. Depois clique em
+                    Atualizar aqui.
+                  </li>
+                </ol>
+              </div>
+              <div class="os" data-os="mac">
+                <ol class="g-steps">
+                  <li>
+                    <em>Ajustes do Sistema › Bluetooth</em> → ligue a impressora e clique em
+                    Conectar ao lado dela (PIN 0000 ou 1234).
+                  </li>
+                  <li>
+                    Aqui: <strong>Adicionar impressora › Bluetooth</strong> → escolha (aparece com o
+                    nome dela) → Imprimir teste.
+                  </li>
+                  <li>
+                    Não apareceu? Alguns modelos não criam porta serial no macOS. Use o cabo USB ou
+                    a rede.
+                  </li>
+                </ol>
+              </div>
+              <div class="os" data-os="linux">
+                <ol class="g-steps">
+                  <li>
+                    Pareie pelo menu Bluetooth do sistema (ou no terminal:
+                    <code>bluetoothctl</code>, depois <code>pair AA:BB:CC:DD:EE:FF</code> e
+                    <code>trust AA:BB:CC:DD:EE:FF</code>).
+                  </li>
+                  <li>
+                    Crie a porta: <code>sudo rfcomm bind 0 AA:BB:CC:DD:EE:FF 1</code> (vira
+                    <code>/dev/rfcomm0</code>).
+                  </li>
+                  <li>
+                    Aqui: <strong>Adicionar impressora › Bluetooth</strong> → rfcomm0 → Imprimir
+                    teste. Sem permissão: <code>sudo usermod -aG dialout $USER</code>.
+                  </li>
+                </ol>
+              </div>
+              <p class="g-tip">
+                Bluetooth aceita <strong>uma conexão por vez</strong>: se a impressora estiver
+                ligada a um celular, desconecte lá. Funciona bem até uns 10 metros sem paredes; para
+                a cozinha longe, use rede.
+              </p>
+              <p class="g-tip">
+                Impressoras só "BLE" (algumas portáteis baratas) não criam porta COM. Nesse caso use
+                o cabo USB que vem com elas.
+              </p>
+            </section>
+
+            <!-- Serial -->
+            <section data-section="serial">
+              <h4>Serial (RS-232, COM ou USB-serial)</h4>
+              <ol class="g-steps">
+                <li>
+                  Ligue o cabo serial, ou o adaptador USB-serial (instale o driver dele: CH340,
+                  PL2303 ou FTDI).
+                </li>
+                <li>
+                  Descubra a <strong>velocidade</strong>: a folha de autoteste das impressoras
+                  seriais mostra o <em>Baud rate</em> (normalmente 9600, 19200, 38400 ou 115200).
+                </li>
+                <li>
+                  Aqui: <strong>Adicionar impressora › Serial</strong> → escolha a porta (COM3,
+                  /dev/ttyUSB0…) → velocidade → Imprimir teste.
+                </li>
+              </ol>
+              <p class="g-tip">
+                Saíram letras embaralhadas? A velocidade está errada: troque e teste de novo.
+              </p>
+              <p class="g-tip os" data-os="linux">
+                Sem permissão? <code>sudo usermod -aG dialout $USER</code> e entre de novo.
+              </p>
+            </section>
+
+            <!-- Setores -->
+            <section data-section="setores">
+              <h4>Uma impressora por setor</h4>
+              <ol class="g-steps">
+                <li>
+                  Os setores vêm do Comandou, em <em>Sistema › Ajustes › Setores de produção</em>
+                  (Cozinha, Bar, Chapa…). Cada item do cardápio vai para um setor.
+                </li>
+                <li>
+                  Aqui, em <strong>Uma impressora por setor</strong>, clique em
+                  <strong>Escolher</strong> ao lado do setor e siga o mesmo passo a passo.
+                </li>
+                <li>
+                  O que não tiver impressora própria sai na <strong>principal</strong>.
+                  <strong>Caixa</strong> recebe as conferências de conta e o cupom.
+                </li>
+              </ol>
+              <p class="g-tip">
+                Dá para misturar: bar em Bluetooth, cozinha em rede, caixa em USB. Um computador só
+                cuida de todas.
+              </p>
+              <p class="g-tip">
+                Se conectar <strong>dois computadores</strong>, eles dividem a fila: qualquer um
+                pode pegar qualquer comanda. Configure as mesmas impressoras nos dois.
+              </p>
+            </section>
+
+            <!-- Problemas -->
+            <section data-section="problemas">
+              <h4>Problemas comuns</h4>
+              <details>
+                <summary>Não saiu nada</summary>
+                <p>
+                  Confira se a impressora está ligada, com papel e a tampa fechada. Na rede, imprima
+                  a folha de autoteste e veja se o IP é o mesmo que está aqui (o IP pode ter
+                  mudado). No USB, veja se a impressora ainda aparece no sistema. A mensagem de erro
+                  aparece em "Últimas impressões".
+                </p>
+              </details>
+              <details>
+                <summary>Saiu o papel em branco</summary>
+                <p>
+                  A bobina está virada. Vire o rolo: o lado que imprime fica para fora. Risque com a
+                  unha para conferir: o lado certo escurece.
+                </p>
+              </details>
+              <details>
+                <summary>Os acentos viraram símbolos</summary>
+                <p>
+                  Clique em <strong>Trocar</strong> na impressora e, em <strong>Acentos</strong>,
+                  escolha <em>CP850</em>. Se ainda sair errado, escolha
+                  <em>Sem acentos</em> (funciona em qualquer impressora).
+                </p>
+              </details>
+              <details>
+                <summary>As linhas quebram ou o texto sai cortado</summary>
+                <p>
+                  A bobina é de <strong>58 mm</strong>. Clique em Trocar e marque
+                  <strong>Papel 58 mm</strong>: a letra fica menor e a linha inteira cabe.
+                </p>
+              </details>
+              <details>
+                <summary>Saíram letras embaralhadas</summary>
+                <p>
+                  Na serial, a velocidade está errada. Em outras, a impressora pode estar num modo
+                  próprio do fabricante (ex.: Bematech em ESC/Bema): mude para
+                  <strong>ESC/POS</strong> no programa do fabricante.
+                </p>
+              </details>
+              <details>
+                <summary>O teste sai, mas as comandas não</summary>
+                <p>
+                  Veja se a bolinha em cima está verde (Online). O computador não pode entrar em
+                  suspensão: no Windows, <em>Configurações › Sistema › Energia</em> → suspensão
+                  "Nunca" quando conectado. No painel do Comandou, a <em>Fila de impressão</em>
+                  mostra se a comanda falhou e o motivo.
+                </p>
+              </details>
+              <details>
+                <summary>Bluetooth: "não respondeu" ou "porta ocupada"</summary>
+                <p>
+                  Ligue a impressora, deixe perto e desconecte do celular. Feche o programa do
+                  fabricante, se estiver aberto. Desligar e ligar a impressora resolve a maioria dos
+                  casos.
+                </p>
+              </details>
+              <details>
+                <summary>Não corta o papel</summary>
+                <p>O modelo não tem guilhotina. Destaque o papel na serrilha.</p>
+              </details>
+            </section>
+          </div>
         </div>
-        <p id="net-error" class="error" hidden></p>
-        <div class="dialog__actions">
-          <button type="button" class="btn" id="net-cancel">Cancelar</button>
-          <button type="submit" class="btn btn--primary" value="ok">Usar esta impressora</button>
-        </div>
-      </form>
+      </div>
     </dialog>
 
     <div id="toast" class="toast" role="status" hidden></div>

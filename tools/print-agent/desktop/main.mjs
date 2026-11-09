@@ -18,7 +18,16 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PrintAgent, parseConnectionCode } from '../core.mjs';
-import { describePrinter, parseTcp, printText, testPageText } from '../printers.mjs';
+import { listDirectDevices, listSerialPorts, scanNetwork } from '../devices.mjs';
+import {
+  describePrinter,
+  parseSpec,
+  parseTcp,
+  printText,
+  testPageText,
+  validDirectDevice,
+  validSerialPort,
+} from '../printers.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PROTOCOL = 'comandou-impressao';
@@ -303,7 +312,7 @@ async function testPrint(spec) {
     at: Date.now(),
   };
   try {
-    await printText(spec, testPageText(describePrinter(spec)));
+    await printText(spec, testPageText(describePrinter(spec), spec));
     jobs = [{ ...ev, ok: true, printerLabel: describePrinter(spec) }, ...jobs].slice(0, MAX_LOG);
     push();
   } catch (e) {
@@ -318,10 +327,17 @@ async function testPrint(spec) {
 
 function validSpec(spec) {
   if (spec === '' || spec === 'none') return true;
-  if (spec.startsWith('printer:')) return spec.length > 8 && spec.length < 300;
-  if (spec.startsWith('tcp://')) return !!parseTcp(spec);
+  const { base } = parseSpec(spec);
+  if (base.startsWith('printer:')) return base.length > 8 && base.length < 300;
+  if (base.startsWith('tcp://')) return !!parseTcp(base);
+  if (base.startsWith('serial:')) return validSerialPort(base.slice(7));
+  // USB direto só aponta para impressora (/dev/usb/lp0), nunca para um arquivo qualquer.
+  if (base.startsWith('file:'))
+    return process.platform === 'linux' && validDirectDevice(base.slice(5));
   return false;
 }
+
+let scanning;
 
 function registerIpc() {
   ipcMain.handle('state', () => publicState());
@@ -360,7 +376,22 @@ function registerIpc() {
     push();
     return publicState();
   });
-  ipcMain.handle('test-print', (_e, spec) => testPrint(String(spec ?? '')));
+  ipcMain.handle('ports', async () => ({
+    serial: await listSerialPorts(),
+    direct: await listDirectDevices(),
+  }));
+  ipcMain.handle('scan-network', () => {
+    // Um clique só procura uma vez; o progresso vai para a tela.
+    scanning ??= scanNetwork({
+      onProgress: (done, total) => win?.webContents.send('scan-progress', { done, total }),
+    }).finally(() => (scanning = undefined));
+    return scanning;
+  });
+  ipcMain.handle('test-print', (_e, spec) => {
+    spec = String(spec ?? '');
+    if (!validSpec(spec)) throw new Error('Impressora inválida.');
+    return testPrint(spec);
+  });
   ipcMain.handle('set-autostart', async (_e, on) => {
     config.autostart = !!on;
     await saveConfig();

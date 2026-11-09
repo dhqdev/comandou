@@ -1,7 +1,7 @@
 {
   "name": "comandou-impressao",
   "productName": "Comandou Impressão",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Liga o Comandou às impressoras térmicas do restaurante e imprime as comandas em segundo plano.",
   "author": "Comandou",
   "license": "UNLICENSED",
@@ -26,6 +26,7 @@
     "files": [
       "core.mjs",
       "printers.mjs",
+      "devices.mjs",
       "escpos.mjs",
       "desktop/**/*",
       "package.json"
