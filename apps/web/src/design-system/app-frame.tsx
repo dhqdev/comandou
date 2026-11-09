@@ -155,6 +155,48 @@ export function AppFrame({
     panel.current?.scrollTo({ top: 0 });
   }, [pathname]);
 
+  // Barra lateral: o panda e a conta ficam presos; só os itens do meio rolam (tela baixa).
+  // Marca as bordas que ainda têm item escondido, para o CSS esmaecer e mostrar que dá para rolar.
+  const itemCount = items.length;
+  useEffect(() => {
+    const nav = rail.ref.current;
+    if (!nav) return;
+    const edges = () => {
+      const max = nav.scrollHeight - nav.clientHeight;
+      nav.toggleAttribute('data-more-up', nav.scrollTop > 1);
+      nav.toggleAttribute('data-more-down', nav.scrollTop < max - 1);
+    };
+    edges();
+    nav.addEventListener('scroll', edges, { passive: true });
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(edges) : null;
+    if (ro) {
+      ro.observe(nav);
+      for (const c of nav.children) ro.observe(c);
+    }
+    return () => {
+      nav.removeEventListener('scroll', edges);
+      ro?.disconnect();
+    };
+  }, [itemCount]);
+
+  // Tela atual escondida na parte que rola (ex.: abriu direto em Auditoria): traz o item à vista.
+  const railShown = useRef(false);
+  useLayoutEffect(() => {
+    const nav = rail.ref.current;
+    const el = nav?.querySelector<HTMLElement>('.cm-rail__item.is-active');
+    if (!nav || !el) return;
+    const pad = 12;
+    const elTop = el.offsetTop;
+    const elBottom = elTop + el.offsetHeight;
+    let to: number | null = null;
+    if (elTop < nav.scrollTop) to = Math.max(0, elTop - pad);
+    else if (elBottom > nav.scrollTop + nav.clientHeight) to = elBottom - nav.clientHeight + pad;
+    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (to !== null)
+      nav.scrollTo({ top: to, behavior: railShown.current && !calm ? 'smooth' : 'auto' });
+    railShown.current = true;
+  }, [pathname]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(null);
@@ -241,7 +283,12 @@ export function AppFrame({
     <div className={`cm-frame ${className}`}>
       <aside className="cm-rail" aria-label="Navegação principal">
         <div className="cm-rail__brand">{brand}</div>
-        <nav className="cm-rail__nav cm-glide" ref={rail.ref}>
+        <nav
+          className="cm-rail__nav cm-glide"
+          ref={rail.ref}
+          // Submenu aberto fica preso à altura do botão: rolando os itens, ele fecha.
+          onScroll={() => open && setOpen(null)}
+        >
           {items.map(railItem)}
           {rail.glider}
         </nav>
@@ -425,6 +472,24 @@ export function AppFrame({
         )}
       </Sheet>
     </div>
+  );
+}
+
+/** Iniciais da pessoa num círculo, no lugar do ícone do item da conta na barra lateral. */
+export function FrameAvatar({ name }: { name?: string | null }) {
+  const initials =
+    (name ?? '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((p) => p[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase() || '?';
+  return (
+    <span className="cm-rail__avatar" aria-hidden>
+      {initials}
+    </span>
   );
 }
 

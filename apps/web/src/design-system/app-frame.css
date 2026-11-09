@@ -15,7 +15,10 @@
   overflow: hidden;
 }
 
-/* ---------------------------------------------------------------- barra lateral */
+/* ---------------------------------------------------------------- barra lateral
+ * Três faixas: o panda fica preso no topo, a conta preso no pé e só os itens do meio rolam
+ * quando a tela é baixa (com um esmaecido na borda que ainda tem item escondido).
+ */
 .cm-rail {
   grid-row: 1 / -1;
   display: flex;
@@ -23,14 +26,9 @@
   align-items: center;
   gap: 6px;
   padding: 10px 0 12px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: none;
+  overflow: hidden;
   background: var(--cm-frame);
   z-index: 3;
-}
-.cm-rail::-webkit-scrollbar {
-  display: none;
 }
 .cm-rail__brand {
   height: calc(var(--top-h) - 10px);
@@ -46,10 +44,76 @@
   width: 100%;
   padding: 0 6px;
   justify-items: center;
+  align-content: start;
+}
+.cm-rail__nav {
+  flex: 1 1 auto;
+  min-height: 0;
+  /* respiro para o anel de foco do primeiro e do último item não ser cortado */
+  padding-block: 3px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.cm-rail__nav::-webkit-scrollbar {
+  display: none;
+}
+/* Tem item escondido acima/abaixo: a borda esmaece para mostrar que dá para rolar. */
+.cm-rail__nav:is([data-more-up], [data-more-down]) {
+  --fade-up: 0px;
+  --fade-down: 0px;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--fade-up),
+    #000 calc(100% - var(--fade-down)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--fade-up),
+    #000 calc(100% - var(--fade-down)),
+    transparent
+  );
+}
+.cm-rail__nav[data-more-up] {
+  --fade-up: 28px;
+}
+.cm-rail__nav[data-more-down] {
+  --fade-down: 28px;
 }
 .cm-rail__foot {
-  margin-top: auto;
-  padding-top: 10px;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+/* Fio curto separando a conta (fixa no pé) dos itens que rolam. */
+.cm-rail__foot::before {
+  content: '';
+  width: 32px;
+  height: 1px;
+  margin-bottom: 6px;
+  background: var(--cm-border);
+}
+/* Avatar com a inicial no lugar do ícone da conta. */
+.cm-rail__avatar {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--cm-brand-100);
+  color: var(--cm-brand-800);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  transition: box-shadow var(--cm-dur) var(--cm-ease);
+}
+.cm-rail__item.is-active .cm-rail__avatar {
+  box-shadow:
+    0 0 0 2px var(--cm-frame),
+    0 0 0 3.5px var(--cm-brand-500);
 }
 .cm-rail__item {
   position: relative;
@@ -128,6 +192,14 @@
 }
 .cm-rail .cm-glider {
   border-radius: var(--cm-radius-lg);
+}
+/* Tela baixa (notebook, Windows com zoom de 125%): itens mais baixos para caber sem rolar. */
+@media (max-height: 800px) {
+  .cm-rail__item {
+    min-height: 50px;
+    padding-block: 4px;
+    gap: 3px;
+  }
 }
 
 /* ---------------------------------------------------------------- submenu que escorre da barra */

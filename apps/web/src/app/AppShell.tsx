@@ -2,7 +2,6 @@ import { BillingBanner } from '../features/BillingBanner';
 import {
   BarChart3,
   Briefcase,
-  CircleUserRound,
   Compass,
   LifeBuoy,
   BookOpen,
@@ -49,6 +48,7 @@ import { Outlet, useLocation } from 'react-router';
 import {
   AppFrame,
   Badge,
+  FrameAvatar,
   FrameItem,
   FrameLink,
   ThemeToggle,
@@ -367,7 +367,12 @@ export function AppShell() {
             icon: <Sparkles />,
             dot: unseen,
           },
-          { key: 'conta', label: 'Conta', icon: <CircleUserRound />, panel: account },
+          {
+            key: 'conta',
+            label: 'Conta',
+            icon: <FrameAvatar name={me?.user.name} />,
+            panel: account,
+          },
         ]}
         tabs={tabs}
         moreActions={[

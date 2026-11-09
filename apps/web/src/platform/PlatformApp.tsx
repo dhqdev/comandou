@@ -5,7 +5,6 @@ import {
   FileText,
   KanbanSquare,
   Download,
-  CircleUserRound,
   LogOut,
   MessagesSquare,
   RefreshCw,
@@ -29,6 +28,7 @@ import {
   Alert,
   AppFrame,
   Button,
+  FrameAvatar,
   FrameItem,
   LivePanda,
   Mascot,
@@ -342,7 +342,14 @@ function PlatformShell() {
         brandCompact={<LivePanda size={28} badge title="Comandou Admin" />}
         showWhere={false}
         items={items}
-        footer={[{ key: 'conta', label: 'Conta', icon: <CircleUserRound />, panel: account }]}
+        footer={[
+          {
+            key: 'conta',
+            label: 'Conta',
+            icon: <FrameAvatar name={admin?.name} />,
+            panel: account,
+          },
+        ]}
         tabs={TABS}
         contentKey={`${pathname}:${tick}`}
         top={
