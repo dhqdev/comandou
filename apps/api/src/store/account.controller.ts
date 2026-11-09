@@ -409,19 +409,43 @@ const CustomerPatch = z
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');
 
-/** Clientes com conta no cardápio online, vistos pela equipe do restaurante. */
+const NewCustomer = z.object({ name: text(80), phone });
+
+/** Clientes do restaurante (conta no cardápio online ou cadastro da equipe no pedido). */
 @Controller({ path: 'customers', version: '1' })
 export class CustomersController {
   constructor(private readonly customers: CustomersService) {}
 
+  /** `limit` (1 a 300) encurta a lista: o pedido mostra só os clientes mais recentes. */
   @Get()
   @RequirePermission('customers:read')
   list(
     @Query('search') search: string | undefined,
+    @Query('limit') limit: string | undefined,
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
   ) {
-    return this.customers.list(ctxOf(t, u), (search ?? '').slice(0, 80));
+    const n = Number.parseInt(limit ?? '', 10);
+    return this.customers.list(
+      ctxOf(t, u),
+      (search ?? '').slice(0, 80),
+      Number.isFinite(n) ? Math.min(Math.max(n, 1), 300) : 300,
+    );
+  }
+
+  /**
+   * Cadastro rápido pela equipe ao lançar um pedido: nome e telefone. Telefone que já tem
+   * cadastro devolve o cliente existente (`existing: true`) em vez de criar outro.
+   */
+  @Post()
+  @RequirePermission('customers:create')
+  create(
+    @Body(new ZodPipe(NewCustomer)) b: z.infer<typeof NewCustomer>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.customers.staffCreate(ctxOf(t, u, req), b);
   }
 
   @Get(':id')

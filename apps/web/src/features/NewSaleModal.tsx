@@ -34,15 +34,9 @@ import { brl, parseBrlInput } from '../lib/money';
 import { mediaUrl } from '../lib/media';
 import './sale-extras.css';
 import { AddressQuick } from './AddressQuick';
+import { CustomerPicker, type OrderCustomer } from './CustomerPicker';
 import { WeighForm } from './WeighForm';
-import type {
-  CustomerList,
-  CustomerRow,
-  DiningTable,
-  MenuCategory,
-  MenuProduct,
-  Order,
-} from '../lib/types';
+import type { DiningTable, MenuCategory, MenuProduct, Order } from '../lib/types';
 
 interface CartLine {
   /** Identidade estável da linha (a observação muda enquanto se digita). */
@@ -109,9 +103,7 @@ export function NewSaleModal({
   } | null>(null);
   const [channel, setChannel] = useState<OrderChannel>(preset?.channel ?? 'counter');
   const [tableId, setTableId] = useState(preset?.tableId ?? '');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [suggestions, setSuggestions] = useState<CustomerRow[]>([]);
+  const [customer, setCustomer] = useState<OrderCustomer>({ id: null, name: '', phone: '' });
   const [address, setAddress] = useState('');
   const [deliveryFee, setDeliveryFee] = useState('');
   const [discount, setDiscount] = useState('');
@@ -168,25 +160,6 @@ export function NewSaleModal({
     };
   }, [open, channel, toast]);
 
-  // Sugestões de clientes já cadastrados enquanto digita o nome ou o telefone.
-  useEffect(() => {
-    const q = customerName.trim();
-    if (!open || q.length < 2) {
-      setSuggestions([]);
-      return;
-    }
-    const t = window.setTimeout(() => {
-      api<CustomerList>(`/customers?search=${encodeURIComponent(q)}`)
-        .then((d) =>
-          setSuggestions(
-            d.customers.filter((c) => !c.blocked && c.name !== customerName).slice(0, 5),
-          ),
-        )
-        .catch(() => setSuggestions([]));
-    }, 300);
-    return () => window.clearTimeout(t);
-  }, [open, customerName]);
-
   const products = useMemo(() => {
     const all = menu ?? [];
     const s = search.trim().toLowerCase();
@@ -235,8 +208,7 @@ export function NewSaleModal({
 
   function reset() {
     setCart([]);
-    setCustomerName('');
-    setCustomerPhone('');
+    setCustomer({ id: null, name: '', phone: '' });
     setAddress('');
     setDeliveryFee('');
     setDiscount('');
@@ -264,8 +236,9 @@ export function NewSaleModal({
           channel,
           tabId: preset?.tabId,
           tableId: channel === 'table' && !preset?.tabId ? tableId || undefined : undefined,
-          customerName: customerName || undefined,
-          customerPhone: customerPhone || undefined,
+          customerId: customer.id ?? undefined,
+          customerName: customer.name.trim() || undefined,
+          customerPhone: customer.phone || undefined,
           deliveryAddress: channel === 'delivery' ? address : undefined,
           deliveryFee: channel === 'delivery' && feeCents ? fromCents(feeCents) : undefined,
           discount: discountCents ? fromCents(discountCents) : undefined,
@@ -550,42 +523,12 @@ export function NewSaleModal({
             <span className="nsale__label">
               <User size={16} aria-hidden /> Cliente
             </span>
-            <div className="nsale__customer">
-              <TextField
-                label="Nome do cliente"
-                placeholder="Nome ou telefone"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                maxLength={80}
-                autoComplete="off"
-              />
-              {suggestions.length > 0 && (
-                <ul className="nsale__suggest" role="listbox" aria-label="Clientes cadastrados">
-                  {suggestions.map((c) => (
-                    <li key={c.id}>
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={false}
-                        onClick={() => {
-                          setCustomerName(c.name);
-                          setCustomerPhone(c.phone);
-                          setSuggestions([]);
-                        }}
-                      >
-                        <strong>{c.name}</strong>
-                        <span>{c.phone}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            {(channel === 'delivery' || channel === 'pickup' || customerPhone) && (
+            <CustomerPicker value={customer} onChange={setCustomer} />
+            {!customer.id && (channel === 'delivery' || channel === 'pickup' || customer.phone) && (
               <TextField
                 label="Telefone"
-                value={customerPhone}
-                onChange={(e) => setCustomerPhone(e.target.value)}
+                value={customer.phone}
+                onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
                 maxLength={30}
                 inputMode="tel"
               />

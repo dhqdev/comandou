@@ -267,6 +267,22 @@ describe('Programa de fidelidade', () => {
     expect((await client.get('/store/loyalty', ana).expect(200)).body.account.balance).toBe(61);
   });
 
+  it('cliente escolhido no PDV só pontua se a loja contar os pedidos do balcão', async () => {
+    await admin.send('patch', '/loyalty', { countStaffOrders: false }).expect(200);
+    const o = await admin
+      .send('post', '/orders', {
+        channel: 'counter',
+        customerId: anaId,
+        items: [{ productId: fx.prodA, quantity: 1 }],
+      })
+      .set('Idempotency-Key', key())
+      .expect(201);
+    for (const to of ['ready', 'completed'])
+      await admin.send('post', `/orders/${o.body.id}/status`, step(to)).expect(201);
+    expect((await client.get('/store/loyalty', ana).expect(200)).body.account.balance).toBe(61);
+    await admin.send('patch', '/loyalty', { countStaffOrders: true }).expect(200);
+  });
+
   it('pontos vencem depois de N dias sem comprar', async () => {
     await admin.send('patch', '/loyalty', { expiryDays: 30 }).expect(200);
     await ownerQuery(

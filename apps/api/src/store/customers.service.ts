@@ -6,6 +6,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
 import { customerStep } from '@comandou/shared';
@@ -116,7 +117,16 @@ export class CustomersService {
         `SELECT accounts_enabled AS enabled FROM tenant_store_settings`,
       );
       if (s && !s.enabled) throw new ForbiddenException('Este restaurante não usa contas');
-      const dup = await one(tx, `SELECT 1 FROM customers WHERE phone = $1`, [phone]);
+      const dup = await one<{ neverIn: boolean }>(
+        tx,
+        `SELECT last_login_at IS NULL AS "neverIn" FROM customers WHERE phone = $1`,
+        [phone],
+      );
+      // Cadastro feito pela equipe no pedido: o cliente ainda não tem senha.
+      if (dup?.neverIn)
+        throw new ConflictException(
+          'Este telefone já está cadastrado na loja. Toque em "Esqueci minha senha" para criar a sua.',
+        );
       if (dup) throw new ConflictException('Já existe uma conta com este telefone. Entre com ela.');
       if (input.email) {
         const e = await one(tx, `SELECT 1 FROM customers WHERE lower(email) = lower($1)`, [
@@ -601,7 +611,7 @@ export class CustomersService {
   }
 
   // ------------------------------------------------------------------ painel do restaurante
-  list(ctx: Ctx, search: string) {
+  list(ctx: Ctx, search: string, limit = 300) {
     return this.db.withTenant(ctx, async (tx) => {
       const s = search.trim();
       const digits = s.replace(/\D/g, '');
@@ -620,8 +630,8 @@ export class CustomersService {
                FROM orders o WHERE o.customer_id = c.id) st ON true
           WHERE $1 = '' OR c.name ILIKE $2 OR c.email ILIKE $2 OR ($3 <> '' AND (c.phone LIKE $4 OR c.document LIKE $4))
           ORDER BY COALESCE(st.last_order_at, c.created_at) DESC
-          LIMIT 300`,
-        [s, likeOf(s), digits, `%${digits}%`],
+          LIMIT $5`,
+        [s, likeOf(s), digits, `%${digits}%`, limit],
       );
       const summary = await one(
         tx,
@@ -633,6 +643,45 @@ export class CustomersService {
            FROM customers`,
       );
       return { summary, customers };
+    });
+  }
+
+  /**
+   * Cliente cadastrado pela equipe no pedido (nome e telefone). A senha é aleatória e ninguém a
+   * conhece: para usar o cardápio online, o cliente cria a dele em "Esqueci minha senha", que
+   * confirma o telefone. Telefone já cadastrado devolve o cliente que existe.
+   */
+  async staffCreate(ctx: Ctx, input: { name: string; phone: string }) {
+    const phone = normalizePhone(input.phone);
+    if (!phoneOk(phone)) throw new UnprocessableEntityException('Telefone inválido (DDD + número)');
+    const hash = await hashPassword(randomBytes(32).toString('base64url'));
+    return this.db.withTenant(ctx, async (tx) => {
+      const created = await one<Customer>(
+        tx,
+        `INSERT INTO customers (tenant_id, name, phone, password_hash) VALUES ($1,$2,$3,$4)
+         ON CONFLICT (tenant_id, phone) DO NOTHING RETURNING ${CUSTOMER_COLS}`,
+        [ctx.tenantId, input.name, phone, hash],
+      );
+      if (created) {
+        await this.audit.record(tx, {
+          tenantId: ctx.tenantId,
+          actorUserId: ctx.userId,
+          action: 'customer.created',
+          entity: 'customer',
+          entityId: created.id,
+          ip: ctx.ip,
+        });
+        return { ...created, existing: false };
+      }
+      const found = await one<Customer & { blocked: boolean }>(
+        tx,
+        `SELECT ${CUSTOMER_COLS}, blocked_at IS NOT NULL AS blocked FROM customers WHERE phone = $1`,
+        [phone],
+      );
+      if (!found) throw new ConflictException('Tente de novo');
+      const { blocked, ...existing } = found;
+      if (blocked) throw new ConflictException('Este telefone é de um cliente bloqueado');
+      return { ...existing, existing: true };
     });
   }
 

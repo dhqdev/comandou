@@ -430,51 +430,6 @@
   font-size: var(--cm-text-sm);
   font-weight: 700;
 }
-.nsale__customer {
-  position: relative;
-}
-.nsale__customer .cm-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0 0 0 0);
-}
-.nsale__suggest {
-  position: absolute;
-  z-index: 5;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  margin: 0;
-  padding: 4px;
-  list-style: none;
-  border: 1px solid var(--cm-border-strong);
-  border-radius: var(--cm-radius-md);
-  background: var(--cm-surface);
-  box-shadow: var(--cm-shadow-lg);
-}
-.nsale__suggest button {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 10px;
-  border: 0;
-  border-radius: var(--cm-radius-sm);
-  background: none;
-  color: var(--cm-text);
-  font: inherit;
-  font-size: var(--cm-text-sm);
-  text-align: left;
-  cursor: pointer;
-}
-.nsale__suggest button:hover {
-  background: var(--cm-surface-sunken);
-}
-.nsale__suggest span {
-  color: var(--cm-text-muted);
-}
 .nsale__types {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

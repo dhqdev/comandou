@@ -50,6 +50,8 @@ export interface CreateOrderInput {
   tableId?: string;
   customerName?: string;
   customerPhone?: string;
+  /** Cliente cadastrado escolhido pela equipe (vale só fora do cardápio online). */
+  customerId?: string;
   deliveryAddress?: string;
   notes?: string;
   deliveryFee?: string;
@@ -499,8 +501,20 @@ export class OrdersService {
     const total = subtotal - discount + surcharge + deliveryFee;
     if (total < 0) throw new UnprocessableEntityException('Desconto maior que o valor do pedido');
 
-    const number = await nextNumber(tx, ctx.tenantId, 'order');
     const online = input.online;
+    // Cliente escolhido no PDV: liga o pedido à ficha dele. Bloqueado ou inexistente (ex.: a fila
+    // offline chegou depois de alguém apagar) só não liga; o nome e o telefone vão no pedido.
+    const staffCustomerId =
+      !online && input.customerId
+        ? ((
+            await one<{ id: string }>(
+              tx,
+              `SELECT id FROM customers WHERE id = $1 AND blocked_at IS NULL`,
+              [input.customerId],
+            )
+          )?.id ?? null)
+        : null;
+    const number = await nextNumber(tx, ctx.tenantId, 'order');
     const status: OrderStatus = online && !online.autoAccept ? 'awaiting' : 'new';
     const order = await one<{ id: string }>(
       tx,
@@ -530,7 +544,7 @@ export class OrdersService {
         online?.tokenHash ?? null,
         online?.paymentHint ?? null,
         online?.changeFor ?? null,
-        online?.customerId ?? null,
+        online?.customerId ?? staffCustomerId,
         input.deliveryLocation?.lat.toFixed(6) ?? null,
         input.deliveryLocation?.lng.toFixed(6) ?? null,
       ],

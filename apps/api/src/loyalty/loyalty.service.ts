@@ -528,7 +528,9 @@ export class LoyaltyService {
       [orderId],
     );
     if (!o) return;
-    let customerId = o.customerId;
+    // Pedido da equipe só pontua se a loja contar os pedidos do balcão (mesmo com o cliente
+    // escolhido no PDV).
+    let customerId = o.source === 'online' || s.countStaffOrders ? o.customerId : null;
     if (!customerId && s.countStaffOrders && o.source !== 'online' && o.phone) {
       const d = digits(o.phone);
       if (/^[0-9]{10,11}$/.test(d))

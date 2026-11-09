@@ -23,6 +23,8 @@ export const CreateOrder = z.object({
   tableId: uuid.optional(),
   customerName: z.string().trim().max(80).optional(),
   customerPhone: z.string().trim().max(30).optional(),
+  /** Cliente escolhido no pedido: liga à ficha dele (histórico, nota fiscal). */
+  customerId: uuid.optional(),
   deliveryAddress: z.string().trim().max(300).optional(),
   notes: z.string().trim().max(500).optional(),
   deliveryFee: money.optional(),

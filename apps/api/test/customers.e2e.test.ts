@@ -5,7 +5,7 @@ import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/bootstrap';
 import { testEnv } from './env';
-import { Fixture, PASSWORD, seedTwoTenants } from './fixtures';
+import { Fixture, ownerQuery, PASSWORD, seedTwoTenants } from './fixtures';
 
 /**
  * Conta do cliente no cardápio online, banners/destaques e a aba Clientes do restaurante.
@@ -521,5 +521,80 @@ describe('Personalização do cardápio', () => {
         ck,
       )
       .expect(400);
+  });
+});
+
+describe('Cliente cadastrado no pedido (equipe)', () => {
+  const order = (body: object, who = 'adminA') =>
+    admin
+      .send(
+        'post',
+        '/orders',
+        { channel: 'counter', items: [{ productId: fx.prodA, quantity: 1 }], ...body },
+        who,
+      )
+      .set('Idempotency-Key', key());
+
+  it('cadastra com nome e telefone; o mesmo telefone devolve o cliente que existe', async () => {
+    const r = await admin
+      .send('post', '/customers', { name: 'Ana Balcão', phone: '(11) 93333-2121' })
+      .expect(201);
+    expect(r.body).toMatchObject({ name: 'Ana Balcão', phone: '11933332121', existing: false });
+    expect(JSON.stringify(r.body)).not.toContain('password');
+    const again = await admin
+      .send('post', '/customers', { name: 'Outro nome', phone: '+55 11 93333-2121' })
+      .expect(201);
+    expect(again.body).toMatchObject({ id: r.body.id, name: 'Ana Balcão', existing: true });
+    await admin.send('post', '/customers', { name: 'Sem telefone', phone: '123' }).expect(400);
+    await admin.send('post', '/customers', { name: '', phone: '11933332121' }).expect(400);
+    // Garçom não cadastra; outro restaurante não vê.
+    await http
+      .post('/api/v1/customers')
+      .set('Host', HOST_A)
+      .set('Cookie', staff.waiterA)
+      .set(CSRF)
+      .send({ name: 'X', phone: '11911112222' })
+      .expect(403);
+    expect(
+      (await admin.get('/customers?search=Balc%C3%A3o', 'adminB').expect(200)).body.customers,
+    ).toHaveLength(0);
+  });
+
+  it('pedido com o cliente escolhido entra na ficha e ele vai para o topo dos recentes', async () => {
+    const ana = (await admin.get('/customers?search=93333').expect(200)).body.customers[0];
+    const o = await order({
+      customerId: ana.id,
+      customerName: ana.name,
+      customerPhone: ana.phone,
+    }).expect(201);
+    const d = (await admin.get(`/customers/${ana.id}`).expect(200)).body;
+    expect(d.orders.map((x: { id: string }) => x.id)).toContain(o.body.id);
+    const top = (await admin.get('/customers?limit=1').expect(200)).body.customers;
+    expect(top).toHaveLength(1);
+    expect(top[0]).toMatchObject({ id: ana.id, orders: 1 });
+    // Cliente de outro restaurante não liga (o pedido sai sem a ficha).
+    const other = (
+      await admin.send('post', '/customers', { name: 'Bia B', phone: '11944443131' }, 'adminB')
+    ).body;
+    const x = await order({ customerId: other.id }).expect(201);
+    const [row] = await ownerQuery<{ customer_id: string | null }>(
+      `SELECT customer_id FROM orders WHERE id = $1`,
+      [x.body.id],
+    );
+    expect(row!.customer_id).toBeNull();
+  });
+
+  it('no cardápio, o cliente cadastrado pela equipe cria a senha pelo "Esqueci minha senha"', async () => {
+    const r = await c
+      .send('post', '/store/account/signup', {
+        name: 'Ana',
+        phone: '11933332121',
+        password: 'segredo1',
+      })
+      .expect(409);
+    expect(r.body.message).toContain('Esqueci minha senha');
+    await c
+      .send('post', '/store/account/login', { phone: '11933332121', password: 'segredo1' })
+      .expect(401);
   });
 });

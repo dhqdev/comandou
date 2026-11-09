@@ -84,6 +84,8 @@ export const PERMISSIONS = [
   'customers:read',
   /** Anotar e bloquear clientes do cardápio online. */
   'customers:manage',
+  /** Cadastrar cliente novo (nome e telefone) ao lançar um pedido. */
+  'customers:create',
   /** Domínio próprio do restaurante (muda o endereço de acesso). Só o administrador. */
   'domains:manage',
 ] as const;
@@ -109,6 +111,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'stock:read',
     'fiscal:emit',
     'customers:read',
+    'customers:create',
   ],
   /** App do garçom (/garcom): mesas, comandas e pedido rápido. Sem caixa, desconto ou status. */
   waiter: ['catalog:read', 'orders:read', 'orders:write', 'tables:operate'],
@@ -124,6 +127,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'tables:operate',
     'delivery:manage',
     'customers:read',
+    'customers:create',
   ],
 };
 
