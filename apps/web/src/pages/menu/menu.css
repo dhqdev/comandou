@@ -528,10 +528,8 @@
 .mn-icons legend {
   margin-bottom: var(--cm-space-2);
   padding: 0;
-  font-size: var(--cm-text-xs);
+  font-size: var(--cm-text-sm);
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--cm-text-muted);
 }
 .mn-icons__btn {

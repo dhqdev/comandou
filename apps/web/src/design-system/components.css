@@ -27,8 +27,9 @@
 .cm-btn:active:not(:disabled) {
   transform: scale(0.99);
 }
+/* Desligado: continua com cara de botão (contorno e texto apagados), sem sumir no fundo. */
 .cm-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 .cm-btn--sm {
@@ -55,22 +56,40 @@
 .cm-btn--primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--cm-brand-600) 88%, black);
 }
+.cm-btn--primary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--cm-brand-600) 82%, black);
+}
+/* Secundário: botão "em relevo" do Mac. Contorno firme e uma sombra de 1px, para se ver tanto no
+   cartão branco quanto no fundo cinza da tela. */
 .cm-btn--secondary {
   background: var(--cm-surface);
-  border-color: var(--cm-border-strong);
+  border-color: var(--cm-btn-line);
   color: var(--cm-text);
+  box-shadow: var(--cm-btn-shadow);
 }
 .cm-btn--secondary:hover:not(:disabled) {
-  background: var(--cm-surface-sunken);
-  border-color: var(--cm-gray-300);
+  background: var(--cm-surface-muted);
+  border-color: var(--cm-btn-line-hover);
 }
+.cm-btn--secondary:active:not(:disabled) {
+  background: var(--cm-surface-sunken);
+}
+/* Simples (ghost): botão cinza do iPhone. Com texto, sempre um fundo leve: nunca parece texto solto.
+   Só ícone (X, lápis): sem fundo até passar o mouse ou tocar. */
 .cm-btn--ghost {
+  background: var(--cm-btn-fill);
+  color: var(--cm-text);
+}
+.cm-btn--ghost.cm-btn--icon {
   background: transparent;
   color: var(--cm-text-muted);
 }
 .cm-btn--ghost:hover:not(:disabled) {
-  background: var(--cm-surface-sunken);
+  background: var(--cm-btn-fill-hover);
   color: var(--cm-text);
+}
+.cm-btn--ghost:active:not(:disabled) {
+  background: var(--cm-btn-fill-press);
 }
 .cm-btn--danger {
   background: var(--cm-danger);
@@ -426,25 +445,22 @@ input[type='radio'] {
   border-radius: var(--cm-radius-sm);
   font-size: var(--cm-text-sm);
   border: 1px solid transparent;
-  border-left-width: 3px;
+  border-radius: var(--cm-radius-md);
 }
 .cm-alert--danger {
   background: var(--cm-danger-bg);
   color: var(--cm-danger);
   border-color: color-mix(in srgb, var(--cm-danger) 22%, transparent);
-  border-left-color: var(--cm-danger);
 }
 .cm-alert--warning {
   background: var(--cm-warning-bg);
   color: var(--cm-warning);
   border-color: color-mix(in srgb, var(--cm-warning) 22%, transparent);
-  border-left-color: var(--cm-warning);
 }
 .cm-alert--info {
   background: var(--cm-info-bg);
   color: var(--cm-info);
   border-color: color-mix(in srgb, var(--cm-info) 18%, transparent);
-  border-left-color: var(--cm-info);
 }
 
 /* =============================================================== Vazio / carregando */
@@ -462,9 +478,13 @@ input[type='radio'] {
   height: 44px;
   display: grid;
   place-items: center;
-  border-radius: var(--cm-radius-md);
-  background: var(--cm-brand-50);
-  color: var(--cm-brand-700);
+  color: var(--cm-gray-400);
+}
+/* Vazio no jeito do iPhone: ícone grande e cinza, sem quadradinho colorido atrás. */
+.cm-empty__icon svg {
+  width: 34px;
+  height: 34px;
+  stroke-width: 1.6;
 }
 .cm-empty__title {
   margin: 0;
@@ -787,6 +807,28 @@ input[type='radio'] {
 .cm-modal[open] {
   animation: cm-pop var(--cm-dur) var(--cm-ease) both;
 }
+/* Título ocupa a linha e o X fica sempre à direita (título longo quebra, o X não desce). O X é a
+   bolinha cinza do iPhone. */
+.cm-modal > .cm-card__header {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+.cm-modal > .cm-card__header .cm-card__title {
+  flex: 1;
+  min-width: 0;
+  padding-top: 5px;
+}
+.cm-modal > .cm-card__header > .cm-btn--icon {
+  flex: none;
+  width: 32px;
+  min-height: 32px;
+  border-radius: 50%;
+  background: var(--cm-btn-fill);
+  color: var(--cm-text-muted);
+}
+.cm-modal > .cm-card__header > .cm-btn--icon:hover:not(:disabled) {
+  background: var(--cm-btn-fill-hover);
+}
 .cm-modal--lg {
   width: min(760px, calc(100vw - 32px));
 }
@@ -1100,7 +1142,7 @@ input[type='radio'] {
   box-shadow: var(--cm-shadow-md);
   font-size: var(--cm-text-sm);
   font-weight: 500;
-  animation: cm-pop var(--cm-dur) var(--cm-ease-liquid) both;
+  animation: cm-pop var(--cm-spring-snappy-dur) var(--cm-spring-snappy) both;
 }
 .cm-toast--danger {
   background: var(--cm-danger);
@@ -1131,7 +1173,7 @@ input[type='radio'] {
     color: var(--cm-text);
     border: 1px solid var(--cm-border);
     font-size: 12.5px;
-    animation: cm-toast-drop 180ms var(--cm-ease) both;
+    animation: cm-toast-drop var(--cm-spring-snappy-dur) var(--cm-spring-snappy) both;
   }
   .cm-toast:not(.cm-toast--danger)::before {
     content: '';
@@ -1151,10 +1193,14 @@ input[type='radio'] {
     pointer-events: auto;
   }
 }
+/* Desce do topo crescendo, como a ilha do iPhone. */
 @keyframes cm-toast-drop {
   from {
     opacity: 0;
-    transform: translateY(-6px);
+    transform: translateY(-14px) scale(0.86);
+  }
+  40% {
+    opacity: 1;
   }
 }
 
@@ -1223,8 +1269,7 @@ input[type='radio'] {
   padding: 14px 14px 14px 16px;
   background: var(--cm-surface);
   color: var(--cm-text);
-  border: 1px solid var(--cm-border);
-  border-left: 3px solid var(--cm-danger);
+  border: 1px solid color-mix(in srgb, var(--cm-danger) 35%, var(--cm-border));
   box-shadow: var(--cm-shadow-lg);
   font-weight: 400;
   /* Só o botão e o fechar recebem toque: o resto do aviso não bloqueia a tela de baixo. */

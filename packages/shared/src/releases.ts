@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.100.0',
+    date: '2026-11-09',
+    title: 'Janelas abrem perto de onde você tocou, com movimento de mola',
+    summary:
+      'As janelas não abrem mais sempre no meio da tela: saem de dentro do botão que você tocou e ficam ao lado dele, esticando com um efeito de mola como no iPhone. Botões, interruptores, abas e avisos ganharam o mesmo movimento, e os botões ficaram mais fáceis de enxergar.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'No computador e no iPad a janela abre perto de quem abriu: botão à direita, janela à direita; embaixo dele quando cabe (a linha ou mesa tocada continua à vista). Ao fechar, ela volta para dentro do botão. No celular a folha cresce do botão até o lugar dela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Movimento com mola de verdade (passa um pouquinho do ponto e assenta), rodando na placa de vídeo para não travar: janelas, botões ao tocar, interruptores (a bolinha estica segurando o dedo), abas e avisos.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Botões mais fáceis de ver: o secundário tem contorno firme e o simples (Cancelar, Personalizar mesas, QR das mesas…) ganhou fundo cinza, em vez de parecer texto solto. O X das janelas virou a bolinha cinza do iPhone e não desce mais para baixo do título.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Visual mais limpo: sem faixas coloridas no topo das mesas e colunas do PDV (o estado virou uma bolinha antes do nome), sem listra grossa nos avisos e nos indicadores do Estoque, títulos de seção sem caixa alta e telas vazias com ícone cinza simples.',
+      },
+      {
+        tag: 'correção',
+        text: 'Interruptor "Loja aberta" fica verde como o texto; na barra do PDV no iPad em pé os botões não cortam mais o texto e o atalho F2 some em telas de toque.',
+      },
+    ],
+  },
+  {
     version: '0.99.0',
     date: '2026-11-09',
     title: 'Cardápio online com desenhos novos, pedido comemorado e foto no perfil',

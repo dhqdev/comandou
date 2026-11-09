@@ -175,10 +175,8 @@
 .gsearch__group {
   padding: 12px 10px 4px;
   color: var(--cm-text-subtle);
-  font-size: var(--cm-text-2xs);
+  font-size: var(--cm-text-sm);
   font-weight: 650;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 .gsearch__item {
   width: 100%;

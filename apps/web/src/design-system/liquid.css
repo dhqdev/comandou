@@ -35,10 +35,14 @@ dialog[data-liquid]::backdrop {
   background: transparent;
   border-top-color: color-mix(in srgb, var(--cm-text) 10%, transparent);
 }
-/* Sobre o vidro o cinza liso some: botão desligado ganha um véu escuro e contorno. */
+/* Sobre o vidro o cinza liso some: botão desligado ganha um véu escuro, contorno e texto cinza
+   (o branco do botão principal sumia em cima do véu). */
 :is(.cm-modal, .cm-sheet)[data-glass] .cm-btn:disabled {
+  opacity: 1;
   background: color-mix(in srgb, var(--cm-text) 7%, transparent);
   border-color: var(--cm-border-strong);
+  color: var(--cm-text-subtle);
+  box-shadow: none;
 }
 :root[data-theme='dark'] :is(.cm-modal, .cm-sheet)[data-glass] {
   background: color-mix(in srgb, var(--cm-surface) 88%, transparent);
@@ -74,19 +78,27 @@ dialog[data-liquid]::backdrop {
 }
 
 /* ---------------------------------------------------------------- toque */
-/* Afunda na hora; a volta é com mola (transition, para clique repetido não reiniciar nada). */
+/* Afunda na hora; a volta é com mola de verdade (--cm-spring-snappy: passa um pouco e assenta).
+   Transition, e não animação, para clique repetido continuar de onde está sem reiniciar. */
 .cm-btn,
 .cm-option {
   transition-property: background-color, border-color, color, box-shadow, transform;
   transition-duration:
-    var(--cm-dur-fast), var(--cm-dur-fast), var(--cm-dur-fast), var(--cm-dur-fast), 0.28s;
+    var(--cm-dur-fast), var(--cm-dur-fast), var(--cm-dur-fast), var(--cm-dur-fast),
+    var(--cm-spring-snappy-dur);
   transition-timing-function:
-    var(--cm-ease), var(--cm-ease), var(--cm-ease), var(--cm-ease), var(--cm-ease-liquid);
+    var(--cm-ease), var(--cm-ease), var(--cm-ease), var(--cm-ease), var(--cm-spring-snappy);
+  -webkit-tap-highlight-color: transparent;
 }
 .cm-btn:active:not(:disabled),
 .cm-option:active:not(:disabled) {
-  transform: scale(0.97);
+  transform: scale(0.96);
   transition-duration: 0.08s;
+  transition-timing-function: var(--cm-ease);
+}
+/* Botão grande (largura toda) afunda menos: 4% de 360px já é muito. */
+.cm-btn--block:active:not(:disabled) {
+  transform: scale(0.985);
 }
 
 /* ---------------------------------------------------------------- painéis */
@@ -297,9 +309,10 @@ html.cm-vt .wt-tabs {
 ) {
   transition-property: background-color, border-color, color, box-shadow, transform;
   transition-duration:
-    var(--cm-dur-fast), var(--cm-dur-fast), var(--cm-dur-fast), var(--cm-dur-fast), 0.28s;
+    var(--cm-dur-fast), var(--cm-dur-fast), var(--cm-dur-fast), var(--cm-dur-fast),
+    var(--cm-spring-snappy-dur);
   transition-timing-function:
-    var(--cm-ease), var(--cm-ease), var(--cm-ease), var(--cm-ease), var(--cm-ease-liquid);
+    var(--cm-ease), var(--cm-ease), var(--cm-ease), var(--cm-ease), var(--cm-spring-snappy);
   -webkit-tap-highlight-color: transparent;
 }
 :is(

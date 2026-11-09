@@ -14,6 +14,19 @@
 .pdv__spacer {
   flex: 1;
 }
+/* Só a busca encolhe: os botões da barra nunca cortam o texto (tablet em pé). */
+.pdv__bar > :not(.pdv__search, .pdv__spacer) {
+  flex: none;
+}
+.pdv__bar > .pdv__search {
+  min-width: 120px;
+}
+/* Tablet e celular não têm F2: o atalho só ocupa lugar. */
+@media (pointer: coarse) {
+  .pdv__new .kbd {
+    display: none;
+  }
+}
 .pdv__search {
   flex: 1 1 220px;
   max-width: 380px;
@@ -51,7 +64,7 @@
 .pdv__store[data-open='true'] {
   color: var(--cm-success);
 }
-.pdv__store input:checked + .switch__track {
+.pdv__store.switch input:checked + .switch__track {
   background: var(--cm-success);
 }
 .pdv__icon {
@@ -134,16 +147,22 @@
 .pdv-chip svg[data-flip] {
   transform: rotate(180deg);
 }
-.pdv-chip--switch .switch__track {
+.pdv-chip--switch.switch .switch__track {
   width: 30px;
   height: 18px;
 }
-.pdv-chip--switch .switch__track::after {
+.pdv-chip--switch.switch .switch__track::after {
   width: 12px;
   height: 12px;
 }
-.pdv-chip--switch input:checked + .switch__track::after {
+.pdv-chip--switch.switch input:checked + .switch__track::after {
   transform: translateX(12px);
+}
+.pdv-chip--switch.switch:active input:not(:disabled) + .switch__track::after {
+  width: 15px;
+}
+.pdv-chip--switch.switch:active input:checked:not(:disabled) + .switch__track::after {
+  transform: translateX(9px);
 }
 .pdv-chip.switch {
   gap: 8px;
@@ -229,7 +248,8 @@
   --state: var(--cm-warning);
 }
 
-/* Salão: mesas e comandas em cartões baixos, com a cor do estado numa linha no topo. */
+/* Salão: mesas e comandas em cartões baixos; a cor do estado é a bolinha antes do nome (a mesma da
+   legenda), sem faixa colorida no topo. */
 .pdv-salon__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -245,13 +265,30 @@
   min-height: 64px;
   padding: 10px 12px;
   border: 1px solid var(--cm-border-strong);
-  border-top: 3px solid var(--state);
   border-radius: var(--cm-radius-md);
   background: var(--cm-surface);
   color: var(--cm-text);
   font: inherit;
   text-align: left;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background-color var(--cm-dur-fast) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.pdv-table:active {
+  transform: scale(0.97);
+  transition-duration: var(--cm-dur-fast), 0.08s;
+}
+.pdv-table > strong::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--state);
+  vertical-align: 1px;
 }
 .pdv-table:hover {
   background: var(--cm-surface-muted);
@@ -357,8 +394,19 @@
   height: 16px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
-  transition: transform 0.2s var(--cm-ease);
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 18%),
+    0 2px 6px rgb(0 0 0 / 10%);
+  /* a bolinha corre com mola e, segurando o dedo, estica como no iPhone */
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    width 0.18s var(--cm-ease);
+}
+.switch:active input:not(:disabled) + .switch__track::after {
+  width: 21px;
+}
+.switch:active input:checked:not(:disabled) + .switch__track::after {
+  transform: translateX(11px);
 }
 .switch input:checked + .switch__track {
   background: var(--cm-brand-600);
@@ -370,7 +418,7 @@
   box-shadow: var(--cm-focus);
 }
 
-/* Quadro: quatro colunas com contorno fino e a cor da coluna no topo. */
+/* Quadro: quatro colunas com contorno fino; a cor da coluna fica só no contador do título. */
 .board {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -381,7 +429,6 @@
   flex-direction: column;
   min-width: 0;
   border: 1px solid var(--cm-border-strong);
-  border-top: 3px solid var(--tone);
   border-radius: var(--cm-radius-md);
   background: var(--cm-surface);
   min-height: 0;

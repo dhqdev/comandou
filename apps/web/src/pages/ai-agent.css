@@ -148,8 +148,6 @@
 .ai-cat h3 {
   margin: 0;
   font-size: var(--cm-text-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: var(--cm-text-muted);
 }
 .ai-cat ul {

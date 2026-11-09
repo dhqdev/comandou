@@ -415,8 +415,6 @@
   gap: 8px;
   font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 .tk-col__title::before {
   content: '';
@@ -512,7 +510,6 @@
 }
 .tk-card:hover {
   border-color: var(--cm-border-strong);
-  transform: translateY(-1px);
 }
 .tk-card[data-state='approval'],
 .tk-card[data-state='waiting'] {
@@ -823,8 +820,6 @@ button.tk-chip {
 .tk-block__label {
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--cm-text-subtle);
 }
 .tk-block p {

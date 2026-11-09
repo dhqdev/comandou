@@ -473,8 +473,6 @@
   font-size: var(--cm-text-sm);
   font-weight: 700;
   color: var(--cm-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 .wt-area__title span {
   font-weight: 500;
@@ -1158,8 +1156,6 @@
   color: var(--cm-brand-600);
   font-size: var(--cm-text-xs);
   font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
 }
 .wt-track {
   display: flex;

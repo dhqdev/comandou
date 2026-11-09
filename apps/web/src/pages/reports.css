@@ -132,9 +132,8 @@
     box-shadow var(--cm-dur-fast);
 }
 .rp-day:hover {
-  border-color: var(--cm-brand-500);
-  box-shadow: var(--cm-shadow-sm);
-  transform: translateY(-1px);
+  border-color: var(--cm-border-strong);
+  background: var(--cm-surface-muted);
 }
 .rp-day--blank {
   border: 0;

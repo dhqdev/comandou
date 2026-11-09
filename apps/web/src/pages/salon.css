@@ -105,10 +105,8 @@
   align-items: center;
   gap: 10px;
   margin: var(--cm-space-2) 0 0;
-  font-size: var(--cm-text-xs);
+  font-size: var(--cm-text-sm);
   font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--cm-text-muted);
 }
 .salon__area-title::after {

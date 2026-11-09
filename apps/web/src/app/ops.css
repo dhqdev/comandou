@@ -13,9 +13,8 @@
   background: color-mix(in srgb, currentColor 14%, transparent);
 }
 .section-title {
+  font-weight: 600;
   font-size: var(--cm-text-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: var(--cm-text-muted);
   margin: var(--cm-space-4) 0 var(--cm-space-2);
 }
@@ -179,9 +178,11 @@
   animation: cm-pop var(--cm-dur) var(--cm-ease) both;
 }
 .order-card:hover {
-  border-color: var(--cm-brand-300);
-  box-shadow: var(--cm-shadow-md);
-  transform: translateY(-1px);
+  border-color: var(--cm-border-strong);
+  background: var(--cm-surface-muted);
+}
+.order-card:active {
+  transform: scale(0.985);
 }
 .order-card__time {
   font-size: var(--cm-text-xs);

@@ -21,7 +21,6 @@
   row-gap: 2px;
   padding: var(--cm-space-4);
   border: 1px solid var(--cm-border);
-  border-left: 4px solid var(--tone);
   border-radius: var(--cm-radius-md);
   background: var(--cm-surface);
   box-shadow: var(--cm-shadow-sm);
@@ -32,13 +31,21 @@
 }
 button.st-kpi {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
   transition:
-    transform var(--cm-dur-fast) var(--cm-ease),
-    box-shadow var(--cm-dur-fast) var(--cm-ease);
+    background-color var(--cm-dur-fast) var(--cm-ease),
+    border-color var(--cm-dur-fast) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
-button.st-kpi:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--cm-shadow-md);
+@media (hover: hover) and (pointer: fine) {
+  button.st-kpi:hover {
+    background: var(--cm-surface-muted);
+    border-color: var(--cm-border-strong);
+  }
+}
+button.st-kpi:active {
+  transform: scale(0.97);
+  transition-duration: var(--cm-dur-fast), var(--cm-dur-fast), 0.08s;
 }
 .st-kpi[data-tone='warning'] {
   --tone: var(--cm-warning);
@@ -53,11 +60,9 @@ button.st-kpi:hover {
   grid-area: icon;
   display: inline-grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
+  width: 20px;
+  height: 20px;
   color: var(--tone);
-  background: color-mix(in srgb, var(--tone) 14%, transparent);
 }
 .st-kpi:not(:has(.st-kpi__icon)) {
   grid-template-areas: 'label label' 'value value' 'hint hint';
@@ -297,8 +302,6 @@ button.st-kpi:hover {
 }
 .st-recipe__head {
   font-size: var(--cm-text-2xs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: var(--cm-text-subtle);
   font-weight: 600;
 }
@@ -637,11 +640,9 @@ button.st-kpi:hover {
 /* ------------------------------------------------------------- seções (v0.42) */
 .st-head__eyebrow {
   display: block;
-  font-size: var(--cm-text-2xs);
-  font-weight: 650;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--cm-brand-700);
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+  color: var(--cm-text-subtle);
 }
 .st-head .page-sub {
   max-width: 760px;
