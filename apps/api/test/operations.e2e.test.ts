@@ -385,6 +385,50 @@ describe('App do garçom: acesso limitado', () => {
     expect(req.body.status).toBe('cancel_requested');
   });
 
+  it('mover para a comanda: só o que o garçom enxerga; delivery e pedido em análise não entram', async () => {
+    const tab = (await post('waiterA', '/tabs', { customerName: 'Mover' }).expect(201)).body;
+    const delivery = (
+      await post('adminA', '/orders', {
+        channel: 'delivery',
+        deliveryAddress: 'Rua B, 2',
+        customerPhone: '11999990001',
+        items: items(),
+      }).expect(201)
+    ).body;
+    const counter = (
+      await post('cashierA', '/orders', { channel: 'counter', items: items() }).expect(201)
+    ).body;
+    // Fora do alcance do garçom (não é do salão nem foi ele que lançou): 404, como na consulta.
+    await post('waiterA', `/orders/${delivery.id}/move`, { tabId: tab.id }).expect(404);
+    await post('waiterA', `/orders/${counter.id}/move`, { tabId: tab.id }).expect(404);
+    const still = (await get('adminA', `/orders/${delivery.id}`).expect(200)).body;
+    expect(still.tabId).toBeNull();
+    // Delivery não entra em comanda, nem para quem gere pedidos.
+    const noDelivery = await post('adminA', `/orders/${delivery.id}/move`, { tabId: tab.id });
+    expect(noDelivery.status).toBe(409);
+    expect(noDelivery.body.message).toMatch(/delivery/i);
+    // Pedido ainda em análise: aceite primeiro.
+    await ownerQuery(`UPDATE orders SET status = 'awaiting' WHERE id = $1`, [counter.id]);
+    const awaiting = await post('adminA', `/orders/${counter.id}/move`, { tabId: tab.id });
+    expect(awaiting.status).toBe(409);
+    expect(awaiting.body.message).toMatch(/Aceite o pedido/);
+    await ownerQuery(`UPDATE orders SET status = 'new' WHERE id = $1`, [counter.id]);
+    // O que o garçom lançou ele move; depois de entrar na comanda, o pedido do balcão também.
+    const mine = (
+      await post('waiterA', '/orders', { channel: 'pickup', items: items() }).expect(201)
+    ).body;
+    const moved = await post('waiterA', `/orders/${mine.id}/move`, { tabId: tab.id }).expect(201);
+    expect(moved.body.tabId).toBe(tab.id);
+    await post('adminA', `/orders/${counter.id}/move`, { tabId: tab.id }).expect(201);
+    await get('waiterA', `/orders/${counter.id}`).expect(200);
+    // Limpa: cancela os três e fecha a comanda, para não pesar nos testes de caixa.
+    for (const o of [mine, counter, delivery])
+      await post('adminA', `/orders/${o.id}/status`, { to: 'cancelled', reason: 'teste' }).expect(
+        201,
+      );
+    await post('adminA', `/tabs/${tab.id}/close`).expect(201);
+  });
+
   it('não acessa cozinha, ajustes, loja online, reservas nem caixa', async () => {
     await get('waiterA', '/kitchen').expect(403);
     await patch('waiterA', '/store/settings', { isOpen: false }).expect(403);

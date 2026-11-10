@@ -1183,14 +1183,18 @@ export class OrdersService {
   /**
    * Move o pedido inteiro para outra comanda aberta (transferência entre mesas/comandas).
    * Ordem de travas: comandas (por id) → pedido, a mesma do pagamento de comanda, evitando deadlock.
+   * Garçom só move o que enxerga (pedidos do salão e os que ele lançou): o resto é 404, como na
+   * consulta. Delivery e pedido ainda em análise não entram em comanda.
    */
   async moveToTab(ctx: Ctx, id: string, tabId: string) {
     let fromTab: string | null = null;
     const res = await this.db.withTenant(ctx, async (tx) => {
+      const p: unknown[] = [id];
+      const scope = ownScope(ctx, p);
       const cur = await one<{ tab_id: string | null }>(
         tx,
-        `SELECT tab_id FROM orders WHERE id = $1`,
-        [id],
+        `SELECT o.tab_id FROM orders o WHERE o.id = $1${scope ? ` AND ${scope}` : ''}`,
+        p,
       );
       if (!cur) throw new NotFoundException('Pedido não encontrado');
       if (cur.tab_id === tabId) throw new ConflictException('O pedido já está nesta comanda');
@@ -1209,6 +1213,10 @@ export class OrdersService {
         throw new ConflictException('O pedido foi alterado; tente novamente');
       if (o.status === 'cancelled' || o.status === 'completed')
         throw new ConflictException('Pedido encerrado');
+      if (o.channel === 'delivery')
+        throw new ConflictException('Pedido de delivery não entra em comanda');
+      if (o.status === 'awaiting')
+        throw new ConflictException('Aceite o pedido antes de mover para a comanda');
       await this.assertNoLiveFiscalDocument(tx, o.id, 'mover o pedido');
       fromTab = o.tab_id;
       await q(tx, `UPDATE orders SET tab_id = $2, version = version + 1 WHERE id = $1`, [
