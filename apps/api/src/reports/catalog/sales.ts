@@ -38,6 +38,9 @@ const ORDER_COST = `(SELECT COALESCE(sum(i.quantity * (
 
 const ch = (c: string) => CHANNEL_LABELS[c as OrderChannel] ?? c;
 const pm = (m: string) => PAYMENT_METHOD_LABELS[m as PaymentMethod] ?? m;
+/** Falta de um fechamento forma por forma (ver `cashShort`), sobre o alias "s" de cash_sessions. */
+const CASH_SHORT = `(SELECT COALESCE(sum(GREATEST(COALESCE((s.expected->>k)::numeric, 0) - COALESCE((s.counted->>k)::numeric, 0), 0)), 0)
+                       FROM jsonb_object_keys(COALESCE(s.expected, '{}'::jsonb) || COALESCE(s.counted, '{}'::jsonb)) k)`;
 const LIMIT = 5000;
 
 interface Totals {
@@ -789,7 +792,7 @@ export async function perdas(p: Period): Promise<Built> {
     q(
       p.tx,
       `SELECT s.closed_by AS uid, count(*)::int AS n, COALESCE(sum(s.difference), 0)::text AS v,
-              COALESCE(-sum(s.difference) FILTER (WHERE s.difference < 0), 0)::text AS short
+              COALESCE(sum(${CASH_SHORT}), 0)::text AS short
          FROM cash_sessions s WHERE s.closed_at >= $1 AND s.closed_at < $2 GROUP BY 1`,
       [from, to],
     );
@@ -1144,6 +1147,19 @@ export async function cancelamentos(p: Period): Promise<Built> {
 
 /* ======================= Fechamentos de caixa ======================= */
 
+/**
+ * Falta de um fechamento, forma por forma (esperado − contado, só onde faltou): sobra numa forma
+ * não cobre falta em outra. `CASH_SHORT` é a mesma conta em SQL, sobre o alias "s".
+ */
+function cashShort(expected: unknown, counted: unknown) {
+  const e = (expected as Record<string, string> | null) ?? {};
+  const c = (counted as Record<string, string> | null) ?? {};
+  let short = 0;
+  for (const m of new Set([...Object.keys(e), ...Object.keys(c)]))
+    short += Math.max(0, n(e[m] ?? 0) - n(c[m] ?? 0));
+  return r2(short);
+}
+
 export async function fechamentos(p: Period): Promise<Built> {
   const sessions = await q(
     p.tx,
@@ -1200,6 +1216,7 @@ export async function fechamentos(p: Period): Promise<Built> {
     expected: r2(tot(s.expected)),
     counted: r2(tot(s.counted)),
     diff: n(s.diff),
+    short: cashShort(s.expected, s.counted),
     note: String(s.note),
   }));
   const expectedCash = r2(
@@ -1235,7 +1252,7 @@ export async function fechamentos(p: Period): Promise<Built> {
       },
       {
         label: 'Caixas com falta',
-        value: list.filter((s) => s.diff < 0).length,
+        value: list.filter((s) => s.short > 0).length,
         fmt: 'int',
         invert: true,
       },
@@ -1273,6 +1290,7 @@ export async function fechamentos(p: Period): Promise<Built> {
           { key: 'expected', label: 'Esperado', fmt: 'money' },
           { key: 'counted', label: 'Contado', fmt: 'money' },
           { key: 'diff', label: 'Diferença', fmt: 'money' },
+          { key: 'short', label: 'Falta por forma', fmt: 'money' },
           { key: 'note', label: 'Observação', fmt: 'text', width: 30 },
         ],
         rows: list,
@@ -1282,6 +1300,7 @@ export async function fechamentos(p: Period): Promise<Built> {
           expected: sum(list, (s) => s.expected),
           counted: sum(list, (s) => s.counted),
           diff,
+          short: sum(list, (s) => s.short),
         },
       },
       {
@@ -1314,6 +1333,7 @@ export async function fechamentos(p: Period): Promise<Built> {
     ],
     notes: [
       'Esperado = abertura + entradas − saídas registradas no caixa, por forma. Contado = o que foi informado no fechamento.',
+      'Falta por forma = o que faltou em cada forma de pagamento, somado. A sobra de uma forma não cobre a falta de outra: um caixa pode ter diferença zero e falta por forma.',
     ],
   };
 }

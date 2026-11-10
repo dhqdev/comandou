@@ -41,6 +41,30 @@ interface SessionRow {
 
 type Totals = Record<PaymentMethod, number>;
 const zero = (): Totals => Object.fromEntries(PAYMENT_METHODS.map((m) => [m, 0])) as Totals;
+type MethodStrings = Partial<Record<PaymentMethod, string>>;
+
+/**
+ * Diferença de cada forma no fechamento (contado − esperado), só as que não bateram. Sessão ainda
+ * aberta (sem os dois lados gravados) devolve null.
+ */
+export function closingDifferences(expected: MethodStrings, counted: MethodStrings): MethodStrings;
+export function closingDifferences(
+  expected: MethodStrings | null | undefined,
+  counted: MethodStrings | null | undefined,
+): MethodStrings | null;
+export function closingDifferences(
+  expected: MethodStrings | null | undefined,
+  counted: MethodStrings | null | undefined,
+): MethodStrings | null {
+  if (!expected || !counted) return null;
+  const out: MethodStrings = {};
+  for (const m of PAYMENT_METHODS) {
+    const d = toCents(counted[m] ?? '0') - toCents(expected[m] ?? '0');
+    if (d !== 0) out[m] = fromCents(d);
+  }
+  return out;
+}
+
 const toStrings = (t: Totals) =>
   Object.fromEntries(Object.entries(t).map(([k, v]) => [k, fromCents(v)])) as Record<
     PaymentMethod,
@@ -127,13 +151,13 @@ export class CashService {
     return res;
   }
 
-  list(ctx: Ctx, status?: 'open' | 'closed') {
-    return this.db.withTenant(ctx, (tx) =>
-      q(
+  async list(ctx: Ctx, status?: 'open' | 'closed') {
+    const rows = await this.db.withTenant(ctx, (tx) =>
+      q<Record<string, unknown>>(
         tx,
         `SELECT s.id, s.number, s.status, s.register_id AS "registerId", r.name AS "registerName",
                 s.opening_amount::text AS "openingAmount", s.opened_at AS "openedAt", s.closed_at AS "closedAt",
-                s.difference::text, uo.name AS "openedByName"
+                s.difference::text, uo.name AS "openedByName", s.expected AS "closedExpected", s.counted
            FROM cash_sessions s JOIN cash_registers r ON r.id = s.register_id
            LEFT JOIN users uo ON uo.id = s.opened_by
           ${status ? 'WHERE s.status = $1' : ''}
@@ -141,6 +165,14 @@ export class CashService {
         status ? [status] : [],
       ),
     );
+    // A lista leva só a diferença de cada forma, não os dois objetos do fechamento.
+    return rows.map(({ closedExpected, counted, ...r }) => ({
+      ...r,
+      differences: closingDifferences(
+        closedExpected as MethodStrings | null,
+        counted as MethodStrings | null,
+      ),
+    }));
   }
 
   async get(ctx: Ctx, id: string) {
@@ -191,7 +223,11 @@ export class CashService {
           [id],
         )
       : undefined;
-    return { ...(s as { id: string }), expected, byKind, movements };
+    const differences = closingDifferences(
+      s.closedExpected as MethodStrings | null,
+      s.counted as MethodStrings | null,
+    );
+    return { ...(s as { id: string }), expected, byKind, movements, differences };
   }
 
   /**
@@ -476,8 +512,11 @@ export class CashService {
         const counted = zero();
         for (const m of PAYMENT_METHODS) counted[m] = toCents(b.counted[m] ?? '0');
         const sum = (t: Totals) => Object.values(t).reduce((a, v) => a + v, 0);
+        // `difference` é o saldo geral (sobrou ou faltou dinheiro no total), mas a conferência é
+        // forma por forma: sobra numa forma não cobre falta em outra sem observação.
         const diff = sum(counted) - sum(exp);
-        if (diff !== 0 && !b.note) {
+        const differences = closingDifferences(toStrings(exp), toStrings(counted));
+        if (Object.keys(differences).length > 0 && !b.note) {
           throw new UnprocessableEntityException(
             'Há diferença no fechamento: informe uma observação',
           );
@@ -506,6 +545,7 @@ export class CashService {
             expected: toStrings(exp),
             counted: toStrings(counted),
             difference: fromCents(diff),
+            differences,
           },
           ip: ctx.ip,
         });

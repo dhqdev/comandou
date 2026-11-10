@@ -353,6 +353,8 @@ export interface CashSession {
   closedExpected?: Record<PaymentMethod, string> | null;
   counted?: Record<PaymentMethod, string> | null;
   difference: string | null;
+  /** Fechada: contado − esperado de cada forma que não bateu ({} = tudo certo). Aberta: null. */
+  differences?: Partial<Record<PaymentMethod, string>> | null;
   closingNote?: string | null;
   byKind?: { kind: string; method: PaymentMethod; count: number; total: string }[];
   movements?: {

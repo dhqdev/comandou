@@ -324,9 +324,21 @@ export function CashPage() {
       </div>
 
       {session?.status === 'closed' && (
-        <Alert tone={toCents(session.difference ?? '0') === 0 ? 'info' : 'warning'}>
+        <Alert tone={closedClean(session) ? 'info' : 'warning'}>
           Fechado em {session.closedAt && dateTime(session.closedAt)} por {session.closedByName}.
           Diferença: <DiffValue value={session.difference ?? '0'} />
+          {methodDiffs(session).length > 0 && (
+            <>
+              {' ('}
+              {methodDiffs(session).map(([m, v], i) => (
+                <span key={m}>
+                  {i > 0 && ', '}
+                  {PAYMENT_METHOD_LABELS[m]} <DiffValue value={v} />
+                </span>
+              ))}
+              {')'}
+            </>
+          )}
           {session.closingNote && ` — ${session.closingNote}`}
         </Alert>
       )}
@@ -511,6 +523,11 @@ export function CashPage() {
                     </td>
                     <td className="cm-num">
                       {s.difference !== null ? <DiffValue value={s.difference} /> : '—'}
+                      {s.difference !== null &&
+                        toCents(s.difference) === 0 &&
+                        methodDiffs(s).length > 0 && (
+                          <span className="cm-hint"> · formas não batem</span>
+                        )}
                     </td>
                   </tr>
                 ))}
@@ -576,6 +593,17 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div className="stat__value">{value}</div>
     </div>
   );
+}
+
+/** Formas que não bateram no fechamento, na ordem das formas de pagamento. */
+function methodDiffs(s: Pick<CashSession, 'differences'>): [PaymentMethod, string][] {
+  const d = s.differences ?? {};
+  return PAYMENT_METHODS.filter((m) => d[m] !== undefined).map((m) => [m, d[m]!]);
+}
+
+/** Fechamento sem diferença no total nem em forma nenhuma. */
+function closedClean(s: CashSession) {
+  return toCents(s.difference ?? '0') === 0 && methodDiffs(s).length === 0;
 }
 
 function DiffValue({ value }: { value: string }) {
@@ -771,6 +799,9 @@ function CloseModal({
   const diff = ready
     ? methods.reduce((s, m) => s + toCents(parsed[m]!) - toCents(session.expected[m]), 0)
     : 0;
+  // A conferência é forma por forma: sobra numa forma não cobre falta em outra.
+  const mismatch =
+    ready && methods.some((m) => toCents(parsed[m]!) !== toCents(session.expected[m]));
   async function save() {
     setBusy(true);
     try {
@@ -800,7 +831,7 @@ function CloseModal({
           <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button loading={busy} disabled={!ready || (diff !== 0 && !note.trim())} onClick={save}>
+          <Button loading={busy} disabled={!ready || (mismatch && !note.trim())} onClick={save}>
             Fechar caixa
           </Button>
         </>
@@ -848,12 +879,19 @@ function CloseModal({
           </tbody>
         </table>
         {ready && (
-          <Alert tone={diff === 0 ? 'info' : 'warning'}>
+          <Alert tone={mismatch ? 'warning' : 'info'}>
             Diferença total: <DiffValue value={fromCents(diff)} />
+            {mismatch && diff === 0 && (
+              <>
+                {' '}
+                O total bate, mas as formas não. Confira se algum pagamento foi lançado na forma
+                errada e explique na observação.
+              </>
+            )}
           </Alert>
         )}
         <TextField
-          label={diff !== 0 ? 'Observação (obrigatória com diferença)' : 'Observação'}
+          label={mismatch ? 'Observação (obrigatória com diferença)' : 'Observação'}
           value={note}
           onChange={(e) => setNote(e.target.value)}
           maxLength={500}

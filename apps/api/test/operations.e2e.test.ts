@@ -937,6 +937,24 @@ describe('Fechamento de caixa', () => {
   it('fechamento: diferença exige observação; idempotente; caixa fechado recusa pagamentos', async () => {
     const s = (await get('cashierA', `/cash/sessions/${session.id}`).expect(200)).body;
     const counted = { ...s.expected, cash: fromCents(toCents(s.expected.cash) - 100) };
+    // Sobra no dinheiro igual à falta em outra forma: o total bate, mas exige observação.
+    const other = (Object.keys(s.expected) as string[]).find(
+      (m) => m !== 'cash' && toCents(s.expected[m]) >= 100,
+    )!;
+    expect(other).toBeDefined();
+    const swapped = {
+      ...s.expected,
+      cash: fromCents(toCents(s.expected.cash) + 100),
+      [other]: fromCents(toCents(s.expected[other]) - 100),
+    };
+    const sw = await post(
+      'cashierA',
+      `/cash/sessions/${session.id}/close`,
+      { counted: swapped },
+      key(),
+    );
+    expect(sw.status).toBe(422);
+    expect(sw.body.message).toMatch(/diferença/);
     await post('waiterA', `/cash/sessions/${session.id}/close`, { counted }, key()).expect(403);
     await post('cashierA', `/cash/sessions/${session.id}/close`, { counted }).expect(422);
     await post('cashierA', `/cash/sessions/${session.id}/close`, { counted }, key()).expect(422);
@@ -949,6 +967,7 @@ describe('Fechamento de caixa', () => {
     const ok = [c1, c2].find((r) => r.status === 201)!;
     expect(ok.body.status).toBe('closed');
     expect(ok.body.difference).toBe('-1.00');
+    expect(ok.body.differences).toEqual({ cash: '-1.00' });
     await post(
       'cashierA',
       `/cash/sessions/${session.id}/close`,
@@ -973,6 +992,77 @@ describe('Fechamento de caixa', () => {
       { kind: 'supply', amount: '1.00', note: 'tarde' },
       key(),
     ).expect(409);
+  });
+
+  it('fechamento: sobra numa forma não cobre falta em outra; a diferença fica gravada por forma', async () => {
+    const s2 = (
+      await post('cashierA', '/cash/sessions', {
+        registerId: register.id,
+        openingAmount: '50.00',
+      }).expect(201)
+    ).body;
+    const o = (
+      await post('cashierA', '/orders', {
+        channel: 'counter',
+        items: [{ productId: fx.prodA, quantity: 1, optionIds: [byName(sizeGroup, 'Simples')] }],
+      }).expect(201)
+    ).body;
+    await post(
+      'cashierA',
+      `/orders/${o.id}/payments`,
+      { cashSessionId: s2.id, method: 'credit', amount: o.total },
+      key(),
+    ).expect(201);
+    const open = (await get('cashierA', `/cash/sessions/${s2.id}`).expect(200)).body;
+    expect(open.differences).toBeNull();
+    expect(open.expected.cash).toBe('50.00');
+    expect(open.expected.credit).toBe(o.total);
+    // R$ 5,00 a mais no dinheiro e R$ 5,00 a menos no cartão: o total bate.
+    const counted = { cash: '55.00', credit: fromCents(toCents(o.total) - 500) };
+    await post('cashierA', `/cash/sessions/${s2.id}/close`, { counted }, key()).expect(422);
+    const closed = (
+      await post(
+        'cashierA',
+        `/cash/sessions/${s2.id}/close`,
+        { counted, note: 'cartão lançado como dinheiro' },
+        key(),
+      ).expect(201)
+    ).body;
+    expect(closed.difference).toBe('0.00');
+    expect(closed.differences).toEqual({ cash: '5.00', credit: '-5.00' });
+    const list = (await get('cashierA', '/cash/sessions?status=closed').expect(200)).body as {
+      id: string;
+      differences: Record<string, string> | null;
+      counted?: unknown;
+    }[];
+    const row = list.find((x) => x.id === s2.id)!;
+    expect(row.differences).toEqual({ cash: '5.00', credit: '-5.00' });
+    expect(row.counted).toBeUndefined();
+    // Tudo certo: fecha sem observação.
+    const s3 = (
+      await post('cashierA', '/cash/sessions', {
+        registerId: register.id,
+        openingAmount: '10.00',
+      }).expect(201)
+    ).body;
+    const ok = (
+      await post(
+        'cashierA',
+        `/cash/sessions/${s3.id}/close`,
+        { counted: { cash: '10.00' } },
+        key(),
+      ).expect(201)
+    ).body;
+    expect(ok.difference).toBe('0.00');
+    expect(ok.differences).toEqual({});
+    // Relatório de fechamentos: a falta por forma aparece mesmo com diferença zero.
+    const day = (d: number) => new Date(Date.now() + d * 86_400_000).toISOString().slice(0, 10);
+    const rep = (
+      await get('adminA', `/reports/catalog/fechamentos?from=${day(-1)}&to=${day(1)}`).expect(200)
+    ).body as { tables: { id: string; rows: Record<string, unknown>[] }[] };
+    const rows = rep.tables.find((x) => x.id === 'fechamentos')!.rows;
+    expect(rows.find((x) => x.number === closed.number)).toMatchObject({ diff: 0, short: 5 });
+    expect(rows.find((x) => x.number === ok.number)).toMatchObject({ diff: 0, short: 0 });
   });
 
   it('relatório separa faturamento de recebimentos', async () => {
