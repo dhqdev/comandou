@@ -1,6 +1,11 @@
 import {
   ChevronRight,
+  Eye,
+  EyeOff,
   Gift,
+  Loader2,
+  LockKeyhole,
+  Smartphone,
   Heart,
   KeyRound,
   LogOut,
@@ -21,6 +26,7 @@ import { clickPoint, Mascot, Spinner, switchTheme, useTheme, useToast } from '..
 import { SlideTabs } from '../../features/SlideTabs';
 import { api, ApiError } from '../../lib/api';
 import { AddressArt } from './art';
+import { Photo } from './ui';
 import { ProfilePhoto } from './ProfilePhoto';
 import { useStoreChat } from './chat';
 import { useStore } from './context';
@@ -90,6 +96,7 @@ function AuthForms() {
     password: '',
     optIn: false,
   });
+  const [showPass, setShowPass] = useState(false);
   const { busy, error, run, setError } = useAsync();
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: k === 'phone' ? maskPhone(e.target.value) : e.target.value }));
@@ -125,97 +132,149 @@ function AuthForms() {
     });
   }
 
+  const r = menu.restaurant;
+  const loyaltyOn = !!useLoyalty();
   return (
     <div className="auth">
       <div className="auth__hero">
-        <Mascot size={64} mood="happy" />
+        <span className="auth__logo">
+          <Photo src={r.logoUrl} alt={r.name} eager />
+        </span>
         <h1>{mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta'}</h1>
         <p>
-          Peça mais rápido em <strong>{menu.restaurant.name}</strong>: seus dados e endereços ficam
-          salvos e você acompanha todos os pedidos.
+          {after.back === 'checkout' ? (
+            'Entre para continuar o seu pedido.'
+          ) : (
+            <>
+              em <strong>{r.name}</strong>
+            </>
+          )}
         </p>
       </div>
-      <SlideTabs
-        label="Entrar ou criar conta"
-        value={mode}
-        onChange={(v) => {
-          setMode(v);
-          setError(null);
-        }}
-        tabs={[
-          { value: 'login', label: 'Entrar' },
-          { value: 'signup', label: 'Criar conta' },
-        ]}
-      />
-      <form className="auth__form" onSubmit={submit} key={mode}>
-        {mode === 'signup' && (
-          <Field label="Seu nome">
-            <input
-              autoComplete="name"
-              required
-              maxLength={80}
-              value={form.name}
-              onChange={set('name')}
-            />
+      <div className="auth__card">
+        <SlideTabs
+          label="Entrar ou criar conta"
+          value={mode}
+          onChange={(v) => {
+            setMode(v);
+            setError(null);
+          }}
+          tabs={[
+            { value: 'login', label: 'Entrar' },
+            { value: 'signup', label: 'Criar conta' },
+          ]}
+        />
+        <form className="auth__form" onSubmit={submit} key={mode}>
+          {mode === 'signup' && (
+            <Field label="Seu nome">
+              <input
+                autoComplete="name"
+                required
+                maxLength={80}
+                value={form.name}
+                onChange={set('name')}
+              />
+            </Field>
+          )}
+          <Field label="Celular (WhatsApp)">
+            <span className="auth__input">
+              <Smartphone size={18} aria-hidden />
+              <input
+                autoComplete="tel"
+                inputMode="tel"
+                required
+                placeholder="(11) 98888-7777"
+                value={form.phone}
+                onChange={set('phone')}
+              />
+            </span>
           </Field>
-        )}
-        <Field label="Celular (WhatsApp)">
-          <input
-            autoComplete="tel"
-            inputMode="tel"
-            required
-            placeholder="(11) 98888-7777"
-            value={form.phone}
-            onChange={set('phone')}
-          />
-        </Field>
-        {mode === 'signup' && (
-          <Field label="E-mail (opcional)">
-            <input
-              type="email"
-              autoComplete="email"
-              maxLength={254}
-              value={form.email}
-              onChange={set('email')}
-            />
+          {mode === 'signup' && (
+            <Field label="E-mail (opcional)">
+              <input
+                type="email"
+                autoComplete="email"
+                maxLength={254}
+                value={form.email}
+                onChange={set('email')}
+              />
+            </Field>
+          )}
+          <Field label="Senha" hint={mode === 'signup' ? 'Pelo menos 6 caracteres.' : undefined}>
+            <span className="auth__input">
+              <LockKeyhole size={18} aria-hidden />
+              <input
+                type={showPass ? 'text' : 'password'}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                required
+                minLength={mode === 'signup' ? 6 : 1}
+                value={form.password}
+                onChange={set('password')}
+              />
+              <button
+                type="button"
+                className="auth__eye"
+                aria-label={showPass ? 'Esconder senha' : 'Mostrar senha'}
+                aria-pressed={showPass}
+                onClick={() => setShowPass((v) => !v)}
+              >
+                {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </span>
           </Field>
-        )}
-        <Field label="Senha" hint={mode === 'signup' ? 'Pelo menos 6 caracteres.' : undefined}>
-          <input
-            type="password"
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            required
-            minLength={mode === 'signup' ? 6 : 1}
-            value={form.password}
-            onChange={set('password')}
-          />
-        </Field>
-        {mode === 'signup' && (
-          <label className="ck-toggle">
-            <span>Quero receber promoções da loja</span>
-            <Switch
-              label="Receber promoções"
-              checked={form.optIn}
-              onChange={(v) => setForm((f) => ({ ...f, optIn: v }))}
-            />
-          </label>
-        )}
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-        <button className="cta" disabled={busy}>
-          {busy ? 'Aguarde…' : mode === 'login' ? 'Entrar' : 'Criar minha conta'}
-        </button>
-        {mode === 'login' && (
-          <p className="form-hint auth__forgot">
-            <Link to="/pedir/conta/esqueci-senha" state={{ phone: form.phone, back: after.back }}>
-              Esqueci minha senha
-            </Link>
-          </p>
-        )}
-      </form>
+          {mode === 'signup' && (
+            <label className="ck-toggle">
+              <span>Quero receber promoções da loja</span>
+              <Switch
+                label="Receber promoções"
+                checked={form.optIn}
+                onChange={(v) => setForm((f) => ({ ...f, optIn: v }))}
+              />
+            </label>
+          )}
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+          <button className="cta auth__go" disabled={busy} aria-busy={busy || undefined}>
+            {busy ? (
+              <Loader2 size={20} className="ck-send__spin" aria-label="Aguarde" />
+            ) : mode === 'login' ? (
+              'Entrar'
+            ) : (
+              'Criar minha conta'
+            )}
+          </button>
+          {mode === 'login' && (
+            <p className="auth__forgot">
+              <Link to="/pedir/conta/esqueci-senha" state={{ phone: form.phone, back: after.back }}>
+                Esqueci minha senha
+              </Link>
+            </p>
+          )}
+        </form>
+      </div>
+      <ul className="auth__perks" aria-label="Com a conta">
+        <li>
+          <span className="auth__perk-icon">
+            <ReceiptText size={17} aria-hidden />
+          </span>
+          Acompanhe os pedidos
+        </li>
+        <li>
+          <span className="auth__perk-icon">
+            <MapPin size={17} aria-hidden />
+          </span>
+          Endereços salvos
+        </li>
+        <li>
+          <span className="auth__perk-icon">
+            {loyaltyOn ? <Gift size={17} aria-hidden /> : <Heart size={17} aria-hidden />}
+          </span>
+          {loyaltyOn ? 'Junte pontos' : 'Seus favoritos'}
+        </li>
+      </ul>
     </div>
   );
 }

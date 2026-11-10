@@ -8,7 +8,15 @@ import {
   ShoppingBag,
   UserRound,
 } from 'lucide-react';
-import { forwardRef, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  forwardRef,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   Link,
@@ -387,6 +395,13 @@ export function StoreApp() {
   const [menu, setMenu] = useState<PublicMenu | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tableId, leaveTable] = useTableId();
+  // Página do cardápio: o navegador do celular devolve o elástico e o "puxar para atualizar"
+  // (storefront.css), que o sistema da equipe desliga.
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.classList.add('sf-root');
+    return () => root.classList.remove('sf-root');
+  }, []);
 
   const loadMenu = useCallback(
     () =>

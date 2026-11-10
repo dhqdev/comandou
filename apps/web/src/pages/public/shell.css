@@ -498,7 +498,7 @@
   background: color-mix(in srgb, currentColor 14%, transparent);
 }
 .sf-appbar__bag[data-bump] {
-  animation: sf-pop 0.45s var(--cm-ease-liquid);
+  animation: sf-pop 0.28s var(--cm-ease-liquid);
 }
 .sf-appbar__bag .cartpill__count {
   top: -6px;
@@ -672,12 +672,11 @@
   -webkit-backdrop-filter: blur(8px);
   color: #fff;
 }
+/* Abaixo da barra do topo (tablet): sem a área do relógio. */
 .sf:not([data-layout='phone']) .searchbar {
+  --sb-top: 10px;
   top: var(--sf-appbar);
-  margin-top: 14px;
-}
-.sf:not([data-layout='phone']) .searchbar[data-stuck] {
-  padding: 10px 0;
+  margin-top: calc(14px - var(--sb-top));
 }
 .sf[data-layout='tablet'] .searchbox,
 .sf[data-layout='tablet'] .filterbtn {
@@ -751,7 +750,7 @@
   border-top: 1px solid var(--cm-border);
   box-shadow: 0 -12px 30px -20px rgb(0 0 0 / 0.35);
   transition:
-    transform 0.4s var(--sf-ease),
+    transform 0.26s var(--sf-ease),
     opacity 0.25s;
 }
 .sf-orderbar[data-hidden] {
@@ -778,7 +777,7 @@
   color: var(--cm-brand-700);
 }
 .sf-orderbar__bag[data-bump] {
-  animation: sf-pop 0.45s var(--cm-ease-liquid);
+  animation: sf-pop 0.28s var(--cm-ease-liquid);
 }
 .sf-orderbar__bag .cartpill__count {
   top: -4px;
@@ -1058,7 +1057,7 @@
   background: color-mix(in srgb, currentColor 16%, transparent);
 }
 .sf-side__bag[data-bump] {
-  animation: sf-pop 0.45s var(--cm-ease-liquid);
+  animation: sf-pop 0.28s var(--cm-ease-liquid);
 }
 .sf-side__bag .cartpill__count {
   top: -6px;
@@ -1215,7 +1214,7 @@
   color: var(--cm-brand-700);
 }
 .sf-cart__icon[data-bump] {
-  animation: sf-pop 0.45s var(--cm-ease-liquid);
+  animation: sf-pop 0.28s var(--cm-ease-liquid);
 }
 .sf-cart__empty {
   flex: 1;
@@ -1252,7 +1251,7 @@
   gap: 10px;
   padding: 10px 0;
   border-bottom: 1px solid var(--cm-border);
-  animation: sf-rise 0.35s var(--sf-ease) both;
+  animation: sf-rise 0.2s var(--sf-ease) both;
 }
 .sf-cart__photo {
   width: 52px;

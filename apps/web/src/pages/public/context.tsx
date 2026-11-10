@@ -111,10 +111,10 @@ function flyToCart(from: HTMLElement) {
           },
           { transform: `translate(${dx}px, ${dy}px) scale(0.1)`, opacity: 0.3 },
         ],
-        { duration: 640, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'forwards' },
+        { duration: 300, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'forwards' },
       )
       .finished.finally(() => ghost.remove());
-  }, 90);
+  }, 40);
 }
 
 export function StoreProvider({

@@ -210,10 +210,10 @@ interface Filters {
 const NO_FILTERS: Filters = { sort: 'relevance', available: false };
 
 /**
- * Categoria e filtros escolhidos: a tela do início é remontada ao voltar do produto, então
+ * Filtros escolhidos: a tela do início é remontada ao voltar do produto, então
  * ficam aqui fora para o cliente voltar para onde estava (somem ao recarregar a página).
  */
-const kept: { cat: string | null; filters: Filters } = { cat: null, filters: NO_FILTERS };
+const kept: { filters: Filters } = { filters: NO_FILTERS };
 
 function refine(list: PublicProduct[], f: Filters) {
   const out = f.available ? list.filter((p) => !p.soldOut) : [...list];
@@ -233,10 +233,11 @@ const WHEEL_COPIES = 5;
 const WHEEL_MID = Math.floor(WHEEL_COPIES / 2);
 
 /**
- * Carrossel de categorias (como no PedidoJá): rola de lado, a do meio fica maior e é a que
- * aparece embaixo. Tocar numa categoria a traz para o meio; soltar a rolagem escolhe a do meio.
- * No celular ele não tem fim: depois da última categoria vem a primeira de novo (a lista se
- * repete e, quando a rolagem para, volta em silêncio para a cópia do meio).
+ * Carrossel de categorias do celular: rola de lado e a do meio fica maior. O cardápio inteiro
+ * está embaixo, numa rolagem só: tocar numa categoria (ou soltar o carrossel nela) leva a página
+ * até ela, e rolar a página traz para o meio a categoria que está na tela. Ele não tem fim:
+ * depois da última categoria vem a primeira de novo (a lista se repete e, quando a rolagem para,
+ * volta em silêncio para a cópia do meio).
  */
 function CategoryWheel({
   items,
@@ -251,8 +252,11 @@ function CategoryWheel({
   const [live, setLive] = useState(cur);
   const settle = useRef(0);
   const frame = useRef(0);
+  const lastScroll = useRef(0);
   const curRef = useRef(cur);
   curRef.current = cur;
+  // Só a rolagem feita pelo dedo escolhe categoria ao parar (a que segue a página, não).
+  const byHand = useRef(false);
   const canLoop = items.length > 2;
   const [loop, setLoop] = useState(() => canLoop && !flat());
   const copies = loop ? WHEEL_COPIES : 1;
@@ -332,24 +336,40 @@ function CategoryWheel({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loop, canLoop]);
-  useEffect(() => setLive(cur), [cur]);
+  // A página rolou para outra categoria: ela vem para o meio (sem brigar com o dedo).
+  useEffect(() => {
+    setLive(cur);
+    if (!byHand.current) center(cur, reducedMotion() ? 'instant' : 'smooth');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cur]);
 
   const onScroll = () => {
     // No computador as categorias ficam lado a lado (sem arco): rolar não troca a categoria.
     if (flat()) return;
+    lastScroll.current = performance.now();
     cancelAnimationFrame(frame.current);
     frame.current = requestAnimationFrame(() => {
       const id = paint();
       if (id) setLive(id);
     });
-    // Parou de rolar: a categoria do meio passa a ser a escolhida.
+    // Parou de rolar: a categoria do meio passa a ser a escolhida (se foi o dedo que rolou).
     window.clearTimeout(settle.current);
     settle.current = window.setTimeout(() => {
       recenter();
       const id = paint();
-      if (id && id !== curRef.current) onPick(id);
+      const hand = byHand.current;
+      byHand.current = false;
+      if (hand && id && id !== curRef.current) onPick(id);
     }, 140);
   };
+  const touched = () => {
+    byHand.current = true;
+  };
+  // Tocou e soltou sem rolar: a faixa volta a seguir a página.
+  const released = () =>
+    window.setTimeout(() => {
+      if (performance.now() - lastScroll.current > 120) byHand.current = false;
+    }, 160);
 
   const step = (dir: 1 | -1) => {
     const n = items.length;
@@ -357,6 +377,7 @@ function CategoryWheel({
     const j = loop ? (i + dir + n) % n : Math.max(0, Math.min(n - 1, i + dir));
     const next = items[j];
     if (next) {
+      byHand.current = false;
       onPick(next.id);
       center(next.id, 'smooth');
     }
@@ -374,7 +395,17 @@ function CategoryWheel({
         >
           <ChevronLeft size={18} />
         </button>
-        <div className="wheel__track" ref={track} onScroll={onScroll} role="tablist">
+        <div
+          className="wheel__track"
+          ref={track}
+          onScroll={onScroll}
+          onPointerDown={touched}
+          onTouchStart={touched}
+          onWheel={touched}
+          onPointerUp={released}
+          onTouchEnd={released}
+          role="tablist"
+        >
           {Array.from({ length: copies }, (_, k) =>
             items.map((c) => {
               const copy = loop && k !== WHEEL_MID;
@@ -393,6 +424,7 @@ function CategoryWheel({
                   title={c.name}
                   className="wheel__item"
                   onClick={(e) => {
+                    byHand.current = false;
                     onPick(c.id);
                     const t = track.current;
                     const el = e.currentTarget;
@@ -732,9 +764,12 @@ function useScrollSpy(ids: string[], on: boolean) {
     if (!on || !ids.length) return;
     let frame = 0;
     let lockUntil = 0;
-    // A seção vale a partir de quando passa de um terço da área visível (abaixo da busca).
+    // A seção vale a partir de quando passa de um terço da área visível (abaixo da busca e das
+    // categorias presas nela).
     const line = () => {
-      const top = document.querySelector('.searchbar')?.getBoundingClientRect().bottom ?? 0;
+      const bar =
+        document.querySelector('.cchips[data-on]') ?? document.querySelector('.searchbar');
+      const top = bar?.getBoundingClientRect().bottom ?? 0;
       return top + (window.innerHeight - top) * 0.3;
     };
     const spy = () => {
@@ -758,7 +793,10 @@ function useScrollSpy(ids: string[], on: boolean) {
       if (!frame) frame = requestAnimationFrame(spy);
     };
     const jump = (id: string, smooth: boolean) => {
-      const el = document.getElementById(`sec-${id}`);
+      // A primeira categoria no celular: volta até o carrossel, que fica logo acima dela.
+      const el =
+        (id === ids[0] && document.querySelector<HTMLElement>('.wheel')) ||
+        document.getElementById(`sec-${id}`);
       if (!el) return;
       lockUntil = performance.now() + 900;
       setActiveSection(id);
@@ -781,48 +819,110 @@ function useScrollSpy(ids: string[], on: boolean) {
   }, [key, on]);
 }
 
-/** Onde o início estava (tablet e notebook): ao voltar do produto, a página volta para lá. */
+/**
+ * A busca gruda no topo (ganha fundo e linha) e, no celular, as categorias aparecem presas embaixo
+ * dela quando o carrossel sai da tela. Medido na rolagem, um quadro por vez: a busca tem a mesma
+ * altura grudada ou não, então o cardápio não dá pulo ao passar por ela.
+ */
+function useStickySearch(term: string) {
+  const bar = useRef<HTMLDivElement>(null);
+  const [stuck, setStuck] = useState(false);
+  const [wheelGone, setWheelGone] = useState(false);
+  useEffect(() => {
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const b = bar.current;
+      if (!b) return;
+      const r = b.getBoundingClientRect();
+      setStuck(r.top <= (parseFloat(getComputedStyle(b).top) || 0) + 0.5);
+      const w = document.querySelector('.wheel');
+      setWheelGone(!!w && w.getBoundingClientRect().bottom <= r.bottom);
+    };
+    const on = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+    measure();
+    window.addEventListener('scroll', on, { passive: true });
+    window.addEventListener('resize', on);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', on);
+      window.removeEventListener('resize', on);
+    };
+  }, [term]);
+  return { bar, stuck, wheelGone };
+}
+
+/**
+ * Categorias presas embaixo da busca (celular), depois que o carrossel sai da tela: a categoria
+ * na tela fica marcada (a pílula desliza até ela) e tocar em outra leva o cardápio até lá.
+ */
+function CategoryChips({ sections, show }: { sections: Section[]; show: boolean }) {
+  const cur = useActiveSection() ?? sections[0]?.id;
+  const box = useRef<HTMLDivElement>(null);
+  const pill = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const b = box.current;
+    const p = pill.current;
+    const el = b?.querySelector<HTMLElement>('[aria-current="true"]');
+    if (!b || !p || !el) return;
+    p.style.width = `${el.offsetWidth}px`;
+    p.style.transform = `translateX(${el.offsetLeft}px)`;
+    if (
+      el.offsetLeft < b.scrollLeft + 16 ||
+      el.offsetLeft + el.offsetWidth > b.scrollLeft + b.clientWidth - 16
+    )
+      b.scrollTo({
+        left: el.offsetLeft - (b.clientWidth - el.offsetWidth) / 2,
+        behavior: show && !reducedMotion() ? 'smooth' : 'instant',
+      });
+  }, [cur, show, sections]);
+  return (
+    <div className="cchips" ref={box} data-on={show || undefined} aria-hidden={!show}>
+      <span className="cchips__pill" ref={pill} aria-hidden />
+      {sections.map((c) => (
+        <button
+          key={c.id}
+          type="button"
+          className="cchips__chip"
+          aria-current={c.id === cur}
+          tabIndex={show ? 0 : -1}
+          onClick={() => requestJump(c.id)}
+        >
+          {c.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Onde o início estava: ao voltar do produto, a página volta para lá. */
 let keptScroll = 0;
 
 export function HomeScreen() {
   const { menu, product, table } = useStore();
   const layout = useLayout();
-  const sectionsMode = layout !== 'phone';
+  const phone = layout === 'phone';
   const nav = useNavigationType();
   const open = useOpenProduct();
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Filters>(kept.filters);
   const [sheet, setSheet] = useState<'info' | 'filter' | null>(null);
-  const [stuck, setStuck] = useState(false);
-  const sentinel = useRef<HTMLDivElement>(null);
   const recent = useMemo(recentOrders, []);
   const r = menu.restaurant;
-
-  // A busca gruda no topo e ganha uma linha embaixo depois que a capa sai da tela.
-  useEffect(() => {
-    const el = sentinel.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([e]) => setStuck(!e!.isIntersecting));
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
+  const term = search.trim().toLowerCase();
+  const { bar, stuck, wheelGone } = useStickySearch(term);
 
   const all = useMemo(() => menu.categories.flatMap((c) => c.products), [menu]);
   const wheel = useMemo(() => buildSections(menu), [menu]);
-  const [cat, setCatState] = useState<string>(() =>
-    wheel.some((c) => c.id === kept.cat) ? kept.cat! : (wheel[0]?.id ?? ''),
-  );
-  const setCat = (id: string) => {
-    kept.cat = id;
-    setCatState(id);
-  };
+  const active = useActiveSection();
   const changeFilters = (f: Filters) => {
     kept.filters = f;
     setFilters(f);
   };
   const filtered = filters.sort !== 'relevance' || filters.available;
 
-  const term = search.trim().toLowerCase();
   const results = term
     ? refine(
         all.filter(
@@ -833,44 +933,35 @@ export function HomeScreen() {
         filters,
       )
     : [];
-  const current = wheel.find((c) => c.id === cat) ?? wheel[0];
-  // A grade entra pelo lado para onde o carrossel andou (direita = próxima categoria).
-  const catIdx = current ? wheel.indexOf(current) : 0;
-  const [slide, setSlide] = useState({ idx: catIdx, dir: 'fwd' as 'fwd' | 'back' });
-  if (slide.idx !== catIdx) setSlide({ idx: catIdx, dir: catIdx < slide.idx ? 'back' : 'fwd' });
-  const shown = current ? refine(current.products, filters) : [];
   const lists = useMemo(
     () => wheel.map((c) => ({ ...c, products: refine(c.products, filters) })),
     [wheel, filters],
   );
-  const listed = sectionsMode ? lists.reduce((n, c) => n + c.products.length, 0) : shown.length;
+  const listed = lists.reduce((n, c) => n + c.products.length, 0);
 
+  // O cardápio inteiro numa rolagem só (em todas as telas): a rolagem marca a categoria.
   useScrollSpy(
     wheel.map((c) => c.id),
-    sectionsMode && !term,
+    !term,
   );
 
-  // Tablet e notebook: voltar do produto devolve a página para onde estava.
+  // Voltar do produto devolve a página para onde estava.
   useLayoutEffect(() => {
-    if (!sectionsMode) return;
     if (nav === 'POP' && keptScroll) window.scrollTo({ top: keptScroll, behavior: 'instant' });
     return () => {
       keptScroll = window.scrollY;
     };
     // Só ao abrir e sair do início.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sectionsMode]);
+  }, []);
 
   function pickBanner(b: PublicBanner) {
     if (b.targetType === 'product') {
       const p = product(b.targetId!);
       if (p) open(p);
-    } else if (b.targetType === 'category') {
-      if (sectionsMode) return requestJump(b.targetId!);
-      setCat(b.targetId!);
-      document.querySelector('.wheel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    } else if (b.targetType === 'category') requestJump(b.targetId!);
   }
+  const chips = phone && !term && wheel.length > 1;
 
   const body = (
     <>
@@ -882,9 +973,12 @@ export function HomeScreen() {
           </div>
         )}
       </div>
-      <div ref={sentinel} aria-hidden />
-
-      <div className="searchbar" data-stuck={stuck || undefined}>
+      <div
+        className="searchbar"
+        ref={bar}
+        data-stuck={stuck || undefined}
+        data-chips={(chips && wheelGone) || undefined}
+      >
         <div className="sf-wrap searchbar__row">
           <label className="searchbox">
             <Search size={18} aria-hidden />
@@ -911,6 +1005,7 @@ export function HomeScreen() {
             <SlidersHorizontal size={19} />
           </button>
         </div>
+        {chips && <CategoryChips sections={wheel} show={wheelGone} />}
       </div>
 
       <div className="sf-wrap sf-body">
@@ -954,37 +1049,32 @@ export function HomeScreen() {
                 <CookingArt live className="empty-state__art" />
                 <strong>Cardápio em preparo</strong>
               </div>
-            ) : sectionsMode ? (
-              lists.map((c) => (
-                <section
-                  key={c.id}
-                  id={`sec-${c.id}`}
-                  className="sec sf-sec"
-                  aria-labelledby={`sec-${c.id}-t`}
-                >
-                  <h2 className="sec__title sec__title--cat" id={`sec-${c.id}-t`}>
-                    {c.name}
-                  </h2>
-                  {c.products.length ? (
-                    <ProductGrid list={c.products} />
-                  ) : (
-                    <p className="sf-empty">Nada disponível agora.</p>
-                  )}
-                </section>
-              ))
             ) : (
               <>
-                <CategoryWheel items={wheel} cur={current!.id} onPick={setCat} />
-                <section className="sec sec--grid" key={current!.id} data-dir={slide.dir}>
-                  <h2 className="sec__title sec__title--cat" aria-live="polite">
-                    {current!.name}
-                  </h2>
-                  {shown.length ? (
-                    <ProductGrid list={shown} />
-                  ) : (
-                    <p className="sf-empty">Nada disponível agora.</p>
-                  )}
-                </section>
+                {phone && (
+                  <CategoryWheel
+                    items={wheel}
+                    cur={active && wheel.some((c) => c.id === active) ? active : wheel[0]!.id}
+                    onPick={requestJump}
+                  />
+                )}
+                {lists.map((c) => (
+                  <section
+                    key={c.id}
+                    id={`sec-${c.id}`}
+                    className="sec sf-sec"
+                    aria-labelledby={`sec-${c.id}-t`}
+                  >
+                    <h2 className="sec__title sec__title--cat" id={`sec-${c.id}-t`}>
+                      {c.name}
+                    </h2>
+                    {c.products.length ? (
+                      <ProductGrid list={c.products} />
+                    ) : (
+                      <p className="sf-empty">Nada disponível agora.</p>
+                    )}
+                  </section>
+                ))}
               </>
             )}
           </>
@@ -1000,7 +1090,7 @@ export function HomeScreen() {
   );
 
   return (
-    <div className="sf-home" data-mode={sectionsMode ? 'sections' : 'wheel'}>
+    <div className="sf-home" data-mode="sections">
       {layout === 'tablet' && wheel.length > 0 && <CategoryRail sections={wheel} />}
       <div className="sf-home__main">{body}</div>
 

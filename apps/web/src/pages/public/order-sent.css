@@ -41,7 +41,7 @@
 .osent h2,
 .osent p,
 .osent__cta {
-  animation: osent-up 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: osent-up 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 .osent h2 {
   animation-delay: 0.12s;

@@ -28,6 +28,19 @@
   overflow-x: clip;
   -webkit-tap-highlight-color: transparent;
 }
+/* No navegador do celular, o cardápio rola como um site: com o elástico nas pontas e o "puxar
+   para atualizar" do próprio navegador (base.css desliga os dois para a moldura do sistema da
+   equipe não sair do lugar, e sem eles a página parecia travada). No app instalado quem faz o
+   elástico e o recarregar é o pull-refresh.ts. Com a conversa aberta a página fica parada. */
+@media not all and (display-mode: standalone) {
+  html.sf-root:not(.sf-chat-open),
+  html.sf-root:not(.sf-chat-open) body {
+    overscroll-behavior-y: auto;
+  }
+  html.sf-root {
+    background: color-mix(in srgb, var(--cm-brand-500) 4%, var(--cm-bg));
+  }
+}
 .sf--center {
   display: grid;
   place-items: center;
@@ -64,20 +77,20 @@
 /* Sem transform: elementos fixos (barras) continuam presos à tela durante a animação. */
 .screen {
   position: relative;
-  animation: sf-in 0.34s var(--sf-ease) backwards;
+  animation: sf-in 0.22s var(--sf-ease) backwards;
 }
 .screen[data-dir='back'] {
   animation-name: sf-in-back;
 }
 /* Troca de aba: desliza um pouco mais, para o lado da aba escolhida. */
 .screen[data-tab] {
-  animation-duration: 0.38s;
-  --sf-shift: 40px;
+  animation-duration: 0.24s;
+  --sf-shift: 24px;
 }
 @keyframes sf-in {
   from {
     opacity: 0;
-    left: var(--sf-shift, 28px);
+    left: var(--sf-shift, 16px);
   }
   to {
     opacity: 1;
@@ -87,7 +100,7 @@
 @keyframes sf-in-back {
   from {
     opacity: 0;
-    left: calc(var(--sf-shift, 28px) * -1);
+    left: calc(var(--sf-shift, 16px) * -1);
   }
   to {
     opacity: 1;
@@ -98,16 +111,6 @@
 @keyframes sf-rise {
   from {
     opacity: 0;
-  }
-}
-@keyframes sf-slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(var(--sf-from, 24px));
-  }
-  to {
-    opacity: 1;
-    transform: none;
   }
 }
 @keyframes sf-pop {
@@ -225,21 +228,106 @@
 }
 
 /* ---------------------------------------------------------------- busca + filtro (gruda no topo) */
+/* A folga de cima (área do relógio no app instalado) existe sempre, compensada na margem: a barra
+   tem a mesma altura grudada ou não, e o cardápio não dá pulo quando ela gruda. A folga não pega
+   toque (a capa logo acima continua tocável). */
 .searchbar {
+  --sb-top: calc(env(safe-area-inset-top, 0px) + 10px);
   position: sticky;
   top: 0;
   z-index: 20;
-  margin-top: 18px;
-  padding: 0 0 6px;
+  margin-top: calc(18px - var(--sb-top));
+  padding: var(--sb-top) 0 10px;
+  pointer-events: none;
   transition:
-    background var(--cm-dur) var(--cm-ease),
-    box-shadow var(--cm-dur) var(--cm-ease),
-    padding var(--cm-dur) var(--cm-ease);
+    background-color var(--cm-dur) var(--cm-ease),
+    box-shadow var(--cm-dur) var(--cm-ease);
+}
+.searchbar > * {
+  pointer-events: auto;
 }
 .searchbar[data-stuck] {
-  padding: calc(env(safe-area-inset-top, 0px) + 10px) 0 10px;
   background: var(--sf-page);
   box-shadow: 0 1px 0 var(--cm-border);
+}
+/* Categorias presas embaixo da busca: a linha passa para baixo delas. */
+.searchbar[data-chips] {
+  box-shadow: none;
+}
+
+/* Categorias presas embaixo da busca (celular), depois que o carrossel sai da tela. Ficam por
+   cima do cardápio (não empurram nada) e a pílula desliza até a categoria na tela. */
+.cchips {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 4px;
+  padding: 0 16px 8px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  background: var(--sf-page);
+  box-shadow: 0 1px 0 var(--cm-border);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  transition:
+    opacity 0.14s var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    visibility 0s linear 0.2s;
+}
+.cchips::-webkit-scrollbar {
+  display: none;
+}
+.cchips[data-on] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition-delay: 0s;
+}
+.cchips__pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 34px;
+  width: 0;
+  border-radius: var(--cm-radius-full);
+  background: color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-surface));
+  pointer-events: none;
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    width var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.cchips__chip {
+  position: relative;
+  flex: none;
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--cm-radius-full);
+  background: none;
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    color var(--cm-dur) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.cchips__chip[aria-current='true'] {
+  color: var(--cm-brand-700);
+}
+.cchips__chip:active {
+  transform: scale(0.94);
+  transition-duration: 80ms;
+}
+.cchips__chip:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
 }
 .searchbar__row {
   display: flex;
@@ -334,7 +422,7 @@
   color: var(--cm-on-brand);
   cursor: pointer;
   transition:
-    transform var(--cm-dur) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
     background var(--cm-dur);
 }
 .filterbtn:hover {
@@ -342,6 +430,7 @@
 }
 .filterbtn:active {
   transform: scale(0.92);
+  transition-duration: 80ms;
 }
 .filterbtn[data-on]::after {
   content: '';
@@ -440,7 +529,7 @@
   cursor: pointer;
   isolation: isolate;
   background: var(--cm-brand-700);
-  animation: sf-rise 0.5s var(--sf-ease) both;
+  animation: sf-rise 0.2s var(--sf-ease) both;
 }
 .banner:disabled {
   cursor: default;
@@ -452,7 +541,7 @@
   height: 100%;
   object-fit: cover;
   z-index: -2;
-  transition: transform 0.6s var(--sf-ease);
+  transition: transform 0.3s var(--sf-ease);
 }
 .banner:not(:disabled):hover .banner__img {
   transform: scale(1.04);
@@ -534,7 +623,8 @@
    bolinha tem o nome embaixo, que vai sumindo nas pontas. */
 .wheel {
   margin-top: 24px;
-  scroll-margin-top: 80px;
+  /* "Ir para a primeira categoria" para aqui, logo abaixo da busca grudada. */
+  scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 72px);
 }
 .wheel__band {
   position: relative;
@@ -645,15 +735,13 @@
 .sec {
   margin-top: 24px;
 }
-.sec--grid {
+/* Celular: o cardápio inteiro numa rolagem só, uma categoria depois da outra. Ir até uma
+   categoria para abaixo da busca e das categorias presas nela. */
+.sf[data-layout='phone'] .sf-sec {
+  scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 116px);
+}
+.sf[data-layout='phone'] .wheel + .sf-sec {
   margin-top: 16px;
-}
-/* Trocou de categoria: os cartões entram pelo lado para onde o carrossel andou. */
-.sec--grid[data-dir] .pcard {
-  animation-name: sf-slide-in;
-}
-.sec--grid[data-dir='back'] {
-  --sf-from: -24px;
 }
 .sec__title {
   display: flex;
@@ -705,12 +793,18 @@
   /* Aparece logo: fade curto, com um degrau pequeno entre os primeiros cartões. */
   animation: sf-rise 0.18s calc(var(--i, 0) * 16ms) ease-out both;
   transition:
-    transform 0.2s var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
     border-color var(--cm-dur),
     box-shadow 0.25s var(--cm-ease);
 }
+/* Toque: afunda na hora e volta com a mola. O afundar espera um instante (60 ms): quem só começou
+   a rolar a página por cima do cartão não vê ele piscar. */
 .pcard:active {
   transform: scale(0.97);
+  transition:
+    transform 0.1s var(--cm-ease) 60ms,
+    border-color var(--cm-dur),
+    box-shadow 0.25s var(--cm-ease);
 }
 @media (hover: hover) {
   .pcard:hover {
@@ -722,7 +816,7 @@
   }
 }
 .pcard .ph img {
-  transition: transform 0.5s var(--sf-ease);
+  transition: transform 0.3s var(--sf-ease);
 }
 .pcard:focus-visible {
   outline: none;
@@ -817,7 +911,7 @@
   color: var(--cm-on-brand);
   cursor: pointer;
   transition:
-    transform var(--cm-dur) var(--cm-ease-liquid),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
     background var(--cm-dur);
 }
 .addbtn:hover {
@@ -825,6 +919,7 @@
 }
 .addbtn:active {
   transform: scale(0.86);
+  transition-duration: 80ms;
 }
 
 .badge-chip {
@@ -862,7 +957,7 @@
 }
 .heart[data-on] svg {
   fill: currentColor;
-  animation: sf-pop 0.4s var(--cm-ease-liquid);
+  animation: sf-pop 0.28s var(--cm-ease-liquid);
 }
 
 /* ---------------------------------------------------------------- sacola (celular) */
@@ -889,8 +984,8 @@
   cursor: pointer;
   transform: translateX(-50%);
   transition:
-    transform 0.45s var(--cm-ease-liquid),
-    opacity 0.25s;
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    opacity 0.2s;
 }
 .cartpill[data-hidden] {
   transform: translate(-50%, 140%);
@@ -899,6 +994,7 @@
 }
 .cartpill:active {
   transform: translateX(-50%) scale(0.97);
+  transition-duration: 80ms;
 }
 .cartpill__icon {
   position: relative;
@@ -911,7 +1007,7 @@
   color: var(--cm-on-brand);
 }
 .cartpill__icon[data-bump] {
-  animation: sf-pop 0.45s var(--cm-ease-liquid);
+  animation: sf-pop 0.28s var(--cm-ease-liquid);
 }
 .cartpill__count {
   position: absolute;
@@ -970,7 +1066,7 @@
   right: 12px;
   display: flex;
   gap: 8px;
-  animation: sf-rise 0.4s 0.15s var(--sf-ease) both;
+  animation: sf-rise 0.2s 0.06s var(--sf-ease) both;
 }
 .pdp__topbar-space {
   flex: 1;
@@ -986,10 +1082,11 @@
   background: var(--cm-surface);
   color: var(--cm-text);
   cursor: pointer;
-  transition: transform var(--cm-dur) var(--cm-ease-liquid);
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
 .iconbtn:active {
   transform: scale(0.9);
+  transition-duration: 80ms;
 }
 .iconbtn--glass {
   border-radius: 50%;
@@ -1006,7 +1103,7 @@
   background: var(--sf-page);
   display: grid;
   gap: 10px;
-  animation: sf-panel 0.5s 0.05s var(--sf-ease) both;
+  animation: sf-panel 0.24s 0.03s var(--sf-ease) both;
 }
 @keyframes sf-panel {
   from {
@@ -1075,7 +1172,7 @@
   min-width: 0;
 }
 .og[data-shake] {
-  animation: sf-shake 0.45s;
+  animation: sf-shake 0.3s;
   border-color: var(--cm-danger);
 }
 @keyframes sf-shake {
@@ -1149,7 +1246,7 @@
     background var(--cm-dur),
     border-color var(--cm-dur),
     color var(--cm-dur),
-    transform var(--cm-dur) var(--cm-ease-liquid);
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
 .og__chip small {
   font-size: var(--cm-text-2xs);
@@ -1158,6 +1255,7 @@
 }
 .og__chip:active {
   transform: scale(0.95);
+  transition-duration: 80ms;
 }
 .og__chip[aria-checked='true'] {
   background: var(--cm-brand-500);
@@ -1207,6 +1305,13 @@
 }
 .og__row[data-on] .og__radio {
   border: 7px solid var(--cm-brand-500);
+  animation: sf-check var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+/* Marcou uma opção: a bolinha encolhe e volta com a mola (resposta ao toque). */
+@keyframes sf-check {
+  from {
+    transform: scale(0.78);
+  }
 }
 .og__row input:focus-visible + .og__radio {
   box-shadow: var(--cm-focus);
@@ -1246,7 +1351,7 @@
   border-radius: 50%;
   background: var(--sf-on-photo);
   box-shadow: 0 2px 6px rgb(0 0 0 / 25%);
-  transition: transform var(--cm-dur-slow) var(--cm-ease-liquid);
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
 .sfswitch input:checked + .sfswitch__track {
   background: var(--cm-brand-500);
@@ -1279,7 +1384,7 @@
   backdrop-filter: var(--cm-glass-blur);
   border-top: 1px solid var(--cm-border);
   box-shadow: 0 -10px 30px -18px rgb(0 0 0 / 35%);
-  animation: sf-bar 0.45s 0.1s var(--sf-ease) both;
+  animation: sf-bar 0.26s 0.04s var(--sf-ease) both;
 }
 @keyframes sf-bar {
   from {
@@ -1312,7 +1417,7 @@
   padding: 4px 10px;
   border-radius: var(--cm-radius-full);
   background: color-mix(in srgb, var(--cm-on-brand) 12%, transparent);
-  animation: sf-pop 0.35s var(--cm-ease-liquid);
+  animation: sf-pop 0.26s var(--cm-ease-liquid);
 }
 
 @media (min-width: 900px) {
@@ -1377,12 +1482,13 @@
   text-decoration: none;
   cursor: pointer;
   transition:
-    transform var(--cm-dur) var(--cm-ease-liquid),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
     opacity var(--cm-dur),
     background var(--cm-dur);
 }
 .cta:active:not(:disabled) {
   transform: scale(0.97);
+  transition-duration: 80ms;
 }
 .cta:disabled {
   opacity: 0.45;
@@ -1545,7 +1651,7 @@
   border-radius: var(--sf-r);
   background: var(--cm-surface);
   border: 1px solid var(--cm-border);
-  animation: sf-rise 0.4s calc(var(--i, 0) * 50ms) var(--sf-ease) both;
+  animation: sf-rise 0.2s calc(var(--i, 0) * 25ms) var(--sf-ease) both;
 }
 .bag__photo {
   width: 64px;
@@ -1589,7 +1695,7 @@
   border-radius: var(--sf-r);
   background: var(--cm-surface);
   border: 1px solid var(--cm-border);
-  animation: sf-rise 0.4s var(--sf-ease) both;
+  animation: sf-rise 0.2s var(--sf-ease) both;
 }
 .ck-card__title {
   display: flex;
@@ -1774,7 +1880,7 @@
   padding: 36px 16px;
   text-align: center;
   color: var(--cm-text-muted);
-  animation: sf-rise 0.45s var(--sf-ease) both;
+  animation: sf-rise 0.2s var(--sf-ease) both;
 }
 .empty-state strong {
   color: var(--cm-text);
@@ -1807,7 +1913,7 @@
   gap: 10px;
 }
 .olist li {
-  animation: sf-rise 0.4s calc(var(--i, 0) * 50ms) var(--sf-ease) both;
+  animation: sf-rise 0.2s calc(var(--i, 0) * 25ms) var(--sf-ease) both;
 }
 .ocard {
   display: grid;
@@ -1898,22 +2004,40 @@
   color: var(--cm-danger);
 }
 
+/* Entrar / criar conta: logo da loja em cima, o formulário num cartão (abas, campos com ícone,
+   ver a senha) e o que a conta dá numa linha embaixo. Tudo entra só com opacidade, rápido. */
 .auth {
-  max-width: 440px;
+  max-width: 420px;
   margin: 0 auto;
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 .auth__hero {
   display: grid;
   justify-items: center;
-  gap: 6px;
+  gap: 2px;
   text-align: center;
-  padding-top: 12px;
-  animation: sf-rise 0.45s var(--sf-ease) both;
+  padding-top: 8px;
+  animation: sf-rise 0.2s var(--cm-ease) both;
+}
+.auth__logo {
+  width: 76px;
+  height: 76px;
+  margin-bottom: 12px;
+  padding: 3px;
+  border-radius: 50%;
+  background: var(--cm-surface);
+  box-shadow:
+    0 0 0 1px var(--cm-border),
+    0 10px 26px -16px color-mix(in srgb, var(--cm-brand-600) 70%, transparent);
+}
+.auth__logo .ph {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
 }
 .auth__hero h1 {
-  margin: 6px 0 0;
+  margin: 0;
   font-size: var(--cm-text-2xl);
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -1921,19 +2045,116 @@
 .auth__hero p {
   margin: 0;
   color: var(--cm-text-muted);
-  max-width: 36ch;
+  font-size: var(--cm-text-sm);
+}
+.auth__hero strong {
+  color: var(--cm-text);
+}
+.auth__card {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px 18px;
+  border: 1px solid var(--cm-border);
+  border-radius: calc(var(--sf-r-lg) * 1.5);
+  background: var(--cm-surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  animation: sf-rise 0.2s 40ms var(--cm-ease) both;
 }
 .auth__form {
   display: grid;
   gap: 4px;
-  animation: sf-rise 0.35s var(--sf-ease) both;
+  animation: sf-rise 0.18s var(--cm-ease) both;
+}
+/* Campo com ícone na frente (e o olho da senha atrás). */
+.auth__input {
+  position: relative;
+  display: block;
+}
+.auth__input > svg {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--cm-text-subtle);
+  pointer-events: none;
+  transition: color var(--cm-dur);
+}
+.auth__input:focus-within > svg {
+  color: var(--cm-brand-600);
+}
+.f .auth__input input {
+  padding-left: 42px;
+}
+.f .auth__input input:has(+ .auth__eye) {
+  padding-right: 48px;
+}
+.auth__eye {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.auth__eye:active {
+  transform: translateY(-50%) scale(0.88);
+  transition-duration: 80ms;
+}
+.auth__eye:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
 }
 .auth__form .cta {
   margin-top: 16px;
 }
 .auth__forgot {
-  margin-top: 10px;
+  margin: 12px 0 0;
   text-align: center;
+  font-size: var(--cm-text-sm);
+}
+.auth__forgot a {
+  color: var(--cm-text-muted);
+  font-weight: 600;
+  text-decoration: none;
+}
+.auth__forgot a:hover {
+  color: var(--cm-brand-700);
+}
+.auth__perks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  animation: sf-rise 0.2s 80ms var(--cm-ease) both;
+}
+.auth__perks li {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  line-height: 1.25;
+}
+.auth__perk-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--cm-text) 7%, var(--cm-surface));
+  color: var(--cm-text);
 }
 .label-chips {
   display: flex;
@@ -1966,7 +2187,7 @@
 }
 .acct > .auth ~ .acct-list {
   width: 100%;
-  max-width: 440px;
+  max-width: 420px;
   justify-self: center;
   margin-top: 8px;
 }
@@ -2441,7 +2662,7 @@
   border-radius: var(--sf-r);
   background: var(--cm-surface);
   border: 1px solid var(--cm-border);
-  animation: sf-rise 0.4s calc(var(--i, 0) * 50ms) var(--sf-ease) both;
+  animation: sf-rise 0.2s calc(var(--i, 0) * 25ms) var(--sf-ease) both;
 }
 .addr-card__pin {
   margin-top: 2px;
@@ -2595,7 +2816,7 @@
     background: var(--cm-surface);
     backdrop-filter: none;
     box-shadow: none;
-    animation: sf-rise 0.4s var(--sf-ease) both;
+    animation: sf-rise 0.2s var(--sf-ease) both;
   }
   .cart-page .checkout-bar__inner {
     max-width: none;
@@ -2704,10 +2925,10 @@
 /* ---------------------------------------------------------------- finalização: passos e avisos */
 /* Sacola → finalizar: o passo novo entra deslizando de lado (para trás, volta do outro lado). */
 .ck-step[data-step='checkout'] {
-  animation: ck-step-in 0.36s var(--sf-ease) both;
+  animation: ck-step-in 0.22s var(--sf-ease) both;
 }
 .ck-step[data-step='cart'] {
-  animation: ck-step-back 0.32s var(--sf-ease) both;
+  animation: ck-step-back 0.2s var(--sf-ease) both;
 }
 @keyframes ck-step-in {
   from {
@@ -2767,7 +2988,7 @@
 }
 /* Total mudou (taxa calculada, recompensa): o número dá um pulinho. */
 .sum__tick {
-  animation: sum-tick 0.4s var(--sf-ease) both;
+  animation: sum-tick 0.24s var(--sf-ease) both;
 }
 @keyframes sum-tick {
   from {

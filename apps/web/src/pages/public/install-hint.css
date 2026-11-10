@@ -130,7 +130,7 @@
   background: var(--cm-brand-600);
   color: var(--cm-on-brand);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--cm-brand-500) 30%, transparent);
-  animation: si-drop 420ms 140ms var(--cm-spring) both;
+  animation: si-drop 280ms 120ms var(--cm-spring) both;
 }
 .sf-install__slot img {
   width: 100%;
@@ -152,7 +152,7 @@
   }
 }
 .sf-install__screen {
-  animation: si-land 260ms 420ms var(--cm-spring-snappy) both;
+  animation: si-land 240ms 300ms var(--cm-spring-snappy) both;
 }
 @keyframes si-land {
   50% {

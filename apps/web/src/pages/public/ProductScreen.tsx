@@ -69,7 +69,7 @@ export function ProductScreen() {
         },
         { transform: 'none', borderRadius: '0px' },
       ],
-      { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' },
+      { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' },
     );
   }, [id]);
 

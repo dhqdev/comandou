@@ -95,7 +95,7 @@
   font: inherit;
   cursor: pointer;
   scroll-snap-align: start;
-  animation: rsv-pop 0.35s calc(var(--i, 0) * 30ms) var(--sf-ease) both;
+  animation: rsv-pop 0.22s calc(var(--i, 0) * 30ms) var(--sf-ease) both;
   transition:
     background var(--cm-dur),
     border-color var(--cm-dur),
@@ -229,7 +229,7 @@
   background: var(--cm-surface);
   border: 1px solid var(--cm-border);
   box-shadow: var(--cm-shadow-md);
-  animation: rsv-pop 0.4s var(--sf-ease) both;
+  animation: rsv-pop 0.22s var(--sf-ease) both;
 }
 .rsv-ticket__top {
   display: flex;
