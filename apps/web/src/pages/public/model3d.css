@@ -1,0 +1,121 @@
+/* Item em 3D no cardápio (Model3D.tsx): botão na tela do produto e o visualizador em tela cheia. */
+.m3d-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+  cursor: pointer;
+}
+.m3d-btn small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-weight: 500;
+}
+.m3d-btn:active {
+  background: var(--cm-surface-sunken);
+}
+.m3d {
+  width: 100%;
+  max-width: 720px;
+  height: 100%;
+  max-height: min(100dvh, 820px);
+  margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  overflow: hidden;
+}
+.m3d[open] {
+  display: flex;
+  flex-direction: column;
+}
+.m3d::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+.m3d__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 10px 10px 16px;
+  border-bottom: 1px solid var(--cm-border);
+}
+.m3d__head strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.m3d__close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+}
+.m3d__close:hover {
+  background: var(--cm-surface-sunken);
+}
+.m3d__stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  background: var(--cm-surface-sunken);
+}
+.m3d__viewer {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  --poster-color: transparent;
+}
+.m3d__note {
+  place-self: center;
+  margin: 0;
+  padding: 0 24px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  text-align: center;
+}
+.m3d__ar {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  padding: 0 18px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.m3d__hint {
+  margin: 0;
+  padding: 10px 16px calc(env(safe-area-inset-bottom, 0px) + 12px);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  text-align: center;
+}
+@media (max-width: 720px) {
+  .m3d {
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+  }
+}

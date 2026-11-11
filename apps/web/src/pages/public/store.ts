@@ -19,6 +19,8 @@ export interface PublicProduct {
   badge: string | null;
   /** Vendido por peso: o preço é do kg e o cliente escolhe quanto quer. */
   soldByWeight?: boolean;
+  /** Modelo 3D do prato (GLB e, se houver, o USDZ do iPhone). */
+  model?: { glb: string; usdz: string | null } | null;
   optionGroups: MenuGroup[];
 }
 export interface PublicCategory {

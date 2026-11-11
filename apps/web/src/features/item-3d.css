@@ -1,0 +1,41 @@
+/* Item em 3D no cadastro do item (Item3DCard.tsx). */
+.i3d {
+  display: grid;
+  gap: var(--cm-space-3);
+}
+.i3d__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.i3d__lead {
+  margin: 0;
+  max-width: 72ch;
+}
+.i3d__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-3);
+  padding: 10px 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+}
+.i3d__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.i3d__text strong {
+  font-size: var(--cm-text-sm);
+}
+.i3d__foot {
+  display: flex;
+  justify-content: flex-end;
+}
+@media (max-width: 560px) {
+  .i3d__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

@@ -28,6 +28,7 @@ import { ZonesService } from '../delivery/zones.service';
 import { distanceM } from '../delivery/zones';
 import { customerMapOf } from '../delivery/delivery.service';
 import { menuTreeSql } from '../catalog/menu-sql';
+import { modelUrls } from '../catalog/models.controller';
 
 export const mediaUrl = (id: string | null | undefined) => (id ? `/api/v1/media/${id}` : null);
 export const publicTokenHash = (token: string) => createHash('sha256').update(token).digest();
@@ -566,13 +567,21 @@ export class StoreService {
           imageId: string | null;
           featured: boolean;
           badge: string | null;
+          modelV: number | null;
+          modelUsdz: boolean;
           optionGroups: unknown[];
         }[];
       }>(
         tx,
         // O cardápio online usa o cardápio Delivery (itens e preços dele), igual ao pedido que chega.
         // Na mesa vale o Principal (o do salão), que é o que o pedido de mesa cobra.
-        menuTreeSql(`'featured', p.featured, 'badge', p.badge,`),
+        menuTreeSql(
+          `'featured', p.featured, 'badge', p.badge,
+           'modelV', (SELECT floor(extract(epoch FROM pm.updated_at))::bigint FROM product_models pm
+                       WHERE pm.product_id = p.id AND pm.glb IS NOT NULL),
+           'modelUsdz', COALESCE((SELECT pm.usdz IS NOT NULL FROM product_models pm
+                                   WHERE pm.product_id = p.id), false),`,
+        ),
         [table ? 'principal' : 'delivery'],
       );
       const banners = await q<BannerInput & { id: string }>(
@@ -651,7 +660,11 @@ export class StoreService {
         categories: visible.map(({ imageId, products, ...c }) => ({
           ...c,
           imageUrl: mediaUrl(imageId),
-          products: products.map(({ imageId: img, ...p }) => ({ ...p, imageUrl: mediaUrl(img) })),
+          products: products.map(({ imageId: img, modelV, modelUsdz, ...p }) => ({
+            ...p,
+            imageUrl: mediaUrl(img),
+            model: modelUrls(p.id, modelV ?? null, !!modelUsdz),
+          })),
         })),
       };
     });

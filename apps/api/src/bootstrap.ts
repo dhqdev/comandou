@@ -33,6 +33,8 @@ export async function createApp(
     type: ['video/mp4', 'video/webm', 'video/quicktime'],
     limit: '20mb',
   });
+  // Modelo 3D do item do cardápio (GLB/USDZ, até 12 MB; a rota confere tipo e assinatura).
+  app.useBodyParser('raw', { type: ['model/gltf-binary', 'model/vnd.usdz+zip'], limit: '12mb' });
   // Migrar cliente: blocos do pacote vindos da instalação de origem (rota confere o token).
   app.useBodyParser('raw', { type: 'application/octet-stream', limit: CHUNK_LIMIT });
   app.setGlobalPrefix('api');
