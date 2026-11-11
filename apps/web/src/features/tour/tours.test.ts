@@ -24,7 +24,7 @@ describe('tutoriais', () => {
     for (const [name, stops] of tours)
       for (const s of stops)
         expect(
-          s.path === '/' || screens.has(s.path) || menu.includes(`to: '${s.path}'`),
+          s.path === '/' || screens.has(s.path) || menu.includes(`'${s.path}'`),
           `${name} → ${s.path}`,
         ).toBe(true);
   });

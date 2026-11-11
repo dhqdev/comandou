@@ -154,7 +154,7 @@ export function LotsSection() {
   return (
     <div className="st-page">
       <StockHead
-        title="Lotes"
+        title="Insumos"
         error={error}
         actions={
           canWrite && (
@@ -164,8 +164,7 @@ export function LotsSection() {
           )
         }
       >
-        Cada lote é uma leva com data de fabricação e validade (do recebimento ou da produção). Use
-        primeiro o que vence primeiro; o que venceu, descarte aqui e a perda sai do estoque.
+        Levas com validade. Use primeiro o que vence primeiro e descarte aqui o que venceu.
       </StockHead>
       <Card bodyless>
         <ListToolbar

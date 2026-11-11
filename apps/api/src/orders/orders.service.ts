@@ -628,12 +628,11 @@ export class OrdersService {
       }
     }
     await this.history(tx, ctx, order!.id, null, status);
-    // Baixa de insumos pela ficha técnica (trava os insumos por último) e comandas de impressão.
-    // Pedido em análise só baixa estoque e imprime quando for aceito.
-    if (status === 'new') {
-      fx.stock = await this.stock.consumeForOrder(tx, ctx, order!.id);
-      fx.print = await this.printing.enqueueKitchenTickets(tx, ctx, order!.id);
-    }
+    // Baixa de insumos pela ficha técnica (trava os insumos por último). Pedido em análise também
+    // baixa: o estoque fica reservado para ele (dois clientes não levam o último item) e volta se a
+    // loja recusar. A cozinha só recebe quando for aceito.
+    fx.stock = await this.stock.consumeForOrder(tx, ctx, order!.id);
+    if (status === 'new') fx.print = await this.printing.enqueueKitchenTickets(tx, ctx, order!.id);
     // Pedido online com aceite automático: o cliente já recebe o "pedido aceito".
     if (online && status === 'new')
       await this.messaging.stage(tx, ctx.tenantId, order!.id, 'order.accepted');
@@ -782,11 +781,12 @@ export class OrdersService {
         `UPDATE order_items SET status = 'cancelled' WHERE order_id = $1 AND status <> 'cancelled'`,
         [o.id],
       );
-      // Insumos voltam ao estoque (movimento de estorno; nada é apagado).
-      if (!rejecting) await this.stock.restoreForOrder(tx, ctx, o.id);
+      // Insumos voltam ao estoque (movimento de estorno; nada é apagado). Na recusa, devolve a reserva.
+      await this.stock.restoreForOrder(tx, ctx, o.id);
     }
     if (o.status === 'awaiting' && to === 'new') {
-      // Aceite do pedido online: só agora baixa estoque e imprime na cozinha.
+      // Aceite do pedido online: imprime na cozinha. O estoque já foi reservado ao criar (pedido
+      // antigo, de antes da reserva, baixa agora: consumeForOrder não baixa duas vezes).
       await q(tx, `UPDATE orders SET accepted_at = now() WHERE id = $1`, [o.id]);
       await this.stock.consumeForOrder(tx, ctx, o.id);
       await this.printing.enqueueKitchenTickets(tx, ctx, o.id);
@@ -1170,8 +1170,8 @@ export class OrdersService {
           paymentStatusFor(total, paid),
         ],
       );
+      fx.stock = await this.stock.restoreForItem(tx, ctx, o.id, itemId);
       if (o.status !== 'awaiting') {
-        fx.stock = await this.stock.restoreForItem(tx, ctx, o.id, itemId);
         fx.print = await this.printing.enqueueItemCancel(tx, ctx, o.id, itemId, reason);
       }
       // Sobrou só item pronto: o pedido fica pronto (a cozinha não espera o que saiu).

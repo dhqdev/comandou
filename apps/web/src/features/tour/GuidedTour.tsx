@@ -124,9 +124,10 @@ export function locate(
     return { route: top.to ?? path, navKey: top.key, where: top.label };
   for (const g of items) {
     for (const c of g.children ?? []) {
-      const a = c.also;
+      const also = c.also ? (Array.isArray(c.also) ? c.also : [c.also]) : [];
       const hit =
-        c.to === path || (!!a && (a.endsWith('/*') ? path.startsWith(a.slice(0, -1)) : a === path));
+        c.to === path ||
+        also.some((a) => (a.endsWith('/*') ? path.startsWith(a.slice(0, -1)) : a === path));
       if (hit) return { route: path, navKey: g.key, where: `${g.label} › ${c.label}` };
     }
   }

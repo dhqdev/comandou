@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.107.0',
+    date: '2026-11-11',
+    title: 'Estoque que não vende o que acabou e com menos telas',
+    summary:
+      'O pedido do cardápio online reserva o estoque na hora em que o cliente pede, o Estoque passou de nove telas para quatro e dá para controlar o estoque de um item direto no cadastro dele.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Pedido online em análise já reserva o estoque: dois clientes não levam o último item. Se a loja recusa ou o cliente cancela, o estoque volta sozinho. Vale por unidade e por quilo (um balde de 1,5 kg esgota antes da porção de 75 g do mesmo frango).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Estoque em quatro telas: Insumos (com lotes e validade), Movimentações (entrada, saída e perdas, produção), Fichas técnicas (com unidades de compra e custo e preço) e Inventário. Os endereços antigos continuam abrindo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Controle simples: na ficha técnica do item, diga quanto tem hoje e toque em "Controlar estoque". Cada venda baixa e, quando acabar, o item sai do cardápio sozinho.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cardápio online: se um item esgota enquanto o cliente monta a sacola, ele vê o aviso e a sacola se acerta.',
+      },
+    ],
+  },
+  {
     version: '0.106.1',
     date: '2026-11-11',
     title: 'Caixa, Pix cancelado e comanda mais seguros',

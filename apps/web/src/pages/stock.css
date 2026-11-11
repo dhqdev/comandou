@@ -648,6 +648,31 @@ button.st-kpi:active {
   max-width: 760px;
   line-height: 1.5;
 }
+.st-tabs {
+  display: flex;
+  gap: var(--cm-space-4);
+  margin: calc(var(--cm-space-2) * -1) 0 var(--cm-space-4);
+  border-bottom: 1px solid var(--cm-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.st-tabs__item {
+  padding: 8px 2px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.st-tabs__item:hover {
+  color: var(--cm-text);
+}
+.st-tabs__item[aria-current='page'] {
+  color: var(--cm-text);
+  border-bottom-color: var(--cm-brand-600);
+}
 .st-head__actions {
   display: flex;
   gap: var(--cm-space-2);
@@ -875,5 +900,25 @@ button.st-kpi:active {
   .st-prod td:last-child,
   .st-rec td:last-child {
     text-align: right;
+  }
+}
+
+/* Controle simples na ficha do item: o item é o próprio estoque. */
+.st-simple {
+  display: grid;
+  gap: var(--cm-space-2);
+  padding: var(--cm-space-3);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+}
+.st-simple__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: var(--cm-space-3);
+  align-items: end;
+}
+@media (max-width: 640px) {
+  .st-simple__row {
+    grid-template-columns: 1fr;
   }
 }

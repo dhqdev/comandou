@@ -346,6 +346,11 @@ export function CartScreen() {
       if (err.status === 422) void refreshMenu();
       if (err.status === 422 && rewardId) void refreshLoyalty();
       const code = (err.body as { code?: string } | undefined)?.code;
+      // Acabou no estoque enquanto o cliente montava a sacola: o cardápio volta com "Esgotado".
+      if (code === 'stock_out') {
+        attempt.current = null;
+        void refreshMenu();
+      }
       // Longe do restaurante (ou a confirmação venceu): pede a localização de novo.
       if (code === 'table_location') setHere(null);
       // Conta que saiu (sessão vencida) e o Pix pede login: a tela mostra o "Entrar".
@@ -355,7 +360,9 @@ export function CartScreen() {
           ? 'Sem conexão. Toque em enviar de novo: o pedido não será duplicado.'
           : err.status === 429
             ? 'Muitas tentativas seguidas. Aguarde um minuto e tente de novo.'
-            : err.message,
+            : code === 'stock_out'
+              ? 'Um item da sacola acabou de esgotar. Confira a sacola e envie de novo.'
+              : err.message,
       );
     } finally {
       sending.current = false;

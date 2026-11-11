@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { NavLink, useLocation } from 'react-router';
 import { Alert } from '../../design-system';
+import { useAuth } from '../../app/auth';
 import { TourButton } from '../../features/tour/PageTour';
 import { api } from '../../lib/api';
 import { useDebounced, useRealtime } from '../../lib/realtime';
@@ -69,6 +71,75 @@ export function useStockItems() {
 }
 
 /**
+ * As quatro telas do Estoque e as abas de cada uma. Os endereços antigos continuam valendo: cada
+ * aba é a seção que antes era um item do menu.
+ */
+interface StockTab {
+  to: string;
+  label: string;
+  /** A aba também fica acesa nestes endereços (ex.: o cadastro do insumo). */
+  under?: string[];
+  perms?: string[];
+}
+export const STOCK_GROUPS: { title: string; tabs: StockTab[] }[] = [
+  {
+    title: 'Insumos',
+    tabs: [
+      { to: '/estoque', label: 'Insumos', under: ['/estoque/insumos'] },
+      { to: '/estoque/lotes', label: 'Lotes e validade' },
+    ],
+  },
+  {
+    title: 'Movimentações',
+    tabs: [
+      { to: '/estoque/recebimento', label: 'Entrada' },
+      { to: '/estoque/saida', label: 'Saída e perdas' },
+      { to: '/estoque/producao', label: 'Produção' },
+    ],
+  },
+  {
+    title: 'Fichas técnicas',
+    tabs: [
+      { to: '/estoque/fichas', label: 'Fichas' },
+      { to: '/estoque/fatores', label: 'Unidades de compra' },
+      {
+        to: '/estoque/precificacao',
+        label: 'Custo e preço',
+        perms: ['stock:write', 'reports:read'],
+      },
+    ],
+  },
+  { title: 'Inventário', tabs: [{ to: '/estoque/inventario', label: 'Inventário' }] },
+];
+const tabOn = (path: string, t: StockTab) =>
+  t.to === '/estoque'
+    ? path === '/estoque' || path === '/estoque/' || !!t.under?.some((u) => path.startsWith(u))
+    : path === t.to || path.startsWith(`${t.to}/`);
+
+/** Abas da tela atual do Estoque (some quando a tela tem uma aba só). */
+function StockTabs() {
+  const { pathname } = useLocation();
+  const perms = useAuth().me?.permissions ?? [];
+  const group = STOCK_GROUPS.find((g) => g.tabs.some((t) => tabOn(pathname, t)));
+  const tabs = group?.tabs.filter((t) => !t.perms || t.perms.some((p) => perms.includes(p))) ?? [];
+  if (tabs.length < 2) return null;
+  return (
+    <nav className="st-tabs" aria-label={`Abas de ${group!.title}`}>
+      {tabs.map((t) => (
+        <NavLink
+          key={t.to}
+          to={t.to}
+          className="st-tabs__item"
+          aria-current={tabOn(pathname, t) ? 'page' : undefined}
+        >
+          {t.label}
+        </NavLink>
+      ))}
+    </nav>
+  );
+}
+
+/**
  * Cabeçalho de cada seção do Estoque: o nome e, logo embaixo, para que ela serve, em uma ou
  * duas frases. Ações (ex.: "Novo recebimento") ficam à direita.
  */
@@ -96,6 +167,7 @@ export function StockHead({
           {actions}
         </div>
       </div>
+      <StockTabs />
       {error && <Alert tone="danger">{error}</Alert>}
     </>
   );

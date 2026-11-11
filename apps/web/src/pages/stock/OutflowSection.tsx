@@ -102,7 +102,7 @@ export function OutflowSection() {
   return (
     <div className="st-page">
       <StockHead
-        title="Saída de estoque"
+        title="Movimentações"
         error={error}
         actions={
           canWrite && (
@@ -112,8 +112,7 @@ export function OutflowSection() {
           )
         }
       >
-        Tudo o que saiu do estoque e por quê: vendas (pela ficha técnica), perdas, produção e saídas
-        avulsas. Use a saída avulsa para o que sai sem venda, como consumo da equipe ou doação.
+        Tudo o que saiu e por quê: vendas, perdas, produção e saídas avulsas.
       </StockHead>
       <Card bodyless>
         <ListToolbar

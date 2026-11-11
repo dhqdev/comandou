@@ -92,9 +92,8 @@ function Overview() {
 
   return (
     <div className="st-page">
-      <StockHead title="Visão geral" error={error}>
-        Quanto tem de cada insumo, quanto vale e o que está acabando. Cada venda baixa os insumos
-        pela ficha técnica; clique no insumo para ver a movimentação e os lotes.
+      <StockHead title="Insumos" error={error}>
+        Quanto tem de cada insumo e o que está acabando. Clique num insumo para ver o histórico.
       </StockHead>
       {items && <StockSummary items={items} onFocus={setView} />}
       {items === null ? (
@@ -112,8 +111,7 @@ function InventorySection() {
   return (
     <div className="st-page">
       <StockHead title="Inventário" error={error}>
-        Contagem do que tem de verdade na prateleira. Digite o que contou, veja a diferença em
-        quantidade e em reais e conclua tudo de uma vez: o sistema ajusta os saldos.
+        Conte o que tem na prateleira e conclua: o sistema ajusta os saldos.
       </StockHead>
       {items === null ? (
         <Spinner />
@@ -130,9 +128,8 @@ function PricingSection() {
   const canPricing = canWrite || canReports;
   return (
     <div className="st-page">
-      <StockHead title="Precificação">
-        Quanto cada item do cardápio custa pela ficha técnica, quanto sobra de lucro e o preço
-        sugerido para chegar na margem que você quer. Nada muda o preço sozinho.
+      <StockHead title="Fichas técnicas">
+        Custo de cada item pela ficha, margem e preço sugerido. Nada muda o preço sozinho.
       </StockHead>
       {canPricing ? (
         <PricingTab />

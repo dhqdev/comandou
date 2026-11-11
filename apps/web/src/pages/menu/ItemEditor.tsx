@@ -258,6 +258,41 @@ export function ItemEditor() {
 
   // ---------------------------------------------------------------- custos
   const itemById = useMemo(() => new Map(stockItems.map((i) => [i.id, i])), [stockItems]);
+
+  // Controle simples: o item é o próprio estoque (lata, balde pronto). Cria o insumo com o saldo
+  // de hoje e põe na ficha "1 por venda"; a ficha é gravada no Salvar, como as outras.
+  const [simpleQty, setSimpleQty] = useState('');
+  const [simpleUnit, setSimpleUnit] = useState<StockItem['unit']>('un');
+  const [simpleBusy, setSimpleBusy] = useState(false);
+  async function trackSimple() {
+    const quantity = parseQtyInput(simpleQty);
+    const name = form?.name.trim();
+    if (!name) return setError('Dê um nome ao item antes de controlar o estoque.');
+    if (!quantity) return setError('Informe quanto tem hoje (ex.: 24 ou 12,5).');
+    setSimpleBusy(true);
+    setError(null);
+    try {
+      const created = await api<StockItem>('/stock/items', {
+        method: 'POST',
+        json: { name: name.slice(0, 80), unit: simpleUnit },
+      });
+      const item =
+        toMilli(quantity) > 0
+          ? await api<StockItem>(`/stock/items/${created.id}/movements`, {
+              method: 'POST',
+              json: { kind: 'purchase', quantity, note: 'Saldo inicial' },
+            })
+          : created;
+      setStockItems((x) => [...x, item]);
+      setLines([{ stockItemId: item.id, quantity: '1' }]);
+      setSimpleQty('');
+      toast('Estoque criado. Salve o item para valer.', 'success');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSimpleBusy(false);
+    }
+  }
   const parsedLines = lines.map((l) => ({
     stockItemId: l.stockItemId,
     quantity: parseQtyInput(l.quantity),
@@ -900,6 +935,36 @@ export function ItemEditor() {
                   <p className="cm-hint" style={{ margin: 0 }}>
                     Cadastre os insumos em <Link to="/estoque">Estoque</Link> para montar a ficha.
                   </p>
+                )}
+                {canStockWrite && lines.length === 0 && (
+                  <div className="st-simple">
+                    <strong>Controle simples</strong>
+                    <span className="cm-hint">
+                      O item é o próprio estoque (lata, porção pronta)? Diga quanto tem hoje: cada
+                      venda baixa {form.soldByWeight ? 'o peso vendido' : '1'} e, quando acabar, ele
+                      sai do cardápio sozinho.
+                    </span>
+                    <div className="st-simple__row">
+                      <TextField
+                        label="Quanto tem hoje"
+                        inputMode="decimal"
+                        value={simpleQty}
+                        onChange={(e) => setSimpleQty(e.target.value)}
+                      />
+                      <SelectField
+                        label="Unidade"
+                        value={simpleUnit}
+                        onChange={(e) => setSimpleUnit(e.target.value as StockItem['unit'])}
+                      >
+                        <option value="un">unidade</option>
+                        <option value="kg">quilo</option>
+                        <option value="l">litro</option>
+                      </SelectField>
+                      <Button variant="secondary" loading={simpleBusy} onClick={trackSimple}>
+                        Controlar estoque
+                      </Button>
+                    </div>
+                  </div>
                 )}
                 {lines.length > 0 && (
                   <div className="st-recipe__head" aria-hidden>

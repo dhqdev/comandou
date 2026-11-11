@@ -62,8 +62,8 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
     price: '30.00',
   });
 
-  // Estoque: insumo, entrada e ficha técnica (cada seção tem o seu item no submenu)
-  await nav(page, 'Visão geral');
+  // Estoque: insumo, entrada e ficha técnica (Insumos e Fichas técnicas no submenu)
+  await nav(page, 'Insumos');
   await page.getByRole('button', { name: 'Novo insumo' }).click();
   dialog = page.getByRole('dialog');
   await dialog.getByLabel('Nome').fill(`Pão ${tag}`);
@@ -133,7 +133,7 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await anon.close();
 
   // A venda baixou o insumo
-  await nav(page, 'Visão geral');
+  await nav(page, 'Insumos');
   await expect(page.getByRole('row', { name: new RegExp(`Pão ${tag}`) })).toContainText('9 un');
 
   // Financeiro: conta a pagar e baixa

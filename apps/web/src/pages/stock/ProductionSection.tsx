@@ -173,7 +173,7 @@ export function ProductionSection() {
   return (
     <div className="st-page">
       <StockHead
-        title="Produção"
+        title="Movimentações"
         error={error}
         actions={
           canWrite && (
@@ -186,9 +186,7 @@ export function ProductionSection() {
           )
         }
       >
-        Registre o que a cozinha preparou (molho, massa, recheio). Cada linha baixa os insumos da
-        ficha de preparo, dá entrada no preparo com o custo do que foi gasto e cria o lote com a
-        validade.
+        Registre o que a cozinha preparou: baixa os insumos usados e dá entrada no preparo pronto.
       </StockHead>
       {fail && <Alert tone="danger">{fail}</Alert>}
       {canWrite && (

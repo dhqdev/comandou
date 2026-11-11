@@ -45,8 +45,17 @@ export class StockService {
     private readonly realtime: RealtimeService,
   ) {}
 
-  /** Baixa os insumos de um pedido recém-criado (produtos + adicionais). Retorna quantos insumos mudaram. */
+  /**
+   * Baixa os insumos de um pedido recém-criado (produtos + adicionais). Retorna quantos insumos
+   * mudaram. Idempotente: pedido que já baixou (reserva do pedido em análise) não baixa de novo.
+   */
   async consumeForOrder(tx: Tx, ctx: Ctx, orderId: string): Promise<number> {
+    const done = await one(
+      tx,
+      `SELECT 1 FROM stock_movements WHERE order_id = $1 AND kind = 'sale' LIMIT 1`,
+      [orderId],
+    );
+    if (done) return 0;
     const needs = await q<{ stock_item_id: string; q: string }>(
       tx,
       `WITH need AS (
@@ -73,9 +82,10 @@ export class StockService {
     );
     const short = items.filter((i) => !i.ok);
     if (short.length) {
-      throw new ConflictException(
-        `Estoque insuficiente: ${short.map((i) => i.name).join(', ')}. Registre a entrada ou ajuste o estoque.`,
-      );
+      throw new ConflictException({
+        message: `Estoque insuficiente: ${short.map((i) => i.name).join(', ')}. Registre a entrada ou ajuste o estoque.`,
+        code: 'stock_out',
+      });
     }
     for (const n of needs) {
       await this.move(tx, ctx, n.stock_item_id, 'sale', `-${n.q}`, { orderId });

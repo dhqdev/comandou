@@ -233,9 +233,8 @@ export function RecipesSection() {
           )
         }
       >
-        A receita de cada item: quanto de cada insumo sai por unidade vendida (ou por preparo feito
-        na casa). É ela que baixa o estoque a cada venda, calcula o custo e diz quanto ainda dá para
-        vender. Quando um insumo acaba, o item fica sem estoque e não vende até a reposição.
+        Quanto de cada insumo sai por unidade vendida. Quando um insumo acaba, o item sai do
+        cardápio até a reposição.
       </StockHead>
       {out.length > 0 && (
         <Alert tone="danger">

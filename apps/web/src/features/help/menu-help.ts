@@ -80,6 +80,13 @@ export const ITEM_HELP: HelpDict = {
     text: 'Liga ao item um grupo de complementos (tamanhos, adicionais, sabores). O cliente escolhe as opções quando pede o item.',
     link: { to: '/cardapio/complementos', label: 'Abrir grupos de complementos' },
   },
+  'Quanto tem hoje': {
+    text: 'Saldo do item agora, contado na prateleira. Cada venda baixa esse saldo; quando chegar a zero, o item sai do cardápio até a próxima entrada no Estoque.',
+    example: '24 ou 12,5',
+  },
+  Unidade: {
+    text: 'Como o item é contado: por unidade (lata, porção pronta), por quilo ou por litro.',
+  },
   Insumo: {
     text: 'Ingrediente do estoque usado neste item. A cada venda, o sistema baixa a quantidade do estoque e soma o custo.',
     link: { to: '/estoque', label: 'Cadastrar insumos' },

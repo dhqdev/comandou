@@ -51,7 +51,7 @@ export interface FrameLink {
   icon: ReactNode;
   end?: boolean;
   /** Outro endereço que também acende o link (ex.: o cadastro do item acende "Itens"). */
-  also?: string;
+  also?: string | string[];
   badge?: ReactNode;
 }
 export interface FrameItem {
@@ -64,7 +64,7 @@ export interface FrameItem {
   to?: string;
   end?: boolean;
   /** Outro endereço que também acende o item (ex.: /pdv acende "PDV" quando ele mora em /). */
-  also?: string;
+  also?: string | string[];
   /** Bolinha de aviso no ícone. */
   dot?: boolean;
   children?: FrameLink[];
@@ -77,12 +77,15 @@ export interface FrameItem {
 function isOn(pathname: string, to: string, end?: boolean) {
   return !!matchPath({ path: to, end: end ?? to === '/' }, pathname);
 }
+const alsoList = (also?: string | string[]) => (also ? (Array.isArray(also) ? also : [also]) : []);
+const alsoOn = (pathname: string, also?: string | string[]) =>
+  alsoList(also).some((a) => isOn(pathname, a, true));
 function itemActive(pathname: string, it: FrameItem) {
-  if (it.to) return isOn(pathname, it.to, it.end) || (!!it.also && isOn(pathname, it.also, true));
+  if (it.to) return isOn(pathname, it.to, it.end) || alsoOn(pathname, it.also);
   return !!it.children?.some((c) => linkOn(pathname, c));
 }
 function linkOn(pathname: string, l: FrameLink) {
-  return isOn(pathname, l.to, l.end) || (!!l.also && isOn(pathname, l.also, true));
+  return isOn(pathname, l.to, l.end) || alsoOn(pathname, l.also);
 }
 
 export function AppFrame({
@@ -504,10 +507,10 @@ function currentScreen(pathname: string, all: FrameItem[]) {
   };
   for (const it of all) {
     if (it.to) consider(it.to, it.end, it.label, it.icon);
-    if (it.to && it.also) consider(it.also, true, it.label, it.icon);
+    if (it.to) for (const a of alsoList(it.also)) consider(a, true, it.label, it.icon);
     for (const c of it.children ?? []) {
       consider(c.to, c.end, c.label, c.icon);
-      if (c.also) consider(c.also, true, c.label, c.icon);
+      for (const a of alsoList(c.also)) consider(a, true, c.label, c.icon);
     }
   }
   return best as { label: string; icon: ReactNode; order: number } | null;

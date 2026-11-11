@@ -92,7 +92,7 @@ export function ReceiptsSection() {
   return (
     <div className="st-page">
       <StockHead
-        title="Recebimento"
+        title="Movimentações"
         error={error}
         actions={
           canWrite && (
@@ -102,8 +102,7 @@ export function ReceiptsSection() {
           )
         }
       >
-        Lance aqui a mercadoria que chegou do fornecedor, com a nota e vários itens de uma vez. Cada
-        item entra no estoque, atualiza o custo médio e, se tiver validade, vira um lote.
+        Lance a mercadoria que chegou. Cada item entra no estoque e atualiza o custo médio.
       </StockHead>
       <Card bodyless>
         <ListToolbar

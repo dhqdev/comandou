@@ -95,7 +95,7 @@ export function FactorsSection() {
   return (
     <div className="st-page">
       <StockHead
-        title="Fatores de conversão"
+        title="Fichas técnicas"
         error={error}
         actions={
           canWrite && (
@@ -105,9 +105,7 @@ export function FactorsSection() {
           )
         }
       >
-        Você compra em caixa, fardo ou saco, mas controla em unidade, kg ou litro. Cadastre aqui
-        quanto vale cada embalagem (1 CX12 = 12 un) e escolha ela no recebimento: o sistema converte
-        a quantidade e o custo.
+        Compra em caixa ou fardo e controla em unidade ou kg? Cadastre quanto vale cada embalagem.
       </StockHead>
       <Alert tone="info">
         Quilo e grama, litro e mililitro já convertem sozinhos; não precisa cadastrar.
