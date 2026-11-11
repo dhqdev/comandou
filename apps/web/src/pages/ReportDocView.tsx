@@ -14,11 +14,13 @@ import {
   ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
+  FileText,
   Printer,
 } from 'lucide-react';
 import { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Alert, Button, Card, DateInput, EmptyState, Spinner } from '../design-system';
+import { Alert, Button, Card, DateInput, EmptyState, Spinner, useToast } from '../design-system';
 import { api } from '../lib/api';
+import { downloadFile } from '../lib/download';
 import { type Preset, presetRange } from './reports-insights';
 import './report-doc.css';
 
@@ -130,6 +132,7 @@ export function ReportDocView({ id, onBack }: { id: string; onBack(): void }) {
   const [range, setRange] = useState(() => presetRange('30d', today()));
   const [doc, setDoc] = useState<ReportDoc | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     let alive = true;
@@ -148,7 +151,20 @@ export function ReportDocView({ id, onBack }: { id: string; onBack(): void }) {
     if (p !== 'custom') setRange(presetRange(p, today()));
   };
   const info = REPORT_GROUPS.flatMap((g) => g.reports).find((r) => r.id === id);
-  const xlsx = `/api/v1/reports/catalog/${id}/xlsx?from=${range.from}&to=${range.to}`;
+  const [busy, setBusy] = useState<'pdf' | 'xlsx' | null>(null);
+  const download = async (kind: 'pdf' | 'xlsx') => {
+    setBusy(kind);
+    try {
+      await downloadFile(
+        `/api/v1/reports/catalog/${id}/${kind}?from=${range.from}&to=${range.to}`,
+        `relatorio-${id}.${kind}`,
+      );
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <div className="rp rp-print rd">
@@ -167,9 +183,24 @@ export function ReportDocView({ id, onBack }: { id: string; onBack(): void }) {
           {info && <p className="rd-desc">{info.description}</p>}
         </div>
         <div className="rd-head__actions rp-noprint">
-          <a className="cm-btn cm-btn--primary cm-btn--sm rd-xlsx" href={xlsx} download>
-            <FileSpreadsheet size={15} aria-hidden /> Baixar Excel
-          </a>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<FileText size={15} />}
+            onClick={() => download('pdf')}
+            disabled={!doc || busy !== null}
+          >
+            {busy === 'pdf' ? 'Gerando PDF…' : 'Baixar PDF'}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<FileSpreadsheet size={15} />}
+            onClick={() => download('xlsx')}
+            disabled={!doc || busy !== null}
+          >
+            {busy === 'xlsx' ? 'Gerando…' : 'Excel'}
+          </Button>
           <Button
             variant="ghost"
             size="sm"

@@ -1,3 +1,4 @@
+import { PDFDocument } from 'pdf-lib';
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import { REPORT_IDS, type ReportDoc } from '@comandou/shared';
@@ -130,6 +131,21 @@ describe('Relatórios do catálogo', () => {
     expect(files.get('xl/worksheets/sheet1.xml')).toContain(doc.title.replace(/&/g, '&amp;'));
     if (process.env.REPORTS_XLSX_DIR)
       writeFileSync(`${process.env.REPORTS_XLSX_DIR}/${id}.xlsx`, res.body as Buffer);
+
+    // O mesmo relatório em PDF: arquivo válido, com nome e pelo menos uma página.
+    const pdf = await get(owner, `/reports/catalog/${id}/pdf?${qs}`)
+      .buffer(true)
+      .parse((r, cb) => {
+        const chunks: Buffer[] = [];
+        r.on('data', (c: Buffer) => chunks.push(c));
+        r.on('end', () => cb(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+    expect(pdf.headers['content-type']).toContain('application/pdf');
+    expect(pdf.headers['content-disposition']).toContain('.pdf');
+    const body = pdf.body as Buffer;
+    expect(body.subarray(0, 5).toString()).toBe('%PDF-');
+    expect((await PDFDocument.load(body)).getPageCount()).toBeGreaterThan(0);
   });
 
   it('resultado confere com os pedidos do banco', async () => {

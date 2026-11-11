@@ -129,10 +129,6 @@
   flex-wrap: wrap;
   justify-content: flex-end;
 }
-.rd-xlsx {
-  text-decoration: none;
-}
-
 /* ---------- gráficos ---------- */
 .rd-charts {
   display: grid;

@@ -7,6 +7,7 @@ import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { buildReport, hasReport } from './catalog';
+import { reportPdfFileName, reportToPdf } from './report-pdf';
 import { reportFileName, reportToXlsx } from './report-xlsx';
 
 /**
@@ -493,5 +494,29 @@ export class ReportsController {
     );
     res.setHeader('Cache-Control', 'private, no-store');
     res.send(reportToXlsx(doc));
+  }
+
+  /** O mesmo relatório em PDF (A4), pronto para imprimir ou mandar para o contador. */
+  @Get('catalog/:id/pdf')
+  @RequirePermission('reports:read')
+  async reportPdf(
+    @Param('id') id: string,
+    @Query(new ZodPipe(DocPeriod)) r: z.infer<typeof DocPeriod>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    if (!hasReport(id)) throw new NotFoundException('Relatório não encontrado');
+    const doc = await this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
+      buildReport(tx, id, r.from, r.to),
+    );
+    const name = reportPdfFileName(doc);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${name}"; filename*=UTF-8''${encodeURIComponent(name)}`,
+    );
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(await reportToPdf(doc));
   }
 }
