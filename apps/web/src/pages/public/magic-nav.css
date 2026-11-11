@@ -1,7 +1,6 @@
 /*
- * Menu de baixo do celular (MagicNav.tsx): barra presa na borda de baixo da tela, de ponta a
- * ponta, com um recorte onde a bolinha da aba aberta fica encaixada. Recorte e bolinha deslizam
- * juntos. A barra tem 64px e, embaixo dela, o fundo continua por trás do risco do iPhone.
+ * Menu de baixo do cardápio no celular (MagicNav.tsx): barra lisa de ponta a ponta, com ícone e
+ * nome em cada aba. O fundo desce por trás do risco do iPhone.
  */
 .mnav {
   position: fixed;
@@ -9,127 +8,72 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: calc(64px + var(--sf-safe, 0px));
-  transition: transform 0.24s var(--cm-spring-smooth, ease);
+  padding-bottom: var(--sf-safe, 0px);
+  border-top: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+  transition: transform var(--cm-dur-fast) var(--cm-ease);
   -webkit-tap-highlight-color: transparent;
 }
 .mnav[data-hidden] {
-  transform: translateY(calc(100% + 30px));
-}
-.mnav__bg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  overflow: visible;
-  pointer-events: none;
-  filter: drop-shadow(0 -2px 10px rgb(0 0 0 / 0.08));
-}
-.mnav__bar {
-  fill: var(--cm-surface);
-  stroke: color-mix(in srgb, var(--cm-border) 70%, transparent);
-  stroke-width: 1;
-}
-/* Fundo do recorte: a cor da página (parece um buraco na barra, sem o cardápio por trás). */
-.mnav__well {
-  fill: color-mix(in srgb, var(--cm-text) 5%, var(--sf-page, var(--cm-bg)));
-}
-:root[data-theme='dark'] .mnav__bg {
-  filter: drop-shadow(0 -2px 14px rgb(0 0 0 / 0.45));
-}
-/* Bolinha da aba aberta (a posição vem do JS, junto com o recorte). */
-.mnav__blob {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 49px;
-  height: 49px;
-  border-radius: 50%;
-  background: var(--cm-brand-600);
-  box-shadow:
-    0 6px 14px -6px rgb(0 0 0 / 0.35),
-    inset 0 -3px 0 rgb(0 0 0 / 0.1);
-  transform: scale(0);
-  will-change: transform;
-  pointer-events: none;
+  transform: translateY(100%);
 }
 .mnav__items {
-  position: relative;
   display: flex;
-  height: 64px;
-  padding: 0 var(--mnav-pad, 12px);
+  max-width: 520px;
+  height: 60px;
+  margin: 0 auto;
+  padding: 0 4px;
 }
 .mnav__item {
-  position: relative;
   flex: 1 1 0;
   min-width: 0;
-  display: grid;
-  justify-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
   color: var(--cm-text-muted);
   text-decoration: none;
   outline: none;
 }
 .mnav__icon {
-  position: absolute;
-  top: 20px;
-  left: 50%;
+  position: relative;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
-  translate: -50% 0;
-  transition:
-    transform var(--cm-spring-dur, 0.26s) var(--cm-spring, ease),
-    color 0.18s var(--cm-ease);
+  width: 52px;
+  height: 28px;
+  border-radius: var(--cm-radius-full);
 }
 .mnav__label {
-  position: absolute;
-  bottom: 7px;
-  left: 50%;
   max-width: 100%;
-  translate: -50% 0;
   padding: 0 2px;
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--cm-brand-700);
   font-size: 11px;
-  font-weight: 750;
-  letter-spacing: 0.01em;
-  opacity: 0;
-  transform: translateY(8px);
-  transition:
-    opacity 0.18s var(--cm-ease),
-    transform var(--cm-spring-snappy-dur, 0.28s) var(--cm-ease-liquid);
+  font-weight: 550;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-/* Aba aberta: o ícone sobe para dentro da bolinha e o nome aparece embaixo dela. */
+.mnav__item[data-on] {
+  color: var(--cm-brand-700);
+}
 .mnav__item[data-on] .mnav__icon {
-  transform: translateY(-32px);
-  color: var(--cm-on-brand);
-  transition-delay: 0.03s;
+  background: color-mix(in srgb, var(--cm-brand-500) 13%, transparent);
 }
 .mnav__item[data-on] .mnav__label {
-  opacity: 1;
-  transform: none;
-  transition-delay: 0.06s;
+  font-weight: 700;
 }
 .mnav__item:not([data-on]):active .mnav__icon {
-  transform: scale(0.86);
+  background: var(--cm-surface-sunken);
 }
 .mnav__item:focus-visible .mnav__icon {
   outline: 2px solid var(--cm-brand-500);
-  outline-offset: 6px;
-  border-radius: 50%;
+  outline-offset: 2px;
 }
 /* Bolinha de mensagens novas, no canto do ícone. */
 .mnav .sf-dot {
   position: absolute;
-  top: -7px;
-  left: 14px;
+  top: -4px;
+  left: 30px;
   box-shadow: 0 0 0 2px var(--cm-surface);
-}
-@media (prefers-reduced-motion: reduce) {
-  .mnav__icon,
-  .mnav__label {
-    transition: none;
-  }
 }

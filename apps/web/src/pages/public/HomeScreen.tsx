@@ -1,10 +1,8 @@
 import { toCents } from '@comandou/shared';
 import {
   Bike,
-  ChevronLeft,
   ChevronRight,
   Clock,
-  Heart,
   HandPlatter,
   Info,
   MapPin,
@@ -222,245 +220,6 @@ function refine(list: PublicProduct[], f: Filters) {
   if (f.sort === 'price-desc') out.sort((a, b) => price(b) - price(a));
   if (f.sort === 'name') out.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
   return out;
-}
-
-type WheelItem = Section;
-
-const flat = () => window.matchMedia?.('(min-width: 900px)').matches;
-
-/** Cópias das categorias lado a lado no celular: a do meio é a "de verdade"; as outras dão a volta. */
-const WHEEL_COPIES = 5;
-const WHEEL_MID = Math.floor(WHEEL_COPIES / 2);
-
-/**
- * Carrossel de categorias do celular: rola de lado e a do meio fica maior. O cardápio inteiro
- * está embaixo, numa rolagem só: tocar numa categoria (ou soltar o carrossel nela) leva a página
- * até ela, e rolar a página traz para o meio a categoria que está na tela. Ele não tem fim:
- * depois da última categoria vem a primeira de novo (a lista se repete e, quando a rolagem para,
- * volta em silêncio para a cópia do meio).
- */
-function CategoryWheel({
-  items,
-  cur,
-  onPick,
-}: {
-  items: WheelItem[];
-  cur: string;
-  onPick(id: string): void;
-}) {
-  const track = useRef<HTMLDivElement>(null);
-  const [live, setLive] = useState(cur);
-  const settle = useRef(0);
-  const frame = useRef(0);
-  const lastScroll = useRef(0);
-  const curRef = useRef(cur);
-  curRef.current = cur;
-  // Só a rolagem feita pelo dedo escolhe categoria ao parar (a que segue a página, não).
-  const byHand = useRef(false);
-  const canLoop = items.length > 2;
-  const [loop, setLoop] = useState(() => canLoop && !flat());
-  const copies = loop ? WHEEL_COPIES : 1;
-
-  /** Largura de uma volta inteira (uma cópia da lista). */
-  const period = () => {
-    const t = track.current;
-    if (!t || !loop) return 0;
-    const first = t.querySelector<HTMLElement>(`.wheel__item[data-copy="0"]`);
-    const next = t.querySelector<HTMLElement>(`.wheel__item[data-copy="1"]`);
-    return first && next ? next.offsetLeft - first.offsetLeft : 0;
-  };
-
-  /** Rolagem parada fora da cópia do meio: pula uma volta inteira (a tela fica igual). */
-  const recenter = () => {
-    const t = track.current;
-    const p = period();
-    if (!t || !p) return;
-    let x = t.scrollLeft;
-    while (x < p * (WHEEL_MID - 0.5)) x += p;
-    while (x >= p * (WHEEL_MID + 0.5)) x -= p;
-    if (Math.abs(x - t.scrollLeft) > 1) t.scrollTo({ left: x, behavior: 'instant' });
-  };
-
-  /** Leva a categoria ao meio, usando a cópia mais perto de onde a faixa está. */
-  const center = (id: string, behavior: ScrollBehavior, preferMiddle = false) => {
-    const t = track.current;
-    if (!t) return;
-    const all = [...t.querySelectorAll<HTMLElement>(`.wheel__item[data-id="${CSS.escape(id)}"]`)];
-    const mid = t.scrollLeft + t.clientWidth / 2;
-    const el = preferMiddle
-      ? (all.find((e) => e.dataset.copy === String(loop ? WHEEL_MID : 0)) ?? all[0])
-      : all.reduce<HTMLElement | undefined>((best, e) => {
-          const d = Math.abs(e.offsetLeft + e.offsetWidth / 2 - mid);
-          return !best || d < Math.abs(best.offsetLeft + best.offsetWidth / 2 - mid) ? e : best;
-        }, undefined);
-    if (!el) return;
-    t.scrollTo({ left: el.offsetLeft - (t.clientWidth - el.offsetWidth) / 2, behavior });
-  };
-
-  // Tamanho e altura de cada bolinha conforme a distância do meio: forma um arco.
-  const paint = () => {
-    const t = track.current;
-    if (!t) return null;
-    const mid = t.scrollLeft + t.clientWidth / 2;
-    let best: HTMLElement | null = null;
-    let bestD = Infinity;
-    for (const el of t.querySelectorAll<HTMLElement>('.wheel__item')) {
-      const d = (el.offsetLeft + el.offsetWidth / 2 - mid) / el.offsetWidth;
-      const a = Math.min(Math.abs(d), 3);
-      el.style.setProperty('--s', String(1 - a * 0.13));
-      el.style.setProperty('--y', `${a * a * 3}px`);
-      el.style.setProperty('--o', String(Math.max(0, 1 - a * 0.45)));
-      if (Math.abs(d) < bestD) {
-        bestD = Math.abs(d);
-        best = el;
-      }
-    }
-    return best?.dataset.id ?? null;
-  };
-
-  useLayoutEffect(() => {
-    center(curRef.current, 'instant', true);
-    paint();
-    const onResize = () => {
-      // Celular ↔ computador: no computador as categorias ficam lado a lado, sem repetir.
-      const want = canLoop && !flat();
-      if (want !== loop) return setLoop(want);
-      center(curRef.current, 'instant', true);
-      paint();
-    };
-    window.addEventListener('resize', onResize);
-    return () => {
-      window.removeEventListener('resize', onResize);
-      cancelAnimationFrame(frame.current);
-      window.clearTimeout(settle.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loop, canLoop]);
-  // A página rolou para outra categoria: ela vem para o meio (sem brigar com o dedo).
-  useEffect(() => {
-    setLive(cur);
-    if (!byHand.current) center(cur, reducedMotion() ? 'instant' : 'smooth');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cur]);
-
-  const onScroll = () => {
-    // No computador as categorias ficam lado a lado (sem arco): rolar não troca a categoria.
-    if (flat()) return;
-    lastScroll.current = performance.now();
-    cancelAnimationFrame(frame.current);
-    frame.current = requestAnimationFrame(() => {
-      const id = paint();
-      if (id) setLive(id);
-    });
-    // Parou de rolar: a categoria do meio passa a ser a escolhida (se foi o dedo que rolou).
-    window.clearTimeout(settle.current);
-    settle.current = window.setTimeout(() => {
-      recenter();
-      const id = paint();
-      const hand = byHand.current;
-      byHand.current = false;
-      if (hand && id && id !== curRef.current) onPick(id);
-    }, 140);
-  };
-  const touched = () => {
-    byHand.current = true;
-  };
-  // Tocou e soltou sem rolar: a faixa volta a seguir a página.
-  const released = () =>
-    window.setTimeout(() => {
-      if (performance.now() - lastScroll.current > 120) byHand.current = false;
-    }, 160);
-
-  const step = (dir: 1 | -1) => {
-    const n = items.length;
-    const i = items.findIndex((c) => c.id === cur);
-    const j = loop ? (i + dir + n) % n : Math.max(0, Math.min(n - 1, i + dir));
-    const next = items[j];
-    if (next) {
-      byHand.current = false;
-      onPick(next.id);
-      center(next.id, 'smooth');
-    }
-  };
-
-  return (
-    <section className="wheel" aria-label="Categorias">
-      <div className="wheel__band">
-        <button
-          type="button"
-          className="wheel__arrow wheel__arrow--prev"
-          aria-label="Categoria anterior"
-          onClick={() => step(-1)}
-          disabled={!loop && items[0]?.id === cur}
-        >
-          <ChevronLeft size={18} />
-        </button>
-        <div
-          className="wheel__track"
-          ref={track}
-          onScroll={onScroll}
-          onPointerDown={touched}
-          onTouchStart={touched}
-          onWheel={touched}
-          onPointerUp={released}
-          onTouchEnd={released}
-          role="tablist"
-        >
-          {Array.from({ length: copies }, (_, k) =>
-            items.map((c) => {
-              const copy = loop && k !== WHEEL_MID;
-              return (
-                <button
-                  key={`${k}:${c.id}`}
-                  type="button"
-                  role="tab"
-                  data-id={c.id}
-                  data-copy={k}
-                  aria-hidden={copy || undefined}
-                  tabIndex={copy ? -1 : undefined}
-                  aria-selected={c.id === cur}
-                  data-live={c.id === live || undefined}
-                  aria-label={c.name}
-                  title={c.name}
-                  className="wheel__item"
-                  onClick={(e) => {
-                    byHand.current = false;
-                    onPick(c.id);
-                    const t = track.current;
-                    const el = e.currentTarget;
-                    t?.scrollTo({
-                      left: el.offsetLeft - (t.clientWidth - el.offsetWidth) / 2,
-                      behavior: 'smooth',
-                    });
-                  }}
-                >
-                  <span className="wheel__disc">
-                    <Photo
-                      src={c.imageUrl ?? c.products.find((p) => p.imageUrl)?.imageUrl ?? null}
-                      alt={c.name}
-                      className="wheel__photo"
-                    />
-                  </span>
-                  <span className="wheel__name" aria-hidden>
-                    {c.name}
-                  </span>
-                </button>
-              );
-            }),
-          )}
-        </div>
-        <button
-          type="button"
-          className="wheel__arrow wheel__arrow--next"
-          aria-label="Próxima categoria"
-          onClick={() => step(1)}
-          disabled={!loop && items[items.length - 1]?.id === cur}
-        >
-          <ChevronRight size={18} />
-        </button>
-      </div>
-    </section>
-  );
 }
 
 /** Horário, entrega, retirada, mínimo e endereço da loja ("Mais informações"). */
@@ -793,10 +552,7 @@ function useScrollSpy(ids: string[], on: boolean) {
       if (!frame) frame = requestAnimationFrame(spy);
     };
     const jump = (id: string, smooth: boolean) => {
-      // A primeira categoria no celular: volta até o carrossel, que fica logo acima dela.
-      const el =
-        (id === ids[0] && document.querySelector<HTMLElement>('.wheel')) ||
-        document.getElementById(`sec-${id}`);
+      const el = document.getElementById(`sec-${id}`);
       if (!el) return;
       lockUntil = performance.now() + 900;
       setActiveSection(id);
@@ -827,7 +583,6 @@ function useScrollSpy(ids: string[], on: boolean) {
 function useStickySearch(term: string) {
   const bar = useRef<HTMLDivElement>(null);
   const [stuck, setStuck] = useState(false);
-  const [wheelGone, setWheelGone] = useState(false);
   useEffect(() => {
     let frame = 0;
     const measure = () => {
@@ -836,8 +591,6 @@ function useStickySearch(term: string) {
       if (!b) return;
       const r = b.getBoundingClientRect();
       setStuck(r.top <= (parseFloat(getComputedStyle(b).top) || 0) + 0.5);
-      const w = document.querySelector('.wheel');
-      setWheelGone(!!w && w.getBoundingClientRect().bottom <= r.bottom);
     };
     const on = () => {
       if (!frame) frame = requestAnimationFrame(measure);
@@ -851,7 +604,7 @@ function useStickySearch(term: string) {
       window.removeEventListener('resize', on);
     };
   }, [term]);
-  return { bar, stuck, wheelGone };
+  return { bar, stuck };
 }
 
 /**
@@ -912,11 +665,10 @@ export function HomeScreen() {
   const recent = useMemo(recentOrders, []);
   const r = menu.restaurant;
   const term = search.trim().toLowerCase();
-  const { bar, stuck, wheelGone } = useStickySearch(term);
+  const { bar, stuck } = useStickySearch(term);
 
   const all = useMemo(() => menu.categories.flatMap((c) => c.products), [menu]);
   const wheel = useMemo(() => buildSections(menu), [menu]);
-  const active = useActiveSection();
   const changeFilters = (f: Filters) => {
     kept.filters = f;
     setFilters(f);
@@ -977,7 +729,7 @@ export function HomeScreen() {
         className="searchbar"
         ref={bar}
         data-stuck={stuck || undefined}
-        data-chips={(chips && wheelGone) || undefined}
+        data-chips={chips || undefined}
       >
         <div className="sf-wrap searchbar__row">
           <label className="searchbox">
@@ -1005,7 +757,7 @@ export function HomeScreen() {
             <SlidersHorizontal size={19} />
           </button>
         </div>
-        {chips && <CategoryChips sections={wheel} show={wheelGone} />}
+        {chips && <CategoryChips sections={wheel} show />}
       </div>
 
       <div className="sf-wrap sf-body">
@@ -1051,13 +803,6 @@ export function HomeScreen() {
               </div>
             ) : (
               <>
-                {phone && (
-                  <CategoryWheel
-                    items={wheel}
-                    cur={active && wheel.some((c) => c.id === active) ? active : wheel[0]!.id}
-                    onPick={requestJump}
-                  />
-                )}
                 {lists.map((c) => (
                   <section
                     key={c.id}

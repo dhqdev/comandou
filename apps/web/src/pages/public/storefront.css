@@ -16,7 +16,7 @@
   --sf-card-r: calc(var(--sf-r-lg) + 4px);
   /* Fundo com um toque da cor da loja (creme no laranja padrão). */
   --sf-page: color-mix(in srgb, var(--cm-brand-500) 4%, var(--cm-bg));
-  --sf-tabbar: 64px;
+  --sf-tabbar: 60px;
   --sf-appbar: 0px;
   --sf-safe: env(safe-area-inset-bottom, 0px);
   --sf-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -250,42 +250,21 @@
   background: var(--sf-page);
   box-shadow: 0 1px 0 var(--cm-border);
 }
-/* Categorias presas embaixo da busca: a linha passa para baixo delas. */
-.searchbar[data-chips] {
-  box-shadow: none;
-}
 
-/* Categorias presas embaixo da busca (celular), depois que o carrossel sai da tela. Ficam por
-   cima do cardápio (não empurram nada) e a pílula desliza até a categoria na tela. */
+/* Categorias logo abaixo da busca (celular): rolam de lado e grudam no topo junto com ela. A
+   pílula desliza até a categoria que está na tela. */
 .cchips {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
+  position: relative;
   display: flex;
   gap: 4px;
-  padding: 0 16px 8px;
+  margin-top: 10px;
+  padding: 0 16px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scrollbar-width: none;
-  background: var(--sf-page);
-  box-shadow: 0 1px 0 var(--cm-border);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-6px);
-  transition:
-    opacity 0.14s var(--cm-ease),
-    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
-    visibility 0s linear 0.2s;
 }
 .cchips::-webkit-scrollbar {
   display: none;
-}
-.cchips[data-on] {
-  opacity: 1;
-  visibility: visible;
-  transform: none;
-  transition-delay: 0s;
 }
 .cchips__pill {
   position: absolute;
@@ -618,119 +597,6 @@
   background: var(--cm-brand-500);
 }
 
-/* ---------------------------------------------------------------- carrossel de categorias */
-/* Rola de lado; a do meio fica maior e mais alta (arco) e é a categoria mostrada embaixo. Cada
-   bolinha tem o nome embaixo, que vai sumindo nas pontas. */
-.wheel {
-  margin-top: 24px;
-  /* "Ir para a primeira categoria" para aqui, logo abaixo da busca grudada. */
-  scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 72px);
-}
-.wheel__band {
-  position: relative;
-  margin: 0 -16px;
-}
-.wheel__track {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 12px calc(50% - 46px) 4px;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  overscroll-behavior-x: contain;
-  -webkit-overflow-scrolling: touch;
-  /* Pontas esmaecem: indica que a faixa rola de lado. */
-  mask-image: linear-gradient(90deg, transparent, #000 32px, #000 calc(100% - 32px), transparent);
-}
-.wheel__track::-webkit-scrollbar {
-  display: none;
-}
-.wheel__item {
-  --s: 0.7;
-  --y: 0px;
-  --o: 1;
-  flex: none;
-  width: 92px;
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--cm-text-muted);
-  font: inherit;
-  scroll-snap-align: center;
-  cursor: pointer;
-  transform: translateY(var(--y)) scale(var(--s));
-  transform-origin: 50% 36px;
-  will-change: transform;
-}
-.wheel__disc {
-  width: 72px;
-  height: 72px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border-radius: 50%;
-  border: 1px solid var(--cm-border);
-  background: var(--cm-surface);
-  transition:
-    border-color var(--cm-dur),
-    box-shadow 0.3s var(--sf-ease),
-    color var(--cm-dur),
-    background var(--cm-dur),
-    transform 0.25s var(--sf-ease);
-}
-.wheel__name {
-  max-width: 100%;
-  opacity: var(--o);
-  font-size: var(--cm-text-xs);
-  font-weight: 600;
-  line-height: 1.2;
-  text-align: center;
-  overflow-wrap: break-word;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  transition: color var(--cm-dur);
-}
-.wheel__item[aria-selected='true'] .wheel__disc {
-  border-color: var(--cm-brand-500);
-  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
-  color: var(--cm-brand-700);
-  box-shadow:
-    0 0 0 3px var(--cm-bg),
-    0 0 0 5px var(--cm-brand-500);
-}
-.wheel__item[data-live] .wheel__name {
-  color: var(--cm-text);
-  font-weight: 750;
-}
-.wheel__item:focus-visible {
-  outline: none;
-}
-.wheel__item:focus-visible .wheel__disc {
-  box-shadow: var(--cm-focus);
-}
-.wheel__photo {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  overflow: hidden;
-}
-.wheel__arrow {
-  display: none;
-}
-.sf-empty {
-  margin: 24px 0;
-  text-align: center;
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-sm);
-}
-
 /* ---------------------------------------------------------------- seções e grade de produtos */
 .sec {
   margin-top: 24px;
@@ -739,9 +605,6 @@
    categoria para abaixo da busca e das categorias presas nela. */
 .sf[data-layout='phone'] .sf-sec {
   scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 116px);
-}
-.sf[data-layout='phone'] .wheel + .sf-sec {
-  margin-top: 16px;
 }
 .sec__title {
   display: flex;
@@ -966,8 +829,8 @@
   position: fixed;
   z-index: 39;
   left: 50%;
-  /* O menu de baixo encosta na tela: 64px + o risco do iPhone, e a bolinha passa 25px acima. */
-  bottom: calc(var(--sf-tabbar) + var(--sf-safe) + 30px);
+  /* Logo acima do menu de baixo (60px + o risco do iPhone). */
+  bottom: calc(var(--sf-tabbar) + var(--sf-safe) + 10px);
   width: min(calc(100% - 32px), 480px);
   display: flex;
   align-items: center;
