@@ -6,7 +6,6 @@ import {
   Database,
   FileSignature,
   Gauge,
-  Globe,
   IdCard,
   Receipt,
   ShoppingBag,
@@ -25,7 +24,7 @@ import type { ContractRow, Plan, TeamMember, TenantDetail } from './types';
 import { ago, bytes, daysUntil, Dot, Level, levelFor, Meter, Tag } from './ui';
 
 export type OverviewTarget =
-  'subscription' | 'profile' | 'contract' | 'database' | 'operation' | 'usage' | 'team' | 'domains';
+  'subscription' | 'profile' | 'contract' | 'database' | 'operation' | 'usage' | 'team';
 
 const SUB_LEVEL: Record<string, Level> = {
   trialing: 'info',
@@ -368,19 +367,6 @@ export function TenantOverview({
           <dt>Criado em</dt>
           <dd>{dateTime(t.createdAt)}</dd>
         </dl>
-      </Card>
-
-      <Card icon={<Globe size={16} />} title="Domínios" onClick={() => go('domains')}>
-        <span className="adm-card__big">
-          {t.domains.length
-            ? plural(t.domains.length, 'domínio', 'domínios')
-            : 'Só o endereço padrão'}
-        </span>
-        {t.domains.slice(0, 3).map((d) => (
-          <Note key={d.id} level={d.verifiedAt ? undefined : 'warn'}>
-            {d.hostname} · {d.verifiedAt ? 'verificado' : 'pendente'}
-          </Note>
-        ))}
       </Card>
     </div>
   );

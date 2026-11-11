@@ -266,7 +266,6 @@ type DetailTab =
   | 'kitchen'
   | 'usage'
   | 'team'
-  | 'domains'
   | 'history';
 
 export function TenantDetailPage() {
@@ -485,7 +484,6 @@ export function TenantDetailPage() {
             ['kitchen', 'Cozinha'],
             ['usage', 'Consumo'],
             ['team', `Equipe (${team.data?.length ?? '…'})`],
-            ['domains', `Domínios (${t.domains.length})`],
             ['history', 'Histórico'],
           ]}
         />
@@ -596,46 +594,6 @@ export function TenantDetailPage() {
                       {ago(m.lastSeenAt)}
                     </span>
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {tab === 'domains' && (
-          <div className="adm-panel">
-            {t.domains.length === 0 ? (
-              <div className="adm-empty">Nenhum.</div>
-            ) : (
-              <div className="adm-rows">
-                {t.domains.map((d) => (
-                  <div key={d.id} className="adm-row">
-                    <Dot level={d.verifiedAt ? 'ok' : 'warn'} />
-                    <span className="adm-row__main">
-                      <span className="adm-row__title">{d.hostname}</span>
-                      <span className="adm-row__meta">
-                        {d.verifiedAt
-                          ? `verificado ${ago(d.verifiedAt)}`
-                          : (d.lastError ?? 'pendente')}
-                      </span>
-                    </span>
-                    <button
-                      className="adm-action adm-action--danger"
-                      disabled={busy === d.id}
-                      onClick={() =>
-                        runDetail(
-                          d.id,
-                          () =>
-                            api<TenantDetail>(`/platform/tenants/${t.id}/domains/${d.id}/remove`, {
-                              method: 'POST',
-                            }),
-                          'Domínio removido',
-                        )
-                      }
-                    >
-                      Remover
-                    </button>
-                  </div>
                 ))}
               </div>
             )}
