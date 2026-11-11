@@ -318,7 +318,10 @@ export function cacheBranding(b: Branding) {
   } catch {
     /* modo privado: só não guarda */
   }
+  window.dispatchEvent(new Event(BRAND_CACHED_EVENT));
 }
+/** A identidade guardada mudou (a logo do menu lateral escuta para se atualizar). */
+export const BRAND_CACHED_EVENT = 'cm-brand-cached';
 
 /** Telas do cliente final (cardápio, pedido, rastreio, mesa): ganham também fonte e cantos. */
 export const isCustomerPath = (path: string) => /^\/(pedir|pedido|rastreio|mesa)(\/|$)/.test(path);

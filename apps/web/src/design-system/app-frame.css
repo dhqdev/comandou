@@ -202,6 +202,214 @@
   }
 }
 
+/* ---------------------------------------------------------------- botão de recolher */
+.cm-rail__brand {
+  position: relative;
+}
+.cm-rail__toggle {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: none;
+  color: var(--cm-sidebar-text);
+  cursor: pointer;
+}
+.cm-rail__toggle:hover {
+  background: color-mix(in srgb, var(--cm-text) 6%, transparent);
+  color: var(--cm-sidebar-text-strong);
+}
+/* Estreito: o botão de expandir fica escondido embaixo da logo e aparece ao passar o mouse. */
+.cm-frame[data-rail='narrow'] .cm-rail__toggle {
+  position: absolute;
+  right: -2px;
+  bottom: -6px;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--cm-border);
+  border-radius: 50%;
+  background: var(--cm-surface);
+  opacity: 0;
+  transition: opacity var(--cm-dur-fast) var(--cm-ease);
+}
+.cm-frame[data-rail='narrow'] .cm-rail:hover .cm-rail__toggle,
+.cm-frame[data-rail='narrow'] .cm-rail__toggle:focus-visible {
+  opacity: 1;
+}
+.cm-frame[data-rail='narrow'] .cm-rail__toggle svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---------------------------------------------------------------- logo do restaurante */
+.cm-store-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.cm-store-brand__logo {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: var(--cm-radius-md);
+  object-fit: cover;
+  background: var(--cm-surface);
+}
+.cm-store-brand__logo--initial {
+  display: grid;
+  place-items: center;
+  background: var(--cm-brand-500);
+  color: var(--cm-on-brand, #fff);
+  font-size: var(--cm-text-md);
+  font-weight: 700;
+  line-height: 1;
+}
+.cm-store-brand__name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cm-sidebar-text-strong);
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cm-frame[data-rail='narrow'] .cm-rail .cm-store-brand__name,
+.cm-store-brand[data-compact] .cm-store-brand__name {
+  display: none;
+}
+.cm-store-brand[data-compact] .cm-store-brand__logo {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--cm-radius-sm);
+}
+@media (max-width: 860px) {
+  .cm-rail .cm-store-brand__name {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------- menu largo (computador)
+ * Ícone + nome em cada linha; Cardápio, Estoque e Fiscal abrem os subitens logo abaixo,
+ * recuados e ligados por um fio fino. Um grupo aberto por vez. */
+@media (min-width: 861px) {
+  .cm-frame[data-rail='wide'] {
+    --rail-w: 236px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail {
+    align-items: stretch;
+    gap: 4px;
+    padding: 10px 10px 12px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__brand {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    height: calc(var(--top-h) - 10px);
+    margin: 0 0 6px;
+    padding: 0 2px 0 6px;
+  }
+  .cm-frame[data-rail='wide'] :is(.cm-rail__nav, .cm-rail__foot) {
+    justify-items: stretch;
+    padding: 0;
+    gap: 1px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__nav {
+    padding-block: 2px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__foot::before {
+    width: 100%;
+    margin: 0 0 6px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__item {
+    display: flex;
+    align-items: center;
+    justify-items: start;
+    gap: 10px;
+    width: 100%;
+    min-height: 38px;
+    padding: 0 10px;
+    border-radius: var(--cm-radius-md);
+    font-size: var(--cm-text-sm);
+    font-weight: 550;
+    line-height: 1.2;
+    text-align: left;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__item:active {
+    transform: none;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__icon svg {
+    width: 18px;
+    height: 18px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__item.is-active .cm-rail__icon {
+    transform: none;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__label {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__dot {
+    top: -3px;
+    right: -3px;
+  }
+  .cm-rail__chev {
+    flex: none;
+    color: var(--cm-text-subtle);
+    transition: transform var(--cm-dur-fast) var(--cm-ease);
+  }
+  .cm-rail__group[data-open] .cm-rail__chev {
+    transform: rotate(180deg);
+  }
+  .cm-rail__group[data-open] > .cm-rail__item {
+    color: var(--cm-sidebar-text-strong);
+  }
+  .cm-rail__sub {
+    display: grid;
+    gap: 1px;
+    margin: 2px 0 6px 19px;
+    padding-left: 10px;
+    border-left: 1px solid var(--cm-border);
+  }
+  .cm-rail__subitem {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: var(--cm-radius-sm);
+    color: var(--cm-sidebar-text);
+    font-size: var(--cm-text-sm);
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cm-rail__subitem:hover:not(.is-active) {
+    background: color-mix(in srgb, var(--cm-text) 5%, transparent);
+    color: var(--cm-sidebar-text-strong);
+  }
+  .cm-rail__subitem.is-active {
+    background: var(--cm-sidebar-active);
+    color: var(--cm-sidebar-text-strong);
+    font-weight: 600;
+  }
+  /* Tela baixa: linhas um pouco mais baixas. */
+  @media (max-height: 800px) {
+    .cm-frame[data-rail='wide'] .cm-rail__item {
+      min-height: 34px;
+    }
+    .cm-rail__subitem {
+      min-height: 30px;
+    }
+  }
+}
+
 /* ---------------------------------------------------------------- submenu que escorre da barra */
 .cm-flyout {
   position: fixed;

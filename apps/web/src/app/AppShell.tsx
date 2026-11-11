@@ -64,7 +64,6 @@ import {
 } from '../features/store-chat/SupportInbox';
 import { WelcomeTour, tourSeen } from '../features/WelcomeTour';
 import { PageTourHost } from '../features/tour/PageTour';
-import { PandaBrand } from '../features/mascot/PandaBrand';
 import { useSearchSpotlight } from '../lib/deep-link';
 import { rememberStaffApp } from '../lib/staff-app';
 import { useOnline } from '../lib/connectivity';
@@ -73,6 +72,7 @@ import { useRealtimeStatus } from '../lib/realtime';
 import { useHasUnseenRelease } from '../lib/releases';
 import { ChangePasswordModal } from '../pages/TeamPage';
 import { useAuth } from './auth';
+import { StoreBrand } from './StoreBrand';
 import { ROLE_HOME } from './role-home';
 import { ErrorBoundary, ErrorFallback } from '../lib/error-boundary';
 import './shell.css';
@@ -370,8 +370,8 @@ export function AppShell() {
   return (
     <>
       <AppFrame
-        brand={<PandaBrand size={60} />}
-        brandCompact={<PandaBrand size={42} />}
+        brand={<StoreBrand name={me?.tenant.name ?? 'Comandou'} />}
+        brandCompact={<StoreBrand name={me?.tenant.name ?? 'Comandou'} compact />}
         items={[...main, ...groups]}
         footer={[
           {

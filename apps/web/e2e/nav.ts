@@ -5,7 +5,7 @@ export const isPhone = (page: Page) => (page.viewportSize()?.width ?? 1200) <= 8
 
 /**
  * Navega pela moldura padrão (AppFrame), igual a uma pessoa:
- * - computador: ícone da barra lateral; se o item está num submenu, abre o grupo antes;
+ * - computador: item da barra lateral; se está dentro de um grupo (Cardápio, Estoque…), abre o grupo antes;
  * - celular: aba de baixo ou a tela "Mais" (última aba) e o bloco lá dentro.
  */
 export async function nav(page: Page, name: string | RegExp) {
@@ -19,6 +19,14 @@ export async function nav(page: Page, name: string | RegExp) {
   const rail = page.locator('.cm-rail');
   const direct = rail.getByRole('link', { name, exact });
   if (await direct.count()) return direct.click();
+  // Menu largo: o grupo abre os subitens logo abaixo, dentro da própria barra.
+  for (const group of await rail.locator('.cm-rail__group').all()) {
+    const head = group.locator('button[aria-expanded]');
+    if ((await head.getAttribute('aria-expanded')) !== 'true') await head.click();
+    const link = group.getByRole('link', { name, exact });
+    if (await link.count()) return link.click();
+  }
+  // Menu recolhido: o grupo abre um submenu ao lado.
   for (const group of await rail.locator('button[aria-haspopup]').all()) {
     await group.click();
     await page.getByRole('menu').waitFor();

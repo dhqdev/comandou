@@ -1,4 +1,4 @@
-import { ChevronLeft, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import {
   CSSProperties,
   RefObject,
@@ -74,6 +74,16 @@ export interface FrameItem {
   onClick?: () => void;
 }
 
+const WIDE_KEY = 'cm-rail-wide';
+/** Menu largo é o padrão; quem recolheu continua recolhido. */
+function readWide() {
+  try {
+    return localStorage.getItem(WIDE_KEY) !== '0';
+  } catch {
+    return true;
+  }
+}
+
 function isOn(pathname: string, to: string, end?: boolean) {
   return !!matchPath({ path: to, end: end ?? to === '/' }, pathname);
 }
@@ -140,6 +150,21 @@ export function AppFrame({
 }) {
   const { pathname } = useLocation();
   const [sheet, setSheet] = useState<string | null>(null);
+  // Computador: menu largo (ícone + nome, grupos que abrem embaixo) ou estreito (só ícones, com o
+  // submenu ao lado). A escolha fica guardada neste navegador.
+  const [wide, setWideState] = useState(readWide);
+  const setWide = (v: boolean) => {
+    setWideState(v);
+    try {
+      localStorage.setItem(WIDE_KEY, v ? '1' : '0');
+    } catch {
+      /* navegador sem armazenamento: vale só nesta aba */
+    }
+  };
+  // Menu largo: o grupo aberto (um por vez). Começa no grupo da tela atual.
+  const groupOf = (path: string) =>
+    items.find((i) => i.children?.some((c) => linkOn(path, c)))?.key ?? null;
+  const [group, setGroup] = useState<string | null>(() => groupOf(pathname));
   // Item do submenu aberto na barra lateral; `closing` mantém o painel na tela durante a saída.
   const [fly, setFly] = useState<{ key: string; closing: boolean } | null>(null);
   const open = fly && !fly.closing ? fly.key : null;
@@ -194,7 +219,10 @@ export function AppFrame({
     setFlyTop(null);
     setFlySlide(false);
     setSheet(null);
+    const g = groupOf(pathname);
+    if (g) setGroup(g);
     panel.current?.scrollTo({ top: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   // Barra lateral: o panda e a conta ficam presos; só os itens do meio rolam (tela baixa).
@@ -263,8 +291,8 @@ export function AppFrame({
           {it.icon}
           {it.dot && <span className="cm-rail__dot" aria-hidden />}
         </span>
-        <span className="cm-rail__label" aria-hidden={it.short ? true : undefined}>
-          {it.short ?? it.label}
+        <span className="cm-rail__label" aria-hidden={it.short && !wide ? true : undefined}>
+          {wide ? it.label : (it.short ?? it.label)}
         </span>
       </>
     );
@@ -281,6 +309,38 @@ export function AppFrame({
           {body}
         </NavLink>
       );
+    if (wide && it.children) {
+      const expanded = group === it.key;
+      return (
+        <div key={it.key} className="cm-rail__group" data-open={expanded || undefined}>
+          <button
+            type="button"
+            data-tour-key={it.key}
+            className={`cm-rail__item ${active && !expanded ? 'is-active' : ''}`}
+            aria-expanded={expanded}
+            onClick={() => setGroup(expanded ? null : it.key)}
+          >
+            {body}
+            <ChevronDown className="cm-rail__chev" size={16} aria-hidden />
+          </button>
+          {expanded && (
+            <div className="cm-rail__sub" role="group" aria-label={it.label}>
+              {it.children.map((c) => (
+                <NavLink
+                  key={c.to}
+                  to={c.to}
+                  end={c.end ?? c.to === '/'}
+                  className={`cm-rail__subitem ${linkOn(pathname, c) ? 'is-active' : ''}`}
+                >
+                  <span>{c.label}</span>
+                  {c.badge}
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
     const hasMenu = !!(it.children || it.panel);
     return (
       <button
@@ -322,9 +382,23 @@ export function AppFrame({
   const sheetItem = sheet ? all.find((i) => i.key === sheet) : null;
 
   return (
-    <div className={`cm-frame ${className}`}>
+    <div className={`cm-frame ${className}`} data-rail={wide ? 'wide' : 'narrow'}>
       <aside className="cm-rail" aria-label="Navegação principal">
-        <div className="cm-rail__brand">{brand}</div>
+        <div className="cm-rail__brand">
+          {brand}
+          <button
+            type="button"
+            className="cm-rail__toggle"
+            aria-label={wide ? 'Recolher menu' : 'Expandir menu'}
+            title={wide ? 'Recolher menu' : 'Expandir menu'}
+            onClick={() => {
+              setOpen(null);
+              setWide(!wide);
+            }}
+          >
+            {wide ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+          </button>
+        </div>
         <nav
           className="cm-rail__nav cm-glide"
           ref={rail.ref}
@@ -334,7 +408,7 @@ export function AppFrame({
           }}
         >
           {items.map(railItem)}
-          {rail.glider}
+          {!wide && rail.glider}
         </nav>
         {footer.length > 0 && <div className="cm-rail__foot">{footer.map(railItem)}</div>}
       </aside>
