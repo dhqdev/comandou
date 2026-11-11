@@ -405,6 +405,7 @@ export function ChatScreen() {
     body = (
       <ChatPane
         side="customer"
+        names={{ customer: first, staff: r.name }}
         messages={state.messages}
         hasMore={state.hasMore}
         otherReadAt={state.chat?.staffReadAt}

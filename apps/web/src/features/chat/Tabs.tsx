@@ -587,8 +587,14 @@ export function AiTab({ screen, onNavigate }: { screen: string; onNavigate?: () 
           msgs.map((m) =>
             m.role === 'user' ? (
               <div key={m.id} className="tc-msg is-mine">
-                <div className="tc-bubble">
-                  <span className="tc-bubble__text">{m.content}</span>
+                <div className="tc-msg__side">
+                  <Avatar name="Você" size={36} />
+                </div>
+                <div className="tc-msg__main">
+                  <div className="tc-msg__head">
+                    <span className="tc-msg__who">Você</span>
+                  </div>
+                  <span className="tc-msg__text">{m.content}</span>
                 </div>
               </div>
             ) : (

@@ -23,7 +23,8 @@ export function initials(name: string | null | undefined) {
   ).toUpperCase();
 }
 
-function colorOf(seed: string) {
+/** Fundo e letra do avatar: sempre os mesmos para a mesma pessoa. */
+export function avatarColors(seed: string) {
   let h = 0;
   for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return PALETTE[h % PALETTE.length]!;
@@ -43,7 +44,7 @@ export function Avatar({
   online?: boolean;
   kind?: Kind;
 }) {
-  const [bg, fg] = colorOf(seed ?? name ?? '?');
+  const [bg, fg] = avatarColors(seed ?? name ?? '?');
   return (
     <span
       className="tc-avatar"

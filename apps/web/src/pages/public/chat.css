@@ -39,13 +39,7 @@ html.sf-chat-open .sf:not([data-layout='desktop']) {
 }
 .sfchat .scx {
   --scx-safe: env(safe-area-inset-bottom, 0px);
-  /* Fundo da conversa: um pontilhado leve na cor da loja. */
-  background-color: color-mix(in srgb, var(--cm-brand-500) 4%, var(--cm-bg));
-  background-image: radial-gradient(
-    color-mix(in srgb, var(--cm-brand-500) 18%, transparent) 1px,
-    transparent 1.6px
-  );
-  background-size: 18px 18px;
+  background: var(--cm-surface);
 }
 .sfchat__main {
   flex: 1;

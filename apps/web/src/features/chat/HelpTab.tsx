@@ -71,6 +71,7 @@ export function HelpTab({ pollMs, onRead }: { pollMs: number; onRead(): void }) 
       </header>
       <ChatPane
         side="customer"
+        names={{ staff: 'Suporte Comandou' }}
         messages={d.messages}
         hasMore={d.hasMore}
         otherReadAt={d.otherReadAt}

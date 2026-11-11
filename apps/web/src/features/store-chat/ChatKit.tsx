@@ -26,6 +26,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { avatarColors, initials } from '../chat/util';
 import { ChatMessage, mediaFiles, Prepared, prepareFile, Sender, uploadFile } from './chat-media';
 import { EMOJI_GROUPS, emojiOnly, recentEmojis, rememberEmoji } from './emoji';
 import './store-chat.css';
@@ -181,6 +182,8 @@ export interface ThreadProps {
   hasMore?: boolean;
   onLoadMore?(): Promise<void> | void;
   greeting?: ReactNode;
+  /** Nome de cada lado quando a mensagem não traz o autor (ex.: o cliente, a loja). */
+  names?: { customer?: string | null; staff?: string | null };
   onOrder?(m: ChatMessage): void;
   onRetry?(m: ChatMessage): void;
   empty?: ReactNode;
@@ -194,6 +197,7 @@ function Thread({
   hasMore,
   onLoadMore,
   greeting,
+  names,
   onOrder,
   onRetry,
   empty,
@@ -308,6 +312,8 @@ function Thread({
     setFresh(0);
   };
 
+  // "Enviada" / "Lida" aparece só embaixo da última mensagem de quem vê.
+  const lastMineId = messages.findLast((m) => m.sender === side)?.id;
   let prev: ChatMessage | undefined;
   return (
     <div className="scx-thread" ref={box} onScroll={onScroll} aria-live="polite">
@@ -340,6 +346,11 @@ function Thread({
             );
           const big = !m.file && !m.localUrl && !m.orderNumber && emojiOnly(m.body);
           const read = mine && !m.pending && otherReadAt && m.createdAt <= otherReadAt;
+          const who =
+            m.authorName ||
+            names?.[m.sender as 'customer' | 'staff'] ||
+            (mine ? 'Você' : m.sender === 'customer' ? 'Cliente' : 'Equipe');
+          const [bg, fg] = avatarColors(`${m.sender}:${who}`);
           return (
             <Fragment key={m.id}>
               {newDay && <div className="scx-day">{dayLabel(m.createdAt)}</div>}
@@ -349,66 +360,70 @@ function Thread({
                 data-grouped={grouped || undefined}
                 data-pending={m.pending}
               >
-                {!mine && !grouped && side === 'customer' && m.authorName && (
-                  <span className="scx-msg__who">{m.authorName}</span>
-                )}
-                {!mine && !grouped && side === 'staff' && m.authorName && (
-                  <span className="scx-msg__who">{m.authorName}</span>
-                )}
-                {mine && !grouped && side === 'staff' && m.authorName && (
-                  <span className="scx-msg__who">{m.authorName}</span>
-                )}
-                <div className={`scx-bubble ${big ? 'scx-bubble--emoji' : ''}`}>
-                  {(m.file || m.localUrl || m.fileGone) && <Media m={m} onOpen={setViewer} />}
-                  {m.orderNumber && (
-                    <button
-                      type="button"
-                      className="scx-order"
-                      onClick={() => onOrder?.(m)}
-                      disabled={!onOrder}
-                    >
-                      <ReceiptText size={15} /> Pedido #{m.orderNumber}
+                <div className="scx-msg__side">
+                  {grouped ? (
+                    <time className="scx-msg__at">{hhmm(m.createdAt)}</time>
+                  ) : (
+                    <span className="scx-avatar" style={{ background: bg, color: fg }} aria-hidden>
+                      {initials(who)}
+                    </span>
+                  )}
+                </div>
+                <div className="scx-msg__main">
+                  {!grouped && (
+                    <div className="scx-msg__head">
+                      <span className="scx-msg__who">{who}</span>
+                      <time className="scx-msg__time">{hhmm(m.createdAt)}</time>
+                    </div>
+                  )}
+                  <div className={`scx-body ${big ? 'scx-body--emoji' : ''}`}>
+                    {(m.file || m.localUrl || m.fileGone) && <Media m={m} onOpen={setViewer} />}
+                    {m.orderNumber && (
+                      <button
+                        type="button"
+                        className="scx-order"
+                        onClick={() => onOrder?.(m)}
+                        disabled={!onOrder}
+                      >
+                        <ReceiptText size={15} /> Pedido #{m.orderNumber}
+                      </button>
+                    )}
+                    {m.body && (
+                      <p className="scx-text">
+                        <Linkified text={m.body} />
+                      </p>
+                    )}
+                  </div>
+                  {m.pending === 'failed' && (
+                    <button type="button" className="scx-retry" onClick={() => onRetry?.(m)}>
+                      <RotateCw size={13} /> Não foi. Tentar de novo
                     </button>
                   )}
-                  {m.body && (
-                    <p className="scx-text">
-                      <Linkified text={m.body} />
-                    </p>
+                  {m.id === lastMineId && m.pending !== 'failed' && (
+                    <span className="scx-status" data-read={read || undefined}>
+                      {m.pending === 'sending' ? (
+                        <>
+                          <Check size={13} /> Enviando
+                        </>
+                      ) : (
+                        <>
+                          <CheckCheck size={14} /> {read ? 'Lida' : 'Enviada'}
+                        </>
+                      )}
+                    </span>
                   )}
-                  <span className="scx-meta">
-                    {hhmm(m.createdAt)}
-                    {mine &&
-                      (m.pending === 'sending' ? (
-                        <span className="scx-tick" aria-label="Enviando">
-                          <Check size={13} />
-                        </span>
-                      ) : m.pending === 'failed' ? null : (
-                        <span
-                          className="scx-tick"
-                          data-read={read || undefined}
-                          aria-label={read ? 'Lida' : 'Enviada'}
-                        >
-                          <CheckCheck size={14} />
-                        </span>
-                      ))}
-                  </span>
                 </div>
-                {m.pending === 'failed' && (
-                  <button type="button" className="scx-retry" onClick={() => onRetry?.(m)}>
-                    <RotateCw size={13} /> Não foi. Tentar de novo
-                  </button>
-                )}
               </div>
             </Fragment>
           );
         })}
         {typing && (
-          <div className="scx-msg">
-            <div className="scx-bubble scx-typing" aria-label={typing}>
+          <div className="scx-typing" aria-label={typing}>
+            <span className="scx-typing__dots" aria-hidden>
               <span />
               <span />
               <span />
-            </div>
+            </span>
             <span className="scx-typing__label">{typing}</span>
           </div>
         )}

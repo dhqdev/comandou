@@ -279,6 +279,8 @@ export function ConversationView({
 
   let lastDay = '';
   let lastAuthor: string | null = null;
+  let lastAt = 0;
+  const lastMineId = msgs.findLast((m) => m.authorId === me && !m.system && !m.deleted)?.id;
 
   return (
     <section className="tc-conv" aria-label={conv?.name ?? 'Conversa'}>
@@ -352,8 +354,15 @@ export function ConversationView({
             const sep = day !== lastDay;
             lastDay = day;
             const mine = m.authorId === me && !m.system;
-            const firstOfRun = sep || m.system || lastAuthor !== m.authorId;
+            // Mensagens seguidas da mesma pessoa (em até 5 min) ficam juntas, sem repetir o nome.
+            const firstOfRun =
+              sep ||
+              m.system ||
+              !!m.reply ||
+              lastAuthor !== m.authorId ||
+              new Date(m.createdAt).getTime() - lastAt > 300_000;
             lastAuthor = m.system ? null : m.authorId;
+            lastAt = new Date(m.createdAt).getTime();
             return (
               <div key={m.id} className="tc-msg-wrap">
                 {sep && <div className="tc-day">{dayLabel(m.createdAt)}</div>}
@@ -363,8 +372,16 @@ export function ConversationView({
                   <Bubble
                     m={m}
                     mine={mine}
-                    showAuthor={!mine && firstOfRun && conv?.kind !== 'direct'}
-                    read={mine && readBy(m)}
+                    grouped={!firstOfRun}
+                    status={
+                      m.id !== lastMineId
+                        ? null
+                        : m.pending
+                          ? 'sending'
+                          : readBy(m)
+                            ? 'read'
+                            : 'sent'
+                    }
                     me={me}
                     onReply={() => {
                       setEditing(null);
@@ -424,8 +441,8 @@ export function ConversationView({
 function Bubble({
   m,
   mine,
-  showAuthor,
-  read,
+  grouped,
+  status,
   me,
   onReply,
   onEdit,
@@ -435,8 +452,10 @@ function Bubble({
 }: {
   m: Message;
   mine: boolean;
-  showAuthor: boolean;
-  read: boolean;
+  /** Continuação da mensagem anterior da mesma pessoa: sem avatar nem nome. */
+  grouped: boolean;
+  /** Só na última mensagem de quem vê: enviando, enviada ou lida. */
+  status: 'sending' | 'sent' | 'read' | null;
   me: string;
   onReply: () => void;
   onEdit: () => void;
@@ -449,39 +468,47 @@ function Bubble({
   const img = mediaUrl(m.imageId);
   return (
     <div
-      className={`tc-msg ${mine ? 'is-mine' : ''} ${m.pending ? 'is-pending' : ''}`}
+      className={`tc-msg ${mine ? 'is-mine' : ''} ${m.pending ? 'is-pending' : ''} ${grouped ? 'is-grouped' : ''}`}
       data-msg={m.id}
     >
-      <div className="tc-bubble">
-        {showAuthor && <span className="tc-bubble__author">{m.authorName}</span>}
+      <div className="tc-msg__side">
+        {grouped ? (
+          <time className="tc-msg__at">{hhmm(m.createdAt)}</time>
+        ) : (
+          <Avatar name={m.authorName} seed={m.authorId ?? undefined} size={36} />
+        )}
+      </div>
+      <div className="tc-msg__main">
         {m.reply && (
-          <span className="tc-bubble__reply">
+          <span className="tc-msg__reply">
+            <CornerUpLeft size={12} aria-hidden />
             <b>{m.reply.authorName ?? 'Mensagem'}</b>
             <span>{m.reply.body ?? 'Mensagem apagada'}</span>
           </span>
         )}
+        {!grouped && (
+          <div className="tc-msg__head">
+            <span className="tc-msg__who">{m.authorName ?? 'Sem nome'}</span>
+            <time className="tc-msg__time">{hhmm(m.createdAt)}</time>
+          </div>
+        )}
         {m.deleted ? (
-          <span className="tc-bubble__deleted">Mensagem apagada</span>
+          <span className="tc-msg__deleted">Mensagem apagada</span>
         ) : (
           <>
             {img && (
-              <a href={img} target="_blank" rel="noreferrer" className="tc-bubble__img">
+              <a href={img} target="_blank" rel="noreferrer" className="tc-msg__img">
                 <img src={img} alt="Foto enviada" loading="lazy" />
               </a>
             )}
-            {m.body && <span className="tc-bubble__text">{linkify(m.body)}</span>}
+            {m.body && (
+              <span className="tc-msg__text">
+                {linkify(m.body)}
+                {m.editedAt && <em className="tc-msg__edited"> (editada)</em>}
+              </span>
+            )}
           </>
         )}
-        <span className="tc-bubble__meta">
-          {m.editedAt && !m.deleted && <em>editada</em>}
-          {hhmm(m.createdAt)}
-          {mine &&
-            (m.pending ? (
-              <Check size={13} className="tc-tick" />
-            ) : (
-              <CheckCheck size={14} className={`tc-tick ${read ? 'is-read' : ''}`} />
-            ))}
-        </span>
         {reactions.length > 0 && (
           <span className="tc-reacts">
             {reactions.map(([e, users]) => (
@@ -494,6 +521,12 @@ function Bubble({
                 {e} {users.length > 1 && users.length}
               </button>
             ))}
+          </span>
+        )}
+        {status && (
+          <span className={`tc-msg__status ${status === 'read' ? 'is-read' : ''}`}>
+            {status === 'sending' ? <Check size={13} /> : <CheckCheck size={14} />}
+            {status === 'sending' ? 'Enviando' : status === 'read' ? 'Lida' : 'Enviada'}
           </span>
         )}
       </div>

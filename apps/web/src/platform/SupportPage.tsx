@@ -140,6 +140,7 @@ function Conversation({ tenantId, onBack }: { tenantId: string; onBack(): void }
       <ChatPane
         key={tenantId}
         side="staff"
+        names={{ customer: t.name, staff: 'Suporte Comandou' }}
         messages={d.messages}
         hasMore={d.hasMore}
         otherReadAt={d.otherReadAt}

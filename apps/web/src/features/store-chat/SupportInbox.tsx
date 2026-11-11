@@ -275,6 +275,7 @@ function Conversation({
       <ChatPane
         key={id}
         side="staff"
+        names={{ customer: c.name }}
         messages={d.messages}
         hasMore={d.hasMore}
         otherReadAt={c.customerReadAt}

@@ -1,13 +1,9 @@
 /*
  * Conversa do cliente com a loja (cardápio online e painel da equipe).
- * Mesmo visual dos dois lados: balões discretos, a cor da marca só nas mensagens de quem vê.
+ * Mesmo visual dos dois lados: mensagens em linha (avatar, nome, hora e texto), sem balões.
  * Só variáveis --cm-*; funciona nos temas claro e escuro, no celular e no computador.
  */
 .scx {
-  --scx-mine: var(--cm-brand-600);
-  --scx-on-mine: var(--cm-on-brand);
-  --scx-theirs: var(--cm-surface);
-  --scx-r: 16px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -29,8 +25,8 @@
 .scx-thread__inner {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 12px 12px 8px;
+  gap: 0;
+  padding: 12px 16px 10px;
   max-width: 820px;
   margin: 0 auto;
   min-height: 100%;
@@ -62,17 +58,21 @@
   font-size: var(--cm-text-md);
 }
 .scx-day {
-  align-self: center;
-  margin: 10px 0 6px;
-  padding: 3px 10px;
-  border-radius: var(--cm-radius-full);
-  background: color-mix(in srgb, var(--cm-surface) 92%, transparent);
-  border: 1px solid var(--cm-border);
-  color: var(--cm-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 2px;
+  color: var(--cm-text-subtle);
   font-size: var(--cm-text-xs);
   font-weight: 600;
   text-transform: capitalize;
-  backdrop-filter: blur(6px);
+}
+.scx-day::before,
+.scx-day::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--cm-border);
 }
 /* Dia que flutua no topo enquanto a conversa rola (some quando ela para). */
 .scx-float {
@@ -91,9 +91,18 @@
   transition-duration: 0.08s;
 }
 .scx-float .scx-day {
-  align-self: flex-start;
+  display: block;
   margin: 0;
+  padding: 3px 10px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
   box-shadow: var(--cm-shadow-sm);
+}
+.scx-float .scx-day::before,
+.scx-float .scx-day::after {
+  content: none;
 }
 .scx-system {
   align-self: center;
@@ -102,119 +111,126 @@
   color: var(--cm-text-subtle);
 }
 
+/* Linha de mensagem: avatar, nome e hora em cima, o texto logo abaixo, tudo alinhado à
+ * esquerda (dos dois lados da conversa). Mensagens seguidas da mesma pessoa ficam juntas, sem
+ * repetir o avatar; a hora delas aparece na margem ao passar o mouse. */
 .scx-msg {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  column-gap: 10px;
+  margin: 12px -8px 0;
+  padding: 2px 8px;
+  border-radius: var(--cm-radius-sm);
+}
+.scx-msg[data-grouped] {
+  margin-top: 0;
+}
+@media (hover: hover) {
+  .scx-msg:hover {
+    background: color-mix(in srgb, var(--cm-text) 4%, transparent);
+  }
+}
+.scx-msg__side {
+  display: flex;
+  justify-content: center;
+}
+.scx-avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  margin-top: 2px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+.scx-msg__at {
+  padding-top: 5px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cm-text-subtle);
+  opacity: 0;
+}
+.scx-msg:hover .scx-msg__at {
+  opacity: 1;
+}
+.scx-msg__main {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  max-width: min(78%, 520px);
-  margin-top: 8px;
-  transform-origin: 0 100%;
-  animation: scx-in 0.18s var(--cm-ease) backwards;
 }
-.scx-msg[data-grouped] {
-  margin-top: 2px;
-}
-.scx-msg[data-mine] {
-  align-self: flex-end;
-  align-items: flex-end;
-  transform-origin: 100% 100%;
-}
-/* Mensagem nova aparece no lugar (sem subir): só um leve crescer a partir do canto dela. */
-@keyframes scx-in {
-  from {
-    opacity: 0;
-    transform: scale(0.97);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .scx-msg {
-    animation: none;
-  }
+.scx-msg__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  max-width: 100%;
+  line-height: 1.3;
 }
 .scx-msg__who {
-  margin: 0 10px 3px;
-  font-size: var(--cm-text-xs);
-  font-weight: 600;
-  color: var(--cm-text-muted);
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+  color: var(--cm-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.scx-bubble {
-  position: relative;
+.scx-msg[data-mine] .scx-msg__who {
+  color: var(--cm-brand-700, var(--cm-brand-600));
+}
+.scx-msg__time {
+  flex: none;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cm-text-subtle);
+}
+.scx-body {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 6px;
-  min-width: 64px;
-  padding: 7px 10px 6px;
-  border-radius: var(--scx-r);
-  border-bottom-left-radius: 6px;
-  background: var(--scx-theirs);
-  border: 1px solid var(--cm-border);
+  max-width: 100%;
   color: var(--cm-text);
   overflow-wrap: anywhere;
 }
-.scx-msg[data-grouped] .scx-bubble {
-  border-top-left-radius: 6px;
-}
-.scx-msg[data-mine] .scx-bubble {
-  background: var(--scx-mine);
-  border-color: transparent;
-  color: var(--scx-on-mine);
-  border-radius: var(--scx-r);
-  border-bottom-right-radius: 6px;
-}
-.scx-msg[data-mine][data-grouped] .scx-bubble {
-  border-top-right-radius: 6px;
-}
-.scx-msg[data-pending='failed'] .scx-bubble {
+.scx-msg[data-pending] .scx-body {
   opacity: 0.6;
 }
 .scx-text {
   margin: 0;
   font-size: var(--cm-text-md);
-  line-height: 1.42;
+  line-height: 1.45;
   white-space: pre-wrap;
 }
 .scx-text a {
-  color: inherit;
+  color: var(--cm-brand-700, var(--cm-brand-600));
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.scx-bubble--emoji {
-  background: none !important;
-  border-color: transparent !important;
-  padding: 0 2px;
-}
-.scx-bubble--emoji .scx-text {
-  font-size: 2.6rem;
+.scx-body--emoji .scx-text {
+  font-size: 2.4rem;
   line-height: 1.15;
 }
-.scx-bubble--emoji .scx-meta {
-  color: var(--cm-text-subtle) !important;
-}
-.scx-meta {
+.scx-status {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  align-self: flex-end;
-  margin-top: -2px;
+  gap: 4px;
+  margin-top: 2px;
   font-size: 11px;
-  font-variant-numeric: tabular-nums;
   color: var(--cm-text-subtle);
 }
-.scx-msg[data-mine] .scx-meta {
-  color: color-mix(in srgb, var(--scx-on-mine) 78%, transparent);
-}
-.scx-tick {
-  display: inline-flex;
-}
-.scx-tick[data-read] {
-  color: #7fd3ff;
+.scx-status[data-read] {
+  color: var(--cm-info, #2f7fd1);
 }
 .scx-retry {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-top: 4px;
-  padding: 2px 6px;
+  margin-top: 2px;
+  padding: 2px 0;
   border: 0;
   background: none;
   color: var(--cm-danger);
@@ -256,10 +272,10 @@
   display: block;
   width: min(280px, 62vw);
   max-height: 340px;
-  margin: -3px -6px 0;
+  margin: 2px 0;
   padding: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--cm-radius-md);
   overflow: hidden;
   background: var(--cm-surface-sunken);
   cursor: zoom-in;
@@ -296,28 +312,32 @@
 
 /* Digitando… */
 .scx-typing {
-  flex-direction: row;
-  gap: 4px;
-  padding: 12px 14px;
-  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding-left: 2px;
 }
-.scx-typing span {
-  width: 7px;
-  height: 7px;
+.scx-typing__dots {
+  display: inline-flex;
+  gap: 3px;
+}
+.scx-typing__dots span {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--cm-text-subtle);
   animation: scx-dot 1.2s infinite ease-in-out;
 }
-.scx-typing span:nth-child(2) {
+.scx-typing__dots span:nth-child(2) {
   animation-delay: 0.15s;
 }
-.scx-typing span:nth-child(3) {
+.scx-typing__dots span:nth-child(3) {
   animation-delay: 0.3s;
 }
 .scx-typing__label {
-  margin: 3px 10px 0;
   font-size: var(--cm-text-xs);
-  color: var(--cm-text-subtle);
+  color: var(--cm-text-muted);
 }
 @keyframes scx-dot {
   0%,
@@ -755,4 +775,66 @@
 .scx-field .scx-icon:focus-visible {
   outline: none;
   background: var(--cm-surface-sunken);
+}
+
+/* ---------------------------------------------------------------- campo numa caixa só
+ * Anexo, texto, emoji e enviar dentro da mesma caixa de cantos suaves. */
+.scx-compose {
+  padding: 4px 16px calc(12px + var(--scx-safe, 0px));
+  border-top: 0;
+  background: inherit;
+}
+.scx-compose__row {
+  gap: 0;
+  padding: 2px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+}
+.scx-compose__row:focus-within {
+  border-color: var(--cm-border-strong);
+}
+.scx-field,
+.scx-field:focus-within {
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.scx-field textarea {
+  padding-left: 6px;
+}
+.scx-icon,
+.scx-send {
+  width: 40px;
+  height: 40px;
+  margin: 1px;
+  border-radius: var(--cm-radius-md);
+}
+.scx-send {
+  background: none;
+  color: var(--cm-brand-600);
+}
+.scx-send:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--cm-brand-500) 10%, transparent);
+}
+.scx-send:disabled {
+  color: var(--cm-text-subtle);
+}
+@media (max-width: 600px) {
+  .scx-thread__inner {
+    padding-inline: 12px;
+  }
+  .scx-compose {
+    padding-inline: 10px;
+  }
+  .scx-msg {
+    grid-template-columns: 32px minmax(0, 1fr);
+    column-gap: 8px;
+  }
+  .scx-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
 }

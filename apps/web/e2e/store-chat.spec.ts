@@ -46,10 +46,7 @@ test('cliente conversa com a loja pelo cardápio e o PDV responde', async ({
   await expect(c.locator('.scx-attach__file')).toBeVisible();
   await c.getByRole('button', { name: 'Enviar', exact: true }).click();
   await expect(c.locator('.scx-msg[data-mine] .scx-media img')).toBeVisible();
-  await expect(c.locator('.scx-msg[data-mine] .scx-tick').last()).toHaveAttribute(
-    'aria-label',
-    'Enviada',
-  );
+  await expect(c.locator('.scx-msg[data-mine] .scx-status')).toHaveText('Enviada');
   await c.screenshot({ path: shots('cliente') });
 
   // Equipe: selo no PDV, abre e responde.
@@ -67,10 +64,7 @@ test('cliente conversa com a loja pelo cardápio e o PDV responde', async ({
 
   // O cliente recebe na hora e a mensagem dele aparece como lida.
   await expect(c.locator('.scx-msg:not([data-mine])').last()).toContainText('grão-de-bico');
-  await expect(c.locator('.scx-msg[data-mine] .scx-tick').last()).toHaveAttribute(
-    'aria-label',
-    'Lida',
-  );
+  await expect(c.locator('.scx-msg[data-mine] .scx-status')).toHaveText('Lida');
 
   // Nova mensagem com o painel fechado: aviso no canto com "Responder".
   await panel.getByRole('button', { name: 'Fechar' }).click();
