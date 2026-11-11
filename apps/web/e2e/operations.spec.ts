@@ -238,7 +238,7 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   await dialog.getByLabel('Motivo').fill('cofre');
   await dialog.getByRole('button', { name: 'Registrar' }).click();
   // 100 + 28,50 (dinheiro) − 10 = 118,50
-  await expect(page.locator('.stat', { hasText: 'Dinheiro esperado' })).toContainText('R$ 118,50');
+  await expect(page.locator('.cash-kpi', { hasText: 'Dinheiro esperado' })).toContainText('R$ 118,50');
   await page.getByRole('button', { name: 'Fechar caixa' }).click();
   dialog = page.getByRole('dialog').filter({ hasText: 'Fechamento conferido' });
   await dialog.getByLabel('Contado Dinheiro').fill('118,00');

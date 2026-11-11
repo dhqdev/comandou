@@ -6,7 +6,16 @@ import {
   type OrderChannel,
   type PaymentMethod,
 } from '@comandou/shared';
-import { ArrowDownCircle, ArrowUpCircle, Lock, LockOpen, Wallet } from 'lucide-react';
+import {
+  ArrowDownCircle,
+  ArrowLeftRight,
+  ArrowUpCircle,
+  Banknote,
+  Lock,
+  LockOpen,
+  ShoppingBag,
+  Wallet,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import {
@@ -346,25 +355,60 @@ export function CashPage() {
       )}
 
       {t && (
-        <div className="stat-grid cash-stats">
-          <Stat label="Total vendido desde a abertura" value={brl(t.sold)} />
-          <Stat label="Frete arrecadado" value={brl(t.deliveryFees)} />
-          <Stat label="Acréscimos (taxa e serviço)" value={brl(t.surcharges)} />
-          <Stat label="Movimentado no caixa" value={brl(t.moved)} />
-          <Stat label="Contas fechadas" value={String(t.closedOrders)} />
-          <Stat label="Suprimentos" value={brl(t.supplies)} />
-          <Stat label="Sangrias" value={brl(t.withdrawals)} />
-          {session && !multi && (
-            <Stat
-              label={isOpen ? 'Dinheiro esperado' : 'Dinheiro esperado no fechamento'}
-              value={brl(
-                session.status === 'closed' && session.closedExpected
-                  ? session.closedExpected.cash
-                  : session.expected.cash,
-              )}
-            />
-          )}
-        </div>
+        <section className="cm-card cash-summary" aria-label="Resumo do caixa">
+          <div className="cash-summary__main">
+            <div className="cash-kpi">
+              <span className="cash-kpi__label">
+                <ShoppingBag size={15} aria-hidden /> Vendido no turno
+              </span>
+              <strong className="cash-kpi__value">{brl(t.sold)}</strong>
+              <span className="cash-kpi__sub">
+                {t.closedOrders} {t.closedOrders === 1 ? 'conta fechada' : 'contas fechadas'}
+              </span>
+            </div>
+            {session && !multi && (
+              <div className="cash-kpi">
+                <span className="cash-kpi__label">
+                  <Banknote size={15} aria-hidden />{' '}
+                  {isOpen ? 'Dinheiro esperado' : 'Dinheiro esperado no fechamento'}
+                </span>
+                <strong className="cash-kpi__value">
+                  {brl(
+                    session.status === 'closed' && session.closedExpected
+                      ? session.closedExpected.cash
+                      : session.expected.cash,
+                  )}
+                </strong>
+                <span className="cash-kpi__sub">na gaveta, com o fundo de troco</span>
+              </div>
+            )}
+            <div className="cash-kpi">
+              <span className="cash-kpi__label">
+                <ArrowLeftRight size={15} aria-hidden /> Movimentado no caixa
+              </span>
+              <strong className="cash-kpi__value">{brl(t.moved)}</strong>
+              <span className="cash-kpi__sub">todas as formas de pagamento</span>
+            </div>
+          </div>
+          <dl className="cash-summary__extra">
+            <div>
+              <dt>Frete</dt>
+              <dd>{brl(t.deliveryFees)}</dd>
+            </div>
+            <div>
+              <dt>Taxas e serviço</dt>
+              <dd>{brl(t.surcharges)}</dd>
+            </div>
+            <div>
+              <dt>Suprimentos</dt>
+              <dd>{brl(t.supplies)}</dd>
+            </div>
+            <div>
+              <dt>Sangrias</dt>
+              <dd>{brl(t.withdrawals)}</dd>
+            </div>
+          </dl>
+        </section>
       )}
 
       <section
@@ -587,15 +631,6 @@ const COLUMN_LABEL: Record<PaymentMethod, string> = {
   voucher: 'Vale-refeição',
   other: 'Outros',
 };
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="cm-card stat">
-      <div className="stat__label">{label}</div>
-      <div className="stat__value">{value}</div>
-    </div>
-  );
-}
 
 /** Formas que não bateram no fechamento, na ordem das formas de pagamento. */
 function methodDiffs(s: Pick<CashSession, 'differences'>): [PaymentMethod, string][] {
