@@ -31,7 +31,8 @@ const Reject = z.object({ reason: z.string().trim().min(3).max(200) });
 
 /**
  * Comprovantes do Pix pelo cardápio, para a equipe: abrir o arquivo, aprovar (o Pix entra no
- * caixa) ou recusar (o cliente vê o motivo e pode mandar outro).
+ * caixa) ou recusar (o cliente vê o motivo e pode mandar outro). No pedido cancelado com o
+ * comprovante sem conferir, marcar que o Pix foi devolvido.
  */
 @AllowWhenBlocked()
 @Controller({ path: 'orders/:id/pix-receipts', version: '1' })
@@ -75,6 +76,20 @@ export class PixReceiptsController {
     @Req() req: Request,
   ) {
     return this.pix.approve(ctxOf(t, u, req), id, receiptId, b, requireKey(key));
+  }
+
+  /** Pedido cancelado com Pix a devolver: a equipe devolveu pelo banco e marca aqui. */
+  @Post(':receiptId/refunded')
+  @HttpCode(200)
+  @RequirePermission('payments:refund')
+  refunded(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('receiptId', new ParseUUIDPipe()) receiptId: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.pix.refunded(ctxOf(t, u, req), id, receiptId);
   }
 
   @Post(':receiptId/reject')

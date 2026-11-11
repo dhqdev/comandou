@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.106.1',
+    date: '2026-11-11',
+    title: 'Caixa, Pix cancelado e comanda mais seguros',
+    summary:
+      'Três correções da auditoria: o fechamento do caixa confere cada forma de pagamento, o pedido cancelado com comprovante de Pix enviado avisa que há Pix a devolver, e o garçom só move para a comanda os pedidos que ele enxerga.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Fechamento do caixa: sobra numa forma de pagamento não cobre mais a falta em outra. Se o dinheiro tem R$ 5 a mais e o cartão R$ 5 a menos, o fechamento pede observação e a diferença de cada forma fica gravada. O relatório de fechamentos ganhou a coluna "Falta por forma".',
+      },
+      {
+        tag: 'correção',
+        text: 'Pix a devolver: pedido cancelado (pelo cliente ou pela loja) com o comprovante ainda sem conferir aparece em aviso no PDV. A equipe marca "Já devolvi o Pix" (gerente ou dono) ou "Não recebi este Pix", e o cliente acompanha pelo link do pedido.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Mover pedido para a comanda: o garçom só move pedidos do salão ou lançados por ele. Pedido de delivery e pedido ainda em análise não entram em comanda.',
+      },
+    ],
+  },
+  {
     version: '0.106.0',
     date: '2026-11-09',
     title: 'Mesa com localização e pedido pronto que chega até ela',

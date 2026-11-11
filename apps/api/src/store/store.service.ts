@@ -959,7 +959,8 @@ export class StoreService {
 
   /**
    * Pix do pedido, para o cliente: o QR Code com o que falta pagar (enquanto não foi aprovado) e
-   * como está o comprovante. Recusado, ele pode mandar outro.
+   * como está o comprovante. Recusado, ele pode mandar outro. Pedido cancelado com o comprovante
+   * enviado: a loja confere e devolve (`refund_due`) e depois avisa que devolveu (`refunded`).
    */
   private async pixViewIn(
     tx: Tx,
@@ -971,10 +972,11 @@ export class StoreService {
       status: string;
       at: Date;
       reason: string | null;
+      amount: string;
       n: number;
     }>(
       tx,
-      `SELECT status, created_at AS at, reject_reason AS reason,
+      `SELECT status, created_at AS at, reject_reason AS reason, amount::text,
               (SELECT count(*)::int FROM pix_receipts WHERE order_id = $1) AS n
          FROM pix_receipts WHERE order_id = $1 ORDER BY created_at DESC LIMIT 1`,
       [orderId],
@@ -990,7 +992,9 @@ export class StoreService {
       payee: payee
         ? { name: payee.name, keyType: payee.keyType, key: formatPixKey(payee.keyType, payee.key) }
         : null,
-      receipt: last ? { status: last.status, at: last.at, reason: last.reason } : null,
+      receipt: last
+        ? { status: last.status, at: last.at, reason: last.reason, amount: last.amount }
+        : null,
       canSend: open && (last?.n ?? 0) < MAX_PIX_RECEIPTS,
     };
   }

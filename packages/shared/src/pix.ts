@@ -21,8 +21,18 @@ export const PIX_KEY_TYPE_LABELS: Record<PixKeyType, string> = {
 export const PIX_NAME_MAX = 25;
 export const PIX_CITY_MAX = 15;
 
-/** Situação do comprovante de um pedido pago por Pix pelo cardápio. */
-export const PIX_RECEIPT_STATUSES = ['waiting', 'submitted', 'approved', 'rejected'] as const;
+/**
+ * Situação do Pix de um pedido pago pelo cardápio. `refund_due`: o pedido foi cancelado com o
+ * comprovante esperando conferência (o cliente pode já ter pago); `refunded`: a equipe devolveu.
+ */
+export const PIX_RECEIPT_STATUSES = [
+  'waiting',
+  'submitted',
+  'approved',
+  'rejected',
+  'refund_due',
+  'refunded',
+] as const;
 export type PixReceiptStatus = (typeof PIX_RECEIPT_STATUSES)[number];
 
 export const PIX_RECEIPT_LABELS: Record<PixReceiptStatus, string> = {
@@ -30,6 +40,8 @@ export const PIX_RECEIPT_LABELS: Record<PixReceiptStatus, string> = {
   submitted: 'Comprovante',
   approved: 'Pix aprovado',
   rejected: 'Comprovante recusado',
+  refund_due: 'Pix a devolver',
+  refunded: 'Pix devolvido',
 };
 
 const RANDOM_KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

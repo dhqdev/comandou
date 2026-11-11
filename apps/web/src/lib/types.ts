@@ -272,7 +272,7 @@ export interface Order {
 
 export interface PixReceipt {
   id: string;
-  status: 'submitted' | 'approved' | 'rejected' | 'replaced';
+  status: 'submitted' | 'approved' | 'rejected' | 'replaced' | 'refunded';
   contentType: string;
   amount: string;
   createdAt: string;

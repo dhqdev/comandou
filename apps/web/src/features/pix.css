@@ -123,6 +123,10 @@ button.pix-chip:focus-visible {
   color: var(--cm-danger);
   background: var(--cm-danger-bg);
 }
+.pix-chip[data-st='refund_due'] {
+  color: var(--cm-warning);
+  background: var(--cm-warning-bg);
+}
 
 /* ------------------------------------------------------------------ conferir o comprovante */
 .pix-review__title {

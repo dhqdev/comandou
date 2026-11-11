@@ -682,6 +682,22 @@
 }
 
 /* Rodapé do quadro: totais do dia. */
+.pdv-refund {
+  margin: 2px 4px 2px 0;
+  padding: 2px 8px;
+  min-height: 28px;
+  border: 1px solid color-mix(in srgb, var(--cm-warning) 40%, transparent);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface);
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pdv-refund:focus-visible {
+  outline: 0;
+  box-shadow: var(--cm-focus);
+}
 .pdv-foot {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -285,6 +285,8 @@ export class OrdersService {
       openBalance?: boolean;
       /** Prontos para levar: pedidos de mesa prontos que ainda não chegaram na mesa. */
       toServe?: boolean;
+      /** Cancelados com Pix a devolver (comprovante que ninguém tinha conferido). */
+      pixRefund?: boolean;
       limit: number;
     },
   ) {
@@ -303,6 +305,7 @@ export class OrdersService {
     if (f.active) where.push(`o.status NOT IN ('completed','cancelled')`);
     if (f.openBalance) where.push(`o.status = 'completed' AND o.paid_amount < o.total`);
     if (f.toServe) where.push(`o.channel = 'table' AND o.status = 'ready' AND o.served_at IS NULL`);
+    if (f.pixRefund) where.push(`o.pix_status = 'refund_due'`);
     if (f.channel) {
       p.push(f.channel);
       where.push(`o.channel = $${p.length}`);
@@ -828,6 +831,7 @@ export class OrdersService {
       [o.id, to, reason ?? null],
     );
     await this.history(tx, ctx, o.id, o.status, to, reason);
+    if (to === 'cancelled') await this.pixRefundDueIn(tx, ctx, o.id);
     // Fidelidade: pedido concluído rende pontos; cancelado devolve os pontos trocados nele.
     if (to === 'completed') await this.loyalty.earnForOrderIn(tx, ctx.tenantId, o.id);
     if (to === 'cancelled') await this.loyalty.refundForOrderIn(tx, ctx.tenantId, o.id);
@@ -847,6 +851,33 @@ export class OrdersService {
       await this.messaging.stage(tx, ctx.tenantId, o.id, event);
     o.status = to;
     o.version += 1;
+  }
+
+  /**
+   * Pedido cancelado com o comprovante do Pix esperando conferência: o cliente pode já ter pago e
+   * nada entrou no caixa. Fica "Pix a devolver" até a equipe dizer que devolveu ou que o Pix não
+   * chegou (com o Pix já aprovado, o cancelamento exige o estorno antes).
+   */
+  private async pixRefundDueIn(tx: Tx, ctx: Ctx, orderId: string) {
+    const due = await one<{ id: string; amount: string }>(
+      tx,
+      `WITH o AS (
+         UPDATE orders SET pix_status = 'refund_due'
+          WHERE id = $1 AND pix_status = 'submitted' RETURNING id)
+       SELECT r.id, r.amount::text FROM pix_receipts r JOIN o ON o.id = r.order_id
+        WHERE r.status = 'submitted' ORDER BY r.created_at DESC LIMIT 1`,
+      [orderId],
+    );
+    if (!due) return;
+    await this.audit.record(tx, {
+      tenantId: ctx.tenantId,
+      actorUserId: ctx.userId,
+      action: 'order.pix_refund_due',
+      entity: 'order',
+      entityId: orderId,
+      data: { receiptId: due.id, amount: due.amount },
+      ip: ctx.ip,
+    });
   }
 
   /**

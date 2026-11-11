@@ -498,7 +498,9 @@ export function OrderDetailModal({
                         ? 'trocado pelo cliente'
                         : r.status === 'rejected'
                           ? `recusado${r.rejectReason ? `: ${r.rejectReason}` : ''}`
-                          : r.status}{' '}
+                          : r.status === 'refunded'
+                            ? 'devolvido'
+                            : r.status}{' '}
                       {r.hasFile && (
                         <a href={pixReceiptUrl(order.id, r.id)} target="_blank" rel="noreferrer">
                           ver

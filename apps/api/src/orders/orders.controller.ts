@@ -58,6 +58,11 @@ const ListQuery = z.object({
     .enum(['true', 'false'])
     .optional()
     .transform((v) => v === 'true'),
+  /** Cancelados com Pix a devolver (aviso do PDV). */
+  pixRefund: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
   limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 

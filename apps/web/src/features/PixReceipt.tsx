@@ -1,5 +1,13 @@
 import { PIX_RECEIPT_LABELS, toCents } from '@comandou/shared';
-import { BadgeCheck, ExternalLink, FileText, Hourglass, ReceiptText, XCircle } from 'lucide-react';
+import {
+  BadgeCheck,
+  ExternalLink,
+  FileText,
+  Hourglass,
+  ReceiptText,
+  Undo2,
+  XCircle,
+} from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useCan } from '../app/auth';
@@ -44,7 +52,14 @@ export function PixReceiptChip({ order, onOpen }: { order: Order; onOpen?: () =>
         Comprovante
       </button>
     );
-  const Icon = st === 'approved' ? BadgeCheck : st === 'rejected' ? XCircle : Hourglass;
+  const Icon =
+    st === 'approved' || st === 'refunded'
+      ? BadgeCheck
+      : st === 'rejected'
+        ? XCircle
+        : st === 'refund_due'
+          ? Undo2
+          : Hourglass;
   return (
     <span className="pix-chip" data-st={st}>
       <Icon size={13} aria-hidden />
@@ -60,6 +75,8 @@ export function PixReceiptChip({ order, onOpen }: { order: Order; onOpen?: () =>
 /**
  * Conferir o comprovante: a foto (ou o PDF) grande, o valor que o QR Code pedia e os botões de
  * aprovar (o Pix entra no caixa e o pedido fica pago) e recusar (com motivo, o cliente vê).
+ * Pedido cancelado com o comprovante sem conferir (Pix a devolver): no lugar de aprovar, a equipe
+ * marca que devolveu o Pix ou que ele não chegou.
  */
 export function PixReceiptReview({
   order,
@@ -68,16 +85,20 @@ export function PixReceiptReview({
 }: {
   order: Pick<Order, 'id' | 'number' | 'status' | 'total' | 'balance'>;
   receipt: PixReceipt;
-  /** Depois de aprovar ou recusar (com o pedido atualizado). */
-  onDone(updated: Order, how: 'approved' | 'rejected'): void;
+  /** Depois de aprovar, recusar ou marcar a devolução (com o pedido atualizado). */
+  onDone(updated: Order, how: 'approved' | 'rejected' | 'refunded'): void;
 }) {
   const toast = useToast();
   const canPay = useCan('payments:create');
   const canManage = useCan('orders:manage');
+  const canRefund = useCan('payments:refund');
   const pending = receipt.status === 'submitted';
-  const { sessions, sessionId, choose } = useOpenSessions(pending && canPay);
-  const [busy, setBusy] = useState<'approve' | 'accept' | 'reject' | null>(null);
+  /** Pedido cancelado com o comprovante sem conferir: o cliente pode já ter pago. */
+  const refundDue = pending && order.status === 'cancelled';
+  const { sessions, sessionId, choose } = useOpenSessions(pending && !refundDue && canPay);
+  const [busy, setBusy] = useState<'approve' | 'accept' | 'reject' | 'refund' | null>(null);
   const [rejecting, setRejecting] = useState(false);
+  const [refunding, setRefunding] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   // Mesma chave em cada nova tentativa: um clique duplo não lança o Pix duas vezes.
@@ -85,7 +106,7 @@ export function PixReceiptReview({
   const url = pixReceiptUrl(order.id, receipt.id);
   const due = toCents(order.balance);
   const needsCash = due > 0;
-  const mismatch = toCents(receipt.amount) !== due && due > 0;
+  const mismatch = !refundDue && toCents(receipt.amount) !== due && due > 0;
 
   async function approve(accept: boolean) {
     setBusy(accept ? 'accept' : 'approve');
@@ -123,7 +144,12 @@ export function PixReceiptReview({
         method: 'POST',
         json: { reason: reason.trim() },
       });
-      toast('Comprovante recusado. O cliente vê o motivo e pode mandar outro.', 'neutral');
+      toast(
+        refundDue
+          ? `Pix do pedido #${order.number} marcado como não recebido. O cliente vê o motivo.`
+          : 'Comprovante recusado. O cliente vê o motivo e pode mandar outro.',
+        'neutral',
+      );
       onDone(o, 'rejected');
     } catch (e) {
       setError((e as Error).message);
@@ -131,6 +157,74 @@ export function PixReceiptReview({
       setBusy(null);
     }
   }
+
+  async function refunded() {
+    setBusy('refund');
+    setError(null);
+    try {
+      const o = await api<Order>(`/orders/${order.id}/pix-receipts/${receipt.id}/refunded`, {
+        method: 'POST',
+      });
+      toast(`Pix do pedido #${order.number} marcado como devolvido`, 'success');
+      onDone(o, 'refunded');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const rejectForm = (
+    <form
+      className="pix-review__reject"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (reason.trim().length >= 3) void reject();
+      }}
+    >
+      <label className="cm-label" htmlFor={`pix-reason-${receipt.id}`}>
+        {refundDue ? 'O que você viu no banco? (o cliente vê)' : 'Por que recusar? (o cliente vê)'}
+      </label>
+      <input
+        id={`pix-reason-${receipt.id}`}
+        className="cm-input"
+        maxLength={200}
+        autoFocus
+        placeholder={refundDue ? 'Ex.: Pix não caiu na conta' : 'Ex.: valor diferente do pedido'}
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+      />
+      <div className="pix-review__row">
+        {(refundDue
+          ? ['Pix não caiu na conta', 'Comprovante de outro pagamento', 'Comprovante ilegível']
+          : ['Valor diferente do pedido', 'Comprovante ilegível', 'Pix não caiu na conta']
+        ).map((r) => (
+          <button
+            key={r}
+            type="button"
+            className="chip"
+            aria-pressed={reason === r}
+            onClick={() => setReason(r)}
+          >
+            {r}
+          </button>
+        ))}
+      </div>
+      <div className="pix-review__row">
+        <Button variant="ghost" onClick={() => setRejecting(false)}>
+          Voltar
+        </Button>
+        <Button
+          type="submit"
+          variant="secondary"
+          loading={busy === 'reject'}
+          disabled={reason.trim().length < 3}
+        >
+          {refundDue ? 'Marcar como não recebido' : 'Recusar comprovante'}
+        </Button>
+      </div>
+    </form>
+  );
 
   return (
     <div className="pix-review">
@@ -155,7 +249,13 @@ export function PixReceiptReview({
           <dd>{dateTime(receipt.createdAt)}</dd>
           {receipt.reviewedAt && (
             <>
-              <dt>{receipt.status === 'approved' ? 'Aprovado' : 'Recusado'}</dt>
+              <dt>
+                {receipt.status === 'approved'
+                  ? 'Aprovado'
+                  : receipt.status === 'refunded'
+                    ? 'Devolvido'
+                    : 'Recusado'}
+              </dt>
               <dd>
                 {time(receipt.reviewedAt)}
                 {receipt.reviewedByName ? ` · ${receipt.reviewedByName}` : ''}
@@ -186,7 +286,60 @@ export function PixReceiptReview({
           </a>
         )}
         {error && <Alert tone="danger">{error}</Alert>}
-        {pending && order.status !== 'cancelled' && (
+        {refundDue && (
+          <div className="pix-review__actions">
+            <Alert tone="warning">
+              <span>
+                Pedido cancelado com o comprovante enviado. Veja no app do banco se o Pix de{' '}
+                <strong>{brl(receipt.amount)}</strong> caiu: se caiu, devolva ao cliente e marque
+                aqui.
+              </span>
+            </Alert>
+            {rejecting ? (
+              rejectForm
+            ) : refunding ? (
+              <div className="pix-review__reject">
+                <p className="cm-label">
+                  Confirma que devolveu {brl(receipt.amount)} ao cliente pelo banco?
+                </p>
+                <div className="pix-review__row">
+                  <Button variant="ghost" disabled={!!busy} onClick={() => setRefunding(false)}>
+                    Voltar
+                  </Button>
+                  <Button loading={busy === 'refund'} onClick={() => void refunded()}>
+                    Sim, devolvi o Pix
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="pix-review__row">
+                {canManage && (
+                  <Button
+                    variant="secondary"
+                    disabled={!!busy}
+                    onClick={() => {
+                      setReason('Pix não caiu na conta');
+                      setRejecting(true);
+                    }}
+                  >
+                    Não recebi este Pix
+                  </Button>
+                )}
+                {canRefund && (
+                  <Button disabled={!!busy} onClick={() => setRefunding(true)}>
+                    Já devolvi o Pix
+                  </Button>
+                )}
+              </div>
+            )}
+            {!canRefund && (
+              <p className="cm-hint">
+                Quem estorna pagamentos (gerente ou dono) marca a devolução do Pix.
+              </p>
+            )}
+          </div>
+        )}
+        {pending && !refundDue && (
           <div className="pix-review__actions">
             {canPay && needsCash && sessions && sessions.length > 1 && (
               <SelectField
@@ -211,56 +364,7 @@ export function PixReceiptReview({
               <p className="cm-hint">Quem recebe pagamentos (caixa ou gerente) aprova o Pix.</p>
             )}
             {rejecting ? (
-              <form
-                className="pix-review__reject"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (reason.trim().length >= 3) void reject();
-                }}
-              >
-                <label className="cm-label" htmlFor={`pix-reason-${receipt.id}`}>
-                  Por que recusar? (o cliente vê)
-                </label>
-                <input
-                  id={`pix-reason-${receipt.id}`}
-                  className="cm-input"
-                  maxLength={200}
-                  autoFocus
-                  placeholder="Ex.: valor diferente do pedido"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                />
-                <div className="pix-review__row">
-                  {[
-                    'Valor diferente do pedido',
-                    'Comprovante ilegível',
-                    'Pix não caiu na conta',
-                  ].map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      className="chip"
-                      aria-pressed={reason === r}
-                      onClick={() => setReason(r)}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-                <div className="pix-review__row">
-                  <Button variant="ghost" onClick={() => setRejecting(false)}>
-                    Voltar
-                  </Button>
-                  <Button
-                    type="submit"
-                    variant="secondary"
-                    loading={busy === 'reject'}
-                    disabled={reason.trim().length < 3}
-                  >
-                    Recusar comprovante
-                  </Button>
-                </div>
-              </form>
+              rejectForm
             ) : (
               <div className="pix-review__row">
                 {canManage && (

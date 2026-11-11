@@ -90,7 +90,10 @@ export class PixService {
       const o = await this.lockOrder(tx, id);
       if (!o.pix_status)
         throw new ConflictException('Este pedido não é pago por Pix pelo cardápio');
-      if (o.status === 'cancelled') throw new ConflictException('Este pedido foi cancelado');
+      if (o.status === 'cancelled')
+        throw new ConflictException(
+          'Este pedido foi cancelado. Se você já pagou o Pix, fale com a loja para receber de volta.',
+        );
       const due = toCents(o.total) - toCents(o.paid_amount);
       if (o.pix_status === 'approved' || due <= 0)
         throw new ConflictException('O pagamento deste pedido já foi confirmado pela loja');
@@ -164,9 +167,9 @@ export class PixService {
   }
 
   private async lockReceipt(tx: Tx, orderId: string, receiptId: string) {
-    const r = await one<{ id: string; status: string }>(
+    const r = await one<{ id: string; status: string; amount: string }>(
       tx,
-      `SELECT id, status FROM pix_receipts WHERE id = $1 AND order_id = $2 FOR UPDATE`,
+      `SELECT id, status, amount::text FROM pix_receipts WHERE id = $1 AND order_id = $2 FOR UPDATE`,
       [receiptId, orderId],
     );
     if (!r) throw new NotFoundException('Comprovante não encontrado');
@@ -176,7 +179,9 @@ export class PixService {
       throw new ConflictException(
         r.status === 'approved'
           ? 'Este comprovante já foi aprovado'
-          : 'Este comprovante já foi recusado',
+          : r.status === 'refunded'
+            ? 'O Pix deste comprovante já foi marcado como devolvido'
+            : 'Este comprovante já foi recusado',
       );
     return r;
   }
@@ -206,7 +211,9 @@ export class PixService {
           const o = await this.orders.lock(tx, orderId);
           await this.lockReceipt(tx, orderId, receiptId);
           if (o.status === 'cancelled')
-            throw new ConflictException(`Pedido #${o.number} está cancelado`);
+            throw new ConflictException(
+              `Pedido #${o.number} está cancelado: se o Pix caiu, devolva ao cliente e marque como devolvido`,
+            );
           const due = toCents(o.total) - toCents(o.paid_amount);
           let paymentId: string | null = null;
           if (due > 0) {
@@ -262,7 +269,46 @@ export class PixService {
     return res.order;
   }
 
-  /** Comprovante recusado (com motivo): o cliente vê no acompanhamento e pode mandar outro. */
+  /**
+   * Pedido cancelado com Pix a devolver: a equipe devolveu o valor pelo banco e marca aqui. Nada
+   * entra nem sai do caixa (o Pix nunca foi lançado como pagamento); fica quem marcou e quando.
+   */
+  async refunded(ctx: Ctx, orderId: string, receiptId: string) {
+    const order = await this.db.withTenant(ctx, async (tx) => {
+      const o = await this.lockOrder(tx, orderId);
+      const r = await this.lockReceipt(tx, orderId, receiptId);
+      if (o.pix_status !== 'refund_due')
+        throw new ConflictException('Este pedido não tem Pix a devolver');
+      await q(
+        tx,
+        `UPDATE pix_receipts SET status = 'refunded', reviewed_by = $2, reviewed_at = now()
+          WHERE id = $1`,
+        [receiptId, ctx.userId],
+      );
+      await q(
+        tx,
+        `UPDATE orders SET pix_status = 'refunded', version = version + 1 WHERE id = $1`,
+        [orderId],
+      );
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'order.pix_refunded',
+        entity: 'order',
+        entityId: orderId,
+        data: { receiptId, amount: r.amount },
+        ip: ctx.ip,
+      });
+      return this.orders.detail(tx, orderId);
+    });
+    this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId });
+    return order;
+  }
+
+  /**
+   * Comprovante recusado (com motivo): o cliente vê no acompanhamento e pode mandar outro. No
+   * pedido cancelado com Pix a devolver, é o "não recebi este Pix": encerra a pendência.
+   */
   async reject(ctx: Ctx, orderId: string, receiptId: string, reason: string) {
     const order = await this.db.withTenant(ctx, async (tx) => {
       await this.lockOrder(tx, orderId);

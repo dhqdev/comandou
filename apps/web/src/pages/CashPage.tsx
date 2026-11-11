@@ -325,21 +325,23 @@ export function CashPage() {
 
       {session?.status === 'closed' && (
         <Alert tone={closedClean(session) ? 'info' : 'warning'}>
-          Fechado em {session.closedAt && dateTime(session.closedAt)} por {session.closedByName}.
-          Diferença: <DiffValue value={session.difference ?? '0'} />
-          {methodDiffs(session).length > 0 && (
-            <>
-              {' ('}
-              {methodDiffs(session).map(([m, v], i) => (
-                <span key={m}>
-                  {i > 0 && ', '}
-                  {PAYMENT_METHOD_LABELS[m]} <DiffValue value={v} />
-                </span>
-              ))}
-              {')'}
-            </>
-          )}
-          {session.closingNote && ` — ${session.closingNote}`}
+          <span>
+            Fechado em {session.closedAt && dateTime(session.closedAt)} por {session.closedByName}.
+            Diferença: <DiffValue value={session.difference ?? '0'} />
+            {methodDiffs(session).length > 0 && (
+              <>
+                {' ('}
+                {methodDiffs(session).map(([m, v], i) => (
+                  <span key={m}>
+                    {i > 0 && ', '}
+                    {PAYMENT_METHOD_LABELS[m]} <DiffValue value={v} />
+                  </span>
+                ))}
+                {')'}
+              </>
+            )}
+            {session.closingNote && ` — ${session.closingNote}`}
+          </span>
         </Alert>
       )}
 
@@ -880,14 +882,16 @@ function CloseModal({
         </table>
         {ready && (
           <Alert tone={mismatch ? 'warning' : 'info'}>
-            Diferença total: <DiffValue value={fromCents(diff)} />
-            {mismatch && diff === 0 && (
-              <>
-                {' '}
-                O total bate, mas as formas não. Confira se algum pagamento foi lançado na forma
-                errada e explique na observação.
-              </>
-            )}
+            <span>
+              Diferença total: <DiffValue value={fromCents(diff)} />
+              {mismatch && diff === 0 && (
+                <>
+                  {' '}
+                  O total bate, mas as formas não. Confira se algum pagamento foi lançado na forma
+                  errada e explique na observação.
+                </>
+              )}
+            </span>
           </Alert>
         )}
         <TextField

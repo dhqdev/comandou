@@ -80,7 +80,7 @@ interface PublicOrder {
     amount: string;
     code: string | null;
     payee: { name: string; keyType: PixKeyType; key: string } | null;
-    receipt: { status: string; at: string; reason: string | null } | null;
+    receipt: { status: string; at: string; reason: string | null; amount?: string } | null;
     canSend: boolean;
   } | null;
 }
@@ -383,6 +383,9 @@ export function PublicOrderPage() {
           {o.pix && o.step !== 'cancelled' && (
             <PixTrack pix={o.pix} path={`${base}/pix-receipt`} onSent={load} />
           )}
+          {o.pix && o.step === 'cancelled' && o.pix.status !== 'approved' && (
+            <PixCancelled pix={o.pix} />
+          )}
 
           <section className="track__card track__sum">
             <h2>Resumo</h2>
@@ -494,6 +497,53 @@ export function PublicOrderPage() {
       {/* Esperando a comida: bom momento para sugerir o app (acompanha daqui na próxima vez). */}
       <InstallHint name={o.restaurant.name} logoUrl={o.restaurant.logoUrl} delay={2500} />
     </main>
+  );
+}
+
+/** Pedido cancelado que era pago por Pix: o que acontece com o dinheiro do cliente. */
+function PixCancelled({ pix }: { pix: NonNullable<PublicOrder['pix']> }) {
+  const r = pix.receipt;
+  const value = r?.amount ? ` de ${brl(r.amount)}` : '';
+  return (
+    <section className="track__card track__pix">
+      <h2>Pagamento por Pix</h2>
+      {pix.status === 'refund_due' ? (
+        <p className="pixpay__state">
+          <Clock3 size={18} aria-hidden />
+          <span>
+            <strong>A loja vai devolver o seu Pix</strong>
+            <small>
+              O pedido foi cancelado com o comprovante enviado. A loja confere o Pix{value} e
+              devolve para a sua conta.
+            </small>
+          </span>
+        </p>
+      ) : pix.status === 'refunded' ? (
+        <p className="pixpay__state" data-tone="ok">
+          <BadgeCheck size={18} aria-hidden />
+          <span>
+            <strong>Pix devolvido</strong>
+            <small>A loja informou que devolveu o seu Pix{value}. Confira no app do banco.</small>
+          </span>
+        </p>
+      ) : pix.status === 'rejected' && r ? (
+        <p className="pixpay__state" data-tone="bad">
+          <XCircle size={18} aria-hidden />
+          <span>
+            <strong>A loja não encontrou o seu Pix</strong>
+            <small>{r.reason ? `Motivo: ${r.reason}. ` : ''}Se você pagou, fale com a loja.</small>
+          </span>
+        </p>
+      ) : (
+        <p className="pixpay__state">
+          <Clock3 size={18} aria-hidden />
+          <span>
+            <strong>Pedido cancelado</strong>
+            <small>Se você já fez o Pix, fale com a loja para receber de volta.</small>
+          </span>
+        </p>
+      )}
+    </section>
   );
 }
 

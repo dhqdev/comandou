@@ -241,6 +241,8 @@ export function PdvPage() {
   const known = useRef<Set<string> | null>(null);
   /** Pedidos concluídos e cancelados hoje (00:00–23:59), para o rodapé. */
   const [today, setToday] = useState<{ done: number; cancelled: number } | null>(null);
+  /** Cancelados com o comprovante do Pix sem conferir: o cliente pode já ter pago. */
+  const [pixRefunds, setPixRefunds] = useState<Order[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -296,6 +298,9 @@ export function PdvPage() {
       Promise.all([day('completed'), day('cancelled')])
         .then(([done, cancelled]) => setToday({ done, cancelled }))
         .catch(() => setToday(null));
+      api<Order[]>('/orders?pixRefund=true&limit=50')
+        .then(setPixRefunds)
+        .catch(() => setPixRefunds([]));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -553,6 +558,32 @@ export function PdvPage() {
       </div>
 
       {error && <Alert tone="danger">Não foi possível carregar os pedidos: {error}</Alert>}
+
+      {pixRefunds.length > 0 && (
+        <Alert tone="warning">
+          <span>
+            <strong>Pix a devolver:</strong>{' '}
+            {pixRefunds.length === 1
+              ? 'um pedido foi cancelado'
+              : `${pixRefunds.length} pedidos foram cancelados`}{' '}
+            depois de o cliente mandar o comprovante. Confira no banco e devolva.{' '}
+            {pixRefunds.slice(0, 5).map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                className="pdv-refund"
+                onClick={() => {
+                  setOpenStep(undefined);
+                  setOpenId(o.id);
+                }}
+              >
+                #{o.number}
+                {o.pixReceipt ? ` · ${brl(o.pixReceipt.amount)}` : ''}
+              </button>
+            ))}
+          </span>
+        </Alert>
+      )}
 
       {canTables && tables && tables.length + tabs.length > 0 && (
         <section className="pdv-box pdv-salon" aria-label="Salão">
@@ -844,7 +875,10 @@ export function PdvPage() {
         variant="panel"
         orderId={openId}
         startWith={openStep}
-        onClose={() => setOpenId(null)}
+        onClose={() => {
+          setOpenId(null);
+          if (pixRefunds.length > 0) void load();
+        }}
       />
     </div>
   );
