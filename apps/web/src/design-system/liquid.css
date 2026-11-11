@@ -1,80 +1,15 @@
-/* Movimento e vidro no jeito do iOS (mesmo estilo do Planejai).
-   - Janelas nascem de quem foi clicado e voltam para ele (liquid.ts). Enquanto a forma anima a janela
-     fica sólida; quando ela para, liga o vidro (data-glass).
-   - Botões afundam na hora do toque e voltam com mola (sem onda colorida: jeito do iPhone).
-   - Indicadores e cartões dos painéis entram em cascata, uma vez por tela.
-   Regras: só transform e opacidade se movem, nada passa de 400 ms, hover só com mouse e, com
-   "reduzir movimento", tudo vira só esmaecer (bloco no fim). */
+/* Movimento do sistema: pouco e rápido.
+   - Janelas abrem no centro (folha de baixo no celular), sólidas, com um esmaecer curto (liquid.ts).
+   - Botões afundam na hora do toque.
+   - Sem vidro, sem cascata de cartões e sem animação na troca de tela.
+   Regras: só transform e opacidade se movem e nada passa de 200 ms. */
 
 /* ---------------------------------------------------------------- janelas */
 dialog[data-liquid][open] {
   animation: none;
 }
 dialog[data-liquid]::backdrop {
-  animation: cm-fade 0.24s var(--cm-ease) both;
-}
-
-/* Vidro: quase sólido (o texto continua fácil de ler), desfocando o que passa atrás, com um fio de
-   luz em cima no lugar da borda. Só nas janelas centrais e nas folhas, nunca vidro sobre vidro. */
-:is(.cm-modal, .cm-sheet) {
-  transition: background-color 0.24s var(--cm-ease);
-}
-:is(.cm-modal, .cm-sheet)[data-glass] {
-  background: color-mix(in srgb, var(--cm-surface) 90%, transparent);
-  -webkit-backdrop-filter: blur(28px) saturate(1.7);
-  backdrop-filter: blur(28px) saturate(1.7);
-  border-color: transparent;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 70%),
-    inset 0 0 0 0.5px rgb(255 255 255 / 45%),
-    0 0 0 0.5px rgb(24 24 27 / 10%),
-    0 24px 56px -18px rgb(24 24 27 / 30%),
-    0 2px 8px rgb(24 24 27 / 6%);
-}
-:is(.cm-modal, .cm-sheet)[data-glass] :is(.cm-modal__footer, .cm-sheet__footer) {
-  background: transparent;
-  border-top-color: color-mix(in srgb, var(--cm-text) 10%, transparent);
-}
-/* Sobre o vidro o cinza liso some: botão desligado ganha um véu escuro, contorno e texto cinza
-   (o branco do botão principal sumia em cima do véu). */
-:is(.cm-modal, .cm-sheet)[data-glass] .cm-btn:disabled {
-  opacity: 1;
-  background: color-mix(in srgb, var(--cm-text) 7%, transparent);
-  border-color: var(--cm-border-strong);
-  color: var(--cm-text-subtle);
-  box-shadow: none;
-}
-:root[data-theme='dark'] :is(.cm-modal, .cm-sheet)[data-glass] {
-  background: color-mix(in srgb, var(--cm-surface) 88%, transparent);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 9%),
-    inset 0 0 0 0.5px rgb(255 255 255 / 8%),
-    0 0 0 0.5px rgb(0 0 0 / 60%),
-    0 24px 56px -14px rgb(0 0 0 / 70%);
-}
-/* No celular a folha encosta embaixo: sem sombra pesada, só o fio de luz em cima. */
-@media (max-width: 640px) {
-  /* folha grande, com muito texto: um pouco mais opaca que a janela do computador */
-  :is(.cm-modal, .cm-sheet)[data-glass] {
-    background: color-mix(in srgb, var(--cm-surface) 95%, transparent);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 70%),
-      0 -12px 40px -14px rgb(24 24 27 / 28%);
-  }
-  :root[data-theme='dark'] :is(.cm-modal, .cm-sheet)[data-glass] {
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 9%),
-      0 -12px 40px -14px rgb(0 0 0 / 75%);
-  }
-}
-/* Menos transparência ou mais contraste no sistema: vidro vira sólido. */
-@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  :is(.cm-modal, .cm-sheet)[data-glass] {
-    background: var(--cm-surface);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    border-color: var(--cm-border-strong);
-  }
+  animation: cm-fade 0.12s ease-out both;
 }
 
 /* ---------------------------------------------------------------- toque */
@@ -101,190 +36,9 @@ dialog[data-liquid]::backdrop {
   transform: scale(0.985);
 }
 
-/* ---------------------------------------------------------------- painéis */
-/* Indicadores e cartões entram em cascata (curto: troca-se de tela o dia todo). */
-.cm-frame__content
-  :is(.stat-grid, .st-kpis, .rp-kpis, .rp-stats, .dl-kpis, .adm-grid, .rp-grid, .st-grid)
-  > * {
-  animation: cm-rise 0.2s cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
-}
-.cm-frame__content
-  :is(.stat-grid, .st-kpis, .rp-kpis, .rp-stats, .dl-kpis, .adm-grid, .rp-grid, .st-grid)
-  > :nth-child(2) {
-  animation-delay: 0.03s;
-}
-.cm-frame__content
-  :is(.stat-grid, .st-kpis, .rp-kpis, .rp-stats, .dl-kpis, .adm-grid, .rp-grid, .st-grid)
-  > :nth-child(3) {
-  animation-delay: 0.06s;
-}
-.cm-frame__content
-  :is(.stat-grid, .st-kpis, .rp-kpis, .rp-stats, .dl-kpis, .adm-grid, .rp-grid, .st-grid)
-  > :nth-child(4) {
-  animation-delay: 0.09s;
-}
-.cm-frame__content
-  :is(.stat-grid, .st-kpis, .rp-kpis, .rp-stats, .dl-kpis, .adm-grid, .rp-grid, .st-grid)
-  > :nth-child(n + 5) {
-  animation-delay: 0.12s;
-}
-@keyframes cm-rise {
-  from {
-    opacity: 0;
-  }
-}
-/* Os números dos indicadores aparecem no lugar (sem subir: nada nasce embaixo e sobe). */
-:is(.stat__value, .st-kpi__value, .rp-kpi__value, .dl-kpi__value) {
-  animation: cm-num 0.2s cubic-bezier(0.2, 0.9, 0.25, 1) 0.04s backwards;
-}
-@keyframes cm-num {
-  from {
-    opacity: 0;
-  }
-}
-
-/* ---------------------------------------------------------------- troca de tela */
-/* Com View Transitions (transicao em liquid.ts): a tela antiga sai enquanto a nova entra, sem
-   quadro vazio. Só o painel de conteúdo anima; moldura, menu e barra de baixo ficam parados. */
-html.cm-vt .cm-frame__panel {
-  view-transition-name: cm-main;
-}
-html.cm-vt .cm-tabbar {
-  view-transition-name: cm-tabbar;
-}
-/* tela desenhada dentro da troca: a entrada própria dela fica de fora (marca fixa por tela, ver
-   app-frame.tsx; tirar a classe depois faria a entrada rodar de novo) */
-.cm-frame__content.cm-enter[data-vt] {
-  animation: none;
-}
-::view-transition-group(cm-tabbar),
-::view-transition-new(cm-tabbar) {
-  animation: none;
-}
-::view-transition-old(cm-tabbar) {
-  display: none;
-}
-::view-transition-group(cm-main) {
-  overflow: clip;
-  animation: none;
-}
-::view-transition-old(cm-main) {
-  animation: cm-vt-out 0.1s ease-out both;
-}
-::view-transition-new(cm-main) {
-  animation: cm-vt-rise 0.18s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-}
-@keyframes cm-vt-out {
-  to {
-    opacity: 0;
-  }
-}
-@keyframes cm-vt-rise {
-  from {
-    opacity: 0;
-  }
-}
-
 /* ---------------------------------------------------------------- apps de rua e salão */
-/* Garçom (/garcom), entregador (/entregas) e as listas do Cardápio seguem o mesmo movimento do painel: a tela nova sobe
-   enquanto a antiga some, a barra de abas fica parada, listas entram em cascata uma vez e tudo que
-   se toca afunda na hora. Curto e discreto: são telas usadas o turno inteiro. */
-html.cm-vt .wt-main {
-  view-transition-name: cm-main;
-}
-html.cm-vt .wt-tabs {
-  view-transition-name: cm-tabbar;
-}
-:is(
-    .wt-grid,
-    .wt-list,
-    .wt-kpis,
-    .wt-summary,
-    .wt-quick,
-    .wt-challenges,
-    .wt-seals,
-    .wt-admin__list
-  )
-  > *,
-:is(.driver__runs, .driver__done, .earn, .earn__list, .dgate__steps, .cat-list, .mn-items tbody)
-  > * {
-  animation: cm-rise 0.2s cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
-}
-:is(
-    .wt-grid,
-    .wt-list,
-    .wt-kpis,
-    .wt-summary,
-    .wt-quick,
-    .wt-challenges,
-    .wt-seals,
-    .wt-admin__list
-  )
-  > :nth-child(2),
-:is(.driver__runs, .driver__done, .earn, .earn__list, .dgate__steps, .cat-list, .mn-items tbody)
-  > :nth-child(2) {
-  animation-delay: 0.03s;
-}
-:is(
-    .wt-grid,
-    .wt-list,
-    .wt-kpis,
-    .wt-summary,
-    .wt-quick,
-    .wt-challenges,
-    .wt-seals,
-    .wt-admin__list
-  )
-  > :nth-child(3),
-:is(.driver__runs, .driver__done, .earn, .earn__list, .dgate__steps, .cat-list, .mn-items tbody)
-  > :nth-child(3) {
-  animation-delay: 0.06s;
-}
-:is(
-    .wt-grid,
-    .wt-list,
-    .wt-kpis,
-    .wt-summary,
-    .wt-quick,
-    .wt-challenges,
-    .wt-seals,
-    .wt-admin__list
-  )
-  > :nth-child(4),
-:is(.driver__runs, .driver__done, .earn, .earn__list, .dgate__steps, .cat-list, .mn-items tbody)
-  > :nth-child(4) {
-  animation-delay: 0.09s;
-}
-:is(
-    .wt-grid,
-    .wt-list,
-    .wt-kpis,
-    .wt-summary,
-    .wt-quick,
-    .wt-challenges,
-    .wt-seals,
-    .wt-admin__list
-  )
-  > :nth-child(5),
-:is(.driver__runs, .driver__done, .earn, .earn__list, .dgate__steps, .cat-list, .mn-items tbody)
-  > :nth-child(5) {
-  animation-delay: 0.12s;
-}
-:is(
-    .wt-grid,
-    .wt-list,
-    .wt-kpis,
-    .wt-summary,
-    .wt-quick,
-    .wt-challenges,
-    .wt-seals,
-    .wt-admin__list
-  )
-  > :nth-child(n + 6),
-:is(.driver__runs, .driver__done, .earn, .earn__list, .dgate__steps, .cat-list, .mn-items tbody)
-  > :nth-child(n + 6) {
-  animation-delay: 0.15s;
-}
+/* Garçom (/garcom) e entregador (/entregas): sem cascata nem troca animada de tela; o que se toca
+   afunda na hora. São telas usadas o turno inteiro. */
 /* Troca de aba dentro da tela (Corridas/Meus ganhos) e de passo no cartão da corrida. */
 .driver__view,
 .run__step {
@@ -345,23 +99,6 @@ html.cm-vt .wt-tabs {
   .cm-option:active:not(:disabled) {
     transform: none;
   }
-  .cm-frame__content
-    :is(.stat-grid, .st-kpis, .rp-kpis, .rp-stats, .dl-kpis, .adm-grid, .rp-grid, .st-grid)
-    > *,
-  :is(.stat__value, .st-kpi__value, .rp-kpi__value, .dl-kpi__value),
-  :is(
-      .wt-grid,
-      .wt-list,
-      .wt-kpis,
-      .wt-summary,
-      .wt-quick,
-      .wt-challenges,
-      .wt-seals,
-      .wt-admin__list
-    )
-    > *,
-  :is(.driver__runs, .driver__done, .earn, .earn__list, .dgate__steps, .cat-list, .mn-items tbody)
-    > *,
   :is(.driver__view, .run__step, .wt-stepper, .wt-dock) {
     animation: cm-fade 0.14s ease both;
   }

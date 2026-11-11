@@ -182,6 +182,10 @@ svg {
 .cm-enter {
   animation: cm-enter var(--cm-dur-slow) var(--cm-ease) both;
 }
+/* A tela trocada pelo menu aparece direto: trocar de tela tem que ser instantâneo. */
+.cm-frame__content.cm-enter {
+  animation: none;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -222,11 +226,6 @@ html.cm-pos .cm-help {
   width: 26px;
   height: 26px;
   font-size: 14px;
-}
-html.cm-pos :is(.cm-modal, .cm-sheet)[data-glass] {
-  background: var(--cm-surface);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
 }
 
 /* Puxar para recarregar (pull-refresh.ts): bolinha que desce do topo e enche com a puxada. */

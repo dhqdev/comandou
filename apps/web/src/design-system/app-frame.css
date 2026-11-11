@@ -217,11 +217,11 @@
   border: 1px solid var(--cm-border);
   box-shadow: var(--cm-shadow-lg);
   transform-origin: left top;
-  animation: cm-fly-in 0.42s var(--cm-ease-liquid) both;
+  animation: cm-fade 0.1s ease-out both;
 }
 /* Trocar de um submenu para outro: o painel desliza até o novo botão e só o conteúdo troca. */
 .cm-flyout[data-placed] {
-  transition: top 0.32s var(--cm-ease-liquid);
+  transition: none;
 }
 .cm-flyout__body {
   animation: cm-fly-swap 0.24s var(--cm-ease) both;
@@ -295,8 +295,6 @@
   font-size: var(--cm-text-sm);
   font-weight: 550;
   text-decoration: none;
-  animation: cm-fly-row 0.32s var(--cm-ease) both;
-  animation-delay: calc(var(--i, 0) * 22ms + 60ms);
 }
 .cm-flyout__link svg {
   width: 18px;
@@ -569,8 +567,7 @@
   margin: 0 auto;
 }
 .cm-menu > * {
-  animation: cm-menu-in 0.6s var(--cm-ease-liquid) backwards;
-  animation-delay: calc(var(--i, 0) * 45ms);
+  animation: cm-fade 0.12s ease-out backwards;
 }
 @keyframes cm-menu-in {
   from {
@@ -850,7 +847,7 @@
   }
   /* Troca de tela no celular: desliza do lado do item tocado (ver --cm-page-dir no AppFrame). */
   .cm-frame__content.cm-enter {
-    animation: cm-page-in 0.2s var(--cm-ease) backwards;
+    animation: none;
   }
   /* Menu flutuante em vidro líquido: pílula solta sobre o conteúdo, com um vidro que desliza
      até o item ativo (useGlider). */
@@ -934,7 +931,7 @@
     transform: translateY(var(--drag, 0px));
   }
   .cm-sheet[open] {
-    animation: cm-sheet-up 0.36s var(--cm-ease) backwards;
+    animation: cm-sheet-up 0.2s var(--cm-ease) backwards;
   }
   .cm-sheet:not([data-dragging]) {
     transition: transform 0.25s var(--cm-ease);

@@ -21,8 +21,8 @@ import {
   useContext,
   useEffect,
   useState,
+  Suspense,
 } from 'react';
-import { BillingPage } from './BillingPage';
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router';
 import {
   Alert,
@@ -43,17 +43,81 @@ import { api, ApiError } from '../lib/api';
 import '../app/shell.css';
 import '../app/ops.css';
 import './admin.css';
-import { AuditPage, OverviewPage } from './OverviewPages';
-import { FiscalPage } from './FiscalPage';
-import { AiPage } from './AiPage';
-import { TicketsBoardPage } from './TicketsBoard';
-import { PlansPage } from './PlansPage';
 import { isStandalone, promptInstall } from './pwa';
-import { InfraPage } from './InfraPage';
-import { ContractSignPage, signToken } from './ContractSign';
-import { SUPPORT_CHANGED_EVENT, SupportPage } from './SupportPage';
-import { TenantDetailPage, TenantsPage } from './TenantsPages';
 import { AuthShell, deskFocus, PasswordField } from '../pages/AuthShell';
+import { lazyPage, preloadPages } from '../lib/lazy-page';
+import { PageLoading } from '../app/PageLoading';
+
+/**
+ * Cada tela do painel é um arquivo à parte, baixado quando abre (e em segundo plano logo depois da
+ * primeira). Antes o painel inteiro vinha junto e a primeira tela demorava a aparecer.
+ */
+const OverviewPage = lazyPage(
+  () => import('./OverviewPages'),
+  (m) => m.OverviewPage,
+);
+const AuditPage = lazyPage(
+  () => import('./OverviewPages'),
+  (m) => m.AuditPage,
+);
+const TenantsPage = lazyPage(
+  () => import('./TenantsPages'),
+  (m) => m.TenantsPage,
+);
+const TenantDetailPage = lazyPage(
+  () => import('./TenantsPages'),
+  (m) => m.TenantDetailPage,
+);
+const SupportPage = lazyPage(
+  () => import('./SupportPage'),
+  (m) => m.SupportPage,
+);
+const InfraPage = lazyPage(
+  () => import('./InfraPage'),
+  (m) => m.InfraPage,
+);
+const FiscalPage = lazyPage(
+  () => import('./FiscalPage'),
+  (m) => m.FiscalPage,
+);
+const PlansPage = lazyPage(
+  () => import('./PlansPage'),
+  (m) => m.PlansPage,
+);
+const BillingPage = lazyPage(
+  () => import('./BillingPage'),
+  (m) => m.BillingPage,
+);
+const AiPage = lazyPage(
+  () => import('./AiPage'),
+  (m) => m.AiPage,
+);
+const TicketsBoardPage = lazyPage(
+  () => import('./TicketsBoard'),
+  (m) => m.TicketsBoardPage,
+);
+const ContractSignPage = lazyPage(
+  () => import('./ContractSign'),
+  (m) => m.ContractSignPage,
+);
+const PANEL_PAGES = [
+  OverviewPage,
+  AuditPage,
+  TenantsPage,
+  TenantDetailPage,
+  SupportPage,
+  InfraPage,
+  FiscalPage,
+  PlansPage,
+  BillingPage,
+  AiPage,
+  TicketsBoardPage,
+];
+/** Mesmo nome de SupportPage.tsx (fica aqui para o painel não baixar a tela de conversas). */
+const SUPPORT_CHANGED_EVENT = 'cm:admin-support-changed';
+/** Link de assinatura do contrato (/assinar/<token>): igual a ContractSign.tsx. */
+const signToken = (path = window.location.pathname) =>
+  /^\/assinar\/([A-Za-z0-9_-]{30,60})\/?$/.exec(path)?.[1] ?? null;
 
 /** O painel Super Admin só existe em admin.<domínio base>. */
 
@@ -274,6 +338,8 @@ function PlatformShell() {
   const [install, setInstall] = useState(false);
   const [tick, setTick] = useState(0);
   const [spinning, setSpinning] = useState(false);
+  // Depois da primeira tela, baixa as outras quando o navegador fica livre: a troca fica imediata.
+  useEffect(() => preloadPages(PANEL_PAGES), []);
   const standalone = isStandalone();
   // Mensagens novas dos restaurantes: bolinha no "Conversas".
   const [supportUnread, setSupportUnread] = useState(0);
@@ -397,7 +463,9 @@ function PlatformShell() {
           </>
         }
       >
-        <Outlet key={tick} />
+        <Suspense fallback={<PageLoading />}>
+          <Outlet key={tick} />
+        </Suspense>
       </AppFrame>
       {install && <InstallSheet onClose={() => setInstall(false)} />}
     </>

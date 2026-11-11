@@ -37,7 +37,11 @@ export function ScreenDrawn() {
   return null;
 }
 
+// Troca de tela sem animação (pedido do David: o sistema tem que ser rápido). A estrutura fica
+// para religar no futuro mudando esta linha.
+const ENABLED = false;
 const skip = () =>
+  !ENABLED ||
   !doc?.startViewTransition ||
   navigator.webdriver ||
   (typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches) ||

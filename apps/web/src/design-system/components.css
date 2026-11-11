@@ -1051,6 +1051,11 @@ input[type='radio'] {
    discreto, campo de 34px com fundo levemente cinza (fica branco ao focar) e até 3 campos por
    linha. Celular e PWA continuam com um campo por linha e alvos grandes para o dedo. */
 @media (min-width: 901px) and (pointer: fine) {
+  /* Fora das janelas (filtros, buscas, campos soltos): mesma altura dos botões médios (38px). */
+  .cm-input:not(textarea) {
+    min-height: 38px;
+    font-size: var(--cm-text-sm);
+  }
   .cm-modal--md:has(.cm-form, .cm-modal__body > .cm-field) {
     width: min(820px, calc(100vw - 64px));
   }
