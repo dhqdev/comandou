@@ -1908,3 +1908,85 @@ button.adm-card:hover {
 .adm-form-group__note {
   color: var(--a-subtle);
 }
+
+/* ---------------------------------------------------------------- campos e cards padronizados
+ * Notebook/computador: todos os campos do painel no mesmo formato compacto das janelas do app
+ * (rótulo pequeno e discreto, campo de 34px com fundo levemente cinza que fica branco ao focar).
+ * No celular continuam os alvos grandes do design system. */
+@media (min-width: 901px) and (pointer: fine) {
+  .adm-frame .cm-frame__content .cm-field {
+    gap: 5px;
+  }
+  .adm-frame .cm-frame__content .cm-label {
+    font-size: var(--cm-text-xs);
+    font-weight: 500;
+    color: var(--cm-text-muted);
+  }
+  .adm-frame .cm-frame__content .cm-input:not(textarea) {
+    min-height: 34px;
+    height: 34px;
+    padding-left: 10px;
+    font-size: var(--cm-text-sm);
+  }
+  .adm-frame .cm-frame__content .cm-input {
+    border-color: transparent;
+    background-color: var(--cm-surface-sunken);
+  }
+  .adm-frame .cm-frame__content .cm-input:hover:not(:disabled):not(:focus) {
+    border-color: var(--cm-border-strong);
+  }
+  .adm-frame .cm-frame__content .cm-input:focus {
+    border-color: var(--cm-brand-500);
+    background-color: var(--cm-surface);
+  }
+  .adm-frame .cm-frame__content .cm-input[aria-invalid='true'] {
+    border-color: var(--cm-danger);
+  }
+  .adm-frame .cm-frame__content textarea.cm-input {
+    min-height: 72px;
+    padding: 8px 10px;
+    font-size: var(--cm-text-sm);
+  }
+  .adm-frame .cm-frame__content .cm-hint {
+    font-size: var(--cm-text-2xs);
+  }
+  .adm-frame .cm-frame__content {
+    gap: 20px;
+  }
+}
+/* Cards do painel: mesmo respiro, mesmo título e mesmo número em todas as telas. */
+.adm-card {
+  padding: 14px 16px;
+  gap: 8px;
+}
+.adm-tile {
+  padding: 14px 16px;
+}
+.adm-card__big {
+  font-size: var(--cm-text-lg);
+  font-weight: 650;
+  line-height: 1.25;
+}
+/* Marca do painel no topo do menu. */
+.adm-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.adm-brand__name {
+  overflow: hidden;
+  color: var(--cm-sidebar-text-strong);
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cm-frame[data-rail='narrow'] .adm-brand__name {
+  display: none;
+}
+@media (max-width: 860px) {
+  .adm-brand__name {
+    display: none;
+  }
+}

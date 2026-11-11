@@ -405,7 +405,12 @@ function PlatformShell() {
     <>
       <AppFrame
         className="adm-frame"
-        brand={<LivePanda size={40} badge title="Comandou Admin" />}
+        brand={
+          <span className="adm-brand">
+            <LivePanda size={36} badge title="Comandou Admin" />
+            <span className="adm-brand__name">Comandou Admin</span>
+          </span>
+        }
         brandCompact={<LivePanda size={28} badge title="Comandou Admin" />}
         showWhere={false}
         items={items}
