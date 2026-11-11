@@ -407,9 +407,9 @@ describe('Pix pelo cardápio com comprovante', () => {
     await patch('adminA', '/store/settings', { pixEnabled: true }).expect(200);
   });
 
-  it('a limpeza apaga o arquivo depois de 180 dias e guarda a decisão', async () => {
+  it('a limpeza apaga o arquivo depois de 5 anos e guarda a decisão', async () => {
     await ownerQuery(
-      `UPDATE pix_receipts SET created_at = created_at - interval '181 days' WHERE order_id = $1`,
+      `UPDATE pix_receipts SET created_at = created_at - interval '5 years 1 day' WHERE order_id = $1`,
       [orderId],
     );
     const r = await app.get(MaintenanceService).purge();

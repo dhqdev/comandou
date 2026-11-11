@@ -13,9 +13,9 @@ import {
   MapPin,
   MessageCircle,
   MessageSquare,
-  MoreHorizontal,
   Phone,
   Printer,
+  Receipt,
   ShoppingBag,
   Timer,
   User,
@@ -260,13 +260,7 @@ export function OrderDetailModal({
   const hasBar =
     !!order &&
     !mode &&
-    (nextSteps.length > 0 ||
-      canReceive ||
-      canSend ||
-      canReject ||
-      !!cancelLabel ||
-      more.length ||
-      canPrintSlip);
+    (nextSteps.length > 0 || canReceive || canSend || canReject || canServe || !!cancelLabel);
 
   const header = order ? (
     <span className="odh">
@@ -325,7 +319,6 @@ export function OrderDetailModal({
       </dl>
       {hasBar && (
         <div className="od-bar">
-          {more.length > 0 && <MoreMenu actions={more} busy={printing} />}
           {cancelLabel && (
             <Button
               variant="secondary"
@@ -371,27 +364,27 @@ export function OrderDetailModal({
               Fechar conta
             </Button>
           )}
-          {canPrintSlip && (
-            <Button
-              variant="secondary"
-              icon={<Printer size={15} />}
-              onClick={() => setPreviewKind('receipt')}
-            >
-              Imprimir pedido
-            </Button>
-          )}
         </div>
       )}
-      {canPrintSlip && order.channel === 'delivery' && (
-        <Button
-          variant="secondary"
-          block
-          className="od-slip"
-          icon={<Bike size={15} />}
-          onClick={() => setPreviewKind('delivery')}
-        >
-          Imprimir via de entrega
-        </Button>
+      {/* Ações de apoio: uma linha discreta, sem menu escondido. */}
+      {!mode && (canPrintSlip || more.length > 0) && (
+        <div className="od-tools">
+          {canPrintSlip && (
+            <button type="button" onClick={() => setPreviewKind('receipt')}>
+              <Printer size={14} aria-hidden /> Imprimir pedido
+            </button>
+          )}
+          {canPrintSlip && order.channel === 'delivery' && (
+            <button type="button" onClick={() => setPreviewKind('delivery')}>
+              <Bike size={14} aria-hidden /> Imprimir via de entrega
+            </button>
+          )}
+          {more.map((a) => (
+            <button key={a.label} type="button" disabled={printing} onClick={a.run}>
+              {a.label}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   ) : undefined;
@@ -436,6 +429,26 @@ export function OrderDetailModal({
                 <Fact icon={<Wallet size={15} />} label="Vai pagar com">
                   {PAYMENT_METHOD_LABELS[order.paymentHint]}
                   {order.changeFor && ` · troco para ${brl(order.changeFor)}`}
+                </Fact>
+              )}
+              {order.pixReceipts?.[0] && (
+                <Fact icon={<Receipt size={15} />} label="Comprovante Pix" wide>
+                  {dateTime(order.pixReceipts[0].createdAt)}
+                  {order.pixReceipts[0].hasFile ? (
+                    <>
+                      {' · '}
+                      <a
+                        className="od-fact__link"
+                        href={pixReceiptUrl(order.id, order.pixReceipts[0].id)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Abrir
+                      </a>
+                    </>
+                  ) : (
+                    ' · arquivo já apagado'
+                  )}
                 </Fact>
               )}
               {order.deliveryAddress && (
@@ -575,9 +588,10 @@ export function OrderDetailModal({
                     'cancelItem' in mode &&
                     mode.cancelItem.id === i.id && (
                       <ReasonForm
-                        label={`Motivo do cancelamento de ${i.name}`}
+                        label={`Motivo do cancelamento de ${i.name} (opcional)`}
                         confirm="Cancelar item"
                         danger
+                        optional
                         busy={busy}
                         onCancel={() => setMode(null)}
                         onConfirm={(r) => void cancelItem(i, r)}
@@ -629,11 +643,12 @@ export function OrderDetailModal({
 
           {mode === 'cancel' && (
             <ReasonForm
-              label="Motivo do cancelamento"
+              label="Motivo do cancelamento (opcional)"
               confirm={
                 order.status === 'cancel_requested' ? 'Aprovar cancelamento' : 'Cancelar pedido'
               }
               danger
+              optional
               busy={busy}
               onCancel={() => setMode(null)}
               onConfirm={(r) => go(canCancel ? 'cancelled' : 'cancel_requested', r)}
@@ -741,61 +756,6 @@ function ChannelIcon({ channel }: { channel: Order['channel'] }) {
 interface MenuAction {
   label: string;
   run(): void;
-}
-
-/** Botão "⋯" com as ações menos usadas (ajuste e impressão): mantém o rodapé numa linha só. */
-function MoreMenu({ actions, busy }: { actions: MenuAction[]; busy?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: PointerEvent) => {
-      if (!box.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const esc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        setOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', away);
-    document.addEventListener('keydown', esc, true);
-    return () => {
-      document.removeEventListener('pointerdown', away);
-      document.removeEventListener('keydown', esc, true);
-    };
-  }, [open]);
-  return (
-    <div className="od-more" ref={box}>
-      <Button
-        variant="secondary"
-        aria-label="Mais ações"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        loading={busy}
-        icon={<MoreHorizontal size={16} />}
-        onClick={() => setOpen((v) => !v)}
-      />
-      {open && (
-        <div className="od-more__menu" role="menu">
-          {actions.map((a) => (
-            <button
-              key={a.label}
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                a.run();
-              }}
-            >
-              {a.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 /** Rótulo pequeno em cima, valor embaixo (bloco de informações do pedido). */
@@ -938,6 +898,7 @@ function ReasonForm({
   confirm,
   danger,
   busy,
+  optional,
   onCancel,
   onConfirm,
 }: {
@@ -945,6 +906,8 @@ function ReasonForm({
   confirm: string;
   danger?: boolean;
   busy?: boolean;
+  /** Motivo opcional: confirma mesmo com o campo vazio. */
+  optional?: boolean;
   onCancel(): void;
   onConfirm(r: string): void;
 }) {
@@ -965,7 +928,7 @@ function ReasonForm({
         <Button
           variant={danger ? 'danger' : 'primary'}
           loading={busy}
-          disabled={reason.trim().length < 3}
+          disabled={!optional && reason.trim().length < 3}
           onClick={() => onConfirm(reason.trim())}
         >
           {confirm}

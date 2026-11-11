@@ -322,12 +322,10 @@ describe('Pedidos', () => {
     );
     // Garçom não muda status: só pede cancelamento.
     await post('waiterA', `/orders/${o.id}/status`, { to: 'in_production' }).expect(403);
-    await post('adminA', `/orders/${o.id}/status`, { to: 'cancelled' }).expect(422);
-    const c = await post('adminA', `/orders/${o.id}/status`, {
-      to: 'cancelled',
-      reason: 'cliente desistiu',
-    }).expect(201);
+    // O motivo do cancelamento é opcional: sem ele o pedido cancela do mesmo jeito.
+    const c = await post('adminA', `/orders/${o.id}/status`, { to: 'cancelled' }).expect(201);
     expect(c.body.status).toBe('cancelled');
+    expect(c.body.cancelReason).toBeNull();
     expect(c.body.items.every((i: { status: string }) => i.status === 'cancelled')).toBe(true);
     expect(c.body.history.map((h: { to: string }) => h.to)).toEqual(['new', 'ready', 'cancelled']);
   });

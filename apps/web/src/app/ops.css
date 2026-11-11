@@ -578,45 +578,45 @@
 .od-bar > .od-bar__cancel {
   color: var(--cm-danger);
 }
-.od-foot > .od-slip {
-  height: 40px;
+.od-fact__link {
+  color: var(--cm-brand-700, var(--cm-brand-600));
+  font-weight: 600;
 }
-.od-more {
-  position: relative;
-  flex: none;
+/* Ações de apoio (imprimir, desconto, fiado): links discretos numa linha, sem menu escondido. */
+.od-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  margin: -2px -6px 0;
 }
-.od-more > .cm-btn {
-  width: 38px;
-  height: 38px;
-  min-height: 38px;
-}
-.od-more__menu {
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 6px);
-  z-index: 10;
-  display: grid;
-  min-width: 210px;
-  padding: 4px;
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-md);
-  background: var(--cm-surface);
-  box-shadow: var(--cm-shadow-lg);
-}
-.od-more__menu > button {
-  padding: 8px 10px;
+.od-tools > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 8px;
   border: 0;
   border-radius: var(--cm-radius-sm);
   background: none;
-  color: var(--cm-text);
+  color: var(--cm-text-muted);
   font: inherit;
   font-size: var(--cm-text-sm);
-  text-align: left;
+  font-weight: 550;
   cursor: pointer;
 }
-.od-more__menu > button:hover,
-.od-more__menu > button:focus-visible {
+.od-tools > button:hover,
+.od-tools > button:focus-visible {
   background: var(--cm-surface-muted);
+  color: var(--cm-text);
+}
+.od-tools > button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+@media (max-width: 640px) {
+  .od-tools > button {
+    min-height: 40px;
+  }
 }
 /* Histórico em linha do tempo: um traço fino ligando os passos, sem cor. */
 .od-history > summary {

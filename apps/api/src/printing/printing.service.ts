@@ -863,7 +863,7 @@ export class PrintingService {
     ctx: Ctx,
     orderId: string,
     itemId: string,
-    reason: string,
+    reason: string | undefined,
   ): Promise<number> {
     if (!(await this.hasActiveAgent(tx))) return 0;
     const i = await one<{
@@ -895,7 +895,7 @@ export class PrintingService {
       line(),
       ...wrap(`${qtyTicket(i.quantity, i.unit)} ${i.name}`),
       ...i.options.flatMap((op) => wrap(`+ ${op}`, '   ')),
-      ...wrap(`MOTIVO: ${reason}`),
+      ...(reason ? wrap(`MOTIVO: ${reason}`) : []),
       line('='),
     ].join('\n');
     const r = await one(

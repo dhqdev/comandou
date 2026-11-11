@@ -161,7 +161,8 @@ export class OrdersController {
   cancelItem(
     @Param('id', new ParseUUIDPipe()) id: string,
     @Param('itemId', new ParseUUIDPipe()) itemId: string,
-    @Body(new ZodPipe(z.object({ reason }))) b: { reason: string },
+    @Body(new ZodPipe(z.object({ reason: z.string().trim().max(300).optional() })))
+    b: { reason?: string },
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
     @Req() req: Request,

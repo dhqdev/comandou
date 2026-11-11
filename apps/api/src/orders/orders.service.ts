@@ -770,7 +770,6 @@ export class OrdersService {
       await this.assertNoLiveFiscalDocument(tx, o.id, 'cancelar o pedido');
       if (!rejecting && !roleHas(ctx.user.role, 'orders:cancel'))
         throw new ForbiddenException('Cancelamento exige autorização');
-      if (!reason) throw new UnprocessableEntityException('Informe o motivo do cancelamento');
       if (toCents(o.paid_amount) > 0) {
         throw new ConflictException(
           'Pedido com pagamento: estorne os pagamentos antes de cancelar',
@@ -816,8 +815,6 @@ export class OrdersService {
       for (const d of ended)
         await settleRide(tx, d.id, to === 'completed' ? 'delivered' : 'failed');
     }
-    if (to === 'cancel_requested' && !reason)
-      throw new UnprocessableEntityException('Informe o motivo');
     if (to === 'ready') {
       await q(
         tx,
@@ -827,8 +824,8 @@ export class OrdersService {
     }
     await q(
       tx,
-      `UPDATE orders SET status = $2, version = version + 1, cancel_reason = CASE WHEN $2 IN ('cancelled','cancel_requested') THEN $3 ELSE cancel_reason END WHERE id = $1`,
-      [o.id, to, reason ?? null],
+      `UPDATE orders SET status = $2, version = version + 1, cancel_reason = CASE WHEN $2 IN ('cancelled','cancel_requested') THEN COALESCE($3, cancel_reason) ELSE cancel_reason END WHERE id = $1`,
+      [o.id, to, reason || null],
     );
     await this.history(tx, ctx, o.id, o.status, to, reason);
     if (to === 'cancelled') await this.pixRefundDueIn(tx, ctx, o.id);
@@ -1107,7 +1104,7 @@ export class OrdersService {
    * o estoque do item e avisa o setor que produz. Não pode deixar o total abaixo do já pago
    * nem mexer em pedido com NFC-e viva. O último item se cancela cancelando o pedido.
    */
-  async cancelItem(ctx: Ctx, orderId: string, itemId: string, reason: string) {
+  async cancelItem(ctx: Ctx, orderId: string, itemId: string, reason?: string) {
     if (!roleHas(ctx.user.role, 'orders:cancel'))
       throw new ForbiddenException('Cancelar item exige autorização do gerente');
     const fx = { stock: 0, print: 0 };
@@ -1156,7 +1153,7 @@ export class OrdersService {
         tx,
         `UPDATE order_items SET status = 'cancelled', cancel_reason = $2, cancelled_by = $3, cancelled_at = now()
           WHERE id = $1`,
-        [itemId, reason, ctx.userId],
+        [itemId, reason || null, ctx.userId],
       );
       await q(
         tx,

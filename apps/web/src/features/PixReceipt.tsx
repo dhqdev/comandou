@@ -230,7 +230,7 @@ export function PixReceiptReview({
     <div className="pix-review">
       <div className="pix-review__file">
         {!receipt.hasFile ? (
-          <p className="cm-hint">O arquivo foi apagado (comprovantes ficam 180 dias).</p>
+          <p className="cm-hint">O arquivo foi apagado (comprovantes ficam 5 anos).</p>
         ) : isPdf(receipt) ? (
           <iframe src={url} title={`Comprovante do pedido ${order.number}`} />
         ) : (

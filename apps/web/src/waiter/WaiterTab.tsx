@@ -439,7 +439,11 @@ function CancelRequestModal({
     try {
       await api(`/orders/${order.id}/status`, {
         method: 'POST',
-        json: { to: 'cancel_requested', reason: reason.trim(), expectedVersion: order.version },
+        json: {
+          to: 'cancel_requested',
+          reason: reason.trim() || undefined,
+          expectedVersion: order.version,
+        },
       });
       onDone();
     } catch (e) {
@@ -458,12 +462,7 @@ function CancelRequestModal({
           <Button variant="secondary" onClick={onClose}>
             Voltar
           </Button>
-          <Button
-            variant="danger"
-            loading={busy}
-            disabled={reason.trim().length < 3}
-            onClick={send}
-          >
+          <Button variant="danger" loading={busy} onClick={send}>
             Pedir cancelamento
           </Button>
         </>
@@ -474,7 +473,7 @@ function CancelRequestModal({
           O caixa ou o gerente aprova. Até lá, o pedido continua na conta.
         </p>
         <TextField
-          label="Motivo"
+          label="Motivo (opcional)"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           maxLength={200}
