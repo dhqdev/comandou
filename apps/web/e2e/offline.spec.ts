@@ -21,7 +21,7 @@ test('salva sem internet, recarrega e sincroniza quando a conexão volta', async
   // Telas já abertas com internet ficam guardadas: abre o formulário uma vez antes.
   await page.getByRole('button', { name: 'Adicionar item' }).click();
   await expect(page.getByLabel('Nome do item', { exact: true })).toBeVisible();
-  await page.getByRole('link', { name: 'Itens' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Itens' }).click();
 
   // Servidor fora do ar: toda chamada à API falha.
   await page.route('**/api/v1/**', (r) => r.abort('internetdisconnected'));
@@ -48,6 +48,6 @@ test('salva sem internet, recarrega e sincroniza quando a conexão volta', async
   // O endereço com o id provisório continua abrindo o item, agora o do servidor.
   await page.reload();
   await expect(page.getByLabel('Nome do item', { exact: true })).toHaveValue(name);
-  await page.getByRole('link', { name: 'Itens' }).click();
+  await page.getByRole('main').getByRole('link', { name: 'Itens' }).click();
   await expect(page.getByRole('row', { name: new RegExp(name) })).toHaveCount(1);
 });
