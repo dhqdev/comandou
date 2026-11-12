@@ -290,7 +290,8 @@
   -webkit-line-clamp: 2;
   line-clamp: 2;
 }
-.cm-frame[data-rail='narrow'] .cm-rail .cm-store-brand__name,
+/* No menu lateral fica só a logo (o nome já aparece no topo da tela e no title). */
+.cm-rail .cm-store-brand__name,
 .cm-store-brand[data-compact] .cm-store-brand__name {
   display: none;
 }
@@ -298,11 +299,6 @@
   width: 30px;
   height: 30px;
   border-radius: var(--cm-radius-sm);
-}
-@media (max-width: 860px) {
-  .cm-rail .cm-store-brand__name {
-    display: none;
-  }
 }
 
 /* ---------------------------------------------------------------- menu largo (computador)
@@ -324,29 +320,26 @@
     gap: 6px;
     height: auto;
     min-height: calc(var(--top-h) - 10px);
-    margin: 0 0 8px;
-    padding: 2px 0 10px 4px;
+    margin: 0 0 10px;
+    padding: 4px 0 12px 6px;
     border-bottom: 1px solid var(--cm-border);
   }
-  .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand {
-    flex: 1 1 auto;
-    gap: 11px;
-  }
   .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo {
-    width: 42px;
-    height: 42px;
-    border-radius: 10px;
+    width: 56px;
+    height: 56px;
+    padding: 3px;
+    border-radius: 14px;
   }
   .cm-frame[data-rail='wide'] .cm-rail__toggle {
     flex-shrink: 0;
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     color: var(--cm-text-muted);
   }
   .cm-frame[data-rail='wide'] :is(.cm-rail__nav, .cm-rail__foot) {
     justify-items: stretch;
     padding: 0;
-    gap: 1px;
+    gap: 3px;
   }
   .cm-frame[data-rail='wide'] .cm-rail__nav {
     padding-block: 2px;
@@ -359,10 +352,10 @@
     display: flex;
     align-items: center;
     justify-items: start;
-    gap: 10px;
+    gap: 12px;
     width: 100%;
-    min-height: 38px;
-    padding: 0 10px;
+    min-height: 42px;
+    padding: 0 12px;
     border-radius: var(--cm-radius-md);
     font-size: var(--cm-text-sm);
     font-weight: 550;
@@ -401,7 +394,7 @@
   .cm-rail__sub {
     display: grid;
     gap: 1px;
-    margin: 2px 0 6px 19px;
+    margin: 2px 0 6px 21px;
     padding-left: 10px;
     border-left: 1px solid var(--cm-border);
   }
@@ -432,7 +425,14 @@
   /* Tela baixa: linhas um pouco mais baixas. */
   @media (max-height: 800px) {
     .cm-frame[data-rail='wide'] .cm-rail__item {
-      min-height: 34px;
+      min-height: 36px;
+    }
+    .cm-frame[data-rail='wide'] :is(.cm-rail__nav, .cm-rail__foot) {
+      gap: 1px;
+    }
+    .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo {
+      width: 46px;
+      height: 46px;
     }
     .cm-rail__subitem {
       min-height: 30px;
