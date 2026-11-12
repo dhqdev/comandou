@@ -845,7 +845,14 @@ export function ItemEditor() {
                 />
               </div>
             </Card>
-            {!isNew && <Item3DCard productId={id} canWrite={canWrite} />}
+            {!isNew && (
+              <Item3DCard
+                productId={id}
+                canWrite={canWrite}
+                name={form.name}
+                imageId={form.imageId}
+              />
+            )}
           </>
         ) : tab === 'complementos' ? (
           <Card title="Grupos de complementos do item">

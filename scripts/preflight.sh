@@ -87,7 +87,7 @@ done
 
 if $DEPLOYED; then
   section "Serviços"
-  for svc in postgres redis migrate api web whatsapp-gateway backup; do
+  for svc in postgres redis migrate api model3d web whatsapp-gateway backup; do
     rep="$(docker service ls --filter "name=${STACK}_${svc}" --format '{{.Replicas}}' | head -1)"
     if [[ -z "$rep" ]]; then fail "serviço ${STACK}_${svc} não existe"
     elif [[ "$svc" == "migrate" ]]; then ok "${STACK}_${svc}: $rep (tarefa única)"

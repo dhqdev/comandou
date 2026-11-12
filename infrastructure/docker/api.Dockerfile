@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # Imagem da API (NestJS). Base node:22-alpine é multiarch (linux/amd64 e linux/arm64).
-# Sem dependências nativas: senhas usam scrypt do próprio Node.
+# Única dependência nativa: sharp (texturas do estúdio 3D), que vem pronta para as duas arquiteturas.
 # O estágio de build roda no processador do próprio runner (rápido) e só o runtime é por arquitetura:
 # sem isso o arm64 seria compilado por emulação (QEMU), 10x mais lento.
 FROM --platform=$BUILDPLATFORM node:22-alpine AS build
@@ -11,6 +11,8 @@ RUN --mount=type=secret,id=ca,required=false corepack enable && corepack prepare
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
+# Módulos nativos opcionais (sharp) vêm para as duas arquiteturas, já que o build roda em amd64.
+RUN printf '\nsupportedArchitectures:\n  os: [linux]\n  cpu: [x64, arm64]\n  libc: [musl]\n' >> pnpm-workspace.yaml
 RUN --mount=type=secret,id=ca,required=false pnpm install --frozen-lockfile --filter @comandou/api...
 COPY packages/shared packages/shared
 COPY apps/api apps/api

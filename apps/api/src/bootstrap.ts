@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { Env } from './config/env';
+import { SOURCE_TYPES } from './catalog/models.controller';
 import { CHUNK_LIMIT } from './migration/protocol';
 
 export async function createApp(
@@ -35,6 +36,8 @@ export async function createApp(
   });
   // Modelo 3D do item do cardápio (GLB/USDZ, até 12 MB; a rota confere tipo e assinatura).
   app.useBodyParser('raw', { type: ['model/gltf-binary', 'model/vnd.usdz+zip'], limit: '12mb' });
+  // Arquivo bruto do escaneamento (GLB ou .zip com .gltf), otimizado depois no serviço model3d.
+  app.useBodyParser('raw', { type: SOURCE_TYPES, limit: '40mb' });
   // Migrar cliente: blocos do pacote vindos da instalação de origem (rota confere o token).
   app.useBodyParser('raw', { type: 'application/octet-stream', limit: CHUNK_LIMIT });
   app.setGlobalPrefix('api');

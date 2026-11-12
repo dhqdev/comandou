@@ -93,6 +93,28 @@ const schema = z.object({
   // Modelo que lê foto e PDF na importação do cardápio (precisa aceitar imagem).
   AI_IMPORT_MODEL: z.string().min(3).max(120).default('google/gemini-2.5-flash'),
   /**
+   * Estúdio 3D (item do cardápio em 3D). O serviço model3d (mesma imagem da API, comando
+   * dist/model3d/worker-main.js) otimiza os modelos enviados e cria o 3D a partir de fotos.
+   * Com Redis, só ele consome a fila "model3d" (MODEL3D_WORKER=true); sem Redis, roda aqui mesmo.
+   */
+  MODEL3D_WORKER: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  /** Quem cria o 3D por foto: auto = gerador local se houver, senão Meshy; off = só envio de arquivo. */
+  MODEL3D_PROVIDER: z.enum(['auto', 'local', 'meshy', 'off']).default('auto'),
+  /** Gerador de IA na nossa VM (infrastructure/model3d-ai). Ex.: http://model3d-ai:8000 */
+  MODEL3D_LOCAL_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
+  MODEL3D_LOCAL_TOKEN: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().min(16).optional(),
+  ),
+  /** Chave da API do Meshy (serviço de mercado que cria 3D por foto). Vazia = sem Meshy. */
+  MESHY_API_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(8).optional()),
+  MESHY_API_URL: z.string().url().default('https://api.meshy.ai'),
+  /** Modelos criados por foto, por restaurante, por mês (cada um custa tempo de máquina ou crédito). */
+  MODEL3D_MONTHLY_GENERATIONS: z.coerce.number().int().min(0).max(1000).default(10),
+  /**
    * Integração com o iFood (cardápio). Credenciais do aplicativo do Comandou no Portal do
    * Desenvolvedor do iFood. Sem elas, o cardápio de integração fica indisponível.
    * centralized = um app para todas as lojas (cada loja autoriza no Portal do Parceiro);
@@ -294,6 +316,8 @@ export const FILE_SECRET_VARS = [
   'CROWDSEC_BOUNCER_KEY',
   'HOST_AGENT_TOKEN',
   'UPDATE_GITHUB_TOKEN',
+  'MESHY_API_KEY',
+  'MODEL3D_LOCAL_TOKEN',
 ] as const;
 
 /**

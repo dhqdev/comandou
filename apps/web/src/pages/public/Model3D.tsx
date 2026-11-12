@@ -13,11 +13,11 @@ export interface ProductModel {
  */
 let viewerLib: Promise<unknown> | null = null;
 function loadViewer() {
-  viewerLib ??= import('@google/model-viewer').then((m) => {
-    (m.ModelViewerElement as unknown as { dracoDecoderLocation: string }).dracoDecoderLocation =
-      '/vendor/draco/';
-    return m;
-  });
+  // O model-viewer lê a configuração global a cada elemento criado (e volta para o gstatic.com,
+  // bloqueado pela política de conteúdo, se ela não existir): defina antes de carregar.
+  const g = self as unknown as { ModelViewerElement?: Record<string, unknown> };
+  g.ModelViewerElement = { ...g.ModelViewerElement, dracoDecoderLocation: '/vendor/draco/' };
+  viewerLib ??= import('@google/model-viewer');
   viewerLib.catch(() => (viewerLib = null));
   return viewerLib;
 }
@@ -27,7 +27,7 @@ function loadViewer() {
  * para a câmera mostrar o prato em tamanho real em cima da mesa. Android abre o visualizador do
  * Google, iPhone o Quick Look; sem câmera compatível fica só o giro na tela.
  */
-function Viewer({
+export function Model3DViewer({
   model,
   name,
   poster,
@@ -117,7 +117,9 @@ export function Model3DButton({
         <Box size={17} aria-hidden /> Ver em 3D
         <small>e na sua mesa, pela câmera</small>
       </button>
-      {open && <Viewer model={model} name={name} poster={poster} onClose={() => setOpen(false)} />}
+      {open && (
+        <Model3DViewer model={model} name={name} poster={poster} onClose={() => setOpen(false)} />
+      )}
     </>
   );
 }

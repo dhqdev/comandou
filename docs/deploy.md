@@ -151,6 +151,13 @@ restaurantes). Servem para ver quem mais usa o sistema, por exemplo
 `topk(5, rate(comandou_tenant_http_request_seconds_total[1h]))`, e decidir quem precisa de banco
 dedicado ([ADR 0011](decisions/0011-banco-dedicado-por-cliente.md)).
 
+### Item em 3D (serviço model3d)
+
+O serviço `model3d` (mesma imagem da API) otimiza os modelos enviados e cria o 3D pelas fotos.
+Sobe sozinho com a stack. Para ligar o "criar pelas fotos", ponha `MESHY_API_KEY` no `deploy.env`
+ou suba o gerador na própria VM com `-c infrastructure/swarm/model3d-ai.yml`. Detalhes, custos e
+memória em [modelos-3d.md](modelos-3d.md).
+
 ### PgBouncer (opcional)
 
 Quando o número de conexões crescer, coloque o PgBouncer (modo transação) entre a API e o Postgres
