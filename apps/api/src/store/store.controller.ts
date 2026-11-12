@@ -34,6 +34,7 @@ import { CepService, isUf } from './cep.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { cookieOf, CUSTOMER_COOKIE, CustomersService } from './customers.service';
 import { checkReceipt, PixService } from './pix.service';
+import { linkPreviewHtml, previewPath } from './link-preview';
 import {
   CORNER_STYLES,
   FONT_STYLES,
@@ -350,6 +351,32 @@ export class StoreController {
         ? start
         : null;
     return this.store.manifest(t.id, t.name, own);
+  }
+
+  /**
+   * Prévia do link do cardápio para os robôs do WhatsApp, Instagram, Telegram e afins (o Nginx
+   * manda só eles para cá): HTML com o nome, o texto e a logo da loja. Quem abrir no navegador
+   * volta para o cardápio.
+   */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @Get('preview')
+  async preview(
+    @CurrentTenant() t: ResolvedTenant,
+    @Query('p') p: unknown,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    const host = /^[a-z0-9.-]{1,253}(:\d{1,5})?$/i.test(req.get('host') ?? '')
+      ? req.hostname
+      : null;
+    const origin = host ? `${req.protocol === 'http' ? 'http' : 'https'}://${host}` : '';
+    const data = await this.store.linkPreview(t.id, t.name, previewPath(p), origin);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    // Logo e texto trocados aparecem no próximo compartilhamento (o próprio app guarda a prévia).
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    res.setHeader('X-Robots-Tag', 'noindex');
+    res.end(linkPreviewHtml(data));
   }
 
   /** Cidade e UF do restaurante (ponto de partida para achar o CEP pela rua). */

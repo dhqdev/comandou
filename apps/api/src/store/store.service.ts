@@ -30,6 +30,7 @@ import { distanceM } from '../delivery/zones';
 import { customerMapOf } from '../delivery/delivery.service';
 import { menuTreeSql } from '../catalog/menu-sql';
 import { modelUrls } from '../catalog/models.controller';
+import { LinkPreview, oneLine, PRODUCT_PATH_RE } from './link-preview';
 
 export const mediaUrl = (id: string | null | undefined) => (id ? `/api/v1/media/${id}` : null);
 export const publicTokenHash = (token: string) => createHash('sha256').update(token).digest();
@@ -436,6 +437,41 @@ export class StoreService {
         // Outro endereço de início é outro app instalado (o do entregador ao lado do painel).
         ...(startUrl ? { id: startUrl } : {}),
         icons,
+      };
+    });
+  }
+
+  /**
+   * O que o link do cardápio mostra quando é compartilhado: nome, texto e logo da loja (sem logo,
+   * a capa). No link de um produto, o nome, a descrição e a foto dele. `origin` é o endereço da loja
+   * (https://aurora.comandou.com): os apps só aceitam imagem com endereço completo.
+   */
+  linkPreview(tenantId: string, name: string, path: string, origin: string): Promise<LinkPreview> {
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      const s = await this.settingsIn(tx);
+      const productId = PRODUCT_PATH_RE.exec(path)?.[1];
+      const product = productId
+        ? await one<{ name: string; description: string | null; imageId: string | null }>(
+            tx,
+            `SELECT name, description, image_id AS "imageId" FROM products WHERE id = $1 AND active`,
+            [productId],
+          )
+        : null;
+      const imageId = product?.imageId ?? s.logoImageId ?? s.coverImageId ?? s.faviconImageId;
+      const media = imageId
+        ? await one<{ content_type: string }>(tx, `SELECT content_type FROM media WHERE id = $1`, [
+            imageId,
+          ])
+        : null;
+      const storeText =
+        oneLine(s.about) || oneLine(s.headline) || `Peça pelo cardápio online de ${name}.`;
+      return {
+        title: product ? `${oneLine(product.name, 90)} · ${name}` : name,
+        description: product ? oneLine(product.description) || storeText : storeText,
+        image: media ? `${origin}${mediaUrl(imageId)}` : null,
+        imageType: media?.content_type ?? null,
+        target: product ? path : '/pedir',
+        siteName: name,
       };
     });
   }

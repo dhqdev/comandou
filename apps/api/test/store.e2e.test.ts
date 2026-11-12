@@ -190,6 +190,29 @@ describe('Loja online: configurações e fotos', () => {
     const res = await patch('adminB', `/products/${fx.prodB}`, { imageId: media.id });
     expect(res.status).toBeGreaterThanOrEqual(400);
     await patch('adminA', `/categories/${fx.catA}`, { imageId: media.id }).expect(200);
+
+    // Link compartilhado no WhatsApp: nome, texto e logo da loja (e não os do Comandou).
+    await patch('adminA', '/store/settings', {
+      logoImageId: media.id,
+      about: 'Pães  e cafés <feitos> na hora',
+    }).expect(200);
+    const page = await pub.get('/store/preview?p=%2Fpedir').expect(200);
+    expect(page.headers['content-type']).toContain('text/html');
+    expect(page.text).toMatch(/<meta property="og:title" content="Restaurante A [^"]*"/);
+    expect(page.text).toContain('content="Pães e cafés &lt;feitos&gt; na hora"');
+    expect(page.text).toContain(
+      `<meta property="og:image" content="http://${HOST_A}/api/v1/media/${media.id}"`,
+    );
+    expect(page.text).not.toContain('gestão completa');
+    expect(page.text).toMatch(/<title>Restaurante A [^<]*<\/title>/);
+    // Link de um produto: nome e foto dele, e quem abrir cai no próprio produto.
+    const prod = await pub.get(`/store/preview?p=%2Fpedir%2Fproduto%2F${fx.prodA}`).expect(200);
+    expect(prod.text).toContain(`location.replace("/pedir/produto/${fx.prodA}")`);
+    // Caminho estranho volta para o cardápio; outro restaurante não mostra esta logo.
+    const odd = await pub.get('/store/preview?p=https%3A%2F%2Fmal.com').expect(200);
+    expect(odd.text).toContain('location.replace("/pedir")');
+    const other = await pub.get('/store/preview?p=%2Fpedir', HOST_B).expect(200);
+    expect(other.text).not.toContain(media.id);
   });
 });
 
