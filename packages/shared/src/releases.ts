@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.109.1',
+    date: '2026-11-12',
+    title: 'Logo maior e menu lateral mais alinhado',
+    summary:
+      'Com o menu lateral aberto, a logo da loja aparece bem maior no topo e as linhas do menu ficaram mais firmes e alinhadas.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Menu aberto: a logo ocupa a largura do menu, inteira e sem cortar, seja quadrada ou larga.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Linhas do menu com texto um pouco maior, altura igual e ícones numa coluna só, então os nomes (inclusive Conta) ficam alinhados. Os subitens acompanham.',
+      },
+    ],
+  },
+  {
     version: '0.109.0',
     date: '2026-11-12',
     title: 'Pagamento pelo app, cardápio mais visual e link com a cara da loja',

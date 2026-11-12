@@ -313,22 +313,29 @@
     gap: 4px;
     padding: 10px 10px 12px;
   }
+  /* Logo grande: o quadro branco ocupa a largura do menu (menos o botão de recolher) e a
+   * logo cabe inteira dentro dele, seja quadrada ou larga. */
   .cm-frame[data-rail='wide'] .cm-rail__brand {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 6px;
+    align-items: flex-start;
+    gap: 8px;
     height: auto;
-    min-height: calc(var(--top-h) - 10px);
     margin: 0 0 10px;
-    padding: 4px 0 12px 6px;
+    padding: 2px 0 12px;
     border-bottom: 1px solid var(--cm-border);
   }
+  .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand {
+    flex: 1 1 auto;
+  }
   .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo {
-    width: 56px;
-    height: 56px;
-    padding: 3px;
-    border-radius: 14px;
+    width: 100%;
+    height: 92px;
+    padding: 6px;
+    border-radius: 16px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo--initial {
+    width: 92px;
+    font-size: 2.25rem;
   }
   .cm-frame[data-rail='wide'] .cm-rail__toggle {
     flex-shrink: 0;
@@ -339,7 +346,7 @@
   .cm-frame[data-rail='wide'] :is(.cm-rail__nav, .cm-rail__foot) {
     justify-items: stretch;
     padding: 0;
-    gap: 3px;
+    gap: 2px;
   }
   .cm-frame[data-rail='wide'] .cm-rail__nav {
     padding-block: 2px;
@@ -354,10 +361,10 @@
     justify-items: start;
     gap: 12px;
     width: 100%;
-    min-height: 42px;
-    padding: 0 12px;
-    border-radius: var(--cm-radius-md);
-    font-size: var(--cm-text-sm);
+    min-height: 40px;
+    padding: 0 10px;
+    border-radius: 10px;
+    font-size: var(--cm-text-md);
     font-weight: 550;
     line-height: 1.2;
     text-align: left;
@@ -365,9 +372,19 @@
   .cm-frame[data-rail='wide'] .cm-rail__item:active {
     transform: none;
   }
+  /* Ícone numa coluna fixa de 22px (o avatar da conta também): os nomes ficam alinhados. */
+  .cm-frame[data-rail='wide'] .cm-rail__icon {
+    flex: none;
+    width: 22px;
+  }
   .cm-frame[data-rail='wide'] .cm-rail__icon svg {
-    width: 18px;
-    height: 18px;
+    width: 19px;
+    height: 19px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__avatar {
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
   }
   .cm-frame[data-rail='wide'] .cm-rail__item.is-active .cm-rail__icon {
     transform: none;
@@ -394,17 +411,17 @@
   .cm-rail__sub {
     display: grid;
     gap: 1px;
-    margin: 2px 0 6px 21px;
-    padding-left: 10px;
+    margin: 2px 0 6px 20px;
+    padding-left: 12px;
     border-left: 1px solid var(--cm-border);
   }
   .cm-rail__subitem {
     display: flex;
     align-items: center;
     gap: 8px;
-    min-height: 32px;
+    min-height: 34px;
     padding: 0 10px;
-    border-radius: var(--cm-radius-sm);
+    border-radius: var(--cm-radius-md);
     color: var(--cm-sidebar-text);
     font-size: var(--cm-text-sm);
     font-weight: 500;
@@ -431,8 +448,10 @@
       gap: 1px;
     }
     .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo {
-      width: 46px;
-      height: 46px;
+      height: 68px;
+    }
+    .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo--initial {
+      width: 68px;
     }
     .cm-rail__subitem {
       min-height: 30px;
