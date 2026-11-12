@@ -1015,6 +1015,9 @@ export class OrdersService {
       if (opts.expectedVersion !== undefined && opts.expectedVersion !== o.version) {
         throw new ConflictException('O pedido foi alterado por outra pessoa; atualize a tela');
       }
+      // Recusar pedido online em análise: o cliente vê o motivo no acompanhamento.
+      if (to === 'cancelled' && o.status === 'awaiting' && !opts.reason?.trim())
+        throw new UnprocessableEntityException('Informe o motivo da recusa (o cliente vê)');
       await this.transitionInTx(tx, ctx, o, to, opts.reason, { receivable: opts.receivable });
       return this.detail(tx, id);
     });

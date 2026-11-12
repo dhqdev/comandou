@@ -225,7 +225,6 @@ describe('Cancelar um item do pedido', () => {
     await post('cashierA', `/orders/${o.id}/items/${a.id}/cancel`, {
       reason: 'Saiu errado',
     }).expect(403);
-    await post('managerA', `/orders/${o.id}/items/${a.id}/cancel`, { reason: '' }).expect(400);
     await post('adminB', `/orders/${o.id}/items/${a.id}/cancel`, { reason: 'Outro' }).expect(404);
     const r = (
       await post('managerA', `/orders/${o.id}/items/${a.id}/cancel`, {

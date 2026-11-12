@@ -20,6 +20,51 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.108.0',
+    date: '2026-11-12',
+    title: 'Cardápio por foto com IA, primeiros passos em conversa e visual mais enxuto',
+    summary:
+      'A IA lê a foto ou o PDF do cardápio e cadastra os itens, o primeiro acesso virou uma conversa com o mascote, o item pode aparecer em 3D na mesa do cliente e o painel ficou mais compacto, com o menu lateral levando a logo da loja.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Importar com IA em Cardápio › Itens: mande a foto do cardápio, a foto de um prato ou o PDF. A IA lê nomes, descrições e preços, você confere, corrige e salva. Usa a cota de IA do restaurante.',
+      },
+      {
+        tag: 'novo',
+        text: 'Primeiros passos em conversa: na loja nova, o mascote pergunta como você vende, o WhatsApp, o endereço e o tempo de preparo, e já deixa tudo gravado. No meio, o cardápio entra por foto. Dá para rever em Conta › Primeiros passos.',
+      },
+      {
+        tag: 'novo',
+        text: 'Item em 3D: envie o modelo escaneado (GLB e, para iPhone, USDZ) no cadastro do item. O cliente gira o prato na tela e, no celular, vê em tamanho real na mesa pela câmera.',
+      },
+      {
+        tag: 'novo',
+        text: 'Relatórios em PDF: cada relatório baixa em PDF pronto para enviar, com resumo, gráfico e tabela, além do Excel.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pedido: botões de ação mais claros, cancelar sem precisar escrever o motivo e o comprovante do Pix abre direto no pedido.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Menu lateral com a logo e o nome da sua loja, campos e cartões mais compactos e padronizados no computador e no celular, e telas mais leves para abrir.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Conversas da equipe, do suporte e com o cliente em linhas, com nome, foto e hora, mais fáceis de ler em telas grandes.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Caixa com o resumo do turno num cartão só, com os números principais em destaque e o detalhe logo abaixo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cardápio do cliente mais simples: categorias em uma linha abaixo da busca e um menu de baixo direto, com ícone e nome em todas as abas.',
+      },
+    ],
+  },
+  {
     version: '0.107.0',
     date: '2026-11-11',
     title: 'Estoque que não vende o que acabou e com menos telas',
