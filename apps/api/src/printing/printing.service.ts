@@ -914,6 +914,74 @@ export class PrintingService {
     return r ? 1 : 0;
   }
 
+  /**
+   * Aviso para a cozinha de um item acrescentado ou alterado num pedido já lançado (edição do
+   * pedido). `fromQty` presente = alteração (mostra de quanto para quanto). Sem agente, nada.
+   */
+  async enqueueItemChange(
+    tx: Tx,
+    ctx: Ctx,
+    orderId: string,
+    itemId: string,
+    change: { kind: 'added' } | { kind: 'changed'; fromQty: string; fromNotes: string | null },
+  ): Promise<number> {
+    if (!(await this.hasActiveAgent(tx))) return 0;
+    const i = await one<{
+      name: string;
+      quantity: string;
+      unit: string;
+      notes: string | null;
+      sector: string | null;
+      options: string[];
+    }>(
+      tx,
+      `SELECT i.name, i.quantity::text, i.unit, i.notes, s.name AS sector,
+              COALESCE((SELECT array_agg(io.name ORDER BY io.name) FROM order_item_options io WHERE io.order_item_id = i.id), '{}') AS options
+         FROM order_items i LEFT JOIN production_sectors s ON s.id = i.sector_id WHERE i.id = $1`,
+      [itemId],
+    );
+    if (!i) return 0;
+    const o = await this.orderHeader(tx, orderId);
+    const where = o.table_label
+      ? `Mesa ${o.table_label}`
+      : o.tab_number
+        ? `Comanda ${o.tab_number}`
+        : CHANNEL_LABELS[o.channel];
+    const changed = change.kind === 'changed';
+    const text = [
+      center(changed ? '*** ITEM ALTERADO ***' : '*** ITEM ACRESCENTADO ***'),
+      center((i.sector ?? 'Cozinha').toUpperCase()),
+      line('='),
+      `PEDIDO #${o.number}`.padEnd(WIDTH - 11) + o.local_time.padStart(11),
+      where + (o.customer_name ? ` - ${o.customer_name}` : ''),
+      line(),
+      ...(changed && change.fromQty !== i.quantity
+        ? wrap(`ERA ${qtyTicket(change.fromQty, i.unit)} -> AGORA ${qtyTicket(i.quantity, i.unit)}`)
+        : []),
+      ...wrap(`${qtyTicket(i.quantity, i.unit)} ${i.name}`),
+      ...i.options.flatMap((op) => wrap(`+ ${op}`, '   ')),
+      ...(i.notes ? wrap(`OBS: ${i.notes}`, '   ') : []),
+      ...(changed && change.fromNotes && change.fromNotes !== i.notes
+        ? wrap(`(OBS ANTERIOR: ${change.fromNotes})`, '   ')
+        : []),
+      line('='),
+    ].join('\n');
+    const r = await one(
+      tx,
+      `INSERT INTO print_jobs (tenant_id, dedupe_key, kind, target, order_id, payload, created_by)
+       VALUES ($1,$2,'kitchen_ticket',$3,$4,$5,$6) ON CONFLICT (tenant_id, dedupe_key) DO NOTHING RETURNING id`,
+      [
+        ctx.tenantId,
+        `order:${orderId}:item:${itemId}:${change.kind}:${Date.now()}`,
+        (i.sector ?? 'Cozinha').slice(0, 60),
+        orderId,
+        text,
+        ctx.userId,
+      ],
+    );
+    return r ? 1 : 0;
+  }
+
   /** Enfileira as comandas de cozinha de um pedido novo, uma por setor. Sem agente ativo, não faz nada. */
   async enqueueKitchenTickets(tx: Tx, ctx: Ctx, orderId: string): Promise<number> {
     if (!(await this.hasActiveAgent(tx))) return 0;

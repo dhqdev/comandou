@@ -9,6 +9,10 @@ import {
 import {
   Bike,
   CalendarClock,
+  ChefHat,
+  HandCoins,
+  Pencil,
+  Percent,
   CreditCard,
   MapPin,
   MessageCircle,
@@ -38,6 +42,7 @@ import {
 } from '../design-system';
 import { useCan } from '../app/auth';
 import { FiscalSection } from './FiscalSection';
+import { OrderEditor } from './OrderEditor';
 import { OrderLiveMap } from './OrderLiveMap';
 import { api } from '../lib/api';
 import { ReceiptPreview } from './ReceiptPreview';
@@ -128,6 +133,7 @@ export function OrderDetailModal({
     | 'adjust'
     | 'dispatch'
     | 'receivable'
+    | 'edit'
     | { refund: Payment }
     | { cancelItem: OrderItem }
   >(null);
@@ -243,6 +249,9 @@ export function OrderDetailModal({
   const canReject = !!order && !mode && order.status === 'awaiting' && canWrite;
   const leadIsStep = !canReceive && !canSend;
   const canAdjust = !!order && !['completed', 'cancelled', 'awaiting'].includes(order.status);
+  // Editar itens: pedido aceito que ainda não saiu nem fechou (o servidor confere o resto).
+  const canManage = useCan('orders:manage');
+  const canEdit = !!order && canManage && ['new', 'in_production', 'ready'].includes(order.status);
   const cancelLabel = !order
     ? null
     : order.status === 'cancel_requested'
@@ -256,12 +265,35 @@ export function OrderDetailModal({
           : 'Solicitar cancelamento';
   const more: MenuAction[] = order
     ? [
-        ...(canAdjust ? [{ label: 'Desconto ou acréscimo', run: () => setMode('adjust') }] : []),
+        ...(canEdit
+          ? [{ label: 'Editar pedido', icon: <Pencil size={15} />, run: () => setMode('edit') }]
+          : []),
+        ...(canAdjust
+          ? [
+              {
+                label: 'Desconto ou acréscimo',
+                icon: <Percent size={15} />,
+                run: () => setMode('adjust'),
+              },
+            ]
+          : []),
         ...(canReceivable
-          ? [{ label: 'Concluir a receber (fiado)', run: () => setMode('receivable') }]
+          ? [
+              {
+                label: 'Concluir a receber (fiado)',
+                icon: <HandCoins size={15} />,
+                run: () => setMode('receivable'),
+              },
+            ]
           : []),
         ...(canPrint && order.status !== 'cancelled'
-          ? [{ label: 'Reimprimir na cozinha', run: () => void print('kitchen') }]
+          ? [
+              {
+                label: 'Reimprimir na cozinha',
+                icon: <ChefHat size={15} />,
+                run: () => void print('kitchen'),
+              },
+            ]
           : []),
       ]
     : [];
@@ -380,17 +412,17 @@ export function OrderDetailModal({
         <div className="od-tools">
           {canPrintSlip && (
             <button type="button" onClick={() => setPreviewKind('receipt')}>
-              <Printer size={14} aria-hidden /> Imprimir pedido
+              <Printer size={15} aria-hidden /> <span>Imprimir pedido</span>
             </button>
           )}
           {canPrintSlip && order.channel === 'delivery' && (
             <button type="button" onClick={() => setPreviewKind('delivery')}>
-              <Bike size={14} aria-hidden /> Imprimir via de entrega
+              <Bike size={15} aria-hidden /> <span>Via de entrega</span>
             </button>
           )}
           {more.map((a) => (
             <button key={a.label} type="button" disabled={printing} onClick={a.run}>
-              {a.label}
+              {a.icon} <span>{a.label}</span>
             </button>
           ))}
         </div>
@@ -562,74 +594,98 @@ export function OrderDetailModal({
 
           <section className="od-block">
             <h3 className="od-block__title">
-              Itens do pedido
-              <span className="od-pill">
-                {order.items.length} {order.items.length === 1 ? 'item' : 'itens'}
-              </span>
-            </h3>
-            <ul className="od-items">
-              {order.items.map((i) => (
-                <li
-                  key={i.id}
-                  className="od-item"
-                  data-cancelled={i.status === 'cancelled' || undefined}
+              {mode === 'edit' ? 'Editar itens do pedido' : 'Itens do pedido'}
+              {mode !== 'edit' && (
+                <span className="od-pill">
+                  {order.items.length} {order.items.length === 1 ? 'item' : 'itens'}
+                </span>
+              )}
+              {canEdit && !mode && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="od-block__edit"
+                  icon={<Pencil size={14} />}
+                  onClick={() => setMode('edit')}
                 >
-                  <div className="od-item__top">
-                    <ItemThumb src={mediaUrl(i.imageId)} name={i.name} size={32} />
-                    <div className="od-item__main">
-                      <div className="od-item__name">
-                        <strong>{i.name}</strong>
-                        <span className="od-item__status">{ITEM_STATUS_LABEL[i.status]}</span>
-                      </div>
-                      {i.options.length > 0 && (
-                        <div className="od-item__sub">
-                          {i.options.map((o) => o.name).join(' · ')}
+                  Editar
+                </Button>
+              )}
+            </h3>
+            {mode === 'edit' ? (
+              <OrderEditor
+                order={order}
+                onCancel={() => setMode(null)}
+                onDone={(o) => {
+                  setOrder(o);
+                  setMode(null);
+                }}
+              />
+            ) : (
+              <ul className="od-items">
+                {order.items.map((i) => (
+                  <li
+                    key={i.id}
+                    className="od-item"
+                    data-cancelled={i.status === 'cancelled' || undefined}
+                  >
+                    <div className="od-item__top">
+                      <ItemThumb src={mediaUrl(i.imageId)} name={i.name} size={32} />
+                      <div className="od-item__main">
+                        <div className="od-item__name">
+                          <strong>{i.name}</strong>
+                          <span className="od-item__status">{ITEM_STATUS_LABEL[i.status]}</span>
                         </div>
-                      )}
-                      {i.notes && <div className="od-item__sub">Obs.: {i.notes}</div>}
-                      {i.cancelReason && (
-                        <div className="od-item__sub">Cancelado: {i.cancelReason}</div>
-                      )}
+                        {i.options.length > 0 && (
+                          <div className="od-item__sub">
+                            {i.options.map((o) => o.name).join(' · ')}
+                          </div>
+                        )}
+                        {i.notes && <div className="od-item__sub">Obs.: {i.notes}</div>}
+                        {i.cancelReason && (
+                          <div className="od-item__sub">Cancelado: {i.cancelReason}</div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="od-item__bottom">
-                    <span>
-                      {i.unit === 'kg'
-                        ? `${qtyLabel(i.quantity, 'kg')} × ${brl(i.unitPrice)}/kg`
-                        : `${qty(i.quantity)} UN × ${brl(i.unitPrice)}`}
-                    </span>
-                    <strong>{brl(i.total)}</strong>
-                  </div>
-                  {canCancelItem && i.status !== 'cancelled' && (
-                    <button
-                      type="button"
-                      className="od-item__cancel"
-                      aria-label={`Cancelar ${i.name}`}
-                      onClick={() =>
-                        // O último item só sai cancelando o pedido inteiro (regra do servidor).
-                        setMode(activeItems > 1 ? { cancelItem: i } : 'cancel')
-                      }
-                    >
-                      <XCircle size={14} aria-hidden /> Cancelar item
-                    </button>
-                  )}
-                  {mode &&
-                    typeof mode === 'object' &&
-                    'cancelItem' in mode &&
-                    mode.cancelItem.id === i.id && (
-                      <ReasonForm
-                        label={`Motivo do cancelamento de ${i.name} (opcional)`}
-                        confirm="Cancelar item"
-                        danger
-                        optional
-                        busy={busy}
-                        onCancel={() => setMode(null)}
-                        onConfirm={(r) => void cancelItem(i, r)}
-                      />
+                    <div className="od-item__bottom">
+                      <span>
+                        {i.unit === 'kg'
+                          ? `${qtyLabel(i.quantity, 'kg')} × ${brl(i.unitPrice)}/kg`
+                          : `${qty(i.quantity)} UN × ${brl(i.unitPrice)}`}
+                      </span>
+                      <strong>{brl(i.total)}</strong>
+                    </div>
+                    {canCancelItem && i.status !== 'cancelled' && (
+                      <button
+                        type="button"
+                        className="od-item__cancel"
+                        aria-label={`Cancelar ${i.name}`}
+                        onClick={() =>
+                          // O último item só sai cancelando o pedido inteiro (regra do servidor).
+                          setMode(activeItems > 1 ? { cancelItem: i } : 'cancel')
+                        }
+                      >
+                        <XCircle size={14} aria-hidden /> Cancelar item
+                      </button>
                     )}
-                </li>
-              ))}
-            </ul>
+                    {mode &&
+                      typeof mode === 'object' &&
+                      'cancelItem' in mode &&
+                      mode.cancelItem.id === i.id && (
+                        <ReasonForm
+                          label={`Motivo do cancelamento de ${i.name} (opcional)`}
+                          confirm="Cancelar item"
+                          danger
+                          optional
+                          busy={busy}
+                          onCancel={() => setMode(null)}
+                          onConfirm={(r) => void cancelItem(i, r)}
+                        />
+                      )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           <section className="od-block od-card">
@@ -786,6 +842,7 @@ function ChannelIcon({ channel }: { channel: Order['channel'] }) {
 
 interface MenuAction {
   label: string;
+  icon: ReactNode;
   run(): void;
 }
 

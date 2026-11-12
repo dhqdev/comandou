@@ -593,40 +593,67 @@ button.od-fact__link {
   text-underline-offset: 3px;
 }
 /* Ações de apoio (imprimir, desconto, fiado): links discretos numa linha, sem menu escondido. */
+/* Ações de apoio do pedido: botões pequenos de contorno fino, ícone + texto, quebrando a linha. */
 .od-tools {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 4px;
-  margin: -2px -6px 0;
+  gap: 6px;
 }
 .od-tools > button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: 30px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: var(--cm-radius-sm);
-  background: none;
-  color: var(--cm-text-muted);
+  gap: 8px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  color: var(--cm-text);
   font: inherit;
   font-size: var(--cm-text-sm);
-  font-weight: 550;
+  font-weight: 500;
+  white-space: nowrap;
   cursor: pointer;
+  transition:
+    background-color var(--cm-dur-fast) var(--cm-ease),
+    border-color var(--cm-dur-fast) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
-.od-tools > button:hover,
-.od-tools > button:focus-visible {
+.od-tools > button > svg {
+  flex: none;
+  color: var(--cm-text-muted);
+}
+.od-tools > button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.od-tools > button:hover {
   background: var(--cm-surface-muted);
-  color: var(--cm-text);
+  border-color: var(--cm-border-strong);
+}
+.od-tools > button:focus-visible {
+  outline: 2px solid var(--cm-focus);
+  outline-offset: 1px;
+}
+.od-tools > button:active:not(:disabled) {
+  transform: scale(0.97);
 }
 .od-tools > button:disabled {
   opacity: 0.5;
   cursor: default;
 }
 @media (max-width: 640px) {
-  .od-tools > button {
-    min-height: 40px;
+  .od-tools {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
+  .od-tools > button {
+    height: 44px;
+  }
+}
+.od-block__edit {
+  margin-left: auto;
 }
 /* Histórico em linha do tempo: um traço fino ligando os passos, sem cor. */
 .od-history > summary {
@@ -1232,4 +1259,7 @@ button.pay-part {
   .finance-month > .actions-row > .cm-btn {
     flex: 1;
   }
+}
+.od-block__title:has(.od-block__edit) {
+  justify-content: flex-start;
 }

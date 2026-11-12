@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.112.0',
+    date: '2026-11-12',
+    title: 'Editar pedido e ações do pedido mais limpas',
+    summary:
+      'O pedido já lançado pode ser editado no próprio detalhe: acrescentar item, mudar quantidade e observação ou tirar item, com estoque e cozinha acompanhando. As ações de apoio do pedido viraram botões pequenos com ícone.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Editar pedido: em Pedidos, abra o pedido e toque em Editar. Acrescente itens pela busca, mude a quantidade com o − e o +, escreva a observação do item ou do pedido e tire o que saiu errado. Só vale depois de salvar, e o total é refeito na hora.',
+      },
+      {
+        tag: 'novo',
+        text: 'A cozinha recebe o aviso do item acrescentado ou alterado, e o estoque baixa ou devolve a diferença. Se a cozinha já fez o item, o que for a mais entra como item novo e o pedido volta para a produção.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Imprimir pedido, Desconto ou acréscimo, Concluir a receber (fiado) e Reimprimir na cozinha agora são botões com ícone, organizados em grade embaixo do pedido.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Acrescentar item fica com caixa, atendente e gerente; tirar item ou diminuir a quantidade continua exigindo o gerente, como no cancelamento de item. Toda edição fica registrada na auditoria.',
+      },
+    ],
+  },
+  {
     version: '0.111.0',
     date: '2026-11-12',
     title: 'Cada restaurante atualiza na hora que você escolher',

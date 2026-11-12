@@ -17,6 +17,18 @@ export const money = z
 export const uuid = z.string().uuid();
 export const reason = z.string().trim().min(3).max(300);
 
+const OrderItemIn = z.object({
+  productId: uuid,
+  // Quantidade com até 3 casas (ex.: 0.350 kg); limite operacional de 999.
+  quantity: z
+    .number()
+    .positive()
+    .max(999)
+    .refine((n) => Math.abs(n * 1000 - Math.round(n * 1000)) < 1e-6, 'até 3 casas decimais'),
+  notes: z.string().trim().max(200).optional(),
+  optionIds: z.array(uuid).max(50).optional(),
+});
+
 export const CreateOrder = z.object({
   channel: z.enum(ORDER_CHANNELS),
   tabId: uuid.optional(),
@@ -30,22 +42,26 @@ export const CreateOrder = z.object({
   deliveryFee: money.optional(),
   discount: money.optional(),
   surcharge: money.optional(),
-  items: z
+  items: z.array(OrderItemIn).min(1).max(200),
+});
+
+/** Edição do pedido já lançado (acrescentar, mudar quantidade/observação, tirar itens). */
+export const EditOrderItems = z.object({
+  expectedVersion: z.number().int().positive().optional(),
+  add: z.array(OrderItemIn).max(100).optional(),
+  change: z
     .array(
       z.object({
-        productId: uuid,
-        // Quantidade com até 3 casas (ex.: 0.350 kg); limite operacional de 999.
-        quantity: z
-          .number()
-          .positive()
-          .max(999)
-          .refine((n) => Math.abs(n * 1000 - Math.round(n * 1000)) < 1e-6, 'até 3 casas decimais'),
-        notes: z.string().trim().max(200).optional(),
-        optionIds: z.array(uuid).max(50).optional(),
+        itemId: uuid,
+        quantity: OrderItemIn.shape.quantity.optional(),
+        notes: z.string().trim().max(200).nullable().optional(),
       }),
     )
-    .min(1)
-    .max(200),
+    .max(200)
+    .optional(),
+  remove: z.array(uuid).max(200).optional(),
+  notes: z.string().trim().max(500).nullable().optional(),
+  reason: z.string().trim().max(300).optional(),
 });
 
 export const Transition = z.object({

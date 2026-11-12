@@ -267,6 +267,129 @@ describe('Cancelar um item do pedido', () => {
   });
 });
 
+describe('Editar pedido', () => {
+  it('acrescenta, muda quantidade e tira itens numa vez só; total refeito', async () => {
+    const o = (
+      await post('adminA', '/orders', {
+        channel: 'counter',
+        items: [
+          { productId: fx.prodA, quantity: 1 },
+          { productId: fx.prodA, quantity: 2 },
+        ],
+      }).expect(201)
+    ).body as {
+      id: string;
+      version: number;
+      total: string;
+      items: { id: string; unitPrice: string; quantity: string }[];
+    };
+    const a = o.items.find((i) => i.quantity === '1.000')!;
+    const b = o.items.find((i) => i.quantity === '2.000')!;
+    const unit = Number(a.unitPrice);
+    // Garçom não edita; caixa acrescenta mas não tira; outro restaurante não enxerga.
+    await patch('waiterA', `/orders/${o.id}/items`, {
+      add: [{ productId: fx.prodA, quantity: 1 }],
+    }).expect(403);
+    await patch('cashierA', `/orders/${o.id}/items`, { remove: [a.id] }).expect(403);
+    await patch('cashierA', `/orders/${o.id}/items`, {
+      change: [{ itemId: b.id, quantity: 1 }],
+    }).expect(403);
+    await patch('adminB', `/orders/${o.id}/items`, { remove: [a.id] }).expect(404);
+    // Versão velha: recusa.
+    await patch('managerA', `/orders/${o.id}/items`, {
+      expectedVersion: o.version + 5,
+      notes: 'x',
+    }).expect(409);
+
+    const r = (
+      await patch('managerA', `/orders/${o.id}/items`, {
+        expectedVersion: o.version,
+        remove: [a.id],
+        change: [{ itemId: b.id, quantity: 3, notes: 'bem passado' }],
+        add: [{ productId: fx.prodA, quantity: 2, notes: 'para viagem' }],
+        notes: 'Cliente pediu pressa',
+      }).expect(200)
+    ).body as {
+      total: string;
+      subtotal: string;
+      notes: string;
+      items: { id: string; status: string; quantity: string; notes: string | null }[];
+    };
+    expect(Number(r.subtotal)).toBeCloseTo(unit * 5, 2);
+    expect(Number(r.total)).toBeCloseTo(unit * 5, 2);
+    expect(r.notes).toBe('Cliente pediu pressa');
+    expect(r.items.find((i) => i.id === a.id)?.status).toBe('cancelled');
+    expect(r.items.find((i) => i.id === b.id)).toMatchObject({
+      quantity: '3.000',
+      notes: 'bem passado',
+    });
+    expect(r.items.filter((i) => i.status !== 'cancelled')).toHaveLength(2);
+
+    // Não deixa o pedido sem itens.
+    const live = r.items.filter((i) => i.status !== 'cancelled').map((i) => i.id);
+    await patch('managerA', `/orders/${o.id}/items`, { remove: live }).expect(409);
+    const [audit] = await ownerQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM audit_log WHERE action = 'order.edited' AND entity_id = $1`,
+      [o.id],
+    );
+    expect(audit.n).toBe(1);
+  });
+
+  it('item que a cozinha já fez: aumentar vira item novo e o pedido volta para a produção', async () => {
+    const o = (
+      await post('adminA', '/orders', {
+        channel: 'counter',
+        items: [{ productId: fx.prodA, quantity: 1 }],
+      }).expect(201)
+    ).body as { id: string; items: { id: string }[] };
+    const it0 = o.items[0];
+    await post('adminA', `/kitchen/items/${it0.id}/ready`).expect(201);
+    expect((await get('adminA', `/orders/${o.id}`).expect(200)).body.status).toBe('ready');
+    const r = (
+      await patch('cashierA', `/orders/${o.id}/items`, {
+        change: [{ itemId: it0.id, quantity: 3 }],
+      }).expect(200)
+    ).body as { status: string; items: { id: string; quantity: string; status: string }[] };
+    expect(r.status).toBe('in_production');
+    expect(r.items.find((i) => i.id === it0.id)).toMatchObject({
+      quantity: '1.000',
+      status: 'ready',
+    });
+    const extra = r.items.find((i) => i.id !== it0.id);
+    expect(extra).toMatchObject({ quantity: '2.000', status: 'pending' });
+  });
+
+  it('caixa acrescenta item; não edita pedido pago acima do novo total nem pedido concluído', async () => {
+    const o = (
+      await post('adminA', '/orders', {
+        channel: 'counter',
+        items: [{ productId: fx.prodA, quantity: 2 }],
+      }).expect(201)
+    ).body as { id: string; total: string; items: { id: string }[] };
+    const more = (
+      await patch('cashierA', `/orders/${o.id}/items`, {
+        add: [{ productId: fx.prodA, quantity: 1 }],
+      }).expect(200)
+    ).body as { total: string; paymentStatus: string };
+    expect(Number(more.total)).toBeCloseTo((Number(o.total) * 3) / 2, 2);
+    await post(
+      'cashierA',
+      `/orders/${o.id}/payments`,
+      { cashSessionId: sessionId, method: 'cash', amount: more.total },
+      key(),
+    ).expect(201);
+    const item = o.items[0];
+    await patch('managerA', `/orders/${o.id}/items`, {
+      change: [{ itemId: item.id, quantity: 1 }],
+    }).expect(409);
+    await post('adminA', `/orders/${o.id}/status`, { to: 'ready' }).expect(201);
+    await post('adminA', `/orders/${o.id}/status`, { to: 'completed' }).expect(201);
+    await patch('managerA', `/orders/${o.id}/items`, {
+      add: [{ productId: fx.prodA, quantity: 1 }],
+    }).expect(409);
+  });
+});
+
 describe('Taxa de serviço', () => {
   it('padrão do salão entra na comanda nova; dá para tirar e recolocar', async () => {
     await patch('cashierA', '/salon/settings', { serviceFeePercent: '10' }).expect(403);

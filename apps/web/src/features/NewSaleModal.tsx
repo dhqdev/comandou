@@ -686,7 +686,7 @@ export function NewSaleModal({
   );
 }
 
-function OptionPicker({
+export function OptionPicker({
   product,
   onCancel,
   onConfirm,

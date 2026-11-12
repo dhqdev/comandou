@@ -56,21 +56,39 @@ export class StockService {
       [orderId],
     );
     if (done) return 0;
+    return this.consumeItems(tx, ctx, orderId, null);
+  }
+
+  /**
+   * Baixa só os itens informados (itens acrescentados ou alterados num pedido já lançado).
+   * Mesmo cálculo e mesma checagem de saldo da baixa do pedido.
+   */
+  consumeForItems(tx: Tx, ctx: Ctx, orderId: string, itemIds: string[]): Promise<number> {
+    if (!itemIds.length) return Promise.resolve(0);
+    return this.consumeItems(tx, ctx, orderId, itemIds);
+  }
+
+  private async consumeItems(
+    tx: Tx,
+    ctx: Ctx,
+    orderId: string,
+    itemIds: string[] | null,
+  ): Promise<number> {
     const needs = await q<{ stock_item_id: string; q: string }>(
       tx,
       `WITH need AS (
          SELECT r.stock_item_id, r.quantity * i.quantity AS q
            FROM order_items i JOIN product_recipes r ON r.product_id = i.product_id
-          WHERE i.order_id = $1 AND i.status <> 'cancelled'
+          WHERE i.order_id = $1 AND i.status <> 'cancelled' AND ($2::uuid[] IS NULL OR i.id = ANY($2::uuid[]))
          UNION ALL
          SELECT r.stock_item_id, r.quantity * i.quantity
            FROM order_item_options io
            JOIN order_items i ON i.id = io.order_item_id
            JOIN option_recipes r ON r.option_id = io.option_id
-          WHERE i.order_id = $1 AND i.status <> 'cancelled')
+          WHERE i.order_id = $1 AND i.status <> 'cancelled' AND ($2::uuid[] IS NULL OR i.id = ANY($2::uuid[])))
        SELECT stock_item_id, round(sum(q), 3)::text AS q FROM need GROUP BY stock_item_id
        HAVING round(sum(q), 3) > 0 ORDER BY stock_item_id`,
-      [orderId],
+      [orderId, itemIds],
     );
     if (!needs.length) return 0;
     const items = await q<{ id: string; name: string; unit: string; ok: boolean }>(
@@ -98,7 +116,13 @@ export class StockService {
    * pedido já baixou estoque; o movimento leva o pedido, então cancelar o pedido depois não
    * devolve duas vezes (restoreForOrder soma o que sobrou).
    */
-  async restoreForItem(tx: Tx, ctx: Ctx, orderId: string, itemId: string): Promise<number> {
+  async restoreForItem(
+    tx: Tx,
+    ctx: Ctx,
+    orderId: string,
+    itemId: string,
+    note = 'Item cancelado',
+  ): Promise<number> {
     const consumed = await one(
       tx,
       `SELECT 1 FROM stock_movements WHERE order_id = $1 AND kind = 'sale' LIMIT 1`,
@@ -136,7 +160,7 @@ export class StockService {
     for (const b of back)
       await this.move(tx, ctx, b.stock_item_id, 'sale_reversal', b.q, {
         orderId,
-        note: 'Item cancelado',
+        note,
       });
     return back.length;
   }

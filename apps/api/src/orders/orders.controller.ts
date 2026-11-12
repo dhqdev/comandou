@@ -25,7 +25,16 @@ import {
   RequirePermission,
 } from '../common/decorators';
 import { requireKey, validIdempotencyKey } from '../common/idempotency';
-import { Adjust, CreateOrder, money, Payment, reason, Transition, uuid } from '../common/schemas';
+import {
+  Adjust,
+  CreateOrder,
+  EditOrderItems,
+  money,
+  Payment,
+  reason,
+  Transition,
+  uuid,
+} from '../common/schemas';
 import { ZodPipe } from '../common/zod.pipe';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { OrdersService } from './orders.service';
@@ -153,6 +162,22 @@ export class OrdersController {
     @Req() req: Request,
   ) {
     return this.orders.adjust(ctxOf(t, u, req), id, b);
+  }
+
+  /**
+   * Edita os itens do pedido (acrescentar, quantidade, observação, tirar). Tirar e diminuir
+   * exigem `orders:cancel` (conferido no serviço).
+   */
+  @Patch(':id/items')
+  @RequirePermission('orders:manage')
+  editItems(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(EditOrderItems)) b: z.infer<typeof EditOrderItems>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.orders.editItems(ctxOf(t, u, req), id, b);
   }
 
   /** Cancela um item do pedido (com motivo). Exige gerente. */

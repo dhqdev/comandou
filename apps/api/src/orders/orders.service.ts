@@ -427,117 +427,12 @@ export class OrdersService {
     if (input.channel === 'delivery' && !input.deliveryAddress)
       throw new UnprocessableEntityException('Delivery exige endereço');
 
-    // Produtos e opções vêm do banco (preço oficial). O preço e a disponibilidade são os do
-    // cardápio ativo do canal (Principal no balcão/salão, Delivery na entrega/retirada).
-    const productIds = [...new Set(input.items.map((i) => i.productId))];
-    const products = await q<{
-      id: string;
-      name: string;
-      price: string;
-      sector_id: string | null;
-      active: boolean;
-      sold_out: boolean;
-      stock_missing: string[];
-      sold_by_weight: boolean;
-      in_menu: boolean;
-      menu_name: string | null;
-    }>(
+    const { lines, subtotal } = await this.priceLines(
       tx,
-      `SELECT p.id, p.name, COALESCE(mi.price, p.price)::text AS price, p.sector_id, p.active, p.sold_out,
-              ${PRODUCT_STOCK_MISSING} AS stock_missing, p.sold_by_weight, (m.id IS NULL OR mi.product_id IS NOT NULL) AS in_menu, m.name AS menu_name
-         FROM products p
-         LEFT JOIN menus m ON m.active AND m.kind = $2
-         LEFT JOIN menu_items mi ON mi.menu_id = m.id AND mi.product_id = p.id
-        WHERE p.id = ANY($1::uuid[])`,
-      [productIds, menuKindOf(input.channel)],
+      input.channel,
+      input.items,
+      !!input.online,
     );
-    const pmap = new Map(products.map((p) => [p.id, p]));
-    const optionIds = [...new Set(input.items.flatMap((i) => i.optionIds ?? []))];
-    const opts = optionIds.length
-      ? await q<{
-          id: string;
-          name: string;
-          price_delta: string;
-          group_id: string;
-          active: boolean;
-        }>(
-          tx,
-          `SELECT id, name, price_delta::text, group_id, active FROM options WHERE id = ANY($1::uuid[])`,
-          [optionIds],
-        )
-      : [];
-    const omap = new Map(opts.map((o) => [o.id, o]));
-    const links = await q<{
-      product_id: string;
-      group_id: string;
-      name: string;
-      min_select: number;
-      max_select: number;
-      charge: ChargeRule;
-    }>(
-      tx,
-      `SELECT pog.product_id, g.id AS group_id, g.name, g.min_select, g.max_select, g.charge
-         FROM product_option_groups pog JOIN option_groups g ON g.id = pog.group_id
-        WHERE pog.product_id = ANY($1::uuid[]) AND g.active`,
-      [productIds],
-    );
-
-    let subtotal = 0;
-    const lines = input.items.map((it) => {
-      const p = pmap.get(it.productId);
-      if (!p || !p.active)
-        throw new UnprocessableEntityException(
-          'Um dos produtos saiu do cardápio. Atualize a tela e monte o pedido de novo.',
-        );
-      if (!p.in_menu)
-        throw new UnprocessableEntityException(
-          `${p.name} não está no ${p.menu_name ?? 'cardápio'}`,
-        );
-      if (p.sold_out) throw new UnprocessableEntityException(`Produto esgotado: ${p.name}`);
-      // Ficha técnica sem estoque para mais uma unidade: não vende (a baixa conferiria de novo).
-      if (p.stock_missing.length)
-        throw new ConflictException(
-          `Estoque insuficiente: ${p.name} está sem estoque (falta ${p.stock_missing.join(', ')}). Dê entrada no estoque para vender.`,
-        );
-      // Item por peso: a quantidade é o peso em kg (até 3 casas). Os demais vão em unidades inteiras.
-      if (p.sold_by_weight) {
-        if (!isValidKg(it.quantity, input.online ? ONLINE_WEIGHT_MAX_G / 1000 : WEIGHT_MAX_KG))
-          throw new UnprocessableEntityException(`${p.name}: informe o peso em kg (ex.: 0,350)`);
-      } else if (!Number.isInteger(it.quantity)) {
-        throw new UnprocessableEntityException(
-          `${p.name} é vendido por unidade: a quantidade precisa ser inteira`,
-        );
-      }
-      const groups = links.filter((l) => l.product_id === p.id);
-      const chosen = [...new Set(it.optionIds ?? [])].map((id) => {
-        const o = omap.get(id);
-        if (!o || !o.active || !groups.some((g) => g.group_id === o.group_id)) {
-          throw new UnprocessableEntityException(`Opção inválida para ${p.name}`);
-        }
-        return o;
-      });
-      for (const g of groups) {
-        const n = chosen.filter((o) => o.group_id === g.group_id).length;
-        if (n < g.min_select || n > g.max_select) {
-          throw new UnprocessableEntityException(
-            `${p.name}: escolha de ${g.min_select} a ${g.max_select} em "${g.name}"`,
-          );
-        }
-      }
-      // Regra de cobrança de cada grupo (soma, maior valor, média): cada opção guarda o que cobrou.
-      const charged = groups.flatMap((g) => {
-        const mine = chosen.filter((o) => o.group_id === g.group_id);
-        const cents = groupOptionCharges(
-          g.charge,
-          mine.map((o) => toCents(o.price_delta)),
-        );
-        return mine.map((o, i) => ({ ...o, price_delta: fromCents(cents[i]!) }));
-      });
-      const unit = toCents(p.price) + charged.reduce((s, o) => s + toCents(o.price_delta), 0);
-      const total = multiplyCents(unit, it.quantity);
-      subtotal += total;
-      return { p, it, chosen: charged, unit, total };
-    });
 
     // Fidelidade: o desconto da recompensa vem do programa (não passa pelo limite de desconto da equipe).
     let reward: RedeemQuote | null = null;
@@ -637,32 +532,7 @@ export class OrdersService {
         order!.id,
         reward,
       );
-    for (const l of lines) {
-      const item = await one<{ id: string }>(
-        tx,
-        `INSERT INTO order_items (tenant_id, order_id, product_id, name, quantity, unit_price, total, notes, sector_id, unit)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
-        [
-          ctx.tenantId,
-          order!.id,
-          l.p.id,
-          l.p.name,
-          l.it.quantity,
-          fromCents(l.unit),
-          fromCents(l.total),
-          l.it.notes ?? null,
-          l.p.sector_id,
-          l.p.sold_by_weight ? 'kg' : 'un',
-        ],
-      );
-      for (const o of l.chosen) {
-        await q(
-          tx,
-          `INSERT INTO order_item_options (tenant_id, order_item_id, option_id, name, price_delta) VALUES ($1,$2,$3,$4,$5)`,
-          [ctx.tenantId, item!.id, o.id, o.name, o.price_delta],
-        );
-      }
-    }
+    await this.insertLines(tx, ctx, order!.id, lines);
     await this.history(tx, ctx, order!.id, null, status);
     // Baixa de insumos pela ficha técnica (trava os insumos por último). Pedido em análise também
     // baixa: o estoque fica reservado para ele (dois clientes não levam o último item) e volta se a
@@ -688,6 +558,168 @@ export class OrdersService {
       ip: ctx.ip,
     });
     return (await this.detail(tx, order!.id))!;
+  }
+
+  /**
+   * Preço e validação dos itens (produto ativo, no cardápio do canal, com estoque, opções válidas).
+   * Preço SEMPRE do banco. Usado ao criar o pedido e ao acrescentar itens na edição.
+   */
+  private async priceLines(
+    tx: Tx,
+    channel: OrderChannel,
+    items: OrderItemInput[],
+    online: boolean,
+  ) {
+    // Produtos e opções vêm do banco (preço oficial). O preço e a disponibilidade são os do
+    // cardápio ativo do canal (Principal no balcão/salão, Delivery na entrega/retirada).
+    const productIds = [...new Set(items.map((i) => i.productId))];
+    const products = await q<{
+      id: string;
+      name: string;
+      price: string;
+      sector_id: string | null;
+      active: boolean;
+      sold_out: boolean;
+      stock_missing: string[];
+      sold_by_weight: boolean;
+      in_menu: boolean;
+      menu_name: string | null;
+    }>(
+      tx,
+      `SELECT p.id, p.name, COALESCE(mi.price, p.price)::text AS price, p.sector_id, p.active, p.sold_out,
+              ${PRODUCT_STOCK_MISSING} AS stock_missing, p.sold_by_weight, (m.id IS NULL OR mi.product_id IS NOT NULL) AS in_menu, m.name AS menu_name
+         FROM products p
+         LEFT JOIN menus m ON m.active AND m.kind = $2
+         LEFT JOIN menu_items mi ON mi.menu_id = m.id AND mi.product_id = p.id
+        WHERE p.id = ANY($1::uuid[])`,
+      [productIds, menuKindOf(channel)],
+    );
+    const pmap = new Map(products.map((p) => [p.id, p]));
+    const optionIds = [...new Set(items.flatMap((i) => i.optionIds ?? []))];
+    const opts = optionIds.length
+      ? await q<{
+          id: string;
+          name: string;
+          price_delta: string;
+          group_id: string;
+          active: boolean;
+        }>(
+          tx,
+          `SELECT id, name, price_delta::text, group_id, active FROM options WHERE id = ANY($1::uuid[])`,
+          [optionIds],
+        )
+      : [];
+    const omap = new Map(opts.map((o) => [o.id, o]));
+    const links = await q<{
+      product_id: string;
+      group_id: string;
+      name: string;
+      min_select: number;
+      max_select: number;
+      charge: ChargeRule;
+    }>(
+      tx,
+      `SELECT pog.product_id, g.id AS group_id, g.name, g.min_select, g.max_select, g.charge
+         FROM product_option_groups pog JOIN option_groups g ON g.id = pog.group_id
+        WHERE pog.product_id = ANY($1::uuid[]) AND g.active`,
+      [productIds],
+    );
+
+    let subtotal = 0;
+    const lines = items.map((it) => {
+      const p = pmap.get(it.productId);
+      if (!p || !p.active)
+        throw new UnprocessableEntityException(
+          'Um dos produtos saiu do cardápio. Atualize a tela e monte o pedido de novo.',
+        );
+      if (!p.in_menu)
+        throw new UnprocessableEntityException(
+          `${p.name} não está no ${p.menu_name ?? 'cardápio'}`,
+        );
+      if (p.sold_out) throw new UnprocessableEntityException(`Produto esgotado: ${p.name}`);
+      // Ficha técnica sem estoque para mais uma unidade: não vende (a baixa conferiria de novo).
+      if (p.stock_missing.length)
+        throw new ConflictException(
+          `Estoque insuficiente: ${p.name} está sem estoque (falta ${p.stock_missing.join(', ')}). Dê entrada no estoque para vender.`,
+        );
+      // Item por peso: a quantidade é o peso em kg (até 3 casas). Os demais vão em unidades inteiras.
+      if (p.sold_by_weight) {
+        if (!isValidKg(it.quantity, online ? ONLINE_WEIGHT_MAX_G / 1000 : WEIGHT_MAX_KG))
+          throw new UnprocessableEntityException(`${p.name}: informe o peso em kg (ex.: 0,350)`);
+      } else if (!Number.isInteger(it.quantity)) {
+        throw new UnprocessableEntityException(
+          `${p.name} é vendido por unidade: a quantidade precisa ser inteira`,
+        );
+      }
+      const groups = links.filter((l) => l.product_id === p.id);
+      const chosen = [...new Set(it.optionIds ?? [])].map((id) => {
+        const o = omap.get(id);
+        if (!o || !o.active || !groups.some((g) => g.group_id === o.group_id)) {
+          throw new UnprocessableEntityException(`Opção inválida para ${p.name}`);
+        }
+        return o;
+      });
+      for (const g of groups) {
+        const n = chosen.filter((o) => o.group_id === g.group_id).length;
+        if (n < g.min_select || n > g.max_select) {
+          throw new UnprocessableEntityException(
+            `${p.name}: escolha de ${g.min_select} a ${g.max_select} em "${g.name}"`,
+          );
+        }
+      }
+      // Regra de cobrança de cada grupo (soma, maior valor, média): cada opção guarda o que cobrou.
+      const charged = groups.flatMap((g) => {
+        const mine = chosen.filter((o) => o.group_id === g.group_id);
+        const cents = groupOptionCharges(
+          g.charge,
+          mine.map((o) => toCents(o.price_delta)),
+        );
+        return mine.map((o, i) => ({ ...o, price_delta: fromCents(cents[i]!) }));
+      });
+      const unit = toCents(p.price) + charged.reduce((s, o) => s + toCents(o.price_delta), 0);
+      const total = multiplyCents(unit, it.quantity);
+      subtotal += total;
+      return { p, it, chosen: charged, unit, total };
+    });
+
+    return { lines, subtotal };
+  }
+
+  private async insertLines(
+    tx: Tx,
+    ctx: Ctx,
+    orderId: string,
+    lines: Awaited<ReturnType<OrdersService['priceLines']>>['lines'],
+  ) {
+    const ids: string[] = [];
+    for (const l of lines) {
+      const item = await one<{ id: string }>(
+        tx,
+        `INSERT INTO order_items (tenant_id, order_id, product_id, name, quantity, unit_price, total, notes, sector_id, unit)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+        [
+          ctx.tenantId,
+          orderId,
+          l.p.id,
+          l.p.name,
+          l.it.quantity,
+          fromCents(l.unit),
+          fromCents(l.total),
+          l.it.notes ?? null,
+          l.p.sector_id,
+          l.p.sold_by_weight ? 'kg' : 'un',
+        ],
+      );
+      for (const o of l.chosen) {
+        await q(
+          tx,
+          `INSERT INTO order_item_options (tenant_id, order_item_id, option_id, name, price_delta) VALUES ($1,$2,$3,$4,$5)`,
+          [ctx.tenantId, item!.id, o.id, o.name, o.price_delta],
+        );
+      }
+      ids.push(item!.id);
+    }
+    return ids;
   }
 
   private checkDiscount(ctx: Ctx, discount: number, base: number) {
@@ -1245,6 +1277,262 @@ export class OrdersService {
           name: item.name,
           total: item.total,
           reason,
+          newTotal: fromCents(total),
+        },
+        ip: ctx.ip,
+      });
+      return this.detail(tx, o.id);
+    });
+    this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId });
+    this.realtime.publish(ctx.tenantId, { type: 'kitchen.changed', orderId });
+    if (fx.stock) this.realtime.publish(ctx.tenantId, { type: 'stock.changed' });
+    if (fx.print) this.realtime.publish(ctx.tenantId, { type: 'print.changed' });
+    if (res?.tabId) this.realtime.publish(ctx.tenantId, { type: 'tab.changed', tabId: res.tabId });
+    return res;
+  }
+
+  /**
+   * Edita um pedido já lançado: acrescenta itens, muda quantidade e observação dos itens,
+   * tira itens (cancela) e troca a observação do pedido, tudo numa transação só.
+   *  - Acrescentar, aumentar e mudar observação: `orders:manage`. Tirar e diminuir: `orders:cancel`
+   *    (a mesma regra de cancelar item).
+   *  - Item que a cozinha já começou não muda no lugar: aumentar vira uma linha nova com a
+   *    diferença (a cozinha faz só o que falta); por peso o peso é corrigido no lugar.
+   *  - Estoque acompanha (devolve o que saiu, baixa o que entrou) e a cozinha recebe o aviso.
+   *  - Refaz subtotal, taxa de serviço e total; não deixa o total abaixo do já pago, nem mexe em
+   *    pedido com NFC-e viva ou já encerrado.
+   */
+  async editItems(
+    ctx: Ctx,
+    orderId: string,
+    b: {
+      expectedVersion?: number;
+      add?: OrderItemInput[];
+      change?: { itemId: string; quantity?: number; notes?: string | null }[];
+      remove?: string[];
+      notes?: string | null;
+      reason?: string;
+    },
+  ) {
+    const add = b.add ?? [];
+    const change = b.change ?? [];
+    const remove = [...new Set(b.remove ?? [])];
+    if (!add.length && !change.length && !remove.length && b.notes === undefined)
+      throw new UnprocessableEntityException('Nada para alterar');
+    const fx = { stock: 0, print: 0 };
+    const res = await this.db.withTenant(ctx, async (tx) => {
+      const o = await this.lock(tx, orderId);
+      if (b.expectedVersion !== undefined && b.expectedVersion !== o.version)
+        throw new ConflictException(
+          'O pedido mudou enquanto você editava. Confira e tente de novo.',
+        );
+      if (!['new', 'in_production', 'ready'].includes(o.status))
+        throw new ConflictException(
+          o.status === 'awaiting'
+            ? 'Aceite o pedido antes de editar'
+            : o.status === 'dispatched'
+              ? 'O pedido já saiu para entrega'
+              : 'Este pedido não pode mais ser editado',
+        );
+      await this.assertNoLiveFiscalDocument(tx, o.id, 'editar o pedido');
+      const kitchen = o.status !== 'awaiting';
+      const cur = await q<{
+        id: string;
+        product_id: string;
+        name: string;
+        quantity: string;
+        unit: string;
+        unit_price: string;
+        notes: string | null;
+        status: string;
+        sector_id: string | null;
+      }>(
+        tx,
+        `SELECT id, product_id, name, quantity::text, unit, unit_price::text, notes, status, sector_id
+           FROM order_items WHERE order_id = $1 AND status <> 'cancelled' ORDER BY id FOR UPDATE`,
+        [o.id],
+      );
+      const byId = new Map(cur.map((i) => [i.id, i]));
+      const needCancel = () => {
+        if (!roleHas(ctx.user.role, 'orders:cancel'))
+          throw new ForbiddenException('Tirar ou diminuir item exige autorização do gerente');
+      };
+      const log: Record<string, unknown>[] = [];
+
+      // 1) Tirar itens.
+      for (const id of remove) {
+        const it = byId.get(id);
+        if (!it) throw new NotFoundException('Item não encontrado neste pedido');
+        needCancel();
+        await q(
+          tx,
+          `UPDATE order_items SET status = 'cancelled', cancel_reason = $2, cancelled_by = $3, cancelled_at = now()
+            WHERE id = $1`,
+          [id, b.reason || 'Pedido editado', ctx.userId],
+        );
+        fx.stock += await this.stock.restoreForItem(tx, ctx, o.id, id);
+        if (kitchen && it.status !== 'ready')
+          fx.print += await this.printing.enqueueItemCancel(tx, ctx, o.id, id, b.reason);
+        log.push({ removed: id, name: it.name, quantity: it.quantity });
+      }
+
+      // 2) Quantidade e observação.
+      const newIds: string[] = [];
+      for (const c of change) {
+        if (remove.includes(c.itemId)) continue;
+        const it = byId.get(c.itemId);
+        if (!it) throw new NotFoundException('Item não encontrado neste pedido');
+        const kg = it.unit === 'kg';
+        const from = Number(it.quantity);
+        const to = c.quantity ?? from;
+        if (kg ? !isValidKg(to, WEIGHT_MAX_KG) : !Number.isInteger(to) || to < 1)
+          throw new UnprocessableEntityException(
+            kg
+              ? `${it.name}: informe o peso em kg (ex.: 0,350)`
+              : `${it.name}: quantidade inválida`,
+          );
+        const notes = c.notes === undefined ? it.notes : c.notes?.trim() || null;
+        if (to === from && notes === it.notes) continue;
+        if (to < from) needCancel();
+        const unit = toCents(it.unit_price);
+        const started = it.status !== 'pending';
+        if (!kg && started && to > from) {
+          // A cozinha já pegou o item: a diferença vai como um item novo, com as mesmas opções.
+          const extra = await one<{ id: string }>(
+            tx,
+            `INSERT INTO order_items (tenant_id, order_id, product_id, name, quantity, unit_price, total, notes, sector_id, unit)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'un') RETURNING id`,
+            [
+              ctx.tenantId,
+              o.id,
+              it.product_id,
+              it.name,
+              to - from,
+              it.unit_price,
+              fromCents(multiplyCents(unit, to - from)),
+              notes,
+              it.sector_id,
+            ],
+          );
+          await q(
+            tx,
+            `INSERT INTO order_item_options (tenant_id, order_item_id, option_id, name, price_delta)
+             SELECT tenant_id, $2, option_id, name, price_delta FROM order_item_options WHERE order_item_id = $1`,
+            [it.id, extra!.id],
+          );
+          newIds.push(extra!.id);
+          log.push({ item: it.id, name: it.name, added: to - from });
+          continue;
+        }
+        // No lugar: devolve o que o item baixou e baixa de novo com a quantidade nova.
+        if (to !== from)
+          fx.stock += await this.stock.restoreForItem(tx, ctx, o.id, it.id, 'Item alterado');
+        await q(tx, `UPDATE order_items SET quantity = $2, total = $3, notes = $4 WHERE id = $1`, [
+          it.id,
+          to,
+          fromCents(multiplyCents(unit, to)),
+          notes,
+        ]);
+        if (to !== from) fx.stock += await this.stock.consumeForItems(tx, ctx, o.id, [it.id]);
+        if (kitchen && it.status !== 'ready')
+          fx.print += await this.printing.enqueueItemChange(tx, ctx, o.id, it.id, {
+            kind: 'changed',
+            fromQty: it.quantity,
+            fromNotes: it.notes,
+          });
+        log.push({ item: it.id, name: it.name, from: it.quantity, to, notes });
+      }
+
+      // 3) Itens novos (preço e regras do cardápio do canal, como num pedido novo).
+      if (add.length) {
+        const { lines } = await this.priceLines(tx, o.channel, add, false);
+        const ids = await this.insertLines(tx, ctx, o.id, lines);
+        newIds.push(...ids);
+        for (const l of lines) log.push({ added: l.p.name, quantity: l.it.quantity });
+      }
+      if (newIds.length) {
+        fx.stock += await this.stock.consumeForItems(tx, ctx, o.id, newIds);
+        if (kitchen)
+          for (const id of newIds)
+            fx.print += await this.printing.enqueueItemChange(tx, ctx, o.id, id, { kind: 'added' });
+      }
+
+      // 4) Observação do pedido.
+      if (b.notes !== undefined) {
+        const notes = b.notes?.trim() || null;
+        await q(tx, `UPDATE orders SET notes = $2 WHERE id = $1`, [o.id, notes]);
+        log.push({ orderNotes: notes });
+      }
+
+      // 5) Totais.
+      const left = await one<{ n: number; sum: string }>(
+        tx,
+        `SELECT count(*)::int AS n, COALESCE(sum(total), 0)::text AS sum
+           FROM order_items WHERE order_id = $1 AND status <> 'cancelled'`,
+        [o.id],
+      );
+      if (!left!.n)
+        throw new ConflictException('O pedido ficaria sem itens: para isso, cancele o pedido');
+      const subtotal = toCents(left!.sum);
+      const discount = toCents(o.discount);
+      if (discount > subtotal)
+        throw new ConflictException(
+          'O desconto ficaria maior que o pedido: ajuste o desconto antes de tirar itens',
+        );
+      const tab = o.tab_id
+        ? await one<{ service_fee_percent: string | null }>(
+            tx,
+            `SELECT service_fee_percent::text FROM tabs WHERE id = $1`,
+            [o.tab_id],
+          )
+        : null;
+      const surcharge = tab?.service_fee_percent
+        ? serviceFeeCents(subtotal - discount, tab.service_fee_percent)
+        : toCents(o.surcharge);
+      const total = subtotal - discount + surcharge + toCents(o.delivery_fee);
+      const paid = toCents(o.paid_amount);
+      if (total < paid)
+        throw new ConflictException(
+          'O pedido já tem pagamento acima do novo total: estorne a diferença antes de tirar itens',
+        );
+      await q(
+        tx,
+        `UPDATE orders SET subtotal = $2, surcharge = $3, total = $4, payment_status = $5,
+                version = version + 1 WHERE id = $1`,
+        [
+          o.id,
+          fromCents(subtotal),
+          fromCents(surcharge),
+          fromCents(total),
+          paymentStatusFor(total, paid),
+        ],
+      );
+      const oldTotal = o.total;
+      o.version += 1;
+      o.total = fromCents(total);
+
+      // 6) Status: item novo reabre o pedido pronto; sobrou só item pronto, fica pronto.
+      const open = await one<{ n: number }>(
+        tx,
+        `SELECT count(*)::int AS n FROM order_items WHERE order_id = $1 AND status IN ('pending','preparing')`,
+        [o.id],
+      );
+      if (open!.n && o.status === 'ready') {
+        await this.transitionInTx(tx, ctx, o, 'in_production', 'Itens acrescentados');
+      } else if (!open!.n && (o.status === 'new' || o.status === 'in_production')) {
+        await this.transitionInTx(tx, ctx, o, 'ready', 'Itens restantes prontos');
+      }
+
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'order.edited',
+        entity: 'order',
+        entityId: o.id,
+        data: {
+          changes: log,
+          reason: b.reason ?? null,
+          from: oldTotal,
           newTotal: fromCents(total),
         },
         ip: ctx.ip,
