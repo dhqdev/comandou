@@ -223,6 +223,16 @@ const schema = z.object({
     (v) => (v === '' ? undefined : v),
     z.string().optional(),
   ),
+  /**
+   * Versão desta imagem (tag publicada pelo CI, ex.: v0.110.2; vem do build). Com ela, a
+   * migração deixa de fora os restaurantes que ficaram em outra versão e o painel sabe qual é a
+   * versão principal. Vazio (desenvolvimento): tudo segue junto, como antes.
+   */
+  COMANDOU_VERSION: z.preprocess((v) => {
+    // Valor fora do formato (ex.: "latest") não derruba a API: só fica sem versão.
+    const t = typeof v === 'string' ? v.trim().replace(/^v?/, 'v') : '';
+    return /^v\d+\.\d+\.\d+$/.test(t) ? t : undefined;
+  }, z.string().optional()),
   TRAEFIK_API_SERVICE: z.string().default('comandou-api@swarm'),
   TRAEFIK_WEB_SERVICE: z.string().default('comandou-web@swarm'),
   /**
@@ -270,6 +280,11 @@ const schema = z.object({
   /** Ciclo da cobrança (faturas, vencidas, bloqueio automático). 0 desliga. */
   BILLING_INTERVAL_MINUTES: z.coerce.number().int().min(0).default(30),
   /** Conferência do pagamento pelo app (pendentes, vencidos, lançar no caixa, devolver). 0 desliga. */
+  /**
+   * Atualizações de restaurante agendadas no painel e limpeza das versões antigas que ninguém
+   * usa mais (0 desliga; as cópias de versões antigas rodam com 0).
+   */
+  TENANT_UPDATE_INTERVAL_SECONDS: z.coerce.number().int().min(0).default(60),
   ONLINE_PAY_INTERVAL_SECONDS: z.coerce.number().int().min(0).default(60),
   /** Endereço da API do Asaas (só para testes; o painel escolhe sandbox ou produção). */
   ASAAS_BASE_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),

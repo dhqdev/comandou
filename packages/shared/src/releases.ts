@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.111.0',
+    date: '2026-11-12',
+    title: 'Cada restaurante atualiza na hora que você escolher',
+    summary:
+      'O Super Admin fica sempre na versão mais nova, e cada restaurante continua na versão dele até você clicar em Atualizar agora ou agendar a atualização, na tela do cliente.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Versão do sistema na visão geral do cliente: mostra a versão em que o restaurante está e a mais nova, com "Atualizar agora" e "Agendar" (data e hora). Antes de atualizar é feito um backup do banco dele.',
+      },
+      {
+        tag: 'novo',
+        text: 'Atualizar sistema não leva mais os restaurantes juntos: quem tem banco próprio fica na versão atual, que continua no ar ao lado da nova até o último restaurante ser atualizado.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Infra › Servidor mostra quantos restaurantes estão em cada versão e quantos têm atualização agendada.',
+      },
+      {
+        tag: 'correção',
+        text: 'O número da versão no topo do sistema e no login agora é o mesmo do Super Admin, com a correção (ex.: 0.110.1).',
+      },
+    ],
+  },
+  {
     version: '0.110.1',
     date: '2026-11-12',
     title: 'Busca do cardápio no celular e acompanhamento sem piscar',

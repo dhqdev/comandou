@@ -16,6 +16,7 @@ import { PlatformDatabasesService } from './platform-databases.service';
 import { PlatformDbServersService } from './platform-db-servers.service';
 import { PlatformMigrationsService } from './platform-migrations.service';
 import { PlatformReceiveService } from './platform-receive.service';
+import { PlatformVersionsService } from './platform-versions.service';
 import { ContractSignController, ContractsController } from './contracts/contracts.controller';
 import { ContractsService } from './contracts/contracts.service';
 import { PlatformSitesService } from './platform-sites.service';
@@ -44,6 +45,7 @@ import { CepService } from '../store/cep.service';
     PlatformDbServersService,
     PlatformMigrationsService,
     PlatformReceiveService,
+    PlatformVersionsService,
     ContractsService,
     PlatformSitesService,
     PlatformKitchenService,

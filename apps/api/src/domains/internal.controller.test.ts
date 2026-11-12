@@ -118,3 +118,60 @@ describe('traefikConfig com CrowdSec', () => {
     );
   });
 });
+
+describe('traefikConfig com restaurantes em versão anterior', () => {
+  it('manda o restaurante da versão anterior para a cópia daquela versão, acima de tudo', () => {
+    const env = loadEnv({ ...base, TRAEFIK_TENANT_HOSTS: 'true' });
+    const c = traefikConfig(
+      ['loja.exemplo.com'],
+      env,
+      ['demo', 'nova'],
+      new Map([
+        ['demo.comandou.com', 'v0.108.5'],
+        ['loja.exemplo.com', 'v0.108.5'],
+      ]),
+    );
+    const routers = Object.values(c.http.routers) as {
+      rule: string;
+      service: string;
+      priority: number;
+    }[];
+    const of = (rule: string) => routers.find((r) => r.rule === rule)!;
+    expect(of('Host(`demo.comandou.com`) && PathPrefix(`/api`)')).toMatchObject({
+      service: 'comandou-api-v0-108-5@swarm',
+      priority: 1100,
+    });
+    expect(of('Host(`demo.comandou.com`)')).toMatchObject({
+      service: 'comandou-web-v0-108-5@swarm',
+      priority: 1010,
+    });
+    expect(of('Host(`loja.exemplo.com`)').service).toBe('comandou-web-v0-108-5@swarm');
+    // Quem está na versão principal e o Super Admin seguem no principal.
+    expect(of('Host(`nova.comandou.com`)').service).toBe('comandou-web@swarm');
+    expect(of('Host(`admin.comandou.com`)').service).toBe('comandou-web@swarm');
+  });
+
+  it('certificado coringa: cria roteadores só para os restaurantes da versão anterior', () => {
+    const env = loadEnv({ ...base, TRAEFIK_TENANT_HOSTS: 'false' });
+    const c = traefikConfig([], env, [], new Map([['demo.comandou.com', 'v0.108.5']]));
+    expect(rules(c)).toEqual([
+      'Host(`demo.comandou.com`) && PathPrefix(`/api`)',
+      'Host(`demo.comandou.com`)',
+    ]);
+  });
+
+  it('com CrowdSec, as rotas livres e as de reserva também vão para a cópia', () => {
+    const env = loadEnv({
+      ...base,
+      TRAEFIK_TENANT_HOSTS: 'true',
+      CROWDSEC_BOUNCER: 'true',
+      CROWDSEC_BOUNCER_KEY: 'k'.repeat(32),
+    });
+    const c = traefikConfig([], env, ['demo'], new Map([['demo.comandou.com', 'v0.108.5']]));
+    const demo = Object.values(c.http.routers as Record<string, { rule: string; service: string }>)
+      .filter((r) => r.rule.includes('demo.comandou.com'))
+      .map((r) => r.service);
+    expect(demo.length).toBe(5);
+    expect(demo.every((s) => s.includes('-v0-108-5@swarm'))).toBe(true);
+  });
+});

@@ -173,6 +173,11 @@ export const ServiceName = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,120}$/
 
 export const SystemUpdate = z.object({ version: z.string().regex(/^v\d+\.\d+\.\d+$/) });
 
+/** Atualização agendada de um restaurante (null cancela). */
+export const TenantUpdateSchedule = z.object({
+  at: z.string().datetime({ offset: true }).nullable(),
+});
+
 /** Backup no Backblaze B2 (ou outro S3). applicationKey vazia = manter a salva. */
 export const BackupSettingsBody = z.object({
   enabled: z.boolean(),

@@ -44,6 +44,7 @@ import {
   ServerCleanup,
   ServiceName,
   SystemUpdate,
+  TenantUpdateSchedule,
   StatusChange,
   DeleteTenant,
   DbServerBody,
@@ -73,6 +74,7 @@ import { BillingService } from '../billing/billing.service';
 import { PlatformSitesService } from './platform-sites.service';
 import { PlatformMigrationsService } from './platform-migrations.service';
 import { PlatformReceiveService } from './platform-receive.service';
+import { PlatformVersionsService } from './platform-versions.service';
 import { CHUNK_LIMIT, type Manifest } from '../migration/protocol';
 import { CepService } from '../store/cep.service';
 import {
@@ -190,7 +192,33 @@ export class PlatformController {
     private readonly kitchen: PlatformKitchenService,
     private readonly migrations: PlatformMigrationsService,
     private readonly receiver: PlatformReceiveService,
+    private readonly versions: PlatformVersionsService,
   ) {}
+
+  // ---------------------------------------------------------- versão por restaurante
+  /** Versão do restaurante, a principal e a atualização agendada. */
+  @Get('tenants/:id/version')
+  tenantVersion(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.versions.info(id);
+  }
+
+  /** Atualiza o restaurante agora para a versão principal. */
+  @Post('tenants/:id/version/upgrade')
+  @HttpCode(200)
+  upgradeTenant(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: Request) {
+    return this.versions.upgrade(id, actor(req));
+  }
+
+  /** Agenda a atualização (at = null cancela). */
+  @Post('tenants/:id/version/schedule')
+  @HttpCode(200)
+  scheduleTenant(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(TenantUpdateSchedule)) b: z.infer<typeof TenantUpdateSchedule>,
+    @Req() req: Request,
+  ) {
+    return this.versions.schedule(id, b.at, actor(req));
+  }
 
   // ---------------------------------------------------------- migrar cliente (origem)
   /** Stacks de destino, restaurantes que podem sair e as migrações recentes. */
@@ -593,6 +621,7 @@ export class PlatformServerController {
     private readonly agent: ServerAgentClient,
     private readonly db: PlatformDb,
     private readonly releases: ReleaseFeed,
+    private readonly versions: PlatformVersionsService,
   ) {}
 
   private audit(req: Request, action: string, data: Record<string, unknown>) {
@@ -637,6 +666,12 @@ export class PlatformServerController {
     return r;
   }
 
+  /** Restaurantes por versão e as versões antigas no ar. */
+  @Get('versions')
+  versionsOverview() {
+    return this.versions.overview();
+  }
+
   /** Última versão publicada e andamento da atualização em curso (se houver). */
   @Get('update')
   async updateInfo() {
@@ -657,6 +692,8 @@ export class PlatformServerController {
     @Body(new ZodPipe(SystemUpdate)) b: z.infer<typeof SystemUpdate>,
     @Req() req: Request,
   ) {
+    // Quem não foi atualizado fica na versão atual: a cópia dela sobe antes (versão por cliente).
+    await this.versions.holdBeforeSystemUpdate(b.version, actor(req));
     const r = await this.agent.call<{ job: { steps: { service: string; from: string }[] } }>(
       'POST',
       '/v1/update',

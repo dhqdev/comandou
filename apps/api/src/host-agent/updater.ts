@@ -138,20 +138,24 @@ export class Updater {
     const services = await this.docker.call<Svc[]>('GET', '/services');
     const self = await this.self();
     const rank = (s: Svc) => (s.Spec.Name === self ? 2 : /migrate/i.test(s.Spec.Name) ? 0 : 1);
-    return services
-      .filter((s) => s.Spec.TaskTemplate.ContainerSpec.Image.startsWith(this.prefix))
-      .sort((a, b) => rank(a) - rank(b) || a.Spec.Name.localeCompare(b.Spec.Name))
-      .map((s): UpdateStep => {
-        const { repo, tag } = split(s.Spec.TaskTemplate.ContainerSpec.Image);
-        return {
-          service: s.Spec.Name,
-          from: tag,
-          to: version,
-          image: `${repo}:${version}`,
-          status: tag === version ? 'skipped' : 'pending',
-          message: tag === version ? 'já está nesta versão' : undefined,
-        };
-      });
+    return (
+      services
+        // Cópias de versões antigas (versions.ts) ficam na versão delas.
+        .filter((s) => !s.Spec.Labels?.['comandou.pinned-version'])
+        .filter((s) => s.Spec.TaskTemplate.ContainerSpec.Image.startsWith(this.prefix))
+        .sort((a, b) => rank(a) - rank(b) || a.Spec.Name.localeCompare(b.Spec.Name))
+        .map((s): UpdateStep => {
+          const { repo, tag } = split(s.Spec.TaskTemplate.ContainerSpec.Image);
+          return {
+            service: s.Spec.Name,
+            from: tag,
+            to: version,
+            image: `${repo}:${version}`,
+            status: tag === version ? 'skipped' : 'pending',
+            message: tag === version ? 'já está nesta versão' : undefined,
+          };
+        })
+    );
   }
 
   async start(version: string): Promise<UpdateJob> {

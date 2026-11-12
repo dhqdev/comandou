@@ -70,6 +70,19 @@ export function agentServer(agent: HostAgent, token: string): Server {
           }
         }
       }
+      // Versões antigas lado a lado (versions.ts): listar, garantir no ar e tirar do ar.
+      if (path === '/v1/versions' && req.method === 'GET')
+        return send(res, 200, { versions: await agent.versions.list() });
+      const vm = /^\/v1\/versions\/(v\d+\.\d+\.\d+)$/.exec(path);
+      if (vm) {
+        try {
+          if (req.method === 'POST')
+            return send(res, 200, { version: await agent.versions.ensure(vm[1]!) });
+          if (req.method === 'DELETE') return send(res, 200, await agent.versions.remove(vm[1]!));
+        } catch (e) {
+          return send(res, 400, { message: (e as Error).message });
+        }
+      }
       const m = /^\/v1\/services\/([^/]+)\/(restart|logs)$/.exec(path);
       if (m) {
         const name = decodeURIComponent(m[1]!);

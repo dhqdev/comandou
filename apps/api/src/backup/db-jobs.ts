@@ -27,7 +27,7 @@ export interface DbJob {
   tenant_id: string;
   tenant_slug: string;
   tenant_name: string;
-  kind: 'create' | 'move' | 'delete' | 'transfer' | 'migrate' | 'receive';
+  kind: 'create' | 'move' | 'delete' | 'transfer' | 'migrate' | 'receive' | 'upgrade';
   payload: Record<string, unknown>;
 }
 
@@ -771,6 +771,47 @@ export async function inspectServer(ownerUrl: string, server: DbServer | null) {
   }
 }
 
+// ------------------------------------------------------------------------------- atualizar
+/**
+ * Atualiza um restaurante para a versão do sistema principal: backup antes (se configurado),
+ * migrações desta imagem só no banco dele e a versão nova gravada. O provider do Traefik passa a
+ * mandar o restaurante para os serviços principais na próxima leitura (alguns segundos).
+ */
+async function runUpgrade(ctx: DbJobContext, job: DbJob) {
+  const p = job.payload as { version?: string };
+  const version = p.version ?? '';
+  if (!/^v\d+\.\d+\.\d+$/.test(version)) throw new Error('Versão de destino inválida');
+  const reg = await registry(ctx, job.tenant_id);
+  if (!reg || reg.status !== 'ready')
+    throw new Error('Só restaurantes com banco próprio pronto podem ser atualizados separados');
+  await step(ctx, job, 'Conferindo as migrações desta versão');
+  await checkMigrationsUpToDate(ctx);
+  const url = databaseUrl(ctx.ownerUrl, reg.db_name, reg.server);
+  let safety: Record<string, unknown> = {};
+  if (ctx.backup) {
+    await step(ctx, job, 'Fazendo um backup antes de atualizar');
+    const bctx = ctx.backup();
+    const t = { database: reg.db_name, tenantId: job.tenant_id, slug: job.tenant_slug };
+    const b = await backupDatabase(
+      { ...bctx, trigger: 'painel' },
+      { ...t, url },
+      backupKey(bctx.prefix, t, new Date()),
+      { beforeUpgrade: true, jobId: job.id },
+    );
+    safety = { backupKey: b.key };
+  }
+  await step(ctx, job, `Aplicando as migrações da ${version}`);
+  await migrate(url, ctx.migrationsDir, (m) => ctx.log(`banco ${job.tenant_slug}: ${m}`));
+  await step(ctx, job, `Passando o restaurante para a ${version}`);
+  const { rows } = await ctx.pool.query<{ from: string | null }>(
+    `UPDATE tenants t SET app_version = $2, app_update_to = NULL, app_update_at = NULL
+       FROM (SELECT app_version FROM tenants WHERE id = $1) old
+      WHERE t.id = $1 RETURNING old.app_version AS "from"`,
+    [job.tenant_id, version],
+  );
+  await finishJob(ctx, job, { ...safety, from: rows[0]?.from ?? null, to: version });
+}
+
 /** Executa um trabalho já reservado e registra o resultado. Nunca lança. */
 export async function runDbJob(ctx: DbJobContext, job: DbJob): Promise<'done' | 'failed'> {
   try {
@@ -779,6 +820,7 @@ export async function runDbJob(ctx: DbJobContext, job: DbJob): Promise<'done' | 
     else if (job.kind === 'transfer') await runTransfer(ctx, job);
     else if (job.kind === 'migrate') await runMigrate(ctx, job);
     else if (job.kind === 'receive') await runReceive(ctx, job);
+    else if (job.kind === 'upgrade') await runUpgrade(ctx, job);
     else await runDelete(ctx, job);
     ctx.log(`banco ${job.tenant_slug}: ${job.kind} concluído`);
     return 'done';

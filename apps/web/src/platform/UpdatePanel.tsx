@@ -53,6 +53,52 @@ function Steps({ steps }: { steps: UpdateStep[] }) {
   );
 }
 
+interface VersionsOverview {
+  main: string | null;
+  enabled: boolean;
+  versions: {
+    version: string;
+    tenants: number;
+    scheduled: number;
+    main: boolean;
+    running: boolean;
+  }[];
+}
+
+/** Restaurantes em cada versão (versão por cliente). Cada um é atualizado na tela dele. */
+function TenantVersions() {
+  const { data } = useLoad<VersionsOverview>('/platform/server/versions');
+  if (!data?.versions?.length) return null;
+  return (
+    <div className="adm-panel">
+      <div className="adm-panel__head">Restaurantes por versão</div>
+      <div className="adm-rows">
+        {data.versions.map((v) => (
+          <div key={v.version} className="adm-row">
+            <Dot level={v.main ? 'ok' : v.running ? 'warn' : 'bad'} />
+            <span className="adm-row__main">
+              <span className="adm-row__title">
+                {v.version} {v.main && <Tag level="ok">mais nova</Tag>}
+              </span>
+              <span className="adm-row__meta">
+                {v.main
+                  ? 'no sistema principal, com o Super Admin'
+                  : v.running
+                    ? 'versão anterior no ar; atualize cada restaurante em Clientes'
+                    : 'versão anterior sem a cópia no ar: esses restaurantes estão no principal'}
+                {v.scheduled ? ` · ${v.scheduled} agendado(s)` : ''}
+              </span>
+            </span>
+            <span className="adm-row__side">
+              {v.tenants} restaurante{v.tenants === 1 ? '' : 's'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** Versão instalada x última publicada, com o botão que atualiza todos os serviços do Comandou. */
 export function UpdatePanel({
   services,
@@ -141,6 +187,7 @@ export function UpdatePanel({
           }
         />
       </div>
+      <TenantVersions />
       {job && (
         <div className="adm-panel">
           <div className="adm-panel__head">
@@ -210,8 +257,10 @@ export function UpdatePanel({
             &quot;Atualizar&quot;, carregando a versão nova direto do servidor.
           </li>
           <li>
-            Os restaurantes podem ficar alguns segundos instáveis, sobretudo se a API tiver uma
-            réplica só.
+            Os restaurantes com banco próprio <strong>continuam na versão em que estão</strong>: a
+            versão atual fica no ar ao lado da nova, e cada restaurante muda quando você clicar em
+            &quot;Atualizar agora&quot; ou na hora agendada, na tela dele em Clientes. Quem ainda
+            está no banco central acompanha o sistema.
           </li>
           <li>
             Se a migração falhar, nada mais é tocado. Se um serviço não subir, o Swarm volta sozinho

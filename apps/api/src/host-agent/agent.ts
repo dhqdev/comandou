@@ -1,6 +1,7 @@
 import { hostname as osHostname } from 'node:os';
 import { DockerClient, demuxLogs } from './docker';
 import { Updater } from './updater';
+import { PinnedVersions } from './versions';
 import { cpuCount, CpuTimes, cpuPercent, HostReader, parseCpu } from './proc';
 
 export interface Sample {
@@ -66,6 +67,7 @@ const shortImage = (img: string) => img.replace(/@sha256:[a-f0-9]+$/, '');
 export class HostAgent {
   readonly history: Sample[] = [];
   readonly updater: Updater;
+  readonly versions: PinnedVersions;
   private last?: { cpu: CpuTimes; rx: number; tx: number; at: number };
   private containerMem = new Map<string, number>();
   private stackName: Promise<string | null> | null = null;
@@ -81,6 +83,7 @@ export class HostAgent {
     readonly stack: string | null = process.env.AGENT_STACK || null,
   ) {
     this.updater = new Updater(docker, { cleanup: () => this.cleanupAfterUpdate() });
+    this.versions = new PinnedVersions(docker);
   }
 
   /** Nome da nossa stack: AGENT_STACK ou o rótulo do contêiner onde o agente roda. */

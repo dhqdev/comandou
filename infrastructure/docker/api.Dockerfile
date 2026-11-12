@@ -19,6 +19,10 @@ RUN pnpm --filter @comandou/shared build && pnpm --filter @comandou/api build \
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
+# Versão publicada pelo CI (tag, ex.: v0.110.2): a migração e o painel usam para separar os
+# restaurantes que ficaram em outra versão (docs/versao-por-cliente.md).
+ARG COMANDOU_VERSION=
+ENV COMANDOU_VERSION=$COMANDOU_VERSION
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./
 USER node

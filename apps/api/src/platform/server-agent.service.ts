@@ -15,7 +15,12 @@ export class ServerAgentClient {
     return !!(this.env.HOST_AGENT_URL && this.env.HOST_AGENT_TOKEN);
   }
 
-  async call<T>(method: 'GET' | 'POST', path: string, body?: unknown, timeoutMs = 30_000) {
+  async call<T>(
+    method: 'GET' | 'POST' | 'DELETE',
+    path: string,
+    body?: unknown,
+    timeoutMs = 30_000,
+  ) {
     if (!this.enabled) throw new ServiceUnavailableException('Agente do servidor não instalado');
     let res: Response;
     try {

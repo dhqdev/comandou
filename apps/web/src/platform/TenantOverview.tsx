@@ -20,6 +20,7 @@ import type { FiscalOverview } from './FiscalPage';
 import { useLoad } from './OverviewPages';
 import { CONTRACT_STATUS } from './TenantContracts';
 import { DB_STATUS } from './TenantDatabase';
+import { TenantVersionCard } from './TenantVersion';
 import type { ContractRow, Plan, TeamMember, TenantDetail } from './types';
 import { ago, bytes, daysUntil, Dot, Level, levelFor, Meter, Tag } from './ui';
 
@@ -355,6 +356,8 @@ export function TenantOverview({
           </dd>
         </dl>
       </Card>
+
+      <TenantVersionCard tenantId={t.id} />
 
       <Card icon={<Users size={16} />} title="Equipe e acesso" onClick={() => go('team')}>
         <span className="adm-card__big">
