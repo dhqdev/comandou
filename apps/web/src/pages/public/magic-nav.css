@@ -7,7 +7,9 @@
   z-index: 40;
   left: 0;
   right: 0;
-  bottom: 0;
+  /* --cm-fixgap: desce o menu quando o Safari do iOS 26 o deixa acima do fim da tela
+     (viewport.ts). Normalmente é 0. */
+  bottom: calc(-1 * var(--cm-fixgap, 0px));
   padding-bottom: var(--sf-safe, 0px);
   border-top: 1px solid var(--cm-border);
   background: var(--cm-surface);

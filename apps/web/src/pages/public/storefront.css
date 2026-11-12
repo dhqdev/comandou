@@ -830,7 +830,7 @@
   z-index: 39;
   left: 50%;
   /* Logo acima do menu de baixo (60px + o risco do iPhone). */
-  bottom: calc(var(--sf-tabbar) + var(--sf-safe) + 10px);
+  bottom: calc(var(--sf-tabbar) + var(--sf-safe) + 10px - var(--cm-fixgap, 0px));
   width: min(calc(100% - 32px), 480px);
   display: flex;
   align-items: center;
