@@ -289,6 +289,92 @@ export function LoyaltyArt({ live = false, className = '' }: ArtProps) {
   );
 }
 
+/**
+ * Calendário com o dia marcado e o relógio ao lado (Reserva de mesa). `live`: a folha do topo
+ * vira, o visto do dia se desenha e o ponteiro dá a volta, em ciclo.
+ */
+export function ReserveArt({ live = false, className = '' }: ArtProps) {
+  return (
+    <svg
+      className={`art art--reserve ${className}`}
+      data-live={live || undefined}
+      viewBox="0 0 260 170"
+      aria-hidden
+      focusable="false"
+    >
+      <ellipse className="art-shadow" cx="130" cy="157" rx="104" ry="7" />
+      {/* calendário */}
+      <rect className="art-ink art-white" x="30" y="40" width="136" height="110" rx="12" />
+      <path
+        className="art-ink art-brand"
+        d="M30 52 A12 12 0 0 1 42 40 H154 A12 12 0 0 1 166 52 V70 H30 Z"
+      />
+      <path
+        className="art-ink art-brand-dark art-rsv-page"
+        d="M30 52 A12 12 0 0 1 42 40 H154 A12 12 0 0 1 166 52 V70 H30 Z"
+      />
+      <rect className="art-ink art-brand-dark" x="60" y="28" width="9" height="24" rx="4.5" />
+      <rect className="art-ink art-brand-dark" x="127" y="28" width="9" height="24" rx="4.5" />
+      <g className="art-rsv-days">
+        <circle cx="52" cy="88" r="5" />
+        <circle cx="76" cy="88" r="5" />
+        <circle cx="144" cy="88" r="5" />
+        <circle cx="52" cy="128" r="5" />
+        <circle cx="144" cy="128" r="5" />
+      </g>
+      <circle className="art-ink art-brand art-rsv-day" cx="110" cy="110" r="22" />
+      <path className="art-seal-check art-rsv-check" d="M99 110 l8 8 l14 -15" />
+      {/* relógio */}
+      <g className="art-rsv-clock">
+        <circle className="art-ink art-kraft" cx="206" cy="112" r="32" />
+        <circle className="art-ink art-white" cx="206" cy="112" r="24" />
+        <path className="art-ink art-none" d="M206 112 V96" />
+        <path className="art-ink art-none art-rsv-hand" d="M206 112 H220" />
+        <circle className="art-knob" cx="206" cy="112" r="3.5" />
+      </g>
+    </svg>
+  );
+}
+
+/**
+ * Bandeja com a cúpula e a plaquinha da mesa (pedido na mesa pelo QR Code). `live`: a cúpula
+ * levanta de leve e solta o vapor, em ciclo.
+ */
+export function WaiterArt({ live = false, className = '' }: ArtProps) {
+  return (
+    <svg
+      className={`art art--waiter ${className}`}
+      data-live={live || undefined}
+      viewBox="0 0 260 170"
+      aria-hidden
+      focusable="false"
+    >
+      <ellipse className="art-shadow" cx="130" cy="157" rx="104" ry="7" />
+      {/* plaquinha da mesa */}
+      <path className="art-ink art-wood" d="M196 150 H236 L230 140 H202 Z" />
+      <rect className="art-ink art-brand" x="200" y="88" width="32" height="52" rx="5" />
+      <path className="art-paper-line art-paper-line--white" d="M208 102 H224 M208 112 H220" />
+      <circle className="art-ink art-white" cx="216" cy="126" r="6" strokeWidth="2" />
+      {/* bandeja e cúpula */}
+      <path className="art-ink art-kraft" d="M24 132 H184 L176 144 H32 Z" />
+      <g className="art-steam art-waiter-steam">
+        <path d="M86 74 C80 66 92 60 86 50" />
+        <path d="M104 70 C98 62 110 56 104 46" />
+        <path d="M122 74 C116 66 128 60 122 50" />
+      </g>
+      <ellipse className="art-ink art-white" cx="104" cy="130" rx="62" ry="6" />
+      <g className="art-cloche">
+        <path
+          className="art-ink art-brand"
+          d="M46 130 C46 96 72 76 104 76 C136 76 162 96 162 130 Z"
+        />
+        <path className="art-shine" d="M62 116 C64 102 74 92 86 88" />
+        <rect className="art-ink art-brand-dark" x="96" y="64" width="16" height="12" rx="5" />
+      </g>
+    </svg>
+  );
+}
+
 /** Ilustração do jeito que a loja entrega: motoboy (entrega) ou lojinha (só retirada). */
 export function DeliveryArt({
   delivery,

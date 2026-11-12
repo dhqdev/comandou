@@ -1,6 +1,6 @@
 import { Spinner } from '../../design-system';
 import { fromCents } from '@comandou/shared';
-import { Check, ChevronRight, Gift } from 'lucide-react';
+import { Check, Gift } from 'lucide-react';
 import { Link } from 'react-router';
 import { brl } from '../../lib/money';
 import { LoyaltyArt } from './art';
@@ -39,34 +39,33 @@ const rewardHint = (r: LoyaltyReward) =>
     ? `Desconto de ${brl(r.amount!)} no pedido`
     : `${r.productName ?? 'Produto'} grátis (vale ${brl(r.amount ?? '0')})`;
 
-/** Faixa discreta no início do cardápio: saldo e a próxima recompensa. */
+/**
+ * Bloco da fidelidade no início do cardápio: o desenho da cartela e duas linhas curtas (o saldo,
+ * quando o cliente tem conta, e o que falta para a próxima recompensa).
+ */
 export function LoyaltyStrip() {
   const l = useLoyalty();
-  const { account } = useStore();
   if (!l || !l.rewards.length) return null;
   const acc = l.account;
   const unit = (n: number) => loyaltyUnit(l, n);
   let text: string;
-  if (!acc) text = account?.customer ? loyaltyRule(l) : `${loyaltyRule(l)}. Entre para participar`;
+  if (!acc) text = l.mode === 'stamps' ? 'Junte carimbos' : 'Ganhe pontos';
   else {
     const goal = nextGoal(l, acc.balance);
     const ready = l.rewards.some((r) => r.cost <= acc.balance);
     text = ready
-      ? 'Você já pode trocar uma recompensa'
+      ? 'Troque uma recompensa'
       : goal
-        ? `Faltam ${int(goal.cost - acc.balance)} ${unit(goal.cost - acc.balance)} para ${goal.name}`
-        : loyaltyRule(l);
+        ? `Faltam ${int(goal.cost - acc.balance)} para ${goal.name}`
+        : 'Ganhe a cada pedido';
   }
   return (
-    <Link className="loy-strip" to="/pedir/fidelidade">
-      <LoyaltyArt live className="loy-strip__art" />
-      <span className="loy-strip__text">
-        <strong>
-          {acc ? `${int(acc.balance)} ${unit(acc.balance)}` : 'Programa de fidelidade'}
-        </strong>
+    <Link className="sf-tile loy-tile" to="/pedir/fidelidade">
+      <LoyaltyArt live className="sf-tile__art" />
+      <span className="sf-tile__text">
+        <strong>{acc ? `${int(acc.balance)} ${unit(acc.balance)}` : 'Fidelidade'}</strong>
         <small>{text}</small>
       </span>
-      <ChevronRight size={18} aria-hidden />
     </Link>
   );
 }

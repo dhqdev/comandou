@@ -20,6 +20,7 @@ import {
   CSSProperties,
   useCallback,
   useEffect,
+  RefObject,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -28,7 +29,16 @@ import {
 import { Link, useNavigate, useNavigationType } from 'react-router';
 import { Button, Mascot, Modal } from '../../design-system';
 import { brl } from '../../lib/money';
-import { ClosedArt, CookingArt, DeliveryArt, FavoritesArt, SearchArt } from './art';
+import {
+  ClosedArt,
+  CookingArt,
+  DeliveryArt,
+  FavoritesArt,
+  MotoboyArt,
+  PickupArt,
+  SearchArt,
+  WaiterArt,
+} from './art';
 import { useStore } from './context';
 import { reducedMotion, setMorph } from './morph';
 import {
@@ -82,7 +92,7 @@ function useQuickAdd() {
 }
 
 /** Cartão do produto (grade de duas colunas): foto, coração, selo, nome, preço e "+". */
-function ProductCard({ p, i = 0 }: { p: PublicProduct; i?: number }) {
+function ProductCard({ p, i = 0, rank }: { p: PublicProduct; i?: number; rank?: number }) {
   const { favs, toggleFav } = useStore();
   const open = useOpenProduct();
   const quick = useQuickAdd();
@@ -108,6 +118,11 @@ function ProductCard({ p, i = 0 }: { p: PublicProduct; i?: number }) {
         />
         {(p.soldOut || p.badge) && (
           <span className="pcard__badge">{p.soldOut ? 'Esgotado' : p.badge}</span>
+        )}
+        {rank && (
+          <span className="pcard__rank" aria-hidden>
+            {rank}
+          </span>
         )}
       </div>
       <div className="pcard__body">
@@ -138,11 +153,12 @@ function ProductCard({ p, i = 0 }: { p: PublicProduct; i?: number }) {
   );
 }
 
-function ProductGrid({ list }: { list: PublicProduct[] }) {
+/** Grade de produtos; `ranked` vira a fileira de lado com 1, 2, 3 nas fotos (Mais pedidos). */
+function ProductGrid({ list, ranked = false }: { list: PublicProduct[]; ranked?: boolean }) {
   return (
-    <div className="pgrid">
+    <div className={ranked ? 'pgrid pgrid--rail' : 'pgrid'}>
       {list.map((p, i) => (
-        <ProductCard key={p.id} p={p} i={i} />
+        <ProductCard key={p.id} p={p} i={i} rank={ranked ? i + 1 : undefined} />
       ))}
     </div>
   );
@@ -241,6 +257,9 @@ function StoreInfo({ open, onClose }: { open: boolean; onClose(): void }) {
         <span className={`status ${s.isOpen ? 'is-open' : 'is-closed'}`}>
           {s.isOpen ? 'Aberto agora' : 'Fechado agora'}
         </span>
+        {menu.appearance.headline && (
+          <p className="sf-info__about sf-info__headline">{menu.appearance.headline}</p>
+        )}
         {r.about && <p className="sf-info__about">{r.about}</p>}
         <ul className="sf-info__list">
           {table && (
@@ -376,7 +395,9 @@ function FilterSheet({
 
 /**
  * Capa da loja com a logo, o nome e uma linha só com o essencial (aberto, tempo e entrega ou a
- * mesa). No celular, conta e sacola ficam sobre a foto.
+ * mesa). No celular, conta e sacola ficam sobre a foto, a logo e o nome vão para o meio e só a
+ * situação fica embaixo: o tempo e a entrega estão no bloco da moto (RideTile). Tocar no nome
+ * abre as informações da loja.
  */
 function StoreHeader({ onInfo }: { onInfo(): void }) {
   const { menu, account, count, table } = useStore();
@@ -412,7 +433,12 @@ function StoreHeader({ onInfo }: { onInfo(): void }) {
       <div className="sf-head">
         <Photo src={r.logoUrl} alt={r.name} className="sf-head__logo" eager />
         <div className="sf-head__text">
-          <h1>{r.name}</h1>
+          <h1>
+            <button type="button" className="sf-head__name" onClick={onInfo}>
+              {r.name}
+              <ChevronRight size={18} aria-hidden className="sf-head__more" />
+            </button>
+          </h1>
           {/* Os ícones separam os itens: quebrou a linha, não sobra ponto solto no fim. */}
           <span className="sf-head__meta">
             <StoreStatusLine />
@@ -444,6 +470,79 @@ function StoreHeader({ onInfo }: { onInfo(): void }) {
         </button>
       </div>
     </section>
+  );
+}
+
+/**
+ * Bloco do jeito que o pedido chega, com o desenho no lugar do texto: o motoboy andando com o
+ * tempo grande (entrega), a lojinha (só retirada) ou a bandeja (mesa do QR Code). No celular fica
+ * logo abaixo da capa; no tablet e no notebook, ao lado da fidelidade e da reserva. Tocar abre as
+ * informações da loja (horário, taxa, endereço).
+ */
+function RideTile({ onInfo }: { onInfo(): void }) {
+  const { menu, table } = useStore();
+  const s = menu.store;
+  if (!s.isOpen || (!table && !s.acceptsDelivery && !s.acceptsPickup)) return null;
+  const moto = !table && s.acceptsDelivery;
+  const title = table ? `Mesa ${table.label}` : `${s.etaMin}–${s.etaMax} min`;
+  const sub = table
+    ? table.selfPickup
+      ? 'Você busca no balcão'
+      : 'Vai direto para a mesa'
+    : moto
+      ? deliveryFeeText(s)
+      : 'Retire no balcão';
+  return (
+    <button
+      type="button"
+      className="sf-tile sf-tile--ride"
+      onClick={onInfo}
+      aria-label={`${title}, ${sub}. Mais informações da loja`}
+    >
+      {table ? (
+        <WaiterArt live className="sf-tile__art" />
+      ) : moto ? (
+        <MotoboyArt ride className="sf-tile__art" />
+      ) : (
+        <PickupArt live className="sf-tile__art" />
+      )}
+      <span className="sf-tile__text">
+        <strong>{title}</strong>
+        <small>{sub}</small>
+      </span>
+      {moto && <i className="sf-road" aria-hidden />}
+    </button>
+  );
+}
+
+/**
+ * Categorias com foto (celular), logo abaixo da busca: tocar leva o cardápio até a categoria.
+ * Quando passam por baixo da busca, as categorias em texto aparecem presas nela.
+ */
+function CategoryBubbles({
+  sections,
+  box,
+}: {
+  sections: Section[];
+  box: RefObject<HTMLElement | null>;
+}) {
+  const cur = useActiveSection() ?? sections[0]?.id;
+  return (
+    <nav className="cbubbles" aria-label="Categorias" ref={box}>
+      {sections.map((c, i) => (
+        <button
+          key={c.id}
+          type="button"
+          className="cbubble"
+          style={{ '--i': Math.min(i, 8) } as CSSProperties}
+          aria-current={c.id === cur}
+          onClick={() => requestJump(c.id)}
+        >
+          <Photo src={sectionPhoto(c)} alt="" className="cbubble__photo" eager={i < 5} />
+          <span>{c.name}</span>
+        </button>
+      ))}
+    </nav>
   );
 }
 
@@ -579,13 +678,15 @@ function useScrollSpy(ids: string[], on: boolean) {
 }
 
 /**
- * A busca gruda no topo (ganha fundo e linha) e, no celular, as categorias aparecem presas embaixo
- * dela quando o carrossel sai da tela. Medido na rolagem, um quadro por vez: a busca tem a mesma
+ * A busca gruda no topo (ganha fundo e linha) e, no celular, as categorias em texto aparecem
+ * presas embaixo dela quando as categorias com foto passam por baixo (`past`). Medido na rolagem, um quadro por vez: a busca tem a mesma
  * altura grudada ou não, então o cardápio não dá pulo ao passar por ela.
  */
 function useStickySearch(term: string) {
   const bar = useRef<HTMLDivElement>(null);
+  const under = useRef<HTMLElement>(null);
   const [stuck, setStuck] = useState(false);
+  const [past, setPast] = useState(false);
   useEffect(() => {
     let frame = 0;
     const measure = () => {
@@ -593,7 +694,11 @@ function useStickySearch(term: string) {
       const b = bar.current;
       if (!b) return;
       const r = b.getBoundingClientRect();
-      setStuck(r.top <= (parseFloat(getComputedStyle(b).top) || 0) + 0.5);
+      const on = r.top <= (parseFloat(getComputedStyle(b).top) || 0) + 0.5;
+      setStuck(on);
+      // As categorias com foto já passaram por baixo da busca: hora das categorias em texto.
+      const u = under.current;
+      setPast(on && (!u || u.getBoundingClientRect().bottom <= r.bottom + 4));
     };
     const on = () => {
       if (!frame) frame = requestAnimationFrame(measure);
@@ -607,7 +712,7 @@ function useStickySearch(term: string) {
       window.removeEventListener('resize', on);
     };
   }, [term]);
-  return { bar, stuck };
+  return { bar, under, stuck, past };
 }
 
 /**
@@ -668,7 +773,7 @@ export function HomeScreen() {
   const recent = useMemo(recentOrders, []);
   const r = menu.restaurant;
   const term = search.trim().toLowerCase();
-  const { bar, stuck } = useStickySearch(term);
+  const { bar, under, stuck, past } = useStickySearch(term);
 
   const all = useMemo(() => menu.categories.flatMap((c) => c.products), [menu]);
   const wheel = useMemo(() => buildSections(menu), [menu]);
@@ -722,6 +827,11 @@ export function HomeScreen() {
     <>
       <div className="sf-hero">
         <StoreHeader onInfo={() => setSheet('info')} />
+        {phone && (
+          <div className="sf-wrap sf-ridewrap">
+            <RideTile onInfo={() => setSheet('info')} />
+          </div>
+        )}
         {!menu.store.isOpen && (
           <div className="sf-wrap sf-intro">
             <ClosedCard onInfo={() => setSheet('info')} />
@@ -733,13 +843,14 @@ export function HomeScreen() {
         ref={bar}
         data-stuck={stuck || undefined}
         data-chips={chips || undefined}
+        data-chips-on={(chips && past) || undefined}
       >
         <div className="sf-wrap searchbar__row">
           <label className="searchbox">
             <Search size={18} aria-hidden />
             <input
               type="search"
-              placeholder={`Buscar em ${r.name}…`}
+              placeholder={phone ? 'Buscar' : `Buscar em ${r.name}…`}
               aria-label="Buscar no cardápio"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -760,8 +871,9 @@ export function HomeScreen() {
             <SlidersHorizontal size={19} />
           </button>
         </div>
-        {chips && <CategoryChips sections={wheel} show />}
+        {chips && <CategoryChips sections={wheel} show={past} />}
       </div>
+      {chips && <CategoryBubbles sections={wheel} box={under} />}
 
       <div className="sf-wrap sf-body">
         {term ? (
@@ -793,6 +905,7 @@ export function HomeScreen() {
                   <ChevronRight size={16} />
                 </Link>
               )}
+              {!phone && <RideTile onInfo={() => setSheet('info')} />}
               <LoyaltyStrip />
               {/* Quem já está sentado na mesa não precisa reservar. */}
               {!table && <ReserveCard />}
@@ -817,7 +930,7 @@ export function HomeScreen() {
                       {c.name}
                     </h2>
                     {c.products.length ? (
-                      <ProductGrid list={c.products} />
+                      <ProductGrid list={c.products} ranked={c.id === '__popular'} />
                     ) : (
                       <p className="sf-empty">Nada disponível agora.</p>
                     )}

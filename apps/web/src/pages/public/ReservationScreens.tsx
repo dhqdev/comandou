@@ -1,8 +1,9 @@
-import { CalendarCheck, CalendarDays, ChevronRight, Clock, UserRound, Users } from 'lucide-react';
+import { CalendarDays, Clock, UserRound, Users } from 'lucide-react';
 import { CSSProperties, FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { Mascot, useToast } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
+import { ReserveArt } from './art';
 import { useStore } from './context';
 import { maskPhone, newOrderToken } from './store';
 import { Field, ScreenHeader, Stepper } from './ui';
@@ -132,35 +133,21 @@ export function ReserveCard() {
   const cfg = useReservationConfig();
   const next = useMemo(upcomingReservation, []);
   if (!cfg?.enabled) return null;
-  if (next)
-    return (
-      <Link className="ongoing rsv-ongoing" to={`/pedir/reserva/${next.token}`}>
-        <CalendarCheck size={18} aria-hidden />
-        Sua reserva{' '}
-        {new Date(next.startsAt).toLocaleDateString('pt-BR', {
-          day: '2-digit',
-          month: '2-digit',
-          timeZone: cfg.timeZone,
-        })}{' '}
-        às{' '}
-        {new Date(next.startsAt).toLocaleTimeString('pt-BR', {
-          hour: '2-digit',
-          minute: '2-digit',
-          timeZone: cfg.timeZone,
-        })}
-        <ChevronRight size={16} />
-      </Link>
-    );
+  const opts = { timeZone: cfg.timeZone } as const;
   return (
-    <Link className="rsv-card" to="/pedir/reservar">
-      <span className="rsv-card__icon">
-        <CalendarDays size={18} aria-hidden />
+    <Link
+      className="sf-tile rsv-tile"
+      to={next ? `/pedir/reserva/${next.token}` : '/pedir/reservar'}
+    >
+      <ReserveArt live className="sf-tile__art" />
+      <span className="sf-tile__text">
+        <strong>{next ? 'Sua reserva' : 'Reservar mesa'}</strong>
+        <small>
+          {next
+            ? `${new Date(next.startsAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', ...opts })} às ${new Date(next.startsAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', ...opts })}`
+            : 'Em poucos toques'}
+        </small>
       </span>
-      <span className="rsv-card__text">
-        <strong>Reserve sua mesa</strong>
-        <small>Escolha o dia e o horário em poucos toques</small>
-      </span>
-      <ChevronRight size={18} aria-hidden />
     </Link>
   );
 }
@@ -282,11 +269,9 @@ export function ReserveScreen() {
       <div className="sf-wrap sf-page">
         <ScreenHeader title="Reservar mesa" />
         <div className="empty-state">
-          <span className="empty-state__icon" aria-hidden>
-            <CalendarDays size={28} />
-          </span>
+          <ReserveArt live className="empty-state__art" />
           <strong>Entre para reservar</strong>
-          <p>A reserva fica na sua conta: você acompanha e cancela por aqui.</p>
+          <p>Você acompanha e cancela a reserva por aqui.</p>
           <Link className="cta cta--inline" to="/pedir/conta">
             Entrar ou criar conta
           </Link>
@@ -298,10 +283,13 @@ export function ReserveScreen() {
   return (
     <div className="sf-wrap sf-page sf-page--bar rsv">
       <ScreenHeader title="Reservar mesa" />
-      <p className="rsv-lead">
-        Reserve em <strong>{menu.restaurant.name}</strong>. Horários de {cfg.opensAt} às{' '}
-        {cfg.closesAt}.
-      </p>
+      <div className="rsv-hero">
+        <ReserveArt live className="rsv-hero__art" />
+        <p className="rsv-lead">
+          <strong>{menu.restaurant.name}</strong>
+          Das {cfg.opensAt} às {cfg.closesAt}
+        </p>
+      </div>
 
       <section className="rsv-sec">
         <h2>

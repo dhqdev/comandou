@@ -315,6 +315,38 @@
   outline: none;
   box-shadow: var(--cm-focus);
 }
+/* Celular: as categorias em texto ficam por cima do cardápio, logo abaixo da busca, e só aparecem
+   quando as categorias com foto passam por baixo dela. Fora do fluxo: a página não dá pulo. */
+.searchbar[data-chips] .cchips {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0 16px 10px;
+  background: var(--sf-page);
+  box-shadow: 0 1px 0 var(--cm-border);
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  visibility: hidden;
+  transition:
+    opacity 0.16s var(--sf-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    visibility 0s 0.16s;
+}
+.searchbar[data-chips-on] .cchips {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  visibility: visible;
+  transition:
+    opacity 0.16s var(--sf-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.searchbar[data-chips-on][data-stuck] {
+  box-shadow: none;
+}
 .searchbar__row {
   display: flex;
   align-items: center;
@@ -395,6 +427,8 @@
   color: var(--cm-text);
 }
 /* Botão de filtro redondo, na cor da loja; um ponto avisa quando há filtro ligado. */
+/* Filtro neutro, como a busca: a cor da loja fica para o que importa (o + e a sacola). Com
+   filtro ligado, ganha a cor e a bolinha. */
 .filterbtn {
   position: relative;
   width: 46px;
@@ -402,21 +436,27 @@
   flex: none;
   display: grid;
   place-items: center;
-  border: 0;
+  border: 1px solid var(--cm-border);
   border-radius: 50%;
-  background: var(--cm-brand-600);
-  color: var(--cm-on-brand);
+  background: var(--cm-surface);
+  color: var(--cm-text);
   cursor: pointer;
   transition:
     transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
-    background var(--cm-dur);
+    background var(--cm-dur),
+    border-color var(--cm-dur);
 }
 .filterbtn:hover {
-  background: var(--cm-brand-700);
+  border-color: var(--cm-border-strong);
 }
 .filterbtn:active {
   transform: scale(0.92);
   transition-duration: 80ms;
+}
+.filterbtn[data-on] {
+  border-color: transparent;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
 }
 .filterbtn[data-on]::after {
   content: '';
@@ -555,10 +595,8 @@
   border-radius: var(--cm-radius-full);
   background: var(--cm-accent-400);
   color: var(--cm-on-accent);
-  font-size: var(--cm-text-2xs);
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-size: var(--cm-text-xs);
+  font-weight: 700;
 }
 .banner strong {
   font-size: clamp(1.05rem, 4.4vw, 1.5rem);
@@ -590,18 +628,59 @@
   gap: 5px;
   margin-top: 10px;
 }
+/* Barrinhas como nos stories: a do banner na tela enche até ele trocar (a cada 5 s). */
 .banners__dots span {
-  width: 6px;
-  height: 6px;
+  position: relative;
+  width: 22px;
+  height: 3px;
+  overflow: hidden;
   border-radius: var(--cm-radius-full);
   background: var(--cm-border-strong);
-  transition:
-    width var(--cm-dur-slow) var(--cm-ease-liquid),
-    background var(--cm-dur);
 }
-.banners__dots span[data-on] {
-  width: 18px;
+.banners__dots span::after {
+  content: '';
+  position: absolute;
+  inset: 0;
   background: var(--cm-brand-500);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.banners__dots span[data-on]::after {
+  animation: sf-fill 5s linear forwards;
+}
+@keyframes sf-fill {
+  to {
+    transform: scaleX(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .banners__dots span[data-on]::after {
+    animation: none;
+    transform: none;
+  }
+}
+/* Celular: banner só com a etiqueta e o título; o resto fica na foto e no toque. */
+.sf[data-layout='phone'] .banner {
+  align-items: flex-end;
+  aspect-ratio: 16 / 8;
+}
+.sf[data-layout='phone'] .banner[data-img]::before {
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--sf-shade) 82%, transparent) 0%,
+    color-mix(in srgb, var(--sf-shade) 30%, transparent) 55%,
+    transparent 100%
+  );
+}
+.sf[data-layout='phone'] .banner__text {
+  max-width: 100%;
+}
+.sf[data-layout='phone'] .banner strong {
+  font-size: var(--cm-text-xl);
+}
+.sf[data-layout='phone'] .banner__sub,
+.sf[data-layout='phone'] .banner__cta {
+  display: none;
 }
 
 /* ---------------------------------------------------------------- seções e grade de produtos */
@@ -723,6 +802,46 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+/* Posição nos mais pedidos: número grande no canto da foto. */
+.pcard__rank {
+  position: absolute;
+  left: 10px;
+  bottom: 2px;
+  color: #fff;
+  font-size: 2.6rem;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 14px rgb(0 0 0 / 0.55);
+  pointer-events: none;
+}
+/* Mais pedidos: fileira de lado, um cartão e meio à vista para o dedo saber que rola. */
+.sf[data-layout] .pgrid.pgrid--rail {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: 44%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 16px;
+  scrollbar-width: none;
+  margin-inline: -16px;
+  padding: 0 16px 2px;
+}
+.sf[data-layout] .pgrid.pgrid--rail::-webkit-scrollbar {
+  display: none;
+}
+.pgrid--rail > .pcard {
+  scroll-snap-align: start;
+}
+.sf[data-layout='tablet'] .pgrid.pgrid--rail,
+.sf[data-layout='desktop'] .pgrid.pgrid--rail {
+  grid-auto-columns: 196px;
+  margin-inline: 0;
+  padding-inline: 0;
+  scroll-padding-inline: 0;
 }
 .pcard[data-soldout] .pcard__badge {
   background: var(--cm-text);
@@ -1589,6 +1708,14 @@
   margin: 0 0 4px;
   font-size: var(--cm-text-md);
   font-weight: 800;
+}
+/* Entrega e mesa: o desenho animado no canto do título (a moto andando, a bandeja chegando). */
+.ck-card__title .ck-card__art {
+  flex: none;
+  width: 76px;
+  height: auto;
+  margin: -14px -6px -12px auto;
+  color: inherit;
 }
 .ck-card__title svg {
   color: var(--cm-brand-500);

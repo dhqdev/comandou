@@ -178,6 +178,292 @@
   transform: scale(0.92);
 }
 
+/* O nome é um botão (abre as informações da loja), com cara de título. */
+.sf-head__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  border-radius: var(--cm-radius-sm);
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.sf-head__name:active {
+  transform: scale(0.97);
+  transition-duration: 80ms;
+}
+.sf-head__name:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.sf-head__more {
+  display: none;
+  flex: none;
+  color: var(--cm-text-subtle);
+}
+
+/* Celular: logo e nome no meio, só a situação embaixo (o tempo e a entrega estão na moto). */
+.sf[data-layout='phone'] .sf-cover {
+  height: 200px;
+}
+.sf[data-layout='phone'] .sf-cover::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 64px;
+  background: linear-gradient(to top, var(--sf-page), transparent);
+  pointer-events: none;
+}
+.sf[data-layout='phone'] .sf-head {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-top: 0;
+  text-align: center;
+}
+.sf[data-layout='phone'] .sf-head__logo {
+  width: 92px;
+  margin-top: -58px;
+  animation: sf-logo-in var(--cm-spring-dur) var(--cm-spring) both;
+}
+.sf[data-layout='phone'] .sf-head__text {
+  justify-items: center;
+  gap: 4px;
+}
+.sf[data-layout='phone'] .sf-head h1 {
+  font-size: var(--cm-text-2xl);
+}
+.sf[data-layout='phone'] .sf-head__more {
+  display: block;
+}
+.sf[data-layout='phone'] .sf-head__meta {
+  justify-content: center;
+}
+/* Com o bloco da moto (ou da mesa) na tela, o tempo e a entrega saem da capa (em todas as telas). */
+.sf-home:has(.sf-tile--ride) .sf-head__eta,
+.sf[data-layout='phone'] .sf-head__line,
+.sf[data-layout='phone'] .sf-head__info {
+  display: none;
+}
+/* A bolinha de "Aberto agora" pulsa de leve. */
+.sf-head__meta .status.is-open::before {
+  animation: sf-ping 2.4s ease-out infinite;
+}
+@keyframes sf-logo-in {
+  from {
+    transform: scale(0.82);
+    opacity: 0;
+  }
+}
+@keyframes sf-ping {
+  0%,
+  60%,
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+  30% {
+    transform: scale(1.45);
+    opacity: 0.7;
+  }
+}
+
+/* ================================================================ blocos com desenho */
+/* Moto (entrega), fidelidade e reserva: o desenho animado fala, o texto é só o número e uma
+   linha. Superfície com linha fina, como os cartões de produto. */
+.sf-ridewrap {
+  margin-top: 16px;
+}
+.sf-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 14px 14px;
+  overflow: hidden;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  isolation: isolate;
+  animation: sf-rise 0.2s var(--sf-ease) both;
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    border-color var(--cm-dur);
+}
+.sf-tile:active {
+  transform: scale(0.97);
+  transition-duration: 80ms;
+}
+.sf-tile:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+@media (hover: hover) {
+  .sf-tile:hover {
+    border-color: var(--cm-border-strong);
+  }
+}
+.sf-tile .sf-tile__art {
+  width: auto;
+  height: 74px;
+  margin: 0 0 4px -8px;
+}
+.sf-tile__text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+  max-width: 100%;
+}
+.sf-tile__text strong {
+  font-size: var(--cm-text-md);
+  font-weight: 750;
+  letter-spacing: var(--cm-tracking-tight);
+  font-variant-numeric: tabular-nums;
+}
+.sf-tile__text small {
+  overflow: hidden;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Moto: tom leve da loja e a estrada passando embaixo. */
+.sf-tile--ride {
+  background: color-mix(in srgb, var(--cm-brand-500) 8%, var(--cm-surface));
+  border-color: color-mix(in srgb, var(--cm-brand-500) 18%, var(--cm-border));
+}
+.sf-tile--ride .sf-tile__text strong {
+  font-size: var(--cm-text-xl);
+  font-weight: 800;
+}
+.sf-road {
+  position: absolute;
+  left: 0;
+  bottom: 6px;
+  z-index: -1;
+  width: calc(100% + 28px);
+  height: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--cm-brand-500) 30%, transparent) 0 16px,
+    transparent 16px 28px
+  );
+  animation: sf-road 0.7s linear infinite;
+}
+@keyframes sf-road {
+  to {
+    transform: translateX(-28px);
+  }
+}
+/* Celular: a moto deitada, de ponta a ponta, com o tempo grande ao lado. */
+.sf[data-layout='phone'] .sf-tile--ride {
+  width: 100%;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px 8px 10px;
+}
+.sf[data-layout='phone'] .sf-tile--ride .sf-tile__art {
+  height: 80px;
+  margin: 0;
+}
+.sf[data-layout='phone'] .sf-tile--ride .sf-tile__text strong {
+  font-size: var(--cm-text-2xl);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sf-road,
+  .sf-head__meta .status.is-open::before,
+  .sf[data-layout='phone'] .sf-head__logo {
+    animation: none;
+  }
+}
+
+/* ================================================================ categorias com foto (celular) */
+.cbubbles {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 4px 16px 2px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+.cbubbles::-webkit-scrollbar {
+  display: none;
+}
+.cbubble {
+  flex: none;
+  width: 74px;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  font-weight: 650;
+  cursor: pointer;
+  animation: sf-bubble-in var(--cm-spring-dur) var(--cm-spring) both;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+.cbubble span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cbubble__photo {
+  width: 66px;
+  border-radius: 50%;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    outline-color var(--cm-dur);
+}
+.cbubble[aria-current='true'] {
+  color: var(--cm-text);
+}
+.cbubble[aria-current='true'] .cbubble__photo {
+  outline-color: var(--cm-brand-500);
+}
+.cbubble:active .cbubble__photo {
+  transform: scale(0.92);
+  transition-duration: 80ms;
+}
+.cbubble:focus-visible {
+  outline: none;
+}
+.cbubble:focus-visible .cbubble__photo {
+  box-shadow: var(--cm-focus);
+}
+@keyframes sf-bubble-in {
+  from {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cbubble {
+    animation: none;
+  }
+}
+
 /* ================================================================ cartão da entrega (motoboy) */
 .sf-intro {
   display: grid;
@@ -321,31 +607,30 @@
   }
 }
 
-/* Fidelidade e reserva: cartões baixos, lado a lado quando cabe. */
+/* Moto (tablet e notebook), fidelidade e reserva lado a lado; um bloco só vira uma faixa. */
 .sf-perks {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
   margin-top: 14px;
 }
 .sf-perks:empty {
   display: none;
 }
-.sf-perks > .loy-strip,
-.sf-perks > .rsv-card,
 .sf-perks > .ongoing {
+  grid-column: 1 / -1;
   margin: 0;
   border-radius: var(--sf-card-r);
 }
-.sf-perks .rsv-card {
-  padding: 12px 14px;
+.sf-perks:not(:has(.sf-tile + .sf-tile)) .sf-tile {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px 6px 8px;
 }
-.sf-perks .rsv-card__text small {
-  font-size: var(--cm-text-xs);
-}
-@media (min-width: 560px) {
-  .sf-perks:has(> :nth-child(2)) {
-    grid-template-columns: 1fr 1fr;
-  }
+.sf-perks:not(:has(.sf-tile + .sf-tile)) .sf-tile__art {
+  height: 60px;
+  margin: 0;
 }
 
 /* Banner do celular cresce com o texto (título e frase cabem inteiros). */
@@ -1163,8 +1448,28 @@
   height: 168px;
   padding: 22px 28px;
 }
+/* Notebook: os blocos deitados (desenho à esquerda), em uma linha só. */
 .sf[data-layout='desktop'] .sf-perks {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.sf[data-layout='desktop'] .sf-tile {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px 8px 8px;
+}
+.sf[data-layout='desktop'] .sf-tile__art {
+  height: 64px;
+  margin: 0;
+}
+/* Tablet: três blocos em pé, com o desenho maior. */
+.sf[data-layout='tablet'] .sf-perks {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.sf[data-layout='tablet'] .sf-tile__art {
+  height: 84px;
 }
 .sf[data-layout='desktop'] .store-foot {
   margin-top: 36px;
