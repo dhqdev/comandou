@@ -59,19 +59,44 @@ export function parsePrice(v: unknown): string | null {
   return n.toFixed(2);
 }
 
-/** Limpa o que o modelo devolveu: só o formato esperado, com limites de tamanho. */
-export function normalizeImport(raw: string): ImportedCategory[] {
+/**
+ * Lê o JSON do modelo. Cardápio grande pode estourar o limite de resposta e o JSON chega cortado
+ * no meio de um item: nesse caso aproveita tudo o que veio inteiro até ali (`partial`).
+ */
+export function parseImportJson(raw: string): { json: unknown; partial: boolean } | null {
   const start = raw.indexOf('{');
+  if (start < 0) return null;
   const end = raw.lastIndexOf('}');
-  if (start < 0 || end <= start) return [];
-  let j: unknown;
-  try {
-    j = JSON.parse(raw.slice(start, end + 1));
-  } catch {
-    return [];
+  if (end > start) {
+    try {
+      return { json: JSON.parse(raw.slice(start, end + 1)), partial: false };
+    } catch {
+      // segue para o conserto abaixo
+    }
   }
-  const cats = (j as { categories?: unknown }).categories;
-  if (!Array.isArray(cats)) return [];
+  // Volta de "}" em "}" (fim de um item ou de uma categoria) e fecha o que ficou aberto.
+  let cut = raw.length;
+  for (let tries = 0; tries < 400; tries++) {
+    cut = raw.lastIndexOf('}', cut - 1);
+    if (cut <= start) return null;
+    const head = raw.slice(start, cut + 1);
+    for (const tail of [']}]}', ']}']) {
+      try {
+        return { json: JSON.parse(head + tail), partial: true };
+      } catch {
+        // tenta o próximo
+      }
+    }
+  }
+  return null;
+}
+
+/** Limpa o que o modelo devolveu: só o formato esperado, com limites de tamanho. */
+export function readImport(raw: string): { categories: ImportedCategory[]; partial: boolean } {
+  const parsed = parseImportJson(raw);
+  if (!parsed) return { categories: [], partial: false };
+  const cats = (parsed.json as { categories?: unknown } | null)?.categories;
+  if (!Array.isArray(cats)) return { categories: [], partial: false };
   const out: ImportedCategory[] = [];
   let total = 0;
   for (const c of cats) {
@@ -94,7 +119,7 @@ export function normalizeImport(raw: string): ImportedCategory[] {
     if (same) same.items.push(...items);
     else out.push({ name, items });
   }
-  return out;
+  return { categories: out, partial: parsed.partial || total >= MAX_ITEMS };
 }
 
 /**
@@ -185,7 +210,7 @@ export class MenuImportService {
             content: [{ type: 'text', text: 'Leia este cardápio e devolva o JSON.' }, attachment],
           },
         ],
-        { json: true, maxTokens: 8000 },
+        { json: true, maxTokens: 16_000 },
       );
     } catch (e) {
       this.logger.warn(`importação do cardápio falhou: ${(e as Error).message}`);
@@ -198,9 +223,11 @@ export class MenuImportService {
     const used = await this.db.withCentral(ctx, (tx) =>
       recordAiUsage(tx, { userId: ctx.userId, model, usage: result.usage, source: 'menu_import' }),
     );
-    const categories = normalizeImport(result.text);
+    const { categories, partial } = readImport(result.text);
     return {
       categories,
+      /** O cardápio era grande demais para uma leitura só: veio até onde deu. */
+      partial,
       items: categories.reduce((n, cat) => n + cat.items.length, 0),
       tokens: result.usage.promptTokens + result.usage.completionTokens,
       usage: {

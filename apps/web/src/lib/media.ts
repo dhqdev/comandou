@@ -18,6 +18,8 @@ function toBlob(canvas: HTMLCanvasElement, type: string, quality: number) {
 /** Foto pronta para subir: reduzida no navegador (lado maior até 1600 px, WebP ou JPEG). */
 export async function shrinkImage(
   file: File,
+  /** Lado maior em px. A leitura do cardápio pede mais para a letra miúda continuar legível. */
+  maxSide = MAX_SIDE,
 ): Promise<{ blob: Blob; width: number; height: number }> {
   if (!file.type.startsWith('image/')) throw new Error('Escolha um arquivo de imagem');
   if (file.size > MAX_INPUT_BYTES) throw new Error('Imagem muito grande (máximo 25 MB)');
@@ -27,7 +29,7 @@ export async function shrinkImage(
   } catch {
     throw new Error('Não foi possível ler esta imagem. Tente uma foto JPG, PNG ou WebP.');
   }
-  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
   const w = Math.max(1, Math.round(bitmap.width * scale));
   const h = Math.max(1, Math.round(bitmap.height * scale));
   const canvas = document.createElement('canvas');

@@ -245,3 +245,12 @@
   font-size: var(--cm-text-sm);
   color: var(--cm-text-muted);
 }
+.mi-row__dup {
+  justify-self: start;
+  margin-top: 2px;
+  padding: 0 6px;
+  border-radius: var(--cm-radius-xs);
+  background: var(--cm-surface-muted);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}

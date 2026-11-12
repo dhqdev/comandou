@@ -4,6 +4,7 @@ import { Alert, Button, Spinner } from '../../design-system';
 import {
   analyzeMenuFile,
   draftPrice,
+  existingNames,
   importStatus,
   readyDrafts,
   saveDrafts,
@@ -11,6 +12,7 @@ import {
   WHY_OFF,
   type DraftItem,
   type ImportStatus,
+  type SaveResult,
 } from './menu-import';
 import './menu-import.css';
 
@@ -26,7 +28,7 @@ type Stage =
   | { at: 'reading'; fileName: string }
   | { at: 'review' }
   | { at: 'saving'; done: number; total: number }
-  | { at: 'done'; created: number; failed: { name: string; message: string }[] };
+  | ({ at: 'done' } & SaveResult);
 
 const PICKS: { kind: Kind; icon: typeof Camera; title: string; hint: string; accept: string }[] = [
   {
@@ -60,6 +62,7 @@ export function MenuImport({
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
   const inputs = useRef<Partial<Record<Kind, HTMLInputElement | null>>>({});
 
@@ -71,23 +74,30 @@ export function MenuImport({
 
   const groups = useMemo(() => {
     const map = new Map<string, DraftItem[]>();
-    for (const d of drafts) map.set(d.category, [...(map.get(d.category) ?? []), d]);
-    return [...map.entries()];
+    for (const d of drafts) map.set(d.group, [...(map.get(d.group) ?? []), d]);
+    return [...map.values()];
   }, [drafts]);
   const ready = readyDrafts(drafts).length;
 
   const read = async (kind: Kind, file: File | undefined) => {
     if (!file) return;
     setError(null);
+    setNotice(null);
     setStage({ at: 'reading', fileName: file.name });
     try {
-      const list = toDrafts(await analyzeMenuFile(file));
+      const [res, inMenu] = await Promise.all([analyzeMenuFile(file), existingNames()]);
+      const list = toDrafts(res.categories, drafts, inMenu);
       if (list.length === 0) {
         setError('Não encontrei itens neste arquivo. Tente uma foto mais nítida e de perto.');
         setStage({ at: drafts.length ? 'review' : 'pick' });
         return;
       }
-      setPhoto(kind === 'dish' ? file : null);
+      if (res.partial)
+        setNotice(
+          'O cardápio é grande e li só até onde deu. Confira o fim da lista e mande o resto em "Outra página" (uma foto por página).',
+        );
+      // A foto do prato só vira foto do item quando ele é o único da conferência.
+      setPhoto(kind === 'dish' && drafts.length === 0 ? file : null);
       setDrafts((cur) => [...cur, ...list]);
       setStage({ at: 'review' });
     } catch (e) {
@@ -98,8 +108,8 @@ export function MenuImport({
 
   const patch = (key: string, p: Partial<DraftItem>) =>
     setDrafts((cur) => cur.map((d) => (d.key === key ? { ...d, ...p } : d)));
-  const renameCategory = (from: string, to: string) =>
-    setDrafts((cur) => cur.map((d) => (d.category === from ? { ...d, category: to } : d)));
+  const renameCategory = (group: string, to: string) =>
+    setDrafts((cur) => cur.map((d) => (d.group === group ? { ...d, category: to } : d)));
 
   const save = async () => {
     setError(null);
@@ -110,6 +120,10 @@ export function MenuImport({
       );
       setTotal((n) => n + r.created);
       if (r.created > 0) onSaved?.(r.created);
+      // O que entrou sai da conferência; o que falhou fica para tentar de novo.
+      const saved = new Set(r.savedKeys);
+      setDrafts((cur) => cur.filter((d) => !saved.has(d.key)));
+      if (r.created > 0) setPhoto(null);
       setStage({ at: 'done', ...r });
     } catch (e) {
       setError((e as Error).message);
@@ -121,8 +135,11 @@ export function MenuImport({
     setDrafts([]);
     setPhoto(null);
     setError(null);
+    setNotice(null);
     setStage({ at: 'pick' });
   };
+  // Depois de salvar, o que sobrou marcado na conferência é o que falhou ou ficou para trás.
+  const left = stage.at === 'done' ? ready : 0;
 
   if (!status) return <Spinner inline label="Carregando" />;
   if (!status.enabled && status.reason)
@@ -166,6 +183,7 @@ export function MenuImport({
   return (
     <div className="mi">
       {error && <Alert tone="danger">{error}</Alert>}
+      {notice && stage.at === 'review' && <Alert tone="warning">{notice}</Alert>}
 
       {stage.at === 'pick' && pickers}
 
@@ -184,16 +202,18 @@ export function MenuImport({
           <p className="mi-lead">
             Confira o que eu li. Corrija o que precisar e desmarque o que não quer cadastrar.
             {drafts.some((d) => !d.price) && ' Item sem preço só entra depois que você digitar.'}
+            {drafts.some((d) => d.dup) &&
+              ' Item que já está no cardápio vem desmarcado para não ficar repetido.'}
           </p>
           <div className="mi-list">
-            {groups.map(([cat, items]) => (
-              <section key={items[0]!.key} className="mi-group">
+            {groups.map((items) => (
+              <section key={items[0]!.group} className="mi-group">
                 <input
                   className="mi-group__name"
                   aria-label="Categoria"
-                  value={cat}
+                  value={items[0]!.category}
                   maxLength={60}
-                  onChange={(e) => renameCategory(cat, e.target.value)}
+                  onChange={(e) => renameCategory(items[0]!.group, e.target.value)}
                 />
                 {items.map((d) => (
                   <div key={d.key} className="mi-row" data-off={!d.on || undefined}>
@@ -219,6 +239,11 @@ export function MenuImport({
                         maxLength={500}
                         onChange={(e) => patch(d.key, { description: e.target.value })}
                       />
+                      {d.dup && (
+                        <span className="mi-row__dup">
+                          {d.dup === 'menu' ? 'Já está no cardápio' : 'Repetido nesta importação'}
+                        </span>
+                      )}
                     </div>
                     <label className="mi-row__price">
                       <span aria-hidden>R$</span>
@@ -280,9 +305,10 @@ export function MenuImport({
         <>
           <Alert tone={stage.created > 0 ? 'info' : 'warning'}>
             {stage.created > 0
-              ? `${stage.created} ${stage.created === 1 ? 'item entrou' : 'itens entraram'} no cardápio.`
+              ? `${stage.created} ${stage.created === 1 ? 'item entrou' : 'itens entraram'} no cardápio, no PDV e na loja online.`
               : 'Nenhum item foi salvo.'}
           </Alert>
+          {stage.stopped && <Alert tone="danger">Parei antes do fim: {stage.stopped}</Alert>}
           {stage.failed.length > 0 && (
             <ul className="mi-failed">
               {stage.failed.map((f, i) => (
@@ -296,6 +322,16 @@ export function MenuImport({
             <Button variant="secondary" size="sm" icon={<Images size={14} />} onClick={again}>
               Importar mais
             </Button>
+            {left > 0 && (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<RotateCcw size={14} />}
+                onClick={() => setStage({ at: 'review' })}
+              >
+                {left === 1 ? 'Voltar ao item que faltou' : `Voltar aos ${left} que faltaram`}
+              </Button>
+            )}
             {onFinish && <Button onClick={() => onFinish(total)}>Concluir</Button>}
           </div>
         </>

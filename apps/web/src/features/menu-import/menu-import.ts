@@ -1,4 +1,4 @@
-import { api, ApiError, type Category } from '../../lib/api';
+import { api, ApiError, type Category, type Product } from '../../lib/api';
 import { shrinkImage, uploadImage } from '../../lib/media';
 
 /** Importar o cardápio com IA: status, leitura do arquivo e gravação dos itens conferidos. */
@@ -20,12 +20,16 @@ export interface ImportedCategory {
 /** Linha da conferência: o que a IA leu, editável, com a caixinha de "salvar este". */
 export interface DraftItem {
   key: string;
+  /** Grupo da categoria na conferência: renomear não mistura grupos, mesmo com nome igual no meio da digitação. */
+  group: string;
   category: string;
   name: string;
   description: string;
   /** Preço como a pessoa digita ("24,90"). */
   price: string;
   on: boolean;
+  /** Já existe um item com este nome no cardápio (ou numa página lida antes): vem desmarcado. */
+  dup?: 'menu' | 'import';
 }
 
 export const importStatus = () => api<ImportStatus>('/menu-import');
@@ -36,18 +40,28 @@ export const WHY_OFF: Record<NonNullable<ImportStatus['reason']>, string> = {
   limit: 'O limite de uso da IA neste mês acabou. Fale com o suporte do Comandou.',
 };
 
-const MAX_PDF = 3 * 1024 * 1024;
+const MAX_BYTES = 3 * 1024 * 1024;
+/** Cardápio tem letra miúda: a foto vai maior que a foto de item (1600 px). */
+const READ_SIDE = 2400;
+
+export interface AnalyzeResult {
+  categories: ImportedCategory[];
+  /** Cardápio grande demais para uma leitura só: veio até onde deu. */
+  partial: boolean;
+}
 
 /** Manda a foto (reduzida aqui mesmo) ou o PDF para a IA ler. */
-export async function analyzeMenuFile(file: File): Promise<ImportedCategory[]> {
+export async function analyzeMenuFile(file: File): Promise<AnalyzeResult> {
   const pdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
   let body: Blob = file;
   let type = 'application/pdf';
   if (pdf) {
-    if (file.size > MAX_PDF)
+    if (file.size > MAX_BYTES)
       throw new Error('O PDF tem mais de 3 MB. Mande as páginas como fotos ou um PDF menor.');
   } else {
-    const img = await shrinkImage(file);
+    let img = await shrinkImage(file, READ_SIDE);
+    // Foto muito detalhada pode passar de 3 MB mesmo reduzida: tenta de novo no tamanho padrão.
+    if (img.blob.size > MAX_BYTES) img = await shrinkImage(file);
     body = img.blob;
     type = img.blob.type;
   }
@@ -63,26 +77,76 @@ export async function analyzeMenuFile(file: File): Promise<ImportedCategory[]> {
     throw new ApiError(0, 'Sem conexão com o servidor');
   }
   const json = (await res.json().catch(() => undefined)) as
-    { categories?: ImportedCategory[]; message?: string } | undefined;
-  if (!res.ok) throw new ApiError(res.status, json?.message ?? `Erro ${res.status}`);
-  return json?.categories ?? [];
+    { categories?: ImportedCategory[]; partial?: boolean; message?: string } | undefined;
+  if (!res.ok) {
+    const msg =
+      res.status === 413
+        ? 'Arquivo grande demais. Mande um PDF menor ou fotos das páginas.'
+        : (json?.message ?? `Erro ${res.status}`);
+    throw new ApiError(res.status, msg);
+  }
+  return { categories: json?.categories ?? [], partial: !!json?.partial };
+}
+
+/** Nome para comparar: sem acento, caixa ou espaço extra ("X-Búrguer " = "x-burguer"). */
+export const nameKey = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+/** Nomes dos itens que já estão no cardápio, para não cadastrar de novo. */
+export async function existingNames(): Promise<Set<string>> {
+  try {
+    const list = await api<Pick<Product, 'name'>[]>('/products');
+    return new Set(list.map((p) => nameKey(p.name)));
+  } catch {
+    return new Set(); // sem a lista, a conferência segue sem o aviso de repetido
+  }
 }
 
 let seq = 0;
 const brPrice = (p: string | null) => (p ? p.replace('.', ',') : '');
 
-export function toDrafts(cats: ImportedCategory[]): DraftItem[] {
-  return cats.flatMap((c) =>
-    c.items.map((i) => ({
-      key: `d${++seq}`,
-      category: c.name,
-      name: i.name,
-      description: i.description ?? '',
-      price: brPrice(i.price),
-      // Sem preço no cardápio: a pessoa digita o preço para o item entrar.
-      on: !!i.price,
-    })),
-  );
+/**
+ * Itens lidos viram linhas da conferência. Categoria com o mesmo nome de uma já na conferência
+ * (outra página do mesmo cardápio) entra no mesmo grupo. Item repetido vem desmarcado.
+ */
+export function toDrafts(
+  cats: ImportedCategory[],
+  current: DraftItem[] = [],
+  inMenu: Set<string> = new Set(),
+): DraftItem[] {
+  const groups = new Map(current.map((d) => [nameKey(d.category), d.group]));
+  const seen = new Set(current.map((d) => nameKey(d.name)));
+  const out: DraftItem[] = [];
+  for (const c of cats) {
+    const gk = nameKey(c.name);
+    let group = groups.get(gk);
+    if (!group) {
+      group = `g${++seq}`;
+      groups.set(gk, group);
+    }
+    for (const i of c.items) {
+      const k = nameKey(i.name);
+      const dup = inMenu.has(k) ? 'menu' : seen.has(k) ? 'import' : undefined;
+      seen.add(k);
+      out.push({
+        key: `d${++seq}`,
+        group,
+        category: c.name,
+        name: i.name,
+        description: i.description ?? '',
+        price: brPrice(i.price),
+        // Sem preço no cardápio: a pessoa digita o preço para o item entrar. Repetido: desmarcado.
+        on: !!i.price && !dup,
+        ...(dup ? { dup } : {}),
+      });
+    }
+  }
+  return out;
 }
 
 /** "24,90" → "24.90"; vazio ou inválido → null. */
@@ -99,6 +163,19 @@ export function draftPrice(v: string): string | null {
 export const readyDrafts = (list: DraftItem[]) =>
   list.filter((d) => d.on && d.name.trim() && draftPrice(d.price) !== null);
 
+export interface SaveResult {
+  created: number;
+  failed: { key: string; name: string; message: string }[];
+  /** Parou antes do fim (limite do plano, sem permissão, sem conexão): o motivo. */
+  stopped: string | null;
+  /** Linhas que entraram no cardápio, para sair da conferência. */
+  savedKeys: string[];
+}
+
+/** Erros que se repetiriam em todos os itens seguintes: para de tentar. */
+const stopsAll = (e: unknown) =>
+  e instanceof ApiError && (e.status === 0 || e.status === 401 || e.status === 403);
+
 /**
  * Grava os itens marcados pelo cadastro normal do cardápio (mesmas regras e limites do plano).
  * Categoria com o mesmo nome é aproveitada. `photo` vira a foto do item quando veio um prato só.
@@ -107,10 +184,10 @@ export async function saveDrafts(
   list: DraftItem[],
   photo: File | null,
   onProgress?: (done: number, total: number) => void,
-): Promise<{ created: number; failed: { name: string; message: string }[] }> {
+): Promise<SaveResult> {
   const ready = readyDrafts(list);
   const existing = await api<Category[]>('/categories');
-  const byName = new Map(existing.map((c) => [c.name.trim().toLowerCase(), c.id]));
+  const byName = new Map(existing.map((c) => [nameKey(c.name), c.id]));
   let imageId: string | null = null;
   if (photo && ready.length === 1) {
     try {
@@ -119,16 +196,17 @@ export async function saveDrafts(
       imageId = null; // a foto é um extra: sem ela, o item entra do mesmo jeito
     }
   }
-  let created = 0;
-  const failed: { name: string; message: string }[] = [];
+  const failed: SaveResult['failed'] = [];
+  const savedKeys: string[] = [];
+  let stopped: string | null = null;
   for (const d of ready) {
     try {
       const catName = d.category.trim() || 'Cardápio';
-      let categoryId = byName.get(catName.toLowerCase());
+      let categoryId = byName.get(nameKey(catName));
       if (!categoryId) {
         const c = await api<Category>('/categories', { method: 'POST', json: { name: catName } });
         categoryId = c.id;
-        byName.set(catName.toLowerCase(), c.id);
+        byName.set(nameKey(catName), c.id);
       }
       await api('/products', {
         method: 'POST',
@@ -140,11 +218,15 @@ export async function saveDrafts(
           ...(imageId ? { imageId } : {}),
         },
       });
-      created++;
+      savedKeys.push(d.key);
     } catch (e) {
-      failed.push({ name: d.name, message: (e as Error).message });
+      if (stopsAll(e)) {
+        stopped = (e as Error).message;
+        break;
+      }
+      failed.push({ key: d.key, name: d.name, message: (e as Error).message });
     }
-    onProgress?.(created + failed.length, ready.length);
+    onProgress?.(savedKeys.length + failed.length, ready.length);
   }
-  return { created, failed };
+  return { created: savedKeys.length, failed, stopped, savedKeys };
 }
