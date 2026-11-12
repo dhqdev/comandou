@@ -308,14 +308,6 @@
   width: min(240px, 80%);
   margin: -6px 0 2px;
 }
-.track__badge[data-live] {
-  animation: breathe 2.4s ease-in-out infinite;
-}
-@keyframes breathe {
-  50% {
-    box-shadow: 0 0 0 14px color-mix(in srgb, var(--tone, var(--cm-brand-600)) 8%, transparent);
-  }
-}
 .track__hero h1 {
   margin: 0;
   font-size: var(--cm-text-xl);
@@ -372,12 +364,6 @@
   height: 7px;
   border-radius: 50%;
   background: var(--cm-success);
-  animation: track-blink 1.4s ease-in-out infinite;
-}
-@keyframes track-blink {
-  50% {
-    opacity: 0.25;
-  }
 }
 
 .steps {
@@ -679,12 +665,6 @@
   }
   .track__map .ctrack__map.live-map {
     height: clamp(220px, calc(100dvh - 490px), 560px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .track__live::before,
-  .track__badge[data-live] {
-    animation: none;
   }
 }
 

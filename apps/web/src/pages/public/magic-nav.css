@@ -16,7 +16,8 @@
   transition: transform var(--cm-dur-fast) var(--cm-ease);
   -webkit-tap-highlight-color: transparent;
 }
-.mnav[data-hidden] {
+.mnav[data-hidden],
+:root[data-sf-typing] .mnav {
   transform: translateY(100%);
 }
 .mnav__items {

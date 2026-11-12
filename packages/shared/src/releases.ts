@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.110.1',
+    date: '2026-11-12',
+    title: 'Busca do cardápio no celular e acompanhamento sem piscar',
+    summary:
+      'Buscar no cardápio pelo celular leva direto aos resultados, e a tela do pedido do cliente não fica mais piscando.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Busca do cardápio no celular: ao digitar, a busca sobe para o topo com os resultados logo embaixo (antes, buscando do fim do cardápio, sobrava uma tela vazia). Com o teclado aberto, o menu de baixo e a sacola saem da frente.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Acompanhamento do pedido do cliente: o círculo do status e a bolinha de "atualiza sozinha" ficam parados, sem clarear e escurecer.',
+      },
+    ],
+  },
+  {
     version: '0.110.0',
     date: '2026-11-12',
     title: 'Chamados em colunas',

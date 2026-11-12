@@ -775,6 +775,27 @@ export function HomeScreen() {
   const term = search.trim().toLowerCase();
   const { bar, under, stuck, past } = useStickySearch(term);
 
+  // Começou a buscar: a busca sobe para o topo e os resultados aparecem logo embaixo dela (antes,
+  // buscando do fim do cardápio, a página encolhia e ficava só o rodapé na tela).
+  const searching = !!term;
+  useLayoutEffect(() => {
+    const b = bar.current;
+    if (!searching || !b) return;
+    // A busca gruda no topo, então a conta parte do que vem logo depois dela (os resultados).
+    const next = b.nextElementSibling;
+    if (!next) return;
+    const top = parseFloat(getComputedStyle(b).top) || 0;
+    const y = Math.max(0, window.scrollY + next.getBoundingClientRect().top - top - b.offsetHeight);
+    if (Math.abs(window.scrollY - y) > 1) window.scrollTo({ top: y, behavior: 'instant' });
+  }, [searching, bar]);
+  // Teclado aberto na busca (celular): o menu de baixo e a sacola saem da frente.
+  useEffect(
+    () => () => {
+      delete document.documentElement.dataset.sfTyping;
+    },
+    [],
+  );
+
   const all = useMemo(() => menu.categories.flatMap((c) => c.products), [menu]);
   const wheel = useMemo(() => buildSections(menu), [menu]);
   const changeFilters = (f: Filters) => {
@@ -854,6 +875,14 @@ export function HomeScreen() {
               aria-label="Buscar no cardápio"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onFocus={() => {
+                if (phone) document.documentElement.dataset.sfTyping = '';
+              }}
+              onBlur={() => {
+                delete document.documentElement.dataset.sfTyping;
+              }}
+              enterKeyHint="search"
+              onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
             />
             {search && (
               <button type="button" aria-label="Limpar busca" onClick={() => setSearch('')}>
@@ -951,7 +980,7 @@ export function HomeScreen() {
   );
 
   return (
-    <div className="sf-home" data-mode="sections">
+    <div className="sf-home" data-mode="sections" data-searching={searching || undefined}>
       {layout === 'tablet' && wheel.length > 0 && <CategoryRail sections={wheel} />}
       <div className="sf-home__main">{body}</div>
 

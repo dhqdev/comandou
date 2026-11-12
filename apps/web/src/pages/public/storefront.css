@@ -976,10 +976,15 @@
     transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
     opacity 0.2s;
 }
-.cartpill[data-hidden] {
+.cartpill[data-hidden],
+:root[data-sf-typing] .cartpill {
   transform: translate(-50%, 140%);
   opacity: 0;
   pointer-events: none;
+}
+/* Buscando: sempre há página abaixo da busca para ela ficar no topo, mesmo com poucos resultados. */
+.sf-home[data-searching] .sf-body {
+  min-height: 100dvh;
 }
 .cartpill:active {
   transform: translateX(-50%) scale(0.97);
