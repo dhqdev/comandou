@@ -582,6 +582,16 @@
   color: var(--cm-brand-700, var(--cm-brand-600));
   font-weight: 600;
 }
+button.od-fact__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 /* Ações de apoio (imprimir, desconto, fiado): links discretos numa linha, sem menu escondido. */
 .od-tools {
   display: flex;

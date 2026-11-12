@@ -1,9 +1,10 @@
 import { PIX_RECEIPT_LABELS, toCents } from '@comandou/shared';
 import {
   BadgeCheck,
-  ExternalLink,
+  Download,
   FileText,
   Hourglass,
+  Maximize2,
   ReceiptText,
   Undo2,
   XCircle,
@@ -25,6 +26,51 @@ export const pixReceiptUrl = (orderId: string, receiptId: string) =>
   `/api/v1/orders/${orderId}/pix-receipts/${receiptId}/file`;
 
 const isPdf = (r: Pick<PixReceipt, 'contentType'>) => r.contentType === 'application/pdf';
+
+/** Arquivo de comprovante para ver na prévia (sem sair da tela). */
+export type ReceiptFile = { url: string; pdf: boolean; title: string };
+
+export const receiptFile = (
+  orderId: string,
+  r: Pick<PixReceipt, 'id' | 'contentType'>,
+  title: string,
+): ReceiptFile => ({ url: pixReceiptUrl(orderId, r.id), pdf: isPdf(r), title });
+
+/**
+ * Prévia do comprovante na mesma tela (foto ou PDF em tamanho grande), por cima do que estiver
+ * aberto. Fecha no X, no Esc ou clicando fora; "Baixar" salva o arquivo.
+ */
+export function ReceiptFileModal({ file, onClose }: { file: ReceiptFile | null; onClose(): void }) {
+  return (
+    <Modal
+      open={!!file}
+      onClose={onClose}
+      size="xl"
+      title={
+        <span className="pix-review__title">
+          <ReceiptText size={18} aria-hidden /> {file?.title ?? 'Comprovante'}
+        </span>
+      }
+      footer={
+        file ? (
+          <a className="cm-btn cm-btn--ghost" href={file.url} download>
+            <Download size={16} aria-hidden /> Baixar
+          </a>
+        ) : undefined
+      }
+    >
+      {file && (
+        <div className="pix-lightbox">
+          {file.pdf ? (
+            <iframe src={file.url} title={file.title} />
+          ) : (
+            <img src={file.url} alt={file.title} />
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
 
 /**
  * Selo do Pix no cartão do PDV. Com comprovante para conferir, é um botão (com a miniatura) que
@@ -101,6 +147,7 @@ export function PixReceiptReview({
   const [refunding, setRefunding] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(false);
   // Mesma chave em cada nova tentativa: um clique duplo não lança o Pix duas vezes.
   const key = useRef(newIdempotencyKey());
   const url = pixReceiptUrl(order.id, receipt.id);
@@ -234,9 +281,9 @@ export function PixReceiptReview({
         ) : isPdf(receipt) ? (
           <iframe src={url} title={`Comprovante do pedido ${order.number}`} />
         ) : (
-          <a href={url} target="_blank" rel="noreferrer" title="Abrir em tamanho real">
+          <button type="button" onClick={() => setZoom(true)} title="Ver em tamanho grande">
             <img src={url} alt={`Comprovante do Pix do pedido ${order.number}`} />
-          </a>
+          </button>
         )}
       </div>
       <div className="pix-review__side">
@@ -281,9 +328,9 @@ export function PixReceiptReview({
           </Alert>
         )}
         {receipt.hasFile && (
-          <a className="pix-review__open" href={url} target="_blank" rel="noreferrer">
-            <ExternalLink size={14} aria-hidden /> Abrir em outra aba
-          </a>
+          <button type="button" className="pix-review__open" onClick={() => setZoom(true)}>
+            <Maximize2 size={14} aria-hidden /> Ver em tamanho grande
+          </button>
         )}
         {error && <Alert tone="danger">{error}</Alert>}
         {refundDue && (

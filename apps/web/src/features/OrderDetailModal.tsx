@@ -58,7 +58,13 @@ import {
 } from './format';
 import { CloseOrderPanel } from './CloseOrderPanel';
 import { useOpenSessions } from './PaymentModal';
-import { PixReceiptChip, PixReceiptReview, pixReceiptUrl } from './PixReceipt';
+import {
+  PixReceiptChip,
+  PixReceiptReview,
+  ReceiptFileModal,
+  receiptFile,
+  type ReceiptFile,
+} from './PixReceipt';
 import { SidePanel } from './SidePanel';
 
 const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }[]>> = {
@@ -98,6 +104,8 @@ export function OrderDetailModal({
   const canManagePrint = useCan('printing:manage');
   const canPrint = canWrite || canManagePrint;
   const [printing, setPrinting] = useState(false);
+  /** Comprovante do Pix aberto na prévia (na mesma tela, sem outra aba). */
+  const [receiptView, setReceiptView] = useState<ReceiptFile | null>(null);
   const [previewKind, setPreviewKind] = useState<'receipt' | 'delivery' | null>(null);
   async function print(kind: 'kitchen' | 'receipt') {
     if (!orderId) return;
@@ -437,14 +445,21 @@ export function OrderDetailModal({
                   {order.pixReceipts[0].hasFile ? (
                     <>
                       {' · '}
-                      <a
+                      <button
+                        type="button"
                         className="od-fact__link"
-                        href={pixReceiptUrl(order.id, order.pixReceipts[0].id)}
-                        target="_blank"
-                        rel="noreferrer"
+                        onClick={() =>
+                          setReceiptView(
+                            receiptFile(
+                              order.id,
+                              order.pixReceipts![0],
+                              `Comprovante do Pix · Pedido #${order.number}`,
+                            ),
+                          )
+                        }
                       >
                         Abrir
-                      </a>
+                      </button>
                     </>
                   ) : (
                     ' · arquivo já apagado'
@@ -515,9 +530,21 @@ export function OrderDetailModal({
                             ? 'devolvido'
                             : r.status}{' '}
                       {r.hasFile && (
-                        <a href={pixReceiptUrl(order.id, r.id)} target="_blank" rel="noreferrer">
+                        <button
+                          type="button"
+                          className="od-fact__link"
+                          onClick={() =>
+                            setReceiptView(
+                              receiptFile(
+                                order.id,
+                                r,
+                                `Comprovante anterior · Pedido #${order.number}`,
+                              ),
+                            )
+                          }
+                        >
                           ver
-                        </a>
+                        </button>
                       )}
                     </li>
                   ))}
@@ -734,6 +761,7 @@ export function OrderDetailModal({
             target={previewKind ? { kind: 'order', id: order.id, doc: previewKind } : null}
             onClose={() => setPreviewKind(null)}
           />
+          <ReceiptFileModal file={receiptView} onClose={() => setReceiptView(null)} />
         </div>
       )}
     </Frame>
