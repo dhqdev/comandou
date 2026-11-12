@@ -1017,3 +1017,14 @@ button.tk-chip {
 .tk-page {
   max-width: 1040px;
 }
+.tk-page--wide {
+  max-width: none;
+}
+/* Quadro do restaurante: seis colunas, sem a altura fixa da esteira do Super Admin. */
+.tk-board--client {
+  grid-auto-columns: minmax(200px, 1fr);
+  min-height: 0;
+}
+.tk-board--client .tk-col__empty {
+  min-height: 96px;
+}

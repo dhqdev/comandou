@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.110.0',
+    date: '2026-11-12',
+    title: 'Chamados em colunas',
+    summary:
+      'A tela de Chamados mostra cada chamado na coluna da etapa em que ele está, do Recebido ao Resolvido.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Chamados em colunas: Recebido, Em análise, Aprovado, Em desenvolvimento, Em testes e Resolvido. Dá para ver de relance onde cada chamado está e quais têm mensagem nova da equipe. Cancelados e recusados ficam numa lista abaixo do quadro.',
+      },
+    ],
+  },
+  {
     version: '0.109.1',
     date: '2026-11-12',
     title: 'Logo maior e menu lateral mais alinhado',

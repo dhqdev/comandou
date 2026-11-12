@@ -1,6 +1,6 @@
 import { CLIENT_STEPS, kindLabel, TICKET_KINDS, TICKET_LEVELS } from '@comandou/shared';
 import { ArrowLeft, LifeBuoy, Plus, Send } from 'lucide-react';
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { CSSProperties, FormEvent, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
   Alert,
@@ -72,10 +72,12 @@ function TicketList() {
     const t = setInterval(() => document.visibilityState === 'visible' && load(), 20_000);
     return () => clearInterval(t);
   }, [load]);
-  const open = list?.filter((t) => !t.done) ?? [];
-  const closed = list?.filter((t) => t.done) ?? [];
+  // Cancelados e recusados saem do quadro; o resolvido fica na última coluna.
+  const off = (t: Item) => t.done && t.statusLabel !== 'Resolvido';
+  const board = list?.filter((t) => !off(t)) ?? [];
+  const closed = list?.filter(off) ?? [];
   return (
-    <div className="tk-page">
+    <div className="tk-page tk-page--wide">
       <div className="tk-page__head">
         <div>
           <h1 className="page-title">Chamados</h1>
@@ -102,11 +104,11 @@ function TicketList() {
           }
         />
       )}
-      {open.length > 0 && <TicketItems items={open} onOpen={(t) => nav(`/chamados/${t.id}`)} />}
+      {board.length > 0 && <ClientBoard items={board} onOpen={(t) => nav(`/chamados/${t.id}`)} />}
       {closed.length > 0 && (
         <>
           <h2 className="tk-block__label" style={{ margin: '8px 0 0' }}>
-            Encerrados
+            Cancelados e recusados
           </h2>
           <TicketItems items={closed} onOpen={(t) => nav(`/chamados/${t.id}`)} />
         </>
@@ -119,6 +121,65 @@ function TicketList() {
           nav(`/chamados/${tid}`);
         }}
       />
+    </div>
+  );
+}
+
+/** Cor de cada coluna do cliente (mesma família das etapas da esteira). */
+const STEP_COLORS = ['#9aa3ae', '#6b8afd', '#f0a020', '#a78bfa', '#5b7cfa', '#2fbf71'];
+
+/** Quadro em colunas: cada chamado aparece na etapa em que está, do Recebido ao Resolvido. */
+function ClientBoard({ items, onOpen }: { items: Item[]; onOpen: (t: Item) => void }) {
+  return (
+    <div className="tk-board tk-board--client" role="list" aria-label="Andamento dos chamados">
+      {CLIENT_STEPS.map((step, i) => {
+        const col = items
+          .filter((t) => t.step === i)
+          .sort((a, z) => z.unread - a.unread || z.updatedAt.localeCompare(a.updatedAt));
+        return (
+          <section
+            key={step}
+            className="tk-col"
+            role="listitem"
+            aria-label={`${step}: ${col.length}`}
+            style={{ '--tk-c': STEP_COLORS[i] } as CSSProperties}
+          >
+            <header className="tk-col__head">
+              <div className="tk-col__title">
+                {step}
+                <span className="tk-col__n">{col.length}</span>
+              </div>
+            </header>
+            <div className="tk-col__body">
+              {col.length === 0 ? (
+                <div className="tk-col__empty">Nenhum chamado</div>
+              ) : (
+                col.map((t) => (
+                  <button key={t.id} type="button" className="tk-card" onClick={() => onOpen(t)}>
+                    <span className="tk-card__title">{t.title}</span>
+                    <span className="tk-card__client">{kindLabel(t.kind)}</span>
+                    {t.statusLabel !== step && (
+                      <span className="tk-card__row">
+                        <StatusPill label={t.statusLabel} step={t.step} done={t.done} />
+                      </span>
+                    )}
+                    <span className="tk-card__foot">
+                      <span className="tk-code">{t.code}</span>
+                      {t.unread > 0 ? (
+                        <span className="tk-unread" title="Mensagens novas">
+                          {t.unread}
+                        </span>
+                      ) : (
+                        <span>{when(t.updatedAt)}</span>
+                      )}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
