@@ -35,7 +35,10 @@ tela do item ──► API ──► product_model_jobs (+ fotos/arquivo) ──
   para 1024 e depois 512. Escaneamentos já vêm em metros e mantêm a escala; o que vier com mais
   de 1,5 m ou menos de 3 cm (típico de IA) vai para o tamanho pedido ou 25 cm.
 - **Fila própria**: um trabalho por vez, no serviço `model3d` (limite de 1 GB), longe das réplicas
-  da API. Sem Redis (desenvolvimento), roda no próprio processo da API.
+  da API. Quem atualizou só pelo botão "Atualizar sistema" (que troca a versão das imagens, mas não
+  cria serviço novo) ainda não tem o `model3d`: aí a própria API processa a fila, até a stack ser
+  aplicada de novo (`curl -fsSL https://admin.comandou.com/instalar | sudo bash`). Sem Redis
+  (desenvolvimento), roda no próprio processo da API.
 - **Um trabalho por item** em andamento. Trabalho parado há mais de 40 minutos (serviço fora do
   ar) aparece como falha e pode ser repetido. As fotos e o arquivo enviados são apagados quando o
   trabalho termina; fica só o modelo publicado.

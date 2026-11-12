@@ -93,13 +93,14 @@ const schema = z.object({
   // Modelo que lê foto e PDF na importação do cardápio (precisa aceitar imagem).
   AI_IMPORT_MODEL: z.string().min(3).max(120).default('google/gemini-2.5-flash'),
   /**
-   * Estúdio 3D (item do cardápio em 3D). O serviço model3d (mesma imagem da API, comando
-   * dist/model3d/worker-main.js) otimiza os modelos enviados e cria o 3D a partir de fotos.
-   * Com Redis, só ele consome a fila "model3d" (MODEL3D_WORKER=true); sem Redis, roda aqui mesmo.
+   * Estúdio 3D (item do cardápio em 3D). Consumir a fila "model3d" neste processo. Por padrão a
+   * própria API consome (funciona logo após "Atualizar sistema", sem mexer na stack); com o
+   * serviço model3d no ar (mesma imagem, dist/model3d/worker-main.js), a stack põe false na API e
+   * só ele processa, com memória própria. Sem Redis, roda sempre no próprio processo.
    */
   MODEL3D_WORKER: z
     .enum(['true', 'false'])
-    .default('false')
+    .default('true')
     .transform((v) => v === 'true'),
   /** Quem cria o 3D por foto: auto = gerador local se houver, senão Meshy; off = só envio de arquivo. */
   MODEL3D_PROVIDER: z.enum(['auto', 'local', 'meshy', 'off']).default('auto'),

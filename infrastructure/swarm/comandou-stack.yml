@@ -186,6 +186,8 @@ services:
       UPDATE_GITHUB_TOKEN: ${UPDATE_GITHUB_TOKEN:-}
       # Item em 3D: a API só põe os trabalhos na fila; quem faz é o serviço model3d (abaixo).
       # Estas variáveis dizem à tela se "criar pelas fotos" está ligado (ver docs/modelos-3d.md).
+      # Quem processa é o serviço model3d; a API só consome se ele não existir.
+      MODEL3D_WORKER: 'false'
       MODEL3D_PROVIDER: ${MODEL3D_PROVIDER:-auto}
       MODEL3D_LOCAL_URL: ${MODEL3D_LOCAL_URL:-}
       MESHY_API_KEY: ${MESHY_API_KEY:-}
