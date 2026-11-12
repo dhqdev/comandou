@@ -243,7 +243,10 @@
   height: 14px;
 }
 
-/* ---------------------------------------------------------------- logo do restaurante */
+/* ---------------------------------------------------------------- logo do restaurante
+ * A logo fica inteira (contain) num quadro branco com fio fino: logo larga ou com fundo
+ * transparente não é cortada nem some no tema escuro. O nome quebra em até duas linhas
+ * em vez de virar "Aurora Café & P...". */
 .cm-store-brand {
   display: flex;
   align-items: center;
@@ -254,13 +257,18 @@
   width: 36px;
   height: 36px;
   flex-shrink: 0;
+  box-sizing: border-box;
+  padding: 2px;
+  border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-md);
-  object-fit: cover;
-  background: var(--cm-surface);
+  object-fit: contain;
+  background: #fff;
 }
 .cm-store-brand__logo--initial {
   display: grid;
   place-items: center;
+  padding: 0;
+  border: 0;
   background: var(--cm-brand-500);
   color: var(--cm-on-brand, #fff);
   font-size: var(--cm-text-md);
@@ -268,14 +276,19 @@
   line-height: 1;
 }
 .cm-store-brand__name {
+  display: -webkit-box;
   min-width: 0;
   overflow: hidden;
   color: var(--cm-sidebar-text-strong);
   font-size: var(--cm-text-sm);
   font-weight: 650;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.25;
+  letter-spacing: -0.005em;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 .cm-frame[data-rail='narrow'] .cm-rail .cm-store-brand__name,
 .cm-store-brand[data-compact] .cm-store-brand__name {
@@ -308,10 +321,27 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    height: calc(var(--top-h) - 10px);
-    margin: 0 0 6px;
-    padding: 0 2px 0 6px;
+    gap: 6px;
+    height: auto;
+    min-height: calc(var(--top-h) - 10px);
+    margin: 0 0 8px;
+    padding: 2px 0 10px 4px;
+    border-bottom: 1px solid var(--cm-border);
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand {
+    flex: 1 1 auto;
+    gap: 11px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__toggle {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    color: var(--cm-text-muted);
   }
   .cm-frame[data-rail='wide'] :is(.cm-rail__nav, .cm-rail__foot) {
     justify-items: stretch;
