@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.109.0',
+    date: '2026-11-12',
+    title: 'Pagamento pelo app, cardápio mais visual e link com a cara da loja',
+    summary:
+      'O cliente paga cartão de crédito ou Pix direto no cardápio pelo PagBank, o início do cardápio ficou com menos texto e mais desenho, e o link do cardápio mostra o nome e a logo da loja na prévia do WhatsApp.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Pagamento pelo app: conecte sua conta PagBank em Loja online › Pagamentos e o cliente paga cartão de crédito à vista ou Pix no cardápio. O dinheiro cai na sua conta, o pedido vai para a cozinha depois de pago e entra no caixa sozinho. Sem pagamento em 20 minutos, cancela sozinho.',
+      },
+      {
+        tag: 'novo',
+        text: 'Estorno pelo caixa devolve o pagamento no PagBank, e pedido pago cancelado antes do caixa é estornado sozinho. Sem conta conectada, o cardápio continua como antes (Pix com comprovante e pagamento na entrega).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cardápio mais visual: capa mais alta com a logo no meio, moto andando com o tempo de entrega, categorias com foto, fidelidade e reserva em blocos animados, banners com barrinhas como nos stories e os mais pedidos numa fileira com 1, 2, 3.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Link do cardápio com a cara da loja: no WhatsApp, Instagram e Telegram a prévia mostra o nome, o texto e a logo da sua loja. No link de um produto, aparecem o nome, a descrição e a foto dele.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Item em 3D: o cadastro do item traz a lista de aplicativos e sites para escanear ou criar o modelo.',
+      },
+      {
+        tag: 'correção',
+        text: 'O visualizador 3D do cardápio buscava um componente fora do Comandou e podia não abrir o modelo; agora usa só o que vem do próprio sistema.',
+      },
+    ],
+  },
+  {
     version: '0.108.0',
     date: '2026-11-12',
     title: 'Cardápio por foto com IA, primeiros passos em conversa e visual mais enxuto',
