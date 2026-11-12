@@ -27,7 +27,7 @@ function loadViewer() {
  * para a câmera mostrar o prato em tamanho real em cima da mesa. Android abre o visualizador do
  * Google, iPhone o Quick Look; sem câmera compatível fica só o giro na tela.
  */
-export function Model3DViewer({
+function Viewer({
   model,
   name,
   poster,
@@ -117,9 +117,7 @@ export function Model3DButton({
         <Box size={17} aria-hidden /> Ver em 3D
         <small>e na sua mesa, pela câmera</small>
       </button>
-      {open && (
-        <Model3DViewer model={model} name={name} poster={poster} onClose={() => setOpen(false)} />
-      )}
+      {open && <Viewer model={model} name={name} poster={poster} onClose={() => setOpen(false)} />}
     </>
   );
 }

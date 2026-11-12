@@ -20,31 +20,6 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.109.0',
-    date: '2026-11-12',
-    title: 'Item em 3D criado pelo próprio Comandou',
-    summary:
-      'O servidor do Comandou cria o 3D do prato pelas fotos e deixa leve o arquivo escaneado no celular, e a tela do item mostra os aplicativos e sites do mercado para criar o modelo.',
-    notes: [
-      {
-        tag: 'novo',
-        text: 'Criar em 3D pelas fotos: no cadastro do item, use a foto do item ou mande até 4 fotos de ângulos diferentes, informe o tamanho real e o servidor cria o modelo. Acompanhe o andamento na tela; dá para sair que ele continua.',
-      },
-      {
-        tag: 'novo',
-        text: 'Enviar o arquivo escaneado como saiu do aplicativo (.glb ou .zip, até 40 MB): o servidor reduz a malha e as texturas, comprime e põe o prato em pé no tamanho real, para abrir rápido no celular do cliente.',
-      },
-      {
-        tag: 'novo',
-        text: 'Lista de aplicativos e sites para criar o 3D (Polycam, Scaniverse, KIRI Engine, RealityScan, Luma, Meshy, Tripo e outros) direto no cadastro do item, e botão para ver o modelo antes de o cliente ver.',
-      },
-      {
-        tag: 'correção',
-        text: 'O visualizador 3D do cardápio buscava um componente fora do Comandou e podia não abrir o modelo; agora usa só o que vem do próprio sistema.',
-      },
-    ],
-  },
-  {
     version: '0.108.0',
     date: '2026-11-12',
     title: 'Cardápio por foto com IA, primeiros passos em conversa e visual mais enxuto',

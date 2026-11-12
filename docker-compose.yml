@@ -76,9 +76,6 @@ services:
       IFOOD_CLIENT_SECRET: ${IFOOD_CLIENT_SECRET:-}
       WHATSAPP_GATEWAY_URL: ${WHATSAPP_GATEWAY_URL:-}
       WHATSAPP_GATEWAY_TOKEN: ${WHATSAPP_GATEWAY_TOKEN:-}
-      MODEL3D_WORKER: 'false'
-      MODEL3D_LOCAL_URL: ${MODEL3D_LOCAL_URL:-}
-      MESHY_API_KEY: ${MESHY_API_KEY:-}
       # Painel Super Admin em http://admin.${COMANDOU_BASE_DOMAIN}:8080
       PLATFORM_DATABASE_URL: postgres://comandou_platform:${COMANDOU_PLATFORM_PASSWORD}@postgres:5432/comandou
       # Sem o serviço de backup aqui, restaurantes novos ficam no banco central (em produção,
@@ -92,21 +89,6 @@ services:
       - traefik.http.routers.cm-api.entrypoints=web
       - traefik.http.routers.cm-api.priority=100
       - traefik.http.services.cm-api.loadbalancer.server.port=3000
-    networks: [internal, edge]
-
-  # Estúdio 3D: otimiza os modelos e cria o 3D pelas fotos (docs/modelos-3d.md).
-  model3d:
-    image: comandou-api:dev
-    init: true
-    command: ['node', 'dist/model3d/worker-main.js']
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: postgres://comandou_app:${COMANDOU_APP_PASSWORD}@postgres:5432/comandou
-      REDIS_URL: redis://redis:6379
-      MODEL3D_LOCAL_URL: ${MODEL3D_LOCAL_URL:-}
-      MESHY_API_KEY: ${MESHY_API_KEY:-}
-    depends_on:
-      migrate: { condition: service_completed_successfully }
     networks: [internal, edge]
 
   web:

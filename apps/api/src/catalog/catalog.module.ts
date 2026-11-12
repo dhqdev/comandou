@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { Model3dModule } from '../model3d/model3d.module';
 import { CatalogController } from './catalog.controller';
 import { FamiliesController } from './families.controller';
 import { MenusController } from './menus.controller';
@@ -7,7 +6,6 @@ import { ProductModelsController } from './models.controller';
 import { OptionsController } from './options.controller';
 
 @Module({
-  imports: [Model3dModule],
   controllers: [
     CatalogController,
     OptionsController,

@@ -1,7 +1,7 @@
 /**
  * Onde criar o 3D de um prato fora do Comandou: aplicativos de celular que escaneiam o prato
  * pronto e sites de IA que criam o modelo por foto. Aparece no cadastro do item (Item em 3D).
- * Todos exportam GLB, que é o que o Comandou recebe (o servidor otimiza depois).
+ * Todos exportam GLB, que é o que o Comandou recebe.
  */
 export interface Model3dTool {
   name: string;
@@ -48,7 +48,7 @@ export const MODEL3D_TOOLS: { title: string; hint: string; tools: Model3dTool[] 
       {
         name: 'Meshy',
         url: 'https://www.meshy.ai',
-        what: 'Foto ou até 4 fotos viram modelo com textura. É o que o Comandou usa quando ligado.',
+        what: 'Uma foto ou até 4 fotos viram modelo com textura.',
       },
       {
         name: 'Tripo',
@@ -68,7 +68,7 @@ export const MODEL3D_TOOLS: { title: string; hint: string; tools: Model3dTool[] 
       {
         name: 'TripoSR',
         url: 'https://github.com/VAST-AI-Research/TripoSR',
-        what: 'Código aberto. É o gerador que roda no servidor do Comandou.',
+        what: 'Código aberto, para quem quer rodar a IA no próprio computador.',
       },
     ],
   },

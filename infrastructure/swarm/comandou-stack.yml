@@ -184,14 +184,6 @@ services:
       # Opcional: token do GitHub (só leitura) para o painel achar versões novas com o
       # repositório privado. Sem ele, o painel olha as tags das imagens públicas no GHCR.
       UPDATE_GITHUB_TOKEN: ${UPDATE_GITHUB_TOKEN:-}
-      # Item em 3D: a API só põe os trabalhos na fila; quem faz é o serviço model3d (abaixo).
-      # Estas variáveis dizem à tela se "criar pelas fotos" está ligado (ver docs/modelos-3d.md).
-      # Quem processa é o serviço model3d; a API só consome se ele não existir.
-      MODEL3D_WORKER: 'false'
-      MODEL3D_PROVIDER: ${MODEL3D_PROVIDER:-auto}
-      MODEL3D_LOCAL_URL: ${MODEL3D_LOCAL_URL:-}
-      MESHY_API_KEY: ${MESHY_API_KEY:-}
-      MODEL3D_MONTHLY_GENERATIONS: ${MODEL3D_MONTHLY_GENERATIONS:-10}
     secrets:
       - comandou_db_app_url
       - comandou_integrations_key
@@ -214,33 +206,6 @@ services:
         - traefik.http.services.comandou-api.loadbalancer.server.port=3000
         - traefik.http.services.comandou-api.loadbalancer.healthcheck.path=/api/v1/health/ready
         - traefik.http.services.comandou-api.loadbalancer.healthcheck.interval=10s
-
-  # Estúdio 3D (item do cardápio em 3D): mesma imagem da API, outro comando. Pega na fila um
-  # trabalho por vez: otimiza o arquivo escaneado (malha, texturas WebP, Draco, tamanho real) e
-  # cria o 3D pelas fotos com o gerador configurado (o nosso, em model3d-ai.yml, ou o Meshy).
-  # Memória própria: um modelo pesado não derruba as réplicas que atendem os pedidos.
-  model3d:
-    image: ghcr.io/dhqdev/comandou-api:${COMANDOU_VERSION:?defina a versão}
-    init: true
-    command: ['node', 'dist/model3d/worker-main.js']
-    environment:
-      NODE_ENV: production
-      DATABASE_URL_FILE: /run/secrets/comandou_db_app_url
-      COMANDOU_BASE_DOMAIN: ${COMANDOU_BASE_DOMAIN:-comandou.com}
-      LOG_LEVEL: info
-      REDIS_URL: redis://redis:6379
-      DATABASE_POOL_MAX: '4'
-      MODEL3D_PROVIDER: ${MODEL3D_PROVIDER:-auto}
-      MODEL3D_LOCAL_URL: ${MODEL3D_LOCAL_URL:-}
-      MESHY_API_KEY: ${MESHY_API_KEY:-}
-    secrets: [comandou_db_app_url]
-    networks: [comandou_internal, comandou_egress]
-    deploy:
-      replicas: 1
-      update_config: { parallelism: 1, order: stop-first }
-      restart_policy: { condition: on-failure }
-      resources:
-        limits: { memory: 1G }
 
   web:
     image: ghcr.io/dhqdev/comandou-web:${COMANDOU_VERSION:?defina a versão}

@@ -93,29 +93,6 @@ const schema = z.object({
   // Modelo que lê foto e PDF na importação do cardápio (precisa aceitar imagem).
   AI_IMPORT_MODEL: z.string().min(3).max(120).default('google/gemini-2.5-flash'),
   /**
-   * Estúdio 3D (item do cardápio em 3D). Consumir a fila "model3d" neste processo. Por padrão a
-   * própria API consome (funciona logo após "Atualizar sistema", sem mexer na stack); com o
-   * serviço model3d no ar (mesma imagem, dist/model3d/worker-main.js), a stack põe false na API e
-   * só ele processa, com memória própria. Sem Redis, roda sempre no próprio processo.
-   */
-  MODEL3D_WORKER: z
-    .enum(['true', 'false'])
-    .default('true')
-    .transform((v) => v === 'true'),
-  /** Quem cria o 3D por foto: auto = gerador local se houver, senão Meshy; off = só envio de arquivo. */
-  MODEL3D_PROVIDER: z.enum(['auto', 'local', 'meshy', 'off']).default('auto'),
-  /** Gerador de IA na nossa VM (infrastructure/model3d-ai). Ex.: http://model3d-ai:8000 */
-  MODEL3D_LOCAL_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
-  MODEL3D_LOCAL_TOKEN: z.preprocess(
-    (v) => (v === '' ? undefined : v),
-    z.string().min(16).optional(),
-  ),
-  /** Chave da API do Meshy (serviço de mercado que cria 3D por foto). Vazia = sem Meshy. */
-  MESHY_API_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(8).optional()),
-  MESHY_API_URL: z.string().url().default('https://api.meshy.ai'),
-  /** Modelos criados por foto, por restaurante, por mês (cada um custa tempo de máquina ou crédito). */
-  MODEL3D_MONTHLY_GENERATIONS: z.coerce.number().int().min(0).max(1000).default(10),
-  /**
    * Integração com o iFood (cardápio). Credenciais do aplicativo do Comandou no Portal do
    * Desenvolvedor do iFood. Sem elas, o cardápio de integração fica indisponível.
    * centralized = um app para todas as lojas (cada loja autoriza no Portal do Parceiro);
@@ -317,8 +294,6 @@ export const FILE_SECRET_VARS = [
   'CROWDSEC_BOUNCER_KEY',
   'HOST_AGENT_TOKEN',
   'UPDATE_GITHUB_TOKEN',
-  'MESHY_API_KEY',
-  'MODEL3D_LOCAL_TOKEN',
 ] as const;
 
 /**

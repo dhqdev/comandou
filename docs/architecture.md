@@ -45,7 +45,6 @@
 | `plans` | ✅ | planos, assinaturas, limites e recursos por plano |
 | `domains` | ✅ | domínio próprio com verificação TXT; provider HTTP do Traefik |
 | `health` | ✅ | `live`, `ready` (banco, Redis, WhatsApp) e métricas Prometheus (inclui idade do último backup) |
-| `model3d` | ✅ | estúdio 3D do item do cardápio: fila própria, serviço `model3d` separado, otimizador e geradores ([modelos-3d](modelos-3d.md)) |
 | `maintenance` | ✅ | limpeza periódica de dados vencidos pela função `app_purge_expired()` |
 | demais | ⏳ | ver [roadmap](roadmap.md) |
 
