@@ -108,6 +108,8 @@ const OnlineOrder = z
     notes: optText(300),
     // Na mesa a conta é paga no fim, com o garçom ou no caixa: sem forma de pagamento no pedido.
     paymentMethod: z.enum(['cash', 'credit', 'debit', 'pix', 'voucher']).optional(),
+    /** Crédito pago agora pelo app (PagBank), e não na entrega. */
+    payInApp: z.boolean().optional(),
     changeFor: money.optional(),
     items: z
       .array(

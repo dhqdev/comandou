@@ -24,6 +24,7 @@ import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 import { OrdersService } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { OnlinePayService } from '../online-pay/online-pay.service';
 import { ZonesService } from '../delivery/zones.service';
 import { distanceM } from '../delivery/zones';
 import { customerMapOf } from '../delivery/delivery.service';
@@ -332,6 +333,8 @@ export interface OnlineOrderInput {
   notes?: string;
   /** Obrigatório na entrega e na retirada; na mesa a conta é paga no fim. */
   paymentMethod?: 'cash' | 'credit' | 'debit' | 'pix' | 'voucher';
+  /** Crédito pago agora pelo app (PagBank), e não na entrega. */
+  payInApp?: boolean;
   changeFor?: string;
   items: { productId: string; quantity: number; notes?: string; optionIds?: string[] }[];
   /** Cliente com a conta aberta (cookie cm_cid). */
@@ -351,6 +354,7 @@ export class StoreService {
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
     private readonly zones: ZonesService,
+    private readonly onlinePay: OnlinePayService,
   ) {}
 
   async settingsIn(tx: Tx): Promise<StoreSettings> {
@@ -549,7 +553,9 @@ export class StoreService {
    * Com `tableId` (QR Code da mesa), vem a mesa e os preços do salão; mesa inexistente ou
    * desativada volta `table: null` e o cardápio normal (entrega e retirada).
    */
-  publicMenu(tenantId: string, tenantName: string, slug: string, tableId?: string) {
+  async publicMenu(tenantId: string, tenantName: string, slug: string, tableId?: string) {
+    // Pagamento pelo app (PagBank conectado): fora da transação do cardápio.
+    const onlinePay = await this.onlinePay.offer(tenantId).catch(() => null);
     return this.db.withTenant({ tenantId }, async (tx) => {
       const s = await this.settingsIn(tx);
       if (!s.enabled) throw new NotFoundException('Cardápio online desativado');
@@ -637,6 +643,9 @@ export class StoreService {
         // paga o pedido pelo Pix ou no fim, com o garçom). Só com a conta do cliente aberta: sem
         // contas na loja, não há Pix pelo cardápio.
         pix: s.accountsEnabled ? publicPix(s) : null,
+        // Cartão e Pix pelo app (PagBank): entrega e retirada, com a conta do cliente aberta. Com o
+        // Pix pelo app ligado, ele toma o lugar do Pix com comprovante fora da mesa.
+        onlinePay: s.accountsEnabled ? onlinePay : null,
         appearance: {
           theme: s.theme,
           headline: s.headline,
@@ -719,8 +728,26 @@ export class StoreService {
         },
         428,
       );
+    // Pago pelo app (PagBank): cartão de crédito marcado "pelo app" ou Pix (quando a loja liga o
+    // Pix pelo app), na entrega e na retirada. O pedido espera o pagamento em análise.
+    const offer =
+      !atTable && s.accountsEnabled ? await this.onlinePay.offer(tenantId).catch(() => null) : null;
+    if (input.payInApp && !(input.paymentMethod === 'credit' && offer?.card))
+      throw new ConflictException('Esta loja não está recebendo cartão pelo app agora');
+    const payOnline: 'card' | 'pix' | undefined =
+      input.paymentMethod === 'credit' && input.payInApp
+        ? 'card'
+        : input.paymentMethod === 'pix' && offer?.pix
+          ? 'pix'
+          : undefined;
+    if (payOnline && !input.customerId)
+      throw new ForbiddenException({
+        message: 'Entre na sua conta para pagar pelo app',
+        code: LOGIN_REQUIRED_CODE,
+      });
     // Pix pelo cardápio (QR Code na hora): só com a conta do cliente aberta.
-    const pixNow = input.paymentMethod === 'pix' && s.accountsEnabled && !!pixPayeeOf(s);
+    const pixNow =
+      !payOnline && input.paymentMethod === 'pix' && s.accountsEnabled && !!pixPayeeOf(s);
     if (pixNow && !input.customerId)
       throw new ForbiddenException({
         message: 'Entre na sua conta para pagar pelo Pix',
@@ -794,6 +821,7 @@ export class StoreService {
           paymentHint: atTable ? (pixNow ? 'pix' : undefined) : input.paymentMethod,
           // Pix pelo cardápio ligado: o pedido espera o comprovante do cliente.
           pix: pixNow,
+          payOnline,
           changeFor: !atTable && input.paymentMethod === 'cash' ? input.changeFor : undefined,
           customerId: input.customerId,
           rewardId: input.rewardId,
@@ -808,6 +836,7 @@ export class StoreService {
       // Total da API (o QR Code do Pix pede este valor).
       total: (order as unknown as { total: string }).total,
       pixStatus: (order as unknown as { pixStatus: PixReceiptStatus | null }).pixStatus ?? null,
+      payOnline: payOnline ?? null,
     };
   }
 
@@ -931,8 +960,13 @@ export class StoreService {
       etaMax: s.etaMax,
       ...rest,
       pix: pixStatus ? await this.pixViewIn(tx, id, s, { ...o!, pixStatus }) : null,
+      online: await this.onlinePay.publicViewIn(tx, id),
       step: customerStep(o!.status, atTable && !!servedAt),
-      canCancel: o!.status === 'awaiting',
+      canCancel:
+        o!.status === 'awaiting' &&
+        !(await one(tx, `SELECT 1 FROM online_charges WHERE order_id = $1 AND status = 'paid'`, [
+          id,
+        ])),
       // Mesa: o cliente busca o pedido pronto no balcão e avisa que pegou.
       selfPickup: atTable && s.tableSelfPickup,
       canPickUp: atTable && s.tableSelfPickup && o!.status === 'ready' && !servedAt,
@@ -1042,6 +1076,15 @@ export class StoreService {
       if (o.status !== 'awaiting')
         throw new ConflictException(
           'O restaurante já aceitou o pedido. Para cancelar, fale com a loja.',
+        );
+      const paid = await one(
+        tx,
+        `SELECT 1 FROM online_charges WHERE order_id = $1 AND status = 'paid'`,
+        [id],
+      );
+      if (paid)
+        throw new ConflictException(
+          'Você já pagou este pedido pelo app. Para cancelar, fale com a loja (ela devolve o valor).',
         );
       await this.orders.transitionInTx(tx, ctx, o, 'cancelled', 'Cancelado pelo cliente');
       return id;

@@ -270,3 +270,23 @@ button.pix-chip:focus-visible {
   border: 0;
   background: #fff;
 }
+
+/* Pagamento pelo app: últimos pagamentos (Loja online → Pagamentos). */
+.opay-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.opay-list__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--cm-border);
+  font-size: var(--cm-text-sm);
+}
+.opay-list__amount {
+  font-variant-numeric: tabular-nums;
+}

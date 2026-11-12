@@ -52,6 +52,14 @@ import {
 import { StoreChatService } from '../store-chat/store-chat.service';
 import { LoyaltyController } from '../loyalty/loyalty.controller';
 import { LoyaltyService } from '../loyalty/loyalty.service';
+import {
+  OnlinePayAdminController,
+  OnlinePayController,
+  OnlinePayStoreController,
+  PagBankCallbackController,
+} from '../online-pay/online-pay.controller';
+import { OnlinePayAdminService } from '../online-pay/online-pay-admin.service';
+import { OnlinePayService } from '../online-pay/online-pay.service';
 import { OrdersController, PaymentsController } from './orders.controller';
 import { OrdersService } from './orders.service';
 
@@ -90,6 +98,10 @@ import { OrdersService } from './orders.service';
     PublicStoreChatController,
     SupportChatController,
     PixReceiptsController,
+    OnlinePayController,
+    OnlinePayStoreController,
+    PagBankCallbackController,
+    OnlinePayAdminController,
   ],
   providers: [
     OrdersService,
@@ -116,6 +128,8 @@ import { OrdersService } from './orders.service';
     LoyaltyService,
     StoreChatService,
     PixService,
+    OnlinePayService,
+    OnlinePayAdminService,
   ],
 })
 export class OperationsModule {}

@@ -18,3 +18,4 @@ export * from './finance-month';
 export * from './weight';
 export * from './avatars';
 export * from './pix';
+export * from './online-pay';

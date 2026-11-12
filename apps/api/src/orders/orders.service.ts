@@ -70,6 +70,8 @@ export interface CreateOrderInput {
     rewardId?: string;
     /** Pix pelo cardápio: o pedido nasce esperando o comprovante (orders.pix_status). */
     pix?: boolean;
+    /** Pago pelo app (PagBank): nasce em análise e só é aceito depois de pago. */
+    payOnline?: 'card' | 'pix';
   };
   /** Pedido mínimo (sobre o subtotal dos itens), usado pelo cardápio online. */
   minSubtotal?: string;
@@ -217,6 +219,14 @@ export class OrdersService {
   onTabClosed(hook: (ctx: Ctx, tabId: string) => Promise<void>) {
     this.tabClosedHooks.push(hook);
   }
+  /**
+   * Dentro da transação do cancelamento (ex.: pagamento pelo app fora do caixa vira "a devolver").
+   * Erro aqui desfaz o cancelamento.
+   */
+  private readonly cancelHooks: ((tx: Tx, ctx: Ctx, orderId: string) => Promise<void>)[] = [];
+  onCancelInTx(hook: (tx: Tx, ctx: Ctx, orderId: string) => Promise<void>) {
+    this.cancelHooks.push(hook);
+  }
   /** Sem esperar e sem devolver erro: o aviso nunca desfaz a operação. */
   notifyDispatched(ctx: Ctx, orderId: string) {
     for (const h of this.dispatchedHooks) void h(ctx, orderId).catch(() => undefined);
@@ -269,7 +279,31 @@ export class OrdersService {
           [id],
         )
       : [];
-    return { ...o, payments, history, pixReceipts };
+    // Pago pelo app (PagBank): as tentativas e a que foi paga (sem dados do cartão além do final).
+    const online = await one<{ payOnline: string | null }>(
+      tx,
+      `SELECT pay_online AS "payOnline" FROM orders WHERE id = $1`,
+      [id],
+    );
+    const onlineCharges = online?.payOnline
+      ? await q(
+          tx,
+          `SELECT id, method, status, amount::text, fee_amount::text AS "feeAmount",
+                  refunded_amount::text AS "refundedAmount", card_brand AS "cardBrand",
+                  card_last4 AS "cardLast4", decline_reason AS "declineReason",
+                  payment_id AS "paymentId", created_at AS "createdAt", paid_at AS "paidAt"
+             FROM online_charges WHERE order_id = $1 ORDER BY created_at`,
+          [id],
+        )
+      : [];
+    return {
+      ...o,
+      payments,
+      history,
+      pixReceipts,
+      payOnline: online?.payOnline ?? null,
+      onlineCharges,
+    };
   }
 
   list(
@@ -558,15 +592,16 @@ export class OrdersService {
           )?.id ?? null)
         : null;
     const number = await nextNumber(tx, ctx.tenantId, 'order');
-    const status: OrderStatus = online && !online.autoAccept ? 'awaiting' : 'new';
+    const status: OrderStatus =
+      online && (!online.autoAccept || online.payOnline) ? 'awaiting' : 'new';
     const order = await one<{ id: string }>(
       tx,
       `INSERT INTO orders (tenant_id, number, channel, status, tab_id, customer_name, customer_phone, delivery_address,
                            notes, subtotal, discount, surcharge, delivery_fee, total, created_by,
                            source, public_token_hash, payment_hint, change_for, accepted_at, customer_id,
-                           delivery_lat, delivery_lng, pix_status)
+                           delivery_lat, delivery_lng, pix_status, pay_online)
        VALUES ($1,$2,$3,$15,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$16,$17,$18,$19,
-               CASE WHEN $15 = 'new' AND $16 = 'online' THEN now() END, $20, $21, $22, $23) RETURNING id`,
+               CASE WHEN $15 = 'new' AND $16 = 'online' THEN now() END, $20, $21, $22, $23, $24) RETURNING id`,
       [
         ctx.tenantId,
         number,
@@ -591,6 +626,7 @@ export class OrdersService {
         input.deliveryLocation?.lat.toFixed(6) ?? null,
         input.deliveryLocation?.lng.toFixed(6) ?? null,
         online?.pix ? 'waiting' : null,
+        online?.payOnline ?? null,
       ],
     );
     if (reward)
@@ -784,6 +820,15 @@ export class OrdersService {
       await this.stock.restoreForOrder(tx, ctx, o.id);
     }
     if (o.status === 'awaiting' && to === 'new') {
+      // Pago pelo app: só vai para a cozinha depois de pago.
+      const unpaid = await one(
+        tx,
+        `SELECT 1 FROM orders o WHERE o.id = $1 AND o.pay_online IS NOT NULL
+            AND NOT EXISTS (SELECT 1 FROM online_charges c WHERE c.order_id = o.id AND c.status = 'paid')`,
+        [o.id],
+      );
+      if (unpaid)
+        throw new ConflictException('Este pedido é pago pelo app e o cliente ainda não pagou');
       // Aceite do pedido online: imprime na cozinha. O estoque já foi reservado ao criar (pedido
       // antigo, de antes da reserva, baixa agora: consumeForOrder não baixa duas vezes).
       await q(tx, `UPDATE orders SET accepted_at = now() WHERE id = $1`, [o.id]);
@@ -828,7 +873,10 @@ export class OrdersService {
       [o.id, to, reason || null],
     );
     await this.history(tx, ctx, o.id, o.status, to, reason);
-    if (to === 'cancelled') await this.pixRefundDueIn(tx, ctx, o.id);
+    if (to === 'cancelled') {
+      await this.pixRefundDueIn(tx, ctx, o.id);
+      for (const h of this.cancelHooks) await h(tx, ctx, o.id);
+    }
     // Fidelidade: pedido concluído rende pontos; cancelado devolve os pontos trocados nele.
     if (to === 'completed') await this.loyalty.earnForOrderIn(tx, ctx.tenantId, o.id);
     if (to === 'cancelled') await this.loyalty.refundForOrderIn(tx, ctx.tenantId, o.id);

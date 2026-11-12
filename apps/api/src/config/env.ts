@@ -86,6 +86,20 @@ const schema = z.object({
     (v) => (v === '' ? undefined : v),
     z.string().min(8).optional(),
   ),
+  /**
+   * PagBank (pagamento pelo app). Credenciais ficam no painel Super Admin, cifradas no banco;
+   * aqui só os endereços (os testes apontam para um PagBank falso).
+   */
+  PAGBANK_API_URL_SANDBOX: z.string().url().default('https://sandbox.api.pagseguro.com'),
+  PAGBANK_API_URL_PRODUCAO: z.string().url().default('https://api.pagseguro.com'),
+  PAGBANK_CONNECT_URL_SANDBOX: z
+    .string()
+    .url()
+    .default('https://connect.sandbox.pagbank.com.br/oauth2/authorize'),
+  PAGBANK_CONNECT_URL_PRODUCAO: z
+    .string()
+    .url()
+    .default('https://connect.pagbank.com.br/oauth2/authorize'),
   /** Graph API da Meta (WhatsApp Cloud API), com a versão no caminho. */
   WHATSAPP_GRAPH_URL: z.string().url().default('https://graph.facebook.com/v25.0'),
   /** OpenRouter (assistente de IA). A chave fica no painel Super Admin, cifrada no banco. */
@@ -255,6 +269,8 @@ const schema = z.object({
   MAINTENANCE_INTERVAL_MINUTES: z.coerce.number().int().min(0).default(360),
   /** Ciclo da cobrança (faturas, vencidas, bloqueio automático). 0 desliga. */
   BILLING_INTERVAL_MINUTES: z.coerce.number().int().min(0).default(30),
+  /** Conferência do pagamento pelo app (pendentes, vencidos, lançar no caixa, devolver). 0 desliga. */
+  ONLINE_PAY_INTERVAL_SECONDS: z.coerce.number().int().min(0).default(60),
   /** Endereço da API do Asaas (só para testes; o painel escolhe sandbox ou produção). */
   ASAAS_BASE_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),

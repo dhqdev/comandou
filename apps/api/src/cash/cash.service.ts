@@ -91,6 +91,20 @@ export class CashService {
     private readonly realtime: RealtimeService,
   ) {}
 
+  /**
+   * Antes de gravar um estorno, dentro da transação (ex.: o pagamento veio do app e o estorno vai
+   * ao PagBank primeiro). Erro aqui recusa o estorno.
+   */
+  private readonly refundHooks: ((
+    tx: Tx,
+    ctx: Ctx,
+    paymentId: string,
+    cents: number,
+  ) => Promise<void>)[] = [];
+  onRefundInTx(hook: (tx: Tx, ctx: Ctx, paymentId: string, cents: number) => Promise<void>) {
+    this.refundHooks.push(hook);
+  }
+
   /** Quem quer saber quando um pedido fica totalmente pago (ex.: emissão automática da NFC-e). */
   private readonly paidHooks: ((ctx: Ctx, orderId: string) => Promise<void>)[] = [];
   onOrderPaid(hook: (ctx: Ctx, orderId: string) => Promise<void>) {
@@ -714,6 +728,7 @@ export class CashService {
             if (cents > exp.cash)
               throw new ConflictException('Não há dinheiro suficiente neste caixa para o estorno');
           }
+          for (const h of this.refundHooks) await h(tx, ctx, paymentId, cents);
           const r = await one<{ id: string }>(
             tx,
             `INSERT INTO payment_refunds (tenant_id, payment_id, cash_session_id, amount, reason, created_by)

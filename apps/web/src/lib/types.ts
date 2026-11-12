@@ -2,6 +2,7 @@ import type {
   ChargeRule,
   ItemStatus,
   OrderChannel,
+  OnlineChargeStatus,
   OptionGroupKind,
   OrderStatus,
   PaymentMethod,
@@ -257,6 +258,10 @@ export interface Order {
   pixReceipt?: PixReceipt | null;
   /** Todos os comprovantes (só no detalhe do pedido), o mais novo primeiro. */
   pixReceipts?: PixReceipt[];
+  /** Pago pelo app (PagBank): 'card' ou 'pix'; null = não é pago assim. Só no detalhe. */
+  payOnline?: 'card' | 'pix' | null;
+  /** Tentativas de pagamento pelo app (só no detalhe), a mais antiga primeiro. */
+  onlineCharges?: OnlineCharge[];
   version: number;
   createdAt: string;
   items: OrderItem[];
@@ -1113,4 +1118,21 @@ export interface TenantSubscription {
     };
   } | null;
   usage: { users: number; products: number; orders_month: number };
+}
+
+/** Cobrança de pagamento pelo app (PagBank), no detalhe do pedido. */
+export interface OnlineCharge {
+  id: string;
+  method: 'card' | 'pix';
+  status: OnlineChargeStatus;
+  amount: string;
+  feeAmount: string;
+  refundedAmount: string;
+  cardBrand: string | null;
+  cardLast4: string | null;
+  declineReason: string | null;
+  paymentId: string | null;
+  lastError?: string | null;
+  createdAt: string;
+  paidAt: string | null;
 }

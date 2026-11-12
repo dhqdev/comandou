@@ -57,6 +57,7 @@ import {
   STATUS_TONE,
 } from './format';
 import { CloseOrderPanel } from './CloseOrderPanel';
+import { OnlineCharges } from './OnlineCharges';
 import { useOpenSessions } from './PaymentModal';
 import {
   PixReceiptChip,
@@ -498,6 +499,8 @@ export function OrderDetailModal({
               </div>
             )}
           </div>
+
+          {order.payOnline && <OnlineCharges order={order} onDone={(o) => setOrder(o)} />}
 
           {order.pixStatus && (
             <section className="od-block od-card">

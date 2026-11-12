@@ -1,3 +1,4 @@
+import type { PublicOnlinePay } from './OnlinePay';
 import {
   fromCents,
   multiplyCents,
@@ -63,6 +64,8 @@ export interface PublicMenu {
    * ou na retirada, como antes.
    */
   pix?: PublicPix | null;
+  /** Cartão e Pix pelo app (PagBank conectado). null = como antes. */
+  onlinePay?: PublicOnlinePay | null;
   appearance: {
     theme: 'auto' | 'light' | 'dark';
     headline: string | null;

@@ -193,9 +193,12 @@ export function PixPay({
   amount,
   payee,
   pending,
+  auto,
   children,
 }: {
   code: string | null;
+  /** Pix pelo app (PagBank): confirma sozinho, sem comprovante. */
+  auto?: boolean;
   amount: string;
   payee: { name: string; keyType: PixKeyType; keyLabel: string } | null;
   /** Por que o código ainda não aparece (ex.: falta a taxa de entrega). */
@@ -230,7 +233,11 @@ export function PixPay({
             </p>
             <ol className="pixpay__steps">
               <li>Copie o código e pague no app do seu banco (ou leia o QR Code).</li>
-              <li>Anexe o print do comprovante aqui embaixo.</li>
+              <li>
+                {auto
+                  ? 'Pronto: a confirmação é automática e esta tela avisa.'
+                  : 'Anexe o print do comprovante aqui embaixo.'}
+              </li>
             </ol>
             <button
               type="button"

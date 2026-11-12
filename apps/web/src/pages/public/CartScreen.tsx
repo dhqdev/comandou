@@ -20,6 +20,18 @@ import { CustomerAvatar } from './avatars';
 import { reducedMotion } from './morph';
 import { OrderSent } from './OrderSent';
 import { PixPay, ReceiptPicker, sendReceipt, type ReceiptFile } from './PixPay';
+import {
+  CardFields,
+  cardMissing,
+  EMPTY_CARD,
+  encryptCard,
+  PayerFields,
+  payerMissing,
+  payOnline,
+  SecureNote,
+  type CardInput,
+  type PayerInput,
+} from './OnlinePay';
 import { prefetchOrder } from './PublicOrderPage';
 import { api, ApiError } from '../../lib/api';
 import { newIdempotencyKey } from '../../lib/idempotency';
@@ -81,6 +93,10 @@ export function CartScreen() {
   // Na mesa: pagar agora pelo Pix do cardápio ou no fim, com o garçom (o padrão de sempre).
   const [tablePay, setTablePay] = useStored<'later' | 'pix'>('cm-table-pay', 'later');
   const [changeFor, setChangeFor] = useStored('cm-cart-change', '');
+  // Crédito pago agora pelo app (PagBank) ou na entrega. O cartão fica só na memória.
+  const [payInApp, setPayInApp] = useStored('cm-pay-in-app', true);
+  const [card, setCard] = useState<CardInput>(EMPTY_CARD);
+  const [payer, setPayer] = useState<PayerInput>({ cpf: '', email: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Pedido que acabou de entrar: mostra a comemoração antes de abrir o acompanhamento.
@@ -102,6 +118,10 @@ export function CartScreen() {
     pay: useRef<HTMLElement>(null),
   };
   const me = account?.customer ?? null;
+  // E-mail da conta já vem no pagamento pelo app.
+  useEffect(() => {
+    if (me?.email) setPayer((p) => (p.email ? p : { ...p, email: me.email! }));
+  }, [me?.email]);
   const saved = account?.addresses ?? [];
   const [addrId, setAddrId] = useState<string | 'new'>('new');
   const [saveAddr, setSaveAddr] = useState(true);
@@ -158,7 +178,14 @@ export function CartScreen() {
   const addressOk = channel !== 'delivery' || ((!!chosen || typedOk) && pinOk);
   // Pix pelo cardápio: o cliente paga agora pelo QR Code e anexa o comprovante. Na mesa também,
   // se quiser (senão paga no fim, com o garçom).
-  const pixOnline = !!menu.pix;
+  // Pagamento pelo app (PagBank conectado), na entrega e na retirada: cartão de crédito agora e
+  // Pix automático (no lugar do Pix com comprovante).
+  const op = !atTable ? (menu.onlinePay ?? null) : null;
+  const cardApp = !!op?.card && customer.paymentMethod === 'credit' && payInApp;
+  const pixApp = !!op?.pix && customer.paymentMethod === 'pix';
+  const payApp = cardApp || pixApp;
+  const appLogin = payApp && !me;
+  const pixOnline = !!menu.pix && !(op?.pix && !atTable);
   const pixChosen = pixOnline && (atTable ? tablePay === 'pix' : customer.paymentMethod === 'pix');
   // O Pix pelo cardápio pede a conta aberta: o comprovante fica com quem pagou.
   const pixLogin = pixChosen && !me;
@@ -192,6 +219,13 @@ export function CartScreen() {
       : []),
     ...(!changeOk ? [{ key: 'pay' as const, text: 'troco maior que o total' }] : []),
     ...(pixLogin ? [{ key: 'pay' as const, text: 'entrar na conta para pagar pelo Pix' }] : []),
+    ...(appLogin ? [{ key: 'pay' as const, text: 'entrar na conta para pagar pelo app' }] : []),
+    ...(payApp && !appLogin && payerMissing(payer)
+      ? [{ key: 'pay' as const, text: payerMissing(payer)! }]
+      : []),
+    ...(cardApp && !appLogin && cardMissing(card)
+      ? [{ key: 'pay' as const, text: cardMissing(card)! }]
+      : []),
     ...(pixChosen && !pixLogin && !receipt
       ? [{ key: 'pay' as const, text: 'o comprovante do Pix' }]
       : []),
@@ -224,6 +258,18 @@ export function CartScreen() {
     // Mesa que confere a localização e o cliente ainda não confirmou: a confirmação aparece.
     if (atTable && table?.confirmLocation && !here) return setHere(null);
     sending.current = true;
+    // Cartão pelo app: cifra no aparelho antes do pedido (erro de digitação não cria pedido).
+    let encrypted: string | null = null;
+    if (cardApp) {
+      try {
+        encrypted = await encryptCard(op!.publicKey ?? '', card);
+      } catch (e) {
+        setTried(true);
+        setError((e as Error).message);
+        sending.current = false;
+        return;
+      }
+    }
     attempt.current ??= { key: newIdempotencyKey(), token: newOrderToken() };
     const { key, token } = attempt.current;
     setBusy(true);
@@ -291,6 +337,7 @@ export function CartScreen() {
           notes: notes.trim() || undefined,
           // Na mesa: Pix agora pelo cardápio ou nada (paga no fim, com o garçom).
           paymentMethod: atTable ? (pixChosen ? 'pix' : undefined) : customer.paymentMethod,
+          payInApp: cardApp || undefined,
           changeFor:
             !atTable && customer.paymentMethod === 'cash' && changeCents > 0
               ? fromCents(changeCents)
@@ -317,6 +364,33 @@ export function CartScreen() {
         if (r.total && toCents(r.total) !== total)
           note = `O total ficou ${brl(r.total)}. Confira o Pix no acompanhamento do pedido.`;
         setReceipt(null);
+      }
+      // Pago pelo app: o pagamento vai logo depois do pedido. Recusou ou caiu: o cliente paga pelo
+      // acompanhamento (o pedido espera o pagamento).
+      if (payApp) {
+        const where = `/store/orders/${encodeURIComponent(token)}`;
+        try {
+          if (cardApp && encrypted) {
+            const p = await payOnline(where, {
+              method: 'card',
+              encryptedCard: encrypted,
+              holderName: card.holder.trim(),
+              ...payer,
+            });
+            note =
+              p.status === 'paid'
+                ? 'Pagamento aprovado no cartão.'
+                : p.status === 'declined'
+                  ? `${p.declineReason ?? 'Cartão recusado'}. Tente outro cartão ou Pix no acompanhamento.`
+                  : 'Confirmando o pagamento com o banco. O acompanhamento avisa.';
+          } else {
+            await payOnline(where, { method: 'pix', ...payer });
+            note = 'Pague o Pix no acompanhamento do pedido. A confirmação é automática.';
+          }
+        } catch {
+          note = 'O pagamento não foi. Pague pelo acompanhamento do pedido.';
+        }
+        setCard(EMPTY_CARD);
       }
       if (rewardId) setRewardId(null);
       if (loyalty) void refreshLoyalty();
@@ -696,25 +770,68 @@ export function CartScreen() {
               data-invalid={invalid('pay') || undefined}
             >
               <h2 className="ck-card__title">
-                {pixOnline
+                {pixOnline || op
                   ? 'Pagamento'
                   : `Pagamento na ${channel === 'delivery' ? 'entrega' : 'retirada'}`}
               </h2>
               <div className="pills" role="radiogroup" aria-label="Forma de pagamento">
+                {op?.card && (
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={cardApp}
+                    className="pill"
+                    onClick={() => {
+                      set('paymentMethod', 'credit');
+                      setPayInApp(true);
+                    }}
+                  >
+                    Cartão pelo app
+                  </button>
+                )}
                 {PAYMENT_OPTIONS.map((o) => (
                   <button
                     key={o.value}
                     type="button"
                     role="radio"
-                    aria-checked={customer.paymentMethod === o.value}
+                    aria-checked={
+                      customer.paymentMethod === o.value && !(o.value === 'credit' && cardApp)
+                    }
                     className="pill"
-                    onClick={() => set('paymentMethod', o.value)}
+                    onClick={() => {
+                      set('paymentMethod', o.value);
+                      if (o.value === 'credit') setPayInApp(false);
+                    }}
                   >
-                    {o.label}
+                    {o.value === 'credit' && op?.card
+                      ? `Crédito na ${channel === 'delivery' ? 'entrega' : 'retirada'}`
+                      : o.value === 'pix' && op?.pix
+                        ? 'Pix pelo app'
+                        : o.label}
                   </button>
                 ))}
               </div>
-              {pixOnline && !pixChosen && (
+              {appLogin && (
+                <PixLogin title="Entre para pagar pelo app" text="O pagamento fica na sua conta." />
+              )}
+              {payApp && !appLogin && (
+                <>
+                  <PayerFields value={payer} onChange={setPayer} disabled={busy} />
+                  {cardApp && (
+                    <>
+                      <CardFields value={card} onChange={setCard} disabled={busy} />
+                      <SecureNote />
+                    </>
+                  )}
+                  {pixApp && (
+                    <p className="opay__hint">
+                      O código Pix aparece logo depois do pedido, com o valor certinho. A
+                      confirmação é automática.
+                    </p>
+                  )}
+                </>
+              )}
+              {(pixOnline || op) && !pixChosen && !payApp && (
                 <p className="form-hint ck-pay-when">
                   Você paga na {channel === 'delivery' ? 'entrega' : 'retirada'}.
                 </p>
@@ -885,15 +1002,21 @@ export function CartScreen() {
 }
 
 /** Pix escolhido sem a conta aberta: entra (ou cria a conta) e volta para a finalização. */
-function PixLogin() {
+function PixLogin({
+  title = 'Entre para pagar pelo Pix',
+  text = 'O comprovante fica na sua conta.',
+}: {
+  title?: string;
+  text?: string;
+}) {
   return (
     <div className="ck-pixlogin" role="note">
       <span className="ck-pixlogin__icon" aria-hidden>
         <LockKeyhole size={18} />
       </span>
       <span className="ck-pixlogin__text">
-        <strong>Entre para pagar pelo Pix</strong>
-        <small>O comprovante fica na sua conta.</small>
+        <strong>{title}</strong>
+        <small>{text}</small>
       </span>
       <Link className="ck-pixlogin__go" to="/pedir/conta" state={{ back: 'checkout' }}>
         Entrar

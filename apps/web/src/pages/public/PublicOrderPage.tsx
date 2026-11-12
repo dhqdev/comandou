@@ -31,6 +31,7 @@ import { brl } from '../../lib/money';
 import { BagArt, CookingArt, MotoboyArt, OrdersArt, PickupArt } from './art';
 import { InstallHint } from './InstallHint';
 import { PixPay, ReceiptPicker, sendReceipt, type ReceiptFile } from './PixPay';
+import { OnlineTrack, type OnlinePayView } from './OnlinePay';
 import { Photo } from './ui';
 import './public.css';
 
@@ -83,6 +84,8 @@ interface PublicOrder {
     receipt: { status: string; at: string; reason: string | null; amount?: string } | null;
     canSend: boolean;
   } | null;
+  /** Pago pelo app (PagBank): cartão ou Pix e como está. */
+  online?: OnlinePayView | null;
 }
 
 const HERO: Record<
@@ -380,6 +383,9 @@ export function PublicOrderPage() {
         <div className="track__side">
           {o.step === 'dispatched' && o.courier?.code && <DeliveryCode code={o.courier.code} />}
 
+          {o.online && (o.step !== 'cancelled' || o.online.status !== 'expired') && (
+            <OnlineTrack online={o.online} base={base} onChange={load} />
+          )}
           {o.pix && o.step !== 'cancelled' && (
             <PixTrack pix={o.pix} path={`${base}/pix-receipt`} onSent={load} />
           )}

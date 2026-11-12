@@ -1,0 +1,44 @@
+/* Pagamento pelo app (PagBank): cartão e Pix no checkout e no acompanhamento. */
+.opay__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  margin-top: 10px;
+}
+.opay__fields .f--wide {
+  grid-column: 1 / -1;
+}
+.opay__secure {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs, 12px);
+}
+.opay__again {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+.opay__actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+.opay__actions .cta,
+.opay__actions .btn-line {
+  width: 100%;
+  min-height: 48px;
+  justify-content: center;
+}
+.opay__hint {
+  margin: 10px 0 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+@media (max-width: 360px) {
+  .opay__fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

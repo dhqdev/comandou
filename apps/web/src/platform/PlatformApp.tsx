@@ -2,6 +2,7 @@ import {
   Activity,
   BrainCircuit,
   Building2,
+  CreditCard,
   FileText,
   KanbanSquare,
   Download,
@@ -88,6 +89,10 @@ const BillingPage = lazyPage(
   () => import('./BillingPage'),
   (m) => m.BillingPage,
 );
+const OnlinePayPage = lazyPage(
+  () => import('./OnlinePayPage'),
+  (m) => m.OnlinePayPage,
+);
 const AiPage = lazyPage(
   () => import('./AiPage'),
   (m) => m.AiPage,
@@ -110,6 +115,7 @@ const PANEL_PAGES = [
   FiscalPage,
   PlansPage,
   BillingPage,
+  OnlinePayPage,
   AiPage,
   TicketsBoardPage,
 ];
@@ -293,6 +299,7 @@ const NAV = [
   { to: '/fiscal', label: 'Fiscal', icon: FileText },
   { to: '/planos', label: 'Planos', icon: Tags },
   { to: '/cobranca', label: 'Cobrança', icon: Wallet },
+  { to: '/pagamentos', label: 'Pagamentos pelo app', short: 'Pagamentos', icon: CreditCard },
   { to: '/tokens', label: 'Tokens', icon: BrainCircuit },
   { to: '/auditoria', label: 'Auditoria', icon: ScrollText },
 ];
@@ -506,6 +513,7 @@ function Gate() {
         <Route path="fiscal" element={<FiscalPage />} />
         <Route path="planos" element={<PlansPage />} />
         <Route path="cobranca" element={<BillingPage />} />
+        <Route path="pagamentos" element={<OnlinePayPage />} />
         <Route path="tokens" element={<AiPage />} />
         <Route path="ia" element={<AiPage />} />
         <Route path="chamados" element={<TicketsBoardPage />} />
