@@ -23,7 +23,7 @@ export function tourSeen(tenantId: string, userId: string) {
   }
 }
 
-function markSeen(tenantId: string, userId: string) {
+export function markTourSeen(tenantId: string, userId: string) {
   try {
     localStorage.setItem(storageKey(tenantId, userId), 'done');
   } catch {
@@ -68,7 +68,7 @@ export function WelcomeTour({
   );
   const close = useCallback(() => {
     // Pular também conta como visto: não volta a cada recarga.
-    markSeen(tenantId, userId);
+    markTourSeen(tenantId, userId);
     onClose();
   }, [tenantId, userId, onClose]);
   return (

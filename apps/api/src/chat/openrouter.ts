@@ -7,6 +7,12 @@ export interface ChatTurn {
   content: string;
 }
 
+/** Pedaço de uma mensagem com anexo: texto, imagem (data URL) ou arquivo PDF (data URL). */
+export type ContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
+  | { type: 'file'; file: { filename: string; file_data: string } };
+
 export interface Usage {
   promptTokens: number;
   completionTokens: number;
@@ -123,6 +129,51 @@ export class OpenRouterClient {
       }
     }
     return { text, usage };
+  }
+
+  /**
+   * Uma resposta só (sem streaming), com imagem ou PDF junto da pergunta. Usado para ler o
+   * cardápio de uma foto ou de um PDF e devolver os itens em JSON.
+   */
+  async complete(
+    model: string,
+    messages: { role: ChatTurn['role']; content: string | ContentPart[] }[],
+    opts: { maxTokens?: number; json?: boolean; signal?: AbortSignal } = {},
+  ): Promise<{ text: string; usage: Usage }> {
+    const res = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({
+        model,
+        messages,
+        max_tokens: opts.maxTokens ?? 4000,
+        temperature: 0.1,
+        usage: { include: true },
+        ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
+      }),
+      signal: opts.signal ?? AbortSignal.timeout(120_000),
+    });
+    const body = await res.text().catch(() => '');
+    if (!res.ok) throw new OpenRouterError(friendly(res.status, body), res.status);
+    let j: {
+      choices?: { message?: { content?: string | null } }[];
+      usage?: Record<string, unknown>;
+      error?: { message?: string };
+    };
+    try {
+      j = JSON.parse(body);
+    } catch {
+      throw new OpenRouterError('O OpenRouter devolveu uma resposta que não deu para ler');
+    }
+    if (j.error) throw new OpenRouterError(`OpenRouter: ${j.error.message ?? 'erro'}`);
+    return {
+      text: j.choices?.[0]?.message?.content ?? '',
+      usage: {
+        promptTokens: num(j.usage?.prompt_tokens) ?? 0,
+        completionTokens: num(j.usage?.completion_tokens) ?? 0,
+        costUsd: num(j.usage?.cost) ?? 0,
+      },
+    };
   }
 
   private async get(path: string): Promise<Record<string, unknown>> {

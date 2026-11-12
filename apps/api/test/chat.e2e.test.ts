@@ -97,6 +97,39 @@ function fakeOpenRouter() {
         res.end('{}');
         return;
       }
+      // Importar o cardápio: uma resposta só (sem streaming), em JSON, com o arquivo junto.
+      if (req.url === '/chat/completions' && body?.stream !== true) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    categories: [
+                      {
+                        name: 'LANCHES',
+                        items: [
+                          {
+                            name: 'X-Burger',
+                            description: 'Pão, carne e queijo',
+                            price: 'R$ 24,90',
+                          },
+                          { name: 'X-Salada', description: null, price: '27.5' },
+                          { name: '', price: '1' },
+                        ],
+                      },
+                      { name: 'Bebidas', items: [{ name: 'Suco natural', price: null }] },
+                    ],
+                  }),
+                },
+              },
+            ],
+            usage: { prompt_tokens: 1200, completion_tokens: 300, cost: 0.0004 },
+          }),
+        );
+        return;
+      }
       if (req.url === '/chat/completions') {
         res.writeHead(200, { 'Content-Type': 'text/event-stream' });
         const msgs = (body?.messages ?? []) as { content: string }[];
@@ -620,6 +653,60 @@ describe('Assistente de IA', () => {
   it('apaga a própria conversa', async () => {
     await send('waiterA', 'delete', '/chat/ai/messages').expect(200);
     expect((await get('waiterA', '/chat/ai').expect(200)).body.messages).toEqual([]);
+  });
+
+  it('importa o cardápio de uma foto ou PDF: itens organizados e uso descontado do restaurante', async () => {
+    const upload = (w: Who, type: string, body: Buffer) =>
+      http
+        .post('/api/v1/menu-import/analyze')
+        .set('Host', hostOf(w))
+        .set('Cookie', cookies[w])
+        .set(CSRF)
+        .set('Content-Type', type)
+        .send(body);
+    const before = (await get('adminB', '/menu-import').expect(200)).body;
+    expect(before).toMatchObject({ enabled: true, reason: null });
+
+    // Arquivo que não é o que diz ser não chega na IA.
+    const calls = orCalls.length;
+    await upload('adminB', 'image/png', Buffer.from('não é imagem')).expect(422);
+    await upload('adminB', 'application/pdf', Buffer.from('não é pdf')).expect(422);
+    expect(orCalls.length).toBe(calls);
+
+    const pdf = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF');
+    const res = await upload('adminB', 'application/pdf', pdf).expect(200);
+    expect(res.body.categories).toEqual([
+      {
+        name: 'LANCHES',
+        items: [
+          { name: 'X-Burger', description: 'Pão, carne e queijo', price: '24.90' },
+          { name: 'X-Salada', description: null, price: '27.50' },
+        ],
+      },
+      { name: 'Bebidas', items: [{ name: 'Suco natural', description: null, price: null }] },
+    ]);
+    expect(res.body).toMatchObject({ items: 3, tokens: 1500 });
+    expect(res.body.usage.used).toBe(before.usage.used + 1500);
+
+    // O PDF vai como arquivo, para o modelo de importação, pedindo JSON.
+    const call = orCalls[orCalls.length - 1]!.body as {
+      model: string;
+      response_format: { type: string };
+      messages: { content: { type: string }[] }[];
+    };
+    expect(call.response_format).toEqual({ type: 'json_object' });
+    expect(call.messages[1]!.content.map((c) => c.type)).toEqual(['text', 'file']);
+
+    // No extrato do restaurante, o uso fica marcado como importação do cardápio.
+    const [row] = await ownerQuery<{ source: string; n: number }>(
+      `SELECT source, (prompt_tokens + completion_tokens)::int AS n FROM ai_usage
+        WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [fx.tenantB],
+    );
+    expect(row).toEqual({ source: 'menu_import', n: 1500 });
+
+    // Garçom não importa cardápio.
+    await upload('waiterA', 'application/pdf', pdf).expect(403);
   });
 });
 

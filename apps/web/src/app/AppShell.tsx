@@ -62,7 +62,13 @@ import {
   SupportChatHost,
   useSupportUnread,
 } from '../features/store-chat/SupportInbox';
-import { WelcomeTour, tourSeen } from '../features/WelcomeTour';
+import { WelcomeTour, markTourSeen, tourSeen } from '../features/WelcomeTour';
+import {
+  OnboardingChat,
+  markOnboardingSeen,
+  onboardingSeen,
+} from '../features/onboarding/OnboardingChat';
+import { api } from '../lib/api';
 import { PageTourHost } from '../features/tour/PageTour';
 import { useSearchSpotlight } from '../lib/deep-link';
 import { rememberStaffApp } from '../lib/staff-app';
@@ -274,6 +280,7 @@ export function AppShell() {
   const [pwOpen, setPwOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const [onbOpen, setOnbOpen] = useState(false);
   const location = useLocation();
   const perms = me?.permissions;
   const allowed = useCallback(
@@ -286,8 +293,35 @@ export function AppShell() {
   // Painel aberto: o QR da mesa lido pela câmera deste aparelho volta a abrir no Salão.
   useEffect(() => rememberStaffApp('painel'), []);
   // Primeiro acesso deste usuário neste aparelho: apresenta as telas (não no acesso de suporte).
+  // Quem administra uma loja ainda sem itens começa pela conversa de primeiros passos.
   useEffect(() => {
-    if (me && !me.support && !tourSeen(me.tenant.id, me.user.id)) setTourOpen(true);
+    if (!me || me.support || tourSeen(me.tenant.id, me.user.id)) return;
+    if (!me.permissions.includes('settings:manage') || onboardingSeen(me.tenant.id, me.user.id)) {
+      setTourOpen(true);
+      return;
+    }
+    let alive = true;
+    api<unknown[]>('/products')
+      .then(
+        (p) => p.length === 0,
+        () => false,
+      )
+      .then((empty) => {
+        if (!alive) return;
+        if (empty) setOnbOpen(true);
+        else setTourOpen(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [me]);
+  const closeOnboarding = useCallback(() => {
+    // Sair da conversa (ou pular) também dispensa a apresentação automática: as duas ficam em Conta.
+    if (me) {
+      markOnboardingSeen(me.tenant.id, me.user.id);
+      markTourSeen(me.tenant.id, me.user.id);
+    }
+    setOnbOpen(false);
   }, [me]);
   const initials = (me?.user.name ?? '?')
     .split(' ')
@@ -329,6 +363,16 @@ export function AppShell() {
             label: 'Falar com a Comandou',
             icon: <LifeBuoy />,
             onClick: () => openTeamChat('suporte'),
+          },
+        ]
+      : []),
+    ...(me?.permissions.includes('settings:manage')
+      ? [
+          {
+            key: 'inicio',
+            label: 'Primeiros passos',
+            icon: <Sparkles />,
+            onClick: () => setOnbOpen(true),
           },
         ]
       : []),
@@ -476,6 +520,19 @@ export function AppShell() {
       </AppFrame>
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
       <SupportChatHost />
+      {me && (
+        <OnboardingChat
+          open={onbOpen}
+          onClose={closeOnboarding}
+          onTour={() => {
+            closeOnboarding();
+            setTourOpen(true);
+          }}
+          userName={me.user.name}
+          tenantName={me.tenant.name}
+          canImport={me.permissions.includes('catalog:write')}
+        />
+      )}
       {me && (
         <WelcomeTour
           open={tourOpen}

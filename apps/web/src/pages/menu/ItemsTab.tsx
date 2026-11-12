@@ -1,7 +1,17 @@
-import { BookOpen, Pencil, Plus } from 'lucide-react';
+import { BookOpen, Pencil, Plus, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Alert, Badge, Button, Card, EmptyState, Skeleton, useToast } from '../../design-system';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Modal,
+  Skeleton,
+  useToast,
+} from '../../design-system';
+import { MenuImport } from '../../features/menu-import/MenuImport';
 import { useCan } from '../../app/auth';
 import { ImagePicker } from '../../features/ImagePicker';
 import {
@@ -40,6 +50,7 @@ export function ItemsTab() {
   const [links, setLinks] = useState<GroupLink[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [catModal, setCatModal] = useState<Category | 'new' | null>(null);
+  const [importing, setImporting] = useState(false);
   const [sectors, setSectors] = useState<Sector[]>([]);
   // Estoque pela ficha técnica: item com insumo acabado não vende (mesmo sem marcar esgotado).
   const [stock, setStock] = useState<Map<string, ProductAvailability>>(new Map());
@@ -301,12 +312,21 @@ export function ItemsTab() {
           bodyless
           actions={
             canWrite && (
-              <Button
-                icon={<Plus size={16} />}
-                onClick={() => newItem(selected ?? categories?.[0]?.id)}
-              >
-                Adicionar item
-              </Button>
+              <>
+                <Button
+                  variant="secondary"
+                  icon={<Sparkles size={16} />}
+                  onClick={() => setImporting(true)}
+                >
+                  Importar com IA
+                </Button>
+                <Button
+                  icon={<Plus size={16} />}
+                  onClick={() => newItem(selected ?? categories?.[0]?.id)}
+                >
+                  Adicionar item
+                </Button>
+              </>
             )
           }
         >
@@ -404,6 +424,16 @@ export function ItemsTab() {
           )}
         </Card>
       </div>
+      <Modal
+        open={importing}
+        size="lg"
+        title="Importar cardápio com IA"
+        onClose={() => setImporting(false)}
+      >
+        {importing && (
+          <MenuImport onSaved={() => void load()} onFinish={() => setImporting(false)} />
+        )}
+      </Modal>
       <CategoryModal
         open={catModal !== null}
         category={catModal === 'new' ? null : catModal}

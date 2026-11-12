@@ -74,6 +74,7 @@ const SOURCE_LABEL: Record<string, string> = {
   whatsapp: 'WhatsApp',
   esteira: 'Esteira de chamados',
   teste: 'Teste no painel',
+  menu_import: 'Importar cardápio',
 };
 
 /**

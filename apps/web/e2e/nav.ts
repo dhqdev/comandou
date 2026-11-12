@@ -61,10 +61,13 @@ export async function settled(page: Page) {
 export const emailField = (page: Page) => page.getByLabel('E-mail', { exact: true });
 export const passwordField = (page: Page) => page.getByLabel('Senha', { exact: true });
 
-/** No primeiro acesso de cada navegador abre a apresentação das telas: pula. */
+/**
+ * No primeiro acesso de cada navegador abre a apresentação das telas (ou, na loja ainda sem
+ * itens, a conversa de primeiros passos): pula.
+ */
 export async function skipTour(page: Page) {
   await page
-    .getByRole('dialog', { name: 'Boas-vindas' })
+    .getByRole('dialog', { name: /Boas-vindas|Primeiros passos/ })
     .getByRole('button', { name: 'Pular' })
     .click();
 }

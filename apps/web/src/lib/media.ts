@@ -15,7 +15,10 @@ function toBlob(canvas: HTMLCanvasElement, type: string, quality: number) {
  * Fotos de celular de 5–10 MB viram ~150–400 KB, carregam rápido no cardápio e ocupam pouco banco.
  * Navegadores sem WebP no canvas caem para JPEG.
  */
-export async function uploadImage(file: File): Promise<{ id: string; url: string }> {
+/** Foto pronta para subir: reduzida no navegador (lado maior até 1600 px, WebP ou JPEG). */
+export async function shrinkImage(
+  file: File,
+): Promise<{ blob: Blob; width: number; height: number }> {
   if (!file.type.startsWith('image/')) throw new Error('Escolha um arquivo de imagem');
   if (file.size > MAX_INPUT_BYTES) throw new Error('Imagem muito grande (máximo 25 MB)');
   let bitmap: ImageBitmap;
@@ -38,6 +41,11 @@ export async function uploadImage(file: File): Promise<{ id: string; url: string
   let blob = await toBlob(canvas, 'image/webp', 0.85);
   if (!blob || blob.type !== 'image/webp') blob = await toBlob(canvas, 'image/jpeg', 0.86);
   if (!blob) throw new Error('Não foi possível preparar a imagem');
+  return { blob, width: w, height: h };
+}
+
+export async function uploadImage(file: File): Promise<{ id: string; url: string }> {
+  const { blob, width: w, height: h } = await shrinkImage(file);
 
   let res: Response;
   try {

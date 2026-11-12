@@ -90,6 +90,8 @@ const schema = z.object({
   WHATSAPP_GRAPH_URL: z.string().url().default('https://graph.facebook.com/v25.0'),
   /** OpenRouter (assistente de IA). A chave fica no painel Super Admin, cifrada no banco. */
   OPENROUTER_BASE_URL: z.string().url().default('https://openrouter.ai/api/v1'),
+  // Modelo que lê foto e PDF na importação do cardápio (precisa aceitar imagem).
+  AI_IMPORT_MODEL: z.string().min(3).max(120).default('google/gemini-2.5-flash'),
   /**
    * Integração com o iFood (cardápio). Credenciais do aplicativo do Comandou no Portal do
    * Desenvolvedor do iFood. Sem elas, o cardápio de integração fica indisponível.
