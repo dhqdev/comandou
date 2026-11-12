@@ -158,7 +158,9 @@ export function SideBar({ tabs, dot }: { tabs: MagicTab[]; dot(n: number): React
             </span>
           </div>
         ) : (
-          s.acceptsDelivery && (
+          // No início o bloco da moto já está no meio do cardápio.
+          s.acceptsDelivery &&
+          !onHome && (
             <div className="sf-side__ride">
               <MotoboyArt ride={s.isOpen} className="sf-side__art" />
               <span>
@@ -222,7 +224,7 @@ export function CartPanel() {
 
       {cart.length === 0 ? (
         <div className="sf-cart__empty">
-          <MotoboyArt className="sf-cart__art" />
+          <MotoboyArt ride={s.isOpen} className="sf-cart__art" />
           <strong>Sua sacola está vazia</strong>
           <p>Toque no + dos produtos para montar o seu pedido.</p>
         </div>

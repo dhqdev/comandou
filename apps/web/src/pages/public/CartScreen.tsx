@@ -15,7 +15,7 @@ import {
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { SlideTabs } from '../../features/SlideTabs';
-import { MotoboyArt, PickupArt } from './art';
+import { MotoboyArt, PickupArt, WaiterArt } from './art';
 import { CustomerAvatar } from './avatars';
 import { reducedMotion } from './morph';
 import { OrderSent } from './OrderSent';
@@ -390,7 +390,7 @@ export function CartScreen() {
       <div className="sf-wrap sf-page">
         <ScreenHeader title="Sacola" />
         <div className="empty-state">
-          <MotoboyArt className="empty-state__art" />
+          <MotoboyArt ride className="empty-state__art" />
           <strong>Sua sacola está vazia</strong>
           <p>Escolha algo gostoso no cardápio.</p>
           <Link className="cta cta--inline" to="/pedir">
@@ -546,6 +546,7 @@ export function CartScreen() {
             >
               <h2 className="ck-card__title">
                 <HandPlatter size={16} /> Mesa {table.label}
+                <WaiterArt live className="ck-card__art" />
               </h2>
               {pixOnline ? (
                 <div className="pills" role="radiogroup" aria-label="Quando pagar">
@@ -601,6 +602,7 @@ export function CartScreen() {
             >
               <h2 className="ck-card__title">
                 <Bike size={16} /> Endereço de entrega
+                <MotoboyArt ride className="ck-card__art" />
               </h2>
               {saved.length > 0 && (
                 <div className="addr-pick" role="radiogroup" aria-label="Endereço">

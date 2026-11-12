@@ -1,49 +1,25 @@
 /* Reserva de mesa no cardápio online. Cores pelos tokens: seguem a cor e o tema da loja. */
-.rsv-card {
-  margin-top: 12px;
+/* Topo da reserva: o calendário animado e o horário da casa ao lado. */
+.rsv-hero {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: var(--sf-r);
-  background: var(--cm-surface);
-  border: 1px solid var(--cm-border);
-  color: var(--cm-text);
-  text-decoration: none;
-  transition: transform var(--cm-dur) var(--sf-ease);
+  gap: 14px;
+  margin: 4px 0 8px;
 }
-.rsv-card:active {
-  transform: scale(0.98);
-}
-.rsv-card__icon {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
+.rsv-hero__art {
+  width: 120px;
   flex: none;
-  border-radius: var(--sf-r-sm);
-  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
-  color: var(--cm-brand-700);
 }
-.rsv-card__text {
+.rsv-lead {
   display: grid;
   gap: 2px;
-  flex: 1;
-  min-width: 0;
-}
-.rsv-card__text small {
+  margin: 0;
   color: var(--cm-text-muted);
   font-size: var(--cm-text-sm);
 }
-.rsv-ongoing > svg:first-child {
-  margin-left: 0;
-  color: var(--cm-brand-600);
-}
-
-.rsv-lead {
-  margin: 4px 0 8px;
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-sm);
+.rsv-lead strong {
+  color: var(--cm-text);
+  font-size: var(--cm-text-md);
 }
 .rsv-sec {
   margin-top: 20px;

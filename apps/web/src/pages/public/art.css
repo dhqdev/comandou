@@ -443,6 +443,118 @@
     transform: none;
   }
 }
+/* Reserva: a folha do calendário vira, o visto do dia se desenha e o ponteiro dá a volta. */
+.art-rsv-days circle {
+  fill: var(--art-1);
+}
+.art-rsv-page,
+.art-rsv-day {
+  transform-box: fill-box;
+  transform-origin: 50% 0;
+}
+.art-rsv-page {
+  opacity: 0;
+}
+.art-rsv-day {
+  transform-origin: center;
+}
+.art-rsv-hand {
+  transform-origin: 206px 112px;
+}
+.art[data-live] .art-rsv-page {
+  animation: art-rsv-page 3.2s cubic-bezier(0.3, 0.7, 0.3, 1) infinite;
+}
+.art[data-live] .art-rsv-day {
+  animation: art-rsv-day 3.2s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+.art[data-live] .art-rsv-check {
+  animation: art-rsv-check 3.2s ease-out infinite;
+}
+.art[data-live] .art-rsv-hand {
+  animation: art-spin 3.2s linear infinite;
+}
+@keyframes art-rsv-page {
+  0%,
+  8% {
+    opacity: 1;
+    transform: none;
+  }
+  22% {
+    opacity: 1;
+    transform: scaleY(0.05);
+  }
+  23%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes art-rsv-day {
+  0%,
+  22% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  32% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  38%,
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes art-rsv-check {
+  0%,
+  34% {
+    stroke-dashoffset: 30;
+  }
+  46%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+/* Mesa: a cúpula levanta de leve e o vapor sobe. */
+.art-cloche {
+  transform-box: fill-box;
+  transform-origin: 0 100%;
+}
+.art-waiter-steam {
+  opacity: 0;
+}
+.art[data-live] .art-cloche {
+  animation: art-cloche 3s cubic-bezier(0.3, 0.7, 0.3, 1) infinite;
+}
+.art[data-live] .art-waiter-steam {
+  animation: art-waiter-steam 3s ease-out infinite;
+}
+@keyframes art-cloche {
+  0%,
+  24%,
+  70%,
+  100% {
+    transform: none;
+  }
+  36%,
+  58% {
+    transform: translate(-4px, -14px) rotate(-10deg);
+  }
+}
+@keyframes art-waiter-steam {
+  0%,
+  30% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  44% {
+    opacity: 1;
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .art * {
     animation: none !important;

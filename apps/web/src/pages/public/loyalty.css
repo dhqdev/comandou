@@ -1,30 +1,5 @@
-/* Fidelidade no cardápio online: faixa no início, tela com saldo e bloco na finalização.
+/* Fidelidade no cardápio online: bloco no início, tela com saldo e bloco na finalização.
    Sóbrio como o resto do cardápio: superfície, linha fina e a cor da loja só no destaque. */
-.loy-strip {
-  margin-top: 12px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
-  border-radius: var(--sf-r);
-  background: var(--cm-surface);
-  border: 1px solid var(--cm-border);
-  color: var(--cm-text);
-  text-decoration: none;
-  transition: border-color var(--cm-dur);
-}
-.loy-strip:hover {
-  border-color: var(--cm-border-strong);
-}
-.loy-strip > svg {
-  color: var(--cm-text-subtle);
-}
-/* Cartela com o carimbo sendo batido, no lugar do ícone (como o motoboy da entrega). */
-.loy-strip__art {
-  flex: none;
-  width: 64px;
-  margin: -6px -2px -6px -4px;
-}
 .loy-card {
   position: relative;
 }
@@ -50,23 +25,6 @@
   background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
   color: var(--cm-brand-700);
 }
-.loy-strip__text {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  gap: 1px;
-}
-.loy-strip__text strong {
-  font-size: var(--cm-text-sm);
-}
-.loy-strip__text small {
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-xs);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* Tela */
 .loy-card {
   display: grid;
