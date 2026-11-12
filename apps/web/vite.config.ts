@@ -15,15 +15,21 @@ const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 
 };
 const APP_BUILD = `${pkg.version}+${Date.now().toString(36)}`;
 /**
- * Versão mostrada no app (topo e login). Vem do package.json da raiz, que o teste de releases.ts
- * mantém igual à última entrada de Novidades; assim a lista inteira de novidades (pesada) só é
- * baixada quando a tela Novidades abre.
+ * Versão de Novidades: a do package.json da raiz, que o teste de releases.ts mantém igual à última
+ * entrada de Novidades; assim a lista inteira de novidades (pesada) só é baixada quando a tela
+ * Novidades abre.
  */
 const rootPkg = JSON.parse(
   readFileSync(new URL('../../package.json', import.meta.url), 'utf8'),
 ) as {
   version: string;
 };
+/**
+ * Versão mostrada no app (topo e login): a tag publicada pelo CI (v0.108.5 → 0.108.5), que é a
+ * mesma do Super Admin › Infra. O CI cria correções (0.108.1, 0.108.2...) sem mexer no
+ * package.json; fora do CI (dev, testes) vale a versão de Novidades.
+ */
+const shownVersion = process.env.COMANDOU_VERSION?.trim().replace(/^v/, '') || rootPkg.version;
 
 function versionFile(): Plugin {
   return {
@@ -42,7 +48,8 @@ function versionFile(): Plugin {
 export default defineConfig({
   define: {
     __APP_BUILD__: JSON.stringify(APP_BUILD),
-    __APP_VERSION__: JSON.stringify(rootPkg.version),
+    __APP_VERSION__: JSON.stringify(shownVersion),
+    __APP_RELEASE__: JSON.stringify(rootPkg.version),
   },
   plugins: [
     react(),

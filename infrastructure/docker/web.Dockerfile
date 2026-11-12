@@ -14,6 +14,9 @@ ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN --mount=type=secret,id=ca,required=false pnpm install --frozen-lockfile --filter @comandou/web...
 COPY packages/shared packages/shared
 COPY apps/web apps/web
+# Versão publicada pelo CI (tag, ex.: v0.108.5), mostrada no topo do app.
+ARG COMANDOU_VERSION=
+ENV COMANDOU_VERSION=$COMANDOU_VERSION
 RUN pnpm --filter @comandou/shared build && pnpm --filter @comandou/web build
 
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime

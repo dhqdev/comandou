@@ -14,7 +14,7 @@ function read(): string | null {
 /** Grava a versão vista só quando a pessoa abre a tela Novidades (nada é gravado antes). */
 export function markReleasesSeen() {
   try {
-    localStorage.setItem(KEY, __APP_VERSION__);
+    localStorage.setItem(KEY, __APP_RELEASE__);
   } catch {
     /* armazenamento indisponível */
   }
@@ -30,5 +30,5 @@ export function useHasUnseenRelease(): boolean {
     read,
     () => null,
   );
-  return seen !== __APP_VERSION__;
+  return seen !== __APP_RELEASE__;
 }
