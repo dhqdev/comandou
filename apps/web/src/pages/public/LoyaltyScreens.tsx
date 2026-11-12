@@ -3,6 +3,7 @@ import { fromCents } from '@comandou/shared';
 import { Check, ChevronRight, Gift } from 'lucide-react';
 import { Link } from 'react-router';
 import { brl } from '../../lib/money';
+import { LoyaltyArt } from './art';
 import { useStore } from './context';
 import {
   CartLine,
@@ -58,9 +59,7 @@ export function LoyaltyStrip() {
   }
   return (
     <Link className="loy-strip" to="/pedir/fidelidade">
-      <span className="loy-strip__icon" aria-hidden>
-        <Gift size={18} />
-      </span>
+      <LoyaltyArt live className="loy-strip__art" />
       <span className="loy-strip__text">
         <strong>
           {acc ? `${int(acc.balance)} ${unit(acc.balance)}` : 'Programa de fidelidade'}
@@ -124,6 +123,7 @@ export function LoyaltyScreen() {
     <div className="sf-wrap sf-page loy">
       <ScreenHeader title="Fidelidade" back="/pedir/conta" />
       <section className="loy-card">
+        <LoyaltyArt live className="loy-card__art" />
         {acc ? (
           <>
             <span className="loy-card__label">Seu saldo</span>

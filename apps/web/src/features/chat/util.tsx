@@ -111,3 +111,9 @@ export const EMOJIS =
   '😀 😂 😊 😍 🤩 😎 🤔 😅 😴 😢 😡 🙏 👍 👎 👏 🙌 💪 👀 ✅ ❌ ⚠️ 🔥 🎉 ❤️ 🍕 🍔 🍟 🌭 🥗 🍝 🍣 🍰 ☕ 🍺 🥤 🧾 🛵 ⏰ 📦 🧑‍🍳 🍽️ 💰'.split(
     ' ',
   );
+
+/**
+ * Botão de enviar: tocar nele não tira o foco do campo. No celular o teclado fica aberto entre
+ * uma mensagem e outra (antes fechava e abria de novo, e a conversa pulava para cima e voltava).
+ */
+export const keepFocus = (e: { preventDefault(): void }) => e.preventDefault();

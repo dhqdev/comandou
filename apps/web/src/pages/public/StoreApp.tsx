@@ -27,7 +27,7 @@ import {
   useNavigate,
   useNavigationType,
 } from 'react-router';
-import { applyTheme, Mascot, Spinner } from '../../design-system';
+import { applyTheme, Mascot, setPullRefreshHandler, Spinner } from '../../design-system';
 import { api, ApiError } from '../../lib/api';
 import { lazyPage, preloadPages } from '../../lib/lazy-page';
 import { brl } from '../../lib/money';
@@ -456,6 +456,13 @@ export function StoreApp() {
       window.removeEventListener('focus', tick);
     };
   }, [loaded, refreshStatus]);
+
+  // Puxar para recarregar no app instalado: busca o cardápio e a situação da loja de novo, sem
+  // recarregar a página (a tela não pisca e o que está na sacola fica).
+  useEffect(() => {
+    if (!loaded) return;
+    return setPullRefreshHandler(() => Promise.all([refreshMenu(), refreshStatus()]));
+  }, [loaded, refreshMenu, refreshStatus]);
 
   // Tema escolhido pelo restaurante (claro/escuro); "automático" segue o aparelho do cliente.
   useEffect(() => {

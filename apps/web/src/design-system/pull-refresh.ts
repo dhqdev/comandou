@@ -6,7 +6,13 @@
  * - no topo da tela, puxar para baixo e segurar mostra uma bolinha que vai enchendo; passou do
  *   ponto, ela fica cheia e, ao soltar, a página recarrega. Soltar antes desiste;
  * - no fim da tela, puxar para cima estica o conteúdo um pouco (com resistência) e ele volta
- *   sozinho ao soltar, sem recarregar.
+ *   sozinho ao soltar, sem recarregar. Vale também quando a rolagem chega na ponta com o dedo
+ *   ainda na tela (continua puxando: estica);
+ * - rolou rápido e soltou (a rolagem segue sozinha): ao bater no fim ou no topo, o conteúdo
+ *   passa um pouco e volta, como o elástico do iPhone. Só onde o navegador não faz isso sozinho
+ *   (overscroll-behavior: none, que base.css põe na página);
+ * - a tela pode trocar o recarregar da página por um mais leve (`setPullRefreshHandler`): a
+ *   bolinha gira enquanto os dados chegam e o conteúdo volta ao lugar, sem piscar a tela.
  *
  * Vale para qualquer tela que role (painel, cardápio digital, garçom, entregador). Fica de fora
  * quem começa o toque numa janela, num mapa, num campo de texto ou em [data-no-pull].
@@ -18,6 +24,23 @@ export const PULL_TRIGGER = 70;
 const PULL_MAX = 110;
 /** Até onde o conteúdo estica no fim da tela. */
 const STRETCH_MAX = 90;
+
+/** Quanto o conteúdo passa da ponta, no máximo, quando a rolagem rápida bate nela. */
+const BOUNCE_MAX = 56;
+
+/** Recarregar mais leve da tela aberta (null: recarrega a página). */
+let softRefresh: (() => Promise<unknown>) | null = null;
+
+/**
+ * A tela aberta troca o "recarregar a página" por buscar os dados de novo (o cardápio, por
+ * exemplo). Devolve a função que desfaz (ao sair da tela).
+ */
+export function setPullRefreshHandler(fn: () => Promise<unknown>): () => void {
+  softRefresh = fn;
+  return () => {
+    if (softRefresh === fn) softRefresh = null;
+  };
+}
 
 /** Resistência: quanto mais puxa, menos anda (como o elástico do iPhone). */
 export function rubber(distance: number, max: number) {
@@ -95,10 +118,18 @@ export function installPullToRefresh(opts: Options = {}): () => void {
     (navigator as Navigator & { standalone?: boolean }).standalone === true;
   // No navegador comum, só em tela cheia (a abinha do topo): aí também some a barra dele.
   const enabled = () => opts.force || standalone || !!document.fullscreenElement;
-  const refresh = opts.onRefresh ?? (() => window.location.reload());
+  const reload = () => window.location.reload();
   const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
-  let mode: 'idle' | 'pending' | 'pull' | 'stretch' | 'done' = 'idle';
+  // 'scroll': rolando normal, de olho para esticar se chegar na ponta com o dedo na tela.
+  let mode: 'idle' | 'pending' | 'scroll' | 'pull' | 'stretch' | 'done' = 'idle';
+  /** Esticando no topo (1, o conteúdo desce) ou no fim (-1, o conteúdo sobe). */
+  let stretchDir: 1 | -1 = -1;
+  let lastY = 0;
+  let lastT = 0;
+  /** Velocidade do dedo (px/ms, positiva descendo o dedo) no fim do toque. */
+  let fingerV = 0;
+  let buzzed = false;
   let startX = 0;
   let startY = 0;
   let chain: HTMLElement[] = [];
@@ -113,6 +144,7 @@ export function installPullToRefresh(opts: Options = {}): () => void {
     movers = [];
     offset = 0;
     armed = false;
+    buzzed = false;
   };
 
   const settle = (els: HTMLElement[]) => {
@@ -150,7 +182,22 @@ export function installPullToRefresh(opts: Options = {}): () => void {
     const t = e.touches[0]!;
     startX = t.clientX;
     startY = t.clientY;
+    lastY = t.clientY;
+    lastT = e.timeStamp || performance.now();
+    fingerV = 0;
+    fling = null;
     mode = 'pending';
+  };
+
+  const startStretch = (dir: 1 | -1, scroller: HTMLElement | undefined, y: number) => {
+    mode = 'stretch';
+    stretchDir = dir;
+    movers = moversFor(scroller);
+    startY = y;
+    for (const el of movers) {
+      el.style.transition = '';
+      el.style.willChange = 'transform';
+    }
   };
 
   const onMove = (e: TouchEvent) => {
@@ -162,6 +209,26 @@ export function installPullToRefresh(opts: Options = {}): () => void {
     const t = e.touches[0]!;
     const dx = t.clientX - startX;
     const dy = t.clientY - startY;
+    // Velocidade do dedo, suavizada (para a rolagem rápida que segue depois de soltar).
+    const now = e.timeStamp || performance.now();
+    const dt = now - lastT;
+    if (dt > 0) {
+      const v = (t.clientY - lastY) / dt;
+      fingerV = dt > 100 ? v : fingerV * 0.4 + v * 0.6;
+    }
+    const stepY = t.clientY - lastY;
+    lastY = t.clientY;
+    lastT = now;
+
+    if (mode === 'scroll') {
+      // Rolando com o dedo na tela e chegou na ponta: continua puxando, estica.
+      const inner = chain[0];
+      if (!inner) return;
+      if (stepY < 0 && atBottom(inner)) startStretch(-1, inner, t.clientY + 1);
+      else if (stepY > 0 && chain.every(atTop))
+        startStretch(1, chain[chain.length - 1], t.clientY - 1);
+      return;
+    }
 
     if (mode === 'pending') {
       if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
@@ -177,8 +244,12 @@ export function installPullToRefresh(opts: Options = {}): () => void {
         document.body.appendChild(indicator);
       } else if (dy < 0 && chain.length > 0 && atBottom(chain[0]!)) {
         mode = 'stretch';
+        stretchDir = -1;
         movers = moversFor(chain[0]);
-      } else return reset();
+      } else {
+        mode = chain.length ? 'scroll' : 'idle';
+        return;
+      }
       // Recomeça a contar daqui: o pedaço até decidir não conta como puxada.
       startY = t.clientY - Math.sign(dy) * 1;
       for (const el of movers) {
@@ -187,9 +258,10 @@ export function installPullToRefresh(opts: Options = {}): () => void {
       }
     }
 
-    const dist = mode === 'pull' ? t.clientY - startY : startY - t.clientY;
+    const down = mode === 'pull' || (mode === 'stretch' && stretchDir === 1);
+    const dist = down ? t.clientY - startY : startY - t.clientY;
     // A página rolou de volta (o dedo voltou além do começo): sai do gesto.
-    const edge = mode === 'pull' ? chain.every(atTop) : !chain[0] || atBottom(chain[0]);
+    const edge = down ? chain.every(atTop) : !chain[0] || atBottom(chain[0]);
     if (!edge) return end(false);
     if (dist <= 0) {
       // Voltou o dedo: devolve a rolagem normal para o navegador.
@@ -203,19 +275,25 @@ export function installPullToRefresh(opts: Options = {}): () => void {
 
     if (mode === 'pull') {
       offset = rubber(dist, PULL_MAX);
+      const wasArmed = armed;
       armed = offset >= PULL_TRIGGER;
+      // Passou do ponto: um toque leve no celular (Android), uma vez por puxada.
+      if (armed && !wasArmed && !buzzed) {
+        buzzed = true;
+        navigator.vibrate?.(8);
+      }
       move(movers, offset * 0.6);
       if (indicator) {
         const p = Math.min(1, offset / PULL_TRIGGER);
         const top = Number(indicator.dataset.top ?? 0);
         indicator.style.opacity = String(Math.min(1, p * 1.4));
-        indicator.style.transform = `translate(-50%, ${top + offset - 20}px)`;
+        indicator.style.transform = `translate(-50%, ${top + offset - 20}px) scale(${0.7 + 0.3 * p})`;
         indicator.style.setProperty('--p', String(Math.round(p * 100)));
         indicator.toggleAttribute('data-armed', armed);
       }
     } else {
       offset = rubber(dist, STRETCH_MAX);
-      move(movers, -offset);
+      move(movers, stretchDir * offset);
     }
   };
 
@@ -230,15 +308,116 @@ export function installPullToRefresh(opts: Options = {}): () => void {
       }
       for (const el of movers) el.style.transition = 'transform 0.2s ease';
       move(movers, PULL_TRIGGER * 0.6);
-      // Um instante para a bolinha girar antes de a tela sumir.
-      setTimeout(refresh, 120);
+      const soft = !opts.onRefresh && softRefresh;
+      if (!soft) {
+        // Um instante para a bolinha girar antes de a tela sumir.
+        setTimeout(opts.onRefresh ?? reload, 120);
+        return;
+      }
+      // Recarregar leve: a bolinha gira enquanto os dados chegam (no mínimo um instante, para
+      // dar para ver; no máximo 8 s) e o conteúdo volta ao lugar.
+      const held = movers;
+      const started = performance.now();
+      void Promise.race([
+        soft().catch(() => undefined),
+        new Promise((r) => setTimeout(r, 8000)),
+      ]).then(() => {
+        const wait = Math.max(0, 450 - (performance.now() - started));
+        setTimeout(() => {
+          settle(held);
+          hideIndicator();
+          reset();
+        }, wait);
+      });
       return;
     }
     if (mode === 'pull' || mode === 'stretch') {
       settle(movers);
       hideIndicator();
-    }
+    } else if (mode === 'scroll' || mode === 'pending') watchFling();
     reset();
+  };
+
+  // ------------------------------------------------ rolagem rápida que bate na ponta
+  let fling: {
+    scroller: HTMLElement;
+    dir: 1 | -1;
+    until: number;
+    lastTop: number;
+    lastT: number;
+    v: number;
+  } | null = null;
+  let bouncing = false;
+
+  /** O navegador já faz o elástico sozinho nesta caixa? (aí não fazemos de novo) */
+  const nativeBounce = (el: HTMLElement) => {
+    const page = el === document.scrollingElement;
+    const style = getComputedStyle(page ? document.documentElement : el);
+    return (style.overscrollBehaviorY || style.overscrollBehavior || 'auto') !== 'none';
+  };
+
+  /** Soltou o dedo rolando rápido: acompanha a rolagem que segue sozinha. */
+  const watchFling = () => {
+    const scroller = chain[0];
+    if (reduced || !scroller || Math.abs(fingerV) < 0.5 || nativeBounce(scroller)) return;
+    // Dedo subindo = conteúdo indo para o fim (-1: bate no fim).
+    const dir: 1 | -1 = fingerV < 0 ? -1 : 1;
+    fling = {
+      scroller,
+      dir,
+      until: performance.now() + 2500,
+      lastTop: scroller.scrollTop,
+      lastT: performance.now(),
+      v: Math.abs(fingerV),
+    };
+  };
+
+  const bounce = (scroller: HTMLElement, dir: 1 | -1, v: number) => {
+    const els = moversFor(scroller);
+    if (bouncing || !els.length || typeof els[0]!.animate !== 'function') return;
+    bouncing = true;
+    // Mais rápido, passa mais (com teto); devagar quase não passa.
+    const over = Math.min(BOUNCE_MAX, 10 + v * 22);
+    const y = dir === -1 ? -over : over;
+    let left = els.length;
+    for (const el of els) {
+      const a = el.animate(
+        [
+          { transform: 'translateY(0)', easing: 'cubic-bezier(0.15, 0.6, 0.35, 1)' },
+          { transform: `translateY(${y}px)`, offset: 0.3, easing: 'cubic-bezier(0.35, 0, 0.2, 1)' },
+          { transform: 'translateY(0)' },
+        ],
+        { duration: 300 + over * 4 },
+      );
+      const done = () => {
+        if (--left === 0) bouncing = false;
+      };
+      a.onfinish = done;
+      a.oncancel = done;
+    }
+  };
+
+  const onScroll = (e: Event) => {
+    const f = fling;
+    if (!f || mode !== 'idle') return;
+    const el = e.target === document ? (document.scrollingElement as HTMLElement) : e.target;
+    if (el !== f.scroller) return;
+    const now = performance.now();
+    if (now > f.until) {
+      fling = null;
+      return;
+    }
+    const dt = now - f.lastT;
+    const moved = f.scroller.scrollTop - f.lastTop;
+    if (dt > 0 && moved !== 0) f.v = Math.abs(moved) / dt;
+    f.lastTop = f.scroller.scrollTop;
+    f.lastT = now;
+    const hit = f.dir === -1 ? atBottom(f.scroller) : atTop(f.scroller);
+    if (!hit) return;
+    fling = null;
+    // Chegou devagar (a rolagem já ia parando): sem pulo.
+    if (f.v < 0.35) return;
+    bounce(f.scroller, f.dir, f.v);
   };
 
   const onEnd = () => end(true);
@@ -248,7 +427,9 @@ export function installPullToRefresh(opts: Options = {}): () => void {
   document.addEventListener('touchmove', onMove, { passive: false });
   document.addEventListener('touchend', onEnd, { passive: true });
   document.addEventListener('touchcancel', onCancel, { passive: true });
+  document.addEventListener('scroll', onScroll, { passive: true, capture: true });
   return () => {
+    document.removeEventListener('scroll', onScroll, { capture: true });
     document.removeEventListener('touchstart', onStart);
     document.removeEventListener('touchmove', onMove);
     document.removeEventListener('touchend', onEnd);

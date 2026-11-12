@@ -32,7 +32,7 @@ import {
   uploadChatImage,
 } from './chat-api';
 import { Markdown } from './markdown';
-import { Avatar, fmtInt, shortWhen } from './util';
+import { Avatar, fmtInt, keepFocus, shortWhen } from './util';
 
 // ------------------------------------------------------------------ Mural
 
@@ -646,6 +646,8 @@ export function AiTab({ screen, onNavigate }: { screen: string; onNavigate?: () 
           {busy ? (
             <button
               className="tc-send tc-send--stop"
+              onPointerDown={keepFocus}
+              onMouseDown={keepFocus}
               onClick={() => abort.current?.abort()}
               aria-label="Parar"
             >
@@ -654,6 +656,8 @@ export function AiTab({ screen, onNavigate }: { screen: string; onNavigate?: () 
           ) : (
             <button
               className="tc-send"
+              onPointerDown={keepFocus}
+              onMouseDown={keepFocus}
               onClick={() => ask(text)}
               disabled={!text.trim() || !!off}
               aria-label="Perguntar"

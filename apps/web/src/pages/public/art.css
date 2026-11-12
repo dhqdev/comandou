@@ -357,6 +357,92 @@
     stroke-dashoffset: 30;
   }
 }
+/* Retirada: a sacola balança de leve e a plantinha mexe com o vento. */
+.art[data-live] .art-bag,
+.art[data-live] .art-plant {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.art[data-live] .art-bag {
+  animation: art-sway 2.8s ease-in-out infinite;
+}
+.art[data-live] .art-plant {
+  animation: art-sway 3.4s ease-in-out -1s infinite;
+}
+.art-steam--bag {
+  display: none;
+}
+.art[data-live] .art-steam--bag {
+  display: inline;
+}
+/* Fidelidade: o próximo carimbo é batido e a tampa do presente pula. */
+.art-stamp-slot {
+  fill: var(--art-1);
+  stroke: var(--art-2);
+  stroke-width: 2;
+  stroke-dasharray: 4 3.5;
+}
+.art-seal-check--sm {
+  stroke-width: 2.6;
+}
+.art-stamp-new {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.art[data-live] .art-stamp-new {
+  animation: art-stamp 2.8s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+.art-lid {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+.art[data-live] .art-lid {
+  animation: art-lid 2.8s cubic-bezier(0.3, 0.7, 0.3, 1) infinite;
+}
+@keyframes art-sway {
+  50% {
+    transform: rotate(-3deg);
+  }
+}
+@keyframes art-stamp {
+  0%,
+  18% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+  28% {
+    transform: scale(0.92);
+    opacity: 1;
+  }
+  34%,
+  86% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+@keyframes art-lid {
+  0%,
+  30% {
+    transform: none;
+  }
+  38% {
+    transform: translateY(-10px) rotate(-5deg);
+  }
+  46% {
+    transform: translateY(0) rotate(0);
+  }
+  51% {
+    transform: translateY(-4px) rotate(2deg);
+  }
+  56%,
+  100% {
+    transform: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .art * {
     animation: none !important;

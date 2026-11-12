@@ -39,7 +39,7 @@ import {
   REACTIONS,
   uploadChatImage,
 } from './chat-api';
-import { Avatar, dayKey, dayLabel, EMOJIS, hhmm } from './util';
+import { Avatar, dayKey, dayLabel, EMOJIS, hhmm, keepFocus } from './util';
 
 const TYPING_MS = 4500;
 
@@ -816,6 +816,8 @@ function Composer({
         />
         <button
           className="tc-send"
+          onPointerDown={keepFocus}
+          onMouseDown={keepFocus}
           onClick={() => submit()}
           disabled={busy || !text.trim()}
           aria-label={editing ? 'Salvar' : 'Enviar'}

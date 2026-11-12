@@ -25,7 +25,7 @@ import { Link, useLocation, useNavigate } from 'react-router';
 import { clickPoint, Mascot, Spinner, switchTheme, useTheme, useToast } from '../../design-system';
 import { SlideTabs } from '../../features/SlideTabs';
 import { api, ApiError } from '../../lib/api';
-import { AddressArt } from './art';
+import { AddressArt, LoyaltyArt } from './art';
 import { Photo } from './ui';
 import { ProfilePhoto } from './ProfilePhoto';
 import { useStoreChat } from './chat';
@@ -419,6 +419,7 @@ function LoyaltyTile({ l, i }: { l: LoyaltyOn; i: number }) {
         <span className="acct-loy__label">Fidelidade</span>
         <ChevronRight className="acct-row__chev" aria-hidden />
       </span>
+      <LoyaltyArt live className="acct-loy__art" />
       <span className="acct-loy__balance">
         {balance.toLocaleString('pt-BR')} <small>{loyaltyUnit(l, balance)}</small>
       </span>

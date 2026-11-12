@@ -308,7 +308,7 @@ export function PublicOrderPage() {
                 <CookingArt live className="track__art" />
               ) : o.step === 'ready' ? (
                 o.channel === 'pickup' ? (
-                  <PickupArt className="track__art" />
+                  <PickupArt live className="track__art" />
                 ) : (
                   <BagArt live className="track__art" />
                 )

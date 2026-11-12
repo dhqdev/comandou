@@ -19,7 +19,27 @@
 .loy-strip > svg {
   color: var(--cm-text-subtle);
 }
-.loy-strip__icon,
+/* Cartela com o carimbo sendo batido, no lugar do ícone (como o motoboy da entrega). */
+.loy-strip__art {
+  flex: none;
+  width: 64px;
+  margin: -6px -2px -6px -4px;
+}
+.loy-card {
+  position: relative;
+}
+.loy-card__art {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 112px;
+  pointer-events: none;
+}
+.loy-card__label,
+.loy-card__balance,
+.loy-card__rule {
+  margin-right: 120px;
+}
 .loy-reward__icon {
   display: grid;
   place-items: center;

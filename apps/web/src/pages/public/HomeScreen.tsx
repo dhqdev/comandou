@@ -28,7 +28,7 @@ import {
 import { Link, useNavigate, useNavigationType } from 'react-router';
 import { Button, Mascot, Modal } from '../../design-system';
 import { brl } from '../../lib/money';
-import { ClosedArt, CookingArt, FavoritesArt, SearchArt } from './art';
+import { ClosedArt, CookingArt, DeliveryArt, FavoritesArt, SearchArt } from './art';
 import { useStore } from './context';
 import { reducedMotion, setMorph } from './morph';
 import {
@@ -235,6 +235,9 @@ function StoreInfo({ open, onClose }: { open: boolean; onClose(): void }) {
       footer={<Button onClick={onClose}>Ver o cardápio</Button>}
     >
       <div className="sf-info">
+        {!table && (s.acceptsDelivery || s.acceptsPickup) && (
+          <DeliveryArt delivery={s.acceptsDelivery} ride={s.isOpen} className="sf-info__art" />
+        )}
         <span className={`status ${s.isOpen ? 'is-open' : 'is-closed'}`}>
           {s.isOpen ? 'Aberto agora' : 'Fechado agora'}
         </span>

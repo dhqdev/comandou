@@ -635,6 +635,7 @@ export function ChatPane(props: ChatPaneProps) {
   }
 
   function submit() {
+    const typingNow = document.activeElement === input.current;
     const body = text.trim();
     if (disabled || (!body && !file && !orderNumber)) return;
     const id = `local-${++localSeq}`;
@@ -663,7 +664,8 @@ export function ChatPane(props: ChatPaneProps) {
     setPanel(null);
     onClearOrder?.();
     void deliver(id, inputData, prepared);
-    if (!coarse()) input.current?.focus();
+    // Quem estava digitando continua digitando (no celular, o teclado não fecha).
+    if (!coarse() || typingNow) input.current?.focus({ preventScroll: true });
   }
 
   function onKey(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -884,6 +886,10 @@ export function ChatPane(props: ChatPaneProps) {
                 aria-label="Enviar"
                 title="Enviar (Enter)"
                 disabled={!canSend}
+                // Tocar em Enviar não tira o foco do campo: o teclado do celular fica aberto
+                // (antes ele fechava a cada envio e a conversa pulava para cima e voltava).
+                onPointerDown={(e) => e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={submit}
               >
                 <SendHorizontal size={20} />

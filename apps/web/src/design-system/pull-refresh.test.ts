@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { installPullToRefresh, rubber } from './pull-refresh';
+import { installPullToRefresh, rubber, setPullRefreshHandler } from './pull-refresh';
 
 function touch(type: string, target: Element, y: number, x = 100) {
   const e = new Event(type, { bubbles: true, cancelable: true });
@@ -108,5 +108,35 @@ describe('puxar para recarregar', () => {
     touch('touchmove', dlg, 500);
     touch('touchend', dlg, 500);
     expect(onRefresh).not.toHaveBeenCalled();
+  });
+
+  it('rolando com o dedo na tela e chegou no fim: estica e volta', () => {
+    off = installPullToRefresh({ force: true });
+    const { el, child } = scroller(1000);
+    touch('touchstart', child, 500);
+    touch('touchmove', child, 480);
+    el.scrollTop = 1400;
+    touch('touchmove', child, 470);
+    touch('touchmove', child, 300);
+    expect(child.style.transform).toMatch(/translateY\(-/);
+    touch('touchend', child, 300);
+    expect(child.style.transform).toBe('');
+  });
+
+  it('com recarregar leve da tela, busca os dados sem recarregar a página', async () => {
+    vi.useFakeTimers();
+    const soft = vi.fn(() => Promise.resolve());
+    const undo = setPullRefreshHandler(soft);
+    off = installPullToRefresh({ force: true });
+    const { child } = scroller(0);
+    touch('touchstart', child, 100);
+    touch('touchmove', child, 120);
+    touch('touchmove', child, 500);
+    touch('touchend', child, 500);
+    expect(soft).toHaveBeenCalledOnce();
+    expect(document.querySelector('.cm-ptr[data-loading]')).not.toBeNull();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(child.style.transform).toBe('');
+    undo();
   });
 });

@@ -130,6 +130,13 @@
   display: grid;
   gap: 14px;
 }
+/* Motoboy andando (ou a lojinha da retirada) no topo das informações da loja. */
+.sf-info__art {
+  width: min(200px, 60%);
+  justify-self: center;
+  margin: -4px 0 -6px;
+  animation: sf-rise 0.3s var(--sf-ease) both;
+}
 .sf-info .status {
   display: inline-flex;
   align-items: center;
@@ -1560,6 +1567,21 @@
   border: 1px solid var(--cm-border);
   animation: sf-rise 0.2s var(--sf-ease) both;
 }
+/* Retirada: a lojinha com a sacola esperando, ao lado do endereço. */
+.ck-pickup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ck-pickup__text {
+  flex: 1;
+  min-width: 0;
+}
+.ck-pickup__art {
+  flex: none;
+  width: 104px;
+  margin: -6px -4px -8px 0;
+}
 .ck-card__title {
   display: flex;
   align-items: center;
@@ -2293,6 +2315,14 @@
 .acct-loy {
   justify-content: flex-start;
   gap: 6px;
+}
+/* Cartela com o carimbo sendo batido, no canto do cartão. */
+.acct-loy__art {
+  position: absolute;
+  right: 40px;
+  top: 10px;
+  width: 96px;
+  pointer-events: none;
 }
 .acct-loy .acct-tile__top {
   justify-content: flex-start;

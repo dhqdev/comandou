@@ -15,7 +15,7 @@ import {
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { SlideTabs } from '../../features/SlideTabs';
-import { MotoboyArt } from './art';
+import { MotoboyArt, PickupArt } from './art';
 import { CustomerAvatar } from './avatars';
 import { reducedMotion } from './morph';
 import { OrderSent } from './OrderSent';
@@ -675,11 +675,14 @@ export function CartScreen() {
             </section>
           ) : (
             menu.restaurant.address && (
-              <section className="ck-card">
-                <h2 className="ck-card__title">
-                  <Store size={16} /> Retirada na loja
-                </h2>
-                <p className="form-hint">{menu.restaurant.address}</p>
+              <section className="ck-card ck-pickup">
+                <span className="ck-pickup__text">
+                  <h2 className="ck-card__title">
+                    <Store size={16} /> Retirada na loja
+                  </h2>
+                  <p className="form-hint">{menu.restaurant.address}</p>
+                </span>
+                <PickupArt live className="ck-pickup__art" />
               </section>
             )
           )}

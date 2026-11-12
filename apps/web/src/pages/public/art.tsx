@@ -144,11 +144,15 @@ export function MotoboyArt({
   );
 }
 
-/** Lojinha com toldo e a sacola pronta na porta (retirada no balcão). */
-export function PickupArt({ className = '' }: { className?: string }) {
+/**
+ * Lojinha com toldo e a sacola pronta na porta (retirada no balcão). `live`: a sacola balança
+ * de leve soltando vapor (quentinha, esperando você) e a plantinha mexe com o vento.
+ */
+export function PickupArt({ live = false, className = '' }: ArtProps) {
   return (
     <svg
       className={`art art--pickup ${className}`}
+      data-live={live || undefined}
       viewBox="0 0 260 170"
       aria-hidden
       focusable="false"
@@ -182,6 +186,10 @@ export function PickupArt({ className = '' }: { className?: string }) {
         strokeWidth="2.5"
       />
       <path className="art-open" d="M142 92h18" />
+      <g className="art-steam art-steam--bag">
+        <path d="M204 88 C200 82 208 78 204 70" />
+        <path d="M220 88 C216 82 224 78 220 70" />
+      </g>
       <g className="art-bag">
         <path className="art-ink art-kraft" d="M188 104 H236 L232 152 H192 Z" />
         <path className="art-ink art-kraft-dark" d="M188 104 H236 L234 112 H190 Z" />
@@ -189,15 +197,94 @@ export function PickupArt({ className = '' }: { className?: string }) {
         <circle className="art-ink art-white" cx="212" cy="131" r="9.5" strokeWidth="2.5" />
         <path className="art-cutlery" d="M208 127v8M216 127v8" />
       </g>
+      <g className="art-plant">
+        <path
+          className="art-ink art-leaf"
+          d="M28 132 C20 124 18 114 22 106 C30 112 32 122 28 132 Z"
+        />
+        <path
+          className="art-ink art-leaf"
+          d="M28 132 C34 122 40 118 46 118 C44 126 38 132 28 132 Z"
+        />
+      </g>
       <path className="art-ink art-pot" d="M18 132 H38 L35 152 H21 Z" />
-      <path
-        className="art-ink art-leaf"
-        d="M28 132 C20 124 18 114 22 106 C30 112 32 122 28 132 Z"
-      />
-      <path
-        className="art-ink art-leaf"
-        d="M28 132 C34 122 40 118 46 118 C44 126 38 132 28 132 Z"
-      />
+    </svg>
+  );
+}
+
+/**
+ * Cartela de carimbos e o presente (Fidelidade). `live`: o próximo carimbo é batido na cartela
+ * e a tampa do presente dá um pulinho, em ciclo.
+ */
+export function LoyaltyArt({ live = false, className = '' }: ArtProps) {
+  const stamps = [
+    [44, 92],
+    [80, 92],
+    [116, 92],
+    [44, 120],
+    [80, 120],
+    [116, 120],
+  ] as const;
+  return (
+    <svg
+      className={`art art--loyalty ${className}`}
+      data-live={live || undefined}
+      viewBox="0 0 260 170"
+      aria-hidden
+      focusable="false"
+    >
+      <ellipse className="art-shadow" cx="130" cy="157" rx="104" ry="7" />
+      {/* cartela */}
+      <g transform="rotate(-5 80 100)">
+        <rect className="art-ink art-white" x="14" y="52" width="134" height="92" rx="10" />
+        <path
+          className="art-ink art-brand"
+          d="M14 62 A10 10 0 0 1 24 52 H138 A10 10 0 0 1 148 62 V72 H14 Z"
+        />
+        <path className="art-paper-line art-paper-line--white" d="M26 62 H70" />
+        {stamps.map(([x, y], i) =>
+          i < 4 ? (
+            <g key={i}>
+              <circle className="art-ink art-brand" cx={x} cy={y} r="11" />
+              <path
+                className="art-seal-check art-seal-check--sm"
+                d={`M${x - 5} ${y} l3.5 3.5 l6.5 -7`}
+              />
+            </g>
+          ) : i === 4 ? (
+            <g key={i}>
+              <circle className="art-stamp-slot" cx={x} cy={y} r="11" />
+              <g className="art-stamp-new">
+                <circle className="art-ink art-brand" cx={x} cy={y} r="11" />
+                <path
+                  className="art-seal-check art-seal-check--sm"
+                  d={`M${x - 5} ${y} l3.5 3.5 l6.5 -7`}
+                />
+              </g>
+            </g>
+          ) : (
+            <circle key={i} className="art-stamp-slot" cx={x} cy={y} r="11" />
+          ),
+        )}
+      </g>
+      {/* presente */}
+      <g className="art-gift">
+        <rect className="art-ink art-brand-deep" x="164" y="98" width="72" height="54" rx="4" />
+        <rect className="art-ink art-kraft" x="193" y="98" width="14" height="54" />
+        <path className="art-shine" d="M172 108 V140" />
+        <g className="art-lid">
+          <path
+            className="art-ink art-kraft"
+            d="M200 82 C188 62 172 68 180 80 C184 84 192 84 200 82 Z"
+          />
+          <path
+            className="art-ink art-kraft"
+            d="M200 82 C212 62 228 68 220 80 C216 84 208 84 200 82 Z"
+          />
+          <rect className="art-ink art-brand-dark" x="158" y="80" width="84" height="20" rx="4" />
+          <rect className="art-ink art-kraft" x="193" y="80" width="14" height="20" />
+        </g>
+      </g>
     </svg>
   );
 }
@@ -215,7 +302,7 @@ export function DeliveryArt({
   return delivery ? (
     <MotoboyArt ride={ride} className={className} />
   ) : (
-    <PickupArt className={className} />
+    <PickupArt live={ride} className={className} />
   );
 }
 
