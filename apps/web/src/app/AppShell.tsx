@@ -339,12 +339,15 @@ export function AppShell() {
     also: i.to === '/' && pdvTo === '/' ? '/pdv' : undefined,
     label: i.label,
     icon: i.icon,
+    // Menu largo: o dia a dia em cima; cadastro, estoque e fiscal embaixo.
+    section: i.children ? 'Retaguarda' : 'Operação',
     children: i.children?.filter((c) => allowed(c.perms)).map(({ perms: _perms, ...c }) => c),
   }));
   const groups: FrameItem[] = GROUPS.map((g) => ({
     key: g.key,
     label: g.label,
     icon: g.icon,
+    section: 'Retaguarda',
     children: g.items.filter(can).map((i) => ({
       to: i.to,
       label: i.label,
@@ -429,6 +432,7 @@ export function AppShell() {
             key: 'conta',
             label: 'Conta',
             icon: <FrameAvatar name={me?.user.name} />,
+            profile: me ? { name: me.user.name, detail: me.user.roleLabel } : undefined,
             panel: account,
           },
         ]}

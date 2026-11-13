@@ -1,4 +1,11 @@
-import { ChevronDown, ChevronLeft, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronsUpDown,
+  PanelLeftClose,
+  PanelLeftOpen,
+  X,
+} from 'lucide-react';
 import {
   CSSProperties,
   RefObject,
@@ -72,6 +79,11 @@ export interface FrameItem {
   panel?: ReactNode;
   /** Ação simples (ex.: instalar). */
   onClick?: () => void;
+  /** Seção do menu largo (ex.: Operação). Um título aparece onde a seção muda; no menu estreito,
+   * um fio curto. */
+  section?: string;
+  /** Menu largo: troca o rótulo por nome + linha miúda (ex.: a conta mostra quem está usando). */
+  profile?: { name: string; detail?: string };
 }
 
 const WIDE_KEY = 'cm-rail-wide';
@@ -291,9 +303,18 @@ export function AppFrame({
           {it.icon}
           {it.dot && <span className="cm-rail__dot" aria-hidden />}
         </span>
-        <span className="cm-rail__label" aria-hidden={it.short && !wide ? true : undefined}>
-          {wide ? it.label : (it.short ?? it.label)}
-        </span>
+        {wide && it.profile ? (
+          <span className="cm-rail__label cm-rail__profile">
+            <span className="cm-rail__profile-name">{it.profile.name}</span>
+            {it.profile.detail && (
+              <span className="cm-rail__profile-detail">{it.profile.detail}</span>
+            )}
+          </span>
+        ) : (
+          <span className="cm-rail__label" aria-hidden={it.short && !wide ? true : undefined}>
+            {wide ? it.label : (it.short ?? it.label)}
+          </span>
+        )}
       </>
     );
     if (it.to)
@@ -348,6 +369,7 @@ export function AppFrame({
         type="button"
         data-rail-key={it.key}
         data-tour-key={it.key}
+        aria-label={wide && it.profile ? it.label : undefined}
         className={`cm-rail__item ${active ? 'is-active' : ''}`}
         aria-expanded={hasMenu ? open === it.key : undefined}
         aria-haspopup={hasMenu ? 'menu' : undefined}
@@ -360,6 +382,7 @@ export function AppFrame({
         }}
       >
         {body}
+        {wide && it.profile && <ChevronsUpDown className="cm-rail__chev" size={15} aria-hidden />}
       </button>
     );
   };
@@ -407,7 +430,22 @@ export function AppFrame({
             if (open && Math.abs(e.currentTarget.scrollTop - flyScroll.current) > 2) setOpen(null);
           }}
         >
-          {items.map(railItem)}
+          {items.map((it, i) => {
+            const prev = items[i - 1]?.section;
+            const head = it.section && it.section !== prev;
+            if (!head) return railItem(it);
+            return [
+              <div
+                key={`s-${it.section}`}
+                className="cm-rail__section"
+                data-first={i === 0 || undefined}
+                aria-hidden={!wide || undefined}
+              >
+                {wide ? it.section : null}
+              </div>,
+              railItem(it),
+            ];
+          })}
           {!wide && rail.glider}
         </nav>
         {footer.length > 0 && <div className="cm-rail__foot">{footer.map(railItem)}</div>}

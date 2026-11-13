@@ -188,17 +188,36 @@
   inset: 0;
   z-index: -2;
   border-radius: inherit;
-  background: var(--cm-sidebar-active);
+  background: color-mix(in srgb, var(--cm-text) 6.5%, transparent);
+}
+/* Com o indicador deslizante na tela, o fundo de reserva sai (senão o cinza dobra). */
+.cm-rail__nav:has(.cm-glider[data-ready]) .cm-rail__item.is-active::after {
+  opacity: 0;
 }
 .cm-rail .cm-glider {
   border-radius: var(--cm-radius-lg);
+  /* Mesmo cinza do ativo do menu largo: no tema claro o vidro branco sumia no fundo branco. */
+  border-color: transparent;
+  background: color-mix(in srgb, var(--cm-text) 6.5%, transparent);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 /* Tela baixa (notebook, Windows com zoom de 125%): itens mais baixos para caber sem rolar. */
 @media (max-height: 800px) {
+  .cm-rail {
+    gap: 2px;
+  }
   .cm-rail__item {
-    min-height: 50px;
-    padding-block: 4px;
+    min-height: 44px;
+    padding-block: 2px;
     gap: 3px;
+  }
+  .cm-rail__nav,
+  .cm-rail__foot {
+    gap: 1px;
+  }
+  .cm-rail__section {
+    margin-block: 4px;
   }
 }
 
@@ -301,92 +320,135 @@
   border-radius: var(--cm-radius-sm);
 }
 
+/* ---------------------------------------------------------------- seções do menu
+ * Menu largo: título discreto onde a seção muda (Operação, Retaguarda). Estreito: fio curto. */
+.cm-rail__section {
+  width: 28px;
+  height: 1px;
+  margin: 6px auto;
+  background: var(--cm-border-strong);
+}
+.cm-rail__section[data-first] {
+  display: none;
+}
+
 /* ---------------------------------------------------------------- menu largo (computador)
- * Ícone + nome em cada linha; Cardápio, Estoque e Fiscal abrem os subitens logo abaixo,
- * recuados e ligados por um fio fino. Um grupo aberto por vez. */
+ * Topo com a logo na altura da barra de cima; itens de 36px com ícone numa coluna fixa;
+ * ativo em cinza com o ícone laranja; subitens recuados num fio fino, alinhados ao texto
+ * dos itens; a conta no pé mostra quem está usando. */
 @media (min-width: 861px) {
   .cm-frame[data-rail='wide'] {
-    --rail-w: 236px;
+    --rail-w: 240px;
   }
   .cm-frame[data-rail='wide'] .cm-rail {
     align-items: stretch;
-    gap: 4px;
-    padding: 10px 10px 12px;
+    gap: 0;
+    padding: 0 12px 10px;
   }
-  /* Logo grande: o quadro branco ocupa a largura do menu (menos o botão de recolher) e a
-   * logo cabe inteira dentro dele, seja quadrada ou larga. */
+  /* Topo: mesma altura da barra de cima, logo e botão de recolher centrados na linha. */
   .cm-frame[data-rail='wide'] .cm-rail__brand {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
+    justify-content: space-between;
     gap: 8px;
-    height: auto;
-    margin: 0 0 10px;
-    padding: 2px 0 12px;
-    border-bottom: 1px solid var(--cm-border);
+    height: var(--top-h);
+    margin: 0;
+    padding: 0 0 0 4px;
   }
   .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
   }
   .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo {
-    width: 100%;
-    height: 92px;
-    padding: 6px;
-    border-radius: 16px;
+    width: 40px;
+    height: 40px;
+    padding: 3px;
+    border-radius: 11px;
   }
   .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo--initial {
-    width: 92px;
-    font-size: 2.25rem;
+    padding: 0;
+    font-size: var(--cm-text-lg);
   }
   .cm-frame[data-rail='wide'] .cm-rail__toggle {
     flex-shrink: 0;
-    width: 30px;
-    height: 30px;
-    color: var(--cm-text-muted);
+    width: 32px;
+    height: 32px;
+    border-radius: var(--cm-radius-md);
+    color: var(--cm-text-subtle);
   }
   .cm-frame[data-rail='wide'] :is(.cm-rail__nav, .cm-rail__foot) {
     justify-items: stretch;
     padding: 0;
-    gap: 2px;
+    gap: 1px;
   }
   .cm-frame[data-rail='wide'] .cm-rail__nav {
-    padding-block: 2px;
+    padding-block: 4px 8px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__section {
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 16px 10px 6px;
+    background: none;
+    color: var(--cm-text-subtle);
+    font-size: var(--cm-text-xs);
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__section[data-first] {
+    display: block;
+    padding-top: 8px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__foot {
+    padding-top: 8px;
   }
   .cm-frame[data-rail='wide'] .cm-rail__foot::before {
     width: 100%;
-    margin: 0 0 6px;
+    margin: 0 0 7px;
   }
   .cm-frame[data-rail='wide'] .cm-rail__item {
     display: flex;
     align-items: center;
     justify-items: start;
-    gap: 12px;
+    gap: 10px;
     width: 100%;
-    min-height: 40px;
+    min-height: 36px;
     padding: 0 10px;
-    border-radius: 10px;
-    font-size: var(--cm-text-md);
-    font-weight: 550;
+    border-radius: var(--cm-radius-md);
+    font-size: var(--cm-text-sm);
+    font-weight: 500;
     line-height: 1.2;
     text-align: left;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__item:hover:not(.is-active) {
+    background: color-mix(in srgb, var(--cm-text) 4%, transparent);
   }
   .cm-frame[data-rail='wide'] .cm-rail__item:active {
     transform: none;
   }
-  /* Ícone numa coluna fixa de 22px (o avatar da conta também): os nomes ficam alinhados. */
+  /* Ativo: cinza que aparece nos dois temas (o branco do tema claro sumia no fundo branco). */
+  .cm-frame[data-rail='wide'] .cm-rail__item.is-active {
+    background: color-mix(in srgb, var(--cm-text) 6.5%, transparent);
+    color: var(--cm-sidebar-text-strong);
+    font-weight: 600;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__item.is-active::after {
+    display: none;
+  }
+  /* Ícone numa coluna fixa de 20px: os nomes ficam alinhados. */
   .cm-frame[data-rail='wide'] .cm-rail__icon {
     flex: none;
-    width: 22px;
+    width: 20px;
+    color: var(--cm-text-subtle);
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__item:hover .cm-rail__icon {
+    color: var(--cm-sidebar-text-strong);
   }
   .cm-frame[data-rail='wide'] .cm-rail__icon svg {
-    width: 19px;
-    height: 19px;
-  }
-  .cm-frame[data-rail='wide'] .cm-rail__avatar {
-    width: 22px;
-    height: 22px;
-    font-size: 10px;
+    width: 18px;
+    height: 18px;
   }
   .cm-frame[data-rail='wide'] .cm-rail__item.is-active .cm-rail__icon {
+    color: var(--cm-brand-700);
     transform: none;
   }
   .cm-frame[data-rail='wide'] .cm-rail__label {
@@ -400,6 +462,7 @@
   .cm-rail__chev {
     flex: none;
     color: var(--cm-text-subtle);
+    opacity: 0.8;
     transition: transform var(--cm-dur-fast) var(--cm-ease);
   }
   .cm-rail__group[data-open] .cm-rail__chev {
@@ -408,50 +471,116 @@
   .cm-rail__group[data-open] > .cm-rail__item {
     color: var(--cm-sidebar-text-strong);
   }
+  .cm-rail__group[data-open] > .cm-rail__item .cm-rail__icon {
+    color: var(--cm-sidebar-text-strong);
+  }
+  /* Subitens: fio fino saindo do ícone; o texto começa na mesma coluna dos nomes de cima. */
   .cm-rail__sub {
     display: grid;
     gap: 1px;
-    margin: 2px 0 6px 20px;
-    padding-left: 12px;
-    border-left: 1px solid var(--cm-border);
+    margin: 2px 0 6px 19px;
+    border-left: 1px solid var(--cm-border-strong);
   }
   .cm-rail__subitem {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 8px;
-    min-height: 34px;
-    padding: 0 10px;
-    border-radius: var(--cm-radius-md);
+    min-height: 32px;
+    margin-left: 6px;
+    padding: 0 8px 0 15px;
+    border-radius: var(--cm-radius-sm);
     color: var(--cm-sidebar-text);
-    font-size: var(--cm-text-sm);
+    font-size: 0.8125rem;
     font-weight: 500;
     text-decoration: none;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition:
+      color var(--cm-dur) var(--cm-ease),
+      background-color var(--cm-dur) var(--cm-ease);
+  }
+  .cm-rail__subitem > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .cm-rail__subitem:hover:not(.is-active) {
-    background: color-mix(in srgb, var(--cm-text) 5%, transparent);
+    background: color-mix(in srgb, var(--cm-text) 4%, transparent);
     color: var(--cm-sidebar-text-strong);
   }
+  /* Ativo: texto forte e um traço laranja sobre o fio. */
   .cm-rail__subitem.is-active {
-    background: var(--cm-sidebar-active);
+    overflow: visible;
     color: var(--cm-sidebar-text-strong);
     font-weight: 600;
   }
-  /* Tela baixa: linhas um pouco mais baixas. */
+  .cm-rail__subitem.is-active::before {
+    content: '';
+    position: absolute;
+    top: 7px;
+    bottom: 7px;
+    left: -8px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--cm-brand-500);
+  }
+  /* Conta no pé: avatar, nome e papel. */
+  .cm-frame[data-rail='wide'] .cm-rail__item:has(.cm-rail__profile) {
+    min-height: 46px;
+    padding-left: 6px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__item:has(.cm-rail__profile) .cm-rail__icon {
+    width: 28px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__avatar {
+    width: 22px;
+    height: 22px;
+    font-size: 10px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__item:has(.cm-rail__profile) .cm-rail__avatar {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__item.is-active .cm-rail__avatar {
+    box-shadow: none;
+  }
+  .cm-rail__profile {
+    display: grid;
+    gap: 1px;
+  }
+  .cm-rail__profile-name,
+  .cm-rail__profile-detail {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cm-rail__profile-name {
+    color: var(--cm-sidebar-text-strong);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+  .cm-rail__profile-detail {
+    color: var(--cm-text-subtle);
+    font-size: var(--cm-text-xs);
+    font-weight: 500;
+  }
+  /* Tela baixa (notebook de 768px, Windows com zoom): linhas um pouco mais baixas. */
   @media (max-height: 800px) {
     .cm-frame[data-rail='wide'] .cm-rail__item {
-      min-height: 36px;
+      min-height: 34px;
     }
-    .cm-frame[data-rail='wide'] :is(.cm-rail__nav, .cm-rail__foot) {
-      gap: 1px;
+    .cm-frame[data-rail='wide'] .cm-rail__section {
+      padding-top: 12px;
+      padding-bottom: 5px;
     }
-    .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo {
-      height: 68px;
+    .cm-frame[data-rail='wide'] .cm-rail__section[data-first] {
+      padding-top: 4px;
     }
-    .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo--initial {
-      width: 68px;
+    .cm-frame[data-rail='wide'] .cm-rail__item:has(.cm-rail__profile) {
+      min-height: 42px;
     }
     .cm-rail__subitem {
       min-height: 30px;

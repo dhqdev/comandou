@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.113.1',
+    date: '2026-11-13',
+    title: 'Menu lateral do computador mais bonito',
+    summary:
+      'O menu lateral no notebook ficou mais limpo: a logo na altura da barra de cima, as telas separadas em Operação e Retaguarda, a tela atual bem marcada e a conta no pé com seu nome.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Menu aberto: logo e botão de recolher alinhados com a barra de cima, telas agrupadas em "Operação" e "Retaguarda" e linhas mais compactas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A tela atual agora aparece com fundo cinza e ícone laranja também no tema claro (antes quase sumia). Nos submenus, um traço laranja marca onde você está.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No pé do menu aparecem seu nome e seu papel; um clique abre a conta.',
+      },
+      {
+        tag: 'correção',
+        text: 'Menu recolhido em notebook de tela baixa (768px): todos os itens cabem sem precisar rolar.',
+      },
+    ],
+  },
+  {
     version: '0.113.0',
     date: '2026-11-13',
     title: 'Cardápio online: mais fotos e avaliações em cada item',
