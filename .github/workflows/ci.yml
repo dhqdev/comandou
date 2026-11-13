@@ -176,6 +176,24 @@ jobs:
           E2E_EMAIL: dono@demo.local
           E2E_PASSWORD: e2e-senha-forte-123
           E2E_ADMIN_EMAIL: admin@e2e.local
+      - name: Postgres do runner na mesma versão do banco (pg_dump, initdb e pg_restore)
+        # O teste de restauração sobe um Postgres temporário com os programas do runner. Se o banco
+        # (imagem postgres:16-alpine) for de uma versão menor mais nova, o dump traz opções que o
+        # Postgres mais velho não conhece e o pg_restore falha (ex.: 16.16 no banco e 16.x antigo
+        # no runner, em 2026-11-13). Instala o 16 mais novo do repositório oficial e confere.
+        env:
+          PGPASSWORD: postgres
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y -q --only-upgrade postgresql-16 postgresql-client-16 >/dev/null \
+            || sudo apt-get install -y -q postgresql-16 postgresql-client-16 >/dev/null
+          server=$(psql -h localhost -U postgres -At -c 'SHOW server_version_num')
+          runner=$(/usr/lib/postgresql/16/bin/postgres --version | grep -oE '[0-9]+\.[0-9]+' | head -1)
+          runner_num=$(( ${runner%%.*} * 10000 + ${runner##*.} ))
+          echo "Postgres do banco: $server; do runner: $runner ($runner_num)"
+          if [ "$runner_num" -lt "$server" ]; then
+            echo "::error::Postgres do runner ($runner) é mais velho que o do banco ($server)"; exit 1
+          fi
       - name: Backup e teste de restauração (serviço de backup + bucket S3 falso)
         env:
           DATABASE_OWNER_URL: postgres://comandou_owner:owner_ci@localhost:5432/comandou
