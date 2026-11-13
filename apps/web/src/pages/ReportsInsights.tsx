@@ -354,7 +354,7 @@ function renderBlock(id: BlockId, d: InsightsData): ReactNode {
 
 /* ---------- Indicadores ---------- */
 
-function Delta({ cur, prev, invert }: { cur: number; prev: number; invert?: boolean }) {
+export function Delta({ cur, prev, invert }: { cur: number; prev: number; invert?: boolean }) {
   const g = change(cur, prev);
   if (g === null) return <span className="rp-delta">sem base anterior</span>;
   const good = invert ? g <= 0 : g >= 0;
@@ -416,7 +416,7 @@ function InsightKpis({ data }: { data: InsightsData }) {
   );
 }
 
-function KpiBox({
+export function KpiBox({
   label,
   value,
   children,
@@ -987,7 +987,7 @@ function ProductsCard({ data }: { data: InsightsData }) {
 
 /* ---------- Barras horizontais genéricas ---------- */
 
-function HBars({
+export function HBars({
   rows,
 }: {
   rows: { key: string; label: ReactNode; value: number; right: ReactNode; sub?: ReactNode }[];

@@ -55,6 +55,7 @@ import {
 } from './sections';
 import { deliveryFeeText, StoreStatusLine } from './Shell';
 import { PublicBanner, PublicProduct, recentOrders } from './store';
+import { track } from './pixel';
 import { LoopRail } from './LoopRail';
 import { LoyaltyStrip } from './LoyaltyScreens';
 import { ReserveCard } from './ReservationScreens';
@@ -826,6 +827,13 @@ export function HomeScreen() {
     () => wheel.map((c) => ({ ...c, products: refine(c.products, filters) })),
     [wheel, filters],
   );
+  // Pixel: a busca conta quando o cliente para de digitar (com quantos itens achou).
+  const found = results.length;
+  useEffect(() => {
+    if (term.length < 2) return;
+    const id = window.setTimeout(() => track('search', { term, quantity: found }), 1200);
+    return () => window.clearTimeout(id);
+  }, [term, found]);
   const listed = lists.reduce((n, c) => n + c.products.length, 0);
 
   // O cardápio inteiro numa rolagem só (em todas as telas): a rolagem marca a categoria.
@@ -845,6 +853,7 @@ export function HomeScreen() {
   }, []);
 
   function pickBanner(b: PublicBanner) {
+    track('click_banner', { targetId: b.id });
     if (b.targetType === 'product') {
       const p = product(b.targetId!);
       if (p) open(p);

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import type { PublicMenu, PublicProduct } from './store';
+import { track } from './pixel';
 
 /**
  * Como o cardápio se arruma em cada tela:
@@ -108,6 +109,7 @@ export function useActiveSection() {
 
 /** Pede para o início rolar até a seção (agora, se ele está aberto; senão, ao abrir). */
 export function requestJump(id: string) {
+  track('click_category', { targetId: id });
   pending = id;
   setActiveSection(id);
   window.dispatchEvent(new CustomEvent(JUMP, { detail: id }));

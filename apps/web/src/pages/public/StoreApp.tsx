@@ -48,6 +48,7 @@ import {
   type StoreStatus,
 } from './store';
 import { MagicNav, type MagicTab } from './MagicNav';
+import { startPixel } from './pixel';
 import { useLayout } from './sections';
 import { CartPanel, OrderBar, SideBar, StoreStatusLine } from './Shell';
 import { Photo } from './ui';
@@ -463,6 +464,12 @@ export function StoreApp() {
     if (!loaded) return;
     return setPullRefreshHandler(() => Promise.all([refreshMenu(), refreshStatus()]));
   }, [loaded, refreshMenu, refreshStatus]);
+
+  // Pixel do cardápio: conta a visita quando o cardápio aparece (na mesa, marcada como mesa).
+  const atTable = !!menu?.table;
+  useEffect(() => {
+    if (loaded) startPixel({ table: atTable });
+  }, [loaded, atTable]);
 
   // Tema escolhido pelo restaurante (claro/escuro); "automático" segue o aparelho do cliente.
   useEffect(() => {

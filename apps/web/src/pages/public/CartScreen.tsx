@@ -37,6 +37,7 @@ import { api, ApiError } from '../../lib/api';
 import { newIdempotencyKey } from '../../lib/idempotency';
 import { brl, parseBrlInput } from '../../lib/money';
 import { useStore } from './context';
+import { track } from './pixel';
 import { LoyaltyCheckout, useLoyalty } from './LoyaltyScreens';
 import {
   addressLine,
@@ -71,6 +72,7 @@ export function CartScreen() {
     account,
     setAccount,
     subtotal,
+    count,
     product,
     refreshStatus,
     refreshMenu,
@@ -88,6 +90,16 @@ export function CartScreen() {
   const [step, setStep] = useState<'cart' | 'checkout'>(() =>
     jumpToCheckout && cart.length > 0 ? 'checkout' : 'cart',
   );
+  // Pixel: abriu a sacola e foi para a finalização.
+  useEffect(() => {
+    if (cart.length)
+      track(step === 'cart' ? 'view_cart' : 'begin_checkout', {
+        value: subtotal / 100,
+        quantity: count,
+      });
+    // Só quando muda de passo (não a cada item mexido).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
   // Observação e troco ficam guardados: sair para entrar na conta e voltar não apaga.
   const [notes, setNotes] = useStored('cm-cart-notes', '');
   // Na mesa: pagar agora pelo Pix do cardápio ou no fim, com o garçom (o padrão de sempre).
@@ -395,6 +407,7 @@ export function CartScreen() {
       if (rewardId) setRewardId(null);
       if (loyalty) void refreshLoyalty();
       rememberOrder({ token, number: r.number, at: new Date().toISOString() });
+      track('purchase', { value: (r.total ? toCents(r.total) : total) / 100, quantity: count });
       attempt.current = null;
       setSent({
         number: r.number,
@@ -497,13 +510,14 @@ export function CartScreen() {
                   size="sm"
                   grams={l.weight}
                   value={l.quantity}
-                  onChange={(n) =>
+                  onChange={(n) => {
+                    if (n <= 0) track('remove_from_cart', { productId: l.productId });
                     setCart((c) =>
                       n <= 0
                         ? c.filter((x) => x.key !== l.key)
                         : c.map((x) => (x.key === l.key ? { ...x, quantity: n } : x)),
-                    )
-                  }
+                    );
+                  }}
                 />
               </li>
             ))}

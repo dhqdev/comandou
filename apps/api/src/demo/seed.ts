@@ -13,6 +13,7 @@ import { hashPassword } from '../auth/password';
 import { distanceM, insidePolygon } from '../delivery/zones';
 import { CASA_BRASA } from './catalog';
 import { seedDemoExtras } from './extras';
+import { seedDemoPixel } from './pixel';
 import type { DemoCatalog, DemoProduct } from './types';
 
 /** Linha do audit_log que marca o restaurante como já preenchido (nunca preenche duas vezes). */
@@ -1985,6 +1986,28 @@ export async function seedDemoData(
       at,
       localDate,
     });
+
+  // ------------------------------------------------------------------ pixel do cardápio online
+  const bannerIds = (
+    await c.query<{ id: string }>(`SELECT id FROM store_banners WHERE tenant_id = $1`, [T])
+  ).rows.map((b) => b.id);
+  await seedDemoPixel(c, {
+    T,
+    now,
+    rand: r,
+    products: products.map((p) => ({ id: p.id, name: p.name, cents: p.cents })),
+    categoryIds: Object.values(categoryId),
+    bannerIds,
+    onlineOrders: orders
+      .filter((o) => o.source === 'online' && o.status !== 'cancelled')
+      .map((o) => ({
+        createdAt: o.createdAt,
+        total: total(o),
+        items: o.items
+          .filter((i) => i.status !== 'cancelled')
+          .map((i) => ({ productId: i.productId, qty: i.qty, total: i.total })),
+      })),
+  });
 
   // ------------------------------------------------------------------ contadores e marcação
   await bulk(

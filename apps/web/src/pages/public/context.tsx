@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { api } from '../../lib/api';
 import { reducedMotion } from './morph';
+import { track } from './pixel';
 import {
   AccountState,
   CartLine,
@@ -263,6 +264,11 @@ export function StoreProvider({
           : [...c, line];
       });
       if (from) flyToCart(from);
+      track('add_to_cart', {
+        productId: line.productId,
+        quantity: line.quantity,
+        value: lineTotal(line) / 100,
+      });
       navigator.vibrate?.(12);
       window.setTimeout(() => setBump((n) => n + 1), from ? 700 : 0);
     },
@@ -285,6 +291,7 @@ export function StoreProvider({
     favs,
     toggleFav: (id) => {
       navigator.vibrate?.(8);
+      if (!favs.includes(id)) track('favorite', { productId: id });
       setFavs((f) => (f.includes(id) ? f.filter((x) => x !== id) : [id, ...f]));
     },
     account,

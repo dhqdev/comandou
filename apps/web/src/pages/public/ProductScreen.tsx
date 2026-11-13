@@ -7,7 +7,8 @@ import {
 } from '@comandou/shared';
 import { Scale } from 'lucide-react';
 import { Check, ChevronLeft, Share2 } from 'lucide-react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { track } from './pixel';
 import { Link, useNavigate, useParams } from 'react-router';
 import { brl } from '../../lib/money';
 import type { MenuGroup } from '../../lib/types';
@@ -42,6 +43,10 @@ export function ProductScreen() {
   const { product, addToCart, favs, toggleFav, menu } = useStore();
   const navigate = useNavigate();
   const p = product(id);
+  const seen = !!p;
+  useEffect(() => {
+    if (seen) track('view_item', { productId: id });
+  }, [id, seen]);
   const hero = useRef<HTMLDivElement>(null);
   const page = useRef<HTMLElement>(null);
   const [sel, setSel] = useState<Record<string, string[]>>(() => {

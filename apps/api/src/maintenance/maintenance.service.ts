@@ -16,12 +16,14 @@ export interface PurgeResult {
   deliveryLocations: number;
   /** Arquivos de comprovante do Pix com mais de 5 anos (a linha fica). */
   pixReceipts: number;
+  /** Eventos do pixel do cardápio com mais de 400 dias. */
+  menuEvents: number;
 }
 
 /**
  * Limpeza periódica de dados vencidos (função app_purge_expired, migração 0008): sessões
  * encerradas há mais de 90 dias, chaves de idempotência com mais de 30 dias, a última posição
- * do entregador 30 dias depois da entrega e o arquivo do comprovante do Pix depois de 5 anos. Rodar em várias réplicas ao mesmo tempo é seguro.
+ * do entregador 30 dias depois da entrega o arquivo do comprovante do Pix depois de 5 anos e o pixel do cardápio depois de 400 dias. Rodar em várias réplicas ao mesmo tempo é seguro.
  */
 @Injectable()
 export class MaintenanceService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -57,6 +59,7 @@ export class MaintenanceService implements OnApplicationBootstrap, OnModuleDestr
       idempotencyKeys: 0,
       deliveryLocations: 0,
       pixReceipts: 0,
+      menuEvents: 0,
     };
     const add = (r: PurgeResult) => {
       for (const k of Object.keys(total) as (keyof PurgeResult)[]) total[k] += Number(r[k] ?? 0);

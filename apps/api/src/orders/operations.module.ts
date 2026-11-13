@@ -40,6 +40,7 @@ import { TabsService } from '../tables/tabs.service';
 import { WaitersController } from '../tables/waiters.controller';
 import { AccountController, CustomersController } from '../store/account.controller';
 import { StoreReviewsController } from '../store/reviews.controller';
+import { MenuPixelReportController, StorePixelController } from '../store/pixel.controller';
 import { CustomersService } from '../store/customers.service';
 import { MediaController, StoreController } from '../store/store.controller';
 import { PixReceiptsController } from '../store/pix.controller';
@@ -93,6 +94,8 @@ import { OrdersService } from './orders.service';
     AccountController,
     CustomersController,
     StoreReviewsController,
+    StorePixelController,
+    MenuPixelReportController,
     SearchController,
     ReservationsController,
     PublicReservationsController,

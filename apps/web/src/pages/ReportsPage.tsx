@@ -9,6 +9,7 @@ import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import type { OrderChannel, PaymentMethod } from '@comandou/shared';
 import { InsightsView } from './ReportsInsights';
+import { MenuPixelView } from './MenuPixelView';
 import { ReportCatalog, ReportDocView } from './ReportDocView';
 import './reports.css';
 
@@ -98,9 +99,10 @@ const monthLabel = (m: string) =>
 export function ReportsPage() {
   const [params, setParams] = useSearchParams();
   // Atalhos da busca (?foco=secao-...) apontam para seções do detalhe do dia.
-  const [view, setView] = useState<'reports' | 'insights' | 'calendar' | 'day'>(() =>
-    new URLSearchParams(window.location.search).has('foco') ? 'day' : 'reports',
-  );
+  const [view, setView] = useState<'reports' | 'insights' | 'pixel' | 'calendar' | 'day'>(() => {
+    const qs = new URLSearchParams(window.location.search);
+    return qs.has('foco') ? 'day' : qs.get('visao') === 'cardapio' ? 'pixel' : 'reports';
+  });
   const [day, setDay] = useState(() => isoDay(new Date()));
   const [month, setMonth] = useState(() => isoDay(new Date()).slice(0, 7));
   // Relatório aberto fica no endereço (?relatorio=…): o "voltar" do navegador volta à lista.
@@ -123,9 +125,11 @@ export function ReportsPage() {
               ? 'Escolha um relatório: cada um tem o seu painel e baixa em Excel.'
               : view === 'insights'
                 ? 'O que mudou, o que vende, o que dá lucro e onde agir.'
-                : view === 'calendar'
-                  ? 'O mês dia a dia: quanto vendeu, quanto custou e quanto sobrou.'
-                  : 'Faturamento (pedidos do dia) separado de recebimentos (caixa).'}
+                : view === 'pixel'
+                  ? 'O que os clientes fazem no cardápio online: visitas, cliques, sacola e pedidos.'
+                  : view === 'calendar'
+                    ? 'O mês dia a dia: quanto vendeu, quanto custou e quanto sobrou.'
+                    : 'Faturamento (pedidos do dia) separado de recebimentos (caixa).'}
           </p>
         </div>
         <Segmented
@@ -138,6 +142,7 @@ export function ReportsPage() {
           options={[
             { value: 'reports', label: 'Relatórios' },
             { value: 'insights', label: 'Análise' },
+            { value: 'pixel', label: 'Cardápio online' },
             { value: 'calendar', label: 'Calendário' },
             { value: 'day', label: 'Dia' },
           ]}
@@ -151,6 +156,8 @@ export function ReportsPage() {
         )
       ) : view === 'insights' ? (
         <InsightsView />
+      ) : view === 'pixel' ? (
+        <MenuPixelView />
       ) : view === 'calendar' ? (
         <CalendarView
           month={month}

@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.117.0',
+    date: '2026-11-14',
+    title: 'Pixel do cardápio online: visitas, cliques e funil até o pedido',
+    summary:
+      'O cardápio online agora tem um pixel próprio do Comandou, como o da Meta: conta visitas, cliques em cada item, itens postos na sacola, sacola aberta, finalização e pedido feito. Os números aparecem em Relatórios › Cardápio online.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Relatórios › Cardápio online: visitas, pessoas diferentes, cliques em itens, itens na sacola, pedidos online e conversão, comparados com o período anterior.',
+      },
+      {
+        tag: 'novo',
+        text: 'Funil do cardápio: quantos abriram o cardápio, clicaram num item, puseram na sacola, abriram a sacola, foram finalizar e fizeram o pedido. O relatório aponta o passo onde mais gente desiste.',
+      },
+      {
+        tag: 'novo',
+        text: 'Itens do cardápio: cliques, vezes na sacola, taxa de quem abriu e pôs na sacola, vendidos e favoritos de cada item. Muito clique e pouca sacola mostra o item que vale rever.',
+      },
+      {
+        tag: 'novo',
+        text: 'De onde vieram (Instagram, WhatsApp, Google, QR Code da mesa, direto) e de qual aparelho, com a conversão de cada um. Links com utm_source e utm_campaign separam as campanhas.',
+      },
+      {
+        tag: 'novo',
+        text: 'O que os clientes buscaram (e o que buscaram sem achar), horário das visitas, categorias e banners mais tocados e visitas por dia com os pedidos online.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Sem dado pessoal: o pixel usa só ids aleatórios do aparelho e guarda os eventos por 400 dias.',
+      },
+    ],
+  },
+  {
     version: '0.116.0',
     date: '2026-11-14',
     title: 'Primeiros passos pelo cardápio: link ou fotos e a loja fica pronta',

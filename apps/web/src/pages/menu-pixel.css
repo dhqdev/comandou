@@ -1,0 +1,150 @@
+/* Relatórios › Cardápio online (pixel do cardápio). Usa as peças de reports.css. */
+
+.px-funnel {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.px-funnel li {
+  display: grid;
+  grid-template-columns: minmax(130px, 200px) minmax(0, 1fr) minmax(150px, 230px);
+  align-items: center;
+  gap: 12px;
+  font-size: var(--cm-text-sm);
+}
+.px-funnel__label {
+  color: var(--cm-text-muted);
+  font-weight: 600;
+}
+.px-funnel__track {
+  height: 14px;
+}
+.px-funnel li:first-child .rp-bar__fill {
+  background: var(--cm-brand-600);
+}
+.px-funnel li[data-worst] .px-funnel__label {
+  color: var(--cm-danger);
+}
+.px-funnel__value {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.px-funnel__value small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+
+.px-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-text);
+  vertical-align: middle;
+}
+
+.px-cols {
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  height: 180px;
+  padding-bottom: 20px;
+}
+.px-col {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.px-col__bar {
+  display: block;
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+  background: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-surface));
+}
+.px-col[data-on] .px-col__bar,
+.px-col:focus-visible .px-col__bar {
+  background: var(--cm-brand-600);
+}
+.px-col__orders {
+  position: absolute;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  margin: 0 0 -3px -3.5px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-text);
+  box-shadow: 0 0 0 2px var(--cm-surface);
+}
+.px-col__day {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 4px;
+  font-size: var(--cm-text-2xs);
+  color: var(--cm-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.px-hours {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 110px;
+}
+.px-hours__col {
+  flex: 1 1 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.px-hours__bar {
+  display: block;
+  width: 100%;
+  min-height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-surface));
+}
+.px-hours__axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: var(--cm-text-2xs);
+  color: var(--cm-text-muted);
+}
+
+.px-hint {
+  margin-top: 12px;
+}
+
+@media (max-width: 700px) {
+  .px-funnel li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 10px;
+  }
+  .px-funnel__track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .px-funnel__value {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0;
+  }
+  .px-cols {
+    height: 150px;
+    gap: 2px;
+  }
+}
