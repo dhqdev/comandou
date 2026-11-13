@@ -14,8 +14,8 @@
   --sf-shade: var(--cm-ink);
   /* Cartões um pouco mais redondos que o resto (segue o "reto"/"arredondado" da loja). */
   --sf-card-r: calc(var(--sf-r-lg) + 4px);
-  /* Fundo com um toque da cor da loja (creme no laranja padrão). */
-  --sf-page: color-mix(in srgb, var(--cm-brand-500) 4%, var(--cm-bg));
+  /* Fundo neutro, a mesma cor do topo do celular (theme.tsx): uma cor só de ponta a ponta. */
+  --sf-page: var(--cm-bg);
   --sf-tabbar: 60px;
   --sf-appbar: 0px;
   --sf-safe: env(safe-area-inset-bottom, 0px);
@@ -24,7 +24,8 @@
   min-height: 100dvh;
   background: var(--sf-page);
   color: var(--cm-text);
-  padding-bottom: calc(var(--sf-tabbar) + var(--sf-safe) + 96px);
+  /* Só o menu de baixo e um respiro: o fim da lista não sobra vazio. */
+  padding-bottom: calc(var(--sf-tabbar) + var(--sf-safe) + 16px);
   overflow-x: clip;
   -webkit-tap-highlight-color: transparent;
 }
@@ -37,9 +38,19 @@
   html.sf-root:not(.sf-chat-open) body {
     overscroll-behavior-y: auto;
   }
-  html.sf-root {
-    background: color-mix(in srgb, var(--cm-brand-500) 4%, var(--cm-bg));
-  }
+}
+/* Atrás da página (elástico, área do relógio no app instalado): a mesma cor do fundo. */
+html.sf-root {
+  background: var(--cm-bg);
+}
+/* Pílula da sacola aparecendo: a folga cresce só o tamanho dela. */
+.sf[data-layout='phone']:has(> .cartpill:not([data-hidden])) {
+  padding-bottom: calc(var(--sf-tabbar) + var(--sf-safe) + 78px);
+}
+/* Telas com barra fixa embaixo (produto, sacola, reserva): a barra cobre o menu, e a própria tela
+   reserva só a altura dela. */
+.sf[data-layout='phone']:has(.addbar, .checkout-bar) {
+  padding-bottom: 0;
 }
 .sf--center {
   display: grid;
@@ -60,7 +71,7 @@
   padding-bottom: 24px;
 }
 .sf-page--bar {
-  padding-bottom: 220px;
+  padding-bottom: calc(var(--sf-bar-h, 164px) + var(--sf-safe) + 16px);
 }
 .sf-note {
   margin-top: 28px;
@@ -863,6 +874,24 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.pcard__rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 2px;
+  font-size: var(--cm-text-xs);
+  font-weight: 650;
+  color: var(--cm-text);
+  font-variant-numeric: tabular-nums;
+}
+.pcard__rating svg {
+  color: #f5a524;
+  fill: currentColor;
+}
+.pcard__rating small {
+  color: var(--cm-text-subtle);
+  font-weight: 500;
+}
 .pcard__foot {
   margin-top: auto;
   padding-top: 6px;
@@ -1038,7 +1067,8 @@
 
 /* ---------------------------------------------------------------- tela do produto */
 .pdp {
-  padding-bottom: 140px;
+  /* Barra de adicionar: 68px + o risco do iPhone. */
+  padding-bottom: calc(88px + var(--sf-safe));
 }
 .pdp__media {
   position: relative;
@@ -1093,17 +1123,441 @@
   position: relative;
   margin-top: -30px;
   padding: 22px 18px 8px;
-  border-radius: var(--sf-r-lg) var(--sf-r-lg) 0 0;
+  border-radius: calc(var(--sf-r-lg) + 8px) calc(var(--sf-r-lg) + 8px) 0 0;
   background: var(--sf-page);
   display: grid;
   gap: 10px;
-  animation: sf-panel 0.24s 0.03s var(--sf-ease) both;
+  /* Folha que sobe por cima da foto, com a mola suave do sistema. */
+  animation: sf-panel var(--cm-spring-smooth-dur) 0.03s var(--cm-spring-smooth) both;
+}
+/* O conteúdo da folha chega em cascata curta (só opacidade e um passo pequeno). */
+.pdp__panel > * {
+  animation: sf-panel-item 0.22s var(--cm-spring-smooth) both;
+}
+.pdp__panel > :nth-child(2) {
+  animation-delay: 0.04s;
+}
+.pdp__panel > :nth-child(3) {
+  animation-delay: 0.07s;
+}
+.pdp__panel > :nth-child(n + 4) {
+  animation-delay: 0.1s;
 }
 @keyframes sf-panel {
   from {
     opacity: 0;
-    transform: translateY(60px);
+    transform: translateY(40px);
   }
+}
+@keyframes sf-panel-item {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.pdp__topbar .iconbtn {
+  animation: sf-btn-in var(--cm-spring-snappy-dur) 0.08s var(--cm-spring-snappy) both;
+}
+@keyframes sf-btn-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pdp__panel,
+  .pdp__panel > *,
+  .pdp__topbar .iconbtn {
+    animation: none;
+  }
+}
+
+/* Fotos do item: arrasta para o lado, uma por vez. */
+.pgal {
+  position: relative;
+}
+.pgal__track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  outline: none;
+}
+.pgal__track::-webkit-scrollbar {
+  display: none;
+}
+.pgal__slide {
+  flex: 0 0 100%;
+  scroll-snap-align: center;
+  scroll-snap-stop: always;
+}
+.pgal__dots {
+  position: absolute;
+  left: 50%;
+  bottom: 42px;
+  display: flex;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: var(--cm-radius-full);
+  background: rgb(0 0 0 / 28%);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.pgal__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--cm-radius-full);
+  background: rgb(255 255 255 / 55%);
+  transition:
+    width var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    background-color var(--cm-dur-fast) var(--cm-ease);
+}
+.pgal__dot[data-on] {
+  width: 16px;
+  background: #fff;
+}
+/* Setas só com mouse (no celular é arrastar). */
+.pgal__arrow {
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .pgal__arrow {
+    position: absolute;
+    top: 50%;
+    display: grid;
+    margin-top: -20px;
+    opacity: 0;
+    transition:
+      opacity var(--cm-dur-fast) var(--cm-ease),
+      transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+  }
+  .pgal:hover .pgal__arrow:not(:disabled) {
+    opacity: 1;
+  }
+  .pgal__arrow--prev {
+    left: 12px;
+  }
+  .pgal__arrow--next {
+    right: 12px;
+  }
+}
+
+/* Nota do item ao lado do nome: toca e desce até as avaliações. */
+.rchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  margin-top: -2px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  text-decoration: none;
+}
+.rchip svg {
+  color: #f5a524;
+  fill: currentColor;
+}
+.rchip strong {
+  color: var(--cm-text);
+  font-weight: 700;
+}
+.stars {
+  display: inline-flex;
+  gap: 1px;
+  color: var(--cm-border-strong);
+}
+.stars svg {
+  fill: currentColor;
+}
+.stars svg[data-on] {
+  color: #f5a524;
+}
+
+/* Avaliações do item */
+.prv {
+  display: grid;
+  gap: 14px;
+  margin-top: 6px;
+  scroll-margin-top: calc(env(safe-area-inset-top, 0px) + 16px);
+}
+.prv[aria-busy] {
+  min-height: 80px;
+}
+.prv__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.prv__head .pdp__section {
+  margin: 14px 0 0;
+}
+.prv__write,
+.prv__ghost {
+  min-height: 38px;
+  margin-top: 14px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.prv__ghost {
+  margin: 0;
+}
+.prv__ghost--danger {
+  color: var(--cm-danger);
+}
+.prv__write:active,
+.prv__ghost:active,
+.prv__send:active,
+.prv__like:active,
+.prv__rate button:active {
+  transform: scale(0.94);
+  transition-duration: 80ms;
+}
+.prv__summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+}
+.prv__avg {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+.prv__avg strong {
+  font-size: 34px;
+  line-height: 1;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.prv__avg small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.prv__bars {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.prv__bars li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.prv__bar {
+  height: 6px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-sunken);
+  overflow: hidden;
+}
+.prv__bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #f5a524;
+  transform-origin: left;
+  transition: transform var(--cm-spring-smooth-dur) var(--cm-spring-smooth);
+}
+.prv__empty {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.prv__list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.prv__item {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  gap: 10px;
+  padding: 14px 0;
+  border-top: 1px solid var(--cm-border);
+}
+.prv__item:first-child {
+  border-top: 0;
+  padding-top: 4px;
+}
+.prv__avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--cm-surface-sunken);
+}
+.prv__avatar svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.prv__body {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.prv__who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: var(--cm-text-sm);
+}
+.prv__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--cm-success);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+}
+.prv__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+}
+.prv__text {
+  margin: 4px 0 0;
+  color: var(--cm-text);
+  font-size: var(--cm-text-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+/* Coração da avaliação: alvo de toque de 44px, número ao lado. */
+.prv__like {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 44px;
+  height: 44px;
+  margin: -8px -8px 0 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--cm-radius-full);
+  background: none;
+  color: var(--cm-text-subtle);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.prv__like[data-on] {
+  color: var(--cm-danger);
+}
+.prv__like[data-on] svg {
+  fill: currentColor;
+  animation: sf-pop 0.28s var(--cm-ease-liquid);
+}
+/* Escrever a avaliação */
+.prv__form {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r);
+  background: var(--cm-surface);
+  animation: sf-panel-item 0.22s var(--cm-spring-smooth) both;
+}
+.prv__rate {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+.prv__rate button {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  color: var(--cm-border-strong);
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.prv__rate button svg {
+  fill: currentColor;
+  transition: color var(--cm-dur-fast) var(--cm-ease);
+}
+.prv__rate button[data-on] {
+  color: #f5a524;
+}
+.prv__rate button[aria-checked='true'] svg {
+  animation: sf-pop 0.28s var(--cm-ease-liquid);
+}
+.prv__rate-label {
+  margin: -4px 0 0;
+  text-align: center;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.prv__form textarea {
+  width: 100%;
+  min-height: 84px;
+  padding: 10px 12px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--sf-r);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: 16px;
+  resize: vertical;
+}
+.prv__form textarea:focus {
+  outline: none;
+  border-color: var(--cm-brand-500);
+  box-shadow: var(--cm-focus);
+}
+.prv__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.prv__spacer {
+  flex: 1;
+}
+.prv__send {
+  min-height: 38px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.prv__send:disabled,
+.prv__ghost:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .pdp__head {
   display: flex;

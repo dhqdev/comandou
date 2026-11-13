@@ -20,6 +20,10 @@ export interface PublicProduct {
   badge: string | null;
   /** Vendido por peso: o preço é do kg e o cliente escolhe quanto quer. */
   soldByWeight?: boolean;
+  /** Fotos extras do item (a principal é imageUrl), na ordem do cadastro. */
+  photos?: string[];
+  /** Média das avaliações dos clientes; null sem avaliação. */
+  rating?: { average: number; count: number } | null;
   /** Modelo 3D do prato (GLB e, se houver, o USDZ do iPhone). */
   model?: { glb: string; usdz: string | null } | null;
   optionGroups: MenuGroup[];

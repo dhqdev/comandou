@@ -39,6 +39,7 @@ import { SalonController, TabsController } from '../tables/tabs.controller';
 import { TabsService } from '../tables/tabs.service';
 import { WaitersController } from '../tables/waiters.controller';
 import { AccountController, CustomersController } from '../store/account.controller';
+import { StoreReviewsController } from '../store/reviews.controller';
 import { CustomersService } from '../store/customers.service';
 import { MediaController, StoreController } from '../store/store.controller';
 import { PixReceiptsController } from '../store/pix.controller';
@@ -91,6 +92,7 @@ import { OrdersService } from './orders.service';
     MediaController,
     AccountController,
     CustomersController,
+    StoreReviewsController,
     SearchController,
     ReservationsController,
     PublicReservationsController,

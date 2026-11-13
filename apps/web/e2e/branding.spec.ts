@@ -32,8 +32,9 @@ test('a cor salva na Loja online vale em todas as telas da loja', async ({ page,
       await p.goto(path);
       await expect.poll(() => brand500(p), { message: `anônimo ${path}` }).toBe('#1f6feb');
     }
-    // No cardápio, a barra do topo do navegador também fica na cor da loja.
-    await expect(p.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#1f6feb');
+    // No cardápio, o topo do celular (barra do navegador, área do relógio) tem a cor do fundo da
+    // página, não a da loja: uma cor só, sem faixa colorida.
+    await expect(p.locator('meta[name="theme-color"]')).toHaveAttribute('content', '#f6f6f7');
     await anon.close();
   } finally {
     await page.goto('/loja-online');
@@ -69,7 +70,7 @@ test('seletor nativo e cores prontas salvam; o manifesto do app segue a loja', a
     const own = await page.evaluate((u) => fetch(u!).then((r) => r.json()), href);
     expect(own).toMatchObject({ start_url: '/pedir', id: '/pedir' });
     const m = await page.evaluate(() => fetch('/api/v1/store/manifest').then((r) => r.json()));
-    expect(m.theme_color).toBe('#0f9d9a');
+    expect(m.theme_color).toBe('#f6f6f7');
     expect(m.icons.length).toBeGreaterThan(0);
   } finally {
     await page.goto('/loja-online');

@@ -19,6 +19,7 @@ import { useCan } from '../../app/auth';
 import { CheckField, fmtQty, parseQtyInput, SelectField, Tabs } from '../../features/forms';
 import { ImagePicker } from '../../features/ImagePicker';
 import { Item3DCard } from '../../features/Item3DCard';
+import { ItemPhotosCard, ItemReviewsCard } from '../../features/ItemShowcaseCards';
 import { fmtFactor, fmtPct } from '../../features/pricing';
 import { fmtCost, recipeStock, toMilli, valueCents } from '../../features/stock-math';
 import { api, type Category, type Product } from '../../lib/api';
@@ -845,7 +846,9 @@ export function ItemEditor() {
                 />
               </div>
             </Card>
+            {!isNew && <ItemPhotosCard productId={id} canWrite={canWrite} />}
             {!isNew && <Item3DCard productId={id} canWrite={canWrite} />}
+            {!isNew && <ItemReviewsCard productId={id} canWrite={canWrite} />}
           </>
         ) : tab === 'complementos' ? (
           <Card title="Grupos de complementos do item">

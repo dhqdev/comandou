@@ -11,6 +11,7 @@ import {
   Search,
   ShoppingBag,
   SlidersHorizontal,
+  Star,
   Store,
   UserRound,
   Wallet,
@@ -127,6 +128,13 @@ function ProductCard({ p, i = 0, rank }: { p: PublicProduct; i?: number; rank?: 
       </div>
       <div className="pcard__body">
         <span className="pcard__name">{p.name}</span>
+        {p.rating && p.rating.count > 0 && (
+          <span className="pcard__rating" aria-label={`Nota ${p.rating.average} de 5`}>
+            <Star size={12} aria-hidden />
+            {p.rating.average.toLocaleString('pt-BR', { minimumFractionDigits: 1 })}
+            <small>({p.rating.count})</small>
+          </span>
+        )}
         <span className="pcard__foot">
           <span className="pcard__price">
             {p.soldOut ? '—' : brl(p.price)}

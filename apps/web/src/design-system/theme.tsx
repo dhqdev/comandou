@@ -36,13 +36,14 @@ export function applyTheme(theme: Theme = currentTheme()) {
 }
 
 /**
- * Cor da barra do navegador (theme-color). No cardápio é a cor do restaurante; nas telas da
- * equipe acompanha o fundo da moldura. Não depende do CSS já ter carregado: as cores vêm
- * prontas de applyBranding, e a moldura tem valor fixo de reserva.
+ * Cor da barra do navegador (theme-color) e da área do relógio/Dynamic Island no iPhone. Nas telas
+ * da equipe acompanha o fundo da moldura; no cardápio ('page') é o próprio fundo da página, para o
+ * topo do celular ter uma cor só, sem faixa de outra cor. Não depende do CSS já ter carregado:
+ * cada caso tem um valor fixo de reserva.
  */
-let barBrand: { light: string; dark: string } | null = null;
-export function setBarColor(c: { light: string; dark: string } | null) {
-  barBrand = c;
+let barMode: 'frame' | 'page' = 'frame';
+export function setBarColor(mode: 'frame' | 'page') {
+  barMode = mode;
   paintBar();
 }
 function paintBar(theme: Theme = currentTheme()) {
@@ -52,10 +53,12 @@ function paintBar(theme: Theme = currentTheme()) {
     meta.name = 'theme-color';
     document.head.appendChild(meta);
   }
-  const frame =
-    getComputedStyle(document.documentElement).getPropertyValue('--cm-frame').trim() ||
-    (theme === 'dark' ? '#0e0e10' : '#ffffff');
-  const color = barBrand ? barBrand[theme] : frame;
+  const page = barMode === 'page';
+  const color =
+    getComputedStyle(document.documentElement)
+      .getPropertyValue(page ? '--cm-bg' : '--cm-frame')
+      .trim() ||
+    (page ? (theme === 'dark' ? '#141416' : '#f6f6f7') : theme === 'dark' ? '#0e0e10' : '#ffffff');
   if (meta.content !== color) meta.content = color;
 }
 

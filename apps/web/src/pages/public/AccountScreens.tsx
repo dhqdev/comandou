@@ -373,9 +373,6 @@ function Row({
   );
 }
 
-const plural = (n: number, one: string, many: string) =>
-  `${n.toLocaleString('pt-BR')} ${n === 1 ? one : many}`;
-
 /** Pedido em andamento há pouco (o mais recente): aparece no topo da conta. */
 const LIVE_MS = 12 * 3600_000;
 function liveOrder(orders: AccountOrder[] | null) {
@@ -447,7 +444,7 @@ function LoyaltyTile({ l, i }: { l: LoyaltyOn; i: number }) {
  * senha numa lista curta; Sair no fim.
  */
 export function AccountScreen() {
-  const { account, logout, menu, favs, product } = useStore();
+  const { account, logout, menu } = useStore();
   const chat = useStoreChat();
   const loyalty = useLoyalty();
   const [theme] = useTheme();
@@ -464,7 +461,6 @@ export function AccountScreen() {
   const dark = theme === 'dark';
   const live = liveOrder(orders);
   const home = account.addresses.find((a) => a.isDefault) ?? account.addresses[0];
-  const favPhotos = favs.map((id) => product(id)?.imageUrl);
   // Ordem de entrada de cada parte.
   let n = 0;
   const at = (i: number) => ({ '--i': i }) as CSSProperties;
@@ -499,36 +495,10 @@ export function AccountScreen() {
             {loyalty && <LoyaltyTile l={loyalty} i={n++} />}
             <Tile
               i={n++}
-              to="/pedir/pedidos"
-              icon={<ReceiptText />}
-              label="Pedidos"
-              photos={orders?.[0]?.items.map((it) => it.imageUrl)}
-              hint={
-                orders === null
-                  ? undefined
-                  : orders.length
-                    ? plural(
-                        orders.length,
-                        'pedido',
-                        orders.length >= 50 ? 'pedidos ou mais' : 'pedidos',
-                      )
-                    : 'Nenhum ainda'
-              }
-            />
-            <Tile
-              i={n++}
               to="/pedir/conta/enderecos"
               icon={<MapPin />}
               label="Endereços"
               hint={home ? `${home.street}, ${home.number}` : 'Nenhum ainda'}
-            />
-            <Tile
-              i={n++}
-              to="/pedir/favoritos"
-              icon={<Heart />}
-              label="Favoritos"
-              photos={favPhotos}
-              hint={favs.length ? plural(favs.length, 'prato', 'pratos') : 'Nenhum ainda'}
             />
             <Tile
               i={n++}

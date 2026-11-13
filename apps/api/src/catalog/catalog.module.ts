@@ -4,6 +4,7 @@ import { FamiliesController } from './families.controller';
 import { MenusController } from './menus.controller';
 import { ProductModelsController } from './models.controller';
 import { OptionsController } from './options.controller';
+import { ProductExtrasController } from './product-extras.controller';
 
 @Module({
   controllers: [
@@ -12,6 +13,7 @@ import { OptionsController } from './options.controller';
     MenusController,
     FamiliesController,
     ProductModelsController,
+    ProductExtrasController,
   ],
 })
 export class CatalogModule {}

@@ -429,8 +429,9 @@ export class StoreService {
         short_name: name.length > 12 ? name.slice(0, 12).trim() : name,
         description: `${name} no Comandou`,
         lang: 'pt-BR',
-        theme_color: s.brandColor ?? '#e23a00',
-        background_color: '#f7f5f3',
+        // Topo do app instalado na cor do fundo do cardápio (uma cor só, sem faixa da cor da loja).
+        theme_color: '#f6f6f7',
+        background_color: '#f6f6f7',
         display: 'standalone',
         start_url: startUrl ?? '/',
         scope: '/',
@@ -611,6 +612,8 @@ export class StoreService {
           badge: string | null;
           modelV: number | null;
           modelUsdz: boolean;
+          photoIds: string[] | null;
+          rating: { average: number; count: number } | null;
           optionGroups: unknown[];
         }[];
       }>(
@@ -622,7 +625,12 @@ export class StoreService {
            'modelV', (SELECT floor(extract(epoch FROM pm.updated_at))::bigint FROM product_models pm
                        WHERE pm.product_id = p.id AND pm.glb IS NOT NULL),
            'modelUsdz', COALESCE((SELECT pm.usdz IS NOT NULL FROM product_models pm
-                                   WHERE pm.product_id = p.id), false),`,
+                                   WHERE pm.product_id = p.id), false),
+           'photoIds', (SELECT json_agg(pp.image_id ORDER BY pp.position) FROM product_photos pp
+                         WHERE pp.product_id = p.id),
+           'rating', (SELECT json_build_object('average', round(avg(r.rating), 1), 'count', count(*))
+                        FROM product_reviews r WHERE r.product_id = p.id AND r.hidden_at IS NULL
+                      HAVING count(*) > 0),`,
         ),
         [table ? 'principal' : 'delivery'],
       );
@@ -705,9 +713,14 @@ export class StoreService {
         categories: visible.map(({ imageId, products, ...c }) => ({
           ...c,
           imageUrl: mediaUrl(imageId),
-          products: products.map(({ imageId: img, modelV, modelUsdz, ...p }) => ({
+          products: products.map(({ imageId: img, modelV, modelUsdz, photoIds, rating, ...p }) => ({
             ...p,
             imageUrl: mediaUrl(img),
+            // Fotos extras do item (a principal vem em imageUrl).
+            photos: (photoIds ?? []).map((id) => mediaUrl(id)!),
+            rating: rating
+              ? { average: Number(rating.average), count: Number(rating.count) }
+              : null,
             model: modelUrls(p.id, modelV ?? null, !!modelUsdz),
           })),
         })),

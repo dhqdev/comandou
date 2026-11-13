@@ -15,7 +15,13 @@ import { SearchArt } from './art';
 import { useStore } from './context';
 import { Model3DButton } from './Model3D';
 import { reducedMotion, takeMorph } from './morph';
-import { HeartButton, Photo, Stepper, Switch } from './ui';
+import { ProductGallery } from './ProductGallery';
+import { ProductReviews, RatingChip } from './ProductReviews';
+import { HeartButton, Stepper, Switch } from './ui';
+
+/** Curva de mola do sistema (tokens.css), lida na hora; reserva se o CSS não tiver carregado. */
+const springEase = (name: string, fallback: string) =>
+  getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 
 /** Grupo de escolha única e curto vira "pílulas" (Pequeno · Médio · Grande). */
 const asChips = (g: MenuGroup) =>
@@ -37,6 +43,7 @@ export function ProductScreen() {
   const navigate = useNavigate();
   const p = product(id);
   const hero = useRef<HTMLDivElement>(null);
+  const page = useRef<HTMLElement>(null);
   const [sel, setSel] = useState<Record<string, string[]>>(() => {
     // Opções marcadas como padrão já vêm escolhidas; escolha única obrigatória sem padrão
     // vem com a primeira opção.
@@ -55,27 +62,53 @@ export function ProductScreen() {
   const [notes, setNotes] = useState('');
   const [shake, setShake] = useState(false);
 
-  // A foto do cartão "cresce" até virar a foto grande.
+  // A foto do cartão "cresce" até virar a foto grande, com a mola do sistema (sem pulo). Sem
+  // cartão de origem (link direto), a foto entra com um leve zoom.
   useLayoutEffect(() => {
     const from = takeMorph(id);
     const el = hero.current;
-    if (!from || !el || reducedMotion() || !el.animate) return;
+    if (!el || reducedMotion() || !el.animate) return;
+    const easing = springEase('--cm-spring-smooth', 'cubic-bezier(.32,.72,0,1)');
     const to = el.getBoundingClientRect();
-    if (!to.width) return;
-    el.animate(
-      [
+    if (from && to.width) {
+      el.animate(
+        [
+          {
+            transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`,
+            borderRadius: '18px',
+          },
+          { transform: 'none', borderRadius: '0px' },
+        ],
+        { duration: 300, easing },
+      );
+    } else {
+      el.animate(
+        [
+          { opacity: 0, transform: 'scale(1.04)' },
+          { opacity: 1, transform: 'none' },
+        ],
         {
-          transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`,
-          borderRadius: '18px',
+          duration: 260,
+          easing,
         },
-        { transform: 'none', borderRadius: '0px' },
-      ],
-      { duration: 280, easing: 'cubic-bezier(.2,.8,.2,1)' },
-    );
+      );
+    }
   }, [id]);
 
-  const close = () =>
-    window.history.state?.idx > 0 ? navigate(-1) : navigate('/pedir', { replace: true });
+  // Fechar: a tela desce um pouco e some (rápido), e só então volta.
+  const leaving = useRef(false);
+  const close = () => {
+    const back = () =>
+      window.history.state?.idx > 0 ? navigate(-1) : navigate('/pedir', { replace: true });
+    const el = page.current;
+    if (!el?.animate || reducedMotion() || leaving.current) return back();
+    leaving.current = true;
+    el.animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(24px)' }], {
+      duration: 160,
+      easing: 'cubic-bezier(.4,0,1,1)',
+      fill: 'forwards',
+    }).onfinish = back;
+  };
 
   if (!p)
     return (
@@ -148,10 +181,10 @@ export function ProductScreen() {
   }
 
   return (
-    <article className="pdp">
+    <article ref={page} className="pdp">
       <div className="pdp__media">
         <div ref={hero} className="pdp__hero">
-          <Photo src={p.imageUrl} alt={p.name} ratio="1 / 1" eager />
+          <ProductGallery photos={[p.imageUrl, ...(p.photos ?? [])]} alt={p.name} />
         </div>
         <div className="pdp__topbar">
           <button
@@ -188,6 +221,9 @@ export function ProductScreen() {
             {p.soldByWeight && <small className="pdp__per">/kg</small>}
           </strong>
         </div>
+        {p.rating && p.rating.count > 0 && (
+          <RatingChip average={p.rating.average} count={p.rating.count} />
+        )}
         {p.description && <p className="pdp__desc">{p.description}</p>}
         {p.model && <Model3DButton model={p.model} name={p.name} poster={p.imageUrl} />}
         {p.soldByWeight && (
@@ -291,6 +327,8 @@ export function ProductScreen() {
             onChange={(e) => setNotes(e.target.value)}
           />
         </label>
+
+        <ProductReviews productId={p.id} />
       </div>
 
       <div className="addbar">

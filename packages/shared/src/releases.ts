@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.113.0',
+    date: '2026-11-13',
+    title: 'Cardápio online: mais fotos e avaliações em cada item',
+    summary:
+      'No cardápio online, o item abre com uma animação mais suave, várias fotos para passar com o dedo e avaliações dos clientes com nota, comentário e coração. No celular, o topo da tela fica de uma cor só e as listas não sobram mais espaço vazio no fim.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Mais fotos do item: no cadastro do item (aba Principal, "Mais fotos") envie até 8 fotos além da principal. No cardápio o cliente arrasta para o lado e as bolinhas mostram em qual está.',
+      },
+      {
+        tag: 'novo',
+        text: 'Avaliações por item: com a conta aberta no cardápio, o cliente dá de 1 a 5 estrelas e escreve um comentário se quiser. Aparecem a média, as barras por nota e o selo "Pediu este item" para quem já comprou. O coração em cada avaliação marca as mais úteis, que sobem na lista.',
+      },
+      {
+        tag: 'novo',
+        text: 'A nota do item aparece no cartão do cardápio e ao lado do nome. No cadastro do item, "Avaliações dos clientes" lista todas e deixa esconder as que não devem aparecer.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Abrir o item: a foto cresce do cartão com a mola do sistema, a ficha sobe por cima e o conteúdo chega em cascata curta. Fechar desce e some rápido.',
+      },
+      {
+        tag: 'correção',
+        text: 'iPhone: a área do relógio e da Dynamic Island no cardápio agora tem a mesma cor do fundo da página, sem a faixa laranja. O fundo do cardápio ficou neutro, uma cor só.',
+      },
+      {
+        tag: 'correção',
+        text: 'Pedidos, conta, sacola e item: o fim da tela não deixa mais um espaço vazio grande ao rolar até embaixo; a folga cresce só quando a pílula da sacola aparece.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Conta do cliente: saíram os atalhos de Pedidos e Favoritos, que repetiam as abas de baixo.',
+      },
+    ],
+  },
+  {
     version: '0.112.4',
     date: '2026-11-13',
     title: 'Desconto no pedido diz por que não aplica',

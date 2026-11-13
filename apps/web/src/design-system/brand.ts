@@ -331,11 +331,8 @@ export function applyBranding(b: Branding, path = window.location.pathname) {
   const customer = isCustomerPath(path);
   const colors = customer || b.staffApp;
   applyBrandCss(brandCss(b, { colors, shape: customer }));
-  // Barra do topo do navegador: no cardápio, a cor do restaurante (ou o laranja padrão).
-  if (customer) {
-    const t = brandTokens(isHex(b.brandColor) ? b.brandColor : COMANDOU_BRAND);
-    setBarColor({ light: t.light['--cm-brand-500']!, dark: t.dark['--cm-brand-500']! });
-  } else setBarColor(null);
+  // Topo do celular (barra do navegador e área do relógio): no cardápio, a cor do fundo da página.
+  setBarColor(customer ? 'page' : 'frame');
   applyFavicon(colors ? b.faviconUrl : null);
   applyManifest(path);
 }
