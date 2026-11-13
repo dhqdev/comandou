@@ -116,3 +116,12 @@
     display: none;
   }
 }
+/* Teclado aberto no celular (viewport.ts, base.css): o painel ocupa só o que sobrou entre o topo
+   visível e o teclado (sem altura fixa, que deixava uma faixa vazia), e o rodapé de totais do
+   pedido sai da frente enquanto se digita, para o campo continuar à vista. */
+html.cm-kb-open .side-panel:modal {
+  height: auto;
+}
+html.cm-kb-open .side-panel__foot:has(.od-foot) {
+  display: none;
+}

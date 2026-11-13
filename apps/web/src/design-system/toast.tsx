@@ -1,5 +1,13 @@
 import { X } from 'lucide-react';
-import { createContext, ReactNode, useCallback, useContext, useState } from 'react';
+import {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { currentFixPlan, FixSteps, type FixPlan } from './fix-guide';
 
 type Tone = 'neutral' | 'success' | 'danger';
@@ -16,11 +24,28 @@ interface Toast {
 const MOBILE = '(max-width: 640px)';
 const isMobile = () => typeof window !== 'undefined' && !!window.matchMedia?.(MOBILE).matches;
 
+/** Navegador com "popover" (camada de cima): o aviso aparece por cima das janelas abertas. */
+const POPOVER = typeof HTMLElement !== 'undefined' && 'showPopover' in HTMLElement.prototype;
+
 const ToastCtx = createContext<(message: string, tone?: Tone) => void>(() => undefined);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const drop = useCallback((id: number) => setToasts((t) => t.filter((x) => x.id !== id)), []);
+  const box = useRef<HTMLDivElement>(null);
+  // Janelas e painéis (<dialog> com showModal) ficam na camada de cima do navegador e cobriam o
+  // aviso: um erro ao salvar dentro de uma janela não aparecia. Como popover, a pilha de avisos
+  // sobe para a camada de cima, por cima da janela que estiver aberta (reabrir põe no topo).
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el || !POPOVER) return;
+    try {
+      if (el.matches(':popover-open')) el.hidePopover();
+      if (toasts.length) el.showPopover();
+    } catch {
+      /* fora do documento ou sem suporte: fica como antes */
+    }
+  }, [toasts]);
   const push = useCallback(
     (message: string, tone: Tone = 'neutral') => {
       const id = Date.now() + Math.random();
@@ -42,7 +67,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastCtx.Provider value={push}>
       {children}
-      <div className="cm-toasts" aria-live="polite">
+      <div
+        ref={box}
+        className="cm-toasts"
+        aria-live="polite"
+        popover={POPOVER ? 'manual' : undefined}
+      >
         {toasts.map((t) =>
           t.plan ? (
             <div key={t.id} className="cm-toast cm-toast--danger cm-toast--guide" role="alert">

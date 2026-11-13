@@ -280,13 +280,6 @@
   color: var(--cm-text);
   font-size: var(--cm-text-md);
 }
-.oed__diff {
-  font-size: var(--cm-text-xs);
-  color: var(--cm-success);
-}
-.oed__diff[data-up] {
-  color: var(--cm-text-muted);
-}
 @media (max-width: 640px) {
   .oed__row {
     grid-template-columns: auto minmax(0, 1fr);
@@ -304,5 +297,38 @@
   }
   .oed__foot .actions-row {
     width: 100%;
+  }
+}
+.oed__icon[data-armed] {
+  width: auto;
+  gap: 4px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  background: var(--cm-danger-bg);
+  color: var(--cm-danger);
+  font: inherit;
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+}
+.oed__row[data-saving] {
+  opacity: 0.6;
+}
+.oed__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+}
+/* Celular: campo com letra de 16px (o iPhone dá zoom e desloca a tela em letra menor). */
+@media (max-width: 640px) {
+  .oed__note,
+  .oed__search input,
+  .oed__order-note textarea {
+    font-size: 16px;
+  }
+  .oed__note {
+    height: 38px;
   }
 }

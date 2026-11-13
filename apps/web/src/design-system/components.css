@@ -1131,6 +1131,14 @@ input[type='radio'] {
 /* =============================================================== Toast */
 .cm-toasts {
   position: fixed;
+  /* Popover (toast.tsx): sem a caixa padrão do navegador, só a pilha de avisos. */
+  inset: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  overflow: visible;
   right: var(--cm-space-4);
   bottom: calc(var(--cm-space-4) + env(safe-area-inset-bottom));
   display: grid;

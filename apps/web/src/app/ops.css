@@ -649,7 +649,12 @@ button.od-fact__link {
     grid-template-columns: 1fr 1fr;
   }
   .od-tools > button {
-    height: 44px;
+    height: auto;
+    min-height: 44px;
+    padding: 6px 10px;
+    white-space: normal;
+    text-align: left;
+    line-height: 1.25;
   }
 }
 .od-block__edit {

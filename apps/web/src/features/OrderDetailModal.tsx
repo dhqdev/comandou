@@ -613,14 +613,7 @@ export function OrderDetailModal({
               )}
             </h3>
             {mode === 'edit' ? (
-              <OrderEditor
-                order={order}
-                onCancel={() => setMode(null)}
-                onDone={(o) => {
-                  setOrder(o);
-                  setMode(null);
-                }}
-              />
+              <OrderEditor order={order} onSaved={setOrder} onClose={() => setMode(null)} />
             ) : (
               <ul className="od-items">
                 {order.items.map((i) => (

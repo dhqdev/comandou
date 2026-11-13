@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.112.2',
+    date: '2026-11-13',
+    title: 'Editar pedido salva sozinho e funciona com o teclado do celular',
+    summary:
+      'Na edição do pedido não tem mais botão de salvar: cada mudança salva sozinha. Os avisos de erro agora aparecem por cima das janelas, e no celular o painel não quebra mais quando o teclado abre.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Editar pedido salva sozinho: o − e o + salvam quando você para de tocar, tirar e acrescentar item salvam na hora e a observação salva ao sair do campo. Embaixo aparece "Salvando…" e depois "Salvo". Para tirar um item, toque duas vezes na lixeira.',
+      },
+      {
+        tag: 'correção',
+        text: 'Quando o sistema recusava uma alteração (ex.: desconto maior que o pedido ou pagamento acima do novo total), o aviso ficava escondido atrás do painel e parecia que nada acontecia. Agora o motivo aparece no próprio editor, e os avisos do sistema ficam por cima de qualquer janela aberta.',
+      },
+      {
+        tag: 'correção',
+        text: 'No celular, ao escrever a observação de um item, o painel do pedido ocupava só parte da tela e o resumo de valores ficava no meio. Agora o painel cabe certinho acima do teclado e o resumo sai da frente enquanto você digita.',
+      },
+    ],
+  },
+  {
     version: '0.112.1',
     date: '2026-11-13',
     title: 'Conversas do Super Admin mais confortáveis',
