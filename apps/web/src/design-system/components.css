@@ -1139,6 +1139,14 @@ input[type='radio'] {
   background: none;
   color: inherit;
   overflow: visible;
+  /* O Safari do iPhone esticava a pilha (popover) até o fim da tela e a pílula virava uma mancha
+     escura cobrindo metade dela. Tamanho pelo conteúdo e cada aviso preso ao topo. */
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  align-content: start;
+  align-items: start;
   right: var(--cm-space-4);
   bottom: calc(var(--cm-space-4) + env(safe-area-inset-bottom));
   display: grid;
@@ -1176,6 +1184,8 @@ input[type='radio'] {
   }
   .cm-toast:not(.cm-toast--danger) {
     display: inline-flex;
+    align-self: start;
+    height: auto;
     align-items: center;
     gap: 6px;
     min-width: 0;
