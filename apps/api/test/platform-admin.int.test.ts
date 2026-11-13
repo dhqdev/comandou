@@ -92,24 +92,27 @@ describe('Super Admin criado na instalação', () => {
 });
 
 describe('Planos padrão na instalação', () => {
-  it('cria Essencial (padrão), Profissional e Premium só quando não há nenhum plano', async () => {
+  it('cria o plano único Comandou (padrão, R$ 400) só quando não há nenhum plano', async () => {
     await c.query('SAVEPOINT planos');
     try {
       await c.query('DELETE FROM billing_invoices');
       await c.query('DELETE FROM subscriptions');
       await c.query('DELETE FROM plans');
-      expect(await seedDefaultPlans(c)).toBe(3);
-      const { rows } = await c.query<{ code: string; is_default: boolean; trial_days: number }>(
-        `SELECT code, is_default, trial_days FROM plans ORDER BY price_monthly`,
+      expect(await seedDefaultPlans(c)).toBe(1);
+      const { rows } = await c.query<{
+        code: string;
+        is_default: boolean;
+        price: string;
+        max_users: number | null;
+      }>(
+        `SELECT code, is_default, price_monthly::text AS price, max_users FROM plans ORDER BY price_monthly`,
       );
-      expect(rows.map((r) => r.code)).toEqual(['essencial', 'profissional', 'premium']);
-      expect(rows.filter((r) => r.is_default).map((r) => r.code)).toEqual(['essencial']);
+      expect(rows.map((r) => r.code)).toEqual(['comandou']);
+      expect(rows[0]).toMatchObject({ is_default: true, price: '400.00', max_users: null });
       // Já existem planos: um novo deploy não cria nem altera nada.
-      await c.query(`UPDATE plans SET price_monthly = 1 WHERE code = 'essencial'`);
+      await c.query(`UPDATE plans SET price_monthly = 1 WHERE code = 'comandou'`);
       expect(await seedDefaultPlans(c)).toBe(0);
-      const p = await c.query(
-        `SELECT price_monthly::text AS p FROM plans WHERE code = 'essencial'`,
-      );
+      const p = await c.query(`SELECT price_monthly::text AS p FROM plans WHERE code = 'comandou'`);
       expect(p.rows[0].p).toBe('1.00');
     } finally {
       await c.query('ROLLBACK TO SAVEPOINT planos');

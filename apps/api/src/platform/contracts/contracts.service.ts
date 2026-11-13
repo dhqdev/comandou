@@ -7,7 +7,13 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { contractValidUntil, formatBRL, fromCents, toCents } from '@comandou/shared';
+import {
+  contractValidUntil,
+  fiscalCostClause,
+  formatBRL,
+  fromCents,
+  toCents,
+} from '@comandou/shared';
 import { createHash, createHmac, randomBytes } from 'node:crypto';
 import type { PoolClient } from 'pg';
 import { open, seal } from '../../common/secret-box';
@@ -31,6 +37,7 @@ import {
   SignatureMark,
 } from './contract-pdf';
 import { buildContract, ContractContent, ContractParty, formatDocument } from './contract-template';
+import { loadQuoteSettings, toFiscalCosts } from '../quotes/quotes.service';
 
 export const WEBHOOK_SECRET_CONTEXT = 'contracts:n8n';
 /** Validade do link de assinatura. */
@@ -629,6 +636,13 @@ export class ContractsService {
     const [bill] = await this.db.query<{ block_after_days: number; contract_grace_days: number }>(
       `SELECT block_after_days, contract_grace_days FROM platform_billing_settings WHERE id`,
     );
+    // Quanto custa a nota fiscal (Focus NFe) e se a mensalidade é fixa (Super Admin → Orçamento).
+    const quote = await loadQuoteSettings(this.db);
+    const fromPlan = !(b.planName && !t.plan_name);
+    const fixedPrice =
+      fromPlan && t.max_users === null && t.max_products === null && t.max_orders_month === null;
+    const fiscalCosts =
+      fromPlan && t.feature_fiscal ? fiscalCostClause(toFiscalCosts(quote)) : null;
     const customer: ContractParty = {
       role: 'CONTRATANTE',
       name: t.legal_name,
@@ -671,6 +685,8 @@ export class ContractsService {
         supportHours: s.support_hours,
         forumCity: s.forum_city,
         specialConditions: b.specialConditions || null,
+        fixedPrice,
+        fiscalCosts,
       },
     };
   }

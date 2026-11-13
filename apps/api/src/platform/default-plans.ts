@@ -7,35 +7,10 @@ import type { ClientBase } from 'pg';
  */
 export const DEFAULT_PLANS = [
   {
-    code: 'essencial',
-    name: 'Essencial',
-    priceMonthly: '89.90',
-    maxUsers: 5,
-    maxProducts: 200,
-    maxOrdersMonth: 1500,
-    featureFiscal: false,
-    featureWhatsapp: true,
-    featureCustomDomain: false,
-    trialDays: 7,
-    isDefault: true,
-  },
-  {
-    code: 'profissional',
-    name: 'Profissional',
-    priceMonthly: '179.90',
-    maxUsers: 15,
-    maxProducts: 800,
-    maxOrdersMonth: 6000,
-    featureFiscal: true,
-    featureWhatsapp: true,
-    featureCustomDomain: false,
-    trialDays: 7,
-    isDefault: false,
-  },
-  {
-    code: 'premium',
-    name: 'Premium',
-    priceMonthly: '319.90',
+    // Plano único (0065): tudo do sistema por R$ 400,00 fixos por mês, sem limites.
+    code: 'comandou',
+    name: 'Comandou',
+    priceMonthly: '400.00',
     maxUsers: null,
     maxProducts: null,
     maxOrdersMonth: null,
@@ -43,7 +18,14 @@ export const DEFAULT_PLANS = [
     featureWhatsapp: true,
     featureCustomDomain: true,
     trialDays: 7,
-    isDefault: false,
+    isDefault: true,
+    tagline: 'Tudo do sistema por um valor fixo, sem cobrança por pedido',
+    highlights: [
+      'Sem limite de equipe, produtos e pedidos',
+      'PDV, salão, cozinha, caixa e entregas',
+      'Cardápio online próprio e WhatsApp',
+      'Nota fiscal (NFC-e e NF-e)',
+    ],
   },
 ] as const;
 
@@ -56,8 +38,8 @@ export async function seedDefaultPlans(c: ClientBase): Promise<number> {
     await c.query(
       `INSERT INTO plans (code, name, price_monthly, max_users, max_products, max_orders_month,
                           feature_fiscal, feature_whatsapp, feature_custom_domain, trial_days,
-                          is_default, active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true)
+                          is_default, active, tagline, highlights, featured)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true, $12, $13, true)
        ON CONFLICT (code) DO NOTHING`,
       [
         p.code,
@@ -71,6 +53,8 @@ export async function seedDefaultPlans(c: ClientBase): Promise<number> {
         p.featureCustomDomain,
         p.trialDays,
         p.isDefault,
+        p.tagline,
+        JSON.stringify(p.highlights),
       ],
     );
   return DEFAULT_PLANS.length;

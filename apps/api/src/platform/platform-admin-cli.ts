@@ -32,7 +32,7 @@ async function main() {
   const password = env.PLATFORM_ADMIN_PASSWORD;
 
   if (args[0] === '--bootstrap') {
-    // Planos padrão (Essencial, Profissional e Premium) na primeira subida.
+    // Plano padrão (o plano único Comandou, R$ 400) na primeira subida.
     if (ownerUrl) {
       const plans = await bootstrapDefaultPlans(ownerUrl);
       if (plans) console.log(`Planos padrão criados: ${plans}`);

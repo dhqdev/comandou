@@ -40,6 +40,10 @@ export interface ContractTerms {
   supportHours: string;
   forumCity: string;
   specialConditions: string | null;
+  /** Mensalidade fixa, sem limite de uso (plano único): o contrato diz que nada é cobrado por uso. */
+  fixedPrice?: boolean;
+  /** Quanto custa a nota fiscal (Focus NFe) para o cliente; ver fiscalCostClause (shared). */
+  fiscalCosts?: string | null;
 }
 
 /** Um parágrafo numerado (string) ou as alíneas do parágrafo anterior (lista). */
@@ -234,6 +238,11 @@ export function buildContract(input: {
         t.trialDays > 0
           ? `A CONTRATANTE tem ${num(t.trialDays)} dias de teste gratuito contados do início do uso da Plataforma. A primeira mensalidade vence no último dia do teste.`
           : 'A primeira mensalidade vence no início do uso da Plataforma, no prazo indicado na cobrança.',
+        ...(t.fixedPrice
+          ? [
+              'O valor da mensalidade é fixo: não há cobrança por pedido, Usuário, produto, ponto de venda ou mesa, nem limite de uso desses itens. Ficam à parte apenas os custos de terceiros previstos neste contrato e, quando houver, o custo da nota fiscal descrito na cláusula sobre a NFC-e.',
+            ]
+          : []),
         'O preço inclui os tributos incidentes sobre o serviço. A CONTRATADA emitirá o documento fiscal correspondente a cada pagamento.',
         'Custos de serviços de terceiros contratados diretamente pela CONTRATANTE (como certificado digital, mensagens oficiais do WhatsApp cobradas pela Meta, meios de pagamento, mapas ou telefonia) não estão incluídos e são pagos por ela diretamente ao fornecedor, salvo quando expressamente incluídos no Plano.',
         'A cobrança é antecipada por mês de uso. Mensalidades pagas não são devolvidas por cancelamento no meio do mês, exceto nos casos previstos em lei ou neste contrato.',
@@ -357,6 +366,7 @@ export function buildContract(input: {
       title: 'Nota fiscal do consumidor (NFC-e) e obrigações fiscais',
       items: [
         'Quando o Plano incluir a emissão de NFC-e, a Plataforma transmite os documentos fiscais da CONTRATANTE à SEFAZ por meio de provedor especializado contratado pela CONTRATADA (atualmente a Focus NFe), sem que a CONTRATANTE precise contratar esse provedor diretamente.',
+        ...(t.fiscalCosts ? [t.fiscalCosts] : []),
         'A CONTRATANTE é a emitente dos documentos fiscais e a única responsável pelas informações tributárias cadastradas (regime tributário, inscrição estadual, NCM, CFOP, CST/CSOSN, alíquotas, CSC e certificado digital A1), pela sua conferência com o contador e pelo recolhimento dos tributos.',
         'O certificado digital e o CSC informados pela CONTRATANTE são guardados de forma cifrada e usados exclusivamente para a emissão dos seus documentos fiscais.',
         'A CONTRATADA não responde por rejeições, multas ou autuações decorrentes de dados fiscais incorretos, certificado vencido, indisponibilidade da SEFAZ ou do provedor, nem por emissões em contingência que a CONTRATANTE deixar de regularizar no prazo legal.',

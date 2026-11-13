@@ -8,13 +8,13 @@ import { ContractContent, dateBR } from './contract-template';
  * manifesto da assinatura acrescentado no fim.
  */
 
-const A4: [number, number] = [595.28, 841.89];
-const MARGIN = 56;
-const WIDTH = A4[0] - MARGIN * 2;
+export const A4: [number, number] = [595.28, 841.89];
+export const MARGIN = 56;
+export const WIDTH = A4[0] - MARGIN * 2;
 const BOTTOM = 64;
-const INK = rgb(0.1, 0.1, 0.12);
-const MUTED = rgb(0.42, 0.42, 0.46);
-const LINE = rgb(0.82, 0.82, 0.85);
+export const INK = rgb(0.1, 0.1, 0.12);
+export const MUTED = rgb(0.42, 0.42, 0.46);
+export const LINE = rgb(0.82, 0.82, 0.85);
 
 // WinAnsi (cp1252): ASCII, Latin-1 e alguns sinais. O resto vira "?" (o PDF não quebra).
 const CP1252_EXTRA = '€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ';
@@ -26,7 +26,7 @@ export function pdfSafe(s: string): string {
     .replace(/[^\x20-\x7e\xa1-\xff\n]/gu, (ch) => (CP1252_EXTRA.includes(ch) ? ch : '?'));
 }
 
-interface Fonts {
+export interface Fonts {
   regular: PDFFont;
   bold: PDFFont;
   italic: PDFFont;
@@ -42,7 +42,7 @@ interface TextOpts {
   align?: 'left' | 'center';
 }
 
-class Writer {
+export class Writer {
   page!: PDFPage;
   y = 0;
   constructor(
@@ -179,7 +179,7 @@ class Writer {
   }
 }
 
-async function fonts(doc: PDFDocument): Promise<Fonts> {
+export async function fonts(doc: PDFDocument): Promise<Fonts> {
   return {
     regular: await doc.embedFont(StandardFonts.Helvetica),
     bold: await doc.embedFont(StandardFonts.HelveticaBold),

@@ -114,3 +114,24 @@ cifrada e nunca devolvida, webhook cadastrado com o token, fatura 5 dias antes d
 soma 30 dias uma vez só, bloqueio automático (gravação recusada, leitura e login liberados) e
 liberação ao pagar, troca de plano só pelo administrador com a diferença proporcional, baixa
 manual e bloqueio por contrato vencido. `packages/shared/src/billing.test.ts` cobre as contas.
+
+## Plano único e orçamento (0.114.0)
+
+- **Um plano só por enquanto:** "Comandou", **R$ 400,00 fixos por mês**, sem limite de equipe,
+  produtos ou pedidos, com nota fiscal, WhatsApp e domínio próprio, 7 dias de teste. A migração
+  0065 cria o plano e inativa Essencial, Profissional e Premium (somem de `/precos` e da troca de
+  plano). Quem já assinava um deles continua no plano antigo até alguém trocar na aba Assinatura
+  do restaurante: nenhuma mensalidade muda sozinha.
+- **Nota fiscal (Focus NFe):** o Comandou é revenda da Focus (decisão 0012). Por padrão o custo é
+  **repassado à parte**, pelo preço público do plano Retail da Focus: R$ 62,90 por mês por CNPJ
+  com 500 NFC-e e 100 NF-e incluídas; acima disso R$ 0,055 por NFC-e e R$ 0,16 por NF-e. Esses
+  valores (e a opção "incluída na mensalidade") ficam em Super Admin → **Orçamento → Valores
+  padrão** e entram no orçamento e na cláusula da NFC-e dos contratos novos. A cobrança do
+  repasse ainda é feita com uma fatura avulsa na aba Assinatura do restaurante.
+- **Orçamento em PDF:** Super Admin → **Orçamento**. Preencha o cliente, a mensalidade, a
+  implantação e a estimativa de notas por mês; o resumo mostra o total na hora e **Gerar PDF**
+  salva o orçamento (número `ORC-AAAA-NNNN`, conteúdo congelado em `platform_quotes`) e baixa o
+  arquivo. A lista "Orçamentos gerados" baixa de novo. O PDF traz o que está incluído, a nota
+  fiscal com a estimativa, a taxa do pagamento pelo app (se ligado), os custos de terceiros
+  (certificado A1, WhatsApp, domínio, equipamentos, editáveis em Valores padrão) e as condições
+  do contrato (teste, pagamento, 12 meses, reajuste, cancelamento, SLA e suporte).

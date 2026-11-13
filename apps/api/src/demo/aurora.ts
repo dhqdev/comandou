@@ -1263,7 +1263,7 @@ export const AURORA: DemoCatalog = {
     document: '45781263000113',
     contactName: 'Helena Duarte',
     phone: '11976543210',
-    planCode: 'profissional',
+    planCode: 'comandou',
     signerCpf: '38421657062',
   },
   extras: {

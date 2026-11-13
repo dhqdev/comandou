@@ -58,6 +58,11 @@ e assinado pelas duas partes: primeiro o cliente (CONTRATANTE), depois a platafo
     do atual. Vencido sem o novo assinado, o sistema do cliente é bloqueado depois da tolerância
     (padrão 15 dias) até a assinatura. Regras da cobrança em [cobranca.md](cobranca.md).
 
+13. **Preço fixo e custo da nota.** Com o plano sem limites (plano único), a cláusula de preço
+    diz que a mensalidade é fixa, sem cobrança por pedido, usuário, produto ou mesa. Se o plano
+    inclui nota fiscal, a cláusula da NFC-e diz quanto custa a Focus NFe para o cliente, com os
+    valores de Super Admin → Orçamento → Valores padrão (ver [cobranca.md](cobranca.md)).
+
 Contratos assinados antes da v0.43.0 seguem o modelo antigo (a contratada concordava pelo envio)
 e continuam válidos como estão.
 

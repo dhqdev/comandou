@@ -207,6 +207,15 @@ describe('Contrato do cliente', () => {
       'Assinatura eletrônica',
     ])
       expect(titles).toContain(t);
+    // Plano com nota: o contrato diz quanto custa a Focus NFe (Super Admin → Orçamento).
+    const nfce = r.body.content.clauses.find((c: { title: string }) =>
+      c.title.startsWith('Nota fiscal'),
+    );
+    expect(nfce.items.join(' ')).toMatch(
+      /Focus NFe.*R\$\s62,90 por mês por CNPJ.*R\$\s0,055 por NFC-e/,
+    );
+    // Plano com limites: não diz que a mensalidade é fixa sem limite.
+    expect(JSON.stringify(r.body.content)).not.toContain('nem limite de uso');
     expect(createHash('sha256').update(JSON.stringify(r.body.content)).digest('hex')).toBe(hash);
     const pdf = await pget(`/contracts/${contractId}/pdf`)
       .buffer(true)

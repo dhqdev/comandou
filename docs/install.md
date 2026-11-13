@@ -127,7 +127,7 @@ estoque com fornecedores, recebimentos, contagem, lotes, produção e itens abai
 cardápio de entrega com preço próprio, fidelidade, reservas, conversas e mural da equipe,
 entregadores com repasse e posição no mapa, regras fiscais e notas, conversa com o Comandinho e o
 panda com roupinhas. No Super Admin ela aparece com cadastro, assinatura paga no plano
-Profissional e faturas; se os dados da contratada estiverem preenchidos em *Contrato*, o contrato
+Comandou e faturas; se os dados da contratada estiverem preenchidos em *Contrato*, o contrato
 já vem assinado pelo cliente, esperando a contra-assinatura.
 
 - Mesmos e-mails da Casa Brasa, em `@aurora.<domínio>` (dona: `dono@`, Helena Duarte), senha

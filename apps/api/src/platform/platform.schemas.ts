@@ -282,6 +282,59 @@ export const NewContract = z.object({
 });
 export type NewContractInput = z.infer<typeof NewContract>;
 
+// ------------------------------------------------------------------ orçamento
+/** Preço por nota com até 3 casas ("0.055"). */
+const unitPrice = z
+  .string()
+  .trim()
+  .regex(/^\d{1,3}(\.\d{1,3})?$/, 'valor com até 3 casas, ex.: "0.055"');
+
+/** Valores padrão do orçamento e do custo da nota fiscal (vão também para o contrato). */
+export const QuoteSettingsBody = z.object({
+  fiscal: z.object({
+    mode: z.enum(['passthrough', 'included']),
+    monthly: money.refine((v) => Number(v) <= 10_000, 'até R$ 10.000'),
+    nfceIncluded: z.number().int().min(0).max(1_000_000),
+    nfeIncluded: z.number().int().min(0).max(1_000_000),
+    nfceExtra: unitPrice,
+    nfeExtra: unitPrice,
+  }),
+  setupFee: money.refine((v) => Number(v) <= 100_000, 'até R$ 100.000'),
+  validityDays: z.number().int().min(1).max(90),
+  extraCosts: z
+    .array(
+      z.object({
+        label: z.string().trim().min(1).max(80),
+        value: z.string().trim().min(1).max(300),
+      }),
+    )
+    .max(12),
+  notes: z.string().trim().max(2000),
+});
+export type QuoteSettingsInput = z.infer<typeof QuoteSettingsBody>;
+
+/** Gerar um orçamento: só o nome do cliente é obrigatório; o resto vem dos valores padrão. */
+export const NewQuote = z.object({
+  clientName: z.string().trim().min(1).max(160),
+  clientDocument: z
+    .string()
+    .transform(digits)
+    .refine((v) => v === '' || v.length === 11 || v.length === 14, 'CPF (11) ou CNPJ (14 dígitos)')
+    .optional(),
+  contactName: z.string().trim().max(120).optional(),
+  email: blankEmail.optional(),
+  phone: z.string().trim().max(30).optional(),
+  city: z.string().trim().max(80).optional(),
+  priceMonthly: money.optional(),
+  setupFee: money.optional(),
+  fiscal: z.boolean().default(true),
+  nfcePerMonth: z.number().int().min(0).max(1_000_000).default(0),
+  nfePerMonth: z.number().int().min(0).max(1_000_000).default(0),
+  validityDays: z.number().int().min(1).max(90).optional(),
+  notes: z.string().trim().max(2000).optional(),
+});
+export type NewQuoteInput = z.infer<typeof NewQuote>;
+
 export const SendContract = z.object({
   email: z.string().trim().toLowerCase().email().max(254).optional(),
   message: z.string().trim().max(1000).optional(),

@@ -19,3 +19,4 @@ export * from './weight';
 export * from './avatars';
 export * from './pix';
 export * from './online-pay';
+export * from './quote';

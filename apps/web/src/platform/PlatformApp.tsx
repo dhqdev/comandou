@@ -12,6 +12,7 @@ import {
   ScrollText,
   Server,
   Tags,
+  Calculator,
   Wallet,
 } from 'lucide-react';
 import {
@@ -85,6 +86,10 @@ const PlansPage = lazyPage(
   () => import('./PlansPage'),
   (m) => m.PlansPage,
 );
+const QuotePage = lazyPage(
+  () => import('./QuotePage'),
+  (m) => m.QuotePage,
+);
 const BillingPage = lazyPage(
   () => import('./BillingPage'),
   (m) => m.BillingPage,
@@ -114,6 +119,7 @@ const PANEL_PAGES = [
   InfraPage,
   FiscalPage,
   PlansPage,
+  QuotePage,
   BillingPage,
   OnlinePayPage,
   AiPage,
@@ -298,6 +304,7 @@ const NAV = [
   { to: '/servidor', label: 'Infraestrutura', short: 'Infra', icon: Server },
   { to: '/fiscal', label: 'Fiscal', icon: FileText },
   { to: '/planos', label: 'Planos', icon: Tags },
+  { to: '/orcamento', label: 'Orçamento', icon: Calculator },
   { to: '/cobranca', label: 'Cobrança', icon: Wallet },
   { to: '/pagamentos', label: 'Pagamentos pelo app', short: 'Pagamentos', icon: CreditCard },
   { to: '/tokens', label: 'Tokens', icon: BrainCircuit },
@@ -512,6 +519,7 @@ function Gate() {
         <Route path="backups" element={<Navigate to="/servidor/backups" replace />} />
         <Route path="fiscal" element={<FiscalPage />} />
         <Route path="planos" element={<PlansPage />} />
+        <Route path="orcamento" element={<QuotePage />} />
         <Route path="cobranca" element={<BillingPage />} />
         <Route path="pagamentos" element={<OnlinePayPage />} />
         <Route path="tokens" element={<AiPage />} />

@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.114.0',
+    date: '2026-11-13',
+    title: 'Plano único de R$ 400 e orçamento em PDF',
+    summary:
+      'O Comandou passa a ter um plano só, com tudo do sistema por R$ 400,00 fixos por mês. No Super Admin, a nova tela Orçamento monta a proposta do cliente com a nota fiscal e os custos de terceiros e baixa em PDF. O contrato passa a dizer que a mensalidade é fixa e quanto custa a nota fiscal.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Plano único "Comandou": R$ 400,00 por mês, sem limite de equipe, produtos ou pedidos, com nota fiscal, WhatsApp e domínio próprio. Os planos antigos saem da página de preços; quem já assinava continua no plano dele até a troca.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin → Orçamento: dados do cliente, mensalidade, implantação e estimativa de notas por mês, com o total calculado na hora. "Gerar PDF" salva o orçamento numerado e baixa o arquivo; a lista guarda os orçamentos para baixar de novo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Valores padrão do orçamento: custo da nota fiscal (Focus NFe) repassado à parte ou incluído, notas no pacote, preço por nota a mais, implantação, validade e os custos de terceiros (certificado A1, WhatsApp, domínio, equipamentos).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Contrato: com o plano sem limites, diz que a mensalidade é fixa; com nota fiscal, diz quanto custa a Focus NFe para o cliente (mensalidade por CNPJ, notas incluídas e preço por nota a mais).',
+      },
+    ],
+  },
+  {
     version: '0.113.1',
     date: '2026-11-13',
     title: 'Menu lateral do computador mais bonito',

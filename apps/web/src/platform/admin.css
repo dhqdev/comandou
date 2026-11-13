@@ -2048,3 +2048,93 @@ button.adm-card:hover {
     display: none;
   }
 }
+
+/* ---------------------------------------------------------------- Orçamento (QuotePage) */
+.adm-quote {
+  grid-template-columns: minmax(0, 1fr);
+  margin-bottom: 20px;
+}
+@media (min-width: 1100px) {
+  .adm-quote {
+    grid-template-columns: minmax(0, 1.6fr) minmax(300px, 1fr);
+  }
+  .adm-quote > :last-child {
+    position: sticky;
+    top: 12px;
+  }
+}
+.adm-quote__sum {
+  display: grid;
+  gap: 14px;
+}
+.adm-quote__price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+.adm-quote__price span {
+  font-size: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--a-text);
+  letter-spacing: -0.01em;
+}
+.adm-quote__price small {
+  font-size: 13px;
+  color: var(--a-muted);
+}
+.adm-quote__rows {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin: 0;
+  font-size: 13.5px;
+}
+.adm-quote__rows dt,
+.adm-quote__rows dd {
+  margin: 0;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--a-line);
+}
+.adm-quote__rows dt {
+  color: var(--a-muted);
+}
+.adm-quote__rows dd {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--a-text);
+}
+.adm-quote__rows .adm-quote__total {
+  font-weight: 600;
+  color: var(--a-text);
+}
+.adm-quote__note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--a-subtle);
+}
+.adm-quote__extras {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.adm-quote__extra {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  gap: 8px 12px;
+  align-items: end;
+}
+@media (max-width: 700px) {
+  .adm-quote__extra {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--a-line);
+  }
+  .adm-quote__extra > :nth-child(2) {
+    grid-column: 1 / 2;
+    grid-row: 2;
+  }
+}
