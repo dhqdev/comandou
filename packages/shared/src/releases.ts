@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.112.1',
+    date: '2026-11-13',
+    title: 'Conversas do Super Admin mais confortáveis',
+    summary:
+      'No Super Admin, a conversa com o restaurante agora ocupa a tela toda no celular e vai até o pé da tela no computador.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Celular: ao abrir a conversa com um restaurante, ela cobre a tela inteira, por cima do topo e do menu de baixo. Com o teclado aberto o menu não sobe mais junto: o nome do restaurante fica no alto e o campo de mensagem logo acima do teclado.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Computador: a lista e a conversa ocupam toda a altura da tela, sem sobra embaixo, e só as mensagens rolam.',
+      },
+    ],
+  },
+  {
     version: '0.112.0',
     date: '2026-11-12',
     title: 'Editar pedido e ações do pedido mais limpas',

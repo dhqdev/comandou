@@ -1405,9 +1405,27 @@ button.adm-card:hover {
 }
 
 /* ---------------------------------------------------------------- Conversas (suporte) */
-.adm-support {
+/* A tela de Conversas ocupa a altura que sobra no painel (sem conta de "100dvh - 210px"): no
+   computador a conversa vai até o pé da tela e só as mensagens rolam. */
+.cm-frame__content:has(> .adm-support-page) {
+  grid-template-rows: minmax(0, 1fr);
+  align-content: stretch;
+  min-height: 0;
+}
+@media (min-width: 761px) {
+  .cm-frame__content:has(> .adm-support-page) {
+    padding-bottom: var(--cm-space-5);
+  }
+}
+.adm-support-page {
   display: flex;
-  height: calc(100dvh - 210px);
+  flex-direction: column;
+  gap: var(--cm-space-3);
+  min-height: 0;
+}
+.adm-support {
+  flex: 1;
+  display: flex;
   min-height: 420px;
   border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-lg);
@@ -1416,6 +1434,8 @@ button.adm-card:hover {
 }
 .adm-support > .sinbox {
   flex: 1;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
 }
 .adm-support__plan {
   color: var(--cm-text-muted);
@@ -1423,8 +1443,46 @@ button.adm-card:hover {
 }
 @media (max-width: 760px) {
   .adm-support {
-    height: calc(100dvh - 240px - env(safe-area-inset-bottom));
-    min-height: 360px;
+    min-height: 320px;
+  }
+  /* Celular: a conversa aberta cobre a tela inteira, por cima do topo e do menu de baixo, como
+     no WhatsApp. Assim o menu não sobe junto quando o teclado abre e sobra espaço para ler. */
+  .adm-support .sinbox[data-open] .sinbox__main {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    background: var(--cm-bg);
+    animation: adm-conv-in 0.18s var(--cm-ease) backwards;
+  }
+  .adm-support .sinbox[data-open] .sinbox__head {
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  }
+  .adm-support .sinbox[data-open] .scx {
+    --scx-safe: env(safe-area-inset-bottom, 0px);
+  }
+  /* Teclado aberto (viewport.ts): a conversa fica presa ao pedaço visível da tela, com o
+     cabeçalho no alto e o campo de mensagem logo acima do teclado. */
+  html.cm-kb-open .adm-support .sinbox[data-open] .sinbox__main {
+    top: var(--cm-vvtop, 0px);
+    bottom: auto;
+    height: var(--cm-vvh, 100dvh);
+  }
+  html.cm-kb-open .adm-support .sinbox[data-open] .sinbox__head {
+    padding-top: 8px;
+  }
+  html.cm-kb-open .adm-support .sinbox[data-open] .scx {
+    --scx-safe: 0px;
+  }
+}
+@keyframes adm-conv-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .adm-support .sinbox[data-open] .sinbox__main {
+    animation: none;
   }
 }
 
