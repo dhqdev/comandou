@@ -1028,15 +1028,32 @@ function AdjustForm({
   onDone(o: Order): void;
   onCancel(): void;
 }) {
-  const toast = useToast();
+  const canBigDiscount = useCan('orders:discount');
   const [discount, setDiscount] = useState(order.discount.replace('.', ','));
   const [surcharge, setSurcharge] = useState(order.surcharge.replace('.', ','));
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const d = parseBrlInput(discount);
   const s = parseBrlInput(surcharge);
+  // Mesmas contas do servidor (OrdersService.adjust), para dizer o motivo antes de tentar.
+  const subtotal = toCents(order.subtotal);
+  const paid = toCents(order.paidAmount);
+  const dc = d ? toCents(d) : 0;
+  const total = subtotal - dc + (s ? toCents(s) : 0) + toCents(order.deliveryFee);
+  const pct = subtotal > 0 ? (dc * 100) / subtotal : 0;
+  const problem = !d
+    ? null
+    : dc > subtotal
+      ? `O desconto passa do valor dos itens (${brl(order.subtotal)}).`
+      : total < paid
+        ? `Este pedido já tem ${brl(order.paidAmount)} pago. Com esse valor o total ficaria ${brl(fromCents(total))}, menor que o pago: estorne a diferença em Pagamentos antes de dar o desconto.`
+        : pct > 10 && !canBigDiscount
+          ? 'Desconto acima de 10% só o gerente aplica.'
+          : null;
   async function save() {
     setBusy(true);
+    setError(null);
     try {
       onDone(
         await api<Order>(`/orders/${order.id}/adjustments`, {
@@ -1045,27 +1062,34 @@ function AdjustForm({
         }),
       );
     } catch (e) {
-      toast((e as Error).message, 'danger');
+      setError(`Não aplicou: ${(e as Error).message}`);
     } finally {
       setBusy(false);
     }
   }
   return (
     <div className="inline-form">
+      {(problem || error) && <Alert tone="danger">{problem ?? error!}</Alert>}
       <div className="two-cols">
         <TextField
           label="Desconto"
           inputMode="decimal"
           value={discount}
-          onChange={(e) => setDiscount(e.target.value)}
+          onChange={(e) => {
+            setDiscount(e.target.value);
+            setError(null);
+          }}
           error={!d ? 'Valor inválido' : undefined}
-          hint="Acima de 10% exige gerente"
+          hint={canBigDiscount ? undefined : 'Acima de 10% exige gerente'}
         />
         <TextField
           label="Acréscimo"
           inputMode="decimal"
           value={surcharge}
-          onChange={(e) => setSurcharge(e.target.value)}
+          onChange={(e) => {
+            setSurcharge(e.target.value);
+            setError(null);
+          }}
           error={!s ? 'Valor inválido' : undefined}
         />
       </div>
@@ -1074,12 +1098,18 @@ function AdjustForm({
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         maxLength={300}
+        hint={reason.trim().length < 3 ? 'Escreva o motivo (pelo menos 3 letras)' : undefined}
       />
       <div className="actions-row">
+        {d && s && !problem && <span className="cm-hint">Novo total: {brl(fromCents(total))}</span>}
         <Button variant="secondary" onClick={onCancel}>
           Voltar
         </Button>
-        <Button loading={busy} disabled={!d || !s || reason.trim().length < 3} onClick={save}>
+        <Button
+          loading={busy}
+          disabled={!d || !s || !!problem || reason.trim().length < 3}
+          onClick={save}
+        >
           Aplicar
         </Button>
       </div>

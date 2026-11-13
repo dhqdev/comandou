@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.112.4',
+    date: '2026-11-13',
+    title: 'Desconto no pedido diz por que não aplica',
+    summary:
+      'Ao dar desconto ou acréscimo num pedido, o motivo de não aplicar aparece na hora, antes de tocar em Aplicar, junto com o novo total.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Desconto ou acréscimo: quando o valor não pode ser aplicado (desconto maior que os itens, pedido já pago acima do novo total ou desconto acima de 10% sem ser gerente), o motivo aparece no próprio formulário e o Aplicar fica travado. Antes o aviso ficava escondido atrás do painel e parecia que não salvava.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O formulário mostra o novo total do pedido enquanto você digita o desconto ou o acréscimo.',
+      },
+    ],
+  },
+  {
     version: '0.112.3',
     date: '2026-11-13',
     title: 'Clique em qualquer lugar da linha para abrir',
