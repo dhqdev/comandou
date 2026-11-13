@@ -17,6 +17,7 @@ import { useCan } from '../../app/auth';
 import {
   fold,
   ListTable,
+  rowClick,
   ListToolbar,
   useListView,
   type ListField,
@@ -286,7 +287,7 @@ export function RecipesSection() {
           />
         ) : (
           <ListTable>
-            <table className="cm-table lv-table st-table">
+            <table className="cm-table cm-table--click lv-table st-table">
               <thead>
                 <tr>
                   <th>Item</th>
@@ -299,7 +300,7 @@ export function RecipesSection() {
               </thead>
               <tbody>
                 {shown.map((r) => (
-                  <tr key={r.key}>
+                  <tr key={r.key} {...rowClick(() => setEditing(r))}>
                     <td>
                       <div className="st-name">
                         <button

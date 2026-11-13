@@ -1,6 +1,6 @@
 import { CheckCheck, Plus, Search, Tags, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import {
   Alert,
   Badge,
@@ -16,6 +16,7 @@ import { useCan } from '../../app/auth';
 import {
   fold,
   ListTable,
+  rowClick,
   ListToolbar,
   useListView,
   type ListField,
@@ -107,6 +108,7 @@ const SORTS: ListSort<StockLot>[] = [
 
 /** Lotes: o que entrou com fabricação e validade, para usar primeiro o que vence primeiro. */
 export function LotsSection() {
+  const navigate = useNavigate();
   const canWrite = useCan('stock:write');
   const toast = useToast();
   const { items } = useStockItems();
@@ -191,7 +193,7 @@ export function LotsSection() {
           />
         ) : (
           <ListTable>
-            <table className="cm-table lv-table st-table">
+            <table className="cm-table cm-table--click lv-table st-table">
               <thead>
                 <tr>
                   <th>Insumo</th>
@@ -205,7 +207,13 @@ export function LotsSection() {
               </thead>
               <tbody>
                 {shown.map((l) => (
-                  <tr key={l.id}>
+                  <tr
+                    key={l.id}
+                    {...rowClick(
+                      () => navigate(`/estoque/insumos/${l.stockItemId}`),
+                      `/estoque/insumos/${l.stockItemId}`,
+                    )}
+                  >
                     <td>
                       <div className="st-name">
                         <Link to={`/estoque/insumos/${l.stockItemId}`} className="st-name__link">

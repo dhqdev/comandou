@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.112.3',
+    date: '2026-11-13',
+    title: 'Clique em qualquer lugar da linha para abrir',
+    summary:
+      'Nas listas de Estoque e Cardápio não é mais preciso acertar o nome: clicar em qualquer ponto da linha abre o insumo, o item ou o cadastro, e os botões da linha continuam fazendo só a ação deles.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Estoque: em Insumos, clicar na linha abre o detalhe e o histórico do insumo. Entrada, Perda, Contar e Editar continuam abrindo só a sua janela. Vale também para Recebimentos, Fichas técnicas, Lotes e Saídas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cardápio: Itens, Complementos, Cardápios e Famílias abrem ao clicar em qualquer ponto da linha. A linha fica destacada ao passar o mouse, e com Ctrl ou ⌘ o item abre em outra aba.',
+      },
+    ],
+  },
+  {
     version: '0.112.2',
     date: '2026-11-13',
     title: 'Editar pedido salva sozinho e funciona com o teclado do celular',

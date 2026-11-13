@@ -15,6 +15,7 @@ import {
   HelpTip,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
+import { rowClick } from '../../features/list-view';
 import { SelectField } from '../../features/forms';
 import { api, type Product } from '../../lib/api';
 import { brl, parseBrlInput } from '../../lib/money';
@@ -74,7 +75,7 @@ export function GroupsTab() {
         />
       ) : (
         <div className="mn-table-wrap">
-          <table className="cm-table">
+          <table className="cm-table cm-table--click">
             <thead>
               <tr>
                 <th>Grupo</th>
@@ -86,7 +87,7 @@ export function GroupsTab() {
             </thead>
             <tbody>
               {groups.map((g) => (
-                <tr key={g.id} data-search-id={`grupo-${g.id}`}>
+                <tr key={g.id} data-search-id={`grupo-${g.id}`} {...rowClick(() => setEditing(g))}>
                   <td>
                     <button className="mn-item-link" onClick={() => setEditing(g)}>
                       {g.name}

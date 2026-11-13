@@ -19,6 +19,7 @@ import {
   fold,
   ListTable,
   ListToolbar,
+  rowClick,
   useListView,
   type ListField,
   type ListSort,
@@ -300,6 +301,7 @@ function ItemsTab({
   view: View;
   onChanged(): void;
 }) {
+  const navigate = useNavigate();
   const [entry, setEntry] = useState<{ item: StockItem; kind: EntryKind } | null>(null);
   const [editing, setEditing] = useState<StockItem | 'new' | null>(null);
   useLinkParam('acao', (a) => a === 'insumo' && canWrite && setEditing('new'));
@@ -355,7 +357,7 @@ function ItemsTab({
         />
       ) : (
         <ListTable>
-          <table className="cm-table lv-table st-table">
+          <table className="cm-table cm-table--click lv-table st-table">
             <thead>
               <tr>
                 <th>Insumo</th>
@@ -372,7 +374,14 @@ function ItemsTab({
                 const days = coverageDays(i.quantity, i.dailyUsage);
                 const neg = toMilli(i.quantity) < 0;
                 return (
-                  <tr key={i.id} data-search-id={`insumo-${i.id}`}>
+                  <tr
+                    key={i.id}
+                    data-search-id={`insumo-${i.id}`}
+                    {...rowClick(
+                      () => navigate(`/estoque/insumos/${i.id}`),
+                      `/estoque/insumos/${i.id}`,
+                    )}
+                  >
                     <td>
                       <div className="st-name">
                         <Link to={`/estoque/insumos/${i.id}`} className="st-name__link">

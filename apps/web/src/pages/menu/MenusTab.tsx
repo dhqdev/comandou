@@ -14,6 +14,7 @@ import {
   HelpScope,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
+import { rowClick } from '../../features/list-view';
 import { SelectField } from '../../features/forms';
 import { api } from '../../lib/api';
 import { useRealtime } from '../../lib/realtime';
@@ -86,7 +87,7 @@ export function MenusTab() {
         </div>
       ) : (
         <div className="mn-table-wrap">
-          <table className="cm-table">
+          <table className="cm-table cm-table--click">
             <thead>
               <tr>
                 <th>Cardápio</th>
@@ -98,7 +99,13 @@ export function MenusTab() {
             </thead>
             <tbody>
               {menus.map((m) => (
-                <tr key={m.id}>
+                <tr
+                  key={m.id}
+                  {...rowClick(
+                    () => navigate(`/cardapio/cardapios/${m.id}`),
+                    `/cardapio/cardapios/${m.id}`,
+                  )}
+                >
                   <td>
                     <button
                       className="mn-item-link"

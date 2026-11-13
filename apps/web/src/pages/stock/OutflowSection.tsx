@@ -1,7 +1,7 @@
 import { formatBRL } from '@comandou/shared';
 import { PackageMinus, Plus, Search } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import {
   Alert,
   Badge,
@@ -17,6 +17,7 @@ import { useCan } from '../../app/auth';
 import {
   fold,
   ListTable,
+  rowClick,
   ListToolbar,
   useListView,
   type ListField,
@@ -68,6 +69,7 @@ const SORTS: ListSort<StockMovement>[] = [
 
 /** Saídas de estoque: tudo o que saiu (vendas, perdas, produção e saídas avulsas). */
 export function OutflowSection() {
+  const navigate = useNavigate();
   const canWrite = useCan('stock:write');
   const { items } = useStockItems();
   const [rows, setRows] = useState<StockMovement[] | null>(null);
@@ -139,7 +141,7 @@ export function OutflowSection() {
           />
         ) : (
           <ListTable>
-            <table className="cm-table lv-table st-table">
+            <table className="cm-table cm-table--click lv-table st-table">
               <thead>
                 <tr>
                   <th>Insumo</th>
@@ -152,7 +154,13 @@ export function OutflowSection() {
               </thead>
               <tbody>
                 {shown.map((m) => (
-                  <tr key={m.id}>
+                  <tr
+                    key={m.id}
+                    {...rowClick(
+                      () => navigate(`/estoque/insumos/${m.stockItemId}`),
+                      `/estoque/insumos/${m.stockItemId}`,
+                    )}
+                  >
                     <td>
                       <Link to={`/estoque/insumos/${m.stockItemId}`} className="st-name__link">
                         {m.itemName}

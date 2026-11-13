@@ -17,6 +17,7 @@ import { ImagePicker } from '../../features/ImagePicker';
 import {
   fold,
   ListTable,
+  rowClick,
   ListToolbar,
   useListView,
   type ListField,
@@ -352,7 +353,7 @@ export function ItemsTab() {
             />
           ) : (
             <ListTable>
-              <table className="cm-table lv-table mn-items">
+              <table className="cm-table cm-table--click lv-table mn-items">
                 <thead>
                   <tr>
                     <th style={{ width: 72 }}>Foto</th>
@@ -366,7 +367,14 @@ export function ItemsTab() {
                   {visible.map((p) => {
                     const opts = groupNames(p.id).join(', ');
                     return (
-                      <tr key={p.id} data-search-id={`produto-${p.id}`}>
+                      <tr
+                        key={p.id}
+                        data-search-id={`produto-${p.id}`}
+                        {...rowClick(
+                          () => navigate(`/cardapio/itens/${p.id}`),
+                          `/cardapio/itens/${p.id}`,
+                        )}
+                      >
                         <td className="mn-items__photo">
                           <ImagePicker
                             label={`Foto de ${p.name}`}

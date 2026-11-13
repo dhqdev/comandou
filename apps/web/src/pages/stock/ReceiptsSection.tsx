@@ -16,6 +16,7 @@ import { useCan } from '../../app/auth';
 import {
   fold,
   ListTable,
+  rowClick,
   ListToolbar,
   useListView,
   type ListField,
@@ -129,7 +130,7 @@ export function ReceiptsSection() {
           />
         ) : (
           <ListTable>
-            <table className="cm-table lv-table st-table">
+            <table className="cm-table cm-table--click lv-table st-table">
               <thead>
                 <tr>
                   <th>Recebimento</th>
@@ -141,7 +142,13 @@ export function ReceiptsSection() {
               </thead>
               <tbody>
                 {shown.map((r) => (
-                  <tr key={r.id}>
+                  <tr
+                    key={r.id}
+                    {...rowClick(
+                      () => navigate(`/estoque/recebimento/${r.id}`),
+                      `/estoque/recebimento/${r.id}`,
+                    )}
+                  >
                     <td>
                       <div className="st-name">
                         <Link to={`/estoque/recebimento/${r.id}`} className="st-name__link">

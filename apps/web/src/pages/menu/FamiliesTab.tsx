@@ -13,6 +13,7 @@ import {
   HelpScope,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
+import { rowClick } from '../../features/list-view';
 import { CheckField } from '../../features/forms';
 import { api, type Product } from '../../lib/api';
 import { useRealtime } from '../../lib/realtime';
@@ -77,7 +78,7 @@ export function FamiliesTab() {
         />
       ) : (
         <div className="mn-table-wrap">
-          <table className="cm-table">
+          <table className="cm-table cm-table--click">
             <thead>
               <tr>
                 <th>Família</th>
@@ -87,7 +88,7 @@ export function FamiliesTab() {
             </thead>
             <tbody>
               {families.map((f) => (
-                <tr key={f.id}>
+                <tr key={f.id} {...rowClick(() => setEditing(f))}>
                   <td>
                     <button className="mn-item-link" onClick={() => setEditing(f)}>
                       {f.name}
