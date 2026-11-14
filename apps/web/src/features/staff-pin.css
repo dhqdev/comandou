@@ -1,0 +1,24 @@
+.staff-pin {
+  display: grid;
+  justify-items: center;
+  gap: var(--cm-space-2);
+  padding: var(--cm-space-4) 0;
+  text-align: center;
+}
+.staff-pin__label {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+}
+.staff-pin__value {
+  font-size: 44px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.18em;
+  line-height: 1.1;
+  padding-left: 0.18em;
+}
+.staff-pin .cm-hint {
+  max-width: 320px;
+  margin: 0;
+}

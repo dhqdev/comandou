@@ -1,4 +1,9 @@
-import { challengeProgress, WAITER_DAILY_CHALLENGES, waiterLevel } from '@comandou/shared';
+import {
+  challengeProgress,
+  isPinOnlyEmail,
+  WAITER_DAILY_CHALLENGES,
+  waiterLevel,
+} from '@comandou/shared';
 import {
   BarChart3,
   ChevronDown,
@@ -18,6 +23,7 @@ import { WAITER_PATH, waiterLink } from '../app/WaiterEntry';
 import { SlideTabs } from '../features/SlideTabs';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
+import { PinField, PinModal, PinReveal, pinFieldError } from '../features/StaffPin';
 import { Seal } from './common';
 import './waiter.css';
 
@@ -31,6 +37,7 @@ interface WaiterRow {
   todayOrders: number;
   todayTables: number;
   todaySales: string;
+  hasPin?: boolean;
 }
 
 type View = 'active' | 'revoked';
@@ -50,6 +57,7 @@ export function WaitersModal({ open, onClose }: { open: boolean; onClose(): void
   const [view, setView] = useState<View>('active');
   const [search, setSearch] = useState('');
   const [creating, setCreating] = useState(false);
+  const [pinFor, setPinFor] = useState<WaiterRow | null>(null);
   const [qr, setQr] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
   const link = waiterLink();
@@ -202,7 +210,7 @@ export function WaitersModal({ open, onClose }: { open: boolean; onClose(): void
                         onClick={() => setOpenId(expanded ? null : w.id)}
                       >
                         <strong>{w.name}</strong>
-                        <span>{w.email}</span>
+                        <span>{isPinOnlyEmail(w.email) ? 'Entra com PIN' : w.email}</span>
                         <span>
                           {lv.seal.name} · {w.totalOrders} pedidos · desafios hoje {done}/
                           {WAITER_DAILY_CHALLENGES.length}
@@ -221,6 +229,11 @@ export function WaitersModal({ open, onClose }: { open: boolean; onClose(): void
                       >
                         <ChevronDown size={18} aria-hidden />
                       </button>
+                      {canTeam && w.status === 'active' && (
+                        <Button variant="ghost" size="sm" onClick={() => setPinFor(w)}>
+                          PIN
+                        </Button>
+                      )}
                       {canTeam && (
                         <Button
                           variant="ghost"
@@ -314,6 +327,7 @@ export function WaitersModal({ open, onClose }: { open: boolean; onClose(): void
           </div>
         </div>
       </Modal>
+      <PinModal person={pinFor} onClose={() => setPinFor(null)} />
       <NewWaiterModal
         open={open && creating}
         onClose={() => setCreating(false)}
@@ -337,72 +351,71 @@ function NewWaiterModal({
   onCreated(): void;
 }) {
   const toast = useToast();
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [name, setName] = useState('');
+  const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ name: string; pin: string } | null>(null);
   useEffect(() => {
     if (open) {
-      setForm({ name: '', email: '', password: '' });
+      setName('');
+      setPin('');
       setError(null);
+      setCreated(null);
     }
   }, [open]);
   async function save() {
     setBusy(true);
     setError(null);
     try {
-      await api('/users', { method: 'POST', json: { ...form, role: 'waiter' } });
-      toast(`${form.name} já pode entrar no app do garçom`, 'success');
-      onCreated();
+      const r = await api<{ pin: string }>('/users', {
+        method: 'POST',
+        json: { name, role: 'waiter', ...(pin ? { pin } : {}) },
+      });
+      toast(`${name} já pode entrar no app do garçom`, 'success');
+      setCreated({ name, pin: r.pin });
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
   }
-  const valid =
-    form.name.trim().length >= 2 && form.email.includes('@') && form.password.length >= 8;
+  const valid = name.trim().length >= 2 && (!pin || (pin.length === 4 && !pinFieldError(pin)));
   return (
     <Modal
       open={open}
-      onClose={onClose}
-      title="Novo garçom"
+      onClose={created ? onCreated : onClose}
+      title={created ? 'Garçom criado' : 'Novo garçom'}
       footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Voltar
-          </Button>
-          <Button loading={busy} disabled={!valid} onClick={save}>
-            Criar garçom
-          </Button>
-        </>
+        created ? (
+          <Button onClick={onCreated}>Pronto</Button>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose}>
+              Voltar
+            </Button>
+            <Button loading={busy} disabled={!valid} onClick={save}>
+              Criar garçom
+            </Button>
+          </>
+        )
       }
     >
-      <div style={{ display: 'grid', gap: 12 }}>
-        <TextField
-          label="Nome"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          maxLength={80}
-          autoComplete="off"
-        />
-        <TextField
-          label="E-mail (login)"
-          type="email"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-          maxLength={254}
-          autoComplete="off"
-        />
-        <TextField
-          label="Senha"
-          type="password"
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-          hint="Mínimo de 8 caracteres. O garçom pode trocar depois."
-          autoComplete="new-password"
-        />
-        {error && <Alert tone="danger">{error}</Alert>}
-      </div>
+      {created ? (
+        <PinReveal name={created.name} pin={created.pin} />
+      ) : (
+        <div style={{ display: 'grid', gap: 12 }}>
+          <TextField
+            label="Nome"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            maxLength={80}
+            autoComplete="off"
+          />
+          <PinField value={pin} onChange={setPin} />
+          {error && <Alert tone="danger">{error}</Alert>}
+        </div>
+      )}
     </Modal>
   );
 }

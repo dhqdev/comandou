@@ -14,11 +14,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { ROLES } from '@comandou/shared';
+import { isPinRole, PIN_ONLY_EMAIL_DOMAIN, ROLES } from '@comandou/shared';
+import { randomBytes } from 'node:crypto';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
 import { hashPassword, verifyPassword } from '../auth/password';
+import { assignPin } from '../auth/pin';
 import { ctxOf } from '../common/context';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
 import { one, q } from '../common/sql';
@@ -28,12 +30,28 @@ import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types'
 import { PlanService } from '../plans/plan.service';
 
 const password = z.string().min(8, 'mínimo de 8 caracteres').max(200);
-const NewMember = z.object({
-  email: z.string().trim().toLowerCase().email().max(254),
-  name: z.string().trim().min(2).max(80),
-  password,
-  role: z.enum(ROLES),
-});
+const pin = z.string().regex(/^[0-9]{4}$/, 'PIN de 4 números');
+/**
+ * Garçom e entregador podem ser cadastrados só com o nome: entram pelo PIN (sorteado ou escolhido).
+ * Os outros papéis continuam com e-mail e senha.
+ */
+const NewMember = z
+  .object({
+    email: z.string().trim().toLowerCase().email().max(254).optional(),
+    name: z.string().trim().min(2).max(80),
+    password: password.optional(),
+    role: z.enum(ROLES),
+    /** PIN escolhido; vazio sorteia um (só garçom e entregador). */
+    pin: pin.optional(),
+  })
+  .refine((b) => isPinRole(b.role) || (b.email && b.password), {
+    message: 'informe e-mail e senha',
+  })
+  .refine((b) => !b.email === !b.password, { message: 'informe e-mail e senha juntos' })
+  .refine((b) => !b.pin || isPinRole(b.role), {
+    message: 'PIN só para garçom e entregador',
+  });
+const SetPin = z.object({ pin: pin.optional() });
 const UpdateMember = z
   .object({ role: z.enum(ROLES).optional(), status: z.enum(['active', 'revoked']).optional() })
   .refine((b) => b.role || b.status, 'informe papel ou situação');
@@ -43,7 +61,8 @@ const SetMemberPassword = z.object({ password });
 const MEMBER_SELECT = `
   SELECT u.id, u.name, u.email, m.role, m.status, m.created_at AS "createdAt",
          (SELECT max(s.last_seen_at) FROM sessions s WHERE s.user_id = u.id) AS "lastSeenAt",
-         app_member_account_shared(u.id) AS "sharedAccount"
+         app_member_account_shared(u.id) AS "sharedAccount",
+         (m.pin_hash IS NOT NULL) AS "hasPin"
     FROM memberships m JOIN users u ON u.id = m.user_id`;
 
 /** A conta também entra em outro restaurante: só a pessoa (ou o suporte) troca a senha. */
@@ -82,13 +101,16 @@ export class UsersController {
   ) {
     if (b.role === 'owner' && u.role !== 'owner')
       throw new ForbiddenException('Só um administrador pode criar outro administrador');
-    const hash = await hashPassword(b.password);
+    // Só PIN: conta com endereço interno (nunca recebe e-mail) e senha aleatória que ninguém sabe.
+    const pinOnly = !b.email;
+    const email = b.email ?? `${randomBytes(9).toString('hex')}@${PIN_ONLY_EMAIL_DOMAIN}`;
+    const hash = await hashPassword(b.password ?? randomBytes(24).toString('base64url'));
     return this.db.withTenant(ctxOf(t, u), async (tx) => {
       await this.plans.assertCanAdd(tx, 'users');
       const r = await one<{ user_id: string; created: boolean }>(
         tx,
         `SELECT user_id, created FROM app_add_member($1, $2, $3, $4)`,
-        [b.email, b.name, hash, b.role],
+        [email, b.name, hash, b.role],
       ).catch((err: { code?: string }) => {
         if (err.code === '23505') throw new ConflictException('Este e-mail já faz parte da equipe');
         throw err;
@@ -99,12 +121,15 @@ export class UsersController {
         action: 'user.added',
         entity: 'user',
         entityId: r!.user_id,
-        data: { role: b.role, existingAccount: !r!.created },
+        data: { role: b.role, existingAccount: !r!.created, pinOnly },
         ip: req.ip,
       });
+      // Garçom e entregador já saem com PIN (o gerente vê uma vez e passa para a pessoa).
+      const newPin = isPinRole(b.role) ? await assignPin(tx, t.id, r!.user_id, b.pin) : null;
+      if (b.role === 'driver') await ensureCourier(tx, t.id, r!.user_id, b.name);
       const member = await one(tx, `${MEMBER_SELECT} WHERE u.id = $1`, [r!.user_id]);
       // Conta já existente (de outro restaurante): a senha informada NÃO substitui a dela.
-      return { ...member, existingAccount: !r!.created };
+      return { ...member, existingAccount: !r!.created, pin: newPin };
     });
   }
 
@@ -146,6 +171,15 @@ export class UsersController {
         status,
       ]);
       if (status === 'revoked' && m.status !== 'revoked') await this.revokeSessions(tx, id);
+      // Virou entregador: já aparece na lista de quem leva o pedido (Entregas).
+      if (role === 'driver' && m.role !== 'driver') await ensureCourier(tx, t.id, id);
+      // Saiu de garçom/entregador: o PIN deixa de existir (os outros papéis entram com senha).
+      if (!isPinRole(role))
+        await q(
+          tx,
+          `UPDATE memberships SET pin_hash = NULL, pin_set_at = NULL WHERE user_id = $1`,
+          [id],
+        );
       await this.audit.record(tx, {
         tenantId: t.id,
         actorUserId: u.id,
@@ -209,6 +243,47 @@ export class UsersController {
     });
   }
 
+  /**
+   * PIN de 4 números do garçom ou do entregador: o informado ou um sorteado. Trocar um PIN que já
+   * existia tira a pessoa dos aparelhos (quem sabia o antigo não continua dentro). O PIN volta em
+   * claro só nesta resposta e nunca vai para a auditoria.
+   */
+  @Post('users/:id/pin')
+  @RequirePermission('users:manage')
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  setPin(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(SetPin)) b: z.infer<typeof SetPin>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.db.withTenant(ctxOf(t, u), async (tx) => {
+      const m = await one<{ role: string; had: boolean }>(
+        tx,
+        `SELECT role, pin_hash IS NOT NULL AS had FROM memberships WHERE user_id = $1 FOR UPDATE`,
+        [id],
+      );
+      if (!m) throw new NotFoundException('Pessoa não encontrada na equipe');
+      if (!isPinRole(m.role))
+        throw new ConflictException(
+          'PIN só para garçom e entregador. Os outros papéis usam senha.',
+        );
+      const newPin = await assignPin(tx, t.id, id, b.pin);
+      if (m.had) await this.revokeSessions(tx, id);
+      await this.audit.record(tx, {
+        tenantId: t.id,
+        actorUserId: u.id,
+        action: 'user.pin_set',
+        entity: 'user',
+        entityId: id,
+        data: { replaced: m.had, chosen: !!b.pin },
+        ip: req.ip,
+      });
+      return { pin: newPin };
+    });
+  }
+
   /** Troca da própria senha. Exige a senha atual; encerra as outras sessões neste restaurante. */
   @Post('auth/password')
   @HttpCode(204)
@@ -253,4 +328,15 @@ export class UsersController {
       [userId],
     );
   }
+}
+
+/** Entregador com login sempre tem o cadastro em Entregas (é por ele que o pedido chega no app). */
+async function ensureCourier(tx: Tx, tenantId: string, userId: string, name?: string) {
+  await q(
+    tx,
+    `INSERT INTO couriers (tenant_id, name, user_id)
+     SELECT $1, left(coalesce($3, u.name), 80), $2 FROM users u WHERE u.id = $2
+     ON CONFLICT (tenant_id, user_id) WHERE user_id IS NOT NULL DO NOTHING`,
+    [tenantId, userId, name ?? null],
+  );
 }

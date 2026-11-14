@@ -13,7 +13,7 @@ import { ThrottlerException } from '@nestjs/throttler';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { ROLE_LABELS, DEFAULT_ROLE_PERMISSIONS } from '@comandou/shared';
+import { ROLE_LABELS, DEFAULT_ROLE_PERMISSIONS, PIN_ROLES } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import { AllowWhenBlocked, CurrentTenant, CurrentUser, Public } from '../common/decorators';
 import { one } from '../common/sql';
@@ -22,6 +22,7 @@ import { ENV, Env } from '../config/env';
 import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { DUMMY_HASH, verifyPassword } from './password';
+import { PIN_LOCK_MINUTES, PIN_LOCK_THRESHOLD, pinHash } from './pin';
 import { hashToken, SESSION_COOKIE, sessionCookieOptions, SessionService } from './session.service';
 
 const LoginSchema = z.object({
@@ -31,6 +32,13 @@ const LoginSchema = z.object({
   remember: z.boolean().optional().default(false),
 });
 type LoginInput = z.infer<typeof LoginSchema>;
+const PinLoginSchema = z.object({
+  pin: z.string().regex(/^[0-9]{4}$/, 'PIN de 4 números'),
+  /** Qual app está entrando: só aceita PIN de quem tem o papel daquele app. */
+  app: z.enum(PIN_ROLES),
+  remember: z.boolean().optional().default(true),
+});
+type PinLoginInput = z.infer<typeof PinLoginSchema>;
 const SupportSchema = z.object({ token: z.string().min(20).max(100) });
 
 interface LoginRow {
@@ -127,6 +135,86 @@ export class AuthController {
       // Cookie host-only (sem Domain): não é compartilhado entre subdomínios de restaurantes.
       res.cookie(SESSION_COOKIE, s.token, sessionCookieOptions(this.env, s.expiresAt));
       return { user: { id: row.user_id, name: row.name, role: row.role }, expiresAt: s.expiresAt };
+    });
+  }
+
+  /**
+   * Entrada do garçom (/garcom) e do entregador (/entregas) só com o PIN de 4 números. O PIN é
+   * único no restaurante e identifica a pessoa; só vale no app do papel dela.
+   *
+   * Como o PIN é curto, além do limite por aparelho (IP) há um limite do restaurante inteiro: com
+   * muitos PINs errados em pouco tempo (de qualquer lugar), a entrada por PIN pausa alguns
+   * minutos. Quem já está conectado continua (a sessão fica lembrada no aparelho).
+   */
+  @Public()
+  @Post('pin')
+  @HttpCode(200)
+  @Throttle({
+    default: {
+      ttl: 60_000,
+      limit: (ctx) => ctx.switchToHttp().getRequest<Request>().app.locals.loginRateLimit ?? 5,
+    },
+  })
+  async pinLogin(
+    @Body(new ZodPipe(PinLoginSchema)) body: PinLoginInput,
+    @CurrentTenant() tenant: ResolvedTenant,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const found = await this.db.withTenant({ tenantId: tenant.id }, async (tx) => {
+      const f = await one<{ n: number }>(
+        tx,
+        `SELECT count(*)::int AS n FROM audit_log
+          WHERE tenant_id = $1 AND action = 'auth.pin_failed'
+            AND created_at > now() - make_interval(mins => $2)`,
+        [tenant.id, PIN_LOCK_MINUTES],
+      );
+      if ((f?.n ?? 0) >= PIN_LOCK_THRESHOLD) return 'locked' as const;
+      return one<{ user_id: string; name: string; role: string }>(
+        tx,
+        `SELECT u.id AS user_id, u.name, m.role
+           FROM memberships m JOIN users u ON u.id = m.user_id
+          WHERE m.pin_hash = $1 AND m.status = 'active' AND u.disabled_at IS NULL`,
+        [pinHash(tenant.id, body.pin)],
+      );
+    });
+    if (found === 'locked')
+      throw new ThrottlerException(
+        'Muitos PINs errados neste restaurante. Aguarde alguns minutos ou peça ajuda ao gerente.',
+      );
+    // PIN de outro papel (o do entregador digitado no app do garçom) conta como errado.
+    if (!found || found.role !== body.app) {
+      await this.db.withTenant({ tenantId: tenant.id }, (tx) =>
+        this.audit.record(tx, {
+          tenantId: tenant.id,
+          action: 'auth.pin_failed',
+          entity: 'user',
+          data: { app: body.app },
+          ip: req.ip,
+        }),
+      );
+      throw new UnauthorizedException('PIN incorreto');
+    }
+    return this.db.withTenant({ tenantId: tenant.id, userId: found.user_id }, async (tx) => {
+      const s = await this.sessions.create(tx, tenant.id, found.user_id, {
+        ip: req.ip,
+        userAgent: req.get('user-agent'),
+        remember: body.remember,
+      });
+      await this.audit.record(tx, {
+        tenantId: tenant.id,
+        actorUserId: found.user_id,
+        action: 'auth.login',
+        entity: 'user',
+        entityId: found.user_id,
+        data: { by: 'pin' },
+        ip: req.ip,
+      });
+      res.cookie(SESSION_COOKIE, s.token, sessionCookieOptions(this.env, s.expiresAt));
+      return {
+        user: { id: found.user_id, name: found.name, role: found.role },
+        expiresAt: s.expiresAt,
+      };
     });
   }
 

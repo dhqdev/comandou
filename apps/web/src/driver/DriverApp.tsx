@@ -4,6 +4,7 @@ import { useAuth } from '../app/auth';
 import type { CourierEarningsData } from '../features/CourierEarnings';
 import { DriverPanel } from '../features/DriverPanel';
 import { api } from '../lib/api';
+import { useRealtime } from '../lib/realtime';
 import { useArrivalSound } from '../lib/sounds';
 import type { Delivery } from '../lib/types';
 import { DriverShell, usePolling } from './DriverShell';
@@ -40,6 +41,10 @@ export function DriverApp() {
     }
   }, []);
   usePolling(load);
+  // Corrida nova ou mudada chega na hora pelo tempo real (a consulta a cada 15 s é a reserva).
+  useRealtime((e) => {
+    if (e.type === 'delivery.changed') void load();
+  }, load);
 
   useArrivalSound(
     'courier',

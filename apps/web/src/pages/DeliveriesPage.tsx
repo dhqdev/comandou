@@ -642,6 +642,7 @@ function DispatchRow({
           {couriers.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
+              {!c.userId && !c.linkCreatedAt ? ' (sem app)' : ''}
             </option>
           ))}
         </Select>
@@ -912,8 +913,9 @@ function CouriersCard({
         <p className="cm-hint">
           O jeito mais simples: gere o <strong>link do entregador</strong> e mande no WhatsApp dele.
           Pelo link ele vê só as próprias corridas, abre a rota, liga para o cliente e marca
-          entregue, sem precisar de login. Quem tem login (papel Entregador na Equipe) vê o mesmo
-          painel ao entrar.
+          entregue, sem precisar de login. Ou cadastre a pessoa em <strong>Equipe</strong> com o
+          papel Entregador: ela entra em <strong>/entregas</strong> só com o PIN de 4 números e já
+          aparece aqui.
         </p>
         <ul className="plain-list courier-list">
           {couriers.map((c) => {

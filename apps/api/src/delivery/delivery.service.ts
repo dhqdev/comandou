@@ -653,5 +653,22 @@ export class DeliveryService {
   private publish(ctx: Ctx, deliveryId: string, orderId: string) {
     this.realtime.publish(ctx.tenantId, { type: 'delivery.changed', deliveryId });
     this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId });
+    // O app do entregador com login não está na sala da loja: o aviso vai direto para ele.
+    void this.db
+      .withTenant({ tenantId: ctx.tenantId }, (tx) =>
+        one<{ user_id: string | null }>(
+          tx,
+          `SELECT c.user_id FROM deliveries d JOIN couriers c ON c.id = d.courier_id WHERE d.id = $1`,
+          [deliveryId],
+        ),
+      )
+      .then((r) => {
+        if (r?.user_id)
+          this.realtime.publishToUsers(ctx.tenantId, [r.user_id], {
+            type: 'delivery.changed',
+            deliveryId,
+          });
+      })
+      .catch(() => undefined);
   }
 }

@@ -34,7 +34,7 @@ export function DriverShell({
     <main className="courier-page">
       <div className="courier-page__inner">
         <header className="courier-page__head">
-          <Mascot size={40} badge title="Comandou" />
+          <Mascot size={40} badge title="Comandou" className="courier-page__logo" />
           <div>
             <strong>{name ? `Olá, ${name.split(' ')[0]}` : 'Entregas'}</strong>
             <span className="cm-hint">{restaurant ?? 'Painel do entregador'}</span>

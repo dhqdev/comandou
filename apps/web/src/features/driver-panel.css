@@ -105,16 +105,25 @@
 }
 .run__actions {
   display: grid;
-  grid-template-columns: 1fr 1.6fr;
+  /* minmax(0, …): no celular estreito o botão encolhe em vez de vazar do cartão */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
   gap: 8px;
 }
 .run__actions .cm-btn {
   justify-content: center;
+  min-width: 0;
+  padding-inline: 10px;
 }
 /* Código de entrega: 4 números grandes, fáceis de digitar na porta do cliente. */
-.run__code {
+.run__code,
+.run__step {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--cm-space-3);
+  min-width: 0;
+}
+.run__step > * {
+  min-width: 0;
 }
 .run__code input {
   font-size: 1.75rem;
@@ -300,4 +309,26 @@
   align-items: center;
   gap: 6px;
   font-variant-numeric: tabular-nums;
+}
+/* Celular estreito (iPhone SE): sem o mascote, o nome do entregador cabe inteiro no topo. */
+@media (max-width: 380px) {
+  .courier-page__logo {
+    display: none;
+  }
+  .courier-page__head > div {
+    margin-left: 0;
+  }
+}
+
+/* iPhone SE e parecidos: o botão principal da rota ocupa a linha toda (o nome do app cabe). */
+@media (max-width: 380px) {
+  .run__nav {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .run__nav .cm-btn:first-child {
+    grid-column: 1 / -1;
+  }
+  .run {
+    padding: var(--cm-space-3);
+  }
 }

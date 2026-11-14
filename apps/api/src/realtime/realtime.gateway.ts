@@ -82,9 +82,9 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     const token = cookies[SESSION_COOKIE];
     const user = token ? await this.sessions.validate(outcome.tenant.id, token) : null;
     if (!user) return this.authenticateCustomer(socket, outcome.tenant.id, cookies);
-    // O entregador não recebe os avisos da loja (pedidos e posição dos outros motoboys): o app
-    // dele atualiza as próprias corridas sozinho.
-    if (user.role === 'driver') return false;
+    // O entregador não entra na sala da loja (pedidos e posição dos outros motoboys): só na dele,
+    // onde chegam as próprias corridas (despacho na hora, com o som) e o chat.
+    socket.data.personal = user.role === 'driver';
     socket.data.tenantId = outcome.tenant.id;
     socket.data.userId = user.id;
     socket.data.token = token;
@@ -145,7 +145,8 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
       return;
     }
     if (socket.data.chatId) return this.customerConnection(socket, tenantId);
-    await socket.join([tenantRoom(tenantId), userRoom(tenantId, socket.data.userId as string)]);
+    const own = userRoom(tenantId, socket.data.userId as string);
+    await socket.join(socket.data.personal ? [own] : [tenantRoom(tenantId), own]);
     socket.emit('ready', { tenantId });
     // A cada minuto: sessão ainda válida e restaurante ainda ativo (suspenso desconecta).
     const timer = setInterval(() => {

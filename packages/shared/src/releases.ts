@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.115.0',
+    date: '2026-11-13',
+    title: 'Garçom e entregador entram com PIN de 4 números',
+    summary:
+      'O garçom (/garcom) e o entregador (/entregas) agora entram só com um PIN de 4 números, num teclado grande. A corrida despachada chega na hora no app do entregador, e os dois apps ficaram certinhos no celular pequeno.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'PIN da equipe: em Equipe (ou em Meus garçons), cadastre o garçom ou o entregador só com o nome. O sistema sorteia um PIN (ou você escolhe) e mostra uma vez para passar à pessoa. "Novo PIN" troca e tira a pessoa dos aparelhos.',
+      },
+      {
+        tag: 'segurança',
+        text: 'O PIN é único no restaurante e só vale no app do papel (o do entregador não abre o salão). PINs fáceis (1111, 1234) são recusados. Com muitos PINs errados no restaurante, a entrada por PIN pausa alguns minutos; quem já está conectado continua.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Entregas: quem tem o papel Entregador já aparece na lista de quem leva o pedido. Ao despachar, a corrida chega na hora no app dele (antes podia levar até 15 segundos), e a lista avisa quem está "sem app".',
+      },
+      {
+        tag: 'correção',
+        text: 'Despachar pelo pedido não escolhe mais o primeiro entregador sozinho quando há mais de um.',
+      },
+      {
+        tag: 'correção',
+        text: 'Celular pequeno (iPhone SE): no app do entregador, os botões Entreguei, o código e a rota não vazam mais do cartão e o nome aparece no topo; na comanda do garçom os valores aparecem inteiros. "Você ganha R$ 0,00" não aparece mais quando o restaurante não paga por entrega.',
+      },
+    ],
+  },
+  {
     version: '0.114.0',
     date: '2026-11-13',
     title: 'Plano único de R$ 400 e orçamento em PDF',

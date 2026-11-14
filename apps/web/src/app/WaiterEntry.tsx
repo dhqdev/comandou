@@ -16,6 +16,17 @@ export function isWaiterPath(pathname: string): boolean {
   return /^\/gar[cç]om\/?$/i.test(p);
 }
 
+/** Telas de dentro do app do garçom (/garcom/mesas, /garcom/pedido/…). */
+export function isWaiterAppPath(pathname: string): boolean {
+  let p = pathname;
+  try {
+    p = decodeURIComponent(pathname);
+  } catch {
+    // endereço malformado: compara como veio
+  }
+  return /^\/gar[cç]om\//i.test(p);
+}
+
 export const waiterLink = () => `${window.location.origin}${WAITER_PATH}`;
 
 /**

@@ -100,8 +100,7 @@ export function useRealtime(onEvent: Listener, reload?: () => void) {
 }
 
 /**
- * Escuta os eventos sem abrir conexão (quem não usa o tempo real, como o entregador, não recebe
- * nada e depende de consultar de tempos em tempos).
+ * Escuta os eventos; com `connect` false, sem abrir a conexão (só ouve se outra tela já abriu).
  */
 export function useRealtimeEvents(onEvent: Listener, connect = true) {
   const ev = useRef(onEvent);

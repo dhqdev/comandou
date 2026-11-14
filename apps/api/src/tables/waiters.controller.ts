@@ -66,13 +66,14 @@ export class WaitersController {
       q(
         tx,
         `SELECT u.id, u.name, u.email, m.status, m.created_at AS "createdAt",
+                (m.pin_hash IS NOT NULL) AS "hasPin",
                 (SELECT max(s.last_seen_at) FROM sessions s WHERE s.user_id = u.id) AS "lastSeenAt",
                 ${STATS}
            FROM memberships m
            JOIN users u ON u.id = m.user_id
            LEFT JOIN orders o ON o.created_by = u.id AND o.status <> 'cancelled'
           WHERE m.role = 'waiter'
-          GROUP BY u.id, u.name, u.email, m.status, m.created_at
+          GROUP BY u.id, u.name, u.email, m.status, m.created_at, m.pin_hash
           ORDER BY m.status, u.name`,
       ),
     );

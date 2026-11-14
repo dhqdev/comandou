@@ -430,6 +430,8 @@ export interface Member {
   lastSeenAt: string | null;
   /** A mesma conta também entra em outro restaurante: só a pessoa troca a senha. */
   sharedAccount: boolean;
+  /** Garçom ou entregador com PIN de 4 números para entrar. */
+  hasPin?: boolean;
 }
 
 export type StockUnit = 'un' | 'kg' | 'g' | 'l' | 'ml';

@@ -192,7 +192,9 @@ function Runs({
                   ) : (
                     <Badge tone="danger">Não entregue</Badge>
                   )}
-                  {d.courierPay && <strong>{brl(d.courierPay)}</strong>}
+                  {d.courierPay && toCents(d.courierPay) > 0 && (
+                    <strong>{brl(d.courierPay)}</strong>
+                  )}
                 </span>
               </li>
             ))}
@@ -282,7 +284,7 @@ function RunCard({
           <span>Já está pago · {brl(d.total)}</span>
         )}
       </div>
-      {d.payEstimate && (
+      {d.payEstimate && toCents(d.payEstimate) > 0 && (
         <div className="run__earn">
           <span>Você ganha nesta entrega</span>
           <strong>{brl(d.payEstimate)}</strong>

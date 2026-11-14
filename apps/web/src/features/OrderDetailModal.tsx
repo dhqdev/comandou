@@ -869,7 +869,12 @@ interface Courier {
   name: string;
   phone: string | null;
   active: boolean;
+  userId: string | null;
+  linkCreatedAt: string | null;
 }
+
+/** Entregador sem app (sem PIN/login e sem link): o pedido não chega no celular dele. */
+const offApp = (c: Courier) => !c.userId && !c.linkCreatedAt;
 
 /** Escolhe o entregador e despacha sem sair da tela; depois oferece avisar pelo WhatsApp. */
 function DispatchForm({
@@ -891,7 +896,8 @@ function DispatchForm({
       .then((c) => {
         const active = c.filter((x) => x.active);
         setCouriers(active);
-        setCourierId(active[0]?.id ?? '');
+        // Só escolhe sozinho quando há um único entregador: com mais, quem despacha escolhe.
+        setCourierId(active.length === 1 ? active[0]!.id : '');
       })
       .catch(() => setCouriers([]));
   }, []);
@@ -921,6 +927,11 @@ function DispatchForm({
     return (
       <div className="inline-form">
         <strong>{sent.name} está com o pedido.</strong>
+        <span className="cm-hint">
+          {offApp(sent)
+            ? `${sent.name.split(' ')[0]} não usa o app: avise pelo WhatsApp ou gere o link em Entregas.`
+            : 'A corrida já apareceu no app do entregador, com o som de chamada.'}
+        </span>
         <div className="actions-row">
           {phone && (
             <a
@@ -954,9 +965,11 @@ function DispatchForm({
             value={courierId}
             onChange={(e) => setCourierId(e.target.value)}
           >
+            {couriers.length > 1 && <option value="">Escolha o entregador…</option>}
             {couriers.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
+                {offApp(c) ? ' (sem app)' : ''}
               </option>
             ))}
           </Select>

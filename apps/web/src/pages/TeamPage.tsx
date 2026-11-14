@@ -1,5 +1,12 @@
-import { ROLE_HINTS, ROLE_LABELS, ROLES, type Role } from '@comandou/shared';
-import { KeyRound, UserPlus, Users } from 'lucide-react';
+import {
+  isPinOnlyEmail,
+  isPinRole,
+  ROLE_HINTS,
+  ROLE_LABELS,
+  ROLES,
+  type Role,
+} from '@comandou/shared';
+import { Hash, KeyRound, UserPlus, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -20,6 +27,7 @@ import { api } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
 import type { Member } from '../lib/types';
 import { TourButton } from '../features/tour/PageTour';
+import { PinField, PinModal, PinReveal, pinFieldError } from '../features/StaffPin';
 import './team.css';
 
 /** Equipe do restaurante: quem acessa, com qual papel. Só administradores alteram. */
@@ -31,6 +39,8 @@ export function TeamPage() {
   const [adding, setAdding] = useState(false);
   /** Quem vai ganhar senha nova (outra pessoa) ou 'self' (trocar a própria). */
   const [pwFor, setPwFor] = useState<Member | 'self' | null>(null);
+  /** Garçom ou entregador que vai ganhar PIN novo. */
+  const [pinFor, setPinFor] = useState<Member | null>(null);
   useLinkParam('acao', (a) => a === 'pessoa' && setAdding(true));
 
   const load = useCallback(async () => {
@@ -98,7 +108,10 @@ export function TeamPage() {
                       <td>
                         <strong>{m.name}</strong> {self && <Badge tone="info">você</Badge>}{' '}
                         {m.status === 'revoked' && <Badge tone="danger">desativado</Badge>}
-                        <div className="cm-hint">{m.email}</div>
+                        <div className="cm-hint">
+                          {isPinOnlyEmail(m.email) ? 'Entra com PIN' : m.email}
+                          {m.hasPin && !isPinOnlyEmail(m.email) && ' · tem PIN'}
+                        </div>
                       </td>
                       <td>
                         {self ? (
@@ -123,14 +136,26 @@ export function TeamPage() {
                       <td>{m.lastSeenAt ? dateTime(m.lastSeenAt) : '—'}</td>
                       <td className="cm-num">
                         <div className="team-actions">
-                          <Button
-                            variant="ghost"
-                            icon={<KeyRound size={16} />}
-                            onClick={() => setPwFor(self ? 'self' : m)}
-                            aria-label={self ? 'Trocar minha senha' : `Nova senha para ${m.name}`}
-                          >
-                            {self ? 'Trocar senha' : 'Nova senha'}
-                          </Button>
+                          {!self && isPinRole(m.role) && (
+                            <Button
+                              variant="ghost"
+                              icon={<Hash size={16} />}
+                              onClick={() => setPinFor(m)}
+                              aria-label={`${m.hasPin ? 'Novo PIN' : 'Criar PIN'} para ${m.name}`}
+                            >
+                              {m.hasPin ? 'Novo PIN' : 'Criar PIN'}
+                            </Button>
+                          )}
+                          {(self || !isPinOnlyEmail(m.email)) && (
+                            <Button
+                              variant="ghost"
+                              icon={<KeyRound size={16} />}
+                              onClick={() => setPwFor(self ? 'self' : m)}
+                              aria-label={self ? 'Trocar minha senha' : `Nova senha para ${m.name}`}
+                            >
+                              {self ? 'Trocar senha' : 'Nova senha'}
+                            </Button>
+                          )}
                           {!self &&
                             (m.status === 'active' ? (
                               <Button
@@ -166,6 +191,7 @@ export function TeamPage() {
         member={pwFor && pwFor !== 'self' ? pwFor : null}
         onClose={() => setPwFor(null)}
       />
+      <PinModal person={pinFor} onClose={() => setPinFor(null)} onDone={() => void load()} />
       <AddMemberModal
         open={adding}
         onClose={() => setAdding(false)}
@@ -192,17 +218,41 @@ function AddMemberModal({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<Role>('waiter');
+  const [pin, setPin] = useState('');
+  /** Garçom/entregador: também com e-mail e senha (por padrão, só o PIN). */
+  const [withEmail, setWithEmail] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const valid = name.trim().length >= 2 && /\S+@\S+\.\S+/.test(email) && password.length >= 8;
+  /** PIN criado: mostrado uma vez antes de fechar. */
+  const [created, setCreated] = useState<{ name: string; pin: string } | null>(null);
+  const pinRole = isPinRole(role);
+  const needsEmail = !pinRole || withEmail;
+  const valid =
+    name.trim().length >= 2 &&
+    (!needsEmail || (/\S+@\S+\.\S+/.test(email) && password.length >= 8)) &&
+    (!pinRole || !pin || (pin.length === 4 && !pinFieldError(pin)));
+
+  function reset() {
+    setName('');
+    setEmail('');
+    setPassword('');
+    setPin('');
+    setWithEmail(false);
+    setError(null);
+  }
 
   async function save() {
     setBusy(true);
     setError(null);
     try {
-      const r = await api<{ existingAccount: boolean }>('/users', {
+      const r = await api<{ existingAccount: boolean; pin: string | null }>('/users', {
         method: 'POST',
-        json: { name, email, password, role },
+        json: {
+          name,
+          role,
+          ...(needsEmail ? { email, password } : {}),
+          ...(pinRole && pin ? { pin } : {}),
+        },
       });
       toast(
         r.existingAccount
@@ -210,9 +260,8 @@ function AddMemberModal({
           : 'Pessoa adicionada à equipe',
         'success',
       );
-      setName('');
-      setEmail('');
-      setPassword('');
+      if (r.pin) setCreated({ name, pin: r.pin });
+      reset();
       onDone();
     } catch (e) {
       setError((e as Error).message);
@@ -222,52 +271,74 @@ function AddMemberModal({
   }
 
   return (
-    <Modal
-      open={open}
-      title="Adicionar pessoa"
-      onClose={onClose}
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button loading={busy} disabled={!valid} onClick={save}>
-            Adicionar
-          </Button>
-        </>
-      }
-    >
-      {error && <Alert tone="danger">{error}</Alert>}
-      <TextField
-        label="Nome"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        maxLength={80}
-      />
-      <TextField
-        label="E-mail"
-        type="email"
-        autoComplete="off"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <TextField
-        label="Senha inicial"
-        type="password"
-        autoComplete="new-password"
-        hint="Mínimo de 8 caracteres. Combine a entrega da senha pessoalmente."
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <SelectField label="Papel" value={role} onChange={(e) => setRole(e.target.value as Role)}>
-        {ROLES.map((r) => (
-          <option key={r} value={r}>
-            {ROLE_LABELS[r]}
-          </option>
-        ))}
-      </SelectField>
-      <p className="cm-hint">{ROLE_HINTS[role]}</p>
-    </Modal>
+    <>
+      <Modal
+        open={open}
+        title="Adicionar pessoa"
+        onClose={onClose}
+        footer={
+          <>
+            <Button variant="secondary" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button loading={busy} disabled={!valid} onClick={save}>
+              Adicionar
+            </Button>
+          </>
+        }
+      >
+        {error && <Alert tone="danger">{error}</Alert>}
+        <TextField
+          label="Nome"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={80}
+        />
+        <SelectField label="Papel" value={role} onChange={(e) => setRole(e.target.value as Role)}>
+          {ROLES.map((r) => (
+            <option key={r} value={r}>
+              {ROLE_LABELS[r]}
+            </option>
+          ))}
+        </SelectField>
+        {pinRole && <PinField value={pin} onChange={setPin} />}
+        {needsEmail && (
+          <>
+            <TextField
+              label="E-mail"
+              type="email"
+              autoComplete="off"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <TextField
+              label="Senha inicial"
+              type="password"
+              autoComplete="new-password"
+              hint="Mínimo de 8 caracteres. Combine a entrega da senha pessoalmente."
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </>
+        )}
+        <p className="cm-hint cm-form__block">
+          {ROLE_HINTS[role]}{' '}
+          {pinRole && (
+            <button type="button" className="link-btn" onClick={() => setWithEmail((v) => !v)}>
+              {withEmail ? 'Só com PIN' : 'Também com e-mail e senha'}
+            </button>
+          )}
+        </p>
+      </Modal>
+      <Modal
+        open={!!created}
+        title="Pessoa adicionada"
+        onClose={() => setCreated(null)}
+        footer={<Button onClick={() => setCreated(null)}>Pronto</Button>}
+      >
+        {created && <PinReveal name={created.name} pin={created.pin} />}
+      </Modal>
+    </>
   );
 }
 

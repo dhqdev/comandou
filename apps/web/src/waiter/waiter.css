@@ -1594,3 +1594,16 @@ button.wt-admin__who {
   justify-content: center;
   margin-top: 8px;
 }
+
+/* Celular estreito (iPhone SE): os valores da comanda aparecem inteiros, sem reticências. */
+@media (max-width: 380px) {
+  .wt-summary > div,
+  .wt-kpis > div {
+    padding: 10px 8px;
+  }
+  .wt-summary strong,
+  .wt-kpis strong {
+    font-size: clamp(0.85rem, 4.4vw, 1rem);
+    letter-spacing: -0.01em;
+  }
+}

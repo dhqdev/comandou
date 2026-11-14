@@ -1,4 +1,4 @@
-import { waiterLevel } from '@comandou/shared';
+import { isPinOnlyEmail, waiterLevel } from '@comandou/shared';
 import {
   CircleUserRound,
   ClipboardList,
@@ -62,6 +62,8 @@ export function WaiterApp() {
   }, load);
 
   const chatUnread = useChatUnread();
+  // Garçom cadastrado só com PIN não tem senha para trocar (o PIN novo sai em Equipe).
+  const hasPassword = !isPinOnlyEmail(me?.user.email);
   // Lançando pedido ou dentro da comanda: tela cheia, sem as abas de baixo. "/garcom/pedidos"
   // (Meus pedidos) é uma aba como as outras e mantém a barra.
   const focused = /^\/garcom\/(pedido|comanda)(\/|$)/.test(pathname);
@@ -107,9 +109,11 @@ export function WaiterApp() {
               <span>Tema</span>
               <ThemeToggle />
             </div>
-            <button type="button" className="wt-side__link" onClick={() => setPw(true)}>
-              <KeyRound /> Trocar senha
-            </button>
+            {hasPassword && (
+              <button type="button" className="wt-side__link" onClick={() => setPw(true)}>
+                <KeyRound /> Trocar senha
+              </button>
+            )}
             <button type="button" className="wt-side__link" onClick={() => void logout()}>
               <LogOut /> Sair
             </button>
@@ -186,16 +190,18 @@ export function WaiterApp() {
             <span>Tema</span>
             <ThemeToggle />
           </div>
-          <button
-            type="button"
-            className="wt-side__link"
-            onClick={() => {
-              setAccount(false);
-              setPw(true);
-            }}
-          >
-            <KeyRound /> Trocar senha
-          </button>
+          {hasPassword && (
+            <button
+              type="button"
+              className="wt-side__link"
+              onClick={() => {
+                setAccount(false);
+                setPw(true);
+              }}
+            >
+              <KeyRound /> Trocar senha
+            </button>
+          )}
           <button type="button" className="wt-side__link" onClick={() => void logout()}>
             <LogOut /> Sair
           </button>

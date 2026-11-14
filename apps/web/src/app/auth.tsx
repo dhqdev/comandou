@@ -26,6 +26,8 @@ interface AuthState {
   movedTo?: string;
   error?: string;
   login(email: string, password: string): Promise<void>;
+  /** Garçom e entregador: só o PIN de 4 números, no app do papel. */
+  loginWithPin(pin: string, app: 'waiter' | 'driver'): Promise<void>;
   logout(): Promise<void>;
   refresh(): Promise<void>;
 }
@@ -101,6 +103,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [refresh],
   );
 
+  const loginWithPin = useCallback(
+    async (pin: string, app: 'waiter' | 'driver') => {
+      await api('/auth/pin', { method: 'POST', json: { pin, app, remember: true } });
+      await refresh();
+    },
+    [refresh],
+  );
+
   const logout = useCallback(async () => {
     const pending = offlineSnapshot().pending.length;
     if (
@@ -124,7 +134,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => setGuideAccess(null);
   }, [me]);
 
-  return <Ctx.Provider value={{ ...state, login, logout, refresh }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider value={{ ...state, login, loginWithPin, logout, refresh }}>
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 export function useAuth(): AuthState {

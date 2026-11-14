@@ -266,3 +266,133 @@
     animation: none;
   }
 }
+
+/* PIN do garçom e do entregador: bolinhas e teclado numérico grande (alvo de 64px). */
+.pinpad {
+  display: grid;
+  justify-items: center;
+  gap: var(--cm-space-2);
+  margin-top: var(--cm-space-8);
+}
+.pinpad__dots {
+  position: relative;
+  display: flex;
+  gap: 18px;
+  height: 20px;
+  align-items: center;
+}
+.pinpad__dot {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--cm-border-strong);
+  border-radius: 50%;
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    background-color 120ms linear,
+    border-color 120ms linear;
+}
+.pinpad__dot.is-on {
+  border-color: var(--cm-brand-600);
+  background: var(--cm-brand-600);
+  transform: scale(1.1);
+}
+.pinpad__dots.is-wrong {
+  animation: pin-shake 280ms var(--cm-ease) both;
+}
+.pinpad__dots.is-wrong .pinpad__dot {
+  border-color: var(--cm-danger);
+}
+.pinpad__busy {
+  position: absolute;
+  right: -34px;
+  display: grid;
+  place-items: center;
+}
+.pinpad__error {
+  min-height: 1.5em;
+  margin: var(--cm-space-2) 0 0;
+  color: var(--cm-danger);
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+  text-align: center;
+}
+.pinpad__keys {
+  display: grid;
+  grid-template-columns: repeat(3, 72px);
+  gap: 14px 22px;
+  margin-top: var(--cm-space-2);
+}
+.pinpad__key {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: 28px;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.pinpad__key:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.pinpad__key:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.pinpad__key:disabled {
+  cursor: default;
+}
+.pinpad__key--del {
+  background: none;
+  color: var(--cm-text-muted);
+}
+.pinpad__key--del:disabled {
+  opacity: 0.35;
+}
+@keyframes pin-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-8px);
+  }
+  40% {
+    transform: translateX(7px);
+  }
+  60% {
+    transform: translateX(-5px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+/* Celular baixinho: teclas menores para caber sem rolar. */
+@media (max-height: 700px) {
+  .pinpad {
+    margin-top: var(--cm-space-5);
+  }
+  .pinpad__keys {
+    grid-template-columns: repeat(3, 64px);
+    gap: 10px 20px;
+  }
+  .pinpad__key {
+    width: 64px;
+    height: 64px;
+    font-size: 24px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pinpad__dots.is-wrong {
+    animation: none;
+  }
+}

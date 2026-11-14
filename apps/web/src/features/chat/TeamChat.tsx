@@ -208,7 +208,7 @@ export function TeamChat({
         })
         .catch(() => undefined);
     }
-  }, variant !== 'driver');
+  });
   useEffect(() => {
     if (!peek) return;
     const t = setTimeout(() => setPeek(null), 6000);
