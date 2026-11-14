@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.116.0',
+    date: '2026-11-14',
+    title: 'Primeiros passos pelo cardápio: link ou fotos e a loja fica pronta',
+    summary:
+      'No primeiro acesso, o dono manda o link do cardápio ou fotos dele e a IA monta a loja inteira: itens, preços, fotos, logo, cores, ícone, contato, endereço, ponto no mapa e horário. Ele confere numa tela só e aplica. Os dados do cadastro entram sozinhos.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Primeiros passos começam pelo cardápio: tirar foto, escolher fotos, prints ou PDF da galeria (várias de uma vez) ou colar o link do cardápio (site, cardápio digital ou página da loja no app de delivery).',
+      },
+      {
+        tag: 'novo',
+        text: 'A IA lê os itens com preço e descrição e também o WhatsApp, o endereço, a cidade, o horário e as cores da marca. A foto de cada prato é recortada do próprio cardápio (ou baixada do link) e vira a foto do item.',
+      },
+      {
+        tag: 'novo',
+        text: 'Logo, cores e ícone: o logo vem do cardápio ou do site; sem cor clara, ela é tirada do logo. O ícone da aba e do app é gerado do logo. Dá para trocar o logo e as cores na conferência e escolher se o sistema da equipe também usa as cores.',
+      },
+      {
+        tag: 'novo',
+        text: 'Item sem foto: "Criar fotos com IA" faz uma foto ilustrativa para cada um (até 40 por vez, desconta do limite de IA).',
+      },
+      {
+        tag: 'novo',
+        text: 'Ao aplicar, a loja é achada no mapa pelo endereço (entregas por distância e QR da mesa já funcionam) e o horário pode ligar a abertura automática. A conversa depois só pergunta o que faltou.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Telefone, cidade e UF informados na contratação já entram na loja no primeiro acesso.',
+      },
+      {
+        tag: 'segurança',
+        text: 'O link do cardápio só é aberto se for um site público (nada da rede interna), com limite de tamanho e de redirecionamentos.',
+      },
+    ],
+  },
+  {
     version: '0.115.0',
     date: '2026-11-13',
     title: 'Garçom e entregador entram com PIN de 4 números',

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parsePrice, readImport } from './menu-import.service';
+import { parsePrice, readImport as readFull } from './menu-import.service';
+
+/** Só itens e "partial" (os dados da loja têm os testes em store-import.test). */
+const readImport = (raw: string) => {
+  const { store: _store, ...rest } = readFull(raw);
+  return rest;
+};
 
 describe('importar cardápio: leitura da resposta da IA', () => {
   it('lê o JSON completo, mesmo com texto em volta', () => {

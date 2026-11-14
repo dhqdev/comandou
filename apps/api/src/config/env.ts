@@ -106,6 +106,8 @@ const schema = z.object({
   OPENROUTER_BASE_URL: z.string().url().default('https://openrouter.ai/api/v1'),
   // Modelo que lê foto e PDF na importação do cardápio (precisa aceitar imagem).
   AI_IMPORT_MODEL: z.string().min(3).max(120).default('google/gemini-2.5-flash'),
+  // Modelo que cria a foto ilustrativa de um item sem foto (primeiros passos).
+  AI_IMAGE_MODEL: z.string().min(3).max(120).default('google/gemini-2.5-flash-image'),
   /**
    * Integração com o iFood (cardápio). Credenciais do aplicativo do Comandou no Portal do
    * Desenvolvedor do iFood. Sem elas, o cardápio de integração fica indisponível.

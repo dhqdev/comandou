@@ -257,3 +257,16 @@
     animation: none;
   }
 }
+
+/* Conferência do cardápio: a coluna da conversa fica mais larga no computador. */
+.onb[data-wide] .onb-thread {
+  width: min(820px, 100%);
+}
+.onb-card--menu {
+  padding-bottom: 12px;
+}
+@media (max-width: 520px) {
+  .onb-card--menu {
+    margin-left: 0;
+  }
+}

@@ -71,6 +71,9 @@ async function login(host: string, email: string) {
 }
 
 /** OpenRouter falso: responde em pedaços (SSE) com o uso no fim, como o real. */
+const PNG_1PX =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
 function fakeOpenRouter() {
   return createServer((req, res) => {
     let raw = '';
@@ -95,6 +98,19 @@ function fakeOpenRouter() {
       if (req.url === '/credits') {
         res.writeHead(403);
         res.end('{}');
+        return;
+      }
+      // Foto ilustrativa do item (modelo de imagem): devolve um PNG de 1x1 em data URL.
+      if (req.url === '/chat/completions' && Array.isArray(body?.modalities)) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            choices: [
+              { message: { images: [{ image_url: { url: `data:image/png;base64,${PNG_1PX}` } }] } },
+            ],
+            usage: { prompt_tokens: 20, completion_tokens: 1290, cost: 0.039 },
+          }),
+        );
         return;
       }
       // Importar o cardápio: uma resposta só (sem streaming), em JSON, com o arquivo junto.
@@ -707,6 +723,63 @@ describe('Assistente de IA', () => {
 
     // Garçom não importa cardápio.
     await upload('waiterA', 'application/pdf', pdf).expect(403);
+  });
+
+  it('primeiros passos: dados do cadastro, link só de site público e foto criada pela IA', async () => {
+    await ownerQuery(
+      `INSERT INTO tenant_profiles (tenant_id, phone, city, state, legal_name, notes)
+       VALUES ($1, '11988887777', 'Campinas', 'SP', 'Bella Serra Ltda', 'interno')
+       ON CONFLICT (tenant_id) DO UPDATE SET phone = EXCLUDED.phone, city = EXCLUDED.city,
+         state = EXCLUDED.state, legal_name = EXCLUDED.legal_name, notes = EXCLUDED.notes`,
+      [fx.tenantB],
+    );
+    const sign = (await get('adminB', '/menu-import/signup').expect(200)).body;
+    expect(sign).toMatchObject({
+      phone: '11988887777',
+      city: 'Campinas',
+      state: 'SP',
+      legalName: 'Bella Serra Ltda',
+    });
+    // Observação interna do painel não chega no restaurante.
+    expect(sign).not.toHaveProperty('notes');
+    await get('waiterA', '/menu-import/signup').expect(403);
+
+    // Link para a rede interna (ou o próprio servidor) é recusado antes de buscar.
+    const calls = orCalls.length;
+    for (const url of ['http://127.0.0.1/', 'localhost:3000', 'http://169.254.169.254/latest'])
+      await send('adminB', 'post', '/menu-import/link', { url }).expect(422);
+    await get(
+      'adminB',
+      `/menu-import/image?url=${encodeURIComponent('http://10.0.0.1/a.png')}`,
+    ).expect(422);
+    expect(orCalls.length).toBe(calls);
+
+    await psend('post', `/ai/tenants/${fx.tenantB}/tokens`, { delta: 5000, note: 'fotos' }).expect(
+      200,
+    );
+    const before = (await get('adminB', '/menu-import').expect(200)).body.usage.used;
+    const photo = await http
+      .post('/api/v1/menu-import/photo')
+      .set('Host', hostOf('adminB'))
+      .set('Cookie', cookies.adminB)
+      .set(CSRF)
+      .send({ name: 'Pizza Calabresa', description: 'Calabresa e cebola', category: 'Pizzas' })
+      .buffer(true)
+      .parse((res, cb) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (c: Buffer) => chunks.push(c));
+        res.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
+    expect(photo.status, String(photo.body)).toBe(200);
+    expect(photo.headers['content-type']).toBe('image/png');
+    expect((photo.body as Buffer).subarray(1, 4).toString()).toBe('PNG');
+    const call = orCalls[orCalls.length - 1]!.body as {
+      model: string;
+      messages: { content: string }[];
+    };
+    expect(call.model).toBe('google/gemini-2.5-flash-image');
+    expect(call.messages[0]!.content).toContain('Pizza Calabresa');
+    expect((await get('adminB', '/menu-import').expect(200)).body.usage.used).toBe(before + 1310);
   });
 });
 

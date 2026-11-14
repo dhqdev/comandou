@@ -5,13 +5,16 @@ import { Button, Mascot } from '../../design-system';
 import { api } from '../../lib/api';
 import type { StoreSettings } from '../../lib/types';
 import { maskPhone } from '../CustomerPicker';
-import { MenuImport } from '../menu-import/MenuImport';
+import { QuickStart } from './QuickStart';
+import { loadSignup, type ApplyResult, type Signup } from './quick-start';
 import './onboarding.css';
 
 /**
  * Primeiros passos em forma de conversa: o mascote pergunta, a pessoa responde tocando ou
  * digitando, e cada resposta já grava no cadastro da loja (os mesmos campos de Ajustes e Loja
- * online). No meio, o cardápio entra por foto ou PDF, lido pela IA. Abre sozinho no primeiro
+ * online). Começa pelo cardápio: o link ou as fotos, lidos pela IA, montam itens, fotos, logo,
+ * cores, ícone, contato, endereço, ponto no mapa e horário de uma vez. Os dados do cadastro
+ * (telefone, cidade) entram sozinhos. Depois só pergunta o que faltou. Abre sozinho no primeiro
  * acesso de quem administra uma loja ainda sem itens; dá para rever em Conta.
  */
 
@@ -33,7 +36,7 @@ export function markOnboardingSeen(tenantId: string, userId: string) {
 }
 
 type Step = 'hello' | 'sell' | 'whats' | 'address' | 'eta' | 'menu' | 'end';
-const ORDER: Step[] = ['hello', 'sell', 'whats', 'address', 'eta', 'menu', 'end'];
+const ORDER: Step[] = ['hello', 'menu', 'sell', 'whats', 'address', 'eta', 'end'];
 interface Msg {
   id: number;
   from: 'bot' | 'me';
@@ -80,6 +83,11 @@ export function OnboardingChat({
   const [sell, setSell] = useState<Set<SellKey>>(new Set());
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [signup, setSignup] = useState<Signup | null>(null);
+  /** O que a loja já tem (do cadastro ou do cardápio): a conversa não pergunta de novo. */
+  const known = useRef({ whatsapp: false, address: false });
+  /** Acompanha o fim da conversa; na conferência do cardápio a pessoa rola sozinha. */
+  const follow = useRef(true);
   const seq = useRef(0);
   const timers = useRef<number[]>([]);
   const end = useRef<HTMLDivElement>(null);
@@ -118,6 +126,24 @@ export function OnboardingChat({
     setSell(new Set());
     setText('');
     seq.current = 0;
+    known.current = { whatsapp: false, address: false };
+    // Dados do cadastro (feito na contratação) entram sozinhos onde a loja ainda está vazia.
+    void Promise.all([loadSignup(), api<StoreSettings>('/store/settings').catch(() => null)]).then(
+      async ([sg, st]) => {
+        setSignup(sg);
+        if (!st) return;
+        const patch: Partial<StoreSettings> = {};
+        if (!st.whatsapp && sg?.phone) patch.whatsapp = maskPhone(sg.phone);
+        if (!st.city && sg?.city) patch.city = sg.city;
+        if (!st.state && sg?.state) patch.state = sg.state;
+        if (Object.keys(patch).length)
+          await api('/store/settings', { method: 'PATCH', json: patch }).catch(() => undefined);
+        known.current = {
+          whatsapp: !!(st.whatsapp || patch.whatsapp),
+          address: !!st.address,
+        };
+      },
+    );
     say(
       [
         `Oi, ${first}! Eu sou o Comandou.`,
@@ -137,6 +163,7 @@ export function OnboardingChat({
     const thread = end.current?.parentElement;
     if (!open || !thread) return;
     const toEnd = () =>
+      follow.current &&
       end.current?.scrollIntoView({ block: 'end', behavior: reduced() ? 'auto' : 'smooth' });
     const ro = new ResizeObserver(toEnd);
     ro.observe(thread);
@@ -168,12 +195,14 @@ export function OnboardingChat({
     canImport
       ? say(
           [
-            'Agora o cardápio. Me mande a foto do cardápio, a foto de um prato ou o PDF.',
-            'Eu leio e cadastro os itens. Você só confere antes de salvar.',
+            'Para começar, me mande o seu cardápio: o link ou fotos dele.',
+            'Eu leio os itens, os preços e as fotos, e pego o logo, as cores, o contato, o endereço e o horário. Você só confere e aplica.',
           ],
           'menu',
         )
-      : finish();
+      : askSell();
+  const askSell = (lead?: string[]) =>
+    say([...(lead ?? []), 'Como você vende? Pode marcar mais de um.'], 'sell');
   const finish = (lead?: string) =>
     say(
       [
@@ -185,7 +214,42 @@ export function OnboardingChat({
   const askEta = () =>
     sell.has('delivery') || sell.has('pickup')
       ? say(['Quanto tempo leva, em média, para um pedido ficar pronto?'], 'eta')
-      : askMenu();
+      : finish();
+  const askAddress = () =>
+    known.current.address
+      ? askEta()
+      : say(['E o endereço da loja? Rua, número e bairro.'], 'address');
+  const askWhats = () =>
+    known.current.whatsapp
+      ? askAddress()
+      : say(['Qual é o WhatsApp da loja? Ele aparece para o cliente no cardápio.'], 'whats');
+
+  const menuDone = (r: ApplyResult) => {
+    known.current = {
+      whatsapp: known.current.whatsapp || r.saved.whatsapp,
+      address: known.current.address || r.saved.address,
+    };
+    const got = [
+      r.created && (r.created === 1 ? '1 item' : `${r.created} itens`),
+      r.saved.identity && 'logo e cores',
+      r.saved.address && 'endereço',
+      r.saved.location && 'ponto no mapa',
+    ].filter(Boolean) as string[];
+    push('me', got.length ? `Aplicado: ${got.join(', ')}` : 'Cardápio conferido');
+    const lead = [
+      r.created
+        ? 'Ficou ótimo. Seu cardápio já está no ar no PDV e na loja online, com a cara da sua marca.'
+        : 'Pronto, a loja já está com os dados que encontrei.',
+      ...r.warnings,
+      ...(r.stopped ? [`Parei antes do fim dos itens: ${r.stopped}`] : []),
+      ...(r.failed.length
+        ? [
+            `${r.failed.length === 1 ? '1 item não entrou' : `${r.failed.length} itens não entraram`}. Você cadastra em Cardápio › Itens.`,
+          ]
+        : []),
+    ];
+    askSell(lead);
+  };
 
   const answerSell = async () => {
     push(
@@ -195,14 +259,14 @@ export function OnboardingChat({
         .join(', '),
     );
     await savePatch({ acceptsDelivery: sell.has('delivery'), acceptsPickup: sell.has('pickup') });
-    say(['Qual é o WhatsApp da loja? Ele aparece para o cliente no cardápio.'], 'whats');
+    askWhats();
   };
   const answerWhats = async (skip?: boolean) => {
     const v = text.trim();
     setText('');
     push('me', skip || !v ? 'Depois eu coloco' : v);
     if (!skip && v) await savePatch({ whatsapp: v });
-    say(['E o endereço da loja? Rua, número e bairro.'], 'address');
+    askAddress();
   };
   const answerAddress = async (skip?: boolean) => {
     const v = text.trim();
@@ -214,7 +278,7 @@ export function OnboardingChat({
   const answerEta = async ([min, max]: [number, number]) => {
     push('me', `${min} a ${max} minutos`);
     await savePatch({ etaMin: min, etaMax: max });
-    askMenu();
+    finish();
   };
 
   if (!open) return null;
@@ -259,7 +323,7 @@ export function OnboardingChat({
         <Button
           onClick={() => {
             push('me', 'Vamos lá');
-            say(['Como você vende? Pode marcar mais de um.'], 'sell');
+            askMenu();
           }}
         >
           Vamos lá
@@ -313,20 +377,6 @@ export function OnboardingChat({
         ))}
       </div>
     );
-  else if (at === 'menu')
-    reply = (
-      <div className="onb-choices">
-        <Button
-          variant="ghost"
-          onClick={() => {
-            push('me', 'Cadastro depois');
-            finish('Sem problema. Quando quiser, é só abrir Cardápio › Itens › Importar com IA.');
-          }}
-        >
-          Cadastrar depois
-        </Button>
-      </div>
-    );
   else if (at === 'end')
     reply = (
       <div className="onb-choices">
@@ -351,7 +401,13 @@ export function OnboardingChat({
   const progress = Math.round((ORDER.indexOf(step) / (ORDER.length - 1)) * 100);
 
   return (
-    <div className="onb" role="dialog" aria-modal="true" aria-label="Primeiros passos">
+    <div
+      className="onb"
+      data-wide={at === 'menu' || undefined}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Primeiros passos"
+    >
       <header className="onb-head">
         <Mascot size={28} badge />
         <div className="onb-head__text">
@@ -379,14 +435,20 @@ export function OnboardingChat({
             </div>
           ))}
           {at === 'menu' && (
-            <div className="onb-card">
-              <MenuImport
-                onFinish={(n) => {
-                  push(
-                    'me',
-                    n === 1 ? '1 item conferido e salvo' : `${n} itens conferidos e salvos`,
-                  );
-                  finish('Ficou ótimo. Seu cardápio já está no ar no PDV e na loja online.');
+            <div className="onb-card onb-card--menu">
+              <QuickStart
+                signup={signup}
+                onReview={(on) => (follow.current = !on)}
+                onDone={(r) => {
+                  follow.current = true;
+                  menuDone(r);
+                }}
+                onSkip={() => {
+                  follow.current = true;
+                  push('me', 'Ainda não tenho cardápio pronto');
+                  askSell([
+                    'Sem problema. Quando quiser, é só abrir Cardápio › Itens › Importar com IA.',
+                  ]);
                 }}
               />
             </div>
@@ -408,7 +470,7 @@ export function OnboardingChat({
           <div ref={end} />
         </div>
       </div>
-      <footer className="onb-reply">{reply}</footer>
+      {at !== 'menu' && <footer className="onb-reply">{reply}</footer>}
     </div>
   );
 }

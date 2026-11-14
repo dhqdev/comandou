@@ -176,6 +176,53 @@ export class OpenRouterClient {
     };
   }
 
+  /**
+   * Gera uma imagem (modelos com saída de imagem, ex.: google/gemini-2.5-flash-image). Devolve o
+   * primeiro arquivo da resposta (data URL em base64) já como bytes.
+   */
+  async image(
+    model: string,
+    prompt: string,
+    opts: { signal?: AbortSignal } = {},
+  ): Promise<{ mime: string; bytes: Buffer; usage: Usage }> {
+    const res = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        modalities: ['image', 'text'],
+        usage: { include: true },
+      }),
+      signal: opts.signal ?? AbortSignal.timeout(90_000),
+    });
+    const body = await res.text().catch(() => '');
+    if (!res.ok) throw new OpenRouterError(friendly(res.status, body), res.status);
+    let j: {
+      choices?: { message?: { images?: { image_url?: { url?: string } }[] } }[];
+      usage?: Record<string, unknown>;
+      error?: { message?: string };
+    };
+    try {
+      j = JSON.parse(body);
+    } catch {
+      throw new OpenRouterError('O OpenRouter devolveu uma resposta que não deu para ler');
+    }
+    if (j.error) throw new OpenRouterError(`OpenRouter: ${j.error.message ?? 'erro'}`);
+    const url = j.choices?.[0]?.message?.images?.[0]?.image_url?.url ?? '';
+    const m = url.match(/^data:(image\/[a-z+]+);base64,(.+)$/);
+    if (!m) throw new OpenRouterError('A IA não devolveu a imagem');
+    return {
+      mime: m[1]!,
+      bytes: Buffer.from(m[2]!, 'base64'),
+      usage: {
+        promptTokens: num(j.usage?.prompt_tokens) ?? 0,
+        completionTokens: num(j.usage?.completion_tokens) ?? 0,
+        costUsd: num(j.usage?.cost) ?? 0,
+      },
+    };
+  }
+
   private async get(path: string): Promise<Record<string, unknown>> {
     const res = await fetch(`${this.baseUrl}${path}`, {
       headers: this.headers(),

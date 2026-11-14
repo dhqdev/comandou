@@ -1,5 +1,5 @@
-import { Camera, FileText, Images, RotateCcw, Sparkles } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Camera, FileText, ImageOff, Images, RotateCcw, Sparkles, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { Alert, Button, Spinner } from '../../design-system';
 import {
   analyzeMenuFile,
@@ -72,11 +72,6 @@ export function MenuImport({
     );
   }, []);
 
-  const groups = useMemo(() => {
-    const map = new Map<string, DraftItem[]>();
-    for (const d of drafts) map.set(d.group, [...(map.get(d.group) ?? []), d]);
-    return [...map.values()];
-  }, [drafts]);
   const ready = readyDrafts(drafts).length;
 
   const read = async (kind: Kind, file: File | undefined) => {
@@ -105,11 +100,6 @@ export function MenuImport({
       setStage({ at: drafts.length ? 'review' : 'pick' });
     }
   };
-
-  const patch = (key: string, p: Partial<DraftItem>) =>
-    setDrafts((cur) => cur.map((d) => (d.key === key ? { ...d, ...p } : d)));
-  const renameCategory = (group: string, to: string) =>
-    setDrafts((cur) => cur.map((d) => (d.group === group ? { ...d, category: to } : d)));
 
   const save = async () => {
     setError(null);
@@ -205,67 +195,7 @@ export function MenuImport({
             {drafts.some((d) => d.dup) &&
               ' Item que já está no cardápio vem desmarcado para não ficar repetido.'}
           </p>
-          <div className="mi-list">
-            {groups.map((items) => (
-              <section key={items[0]!.group} className="mi-group">
-                <input
-                  className="mi-group__name"
-                  aria-label="Categoria"
-                  value={items[0]!.category}
-                  maxLength={60}
-                  onChange={(e) => renameCategory(items[0]!.group, e.target.value)}
-                />
-                {items.map((d) => (
-                  <div key={d.key} className="mi-row" data-off={!d.on || undefined}>
-                    <input
-                      type="checkbox"
-                      checked={d.on}
-                      aria-label={`Cadastrar ${d.name}`}
-                      onChange={(e) => patch(d.key, { on: e.target.checked })}
-                    />
-                    <div className="mi-row__text">
-                      <input
-                        className="mi-row__name"
-                        aria-label="Nome do item"
-                        value={d.name}
-                        maxLength={120}
-                        onChange={(e) => patch(d.key, { name: e.target.value })}
-                      />
-                      <input
-                        className="mi-row__desc"
-                        aria-label={`Descrição de ${d.name}`}
-                        placeholder="Descrição (opcional)"
-                        value={d.description}
-                        maxLength={500}
-                        onChange={(e) => patch(d.key, { description: e.target.value })}
-                      />
-                      {d.dup && (
-                        <span className="mi-row__dup">
-                          {d.dup === 'menu' ? 'Já está no cardápio' : 'Repetido nesta importação'}
-                        </span>
-                      )}
-                    </div>
-                    <label className="mi-row__price">
-                      <span aria-hidden>R$</span>
-                      <input
-                        inputMode="decimal"
-                        aria-label={`Preço de ${d.name}`}
-                        placeholder="0,00"
-                        value={d.price}
-                        aria-invalid={d.on && draftPrice(d.price) === null ? true : undefined}
-                        onChange={(e) =>
-                          patch(d.key, {
-                            price: e.target.value,
-                            on: d.on || draftPrice(e.target.value) !== null,
-                          })
-                        }
-                      />
-                    </label>
-                  </div>
-                ))}
-              </section>
-            ))}
-          </div>
+          <DraftList drafts={drafts} setDrafts={setDrafts} />
           <div className="mi-foot">
             <Button variant="ghost" size="sm" icon={<RotateCcw size={14} />} onClick={again}>
               Começar de novo
@@ -336,6 +266,121 @@ export function MenuImport({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * Lista da conferência: categorias e itens editáveis, com a caixinha de "cadastrar este" e,
+ * quando houver, a miniatura da foto do item. Usada aqui e nos primeiros passos.
+ */
+export function DraftList({
+  drafts,
+  setDrafts,
+}: {
+  drafts: DraftItem[];
+  setDrafts: Dispatch<SetStateAction<DraftItem[]>>;
+}) {
+  const groups = useMemo(() => {
+    const map = new Map<string, DraftItem[]>();
+    for (const d of drafts) map.set(d.group, [...(map.get(d.group) ?? []), d]);
+    return [...map.values()];
+  }, [drafts]);
+  const patch = (key: string, p: Partial<DraftItem>) =>
+    setDrafts((cur) => cur.map((d) => (d.key === key ? { ...d, ...p } : d)));
+  const renameCategory = (group: string, to: string) =>
+    setDrafts((cur) => cur.map((d) => (d.group === group ? { ...d, category: to } : d)));
+  const withThumbs = drafts.some((d) => d.thumb);
+
+  return (
+    <div className="mi-list">
+      {groups.map((items) => (
+        <section key={items[0]!.group} className="mi-group">
+          <input
+            className="mi-group__name"
+            aria-label="Categoria"
+            value={items[0]!.category}
+            maxLength={60}
+            onChange={(e) => renameCategory(items[0]!.group, e.target.value)}
+          />
+          {items.map((d) => (
+            <div
+              key={d.key}
+              className="mi-row"
+              data-off={!d.on || undefined}
+              data-thumbs={withThumbs || undefined}
+            >
+              <input
+                type="checkbox"
+                checked={d.on}
+                aria-label={`Cadastrar ${d.name}`}
+                onChange={(e) => patch(d.key, { on: e.target.checked })}
+              />
+              {withThumbs &&
+                (d.thumb ? (
+                  <span className="mi-row__thumb">
+                    <img
+                      src={d.thumb}
+                      alt=""
+                      loading="lazy"
+                      onError={() => patch(d.key, { thumb: null, photoUrl: null })}
+                    />
+                    <button
+                      type="button"
+                      className="mi-row__thumb-x"
+                      aria-label={`Tirar a foto de ${d.name}`}
+                      onClick={() => patch(d.key, { thumb: null, photo: null, photoUrl: null })}
+                    >
+                      <X size={12} aria-hidden />
+                    </button>
+                  </span>
+                ) : (
+                  <span className="mi-row__thumb mi-row__thumb--empty" aria-hidden>
+                    <ImageOff size={16} />
+                  </span>
+                ))}
+              <div className="mi-row__text">
+                <input
+                  className="mi-row__name"
+                  aria-label="Nome do item"
+                  value={d.name}
+                  maxLength={120}
+                  onChange={(e) => patch(d.key, { name: e.target.value })}
+                />
+                <input
+                  className="mi-row__desc"
+                  aria-label={`Descrição de ${d.name}`}
+                  placeholder="Descrição (opcional)"
+                  value={d.description}
+                  maxLength={500}
+                  onChange={(e) => patch(d.key, { description: e.target.value })}
+                />
+                {d.dup && (
+                  <span className="mi-row__dup">
+                    {d.dup === 'menu' ? 'Já está no cardápio' : 'Repetido nesta importação'}
+                  </span>
+                )}
+              </div>
+              <label className="mi-row__price">
+                <span aria-hidden>R$</span>
+                <input
+                  inputMode="decimal"
+                  aria-label={`Preço de ${d.name}`}
+                  placeholder="0,00"
+                  value={d.price}
+                  aria-invalid={d.on && draftPrice(d.price) === null ? true : undefined}
+                  onChange={(e) =>
+                    patch(d.key, {
+                      price: e.target.value,
+                      on: d.on || draftPrice(e.target.value) !== null,
+                    })
+                  }
+                />
+              </label>
+            </div>
+          ))}
+        </section>
+      ))}
     </div>
   );
 }

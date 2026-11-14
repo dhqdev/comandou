@@ -12,6 +12,10 @@ export interface ImportedItem {
   name: string;
   description: string | null;
   price: string | null;
+  /** Primeiros passos: foto do item na página do link. */
+  imageUrl?: string | null;
+  /** Primeiros passos: onde está a foto do item na foto do cardápio (0–1000). */
+  photoBox?: [number, number, number, number] | null;
 }
 export interface ImportedCategory {
   name: string;
@@ -30,6 +34,12 @@ export interface DraftItem {
   on: boolean;
   /** Já existe um item com este nome no cardápio (ou numa página lida antes): vem desmarcado. */
   dup?: 'menu' | 'import';
+  /** Foto do item pronta para subir (recortada do cardápio ou criada pela IA). */
+  photo?: File | null;
+  /** Foto do item em outro site (link do cardápio): baixada na hora de salvar. */
+  photoUrl?: string | null;
+  /** Endereço para mostrar a miniatura na conferência. */
+  thumb?: string | null;
 }
 
 export const importStatus = () => api<ImportStatus>('/menu-import');
@@ -52,6 +62,15 @@ export interface AnalyzeResult {
 
 /** Manda a foto (reduzida aqui mesmo) ou o PDF para a IA ler. */
 export async function analyzeMenuFile(file: File): Promise<AnalyzeResult> {
+  const r = await analyzeFile<AnalyzeResult>(file, false);
+  return { categories: r.categories ?? [], partial: !!r.partial };
+}
+
+/**
+ * A mesma leitura, com `store` (primeiros passos): a IA devolve também os dados da loja e onde
+ * estão o logo e as fotos dos itens na imagem.
+ */
+export async function analyzeFile<T>(file: File, store: boolean): Promise<T> {
   const pdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
   let body: Blob = file;
   let type = 'application/pdf';
@@ -67,7 +86,7 @@ export async function analyzeMenuFile(file: File): Promise<AnalyzeResult> {
   }
   let res: Response;
   try {
-    res = await fetch('/api/v1/menu-import/analyze', {
+    res = await fetch(`/api/v1/menu-import/analyze${store ? '?loja=1' : ''}`, {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'Content-Type': type, 'X-Comandou-Request': '1', Accept: 'application/json' },
@@ -76,8 +95,7 @@ export async function analyzeMenuFile(file: File): Promise<AnalyzeResult> {
   } catch {
     throw new ApiError(0, 'Sem conexão com o servidor');
   }
-  const json = (await res.json().catch(() => undefined)) as
-    { categories?: ImportedCategory[]; partial?: boolean; message?: string } | undefined;
+  const json = (await res.json().catch(() => undefined)) as (T & { message?: string }) | undefined;
   if (!res.ok) {
     const msg =
       res.status === 413
@@ -85,7 +103,7 @@ export async function analyzeMenuFile(file: File): Promise<AnalyzeResult> {
         : (json?.message ?? `Erro ${res.status}`);
     throw new ApiError(res.status, msg);
   }
-  return { categories: json?.categories ?? [], partial: !!json?.partial };
+  return (json ?? {}) as T;
 }
 
 /** Nome para comparar: sem acento, caixa ou espaço extra ("X-Búrguer " = "x-burguer"). */
@@ -143,10 +161,26 @@ export function toDrafts(
         // Sem preço no cardápio: a pessoa digita o preço para o item entrar. Repetido: desmarcado.
         on: !!i.price && !dup,
         ...(dup ? { dup } : {}),
+        ...(i.imageUrl ? { photoUrl: i.imageUrl, thumb: externalImage(i.imageUrl) } : {}),
       });
     }
   }
   return out;
+}
+
+/** Foto de outro site passando pelo Comandou (o navegador não baixa direto por causa do CORS). */
+export const externalImage = (url: string) =>
+  `/api/v1/menu-import/image?url=${encodeURIComponent(url)}`;
+
+/** Baixa a foto de outro site (pelo Comandou) como arquivo, para reduzir e guardar. */
+export async function fetchExternal(url: string, name = 'foto'): Promise<File> {
+  const res = await fetch(externalImage(url), {
+    credentials: 'same-origin',
+    headers: { 'X-Comandou-Request': '1' },
+  });
+  if (!res.ok) throw new ApiError(res.status, 'Não consegui baixar a foto');
+  const blob = await res.blob();
+  return new File([blob], name, { type: blob.type });
 }
 
 /** "24,90" → "24.90"; vazio ou inválido → null. */
@@ -200,6 +234,16 @@ export async function saveDrafts(
   const savedKeys: string[] = [];
   let stopped: string | null = null;
   for (const d of ready) {
+    // Foto do próprio item (recortada do cardápio, do link ou criada pela IA). Falhou: entra sem.
+    let itemImage = imageId;
+    if (d.photo || d.photoUrl) {
+      try {
+        const f = d.photo ?? (await fetchExternal(d.photoUrl!, d.name));
+        itemImage = (await uploadImage(f)).id;
+      } catch {
+        itemImage = null;
+      }
+    }
     try {
       const catName = d.category.trim() || 'Cardápio';
       let categoryId = byName.get(nameKey(catName));
@@ -215,7 +259,7 @@ export async function saveDrafts(
           name: d.name.trim(),
           description: d.description.trim() || undefined,
           price: draftPrice(d.price),
-          ...(imageId ? { imageId } : {}),
+          ...(itemImage ? { imageId: itemImage } : {}),
         },
       });
       savedKeys.push(d.key);
