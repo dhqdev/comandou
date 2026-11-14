@@ -116,6 +116,36 @@ export async function ensureDemoRestaurant(
       };
     }
 
+    try {
+      await fill(pool, o, catalog, t);
+    } catch (e) {
+      // Fica registrado no painel (Banco do restaurante) e a próxima subida tenta de novo.
+      await pool
+        .query(`UPDATE tenant_databases SET last_error = $2 WHERE tenant_id = $1`, [
+          t.id,
+          `demonstração: ${(e as Error).message}`.slice(0, 500),
+        ])
+        .catch(() => undefined);
+      throw e;
+    }
+    return 'created';
+  } finally {
+    await lock
+      .query('SELECT pg_advisory_unlock(hashtext($1))', [`demo:${o.slug}`])
+      .catch(() => undefined);
+    lock.release();
+    await pool.end();
+  }
+}
+
+/** Cria o banco (se precisar), preenche e marca o restaurante como pronto. */
+async function fill(
+  pool: Pool,
+  o: DemoOptions,
+  catalog: DemoCatalog,
+  t: { id: string; dbName: string | null },
+) {
+  {
     let target = o.ownerUrl;
     let dbName = t.dbName;
     if (!dbName && o.databaseMode === 'dedicated') {
@@ -197,13 +227,6 @@ export async function ensureDemoRestaurant(
           `Login: ${result.users[0]} / senha da documentação. Link do entregador freelancer: /entregador/${result.courierLink}`,
       );
     }
-    return 'created';
-  } finally {
-    await lock
-      .query('SELECT pg_advisory_unlock(hashtext($1))', [`demo:${o.slug}`])
-      .catch(() => undefined);
-    lock.release();
-    await pool.end();
   }
 }
 

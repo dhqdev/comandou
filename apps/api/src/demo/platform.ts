@@ -63,11 +63,10 @@ export async function seedDemoPlatform(
       )
     ).rows[0];
     if (!plan) return;
-    const has = await c.query(
-      `SELECT 1 FROM subscriptions WHERE tenant_id = $1 AND status <> 'cancelled'`,
-      [tenantId],
-    );
-    if (has.rowCount) return;
+    // Uma tentativa anterior que parou no meio (ou o painel) pode ter deixado uma assinatura:
+    // a demonstração troca por esta, de um ano, com as faturas.
+    await c.query(`DELETE FROM billing_invoices WHERE tenant_id = $1`, [tenantId]);
+    await c.query(`DELETE FROM subscriptions WHERE tenant_id = $1`, [tenantId]);
     const months = p.monthsActive ?? 2;
     const started = now - (months * 30 + 15) * DAY;
     const { rows } = await c.query<{ id: string }>(

@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.118.2',
+    date: '2026-11-14',
+    title: 'Fumaça Burger termina de carregar',
+    summary:
+      'A Fumaça ficava "em cadastro" com os números zerados: a carga de um ano de dados parava no meio. A carga ficou mais leve, tenta de novo sozinha na próxima atualização e, se falhar, o motivo aparece no Super Admin.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Carga da demonstração usa bem menos memória (o estoque antigo vira um lançamento por dia).',
+      },
+      {
+        tag: 'correção',
+        text: 'Uma assinatura deixada por uma tentativa anterior é trocada pela de um ano, com as 12 faturas pagas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Se a carga falhar, o erro fica visível na parte de banco do restaurante no Super Admin.',
+      },
+    ],
+  },
+  {
     version: '0.118.1',
     date: '2026-11-14',
     title: 'Fumaça Burger aparece mesmo em quem atualiza pelo painel',

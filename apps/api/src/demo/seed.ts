@@ -1272,8 +1272,30 @@ export async function seedDemoData(
   );
   const avg: Record<string, number> = { ...stockCost };
   const stockRows: unknown[][] = [];
+  // Vendas de mais de 45 dias atrás viram uma baixa por insumo por dia ("Vendas do dia"): o
+  // saldo e o consumo são os mesmos, com bem menos linhas (um ano por pedido passaria de 200 mil).
+  const SUMMARY_BEFORE = now - 45 * DAY;
+  const pending = new Map<string, { q: number; at: number; day: string }>();
+  const flush = (k: string) => {
+    const p = pending.get(k);
+    if (!p) return;
+    pending.delete(k);
+    stockRows.push([
+      T,
+      stockId[k],
+      'sale',
+      -round3(p.q),
+      null,
+      qty[k],
+      null,
+      'Vendas do dia',
+      null,
+      iso(p.at),
+    ]);
+  };
   const buy = (k: string, q: number, ms: number, note: string) => {
     if (q <= 0) return;
+    flush(k);
     const cost = Math.round(stockCost[k]! * (0.95 + r.next() * 0.1));
     avg[k] = Math.round((avg[k]! * Math.max(qty[k]!, 0) + cost * q) / (Math.max(qty[k]!, 0) + q));
     qty[k] = round3(qty[k]! + q);
@@ -1329,7 +1351,17 @@ export async function seedDemoData(
               e.at - 5 * MIN,
               'Compra emergencial no atacarejo',
             );
+          const summed = e.kind === 'sale' && e.at < SUMMARY_BEFORE;
+          const day = localDate(e.at);
+          if (!summed || pending.get(k)?.day !== day) flush(k);
           qty[k] = round3(qty[k]! + (e.kind === 'sale' ? -amount : amount));
+          if (summed) {
+            const p = pending.get(k) ?? { q: 0, at: e.at, day };
+            p.q += amount;
+            p.at = e.at;
+            pending.set(k, p);
+            continue;
+          }
           stockRows.push([
             T,
             stockId[k],
@@ -1352,6 +1384,7 @@ export async function seedDemoData(
     events.push({
       at: at(d, 16, 0),
       run: () => {
+        flush(k);
         const amount = Math.min(q, qty[k]!);
         if (amount <= 0) return;
         qty[k] = round3(qty[k]! - amount);
@@ -1373,6 +1406,7 @@ export async function seedDemoData(
     at: at(9, 16, 30),
     run: () => {
       for (const [k, delta] of C.adjustments) {
+        flush(k);
         if (qty[k]! + delta < 0) continue;
         qty[k] = round3(qty[k]! + delta);
         stockRows.push([
@@ -1391,6 +1425,7 @@ export async function seedDemoData(
     },
   });
   events.sort((a, b) => a.at - b.at).forEach((e) => e.run());
+  for (const k of [...pending.keys()]) flush(k);
   // Contagem desta manhã achou menos que o sistema: estes insumos ficam abaixo do mínimo.
   for (const k of C.lowStock) {
     const target = round3(C.stockItems[k]![2] * 0.5);
