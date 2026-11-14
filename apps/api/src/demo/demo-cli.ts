@@ -22,8 +22,11 @@ async function main() {
     if (mode === 'off') return console.log('demonstração: desligada (COMANDOU_DEMO)');
     throw new Error('DATABASE_OWNER_URL não definido');
   }
-  const slug = process.env.COMANDOU_DEMO_SLUG || 'fumaca';
-  for (const old of OLD_DEMOS.filter((s) => s !== slug)) {
+  // Atualizar pelo painel só troca a imagem: a variável da stack antiga continua "exemplo" (ou
+  // "aurora"). Esses endereços são das demonstrações antigas e nunca viram a Fumaça.
+  const wanted = (process.env.COMANDOU_DEMO_SLUG ?? '').trim().toLowerCase();
+  const slug = !wanted || OLD_DEMOS.includes(wanted) ? 'fumaca' : wanted;
+  for (const old of OLD_DEMOS) {
     try {
       await removeDemoRestaurant({ ownerUrl, slug: old, log: (m) => console.log(m) });
     } catch (e) {

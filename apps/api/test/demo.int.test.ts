@@ -205,4 +205,22 @@ describe('Restaurante de demonstração', () => {
       }
     }
   }, 600_000);
+  it('Casa Brasa antiga sem a marca de demonstração também sai; outro nome em "exemplo" fica', async () => {
+    await ownerQuery(
+      `INSERT INTO tenants (slug, name, status) VALUES ('exemplo', 'Casa Brasa', 'provisioned')`,
+    );
+    expect(
+      await removeDemoRestaurant({ ownerUrl: OWNER_URL, slug: 'exemplo', log: () => undefined }),
+    ).toBe('removed');
+    await ownerQuery(
+      `INSERT INTO tenants (slug, name, status) VALUES ('exemplo', 'Cliente de verdade', 'provisioned')`,
+    );
+    try {
+      expect(
+        await removeDemoRestaurant({ ownerUrl: OWNER_URL, slug: 'exemplo', log: () => undefined }),
+      ).toBe('skipped');
+    } finally {
+      await ownerQuery(`DELETE FROM tenants WHERE slug = 'exemplo'`);
+    }
+  });
 });

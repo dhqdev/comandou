@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.118.1',
+    date: '2026-11-14',
+    title: 'Fumaça Burger aparece mesmo em quem atualiza pelo painel',
+    summary:
+      'Quem atualizava pelo botão do Super Admin continuava com a Casa Brasa: a stack antiga guardava o endereço "exemplo" e a Fumaça não era criada. Agora a Fumaça sobe em fumaca.<domínio> e a Casa Brasa e a Aurora saem.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Endereço antigo da demonstração ("exemplo" ou "aurora") na stack não impede mais a Fumaça Burger de ser criada; a Casa Brasa de instalações antigas, sem a marca de demonstração, também é removida.',
+      },
+    ],
+  },
+  {
     version: '0.118.0',
     date: '2026-11-14',
     title: 'Nova demonstração: Fumaça Burger, com um ano de uso',

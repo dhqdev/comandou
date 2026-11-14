@@ -238,7 +238,13 @@ export async function removeDemoRestaurant(o: {
     await lock.query('SELECT pg_advisory_lock(hashtext($1))', [`demo:${o.slug}`]);
     const t = await tenantRow(pool, o.slug);
     if (!t) return 'absent';
-    if (!t.demo) {
+    // Casa Brasa de instalações antigas (antes da marca de demonstração): mesmo endereço e nome.
+    const legacy =
+      !t.demo &&
+      o.slug === 'exemplo' &&
+      (await pool.query<{ name: string }>(`SELECT name FROM tenants WHERE id = $1`, [t.id])).rows[0]
+        ?.name === CASA_BRASA.name;
+    if (!t.demo && !legacy) {
       o.log(`demonstração: "${o.slug}" não é de demonstração; nada apagado`);
       return 'skipped';
     }
