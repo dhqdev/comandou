@@ -1178,7 +1178,12 @@ input[type='radio'] {
     top: calc(env(safe-area-inset-top) + 8px);
     bottom: auto;
     left: var(--cm-space-4);
-    right: var(--cm-space-4);
+    right: auto;
+    /* Medidas explícitas: no Safari do iPhone a pilha (popover na camada de cima) ficava com a
+       altura da tela e a pílula esticava junto, virando uma mancha cobrindo metade da tela. */
+    width: calc(100vw - 2 * var(--cm-space-4));
+    height: auto;
+    max-height: 50vh;
     justify-items: center;
     pointer-events: none;
   }
@@ -1186,6 +1191,9 @@ input[type='radio'] {
     display: inline-flex;
     align-self: start;
     height: auto;
+    /* Trava: a pílula nunca passa de 3 linhas, mesmo se o navegador tentar esticá-la. */
+    max-height: 64px;
+    overflow: hidden;
     align-items: center;
     gap: 6px;
     min-width: 0;
