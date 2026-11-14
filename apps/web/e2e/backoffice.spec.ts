@@ -39,10 +39,16 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await page.getByRole('button', { name: 'Adicionar pessoa' }).click();
   let dialog = page.getByRole('dialog');
   await dialog.getByLabel('Nome').fill(`Moto ${tag}`);
+  // Entregador entra com PIN; e-mail e senha só aparecem se o gerente pedir.
+  await dialog.getByLabel('Papel').selectOption('driver');
+  await dialog.getByRole('button', { name: 'Também com e-mail e senha' }).click();
   await dialog.getByLabel('E-mail').fill(`moto-${tag}@demo.local`);
   await dialog.getByLabel('Senha inicial').fill('senha-do-moto-1');
-  await dialog.getByLabel('Papel').selectOption('driver');
   await dialog.getByRole('button', { name: 'Adicionar' }).click();
+  // O PIN sorteado aparece uma vez.
+  dialog = page.getByRole('dialog', { name: 'Pessoa adicionada' });
+  await expect(dialog.getByTestId('staff-pin')).toHaveText(/^\s*[0-9]{4}\s*$/);
+  await dialog.getByRole('button', { name: 'Pronto' }).click();
   const moto = page.getByRole('row', { name: new RegExp(`Moto ${tag}`) });
   await expect(moto).toBeVisible();
   await shot(page, info.project.name, 'equipe');
@@ -104,10 +110,13 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await page.getByRole('button', { name: 'Cadastrar' }).click();
   await expect(page.locator('strong', { hasText: `João ${tag}` })).toBeVisible();
   await page.getByRole('tab', { name: /Ao vivo/ }).click();
+  // O despacho não escolhe ninguém sozinho; quem não tem o app aparece como "(sem app)".
+  const picker = page.getByLabel(`Entregador do pedido ${order.number}`);
+  await picker.selectOption({ label: `João ${tag} (sem app)` });
   await page
-    .getByLabel(`Entregador do pedido ${order.number}`)
-    .selectOption({ label: `João ${tag}` });
-  await page.getByRole('button', { name: 'Saiu para entrega' }).first().click();
+    .locator('.dl-ready__row', { has: picker })
+    .getByRole('button', { name: 'Saiu para entrega' })
+    .click();
   dialog = page.getByRole('dialog');
   const link = await dialog.getByLabel('Link de rastreio').inputValue();
   expect(link).toMatch(/\/rastreio\/[A-Za-z0-9_-]+$/);
