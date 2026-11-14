@@ -1,3 +1,4 @@
+import '../config/one-shot';
 import { Client } from 'pg';
 import { resolveFileSecrets } from '../config/env';
 import { databaseList, migrateAll } from './migrate-all';

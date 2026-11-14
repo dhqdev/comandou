@@ -1,6 +1,6 @@
 {
   "name": "@comandou/shared",
-  "version": "0.118.2",
+  "version": "0.118.3",
   "private": true,
   "description": "Regras e contratos compartilhados entre API e Web (dinheiro, identificadores, papéis).",
   "main": "./dist/cjs/index.js",

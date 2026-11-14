@@ -20,6 +20,20 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.118.3',
+    date: '2026-11-14',
+    title: 'Atualização não para mais na migração',
+    summary:
+      'A atualização parava em "migrate" com o código 137: o contêiner da migração usa a imagem da API, e a verificação de saúde dela, que procura a API, matava a migração depois de um minuto. Com a demonstração de um ano a migração passou desse tempo.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'A migração e a carga da demonstração contam como saudáveis até terminar; atualizar pelo painel volta a funcionar.',
+      },
+      { tag: 'correção', text: 'A stack nova desliga a verificação de saúde no serviço migrate.' },
+    ],
+  },
+  {
     version: '0.118.2',
     date: '2026-11-14',
     title: 'Fumaça Burger termina de carregar',

@@ -145,6 +145,8 @@ services:
         comandou_platform_admin_totp,
       ]
     networks: [comandou_internal]
+    # Não serve HTTP: o healthcheck da imagem (porta 3000) mataria a migração longa.
+    healthcheck: { disable: true }
     deploy:
       replicas: 1
       # 12 tentativas: na primeira instalação o Postgres pode levar mais de um minuto para subir.

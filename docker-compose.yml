@@ -54,6 +54,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
     restart: 'no'
+    healthcheck: { disable: true }
     networks: [internal]
 
   api:

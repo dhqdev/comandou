@@ -1,3 +1,4 @@
+import '../config/one-shot';
 import { resolveFileSecrets } from '../config/env';
 import { demoMode, ensureDemoRestaurant, removeDemoRestaurant } from './demo';
 import { FUMACA } from './fumaca';

@@ -27,7 +27,9 @@ WORKDIR /app
 COPY --from=build --chown=node:node /out ./
 USER node
 EXPOSE 3000
+# O serviço migrate usa esta imagem sem servir HTTP: as CLIs de uma vez só criam
+# /tmp/comandou-oneshot (src/config/one-shot.ts) e o contêiner conta como saudável até terminar.
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:3000/api/v1/health/live >/dev/null || exit 1
+  CMD wget -qO- http://127.0.0.1:3000/api/v1/health/live >/dev/null || [ -e /tmp/comandou-oneshot ] || exit 1
 # Sinais (SIGTERM) e processos zumbis: rode com `init: true` (Compose/Swarm) — ver docs/docker.md.
 CMD ["node", "dist/main.js"]
