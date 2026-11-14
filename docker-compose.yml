@@ -44,7 +44,7 @@ services:
   migrate:
     build: { context: ., dockerfile: infrastructure/docker/api.Dockerfile }
     image: comandou-api:dev
-    # Migrações + restaurantes de demonstração (exemplo. e aurora.comandou.localhost, criados uma vez).
+    # Migrações + restaurantes de demonstração (fumaca.comandou.localhost, criado uma vez).
     command: ['sh', '-c', 'node dist/database/migrate-cli.js && node dist/demo/demo-cli.js']
     environment:
       DATABASE_OWNER_URL: postgres://comandou_owner:${COMANDOU_OWNER_PASSWORD}@postgres:5432/comandou

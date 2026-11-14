@@ -68,7 +68,8 @@ export async function seedDemoPlatform(
       [tenantId],
     );
     if (has.rowCount) return;
-    const started = now - 75 * DAY;
+    const months = p.monthsActive ?? 2;
+    const started = now - (months * 30 + 15) * DAY;
     const { rows } = await c.query<{ id: string }>(
       `INSERT INTO subscriptions (tenant_id, plan_id, status, started_at, current_period_end, notes, billing_mode, created_at)
        VALUES ($1,$2,'active',$3,$4,$5,'manual',$3) RETURNING id`,
@@ -81,10 +82,11 @@ export async function seedDemoPlatform(
       ],
     );
     const sub = rows[0]!.id;
-    // Duas mensalidades pagas e a próxima em aberto.
-    for (const [i, back] of [60, 30, 0].entries()) {
+    // Mensalidades pagas desde o começo e a próxima em aberto.
+    for (let i = 0; i <= months; i++) {
+      const back = (months - i) * 30;
       const period = now - back * DAY - 15 * DAY;
-      const paid = i < 2;
+      const paid = i < months;
       await c.query(
         `INSERT INTO billing_invoices (tenant_id, subscription_id, kind, plan_id, description, amount, period_start,
             due_date, status, billing_type, paid_at, net_amount, applied_at, created_at)
@@ -115,6 +117,63 @@ export async function seedDemoPlatform(
       [tenantId],
     );
   });
+
+  // ------------------------------------------------------------------ suporte e chamados
+  if (p.support?.length || p.tickets?.length)
+    await tx(async (c) => {
+      const owner = catalog.users.find((u) => u.role === 'owner')!;
+      if (p.support?.length) {
+        const [lastWho, lastDays, lastBody] = p.support[p.support.length - 1]!;
+        const lastAt = new Date(now - lastDays * DAY);
+        await c.query(
+          `INSERT INTO platform_support_chats (tenant_id, status, last_message_at, last_preview, last_sender,
+              tenant_read_at, admin_read_at, created_at)
+           VALUES ($1,'open',$2,$3,$4,$2,$2,$5) ON CONFLICT (tenant_id) DO NOTHING`,
+          [
+            tenantId,
+            lastAt,
+            lastBody.slice(0, 140),
+            lastWho,
+            new Date(now - p.support[0]![1] * DAY),
+          ],
+        );
+        for (const [who, daysAgo, body] of p.support)
+          await c.query(
+            `INSERT INTO platform_support_messages (tenant_id, sender, author_name, body, created_at)
+             VALUES ($1,$2,$3,$4,$5)`,
+            [
+              tenantId,
+              who,
+              who === 'tenant' ? owner.name : 'Suporte Comandou',
+              body,
+              new Date(now - daysAgo * DAY),
+            ],
+          );
+      }
+      // Só chamados encerrados: a esteira dos agentes nunca pega um chamado da demonstração.
+      for (const [title, kind, urgency, daysAgo, description, answer] of p.tickets ?? []) {
+        const opened = new Date(now - daysAgo * DAY);
+        const closed = new Date(now - daysAgo * DAY + 2 * DAY);
+        const { rows } = await c.query<{ id: string }>(
+          `INSERT INTO platform_tickets (tenant_id, opened_by_name, opened_by_email, source, title, description,
+              kind, urgency, stage, state, priority, auto_advance, created_at, updated_at, closed_at,
+              stage_started_at, run_after)
+           VALUES ($1,$2,$3,'client',$4,$5,$6,$7,'concluido','done',$7,false,$8,$9,$9,$9,$9) RETURNING id`,
+          [tenantId, owner.name, o.ownerEmail, title, description, kind, urgency, opened, closed],
+        );
+        const t = rows[0]!.id;
+        for (const [kindEv, actor, name, body, at] of [
+          ['message', 'client', owner.name, description, opened],
+          ['message', 'admin', 'Suporte Comandou', answer, new Date(opened.getTime() + DAY)],
+          ['status', 'system', '', 'Chamado concluído', closed],
+        ] as const)
+          await c.query(
+            `INSERT INTO platform_ticket_events (ticket_id, kind, actor, actor_name, body, public, created_at)
+             VALUES ($1,$2,$3,$4,$5,true,$6)`,
+            [t, kindEv, actor, name, body, at],
+          );
+      }
+    });
 
   // ------------------------------------------------------------------ contrato
   // Só com os dados da contratada preenchidos (Contrato › Configurar) e um super admin.

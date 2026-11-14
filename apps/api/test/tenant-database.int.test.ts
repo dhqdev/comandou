@@ -172,6 +172,8 @@ describe.skipIf(!PG_BIN)('Banco de cada restaurante: mudar, isolar e excluir', (
     const [plan] = await ownerQuery<{ id: string }>(
       `INSERT INTO plans (code, name, price_monthly, max_products) VALUES ('tst-1', 'Teste 1', 10, 1) RETURNING id`,
     );
+    // Outro teste pode ter deixado o plano padrão; aí o restaurante já nasce com uma assinatura de teste.
+    await ownerQuery(`DELETE FROM subscriptions WHERE tenant_id = $1`, [fx.tenantA]);
     await ownerQuery(
       `INSERT INTO subscriptions (tenant_id, plan_id, status) VALUES ($1, $2, 'active')`,
       [fx.tenantA, plan.id],

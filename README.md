@@ -28,8 +28,8 @@ financeiro, nota fiscal e avisos por WhatsApp. Funciona no computador, no tablet
 (instala como app), com tema claro e escuro, e continua vendendo sem internet: o que foi feito
 offline sobe sozinho quando a conexão volta. Os dados de um restaurante nunca aparecem para outro.
 
-> As telas abaixo são do restaurante de demonstração **Casa Brasa**, que já vem instalado,
-> rodando a versão 0.99.
+> As telas abaixo são da antiga demonstração **Casa Brasa**, na versão 0.99. Hoje o sistema
+> já vem com a **Fumaça Burger & Co.**, uma hamburgueria com um ano de uso e fotos reais.
 
 ## Operação do dia a dia
 
@@ -146,9 +146,9 @@ docker compose run --rm -e PROVISION_ADMIN_PASSWORD='uma-senha-forte' migrate \
 # abra http://demo.comandou.localhost:8080
 ```
 
-Já vem um restaurante de demonstração completo, a **Casa Brasa**, em
-http://exemplo.comandou.localhost:8080 (`dono@exemplo.comandou.local`, senha `comandou123`).
-Em produção ele fica em `exemplo.<domínio>`; detalhes e como desligar em
+Já vem um restaurante de demonstração completo, a hamburgueria **Fumaça Burger & Co.**, em
+http://fumaca.comandou.localhost:8080 (`dono@fumaca.comandou.local`, senha `comandou123`).
+Em produção ela fica em `fumaca.<domínio>`; detalhes e como desligar em
 [docs/install.md](docs/install.md#restaurante-de-demonstração).
 
 Desenvolvimento sem Docker, testes e migrações: [docs/development.md](docs/development.md).

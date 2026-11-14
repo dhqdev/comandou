@@ -120,17 +120,16 @@ services:
   migrate:
     image: ghcr.io/dhqdev/comandou-api:${COMANDOU_VERSION:?defina a versão}
     # Migra o banco, cria o Super Admin se ainda não existir nenhum (não altera um existente) e o
-    # as demonstrações "Casa Brasa" (exemplo.<domínio>) e "Aurora Café & Padaria" (aurora.<domínio>),
-    # uma vez só, com ~30 dias de pedidos, fotos e equipe. COMANDOU_DEMO=false desliga; reset recria
-    # do zero a cada subida; COMANDOU_DEMO2_SLUG=false desliga só a Aurora.
+    # a demonstração "Fumaça Burger & Co." (fumaca.<domínio>), uma vez só, com um ano de uso.
+    # As demonstrações antigas (exemplo. e aurora.) saem na subida. COMANDOU_DEMO=false desliga;
+    # reset recria do zero a cada subida.
     command:
       - sh
       - -c
       - node dist/database/migrate-cli.js && node dist/platform/platform-admin-cli.js --bootstrap && node dist/demo/demo-cli.js
     environment:
       COMANDOU_DEMO: ${COMANDOU_DEMO:-true}
-      COMANDOU_DEMO_SLUG: ${COMANDOU_DEMO_SLUG:-exemplo}
-      COMANDOU_DEMO2_SLUG: ${COMANDOU_DEMO2_SLUG:-aurora}
+      COMANDOU_DEMO_SLUG: ${COMANDOU_DEMO_SLUG:-fumaca}
       COMANDOU_BASE_DOMAIN: ${COMANDOU_BASE_DOMAIN:-comandou.com}
       DATABASE_OWNER_URL_FILE: /run/secrets/comandou_db_owner_url
       INTEGRATIONS_KEY_FILE: /run/secrets/comandou_integrations_key

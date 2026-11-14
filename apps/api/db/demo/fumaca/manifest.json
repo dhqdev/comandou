@@ -1,0 +1,232 @@
+{
+  "burger-classico": {
+    "width": 960,
+    "height": 720,
+    "bytes": 52046
+  },
+  "burger-classico-2": {
+    "width": 960,
+    "height": 720,
+    "bytes": 61622
+  },
+  "burger-fumaca": {
+    "width": 960,
+    "height": 720,
+    "bytes": 32726
+  },
+  "burger-fumaca-2": {
+    "width": 960,
+    "height": 720,
+    "bytes": 48942
+  },
+  "burger-smash": {
+    "width": 960,
+    "height": 720,
+    "bytes": 55940
+  },
+  "burger-smash-2": {
+    "width": 960,
+    "height": 720,
+    "bytes": 46586
+  },
+  "burger-triplo": {
+    "width": 960,
+    "height": 720,
+    "bytes": 39388
+  },
+  "burger-egg": {
+    "width": 960,
+    "height": 720,
+    "bytes": 28782
+  },
+  "burger-picanha": {
+    "width": 960,
+    "height": 720,
+    "bytes": 70346
+  },
+  "burger-picanha-2": {
+    "width": 960,
+    "height": 720,
+    "bytes": 91812
+  },
+  "burger-gorgonzola": {
+    "width": 960,
+    "height": 720,
+    "bytes": 29356
+  },
+  "burger-salad": {
+    "width": 960,
+    "height": 720,
+    "bytes": 57466
+  },
+  "burger-costela": {
+    "width": 960,
+    "height": 720,
+    "bytes": 73916
+  },
+  "burger-crispy": {
+    "width": 960,
+    "height": 720,
+    "bytes": 33538
+  },
+  "burger-veggie": {
+    "width": 960,
+    "height": 720,
+    "bytes": 73976
+  },
+  "burger-veggie-2": {
+    "width": 960,
+    "height": 720,
+    "bytes": 70264
+  },
+  "burger-cheese": {
+    "width": 960,
+    "height": 720,
+    "bytes": 38400
+  },
+  "burger-sliders": {
+    "width": 960,
+    "height": 720,
+    "bytes": 51376
+  },
+  "combo-classico": {
+    "width": 960,
+    "height": 720,
+    "bytes": 55182
+  },
+  "combo-smash": {
+    "width": 960,
+    "height": 720,
+    "bytes": 40544
+  },
+  "combo-fumaca": {
+    "width": 960,
+    "height": 720,
+    "bytes": 44214
+  },
+  "porcao-batata": {
+    "width": 960,
+    "height": 720,
+    "bytes": 29976
+  },
+  "porcao-batata-2": {
+    "width": 960,
+    "height": 720,
+    "bytes": 49852
+  },
+  "porcao-cheddar-bacon": {
+    "width": 960,
+    "height": 720,
+    "bytes": 101308
+  },
+  "porcao-rustica": {
+    "width": 960,
+    "height": 720,
+    "bytes": 34958
+  },
+  "porcao-onion": {
+    "width": 960,
+    "height": 720,
+    "bytes": 84708
+  },
+  "porcao-iscas": {
+    "width": 960,
+    "height": 720,
+    "bytes": 54682
+  },
+  "porcao-asinhas": {
+    "width": 960,
+    "height": 720,
+    "bytes": 82092
+  },
+  "shake-chocolate": {
+    "width": 960,
+    "height": 720,
+    "bytes": 18662
+  },
+  "shake-morango": {
+    "width": 960,
+    "height": 720,
+    "bytes": 45914
+  },
+  "shake-doce-leite": {
+    "width": 960,
+    "height": 720,
+    "bytes": 36306
+  },
+  "shake-baunilha": {
+    "width": 960,
+    "height": 720,
+    "bytes": 27014
+  },
+  "bebida-limonada": {
+    "width": 960,
+    "height": 720,
+    "bytes": 17212
+  },
+  "bebida-limonada-suica": {
+    "width": 960,
+    "height": 720,
+    "bytes": 25610
+  },
+  "bebida-agua-gas": {
+    "width": 960,
+    "height": 720,
+    "bytes": 49054
+  },
+  "bebida-chopp": {
+    "width": 960,
+    "height": 720,
+    "bytes": 24712
+  },
+  "bebida-ipa": {
+    "width": 960,
+    "height": 720,
+    "bytes": 38436
+  },
+  "sobremesa-brownie": {
+    "width": 960,
+    "height": 720,
+    "bytes": 74642
+  },
+  "sobremesa-brownie-sorvete": {
+    "width": 960,
+    "height": 720,
+    "bytes": 30044
+  },
+  "sobremesa-sundae": {
+    "width": 960,
+    "height": 720,
+    "bytes": 43738
+  },
+  "sobremesa-sundae-morango": {
+    "width": 960,
+    "height": 720,
+    "bytes": 43556
+  },
+  "capa": {
+    "width": 1200,
+    "height": 525,
+    "bytes": 40708
+  },
+  "banner-combo": {
+    "width": 1200,
+    "height": 525,
+    "bytes": 43212
+  },
+  "banner-smash": {
+    "width": 1200,
+    "height": 525,
+    "bytes": 41840
+  },
+  "banner-shake": {
+    "width": 1200,
+    "height": 525,
+    "bytes": 16548
+  },
+  "logo": {
+    "width": 512,
+    "height": 512,
+    "bytes": 12668
+  }
+}

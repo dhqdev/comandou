@@ -1,8 +1,8 @@
 import { Client } from 'pg';
 import { afterAll, describe, expect, it } from 'vitest';
 import { purgeTenantRows } from '../src/backup/tenant-copy';
-import { AURORA } from '../src/demo/aurora';
-import { demoMode, ensureDemoRestaurant } from '../src/demo/demo';
+import { demoMode, ensureDemoRestaurant, removeDemoRestaurant } from '../src/demo/demo';
+import { FUMACA } from '../src/demo/fumaca';
 import { OWNER_URL } from './env';
 import { ownerQuery } from './fixtures';
 
@@ -103,49 +103,99 @@ describe('Restaurante de demonstração', () => {
     }
   }, 120_000);
 
-  it('Aurora: segunda demonstração com tudo preenchido e sem produto sem foto', async () => {
-    const aurora = { ...opts, slug: 'aurora-teste', emailDomain: 'aurora-teste.comandou.test' };
+  it('Fumaça Burger: um ano de uso com tudo preenchido, WhatsApp ligado e sem item sem foto', async () => {
+    const o = { ...opts, slug: 'fumaca-teste', emailDomain: 'fumaca-teste.comandou.test' };
     try {
       expect(
         await ensureDemoRestaurant({
-          ...aurora,
+          ...o,
           mode: 'reset',
-          catalog: AURORA,
+          catalog: FUMACA,
           baseDomain: 'comandou.test',
         }),
       ).toBe('created');
       const [t] = await ownerQuery<{ id: string; name: string }>(
-        `SELECT id, name FROM tenants WHERE slug = 'aurora-teste'`,
+        `SELECT id, name FROM tenants WHERE slug = 'fumaca-teste'`,
       );
-      expect(t!.name).toBe(AURORA.name);
+      expect(t!.name).toBe(FUMACA.name);
       const [n] = await ownerQuery<Record<string, number>>(
         `SELECT (SELECT count(*)::int FROM orders WHERE tenant_id = $1) AS orders,
                 (SELECT count(DISTINCT status)::int FROM orders WHERE tenant_id = $1) AS statuses,
+                (SELECT (max(created_at) - min(created_at)) > interval '360 days' FROM orders WHERE tenant_id = $1)::int AS year,
                 (SELECT count(*)::int FROM products WHERE tenant_id = $1) AS products,
                 (SELECT count(*)::int FROM products WHERE tenant_id = $1 AND image_id IS NULL) AS no_photo,
                 (SELECT count(*)::int FROM stock_items WHERE tenant_id = $1 AND quantity < min_quantity) AS low,
                 (SELECT count(*)::int FROM stock_items WHERE tenant_id = $1 AND quantity < 0) AS negative,
-                (SELECT count(*)::int FROM chat_posts WHERE tenant_id = $1) AS posts,
-                (SELECT count(*)::int FROM reservations WHERE tenant_id = $1) AS reservations,
+                (SELECT count(*)::int FROM orders WHERE tenant_id = $1 AND status = 'completed' AND paid_amount <> total) AS unpaid,
+                (SELECT count(*)::int FROM cash_sessions WHERE tenant_id = $1 AND status = 'open') AS open_cash,
+                (SELECT count(*)::int FROM product_reviews WHERE tenant_id = $1) AS reviews,
+                (SELECT count(*)::int FROM product_photos WHERE tenant_id = $1) AS photos,
+                (SELECT count(*)::int FROM store_chats WHERE tenant_id = $1) AS store_chats,
+                (SELECT count(*)::int FROM message_outbox WHERE tenant_id = $1 AND status = 'sent') AS whatsapp_sent,
+                (SELECT enabled::int FROM tenant_messaging_settings WHERE tenant_id = $1) AS whatsapp_on,
+                (SELECT whatsapp_enabled::int FROM ai_agent_settings WHERE tenant_id = $1) AS agent_on,
+                (SELECT count(*)::int FROM ai_customer_chats WHERE tenant_id = $1) AS agent_chats,
+                (SELECT count(DISTINCT to_char(due_date, 'YYYY-MM'))::int FROM finance_entries WHERE tenant_id = $1) AS finance_months,
                 (SELECT count(*)::int FROM loyalty_entries WHERE tenant_id = $1) AS loyalty,
-                (SELECT count(*)::int FROM stock_receipts WHERE tenant_id = $1) AS receipts,
-                (SELECT count(*)::int FROM subscriptions WHERE tenant_id = $1 AND status = 'active') AS subs`,
+                (SELECT count(*)::int FROM reservations WHERE tenant_id = $1) AS reservations,
+                (SELECT count(*)::int FROM billing_invoices WHERE tenant_id = $1 AND status = 'paid') AS invoices,
+                (SELECT count(*)::int FROM platform_tickets WHERE tenant_id = $1 AND state <> 'done') AS open_tickets,
+                (SELECT count(*)::int FROM platform_support_messages WHERE tenant_id = $1) AS support`,
         [t!.id],
       );
-      expect(n!.orders).toBeGreaterThan(500);
+      expect(n!.orders).toBeGreaterThan(10000);
       expect(n!.statuses).toBe(8);
-      expect(n!.products).toBe(AURORA.products.length);
+      expect(n!.year).toBe(1);
+      expect(n!.products).toBe(FUMACA.products.length);
       expect(n!.no_photo).toBe(0);
-      expect(n!.low).toBe(AURORA.lowStock.length);
+      expect(n!.low).toBe(FUMACA.lowStock.length);
       expect(n!.negative).toBe(0);
-      expect(n!.posts).toBeGreaterThan(0);
-      expect(n!.reservations).toBeGreaterThan(0);
+      expect(n!.unpaid).toBe(0);
+      expect(n!.open_cash).toBe(1);
+      expect(n!.reviews).toBeGreaterThan(200);
+      expect(n!.photos).toBeGreaterThan(0);
+      expect(n!.store_chats).toBeGreaterThan(0);
+      expect(n!.whatsapp_sent).toBeGreaterThan(1000);
+      expect(n!.whatsapp_on).toBe(1);
+      expect(n!.agent_on).toBe(1);
+      expect(n!.agent_chats).toBeGreaterThan(0);
+      expect(n!.finance_months).toBeGreaterThanOrEqual(13);
       expect(n!.loyalty).toBeGreaterThan(0);
-      expect(n!.receipts).toBeGreaterThan(0);
-      expect(n!.subs).toBe(1);
+      expect(n!.reservations).toBeGreaterThan(0);
+      expect(n!.invoices).toBe(12);
+      expect(n!.open_tickets).toBe(0); // a esteira dos agentes nunca pega chamado da demonstração
+      expect(n!.support).toBeGreaterThan(0);
+
+      // Demonstração antiga sai; restaurante de verdade no mesmo endereço fica.
+      expect(
+        await removeDemoRestaurant({
+          ownerUrl: OWNER_URL,
+          slug: 'fumaca-teste',
+          log: () => undefined,
+        }),
+      ).toBe('removed');
+      expect(await ownerQuery(`SELECT 1 FROM tenants WHERE slug = 'fumaca-teste'`)).toHaveLength(0);
+      await ownerQuery(
+        `INSERT INTO tenants (slug, name, status) VALUES ('nao-demo-2', 'Cliente', 'provisioned')`,
+      );
+      expect(
+        await removeDemoRestaurant({
+          ownerUrl: OWNER_URL,
+          slug: 'nao-demo-2',
+          log: () => undefined,
+        }),
+      ).toBe('skipped');
+      expect(
+        await removeDemoRestaurant({
+          ownerUrl: OWNER_URL,
+          slug: 'nao-existe',
+          log: () => undefined,
+        }),
+      ).toBe('absent');
     } finally {
+      await ownerQuery(`DELETE FROM tenants WHERE slug = 'nao-demo-2'`);
       const [t] = await ownerQuery<{ id: string }>(
-        `SELECT id FROM tenants WHERE slug = 'aurora-teste'`,
+        `SELECT id FROM tenants WHERE slug = 'fumaca-teste'`,
       );
       if (t) {
         const c = new Client({ connectionString: OWNER_URL });
@@ -154,5 +204,5 @@ describe('Restaurante de demonstração', () => {
         await c.end();
       }
     }
-  }, 180_000);
+  }, 600_000);
 });

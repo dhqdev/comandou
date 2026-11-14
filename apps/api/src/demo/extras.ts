@@ -7,7 +7,7 @@ import type { DemoUser } from './types';
  * O que uma demonstração tem além do básico de seed.ts: marca da loja, famílias, cardápio do
  * delivery, chat da equipe e mural, fidelidade, reservas, notas de entrada e produção no estoque,
  * regras fiscais, precificação, rastreio do motoboy, assistente e roupinhas do panda.
- * Só os textos ficam aqui no formato; o conteúdo vem do catálogo (aurora.ts).
+ * Só os textos ficam aqui no formato; o conteúdo vem do catálogo (fumaca.ts).
  */
 export interface DemoExtras {
   branding: {
@@ -81,6 +81,32 @@ export interface DemoExtras {
   couriers: Record<string, { pix: string; regime: 'mei' | 'autonomo' | 'clt' }>;
   courierPay: CourierPayRule;
   ai: { monthlyTokens: number; conversation: [string, ['user' | 'assistant', string][]] };
+  /** Prefixo do código das reservas (padrão AUR). */
+  reservationPrefix?: string;
+  /** Fotos a mais de cada item (galeria do cardápio): chave do produto → fotos. */
+  gallery?: Record<string, string[]>;
+  /** Avaliações dos itens pelos clientes com conta: comentários por categoria do cardápio. */
+  reviews?: { perProduct: [number, number]; comments: Record<string, string[]>; low: string[] };
+  /** Conversas da loja (chat do cardápio): [cliente, mensagens [quem, minutos atrás, texto]]. */
+  storeChats?: [string, ['customer' | 'staff', number, string][]][];
+  /** WhatsApp: avisos ligados (Baileys), textos da casa, atendente IA e conversas dela. */
+  whatsapp?: {
+    texts: Partial<Record<'accepted' | 'ready' | 'dispatched' | 'delivered' | 'cancelled', string>>;
+    agent: {
+      name: string;
+      tone: 'friendly' | 'formal' | 'fun';
+      greeting: string;
+      about: string;
+      rules: string;
+      handoff: string;
+    };
+    /** Conversas da IA no WhatsApp: [cliente (nome da lista), horas atrás, [papel, texto][]]. */
+    chats: [string, number, ['user' | 'assistant', string][]][];
+  };
+  /** Taxa de serviço sugerida nas comandas (%). */
+  serviceFeePercent?: number;
+  /** Dia em que começa o mês do financeiro. */
+  financeMonthStart?: number;
 }
 
 export interface ExtrasContext {
@@ -112,7 +138,13 @@ export interface ExtrasContext {
     channel: string;
     customerId: string | null;
     createdAt: number;
+    updatedAt?: number;
     total: number;
+    customerName?: string | null;
+    customerPhone?: string | null;
+    source?: string;
+    productIds?: string[];
+    history?: { to: string; at: number }[];
   }[];
   at: (daysAgo: number, hh: number, mm?: number) => number;
   localDate: (ms: number) => string;
@@ -408,7 +440,7 @@ export async function seedDemoExtras(c: ClientBase, x: DemoExtras, ctx: ExtrasCo
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$17)`,
       [
         T,
-        `AUR${String(100 + i)}`,
+        `${x.reservationPrefix ?? 'AUR'}${String(100 + i)}`,
         customer?.id ?? null,
         name,
         phone,
@@ -647,6 +679,8 @@ export async function seedDemoExtras(c: ClientBase, x: DemoExtras, ctx: ExtrasCo
     }
   }
 
+  await seedDemoMore(c, x, ctx);
+
   // ------------------------------------------------------------------ assistente e panda
   // Limite do assistente e consumo ficam no banco central (platform.ts).
   const [who, talk] = x.ai.conversation;
@@ -661,5 +695,296 @@ export async function seedDemoExtras(c: ClientBase, x: DemoExtras, ctx: ExtrasCo
         role === 'assistant' ? 380 + i * 40 : 0,
         iso(now - (90 - i * 2) * MIN),
       ],
+    );
+}
+
+/** Linhas em blocos (abaixo do limite de parâmetros do Postgres). */
+async function insertRows(c: ClientBase, table: string, cols: string[], rows: unknown[][]) {
+  const per = Math.max(1, Math.floor(30_000 / cols.length));
+  for (let i = 0; i < rows.length; i += per) {
+    const params: unknown[] = [];
+    const values = rows.slice(i, i + per).map((row) => {
+      const ph = row.map((v) => {
+        params.push(v);
+        return `$${params.length}`;
+      });
+      return `(${ph.join(',')})`;
+    });
+    await c.query(`INSERT INTO ${table} (${cols.join(',')}) VALUES ${values.join(',')}`, params);
+  }
+}
+
+/**
+ * O que veio depois da Aurora: galeria de fotos e avaliações dos itens, conversas da loja,
+ * WhatsApp ligado com os textos da casa (e o histórico de avisos enviados), atendente IA no
+ * WhatsApp com conversas, taxa de serviço e mês do financeiro.
+ */
+async function seedDemoMore(c: ClientBase, x: DemoExtras, ctx: ExtrasContext) {
+  const { T, now, U, rand: r } = ctx;
+  const accounts = ctx.customers.filter((cu) => cu.hasAccount);
+  const byName = (name: string) => ctx.customers.find((cu) => cu.name === name);
+
+  // ------------------------------------------------------------------ galeria de fotos
+  if (x.gallery) {
+    const rows: unknown[][] = [];
+    for (const [key, photos] of Object.entries(x.gallery)) {
+      const p = ctx.byKey[key];
+      if (!p) continue;
+      const { rows: main } = await c.query<{ image_id: string | null }>(
+        `SELECT image_id FROM products WHERE id = $1`,
+        [p.id],
+      );
+      const all = [main[0]?.image_id, ...photos.map((ph) => ctx.media[ph])].filter(
+        (v): v is string => !!v,
+      );
+      all.forEach((img, i) => rows.push([T, p.id, img, i]));
+    }
+    await insertRows(
+      c,
+      'product_photos',
+      ['tenant_id', 'product_id', 'image_id', 'position'],
+      rows,
+    );
+  }
+
+  // ------------------------------------------------------------------ avaliações dos itens
+  if (x.reviews && accounts.length) {
+    const reviews: unknown[][] = [];
+    const likes: unknown[][] = [];
+    // Quem pediu o item avalia; o resto das avaliações vem de clientes com conta ao acaso.
+    const buyers = new Map<string, Set<string>>();
+    for (const o of ctx.orders)
+      if (o.customerId && o.status === 'completed')
+        for (const pid of o.productIds ?? []) {
+          if (!buyers.has(pid)) buyers.set(pid, new Set());
+          buyers.get(pid)!.add(o.customerId);
+        }
+    for (const p of Object.values(ctx.byKey)) {
+      const comments = x.reviews.comments[p.category] ?? x.reviews.comments.default ?? [];
+      const want = r.int(x.reviews.perProduct[0], x.reviews.perProduct[1]);
+      const pool = [...(buyers.get(p.id) ?? [])];
+      for (const cu of accounts) if (!pool.includes(cu.id)) pool.push(cu.id);
+      const used = new Set<string>();
+      for (let i = 0; i < want && used.size < pool.length; i++) {
+        const who = pool[Math.min(pool.length - 1, Math.floor(r.next() ** 1.6 * pool.length))]!;
+        if (used.has(who)) continue;
+        used.add(who);
+        const x5 = r.next();
+        const rating = x5 < 0.62 ? 5 : x5 < 0.88 ? 4 : x5 < 0.95 ? 3 : x5 < 0.985 ? 2 : 1;
+        const text =
+          rating <= 3
+            ? r.chance(0.8)
+              ? x.reviews.low[Math.floor(r.next() * x.reviews.low.length)]!
+              : null
+            : r.chance(0.7) && comments.length
+              ? comments[Math.floor(r.next() * comments.length)]!
+              : null;
+        const id = randomUUID();
+        const at = now - r.int(1, Math.max(2, ctx.days - 5)) * DAY - r.int(0, 600) * MIN;
+        reviews.push([id, T, p.id, who, rating, text, iso(at), iso(at)]);
+        for (const fan of accounts)
+          if (fan.id !== who && text && r.chance(0.12))
+            likes.push([T, id, fan.id, iso(Math.min(now, at + r.int(1, 240) * HOUR))]);
+      }
+    }
+    await insertRows(
+      c,
+      'product_reviews',
+      [
+        'id',
+        'tenant_id',
+        'product_id',
+        'customer_id',
+        'rating',
+        'comment',
+        'created_at',
+        'updated_at',
+      ],
+      reviews,
+    );
+    await insertRows(
+      c,
+      'product_review_likes',
+      ['tenant_id', 'review_id', 'customer_id', 'created_at'],
+      likes,
+    );
+  }
+
+  // ------------------------------------------------------------------ conversas da loja
+  for (const [name, msgs] of x.storeChats ?? []) {
+    const cu = byName(name);
+    if (!cu?.hasAccount) continue;
+    const id = randomUUID();
+    const first = now - Math.max(...msgs.map((m) => m[1])) * MIN;
+    const [lastWho, lastAgo, lastBody] = msgs[msgs.length - 1]!;
+    const lastAt = now - lastAgo * MIN;
+    await c.query(
+      `INSERT INTO store_chats (id, tenant_id, customer_id, name, phone, status, last_message_at, last_preview,
+          last_sender, customer_read_at, staff_read_at, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$7)`,
+      [
+        id,
+        T,
+        cu.id,
+        cu.name,
+        cu.phone,
+        lastAgo > 24 * 60 ? 'closed' : 'open',
+        iso(lastAt),
+        lastBody.slice(0, 140),
+        lastWho,
+        iso(lastWho === 'customer' ? lastAt : lastAt - MIN),
+        iso(lastWho === 'staff' || lastAgo > 60 ? lastAt : lastAt - MIN),
+        iso(first),
+      ],
+    );
+    await insertRows(
+      c,
+      'store_chat_messages',
+      ['tenant_id', 'chat_id', 'sender', 'author_id', 'body', 'created_at'],
+      msgs.map(([who, ago, body]) => [
+        T,
+        id,
+        who,
+        who === 'staff' ? U('attendant') : null,
+        body,
+        iso(now - ago * MIN),
+      ]),
+    );
+  }
+
+  // ------------------------------------------------------------------ WhatsApp
+  if (x.whatsapp) {
+    const w = x.whatsapp;
+    await c.query(
+      `UPDATE tenant_messaging_settings SET provider = 'baileys', enabled = true,
+              text_accepted = COALESCE($2, text_accepted), text_ready = COALESCE($3, text_ready),
+              text_dispatched = COALESCE($4, text_dispatched), text_delivered = COALESCE($5, text_delivered),
+              text_cancelled = COALESCE($6, text_cancelled),
+              notify_accepted = true, notify_ready = true, notify_dispatched = true,
+              notify_delivered = true, notify_cancelled = true, updated_by = $7
+        WHERE tenant_id = $1`,
+      [
+        T,
+        w.texts.accepted ?? null,
+        w.texts.ready ?? null,
+        w.texts.dispatched ?? null,
+        w.texts.delivered ?? null,
+        w.texts.cancelled ?? null,
+        U('owner'),
+      ],
+    );
+    const { rows: st } = await c.query<Record<string, string>>(
+      `SELECT text_accepted, text_ready, text_dispatched, text_delivered, text_cancelled,
+              (SELECT name FROM tenants WHERE id = $1) AS restaurant
+         FROM tenant_messaging_settings WHERE tenant_id = $1`,
+      [T],
+    );
+    const s = st[0]!;
+    // Histórico de avisos: os pedidos online e de entrega com telefone, como o sistema envia.
+    const outbox: unknown[][] = [];
+    for (const o of ctx.orders) {
+      const phone = o.customerPhone?.replace(/\D/g, '');
+      if (!phone || !o.history) continue;
+      const to = phone.length <= 11 ? `55${phone}` : phone;
+      const first = (o.customerName ?? '').split(' ')[0] || 'cliente';
+      const msg = (tpl: string) =>
+        tpl
+          .replaceAll('{cliente}', first)
+          .replaceAll('{pedido}', String(o.number))
+          .replaceAll('{restaurante}', s.restaurant ?? '');
+      const events: [string, string, number][] = [];
+      for (const h of o.history) {
+        if (h.to === 'new' && o.source === 'online')
+          events.push(['order.accepted', s.text_accepted!, h.at]);
+        if (h.to === 'ready' && o.channel === 'pickup')
+          events.push(['order.ready', s.text_ready!, h.at]);
+        if (h.to === 'dispatched') events.push(['order.dispatched', s.text_dispatched!, h.at]);
+        if (h.to === 'completed' && o.channel === 'delivery')
+          events.push(['order.delivered', s.text_delivered!, h.at]);
+        if (h.to === 'cancelled') events.push(['order.cancelled', s.text_cancelled!, h.at]);
+      }
+      for (const [event, tpl, at] of events) {
+        const sentAt = at + r.int(2, 9) * 1000;
+        outbox.push([
+          T,
+          o.id,
+          event,
+          'baileys',
+          to,
+          msg(tpl),
+          'sent',
+          1,
+          `3EB0${randomUUID().replace(/-/g, '').slice(0, 16).toUpperCase()}`,
+          iso(at),
+          iso(sentAt),
+          iso(sentAt),
+        ]);
+      }
+    }
+    await insertRows(
+      c,
+      'message_outbox',
+      [
+        'tenant_id',
+        'order_id',
+        'event',
+        'provider',
+        'to_phone',
+        'body',
+        'status',
+        'attempts',
+        'provider_message_id',
+        'created_at',
+        'updated_at',
+        'sent_at',
+      ],
+      outbox,
+    );
+    const a = w.agent;
+    await c.query(
+      `INSERT INTO ai_agent_settings (tenant_id, whatsapp_enabled, agent_name, tone, greeting, about, rules,
+          handoff_message, suggest_items, show_prices, send_store_link, reply_when, updated_by)
+       VALUES ($1, true, $2, $3, $4, $5, $6, $7, true, true, true, 'always', $8)
+       ON CONFLICT (tenant_id) DO NOTHING`,
+      [T, a.name, a.tone, a.greeting, a.about, a.rules, a.handoff, U('owner')],
+    );
+    for (const [name, hoursAgo, talk] of w.chats) {
+      const cu = byName(name);
+      if (!cu) continue;
+      const phone = `55${cu.phone.replace(/\D/g, '')}`;
+      const start = now - hoursAgo * HOUR;
+      const last = start + (talk.length - 1) * 40_000;
+      await c.query(
+        `INSERT INTO ai_customer_chats (tenant_id, phone, name, paused_until, last_at) VALUES ($1,$2,$3,NULL,$4)
+         ON CONFLICT (tenant_id, phone) DO NOTHING`,
+        [T, phone, cu.name, iso(last)],
+      );
+      await insertRows(
+        c,
+        'ai_customer_messages',
+        ['tenant_id', 'phone', 'role', 'content', 'tokens', 'created_at'],
+        talk.map(([role, content], i) => [
+          T,
+          phone,
+          role,
+          content,
+          role === 'assistant' ? 420 + content.length : 0,
+          iso(start + i * 40_000),
+        ]),
+      );
+    }
+  }
+
+  // ------------------------------------------------------------------ salão e financeiro
+  if (x.serviceFeePercent !== undefined)
+    await c.query(
+      `INSERT INTO salon_settings (tenant_id, service_fee_percent) VALUES ($1, $2) ON CONFLICT (tenant_id) DO NOTHING`,
+      [T, x.serviceFeePercent],
+    );
+  if (x.financeMonthStart !== undefined)
+    await c.query(
+      `INSERT INTO finance_settings (tenant_id, month_start_day, updated_by) VALUES ($1, $2, $3)
+       ON CONFLICT (tenant_id) DO NOTHING`,
+      [T, x.financeMonthStart, U('owner')],
     );
 }

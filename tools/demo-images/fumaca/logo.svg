@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F6A23A"/><stop offset="1" stop-color="#D9711E"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#1C1714"/>
+  <!-- fumaça -->
+  <g fill="none" stroke="#E9DCCB" stroke-width="14" stroke-linecap="round" opacity="0.9">
+    <path d="M206 150 C186 128 226 112 206 88 C192 72 210 58 218 52"/>
+    <path d="M256 140 C236 116 278 100 256 74 C242 58 260 44 268 38"/>
+    <path d="M306 150 C286 128 326 112 306 88 C292 72 310 58 318 52"/>
+  </g>
+  <!-- pão de cima -->
+  <path d="M120 270 C120 196 182 168 256 168 C330 168 392 196 392 270 Z" fill="url(#bun)"/>
+  <g fill="#FBE7C6"><ellipse cx="206" cy="212" rx="9" ry="5" transform="rotate(-20 206 212)"/><ellipse cx="256" cy="198" rx="9" ry="5"/><ellipse cx="306" cy="212" rx="9" ry="5" transform="rotate(20 306 212)"/><ellipse cx="232" cy="240" rx="9" ry="5" transform="rotate(-10 232 240)"/><ellipse cx="282" cy="240" rx="9" ry="5" transform="rotate(10 282 240)"/></g>
+  <!-- queijo e carne -->
+  <path d="M112 282 H400 L372 312 L344 288 L310 318 L276 288 L240 316 L206 288 L170 314 L140 288 Z" fill="#FFC53D"/>
+  <rect x="116" y="292" width="280" height="44" rx="22" fill="#5A2E1B"/>
+  <!-- pão de baixo -->
+  <path d="M124 350 H388 C388 382 362 400 330 400 H182 C150 400 124 382 124 350 Z" fill="url(#bun)"/>
+  <text x="256" y="462" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="46" fill="#F6A23A" letter-spacing="3">FUMAÇA</text>
+</svg>

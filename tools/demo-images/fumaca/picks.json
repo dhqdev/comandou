@@ -1,0 +1,317 @@
+{
+  "burger-classico": {
+    "id": "ca3d723dd55bbff7",
+    "subset": "test",
+    "author": "Mate Marschalko",
+    "title": "Flame grilled hamburger",
+    "source": "https://www.flickr.com/photos/mares87/5946699127"
+  },
+  "burger-classico-2": {
+    "id": "40b8a8a00a6706ee",
+    "subset": "validation",
+    "author": "chichacha",
+    "title": "Here's another shot of Hamburger!",
+    "source": "https://www.flickr.com/photos/chichacha/2323760575"
+  },
+  "burger-fumaca": {
+    "id": "3fe0b0680527ba77",
+    "subset": "test",
+    "author": "Larry Quinn",
+    "title": "The Counter",
+    "source": "https://www.flickr.com/photos/lry/2138591373"
+  },
+  "burger-fumaca-2": {
+    "id": "7fc52914bef6fe5a",
+    "subset": "test",
+    "author": "Jason Hansen",
+    "title": "Defeating &quot;the hangry&quot; since 15 minutes ago. - November 19, 2013 at 02:07PM",
+    "source": "https://www.flickr.com/photos/slack/10951883126"
+  },
+  "burger-smash": {
+    "id": "affa29687ab61599",
+    "subset": "validation",
+    "author": "Aapo Haapanen",
+    "title": "Freshness Burger",
+    "source": "https://www.flickr.com/photos/decade_null/11989071875"
+  },
+  "burger-smash-2": {
+    "id": "d14a153a8ea8ea5c",
+    "subset": "validation",
+    "author": "Windslash",
+    "title": "Buger",
+    "source": "https://www.flickr.com/photos/windslash/5228524114"
+  },
+  "burger-triplo": {
+    "id": "4f37c17373f8f469",
+    "subset": "validation",
+    "author": "thegarethwiscombe",
+    "title": "I wanted it my way",
+    "source": "https://www.flickr.com/photos/garethwiscombe/1597060145"
+  },
+  "burger-egg": {
+    "id": "fa460c331bde5be0",
+    "subset": "validation",
+    "author": "Cafeterías Nebraska",
+    "title": "Hamburguesa completa",
+    "source": "https://www.flickr.com/photos/nebraskacafeterias/8692224970"
+  },
+  "burger-picanha": {
+    "id": "10fa51e371023c10",
+    "subset": "test",
+    "author": "Jan Murin",
+    "title": "Burger with herb butter",
+    "source": "https://www.flickr.com/photos/murinjan/8753707970"
+  },
+  "burger-picanha-2": {
+    "id": "effd56ffb18479b1",
+    "subset": "test",
+    "author": "fugzu",
+    "title": "Pane da hamburger  di Giorilli",
+    "source": "https://www.flickr.com/photos/70253321@N00/4522382713"
+  },
+  "burger-gorgonzola": {
+    "id": "d5186c8a0130f25a",
+    "subset": "test",
+    "author": "Javier Lastras",
+    "title": "Hamburguesa Casera",
+    "source": "https://www.flickr.com/photos/jlastras/3357950600"
+  },
+  "burger-salad": {
+    "id": "9e8a42c91b73b963",
+    "subset": "test",
+    "author": "Alan Levine",
+    "title": "Terriyaki Swiss at Bun Boy",
+    "source": "https://www.flickr.com/photos/cogdog/4676152392"
+  },
+  "burger-costela": {
+    "id": "18252cc70a1d2e1f",
+    "subset": "test",
+    "author": "Karen Thornton",
+    "title": "Pulled pork sandwich w/ coleslaw @ RUB, NYC",
+    "source": "https://www.flickr.com/photos/mrsdewinter/4806712694"
+  },
+  "burger-crispy": {
+    "id": "e0b4c59c9a32e2b1",
+    "subset": "test",
+    "author": "Felix Chia",
+    "title": "My #foodporn series. | $2.90 McSpicy. Grab it before the offer ends!",
+    "source": "https://www.flickr.com/photos/felixchia/6931441275"
+  },
+  "burger-veggie": {
+    "id": "c813227361cc5831",
+    "subset": "test",
+    "author": "Javier Lastras",
+    "title": "Hamburguesa con Cabrales",
+    "source": "https://www.flickr.com/photos/jlastras/3070034905"
+  },
+  "burger-veggie-2": {
+    "id": "cd429c0386117ce0",
+    "subset": "test",
+    "author": "Melissa",
+    "title": "Mel's Diner",
+    "source": "https://www.flickr.com/photos/copa41/1312623057"
+  },
+  "burger-cheese": {
+    "id": "138171babca75da4",
+    "subset": "validation",
+    "author": "Rusty Clark - On the Air M-F 8am-noon",
+    "title": "McDonald's is My Kind of Place",
+    "source": "https://www.flickr.com/photos/rusty_clark/9468682078"
+  },
+  "burger-sliders": {
+    "id": "f5c26f4cd2ee7856",
+    "subset": "test",
+    "author": "Anders Carlsson",
+    "title": "Tycker att @tapasbardeli oftare borde stå ute på golfbanan och servera sliders. I övrigt en toppendag med Rix FM golfen.",
+    "source": "https://www.flickr.com/photos/andersc77/18712857166"
+  },
+  "combo-classico": {
+    "id": "3e7cd1bd017f5919",
+    "subset": "validation",
+    "author": "Hank Hession",
+    "title": "DSCF2121",
+    "source": "https://www.flickr.com/photos/hankhession/15520194976/"
+  },
+  "combo-smash": {
+    "id": "cf700b7b9b21abaa",
+    "subset": "validation",
+    "author": "reynermedia",
+    "title": "American burger",
+    "source": "https://www.flickr.com/photos/89228431@N06/11080412675"
+  },
+  "combo-fumaca": {
+    "id": "2695824376168622",
+    "subset": "test",
+    "author": "Daniel Zemans",
+    "title": "Minetta Tavern - Black Label Burger - $28",
+    "source": "https://www.flickr.com/photos/28655296@N05/16591913269"
+  },
+  "porcao-batata": {
+    "id": "485dc52dd90caf74",
+    "subset": "validation",
+    "author": "Snack nieuws",
+    "title": "Zak friet",
+    "source": "https://www.flickr.com/photos/snacknieuws/11734047503"
+  },
+  "porcao-batata-2": {
+    "id": "fa9a762a943f6ad8",
+    "subset": "test",
+    "author": "ㇹヮィㇳ",
+    "title": "Carbohydrate",
+    "source": "https://www.flickr.com/photos/shirokazan/9382855865"
+  },
+  "porcao-cheddar-bacon": {
+    "id": "0cbc983e686dc68a",
+    "subset": "test",
+    "author": "kellypuffs",
+    "title": "Cheese fries with bacon. It's whats for lunch! :)",
+    "source": "https://www.flickr.com/photos/kellypuffs/8167659018"
+  },
+  "porcao-rustica": {
+    "id": "59091a4372a9366d",
+    "subset": "test",
+    "author": "Simon Doggett",
+    "title": "Spicy Fries",
+    "source": "https://www.flickr.com/photos/simondee/5033691944"
+  },
+  "porcao-onion": {
+    "id": "8451ea92ca3a45b7",
+    "subset": "validation",
+    "author": "jeffreyw",
+    "title": "Mmm... pancake batter coated onion rings",
+    "source": "https://www.flickr.com/photos/jeffreyww/7672333050"
+  },
+  "porcao-iscas": {
+    "id": "0e1af943035b2f80",
+    "subset": "test",
+    "author": "Kurman Communications, Inc.",
+    "title": "Buttermilk Fried Chicken KCI_5411",
+    "source": "https://www.flickr.com/photos/kurmanphotos/16758903301/"
+  },
+  "porcao-asinhas": {
+    "id": "3df8aff8b21491ad",
+    "subset": "test",
+    "author": "rick",
+    "title": "Untitled (these wings sucked, #1)",
+    "source": "https://www.flickr.com/photos/spine/215401223"
+  },
+  "shake-chocolate": {
+    "id": "16de13993417cfd3",
+    "subset": "test",
+    "author": "Mills Baker",
+    "title": "Chocolate freeze at Camellia Grill",
+    "source": "https://www.flickr.com/photos/millsbaker/4643994484"
+  },
+  "shake-morango": {
+    "id": "70ee322f609279f4",
+    "subset": "test",
+    "author": "Daniel",
+    "title": "frulati di fruta",
+    "source": "https://www.flickr.com/photos/27605119@N00/15774222178"
+  },
+  "shake-doce-leite": {
+    "id": "54322aa1ce1c2276",
+    "subset": "test",
+    "author": "Rizka Budiati Szkutnik",
+    "title": "moon river; caramel coffee",
+    "source": "https://www.flickr.com/photos/rizkapb/501791562"
+  },
+  "shake-baunilha": {
+    "id": "c3bcea651ec452f3",
+    "subset": "validation",
+    "author": "Jason Tessier",
+    "title": "Untitled",
+    "source": "https://www.flickr.com/photos/yetiphotos/5684874004"
+  },
+  "bebida-limonada": {
+    "id": "20aec071a8260aac",
+    "subset": "test",
+    "author": "punctuated",
+    "title": "Untitled",
+    "source": "https://www.flickr.com/photos/lainetrees/5550959064"
+  },
+  "bebida-limonada-suica": {
+    "id": "890d35847d1ebb9b",
+    "subset": "test",
+    "author": "Andy Bullock",
+    "title": "Caipirinhas",
+    "source": "https://www.flickr.com/photos/andybullock77/4607609510"
+  },
+  "bebida-agua-gas": {
+    "id": "6b74063ffbbdf045",
+    "subset": "test",
+    "author": "David D",
+    "title": "149/365",
+    "source": "https://www.flickr.com/photos/104419843@N02/15352047421/"
+  },
+  "bebida-chopp": {
+    "id": "1632f2dac1d05a85",
+    "subset": "test",
+    "author": "Paul Joseph",
+    "title": "Driftwood Ale",
+    "source": "https://www.flickr.com/photos/sashafatcat/3339907767"
+  },
+  "bebida-ipa": {
+    "id": "2c87374e8d2f3a34",
+    "subset": "validation",
+    "author": "Ippei Suzuki",
+    "title": "乾杯待ち #beer",
+    "source": "https://www.flickr.com/photos/is_kyoto_jp/6524927473"
+  },
+  "sobremesa-brownie": {
+    "id": "39895508c4a05174",
+    "subset": "test",
+    "author": "demi",
+    "title": "Brownie de chocolate",
+    "source": "https://www.flickr.com/photos/vaionnoth/8289128862"
+  },
+  "sobremesa-brownie-sorvete": {
+    "id": "56716af6a6b921d5",
+    "subset": "test",
+    "author": "Kevin Marsh",
+    "title": "Untitled",
+    "source": "https://www.flickr.com/photos/kevinmarsh/1973329949"
+  },
+  "sobremesa-sundae": {
+    "id": "de56d81f99d7c691",
+    "subset": "test",
+    "author": "Dave Taylor",
+    "title": "Yuuuummmmmm.... #sugar #worthit",
+    "source": "https://www.flickr.com/photos/askdavetaylor/16397500038"
+  },
+  "sobremesa-sundae-morango": {
+    "id": "2281df0990f4eb96",
+    "subset": "validation",
+    "author": "Luca Conti",
+    "title": "Montreal",
+    "source": "https://www.flickr.com/photos/pandemia/4904024245"
+  },
+  "capa": {
+    "id": "be74cf53e02852ec",
+    "subset": "test",
+    "author": "w00kie",
+    "title": "Untitled",
+    "source": "https://www.flickr.com/photos/w00kie/15224016106"
+  },
+  "banner-combo": {
+    "id": "2695824376168622",
+    "subset": "test",
+    "author": "Daniel Zemans",
+    "title": "Minetta Tavern - Black Label Burger - $28",
+    "source": "https://www.flickr.com/photos/28655296@N05/16591913269"
+  },
+  "banner-smash": {
+    "id": "93ff8fc106d9e401",
+    "subset": "validation",
+    "author": "Claudia_midori",
+    "title": "Detalhe do Jack Bauer com bacon que não estava no menu",
+    "source": "https://www.flickr.com/photos/claudia_midori/3161739570"
+  },
+  "banner-shake": {
+    "id": "16de13993417cfd3",
+    "subset": "test",
+    "author": "Mills Baker",
+    "title": "Chocolate freeze at Camellia Grill",
+    "source": "https://www.flickr.com/photos/millsbaker/4643994484"
+  }
+}

@@ -89,8 +89,7 @@ scripts/install.sh
 | `COMANDOU_CROWDSEC=1` | inclui o bloqueio do CrowdSec (gravado por `scripts/crowdsec.sh`; ver [crowdsec.md](crowdsec.md)) |
 | `CROWDSEC_TRUSTED_IPS` | IPs que o CrowdSec nunca bloqueia, separados por vírgula |
 | `COMANDOU_DEMO` | restaurante de demonstração: `true` (padrão, cria uma vez), `reset` (recria a cada subida) ou `false` |
-| `COMANDOU_DEMO_SLUG` | endereço da Casa Brasa (padrão `exemplo` → `exemplo.domínio`) |
-| `COMANDOU_DEMO2_SLUG` | endereço da Aurora Café & Padaria (padrão `aurora`; `false` desliga só ela) |
+| `COMANDOU_DEMO_SLUG` | endereço da Fumaça Burger (padrão `fumaca` → `fumaca.domínio`) |
 
 **Portainer / `docker stack deploy` na mão:** crie os Docker secrets de
 [deploy.md](deploy.md#secrets) (inclui os dois do Super Admin, abaixo), defina as variáveis da
@@ -100,40 +99,30 @@ Super Admin no primeiro deploy.
 
 ## Restaurante de demonstração
 
-Junto com o sistema sobe a **Casa Brasa** (`https://exemplo.<domínio>`), um restaurante fictício
-de hambúrguer e pizza com tudo preenchido: cardápio com fotos e adicionais, 14 mesas, comandas
-abertas, ~1.000 pedidos dos últimos 30 dias em todos os canais e situações, caixa, estoque com
-ficha técnica, entregadores, áreas de entrega no mapa, clientes, financeiro, notas de homologação e
-a loja online com logo, capa e banners. Serve para testar e para mostrar o sistema.
+Junto com o sistema sobe a **Fumaça Burger & Co.** (`https://fumaca.<domínio>`), uma hamburgueria
+artesanal fictícia na Vila Mariana que usa o sistema **há um ano**, com **fotos reais** em todos os
+itens e logo própria. Tem tudo preenchido: 35 itens em 6 categorias com adicionais, ficha técnica,
+galeria de fotos e avaliações dos clientes; ~18 mil pedidos em 12 meses (mesa, balcão, entrega e
+retirada), crescendo mês a mês e com pico em dezembro; caixa todo dia, financeiro de 12 meses,
+estoque com notas, lotes, produção e itens abaixo do mínimo; fidelidade, reservas, conversas da
+equipe e da loja online; entregadores com repasse e GPS; regras fiscais e notas de homologação.
 
-- É criado uma vez (banco próprio `comandou_exemplo`); subir de novo **não** duplica nem apaga o
+- **WhatsApp:** avisos ligados (aceito, pronto, saiu, entregue e cancelado) com os textos da casa,
+  histórico de mensagens enviadas e o atendente IA "Fumacinha" respondendo no WhatsApp. Para enviar
+  de verdade, conecte um número em *Configurações › WhatsApp* (QR Code).
+- **Super Admin:** cadastro, assinatura de 12 meses no plano Comandou com as faturas, conversa com o
+  suporte e chamados resolvidos; se os dados da contratada estiverem em *Contrato*, o contrato já
+  vem assinado pelo cliente, esperando a contra-assinatura.
+- É criada uma vez (banco próprio `comandou_fumaca`); subir de novo **não** duplica nem apaga o
   que você mexeu. Para começar do zero, suba uma vez com `COMANDOU_DEMO=reset`.
-- `COMANDOU_DEMO=false` desliga (não cria; um que já existe continua até ser excluído no painel).
-- Um restaurante de verdade com o mesmo endereço nunca é tocado.
-- Senha de todos os usuários: `comandou123`. E-mails: `dono@`, `gerente@`, `caixa@`, `garcom@`,
-  `garcom2@`, `cozinha@`, `entregador@`, `entregador2@` e `atendente@exemplo.<domínio>`.
-  Cliente do cardápio online: celular `(11) 98888-0000`, senha
+- As demonstrações antigas (Casa Brasa em `exemplo.` e Aurora em `aurora.`) são removidas na
+  subida. Um restaurante de verdade com o mesmo endereço nunca é tocado.
+- Senha de todos os usuários: `comandou123`. E-mails: `dono@` (Thiago Ferraz), `gerente@`,
+  `caixa@`, `garcom@`, `garcom2@`, `cozinha@`, `entregador@`, `entregador2@` e
+  `atendente@fumaca.<domínio>`. Cliente do cardápio online: Ana Almeida, `(11) 97100-0000`, senha
   `cliente123`.
-- As imagens são ilustrações próprias (`apps/api/db/demo/images`, geradas por
-  `tools/demo-images/generate.mjs`).
-
-### Aurora Café & Padaria
-
-A segunda demonstração (`https://aurora.<domínio>`) é uma cafeteria e padaria artesanal na Vila
-Madalena, com **fotos reais** em todos os produtos e a logo própria, e usa todas as partes do
-sistema: 61 produtos em 9 categorias, adicionais e ficha técnica, 3 setores (barista, cozinha,
-vitrine), ~1.500 pedidos em 30 dias (mesa, balcão, entrega e retirada), caixa e financeiro,
-estoque com fornecedores, recebimentos, contagem, lotes, produção e itens abaixo do mínimo,
-cardápio de entrega com preço próprio, fidelidade, reservas, conversas e mural da equipe,
-entregadores com repasse e posição no mapa, regras fiscais e notas, conversa com o Comandinho e o
-panda com roupinhas. No Super Admin ela aparece com cadastro, assinatura paga no plano
-Comandou e faturas; se os dados da contratada estiverem preenchidos em *Contrato*, o contrato
-já vem assinado pelo cliente, esperando a contra-assinatura.
-
-- Mesmos e-mails da Casa Brasa, em `@aurora.<domínio>` (dona: `dono@`, Helena Duarte), senha
-  `comandou123`. Cliente do cardápio online: `(11) 97777-0000`, senha `cliente123`.
 - As fotos vêm do Open Images (Flickr, licença CC BY 2.0); autor e link de cada uma estão em
-  `apps/api/db/demo/aurora/credits.json`. Para trocar: `tools/demo-images/aurora`.
+  `apps/api/db/demo/fumaca/credits.json`. Para trocar: `tools/demo-images/fumaca`.
 
 ## Super Admin
 

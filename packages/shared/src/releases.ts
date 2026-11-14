@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.118.0',
+    date: '2026-11-14',
+    title: 'Nova demonstração: Fumaça Burger, com um ano de uso',
+    summary:
+      'A Casa Brasa e a Aurora saem e entra a Fumaça Burger & Co., uma hamburgueria na Vila Mariana que usa o Comandou há um ano: fotos reais, cerca de 18 mil pedidos, financeiro de 12 meses, avaliações, WhatsApp ligado e atendente IA.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Fumaça Burger & Co. em fumaca.<domínio>: 35 itens com fotos reais (Open Images, CC BY 2.0), galeria de fotos e avaliações dos clientes, adicionais, ficha técnica, combos e cardápio de delivery com preço próprio.',
+      },
+      {
+        tag: 'novo',
+        text: 'Um ano de operação: pedidos de mesa, balcão, entrega e retirada crescendo mês a mês (com pico em dezembro), caixa todo dia, contas de 12 meses, estoque com notas e lotes, fidelidade, reservas, conversas da equipe e da loja online.',
+      },
+      {
+        tag: 'novo',
+        text: 'WhatsApp da demonstração pronto: avisos de pedido ligados com os textos da casa, histórico de mensagens enviadas e o atendente IA "Fumacinha" com conversas. Para enviar de verdade, basta ler o QR Code em Configurações › WhatsApp.',
+      },
+      {
+        tag: 'novo',
+        text: 'No Super Admin, a Fumaça aparece com cadastro, 12 meses de assinatura no plano Comandou (R$ 400) com as faturas pagas, conversa com o suporte e chamados resolvidos.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'As demonstrações antigas (exemplo. e aurora.) são apagadas sozinhas na próxima subida. Só apaga o que foi criado como demonstração: um restaurante de verdade no mesmo endereço nunca é tocado.',
+      },
+    ],
+  },
+  {
     version: '0.117.0',
     date: '2026-11-14',
     title: 'Pixel do cardápio online: visitas, cliques e funil até o pedido',

@@ -109,8 +109,8 @@ export async function seedDemoData(
   },
 ): Promise<DemoSeedResult> {
   const now = (opts.now ?? new Date()).getTime();
-  const days = opts.days ?? 30;
   const C = opts.catalog ?? CASA_BRASA;
+  const days = opts.days ?? C.days ?? 30;
   const r = rng(C.seed);
   const T = tenantId;
   const log = opts.log ?? (() => undefined);
@@ -430,7 +430,7 @@ export async function seedDemoData(
   const customers = C.customers.map((cu, i) => ({
     ...cu,
     id: randomUUID(),
-    hasAccount: i < 16,
+    hasAccount: i < (C.accounts ?? 16),
     address: `${cu.street}, ${cu.number} - ${cu.district}`,
     fee: zoneFee(cu.lat, cu.lng),
   }));
@@ -949,7 +949,15 @@ export async function seedDemoData(
       U('cashier'),
       iso(opened),
     ]);
-    const n = daysAgo === 0 ? Math.round((base || 24) * 0.6) : base + r.int(-3, 4);
+    let n = daysAgo === 0 ? Math.round((base || 24) * 0.6) : base + r.int(-3, 4);
+    if (C.growth) {
+      // A casa foi ganhando clientes: começa com `start` do movimento e chega a 100% hoje.
+      const month = new Date(localMidnight(daysAgo) - TZ_OFFSET + 12 * HOUR).getUTCMonth() + 1;
+      const f =
+        (C.growth.start + (1 - C.growth.start) * (1 - daysAgo / days)) *
+        (C.growth.months?.[month] ?? 1);
+      n = Math.max(1, Math.round(n * f));
+    }
     for (let i = 0; i < n; i++) {
       const shift = pickShift(r.next());
       const t0 = at(daysAgo, ...shift.start) + r.next() * shift.hours * HOUR;
@@ -1794,7 +1802,8 @@ export async function seedDemoData(
       iso(due - 20 * DAY),
     ]);
   };
-  for (const back of [1, 0, -1]) {
+  const months = Math.max(1, Math.round(days / 30));
+  for (let back = months; back >= -1; back--) {
     const ref = new Date(now - TZ_OFFSET);
     for (const [desc, cat, who, amount, dueDay] of C.monthlyBills) {
       const due = Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() - back, dueDay, 12) + TZ_OFFSET;
@@ -1981,7 +1990,13 @@ export async function seedDemoData(
         channel: o.channel,
         customerId: o.customerId,
         createdAt: o.createdAt,
+        updatedAt: o.updatedAt,
         total: total(o),
+        customerName: o.customerName,
+        customerPhone: o.customerPhone,
+        source: o.source,
+        productIds: o.items.map((it) => it.productId),
+        history: o.history.map((h) => ({ to: h.to, at: h.at })),
       })),
       at,
       localDate,

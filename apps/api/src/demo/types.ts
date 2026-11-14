@@ -111,6 +111,15 @@ export interface DemoCatalog {
   imagesDir: string;
   /** Semente dos números aleatórios (mesma semente = mesma operação). */
   seed: number;
+  /** Quantos dias de histórico (padrão 30). */
+  days?: number;
+  /**
+   * Movimento crescendo ao longo do histórico: o primeiro dia tem `start` do movimento de hoje
+   * (ex.: 0,55) e sobe em linha reta até 1. `months` dá um peso extra por mês (1 = dezembro).
+   */
+  growth?: { start: number; months?: Partial<Record<number, number>> };
+  /** Quantos clientes (os primeiros da lista) têm conta no cardápio online (padrão 16). */
+  accounts?: number;
   location: { lat: number; lng: number };
   store: {
     about: string;
@@ -183,6 +192,19 @@ export interface DemoCatalog {
     planCode: string;
     /** CPF de quem assina o contrato pelo cliente. */
     signerCpf: string;
+    /** Há quantos meses o cliente assina (faturas pagas; padrão 2). */
+    monthsActive?: number;
+    /** Conversa com o suporte do Comandou: [quem, dias atrás, texto]. */
+    support?: ['tenant' | 'admin', number, string][];
+    /** Chamados já resolvidos: [título, tipo, urgência, dias atrás, descrição, resposta]. */
+    tickets?: [
+      string,
+      'bug' | 'improvement' | 'question' | 'other',
+      'low' | 'medium' | 'high',
+      number,
+      string,
+      string,
+    ][];
   };
   /** Tudo o que vai além do básico (chat, fidelidade, reservas...). Só a Aurora tem. */
   extras?: import('./extras').DemoExtras;

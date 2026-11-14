@@ -90,13 +90,7 @@ export async function ensureDemoRestaurant(
     }
     if (t && o.mode === 'reset') {
       o.log('demonstração: apagando a versão anterior para recriar');
-      if (t.dbName && t.server) {
-        // Demonstração levada para outro servidor no painel: apaga lá.
-        const other = new Pool({ connectionString: maintenanceUrl(o.ownerUrl, t.server), max: 1 });
-        await dropDatabase(other, t.dbName).finally(() => other.end());
-      } else if (t.dbName) await dropDatabase(pool, t.dbName);
-      await withClient(o.ownerUrl, (c) => purgeTenantRows(c, t!.id, true));
-      await pool.query(`DELETE FROM tenants WHERE id = $1`, [t.id]).catch(() => undefined);
+      await dropDemo(pool, o.ownerUrl, t);
       t = null;
     }
     if (t?.seeded) return 'exists';
@@ -204,6 +198,53 @@ export async function ensureDemoRestaurant(
       );
     }
     return 'created';
+  } finally {
+    await lock
+      .query('SELECT pg_advisory_unlock(hashtext($1))', [`demo:${o.slug}`])
+      .catch(() => undefined);
+    lock.release();
+    await pool.end();
+  }
+}
+
+/** Apaga o banco e o cadastro de uma demonstração (quem chama já conferiu que é demonstração). */
+async function dropDemo(
+  pool: Pool,
+  ownerUrl: string,
+  t: NonNullable<Awaited<ReturnType<typeof tenantRow>>>,
+) {
+  if (t.dbName && t.server) {
+    // Demonstração levada para outro servidor no painel: apaga lá.
+    const other = new Pool({ connectionString: maintenanceUrl(ownerUrl, t.server), max: 1 });
+    await dropDatabase(other, t.dbName).finally(() => other.end());
+  } else if (t.dbName) await dropDatabase(pool, t.dbName);
+  await withClient(ownerUrl, (c) => purgeTenantRows(c, t.id, true));
+  await pool.query(`DELETE FROM tenants WHERE id = $1`, [t.id]).catch(() => undefined);
+}
+
+/**
+ * Tira do ar uma demonstração antiga (ex.: Casa Brasa e Aurora, trocadas pela Fumaça Burger).
+ * Só apaga restaurante criado pela própria demonstração (marcado no banco central); um
+ * restaurante de verdade com o mesmo endereço nunca é tocado.
+ */
+export async function removeDemoRestaurant(o: {
+  ownerUrl: string;
+  slug: string;
+  log: (m: string) => void;
+}): Promise<'removed' | 'absent' | 'skipped'> {
+  const pool = new Pool({ connectionString: o.ownerUrl, max: 2 });
+  const lock = await pool.connect();
+  try {
+    await lock.query('SELECT pg_advisory_lock(hashtext($1))', [`demo:${o.slug}`]);
+    const t = await tenantRow(pool, o.slug);
+    if (!t) return 'absent';
+    if (!t.demo) {
+      o.log(`demonstração: "${o.slug}" não é de demonstração; nada apagado`);
+      return 'skipped';
+    }
+    await dropDemo(pool, o.ownerUrl, t);
+    o.log(`demonstração antiga removida: ${o.slug}`);
+    return 'removed';
   } finally {
     await lock
       .query('SELECT pg_advisory_unlock(hashtext($1))', [`demo:${o.slug}`])
