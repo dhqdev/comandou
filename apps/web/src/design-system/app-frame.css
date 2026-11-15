@@ -352,27 +352,30 @@
     justify-content: space-between;
     gap: 8px;
     height: var(--top-h);
-    margin: 0;
-    padding: 0 0 0 4px;
+    /* Fio de ponta a ponta separa o topo (logo + nome) dos itens do menu. */
+    margin: 0 -12px 6px;
+    padding: 0 12px 0 16px;
+    border-bottom: 1px solid var(--cm-border);
   }
   .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand {
     flex: 1 1 auto;
-    gap: 10px;
+    gap: 12px;
   }
   .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo {
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     padding: 3px;
-    border-radius: 10px;
+    border-radius: 11px;
   }
   /* Nome do restaurante numa linha; se não couber, termina em "…" (o nome inteiro no title). */
   .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__name {
     display: block;
     flex: 1 1 auto;
     overflow: hidden;
-    font-size: var(--cm-text-md);
-    font-weight: 650;
+    font-size: var(--cm-text-lg);
+    font-weight: 700;
     line-height: 1.3;
+    letter-spacing: -0.01em;
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow-wrap: normal;

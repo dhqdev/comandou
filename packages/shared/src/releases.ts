@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.120.1',
+    date: '2026-11-15',
+    title: 'Topo do menu lateral com a logo e o nome em destaque',
+    summary:
+      'Com o menu lateral aberto, o topo mostra a logo maior e o nome do restaurante em negrito, separados dos itens por um fio. Nome comprido termina em "…".',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Topo do menu lateral aberto: logo de 40 px, nome em negrito numa linha e fio separando dos itens.',
+      },
+    ],
+  },
+  {
     version: '0.120.0',
     date: '2026-11-15',
     title: 'Filtro de data com atalhos e nome do restaurante no menu',
