@@ -270,6 +270,8 @@ async function seedTenant(ctx: DbJobContext, job: DbJob, dbName: string, server:
     adminName?: string;
     passwordHash?: string;
     storeWhatsapp?: string;
+    /** Cadastro pelo site: SHA-256 (hex) do link que abre o restaurante já logado. */
+    entryTokenHash?: string;
     retryOf?: string;
   };
   if (payload.retryOf) {
@@ -321,6 +323,13 @@ async function seedTenant(ctx: DbJobContext, job: DbJob, dbName: string, server:
           `INSERT INTO tenant_store_settings (tenant_id, whatsapp) VALUES ($1, $2)
            ON CONFLICT (tenant_id) DO NOTHING`,
           [job.tenant_id, payload.storeWhatsapp],
+        );
+      if (payload.entryTokenHash && /^[0-9a-f]{64}$/.test(payload.entryTokenHash))
+        await c.query(
+          `INSERT INTO signup_entry_tokens (tenant_id, user_id, token_hash, expires_at)
+           SELECT $1, id, decode($3, 'hex'), now() + interval '60 minutes' FROM users WHERE email = $2
+           ON CONFLICT (token_hash) DO NOTHING`,
+          [job.tenant_id, payload.adminEmail!.toLowerCase(), payload.entryTokenHash],
         );
       await c.query(
         `INSERT INTO audit_log (tenant_id, action, entity, entity_id, data)

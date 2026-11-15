@@ -72,6 +72,12 @@ export interface Signup {
   email: string | null;
   city: string | null;
   state: string | null;
+  /** Teste criado pelo site: de onde a pessoa disse que vem o cardápio. */
+  trial?: {
+    sourceKind: 'site' | 'maps' | 'text' | 'none';
+    sourceValue: string;
+    trialEndsAt: string;
+  } | null;
 }
 
 export const loadSignup = () => api<Signup>('/menu-import/signup').catch(() => null);
@@ -342,6 +348,15 @@ export interface Reading {
 export async function readLink(url: string, current: Reading | null): Promise<Reading> {
   const [r, inMenu] = await Promise.all([
     api<ReadResult>('/menu-import/link', { method: 'POST', json: { url } }),
+    existingNames(),
+  ]);
+  return combine(current, r, inMenu, null);
+}
+
+/** Lê o cardápio escrito pela pessoa (um item por linha, com o preço). */
+export async function readText(text: string, current: Reading | null): Promise<Reading> {
+  const [r, inMenu] = await Promise.all([
+    api<ReadResult>('/menu-import/text', { method: 'POST', json: { text } }),
     existingNames(),
   ]);
   return combine(current, r, inMenu, null);

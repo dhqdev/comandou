@@ -1,0 +1,42 @@
+{
+  "name": "Comandou · E-mail de boas-vindas do teste",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "comandou-boas-vindas",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "a1f3c2d4-0001-4a00-9000-000000000001",
+      "name": "Webhook do Comandou",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "comandou-boas-vindas"
+    },
+    {
+      "parameters": {
+        "fromEmail": "Comandou <contato@comandou.com>",
+        "toEmail": "={{ $json.body.to }}",
+        "subject": "={{ $json.body.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.body.text }}",
+        "html": "={{ $json.body.html }}",
+        "options": {}
+      },
+      "id": "a1f3c2d4-0002-4a00-9000-000000000002",
+      "name": "Enviar e-mail",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [500, 300]
+    }
+  ],
+  "connections": {
+    "Webhook do Comandou": {
+      "main": [[{ "node": "Enviar e-mail", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" }
+}

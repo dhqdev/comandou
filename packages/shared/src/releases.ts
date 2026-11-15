@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.123.0',
+    date: '2026-11-15',
+    title: 'Site do Comandou e teste grátis criado pelo próprio cliente',
+    summary:
+      'O endereço comandou.com ganhou o site do sistema. Quem chega cola o link do próprio site ou do Google Maps, ou descreve o que vende, e o restaurante de teste nasce em segundos, já com login. O teste vale por 3 dias.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Site público com as telas de verdade do sistema, o preço e as perguntas mais comuns, no claro e no escuro.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cadastro pelo site: o restaurante é criado na hora, a pessoa entra já logada e recebe o endereço, o login e a senha por e-mail.',
+      },
+      {
+        tag: 'novo',
+        text: 'Os primeiros passos começam sozinhos pelo site, pelo Google Maps ou pela descrição informados no cadastro. Também dá para escrever os itens à mão.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin › Site: liga o cadastro, define os dias de teste, o envio do e-mail (n8n) e mostra quem criou um teste.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Teste que vence sem contratação suspende o restaurante sozinho, sem apagar nada.',
+      },
+    ],
+  },
+  {
     version: '0.122.1',
     date: '2026-11-15',
     title: 'Ver na sua mesa abre a câmera direto',

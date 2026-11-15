@@ -1,0 +1,60 @@
+# Site público e teste grátis pelo site
+
+O domínio base (`comandou.com` e `www.comandou.com`) mostra o site público: o que o sistema faz,
+com telas de verdade da demonstração, o preço (vem de Super Admin › Planos) e o cadastro em que o
+dono cria o próprio restaurante de teste.
+
+## Como o cadastro funciona
+
+1. A pessoa informa o site que já tem, o link do Google Maps ou descreve os itens. O site mostra
+   uma prévia (nome, ícone e cor do site dela), sem IA.
+2. Ela informa o nome do restaurante, o próprio nome e o e-mail. O restaurante nasce pelo mesmo
+   caminho do painel (banco próprio, plano padrão), com o teste de **3 dias** (ajustável).
+3. Quando fica pronto (poucos segundos), a tela mostra endereço, login e senha, e o botão abre o
+   restaurante **já logado** (link de uso único, 1 hora). O mesmo login vai por e-mail.
+4. No primeiro acesso, os primeiros passos começam sozinhos pelo que ela informou: leem o site,
+   o lugar do Maps (nome e endereço) ou a descrição dos itens. O PDF e as fotos do cardápio
+   entram ali, na conferência.
+5. Passou do prazo sem fechar (a assinatura continua "em teste"), o restaurante é **suspenso**.
+   Nada é apagado. Para continuar: Super Admin › Restaurantes › o cliente › Reativar, e mude a
+   assinatura para ativa (ou estenda o teste antes de vencer).
+
+Tudo fica em **Super Admin › Site**: ligar/desligar o cadastro, dias de teste, limite por dia, o
+webhook do e-mail e a lista de testes (quem criou, de onde veio, se o e-mail saiu, se fechou).
+
+Proteções: 6 tentativas de cadastro por hora por IP, limite por dia (padrão 40), um teste por e-mail e um
+campo escondido contra robôs.
+
+## Domínio
+
+O Traefik passa a atender `comandou.com` e `www.comandou.com` sozinho (a lista de endereços que a
+API entrega ao Traefik inclui os dois). Só é preciso o DNS: registros **A** de `@` e `www` para
+o IP do servidor (o `@` já é pedido na instalação). Se o domínio base apontar para outro
+servidor, desligue com `TRAEFIK_SITE_HOSTS=false` na API.
+
+A página de planos continua em `/precos`.
+
+## E-mail de boas-vindas pelo n8n
+
+O Comandou monta o e-mail (assunto, HTML e texto) e chama um webhook; o n8n só envia.
+
+1. No n8n, importe [`docs/assets/n8n-boas-vindas.json`](assets/n8n-boas-vindas.json)
+   (Workflows › Import from file).
+2. No nó **Enviar e-mail**, escolha a credencial de SMTP (ou troque pelo nó do Gmail) e ajuste o
+   remetente.
+3. No nó **Webhook do Comandou**, crie a credencial *Header Auth* com o nome `X-Comandou-Token`
+   e um segredo à sua escolha. Ative o workflow e copie a **Production URL**.
+4. Em Super Admin › Site, cole o endereço do webhook e o mesmo segredo, salve e use **Enviar
+   e-mail de teste**.
+
+Corpo que o webhook recebe (JSON):
+
+| Campo | O que é |
+| --- | --- |
+| `event` | `trial.welcome` (cadastro) ou `trial.test` (botão de teste) |
+| `to`, `toName` | destinatário |
+| `subject`, `html`, `text` | e-mail pronto |
+| `restaurant`, `url`, `loginEmail`, `password`, `trialEndsAt` | os dados soltos, para quem preferir montar o próprio modelo |
+
+Sem webhook configurado o cadastro funciona igual; o login aparece só na tela. A senha inicial
+fica cifrada no banco apenas até o e-mail sair (ou por no máximo 1 hora) e é apagada em seguida.

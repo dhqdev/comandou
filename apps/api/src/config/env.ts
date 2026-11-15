@@ -220,6 +220,14 @@ const schema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
+  /**
+   * Site público no domínio base (comandou.com e www.comandou.com): o provider HTTP lista os dois
+   * endereços. Desligue se o domínio base apontar para outro servidor.
+   */
+  TRAEFIK_SITE_HOSTS: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
   /** Resolver dos endereços de restaurantes. Vazio: usa TRAEFIK_CUSTOM_CERT_RESOLVER. */
   TRAEFIK_TENANT_CERT_RESOLVER: z.preprocess(
     (v) => (v === '' ? undefined : v),

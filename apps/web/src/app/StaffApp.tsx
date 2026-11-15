@@ -205,6 +205,9 @@ function Gate() {
           O acesso a este sistema está pausado. Nenhum dado foi apagado: assim que for reativado,
           tudo volta como estava. Fale com o suporte do Comandou.
         </p>
+        <p>
+          Estava no teste grátis? Ele terminou. É só falar com a gente para continuar de onde parou.
+        </p>
       </main>
     );
   }

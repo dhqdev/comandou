@@ -396,6 +396,18 @@ ${ITEM_RULES}
 - Foto de um único prato, sem texto: devolva um item com o nome mais provável do prato, uma descrição curta do que aparece, "price": null e "photo" com a caixa do prato.
 - Se não houver comida, bebida nem cardápio na imagem, devolva "categories":[] e o que der da loja.`;
 
+/** Prompt da leitura do cardápio descrito em texto pelo dono (primeiros passos pelo site). */
+export const TEXT_PROMPT = `Você monta o cadastro de um restaurante brasileiro a partir do que o dono escreveu: os itens do cardápio (com ou sem preço) e, às vezes, dados da loja (endereço, telefone, horário).
+
+Responda SOMENTE com JSON neste formato:
+{${STORE_FIELDS.replace('LOGO', '')},"categories":[{"name":"Nome da categoria","items":[{"name":"Nome do item","description":"descrição curta ou null","price":"24.90 ou null"}]}]}
+
+${STORE_RULES}
+
+${ITEM_RULES}
+- Sem categoria escrita: agrupe pelos tipos comuns (Lanches, Pizzas, Porções, Bebidas, Sobremesas...).
+- Não invente itens nem preços que não estejam no texto. Item sem preço: "price": null.`;
+
 /** Foto ilustrativa de um item sem foto (modelo de imagem do OpenRouter). */
 export const photoPrompt = (name: string, description: string | null, category: string | null) =>
   `Foto profissional de cardápio de delivery, quadrada, do prato "${name}"${category ? ` (categoria ${category})` : ''}${description ? `: ${description}` : ''}. Comida brasileira real e apetitosa, servida em louça simples, luz natural suave, vista de 45 graus, fundo neutro desfocado. Sem texto, sem logo, sem pessoas, sem mãos.`;

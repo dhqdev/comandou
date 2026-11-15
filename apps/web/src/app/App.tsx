@@ -7,6 +7,7 @@ import { FullscreenTab, isPublicPath } from '../features/FullscreenTab';
 import { UpdatePrompt } from './UpdatePrompt';
 import { isPlatformHost } from '../platform/host';
 import { lazyPage } from '../lib/lazy-page';
+import { useSiteHost } from '../site/host';
 
 // Cada tela vira um arquivo separado no build (o app abre mais rápido, principalmente no celular).
 // O cardápio do cliente não baixa nada do sistema da equipe (StaffApp).
@@ -42,6 +43,14 @@ const SupportEntryPage = lazyPage(
   () => import('../pages/SupportEntryPage'),
   (m) => m.SupportEntryPage,
 );
+const EntryPage = lazyPage(
+  () => import('../pages/EntryPage'),
+  (m) => m.EntryPage,
+);
+const SiteApp = lazyPage(
+  () => import('../site/SiteApp'),
+  (m) => m.SiteApp,
+);
 const PlatformApp = lazyPage(
   () => import('../platform/PlatformApp'),
   (m) => m.PlatformApp,
@@ -54,6 +63,7 @@ function ShellFullscreenTab() {
 }
 
 export function App() {
+  const host = useSiteHost();
   // admin.<domínio base>: painel Super Admin, com login e sessão próprios.
   if (isPlatformHost()) {
     return (
@@ -63,6 +73,19 @@ export function App() {
         </Suspense>
         <UpdatePrompt />
         <FullscreenTab />
+      </>
+    );
+  }
+  // comandou.com e www: o site público (página de vendas e cadastro do teste). /precos segue
+  // sendo a página de planos.
+  if (host === 'pending') return <PageLoading />;
+  if (host === 'site' && !/^\/pre[cç]os\/?$/.test(decodeURI(window.location.pathname))) {
+    return (
+      <>
+        <Suspense fallback={<PageLoading />}>
+          <SiteApp />
+        </Suspense>
+        <UpdatePrompt />
       </>
     );
   }
@@ -87,6 +110,8 @@ export function App() {
             <Route path="/mesa/:id" element={<TableLinkPage />} />
             {/* Link de acesso do suporte (painel Super Admin): troca o token por uma sessão. */}
             <Route path="/suporte" element={<SupportEntryPage />} />
+            {/* Chegada de quem acabou de criar o restaurante pelo site (link de uso único). */}
+            <Route path="/entrar" element={<EntryPage />} />
             {/* Planos e preços (público): sai do Super Admin → Planos. */}
             <Route path="/precos" element={<PricingPage />} />
             <Route path="/preços" element={<PricingPage />} />

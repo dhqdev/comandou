@@ -259,6 +259,46 @@ export class AuthController {
     });
   }
 
+  /**
+   * Entrada do cadastro pelo site: troca o link de uso único (válido por 1 hora, só neste
+   * restaurante) por uma sessão normal do dono, para ele cair direto nos primeiros passos.
+   */
+  @Public()
+  @Post('entry')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  async entry(
+    @Body(new ZodPipe(SupportSchema)) body: z.infer<typeof SupportSchema>,
+    @CurrentTenant() tenant: ResolvedTenant,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const [row] = await this.db.queryTenantDb<{ user_id: string }>(
+      tenant.id,
+      'SELECT user_id FROM app_consume_entry_token($1, $2)',
+      [tenant.id, hashToken(body.token)],
+    );
+    if (!row) throw new UnauthorizedException('Link de acesso inválido ou vencido');
+    return this.db.withTenant({ tenantId: tenant.id, userId: row.user_id }, async (tx) => {
+      const s = await this.sessions.create(tx, tenant.id, row.user_id, {
+        ip: req.ip,
+        userAgent: req.get('user-agent'),
+        remember: true,
+      });
+      await this.audit.record(tx, {
+        tenantId: tenant.id,
+        actorUserId: row.user_id,
+        action: 'auth.signup_entry',
+        entity: 'user',
+        entityId: row.user_id,
+        data: { by: 'site' },
+        ip: req.ip,
+      });
+      res.cookie(SESSION_COOKIE, s.token, sessionCookieOptions(this.env, s.expiresAt));
+      return { expiresAt: s.expiresAt };
+    });
+  }
+
   @Get('me')
   me(@CurrentUser() user: AuthenticatedUser, @CurrentTenant() tenant: ResolvedTenant) {
     return {

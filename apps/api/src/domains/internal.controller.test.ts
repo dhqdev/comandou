@@ -2,11 +2,27 @@ import { describe, expect, it } from 'vitest';
 import { loadEnv } from '../config/env';
 import { CROWDSEC_MIDDLEWARE, traefikConfig } from './internal.controller';
 
-const base = { DATABASE_URL: 'postgres://u:p@localhost/db', COMANDOU_BASE_DOMAIN: 'comandou.com' };
+const site = { DATABASE_URL: 'postgres://u:p@localhost/db', COMANDOU_BASE_DOMAIN: 'comandou.com' };
+/** Sem o site público (domínio base e www), para os testes abaixo olharem só os restaurantes. */
+const base = { ...site, TRAEFIK_SITE_HOSTS: 'false' };
 const rules = (c: ReturnType<typeof traefikConfig>) =>
   Object.values(c.http.routers as Record<string, { rule: string }>).map((r) => r.rule);
 
 describe('traefikConfig', () => {
+  it('site público: o domínio base e o www entram sozinhos, com o resolver de restaurantes', () => {
+    const env = loadEnv({ ...site, TRAEFIK_TENANT_CERT_RESOLVER: 'letsencryptresolver' });
+    const c = traefikConfig(['loja.exemplo.com'], env, ['demo']);
+    expect(rules(c).filter((r) => !r.includes('PathPrefix'))).toEqual([
+      'Host(`loja.exemplo.com`)',
+      'Host(`comandou.com`)',
+      'Host(`www.comandou.com`)',
+    ]);
+    const routers = Object.values(c.http.routers) as { rule: string; tls: unknown }[];
+    expect(routers.find((r) => r.rule === 'Host(`comandou.com`)')!.tls).toEqual({
+      certResolver: 'letsencryptresolver',
+    });
+  });
+
   it('desligado: só domínios personalizados', () => {
     const env = loadEnv({ ...base });
     expect(rules(traefikConfig(['loja.exemplo.com'], env, ['demo']))).toEqual([

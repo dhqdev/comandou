@@ -20,6 +20,7 @@ import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types'
 import { MenuImportService } from './menu-import.service';
 
 const Link = z.object({ url: z.string().trim().min(4).max(2000) });
+const Text = z.object({ text: z.string().trim().min(10).max(12_000) });
 const Photo = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(500).nullable().optional(),
@@ -70,6 +71,20 @@ export class MenuImportController {
     @Req() req: Request,
   ) {
     return this.service.fromLink(ctxOf(t, u, req), b.url);
+  }
+
+  /** Primeiros passos: cardápio descrito em texto (um item por linha, com o preço). */
+  @Post('text')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 6 } })
+  @RequirePermission('catalog:write')
+  text(
+    @Body(new ZodPipe(Text)) b: z.infer<typeof Text>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.service.fromText(ctxOf(t, u, req), b.text);
   }
 
   /** Foto do link (logo, capa, item) para o navegador reduzir e guardar. */

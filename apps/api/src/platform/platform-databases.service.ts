@@ -135,7 +135,12 @@ export class PlatformDatabasesService {
    * pedido para o serviço de backup, que cria o banco, aplica as migrações e cadastra o
    * administrador. A senha vira hash aqui; nem a senha nem o hash entram na auditoria.
    */
-  async create(b: NewTenantInput, a: Actor): Promise<string> {
+  async create(
+    b: NewTenantInput,
+    a: Actor,
+    /** Cadastro pelo site: link de uso único que abre o restaurante novo já logado. */
+    extra: { entryTokenHash?: string } = {},
+  ): Promise<string> {
     const exists = await this.db.query(`SELECT 1 FROM tenants WHERE slug = $1`, [b.slug]);
     if (exists.length) throw new ConflictException('Já existe um restaurante com este endereço');
     if (b.planCode) {
@@ -176,6 +181,7 @@ export class PlatformDatabasesService {
             passwordHash,
             // WhatsApp da loja online já preenchido com o telefone do cadastro.
             storeWhatsapp: b.profile?.phone ?? undefined,
+            ...extra,
           },
           a.admin.id,
         ],

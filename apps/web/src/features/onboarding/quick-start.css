@@ -347,3 +347,16 @@
     flex-direction: column;
   }
 }
+
+/* Cardápio escrito pela pessoa (um item por linha). */
+.qs-text {
+  width: 100%;
+  min-height: 132px;
+  padding: var(--cm-space-3);
+  line-height: 1.5;
+  resize: vertical;
+}
+.qs-skip svg {
+  vertical-align: -2px;
+  margin-right: 4px;
+}

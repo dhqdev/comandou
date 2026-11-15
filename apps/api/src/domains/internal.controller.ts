@@ -108,9 +108,15 @@ export function traefikConfig(
   const platformHosts = env.TRAEFIK_TENANT_HOSTS
     ? ['admin', ...tenantSlugs].map((s) => `${s}.${env.COMANDOU_BASE_DOMAIN}`)
     : [];
+  // Site público (página de vendas e cadastro do teste): o domínio base e o www.
+  const siteHosts = env.TRAEFIK_SITE_HOSTS
+    ? [env.COMANDOU_BASE_DOMAIN, `www.${env.COMANDOU_BASE_DOMAIN}`]
+    : [];
   const all = [
     ...hostnames.map((h) => ({ h, tls: customTls })),
-    ...platformHosts.filter((h) => !hostnames.includes(h)).map((h) => ({ h, tls: tenantTls })),
+    ...[...siteHosts, ...platformHosts]
+      .filter((h) => !hostnames.includes(h))
+      .map((h) => ({ h, tls: tenantTls })),
   ];
   // Certificado coringa: os subdomínios dos restaurantes não estão na lista (vêm dos labels),
   // mas os que ficaram numa versão antiga precisam de roteador próprio para ir à cópia.

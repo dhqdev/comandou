@@ -1,4 +1,4 @@
-import { Camera, Images, Link2, Sparkles, Upload } from 'lucide-react';
+import { Camera, Images, Link2, PencilLine, Sparkles, Upload } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Alert, Button, Spinner, TextField } from '../../design-system';
 import {
@@ -17,6 +17,7 @@ import {
   imageColors,
   readFile,
   readLink,
+  readText,
   squareIcon,
   storeDraft,
   type ApplyResult,
@@ -64,6 +65,8 @@ export function QuickStart({
   const [status, setStatus] = useState<ImportStatus | null>(null);
   const [stage, setStage] = useState<Stage>({ at: 'pick' });
   const [link, setLink] = useState('');
+  const [typed, setTyped] = useState('');
+  const [writing, setWriting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reading, setReading] = useState<Reading | null>(null);
   const [drafts, setDrafts] = useState<DraftItem[]>([]);
@@ -92,6 +95,30 @@ export function QuickStart({
 
   useEffect(() => () => void (stopPhotos.current = true), []);
 
+  // Teste criado pelo site: a pessoa já disse de onde vem o cardápio (site, Google Maps ou os
+  // itens escritos). A leitura começa sozinha, uma única vez neste navegador.
+  const auto = useRef(false);
+  useEffect(() => {
+    const t = signup?.trial;
+    if (auto.current || !status?.enabled || !t || t.sourceKind === 'none' || !t.sourceValue) return;
+    auto.current = true;
+    const key = 'cm:trial-import';
+    try {
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, '1');
+    } catch {
+      /* navegação privada: lê mesmo assim */
+    }
+    if (t.sourceKind === 'text') {
+      setTyped(t.sourceValue);
+      void fromText(t.sourceValue);
+    } else {
+      setLink(t.sourceValue);
+      void fromLink(t.sourceValue);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, signup]);
+
   // Conferência aberta: mostra do começo (a loja), não do fim da lista.
   const root = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -118,8 +145,23 @@ export function QuickStart({
     setStage({ at: 'review' });
   };
 
-  const fromLink = async () => {
-    const url = link.trim();
+  const fromText = async (given?: string) => {
+    const text = (given ?? typed).trim();
+    if (text.length < 10) return;
+    setError(null);
+    setStage({ at: 'reading', label: 'Lendo os itens que você escreveu' });
+    try {
+      const r = await readText(text, reading ? { ...reading, drafts } : null);
+      await finishReading(r, sources);
+    } catch (e) {
+      setError((e as Error).message);
+      setWriting(true);
+      setStage({ at: reading ? 'review' : 'pick' });
+    }
+  };
+
+  const fromLink = async (given?: string) => {
+    const url = (given ?? link).trim();
     if (!url) return;
     setError(null);
     setStage({ at: 'reading', label: 'Abrindo o link' });
@@ -311,6 +353,39 @@ export function QuickStart({
             Pode ser o seu site, o cardápio digital ou a página da loja no app de delivery.
           </span>
         </form>
+        {writing ? (
+          <form
+            className="qs-link"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void fromText();
+            }}
+          >
+            <label className="cm-label" htmlFor="qs-text">
+              Escreva os itens
+            </label>
+            <textarea
+              id="qs-text"
+              className="cm-input qs-text"
+              rows={6}
+              maxLength={6000}
+              placeholder={
+                'X-Burger 28,90\nX-Salada 32,00\nBatata frita 18,00\nRefrigerante lata 7,00'
+              }
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+            />
+            <div className="qs-foot">
+              <Button type="submit" disabled={typed.trim().length < 10}>
+                Ler itens
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <button type="button" className="qs-skip" onClick={() => setWriting(true)}>
+            <PencilLine size={14} aria-hidden /> Prefiro escrever os itens
+          </button>
+        )}
         <button type="button" className="qs-skip" onClick={onSkip}>
           Ainda não tenho cardápio pronto
         </button>
