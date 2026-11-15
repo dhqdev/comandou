@@ -309,7 +309,7 @@
   -webkit-line-clamp: 2;
   line-clamp: 2;
 }
-/* No menu lateral fica só a logo (o nome já aparece no topo da tela e no title). */
+/* Menu recolhido: só a logo (o nome fica no title). Aberto: logo + nome numa linha só. */
 .cm-rail .cm-store-brand__name,
 .cm-store-brand[data-compact] .cm-store-brand__name {
   display: none;
@@ -356,13 +356,26 @@
     padding: 0 0 0 4px;
   }
   .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand {
-    flex: 0 1 auto;
+    flex: 1 1 auto;
+    gap: 10px;
   }
   .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo {
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
     padding: 3px;
-    border-radius: 11px;
+    border-radius: 10px;
+  }
+  /* Nome do restaurante numa linha; se não couber, termina em "…" (o nome inteiro no title). */
+  .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__name {
+    display: block;
+    flex: 1 1 auto;
+    overflow: hidden;
+    font-size: var(--cm-text-md);
+    font-weight: 650;
+    line-height: 1.3;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow-wrap: normal;
   }
   .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo--initial {
     padding: 0;

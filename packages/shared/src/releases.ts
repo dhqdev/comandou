@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.120.0',
+    date: '2026-11-15',
+    title: 'Filtro de data com atalhos e nome do restaurante no menu',
+    summary:
+      'O filtro de data das listas abre uma grade de atalhos (Hoje, Ontem, Esta semana, Este mês, Mês passado, Últimos 3 e 12 meses, Este ano) com quantos pedidos cada um tem, e um De/Até com o botão Aplicar. No menu lateral, a logo fica ao lado do nome do restaurante.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Filtro de data em grade, com a contagem de cada período e o escolhido destacado. Vale para Pedidos e para as outras listas com filtro de data.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Menu lateral aberto mostra a logo e o nome do restaurante; nome comprido termina em "…" (o nome inteiro aparece ao parar o mouse). Recolhido, fica só a logo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pedidos avisa quando o período tem mais pedidos do que a lista mostra (os 500 mais recentes).',
+      },
+    ],
+  },
+  {
     version: '0.119.1',
     date: '2026-11-15',
     title: 'Tela do item no cardápio chega aos restaurantes',

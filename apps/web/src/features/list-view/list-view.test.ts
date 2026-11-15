@@ -36,6 +36,11 @@ describe('list-view', () => {
     expect(dateBounds('7d', now)).toEqual(['2026-10-21', '2026-10-27']);
     expect(dateBounds('month', now)).toEqual(['2026-10-01', '2026-10-27']);
     expect(dateBounds('last-month', now)).toEqual(['2026-09-01', '2026-09-30']);
+    // 27/10/2026 é terça: a semana começa na segunda, 26/10.
+    expect(dateBounds('week', now)).toEqual(['2026-10-26', '2026-10-27']);
+    expect(dateBounds('3m', now)).toEqual(['2026-07-28', '2026-10-27']);
+    expect(dateBounds('12m', now)).toEqual(['2025-10-28', '2026-10-27']);
+    expect(dateBounds('year', now)).toEqual(['2026-01-01', '2026-10-27']);
     expect(dateBounds('range:2026-10-10:2026-10-01', now)).toEqual(['2026-10-01', '2026-10-10']);
     expect(dateBounds(undefined, now)).toBeNull();
   });
@@ -72,7 +77,7 @@ describe('list-view', () => {
   it('mostra o texto do chip e separa o que vai ao servidor', () => {
     expect(chipText(fields[0]!, undefined)).toBe('Todos');
     expect(chipText(fields[0]!, ['open', 'paid'])).toBe('Aberto +1');
-    expect(chipText(fields[2]!, ['today'])).toBe('hoje');
+    expect(chipText(fields[2]!, ['today'])).toBe('Hoje');
     const server = [{ ...fields[2]!, server: true }, fields[0]!];
     expect(serverFilters(server, { at: ['today'], status: ['open'] })).toEqual({ at: ['today'] });
   });

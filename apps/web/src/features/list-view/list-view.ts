@@ -24,6 +24,8 @@ export interface ListField<T> {
   date?: (row: T) => string | null | undefined;
   /** Chip sempre visível, mesmo sem nada escolhido ("Tipo: Todos"). */
   pinned?: boolean;
+  /** Nota no rodapé do filtro de data (qual data a lista usa). */
+  dateNote?: string;
   /** Filtro feito pelo servidor ao carregar: a lista não refiltra por ele. */
   server?: boolean;
 }
@@ -46,13 +48,22 @@ export interface ListSort<T> {
 
 /* ------------------------------------------------------------------ período */
 
+/** Atalhos da grade do filtro de data, na ordem em que aparecem (duas colunas). */
 export const DATE_PRESETS: FieldOption[] = [
   { value: 'today', label: 'Hoje' },
   { value: 'yesterday', label: 'Ontem' },
-  { value: '7d', label: 'Últimos 7 dias' },
-  { value: '30d', label: 'Últimos 30 dias' },
+  { value: 'week', label: 'Esta semana' },
   { value: 'month', label: 'Este mês' },
   { value: 'last-month', label: 'Mês passado' },
+  { value: '3m', label: 'Últimos 3 meses' },
+  { value: '12m', label: 'Últimos 12 meses' },
+  { value: 'year', label: 'Este ano' },
+];
+
+/** Períodos que não estão na grade, mas seguem valendo em abas e filtros salvos. */
+const EXTRA_PRESETS: FieldOption[] = [
+  { value: '7d', label: 'Últimos 7 dias' },
+  { value: '30d', label: 'Últimos 30 dias' },
 ];
 
 /** Dia local no formato AAAA-MM-DD. */
@@ -76,8 +87,21 @@ export function dateBounds(value: string | undefined, now = new Date()): [string
       return [isoDay(addDays(today, -6)), isoDay(today)];
     case '30d':
       return [isoDay(addDays(today, -29)), isoDay(today)];
+    case 'week':
+      // Semana começando na segunda-feira.
+      return [isoDay(addDays(today, -((today.getDay() + 6) % 7))), isoDay(today)];
     case 'month':
       return [isoDay(new Date(today.getFullYear(), today.getMonth(), 1)), isoDay(today)];
+    case '3m':
+    case '12m': {
+      const n = value === '3m' ? 3 : 12;
+      return [
+        isoDay(new Date(today.getFullYear(), today.getMonth() - n, today.getDate() + 1)),
+        isoDay(today),
+      ];
+    }
+    case 'year':
+      return [isoDay(new Date(today.getFullYear(), 0, 1)), isoDay(today)];
     case 'last-month':
       return [
         isoDay(new Date(today.getFullYear(), today.getMonth() - 1, 1)),
@@ -93,11 +117,36 @@ const fmtDay = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
 export function dateLabel(value: string | undefined) {
   if (!value) return 'qualquer data';
-  const preset = DATE_PRESETS.find((p) => p.value === value);
-  if (preset) return preset.label.toLowerCase();
+  const preset = [...DATE_PRESETS, ...EXTRA_PRESETS].find((p) => p.value === value);
+  if (preset) return preset.label;
   const b = dateBounds(value);
-  if (!b) return 'qualquer data';
+  if (!b) return 'Qualquer data';
   return b[0] === b[1] ? fmtDay(b[0]) : `${fmtDay(b[0])} a ${fmtDay(b[1])}`;
+}
+
+/** Limites de um dia local AAAA-MM-DD em instantes ISO: [início do primeiro, início do dia seguinte ao último). */
+export function boundsToIso([a, b]: [string, string]): [string, string] {
+  const from = new Date(`${a}T00:00:00`);
+  const end = new Date(`${b}T00:00:00`);
+  const to = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
+  return [from.toISOString(), to.toISOString()];
+}
+
+/** Quantas linhas caem em cada atalho de data (lista carregada inteira no navegador). */
+export function presetCounts<T>(field: ListField<T>, rows: readonly T[], now?: Date) {
+  const out: Record<string, number> = {};
+  for (const p of DATE_PRESETS) {
+    const b = dateBounds(p.value, now)!;
+    let n = 0;
+    for (const r of rows) {
+      const d = field.date?.(r);
+      if (!d) continue;
+      const day = localDay(d);
+      if (day >= b[0] && day <= b[1]) n++;
+    }
+    out[p.value] = n;
+  }
+  return out;
 }
 
 /** Dia local de uma data ISO completa, ou a própria data se já vier AAAA-MM-DD. */

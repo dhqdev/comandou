@@ -19,6 +19,8 @@ import {
   dateTime,
 } from '../features/format';
 import {
+  boundsToIso,
+  DATE_PRESETS,
   dateBounds,
   fold,
   ListTable,
@@ -67,6 +69,7 @@ const FIELDS: ListField<Order>[] = [
     label: 'Data',
     kind: 'date',
     date: (o) => o.createdAt,
+    dateNote: 'A data é a de criação do pedido.',
     pinned: true,
     server: true,
   },
@@ -165,16 +168,23 @@ export function OrdersPage() {
     sorts: SORTS,
   });
   const period = lv.filters.date?.[0];
+  const [periodCounts, setPeriodCounts] = useState<Record<string, number> | null>(null);
 
   const load = useCallback(async () => {
     const p = new URLSearchParams({ limit: String(LIMIT) });
     const b = dateBounds(period);
     if (b) {
-      const a = new Date(`${b[0]}T00:00:00`);
-      const z = new Date(new Date(`${b[1]}T00:00:00`).getTime() + 86_400_000);
-      p.set('from', a.toISOString());
-      p.set('to', z.toISOString());
+      const [from, to] = boundsToIso(b);
+      p.set('from', from);
+      p.set('to', to);
     }
+    // Quantos pedidos cada atalho do filtro de data tem (a lista só traz o período escolhido).
+    const c = new URLSearchParams();
+    for (const preset of DATE_PRESETS)
+      c.append('r', [preset.value, ...boundsToIso(dateBounds(preset.value)!)].join(','));
+    void api<Record<string, number>>(`/orders/period-counts?${c}`)
+      .then(setPeriodCounts)
+      .catch(() => setPeriodCounts(null));
     try {
       setOrders(await api<Order[]>(`/orders?${p}`));
       setError(null);
@@ -230,6 +240,7 @@ export function OrdersPage() {
         <ListToolbar
           lv={lv}
           searchLabel="Buscar pedido"
+          dateCounts={{ date: periodCounts }}
           placeholder="Buscar: nº, cliente, telefone, mesa ou item"
           actions={
             <button
@@ -245,7 +256,10 @@ export function OrdersPage() {
           summary={
             rows === null
               ? '…'
-              : `${rows.length} ${rows.length === 1 ? 'pedido' : 'pedidos'}${rows.length ? ` · ${brl(total.toFixed(2))}` : ''}`
+              : `${rows.length} ${rows.length === 1 ? 'pedido' : 'pedidos'}${rows.length ? ` · ${brl(total.toFixed(2))}` : ''}${
+                  // A lista traz no máximo LIMIT pedidos: avisa que o período tem mais.
+                  orders?.length === LIMIT ? ` · só os ${LIMIT} mais recentes` : ''
+                }`
           }
         />
 

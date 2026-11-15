@@ -4,6 +4,7 @@ import {
   RefObject,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -15,8 +16,9 @@ import {
   DATE_PRESETS,
   dateBounds,
   fold,
-  isoDay,
+  matchAll,
   optionCounts,
+  presetCounts,
   type ListField,
   type ListTab,
 } from './list-view';
@@ -52,6 +54,7 @@ function Popover({
   children,
   footer,
   width = 280,
+  className,
 }: {
   anchor: RefObject<HTMLElement | null>;
   open: boolean;
@@ -60,6 +63,7 @@ function Popover({
   children: ReactNode;
   footer?: ReactNode;
   width?: number;
+  className?: string;
 }) {
   const narrow = useNarrow();
   const box = useRef<HTMLDivElement>(null);
@@ -111,7 +115,13 @@ function Popover({
     );
   if (!open) return null;
   return createPortal(
-    <div ref={box} className="lv-pop" role="dialog" aria-label={title} style={pos}>
+    <div
+      ref={box}
+      className={`lv-pop ${className ?? ''}`}
+      role="dialog"
+      aria-label={title}
+      style={pos}
+    >
       <div className="lv-pop__title">{title}</div>
       <div className="lv-pop__body">{children}</div>
       {footer && <div className="lv-pop__foot">{footer}</div>}
@@ -160,52 +170,74 @@ function OptionsPicker<T>({ lv, field }: { lv: ListView<T>; field: ListField<T> 
   );
 }
 
-/** Período: atalhos (hoje, 7 dias, este mês…) ou de/até. */
-function DatePicker<T>({ lv, field }: { lv: ListView<T>; field: ListField<T> }) {
+/**
+ * Período: grade de atalhos (Hoje, Ontem, Esta semana…) com quantas linhas cada um tem, e
+ * De/Até livre com "Aplicar". Atalho aplica na hora; o De/Até só ao apertar "Aplicar".
+ */
+function DateGrid<T>({
+  lv,
+  field,
+  counts,
+  from,
+  to,
+  setFrom,
+  setTo,
+  onPick,
+}: {
+  lv: ListView<T>;
+  field: ListField<T>;
+  counts: Record<string, number> | null | undefined;
+  from: string;
+  to: string;
+  setFrom(v: string): void;
+  setTo(v: string): void;
+  onPick(value: string): void;
+}) {
   const value = lv.filters[field.key]?.[0] ?? '';
-  const bounds = dateBounds(value) ?? [isoDay(), isoDay()];
-  const custom = value.startsWith('range:');
-  const set = (v: string) => lv.setField(field.key, v ? [v] : []);
-  const range = (a: string, b: string) => set(`range:${a}:${b}`);
   return (
-    <div className="lv-opts" role="radiogroup" aria-label={field.label}>
-      {[{ value: '', label: 'Qualquer data' }, ...DATE_PRESETS].map((p) => (
-        <label key={p.value} className="lv-opt" data-on={value === p.value || undefined}>
-          <input
-            type="radio"
-            name={`lv-${field.key}`}
-            checked={value === p.value}
-            onChange={() => set(p.value)}
-          />
-          <span className="lv-opt__label">{p.label}</span>
-        </label>
-      ))}
-      <label className="lv-opt" data-on={custom || undefined}>
-        <input
-          type="radio"
-          name={`lv-${field.key}`}
-          checked={custom}
-          onChange={() => range(bounds[0], bounds[1])}
-        />
-        <span className="lv-opt__label">Escolher período</span>
-      </label>
-      {custom && (
-        <div className="lv-range">
-          <DateInput
-            aria-label="De"
-            sheetTitle="A partir de"
-            value={bounds[0]}
-            onChange={(e) => e.target.value && range(e.target.value, bounds[1])}
-          />
-          <span aria-hidden>até</span>
-          <DateInput
-            aria-label="Até"
-            sheetTitle="Até"
-            value={bounds[1]}
-            onChange={(e) => e.target.value && range(bounds[0], e.target.value)}
-          />
+    <div className="lv-date">
+      <div className="lv-date__grid" role="radiogroup" aria-label={field.label}>
+        {DATE_PRESETS.map((p) => {
+          const n = counts?.[p.value];
+          return (
+            <button
+              key={p.value}
+              type="button"
+              role="radio"
+              aria-checked={value === p.value}
+              className="lv-date__preset"
+              data-on={value === p.value || undefined}
+              onClick={() => onPick(p.value)}
+            >
+              <span className="lv-date__label">{p.label}</span>
+              <span className="lv-date__n">{n == null ? '' : nf.format(n)}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="lv-date__range">
+        <div className="lv-date__range-title">De / até</div>
+        <div className="lv-date__fields">
+          <label className="lv-date__field">
+            <span>De</span>
+            <DateInput
+              sheetTitle="A partir de"
+              value={from}
+              max={to || undefined}
+              onChange={(e) => setFrom(e.target.value)}
+            />
+          </label>
+          <label className="lv-date__field">
+            <span>Até</span>
+            <DateInput
+              sheetTitle="Até"
+              value={to}
+              min={from || undefined}
+              onChange={(e) => setTo(e.target.value)}
+            />
+          </label>
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -216,18 +248,81 @@ function Chip<T>({
   open,
   onOpen,
   onClose,
+  dateCounts,
 }: {
   lv: ListView<T>;
   field: ListField<T>;
   open: boolean;
   onOpen(): void;
   onClose(): void;
+  dateCounts?: Record<string, number> | null;
 }) {
   const ref = useRef<HTMLButtonElement>(null);
   const chosen = lv.filters[field.key];
   const set = !!chosen?.length;
+  const isDate = field.kind === 'date';
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+
+  // De/Até começa com o período livre já aplicado (se houver) a cada abertura.
+  const current = chosen?.[0] ?? '';
+  useEffect(() => {
+    if (!open || !isDate) return;
+    const b = current.startsWith('range:') ? dateBounds(current) : null;
+    setFrom(b?.[0] ?? '');
+    setTo(b?.[1] ?? '');
+  }, [open, isDate, current]);
+
+  // Sem contagem do servidor, conta nas linhas já carregadas (respeitando os outros filtros).
+  const counts = useMemo(() => {
+    if (!isDate || !open) return null;
+    if (dateCounts !== undefined) return dateCounts;
+    if (field.server || !lv.rows) return null;
+    return presetCounts(
+      field,
+      lv.rows.filter((r) => matchAll(lv.fields, r, lv.filters, field.key)),
+    );
+  }, [isDate, open, dateCounts, field, lv.rows, lv.fields, lv.filters]);
+
+  const apply = (v: string) => {
+    lv.setField(field.key, v ? [v] : []);
+    onClose();
+  };
+
+  const footer = isDate ? (
+    <>
+      <p className="lv-date__note">
+        {field.dateNote ?? `Filtra pela ${field.label.toLowerCase()}.`}
+      </p>
+      <div className="lv-date__actions">
+        {set && (
+          <button type="button" className="lv-link" onClick={() => apply('')}>
+            Limpar
+          </button>
+        )}
+        <button
+          type="button"
+          className="cm-btn cm-btn--primary cm-btn--sm"
+          disabled={!from || !to}
+          onClick={() => {
+            const [a, b] = from <= to ? [from, to] : [to, from];
+            apply(`range:${a}:${b}`);
+          }}
+        >
+          Aplicar
+        </button>
+      </div>
+    </>
+  ) : (
+    set && (
+      <button type="button" className="lv-link" onClick={() => lv.setField(field.key, [])}>
+        Limpar
+      </button>
+    )
+  );
+
   return (
-    <span className="lv-chip" data-set={set || undefined}>
+    <span className="lv-chip" data-set={set || undefined} data-open={open || undefined}>
       <button
         ref={ref}
         type="button"
@@ -255,23 +350,21 @@ function Chip<T>({
         open={open}
         title={field.label}
         onClose={onClose}
-        footer={
-          set && (
-            <button
-              type="button"
-              className="lv-link"
-              onClick={() => {
-                lv.setField(field.key, []);
-                if (field.kind === 'date') onClose();
-              }}
-            >
-              Limpar
-            </button>
-          )
-        }
+        width={isDate ? 384 : undefined}
+        className={isDate ? 'lv-pop--date' : undefined}
+        footer={footer}
       >
-        {field.kind === 'date' ? (
-          <DatePicker lv={lv} field={field} />
+        {isDate ? (
+          <DateGrid
+            lv={lv}
+            field={field}
+            counts={counts}
+            from={from}
+            to={to}
+            setFrom={setFrom}
+            setTo={setTo}
+            onPick={apply}
+          />
         ) : (
           <OptionsPicker lv={lv} field={field} />
         )}
@@ -428,6 +521,7 @@ export function ListToolbar<T>({
   placeholder,
   actions,
   summary,
+  dateCounts,
 }: {
   lv: ListView<T>;
   searchLabel: string;
@@ -436,6 +530,8 @@ export function ListToolbar<T>({
   actions?: ReactNode;
   /** Texto à direita dos filtros (ex.: "20 de 780 · R$ 1.234,00"). */
   summary?: ReactNode;
+  /** Contagem de cada atalho de data vinda do servidor, por campo (ex.: { date: { today: 12 } }). */
+  dateCounts?: Record<string, Record<string, number> | null>;
 }) {
   const bar = useRef<HTMLDivElement>(null);
   const [openKey, setOpenKey] = useState<string | null>(null);
@@ -466,6 +562,7 @@ export function ListToolbar<T>({
       open={openKey === f.key}
       onOpen={() => setOpenKey(f.key)}
       onClose={() => setOpenKey((k) => (k === f.key ? null : k))}
+      dateCounts={dateCounts && f.key in dateCounts ? dateCounts[f.key] : undefined}
     />
   );
 

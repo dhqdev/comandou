@@ -75,6 +75,19 @@ const ListQuery = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 
+const isoTs = z.string().datetime({ offset: true });
+const Period = z
+  .string()
+  .transform((s) => s.split(','))
+  .pipe(z.tuple([z.string().regex(/^[\w-]{1,40}$/), isoTs, isoTs]))
+  .transform(([key, from, to]) => ({ key, from, to }));
+const CountsQuery = z.object({
+  r: z
+    .union([z.string(), z.array(z.string())])
+    .transform((v) => (Array.isArray(v) ? v : [v]))
+    .pipe(z.array(Period).min(1).max(16)),
+});
+
 const Refund = z.object({ cashSessionId: uuid, amount: money, reason });
 
 /** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
@@ -94,6 +107,17 @@ export class OrdersController {
     @CurrentUser() u: AuthenticatedUser,
   ) {
     return this.orders.list(ctxOf(t, u), f);
+  }
+
+  /** Pedidos por período: `r=chave,deISO,ateISO` (repetido, até 16 períodos). */
+  @Get('period-counts')
+  @RequirePermission('orders:read')
+  periodCounts(
+    @Query(new ZodPipe(CountsQuery)) f: z.infer<typeof CountsQuery>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.orders.periodCounts(ctxOf(t, u), f.r);
   }
 
   @Get(':id')

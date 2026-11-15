@@ -357,6 +357,26 @@ export class OrdersService {
     return this.db.withTenant(ctx, (tx) => q(tx, sql, p));
   }
 
+  /**
+   * Quantos pedidos caem em cada período (atalhos do filtro de data da tela de Pedidos).
+   * Uma consulta só, com um COUNT FILTER por período; os limites vêm do navegador (fuso local).
+   */
+  async periodCounts(ctx: Ctx, ranges: { key: string; from: string; to: string }[]) {
+    if (!ranges.length) return {} as Record<string, number>;
+    const p: unknown[] = [];
+    const scope = ownScope(ctx, p);
+    const cols = ranges.map((r, i) => {
+      p.push(r.from, r.to);
+      return `COUNT(*) FILTER (WHERE o.created_at >= $${p.length - 1}::timestamptz AND o.created_at < $${p.length}::timestamptz)::int AS c${i}`;
+    });
+    const first = ranges.map((r) => new Date(r.from).getTime()).reduce((a, b) => Math.min(a, b));
+    p.push(new Date(first).toISOString());
+    const where = [`o.created_at >= $${p.length}::timestamptz`, ...(scope ? [scope] : [])];
+    const sql = `SELECT ${cols.join(', ')} FROM orders o WHERE ${where.join(' AND ')}`;
+    const row = await this.db.withTenant(ctx, (tx) => one<Record<string, number>>(tx, sql, p));
+    return Object.fromEntries(ranges.map((r, i) => [r.key, row?.[`c${i}`] ?? 0]));
+  }
+
   // ---------------------------------------------------------------- criação
   async create(ctx: Ctx, input: CreateOrderInput, idemKey?: string) {
     const fx = { stock: 0, print: 0 };
