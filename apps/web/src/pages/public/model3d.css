@@ -23,6 +23,54 @@
 .m3d-btn:active {
   background: var(--cm-surface-sunken);
 }
+.m3d-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.m3d-ar {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 18px 8px 14px;
+  border: 0;
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  font: inherit;
+  font-weight: 750;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 160ms var(--cm-ease-out, ease-out);
+}
+.m3d-ar span {
+  display: grid;
+  gap: 1px;
+}
+.m3d-ar small {
+  font-size: var(--cm-text-xs);
+  font-weight: 500;
+  opacity: 0.85;
+}
+.m3d-ar:active {
+  transform: scale(0.97);
+}
+.m3d-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+  cursor: pointer;
+}
 .m3d {
   width: 100%;
   max-width: 720px;

@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.122.1',
+    date: '2026-11-15',
+    title: 'Ver na sua mesa abre a câmera direto',
+    summary:
+      'No celular, o item em 3D ganhou o botão "Ver na sua mesa": um toque abre a câmera e o prato aparece na sua frente, em tamanho real. Girar na tela continua em "Girar em 3D".',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'O botão da câmera não aparecia no visualizador 3D, nem no iPhone nem no Android.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No iPhone a câmera abre pelo Quick Look e no Android pelo visualizador do Google, os dois já vêm no celular.',
+      },
+    ],
+  },
+  {
     version: '0.122.0',
     date: '2026-11-15',
     title: 'Restaurante de exemplo de cara nova, com pratos em 3D',
