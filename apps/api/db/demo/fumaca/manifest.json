@@ -1,232 +1,232 @@
 {
   "burger-classico": {
-    "width": 960,
-    "height": 720,
-    "bytes": 52046
+    "width": 1080,
+    "height": 810,
+    "bytes": 73876
   },
   "burger-classico-2": {
-    "width": 960,
-    "height": 720,
-    "bytes": 61622
+    "width": 1080,
+    "height": 810,
+    "bytes": 84254
   },
   "burger-fumaca": {
-    "width": 960,
-    "height": 720,
-    "bytes": 32726
+    "width": 1080,
+    "height": 810,
+    "bytes": 68046
   },
   "burger-fumaca-2": {
-    "width": 960,
-    "height": 720,
-    "bytes": 48942
+    "width": 1080,
+    "height": 810,
+    "bytes": 62054
   },
   "burger-smash": {
-    "width": 960,
-    "height": 720,
-    "bytes": 55940
+    "width": 1080,
+    "height": 810,
+    "bytes": 110926
   },
   "burger-smash-2": {
-    "width": 960,
-    "height": 720,
-    "bytes": 46586
+    "width": 1080,
+    "height": 810,
+    "bytes": 65860
   },
   "burger-triplo": {
-    "width": 960,
-    "height": 720,
-    "bytes": 39388
+    "width": 1080,
+    "height": 810,
+    "bytes": 138064
   },
   "burger-egg": {
-    "width": 960,
-    "height": 720,
-    "bytes": 28782
+    "width": 1080,
+    "height": 810,
+    "bytes": 71542
   },
   "burger-picanha": {
-    "width": 960,
-    "height": 720,
-    "bytes": 70346
+    "width": 1080,
+    "height": 810,
+    "bytes": 96644
   },
   "burger-picanha-2": {
-    "width": 960,
-    "height": 720,
-    "bytes": 91812
+    "width": 1080,
+    "height": 810,
+    "bytes": 47636
   },
   "burger-gorgonzola": {
-    "width": 960,
-    "height": 720,
-    "bytes": 29356
+    "width": 1080,
+    "height": 810,
+    "bytes": 58242
   },
   "burger-salad": {
-    "width": 960,
-    "height": 720,
-    "bytes": 57466
+    "width": 1080,
+    "height": 810,
+    "bytes": 70962
   },
   "burger-costela": {
-    "width": 960,
-    "height": 720,
-    "bytes": 73916
+    "width": 1080,
+    "height": 810,
+    "bytes": 97144
   },
   "burger-crispy": {
-    "width": 960,
-    "height": 720,
-    "bytes": 33538
+    "width": 1080,
+    "height": 810,
+    "bytes": 114158
   },
   "burger-veggie": {
-    "width": 960,
-    "height": 720,
-    "bytes": 73976
+    "width": 1080,
+    "height": 810,
+    "bytes": 70180
   },
   "burger-veggie-2": {
-    "width": 960,
-    "height": 720,
-    "bytes": 70264
+    "width": 1080,
+    "height": 810,
+    "bytes": 55288
   },
   "burger-cheese": {
-    "width": 960,
-    "height": 720,
-    "bytes": 38400
+    "width": 1080,
+    "height": 810,
+    "bytes": 61856
   },
   "burger-sliders": {
-    "width": 960,
-    "height": 720,
-    "bytes": 51376
+    "width": 1080,
+    "height": 810,
+    "bytes": 59266
   },
   "combo-classico": {
-    "width": 960,
-    "height": 720,
-    "bytes": 55182
+    "width": 1080,
+    "height": 810,
+    "bytes": 49572
   },
   "combo-smash": {
-    "width": 960,
-    "height": 720,
-    "bytes": 40544
+    "width": 1080,
+    "height": 810,
+    "bytes": 84376
   },
   "combo-fumaca": {
-    "width": 960,
-    "height": 720,
-    "bytes": 44214
+    "width": 1080,
+    "height": 810,
+    "bytes": 64928
   },
   "porcao-batata": {
-    "width": 960,
-    "height": 720,
-    "bytes": 29976
+    "width": 1080,
+    "height": 810,
+    "bytes": 63210
   },
   "porcao-batata-2": {
-    "width": 960,
-    "height": 720,
-    "bytes": 49852
+    "width": 1080,
+    "height": 810,
+    "bytes": 30282
   },
   "porcao-cheddar-bacon": {
-    "width": 960,
-    "height": 720,
-    "bytes": 101308
+    "width": 1080,
+    "height": 810,
+    "bytes": 85220
   },
   "porcao-rustica": {
-    "width": 960,
-    "height": 720,
-    "bytes": 34958
+    "width": 1080,
+    "height": 810,
+    "bytes": 139662
   },
   "porcao-onion": {
-    "width": 960,
-    "height": 720,
-    "bytes": 84708
+    "width": 1080,
+    "height": 810,
+    "bytes": 89994
   },
   "porcao-iscas": {
-    "width": 960,
-    "height": 720,
-    "bytes": 54682
+    "width": 1080,
+    "height": 810,
+    "bytes": 55208
   },
   "porcao-asinhas": {
-    "width": 960,
-    "height": 720,
-    "bytes": 82092
+    "width": 1080,
+    "height": 810,
+    "bytes": 91026
   },
   "shake-chocolate": {
-    "width": 960,
-    "height": 720,
-    "bytes": 18662
+    "width": 1080,
+    "height": 810,
+    "bytes": 73662
   },
   "shake-morango": {
-    "width": 960,
-    "height": 720,
-    "bytes": 45914
+    "width": 1080,
+    "height": 810,
+    "bytes": 33756
   },
   "shake-doce-leite": {
-    "width": 960,
-    "height": 720,
-    "bytes": 36306
+    "width": 1080,
+    "height": 810,
+    "bytes": 45482
   },
   "shake-baunilha": {
-    "width": 960,
-    "height": 720,
-    "bytes": 27014
+    "width": 1080,
+    "height": 810,
+    "bytes": 38104
   },
   "bebida-limonada": {
-    "width": 960,
-    "height": 720,
-    "bytes": 17212
+    "width": 1080,
+    "height": 810,
+    "bytes": 42572
   },
   "bebida-limonada-suica": {
-    "width": 960,
-    "height": 720,
-    "bytes": 25610
+    "width": 1080,
+    "height": 810,
+    "bytes": 26486
   },
   "bebida-agua-gas": {
-    "width": 960,
-    "height": 720,
-    "bytes": 49054
+    "width": 1080,
+    "height": 810,
+    "bytes": 74124
   },
   "bebida-chopp": {
-    "width": 960,
-    "height": 720,
-    "bytes": 24712
+    "width": 1080,
+    "height": 810,
+    "bytes": 54944
   },
   "bebida-ipa": {
-    "width": 960,
-    "height": 720,
-    "bytes": 38436
+    "width": 1080,
+    "height": 810,
+    "bytes": 34824
   },
   "sobremesa-brownie": {
-    "width": 960,
-    "height": 720,
-    "bytes": 74642
+    "width": 1080,
+    "height": 810,
+    "bytes": 47126
   },
   "sobremesa-brownie-sorvete": {
-    "width": 960,
-    "height": 720,
-    "bytes": 30044
+    "width": 1080,
+    "height": 810,
+    "bytes": 45270
   },
   "sobremesa-sundae": {
-    "width": 960,
-    "height": 720,
-    "bytes": 43738
+    "width": 1080,
+    "height": 810,
+    "bytes": 37050
   },
   "sobremesa-sundae-morango": {
-    "width": 960,
-    "height": 720,
-    "bytes": 43556
+    "width": 1080,
+    "height": 810,
+    "bytes": 59588
   },
   "capa": {
-    "width": 1200,
-    "height": 525,
-    "bytes": 40708
+    "width": 1440,
+    "height": 630,
+    "bytes": 74798
   },
   "banner-combo": {
-    "width": 1200,
-    "height": 525,
-    "bytes": 43212
+    "width": 1440,
+    "height": 630,
+    "bytes": 54784
   },
   "banner-smash": {
-    "width": 1200,
-    "height": 525,
-    "bytes": 41840
+    "width": 1440,
+    "height": 630,
+    "bytes": 75658
   },
   "banner-shake": {
-    "width": 1200,
-    "height": 525,
-    "bytes": 16548
+    "width": 1440,
+    "height": 630,
+    "bytes": 35324
   },
   "logo": {
     "width": 512,
     "height": 512,
-    "bytes": 12668
+    "bytes": 12832
   }
 }

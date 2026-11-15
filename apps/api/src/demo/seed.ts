@@ -14,6 +14,7 @@ import { distanceM, insidePolygon } from '../delivery/zones';
 import { CASA_BRASA } from './catalog';
 import { seedDemoExtras } from './extras';
 import { seedDemoPixel } from './pixel';
+import { upsertDemoModels } from './refresh';
 import type { DemoCatalog, DemoProduct } from './types';
 
 /** Linha do audit_log que marca o restaurante como já preenchido (nunca preenche duas vezes). */
@@ -298,6 +299,8 @@ export async function seedDemoData(
       iso(now - (days + 5) * DAY),
     ]),
   );
+  // Itens com modelo 3D de exemplo ("Ver em 3D" e "Ver na minha mesa" no cardápio).
+  await upsertDemoModels(c, T, C, (p) => byKey[p.key]?.id ?? null);
   await bulk(
     c,
     'product_option_groups',

@@ -5,7 +5,8 @@ import { FUMACA } from './fumaca';
 
 /**
  * Restaurante de demonstração (roda no serviço migrate, depois das migrações).
- *   COMANDOU_DEMO=true        cria uma vez (padrão da stack; não duplica nem sobrescreve)
+ *   COMANDOU_DEMO=true        cria uma vez (padrão da stack; não duplica nem sobrescreve os dados;
+ *                             só troca fotos/logo de versões antigas e grava os modelos 3D)
  *   COMANDOU_DEMO=reset       apaga e cria de novo a cada subida (datas sempre de hoje)
  *   COMANDOU_DEMO=false       desligado
  *   COMANDOU_DEMO_SLUG        endereço da Fumaça Burger (padrão: fumaca → fumaca.<domínio>)
@@ -47,7 +48,7 @@ async function main() {
       catalog: FUMACA,
       baseDomain: base,
     });
-    if (r === 'exists') console.log(`demonstração: ${slug} já existe; nada alterado`);
+    if (r === 'exists') console.log(`demonstração: ${slug} já existe (dados mantidos)`);
   } catch (e) {
     console.error(`demonstração: não foi possível criar ${slug} (${(e as Error).message})`);
   }

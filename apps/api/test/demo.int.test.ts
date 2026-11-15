@@ -1,8 +1,20 @@
+import { createHash } from 'node:crypto';
+import {
+  copyFileSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Client } from 'pg';
 import { afterAll, describe, expect, it } from 'vitest';
 import { purgeTenantRows } from '../src/backup/tenant-copy';
 import { demoMode, ensureDemoRestaurant, removeDemoRestaurant } from '../src/demo/demo';
 import { FUMACA } from '../src/demo/fumaca';
+import { refreshDemoAssets } from '../src/demo/refresh';
 import { OWNER_URL } from './env';
 import { ownerQuery } from './fixtures';
 
@@ -165,6 +177,64 @@ describe('Restaurante de demonstração', () => {
       expect(n!.invoices).toBe(12);
       expect(n!.open_tickets).toBe(0); // a esteira dos agentes nunca pega chamado da demonstração
       expect(n!.support).toBeGreaterThan(0);
+
+      // Itens com modelo 3D de exemplo (GLB para Android/navegador e USDZ para iPhone).
+      const models = await ownerQuery<{ name: string; glb: number; usdz: number }>(
+        `SELECT p.name, octet_length(m.glb) AS glb, octet_length(m.usdz) AS usdz
+           FROM product_models m JOIN products p ON p.id = m.product_id WHERE m.tenant_id = $1`,
+        [t!.id],
+      );
+      expect(models.map((m) => m.name).sort()).toEqual(
+        FUMACA.products
+          .filter((p) => p.model)
+          .map((p) => p.name)
+          .sort(),
+      );
+      expect(models.length).toBeGreaterThanOrEqual(4);
+      expect(models.every((m) => m.glb > 1000 && m.usdz > 1000)).toBe(true);
+
+      // Demonstração já no ar com foto de uma versão antiga e sem um dos modelos: a subida troca
+      // a foto (com id novo, por causa do cache) e grava o modelo; a seguinte não faz nada.
+      const old = Buffer.from('foto-antiga');
+      const [classico] = await ownerQuery<{ id: string; image_id: string }>(
+        `SELECT id, image_id FROM products WHERE tenant_id = $1 AND name = 'Clássico'`,
+        [t!.id],
+      );
+      await ownerQuery(`UPDATE media SET bytes = $2 WHERE id = $1`, [classico!.image_id, old]);
+      await ownerQuery(
+        `DELETE FROM product_models WHERE product_id = (SELECT id FROM products WHERE tenant_id = $1 AND name = $2)`,
+        [t!.id, FUMACA.products.find((p) => p.key === 'fumaca')!.name],
+      );
+      const dir = mkdtempSync(join(tmpdir(), 'demo-fotos-'));
+      try {
+        for (const f of ['manifest.json', 'burger-classico.webp'])
+          copyFileSync(join(FUMACA.imagesDir, f), join(dir, f));
+        symlinkSync(join(FUMACA.imagesDir, 'models'), join(dir, 'models'));
+        writeFileSync(
+          join(dir, 'previous.json'),
+          JSON.stringify({ [createHash('sha256').update(old).digest('hex')]: 'burger-classico' }),
+        );
+        const catalog = { ...FUMACA, imagesDir: dir };
+        const c = new Client({ connectionString: OWNER_URL });
+        await c.connect();
+        try {
+          expect(await refreshDemoAssets(c, t!.id, catalog)).toEqual({ photos: 1, models: 1 });
+          expect(await refreshDemoAssets(c, t!.id, catalog)).toEqual({ photos: 0, models: 0 });
+        } finally {
+          await c.end();
+        }
+        const [now] = await ownerQuery<{ image_id: string; same: boolean; gone: boolean }>(
+          `SELECT p.image_id, md.bytes = $3 AS same,
+                  NOT EXISTS (SELECT 1 FROM media WHERE id = $2) AS gone
+             FROM products p JOIN media md ON md.id = p.image_id WHERE p.id = $1`,
+          [classico!.id, classico!.image_id, readFileSync(join(dir, 'burger-classico.webp'))],
+        );
+        expect(now!.image_id).not.toBe(classico!.image_id);
+        expect(now!.same).toBe(true);
+        expect(now!.gone).toBe(true);
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
 
       // Demonstração antiga sai; restaurante de verdade no mesmo endereço fica.
       expect(

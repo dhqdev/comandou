@@ -11,6 +11,7 @@ import {
 } from '../database/tenant-database';
 import { CASA_BRASA } from './catalog';
 import { seedDemoPlatform } from './platform';
+import { refreshDemoAssets } from './refresh';
 import { DEMO_MARKER, seedDemoData } from './seed';
 import type { DemoCatalog } from './types';
 
@@ -93,7 +94,10 @@ export async function ensureDemoRestaurant(
       await dropDemo(pool, o.ownerUrl, t);
       t = null;
     }
-    if (t?.seeded) return 'exists';
+    if (t?.seeded) {
+      await refreshAssets(o, catalog, t);
+      return 'exists';
+    }
 
     // Cadastro no banco central (marcado como demonstração na auditoria da plataforma).
     if (!t) {
@@ -227,6 +231,25 @@ async function fill(
           `Login: ${result.users[0]} / senha da documentação. Link do entregador freelancer: /entregador/${result.courierLink}`,
       );
     }
+  }
+}
+
+/**
+ * Demonstração já no ar: troca fotos e logo de versões antigas e grava os modelos 3D de exemplo
+ * (refresh.ts). Uma falha aqui só fica no log: a demonstração continua como estava.
+ */
+async function refreshAssets(
+  o: DemoOptions,
+  catalog: DemoCatalog,
+  t: NonNullable<Awaited<ReturnType<typeof tenantRow>>>,
+) {
+  try {
+    const url = t.dbName ? databaseUrl(o.ownerUrl, t.dbName, t.server) : o.ownerUrl;
+    const r = await withClient(url, (c) => tx(c, () => refreshDemoAssets(c, t.id, catalog)));
+    if (r.photos || r.models)
+      o.log(`demonstração: ${r.photos} foto(s) e ${r.models} modelo(s) 3D atualizados`);
+  } catch (e) {
+    o.log(`demonstração: fotos e modelos 3D não atualizados (${(e as Error).message})`);
   }
 }
 

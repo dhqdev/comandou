@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.122.0',
+    date: '2026-11-15',
+    title: 'Restaurante de exemplo de cara nova, com pratos em 3D',
+    summary:
+      'A Fumaça Burger, restaurante de demonstração, ganhou logo nova, fotos profissionais em todos os itens, banners e capa, e quatro pratos com modelo 3D para ver o "Ver em 3D" e o "Ver na minha mesa" funcionando.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Logo nova da Fumaça Burger & Co., com a chama e a marca em destaque.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Fotos profissionais (Unsplash, uso comercial livre) nos 37 itens, nos banners e na capa do cardápio.',
+      },
+      {
+        tag: 'novo',
+        text: 'Modelos 3D de exemplo no Fumaça (o da casa), na batata frita, no milk-shake de chocolate e no brownie com sorvete.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A demonstração que já está no ar recebe as fotos, a logo e os modelos novos sozinha na próxima atualização, sem perder o ano de dados.',
+      },
+    ],
+  },
+  {
     version: '0.121.0',
     date: '2026-11-15',
     title: 'IA e chat no topo do celular',
