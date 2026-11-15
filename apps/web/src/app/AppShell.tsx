@@ -81,6 +81,7 @@ import { useAuth } from './auth';
 import { StoreBrand } from './StoreBrand';
 import { ROLE_HOME } from './role-home';
 import { ErrorBoundary, ErrorFallback } from '../lib/error-boundary';
+import { ChatTopButtons } from '../features/chat/ChatTopButtons';
 import './shell.css';
 import './ops.css';
 
@@ -495,6 +496,7 @@ export function AppShell() {
             {location.pathname !== '/' && location.pathname !== '/pdv' && (
               <SupportButton className="topbar__support" />
             )}
+            <ChatTopButtons />
             <NewsBell />
             <SoundControl />
             <ThemeToggle />

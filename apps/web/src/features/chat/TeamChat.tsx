@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocation } from 'react-router';
-import { LivePanda, useToast } from '../../design-system';
+import { BRAND_CACHED_EVENT, cachedBranding, LivePanda, useToast } from '../../design-system';
 import { useRealtimeEvents } from '../../lib/realtime';
 import { useAuth } from '../../app/auth';
 import { api } from '../../lib/api';
@@ -31,22 +31,35 @@ export function openTeamChat(tab?: Tab) {
   window.dispatchEvent(new CustomEvent(OPEN_CHAT_EVENT, { detail: { tab } }));
 }
 
-// Total de mensagens e avisos não lidos, para a bolinha do "Conversas" no celular.
-let unreadTotal = 0;
+// Mensagens e avisos não lidos, para as bolinhas do "Conversas" e dos botões do topo no celular.
+// `team`: conversas e avisos da equipe; `help`: suporte da Comandou (`helpOn`: a pessoa tem o
+// suporte, ou seja, é dono ou gerente e o servidor tem o painel).
+export interface ChatUnread {
+  team: number;
+  help: number;
+  helpOn: boolean;
+}
+let unreadState: ChatUnread = { team: 0, help: 0, helpOn: false };
 const unreadSubs = new Set<() => void>();
-function setUnreadTotal(n: number) {
-  if (n === unreadTotal) return;
-  unreadTotal = n;
+function setUnread(n: ChatUnread) {
+  const o = unreadState;
+  if (n.team === o.team && n.help === o.help && n.helpOn === o.helpOn) return;
+  unreadState = n;
   unreadSubs.forEach((f) => f());
 }
+const subscribeUnread = (f: () => void) => {
+  unreadSubs.add(f);
+  return () => {
+    unreadSubs.delete(f);
+  };
+};
+/** Separado por origem (equipe e suporte da Comandou). */
+export function useChatUnreadParts() {
+  return useSyncExternalStore(subscribeUnread, () => unreadState);
+}
+/** Total de não lidos do chat (equipe + suporte). */
 export function useChatUnread() {
-  return useSyncExternalStore(
-    (f) => {
-      unreadSubs.add(f);
-      return () => unreadSubs.delete(f);
-    },
-    () => unreadTotal,
-  );
+  return useSyncExternalStore(subscribeUnread, () => unreadState.team + unreadState.help);
 }
 
 const STORE = 'cm.chat';
@@ -63,6 +76,35 @@ function savePrefs(p: { tab: Tab; expanded: boolean }) {
   } catch {
     /* sem armazenamento: tudo bem */
   }
+}
+
+/** Ícone do restaurante (favicon, ou a logo se não tiver): no lugar do panda no chat vazio. */
+function useStoreIcon() {
+  const pick = () => cachedBranding()?.faviconUrl ?? cachedBranding()?.logoUrl ?? null;
+  const [icon, setIcon] = useState(pick);
+  useEffect(() => {
+    const sync = () => setIcon(pick());
+    window.addEventListener(BRAND_CACHED_EVENT, sync);
+    return () => window.removeEventListener(BRAND_CACHED_EVENT, sync);
+  }, []);
+  return icon;
+}
+
+function EmptyIcon() {
+  const icon = useStoreIcon();
+  const [broken, setBroken] = useState<string | null>(null);
+  if (!icon || broken === icon) return <LivePanda size={96} mood="happy" />;
+  return (
+    <img
+      className="tc-placeholder__logo"
+      src={icon}
+      alt=""
+      width={80}
+      height={80}
+      decoding="async"
+      onError={() => setBroken(icon)}
+    />
+  );
 }
 
 interface Peek {
@@ -235,8 +277,13 @@ export function TeamChat({
 
   const helpUnread = help.available && tab !== 'suporte' ? help.unread : 0;
   const total = summary.unread + summary.notices + (open && tab === 'suporte' ? 0 : help.unread);
-  useEffect(() => setUnreadTotal(total), [total]);
-  useEffect(() => () => setUnreadTotal(0), []);
+  const helpPart = open && tab === 'suporte' ? 0 : help.unread;
+  const helpOn = canHelp && help.available;
+  useEffect(
+    () => setUnread({ team: summary.unread + summary.notices, help: helpPart, helpOn }),
+    [summary.unread, summary.notices, helpPart, helpOn],
+  );
+  useEffect(() => () => setUnread({ team: 0, help: 0, helpOn: false }), []);
   if (!me) return null;
   const listTab = tab === 'conversas' || tab === 'pessoas';
 
@@ -416,7 +463,7 @@ export function TeamChat({
                     />
                   ) : (
                     <div className="tc-placeholder">
-                      <LivePanda size={96} mood="happy" />
+                      <EmptyIcon />
                       <p>Escolha uma conversa ou comece uma nova.</p>
                       <small>Fale com a equipe sem sair da tela em que você está.</small>
                     </div>

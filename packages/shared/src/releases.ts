@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.121.0',
+    date: '2026-11-15',
+    title: 'IA e chat no topo do celular',
+    summary:
+      'No celular, a IA e o chat ficam no topo, ao lado do sino, com o nome embaixo do ícone. O Chat junta as conversas da equipe, as mensagens dos clientes e o suporte da Comandou. No chat vazio aparece o ícone do restaurante.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Celular: botões "IA" e "Chat" no topo. O Chat pergunta com quem falar (Equipe, Clientes ou Suporte Comandou) e mostra quantas mensagens não lidas tem cada um.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Chat da equipe sem conversa aberta mostra o ícone (favicon) do restaurante no lugar do panda.',
+      },
+    ],
+  },
+  {
     version: '0.120.1',
     date: '2026-11-15',
     title: 'Topo do menu lateral com a logo e o nome em destaque',
