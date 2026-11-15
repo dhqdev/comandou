@@ -208,8 +208,17 @@ export async function seedDemoData(
     await bulk(
       c,
       'options',
-      ['id', 'tenant_id', 'group_id', 'name', 'price_delta', 'position'],
-      options[g.key]!.map((o, i) => [o.id, T, groupId[g.key], o.name, fromCents(o.delta), i]),
+      ['id', 'tenant_id', 'group_id', 'name', 'price_delta', 'position', 'description', 'image_id'],
+      options[g.key]!.map((o, i) => [
+        o.id,
+        T,
+        groupId[g.key],
+        o.name,
+        fromCents(o.delta),
+        i,
+        g.descriptions?.[o.name] ?? null,
+        (g.images?.[o.name] && media[g.images[o.name]!]) || null,
+      ]),
     );
     g.options.forEach(([, , item, qty], i) => {
       if (item) optionRecipes.push([T, options[g.key]![i]!.id, item, qty]);

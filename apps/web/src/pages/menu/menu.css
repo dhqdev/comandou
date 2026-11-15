@@ -634,6 +634,25 @@
   align-items: center;
   gap: var(--cm-space-3);
 }
+.mn-opts__main {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-2);
+  min-width: 0;
+}
+.mn-opts__main .imgpick {
+  flex: none;
+}
+.mn-opts__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.mn-opts__desc {
+  min-height: 32px;
+  font-size: var(--cm-text-sm);
+}
 .mn-opts__head {
   font-size: var(--cm-text-xs);
   font-weight: 600;
@@ -736,6 +755,9 @@
     grid-template-columns: minmax(0, 1fr) 96px;
     padding-bottom: var(--cm-space-2);
     border-bottom: 1px solid var(--cm-border);
+  }
+  .mn-opts__main {
+    grid-column: 1 / -1;
   }
   .mn-opts__label {
     display: inline;

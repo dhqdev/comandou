@@ -35,6 +35,10 @@ export interface DemoOptionGroup {
   min: number;
   max: number;
   options: [string, string, string?, number?][];
+  /** Linha curta embaixo do nome no cardápio online, por nome da opção. */
+  descriptions?: Record<string, string>;
+  /** Foto da opção (nome da imagem da demonstração), por nome da opção. */
+  images?: Record<string, string>;
 }
 
 export interface DemoProduct {

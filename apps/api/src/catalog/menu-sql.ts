@@ -18,7 +18,9 @@ export function menuTreeSql(extra: string) {
              'id', g.id, 'name', g.name, 'minSelect', g.min_select, 'maxSelect', g.max_select,
              'kind', g.kind, 'charge', g.charge,
              'options', COALESCE((SELECT json_agg(json_build_object('id', o.id, 'name', o.name,
-                                    'priceDelta', o.price_delta::text, 'isDefault', o.is_default)
+                                    'priceDelta', o.price_delta::text, 'isDefault', o.is_default,
+                                    'description', o.description,
+                                    'imageUrl', '/api/v1/media/' || o.image_id)
                                   ORDER BY o.position, o.name)
                                  FROM options o WHERE o.group_id = g.id AND o.active), '[]'))
            ORDER BY pog.position)

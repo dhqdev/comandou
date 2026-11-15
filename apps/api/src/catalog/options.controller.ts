@@ -34,6 +34,10 @@ const OptionIn = z.object({
   priceDelta: money.optional(),
   position: z.number().int().min(0).max(10_000).optional(),
   isDefault: z.boolean().optional(),
+  /** Linha curta embaixo do nome no cardápio online. */
+  description: z.string().trim().max(140).nullish(),
+  /** Miniatura da opção no cardápio online. */
+  imageId: z.string().uuid().nullish(),
 });
 const groupShape = {
   name: z.string().trim().min(1).max(80),
@@ -66,7 +70,8 @@ const GROUPS_SQL = `
          g.kind, g.charge,
          (SELECT count(*)::int FROM product_option_groups pog WHERE pog.group_id = g.id) AS "productCount",
          COALESCE(json_agg(json_build_object('id', o.id, 'name', o.name, 'priceDelta', o.price_delta::text,
-                  'position', o.position, 'active', o.active, 'isDefault', o.is_default) ORDER BY o.position, o.name)
+                  'position', o.position, 'active', o.active, 'isDefault', o.is_default,
+                  'description', o.description, 'imageId', o.image_id) ORDER BY o.position, o.name)
                   FILTER (WHERE o.id IS NOT NULL), '[]') AS options
     FROM option_groups g LEFT JOIN options o ON o.group_id = g.id AND NOT o.archived
    GROUP BY g.id ORDER BY g.name`;
@@ -104,8 +109,18 @@ export class OptionsController {
       for (const [i, o] of b.options.entries()) {
         await q(
           tx,
-          `INSERT INTO options (tenant_id, group_id, name, price_delta, position, is_default) VALUES ($1,$2,$3,$4,$5,$6)`,
-          [t.id, g!.id, o.name, o.priceDelta ?? '0', o.position ?? i, o.isDefault ?? false],
+          `INSERT INTO options (tenant_id, group_id, name, price_delta, position, is_default, description, image_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [
+            t.id,
+            g!.id,
+            o.name,
+            o.priceDelta ?? '0',
+            o.position ?? i,
+            o.isDefault ?? false,
+            o.description || null,
+            o.imageId ?? null,
+          ],
         );
       }
       await this.audit.record(tx, {
@@ -160,15 +175,35 @@ export class OptionsController {
           await q(
             tx,
             `UPDATE options SET name = $2, price_delta = $3, position = $4, is_default = $5,
-               active = COALESCE($6, active) WHERE id = $1`,
-            [o.id, o.name, o.priceDelta ?? '0', i, o.isDefault ?? false, o.active ?? null],
+               active = COALESCE($6, active), description = $7, image_id = $8 WHERE id = $1`,
+            [
+              o.id,
+              o.name,
+              o.priceDelta ?? '0',
+              i,
+              o.isDefault ?? false,
+              o.active ?? null,
+              o.description || null,
+              o.imageId ?? null,
+            ],
           );
         else
           await q(
             tx,
-            `INSERT INTO options (tenant_id, group_id, name, price_delta, position, is_default, active)
-             VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-            [t.id, id, o.name, o.priceDelta ?? '0', i, o.isDefault ?? false, o.active ?? true],
+            `INSERT INTO options (tenant_id, group_id, name, price_delta, position, is_default, active,
+               description, image_id)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [
+              t.id,
+              id,
+              o.name,
+              o.priceDelta ?? '0',
+              i,
+              o.isDefault ?? false,
+              o.active ?? true,
+              o.description || null,
+              o.imageId ?? null,
+            ],
           );
       }
       await this.audit.record(tx, {

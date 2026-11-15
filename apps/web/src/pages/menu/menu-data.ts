@@ -41,6 +41,8 @@ export interface OptionGroup {
     position: number;
     active: boolean;
     isDefault: boolean;
+    description?: string | null;
+    imageId?: string | null;
   }[];
 }
 

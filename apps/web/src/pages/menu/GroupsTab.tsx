@@ -15,6 +15,7 @@ import {
   HelpTip,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
+import { ImagePicker } from '../../features/ImagePicker';
 import { rowClick } from '../../features/list-view';
 import { SelectField } from '../../features/forms';
 import { api, type Product } from '../../lib/api';
@@ -136,6 +137,8 @@ interface OptRow {
   price: string;
   isDefault: boolean;
   active: boolean;
+  description: string;
+  imageId: string | null;
 }
 let rowKey = 1;
 const emptyRow = (): OptRow => ({
@@ -144,6 +147,8 @@ const emptyRow = (): OptRow => ({
   price: '',
   isDefault: false,
   active: true,
+  description: '',
+  imageId: null,
 });
 
 /** Padrões sugeridos ao trocar o tipo do grupo (a pessoa ainda pode mudar). */
@@ -212,6 +217,8 @@ export function GroupEditor({
           price: toCents(o.priceDelta) > 0 ? toInput(o.priceDelta) : '',
           isDefault: o.isDefault,
           active: o.active,
+          description: o.description ?? '',
+          imageId: o.imageId ?? null,
         })),
       );
     }
@@ -279,6 +286,8 @@ export function GroupEditor({
           priceDelta: r.price ? parseBrlInput(r.price)! : '0',
           isDefault: r.isDefault,
           active: r.active,
+          description: r.description.trim() || null,
+          imageId: r.imageId,
         })),
       };
       const saved = isNew
@@ -401,7 +410,7 @@ export function GroupEditor({
           </h3>
           <div className="mn-opts cm-form__wide">
             <div className="mn-opts__head" aria-hidden>
-              <span>Opção</span>
+              <span>Foto e opção</span>
               <span>Preço</span>
               <span>Padrão</span>
               <span>Disponível</span>
@@ -409,18 +418,45 @@ export function GroupEditor({
             </div>
             {rows.map((r, i) => (
               <div key={r.key} className="mn-opts__row">
-                <input
-                  className="cm-input"
-                  aria-label={`Opção ${i + 1}`}
-                  placeholder={free ? 'Ex.: Sem cebola' : 'Ex.: Bacon'}
-                  value={r.name}
-                  maxLength={80}
-                  onChange={(e) =>
-                    setRows((x) =>
-                      x.map((y) => (y.key === r.key ? { ...y, name: e.target.value } : y)),
-                    )
-                  }
-                />
+                <span className="mn-opts__main">
+                  <ImagePicker
+                    label={`Foto da opção ${i + 1}`}
+                    width={44}
+                    value={r.imageId}
+                    disabled={!canWrite}
+                    onChange={(img) =>
+                      setRows((x) => x.map((y) => (y.key === r.key ? { ...y, imageId: img } : y)))
+                    }
+                  />
+                  <span className="mn-opts__text">
+                    <input
+                      className="cm-input"
+                      aria-label={`Opção ${i + 1}`}
+                      placeholder={free ? 'Ex.: Sem cebola' : 'Ex.: Bacon'}
+                      value={r.name}
+                      maxLength={80}
+                      onChange={(e) =>
+                        setRows((x) =>
+                          x.map((y) => (y.key === r.key ? { ...y, name: e.target.value } : y)),
+                        )
+                      }
+                    />
+                    <input
+                      className="cm-input mn-opts__desc"
+                      aria-label={`Descrição da opção ${i + 1}`}
+                      placeholder="Descrição curta (opcional)"
+                      value={r.description}
+                      maxLength={140}
+                      onChange={(e) =>
+                        setRows((x) =>
+                          x.map((y) =>
+                            y.key === r.key ? { ...y, description: e.target.value } : y,
+                          ),
+                        )
+                      }
+                    />
+                  </span>
+                </span>
                 <input
                   className="cm-input cm-num"
                   aria-label={`Preço adicional ${i + 1}`}

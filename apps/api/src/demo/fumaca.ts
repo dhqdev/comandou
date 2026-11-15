@@ -721,6 +721,13 @@ export const FUMACA: DemoCatalog = {
         ['Carne extra (160 g)', '14.00', 'blend', 1],
         ['Cebola caramelizada', '4.00', 'cebola', 0.05],
       ],
+      descriptions: {
+        'Bacon extra': 'Fatias crocantes defumadas na casa.',
+        'Cheddar extra': 'Mais uma fatia de cheddar inglês derretido.',
+        Ovo: 'Ovo na chapa com a gema mole.',
+        'Carne extra (160 g)': 'Outro blend de 160 g na brasa.',
+        'Cebola caramelizada': 'Cozida devagar na manteiga até dourar.',
+      },
     },
     {
       key: 'molhos',
@@ -733,6 +740,12 @@ export const FUMACA: DemoCatalog = {
         ['Cheddar cremoso', '4.00', 'cheddar', 0.04],
         ['Mostarda e mel', '3.00', 'mostarda', 0.03],
       ],
+      descriptions: {
+        'Maionese defumada': 'Pote de 40 g.',
+        'Barbecue da casa': 'Pote de 40 g.',
+        'Cheddar cremoso': 'Pote de 40 g, servido quente.',
+        'Mostarda e mel': 'Pote de 40 g.',
+      },
     },
     {
       key: 'tamanho',
@@ -755,6 +768,18 @@ export const FUMACA: DemoCatalog = {
         ['Chopp pilsen', '4.00', 'chopp', 0.4],
         ['Milk-shake (troca)', '9.00', 'sorvete', 0.25],
       ],
+      descriptions: {
+        'Limonada da casa': 'Copo de 400 ml.',
+        'Água com gás': 'Garrafa de 500 ml.',
+        'Chopp pilsen': 'Caneca de 300 ml.',
+        'Milk-shake (troca)': 'Chocolate, 400 ml.',
+      },
+      images: {
+        'Limonada da casa': 'bebida-limonada',
+        'Água com gás': 'bebida-agua-gas',
+        'Chopp pilsen': 'bebida-chopp',
+        'Milk-shake (troca)': 'shake-chocolate',
+      },
     },
   ],
   products: PRODUCTS,

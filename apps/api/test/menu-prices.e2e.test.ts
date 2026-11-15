@@ -218,4 +218,45 @@ describe('Reajustar preços do cardápio', () => {
     expect(g.options.find((o) => o.name === 'Bacon')!.priceDelta).toBe('4.50');
     expect(g.options.find((o) => o.name === 'Sem cebola')!.priceDelta).toBe('0.00');
   });
+
+  it('opção guarda descrição e foto, e o cardápio entrega as duas', async () => {
+    const g = (
+      await post('adminA', '/option-groups', {
+        name: 'Bebida',
+        minSelect: 0,
+        maxSelect: 1,
+        options: [{ name: 'Limonada', priceDelta: '0.00', description: 'Copo de 400 ml' }],
+      }).expect(201)
+    ).body as { id: string; options: { id: string; description: string | null }[] };
+    expect(g.options[0]!.description).toBe('Copo de 400 ml');
+    await put('adminA', `/products/${fx.prodA}/option-groups`, { groupIds: [g.id] }).expect(200);
+    const saved = (
+      await put('adminA', `/option-groups/${g.id}`, {
+        name: 'Bebida',
+        minSelect: 0,
+        maxSelect: 1,
+        options: [{ id: g.options[0]!.id, name: 'Limonada', description: '  ' }],
+      }).expect(200)
+    ).body as { options: { description: string | null; imageId: string | null }[] };
+    // Descrição em branco vira "sem descrição".
+    expect(saved.options[0]).toMatchObject({ description: null, imageId: null });
+    await put('adminA', `/option-groups/${g.id}`, {
+      name: 'Bebida',
+      minSelect: 0,
+      maxSelect: 1,
+      options: [{ id: g.options[0]!.id, name: 'Limonada', description: 'Gelada' }],
+    }).expect(200);
+    const menu = (await get('adminA', '/menu').expect(200)).body as {
+      products: {
+        id: string;
+        optionGroups: {
+          id: string;
+          options: { description: string | null; imageUrl: string | null }[];
+        }[];
+      }[];
+    }[];
+    const prod = menu.flatMap((c) => c.products).find((x) => x.id === fx.prodA)!;
+    const opt = prod.optionGroups.find((x) => x.id === g.id)!.options[0]!;
+    expect(opt).toMatchObject({ description: 'Gelada', imageUrl: null });
+  });
 });

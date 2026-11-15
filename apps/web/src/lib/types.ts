@@ -17,6 +17,10 @@ export interface MenuOption {
   priceDelta: string;
   /** Já vem marcada ao abrir o item. */
   isDefault?: boolean;
+  /** Linha curta embaixo do nome (cardápio online). */
+  description?: string | null;
+  /** Miniatura da opção (cardápio online). */
+  imageUrl?: string | null;
 }
 export interface MenuGroup {
   id: string;

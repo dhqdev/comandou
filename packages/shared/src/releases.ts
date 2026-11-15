@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.119.0',
+    date: '2026-11-15',
+    title: 'Tela do item no cardápio mais fácil de montar',
+    summary:
+      'Ao tocar num item do cardápio online, ele abre como uma folha: puxe para baixo para fechar. Cada grupo de adicionais tem uma faixa que fica presa no topo ao rolar, dizendo quantas opções escolher, e cada opção pode ter foto e descrição.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Foto e descrição em cada opção dos complementos (Cardápio › Grupos de complementos). Aparecem na tela do item no cardápio online.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Faixa de cada grupo presa no topo ao rolar, com "Escolha até 4 opções", o contador do que já foi escolhido e o aviso de obrigatório.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Adicionais com botão + que vira ✓, no lugar do liga e desliga; o total do botão Adicionar muda na hora.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No celular, o nome do item fica no topo ao rolar e puxar a tela para baixo fecha o item.',
+      },
+    ],
+  },
+  {
     version: '0.118.3',
     date: '2026-11-14',
     title: 'Atualização não para mais na migração',

@@ -140,7 +140,7 @@ export const GROUP_HELP: HelpDict = {
     text: 'Quantas opções o cliente pode escolher no máximo. Ex.: pizza de 2 sabores tem máximo 2.',
   },
   'Opções do grupo': {
-    text: 'Cada linha é uma opção. Preço é o valor somado ao item (0 = grátis). Padrão já vem marcada. Disponível desmarcado esconde a opção sem apagar.',
+    text: 'Cada linha é uma opção. A foto e a descrição curta aparecem no cardápio online. Preço é o valor somado ao item (0 = grátis). Padrão já vem marcada. Disponível desmarcado esconde a opção sem apagar.',
   },
   'Pausar o grupo': {
     text: 'Esconde o grupo do PDV, do garçom e do cardápio online sem desligar dos itens.',
