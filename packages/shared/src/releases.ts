@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.119.1',
+    date: '2026-11-15',
+    title: 'Tela do item no cardápio chega aos restaurantes',
+    summary:
+      'A versão 0.119.0 não chegou a ser publicada: um teste automático da venda completa procurava o campo "Opção 1" e passou a achar também a foto e a descrição da opção. O teste foi ajustado e a nova tela do item segue para os restaurantes.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Teste de ponta a ponta do cadastro de grupo de complementos acha o campo certo da opção, agora que cada opção tem foto e descrição.',
+      },
+    ],
+  },
+  {
     version: '0.119.0',
     date: '2026-11-15',
     title: 'Tela do item no cardápio mais fácil de montar',

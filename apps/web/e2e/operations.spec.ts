@@ -76,10 +76,10 @@ test('operação completa: venda, cozinha, mesa e caixa', async ({ page }, info)
   let dialog = page.getByRole('dialog');
   await dialog.getByLabel('Nome do grupo').fill(`Tamanho ${tag}`);
   await dialog.getByLabel('Tipo').selectOption('variation');
-  await dialog.getByLabel('Opção 1').fill('Simples');
+  await dialog.getByLabel('Opção 1', { exact: true }).fill('Simples');
   await dialog.getByRole('button', { name: 'Mais uma opção' }).click();
-  await dialog.getByLabel('Opção 2').fill('Duplo');
-  await dialog.getByLabel('Preço adicional 2').fill('8,50');
+  await dialog.getByLabel('Opção 2', { exact: true }).fill('Duplo');
+  await dialog.getByLabel('Preço adicional 2', { exact: true }).fill('8,50');
   await dialog.getByLabel('Buscar item para o grupo').fill(product);
   await dialog.getByRole('checkbox', { name: new RegExp(product) }).check();
   await dialog.getByRole('button', { name: 'Salvar grupo' }).click();
