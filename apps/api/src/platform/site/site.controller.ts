@@ -6,6 +6,7 @@ import {
   Inject,
   HttpCode,
   Param,
+  ParseUUIDPipe,
   Post,
   Put,
   Req,
@@ -24,6 +25,13 @@ import { PlatformHostGuard, PlatformSessionGuard } from '../platform-auth';
 import type { Actor } from '../platform.service';
 import { PreviewBody, SiteSettingsBody, TestEmailBody, TrialBody } from './site.schemas';
 import { SiteService } from './site.service';
+import {
+  SiteAiService,
+  SiteAiSettingsBody,
+  SiteAiSource,
+  type SiteAiSettingsInput,
+  type SiteAiSourceInput,
+} from './site-ai.service';
 
 const actor = (req: Request): Actor => ({ admin: req.platformAdmin!, ip: req.ip });
 
@@ -37,6 +45,7 @@ const actor = (req: Request): Actor => ({ admin: req.platformAdmin!, ip: req.ip 
 export class PublicSiteController {
   constructor(
     private readonly svc: SiteService,
+    private readonly ai: SiteAiService,
     @Inject(ENV) private readonly env: Env,
   ) {}
 
@@ -54,6 +63,17 @@ export class PublicSiteController {
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
   preview(@Body(new ZodPipe(PreviewBody)) b: z.infer<typeof PreviewBody>) {
     return this.svc.preview(b.url);
+  }
+
+  /**
+   * Monta o site do restaurante com IA (só com Super Admin › Sites com IA ligado). Além deste
+   * limite por minuto, cada visitante gera poucos sites por dia (painel).
+   */
+  @Post('ai')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 600_000, limit: 6 } })
+  generate(@Body(new ZodPipe(SiteAiSource)) b: SiteAiSourceInput, @Req() req: Request) {
+    return this.ai.generate(b, clientIp(req) || undefined);
   }
 
   /** Cada IP tenta no máximo 6 cadastros por hora (além do limite por dia do painel). */
@@ -107,5 +127,37 @@ export class PlatformSiteController {
   @Header('Cache-Control', 'no-store')
   emailPreview() {
     return this.svc.emailPreview();
+  }
+}
+
+/** Super Admin › Sites com IA: chave, modelo, limites de tokens e o consumo de cada site. */
+@Controller({ path: 'platform/site-ai', version: '1' })
+@SkipTenant()
+@Public()
+@UseGuards(PlatformHostGuard, PlatformSessionGuard)
+export class PlatformSiteAiController {
+  constructor(private readonly ai: SiteAiService) {}
+
+  @Get()
+  overview() {
+    return this.ai.overview();
+  }
+
+  @Put('settings')
+  save(@Body(new ZodPipe(SiteAiSettingsBody)) b: SiteAiSettingsInput, @Req() req: Request) {
+    return this.ai.save(b, actor(req));
+  }
+
+  /** Gera um site de teste pelo painel (conta nos limites de tokens, não no do visitante). */
+  @Post('try')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 6 } })
+  try(@Body(new ZodPipe(SiteAiSource)) b: SiteAiSourceInput, @Req() req: Request) {
+    return this.ai.generate(b, req.ip, actor(req));
+  }
+
+  @Get('generations/:id')
+  draft(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.ai.draft(id);
   }
 }

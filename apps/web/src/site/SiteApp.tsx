@@ -1,15 +1,4 @@
-import {
-  Box,
-  Check,
-  FileText,
-  Globe,
-  MessageCircle,
-  Moon,
-  ReceiptText,
-  Smartphone,
-  Sun,
-  WifiOff,
-} from 'lucide-react';
+import { Check, FileText, Globe, MessageCircle, Moon, Sparkles, Sun, WifiOff } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
   Button,
@@ -24,13 +13,14 @@ import { brl } from '../lib/money';
 import { contactHref, INCLUDED_IN_ALL, type PublicPlan } from '../pages/pricing-data';
 import { Builder, PhoneMock, type Look } from './Builder';
 import { loadSiteConfig, type SiteConfig } from './host';
-import { SAMPLE_ITEMS, SITE_FAQ, STEPS, TOUR } from './site-data';
+import { FEATURES, SAMPLE_ITEMS, SITE_FAQ, STEPS, TOUR } from './site-data';
 import './site.css';
 
 /**
- * Site público do Comandou (comandou.com): o que o sistema faz, com telas de verdade, e o
- * cadastro em que o dono cria o próprio restaurante de teste a partir do site, do Google Maps
- * ou de uma descrição. Usa os mesmos tokens do sistema (claro e escuro) e o panda.
+ * Site público do Comandou (comandou.com): pouco texto e muito movimento. O topo cria o
+ * restaurante (com IA quando o Super Admin liga), as telas do sistema passam sozinhas e cada
+ * detalhe tem a sua animação curta. Tudo com os tokens do sistema e sem gradiente; com
+ * "reduzir movimento" ligado, a página fica parada.
  */
 const FIRST_LOOK: Look = {
   name: 'Seu restaurante',
@@ -41,6 +31,9 @@ const FIRST_LOOK: Look = {
   typed: false,
 };
 
+const calmMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** Seções entram quando chegam na tela (uma vez só), com os filhos em cascata. */
 function useReveal() {
   useEffect(() => {
     const els = [...document.querySelectorAll<HTMLElement>('.st-reveal')];
@@ -122,11 +115,53 @@ function EnterModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   );
 }
 
+const TOUR_MS = 5200;
+
+/**
+ * As telas de verdade passam sozinhas (a barrinha da aba mostra quanto falta). Para quando a
+ * pessoa clica numa aba, passa o mouse em cima ou a seção sai da tela.
+ */
 function Tour({ dark }: { dark: boolean }) {
   const [tab, setTab] = useState(TOUR[0]!.key);
+  const [auto, setAuto] = useState(true);
+  const [hold, setHold] = useState(false);
+  const [seen, setSeen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
   const t = TOUR.find((x) => x.key === tab)!;
+  const running = auto && !hold && seen && !calmMotion();
+
+  useEffect(() => {
+    const el = root.current;
+    if (!el || !('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver(([e]) => setSeen(!!e?.isIntersecting), { threshold: 0.3 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!running) return;
+    const id = window.setTimeout(() => {
+      const i = TOUR.findIndex((x) => x.key === tab);
+      setTab(TOUR[(i + 1) % TOUR.length]!.key);
+    }, TOUR_MS);
+    return () => window.clearTimeout(id);
+  }, [running, tab]);
+
+  // Pré-carrega a próxima tela para a troca não piscar.
+  useEffect(() => {
+    const i = TOUR.findIndex((x) => x.key === tab);
+    const next = TOUR[(i + 1) % TOUR.length]!;
+    const img = new Image();
+    img.src = `/site/${next.key}-${dark ? 'dark' : 'light'}.webp`;
+  }, [tab, dark]);
+
   return (
-    <div className="st-tour">
+    <div
+      className="st-tour"
+      ref={root}
+      onMouseEnter={() => setHold(true)}
+      onMouseLeave={() => setHold(false)}
+    >
       <div className="st-tour__tabs" role="tablist" aria-label="Telas do sistema">
         {TOUR.map((x) => (
           <button
@@ -135,16 +170,25 @@ function Tour({ dark }: { dark: boolean }) {
             role="tab"
             aria-selected={x.key === tab}
             className={x.key === tab ? 'is-on' : ''}
-            onClick={() => setTab(x.key)}
+            onClick={() => {
+              setAuto(false);
+              setTab(x.key);
+            }}
           >
             {x.label}
+            {x.key === tab && running && (
+              <i
+                className="st-tour__time"
+                key={tab}
+                style={{ animationDuration: `${TOUR_MS}ms` }}
+              />
+            )}
           </button>
         ))}
       </div>
-      <div className="st-tour__head" key={`${tab}-head`}>
-        <h3>{t.title}</h3>
-        <p>{t.text}</p>
-      </div>
+      <h3 className="st-tour__head" key={`${tab}-head`}>
+        {t.title}
+      </h3>
       <div className="st-shot">
         <div className="st-shot__bar" aria-hidden>
           <i />
@@ -152,16 +196,135 @@ function Tour({ dark }: { dark: boolean }) {
           <i />
           <span>fumaca.comandou.com</span>
         </div>
-        <img
-          key={`${tab}-${dark}`}
-          src={`/site/${tab}-${dark ? 'dark' : 'light'}.webp`}
-          width={1600}
-          height={1000}
-          alt={`Tela ${t.label} do Comandou: ${t.text}`}
-          loading="lazy"
-          decoding="async"
-        />
+        <div className="st-shot__view">
+          <img
+            key={`${tab}-${dark}`}
+            src={`/site/${tab}-${dark ? 'dark' : 'light'}.webp`}
+            width={1600}
+            height={1000}
+            alt={`Tela ${t.label} do Comandou: ${t.text}`}
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
       </div>
+    </div>
+  );
+}
+
+/** Faixa do que vem junto, passando sem parar (duas cópias para emendar). */
+function Marquee() {
+  return (
+    <section className="st-band" aria-label="O que vem junto">
+      <div className="st-band__track">
+        {[0, 1].map((copy) => (
+          <ul key={copy} aria-hidden={copy === 1 || undefined}>
+            {FEATURES.map((x) => (
+              <li key={x}>{x}</li>
+            ))}
+          </ul>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Os detalhes: cada cartão com um título, uma linha e a sua animação. */
+function Details() {
+  return (
+    <div className="st-bento">
+      <article className="st-card st-card--wide st-reveal">
+        <div className="st-card__text">
+          <FileText size={20} aria-hidden />
+          <h3>Cardápio pelo PDF ou foto</h3>
+          <p>A IA lê itens, preços e fotos.</p>
+        </div>
+        <div className="st-mini st-mini--import" aria-hidden>
+          <div className="st-mini__file">
+            <FileText size={16} /> cardapio.pdf
+            <i className="st-mini__scan" />
+          </div>
+          <div className="st-mini__rows">
+            {['X-Burger', 'X-Salada', 'Batata frita'].map((n, i) => (
+              <div key={n} style={{ animationDelay: `${i * 0.5}s` }}>
+                <Check size={13} />
+                <span>{n}</span>
+                <em>{['28,90', '32,00', '18,00'][i]}</em>
+              </div>
+            ))}
+          </div>
+        </div>
+      </article>
+
+      <article className="st-card st-reveal">
+        <div className="st-mini st-mini--spin" aria-hidden>
+          <img src="/site/food-burger-fumaca.webp" alt="" width={120} height={120} loading="lazy" />
+          <i />
+        </div>
+        <h3>Prato em 3D</h3>
+        <p>Gira na tela e aparece na mesa.</p>
+      </article>
+
+      <article className="st-card st-reveal">
+        <div className="st-mini st-mini--sync" aria-hidden>
+          <WifiOff size={22} />
+          <span>
+            <i />
+            <i />
+            <i />
+          </span>
+        </div>
+        <h3>Vende sem internet</h3>
+        <p>Tudo sobe sozinho quando volta.</p>
+      </article>
+
+      <article className="st-card st-card--wide st-reveal">
+        <div className="st-card__text">
+          <MessageCircle size={20} aria-hidden />
+          <h3>WhatsApp que responde sozinho</h3>
+          <p>Conhece o seu cardápio e o seu horário.</p>
+        </div>
+        <div className="st-mini st-mini--chat" aria-hidden>
+          <span>Vocês abrem hoje?</span>
+          <span className="is-me">Abrimos às 18h. Quer ver o cardápio?</span>
+          <span>Quero um Smash duplo</span>
+          <span className="is-me">Anotado! Entrega ou retirada?</span>
+        </div>
+      </article>
+
+      <article className="st-card st-reveal">
+        <div className="st-mini st-mini--url" aria-hidden>
+          <Globe size={15} />
+          <span>
+            <b>seunome</b>.comandou.com
+          </span>
+        </div>
+        <h3>Endereço e marca seus</h3>
+        <p>Suas cores, seu logo, seu domínio.</p>
+      </article>
+
+      <article className="st-card st-reveal">
+        <div className="st-mini st-mini--receipt" aria-hidden>
+          <div>
+            <i />
+            <i />
+            <i />
+            <b>Pix aprovado</b>
+          </div>
+        </div>
+        <h3>NFC-e e Pix no caixa</h3>
+        <p>Nota no fechamento, QR na tela.</p>
+      </article>
+
+      <article className="st-card st-reveal">
+        <div className="st-mini st-mini--app" aria-hidden>
+          <span>
+            <Mascot size={26} />
+          </span>
+        </div>
+        <h3>Instala como app</h3>
+        <p>Celular, tablet e computador.</p>
+      </article>
     </div>
   );
 }
@@ -194,7 +357,7 @@ export function SiteApp() {
       .catch(() => undefined);
   }, []);
 
-  // O panda reage (achou o site, criou o restaurante) e volta ao normal sozinho.
+  // O panda reage (achou o site, a IA montou, criou o restaurante) e volta ao normal sozinho.
   const react = (m: PandaMood) => {
     window.clearTimeout(calm.current);
     setMood(m);
@@ -214,6 +377,7 @@ export function SiteApp() {
 
   return (
     <div className="st">
+      <i className="st-progress" aria-hidden />
       <header className="st-nav">
         <div className="st-nav__in">
           <a className="st-brand" href="#topo" aria-label="Comandou, início">
@@ -250,12 +414,21 @@ export function SiteApp() {
       <main id="topo">
         <section className="st-hero">
           <div className="st-hero__text">
-            <h1>
-              Seu restaurante no ar <span>em minutos.</span>
+            <h1 className="st-h1">
+              <span className="st-h1__line">Seu restaurante no ar</span>{' '}
+              <span className="st-h1__line st-h1__accent">em minutos.</span>
             </h1>
             <p className="st-lead">
-              Cole o link do seu site ou do Google Maps, ou conte o que você vende. O Comandou monta
-              o cardápio online, o PDV, a cozinha e o caixa. Você só confere.
+              {config?.ai ? (
+                <>
+                  Cole o link ou descreva o cardápio.{' '}
+                  <span className="st-lead__ai">
+                    <Sparkles size={16} aria-hidden /> A IA monta o seu site.
+                  </span>
+                </>
+              ) : (
+                'Cole o link ou descreva o cardápio. O Comandou monta o resto.'
+              )}
             </p>
             <Builder config={config} onLook={setLook} onMood={react} />
           </div>
@@ -263,36 +436,17 @@ export function SiteApp() {
             <div className="st-peek">
               <LivePanda size={132} mood={mood} title="Panda do Comandou" />
             </div>
-            <PhoneMock look={look} />
+            <div className="st-float">
+              <PhoneMock look={look} />
+            </div>
           </div>
         </section>
 
-        <section className="st-band" aria-label="O que vem junto">
-          <ul>
-            {[
-              'Cardápio online',
-              'PDV',
-              'Salão e garçom',
-              'Cozinha',
-              'Caixa',
-              'Delivery',
-              'Estoque',
-              'Financeiro',
-              'Nota fiscal',
-              'WhatsApp',
-            ].map((x) => (
-              <li key={x}>{x}</li>
-            ))}
-          </ul>
-        </section>
+        <Marquee />
 
         <section className="st-sec" id="sistema">
           <div className="st-sec__head st-reveal">
-            <h2>Um sistema só, do pedido ao fechamento.</h2>
-            <p>
-              Estas são telas de verdade, de uma hamburgueria com um ano de pedidos. Nada de
-              desenho: é o que você abre no primeiro dia.
-            </p>
+            <h2>Tudo numa tela só.</h2>
           </div>
           <div className="st-reveal">
             <Tour dark={theme === 'dark'} />
@@ -301,104 +455,18 @@ export function SiteApp() {
 
         <section className="st-sec st-sec--tint">
           <div className="st-sec__head st-reveal">
-            <h2>Os detalhes que fazem diferença no balcão.</h2>
+            <h2>Feito para o balcão.</h2>
           </div>
-          <div className="st-bento">
-            <article className="st-card st-card--wide st-reveal">
-              <div className="st-card__text">
-                <FileText size={20} aria-hidden />
-                <h3>Cardápio pronto a partir do PDF ou de uma foto</h3>
-                <p>
-                  Mande o PDF, tire foto do cardápio impresso ou cole o link. A inteligência
-                  artificial lê itens, preços e fotos. Você confere e publica.
-                </p>
-              </div>
-              <div className="st-mini st-mini--import" aria-hidden>
-                <div className="st-mini__file">
-                  <FileText size={16} /> cardapio.pdf
-                </div>
-                <div className="st-mini__rows">
-                  {['X-Burger', 'X-Salada', 'Batata frita'].map((n, i) => (
-                    <div key={n} style={{ animationDelay: `${i * 0.5}s` }}>
-                      <Check size={13} />
-                      <span>{n}</span>
-                      <em>{['28,90', '32,00', '18,00'][i]}</em>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </article>
-
-            <article className="st-card st-reveal">
-              <Box size={20} aria-hidden />
-              <h3>Prato em 3D no cardápio</h3>
-              <p>
-                O cliente gira o prato na tela e, no celular, abre a câmera para ver o prato na
-                própria mesa, em tamanho real.
-              </p>
-            </article>
-
-            <article className="st-card st-reveal">
-              <WifiOff size={20} aria-hidden />
-              <h3>Vende mesmo sem internet</h3>
-              <p>
-                Caiu a conexão, o caixa continua. O que foi feito offline sobe sozinho quando a
-                internet volta.
-              </p>
-            </article>
-
-            <article className="st-card st-card--wide st-reveal">
-              <div className="st-card__text">
-                <MessageCircle size={20} aria-hidden />
-                <h3>WhatsApp que responde sozinho</h3>
-                <p>
-                  Avisos de pedido e um atendente com inteligência artificial que conhece o seu
-                  cardápio e o seu horário.
-                </p>
-              </div>
-              <div className="st-mini st-mini--chat" aria-hidden>
-                <span>Vocês abrem hoje?</span>
-                <span className="is-me">Abrimos às 18h. Quer ver o cardápio?</span>
-                <span>Quero um Smash duplo</span>
-                <span className="is-me">Anotado! Entrega ou retirada?</span>
-              </div>
-            </article>
-
-            <article className="st-card st-reveal">
-              <Globe size={20} aria-hidden />
-              <h3>Endereço e marca seus</h3>
-              <p>
-                Seu restaurante em seunome.comandou.com ou no seu domínio, com as suas cores e o seu
-                logo.
-              </p>
-            </article>
-
-            <article className="st-card st-reveal">
-              <ReceiptText size={20} aria-hidden />
-              <h3>Nota fiscal e Pix no caixa</h3>
-              <p>
-                NFC-e emitida no fechamento da venda e Pix com QR Code na tela e no comprovante.
-              </p>
-            </article>
-
-            <article className="st-card st-reveal">
-              <Smartphone size={20} aria-hidden />
-              <h3>Instala como aplicativo</h3>
-              <p>
-                No celular do garçom, no tablet da cozinha e no computador do caixa. Sem loja de
-                aplicativos e sem instalar nada pesado.
-              </p>
-            </article>
-          </div>
+          <Details />
         </section>
 
         <section className="st-sec" id="como">
           <div className="st-sec__head st-reveal">
-            <h2>Três passos. O primeiro você faz agora.</h2>
+            <h2>Três passos.</h2>
           </div>
-          <ol className="st-how">
+          <ol className="st-how st-reveal">
             {STEPS.map((s, i) => (
-              <li key={s.title} className="st-reveal" style={{ transitionDelay: `${i * 60}ms` }}>
+              <li key={s.title} style={{ '--i': i } as React.CSSProperties}>
                 <span className="st-how__n">{i + 1}</span>
                 <h3>{s.title}</h3>
                 <p>{s.text}</p>
@@ -411,10 +479,7 @@ export function SiteApp() {
           <div className="st-price st-reveal">
             <div className="st-price__left">
               <h2>Um plano. Tudo dentro.</h2>
-              <p>
-                Sem tabela de recursos para decifrar e sem limite de pedidos. Comece pelo teste de{' '}
-                {trialDays} dias, sem cartão.
-              </p>
+              <p>{trialDays} dias grátis, sem cartão e sem limite de pedidos.</p>
               <div className="st-price__value">
                 {plan ? (
                   <>
@@ -447,8 +512,8 @@ export function SiteApp() {
                 ...(plan?.featureFiscal ? ['Nota fiscal (NFC-e)'] : []),
                 ...(plan?.featureWhatsapp ? ['WhatsApp com avisos e atendente'] : []),
                 ...(plan?.featureCustomDomain ? ['Domínio próprio'] : []),
-              ].map((x) => (
-                <li key={x}>
+              ].map((x, i) => (
+                <li key={x} style={{ '--i': i } as React.CSSProperties}>
                   <Check size={16} aria-hidden />
                   {x}
                 </li>
@@ -459,22 +524,23 @@ export function SiteApp() {
 
         <section className="st-sec st-sec--narrow" id="perguntas">
           <div className="st-sec__head st-reveal">
-            <h2>Perguntas de quem está começando.</h2>
+            <h2>Perguntas.</h2>
           </div>
           <div className="st-faq st-reveal">
             {SITE_FAQ.map((f) => (
               <details key={f.q}>
                 <summary>{f.q}</summary>
-                <p>{f.a.replace('dias de teste', `${trialDays} dias de teste`)}</p>
+                <p>{f.a}</p>
               </details>
             ))}
           </div>
         </section>
 
         <section className="st-end st-reveal">
-          <LivePanda size={84} mood="happy" />
+          <div className="st-end__panda">
+            <LivePanda size={84} mood="happy" />
+          </div>
           <h2>Vamos colocar o seu no ar?</h2>
-          <p>Leva menos tempo que fechar o caixa.</p>
           <div className="st-end__cta">
             <Button size="lg" onClick={toBuilder}>
               Criar meu restaurante

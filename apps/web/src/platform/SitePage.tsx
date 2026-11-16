@@ -33,6 +33,8 @@ interface Trial {
   emailSentAt: string | null;
   emailError: string | null;
   expiredAt: string | null;
+  /** O restaurante nasceu de um site montado pela IA. */
+  aiSite?: boolean;
 }
 
 const SOURCE = { site: 'Site', maps: 'Google Maps', text: 'Descrição', none: 'Só o nome' };
@@ -276,7 +278,10 @@ function Trials({ trials }: { trials: Trial[] }) {
                           {t.phone ? ` · ${t.phone}` : ''}
                         </div>
                       </td>
-                      <td title={t.sourceValue}>{SOURCE[t.sourceKind]}</td>
+                      <td title={t.sourceValue}>
+                        {SOURCE[t.sourceKind]}
+                        {t.aiSite && <div className="cm-hint">site com IA</div>}
+                      </td>
                       <td>
                         <Tag level={level}>{label}</Tag>
                       </td>

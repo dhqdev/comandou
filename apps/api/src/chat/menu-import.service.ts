@@ -436,6 +436,41 @@ export class MenuImportService {
   }
 
   /**
+   * O site que a IA montou no comandou.com antes do cadastro (loja e cardápio), no mesmo formato
+   * da leitura de um link. Já foi pago na geração: não desconta do limite do restaurante.
+   */
+  async siteDraft(ctx: Ctx) {
+    const r = await this.db.withCentral(ctx, (tx) =>
+      one<{ draft: Record<string, unknown> | null }>(
+        tx,
+        `SELECT draft FROM app_tenant_trial_site()`,
+      ),
+    );
+    const d = r?.draft as
+      | { store?: ImportedStore; categories?: ImportedCategory[]; suggested?: boolean }
+      | null
+      | undefined;
+    if (!d) return { found: false, store: EMPTY_STORE, categories: [], partial: false, items: 0 };
+    const categories = (d.categories ?? []).map((c) => ({
+      name: c.name,
+      items: c.items.map((i) => ({
+        name: i.name,
+        description: i.description ?? null,
+        price: i.price ?? null,
+        imageUrl: i.imageUrl ?? null,
+      })),
+    }));
+    return {
+      found: true,
+      store: { ...EMPTY_STORE, ...(d.store ?? {}) },
+      categories,
+      suggested: !!d.suggested,
+      partial: false,
+      items: categories.reduce((n, c) => n + c.items.length, 0),
+    };
+  }
+
+  /**
    * O que foi informado no cadastro do restaurante (painel do Comandou): telefone, cidade, UF,
    * razão social e responsável. Os primeiros passos usam para preencher a loja sozinhos.
    */
@@ -459,6 +494,13 @@ export class MenuImportService {
         `SELECT * FROM app_tenant_trial()`,
       ),
     );
+    // Site montado pela IA no comandou.com: os primeiros passos começam por ele.
+    const site = trial
+      ? await this.db.withCentral(ctx, (tx) =>
+          one<{ draft: unknown }>(tx, `SELECT draft FROM app_tenant_trial_site()`),
+        )
+      : null;
+    if (trial) Object.assign(trial, { aiSite: !!site?.draft });
     if (row) return { ...row, trial: trial ?? null };
     return (
       row ?? {

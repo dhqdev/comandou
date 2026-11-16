@@ -120,6 +120,13 @@ export class MenuImportController {
     res.end(img.body);
   }
 
+  /** O site montado pela IA no comandou.com (teste criado pelo site). */
+  @Get('site-draft')
+  @RequirePermission('settings:manage')
+  siteDraft(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.service.siteDraft(ctxOf(t, u));
+  }
+
   /** Dados do cadastro do restaurante (painel do Comandou) para preencher a loja. */
   @Get('signup')
   @RequirePermission('settings:manage')

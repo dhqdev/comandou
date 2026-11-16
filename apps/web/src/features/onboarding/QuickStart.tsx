@@ -17,6 +17,7 @@ import {
   imageColors,
   readFile,
   readLink,
+  readSiteDraft,
   readText,
   squareIcon,
   storeDraft,
@@ -98,9 +99,30 @@ export function QuickStart({
   // Teste criado pelo site: a pessoa já disse de onde vem o cardápio (site, Google Maps ou os
   // itens escritos). A leitura começa sozinha, uma única vez neste navegador.
   const auto = useRef(false);
+  const fromSite = !!signup?.trial?.aiSite;
   useEffect(() => {
     const t = signup?.trial;
-    if (auto.current || !status?.enabled || !t || t.sourceKind === 'none' || !t.sourceValue) return;
+    if (auto.current || !status || !t) return;
+    // A IA já montou o site no comandou.com: a conferência abre com ele, sem ler de novo.
+    if (t.aiSite) {
+      auto.current = true;
+      const key = 'cm:trial-site';
+      try {
+        if (localStorage.getItem(key)) return;
+        localStorage.setItem(key, '1');
+      } catch {
+        /* navegação privada: abre mesmo assim */
+      }
+      setStage({ at: 'reading', label: 'Abrindo o site que a IA montou' });
+      readSiteDraft(null)
+        .then((r) => (r ? finishReading(r, []) : setStage({ at: 'pick' })))
+        .catch((e: Error) => {
+          setError(e.message);
+          setStage({ at: 'pick' });
+        });
+      return;
+    }
+    if (!status.enabled || t.sourceKind === 'none' || !t.sourceValue) return;
     auto.current = true;
     const key = 'cm:trial-import';
     try {
@@ -258,7 +280,7 @@ export function QuickStart({
   };
 
   if (!status) return <Spinner inline label="Carregando" />;
-  if (!status.enabled && status.reason)
+  if (!status.enabled && status.reason && !(fromSite && stage.at !== 'pick'))
     return (
       <div className="qs">
         <Alert tone="warning">

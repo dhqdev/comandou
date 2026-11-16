@@ -58,3 +58,28 @@ Corpo que o webhook recebe (JSON):
 
 Sem webhook configurado o cadastro funciona igual; o login aparece só na tela. A senha inicial
 fica cifrada no banco apenas até o e-mail sair (ou por no máximo 1 hora) e é apagada em seguida.
+
+## Site com IA
+
+Com uma chave do OpenRouter, o site monta a loja do restaurante com IA na hora em que a pessoa
+cola o link do site, do Google Maps ou descreve o cardápio. O celular do topo mostra a IA
+trabalhando e, em seguida, a loja dela: nome, frase de abertura, cores, categorias e itens (com
+descrição). Lugar sem cardápio (só o Maps) ganha itens sugeridos, sempre sem preço.
+
+- **Só liga com chave.** Sem chave, desligado ou com o limite esgotado, o site funciona como
+  antes, sem IA, e nada aparece de diferente para o visitante.
+- **Chave.** Super Admin › Sites com IA aceita uma chave própria (dá para criar no OpenRouter uma
+  chave com limite de gasto só para isso). Vazia, vale a sua chave de Super Admin › Tokens e,
+  sem ela, a dos restaurantes.
+- **Limites** (Super Admin › Sites com IA): teto de tokens de resposta por site, tokens por dia
+  e por mês somando todos os sites (0 = sem limite) e sites por visitante (IP) em 24 horas. Além
+  disso, cada IP chama a geração no máximo 6 vezes em 10 minutos.
+- **Consumo.** Cada site montado fica registrado com tokens, custo, de onde veio e, se a pessoa
+  criou o restaurante, qual. A tela mostra o gasto do dia e do mês, quantos viraram restaurante,
+  o gasto por cliente e o que a IA montou. O total também entra em Super Admin › Tokens
+  (fonte "Sites com IA").
+- **Rascunho vai junto.** O cadastro leva o site montado (token de uso único, válido por 3
+  horas). Nos primeiros passos, a conferência já abre com a loja e o cardápio da IA, sem gastar o
+  limite de IA do restaurante. Nada entra na loja sem a pessoa conferir.
+
+Tabelas: `platform_site_ai_settings` e `site_ai_generations` (migração 0071).

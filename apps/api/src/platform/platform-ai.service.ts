@@ -75,6 +75,7 @@ const SOURCE_LABEL: Record<string, string> = {
   esteira: 'Esteira de chamados',
   teste: 'Teste no painel',
   menu_import: 'Importar cardápio',
+  site_ia: 'Sites com IA (comandou.com)',
 };
 
 /**

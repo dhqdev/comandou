@@ -29,6 +29,7 @@ import type { SiteSettingsInput, TrialInput } from './site.schemas';
 import { mapsPlaceName } from '../../common/maps-link';
 import { trialSlug } from './site-util';
 import { welcomeEmail } from './welcome-email';
+import { SiteAiService } from './site-ai.service';
 
 const SECRET_CONTEXT = 'site:trial';
 /** O link que abre o restaurante novo já logado vale este tempo depois do cadastro. */
@@ -80,6 +81,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly db: PlatformDb,
     private readonly databases: PlatformDatabasesService,
     private readonly platform: PlatformService,
+    private readonly siteAi: SiteAiService,
   ) {}
 
   onApplicationBootstrap() {
@@ -117,7 +119,8 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
   // ------------------------------------------------------------------ público
   /** O que a página precisa saber antes de mostrar o formulário. */
   async config() {
-    if (!this.db.enabled) return { signup: false, trialDays: 3, demoUrl: null, salesContact: '' };
+    if (!this.db.enabled)
+      return { signup: false, trialDays: 3, demoUrl: null, salesContact: '', ai: false };
     const s = await this.settingsRow();
     const [demo] = await this.db.query<{ slug: string }>(
       `SELECT slug FROM tenants WHERE slug = $1 AND status = 'provisioned'`,
@@ -131,6 +134,8 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
       trialDays: s.trial_days,
       demoUrl: demo ? `${this.tenantUrl(demo.slug)}/pedir` : null,
       salesContact: b?.sales_contact ?? '',
+      /** Monta o site com IA (Super Admin › Sites com IA ligado, com chave e dentro do limite). */
+      ai: s.signup_enabled && (await this.siteAi.available()),
     };
   }
 
@@ -237,6 +242,8 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
     const pending = this.env.INTEGRATIONS_KEY
       ? seal(this.env.INTEGRATIONS_KEY, password, SECRET_CONTEXT)
       : null;
+    // Site montado pela IA na página: o rascunho vai junto para os primeiros passos.
+    const aiGeneration = await this.siteAi.claim(b.aiSite, tenantId).catch(() => null);
     const trialEndsAt = await this.db.tx(async (c) => {
       // Teste do site: os dias vêm de Super Admin › Site (não do plano).
       await c.query(
@@ -246,8 +253,8 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
       );
       const { rows } = await c.query<{ trial_ends_at: Date }>(
         `INSERT INTO trial_signups (tenant_id, email, contact_name, phone, source_kind, source_value,
-                                    status_hash, ip, trial_ends_at, pending_enc)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + make_interval(days => $9), $10)
+                                    status_hash, ip, trial_ends_at, pending_enc, ai_generation_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now() + make_interval(days => $9), $10, $11)
          RETURNING trial_ends_at`,
         [
           tenantId,
@@ -260,6 +267,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
           ip ?? null,
           s.trial_days,
           pending,
+          aiGeneration,
         ],
       );
       await platformAudit(c, {
@@ -267,7 +275,13 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
         entity: 'tenant',
         entityId: tenantId,
         tenantId,
-        data: { slug, email: b.email, source: b.source.kind, trialDays: s.trial_days },
+        data: {
+          slug,
+          email: b.email,
+          source: b.source.kind,
+          trialDays: s.trial_days,
+          aiSite: !!aiGeneration,
+        },
         ip,
       });
       return rows[0]!.trial_ends_at;
@@ -591,7 +605,8 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
               ts.source_value AS "sourceValue", ts.created_at AS "createdAt",
               COALESCE(s.trial_ends_at, ts.trial_ends_at) AS "trialEndsAt",
               s.status AS "subscription", ts.email_sent_at AS "emailSentAt",
-              ts.email_error AS "emailError", ts.expired_at AS "expiredAt"
+              ts.email_error AS "emailError", ts.expired_at AS "expiredAt",
+              ts.ai_generation_id IS NOT NULL AS "aiSite"
          FROM trial_signups ts JOIN tenants t ON t.id = ts.tenant_id
          LEFT JOIN subscriptions s ON s.tenant_id = ts.tenant_id AND s.status <> 'cancelled'
         ORDER BY ts.created_at DESC LIMIT 200`,

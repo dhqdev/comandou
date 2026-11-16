@@ -14,6 +14,8 @@ export interface SiteConfig {
   trialDays: number;
   demoUrl: string | null;
   salesContact: string;
+  /** Super Admin › Sites com IA ligado (com chave e dentro do limite). */
+  ai?: boolean;
 }
 
 export function siteCandidate(hostname = window.location.hostname): boolean {

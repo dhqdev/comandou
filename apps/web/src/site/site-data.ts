@@ -66,52 +66,49 @@ export const TOUR: TourTab[] = [
 ];
 
 export const STEPS: { title: string; text: string }[] = [
-  {
-    title: 'Cole o link ou descreva',
-    text: 'O site que você já tem, o link do Google Maps ou uma lista do que você vende.',
-  },
-  {
-    title: 'O Comandou monta tudo',
-    text: 'Endereço próprio, cardápio online, PDV, cozinha e caixa. O login chega no seu e-mail.',
-  },
-  {
-    title: 'Confira e comece a vender',
-    text: 'Complete o cardápio com o PDF ou fotos, ajuste as cores e faça o primeiro pedido.',
-  },
+  { title: 'Cole o link', text: 'Do site, do Google Maps ou a lista do que você vende.' },
+  { title: 'Ganhe o seu site', text: 'Cardápio online, PDV, cozinha e caixa prontos.' },
+  { title: 'Venda', text: 'Confira, ajuste as cores e receba o primeiro pedido.' },
+];
+
+/** O que vem junto (a faixa que passa sozinha). */
+export const FEATURES = [
+  'Cardápio online',
+  'PDV',
+  'Salão e garçom',
+  'Cozinha',
+  'Caixa',
+  'Delivery',
+  'Estoque',
+  'Financeiro',
+  'Nota fiscal',
+  'WhatsApp',
+  'Pix',
+  'Fidelidade',
+  'Relatórios',
+  'Prato em 3D',
 ];
 
 export const SITE_FAQ: { q: string; a: string }[] = [
   {
     q: 'O que acontece depois dos dias de teste?',
-    a: 'Se você fechar com a gente, o restaurante continua no ar com tudo o que cadastrou. Se não fechar, ele sai do ar sozinho e nada é cobrado.',
+    a: 'Fechou com a gente, tudo continua no ar. Não fechou, o restaurante sai do ar sozinho e nada é cobrado.',
   },
   {
     q: 'Preciso de cartão para testar?',
-    a: 'Não. Você só informa o nome do restaurante, o seu nome e um e-mail para receber o login.',
+    a: 'Não. Só o nome do restaurante, o seu nome e um e-mail.',
   },
   {
-    q: 'Como o Comandou monta o meu cardápio?',
-    a: 'Você manda o link do seu site, o PDF ou fotos do cardápio. A inteligência artificial lê os itens, os preços e as fotos, e você confere tudo antes de publicar.',
-  },
-  {
-    q: 'Funciona no celular e no tablet?',
-    a: 'Sim. O sistema instala como aplicativo no celular, no tablet e no computador. O garçom lança pelo celular e a cozinha acompanha numa tela.',
+    q: 'Como o meu cardápio entra?',
+    a: 'Pelo link do seu site, pelo PDF ou por fotos. A inteligência artificial lê tudo e você confere antes de publicar.',
   },
   {
     q: 'E se a internet cair?',
-    a: 'O sistema continua vendendo. O que foi feito sem internet sobe sozinho quando a conexão volta.',
+    a: 'O caixa continua vendendo e tudo sobe sozinho quando a conexão volta.',
   },
   {
     q: 'Emite nota fiscal?',
-    a: 'Sim, NFC-e direto do caixa. O custo da emissão das notas é cobrado à parte da mensalidade.',
-  },
-  {
-    q: 'Posso usar o meu próprio domínio?',
-    a: 'Pode. Todo restaurante ganha um endereço no comandou.com e pode ligar o próprio domínio quando quiser.',
-  },
-  {
-    q: 'Meus dados ficam misturados com os de outros restaurantes?',
-    a: 'Não. Cada restaurante tem o próprio banco de dados, e os dados de um nunca aparecem para outro.',
+    a: 'Sim, NFC-e direto do caixa. A emissão das notas é cobrada à parte.',
   },
 ];
 

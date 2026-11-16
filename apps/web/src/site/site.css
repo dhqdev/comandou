@@ -124,7 +124,7 @@ html:has(.st) {
   letter-spacing: -0.04em;
   text-wrap: balance;
 }
-.st-hero h1 span {
+.st-hero h1 .st-h1__accent {
   color: var(--cm-brand-600);
 }
 .st-lead {
@@ -571,22 +571,49 @@ html:has(.st) {
   transition: background 0.26s var(--cm-ease);
 }
 
-/* ---------------------------------------------------------------- faixa */
+/* ---------------------------------------------------------------- faixa que passa */
 .st-band {
+  overflow: hidden;
   border-block: 1px solid var(--cm-border);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.st-band__track {
+  display: flex;
+  width: max-content;
+  animation: st-marquee 38s linear infinite;
+}
+.st-band:hover .st-band__track {
+  animation-play-state: paused;
 }
 .st-band ul {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px 28px;
-  max-width: var(--st-max);
-  margin: 0 auto;
-  padding: 18px var(--st-pad);
+  flex: none;
+  gap: 40px;
+  margin: 0;
+  padding: 18px 20px;
   list-style: none;
   color: var(--cm-text-muted);
-  font-size: var(--cm-text-sm);
+  font-size: var(--cm-text-md);
   font-weight: 550;
+  white-space: nowrap;
+}
+.st-band li {
+  display: inline-flex;
+  align-items: center;
+  gap: 40px;
+}
+.st-band li::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--cm-gray-300);
+}
+@keyframes st-marquee {
+  to {
+    transform: translateX(-50%);
+  }
 }
 
 /* ---------------------------------------------------------------- seções */
@@ -659,6 +686,8 @@ html:has(.st) {
   display: none;
 }
 .st-tour__tabs button {
+  position: relative;
+  overflow: hidden;
   flex: none;
   min-height: 38px;
   padding: 0 14px;
@@ -690,12 +719,10 @@ html:has(.st) {
   margin: var(--cm-space-6) 0 var(--cm-space-4);
   animation: st-up 0.26s var(--cm-spring) both;
 }
-.st-tour__head h3 {
+.st .st-tour__head {
+  margin: var(--cm-space-6) 0 var(--cm-space-4);
   font-size: var(--cm-text-xl);
   letter-spacing: var(--cm-tracking-tight);
-}
-.st-tour__head p {
-  color: var(--cm-text-muted);
 }
 .st-shot {
   overflow: hidden;
@@ -726,11 +753,21 @@ html:has(.st) {
   font-size: var(--cm-text-xs);
   color: var(--cm-text-subtle);
 }
+.st-shot__view {
+  display: grid;
+  overflow: hidden;
+}
 .st-shot img {
   display: block;
   width: 100%;
   height: auto;
-  animation: st-fade 0.22s var(--cm-ease) both;
+  animation: st-shot 0.45s var(--cm-ease) both;
+}
+@keyframes st-shot {
+  from {
+    opacity: 0;
+    transform: scale(1.025) translateY(6px);
+  }
 }
 @keyframes st-fade {
   from {
@@ -890,6 +927,7 @@ html:has(.st) {
   list-style: none;
 }
 .st-how li {
+  position: relative;
   display: grid;
   gap: 8px;
   align-content: start;
@@ -1087,4 +1125,588 @@ html:has(.st) {
 .st-foot .st-brand {
   font-size: var(--cm-text-md);
   color: var(--cm-text);
+}
+
+/* ================================================================ movimento (0.124) */
+
+/* Barra de leitura no topo (só onde o navegador anima pela rolagem). */
+.st-progress {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 30;
+  height: 2px;
+  background: var(--cm-brand-600);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  pointer-events: none;
+}
+@supports (animation-timeline: scroll()) {
+  .st-progress {
+    animation: st-grow linear both;
+    animation-timeline: scroll(root);
+  }
+}
+@keyframes st-grow {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Título do topo entra em duas linhas. */
+.st-h1__line {
+  display: inline-block;
+  animation: st-rise 0.6s var(--cm-spring) both;
+}
+.st-h1__accent {
+  color: var(--cm-brand-600);
+  animation-delay: 0.12s;
+}
+.st-lead {
+  animation: st-rise 0.6s var(--cm-spring) 0.2s both;
+}
+.st-build {
+  animation: st-rise 0.6s var(--cm-spring) 0.28s both;
+}
+@keyframes st-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+.st-lead__ai {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--cm-text);
+  font-weight: 600;
+}
+.st-lead__ai svg {
+  color: var(--cm-brand-600);
+  animation: st-twinkle 2.4s ease-in-out infinite;
+}
+@keyframes st-twinkle {
+  0%,
+  100% {
+    transform: scale(1) rotate(0);
+  }
+  50% {
+    transform: scale(1.18) rotate(12deg);
+  }
+}
+
+/* O celular flutua devagar. */
+.st-float {
+  position: relative;
+  z-index: 1;
+  animation:
+    st-rise 0.7s var(--cm-spring) 0.18s both,
+    st-bob 6s ease-in-out 0.9s infinite;
+}
+@keyframes st-bob {
+  50% {
+    transform: translateY(-10px);
+  }
+}
+.st-phone__tag {
+  padding: 2px 18px 0;
+  font-size: 0.6875rem;
+  color: var(--cm-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  animation: st-up 0.3s var(--cm-spring) 0.08s both;
+}
+.st-phone__chips span {
+  animation: st-up 0.26s var(--cm-spring) both;
+}
+.st-phone.is-ai .st-phone__logo {
+  animation: st-pop 0.5s var(--cm-spring) both;
+}
+@keyframes st-pop {
+  0% {
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.08);
+  }
+}
+.st-phone.is-ai .st-phone__items li {
+  animation-duration: 0.42s;
+}
+
+/* A IA montando: a tela apaga, uma linha de luz desce e o cartão conta o que está fazendo. */
+.st-phone.is-building .st-phone__screen > :not(.st-phone__ai) {
+  opacity: 0.35;
+  transition: opacity 0.25s var(--cm-ease);
+}
+.st-phone__ai {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  animation: st-fade 0.2s var(--cm-ease) both;
+}
+.st-phone__scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: var(--st-brand);
+  box-shadow: 0 0 18px 3px color-mix(in srgb, var(--st-brand) 45%, transparent);
+  animation: st-scan 1.6s ease-in-out infinite alternate;
+}
+@keyframes st-scan {
+  from {
+    transform: translateY(40px);
+  }
+  to {
+    transform: translateY(560px);
+  }
+}
+.st-phone__ai-card {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  max-width: 80%;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border-strong);
+  box-shadow: var(--cm-shadow-md);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: center;
+}
+.st-phone__ai-card svg {
+  color: var(--st-brand);
+  animation: st-twinkle 1.2s ease-in-out infinite;
+}
+.st-phone__ai-card span {
+  animation: st-up 0.26s var(--cm-spring) both;
+}
+.st-found--ai svg {
+  color: var(--cm-brand-600);
+}
+.st-link {
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cm-text-muted);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.st-link:hover {
+  color: var(--cm-text);
+}
+
+/* Telas: a aba da vez mostra quanto falta para a próxima. */
+.st-tour__time {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 5px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.45;
+  transform-origin: 0 50%;
+  animation: st-grow linear both;
+  transform: scaleX(0);
+}
+
+/* Seções: os filhos entram em cascata. */
+.st-js .st-bento .st-reveal:nth-child(2) {
+  transition-delay: 60ms;
+}
+.st-js .st-bento .st-reveal:nth-child(3) {
+  transition-delay: 120ms;
+}
+.st-js .st-bento .st-reveal:nth-child(5) {
+  transition-delay: 60ms;
+}
+.st-js .st-bento .st-reveal:nth-child(6) {
+  transition-delay: 120ms;
+}
+.st-js .st-bento .st-reveal:nth-child(7) {
+  transition-delay: 180ms;
+}
+.st-card {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Cardápio pelo PDF: a luz passa pelo arquivo. */
+.st-mini__file {
+  position: relative;
+  overflow: hidden;
+}
+.st-mini__scan {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 30%;
+  background: color-mix(in srgb, var(--cm-brand-500) 18%, transparent);
+  animation: st-sweep 2s ease-in-out infinite;
+}
+@keyframes st-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(360%);
+  }
+}
+
+/* Prato em 3D: gira. */
+.st-mini--spin {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 120px;
+  margin-bottom: 4px;
+  perspective: 500px;
+}
+.st-mini--spin img {
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  object-fit: cover;
+  animation: st-turn 7s linear infinite;
+}
+.st-mini--spin i {
+  position: absolute;
+  bottom: 4px;
+  width: 80px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cm-gray-900);
+  opacity: 0.12;
+  animation: st-shadow 7s linear infinite;
+}
+@keyframes st-turn {
+  from {
+    transform: rotateX(18deg) rotateY(0);
+  }
+  to {
+    transform: rotateX(18deg) rotateY(360deg);
+  }
+}
+@keyframes st-shadow {
+  25%,
+  75% {
+    transform: scaleX(0.55);
+  }
+}
+
+/* Sem internet: os pedidos esperam e sobem. */
+.st-mini--sync {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 120px;
+  margin-bottom: 4px;
+  color: var(--cm-text-muted);
+}
+.st-mini--sync span {
+  display: flex;
+  gap: 6px;
+}
+.st-mini--sync i {
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1px solid var(--cm-border-strong);
+  background: var(--cm-surface-sunken);
+  animation: st-sync 3.6s var(--cm-ease) infinite both;
+}
+.st-mini--sync i:nth-child(2) {
+  animation-delay: 0.25s;
+}
+.st-mini--sync i:nth-child(3) {
+  animation-delay: 0.5s;
+}
+.st-mini--sync svg {
+  animation: st-blink 3.6s steps(1) infinite;
+}
+@keyframes st-sync {
+  0%,
+  55% {
+    transform: none;
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(-26px);
+    opacity: 0;
+  }
+  71% {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  85%,
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes st-blink {
+  0%,
+  55% {
+    opacity: 1;
+  }
+  56%,
+  100% {
+    opacity: 0.3;
+  }
+}
+
+/* Endereço: o nome aparece como se fosse digitado. */
+.st-mini--url {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.st-mini--url span {
+  position: relative;
+}
+.st-mini--url b {
+  position: relative;
+  display: inline-block;
+  color: var(--cm-text);
+}
+.st-mini--url b::after {
+  content: '';
+  position: absolute;
+  inset: 0 -2px;
+  background: var(--cm-surface-sunken);
+  border-left: 2px solid var(--cm-brand-600);
+  transform-origin: 100% 50%;
+  animation: st-type 4s steps(7) infinite;
+}
+@keyframes st-type {
+  0% {
+    transform: scaleX(1);
+  }
+  45%,
+  90% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+/* NFC-e: o comprovante sai da impressora. */
+.st-mini--receipt {
+  height: 120px;
+  margin-bottom: 4px;
+  overflow: hidden;
+  border-top: 3px solid var(--cm-gray-300);
+  border-radius: 3px;
+}
+.st-mini--receipt div {
+  display: grid;
+  gap: 7px;
+  width: 132px;
+  padding: 12px;
+  border: 1px solid var(--cm-border-strong);
+  border-top: 0;
+  border-radius: 0 0 6px 6px;
+  background: var(--cm-surface);
+  animation: st-print 4.5s var(--cm-ease) infinite both;
+}
+.st-mini--receipt i {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--cm-gray-200);
+}
+.st-mini--receipt i:nth-child(2) {
+  width: 70%;
+}
+.st-mini--receipt b {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-success);
+}
+@keyframes st-print {
+  0% {
+    transform: translateY(-100%);
+  }
+  35%,
+  88% {
+    transform: none;
+  }
+  100% {
+    transform: translateY(-100%);
+  }
+}
+
+/* App: o ícone cai na tela inicial. */
+.st-mini--app {
+  display: grid;
+  place-items: center;
+  height: 120px;
+  margin-bottom: 4px;
+}
+.st-mini--app span {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  border: 1px solid var(--cm-border-strong);
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-md);
+  animation: st-drop 3.8s var(--cm-spring) infinite both;
+}
+@keyframes st-drop {
+  0% {
+    transform: translateY(-30px) scale(0.6);
+    opacity: 0;
+  }
+  18%,
+  85% {
+    transform: none;
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+}
+
+/* WhatsApp: as mensagens chegam uma por vez. */
+.st-mini--chat span {
+  animation: st-msg 8s var(--cm-ease) infinite both;
+}
+.st-mini--chat span:nth-child(2) {
+  animation-delay: 0.9s;
+}
+.st-mini--chat span:nth-child(3) {
+  animation-delay: 1.8s;
+}
+.st-mini--chat span:nth-child(4) {
+  animation-delay: 2.7s;
+}
+@keyframes st-msg {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  6%,
+  85% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Três passos: a linha se desenha e os números entram. */
+.st-how li::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--cm-brand-600);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  transition: transform 0.6s var(--cm-ease) calc(var(--i, 0) * 0.25s);
+}
+.st-how.is-in li::before {
+  transform: scaleX(1);
+}
+.st-how__n {
+  font-size: var(--cm-text-3xl, 2rem);
+  line-height: 1;
+}
+.st-js .st-how li {
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 0.35s var(--cm-ease) calc(var(--i, 0) * 0.25s),
+    transform 0.35s var(--cm-spring) calc(var(--i, 0) * 0.25s);
+}
+.st-js .st-how.is-in li {
+  opacity: 1;
+  transform: none;
+}
+
+/* Preço: os itens entram em cascata. */
+.st-js .st-price__list li {
+  opacity: 0;
+  transform: translateX(-8px);
+  transition:
+    opacity 0.3s var(--cm-ease) calc(var(--i, 0) * 40ms + 0.15s),
+    transform 0.3s var(--cm-ease) calc(var(--i, 0) * 40ms + 0.15s);
+}
+.st-js .st-price.is-in .st-price__list li {
+  opacity: 1;
+  transform: none;
+}
+
+/* Fim: o panda pula. */
+.st-end__panda {
+  animation: st-bob 3s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-band__track {
+    width: auto;
+  }
+  .st-band ul + ul {
+    display: none;
+  }
+  .st-band ul {
+    flex-wrap: wrap;
+    justify-content: center;
+    white-space: normal;
+  }
+  .st-js .st-how li,
+  .st-js .st-price__list li {
+    opacity: 1;
+    transform: none;
+  }
+  .st-how li::before {
+    transform: scaleX(1);
+  }
+  .st-mini--url b::after,
+  .st-phone__scan,
+  .st-mini__scan {
+    display: none;
+  }
+}
+
+/* Celular: com o site montado e o formulário lá em cima, o botão fica preso embaixo. */
+.st-sticky {
+  display: none;
+}
+@media (max-width: 900px) {
+  .st-sticky {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: calc(16px + var(--cm-sab));
+    z-index: 25;
+    display: block;
+    animation: st-rise 0.3s var(--cm-spring) both;
+  }
+  .st-sticky .cm-btn {
+    width: 100%;
+    box-shadow: var(--cm-shadow-lg, var(--cm-shadow-md));
+  }
 }

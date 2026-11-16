@@ -14,6 +14,7 @@ import {
   Tags,
   Calculator,
   Globe,
+  Sparkles,
   Wallet,
 } from 'lucide-react';
 import {
@@ -91,6 +92,10 @@ const SitePage = lazyPage(
   () => import('./SitePage'),
   (m) => m.SitePage,
 );
+const SiteAiPage = lazyPage(
+  () => import('./SiteAiPage'),
+  (m) => m.SiteAiPage,
+);
 const QuotePage = lazyPage(
   () => import('./QuotePage'),
   (m) => m.QuotePage,
@@ -126,6 +131,7 @@ const PANEL_PAGES = [
   PlansPage,
   QuotePage,
   SitePage,
+  SiteAiPage,
   BillingPage,
   OnlinePayPage,
   AiPage,
@@ -312,6 +318,7 @@ const NAV = [
   { to: '/planos', label: 'Planos', icon: Tags },
   { to: '/orcamento', label: 'Orçamento', icon: Calculator },
   { to: '/site', label: 'Site', icon: Globe },
+  { to: '/sites-ia', label: 'Sites com IA', short: 'Sites IA', icon: Sparkles },
   { to: '/cobranca', label: 'Cobrança', icon: Wallet },
   { to: '/pagamentos', label: 'Pagamentos pelo app', short: 'Pagamentos', icon: CreditCard },
   { to: '/tokens', label: 'Tokens', icon: BrainCircuit },
@@ -323,7 +330,10 @@ const TABS = ['/', '/restaurantes', '/conversas', '/servidor'];
 function titleFor(path: string) {
   if (path === '/') return 'Status';
   if (path === FRAME_MENU_PATH) return 'Mais';
-  return NAV.find((n) => n.to !== '/' && path.startsWith(n.to))?.label ?? 'Painel';
+  return (
+    NAV.find((n) => n.to !== '/' && (path === n.to || path.startsWith(`${n.to}/`)))?.label ??
+    'Painel'
+  );
 }
 
 function InstallSheet({ onClose }: { onClose: () => void }) {
@@ -528,6 +538,7 @@ function Gate() {
         <Route path="planos" element={<PlansPage />} />
         <Route path="orcamento" element={<QuotePage />} />
         <Route path="site" element={<SitePage />} />
+        <Route path="sites-ia" element={<SiteAiPage />} />
         <Route path="cobranca" element={<BillingPage />} />
         <Route path="pagamentos" element={<OnlinePayPage />} />
         <Route path="tokens" element={<AiPage />} />

@@ -1,4 +1,4 @@
-import { ArrowRight, Check, Copy, Globe, MapPin, PencilLine } from 'lucide-react';
+import { ArrowRight, Check, Copy, Globe, MapPin, PencilLine, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Modal, Spinner, TextField, type PandaMood } from '../design-system';
 import type { SiteConfig } from './host';
@@ -30,7 +30,45 @@ export interface Look {
   items: MockItem[];
   /** Itens digitados pela pessoa (sem foto). */
   typed: boolean;
+  /** Frase do topo da loja (site montado pela IA). */
+  tagline?: string | null;
+  /** Categorias da loja (as da IA; sem elas, as de exemplo). */
+  chips?: string[];
+  /** A IA está montando o site agora. */
+  building?: boolean;
+  /** Site montado pela IA (o celular comemora). */
+  ai?: boolean;
 }
+
+/** O site que a IA montou (o rascunho inteiro fica no servidor até o cadastro). */
+interface AiSite {
+  name: string | null;
+  tagline: string | null;
+  about: string | null;
+  brandColor: string | null;
+  accentColor: string | null;
+  logoUrl: string | null;
+  coverUrl: string | null;
+  suggested: boolean;
+  items: number;
+  categories: {
+    name: string;
+    items: {
+      name: string;
+      description: string | null;
+      price: string | null;
+      imageUrl: string | null;
+    }[];
+  }[];
+}
+
+type AiState =
+  | { at: 'idle' }
+  | { at: 'building' }
+  | { at: 'done'; claim: string; site: AiSite; value: string }
+  | { at: 'failed'; message: string | null };
+
+const brl = (p: string | null) => (p ? p.replace('.', ',') : undefined);
 
 interface Created {
   token: string;
@@ -102,6 +140,14 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return data as T;
 }
 
+/** O que o celular conta enquanto a IA monta o site. */
+export const AI_STEPS = [
+  'Lendo o que você mandou',
+  'Escolhendo as cores',
+  'Montando o cardápio',
+  'Escrevendo as descrições',
+];
+
 const BUILD_STEPS = [
   'Reservando o seu endereço',
   'Montando cardápio, PDV, cozinha e caixa',
@@ -133,6 +179,7 @@ export function Builder({
   const [tick, setTick] = useState(0);
   const [reachable, setReachable] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [ai, setAi] = useState<AiState>({ at: 'idle' });
   const named = useRef(false);
 
   const value = mode === 'site' ? link : mode === 'maps' ? maps : text;
@@ -181,19 +228,55 @@ export function Builder({
 
   const typedItems = useMemo(() => (mode === 'text' ? parseItems(text) : []), [mode, text]);
 
-  // O celular acompanha: nome, cor e capa do site; ou os itens que a pessoa está digitando.
+  // Mudou o link ou o texto: o site da IA era de outra coisa.
+  useEffect(() => {
+    setAi((cur) =>
+      (cur.at === 'done' && cur.value !== value.trim()) || cur.at === 'failed'
+        ? { at: 'idle' }
+        : cur,
+    );
+  }, [value]);
+
+  // O celular acompanha: nome, cor e capa do site; os itens que a pessoa está digitando; ou o
+  // site inteiro que a IA montou.
   useEffect(() => {
     const typed = typedItems.length > 0;
-    onLook({
+    const base: Look = {
       name: form.restaurant.trim() || preview?.name || 'Seu restaurante',
       color: preview?.color ?? null,
       icon: preview?.icon ?? null,
       cover: preview?.image ?? null,
       items: typed ? typedItems : SAMPLE_ITEMS,
       typed,
-    });
+      building: ai.at === 'building',
+    };
+    if (ai.at === 'done') {
+      const s = ai.site;
+      const items = s.categories.flatMap((c) =>
+        c.items.map((i) => ({
+          name: i.name,
+          desc: i.description ?? undefined,
+          price: brl(i.price),
+          photo: i.imageUrl ?? undefined,
+        })),
+      );
+      onLook({
+        ...base,
+        name: form.restaurant.trim() || s.name || base.name,
+        color: s.brandColor ?? base.color,
+        icon: s.logoUrl ?? base.icon,
+        cover: s.coverUrl ?? base.cover,
+        items: items.length ? items : base.items,
+        typed: items.length > 0 && !items.some((i) => i.photo),
+        tagline: s.tagline,
+        chips: s.categories.map((c) => c.name).slice(0, 4),
+        ai: true,
+      });
+      return;
+    }
+    onLook(base);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preview, typedItems, form.restaurant]);
+  }, [preview, typedItems, form.restaurant, ai]);
 
   useEffect(() => {
     if (preview?.name && !named.current) setForm((f) => ({ ...f, restaurant: preview.name! }));
@@ -201,7 +284,49 @@ export function Builder({
 
   const start = () => {
     setError(null);
+    const src = source();
+    // Com a IA ligada, o primeiro clique monta o site no celular; o segundo cria o restaurante.
+    if (
+      config?.ai &&
+      src.kind !== 'none' &&
+      ai.at !== 'done' &&
+      ai.at !== 'building' &&
+      ai.at !== 'failed'
+    ) {
+      void build(src as { kind: 'site' | 'maps' | 'text'; value: string });
+      return;
+    }
     setOpen(true);
+  };
+
+  const build = async (src: { kind: 'site' | 'maps' | 'text'; value: string }) => {
+    setAi({ at: 'building' });
+    onMood('thinking');
+    showPhone();
+    try {
+      const r = await post<{ claim: string; site: AiSite }>('ai', src);
+      setAi({ at: 'done', claim: r.claim, site: r.site, value: src.value });
+      if (r.site.name && !named.current) setForm((f) => ({ ...f, restaurant: r.site.name! }));
+      onMood('joy');
+    } catch (e) {
+      // Sem IA agora (limite, fora do ar): segue o cadastro de sempre.
+      const msg = (e as Error).message;
+      setAi({ at: 'failed', message: /criou alguns sites/.test(msg) ? msg : null });
+      onMood('idle');
+      setOpen(true);
+    }
+  };
+
+  /** No celular, o aparelho fica embaixo do formulário: rola até ele para ver a IA montando. */
+  const showPhone = () => {
+    const el = document.querySelector('.st-phone');
+    if (!el || window.innerWidth > 900) return;
+    const r = el.getBoundingClientRect();
+    if (r.top > window.innerHeight * 0.6)
+      el.scrollIntoView({
+        block: 'center',
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      });
   };
 
   const source = () => {
@@ -223,6 +348,7 @@ export function Builder({
         email: form.email,
         phone: form.phone || null,
         source: source(),
+        ...(ai.at === 'done' ? { aiSite: ai.claim } : {}),
         company: form.company,
       });
       setState('creating');
@@ -392,13 +518,53 @@ export function Builder({
               {looking && <Spinner inline label="Procurando" />}
             </div>
           )}
-          <Button type="submit" size="lg" className="st-build__go" disabled={!!closed}>
-            Criar meu restaurante
-            <ArrowRight size={18} aria-hidden />
+          <Button
+            type="submit"
+            size="lg"
+            className="st-build__go"
+            disabled={!!closed}
+            loading={ai.at === 'building'}
+          >
+            {ai.at === 'building'
+              ? 'Montando'
+              : ai.at === 'done'
+                ? 'Gostei, criar'
+                : config?.ai && value.trim()
+                  ? 'Criar com IA'
+                  : 'Criar meu restaurante'}
+            {ai.at !== 'building' &&
+              (config?.ai && value.trim() && ai.at !== 'done' ? (
+                <Sparkles size={17} aria-hidden />
+              ) : (
+                <ArrowRight size={18} aria-hidden />
+              ))}
           </Button>
         </form>
         <div className="st-build__under" aria-live="polite">
-          {preview?.name ? (
+          {ai.at === 'building' ? (
+            <span className="st-found st-found--ai">
+              <Sparkles size={15} aria-hidden /> A IA está montando o seu site
+            </span>
+          ) : ai.at === 'done' ? (
+            <span className="st-found st-found--ai">
+              <Sparkles size={15} aria-hidden />
+              Site pronto, com {ai.site.items} {ai.site.items === 1 ? 'item' : 'itens'}
+              {ai.site.suggested ? ' de sugestão' : ''}.
+              <button
+                type="button"
+                className="st-link"
+                onClick={() => {
+                  const v = source();
+                  if (v.kind !== 'none')
+                    void build(v as { kind: 'site' | 'maps' | 'text'; value: string });
+                }}
+              >
+                Refazer
+              </button>
+            </span>
+          ) : ai.at === 'failed' && ai.message ? (
+            <span>{ai.message}</span>
+          ) : preview?.name ? (
             <span className="st-found">
               {preview.icon ? (
                 <img src={preview.icon} alt="" width={18} height={18} />
@@ -411,13 +577,19 @@ export function Builder({
           ) : closed ? (
             <span>O cadastro pelo site está fechado no momento. Fale com a gente.</span>
           ) : (
-            <span>
-              {trialDays} dias grátis, sem cartão. Sem site? Escolha “Vou descrever” ou crie só com
-              o nome.
-            </span>
+            <span>{trialDays} dias grátis, sem cartão.</span>
           )}
         </div>
       </div>
+
+      {ai.at === 'done' && !open && (
+        <div className="st-sticky">
+          <Button size="lg" onClick={() => setOpen(true)}>
+            Gostei, criar meu restaurante
+            <ArrowRight size={18} aria-hidden />
+          </Button>
+        </div>
+      )}
 
       <Modal
         open={open}
@@ -563,9 +735,19 @@ export function Builder({
 /** Celular com a loja online: a mesma cara do cardápio de verdade, em miniatura. */
 export function PhoneMock({ look }: { look: Look }) {
   const initial = look.name.trim()[0]?.toUpperCase() ?? 'C';
+  const chips = look.chips?.length ? look.chips : ['Mais pedidos', 'Combos', 'Bebidas'];
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    if (!look.building) return;
+    setStep(0);
+    const t = window.setInterval(() => setStep((n) => (n + 1) % AI_STEPS.length), 1500);
+    return () => window.clearInterval(t);
+  }, [look.building]);
+  // Uma "versão" por site montado: os itens entram de novo, um atrás do outro.
+  const stamp = `${look.ai ? 'ai' : 'base'}-${look.name}-${look.items[0]?.name ?? ''}`;
   return (
     <div
-      className="st-phone"
+      className={`st-phone ${look.building ? 'is-building' : ''} ${look.ai ? 'is-ai' : ''}`}
       style={look.color ? ({ '--st-brand': look.color } as React.CSSProperties) : undefined}
       aria-hidden
     >
@@ -580,17 +762,32 @@ export function PhoneMock({ look }: { look: Look }) {
         <div className="st-phone__name" key={look.name}>
           {look.name}
         </div>
-        <div className="st-phone__open">
-          <i /> Aberto agora
+        {look.tagline ? (
+          <div className="st-phone__tag" key={look.tagline}>
+            {look.tagline}
+          </div>
+        ) : (
+          <div className="st-phone__open">
+            <i /> Aberto agora
+          </div>
+        )}
+        <div className="st-phone__chips" key={`c-${stamp}`}>
+          {chips.map((c, i) => (
+            <span
+              key={c}
+              className={i === 0 ? 'is-on' : ''}
+              style={{ animationDelay: `${i * 50}ms` }}
+            >
+              {c}
+            </span>
+          ))}
         </div>
-        <div className="st-phone__chips">
-          <span className="is-on">Mais pedidos</span>
-          <span>Combos</span>
-          <span>Bebidas</span>
-        </div>
-        <ul className="st-phone__items">
+        <ul className="st-phone__items" key={stamp}>
           {look.items.slice(0, 3).map((it, i) => (
-            <li key={`${it.name}-${i}`} style={{ animationDelay: `${i * 40}ms` }}>
+            <li
+              key={`${it.name}-${i}`}
+              style={{ animationDelay: `${look.ai ? 120 + i * 110 : i * 40}ms` }}
+            >
               <div>
                 <strong>{it.name}</strong>
                 {it.desc && <span>{it.desc}</span>}
@@ -608,6 +805,15 @@ export function PhoneMock({ look }: { look: Look }) {
           <span>Ver sacola</span>
           <span>R$ 71,80</span>
         </div>
+        {look.building && (
+          <div className="st-phone__ai">
+            <span className="st-phone__scan" />
+            <div className="st-phone__ai-card">
+              <Sparkles size={18} />
+              <span key={step}>{AI_STEPS[step]}</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.124.0',
+    date: '2026-11-16',
+    title: 'Site do restaurante montado pela IA e site do Comandou mais animado',
+    summary:
+      'No comandou.com, quem cola o link do site, do Google Maps ou descreve o cardápio vê a IA montar a loja dele no celular da página: nome, frase, cores, categorias e itens. Só liga com a chave do OpenRouter, e o Super Admin ganhou a seção Sites com IA para controlar os tokens.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Site com IA: o celular do topo mostra a IA montando a loja e o restaurante nasce com ela. Os primeiros passos abrem a conferência com esse site, sem gastar o limite de IA do restaurante.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin › Sites com IA: liga e desliga, chave própria opcional (sem ela vale a de Tokens), modelo, teto por site, limite de tokens por dia e por mês e de sites por visitante.',
+      },
+      {
+        tag: 'novo',
+        text: 'Consumo de cada site montado (tokens, custo, se virou restaurante), consumo por cliente, gráfico de 30 dias e um botão para testar a geração pelo painel.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Site do Comandou com menos texto e mais movimento: telas do sistema passando sozinhas, faixa de recursos em movimento, cada detalhe com a sua animação e barra de leitura no topo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O gasto dos sites com IA também entra no total de Super Admin › Tokens.',
+      },
+    ],
+  },
+  {
     version: '0.123.0',
     date: '2026-11-15',
     title: 'Site do Comandou e teste grátis criado pelo próprio cliente',

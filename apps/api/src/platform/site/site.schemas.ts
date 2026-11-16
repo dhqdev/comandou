@@ -22,6 +22,11 @@ export const TrialBody = z.object({
       z.object({ kind: z.literal('none'), value: z.string().max(0).default('') }),
     ])
     .default({ kind: 'none', value: '' }),
+  /** Token do site montado pela IA na página (o rascunho vai junto para o restaurante). */
+  aiSite: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{32}$/)
+    .optional(),
   /** Campo escondido: gente não preenche, robô sim. */
   company: z.string().max(0).optional(),
 });

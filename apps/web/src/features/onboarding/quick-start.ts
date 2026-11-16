@@ -77,6 +77,8 @@ export interface Signup {
     sourceKind: 'site' | 'maps' | 'text' | 'none';
     sourceValue: string;
     trialEndsAt: string;
+    /** A IA já montou o site no comandou.com: os primeiros passos começam por ele. */
+    aiSite?: boolean;
   } | null;
 }
 
@@ -350,6 +352,16 @@ export async function readLink(url: string, current: Reading | null): Promise<Re
     api<ReadResult>('/menu-import/link', { method: 'POST', json: { url } }),
     existingNames(),
   ]);
+  return combine(current, r, inMenu, null);
+}
+
+/** O site que a IA montou no comandou.com, antes do cadastro (não gasta o limite da IA). */
+export async function readSiteDraft(current: Reading | null): Promise<Reading | null> {
+  const [r, inMenu] = await Promise.all([
+    api<ReadResult & { found: boolean }>('/menu-import/site-draft'),
+    existingNames(),
+  ]);
+  if (!r.found) return null;
   return combine(current, r, inMenu, null);
 }
 

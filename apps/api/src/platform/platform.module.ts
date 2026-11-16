@@ -21,7 +21,12 @@ import { ContractSignController, ContractsController } from './contracts/contrac
 import { ContractsService } from './contracts/contracts.service';
 import { QuotesController } from './quotes/quotes.controller';
 import { QuotesService } from './quotes/quotes.service';
-import { PlatformSiteController, PublicSiteController } from './site/site.controller';
+import {
+  PlatformSiteAiController,
+  PlatformSiteController,
+  PublicSiteController,
+} from './site/site.controller';
+import { SiteAiService } from './site/site-ai.service';
 import { SiteService } from './site/site.service';
 import { PlatformSitesService } from './platform-sites.service';
 import { GatewayClient } from '../messaging/gateway.client';
@@ -43,6 +48,7 @@ import { CepService } from '../store/cep.service';
     ContractSignController,
     PublicSiteController,
     PlatformSiteController,
+    PlatformSiteAiController,
   ],
   providers: [
     PlatformService,
@@ -56,6 +62,7 @@ import { CepService } from '../store/cep.service';
     ContractsService,
     QuotesService,
     SiteService,
+    SiteAiService,
     PlatformSitesService,
     PlatformKitchenService,
     CepService,
