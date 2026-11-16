@@ -4,7 +4,7 @@ import { Alert, Button, TextField } from '../design-system';
 import { useAuth } from '../app/auth';
 import { isWaiterAppPath, isWaiterPath } from '../app/WaiterEntry';
 import { api, ApiError } from '../lib/api';
-import { AuthShell, deskFocus, PasswordField } from './AuthShell';
+import { AuthShell, deskFocus, PasswordField, StoreLoginBrand } from './AuthShell';
 import { PinPad } from './PinPad';
 
 /** E-mail lembrado neste aparelho (a senha nunca é guardada). */
@@ -59,7 +59,10 @@ export function LoginPage() {
 
   useEffect(() => {
     api<{ name: string }>('/tenant')
-      .then((t) => setTenantName(t.name))
+      .then((t) => {
+        setTenantName(t.name);
+        document.title = t.name; // aba com o nome do restaurante, não "Comandou"
+      })
       .catch(() => setTenantMissing(true));
   }, []);
 
@@ -101,26 +104,25 @@ export function LoginPage() {
     }
   }
 
+  const brand = <StoreLoginBrand name={tenantName} />;
+
   if (pinApp && !usePassword)
     return (
       <AuthShell
-        place={[tenantName, who?.place].filter(Boolean).join(' · ') || undefined}
+        brand={brand}
         title={who!.title}
-        sub="Digite o seu PIN de 4 números."
+        sub={who?.place}
         help={
-          <>
-            Esqueceu o PIN? Peça ao gerente um novo em <b>Equipe</b>.{' '}
-            <button
-              type="button"
-              className="login__link"
-              onClick={() => {
-                setError(null);
-                setUsePassword(true);
-              }}
-            >
-              Entrar com e-mail
-            </button>
-          </>
+          <button
+            type="button"
+            className="login__link"
+            onClick={() => {
+              setError(null);
+              setUsePassword(true);
+            }}
+          >
+            Entrar com e-mail
+          </button>
         }
       >
         {tenantMissing && (
@@ -134,9 +136,9 @@ export function LoginPage() {
 
   return (
     <AuthShell
-      place={[tenantName, who?.place].filter(Boolean).join(' · ') || undefined}
-      title={who?.title ?? 'Bem-vindo de volta'}
-      sub="Entre uma vez e o aparelho fica conectado."
+      brand={brand}
+      title={who?.title ?? 'Entrar'}
+      sub={who?.place}
       help={
         pinApp ? (
           <button
@@ -149,11 +151,7 @@ export function LoginPage() {
           >
             Entrar com PIN
           </button>
-        ) : (
-          <>
-            Esqueceu a senha? Peça ao gerente para trocar em <b>Equipe</b>.
-          </>
-        )
+        ) : undefined
       }
     >
       {tenantMissing && (
@@ -168,7 +166,6 @@ export function LoginPage() {
           inputMode="email"
           autoComplete="username"
           autoCapitalize="none"
-          placeholder="voce@restaurante.com.br"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoFocus={desk && !email}
@@ -176,7 +173,6 @@ export function LoginPage() {
         />
         <PasswordField
           autoComplete="current-password"
-          placeholder="Sua senha"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoFocus={desk && !!email}
@@ -190,7 +186,7 @@ export function LoginPage() {
           loading={busy}
           disabled={!email || !password || tenantMissing}
         >
-          {who?.cta ?? 'Entrar no painel'}
+          {who?.cta ?? 'Entrar'}
         </Button>
       </form>
     </AuthShell>

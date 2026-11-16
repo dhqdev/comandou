@@ -14,7 +14,7 @@ test.skip(!PASSWORD, 'defina E2E_PASSWORD (senha do administrador do tenant de t
 
 test('login, PDV e cadastro de produto no cardápio', async ({ page }, info) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Bem-vindo de volta' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible();
   await page.screenshot({
     path: `test-results/screens/${info.project.name}-login.png`,
     fullPage: true,

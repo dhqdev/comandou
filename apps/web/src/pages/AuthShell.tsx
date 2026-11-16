@@ -1,58 +1,75 @@
 import { Eye, EyeOff } from 'lucide-react';
-import { InputHTMLAttributes, KeyboardEvent, ReactNode, useState } from 'react';
-import { Logo, Mascot, TextField, ThemeToggle } from '../design-system';
+import { InputHTMLAttributes, KeyboardEvent, ReactNode, useEffect, useState } from 'react';
+import { BRAND_CACHED_EVENT, cachedBranding, Logo, TextField } from '../design-system';
 import './login.css';
 
 /**
- * Moldura de todas as telas de entrada (restaurante, garçom, cozinha, entregas e Super Admin),
- * no padrão do Planejai: no celular, sem cartão e sem enfeite, só título, campos grandes e o botão;
- * no notebook, o formulário à esquerda e um painel liso com o mascote à direita.
+ * Moldura de todas as telas de entrada (restaurante, garçom, cozinha, entregas e Super Admin):
+ * minimalista, uma coluna só no meio da tela, com a marca em cima e os campos logo abaixo. Sem
+ * mascote, frase ou painel do lado. No restaurante a marca é a logo e o nome da loja.
  */
 export function AuthShell(props: {
-  /** Linha pequena acima do título (nome do restaurante, "Super Admin"). */
-  place?: ReactNode;
+  /** Marca no topo; sem ela, o logo do Comandou. */
+  brand?: ReactNode;
+  /** Nome da tela, para leitor de tela (não aparece). */
   title: string;
+  /** Linha pequena abaixo da marca (ex.: "Salão"). */
   sub?: ReactNode;
   /** Formulário. */
   children: ReactNode;
-  /** Ajuda no pé da tela (esqueci a senha etc.). */
+  /** Link pequeno abaixo do formulário (entrar com PIN etc.). */
   help?: ReactNode;
-  /** Frase do painel do notebook. */
-  pitch?: ReactNode;
 }) {
   return (
     <div className="login">
-      <main className="login__panel">
-        <header className="login__top">
-          <Logo size={30} />
-          <ThemeToggle />
-        </header>
-
-        <div className="login__body">
-          {props.place && <span className="login__place">{props.place}</span>}
-          <h1 className="login__title">{props.title}</h1>
-          {props.sub && <p className="login__sub">{props.sub}</p>}
-          {props.children}
-        </div>
-
-        <footer className="login__foot">
-          {props.help && <p className="login__help">{props.help}</p>}
-          <span className="login__version">Comandou v{__APP_VERSION__}</span>
-        </footer>
+      <main className="login__body">
+        <div className="login__brand">{props.brand ?? <Logo size={36} />}</div>
+        <h1 className="cm-sr-only">{props.title}</h1>
+        {props.sub && <p className="login__sub">{props.sub}</p>}
+        {props.children}
+        {props.help && <p className="login__help">{props.help}</p>}
       </main>
-
-      <aside className="login__art" aria-hidden>
-        <Mascot size={148} animated mood="joy" className="login__mascot" />
-        <h2 className="login__pitch">
-          {props.pitch ?? (
-            <>
-              Pedidos, salão, cozinha e caixa
-              <span> no mesmo lugar.</span>
-            </>
-          )}
-        </h2>
-      </aside>
+      <span className="login__version">v{__APP_VERSION__}</span>
     </div>
+  );
+}
+
+/**
+ * Logo e nome do restaurante no login. A logo vem da identidade guardada neste navegador (e
+ * atualiza quando a loja responde); sem logo, a inicial do nome num quadrado da cor da marca.
+ */
+export function StoreLoginBrand({ name }: { name: string | null }) {
+  const [logo, setLogo] = useState(() => cachedBranding()?.logoUrl ?? null);
+  const [broken, setBroken] = useState(false);
+  useEffect(() => {
+    const sync = () => {
+      setLogo(cachedBranding()?.logoUrl ?? null);
+      setBroken(false);
+    };
+    window.addEventListener(BRAND_CACHED_EVENT, sync);
+    return () => window.removeEventListener(BRAND_CACHED_EVENT, sync);
+  }, []);
+  // Nome ainda carregando e sem logo guardada: espaço reservado, sem piscar o panda.
+  const initial = (name?.trim()[0] ?? '').toUpperCase();
+  return (
+    <span className="login__store">
+      {logo && !broken ? (
+        <img
+          className="login__store-logo"
+          src={logo}
+          alt=""
+          width={72}
+          height={72}
+          decoding="async"
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        <span className="login__store-logo login__store-logo--initial" aria-hidden>
+          {initial}
+        </span>
+      )}
+      <span className="login__store-name">{name ?? '\u00a0'}</span>
+    </span>
   );
 }
 

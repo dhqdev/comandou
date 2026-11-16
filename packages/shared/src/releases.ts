@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.129.0',
+    date: '2026-11-16',
+    title: 'Login minimalista com a logo do restaurante',
+    summary:
+      'A tela de entrada ficou só com o essencial: a logo e o nome do restaurante em cima, e-mail, senha e o botão Entrar. O ícone da aba e o nome dela passam a ser os do restaurante em todo o login, e não mais o panda do Comandou.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Login do restaurante (painel, garçom, cozinha e entregas) numa coluna só, no meio da tela: saíram o título, as frases, o painel com o mascote e o botão de tema. No garçom e no entregador, o teclado do PIN segue igual, com o link "Entrar com e-mail".',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Ícone da aba com a logo do restaurante (ou o ícone escolhido na Loja online) no login e no sistema, mesmo quando as cores da loja estão desligadas para a equipe. A aba mostra o nome do restaurante.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Login do Super Admin no mesmo estilo minimalista, com o código do autenticador quando pedido.',
+      },
+    ],
+  },
+  {
     version: '0.128.1',
     date: '2026-11-16',
     title: 'Testes automáticos em dia com o valor único',

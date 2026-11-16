@@ -333,7 +333,9 @@ export function applyBranding(b: Branding, path = window.location.pathname) {
   applyBrandCss(brandCss(b, { colors, shape: customer }));
   // Topo do celular (barra do navegador e área do relógio): no cardápio, a cor do fundo da página.
   setBarColor(customer ? 'page' : 'frame');
-  applyFavicon(colors ? b.faviconUrl : null);
+  // O ícone da aba é sempre o da loja (login, painel e cardápio), mesmo com as cores desligadas
+  // no sistema da equipe: o restaurante não vê o panda do Comandou.
+  applyFavicon(b.faviconUrl ?? b.logoUrl);
   applyManifest(path);
 }
 

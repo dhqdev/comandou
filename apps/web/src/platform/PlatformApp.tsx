@@ -237,17 +237,7 @@ function PlatformLogin() {
   }
 
   return (
-    <AuthShell
-      place="Super Admin"
-      title="Painel da plataforma"
-      sub="Acesso restrito à equipe. Tudo fica na auditoria."
-      pitch={
-        <>
-          Todos os restaurantes
-          <span> num painel só.</span>
-        </>
-      }
-    >
+    <AuthShell title="Super Admin" sub="Super Admin">
       <form onSubmit={onSubmit} className="login__form" noValidate>
         <TextField
           label="E-mail"
