@@ -232,18 +232,17 @@ describe.skipIf(!PG_BIN)('Banco de cada restaurante: mudar, isolar e excluir', (
     },
   );
 
-  it('excluir exige restaurante suspenso, o endereço digitado e backup ligado', async () => {
-    await expect(
-      dbs.remove(fx.tenantA, { confirm: 'tst-mv-a', reason: 'teste' }, actor),
-    ).rejects.toThrow(/Suspenda/);
-    await ownerQuery(`UPDATE tenants SET status = 'suspended' WHERE id = $1`, [fx.tenantA]);
+  it('excluir: endereço errado é recusado e o backup final só sai com o backup ligado', async () => {
     await ownerQuery(`UPDATE platform_backup_settings SET enabled = false WHERE id`);
     await expect(
       dbs.remove(fx.tenantA, { confirm: 'outro', reason: 'teste' }, actor),
     ).rejects.toThrow(/endereço/);
-    await expect(
-      dbs.remove(fx.tenantA, { confirm: 'tst-mv-a', reason: 'teste' }, actor),
-    ).rejects.toThrow(/backup/);
+    await expect(dbs.remove(fx.tenantA, { backup: true }, actor)).rejects.toThrow(/backup/);
+    // Nada mudou: o restaurante segue ativo.
+    const [t] = await ownerQuery<{ status: string }>(`SELECT status FROM tenants WHERE id = $1`, [
+      fx.tenantA,
+    ]);
+    expect(t.status).toBe('provisioned');
   });
 
   it('exclusão: backup final na pasta do restaurante, banco apagado, histórico mantido', async () => {
@@ -251,7 +250,12 @@ describe.skipIf(!PG_BIN)('Banco de cada restaurante: mudar, isolar e excluir', (
       `UPDATE platform_backup_settings SET enabled = true, endpoint = 'https://s3.test', bucket = 'b',
               key_id = 'k', secret_enc = '\\x01' WHERE id`,
     );
-    await dbs.remove(fx.tenantA, { confirm: 'tst-mv-a', reason: 'cliente encerrou' }, actor);
+    // Restaurante ativo: não precisa suspender antes. O backup final é pedido à parte.
+    await dbs.remove(
+      fx.tenantA,
+      { confirm: 'tst-mv-a', reason: 'cliente encerrou', backup: true },
+      actor,
+    );
     expect(await runQueuedDbJobs({ backup: backupCtx })).toEqual(['done']);
 
     const [job] = await ownerQuery<{ result: { finalBackupKey: string }; tenant_slug: string }>(
@@ -277,7 +281,7 @@ describe.skipIf(!PG_BIN)('Banco de cada restaurante: mudar, isolar e excluir', (
 
   it('restaurante no banco central também pode ser excluído (vai antes para um banco só dele)', async () => {
     await ownerQuery(`UPDATE tenants SET status = 'suspended' WHERE id = $1`, [fx.tenantB]);
-    await dbs.remove(fx.tenantB, { confirm: 'tst-mv-b', reason: 'teste' }, actor);
+    await dbs.remove(fx.tenantB, { backup: true }, actor);
     expect(await runQueuedDbJobs({ backup: backupCtx })).toEqual(['done']);
     const [job] = await ownerQuery<{ result: { finalBackupKey: string } }>(
       `SELECT result FROM tenant_db_jobs WHERE tenant_id = $1 AND kind = 'delete'`,
@@ -325,6 +329,36 @@ describe.skipIf(!PG_BIN)('Banco de cada restaurante: mudar, isolar e excluir', (
     expect(await ownerQuery(`SELECT 1 FROM tenants WHERE id = $1`, [id])).toEqual([]);
     expect(
       await ownerQuery(`SELECT 1 FROM pg_database WHERE datname = 'comandou_tst_falha'`),
+    ).toEqual([]);
+  });
+
+  it('exclusão direta: restaurante ativo, sem motivo nem backup, some com o banco', async () => {
+    const id = await dbs.create(
+      {
+        slug: 'tst-rapido',
+        name: 'Rápido',
+        adminEmail: 'a@rapido.test',
+        adminName: 'A',
+        adminPassword: PASSWORD,
+      },
+      actor,
+    );
+    expect(await runQueuedDbJobs()).toEqual(['done']);
+    const [t] = await ownerQuery<{ status: string }>(`SELECT status FROM tenants WHERE id = $1`, [
+      id,
+    ]);
+    expect(t.status).toBe('provisioned');
+    await dbs.remove(id, {}, actor);
+    const [job] = await ownerQuery<{ payload: { finalBackup: boolean }; reason: string }>(
+      `SELECT payload, reason FROM tenant_db_jobs WHERE tenant_id = $1 AND kind = 'delete'`,
+      [id],
+    );
+    expect(job.payload.finalBackup).toBe(false);
+    expect(job.reason).toBe('Excluído pelo painel');
+    expect(await runQueuedDbJobs()).toEqual(['done']);
+    expect(await ownerQuery(`SELECT 1 FROM tenants WHERE id = $1`, [id])).toEqual([]);
+    expect(
+      await ownerQuery(`SELECT 1 FROM pg_database WHERE datname = 'comandou_tst_rapido'`),
     ).toEqual([]);
   });
 });

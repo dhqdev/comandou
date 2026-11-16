@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.138.0',
+    date: '2026-11-16',
+    title: 'Excluir restaurante em dois cliques',
+    summary:
+      'No painel do Comandou, excluir um restaurante ficou direto: menu do restaurante, Excluir restaurante, confirmar. Não precisa suspender antes, digitar o endereço nem dar motivo, e nenhum backup é guardado, a não ser que se peça.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Painel do Comandou: "Excluir restaurante" agora fica no menu de três pontinhos do restaurante (e continua na aba Banco de dados). Abre uma confirmação com o nome do restaurante e o botão Excluir de vez.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Painel do Comandou: a exclusão não exige mais suspender o restaurante, digitar o endereço nem escrever o motivo. O restaurante sai do ar assim que a exclusão é pedida.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Painel do Comandou: a exclusão não guarda backup. Quem quiser guardar marca "Guardar um backup final antes" na confirmação (precisa do backup configurado).',
+      },
+    ],
+  },
+  {
     version: '0.137.0',
     date: '2026-11-16',
     title: 'Primeiros passos: jogue o cardápio e confira',

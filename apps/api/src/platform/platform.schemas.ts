@@ -98,9 +98,11 @@ export type NewTenantInput = Omit<z.infer<typeof NewTenant>, 'timezone'> & {
   timezone?: (typeof BR_TIMEZONES)[number];
 };
 
+/** Excluir restaurante: basta confirmar no painel. Backup final só se pedido. */
 export const DeleteTenant = z.object({
-  confirm: z.string().trim().min(1).max(60),
-  reason: z.string().trim().min(3).max(300),
+  confirm: z.string().trim().max(60).optional(),
+  reason: z.string().trim().max(300).optional(),
+  backup: z.boolean().optional(),
 });
 
 export const StatusChange = z.object({

@@ -10,6 +10,7 @@ import {
   Pencil,
   Play,
   Plus,
+  Trash2,
 } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
@@ -21,7 +22,7 @@ import { AuditTable, useLoad } from './OverviewPages';
 import { ConsumptionPanel, OperationPanel } from './TenantInsights';
 import { TenantBillingPanel } from './TenantBilling';
 import { TenantOverview } from './TenantOverview';
-import { DatabasePanel, DatabaseProgress, dbBusy } from './TenantDatabase';
+import { DatabasePanel, DatabaseProgress, DeleteTenantModal, dbBusy } from './TenantDatabase';
 import { NewTenantModal, ProfilePanel, TIMEZONES } from './NewTenant';
 import { ContractsPanel } from './TenantContracts';
 import { KitchenPanel } from './TenantKitchen';
@@ -292,7 +293,7 @@ export function TenantDetailPage() {
   }, [busyDb, t?.status]);
   useEffect(() => {
     if (error && wasDeleting.current) {
-      toast('Restaurante excluído. O backup final está em Backups → Bases excluídas.', 'success');
+      toast('Restaurante excluído', 'success');
       navigate('/restaurantes');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -309,7 +310,7 @@ export function TenantDetailPage() {
         : 'overview',
   );
   const [sheetKind, setSheetKind] = useState<
-    'suspended' | 'provisioned' | 'rename' | 'sessions' | null
+    'suspended' | 'provisioned' | 'rename' | 'sessions' | 'delete' | null
   >(null);
   const [member, setMember] = useState<TeamMember | null>(null);
   const [reason, setReason] = useState('');
@@ -449,6 +450,13 @@ export function TenantDetailPage() {
                     label: 'Encerrar sessões',
                     icon: <LogOut size={16} />,
                     onClick: () => setSheetKind('sessions'),
+                  },
+                  {
+                    label: 'Excluir restaurante',
+                    icon: <Trash2 size={16} />,
+                    danger: true,
+                    hidden: busyDb || !['provisioned', 'suspended', 'failed'].includes(t.status),
+                    onClick: () => setSheetKind('delete'),
                   },
                 ]}
               />
@@ -644,6 +652,13 @@ export function TenantDetailPage() {
           onChange={(e) => setReason(e.target.value)}
         />
       </Modal>
+
+      <DeleteTenantModal
+        t={t}
+        open={sheetKind === 'delete'}
+        onClose={closeSheet}
+        onChanged={setData}
+      />
 
       {/* Renomear */}
       <Modal

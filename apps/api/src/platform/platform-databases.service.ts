@@ -314,32 +314,37 @@ export class PlatformDatabasesService {
   }
 
   /**
-   * Exclui o restaurante e a base dele. Exige: restaurante suspenso (ou cadastro que falhou), o
-   * endereço digitado igual e um motivo. Antes de apagar, o serviço de backup faz um backup final
-   * na pasta do restaurante no bucket; sem backup configurado, só uma base que nunca ficou
-   * pronta pode ser excluída.
+   * Exclui o restaurante e a base dele, direto: ativo, suspenso ou com cadastro que falhou. Ao
+   * entrar na fila o restaurante já para de atender (ninguém entra nem opera). Sem backup, a não
+   * ser que o painel peça (`backup`): aí o serviço de backup guarda um backup final na pasta do
+   * restaurante no bucket antes de apagar.
    */
-  async remove(tenantId: string, b: { confirm: string; reason: string }, a: Actor) {
-    const s = await this.settings();
+  async remove(
+    tenantId: string,
+    b: { confirm?: string; reason?: string; backup?: boolean },
+    a: Actor,
+  ) {
+    const s = b.backup ? await this.settings() : null;
+    const reason = b.reason?.trim() || 'Excluído pelo painel';
     await this.db.tx(async (c) => {
       const t = (
-        await c.query<{ slug: string; name: string; status: string; db_status: string | null }>(
-          `SELECT t.slug, t.name, t.status, d.status AS db_status FROM tenants t
-             LEFT JOIN tenant_databases d ON d.tenant_id = t.id WHERE t.id = $1 FOR UPDATE OF t`,
+        await c.query<{ slug: string; name: string; status: string }>(
+          `SELECT t.slug, t.name, t.status FROM tenants t WHERE t.id = $1 FOR UPDATE OF t`,
           [tenantId],
         )
       ).rows[0];
       if (!t) throw new NotFoundException('Restaurante não encontrado');
-      if (b.confirm.trim().toLowerCase() !== t.slug)
-        throw new UnprocessableEntityException('Digite o endereço do restaurante para confirmar');
-      if (t.status !== 'suspended' && t.status !== 'failed')
-        throw new ConflictException('Suspenda o restaurante antes de excluir');
+      if (b.confirm && b.confirm.trim().toLowerCase() !== t.slug)
+        throw new UnprocessableEntityException('O endereço digitado não é o deste restaurante');
+      if (!['provisioned', 'suspended', 'failed'].includes(t.status))
+        throw new ConflictException(
+          'Este restaurante está no meio de outra operação. Espere terminar para excluir.',
+        );
       await this.activeJob(c, tenantId);
-      const neverReady = t.status === 'failed' || t.db_status === 'failed';
-      const backupOn = !!s && s.enabled && isConfigured(s);
-      if (!backupOn && !neverReady)
+      const backupOn = !!b.backup;
+      if (backupOn && !(s && s.enabled && isConfigured(s)))
         throw new UnprocessableEntityException(
-          'Configure e ligue o backup antes: a exclusão sempre guarda um backup final no bucket',
+          'O backup não está configurado e ligado. Exclua sem o backup final ou configure em Backups.',
         );
       await c.query(`UPDATE tenants SET status = 'deleting' WHERE id = $1`, [tenantId]);
       await c.query(`UPDATE tenant_databases SET status = 'deleting' WHERE tenant_id = $1`, [
@@ -353,7 +358,7 @@ export class PlatformDatabasesService {
           t.slug,
           t.name,
           { previousStatus: t.status, finalBackup: backupOn },
-          b.reason,
+          reason,
           a.admin.id,
         ],
       );
@@ -363,7 +368,7 @@ export class PlatformDatabasesService {
         entity: 'tenant',
         entityId: tenantId,
         tenantId,
-        data: { slug: t.slug, name: t.name, reason: b.reason, finalBackup: backupOn },
+        data: { slug: t.slug, name: t.name, reason, finalBackup: backupOn },
         ip: a.ip,
       });
       await notify(c);

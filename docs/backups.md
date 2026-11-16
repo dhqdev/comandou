@@ -48,7 +48,7 @@ Organização no bucket:
 comandou/
   plataforma/2026/10/comandou-20261023T060000Z.dump.enc          banco central
   restaurantes/pizzaria-do-ze/2026/10/pizzaria-do-ze-20261023T060000Z.dump.enc
-  restaurantes/pizzaria-do-ze/final/pizzaria-do-ze-<data>-final.dump.enc   antes de excluir
+  restaurantes/pizzaria-do-ze/final/pizzaria-do-ze-<data>-final.dump.enc   ao excluir, se pedido
 ```
 
 A retenção vale por pasta (sempre guarda os 3 últimos de cada uma) e nunca apaga `final/`. O

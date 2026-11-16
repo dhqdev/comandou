@@ -1,7 +1,7 @@
 import { ArrowRightLeft, Copy, Database, RotateCcw, Trash2, Truck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Alert, Modal, Select, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Modal, Select, Spinner, useToast } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
 import type { DbJob, DbServers, TenantDatabase, TenantDetail } from './types';
@@ -145,8 +145,6 @@ export function DatabasePanel({
     if (loaded && !targets.some((x) => x.id === target))
       setTarget((targets.find((x) => x.def) ?? targets[0])?.id ?? '');
   }, [loaded, targets, target]);
-  const [confirm, setConfirm] = useState('');
-  const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const active = db.jobs.some((j) => j.status === 'queued' || j.status === 'running');
   const [label, level] =
@@ -164,16 +162,12 @@ export function DatabasePanel({
       toast(ok, 'success');
       onChanged(r);
       setSheet(null);
-      setConfirm('');
-      setReason('');
     } catch (e) {
       toast((e as Error).message, 'danger');
     } finally {
       setBusy(false);
     }
   }
-
-  const canDelete = t.status === 'suspended' || t.status === 'failed';
 
   return (
     <div className="adm-panel adm-panel__body" style={{ display: 'grid', gap: 12 }}>
@@ -395,52 +389,100 @@ export function DatabasePanel({
         )}
       </Modal>
 
-      <Modal
+      <DeleteTenantModal
+        t={t}
         open={sheet === 'delete'}
-        title={`Excluir ${t.name}`}
         onClose={() => setSheet(null)}
-        footer={
+        onChanged={onChanged}
+      />
+    </div>
+  );
+}
+
+/**
+ * Excluir restaurante em dois toques: abre, confirma e pronto. Não pede para suspender antes
+ * (entrar na fila de exclusão já tira o restaurante do ar) nem guarda backup, a não ser que a
+ * pessoa marque a caixa. Usado no menu do topo do restaurante e na aba Banco de dados.
+ */
+export function DeleteTenantModal({
+  t,
+  open,
+  onClose,
+  onChanged,
+}: {
+  t: TenantDetail;
+  open: boolean;
+  onClose: () => void;
+  onChanged: (d: TenantDetail) => void;
+}) {
+  const toast = useToast();
+  const [backup, setBackup] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (open) setBackup(false);
+  }, [open]);
+  const can = ['provisioned', 'suspended', 'failed'].includes(t.status);
+
+  async function remove() {
+    setBusy(true);
+    try {
+      const r = await api<TenantDetail>(`/platform/tenants/${t.id}/delete`, {
+        method: 'POST',
+        json: { backup },
+      });
+      toast('Excluindo o restaurante', 'success');
+      onChanged(r);
+      onClose();
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      title={`Excluir ${t.name}?`}
+      onClose={onClose}
+      footer={
+        <>
+          <button className="adm-action" onClick={onClose}>
+            Cancelar
+          </button>
           <button
             className="adm-action adm-action--danger"
-            disabled={busy || !canDelete || confirm.trim() !== t.slug || reason.trim().length < 3}
-            onClick={() =>
-              call('delete', { confirm: confirm.trim(), reason: reason.trim() }, 'Exclusão pedida')
-            }
+            disabled={busy || !can}
+            onClick={() => void remove()}
           >
             <Trash2 size={14} /> Excluir de vez
           </button>
-        }
-      >
-        {!canDelete ? (
-          <Alert tone="warning">
-            Suspenda o restaurante antes (botão Suspender, no topo). Assim ninguém está usando na
-            hora da exclusão.
-          </Alert>
-        ) : (
-          <>
-            <p style={{ marginTop: 0 }}>
-              Apaga o banco do restaurante (pedidos, caixa, cardápio, clientes, equipe, fotos), o
-              endereço <strong>{t.slug}</strong> e a assinatura. Antes, o serviço de backup guarda
-              um
-              <strong> backup final</strong> na pasta <code>restaurantes/{t.slug}/final/</code> do
-              backup (Backblaze ou servidor), que a retenção nunca apaga.
-            </p>
-            <div style={{ display: 'grid', gap: 10 }}>
-              <TextField
-                label={`Digite ${t.slug} para confirmar`}
-                value={confirm}
-                autoComplete="off"
-                onChange={(e) => setConfirm(e.target.value.toLowerCase())}
-              />
-              <TextField
-                label="Motivo (fica na auditoria)"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </div>
-          </>
-        )}
-      </Modal>
-    </div>
+        </>
+      }
+    >
+      {!can ? (
+        <Alert tone="warning">
+          Este restaurante está no meio de outra operação. Espere terminar para excluir.
+        </Alert>
+      ) : (
+        <>
+          <p style={{ marginTop: 0 }}>
+            Apaga tudo de <strong>{t.name}</strong> ({t.slug}): pedidos, caixa, cardápio, clientes,
+            equipe, fotos, o endereço e a assinatura. O restaurante sai do ar na hora e{' '}
+            <strong>não dá para desfazer</strong>.
+          </p>
+          <label className="adm-check">
+            <input type="checkbox" checked={backup} onChange={(e) => setBackup(e.target.checked)} />
+            <span>
+              <strong>Guardar um backup final antes</strong>
+              <span className="adm-sub">
+                Desmarcado, nada é guardado. Marcado, o backup vai para Backups › Bases excluídas
+                (precisa do backup configurado).
+              </span>
+            </span>
+          </label>
+        </>
+      )}
+    </Modal>
   );
 }

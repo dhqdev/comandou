@@ -18,7 +18,7 @@ import { runMigrate, runReceive } from './migration-jobs';
  * serviço de backup com a conexão do dono:
  *  - create: cria o banco do restaurante, aplica as migrações e cadastra o administrador;
  *  - move:   copia um restaurante do banco central para um banco só dele e troca o apontamento;
- *  - delete: backup final na pasta do restaurante, apaga o banco e o cadastro;
+ *  - delete: apaga o banco e o cadastro (com backup final na pasta do restaurante, se pedido);
  *  - transfer: copia o banco do restaurante para outro servidor Postgres, confere e troca.
  * Cada etapa aparece no painel (coluna step). Nada aqui grava senhas ou URLs no log.
  */

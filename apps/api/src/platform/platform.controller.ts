@@ -372,7 +372,7 @@ export class PlatformController {
     return this.svc.tenant(id);
   }
 
-  /** Exclui o restaurante e a base (backup final antes). O resultado aparece em database-jobs. */
+  /** Exclui o restaurante e a base (backup final só se pedido). O resultado aparece em database-jobs. */
   @Post('tenants/:id/delete')
   @HttpCode(202)
   async deleteTenant(
