@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.133.1',
+    date: '2026-11-16',
+    title: 'Testes automáticos com o sistema como em produção',
+    summary:
+      'Os testes no navegador que rodam a cada atualização passam a usar o sistema compilado, como em produção, com o modo sem internet ligado. Assim o teste de ficar sem rede confere o que o restaurante usa de verdade.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Teste sem rede: o ambiente de teste agora tem o service worker (o servidor de desenvolvimento não tinha), então o teste de abrir, salvar e sincronizar sem internet roda de verdade.',
+      },
+      {
+        tag: 'correção',
+        text: 'Teste da tela Preço do Super Admin procura só o cartão "Mensalidade" (antes também pegava "Mudando na próxima mensalidade").',
+      },
+    ],
+  },
+  {
     version: '0.133.0',
     date: '2026-11-16',
     title: 'Painel da VM no Super Admin',

@@ -170,7 +170,10 @@ jobs:
           DATABASE_OWNER_URL=postgres://comandou_owner:owner_ci@localhost:5432/comandou \
             INTEGRATIONS_KEY=$E2E_INTEGRATIONS_KEY WORK_DIR="$RUNNER_TEMP" \
             nohup node apps/api/dist/backup/worker.js > worker.log 2>&1 &
-          nohup pnpm --filter @comandou/web exec vite --port 5173 > web.log 2>&1 &
+          # Web compilada (como em produção), com o service worker: o teste sem rede precisa dele,
+          # e o servidor de desenvolvimento do Vite não registra service worker.
+          pnpm --filter @comandou/web exec vite build > web-build.log 2>&1 || { tail -50 web-build.log; exit 1; }
+          nohup pnpm --filter @comandou/web exec vite preview --port 5173 --strictPort > web.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:3000/api/v1/health/ready && break; sleep 1; done
           for i in $(seq 1 30); do curl -sf http://localhost:5173/ >/dev/null && break; sleep 1; done
       - name: Testes de ponta a ponta no navegador

@@ -44,7 +44,7 @@ test('Super Admin: código errado, preço, novo restaurante, assinatura e suspen
   // Preço: valor único (plano "comandou"), com os dias de teste de todo restaurante novo.
   await nav(page, 'Preço');
   await expect(page.getByRole('heading', { name: 'Preço', level: 1 })).toBeVisible();
-  await expect(page.locator('.adm-tile', { hasText: 'Mensalidade' })).toContainText('R$ 400,00');
+  await expect(page.locator('.adm-tile', { hasText: /^Mensalidade/ })).toContainText('R$ 400,00');
   await expect(page.locator('.adm-tile', { hasText: 'Teste grátis' })).toContainText('dias');
   await expect(page.getByRole('button', { name: 'Mudar valor e teste' })).toBeVisible();
   await shot(page, info.project.name, 'admin-preco');
