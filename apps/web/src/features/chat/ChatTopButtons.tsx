@@ -24,11 +24,10 @@ interface Choice {
 const count = (n: number) => (n > 99 ? '99+' : String(n));
 
 /**
- * Celular: dois botões no topo, ao lado do sino, no lugar do botão redondo de baixo.
+ * Dois botões no topo, ao lado do sino, no lugar do botão redondo de baixo (celular e computador).
  * "IA" abre o assistente. "Chat" junta todas as conversas: com a equipe, com os clientes do
  * delivery e com o suporte da Comandou. Com mais de uma, abre uma folha que diz o que é cada
  * uma; com só a da equipe, abre direto. Cada botão tem a palavra embaixo do ícone.
- * No computador não aparecem: lá o chat continua no botão do canto.
  */
 export function ChatTopButtons() {
   const { team, help, helpOn } = useChatUnreadParts();

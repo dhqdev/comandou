@@ -1656,65 +1656,93 @@
   font-size: 11px;
 }
 
-/* ---------------------------------------------------------------- botões do topo (celular) */
-/* No celular a IA e o chat abrem pelo topo, ao lado do sino, com a palavra embaixo do ícone. */
+/* ---------------------------------------------------------------- botões do topo */
+/* A IA e o chat abrem pelo topo, ao lado do sino, com a palavra embaixo do ícone. Vale no
+   celular e no computador: o botão redondo do canto saiu do painel. */
 .tc-top {
-  display: none;
+  position: relative;
+  flex-shrink: 0;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 1px;
+  width: 38px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--cm-radius-md);
+  background: transparent;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-@media (max-width: 860px) {
-  .tc-top {
-    position: relative;
-    flex-shrink: 0;
-    display: grid;
-    justify-items: center;
-    align-content: center;
-    gap: 1px;
-    width: 38px;
-    height: 40px;
-    padding: 0;
-    border: 0;
-    border-radius: var(--cm-radius-md);
-    background: transparent;
-    color: var(--cm-text-muted);
-    cursor: pointer;
-  }
-  .tc-top:active {
+@media (hover: hover) {
+  .tc-top:hover {
     background: color-mix(in srgb, var(--cm-text) 6%, transparent);
+    color: var(--cm-text);
   }
-  .tc-top:focus-visible {
-    outline: none;
-    box-shadow: var(--cm-focus);
+  .tc-top--ai:hover {
+    color: var(--cm-brand-700);
   }
-  .tc-top--ai {
-    color: var(--cm-brand-600);
-  }
-  .tc-top__label {
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: 0.01em;
-  }
-  .tc-top__badge {
-    position: absolute;
-    top: 1px;
-    right: 1px;
-    min-width: 16px;
-    height: 16px;
-    padding: 0 4px;
-    border-radius: 999px;
-    background: var(--cm-danger);
-    color: #fff;
-    font-size: 10px;
-    font-weight: 750;
-    line-height: 16px;
-    text-align: center;
+}
+.tc-top:active {
+  background: color-mix(in srgb, var(--cm-text) 6%, transparent);
+}
+.tc-top:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.tc-top--ai {
+  color: var(--cm-brand-600);
+}
+.tc-top__label {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+.tc-top__badge {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--cm-danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 750;
+  line-height: 16px;
+  text-align: center;
+}
+@media (min-width: 861px) {
+  .tc-top {
+    width: 44px;
+    height: 42px;
   }
 }
 
-/* "Chat" do topo já leva às mensagens dos clientes: o botão separado delas sai no celular. */
-@media (max-width: 860px) {
-  .cm-frame__top .topbar__support {
-    display: none;
+/* "Chat" do topo já leva às mensagens dos clientes: o botão separado delas sai do topo. */
+.cm-frame__top .topbar__support {
+  display: none;
+}
+
+/* Painel sem botão do canto: no computador abre logo abaixo do topo, do lado dos botões. */
+.tc-fab--shell {
+  display: none;
+}
+@media (min-width: 721px) {
+  .tc-panel--shell {
+    top: 64px;
+    bottom: auto;
+  }
+  .tc-panel--shell.is-expanded {
+    top: 64px;
+    bottom: 12px;
+  }
+  .tc-peek--shell {
+    bottom: 16px;
   }
 }
 .tc-pick {
@@ -1783,10 +1811,6 @@
 
 /* ---------------------------------------------------------------- posição do botão em cada app */
 @media (max-width: 860px) {
-  /* No celular o painel não tem botão flutuante: o chat e a IA abrem pelos botões do topo. */
-  .tc-fab--shell {
-    display: none;
-  }
   .tc-peek--shell {
     bottom: calc(64px + 10px + env(safe-area-inset-bottom) * 0.3 + 14px);
   }

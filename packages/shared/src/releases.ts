@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.126.0',
+    date: '2026-11-16',
+    title: 'IA e chat no topo, também no computador',
+    summary:
+      'O botão redondo do chat no canto de baixo saiu. A IA e o Chat agora ficam no topo, ao lado do sino, do mesmo jeito que já era no celular.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Topo: dois botões, IA (abre o assistente) e Chat (equipe, clientes do cardápio online e suporte da Comandou), com o número de mensagens não lidas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No computador o chat abre logo abaixo do topo, sem tampar os pedidos no canto da tela.',
+      },
+    ],
+  },
+  {
     version: '0.125.0',
     date: '2026-11-16',
     title: 'Topo do site reorganizado, cartões novos e rolagem mais leve',
