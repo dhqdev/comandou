@@ -173,27 +173,66 @@ instalador), que faz na ordem certa: plugin no Traefik, CrowdSec no ar e só ent
 rotas (overlay [`infrastructure/swarm/crowdsec.yml`](../infrastructure/swarm/crowdsec.yml), que o
 instalador inclui com `COMANDOU_CROWDSEC=1` no `deploy.env`). Tudo em [crowdsec.md](crowdsec.md).
 
-### Agente do servidor (tela “Servidor” do painel)
+### Agente do servidor (abas “Servidor” e “VM” do painel)
 
 O painel Super Admin mostra CPU, memória, disco e rede da VM, os serviços e containers do Docker,
 limpa o Docker, reinicia serviços e mostra logs por meio de um serviço pequeno, o agente, com o
-overlay [`infrastructure/swarm/agent.yml`](../infrastructure/swarm/agent.yml):
+overlay [`infrastructure/swarm/agent.yml`](../infrastructure/swarm/agent.yml). O instalador já
+inclui o agente (desde 0.133.0; `COMANDOU_AGENT=off` no `deploy.env` para tirar). À mão:
 
 ```bash
 openssl rand -hex 32 | tr -d '\n' | docker secret create comandou_agent_token -
+sudo mkdir -p /var/lib/comandou/vm
 docker stack deploy -c infrastructure/swarm/comandou-stack.yml -c infrastructure/swarm/agent.yml comandou
 ```
 
 O agente usa a mesma imagem da API (`node dist/host-agent/main.js`), fica só na rede interna e
-exige token. Ele monta o socket do Docker, o `/proc` e a raiz do servidor (só leitura). Acesso ao
-socket do Docker equivale a administrador do servidor, então o agente só tem ações fixas: limpar
-containers parados, imagens e cache de build (nunca volumes), reiniciar um serviço
-(`docker service update --force`) e ler as últimas linhas de log. Não há terminal nem execução de
-comandos. Toda ação fica na auditoria do painel. Liberar cache de RAM e limpar pacotes do sistema
-não estão disponíveis (exigiriam um container privilegiado).
+exige token. Ele monta o socket do Docker, o `/proc`, a raiz do servidor (só leitura) e a pasta
+`/var/lib/comandou/vm`. Acesso ao socket do Docker equivale a administrador do servidor, então o
+agente só tem ações fixas: limpar containers parados, imagens e cache de build (nunca volumes),
+reiniciar um serviço (`docker service update --force`), ler as últimas linhas de log e trocar
+Postgres/Redis/Traefik pela compilação nova da mesma tag. Não há terminal nem execução de
+comandos. Toda ação fica na auditoria do painel.
 
 Na API: `HOST_AGENT_URL` (ex.: `http://agent:3200`) e `HOST_AGENT_TOKEN` (ou `_FILE`). Sem eles,
 a tela mostra como instalar.
+
+### Aba VM: sistema, atualizações, versões, limpeza e reinício (0.133.0)
+
+Infraestrutura › VM mostra o sistema operacional (versão, kernel, fuso, relógio, se precisa
+reiniciar), as atualizações do sistema (quantas, quais são de segurança, se incluem o Docker), as
+versões de tudo que roda (Comandou, PostgreSQL, Redis, Nginx, Node.js, Traefik, CrowdSec, Docker
+Engine, containerd, OpenSSH, OpenSSL...), o tamanho dos caches e onde está a instalação. Ações:
+
+| Botão | O que faz no servidor |
+| --- | --- |
+| Procurar agora | `apt-get update` e coleta de novo |
+| Só segurança / Atualizar tudo | instala as atualizações do apt (sem remover pacotes; `--force-confold` mantém as configurações) |
+| Limpar a VM | `apt-get clean` + `autoremove`, diário do systemd (14 dias / 200 MB), logs rotacionados, cache de RAM (`drop_caches`) |
+| Limpar o Docker | o mesmo da aba Servidor |
+| Atualizar (componente) | Postgres/Redis/Traefik/CrowdSec na compilação nova da **mesma** tag, com rollback do Swarm |
+| Reiniciar o Docker / a VM | `systemctl restart docker` / `systemctl reboot`; exige digitar REINICIAR |
+
+Quem executa é o **ajudante da VM** ([`scripts/vm.sh`](../scripts/vm.sh)), no systemd do próprio
+servidor, fora do Docker: `comandou-vm-info.timer` coleta tudo a cada 30 min em
+`/var/lib/comandou/vm/info.json`, e `comandou-vm.path` roda `vm.sh run` quando chega um pedido em
+`/var/lib/comandou/vm/pedidos/`. O agente só escreve o **nome** da ação; o `vm.sh` aceita só as da
+lista, uma de cada vez, e grava o andamento e o registro em `jobs/` (o painel mostra). Instalar ou
+reinstalar: `sudo /opt/comandou/scripts/vm.sh install` (o instalador faz). Tirar:
+`sudo /opt/comandou/scripts/vm.sh uninstall`.
+
+Lugar de cada coisa no servidor:
+
+| Pasta | O quê |
+| --- | --- |
+| `/opt/comandou` | programa e instalador (`scripts/`, `infrastructure/`, `.comandou-version`) |
+| `/etc/comandou/deploy.env` | configuração sem segredos (segredos ficam nos Docker secrets) |
+| `/var/lib/docker/volumes` | dados: banco, arquivos dos restaurantes, sessões do WhatsApp |
+| `/var/lib/comandou/vm` | conversa do painel com a VM (info, pedidos e registros) |
+| `/var/log/comandou` | logs de cada instalação/atualização |
+
+Se o instalador for rodado de outra pasta (ex.: um clone em `~/comandou`), ele oferece copiar tudo
+para `/opt/comandou` e continua de lá; a aba VM avisa quando a instalação está fora do padrão.
 
 ### Abrir o sistema de um restaurante (acesso de suporte)
 

@@ -476,7 +476,7 @@ function ServiceSheet({
   );
 }
 
-function CleanupSheet({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+export function CleanupSheet({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const toast = useToast();
   const { data: df, error } = useLoad<DockerDisk>('/platform/server/disk');
   const [sel, setSel] = useState<string[]>(['containers', 'images', 'build-cache']);

@@ -2285,3 +2285,26 @@ button.adm-card:hover {
 .adm-site-trial__off {
   color: var(--cm-warning);
 }
+
+/* Aba VM: link dentro de aviso (ver o registro, reiniciar agora) */
+.adm-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--a-accent);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+/* Várias ações no título da seção (aba VM): no celular elas descem para a linha de baixo. */
+@media (max-width: 640px) {
+  .adm-section__head:has(.adm-section__actions > :nth-child(2)) {
+    flex-wrap: wrap;
+  }
+  .adm-section__head:has(.adm-section__actions > :nth-child(2)) .adm-section__actions {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+  }
+}

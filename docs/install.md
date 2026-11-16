@@ -85,6 +85,8 @@ scripts/install.sh
 | `COMANDOU_ADMIN_PASSWORD` ou `COMANDOU_ADMIN_PASSWORD_FILE` | senha (12+ caracteres) |
 | `COMANDOU_ADMIN_TOTP_SECRET` | chave do autenticador em base32 (16+ caracteres), obrigatória sem terminal |
 | `COMANDOU_BACKUP=off` | sobe sem backup (não recomendado) |
+| `COMANDOU_AGENT=off` | sobe sem o agente do servidor e sem o ajudante da VM (abas Servidor e VM do painel ficam sem dados) |
+| `COMANDOU_KEEP_DIR=1` | não copia o instalador para `/opt/comandou` quando rodado de outra pasta |
 | `COMANDOU_WILDCARD_TLS=1` | certificado coringa `*.domínio` (exige DNS-01 no Traefik) |
 | `COMANDOU_CROWDSEC=1` | inclui o bloqueio do CrowdSec (gravado por `scripts/crowdsec.sh`; ver [crowdsec.md](crowdsec.md)) |
 | `CROWDSEC_TRUSTED_IPS` | IPs que o CrowdSec nunca bloqueia, separados por vírgula |

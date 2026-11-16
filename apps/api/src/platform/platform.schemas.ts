@@ -171,6 +171,24 @@ export const ServerCleanup = z.object({
 });
 export const ServiceName = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,120}$/);
 
+/** Pedido ao ajudante da VM (scripts/vm.sh). Reiniciar exige digitar REINICIAR no painel. */
+export const VmAction = z
+  .object({
+    action: z.enum(['check', 'upgrade', 'upgrade-security', 'clean', 'restart-docker', 'reboot']),
+    targets: z
+      .array(z.enum(['apt', 'journal', 'logs', 'ram']))
+      .max(4)
+      .optional(),
+    confirm: z.string().max(20).optional(),
+  })
+  .refine((b) => b.action !== 'clean' || (b.targets?.length ?? 0) > 0, {
+    message: 'escolha o que limpar',
+  })
+  .refine((b) => !['reboot', 'restart-docker'].includes(b.action) || b.confirm === 'REINICIAR', {
+    message: 'digite REINICIAR para confirmar',
+  });
+export const VmJobId = z.string().regex(/^[a-z0-9-]{8,40}$/);
+
 export const SystemUpdate = z.object({ version: z.string().regex(/^v\d+\.\d+\.\d+$/) });
 
 /** Atualização agendada de um restaurante (null cancela). */

@@ -83,6 +83,36 @@ export function agentServer(agent: HostAgent, token: string): Server {
           return send(res, 400, { message: (e as Error).message });
         }
       }
+      // VM (ajudante do systemd, scripts/vm.sh): situação, pedidos e registro de cada trabalho.
+      if (path === '/v1/vm' && req.method === 'GET') return send(res, 200, await agent.vm.info());
+      if (path === '/v1/vm/actions' && req.method === 'POST') {
+        const body = (await readJson(req)) as { action?: unknown; targets?: unknown };
+        try {
+          const targets = Array.isArray(body.targets) ? body.targets.map(String) : [];
+          return send(res, 202, await agent.vm.request(String(body.action ?? ''), targets));
+        } catch (e) {
+          return send(res, 400, { message: (e as Error).message });
+        }
+      }
+      const jm = /^\/v1\/vm\/jobs\/([a-z0-9-]{8,40})$/.exec(path);
+      if (jm && req.method === 'GET') {
+        try {
+          return send(res, 200, await agent.vm.job(jm[1]!));
+        } catch (e) {
+          return send(res, 404, { message: (e as Error).message });
+        }
+      }
+      // Componentes (Postgres, Redis, Traefik...) com versões e compilação nova da mesma tag.
+      if (path === '/v1/components' && req.method === 'GET')
+        return send(res, 200, await agent.components.list(url.searchParams.get('fresh') === '1'));
+      const cm = /^\/v1\/components\/([a-zA-Z0-9][a-zA-Z0-9_.-]{0,120})\/update$/.exec(path);
+      if (cm && req.method === 'POST') {
+        try {
+          return send(res, 202, await agent.components.update(cm[1]!));
+        } catch (e) {
+          return send(res, 400, { message: (e as Error).message });
+        }
+      }
       const m = /^\/v1\/services\/([^/]+)\/(restart|logs)$/.exec(path);
       if (m) {
         const name = decodeURIComponent(m[1]!);

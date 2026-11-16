@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.133.0',
+    date: '2026-11-16',
+    title: 'Painel da VM no Super Admin',
+    summary:
+      'Na Infraestrutura do Super Admin entrou a aba VM: dá para ver o sistema do servidor e as versões de tudo que roda nele, procurar e instalar atualizações, limpar caches e reiniciar o Docker ou a VM inteira, tudo com confirmação. O instalador passou a deixar tudo no lugar padrão do servidor.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Aba VM: sistema operacional, kernel, fuso e relógio, se a VM precisa reiniciar e há quanto tempo está ligada.',
+      },
+      {
+        tag: 'novo',
+        text: 'Atualizações do sistema: quantas são, quais são de segurança e se incluem o Docker. Botões para procurar agora, instalar só as de segurança ou todas.',
+      },
+      {
+        tag: 'novo',
+        text: 'Componentes e versões: Comandou, PostgreSQL, Redis, Nginx, Node.js, Traefik, CrowdSec, Docker Engine, containerd, OpenSSH e OpenSSL. Postgres, Redis e Traefik ganham botão de atualizar quando sai uma correção da mesma versão.',
+      },
+      {
+        tag: 'novo',
+        text: 'Limpeza da VM: cache de pacotes, diário do sistema, logs antigos e cache de memória, com o tamanho de cada um. A limpeza do Docker também fica à mão aqui.',
+      },
+      {
+        tag: 'novo',
+        text: 'Reiniciar o Docker ou a VM pelo painel, digitando REINICIAR para confirmar. Cada ação mostra o andamento e o registro e fica na auditoria.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Instalador: programa em /opt/comandou, configuração em /etc/comandou, logs em /var/log/comandou. Rodado de outra pasta, ele se copia para /opt/comandou. O agente do servidor e o ajudante da VM já vêm ligados.',
+      },
+      {
+        tag: 'segurança',
+        text: 'O painel não executa comandos no servidor: ele pede uma ação de uma lista fixa a um ajudante do próprio servidor, que recusa qualquer outra coisa.',
+      },
+    ],
+  },
+  {
     version: '0.132.0',
     date: '2026-11-16',
     title: 'Sem internet de verdade: abre tudo, guarda a fila com segurança e avisa melhor',

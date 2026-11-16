@@ -10,14 +10,35 @@
 #   - cria a rede network_public e instala um Traefik (HTTPS automático) se não houver um;
 #   - pergunta domínio, e-mail e senha do Super Admin; gera os demais
 #     segredos sozinho como Docker secrets (nunca grava senha em arquivo nem no log);
+#   - liga o agente do servidor e o ajudante da VM (scripts/vm.sh, systemd) para o painel
+#     Super Admin ver e atualizar o sistema, limpar caches e reiniciar (COMANDOU_AGENT=off tira);
 #   - sobe a stack, espera as migrações e confere a saúde;
+#   - tudo no lugar padrão: /opt/comandou (programa), /etc/comandou (configuração),
+#     /var/log/comandou (logs), /var/lib/comandou/vm (painel ↔ VM). Rodado de outra pasta, ele
+#     se copia para /opt/comandou (COMANDOU_KEEP_DIR=1 para não copiar);
 #   - oferece ligar o CrowdSec (scripts/crowdsec.sh, docs/crowdsec.md).
 # NÃO remove serviços, volumes, redes nem secrets existentes: o que já existe é reaproveitado.
 #
 # Sem perguntas (automação): defina as variáveis listadas em docs/install.md e use --yes.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-LOG="${COMANDOU_INSTALL_LOG:-$ROOT/install-$(date +%Y%m%d-%H%M%S).log}"
+# Lugar padrão no servidor: programa em /opt/comandou, configuração em /etc/comandou, logs da
+# instalação em /var/log/comandou e a conversa do painel com a VM em /var/lib/comandou/vm.
+STD_DIR="/opt/comandou"
+if [[ "$ROOT" != "$STD_DIR" && -z "${COMANDOU_KEEP_DIR:-}" && "$(id -u)" -eq 0 ]]; then
+  echo "O instalador está em $ROOT; o lugar padrão é $STD_DIR."
+  if [[ "${1:-}" == "--yes" ]] || { { : >/dev/tty; } 2>/dev/null && read -r -p "Copiar para $STD_DIR e continuar de lá? [S/n] " a </dev/tty >/dev/tty && [[ ! "$a" =~ ^[nN]$ ]]; }; then
+    mkdir -p "$STD_DIR"
+    tar -C "$ROOT" --exclude=.git --exclude=node_modules --exclude='install-*.log' -cf - . | tar -C "$STD_DIR" -xf -
+    chmod +x "$STD_DIR"/scripts/*.sh
+    echo "copiado para $STD_DIR (a pasta $ROOT pode ser apagada depois)"
+    exec "$STD_DIR/scripts/install.sh" "$@"
+  fi
+fi
+LOG_DIR="/var/log/comandou"
+mkdir -p "$LOG_DIR" 2>/dev/null || LOG_DIR="$ROOT"
+[[ -w "$LOG_DIR" ]] || LOG_DIR="$ROOT"
+LOG="${COMANDOU_INSTALL_LOG:-$LOG_DIR/install-$(date +%Y%m%d-%H%M%S).log}"
 STACK="${COMANDOU_STACK:-comandou}"
 REPO="${COMANDOU_REPO:-dhqdev/comandou}"
 IMAGES="ghcr.io/${REPO%%/*}"
@@ -177,6 +198,10 @@ openssl rand -base64 32 | tr -d '\n' | mk_secret comandou_integrations_key
 rand_hex 32 | tr -d '\n' | mk_secret comandou_wa_gateway_token
 openssl rand -base64 32 | tr -d '\n' | mk_secret comandou_wa_session_key
 rand_hex 32 | tr -d '\n' | mk_secret comandou_metrics_token
+# Agente do servidor (aba Servidor e VM do painel): token só dele.
+if [[ "${COMANDOU_AGENT:-on}" != "off" ]]; then
+  rand_hex 32 | tr -d '\n' | mk_secret comandou_agent_token
+fi
 if ! secret_exists comandou_traefik_provider_token; then
   PROVIDER_TOKEN="$(rand_hex 32)"
   printf '%s' "$PROVIDER_TOKEN" | mk_secret comandou_traefik_provider_token
@@ -247,11 +272,31 @@ else
   echo "Traefik não instalado por este script."
 fi
 
-step "9. Implantação da stack"
-echo "Serviços afetados: ${STACK}_postgres, ${STACK}_redis, ${STACK}_whatsapp-gateway, ${STACK}_backup, ${STACK}_migrate, ${STACK}_api, ${STACK}_web"
+step "9. Painel da VM (agente do servidor e ajudante do systemd)"
+# O ajudante (scripts/vm.sh) roda no systemd e só faz ações fixas: procurar e instalar
+# atualizações do sistema, limpar caches e reiniciar o Docker ou a VM, quando o Super Admin pede.
+if [[ "${COMANDOU_AGENT:-on}" != "off" ]]; then
+  if command -v systemctl >/dev/null && [[ -d /run/systemd/system ]]; then
+    if confirm "Instalar o ajudante da VM (systemd) para o painel ver e atualizar o sistema?"; then
+      $SUDO "$ROOT/scripts/vm.sh" install || echo "AVISO: o ajudante da VM não foi instalado; o resto segue"
+    else
+      echo "ajudante da VM não instalado (a aba VM do painel mostra como ligar depois)"
+    fi
+  else
+    echo "AVISO: sem systemd: a aba VM do painel fica sem as ações do sistema"
+  fi
+  # O agente monta esta pasta: ela precisa existir mesmo sem o ajudante.
+  $SUDO mkdir -p /var/lib/comandou/vm
+else
+  echo "agente do servidor desligado (COMANDOU_AGENT=off)"
+fi
+
+step "10. Implantação da stack"
+echo "Serviços afetados: ${STACK}_postgres, ${STACK}_redis, ${STACK}_whatsapp-gateway, ${STACK}_backup, ${STACK}_migrate, ${STACK}_api, ${STACK}_web$([[ "${COMANDOU_AGENT:-on}" != "off" ]] && echo ", ${STACK}_agent")"
 FILES=(-c "$ROOT/infrastructure/swarm/comandou-stack.yml")
 [[ "${COMANDOU_WILDCARD_TLS:-}" == "1" ]] && FILES+=(-c "$ROOT/infrastructure/swarm/wildcard.yml")
 [[ "${COMANDOU_BACKUP:-on}" == "off" ]] && FILES+=(-c "$ROOT/infrastructure/swarm/no-backup.yml")
+[[ "${COMANDOU_AGENT:-on}" != "off" ]] && FILES+=(-c "$ROOT/infrastructure/swarm/agent.yml")
 # CrowdSec (docs/crowdsec.md): só com a stack crowdsec no ar (sem ela não haveria quem consultar).
 if [[ "${COMANDOU_CROWDSEC:-}" == "1" ]]; then
   if docker service inspect crowdsec_crowdsec >/dev/null 2>&1 && secret_exists comandou_crowdsec_bouncer_key; then
@@ -274,6 +319,7 @@ PLATFORM_ADMIN_NAME=$PLATFORM_ADMIN_NAME
 TRAEFIK_ENTRYPOINT=$TRAEFIK_ENTRYPOINT
 TRAEFIK_CERT_RESOLVER=$TRAEFIK_CERT_RESOLVER
 ${COMANDOU_BACKUP:+COMANDOU_BACKUP=$COMANDOU_BACKUP}
+${COMANDOU_AGENT:+COMANDOU_AGENT=$COMANDOU_AGENT}
 ${COMANDOU_WILDCARD_TLS:+COMANDOU_WILDCARD_TLS=$COMANDOU_WILDCARD_TLS}
 ${COMANDOU_CROWDSEC:+COMANDOU_CROWDSEC=$COMANDOU_CROWDSEC}
 ${CROWDSEC_TRUSTED_IPS:+CROWDSEC_TRUSTED_IPS=$CROWDSEC_TRUSTED_IPS}
@@ -282,7 +328,7 @@ ENVFILE
   echo "configuração (sem segredos) salva em $DEPLOY_ENV"
 fi
 
-step "10. Migrações e Super Admin"
+step "11. Migrações e Super Admin"
 echo "Aguardando o serviço ${STACK}_migrate concluir (na primeira vez o banco demora a subir)..."
 # Uma tentativa que falha porque o Postgres ainda está iniciando é normal: o Swarm tenta de novo
 # (max_attempts do migrate na stack). Só desiste quando todas as tentativas falharam ou o tempo acabou.
@@ -297,7 +343,7 @@ done
 $MIGRATE_DONE || die "a migração não terminou em 15 minutos: docker service logs ${STACK}_migrate"
 docker service logs "${STACK}_migrate" 2>&1 | grep -E "Super Admin" | tail -2 || true
 
-step "11. Saúde dos componentes"
+step "12. Saúde dos componentes"
 docker service ls --filter "label=com.docker.stack.namespace=$STACK"
 if [[ -n "${COMANDOU_HEALTH_URL:-}" ]]; then
   "$ROOT/scripts/healthcheck.sh" "$COMANDOU_HEALTH_URL" || die "health check falhou"

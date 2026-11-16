@@ -61,6 +61,26 @@ const fakeAgent = {
     return { service: name };
   },
   serviceLogs: async (name: string, tail: number) => ({ service: name, text: `linhas ${tail}` }),
+  vm: {
+    info: async () => ({
+      installed: true,
+      stuck: false,
+      info: { os: { name: 'Ubuntu 24.04' } },
+      jobs: [],
+    }),
+    request: async (action: string, targets: string[]) => {
+      agentCalls.push(`vm:${action}:${targets.join(',')}`);
+      return { id: 'm1abcdef-00', action, targets };
+    },
+    job: async (id: string) => ({ job: { id, status: 'done' }, log: 'ok' }),
+  },
+  components: {
+    list: async (fresh: boolean) => ({ components: [], fresh }),
+    update: async (name: string) => {
+      agentCalls.push(`component:${name}`);
+      return { service: name, image: 'postgres:16-alpine', to: 'sha256:n' };
+    },
+  },
   updater: {
     current: () => null,
     start: async (version: string) => {
@@ -1092,6 +1112,42 @@ describe('Servidor (agente)', () => {
     expect(agentCalls).toContain('update:v0.11.0');
     const audit = (await pget('/audit').expect(200)).body as { action: string }[];
     expect(audit.map((a) => a.action)).toContain('platform.server.system_update_started');
+  });
+
+  it('VM: ações da lista, reiniciar só digitando REINICIAR, tudo auditado', async () => {
+    const vm = (await pget('/server/vm').expect(200)).body;
+    expect(vm).toMatchObject({
+      enabled: true,
+      installed: true,
+      info: { os: { name: 'Ubuntu 24.04' } },
+    });
+    await psend('post', '/server/vm/actions', { action: 'rm -rf /' }).expect(400);
+    await psend('post', '/server/vm/actions', { action: 'clean' }).expect(400);
+    await psend('post', '/server/vm/actions', { action: 'clean', targets: ['tudo'] }).expect(400);
+    await psend('post', '/server/vm/actions', { action: 'reboot' }).expect(400);
+    await psend('post', '/server/vm/actions', { action: 'reboot', confirm: 'sim' }).expect(400);
+    await psend('post', '/server/vm/actions', { action: 'clean', targets: ['apt', 'ram'] }).expect(
+      202,
+    );
+    expect(agentCalls).toContain('vm:clean:apt,ram');
+    await psend('post', '/server/vm/actions', { action: 'reboot', confirm: 'REINICIAR' }).expect(
+      202,
+    );
+    expect(agentCalls).toContain('vm:reboot:');
+    expect((await pget('/server/vm/jobs/m1abcdef-00').expect(200)).body.log).toBe('ok');
+    await pget('/server/vm/jobs/..%2Fx').expect(400);
+    expect((await pget('/server/components?fresh=1').expect(200)).body.fresh).toBe(true);
+    await psend('post', '/server/components/comandou_postgres/update', {}).expect(202);
+    expect(agentCalls).toContain('component:comandou_postgres');
+    const audit = (await pget('/audit').expect(200)).body as { action: string }[];
+    const actions = audit.map((a) => a.action);
+    expect(actions).toEqual(
+      expect.arrayContaining([
+        'platform.server.vm_clean',
+        'platform.server.vm_reboot',
+        'platform.server.component_updated',
+      ]),
+    );
   });
 
   it('agente recusa token errado', async () => {

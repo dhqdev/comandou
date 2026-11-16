@@ -42,6 +42,8 @@ import {
   ResetPassword,
   RevokeSessions,
   ServerCleanup,
+  VmAction,
+  VmJobId,
   ServiceName,
   SystemUpdate,
   TenantUpdateSchedule,
@@ -704,6 +706,66 @@ export class PlatformServerController {
       version: b.version,
       services: r.job.steps.map((s) => `${s.service}:${s.from}`),
     });
+    return r;
+  }
+
+  /** VM: SO, atualizações do sistema, caches e trabalhos do ajudante (scripts/vm.sh). */
+  @Get('vm')
+  async vm() {
+    if (!this.agent.enabled) return { enabled: false };
+    try {
+      return { enabled: true, ...(await this.agent.call<object>('GET', '/v1/vm')) };
+    } catch (e) {
+      // Agente antigo (sem /v1/vm): a tela pede para rodar o instalador de novo.
+      return { enabled: true, installed: false, outdated: true, error: (e as Error).message };
+    }
+  }
+
+  @Post('vm/actions')
+  @HttpCode(202)
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  async vmAction(@Body(new ZodPipe(VmAction)) b: z.infer<typeof VmAction>, @Req() req: Request) {
+    const r = await this.agent.call<{ id: string }>('POST', '/v1/vm/actions', {
+      action: b.action,
+      targets: b.targets ?? [],
+    });
+    await this.audit(req, `vm_${b.action.replace(/-/g, '_')}`, {
+      job: r.id,
+      ...(b.targets ? { targets: b.targets } : {}),
+    });
+    return r;
+  }
+
+  @Get('vm/jobs/:id')
+  vmJob(@Param('id', new ZodPipe(VmJobId)) id: string) {
+    return this.agent.call('GET', `/v1/vm/jobs/${id}`);
+  }
+
+  /** Componentes (Postgres, Redis, Traefik, Docker...) com versões e se há compilação nova. */
+  @Get('components')
+  components(@Query('fresh') fresh?: string) {
+    return this.agent.call(
+      'GET',
+      `/v1/components${fresh === '1' ? '?fresh=1' : ''}`,
+      undefined,
+      90_000,
+    );
+  }
+
+  @Post('components/:name/update')
+  @HttpCode(202)
+  @Throttle({ default: { ttl: 60_000, limit: 6 } })
+  async updateComponent(
+    @Param('name', new ZodPipe(ServiceName)) name: string,
+    @Req() req: Request,
+  ) {
+    const r = await this.agent.call<{ image: string; to: string }>(
+      'POST',
+      `/v1/components/${encodeURIComponent(name)}/update`,
+      undefined,
+      60_000,
+    );
+    await this.audit(req, 'component_updated', { service: name, image: r.image, digest: r.to });
     return r;
   }
 

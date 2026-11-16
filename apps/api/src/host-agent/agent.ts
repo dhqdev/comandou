@@ -2,6 +2,8 @@ import { hostname as osHostname } from 'node:os';
 import { DockerClient, demuxLogs } from './docker';
 import { Updater } from './updater';
 import { PinnedVersions } from './versions';
+import { Components } from './components';
+import { VmHelper } from './vm';
 import { cpuCount, CpuTimes, cpuPercent, HostReader, parseCpu } from './proc';
 
 export interface Sample {
@@ -68,6 +70,8 @@ export class HostAgent {
   readonly history: Sample[] = [];
   readonly updater: Updater;
   readonly versions: PinnedVersions;
+  readonly components: Components;
+  readonly vm = new VmHelper();
   private last?: { cpu: CpuTimes; rx: number; tx: number; at: number };
   private containerMem = new Map<string, number>();
   private stackName: Promise<string | null> | null = null;
@@ -84,6 +88,7 @@ export class HostAgent {
   ) {
     this.updater = new Updater(docker, { cleanup: () => this.cleanupAfterUpdate() });
     this.versions = new PinnedVersions(docker);
+    this.components = new Components(docker, () => this.ownStack());
   }
 
   /** Nome da nossa stack: AGENT_STACK ou o rótulo do contêiner onde o agente roda. */
