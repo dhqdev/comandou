@@ -6,8 +6,10 @@ import {
   isOfflineResult,
   needsInternet,
   offlineSnapshot,
+  ping,
   remap,
   resetOfflineForTests,
+  retryOp,
   setSender,
   type QueuedOp,
 } from './offline';
@@ -161,6 +163,100 @@ describe('sincronização', () => {
     expect(offlineSnapshot().pending).toHaveLength(0);
     await enableOffline('u1');
     expect(offlineSnapshot().pending).toHaveLength(1);
+  });
+});
+
+describe('Wi-Fi ligado, servidor fora', () => {
+  it('depois de uma falha, salva direto no aparelho sem esperar a rede e volta com o servidor', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await api('/customers', { method: 'POST', json: { name: 'A' } });
+    expect(offlineSnapshot()).toMatchObject({ online: false, serverDown: true });
+
+    // Próxima gravação nem tenta a rede.
+    await api('/customers', { method: 'POST', json: { name: 'B' } });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(offlineSnapshot().pending).toHaveLength(2);
+
+    // O teste leve vê o servidor de volta: a fila sobe sozinha.
+    const sent: string[] = [];
+    setSender(async (op) => {
+      sent.push((op.json as { name: string }).name);
+      return { status: 201, body: { id: `id-${sent.length}` } };
+    });
+    fetchMock.mockResolvedValueOnce(json({ status: 'ok' }));
+    expect(await ping()).toBe(true);
+    await flushOutbox();
+    expect(sent).toEqual(['A', 'B']);
+    expect(offlineSnapshot()).toMatchObject({ online: true, serverDown: false, pending: [] });
+  });
+
+  it('servidor fora (502/503/504) também conta como sem conexão', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(json({}, 502));
+    const r = await api('/customers', { method: 'POST', json: { name: 'A' } });
+    expect(isOfflineResult(r)).toBe(true);
+    expect(offlineSnapshot().serverDown).toBe(true);
+  });
+
+  it('leitura que demora demais mostra o que está guardado', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(json([{ id: 'a' }]));
+    await api('/tables');
+    await new Promise((r) => setTimeout(r, 0));
+    vi.useFakeTimers();
+    try {
+      let answer!: (r: Response) => void;
+      fetchMock.mockReturnValueOnce(new Promise<Response>((r) => (answer = r)));
+      const p = api('/tables');
+      await vi.advanceTimersByTimeAsync(9_000);
+      expect(await p).toEqual([{ id: 'a' }]);
+      expect(offlineSnapshot().fromCache).toBe(true);
+      answer(json([{ id: 'b' }]));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('recusas em cadeia e conflitos', () => {
+  async function queue(path: string, body: unknown, method = 'POST') {
+    setOnline(false);
+    const r = await api<{ id: string }>(path, { method, json: body });
+    setOnline(true);
+    return r;
+  }
+
+  it('alteração sobre um cadastro recusado não vai ao servidor e volta junto ao tentar de novo', async () => {
+    const tmp = await queue('/customers', { name: '' });
+    await queue(`/customers/${tmp.id}`, { phone: '1199' }, 'PATCH');
+    const sent: string[] = [];
+    setSender(async (op) => {
+      sent.push(`${op.method} ${op.path}`);
+      return { status: 422, body: { message: 'Nome obrigatório' } };
+    });
+    await flushOutbox();
+    expect(sent).toEqual(['POST /customers']);
+    const [create, patch] = offlineSnapshot().failed;
+    expect(create!.error).toBe('Nome obrigatório');
+    expect(patch!.error).toMatch(/Depende de "Cliente \(novo\)"/);
+
+    // Corrigido no servidor: tentar de novo o cadastro leva a alteração presa junto, na ordem.
+    sent.length = 0;
+    setSender(async (op) => {
+      sent.push(`${op.method} ${op.path}`);
+      return { status: 200, body: { id: 'c-1' } };
+    });
+    await retryOp(create!.id);
+    await flushOutbox();
+    expect(sent).toEqual(['POST /customers', 'PATCH /customers/c-1']);
+    expect(offlineSnapshot().failed).toHaveLength(0);
+  });
+
+  it('409 (outra pessoa mudou antes) fica para revisão como conflito', async () => {
+    await queue('/orders/o1/status', { to: 'ready', expectedVersion: 2 });
+    setSender(async () => ({ status: 409, body: { message: 'O pedido mudou' } }));
+    await flushOutbox();
+    expect(offlineSnapshot().failed[0]!.error).toBe('Conflito: O pedido mudou');
   });
 });
 

@@ -79,7 +79,28 @@ export default defineConfig({
         navigateFallback: '/index.html',
         // A prévia da Loja online (/pedir?previa=1) vem sempre do servidor, que permite a moldura.
         navigateFallbackDenylist: [/^\/api\//, /[?&]previa=1(&|$)/],
-        runtimeCaching: [{ urlPattern: /^\/api\//, handler: 'NetworkOnly' }],
+        runtimeCaching: [
+          // Exceção: as fotos (GET /api/v1/media/<id>) são públicas e nunca mudam (trocar a foto
+          // gera outro id). Guardadas no aparelho, o cardápio, o PDV e o garçom mostram as fotos
+          // sem internet. Só resposta 200 e com limite de quantidade e idade.
+          {
+            urlPattern: ({ url, request, sameOrigin }) =>
+              sameOrigin &&
+              request.method === 'GET' &&
+              /^\/api\/v1\/media\/[0-9a-f-]{36}$/i.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'comandou-fotos',
+              expiration: {
+                maxEntries: 600,
+                maxAgeSeconds: 60 * 24 * 3600,
+                purgeOnQuotaError: true,
+              },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          { urlPattern: /^\/api\//, handler: 'NetworkOnly' },
+        ],
       },
     }),
   ],

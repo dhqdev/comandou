@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.132.0',
+    date: '2026-11-16',
+    title: 'Sem internet de verdade: abre tudo, guarda a fila com segurança e avisa melhor',
+    summary:
+      'O modo sem internet ficou mais completo. As telas principais abrem sem conexão mesmo que ninguém as tenha aberto antes no aparelho, as fotos dos itens aparecem e a fila de alterações fica protegida contra limpeza do navegador. Quando o Wi-Fi está ligado mas o servidor não responde, o sistema percebe, avisa e envia tudo sozinho quando ele volta.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Logo depois de entrar, o sistema guarda no aparelho o PDV, o salão, as comandas, os pedidos em andamento, a cozinha e o cardápio inteiro, com o cadastro de item. Sem internet, essas telas abrem mesmo que ninguém as tenha aberto antes.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'As fotos dos itens ficam guardadas no aparelho e aparecem no PDV, no garçom e no cardápio sem internet.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Wi-Fi ligado com o servidor fora: a faixa avisa "Sem conexão com o servidor", o que for salvo vai direto para o aparelho sem esperar a rede, e tudo sobe sozinho quando o servidor volta, sem precisar recarregar. Tela que demora mais de 8 segundos para carregar mostra o que está guardado.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Com alterações esperando para subir, o sistema pede ao navegador para não apagar os dados do aparelho quando faltar espaço, para a fila não se perder.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Se o servidor recusar um cadastro feito sem internet, as alterações seguintes nesse mesmo registro esperam junto, com o motivo, em vez de darem erro. "Tentar de novo" envia o cadastro e depois as alterações, na ordem. Quando outra pessoa mudou o mesmo registro antes, a recusa aparece como conflito.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A faixa mostra de quando são os dados guardados na tela e a lista de pendências mostra o último envio. Com duas abas abertas, a contagem de pendências se atualiza nas duas. O app do entregador também ganhou a faixa.',
+      },
+    ],
+  },
+  {
     version: '0.131.0',
     date: '2026-11-16',
     title: 'Calendário de cobrança dá baixa sozinho',

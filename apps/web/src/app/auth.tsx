@@ -7,6 +7,7 @@ import {
   movedTo,
   TENANT_MOVED_EVENT,
   TENANT_SUSPENDED_EVENT,
+  warmOfflineCache,
 } from '../lib/api';
 import {
   cachedMe,
@@ -46,6 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await enableOffline(me.user.id);
       void saveMe(me);
       setState({ status: 'authenticated', me });
+      // Depois que a tela abrir, guarda as principais para funcionarem sem internet.
+      setTimeout(() => void warmOfflineCache(me.user.id), 3_000);
     } catch (e) {
       // Sem internet: abre com a última sessão guardada neste aparelho, nos dados guardados.
       if (

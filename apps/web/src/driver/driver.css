@@ -84,3 +84,9 @@
   width: 40px;
   height: 40px;
 }
+
+/* Faixa de sem internet / alterações na fila (app/OfflineBanner.tsx) */
+.courier-page__offline {
+  border: 1px solid color-mix(in srgb, var(--cm-warning) 20%, transparent);
+  border-radius: var(--cm-radius-md, 10px);
+}

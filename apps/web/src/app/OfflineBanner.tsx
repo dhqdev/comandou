@@ -15,6 +15,17 @@ import './offline-banner.css';
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
+const hhmm = (t: number) =>
+  new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+/** "de hoje às 14:32" ou "de 12/11 às 14:32", para dizer de quando são os dados na tela. */
+function savedAt(t: number): string {
+  const d = new Date(t);
+  const today = new Date().toDateString() === d.toDateString();
+  const day = today ? 'hoje' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  return `${day} às ${hhmm(t)}`;
+}
+
 /**
  * Faixa do modo offline (lib/offline.ts), igual no painel, no garçom e na cozinha:
  *  - sem internet: avisa que o que for salvo fica só no aparelho até a conexão voltar;
@@ -55,9 +66,13 @@ export function OfflineBanner({ className = 'offline-banner' }: { className?: st
   let icon = <CloudOff size={14} />;
   let text: string;
   if (!s.online) {
-    text = pending
-      ? `Sem internet. ${pending} ${plural(pending, 'alteração salva', 'alterações salvas')} só neste aparelho: ${plural(pending, 'vai', 'vão')} para a nuvem quando a conexão voltar.`
-      : 'Sem internet. Pode continuar usando: o que você salvar fica neste aparelho e vai para a nuvem quando a conexão voltar. Pagamentos, caixa e nota fiscal esperam a internet.';
+    const why = s.serverDown ? 'Sem conexão com o servidor.' : 'Sem internet.';
+    const data = s.cachedAt ? ` Dados guardados ${savedAt(s.cachedAt)}.` : '';
+    text = !s.enabled
+      ? `${why} A tela volta a atualizar quando a conexão voltar.`
+      : pending
+        ? `${why} ${pending} ${plural(pending, 'alteração salva', 'alterações salvas')} só neste aparelho: ${plural(pending, 'vai', 'vão')} para a nuvem quando a conexão voltar.${data}`
+        : `${why} Pode continuar usando: o que você salvar fica neste aparelho e vai para a nuvem quando a conexão voltar. Pagamentos, caixa e nota fiscal esperam a internet.${data}`;
   } else if (pending) {
     icon = <CloudUpload size={14} />;
     text = s.syncing
@@ -104,6 +119,7 @@ export function OfflineBanner({ className = 'offline-banner' }: { className?: st
           {s.online
             ? 'Estas alterações foram feitas sem internet e ainda não estão na nuvem.'
             : 'Sem internet agora. Estas alterações estão guardadas aqui e sobem sozinhas quando a conexão voltar. Não limpe os dados do navegador até lá.'}
+          {s.lastSyncAt ? ` Último envio para a nuvem às ${hhmm(s.lastSyncAt)}.` : ''}
         </p>
         <ul className="offline-sync__list">
           {[...s.failed, ...s.pending].map((op) => (
@@ -116,10 +132,7 @@ export function OfflineBanner({ className = 'offline-banner' }: { className?: st
 }
 
 function OpRow({ op }: { op: QueuedOp }) {
-  const when = new Date(op.createdAt).toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const when = hhmm(op.createdAt);
   return (
     <li className={`offline-sync__item ${op.status === 'failed' ? 'is-failed' : ''}`}>
       <div>

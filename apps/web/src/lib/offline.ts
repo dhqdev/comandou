@@ -38,6 +38,8 @@ export interface QueuedOp {
   attempts: number;
   status: 'pending' | 'failed';
   error?: string;
+  /** Recusada sem enviar: depende do registro provisório (offline-…) que não subiu. */
+  blockedBy?: string;
 }
 
 interface CacheEntry {
@@ -47,7 +49,10 @@ interface CacheEntry {
 
 export interface OfflineSnapshot {
   enabled: boolean;
+  /** Tem rede e o servidor responde. */
   online: boolean;
+  /** Rede ligada (Wi-Fi/dados), mas o servidor não responde. */
+  serverDown: boolean;
   /** Alterações do usuário atual ainda no aparelho. */
   pending: QueuedOp[];
   /** Recusadas pelo servidor ao sincronizar: precisam de revisão. */
@@ -55,6 +60,8 @@ export interface OfflineSnapshot {
   syncing: boolean;
   /** Alguma tela está mostrando dados guardados (sem internet). */
   fromCache: boolean;
+  /** Hora dos dados guardados mais antigos que estão na tela. */
+  cachedAt: number | null;
   lastSyncAt: number | null;
 }
 
@@ -111,6 +118,8 @@ function cacheable(path: string): boolean {
 let enabledUser: string | null = null;
 let syncing = false;
 let fromCache = false;
+let cachedAt: number | null = null;
+let serverDown = false;
 let lastSyncAt: number | null = null;
 let ops: QueuedOp[] = [];
 const listeners = new Set<() => void>();
@@ -124,6 +133,11 @@ export function browserOnline(): boolean {
   return typeof navigator === 'undefined' ? true : navigator.onLine !== false;
 }
 
+/** Tem rede e o servidor respondeu da última vez. */
+export function reachable(): boolean {
+  return browserOnline() && !serverDown;
+}
+
 function mine(o: QueuedOp) {
   return o.userId === enabledUser && o.host === host();
 }
@@ -132,11 +146,13 @@ function build(): OfflineSnapshot {
   const own = ops.filter(mine);
   return {
     enabled: enabledUser !== null,
-    online: browserOnline(),
+    online: reachable(),
+    serverDown: browserOnline() && serverDown,
     pending: own.filter((o) => o.status === 'pending'),
     failed: own.filter((o) => o.status === 'failed'),
     syncing,
     fromCache,
+    cachedAt: fromCache ? cachedAt : null,
     lastSyncAt,
   };
 }
@@ -169,12 +185,87 @@ async function reloadOps() {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Servidor alcançável. `navigator.onLine` só diz se há Wi-Fi ou dados: com a rede ligada e o
+// servidor fora (internet do roteador caiu, servidor reiniciando), cada clique esperaria a
+// requisição falhar. Depois de uma falha, as telas usam direto o que está no aparelho e um
+// pedido leve (/health/live) confere a cada poucos segundos se o servidor voltou.
+
+const PING_EVERY = 5_000;
+let pingTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Falha de rede ou servidor fora (502/503/504) com o modo offline ligado. */
+export function markServerDown(): void {
+  if (!enabledUser || serverDown) return;
+  serverDown = true;
+  notify();
+  if (typeof window !== 'undefined' && !pingTimer)
+    pingTimer = setInterval(() => void ping(), PING_EVERY);
+}
+
+/** O servidor respondeu: volta ao normal e envia a fila. */
+export function markServerUp(): void {
+  if (!serverDown) return;
+  serverDown = false;
+  if (pingTimer) clearInterval(pingTimer);
+  pingTimer = null;
+  notify();
+  void flushOutbox();
+}
+
+export async function ping(): Promise<boolean> {
+  if (!browserOnline()) return false;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 5_000);
+    const res = await fetch('/api/v1/health/live', { cache: 'no-store', signal: ctrl.signal });
+    clearTimeout(t);
+    if (res.status < 502) {
+      markServerUp();
+      return true;
+    }
+  } catch {
+    /* continua fora */
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Outras abas do mesmo aparelho: quando uma envia ou guarda algo, as outras releem a fila.
+
+let channel: BroadcastChannel | null = null;
+
+function tellOtherTabs() {
+  try {
+    channel?.postMessage('outbox');
+  } catch {
+    /* aba fechando */
+  }
+}
+
+/**
+ * Pede ao navegador para não apagar o banco do aparelho quando faltar espaço (sem isso, a fila
+ * pode sumir antes de subir). Só quando há algo na fila: no Firefox isso pergunta à pessoa.
+ */
+let askedPersist = false;
+async function keepStorage() {
+  if (askedPersist || typeof navigator === 'undefined') return;
+  askedPersist = true;
+  try {
+    const st = navigator.storage;
+    if (st?.persist && !(await st.persisted?.())) await st.persist();
+  } catch {
+    /* sem suporte: segue como antes */
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // Liga/desliga (login e logout).
 
 let timer: ReturnType<typeof setInterval> | null = null;
 const onOnline = () => {
   notify();
-  void flushOutbox();
+  if (serverDown) void ping();
+  else void flushOutbox();
 };
 const onOffline = () => notify();
 const onVisible = () => {
@@ -193,8 +284,13 @@ export async function enableOffline(userId: string): Promise<void> {
     timer = setInterval(() => {
       if (snapshot.pending.length) void flushOutbox();
     }, 20_000);
+    if (typeof BroadcastChannel !== 'undefined') {
+      channel = new BroadcastChannel('comandou-outbox');
+      channel.onmessage = () => void reloadOps();
+    }
   }
   await reloadOps();
+  if (ops.some(mine)) void keepStorage();
   await loadIdMap();
   void pruneCache();
   void flushOutbox();
@@ -207,8 +303,14 @@ export async function enableOffline(userId: string): Promise<void> {
 export async function disableOffline(): Promise<void> {
   enabledUser = null;
   fromCache = false;
+  cachedAt = null;
+  serverDown = false;
   if (timer) clearInterval(timer);
   timer = null;
+  if (pingTimer) clearInterval(pingTimer);
+  pingTimer = null;
+  channel?.close();
+  channel = null;
   if (typeof window !== 'undefined') {
     window.removeEventListener('online', onOnline);
     window.removeEventListener('offline', onOffline);
@@ -236,6 +338,7 @@ export async function saveRead(path: string, body: unknown): Promise<void> {
   if (!enabledUser || !cacheable(path)) return;
   if (fromCache) {
     fromCache = false;
+    cachedAt = null;
     notify();
   }
   await offlineStore()
@@ -249,8 +352,9 @@ export async function cachedRead<T>(path: string): Promise<{ body: T } | null> {
     .get<CacheEntry>('cache', cacheKey(path))
     .catch(() => undefined);
   if (!hit) return null;
-  if (!fromCache) {
+  if (!fromCache || cachedAt === null || hit.at < cachedAt) {
     fromCache = true;
+    cachedAt = cachedAt === null ? hit.at : Math.min(cachedAt, hit.at);
     notify();
   }
   return { body: hit.body as T };
@@ -423,6 +527,8 @@ export async function enqueue(
   await offlineStore().put('outbox', op.id, op);
   ops = [...ops, op];
   notify();
+  tellOtherTabs();
+  void keepStorage();
   if (typeof window !== 'undefined')
     window.dispatchEvent(new CustomEvent(OFFLINE_QUEUED_EVENT, { detail: op }));
   return op;
@@ -436,16 +542,32 @@ export async function discardOp(id: string): Promise<void> {
   await offlineStore().delete('outbox', id);
   ops = ops.filter((o) => o.id !== id);
   notify();
+  tellOtherTabs();
 }
 
+/** Tenta de novo a recusada e as que ficaram presas esperando por ela. */
 export async function retryOp(id: string): Promise<void> {
   const op = ops.find((o) => o.id === id);
   if (!op) return;
-  const next = { ...op, status: 'pending' as const, error: undefined };
-  await offlineStore().put('outbox', id, next);
-  ops = ops.map((o) => (o.id === id ? next : o));
+  const again = new Set([id]);
+  for (const o of ops) if (o.status === 'failed' && o.blockedBy === tempId(op)) again.add(o.id);
+  for (const o of ops) {
+    if (!again.has(o.id)) continue;
+    const next: QueuedOp = { ...o, status: 'pending', error: undefined, blockedBy: undefined };
+    await offlineStore().put('outbox', o.id, next);
+    ops = ops.map((x) => (x.id === o.id ? next : x));
+  }
   notify();
+  tellOtherTabs();
   void flushOutbox();
+}
+
+/** Primeiro id provisório no envio que ainda não virou id do servidor. */
+function unresolvedTemp(op: QueuedOp): string | null {
+  const text = `${op.path} ${op.json === undefined ? '' : JSON.stringify(op.json)}`;
+  if (!text.includes('offline-')) return null;
+  for (const m of text.matchAll(TEMP_RE)) if (!idMap.has(m[0])) return m[0];
+  return null;
 }
 
 /**
@@ -530,12 +652,34 @@ async function runFlush() {
   try {
     for (const original of queue) {
       const op = remap(original, idMap, versions);
+      // Fala de um registro criado sem internet que foi recusado (ou descartado): o servidor não
+      // o conhece, então nem envia; fica para revisão junto com ele.
+      const orphan = unresolvedTemp(op);
+      if (orphan) {
+        const creator = ops.find((o) => mine(o) && tempId(o) === orphan);
+        if (!creator || creator.status === 'failed') {
+          const blocked: QueuedOp = {
+            ...original,
+            status: 'failed',
+            blockedBy: orphan,
+            error: creator
+              ? `Depende de "${creator.label}", que foi recusado. Resolva aquele primeiro.`
+              : 'Depende de um registro que não chegou ao servidor (descartado).',
+          };
+          await offlineStore().put('outbox', original.id, blocked);
+          ops = ops.map((o) => (o.id === original.id ? blocked : o));
+          notify();
+          continue;
+        }
+      }
       let res: { status: number; body: unknown };
       try {
         res = await sender(op);
       } catch {
+        markServerDown();
         break; // sem rede: tenta de novo quando voltar
       }
+      if (res.status < 502) markServerUp();
       if (res.status >= 200 && res.status < 300) {
         const out = res.body as { id?: unknown; version?: unknown } | undefined;
         if (typeof out?.id === 'string') {
@@ -549,10 +693,15 @@ async function runFlush() {
         continue;
       }
       // Sessão vencida, servidor fora ou ocupado: mantém e tenta depois (na mesma ordem).
-      if (res.status === 401 || res.status === 408 || res.status === 429 || res.status >= 500)
+      if (res.status === 401 || res.status === 408 || res.status === 429 || res.status >= 500) {
+        if (res.status >= 502) markServerDown();
         break;
+      }
       // Recusada (dado inválido, item apagado por outra pessoa…): separa para revisão.
-      const msg = (res.body as { message?: string } | undefined)?.message ?? `Erro ${res.status}`;
+      const reason =
+        (res.body as { message?: string } | undefined)?.message ?? `Erro ${res.status}`;
+      // 409: alguém mudou o mesmo registro antes (outro aparelho, com internet).
+      const msg = res.status === 409 ? `Conflito: ${reason}` : reason;
       const failed: QueuedOp = {
         ...original,
         status: 'failed',
@@ -567,6 +716,7 @@ async function runFlush() {
     syncing = false;
     if (sent) lastSyncAt = Date.now();
     notify();
+    tellOtherTabs();
     if (sent && typeof window !== 'undefined')
       window.dispatchEvent(new CustomEvent(OFFLINE_SYNCED_EVENT, { detail: { sent } }));
   }
@@ -577,6 +727,13 @@ export function resetOfflineForTests() {
   enabledUser = null;
   syncing = false;
   fromCache = false;
+  cachedAt = null;
+  serverDown = false;
+  askedPersist = false;
+  if (pingTimer) clearInterval(pingTimer);
+  pingTimer = null;
+  channel?.close();
+  channel = null;
   lastSyncAt = null;
   ops = [];
   idMap.clear();

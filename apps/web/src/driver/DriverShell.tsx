@@ -3,6 +3,7 @@ import { type ReactNode, useEffect } from 'react';
 import { Alert, Mascot, Spinner, ThemeToggle } from '../design-system';
 import { openTeamChat, useChatUnread } from '../features/chat/TeamChat';
 import { SoundControl } from '../features/SoundControl';
+import { OfflineBanner } from '../app/OfflineBanner';
 import { DriverGate } from './DriverGate';
 import '../app/shell.css';
 import '../app/ops.css';
@@ -48,6 +49,7 @@ export function DriverShell({
             </button>
           )}
         </header>
+        <OfflineBanner className="offline-banner courier-page__offline" />
         <DriverGate>
           {error && <Alert tone={loading ? 'danger' : 'warning'}>{error}</Alert>}
           {loading ? !error && <Spinner /> : children}

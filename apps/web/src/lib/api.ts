@@ -3,12 +3,15 @@ import {
   cachedRead,
   enqueue,
   hasUnsyncedId,
+  markServerDown,
+  markServerUp,
   needsInternet,
   newOpKey,
   offlineEnabled,
   offlineResult,
   OP_HEADER,
   pendingRead,
+  reachable,
   resolveTempIds,
   saveRead,
 } from './offline';
@@ -103,33 +106,57 @@ export async function api<T>(
 
   // Sem rede nenhuma: nem tenta (o fetch demoraria a falhar).
   if (offline && !browserOnline()) return whenOffline();
+  // Rede ligada mas o servidor não respondeu há pouco: usa o que está no aparelho enquanto o
+  // teste leve (offline.ts › ping) não vê o servidor de volta. Leitura sem nada guardado tenta.
+  if (offline && !reachable()) {
+    if (queueable) return whenOffline();
+    if (reading) {
+      const hit = await cachedRead<T>(path);
+      if (hit) return hit.body;
+    }
+  }
+
+  const request = fetch(`/api/v1${path}`, {
+    credentials: 'same-origin',
+    ...rest,
+    method,
+    headers: {
+      Accept: 'application/json',
+      ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      // Exigido pela API em métodos que alteram estado (proteção CSRF).
+      ...(!reading ? { 'X-Comandou-Request': '1' } : {}),
+      // Se a resposta se perder e a gravação for para a fila, o reenvio não duplica.
+      ...(opKey ? { [OP_HEADER]: opKey } : {}),
+      ...headers,
+    },
+    body: json !== undefined ? JSON.stringify(json) : rest.body,
+  });
+
+  // Leitura que demora demais (Wi-Fi sem internet): mostra o que está guardado e deixa a
+  // resposta chegar por trás (ela atualiza o guardado). Gravação sempre espera o servidor.
+  if (offline && method === 'GET') {
+    const late = slowRead(request, path);
+    const quick = await late.cached;
+    if (quick) return quick.body as T;
+  }
 
   let res: Response;
   try {
-    res = await fetch(`/api/v1${path}`, {
-      credentials: 'same-origin',
-      ...rest,
-      method,
-      headers: {
-        Accept: 'application/json',
-        ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}),
-        // Exigido pela API em métodos que alteram estado (proteção CSRF).
-        ...(!reading ? { 'X-Comandou-Request': '1' } : {}),
-        // Se a resposta se perder e a gravação for para a fila, o reenvio não duplica.
-        ...(opKey ? { [OP_HEADER]: opKey } : {}),
-        ...headers,
-      },
-      body: json !== undefined ? JSON.stringify(json) : rest.body,
-    });
+    res = await request;
   } catch {
+    // Cancelada pela própria tela (trocou de página) não é falta de conexão.
+    if (offline && !rest.signal?.aborted) markServerDown();
     return whenOffline();
   }
+  if (offline && res.status < 502) markServerUp();
   if (res.status === 204) return undefined as T;
   const body = await res.json().catch(() => undefined);
   if (!res.ok) {
     // Servidor fora do ar (gateway) também conta como sem conexão para a fila.
-    if (offline && (res.status === 502 || res.status === 503 || res.status === 504))
+    if (offline && (res.status === 502 || res.status === 503 || res.status === 504)) {
+      markServerDown();
       return whenOffline();
+    }
     const msg = (body as { message?: string } | undefined)?.message ?? `Erro ${res.status}`;
     // Restaurante suspenso no meio do uso: o app troca para a tela de aviso.
     if (isSuspended(body)) window.dispatchEvent(new Event(TENANT_SUSPENDED_EVENT));
@@ -143,6 +170,88 @@ export async function api<T>(
   }
   if (offline && method === 'GET') void saveRead(path, body);
   return body as T;
+}
+
+/** Tempo de espera de uma leitura com o modo offline ligado antes de usar o que está guardado. */
+const READ_TIMEOUT = 8_000;
+
+/**
+ * Se a leitura passar de READ_TIMEOUT e houver cópia guardada, `cached` traz a cópia; senão
+ * (respondeu antes, ou não há cópia) traz null e quem chamou espera a resposta normal. A resposta
+ * atrasada continua: quando chega, vai para o guardado.
+ */
+function slowRead(request: Promise<Response>, path: string) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const done = request.then(
+    () => null,
+    () => null,
+  );
+  const timedOut = new Promise<{ body: unknown } | null>((resolve) => {
+    timer = setTimeout(() => resolve(cachedRead(path)), READ_TIMEOUT);
+  });
+  const cached = Promise.race([done, timedOut]).then((r) => {
+    clearTimeout(timer);
+    if (r)
+      // A tela já recebeu o guardado: quando (e se) a resposta chegar, atualiza o guardado.
+      void request
+        .then(async (res) => {
+          if (res.ok) void saveRead(path, await res.json());
+        })
+        .catch(() => undefined);
+    return r;
+  });
+  return { cached };
+}
+
+/**
+ * Telas principais guardadas logo depois de entrar, para abrirem sem internet mesmo que ninguém
+ * as tenha aberto antes neste aparelho. Mesmo caminho que as telas pedem (a chave do que fica
+ * guardado é o caminho). Quem não tem permissão recebe 403 e segue.
+ */
+const WARM_PATHS = [
+  // PDV, salão, garçom e cozinha.
+  '/tables',
+  '/tabs',
+  '/tabs?status=open',
+  '/orders?active=true&limit=300',
+  '/store/settings',
+  '/kitchen/config',
+  // Cardápio (lista e cadastro de item).
+  '/categories',
+  '/products',
+  '/option-groups',
+  '/product-option-groups',
+  '/menus',
+  '/sectors',
+  '/item-families',
+  '/stock/items',
+  '/stock/recipes',
+  '/fiscal/rules',
+];
+const WARM_KEY = 'cm:offline-warm';
+const WARM_EVERY = 30 * 60_000;
+
+export async function warmOfflineCache(userId: string): Promise<void> {
+  if (!offlineEnabled() || !browserOnline()) return;
+  try {
+    const last = JSON.parse(sessionStorage.getItem(WARM_KEY) ?? 'null') as {
+      u: string;
+      at: number;
+    } | null;
+    if (last?.u === userId && Date.now() - last.at < WARM_EVERY) return;
+    sessionStorage.setItem(WARM_KEY, JSON.stringify({ u: userId, at: Date.now() }));
+  } catch {
+    /* sem sessionStorage: aquece igual */
+  }
+  for (const p of WARM_PATHS) {
+    if (!reachable()) return;
+    await api(p).catch(() => undefined);
+  }
+  try {
+    sessionStorage.setItem(WARM_KEY, JSON.stringify({ u: userId, at: Date.now(), done: true }));
+  } catch {
+    /* sem sessionStorage */
+  }
 }
 
 function headerOf(h: HeadersInit | undefined, name: string): string | undefined {
