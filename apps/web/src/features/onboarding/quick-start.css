@@ -1,55 +1,99 @@
-/* Primeiros passos pelo cardápio (QuickStart.tsx): link ou fotos, conferência e aplicar. */
+/* Primeiros passos pelo cardápio (QuickStart.tsx): jogar o cardápio, conferir e aplicar. */
 .qs {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   min-width: 0;
 }
 
-/* Dois jeitos de mandar as fotos. */
-.qs-picks {
+/* Área de soltar o cardápio (fotos, PDF, print colado). A tela inteira aceita o arquivo. */
+.qs-drop {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-.qs-pick {
-  display: grid;
-  gap: 4px;
-  justify-items: start;
-  align-content: start;
-  min-height: 112px;
-  padding: 14px;
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-md);
-  background: var(--cm-surface);
-  color: var(--cm-text);
-  font: inherit;
-  text-align: left;
+  justify-items: center;
+  gap: 6px;
+  padding: 36px 20px 28px;
+  border: 1.5px dashed var(--cm-border-strong);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface-muted);
+  text-align: center;
   cursor: pointer;
   transition:
     border-color var(--cm-dur-fast) var(--cm-ease),
-    transform var(--cm-spring-snappy-dur, 0.2s) var(--cm-spring-snappy, ease);
+    background var(--cm-dur-fast) var(--cm-ease);
 }
-.qs-pick svg {
+.qs-drop:hover {
+  border-color: var(--cm-text-subtle);
+}
+.qs-drop[data-over] {
+  border-color: var(--cm-brand-500);
+  background: var(--cm-brand-50);
+}
+.qs-drop__icon {
   margin-bottom: 6px;
   color: var(--cm-brand-600);
+  transition: transform var(--cm-spring-dur) var(--cm-spring);
 }
-.qs-pick:hover {
-  border-color: var(--cm-border-strong, var(--cm-text-subtle));
+.qs-drop[data-over] .qs-drop__icon {
+  transform: translateY(-4px) scale(1.08);
 }
-.qs-pick:active {
-  transform: scale(0.98);
-}
-.qs-pick:focus-visible {
-  outline: 2px solid var(--cm-brand-500);
-  outline-offset: 2px;
-}
-.qs-pick__title {
+.qs-drop strong {
+  font-size: var(--cm-text-xl);
   font-weight: 600;
 }
-.qs-pick__hint {
-  font-size: var(--cm-text-xs);
+.qs-drop__hint {
+  max-width: 44ch;
+  font-size: var(--cm-text-sm);
   color: var(--cm-text-muted);
-  line-height: 1.35;
+  line-height: 1.45;
+}
+.qs-drop__btns {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.qs-drop__btns .cm-btn {
+  min-height: 44px;
+}
+/* Tirar foto: só onde há câmera na mão (celular e tablet). */
+.qs-drop .qs-drop__camera {
+  display: none;
+}
+@media (pointer: coarse) {
+  .qs-drop .qs-drop__camera {
+    display: inline-flex;
+  }
+}
+.qs-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+  line-height: 1.45;
+}
+.qs-note svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--cm-brand-600);
+}
+/* Voltou da conferência: o que já foi lido continua aqui. */
+.qs-resume {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  font-size: var(--cm-text-sm);
+}
+.qs-resume__btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .qs-or {
@@ -163,7 +207,56 @@
   accent-color: var(--cm-brand-500);
 }
 
+/* Já aplicado (a pessoa voltou até aqui). */
+.qs-done {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.qs-done > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.qs-done span {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+  line-height: 1.45;
+}
+.qs-done__icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--cm-success);
+}
+
 /* Conferência. */
+.qs-head {
+  display: grid;
+  gap: 4px;
+}
+.qs-head strong {
+  font-size: var(--cm-text-xl);
+  font-weight: 600;
+}
+.qs-head span {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+  line-height: 1.45;
+}
+.qs-fav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.qs-fav img {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+  object-fit: cover;
+}
 .qs-sec {
   display: grid;
   gap: 12px;
@@ -333,15 +426,26 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin: 0 -12px -12px;
-  padding: 10px 12px;
+  margin: 0 calc(-1 * var(--onb-card-pad, 12px)) calc(-1 * var(--onb-card-pad, 12px));
+  padding: 12px var(--onb-card-pad, 12px);
   border-top: 1px solid var(--cm-border);
-  border-radius: 0 0 14px 14px;
+  border-radius: 0 0 18px 18px;
   background: var(--cm-surface);
+}
+.qs-foot .cm-btn {
+  min-height: 44px;
+}
+/* Voltar fica na ponta esquerda; as ações, na direita. */
+.qs-foot > .cm-btn--ghost:first-child {
+  margin-right: auto;
 }
 @media (max-width: 520px) {
   .qs-foot .cm-btn:last-child {
     flex: 1;
+  }
+  /* No celular o Voltar da conferência é o do topo da conversa (o rodapé fica para as ações). */
+  .qs-foot .qs-foot__back {
+    display: none;
   }
   .qs-link__row {
     flex-direction: column;

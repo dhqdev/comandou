@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.137.0',
+    date: '2026-11-16',
+    title: 'Primeiros passos: jogue o cardápio e confira',
+    summary:
+      'A conversa de primeiros passos pergunta se o cardápio já está pronto. Quem tem joga as fotos, o PDF ou o link e a IA monta tudo para conferir na tela seguinte. A conversa ficou maior e ganhou o botão Voltar, que guarda as respostas.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Primeiros passos: a primeira pergunta agora é se o cardápio já está pronto. Quem tem pode arrastar as fotos ou o PDF para a tela, colar um print ou informar o link. A IA lê os itens, os preços e as fotos, e pega o logo, as cores, o ícone do site, o contato, o endereço e o horário.',
+      },
+      {
+        tag: 'novo',
+        text: 'Primeiros passos: botão Voltar no topo da conversa e na conferência. Voltar não apaga nada: o cardápio lido, as correções e as respostas já dadas continuam guardados.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Primeiros passos: a conferência abre com o título "Confira antes de aplicar" e mostra também o ícone do site. Nada entra na loja antes de aplicar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Primeiros passos: conversa mais larga, com letras, botões e campos maiores, do começo ao fim.',
+      },
+      {
+        tag: 'correção',
+        text: 'Primeiros passos: no tema escuro, a resposta de quem está configurando a loja aparecia quase invisível. Agora fica legível nos dois temas.',
+      },
+    ],
+  },
+  {
     version: '0.136.0',
     date: '2026-11-16',
     title: 'Reservas sem conflito de mesa',

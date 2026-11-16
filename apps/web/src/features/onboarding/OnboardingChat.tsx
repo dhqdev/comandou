@@ -1,4 +1,4 @@
-import { ArrowUp, Check } from 'lucide-react';
+import { ArrowLeft, ArrowUp, Check, Clock, FileText } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, Mascot } from '../../design-system';
@@ -13,10 +13,12 @@ import './onboarding.css';
 /**
  * Primeiros passos em forma de conversa: o mascote pergunta, a pessoa responde tocando ou
  * digitando, e cada resposta já grava no cadastro da loja (os mesmos campos de Ajustes e Loja
- * online). Começa pelo cardápio: o link ou as fotos, lidos pela IA, montam itens, fotos, logo,
- * cores, ícone, contato, endereço, ponto no mapa e horário de uma vez. Os dados do cadastro
- * (telefone, cidade) entram sozinhos. Depois só pergunta o que faltou. Abre sozinho no primeiro
- * acesso de quem administra uma loja ainda sem itens; dá para rever em Conta.
+ * online). Começa perguntando se o cardápio já está pronto: se estiver, a pessoa joga as fotos,
+ * o PDF ou o link e a IA monta itens, fotos, logo, cores, ícone, contato, endereço, ponto no
+ * mapa e horário de uma vez, para conferir na tela seguinte. Os dados do cadastro (telefone,
+ * cidade) entram sozinhos. Depois só pergunta o que faltou. O "Voltar" refaz o passo anterior
+ * com as respostas guardadas. Abre sozinho no primeiro acesso de quem administra uma loja ainda
+ * sem itens; dá para rever em Conta.
  */
 
 const key = (tenantId: string, userId: string) => `cm-tour:inicio:${tenantId}:${userId}`;
@@ -36,8 +38,13 @@ export function markOnboardingSeen(tenantId: string, userId: string) {
   }
 }
 
-type Step = 'hello' | 'sell' | 'whats' | 'address' | 'eta' | 'menu' | 'end';
-const ORDER: Step[] = ['hello', 'menu', 'sell', 'whats', 'address', 'eta', 'end'];
+type Step = 'hello' | 'has-menu' | 'menu' | 'sell' | 'whats' | 'address' | 'eta' | 'end';
+const ORDER: Step[] = ['hello', 'has-menu', 'menu', 'sell', 'whats', 'address', 'eta', 'end'];
+/** Passo já mostrado e onde a conversa estava quando a pergunta dele terminou (para voltar). */
+interface Mark {
+  step: Step;
+  end: number;
+}
 interface Msg {
   id: number;
   from: 'bot' | 'me';
@@ -86,7 +93,22 @@ export function OnboardingChat({
   const [busy, setBusy] = useState(false);
   const [signup, setSignup] = useState<Signup | null>(null);
   /** Leitura por IA (foto, link) disponível: sem ela, a pessoa escreve os itens. */
-  const aiOn = useRef(true);
+  const [aiOn, setAiOn] = useState(true);
+  /** Caminho percorrido: o "Voltar" desfaz um passo por vez. */
+  const [trail, setTrail] = useState<Mark[]>([]);
+  /** O cartão do cardápio já abriu: fica guardado (escondido) quando a pessoa volta ou segue. */
+  const [menuOpened, setMenuOpened] = useState(false);
+  const [menuBusy, setMenuBusy] = useState(false);
+  /** Respostas já dadas: voltar a um passo mostra o que a pessoa tinha respondido. */
+  const answers = useRef<{
+    hasMenu: boolean | null;
+    whats: string;
+    address: string;
+    eta: number | null;
+  }>({ hasMenu: null, whats: '', address: '', eta: null });
+  /** "Voltar" de dentro do cartão do cardápio (conferência → envio → pergunta anterior). */
+  const menuBack = useRef<(() => void) | null>(null);
+  const logLen = useRef(0);
   /** O que a loja já tem (do cadastro ou do cardápio): a conversa não pergunta de novo. */
   const known = useRef({ whatsapp: false, address: false });
   /** Acompanha o fim da conversa; na conferência do cardápio a pessoa rola sozinha. */
@@ -97,6 +119,7 @@ export function OnboardingChat({
   const first = userName.split(' ')[0] ?? userName;
 
   const push = useCallback((from: Msg['from'], t: string) => {
+    logLen.current++;
     setLog((cur) => [...cur, { id: ++seq.current, from, text: t }]);
   }, []);
 
@@ -111,8 +134,10 @@ export function OnboardingChat({
             () => {
               push('bot', line);
               if (i === lines.length - 1) {
+                const end = logLen.current;
                 setTyping(false);
                 setStep(next);
+                setTrail((t) => [...t, { step: next, end }]);
               }
             },
             gap * (i + 1),
@@ -128,12 +153,19 @@ export function OnboardingChat({
     setLog([]);
     setSell(new Set());
     setText('');
+    setTrail([]);
+    setStep('hello');
+    setMenuOpened(false);
+    setMenuBusy(false);
     seq.current = 0;
+    logLen.current = 0;
+    follow.current = true;
+    answers.current = { hasMenu: null, whats: '', address: '', eta: null };
     known.current = { whatsapp: false, address: false };
     if (canImport)
       void importStatus().then(
-        (s) => (aiOn.current = s.enabled),
-        () => (aiOn.current = false),
+        (s) => setAiOn(s.enabled),
+        () => setAiOn(false),
       );
     // Dados do cadastro (feito na contratação) entram sozinhos onde a loja ainda está vazia.
     void Promise.all([loadSignup(), api<StoreSettings>('/store/settings').catch(() => null)]).then(
@@ -178,6 +210,14 @@ export function OnboardingChat({
     return () => ro.disconnect();
   }, [open]);
 
+  // Cada passo abre com o que a pessoa já tinha respondido nele.
+  useEffect(() => {
+    setText(
+      step === 'whats' ? answers.current.whats : step === 'address' ? answers.current.address : '',
+    );
+    if (step === 'menu') setMenuOpened(true);
+  }, [step]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -202,29 +242,76 @@ export function OnboardingChat({
   const askMenu = () => {
     if (!canImport) return askSell();
     // Teste criado pelo site: o que foi montado ou escrito lá já vem para a conferência.
-    const auto = trialAuto(signup, aiOn.current);
+    const auto = trialAuto(signup, aiOn);
+    if (auto === 'site')
+      return say(
+        [
+          'A loja que a IA montou no comandou.com já veio para cá.',
+          'Confira os itens e os preços, corrija o que precisar e aplique. Depois dá para mudar tudo em Cardápio.',
+        ],
+        'menu',
+      );
+    if (auto === 'text')
+      return say(
+        [
+          'Trouxe os itens que você escreveu no site.',
+          'Confira os nomes e os preços, corrija o que precisar e aplique.',
+        ],
+        'menu',
+      );
+    if (auto === 'link')
+      return say(
+        [
+          'Estou lendo o cardápio do link que você informou no site.',
+          'Quando terminar, confira os itens e os preços, corrija o que precisar e aplique.',
+        ],
+        'menu',
+      );
     say(
-      auto === 'site'
+      [
+        'Vamos começar pelo cardápio.',
+        'Você já tem um cardápio pronto? Pode ser impresso, em PDF, numa foto ou num site.',
+      ],
+      'has-menu',
+    );
+  };
+  const answerHasMenu = (yes: boolean) => {
+    answers.current.hasMenu = yes;
+    if (!yes) {
+      push('me', 'Ainda não tenho');
+      return askSell([
+        aiOn
+          ? 'Sem problema. Quando tiver, é só abrir Cardápio › Itens › Importar com IA.'
+          : 'Sem problema. Quando tiver, é só abrir Cardápio › Itens.',
+      ]);
+    }
+    push('me', 'Sim, já tenho');
+    say(
+      aiOn
         ? [
-            'A loja que a IA montou no comandou.com já veio para cá.',
-            'Confira os itens e os preços, corrija o que precisar e aplique. Depois dá para mudar tudo em Cardápio.',
+            'Ótimo! Jogue o cardápio aqui embaixo: as fotos, o PDF ou o link.',
+            'Eu leio tudo de uma vez e na próxima tela você confere antes de aplicar.',
           ]
-        : auto === 'text'
-          ? [
-              'Trouxe os itens que você escreveu no site.',
-              'Confira os nomes e os preços, corrija o que precisar e aplique.',
-            ]
-          : aiOn.current
-            ? [
-                'Para começar, me mande o seu cardápio: o link ou fotos dele.',
-                'Eu leio os itens, os preços e as fotos, e pego o logo, as cores, o contato, o endereço e o horário. Você só confere e aplica.',
-              ]
-            : [
-                'Para começar, escreva os itens do seu cardápio: um por linha, com o preço.',
-                'Fotos, logo e cores você coloca depois em Cardápio e Loja online.',
-              ],
+        : [
+            'Ótimo! Escreva ou cole os itens aqui embaixo: um por linha, com o preço.',
+            'Fotos, logo e cores você coloca depois em Cardápio e Loja online.',
+          ],
       'menu',
     );
+  };
+
+  const onReview = useCallback((on: boolean) => void (follow.current = !on), []);
+
+  /** Volta um passo: a conversa volta ao ponto da pergunta e as respostas continuam guardadas. */
+  const backStep = () => {
+    if (trail.length < 2) return;
+    const rest = trail.slice(0, -1);
+    const prev = rest[rest.length - 1]!;
+    follow.current = true;
+    logLen.current = prev.end;
+    setTrail(rest);
+    setLog((cur) => cur.slice(0, prev.end));
+    setStep(prev.step);
   };
   const askSell = (lead?: string[]) =>
     say([...(lead ?? []), 'Como você vende? Pode marcar mais de um.'], 'sell');
@@ -290,6 +377,7 @@ export function OnboardingChat({
   };
   const answerWhats = async (skip?: boolean) => {
     const v = text.trim();
+    answers.current.whats = skip ? '' : v;
     setText('');
     push('me', skip || !v ? 'Depois eu coloco' : v);
     if (!skip && v) await savePatch({ whatsapp: v });
@@ -297,12 +385,14 @@ export function OnboardingChat({
   };
   const answerAddress = async (skip?: boolean) => {
     const v = text.trim();
+    answers.current.address = skip ? '' : v;
     setText('');
     push('me', skip || !v ? 'Depois eu coloco' : v);
     if (!skip && v) await savePatch({ address: v });
     askEta();
   };
   const answerEta = async ([min, max]: [number, number]) => {
+    answers.current.eta = min;
     push('me', `${min} a ${max} minutos`);
     await savePatch({ etaMin: min, etaMax: max });
     finish();
@@ -311,6 +401,12 @@ export function OnboardingChat({
   if (!open) return null;
 
   const at = typing ? null : step;
+  const canBack = trail.length > 1 && !typing && !busy && !menuBusy;
+  const goBack = () => {
+    if (!canBack) return;
+    if (step === 'menu' && menuBack.current) menuBack.current();
+    else backStep();
+  };
   const input = (placeholder: string, send: (skip?: boolean) => void, tel?: boolean) => (
     <form
       className="onb-input"
@@ -360,6 +456,35 @@ export function OnboardingChat({
         </Button>
       </div>
     );
+  else if (at === 'has-menu')
+    reply = (
+      <div className="onb-options">
+        <button
+          type="button"
+          className="onb-option"
+          aria-pressed={answers.current.hasMenu === true}
+          onClick={() => answerHasMenu(true)}
+        >
+          <FileText size={22} aria-hidden />
+          <span className="onb-option__title">Sim, já tenho</span>
+          <span className="onb-option__hint">
+            {aiOn
+              ? 'Mando as fotos, o PDF ou o link e a IA monta tudo'
+              : 'Escrevo ou colo os itens com os preços'}
+          </span>
+        </button>
+        <button
+          type="button"
+          className="onb-option"
+          aria-pressed={answers.current.hasMenu === false}
+          onClick={() => answerHasMenu(false)}
+        >
+          <Clock size={22} aria-hidden />
+          <span className="onb-option__title">Ainda não tenho</span>
+          <span className="onb-option__hint">Monto o cardápio depois, com calma</span>
+        </button>
+      </div>
+    );
   else if (at === 'sell')
     reply = (
       <div className="onb-choices">
@@ -396,6 +521,7 @@ export function OnboardingChat({
             key={e[0]}
             type="button"
             className="onb-chip"
+            aria-pressed={answers.current.eta === e[0]}
             disabled={busy}
             onClick={() => answerEta(e)}
           >
@@ -436,7 +562,18 @@ export function OnboardingChat({
       aria-label="Primeiros passos"
     >
       <header className="onb-head">
-        <Mascot size={28} badge />
+        <button
+          type="button"
+          className="onb-back"
+          aria-label="Voltar ao passo anterior"
+          disabled={!canBack}
+          hidden={trail.length < 2}
+          onClick={goBack}
+        >
+          <ArrowLeft size={16} aria-hidden />
+          Voltar
+        </button>
+        <Mascot size={36} badge />
         <div className="onb-head__text">
           <strong>Comandou</strong>
           <span>Primeiros passos</span>
@@ -456,28 +593,23 @@ export function OnboardingChat({
                 (log[i - 1]?.from === 'bot' ? (
                   <span className="onb-msg__gap" />
                 ) : (
-                  <Mascot size={28} badge className="onb-msg__avatar" />
+                  <Mascot size={36} badge className="onb-msg__avatar" />
                 ))}
               <p>{m.text}</p>
             </div>
           ))}
-          {at === 'menu' && (
-            <div className="onb-card onb-card--menu">
+          {menuOpened && (
+            <div className="onb-card onb-card--menu" hidden={at !== 'menu'}>
               <QuickStart
                 signup={signup}
-                onReview={(on) => (follow.current = !on)}
+                active={at === 'menu'}
+                backRef={menuBack}
+                onBusy={setMenuBusy}
+                onBack={backStep}
+                onReview={onReview}
                 onDone={(r) => {
                   follow.current = true;
                   menuDone(r);
-                }}
-                onSkip={() => {
-                  follow.current = true;
-                  push('me', 'Ainda não tenho cardápio pronto');
-                  askSell([
-                    aiOn.current
-                      ? 'Sem problema. Quando quiser, é só abrir Cardápio › Itens › Importar com IA.'
-                      : 'Sem problema. Quando quiser, é só abrir Cardápio › Itens.',
-                  ]);
                 }}
               />
             </div>
@@ -487,7 +619,7 @@ export function OnboardingChat({
               {log[log.length - 1]?.from === 'bot' ? (
                 <span className="onb-msg__gap" />
               ) : (
-                <Mascot size={28} badge className="onb-msg__avatar" />
+                <Mascot size={36} badge className="onb-msg__avatar" />
               )}
               <p className="onb-typing">
                 <i />

@@ -1,4 +1,4 @@
-/* Primeiros passos em conversa (OnboardingChat.tsx): tela cheia, uma coluna estreita no centro. */
+/* Primeiros passos em conversa (OnboardingChat.tsx): tela cheia, uma coluna larga e folgada no centro. */
 .onb {
   position: fixed;
   inset: 0;
@@ -19,21 +19,58 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
-  padding-top: calc(10px + env(safe-area-inset-top));
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 20px;
+  padding-top: calc(12px + env(safe-area-inset-top));
   background: var(--cm-surface);
   border-bottom: 1px solid var(--cm-border);
 }
 .onb-head__text {
   display: grid;
   flex: 1;
-  line-height: 1.25;
-  font-size: var(--cm-text-sm);
+  min-width: 0;
+  line-height: 1.3;
+  font-size: var(--cm-text-lg);
 }
 .onb-head__text span {
-  font-size: var(--cm-text-xs);
+  font-size: var(--cm-text-sm);
   color: var(--cm-text-muted);
+}
+/* Voltar: desfaz um passo, com as respostas guardadas. */
+.onb-back {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 14px 0 10px;
+  border: 0;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  animation: onb-pop var(--cm-dur) var(--cm-ease) both;
+  transition:
+    background var(--cm-dur-fast) var(--cm-ease),
+    opacity var(--cm-dur-fast) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.onb-back[hidden] {
+  display: none;
+}
+.onb-back:hover {
+  background: var(--cm-surface-sunken);
+}
+.onb-back:active {
+  transform: scale(0.96);
+}
+.onb-back:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 .onb-skip {
   padding: 6px 10px;
@@ -52,7 +89,7 @@
 .onb-progress {
   position: absolute;
   inset: auto 0 -1px;
-  height: 2px;
+  height: 3px;
 }
 .onb-progress i {
   display: block;
@@ -67,15 +104,15 @@
 }
 .onb-thread {
   display: grid;
-  gap: 4px;
-  width: min(640px, 100%);
+  gap: 6px;
+  width: min(780px, 100%);
   margin: 0 auto;
-  padding: 24px 16px 16px;
+  padding: 36px 20px 24px;
 }
 .onb-msg {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
   animation: onb-pop var(--cm-dur) var(--cm-ease) both;
 }
 @keyframes onb-pop {
@@ -86,53 +123,59 @@
 }
 .onb-msg p {
   margin: 0;
-  max-width: 82%;
-  padding: 8px 12px;
-  border-radius: 14px;
-  font-size: var(--cm-text-md);
-  line-height: 1.4;
+  max-width: 80%;
+  padding: 11px 16px;
+  border-radius: 18px;
+  font-size: var(--cm-text-lg);
+  line-height: 1.45;
   overflow-wrap: anywhere;
 }
 .onb-msg--bot p {
   background: var(--cm-surface);
   border: 1px solid var(--cm-border);
-  border-bottom-left-radius: 4px;
+  border-bottom-left-radius: 6px;
 }
 .onb-msg--bot + .onb-msg--me,
 .onb-msg--me + .onb-msg--bot,
 .onb-msg + .onb-card {
-  margin-top: 10px;
+  margin-top: 14px;
 }
 .onb-msg--me {
   justify-content: flex-end;
 }
 .onb-msg--me p {
-  background: var(--cm-ink);
-  color: var(--cm-gray-0);
-  border-bottom-right-radius: 4px;
+  /* Texto e fundo trocados: escuro no tema claro, claro no tema escuro (sempre legível). */
+  background: var(--cm-text);
+  color: var(--cm-bg);
+  border-bottom-right-radius: 6px;
 }
 .onb-msg__avatar,
 .onb-msg__gap {
   flex: none;
-  width: 28px;
+  width: 36px;
 }
 .onb-card {
-  margin-left: 36px;
-  padding: 12px;
+  --onb-card-pad: 20px;
+  margin-left: 46px;
+  padding: var(--onb-card-pad);
   border: 1px solid var(--cm-border);
-  border-radius: 14px;
+  border-radius: 18px;
   background: var(--cm-surface);
   animation: onb-pop var(--cm-dur) var(--cm-ease) both;
 }
 
+.onb-card[hidden] {
+  display: none;
+}
+
 .onb-typing {
   display: flex;
-  gap: 4px;
-  padding: 12px !important;
+  gap: 5px;
+  padding: 16px !important;
 }
 .onb-typing i {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--cm-text-subtle);
   animation: onb-dot 1s infinite ease-in-out;
@@ -164,36 +207,97 @@
   margin-top: 4px;
 }
 
-/* Resposta: botões, opções ou campo de texto, sempre no rodapé. */
+/* Resposta: botões, opções ou campo de texto, sempre no rodapé (faixa inteira, conteúdo na coluna). */
 .onb-reply {
-  width: min(640px, 100%);
-  min-height: 68px;
-  margin: 0 auto;
-  padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
+  min-height: 84px;
+  padding: 16px max(20px, calc((100% - 780px) / 2 + 20px)) calc(18px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+}
+.onb-reply:empty {
+  border-top-color: transparent;
+  background: transparent;
 }
 .onb-choices {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
+}
+.onb-choices .cm-btn {
+  min-height: 44px;
+  padding-inline: 20px;
+  font-size: var(--cm-text-md);
+}
+/* Duas respostas grandes (tem cardápio pronto?). */
+.onb-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.onb-option {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  align-content: start;
+  min-height: 112px;
+  padding: 16px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--cm-dur-fast) var(--cm-ease),
+    background var(--cm-dur-fast) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.onb-option svg {
+  margin-bottom: 6px;
+  color: var(--cm-brand-600);
+}
+.onb-option:hover {
+  border-color: var(--cm-text-subtle);
+}
+.onb-option:active {
+  transform: scale(0.98);
+}
+.onb-option[aria-pressed='true'] {
+  border-color: var(--cm-brand-500);
+  background: var(--cm-brand-50);
+}
+.onb-option__title {
+  font-size: var(--cm-text-lg);
+  font-weight: 600;
+}
+.onb-option__hint {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+  line-height: 1.4;
 }
 .onb-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 36px;
-  padding: 0 14px;
+  height: 44px;
+  padding: 0 18px;
   border: 1px solid var(--cm-border-strong);
   border-radius: var(--cm-radius-full);
   background: var(--cm-surface);
   color: var(--cm-text);
   font: inherit;
-  font-size: var(--cm-text-sm);
+  font-size: var(--cm-text-md);
   font-weight: 500;
   cursor: pointer;
   transition:
     background var(--cm-dur-fast) var(--cm-ease),
-    border-color var(--cm-dur-fast) var(--cm-ease);
+    border-color var(--cm-dur-fast) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.onb-chip:active {
+  transform: scale(0.97);
 }
 .onb-chip:hover {
   background: var(--cm-surface-muted);
@@ -204,23 +308,26 @@
   color: var(--cm-brand-800);
 }
 .onb-chip:focus-visible,
+.onb-option:focus-visible,
+.onb-back:focus-visible,
 .onb-skip:focus-visible,
 .onb-send:focus-visible {
-  outline: 2px solid var(--cm-focus);
+  outline: 2px solid var(--cm-brand-500);
   outline-offset: 2px;
 }
 .onb-input {
   display: flex;
   align-items: center;
-  gap: 4px;
-  height: 44px;
-  padding: 0 6px 0 14px;
+  gap: 6px;
+  height: 54px;
+  padding: 0 8px 0 20px;
   border: 1px solid var(--cm-border-strong);
   border-radius: var(--cm-radius-full);
   background: var(--cm-surface);
 }
 .onb-input:focus-within {
   border-color: var(--cm-brand-500);
+  box-shadow: var(--cm-focus);
 }
 .onb-input input {
   flex: 1;
@@ -235,11 +342,12 @@
 .onb-send {
   display: grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  flex: none;
+  width: 40px;
+  height: 40px;
   border: 0;
   border-radius: 50%;
-  background: var(--cm-brand-500);
+  background: var(--cm-brand-600);
   color: var(--cm-on-brand);
   cursor: pointer;
 }
@@ -253,20 +361,54 @@
   .onb,
   .onb-msg,
   .onb-card,
+  .onb-back,
   .onb-typing i {
     animation: none;
   }
 }
 
-/* Conferência do cardápio: a coluna da conversa fica mais larga no computador. */
+/* Envio e conferência do cardápio: a coluna da conversa fica mais larga no computador. */
 .onb[data-wide] .onb-thread {
-  width: min(820px, 100%);
+  width: min(1000px, 100%);
 }
-.onb-card--menu {
-  padding-bottom: 12px;
-}
-@media (max-width: 520px) {
+
+/* Celular: letra e folgas um pouco menores; o cartão do cardápio usa a largura toda. */
+@media (max-width: 560px) {
+  .onb-head {
+    gap: 10px;
+    padding-inline: 12px;
+  }
+  .onb-head__text {
+    font-size: var(--cm-text-md);
+  }
+  .onb-head__text span {
+    font-size: var(--cm-text-xs);
+  }
+  .onb-thread {
+    padding: 20px 12px 16px;
+  }
+  .onb-msg p {
+    max-width: 86%;
+    font-size: var(--cm-text-md);
+  }
+  .onb-card {
+    --onb-card-pad: 14px;
+  }
   .onb-card--menu {
     margin-left: 0;
+  }
+  .onb-reply {
+    padding-inline: 12px;
+  }
+  .onb-choices .cm-btn {
+    flex: 1;
+  }
+}
+@media (max-width: 400px) {
+  .onb-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .onb-option {
+    min-height: 0;
   }
 }

@@ -1,5 +1,15 @@
-import { Camera, Images, Link2, PencilLine, Sparkles, Upload } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  ArrowLeft,
+  Camera,
+  Check,
+  FileUp,
+  Images,
+  Link2,
+  PencilLine,
+  Sparkles,
+  Upload,
+} from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject } from 'react';
 import { Alert, Button, Spinner, TextField } from '../../design-system';
 import {
   importStatus,
@@ -32,16 +42,25 @@ import {
 import './quick-start.css';
 
 /**
- * Primeiros passos pelo cardápio: a pessoa manda o link do cardápio ou as fotos, a IA lê tudo
- * (itens, preços, fotos, logo, cores, contato, endereço, horário), ela confere numa tela só e
- * aplica. Nada entra na loja sem passar pela conferência.
+ * Primeiros passos pelo cardápio: a pessoa joga o cardápio (fotos, PDF ou link) e a IA lê tudo
+ * (itens, preços, fotos, logo, cores, ícone do site, contato, endereço, horário). Na tela
+ * seguinte ela confere tudo e aplica. Nada entra na loja sem passar pela conferência. Voltar
+ * nunca apaga o que já foi lido ou corrigido.
  */
 
 type Stage =
   | { at: 'pick' }
   | { at: 'reading'; label: string; page?: number; pages?: number }
   | { at: 'review' }
-  | { at: 'applying'; label: string; done?: number; total?: number };
+  | { at: 'applying'; label: string; done?: number; total?: number }
+  | { at: 'done'; result: ApplyResult };
+
+/** Fotos e PDF entram; o resto (planilha, texto) a IA não lê por aqui. */
+const readable = (f: File) =>
+  f.type.startsWith('image/') ||
+  f.type === 'application/pdf' ||
+  f.name.toLowerCase().endsWith('.pdf');
+const looksLikeLink = (t: string) => /^(https?:\/\/|www\.)\S+$/i.test(t.trim());
 
 const READ_TIPS = [
   'Lendo os itens e os preços',
@@ -55,16 +74,25 @@ const AI_PHOTO_MAX = 40;
 
 export function QuickStart({
   signup,
+  active = true,
   onReview,
   onDone,
-  onSkip,
+  onBack,
+  backRef,
+  onBusy,
 }: {
   signup: Signup | null;
+  /** Na tela agora (a conversa guarda o cartão escondido quando a pessoa volta ou segue). */
+  active?: boolean;
   /** Abriu (ou saiu da) conferência: a conversa para de rolar sozinha para o fim. */
   onReview?: (on: boolean) => void;
   onDone: (r: ApplyResult) => void;
-  /** "Ainda não tenho cardápio pronto". */
-  onSkip: () => void;
+  /** Voltar daqui de dentro já no começo: volta para a pergunta anterior da conversa. */
+  onBack: () => void;
+  /** O "Voltar" do topo da conversa chama este (conferência → envio → pergunta anterior). */
+  backRef?: MutableRefObject<(() => void) | null>;
+  /** Lendo ou salvando: o "Voltar" fica parado até terminar. */
+  onBusy?: (busy: boolean) => void;
 }) {
   const [status, setStatus] = useState<ImportStatus | null>(null);
   const [stage, setStage] = useState<Stage>({ at: 'pick' });
@@ -78,6 +106,7 @@ export function QuickStart({
   const [sources, setSources] = useState<File[]>([]);
   const [tip, setTip] = useState(0);
   const [photos, setPhotos] = useState<{ done: number; total: number } | null>(null);
+  const [over, setOver] = useState(false);
   const stopPhotos = useRef(false);
   const camera = useRef<HTMLInputElement>(null);
   const gallery = useRef<HTMLInputElement>(null);
@@ -138,14 +167,17 @@ export function QuickStart({
   // Conferência aberta: mostra do começo (a loja), não do fim da lista.
   const root = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    const on = stage.at === 'review';
+    const on = active && stage.at === 'review';
     onReview?.(on);
     if (on)
       root.current?.scrollIntoView({
         block: 'start',
         behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
       });
-  }, [stage.at, onReview]);
+  }, [stage.at, active, onReview]);
+
+  const busy = stage.at === 'reading' || stage.at === 'applying';
+  useEffect(() => onBusy?.(busy), [busy, onBusy]);
 
   const finishReading = async (r: Reading, files: File[]) => {
     if (!r.drafts.length && !r.store.address && !r.store.whatsapp && !r.store.logoUrl) {
@@ -190,9 +222,13 @@ export function QuickStart({
     }
   };
 
-  const fromFiles = async (list: FileList | null) => {
-    const files = [...(list ?? [])].slice(0, 12);
-    if (!files.length) return;
+  const fromFiles = async (list: FileList | File[] | null) => {
+    const all0 = [...(list ?? [])];
+    const files = all0.filter(readable).slice(0, 12);
+    if (!files.length) {
+      if (all0.length) setError('Mande fotos (JPG, PNG, WebP) ou o PDF do cardápio.');
+      return;
+    }
     setError(null);
     let r: Reading | null = reading ? { ...reading, drafts } : null;
     const failed: string[] = [];
@@ -218,6 +254,86 @@ export function QuickStart({
     if (r) await finishReading(r, all);
     else setStage({ at: reading ? 'review' : 'pick' });
   };
+
+  /** Mandar outro cardápio do zero (o que foi lido some; nada tinha entrado na loja). */
+  const restart = () => {
+    setReading(null);
+    setDrafts([]);
+    setStore(null);
+    setSources([]);
+    setError(null);
+  };
+
+  // Voltar: da conferência para o envio (tudo guardado); do envio para a conversa.
+  const back = () => {
+    if (busy) return;
+    stopPhotos.current = true;
+    setError(null);
+    if (stage.at === 'review') setStage({ at: 'pick' });
+    else onBack();
+  };
+  if (backRef) backRef.current = active ? back : null;
+
+  // Jogar o cardápio em qualquer lugar da tela (ou colar um print): lê na hora.
+  const take = useRef<(files: File[], text: string) => void>(() => undefined);
+  take.current = (files, text) => {
+    if (files.length) void fromFiles(files);
+    else if (looksLikeLink(text)) {
+      setLink(text.trim());
+      void fromLink(text.trim());
+    }
+  };
+  const dropping = active && stage.at === 'pick' && !!status?.enabled;
+  useEffect(() => {
+    if (!dropping) return;
+    const isField = (t: EventTarget | null) =>
+      t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA)$/.test(t.tagName));
+    const onOver = (e: DragEvent) => {
+      if (!e.dataTransfer?.types.includes('Files')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      setOver(true);
+    };
+    const onLeave = (e: DragEvent) => !e.relatedTarget && setOver(false);
+    const onDrop = (e: DragEvent) => {
+      setOver(false);
+      const files = [...(e.dataTransfer?.files ?? [])];
+      const text =
+        e.dataTransfer?.getData('text/uri-list') || e.dataTransfer?.getData('text') || '';
+      if (!files.length && (isField(e.target) || !looksLikeLink(text))) return;
+      e.preventDefault();
+      take.current(files, text);
+    };
+    const onPaste = (e: ClipboardEvent) => {
+      if (isField(e.target)) return;
+      const files = [...(e.clipboardData?.files ?? [])];
+      const text = e.clipboardData?.getData('text') ?? '';
+      if (!files.length && !looksLikeLink(text)) return;
+      e.preventDefault();
+      take.current(files, text);
+    };
+    window.addEventListener('dragover', onOver);
+    window.addEventListener('dragleave', onLeave);
+    window.addEventListener('drop', onDrop);
+    window.addEventListener('paste', onPaste);
+    return () => {
+      setOver(false);
+      window.removeEventListener('dragover', onOver);
+      window.removeEventListener('dragleave', onLeave);
+      window.removeEventListener('drop', onDrop);
+      window.removeEventListener('paste', onPaste);
+    };
+  }, [dropping]);
+
+  // Ícone do site (favicon) que vai para a aba do navegador e o app: mostrado na conferência.
+  const favicon = store?.favicon ?? null;
+  const [faviconUrl, setFaviconUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!favicon) return setFaviconUrl(null);
+    const url = URL.createObjectURL(favicon);
+    setFaviconUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [favicon]);
 
   const changeLogo = async (f: File | undefined) => {
     if (!f || !store) return;
@@ -266,6 +382,8 @@ export function QuickStart({
       const r = await applyAll(store, drafts, (label, done, total) =>
         setStage({ at: 'applying', label, done, total }),
       );
+      // Já está na loja: voltar até aqui mostra o resumo (aplicar de novo duplicaria os itens).
+      setStage({ at: 'done', result: r });
       onDone(r);
     } catch (e) {
       setError((e as Error).message);
@@ -275,6 +393,24 @@ export function QuickStart({
 
   if (!status) return <Spinner inline label="Carregando" />;
   const aiOn = status.enabled;
+
+  // Voltou da conferência: o que já foi lido continua guardado.
+  const resume = (
+    <div className="qs-resume">
+      <span>
+        {drafts.length === 1 ? '1 item já lido' : `${drafts.length} itens já lidos`} e guardados. O
+        que você mandar agora soma ao que já li.
+      </span>
+      <div className="qs-resume__btns">
+        <Button size="sm" variant="secondary" onClick={() => setStage({ at: 'review' })}>
+          Ir para a conferência
+        </Button>
+        <Button size="sm" variant="ghost" onClick={restart}>
+          Começar de novo
+        </Button>
+      </div>
+    </div>
+  );
 
   const textForm = (
     <form
@@ -315,10 +451,8 @@ export function QuickStart({
         {status.reason && status.reason !== 'platform' && (
           <Alert tone="warning">{WHY_OFF[status.reason]}</Alert>
         )}
+        {reading && resume}
         {textForm}
-        <button type="button" className="qs-skip" onClick={onSkip}>
-          Ainda não tenho cardápio pronto
-        </button>
       </div>
     );
 
@@ -355,17 +489,31 @@ export function QuickStart({
     return (
       <div className="qs">
         {error && <Alert tone="danger">{error}</Alert>}
-        <div className="qs-picks">
-          <button type="button" className="qs-pick" onClick={() => camera.current?.click()}>
-            <Camera size={20} aria-hidden />
-            <span className="qs-pick__title">Tirar foto</span>
-            <span className="qs-pick__hint">Do cardápio impresso, uma página por vez</span>
-          </button>
-          <button type="button" className="qs-pick" onClick={() => gallery.current?.click()}>
-            <Images size={20} aria-hidden />
-            <span className="qs-pick__title">Da galeria</span>
-            <span className="qs-pick__hint">Fotos, prints ou PDF (várias de uma vez)</span>
-          </button>
+        {reading && resume}
+        <div
+          className="qs-drop"
+          data-over={over || undefined}
+          onClick={(e) => !(e.target as HTMLElement).closest('button') && gallery.current?.click()}
+        >
+          <FileUp size={28} aria-hidden className="qs-drop__icon" />
+          <strong>{over ? 'Pode soltar' : 'Jogue o cardápio aqui'}</strong>
+          <span className="qs-drop__hint">
+            Arraste as fotos ou o PDF para cá, ou cole um print. Pode mandar várias páginas de uma
+            vez.
+          </span>
+          <div className="qs-drop__btns">
+            <Button icon={<Images size={16} />} onClick={() => gallery.current?.click()}>
+              Escolher arquivos
+            </Button>
+            <Button
+              variant="secondary"
+              className="qs-drop__camera"
+              icon={<Camera size={16} />}
+              onClick={() => camera.current?.click()}
+            >
+              Tirar foto
+            </Button>
+          </div>
         </div>
         {fileInputs}
         <div className="qs-or" aria-hidden>
@@ -395,7 +543,7 @@ export function QuickStart({
                 onChange={(e) => setLink(e.target.value)}
               />
             </span>
-            <Button type="submit" disabled={!link.trim()}>
+            <Button type="submit" variant="secondary" disabled={!link.trim()}>
               Ler cardápio
             </Button>
           </div>
@@ -410,9 +558,11 @@ export function QuickStart({
             <PencilLine size={14} aria-hidden /> Prefiro escrever os itens
           </button>
         )}
-        <button type="button" className="qs-skip" onClick={onSkip}>
-          Ainda não tenho cardápio pronto
-        </button>
+        <p className="qs-note">
+          <Sparkles size={14} aria-hidden /> A IA lê os itens, os preços e as fotos, e pega o logo,
+          as cores, o ícone do site, o contato, o endereço e o horário. Você confere tudo na próxima
+          tela, antes de entrar na loja.
+        </p>
       </div>
     );
 
@@ -450,6 +600,36 @@ export function QuickStart({
       </div>
     );
 
+  if (stage.at === 'done') {
+    const r = stage.result;
+    const got = [
+      r.created && (r.created === 1 ? '1 item' : `${r.created} itens`),
+      r.saved.identity && 'logo e cores',
+      r.saved.whatsapp && 'WhatsApp',
+      r.saved.address && 'endereço',
+    ].filter(Boolean) as string[];
+    return (
+      <div className="qs">
+        <div className="qs-done" role="status">
+          <Check size={18} aria-hidden className="qs-done__icon" />
+          <div>
+            <strong>Cardápio aplicado</strong>
+            <span>
+              {got.length ? `Já está na loja: ${got.join(', ')}. ` : ''}
+              Para mudar alguma coisa, use Cardápio e Loja online.
+            </span>
+          </div>
+        </div>
+        <div className="qs-foot">
+          <Button variant="ghost" icon={<ArrowLeft size={16} />} onClick={back}>
+            Voltar
+          </Button>
+          <Button onClick={() => onDone(r)}>Continuar</Button>
+        </div>
+      </div>
+    );
+  }
+
   // Conferência: a loja em cima, os itens embaixo, um botão para aplicar tudo.
   const s = store!;
   const set = (p: Partial<StoreDraft>) => setStore({ ...s, ...p });
@@ -458,6 +638,13 @@ export function QuickStart({
 
   return (
     <div ref={root} className="qs qs--review">
+      <header className="qs-head">
+        <strong>Confira antes de aplicar</strong>
+        <span>
+          Foi isso que eu li do seu cardápio. Corrija o que precisar: nada entra na loja antes de
+          você aplicar.
+        </span>
+      </header>
       {error && <Alert tone="warning">{error}</Alert>}
       {reading?.partial && (
         <Alert tone="warning">
@@ -519,6 +706,12 @@ export function QuickStart({
                 />
                 Usar as cores também no sistema da equipe
               </label>
+            )}
+            {faviconUrl && (
+              <span className="qs-fav">
+                <img src={faviconUrl} alt="" />
+                Ícone do site (aba do navegador e app)
+              </span>
             )}
           </div>
         </div>
@@ -632,6 +825,15 @@ export function QuickStart({
 
       {fileInputs}
       <div className="qs-foot">
+        <Button
+          variant="ghost"
+          className="qs-foot__back"
+          icon={<ArrowLeft size={16} />}
+          disabled={!!photos}
+          onClick={back}
+        >
+          Voltar
+        </Button>
         {aiOn && (
           <Button
             variant="secondary"
