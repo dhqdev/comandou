@@ -131,6 +131,11 @@ test('entregador no celular: PIN, corridas, não entregue, entregue e ganhos', a
     const ctx = await phone(browser, baseURL!, dark);
     const m = await ctx.newPage();
     await typePin(m, '/entregas', driver.pin);
+    // O app abre no Início; as corridas ficam na aba Entregas.
+    await m
+      .getByRole('navigation', { name: 'Painel do entregador' })
+      .getByRole('button', { name: /^Entregas/ })
+      .click();
     await expect(m.locator('.run__num', { hasText: `#${a.number}` })).toBeVisible();
     await expect(m.locator('.run__num', { hasText: `#${b.number}` })).toBeVisible();
     await m.waitForLoadState('networkidle');
@@ -158,6 +163,11 @@ test('entregador no celular: PIN, corridas, não entregue, entregue e ganhos', a
     await expect(m.getByText(/Encerradas hoje \(2\)/)).toBeVisible();
     await expect(m.getByText('Nenhuma entrega com você agora')).toBeVisible();
 
+    // Os ganhos ficam no Histórico.
+    await m
+      .getByRole('navigation', { name: 'Painel do entregador' })
+      .getByRole('button', { name: /^Histórico/ })
+      .click();
     await m.getByRole('tab', { name: 'Meus ganhos' }).click();
     await m.waitForLoadState('networkidle');
     await m.screenshot({ path: shot('iphone-se-entregador-ganhos'), fullPage: true });

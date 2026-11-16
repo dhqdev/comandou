@@ -35,6 +35,14 @@ async function signInPin(page: Page, path: string, pin: string) {
   for (const d of pin) await page.getByRole('button', { name: d, exact: true }).click();
 }
 
+/** Abre a aba Entregas do app do entregador (ele abre no Início). */
+async function openRuns(page: Page) {
+  await page
+    .getByRole('navigation', { name: 'Painel do entregador' })
+    .getByRole('button', { name: /^Entregas/ })
+    .click();
+}
+
 async function signIn(page: Page, path: string, email: string, password: string, cta: string) {
   await page.goto(path);
   await emailField(page).fill(email);
@@ -101,6 +109,7 @@ test('entregador: só as corridas, localização obrigatória, conclui com o có
   await expect(moto.getByText('PIN incorreto. Confira e tente de novo.')).toBeVisible();
   for (const d of user.pin) await moto.getByRole('button', { name: d, exact: true }).click();
   await expect(moto.getByText(`Olá, Moto`)).toBeVisible();
+  await openRuns(moto);
   await expect(moto.locator('.run__num', { hasText: `#${order.number}` })).toBeVisible();
   for (const other of ['Pedidos', 'Sistema', 'Novidades', 'Cardápio'])
     await expect(moto.getByRole('link', { name: other })).toHaveCount(0);
@@ -111,6 +120,7 @@ test('entregador: só as corridas, localização obrigatória, conclui com o có
 
   // Pedido despachado com o app aberto chega na hora (tempo real), sem esperar a consulta de 15 s.
   await moto.goto('/entregas');
+  await openRuns(moto);
   await expect(moto.locator('.run__num', { hasText: `#${order.number}` })).toBeVisible();
   await moto.waitForTimeout(1500);
   const order2 = await apiPost<{ id: string; number: number }>(page, '/orders', {
