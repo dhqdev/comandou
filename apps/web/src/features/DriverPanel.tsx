@@ -3,23 +3,35 @@ import {
   Banknote,
   Bike,
   CheckCircle2,
+  History,
+  House,
   KeyRound,
   MapPin,
   MessageCircle,
   Navigation,
+  Package,
   Phone,
+  UserRound,
   XCircle,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge, Button, EmptyState, TextField, useToast } from '../design-system';
 import { brl } from '../lib/money';
-import type { Delivery } from '../lib/types';
+import { useArrivalSound } from '../lib/sounds';
+import type { AvailableRun, CourierProfile, Delivery } from '../lib/types';
 import { minutesSince, PAYMENT_METHOD_LABELS, time } from './format';
 import { SelectField } from './forms';
 import { bearing, distanceM, kmLabel, toPoint, type LatLng } from './live-geo';
-import { CourierEarnings, type CourierEarningsData } from './CourierEarnings';
+import type { CourierEarningsData } from './CourierEarnings';
+import {
+  AvailableTab,
+  DriverHomeTab,
+  HistoryTab,
+  ProfileTab,
+  type DriverData,
+  type DriverTab,
+} from './DriverTabs';
 import { LiveMap, type MapRider } from './LiveMap';
-import { SlideTabs } from './SlideTabs';
 import { NAV_APPS, navUrl, preferredNavApp, rememberNavApp, type NavApp } from './nav-apps';
 import './driver-panel.css';
 
@@ -56,10 +68,20 @@ const waPhone = (s: string | null) => {
 export const routeUrl = (d: Pick<Delivery, 'deliveryLat' | 'deliveryLng' | 'deliveryAddress'>) =>
   navUrl('google', d);
 
+const TABS: { id: DriverTab; label: string; icon: typeof House }[] = [
+  { id: 'home', label: 'Início', icon: House },
+  { id: 'available', label: 'Disponíveis', icon: Package },
+  { id: 'runs', label: 'Entregas', icon: Bike },
+  { id: 'history', label: 'Histórico', icon: History },
+  { id: 'profile', label: 'Perfil', icon: UserRound },
+];
+
 /**
- * Painel do entregador: feito para o celular, com botões grandes. Mostra as corridas na rua
- * (endereço, rota no app de mapas preferido, contato, quanto cobrar e quanto ele ganha) e as
- * encerradas hoje; na aba "Meus ganhos", a central com o que ganhou e o que falta receber.
+ * Painel do entregador: feito para o celular, com botões grandes e as abas embaixo. Início
+ * resume o dia; em Disponíveis ele pega sozinho um pedido pronto (o restaurante também pode
+ * despachar para ele pelo painel); Entregas mostra as corridas na rua (endereço, rota no app de
+ * mapas preferido, contato, quanto cobrar e quanto ele ganha) e as encerradas hoje; Histórico
+ * guarda as corridas e os ganhos; Perfil mostra o score e os números dele.
  * A entrega só é concluída com o código que o cliente recebeu (como no iFood). A localização
  * fica sempre ligada (o DriverGate só libera a tela com ela permitida).
  * Usado pelo app do entregador com login e pelo link do entregador (sem login).
@@ -70,36 +92,114 @@ export function DriverPanel({
   onChanged,
   store,
   earnings,
+  data,
 }: {
   deliveries: Delivery[];
   actions: DriverActions;
   onChanged(): void;
   store?: LatLng | null;
-  /** Carrega a central de ganhos (sem ela, a aba não aparece). */
+  /** Carrega a central de ganhos (sem ela, Histórico mostra só as entregas). */
   earnings?: () => Promise<CourierEarningsData>;
+  /** Pedidos para pegar, histórico e perfil. */
+  data: DriverData;
 }) {
-  const [tab, setTab] = useState<'runs' | 'earnings'>('runs');
+  const [tab, setTab] = useState<DriverTab>('home');
+  const [available, setAvailable] = useState<AvailableRun[] | null>(null);
+  const [profile, setProfile] = useState<CourierProfile | null>(null);
   const out = deliveries.filter((d) => d.status === 'out');
+
+  // Pedidos para pegar: a cada 15 s e quando a tela volta (o app do motoboy não usa tempo real).
+  const loadAvailable = useCallback(async () => {
+    try {
+      setAvailable(await data.available());
+    } catch {
+      setAvailable((cur) => cur ?? []);
+    }
+  }, [data]);
+  useEffect(() => {
+    void loadAvailable();
+    const id = setInterval(loadAvailable, 15_000);
+    const onVisible = () => document.visibilityState === 'visible' && void loadAvailable();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [loadAvailable]);
+  // Pedido novo para pegar toca o som de chamada.
+  useArrivalSound(
+    'courier',
+    available?.map((r) => r.orderId),
+  );
+
+  // Perfil e score: ao abrir e a cada corrida encerrada.
+  const closed = deliveries.length - out.length;
+  useEffect(() => {
+    let alive = true;
+    data.profile().then(
+      (p) => alive && setProfile(p),
+      () => undefined,
+    );
+    return () => {
+      alive = false;
+    };
+  }, [data, closed]);
+
+  const go = (t: DriverTab) => {
+    setTab(t);
+    window.scrollTo({ top: 0 });
+  };
+  const count: Partial<Record<DriverTab, number>> = {
+    available: available?.length ?? 0,
+    runs: out.length,
+  };
+
   return (
-    <div className="driver">
-      {earnings && (
-        <SlideTabs<'runs' | 'earnings'>
-          label="Painel do entregador"
-          value={tab}
-          onChange={setTab}
-          tabs={[
-            { value: 'runs', label: 'Corridas', count: out.length },
-            { value: 'earnings', label: 'Meus ganhos' },
-          ]}
-        />
-      )}
+    <div className="driver driver--tabs">
       <div key={tab} className="driver__view">
-        {tab === 'earnings' && earnings ? (
-          <CourierEarnings load={earnings} />
-        ) : (
+        {tab === 'home' && (
+          <DriverHomeTab
+            deliveries={deliveries}
+            available={available}
+            profile={profile}
+            onGo={go}
+          />
+        )}
+        {tab === 'available' && (
+          <AvailableTab
+            list={available}
+            claim={data.claim}
+            onClaimed={(ok) => {
+              void loadAvailable();
+              onChanged();
+              if (ok) go('runs');
+            }}
+          />
+        )}
+        {tab === 'runs' && (
           <Runs deliveries={deliveries} actions={actions} onChanged={onChanged} store={store} />
         )}
+        {tab === 'history' && <HistoryTab load={data.history} earnings={earnings} />}
+        {tab === 'profile' && <ProfileTab profile={profile} />}
       </div>
+      <nav className="dnav" aria-label="Painel do entregador">
+        {TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            className="dnav__item"
+            aria-current={tab === id ? 'page' : undefined}
+            onClick={() => go(id)}
+          >
+            <span className="dnav__icon">
+              <Icon size={20} aria-hidden />
+              {!!count[id] && <b aria-hidden>{count[id]! > 9 ? '9+' : count[id]}</b>}
+            </span>
+            {label}
+            {!!count[id] && <span className="cm-sr-only"> ({count[id]})</span>}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }
@@ -159,7 +259,7 @@ function Runs({
         <EmptyState
           mascot
           title="Nenhuma entrega com você agora"
-          description="Quando o restaurante despachar um pedido para você, ele aparece aqui."
+          description="Pegue um pedido em Disponíveis ou espere o restaurante despachar um para você."
         />
       ) : (
         <div className="driver__runs">

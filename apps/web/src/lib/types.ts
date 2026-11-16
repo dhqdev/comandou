@@ -674,6 +674,41 @@ export interface Delivery {
   collectMethod?: PaymentMethod | null;
   settledAt?: string | null;
 }
+/** Pedido pronto e sem entregador, que o motoboy pode pegar sozinho (aba Disponíveis). */
+export interface AvailableRun {
+  orderId: string;
+  orderNumber: number;
+  customerName: string | null;
+  deliveryAddress: string | null;
+  deliveryLat: string | null;
+  deliveryLng: string | null;
+  total: string;
+  balance: string;
+  paymentHint: string | null;
+  /** Quando o pedido ficou pronto. */
+  readyAt: string | null;
+  items: number;
+  /** Distância estimada da loja ao cliente, em metros. */
+  distanceM: number | null;
+  /** Quanto o entregador ganha se concluir. */
+  payEstimate: string;
+}
+/** Perfil do entregador, com o score calculado pelo sistema (últimos 90 dias). */
+export interface CourierProfile {
+  name: string;
+  phone: string | null;
+  since: string;
+  delivered: number;
+  failed: number;
+  today: number;
+  km: number;
+  avgMinutes: number | null;
+  recent: { days: number; delivered: number; failed: number };
+  score: number | null;
+  level: 'novo' | 'excelente' | 'muito-bom' | 'bom' | 'atencao';
+  completionPct: number | null;
+  onTimePct: number | null;
+}
 /** O que cada entregador tem para acertar no caixa. */
 export interface CourierCollection {
   courierId: string;

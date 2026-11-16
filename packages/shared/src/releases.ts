@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.139.0',
+    date: '2026-11-16',
+    title: 'App do entregador com abas, corridas para pegar e score',
+    summary:
+      'O app do entregador ganhou cinco abas: Início, Disponíveis, Entregas, Histórico e Perfil. O entregador pega sozinho o pedido que ficou pronto, e o restaurante continua podendo despachar pelo painel. O perfil mostra um score calculado pelo sistema.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Entregador: aba Disponíveis com os pedidos de entrega prontos e ainda sem entregador. Mostra o endereço, a distância da loja, quanto cobrar e quanto ele ganha. Tocou em Pegar corrida, o pedido sai para entrega com ele. Se dois tocarem ao mesmo tempo, só o primeiro leva.',
+      },
+      {
+        tag: 'novo',
+        text: 'Entregador: aba Perfil com o score de 0 a 5, calculado sozinho com as corridas dos últimos 90 dias (concluir a entrega e chegar no prazo), e os números dele: entregas concluídas, tempo médio e distância rodada. O score aparece a partir de 5 corridas.',
+      },
+      {
+        tag: 'novo',
+        text: 'Entregador: aba Histórico com todas as corridas encerradas e o valor de cada uma, e os ganhos ao lado. A aba Início resume o dia e leva para as entregas e para os pedidos disponíveis.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Entregador: pedido novo para pegar toca o som de chamada. Vale para o app com login e para o link do entregador. No painel, despachar para um entregador continua igual.',
+      },
+    ],
+  },
+  {
     version: '0.138.0',
     date: '2026-11-16',
     title: 'Excluir restaurante em dois cliques',

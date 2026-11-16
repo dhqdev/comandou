@@ -6,7 +6,16 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { fromCents, PaymentMethod, roleHas, toCents } from '@comandou/shared';
+import {
+  COURIER_SCORE_DAYS,
+  courierScore,
+  deliveryPay,
+  fromCents,
+  PaymentMethod,
+  roleHas,
+  routeDistanceM,
+  toCents,
+} from '@comandou/shared';
 import { createHash, randomBytes, randomInt } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
 import type { Ctx } from '../common/context';
@@ -16,7 +25,7 @@ import { CashService } from '../cash/cash.service';
 import { withIdempotency } from '../common/idempotency';
 import { OrdersService } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
-import { rideEstimates } from './courier-pay.service';
+import { courierRule, rideEstimates } from './courier-pay.service';
 
 /** Validade do link de rastreio enquanto o pedido está na rua. */
 export const TRACKING_TTL_HOURS = 4;
@@ -145,15 +154,22 @@ export class DeliveryService {
     });
   }
 
-  /** Despacha um pedido de delivery pronto com um entregador. Devolve o link de rastreio (uma vez). */
-  async dispatch(ctx: Ctx, orderId: string, courierId: string) {
+  /**
+   * Despacha um pedido de delivery pronto com um entregador. Devolve o link de rastreio (uma vez).
+   * `self`: foi o próprio entregador que pegou a corrida pelo app (aba Disponíveis).
+   */
+  async dispatch(ctx: Ctx, orderId: string, courierId: string, self = false) {
     const token = this.newToken();
     const res = await this.db.withTenant(ctx, async (tx) => {
       const o = await this.orders.lock(tx, orderId);
       if (o.channel !== 'delivery')
         throw new ConflictException('Só pedidos de delivery saem para entrega');
       if (o.status !== 'ready')
-        throw new ConflictException('O pedido precisa estar pronto para sair');
+        throw new ConflictException(
+          self
+            ? 'Este pedido não está mais disponível: outro entregador pegou ou ele saiu da fila.'
+            : 'O pedido precisa estar pronto para sair',
+        );
       const c = await one<{ active: boolean }>(tx, `SELECT active FROM couriers WHERE id = $1`, [
         courierId,
       ]);
@@ -179,7 +195,7 @@ export class DeliveryService {
       await this.audit.record(tx, {
         tenantId: ctx.tenantId,
         actorUserId: ctx.userId,
-        action: 'delivery.dispatched',
+        action: self ? 'delivery.claimed' : 'delivery.dispatched',
         entity: 'delivery',
         entityId: d!.id,
         data: { orderId, courierId },
@@ -190,6 +206,169 @@ export class DeliveryService {
     this.publish(ctx, res!.id, orderId);
     this.orders.notifyDispatched(ctx, orderId);
     return { delivery: res, trackingPath: `/rastreio/${token.token}` };
+  }
+
+  // ------------------------------------------------- app do entregador: pegar corrida e perfil
+  /** Entregador de quem está usando o app: o do link ou o ligado ao login. */
+  private async courierIdOf(tx: Tx, ctx: Ctx, viaLink?: string) {
+    if (viaLink) return viaLink;
+    const c = await one<{ id: string; active: boolean }>(
+      tx,
+      `SELECT id, active FROM couriers WHERE user_id = $1`,
+      [ctx.userId],
+    );
+    if (!c)
+      throw new ForbiddenException(
+        'Seu login ainda não está ligado a um entregador. Peça ao restaurante.',
+      );
+    if (!c.active) throw new ForbiddenException('Entregador desativado. Fale com o restaurante.');
+    return c.id;
+  }
+
+  /**
+   * Pedidos de delivery prontos e ainda sem entregador: o que o motoboy pode pegar sozinho.
+   * Mostra o destino, a distância da loja, quanto cobrar e quanto ele ganha pela regra dele.
+   * Telefone do cliente só aparece depois de pegar a corrida.
+   */
+  available(ctx: Ctx, viaLink?: string) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const courierId = await this.courierIdOf(tx, ctx, viaLink);
+      const rows = await q<{
+        orderId: string;
+        fee: string;
+        deliveryLat: string | null;
+        deliveryLng: string | null;
+      }>(
+        tx,
+        `SELECT o.id AS "orderId", o.number AS "orderNumber", o.customer_name AS "customerName",
+                o.delivery_address AS "deliveryAddress", o.delivery_lat::text AS "deliveryLat",
+                o.delivery_lng::text AS "deliveryLng", o.total::text,
+                (o.total - o.paid_amount)::text AS balance, o.payment_hint AS "paymentHint",
+                o.delivery_fee::text AS fee,
+                (SELECT max(h.created_at) FROM order_status_history h
+                  WHERE h.order_id = o.id AND h.to_status = 'ready') AS "readyAt",
+                (SELECT count(*)::int FROM order_items i
+                  WHERE i.order_id = o.id AND i.status <> 'cancelled') AS items
+           FROM orders o
+          WHERE o.channel = 'delivery' AND o.status = 'ready'
+            AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.order_id = o.id AND d.status = 'out')
+          ORDER BY "readyAt" NULLS LAST, o.number LIMIT 50`,
+      );
+      if (!rows.length) return [];
+      const store = await storePoint(tx);
+      const rule = await courierRule(tx, courierId);
+      return rows.map(({ fee, ...r }) => {
+        const distanceM = routeDistanceM(
+          store,
+          r.deliveryLat && r.deliveryLng
+            ? { lat: Number(r.deliveryLat), lng: Number(r.deliveryLng) }
+            : null,
+        );
+        return {
+          ...r,
+          distanceM,
+          payEstimate: deliveryPay(rule, { fee, distanceM, status: 'delivered' }).amount,
+        };
+      });
+    });
+  }
+
+  /** O entregador pega sozinho um pedido pronto. Dois ao mesmo tempo: só o primeiro leva. */
+  async claim(ctx: Ctx, orderId: string, viaLink?: string) {
+    const courierId = await this.db.withTenant(ctx, (tx) => this.courierIdOf(tx, ctx, viaLink));
+    const { delivery } = await this.dispatch(ctx, orderId, courierId, true);
+    return delivery;
+  }
+
+  /** Corridas encerradas do entregador, da mais nova para a mais antiga, em páginas de 30. */
+  history(ctx: Ctx, before: Date | null, viaLink?: string) {
+    const PAGE = 30;
+    return this.db.withTenant(ctx, async (tx) => {
+      const courierId = await this.courierIdOf(tx, ctx, viaLink);
+      const rows = await q<{ finishedAt: Date | null; dispatchedAt: Date }>(
+        tx,
+        `${DELIVERY_SELECT}
+          WHERE d.courier_id = $1 AND d.status <> 'out'
+            AND ($2::timestamptz IS NULL OR COALESCE(d.finished_at, d.dispatched_at) < $2)
+          ORDER BY COALESCE(d.finished_at, d.dispatched_at) DESC LIMIT $3`,
+        [courierId, before, PAGE + 1],
+      );
+      const items = rows.slice(0, PAGE);
+      const last = items[items.length - 1];
+      return {
+        items,
+        next: rows.length > PAGE && last ? (last.finishedAt ?? last.dispatchedAt) : null,
+      };
+    });
+  }
+
+  /**
+   * Perfil do entregador: desde quando entrega, os números de sempre e o score dos últimos 90
+   * dias (concluir a entrega e chegar no prazo; a conta fica em @comandou/shared).
+   */
+  profile(ctx: Ctx, viaLink?: string) {
+    return this.db.withTenant(ctx, async (tx) => {
+      const courierId = await this.courierIdOf(tx, ctx, viaLink);
+      // No prazo: do despacho à entrega em até 10 min + 5 min por km (piso de 20), como em
+      // rideTargetMinutes.
+      const r = await one<{
+        name: string;
+        phone: string | null;
+        since: Date;
+        delivered: number;
+        failed: number;
+        delivered_recent: number;
+        failed_recent: number;
+        on_time_recent: number;
+        avg_minutes: number | null;
+        km: number;
+        today: number;
+      }>(
+        tx,
+        `SELECT c.name, c.phone, c.created_at AS since,
+                count(d.id) FILTER (WHERE d.status = 'delivered')::int AS delivered,
+                count(d.id) FILTER (WHERE d.status = 'failed')::int AS failed,
+                count(d.id) FILTER (WHERE d.status = 'delivered' AND d.finished_at >= now() - make_interval(days => $2))::int AS delivered_recent,
+                count(d.id) FILTER (WHERE d.status = 'failed' AND d.finished_at >= now() - make_interval(days => $2))::int AS failed_recent,
+                count(d.id) FILTER (
+                  WHERE d.status = 'delivered' AND d.finished_at >= now() - make_interval(days => $2)
+                    AND EXTRACT(EPOCH FROM (d.finished_at - d.dispatched_at)) / 60
+                        <= GREATEST(20, round(10 + 5 * COALESCE(d.distance_m, 0) / 1000.0)))::int AS on_time_recent,
+                round(avg(EXTRACT(EPOCH FROM (d.finished_at - d.dispatched_at)) / 60)
+                  FILTER (WHERE d.status = 'delivered' AND d.finished_at >= now() - make_interval(days => $2)))::int AS avg_minutes,
+                COALESCE(sum(d.distance_m) FILTER (WHERE d.status = 'delivered'), 0)::float / 1000 AS km,
+                count(d.id) FILTER (
+                  WHERE d.status = 'delivered'
+                    AND (d.finished_at AT TIME ZONE tz.timezone)::date = (now() AT TIME ZONE tz.timezone)::date)::int AS today
+           FROM couriers c
+           CROSS JOIN tenants tz
+           LEFT JOIN deliveries d ON d.courier_id = c.id AND d.status <> 'out'
+          WHERE c.id = $1
+          GROUP BY c.id`,
+        [courierId, COURIER_SCORE_DAYS],
+      );
+      if (!r) throw new NotFoundException('Entregador não encontrado');
+      return {
+        name: r.name,
+        phone: r.phone,
+        since: r.since,
+        delivered: r.delivered,
+        failed: r.failed,
+        today: r.today,
+        km: Math.round(r.km * 10) / 10,
+        avgMinutes: r.avg_minutes,
+        recent: {
+          days: COURIER_SCORE_DAYS,
+          delivered: r.delivered_recent,
+          failed: r.failed_recent,
+        },
+        ...courierScore({
+          delivered: r.delivered_recent,
+          failed: r.failed_recent,
+          onTime: r.on_time_recent,
+        }),
+      };
+    });
   }
 
   /** Trava pedido → entrega (mesma ordem do resto do sistema) e confere quem pode mexer. */

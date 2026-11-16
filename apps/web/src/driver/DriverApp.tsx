@@ -1,12 +1,13 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import { useAuth } from '../app/auth';
 import type { CourierEarningsData } from '../features/CourierEarnings';
 import { DriverPanel } from '../features/DriverPanel';
+import type { DriverData, HistoryPage } from '../features/DriverTabs';
 import { api } from '../lib/api';
 import { useRealtime } from '../lib/realtime';
 import { useArrivalSound } from '../lib/sounds';
-import type { Delivery } from '../lib/types';
+import type { AvailableRun, CourierProfile, Delivery } from '../lib/types';
 import { DriverShell, usePolling } from './DriverShell';
 
 interface Home {
@@ -15,9 +16,10 @@ interface Home {
 }
 
 /**
- * App do entregador com login (/entregas): só as corridas dele e "Meus ganhos". Sem menu,
- * pedidos, cardápio ou ajustes da loja (o servidor também bloqueia: o papel só tem
- * delivery:operate). Mesmo painel do link do entregador.
+ * App do entregador com login (/entregas): as corridas dele, os pedidos prontos que ele pode
+ * pegar, o histórico com os ganhos e o perfil com o score. Sem menu, pedidos, cardápio ou
+ * ajustes da loja (o servidor também bloqueia: o papel só tem delivery:operate). Mesmo painel do
+ * link do entregador.
  */
 export function DriverApp() {
   const { me, logout } = useAuth();
@@ -52,6 +54,18 @@ export function DriverApp() {
   );
   const earnings = useCallback(() => api<CourierEarningsData>('/deliveries/my-earnings'), []);
   const post = (url: string, json: object = {}) => api(url, { method: 'POST', json });
+  const more = useMemo<DriverData>(
+    () => ({
+      available: () => api<AvailableRun[]>('/deliveries/available'),
+      claim: (orderId) => api(`/orders/${orderId}/claim`, { method: 'POST', json: {} }),
+      history: (before) =>
+        api<HistoryPage>(
+          `/deliveries/history${before ? `?before=${encodeURIComponent(before)}` : ''}`,
+        ),
+      profile: () => api<CourierProfile>('/deliveries/profile'),
+    }),
+    [],
+  );
 
   return (
     <Routes>
@@ -78,6 +92,7 @@ export function DriverApp() {
                   location: (id, fix) => post(`/deliveries/${id}/location`, fix),
                 }}
                 earnings={earnings}
+                data={more}
               />
             )}
           </DriverShell>

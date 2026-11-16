@@ -57,6 +57,8 @@ const Complete = z.object({
   /** Como o cliente pagou na porta, quando o pedido ainda tinha saldo (vai para o acerto). */
   method: z.enum(PAYMENT_METHODS).optional(),
 });
+/** Histórico do entregador: página seguinte a partir da data da última corrida mostrada. */
+const HistoryQuery = z.object({ before: z.coerce.date().optional() });
 const Settle = z.object({ cashSessionId: uuid, method: z.enum(PAYMENT_METHODS).optional() });
 const COURIER_COLS = `c.id, c.name, c.phone, c.user_id AS "userId", u.name AS "userName", c.active,
   c.access_created_at AS "linkCreatedAt"`;
@@ -203,6 +205,41 @@ export class DeliveryController {
     return this.delivery.dispatch(ctxOf(t, u, req), id, b.courierId);
   }
 
+  // ------------------------------------- app do entregador com login: pegar corrida e perfil
+  /** Pedidos prontos e sem entregador, que o motoboy pode pegar sozinho. */
+  @Get('deliveries/available')
+  @RequirePermission('delivery:operate')
+  available(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.delivery.available(ctxOf(t, u));
+  }
+
+  @Post('orders/:id/claim')
+  @RequirePermission('delivery:operate')
+  claim(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.delivery.claim(ctxOf(t, u, req), id);
+  }
+
+  @Get('deliveries/history')
+  @RequirePermission('delivery:operate')
+  history(
+    @Query(new ZodPipe(HistoryQuery)) f: z.infer<typeof HistoryQuery>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.delivery.history(ctxOf(t, u), f.before ?? null);
+  }
+
+  @Get('deliveries/profile')
+  @RequirePermission('delivery:operate')
+  profile(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.delivery.profile(ctxOf(t, u));
+  }
+
   @Post('deliveries/:id/complete')
   @RequirePermission('delivery:manage', 'delivery:operate')
   complete(
@@ -346,6 +383,47 @@ export class DeliveryController {
   ) {
     const { ctx, courier } = await this.delivery.courierCtx(t.id, token);
     return this.delivery.location(ctx, id, b, courier.id);
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @Get('courier-app/:token/available')
+  async courierAvailable(@Param('token') token: string, @CurrentTenant() t: ResolvedTenant) {
+    const { ctx, courier } = await this.delivery.courierCtx(t.id, token);
+    return this.delivery.available(ctx, courier.id);
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 30 } })
+  @Post('courier-app/:token/orders/:id/claim')
+  async courierClaim(
+    @Param('token') token: string,
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @Req() req: Request,
+  ) {
+    const { ctx, courier } = await this.delivery.courierCtx(t.id, token, req.ip);
+    return this.delivery.claim(ctx, id, courier.id);
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @Get('courier-app/:token/history')
+  async courierHistory(
+    @Param('token') token: string,
+    @Query(new ZodPipe(HistoryQuery)) f: z.infer<typeof HistoryQuery>,
+    @CurrentTenant() t: ResolvedTenant,
+  ) {
+    const { ctx, courier } = await this.delivery.courierCtx(t.id, token);
+    return this.delivery.history(ctx, f.before ?? null, courier.id);
+  }
+
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  @Get('courier-app/:token/profile')
+  async courierProfile(@Param('token') token: string, @CurrentTenant() t: ResolvedTenant) {
+    const { ctx, courier } = await this.delivery.courierCtx(t.id, token);
+    return this.delivery.profile(ctx, courier.id);
   }
 
   /** Rastreio público (cliente final). Sem sessão; o tenant vem do Host. */

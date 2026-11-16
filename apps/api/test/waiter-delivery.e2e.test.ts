@@ -478,4 +478,64 @@ describe('Link do entregador (sem login)', () => {
     await del('adminA', `/couriers/${c2.id}/link`).expect(200);
     await pub.get(`/courier-app/${t2}`).expect(404);
   });
+
+  it('entregador pega sozinho o pedido pronto; histórico e perfil com score', async () => {
+    const link = async (name: string) => {
+      const c = (await post('adminA', '/couriers', { name }).expect(201)).body;
+      const l = (await post('adminA', `/couriers/${c.id}/link`).expect(201)).body;
+      return l.path.split('/').pop() as string;
+    };
+    const rui = await link('Rui Pega');
+    const ana = await link('Ana Corre');
+    const o = (
+      await post('adminA', '/orders', {
+        channel: 'delivery',
+        deliveryAddress: 'Rua C, 3',
+        items: [{ productId: fx.prodA, quantity: 1 }],
+      }).expect(201)
+    ).body;
+    // Só aparece para pegar depois de pronto.
+    const before = (await pub.get(`/courier-app/${rui}/available`).expect(200)).body;
+    expect(before.some((x: { orderId: string }) => x.orderId === o.id)).toBe(false);
+    await post('adminA', `/orders/${o.id}/status`, { to: 'ready' }).expect(201);
+    const list = (await pub.get(`/courier-app/${rui}/available`).expect(200)).body;
+    const mine = list.find((x: { orderId: string }) => x.orderId === o.id);
+    expect(mine).toMatchObject({ deliveryAddress: 'Rua C, 3', items: 1 });
+    expect(mine.readyAt).toBeTruthy();
+    expect(mine.customerPhone).toBeUndefined();
+    await pub.get(`/courier-app/${rui}/available`, HOST_B).expect(404);
+
+    const d = (await pub.post(`/courier-app/${rui}/orders/${o.id}/claim`, {}).expect(201)).body;
+    expect(d).toMatchObject({ status: 'out', courierName: 'Rui Pega', orderId: o.id });
+    // Dois ao mesmo tempo: só o primeiro leva.
+    await pub.post(`/courier-app/${ana}/orders/${o.id}/claim`, {}).expect(409);
+    const after = (await pub.get(`/courier-app/${ana}/available`).expect(200)).body;
+    expect(after.some((x: { orderId: string }) => x.orderId === o.id)).toBe(false);
+    // O painel vê a corrida como qualquer outra.
+    const active = (await get('adminA', '/deliveries?scope=active').expect(200)).body;
+    expect(active.some((x: { id: string }) => x.id === d.id)).toBe(true);
+
+    const [{ code }] = await ownerQuery<{ code: string }>(
+      `SELECT confirm_code AS code FROM deliveries WHERE id = $1`,
+      [d.id],
+    );
+    await pub.post(`/courier-app/${rui}/deliveries/${d.id}/complete`, { code }).expect(201);
+    const hist = (await pub.get(`/courier-app/${rui}/history`).expect(200)).body;
+    expect(hist.items).toHaveLength(1);
+    expect(hist.items[0]).toMatchObject({ id: d.id, status: 'delivered' });
+    expect(hist.next).toBeNull();
+    expect((await pub.get(`/courier-app/${ana}/history`).expect(200)).body.items).toEqual([]);
+    const prof = (await pub.get(`/courier-app/${rui}/profile`).expect(200)).body;
+    expect(prof).toMatchObject({
+      name: 'Rui Pega',
+      delivered: 1,
+      failed: 0,
+      today: 1,
+      score: null,
+      level: 'novo',
+    });
+    // Login que não é de um entregador cadastrado não pega corrida.
+    await get('adminA', '/deliveries/available').expect(403);
+    await get('waiterA', '/deliveries/profile').expect(403);
+  });
 });

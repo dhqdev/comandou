@@ -79,7 +79,7 @@ async function payConfig(tx: Tx) {
 }
 
 /** Regra do entregador: a própria ou, sem ela, a da loja. */
-async function courierRule(tx: Tx, courierId: string) {
+export async function courierRule(tx: Tx, courierId: string) {
   const c = await one<{ pay_rule: unknown }>(tx, `SELECT pay_rule FROM couriers WHERE id = $1`, [
     courierId,
   ]);
