@@ -152,6 +152,10 @@ jobs:
           pnpm --filter @comandou/api build
           pnpm --filter @comandou/api db:migrate
           pnpm --filter @comandou/api tenant:provision demo "Restaurante Demo" dono@demo.local "Dono Demo"
+          # Plano padrão (valor único, com dias de teste), como a stack faz a cada deploy: sem
+          # ele o cadastro pelo site fica fechado. Sem as variáveis do admin, só cria os planos.
+          DATABASE_OWNER_URL=$DATABASE_OWNER_URL INTEGRATIONS_KEY=$E2E_INTEGRATIONS_KEY \
+            node apps/api/dist/platform/platform-admin-cli.js --bootstrap
           # Super Admin de teste com segredo TOTP fixo (o teste do navegador gera o código).
           DATABASE_OWNER_URL=$DATABASE_OWNER_URL INTEGRATIONS_KEY=$E2E_INTEGRATIONS_KEY \
             PLATFORM_ADMIN_PASSWORD=$E2E_ADMIN_PASSWORD PLATFORM_ADMIN_TOTP_SECRET=$E2E_ADMIN_TOTP \

@@ -4,7 +4,7 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_TOTP, ADMIN_URL, adminLogin } from '
 
 /**
  * Etapa 6 no navegador: painel Super Admin (admin.<base>) com senha + código do autenticador,
- * planos, novo restaurante, assinatura, suspensão/reativação e auditoria; no restaurante, a
+ * preço, novo restaurante, assinatura, suspensão/reativação e auditoria; no restaurante, a
  * tela "Plano". O segredo TOTP de teste vem de E2E_ADMIN_TOTP (nunca o de produção).
  */
 const EMAIL = process.env.E2E_EMAIL ?? 'dono@demo.local';
@@ -17,7 +17,7 @@ test.skip(
 const shot = (page: Page, project: string, name: string) =>
   page.screenshot({ path: `test-results/screens/${project}-${name}.png`, fullPage: true });
 
-test('Super Admin: código errado, planos, novo restaurante, assinatura e suspensão', async ({
+test('Super Admin: código errado, preço, novo restaurante, assinatura e suspensão', async ({
   page,
 }, info) => {
   test.setTimeout(150_000);
@@ -41,22 +41,15 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await expect(page.locator('.topbar__tenant')).toContainText('Status');
   await shot(page, info.project.name, 'admin-visao-geral');
 
-  // Plano novo
-  await nav(page, 'Planos');
-  await page.getByRole('button', { name: 'Novo plano' }).click();
-  let dialog = page.getByRole('dialog');
-  await dialog.getByLabel('Código').fill(`e2e-${tag}`);
-  await dialog.getByLabel('Nome').fill(`E2E ${tag}`);
-  await dialog.getByLabel('Preço mensal (R$)').fill('149,90');
-  await dialog.getByLabel('Máx. produtos ativos').fill('50');
-  await dialog.getByLabel('Inclui domínio próprio').check();
-  await dialog.getByRole('button', { name: 'Salvar' }).click();
-  await expect(page.getByText('Plano criado')).toBeVisible();
-  const row = page.getByRole('row', { name: new RegExp(`E2E ${tag}`) });
-  await expect(row).toContainText('R$ 149,90');
-  await expect(row).toContainText('Domínio próprio');
+  // Preço: valor único (plano "comandou"), com os dias de teste de todo restaurante novo.
+  await nav(page, 'Preço');
+  await expect(page.getByRole('heading', { name: 'Preço', level: 1 })).toBeVisible();
+  await expect(page.locator('.adm-tile', { hasText: 'Mensalidade' })).toContainText('R$ 400,00');
+  await expect(page.locator('.adm-tile', { hasText: 'Teste grátis' })).toContainText('dias');
+  await expect(page.getByRole('button', { name: 'Mudar valor e teste' })).toBeVisible();
+  await shot(page, info.project.name, 'admin-preco');
 
-  // Restaurante novo com esse plano
+  // Restaurante novo no valor único
   await nav(page, 'Restaurantes');
   await page.getByRole('button', { name: 'Novo', exact: true }).click();
   dialog = page.getByRole('dialog');
@@ -74,7 +67,7 @@ test('Super Admin: código errado, planos, novo restaurante, assinatura e suspen
   await dialog.getByRole('button', { name: 'Gerar' }).click();
   await expect(dialog.getByLabel('Senha inicial')).not.toHaveValue('');
   await dialog.getByLabel('Senha inicial').fill('senha-e2e-12345');
-  await dialog.locator('label.adm-plan-opt', { hasText: `E2E ${tag}` }).click();
+  await dialog.locator('label.adm-plan-opt', { hasText: 'Comandou' }).click();
   await dialog.getByText('Contato e cobrança').click();
   await dialog.getByLabel('CPF ou CNPJ').fill('12345678000195');
   await expect(dialog.getByLabel('CPF ou CNPJ')).toHaveValue('12.345.678/0001-95');

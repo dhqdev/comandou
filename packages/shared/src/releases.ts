@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.128.1',
+    date: '2026-11-16',
+    title: 'Testes automáticos em dia com o valor único',
+    summary:
+      'Os testes que rodam a cada atualização voltaram a passar: agora conferem a tela Preço do Super Admin e o cadastro pelo site com o teste grátis do valor único.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Teste do Super Admin confere a tela Preço (valor único) no lugar da antiga tela de planos, e cria o restaurante novo no valor único.',
+      },
+      {
+        tag: 'correção',
+        text: 'O ambiente de teste cria o plano padrão como a subida do sistema faz, então o cadastro pelo site abre com os dias de teste dele.',
+      },
+    ],
+  },
+  {
     version: '0.128.0',
     date: '2026-11-16',
     title: 'Valor único de R$ 400 para todo mundo',
