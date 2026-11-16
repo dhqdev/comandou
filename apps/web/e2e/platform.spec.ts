@@ -52,7 +52,7 @@ test('Super Admin: código errado, preço, novo restaurante, assinatura e suspen
   // Restaurante novo no valor único
   await nav(page, 'Restaurantes');
   await page.getByRole('button', { name: 'Novo', exact: true }).click();
-  dialog = page.getByRole('dialog');
+  let dialog = page.getByRole('dialog');
   await dialog.getByLabel('Nome do restaurante').fill(`Cantina ${tag}`);
   // O endereço sai do nome sozinho; dá para trocar.
   await expect(dialog.getByLabel('Endereço')).toHaveValue(`cantina-${tag}`);
