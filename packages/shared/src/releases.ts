@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.136.0',
+    date: '2026-11-16',
+    title: 'Reservas sem conflito de mesa',
+    summary:
+      'A mesma mesa não fica mais com duas reservas no mesmo horário, nem quando duas pessoas marcam ao mesmo tempo. O Salão mostra a reserva na mesa livre e avisa antes de sentar outro cliente ali.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Reservas: marcar uma mesa já reservada em horário que se cruza agora é barrado, com o nome e a hora da outra reserva. Vale para reserva nova, troca de mesa, troca de horário e reserva reaberta.',
+      },
+      {
+        tag: 'correção',
+        text: 'Reservas: duas pessoas da equipe marcando a mesma mesa ao mesmo tempo não ficam as duas com ela. Só a primeira passa.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Salão: a mesa livre mostra o horário e o nome da próxima reserva. Faltando até 1 hora, fica em laranja e o sistema pergunta antes de sentar outro cliente nela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Reservas: ao tocar em Chegou, se a mesa marcada tem comanda aberta, o sistema avisa e pergunta se a comanda é do grupo. Ao fechar a conta da mesa, a reserva é concluída sozinha.',
+      },
+    ],
+  },
+  {
     version: '0.135.0',
     date: '2026-11-16',
     title: 'Esqueci minha senha também por e-mail',

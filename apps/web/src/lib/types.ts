@@ -329,6 +329,12 @@ export interface DiningTable {
   tabPaid: string;
   tabCustomer: string | null;
   billRequestedAt: string | null;
+  /** Próxima reserva marcada na mesa (nas próximas horas), ou o grupo que já chegou. */
+  reservationId?: string | null;
+  reservationName?: string | null;
+  reservationAt?: string | null;
+  reservationParty?: number | null;
+  reservationStatus?: 'pending' | 'confirmed' | 'seated' | null;
 }
 
 export interface Sector {

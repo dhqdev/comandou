@@ -66,6 +66,7 @@ const StaffFields = z.object({
   tableId: uuid.nullable().optional(),
   status: z.enum(RESERVATION_STATUSES).optional(),
   cancelReason: optText(200),
+  tableBusyOk: z.boolean().optional(),
 });
 const StaffPatch = StaffFields.partial().refine(
   (o) => Object.keys(o).length > 0,

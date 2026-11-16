@@ -290,6 +290,24 @@
   color: var(--cm-text-muted);
   font-size: var(--cm-text-xs);
 }
+/* Mesa livre com reserva marcada: horário e nome do grupo; laranja quando falta até 1 hora. */
+.tbl__resv {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+}
+.tbl__resv > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.tbl__resv[data-soon] {
+  color: var(--cm-warning);
+}
 
 /* Comandas: cupons com picote */
 .tickets {

@@ -32,6 +32,7 @@ import { nextNumber, one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 import { PrintingService } from '../printing/printing.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { completeSeatedForTab } from '../reservations/seated';
 import { PRODUCT_STOCK_MISSING } from '../stock/availability-sql';
 import { StockService } from '../stock/stock.service';
 import { PlanService } from '../plans/plan.service';
@@ -1078,6 +1079,7 @@ export class OrdersService {
       `UPDATE tabs SET status = 'closed', closed_by = $2, closed_at = now() WHERE id = $1`,
       [o.tab_id, ctx.userId],
     );
+    await completeSeatedForTab(tx, o.tab_id);
     await this.audit.record(tx, {
       tenantId: ctx.tenantId,
       actorUserId: ctx.userId,

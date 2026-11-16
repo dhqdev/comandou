@@ -265,6 +265,120 @@ describe('Reservas', () => {
   });
 });
 
+describe('Reservas × mesas', () => {
+  // Duração das reservas configurada acima: 60 minutos.
+  const base = Date.now() + 5 * 86_400_000;
+  const at = (min: number) => new Date(base + min * 60_000).toISOString();
+  let mesa: string;
+  const staff = (name: string, startsAt: string, extra: object = {}) =>
+    post('adminA', '/reservations', {
+      name,
+      phone: '11955550000',
+      partySize: 2,
+      startsAt,
+      tableId: mesa,
+      ...extra,
+    });
+
+  beforeAll(async () => {
+    const [t] = await ownerQuery<{ id: string }>(
+      `INSERT INTO dining_tables (tenant_id, label, seats) VALUES ($1, 'M9', 4) RETURNING id`,
+      [fx.tenantA],
+    );
+    mesa = t!.id;
+  });
+
+  it('a mesma mesa não fica com duas reservas no mesmo horário', async () => {
+    const a = (await staff('Ana', at(0)).expect(201)).body;
+    // Começa durante a reserva da Ana (que vai até +60 min).
+    const clash = await staff('Bruno', at(30)).expect(409);
+    expect(clash.body.code).toBe('table_reserved');
+    expect(clash.body.message).toContain('M9');
+    expect(clash.body.message).toContain('Ana');
+    // Termina dentro da reserva da Ana.
+    await staff('Bruno', at(-30)).expect(409);
+    // Logo depois (encostado) não conflita.
+    const b = (await staff('Bruno', at(60)).expect(201)).body;
+    // Sem mesa, entra (a equipe escolhe a mesa depois).
+    const c = (await staff('Carla', at(0), { tableId: null }).expect(201)).body;
+    // Marcar a mesa ocupada na Carla, ou mover a do Bruno para cima da Ana, é barrado.
+    await patch('adminA', `/reservations/${c.id}`, { tableId: mesa }).expect(409);
+    await patch('adminA', `/reservations/${b.id}`, { startsAt: at(15) }).expect(409);
+    // Mexer em outra coisa da reserva da Ana não se bloqueia sozinha.
+    await patch('adminA', `/reservations/${a.id}`, { partySize: 3 }).expect(200);
+    // Cancelou a da Ana: a mesa libera; reabrir a da Ana agora conflita com a Carla.
+    await patch('adminA', `/reservations/${a.id}`, { status: 'cancelled' }).expect(200);
+    await patch('adminA', `/reservations/${c.id}`, { tableId: mesa }).expect(200);
+    const reopen = await patch('adminA', `/reservations/${a.id}`, { status: 'confirmed' });
+    expect(reopen.status).toBe(409);
+    // "Não veio" também libera a mesa.
+    await patch('adminA', `/reservations/${c.id}`, { status: 'no_show' }).expect(200);
+    await patch('adminA', `/reservations/${a.id}`, { status: 'confirmed' }).expect(200);
+  });
+
+  it('duas pessoas marcando a mesma mesa ao mesmo tempo: só uma fica', async () => {
+    const t = at(600);
+    const tries = await Promise.all(Array.from({ length: 5 }, (_, i) => staff(`Corrida ${i}`, t)));
+    const codes = tries.map((r) => r.status).sort();
+    expect(codes).toEqual([201, 409, 409, 409, 409]);
+  });
+
+  it('grupo chega com a mesa ocupada: avisa; ao fechar a conta, a reserva termina', async () => {
+    const [t] = await ownerQuery<{ id: string }>(
+      `INSERT INTO dining_tables (tenant_id, label, seats) VALUES ($1, 'M10', 4) RETURNING id`,
+      [fx.tenantA],
+    );
+    const soon = new Date(Date.now() + 30 * 60_000).toISOString();
+    const r = (await staff('Dani', soon, { tableId: t!.id }).expect(201)).body;
+    // O salão mostra a reserva na mesa livre.
+    const tables = (await get('adminA', '/tables').expect(200)).body as {
+      id: string;
+      reservationName: string | null;
+      reservationStatus: string | null;
+    }[];
+    expect(tables.find((x) => x.id === t!.id)).toMatchObject({
+      reservationName: 'Dani',
+      reservationStatus: 'confirmed',
+    });
+    // Outro cliente sentou na mesa antes.
+    const tab = (await post('adminA', '/tabs', { tableId: t!.id }).expect(201)).body;
+    const busy = await patch('adminA', `/reservations/${r.id}`, { status: 'seated' }).expect(409);
+    expect(busy.body.code).toBe('table_busy');
+    expect(busy.body.message).toContain(`#${tab.number}`);
+    // A equipe confere que a comanda é do grupo e segue.
+    await patch('adminA', `/reservations/${r.id}`, {
+      status: 'seated',
+      tableBusyOk: true,
+    }).expect(200);
+    // Conta fechada: a reserva conclui sozinha e a mesa fica livre na agenda.
+    await post('adminA', `/tabs/${tab.id}/close`).expect(201);
+    const list = (
+      await get(
+        'adminA',
+        `/reservations?from=${encodeURIComponent(new Date(Date.now() - 3_600_000).toISOString())}&to=${encodeURIComponent(new Date(Date.now() + 86_400_000).toISOString())}`,
+      ).expect(200)
+    ).body as { id: string; status: string }[];
+    expect(list.find((x) => x.id === r.id)?.status).toBe('completed');
+  });
+
+  it('chegar numa mesa livre não pede confirmação', async () => {
+    const [t] = await ownerQuery<{ id: string }>(
+      `INSERT INTO dining_tables (tenant_id, label, seats) VALUES ($1, 'M11', 4) RETURNING id`,
+      [fx.tenantA],
+    );
+    const r = (
+      await staff('Edu', new Date(Date.now() + 20 * 60_000).toISOString(), {
+        tableId: t!.id,
+      }).expect(201)
+    ).body;
+    await patch('adminA', `/reservations/${r.id}`, { status: 'seated' }).expect(200);
+    // Mesa da reserva sentada: outra reserva no mesmo horário continua barrada.
+    await staff('Fábio', new Date(Date.now() + 40 * 60_000).toISOString(), {
+      tableId: t!.id,
+    }).expect(409);
+  });
+});
+
 describe('Calendário de vendas', () => {
   it('soma faturamento, custo pela ficha técnica e lucro por dia', async () => {
     const [item] = await ownerQuery<{ id: string }>(

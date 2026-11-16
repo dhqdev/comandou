@@ -115,6 +115,8 @@ export interface StaffReservationInput {
   tableId?: string | null;
   status?: ReservationStatus;
   cancelReason?: string | null;
+  /** A equipe já conferiu: a comanda aberta na mesa é deste grupo (ao marcar "Chegou"). */
+  tableBusyOk?: boolean;
 }
 
 /** Sem letras/números que se confundem ao telefone (0/O, 1/I). */
@@ -310,9 +312,7 @@ export class ReservationsService {
       const s = await this.settingsIn(tx);
       if (!s.enabled) throw new NotFoundException('Este restaurante não está aceitando reservas');
       // Uma reserva por vez no restaurante: dois clientes não ficam com o último lugar.
-      await q(tx, `SELECT pg_advisory_xact_lock(hashtext('reservations:' || $1::text))`, [
-        tenantId,
-      ]);
+      await this.lockFloor(tx, tenantId);
       const again = await one<{ id: string }>(
         tx,
         `SELECT id FROM reservations WHERE public_token_hash = $1`,
@@ -498,6 +498,61 @@ export class ReservationsService {
     if (!t) throw new UnprocessableEntityException('Mesa não encontrada');
   }
 
+  /**
+   * Uma mudança de reserva por vez no restaurante (cardápio e equipe usam a mesma trava): duas
+   * pessoas não marcam a mesma mesa no mesmo horário, nem ficam com o último lugar.
+   */
+  private lockFloor(tx: Tx, tenantId: string) {
+    return q(tx, `SELECT pg_advisory_xact_lock(hashtext('reservations:' || $1::text))`, [tenantId]);
+  }
+
+  /** A mesa não pode estar marcada para outra reserva ativa com horário que se cruza. */
+  private async assertTableFree(
+    tx: Tx,
+    tableId: string,
+    startsAt: Date,
+    durationMinutes: number,
+    ignoreId?: string,
+  ) {
+    const clash = await one<{ name: string; time: string; label: string; day: string }>(
+      tx,
+      `SELECT r.name, t.label,
+              to_char(r.starts_at AT TIME ZONE $5, 'HH24:MI') AS time,
+              to_char(r.starts_at AT TIME ZONE $5, 'DD/MM') AS day
+         FROM reservations r JOIN dining_tables t ON t.id = r.table_id
+        WHERE r.table_id = $1 AND r.status = ANY($2)
+          AND r.starts_at < $3::timestamptz + make_interval(mins => $4)
+          AND r.starts_at + make_interval(mins => r.duration_minutes) > $3::timestamptz
+          AND ($6::uuid IS NULL OR r.id <> $6)
+        ORDER BY r.starts_at LIMIT 1`,
+      [tableId, ACTIVE, startsAt, durationMinutes, await this.tz(tx), ignoreId ?? null],
+    );
+    if (clash)
+      throw new ConflictException({
+        message: `A mesa ${clash.label} já está reservada para ${clash.name} em ${clash.day} às ${clash.time}. Escolha outra mesa.`,
+        code: 'table_reserved',
+      });
+  }
+
+  /**
+   * O grupo chegou e a mesa marcada tem comanda aberta: avisa a equipe (pode ser outro cliente
+   * sentado ali). Se a comanda já é deste grupo, a equipe confirma e segue.
+   */
+  private async assertTableNotOccupied(tx: Tx, tableId: string) {
+    const tab = await one<{ number: number; label: string; customer: string | null }>(
+      tx,
+      `SELECT tb.number, t.label, tb.customer_name AS customer
+         FROM tabs tb JOIN dining_tables t ON t.id = tb.table_id
+        WHERE tb.table_id = $1 AND tb.status = 'open'`,
+      [tableId],
+    );
+    if (tab)
+      throw new ConflictException({
+        message: `A mesa ${tab.label} está ocupada (comanda #${tab.number}${tab.customer ? `, ${tab.customer}` : ''}). Troque a mesa da reserva ou confirme que a comanda é deste grupo.`,
+        code: 'table_busy',
+      });
+  }
+
   /** Reserva lançada pela equipe (telefone, balcão). Não passa pelas regras do cardápio. */
   async create(ctx: Ctx, input: StaffReservationInput) {
     const phone = normalizePhone(input.phone);
@@ -505,6 +560,13 @@ export class ReservationsService {
     const res = await this.db.withTenant(ctx, async (tx) => {
       await this.checkTable(tx, input.tableId);
       const s = await this.settingsIn(tx);
+      const status = input.status ?? 'confirmed';
+      if (input.tableId && ACTIVE.includes(status)) {
+        await this.lockFloor(tx, ctx.tenantId);
+        await this.assertTableFree(tx, input.tableId, new Date(input.startsAt), s.durationMinutes);
+        if (status === 'seated' && !input.tableBusyOk)
+          await this.assertTableNotOccupied(tx, input.tableId);
+      }
       const code = await this.freeCode(tx);
       const row = await one<{ id: string }>(
         tx,
@@ -524,7 +586,7 @@ export class ReservationsService {
           input.notes ?? null,
           input.staffNotes ?? null,
           input.tableId ?? null,
-          input.status ?? 'confirmed',
+          status,
           ctx.userId,
         ],
       );
@@ -548,13 +610,36 @@ export class ReservationsService {
 
   async update(ctx: Ctx, id: string, patch: Partial<StaffReservationInput>) {
     const res = await this.db.withTenant(ctx, async (tx) => {
-      const cur = await one<{ status: ReservationStatus }>(
+      // Trava antes de ler: outra pessoa mexendo na agenda espera esta mudança terminar.
+      await this.lockFloor(tx, ctx.tenantId);
+      const cur = await one<{
+        status: ReservationStatus;
+        tableId: string | null;
+        startsAt: Date;
+        dur: number;
+      }>(
         tx,
-        `SELECT status FROM reservations WHERE id = $1 FOR UPDATE`,
+        `SELECT status, table_id AS "tableId", starts_at AS "startsAt", duration_minutes AS dur
+           FROM reservations WHERE id = $1 FOR UPDATE`,
         [id],
       );
       if (!cur) throw new NotFoundException('Reserva não encontrada');
-      if (patch.tableId !== undefined) await this.checkTable(tx, patch.tableId);
+      if (patch.tableId) await this.checkTable(tx, patch.tableId);
+      const next = {
+        status: patch.status ?? cur.status,
+        tableId: patch.tableId !== undefined ? patch.tableId : cur.tableId,
+        startsAt: patch.startsAt !== undefined ? new Date(patch.startsAt) : cur.startsAt,
+      };
+      if (next.tableId && ACTIVE.includes(next.status)) {
+        const moved =
+          next.tableId !== cur.tableId ||
+          next.startsAt.getTime() !== cur.startsAt.getTime() ||
+          !ACTIVE.includes(cur.status);
+        if (moved) await this.assertTableFree(tx, next.tableId, next.startsAt, cur.dur, id);
+        const arriving =
+          next.status === 'seated' && (cur.status !== 'seated' || next.tableId !== cur.tableId);
+        if (arriving && !patch.tableBusyOk) await this.assertTableNotOccupied(tx, next.tableId);
+      }
       const sets: string[] = [];
       const vals: unknown[] = [];
       const set = (col: string, v: unknown) => {
@@ -596,7 +681,7 @@ export class ReservationsService {
               : 'reservation.updated',
           entity: 'reservation',
           entityId: id,
-          data: { changes: patch },
+          data: { changes: { ...patch, tableBusyOk: undefined } },
           ip: ctx.ip,
         });
       }

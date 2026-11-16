@@ -166,13 +166,26 @@ export function ReservationsPage() {
     list === null ? null : week.filter((r) => r.status === 'pending').map((r) => r.id),
   );
 
-  async function update(r: Reservation, patch: Partial<Reservation>, msg?: string) {
+  async function update(
+    r: Reservation,
+    patch: Partial<Reservation> & { tableBusyOk?: boolean },
+    msg?: string,
+  ) {
     try {
       await api(`/reservations/${r.id}`, { method: 'PATCH', json: patch });
       if (msg) toast(msg, 'success');
       void load();
     } catch (e) {
-      toast((e as ApiError).message, 'danger');
+      const err = e as ApiError;
+      // Grupo chegou e a mesa tem comanda aberta: a equipe confirma se a comanda é deste grupo.
+      if (
+        (err.body as { code?: string } | undefined)?.code === 'table_busy' &&
+        !patch.tableBusyOk &&
+        window.confirm(`${err.message}\n\nA comanda aberta é deste grupo?`)
+      )
+        return update(r, { ...patch, tableBusyOk: true }, msg);
+      toast(err.message, 'danger');
+      void load();
     }
   }
 
@@ -424,7 +437,11 @@ function ReservationCard({
   r: Reservation;
   i: number;
   tables: DiningTable[];
-  onUpdate(r: Reservation, patch: Partial<Reservation>, msg?: string): void;
+  onUpdate(
+    r: Reservation,
+    patch: Partial<Reservation> & { tableBusyOk?: boolean },
+    msg?: string,
+  ): void;
   onEdit(): void;
 }) {
   const st = RESERVATION_STATUS[r.status];

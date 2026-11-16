@@ -13,6 +13,7 @@ import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 import { ORDER_SELECT, OrderRow, OrdersService, serviceFeeCents } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { completeSeatedForTab } from '../reservations/seated';
 
 const TAB_SELECT = `
   SELECT tb.id, tb.number, tb.status, tb.customer_name AS "customerName", tb.table_id AS "tableId",
@@ -332,6 +333,7 @@ export class TabsService {
    */
   async close(ctx: Ctx, id: string) {
     const changed: string[] = [];
+    let seated: string[] = [];
     const res = await this.db.withTenant(ctx, async (tx) => {
       const tab = await this.lockTab(tx, id);
       if (tab.status !== 'open') throw new ConflictException('Comanda não está aberta');
@@ -357,6 +359,7 @@ export class TabsService {
         `UPDATE tabs SET status = 'closed', closed_by = $2, closed_at = now() WHERE id = $1`,
         [id, ctx.userId],
       );
+      seated = await completeSeatedForTab(tx, id);
       await this.audit.record(tx, {
         tenantId: ctx.tenantId,
         actorUserId: ctx.userId,
@@ -375,6 +378,8 @@ export class TabsService {
         status: 'completed',
       });
     this.realtime.publish(ctx.tenantId, { type: 'tab.changed', tabId: id });
+    for (const rid of seated)
+      this.realtime.publish(ctx.tenantId, { type: 'reservation.changed', reservationId: rid });
     this.orders.notifyTabClosed(ctx, id);
     return res;
   }

@@ -9,6 +9,7 @@ import {
 import {
   BellRing,
   Bike,
+  CalendarClock,
   LayoutGrid,
   PencilRuler,
   Plus,
@@ -196,7 +197,12 @@ export function TablesPage() {
     void load();
   }, [load]);
   useRealtime((e) => {
-    if (e.type === 'tab.changed' || e.type === 'order.changed' || e.type === 'menu.changed')
+    if (
+      e.type === 'tab.changed' ||
+      e.type === 'order.changed' ||
+      e.type === 'menu.changed' ||
+      e.type === 'reservation.changed'
+    )
       reload();
   }, load);
 
@@ -222,6 +228,7 @@ export function TablesPage() {
    * com o primeiro pedido, então um toque sem querer não deixa comanda vazia aberta).
    */
   function goTable(t: DiningTable) {
+    if (!t.tabId && !reservedOk(t)) return;
     if (t.tabId) setTabId(t.tabId);
     else if (canOperate && canSell) setFreeTable(t);
     else if (canOperate) void openTab(t.id);
@@ -585,6 +592,31 @@ export function TablesPage() {
 }
 
 /** Mesa no mapa: o desenho (tampo + cadeiras) e, embaixo, o que importa agora. */
+const hhmm = (iso: string) =>
+  new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+/** Reserva marcada nesta mesa que ainda não chegou e começa em até 1 hora (ou já começou). */
+function reservedSoon(t: DiningTable) {
+  return (
+    !!t.reservationAt &&
+    t.reservationStatus !== 'seated' &&
+    Date.parse(t.reservationAt) - Date.now() <= 60 * 60_000
+  );
+}
+
+/**
+ * Mesa livre, mas com reserva chegando: confirma antes de sentar outro cliente ali (a reserva
+ * continua marcada; troque a mesa dela em Reservas se precisar).
+ */
+function reservedOk(t: DiningTable) {
+  if (!reservedSoon(t)) return true;
+  return window.confirm(
+    `A mesa ${t.label} está reservada para ${t.reservationName} às ${hhmm(t.reservationAt!)}` +
+      `${t.reservationParty ? ` (${t.reservationParty} pessoas)` : ''}.\n\n` +
+      'Sentar outro cliente nesta mesa mesmo assim?',
+  );
+}
+
 function TableTile({ table: t, onOpen }: { table: DiningTable; onOpen(): void }) {
   const st = tableState(t);
   const mins = t.openedAt ? minutesSince(t.openedAt) : 0;
@@ -596,7 +628,11 @@ function TableTile({ table: t, onOpen }: { table: DiningTable; onOpen(): void })
       data-state={st}
       data-shape={t.shape}
       onClick={onOpen}
-      aria-label={`Mesa ${t.label} ${STATE_LABEL[st].toLowerCase()}`}
+      aria-label={`Mesa ${t.label} ${STATE_LABEL[st].toLowerCase()}${
+        !t.tabId && t.reservationAt && t.reservationStatus !== 'seated'
+          ? `, reservada às ${hhmm(t.reservationAt)}`
+          : ''
+      }`}
     >
       <span className="tbl__art">
         <TableGlyph shape={t.shape} seats={t.seats} />
@@ -614,6 +650,13 @@ function TableTile({ table: t, onOpen }: { table: DiningTable; onOpen(): void })
             <strong>{brl(t.tabTotal)}</strong>
             {t.tabCustomer && <span className="tbl__who">{t.tabCustomer}</span>}
           </>
+        ) : t.reservationAt && t.reservationStatus !== 'seated' ? (
+          <span className="tbl__resv" data-soon={reservedSoon(t) || undefined}>
+            <CalendarClock size={12} aria-hidden />
+            <span>
+              {hhmm(t.reservationAt)} · {t.reservationName}
+            </span>
+          </span>
         ) : (
           <span className="tbl__who">
             {t.seats} lugares{extra > 0 ? ` (+${extra})` : ''}

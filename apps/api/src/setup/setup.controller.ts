@@ -176,9 +176,23 @@ export class SetupController {
                 tb.id AS "tabId", tb.number AS "tabNumber", tb.opened_at AS "openedAt",
                 tb.customer_name AS "tabCustomer", tb.bill_requested_at AS "billRequestedAt",
                 COALESCE((SELECT sum(o.paid_amount) FROM orders o WHERE o.tab_id = tb.id), 0)::text AS "tabPaid",
-                COALESCE((SELECT sum(o.total) FROM orders o WHERE o.tab_id = tb.id AND o.status <> 'cancelled'), 0)::text AS "tabTotal"
+                COALESCE((SELECT sum(o.total) FROM orders o WHERE o.tab_id = tb.id AND o.status <> 'cancelled'), 0)::text AS "tabTotal",
+                rv.id AS "reservationId", rv.name AS "reservationName",
+                rv.starts_at AS "reservationAt", rv.party_size AS "reservationParty",
+                rv.status AS "reservationStatus"
            FROM dining_tables dt
            LEFT JOIN tabs tb ON tb.table_id = dt.id AND tb.status = 'open'
+           -- Próxima reserva marcada na mesa (até 12 h à frente): o salão avisa antes de sentar
+           -- outro cliente ali.
+           LEFT JOIN LATERAL (
+             SELECT r.id, r.name, r.starts_at, r.party_size, r.status
+               FROM reservations r
+              WHERE r.table_id = dt.id AND r.status IN ('pending', 'confirmed', 'seated')
+                AND r.starts_at + make_interval(mins => r.duration_minutes) > now()
+                AND r.starts_at < now() + interval '12 hours'
+              ORDER BY (r.status = 'seated') DESC, r.starts_at
+              LIMIT 1
+           ) rv ON true
           ORDER BY dt.position, dt.label`,
       ),
     );
