@@ -31,6 +31,7 @@ import { customerMapOf } from '../delivery/delivery.service';
 import { menuTreeSql } from '../catalog/menu-sql';
 import { modelUrls } from '../catalog/models.controller';
 import { LinkPreview, oneLine, PRODUCT_PATH_RE } from './link-preview';
+import { SiteCopy } from '../chat/site-page';
 
 export const mediaUrl = (id: string | null | undefined) => (id ? `/api/v1/media/${id}` : null);
 export const publicTokenHash = (token: string) => createHash('sha256').update(token).digest();
@@ -392,6 +393,80 @@ export class StoreService {
   /** Identidade visual (pública: o login e o cardápio usam antes de qualquer sessão). */
   branding(tenantId: string) {
     return this.db.withTenant({ tenantId }, async (tx) => brandingOf(await this.settingsIn(tx)));
+  }
+
+  /**
+   * Página do restaurante (<endereço>/site): os textos guardados e, lidos na hora, o cadastro da
+   * loja (logo, capa, contato, horário) e até 8 itens do cardápio, os destaques primeiro. Vale
+   * mesmo com o cardápio online desligado (aí a página não mostra o botão de pedir).
+   */
+  publicSite(tenantId: string, tenantName: string) {
+    return this.db.withTenant({ tenantId }, async (tx) => {
+      const row = await one<{ site: unknown; updatedAt: Date | null }>(
+        tx,
+        `SELECT site, site_updated_at AS "updatedAt" FROM tenant_store_settings`,
+      );
+      const copy = SiteCopy.safeParse(row?.site);
+      if (!copy.success) throw new NotFoundException('Este restaurante ainda não tem a página');
+      const s = await this.settingsIn(tx);
+      const region = await this.regionIn(tx, s);
+      const products = await q<{
+        id: string;
+        name: string;
+        description: string | null;
+        price: string;
+        imageUrl: string | null;
+      }>(
+        tx,
+        `SELECT p.id, p.name, p.description, p.price::text,
+                '/api/v1/media/' || p.image_id AS "imageUrl"
+           FROM products p JOIN categories c ON c.id = p.category_id
+          WHERE p.active AND c.active AND NOT p.sold_out
+          ORDER BY p.featured DESC, (p.image_id IS NOT NULL) DESC, p.name LIMIT 8`,
+      );
+      return {
+        restaurant: {
+          name: tenantName,
+          address: s.address,
+          whatsapp: s.whatsapp,
+          city: region.city,
+          state: region.state,
+          coverUrl: mediaUrl(s.coverImageId),
+          logoUrl: mediaUrl(s.logoImageId),
+        },
+        copy: copy.data,
+        /** Cardápio online ligado: a página mostra o botão de pedir. */
+        ordering: s.enabled,
+        isOpen: await this.openNowIn(tx, s),
+        acceptsDelivery: s.acceptsDelivery,
+        acceptsPickup: s.acceptsPickup,
+        hours: s.hoursEnabled ? (s.hours ?? []) : [],
+        products,
+        updatedAt: row?.updatedAt ?? null,
+      };
+    });
+  }
+
+  /** Textos da página do restaurante corrigidos à mão em Loja online. */
+  async saveSite(ctx: Ctx, copy: SiteCopy) {
+    await this.db.withTenant(ctx, async (tx) => {
+      await q(
+        tx,
+        `INSERT INTO tenant_store_settings (tenant_id, site, site_updated_at) VALUES ($1, $2, now())
+         ON CONFLICT (tenant_id) DO UPDATE SET site = EXCLUDED.site, site_updated_at = now()`,
+        [ctx.tenantId, JSON.stringify(copy)],
+      );
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'store.site_updated',
+        entity: 'store',
+        entityId: ctx.tenantId,
+        data: { headline: copy.headline },
+        ip: ctx.ip,
+      });
+    });
+    return { copy };
   }
 
   /**

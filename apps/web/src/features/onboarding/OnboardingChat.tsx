@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUp, Check, Clock, FileText } from 'lucide-react';
+import { ArrowLeft, ArrowUp, Check, Clock, FileText, Globe } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, Mascot } from '../../design-system';
@@ -6,6 +6,7 @@ import { api } from '../../lib/api';
 import type { StoreSettings } from '../../lib/types';
 import { maskPhone } from '../CustomerPicker';
 import { importStatus } from '../menu-import/menu-import';
+import { createSitePage, openSitePage } from '../SitePageCard';
 import { QuickStart } from './QuickStart';
 import { loadSignup, trialAuto, type ApplyResult, type Signup } from './quick-start';
 import './onboarding.css';
@@ -99,6 +100,8 @@ export function OnboardingChat({
   /** O cartão do cardápio já abriu: fica guardado (escondido) quando a pessoa volta ou segue. */
   const [menuOpened, setMenuOpened] = useState(false);
   const [menuBusy, setMenuBusy] = useState(false);
+  /** A página do restaurante (/site) foi criada no fim da conversa. */
+  const [siteReady, setSiteReady] = useState(false);
   /** Respostas já dadas: voltar a um passo mostra o que a pessoa tinha respondido. */
   const answers = useRef<{
     hasMenu: boolean | null;
@@ -157,6 +160,7 @@ export function OnboardingChat({
     setStep('hello');
     setMenuOpened(false);
     setMenuBusy(false);
+    setSiteReady(false);
     seq.current = 0;
     logLen.current = 0;
     follow.current = true;
@@ -315,18 +319,39 @@ export function OnboardingChat({
   };
   const askSell = (lead?: string[]) =>
     say([...(lead ?? []), 'Como você vende? Pode marcar mais de um.'], 'sell');
-  const finish = (lead?: string) =>
+  /**
+   * Fim: a IA cria a página do restaurante (<endereço>/site) com o que foi cadastrado e a
+   * conversa mostra o endereço. Sem permissão ou com erro, termina sem a página (dá para criar
+   * depois em Loja online › Página).
+   */
+  const finish = async (lead?: string) => {
+    let site: string[] = [];
+    if (canImport) {
+      setTyping(true);
+      const ok = await createSitePage().then(
+        () => true,
+        () => false,
+      );
+      setSiteReady(ok);
+      if (ok)
+        site = [
+          `Também criei a página do ${tenantName}: ${window.location.host}/site. Ela mostra o logo, alguns itens, o endereço e o botão para pedir.`,
+          'Você abre pelo PDV (botão do globo) e muda os textos em Loja online › Página.',
+        ];
+    }
     say(
       [
         ...(lead ? [lead] : []),
+        ...site,
         'Pronto! O básico está feito. O resto você ajusta quando quiser em Ajustes.',
       ],
       'end',
     );
+  };
   const askEta = () =>
     sell.has('delivery') || sell.has('pickup')
       ? say(['Quanto tempo leva, em média, para um pedido ficar pronto?'], 'eta')
-      : finish();
+      : void finish();
   const askAddress = () =>
     known.current.address
       ? askEta()
@@ -395,7 +420,7 @@ export function OnboardingChat({
     answers.current.eta = min;
     push('me', `${min} a ${max} minutos`);
     await savePatch({ etaMin: min, etaMax: max });
-    finish();
+    void finish();
   };
 
   if (!open) return null;
@@ -534,6 +559,11 @@ export function OnboardingChat({
     reply = (
       <div className="onb-choices">
         <Button onClick={onTour}>Conhecer as telas</Button>
+        {siteReady && (
+          <Button variant="secondary" icon={<Globe size={16} />} onClick={openSitePage}>
+            Ver a página
+          </Button>
+        )}
         {canImport && (
           <Button
             variant="secondary"

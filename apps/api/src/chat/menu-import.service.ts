@@ -11,7 +11,7 @@ import { Ctx } from '../common/context';
 import { sniff } from '../common/file-sniff';
 import { isMapsLink, mapsPlaceName } from '../common/maps-link';
 import { safeFetch, SafeFetchError } from '../common/safe-fetch';
-import { one } from '../common/sql';
+import { one, q } from '../common/sql';
 import { open } from '../common/secret-box';
 import { ENV, Env } from '../config/env';
 import { DatabaseService } from '../database/database.service';
@@ -19,6 +19,7 @@ import { AI_KEY_CONTEXT } from './ai.service';
 import { availableTokens, loadAiQuota, recordAiUsage } from './ai-quota';
 import { ContentPart, OpenRouterClient, OpenRouterError } from './openrouter';
 import { parseMenuText } from './menu-text';
+import { defaultSiteCopy, readSiteCopy, SITE_PAGE_PROMPT, type SiteFacts } from './site-page';
 import {
   EMPTY_STORE,
   decodeEntities,
@@ -449,6 +450,85 @@ export class MenuImportService {
     const mime = sniff(r.bytes);
     if (!mime) throw new ServiceUnavailableException('A IA devolveu uma foto que não deu para ler');
     return { mime, body: r.bytes };
+  }
+
+  /**
+   * Página do restaurante (<endereço>/site): escreve os textos com a IA a partir do cadastro da
+   * loja e do cardápio e guarda. Com a IA desligada, sem limite ou fora do ar, guarda o texto
+   * padrão montado com os mesmos dados: a página fica no ar de qualquer jeito.
+   */
+  async sitePage(ctx: Ctx, tenantName: string) {
+    const facts = await this.db.withTenant(ctx, async (tx): Promise<SiteFacts> => {
+      const s = await one<{
+        about: string | null;
+        city: string | null;
+        state: string | null;
+        accepts_delivery: boolean;
+        accepts_pickup: boolean;
+        eta_min: number;
+        eta_max: number;
+      }>(
+        tx,
+        `SELECT about, city, state, accepts_delivery, accepts_pickup, eta_min, eta_max
+           FROM tenant_store_settings`,
+      );
+      const categories = await q<{ name: string; items: string[] }>(
+        tx,
+        `SELECT c.name, COALESCE(array_agg(p.name ORDER BY p.name) FILTER (WHERE p.id IS NOT NULL), '{}') AS items
+           FROM categories c LEFT JOIN products p ON p.category_id = c.id AND p.active
+          WHERE c.active GROUP BY c.id ORDER BY c.position, c.name LIMIT 20`,
+      );
+      return {
+        name: tenantName,
+        about: s?.about ?? null,
+        city: s?.city ?? null,
+        state: s?.state ?? null,
+        acceptsDelivery: s?.accepts_delivery ?? true,
+        acceptsPickup: s?.accepts_pickup ?? true,
+        etaMin: s?.eta_min ?? 30,
+        etaMax: s?.eta_max ?? 50,
+        categories: categories.map((c) => ({ name: c.name, items: c.items.slice(0, 15) })),
+      };
+    });
+    const base = defaultSiteCopy(facts);
+    let copy = base;
+    let withAi = false;
+    if ((await this.status(ctx)).enabled) {
+      try {
+        const { client } = await this.ready(ctx);
+        const model = this.env.AI_IMPORT_MODEL;
+        const result = await client.complete(
+          model,
+          [
+            { role: 'system', content: SITE_PAGE_PROMPT },
+            { role: 'user', content: JSON.stringify(facts) },
+          ],
+          { json: true, maxTokens: 1200, signal: AbortSignal.timeout(60_000) },
+        );
+        await this.db.withCentral(ctx, (tx) =>
+          recordAiUsage(tx, {
+            userId: ctx.userId,
+            model,
+            usage: result.usage,
+            source: 'site_page',
+          }),
+        );
+        copy = readSiteCopy(result.text, base);
+        withAi = true;
+      } catch (e) {
+        // Sem IA agora: a página nasce com o texto padrão e pode ser refeita depois.
+        this.logger.warn(`página do restaurante sem IA: ${(e as Error).message}`);
+      }
+    }
+    await this.db.withTenant(ctx, (tx) =>
+      q(
+        tx,
+        `INSERT INTO tenant_store_settings (tenant_id, site, site_updated_at) VALUES ($1, $2, now())
+         ON CONFLICT (tenant_id) DO UPDATE SET site = EXCLUDED.site, site_updated_at = now()`,
+        [ctx.tenantId, JSON.stringify(copy)],
+      ),
+    );
+    return { copy, withAi };
   }
 
   /**

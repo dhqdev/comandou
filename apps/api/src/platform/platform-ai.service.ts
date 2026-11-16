@@ -75,6 +75,7 @@ const SOURCE_LABEL: Record<string, string> = {
   esteira: 'Esteira de chamados',
   teste: 'Teste no painel',
   menu_import: 'Importar cardápio',
+  site_page: 'Página do restaurante',
   site_ia: 'Sites com IA (comandou.com)',
 };
 
@@ -351,9 +352,9 @@ export class PlatformAiService {
         )
         .catch(() => []),
       this.db
-        .query<{ ok: boolean }>(
-          `SELECT secret_enc IS NOT NULL AS ok FROM platform_backup_settings WHERE id`,
-        )
+        .query<{
+          ok: boolean;
+        }>(`SELECT secret_enc IS NOT NULL AS ok FROM platform_backup_settings WHERE id`)
         .catch(() => []),
       this.db
         .query<{ ok: boolean; url: boolean }>(
@@ -362,9 +363,9 @@ export class PlatformAiService {
         )
         .catch(() => []),
       this.db
-        .query<{ ok: boolean }>(
-          `SELECT github_token_enc IS NOT NULL AS ok FROM platform_pipeline_settings WHERE id`,
-        )
+        .query<{
+          ok: boolean;
+        }>(`SELECT github_token_enc IS NOT NULL AS ok FROM platform_pipeline_settings WHERE id`)
         .catch(() => []),
     ]);
     const r = await this.row();

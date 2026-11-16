@@ -3,6 +3,7 @@ import {
   ArrowDown,
   ArrowUp,
   ExternalLink,
+  Globe,
   ImagePlus,
   Link2,
   Pencil,
@@ -33,6 +34,7 @@ import { ImagePicker } from '../features/ImagePicker';
 import { LoyaltyPanel } from '../features/LoyaltyPanel';
 import { SlideTabs } from '../features/SlideTabs';
 import { StoreSettingsCard } from '../features/StoreSettingsCard';
+import { openSitePage, SitePageCard } from '../features/SitePageCard';
 import { PixSettingsCard } from '../features/PixSettingsCard';
 import { OnlinePaySettingsCard } from '../features/OnlinePaySettingsCard';
 import { api, Category, Product } from '../lib/api';
@@ -44,7 +46,14 @@ import './online-store.css';
 import { TourButton } from '../features/tour/PageTour';
 
 type Tab =
-  'aparencia' | 'banners' | 'destaques' | 'fidelidade' | 'funcionamento' | 'pix' | 'pagamentos';
+  | 'aparencia'
+  | 'pagina'
+  | 'banners'
+  | 'destaques'
+  | 'fidelidade'
+  | 'funcionamento'
+  | 'pix'
+  | 'pagamentos';
 const BADGES = ['Novo', 'Mais vendido', 'Picante', 'Vegano', 'Promoção', 'Do chef'];
 
 function Toggle({
@@ -669,6 +678,7 @@ export function OnlineStorePage() {
     if (
       [
         'aparencia',
+        'pagina',
         'banners',
         'destaques',
         'fidelidade',
@@ -743,6 +753,9 @@ export function OnlineStorePage() {
           >
             Copiar link
           </Button>
+          <Button variant="secondary" icon={<Globe size={16} />} onClick={openSitePage}>
+            Página do restaurante
+          </Button>
           <a className="cm-btn cm-btn--primary" href="/pedir" target="_blank" rel="noreferrer">
             <ExternalLink size={16} /> Abrir cardápio
           </a>
@@ -757,6 +770,7 @@ export function OnlineStorePage() {
             onChange={(v) => setTab(v as Tab)}
             tabs={[
               { value: 'aparencia', label: 'Aparência' },
+              { value: 'pagina', label: 'Página' },
               { value: 'banners', label: 'Banners' },
               { value: 'destaques', label: 'Destaques' },
               { value: 'fidelidade', label: 'Fidelidade' },
@@ -769,6 +783,7 @@ export function OnlineStorePage() {
             {tab === 'aparencia' && (
               <AppearanceTab onSaved={refresh} onDraft={onDraft} canManage={canManage} />
             )}
+            {tab === 'pagina' && <SitePageCard canManage={canManage} />}
             {tab === 'banners' && (
               <BannersTab onSaved={refresh} products={sorted} categories={categories} />
             )}

@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.140.0',
+    date: '2026-11-16',
+    title: 'Página do restaurante criada pela IA',
+    summary:
+      'Cada restaurante ganhou uma página de apresentação em seu endereço com /site. A IA escreve os textos no fim dos primeiros passos, com o que foi cadastrado; a página mostra logo, cores, alguns itens, endereço, horário e o botão para pedir.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Página do restaurante (landing page) em seurestaurante.comandou.com/site: título, frase, destaques, sobre, itens do cardápio, endereço com mapa, horário, WhatsApp e o botão que leva ao cardápio online.',
+      },
+      {
+        tag: 'novo',
+        text: 'Primeiros passos: no fim da conversa a IA cria a página com o que foi cadastrado. Sem IA disponível, a página nasce com um texto padrão montado com os mesmos dados.',
+      },
+      {
+        tag: 'novo',
+        text: 'PDV: botão do globo no topo abre a página do restaurante. Em Loja online, a aba Página permite corrigir os textos à mão ou refazer com a IA.',
+      },
+    ],
+  },
+  {
     version: '0.139.0',
     date: '2026-11-16',
     title: 'App do entregador com abas, corridas para pegar e score',

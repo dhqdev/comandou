@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   ExternalLink,
+  Globe,
   HandPlatter,
   Link2,
   ListFilter,
@@ -525,6 +526,14 @@ export function PdvPage() {
             {store.isOpen ? 'Loja aberta' : 'Loja fechada'}
           </label>
         )}
+        <button
+          className="pdv__icon"
+          aria-label="Abrir a página do restaurante"
+          title="Abrir a página do restaurante"
+          onClick={() => window.open('/site', '_blank', 'noopener')}
+        >
+          <Globe size={17} />
+        </button>
         <button
           className="pdv__icon"
           aria-label="Abrir o cardápio online"

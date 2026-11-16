@@ -11,6 +11,10 @@ import { useSiteHost } from '../site/host';
 
 // Cada tela vira um arquivo separado no build (o app abre mais rápido, principalmente no celular).
 // O cardápio do cliente não baixa nada do sistema da equipe (StaffApp).
+const RestaurantSite = lazyPage(
+  () => import('../pages/site/RestaurantSite'),
+  (m) => m.RestaurantSite,
+);
 const StaffApp = lazyPage(
   () => import('./StaffApp'),
   (m) => m.StaffApp,
@@ -103,6 +107,8 @@ export function App() {
             {/* Rastreio público do cliente final: fora do login. */}
             <Route path="/rastreio/:token" element={<TrackingPage />} />
             {/* Cardápio online e acompanhamento do pedido do cliente final: fora do login. */}
+            {/* Página do restaurante (landing page criada pela IA nos primeiros passos). */}
+            <Route path="/site" element={<RestaurantSite />} />
             <Route path="/pedir/*" element={<StoreApp />} />
             <Route path="/pedido/:token" element={<PublicOrderPage />} />
             {/* Link do entregador (sem login) e QR Code colado na mesa. */}

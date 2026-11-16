@@ -120,6 +120,19 @@ export class MenuImportController {
     res.end(img.body);
   }
 
+  /** Página do restaurante (/site): a IA escreve os textos com o cadastro da loja e o cardápio. */
+  @Post('site-page')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 6 } })
+  @RequirePermission('settings:manage')
+  sitePage(
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.service.sitePage(ctxOf(t, u, req), t.name);
+  }
+
   /** O site montado pela IA no comandou.com (teste criado pelo site). */
   @Get('site-draft')
   @RequirePermission('settings:manage')

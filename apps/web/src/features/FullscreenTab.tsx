@@ -25,7 +25,15 @@ export function useFullscreen() {
 }
 
 /** Telas do cliente final (cardápio online, rastreio, preços): ficam sem a aba. */
-const PUBLIC_PREFIXES = ['/pedir', '/pedido/', '/rastreio/', '/mesa/', '/precos', '/preços'];
+const PUBLIC_PREFIXES = [
+  '/pedir',
+  '/pedido/',
+  '/rastreio/',
+  '/mesa/',
+  '/precos',
+  '/preços',
+  '/site',
+];
 
 export function isPublicPath(pathname: string) {
   let path = pathname;

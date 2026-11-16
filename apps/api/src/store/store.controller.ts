@@ -11,6 +11,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   Res,
@@ -35,6 +36,7 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 import { cookieOf, CUSTOMER_COOKIE, CustomersService } from './customers.service';
 import { checkReceipt, PixService } from './pix.service';
 import { linkPreviewHtml, previewPath } from './link-preview';
+import { SiteCopy } from '../chat/site-page';
 import {
   CORNER_STYLES,
   FONT_STYLES,
@@ -497,6 +499,25 @@ export class StoreController {
   ) {
     const f = checkReceipt(body, type);
     return this.pix.submit(t.id, { token }, { ...f, width, height }, req.ip);
+  }
+
+  /** Página do restaurante (<endereço>/site): pública, mesmo com o cardápio online desligado. */
+  @Public()
+  @Throttle({ default: { ttl: 60_000, limit: 120 } })
+  @Get('site')
+  site(@CurrentTenant() t: ResolvedTenant) {
+    return this.store.publicSite(t.id, t.name);
+  }
+
+  @Put('site')
+  @RequirePermission('settings:manage')
+  saveSite(
+    @Body(new ZodPipe(SiteCopy)) b: SiteCopy,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.store.saveSite(ctxOf(t, u, req), b);
   }
 
   @Get('settings')

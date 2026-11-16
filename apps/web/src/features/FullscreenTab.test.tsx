@@ -11,11 +11,21 @@ describe('isPublicPath', () => {
       '/mesa/3',
       '/precos',
       '/pre%C3%A7os',
+      '/site',
     ])
       expect(isPublicPath(p)).toBe(true);
   });
   it('mostra a aba nas telas do sistema', () => {
-    for (const p of ['/', '/pdv', '/pedidos', '/cardapio', '/garcom/mesas', '/cozinha', '/precosx'])
+    for (const p of [
+      '/',
+      '/pdv',
+      '/pedidos',
+      '/cardapio',
+      '/garcom/mesas',
+      '/cozinha',
+      '/precosx',
+      '/sites',
+    ])
       expect(isPublicPath(p)).toBe(false);
   });
 });
