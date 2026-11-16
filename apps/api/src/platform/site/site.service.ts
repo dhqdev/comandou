@@ -30,6 +30,8 @@ import { mapsPlaceName } from '../../common/maps-link';
 import { trialSlug } from './site-util';
 import { welcomeEmail } from './welcome-email';
 import { SiteAiService } from './site-ai.service';
+import { CUSTOMER_EMAIL_SECRET_CONTEXT } from '../../store/customer-mail.service';
+import { resetEmail } from '../../store/reset-email';
 
 const SECRET_CONTEXT = 'site:trial';
 /** O link que abre o restaurante novo já logado vale este tempo depois do cadastro. */
@@ -43,6 +45,8 @@ interface SettingsRow {
   daily_limit: number;
   email_webhook_url: string;
   email_token_enc: Buffer | null;
+  customer_email_webhook_url: string;
+  customer_email_token_enc: Buffer | null;
 }
 
 interface PendingRow {
@@ -107,7 +111,8 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
 
   private async settingsRow(): Promise<SettingsRow> {
     const [s] = await this.db.query<SettingsRow>(
-      `SELECT signup_enabled, daily_limit, email_webhook_url, email_token_enc
+      `SELECT signup_enabled, daily_limit, email_webhook_url, email_token_enc,
+              customer_email_webhook_url, customer_email_token_enc
          FROM platform_site_settings WHERE id`,
     );
     return s!;
@@ -452,21 +457,24 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   /** Chama o webhook do n8n. Devolve o erro (ou null se saiu). Nunca registra a senha. */
-  private async postWebhook(s: SettingsRow, body: Record<string, unknown>): Promise<string | null> {
+  private async postWebhook(
+    s: SettingsRow,
+    body: Record<string, unknown>,
+    target: 'welcome' | 'customer' = 'welcome',
+  ): Promise<string | null> {
+    const url = target === 'customer' ? s.customer_email_webhook_url : s.email_webhook_url;
+    const tokenEnc = target === 'customer' ? s.customer_email_token_enc : s.email_token_enc;
+    const context = target === 'customer' ? CUSTOMER_EMAIL_SECRET_CONTEXT : SECRET_CONTEXT;
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (s.email_token_enc && this.env.INTEGRATIONS_KEY) {
+    if (tokenEnc && this.env.INTEGRATIONS_KEY) {
       try {
-        headers['X-Comandou-Token'] = open(
-          this.env.INTEGRATIONS_KEY,
-          s.email_token_enc,
-          SECRET_CONTEXT,
-        );
+        headers['X-Comandou-Token'] = open(this.env.INTEGRATIONS_KEY, tokenEnc, context);
       } catch {
         return 'O segredo do webhook precisa ser salvo de novo';
       }
     }
     try {
-      const res = await fetch(s.email_webhook_url, {
+      const res = await fetch(url, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
@@ -537,12 +545,14 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
       dailyLimit: s.daily_limit,
       emailWebhookUrl: s.email_webhook_url,
       emailTokenSet: !!s.email_token_enc,
+      customerEmailWebhookUrl: s.customer_email_webhook_url,
+      customerEmailTokenSet: !!s.customer_email_token_enc,
       siteUrl: this.siteUrl(),
     };
   }
 
   async saveSettings(b: SiteSettingsInput, a: Actor) {
-    if (b.emailToken && !this.env.INTEGRATIONS_KEY)
+    if ((b.emailToken || b.customerEmailToken) && !this.env.INTEGRATIONS_KEY)
       throw new UnprocessableEntityException('Defina a INTEGRATIONS_KEY para guardar o segredo');
     await this.db.tx(async (c) => {
       await c.query(
@@ -550,6 +560,9 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
             SET signup_enabled = $1, daily_limit = $2, email_webhook_url = $3,
                 email_token_enc = CASE WHEN $4::boolean THEN NULL
                                        WHEN $5::bytea IS NOT NULL THEN $5 ELSE email_token_enc END,
+                customer_email_webhook_url = COALESCE($6, customer_email_webhook_url),
+                customer_email_token_enc = CASE WHEN $7::boolean THEN NULL
+                                       WHEN $8::bytea IS NOT NULL THEN $8 ELSE customer_email_token_enc END,
                 updated_at = now()
           WHERE id`,
         [
@@ -558,6 +571,11 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
           b.emailWebhookUrl,
           b.emailToken === '',
           b.emailToken ? seal(this.env.INTEGRATIONS_KEY!, b.emailToken, SECRET_CONTEXT) : null,
+          b.customerEmailWebhookUrl ?? null,
+          b.customerEmailToken === '',
+          b.customerEmailToken
+            ? seal(this.env.INTEGRATIONS_KEY!, b.customerEmailToken, CUSTOMER_EMAIL_SECRET_CONTEXT)
+            : null,
         ],
       );
       await platformAudit(c, {
@@ -568,6 +586,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
           signupEnabled: b.signupEnabled,
           dailyLimit: b.dailyLimit,
           webhook: !!b.emailWebhookUrl,
+          customerWebhook: !!b.customerEmailWebhookUrl,
         },
         ip: a.ip,
       });
@@ -605,6 +624,42 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
     });
     if (error) throw new UnprocessableEntityException(error);
     return { ok: true };
+  }
+
+  /** E-mail de exemplo com o código de nova senha, pelo webhook dos clientes. */
+  async testCustomerEmail(to: string) {
+    const s = await this.settingsRow();
+    if (!s.customer_email_webhook_url)
+      throw new UnprocessableEntityException('Salve o endereço do webhook antes de testar');
+    const error = await this.postWebhook(
+      s,
+      {
+        event: 'customer.test',
+        to,
+        toName: 'Teste',
+        fromName: 'Seu Restaurante',
+        restaurant: 'Seu Restaurante',
+        ...resetEmail({
+          restaurant: 'Seu Restaurante',
+          customerName: 'Teste',
+          code: '123456',
+          minutes: 15,
+        }),
+      },
+      'customer',
+    );
+    if (error) throw new UnprocessableEntityException(error);
+    return { ok: true };
+  }
+
+  /** Prévia do e-mail com o código de nova senha do cliente (sai com o nome do restaurante). */
+  customerEmailPreview() {
+    return resetEmail({
+      restaurant: 'Fumaça Burger & Co.',
+      customerName: 'Marina Souza',
+      code: '482915',
+      minutes: 15,
+    }).html;
   }
 
   /** Prévia do e-mail (HTML) para o painel mostrar. */

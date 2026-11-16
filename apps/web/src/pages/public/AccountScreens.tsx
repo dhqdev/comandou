@@ -879,7 +879,7 @@ export function PasswordScreen() {
   );
 }
 
-/** Esqueci minha senha: código pelo WhatsApp da loja e nova senha. */
+/** Esqueci minha senha: código pelo WhatsApp da loja ou pelo e-mail da conta, e nova senha. */
 export function ForgotPasswordScreen() {
   const { menu, setAccount } = useStore();
   const navigate = useNavigate();
@@ -889,22 +889,29 @@ export function ForgotPasswordScreen() {
   const [step, setStep] = useState<'phone' | 'code'>('phone');
   const [form, setForm] = useState({ phone: prefill, code: '', password: '' });
   const [viaStore, setViaStore] = useState(false);
+  const [sentTo, setSentTo] = useState<'whatsapp' | 'email'>('whatsapp');
   const { busy, error, run } = useAsync();
   const wa = menu.restaurant.whatsapp?.replace(/\D/g, '');
 
   async function ask(e: FormEvent) {
     e.preventDefault();
     const r = await run(() =>
-      api<{ channel: 'whatsapp' | 'restaurant' }>('/store/account/password/forgot', {
+      api<{ channel: 'whatsapp' | 'email' | 'restaurant' }>('/store/account/password/forgot', {
         method: 'POST',
         json: { phone: form.phone },
       }),
     );
     if (!r) return;
     setViaStore(r.channel === 'restaurant');
-    if (r.channel === 'whatsapp') {
+    if (r.channel !== 'restaurant') {
+      setSentTo(r.channel);
       setStep('code');
-      toast('Código enviado para o seu WhatsApp', 'success');
+      toast(
+        r.channel === 'whatsapp'
+          ? 'Código enviado para o seu WhatsApp'
+          : 'Código enviado para o e-mail da sua conta',
+        'success',
+      );
     }
   }
   async function reset(e: FormEvent) {
@@ -946,7 +953,8 @@ export function ForgotPasswordScreen() {
         step === 'phone' ? (
           <form className="auth__form" onSubmit={ask}>
             <p className="form-hint">
-              Informe o celular da sua conta. Enviamos um código de 6 dígitos pelo WhatsApp.
+              Informe o celular da sua conta. Enviamos um código de 6 dígitos pelo WhatsApp ou para
+              o e-mail cadastrado na conta.
             </p>
             <Field label="Celular (WhatsApp)">
               <input
@@ -966,8 +974,24 @@ export function ForgotPasswordScreen() {
         ) : (
           <form className="auth__form" onSubmit={reset}>
             <p className="form-hint">
+              {sentTo === 'email' && !viaStore
+                ? 'Enviamos o código para o e-mail cadastrado na conta (olhe também o spam). '
+                : ''}
               Digite o código recebido e escolha a nova senha. O código vale por 15 minutos.
             </p>
+            {sentTo === 'email' && !viaStore && wa && (
+              <p className="form-hint">
+                Não chegou? A conta pode estar sem e-mail.{' '}
+                <a
+                  href={`https://wa.me/${wa.length <= 11 ? `55${wa}` : wa}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Fale com o restaurante
+                </a>{' '}
+                e peça o código.
+              </p>
+            )}
             {viaStore && (
               <Field label="Celular da conta">
                 <input

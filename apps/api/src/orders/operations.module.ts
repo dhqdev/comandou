@@ -42,6 +42,7 @@ import { AccountController, CustomersController } from '../store/account.control
 import { StoreReviewsController } from '../store/reviews.controller';
 import { MenuPixelReportController, StorePixelController } from '../store/pixel.controller';
 import { CustomersService } from '../store/customers.service';
+import { CustomerMailService } from '../store/customer-mail.service';
 import { MediaController, StoreController } from '../store/store.controller';
 import { PixReceiptsController } from '../store/pix.controller';
 import { PixService } from '../store/pix.service';
@@ -129,6 +130,7 @@ import { OrdersService } from './orders.service';
     WhatsAppClient,
     StoreService,
     CustomersService,
+    CustomerMailService,
     ReservationsService,
     LoyaltyService,
     StoreChatService,

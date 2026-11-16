@@ -66,6 +66,25 @@ Corpo que o webhook recebe (JSON):
 Sem webhook configurado o cadastro funciona igual; o login aparece só na tela. A senha inicial
 fica cifrada no banco apenas até o e-mail sair (ou por no máximo 1 hora) e é apagada em seguida.
 
+## Esqueci minha senha do cliente por e-mail
+
+No cardápio online, o "Esqueci minha senha" manda um código de 6 dígitos (vale 15 minutos, uma
+vez só) pelo WhatsApp da loja e, se a conta do cliente tiver e-mail, também por e-mail. Assim
+funciona mesmo na loja sem WhatsApp conectado. Sai um código, não uma senha nova: quem digita o
+celular de outra pessoa não consegue trocar a senha dela.
+
+O e-mail usa um webhook próprio, em Super Admin › Site › **E-mail para os clientes dos
+restaurantes**, com o mesmo cabeçalho `X-Comandou-Token`. Corpo (JSON):
+
+| Campo | O que é |
+| --- | --- |
+| `event` | `customer.password_reset` (cliente pediu) ou `customer.test` (botão de teste) |
+| `to`, `toName` | e-mail e nome do cliente |
+| `fromName`, `restaurant` | nome do restaurante (use como nome do remetente) |
+| `subject`, `html`, `text` | e-mail pronto |
+
+Sem esse webhook, o código continua só pelo WhatsApp da loja (ou a equipe gera em Clientes).
+
 ## Site com IA
 
 Com uma chave do OpenRouter, o site monta a loja do restaurante com IA na hora em que a pessoa

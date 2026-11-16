@@ -128,6 +128,20 @@ export class PlatformSiteController {
   emailPreview() {
     return this.svc.emailPreview();
   }
+
+  @Post('customer-test-email')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 6 } })
+  testCustomer(@Body(new ZodPipe(TestEmailBody)) b: z.infer<typeof TestEmailBody>) {
+    return this.svc.testCustomerEmail(b.to);
+  }
+
+  @Get('customer-email-preview')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  @Header('Cache-Control', 'no-store')
+  customerEmailPreview() {
+    return this.svc.customerEmailPreview();
+  }
 }
 
 /** Super Admin › Sites com IA: chave, modelo, limites de tokens e o consumo de cada site. */

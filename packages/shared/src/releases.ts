@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.135.0',
+    date: '2026-11-16',
+    title: 'Esqueci minha senha também por e-mail',
+    summary:
+      'No cardápio online, quem esqueceu a senha recebe o código também no e-mail da conta, com o nome do restaurante. Funciona mesmo quando a loja não tem o WhatsApp conectado.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Esqueci minha senha: o código de 6 dígitos vai para o e-mail cadastrado na conta do cliente, pelo n8n, além do WhatsApp da loja quando ele está conectado.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Sai um código, nunca uma senha nova: a senha só muda quando o dono da conta digita o código. O código vale 15 minutos e só uma vez.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin › Site: campos do webhook de e-mail para os clientes, prévia do e-mail e botão de enviar um código de teste.',
+      },
+    ],
+  },
+  {
     version: '0.134.0',
     date: '2026-11-16',
     title: 'Chat do topo redesenhado e barra do item no lugar',

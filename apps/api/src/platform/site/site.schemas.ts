@@ -45,6 +45,14 @@ export const SiteSettingsBody = z.object({
     .refine((v) => v === '' || /^https?:\/\/\S+$/i.test(v), 'Endereço do webhook inválido'),
   /** Ausente: mantém; vazio: apaga; texto: troca. */
   emailToken: z.string().trim().max(200).optional(),
+  /** Webhook dos e-mails para os clientes dos restaurantes (código de nova senha). Ausente: mantém. */
+  customerEmailWebhookUrl: z
+    .string()
+    .trim()
+    .max(500)
+    .refine((v) => v === '' || /^https?:\/\/\S+$/i.test(v), 'Endereço do webhook inválido')
+    .optional(),
+  customerEmailToken: z.string().trim().max(200).optional(),
 });
 export type SiteSettingsInput = z.infer<typeof SiteSettingsBody>;
 

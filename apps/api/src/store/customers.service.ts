@@ -19,6 +19,8 @@ import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
 import { ENV, Env } from '../config/env';
 import { DatabaseService, Tx } from '../database/database.service';
+import { CustomerMailService } from './customer-mail.service';
+import { resetEmail } from './reset-email';
 import { MessagingService } from '../messaging/messaging.service';
 
 export const CUSTOMER_COOKIE = 'cm_cid';
@@ -99,6 +101,7 @@ export class CustomersService {
     private readonly audit: AuditService,
     private readonly messaging: MessagingService,
     @Inject(ENV) private readonly env: Env,
+    private readonly mail: CustomerMailService,
   ) {}
 
   private async newSession(tx: Tx, tenantId: string, customerId: string, userAgent?: string) {
@@ -399,7 +402,7 @@ export class CustomersService {
     tx: Tx,
     tenantId: string,
     customerId: string,
-    channel: 'whatsapp' | 'staff',
+    channel: 'whatsapp' | 'email' | 'staff',
     by?: string | null,
   ) {
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
@@ -419,29 +422,40 @@ export class CustomersService {
   }
 
   /**
-   * Pede o código pelo WhatsApp da loja. A resposta é a mesma exista a conta ou não (ninguém
-   * descobre quem tem conta): diz só se a loja manda código pelo WhatsApp ou se é preciso falar
-   * com o restaurante.
+   * Pede o código pelo WhatsApp da loja e/ou pelo e-mail da conta (webhook do n8n, para a loja sem
+   * WhatsApp conectado). Manda um código, nunca uma senha nova: quem digita o celular de outra
+   * pessoa não troca a senha dela. A resposta é a mesma exista a conta ou não (ninguém descobre
+   * quem tem conta): diz só por onde a loja manda o código ou se é preciso falar com o restaurante.
    */
   async requestReset(tenantId: string, tenantName: string, phoneRaw: string, ip?: string) {
     const phone = normalizePhone(phoneRaw);
+    const emailReady = await this.mail.ready();
     const r = await this.db.withTenant({ tenantId }, async (tx) => {
       const canSend = await this.messaging.canSendCode(tx);
-      if (!canSend || !phoneOk(phone)) return { canSend, code: null };
-      const c = await one<{ id: string; blocked: boolean; recent: number }>(
+      if ((!canSend && !emailReady) || !phoneOk(phone)) return { canSend, code: null };
+      const c = await one<{
+        id: string;
+        name: string;
+        email: string | null;
+        recent: number;
+        blocked: boolean;
+      }>(
         tx,
-        `SELECT c.id, c.blocked_at IS NOT NULL AS blocked,
+        `SELECT c.id, c.name, c.email::text AS email, c.blocked_at IS NOT NULL AS blocked,
                 (SELECT count(*)::int FROM customer_password_resets r
                   WHERE r.customer_id = c.id AND r.created_at > now() - interval '1 hour') AS recent
            FROM customers c WHERE c.phone = $1`,
         [phone],
       );
       if (!c || c.blocked) return { canSend, code: null };
+      // Sem WhatsApp e sem e-mail na conta: não há por onde mandar.
+      const email = emailReady ? c.email : null;
+      if (!canSend && !email) return { canSend, code: null };
       if (c.recent >= RESET_PER_HOUR)
         throw new ThrottlerException(
           'Você já pediu vários códigos. Use o último que chegou ou aguarde uma hora.',
         );
-      const code = await this.newResetCode(tx, tenantId, c.id, 'whatsapp');
+      const code = await this.newResetCode(tx, tenantId, c.id, canSend ? 'whatsapp' : 'email');
       await this.audit.record(tx, {
         tenantId,
         action: 'customer.password_reset_requested',
@@ -449,14 +463,34 @@ export class CustomersService {
         entityId: c.id,
         ip,
       });
-      return { canSend, code };
+      return { canSend, code, email, name: c.name };
     });
-    if (!r.canSend) return { channel: 'restaurant' as const };
-    if (r.code && !(await this.messaging.sendCode(tenantId, phone, r.code, tenantName)))
-      throw new ServiceUnavailableException(
-        'Não conseguimos mandar o código pelo WhatsApp agora. Tente de novo ou fale com o restaurante.',
-      );
-    return { channel: 'whatsapp' as const };
+    if (!r.canSend && !emailReady) return { channel: 'restaurant' as const };
+    if (r.code) {
+      const [wa, mail] = await Promise.all([
+        r.canSend ? this.messaging.sendCode(tenantId, phone, r.code, tenantName) : false,
+        r.email
+          ? this.mail.send({
+              event: 'customer.password_reset',
+              to: r.email,
+              toName: r.name,
+              fromName: tenantName,
+              restaurant: tenantName,
+              ...resetEmail({
+                restaurant: tenantName,
+                customerName: r.name,
+                code: r.code,
+                minutes: RESET_TTL_MIN,
+              }),
+            })
+          : false,
+      ]);
+      if (!wa && !mail)
+        throw new ServiceUnavailableException(
+          'Não conseguimos mandar o código agora. Tente de novo ou fale com o restaurante.',
+        );
+    }
+    return { channel: r.canSend ? ('whatsapp' as const) : ('email' as const) };
   }
 
   /** Confere o código, troca a senha, encerra as outras sessões e abre uma nova neste aparelho. */

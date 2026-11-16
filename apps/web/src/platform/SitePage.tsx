@@ -15,6 +15,9 @@ interface SiteSettings {
   dailyLimit: number;
   emailWebhookUrl: string;
   emailTokenSet: boolean;
+  /** Webhook dos e-mails para os clientes dos restaurantes (código de nova senha). */
+  customerEmailWebhookUrl: string;
+  customerEmailTokenSet: boolean;
   siteUrl: string;
 }
 
@@ -97,13 +100,19 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
     dailyLimit: String(settings.dailyLimit),
     emailWebhookUrl: settings.emailWebhookUrl,
     emailToken: '',
+    customerEmailWebhookUrl: settings.customerEmailWebhookUrl,
+    customerEmailToken: '',
   });
   const [busy, setBusy] = useState(false);
   const [to, setTo] = useState('');
-  const [sending, setSending] = useState(false);
+  const [sending, setSending] = useState<'welcome' | 'customer' | null>(null);
   useEffect(() => {
-    setF((cur) => ({ ...cur, emailWebhookUrl: settings.emailWebhookUrl }));
-  }, [settings.emailWebhookUrl]);
+    setF((cur) => ({
+      ...cur,
+      emailWebhookUrl: settings.emailWebhookUrl,
+      customerEmailWebhookUrl: settings.customerEmailWebhookUrl,
+    }));
+  }, [settings.emailWebhookUrl, settings.customerEmailWebhookUrl]);
 
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -116,10 +125,12 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
           dailyLimit: Number(f.dailyLimit) || 40,
           emailWebhookUrl: f.emailWebhookUrl.trim(),
           ...(f.emailToken ? { emailToken: f.emailToken } : {}),
+          customerEmailWebhookUrl: f.customerEmailWebhookUrl.trim(),
+          ...(f.customerEmailToken ? { customerEmailToken: f.customerEmailToken } : {}),
         },
       });
       toast('Site salvo', 'success');
-      setF((cur) => ({ ...cur, emailToken: '' }));
+      setF((cur) => ({ ...cur, emailToken: '', customerEmailToken: '' }));
       onSaved();
     } catch (err) {
       toast((err as Error).message, 'danger');
@@ -128,15 +139,21 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
     }
   }
 
-  async function test() {
-    setSending(true);
+  async function test(kind: 'welcome' | 'customer') {
+    setSending(kind);
     try {
-      await api('/platform/site/test-email', { method: 'POST', json: { to: to.trim() } });
+      await api(
+        kind === 'welcome' ? '/platform/site/test-email' : '/platform/site/customer-test-email',
+        {
+          method: 'POST',
+          json: { to: to.trim() },
+        },
+      );
       toast(`E-mail de teste enviado para ${to.trim()}`, 'success');
     } catch (err) {
       toast((err as Error).message, 'danger');
     } finally {
-      setSending(false);
+      setSending(null);
     }
   }
 
@@ -198,6 +215,26 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
               value={f.emailToken}
               onChange={(e) => setF({ ...f, emailToken: e.target.value })}
             />
+            <h3 className="cm-form__section">E-mail para os clientes dos restaurantes (n8n)</h3>
+            <TextField
+              label="Endereço do webhook"
+              wrapClass="cm-form__wide"
+              inputMode="url"
+              placeholder="https://seu-n8n.com/webhook/comandou-clientes"
+              hint="Esqueci minha senha no cardápio: o código vai para o e-mail da conta do cliente, com o nome do restaurante. Vazio: só pelo WhatsApp da loja."
+              value={f.customerEmailWebhookUrl}
+              onChange={(e) => setF({ ...f, customerEmailWebhookUrl: e.target.value })}
+            />
+            <TextField
+              label="Segredo do webhook (opcional)"
+              wrapClass="cm-form__wide"
+              type="password"
+              autoComplete="new-password"
+              placeholder={settings.customerEmailTokenSet ? 'Salvo. Digite para trocar.' : ''}
+              hint="Vai no cabeçalho X-Comandou-Token, para o n8n recusar chamadas de fora."
+              value={f.customerEmailToken}
+              onChange={(e) => setF({ ...f, customerEmailToken: e.target.value })}
+            />
             <div className="cm-form__block" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Button type="submit" loading={busy}>
                 Salvar
@@ -210,18 +247,26 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
               >
                 Ver o e-mail
               </a>
+              <a
+                className="cm-btn cm-btn--secondary"
+                href="/api/v1/platform/site/customer-email-preview"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Ver o e-mail do cliente
+              </a>
             </div>
           </form>
         </Card>
       </Section>
-      {settings.emailWebhookUrl && (
+      {(settings.emailWebhookUrl || settings.customerEmailWebhookUrl) && (
         <Section title="Testar o envio" sub="Manda o e-mail de exemplo pelo webhook salvo">
           <Card>
             <form
               className="cm-form"
               onSubmit={(e) => {
                 e.preventDefault();
-                void test();
+                void test(settings.emailWebhookUrl ? 'welcome' : 'customer');
               }}
             >
               <TextField
@@ -231,16 +276,30 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
               />
-              <div className="cm-form__block">
-                <Button
-                  type="submit"
-                  variant="secondary"
-                  loading={sending}
-                  disabled={!/^\S+@\S+\.\S+$/.test(to.trim())}
-                  icon={<Send size={15} />}
-                >
-                  Enviar e-mail de teste
-                </Button>
+              <div className="cm-form__block" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {settings.emailWebhookUrl && (
+                  <Button
+                    type="submit"
+                    variant="secondary"
+                    loading={sending === 'welcome'}
+                    disabled={!/^\S+@\S+\.\S+$/.test(to.trim()) || !!sending}
+                    icon={<Send size={15} />}
+                  >
+                    Enviar boas-vindas de teste
+                  </Button>
+                )}
+                {settings.customerEmailWebhookUrl && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    loading={sending === 'customer'}
+                    disabled={!/^\S+@\S+\.\S+$/.test(to.trim()) || !!sending}
+                    icon={<Send size={15} />}
+                    onClick={() => void test('customer')}
+                  >
+                    Enviar código de teste
+                  </Button>
+                )}
               </div>
             </form>
           </Card>
