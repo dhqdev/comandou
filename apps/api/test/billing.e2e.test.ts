@@ -137,6 +137,13 @@ function asaasHandler(req: IncomingMessage, res: ServerResponse) {
       p.paymentDate = body.paymentDate;
       return send(200, p);
     }
+    if (req.method === 'POST' && (m = url.match(/^\/payments\/([^/]+)\/undoReceivedInCash$/))) {
+      const p = fake.payments.get(m[1]!);
+      if (!p) return send(404, { errors: [{ description: 'não existe' }] });
+      p.status = 'PENDING';
+      p.paymentDate = null;
+      return send(200, p);
+    }
     if ((m = url.match(/^\/payments\/([^/]+)$/))) {
       const p = fake.payments.get(m[1]!);
       if (!p) return send(404, { errors: [{ description: 'não existe' }] });
@@ -507,6 +514,63 @@ describe('Ciclo: 7 dias de teste, pagou +30 dias, não pagou bloqueia', () => {
     expect(Number(now.body.totals.paid)).toBeGreaterThan(0);
     // Mês inválido cai no mês atual.
     expect((await cal('2026-13')).body.month).toBe(spDate().slice(0, 7));
+  });
+
+  it('calendário: marcar como pago à mão e desfazer', async () => {
+    type Item = {
+      tenantId: string;
+      status: string;
+      date: string;
+      invoiceId: string | null;
+      billingType: string | null;
+      kind: string;
+    };
+    const cal = async (m: string) =>
+      (await pget(`/billing/calendar?month=${m}`).expect(200)).body as {
+        live: boolean;
+        items: Item[];
+      };
+    const s0 = await sub(fx.tenantA);
+    const until = s0.current_period_end ?? s0.trial_ends_at!;
+    const due = spDate(until);
+    const later = spDate(new Date(new Date(until).getTime() + 60 * DAY));
+    const today = spDate();
+    expect(typeof (await cal(due.slice(0, 7))).live).toBe('boolean');
+    // Pular uma mensalidade não pode: cada pagamento libera 30 dias.
+    await psend('post', `/billing/tenants/${fx.tenantA}/paid`, { due: later }).expect(409);
+    // Data no futuro não vale.
+    const tomorrow = spDate(new Date(Date.now() + DAY));
+    await psend('post', `/billing/tenants/${fx.tenantA}/paid`, { due, paidOn: tomorrow }).expect(
+      422,
+    );
+    await psend('post', `/billing/tenants/${fx.tenantA}/paid`, { due, paidOn: today }).expect(200);
+    const s1 = await sub(fx.tenantA);
+    expect(s1.current_period_end!.getTime()).toBeGreaterThanOrEqual(
+      new Date(until).getTime() + 30 * DAY - 1000,
+    );
+    // Aparece como recebido hoje, marcado à mão, e o vencimento previsto passa 30 dias para a frente.
+    const now = await cal(today.slice(0, 7));
+    const got = now.items.find(
+      (i) =>
+        i.tenantId === fx.tenantA &&
+        i.kind === 'monthly' &&
+        i.status === 'paid' &&
+        i.billingType === 'MANUAL',
+    );
+    expect(got?.date).toBe(today);
+    // De novo na mesma data: já pago.
+    await psend('post', `/billing/tenants/${fx.tenantA}/paid`, { due }).expect(409);
+    // Desfaz: fatura some, os 30 dias saem e o vencimento volta a ser previsão.
+    await psend('post', `/billing/invoices/${got!.invoiceId}/unpaid`).expect(200);
+    expect((await sub(fx.tenantA)).current_period_end!.getTime()).toBe(
+      s1.current_period_end!.getTime() - 30 * DAY,
+    );
+    const back = await cal(due.slice(0, 7));
+    expect(back.items.find((i) => i.tenantId === fx.tenantA && i.date === due)?.status).toMatch(
+      /forecast|pending/,
+    );
+    // Desfazer de novo não pode.
+    await psend('post', `/billing/invoices/${got!.invoiceId}/unpaid`).expect(409);
   });
 });
 

@@ -170,6 +170,14 @@ export class AsaasClient {
     });
   }
 
+  /** Desfaz no Asaas a baixa por fora (a cobrança volta a "a pagar"). */
+  undoReceivedInCash(id: string) {
+    return this.call<AsaasPayment>(
+      'POST',
+      `/payments/${encodeURIComponent(id)}/undoReceivedInCash`,
+    );
+  }
+
   pixQrCode(id: string) {
     return this.call<{ encodedImage: string; payload: string; expirationDate?: string }>(
       'GET',

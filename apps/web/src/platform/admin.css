@@ -1892,6 +1892,37 @@ button.adm-card:hover {
 .adm-panel > div:first-child > .adm-cal__head {
   border-top: 0;
 }
+.adm-cal__live {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--a-ui);
+  font-size: 12.5px;
+  color: var(--a-subtle);
+}
+.adm-cal__live::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--a-line);
+}
+.adm-cal__live.is-on::before {
+  background: var(--a-ok);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--a-ok) 18%, transparent);
+}
+.adm-cal__row .adm-row__main {
+  color: inherit;
+  text-decoration: none;
+}
+.adm-cal__row .adm-row__main:hover .adm-row__title {
+  text-decoration: underline;
+}
+.adm-cal__row.is-fresh {
+  background: color-mix(in srgb, var(--a-ok) 9%, transparent);
+  transition: background var(--cm-dur-fast) var(--cm-ease);
+}
 .adm-cal__filter {
   padding: 10px 14px;
   border-bottom: 1px solid var(--a-line);
@@ -1899,6 +1930,26 @@ button.adm-card:hover {
   color: var(--a-muted);
 }
 @media (max-width: 860px) {
+  .adm-cal__nav {
+    flex-wrap: wrap;
+  }
+  .adm-cal__live {
+    margin-left: 0;
+    flex-basis: 100%;
+    order: 3;
+  }
+  .adm-cal__row {
+    flex-wrap: wrap;
+  }
+  .adm-cal__row .adm-row__main {
+    flex-basis: calc(100% - 40px);
+  }
+  .adm-cal__row .adm-row__side {
+    margin-left: 22px;
+  }
+  .adm-cal__row .cm-btn {
+    margin-left: auto;
+  }
   .adm-cal {
     gap: 3px;
   }

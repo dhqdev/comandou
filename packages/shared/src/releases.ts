@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.131.0',
+    date: '2026-11-16',
+    title: 'Calendário de cobrança dá baixa sozinho',
+    summary:
+      'No Super Admin, o calendário de recebimentos atualiza sozinho quando o restaurante paga pelo app (Pix, boleto ou cartão do Asaas) e agora tem o botão Marcar como pago, para registrar o que você recebeu por fora.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Cobrança → Calendário de recebimentos: confere sozinho a cada 20 segundos (e quando você volta para a aba). Quem paga pelo Asaas muda para Recebido sem recarregar a página, com aviso e a linha destacada como "Acabou de pagar". No topo do calendário aparece se a baixa sozinha está ligada e a hora da última conferência.',
+      },
+      {
+        tag: 'novo',
+        text: 'Marcar como pago em cada linha do calendário (fatura enviada, vencida ou mensalidade prevista): você escolhe o dia em que o dinheiro entrou e o cliente ganha mais 30 dias. Se a cobrança já estava no Asaas, ela é baixada lá também, para o cliente não pagar duas vezes.',
+      },
+      {
+        tag: 'novo',
+        text: 'Desfazer em pagamento marcado à mão: os 30 dias saem, a cobrança volta a ficar em aberto no Asaas e a mensalidade prevista volta para o calendário.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Aviso no calendário quando o webhook do Asaas não está cadastrado, porque sem ele a baixa não acontece sozinha na hora.',
+      },
+    ],
+  },
+  {
     version: '0.130.0',
     date: '2026-11-16',
     title: 'Cardápio instalado abre no cardápio',

@@ -33,7 +33,9 @@ import {
   BillingService,
   BillingSettingsBody,
   CardBody,
+  ForecastPaidBody,
   ManualInvoiceBody,
+  PaidBody,
 } from './billing.service';
 
 const actor = (req: Request) => ({ admin: req.platformAdmin!, ip: req.ip });
@@ -139,8 +141,30 @@ export class BillingAdminController {
 
   @Post('invoices/:iid/paid')
   @HttpCode(200)
-  paid(@Param('iid', ParseUUIDPipe) iid: string, @Req() req: Request) {
-    return this.svc.markPaid(iid, actor(req));
+  paid(
+    @Param('iid', ParseUUIDPipe) iid: string,
+    @Body(new ZodPipe(PaidBody)) b: z.infer<typeof PaidBody>,
+    @Req() req: Request,
+  ) {
+    return this.svc.markPaid(iid, actor(req), b.paidOn);
+  }
+
+  /** Desfaz um "marcar como pago" feito à mão. */
+  @Post('invoices/:iid/unpaid')
+  @HttpCode(200)
+  unpaid(@Param('iid', ParseUUIDPipe) iid: string, @Req() req: Request) {
+    return this.svc.undoPaid(iid, actor(req));
+  }
+
+  /** Calendário: marca como paga a próxima mensalidade prevista (sem fatura ainda). */
+  @Post('tenants/:id/paid')
+  @HttpCode(200)
+  forecastPaid(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(ForecastPaidBody)) b: z.infer<typeof ForecastPaidBody>,
+    @Req() req: Request,
+  ) {
+    return this.svc.markForecastPaid(id, b, actor(req));
   }
 
   @Post('invoices/:iid/sync')

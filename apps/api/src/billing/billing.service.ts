@@ -62,6 +62,12 @@ export const ManualInvoiceBody = z.object({
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data AAAA-MM-DD'),
 });
 
+const Day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'data AAAA-MM-DD');
+/** Baixa à mão: o dia em que o dinheiro entrou (sem ele, hoje). */
+export const PaidBody = z.object({ paidOn: Day.optional() }).default({});
+/** Baixa à mão de uma mensalidade que ainda era só previsão no calendário. */
+export const ForecastPaidBody = z.object({ paidOn: Day.optional(), due: Day });
+
 interface Actor {
   admin: { id: string; name: string };
   ip?: string;
@@ -373,6 +379,7 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       }
     }
     items.sort((a, b) => a.date.localeCompare(b.date) || a.tenantName.localeCompare(b.tenantName));
+    const s = await this.settingsRow();
     const sum = (st: string) =>
       fromCents(items.filter((i) => i.status === st).reduce((t, i) => t + toCents(i.amount), 0));
     return {
@@ -380,6 +387,9 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       from,
       to,
       today,
+      // Baixa sozinha: cobrança ligada e o aviso (webhook) do Asaas cadastrado.
+      live: s.enabled && !!s.webhook_id,
+      checkedAt: new Date().toISOString(),
       totals: {
         paid: sum('paid'),
         pending: sum('pending'),
@@ -1021,7 +1031,12 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
 
   // ------------------------------------------------------------------ pagamento
   /** Aplica o que o Asaas diz da cobrança (situação, pagamento) na fatura e na assinatura. */
-  private async applyPayment(invoiceId: string, p: AsaasPayment | null, manual?: Actor) {
+  private async applyPayment(
+    invoiceId: string,
+    p: AsaasPayment | null,
+    manual?: Actor,
+    paidOn?: string,
+  ) {
     const status = p ? invoiceStatusOf(p) : 'paid';
     const tenantId = await this.db.tx(async (c) => {
       const inv = (
@@ -1040,7 +1055,9 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
         status === 'paid'
           ? p?.clientPaymentDate || p?.paymentDate || p?.confirmedDate
             ? new Date(`${p.clientPaymentDate || p.paymentDate || p.confirmedDate}T12:00:00-03:00`)
-            : new Date()
+            : paidOn
+              ? new Date(`${paidOn}T12:00:00-03:00`)
+              : new Date()
           : null;
       // Data do pagamento no futuro (fuso) não adianta nada: limita a agora.
       const paid = paidAt && paidAt.getTime() > Date.now() ? new Date() : paidAt;
@@ -1331,8 +1348,20 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
     return this.view(inv.tenant_id, true);
   }
 
+  /** Dia do pagamento informado à mão: não pode ser no futuro nem de mais de um ano atrás. */
+  private paidDay(paidOn?: string) {
+    const today = spDate();
+    if (!paidOn) return today;
+    const min = spDate(addDays(new Date(), -366));
+    if (paidOn > today)
+      throw new UnprocessableEntityException('O pagamento não pode ser no futuro');
+    if (paidOn < min) throw new UnprocessableEntityException('Data do pagamento muito antiga');
+    return paidOn;
+  }
+
   /** Pagamento recebido fora do Asaas (dinheiro, transferência): libera como se fosse pago. */
-  async markPaid(id: string, a: Actor) {
+  async markPaid(id: string, a: Actor, paidOn?: string) {
+    const day = this.paidDay(paidOn);
     const inv = await this.invoiceOf(id);
     if (!['pending', 'overdue'].includes(inv.status))
       throw new ConflictException('Só fatura em aberto pode ser baixada');
@@ -1342,15 +1371,155 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       const s = await this.settingsRow();
       try {
         await this.client(s).receiveInCash(inv.provider_id, {
-          paymentDate: spDate(),
+          paymentDate: day,
           value: Number(inv.amount),
         });
       } catch (e) {
         this.logger.warn(`baixa no Asaas da fatura ${id} falhou: ${(e as Error).message}`);
       }
     }
-    const tenantId = await this.applyPayment(id, null, a);
+    const tenantId = await this.applyPayment(id, null, a, day);
     return this.view(tenantId, true);
+  }
+
+  /**
+   * Calendário → "Marcar como pago" numa mensalidade que ainda era previsão (sem fatura): cria a
+   * fatura do período, já paga à mão, sem mandar cobrança ao Asaas. Só vale para o próximo
+   * vencimento do cliente; se já existe fatura em aberto desse período, dá baixa nela.
+   */
+  async markForecastPaid(tenantId: string, b: z.infer<typeof ForecastPaidBody>, a: Actor) {
+    const day = this.paidDay(b.paidOn);
+    const s = await this.settingsRow();
+    const [sub] = await this.db.query<SubRow>(`${SUB_SQL} AND s.tenant_id = $1`, [tenantId]);
+    if (!sub) throw new NotFoundException('Restaurante sem assinatura');
+    const until = accessUntil({
+      status: sub.status,
+      trialEndsAt: sub.trial_ends_at,
+      currentPeriodEnd: sub.current_period_end,
+    });
+    if (!until)
+      throw new ConflictException('Cliente sem vencimento: gere a cobrança na aba Assinatura');
+    const today = spDate();
+    const next = spDate(until);
+    // Vencimento já passou sem fatura: o calendário mostra o próximo a partir de hoje.
+    const shown = next < today ? forecastDueDates(until, today, b.due, today)[0] : next;
+    if (b.due !== next && b.due !== shown)
+      throw new ConflictException(
+        `Dê baixa primeiro na mensalidade de ${dateBR(until)}: cada pagamento libera 30 dias`,
+      );
+    const [open] = await this.db.query<{ id: string }>(
+      `SELECT id FROM billing_invoices
+        WHERE subscription_id = $1 AND kind = 'monthly' AND period_start = $2
+          AND status IN ('pending', 'overdue')`,
+      [sub.id, until],
+    );
+    if (open) return this.markPaid(open.id, a, day);
+    const next30 = addDays(until, BILLING_PERIOD_DAYS);
+    const plan =
+      sub.scheduled_plan_id && sub.scheduled_price && toCents(sub.scheduled_price) > 0
+        ? { id: sub.scheduled_plan_id, name: sub.scheduled_plan_name!, price: sub.scheduled_price }
+        : { id: sub.plan_id, name: sub.plan_name, price: sub.price_monthly };
+    if (toCents(plan.price) <= 0) throw new ConflictException('Plano sem mensalidade');
+    const r = await this.db.query<{ id: string }>(
+      `INSERT INTO billing_invoices (tenant_id, subscription_id, kind, plan_id, description, amount,
+                                     period_start, due_date, environment, created_by, data)
+       VALUES ($1, $2, 'monthly', $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (subscription_id, period_start)
+         WHERE kind = 'monthly' AND status NOT IN ('cancelled', 'refunded') DO NOTHING
+       RETURNING id`,
+      [
+        tenantId,
+        sub.id,
+        plan.id,
+        `Comandou · Plano ${plan.name} · 30 dias (${dateBR(until)} a ${dateBR(next30)})`.slice(
+          0,
+          200,
+        ),
+        plan.price,
+        until,
+        next,
+        s.environment,
+        a.admin.id,
+        JSON.stringify({ planName: plan.name, calendar: true }),
+      ],
+    );
+    if (!r[0]) throw new ConflictException('A mensalidade deste período já foi paga');
+    await this.applyPayment(r[0].id, null, a, day);
+    return { ok: true };
+  }
+
+  /**
+   * Desfaz uma baixa feita à mão (clicou errado). No Asaas a cobrança volta a "a pagar"; a
+   * fatura criada pelo calendário some e o vencimento volta a ser previsão. Os 30 dias saem.
+   */
+  async undoPaid(id: string, a: Actor) {
+    const [inv] = await this.db.query<{
+      tenant_id: string;
+      status: string;
+      billing_type: string | null;
+      provider_id: string | null;
+    }>(`SELECT tenant_id, status, billing_type, provider_id FROM billing_invoices WHERE id = $1`, [
+      id,
+    ]);
+    if (!inv) throw new NotFoundException('Fatura não encontrada');
+    if (inv.status !== 'paid' || inv.billing_type !== 'MANUAL')
+      throw new ConflictException('Só dá para desfazer pagamento marcado à mão');
+    if (inv.provider_id) {
+      const s = await this.settingsRow();
+      try {
+        await this.client(s).undoReceivedInCash(inv.provider_id);
+      } catch (e) {
+        // Cobrança apagada no Asaas: desfaz só aqui. Outro erro: se desfizesse só aqui, o
+        // Asaas seguiria dizendo "recebido" e a próxima conferência baixaria de novo.
+        if (!(e instanceof AsaasError && e.status === 404))
+          throw new UnprocessableEntityException(
+            `O Asaas não desfez a baixa: ${(e as Error).message}`,
+          );
+      }
+    }
+    await this.db.tx(async (c) => {
+      const cur = (
+        await c.query<{
+          subscription_id: string;
+          kind: string;
+          status: string;
+          applied_at: Date | null;
+          calendar: boolean;
+        }>(
+          `SELECT subscription_id, kind, status, applied_at,
+                  coalesce((data->>'calendar')::boolean, false) AS calendar
+             FROM billing_invoices WHERE id = $1 FOR UPDATE`,
+          [id],
+        )
+      ).rows[0]!;
+      if (cur.status !== 'paid') return;
+      await c.query(
+        `UPDATE billing_invoices
+            SET status = CASE WHEN $2 THEN 'cancelled'
+                              WHEN due_date < (now() AT TIME ZONE 'America/Sao_Paulo')::date
+                                THEN 'overdue' ELSE 'pending' END,
+                paid_at = NULL, billing_type = NULL, net_amount = NULL, applied_at = NULL
+          WHERE id = $1`,
+        [id, cur.calendar && !inv.provider_id],
+      );
+      if (cur.applied_at && cur.kind === 'monthly')
+        await c.query(
+          `UPDATE subscriptions
+              SET current_period_end = current_period_end - make_interval(days => $2)
+            WHERE id = $1 AND current_period_end IS NOT NULL`,
+          [cur.subscription_id, BILLING_PERIOD_DAYS],
+        );
+      await platformAudit(c, {
+        adminId: a.admin.id,
+        action: 'platform.billing_paid_undone',
+        entity: 'invoice',
+        entityId: id,
+        tenantId: inv.tenant_id,
+        ip: a.ip,
+      });
+    });
+    await this.refresh(inv.tenant_id);
+    return { ok: true };
   }
 
   /** Consulta o Asaas e aplica a situação (quando um aviso do webhook se perdeu). */
