@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.125.0',
+    date: '2026-11-16',
+    title: 'Topo do site reorganizado, cartões novos e rolagem mais leve',
+    summary:
+      'O topo do comandou.com ficou mais enxuto, ocupando a primeira tela, com o título entrando palavra por palavra e avisos do sistema surgindo em volta do celular. Os cartões dos detalhes ganharam o mesmo formato, cada um com a sua animação, e a rolagem ficou mais suave.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Topo: selo do teste grátis, título em duas linhas que entra palavra por palavra, celular com avisos de pedido, Pix e cozinha, e um indicador de rolagem.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Feito para o balcão: todos os cartões com a mesma área de animação em cima e o texto embaixo. As animações só rodam com o cartão na tela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Rolagem: menos espaço vazio entre as seções, a tela do sistema cresce de leve ao entrar e o celular do topo sobe junto com a página.',
+      },
+      {
+        tag: 'correção',
+        text: 'O título do topo quebrava em três linhas no notebook, e o aviso de teste grátis aparecia duas vezes.',
+      },
+    ],
+  },
+  {
     version: '0.124.0',
     date: '2026-11-16',
     title: 'Site do restaurante montado pela IA e site do Comandou mais animado',

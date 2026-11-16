@@ -1,4 +1,15 @@
-import { Check, FileText, Globe, MessageCircle, Moon, Sparkles, Sun, WifiOff } from 'lucide-react';
+import {
+  Check,
+  ChefHat,
+  Cloud,
+  FileText,
+  Globe,
+  Moon,
+  QrCode,
+  Sparkles,
+  Sun,
+  WifiOff,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
   Button,
@@ -229,24 +240,47 @@ function Marquee() {
   );
 }
 
+/** Um cartão de detalhe: a animação em cima (palco do mesmo tamanho em todos) e o texto embaixo. */
+function Card({
+  title,
+  text,
+  wide,
+  children,
+}: {
+  title: string;
+  text: string;
+  wide?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <article className={`st-card st-reveal ${wide ? 'st-card--wide' : ''}`}>
+      <div className="st-card__stage" aria-hidden>
+        {children}
+      </div>
+      <h3>{title}</h3>
+      <p>{text}</p>
+    </article>
+  );
+}
+
 /** Os detalhes: cada cartão com um título, uma linha e a sua animação. */
 function Details() {
   return (
     <div className="st-bento">
-      <article className="st-card st-card--wide st-reveal">
-        <div className="st-card__text">
-          <FileText size={20} aria-hidden />
-          <h3>Cardápio pelo PDF ou foto</h3>
-          <p>A IA lê itens, preços e fotos.</p>
-        </div>
-        <div className="st-mini st-mini--import" aria-hidden>
+      <Card
+        wide
+        title="Cardápio pelo PDF ou foto"
+        text="A IA lê itens, preços e fotos. Você só confere."
+      >
+        <div className="st-mini st-mini--import">
           <div className="st-mini__file">
-            <FileText size={16} /> cardapio.pdf
+            <FileText size={18} />
+            <span>cardapio.pdf</span>
             <i className="st-mini__scan" />
           </div>
           <div className="st-mini__rows">
             {['X-Burger', 'X-Salada', 'Batata frita'].map((n, i) => (
-              <div key={n} style={{ animationDelay: `${i * 0.5}s` }}>
+              <div key={n} style={{ animationDelay: `${i * 0.45}s` }}>
                 <Check size={13} />
                 <span>{n}</span>
                 <em>{['28,90', '32,00', '18,00'][i]}</em>
@@ -254,77 +288,123 @@ function Details() {
             ))}
           </div>
         </div>
-      </article>
+      </Card>
 
-      <article className="st-card st-reveal">
-        <div className="st-mini st-mini--spin" aria-hidden>
-          <img src="/site/food-burger-fumaca.webp" alt="" width={120} height={120} loading="lazy" />
+      <Card title="Prato em 3D" text="Gira na tela e aparece na mesa.">
+        <div className="st-mini st-mini--spin">
+          <img src="/site/food-burger-fumaca.webp" alt="" width={112} height={112} loading="lazy" />
           <i />
         </div>
-        <h3>Prato em 3D</h3>
-        <p>Gira na tela e aparece na mesa.</p>
-      </article>
+      </Card>
 
-      <article className="st-card st-reveal">
-        <div className="st-mini st-mini--sync" aria-hidden>
-          <WifiOff size={22} />
-          <span>
+      <Card title="Vende sem internet" text="Tudo sobe sozinho quando a conexão volta.">
+        <div className="st-mini st-mini--sync">
+          <span className="st-mini__wifi">
+            <WifiOff size={20} />
+          </span>
+          <span className="st-mini__queue">
             <i />
             <i />
             <i />
           </span>
+          <span className="st-mini__cloud">
+            <Cloud size={22} />
+          </span>
         </div>
-        <h3>Vende sem internet</h3>
-        <p>Tudo sobe sozinho quando volta.</p>
-      </article>
+      </Card>
 
-      <article className="st-card st-card--wide st-reveal">
-        <div className="st-card__text">
-          <MessageCircle size={20} aria-hidden />
-          <h3>WhatsApp que responde sozinho</h3>
-          <p>Conhece o seu cardápio e o seu horário.</p>
-        </div>
-        <div className="st-mini st-mini--chat" aria-hidden>
+      <Card
+        wide
+        title="WhatsApp que responde sozinho"
+        text="Conhece o seu cardápio e o seu horário."
+      >
+        <div className="st-mini st-mini--chat">
           <span>Vocês abrem hoje?</span>
           <span className="is-me">Abrimos às 18h. Quer ver o cardápio?</span>
           <span>Quero um Smash duplo</span>
           <span className="is-me">Anotado! Entrega ou retirada?</span>
         </div>
-      </article>
+      </Card>
 
-      <article className="st-card st-reveal">
-        <div className="st-mini st-mini--url" aria-hidden>
+      <Card title="Endereço e marca seus" text="Suas cores, seu logo, seu domínio.">
+        <div className="st-mini st-mini--url">
           <Globe size={15} />
           <span>
             <b>seunome</b>.comandou.com
           </span>
         </div>
-        <h3>Endereço e marca seus</h3>
-        <p>Suas cores, seu logo, seu domínio.</p>
-      </article>
+      </Card>
 
-      <article className="st-card st-reveal">
-        <div className="st-mini st-mini--receipt" aria-hidden>
+      <Card title="NFC-e e Pix no caixa" text="Nota no fechamento, QR Code na tela.">
+        <div className="st-mini st-mini--receipt">
           <div>
+            <QrCode size={34} />
             <i />
             <i />
-            <i />
-            <b>Pix aprovado</b>
+            <b>
+              <Check size={12} /> Pix aprovado
+            </b>
           </div>
         </div>
-        <h3>NFC-e e Pix no caixa</h3>
-        <p>Nota no fechamento, QR na tela.</p>
-      </article>
+      </Card>
 
-      <article className="st-card st-reveal">
-        <div className="st-mini st-mini--app" aria-hidden>
-          <span>
-            <Mascot size={26} />
+      <Card title="Instala como app" text="Celular, tablet e computador.">
+        <div className="st-mini st-mini--app">
+          <span className="st-mini__home">
+            <i />
+            <i />
+            <i />
+            <b>
+              <Mascot size={24} />
+            </b>
+            <i />
+            <i />
           </span>
         </div>
-        <h3>Instala como app</h3>
-        <p>Celular, tablet e computador.</p>
-      </article>
+      </Card>
+    </div>
+  );
+}
+
+/** Título que entra palavra por palavra (só transform e opacity). */
+function Words({ text, from, accent }: { text: string; from: number; accent?: boolean }) {
+  return (
+    <span className={accent ? 'st-h1__accent' : undefined}>
+      {text.split(' ').map((w, i, all) => (
+        <span key={w + i} className="st-w" style={{ '--i': from + i } as React.CSSProperties}>
+          {w}
+          {i < all.length - 1 ? ' ' : ''}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Avisos que surgem em volta do celular, como o sistema avisa no dia a dia. */
+function HeroToasts() {
+  return (
+    <div className="st-toasts" aria-hidden>
+      <div className="st-toast st-toast--a">
+        <b className="st-toast__dot" />
+        <span>
+          <strong>Novo pedido</strong>
+          <small>Mesa 4 · 2 itens</small>
+        </span>
+      </div>
+      <div className="st-toast st-toast--b">
+        <Check size={14} />
+        <span>
+          <strong>Pix aprovado</strong>
+          <small>R$ 71,80</small>
+        </span>
+      </div>
+      <div className="st-toast st-toast--c">
+        <ChefHat size={14} />
+        <span>
+          <strong>Cozinha</strong>
+          <small>Pedido #128 pronto</small>
+        </span>
+      </div>
     </div>
   );
 }
@@ -414,9 +494,16 @@ export function SiteApp() {
       <main id="topo">
         <section className="st-hero">
           <div className="st-hero__text">
+            <span className="st-pill">
+              <i aria-hidden /> {trialDays} dias grátis, sem cartão
+            </span>
             <h1 className="st-h1">
-              <span className="st-h1__line">Seu restaurante no ar</span>{' '}
-              <span className="st-h1__line st-h1__accent">em minutos.</span>
+              <span className="st-h1__row">
+                <Words text="Seu restaurante" from={0} />
+              </span>{' '}
+              <span className="st-h1__row">
+                <Words text="no ar" from={2} /> <Words text="em minutos." from={4} accent />
+              </span>
             </h1>
             <p className="st-lead">
               {config?.ai ? (
@@ -433,13 +520,19 @@ export function SiteApp() {
             <Builder config={config} onLook={setLook} onMood={react} />
           </div>
           <div className="st-hero__art">
-            <div className="st-peek">
-              <LivePanda size={132} mood={mood} title="Panda do Comandou" />
-            </div>
-            <div className="st-float">
-              <PhoneMock look={look} />
+            <div className="st-stage">
+              <div className="st-peek">
+                <LivePanda size={120} mood={mood} title="Panda do Comandou" />
+              </div>
+              <div className="st-float">
+                <PhoneMock look={look} />
+              </div>
+              <HeroToasts />
             </div>
           </div>
+          <a className="st-scroll" href="#sistema" aria-label="Ver o sistema">
+            <i />
+          </a>
         </section>
 
         <Marquee />

@@ -183,7 +183,6 @@ export function Builder({
   const named = useRef(false);
 
   const value = mode === 'site' ? link : mode === 'maps' ? maps : text;
-  const trialDays = config?.trialDays ?? 3;
 
   // Voltou para a página (ou recarregou) com o restaurante recém-criado: mostra o login de novo.
   useEffect(() => {
@@ -577,7 +576,7 @@ export function Builder({
           ) : closed ? (
             <span>O cadastro pelo site está fechado no momento. Fale com a gente.</span>
           ) : (
-            <span>{trialDays} dias grátis, sem cartão.</span>
+            <span>Sem site? Use “Vou descrever” e escreva os itens.</span>
           )}
         </div>
       </div>

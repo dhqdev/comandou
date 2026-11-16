@@ -107,63 +107,6 @@ html:has(.st) {
   }
 }
 
-/* ---------------------------------------------------------------- abertura */
-.st-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-  align-items: center;
-  gap: clamp(24px, 5vw, 72px);
-  max-width: var(--st-max);
-  margin: 0 auto;
-  padding: clamp(40px, 7vw, 96px) var(--st-pad) clamp(40px, 6vw, 80px);
-}
-.st-hero h1 {
-  font-size: clamp(2.5rem, 6.4vw, 4.5rem);
-  line-height: 1.02;
-  font-weight: 750;
-  letter-spacing: -0.04em;
-  text-wrap: balance;
-}
-.st-hero h1 .st-h1__accent {
-  color: var(--cm-brand-600);
-}
-.st-lead {
-  margin-top: var(--cm-space-5) !important;
-  max-width: 34rem;
-  font-size: clamp(1.0625rem, 1.5vw, 1.25rem);
-  line-height: 1.5;
-  color: var(--cm-text-muted);
-  text-wrap: pretty;
-}
-.st-hero__art {
-  position: relative;
-  display: grid;
-  justify-items: center;
-  padding-top: 86px;
-}
-.st-peek {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  z-index: 0;
-  transform: translateX(-50%);
-  animation: st-peek 0.5s var(--cm-spring) 0.25s both;
-}
-@keyframes st-peek {
-  from {
-    transform: translate(-50%, 70px);
-    opacity: 0;
-  }
-}
-@media (max-width: 900px) {
-  .st-hero {
-    grid-template-columns: 1fr;
-  }
-  .st-hero__art {
-    margin-top: var(--cm-space-4);
-  }
-}
-
 /* ---------------------------------------------------------------- criar o restaurante */
 .st-build {
   margin-top: var(--cm-space-8);
@@ -775,148 +718,6 @@ html:has(.st) {
   }
 }
 
-/* ---------------------------------------------------------------- detalhes */
-.st-bento {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--cm-space-4);
-}
-.st-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: clamp(20px, 2.4vw, 28px);
-  border: 1px solid var(--cm-border-strong);
-  border-radius: 16px;
-  background: var(--cm-surface);
-}
-.st-card > svg,
-.st-card__text > svg {
-  color: var(--cm-text-muted);
-  margin-bottom: 6px;
-}
-.st-card h3 {
-  font-size: var(--cm-text-lg);
-  letter-spacing: var(--cm-tracking-tight);
-  line-height: 1.25;
-}
-.st-card p {
-  color: var(--cm-text-muted);
-  text-wrap: pretty;
-}
-.st-card--wide {
-  grid-column: span 2;
-  flex-direction: row;
-  align-items: center;
-  gap: var(--cm-space-8);
-}
-.st-card__text {
-  flex: 1;
-  display: grid;
-  gap: 8px;
-}
-.st-mini {
-  font-size: var(--cm-text-sm);
-}
-.st-mini--import {
-  flex: none;
-  width: 220px;
-  display: grid;
-  gap: 8px;
-}
-.st-mini__file {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  justify-self: start;
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px dashed var(--cm-btn-line);
-  color: var(--cm-text-muted);
-}
-.st-mini__rows {
-  display: grid;
-  border: 1px solid var(--cm-border-strong);
-  border-radius: 10px;
-  overflow: hidden;
-}
-.st-mini__rows div {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  animation: st-row 6s var(--cm-ease) infinite both;
-}
-.st-mini__rows div + div {
-  border-top: 1px solid var(--cm-border);
-}
-.st-mini__rows svg {
-  color: var(--cm-success);
-}
-.st-mini__rows span {
-  flex: 1;
-  font-weight: 550;
-}
-.st-mini__rows em {
-  font-style: normal;
-  font-variant-numeric: tabular-nums;
-  color: var(--cm-text-muted);
-}
-@keyframes st-row {
-  0%,
-  4% {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  9%,
-  92% {
-    opacity: 1;
-    transform: none;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-.st-mini--chat {
-  flex: none;
-  width: 260px;
-  display: grid;
-  gap: 6px;
-}
-.st-mini--chat span {
-  justify-self: start;
-  max-width: 85%;
-  padding: 7px 11px;
-  border-radius: 12px 12px 12px 4px;
-  background: var(--cm-surface-sunken);
-}
-.st-mini--chat .is-me {
-  justify-self: end;
-  border-radius: 12px 12px 4px 12px;
-  background: var(--cm-success-bg);
-  color: var(--cm-text);
-}
-@media (max-width: 900px) {
-  .st-bento {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 620px) {
-  .st-bento {
-    grid-template-columns: 1fr;
-  }
-  .st-card--wide {
-    grid-column: auto;
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--cm-space-4);
-  }
-  .st-mini--import,
-  .st-mini--chat {
-    width: 100%;
-  }
-}
-
 /* ---------------------------------------------------------------- como funciona */
 .st-how {
   display: grid;
@@ -1152,15 +953,6 @@ html:has(.st) {
   }
 }
 
-/* Título do topo entra em duas linhas. */
-.st-h1__line {
-  display: inline-block;
-  animation: st-rise 0.6s var(--cm-spring) both;
-}
-.st-h1__accent {
-  color: var(--cm-brand-600);
-  animation-delay: 0.12s;
-}
 .st-lead {
   animation: st-rise 0.6s var(--cm-spring) 0.2s both;
 }
@@ -1319,301 +1111,6 @@ html:has(.st) {
   transform: scaleX(0);
 }
 
-/* Seções: os filhos entram em cascata. */
-.st-js .st-bento .st-reveal:nth-child(2) {
-  transition-delay: 60ms;
-}
-.st-js .st-bento .st-reveal:nth-child(3) {
-  transition-delay: 120ms;
-}
-.st-js .st-bento .st-reveal:nth-child(5) {
-  transition-delay: 60ms;
-}
-.st-js .st-bento .st-reveal:nth-child(6) {
-  transition-delay: 120ms;
-}
-.st-js .st-bento .st-reveal:nth-child(7) {
-  transition-delay: 180ms;
-}
-.st-card {
-  position: relative;
-  overflow: hidden;
-}
-
-/* Cardápio pelo PDF: a luz passa pelo arquivo. */
-.st-mini__file {
-  position: relative;
-  overflow: hidden;
-}
-.st-mini__scan {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 30%;
-  background: color-mix(in srgb, var(--cm-brand-500) 18%, transparent);
-  animation: st-sweep 2s ease-in-out infinite;
-}
-@keyframes st-sweep {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(360%);
-  }
-}
-
-/* Prato em 3D: gira. */
-.st-mini--spin {
-  position: relative;
-  display: grid;
-  place-items: center;
-  height: 120px;
-  margin-bottom: 4px;
-  perspective: 500px;
-}
-.st-mini--spin img {
-  width: 104px;
-  height: 104px;
-  border-radius: 50%;
-  object-fit: cover;
-  animation: st-turn 7s linear infinite;
-}
-.st-mini--spin i {
-  position: absolute;
-  bottom: 4px;
-  width: 80px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--cm-gray-900);
-  opacity: 0.12;
-  animation: st-shadow 7s linear infinite;
-}
-@keyframes st-turn {
-  from {
-    transform: rotateX(18deg) rotateY(0);
-  }
-  to {
-    transform: rotateX(18deg) rotateY(360deg);
-  }
-}
-@keyframes st-shadow {
-  25%,
-  75% {
-    transform: scaleX(0.55);
-  }
-}
-
-/* Sem internet: os pedidos esperam e sobem. */
-.st-mini--sync {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  height: 120px;
-  margin-bottom: 4px;
-  color: var(--cm-text-muted);
-}
-.st-mini--sync span {
-  display: flex;
-  gap: 6px;
-}
-.st-mini--sync i {
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-  border: 1px solid var(--cm-border-strong);
-  background: var(--cm-surface-sunken);
-  animation: st-sync 3.6s var(--cm-ease) infinite both;
-}
-.st-mini--sync i:nth-child(2) {
-  animation-delay: 0.25s;
-}
-.st-mini--sync i:nth-child(3) {
-  animation-delay: 0.5s;
-}
-.st-mini--sync svg {
-  animation: st-blink 3.6s steps(1) infinite;
-}
-@keyframes st-sync {
-  0%,
-  55% {
-    transform: none;
-    opacity: 1;
-  }
-  70% {
-    transform: translateY(-26px);
-    opacity: 0;
-  }
-  71% {
-    transform: translateY(10px);
-    opacity: 0;
-  }
-  85%,
-  100% {
-    transform: none;
-    opacity: 1;
-  }
-}
-@keyframes st-blink {
-  0%,
-  55% {
-    opacity: 1;
-  }
-  56%,
-  100% {
-    opacity: 0.3;
-  }
-}
-
-/* Endereço: o nome aparece como se fosse digitado. */
-.st-mini--url {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  align-self: flex-start;
-  margin-bottom: 10px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  background: var(--cm-surface-sunken);
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-sm);
-}
-.st-mini--url span {
-  position: relative;
-}
-.st-mini--url b {
-  position: relative;
-  display: inline-block;
-  color: var(--cm-text);
-}
-.st-mini--url b::after {
-  content: '';
-  position: absolute;
-  inset: 0 -2px;
-  background: var(--cm-surface-sunken);
-  border-left: 2px solid var(--cm-brand-600);
-  transform-origin: 100% 50%;
-  animation: st-type 4s steps(7) infinite;
-}
-@keyframes st-type {
-  0% {
-    transform: scaleX(1);
-  }
-  45%,
-  90% {
-    transform: scaleX(0);
-  }
-  100% {
-    transform: scaleX(1);
-  }
-}
-
-/* NFC-e: o comprovante sai da impressora. */
-.st-mini--receipt {
-  height: 120px;
-  margin-bottom: 4px;
-  overflow: hidden;
-  border-top: 3px solid var(--cm-gray-300);
-  border-radius: 3px;
-}
-.st-mini--receipt div {
-  display: grid;
-  gap: 7px;
-  width: 132px;
-  padding: 12px;
-  border: 1px solid var(--cm-border-strong);
-  border-top: 0;
-  border-radius: 0 0 6px 6px;
-  background: var(--cm-surface);
-  animation: st-print 4.5s var(--cm-ease) infinite both;
-}
-.st-mini--receipt i {
-  height: 5px;
-  border-radius: 3px;
-  background: var(--cm-gray-200);
-}
-.st-mini--receipt i:nth-child(2) {
-  width: 70%;
-}
-.st-mini--receipt b {
-  font-size: var(--cm-text-xs);
-  color: var(--cm-success);
-}
-@keyframes st-print {
-  0% {
-    transform: translateY(-100%);
-  }
-  35%,
-  88% {
-    transform: none;
-  }
-  100% {
-    transform: translateY(-100%);
-  }
-}
-
-/* App: o ícone cai na tela inicial. */
-.st-mini--app {
-  display: grid;
-  place-items: center;
-  height: 120px;
-  margin-bottom: 4px;
-}
-.st-mini--app span {
-  display: grid;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  border-radius: 16px;
-  border: 1px solid var(--cm-border-strong);
-  background: var(--cm-surface);
-  box-shadow: var(--cm-shadow-md);
-  animation: st-drop 3.8s var(--cm-spring) infinite both;
-}
-@keyframes st-drop {
-  0% {
-    transform: translateY(-30px) scale(0.6);
-    opacity: 0;
-  }
-  18%,
-  85% {
-    transform: none;
-    opacity: 1;
-  }
-  100% {
-    transform: scale(0.9);
-    opacity: 0;
-  }
-}
-
-/* WhatsApp: as mensagens chegam uma por vez. */
-.st-mini--chat span {
-  animation: st-msg 8s var(--cm-ease) infinite both;
-}
-.st-mini--chat span:nth-child(2) {
-  animation-delay: 0.9s;
-}
-.st-mini--chat span:nth-child(3) {
-  animation-delay: 1.8s;
-}
-.st-mini--chat span:nth-child(4) {
-  animation-delay: 2.7s;
-}
-@keyframes st-msg {
-  0% {
-    opacity: 0;
-    transform: translateY(8px) scale(0.96);
-  }
-  6%,
-  85% {
-    opacity: 1;
-    transform: none;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
 /* Três passos: a linha se desenha e os números entram. */
 .st-how li::before {
   content: '';
@@ -1708,5 +1205,791 @@ html:has(.st) {
   .st-sticky .cm-btn {
     width: 100%;
     box-shadow: var(--cm-shadow-lg, var(--cm-shadow-md));
+  }
+}
+
+/* ================================================================ topo (0.125) */
+.st-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
+  align-items: center;
+  gap: clamp(24px, 4vw, 56px);
+  max-width: var(--st-max);
+  min-height: min(calc(100svh - 61px), 860px);
+  margin: 0 auto;
+  padding: clamp(28px, 4vw, 48px) var(--st-pad) clamp(56px, 6vw, 72px);
+}
+.st-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--cm-space-5);
+  padding: 6px 12px 6px 10px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 999px;
+  font-size: var(--cm-text-sm);
+  font-weight: 550;
+  color: var(--cm-text-muted);
+  animation: st-rise 0.5s var(--cm-spring) both;
+}
+.st-pill i {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cm-success);
+}
+.st-pill i::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--cm-success);
+  animation: st-ping 2.2s var(--cm-ease) infinite;
+}
+@keyframes st-ping {
+  70%,
+  100% {
+    transform: scale(2.8);
+    opacity: 0;
+  }
+}
+.st-hero h1 {
+  font-size: clamp(2.6rem, 5.6vw, 4.4rem);
+  line-height: 1.03;
+  font-weight: 750;
+  letter-spacing: -0.045em;
+}
+.st-h1__accent {
+  color: var(--cm-brand-600);
+}
+.st-w {
+  display: inline-block;
+  white-space: pre;
+  animation: st-word 0.7s var(--cm-spring) both;
+  animation-delay: calc(0.08s + var(--i, 0) * 0.07s);
+}
+@keyframes st-word {
+  from {
+    opacity: 0;
+    transform: translateY(0.45em) rotate(2deg);
+  }
+}
+.st-lead {
+  margin-top: var(--cm-space-5) !important;
+  max-width: 32rem;
+  font-size: clamp(1.0625rem, 1.4vw, 1.1875rem);
+  line-height: 1.5;
+  color: var(--cm-text-muted);
+  text-wrap: pretty;
+  animation-delay: 0.45s;
+}
+.st-build {
+  margin-top: var(--cm-space-6);
+  animation-delay: 0.55s;
+}
+
+/* Celular com o panda e os avisos em volta. */
+.st-hero__art {
+  display: grid;
+  justify-items: center;
+}
+.st-stage {
+  position: relative;
+  padding-top: 78px;
+}
+.st-peek {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 0;
+  transform: translateX(-50%);
+  animation: st-peek 0.6s var(--cm-spring) 0.6s both;
+}
+@keyframes st-peek {
+  from {
+    transform: translate(-50%, 70px);
+    opacity: 0;
+  }
+}
+.st-toasts {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.st-toast {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 14px 9px 11px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 14px;
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-lg);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  opacity: 0;
+  animation:
+    st-toast-in 0.5s var(--cm-spring) both,
+    st-bob 7s ease-in-out infinite;
+}
+.st-toast span {
+  display: grid;
+  line-height: 1.25;
+}
+.st-toast small {
+  color: var(--cm-text-subtle);
+  font-size: 0.75rem;
+}
+.st-toast svg {
+  flex: none;
+}
+.st-toast__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cm-brand-600);
+}
+.st-toast--a {
+  top: 150px;
+  left: -96px;
+  animation-delay: 1.1s, 1.6s;
+}
+.st-toast--b {
+  top: 330px;
+  right: -88px;
+  animation-delay: 1.5s, 2.2s;
+}
+.st-toast--b svg {
+  color: var(--cm-success);
+}
+.st-toast--c {
+  bottom: 70px;
+  left: -64px;
+  animation-delay: 1.9s, 2.8s;
+}
+.st-toast--c svg {
+  color: var(--cm-text-muted);
+}
+@keyframes st-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* Seta discreta: tem mais embaixo. */
+.st-scroll {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  width: 22px;
+  height: 34px;
+  margin-left: -11px;
+  border: 1.5px solid var(--cm-border-strong);
+  border-radius: 12px;
+  animation: st-fade 0.4s var(--cm-ease) 1.4s both;
+}
+.st-scroll i {
+  position: absolute;
+  top: 7px;
+  left: 50%;
+  width: 3px;
+  height: 7px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--cm-text-subtle);
+  animation: st-wheel 1.8s var(--cm-ease) infinite;
+}
+@keyframes st-wheel {
+  0% {
+    transform: none;
+    opacity: 1;
+  }
+  80%,
+  100% {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+}
+@media (max-width: 1180px) {
+  .st-toast--a,
+  .st-toast--c {
+    left: -40px;
+  }
+  .st-toast--b {
+    right: -40px;
+  }
+}
+@media (max-width: 900px) {
+  .st-hero {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+  .st-hero__art {
+    margin-top: var(--cm-space-4);
+  }
+  .st-scroll {
+    display: none;
+  }
+}
+@media (max-width: 520px) {
+  .st-toasts {
+    display: none;
+  }
+}
+
+/* ================================================================ detalhes (0.125) */
+.st-bento {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--cm-space-4);
+}
+.st-card {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 10px 22px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 18px;
+  background: var(--cm-surface);
+}
+.st-card--wide {
+  grid-column: span 2;
+}
+.st-card__stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 188px;
+  margin-bottom: 18px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--cm-surface-sunken);
+}
+.st-card h3 {
+  padding: 0 12px;
+  font-size: var(--cm-text-lg);
+  letter-spacing: var(--cm-tracking-tight);
+  line-height: 1.25;
+}
+.st-card p {
+  margin-top: 4px !important;
+  padding: 0 12px;
+  color: var(--cm-text-muted);
+}
+.st-js .st-bento .st-reveal:nth-child(3n + 2) {
+  transition-delay: 70ms;
+}
+.st-js .st-bento .st-reveal:nth-child(3n) {
+  transition-delay: 140ms;
+}
+.st-mini {
+  font-size: var(--cm-text-sm);
+}
+/* As animações dos cartões só rodam com o cartão na tela. */
+.st-card .st-mini * {
+  animation-play-state: paused;
+}
+.st-card.is-in .st-mini * {
+  animation-play-state: running;
+}
+.st-card.is-in .st-mini {
+  animation-play-state: running;
+}
+
+/* Cardápio pelo PDF: o arquivo é lido e os itens aparecem. */
+.st-mini--import {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+.st-mini__file {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: 96px;
+  padding: 18px 10px 14px;
+  overflow: hidden;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 10px;
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.st-mini__scan {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: var(--cm-brand-600);
+  animation: st-read 2.4s ease-in-out infinite alternate;
+}
+@keyframes st-read {
+  to {
+    transform: translateY(84px);
+  }
+}
+.st-mini__rows {
+  display: grid;
+  width: 230px;
+  overflow: hidden;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 10px;
+  background: var(--cm-surface);
+}
+.st-mini__rows div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  animation: st-row 6s var(--cm-ease) infinite both;
+}
+.st-mini__rows div + div {
+  border-top: 1px solid var(--cm-border);
+}
+.st-mini__rows svg {
+  color: var(--cm-success);
+}
+.st-mini__rows span {
+  flex: 1;
+  font-weight: 550;
+}
+.st-mini__rows em {
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  color: var(--cm-text-muted);
+}
+@keyframes st-row {
+  0%,
+  6% {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  12%,
+  90% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Prato em 3D: gira devagar, com a sombra acompanhando. */
+.st-mini--spin {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 160px;
+  height: 160px;
+  perspective: 520px;
+}
+.st-mini--spin img {
+  width: 112px;
+  height: 112px;
+  border-radius: 50%;
+  object-fit: cover;
+  animation: st-turn 8s linear infinite;
+}
+.st-mini--spin i {
+  position: absolute;
+  bottom: 10px;
+  width: 86px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cm-gray-900);
+  opacity: 0.14;
+  animation: st-shadow 8s linear infinite;
+}
+@keyframes st-turn {
+  from {
+    transform: rotateX(16deg) rotateY(0);
+  }
+  to {
+    transform: rotateX(16deg) rotateY(360deg);
+  }
+}
+@keyframes st-shadow {
+  25%,
+  75% {
+    transform: scaleX(0.6);
+  }
+}
+
+/* Sem internet: os pedidos esperam na fila e sobem quando a conexão volta. */
+.st-mini--sync {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.st-mini__wifi,
+.st-mini__cloud {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--cm-border-strong);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+}
+.st-mini__wifi {
+  animation: st-off 4s steps(1) infinite;
+}
+.st-mini__cloud {
+  animation: st-on 4s steps(1) infinite;
+}
+.st-mini__queue {
+  display: flex;
+  gap: 6px;
+}
+.st-mini__queue i {
+  width: 18px;
+  height: 24px;
+  border-radius: 5px;
+  border: 1px solid var(--cm-border-strong);
+  background: var(--cm-surface);
+  animation: st-send 4s var(--cm-ease) infinite both;
+}
+.st-mini__queue i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.st-mini__queue i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes st-off {
+  0%,
+  55% {
+    color: var(--cm-danger, #c0362c);
+  }
+  56%,
+  100% {
+    color: var(--cm-text-subtle);
+  }
+}
+@keyframes st-on {
+  0%,
+  55% {
+    color: var(--cm-text-subtle);
+  }
+  56%,
+  100% {
+    color: var(--cm-success);
+  }
+}
+@keyframes st-send {
+  0%,
+  58% {
+    transform: none;
+    opacity: 1;
+  }
+  75% {
+    transform: translateX(48px) scale(0.6);
+    opacity: 0;
+  }
+  76% {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  90%,
+  100% {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* WhatsApp: as mensagens chegam uma por vez. */
+.st-mini--chat {
+  display: grid;
+  gap: 6px;
+  width: min(340px, 90%);
+}
+.st-mini--chat span {
+  justify-self: start;
+  max-width: 85%;
+  padding: 7px 11px;
+  border-radius: 12px 12px 12px 4px;
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+  animation: st-msg 8s var(--cm-ease) infinite both;
+}
+.st-mini--chat .is-me {
+  justify-self: end;
+  border-color: transparent;
+  border-radius: 12px 12px 4px 12px;
+  background: var(--cm-success-bg);
+}
+.st-mini--chat span:nth-child(2) {
+  animation-delay: 0.9s;
+}
+.st-mini--chat span:nth-child(3) {
+  animation-delay: 1.8s;
+}
+.st-mini--chat span:nth-child(4) {
+  animation-delay: 2.7s;
+}
+@keyframes st-msg {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  6%,
+  86% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Endereço: o nome aparece como se fosse digitado. */
+.st-mini--url {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 999px;
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+}
+.st-mini--url b {
+  position: relative;
+  display: inline-block;
+  color: var(--cm-text);
+}
+.st-mini--url b::after {
+  content: '';
+  position: absolute;
+  inset: 0 -2px;
+  background: var(--cm-surface);
+  border-left: 2px solid var(--cm-brand-600);
+  transform-origin: 100% 50%;
+  animation: st-type 4s steps(7) infinite;
+}
+@keyframes st-type {
+  0% {
+    transform: scaleX(1);
+  }
+  45%,
+  90% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+/* NFC-e e Pix: o comprovante sai com o QR e confirma. */
+.st-mini--receipt {
+  align-self: start;
+  height: 100%;
+  padding-top: 18px;
+  overflow: hidden;
+}
+.st-mini--receipt div {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: 132px;
+  padding: 14px 12px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 8px;
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  animation: st-print 5s var(--cm-ease) infinite both;
+}
+.st-mini--receipt i {
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--cm-gray-200);
+}
+.st-mini--receipt i + i {
+  width: 70%;
+}
+.st-mini--receipt b {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-success);
+  animation: st-fadein 5s var(--cm-ease) infinite both;
+}
+@keyframes st-print {
+  0% {
+    transform: translateY(-110%);
+  }
+  30%,
+  88% {
+    transform: none;
+  }
+  100% {
+    transform: translateY(-110%);
+  }
+}
+@keyframes st-fadein {
+  0%,
+  38% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  46%,
+  88% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* App: o ícone cai na tela inicial, entre os outros. */
+.st-mini__home {
+  display: grid;
+  grid-template-columns: repeat(3, 40px);
+  gap: 12px;
+}
+.st-mini__home i,
+.st-mini__home b {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+}
+.st-mini__home b {
+  border-color: var(--cm-border-strong);
+  box-shadow: var(--cm-shadow-md);
+  animation: st-drop 4s var(--cm-spring) infinite both;
+}
+@keyframes st-drop {
+  0% {
+    transform: translateY(-40px) scale(0.5);
+    opacity: 0;
+  }
+  16%,
+  86% {
+    transform: none;
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .st-bento {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 620px) {
+  .st-bento {
+    grid-template-columns: 1fr;
+  }
+  .st-card--wide {
+    grid-column: auto;
+  }
+  .st-mini--import {
+    gap: 14px;
+  }
+  .st-mini__file {
+    width: 76px;
+  }
+  .st-mini__rows {
+    width: 190px;
+  }
+}
+
+/* ================================================================ rolagem (0.125) */
+/* Seções mais juntas: menos vazio entre uma e outra. */
+.st-sec {
+  padding: clamp(56px, 7vw, 96px) var(--st-pad);
+}
+/* A tela do sistema cresce de leve enquanto entra na tela (onde o navegador anima pela rolagem). */
+@supports (animation-timeline: view()) {
+  .st-shot {
+    animation: st-zoom linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 40%;
+  }
+  .st-float {
+    animation: st-rise 0.7s var(--cm-spring) 0.3s both;
+  }
+  .st-stage {
+    animation: st-park linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 100vh;
+  }
+}
+@keyframes st-zoom {
+  from {
+    transform: scale(0.94);
+    opacity: 0.4;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+@keyframes st-park {
+  to {
+    transform: translateY(-60px);
+  }
+}
+/* A seção que o link do menu abre aparece já abaixo do topo fixo. */
+.st [id] {
+  scroll-margin-top: 72px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-w,
+  .st-toast {
+    opacity: 1;
+    transform: none;
+  }
+  .st-shot,
+  .st-stage {
+    animation: none !important;
+  }
+}
+
+.st-h1__row {
+  display: block;
+  white-space: nowrap;
+}
+.st .st-hero h1 {
+  font-size: clamp(2.3rem, 4.7vw, 4.1rem);
+}
+.st-build__go {
+  align-self: flex-end;
+}
+.st-toast--c {
+  bottom: 24px;
+  left: -118px;
+}
+@media (max-width: 1180px) {
+  .st-toast--c {
+    left: -60px;
+  }
+}
+@media (max-width: 620px) {
+  .st-build__go {
+    align-self: stretch;
+  }
+  .st-h1__row {
+    white-space: normal;
   }
 }
