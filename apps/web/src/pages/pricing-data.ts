@@ -1,6 +1,6 @@
 /**
  * Textos dos planos usados na página pública /precos e nos cartões da tela Assinatura. Tudo que
- * muda por plano vem do Super Admin → Planos; aqui fica só o que vale para todos.
+ * muda por plano vem do Super Admin → Preço; aqui fica só o que vale para todos.
  */
 export interface PublicPlan {
   id: string;
@@ -36,7 +36,7 @@ export function planBullets(p: PublicPlan): string[] {
   ];
 }
 
-/** O que todo plano tem (o sistema é o mesmo; muda o tamanho e alguns extras). */
+/** O que o Comandou inclui (o sistema inteiro, para qualquer restaurante). */
 export const INCLUDED_IN_ALL = [
   'PDV e caixa',
   'Mesas, comandas e app do garçom',
@@ -51,16 +51,16 @@ export const INCLUDED_IN_ALL = [
 
 export const PRICING_FAQ: { q: string; a: string }[] = [
   {
+    q: 'O preço muda com o tamanho do restaurante?',
+    a: 'Não. É um valor único por mês, com tudo do sistema, para qualquer número de pessoas na equipe, produtos e pedidos. Não tem plano maior nem cobrança por usuário.',
+  },
+  {
     q: 'Como funciona o teste grátis?',
-    a: 'Você usa o sistema completo durante os dias de teste, sem cartão. Antes de acabar, a primeira fatura chega no seu e-mail.',
+    a: 'Você usa o sistema completo durante os dias de teste, sem cartão. Quando o teste vence, a mensalidade é o valor único, e a primeira fatura chega no seu e-mail alguns dias antes.',
   },
   {
     q: 'Como eu pago?',
     a: 'Por Pix, boleto ou cartão de crédito. No cartão, a mensalidade sai sozinha no vencimento e você não precisa lembrar. No Pix, a fatura chega alguns dias antes no e-mail e aparece na tela Assinatura.',
-  },
-  {
-    q: 'Posso trocar de plano?',
-    a: 'Sim, na tela Assinatura. Subir vale na hora e você paga só a diferença dos dias que faltam. Descer vale a partir do próximo mês, sem multa.',
   },
   {
     q: 'Tem fidelidade?',
@@ -70,11 +70,24 @@ export const PRICING_FAQ: { q: string; a: string }[] = [
     q: 'E se eu atrasar?',
     a: 'Depois do vencimento, o sistema entra em modo só leitura: dá para consultar tudo e pagar, mas não lançar vendas. Pagou, libera na hora. Nenhum dado é apagado.',
   },
-  {
-    q: 'Passei do limite do plano. Perco algo?',
-    a: 'Nada é apagado. Você só não consegue criar mais (pessoas, produtos ou pedidos) até subir de plano ou o mês virar.',
-  },
 ];
+
+/** O plano do valor único: o destacado, senão o primeiro que a API mandar. */
+export function singlePlan<T extends { featured?: boolean }>(plans: T[]): T | null {
+  return plans.find((p) => p.featured) ?? plans[0] ?? null;
+}
+
+/** Lista do valor único: os destaques do Super Admin (ou os extras) e tudo que o sistema tem. */
+export function singlePlanList(p: PublicPlan): string[] {
+  const extras = [
+    ...(p.featureFiscal ? ['Nota fiscal (NFC-e)'] : []),
+    ...(p.featureWhatsapp ? ['Avisos no WhatsApp'] : []),
+    ...(p.featureCustomDomain ? ['Domínio próprio'] : []),
+  ];
+  const top = p.highlights && p.highlights.length ? p.highlights : extras;
+  const all = ['Sem limite de equipe, produtos e pedidos', ...top, ...INCLUDED_IN_ALL];
+  return [...new Set(all)];
+}
 
 /** Link do botão "Falar com a gente": WhatsApp (número), e-mail ou endereço. */
 export function contactHref(raw: string): string | null {

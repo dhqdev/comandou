@@ -37,3 +37,10 @@ export interface PlanLimits {
 export function withinLimit(limit: number | null, used: number, adding = 1): boolean {
   return limit === null || used + adding <= limit;
 }
+
+/**
+ * Valor único: desde 0.128.0 o Comandou tem um preço só (o plano com este código), sem cobrança
+ * por pessoa, produto ou pedido. Os planos antigos ficam inativos e quem ainda está neles passa
+ * para este na próxima mensalidade.
+ */
+export const SINGLE_PLAN_CODE = 'comandou';

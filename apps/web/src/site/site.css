@@ -786,6 +786,10 @@ html:has(.st) {
 .st-price__value span {
   color: var(--cm-text-muted);
 }
+.st-price__left > .st-price__note {
+  margin-top: var(--cm-space-2);
+  font-size: var(--cm-text-md);
+}
 .st-price__cta,
 .st-end__cta {
   display: flex;

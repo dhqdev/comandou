@@ -8,14 +8,14 @@ import {
   type PlanResource,
 } from '@comandou/shared';
 import { Check, CreditCard, FileText, QrCode } from 'lucide-react';
-import { FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
 import { useAuth, useCan } from '../app/auth';
 import { Alert, Badge, Button, Modal, Spinner, TextField, useToast } from '../design-system';
 import { useCepLookup } from '../lib/cep';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import type { TenantSubscription } from '../lib/types';
-import { planBullets } from './pricing-data';
+import { singlePlan, singlePlanList } from './pricing-data';
 import './subscription.css';
 
 const RESOURCES: PlanResource[] = ['users', 'products', 'orders_month'];
@@ -123,14 +123,14 @@ const METHOD_LABEL: Record<PayMethod, string> = {
   boleto: 'Boleto',
 };
 
-/** Assinatura do restaurante: plano, quanto falta, pagar, forma de pagamento, trocar de plano. */
+/** Assinatura do restaurante: valor único, quanto falta, pagar e forma de pagamento. */
 export function PlanPage() {
   const canPlan = useCan('plan:read');
   return (
     <>
       <div>
         <h1 className="page-title">Assinatura</h1>
-        <p className="page-sub">Seu plano, pagamento e o que cada plano inclui.</p>
+        <p className="page-sub">Sua mensalidade, o pagamento e o que está incluso.</p>
       </div>
       {canPlan ? (
         <Subscription />
@@ -141,8 +141,6 @@ export function PlanPage() {
   );
 }
 
-type PlanAction = { plan: PlanOption; kind: 'up' | 'down' };
-
 function Subscription() {
   const { me } = useAuth();
   const owner = me?.user.role === 'owner';
@@ -150,7 +148,6 @@ function Subscription() {
   const [usage, setUsage] = useState<TenantSubscription | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState<Invoice | null>(null);
-  const [action, setAction] = useState<PlanAction | null>(null);
   const [methodOpen, setMethodOpen] = useState(false);
   const load = useCallback(() => {
     api<BillingView | null>('/subscription/billing')
@@ -161,17 +158,6 @@ function Subscription() {
       .catch(() => undefined);
   }, []);
   useEffect(load, [load]);
-
-  // /plano?plano=<id> (vindo da página de preços): já abre a troca para aquele plano.
-  useEffect(() => {
-    if (!data?.subscription || !owner) return;
-    const want = new URLSearchParams(window.location.search).get('plano');
-    const p = want && data.plans.find((x) => x.id === want);
-    if (!p || p.id === data.subscription.planId) return;
-    window.history.replaceState(null, '', window.location.pathname);
-    const up = Number(p.priceMonthly) > Number(data.subscription.priceMonthly);
-    setAction({ plan: p, kind: up ? 'up' : 'down' });
-  }, [data, owner]);
 
   if (error) return <Alert tone="danger">{error}</Alert>;
   if (!data && !usage) return <Spinner />;
@@ -184,8 +170,7 @@ function Subscription() {
     return (
       <div className="sub-panel">
         <p className="sub-muted">
-          Este restaurante não tem assinatura ativa: nenhum limite de plano se aplica. Fale com o
-          suporte para contratar um plano.
+          Este restaurante não tem assinatura ativa. Fale com o suporte para contratar o Comandou.
         </p>
       </div>
     );
@@ -199,15 +184,12 @@ function Subscription() {
           owner={owner}
           onPay={setPaying}
           onMethod={() => setMethodOpen(true)}
-          onChanged={load}
         />
-        {usage?.current && <UsagePanel data={usage} />}
+        {usage?.current && hasLimits(usage) && <UsagePanel data={usage} />}
         <ContractPanel c={data.contract} />
       </div>
       <div className="sub2-main">
-        <PlansHero plans={data.plans} />
-        <Upsell view={data} owner={owner} onPick={setAction} />
-        <PlansGrid view={data} owner={owner} onPick={setAction} />
+        <SinglePrice view={data} />
         {data.billing.auto && (
           <MethodPanel view={data} owner={owner} onEdit={() => setMethodOpen(true)} />
         )}
@@ -220,16 +202,6 @@ function Subscription() {
         onClose={() => setPaying(null)}
         onPaid={() => {
           setPaying(null);
-          load();
-        }}
-      />
-      <ChangePlanModal
-        action={action}
-        view={data}
-        usage={usage}
-        onClose={() => setAction(null)}
-        onDone={() => {
-          setAction(null);
           load();
         }}
       />
@@ -253,16 +225,13 @@ function StatusPanel({
   owner,
   onPay,
   onMethod,
-  onChanged,
 }: {
   view: BillingView;
   open: Invoice[];
   owner: boolean;
   onPay(i: Invoice): void;
   onMethod(): void;
-  onChanged(): void;
 }) {
-  const toast = useToast();
   const s = view.subscription!;
   const auto = view.billing.auto;
   const trial = s.status === 'trialing';
@@ -272,19 +241,6 @@ function StatusPanel({
   const cardAuto = method === 'card' && !!card && !!view.billing.cardAvailable;
   const left = s.daysLeft ?? 0;
   const pct = s.accessUntil ? Math.max(0, Math.min(100, (left / 30) * 100)) : 100;
-  const [undoing, setUndoing] = useState(false);
-  async function undo() {
-    setUndoing(true);
-    try {
-      await api('/subscription/downgrade', { method: 'DELETE' });
-      toast('Troca desfeita: você continua no plano atual', 'success');
-      onChanged();
-    } catch (e) {
-      toast((e as Error).message, 'danger');
-    } finally {
-      setUndoing(false);
-    }
-  }
   return (
     <section className="sub-panel sub-status" aria-label="Seu plano">
       <div className="sub-status__head">
@@ -398,14 +354,10 @@ function StatusPanel({
       {s.scheduledPlan && (
         <div className="sub-note">
           <span>
-            Troca para o <strong>{s.scheduledPlan.name}</strong> em {day(s.scheduledPlan.startsAt)}.
-            Até lá, tudo do {s.planName} continua liberado.
+            A partir de {day(s.scheduledPlan.startsAt)}, sua mensalidade passa a ser o valor único
+            de <strong>{brl(s.scheduledPlan.priceMonthly)}</strong>, com tudo incluso e sem limites.
+            Até lá, o {s.planName} continua como está.
           </span>
-          {owner && (
-            <Button size="sm" variant="ghost" loading={undoing} onClick={undo}>
-              Desfazer
-            </Button>
-          )}
         </div>
       )}
 
@@ -430,6 +382,10 @@ function StatusPanel({
     </section>
   );
 }
+
+/** Só planos antigos têm limite: no valor único não há nada para medir. */
+const hasLimits = (u: TenantSubscription) =>
+  !!u.current && RESOURCES.some((r) => u.current!.plan.limits[r] !== null);
 
 function UsagePanel({ data }: { data: TenantSubscription }) {
   const cur = data.current!;
@@ -469,7 +425,9 @@ function UsagePanel({ data }: { data: TenantSubscription }) {
                 </div>
               )}
               {full && (
-                <span className="sub-warn">Limite atingido: suba de plano para criar mais</span>
+                <span className="sub-warn">
+                  Limite do plano antigo: some quando a mensalidade passar para o valor único
+                </span>
               )}
             </div>
           );
@@ -519,140 +477,34 @@ function ContractPanel({ c }: { c: BillingView['contract'] }) {
 }
 
 // ---------------------------------------------------------------- coluna principal
-function PlansHero({ plans }: { plans: PlanOption[] }) {
+/** Valor único: o mesmo preço para qualquer restaurante, com tudo do sistema e sem limites. */
+function SinglePrice({ view }: { view: BillingView }) {
+  const plan = singlePlan(view.plans);
+  if (!plan) return null;
   return (
-    <section className="sub-hero2" aria-label="Planos Comandou">
-      <div className="sub-hero2__chips">
-        {plans.slice(0, 4).map((p, i) => (
-          <span key={p.id} className="sub-chip" data-tone={i % 4}>
-            {p.name}
-          </span>
-        ))}
-      </div>
-      <h2>Planos Comandou</h2>
-      <p>Subir de plano vale na hora. Descer vale no próximo mês. Nenhum dado é apagado.</p>
-    </section>
-  );
-}
-
-function Upsell({
-  view,
-  owner,
-  onPick,
-}: {
-  view: BillingView;
-  owner: boolean;
-  onPick(a: PlanAction): void;
-}) {
-  const s = view.subscription!;
-  const cur = Number(s.priceMonthly);
-  const up = view.plans.filter((p) => Number(p.priceMonthly) > cur);
-  const target = up.find((p) => p.featured) ?? up[0];
-  if (!target || !view.billing.auto || s.blockReason === 'payment') return null;
-  const diff = Number(target.priceMonthly) - cur;
-  return (
-    <section className="sub-upsell">
-      <div>
-        <strong>Precisa de mais? Suba para o {target.name}.</strong>
-        <span className="sub-muted">
-          {target.tagline || planBullets(target)[0]} · {brl(target.priceMonthly)} por mês (+
-          {brl(diff.toFixed(2))})
-        </span>
-      </div>
-      {owner && (
-        <Button onClick={() => onPick({ plan: target, kind: 'up' })}>Subir de plano</Button>
-      )}
-    </section>
-  );
-}
-
-function PlansGrid({
-  view,
-  owner,
-  onPick,
-}: {
-  view: BillingView;
-  owner: boolean;
-  onPick(a: PlanAction): void;
-}) {
-  const s = view.subscription!;
-  if (view.plans.length === 0) return null;
-  const cur = Number(s.priceMonthly);
-  const auto = view.billing.auto;
-  return (
-    <section aria-label="Planos">
-      <div className="sub-sec-head">
-        <h2 className="sub-h2">Planos</h2>
-        <a className="sub-link" href="/precos#comparar" target="_blank" rel="noreferrer">
-          Comparar planos
-        </a>
-      </div>
-      <p className="sub-muted sub-sec-sub">
-        Todos com o sistema completo: PDV, mesas, cozinha, cardápio online e delivery. Muda só o
-        tamanho e alguns extras.
-      </p>
-      <div className="sub-plans2">
-        {view.plans.map((p) => {
-          const current = p.id === s.planId;
-          const scheduled = s.scheduledPlan?.id === p.id;
-          const up = Number(p.priceMonthly) > cur;
-          return (
-            <article
-              key={p.id}
-              className="sub-plan2"
-              data-current={current || undefined}
-              data-featured={(!current && p.featured) || undefined}
-            >
-              <header className="sub-plan2__head">
-                <strong>{p.name}</strong>
-                {current ? (
-                  <span className="sub-tag">Seu plano</span>
-                ) : scheduled ? (
-                  <span className="sub-tag">Agendado</span>
-                ) : p.featured ? (
-                  <span className="sub-tag">Mais escolhido</span>
-                ) : null}
-              </header>
-              <div className="sub-plan2__price">
-                {brl(p.priceMonthly)} <small>por mês</small>
-              </div>
-              {p.tagline && <p className="sub-plan2__tagline">{p.tagline}</p>}
-              <ul className="sub-plan2__list">
-                {planBullets(p).map((b) => (
-                  <li key={b}>
-                    <Check size={15} aria-hidden />
-                    {b}
-                  </li>
-                ))}
-              </ul>
-              <div className="sub-plan2__cta">
-                {current ? (
-                  <button type="button" className="sub-btn-soft" disabled>
-                    Plano atual
-                  </button>
-                ) : scheduled ? (
-                  <button type="button" className="sub-btn-soft" disabled>
-                    Começa em {day(s.scheduledPlan?.startsAt)}
-                  </button>
-                ) : !auto ? (
-                  <span className="sub-muted">Fale com o suporte para trocar</span>
-                ) : !owner ? (
-                  <span className="sub-muted">Só o administrador troca o plano</span>
-                ) : (
-                  <button
-                    type="button"
-                    className="sub-btn-outline"
-                    onClick={() => onPick({ plan: p, kind: up ? 'up' : 'down' })}
-                  >
-                    {up ? 'Subir para este' : 'Mudar para este'}
-                  </button>
-                )}
-              </div>
-            </article>
-          );
-        })}
-      </div>
-    </section>
+    <>
+      <section className="sub-hero2" aria-label="Preço do Comandou">
+        <span className="sub-chip">{plan.name}</span>
+        <h2 className="sub-single__price">
+          {brl(plan.priceMonthly)} <small>por mês</small>
+        </h2>
+        <p>
+          Valor único: o mesmo preço para qualquer número de pessoas, produtos e pedidos. Tudo do
+          sistema incluso, sem plano maior e sem cobrança por usuário.
+        </p>
+      </section>
+      <section className="sub-panel" aria-label="O que está incluso">
+        <h2 className="sub-h2">O que está incluso</h2>
+        <ul className="sub-single__list">
+          {singlePlanList(plan).map((b) => (
+            <li key={b}>
+              <Check size={15} aria-hidden />
+              {b}
+            </li>
+          ))}
+        </ul>
+      </section>
+    </>
   );
 }
 
@@ -768,139 +620,6 @@ function Invoices({ list, onPay }: { list: Invoice[]; onPay(i: Invoice): void })
 }
 
 // ---------------------------------------------------------------- janelas
-function ChangePlanModal({
-  action,
-  view,
-  usage,
-  onClose,
-  onDone,
-}: {
-  action: PlanAction | null;
-  view: BillingView;
-  usage: TenantSubscription | null;
-  onClose(): void;
-  onDone(): void;
-}) {
-  const toast = useToast();
-  const plan = action?.plan ?? null;
-  const up = action?.kind === 'up';
-  const s = view.subscription!;
-  const trial = s.status === 'trialing';
-  const card = view.payment?.method === 'card' ? (view.payment.card ?? null) : null;
-  const [quote, setQuote] = useState<{ amount: string; days: number; cents: number } | null>(null);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    setQuote(null);
-    if (plan && up)
-      api<{ amount: string; days: number; cents: number }>(`/subscription/plans/${plan.id}/quote`)
-        .then(setQuote)
-        .catch((e: Error) => toast(e.message, 'danger'));
-  }, [plan, up, toast]);
-  // Plano menor com uso acima do limite: avisa (nada é apagado, só não dá para criar mais).
-  const over = useMemo(() => {
-    if (!plan || up || !usage) return [];
-    const lim: Record<PlanResource, number | null> = {
-      users: plan.maxUsers,
-      products: plan.maxProducts,
-      orders_month: plan.maxOrdersMonth,
-    };
-    return RESOURCES.filter((r) => lim[r] !== null && usage.usage[r] > lim[r]!).map(
-      (r) => `${RESOURCE_LABELS[r]}: você usa ${usage.usage[r]}, o ${plan.name} permite ${lim[r]}`,
-    );
-  }, [plan, up, usage]);
-  async function confirm() {
-    if (!plan) return;
-    setBusy(true);
-    try {
-      if (up) {
-        const r = await api<{ card?: { ok: boolean; error?: string } | null }>(
-          '/subscription/upgrade',
-          { method: 'POST', json: { planId: plan.id } },
-        );
-        toast(`Plano ${plan.name} ativado`, 'success');
-        if (r.card && !r.card.ok)
-          toast(`Cartão recusado: ${r.card.error ?? ''}. Pague a diferença por Pix.`, 'danger');
-      } else {
-        const r = await api<{ immediate: boolean }>('/subscription/downgrade', {
-          method: 'POST',
-          json: { planId: plan.id },
-        });
-        toast(
-          r.immediate
-            ? `Plano ${plan.name} ativado`
-            : `Troca para o ${plan.name} agendada para ${day(s.accessUntil)}`,
-          'success',
-        );
-      }
-      onDone();
-    } catch (e) {
-      toast((e as Error).message, 'danger');
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Modal
-      open={!!plan}
-      title={plan ? (up ? `Subir para o ${plan.name}` : `Mudar para o ${plan.name}`) : ''}
-      onClose={onClose}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Voltar
-          </Button>
-          <Button onClick={confirm} loading={busy} disabled={up && !quote}>
-            {up ? 'Confirmar e subir' : trial ? 'Confirmar troca' : 'Agendar troca'}
-          </Button>
-        </>
-      }
-    >
-      {plan && up && !quote && <Spinner />}
-      {plan && up && quote && (
-        <div className="sub-quote">
-          <p>Os limites e recursos do {plan.name} valem na hora.</p>
-          {trial ? (
-            <p>Você está no teste grátis: a troca não gera cobrança agora.</p>
-          ) : quote.cents > 0 ? (
-            <p>
-              Diferença dos {quote.days} dias que faltam: <strong>{brl(quote.amount)}</strong>
-              {card
-                ? `, cobrada agora no ${card.brand} •••• ${card.last4}.`
-                : `, numa fatura à parte (Pix, boleto ou cartão, vence em ${view.billing.upgradeDueDays} dias).`}
-            </p>
-          ) : (
-            <p>Sem cobrança agora: faltam poucos dias para o fim do período.</p>
-          )}
-          <p className="sub-muted">
-            A partir da próxima mensalidade: {brl(plan.priceMonthly)} a cada 30 dias.
-          </p>
-        </div>
-      )}
-      {plan && !up && (
-        <div className="sub-quote">
-          {trial ? (
-            <p>Você está no teste grátis: o {plan.name} vale na hora, sem cobrança.</p>
-          ) : (
-            <p>
-              Você continua com tudo do {s.planName} até <strong>{day(s.accessUntil)}</strong>. A
-              partir daí, o plano passa a ser o {plan.name}:{' '}
-              <strong>{brl(plan.priceMonthly)}</strong> a cada 30 dias. Não há cobrança nem
-              devolução agora.
-            </p>
-          )}
-          {over.length > 0 && (
-            <Alert tone="warning">
-              Você está acima do limite do {plan.name}. Nada é apagado, mas não dá para criar mais
-              até ficar abaixo: {over.join('; ')}.
-            </Alert>
-          )}
-          <p className="sub-muted">Mudou de ideia? Dá para desfazer até a data da troca.</p>
-        </div>
-      )}
-    </Modal>
-  );
-}
-
 function MethodModal({
   open,
   view,

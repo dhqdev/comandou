@@ -1,4 +1,5 @@
-import { ExternalLink, Plus } from 'lucide-react';
+import { SINGLE_PLAN_CODE } from '@comandou/shared';
+import { ExternalLink, Pencil } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import {
   Alert,
@@ -16,26 +17,34 @@ import { brl } from '../lib/money';
 import { useLoad } from './OverviewPages';
 import { baseDomain } from './TenantsPages';
 import type { Plan } from './types';
-import { PageHead } from './ui';
+import { PageHead, Tile } from './ui';
 
 /** Página pública de preços: www.<domínio>/precos (a mesma página abre em qualquer restaurante). */
 export const pricingUrl = () =>
   `${window.location.protocol}//www.${baseDomain()}${window.location.port ? `:${window.location.port}` : ''}/precos`;
 
-const limitText = (v: number | null) => (v === null ? 'sem limite' : String(v));
-
+/**
+ * Super Admin → Preço. O Comandou tem um valor único (plano "comandou"): o mesmo preço para
+ * qualquer restaurante, com tudo incluso e sem limites. Os planos antigos ficam só como histórico
+ * e quem ainda está neles passa para o valor único na próxima mensalidade.
+ */
 export function PlansPage() {
   const { data, error, reload } = useLoad<Plan[]>('/platform/plans');
-  const [editing, setEditing] = useState<Plan | 'new' | null>(null);
+  const [editing, setEditing] = useState(false);
+  const single = data?.find((p) => p.code === SINGLE_PLAN_CODE) ?? null;
+  const legacy = (data ?? []).filter(
+    (p) => p.code !== SINGLE_PLAN_CODE && (p.subscribers > 0 || p.active),
+  );
+  const moving = single?.scheduledIn ?? 0;
   return (
     <>
       <PageHead
         page
-        title="Planos"
+        title="Preço"
         sub={
           <span>
-            Preço, limites e recursos. Trocar o plano nunca apaga dados: os limites só impedem criar
-            mais.
+            Valor único: o mesmo preço para qualquer restaurante, sem cobrança por pessoa, produto
+            ou pedido.
           </span>
         }
         actions={
@@ -43,84 +52,105 @@ export function PlansPage() {
             <a className="adm-action" href={pricingUrl()} target="_blank" rel="noreferrer">
               <ExternalLink size={15} /> Ver página de preços
             </a>
-            <button className="adm-action adm-action--primary" onClick={() => setEditing('new')}>
-              <Plus size={15} /> Novo plano
-            </button>
+            {single && (
+              <button className="adm-action adm-action--primary" onClick={() => setEditing(true)}>
+                <Pencil size={15} /> Mudar valor e teste
+              </button>
+            )}
           </>
         }
       />
-      <Alert tone="info">
-        <strong>O que você mudar aqui aparece na hora em dois lugares:</strong> na página pública de
-        preços (<code>/precos</code>, com os cartões e a tabela de comparação) e na tela{' '}
-        <strong>Assinatura</strong> de cada restaurante, onde o cliente sobe ou desce de plano.
-        Planos inativos ou com “Mostrar na página de preços” desmarcado não aparecem para quem ainda
-        não assina. Mudar o preço vale para a <strong>próxima mensalidade</strong> de quem já está
-        no plano; as faturas já geradas não mudam.
-      </Alert>
       {error && <Alert tone="danger">{error}</Alert>}
-      <Card bodyless>
-        {!data ? (
-          <div className="cm-card__body">
-            <Spinner />
-          </div>
-        ) : data.length === 0 ? (
+      {!data ? (
+        <Spinner />
+      ) : !single ? (
+        <Card>
           <EmptyState
-            title="Nenhum plano"
-            description="Sem planos, os restaurantes não têm limites. Crie o primeiro para começar a cobrar."
+            title="Valor único ainda não criado"
+            description="Ele é criado sozinho quando o banco é atualizado. Atualize o sistema e abra esta tela de novo."
           />
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="cm-table cm-table--click">
-              <thead>
-                <tr>
-                  <th>Plano</th>
-                  <th className="cm-num">Mensal</th>
-                  <th>Limites (equipe · produtos · pedidos/mês)</th>
-                  <th>Recursos</th>
-                  <th className="cm-num">Assinantes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((p) => (
-                  <tr key={p.id} onClick={() => setEditing(p)}>
-                    <td>
-                      <strong>{p.name}</strong> <span className="cm-hint">{p.code}</span>
-                      <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
-                        {p.isDefault && <Badge tone="brand">padrão</Badge>}
-                        {p.featured && <Badge tone="success">mais escolhido</Badge>}
-                        {p.active && !p.showPublic && <Badge>fora da página de preços</Badge>}
-                        {!p.active && <Badge>inativo</Badge>}
-                        {p.trialDays > 0 && <Badge tone="info">{p.trialDays} dias de teste</Badge>}
-                      </div>
-                    </td>
-                    <td className="cm-num">{brl(p.priceMonthly)}</td>
-                    <td>
-                      {limitText(p.maxUsers)} · {limitText(p.maxProducts)} ·{' '}
-                      {limitText(p.maxOrdersMonth)}
-                    </td>
-                    <td>
-                      {[
-                        p.featureFiscal && 'NFC-e',
-                        p.featureWhatsapp && 'WhatsApp',
-                        p.featureCustomDomain && 'Domínio próprio',
-                      ]
-                        .filter(Boolean)
-                        .join(', ') || '—'}
-                    </td>
-                    <td className="cm-num">{p.subscribers}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        </Card>
+      ) : (
+        <>
+          <div className="adm-grid">
+            <Tile
+              label="Mensalidade"
+              value={brl(single.priceMonthly)}
+              sub="por mês, para qualquer restaurante"
+            />
+            <Tile
+              label="Teste grátis"
+              value={single.trialDays > 0 ? `${single.trialDays} dias` : 'Sem teste'}
+              sub="para todo restaurante novo"
+            />
+            <Tile
+              label="No valor único"
+              value={single.subscribers}
+              sub={single.subscribers === 1 ? 'restaurante' : 'restaurantes'}
+            />
+            <Tile
+              label="Mudando na próxima mensalidade"
+              value={moving}
+              sub={moving === 1 ? 'restaurante em plano antigo' : 'restaurantes em plano antigo'}
+              level={moving > 0 ? 'info' : 'off'}
+            />
           </div>
-        )}
-      </Card>
-      {editing && (
+          <Alert tone="info">
+            <strong>Este valor aparece na hora</strong> no site do Comandou, na página de preços (
+            <code>/precos</code>) e na tela <strong>Assinatura</strong> de cada restaurante. Quem
+            está em teste paga este valor quando o teste vencer. Mudar o valor vale para a{' '}
+            <strong>próxima mensalidade</strong> de todo mundo; as faturas já geradas não mudam.
+          </Alert>
+          <Card title="O que está incluso">
+            <p className="adm-sub" style={{ whiteSpace: 'normal', margin: '0 0 8px' }}>
+              {single.tagline || 'Tudo do sistema por um valor fixo.'}
+            </p>
+            <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 4 }}>
+              <li>Sem limite de equipe, produtos e pedidos</li>
+              {single.highlights.map((h) => (
+                <li key={h}>{h}</li>
+              ))}
+            </ul>
+          </Card>
+          {legacy.length > 0 && (
+            <Card title="Planos antigos" bodyless>
+              <p className="adm-sub" style={{ whiteSpace: 'normal', margin: '12px 16px' }}>
+                Não aparecem mais para ninguém. Quem ainda está num deles continua com o período já
+                pago e passa para o valor único na próxima mensalidade.
+              </p>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="cm-table">
+                  <thead>
+                    <tr>
+                      <th>Plano</th>
+                      <th className="cm-num">Preço antigo</th>
+                      <th className="cm-num">Restaurantes ainda nele</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {legacy.map((p) => (
+                      <tr key={p.id}>
+                        <td>
+                          <strong>{p.name}</strong> <span className="cm-hint">{p.code}</span>{' '}
+                          {p.active && <Badge tone="warning">ainda ativo</Badge>}
+                        </td>
+                        <td className="cm-num">{brl(p.priceMonthly)}</td>
+                        <td className="cm-num">{p.subscribers}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+      {editing && single && (
         <PlanModal
-          plan={editing === 'new' ? null : editing}
-          onClose={() => setEditing(null)}
+          plan={single}
+          onClose={() => setEditing(false)}
           onSaved={() => {
-            setEditing(null);
+            setEditing(false);
             reload();
           }}
         />
@@ -129,34 +159,13 @@ export function PlansPage() {
   );
 }
 
-function PlanModal({
-  plan,
-  onClose,
-  onSaved,
-}: {
-  plan: Plan | null;
-  onClose(): void;
-  onSaved(): void;
-}) {
+function PlanModal({ plan, onClose, onSaved }: { plan: Plan; onClose(): void; onSaved(): void }) {
   const toast = useToast();
   const [f, setF] = useState({
-    code: plan?.code ?? '',
-    name: plan?.name ?? '',
-    price: plan ? plan.priceMonthly.replace('.', ',') : '',
-    maxUsers: plan?.maxUsers?.toString() ?? '',
-    maxProducts: plan?.maxProducts?.toString() ?? '',
-    maxOrdersMonth: plan?.maxOrdersMonth?.toString() ?? '',
-    trialDays: String(plan?.trialDays ?? 0),
-    featureFiscal: plan?.featureFiscal ?? false,
-    featureWhatsapp: plan?.featureWhatsapp ?? false,
-    featureCustomDomain: plan?.featureCustomDomain ?? false,
-    isDefault: plan?.isDefault ?? false,
-    active: plan?.active ?? true,
-    tagline: plan?.tagline ?? '',
-    highlights: (plan?.highlights ?? []).join('\n'),
-    featured: plan?.featured ?? false,
-    showPublic: plan?.showPublic ?? true,
-    sortOrder: String(plan?.sortOrder ?? 0),
+    price: plan.priceMonthly.replace('.', ','),
+    trialDays: String(plan.trialDays ?? 0),
+    tagline: plan.tagline ?? '',
+    highlights: (plan.highlights ?? []).join('\n'),
   });
   const highlights = f.highlights
     .split('\n')
@@ -164,39 +173,38 @@ function PlanModal({
     .filter(Boolean);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const set = (k: keyof typeof f) => (v: string | boolean) => setF((x) => ({ ...x, [k]: v }));
-  const num = (v: string) => (v.trim() === '' ? null : Number(v));
+  const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
   // "1.234,56" (padrão brasileiro) ou "99.90".
   const raw = f.price.trim();
   const price = raw.includes(',') ? raw.replace(/\./g, '').replace(',', '.') : raw;
-  const priceOk = /^\d+(\.\d{1,2})?$/.test(price);
+  const priceOk = /^\d+(\.\d{1,2})?$/.test(price) && Number(price) > 0;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    // Valor único: sempre sem limites, com todos os recursos, ativo, padrão e na página de preços.
     const body = {
-      name: f.name,
+      name: plan.name,
       priceMonthly: price.includes('.') ? price : `${price}.00`,
-      maxUsers: num(f.maxUsers),
-      maxProducts: num(f.maxProducts),
-      maxOrdersMonth: num(f.maxOrdersMonth),
+      maxUsers: null,
+      maxProducts: null,
+      maxOrdersMonth: null,
       trialDays: Number(f.trialDays || 0),
-      featureFiscal: f.featureFiscal,
-      featureWhatsapp: f.featureWhatsapp,
-      featureCustomDomain: f.featureCustomDomain,
-      isDefault: f.isDefault,
-      active: f.active,
+      featureFiscal: true,
+      featureWhatsapp: true,
+      featureCustomDomain: true,
+      isDefault: true,
+      active: true,
       tagline: f.tagline.trim(),
       highlights,
-      featured: f.featured,
-      showPublic: f.showPublic,
-      sortOrder: Number(f.sortOrder || 0),
+      featured: true,
+      showPublic: true,
+      sortOrder: plan.sortOrder,
     };
     try {
-      if (plan) await api(`/platform/plans/${plan.id}`, { method: 'PUT', json: body });
-      else await api('/platform/plans', { method: 'POST', json: { ...body, code: f.code } });
-      toast(plan ? 'Plano atualizado' : 'Plano criado', 'success');
+      await api(`/platform/plans/${plan.id}`, { method: 'PUT', json: body });
+      toast('Valor atualizado', 'success');
       onSaved();
     } catch (err) {
       setError((err as Error).message);
@@ -205,19 +213,11 @@ function PlanModal({
     }
   }
 
-  const check = (k: keyof typeof f, label: string) => (
-    <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <input type="checkbox" checked={f[k] as boolean} onChange={(e) => set(k)(e.target.checked)} />
-      {label}
-    </label>
-  );
-
   return (
     <Modal
       open
-      title={plan ? `Plano ${plan.name}` : 'Novo plano'}
+      title="Valor único"
       onClose={onClose}
-      size="lg"
       footer={
         <>
           <Button variant="ghost" type="button" onClick={onClose}>
@@ -225,113 +225,53 @@ function PlanModal({
           </Button>
           <Button
             type="submit"
-            form="plano-form"
+            form="preco-form"
             loading={busy}
-            disabled={!f.name || !priceOk || (!plan && !f.code) || highlights.length > 8}
+            disabled={!priceOk || highlights.length > 8 || Number(f.trialDays || 0) > 90}
           >
             Salvar
           </Button>
         </>
       }
     >
-      <form id="plano-form" onSubmit={submit}>
-        <div className="form-grid">
-          <TextField
-            label="Código"
-            value={f.code}
-            disabled={!!plan}
-            onChange={(e) => set('code')(e.target.value.toLowerCase())}
-            hint={plan ? 'Não muda depois de criado' : 'Ex.: basico, pro'}
-          />
-          <TextField label="Nome" value={f.name} onChange={(e) => set('name')(e.target.value)} />
-          <TextField
-            label="Preço mensal (R$)"
-            inputMode="decimal"
-            value={f.price}
-            onChange={(e) => set('price')(e.target.value)}
-            error={f.price && !priceOk ? 'Ex.: 99,90' : undefined}
-          />
-          <TextField
-            label="Dias de teste"
-            inputMode="numeric"
-            value={f.trialDays}
-            onChange={(e) => set('trialDays')(e.target.value.replace(/\D/g, ''))}
-          />
-          <TextField
-            label="Máx. pessoas na equipe"
-            inputMode="numeric"
-            value={f.maxUsers}
-            onChange={(e) => set('maxUsers')(e.target.value.replace(/\D/g, ''))}
-            hint="Vazio = sem limite"
-          />
-          <TextField
-            label="Máx. produtos ativos"
-            inputMode="numeric"
-            value={f.maxProducts}
-            onChange={(e) => set('maxProducts')(e.target.value.replace(/\D/g, ''))}
-            hint="Vazio = sem limite"
-          />
-          <TextField
-            label="Máx. pedidos por mês"
-            inputMode="numeric"
-            value={f.maxOrdersMonth}
-            onChange={(e) => set('maxOrdersMonth')(e.target.value.replace(/\D/g, ''))}
-            hint="Vazio = sem limite"
-          />
-        </div>
-        <p className="adm-sub" style={{ whiteSpace: 'normal', margin: '8px 0 0' }}>
-          Limites: o restaurante não consegue <strong>criar</strong> além disso (nada é apagado).
-          Vazio = sem limite. Teste grátis: dias liberados sem pagar para quem começa neste plano.
-          No plano padrão, é também o teste de quem se cadastra pelo site (comandou.com).
-        </p>
-        <h4 style={{ margin: '20px 0 8px' }}>Recursos e situação</h4>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {check('featureFiscal', 'Inclui nota fiscal (NFC-e)')}
-          {check('featureWhatsapp', 'Inclui mensagens no WhatsApp')}
-          {check('featureCustomDomain', 'Inclui domínio próprio')}
-          {check('isDefault', 'Plano padrão dos novos restaurantes')}
-          {check('active', 'Ativo (aceita novas assinaturas)')}
-        </div>
-        <h4 style={{ margin: '20px 0 4px' }}>Página de preços e tela Assinatura</h4>
-        <p className="adm-sub" style={{ whiteSpace: 'normal', margin: '0 0 12px' }}>
-          Como este plano aparece para o cliente em <code>/precos</code> e na tela Assinatura. A
-          tabela de comparação usa o preço, o teste, os limites e os recursos acima sozinha.
-        </p>
-        <div className="form-grid">
-          <TextField
-            label="Frase curta"
-            value={f.tagline}
-            maxLength={160}
-            onChange={(e) => set('tagline')(e.target.value)}
-            hint="Ex.: Para quem está começando. Aparece embaixo do preço."
-          />
-          <TextField
-            label="Ordem na página"
-            inputMode="numeric"
-            value={f.sortOrder}
-            onChange={(e) => set('sortOrder')(e.target.value.replace(/\D/g, '').slice(0, 3))}
-            hint="Menor aparece primeiro; empate ordena pelo preço"
-          />
-        </div>
-        <label className="cm-field" style={{ display: 'grid', gap: 4, marginTop: 12 }}>
-          <span className="cm-label">Destaques do cartão (um por linha, até 8)</span>
+      <form id="preco-form" onSubmit={submit} style={{ display: 'grid', gap: 12 }}>
+        <TextField
+          label="Mensalidade (R$)"
+          inputMode="decimal"
+          value={f.price}
+          onChange={(e) => set('price')(e.target.value)}
+          error={f.price && !priceOk ? 'Ex.: 400,00' : undefined}
+          hint="Vale para a próxima mensalidade de todos os restaurantes"
+        />
+        <TextField
+          label="Dias de teste"
+          inputMode="numeric"
+          value={f.trialDays}
+          onChange={(e) => set('trialDays')(e.target.value.replace(/\D/g, '').slice(0, 2))}
+          hint="Teste grátis de todo restaurante novo, inclusive quem se cadastra pelo site (comandou.com). 0 fecha o cadastro pelo site."
+        />
+        <TextField
+          label="Frase curta"
+          value={f.tagline}
+          maxLength={160}
+          onChange={(e) => set('tagline')(e.target.value)}
+          hint="Aparece embaixo do preço"
+        />
+        <label className="cm-field" style={{ display: 'grid', gap: 4 }}>
+          <span className="cm-label">Destaques (um por linha, até 8)</span>
           <textarea
             className="cm-input"
             rows={4}
             value={f.highlights}
             onChange={(e) => set('highlights')(e.target.value)}
-            placeholder={'Até 5 pessoas na equipe\nCardápio online\nNota fiscal (NFC-e)'}
+            placeholder={'PDV, salão, cozinha, caixa e entregas\nNota fiscal (NFC-e e NF-e)'}
           />
           <span className={highlights.length > 8 ? 'cm-error-text' : 'cm-hint'}>
             {highlights.length > 8
               ? `São ${highlights.length} linhas: deixe no máximo 8`
-              : 'Vazio = o sistema monta sozinho com os limites e recursos acima.'}
+              : '"Sem limite de equipe, produtos e pedidos" sempre aparece primeiro.'}
           </span>
         </label>
-        <div style={{ display: 'grid', gap: 8, margin: '12px 0 16px' }}>
-          {check('showPublic', 'Mostrar na página de preços (/precos)')}
-          {check('featured', 'Destacar como “Mais escolhido”')}
-        </div>
         {error && <Alert tone="danger">{error}</Alert>}
       </form>
     </Modal>

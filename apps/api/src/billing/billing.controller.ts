@@ -282,7 +282,7 @@ export class TenantBillingController {
 
 /**
  * Planos para a página pública /precos (qualquer endereço do Comandou, sem login). Sai direto do
- * Super Admin → Planos: o que mudar lá aparece aqui na hora.
+ * Super Admin → Preço: o que mudar lá aparece aqui na hora.
  */
 @Controller({ path: 'public/plans', version: '1' })
 @SkipTenant()

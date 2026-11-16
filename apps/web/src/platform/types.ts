@@ -153,6 +153,8 @@ export interface Plan {
   showPublic: boolean;
   sortOrder: number;
   subscribers: number;
+  /** Restaurantes de plano antigo que passam para este na próxima mensalidade. */
+  scheduledIn?: number;
 }
 
 export interface TenantDetail {

@@ -214,7 +214,7 @@ p.sub-muted {
   font-weight: 600;
 }
 
-/* ---------------------------------------------------------------- vitrine dos planos */
+/* ---------------------------------------------------------------- valor único */
 .sub-hero2 {
   border-radius: 20px;
   padding: var(--cm-space-8) var(--cm-space-6);
@@ -247,13 +247,6 @@ p.sub-muted {
   color: rgb(255 255 255 / 78%);
   font-size: var(--cm-text-md);
 }
-.sub-hero2__chips {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
-  margin-bottom: var(--cm-space-1);
-}
 .sub-chip {
   padding: 3px 12px;
   border-radius: var(--cm-radius-sm);
@@ -263,136 +256,35 @@ p.sub-muted {
   color: var(--cm-ink);
   background: #f3f0ff;
 }
-.sub-chip[data-tone='1'] {
-  background: #ffe0ef;
-}
-.sub-chip[data-tone='2'] {
-  background: var(--cm-brand-200);
-}
-.sub-chip[data-tone='3'] {
-  background: #ffe7c2;
-}
-.sub-upsell {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--cm-space-4);
-  padding: var(--cm-space-5) var(--cm-space-6);
-  border-radius: 20px;
-  background: var(--cm-brand-50);
-}
-.sub-upsell > div {
-  display: grid;
-  gap: 2px;
-}
-.sub-upsell .cm-btn {
-  border-radius: var(--cm-radius-full);
-  padding-inline: 22px;
-}
-.sub-plans2 {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--cm-space-4);
-}
-.sub-plan2 {
-  display: flex;
-  flex-direction: column;
-  gap: var(--cm-space-2);
-  padding: var(--cm-space-6);
-  border-radius: 20px;
-  background: var(--cm-surface);
-  border: 1px solid var(--cm-border);
-  transition:
-    border-color var(--cm-dur) var(--cm-ease),
-    box-shadow var(--cm-dur) var(--cm-ease);
-}
-.sub-plan2[data-current] {
-  background: var(--cm-brand-50);
-  border-color: transparent;
-}
-.sub-plan2[data-featured] {
-  border-color: var(--cm-brand-500);
-  box-shadow: 0 18px 40px -24px color-mix(in srgb, var(--cm-brand-500) 60%, transparent);
-}
-.sub-plan2__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--cm-space-2);
-  font-size: var(--cm-text-lg);
-}
-.sub-plan2__price {
-  font-size: var(--cm-text-2xl);
-  font-weight: 700;
-  letter-spacing: var(--cm-tracking-tight);
+.sub-hero2 .sub-single__price {
+  font-size: 2.4rem;
+  font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
-.sub-plan2__price small {
-  font-size: var(--cm-text-sm);
+.sub-single__price small {
+  font-size: var(--cm-text-md);
   font-weight: 500;
-  color: var(--cm-text-muted);
+  color: rgb(255 255 255 / 70%);
   letter-spacing: 0;
 }
-.sub-plan2__tagline {
-  margin: 0;
-  color: var(--cm-brand-700);
-  font-weight: 600;
-  font-size: var(--cm-text-sm);
-}
-.sub-plan2__list {
+.sub-single__list {
   list-style: none;
-  margin: var(--cm-space-1) 0 0;
+  margin: var(--cm-space-3) 0 0;
   padding: 0;
   display: grid;
-  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px var(--cm-space-5);
   font-size: var(--cm-text-sm);
-  flex: 1;
-  align-content: start;
 }
-.sub-plan2__list li {
+.sub-single__list li {
   display: flex;
   gap: 8px;
   align-items: flex-start;
 }
-.sub-plan2__list svg {
+.sub-single__list svg {
   flex: none;
   margin-top: 3px;
   color: var(--cm-brand-600);
-}
-.sub-plan2__cta {
-  margin-top: var(--cm-space-3);
-}
-.sub-btn-outline,
-.sub-btn-soft {
-  width: 100%;
-  min-height: 44px;
-  border-radius: var(--cm-radius-full);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-.sub-btn-outline {
-  background: var(--cm-surface);
-  color: var(--cm-text);
-  border: 1px solid var(--cm-border-strong);
-  transition:
-    border-color var(--cm-dur-fast) var(--cm-ease),
-    background var(--cm-dur-fast) var(--cm-ease);
-}
-.sub-btn-outline:hover {
-  border-color: var(--cm-text);
-}
-.sub-plan2[data-featured] .sub-btn-outline {
-  background: var(--cm-brand-600);
-  border-color: var(--cm-brand-600);
-  color: var(--cm-on-brand);
-}
-.sub-btn-soft {
-  border: 0;
-  background: color-mix(in srgb, var(--cm-surface) 70%, transparent);
-  color: var(--cm-text-subtle);
-  cursor: default;
 }
 
 /* ---------------------------------------------------------------- forma de pagamento */

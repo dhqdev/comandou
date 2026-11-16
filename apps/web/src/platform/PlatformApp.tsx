@@ -315,7 +315,7 @@ const NAV = [
   { to: '/chamados', label: 'Chamados', icon: KanbanSquare },
   { to: '/servidor', label: 'Infraestrutura', short: 'Infra', icon: Server },
   { to: '/fiscal', label: 'Fiscal', icon: FileText },
-  { to: '/planos', label: 'Planos', icon: Tags },
+  { to: '/planos', label: 'Preço', icon: Tags },
   { to: '/orcamento', label: 'Orçamento', icon: Calculator },
   { to: '/site', label: 'Site', icon: Globe },
   { to: '/sites-ia', label: 'Sites com IA', short: 'Sites IA', icon: Sparkles },

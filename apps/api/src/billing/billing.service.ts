@@ -23,6 +23,7 @@ import {
   invoiceDue,
   paymentBlocked,
   periodAfterPayment,
+  SINGLE_PLAN_CODE,
   spDate,
   toCents,
   upgradeCharge,
@@ -778,6 +779,14 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       out.errors += r.errors.length;
       errors.push(...r.errors);
     }
+    if (s.enabled && s.api_key_enc) {
+      try {
+        await this.toSinglePrice(now);
+      } catch (e) {
+        out.errors++;
+        errors.push(`valor único: ${(e as Error).message}`);
+      }
+    }
     const subs = await this.db.query<SubRow>(`${SUB_SQL} AND t.status = 'provisioned'`);
     for (const sub of subs) {
       try {
@@ -820,6 +829,29 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       [errors.length ? errors.join(' | ').slice(0, 500) : null],
     );
     return out;
+  }
+
+  /**
+   * Valor único (0072): mensalidade em aberto de um período que ainda não começou, gerada com um
+   * plano antigo para quem já vai para o valor único, é refeita com o preço dele. O período que
+   * já está correndo (ou vencido) fica como foi cobrado.
+   */
+  private async toSinglePrice(now: Date) {
+    const [single] = await this.db.query<{ id: string; name: string; price: string }>(
+      `SELECT id, name, price_monthly::text AS price FROM plans WHERE code = $1 AND active`,
+      [SINGLE_PLAN_CODE],
+    );
+    if (!single || toCents(single.price) === 0) return;
+    const open = await this.db.query<{ id: string; provider_id: string | null }>(
+      `SELECT i.id, i.provider_id FROM billing_invoices i
+         JOIN subscriptions s ON s.id = i.subscription_id
+        WHERE i.kind = 'monthly' AND i.status = 'pending' AND i.period_start > $2
+          AND i.plan_id IS DISTINCT FROM $1 AND s.status <> 'cancelled'
+          AND (s.plan_id = $1 OR s.scheduled_plan_id = $1)
+        ORDER BY i.created_at LIMIT 50`,
+      [single.id, now],
+    );
+    for (const r of open) await this.reprice(r.id, r.provider_id, single);
   }
 
   /**
@@ -1820,6 +1852,14 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
         await c.query<SubRow>(`${SUB_SQL} AND s.tenant_id = $1 FOR UPDATE OF s`, [tenantId])
       ).rows[0];
       if (!sub?.scheduled_plan_id) throw new ConflictException('Nenhuma troca agendada');
+      const single = await c.query(`SELECT 1 FROM plans WHERE id = $1 AND code = $2`, [
+        sub.scheduled_plan_id,
+        SINGLE_PLAN_CODE,
+      ]);
+      if (single.rowCount)
+        throw new ConflictException(
+          'O Comandou agora tem um valor único: a troca vale na próxima mensalidade',
+        );
       await c.query(
         `UPDATE subscriptions SET scheduled_plan_id = NULL, scheduled_at = NULL WHERE id = $1`,
         [sub.id],

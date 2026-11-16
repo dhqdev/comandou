@@ -836,4 +836,48 @@ describe('Página de preços, cartão automático e plano menor', () => {
     );
     expect(audit.length).toBeGreaterThan(0);
   });
+
+  it('valor único: quem está em plano antigo paga o valor novo na próxima mensalidade', async () => {
+    const [single] = await ownerQuery<{ id: string }>(
+      `INSERT INTO plans (code, name, price_monthly, active)
+       VALUES ('comandou', 'Comandou', 400.00, true)
+       ON CONFLICT (code) DO UPDATE SET price_monthly = 400.00, active = true RETURNING id`,
+    );
+    try {
+      expect((await subRow()).plan_id).toBe(plans.basic);
+      await psend('post', `/billing/tenants/${fx.tenantA}/charge`).expect(200);
+      const open = () =>
+        ownerQuery<{ amount: string; plan_id: string }>(
+          `SELECT amount::text AS amount, plan_id FROM billing_invoices
+            WHERE tenant_id = $1 AND kind = 'monthly' AND status = 'pending'`,
+          [fx.tenantA],
+        );
+      expect((await open())[0]).toMatchObject({ amount: '90.00', plan_id: plans.basic });
+      // O que a migração 0072 faz com quem paga um plano antigo.
+      await ownerQuery(
+        `UPDATE subscriptions SET scheduled_plan_id = $2, scheduled_at = now()
+          WHERE tenant_id = $1 AND status <> 'cancelled'`,
+        [fx.tenantA, single!.id],
+      );
+      // O restaurante não desfaz a passagem para o valor único.
+      await http
+        .delete('/api/v1/subscription/downgrade')
+        .set('Host', HOST_A)
+        .set(CSRF)
+        .set('Cookie', ownerA)
+        .expect(409);
+      // O ciclo refaz a mensalidade em aberto do próximo período com o valor único.
+      await billing.runCycle(new Date());
+      const after = await open();
+      expect(after).toHaveLength(1);
+      expect(after[0]).toMatchObject({ amount: '400.00', plan_id: single!.id });
+    } finally {
+      await ownerQuery(
+        `UPDATE subscriptions SET scheduled_plan_id = NULL, scheduled_at = NULL
+          WHERE scheduled_plan_id = $1`,
+        [single!.id],
+      );
+      await ownerQuery(`UPDATE plans SET active = false WHERE id = $1`, [single!.id]);
+    }
+  });
 });

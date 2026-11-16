@@ -73,7 +73,7 @@ export function trialPassword(): string {
 /**
  * Site público (comandou.com): o visitante cria o próprio restaurante de teste informando o site
  * atual, o link do Google Maps ou descrevendo os itens. O restaurante nasce como qualquer outro
- * (mesmo caminho do painel), no plano padrão e com os dias de teste dele (Super Admin › Planos:
+ * (mesmo caminho do painel), no plano padrão e com os dias de teste dele (Super Admin › Preço:
  * um tempo só para o site e para o sistema), e os primeiros passos começam pelo cardápio
  * informado. O login vai por e-mail (webhook do n8n) e aparece na tela. Teste vencido
  * sem fechar: o restaurante é suspenso (nada é apagado) e volta pelo painel.
@@ -115,7 +115,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /**
    * O plano em que o restaurante do site nasce. Os dias de teste são os dele, os mesmos de
-   * qualquer restaurante novo: muda em Super Admin › Planos, num lugar só.
+   * qualquer restaurante novo: muda em Super Admin › Preço, num lugar só.
    */
   private async sitePlan(): Promise<SitePlan | null> {
     const [p] = await this.db.query<SitePlan>(
@@ -531,7 +531,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
     const plan = await this.sitePlan();
     return {
       signupEnabled: s.signup_enabled,
-      /** Só leitura: os dias de teste do plano (Super Admin › Planos). */
+      /** Só leitura: os dias de teste do plano (Super Admin › Preço). */
       trialDays: plan?.trial_days ?? 0,
       trialPlan: plan?.name ?? null,
       dailyLimit: s.daily_limit,

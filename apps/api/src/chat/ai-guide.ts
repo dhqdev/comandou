@@ -125,7 +125,7 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     path: '/plano',
     name: 'Assinatura (plano)',
     perms: ['plan:read'],
-    text: 'plano contratado, limites, contrato e pagamento da assinatura.',
+    text: 'mensalidade (valor único por mês, com tudo incluso e sem limite de pessoas, produtos ou pedidos), contrato e pagamento da assinatura.',
   },
   {
     path: '/novidades',

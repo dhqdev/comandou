@@ -831,7 +831,8 @@ export class PlatformService {
   listPlans() {
     return this.db.query(
       `SELECT ${PLAN_COLS},
-              (SELECT count(*)::int FROM subscriptions s WHERE s.plan_id = plans.id AND s.status <> 'cancelled') AS "subscribers"
+              (SELECT count(*)::int FROM subscriptions s WHERE s.plan_id = plans.id AND s.status <> 'cancelled') AS "subscribers",
+              (SELECT count(*)::int FROM subscriptions s WHERE s.scheduled_plan_id = plans.id AND s.status <> 'cancelled') AS "scheduledIn"
          FROM plans ORDER BY active DESC, price_monthly, name`,
     );
   }

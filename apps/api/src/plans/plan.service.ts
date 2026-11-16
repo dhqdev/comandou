@@ -144,7 +144,7 @@ export class PlanService {
     if (!withinLimit(limit, used, adding)) {
       throw new ForbiddenException(
         `Limite do plano ${cur!.plan.name} atingido: ${limit} ${RESOURCE_LABELS[resource]}. ` +
-          'Suba de plano em Assinatura ou fale com o suporte.',
+          'O limite some quando a mensalidade passar para o valor único do Comandou; se precisar antes, fale com o suporte.',
       );
     }
   }
@@ -157,7 +157,7 @@ export class PlanService {
   async assertFeature(tx: Tx, feature: PlanFeature): Promise<void> {
     if (!(await this.hasFeature(tx, feature))) {
       throw new ForbiddenException(
-        `Seu plano não inclui ${FEATURE_LABELS[feature]}. Suba de plano em Assinatura ou fale com o suporte.`,
+        `Seu plano atual não inclui ${FEATURE_LABELS[feature]}. O valor único do Comandou inclui tudo e vale a partir da próxima mensalidade; se precisar antes, fale com o suporte.`,
       );
     }
   }

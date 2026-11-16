@@ -9,7 +9,7 @@ import { ago, PageHead, Section, Tag, type Level } from './ui';
 
 interface SiteSettings {
   signupEnabled: boolean;
-  /** Dias de teste do plano em que o restaurante do site nasce (Super Admin › Planos). */
+  /** Dias de teste do plano em que o restaurante do site nasce (Super Admin › Preço). */
   trialDays: number;
   trialPlan: string | null;
   dailyLimit: number;
@@ -163,9 +163,7 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
                 ) : (
                   <strong className="adm-site-trial__off">Sem teste</strong>
                 )}{' '}
-                <Link to="/planos">
-                  {settings.trialPlan ? `Mudar no plano ${settings.trialPlan}` : 'Mudar em Planos'}
-                </Link>
+                <Link to="/planos">Mudar em Preço</Link>
               </p>
               <span className="cm-hint">
                 {settings.trialDays > 0

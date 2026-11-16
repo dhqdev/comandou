@@ -36,7 +36,7 @@ let created: {
 let before: { ai: Buffer | null; billing: boolean };
 /** Sessão do dono no restaurante criado (entrou pelo link do cadastro). */
 let session = '';
-/** O plano em que o restaurante do site nasce: os dias de teste vêm dele (Super Admin › Planos). */
+/** O plano em que o restaurante do site nasce: os dias de teste vêm dele (Super Admin › Preço). */
 let plan: { id: string; trial_days: number };
 
 const post = (path: string, body: object) =>

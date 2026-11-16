@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.128.0',
+    date: '2026-11-16',
+    title: 'Valor único de R$ 400 para todo mundo',
+    summary:
+      'O Comandou passa a ter um preço só: R$ 400,00 por mês, com tudo incluso e sem limite de pessoas, produtos ou pedidos. A página de preços, o site, a tela Assinatura e o Super Admin mostram só esse valor, e quem ainda estava num plano antigo passa para ele na próxima mensalidade.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Página de preços (/precos) com um cartão só: R$ 400,00 por mês, valor único que não muda com o número de pessoas, produtos ou pedidos. Saíram a tabela de comparação e as perguntas sobre trocar de plano.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin → Preço (antes Planos): o valor único, os dias de teste, quantos restaurantes já estão nele e quantos mudam na próxima mensalidade. "Mudar o valor" troca o preço, a frase e os destaques; os planos antigos ficam só como histórico.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Tela Assinatura do restaurante: no lugar dos cartões de planos, o valor único e tudo que está incluso. Sem botões de subir ou descer de plano.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cobrança: quem está em teste paga R$ 400,00 quando o teste vencer. Quem pagava um plano antigo termina o período já pago e a próxima mensalidade sai com R$ 400,00 (a fatura em aberto do próximo período é refeita no Asaas). Plano de R$ 0 dado como cortesia continua como está.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Site do Comandou: a seção Preço diz que o valor é único, sem cobrança por pessoa, produto ou pedido.',
+      },
+    ],
+  },
+  {
     version: '0.127.0',
     date: '2026-11-16',
     title: 'Um tempo de teste só e cadastro pelo site redondo',

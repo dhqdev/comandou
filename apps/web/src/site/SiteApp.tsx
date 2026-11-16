@@ -445,7 +445,7 @@ export function SiteApp() {
       calm.current = window.setTimeout(() => setMood('idle'), 2600);
   };
 
-  // Os dias de teste vêm do plano (Super Admin › Planos): o mesmo tempo do sistema todo.
+  // Os dias de teste vêm do plano (Super Admin › Preço): o mesmo tempo do sistema todo.
   const days = config?.trialDays ?? 0;
   const free = days > 0 ? `${days} ${days === 1 ? 'dia' : 'dias'} grátis` : 'Teste grátis';
   const contact = contactHref(config?.salesContact ?? '');
@@ -573,7 +573,7 @@ export function SiteApp() {
         <section className="st-sec st-sec--tint" id="preco">
           <div className="st-price st-reveal">
             <div className="st-price__left">
-              <h2>Um plano. Tudo dentro.</h2>
+              <h2>Um preço só. Tudo dentro.</h2>
               <p>{free}, sem cartão e sem limite de pedidos.</p>
               <div className="st-price__value">
                 {plan ? (
@@ -585,6 +585,9 @@ export function SiteApp() {
                   <strong className="st-price__ask">Fale com a gente</strong>
                 )}
               </div>
+              <p className="st-price__note">
+                Valor único: não muda com o número de pessoas, produtos ou pedidos.
+              </p>
               <div className="st-price__cta">
                 <Button size="lg" onClick={toBuilder}>
                   {days > 0 ? `Testar ${free}` : 'Testar grátis'}

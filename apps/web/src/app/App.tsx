@@ -112,7 +112,7 @@ export function App() {
             <Route path="/suporte" element={<SupportEntryPage />} />
             {/* Chegada de quem acabou de criar o restaurante pelo site (link de uso único). */}
             <Route path="/entrar" element={<EntryPage />} />
-            {/* Planos e preços (público): sai do Super Admin → Planos. */}
+            {/* Planos e preços (público): sai do Super Admin → Preço. */}
             <Route path="/precos" element={<PricingPage />} />
             <Route path="/preços" element={<PricingPage />} />
             <Route path="*" element={<StaffApp />} />
