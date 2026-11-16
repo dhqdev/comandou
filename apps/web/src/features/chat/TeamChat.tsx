@@ -5,6 +5,7 @@ import {
   Megaphone,
   MessageCircle,
   Minimize2,
+  ShoppingBag,
   Users,
   X,
 } from 'lucide-react';
@@ -19,14 +20,18 @@ import { ConversationView } from './ConversationView';
 import { HelpTab } from './HelpTab';
 import { ConversationList, NewConversation, PeopleList } from './Lists';
 import { AiTab, MuralTab, NoticesTab } from './Tabs';
+import { CustomersInbox, useSupportUnread } from '../store-chat/SupportInbox';
 import { Avatar } from './util';
 import './chat.css';
 
-type Tab = 'conversas' | 'pessoas' | 'mural' | 'ia' | 'avisos' | 'suporte';
+type Tab = 'conversas' | 'pessoas' | 'mural' | 'ia' | 'avisos' | 'clientes' | 'suporte';
 /** Outras telas abrem o chat disparando este evento (detail: { tab }). */
 export const OPEN_CHAT_EVENT = 'cm:open-chat';
 
-/** Abre o chat da equipe de qualquer lugar (ex.: "Conversas" na folha Mais do celular). */
+/**
+ * Abre o chat da equipe de qualquer lugar (ex.: "Conversas" na folha Mais do celular).
+ * `'ia'` abre só o assistente, num painel próprio, sem as outras abas.
+ */
 export function openTeamChat(tab?: Tab) {
   window.dispatchEvent(new CustomEvent(OPEN_CHAT_EVENT, { detail: { tab } }));
 }
@@ -130,7 +135,15 @@ export function TeamChat({
   const { pathname } = useLocation();
   const prefs = useRef(loadPrefs());
   const [open, setOpen] = useState(false);
-  const [tab, setTabState] = useState<Tab>(prefs.current.tab ?? 'conversas');
+  // No painel do restaurante a IA tem botão próprio no topo e abre sozinha, sem as abas.
+  const shell = variant === 'shell';
+  const [aiOnly, setAiOnly] = useState(false);
+  const savedTab = prefs.current.tab;
+  const [tab, setTabState] = useState<Tab>(
+    savedTab && !(shell && savedTab === 'ia') ? savedTab : 'conversas',
+  );
+  // Ao abrir pelo "Chat" do topo, entra direto na conversa mais recente (no computador).
+  const enter = useRef(false);
   const [expanded, setExpandedState] = useState(!!prefs.current.expanded);
   // Só grava no armazenamento quando a pessoa muda algo (não ao abrir a página).
   const setTab = (t: Tab) => {
@@ -202,12 +215,29 @@ export function TeamChat({
   useEffect(() => {
     const on = (e: Event) => {
       const t = (e as CustomEvent<{ tab?: Tab }>).detail?.tab;
+      if (shell && t === 'ia') {
+        setAiOnly(true);
+        setOpen(true);
+        return;
+      }
+      setAiOnly(false);
       if (t) setTab(t);
+      else if (shell) setTabState((cur) => (cur === 'ia' ? 'conversas' : cur));
+      enter.current = !t || t === 'conversas';
       setOpen(true);
     };
     window.addEventListener(OPEN_CHAT_EVENT, on);
     return () => window.removeEventListener(OPEN_CHAT_EVENT, on);
   }, []);
+
+  useEffect(() => {
+    if (!open || aiOnly || !enter.current || loading || selected) return;
+    if (tab !== 'conversas' || !convs.length) return;
+    enter.current = false;
+    if (!window.matchMedia?.('(min-width: 721px)').matches) return;
+    const first = convs.find((c) => c.unread > 0) ?? convs[0];
+    setSelected(first.id);
+  }, [open, aiOnly, loading, selected, tab, convs]);
 
   useEffect(() => {
     if (!open) return;
@@ -263,6 +293,7 @@ export function TeamChat({
     setFocusMsg(messageId ?? null);
     setSelected(id);
     if (tab !== 'conversas' && tab !== 'pessoas') setTab('conversas');
+    setAiOnly(false);
     setOpen(true);
   };
   const direct = async (userId: string) => {
@@ -284,7 +315,9 @@ export function TeamChat({
     [summary.unread, summary.notices, helpPart, helpOn],
   );
   useEffect(() => () => setUnread({ team: 0, help: 0, helpOn: false }), []);
+  const customers = useSupportUnread();
   if (!me) return null;
+  const canCustomers = shell && me.permissions.includes('orders:manage');
   const listTab = tab === 'conversas' || tab === 'pessoas';
 
   const TABS: { key: Tab; label: string; icon: ReactNode; badge?: number }[] = [
@@ -296,8 +329,18 @@ export function TeamChat({
     },
     { key: 'pessoas', label: 'Pessoas', icon: <Users size={20} /> },
     { key: 'mural', label: 'Mural', icon: <Megaphone size={20} /> },
-    { key: 'ia', label: 'IA', icon: <LivePanda size={24} still /> },
+    ...(shell ? [] : [{ key: 'ia' as const, label: 'IA', icon: <LivePanda size={24} still /> }]),
     { key: 'avisos', label: 'Avisos', icon: <Bell size={20} />, badge: summary.notices },
+    ...(canCustomers
+      ? [
+          {
+            key: 'clientes' as const,
+            label: 'Clientes',
+            icon: <ShoppingBag size={20} />,
+            badge: customers.chats,
+          },
+        ]
+      : []),
     ...(canHelp && help.available
       ? [
           {
@@ -389,7 +432,38 @@ export function TeamChat({
         {!open && total > 0 && <span className="tc-fab__badge">{total > 99 ? '99+' : total}</span>}
       </button>
 
-      {open && (
+      {open && aiOnly && (
+        <div
+          className={`tc-panel tc-panel--${variant} tc-panel--ai`}
+          role="dialog"
+          aria-label="Assistente de IA"
+        >
+          <header className="tc-panel__head">
+            <span className="tc-panel__ai-icon" aria-hidden>
+              <LivePanda size={22} still />
+            </span>
+            <strong>Assistente de IA</strong>
+            <span className="tc-spacer" />
+            <button
+              className="tc-icon"
+              onClick={() => setOpen(false)}
+              aria-label="Fechar"
+              title="Fechar"
+            >
+              <X size={18} />
+            </button>
+          </header>
+          <div className="tc-panel__body tc-panel__body--solo">
+            <AiTab
+              screen={pathname}
+              onNavigate={() => {
+                if (window.matchMedia?.('(max-width: 640px)').matches) setOpen(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
+      {open && !aiOnly && (
         <div
           className={`tc-panel tc-panel--${variant} ${expanded ? 'is-expanded' : ''}`}
           role="dialog"
@@ -397,7 +471,7 @@ export function TeamChat({
           data-view={listTab && selected ? 'conv' : 'list'}
         >
           <header className="tc-panel__head">
-            <strong>Chat da equipe</strong>
+            <strong>{shell ? 'Chat' : 'Chat da equipe'}</strong>
             <span className="tc-spacer" />
             <button
               className="tc-icon tc-hide-mobile"
@@ -485,6 +559,8 @@ export function TeamChat({
                   if (expanded || window.matchMedia?.('(max-width: 640px)').matches) setOpen(false);
                 }}
               />
+            ) : tab === 'clientes' && canCustomers ? (
+              <CustomersInbox />
             ) : tab === 'suporte' && canHelp ? (
               <HelpTab pollMs={pollMs} onRead={() => setHelp((h) => ({ ...h, unread: 0 }))} />
             ) : (

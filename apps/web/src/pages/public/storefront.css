@@ -1978,7 +1978,9 @@ html.sf-root {
   z-index: 41;
   left: 0;
   right: 0;
-  bottom: 0;
+  /* Mesma correção do menu de baixo (viewport.ts): no Safari do iOS 26, depois do teclado da
+     observação, a barra subia ao rolar o item até o fim. A folga medida a traz de volta. */
+  bottom: calc(-1 * var(--cm-fixgap, 0px));
   padding: 12px 16px calc(12px + var(--sf-safe));
   background: color-mix(in srgb, var(--cm-surface) 92%, transparent);
   backdrop-filter: var(--cm-glass-blur);

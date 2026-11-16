@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.134.0',
+    date: '2026-11-16',
+    title: 'Chat do topo redesenhado e barra do item no lugar',
+    summary:
+      'O Chat do topo abre direto nas conversas, já dentro da mais recente, sem a tela de escolher com quem falar. A IA abre sozinha, num painel só dela. No cardápio online, a barra de adicionar do item não sobe mais ao rolar até o fim.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Chat: abre numa tela só, com Conversas, Pessoas, Mural, Avisos, Clientes (mensagens do cardápio online) e Suporte ao lado. No computador já entra na conversa mais recente, começando pelas não lidas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'IA: o botão do topo abre só o assistente, direto, num painel mais estreito.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No computador o painel fica preso à direita, logo abaixo do topo e até o fim da tela.',
+      },
+      {
+        tag: 'correção',
+        text: 'Cardápio online: no iPhone, depois de escrever a observação do item, a barra de adicionar subia ao rolar até o fim. Agora ela fica presa embaixo.',
+      },
+    ],
+  },
+  {
     version: '0.133.2',
     date: '2026-11-16',
     title: 'Teste do Super Admin com o teste grátis do valor único',

@@ -322,9 +322,12 @@ function Conversation({
 function Inbox({
   initial: start,
   onRefreshUnread,
+  autoOpen = false,
 }: {
   initial: string | null;
   onRefreshUnread(): void;
+  /** No computador já entra na conversa mais recente (no chat do topo). */
+  autoOpen?: boolean;
 }) {
   const [status, setStatus] = useState<'open' | 'closed' | 'all'>('open');
   const [q, setQ] = useState('');
@@ -332,6 +335,13 @@ function Inbox({
   const [current, setCurrent] = useState<string | null>(start);
 
   useEffect(() => setCurrent(start), [start]);
+  const entered = useRef(false);
+  useEffect(() => {
+    if (!autoOpen || entered.current || !list?.length) return;
+    entered.current = true;
+    if (window.matchMedia?.('(min-width: 761px)').matches)
+      setCurrent((c) => c ?? (list.find((x) => x.unread > 0) ?? list[0]).id);
+  }, [autoOpen, list]);
 
   const load = useCallback(() => {
     const qs = new URLSearchParams({ status });
@@ -445,6 +455,17 @@ function Inbox({
   );
 }
 
+const REFRESH_SUPPORT_EVENT = 'cm:support-refresh';
+
+/** Mensagens dos clientes dentro do chat do topo (aba "Clientes"). */
+export function CustomersInbox() {
+  const refresh = useCallback(
+    () => window.dispatchEvent(new CustomEvent(REFRESH_SUPPORT_EVENT)),
+    [],
+  );
+  return <Inbox initial={null} onRefreshUnread={refresh} autoOpen />;
+}
+
 /* ------------------------------------------------------------------ aviso + painel */
 
 interface Peek {
@@ -505,6 +526,9 @@ export function SupportChatHost() {
 
   useEffect(() => {
     void refresh();
+    const on = () => void refresh();
+    window.addEventListener(REFRESH_SUPPORT_EVENT, on);
+    return () => window.removeEventListener(REFRESH_SUPPORT_EVENT, on);
   }, [refresh]);
   useRealtime(
     (e) => {

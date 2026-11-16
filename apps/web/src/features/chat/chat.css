@@ -1728,85 +1728,53 @@
   display: none;
 }
 
-/* Painel sem botão do canto: no computador abre logo abaixo do topo, do lado dos botões. */
+/* Painel sem botão do canto: no computador abre encostado à direita, logo abaixo do topo e
+   até o pé da tela, alinhado aos botões IA e Chat. A IA abre sozinha num painel mais estreito. */
 .tc-fab--shell {
   display: none;
 }
+.tc-panel__ai-icon {
+  display: grid;
+  place-items: center;
+  margin-right: 6px;
+}
+.tc-panel__body--solo {
+  grid-template-columns: minmax(0, 1fr);
+}
+.tc-panel .sinbox {
+  min-height: 0;
+  grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+}
 @media (min-width: 721px) {
-  .tc-panel--shell {
-    top: 64px;
-    bottom: auto;
-  }
+  .tc-panel--shell,
   .tc-panel--shell.is-expanded {
-    top: 64px;
+    top: calc(60px + 8px);
     bottom: 12px;
+    right: 12px;
+    height: auto;
+  }
+  .tc-panel--shell {
+    width: min(940px, calc(100vw - 24px));
+    animation: tc-drop 0.16s ease-out;
+    transform-origin: top right;
+  }
+  .tc-panel--shell.tc-panel--ai {
+    width: min(460px, calc(100vw - 24px));
   }
   .tc-peek--shell {
     bottom: 16px;
   }
 }
-.tc-pick {
-  display: grid;
-  gap: 8px;
-  padding-bottom: 8px;
+@keyframes tc-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.99);
+  }
 }
-.tc-pick__item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 12px;
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-lg);
-  background: var(--cm-surface);
-  color: var(--cm-text);
-  text-align: left;
-  cursor: pointer;
-}
-.tc-pick__item:active {
-  background: color-mix(in srgb, var(--cm-text) 5%, var(--cm-surface));
-}
-.tc-pick__item:focus-visible {
-  outline: none;
-  box-shadow: var(--cm-focus);
-}
-.tc-pick__icon {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--cm-brand-600) 12%, transparent);
-  color: var(--cm-brand-600);
-}
-.tc-pick__text {
-  display: grid;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-}
-.tc-pick__text small {
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-xs);
-  line-height: 1.35;
-}
-.tc-pick__badge {
-  flex-shrink: 0;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: var(--cm-danger);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 750;
-  line-height: 20px;
-  text-align: center;
-}
-.tc-pick__go {
-  flex-shrink: 0;
-  color: var(--cm-text-subtle);
+@media (max-width: 760px) {
+  .tc-panel .sinbox {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---------------------------------------------------------------- posição do botão em cada app */
