@@ -84,6 +84,32 @@ export interface Signup {
 
 export const loadSignup = () => api<Signup>('/menu-import/signup').catch(() => null);
 
+/** Os primeiros passos já começaram sozinhos neste navegador (uma vez só). */
+export const TRIAL_SITE_KEY = 'cm:trial-site';
+export const TRIAL_IMPORT_KEY = 'cm:trial-import';
+
+/**
+ * Teste criado pelo site: o que os primeiros passos vão abrir sozinhos. "site" é a loja que a IA
+ * montou no comandou.com; "text" são os itens escritos lá (lidos mesmo sem IA); "link" é o site
+ * ou o Google Maps informado (só com a IA ligada). null: nada a abrir (ou já abriu uma vez).
+ */
+export function trialAuto(signup: Signup | null, aiOn: boolean): 'site' | 'text' | 'link' | null {
+  const t = signup?.trial;
+  if (!t) return null;
+  const seen = (k: string) => {
+    try {
+      return !!localStorage.getItem(k);
+    } catch {
+      return false;
+    }
+  };
+  if (t.aiSite) return seen(TRIAL_SITE_KEY) ? null : 'site';
+  if (t.sourceKind === 'none' || !t.sourceValue) return null;
+  if (!aiOn && t.sourceKind !== 'text') return null;
+  if (seen(TRIAL_IMPORT_KEY)) return null;
+  return t.sourceKind === 'text' ? 'text' : 'link';
+}
+
 /** O que vale a pena mostrar e aplicar: o que a IA leu, editável pela pessoa. */
 export interface StoreDraft {
   about: string;
@@ -553,13 +579,16 @@ export async function applyAll(
     } else warnings.push('Não achei o endereço no mapa. Marque a loja em Entregas › Áreas.');
   }
 
-  onStep('Salvando os dados da loja');
-  try {
-    await api('/store/settings', { method: 'PATCH', json: patch });
-    // O sistema todo (ícone da aba, cores, logo do menu) veste a marca na hora.
-    window.dispatchEvent(new CustomEvent(BRAND_EVENT));
-  } catch (e) {
-    warnings.push(`Os dados da loja não foram salvos: ${(e as Error).message}`);
+  // Nada da loja para gravar (só itens, como no cardápio escrito): não chama o cadastro vazio.
+  if (Object.keys(patch).length) {
+    onStep('Salvando os dados da loja');
+    try {
+      await api('/store/settings', { method: 'PATCH', json: patch });
+      // O sistema todo (ícone da aba, cores, logo do menu) veste a marca na hora.
+      window.dispatchEvent(new CustomEvent(BRAND_EVENT));
+    } catch (e) {
+      warnings.push(`Os dados da loja não foram salvos: ${(e as Error).message}`);
+    }
   }
 
   onStep('Cadastrando os itens', 0, drafts.filter((x) => x.on).length);

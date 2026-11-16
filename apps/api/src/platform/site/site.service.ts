@@ -40,7 +40,6 @@ const SYSTEM: Actor = { admin: { id: null } as unknown as PlatformAdmin };
 
 interface SettingsRow {
   signup_enabled: boolean;
-  trial_days: number;
   daily_limit: number;
   email_webhook_url: string;
   email_token_enc: Buffer | null;
@@ -57,6 +56,13 @@ interface PendingRow {
   name: string;
 }
 
+/** O plano de quem chega pelo site e os dias de teste dele (os mesmos do sistema todo). */
+interface SitePlan {
+  code: string;
+  name: string;
+  trial_days: number;
+}
+
 /** Senha inicial fácil de digitar: três grupos de quatro, sem letras e números que confundem. */
 export function trialPassword(): string {
   const abc = 'abcdefghjkmnpqrstuvwxyz23456789';
@@ -67,8 +73,9 @@ export function trialPassword(): string {
 /**
  * Site público (comandou.com): o visitante cria o próprio restaurante de teste informando o site
  * atual, o link do Google Maps ou descrevendo os itens. O restaurante nasce como qualquer outro
- * (mesmo caminho do painel), com teste de poucos dias, e os primeiros passos começam pelo
- * cardápio informado. O login vai por e-mail (webhook do n8n) e aparece na tela. Teste vencido
+ * (mesmo caminho do painel), no plano padrão e com os dias de teste dele (Super Admin › Planos:
+ * um tempo só para o site e para o sistema), e os primeiros passos começam pelo cardápio
+ * informado. O login vai por e-mail (webhook do n8n) e aparece na tela. Teste vencido
  * sem fechar: o restaurante é suspenso (nada é apagado) e volta pelo painel.
  */
 @Injectable()
@@ -100,10 +107,22 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
 
   private async settingsRow(): Promise<SettingsRow> {
     const [s] = await this.db.query<SettingsRow>(
-      `SELECT signup_enabled, trial_days, daily_limit, email_webhook_url, email_token_enc
+      `SELECT signup_enabled, daily_limit, email_webhook_url, email_token_enc
          FROM platform_site_settings WHERE id`,
     );
     return s!;
+  }
+
+  /**
+   * O plano em que o restaurante do site nasce. Os dias de teste são os dele, os mesmos de
+   * qualquer restaurante novo: muda em Super Admin › Planos, num lugar só.
+   */
+  private async sitePlan(): Promise<SitePlan | null> {
+    const [p] = await this.db.query<SitePlan>(
+      `SELECT code, name, trial_days FROM plans
+        WHERE active ORDER BY is_default DESC, (code = 'comandou') DESC, sort_order, code LIMIT 1`,
+    );
+    return p ?? null;
   }
 
   private tenantUrl(slug: string) {
@@ -120,8 +139,11 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
   /** O que a página precisa saber antes de mostrar o formulário. */
   async config() {
     if (!this.db.enabled)
-      return { signup: false, trialDays: 3, demoUrl: null, salesContact: '', ai: false };
+      return { signup: false, trialDays: 0, demoUrl: null, salesContact: '', ai: false };
     const s = await this.settingsRow();
+    const plan = await this.sitePlan();
+    // Plano sem dias de teste: não há teste para oferecer, o botão de criar fica fechado.
+    const signup = s.signup_enabled && (plan?.trial_days ?? 0) > 0;
     const [demo] = await this.db.query<{ slug: string }>(
       `SELECT slug FROM tenants WHERE slug = $1 AND status = 'provisioned'`,
       [(process.env.COMANDOU_DEMO_SLUG ?? '').trim().toLowerCase() || 'fumaca'],
@@ -130,12 +152,12 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
       `SELECT sales_contact FROM platform_billing_settings WHERE id`,
     );
     return {
-      signup: s.signup_enabled,
-      trialDays: s.trial_days,
+      signup,
+      trialDays: plan?.trial_days ?? 0,
       demoUrl: demo ? `${this.tenantUrl(demo.slug)}/pedir` : null,
       salesContact: b?.sales_contact ?? '',
       /** Monta o site com IA (Super Admin › Sites com IA ligado, com chave e dentro do limite). */
-      ai: s.signup_enabled && (await this.siteAi.available()),
+      ai: signup && (await this.siteAi.available()),
     };
   }
 
@@ -177,10 +199,12 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
   async create(b: TrialInput, ip: string | undefined) {
     if (!this.db.enabled) throw new ServiceUnavailableException('Cadastro indisponível agora');
     const s = await this.settingsRow();
-    if (!s.signup_enabled)
+    const plan = await this.sitePlan();
+    if (!s.signup_enabled || !plan || plan.trial_days <= 0)
       throw new ServiceUnavailableException(
         'O cadastro pelo site está fechado no momento. Fale com a gente.',
       );
+    const days = plan.trial_days;
     const [{ today }] = await this.db.query<{ today: number }>(
       `SELECT count(*)::int AS today FROM trial_signups WHERE created_at > now() - interval '24 hours'`,
     );
@@ -192,7 +216,9 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
     const dup = await this.db.query(`SELECT 1 FROM trial_signups WHERE email = $1`, [b.email]);
     if (dup.length)
       throw new ConflictException(
-        'Já existe um teste com este e-mail. O login está na sua caixa de entrada.',
+        s.email_webhook_url
+          ? 'Já existe um teste com este e-mail. O login está na sua caixa de entrada.'
+          : 'Já existe um teste com este e-mail. Entre com o login que apareceu no cadastro ou fale com a gente.',
       );
     if (this.env.TENANT_DATABASE_MODE !== 'dedicated') {
       const used = await this.db.query(`SELECT 1 FROM users WHERE email = $1`, [b.email]);
@@ -204,16 +230,13 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
     const statusToken = randomBytes(32).toString('base64url');
     const entryToken = randomBytes(32).toString('base64url');
     const entryHash = hashToken(entryToken);
-    const [plan] = await this.db.query<{ code: string }>(
-      `SELECT code FROM plans WHERE active ORDER BY is_default DESC, (code = 'comandou') DESC LIMIT 1`,
-    );
     const input = {
       slug,
       name: b.restaurant,
       adminEmail: b.email,
       adminName: b.name,
       adminPassword: password,
-      planCode: plan?.code,
+      planCode: plan.code,
       profile: { contactName: b.name, phone: b.phone ?? null, billingEmail: b.email },
     };
 
@@ -245,11 +268,11 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
     // Site montado pela IA na página: o rascunho vai junto para os primeiros passos.
     const aiGeneration = await this.siteAi.claim(b.aiSite, tenantId).catch(() => null);
     const trialEndsAt = await this.db.tx(async (c) => {
-      // Teste do site: os dias vêm de Super Admin › Site (não do plano).
+      // Teste do site: os dias do plano (os mesmos do sistema), contados de agora.
       await c.query(
         `UPDATE subscriptions SET status = 'trialing', trial_ends_at = now() + make_interval(days => $2)
           WHERE tenant_id = $1 AND status <> 'cancelled'`,
-        [tenantId, s.trial_days],
+        [tenantId, days],
       );
       const { rows } = await c.query<{ trial_ends_at: Date }>(
         `INSERT INTO trial_signups (tenant_id, email, contact_name, phone, source_kind, source_value,
@@ -265,7 +288,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
           b.source.value,
           hashToken(statusToken),
           ip ?? null,
-          s.trial_days,
+          days,
           pending,
           aiGeneration,
         ],
@@ -279,7 +302,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
           slug,
           email: b.email,
           source: b.source.kind,
-          trialDays: s.trial_days,
+          trialDays: days,
           aiSite: !!aiGeneration,
         },
         ip,
@@ -296,7 +319,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
       url: this.tenantUrl(slug),
       email: b.email,
       password,
-      trialDays: s.trial_days,
+      trialDays: days,
       trialEndsAt,
       emailOn: !!s.email_webhook_url,
     };
@@ -404,7 +427,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
       url,
       loginEmail: r.email,
       password,
-      trialDays: sub?.trial_days ?? s.trial_days,
+      trialDays: sub?.trial_days ?? 1,
       trialEndsAt: r.trial_ends_at,
       siteUrl: this.siteUrl(),
       salesContact: b?.sales_contact,
@@ -505,9 +528,12 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
   // ------------------------------------------------------------------ painel
   async settings() {
     const s = await this.settingsRow();
+    const plan = await this.sitePlan();
     return {
       signupEnabled: s.signup_enabled,
-      trialDays: s.trial_days,
+      /** Só leitura: os dias de teste do plano (Super Admin › Planos). */
+      trialDays: plan?.trial_days ?? 0,
+      trialPlan: plan?.name ?? null,
       dailyLimit: s.daily_limit,
       emailWebhookUrl: s.email_webhook_url,
       emailTokenSet: !!s.email_token_enc,
@@ -521,14 +547,13 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
     await this.db.tx(async (c) => {
       await c.query(
         `UPDATE platform_site_settings
-            SET signup_enabled = $1, trial_days = $2, daily_limit = $3, email_webhook_url = $4,
-                email_token_enc = CASE WHEN $5::boolean THEN NULL
-                                       WHEN $6::bytea IS NOT NULL THEN $6 ELSE email_token_enc END,
+            SET signup_enabled = $1, daily_limit = $2, email_webhook_url = $3,
+                email_token_enc = CASE WHEN $4::boolean THEN NULL
+                                       WHEN $5::bytea IS NOT NULL THEN $5 ELSE email_token_enc END,
                 updated_at = now()
           WHERE id`,
         [
           b.signupEnabled,
-          b.trialDays,
           b.dailyLimit,
           b.emailWebhookUrl,
           b.emailToken === '',
@@ -541,7 +566,6 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
         entity: 'site',
         data: {
           signupEnabled: b.signupEnabled,
-          trialDays: b.trialDays,
           dailyLimit: b.dailyLimit,
           webhook: !!b.emailWebhookUrl,
         },
@@ -557,14 +581,15 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
     if (!s.email_webhook_url)
       throw new UnprocessableEntityException('Salve o endereço do webhook antes de testar');
     const url = this.tenantUrl('seu-restaurante');
+    const days = (await this.sitePlan())?.trial_days || 7;
     const mail = welcomeEmail({
       restaurant: 'Seu Restaurante',
       contactName: 'Teste',
       url,
       loginEmail: to,
       password: 'abcd-efgh-2345',
-      trialDays: s.trial_days,
-      trialEndsAt: new Date(Date.now() + s.trial_days * 86_400_000),
+      trialDays: days,
+      trialEndsAt: new Date(Date.now() + days * 86_400_000),
       siteUrl: this.siteUrl(),
     });
     const error = await this.postWebhook(s, {
@@ -576,7 +601,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
       url,
       loginEmail: to,
       password: 'abcd-efgh-2345',
-      trialEndsAt: new Date(Date.now() + s.trial_days * 86_400_000).toISOString(),
+      trialEndsAt: new Date(Date.now() + days * 86_400_000).toISOString(),
     });
     if (error) throw new UnprocessableEntityException(error);
     return { ok: true };
@@ -584,15 +609,15 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
 
   /** Prévia do e-mail (HTML) para o painel mostrar. */
   async emailPreview() {
-    const s = await this.settingsRow();
+    const days = (await this.sitePlan())?.trial_days || 7;
     return welcomeEmail({
       restaurant: 'Fumaça Burger',
       contactName: 'Marina Souza',
       url: this.tenantUrl('fumaca-burger'),
       loginEmail: 'marina@fumacaburger.com.br',
       password: 'k7mf-2xqp-9dhw',
-      trialDays: s.trial_days,
-      trialEndsAt: new Date(Date.now() + s.trial_days * 86_400_000),
+      trialDays: days,
+      trialEndsAt: new Date(Date.now() + days * 86_400_000),
       siteUrl: this.siteUrl(),
     }).html;
   }

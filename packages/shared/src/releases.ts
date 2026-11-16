@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.127.0',
+    date: '2026-11-16',
+    title: 'Um tempo de teste só e cadastro pelo site redondo',
+    summary:
+      'O teste de quem se cadastra pelo comandou.com agora usa os mesmos dias do sistema, definidos num lugar só: Super Admin › Planos. E o caminho do site até o painel foi revisado de ponta a ponta.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Tempo de teste: saiu o campo "Dias de teste" de Super Admin › Site. Vale o "Dias de teste" do plano em Planos, para o site e para o sistema. A tela do Site mostra o tempo e leva para Planos.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Site: o texto "dias grátis" mostra os dias do plano. Plano sem dias de teste fecha o botão de criar no site.',
+      },
+      {
+        tag: 'correção',
+        text: 'Primeiros passos: os itens escritos no site chegam ao restaurante mesmo com a IA desligada, já separados por categoria, e dá para escrever os itens ali sem IA.',
+      },
+      {
+        tag: 'correção',
+        text: 'Primeiros passos: aplicar só os itens, sem logo nem endereço, não mostra mais o erro "Dados inválidos".',
+      },
+      {
+        tag: 'novo',
+        text: 'Teste criado pelo site: nos últimos 3 dias, o topo do sistema avisa quando o teste termina e mostra o contato para continuar.',
+      },
+    ],
+  },
+  {
     version: '0.126.0',
     date: '2026-11-16',
     title: 'IA e chat no topo, também no computador',

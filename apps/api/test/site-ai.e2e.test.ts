@@ -47,6 +47,8 @@ let http: ReturnType<typeof request>;
 let ai: Server;
 let calls = 0;
 let before: { owner: Buffer | null; clients: Buffer | null };
+/** O plano do site precisa ter dias de teste para o cadastro abrir. */
+let plan: { id: string; trial_days: number };
 
 const post = (path: string, body: object) =>
   http.post(`/api/v1/public/site/${path}`).set('Host', SITE_HOST).set(CSRF).send(body);
@@ -71,6 +73,13 @@ beforeAll(async () => {
     `SELECT owner_api_key_enc AS owner, api_key_enc AS clients FROM platform_ai_settings`,
   );
   before = k!;
+  // Plano padrão só deste arquivo: o restaurante do site nasce nele, com os dias de teste dele.
+  await ownerQuery(`UPDATE plans SET is_default = false WHERE is_default`);
+  [plan] = await ownerQuery<{ id: string; trial_days: number }>(
+    `INSERT INTO plans (code, name, price_monthly, trial_days, is_default, active)
+     VALUES ($1, 'Site', 400, 5, true, true) RETURNING id, trial_days`,
+    [`site-ia-${randomBytes(3).toString('hex')}`],
+  );
   await ownerQuery(`UPDATE platform_ai_settings SET owner_api_key_enc = NULL, api_key_enc = NULL`);
   await ownerQuery(
     `UPDATE platform_site_settings SET signup_enabled = true, daily_limit = 1000, email_webhook_url = ''`,
@@ -98,6 +107,10 @@ afterAll(async () => {
     before?.clients ?? null,
   ]);
   await ownerQuery(`UPDATE platform_site_ai_settings SET per_ip_daily = 4, daily_tokens = 400000`);
+  if (plan)
+    await ownerQuery(`UPDATE plans SET is_default = false, active = false WHERE id = $1`, [
+      plan.id,
+    ]);
   await app?.close();
   await new Promise((ok) => ai.close(ok));
 });

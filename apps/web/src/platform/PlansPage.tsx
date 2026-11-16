@@ -282,6 +282,7 @@ function PlanModal({
         <p className="adm-sub" style={{ whiteSpace: 'normal', margin: '8px 0 0' }}>
           Limites: o restaurante não consegue <strong>criar</strong> além disso (nada é apagado).
           Vazio = sem limite. Teste grátis: dias liberados sem pagar para quem começa neste plano.
+          No plano padrão, é também o teste de quem se cadastra pelo site (comandou.com).
         </p>
         <h4 style={{ margin: '20px 0 8px' }}>Recursos e situação</h4>
         <div style={{ display: 'grid', gap: 8 }}>

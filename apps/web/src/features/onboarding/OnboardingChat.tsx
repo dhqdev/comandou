@@ -5,8 +5,9 @@ import { Button, Mascot } from '../../design-system';
 import { api } from '../../lib/api';
 import type { StoreSettings } from '../../lib/types';
 import { maskPhone } from '../CustomerPicker';
+import { importStatus } from '../menu-import/menu-import';
 import { QuickStart } from './QuickStart';
-import { loadSignup, type ApplyResult, type Signup } from './quick-start';
+import { loadSignup, trialAuto, type ApplyResult, type Signup } from './quick-start';
 import './onboarding.css';
 
 /**
@@ -84,6 +85,8 @@ export function OnboardingChat({
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [signup, setSignup] = useState<Signup | null>(null);
+  /** Leitura por IA (foto, link) disponível: sem ela, a pessoa escreve os itens. */
+  const aiOn = useRef(true);
   /** O que a loja já tem (do cadastro ou do cardápio): a conversa não pergunta de novo. */
   const known = useRef({ whatsapp: false, address: false });
   /** Acompanha o fim da conversa; na conferência do cardápio a pessoa rola sozinha. */
@@ -127,6 +130,11 @@ export function OnboardingChat({
     setText('');
     seq.current = 0;
     known.current = { whatsapp: false, address: false };
+    if (canImport)
+      void importStatus().then(
+        (s) => (aiOn.current = s.enabled),
+        () => (aiOn.current = false),
+      );
     // Dados do cadastro (feito na contratação) entram sozinhos onde a loja ainda está vazia.
     void Promise.all([loadSignup(), api<StoreSettings>('/store/settings').catch(() => null)]).then(
       async ([sg, st]) => {
@@ -156,7 +164,7 @@ export function OnboardingChat({
       pending.forEach((t) => window.clearTimeout(t));
       timers.current = [];
     };
-  }, [open, first, tenantName, say]);
+  }, [open, first, tenantName, say, canImport]);
 
   // Acompanha o fim da conversa, inclusive quando o cartão do cardápio cresce.
   useEffect(() => {
@@ -191,16 +199,33 @@ export function OnboardingChat({
     }
   };
 
-  const askMenu = () =>
-    canImport
-      ? say(
-          [
-            'Para começar, me mande o seu cardápio: o link ou fotos dele.',
-            'Eu leio os itens, os preços e as fotos, e pego o logo, as cores, o contato, o endereço e o horário. Você só confere e aplica.',
-          ],
-          'menu',
-        )
-      : askSell();
+  const askMenu = () => {
+    if (!canImport) return askSell();
+    // Teste criado pelo site: o que foi montado ou escrito lá já vem para a conferência.
+    const auto = trialAuto(signup, aiOn.current);
+    say(
+      auto === 'site'
+        ? [
+            'A loja que a IA montou no comandou.com já veio para cá.',
+            'Confira os itens e os preços, corrija o que precisar e aplique. Depois dá para mudar tudo em Cardápio.',
+          ]
+        : auto === 'text'
+          ? [
+              'Trouxe os itens que você escreveu no site.',
+              'Confira os nomes e os preços, corrija o que precisar e aplique.',
+            ]
+          : aiOn.current
+            ? [
+                'Para começar, me mande o seu cardápio: o link ou fotos dele.',
+                'Eu leio os itens, os preços e as fotos, e pego o logo, as cores, o contato, o endereço e o horário. Você só confere e aplica.',
+              ]
+            : [
+                'Para começar, escreva os itens do seu cardápio: um por linha, com o preço.',
+                'Fotos, logo e cores você coloca depois em Cardápio e Loja online.',
+              ],
+      'menu',
+    );
+  };
   const askSell = (lead?: string[]) =>
     say([...(lead ?? []), 'Como você vende? Pode marcar mais de um.'], 'sell');
   const finish = (lead?: string) =>
@@ -238,7 +263,9 @@ export function OnboardingChat({
     push('me', got.length ? `Aplicado: ${got.join(', ')}` : 'Cardápio conferido');
     const lead = [
       r.created
-        ? 'Ficou ótimo. Seu cardápio já está no ar no PDV e na loja online, com a cara da sua marca.'
+        ? r.saved.identity
+          ? 'Ficou ótimo. Seu cardápio já está no ar no PDV e na loja online, com a cara da sua marca.'
+          : 'Ficou ótimo. Seu cardápio já está no ar no PDV e na loja online.'
         : 'Pronto, a loja já está com os dados que encontrei.',
       ...r.warnings,
       ...(r.stopped ? [`Parei antes do fim dos itens: ${r.stopped}`] : []),
@@ -447,7 +474,9 @@ export function OnboardingChat({
                   follow.current = true;
                   push('me', 'Ainda não tenho cardápio pronto');
                   askSell([
-                    'Sem problema. Quando quiser, é só abrir Cardápio › Itens › Importar com IA.',
+                    aiOn.current
+                      ? 'Sem problema. Quando quiser, é só abrir Cardápio › Itens › Importar com IA.'
+                      : 'Sem problema. Quando quiser, é só abrir Cardápio › Itens.',
                   ]);
                 }}
               />

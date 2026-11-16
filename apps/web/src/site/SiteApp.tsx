@@ -445,7 +445,9 @@ export function SiteApp() {
       calm.current = window.setTimeout(() => setMood('idle'), 2600);
   };
 
-  const trialDays = config?.trialDays ?? 3;
+  // Os dias de teste vêm do plano (Super Admin › Planos): o mesmo tempo do sistema todo.
+  const days = config?.trialDays ?? 0;
+  const free = days > 0 ? `${days} ${days === 1 ? 'dia' : 'dias'} grátis` : 'Teste grátis';
   const contact = contactHref(config?.salesContact ?? '');
   const toBuilder = () => {
     document.getElementById('criar')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -495,7 +497,7 @@ export function SiteApp() {
         <section className="st-hero">
           <div className="st-hero__text">
             <span className="st-pill">
-              <i aria-hidden /> {trialDays} dias grátis, sem cartão
+              <i aria-hidden /> {free}, sem cartão
             </span>
             <h1 className="st-h1">
               <span className="st-h1__row">
@@ -572,7 +574,7 @@ export function SiteApp() {
           <div className="st-price st-reveal">
             <div className="st-price__left">
               <h2>Um plano. Tudo dentro.</h2>
-              <p>{trialDays} dias grátis, sem cartão e sem limite de pedidos.</p>
+              <p>{free}, sem cartão e sem limite de pedidos.</p>
               <div className="st-price__value">
                 {plan ? (
                   <>
@@ -585,7 +587,7 @@ export function SiteApp() {
               </div>
               <div className="st-price__cta">
                 <Button size="lg" onClick={toBuilder}>
-                  Testar {trialDays} dias grátis
+                  {days > 0 ? `Testar ${free}` : 'Testar grátis'}
                 </Button>
                 {contact && (
                   <a

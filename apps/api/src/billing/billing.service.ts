@@ -1498,15 +1498,37 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
     const open = (v.invoices as { status: string; dueDate: string; amount?: string }[]).filter(
       (i) => i.status === 'pending' || i.status === 'overdue',
     );
+    // Teste criado pelo site, sem cobrança automática: nos últimos 3 dias o topo avisa quando
+    // acaba (depois o restaurante é suspenso e o contrato é feito pelo Comandou).
+    let trial: { endsAt: Date | null; daysLeft: number; contact: string } | null = null;
+    if (
+      !v.billing.auto &&
+      sub.status === 'trialing' &&
+      sub.daysLeft !== null &&
+      sub.daysLeft <= 3 &&
+      !sub.blockReason
+    ) {
+      const [site] = await this.db.query(
+        `SELECT 1 FROM trial_signups WHERE tenant_id = $1 AND expired_at IS NULL`,
+        [tenantId],
+      );
+      if (site)
+        trial = {
+          endsAt: sub.trialEndsAt,
+          daysLeft: Math.max(0, sub.daysLeft),
+          contact: (await this.settingsRow()).sales_contact,
+        };
+    }
     return {
       level: sub.blockReason
         ? ('blocked' as const)
         : open.some((i) => i.status === 'overdue') ||
             (v.billing.auto && sub.daysLeft !== null && sub.daysLeft <= 3 && open.length > 0)
           ? ('warning' as const)
-          : v.contract.phase === 'expired' || v.contract.phase === 'renewal'
+          : v.contract.phase === 'expired' || v.contract.phase === 'renewal' || trial
             ? ('info' as const)
             : ('none' as const),
+      trial,
       blockReason: sub.blockReason,
       daysLeft: v.billing.auto ? sub.daysLeft : null,
       status: sub.status,

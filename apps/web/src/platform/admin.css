@@ -2216,3 +2216,21 @@ button.adm-card:hover {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* Super Admin › Site: tempo de teste (só leitura, vem do plano) */
+.adm-site-trial {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  min-height: 40px;
+  padding: 9px 0 0;
+  font-size: var(--cm-text-md);
+}
+.adm-site-trial a {
+  font-size: var(--cm-text-sm);
+}
+.adm-site-trial__off {
+  color: var(--cm-warning);
+}

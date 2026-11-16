@@ -32,6 +32,12 @@ let created: {
   password: string;
   trialDays: number;
 };
+/** O que outros testes deixaram ligado (IA dos restaurantes e cobrança automática). */
+let before: { ai: Buffer | null; billing: boolean };
+/** Sessão do dono no restaurante criado (entrou pelo link do cadastro). */
+let session = '';
+/** O plano em que o restaurante do site nasce: os dias de teste vêm dele (Super Admin › Planos). */
+let plan: { id: string; trial_days: number };
 
 const post = (path: string, body: object) =>
   http.post(`/api/v1/public/site/${path}`).set('Host', SITE_HOST).set(CSRF).send(body);
@@ -47,6 +53,24 @@ beforeAll(async () => {
   });
   await new Promise<void>((ok) => hook.listen(0, '127.0.0.1', ok));
   const port = (hook.address() as AddressInfo).port;
+  // Sem IA e sem cobrança automática, como numa instalação que acabou de abrir o site.
+  const [ai] = await ownerQuery<{ key: Buffer | null }>(
+    `SELECT api_key_enc AS key FROM platform_ai_settings`,
+  );
+  const [bill] = await ownerQuery<{ enabled: boolean }>(
+    `SELECT enabled FROM platform_billing_settings`,
+  );
+  before = { ai: ai?.key ?? null, billing: !!bill?.enabled };
+  await ownerQuery(`UPDATE platform_ai_settings SET api_key_enc = NULL`);
+  await ownerQuery(`UPDATE platform_billing_settings SET enabled = false`);
+  // Plano padrão só deste arquivo: o restaurante do site nasce nele, com os dias de teste dele.
+  await ownerQuery(`UPDATE plans SET is_default = false WHERE is_default`);
+  [plan] = await ownerQuery<{ id: string; trial_days: number }>(
+    `INSERT INTO plans (code, name, price_monthly, trial_days, is_default, active)
+     VALUES ($1, 'Site', 400, 5, true, true) RETURNING id, trial_days`,
+    [`site-${randomBytes(3).toString('hex')}`],
+  );
+  // O campo antigo do site (3 dias) não manda mais: vale o do plano (5).
   await ownerQuery(
     `UPDATE platform_site_settings SET signup_enabled = true, trial_days = 3, daily_limit = 1000,
             email_webhook_url = $1, email_token_enc = NULL`,
@@ -66,6 +90,14 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await ownerQuery(`UPDATE platform_site_settings SET email_webhook_url = ''`);
+  if (plan)
+    await ownerQuery(`UPDATE plans SET is_default = false, active = false WHERE id = $1`, [
+      plan.id,
+    ]);
+  if (before) {
+    await ownerQuery(`UPDATE platform_ai_settings SET api_key_enc = $1`, [before.ai]);
+    await ownerQuery(`UPDATE platform_billing_settings SET enabled = $1`, [before.billing]);
+  }
   await app?.close();
   await new Promise((ok) => hook.close(ok));
 });
@@ -73,7 +105,7 @@ afterAll(async () => {
 describe('Teste criado pelo site', () => {
   it('diz que o domínio base é o site e que o cadastro está aberto', async () => {
     const r = await http.get('/api/v1/public/site').set('Host', SITE_HOST).expect(200);
-    expect(r.body).toMatchObject({ site: true, signup: true, trialDays: 3 });
+    expect(r.body).toMatchObject({ site: true, signup: true, trialDays: 5 });
     const t = await http.get('/api/v1/public/site').set('Host', 'pizzaria.com').expect(200);
     expect(t.body.site).toBe(false);
   });
@@ -84,7 +116,7 @@ describe('Teste criado pelo site', () => {
     await post('trials', { ...base, email: 'sem-arroba' }).expect(400);
   });
 
-  it('cria o restaurante com teste de 3 dias e devolve o login uma vez', async () => {
+  it('cria o restaurante com os dias de teste do plano e devolve o login uma vez', async () => {
     const r = await post('trials', {
       restaurant: 'Cantina Site',
       name: 'Dona Site',
@@ -96,7 +128,7 @@ describe('Teste criado pelo site', () => {
     expect(created.slug).toMatch(/^cantina-site/);
     expect(created.url).toBe(`http://${created.slug}.comandou.test`);
     expect(created.password).toMatch(/^[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}$/);
-    expect(created.trialDays).toBe(3);
+    expect(created.trialDays).toBe(5);
 
     const [row] = await ownerQuery<{ status: string; days: number; source_kind: string }>(
       `SELECT t.status, ts.source_kind,
@@ -104,7 +136,14 @@ describe('Teste criado pelo site', () => {
          FROM trial_signups ts JOIN tenants t ON t.id = ts.tenant_id WHERE t.slug = $1`,
       [created.slug],
     );
-    expect(row).toEqual({ status: 'provisioned', days: 3, source_kind: 'text' });
+    expect(row).toEqual({ status: 'provisioned', days: 5, source_kind: 'text' });
+    const [sub] = await ownerQuery<{ status: string; days: number }>(
+      `SELECT s.status, round(extract(epoch FROM (s.trial_ends_at - now())) / 86400)::int AS days
+         FROM subscriptions s JOIN tenants t ON t.id = s.tenant_id
+        WHERE t.slug = $1 AND s.status <> 'cancelled'`,
+      [created.slug],
+    );
+    expect(sub).toEqual({ status: 'trialing', days: 5 });
     // A senha nunca fica em texto puro e nada dela vai para a auditoria.
     const [leak] = await ownerQuery<{ n: number }>(
       `SELECT count(*)::int AS n FROM platform_audit_log WHERE data::text LIKE $1`,
@@ -191,6 +230,56 @@ describe('Teste criado pelo site', () => {
       .expect(200);
     expect(sg.body.trial).toMatchObject({ sourceKind: 'text' });
     expect(sg.body.trial.sourceValue).toContain('Lasanha 42');
+    session = cookie;
+  });
+
+  it('sem IA, os itens escritos no site viram itens nos primeiros passos', async () => {
+    const host = `${created.slug}.comandou.test`;
+    const st = await http
+      .get('/api/v1/menu-import')
+      .set('Host', host)
+      .set('Cookie', session)
+      .expect(200);
+    expect(st.body.enabled).toBe(false);
+    const r = await http
+      .post('/api/v1/menu-import/text')
+      .set('Host', host)
+      .set('Cookie', session)
+      .set(CSRF)
+      .send({ text: 'Massas\nLasanha - bolonhesa 42\nNhoque 38\n\nBebidas\nRefrigerante 7' })
+      .expect(200);
+    expect(r.body).toMatchObject({ items: 3, tokens: 0, withoutAi: true });
+    expect(r.body.categories).toEqual([
+      {
+        name: 'Massas',
+        items: [
+          { name: 'Lasanha', description: 'bolonhesa', price: '42.00' },
+          { name: 'Nhoque', description: null, price: '38.00' },
+        ],
+      },
+      { name: 'Bebidas', items: [{ name: 'Refrigerante', description: null, price: '7.00' }] },
+    ]);
+  });
+
+  it('avisa no topo do sistema nos últimos dias do teste', async () => {
+    const host = `${created.slug}.comandou.test`;
+    const far = await http
+      .get('/api/v1/subscription/notice')
+      .set('Host', host)
+      .set('Cookie', session)
+      .expect(200);
+    expect(far.body.level).toBe('none');
+    await ownerQuery(
+      `UPDATE subscriptions SET trial_ends_at = now() + interval '2 days'
+        WHERE tenant_id = (SELECT id FROM tenants WHERE slug = $1) AND status <> 'cancelled'`,
+      [created.slug],
+    );
+    const near = await http
+      .get('/api/v1/subscription/notice')
+      .set('Host', host)
+      .set('Cookie', session)
+      .expect(200);
+    expect(near.body).toMatchObject({ level: 'info', trial: { daysLeft: 2 } });
   });
 
   it('suspende o restaurante quando o teste vence sem contratação', async () => {
@@ -211,6 +300,21 @@ describe('Teste criado pelo site', () => {
     ]);
     expect(t!.status).toBe('suspended');
     expect(await svc.expireTrials()).toBe(0);
+  });
+
+  it('plano sem dias de teste: o cadastro pelo site fica fechado', async () => {
+    await ownerQuery(`UPDATE plans SET trial_days = 0 WHERE id = $1`, [plan.id]);
+    try {
+      const r = await http.get('/api/v1/public/site').set('Host', SITE_HOST).expect(200);
+      expect(r.body).toMatchObject({ signup: false, trialDays: 0, ai: false });
+      await post('trials', {
+        restaurant: 'Sem Teste',
+        name: 'Dona Site',
+        email: `sem-teste-${EMAIL}`,
+      }).expect(503);
+    } finally {
+      await ownerQuery(`UPDATE plans SET trial_days = 5 WHERE id = $1`, [plan.id]);
+    }
   });
 
   it('a tela do painel exige a sessão do Super Admin', async () => {

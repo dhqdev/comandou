@@ -9,18 +9,25 @@ dono cria o próprio restaurante de teste.
 1. A pessoa informa o site que já tem, o link do Google Maps ou descreve os itens. O site mostra
    uma prévia (nome, ícone e cor do site dela), sem IA.
 2. Ela informa o nome do restaurante, o próprio nome e o e-mail. O restaurante nasce pelo mesmo
-   caminho do painel (banco próprio, plano padrão), com o teste de **3 dias** (ajustável).
+   caminho do painel (banco próprio, plano padrão), com os **dias de teste do plano**: um tempo só
+   para o site e para o sistema, que muda em **Super Admin › Planos** (campo "Dias de teste" do
+   plano padrão). Plano sem dias de teste: o botão de criar no site fica fechado.
 3. Quando fica pronto (poucos segundos), a tela mostra endereço, login e senha, e o botão abre o
    restaurante **já logado** (link de uso único, 1 hora). O mesmo login vai por e-mail.
-4. No primeiro acesso, os primeiros passos começam sozinhos pelo que ela informou: leem o site,
-   o lugar do Maps (nome e endereço) ou a descrição dos itens. O PDF e as fotos do cardápio
-   entram ali, na conferência.
-5. Passou do prazo sem fechar (a assinatura continua "em teste"), o restaurante é **suspenso**.
-   Nada é apagado. Para continuar: Super Admin › Restaurantes › o cliente › Reativar, e mude a
-   assinatura para ativa (ou estenda o teste antes de vencer).
+4. No primeiro acesso, os primeiros passos começam sozinhos pelo que ela informou: a loja que a
+   IA montou no site, ou leem o site, o lugar do Maps (nome e endereço) ou a descrição dos itens.
+   Os itens escritos chegam mesmo **sem IA** (lidos linha por linha: "X-Burger 28,90"; linha sem
+   preço antes dos itens vira categoria). Sem IA, a pessoa também pode escrever os itens ali. O
+   PDF e as fotos do cardápio entram na conferência quando a IA está ligada. Ela confere, aplica
+   e segue para o painel.
+5. Nos últimos 3 dias, o topo do sistema avisa quando o teste acaba. Passou do prazo sem fechar
+   (a assinatura continua "em teste"), o restaurante é **suspenso**. Nada é apagado. O contrato é
+   feito depois, pelo Super Admin. Para continuar: Super Admin › Restaurantes › o cliente ›
+   Reativar, e mude a assinatura para ativa (ou estenda o teste antes de vencer).
 
-Tudo fica em **Super Admin › Site**: ligar/desligar o cadastro, dias de teste, limite por dia, o
-webhook do e-mail e a lista de testes (quem criou, de onde veio, se o e-mail saiu, se fechou).
+Em **Super Admin › Site**: ligar/desligar o cadastro, limite por dia, o webhook do e-mail e a
+lista de testes (quem criou, de onde veio, se o e-mail saiu, se fechou). O tempo de teste aparece
+ali só para conferir, com o atalho para Planos.
 
 Proteções: 6 tentativas de cadastro por hora por IP, limite por dia (padrão 40), um teste por e-mail e um
 campo escondido contra robôs.

@@ -21,6 +21,9 @@ import {
   readText,
   squareIcon,
   storeDraft,
+  trialAuto,
+  TRIAL_IMPORT_KEY,
+  TRIAL_SITE_KEY,
   type ApplyResult,
   type Reading,
   type Signup,
@@ -99,20 +102,19 @@ export function QuickStart({
   // Teste criado pelo site: a pessoa já disse de onde vem o cardápio (site, Google Maps ou os
   // itens escritos). A leitura começa sozinha, uma única vez neste navegador.
   const auto = useRef(false);
-  const fromSite = !!signup?.trial?.aiSite;
   useEffect(() => {
     const t = signup?.trial;
     if (auto.current || !status || !t) return;
+    const what = trialAuto(signup, status.enabled);
+    if (!what) return;
+    auto.current = true;
+    try {
+      localStorage.setItem(what === 'site' ? TRIAL_SITE_KEY : TRIAL_IMPORT_KEY, '1');
+    } catch {
+      /* navegação privada: abre mesmo assim */
+    }
     // A IA já montou o site no comandou.com: a conferência abre com ele, sem ler de novo.
-    if (t.aiSite) {
-      auto.current = true;
-      const key = 'cm:trial-site';
-      try {
-        if (localStorage.getItem(key)) return;
-        localStorage.setItem(key, '1');
-      } catch {
-        /* navegação privada: abre mesmo assim */
-      }
+    if (what === 'site') {
       setStage({ at: 'reading', label: 'Abrindo o site que a IA montou' });
       readSiteDraft(null)
         .then((r) => (r ? finishReading(r, []) : setStage({ at: 'pick' })))
@@ -122,16 +124,8 @@ export function QuickStart({
         });
       return;
     }
-    if (!status.enabled || t.sourceKind === 'none' || !t.sourceValue) return;
-    auto.current = true;
-    const key = 'cm:trial-import';
-    try {
-      if (localStorage.getItem(key)) return;
-      localStorage.setItem(key, '1');
-    } catch {
-      /* navegação privada: lê mesmo assim */
-    }
-    if (t.sourceKind === 'text') {
+    // Os itens escritos no site são lidos mesmo sem IA (linha por linha).
+    if (what === 'text') {
       setTyped(t.sourceValue);
       void fromText(t.sourceValue);
     } else {
@@ -280,17 +274,51 @@ export function QuickStart({
   };
 
   if (!status) return <Spinner inline label="Carregando" />;
-  if (!status.enabled && status.reason && !(fromSite && stage.at !== 'pick'))
+  const aiOn = status.enabled;
+
+  const textForm = (
+    <form
+      className="qs-link"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void fromText();
+      }}
+    >
+      <label className="cm-label" htmlFor="qs-text">
+        Escreva os itens
+      </label>
+      <textarea
+        id="qs-text"
+        className="cm-input qs-text"
+        rows={6}
+        maxLength={6000}
+        placeholder={'Lanches\nX-Burger 28,90\nX-Salada 32,00\n\nBebidas\nRefrigerante lata 7,00'}
+        value={typed}
+        onChange={(e) => setTyped(e.target.value)}
+      />
+      <span className="cm-hint">
+        Um item por linha, com o preço no fim. Uma linha sem preço antes dos itens vira categoria.
+      </span>
+      <div className="qs-foot">
+        <Button type="submit" disabled={typed.trim().length < 10}>
+          Ler itens
+        </Button>
+      </div>
+    </form>
+  );
+
+  // Sem IA (desligada ou sem limite): escrever os itens continua funcionando, sem IA.
+  if (!aiOn && stage.at === 'pick')
     return (
       <div className="qs">
-        <Alert tone="warning">
-          {WHY_OFF[status.reason]} Enquanto isso, cadastre os itens em Cardápio › Itens.
-        </Alert>
-        <div className="qs-foot">
-          <Button variant="secondary" onClick={onSkip}>
-            Continuar sem o cardápio
-          </Button>
-        </div>
+        {error && <Alert tone="danger">{error}</Alert>}
+        {status.reason && status.reason !== 'platform' && (
+          <Alert tone="warning">{WHY_OFF[status.reason]}</Alert>
+        )}
+        {textForm}
+        <button type="button" className="qs-skip" onClick={onSkip}>
+          Ainda não tenho cardápio pronto
+        </button>
       </div>
     );
 
@@ -376,33 +404,7 @@ export function QuickStart({
           </span>
         </form>
         {writing ? (
-          <form
-            className="qs-link"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void fromText();
-            }}
-          >
-            <label className="cm-label" htmlFor="qs-text">
-              Escreva os itens
-            </label>
-            <textarea
-              id="qs-text"
-              className="cm-input qs-text"
-              rows={6}
-              maxLength={6000}
-              placeholder={
-                'X-Burger 28,90\nX-Salada 32,00\nBatata frita 18,00\nRefrigerante lata 7,00'
-              }
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-            />
-            <div className="qs-foot">
-              <Button type="submit" disabled={typed.trim().length < 10}>
-                Ler itens
-              </Button>
-            </div>
-          </form>
+          textForm
         ) : (
           <button type="button" className="qs-skip" onClick={() => setWriting(true)}>
             <PencilLine size={14} aria-hidden /> Prefiro escrever os itens
@@ -595,7 +597,7 @@ export function QuickStart({
           <h3 id="qs-menu" className="qs-sec__title">
             Cardápio <span className="qs-count">{drafts.length}</span>
           </h3>
-          {noPhoto.length > 0 && !photos && (
+          {aiOn && noPhoto.length > 0 && !photos && (
             <Button
               size="sm"
               variant="secondary"
@@ -621,21 +623,24 @@ export function QuickStart({
           </>
         ) : (
           <p className="mi-lead">
-            Não achei itens. Mande fotos do cardápio em &quot;Outra página&quot; ou cadastre depois
-            em Cardápio.
+            {aiOn
+              ? 'Não achei itens. Mande fotos do cardápio em “Outra página” ou cadastre depois em Cardápio.'
+              : 'Sem itens por enquanto. Você cadastra depois em Cardápio › Itens.'}
           </p>
         )}
       </section>
 
       {fileInputs}
       <div className="qs-foot">
-        <Button
-          variant="secondary"
-          icon={<Images size={16} />}
-          onClick={() => gallery.current?.click()}
-        >
-          Outra página
-        </Button>
+        {aiOn && (
+          <Button
+            variant="secondary"
+            icon={<Images size={16} />}
+            onClick={() => gallery.current?.click()}
+          >
+            Outra página
+          </Button>
+        )}
         <Button disabled={!!photos} onClick={() => void apply()}>
           {ready ? `Aplicar tudo (${ready} ${ready === 1 ? 'item' : 'itens'})` : 'Aplicar a loja'}
         </Button>

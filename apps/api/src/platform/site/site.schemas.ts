@@ -36,7 +36,7 @@ export const PreviewBody = z.object({ url: z.string().trim().min(4).max(2000) })
 
 export const SiteSettingsBody = z.object({
   signupEnabled: z.boolean(),
-  trialDays: z.number().int().min(1).max(30),
+  /** Os dias de teste ficam no plano (Super Admin › Planos); o campo antigo é ignorado. */
   dailyLimit: z.number().int().min(1).max(1000),
   emailWebhookUrl: z
     .string()

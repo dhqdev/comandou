@@ -9,7 +9,9 @@ import { ago, PageHead, Section, Tag, type Level } from './ui';
 
 interface SiteSettings {
   signupEnabled: boolean;
+  /** Dias de teste do plano em que o restaurante do site nasce (Super Admin › Planos). */
   trialDays: number;
+  trialPlan: string | null;
   dailyLimit: number;
   emailWebhookUrl: string;
   emailTokenSet: boolean;
@@ -51,7 +53,8 @@ function situation(t: Trial): [string, Level] {
 }
 
 /**
- * Super Admin › Site: o cadastro pelo comandou.com (ligado, dias de teste, limite por dia), o
+ * Super Admin › Site: o cadastro pelo comandou.com (ligado, limite por dia; os dias de teste são
+ * os do plano, em Planos), o
  * webhook do n8n que envia o e-mail de boas-vindas e os testes que as pessoas criaram.
  */
 export function SitePage() {
@@ -91,7 +94,6 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
   const toast = useToast();
   const [f, setF] = useState({
     signupEnabled: settings.signupEnabled,
-    trialDays: String(settings.trialDays),
     dailyLimit: String(settings.dailyLimit),
     emailWebhookUrl: settings.emailWebhookUrl,
     emailToken: '',
@@ -111,7 +113,6 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
         method: 'PUT',
         json: {
           signupEnabled: f.signupEnabled,
-          trialDays: Number(f.trialDays) || 3,
           dailyLimit: Number(f.dailyLimit) || 40,
           emailWebhookUrl: f.emailWebhookUrl.trim(),
           ...(f.emailToken ? { emailToken: f.emailToken } : {}),
@@ -152,13 +153,26 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
                 onChange={(v) => setF({ ...f, signupEnabled: v })}
               />
             </div>
-            <TextField
-              label="Dias de teste"
-              inputMode="numeric"
-              hint="Passou disso sem fechar, o restaurante é suspenso (nada é apagado)."
-              value={f.trialDays}
-              onChange={(e) => setF({ ...f, trialDays: e.target.value.replace(/\D/g, '') })}
-            />
+            <div className="cm-field">
+              <span className="cm-label">Tempo de teste</span>
+              <p className="adm-site-trial">
+                {settings.trialDays > 0 ? (
+                  <strong>
+                    {settings.trialDays} {settings.trialDays === 1 ? 'dia' : 'dias'}
+                  </strong>
+                ) : (
+                  <strong className="adm-site-trial__off">Sem teste</strong>
+                )}{' '}
+                <Link to="/planos">
+                  {settings.trialPlan ? `Mudar no plano ${settings.trialPlan}` : 'Mudar em Planos'}
+                </Link>
+              </p>
+              <span className="cm-hint">
+                {settings.trialDays > 0
+                  ? 'O mesmo tempo do sistema todo. Passou disso sem fechar, o restaurante é suspenso (nada é apagado).'
+                  : 'O plano está sem dias de teste: o botão de criar no site fica fechado até colocar.'}
+              </span>
+            </div>
             <TextField
               label="Limite de cadastros por dia"
               inputMode="numeric"

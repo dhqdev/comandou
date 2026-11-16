@@ -18,6 +18,7 @@ import { DatabaseService } from '../database/database.service';
 import { AI_KEY_CONTEXT } from './ai.service';
 import { availableTokens, loadAiQuota, recordAiUsage } from './ai-quota';
 import { ContentPart, OpenRouterClient, OpenRouterError } from './openrouter';
+import { parseMenuText } from './menu-text';
 import {
   EMPTY_STORE,
   decodeEntities,
@@ -294,14 +295,29 @@ export class MenuImportService {
     return r;
   }
 
-  /** Cardápio descrito em texto (itens e preços digitados ou colados). */
+  /**
+   * Cardápio descrito em texto (itens e preços digitados ou colados). Com a IA desligada, sem
+   * limite ou fora do ar, lê as linhas sem IA: o que a pessoa escreveu no site chega igual.
+   */
   async fromText(ctx: Ctx, text: string) {
-    const r = await this.read(ctx, TEXT_PROMPT, [{ type: 'text', text: text.slice(0, 12_000) }]);
-    if (!r.items)
-      throw new UnprocessableEntityException(
-        'Não encontrei itens nesse texto. Escreva um item por linha, com o preço.',
-      );
-    return r;
+    const local = () => {
+      const categories = parseMenuText(text.slice(0, 12_000));
+      const items = categories.reduce((n, c) => n + c.items.length, 0);
+      if (!items)
+        throw new UnprocessableEntityException(
+          'Não encontrei itens nesse texto. Escreva um item por linha, com o preço.',
+        );
+      return { categories, partial: false, store: EMPTY_STORE, items, tokens: 0, withoutAi: true };
+    };
+    if (!(await this.status(ctx)).enabled) return local();
+    let r;
+    try {
+      r = await this.read(ctx, TEXT_PROMPT, [{ type: 'text', text: text.slice(0, 12_000) }]);
+    } catch (e) {
+      if (e instanceof ServiceUnavailableException) return local();
+      throw e;
+    }
+    return r.items ? r : local();
   }
 
   /**
