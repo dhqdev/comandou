@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.133.2',
+    date: '2026-11-16',
+    title: 'Teste do Super Admin com o teste grátis do valor único',
+    summary:
+      'O teste automático do Super Admin agora espera o restaurante novo começar "Em teste", como acontece no valor único com dias de teste grátis.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Teste do Super Admin: restaurante criado no valor único aparece "Em teste" (antes o teste esperava "Ativa", de um plano sem dias de teste).',
+      },
+    ],
+  },
+  {
     version: '0.133.1',
     date: '2026-11-16',
     title: 'Testes automáticos com o sistema como em produção',

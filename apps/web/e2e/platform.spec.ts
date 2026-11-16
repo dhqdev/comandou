@@ -74,7 +74,10 @@ test('Super Admin: código errado, preço, novo restaurante, assinatura e suspen
   await dialog.getByRole('button', { name: 'Criar restaurante' }).click();
   await expect(page.getByRole('heading', { name: new RegExp(`Cantina ${tag}`) })).toBeVisible();
   // O banco próprio do restaurante é criado pelo serviço de backup; a tela se atualiza sozinha.
-  await expect(page.locator('.adm-tag', { hasText: /^Ativa$/ })).toBeVisible({ timeout: 60_000 });
+  // No valor único o restaurante novo começa no teste grátis (dias do plano padrão).
+  await expect(page.locator('.adm-tag', { hasText: /^Em teste$/ })).toBeVisible({
+    timeout: 60_000,
+  });
   await expect(page.getByText(`dona-${tag}@e2e.local`).first()).toBeVisible({ timeout: 60_000 });
   await page.getByRole('tab', { name: 'Cadastro' }).click();
   await expect(page.getByLabel('CPF ou CNPJ')).toHaveValue('12.345.678/0001-95');
