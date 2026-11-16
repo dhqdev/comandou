@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.130.0',
+    date: '2026-11-16',
+    title: 'Cardápio instalado abre no cardápio',
+    summary:
+      'Quem instala o cardápio online como app (Tela de Início do iPhone ou "Baixar" no Android) agora abre direto no cardápio da loja, com o nome e o ícone dela, e não mais na tela de login da equipe.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'O app instalado a partir do cardápio abria pedindo e-mail e senha. A página já começa com o manifesto da loja (início no cardápio), que o iPhone e o Chrome leem logo na abertura.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Quem instalou antes da correção e caiu no login vê o atalho "Abrir o cardápio" na própria tela. Para ficar de vez, é só apagar o ícone e instalar de novo pelo cardápio.',
+      },
+    ],
+  },
+  {
     version: '0.129.0',
     date: '2026-11-16',
     title: 'Login minimalista com a logo do restaurante',

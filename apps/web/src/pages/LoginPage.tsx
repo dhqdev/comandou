@@ -6,6 +6,7 @@ import { isWaiterAppPath, isWaiterPath } from '../app/WaiterEntry';
 import { api, ApiError } from '../lib/api';
 import { AuthShell, deskFocus, PasswordField, StoreLoginBrand } from './AuthShell';
 import { PinPad } from './PinPad';
+import { isStandalone } from '../platform/pwa';
 
 /** E-mail lembrado neste aparelho (a senha nunca é guardada). */
 const REMEMBER_KEY = 'cm-login-email';
@@ -56,6 +57,8 @@ export function LoginPage() {
   /** Garçom e entregador entram pelo PIN; o e-mail e senha fica como alternativa. */
   const [usePassword, setUsePassword] = useState(false);
   const pinApp = who?.pin ?? null;
+  /** App instalado que nunca entrou na equipe: quase sempre o cliente que instalou o cardápio. */
+  const [customerApp] = useState(() => !who && isStandalone() && !rememberedEmail());
 
   useEffect(() => {
     api<{ name: string }>('/tenant')
@@ -151,6 +154,14 @@ export function LoginPage() {
           >
             Entrar com PIN
           </button>
+        ) : customerApp ? (
+          // App instalado antes, quando o cardápio ainda abria aqui: um toque volta para ele.
+          <>
+            Veio fazer um pedido?{' '}
+            <a className="login__link" href="/pedir">
+              Abrir o cardápio
+            </a>
+          </>
         ) : undefined
       }
     >

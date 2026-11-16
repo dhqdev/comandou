@@ -58,27 +58,16 @@ export default defineConfig({
       // "prompt": a versão nova fica esperando e o app mostra o botão "Atualizar" (UpdatePrompt).
       // Trocar sozinho no meio de um pedido perderia o que estava na tela.
       registerType: 'prompt',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
-      manifest: {
-        name: 'Comandou',
-        short_name: 'Comandou',
-        description: 'Gestão completa para restaurantes',
-        lang: 'pt-BR',
-        theme_color: '#EA8A0B',
-        background_color: '#F7F5F3',
-        display: 'standalone',
-        start_url: '/',
-        icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          {
-            src: '/icons/icon-512-maskable.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable',
-          },
-        ],
-      },
+      // O manifesto não vai fixo no HTML: public/app-manifest.js escolhe o da tela antes de a
+      // página abrir (cardápio e link do entregador têm o da loja). O do painel é
+      // public/manifest.webmanifest.
+      manifest: false,
+      includeAssets: [
+        'favicon.svg',
+        'apple-touch-icon.png',
+        'manifest.webmanifest',
+        'app-manifest.js',
+      ],
       workbox: {
         // Somente assets estáticos versionados vão para cache. A API NUNCA é cacheada pelo SW:
         // dados de restaurante, sessão e valores financeiros sempre vêm do servidor.
