@@ -57,7 +57,13 @@ function disposition(kind: 'inline' | 'attachment', filename: string) {
 }
 
 /** Tipos que o navegador pode abrir direto sem risco de rodar nada (o resto baixa). */
-const INLINE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf']);
+const INLINE_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+]);
 
 /** Super Admin › E-mail: caixas, envio, regras, contatos, agenda e agendamento. */
 @Controller({ path: 'platform/mail', version: '1' })
@@ -230,7 +236,9 @@ export class MailController {
     } catch {
       /* nome mal codificado: fica o padrão */
     }
-    const contentType = /^[\w.+-]+\/[\w.+-]+$/.test(type ?? '') ? type! : 'application/octet-stream';
+    const contentType = /^[\w.+-]+\/[\w.+-]+$/.test(type ?? '')
+      ? type!
+      : 'application/octet-stream';
     return this.boxes.addAttachment(id, { filename, contentType, data: body });
   }
 
@@ -405,7 +413,11 @@ export class MailInboundController {
     @Headers('x-comandou-signature') signature: string | undefined,
   ) {
     const secret = this.mail.inboundSecret(await this.mail.settingsRow());
-    if (!secret || !Buffer.isBuffer(body) || !verifyInbound(secret, { timestamp, from, to, signature }, body))
+    if (
+      !secret ||
+      !Buffer.isBuffer(body) ||
+      !verifyInbound(secret, { timestamp, from, to, signature }, body)
+    )
       throw new ForbiddenException('Assinatura inválida');
     if (body.length > INBOUND_MAX_BYTES) throw new PayloadTooLargeException('E-mail grande demais');
     return this.boxes.receive(body, { from: from ?? '', to: to! });

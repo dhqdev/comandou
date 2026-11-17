@@ -248,7 +248,7 @@ export class ContractsService {
   }
 
   async settings() {
-    return this.settingsView(await this.settingsRow());
+    return { ...this.settingsView(await this.settingsRow()), mailReady: await this.mail.ready() };
   }
 
   async saveSettings(b: ContractSettingsInput, a: Actor) {

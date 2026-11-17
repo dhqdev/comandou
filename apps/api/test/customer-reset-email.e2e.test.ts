@@ -68,13 +68,20 @@ describe('Esqueci minha senha por e-mail', () => {
     const m = mail.sent[0]!.body;
     expect(m.to).toEqual(['joana@cliente.test']);
     // Remetente: o nome do restaurante com o endereço do Comandou.
-    const [t] = await ownerQuery<{ name: string }>(`SELECT name FROM tenants WHERE slug = 'mail-a'`);
+    const [t] = await ownerQuery<{ name: string }>(
+      `SELECT name FROM tenants WHERE slug = 'mail-a'`,
+    );
     expect(m.from).toBe(`"${t!.name}" <nao-responda@comandou.test>`);
     expect(m.subject).toContain(t!.name);
     const code = /(\d{6}) é o seu código/.exec(m.subject)![1]!;
     expect(m.html).toContain(`${code.slice(0, 3)} ${code.slice(3)}`);
     // Saiu: na fila não fica nada do código.
-    const [o] = await ownerQuery<{ status: string; html: string | null; enc: boolean; sensitive: boolean }>(
+    const [o] = await ownerQuery<{
+      status: string;
+      html: string | null;
+      enc: boolean;
+      sensitive: boolean;
+    }>(
       `SELECT status, html, body_enc IS NOT NULL AS enc, sensitive FROM mail_outbox
         WHERE kind = 'customer.password_reset' ORDER BY created_at DESC LIMIT 1`,
     );

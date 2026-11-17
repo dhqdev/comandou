@@ -1,14 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatAddress, normalizeMessageId, parseAddressList } from './address';
 import { composeHtml, frameDocument, hasRemoteImages, htmlToText, textToHtml } from './html';
-import {
-  buildIcs,
-  freeSlots,
-  occurrences,
-  parseIcsReply,
-  zonedDate,
-  zonedToUtc,
-} from './ics';
+import { buildIcs, freeSlots, occurrences, parseIcsReply, zonedDate, zonedToUtc } from './ics';
 import { firstMatch, inboundSignature, shouldAutoReply, verifyInbound } from './inbound';
 import { MailSendError, sendThrough } from './providers';
 
@@ -38,7 +31,9 @@ describe('endereços', () => {
 describe('HTML', () => {
   it('texto vira HTML escapado com links', () => {
     const h = textToHtml('Oi <b>\nveja https://comandou.com/x.\n\nTchau');
-    expect(h).toContain('Oi &lt;b&gt;<br>veja <a href="https://comandou.com/x">https://comandou.com/x</a>.');
+    expect(h).toContain(
+      'Oi &lt;b&gt;<br>veja <a href="https://comandou.com/x">https://comandou.com/x</a>.',
+    );
     expect(h).toContain('<p style="margin:0 0 14px">Tchau</p>');
   });
 
@@ -97,14 +92,34 @@ describe('recebimento', () => {
 
   it('regras: a primeira que combina, da caixa ou geral', () => {
     const rules = [
-      { mailbox_id: 'outra', field: 'from' as const, op: 'contains' as const, value: 'x.com', action: 'spam' as const },
-      { mailbox_id: null, field: 'subject' as const, op: 'contains' as const, value: 'NOTA', action: 'archive' as const },
-      { mailbox_id: null, field: 'from' as const, op: 'ends_with' as const, value: '@x.com', action: 'star' as const },
+      {
+        mailbox_id: 'outra',
+        field: 'from' as const,
+        op: 'contains' as const,
+        value: 'x.com',
+        action: 'spam' as const,
+      },
+      {
+        mailbox_id: null,
+        field: 'subject' as const,
+        op: 'contains' as const,
+        value: 'NOTA',
+        action: 'archive' as const,
+      },
+      {
+        mailbox_id: null,
+        field: 'from' as const,
+        op: 'ends_with' as const,
+        value: '@x.com',
+        action: 'star' as const,
+      },
     ];
-    expect(firstMatch(rules, 'minha', { from: 'a@x.com', to: [], subject: 'nota fiscal' })?.action).toBe(
-      'archive',
+    expect(
+      firstMatch(rules, 'minha', { from: 'a@x.com', to: [], subject: 'nota fiscal' })?.action,
+    ).toBe('archive');
+    expect(firstMatch(rules, 'minha', { from: 'a@x.com', to: [], subject: 'oi' })?.action).toBe(
+      'star',
     );
-    expect(firstMatch(rules, 'minha', { from: 'a@x.com', to: [], subject: 'oi' })?.action).toBe('star');
     expect(firstMatch(rules, 'minha', { from: 'a@y.com', to: [], subject: 'oi' })).toBeNull();
   });
 
@@ -157,7 +172,11 @@ describe('agenda', () => {
       'END:VEVENT',
       'END:VCALENDAR',
     ].join('\r\n');
-    expect(parseIcsReply(reply)).toEqual({ uid: 'u1@comandou', email: 'ana@x.com', status: 'accepted' });
+    expect(parseIcsReply(reply)).toEqual({
+      uid: 'u1@comandou',
+      email: 'ana@x.com',
+      status: 'accepted',
+    });
     expect(parseIcsReply(reply.replace('REPLY', 'REQUEST'))).toBeNull();
   });
 

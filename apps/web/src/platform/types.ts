@@ -555,8 +555,8 @@ export interface ContractSettings {
   lateInterestPercent: string;
   suspendAfterDays: number;
   supportHours: string;
-  webhookUrl: string;
-  hasWebhookSecret: boolean;
+  /** Envio de e-mail configurado em Super Admin › E-mail. */
+  mailReady: boolean;
   notifyEmail: string;
   keyConfigured: boolean;
   ready: boolean;

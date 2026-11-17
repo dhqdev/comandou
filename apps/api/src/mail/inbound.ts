@@ -65,7 +65,11 @@ export function matchRule(r: Rule, m: RuleTarget): boolean {
     v.toLowerCase(),
   );
   return values.some((v) =>
-    r.op === 'equals' ? v === needle : r.op === 'ends_with' ? v.endsWith(needle) : v.includes(needle),
+    r.op === 'equals'
+      ? v === needle
+      : r.op === 'ends_with'
+        ? v.endsWith(needle)
+        : v.includes(needle),
   );
 }
 
@@ -83,7 +87,11 @@ export function firstMatch<R extends Rule>(rules: R[], mailboxId: string, m: Rul
 export function shouldAutoReply(headers: Map<string, string>, from: string): boolean {
   const local = from.slice(0, from.lastIndexOf('@')).toLowerCase();
   if (!from.includes('@') || !local) return false;
-  if (/^(no-?reply|nao-?responda|do-?not-?reply|mailer-daemon|postmaster|bounce|bounces)\b/.test(local))
+  if (
+    /^(no-?reply|nao-?responda|do-?not-?reply|mailer-daemon|postmaster|bounce|bounces)\b/.test(
+      local,
+    )
+  )
     return false;
   const auto = (headers.get('auto-submitted') ?? '').toLowerCase();
   if (auto && auto !== 'no') return false;

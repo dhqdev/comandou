@@ -28,7 +28,11 @@ export const FAKE_RESEND_KEY = 're_teste_123';
  * cada e-mail entra em `sent`. `fail` faz o provedor recusar (status HTTP) enquanto estiver
  * definido. Devolve como desligar no fim do arquivo.
  */
-export async function fakeMail(app: INestApplication, key: string, from = 'nao-responda@comandou.test') {
+export async function fakeMail(
+  app: INestApplication,
+  key: string,
+  from = 'nao-responda@comandou.test',
+) {
   const sent: SentMail[] = [];
   const state: { fail: number | null } = { fail: null };
   await ownerQuery(
@@ -38,7 +42,8 @@ export async function fakeMail(app: INestApplication, key: string, from = 'nao-r
   );
   const mail = app.get(MailService);
   mail.fetcher = async (input, init) => {
-    if (state.fail) return new Response(JSON.stringify({ message: 'recusado' }), { status: state.fail });
+    if (state.fail)
+      return new Response(JSON.stringify({ message: 'recusado' }), { status: state.fail });
     const headers = new Headers(init?.headers);
     sent.push({
       url: String(input),

@@ -181,10 +181,7 @@ export const BookingPageBody = z.object({
   minNoticeHours: z.number().int().min(0).max(720).default(2),
   daysAhead: z.number().int().min(1).max(180).default(30),
   /** Dia da semana (0 = domingo) → janelas de atendimento. */
-  availability: z.record(
-    z.string().regex(/^[0-6]$/),
-    z.array(z.tuple([hhmm, hhmm])).max(6),
-  ),
+  availability: z.record(z.string().regex(/^[0-6]$/), z.array(z.tuple([hhmm, hhmm])).max(6)),
   timeZone: timeZone.default('America/Sao_Paulo'),
   mailboxId: z.string().uuid().nullable().default(null),
   enabled: z.boolean().default(true),

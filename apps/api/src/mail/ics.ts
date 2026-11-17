@@ -107,7 +107,11 @@ export function buildIcs(e: IcsEvent, method: 'REQUEST' | 'CANCEL', now = new Da
     lines.push(
       `ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=${PARTSTAT[a.status]};RSVP=TRUE${cn(a.name)}:mailto:${a.email}`,
     );
-  lines.push(`STATUS:${method === 'CANCEL' ? 'CANCELLED' : 'CONFIRMED'}`, 'END:VEVENT', 'END:VCALENDAR');
+  lines.push(
+    `STATUS:${method === 'CANCEL' ? 'CANCELLED' : 'CONFIRMED'}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  );
   return `${lines.map(fold).join('\r\n')}\r\n`;
 }
 
@@ -120,7 +124,9 @@ export function parseIcsReply(
     .replace(/\n[ \t]/g, '')
     .split('\n');
   const value = (name: string) => {
-    const l = lines.find((x) => x.toUpperCase().startsWith(`${name}:`) || x.toUpperCase().startsWith(`${name};`));
+    const l = lines.find(
+      (x) => x.toUpperCase().startsWith(`${name}:`) || x.toUpperCase().startsWith(`${name};`),
+    );
     return l ? l.slice(l.indexOf(':') + 1).trim() : '';
   };
   if (value('METHOD').toUpperCase() !== 'REPLY') return null;
@@ -164,7 +170,10 @@ export function zonedToUtc(date: string, time: string, timeZone: string): Date {
 }
 
 /** Data (AAAA-MM-DD) e dia da semana (0 = domingo) de um instante no fuso informado. */
-export function zonedDate(at: Date, timeZone: string): { date: string; weekday: number; time: string } {
+export function zonedDate(
+  at: Date,
+  timeZone: string,
+): { date: string; weekday: number; time: string } {
   const local = new Date(at.getTime() + tzOffsetMs(timeZone, at));
   return {
     date: `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())}`,

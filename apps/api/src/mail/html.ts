@@ -106,7 +106,10 @@ export function stripDocument(html: string): string {
   return (body ? body[1]! : html)
     .replace(/<!doctype[^>]*>/gi, '')
     .replace(/<\/?(html|head|body)\b[^>]*>/gi, '')
-    .replace(/<(script|style|title|meta|link|base|iframe|object|embed|form)\b[\s\S]*?<\/\1\s*>/gi, '')
+    .replace(
+      /<(script|style|title|meta|link|base|iframe|object|embed|form)\b[\s\S]*?<\/\1\s*>/gi,
+      '',
+    )
     .replace(/<(script|meta|link|base|iframe|object|embed|form|input)\b[^>]*>/gi, '');
 }
 

@@ -101,10 +101,10 @@ export function ContractsPanel({ t, initialOpen }: { t: TenantDetail; initialOpe
             Falta a razão social ou o CPF/CNPJ do cliente: preencha na aba Cadastro.
           </Alert>
         )}
-        {s?.ready && !s.webhookUrl && (
+        {s?.ready && !s.mailReady && (
           <span className="adm-sub" style={{ whiteSpace: 'normal' }}>
-            Sem o webhook do n8n o contrato não sai por e-mail, mas dá para copiar o link de
-            assinatura e mandar por WhatsApp.
+            Sem o envio de e-mail configurado (Super Admin › E-mail) o contrato não sai por e-mail,
+            mas dá para copiar o link de assinatura e mandar por WhatsApp.
           </span>
         )}
       </div>
@@ -185,7 +185,7 @@ export function ContractsPanel({ t, initialOpen }: { t: TenantDetail; initialOpe
         <ContractSheet
           id={open}
           settings={s ?? null}
-          canEmail={!!s?.webhookUrl}
+          canEmail={!!s?.mailReady}
           onClose={() => setOpen(null)}
           onChanged={() => list.reload()}
         />
@@ -667,7 +667,7 @@ function ContractSheet({
             <button
               className="adm-action adm-action--primary"
               disabled={!canEmail}
-              title={canEmail ? undefined : 'Configure o webhook do n8n'}
+              title={canEmail ? undefined : 'Configure o envio em Super Admin › E-mail'}
               onClick={() => setMode('send')}
             >
               <Send size={14} /> {c.sentAt ? 'Reenviar por e-mail' : 'Enviar por e-mail'}
@@ -737,8 +737,8 @@ function ContractSheet({
               wrapClass="span-6"
             />
             <span className="adm-sub span-6" style={{ whiteSpace: 'normal' }}>
-              O n8n manda o e-mail com o botão de assinatura e o PDF anexado. Um link novo é criado
-              e o anterior deixa de valer.
+              Vai um e-mail com o botão de assinatura e o PDF anexado. Um link novo é criado e o
+              anterior deixa de valer.
             </span>
           </div>
         )}
@@ -829,7 +829,7 @@ function ContractSheet({
           />
         )}
         {(c.status === 'signed' || c.status === 'client_signed') && c.notifyError && (
-          <Alert tone="warning">O aviso pelo n8n não foi enviado: {c.notifyError}</Alert>
+          <Alert tone="warning">O aviso por e-mail não foi enviado: {c.notifyError}</Alert>
         )}
         {c.status === 'cancelled' && <Alert tone="info">Cancelado: {c.cancelReason}</Alert>}
 
@@ -904,7 +904,7 @@ function ContractSheet({
 
 type SettingsForm = Omit<
   ContractSettings,
-  | 'hasWebhookSecret'
+  | 'mailReady'
   | 'keyConfigured'
   | 'ready'
   | 'updatedAt'
@@ -915,10 +915,9 @@ type SettingsForm = Omit<
   dueDay: string;
   termMonths: string;
   suspendAfterDays: string;
-  webhookSecret: string;
 };
 
-/** Dados da contratada, regras padrão e o webhook do n8n (vale para todos os contratos novos). */
+/** Dados da contratada e regras padrão (vale para todos os contratos novos). */
 function ContractSettingsModal({
   onClose,
   onSaved,
@@ -948,8 +947,6 @@ function ContractSettingsModal({
       lateInterestPercent: s.lateInterestPercent.replace('.', ','),
       suspendAfterDays: String(s.suspendAfterDays),
       supportHours: s.supportHours,
-      webhookUrl: s.webhookUrl,
-      webhookSecret: '',
       notifyEmail: s.notifyEmail,
     });
   const set = (k: keyof SettingsForm) => (e: { target: { value: string } }) =>
@@ -1142,26 +1139,12 @@ function ContractSettingsModal({
           </fieldset>
           <fieldset className="adm-fieldset">
             <legend className="adm-fieldset__title">
-              Envio pelo n8n{' '}
-              <span className="adm-fieldset__hint">e-mail do contrato e aviso de assinatura</span>
+              E-mail{' '}
+              <span className="adm-fieldset__hint">
+                contrato e aviso de assinatura saem por Super Admin › E-mail
+              </span>
             </legend>
             <div className="adm-form">
-              <TextField
-                label="URL do webhook (Production URL)"
-                placeholder="https://n8n.seudominio.com/webhook/comandou-contratos"
-                value={form.webhookUrl}
-                onChange={set('webhookUrl')}
-                wrapClass="span-4"
-              />
-              <TextField
-                label="Segredo (header X-Comandou-Token)"
-                type="password"
-                autoComplete="new-password"
-                placeholder={s.hasWebhookSecret ? 'guardado (vazio mantém)' : 'opcional'}
-                value={form.webhookSecret}
-                onChange={set('webhookSecret')}
-                wrapClass="span-2"
-              />
               <TextField
                 label="Me avise da assinatura em"
                 type="email"
@@ -1176,7 +1159,7 @@ function ContractSettingsModal({
                   variant="secondary"
                   block
                   loading={busy === 'test'}
-                  disabled={!form.webhookUrl}
+                  disabled={!s.mailReady}
                   onClick={async () => {
                     if (!(await save())) return;
                     setBusy('test');
@@ -1196,9 +1179,9 @@ function ContractSettingsModal({
                 </Button>
               </div>
             </div>
-            {!s.keyConfigured && (
+            {!s.mailReady && (
               <Alert tone="warning">
-                Servidor sem INTEGRATIONS_KEY: o segredo do webhook não pode ser guardado.
+                O envio de e-mail ainda não está configurado: configure em Super Admin › E-mail.
               </Alert>
             )}
           </fieldset>

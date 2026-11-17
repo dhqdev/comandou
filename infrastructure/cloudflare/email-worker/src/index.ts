@@ -50,17 +50,20 @@ export default {
     }
     const raw = await new Response(message.raw).arrayBuffer();
     const ts = String(Math.floor(Date.now() / 1000));
-    const res = await fetch(`${env.COMANDOU_URL.replace(/\/+$/, '')}/api/v1/platform/mail/inbound`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'message/rfc822',
-        'X-Comandou-Timestamp': ts,
-        'X-Comandou-From': message.from,
-        'X-Comandou-To': message.to,
-        'X-Comandou-Signature': await sign(env.INBOUND_SECRET, ts, message.from, message.to, raw),
+    const res = await fetch(
+      `${env.COMANDOU_URL.replace(/\/+$/, '')}/api/v1/platform/mail/inbound`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'message/rfc822',
+          'X-Comandou-Timestamp': ts,
+          'X-Comandou-From': message.from,
+          'X-Comandou-To': message.to,
+          'X-Comandou-Signature': await sign(env.INBOUND_SECRET, ts, message.from, message.to, raw),
+        },
+        body: raw,
       },
-      body: raw,
-    });
+    );
     if (res.status === 413) {
       message.setReject('Mensagem grande demais para esta caixa.');
       return;

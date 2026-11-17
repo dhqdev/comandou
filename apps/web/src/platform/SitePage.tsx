@@ -1,5 +1,5 @@
 import { ExternalLink, Send } from 'lucide-react';
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { Link } from 'react-router';
 import { Alert, Button, Card, EmptyState, Spinner, TextField, useToast } from '../design-system';
 import { CheckField } from '../features/forms';
@@ -13,11 +13,8 @@ interface SiteSettings {
   trialDays: number;
   trialPlan: string | null;
   dailyLimit: number;
-  emailWebhookUrl: string;
-  emailTokenSet: boolean;
-  /** Webhook dos e-mails para os clientes dos restaurantes (código de nova senha). */
-  customerEmailWebhookUrl: string;
-  customerEmailTokenSet: boolean;
+  /** O envio de e-mail (Super Admin › E-mail) está configurado. */
+  emailReady: boolean;
   siteUrl: string;
 }
 
@@ -57,8 +54,8 @@ function situation(t: Trial): [string, Level] {
 
 /**
  * Super Admin › Site: o cadastro pelo comandou.com (ligado, limite por dia; os dias de teste são
- * os do plano, em Planos), o
- * webhook do n8n que envia o e-mail de boas-vindas e os testes que as pessoas criaram.
+ * os do plano, em Planos), os e-mails (que saem por Super Admin › E-mail) e os testes que as
+ * pessoas criaram.
  */
 export function SitePage() {
   const { data, error, reload } = useLoad<{ settings: SiteSettings; trials: Trial[] }>(
@@ -98,21 +95,10 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
   const [f, setF] = useState({
     signupEnabled: settings.signupEnabled,
     dailyLimit: String(settings.dailyLimit),
-    emailWebhookUrl: settings.emailWebhookUrl,
-    emailToken: '',
-    customerEmailWebhookUrl: settings.customerEmailWebhookUrl,
-    customerEmailToken: '',
   });
   const [busy, setBusy] = useState(false);
   const [to, setTo] = useState('');
   const [sending, setSending] = useState<'welcome' | 'customer' | null>(null);
-  useEffect(() => {
-    setF((cur) => ({
-      ...cur,
-      emailWebhookUrl: settings.emailWebhookUrl,
-      customerEmailWebhookUrl: settings.customerEmailWebhookUrl,
-    }));
-  }, [settings.emailWebhookUrl, settings.customerEmailWebhookUrl]);
 
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -123,14 +109,9 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
         json: {
           signupEnabled: f.signupEnabled,
           dailyLimit: Number(f.dailyLimit) || 40,
-          emailWebhookUrl: f.emailWebhookUrl.trim(),
-          ...(f.emailToken ? { emailToken: f.emailToken } : {}),
-          customerEmailWebhookUrl: f.customerEmailWebhookUrl.trim(),
-          ...(f.customerEmailToken ? { customerEmailToken: f.customerEmailToken } : {}),
         },
       });
       toast('Site salvo', 'success');
-      setF((cur) => ({ ...cur, emailToken: '', customerEmailToken: '' }));
       onSaved();
     } catch (err) {
       toast((err as Error).message, 'danger');
@@ -195,46 +176,22 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
               value={f.dailyLimit}
               onChange={(e) => setF({ ...f, dailyLimit: e.target.value.replace(/\D/g, '') })}
             />
-            <h3 className="cm-form__section">E-mail de boas-vindas (n8n)</h3>
-            <TextField
-              label="Endereço do webhook"
-              wrapClass="cm-form__wide"
-              inputMode="url"
-              placeholder="https://seu-n8n.com/webhook/comandou-boas-vindas"
-              hint="O Comandou envia o e-mail pronto (para, assunto e HTML) e o n8n só dispara. Vazio: o login aparece só na tela."
-              value={f.emailWebhookUrl}
-              onChange={(e) => setF({ ...f, emailWebhookUrl: e.target.value })}
-            />
-            <TextField
-              label="Segredo do webhook (opcional)"
-              wrapClass="cm-form__wide"
-              type="password"
-              autoComplete="new-password"
-              placeholder={settings.emailTokenSet ? 'Salvo. Digite para trocar.' : ''}
-              hint="Vai no cabeçalho X-Comandou-Token, para o n8n recusar chamadas de fora."
-              value={f.emailToken}
-              onChange={(e) => setF({ ...f, emailToken: e.target.value })}
-            />
-            <h3 className="cm-form__section">E-mail para os clientes dos restaurantes (n8n)</h3>
-            <TextField
-              label="Endereço do webhook"
-              wrapClass="cm-form__wide"
-              inputMode="url"
-              placeholder="https://seu-n8n.com/webhook/comandou-clientes"
-              hint="Esqueci minha senha no cardápio: o código vai para o e-mail da conta do cliente, com o nome do restaurante. Vazio: só pelo WhatsApp da loja."
-              value={f.customerEmailWebhookUrl}
-              onChange={(e) => setF({ ...f, customerEmailWebhookUrl: e.target.value })}
-            />
-            <TextField
-              label="Segredo do webhook (opcional)"
-              wrapClass="cm-form__wide"
-              type="password"
-              autoComplete="new-password"
-              placeholder={settings.customerEmailTokenSet ? 'Salvo. Digite para trocar.' : ''}
-              hint="Vai no cabeçalho X-Comandou-Token, para o n8n recusar chamadas de fora."
-              value={f.customerEmailToken}
-              onChange={(e) => setF({ ...f, customerEmailToken: e.target.value })}
-            />
+            <h3 className="cm-form__section">E-mails</h3>
+            <div className="cm-form__block">
+              <p className="adm-site-trial" style={{ margin: 0 }}>
+                {settings.emailReady ? (
+                  <Tag level="ok">Envio configurado</Tag>
+                ) : (
+                  <Tag level="warn">Envio não configurado</Tag>
+                )}{' '}
+                <Link to="/email/configurar">Configurar em E-mail</Link>
+              </p>
+              <span className="cm-hint">
+                O e-mail de boas-vindas (com o login) e o código de nova senha dos clientes saem
+                pelo e-mail do próprio Comandou. Sem envio configurado, o login aparece só na tela e
+                o código vai só pelo WhatsApp da loja.
+              </span>
+            </div>
             <div className="cm-form__block" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Button type="submit" loading={busy}>
                 Salvar
@@ -259,14 +216,14 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
           </form>
         </Card>
       </Section>
-      {(settings.emailWebhookUrl || settings.customerEmailWebhookUrl) && (
-        <Section title="Testar o envio" sub="Manda o e-mail de exemplo pelo webhook salvo">
+      {settings.emailReady && (
+        <Section title="Testar o envio" sub="Manda o e-mail de exemplo agora">
           <Card>
             <form
               className="cm-form"
               onSubmit={(e) => {
                 e.preventDefault();
-                void test(settings.emailWebhookUrl ? 'welcome' : 'customer');
+                void test('welcome');
               }}
             >
               <TextField
@@ -277,7 +234,7 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
                 onChange={(e) => setTo(e.target.value)}
               />
               <div className="cm-form__block" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {settings.emailWebhookUrl && (
+                {settings.emailReady && (
                   <Button
                     type="submit"
                     variant="secondary"
@@ -288,7 +245,7 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
                     Enviar boas-vindas de teste
                   </Button>
                 )}
-                {settings.customerEmailWebhookUrl && (
+                {settings.emailReady && (
                   <Button
                     type="button"
                     variant="secondary"
@@ -360,7 +317,7 @@ function Trials({ trials }: { trials: Trial[] }) {
                         {t.emailSentAt ? (
                           <Tag level="ok">Enviado</Tag>
                         ) : t.emailError?.includes('não configurado') ? (
-                          <Tag level="off">Sem webhook</Tag>
+                          <Tag level="off">Sem envio</Tag>
                         ) : t.emailError ? (
                           <span title={t.emailError}>
                             <Tag level="bad">Falhou</Tag>

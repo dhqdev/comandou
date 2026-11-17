@@ -218,7 +218,8 @@ export class MailboxService {
         data: {
           provider: b.provider,
           fromAddress: b.fromAddress,
-          keyChanged: b.cfToken !== undefined || b.resendKey !== undefined || b.smtpPass !== undefined,
+          keyChanged:
+            b.cfToken !== undefined || b.resendKey !== undefined || b.smtpPass !== undefined,
         },
         ip: a.ip,
       });
@@ -235,9 +236,10 @@ export class MailboxService {
       throw new UnprocessableEntityException('Defina a INTEGRATIONS_KEY para guardar o segredo');
     const secret = randomBytes(32).toString('base64url');
     await this.db.tx(async (c) => {
-      await c.query(`UPDATE mail_settings SET inbound_secret_enc = $1, updated_at = now() WHERE id`, [
-        seal(this.env.INTEGRATIONS_KEY!, secret, MAIL_SECRET.inbound),
-      ]);
+      await c.query(
+        `UPDATE mail_settings SET inbound_secret_enc = $1, updated_at = now() WHERE id`,
+        [seal(this.env.INTEGRATIONS_KEY!, secret, MAIL_SECRET.inbound)],
+      );
       await platformAudit(c, {
         adminId: a.admin.id,
         action: 'mail.inbound_secret_rotated',
@@ -251,7 +253,9 @@ export class MailboxService {
   /** E-mail de teste pelo provedor salvo: sai na hora e devolve o erro do provedor, se houver. */
   async testSend(to: string, a: Actor) {
     if (!(await this.mail.ready()))
-      throw new UnprocessableEntityException('Salve o provedor, a chave e o remetente antes de testar');
+      throw new UnprocessableEntityException(
+        'Salve o provedor, a chave e o remetente antes de testar',
+      );
     const r = await this.mail.send({
       kind: 'test',
       to: [{ email: to }],
@@ -308,7 +312,9 @@ export class MailboxService {
     await this.db.tx(async (c) => {
       const used = await c.query(`SELECT 1 FROM mail_mailboxes WHERE domain_id = $1 LIMIT 1`, [id]);
       if (used.rowCount)
-        throw new ConflictException('O domínio tem caixas de e-mail. Arquive as caixas e fale com o suporte para removê-lo');
+        throw new ConflictException(
+          'O domínio tem caixas de e-mail. Arquive as caixas e fale com o suporte para removê-lo',
+        );
       const { rows } = await c.query<{ domain: string }>(
         `DELETE FROM mail_domains WHERE id = $1 RETURNING domain::text AS domain`,
         [id],
@@ -363,7 +369,8 @@ export class MailboxService {
       dmarc: {
         ok: !!dmarcRec,
         found: dmarcRec,
-        hint: 'TXT em _dmarc com, por exemplo: v=DMARC1; p=quarantine; rua=mailto:dmarc@' + d.domain,
+        hint:
+          'TXT em _dmarc com, por exemplo: v=DMARC1; p=quarantine; rua=mailto:dmarc@' + d.domain,
       },
     };
   }
@@ -709,7 +716,8 @@ export class MailboxService {
 
   // ------------------------------------------------------------------ escrever
   private draftView(m: MessageRow, attachments: { id: string; filename: string; size: number }[]) {
-    const list = (l: Address[]) => l.map((x) => (x.name ? `${x.name} <${x.email}>` : x.email)).join(', ');
+    const list = (l: Address[]) =>
+      l.map((x) => (x.name ? `${x.name} <${x.email}>` : x.email)).join(', ');
     return {
       id: m.id,
       mailboxId: m.mailbox_id,
@@ -729,7 +737,8 @@ export class MailboxService {
         WHERE id = $1 AND folder = 'drafts' AND direction = 'out'${lock ? ' FOR UPDATE' : ''}`,
       [id],
     );
-    if (!rows[0]) throw new NotFoundException('Rascunho não encontrado (talvez já tenha sido enviado)');
+    if (!rows[0])
+      throw new NotFoundException('Rascunho não encontrado (talvez já tenha sido enviado)');
     return rows[0];
   }
 
@@ -751,8 +760,14 @@ export class MailboxService {
   /** Cria (id nulo) ou atualiza um rascunho. Resposta herda a conversa; encaminhar copia os anexos. */
   async saveDraft(id: string | null, b: DraftInput, a: Actor) {
     const to = parseAddressList(b.to);
-    const cc = uniqueAddresses(parseAddressList(b.cc), to.map((x) => x.email));
-    const bcc = uniqueAddresses(parseAddressList(b.bcc), [...to, ...cc].map((x) => x.email));
+    const cc = uniqueAddresses(
+      parseAddressList(b.cc),
+      to.map((x) => x.email),
+    );
+    const bcc = uniqueAddresses(
+      parseAddressList(b.bcc),
+      [...to, ...cc].map((x) => x.email),
+    );
     const subject = cleanHeader(b.subject).slice(0, 300);
     return this.db.tx(async (c) => {
       const box = await this.mailbox(b.mailboxId, c);
@@ -790,7 +805,8 @@ export class MailboxService {
         if (b.replyTo) {
           threadId = src.rows[0].thread_id;
           inReplyTo = src.rows[0].rfc_id;
-          refs = [src.rows[0].refs, src.rows[0].rfc_id].filter(Boolean).join(' ').slice(-7900) || null;
+          refs =
+            [src.rows[0].refs, src.rows[0].rfc_id].filter(Boolean).join(' ').slice(-7900) || null;
         }
       }
       const { rows } = await c.query<MessageRow>(
@@ -881,7 +897,9 @@ export class MailboxService {
    */
   async sendDraft(id: string, a: Actor) {
     if (!(await this.mail.ready()))
-      throw new UnprocessableEntityException('Configure o envio em E-mail › Configurar antes de enviar');
+      throw new UnprocessableEntityException(
+        'Configure o envio em E-mail › Configurar antes de enviar',
+      );
     const outboxId = await this.db.tx(async (c) => {
       const m = await this.draftRow(id, c, true);
       const box = await this.mailbox(m.mailbox_id, c);
@@ -921,7 +939,10 @@ export class MailboxService {
         action: 'mail.message_sent',
         entity: 'mail_message',
         entityId: id,
-        data: { from: box.address, recipients: m.to_list.length + m.cc_list.length + m.bcc_list.length },
+        data: {
+          from: box.address,
+          recipients: m.to_list.length + m.cc_list.length + m.bcc_list.length,
+        },
         ip: a.ip,
       });
       return out;
@@ -938,9 +959,10 @@ export class MailboxService {
       [id],
     );
     if (!o) throw new ConflictException('Este e-mail não está com falha');
-    await this.db.query(`UPDATE mail_messages SET send_status = 'queued', send_error = NULL WHERE id = $1`, [
-      id,
-    ]);
+    await this.db.query(
+      `UPDATE mail_messages SET send_status = 'queued', send_error = NULL WHERE id = $1`,
+      [id],
+    );
     const r = await this.mail.deliver(o.id);
     return { id, sent: r.ok, error: r.ok ? null : (r.error ?? null) };
   }
@@ -988,7 +1010,8 @@ export class MailboxService {
       to: [rcpt, ...toList.map((x) => x.email)],
       subject,
     });
-    if (rule?.action === 'reject') return { action: 'reject', reason: 'Mensagem recusada pelo destinatário' };
+    if (rule?.action === 'reject')
+      return { action: 'reject', reason: 'Mensagem recusada pelo destinatário' };
 
     const rfcId = normalizeMessageId(mail.messageId);
     const inReplyTo = normalizeMessageId(mail.inReplyTo);
@@ -1090,7 +1113,12 @@ export class MailboxService {
         )
         .catch(() => undefined);
 
-    if (box.auto_reply && box.auto_reply_body.trim() && folder === 'inbox' && shouldAutoReply(headers, from))
+    if (
+      box.auto_reply &&
+      box.auto_reply_body.trim() &&
+      folder === 'inbox' &&
+      shouldAutoReply(headers, from)
+    )
       await this.autoReply(box, from, subject, rfcId).catch((e: Error) =>
         this.logger.warn(`resposta automática de ${box.address} falhou: ${e.message}`),
       );
@@ -1188,7 +1216,10 @@ export class MailboxService {
   }
 
   contacts(q: string, limit = 200) {
-    const like = `%${q.trim().slice(0, 80).replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+    const like = `%${q
+      .trim()
+      .slice(0, 80)
+      .replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
     return this.db.query(
       `SELECT id, email::text AS email, name, company, phone, notes, auto,
               last_used_at AS "lastUsedAt"

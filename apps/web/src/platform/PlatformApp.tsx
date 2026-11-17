@@ -14,6 +14,7 @@ import {
   Tags,
   Calculator,
   Globe,
+  Mail,
   Sparkles,
   Wallet,
 } from 'lucide-react';
@@ -112,6 +113,10 @@ const AiPage = lazyPage(
   () => import('./AiPage'),
   (m) => m.AiPage,
 );
+const MailPage = lazyPage(
+  () => import('./mail/MailPage'),
+  (m) => m.MailPage,
+);
 const TicketsBoardPage = lazyPage(
   () => import('./TicketsBoard'),
   (m) => m.TicketsBoardPage,
@@ -136,6 +141,7 @@ const PANEL_PAGES = [
   OnlinePayPage,
   AiPage,
   TicketsBoardPage,
+  MailPage,
 ];
 /** Mesmo nome de SupportPage.tsx (fica aqui para o painel não baixar a tela de conversas). */
 const SUPPORT_CHANGED_EVENT = 'cm:admin-support-changed';
@@ -303,6 +309,7 @@ const NAV = [
   { to: '/restaurantes', label: 'Restaurantes', short: 'Clientes', icon: Building2 },
   { to: '/conversas', label: 'Conversas', icon: MessagesSquare },
   { to: '/chamados', label: 'Chamados', icon: KanbanSquare },
+  { to: '/email', label: 'E-mail', icon: Mail },
   { to: '/servidor', label: 'Infraestrutura', short: 'Infra', icon: Server },
   { to: '/fiscal', label: 'Fiscal', icon: FileText },
   { to: '/planos', label: 'Preço', icon: Tags },
@@ -378,6 +385,18 @@ function PlatformShell() {
     };
   }, []);
 
+  // E-mails novos na entrada: bolinha no "E-mail".
+  const [mailUnread, setMailUnread] = useState(0);
+  useEffect(() => {
+    const load = () =>
+      api<{ unread: number }>('/platform/mail/unread')
+        .then((r) => setMailUnread(r.unread))
+        .catch(() => undefined);
+    void load();
+    const t = setInterval(() => !document.hidden && void load(), 60_000);
+    return () => clearInterval(t);
+  }, [pathname]);
+
   const refresh = () => {
     setTick((t) => t + 1);
     setSpinning(true);
@@ -394,7 +413,7 @@ function PlatformShell() {
     label,
     short,
     icon: <Icon />,
-    dot: to === '/conversas' && supportUnread > 0,
+    dot: (to === '/conversas' && supportUnread > 0) || (to === '/email' && mailUnread > 0),
   }));
   const account = (
     <div className="account">
@@ -534,6 +553,7 @@ function Gate() {
         <Route path="tokens" element={<AiPage />} />
         <Route path="ia" element={<AiPage />} />
         <Route path="chamados" element={<TicketsBoardPage />} />
+        <Route path="email/*" element={<MailPage />} />
         <Route path="auditoria" element={<AuditPage />} />
         {/* Tela "Mais" do celular: quem desenha é a moldura (AppFrame). */}
         <Route path="mais" element={null} />

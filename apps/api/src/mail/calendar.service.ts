@@ -253,7 +253,9 @@ ${e.description ? `<p style="font-size:15px;line-height:23px;margin:14px 0 0;whi
     const saved = await this.db.tx(async (c) => {
       const organizer = await this.organizer(c, b.mailboxId);
       if (attendees.length && !organizer)
-        throw new UnprocessableEntityException('Escolha a caixa que envia o convite aos convidados');
+        throw new UnprocessableEntityException(
+          'Escolha a caixa que envia o convite aos convidados',
+        );
       const cur = id ? await this.eventRow(id, c, true) : null;
       if (cur?.cancelled_at) throw new ConflictException('Evento cancelado');
       // Quem já tinha respondido continua com a resposta, se o horário não mudou.
@@ -373,7 +375,8 @@ ${e.description ? `<p style="font-size:15px;line-height:23px;margin:14px 0 0;whi
   async savePage(id: string | null, b: BookingPageInput, a: Actor) {
     for (const windows of Object.values(b.availability))
       for (const [from, to] of windows)
-        if (to <= from) throw new UnprocessableEntityException('Em cada janela, o fim vem depois do começo');
+        if (to <= from)
+          throw new UnprocessableEntityException('Em cada janela, o fim vem depois do começo');
     const p = [
       b.slug,
       b.title,
@@ -569,7 +572,13 @@ ${e.description ? `<p style="font-size:15px;line-height:23px;margin:14px 0 0;whi
       if (organizer) {
         // Confirmação para quem marcou (sem as anotações internas) e aviso para a caixa.
         queued.push(
-          ...(await this.invite(c, { ...e, description: p.description }, organizer, 'REQUEST', e.attendees)),
+          ...(await this.invite(
+            c,
+            { ...e, description: p.description },
+            organizer,
+            'REQUEST',
+            e.attendees,
+          )),
         );
         queued.push(
           await this.mail.enqueue(c, {

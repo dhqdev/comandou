@@ -208,7 +208,10 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
     const clean = (list: Address[] | undefined) =>
       (list ?? [])
         .filter((a) => isEmail(a.email))
-        .map((a) => ({ email: a.email.toLowerCase(), name: cleanHeader(a.name ?? '').slice(0, 120) }));
+        .map((a) => ({
+          email: a.email.toLowerCase(),
+          name: cleanHeader(a.name ?? '').slice(0, 120),
+        }));
     const recipients = { to: clean(m.to), cc: clean(m.cc), bcc: clean(m.bcc) };
     if (!recipients.to.length && !recipients.cc.length && !recipients.bcc.length)
       throw new UnprocessableEntityException('Informe pelo menos um destinatário válido');
@@ -321,12 +324,16 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
       const s = await this.settingsRow();
       const cfg = this.providerOf(s);
       if (!cfg || !s.from_address)
-        throw new MailSendError('O envio de e-mail não está configurado (Super Admin › E-mail)', false);
+        throw new MailSendError(
+          'O envio de e-mail não está configurado (Super Admin › E-mail)',
+          false,
+        );
       let html = r.html ?? undefined;
       let text = r.body_text ?? undefined;
       if (r.body_enc) {
         const plain = this.reveal(r.body_enc, MAIL_SECRET.body(r.id));
-        if (!plain) throw new MailSendError('Não deu para abrir o conteúdo cifrado do e-mail', true);
+        if (!plain)
+          throw new MailSendError('Não deu para abrir o conteúdo cifrado do e-mail', true);
         const body = JSON.parse(plain) as { html: string | null; text: string | null };
         html = body.html ?? undefined;
         text = body.text ?? undefined;

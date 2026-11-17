@@ -44,7 +44,12 @@ const psend = (method: 'post' | 'put' | 'patch' | 'delete', url: string, body: o
     .send(body);
 
 /** O que o Worker da Cloudflare faz: manda o e-mail cru com a assinatura. */
-function deliver(raw: string, from: string, to: string, opts: { secret?: string; host?: string } = {}) {
+function deliver(
+  raw: string,
+  from: string,
+  to: string,
+  opts: { secret?: string; host?: string } = {},
+) {
   const body = Buffer.from(raw.replace(/\n/g, '\r\n'));
   const ts = String(Math.floor(Date.now() / 1000));
   return http
@@ -59,7 +64,9 @@ function deliver(raw: string, from: string, to: string, opts: { secret?: string;
 }
 
 beforeAll(async () => {
-  await ownerQuery(`UPDATE mail_settings SET provider = 'none', from_address = '', inbound_secret_enc = NULL`);
+  await ownerQuery(
+    `UPDATE mail_settings SET provider = 'none', from_address = '', inbound_secret_enc = NULL`,
+  );
   const [{ id }] = await ownerQuery<{ id: string }>(
     `INSERT INTO platform_admins (email, name, password_hash, totp_secret_enc)
      VALUES ('email@plataforma.test', 'David', $1, '\\x00') RETURNING id`,
@@ -70,7 +77,11 @@ beforeAll(async () => {
     seal(KEY, TOTP, totpContext(id)),
   ]);
   app = await createApp(
-    testEnv({ AUTH_LOGIN_RATE_LIMIT: '1000', PLATFORM_DATABASE_URL: PLATFORM_URL, INTEGRATIONS_KEY: KEY }),
+    testEnv({
+      AUTH_LOGIN_RATE_LIMIT: '1000',
+      PLATFORM_DATABASE_URL: PLATFORM_URL,
+      INTEGRATIONS_KEY: KEY,
+    }),
     { logger: false },
   );
   await app.init();
@@ -79,7 +90,11 @@ beforeAll(async () => {
     .post('/api/v1/platform/auth/login')
     .set('Host', ADMIN_HOST)
     .set(CSRF)
-    .send({ email: 'email@plataforma.test', password: 'senha-super-admin-123', code: totpCode(TOTP, totpStep()) })
+    .send({
+      email: 'email@plataforma.test',
+      password: 'senha-super-admin-123',
+      code: totpCode(TOTP, totpStep()),
+    })
     .expect(200);
   cookie = (r.headers['set-cookie'] as unknown as string[])
     .find((c) => c.startsWith('cm_admin='))!
@@ -142,7 +157,9 @@ describe('Super Admin › E-mail', () => {
     secret = s.body.secret;
     expect(s.body.url).toBe('http://admin.comandou.test/api/v1/platform/mail/inbound');
     await deliver(raw, 'ana@cliente.test', `contato@${DOMAIN}`, { secret: 'errado' }).expect(403);
-    await deliver(raw, 'ana@cliente.test', `contato@${DOMAIN}`, { host: 'loja.comandou.test' }).expect(404);
+    await deliver(raw, 'ana@cliente.test', `contato@${DOMAIN}`, {
+      host: 'loja.comandou.test',
+    }).expect(404);
     const r = await deliver(raw, 'ana@cliente.test', `ninguem@${DOMAIN}`).expect(200);
     expect(r.body).toEqual({ action: 'reject', reason: 'Esta caixa de e-mail não existe' });
   });
@@ -177,7 +194,12 @@ describe('Super Admin › E-mail', () => {
     const list = await pget(`/mailboxes/${mailboxId}/threads?folder=inbox`).expect(200);
     expect(list.body.threads).toHaveLength(1);
     const t = list.body.threads[0];
-    expect(t).toMatchObject({ subject: 'Pedido de orçamento', unread: true, attachments: true, count: 1 });
+    expect(t).toMatchObject({
+      subject: 'Pedido de orçamento',
+      unread: true,
+      attachments: true,
+      count: 1,
+    });
     threadId = t.threadId;
     const th = await pget(`/mailboxes/${mailboxId}/threads/${threadId}`).expect(200);
     const m = th.body.messages[0];
@@ -226,7 +248,10 @@ describe('Super Admin › E-mail', () => {
     expect(out.from).toBe(`"Comandou Contato" <contato@${DOMAIN}>`);
     expect(out.to).toEqual(['ana@cliente.test']);
     expect(out.headers).toMatchObject({ 'In-Reply-To': '<msg-1@cliente.test>' });
-    expect(out.attachments?.[0]).toMatchObject({ filename: 'orçamento.pdf', content_type: 'application/pdf' });
+    expect(out.attachments?.[0]).toMatchObject({
+      filename: 'orçamento.pdf',
+      content_type: 'application/pdf',
+    });
     const th = await pget(`/mailboxes/${mailboxId}/threads/${threadId}`).expect(200);
     expect(th.body.messages.map((m: { direction: string }) => m.direction)).toEqual(['in', 'out']);
     expect(th.body.messages[1].sendStatus).toBe('sent');
@@ -234,7 +259,9 @@ describe('Super Admin › E-mail', () => {
     await psend('post', `/drafts/${d.body.id}/send`).expect(404);
     // A resposta dela cai na mesma conversa.
     const sentId = (
-      await ownerQuery<{ rfc_id: string }>(`SELECT rfc_id FROM mail_messages WHERE id = $1`, [d.body.id])
+      await ownerQuery<{ rfc_id: string }>(`SELECT rfc_id FROM mail_messages WHERE id = $1`, [
+        d.body.id,
+      ])
     )[0]!.rfc_id;
     await deliver(
       `From: ana@cliente.test\nTo: contato@${DOMAIN}\nSubject: Re: Re: Pedido\nMessage-ID: <msg-2@cliente.test>\nIn-Reply-To: ${sentId}\n\nFechado!`,
@@ -261,7 +288,9 @@ describe('Super Admin › E-mail', () => {
     );
     expect(o).toEqual({ status: 'queued', attempts: 1 });
     mail.state.fail = null;
-    await ownerQuery(`UPDATE mail_outbox SET next_attempt_at = now() WHERE message_id = $1`, [d.body.id]);
+    await ownerQuery(`UPDATE mail_outbox SET next_attempt_at = now() WHERE message_id = $1`, [
+      d.body.id,
+    ]);
     expect(await app.get(MailService).drain()).toBeGreaterThanOrEqual(1);
     const [m] = await ownerQuery<{ send_status: string }>(
       `SELECT send_status FROM mail_messages WHERE id = $1`,
@@ -285,7 +314,11 @@ describe('Super Admin › E-mail', () => {
       value: 'cassino',
       action: 'reject',
     }).expect(201);
-    await deliver(`From: x@promo.test\nTo: contato@${DOMAIN}\nSubject: Oferta\n\noi`, 'x@promo.test', `contato@${DOMAIN}`).expect(200);
+    await deliver(
+      `From: x@promo.test\nTo: contato@${DOMAIN}\nSubject: Oferta\n\noi`,
+      'x@promo.test',
+      `contato@${DOMAIN}`,
+    ).expect(200);
     const spam = await pget(`/mailboxes/${mailboxId}/threads?folder=spam`).expect(200);
     expect(spam.body.threads.map((t: { subject: string }) => t.subject)).toEqual(['Oferta']);
     const r = await deliver(
@@ -329,7 +362,9 @@ describe('Super Admin › E-mail', () => {
       'dono@pizzaria.test',
       `contato@${DOMAIN}`,
     ).expect(200);
-    const list = await pget('/events?from=2030-03-01T00:00:00Z&to=2030-04-01T00:00:00Z').expect(200);
+    const list = await pget('/events?from=2030-03-01T00:00:00Z&to=2030-04-01T00:00:00Z').expect(
+      200,
+    );
     const ev = list.body.find((x: { id: string }) => x.id === e.body.id);
     expect(ev.attendees[0].status).toBe('accepted');
     const c = mail.sent.length;
@@ -339,7 +374,9 @@ describe('Super Admin › E-mail', () => {
   });
 
   it('página de agendamento: mostra horários livres e não deixa marcar o mesmo duas vezes', async () => {
-    const all = Object.fromEntries(['0', '1', '2', '3', '4', '5', '6'].map((d) => [d, [['09:00', '12:00']]]));
+    const all = Object.fromEntries(
+      ['0', '1', '2', '3', '4', '5', '6'].map((d) => [d, [['09:00', '12:00']]]),
+    );
     await psend('post', '/booking-pages', {
       slug: `demo-${DOMAIN.slice(4, 10)}`,
       title: 'Demonstração',
@@ -351,7 +388,10 @@ describe('Super Admin › E-mail', () => {
     }).expect(201);
     const slug = `demo-${DOMAIN.slice(4, 10)}`;
     const pub = (u: string) => http.get(`/api/v1/public/booking/${u}`).set('Host', 'comandou.test');
-    expect((await pub(slug).expect(200)).body).toMatchObject({ title: 'Demonstração', durationMin: 60 });
+    expect((await pub(slug).expect(200)).body).toMatchObject({
+      title: 'Demonstração',
+      durationMin: 60,
+    });
     const day = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
     const slots = (await pub(`${slug}/slots?date=${day}`).expect(200)).body.slots as string[];
     expect(slots).toHaveLength(3);
