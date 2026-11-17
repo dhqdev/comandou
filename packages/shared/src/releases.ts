@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.145.0',
+    date: '2026-11-17',
+    title: 'Fechamento de caixa, conciliação bancária e DRE',
+    summary:
+      'Fechou o caixa, o dia vai sozinho para o financeiro: o que entrou em cada forma de pagamento, a taxa da maquininha e o dia em que o dinheiro cai na conta. Importe o extrato do banco (OFX) e o Comandou confere os repasses sozinho. O DRE mostra do faturamento ao lucro, com CMV, despesas e os indicadores do restaurante. O assistente de IA responde sobre tudo isso.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Fechamentos: cada dia com os caixas, vendas por forma de pagamento, taxa, líquido, quando cai na conta e sobra ou falta da gaveta. Fechar o caixa lança o dia no financeiro sozinho; caixas antigos têm o botão Lançar no financeiro.',
+      },
+      {
+        tag: 'novo',
+        text: 'Taxas e prazos das maquininhas: taxa e dias de cada forma (crédito, débito, PIX, vale-refeição com as regras novas do PAT). Fim de semana passa para a segunda.',
+      },
+      {
+        tag: 'novo',
+        text: 'Conciliação bancária: cadastre a conta, importe o extrato em OFX (linhas repetidas são puladas) e o que bater com os repasses dos caixas e as contas é conciliado sozinho. O resto vem com sugestão; dá para criar a despesa a partir da linha (tarifa, compra no débito), marcar transferência ou ignorar, e desfazer.',
+      },
+      {
+        tag: 'novo',
+        text: 'A receber das maquininhas: o que ainda vai cair, o que já devia ter caído (atrasado) e o botão Recebi para quem não importa extrato. Diferença entre o que caiu e o previsto entra no DRE como ajuste de taxa.',
+      },
+      {
+        tag: 'novo',
+        text: 'DRE gerencial por competência ou por caixa, comparado com o mês anterior: receita por canal, CMV pelas fichas técnicas (ou pelas compras), taxas, despesas pelo plano de contas e lucro. Indicadores com referência: CMV, pessoal, ocupação, CMV + pessoal, margem, ponto de equilíbrio e ticket médio. Baixa em planilha.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Contas: a categoria sugere o plano de contas e mostra em que linha do DRE a conta entra; o novo Repetir lança a mesma conta para os próximos meses. Totais e fluxo de caixa descontam as taxas das maquininhas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Assistente de IA: responde sobre fechamentos, recebíveis atrasados, conciliação pendente, DRE e indicadores do mês.',
+      },
+    ],
+  },
+  {
     version: '0.144.0',
     date: '2026-11-17',
     title: 'Site com rolagem animada',

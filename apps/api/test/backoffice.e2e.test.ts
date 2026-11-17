@@ -1631,4 +1631,256 @@ describe('Financeiro', () => {
     ).toBe(true);
     expect((await get('adminB', '/finance/entries').expect(200)).body).toHaveLength(0);
   });
+  it('o caixa fechado vai para o financeiro, concilia com o extrato e entra no DRE', async () => {
+    const del = (w: string, url: string) =>
+      http
+        .delete(`/api/v1${url}`)
+        .set('Host', hostOf(w))
+        .set('Cookie', cookies[w] ?? '')
+        .set(CSRF);
+    const cents = (v: string) => Math.round(Number(v) * 100);
+    const money = (c: number) => (c / 100).toFixed(2);
+    const [{ today }] = await ownerQuery<{ today: string }>(
+      `SELECT (now() AT TIME ZONE timezone)::date::text AS today FROM tenants WHERE id = $1`,
+      [fx.tenantA],
+    );
+    // Taxas e prazos das maquininhas do restaurante.
+    await put('pdvA', '/finance/settings', {
+      paymentTerms: { debit: { feePercent: '2.00', days: 1 } },
+    }).expect(403);
+    const terms = {
+      cash: { feePercent: '0', days: 0 },
+      pix: { feePercent: '0', days: 0 },
+      debit: { feePercent: '2.00', days: 1 },
+      credit: { feePercent: '3.00', days: 30 },
+      voucher: { feePercent: '3.60', days: 15 },
+      other: { feePercent: '0', days: 0 },
+    };
+    await put('adminA', '/finance/settings', {
+      paymentTerms: { ...terms, debit: { feePercent: '50', days: 1 } },
+    }).expect(400);
+    const set = (await put('adminA', '/finance/settings', { paymentTerms: terms }).expect(200))
+      .body;
+    expect(set.paymentTerms.debit).toEqual({ feePercent: '2.00', days: 1 });
+    expect(set.monthStartDay).toBe(1);
+    const dre0 = (await get('stockA', `/finance/dre?from=${today}&to=${today}`).expect(200)).body;
+
+    // Um caixa com venda em débito, crédito, PIX e dinheiro.
+    const reg = (await post('adminA', '/cash-registers', { name: 'Caixa DRE' }).expect(201)).body;
+    const s = (
+      await post('cashierA', '/cash/sessions', {
+        registerId: reg.id,
+        openingAmount: '20.00',
+      }).expect(201)
+    ).body;
+    const paid: Record<string, string> = {};
+    for (const method of ['debit', 'credit', 'pix', 'cash']) {
+      const o = (await counterOrder(1).expect(201)).body;
+      await post(
+        'cashierA',
+        `/orders/${o.id}/payments`,
+        { cashSessionId: s.id, method, amount: o.total },
+        key(),
+      ).expect(201);
+      paid[method] = o.total;
+    }
+    const day0 = (await get('adminA', `/finance/closings?from=${today}&to=${today}`).expect(200))
+      .body.days[0];
+    expect(day0.status).toBe('open');
+    expect(day0.sessions.find((x: { id: string }) => x.id === s.id).posted).toBe(false);
+    await get('cashierA', `/finance/closings?from=${today}&to=${today}`).expect(403);
+
+    // Fecha o caixa: o dia vai sozinho para o financeiro.
+    const exp = (await get('cashierA', `/cash/sessions/${s.id}`).expect(200)).body.expected;
+    await post(
+      'cashierA',
+      `/cash/sessions/${s.id}/close`,
+      { counted: { cash: exp.cash, debit: exp.debit, credit: exp.credit, pix: exp.pix } },
+      key(),
+    ).expect(201);
+    await post('adminA', `/finance/closings/${s.id}/post`).expect(201);
+    const closing = (await get('adminA', `/finance/closings?from=${today}&to=${today}`).expect(200))
+      .body.days[0];
+    expect(closing.sessions.find((x: { id: string }) => x.id === s.id).posted).toBe(true);
+    const fee = (m: string, pct: number) => Math.round(cents(paid[m]!) * pct);
+    const st = (
+      await get('adminA', '/finance/settlements?status=all').expect(200)
+    ).body.rows.filter((x: { sessionId: string }) => x.sessionId === s.id);
+    const by = (m: string) => st.find((x: { method: string }) => x.method === m);
+    expect(st).toHaveLength(4);
+    expect(by('debit').fee).toBe(money(fee('debit', 0.02)));
+    expect(by('debit').net).toBe(money(cents(paid.debit!) - fee('debit', 0.02)));
+    expect(by('debit').expectedDate > today).toBe(true);
+    expect(by('credit').fee).toBe(money(fee('credit', 0.03)));
+    expect(by('pix').expectedDate).toBe(today);
+    // O dinheiro da gaveta já nasce recebido.
+    expect(by('cash').receivedAt).toBe(today);
+    const pending = (await get('adminA', '/finance/settlements').expect(200)).body.rows.filter(
+      (x: { sessionId: string }) => x.sessionId === s.id,
+    );
+    expect(pending.map((x: { method: string }) => x.method).sort()).toEqual([
+      'credit',
+      'debit',
+      'pix',
+    ]);
+
+    // Conta do banco e o extrato (OFX lido na tela).
+    await post('pdvA', '/finance/bank/accounts', { name: 'Itaú' }).expect(403);
+    const acc = (
+      await post('adminA', '/finance/bank/accounts', {
+        name: 'Itaú PJ',
+        bankId: '0341',
+        accountRef: '12345-6',
+      }).expect(201)
+    ).body;
+    await post('adminA', '/finance/bank/accounts', { name: 'Itaú PJ' }).expect(409);
+    const rent = (
+      await post('adminA', '/finance/entries', {
+        kind: 'payable',
+        description: 'Aluguel da loja',
+        category: 'Aluguel',
+        amount: '100.00',
+        dueDate: today,
+      }).expect(201)
+    ).body;
+    const ofx = [
+      {
+        date: by('debit').expectedDate,
+        amount: by('debit').net,
+        description: 'REDE DEBITO',
+        fitId: 'D1',
+      },
+      { date: today, amount: by('pix').net, description: 'PIX RECEBIDO CLIENTE', fitId: 'P1' },
+      { date: today, amount: '-12.90', description: 'TARIFA PACOTE', fitId: 'T1' },
+      { date: today, amount: '-100.00', description: 'TED ALUGUEL', fitId: null },
+    ];
+    const imp = (
+      await post('adminA', `/finance/bank/accounts/${acc.id}/import`, { lines: ofx }).expect(201)
+    ).body;
+    expect(imp).toEqual({ imported: 4, duplicates: 0, autoMatched: 2 });
+    const again = (
+      await post('adminA', `/finance/bank/accounts/${acc.id}/import`, { lines: ofx }).expect(201)
+    ).body;
+    expect(again).toEqual({ imported: 0, duplicates: 4, autoMatched: 0 });
+    await post('adminA', `/finance/bank/accounts/${acc.id}/import`, {
+      lines: [{ date: today, amount: '0', description: 'x' }],
+    }).expect(400);
+
+    const lines = (await get('stockA', `/finance/bank/lines?accountId=${acc.id}`).expect(200)).body;
+    expect(lines.summary.open).toBe(2);
+    const line = (fit: string) =>
+      lines.lines.find((l: { description: string }) => l.description.includes(fit));
+    expect(line('REDE').reconciliation).toMatchObject({ kind: 'settlement', auto: true });
+    expect(line('PIX').reconciliation.settlements).toHaveLength(1);
+    // O aluguel em aberto vira sugestão de baixa, não baixa sozinho.
+    expect(line('ALUGUEL').suggestion).toMatchObject({
+      kind: 'entry',
+      entryId: rent.id,
+      settle: true,
+      auto: false,
+    });
+
+    // Confirma a sugestão: a conta é baixada e a conciliação não pode ser desfeita.
+    await post('adminA', '/finance/bank/reconcile', {
+      kind: 'entry',
+      lineIds: [line('TARIFA').id],
+      entryId: rent.id,
+    }).expect(422);
+    const rr = (
+      await post('adminA', '/finance/bank/reconcile', {
+        kind: 'entry',
+        lineIds: [line('ALUGUEL').id],
+        entryId: rent.id,
+      }).expect(201)
+    ).body;
+    expect(rr.entrySettled).toBe(true);
+    const rentNow = (await get('adminA', '/finance/entries').expect(200)).body.find(
+      (e: { id: string }) => e.id === rent.id,
+    );
+    expect(rentNow).toMatchObject({ status: 'paid', paidAt: today, paidMethod: 'transfer' });
+    await del('adminA', `/finance/bank/reconciliations/${rr.id}`).expect(409);
+    await post('adminA', '/finance/bank/reconcile', {
+      kind: 'transfer',
+      lineIds: [line('ALUGUEL').id],
+    }).expect(409);
+
+    // A tarifa vira lançamento pago, já conciliado.
+    const tr = (
+      await post('adminA', '/finance/bank/reconcile', {
+        kind: 'create',
+        lineIds: [line('TARIFA').id],
+        description: 'Tarifa do pacote',
+        category: 'Tarifas bancárias',
+      }).expect(201)
+    ).body;
+    expect(tr.entrySettled).toBe(true);
+
+    // O crédito caiu 10 centavos a menos (taxa real maior): conciliado à mão, sem extrato.
+    await post('adminA', '/finance/bank/reconcile', {
+      kind: 'manual',
+      settlementIds: [by('credit').id],
+      day: today,
+      amount: money(cents(by('credit').net) - 10),
+    }).expect(201);
+    await post('adminA', '/finance/bank/reconcile', {
+      kind: 'manual',
+      settlementIds: [by('credit').id],
+      day: today,
+      amount: '1.00',
+    }).expect(409);
+
+    // Desfazer a automática devolve o débito para "a receber"; rodar de novo concilia outra vez.
+    await del('adminA', `/finance/bank/reconciliations/${line('REDE').reconciliationId}`).expect(
+      200,
+    );
+    expect(
+      (await get('adminA', '/finance/settlements').expect(200)).body.rows.some(
+        (x: { id: string }) => x.id === by('debit').id,
+      ),
+    ).toBe(true);
+    expect((await post('adminA', '/finance/bank/auto').expect(201)).body.autoMatched).toBe(1);
+    expect(
+      (await get('adminA', `/finance/bank/lines?accountId=${acc.id}&status=open`).expect(200)).body
+        .lines,
+    ).toHaveLength(0);
+    await del('adminA', `/finance/bank/lines/${line('REDE').id}`).expect(409);
+
+    // DRE: as vendas do caixa, as taxas (com o acerto de 10 centavos), o aluguel e a tarifa.
+    const dre1 = (await get('stockA', `/finance/dre?from=${today}&to=${today}`).expect(200)).body;
+    const val = (d: { dre: { lines: { id: string; value: string }[] } }, id: string) =>
+      cents(d.dre.lines.find((l) => l.id === id)?.value ?? '0');
+    const sold = ['debit', 'credit', 'pix', 'cash'].reduce((a, m) => a + cents(paid[m]!), 0);
+    expect(cents(dre1.dre.totals.grossRevenue) - cents(dre0.dre.totals.grossRevenue)).toBe(sold);
+    expect(val(dre1, 'card_fees') - val(dre0, 'card_fees')).toBe(
+      -(fee('debit', 0.02) + fee('credit', 0.03) + 10),
+    );
+    expect(val(dre1, 'occupancy') - val(dre0, 'occupancy')).toBe(-10000);
+    expect(val(dre1, 'financial') - val(dre0, 'financial')).toBe(-1290);
+    expect(dre1.previous.from < today).toBe(true);
+    await get('adminA', `/finance/dre?from=${today}&to=2020-01-01`).expect(400);
+    await get('cashierA', `/finance/dre?from=${today}&to=${today}`).expect(403);
+
+    // O banco não deixa a aplicação mudar o valor de um recebível.
+    const c = new Client({ connectionString: APP_URL });
+    await c.connect();
+    try {
+      await c.query('BEGIN');
+      await c.query(`SELECT set_config('app.tenant_id', $1, true)`, [fx.tenantA]);
+      await expect(
+        c.query(`UPDATE finance_settlements SET net = 1 WHERE id = $1`, [by('debit').id]),
+      ).rejects.toThrow(/permission denied/);
+      await c.query('ROLLBACK');
+    } finally {
+      await c.end();
+    }
+
+    // B não vê nada de A.
+    expect((await get('adminB', '/finance/bank/accounts').expect(200)).body).toHaveLength(0);
+    expect((await get('adminB', '/finance/bank/lines').expect(200)).body.lines).toHaveLength(0);
+    expect((await get('adminB', '/finance/settlements').expect(200)).body.rows).toHaveLength(0);
+    await post('adminB', '/finance/bank/reconcile', {
+      kind: 'ignored',
+      lineIds: [line('REDE').id],
+    }).expect(404);
+  });
 });

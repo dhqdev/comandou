@@ -63,6 +63,18 @@ exceções, só no site:
 `cm-form` com a chave, o remetente e o e-mail de teste) e **Envios** (tabela `cm-table` com
 reenviar e cancelar). Não há mais caixas, agenda nem agendamento.
 
+## Financeiro
+
+`apps/web/src/pages/finance/` (`finance.css` só com tokens, prefixo `fin-`). Números do topo em
+`stat-grid fin-stats` (valor um pouco menor, quebra em vez de vazar). Fechamentos: lista
+`fin-days` que abre o dia (cabeçalho em grade; no celular só data, situação e vendas).
+Conciliação: extrato e "a receber" lado a lado (`fin-bank`, uma coluna abaixo de 900 px), linha
+do extrato `fin-line` com a sugestão e Confirmar/Conciliar, escolha de recebíveis `fin-pick`.
+DRE: indicadores `fin-ind` com bolinha de situação (`fin-dot`) e a tabela `fin-dre` (item
+recuado, total/resultado em negrito; no celular vira lista compacta com % e mês anterior
+embaixo do nome, sem as colunas). Corpo de janela sem campos soltos: envolva em `fin-modal`
+(grade com espaço). Valor com sinal: `SignedBrl` (sobra verde, falta vermelha, "−" de verdade).
+
 ## Antes de entregar
 
 Veja a tela em claro e escuro (o site, só claro), no notebook e em 390px, com os prints do

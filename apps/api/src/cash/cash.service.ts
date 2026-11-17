@@ -18,6 +18,7 @@ import type { Ctx } from '../common/context';
 import { withIdempotency } from '../common/idempotency';
 import { nextNumber, one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
+import { postCashSession } from '../finance/closing';
 import type { OrderRow } from '../orders/orders.service';
 import { OrdersService } from '../orders/orders.service';
 import { RealtimeService } from '../realtime/realtime.service';
@@ -549,6 +550,9 @@ export class CashService {
             b.note ?? null,
           ],
         );
+        // O dia vai para o financeiro na mesma transação: recebíveis de cada forma, com a taxa
+        // da maquininha e o dia previsto na conta (conciliação bancária e DRE partem daqui).
+        const posted = await postCashSession(tx, ctx.tenantId, ctx.userId, sessionId);
         await this.audit.record(tx, {
           tenantId: ctx.tenantId,
           actorUserId: ctx.userId,
@@ -560,6 +564,7 @@ export class CashService {
             counted: toStrings(counted),
             difference: fromCents(diff),
             differences,
+            postedToFinance: posted,
           },
           ip: ctx.ip,
         });

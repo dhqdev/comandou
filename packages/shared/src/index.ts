@@ -15,6 +15,7 @@ export * from './fix-hints';
 export * from './tickets';
 export * from './kitchen';
 export * from './finance-month';
+export * from './finance-plan';
 export * from './weight';
 export * from './avatars';
 export * from './pix';

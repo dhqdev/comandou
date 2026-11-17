@@ -6,6 +6,7 @@ import type {
   OptionGroupKind,
   OrderStatus,
   PaymentMethod,
+  PaymentTerms,
   PixKeyType,
   PixReceiptStatus,
   PaymentStatus,
@@ -817,6 +818,8 @@ export interface FinanceMonthSummary {
   receivableLeft: string;
   sales: string;
   refunds: string;
+  /** Taxas das maquininhas dos caixas fechados no período. */
+  fees: string;
   net: string;
 }
 export interface FinanceSettings {
@@ -824,6 +827,8 @@ export interface FinanceSettings {
   /** Hoje no fuso do restaurante (AAAA-MM-DD). */
   today: string;
   currentMonth: { from: string; to: string; year: number; month: number };
+  /** Taxa e prazo de cada forma de pagamento (o salvo completado com o padrão). */
+  paymentTerms: PaymentTerms;
 }
 export interface CashFlowDay {
   day: string;
@@ -831,6 +836,7 @@ export interface CashFlowDay {
   refunds: string;
   received: string;
   paid: string;
+  fees: string;
   expectedIn: string;
   expectedOut: string;
   net: string;

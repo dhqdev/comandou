@@ -1,4 +1,7 @@
 import {
+  dreGroupOf,
+  DRE_GROUP_LABELS,
+  FINANCE_CATEGORIES,
   financeMonth,
   financeMonthName,
   financeMonthRange,
@@ -8,7 +11,7 @@ import {
   type FinanceMonth,
   type PaymentMethod,
 } from '@comandou/shared';
-import { CalendarDays, ChevronLeft, ChevronRight, Plus, Receipt } from 'lucide-react';
+import { CalendarDays, ChevronLeft, ChevronRight, Percent, Plus, Receipt } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -44,6 +47,11 @@ import type {
   FinanceSummary,
   Reconciliation,
 } from '../lib/types';
+import { BankTab } from './finance/BankTab';
+import { ClosingsTab, Stat } from './finance/ClosingsTab';
+import { DreTab } from './finance/DreTab';
+import { TermsModal } from './finance/TermsModal';
+import './finance/finance.css';
 
 const SETTLE_METHODS: [string, string][] = [
   ...PAYMENT_METHODS.map((m) => [m, PAYMENT_METHOD_LABELS[m]] as [string, string]),
@@ -52,20 +60,28 @@ const SETTLE_METHODS: [string, string][] = [
 ];
 const methodLabel = (m: string) => SETTLE_METHODS.find(([k]) => k === m)?.[1] ?? m;
 
+const TABS = ['entries', 'closings', 'reconcile', 'flow', 'dre'] as const;
+type FinanceTab = (typeof TABS)[number];
+
 /**
- * Financeiro: contas a pagar e a receber, fluxo de caixa e conciliação diária.
+ * Financeiro: contas a pagar e a receber, fechamentos de caixa (o dia vai sozinho para o
+ * financeiro ao fechar o caixa), conciliação bancária com o extrato, fluxo de caixa e DRE.
  * O mês financeiro começa no dia que o gerente escolhe (ex.: dia 5, quando o dinheiro entra):
- * os totais do mês, a aba "Do mês" das contas e o fluxo de caixa seguem esse período.
+ * os totais do mês, a aba "Do mês" das contas, os fechamentos, o fluxo e o DRE seguem esse período.
  */
 export function FinancePage() {
-  const [tab, setTab] = useState<'entries' | 'flow' | 'reconcile'>('entries');
+  const [tab, setTab] = useState<FinanceTab>('entries');
   useLinkParam('aba', (v) => {
-    if (v === 'entries' || v === 'flow' || v === 'reconcile') setTab(v);
+    if ((TABS as readonly string[]).includes(v)) setTab(v as FinanceTab);
   });
   const toast = useToast();
+  const canWrite = useCan('finance:write');
   const [settings, setSettings] = useState<FinanceSettings | null>(null);
   const [offset, setOffset] = useState(0);
   const [editing, setEditing] = useState(false);
+  const [terms, setTerms] = useState(false);
+  const [checkDay, setCheckDay] = useState<string | null>(null);
+  useLinkParam('acao', (a) => a === 'taxas' && canWrite && setTerms(true));
   useEffect(() => {
     api<FinanceSettings>('/finance/settings')
       .then(setSettings)
@@ -75,13 +91,17 @@ export function FinancePage() {
     () => (settings ? financeMonth(settings.today, settings.monthStartDay, offset) : null),
     [settings, offset],
   );
+  const previous = useMemo(
+    () => (settings ? financeMonth(settings.today, settings.monthStartDay, offset - 1) : null),
+    [settings, offset],
+  );
   return (
     <>
       <div>
         <h1 className="page-title">Financeiro</h1>
         <p className="page-sub">
-          Contas a pagar e a receber, fluxo de caixa e conferência do que entrou por forma de
-          pagamento.
+          Contas, fechamentos de caixa, conciliação com o banco, fluxo de caixa e o resultado do mês
+          (DRE).
         </p>
       </div>
       {settings && period && (
@@ -91,23 +111,51 @@ export function FinancePage() {
           current={offset === 0}
           onShift={(n) => setOffset((o) => (n === 0 ? 0 : o + n))}
           onEdit={() => setEditing(true)}
+          onTerms={() => setTerms(true)}
         />
       )}
-      <Tabs<typeof tab>
+      <Tabs<FinanceTab>
         value={tab}
         onChange={setTab}
         items={[
           ['entries', 'Contas'],
-          ['flow', 'Fluxo de caixa'],
+          ['closings', 'Fechamentos'],
           ['reconcile', 'Conciliação'],
+          ['flow', 'Fluxo de caixa'],
+          ['dre', 'DRE'],
         ]}
       />
       {tab === 'entries' ? (
         <EntriesTab period={period} />
+      ) : tab === 'closings' ? (
+        <ClosingsTab period={period} onDailyCheck={setCheckDay} />
+      ) : tab === 'reconcile' ? (
+        <BankTab />
       ) : tab === 'flow' ? (
         <FlowTab period={period} />
       ) : (
-        <ReconcileTab />
+        <DreTab period={period} previous={previous} />
+      )}
+      {checkDay && (
+        <Modal
+          open
+          size="lg"
+          title={`Conferir ${fmtDate(checkDay)} com os extratos`}
+          onClose={() => setCheckDay(null)}
+        >
+          <DailyCheck day={checkDay} />
+        </Modal>
+      )}
+      {terms && settings && (
+        <TermsModal
+          terms={settings.paymentTerms}
+          onClose={() => setTerms(false)}
+          onSaved={(s) => {
+            setSettings(s);
+            setTerms(false);
+            toast('Taxas salvas: valem para os próximos fechamentos de caixa', 'success');
+          }}
+        />
       )}
       {editing && settings && (
         <MonthStartModal
@@ -137,12 +185,14 @@ function MonthBar({
   current,
   onShift,
   onEdit,
+  onTerms,
 }: {
   period: FinanceMonth;
   startDay: number;
   current: boolean;
   onShift(n: number): void;
   onEdit(): void;
+  onTerms(): void;
 }) {
   const canWrite = useCan('finance:write');
   return (
@@ -174,6 +224,11 @@ function MonthBar({
         {!current && (
           <Button variant="secondary" size="sm" onClick={() => onShift(0)}>
             Mês atual
+          </Button>
+        )}
+        {canWrite && (
+          <Button variant="secondary" size="sm" icon={<Percent size={16} />} onClick={onTerms}>
+            Taxas e prazos
           </Button>
         )}
         {canWrite && (
@@ -392,6 +447,9 @@ function EntriesTab({ period }: { period: FinanceMonth | null }) {
             <Stat label="Vendas recebidas" value={brl(summary.month.sales)} />
             <Stat label="Contas recebidas" value={brl(summary.month.received)} />
             <Stat label="Contas pagas" value={brl(summary.month.paid)} />
+            {toCents(summary.month.fees) > 0 && (
+              <Stat label="Taxas das maquininhas" value={brl(summary.month.fees)} />
+            )}
             <Stat
               label="Saldo do mês"
               value={brl(summary.month.net)}
@@ -518,17 +576,6 @@ function EntriesTab({ period }: { period: FinanceMonth | null }) {
   );
 }
 
-function Stat({ label, value, danger }: { label: string; value: string; danger?: boolean }) {
-  return (
-    <div className="stat">
-      <div className="stat__label">{label}</div>
-      <div className="stat__value" style={danger ? { color: 'var(--cm-danger)' } : undefined}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
 function NewEntryModal({ onClose, onDone }: { onClose(): void; onDone(): void }) {
   const [kind, setKind] = useState<'payable' | 'receivable'>('payable');
   const [description, setDescription] = useState('');
@@ -536,10 +583,12 @@ function NewEntryModal({ onClose, onDone }: { onClose(): void; onDone(): void })
   const [category, setCategory] = useState('');
   const [amountText, setAmountText] = useState('');
   const [dueDate, setDueDate] = useState(todayIso());
+  const [repeat, setRepeat] = useState(1);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const amount = parseBrlInput(amountText);
   const valid = description.trim() && amount && toCents(amount) > 0 && dueDate;
+  const group = dreGroupOf(category, kind);
 
   async function save() {
     setBusy(true);
@@ -554,6 +603,7 @@ function NewEntryModal({ onClose, onDone }: { onClose(): void; onDone(): void })
           dueDate,
           counterparty: counterparty || undefined,
           category: category || undefined,
+          repeatMonths: repeat > 1 ? repeat : undefined,
         },
       });
       onDone();
@@ -602,11 +652,18 @@ function NewEntryModal({ onClose, onDone }: { onClose(): void; onDone(): void })
       />
       <TextField
         label="Categoria"
-        placeholder="Ex.: Energia, Aluguel"
+        placeholder={kind === 'payable' ? 'Ex.: Energia, Aluguel, Insumos' : 'Ex.: Eventos'}
+        list="fin-cats"
         value={category}
         maxLength={60}
+        hint={`Entra no DRE em: ${DRE_GROUP_LABELS[group]}`}
         onChange={(e) => setCategory(e.target.value)}
       />
+      <datalist id="fin-cats">
+        {FINANCE_CATEGORIES.filter((c) => c.kind === kind).map((c) => (
+          <option key={c.name} value={c.name} />
+        ))}
+      </datalist>
       <TextField
         label="Valor (R$)"
         inputMode="decimal"
@@ -620,6 +677,18 @@ function NewEntryModal({ onClose, onDone }: { onClose(): void; onDone(): void })
         value={dueDate}
         onChange={(e) => setDueDate(e.target.value)}
       />
+      <SelectField
+        label="Repetir"
+        value={String(repeat)}
+        onChange={(e) => setRepeat(Number(e.target.value))}
+      >
+        <option value="1">Não repetir</option>
+        {[2, 3, 6, 12, 24, 36].map((n) => (
+          <option key={n} value={n}>
+            Todo mês, por {n} meses
+          </option>
+        ))}
+      </SelectField>
     </Modal>
   );
 }
@@ -790,6 +859,7 @@ function FlowTab({ period }: { period: FinanceMonth | null }) {
                 <th className="cm-num">Vendas recebidas</th>
                 <th className="cm-num">Contas recebidas</th>
                 <th className="cm-num">Estornos</th>
+                <th className="cm-num">Taxas</th>
                 <th className="cm-num">Contas pagas</th>
                 <th className="cm-num">Saldo do dia</th>
                 <th className="cm-num">Previsto (+/−)</th>
@@ -802,6 +872,7 @@ function FlowTab({ period }: { period: FinanceMonth | null }) {
                   <td className="cm-num">{brl(d.sales)}</td>
                   <td className="cm-num">{brl(d.received)}</td>
                   <td className="cm-num">{brl(d.refunds)}</td>
+                  <td className="cm-num">{brl(d.fees)}</td>
                   <td className="cm-num">{brl(d.paid)}</td>
                   <td className="cm-num">
                     <strong>{brl(d.net)}</strong>
@@ -820,6 +891,7 @@ function FlowTab({ period }: { period: FinanceMonth | null }) {
                 <td className="cm-num">{brl(data.totals.sales)}</td>
                 <td className="cm-num">{brl(data.totals.received)}</td>
                 <td className="cm-num">{brl(data.totals.refunds)}</td>
+                <td className="cm-num">{brl(data.totals.fees)}</td>
                 <td className="cm-num">{brl(data.totals.paid)}</td>
                 <td className="cm-num">
                   <strong>{brl(data.totals.net)}</strong>
@@ -836,10 +908,14 @@ function FlowTab({ period }: { period: FinanceMonth | null }) {
   );
 }
 
-function ReconcileTab() {
+/**
+ * Conferência de um dia por forma de pagamento: o que o sistema registrou × o que o extrato da
+ * maquininha, do banco (PIX) e a gaveta mostram. Abre pelo dia, na aba Fechamentos.
+ */
+function DailyCheck({ day: initialDay }: { day: string }) {
   const canWrite = useCan('finance:write');
   const toast = useToast();
-  const [day, setDay] = useState(todayIso(-1));
+  const [day, setDay] = useState(initialDay);
   const [data, setData] = useState<Reconciliation | null>(null);
   const [inputs, setInputs] = useState<Record<string, { amount: string; note: string }>>({});
   const load = useCallback(() => {
@@ -872,20 +948,16 @@ function ReconcileTab() {
   }
 
   return (
-    <Card title="Conciliação diária" bodyless>
-      <div className="cm-card__body">
-        <div className="filters">
-          <TextField label="Dia" type="date" value={day} onChange={(e) => setDay(e.target.value)} />
-        </div>
-        <p className="cm-hint">
-          Compare o que o sistema registrou com o extrato da maquininha, do banco (PIX) e a gaveta.
-          Diferenças exigem explicação e o registro não pode ser alterado depois.
-        </p>
+    <div className="fin-modal">
+      <div className="filters">
+        <TextField label="Dia" type="date" value={day} onChange={(e) => setDay(e.target.value)} />
       </div>
+      <p className="cm-hint" style={{ margin: 0 }}>
+        Compare o que o sistema registrou com o extrato da maquininha, do banco (PIX) e a gaveta.
+        Diferenças exigem explicação e o registro não pode ser alterado depois.
+      </p>
       {!data ? (
-        <div className="cm-card__body">
-          <Spinner />
-        </div>
+        <Spinner />
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table className="cm-table">
@@ -971,6 +1043,6 @@ function ReconcileTab() {
           </table>
         </div>
       )}
-    </Card>
+    </div>
   );
 }

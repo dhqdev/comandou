@@ -16,12 +16,13 @@ financeiro, nota fiscal, WhatsApp e o painel Super Admin (`admin.<domínio>`), m
 | `apps/api/src/<módulo>` | NestJS 11. Guards globais: limite → CSRF → restaurante (Host) → sessão → permissão → cobrança. Painel: `PlatformHostGuard` + `PlatformSessionGuard`. |
 | `apps/api/db/migrations/NNNN_*.sql` | Migrações versionadas, **só aditivas**; nunca edite uma já aplicada (checksum). Tabela de restaurante: `tenant_id` + RLS. Tabela do painel: `ENABLE RLS` + política `platform_all TO comandou_platform`. |
 | `apps/api/src/mail/` | E-mail próprio: fila `mail_outbox` que entrega **só pelo Resend** e a tela Super Admin › E-mail (Resend + Envios). Caixas, agenda, agendamento, Cloudflare e SMTP foram retirados na 0.142 (tabelas antigas seguem no banco, sem uso). Guia: `docs/email.md`. |
+| `apps/api/src/finance/` + `packages/shared/src/finance-plan.ts` | Financeiro: contas, fechamentos (`closing.ts`, chamado no fechar do caixa), recebíveis das maquininhas, conciliação bancária (`bank.controller.ts`, `bank-match.ts`), DRE (`dre-data.ts` + `buildDre`) e o resumo para a IA (`finance-ai.ts`). Telas em `apps/web/src/pages/finance/`. Guia: `docs/financeiro.md`. |
 | `apps/web/src/platform/` | Super Admin (uma tela por arquivo, carregada sob demanda em `PlatformApp.tsx`; menu em `NAV`). |
 | `apps/web/src/site/` | Site público (sempre claro, React Bits em `site/reactbits/`, rolagem em `site/motion.ts` + `scroll.css`; guia `docs/site.md`). |
 | `apps/web/src/pages`, `features`, `design-system` | App do restaurante e o Design System (tokens em `design-system/tokens.css`). |
 | `packages/shared` | Regras comuns e `releases.ts` (tela Novidades). |
 | `infrastructure/` | Dockerfiles, Nginx, Traefik, Swarm, CrowdSec, monitoramento. |
-| `docs/` | Arquitetura, ADRs, operação, segurança, auditorias, guias (site, e-mail, contratos, cobrança). |
+| `docs/` | Arquitetura, ADRs, operação, segurança, auditorias, guias (site, e-mail, contratos, cobrança, financeiro). |
 
 ## Regras que quebram o CI se esquecer
 
@@ -68,6 +69,18 @@ copie custo para o produto. Preparos são recalculados pelo gatilho `stock_items
 (migração 0076). Qualquer código novo que mude `avg_cost` deve envolver a mudança com
 `StockCostsService.before()` / `.after()` na mesma transação, para gravar o histórico
 (`stock_cost_changes`) e avisar os gerentes. Guia: `docs/decisions/0014-custo-automatico-fichas.md`.
+
+## Mexer no financeiro
+
+- Recebível do caixa (`finance_settlements`) **não é** conta (`finance_entries`): a venda já entra
+  pelos pagamentos; o recebível só diz quando e quanto cai na conta (taxa à parte). Não crie conta
+  a receber para repasse de cartão: o DRE deixa fora (`sales_received`) para não contar duas vezes.
+- Categoria nova de conta: acrescente em `FINANCE_CATEGORIES` (grupo do DRE + palavras) e um caso
+  no `finance-plan.test.ts`.
+- O papel `comandou_app` tem GRANT por coluna nas tabelas novas: `SELECT … FOR UPDATE` pede UPDATE
+  na tabela e dá 500 (use `DELETE … RETURNING` ou trave a linha de outra tabela).
+- Demonstração: `seed.ts` lança os caixas (`postCashSession`) e cria o extrato de exemplo; mudou a
+  regra, rode `COMANDOU_DEMO=reset` e confira a aba Conciliação.
 
 ## Mandar e-mail de qualquer módulo
 

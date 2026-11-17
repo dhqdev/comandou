@@ -7,6 +7,8 @@ import { GeocoderService } from '../delivery/geocoder.service';
 import { CepService } from '../store/cep.service';
 import { ZonesController } from '../delivery/zones.controller';
 import { ZonesService } from '../delivery/zones.service';
+import { BankController } from '../finance/bank.controller';
+import { FinanceCloseController } from '../finance/finance-close.controller';
 import { FinanceController } from '../finance/finance.controller';
 import { FiscalController } from '../fiscal/fiscal.controller';
 import { FiscalService } from '../fiscal/fiscal.service';
@@ -88,6 +90,8 @@ import { OrdersService } from './orders.service';
     PrintingController,
     PrintAgentController,
     FinanceController,
+    FinanceCloseController,
+    BankController,
     UsersController,
     FiscalController,
     MessagingController,

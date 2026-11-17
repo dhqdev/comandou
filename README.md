@@ -103,10 +103,11 @@ cancelar. Passo a passo em [docs/email.md](docs/email.md).
 | **Venda** | PDV com atalhos de teclado, adicionais e variações, pedidos de balcão, mesa, retirada e delivery, descontos com limite por papel, busca global (Ctrl+K) |
 | **Salão** | Mapa de mesas e comandas, reservas, QR Code por mesa, garçom no celular (escaneia a mesa), pedir a conta, transferência, divisão sem perder centavo |
 | **Cozinha** | Fila por setor de produção (KDS) em tempo real, avisos de atraso, avanço por item ou pedido |
-| **Caixa** | Abertura por terminal, pagamentos com troco, estornos, sangria e suprimento, fechamento conferido |
+| **Caixa** | Abertura por terminal, pagamentos com troco, estornos, sangria e suprimento, fechamento conferido que vai sozinho para o financeiro (taxa da maquininha e dia em que cai na conta) |
 | **Cardápio online** | Loja própria com capa, banners e destaques, contas de cliente com endereços e favoritos, acompanhamento do pedido, aceite manual ou automático |
 | **Entregas** | Áreas desenhadas no mapa (bairro ou raio) com taxa e pedido mínimo, painel do entregador com login ou link, rastreio para o cliente |
-| **Retaguarda** | Equipe e papéis, estoque com ficha técnica e custo médio (mudou o preço de um insumo, o custo de todo preparo e item do cardápio que o usa é recalculado sozinho, com histórico e impacto na margem), contas a pagar e receber, conciliação, relatórios com exportação para Excel |
+| **Retaguarda** | Equipe e papéis, estoque com ficha técnica e custo médio (mudou o preço de um insumo, o custo de todo preparo e item do cardápio que o usa é recalculado sozinho, com histórico e impacto na margem), relatórios com exportação para Excel |
+| **Financeiro** | Contas a pagar e receber com plano de contas, fechamentos de caixa por dia, taxas e prazos das maquininhas, conciliação bancária pelo extrato OFX (os repasses casam sozinhos), DRE gerencial com CMV e indicadores (CMV, pessoal, ocupação, margem, ponto de equilíbrio), fluxo de caixa |
 | **Impressão** | App Comandou Impressão (Windows, Mac e Linux) para impressoras térmicas por rede/Wi-Fi, USB, serial e Bluetooth, com modelos de comanda editáveis |
 | **Integrações** | NFC-e pela Focus NFe, avisos ao cliente pelo WhatsApp (QR Code ou API oficial), e-mail próprio pelo Resend, filas com novas tentativas |
 | **Plataforma** | Painel Super Admin com dois fatores, banco de dados próprio por restaurante, planos e limites, domínio próprio, contratos com assinatura eletrônica, e-mail pelo Resend, site público com teste grátis, atualização pelo painel, backups cifrados no Backblaze B2 com teste de restauração |
@@ -200,7 +201,7 @@ docs/                 arquitetura, decisões (ADR), operação, deploy, testes
 
 - [Arquitetura](docs/architecture.md) · [Roadmap](docs/roadmap.md) · [Riscos](docs/risks.md) · [Decisões (ADR)](docs/decisions/README.md)
 - [Desenvolvimento local](docs/development.md) · [Testes](docs/testing.md) · [Carga](docs/load-testing.md)
-- [Site público e teste grátis](docs/site.md) · [E-mail (Resend)](docs/email.md) · [Contratos](docs/contratos.md) · [Cobrança](docs/cobranca.md)
+- [Financeiro: fechamento, conciliação e DRE](docs/financeiro.md) · [Site público e teste grátis](docs/site.md) · [E-mail (Resend)](docs/email.md) · [Contratos](docs/contratos.md) · [Cobrança](docs/cobranca.md)
 - [Instalação](docs/install.md) · [Deploy](docs/deploy.md) · [Operação](docs/operations.md) · [Backups e restauração](docs/backups.md) · [Segurança](docs/security.md) · [Auditoria de 2026-11](docs/auditoria-2026-11.md) · [CrowdSec](docs/crowdsec.md)
 
 ## Licença

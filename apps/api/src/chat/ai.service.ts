@@ -12,6 +12,7 @@ import { open } from '../common/secret-box';
 import { one, q } from '../common/sql';
 import { ENV, Env } from '../config/env';
 import { DatabaseService } from '../database/database.service';
+import { financeSnapshot } from '../finance/finance-ai';
 import { RealtimeService } from '../realtime/realtime.service';
 import { systemPrompt } from './ai-guide';
 import { availableTokens, loadAiQuota, recordAiUsage } from './ai-quota';
@@ -219,6 +220,7 @@ export class AiService {
       );
       if (!r) return [];
       const costs = await this.costLines(ctx);
+      const finance = await this.financeLines(ctx);
       const out = [
         r.cash_open
           ? `Caixa: ${r.cash_open} aberto(s).`
@@ -237,6 +239,7 @@ export class AiService {
           : 'Impressão: nenhum computador de impressão conectado.',
         `WhatsApp: ${r.whatsapp ? 'ligado' : 'desligado'}.`,
         ...costs,
+        ...finance,
       ];
       return out;
     } catch (e) {
@@ -302,6 +305,18 @@ export class AiService {
       });
     } catch (e) {
       this.logger.warn(`Custos para o assistente falharam: ${(e as Error).message}`);
+      return [];
+    }
+  }
+
+  /** Financeiro (DRE do mês, indicadores, contas, recebíveis e extrato) para quem vê o financeiro. */
+  private async financeLines(ctx: Ctx): Promise<string[]> {
+    const role = ctx.user?.role as Role | undefined;
+    if (!role || !roleHas(role, 'finance:read')) return [];
+    try {
+      return await this.db.withTenant(ctx, (tx) => financeSnapshot(tx));
+    } catch (e) {
+      this.logger.warn(`Financeiro para o assistente falhou: ${(e as Error).message}`);
       return [];
     }
   }

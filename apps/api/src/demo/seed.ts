@@ -10,6 +10,8 @@ import {
   toCents,
 } from '@comandou/shared';
 import { hashPassword } from '../auth/password';
+import type { Tx } from '../database/database.service';
+import { postCashSession } from '../finance/closing';
 import { distanceM, insidePolygon } from '../delivery/zones';
 import { CASA_BRASA } from './catalog';
 import { seedDemoExtras } from './extras';
@@ -1821,6 +1823,102 @@ export async function seedDemoData(
     );
   }
 
+  // O fechamento leva cada caixa ao financeiro: recebíveis com a taxa e o dia previsto na conta.
+  const asTx = { $client: c } as unknown as Tx;
+  for (const s of sessions.filter((x) => x.closedAt !== null))
+    await postCashSession(asTx, T, U('cashier'), s.id);
+
+  // Conta no banco com o extrato: o que caiu até 4 dias atrás já está conciliado; os últimos
+  // repasses e a tarifa do mês ficam para conciliar (o botão "Conciliar sozinho" resolve).
+  const account = await c.query<{ id: string }>(
+    `INSERT INTO bank_accounts (tenant_id, name, bank_id, account_ref, created_by)
+     VALUES ($1, 'Conta corrente', '341', '1234 / 56789-0', $2) RETURNING id`,
+    [T, U('owner')],
+  );
+  const accountId = account.rows[0]!.id;
+  const today = localDate(localMidnight(0));
+  const recentFrom = localDate(localMidnight(4));
+  const toReceive = await c.query<{ id: string; method: string; net: string; expected: string }>(
+    `SELECT id, method, net::text, expected_date::text AS expected FROM finance_settlements
+      WHERE tenant_id = $1 AND reconciliation_id IS NULL AND method <> 'cash'
+        AND expected_date < $2 ORDER BY expected_date`,
+    [T, today],
+  );
+  const BANK_TEXT: Record<string, string> = {
+    credit: 'CRED CARTAO CREDITO REDE',
+    debit: 'CRED CARTAO DEBITO REDE',
+    pix: 'PIX RECEBIDO QR CODE',
+    voucher: 'REPASSE VALE REFEICAO',
+    other: 'CREDITO DIVERSOS',
+  };
+  const recs: unknown[][] = [];
+  const bankLines: unknown[][] = [];
+  const settled: [string, string][] = [];
+  for (const st of toReceive.rows) {
+    const recId = st.expected < recentFrom ? randomUUID() : null;
+    if (recId) {
+      recs.push([recId, T, 'settlement', st.expected, st.net, st.net, '0', true, U('owner')]);
+      settled.push([st.id, recId]);
+    }
+    bankLines.push([
+      T,
+      accountId,
+      st.expected,
+      st.net,
+      BANK_TEXT[st.method] ?? BANK_TEXT.other,
+      `demo:${st.id}`,
+      recId,
+      U('owner'),
+    ]);
+  }
+  bankLines.push([
+    T,
+    accountId,
+    localDate(localMidnight(2)),
+    '-59.90',
+    'TARIFA PACOTE DE SERVICOS',
+    'demo:tarifa',
+    null,
+    U('owner'),
+  ]);
+  await bulk(
+    c,
+    'bank_reconciliations',
+    [
+      'id',
+      'tenant_id',
+      'kind',
+      'day',
+      'lines_total',
+      'target_total',
+      'difference',
+      'auto',
+      'created_by',
+    ],
+    recs,
+  );
+  await bulk(
+    c,
+    'bank_statement_lines',
+    [
+      'tenant_id',
+      'account_id',
+      'posted_at',
+      'amount',
+      'description',
+      'fit_key',
+      'reconciliation_id',
+      'created_by',
+    ],
+    bankLines,
+  );
+  if (settled.length)
+    await c.query(
+      `UPDATE finance_settlements s SET reconciliation_id = v.rec
+         FROM unnest($1::uuid[], $2::uuid[]) AS v(id, rec) WHERE s.id = v.id`,
+      [settled.map((x) => x[0]), settled.map((x) => x[1])],
+    );
+
   // ------------------------------------------------------------------ financeiro
   const finance: unknown[][] = [];
   const addEntry = (
@@ -1881,16 +1979,7 @@ export async function seedDemoData(
         localMidnight(d) + 12 * HOUR,
         r.pick(['pix', 'boleto', 'transfer']),
       );
-  for (let d = days; d >= -7; d -= 7)
-    addEntry(
-      'receivable',
-      'Repasse das vendas no cartão',
-      'Vendas',
-      'Operadora de cartões',
-      r.int(900000, 1800000),
-      localMidnight(d) + 12 * HOUR,
-      'transfer',
-    );
+  // O repasse do cartão não vira conta a receber: sai dos fechamentos de caixa (recebíveis).
   for (const [desc, cat, who, amount, dueDaysAgo] of C.extraReceivables)
     addEntry(
       'receivable',

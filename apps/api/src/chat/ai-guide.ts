@@ -47,7 +47,7 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     path: '/caixa',
     name: 'Caixa',
     perms: ['cash:operate', 'cash:close', 'reports:read'],
-    text: 'abrir o caixa com o troco, sangria e suprimento, ver os recebimentos por forma de pagamento e fechar o caixa conferindo os valores. Sem caixa aberto não dá para receber.',
+    text: 'abrir o caixa com o troco, sangria e suprimento, ver os recebimentos por forma de pagamento e fechar o caixa conferindo os valores. Sem caixa aberto não dá para receber. Ao fechar, o dia vai sozinho para o Financeiro: cada forma de pagamento vira um recebível com a taxa da maquininha e o dia em que o dinheiro cai na conta (o dinheiro da gaveta já entra como recebido; sobra ou falta entra no DRE).',
   },
   {
     path: '/entregas',
@@ -83,7 +83,7 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     path: '/financeiro',
     name: 'Financeiro',
     perms: ['finance:read'],
-    text: 'contas a pagar e a receber, categorias e fluxo de caixa. O gerente escolhe em "Dia de início do mês" o dia em que o mês financeiro começa (ex.: dia 5, quando recebe); os totais do mês, a aba "Do mês" e o fluxo de caixa seguem esse período.',
+    text: 'abas Contas (contas a pagar e a receber com categoria do plano de contas, que decide a linha do DRE; dá para repetir todo mês, como aluguel), Fechamentos (cada dia com os caixas fechados: vendas por forma, taxas, líquido, quando cai na conta, quebra de caixa, ticket médio; caixa antigo tem o botão Lançar no financeiro), Conciliação (importar o extrato OFX do banco; o que bate sozinho concilia sozinho: depósitos das maquininhas, PIX do dia e contas já pagas; o resto vira sugestão para confirmar, criar lançamento, marcar como transferência ou ignorar; recebível pago sem extrato dá para marcar à mão; tudo pode ser desfeito, menos o que baixou conta), Fluxo de caixa (entradas, taxas e saídas por dia) e DRE (receita, deduções, CMV, lucro bruto, despesas variáveis, margem de contribuição, despesas fixas, lucro líquido e sobra de caixa, comparado com o mês anterior, por competência ou por caixa, com indicadores: CMV de 25% a 35%, pessoal até 30%, ocupação até 10%, CMV + pessoal até 65%, margem líquida de 10% ou mais e ponto de equilíbrio). Em "Taxas e prazos" o gerente cadastra a taxa e os dias de cada forma de pagamento (padrão: débito 1,5% em 1 dia, crédito 3,2% em 30 dias, vale-refeição 3,6% em 15 dias, PIX e dinheiro sem taxa). O gerente escolhe em "Dia de início do mês" o dia em que o mês financeiro começa; os totais, a aba "Do mês", o fluxo e o DRE seguem esse período.',
   },
   {
     path: '/relatorios',
@@ -179,6 +179,7 @@ Regras:
 - Sempre que mandar a pessoa a uma tela, coloque o link clicável no formato [Nome da tela](/caminho), usando só caminhos das listas abaixo (nunca invente caminho nem endereço de fora). Prefira o link mais exato (a seção, não só a tela). Não ponha link para tela marcada [sem acesso].
 - Quando a pessoa contar um erro ou algo que a impede (não consegue receber, fechar a comanda, emitir nota, imprimir…), diga a causa provável, o que fazer em passos curtos e o link da tela que resolve. Use "Impedimentos comuns" e "Estado agora".
 - Você não faz ações no sistema: oriente onde clicar. Dos dados você só conhece o "Estado agora"; para números e listas, mande à tela certa.
+- Perguntas de dinheiro (lucro, CMV, DRE, contas, quanto vai cair na conta, conciliação): responda com os números do "Estado agora" quando eles estiverem lá, explique em palavras simples o que cada um quer dizer e compare com a referência do setor; diga o que fazer para melhorar e mande à aba certa do Financeiro. Sem esses números (perfil sem acesso ao financeiro), não invente: diga a quem pedir.
 - Se a pessoa não tiver acesso a uma tela, diga a quem pedir (administrador, gerente ou caixa).
 - Nunca peça senhas, tokens ou dados de cartão.
 

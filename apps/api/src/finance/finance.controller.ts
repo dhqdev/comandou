@@ -16,7 +16,10 @@ import {
 import {
   FINANCE_MONTH_START_MAX,
   FINANCE_MONTH_START_MIN,
+  normalizePaymentTerms,
   PAYMENT_METHODS,
+  PAYMENT_TERM_MAX_DAYS,
+  PAYMENT_TERM_MAX_FEE,
   financeMonth,
   fromCents,
   isMoneyString,
@@ -42,7 +45,20 @@ const Entry = z.object({
   counterparty: z.string().trim().max(120).optional(),
   amount: money.refine((v) => isMoneyString(v) && toCents(v) > 0, 'valor deve ser maior que zero'),
   dueDate: isoDate,
+  /** Conta que se repete todo mês (aluguel, salário): cria uma por mês, de 2 a 36. */
+  repeatMonths: z.number().int().min(2).max(36).optional(),
 });
+
+/** Mesmo dia N meses depois; em mês mais curto, o último dia (31/01 + 1 → 28/02). */
+export function addMonths(day: string, n: number): string {
+  const [y, m, d] = day.split('-').map(Number) as [number, number, number];
+  const target = new Date(Date.UTC(y, m - 1 + n, 1));
+  const last = new Date(
+    Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  target.setUTCDate(Math.min(d, last));
+  return target.toISOString().slice(0, 10);
+}
 const EntriesQuery = z.object({
   kind: z.enum(['payable', 'receivable']).optional(),
   status: z.enum(['open', 'paid', 'cancelled', 'overdue']).optional(),
@@ -61,9 +77,24 @@ const SummaryQuery = z
   .object({ from: isoDate.optional(), to: isoDate.optional() })
   .refine((p) => !p.from === !p.to, 'informe o início e o fim do período')
   .refine((p) => !p.from || !p.to || p.from <= p.to, 'período inválido');
-const Settings = z.object({
-  monthStartDay: z.number().int().min(FINANCE_MONTH_START_MIN).max(FINANCE_MONTH_START_MAX),
+const Term = z.object({
+  feePercent: z
+    .string()
+    .regex(/^\d{1,2}(\.\d{1,2})?$/, 'taxa com até 2 casas')
+    .refine((v) => Number(v) <= PAYMENT_TERM_MAX_FEE, `taxa de até ${PAYMENT_TERM_MAX_FEE}%`),
+  days: z.number().int().min(0).max(PAYMENT_TERM_MAX_DAYS),
 });
+const Settings = z
+  .object({
+    monthStartDay: z
+      .number()
+      .int()
+      .min(FINANCE_MONTH_START_MIN)
+      .max(FINANCE_MONTH_START_MAX)
+      .optional(),
+    paymentTerms: z.object(Object.fromEntries(PAYMENT_METHODS.map((m) => [m, Term]))).optional(),
+  })
+  .refine((b) => b.monthStartDay !== undefined || b.paymentTerms, 'nada para salvar');
 const Reconcile = z.object({
   day: isoDate,
   method: z.enum(PAYMENT_METHODS),
@@ -120,31 +151,37 @@ export class FinanceController {
     @Req() req: Request,
   ) {
     return this.db.withTenant(ctxOf(t, u), async (tx) => {
-      const e = await one<{ id: string }>(
-        tx,
-        `INSERT INTO finance_entries (tenant_id, kind, description, category, counterparty, amount, due_date, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
-        [
-          t.id,
-          b.kind,
-          b.description,
-          b.category ?? null,
-          b.counterparty ?? null,
-          b.amount,
-          b.dueDate,
-          u.id,
-        ],
-      );
+      const n = b.repeatMonths ?? 1;
+      const created: string[] = [];
+      for (let i = 0; i < n; i++) {
+        const suffix = n > 1 ? ` (${i + 1}/${n})` : '';
+        const e = await one<{ id: string }>(
+          tx,
+          `INSERT INTO finance_entries (tenant_id, kind, description, category, counterparty, amount, due_date, created_by)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+          [
+            t.id,
+            b.kind,
+            `${b.description.slice(0, 200 - suffix.length)}${suffix}`,
+            b.category ?? null,
+            b.counterparty ?? null,
+            b.amount,
+            addMonths(b.dueDate, i),
+            u.id,
+          ],
+        );
+        created.push(e!.id);
+      }
       await this.audit.record(tx, {
         tenantId: t.id,
         actorUserId: u.id,
         action: 'finance.entry_created',
         entity: 'finance_entry',
-        entityId: e!.id,
-        data: { kind: b.kind, amount: b.amount, dueDate: b.dueDate },
+        entityId: created[0]!,
+        data: { kind: b.kind, amount: b.amount, dueDate: b.dueDate, repeatMonths: n },
         ip: req.ip,
       });
-      return this.entry(tx, e!.id);
+      return { ...(await this.entry(tx, created[0]!)), repeated: n };
     });
   }
 
@@ -238,19 +275,27 @@ export class FinanceController {
   ) {
     return this.db.withTenant(ctxOf(t, u), async (tx) => {
       const before = await this.loadSettings(tx);
+      const terms = b.paymentTerms ? normalizePaymentTerms(b.paymentTerms) : null;
       await q(
         tx,
-        `INSERT INTO finance_settings (tenant_id, month_start_day, updated_by) VALUES ($1, $2, $3)
-         ON CONFLICT (tenant_id) DO UPDATE SET month_start_day = EXCLUDED.month_start_day,
+        `INSERT INTO finance_settings (tenant_id, month_start_day, payment_terms, updated_by)
+         VALUES ($1, COALESCE($2::smallint, 1), $3::jsonb, $4)
+         ON CONFLICT (tenant_id) DO UPDATE SET
+           month_start_day = COALESCE($2::smallint, finance_settings.month_start_day),
+           payment_terms = COALESCE($3::jsonb, finance_settings.payment_terms),
            updated_by = EXCLUDED.updated_by`,
-        [t.id, b.monthStartDay, u.id],
+        [t.id, b.monthStartDay ?? null, terms ? JSON.stringify(terms) : null, u.id],
       );
       await this.audit.record(tx, {
         tenantId: t.id,
         actorUserId: u.id,
         action: 'finance.settings_updated',
         entity: 'finance_settings',
-        data: { monthStartDay: b.monthStartDay, before: before.monthStartDay },
+        data: {
+          monthStartDay: b.monthStartDay ?? before.monthStartDay,
+          before: before.monthStartDay,
+          ...(terms ? { paymentTerms: terms, termsBefore: before.paymentTerms } : {}),
+        },
         ip: req.ip,
       });
       return this.loadSettings(tx);
@@ -304,23 +349,39 @@ export class FinanceController {
             AND m.created_at < (($2::date + 1)::timestamp AT TIME ZONE tz.timezone)`,
         [period.from, period.to],
       );
-      // Saldo do mês em centavos inteiros: vendas + recebidas − estornos − pagas.
+      // Taxas das maquininhas dos caixas fechados no período (lançadas no fechamento).
+      const fees = await one<{ fees: string }>(
+        tx,
+        `SELECT COALESCE(sum(fee), 0)::numeric(14,2)::text AS fees FROM finance_settlements
+          WHERE day BETWEEN $1 AND $2`,
+        [period.from, period.to],
+      );
+      // Saldo do mês em centavos inteiros: vendas + recebidas − estornos − taxas − pagas.
       const net = fromCents(
         toCents(cash!.sales) +
           toCents(month!.received!) -
           toCents(cash!.refunds) -
+          toCents(fees!.fees) -
           toCents(month!.paid!),
       );
       return {
         ...open,
-        month: { ...period, monthStartDay: s.monthStartDay, ...month, ...cash, net },
+        month: {
+          ...period,
+          monthStartDay: s.monthStartDay,
+          ...month,
+          ...cash,
+          fees: fees!.fees,
+          net,
+        },
       };
     });
   }
 
   /**
    * Fluxo de caixa diário (fuso do restaurante): entradas = vendas recebidas (caixa) +
-   * contas recebidas; saídas = estornos + contas pagas. Mais o previsto (em aberto por vencimento).
+   * contas recebidas; saídas = estornos + taxas das maquininhas + contas pagas. Mais o previsto
+   * (em aberto por vencimento).
    */
   @Get('cash-flow')
   @RequirePermission('finance:read')
@@ -336,6 +397,7 @@ export class FinanceController {
         refunds: string;
         received: string;
         paid: string;
+        fees: string;
         expectedIn: string;
         expectedOut: string;
       }>(
@@ -354,14 +416,18 @@ export class FinanceController {
                        sum(amount) FILTER (WHERE kind = 'receivable') AS received,
                        sum(amount) FILTER (WHERE kind = 'payable') AS paid
                   FROM finance_entries WHERE status = 'paid' AND paid_at BETWEEN $1 AND $2 GROUP BY 1),
+         sf AS (SELECT day, sum(fee) AS fees FROM finance_settlements
+                 WHERE day BETWEEN $1 AND $2 GROUP BY 1),
          fo AS (SELECT due_date AS day,
                        sum(amount) FILTER (WHERE kind = 'receivable') AS expected_in,
                        sum(amount) FILTER (WHERE kind = 'payable') AS expected_out
                   FROM finance_entries WHERE status = 'open' AND due_date BETWEEN $1 AND $2 GROUP BY 1)
          SELECT days.day::text, COALESCE(cm.sales, 0)::text AS sales, COALESCE(cm.refunds, 0)::text AS refunds,
                 COALESCE(fe.received, 0)::text AS received, COALESCE(fe.paid, 0)::text AS paid,
+                COALESCE(sf.fees, 0)::text AS fees,
                 COALESCE(fo.expected_in, 0)::text AS "expectedIn", COALESCE(fo.expected_out, 0)::text AS "expectedOut"
-           FROM days LEFT JOIN cm USING (day) LEFT JOIN fe USING (day) LEFT JOIN fo USING (day)
+           FROM days LEFT JOIN cm USING (day) LEFT JOIN fe USING (day) LEFT JOIN sf USING (day)
+           LEFT JOIN fo USING (day)
           ORDER BY days.day`,
         [p.from, p.to],
       );
@@ -370,7 +436,11 @@ export class FinanceController {
       const rows = days.map((d) => ({
         ...d,
         net: fromCents(
-          toCents(d.sales) + toCents(d.received) - toCents(d.refunds) - toCents(d.paid),
+          toCents(d.sales) +
+            toCents(d.received) -
+            toCents(d.refunds) -
+            toCents(d.fees) -
+            toCents(d.paid),
         ),
       }));
       const totals = {
@@ -378,9 +448,10 @@ export class FinanceController {
         refunds: fromCents(sum('refunds')),
         received: fromCents(sum('received')),
         paid: fromCents(sum('paid')),
+        fees: fromCents(sum('fees')),
         expectedIn: fromCents(sum('expectedIn')),
         expectedOut: fromCents(sum('expectedOut')),
-        net: fromCents(sum('sales') + sum('received') - sum('refunds') - sum('paid')),
+        net: fromCents(sum('sales') + sum('received') - sum('refunds') - sum('fees') - sum('paid')),
       };
       return { from: p.from, to: p.to, days: rows, totals };
     });
@@ -468,14 +539,20 @@ export class FinanceController {
   }
 
   private async loadSettings(tx: Tx) {
-    const r = await one<{ day: number | null; today: string }>(
+    const r = await one<{ day: number | null; terms: unknown; today: string }>(
       tx,
       `SELECT (SELECT month_start_day FROM finance_settings) AS day,
+              (SELECT payment_terms FROM finance_settings) AS terms,
               (now() AT TIME ZONE timezone)::date::text AS today FROM tenants`,
     );
     const monthStartDay = r?.day ?? 1;
     const today = r!.today;
-    return { monthStartDay, today, currentMonth: financeMonth(today, monthStartDay) };
+    return {
+      monthStartDay,
+      today,
+      currentMonth: financeMonth(today, monthStartDay),
+      paymentTerms: normalizePaymentTerms(r?.terms ?? null),
+    };
   }
 
   private async lock(tx: Tx, id: string) {
