@@ -38,6 +38,7 @@ export interface OutboxRow {
 /** Envios antigos (caixas e agenda, até a versão 0.141) continuam aparecendo com o nome certo. */
 export const KIND_LABEL: Record<string, string> = {
   'trial.welcome': 'Boas-vindas do teste',
+  'tenant.access': 'Acesso do restaurante novo',
   'trial.test': 'Teste: boas-vindas',
   'customer.password_reset': 'Código de nova senha',
   'customer.test': 'Teste: código de senha',

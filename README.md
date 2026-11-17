@@ -86,8 +86,8 @@ Onde o dono da plataforma cria restaurantes (cada um com banco próprio), acompa
 cobrança, contratos, servidor, backups e auditoria. Entrada com senha e código do aplicativo
 autenticador.
 
-**E-mail próprio, sem n8n.** Todo e-mail do sistema (boas-vindas do teste, código de nova
-senha, contratos) sai pelo **Resend**, por uma fila que tenta de novo sozinha. A aba **E-mail**
+**E-mail próprio, sem n8n.** Todo e-mail do sistema (boas-vindas do teste, login e senha do
+restaurante criado no painel, código de nova senha, contratos) sai pelo **Resend**, por uma fila que tenta de novo sozinha. A aba **E-mail**
 tem a configuração do Resend, o e-mail de teste e o histórico de envios, com reenviar e
 cancelar. Passo a passo em [docs/email.md](docs/email.md).
 

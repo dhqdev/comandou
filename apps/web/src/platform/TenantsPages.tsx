@@ -23,7 +23,7 @@ import { ConsumptionPanel, OperationPanel } from './TenantInsights';
 import { TenantBillingPanel } from './TenantBilling';
 import { TenantOverview } from './TenantOverview';
 import { DatabasePanel, DatabaseProgress, DeleteTenantModal, dbBusy } from './TenantDatabase';
-import { NewTenantModal, ProfilePanel, TIMEZONES } from './NewTenant';
+import { ProfilePanel, TIMEZONES } from './NewTenant';
 import { ContractsPanel } from './TenantContracts';
 import { KitchenPanel } from './TenantKitchen';
 import type { Plan, SupportLink, TeamMember, TenantDetail, TenantRow } from './types';
@@ -120,7 +120,6 @@ function StatusTag({ status }: { status: string }) {
 export function TenantsPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
-  const [creating, setCreating] = useState(false);
   const q = new URLSearchParams({ ...(search ? { search } : {}), ...(status ? { status } : {}) });
   const { data, error } = useLoad<TenantRow[]>(`/platform/tenants?${q}`);
   const { open, busy, sheet } = useOpenTenant();
@@ -136,7 +135,10 @@ export function TenantsPage() {
           ) : undefined
         }
         actions={
-          <button className="adm-action adm-action--primary" onClick={() => setCreating(true)}>
+          <button
+            className="adm-action adm-action--primary"
+            onClick={() => navigate('/restaurantes/novo')}
+          >
             <Plus size={15} /> Novo
           </button>
         }
@@ -247,7 +249,6 @@ export function TenantsPage() {
           )}
         </div>
       </div>
-      {creating && <NewTenantModal onClose={() => setCreating(false)} />}
       {sheet}
     </>
   );

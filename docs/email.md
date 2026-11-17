@@ -66,5 +66,9 @@ publicado na Cloudflare, ele pode ser removido lá (e a regra do Email Routing t
 - Mandar e-mail de qualquer módulo: injete `MailService` e chame `enqueue(c, ...)` dentro da sua
   transação e `deliver(id)` depois do COMMIT (ou `send(...)` fora de transação). Conteúdo com
   senha ou código: `sensitive: true`.
+- E-mails com senha: `trial.welcome` (teste criado pelo site) e `tenant.access` (restaurante
+  criado em Super Admin › Restaurantes › Novo; desliga no passo Acesso do dono). Os dois moldes
+  ficam em `apps/api/src/platform/site/welcome-email.ts`. Se o envio falhar, o restaurante é
+  criado mesmo assim e a tela final mostra o motivo.
 - Testes: `apps/api/src/mail/mail-lib.test.ts` e `apps/api/test/mail.e2e.test.ts` (o Resend é
   trocado por `test/mail-fake.ts`).

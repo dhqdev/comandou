@@ -2308,3 +2308,225 @@ button.adm-card:hover {
     flex-wrap: wrap;
   }
 }
+
+/* ---------------------------------------------------------------- Novo restaurante (passos)
+   Tela própria (Restaurantes › Novo): passos à esquerda no computador, em cima no celular. */
+.adm-wizard {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.adm-wizard > .adm-head {
+  grid-column: 1 / -1;
+}
+.adm-wizard__steps {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.adm-wizard__step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--cm-radius-md);
+  background: transparent;
+  color: var(--a-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.adm-wizard__step:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.adm-wizard__step:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+.adm-wizard__step[data-state='current'] {
+  background: var(--a-panel-2);
+  color: var(--a-text);
+}
+.adm-wizard__num {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--a-line-strong);
+  border-radius: 50%;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.adm-wizard__step[data-state='current'] .adm-wizard__num {
+  border-color: var(--a-accent);
+  background: var(--a-accent);
+  color: var(--a-accent-ink);
+}
+.adm-wizard__step[data-state='done'] .adm-wizard__num {
+  border-color: var(--a-accent);
+  color: var(--a-accent);
+}
+.adm-wizard__text {
+  display: grid;
+  min-width: 0;
+}
+.adm-wizard__title {
+  font-size: 14px;
+  font-weight: 600;
+}
+.adm-wizard__hint {
+  font-size: 12.5px;
+  color: var(--a-subtle);
+}
+.adm-wizard__body {
+  display: grid;
+  gap: 18px;
+  padding: 22px 24px;
+}
+.adm-wizard__head h2,
+.adm-wizard__done h2 {
+  margin: 2px 0 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+.adm-wizard__lead {
+  margin: -8px 0 0;
+}
+.adm-wizard__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--a-line);
+}
+.adm-wizard__spacer {
+  flex: 1;
+}
+.adm-wizard__review {
+  display: grid;
+  border: 1px solid var(--a-line);
+  border-radius: var(--cm-radius-md);
+}
+.adm-wizard__row {
+  display: grid;
+  grid-template-columns: 170px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+.adm-wizard__row + .adm-wizard__row {
+  border-top: 1px solid var(--a-line);
+}
+.adm-wizard__label {
+  color: var(--a-muted);
+}
+.adm-wizard__value {
+  overflow-wrap: anywhere;
+}
+.adm-wizard__edit {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: transparent;
+  color: var(--a-accent);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.adm-wizard__edit:hover {
+  background: var(--a-panel-2);
+}
+.adm-wizard__done {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  max-width: 640px;
+  padding: 24px;
+}
+.adm-wizard__done p {
+  margin: 0;
+}
+.adm-wizard__done .cm-alert {
+  width: 100%;
+}
+.adm-wizard__done .adm-wizard__actions {
+  width: 100%;
+  justify-content: flex-end;
+}
+.adm-wizard__done-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--a-panel-2);
+  color: var(--a-ok);
+}
+@media (max-width: 860px) {
+  .adm-wizard {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .adm-wizard__steps {
+    position: static;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .adm-wizard__steps li {
+    flex: none;
+  }
+  .adm-wizard__step {
+    min-height: 44px;
+    padding: 6px 10px 6px 6px;
+  }
+  .adm-wizard__step:not([data-state='current']) .adm-wizard__text {
+    display: none;
+  }
+  .adm-wizard__hint {
+    display: none;
+  }
+  .adm-wizard__body {
+    padding: 18px 16px;
+  }
+  .adm-wizard__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 2px 12px;
+  }
+  .adm-wizard__label {
+    grid-column: 1;
+    font-size: 12.5px;
+  }
+  .adm-wizard__value {
+    grid-column: 1;
+  }
+  .adm-wizard__edit {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+  .adm-wizard__actions .cm-btn {
+    min-height: 44px;
+  }
+}
+.adm-wizard .adm-check > span {
+  min-width: 0;
+}
+.adm-wizard .adm-sub,
+.adm-wizard__done .adm-sub {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

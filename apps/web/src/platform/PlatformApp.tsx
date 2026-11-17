@@ -73,6 +73,10 @@ const TenantDetailPage = lazyPage(
   () => import('./TenantsPages'),
   (m) => m.TenantDetailPage,
 );
+const NewTenantPage = lazyPage(
+  () => import('./NewTenant'),
+  (m) => m.NewTenantPage,
+);
 const SupportPage = lazyPage(
   () => import('./SupportPage'),
   (m) => m.SupportPage,
@@ -130,6 +134,7 @@ const PANEL_PAGES = [
   AuditPage,
   TenantsPage,
   TenantDetailPage,
+  NewTenantPage,
   SupportPage,
   InfraPage,
   FiscalPage,
@@ -525,6 +530,7 @@ function Gate() {
       <Route element={<PlatformShell />}>
         <Route index element={<OverviewPage />} />
         <Route path="restaurantes" element={<TenantsPage />} />
+        <Route path="restaurantes/novo" element={<NewTenantPage />} />
         <Route path="restaurantes/:id" element={<TenantDetailPage />} />
         <Route path="conversas" element={<SupportPage />} />
         <Route path="servidor/*" element={<InfraPage />} />

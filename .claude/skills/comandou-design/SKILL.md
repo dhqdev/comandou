@@ -26,6 +26,11 @@ Visual de **sistema de trabalho**: sóbrio, limpo e confortável para turnos lon
 - Agrupe por assunto com `<h3 className="cm-form__section">`. Campo longo (observação, endereço) ocupa a linha toda com `wrapClass="cm-form__wide"` ou `<textarea>`.
 - Liga/desliga e linhas de texto + controle: `cm-form__row`. Bloco solto que deve ocupar a linha toda: `cm-form__block`.
 - Use `TextField`, `SelectField`, `CheckField`; não monte `<label>` na mão.
+- **Cadastro longo vira tela própria com passos**, não janela (janela fecha num clique fora e
+  perde tudo). Modelo: Super Admin › Restaurantes › Novo (`NewTenantPage`, classes
+  `adm-wizard*`): passos à esquerda no computador (em cima, só números, no celular), um passo
+  por vez com Voltar/Continuar, último passo "Conferir e criar" com Alterar em cada linha,
+  rascunho em `sessionStorage` (nunca a senha) e uma tela final dizendo o que aconteceu.
 - Troca de tema: fade de cores (`switchTheme`), nunca captura de tela nem onda em tela cheia.
 
 ## Telas de entrada (AuthShell)

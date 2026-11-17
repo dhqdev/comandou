@@ -93,9 +93,12 @@ export const NewTenant = z.object({
   planCode: z.string().trim().min(1).max(40).optional(),
   timezone: z.enum(BR_TIMEZONES).default('America/Sao_Paulo'),
   profile: TenantProfileBody.optional(),
+  /** Manda o endereço, o login e a senha para o e-mail do dono (padrão: sim). */
+  sendAccessEmail: z.boolean().default(true),
 });
-export type NewTenantInput = Omit<z.infer<typeof NewTenant>, 'timezone'> & {
+export type NewTenantInput = Omit<z.infer<typeof NewTenant>, 'timezone' | 'sendAccessEmail'> & {
   timezone?: (typeof BR_TIMEZONES)[number];
+  sendAccessEmail?: boolean;
 };
 
 /** Excluir restaurante: basta confirmar no painel. Backup final só se pedido. */

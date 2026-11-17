@@ -26,6 +26,15 @@ import type {
 import { EMPTY_PROFILE, PROFILE_COLS, saveProfile } from './tenant-profile';
 import { TenantDatabaseUnavailable } from '../database/tenant-database';
 import { PlatformDatabasesService } from './platform-databases.service';
+import { MailService } from '../mail/mail.service';
+import { accessEmail } from './site/welcome-email';
+
+/** Resultado do e-mail com o login e a senha mandado ao dono do restaurante novo. */
+export interface AccessEmailResult {
+  to: string;
+  sent: boolean;
+  error?: string;
+}
 
 /** Uso de um restaurante (a função existe em todos os bancos). */
 const USAGE_SQL = `SELECT tenant_id AS "tenantId", users::int, products::int,
@@ -71,6 +80,7 @@ export class PlatformService {
     private readonly queue: QueueService,
     private readonly metrics: Metrics,
     private readonly databases: PlatformDatabasesService,
+    private readonly mail: MailService,
   ) {}
 
   // ------------------------------------------------------------------ fiscal
@@ -439,9 +449,51 @@ export class PlatformService {
 
   /** Cria e provisiona um restaurante (mesmo fluxo idempotente da CLI). A senha não é auditada. */
   async createTenant(b: NewTenantInput, a: Actor) {
+    const id = await this.createTenantRow(b, a);
+    const detail = await this.tenant(id);
+    const access = b.sendAccessEmail === false ? null : await this.sendAccess(b);
+    return { ...detail, accessEmail: access };
+  }
+
+  /**
+   * Manda ao dono o endereço, o login e a senha inicial (pelo envio do próprio Comandou). A
+   * senha vai cifrada na fila e nunca fica em auditoria. Falha no envio não desfaz o restaurante:
+   * a tela mostra o motivo para o admin passar o acesso de outro jeito.
+   */
+  private async sendAccess(b: NewTenantInput): Promise<AccessEmailResult> {
+    const to = b.adminEmail;
+    try {
+      if (!(await this.mail.ready()))
+        return { to, sent: false, error: 'Envio de e-mail não configurado (Super Admin › E-mail)' };
+      const [s] = await this.db.query<{ sales_contact: string }>(
+        `SELECT sales_contact FROM platform_billing_settings WHERE id`,
+      );
+      const scheme = this.env.COOKIE_SECURE ? 'https' : 'http';
+      const port = this.env.SITE_CHECK_PORT ? `:${this.env.SITE_CHECK_PORT}` : '';
+      const base = this.env.COMANDOU_BASE_DOMAIN;
+      const r = await this.mail.send({
+        kind: 'tenant.access',
+        to: [{ email: to, name: b.adminName }],
+        ...accessEmail({
+          restaurant: b.name,
+          ownerName: b.adminName,
+          url: `${scheme}://${b.slug}.${base}${port}`,
+          loginEmail: to,
+          password: b.adminPassword,
+          siteUrl: `${scheme}://${base}${port}`,
+          salesContact: s?.sales_contact,
+        }),
+        sensitive: true,
+      });
+      return r.ok ? { to, sent: true } : { to, sent: false, error: r.error ?? 'O envio falhou' };
+    } catch (e) {
+      return { to, sent: false, error: (e as Error).message.slice(0, 300) };
+    }
+  }
+
+  private async createTenantRow(b: NewTenantInput, a: Actor): Promise<string> {
     // Padrão: banco próprio, criado pelo serviço de backup (a resposta já volta "em criação").
-    if (this.env.TENANT_DATABASE_MODE === 'dedicated')
-      return this.tenant(await this.databases.create(b, a));
+    if (this.env.TENANT_DATABASE_MODE === 'dedicated') return this.databases.create(b, a);
     const exists = await this.db.query(`SELECT 1 FROM tenants WHERE slug = $1`, [b.slug]);
     if (exists.length) throw new ConflictException('Já existe um restaurante com este endereço');
     let r;
@@ -488,7 +540,7 @@ export class PlatformService {
         ip: a.ip,
       });
     });
-    return this.tenant(r.tenantId);
+    return r.tenantId;
   }
 
   // ------------------------------------------------------------------ controle do restaurante

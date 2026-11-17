@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.149.0',
+    date: '2026-11-17',
+    title: 'Criar restaurante em tela própria, com passos',
+    summary:
+      'No Super Admin, criar restaurante agora abre uma tela só para isso, em cinco passos, em vez de uma janela que fechava com um clique fora e perdia tudo. No fim, o login e a senha vão para o e-mail do dono e a tela avisa para onde foram.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Restaurantes › Novo abre uma tela própria com os passos Restaurante, Acesso do dono, Plano, Contato e cobrança (opcional) e Conferir e criar. Dá para voltar a qualquer passo e o que foi digitado fica guardado (menos a senha) se você sair da tela.',
+      },
+      {
+        tag: 'novo',
+        text: 'O endereço, o login e a senha inicial vão por e-mail para o dono do restaurante novo (pode desligar no passo Acesso do dono). A tela final diz para qual e-mail foi, ou por que não saiu.',
+      },
+    ],
+  },
+  {
     version: '0.148.0',
     date: '2026-11-17',
     title: 'A IA acha o restaurante no Google Maps e monta a loja',

@@ -49,29 +49,47 @@ test('Super Admin: código errado, preço, novo restaurante, assinatura e suspen
   await expect(page.getByRole('button', { name: 'Mudar valor e teste' })).toBeVisible();
   await shot(page, info.project.name, 'admin-preco');
 
-  // Restaurante novo no valor único
+  // Restaurante novo no valor único: tela própria, em passos (não fecha num clique fora).
   await nav(page, 'Restaurantes');
   await page.getByRole('button', { name: 'Novo', exact: true }).click();
-  let dialog = page.getByRole('dialog');
-  await dialog.getByLabel('Nome do restaurante').fill(`Cantina ${tag}`);
+  await expect(page).toHaveURL(/\/restaurantes\/novo$/);
+  const wizard = page.locator('.adm-wizard__body');
+  const next = () => wizard.getByRole('button', { name: /^(Continuar|Pular)$/ }).click();
+  // Passo 1: restaurante. Sem nome não segue.
+  await next();
+  await expect(wizard.getByText('Informe o nome')).toBeVisible();
+  await wizard.getByLabel('Nome do restaurante').fill(`Cantina ${tag}`);
   // O endereço sai do nome sozinho; dá para trocar.
-  await expect(dialog.getByLabel('Endereço')).toHaveValue(`cantina-${tag}`);
-  await dialog.getByLabel('Endereço').fill('admin');
-  await expect(dialog.getByText('identificador reservado')).toBeVisible();
-  await dialog.getByLabel('Endereço').fill(`e2e-${tag}`);
-  await dialog.getByLabel('Cidade').fill('Manaus');
-  await dialog.getByLabel('UF').selectOption('AM');
-  await expect(dialog.getByLabel('Fuso horário')).toHaveValue('America/Manaus');
-  await dialog.getByLabel('Nome', { exact: true }).fill('Dona E2E');
-  await dialog.getByLabel('E-mail', { exact: true }).fill(`dona-${tag}@e2e.local`);
-  await dialog.getByRole('button', { name: 'Gerar' }).click();
-  await expect(dialog.getByLabel('Senha inicial')).not.toHaveValue('');
-  await dialog.getByLabel('Senha inicial').fill('senha-e2e-12345');
-  await dialog.locator('label.adm-plan-opt', { hasText: 'Comandou' }).click();
-  await dialog.getByText('Contato e cobrança').click();
-  await dialog.getByLabel('CPF ou CNPJ').fill('12345678000195');
-  await expect(dialog.getByLabel('CPF ou CNPJ')).toHaveValue('12.345.678/0001-95');
-  await dialog.getByRole('button', { name: 'Criar restaurante' }).click();
+  await expect(wizard.getByLabel('Endereço')).toHaveValue(`cantina-${tag}`);
+  await wizard.getByLabel('Endereço').fill('admin');
+  await expect(wizard.getByText('identificador reservado')).toBeVisible();
+  await wizard.getByLabel('Endereço').fill(`e2e-${tag}`);
+  await wizard.getByLabel('Cidade').fill('Manaus');
+  await wizard.getByLabel('UF').selectOption('AM');
+  await expect(wizard.getByLabel('Fuso horário')).toHaveValue('America/Manaus');
+  await shot(page, info.project.name, 'admin-novo-restaurante');
+  await next();
+  // Passo 2: acesso do dono (login e senha vão por e-mail).
+  await wizard.getByLabel('Nome do dono').fill('Dona E2E');
+  await wizard.getByLabel('E-mail (vira o login)').fill(`dona-${tag}@e2e.local`);
+  await wizard.getByRole('button', { name: 'Gerar' }).click();
+  await expect(wizard.getByLabel('Senha inicial')).not.toHaveValue('');
+  await wizard.getByLabel('Senha inicial').fill('senha-e2e-12345');
+  await expect(wizard.getByText('Mandar o login e a senha para o e-mail do dono')).toBeVisible();
+  await next();
+  // Passo 3: plano.
+  await wizard.locator('label.adm-plan-opt', { hasText: 'Comandou' }).click();
+  await next();
+  // Passo 4: contato e cobrança (opcional).
+  await wizard.getByLabel('CPF ou CNPJ').fill('12345678000195');
+  await expect(wizard.getByLabel('CPF ou CNPJ')).toHaveValue('12.345.678/0001-95');
+  await next();
+  // Passo 5: conferir e criar.
+  await expect(wizard.getByText(`vão para dona-${tag}@e2e.local`)).toBeVisible();
+  await wizard.getByRole('button', { name: 'Criar restaurante' }).click();
+  await expect(page.getByRole('heading', { name: 'Restaurante criado' })).toBeVisible();
+  await expect(page.getByText(`dona-${tag}@e2e.local`).first()).toBeVisible();
+  await page.getByRole('button', { name: 'Abrir o restaurante' }).click();
   await expect(page.getByRole('heading', { name: new RegExp(`Cantina ${tag}`) })).toBeVisible();
   // O banco próprio do restaurante é criado pelo serviço de backup; a tela se atualiza sozinha.
   // No valor único o restaurante novo começa no teste grátis (dias do plano padrão).
@@ -105,7 +123,7 @@ test('Super Admin: código errado, preço, novo restaurante, assinatura e suspen
 
   // Suspender e reativar (com motivo)
   await page.getByRole('button', { name: 'Suspender' }).click();
-  dialog = page.getByRole('dialog');
+  let dialog = page.getByRole('dialog');
   await dialog.getByLabel('Motivo (fica na auditoria)').fill(`Teste E2E ${tag}`);
   await dialog.getByRole('button', { name: 'Suspender' }).click();
   await expect(page.getByText(/Suspenso: ninguém entra nem opera/)).toBeVisible();

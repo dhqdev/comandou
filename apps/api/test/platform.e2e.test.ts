@@ -18,6 +18,7 @@ import { totpContext } from '../src/platform/platform-auth';
 import { newTotpSecret, totpCode, totpStep } from '../src/platform/totp';
 import { APP_URL, PLATFORM_URL, testEnv } from './env';
 import { FakeS3, startFakeS3 } from './fake-s3';
+import { fakeMail } from './mail-fake';
 import { Fixture, PASSWORD, ownerQuery, runQueuedDbJobs, seedTwoTenants } from './fixtures';
 
 /**
@@ -406,6 +407,7 @@ describe('Planos, assinaturas e limites', () => {
   });
 
   it('cria restaurante pelo painel com o plano padrão em teste (sem auditar a senha)', async () => {
+    const mail = await fakeMail(app, KEY);
     const created = await psend('post', '/tenants', {
       slug: 'tst-pf-novo',
       name: 'Restaurante Novo',
@@ -425,6 +427,14 @@ describe('Planos, assinaturas e limites', () => {
       },
     }).expect(201);
     expect(created.body.timezone).toBe('America/Manaus');
+    // O login e a senha vão para o e-mail da dona (e a tela avisa para onde foi).
+    expect(created.body.accessEmail).toEqual({ to: 'dona@pf-novo.test', sent: true });
+    expect(mail.sent).toHaveLength(1);
+    expect(mail.sent[0]!.body.to).toEqual(['dona@pf-novo.test']);
+    expect(mail.sent[0]!.body.subject).toBe('Seu acesso ao Restaurante Novo no Comandou');
+    expect(mail.sent[0]!.body.text).toContain('Senha: senha-inicial-123');
+    expect(mail.sent[0]!.body.text).toContain('tst-pf-novo.comandou.test');
+    await mail.off();
     expect(created.body.profile).toMatchObject({
       document: '12345678000195',
       phone: '92987654321',
