@@ -4,6 +4,25 @@ O domínio base (`comandou.com` e `www.comandou.com`) mostra o site público: o 
 com telas de verdade da demonstração, o preço (vem de Super Admin › Planos) e o cadastro em que o
 dono cria o próprio restaurante de teste.
 
+## Movimento e rolagem
+
+O site tem mais movimento que as telas de trabalho, sempre com transform e opacity e parado com
+"reduzir movimento". O código fica em `apps/web/src/site/`:
+
+- `motion.ts`: rolagem suave no computador (Lenis; no toque fica a do aparelho, e não age dentro
+  de janelas nem de campos de texto) e um único laço por quadro que escreve `--p` (0 a 1) nos
+  elementos que andam com a rolagem. `scroll.css` faz o resto.
+- Cenas: o topo sobe e esmaece ao sair (só no computador); a tela do sistema chega deitada e se
+  endireita; a frase grande acende palavra por palavra presa no meio da tela; os três passos se
+  empilham (o de baixo encolhe um pouco); as faixas aceleram e viram de lado com a rolagem; a
+  marca no rodapé sobe letra por letra; a barra de leitura no topo.
+- React Bits (`site/reactbits/`): `ClickSpark`, `Magnet`, `ShinyText`, `SpotlightCard`,
+  `StarBorder` (luz que corre na borda do quadro do preço) e `GlareHover` (brilho na tela do
+  sistema). ScrollReveal, ScrollStack e ScrollVelocity pedem gsap ou motion, então foram refeitos
+  em `motion.ts` com a mesma ideia e sem dependência.
+- Uiverse (em CSS): botão físico `.st-press`, seta que corre no botão (`.st-arrow`), vistos que se
+  desenham no preço e o + que vira − nas perguntas.
+
 ## Como o cadastro funciona
 
 1. A pessoa informa o site que já tem, o link do Google Maps ou descreve os itens. O site mostra

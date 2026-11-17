@@ -1,16 +1,18 @@
 import {
+  ArrowRight,
   Check,
   ChefHat,
   Cloud,
   FileText,
   Globe,
+  Link2,
   Menu,
   QrCode,
   Sparkles,
   WifiOff,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import {
   applyTheme,
   Button,
@@ -25,11 +27,23 @@ import { contactHref, INCLUDED_IN_ALL, type PublicPlan } from '../pages/pricing-
 import { Builder, PhoneMock, type Look } from './Builder';
 import { loadSiteConfig, type SiteConfig } from './host';
 import { FEATURES, SAMPLE_ITEMS, SITE_FAQ, STEPS, TOUR } from './site-data';
+import {
+  calmMotion,
+  scrollToEl,
+  useReadingBar,
+  useScrollProgress,
+  useSmoothScroll,
+  useStack,
+  useVelocityMarquee,
+} from './motion';
 import ClickSpark from './reactbits/ClickSpark';
+import GlareHover from './reactbits/GlareHover';
 import Magnet from './reactbits/Magnet';
 import ShinyText from './reactbits/ShinyText';
 import SpotlightCard from './reactbits/SpotlightCard';
+import StarBorder from './reactbits/StarBorder';
 import './site.css';
+import './scroll.css';
 
 // O site é sempre claro (pedido do dono): não segue o tema do aparelho nem guarda escolha.
 // Roda ao carregar este arquivo, antes do primeiro desenho, para não piscar escuro.
@@ -40,12 +54,26 @@ const SPARKS = ['#E23A00', '#F59E0B', '#FF7A45'];
 
 /**
  * Botão principal do site: segue o ponteiro de leve (React Bits › Magnet) e afunda ao clicar
- * (efeito de botão físico no estilo dos elementos do Uiverse, em CSS: `.st-press`).
+ * (efeito de botão físico no estilo dos elementos do Uiverse, em CSS: `.st-press`). Com `arrow`,
+ * a seta corre para a frente no hover (também no estilo do Uiverse).
  */
-function CtaButton({ className = '', ...props }: ButtonProps) {
+function CtaButton({
+  className = '',
+  arrow,
+  children,
+  ...props
+}: ButtonProps & { arrow?: boolean }) {
   return (
     <Magnet padding={60} magnetStrength={4} maxOffset={10} wrapperClassName="st-magnet">
-      <Button {...props} className={`st-press ${className}`} />
+      <Button {...props} className={`st-press ${arrow ? 'st-arrow' : ''} ${className}`}>
+        {children}
+        {arrow && (
+          <span className="st-arrow__i" aria-hidden>
+            <ArrowRight size={16} />
+            <ArrowRight size={16} />
+          </span>
+        )}
+      </Button>
     </Magnet>
   );
 }
@@ -64,8 +92,6 @@ const FIRST_LOOK: Look = {
   items: SAMPLE_ITEMS,
   typed: false,
 };
-
-const calmMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** Seções entram quando chegam na tela (uma vez só), com os filhos em cascata. */
 function useReveal() {
@@ -161,6 +187,7 @@ function Tour({ dark }: { dark: boolean }) {
   const [hold, setHold] = useState(false);
   const [seen, setSeen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const rise = useScrollProgress<HTMLDivElement>('enter', 0.25);
   const t = TOUR.find((x) => x.key === tab)!;
   const running = auto && !hold && seen && !calmMotion();
 
@@ -223,34 +250,47 @@ function Tour({ dark }: { dark: boolean }) {
       <h3 className="st-tour__head" key={`${tab}-head`}>
         {t.title}
       </h3>
-      <div className="st-shot">
-        <div className="st-shot__bar" aria-hidden>
-          <i />
-          <i />
-          <i />
-          <span>fumaca.comandou.com</span>
-        </div>
-        <div className="st-shot__view">
-          <img
-            key={`${tab}-${dark}`}
-            src={`/site/${tab}-${dark ? 'dark' : 'light'}.webp`}
-            width={1600}
-            height={1000}
-            alt={`Tela ${t.label} do Comandou: ${t.text}`}
-            loading="lazy"
-            decoding="async"
-          />
+      <div className="st-rise" ref={rise}>
+        <div className="st-shot">
+          <div className="st-shot__bar" aria-hidden>
+            <i />
+            <i />
+            <i />
+            <span>fumaca.comandou.com</span>
+          </div>
+          <GlareHover
+            className="st-shot__view"
+            width="100%"
+            background="transparent"
+            borderRadius="0"
+            glareColor="#ffffff"
+            glareOpacity={0.45}
+            glareSize={40}
+            variant="twin"
+            blendMode="soft-light"
+          >
+            <img
+              key={`${tab}-${dark}`}
+              src={`/site/${tab}-${dark ? 'dark' : 'light'}.webp`}
+              width={1600}
+              height={1000}
+              alt={`Tela ${t.label} do Comandou: ${t.text}`}
+              loading="lazy"
+              decoding="async"
+            />
+          </GlareHover>
         </div>
       </div>
     </div>
   );
 }
 
-/** Faixa do que vem junto, passando sem parar (duas cópias para emendar). */
+/** Faixa do que vem junto: passa sozinha e acelera com a rolagem (duas cópias para emendar). */
 function Marquee() {
+  const track = useVelocityMarquee<HTMLDivElement>(36);
   return (
     <section className="st-band" aria-label="O que vem junto">
-      <div className="st-band__track">
+      <div className="st-band__track" ref={track}>
         {[0, 1].map((copy) => (
           <ul key={copy} aria-hidden={copy === 1 || undefined}>
             {FEATURES.map((x) => (
@@ -439,6 +479,165 @@ function HeroToasts() {
   );
 }
 
+/**
+ * Cabeçalho de seção: o número da seção em cinza (como um índice) e o título que sobe palavra por
+ * palavra de trás de uma máscara quando a seção chega na tela.
+ */
+function SectionHead({ n, label, title }: { n: number; label: string; title: string }) {
+  return (
+    <div className="st-sec__head st-reveal">
+      <span className="st-num">
+        {String(n).padStart(2, '0')} <i aria-hidden>/</i> {label}
+      </span>
+      <h2 className="st-split" aria-label={title}>
+        {title.split(' ').map((w, i) => (
+          <Fragment key={w + i}>
+            {i > 0 && ' '}
+            <span className="st-split__w" aria-hidden>
+              <span style={{ '--i': i } as React.CSSProperties}>{w}</span>
+            </span>
+          </Fragment>
+        ))}
+      </h2>
+    </div>
+  );
+}
+
+const MANIFESTO =
+  'Você cuida da comida. O Comandou cuida do pedido, da mesa, da cozinha, do caixa e da entrega. Tudo no mesmo lugar.';
+
+/**
+ * Frase grande que acende palavra por palavra conforme a pessoa rola (ideia do ScrollReveal do
+ * React Bits, refeita sem gsap). A seção é alta e o texto fica preso no meio da tela enquanto isso.
+ */
+function Manifesto() {
+  const ref = useScrollProgress<HTMLElement>('pin');
+  const words = MANIFESTO.split(' ');
+  const hot = words.length - 3;
+  return (
+    <section
+      className="st-manifesto"
+      ref={ref}
+      style={{ '--n': words.length } as React.CSSProperties}
+    >
+      <div className="st-manifesto__in">
+        <p>
+          {words.map((w, i) => (
+            <span
+              key={w + i}
+              className={i >= hot ? 'is-hot' : undefined}
+              style={{ '--i': i } as React.CSSProperties}
+            >
+              {w}{' '}
+            </span>
+          ))}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/** O desenho de cada passo, dentro do cartão da pilha. */
+function StepArt({ i }: { i: number }) {
+  if (i === 0)
+    return (
+      <div className="st-art st-art--link">
+        <div className="st-art__field">
+          <Link2 size={16} />
+          <span>
+            <b>fumacaburger.com.br</b>
+          </span>
+        </div>
+        <span className="st-art__go">
+          Criar <ArrowRight size={14} />
+        </span>
+      </div>
+    );
+  if (i === 1)
+    return (
+      <div className="st-art st-art--site">
+        <img src="/site/cardapio-light.webp" alt="" width={1600} height={1000} loading="lazy" />
+      </div>
+    );
+  return (
+    <div className="st-art st-art--sale">
+      {[
+        ['Novo pedido #129', 'Delivery · R$ 71,80'],
+        ['Pix aprovado', 'Mesa 4 · R$ 128,40'],
+        ['Pedido pronto', 'Retirada · R$ 32,00'],
+      ].map(([a, b], k) => (
+        <div key={a} style={{ '--k': k } as React.CSSProperties}>
+          <Check size={14} />
+          <span>
+            <strong>{a}</strong>
+            <small>{b}</small>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Três passos em pilha: cada cartão fica preso no topo e o próximo chega por cima, deixando o
+ * anterior um pouco menor (ideia do ScrollStack do React Bits).
+ */
+function Steps() {
+  const ref = useStack<HTMLOListElement>();
+  return (
+    <ol className="st-stack" ref={ref}>
+      {STEPS.map((s, i) => (
+        <li key={s.title} className="st-stack__card" style={{ '--i': i } as React.CSSProperties}>
+          <div className="st-stack__text">
+            <span className="st-stack__n">{String(i + 1).padStart(2, '0')}</span>
+            <h3>{s.title}</h3>
+            <p>{s.text}</p>
+          </div>
+          <div className="st-stack__art" aria-hidden>
+            <StepArt i={i} />
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** Frase enorme que corre de lado e acelera com a rolagem, perto do fim da página. */
+function BigLine() {
+  const track = useVelocityMarquee<HTMLDivElement>(48);
+  const line = ['Pedido', 'Mesa', 'Cozinha', 'Caixa', 'Entrega', 'Nota fiscal'];
+  return (
+    <div className="st-bigline" aria-hidden>
+      <div className="st-bigline__track" ref={track}>
+        {[0, 1].map((copy) => (
+          <span key={copy}>
+            {line.map((w) => (
+              <span key={w}>
+                {w}
+                <i />
+              </span>
+            ))}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** A marca enorme no rodapé: as letras sobem uma a uma quando o fim da página aparece. */
+function Wordmark() {
+  const ref = useScrollProgress<HTMLDivElement>('reveal');
+  return (
+    <div className="st-mark" ref={ref} aria-hidden>
+      {'Comandou'.split('').map((c, i) => (
+        <span key={i} style={{ '--i': i } as React.CSSProperties}>
+          {c}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function SiteApp() {
   const [config, setConfig] = useState<SiteConfig | null>(null);
   const [plan, setPlan] = useState<PublicPlan | null>(null);
@@ -456,6 +655,9 @@ export function SiteApp() {
   }, []);
   const calm = useRef<number | undefined>(undefined);
   useReveal();
+  useSmoothScroll();
+  const bar = useReadingBar<HTMLElement>();
+  const hero = useScrollProgress<HTMLElement>('leave');
 
   useEffect(() => {
     document.title = 'Comandou · Seu restaurante no ar em minutos';
@@ -489,10 +691,10 @@ export function SiteApp() {
   const contact = contactHref(config?.salesContact ?? '');
   const toBuilder = () => {
     setMenu(false);
-    document.getElementById('criar')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    scrollToEl(document.getElementById('criar'), true);
     window.setTimeout(
       () => document.querySelector<HTMLElement>('#criar .st-input')?.focus({ preventScroll: true }),
-      450,
+      calmMotion() ? 0 : 700,
     );
   };
 
@@ -507,7 +709,7 @@ export function SiteApp() {
       style={{ height: 'auto', minHeight: '100%' }}
     >
       <div className="st">
-        <i className="st-progress" aria-hidden />
+        <i className="st-progress" ref={bar} aria-hidden />
         <header className={`st-nav ${scrolled ? 'is-scrolled' : ''} ${menu ? 'is-open' : ''}`}>
           <div className="st-nav__in">
             <a className="st-brand" href="#topo" aria-label="Comandou, início">
@@ -566,7 +768,7 @@ export function SiteApp() {
         </header>
 
         <main id="topo">
-          <section className="st-hero">
+          <section className="st-hero" ref={hero}>
             <div className="st-hero__text">
               <span className="st-pill">
                 <i aria-hidden />{' '}
@@ -619,39 +821,30 @@ export function SiteApp() {
           <Marquee />
 
           <section className="st-sec" id="sistema">
-            <div className="st-sec__head st-reveal">
-              <h2>Tudo numa tela só.</h2>
-            </div>
+            <SectionHead n={1} label="O sistema" title="Tudo numa tela só." />
             <div className="st-reveal">
               <Tour dark={false} />
             </div>
           </section>
 
+          <Manifesto />
+
           <section className="st-sec st-sec--tint">
-            <div className="st-sec__head st-reveal">
-              <h2>Feito para o balcão.</h2>
-            </div>
+            <SectionHead n={2} label="Os detalhes" title="Feito para o balcão." />
             <Details />
           </section>
 
-          <section className="st-sec" id="como">
-            <div className="st-sec__head st-reveal">
-              <h2>Três passos.</h2>
-            </div>
-            <ol className="st-how st-reveal">
-              {STEPS.map((s, i) => (
-                <li key={s.title} style={{ '--i': i } as React.CSSProperties}>
-                  <span className="st-how__n">{i + 1}</span>
-                  <h3>{s.title}</h3>
-                  <p>{s.text}</p>
-                </li>
-              ))}
-            </ol>
+          <section className="st-sec st-sec--steps" id="como">
+            <SectionHead n={3} label="Como funciona" title="Três passos." />
+            <Steps />
           </section>
 
           <section className="st-sec st-sec--tint" id="preco">
             <div className="st-price st-reveal">
               <div className="st-price__left">
+                <span className="st-num">
+                  04 <i aria-hidden>/</i> Preço
+                </span>
                 <h2>Um preço só. Tudo dentro.</h2>
                 <p>{free}, sem cartão e sem limite de pedidos.</p>
                 <div className="st-price__value">
@@ -668,7 +861,7 @@ export function SiteApp() {
                   Valor único: não muda com o número de pessoas, produtos ou pedidos.
                 </p>
                 <div className="st-price__cta">
-                  <CtaButton size="lg" onClick={toBuilder}>
+                  <CtaButton size="lg" arrow onClick={toBuilder}>
                     {days > 0 ? `Testar ${free}` : 'Testar grátis'}
                   </CtaButton>
                   {contact && (
@@ -683,35 +876,55 @@ export function SiteApp() {
                   )}
                 </div>
               </div>
-              <ul className="st-price__list">
-                {[
-                  ...INCLUDED_IN_ALL,
-                  ...(plan?.featureFiscal ? ['Nota fiscal (NFC-e)'] : []),
-                  ...(plan?.featureWhatsapp ? ['WhatsApp com avisos e atendente'] : []),
-                  ...(plan?.featureCustomDomain ? ['Domínio próprio'] : []),
-                ].map((x, i) => (
-                  <li key={x} style={{ '--i': i } as React.CSSProperties}>
-                    <Check size={16} aria-hidden />
-                    {x}
-                  </li>
-                ))}
-              </ul>
+              <StarBorder
+                as="div"
+                className="st-price__card"
+                theme="light"
+                color="#E23A00"
+                trailColor="#F59E0B"
+                radius={20}
+                thickness={1}
+                duration={6}
+                trailLength={0.35}
+                glow={0.7}
+                hover="brighten"
+                clickPulse={false}
+                backgroundColor="var(--cm-surface)"
+                borderColor="var(--cm-border)"
+              >
+                <ul className="st-price__list">
+                  {[
+                    ...INCLUDED_IN_ALL,
+                    ...(plan?.featureFiscal ? ['Nota fiscal (NFC-e)'] : []),
+                    ...(plan?.featureWhatsapp ? ['WhatsApp com avisos e atendente'] : []),
+                    ...(plan?.featureCustomDomain ? ['Domínio próprio'] : []),
+                  ].map((x, i) => (
+                    <li key={x} style={{ '--i': i } as React.CSSProperties}>
+                      <Check size={16} aria-hidden />
+                      {x}
+                    </li>
+                  ))}
+                </ul>
+              </StarBorder>
             </div>
           </section>
 
           <section className="st-sec st-sec--narrow" id="perguntas">
-            <div className="st-sec__head st-reveal">
-              <h2>Perguntas.</h2>
-            </div>
+            <SectionHead n={5} label="Perguntas" title="Ficou alguma dúvida?" />
             <div className="st-faq st-reveal">
               {SITE_FAQ.map((f) => (
                 <details key={f.q}>
-                  <summary>{f.q}</summary>
+                  <summary>
+                    {f.q}
+                    <i className="st-faq__x" aria-hidden />
+                  </summary>
                   <p>{f.a}</p>
                 </details>
               ))}
             </div>
           </section>
+
+          <BigLine />
 
           <section className="st-end st-reveal">
             <div className="st-end__panda">
@@ -719,7 +932,7 @@ export function SiteApp() {
             </div>
             <h2>Vamos colocar o seu no ar?</h2>
             <div className="st-end__cta">
-              <CtaButton size="lg" onClick={toBuilder}>
+              <CtaButton size="lg" arrow onClick={toBuilder}>
                 Criar meu restaurante
               </CtaButton>
               {config?.demoUrl && (
@@ -747,6 +960,7 @@ export function SiteApp() {
             </nav>
             <small>Pedidos, salão, cozinha e caixa no mesmo lugar.</small>
           </div>
+          <Wordmark />
         </footer>
 
         <EnterModal open={enter} onClose={() => setEnter(false)} />

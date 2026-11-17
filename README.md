@@ -170,7 +170,7 @@ Quem trabalha com o Claude Code no projeto tem as skills em [`.claude/skills`](.
 | Banco | PostgreSQL 16, um banco por restaurante, Row-Level Security, migrações SQL versionadas |
 | Cache e filas | Redis |
 | E-mail | Fila própria no PostgreSQL com novas tentativas; envio pela API do Resend |
-| Frontend | React 19 + Vite 7 + TypeScript, Design System próprio (claro e escuro), PWA; site público sempre claro, com animações do React Bits e do Uiverse |
+| Frontend | React 19 + Vite 7 + TypeScript, Design System próprio (claro e escuro), PWA; site público sempre claro, com rolagem suave (Lenis) e animações do React Bits e do Uiverse |
 | Borda | Traefik (TLS e roteamento por endereço) → Nginx (arquivos estáticos) e NestJS (`/api`) |
 | Infra | Docker, Compose (desenvolvimento), Swarm + Portainer (produção), imagens amd64 e arm64 |
 | Qualidade | Vitest, supertest, Playwright, GitHub Actions (testes → imagens → Release) |

@@ -43,11 +43,18 @@ exceções, só no site:
 - **React Bits** (`site/reactbits/`, licença MIT + Commons Clause: usar dentro do Comandou pode,
   revender o componente não): `ClickSpark` (faíscas no clique, cobre a página inteira),
   `Magnet` (botão principal segue o ponteiro, via `CtaButton`), `ShinyText` (brilho no selo do
-  teste) e `SpotlightCard` (holofote nos cartões). Copie o arquivo do repositório
+  teste), `SpotlightCard` (holofote nos cartões), `StarBorder` (luz na borda do quadro do preço)
+  e `GlareHover` (brilho na tela do sistema). Copie o arquivo do repositório
   DavidHDev/react-bits (`src/ts-default/...`) com o cabeçalho de crédito; prefira os que não
-  pedem gsap, motion ou three. Todos já param com "reduzir movimento".
+  pedem gsap, motion ou three (os de rolagem que pedem, como ScrollReveal, ScrollStack e
+  ScrollVelocity, foram refeitos em `site/motion.ts`). Todos já param com "reduzir movimento".
+- **Rolagem** (`site/motion.ts` + `site/scroll.css`): Lenis no computador (no toque, a rolagem
+  do aparelho) e um laço por quadro que escreve `--p` nos elementos; o CSS só usa transform e
+  opacity e, sem a variável, cai no estado final parado. Cena nova: `useScrollProgress(modo)` e
+  uma regra em `scroll.css`. Seções numeradas (`01 / O sistema`) com `SectionHead`.
 - **Uiverse** (licença MIT): o efeito de botão físico `.st-press` (borda de baixo mais escura,
-  afunda ao apertar) segue o estilo dos elementos de lá, reescrito com os tokens.
+  afunda ao apertar), a seta que corre no botão (`CtaButton arrow`), os vistos que se desenham e
+  o + que vira − nas perguntas seguem o estilo dos elementos de lá, reescritos com os tokens.
 - Nada disso entra nas telas de trabalho (PDV, salão, cozinha, painel): lá continua sóbrio.
 
 ## Super Admin › E-mail

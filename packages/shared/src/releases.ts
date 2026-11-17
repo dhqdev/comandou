@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.144.0',
+    date: '2026-11-17',
+    title: 'Site com rolagem animada',
+    summary:
+      'O site do Comandou ganhou uma rolagem mais caprichada: suave no computador, com a tela do sistema que se endireita ao chegar, uma frase que acende palavra por palavra, os três passos em pilha e a marca enorme no rodapé.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Rolagem suave no computador (no celular continua a rolagem do aparelho). Os links do menu deslizam até a seção.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A tela do sistema chega deitada e se endireita com a rolagem, com um brilho que passa ao apontar o mouse. Depois vem uma frase grande que acende conforme a pessoa desce.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Os três passos viraram cartões que se empilham, cada um com o seu desenho. As faixas que passam aceleram com a rolagem e o rodapé tem a marca Comandou em letras grandes.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Detalhes novos: títulos que sobem palavra por palavra, borda com luz no quadro do preço, vistos que se desenham, botões com seta e perguntas com o + que vira −. Com "reduzir movimento" ligado, tudo fica parado.',
+      },
+    ],
+  },
+  {
     version: '0.143.0',
     date: '2026-11-17',
     title: 'Custo das fichas recalculado sozinho',
