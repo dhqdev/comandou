@@ -309,4 +309,27 @@ describe('Teste criado pelo site', () => {
     await http.get('/api/v1/platform/site').set('Host', 'admin.comandou.test').expect(401);
     await http.get('/api/v1/platform/site').set('Host', SITE_HOST).expect(404);
   });
+
+  it('dois cadastros ao mesmo tempo com o mesmo e-mail criam um restaurante só', async () => {
+    const email = `dupla-${randomBytes(4).toString('hex')}@site.test`;
+    const svc = app.get(SiteService);
+    const body = {
+      restaurant: 'Cantina Dupla',
+      name: 'Dona Dupla',
+      email,
+      source: { kind: 'none' as const, value: '' },
+    };
+    const results = await Promise.allSettled([
+      svc.create(body, '10.0.0.1'),
+      svc.create(body, '10.0.0.2'),
+    ]);
+    expect(results.map((r) => r.status).sort()).toEqual(['fulfilled', 'rejected']);
+    const failed = results.find((r) => r.status === 'rejected') as PromiseRejectedResult;
+    expect((failed.reason as { status?: number }).status).toBe(409);
+    const [n] = await ownerQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM trial_signups WHERE email = $1`,
+      [email],
+    );
+    expect(n!.n).toBe(1);
+  });
 });

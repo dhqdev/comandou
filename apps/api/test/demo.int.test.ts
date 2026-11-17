@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
   copyFileSync,
+  cpSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -209,7 +210,12 @@ describe('Restaurante de demonstração', () => {
       try {
         for (const f of ['manifest.json', 'burger-classico.webp'])
           copyFileSync(join(FUMACA.imagesDir, f), join(dir, f));
-        symlinkSync(join(FUMACA.imagesDir, 'models'), join(dir, 'models'));
+        // Link para a pasta dos modelos; no Windows sem permissão de link, uma cópia serve igual.
+        try {
+          symlinkSync(join(FUMACA.imagesDir, 'models'), join(dir, 'models'), 'junction');
+        } catch {
+          cpSync(join(FUMACA.imagesDir, 'models'), join(dir, 'models'), { recursive: true });
+        }
         writeFileSync(
           join(dir, 'previous.json'),
           JSON.stringify({ [createHash('sha256').update(old).digest('hex')]: 'burger-classico' }),

@@ -1,7 +1,10 @@
 import { CalendarCheck, ChevronLeft, ChevronRight, Clock, MapPin } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Spinner, TextField } from '../design-system';
+import { Alert, applyTheme, Button, Spinner, TextField } from '../design-system';
 import './booking.css';
+
+// Página do site: sempre clara, como o resto do site.
+applyTheme('light');
 
 interface PageInfo {
   slug: string;

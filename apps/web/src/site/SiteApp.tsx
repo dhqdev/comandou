@@ -4,20 +4,20 @@ import {
   Cloud,
   FileText,
   Globe,
-  Moon,
+  Menu,
   QrCode,
   Sparkles,
-  Sun,
   WifiOff,
+  X,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
+  applyTheme,
   Button,
   LivePanda,
   Mascot,
   Modal,
-  switchTheme,
-  useTheme,
+  type ButtonProps,
   type PandaMood,
 } from '../design-system';
 import { brl } from '../lib/money';
@@ -25,7 +25,30 @@ import { contactHref, INCLUDED_IN_ALL, type PublicPlan } from '../pages/pricing-
 import { Builder, PhoneMock, type Look } from './Builder';
 import { loadSiteConfig, type SiteConfig } from './host';
 import { FEATURES, SAMPLE_ITEMS, SITE_FAQ, STEPS, TOUR } from './site-data';
+import ClickSpark from './reactbits/ClickSpark';
+import Magnet from './reactbits/Magnet';
+import ShinyText from './reactbits/ShinyText';
+import SpotlightCard from './reactbits/SpotlightCard';
 import './site.css';
+
+// O site é sempre claro (pedido do dono): não segue o tema do aparelho nem guarda escolha.
+// Roda ao carregar este arquivo, antes do primeiro desenho, para não piscar escuro.
+applyTheme('light');
+
+/** Laranja da marca e um âmbar: as faíscas do clique (React Bits › ClickSpark). */
+const SPARKS = ['#E23A00', '#F59E0B', '#FF7A45'];
+
+/**
+ * Botão principal do site: segue o ponteiro de leve (React Bits › Magnet) e afunda ao clicar
+ * (efeito de botão físico no estilo dos elementos do Uiverse, em CSS: `.st-press`).
+ */
+function CtaButton({ className = '', ...props }: ButtonProps) {
+  return (
+    <Magnet padding={60} magnetStrength={4} maxOffset={10} wrapperClassName="st-magnet">
+      <Button {...props} className={`st-press ${className}`} />
+    </Magnet>
+  );
+}
 
 /**
  * Site público do Comandou (comandou.com): pouco texto e muito movimento. O topo cria o
@@ -253,13 +276,20 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <article className={`st-card st-reveal ${wide ? 'st-card--wide' : ''}`}>
+    <SpotlightCard
+      theme="light"
+      spotlightColor="rgba(226, 58, 0, 0.55)"
+      intensity={0.12}
+      spotlightSize={320}
+      borderGlow={0.8}
+      className={`st-card st-reveal ${wide ? 'st-card--wide' : ''}`}
+    >
       <div className="st-card__stage" aria-hidden>
         {children}
       </div>
       <h3>{title}</h3>
       <p>{text}</p>
-    </article>
+    </SpotlightCard>
   );
 }
 
@@ -415,7 +445,15 @@ export function SiteApp() {
   const [look, setLook] = useState<Look>(FIRST_LOOK);
   const [mood, setMood] = useState<PandaMood>('idle');
   const [enter, setEnter] = useState(false);
-  const [theme] = useTheme();
+  const [menu, setMenu] = useState(false);
+  // Menu solto: depois de rolar um pouco, fica mais compacto e com sombra.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const on = () => setScrolled(window.scrollY > 24);
+    on();
+    window.addEventListener('scroll', on, { passive: true });
+    return () => window.removeEventListener('scroll', on);
+  }, []);
   const calm = useRef<number | undefined>(undefined);
   useReveal();
 
@@ -450,6 +488,7 @@ export function SiteApp() {
   const free = days > 0 ? `${days} ${days === 1 ? 'dia' : 'dias'} grátis` : 'Teste grátis';
   const contact = contactHref(config?.salesContact ?? '');
   const toBuilder = () => {
+    setMenu(false);
     document.getElementById('criar')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     window.setTimeout(
       () => document.querySelector<HTMLElement>('#criar .st-input')?.focus({ preventScroll: true }),
@@ -458,219 +497,260 @@ export function SiteApp() {
   };
 
   return (
-    <div className="st">
-      <i className="st-progress" aria-hidden />
-      <header className="st-nav">
-        <div className="st-nav__in">
-          <a className="st-brand" href="#topo" aria-label="Comandou, início">
-            <Mascot size={30} badge />
-            <span>Comandou</span>
-          </a>
-          <nav className="st-nav__links" aria-label="Seções">
-            <a href="#sistema">O sistema</a>
-            <a href="#como">Como funciona</a>
-            <a href="#preco">Preço</a>
-            <a href="#perguntas">Perguntas</a>
-          </nav>
-          <div className="st-nav__end">
+    <ClickSpark
+      sparkColor={SPARKS}
+      sparkSize={11}
+      sparkRadius={26}
+      sparkCount={9}
+      duration={450}
+      // A camada das faíscas cobre a página inteira (não só a primeira tela).
+      style={{ height: 'auto', minHeight: '100%' }}
+    >
+      <div className="st">
+        <i className="st-progress" aria-hidden />
+        <header className={`st-nav ${scrolled ? 'is-scrolled' : ''} ${menu ? 'is-open' : ''}`}>
+          <div className="st-nav__in">
+            <a className="st-brand" href="#topo" aria-label="Comandou, início">
+              <Mascot size={30} badge />
+              <span>Comandou</span>
+            </a>
+            <nav className="st-nav__links" aria-label="Seções">
+              <a href="#sistema">O sistema</a>
+              <a href="#como">Como funciona</a>
+              <a href="#preco">Preço</a>
+              <a href="#perguntas">Perguntas</a>
+            </nav>
+            <div className="st-nav__end">
+              <Button variant="ghost" className="st-nav__enter" onClick={() => setEnter(true)}>
+                Entrar
+              </Button>
+              <CtaButton className="st-nav__cta" onClick={toBuilder}>
+                Criar meu restaurante
+              </CtaButton>
+              <button
+                type="button"
+                className="st-icon st-nav__menu"
+                aria-label={menu ? 'Fechar o menu' : 'Abrir o menu'}
+                aria-expanded={menu}
+                aria-controls="st-menu"
+                onClick={() => setMenu(!menu)}
+              >
+                {menu ? <X size={20} aria-hidden /> : <Menu size={20} aria-hidden />}
+              </button>
+            </div>
+          </div>
+          <nav id="st-menu" className="st-nav__sheet" aria-label="Menu" hidden={!menu}>
+            {[
+              ['#sistema', 'O sistema'],
+              ['#como', 'Como funciona'],
+              ['#preco', 'Preço'],
+              ['#perguntas', 'Perguntas'],
+            ].map(([href, label]) => (
+              <a key={href} href={href} onClick={() => setMenu(false)}>
+                {label}
+              </a>
+            ))}
             <button
               type="button"
-              className="st-icon"
-              aria-label={theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'}
-              onClick={(e) =>
-                switchTheme(theme === 'dark' ? 'light' : 'dark', { x: e.clientX, y: e.clientY })
-              }
+              onClick={() => {
+                setMenu(false);
+                setEnter(true);
+              }}
             >
-              {theme === 'dark' ? <Sun size={17} aria-hidden /> : <Moon size={17} aria-hidden />}
-            </button>
-            <Button variant="ghost" onClick={() => setEnter(true)}>
               Entrar
-            </Button>
-            <Button className="st-nav__cta" onClick={toBuilder}>
+            </button>
+            <Button size="lg" block className="st-press" onClick={toBuilder}>
               Criar meu restaurante
             </Button>
-          </div>
-        </div>
-      </header>
+          </nav>
+        </header>
 
-      <main id="topo">
-        <section className="st-hero">
-          <div className="st-hero__text">
-            <span className="st-pill">
-              <i aria-hidden /> {free}, sem cartão
-            </span>
-            <h1 className="st-h1">
-              <span className="st-h1__row">
-                <Words text="Seu restaurante" from={0} />
-              </span>{' '}
-              <span className="st-h1__row">
-                <Words text="no ar" from={2} /> <Words text="em minutos." from={4} accent />
+        <main id="topo">
+          <section className="st-hero">
+            <div className="st-hero__text">
+              <span className="st-pill">
+                <i aria-hidden />{' '}
+                <ShinyText
+                  text={`${free}, sem cartão`}
+                  color="#3f3f46"
+                  shineColor="#E23A00"
+                  speed={3.2}
+                  delay={1.4}
+                />
               </span>
-            </h1>
-            <p className="st-lead">
-              {config?.ai ? (
-                <>
-                  Cole o link ou descreva o cardápio.{' '}
-                  <span className="st-lead__ai">
-                    <Sparkles size={16} aria-hidden /> A IA monta o seu site.
-                  </span>
-                </>
-              ) : (
-                'Cole o link ou descreva o cardápio. O Comandou monta o resto.'
-              )}
-            </p>
-            <Builder config={config} onLook={setLook} onMood={react} />
-          </div>
-          <div className="st-hero__art">
-            <div className="st-stage">
-              <div className="st-peek">
-                <LivePanda size={120} mood={mood} title="Panda do Comandou" />
-              </div>
-              <div className="st-float">
-                <PhoneMock look={look} />
-              </div>
-              <HeroToasts />
-            </div>
-          </div>
-          <a className="st-scroll" href="#sistema" aria-label="Ver o sistema">
-            <i />
-          </a>
-        </section>
-
-        <Marquee />
-
-        <section className="st-sec" id="sistema">
-          <div className="st-sec__head st-reveal">
-            <h2>Tudo numa tela só.</h2>
-          </div>
-          <div className="st-reveal">
-            <Tour dark={theme === 'dark'} />
-          </div>
-        </section>
-
-        <section className="st-sec st-sec--tint">
-          <div className="st-sec__head st-reveal">
-            <h2>Feito para o balcão.</h2>
-          </div>
-          <Details />
-        </section>
-
-        <section className="st-sec" id="como">
-          <div className="st-sec__head st-reveal">
-            <h2>Três passos.</h2>
-          </div>
-          <ol className="st-how st-reveal">
-            {STEPS.map((s, i) => (
-              <li key={s.title} style={{ '--i': i } as React.CSSProperties}>
-                <span className="st-how__n">{i + 1}</span>
-                <h3>{s.title}</h3>
-                <p>{s.text}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <section className="st-sec st-sec--tint" id="preco">
-          <div className="st-price st-reveal">
-            <div className="st-price__left">
-              <h2>Um preço só. Tudo dentro.</h2>
-              <p>{free}, sem cartão e sem limite de pedidos.</p>
-              <div className="st-price__value">
-                {plan ? (
+              <h1 className="st-h1">
+                <span className="st-h1__row">
+                  <Words text="Seu restaurante" from={0} />
+                </span>{' '}
+                <span className="st-h1__row">
+                  <Words text="no ar" from={2} /> <Words text="em minutos." from={4} accent />
+                </span>
+              </h1>
+              <p className="st-lead">
+                {config?.ai ? (
                   <>
-                    <strong>{brl(plan.priceMonthly).replace(/,00$/, '')}</strong>
-                    <span>por mês</span>
+                    Cole o link ou descreva o cardápio.{' '}
+                    <span className="st-lead__ai">
+                      <Sparkles size={16} aria-hidden /> A IA monta o seu site.
+                    </span>
                   </>
                 ) : (
-                  <strong className="st-price__ask">Fale com a gente</strong>
+                  'Cole o link ou descreva o cardápio. O Comandou monta o resto.'
                 )}
-              </div>
-              <p className="st-price__note">
-                Valor único: não muda com o número de pessoas, produtos ou pedidos.
               </p>
-              <div className="st-price__cta">
-                <Button size="lg" onClick={toBuilder}>
-                  {days > 0 ? `Testar ${free}` : 'Testar grátis'}
-                </Button>
-                {contact && (
-                  <a
-                    className="cm-btn cm-btn--secondary cm-btn--lg"
-                    href={contact}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Falar com a gente
-                  </a>
-                )}
+              <Builder config={config} onLook={setLook} onMood={react} />
+            </div>
+            <div className="st-hero__art">
+              <div className="st-stage">
+                <div className="st-peek">
+                  <LivePanda size={120} mood={mood} title="Panda do Comandou" />
+                </div>
+                <div className="st-float">
+                  <PhoneMock look={look} />
+                </div>
+                <HeroToasts />
               </div>
             </div>
-            <ul className="st-price__list">
-              {[
-                ...INCLUDED_IN_ALL,
-                ...(plan?.featureFiscal ? ['Nota fiscal (NFC-e)'] : []),
-                ...(plan?.featureWhatsapp ? ['WhatsApp com avisos e atendente'] : []),
-                ...(plan?.featureCustomDomain ? ['Domínio próprio'] : []),
-              ].map((x, i) => (
-                <li key={x} style={{ '--i': i } as React.CSSProperties}>
-                  <Check size={16} aria-hidden />
-                  {x}
+            <a className="st-scroll" href="#sistema" aria-label="Ver o sistema">
+              <i />
+            </a>
+          </section>
+
+          <Marquee />
+
+          <section className="st-sec" id="sistema">
+            <div className="st-sec__head st-reveal">
+              <h2>Tudo numa tela só.</h2>
+            </div>
+            <div className="st-reveal">
+              <Tour dark={false} />
+            </div>
+          </section>
+
+          <section className="st-sec st-sec--tint">
+            <div className="st-sec__head st-reveal">
+              <h2>Feito para o balcão.</h2>
+            </div>
+            <Details />
+          </section>
+
+          <section className="st-sec" id="como">
+            <div className="st-sec__head st-reveal">
+              <h2>Três passos.</h2>
+            </div>
+            <ol className="st-how st-reveal">
+              {STEPS.map((s, i) => (
+                <li key={s.title} style={{ '--i': i } as React.CSSProperties}>
+                  <span className="st-how__n">{i + 1}</span>
+                  <h3>{s.title}</h3>
+                  <p>{s.text}</p>
                 </li>
               ))}
-            </ul>
-          </div>
-        </section>
+            </ol>
+          </section>
 
-        <section className="st-sec st-sec--narrow" id="perguntas">
-          <div className="st-sec__head st-reveal">
-            <h2>Perguntas.</h2>
-          </div>
-          <div className="st-faq st-reveal">
-            {SITE_FAQ.map((f) => (
-              <details key={f.q}>
-                <summary>{f.q}</summary>
-                <p>{f.a}</p>
-              </details>
-            ))}
-          </div>
-        </section>
+          <section className="st-sec st-sec--tint" id="preco">
+            <div className="st-price st-reveal">
+              <div className="st-price__left">
+                <h2>Um preço só. Tudo dentro.</h2>
+                <p>{free}, sem cartão e sem limite de pedidos.</p>
+                <div className="st-price__value">
+                  {plan ? (
+                    <>
+                      <strong>{brl(plan.priceMonthly).replace(/,00$/, '')}</strong>
+                      <span>por mês</span>
+                    </>
+                  ) : (
+                    <strong className="st-price__ask">Fale com a gente</strong>
+                  )}
+                </div>
+                <p className="st-price__note">
+                  Valor único: não muda com o número de pessoas, produtos ou pedidos.
+                </p>
+                <div className="st-price__cta">
+                  <CtaButton size="lg" onClick={toBuilder}>
+                    {days > 0 ? `Testar ${free}` : 'Testar grátis'}
+                  </CtaButton>
+                  {contact && (
+                    <a
+                      className="cm-btn cm-btn--secondary cm-btn--lg"
+                      href={contact}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Falar com a gente
+                    </a>
+                  )}
+                </div>
+              </div>
+              <ul className="st-price__list">
+                {[
+                  ...INCLUDED_IN_ALL,
+                  ...(plan?.featureFiscal ? ['Nota fiscal (NFC-e)'] : []),
+                  ...(plan?.featureWhatsapp ? ['WhatsApp com avisos e atendente'] : []),
+                  ...(plan?.featureCustomDomain ? ['Domínio próprio'] : []),
+                ].map((x, i) => (
+                  <li key={x} style={{ '--i': i } as React.CSSProperties}>
+                    <Check size={16} aria-hidden />
+                    {x}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
 
-        <section className="st-end st-reveal">
-          <div className="st-end__panda">
-            <LivePanda size={84} mood="happy" />
-          </div>
-          <h2>Vamos colocar o seu no ar?</h2>
-          <div className="st-end__cta">
-            <Button size="lg" onClick={toBuilder}>
-              Criar meu restaurante
-            </Button>
-            {config?.demoUrl && (
-              <a className="cm-btn cm-btn--secondary cm-btn--lg" href={config.demoUrl}>
-                Ver um cardápio de exemplo
-              </a>
-            )}
-          </div>
-        </section>
-      </main>
+          <section className="st-sec st-sec--narrow" id="perguntas">
+            <div className="st-sec__head st-reveal">
+              <h2>Perguntas.</h2>
+            </div>
+            <div className="st-faq st-reveal">
+              {SITE_FAQ.map((f) => (
+                <details key={f.q}>
+                  <summary>{f.q}</summary>
+                  <p>{f.a}</p>
+                </details>
+              ))}
+            </div>
+          </section>
 
-      <footer className="st-foot">
-        <div className="st-foot__in">
-          <span className="st-brand">
-            <Mascot size={24} badge />
-            <span>Comandou</span>
-          </span>
-          <nav aria-label="Rodapé">
-            <a href="#sistema">O sistema</a>
-            <a href="#preco">Preço</a>
-            <a href="#perguntas">Perguntas</a>
-            <button type="button" onClick={() => setEnter(true)}>
-              Entrar
-            </button>
-          </nav>
-          <small>Pedidos, salão, cozinha e caixa no mesmo lugar.</small>
-        </div>
-      </footer>
+          <section className="st-end st-reveal">
+            <div className="st-end__panda">
+              <LivePanda size={84} mood="happy" />
+            </div>
+            <h2>Vamos colocar o seu no ar?</h2>
+            <div className="st-end__cta">
+              <CtaButton size="lg" onClick={toBuilder}>
+                Criar meu restaurante
+              </CtaButton>
+              {config?.demoUrl && (
+                <a className="cm-btn cm-btn--secondary cm-btn--lg" href={config.demoUrl}>
+                  Ver um cardápio de exemplo
+                </a>
+              )}
+            </div>
+          </section>
+        </main>
 
-      <EnterModal open={enter} onClose={() => setEnter(false)} />
-    </div>
+        <footer className="st-foot">
+          <div className="st-foot__in">
+            <span className="st-brand">
+              <Mascot size={24} badge />
+              <span>Comandou</span>
+            </span>
+            <nav aria-label="Rodapé">
+              <a href="#sistema">O sistema</a>
+              <a href="#preco">Preço</a>
+              <a href="#perguntas">Perguntas</a>
+              <button type="button" onClick={() => setEnter(true)}>
+                Entrar
+              </button>
+            </nav>
+            <small>Pedidos, salão, cozinha e caixa no mesmo lugar.</small>
+          </div>
+        </footer>
+
+        <EnterModal open={enter} onClose={() => setEnter(false)} />
+      </div>
+    </ClickSpark>
   );
 }

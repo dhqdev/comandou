@@ -33,23 +33,48 @@ html:has(.st) {
   }
 }
 
-/* ---------------------------------------------------------------- topo */
+/* ---------------------------------------------------------------- topo (menu solto) */
+/*
+ * O menu flutua: uma pílula afastada do topo e das laterais, que fica mais compacta e ganha
+ * sombra depois de rolar. Sem gradiente; o fundo translúcido só existe aqui, sobre o conteúdo.
+ */
 .st-nav {
   position: sticky;
-  top: 0;
+  top: 12px;
   z-index: 20;
-  background: color-mix(in srgb, var(--cm-surface) 88%, transparent);
-  backdrop-filter: saturate(1.4) blur(14px);
-  -webkit-backdrop-filter: saturate(1.4) blur(14px);
-  border-bottom: 1px solid var(--cm-border);
+  margin: 12px auto 0;
+  width: min(calc(100% - 2 * var(--st-pad)), var(--st-max));
+  border: 1px solid var(--cm-border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cm-surface) 82%, transparent);
+  backdrop-filter: saturate(1.6) blur(16px);
+  -webkit-backdrop-filter: saturate(1.6) blur(16px);
+  box-shadow: 0 1px 2px rgb(24 24 27 / 4%);
+  transition:
+    box-shadow 240ms ease,
+    top 240ms ease,
+    background-color 240ms ease;
+}
+.st-nav.is-scrolled {
+  top: 8px;
+  background: color-mix(in srgb, var(--cm-surface) 92%, transparent);
+  box-shadow:
+    0 1px 2px rgb(24 24 27 / 6%),
+    0 12px 32px -16px rgb(24 24 27 / 28%);
+}
+.st-nav.is-open {
+  border-radius: 24px;
 }
 .st-nav__in {
   display: flex;
   align-items: center;
   gap: var(--cm-space-6);
-  max-width: var(--st-max);
-  margin: 0 auto;
-  padding: 10px var(--st-pad);
+  padding: 6px 6px 6px 18px;
+  transition: padding 240ms ease;
+}
+.st-nav.is-scrolled .st-nav__in {
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 .st-brand {
   display: inline-flex;
@@ -62,18 +87,25 @@ html:has(.st) {
 }
 .st-nav__links {
   display: flex;
-  gap: var(--cm-space-6);
+  gap: 4px;
   flex: 1;
+  justify-content: center;
 }
 .st-nav__links a {
+  position: relative;
+  padding: 8px 14px;
+  border-radius: 999px;
   color: var(--cm-text-muted);
   font-size: var(--cm-text-sm);
   font-weight: 500;
   text-decoration: none;
-  padding: 6px 0;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease;
 }
 .st-nav__links a:hover {
   color: var(--cm-text);
+  background: var(--cm-surface-sunken);
 }
 .st-nav__end {
   display: flex;
@@ -81,13 +113,16 @@ html:has(.st) {
   gap: var(--cm-space-2);
   margin-left: auto;
 }
+.st-nav__end .cm-btn {
+  border-radius: 999px;
+}
 .st-icon {
   display: grid;
   place-items: center;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border: 0;
-  border-radius: var(--cm-radius-md);
+  border-radius: 999px;
   background: transparent;
   color: var(--cm-text-muted);
   cursor: pointer;
@@ -96,14 +131,111 @@ html:has(.st) {
   background: var(--cm-btn-fill);
   color: var(--cm-text);
 }
+.st-nav__menu {
+  display: none;
+}
+.st-nav__sheet {
+  display: grid;
+  gap: 2px;
+  padding: 4px 10px 12px;
+  transform-origin: top center;
+  animation: st-sheet-in 220ms var(--cm-spring-snappy) both;
+}
+.st-nav__sheet[hidden] {
+  display: none;
+}
+.st-nav__sheet a,
+.st-nav__sheet > button:not(.cm-btn) {
+  display: block;
+  min-height: 46px;
+  padding: 12px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.st-nav__sheet a:active,
+.st-nav__sheet > button:not(.cm-btn):active {
+  background: var(--cm-surface-sunken);
+}
+.st-nav__sheet .cm-btn {
+  margin-top: 8px;
+  border-radius: 999px;
+}
+@keyframes st-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
 @media (max-width: 860px) {
   .st-nav__links {
     display: none;
   }
+  .st-nav__menu {
+    display: grid;
+  }
+}
+@media (min-width: 861px) {
+  .st-nav__sheet {
+    display: none !important;
+  }
 }
 @media (max-width: 520px) {
-  .st-nav__cta {
+  .st-nav__cta,
+  .st-nav__end .st-magnet,
+  .st-nav__enter {
     display: none;
+  }
+}
+
+/*
+ * Botão físico (no estilo dos elementos do Uiverse, licença MIT): uma borda de baixo mais escura
+ * dá volume; ao apertar, o botão desce até ela e volta com a mola.
+ */
+.st .cm-btn--primary.st-press {
+  box-shadow: 0 3px 0 0 var(--cm-brand-800, #8f2300);
+  transform: translateY(0);
+  transition:
+    transform 180ms var(--cm-spring-snappy),
+    box-shadow 180ms var(--cm-spring-snappy),
+    background-color 120ms ease;
+}
+.st .cm-btn--primary.st-press:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 0 0 var(--cm-brand-800, #8f2300);
+}
+.st .cm-btn--primary.st-press:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 0 var(--cm-brand-800, #8f2300);
+  transition-duration: 60ms;
+}
+.st-magnet {
+  display: inline-flex;
+}
+
+/* Cartões com holofote (React Bits › SpotlightCard) no visual do site. */
+.st-card.spotlight-card {
+  border: 0;
+  padding: 10px 10px 22px;
+  border-radius: 18px;
+  background-color: var(--cm-surface);
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-nav,
+  .st-nav__in,
+  .st .cm-btn--primary.st-press {
+    transition: none;
+  }
+  .st-nav__sheet {
+    animation: none;
   }
 }
 

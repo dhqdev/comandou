@@ -200,6 +200,30 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
   /** Cria o restaurante de teste. Devolve o login (uma única vez) e o token para acompanhar. */
   async create(b: TrialInput, ip: string | undefined) {
     if (!this.db.enabled) throw new ServiceUnavailableException('Cadastro indisponível agora');
+    // Um cadastro por e-mail de cada vez: dois cliques (ou duas abas) ao mesmo tempo passariam
+    // juntos pela conferência de "já existe" e criariam dois restaurantes. A trava é do banco,
+    // então vale entre réplicas, e solta sozinha se a conexão cair.
+    const lock = await this.db.pool!.connect();
+    try {
+      const { rows } = await lock.query<{ ok: boolean }>(
+        `SELECT pg_try_advisory_lock(hashtext($1)) AS ok`,
+        [`comandou:trial:${b.email}`],
+      );
+      if (!rows[0]?.ok)
+        throw new ConflictException(
+          'Já estamos criando um teste com este e-mail. Aguarde alguns segundos.',
+        );
+      try {
+        return await this.createLocked(b, ip);
+      } finally {
+        await lock.query(`SELECT pg_advisory_unlock(hashtext($1))`, [`comandou:trial:${b.email}`]);
+      }
+    } finally {
+      lock.release();
+    }
+  }
+
+  private async createLocked(b: TrialInput, ip: string | undefined) {
     const s = await this.settingsRow();
     const plan = await this.sitePlan();
     if (!s.signup_enabled || !plan || plan.trial_days <= 0)
