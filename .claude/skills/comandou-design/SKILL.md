@@ -28,6 +28,15 @@ Visual de **sistema de trabalho**: sóbrio, limpo e confortável para turnos lon
 - Use `TextField`, `SelectField`, `CheckField`; não monte `<label>` na mão.
 - Troca de tema: fade de cores (`switchTheme`), nunca captura de tela nem onda em tela cheia.
 
+## Telas de entrada (AuthShell)
+
+Única exceção no sistema: atrás do login (restaurante, garçom, cozinha, entregas e Super Admin) roda
+o `LoginBackdrop` (`pages/LoginBackdrop.tsx`): `Aurora` do React Bits (`pages/reactbits/Aurora.tsx`,
+passado do `ogl` para WebGL puro, sem dependência nova) na cor `--cm-brand-500` da loja, grade de
+pontos e brilho atrás dos campos. Meia resolução, quadro parado com "reduzir movimento", degradê
+em CSS sem WebGL; no tema claro a cor sai pura (`flat`) e mais leve. Os campos e o botão seguem o
+padrão; não ponha cartão nem vidro em volta deles.
+
 ## Site público (comandou.com) e páginas do site
 
 O site (`apps/web/src/site`) vende o sistema, então tem mais movimento que as telas de trabalho. As

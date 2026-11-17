@@ -1,12 +1,14 @@
 import { Eye, EyeOff } from 'lucide-react';
 import { InputHTMLAttributes, KeyboardEvent, ReactNode, useEffect, useState } from 'react';
 import { BRAND_CACHED_EVENT, cachedBranding, Logo, TextField } from '../design-system';
+import { LoginBackdrop } from './LoginBackdrop';
 import './login.css';
 
 /**
  * Moldura de todas as telas de entrada (restaurante, garçom, cozinha, entregas e Super Admin):
  * minimalista, uma coluna só no meio da tela, com a marca em cima e os campos logo abaixo. Sem
- * mascote, frase ou painel do lado. No restaurante a marca é a logo e o nome da loja.
+ * mascote, frase ou painel do lado. No restaurante a marca é a logo e o nome da loja. Atrás, o
+ * fundo animado na cor da marca (LoginBackdrop).
  */
 export function AuthShell(props: {
   /** Marca no topo; sem ela, o logo do Comandou. */
@@ -22,6 +24,7 @@ export function AuthShell(props: {
 }) {
   return (
     <div className="login">
+      <LoginBackdrop />
       <main className="login__body">
         <div className="login__brand">{props.brand ?? <Logo size={36} />}</div>
         <h1 className="cm-sr-only">{props.title}</h1>

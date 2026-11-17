@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.146.0',
+    date: '2026-11-17',
+    title: 'Tela de entrada com fundo animado',
+    summary:
+      'A tela de entrada ganhou um fundo vivo: uma aurora na cor do restaurante descendo do topo, uma grade de pontinhos e um brilho suave atrás dos campos. Vale para o login da equipe, do garçom, da cozinha, das entregas e do Super Admin, no claro e no escuro.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Fundo animado na tela de entrada, sempre na cor da marca da loja (a logo e o botão continuam iguais).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Leve no celular: desenha em resolução reduzida, para quando a aba some e fica parado para quem pediu menos movimento no aparelho. Sem suporte a WebGL, aparece um degradê parado.',
+      },
+    ],
+  },
+  {
     version: '0.145.0',
     date: '2026-11-17',
     title: 'Fechamento de caixa, conciliação bancária e DRE',
