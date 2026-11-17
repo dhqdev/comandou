@@ -1,6 +1,6 @@
 {
   "name": "@comandou/api",
-  "version": "0.141.0",
+  "version": "0.142.0",
   "private": true,
   "description": "API NestJS do Comandou (monólito modular).",
   "scripts": {
@@ -32,12 +32,10 @@
     "helmet": "^8.1.0",
     "liquidjs": "10.30.0",
     "nestjs-pino": "^4.4.0",
-    "nodemailer": "^10.6.0",
     "pdf-lib": "1.17.1",
     "pg": "^8.16.0",
     "pino": "^9.7.0",
     "pino-http": "^10.5.0",
-    "postal-mime": "^4.2.1",
     "prom-client": "^15.1.3",
     "redis": "^4.7.1",
     "reflect-metadata": "^0.2.2",
@@ -51,7 +49,6 @@
     "@types/cookie-parser": "^1.4.9",
     "@types/express": "^5.0.3",
     "@types/node": "^22.15.0",
-    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.15.0",
     "@types/supertest": "^6.0.3",
     "socket.io-client": "^4.8.4",

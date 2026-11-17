@@ -52,10 +52,9 @@ exceções, só no site:
 
 ## Super Admin › E-mail
 
-`apps/web/src/platform/mail/` (`mail.css` só com tokens): três colunas (pastas, conversas,
-leitura) que no celular viram uma de cada vez. O HTML de e-mail recebido abre **só** em
-`HtmlFrame` (moldura `sandbox` sem `allow-scripts`, documento montado pela API com CSP), nunca
-com `dangerouslySetInnerHTML`. Ícones de ação com 36 px (44 px no celular) e `aria-label`.
+`apps/web/src/platform/mail/` (`mail.css` só com tokens): duas abas, **Resend** (formulário
+`cm-form` com a chave, o remetente e o e-mail de teste) e **Envios** (tabela `cm-table` com
+reenviar e cancelar). Não há mais caixas, agenda nem agendamento.
 
 ## Antes de entregar
 

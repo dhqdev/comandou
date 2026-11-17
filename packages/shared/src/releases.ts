@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.142.0',
+    date: '2026-11-17',
+    title: 'E-mail só pelo Resend',
+    summary:
+      'A aba E-mail do Super Admin ficou enxuta: só a configuração do Resend e o histórico de envios. Boas-vindas do teste, código de nova senha e contratos continuam saindo normalmente pelo Resend.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Super Admin › E-mail: só as abas Resend (chave, remetente e e-mail de teste) e Envios (reenviar e cancelar).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Saíram as caixas de e-mail do domínio, o recebimento pela Cloudflare, a agenda, a página pública de agendamento e os envios pela Cloudflare e por SMTP.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Menos superfície exposta: a rota de recebimento de e-mail e a página pública de agendamento não existem mais, e as chaves antigas da Cloudflare e do SMTP são apagadas ao salvar o Resend.',
+      },
+    ],
+  },
+  {
     version: '0.141.0',
     date: '2026-11-17',
     title: 'E-mail próprio no Super Admin, sem n8n',

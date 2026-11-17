@@ -29,35 +29,3 @@ export function normalizeMessageId(v: string | null | undefined): string | null 
   if (!s || s.length > 990 || /[\s<>]/.test(s)) return null;
   return `<${s}>`;
 }
-
-/** "a@x.com, Fulano <b@y.com>" → lista sem repetidos; o que não for e-mail fica de fora. */
-export function parseAddressList(raw: string): Address[] {
-  const out: Address[] = [];
-  const seen = new Set<string>();
-  for (const part of raw.split(/[,;\n]+/)) {
-    const p = part.trim();
-    if (!p) continue;
-    const m = /^(.*)<([^<>]+)>\s*$/.exec(p);
-    const email = (m ? m[2]! : p).trim().toLowerCase();
-    const name = m
-      ? cleanHeader(m[1]!)
-          .replace(/^["']|["']$/g, '')
-          .trim()
-      : '';
-    if (!isEmail(email) || seen.has(email)) continue;
-    seen.add(email);
-    out.push(name ? { email, name: name.slice(0, 120) } : { email });
-  }
-  return out;
-}
-
-/** Remove repetidos (sem diferenciar maiúsculas) mantendo a ordem. */
-export function uniqueAddresses(list: Address[], skip: string[] = []): Address[] {
-  const seen = new Set(skip.map((s) => s.toLowerCase()));
-  return list.filter((a) => {
-    const k = a.email.toLowerCase();
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
-}

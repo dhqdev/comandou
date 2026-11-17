@@ -385,18 +385,6 @@ function PlatformShell() {
     };
   }, []);
 
-  // E-mails novos na entrada: bolinha no "E-mail".
-  const [mailUnread, setMailUnread] = useState(0);
-  useEffect(() => {
-    const load = () =>
-      api<{ unread: number }>('/platform/mail/unread')
-        .then((r) => setMailUnread(r.unread))
-        .catch(() => undefined);
-    void load();
-    const t = setInterval(() => !document.hidden && void load(), 60_000);
-    return () => clearInterval(t);
-  }, [pathname]);
-
   const refresh = () => {
     setTick((t) => t + 1);
     setSpinning(true);
@@ -413,7 +401,7 @@ function PlatformShell() {
     label,
     short,
     icon: <Icon />,
-    dot: (to === '/conversas' && supportUnread > 0) || (to === '/email' && mailUnread > 0),
+    dot: to === '/conversas' && supportUnread > 0,
   }));
   const account = (
     <div className="account">

@@ -15,12 +15,12 @@ financeiro, nota fiscal, WhatsApp e o painel Super Admin (`admin.<domínio>`), m
 | --- | --- |
 | `apps/api/src/<módulo>` | NestJS 11. Guards globais: limite → CSRF → restaurante (Host) → sessão → permissão → cobrança. Painel: `PlatformHostGuard` + `PlatformSessionGuard`. |
 | `apps/api/db/migrations/NNNN_*.sql` | Migrações versionadas, **só aditivas**; nunca edite uma já aplicada (checksum). Tabela de restaurante: `tenant_id` + RLS. Tabela do painel: `ENABLE RLS` + política `platform_all TO comandou_platform`. |
-| `apps/api/src/mail/` | E-mail próprio (fila `mail_outbox`, provedores, caixas, agenda, agendamento). Guia: `docs/email.md`. |
+| `apps/api/src/mail/` | E-mail próprio: fila `mail_outbox` que entrega **só pelo Resend** e a tela Super Admin › E-mail (Resend + Envios). Caixas, agenda, agendamento, Cloudflare e SMTP foram retirados na 0.142 (tabelas antigas seguem no banco, sem uso). Guia: `docs/email.md`. |
 | `apps/web/src/platform/` | Super Admin (uma tela por arquivo, carregada sob demanda em `PlatformApp.tsx`; menu em `NAV`). |
 | `apps/web/src/site/` | Site público (sempre claro, React Bits em `site/reactbits/`). |
 | `apps/web/src/pages`, `features`, `design-system` | App do restaurante e o Design System (tokens em `design-system/tokens.css`). |
 | `packages/shared` | Regras comuns e `releases.ts` (tela Novidades). |
-| `infrastructure/` | Dockerfiles, Nginx, Traefik, Swarm, CrowdSec, monitoramento e `cloudflare/email-worker`. |
+| `infrastructure/` | Dockerfiles, Nginx, Traefik, Swarm, CrowdSec, monitoramento. |
 | `docs/` | Arquitetura, ADRs, operação, segurança, auditorias, guias (site, e-mail, contratos, cobrança). |
 
 ## Regras que quebram o CI se esquecer

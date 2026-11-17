@@ -62,7 +62,7 @@ export function OutboxTab() {
       )}
       <Section
         title="Envios"
-        sub="Boas-vindas, códigos de senha, contratos, convites e as caixas"
+        sub="Boas-vindas, códigos de senha e contratos"
         actions={
           <div className="mail__filters" role="group" aria-label="Filtrar">
             {FILTERS.map(([v, l]) => (

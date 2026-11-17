@@ -2,46 +2,37 @@ import { useLocation, useNavigate } from 'react-router';
 import { Alert, Card, Spinner } from '../../design-system';
 import { useLoad } from '../OverviewPages';
 import { PageHead, Tabs } from '../ui';
-import { BookingTab } from './Booking';
-import { CalendarTab } from './Calendar';
-import { InboxTab } from './Inbox';
 import './mail.css';
 import { OutboxTab } from './Outbox';
 import { SettingsTab } from './Settings';
 import type { Overview } from './types';
 
-type Part = 'caixas' | 'agenda' | 'agendamento' | 'envios' | 'configurar';
+type Part = 'resend' | 'envios';
 
 const PARTS: [Part, string][] = [
-  ['caixas', 'Caixas'],
-  ['agenda', 'Agenda'],
-  ['agendamento', 'Agendamento'],
+  ['resend', 'Resend'],
   ['envios', 'Envios'],
-  ['configurar', 'Configurar'],
 ];
 
-export const mailPath = (p: Part) => (p === 'caixas' ? '/email' : `/email/${p}`);
+export const mailPath = (p: Part) => (p === 'resend' ? '/email' : `/email/${p}`);
 
 /**
- * Super Admin › E-mail: caixas do domínio (ler, escrever, responder), agenda com convites,
- * página pública de agendamento, envios do sistema e a configuração (provedor, domínios,
- * caixas, regras e recebimento pela Cloudflare). Guia: docs/email.md.
+ * Super Admin › E-mail: a configuração do Resend (por onde saem todos os e-mails do sistema) e
+ * os envios, com reenviar e cancelar. Guia: docs/email.md.
  */
 export function MailPage() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  // Segmento inteiro: "/email/agendamento" não pode cair em "agenda".
   const segment = pathname.split('/')[2] ?? '';
-  const part: Part = PARTS.find(([p]) => p === segment)?.[0] ?? 'caixas';
+  const part: Part = PARTS.find(([p]) => p === segment)?.[0] ?? 'resend';
   const overview = useLoad<Overview>('/platform/mail');
   const data = overview.data;
-  const needsSetup = data && (!data.settings.ready || !data.mailboxes.length);
   return (
     <>
       <PageHead
         page
         title="E-mail"
-        sub="Caixas do seu domínio, agenda, agendamento e todos os e-mails que o sistema manda"
+        sub="Boas-vindas, códigos de senha e contratos saem pelo Resend"
       />
       <div className="adm-infra-tabs">
         <Tabs value={part} onChange={(p) => navigate(mailPath(p))} items={PARTS} />
@@ -53,25 +44,18 @@ export function MailPage() {
         </Card>
       ) : (
         <>
-          {needsSetup && part !== 'configurar' && (
+          {!data.settings.ready && part !== 'resend' && (
             <Alert tone="info">
-              {!data.settings.ready
-                ? 'O envio ainda não está configurado: nenhum e-mail do sistema sai até escolher o provedor. '
-                : 'Nenhuma caixa criada ainda. '}
-              <button
-                type="button"
-                className="mail-link"
-                onClick={() => navigate('/email/configurar')}
-              >
-                Abrir Configurar
+              O Resend ainda não está configurado: nenhum e-mail do sistema sai.{' '}
+              <button type="button" className="mail-link" onClick={() => navigate('/email')}>
+                Configurar
               </button>
             </Alert>
           )}
-          {part === 'caixas' && <InboxTab overview={data} onChanged={overview.reload} />}
-          {part === 'agenda' && <CalendarTab mailboxes={data.mailboxes} />}
-          {part === 'agendamento' && <BookingTab mailboxes={data.mailboxes} />}
+          {part === 'resend' && (
+            <SettingsTab settings={data.settings} onChanged={overview.reload} />
+          )}
           {part === 'envios' && <OutboxTab />}
-          {part === 'configurar' && <SettingsTab overview={data} onChanged={overview.reload} />}
         </>
       )}
     </>

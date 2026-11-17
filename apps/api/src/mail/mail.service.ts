@@ -17,49 +17,40 @@ import {
   MailSendError,
   OutgoingAttachment,
   ProviderConfig,
-  ProviderName,
   sendThrough,
 } from './providers';
 
 /** Contextos das chaves cifradas (um valor cifrado para uma coisa não abre como outra). */
 export const MAIL_SECRET = {
-  cloudflare: 'mail:cloudflare-token',
   resend: 'mail:resend-key',
-  smtp: 'mail:smtp-pass',
-  inbound: 'mail:inbound-secret',
   body: (id: string) => `mail:outbox:${id}`,
 } as const;
 
 /** Espera entre as tentativas: 1 min, 5 min, 15 min, 1 h, 3 h. Depois disso, falhou. */
 export const RETRY_MINUTES = [1, 5, 15, 60, 180];
 export const MAX_ATTEMPTS = RETRY_MINUTES.length + 1;
-/** Anexos de um e-mail somados (o limite dos provedores é 25 MB com a codificação). */
+/** Anexos de um e-mail somados (o limite do Resend é 40 MB com a codificação). */
 export const MAX_ATTACHMENTS_BYTES = 15 * 1024 * 1024;
 const KEEP_DAYS = 90;
 
+/**
+ * Linha única de `mail_settings`. A tabela ainda tem as colunas da Cloudflare, do SMTP e do
+ * recebimento (versões até 0.141); o Comandou agora só usa o Resend e ignora o resto.
+ */
 export interface SettingsRow {
-  provider: 'none' | ProviderName;
+  /** Outro valor antigo ('cloudflare', 'smtp') conta como desligado. */
+  provider: string;
   from_address: string;
   from_name: string;
   reply_to: string;
-  cf_account_id: string;
-  cf_token_enc: Buffer | null;
   resend_key_enc: Buffer | null;
-  smtp_host: string;
-  smtp_port: number;
-  smtp_secure: boolean;
-  smtp_user: string;
-  smtp_pass_enc: Buffer | null;
-  inbound_secret_enc: Buffer | null;
   updated_at: Date;
 }
 
 export interface QueueInput {
-  /** trial.welcome, customer.password_reset, contract.send, mailbox, calendar.invite, test... */
+  /** trial.welcome, customer.password_reset, contract.send, test... */
   kind: string;
   tenantId?: string | null;
-  /** Mensagem da caixa que este envio representa. */
-  messageId?: string | null;
   /** Sem endereço: o remetente padrão. Só o nome: "Restaurante X" <remetente padrão>. */
   from?: { address?: string; name?: string };
   replyTo?: string;
@@ -79,7 +70,6 @@ export interface QueueInput {
 interface OutboxRow {
   id: string;
   kind: string;
-  message_id: string | null;
   from_address: string;
   from_name: string;
   reply_to: string;
@@ -102,12 +92,12 @@ export interface DeliveryResult {
   queued?: boolean;
 }
 
-const CLAIM_COLS = `id, kind, message_id, from_address::text AS from_address, from_name, reply_to,
+const CLAIM_COLS = `id, kind, from_address::text AS from_address, from_name, reply_to,
   recipients, subject, html, body_text, body_enc, sensitive, headers, rfc_id, attempts`;
 
 /**
- * Envio de e-mail do próprio Comandou. Quem precisa mandar um e-mail (boas-vindas do teste,
- * código de nova senha, contrato, convite) chama `enqueue` dentro da própria transação: o e-mail
+ * Envio de e-mail do próprio Comandou, pelo Resend. Quem precisa mandar um e-mail (boas-vindas do
+ * teste, código de nova senha, contrato) chama `enqueue` dentro da própria transação: o e-mail
  * só existe se a operação valer. A entrega acontece em seguida, fora da transação, e o que falhar
  * por problema passageiro é tentado de novo sozinho. Várias réplicas da API podem rodar a fila ao
  * mesmo tempo: cada e-mail é "pego" por uma só.
@@ -143,14 +133,13 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
 
   async settingsRow(c?: PoolClient): Promise<SettingsRow> {
     const sql = `SELECT provider, from_address::text AS from_address, from_name,
-        reply_to::text AS reply_to, cf_account_id, cf_token_enc, resend_key_enc, smtp_host,
-        smtp_port, smtp_secure, smtp_user, smtp_pass_enc, inbound_secret_enc, updated_at
+        reply_to::text AS reply_to, resend_key_enc, updated_at
       FROM mail_settings WHERE id`;
     const rows = c ? (await c.query<SettingsRow>(sql)).rows : await this.db.query<SettingsRow>(sql);
     return rows[0]!;
   }
 
-  /** Dá para enviar? (provedor escolhido, com chave, e remetente definido). */
+  /** Dá para enviar? (Resend ligado, com chave, e remetente definido). */
   async ready(): Promise<boolean> {
     if (!this.db.enabled) return false;
     try {
@@ -170,36 +159,11 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
-  /** Configuração do provedor com a chave aberta, ou null se falta algo. */
+  /** Configuração do Resend com a chave aberta, ou null se está desligado ou falta a chave. */
   providerOf(s: SettingsRow): ProviderConfig | null {
-    if (s.provider === 'cloudflare') {
-      const token = this.reveal(s.cf_token_enc, MAIL_SECRET.cloudflare);
-      return s.cf_account_id && token
-        ? { provider: 'cloudflare', accountId: s.cf_account_id, token }
-        : null;
-    }
-    if (s.provider === 'resend') {
-      const apiKey = this.reveal(s.resend_key_enc, MAIL_SECRET.resend);
-      return apiKey ? { provider: 'resend', apiKey } : null;
-    }
-    if (s.provider === 'smtp') {
-      if (!s.smtp_host) return null;
-      const pass = this.reveal(s.smtp_pass_enc, MAIL_SECRET.smtp) ?? '';
-      if (s.smtp_user && !pass) return null;
-      return {
-        provider: 'smtp',
-        host: s.smtp_host,
-        port: s.smtp_port,
-        secure: s.smtp_secure,
-        user: s.smtp_user,
-        pass,
-      };
-    }
-    return null;
-  }
-
-  inboundSecret(s: SettingsRow): string | null {
-    return this.reveal(s.inbound_secret_enc, MAIL_SECRET.inbound);
+    if (s.provider !== 'resend') return null;
+    const apiKey = this.reveal(s.resend_key_enc, MAIL_SECRET.resend);
+    return apiKey ? { provider: 'resend', apiKey } : null;
   }
 
   /**
@@ -234,14 +198,13 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
       if (/^[A-Za-z0-9-]{1,100}$/.test(k) && v) headers[k] = cleanHeader(v).slice(0, 2000);
     const run = async (q: PoolClient) => {
       await q.query(
-        `INSERT INTO mail_outbox (id, kind, tenant_id, message_id, from_address, from_name, reply_to,
+        `INSERT INTO mail_outbox (id, kind, tenant_id, from_address, from_name, reply_to,
                                   recipients, subject, html, body_text, body_enc, sensitive, headers, rfc_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
         [
           id,
           m.kind.slice(0, 60),
           m.tenantId ?? null,
-          m.messageId ?? null,
           m.from?.address && isEmail(m.from.address) ? m.from.address.toLowerCase() : '',
           cleanHeader(m.from?.name ?? '').slice(0, 200),
           m.replyTo && isEmail(m.replyTo) ? m.replyTo : '',
@@ -329,7 +292,7 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
       const cfg = this.providerOf(s);
       if (!cfg || !s.from_address)
         throw new MailSendError(
-          'O envio de e-mail não está configurado (Super Admin › E-mail)',
+          'O envio de e-mail não está configurado (Super Admin › E-mail › Resend)',
           false,
         );
       let html = r.html ?? undefined;
@@ -349,8 +312,8 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
         data: Buffer;
       }>(
         `SELECT filename, content_type, content_id, data FROM mail_attachments
-          WHERE ${r.message_id ? 'message_id = $1' : 'outbox_id = $1'} ORDER BY created_at, id`,
-        [r.message_id ?? r.id],
+          WHERE outbox_id = $1 ORDER BY created_at, id`,
+        [r.id],
       );
       const from = r.from_address || s.from_address;
       const rfcId =
@@ -378,23 +341,15 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
         this.fetcher,
       );
       const finalId = sent.rfcId ?? rfcId;
-      await this.db.tx(async (c) => {
-        await c.query(
-          `UPDATE mail_outbox SET status = 'sent', sent_at = now(), locked_at = NULL, last_error = NULL,
-                  provider = $2, provider_id = $3, rfc_id = $4,
-                  html = CASE WHEN sensitive THEN NULL ELSE html END,
-                  body_text = CASE WHEN sensitive THEN NULL ELSE body_text END,
-                  body_enc = NULL
-            WHERE id = $1`,
-          [r.id, cfg.provider, sent.providerId?.slice(0, 300) ?? null, finalId],
-        );
-        if (r.message_id)
-          await c.query(
-            `UPDATE mail_messages SET send_status = 'sent', send_error = NULL, rfc_id = $2,
-                    sent_at = now() WHERE id = $1`,
-            [r.message_id, finalId],
-          );
-      });
+      await this.db.query(
+        `UPDATE mail_outbox SET status = 'sent', sent_at = now(), locked_at = NULL, last_error = NULL,
+                provider = $2, provider_id = $3, rfc_id = $4,
+                html = CASE WHEN sensitive THEN NULL ELSE html END,
+                body_text = CASE WHEN sensitive THEN NULL ELSE body_text END,
+                body_enc = NULL
+          WHERE id = $1`,
+        [r.id, cfg.provider, sent.providerId?.slice(0, 300) ?? null, finalId],
+      );
       return { id: r.id, ok: true };
     } catch (e) {
       const err = e as Error;
@@ -403,23 +358,16 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
       const message = (err.message || 'Erro ao enviar').slice(0, 480);
       const wait = RETRY_MINUTES[Math.min(r.attempts, RETRY_MINUTES.length) - 1] ?? 180;
       await this.db
-        .tx(async (c) => {
-          await c.query(
-            `UPDATE mail_outbox SET status = $2, locked_at = NULL, last_error = $3,
-                    next_attempt_at = now() + make_interval(mins => $4::int),
-                    -- Desistiu: o que tinha senha ou código não fica guardado.
-                    html = CASE WHEN $5::boolean AND sensitive THEN NULL ELSE html END,
-                    body_text = CASE WHEN $5::boolean AND sensitive THEN NULL ELSE body_text END,
-                    body_enc = CASE WHEN $5::boolean THEN NULL ELSE body_enc END
-              WHERE id = $1`,
-            [r.id, gaveUp ? 'failed' : 'queued', message, wait, gaveUp],
-          );
-          if (r.message_id)
-            await c.query(
-              `UPDATE mail_messages SET send_status = $2, send_error = $3 WHERE id = $1`,
-              [r.message_id, gaveUp ? 'failed' : 'queued', message],
-            );
-        })
+        .query(
+          `UPDATE mail_outbox SET status = $2, locked_at = NULL, last_error = $3,
+                  next_attempt_at = now() + make_interval(mins => $4::int),
+                  -- Desistiu: o que tinha senha ou código não fica guardado.
+                  html = CASE WHEN $5::boolean AND sensitive THEN NULL ELSE html END,
+                  body_text = CASE WHEN $5::boolean AND sensitive THEN NULL ELSE body_text END,
+                  body_enc = CASE WHEN $5::boolean THEN NULL ELSE body_enc END
+            WHERE id = $1`,
+          [r.id, gaveUp ? 'failed' : 'queued', message, wait, gaveUp],
+        )
         .catch(() => undefined);
       this.logger.warn(
         `e-mail ${r.kind} ${gaveUp ? 'falhou' : 'vai ser tentado de novo'}: ${message}`,

@@ -86,13 +86,10 @@ Onde o dono da plataforma cria restaurantes (cada um com banco próprio), acompa
 cobrança, contratos, servidor, backups e auditoria. Entrada com senha e código do aplicativo
 autenticador.
 
-**E-mail próprio, sem n8n.** A aba **E-mail** tem as caixas do seu domínio (`contato@`,
-`vendas@`...) para ler, responder, encaminhar e anexar, com regras, contatos e resposta
-automática; uma **agenda** com convites que os clientes respondem pelo Gmail ou Outlook; e
-**páginas de agendamento** (`/agendar/<endereço>`) para marcar demonstrações sem troca de
-mensagens. Todo e-mail do sistema (boas-vindas do teste, código de nova senha, contratos,
-convites) sai por uma fila que tenta de novo sozinha, pela Cloudflare, pelo Resend ou por SMTP. O
-que chega vem pelo Email Routing da Cloudflare. Passo a passo em [docs/email.md](docs/email.md).
+**E-mail próprio, sem n8n.** Todo e-mail do sistema (boas-vindas do teste, código de nova
+senha, contratos) sai pelo **Resend**, por uma fila que tenta de novo sozinha. A aba **E-mail**
+tem a configuração do Resend, o e-mail de teste e o histórico de envios, com reenviar e
+cancelar. Passo a passo em [docs/email.md](docs/email.md).
 
 <p align="center">
   <img src="docs/assets/screens/admin-restaurantes.webp" width="72%" alt="Lista de restaurantes no painel Super Admin" />
@@ -111,8 +108,8 @@ que chega vem pelo Email Routing da Cloudflare. Passo a passo em [docs/email.md]
 | **Entregas** | Áreas desenhadas no mapa (bairro ou raio) com taxa e pedido mínimo, painel do entregador com login ou link, rastreio para o cliente |
 | **Retaguarda** | Equipe e papéis, estoque com ficha técnica e custo médio, contas a pagar e receber, conciliação, relatórios com exportação para Excel |
 | **Impressão** | App Comandou Impressão (Windows, Mac e Linux) para impressoras térmicas por rede/Wi-Fi, USB, serial e Bluetooth, com modelos de comanda editáveis |
-| **Integrações** | NFC-e pela Focus NFe, avisos ao cliente pelo WhatsApp (QR Code ou API oficial), e-mail próprio (Cloudflare, Resend ou SMTP), filas com novas tentativas |
-| **Plataforma** | Painel Super Admin com dois fatores, banco de dados próprio por restaurante, planos e limites, domínio próprio, contratos com assinatura eletrônica, caixas de e-mail, agenda e agendamento, site público com teste grátis, atualização pelo painel, backups cifrados no Backblaze B2 com teste de restauração |
+| **Integrações** | NFC-e pela Focus NFe, avisos ao cliente pelo WhatsApp (QR Code ou API oficial), e-mail próprio pelo Resend, filas com novas tentativas |
+| **Plataforma** | Painel Super Admin com dois fatores, banco de dados próprio por restaurante, planos e limites, domínio próprio, contratos com assinatura eletrônica, e-mail pelo Resend, site público com teste grátis, atualização pelo painel, backups cifrados no Backblaze B2 com teste de restauração |
 
 O histórico de versões aparece no próprio sistema, na tela **Novidades**.
 
@@ -172,7 +169,7 @@ Quem trabalha com o Claude Code no projeto tem as skills em [`.claude/skills`](.
 | Backend | NestJS 11 + TypeScript (monólito modular), filas BullMQ, Socket.IO |
 | Banco | PostgreSQL 16, um banco por restaurante, Row-Level Security, migrações SQL versionadas |
 | Cache e filas | Redis |
-| E-mail | Fila própria no PostgreSQL; envio pela Cloudflare Email Sending, Resend ou SMTP (nodemailer); recebimento pelo Cloudflare Email Routing + Worker; leitura com postal-mime |
+| E-mail | Fila própria no PostgreSQL com novas tentativas; envio pela API do Resend |
 | Frontend | React 19 + Vite 7 + TypeScript, Design System próprio (claro e escuro), PWA; site público sempre claro, com animações do React Bits e do Uiverse |
 | Borda | Traefik (TLS e roteamento por endereço) → Nginx (arquivos estáticos) e NestJS (`/api`) |
 | Infra | Docker, Compose (desenvolvimento), Swarm + Portainer (produção), imagens amd64 e arm64 |
@@ -194,8 +191,7 @@ packages/
 tools/
   print-agent/        agente de impressão que roda no computador do restaurante
   load/               testes de carga
-infrastructure/       Dockerfiles, Nginx, Traefik, stack do Swarm, backups, alertas e o Worker
-                      de e-mail da Cloudflare (cloudflare/email-worker)
+infrastructure/       Dockerfiles, Nginx, Traefik, stack do Swarm, backups e alertas
 scripts/              instalação, checagem pré-produção, saúde
 docs/                 arquitetura, decisões (ADR), operação, deploy, testes
 ```
@@ -204,7 +200,7 @@ docs/                 arquitetura, decisões (ADR), operação, deploy, testes
 
 - [Arquitetura](docs/architecture.md) · [Roadmap](docs/roadmap.md) · [Riscos](docs/risks.md) · [Decisões (ADR)](docs/decisions/README.md)
 - [Desenvolvimento local](docs/development.md) · [Testes](docs/testing.md) · [Carga](docs/load-testing.md)
-- [Site público e teste grátis](docs/site.md) · [E-mail, agenda e agendamento](docs/email.md) · [Contratos](docs/contratos.md) · [Cobrança](docs/cobranca.md)
+- [Site público e teste grátis](docs/site.md) · [E-mail (Resend)](docs/email.md) · [Contratos](docs/contratos.md) · [Cobrança](docs/cobranca.md)
 - [Instalação](docs/install.md) · [Deploy](docs/deploy.md) · [Operação](docs/operations.md) · [Backups e restauração](docs/backups.md) · [Segurança](docs/security.md) · [Auditoria de 2026-11](docs/auditoria-2026-11.md) · [CrowdSec](docs/crowdsec.md)
 
 ## Licença

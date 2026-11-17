@@ -55,10 +55,6 @@ const SiteApp = lazyPage(
   () => import('../site/SiteApp'),
   (m) => m.SiteApp,
 );
-const BookingPublicPage = lazyPage(
-  () => import('../site/BookingPublic'),
-  (m) => m.BookingPublicPage,
-);
 const PlatformApp = lazyPage(
   () => import('../platform/PlatformApp'),
   (m) => m.PlatformApp,
@@ -87,15 +83,6 @@ export function App() {
   // comandou.com e www: o site público (página de vendas e cadastro do teste). /precos segue
   // sendo a página de planos.
   if (host === 'pending') return <PageLoading />;
-  // Página pública de agendamento (Super Admin › E-mail › Agendamento), no endereço do site.
-  const booking =
-    host === 'site' ? /^\/agendar\/([a-z0-9-]{3,50})\/?$/.exec(window.location.pathname) : null;
-  if (booking)
-    return (
-      <Suspense fallback={<PageLoading />}>
-        <BookingPublicPage slug={booking[1]!} />
-      </Suspense>
-    );
   if (host === 'site' && !/^\/pre[cç]os\/?$/.test(decodeURI(window.location.pathname))) {
     return (
       <>

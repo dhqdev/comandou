@@ -37,8 +37,6 @@ export async function createApp(
   app.useBodyParser('raw', { type: ['model/gltf-binary', 'model/vnd.usdz+zip'], limit: '12mb' });
   // Migrar cliente: blocos do pacote vindos da instalação de origem (rota confere o token).
   app.useBodyParser('raw', { type: 'application/octet-stream', limit: CHUNK_LIMIT });
-  // E-mail que chega pelo Worker da Cloudflare (a rota confere a assinatura antes de guardar).
-  app.useBodyParser('raw', { type: 'message/rfc822', limit: '26mb' });
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.enableShutdownHooks();
