@@ -157,6 +157,21 @@ describe('Teste criado pelo site', () => {
     expect(m.html).toContain(created.password);
     expect(m.html).toContain(created.url);
     expect(m.subject).toContain('Cantina Site');
+    // O Resend responde antes de a fila e o teste marcarem "enviado" (o envio corre depois da
+    // resposta da tela): espera o teste marcar o e-mail como enviado, que vem por último.
+    const signup = () =>
+      ownerQuery<{ pending: boolean; sent: boolean }>(
+        `SELECT pending_enc IS NOT NULL AS pending, email_sent_at IS NOT NULL AS sent
+           FROM trial_signups WHERE email = $1`,
+        [EMAIL],
+      );
+    let [row] = await signup();
+    for (let i = 0; i < 60 && !row?.sent; i++) {
+      await new Promise((ok) => setTimeout(ok, 50));
+      [row] = await signup();
+    }
+    // Saiu: a senha guardada é apagada e o e-mail não sai de novo.
+    expect(row).toEqual({ pending: false, sent: true });
     // Na fila não fica a senha depois de enviado.
     const [o] = await ownerQuery<{ status: string; leak: boolean }>(
       `SELECT status, (COALESCE(html, '') || COALESCE(body_text, '')) LIKE $1 OR body_enc IS NOT NULL AS leak
@@ -164,13 +179,6 @@ describe('Teste criado pelo site', () => {
       [`%${created.password}%`],
     );
     expect(o).toEqual({ status: 'sent', leak: false });
-    // Saiu: a senha guardada é apagada e o e-mail não sai de novo.
-    const [row] = await ownerQuery<{ pending: boolean; sent: boolean }>(
-      `SELECT pending_enc IS NOT NULL AS pending, email_sent_at IS NOT NULL AS sent
-         FROM trial_signups WHERE email = $1`,
-      [EMAIL],
-    );
-    expect(row).toEqual({ pending: false, sent: true });
     await app.get(SiteService).deliverPending();
     expect(mail.sent).toHaveLength(1);
     await http
