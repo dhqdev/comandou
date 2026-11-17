@@ -10,6 +10,7 @@ import { createGatewayServer } from './server.js';
 import {
   brazilVariants,
   SessionManager,
+  TooManyMessagesError,
   type InboundMessage,
   type ConnectionUpdate,
   type SocketLike,
@@ -365,6 +366,8 @@ describe('religação e recursos do Baileys', () => {
         backoffBaseMs: 10,
         sendWaitMs: 1500,
         onlineMs: 100,
+        reconnectSpreadMs: 0,
+        sendGapMs: 0,
       },
       onInbound: (m) => inbound.push(m),
     },
@@ -643,8 +646,9 @@ describe('religação e recursos do Baileys', () => {
 });
 
 describe('entrega das mensagens recebidas para a API', () => {
+  const T1 = randomUUID();
   const msg = (id: string): InboundMessage => ({
-    tenantId: randomUUID(),
+    tenantId: T1,
     id,
     jid: '5511987654321@s.whatsapp.net',
     from: '5511987654321',
@@ -663,7 +667,10 @@ describe('entrega das mensagens recebidas para a API', () => {
       got.push({ id: body.id, auth: new Headers(init.headers).get('authorization') });
       return new Response('{}', { status: 200 });
     }) as unknown as typeof fetch;
-    const f = new InboundForwarder('http://api/x', TOKEN, undefined, [5, 5], fake);
+    const f = new InboundForwarder('http://api/x', TOKEN, undefined, {
+      retryMs: [5, 5],
+      fetchFn: fake,
+    });
     f.push(msg('1'));
     f.push(msg('2'));
     for (let i = 0; i < 50 && got.length < 2; i++) await new Promise((r) => setTimeout(r, 5));
@@ -682,11 +689,116 @@ describe('entrega das mensagens recebidas para a API', () => {
       if (id === 'down') throw new Error('ECONNREFUSED');
       return new Response('{}', { status: 200 });
     }) as unknown as typeof fetch;
-    const f = new InboundForwarder('http://api/x', TOKEN, undefined, [5], fake);
-    f.push(msg('bad'));
-    f.push(msg('down'));
-    f.push(msg('ok'));
+    const f = new InboundForwarder('http://api/x', TOKEN, undefined, {
+      retryMs: [5],
+      fetchFn: fake,
+    });
+    const tenant = randomUUID();
+    f.push({ ...msg('bad'), tenantId: tenant });
+    f.push({ ...msg('down'), tenantId: tenant });
+    f.push({ ...msg('ok'), tenantId: tenant });
     for (let i = 0; i < 50 && f.pending; i++) await new Promise((r) => setTimeout(r, 5));
     expect(seen).toEqual(['bad', 'down', 'down', 'ok']);
+  });
+
+  it('conversa lenta não segura as outras; a mesma conversa segue na ordem', async () => {
+    const order: string[] = [];
+    const release: (() => void)[] = [];
+    const fake = (async (_u: string, init: RequestInit) => {
+      const id = JSON.parse(String(init.body)).id as string;
+      order.push(`in:${id}`);
+      if (id === 'lenta1') await new Promise<void>((r) => release.push(r));
+      order.push(`ok:${id}`);
+      return new Response('{}', { status: 200 });
+    }) as unknown as typeof fetch;
+    const f = new InboundForwarder('http://api/x', TOKEN, undefined, { fetchFn: fake });
+    const other = randomUUID();
+    f.push({ ...msg('lenta1'), jid: '5511900000001@s.whatsapp.net' });
+    f.push({ ...msg('lenta2'), jid: '5511900000001@s.whatsapp.net' });
+    f.push({ ...msg('outra'), tenantId: other });
+    for (let i = 0; i < 50 && !order.includes('ok:outra'); i++)
+      await new Promise((r) => setTimeout(r, 5));
+    expect(order).toContain('ok:outra'); // outro restaurante não esperou
+    expect(order).not.toContain('in:lenta2'); // a mesma conversa espera a anterior
+    release.forEach((r) => r());
+    for (let i = 0; i < 50 && f.pending; i++) await new Promise((r) => setTimeout(r, 5));
+    expect(order.indexOf('ok:lenta1')).toBeLessThan(order.indexOf('in:lenta2'));
+  });
+
+  it('restaurante inundado não ocupa a fila dos outros', async () => {
+    const logs: string[] = [];
+    const hang = (() => new Promise(() => undefined)) as unknown as typeof fetch;
+    const f = new InboundForwarder('http://api/x', TOKEN, (m) => logs.push(m), {
+      fetchFn: hang,
+      maxPerTenant: 3,
+      maxPending: 10,
+    });
+    for (let i = 0; i < 5; i++) f.push(msg(`a${i}`));
+    expect(f.pending).toBe(3);
+    expect(logs.some((l) => l.includes('cheia'))).toBe(true);
+    f.push({ ...msg('b'), tenantId: randomUUID() });
+    expect(f.pending).toBe(4);
+    f.close();
+  });
+});
+
+describe('muitos restaurantes e mensagens', () => {
+  it('mesmo número envia com intervalo; fila longa demais responde "muitas mensagens"', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wa-'));
+    const socks: FakeSocket[] = [];
+    const mgr = new SessionManager(
+      dir,
+      key,
+      () => {
+        const s = new FakeSocket();
+        socks.push(s);
+        return s;
+      },
+      undefined,
+      { timings: { sendGapMs: 100, sendQueueMaxMs: 250, heartbeatMs: 3_600_000 } },
+    );
+    const t = randomUUID();
+    await mgr.start(t);
+    socks[0].user = { id: '5511999990000:1@s.whatsapp.net' };
+    socks[0].emit({ connection: 'open' });
+    const at: number[] = [];
+    const t0 = Date.now();
+    const results = await Promise.allSettled(
+      Array.from({ length: 6 }, (_, i) =>
+        mgr.send(t, { to: '5511987654321' }, `m${i}`).then(() => at.push(Date.now() - t0)),
+      ),
+    );
+    const rejected = results.filter((r) => r.status === 'rejected');
+    expect(rejected.length).toBeGreaterThan(0);
+    expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(TooManyMessagesError);
+    at.sort((a, b) => a - b);
+    // a 2ª mensagem saiu pelo menos ~80 ms depois da 1ª (100 ms ± 20%)
+    expect(at[1] - at[0]).toBeGreaterThanOrEqual(70);
+    expect(mgr.stats()).toMatchObject({ total: 1, connected: 1 });
+    mgr.close();
+  });
+
+  it('reabre as sessões salvas com um respiro entre elas', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'wa-'));
+    for (let i = 0; i < 3; i++) {
+      const a = await useEncryptedAuthState(dir, randomUUID(), key);
+      a.state.creds.me = { id: `551199999000${i}:1@s.whatsapp.net` };
+      await a.saveCreds();
+    }
+    const at: number[] = [];
+    const mgr = new SessionManager(
+      dir,
+      key,
+      () => {
+        at.push(Date.now());
+        return new FakeSocket();
+      },
+      undefined,
+      { timings: { restoreGapMs: 60, heartbeatMs: 3_600_000 } },
+    );
+    await mgr.restoreAll();
+    expect(at).toHaveLength(3);
+    expect(at[2] - at[0]).toBeGreaterThanOrEqual(110);
+    mgr.close();
   });
 });

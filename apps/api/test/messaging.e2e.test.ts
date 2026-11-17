@@ -12,6 +12,7 @@ import {
   WhatsAppInboundService,
   type WhatsAppInbound,
 } from '../src/messaging/whatsapp-inbound.service';
+import { QueueService } from '../src/queue/queue.service';
 import { testEnv } from './env';
 import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 
@@ -452,6 +453,13 @@ describe('mensagens recebidas e recursos do Baileys', () => {
     expect((await inbound(msg('W1')).expect(202)).body).toEqual({ accepted: true });
     expect((await inbound(msg('W1')).expect(202)).body).toEqual({ accepted: false }); // repetida
     await inbound(msg('W2')).expect(202);
+    // Outra réplica da API (mesmo Redis) não trata de novo a mensagem que esta já recebeu.
+    if (process.env.TEST_REDIS_URL) {
+      const replica = new WhatsAppInboundService(app.get(QueueService));
+      expect(await replica.receive({ ...msg('W1'), kind: 'text', timestamp: new Date() })).toEqual({
+        accepted: false,
+      });
+    }
     await svc.idle();
     off();
     expect(got.map((m) => m.id)).toEqual(['W1', 'W2']);

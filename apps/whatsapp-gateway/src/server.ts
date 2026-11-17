@@ -5,6 +5,7 @@ import {
   NotConnectedError,
   NotOnWhatsAppError,
   SessionManager,
+  TooManyMessagesError,
   type Target,
 } from './sessions.js';
 
@@ -47,14 +48,26 @@ const num = (v: unknown, max: number) =>
  * API interna (só a API do Comandou chama, na rede interna, com token). O restaurante vem da URL
  * que a API monta a partir do Host resolvido — nunca do navegador.
  */
-export function createGatewayServer(sessions: SessionManager, token: string) {
+export function createGatewayServer(
+  sessions: SessionManager,
+  token: string,
+  /** números extras do /health (ex.: fila de mensagens recebidas) */
+  extraStats: () => Record<string, unknown> = () => ({}),
+) {
   const expected = digest(`Bearer ${token}`);
   return createServer(
     (req, res) => void handle(req, res).catch(() => send(res, 500, { error: 'erro interno' })),
   );
 
   async function handle(req: IncomingMessage, res: ServerResponse) {
-    if (req.method === 'GET' && req.url === '/health') return send(res, 200, { ok: true });
+    // Só contagens (nada de restaurante ou número): serve para monitorar a carga.
+    if (req.method === 'GET' && req.url === '/health')
+      return send(res, 200, {
+        ok: true,
+        sessions: sessions.stats(),
+        memoryMb: Math.round(process.memoryUsage().rss / 1048576),
+        ...extraStats(),
+      });
     if (!timingSafeEqual(digest(req.headers.authorization ?? ''), expected))
       return send(res, 401, { error: 'não autorizado' });
     const m = ROUTE.exec(req.url ?? '');
@@ -100,6 +113,7 @@ export function createGatewayServer(sessions: SessionManager, token: string) {
     } catch (e) {
       if (e instanceof BadRequest) return send(res, 422, { error: e.message });
       if (e instanceof NotConnectedError) return send(res, 409, { error: e.message });
+      if (e instanceof TooManyMessagesError) return send(res, 429, { error: e.message });
       if (e instanceof NotOnWhatsAppError) return send(res, 422, { error: e.message });
       return send(res, 502, { error: (e as Error).message.slice(0, 200) });
     }

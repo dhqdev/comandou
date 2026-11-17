@@ -51,8 +51,11 @@ setInterval(() => void refreshVersion(), 12 * 3600_000).unref();
 // Mensagens que os clientes mandam vão para a API (o atendimento por IA responde por lá).
 // Ex.: http://api:3000/api/v1/internal/whatsapp/inbound. Sem a variável, não repassa nada.
 const inboundUrl = process.env.INBOUND_URL?.trim() || undefined;
+const forwardConcurrency = Number(process.env.INBOUND_CONCURRENCY ?? 64);
 const forwarder = inboundUrl
-  ? new InboundForwarder(inboundUrl, token, (msg) => logger.warn(msg))
+  ? new InboundForwarder(inboundUrl, token, (msg) => logger.warn(msg), {
+      concurrency: forwardConcurrency > 0 ? forwardConcurrency : 64,
+    })
   : undefined;
 
 const sessions = new SessionManager(
@@ -81,7 +84,9 @@ const sessions = new SessionManager(
   { onInbound: forwarder ? (m) => forwarder.push(m) : undefined },
 );
 
-const server = createGatewayServer(sessions, token);
+const server = createGatewayServer(sessions, token, () =>
+  forwarder ? { inbound: { pending: forwarder.pending, inFlight: forwarder.inFlight } } : {},
+);
 server.listen(port, '0.0.0.0', () => logger.info(`whatsapp-gateway ouvindo na porta ${port}`));
 void refreshVersion()
   .then(() => sessions.restoreAll())

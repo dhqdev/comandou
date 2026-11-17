@@ -74,6 +74,18 @@ export interface Timings {
   sendWaitMs: number;
   /** depois de responder, o número fica "online" por esse tempo e volta a "offline" */
   onlineMs: number;
+  /**
+   * Religação "na hora" (o vigia achou a conexão morta) espalhada num sorteio de até esse tempo:
+   * quando a internet do servidor cai, todas as sessões caem juntas e não podem voltar todas no
+   * mesmo milissegundo (o WhatsApp vê centenas de logins do mesmo IP de uma vez).
+   */
+  reconnectSpreadMs: number;
+  /** ao iniciar o serviço, espera entre reabrir uma sessão salva e a próxima */
+  restoreGapMs: number;
+  /** intervalo mínimo entre duas mensagens do mesmo número (ritmo de gente, contra bloqueio) */
+  sendGapMs: number;
+  /** fila de envio do número maior que isso: responde "muitas mensagens" em vez de esperar */
+  sendQueueMaxMs: number;
 }
 
 export const DEFAULT_TIMINGS: Timings = {
@@ -85,6 +97,10 @@ export const DEFAULT_TIMINGS: Timings = {
   backoffMaxMs: 60_000,
   sendWaitMs: 12_000,
   onlineMs: 60_000,
+  reconnectSpreadMs: 5_000,
+  restoreGapMs: 250,
+  sendGapMs: 700,
+  sendQueueMaxMs: 15_000,
 };
 
 export interface ManagerOptions {
@@ -125,6 +141,8 @@ interface Session {
   onlineTimer?: NodeJS.Timeout;
   /** "digitando..." pendente por conversa: chamar de novo renova em vez de piscar. */
   pauseTimers: Map<string, NodeJS.Timeout>;
+  /** Quando o próximo envio deste número pode sair (ritmo mínimo entre mensagens). */
+  nextSendAt: number;
 }
 
 /** Códigos de desconexão do Baileys (DisconnectReason). */
@@ -215,15 +233,36 @@ export class SessionManager {
     this.heartbeat.unref();
   }
 
-  /** Reabre as sessões salvas. Uma sessão com problema não impede as outras. */
+  /**
+   * Reabre as sessões salvas, uma de cada vez com um respiro entre elas (com centenas de
+   * restaurantes, abrir tudo junto pesa na CPU e o WhatsApp vê uma rajada de logins do mesmo IP).
+   * Uma sessão com problema não impede as outras.
+   */
   async restoreAll() {
-    for (const t of await savedTenants(this.dataDir)) {
+    const all = await savedTenants(this.dataDir);
+    for (const [i, t] of all.entries()) {
+      if (this.closed) return;
+      if (i > 0 && this.t.restoreGapMs > 0) await sleep(this.t.restoreGapMs);
       try {
         await this.start(t, true);
       } catch (e) {
         this.log(`restaurante ${t}: sessão não reaberta (${(e as Error).message})`);
       }
     }
+    if (all.length) this.log(`${all.length} sessões salvas reabertas`);
+  }
+
+  /** Quantas sessões em cada situação (monitoramento). */
+  stats() {
+    const by: Record<SessionStatus, number> = {
+      connected: 0,
+      connecting: 0,
+      qr: 0,
+      disconnected: 0,
+      logged_out: 0,
+    };
+    for (const s of this.sessions.values()) by[s.status]++;
+    return { total: this.sessions.size, ...by };
   }
 
   status(tenantId: string) {
@@ -256,6 +295,7 @@ export class SessionManager {
       waiters: new Set(),
       online: false,
       pauseTimers: new Map(),
+      nextSendAt: 0,
     };
     s.status = 'connecting';
     s.error = undefined;
@@ -400,14 +440,30 @@ export class SessionManager {
     });
   }
 
-  /** Nova tentativa com espera crescente (ou na hora). Nunca desiste de uma sessão pareada. */
-  private scheduleReconnect(tenantId: string, s: Session, gen: number, immediate = false) {
+  /**
+   * Nova tentativa com espera crescente, ou logo (sorteada em até reconnectSpreadMs), ou já
+   * (pedido do próprio WhatsApp depois do QR Code). Nunca desiste de uma sessão pareada.
+   * A espera crescente também é sorteada (metade fixa + metade sorteada): depois de uma queda
+   * geral, as sessões não ficam tentando todas no mesmo instante.
+   */
+  private scheduleReconnect(
+    tenantId: string,
+    s: Session,
+    gen: number,
+    when: 'backoff' | 'soon' | 'now' = 'backoff',
+  ) {
     if (this.closed || s.gen !== gen) return;
     if (s.timer) clearTimeout(s.timer);
     s.status = 'connecting';
-    const delay = immediate
-      ? 0
-      : Math.min(this.t.backoffMaxMs, this.t.backoffBaseMs * 2 ** Math.min(s.retries++, 16));
+    const backoff = () => {
+      const d = Math.min(
+        this.t.backoffMaxMs,
+        this.t.backoffBaseMs * 2 ** Math.min(s.retries++, 16),
+      );
+      return d / 2 + Math.random() * (d / 2);
+    };
+    const delay =
+      when === 'now' ? 0 : when === 'soon' ? Math.random() * this.t.reconnectSpreadMs : backoff();
     s.timer = setTimeout(() => {
       s.timer = undefined;
       void this.reconnect(tenantId, s, gen);
@@ -454,7 +510,7 @@ export class SessionManager {
     if (code !== R.restartRequired)
       this.log(`restaurante ${tenantId}: conexão caiu (código ${code ?? '?'}); reconectando`);
     // Depois de ler o QR Code o WhatsApp pede para reiniciar a conexão: na hora, sem espera.
-    this.scheduleReconnect(tenantId, s, gen, code === R.restartRequired);
+    this.scheduleReconnect(tenantId, s, gen, code === R.restartRequired ? 'now' : 'backoff');
   }
 
   private async reconnect(tenantId: string, s: Session, gen: number) {
@@ -488,9 +544,9 @@ export class SessionManager {
           }; religando`,
         );
         this.dropSocket(s);
-        this.scheduleReconnect(tenantId, s, s.gen, true);
+        this.scheduleReconnect(tenantId, s, s.gen, 'soon');
       } else if (s.status === 'connecting' && !s.sock && s.registered) {
-        this.scheduleReconnect(tenantId, s, s.gen, true);
+        this.scheduleReconnect(tenantId, s, s.gen, 'soon');
       }
     }
   }
@@ -500,7 +556,7 @@ export class SessionManager {
     if (s.sock !== sock) return;
     this.log(`restaurante ${tenantId}: ${why}; religando`);
     this.dropSocket(s);
-    this.scheduleReconnect(tenantId, s, s.gen, true);
+    this.scheduleReconnect(tenantId, s, s.gen, 'now'); // tem um envio esperando
   }
 
   private async ping(sock: SocketLike, timeoutMs: number) {
@@ -673,6 +729,21 @@ export class SessionManager {
   }
 
   /**
+   * Reserva a vez deste número enviar: mensagens do mesmo número saem com pelo menos sendGapMs
+   * entre uma e outra (com um pouco de sorteio), como uma pessoa digitando. Muitos envios de uma
+   * vez (ex.: uma rajada de avisos) entram na fila; fila longa demais responde "muitas mensagens"
+   * e quem chamou tenta de novo mais tarde (a fila de avisos da API já faz isso).
+   */
+  private async pace(s: Session) {
+    if (this.t.sendGapMs <= 0) return;
+    const now = Date.now();
+    const at = Math.max(now, s.nextSendAt);
+    if (at - now > this.t.sendQueueMaxMs) throw new TooManyMessagesError();
+    s.nextSendAt = at + this.t.sendGapMs * (0.8 + Math.random() * 0.4);
+    if (at > now) await sleep(at - now);
+  }
+
+  /**
    * Envia texto. Com typingMs mostra "digitando..." antes (resposta com cara de gente) e o número
    * fica "online" um pouco depois; sem, sai direto (avisos de pedido).
    */
@@ -684,6 +755,7 @@ export class SessionManager {
         await this.startTyping(s, sock, jid, ms + 1000).catch(() => undefined);
         await sleep(ms);
       }
+      await this.pace(s);
       const r = await withTimeout(
         sock.sendMessage(jid, { text }),
         SEND_TIMEOUT_MS,
@@ -779,6 +851,12 @@ export class SessionManager {
 export class NotConnectedError extends Error {
   constructor(msg = 'WhatsApp do restaurante não está conectado') {
     super(msg);
+  }
+}
+
+export class TooManyMessagesError extends Error {
+  constructor() {
+    super('Muitas mensagens deste número agora; tente de novo em instantes');
   }
 }
 

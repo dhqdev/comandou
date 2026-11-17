@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
+import { QueueService } from '../queue/queue.service';
 
 export type InboundKind =
   'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'location' | 'contact' | 'other';
@@ -22,12 +23,21 @@ export interface WhatsAppInbound {
 export type InboundHandler = (msg: WhatsAppInbound) => Promise<void> | void;
 
 const SEEN_MAX = 5000;
+/** a mesma mensagem não é tratada duas vezes nesse prazo (todas as réplicas, pelo Redis) */
+const SEEN_TTL_S = 24 * 3600;
+/** quanto a resposta ao gateway espera a mensagem ser tratada (o gateway espera até 60 s) */
+export const RECEIVE_WAIT_MS = 45_000;
 
 /**
  * Ponto de entrada das mensagens recebidas no WhatsApp. Quem atende (ex.: a IA) se registra com
- * onMessage(handler). O gateway pode repetir uma entrega (API lenta ou fora do ar): a mesma
- * mensagem (restaurante + id) só é repassada uma vez. As mensagens de uma mesma conversa são
- * tratadas uma de cada vez, na ordem em que chegaram.
+ * onMessage(handler).
+ *
+ * - Repetição: o gateway pode repetir uma entrega (API lenta ou fora do ar). A mesma mensagem
+ *   (restaurante + id) só é repassada uma vez, mesmo com várias réplicas da API (Redis).
+ * - Ordem: as mensagens de uma conversa são tratadas uma de cada vez, na ordem. A resposta ao
+ *   gateway só sai depois de tratar a mensagem (até RECEIVE_WAIT_MS), e o gateway só manda a
+ *   próxima mensagem da mesma conversa depois dessa resposta: assim a ordem vale mesmo quando
+ *   duas mensagens seguidas caem em réplicas diferentes da API.
  */
 @Injectable()
 export class WhatsAppInboundService {
@@ -37,6 +47,8 @@ export class WhatsAppInboundService {
   /** fila por conversa: a próxima mensagem espera a anterior terminar */
   private readonly chains = new Map<string, Promise<void>>();
 
+  constructor(@Optional() private readonly queue?: QueueService) {}
+
   onMessage(handler: InboundHandler) {
     this.handlers.push(handler);
     return () => {
@@ -45,12 +57,14 @@ export class WhatsAppInboundService {
     };
   }
 
-  /** Recebe do controller interno; não espera os handlers (o gateway não fica preso). */
-  receive(msg: WhatsAppInbound): { accepted: boolean } {
+  /** Recebe do controller interno e espera a mensagem ser tratada (até RECEIVE_WAIT_MS). */
+  async receive(msg: WhatsAppInbound, waitMs = RECEIVE_WAIT_MS): Promise<{ accepted: boolean }> {
     const key = `${msg.tenantId}:${msg.id}`;
     if (this.seen.has(key)) return { accepted: false };
     this.seen.add(key);
     if (this.seen.size > SEEN_MAX) this.seen.delete(this.seen.values().next().value as string);
+    if ((await this.queue?.claimOnce(`wa-in:${key}`, SEEN_TTL_S)) === false)
+      return { accepted: false }; // outra réplica já recebeu
     const chat = `${msg.tenantId}:${msg.jid}`;
     const prev = this.chains.get(chat) ?? Promise.resolve();
     const next = prev.then(() => this.dispatch(msg));
@@ -58,6 +72,14 @@ export class WhatsAppInboundService {
     void next.finally(() => {
       if (this.chains.get(chat) === next) this.chains.delete(chat);
     });
+    let t: NodeJS.Timeout | undefined;
+    await Promise.race([
+      next,
+      new Promise<void>((resolve) => {
+        t = setTimeout(resolve, waitMs); // demorou: libera o gateway e segue tratando aqui
+      }),
+    ]);
+    clearTimeout(t);
     return { accepted: true };
   }
 

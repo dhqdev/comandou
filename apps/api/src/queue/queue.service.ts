@@ -120,6 +120,28 @@ export class QueueService implements OnApplicationBootstrap, OnModuleDestroy {
     }
   }
 
+  /**
+   * Marca uma chave como vista (vale para todas as réplicas da API, pelo Redis). true = primeira
+   * vez; false = alguém já marcou; null = sem Redis (quem chama decide só na memória). Falha do
+   * Redis também devolve null: melhor tratar de novo do que perder a mensagem.
+   */
+  async claimOnce(key: string, ttlSeconds: number): Promise<boolean | null> {
+    if (!this.queue) return null;
+    try {
+      const client = (await this.queue.client) as unknown as {
+        set(k: string, v: string, ex: 'EX', ttl: number, nx: 'NX'): Promise<string | null>;
+      };
+      const r = await Promise.race([
+        client.set(`${this.env.QUEUE_PREFIX}:once:${key}`, '1', 'EX', ttlSeconds, 'NX'),
+        new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 2000)),
+      ]);
+      if (r === 'timeout') return null;
+      return r === 'OK';
+    } catch {
+      return null;
+    }
+  }
+
   /** Trabalhos por situação (monitoramento). Sem Redis, só os que estão rodando no processo. */
   async counts(): Promise<Record<string, number>> {
     if (!this.queue) return { inline: this.timers.size };

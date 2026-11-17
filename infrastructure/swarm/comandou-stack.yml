@@ -75,6 +75,10 @@ services:
       SESSION_KEY_FILE: /run/secrets/comandou_wa_session_key
       # Mensagens que os clientes mandam vão para a API (atendimento por IA), com o mesmo token.
       INBOUND_URL: http://api:3000/api/v1/internal/whatsapp/inbound
+      # Conversas entregues à API ao mesmo tempo (as de um mesmo cliente vão uma de cada vez).
+      INBOUND_CONCURRENCY: ${WA_INBOUND_CONCURRENCY:-64}
+      # Memória: cada restaurante conectado é um socket do Baileys (ver docs/whatsapp.md).
+      NODE_OPTIONS: --max-old-space-size=${WA_HEAP_MB:-1280}
       LOG_LEVEL: info
     secrets: [comandou_wa_gateway_token, comandou_wa_session_key]
     volumes:
@@ -86,7 +90,9 @@ services:
         constraints: [node.role == manager] # volume local: fixe o nó
       restart_policy: { condition: on-failure }
       resources:
-        limits: { memory: 384M }
+        # Cada sessão do Baileys pesa (estimativa: 15 a 40 MB). 384M dava para poucos restaurantes e, no
+        # limite, o contêiner morria e levava o WhatsApp de todos. Veja docs/whatsapp.md.
+        limits: { memory: '${WA_MEMORY_LIMIT:-1536M}' }
 
   # Backup diário do banco central e do banco de cada restaurante (pg_dump, fotos incluídas),
   # cifrado com a INTEGRATIONS_KEY e enviado ao Backblaze B2 configurado no painel Super Admin →

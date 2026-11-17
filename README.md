@@ -201,7 +201,7 @@ docs/                 arquitetura, decisões (ADR), operação, deploy, testes
 
 - [Arquitetura](docs/architecture.md) · [Roadmap](docs/roadmap.md) · [Riscos](docs/risks.md) · [Decisões (ADR)](docs/decisions/README.md)
 - [Desenvolvimento local](docs/development.md) · [Testes](docs/testing.md) · [Carga](docs/load-testing.md)
-- [Financeiro: fechamento, conciliação e DRE](docs/financeiro.md) · [Site público e teste grátis](docs/site.md) · [E-mail (Resend)](docs/email.md) · [Contratos](docs/contratos.md) · [Cobrança](docs/cobranca.md)
+- [Financeiro: fechamento, conciliação e DRE](docs/financeiro.md) · [Site público e teste grátis](docs/site.md) · [E-mail (Resend)](docs/email.md) · [Contratos](docs/contratos.md) · [Cobrança](docs/cobranca.md) · [WhatsApp com muitos restaurantes](docs/whatsapp.md)
 - [Instalação](docs/install.md) · [Deploy](docs/deploy.md) · [Operação](docs/operations.md) · [Backups e restauração](docs/backups.md) · [Segurança](docs/security.md) · [Auditoria de 2026-11](docs/auditoria-2026-11.md) · [CrowdSec](docs/crowdsec.md)
 
 ## Licença

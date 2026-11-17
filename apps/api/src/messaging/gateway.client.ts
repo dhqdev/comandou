@@ -54,7 +54,8 @@ export class GatewayClient {
         `Serviço de WhatsApp indisponível: ${(err as Error).message}`,
       );
     }
-    if (res.status >= 500)
+    // 429: o número do restaurante já tem muitas mensagens na fila (ritmo contra bloqueio).
+    if (res.status >= 500 || res.status === 429)
       throw new WhatsAppUnavailableError(`Serviço de WhatsApp respondeu ${res.status}`);
     const json = (await res.json().catch(() => ({}))) as T & { error?: string };
     return { http: res.status, body: json };

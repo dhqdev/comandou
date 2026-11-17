@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.147.0',
+    date: '2026-11-17',
+    title: 'WhatsApp pronto para muitos clientes ao mesmo tempo',
+    summary:
+      'O WhatsApp por QR Code foi preparado para muitos restaurantes e muitas conversas ao mesmo tempo: cada conversa segue na ordem certa, um restaurante movimentado não atrasa os outros, as mensagens saem num ritmo de gente e, depois de uma queda da internet, os números voltam aos poucos em vez de todos juntos.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Mensagens recebidas vão para o atendimento numa fila por conversa: as de um mesmo cliente chegam na ordem e conversas diferentes andam em paralelo, sem que um restaurante lento segure os outros.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A mesma mensagem nunca é respondida duas vezes, mesmo com mais de um servidor da API atendendo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Mensagens do mesmo número saem com um pequeno intervalo entre elas (menos risco de bloqueio). Uma rajada de avisos espera a vez e é tentada de novo, em vez de falhar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Depois de uma queda da internet ou de reiniciar o serviço, os WhatsApps dos restaurantes reconectam espalhados no tempo, e não todos no mesmo instante.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Mais memória para o serviço do WhatsApp e um resumo de carga (quantos conectados, fila de mensagens e memória) para acompanhar o crescimento.',
+      },
+    ],
+  },
+  {
     version: '0.146.0',
     date: '2026-11-17',
     title: 'Tela de entrada com fundo animado',
