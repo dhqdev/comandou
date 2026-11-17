@@ -25,7 +25,7 @@ dono cria o próprio restaurante de teste.
    feito depois, pelo Super Admin. Para continuar: Super Admin › Restaurantes › o cliente ›
    Reativar, e mude a assinatura para ativa (ou estenda o teste antes de vencer).
 
-Em **Super Admin › Site**: ligar/desligar o cadastro, limite por dia, o webhook do e-mail e a
+Em **Super Admin › Site**: ligar/desligar o cadastro, limite por dia, se o e-mail está pronto e a
 lista de testes (quem criou, de onde veio, se o e-mail saiu, se fechou). O tempo de teste aparece
 ali só para conferir, com o atalho para Planos.
 
@@ -41,30 +41,18 @@ servidor, desligue com `TRAEFIK_SITE_HOSTS=false` na API.
 
 A página de planos continua em `/precos`.
 
-## E-mail de boas-vindas pelo n8n
+## E-mail de boas-vindas
 
-O Comandou monta o e-mail (assunto, HTML e texto) e chama um webhook; o n8n só envia.
+O Comandou monta e manda o e-mail sozinho, pelo envio configurado em **Super Admin › E-mail**
+(Cloudflare, Resend ou SMTP; passo a passo em [email.md](email.md)). Em Super Admin › Site,
+**Enviar boas-vindas de teste** confere antes de abrir o cadastro.
 
-1. No n8n, importe [`docs/assets/n8n-boas-vindas.json`](assets/n8n-boas-vindas.json)
-   (Workflows › Import from file).
-2. No nó **Enviar e-mail**, escolha a credencial de SMTP (ou troque pelo nó do Gmail) e ajuste o
-   remetente.
-3. No nó **Webhook do Comandou**, crie a credencial *Header Auth* com o nome `X-Comandou-Token`
-   e um segredo à sua escolha. Ative o workflow e copie a **Production URL**.
-4. Em Super Admin › Site, cole o endereço do webhook e o mesmo segredo, salve e use **Enviar
-   e-mail de teste**.
+O e-mail leva o endereço do restaurante, o login e a senha inicial. A senha fica cifrada no banco
+só até o restaurante ficar pronto (no máximo 1 hora) e passa, ainda cifrada, para a fila de envio
+na mesma transação; sai de lá assim que o e-mail é entregue. Se o provedor estiver fora, a fila
+tenta de novo sozinha (1 min, 5 min, 15 min, 1 h, 3 h) e a lista de testes mostra o erro.
 
-Corpo que o webhook recebe (JSON):
-
-| Campo | O que é |
-| --- | --- |
-| `event` | `trial.welcome` (cadastro) ou `trial.test` (botão de teste) |
-| `to`, `toName` | destinatário |
-| `subject`, `html`, `text` | e-mail pronto |
-| `restaurant`, `url`, `loginEmail`, `password`, `trialEndsAt` | os dados soltos, para quem preferir montar o próprio modelo |
-
-Sem webhook configurado o cadastro funciona igual; o login aparece só na tela. A senha inicial
-fica cifrada no banco apenas até o e-mail sair (ou por no máximo 1 hora) e é apagada em seguida.
+Sem envio configurado o cadastro funciona igual; o login aparece só na tela.
 
 ## Esqueci minha senha do cliente por e-mail
 
@@ -73,17 +61,11 @@ vez só) pelo WhatsApp da loja e, se a conta do cliente tiver e-mail, também po
 funciona mesmo na loja sem WhatsApp conectado. Sai um código, não uma senha nova: quem digita o
 celular de outra pessoa não consegue trocar a senha dela.
 
-O e-mail usa um webhook próprio, em Super Admin › Site › **E-mail para os clientes dos
-restaurantes**, com o mesmo cabeçalho `X-Comandou-Token`. Corpo (JSON):
+O e-mail sai pelo envio do Comandou (Super Admin › E-mail) com o **nome do restaurante** como
+remetente e o endereço padrão do Comandou. O código vai cifrado na fila e é apagado ao sair.
+**Enviar código de teste**, em Super Admin › Site, mostra o e-mail como o cliente recebe.
 
-| Campo | O que é |
-| --- | --- |
-| `event` | `customer.password_reset` (cliente pediu) ou `customer.test` (botão de teste) |
-| `to`, `toName` | e-mail e nome do cliente |
-| `fromName`, `restaurant` | nome do restaurante (use como nome do remetente) |
-| `subject`, `html`, `text` | e-mail pronto |
-
-Sem esse webhook, o código continua só pelo WhatsApp da loja (ou a equipe gera em Clientes).
+Sem envio configurado, o código continua só pelo WhatsApp da loja (ou a equipe gera em Clientes).
 
 ## Site com IA
 

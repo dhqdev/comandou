@@ -22,7 +22,7 @@ e assinado pelas duas partes: primeiro o cliente (CONTRATANTE), depois a platafo
      localização não impede a assinatura;
    - tudo isso vira um registro com hash (`client_evidence_sha256`) que não pode mais ser alterado,
      nem direto no banco.
-4. **Aviso para a contratada.** Assim que o cliente assina, o n8n manda (evento
+4. **Aviso para a contratada.** Assim que o cliente assina, o Comandou manda (evento
    `contract.client_signed`) um e-mail para o e-mail de aviso com o botão "Conferir e assinar", e
    um recibo para o cliente dizendo que a via final chega depois. A tela Status do painel também
    mostra o contrato pendente.
@@ -46,9 +46,9 @@ e assinado pelas duas partes: primeiro o cliente (CONTRATANTE), depois a platafo
    avisos) guarda o hash do evento anterior. O hash do evento da assinatura da contratada fecha a
    trilha e vai impresso no manifesto e nos metadados do PDF (`trilha:<hash>`). O painel confere a
    cadeia toda vez que abre o contrato e avisa se algum registro foi mexido.
-10. **E-mails da via final.** O n8n (evento `contract.signed`) recebe o PDF final e manda para:
+10. **E-mails da via final.** O Comandou (evento `contract.signed`) manda o PDF final para:
     e-mail de aviso da contratada, e-mail de quem assinou pela contratada, quem assinou pelo
-    cliente e o e-mail de cobrança do cliente (sem repetir endereço). Se o n8n falhar, a assinatura
+    cliente e o e-mail de cobrança do cliente (sem repetir endereço). Se o envio falhar, a assinatura
     não se desfaz: use **Reenviar aviso** no contrato.
 11. **Nada é apagado.** Contratos e eventos só recebem inserções (o papel do painel não tem
     DELETE), e toda ação também vai para a auditoria do painel.
@@ -66,21 +66,22 @@ e assinado pelas duas partes: primeiro o cliente (CONTRATANTE), depois a platafo
 Contratos assinados antes da v0.43.0 seguem o modelo antigo (a contratada concordava pelo envio)
 e continuam válidos como estão.
 
-## Eventos para o n8n
+## E-mails do contrato
 
-Todos chegam no webhook configurado em Contrato → Configurar, com `X-Comandou-Event`,
-`X-Comandou-Token` e `X-Comandou-Signature: sha256=<HMAC do corpo>`. O corpo sempre traz
-`messages` (lista de `{to, toName, subject, html, text}`, já prontos) e `attachment`
-(`{fileName, mimeType, base64}` ou `null`): o fluxo do n8n só precisa mandar cada mensagem com o
-anexo.
+Saem pelo envio do Comandou (Super Admin › E-mail, ver [email.md](email.md)) e aparecem em
+E-mail › Envios com o tipo de cada um. Sem envio configurado, o botão "Enviar por e-mail" fica
+desligado (dá para copiar o link e mandar por WhatsApp).
 
-| Evento                   | Quando                                | Anexo     |
-| ------------------------ | ------------------------------------- | --------- |
-| `test`                   | botão "Testar" na configuração        | —         |
-| `contract.send`          | envio do link de assinatura           | PDF       |
-| `contract.client_signed` | cliente assinou (falta a contratada)  | —         |
-| `contract.signed`        | contrato completo (duas assinaturas)  | PDF final |
-| `contract.cancelled`     | cancelado depois da assinatura do cliente | —     |
+| Tipo                     | Quando                                    | Anexo     |
+| ------------------------ | ----------------------------------------- | --------- |
+| `test`                   | botão "Salvar e testar" na configuração   | —         |
+| `contract.send`          | envio do link de assinatura               | PDF       |
+| `contract.client_signed` | cliente assinou (falta a contratada)      | —         |
+| `contract.signed`        | contrato completo (duas assinaturas)      | PDF final |
+| `contract.cancelled`     | cancelado depois da assinatura do cliente | —         |
+
+O envio do link acontece dentro da transação: se o provedor recusar, o link novo não vale e o
+e-mail é cancelado (não sai mais tarde com um link vencido).
 
 ## Base legal
 

@@ -46,6 +46,7 @@
 | `domains` | ✅ | domínio próprio com verificação TXT; provider HTTP do Traefik |
 | `health` | ✅ | `live`, `ready` (banco, Redis, WhatsApp) e métricas Prometheus (inclui idade do último backup) |
 | `maintenance` | ✅ | limpeza periódica de dados vencidos pela função `app_purge_expired()` |
+| `mail` | ✅ | e-mail próprio: fila de saída com novas tentativas (Cloudflare, Resend ou SMTP), caixas do domínio, agenda, agendamento; recebimento pelo Worker da Cloudflare ([email.md](email.md)) |
 | demais | ⏳ | ver [roadmap](roadmap.md) |
 
 Ordem dos guards globais: **Throttler → CSRF → Tenant → Sessão → Permissão**.

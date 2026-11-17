@@ -20,6 +20,47 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.141.0',
+    date: '2026-11-17',
+    title: 'E-mail próprio no Super Admin, sem n8n',
+    summary:
+      'O Comandou passou a mandar os próprios e-mails, sem o n8n: boas-vindas do teste, código de nova senha, contratos e convites saem por uma fila que tenta de novo sozinha. O Super Admin ganhou a aba E-mail, com caixas do domínio, agenda, página de agendamento e o histórico de envios. O site ficou sempre claro, com menu solto e animações.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Super Admin › E-mail: caixas do seu domínio (contato@, vendas@...) para ler, responder, encaminhar e anexar arquivos, com busca, estrela, pastas, regras, contatos e resposta automática. O que chega vem pela Cloudflare (Email Routing + um Worker deste repositório).',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin › E-mail › Agenda: eventos com repetição e convidados. O convite vai com o arquivo da agenda e a resposta (Sim, Não, Talvez) volta para o evento.',
+      },
+      {
+        tag: 'novo',
+        text: 'Página pública de agendamento (/agendar/<endereço>): a pessoa escolhe um horário livre e recebe o convite. Dois visitantes nunca ficam com o mesmo horário.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'E-mails do sistema (boas-vindas do teste, código de nova senha do cliente, contratos) saem pelo próprio Comandou, por Cloudflare, Resend ou SMTP, com novas tentativas. E-mail com senha ou código fica cifrado na fila e é apagado assim que sai. O n8n não é mais usado.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Site: sem modo escuro, menu superior solto que acompanha a rolagem, menu próprio no celular, faíscas no clique, botões que seguem o ponteiro e afundam ao apertar, e holofote nos cartões.',
+      },
+      {
+        tag: 'correção',
+        text: 'O e-mail de boas-vindas do teste se perdia se o envio falhasse na hora: agora fica na fila e sai quando o provedor voltar.',
+      },
+      {
+        tag: 'correção',
+        text: 'Dois cadastros de teste ao mesmo tempo com o mesmo e-mail criavam dois restaurantes. Agora só um é criado.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Os webhooks do n8n saíram: o painel não chama mais endereços livres, e senha e código não passam mais por outro sistema.',
+      },
+    ],
+  },
+  {
     version: '0.140.0',
     date: '2026-11-16',
     title: 'Página do restaurante criada pela IA',

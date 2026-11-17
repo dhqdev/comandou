@@ -1,6 +1,6 @@
 ---
 name: comandou-design
-description: Padrão visual do Comandou (minimalista e clean, laranja #E23A00, sem enfeites, movimento de mola, modais que abrem perto do botão). Use ao criar ou mudar qualquer tela, botão, cartão ou modal do app web.
+description: Padrão visual do Comandou (minimalista e clean, laranja #E23A00, sem enfeites, movimento de mola, modais que abrem perto do botão) e as exceções do site público (sempre claro, menu solto, React Bits e Uiverse). Use ao criar ou mudar qualquer tela, botão, cartão ou modal do app web, do painel Super Admin ou do site comandou.com.
 ---
 
 # Design do Comandou
@@ -28,6 +28,37 @@ Visual de **sistema de trabalho**: sóbrio, limpo e confortável para turnos lon
 - Use `TextField`, `SelectField`, `CheckField`; não monte `<label>` na mão.
 - Troca de tema: fade de cores (`switchTheme`), nunca captura de tela nem onda em tela cheia.
 
+## Site público (comandou.com) e páginas do site
+
+O site (`apps/web/src/site`) vende o sistema, então tem mais movimento que as telas de trabalho. As
+regras acima continuam valendo (tokens, laranja só no principal, nada passa de 300 ms) com estas
+exceções, só no site:
+
+- **Sempre claro.** Sem botão de tema: `applyTheme('light')` roda ao carregar `SiteApp.tsx` e
+  `BookingPublic.tsx` (sem gravar escolha, para não mudar o app do restaurante). Página nova do
+  site faz o mesmo.
+- **Menu solto.** `.st-nav` é uma pílula flutuante (sticky, afastada do topo e das laterais),
+  compacta e com sombra depois de rolar (`is-scrolled`); abaixo de 860 px vira o botão de menu com
+  a folha `.st-nav__sheet`. É o único lugar do site com fundo translúcido.
+- **React Bits** (`site/reactbits/`, licença MIT + Commons Clause: usar dentro do Comandou pode,
+  revender o componente não): `ClickSpark` (faíscas no clique, cobre a página inteira),
+  `Magnet` (botão principal segue o ponteiro, via `CtaButton`), `ShinyText` (brilho no selo do
+  teste) e `SpotlightCard` (holofote nos cartões). Copie o arquivo do repositório
+  DavidHDev/react-bits (`src/ts-default/...`) com o cabeçalho de crédito; prefira os que não
+  pedem gsap, motion ou three. Todos já param com "reduzir movimento".
+- **Uiverse** (licença MIT): o efeito de botão físico `.st-press` (borda de baixo mais escura,
+  afunda ao apertar) segue o estilo dos elementos de lá, reescrito com os tokens.
+- Nada disso entra nas telas de trabalho (PDV, salão, cozinha, painel): lá continua sóbrio.
+
+## Super Admin › E-mail
+
+`apps/web/src/platform/mail/` (`mail.css` só com tokens): três colunas (pastas, conversas,
+leitura) que no celular viram uma de cada vez. O HTML de e-mail recebido abre **só** em
+`HtmlFrame` (moldura `sandbox` sem `allow-scripts`, documento montado pela API com CSP), nunca
+com `dangerouslySetInnerHTML`. Ícones de ação com 36 px (44 px no celular) e `aria-label`.
+
 ## Antes de entregar
 
-Veja a tela em claro e escuro, no notebook e em 390px, com os prints do Playwright (ver a memória do projeto, "comandou-workflow").
+Veja a tela em claro e escuro (o site, só claro), no notebook e em 390px, com os prints do
+Playwright ou no navegador do Claude Code apontando para o Vite local (passo a passo na skill
+`comandou-projeto`).

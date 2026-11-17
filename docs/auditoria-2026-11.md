@@ -16,7 +16,7 @@ Não substitui um teste de invasão por terceiros (continua recomendado, ver [se
 | Trabalhos de fundo | Fila de nota fiscal, WhatsApp, backups, limpeza e testes vencidos: todos tratam o erro do próprio trabalho, e `main.ts` registra promessa sem tratamento em vez de derrubar a API. |
 | Infraestrutura | Nginx (CSP, HSTS, molduras), Traefik (sem limite de corpo que barre o e-mail de 25 MB), CrowdSec (as rotas `/api/` não contam como ataque). |
 | Dependências | `pnpm audit --prod --audit-level high`: nenhuma vulnerabilidade conhecida, incluindo as novas (`nodemailer`, `postal-mime`). |
-| Testes | API: 84 arquivos e 735+ testes passando (o único que falhava era do Windows, ver A5). Web: 46 arquivos, 195 testes. |
+| Testes | API: 86 arquivos e 746 testes passando, 28 pulados aqui porque precisam dos programas do Postgres instalados no computador (rodam no CI; o único que falhava era do Windows, ver A5). Web: 46 arquivos e 195 testes. Pacote compartilhado: 105 testes. |
 
 ## Achados corrigidos nesta versão
 

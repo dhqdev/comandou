@@ -3,6 +3,8 @@
 Revisão da Etapa 7 (2026-10-22), feita sobre o código, a configuração e as dependências. Não
 houve teste de invasão por terceiros; recomendamos um antes de abrir para muitos clientes.
 
+> Revisão seguinte, com o e-mail próprio e a saída do n8n: [auditoria-2026-11.md](auditoria-2026-11.md).
+
 ## Como o sistema se protege
 
 | Ameaça | Proteção | Prova |
@@ -16,6 +18,7 @@ houve teste de invasão por terceiros; recomendamos um antes de abrir para muito
 | Pagamento duplicado | chave de idempotência, trava da linha do pedido, conferência do saldo | `operations.e2e.test.ts`; teste de carga com 100 disputas sem nenhuma duplicação |
 | Vazamento por log | pino sem cookies, `Authorization` e `Set-Cookie`; token do link de rastreio mascarado na API e fora do log do Nginx | `log-redact.test.ts`; Nginx conferido localmente |
 | Segredos | Docker secrets (`*_FILE`); tokens de integração e sessões do WhatsApp cifrados (AES-256-GCM); backups cifrados com age | `secret-box.test.ts`, `gateway.test.ts` |
+| E-mail (Super Admin › E-mail) | só o papel da plataforma lê e grava; chaves do provedor cifradas; recebimento só com HMAC recente; HTML recebido em moldura sem scripts; conteúdo com senha ou código cifrado na fila e apagado ao sair | `mail.e2e.test.ts`, `mail-lib.test.ts` |
 | Erro expondo detalhes | filtro único: erro inesperado vira "Erro interno" sem pilha; erro do banco vira 409/422 genérico | `http-exception.filter.ts` |
 | Cabeçalhos HTTP | helmet na API; Nginx com CSP, HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy` | `scripts/preflight.sh --deployed` confere HSTS |
 | Dependências vulneráveis | `pnpm audit --prod --audit-level high` no CI | 2026-10-22: nenhuma vulnerabilidade conhecida (uma moderada no js-yaml corrigida por override) |
