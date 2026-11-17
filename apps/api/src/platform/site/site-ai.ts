@@ -42,6 +42,7 @@ Regras do cardápio:
 export function placeForModel(name: string | null, address: string | null, link: string): string {
   return [
     'Fonte: Google Maps (não mostra o cardápio).',
+    'Pesquise este lugar na internet (Google Maps, site oficial, iFood, Instagram) e use o que achar dele: telefone, endereço, horário e o cardápio de verdade com os preços. Só sugira itens se não achar o cardápio.',
     name && `Nome do lugar: ${name}`,
     address && `Endereço: ${address}`,
     `Link: ${link}`,

@@ -19,6 +19,14 @@ import { AI_KEY_CONTEXT } from './ai.service';
 import { availableTokens, loadAiQuota, recordAiUsage } from './ai-quota';
 import { ContentPart, OpenRouterClient, OpenRouterError } from './openrouter';
 import { parseMenuText } from './menu-text';
+import {
+  mergeStores,
+  PLACE_PROMPT,
+  placeQuestion,
+  readPlace,
+  type PlaceFound,
+  type PlaceHint,
+} from './place-research';
 import { defaultSiteCopy, readSiteCopy, SITE_PAGE_PROMPT, type SiteFacts } from './site-page';
 import {
   EMPTY_STORE,
@@ -48,6 +56,20 @@ export interface ImportedItem {
 export interface ImportedCategory {
   name: string;
   items: ImportedItem[];
+}
+
+/** Leitura dos primeiros passos: a loja, os itens e de onde vieram. */
+export interface StoreReading {
+  categories: ImportedCategory[];
+  partial: boolean;
+  store: ImportedStore;
+  items: number;
+  tokens: number;
+  /** Achou o restaurante (pesquisa pelo Google Maps ou pelo nome). */
+  found?: boolean;
+  source?: string | null;
+  /** Links do cardápio que a pesquisa achou. */
+  links?: string[];
 }
 
 export const IMPORT_MAX_BYTES = 3 * 1024 * 1024;
@@ -228,8 +250,13 @@ export class MenuImportService {
     return { c, client: new OpenRouterClient(this.env.OPENROUTER_BASE_URL, apiKey) };
   }
 
-  /** Uma leitura (texto, foto ou PDF) que devolve JSON; desconta do limite do restaurante. */
-  private async read(ctx: Ctx, prompt: string, content: ContentPart[], images: string[] = []) {
+  /** Uma pergunta à IA que devolve JSON (com ou sem pesquisa na internet); desconta do limite. */
+  private async ask(
+    ctx: Ctx,
+    prompt: string,
+    content: ContentPart[],
+    opts: { web?: number; source?: string } = {},
+  ) {
     const { c, client } = await this.ready(ctx);
     const model = this.env.AI_IMPORT_MODEL;
     let result: Awaited<ReturnType<OpenRouterClient['complete']>>;
@@ -240,7 +267,12 @@ export class MenuImportService {
           { role: 'system', content: prompt },
           { role: 'user', content },
         ],
-        { json: true, maxTokens: 16_000, signal: AbortSignal.timeout(150_000) },
+        {
+          json: true,
+          maxTokens: 16_000,
+          signal: AbortSignal.timeout(150_000),
+          ...(opts.web ? { web: opts.web } : {}),
+        },
       );
     } catch (e) {
       this.logger.warn(`importação do cardápio falhou: ${(e as Error).message}`);
@@ -251,8 +283,19 @@ export class MenuImportService {
       );
     }
     const used = await this.db.withCentral(ctx, (tx) =>
-      recordAiUsage(tx, { userId: ctx.userId, model, usage: result.usage, source: 'menu_import' }),
+      recordAiUsage(tx, {
+        userId: ctx.userId,
+        model,
+        usage: result.usage,
+        source: opts.source ?? 'menu_import',
+      }),
     );
+    return { c, result, used };
+  }
+
+  /** Uma leitura (texto, foto ou PDF) que devolve JSON; desconta do limite do restaurante. */
+  private async read(ctx: Ctx, prompt: string, content: ContentPart[], images: string[] = []) {
+    const { c, result, used } = await this.ask(ctx, prompt, content);
     const { categories, partial, store } = readImport(result.text, images);
     return {
       categories,
@@ -326,7 +369,7 @@ export class MenuImportService {
    * imagens, cores e dados estruturados e pede para a IA montar a loja e os itens.
    */
   async fromLink(ctx: Ctx, url: string) {
-    if (isMapsLink(url)) return this.fromMaps(url);
+    if (isMapsLink(url)) return this.fromPlace(ctx, { url });
     let page;
     try {
       page = await safeFetch(url, { maxBytes: 4 * 1024 * 1024, truncate: true, timeoutMs: 20_000 });
@@ -375,37 +418,121 @@ export class MenuImportService {
   }
 
   /**
-   * Link do Google Maps: o Maps não mostra o cardápio, mas a página do lugar traz o nome e o
-   * endereço (título de compartilhamento). Sem IA; o cardápio vem depois, por foto ou PDF.
+   * O que a página do lugar no Google Maps mostra sem login: o nome e o endereço (título de
+   * compartilhamento) e, às vezes, uma foto do lugar (imagem de compartilhamento).
    */
-  private async fromMaps(url: string) {
+  private async mapsBasics(url: string) {
     let page;
     try {
       page = await safeFetch(url, { maxBytes: 1024 * 1024, truncate: true, timeoutMs: 12_000 });
     } catch {
       page = null;
     }
-    const og = page
-      ? /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i.exec(
-          page.body.toString('utf8').slice(0, 200_000),
-        )?.[1]
-      : null;
-    const [title, ...rest] = decodeEntities(og ?? '').split(' · ');
+    const html = page ? page.body.toString('utf8').slice(0, 200_000) : '';
+    const meta = (prop: string) =>
+      new RegExp(`<meta[^>]+property=["']${prop}["'][^>]+content=["']([^"']+)["']`, 'i').exec(
+        html,
+      )?.[1] ?? null;
+    const [title, ...rest] = decodeEntities(meta('og:title') ?? '').split(' · ');
     const name =
       mapsPlaceName(page?.url ?? url) ?? (title && !/google/i.test(title) ? title : null);
     const address = rest.join(' · ').trim() || null;
-    if (!name && !address)
-      throw new UnprocessableEntityException(
-        'Não consegui ler esse link do Google Maps. Mande o PDF ou fotos do cardápio.',
+    // Foto do lugar (googleusercontent); o mapa estático não serve de capa.
+    const img = decodeEntities(meta('og:image') ?? '');
+    const cover = /^https:\/\/[a-z0-9-]+\.googleusercontent\.com\//i.test(img) ? img : null;
+    const cep = address ? (/\b\d{5}-\d{3}\b/.exec(address)?.[0] ?? null) : null;
+    const uf = address ? ([...address.matchAll(/ - ([A-Z]{2})\b/g)].pop()?.[1] ?? null) : null;
+    const store: ImportedStore = {
+      ...EMPTY_STORE,
+      name,
+      address,
+      cep: cep ? cep.replace(/\D/g, '') : null,
+      state: uf,
+      coverUrl: cover,
+    };
+    return { store, source: page?.url ?? url };
+  }
+
+  /**
+   * Achar o restaurante (link do Google Maps ou nome e cidade): a IA pesquisa o lugar na
+   * internet (Maps, site, iFood, Instagram) e traz contato, endereço, horário e os links do
+   * cardápio; o melhor link é lido em seguida para trazer itens, preços, fotos, logo e cores.
+   * Sem IA, só o que o link do Maps mostra. Não achou nada: 422 (a pessoa manda o cardápio).
+   */
+  async fromPlace(
+    ctx: Ctx,
+    p: { url?: string; query?: string; city?: string | null },
+  ): Promise<StoreReading> {
+    const maps = p.url && isMapsLink(p.url) ? await this.mapsBasics(p.url) : null;
+    const notFound = () =>
+      new UnprocessableEntityException(
+        maps?.store.name
+          ? `Achei ${maps.store.name} no Google Maps, mas não o cardápio. Mande o PDF, fotos ou o link do cardápio.`
+          : 'Não achei o restaurante na internet. Mande o PDF, fotos ou o link do cardápio.',
       );
-    if (!address)
-      throw new UnprocessableEntityException(
-        `Achei ${name} no Google Maps, mas o Maps não mostra o cardápio. Mande o PDF ou fotos do cardápio.`,
+    const empty = { categories: [] as ImportedCategory[], partial: false, items: 0, tokens: 0 };
+    if (!(await this.status(ctx)).enabled) {
+      // Sem IA: o Maps dá o nome e o endereço; o cardápio vem depois, por foto ou PDF.
+      if (!maps?.store.address) throw notFound();
+      return { ...empty, store: maps.store, found: true, source: maps.source };
+    }
+    const hint: PlaceHint = {
+      name: maps?.store.name ?? p.query?.trim() ?? null,
+      address: maps?.store.address ?? null,
+      city: p.city ?? null,
+      state: maps?.store.state ?? null,
+      link: p.url ?? null,
+    };
+    if (!hint.name && !hint.address) throw notFound();
+    let place: PlaceFound;
+    try {
+      const { result } = await this.ask(
+        ctx,
+        PLACE_PROMPT,
+        [{ type: 'text', text: placeQuestion(hint) }],
+        { web: 6, source: 'menu_place' },
       );
-    const cep = /\b\d{5}-\d{3}\b/.exec(address)?.[0] ?? null;
-    const uf = [...address.matchAll(/ - ([A-Z]{2})\b/g)].pop()?.[1] ?? null;
-    const store: ImportedStore = { ...EMPTY_STORE, name, address, cep, state: uf };
-    return { categories: [], partial: false, store, items: 0, tokens: 0, source: page?.url ?? url };
+      place = readPlace(result.text, result.citations);
+    } catch (e) {
+      // Pesquisa fora do ar: com o Maps lido, segue só com ele.
+      if (maps?.store.address && !(e instanceof HttpException && e.getStatus() === 429))
+        return { ...empty, store: maps.store, found: true, source: maps.source };
+      throw e;
+    }
+    if (!place.found && !maps?.store.address) throw notFound();
+    // O endereço do Maps vale mais que o da pesquisa; o resto completa.
+    let store = mergeStores(maps?.store ?? EMPTY_STORE, place.store);
+    let categories = place.categories;
+    let partial = false;
+    let source = maps?.source ?? null;
+    // O cardápio: o primeiro link que abrir com itens (cardápio digital, iFood, site).
+    for (const link of place.menuLinks.slice(0, 3)) {
+      try {
+        const r = await this.fromLink(ctx, link);
+        const found = 'store' in r ? r.store : null;
+        if (!r.items && !found?.logoUrl) continue;
+        if (found) store = mergeStores(store, found);
+        if (r.items) {
+          categories = r.categories;
+          partial = r.partial;
+          source = link;
+          break;
+        }
+      } catch (e) {
+        if (e instanceof HttpException && e.getStatus() === 429) break;
+      }
+    }
+    const items = categories.reduce((n, c) => n + c.items.length, 0);
+    return {
+      categories,
+      partial,
+      store,
+      items,
+      tokens: 0,
+      found: true,
+      source,
+      links: place.menuLinks,
+    };
   }
 
   /**

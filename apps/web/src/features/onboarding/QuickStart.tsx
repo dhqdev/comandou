@@ -5,6 +5,7 @@ import {
   FileUp,
   Images,
   Link2,
+  MapPin,
   PencilLine,
   Sparkles,
   Upload,
@@ -25,8 +26,10 @@ import {
   applyAll,
   hoursLabel,
   imageColors,
+  isMapsLink,
   readFile,
   readLink,
+  readPlace,
   readSiteDraft,
   readText,
   squareIcon,
@@ -69,11 +72,20 @@ const READ_TIPS = [
   'Pegando contato, endereço e horário',
   'Preparando as fotos dos itens',
 ];
+const PLACE_TIPS = [
+  'Procurando no Google Maps',
+  'Pegando endereço, telefone e horário',
+  'Procurando o cardápio no site, no iFood e no Instagram',
+  'Lendo os itens e os preços',
+  'Pegando o logo e as cores da marca',
+];
 /** Fotos pela IA por vez (cada uma leva alguns segundos e gasta do limite). */
 const AI_PHOTO_MAX = 40;
 
 export function QuickStart({
   signup,
+  tenantName,
+  findPlace = 0,
   active = true,
   onReview,
   onDone,
@@ -82,6 +94,10 @@ export function QuickStart({
   onBusy,
 }: {
   signup: Signup | null;
+  /** Nome da loja: a busca no Google Maps começa por ele (e a cidade do cadastro). */
+  tenantName?: string;
+  /** Muda para procurar o restaurante no Google Maps sozinho (a pessoa escolheu "Achar no Maps"). */
+  findPlace?: number;
   /** Na tela agora (a conversa guarda o cartão escondido quando a pessoa volta ou segue). */
   active?: boolean;
   /** Abriu (ou saiu da) conferência: a conversa para de rolar sozinha para o fim. */
@@ -98,6 +114,9 @@ export function QuickStart({
   const [stage, setStage] = useState<Stage>({ at: 'pick' });
   const [link, setLink] = useState('');
   const [typed, setTyped] = useState('');
+  const [place, setPlace] = useState('');
+  /** A busca no Maps é o caminho escolhido: o campo dela fica em cima. */
+  const [placeFirst, setPlaceFirst] = useState(false);
   const [writing, setWriting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reading, setReading] = useState<Reading | null>(null);
@@ -119,12 +138,14 @@ export function QuickStart({
   }, []);
 
   // Enquanto a IA lê, a frase de baixo vai mudando (a leitura leva de 10 a 40 segundos).
+  const [searching, setSearching] = useState(false);
+  const tips = searching ? PLACE_TIPS : READ_TIPS;
   useEffect(() => {
     if (stage.at !== 'reading') return;
     setTip(0);
-    const t = window.setInterval(() => setTip((n) => Math.min(n + 1, READ_TIPS.length - 1)), 4000);
+    const t = window.setInterval(() => setTip((n) => Math.min(n + 1, tips.length - 1)), 5000);
     return () => window.clearInterval(t);
-  }, [stage.at]);
+  }, [stage.at, tips.length]);
 
   useEffect(() => () => void (stopPhotos.current = true), []);
 
@@ -207,6 +228,41 @@ export function QuickStart({
       setStage({ at: reading ? 'review' : 'pick' });
     }
   };
+
+  /** Nome e cidade do restaurante (ou o link do Maps): a IA acha o lugar e o cardápio. */
+  const fromPlace = async (given?: string) => {
+    const v = (given ?? place).trim();
+    if (v.length < 3) return;
+    setError(null);
+    setSearching(true);
+    setStage({ at: 'reading', label: `Procurando ${isMapsLink(v) ? 'o restaurante' : v}` });
+    try {
+      const r = await readPlace(
+        isMapsLink(v) ? { url: v } : { query: v, city: signup?.city ?? null },
+        reading ? { ...reading, drafts } : null,
+      );
+      await finishReading(r, sources);
+    } catch (e) {
+      // Não achou: a pessoa manda o cardápio (PDF, fotos, link) ou escreve os itens.
+      setError((e as Error).message);
+      setStage({ at: reading ? 'review' : 'pick' });
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // A pessoa escolheu "Achar no Google Maps": procura sozinho pelo nome da loja e a cidade.
+  const lastFind = useRef(0);
+  useEffect(() => {
+    if (!findPlace || findPlace === lastFind.current || !status?.enabled) return;
+    lastFind.current = findPlace;
+    setPlaceFirst(true);
+    const q = place.trim() || (tenantName ?? signup?.name ?? '').trim();
+    if (!q) return;
+    setPlace(q);
+    if (!reading) void fromPlace(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [findPlace, status]);
 
   const fromLink = async (given?: string) => {
     const url = (given ?? link).trim();
@@ -448,8 +504,11 @@ export function QuickStart({
     return (
       <div className="qs">
         {error && <Alert tone="danger">{error}</Alert>}
-        {status.reason && status.reason !== 'platform' && (
-          <Alert tone="warning">{WHY_OFF[status.reason]}</Alert>
+        {status.reason && (
+          <Alert tone="warning">
+            {WHY_OFF[status.reason]} Com a IA ligada, dá para mandar o PDF, fotos ou o link do
+            cardápio, ou achar o restaurante no Google Maps, e a IA monta tudo.
+          </Alert>
         )}
         {reading && resume}
         {textForm}
@@ -485,11 +544,54 @@ export function QuickStart({
     </>
   );
 
+  const placeForm = (
+    <form
+      className="qs-link"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void fromPlace();
+      }}
+    >
+      <label className="cm-label" htmlFor="qs-place">
+        Achar no Google Maps
+      </label>
+      <div className="qs-link__row">
+        <span className="qs-link__field">
+          <MapPin size={16} aria-hidden />
+          <input
+            id="qs-place"
+            type="text"
+            autoComplete="organization"
+            placeholder="Nome do restaurante e cidade, ou o link do Maps"
+            value={place}
+            maxLength={2000}
+            onChange={(e) => setPlace(e.target.value)}
+          />
+        </span>
+        <Button type="submit" variant="secondary" disabled={place.trim().length < 3}>
+          Procurar
+        </Button>
+      </div>
+      <span className="cm-hint">
+        A IA acha o restaurante no Google Maps e na internet e já traz endereço, telefone, horário,
+        logo e o cardápio que encontrar.
+      </span>
+    </form>
+  );
+
   if (stage.at === 'pick')
     return (
       <div className="qs">
         {error && <Alert tone="danger">{error}</Alert>}
         {reading && resume}
+        {placeFirst && (
+          <>
+            {placeForm}
+            <div className="qs-or" aria-hidden>
+              <span>ou mande o cardápio</span>
+            </div>
+          </>
+        )}
         <div
           className="qs-drop"
           data-over={over || undefined}
@@ -548,9 +650,18 @@ export function QuickStart({
             </Button>
           </div>
           <span className="cm-hint">
-            Pode ser o seu site, o cardápio digital ou a página da loja no app de delivery.
+            Pode ser o seu site, o cardápio digital, a página da loja no app de delivery ou o link
+            do Google Maps.
           </span>
         </form>
+        {!placeFirst && (
+          <>
+            <div className="qs-or" aria-hidden>
+              <span>ou</span>
+            </div>
+            {placeForm}
+          </>
+        )}
         {writing ? (
           textForm
         ) : (
@@ -574,7 +685,7 @@ export function QuickStart({
           <div>
             <strong>{stage.label}</strong>
             <span key={tip} className="qs-wait__tip">
-              {READ_TIPS[tip]}
+              {tips[tip]}
             </span>
             {stage.pages && stage.pages > 1 && (
               <progress max={stage.pages} value={(stage.page ?? 1) - 1} />
@@ -641,8 +752,8 @@ export function QuickStart({
       <header className="qs-head">
         <strong>Confira antes de aplicar</strong>
         <span>
-          Foi isso que eu li do seu cardápio. Corrija o que precisar: nada entra na loja antes de
-          você aplicar.
+          Foi isso que eu encontrei. Corrija o que precisar: nada entra na loja antes de você
+          aplicar.
         </span>
       </header>
       {error && <Alert tone="warning">{error}</Alert>}

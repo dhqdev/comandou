@@ -381,6 +381,27 @@ export async function readLink(url: string, current: Reading | null): Promise<Re
   return combine(current, r, inMenu, null);
 }
 
+/**
+ * Acha o restaurante na internet (Google Maps, site, iFood, Instagram) pelo link do Maps ou pelo
+ * nome e cidade, e já lê o cardápio que achar. Não achou: erro (a pessoa manda o cardápio).
+ */
+export async function readPlace(
+  p: { url?: string; query?: string; city?: string | null },
+  current: Reading | null,
+): Promise<Reading> {
+  const [r, inMenu] = await Promise.all([
+    api<ReadResult>('/menu-import/place', { method: 'POST', json: p }),
+    existingNames(),
+  ]);
+  return combine(current, r, inMenu, null);
+}
+
+/** É link do Google Maps? (o resto do texto é nome e cidade do restaurante) */
+export const isMapsLink = (t: string) =>
+  /^(https?:\/\/)?((www\.|maps\.)?google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps|g\.page)\b/i.test(
+    t.trim(),
+  );
+
 /** O site que a IA montou no comandou.com, antes do cadastro (não gasta o limite da IA). */
 export async function readSiteDraft(current: Reading | null): Promise<Reading | null> {
   const [r, inMenu] = await Promise.all([

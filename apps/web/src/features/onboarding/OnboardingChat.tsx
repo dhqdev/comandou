@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUp, Check, Clock, FileText, Globe } from 'lucide-react';
+import { ArrowLeft, ArrowUp, Check, Clock, FileText, Globe, MapPin } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { Button, Mascot } from '../../design-system';
@@ -100,11 +100,13 @@ export function OnboardingChat({
   /** O cartão do cardápio já abriu: fica guardado (escondido) quando a pessoa volta ou segue. */
   const [menuOpened, setMenuOpened] = useState(false);
   const [menuBusy, setMenuBusy] = useState(false);
+  /** Muda quando a pessoa escolhe "Achar no Google Maps": o cartão do cardápio procura sozinho. */
+  const [findPlace, setFindPlace] = useState(0);
   /** A página do restaurante (/site) foi criada no fim da conversa. */
   const [siteReady, setSiteReady] = useState(false);
   /** Respostas já dadas: voltar a um passo mostra o que a pessoa tinha respondido. */
   const answers = useRef<{
-    hasMenu: boolean | null;
+    hasMenu: boolean | 'maps' | null;
     whats: string;
     address: string;
     eta: number | null;
@@ -160,6 +162,7 @@ export function OnboardingChat({
     setStep('hello');
     setMenuOpened(false);
     setMenuBusy(false);
+    setFindPlace(0);
     setSiteReady(false);
     seq.current = 0;
     logLen.current = 0;
@@ -277,6 +280,19 @@ export function OnboardingChat({
         'Você já tem um cardápio pronto? Pode ser impresso, em PDF, numa foto ou num site.',
       ],
       'has-menu',
+    );
+  };
+  /** A IA procura o restaurante no Google Maps e na internet e monta loja e cardápio. */
+  const answerMaps = () => {
+    answers.current.hasMenu = 'maps';
+    push('me', 'Achar no Google Maps');
+    setFindPlace((n) => n + 1);
+    say(
+      [
+        `Deixa comigo. Vou procurar ${tenantName} no Google Maps e na internet.`,
+        'Trago endereço, telefone, horário, logo e o cardápio que eu achar. Se não achar, você me manda o PDF ou fotos do cardápio.',
+      ],
+      'menu',
     );
   };
   const answerHasMenu = (yes: boolean) => {
@@ -498,6 +514,20 @@ export function OnboardingChat({
               : 'Escrevo ou colo os itens com os preços'}
           </span>
         </button>
+        {aiOn && (
+          <button
+            type="button"
+            className="onb-option"
+            aria-pressed={answers.current.hasMenu === 'maps'}
+            onClick={answerMaps}
+          >
+            <MapPin size={22} aria-hidden />
+            <span className="onb-option__title">Achar no Google Maps</span>
+            <span className="onb-option__hint">
+              A IA procura o restaurante e monta a loja e o cardápio sozinha
+            </span>
+          </button>
+        )}
         <button
           type="button"
           className="onb-option"
@@ -632,6 +662,8 @@ export function OnboardingChat({
             <div className="onb-card onb-card--menu" hidden={at !== 'menu'}>
               <QuickStart
                 signup={signup}
+                tenantName={tenantName}
+                findPlace={findPlace}
                 active={at === 'menu'}
                 backRef={menuBack}
                 onBusy={setMenuBusy}

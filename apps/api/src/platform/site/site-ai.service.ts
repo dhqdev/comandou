@@ -146,7 +146,7 @@ export class SiteAiService {
   /** O que a IA vai ler: a página do site, o lugar do Maps ou o texto do dono. */
   private async input(
     src: SiteAiSourceInput,
-  ): Promise<{ text: string; images: string[]; ref: string }> {
+  ): Promise<{ text: string; images: string[]; ref: string; web?: boolean }> {
     if (src.kind === 'text')
       return {
         text: `O dono escreveu:\n${src.value.slice(0, 6000)}`,
@@ -181,6 +181,8 @@ export class SiteAiService {
         text: placeForModel(name, rest.join(' · ').trim() || null, src.value),
         images: [],
         ref: 'Google Maps',
+        // O Maps não mostra o cardápio: a IA pesquisa o lugar na internet (site, iFood, Instagram).
+        web: true,
       };
     }
     let page;
@@ -236,7 +238,7 @@ export class SiteAiService {
         );
     }
     const key = (await this.key(r))!;
-    const { text, images, ref } = await this.input(src);
+    const { text, images, ref, web } = await this.input(src);
     const client = new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key.key);
     const source = { kind: src.kind, value: src.value.slice(0, 2000) };
     let result;
@@ -247,7 +249,12 @@ export class SiteAiService {
           { role: 'system', content: SITE_PROMPT },
           { role: 'user', content: text },
         ],
-        { json: true, maxTokens: r.max_tokens_per_site, signal: AbortSignal.timeout(90_000) },
+        {
+          json: true,
+          maxTokens: r.max_tokens_per_site,
+          signal: AbortSignal.timeout(90_000),
+          ...(web ? { web: 5 } : {}),
+        },
       );
     } catch (e) {
       const msg = (e as Error).message.slice(0, 300);

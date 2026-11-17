@@ -138,8 +138,14 @@ export class OpenRouterClient {
   async complete(
     model: string,
     messages: { role: ChatTurn['role']; content: string | ContentPart[] }[],
-    opts: { maxTokens?: number; json?: boolean; signal?: AbortSignal } = {},
-  ): Promise<{ text: string; usage: Usage }> {
+    opts: {
+      maxTokens?: number;
+      json?: boolean;
+      signal?: AbortSignal;
+      /** Pesquisa na internet antes de responder (plugin "web" do OpenRouter): quantos resultados. */
+      web?: number;
+    } = {},
+  ): Promise<{ text: string; usage: Usage; citations: string[] }> {
     const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: this.headers(),
@@ -150,13 +156,19 @@ export class OpenRouterClient {
         temperature: 0.1,
         usage: { include: true },
         ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
+        ...(opts.web ? { plugins: [{ id: 'web', max_results: opts.web }] } : {}),
       }),
       signal: opts.signal ?? AbortSignal.timeout(120_000),
     });
     const body = await res.text().catch(() => '');
     if (!res.ok) throw new OpenRouterError(friendly(res.status, body), res.status);
     let j: {
-      choices?: { message?: { content?: string | null } }[];
+      choices?: {
+        message?: {
+          content?: string | null;
+          annotations?: { type?: string; url_citation?: { url?: string } }[];
+        };
+      }[];
       usage?: Record<string, unknown>;
       error?: { message?: string };
     };
@@ -166,7 +178,12 @@ export class OpenRouterClient {
       throw new OpenRouterError('O OpenRouter devolveu uma resposta que não deu para ler');
     }
     if (j.error) throw new OpenRouterError(`OpenRouter: ${j.error.message ?? 'erro'}`);
+    // Páginas que a pesquisa na internet usou (só com o plugin "web").
+    const citations = (j.choices?.[0]?.message?.annotations ?? [])
+      .map((a) => (a.type === 'url_citation' ? a.url_citation?.url : undefined))
+      .filter((u): u is string => typeof u === 'string' && /^https?:\/\//.test(u));
     return {
+      citations: [...new Set(citations)].slice(0, 20),
       text: j.choices?.[0]?.message?.content ?? '',
       usage: {
         promptTokens: num(j.usage?.prompt_tokens) ?? 0,

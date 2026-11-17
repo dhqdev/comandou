@@ -20,6 +20,13 @@ import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types'
 import { MenuImportService } from './menu-import.service';
 
 const Link = z.object({ url: z.string().trim().min(4).max(2000) });
+const Place = z
+  .object({
+    url: z.string().trim().min(8).max(2000).optional(),
+    query: z.string().trim().min(3).max(200).optional(),
+    city: z.string().trim().max(80).nullable().optional(),
+  })
+  .refine((v) => v.url || v.query, 'Informe o link do Google Maps ou o nome do restaurante');
 const Text = z.object({ text: z.string().trim().min(10).max(12_000) });
 const Photo = z.object({
   name: z.string().trim().min(1).max(120),
@@ -71,6 +78,23 @@ export class MenuImportController {
     @Req() req: Request,
   ) {
     return this.service.fromLink(ctxOf(t, u, req), b.url);
+  }
+
+  /**
+   * Primeiros passos pelo Google Maps: acha o restaurante (link do Maps ou nome e cidade), traz
+   * os dados da loja e lê o cardápio que achar na internet.
+   */
+  @Post('place')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 4 } })
+  @RequirePermission('catalog:write')
+  place(
+    @Body(new ZodPipe(Place)) b: z.infer<typeof Place>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.service.fromPlace(ctxOf(t, u, req), b);
   }
 
   /** Primeiros passos: cardápio descrito em texto (um item por linha, com o preço). */

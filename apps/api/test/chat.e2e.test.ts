@@ -113,6 +113,50 @@ function fakeOpenRouter() {
         );
         return;
       }
+      // Achar o restaurante na internet (plugin "web"): a pesquisa devolve a loja e o cardápio.
+      if (req.url === '/chat/completions' && Array.isArray(body?.plugins)) {
+        const ask = JSON.stringify(body?.messages ?? []);
+        const place = ask.includes('Inexistente')
+          ? { found: false }
+          : {
+              found: true,
+              store: {
+                name: 'Bella Serra Pizzaria',
+                whatsapp: '(19) 99876-5432',
+                address: 'Rua das Flores, 120 - Centro',
+                city: 'Campinas',
+                state: 'SP',
+                hours: [{ day: 5, open: '18:00', close: '23:30' }],
+              },
+              links: { menu: null, ifood: null, site: null },
+              categories: [
+                {
+                  name: 'Pizzas',
+                  items: [
+                    { name: 'Pizza Margherita', price: '52.00' },
+                    { name: 'Pizza sem preço', price: null },
+                  ],
+                },
+              ],
+            };
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify(place),
+                  annotations: [
+                    { type: 'url_citation', url_citation: { url: 'https://exemplo.com.br/' } },
+                  ],
+                },
+              },
+            ],
+            usage: { prompt_tokens: 900, completion_tokens: 200, cost: 0.02 },
+          }),
+        );
+        return;
+      }
       // Importar o cardápio: uma resposta só (sem streaming), em JSON, com o arquivo junto.
       if (req.url === '/chat/completions' && body?.stream !== true) {
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -780,6 +824,47 @@ describe('Assistente de IA', () => {
     expect(call.model).toBe('google/gemini-2.5-flash-image');
     expect(call.messages[0]!.content).toContain('Pizza Calabresa');
     expect((await get('adminB', '/menu-import').expect(200)).body.usage.used).toBe(before + 1310);
+  });
+
+  it('primeiros passos pelo Google Maps: a IA acha o restaurante na internet e monta a loja', async () => {
+    const r = (
+      await send('adminB', 'post', '/menu-import/place', {
+        query: 'Bella Serra',
+        city: 'Campinas',
+      }).expect(200)
+    ).body;
+    expect(r).toMatchObject({ found: true, items: 1 });
+    expect(r.store).toMatchObject({
+      name: 'Bella Serra Pizzaria',
+      whatsapp: '19998765432',
+      address: 'Rua das Flores, 120 - Centro',
+      city: 'Campinas',
+      state: 'SP',
+      hours: [{ day: 5, open: '18:00', close: '23:30' }],
+    });
+    // Da pesquisa só entra item com preço.
+    expect(r.categories).toEqual([
+      { name: 'Pizzas', items: [{ name: 'Pizza Margherita', description: null, price: '52.00' }] },
+    ]);
+    const call = orCalls[orCalls.length - 1]!.body as {
+      plugins: { id: string }[];
+      messages: { content: { text: string }[] }[];
+    };
+    expect(call.plugins[0]).toMatchObject({ id: 'web' });
+    expect(call.messages[1]!.content[0]!.text).toContain('Campinas');
+    const [row] = await ownerQuery<{ source: string }>(
+      `SELECT source FROM ai_usage WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [fx.tenantB],
+    );
+    expect(row!.source).toBe('menu_place');
+
+    // Não achou: a pessoa manda o cardápio (PDF, fotos ou link).
+    const miss = await send('adminB', 'post', '/menu-import/place', {
+      query: 'Lugar Inexistente',
+    }).expect(422);
+    expect(miss.body.message).toContain('Não achei o restaurante');
+    await send('adminB', 'post', '/menu-import/place', {}).expect(400);
+    await send('waiterA', 'post', '/menu-import/place', { query: 'Bella Serra' }).expect(403);
   });
 });
 

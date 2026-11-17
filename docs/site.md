@@ -34,7 +34,13 @@ O site tem mais movimento que as telas de trabalho, sempre com transform e opaci
 3. Quando fica pronto (poucos segundos), a tela mostra endereço, login e senha, e o botão abre o
    restaurante **já logado** (link de uso único, 1 hora). O mesmo login vai por e-mail.
 4. No primeiro acesso, os primeiros passos começam sozinhos pelo que ela informou: a loja que a
-   IA montou no site, ou leem o site, o lugar do Maps (nome e endereço) ou a descrição dos itens.
+   IA montou no site, ou leem o site, o lugar do Maps ou a descrição dos itens. Com a IA ligada, o
+   link do Maps vira uma **pesquisa na internet** (plugin `web` do OpenRouter): a IA confirma o
+   lugar e traz telefone, endereço, horário e os links do cardápio (cardápio digital, iFood, site),
+   e o melhor link é lido em seguida (`MenuImportService.fromPlace`, prompt em
+   `chat/place-research.ts`). Não achou: a conversa pede o PDF, fotos ou o link do cardápio. Nos
+   primeiros passos há também a opção **Achar no Google Maps**, que pesquisa pelo nome da loja e
+   a cidade do cadastro (`POST /menu-import/place`, uso "menu_place" no extrato da IA).
    Os itens escritos chegam mesmo **sem IA** (lidos linha por linha: "X-Burger 28,90"; linha sem
    preço antes dos itens vira categoria). Sem IA, a pessoa também pode escrever os itens ali. O
    PDF e as fotos do cardápio entram na conferência quando a IA está ligada. Ela confere, aplica

@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.148.0',
+    date: '2026-11-17',
+    title: 'A IA acha o restaurante no Google Maps e monta a loja',
+    summary:
+      'Nos primeiros passos, escolha Achar no Google Maps: a IA procura o restaurante no Maps e na internet (site, iFood, Instagram) e já traz endereço, telefone, horário, logo, cores e o cardápio que encontrar, para você só conferir. Não achou: mande o PDF, fotos ou o link do cardápio e a IA monta tudo do mesmo jeito.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Primeiros passos: opção Achar no Google Maps. A IA pesquisa o restaurante pelo nome e a cidade (ou pelo link do Maps), preenche a loja e lê o cardápio do site ou do app de delivery que achar. Se não achar, a conversa pede o PDF, as fotos ou o link do cardápio.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Link do Google Maps (no cardápio ou no teste criado pelo site) agora traz telefone, horário, foto e o cardápio de verdade, não só o nome e o endereço.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Site com IA no comandou.com: quem escolhe o Google Maps ganha a loja com os dados e o cardápio reais do restaurante, pesquisados na internet, em vez de itens sugeridos.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Com a IA desligada, os primeiros passos explicam por que só dá para escrever os itens e o que muda quando a IA é ligada.',
+      },
+    ],
+  },
+  {
     version: '0.147.0',
     date: '2026-11-17',
     title: 'WhatsApp pronto para muitos clientes ao mesmo tempo',
