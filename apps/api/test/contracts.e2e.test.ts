@@ -1,8 +1,6 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
-import { createHash, createHmac, randomBytes } from 'node:crypto';
-import { createServer, Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
+import { createHash, randomBytes } from 'node:crypto';
 import { PDFDocument } from 'pdf-lib';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -16,16 +14,17 @@ import { pdfSafe } from '../src/platform/contracts/contract-pdf';
 import { newTotpSecret, totpCode, totpStep } from '../src/platform/totp';
 import { PLATFORM_URL, testEnv } from './env';
 import { Fixture, ownerQuery, seedTwoTenants } from './fixtures';
+import { fakeMail } from './mail-fake';
 
 /**
- * Contrato digital do cliente: gerar (texto + PDF + hash), enviar pelo n8n, assinar pelo link
- * público só depois de ler até o fim, PDF assinado guardado e aviso de volta pelo n8n.
+ * Contrato digital do cliente: gerar (texto + PDF + hash), enviar por e-mail (envio do próprio
+ * Comandou), assinar pelo link público só depois de ler até o fim, PDF assinado guardado e aviso
+ * de volta por e-mail.
  */
 const ADMIN_HOST = 'admin.comandou.test';
 const CSRF = { 'X-Comandou-Request': '1' };
 const KEY = randomBytes(32).toString('base64');
 const SECRET = newTotpSecret();
-const WEBHOOK_SECRET = 'segredo-do-webhook-n8n-123';
 // 1x1 PNG transparente (assinatura "desenhada").
 const PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
@@ -34,14 +33,7 @@ let app: INestApplication;
 let http: ReturnType<typeof request>;
 let fx: Fixture;
 let cookie = '';
-let hook: Server;
-let hookUrl = '';
-const received: {
-  headers: Record<string, string | string[] | undefined>;
-  body: any;
-  raw: string;
-}[] = [];
-let hookStatus = 200;
+let mail: Awaited<ReturnType<typeof fakeMail>> | null = null;
 
 const pget = (url: string) =>
   http.get(`/api/v1/platform${url}`).set('Host', ADMIN_HOST).set('Cookie', cookie);
@@ -75,8 +67,6 @@ const settings = {
   lateInterestPercent: 1,
   suspendAfterDays: 15,
   supportHours: 'segunda a sábado, das 9h às 18h',
-  webhookUrl: '',
-  webhookSecret: WEBHOOK_SECRET,
   notifyEmail: 'david@comandou.test',
 };
 
@@ -101,17 +91,7 @@ beforeAll(async () => {
     [fx.tenantA, planId],
   );
 
-  hook = createServer((req, res) => {
-    let raw = '';
-    req.on('data', (c) => (raw += c));
-    req.on('end', () => {
-      received.push({ headers: req.headers, body: JSON.parse(raw), raw });
-      res.statusCode = hookStatus;
-      res.end(hookStatus === 200 ? '{"ok":true}' : 'falhou');
-    });
-  });
-  await new Promise<void>((r) => hook.listen(0, '127.0.0.1', r));
-  hookUrl = `http://127.0.0.1:${(hook.address() as AddressInfo).port}/webhook/comandou-contratos`;
+  await ownerQuery(`UPDATE mail_settings SET provider = 'none', from_address = ''`);
 
   app = await createApp(
     testEnv({
@@ -140,7 +120,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await app?.close();
-  hook?.close();
+  await mail?.off();
 });
 
 describe('Peças do contrato', () => {
@@ -170,10 +150,10 @@ describe('Contrato do cliente', () => {
     expect(r2.body.message).toMatch(/Cadastro/);
   });
 
-  it('configuração não devolve o segredo do webhook', async () => {
+  it('configuração guarda os dados da contratada', async () => {
     const r = await pget('/contracts/settings').expect(200);
-    expect(r.body.hasWebhookSecret).toBe(true);
-    expect(JSON.stringify(r.body)).not.toContain(WEBHOOK_SECRET);
+    expect(r.body.notifyEmail).toBe('david@comandou.test');
+    expect(r.body).not.toHaveProperty('webhookUrl');
     expect(r.body.providerDocument).toBe('12345678000190');
     expect(r.body.slaPercent).toBe('99.50');
   });
@@ -235,30 +215,21 @@ describe('Contrato do cliente', () => {
     ).toBe(r.body.pdfSha256);
   });
 
-  it('enviar sem webhook configurado avisa; com webhook manda o link e o PDF ao n8n', async () => {
+  it('enviar sem e-mail configurado avisa; configurado, manda o link e o PDF', async () => {
     const r = await psend('post', `/contracts/${contractId}/send`).expect(422);
-    expect(r.body.message).toMatch(/n8n/);
-    await psend('put', '/contracts/settings', {
-      ...settings,
-      webhookSecret: '',
-      webhookUrl: hookUrl,
-    }).expect(200);
+    expect(r.body.message).toMatch(/Super Admin › E-mail/);
+    mail = await fakeMail(app, KEY);
     const s = await psend('post', `/contracts/${contractId}/send`, {
       message: 'Qualquer dúvida, me chame.',
     }).expect(200);
     expect(s.body.url).toMatch(/^http:\/\/admin\.comandou\.test\/assinar\/[A-Za-z0-9_-]{43}$/);
     expect(s.body.contract.status).toBe('sent');
     token = s.body.url.split('/').pop();
-    const call = received.at(-1)!;
-    expect(call.body.event).toBe('contract.send');
-    expect(call.headers['x-comandou-token']).toBe(WEBHOOK_SECRET);
-    expect(call.headers['x-comandou-signature']).toBe(
-      `sha256=${createHmac('sha256', WEBHOOK_SECRET).update(call.raw).digest('hex')}`,
-    );
-    expect(call.body.messages[0].to).toBe('financeiro@ct-a.test');
-    expect(call.body.messages[0].html).toContain(s.body.url);
-    expect(call.body.attachment.mimeType).toBe('application/pdf');
-    expect(Buffer.from(call.body.attachment.base64, 'base64').subarray(0, 4).toString()).toBe(
+    const call = mail!.sent.at(-1)!.body;
+    expect(call.to).toEqual(['financeiro@ct-a.test']);
+    expect(call.html).toContain(s.body.url);
+    expect(call.attachments?.[0]?.content_type).toBe('application/pdf');
+    expect(Buffer.from(call.attachments![0]!.content, 'base64').subarray(0, 4).toString()).toBe(
       '%PDF',
     );
     // O token não fica no banco (só o hash).
@@ -269,12 +240,18 @@ describe('Contrato do cliente', () => {
     expect(row.n).toBe(0);
   });
 
-  it('n8n fora do ar: o envio falha e o link anterior continua valendo', async () => {
-    hookStatus = 500;
+  it('provedor de e-mail fora do ar: o envio falha e o link anterior continua valendo', async () => {
+    mail!.state.fail = 500;
     const r = await psend('post', `/contracts/${contractId}/send`).expect(422);
     expect(r.body.message).toMatch(/HTTP 500/);
-    hookStatus = 200;
+    mail!.state.fail = null;
     await sget(token).expect(200);
+    // O e-mail com o link que não valeu não sai depois sozinho.
+    const [o] = await ownerQuery<{ status: string }>(
+      `SELECT status FROM mail_outbox WHERE kind = 'contract.send'
+        ORDER BY created_at DESC LIMIT 1`,
+    );
+    expect(o!.status).toBe('cancelled');
   });
 
   it('link público: abre, mas só assina depois de ler até o fim', async () => {
@@ -312,16 +289,12 @@ describe('Contrato do cliente', () => {
     expect(d.body.signerGeo).toEqual({ lat: -22.90556, lng: -47.06083, accuracy: 35 });
     expect(d.body.clientSignature.kind).toBe('drawn');
     expect(d.body.integrity).toMatchObject({ trailOk: true, clientEvidenceOk: true });
-    const call = received.at(-1)!;
-    expect(call.body.event).toBe('contract.client_signed');
-    expect(call.body.messages.map((m: { to: string }) => m.to)).toEqual([
-      'david@comandou.test',
-      'maria@ct-a.test',
-    ]);
-    expect(call.body.messages[0].html).toContain(
+    const calls = mail!.sent.slice(-2).map((x) => x.body);
+    expect(calls.map((m) => m.to[0])).toEqual(['david@comandou.test', 'maria@ct-a.test']);
+    expect(calls[0]!.html).toContain(
       `/restaurantes/${fx.tenantA}?aba=contrato&amp;contrato=${contractId}`,
     );
-    expect(call.body.attachment).toBeNull();
+    expect(calls[0]!.attachments).toBeUndefined();
     const p = await pget('/contracts/pending').expect(200);
     expect(p.body.map((x: { id: string }) => x.id)).toContain(contractId);
     // O cliente não consegue trocar a assinatura dele (nem direto no banco).
@@ -363,7 +336,7 @@ describe('Contrato do cliente', () => {
     await psend('post', `/contracts/${contractId}/countersign`, { ...body, code }).expect(409);
   });
 
-  it('PDF assinado tem o manifesto, fica guardado e o aviso vai ao n8n', async () => {
+  it('PDF assinado tem o manifesto, fica guardado e o aviso vai por e-mail', async () => {
     const d = await pget(`/contracts/${contractId}`).expect(200);
     expect(d.body.status).toBe('signed');
     expect(d.body.signerDocument).toBe('529.982.247-25');
@@ -380,16 +353,14 @@ describe('Contrato do cliente', () => {
         'notified',
       ]),
     );
-    const call = received.at(-1)!;
-    expect(call.body.event).toBe('contract.signed');
-    expect(call.body.contract.trailSha256).toBe(d.body.trailSha256);
-    expect(call.body.messages.map((m: { to: string }) => m.to)).toEqual([
+    const calls = mail!.sent.slice(-4).map((x) => x.body);
+    expect(calls.map((m) => m.to[0])).toEqual([
       'david@comandou.test',
       'contratos@plataforma.test',
       'maria@ct-a.test',
       'financeiro@ct-a.test',
     ]);
-    const signed = Buffer.from(call.body.attachment.base64, 'base64');
+    const signed = Buffer.from(calls[0]!.attachments![0]!.content, 'base64');
     expect(createHash('sha256').update(signed).digest('hex')).toBe(d.body.signedPdfSha256);
     const original = await PDFDocument.load(
       (

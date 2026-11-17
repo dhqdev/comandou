@@ -11,7 +11,7 @@ const DAY = 86_400_000;
 /**
  * Lado da plataforma (banco central) de uma demonstração que tem `platform`: cadastro do cliente,
  * assinatura paga, faturas, limite do assistente e um contrato já assinado pelo cliente,
- * esperando a assinatura da contratada no Super Admin. Nada aqui manda e-mail ou webhook.
+ * esperando a assinatura da contratada no Super Admin. Nada aqui manda e-mail.
  * Erros viram aviso no log: a demonstração continua de pé sem esta parte.
  */
 export async function seedDemoPlatform(
@@ -206,8 +206,8 @@ export async function seedDemoPlatform(
       },
     } as unknown as PlatformDb;
     const env = { COMANDOU_BASE_DOMAIN: o.baseDomain } as Env;
-    const svc = new ContractsService(env, db, {} as never);
-    // Demonstração não avisa ninguém: sem e-mail para a contratada nem webhook do n8n.
+    const svc = new ContractsService(env, db, {} as never, {} as never);
+    // Demonstração não avisa ninguém: sem e-mail para a contratada nem para o cliente.
     (svc as unknown as { notifyClientSigned: () => Promise<void> }).notifyClientSigned = async () =>
       undefined;
     const actor = { admin: { id: admin.id, name: admin.name } as never, ip: '127.0.0.1' };

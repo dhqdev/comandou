@@ -1,7 +1,7 @@
 /**
  * E-mail de boas-vindas do teste criado pelo site: endereço do restaurante, login e senha.
  * HTML de e-mail (tabelas e estilo na própria tag): abre igual no Gmail, Outlook e no celular,
- * no claro e no escuro. O envio é feito pelo webhook (n8n) configurado em Super Admin › Site.
+ * no claro e no escuro. Sai pelo envio do próprio Comandou (Super Admin › E-mail).
  */
 export interface WelcomeEmailInput {
   restaurant: string;

@@ -422,7 +422,7 @@ export class CustomersService {
   }
 
   /**
-   * Pede o código pelo WhatsApp da loja e/ou pelo e-mail da conta (webhook do n8n, para a loja sem
+   * Pede o código pelo WhatsApp da loja e/ou pelo e-mail da conta (envio do Comandou, para a loja sem
    * WhatsApp conectado). Manda um código, nunca uma senha nova: quem digita o celular de outra
    * pessoa não troca a senha dela. A resposta é a mesma exista a conta ou não (ninguém descobre
    * quem tem conta): diz só por onde a loja manda o código ou se é preciso falar com o restaurante.
@@ -472,10 +472,10 @@ export class CustomersService {
         r.email
           ? this.mail.send({
               event: 'customer.password_reset',
+              tenantId,
               to: r.email,
               toName: r.name,
               fromName: tenantName,
-              restaurant: tenantName,
               ...resetEmail({
                 restaurant: tenantName,
                 customerName: r.name,

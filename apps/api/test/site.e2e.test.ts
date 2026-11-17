@@ -1,18 +1,17 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
-import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/bootstrap';
 import { SiteService } from '../src/platform/site/site.service';
 import { PLATFORM_URL, testEnv } from './env';
 import { ownerQuery } from './fixtures';
+import { fakeMail } from './mail-fake';
 
 /**
  * Site público: o visitante cria o próprio restaurante de teste, entra já logado, recebe o login
- * por e-mail (webhook) e, se o teste vencer sem contratação, o restaurante é suspenso.
+ * por e-mail (envio do próprio Comandou) e, se o teste vencer sem contratação, o restaurante é suspenso.
  */
 const SITE_HOST = 'comandou.test';
 const CSRF = { 'X-Comandou-Request': '1' };
@@ -21,8 +20,7 @@ const EMAIL = `dona-${randomBytes(4).toString('hex')}@site.test`;
 
 let app: INestApplication;
 let http: ReturnType<typeof request>;
-let hook: Server;
-const received: { headers: Record<string, unknown>; body: Record<string, string> }[] = [];
+let mail: Awaited<ReturnType<typeof fakeMail>>;
 let created: {
   token: string;
   entry: string;
@@ -43,16 +41,6 @@ const post = (path: string, body: object) =>
   http.post(`/api/v1/public/site/${path}`).set('Host', SITE_HOST).set(CSRF).send(body);
 
 beforeAll(async () => {
-  hook = createServer((req, res) => {
-    let raw = '';
-    req.on('data', (c) => (raw += c));
-    req.on('end', () => {
-      received.push({ headers: req.headers, body: JSON.parse(raw) });
-      res.end('{}');
-    });
-  });
-  await new Promise<void>((ok) => hook.listen(0, '127.0.0.1', ok));
-  const port = (hook.address() as AddressInfo).port;
   // Sem IA e sem cobrança automática, como numa instalação que acabou de abrir o site.
   const [ai] = await ownerQuery<{ key: Buffer | null }>(
     `SELECT api_key_enc AS key FROM platform_ai_settings`,
@@ -72,9 +60,7 @@ beforeAll(async () => {
   );
   // O campo antigo do site (3 dias) não manda mais: vale o do plano (5).
   await ownerQuery(
-    `UPDATE platform_site_settings SET signup_enabled = true, trial_days = 3, daily_limit = 1000,
-            email_webhook_url = $1, email_token_enc = NULL`,
-    [`http://127.0.0.1:${port}/webhook/boas-vindas`],
+    `UPDATE platform_site_settings SET signup_enabled = true, trial_days = 3, daily_limit = 1000`,
   );
   app = await createApp(
     testEnv({
@@ -86,10 +72,11 @@ beforeAll(async () => {
   );
   await app.init();
   http = request(app.getHttpServer());
+  mail = await fakeMail(app, KEY);
 });
 
 afterAll(async () => {
-  await ownerQuery(`UPDATE platform_site_settings SET email_webhook_url = ''`);
+  await mail?.off();
   if (plan)
     await ownerQuery(`UPDATE plans SET is_default = false, active = false WHERE id = $1`, [
       plan.id,
@@ -99,7 +86,6 @@ afterAll(async () => {
     await ownerQuery(`UPDATE platform_billing_settings SET enabled = $1`, [before.billing]);
   }
   await app?.close();
-  await new Promise((ok) => hook.close(ok));
 });
 
 describe('Teste criado pelo site', () => {
@@ -158,24 +144,26 @@ describe('Teste criado pelo site', () => {
     );
   });
 
-  it('acompanha a criação e manda o e-mail de boas-vindas pelo webhook', async () => {
+  it('acompanha a criação e manda o e-mail de boas-vindas pelo envio do Comandou', async () => {
     const r = await http
       .get(`/api/v1/public/site/trials/${created.token}`)
       .set('Host', SITE_HOST)
       .expect(200);
     expect(r.body).toMatchObject({ state: 'ready', url: created.url });
-    for (let i = 0; i < 40 && !received.length; i++) await new Promise((ok) => setTimeout(ok, 50));
-    expect(received).toHaveLength(1);
-    const mail = received[0]!.body;
-    expect(mail).toMatchObject({
-      event: 'trial.welcome',
-      to: EMAIL,
-      loginEmail: EMAIL,
-      password: created.password,
-      url: created.url,
-    });
-    expect(mail.html).toContain(created.password);
-    expect(mail.subject).toContain('Cantina Site');
+    for (let i = 0; i < 40 && !mail.sent.length; i++) await new Promise((ok) => setTimeout(ok, 50));
+    expect(mail.sent).toHaveLength(1);
+    const m = mail.sent[0]!.body;
+    expect(m.to).toEqual([EMAIL]);
+    expect(m.html).toContain(created.password);
+    expect(m.html).toContain(created.url);
+    expect(m.subject).toContain('Cantina Site');
+    // Na fila não fica a senha depois de enviado.
+    const [o] = await ownerQuery<{ status: string; leak: boolean }>(
+      `SELECT status, (COALESCE(html, '') || COALESCE(body_text, '')) LIKE $1 OR body_enc IS NOT NULL AS leak
+         FROM mail_outbox WHERE kind = 'trial.welcome' ORDER BY created_at DESC LIMIT 1`,
+      [`%${created.password}%`],
+    );
+    expect(o).toEqual({ status: 'sent', leak: false });
     // Saiu: a senha guardada é apagada e o e-mail não sai de novo.
     const [row] = await ownerQuery<{ pending: boolean; sent: boolean }>(
       `SELECT pending_enc IS NOT NULL AS pending, email_sent_at IS NOT NULL AS sent
@@ -184,7 +172,7 @@ describe('Teste criado pelo site', () => {
     );
     expect(row).toEqual({ pending: false, sent: true });
     await app.get(SiteService).deliverPending();
-    expect(received).toHaveLength(1);
+    expect(mail.sent).toHaveLength(1);
     await http
       .get(`/api/v1/public/site/trials/${'x'.repeat(43)}`)
       .set('Host', SITE_HOST)

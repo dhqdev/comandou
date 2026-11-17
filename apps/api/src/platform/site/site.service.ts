@@ -16,6 +16,7 @@ import { validateTenantSlug } from '@comandou/shared';
 import { hashToken } from '../../auth/session.service';
 import { extractPage } from '../../chat/store-import';
 import { safeFetch, SafeFetchError } from '../../common/safe-fetch';
+import type { PoolClient } from 'pg';
 import { open, seal } from '../../common/secret-box';
 import { ENV, Env } from '../../config/env';
 import { tenantDatabaseName } from '../../database/tenant-database';
@@ -30,10 +31,11 @@ import { mapsPlaceName } from '../../common/maps-link';
 import { trialSlug } from './site-util';
 import { welcomeEmail } from './welcome-email';
 import { SiteAiService } from './site-ai.service';
-import { CUSTOMER_EMAIL_SECRET_CONTEXT } from '../../store/customer-mail.service';
+import { MailService } from '../../mail/mail.service';
 import { resetEmail } from '../../store/reset-email';
 
 const SECRET_CONTEXT = 'site:trial';
+const MAIL_OFF = 'Envio de e-mail não configurado (Super Admin › E-mail)';
 /** O link que abre o restaurante novo já logado vale este tempo depois do cadastro. */
 const ENTRY_MINUTES = 60;
 
@@ -43,10 +45,6 @@ const SYSTEM: Actor = { admin: { id: null } as unknown as PlatformAdmin };
 interface SettingsRow {
   signup_enabled: boolean;
   daily_limit: number;
-  email_webhook_url: string;
-  email_token_enc: Buffer | null;
-  customer_email_webhook_url: string;
-  customer_email_token_enc: Buffer | null;
 }
 
 interface PendingRow {
@@ -79,7 +77,7 @@ export function trialPassword(): string {
  * atual, o link do Google Maps ou descrevendo os itens. O restaurante nasce como qualquer outro
  * (mesmo caminho do painel), no plano padrão e com os dias de teste dele (Super Admin › Preço:
  * um tempo só para o site e para o sistema), e os primeiros passos começam pelo cardápio
- * informado. O login vai por e-mail (webhook do n8n) e aparece na tela. Teste vencido
+ * informado. O login vai por e-mail (envio do próprio Comandou) e aparece na tela. Teste vencido
  * sem fechar: o restaurante é suspenso (nada é apagado) e volta pelo painel.
  */
 @Injectable()
@@ -93,6 +91,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly databases: PlatformDatabasesService,
     private readonly platform: PlatformService,
     private readonly siteAi: SiteAiService,
+    private readonly mail: MailService,
   ) {}
 
   onApplicationBootstrap() {
@@ -111,9 +110,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
 
   private async settingsRow(): Promise<SettingsRow> {
     const [s] = await this.db.query<SettingsRow>(
-      `SELECT signup_enabled, daily_limit, email_webhook_url, email_token_enc,
-              customer_email_webhook_url, customer_email_token_enc
-         FROM platform_site_settings WHERE id`,
+      `SELECT signup_enabled, daily_limit FROM platform_site_settings WHERE id`,
     );
     return s!;
   }
@@ -218,10 +215,11 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
         'Recebemos muitos cadastros hoje. Tente de novo amanhã ou fale com a gente.',
         HttpStatus.TOO_MANY_REQUESTS,
       );
+    const emailOn = await this.mail.ready();
     const dup = await this.db.query(`SELECT 1 FROM trial_signups WHERE email = $1`, [b.email]);
     if (dup.length)
       throw new ConflictException(
-        s.email_webhook_url
+        emailOn
           ? 'Já existe um teste com este e-mail. O login está na sua caixa de entrada.'
           : 'Já existe um teste com este e-mail. Entre com o login que apareceu no cadastro ou fale com a gente.',
       );
@@ -326,7 +324,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
       password,
       trialDays: days,
       trialEndsAt,
-      emailOn: !!s.email_webhook_url,
+      emailOn,
     };
   }
 
@@ -370,121 +368,123 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   // ------------------------------------------------------------------ e-mail
-  /** Restaurantes que ficaram prontos e ainda não receberam o e-mail de boas-vindas. */
+  /**
+   * Restaurantes que ficaram prontos e ainda não receberam o e-mail de boas-vindas. A senha
+   * guardada sai de `pending_enc` e entra na fila de envio (cifrada) NA MESMA transação: duas
+   * réplicas nunca mandam o mesmo e-mail e, se o provedor estiver fora, a fila tenta de novo
+   * (antes, com o webhook fora, a senha já tinha sido apagada e o e-mail se perdia).
+   */
   async deliverPending() {
     if (!this.db.enabled || !this.env.INTEGRATIONS_KEY) return;
-    // "Pega" a linha apagando a senha guardada: duas réplicas nunca mandam o mesmo e-mail.
-    const rows = await this.db.query<PendingRow>(
-      `WITH due AS (
-         SELECT s.id, s.pending_enc FROM trial_signups s JOIN tenants t ON t.id = s.tenant_id
-          WHERE s.pending_enc IS NOT NULL
-            AND (t.status = 'provisioned' OR s.created_at < now() - interval '1 hour')
-          FOR UPDATE OF s SKIP LOCKED LIMIT 10)
-       UPDATE trial_signups s SET pending_enc = NULL
-         FROM due, tenants t
-        WHERE s.id = due.id AND t.id = s.tenant_id
-       RETURNING s.id, s.tenant_id, s.email::text AS email, s.contact_name, s.trial_ends_at,
-                 due.pending_enc, t.slug, t.name, t.status`,
-    );
-    for (const r of rows) {
-      // Uma hora sem ficar pronto: a senha guardada some e nenhum e-mail sai.
-      if ((r as PendingRow & { status: string }).status !== 'provisioned') continue;
-      let password: string;
-      try {
-        password = open(this.env.INTEGRATIONS_KEY, r.pending_enc, SECRET_CONTEXT);
-      } catch {
-        continue;
+    const ready = await this.mail.ready();
+    const queued = await this.db.tx(async (c) => {
+      const { rows } = await c.query<PendingRow & { status: string }>(
+        `WITH due AS (
+           SELECT s.id, s.pending_enc FROM trial_signups s JOIN tenants t ON t.id = s.tenant_id
+            WHERE s.pending_enc IS NOT NULL
+              AND (t.status = 'provisioned' OR s.created_at < now() - interval '1 hour')
+            FOR UPDATE OF s SKIP LOCKED LIMIT 10)
+         UPDATE trial_signups s SET pending_enc = NULL
+           FROM due, tenants t
+          WHERE s.id = due.id AND t.id = s.tenant_id
+         RETURNING s.id, s.tenant_id, s.email::text AS email, s.contact_name, s.trial_ends_at,
+                   due.pending_enc, t.slug, t.name, t.status`,
+      );
+      const out: { signupId: string; outboxId: string; slug: string }[] = [];
+      for (const r of rows) {
+        // Uma hora sem ficar pronto: a senha guardada some e nenhum e-mail sai.
+        if (r.status !== 'provisioned') continue;
+        if (!ready) {
+          await c.query(`UPDATE trial_signups SET email_error = $2 WHERE id = $1`, [
+            r.id,
+            MAIL_OFF,
+          ]);
+          continue;
+        }
+        let password: string;
+        try {
+          password = open(this.env.INTEGRATIONS_KEY!, r.pending_enc, SECRET_CONTEXT);
+        } catch {
+          continue;
+        }
+        out.push({
+          signupId: r.id,
+          outboxId: await this.enqueueWelcome(c, r, password),
+          slug: r.slug,
+        });
       }
-      await this.send(r, password);
-    }
+      return out;
+    });
+    for (const q of queued) await this.deliverWelcome(q.signupId, q.outboxId, q.slug);
+    // O que a fila conseguiu entregar numa tentativa posterior.
+    await this.db.query(
+      `UPDATE trial_signups s SET email_sent_at = o.sent_at, email_error = NULL
+         FROM mail_outbox o
+        WHERE o.kind = 'trial.welcome' AND o.tenant_id = s.tenant_id AND o.status = 'sent'
+          AND s.email_sent_at IS NULL`,
+    );
   }
 
   private async deliverNow(tenantId: string, password: string) {
-    const [r] = await this.db.query<PendingRow>(
+    const [r] = await this.db.query<Omit<PendingRow, 'pending_enc'>>(
       `SELECT s.id, s.tenant_id, s.email::text AS email, s.contact_name, s.trial_ends_at, t.slug, t.name
          FROM trial_signups s JOIN tenants t ON t.id = s.tenant_id WHERE s.tenant_id = $1`,
       [tenantId],
     );
-    if (r) await this.send(r, password);
-  }
-
-  private async send(r: Omit<PendingRow, 'pending_enc'>, password: string) {
-    const s = await this.settingsRow();
-    if (!s.email_webhook_url) {
+    if (!r) return;
+    if (!(await this.mail.ready())) {
       await this.db.query(`UPDATE trial_signups SET email_error = $2 WHERE id = $1`, [
         r.id,
-        'Webhook de e-mail não configurado',
+        MAIL_OFF,
       ]);
       return;
     }
-    const [b] = await this.db.query<{ sales_contact: string }>(
+    const outboxId = await this.db.tx((c) => this.enqueueWelcome(c, r, password));
+    await this.deliverWelcome(r.id, outboxId, r.slug);
+  }
+
+  /** Monta o e-mail de boas-vindas e o põe na fila (cifrado: tem a senha inicial). */
+  private async enqueueWelcome(
+    c: PoolClient,
+    r: Omit<PendingRow, 'pending_enc'>,
+    password: string,
+  ): Promise<string> {
+    const b = await c.query<{ sales_contact: string }>(
       `SELECT sales_contact FROM platform_billing_settings WHERE id`,
     );
-    const [sub] = await this.db.query<{ trial_days: number }>(
+    const sub = await c.query<{ trial_days: number }>(
       `SELECT GREATEST(1, round(extract(epoch FROM (trial_ends_at - created_at)) / 86400))::int AS trial_days
          FROM trial_signups WHERE id = $1`,
       [r.id],
     );
-    const url = this.tenantUrl(r.slug);
     const mail = welcomeEmail({
       restaurant: r.name,
       contactName: r.contact_name,
-      url,
+      url: this.tenantUrl(r.slug),
       loginEmail: r.email,
       password,
-      trialDays: sub?.trial_days ?? 1,
+      trialDays: sub.rows[0]?.trial_days ?? 1,
       trialEndsAt: r.trial_ends_at,
       siteUrl: this.siteUrl(),
-      salesContact: b?.sales_contact,
+      salesContact: b.rows[0]?.sales_contact,
     });
-    const error = await this.postWebhook(s, {
-      event: 'trial.welcome',
-      to: r.email,
-      toName: r.contact_name,
+    return this.mail.enqueue(c, {
+      kind: 'trial.welcome',
+      tenantId: r.tenant_id,
+      to: [{ email: r.email, name: r.contact_name }],
       ...mail,
-      restaurant: r.name,
-      url,
-      loginEmail: r.email,
-      password,
-      trialEndsAt: r.trial_ends_at.toISOString(),
+      sensitive: true,
     });
+  }
+
+  private async deliverWelcome(signupId: string, outboxId: string, slug: string) {
+    const r = await this.mail.deliver(outboxId);
     await this.db.query(
       `UPDATE trial_signups SET email_sent_at = CASE WHEN $2::text IS NULL THEN now() END,
               email_error = $2 WHERE id = $1`,
-      [r.id, error],
+      [signupId, r.ok ? null : (r.error ?? 'O envio falhou').slice(0, 300)],
     );
-    if (error) this.logger.warn(`e-mail de boas-vindas (${r.slug}) falhou: ${error}`);
-  }
-
-  /** Chama o webhook do n8n. Devolve o erro (ou null se saiu). Nunca registra a senha. */
-  private async postWebhook(
-    s: SettingsRow,
-    body: Record<string, unknown>,
-    target: 'welcome' | 'customer' = 'welcome',
-  ): Promise<string | null> {
-    const url = target === 'customer' ? s.customer_email_webhook_url : s.email_webhook_url;
-    const tokenEnc = target === 'customer' ? s.customer_email_token_enc : s.email_token_enc;
-    const context = target === 'customer' ? CUSTOMER_EMAIL_SECRET_CONTEXT : SECRET_CONTEXT;
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (tokenEnc && this.env.INTEGRATIONS_KEY) {
-      try {
-        headers['X-Comandou-Token'] = open(this.env.INTEGRATIONS_KEY, tokenEnc, context);
-      } catch {
-        return 'O segredo do webhook precisa ser salvo de novo';
-      }
-    }
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(15_000),
-      });
-      await res.body?.cancel().catch(() => undefined);
-      return res.ok ? null : `O webhook respondeu ${res.status}`;
-    } catch (e) {
-      return `Não deu para chamar o webhook: ${(e as Error).message}`.slice(0, 300);
-    }
+    if (!r.ok) this.logger.warn(`e-mail de boas-vindas (${slug}) ainda não saiu: ${r.error}`);
   }
 
   // ------------------------------------------------------------------ teste vencido
@@ -543,113 +543,79 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
       trialDays: plan?.trial_days ?? 0,
       trialPlan: plan?.name ?? null,
       dailyLimit: s.daily_limit,
-      emailWebhookUrl: s.email_webhook_url,
-      emailTokenSet: !!s.email_token_enc,
-      customerEmailWebhookUrl: s.customer_email_webhook_url,
-      customerEmailTokenSet: !!s.customer_email_token_enc,
+      /** O envio de e-mail (Super Admin › E-mail) está configurado? */
+      emailReady: await this.mail.ready(),
       siteUrl: this.siteUrl(),
     };
   }
 
   async saveSettings(b: SiteSettingsInput, a: Actor) {
-    if ((b.emailToken || b.customerEmailToken) && !this.env.INTEGRATIONS_KEY)
-      throw new UnprocessableEntityException('Defina a INTEGRATIONS_KEY para guardar o segredo');
     await this.db.tx(async (c) => {
       await c.query(
-        `UPDATE platform_site_settings
-            SET signup_enabled = $1, daily_limit = $2, email_webhook_url = $3,
-                email_token_enc = CASE WHEN $4::boolean THEN NULL
-                                       WHEN $5::bytea IS NOT NULL THEN $5 ELSE email_token_enc END,
-                customer_email_webhook_url = COALESCE($6, customer_email_webhook_url),
-                customer_email_token_enc = CASE WHEN $7::boolean THEN NULL
-                                       WHEN $8::bytea IS NOT NULL THEN $8 ELSE customer_email_token_enc END,
-                updated_at = now()
+        `UPDATE platform_site_settings SET signup_enabled = $1, daily_limit = $2, updated_at = now()
           WHERE id`,
-        [
-          b.signupEnabled,
-          b.dailyLimit,
-          b.emailWebhookUrl,
-          b.emailToken === '',
-          b.emailToken ? seal(this.env.INTEGRATIONS_KEY!, b.emailToken, SECRET_CONTEXT) : null,
-          b.customerEmailWebhookUrl ?? null,
-          b.customerEmailToken === '',
-          b.customerEmailToken
-            ? seal(this.env.INTEGRATIONS_KEY!, b.customerEmailToken, CUSTOMER_EMAIL_SECRET_CONTEXT)
-            : null,
-        ],
+        [b.signupEnabled, b.dailyLimit],
       );
       await platformAudit(c, {
         adminId: a.admin.id,
         action: 'site.settings_saved',
         entity: 'site',
-        data: {
-          signupEnabled: b.signupEnabled,
-          dailyLimit: b.dailyLimit,
-          webhook: !!b.emailWebhookUrl,
-          customerWebhook: !!b.customerEmailWebhookUrl,
-        },
+        data: { signupEnabled: b.signupEnabled, dailyLimit: b.dailyLimit },
         ip: a.ip,
       });
     });
     return this.settings();
   }
 
-  /** E-mail de exemplo pelo webhook, para conferir o n8n antes de abrir o cadastro. */
-  async testEmail(to: string) {
-    const s = await this.settingsRow();
-    if (!s.email_webhook_url)
-      throw new UnprocessableEntityException('Salve o endereço do webhook antes de testar');
-    const url = this.tenantUrl('seu-restaurante');
-    const days = (await this.sitePlan())?.trial_days || 7;
-    const mail = welcomeEmail({
-      restaurant: 'Seu Restaurante',
-      contactName: 'Teste',
-      url,
-      loginEmail: to,
-      password: 'abcd-efgh-2345',
-      trialDays: days,
-      trialEndsAt: new Date(Date.now() + days * 86_400_000),
-      siteUrl: this.siteUrl(),
-    });
-    const error = await this.postWebhook(s, {
-      event: 'trial.test',
-      to,
-      toName: 'Teste',
+  private async sendTest(
+    kind: string,
+    to: string,
+    mail: { subject: string; html: string; text: string },
+    fromName?: string,
+  ) {
+    if (!(await this.mail.ready())) throw new UnprocessableEntityException(MAIL_OFF);
+    const r = await this.mail.send({
+      kind,
+      from: fromName ? { name: fromName } : undefined,
+      to: [{ email: to, name: 'Teste' }],
       ...mail,
-      restaurant: 'Seu Restaurante',
-      url,
-      loginEmail: to,
-      password: 'abcd-efgh-2345',
-      trialEndsAt: new Date(Date.now() + days * 86_400_000).toISOString(),
     });
-    if (error) throw new UnprocessableEntityException(error);
+    if (!r.ok) throw new UnprocessableEntityException(r.error ?? 'O envio falhou');
     return { ok: true };
   }
 
-  /** E-mail de exemplo com o código de nova senha, pelo webhook dos clientes. */
-  async testCustomerEmail(to: string) {
-    const s = await this.settingsRow();
-    if (!s.customer_email_webhook_url)
-      throw new UnprocessableEntityException('Salve o endereço do webhook antes de testar');
-    const error = await this.postWebhook(
-      s,
-      {
-        event: 'customer.test',
-        to,
-        toName: 'Teste',
-        fromName: 'Seu Restaurante',
+  /** E-mail de boas-vindas de exemplo, para conferir antes de abrir o cadastro. */
+  async testEmail(to: string) {
+    const days = (await this.sitePlan())?.trial_days || 7;
+    return this.sendTest(
+      'trial.test',
+      to,
+      welcomeEmail({
         restaurant: 'Seu Restaurante',
-        ...resetEmail({
-          restaurant: 'Seu Restaurante',
-          customerName: 'Teste',
-          code: '123456',
-          minutes: 15,
-        }),
-      },
-      'customer',
+        contactName: 'Teste',
+        url: this.tenantUrl('seu-restaurante'),
+        loginEmail: to,
+        password: 'abcd-efgh-2345',
+        trialDays: days,
+        trialEndsAt: new Date(Date.now() + days * 86_400_000),
+        siteUrl: this.siteUrl(),
+      }),
     );
-    if (error) throw new UnprocessableEntityException(error);
-    return { ok: true };
+  }
+
+  /** E-mail de exemplo com o código de nova senha, como o cliente de um restaurante recebe. */
+  async testCustomerEmail(to: string) {
+    return this.sendTest(
+      'customer.test',
+      to,
+      resetEmail({
+        restaurant: 'Seu Restaurante',
+        customerName: 'Teste',
+        code: '123456',
+        minutes: 15,
+      }),
+      'Seu Restaurante',
+    );
   }
 
   /** Prévia do e-mail com o código de nova senha do cliente (sai com o nome do restaurante). */

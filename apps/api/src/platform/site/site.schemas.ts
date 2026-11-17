@@ -38,21 +38,6 @@ export const SiteSettingsBody = z.object({
   signupEnabled: z.boolean(),
   /** Os dias de teste ficam no plano (Super Admin › Preço); o campo antigo é ignorado. */
   dailyLimit: z.number().int().min(1).max(1000),
-  emailWebhookUrl: z
-    .string()
-    .trim()
-    .max(500)
-    .refine((v) => v === '' || /^https?:\/\/\S+$/i.test(v), 'Endereço do webhook inválido'),
-  /** Ausente: mantém; vazio: apaga; texto: troca. */
-  emailToken: z.string().trim().max(200).optional(),
-  /** Webhook dos e-mails para os clientes dos restaurantes (código de nova senha). Ausente: mantém. */
-  customerEmailWebhookUrl: z
-    .string()
-    .trim()
-    .max(500)
-    .refine((v) => v === '' || /^https?:\/\/\S+$/i.test(v), 'Endereço do webhook inválido')
-    .optional(),
-  customerEmailToken: z.string().trim().max(200).optional(),
 });
 export type SiteSettingsInput = z.infer<typeof SiteSettingsBody>;
 

@@ -245,7 +245,7 @@ const percent = (min: number, max: number) =>
     .max(max)
     .transform((v) => v.toFixed(2));
 
-/** Dados da contratada, regras padrão do contrato e o webhook do n8n. Segredo vazio = manter. */
+/** Dados da contratada e regras padrão do contrato (o e-mail sai por Super Admin › E-mail). */
 export const ContractSettingsBody = z.object({
   providerName: z.string().trim().max(160),
   providerDocument: z
@@ -269,13 +269,6 @@ export const ContractSettingsBody = z.object({
   lateInterestPercent: percent(0, 10),
   suspendAfterDays: z.number().int().min(1).max(90),
   supportHours: z.string().trim().min(3).max(160),
-  webhookUrl: z
-    .string()
-    .trim()
-    .max(500)
-    .refine((v) => v === '' || /^https?:\/\/[^\s]+$/i.test(v), 'Endereço com http:// ou https://'),
-  webhookSecret: z.string().trim().max(200).optional(),
-  clearWebhookSecret: z.boolean().optional(),
   notifyEmail: blankEmail,
 });
 export type ContractSettingsInput = z.infer<typeof ContractSettingsBody>;

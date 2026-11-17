@@ -1,0 +1,11 @@
+// Worker que entrega ao Comandou os e-mails recebidos pelo Email Routing da Cloudflare.
+// Passo a passo: docs/email.md
+{
+  "name": "comandou-email",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "observability": { "enabled": true },
+  // COMANDOU_URL e INBOUND_SECRET são segredos:
+  //   npx wrangler secret put COMANDOU_URL      (ex.: https://admin.comandou.com)
+  //   npx wrangler secret put INBOUND_SECRET    (Super Admin › E-mail › Recebimento)
+}

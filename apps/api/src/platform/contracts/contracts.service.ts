@@ -14,11 +14,11 @@ import {
   fromCents,
   toCents,
 } from '@comandou/shared';
-import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import type { PoolClient } from 'pg';
-import { open, seal } from '../../common/secret-box';
 import { ENV, Env } from '../../config/env';
 import { TenantDatabaseUnavailable } from '../../database/tenant-database';
+import { MailService } from '../../mail/mail.service';
 import { PlatformAuthService } from '../platform-auth';
 import type { Actor } from '../platform.service';
 import { PlatformDb, platformAudit } from '../platform-db.service';
@@ -39,7 +39,7 @@ import {
 import { buildContract, ContractContent, ContractParty, formatDocument } from './contract-template';
 import { loadQuoteSettings, toFiscalCosts } from '../quotes/quotes.service';
 
-export const WEBHOOK_SECRET_CONTEXT = 'contracts:n8n';
+const MAIL_OFF = 'Configure o envio de e-mail em Super Admin › E-mail antes de enviar';
 /** Validade do link de assinatura. */
 const LINK_DAYS = 30;
 /** Prazo da contratada para assinar depois do cliente (cláusula "Assinatura eletrônica"). */
@@ -108,8 +108,6 @@ interface SettingsRow {
   late_interest_percent: string;
   suspend_after_days: number;
   support_hours: string;
-  webhook_url: string;
-  webhook_secret_enc: Buffer | null;
   notify_email: string;
   updated_at: Date;
 }
@@ -184,7 +182,7 @@ const esc = (s: string) =>
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
   );
 
-/** E-mail simples (o n8n só repassa): título, texto e um botão. */
+/** E-mail simples: título, texto e um botão. */
 function emailHtml(title: string, paragraphs: string[], button?: { label: string; url: string }) {
   return `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#18181b">
 <div style="max-width:560px;margin:0 auto;padding:24px 16px">
@@ -207,7 +205,7 @@ export interface WebhookMessage {
 
 /**
  * Contrato digital de cada cliente: gera (texto congelado + PDF + hash), envia o link de
- * assinatura pelo n8n, recebe a assinatura pelo link público e guarda o PDF assinado.
+ * assinatura por e-mail (envio do próprio Comandou), recebe a assinatura pelo link público e guarda o PDF assinado.
  */
 @Injectable()
 export class ContractsService {
@@ -217,6 +215,7 @@ export class ContractsService {
     @Inject(ENV) private readonly env: Env,
     private readonly db: PlatformDb,
     private readonly auth: PlatformAuthService,
+    private readonly mail: MailService,
   ) {}
 
   // ------------------------------------------------------------------ configuração
@@ -241,8 +240,6 @@ export class ContractsService {
       lateInterestPercent: r.late_interest_percent,
       suspendAfterDays: r.suspend_after_days,
       supportHours: r.support_hours,
-      webhookUrl: r.webhook_url,
-      hasWebhookSecret: !!r.webhook_secret_enc,
       notifyEmail: r.notify_email,
       keyConfigured: !!this.env.INTEGRATIONS_KEY,
       ready: !!(r.provider_name && r.provider_document),
@@ -255,24 +252,14 @@ export class ContractsService {
   }
 
   async saveSettings(b: ContractSettingsInput, a: Actor) {
-    const cur = await this.settingsRow();
-    let secret: Buffer | null = b.clearWebhookSecret ? null : cur.webhook_secret_enc;
-    if (b.webhookSecret) {
-      if (!this.env.INTEGRATIONS_KEY)
-        throw new UnprocessableEntityException(
-          'Servidor sem INTEGRATIONS_KEY: não é possível guardar o segredo com segurança',
-        );
-      secret = seal(this.env.INTEGRATIONS_KEY, b.webhookSecret, WEBHOOK_SECRET_CONTEXT);
-    }
     await this.db.tx(async (c) => {
       await c.query(
         `UPDATE platform_contract_settings SET provider_name = $1, provider_document = $2,
                 provider_address = $3, provider_email = $4, provider_representative = $5,
                 forum_city = $6, due_day = $7, term_months = $8, sla_percent = $9,
                 readjust_index = $10, late_fee_percent = $11, late_interest_percent = $12,
-                suspend_after_days = $13, support_hours = $14, webhook_url = $15,
-                webhook_secret_enc = $16, notify_email = $17, updated_at = now(), updated_by = $18,
-                provider_representative_document = $19`,
+                suspend_after_days = $13, support_hours = $14, notify_email = $15,
+                updated_at = now(), updated_by = $16, provider_representative_document = $17`,
         [
           b.providerName,
           b.providerDocument,
@@ -288,8 +275,6 @@ export class ContractsService {
           b.lateInterestPercent,
           b.suspendAfterDays,
           b.supportHours,
-          b.webhookUrl,
-          secret,
           b.notifyEmail,
           a.admin.id,
           b.providerRepresentativeDocument,
@@ -301,8 +286,6 @@ export class ContractsService {
         entity: 'contract_settings',
         data: {
           providerName: b.providerName,
-          webhookUrl: b.webhookUrl ? new URL(b.webhookUrl).host : '',
-          secretChanged: !!b.webhookSecret || !!b.clearWebhookSecret,
         },
         ip: a.ip,
       });
@@ -310,7 +293,7 @@ export class ContractsService {
     return this.settings();
   }
 
-  /** Manda um evento "test" para o n8n (com o e-mail de aviso como destinatário). */
+  /** E-mail de teste para o endereço de aviso (ou o do admin), pelo envio do Comandou. */
   async testWebhook(a: Actor) {
     const s = await this.settingsRow();
     const to = s.notify_email || a.admin.email;
@@ -320,7 +303,7 @@ export class ContractsService {
         {
           to,
           subject: 'Teste do envio de contratos do Comandou',
-          html: emailHtml('Tudo certo com o n8n', [
+          html: emailHtml('Tudo certo com o envio de contratos', [
             'Este é um e-mail de teste enviado pelo painel do Comandou.',
             'Se ele chegou, o envio de contratos e o aviso de contrato assinado estão funcionando.',
           ]),
@@ -332,42 +315,46 @@ export class ContractsService {
     return { ok: true, to };
   }
 
-  /** POST no webhook do n8n. Erro vira mensagem legível (sem segredo). */
-  private async webhook(s: SettingsRow, payload: Record<string, unknown>) {
-    if (!s.webhook_url)
-      throw new UnprocessableEntityException(
-        'Configure o webhook do n8n em Contratos → Configurar antes de enviar',
+  /**
+   * Manda as mensagens pelo envio do próprio Comandou (Super Admin › E-mail), com o PDF anexado
+   * quando houver. Sai na hora; se o provedor recusar ou estiver fora, as mensagens deste aviso
+   * são canceladas (não saem mais tarde com um link que pode ter deixado de valer) e o erro
+   * volta legível. Quem chamou decide (desfaz o link novo, grava o erro, mostra na tela).
+   */
+  private async webhook(_s: SettingsRow, payload: Record<string, unknown>) {
+    if (!(await this.mail.ready())) throw new UnprocessableEntityException(MAIL_OFF);
+    const messages = (payload.messages ?? []) as WebhookMessage[];
+    const att = payload.attachment as { fileName: string; mimeType: string; base64: string } | null;
+    const ids: string[] = [];
+    for (const m of messages)
+      ids.push(
+        await this.mail.enqueue(null, {
+          kind: String(payload.event).slice(0, 60),
+          to: [{ email: m.to, name: m.toName ?? undefined }],
+          subject: m.subject,
+          html: m.html,
+          text: m.text,
+          attachments: att
+            ? [
+                {
+                  filename: att.fileName,
+                  contentType: att.mimeType,
+                  data: Buffer.from(att.base64, 'base64'),
+                },
+              ]
+            : [],
+        }),
       );
-    const body = JSON.stringify({ ...payload, sentAt: new Date().toISOString() });
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'User-Agent': 'Comandou-Contratos/1',
-      'X-Comandou-Event': String(payload.event),
-    };
-    if (s.webhook_secret_enc && this.env.INTEGRATIONS_KEY) {
-      const secret = open(this.env.INTEGRATIONS_KEY, s.webhook_secret_enc, WEBHOOK_SECRET_CONTEXT);
-      headers['X-Comandou-Token'] = secret;
-      headers['X-Comandou-Signature'] =
-        `sha256=${createHmac('sha256', secret).update(body).digest('hex')}`;
-    }
-    let res: Response;
-    try {
-      res = await fetch(s.webhook_url, {
-        method: 'POST',
-        headers,
-        body,
-        signal: AbortSignal.timeout(20_000),
-      });
-    } catch (e) {
-      throw new UnprocessableEntityException(
-        `O n8n não respondeu (${(e as Error).name === 'TimeoutError' ? 'tempo esgotado' : (e as Error).message})`,
-      );
-    }
-    if (!res.ok) {
-      const txt = (await res.text().catch(() => '')).slice(0, 160);
-      throw new UnprocessableEntityException(
-        `O n8n recusou o envio (HTTP ${res.status}${txt ? `: ${txt}` : ''})`,
-      );
+    for (const id of ids) {
+      const r = await this.mail.deliver(id);
+      if (!r.ok) {
+        await this.db.query(
+          `UPDATE mail_outbox SET status = 'cancelled', last_error = COALESCE(last_error, $2)
+            WHERE id = ANY($1::uuid[]) AND status IN ('queued', 'failed')`,
+          [ids, r.error ?? 'Cancelado'],
+        );
+        throw new UnprocessableEntityException(`O e-mail não saiu: ${r.error ?? 'erro no envio'}`);
+      }
     }
   }
 
@@ -822,13 +809,10 @@ export class ContractsService {
     });
   }
 
-  /** Gera o link e manda o e-mail pelo n8n (com o PDF anexado para leitura). */
+  /** Gera o link e manda o e-mail (com o PDF anexado para leitura). */
   async send(id: string, b: { email?: string; message?: string }, a: Actor, origin: string) {
     const s = await this.settingsRow();
-    if (!s.webhook_url)
-      throw new UnprocessableEntityException(
-        'Configure o webhook do n8n em Contrato → Configurar antes de enviar',
-      );
+    if (!(await this.mail.ready())) throw new UnprocessableEntityException(MAIL_OFF);
     const result = await this.db.tx(async (c) => {
       const r = await this.row(id, c, true);
       const email = b.email ?? r.signer_email;
@@ -850,7 +834,7 @@ export class ContractsService {
         ...summary,
         `Abra o link, leia o contrato até o fim e assine com o dedo, o mouse ou digitando o seu nome. O link é pessoal e vale até ${brTime(link.expiresAt).replace(' (horário de Brasília)', '')}.`,
       ];
-      // O webhook roda dentro da transação: se o n8n recusar, o link novo não fica valendo.
+      // O envio roda dentro da transação: se o provedor recusar, o link novo não fica valendo.
       await this.webhook(s, {
         event: 'contract.send',
         contract: {
@@ -945,7 +929,7 @@ export class ContractsService {
     return this.detail(id);
   }
 
-  /** Reenvia o aviso da etapa atual (se o n8n estava fora na hora). */
+  /** Reenvia o aviso da etapa atual (se o envio falhou na hora). */
   async renotify(id: string, a: Actor, origin: string) {
     const r = await this.row(id);
     if (r.status === 'client_signed') await this.notifyClientSigned(id, origin);
@@ -1361,7 +1345,7 @@ export class ContractsService {
     });
   }
 
-  /** Manda ao n8n e registra o resultado (notified_at / notify_error e a trilha). */
+  /** Manda o aviso e registra o resultado (notified_at / notify_error e a trilha). */
   private async deliver(
     id: string,
     number: string,
