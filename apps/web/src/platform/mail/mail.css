@@ -315,6 +315,14 @@
   font-size: 14px;
 }
 
+.mail__msg-who strong {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .mail__msg-addr {
   color: var(--a-muted);
   font-size: 13px;
@@ -408,6 +416,10 @@
 .mail__compose {
   display: grid;
   gap: var(--cm-space-3);
+}
+
+.mail__compose .mail-link {
+  justify-self: start;
 }
 
 .mail__body {
@@ -624,7 +636,6 @@
   margin: 0;
   font-size: 18px;
   font-weight: 650;
-  text-transform: capitalize;
   min-width: 170px;
   text-align: center;
 }

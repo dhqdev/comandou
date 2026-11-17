@@ -948,7 +948,7 @@ export class MailboxService {
       return out;
     });
     const r = await this.mail.deliver(outboxId);
-    return { id, sent: r.ok, error: r.ok ? null : (r.error ?? null) };
+    return { id, sent: r.ok, queued: !!r.queued, error: r.ok ? null : (r.error ?? null) };
   }
 
   /** Tenta de novo um e-mail da caixa que falhou. */
@@ -964,7 +964,7 @@ export class MailboxService {
       [id],
     );
     const r = await this.mail.deliver(o.id);
-    return { id, sent: r.ok, error: r.ok ? null : (r.error ?? null) };
+    return { id, sent: r.ok, queued: !!r.queued, error: r.ok ? null : (r.error ?? null) };
   }
 
   // ------------------------------------------------------------------ o que chega
@@ -1298,7 +1298,7 @@ export class MailboxService {
         'Não dá para reenviar: o envio não falhou ou o conteúdo (com senha ou código) já foi apagado',
       );
     const r = await this.mail.deliver(o.id);
-    return { id, sent: r.ok, error: r.ok ? null : (r.error ?? null) };
+    return { id, sent: r.ok, queued: !!r.queued, error: r.ok ? null : (r.error ?? null) };
   }
 
   async cancelOutbox(id: string) {

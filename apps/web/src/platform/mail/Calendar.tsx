@@ -34,6 +34,11 @@ const pad = (n: number) => String(n).padStart(2, '0');
 const isoDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const hhmm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
+/** "Novembro de 2026" (só a primeira letra maiúscula). */
+const monthLabel = (d: Date) => {
+  const s = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
 
 /** Agenda: mês com os compromissos de cada dia; clicar no dia cria, clicar no evento edita. */
 export function CalendarTab({ mailboxes }: { mailboxes: Mailbox[] }) {
@@ -73,9 +78,7 @@ export function CalendarTab({ mailboxes }: { mailboxes: Mailbox[] }) {
           aria-label="Mês anterior"
           onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}
         />
-        <h2 className="cal__title">
-          {month.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-        </h2>
+        <h2 className="cal__title">{monthLabel(month)}</h2>
         <Button
           variant="ghost"
           size="sm"

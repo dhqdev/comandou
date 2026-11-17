@@ -16,6 +16,10 @@ interface PageInfo {
 
 const CSRF = { 'X-Comandou-Request': '1' };
 const pad = (n: number) => String(n).padStart(2, '0');
+const monthLabel = (d: Date) => {
+  const s = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
 const isoDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
@@ -50,6 +54,7 @@ export function BookingPublicPage({ slug }: { slug: string }) {
   const [f, setF] = useState({ name: '', email: '', phone: '', notes: '', company: '' });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [emailed, setEmailed] = useState(false);
 
   useEffect(() => {
     call<PageInfo>(slug)
@@ -93,7 +98,11 @@ export function BookingPublicPage({ slug }: { slug: string }) {
     setBusy(true);
     setError(null);
     try {
-      await call(slug, { method: 'POST', body: JSON.stringify({ start: pick, ...f }) });
+      const r = await call<{ emailed?: boolean }>(slug, {
+        method: 'POST',
+        body: JSON.stringify({ start: pick, ...f }),
+      });
+      setEmailed(!!r.emailed);
       setDone(
         new Date(pick).toLocaleString('pt-BR', {
           weekday: 'long',
@@ -143,7 +152,14 @@ export function BookingPublicPage({ slug }: { slug: string }) {
             <CalendarCheck size={36} aria-hidden />
             <h2>Horário marcado</h2>
             <p>
-              {done}. O convite foi para <strong>{f.email}</strong>.
+              {done}.{' '}
+              {emailed ? (
+                <>
+                  O convite foi para <strong>{f.email}</strong>.
+                </>
+              ) : (
+                'Guarde esta data: a gente te espera.'
+              )}
             </p>
           </div>
         ) : (
@@ -158,9 +174,7 @@ export function BookingPublicPage({ slug }: { slug: string }) {
                 >
                   <ChevronLeft size={18} />
                 </button>
-                <strong>
-                  {month.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-                </strong>
+                <strong>{monthLabel(month)}</strong>
                 <button
                   type="button"
                   aria-label="Próximo mês"

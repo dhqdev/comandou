@@ -30,8 +30,9 @@ export const mailPath = (p: Part) => (p === 'caixas' ? '/email' : `/email/${p}`)
 export function MailPage() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const part: Part =
-    PARTS.find(([p]) => p !== 'caixas' && pathname.startsWith(`/email/${p}`))?.[0] ?? 'caixas';
+  // Segmento inteiro: "/email/agendamento" não pode cair em "agenda".
+  const segment = pathname.split('/')[2] ?? '';
+  const part: Part = PARTS.find(([p]) => p === segment)?.[0] ?? 'caixas';
   const overview = useLoad<Overview>('/platform/mail');
   const data = overview.data;
   const needsSetup = data && (!data.settings.ready || !data.mailboxes.length);

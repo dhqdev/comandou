@@ -98,6 +98,8 @@ export interface DeliveryResult {
   id: string;
   ok: boolean;
   error?: string;
+  /** Não saiu, mas continua na fila (vai ser tentado de novo sozinho). */
+  queued?: boolean;
 }
 
 const CLAIM_COLS = `id, kind, message_id, from_address::text AS from_address, from_name, reply_to,
@@ -292,7 +294,9 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
       if (!cur) return { id, ok: false, error: 'E-mail não encontrado na fila' };
       return cur.status === 'failed'
         ? { id, ok: false, error: cur.last_error ?? 'Falhou' }
-        : { id, ok: true };
+        : cur.status === 'queued' && cur.last_error
+          ? { id, ok: false, error: cur.last_error, queued: true }
+          : { id, ok: true };
     }
     return this.attempt(rows[0]);
   }
@@ -420,7 +424,7 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
       this.logger.warn(
         `e-mail ${r.kind} ${gaveUp ? 'falhou' : 'vai ser tentado de novo'}: ${message}`,
       );
-      return { id: r.id, ok: false, error: message };
+      return { id: r.id, ok: false, error: message, queued: !gaveUp };
     }
   }
 

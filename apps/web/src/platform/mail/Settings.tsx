@@ -586,14 +586,12 @@ function NewMailbox({
         <TextField
           label="Endereço"
           autoFocus
-          placeholder="contato"
           hint={`${local.trim() || 'contato'}@${domain}`}
           value={local}
           onChange={(e) => setLocal(e.target.value)}
         />
         <TextField
           label="Nome que aparece"
-          placeholder="Comandou"
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={80}

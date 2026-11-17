@@ -60,7 +60,6 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--cm-space-3);
-  text-transform: capitalize;
 }
 
 .bk__month button {

@@ -595,7 +595,15 @@ ${e.description ? `<p style="font-size:15px;line-height:23px;margin:14px 0 0;whi
           }),
         );
       }
-      return { ok: true, startsAt: start, endsAt: end, title: p.title, timeZone: p.time_zone };
+      return {
+        ok: true,
+        startsAt: start,
+        endsAt: end,
+        title: p.title,
+        timeZone: p.time_zone,
+        /** A confirmação com o convite foi para o e-mail de quem marcou. */
+        emailed: !!organizer,
+      };
     });
     await this.deliverAll(queued);
     return result;

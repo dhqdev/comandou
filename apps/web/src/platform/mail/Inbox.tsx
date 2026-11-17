@@ -78,9 +78,17 @@ export function InboxTab({ overview, onChanged }: { overview: Overview; onChange
     if (!boxId && boxes[0]) setBoxId(boxes[0].id);
   }, [boxId, boxes]);
 
-  const refresh = () => {
+  /** Sobe a cada envio/rascunho: a conversa aberta recarrega junto. */
+  const [version, setVersion] = useState(0);
+  /** Lista e contagens (ao abrir, marcar, mover). */
+  const refreshList = () => {
     list.reload();
     onChanged();
+  };
+  /** Depois de escrever ou responder: a conversa aberta também recarrega. */
+  const refresh = () => {
+    refreshList();
+    setVersion((v) => v + 1);
   };
 
   if (!boxes.length)
@@ -249,18 +257,16 @@ export function InboxTab({ overview, onChanged }: { overview: Overview; onChange
       <section className="mail__read" aria-label="Conversa">
         {open && box ? (
           <ThreadView
-            key={open}
+            key={`${open}:${version}`}
             box={box}
             threadId={open}
             trash={view === 'trash'}
             onBack={() => setOpen(null)}
             onReply={setCompose}
-            onChanged={() => {
-              refresh();
-            }}
+            onChanged={refreshList}
             onGone={() => {
               setOpen(null);
-              refresh();
+              refreshList();
             }}
           />
         ) : (
@@ -717,14 +723,18 @@ function Compose({
     setBusy('send');
     try {
       const id = await save();
-      const r = await api<{ sent: boolean; error: string | null }>(
+      const r = await api<{ sent: boolean; queued: boolean; error: string | null }>(
         `/platform/mail/drafts/${id}/send`,
         {
           method: 'POST',
         },
       );
       toast(
-        r.sent ? 'Enviado' : `Na fila: ${r.error ?? 'o envio vai ser tentado de novo'}`,
+        r.sent
+          ? 'Enviado'
+          : r.queued
+            ? `Na fila (vai ser tentado de novo): ${r.error ?? ''}`
+            : `Não saiu: ${r.error ?? 'erro no envio'}`,
         r.sent ? 'success' : 'danger',
       );
       onClose();
