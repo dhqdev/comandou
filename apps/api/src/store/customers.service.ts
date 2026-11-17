@@ -21,6 +21,7 @@ import { ENV, Env } from '../config/env';
 import { DatabaseService, Tx } from '../database/database.service';
 import { CustomerMailService } from './customer-mail.service';
 import { resetEmail } from './reset-email';
+import { siteUrlOf } from '../mail/templates/urls';
 import { MessagingService } from '../messaging/messaging.service';
 
 export const CUSTOMER_COOKIE = 'cm_cid';
@@ -481,6 +482,7 @@ export class CustomersService {
                 customerName: r.name,
                 code: r.code,
                 minutes: RESET_TTL_MIN,
+                assets: siteUrlOf(this.env),
               }),
             })
           : false,

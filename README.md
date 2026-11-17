@@ -87,9 +87,12 @@ cobrança, contratos, servidor, backups e auditoria. Entrada com senha e código
 autenticador.
 
 **E-mail próprio, sem n8n.** Todo e-mail do sistema (boas-vindas do teste, login e senha do
-restaurante criado no painel, código de nova senha, contratos) sai pelo **Resend**, por uma fila que tenta de novo sozinha. A aba **E-mail**
-tem a configuração do Resend, o e-mail de teste e o histórico de envios, com reenviar e
-cancelar. Passo a passo em [docs/email.md](docs/email.md).
+restaurante criado no painel, código de nova senha, avisos de fim do teste e de mensalidade,
+contratos) sai pelo **Resend**, com o panda do Comandou e modo escuro, por uma fila que tenta de
+novo sozinha. A aba **E-mail** tem a configuração do Resend, os **modelos** (prévia de cada
+e-mail e os avisos automáticos) e o histórico de envios, com reenviar e cancelar. Toda tela de
+entrada tem **Esqueci minha senha** com código por e-mail (o código vem no assunto: dá para
+copiar da notificação). Passo a passo em [docs/email.md](docs/email.md).
 
 <p align="center">
   <img src="docs/assets/screens/admin-restaurantes.webp" width="72%" alt="Lista de restaurantes no painel Super Admin" />

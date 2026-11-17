@@ -1,3 +1,4 @@
+import { PlatformPasswordResetService } from './platform-password-reset.service';
 import { Module } from '@nestjs/common';
 import { HealthModule } from '../health/health.module';
 import {
@@ -52,6 +53,7 @@ import { CepService } from '../store/cep.service';
   ],
   providers: [
     PlatformService,
+    PlatformPasswordResetService,
     PlatformBackupService,
     PlatformAiService,
     PlatformDatabasesService,

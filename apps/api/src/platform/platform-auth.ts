@@ -90,7 +90,12 @@ export class PlatformAuthService {
     const recent = await this.db.query<{ n: number }>(
       `SELECT count(*)::int AS n FROM platform_audit_log
         WHERE action = 'platform.login_failed' AND data->>'email' = $1
-          AND created_at > now() - make_interval(mins => $2)`,
+          AND created_at > now() - make_interval(mins => $2)
+          -- Senha trocada pelo código do e-mail: as tentativas antes dela não contam.
+          AND created_at > coalesce(
+                (SELECT max(r.created_at) FROM platform_audit_log r
+                  WHERE r.action = 'platform.password_reset' AND r.data->>'email' = $1),
+                '-infinity')`,
       [email, this.env.AUTH_ACCOUNT_LOCK_MINUTES],
     );
     if (recent[0].n >= this.env.AUTH_ACCOUNT_LOCK_THRESHOLD)

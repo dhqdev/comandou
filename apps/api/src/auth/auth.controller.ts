@@ -22,6 +22,8 @@ import { ENV, Env } from '../config/env';
 import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { DUMMY_HASH, verifyPassword } from './password';
+import { StaffPasswordResetService } from './password-reset.service';
+import { RESET_REQUEST_LIMIT, RESET_STEP_LIMIT } from './reset-code';
 import { PIN_LOCK_MINUTES, PIN_LOCK_THRESHOLD, pinHash } from './pin';
 import { hashToken, SESSION_COOKIE, sessionCookieOptions, SessionService } from './session.service';
 
@@ -40,6 +42,13 @@ const PinLoginSchema = z.object({
 });
 type PinLoginInput = z.infer<typeof PinLoginSchema>;
 const SupportSchema = z.object({ token: z.string().min(20).max(100) });
+const ResetRequestSchema = z.object({ email: z.string().trim().toLowerCase().email().max(254) });
+const ResetVerifySchema = ResetRequestSchema.extend({ code: z.string().trim().min(6).max(12) });
+const ResetCompleteSchema = z.object({
+  token: z.string().min(20).max(100),
+  password: z.string().min(8, 'mínimo de 8 caracteres').max(200),
+  remember: z.boolean().optional().default(true),
+});
 
 interface LoginRow {
   user_id: string;
@@ -56,6 +65,7 @@ export class AuthController {
     private readonly sessions: SessionService,
     private readonly audit: AuditService,
     @Inject(ENV) private readonly env: Env,
+    private readonly resets: StaffPasswordResetService,
   ) {}
 
   @Public()
@@ -216,6 +226,58 @@ export class AuthController {
         expiresAt: s.expiresAt,
       };
     });
+  }
+
+  /**
+   * Esqueci minha senha, passo 1: manda o código para o e-mail da conta. Mesma resposta exista a
+   * conta ou não (ninguém descobre quem é da equipe).
+   */
+  @Public()
+  @Post('password-reset/request')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: RESET_REQUEST_LIMIT } })
+  requestReset(
+    @Body(new ZodPipe(ResetRequestSchema)) b: z.infer<typeof ResetRequestSchema>,
+    @CurrentTenant() tenant: ResolvedTenant,
+    @Req() req: Request,
+  ) {
+    return this.resets.request(tenant, b.email, req.ip);
+  }
+
+  /** Passo 2: confere o código e devolve o token (uso único) da tela da senha nova. */
+  @Public()
+  @Post('password-reset/verify')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: RESET_STEP_LIMIT } })
+  verifyReset(
+    @Body(new ZodPipe(ResetVerifySchema)) b: z.infer<typeof ResetVerifySchema>,
+    @CurrentTenant() tenant: ResolvedTenant,
+  ) {
+    return this.resets.verify(tenant, b.email, b.code);
+  }
+
+  /** Passo 3: grava a senha nova, tira a conta dos outros aparelhos e entra neste. */
+  @Public()
+  @Post('password-reset/complete')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: RESET_STEP_LIMIT } })
+  async completeReset(
+    @Body(new ZodPipe(ResetCompleteSchema)) b: z.infer<typeof ResetCompleteSchema>,
+    @CurrentTenant() tenant: ResolvedTenant,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const r = await this.resets.complete(tenant, b.token, b.password, {
+      ip: req.ip,
+      userAgent: req.get('user-agent'),
+      remember: b.remember,
+    });
+    res.cookie(
+      SESSION_COOKIE,
+      r.session.token,
+      sessionCookieOptions(this.env, r.session.expiresAt),
+    );
+    return { user: r.user, expiresAt: r.session.expiresAt };
   }
 
   /**

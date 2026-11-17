@@ -69,6 +69,8 @@ import {
   TokenGrantBody,
 } from './platform-ai.service';
 import { PlatformDatabasesService } from './platform-databases.service';
+import { PlatformPasswordResetService } from './platform-password-reset.service';
+import { RESET_REQUEST_LIMIT, RESET_STEP_LIMIT } from '../auth/reset-code';
 import { PlatformDbServersService } from './platform-db-servers.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
 import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
@@ -87,6 +89,13 @@ import {
 
 const actor = (req: Request): Actor => ({ admin: req.platformAdmin!, ip: req.ip });
 
+const ResetRequest = z.object({ email: z.string().trim().toLowerCase().email().max(254) });
+const ResetVerify = ResetRequest.extend({ code: z.string().trim().min(6).max(12) });
+const ResetComplete = z.object({
+  token: z.string().min(20).max(100),
+  password: z.string().min(10, 'mínimo de 10 caracteres').max(200),
+});
+
 /** Login do painel: só em admin.<domínio base>, com senha e código do autenticador. */
 @Controller({ path: 'platform/auth', version: '1' })
 @SkipTenant()
@@ -96,7 +105,37 @@ export class PlatformAuthController {
   constructor(
     @Inject(ENV) private readonly env: Env,
     private readonly auth: PlatformAuthService,
+    private readonly resets: PlatformPasswordResetService,
   ) {}
+
+  /** Esqueci minha senha: manda o código (mesma resposta exista o e-mail ou não). */
+  @Post('password-reset/request')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: RESET_REQUEST_LIMIT } })
+  requestReset(
+    @Body(new ZodPipe(ResetRequest)) b: z.infer<typeof ResetRequest>,
+    @Req() req: Request,
+  ) {
+    return this.resets.request(b.email, req.ip);
+  }
+
+  @Post('password-reset/verify')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: RESET_STEP_LIMIT } })
+  verifyReset(@Body(new ZodPipe(ResetVerify)) b: z.infer<typeof ResetVerify>) {
+    return this.resets.verify(b.email, b.code);
+  }
+
+  /** Grava a senha nova. O login continua pedindo o código do autenticador. */
+  @Post('password-reset/complete')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: RESET_STEP_LIMIT } })
+  completeReset(
+    @Body(new ZodPipe(ResetComplete)) b: z.infer<typeof ResetComplete>,
+    @Req() req: Request,
+  ) {
+    return this.resets.complete(b.token, b.password, req.ip);
+  }
 
   @Post('login')
   @HttpCode(200)

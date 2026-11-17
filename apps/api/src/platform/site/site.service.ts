@@ -637,6 +637,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
         customerName: 'Teste',
         code: '123456',
         minutes: 15,
+        assets: this.siteUrl(),
       }),
       'Seu Restaurante',
     );
@@ -649,6 +650,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
       customerName: 'Marina Souza',
       code: '482915',
       minutes: 15,
+      assets: this.siteUrl(),
     }).html;
   }
 

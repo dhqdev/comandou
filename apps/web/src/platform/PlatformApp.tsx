@@ -49,6 +49,7 @@ import '../app/shell.css';
 import '../app/ops.css';
 import './admin.css';
 import { isStandalone, promptInstall } from './pwa';
+import { ForgotLink, ForgotPassword } from '../pages/ForgotPassword';
 import { AuthShell, deskFocus, PasswordField } from '../pages/AuthShell';
 import { lazyPage, preloadPages } from '../lib/lazy-page';
 import { PageLoading } from '../app/PageLoading';
@@ -224,6 +225,9 @@ function PlatformLogin() {
   }, []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Esqueci minha senha (código por e-mail) e o aviso depois de trocar. */
+  const [forgot, setForgot] = useState(false);
+  const [changed, setChanged] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -247,8 +251,32 @@ function PlatformLogin() {
     }
   }
 
+  if (forgot)
+    return (
+      <ForgotPassword
+        base="/platform/auth/password-reset"
+        sub="Super Admin"
+        initialEmail={email}
+        minPassword={10}
+        finishLabel="Salvar senha nova"
+        onBack={() => setForgot(false)}
+        onDone={(em) => {
+          // A troca tira o painel de todos os navegadores: entra de novo, com o autenticador.
+          setEmail(em);
+          setPassword('');
+          setCode('');
+          setTrusted(false);
+          setChanged(true);
+          setForgot(false);
+        }}
+      />
+    );
+
   return (
     <AuthShell title="Super Admin" sub="Super Admin">
+      {changed && (
+        <Alert tone="info">Senha trocada. Entre com a senha nova e o código do autenticador.</Alert>
+      )}
       <form onSubmit={onSubmit} className="login__form" noValidate>
         <TextField
           label="E-mail"
@@ -265,6 +293,12 @@ function PlatformLogin() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoFocus={desk && !!email}
+        />
+        <ForgotLink
+          onClick={() => {
+            setError(null);
+            setForgot(true);
+          }}
         />
         {trusted ? (
           <p className="login__note">

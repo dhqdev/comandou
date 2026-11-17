@@ -6,6 +6,7 @@ import { isWaiterAppPath, isWaiterPath } from '../app/WaiterEntry';
 import { api, ApiError } from '../lib/api';
 import { AuthShell, deskFocus, PasswordField, StoreLoginBrand } from './AuthShell';
 import { PinPad } from './PinPad';
+import { ForgotLink, ForgotPassword } from './ForgotPassword';
 import { isStandalone } from '../platform/pwa';
 
 /** E-mail lembrado neste aparelho (a senha nunca é guardada). */
@@ -36,7 +37,7 @@ const WHO = {
  * use "Sair".
  */
 export function LoginPage() {
-  const { login, loginWithPin } = useAuth();
+  const { login, loginWithPin, refresh } = useAuth();
   const { pathname } = useLocation();
   // Também nas telas de dentro (/garcom/mesas): a sessão que venceu ali volta para o PIN.
   const who =
@@ -56,6 +57,12 @@ export function LoginPage() {
   const [desk] = useState(deskFocus);
   /** Garçom e entregador entram pelo PIN; o e-mail e senha fica como alternativa. */
   const [usePassword, setUsePassword] = useState(false);
+  /** Esqueci minha senha (código por e-mail). Também abre por /?nova-senha. */
+  const [forgot, setForgot] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).has('nova-senha'),
+  );
   const pinApp = who?.pin ?? null;
   /** App instalado que nunca entrou na equipe: quase sempre o cliente que instalou o cardápio. */
   const [customerApp] = useState(() => !who && isStandalone() && !rememberedEmail());
@@ -108,6 +115,29 @@ export function LoginPage() {
   }
 
   const brand = <StoreLoginBrand name={tenantName} />;
+
+  if (forgot)
+    return (
+      <ForgotPassword
+        base="/auth/password-reset"
+        brand={brand}
+        sub={who?.place}
+        initialEmail={email}
+        onBack={() => {
+          setError(null);
+          setForgot(false);
+        }}
+        onDone={async (em) => {
+          try {
+            localStorage.setItem(REMEMBER_KEY, em);
+          } catch {
+            /* sem armazenamento: só não lembra o e-mail */
+          }
+          // A senha nova já abriu a sessão: carrega quem entrou e segue para o sistema.
+          await refresh();
+        }}
+      />
+    );
 
   if (pinApp && !usePassword)
     return (
@@ -188,6 +218,12 @@ export function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
           autoFocus={desk && !!email}
           required
+        />
+        <ForgotLink
+          onClick={() => {
+            setError(null);
+            setForgot(true);
+          }}
         />
         {error && <Alert tone="danger">{error}</Alert>}
         <Button

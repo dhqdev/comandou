@@ -21,6 +21,8 @@ import type { Actor } from '../platform/platform.service';
 import { MailAdminService } from './mail-admin.service';
 import { MailSettingsBody, TestSendBody } from './mail.schemas';
 
+const LifecycleBody = z.object({ enabled: z.boolean() });
+
 const actor = (req: Request): Actor => ({ admin: req.platformAdmin!, ip: req.ip });
 const uuid = () => new ParseUUIDPipe();
 
@@ -50,6 +52,30 @@ export class MailController {
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
   test(@Body(new ZodPipe(TestSendBody)) b: z.infer<typeof TestSendBody>, @Req() req: Request) {
     return this.admin.testSend(b.to, actor(req));
+  }
+
+  @Get('templates')
+  templates() {
+    return this.admin.templates();
+  }
+
+  @Put('lifecycle')
+  setLifecycle(
+    @Body(new ZodPipe(LifecycleBody)) b: z.infer<typeof LifecycleBody>,
+    @Req() req: Request,
+  ) {
+    return this.admin.setLifecycle(b.enabled, actor(req));
+  }
+
+  @Post('templates/:id/test')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  sendSample(
+    @Param('id') id: string,
+    @Body(new ZodPipe(TestSendBody)) b: z.infer<typeof TestSendBody>,
+    @Req() req: Request,
+  ) {
+    return this.admin.sendSample(id.slice(0, 40), b.to, actor(req));
   }
 
   @Get('outbox')

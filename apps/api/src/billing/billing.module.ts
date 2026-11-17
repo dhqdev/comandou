@@ -7,6 +7,7 @@ import {
 } from './billing.controller';
 import { BillingGuard } from './billing.guard';
 import { BillingService } from './billing.service';
+import { LifecycleMailService } from './lifecycle-mail.service';
 
 /** Cobrança da assinatura (Asaas) e bloqueio automático: ver docs/cobranca.md. */
 @Global()
@@ -17,7 +18,7 @@ import { BillingService } from './billing.service';
     TenantBillingController,
     PublicPlansController,
   ],
-  providers: [BillingService, BillingGuard],
-  exports: [BillingService, BillingGuard],
+  providers: [BillingService, BillingGuard, LifecycleMailService],
+  exports: [BillingService, BillingGuard, LifecycleMailService],
 })
 export class BillingModule {}

@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.150.0',
+    date: '2026-11-17',
+    title: 'E-mails com o panda e nova senha por código',
+    summary:
+      'Todos os e-mails do Comandou ganharam visual novo, com o panda de cada assunto, no claro e no escuro. Esqueceu a senha? Em qualquer tela de entrada (painel, PDV, cozinha, entregas e Super Admin) chega um código por e-mail, que aparece já no assunto: dá para copiar da notificação sem abrir. O restaurante também recebe sozinho os avisos de fim do teste grátis e de mensalidade.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Esqueci minha senha em todas as telas de entrada: digite o e-mail, confira o código de 6 números e crie a senha nova. O código vale 15 minutos, aceita 5 tentativas e a conta sai dos outros aparelhos. No restaurante você já entra; no Super Admin o login continua pedindo o autenticador.',
+      },
+      {
+        tag: 'novo',
+        text: 'O código vem no começo do assunto e na linha de prévia do e-mail: aparece na notificação do celular e na lista da caixa de entrada. As 6 caixas aceitam colar e o preenchimento automático do celular.',
+      },
+      {
+        tag: 'novo',
+        text: 'Avisos automáticos por e-mail: o teste grátis acaba amanhã, o teste terminou, a mensalidade vence em 3 dias, venceu, o sistema foi pausado e o pagamento foi recebido. Cada aviso sai uma vez só; liga e desliga em Super Admin › E-mail › Modelos.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'E-mails redesenhados com o panda (acenando nas boas-vindas, com a chave no código, com o relógio no vencimento, dormindo no fim do teste, de chapéu de festa no pagamento): boas-vindas, código de senha do cliente da loja, contratos e o e-mail de teste.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin › E-mail › Modelos: a prévia de cada e-mail do sistema no tamanho do computador e do celular, com o botão de mandar um teste para você.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Depois de trocar a senha pelo código chega o aviso "sua senha foi trocada". O pedido responde igual exista a conta ou não, e cada conta recebe no máximo 5 códigos por hora.',
+      },
+    ],
+  },
+  {
     version: '0.149.0',
     date: '2026-11-17',
     title: 'Criar restaurante em tela própria, com passos',

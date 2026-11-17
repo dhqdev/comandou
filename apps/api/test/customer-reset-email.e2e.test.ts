@@ -74,7 +74,7 @@ describe('Esqueci minha senha por e-mail', () => {
     expect(m.from).toBe(`"${t!.name}" <nao-responda@comandou.test>`);
     expect(m.subject).toContain(t!.name);
     const code = /(\d{6}) é o seu código/.exec(m.subject)![1]!;
-    expect(m.html).toContain(`${code.slice(0, 3)} ${code.slice(3)}`);
+    expect(m.html).toContain(`>${code}</div>`);
     // Saiu: na fila não fica nada do código.
     const [o] = await ownerQuery<{
       status: string;

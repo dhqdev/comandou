@@ -44,3 +44,127 @@
 .mail__guide {
   margin-top: var(--cm-space-6);
 }
+
+/* Modelos: lista à esquerda, prévia do e-mail à direita (uma coluna no celular). */
+.mail-tpl {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: var(--cm-space-4);
+  align-items: start;
+}
+.mail-tpl__list {
+  display: grid;
+  gap: 2px;
+  position: sticky;
+  top: var(--cm-space-4);
+}
+.mail-tpl__item {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: var(--cm-radius-md);
+  background: none;
+  color: var(--cm-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--cm-dur-fast) var(--cm-ease);
+}
+.mail-tpl__item strong {
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.mail-tpl__item span {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  line-height: 1.4;
+}
+.mail-tpl__item:hover {
+  background: var(--cm-surface-sunken);
+}
+.mail-tpl__item.is-active {
+  background: var(--cm-brand-50);
+}
+.mail-tpl__item.is-active strong {
+  color: var(--cm-brand-700);
+}
+.mail-tpl__item:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.mail-tpl__view {
+  min-width: 0;
+}
+.mail-tpl__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cm-space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--cm-space-3);
+}
+.mail-tpl__subject {
+  display: grid;
+  min-width: 0;
+}
+.mail-tpl__subject span {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.mail-tpl__subject strong {
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.mail-tpl__sizes {
+  display: flex;
+  gap: 4px;
+}
+.mail-tpl__frame {
+  overflow: hidden;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface-sunken);
+}
+.mail-tpl__frame iframe {
+  display: block;
+  width: 100%;
+  height: 720px;
+  border: 0;
+  margin: 0 auto;
+}
+.mail-tpl__frame.is-phone {
+  padding: var(--cm-space-4) 0;
+}
+.mail-tpl__frame.is-phone iframe {
+  width: 390px;
+  max-width: 100%;
+  border-radius: 28px;
+  box-shadow: 0 0 0 8px var(--cm-border);
+}
+
+@media (max-width: 900px) {
+  .mail-tpl {
+    grid-template-columns: 1fr;
+  }
+  .mail-tpl__list {
+    position: static;
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .mail-tpl__item {
+    flex: 0 0 auto;
+    max-width: 220px;
+    border: 1px solid var(--cm-border);
+  }
+  .mail-tpl__item span {
+    display: none;
+  }
+  .mail-tpl__frame iframe {
+    height: 620px;
+  }
+}

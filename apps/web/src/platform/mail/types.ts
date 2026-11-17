@@ -42,6 +42,16 @@ export const KIND_LABEL: Record<string, string> = {
   'trial.test': 'Teste: boas-vindas',
   'customer.password_reset': 'Código de nova senha',
   'customer.test': 'Teste: código de senha',
+  'auth.password_reset': 'Código de nova senha (equipe)',
+  'auth.password_changed': 'Senha trocada (equipe)',
+  'platform.password_reset': 'Código de nova senha (Super Admin)',
+  'platform.password_changed': 'Senha trocada (Super Admin)',
+  'trial.ending': 'Teste grátis acaba amanhã',
+  'trial.ended': 'Teste grátis terminou',
+  'payment.due': 'Mensalidade vencendo',
+  'payment.overdue': 'Mensalidade vencida',
+  'payment.blocked': 'Restaurante pausado',
+  'payment.received': 'Pagamento recebido',
   'contract.send': 'Contrato para assinar',
   'contract.client_signed': 'Contrato: cliente assinou',
   'contract.signed': 'Contrato assinado',
@@ -53,3 +63,10 @@ export const KIND_LABEL: Record<string, string> = {
   'calendar.cancel': 'Cancelamento da agenda',
   'calendar.booking': 'Novo agendamento',
 };
+
+/** Aba Modelos: os e-mails do sistema com dados de exemplo. */
+export interface MailTemplates {
+  lifecycleEnabled: boolean;
+  ready: boolean;
+  items: { id: string; label: string; when: string; subject: string; html: string }[];
+}

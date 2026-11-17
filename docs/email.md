@@ -1,12 +1,19 @@
 # E-mail do Comandou (Super Admin › E-mail)
 
-O Comandou manda os próprios e-mails, sem n8n, pelo **Resend**. A aba E-mail tem só duas partes:
-**Resend** (chave, remetente e e-mail de teste) e **Envios** (o histórico, com reenviar e cancelar).
+O Comandou manda os próprios e-mails, sem n8n, pelo **Resend**. A aba E-mail tem três partes:
+**Resend** (chave, remetente e e-mail de teste), **Modelos** (a prévia de cada e-mail no tamanho do
+computador e do celular, o teste de cada um e a chave dos avisos automáticos) e **Envios** (o
+histórico, com reenviar e cancelar).
 
 | E-mail do sistema | Quando sai |
 | --- | --- |
 | Boas-vindas do teste grátis | O restaurante criado pelo site fica pronto (leva o login e a senha) |
 | Código de nova senha do cliente | O cliente do cardápio online pede "Esqueci minha senha" e a loja não tem WhatsApp conectado |
+| Código de nova senha da equipe e do Super Admin | "Esqueci minha senha" no painel, PDV, cozinha, entregas, garçom (com e-mail) ou Super Admin |
+| Senha trocada | Logo depois de trocar a senha com o código (aviso de segurança) |
+| Teste grátis acaba amanhã / terminou | Na véspera do fim do teste e quando ele acaba sem plano (avisos automáticos) |
+| Mensalidade vence em breve / venceu / sistema pausado | 3 dias antes do vencimento, depois de vencer e quando a cobrança pausa o sistema (avisos automáticos) |
+| Pagamento recebido | Até 2 dias depois da baixa da fatura (avisos automáticos) |
 | Contrato para assinar, avisos e via final | Super Admin › Restaurante › Contrato |
 
 Tudo entra numa **fila de saída** (`mail_outbox`) na mesma transação de quem pediu e sai na hora.
@@ -17,6 +24,47 @@ Os envios aparecem em **E-mail › Envios**, com o erro de cada um e o botão de
 ```
 Comandou ──► fila (mail_outbox) ──► Resend ──► cliente
 ```
+
+## Esqueci minha senha (código por e-mail)
+
+Em toda tela de entrada há o link **Esqueci minha senha**, em três passos: e-mail → código de 6
+números → senha nova (`apps/web/src/pages/ForgotPassword.tsx`; abre direto com `/?nova-senha`).
+
+- O código vem **no começo do assunto** (`482915 é o seu código do Comandou`) e na **linha de
+  prévia** do e-mail: aparece na notificação do celular e na lista da caixa de entrada, dá para
+  copiar sem abrir, e o iPhone e o Mac oferecem preencher sozinhos. No corpo ele fica numa caixa
+  só, sem espaço no meio (dois toques copiam os 6 números).
+- Vale **15 minutos**, aceita **5 tentativas**, no máximo **5 códigos por hora** por conta (os
+  outros pedidos são ignorados em silêncio) e o limite por aparelho do login. A resposta é a
+  mesma exista a conta ou não. Código certo vira um token de uso único (30 minutos) para gravar
+  a senha nova.
+- Restaurante (`auth/password-reset.service.ts`, tabela `staff_password_resets` no banco do
+  restaurante, função `app_reset_password_with_token`): a conta sai dos outros aparelhos, o
+  bloqueio por senhas erradas zera e a pessoa já entra. Conta só de PIN não recebe código.
+- Super Admin (`platform/platform-password-reset.service.ts`, tabela `platform_password_resets`):
+  todas as sessões e os navegadores confiáveis saem, e o login continua pedindo o código do
+  autenticador.
+- Sem o Resend configurado, o pedido responde que é preciso falar com o administrador (equipe) ou
+  usar o `platform-admin-cli` no servidor (Super Admin).
+
+## Avisos automáticos de teste grátis e cobrança
+
+`billing/lifecycle-mail.service.ts` roda a cada 30 minutos (uma réplica por vez) e manda, uma vez
+só por restaurante, assunto e fatura ou dia (`platform_lifecycle_mails`): teste acaba amanhã
+(2 a 26 horas antes), teste terminou (até 3 dias depois, sem pagamento), mensalidade vence (a
+partir de 3 dias antes), venceu (até 7 dias depois; com o dia em que o sistema pausa), sistema
+pausado e pagamento recebido (até 2 dias depois). Vai para o e-mail de cobrança do cadastro do
+restaurante, senão para quem criou o teste pelo site, senão para o administrador. Liga e desliga
+em **E-mail › Modelos** (`mail_settings.lifecycle_enabled`).
+
+## Desenho dos e-mails
+
+`apps/api/src/mail/templates/`: `kit.ts` (moldura e blocos: botão, código, tabela, passos, aviso,
+valores grandes), `emails.ts` (cada e-mail, com assunto, HTML e texto) e `samples.ts` (os dados de
+exemplo da aba Modelos). Tabelas e estilo na própria tag; o modo escuro vem de
+`prefers-color-scheme` (Apple Mail, iOS, Outlook.com com `[data-ogsc]`). O panda de cada assunto é
+um PNG em `apps/web/public/email/panda-*.png` (servido pelo site), desenhado por
+`node tools/email-pandas/render.mjs`: e-mail não mostra SVG.
 
 ## 1. Configurar o Resend (grátis até 3.000 e-mails por mês)
 
@@ -68,7 +116,11 @@ publicado na Cloudflare, ele pode ser removido lá (e a regra do Email Routing t
   senha ou código: `sensitive: true`.
 - E-mails com senha: `trial.welcome` (teste criado pelo site) e `tenant.access` (restaurante
   criado em Super Admin › Restaurantes › Novo; desliga no passo Acesso do dono). Os dois moldes
-  ficam em `apps/api/src/platform/site/welcome-email.ts`. Se o envio falhar, o restaurante é
-  criado mesmo assim e a tela final mostra o motivo.
-- Testes: `apps/api/src/mail/mail-lib.test.ts` e `apps/api/test/mail.e2e.test.ts` (o Resend é
+  são `welcomeEmail` e `accessEmail`, em `apps/api/src/mail/templates/emails.ts`. Se o envio
+  falhar, o restaurante é criado mesmo assim e a tela final mostra o motivo.
+- E-mail novo: crie a função em `templates/emails.ts` usando `shell(...)` e os blocos do `kit.ts`,
+  acrescente o exemplo em `samples.ts` (aparece na aba Modelos) e, se tiver código ou senha,
+  `sensitive: true`.
+- Testes: `apps/api/src/mail/mail-lib.test.ts`, `apps/api/src/mail/templates/emails.test.ts`,
+  `apps/api/test/mail.e2e.test.ts` e `apps/api/test/password-reset.e2e.test.ts` (o Resend é
   trocado por `test/mail-fake.ts`).

@@ -5,20 +5,22 @@ import { PageHead, Tabs } from '../ui';
 import './mail.css';
 import { OutboxTab } from './Outbox';
 import { SettingsTab } from './Settings';
+import { TemplatesTab } from './Templates';
 import type { Overview } from './types';
 
-type Part = 'resend' | 'envios';
+type Part = 'resend' | 'modelos' | 'envios';
 
 const PARTS: [Part, string][] = [
   ['resend', 'Resend'],
+  ['modelos', 'Modelos'],
   ['envios', 'Envios'],
 ];
 
 export const mailPath = (p: Part) => (p === 'resend' ? '/email' : `/email/${p}`);
 
 /**
- * Super Admin › E-mail: a configuração do Resend (por onde saem todos os e-mails do sistema) e
- * os envios, com reenviar e cancelar. Guia: docs/email.md.
+ * Super Admin › E-mail: a configuração do Resend (por onde saem todos os e-mails do sistema), os
+ * modelos (prévia de cada e-mail e os avisos automáticos) e os envios, com reenviar e cancelar. Guia: docs/email.md.
  */
 export function MailPage() {
   const { pathname } = useLocation();
@@ -32,7 +34,7 @@ export function MailPage() {
       <PageHead
         page
         title="E-mail"
-        sub="Boas-vindas, códigos de senha e contratos saem pelo Resend"
+        sub="Boas-vindas, códigos de senha, avisos de cobrança e contratos saem pelo Resend"
       />
       <div className="adm-infra-tabs">
         <Tabs value={part} onChange={(p) => navigate(mailPath(p))} items={PARTS} />
@@ -55,6 +57,7 @@ export function MailPage() {
           {part === 'resend' && (
             <SettingsTab settings={data.settings} onChanged={overview.reload} />
           )}
+          {part === 'modelos' && <TemplatesTab />}
           {part === 'envios' && <OutboxTab />}
         </>
       )}

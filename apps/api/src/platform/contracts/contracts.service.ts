@@ -19,6 +19,8 @@ import type { PoolClient } from 'pg';
 import { ENV, Env } from '../../config/env';
 import { TenantDatabaseUnavailable } from '../../database/tenant-database';
 import { MailService } from '../../mail/mail.service';
+import { contractEmail } from '../../mail/templates/emails';
+import { siteUrlOf } from '../../mail/templates/urls';
 import { PlatformAuthService } from '../platform-auth';
 import type { Actor } from '../platform.service';
 import { PlatformDb, platformAudit } from '../platform-db.service';
@@ -176,25 +178,7 @@ const EVENT_LABEL: Record<string, string> = {
   countersigned: 'Assinado pela CONTRATADA',
 };
 
-const esc = (s: string) =>
-  s.replace(
-    /[&<>"']/g,
-    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
-  );
-
 /** E-mail simples: título, texto e um botão. */
-function emailHtml(title: string, paragraphs: string[], button?: { label: string; url: string }) {
-  return `<!doctype html><html lang="pt-BR"><body style="margin:0;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;color:#18181b">
-<div style="max-width:560px;margin:0 auto;padding:24px 16px">
-<div style="background:#ffffff;border:1px solid #e4e4e7;border-radius:8px;padding:28px">
-<h1 style="font-size:20px;margin:0 0 16px">${esc(title)}</h1>
-${paragraphs.map((p) => `<p style="font-size:15px;line-height:1.55;margin:0 0 14px">${esc(p)}</p>`).join('\n')}
-${button ? `<p style="margin:24px 0"><a href="${esc(button.url)}" style="background:#e23a00;color:#ffffff;text-decoration:none;padding:13px 22px;border-radius:6px;font-weight:bold;display:inline-block">${esc(button.label)}</a></p><p style="font-size:12px;color:#71717a;word-break:break-all">Se o botão não abrir, copie este endereço: ${esc(button.url)}</p>` : ''}
-</div>
-<p style="font-size:12px;color:#71717a;text-align:center;margin-top:16px">Comandou · sistema para restaurantes</p>
-</div></body></html>`;
-}
-
 export interface WebhookMessage {
   to: string;
   toName?: string | null;
@@ -217,6 +201,11 @@ export class ContractsService {
     private readonly auth: PlatformAuthService,
     private readonly mail: MailService,
   ) {}
+
+  /** E-mail dos contratos com o desenho dos outros e-mails do Comandou (panda com a folha). */
+  private emailHtml(title: string, paragraphs: string[], button?: { label: string; url: string }) {
+    return contractEmail({ heading: title, paragraphs, button, assets: siteUrlOf(this.env) });
+  }
 
   // ------------------------------------------------------------------ configuração
   private async settingsRow(): Promise<SettingsRow> {
@@ -303,7 +292,7 @@ export class ContractsService {
         {
           to,
           subject: 'Teste do envio de contratos do Comandou',
-          html: emailHtml('Tudo certo com o envio de contratos', [
+          html: this.emailHtml('Tudo certo com o envio de contratos', [
             'Este é um e-mail de teste enviado pelo painel do Comandou.',
             'Se ele chegou, o envio de contratos e o aviso de contrato assinado estão funcionando.',
           ]),
@@ -850,7 +839,7 @@ export class ContractsService {
             to: email,
             toName: who,
             subject: `Contrato ${r.number} para assinatura · ${content.terms.storeName}`,
-            html: emailHtml('Seu contrato está pronto para assinar', paragraphs, {
+            html: this.emailHtml('Seu contrato está pronto para assinar', paragraphs, {
               label: 'Ler e assinar o contrato',
               url: link.url,
             }),
@@ -919,7 +908,7 @@ export class ContractsService {
             to: before.signer_email,
             toName: before.signer_name,
             subject: `Contrato ${before.number} cancelado`,
-            html: emailHtml('Contrato cancelado', paragraphs),
+            html: this.emailHtml('Contrato cancelado', paragraphs),
             text: paragraphs.join('\n\n'),
           },
         ] satisfies WebhookMessage[],
@@ -1396,7 +1385,7 @@ export class ContractsService {
       messages.push({
         to,
         subject: `Falta a sua assinatura · contrato ${r.number} · ${content.terms.storeName}`,
-        html: emailHtml('O cliente assinou. Falta você.', p, {
+        html: this.emailHtml('O cliente assinou. Falta você.', p, {
           label: 'Conferir e assinar',
           url: panelUrl,
         }),
@@ -1414,7 +1403,7 @@ export class ContractsService {
         to: r.signer_email,
         toName: r.signer_name,
         subject: `Recebemos a sua assinatura · contrato ${r.number}`,
-        html: emailHtml('Assinatura recebida', p),
+        html: this.emailHtml('Assinatura recebida', p),
         text: p.join('\n\n'),
       });
     }
@@ -1465,7 +1454,7 @@ export class ContractsService {
       messages.push({
         to,
         subject: `Contrato ${r.number} assinado · ${content.terms.storeName}`,
-        html: emailHtml('Contrato assinado', [
+        html: this.emailHtml('Contrato assinado', [
           finalText,
           `Plano ${content.terms.planName}, mensalidade ${formatBRL(toCents(content.terms.priceMonthly))}.`,
           'O PDF final, com as rubricas e o manifesto das assinaturas, está anexado e guardado no painel (Restaurantes → cliente → Contrato).',
@@ -1477,7 +1466,7 @@ export class ContractsService {
         to: r.countersigner_email,
         toName: r.countersigner_name,
         subject: `Sua via do contrato ${r.number} assinado`,
-        html: emailHtml('Contrato assinado', [finalText, 'A via final está anexada.']),
+        html: this.emailHtml('Contrato assinado', [finalText, 'A via final está anexada.']),
         text: finalText,
       });
     const customerTo = [r.signer_email, content.parties.customer.email].filter(
@@ -1488,7 +1477,7 @@ export class ContractsService {
         to: addr,
         toName: addr === r.signer_email ? r.signer_name : content.parties.customer.representative,
         subject: `Sua via do contrato ${r.number} assinado`,
-        html: emailHtml('Contrato assinado com sucesso', [
+        html: this.emailHtml('Contrato assinado com sucesso', [
           `Olá${addr === r.signer_email ? `, ${r.signer_name}` : ''}!`,
           both
             ? `O contrato do Comandou de ${content.parties.customer.name} está assinado pelas duas partes. A via final, com as rubricas e o manifesto das assinaturas, está anexada a este e-mail.`

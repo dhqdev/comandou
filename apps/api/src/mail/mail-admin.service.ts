@@ -10,6 +10,9 @@ import { PlatformDb, platformAudit } from '../platform/platform-db.service';
 import type { Actor } from '../platform/platform.service';
 import type { MailSettingsInput } from './mail.schemas';
 import { MAIL_SECRET, MailService, SettingsRow } from './mail.service';
+import { testEmail } from './templates/emails';
+import { emailSamples } from './templates/samples';
+import { siteUrlOf, tenantUrlOf } from './templates/urls';
 
 /** Super Admin › E-mail: a configuração do Resend, o e-mail de teste e a fila de envios. */
 @Injectable()
@@ -93,13 +96,7 @@ export class MailAdminService {
     const r = await this.mail.send({
       kind: 'test',
       to: [{ email: to }],
-      subject: 'Teste do e-mail do Comandou',
-      html:
-        '<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.5;color:#1f2328">' +
-        '<p>Este é um e-mail de teste enviado pelo painel do Comandou.</p>' +
-        '<p>Se ele chegou, o envio pelo Resend está funcionando: boas-vindas do teste, código de nova senha dos clientes e contratos saem por aqui.</p>' +
-        '</div>',
-      text: 'Teste do e-mail do Comandou: se este e-mail chegou, o envio pelo Resend está funcionando.',
+      ...testEmail(siteUrlOf(this.env)),
     });
     await this.db.tx((c) =>
       platformAudit(c, {
@@ -107,6 +104,71 @@ export class MailAdminService {
         action: 'mail.test_sent',
         entity: 'mail',
         data: { to, ok: r.ok },
+        ip: a.ip,
+      }),
+    );
+    if (!r.ok) throw new UnprocessableEntityException(r.error ?? 'O envio falhou');
+    return { ok: true, to };
+  }
+
+  private samples() {
+    return emailSamples(siteUrlOf(this.env), (slug) => tenantUrlOf(this.env, slug));
+  }
+
+  /** Aba Modelos: todos os e-mails do sistema com dados de exemplo, e se os avisos estão ligados. */
+  async templates() {
+    const [m] = await this.db.query<{ enabled: boolean }>(
+      `SELECT lifecycle_enabled AS enabled FROM mail_settings WHERE id`,
+    );
+    return {
+      lifecycleEnabled: !!m?.enabled,
+      ready: await this.mail.ready(),
+      items: this.samples().map((x) => ({
+        id: x.id,
+        label: x.label,
+        when: x.when,
+        subject: x.mail.subject,
+        html: x.mail.html,
+      })),
+    };
+  }
+
+  /** Liga ou desliga os avisos automáticos de teste grátis e cobrança. */
+  async setLifecycle(enabled: boolean, a: Actor) {
+    await this.db.tx(async (c) => {
+      await c.query(`UPDATE mail_settings SET lifecycle_enabled = $1 WHERE id`, [enabled]);
+      await platformAudit(c, {
+        adminId: a.admin.id,
+        action: 'mail.lifecycle_set',
+        entity: 'mail',
+        data: { enabled },
+        ip: a.ip,
+      });
+    });
+    return this.templates();
+  }
+
+  /** Manda um modelo com os dados de exemplo para conferir na caixa de entrada. */
+  async sendSample(id: string, to: string, a: Actor) {
+    const s = this.samples().find((x) => x.id === id);
+    if (!s) throw new UnprocessableEntityException('Modelo não encontrado');
+    if (!(await this.mail.ready()))
+      throw new UnprocessableEntityException(
+        'Salve a chave do Resend e o remetente antes de testar',
+      );
+    const r = await this.mail.send({
+      kind: 'test',
+      from: s.fromName ? { name: s.fromName } : undefined,
+      to: [{ email: to }],
+      ...s.mail,
+      subject: `[Teste] ${s.mail.subject}`,
+    });
+    await this.db.tx((c) =>
+      platformAudit(c, {
+        adminId: a.admin.id,
+        action: 'mail.sample_sent',
+        entity: 'mail',
+        data: { to, template: id, ok: r.ok },
         ip: a.ip,
       }),
     );

@@ -73,9 +73,24 @@ exceções, só no site:
 
 ## Super Admin › E-mail
 
-`apps/web/src/platform/mail/` (`mail.css` só com tokens): duas abas, **Resend** (formulário
-`cm-form` com a chave, o remetente e o e-mail de teste) e **Envios** (tabela `cm-table` com
-reenviar e cancelar). Não há mais caixas, agenda nem agendamento.
+`apps/web/src/platform/mail/` (`mail.css` só com tokens): três abas, **Resend** (formulário
+`cm-form` com a chave, o remetente e o e-mail de teste), **Modelos** (`Templates.tsx`: lista
+`mail-tpl__list` à esquerda e a prévia num `iframe` com Computador/Celular; no celular a lista
+vira fileira rolável) e **Envios** (tabela `cm-table` com reenviar e cancelar).
+
+## Esqueci minha senha (telas de entrada)
+
+`pages/ForgotPassword.tsx` dentro do `AuthShell`: três tracinhos de passo (`forgot__steps`),
+título visível curto (`forgot__head`), o código em 6 caixas (`otp`, colar e o preenchimento do
+celular espalham os números; erro treme e fica vermelho) e a força da senha (`forgot__meter`).
+O link "Esqueci minha senha" fica à direita, logo abaixo do campo da senha (`ForgotLink`).
+
+## E-mails
+
+Não seguem os tokens do app (e-mail não lê CSS variável): cores fixas em `mail/templates/kit.ts`
+(`C`), fundo creme `#F4F1EE`, cartão branco com raio 20, panda no topo sobre `#FFF4EE`, um botão
+laranja por e-mail, título centralizado. Modo escuro pelas classes `em-*`. Nada de imagem com
+texto (cai no spam e some com imagens bloqueadas).
 
 ## Financeiro
 
