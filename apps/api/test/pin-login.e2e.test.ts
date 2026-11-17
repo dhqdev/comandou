@@ -83,9 +83,13 @@ describe('PIN da equipe', () => {
     expect(
       (await as(admin).post('/users', { name: 'Xy', role: 'waiter', pin: '4071' })).status,
     ).toBe(409);
-    // O PIN nunca vai para a auditoria.
+    // O PIN nunca vai para a auditoria. Olha só este restaurante e os campos de PIN: o banco de
+    // teste é compartilhado e um UUID ou IP de outro teste pode ter "4071" por acaso.
     const [a] = await ownerQuery<{ n: number }>(
-      `SELECT count(*)::int AS n FROM audit_log WHERE data::text LIKE '%4071%'`,
+      `SELECT count(*)::int AS n FROM audit_log
+        WHERE tenant_id = $1
+          AND (data->>'pin' = '4071' OR data::text ~ '(^|[^0-9a-f-])4071([^0-9a-f-]|$)')`,
+      [fx.tenantA],
     );
     expect(a.n).toBe(0);
   });
