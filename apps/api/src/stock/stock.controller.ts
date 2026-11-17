@@ -25,6 +25,7 @@ import { DatabaseService, Tx } from '../database/database.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { AVAILABILITY_SQL } from './availability-sql';
+import { StockCostsService } from './stock-costs.service';
 import { ITEM_SELECT, StockService } from './stock.service';
 
 const UNITS = ['un', 'kg', 'g', 'l', 'ml'] as const;
@@ -92,6 +93,14 @@ const Recipe = z.object({
     .max(50)
     .refine((l) => new Set(l.map((x) => x.stockItemId)).size === l.length, 'insumo repetido'),
 });
+const CostUpdate = z.object({
+  unitCost,
+  note: z.string().trim().min(3).max(300).optional(),
+});
+const CostChangesQuery = z.object({
+  itemId: uuid.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
 const MovementsQuery = z.object({
   itemId: uuid.optional(),
   /** "out" = só saídas (venda, perda, produção, saída avulsa, contagem para menos). */
@@ -110,6 +119,7 @@ export class StockController {
     private readonly stock: StockService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
+    private readonly costs: StockCostsService,
   ) {}
 
   @Get('items')
@@ -280,6 +290,136 @@ export class StockController {
         [f.itemId ?? null, f.limit, f.direction ?? null, f.from ?? null],
       ),
     );
+  }
+
+  // ------------------------------------------------------------ custo automático
+  /**
+   * Onde o insumo é usado (preparos e itens do cardápio) com o custo atual de cada ficha.
+   * Quem vê custos: estoque (escrita) ou relatórios, como na precificação.
+   */
+  @Get('items/:id/usage')
+  @RequirePermission('stock:write', 'reports:read')
+  usage(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.db.withTenant(ctxOf(t, u), async (tx) => {
+      await this.stock.item(tx, id);
+      return this.costs.usage(tx, id);
+    });
+  }
+
+  /** Simula o novo preço do insumo: devolve o que mudaria, sem gravar nada. */
+  @Post('items/:id/cost/preview')
+  @RequirePermission('stock:write')
+  costPreview(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(CostUpdate)) b: z.infer<typeof CostUpdate>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const ctx = ctxOf(t, u, req);
+    return this.db.withTenant(ctx, async (tx) => {
+      await q(tx, 'SAVEPOINT cost_preview');
+      try {
+        return await this.applyCost(tx, ctx, id, b);
+      } finally {
+        await q(tx, 'ROLLBACK TO SAVEPOINT cost_preview');
+      }
+    });
+  }
+
+  /**
+   * Mudar preço: o fornecedor aumentou (ou baixou) e a pessoa quer que as fichas já usem o novo
+   * valor, sem esperar a próxima compra. O custo vira o informado e tudo o que leva o insumo
+   * (preparos e itens do cardápio) é recalculado; o histórico guarda o antes e depois.
+   */
+  @Put('items/:id/cost')
+  @RequirePermission('stock:write')
+  async setCost(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(CostUpdate)) b: z.infer<typeof CostUpdate>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const ctx = ctxOf(t, u, req);
+    const res = await this.db.withTenant(ctx, async (tx) => {
+      const change = await this.applyCost(tx, ctx, id, b);
+      await this.audit.record(tx, {
+        tenantId: t.id,
+        actorUserId: u.id,
+        action: 'stock.cost_changed',
+        entity: 'stock_item',
+        entityId: id,
+        data: {
+          unitCost: b.unitCost,
+          note: b.note ?? null,
+          items: change?.items.length ?? 0,
+          products: change?.products.length ?? 0,
+        },
+        ip: req.ip,
+      });
+      return { item: await this.stock.item(tx, id), change };
+    });
+    this.realtime.publish(t.id, { type: 'stock.changed' });
+    return res;
+  }
+
+  private async applyCost(
+    tx: Tx,
+    ctx: ReturnType<typeof ctxOf>,
+    id: string,
+    b: z.infer<typeof CostUpdate>,
+  ) {
+    const it = await one<{ name: string; prep: boolean }>(
+      tx,
+      `SELECT name, EXISTS (SELECT 1 FROM stock_item_recipes r WHERE r.stock_item_id = s.id) AS prep
+         FROM stock_items s WHERE id = $1`,
+      [id],
+    );
+    if (!it) throw new NotFoundException('Insumo não encontrado');
+    if (it.prep)
+      throw new ConflictException(
+        'Este insumo é um preparo da casa: o custo vem da ficha de preparo e muda sozinho quando os ingredientes mudam',
+      );
+    const snap = await this.costs.before(tx, [id]);
+    await q(
+      tx,
+      `UPDATE stock_items SET avg_cost = $2::numeric, last_cost = $2::numeric, cost_changed_at = now()
+        WHERE id = $1`,
+      [id, b.unitCost],
+    );
+    const change = await this.costs.after(
+      tx,
+      ctx,
+      snap,
+      'manual',
+      b.note ?? `Novo preço de ${it.name}`,
+    );
+    return (
+      change ?? {
+        id: null,
+        source: 'manual' as const,
+        label: null,
+        items: [],
+        products: [],
+        createdAt: new Date(),
+      }
+    );
+  }
+
+  /** Histórico das mudanças de custo, com o impacto no cardápio. */
+  @Get('cost-changes')
+  @RequirePermission('stock:write', 'reports:read')
+  costChanges(
+    @Query(new ZodPipe(CostChangesQuery)) f: z.infer<typeof CostChangesQuery>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.db.withTenant(ctxOf(t, u), (tx) => this.costs.recent(tx, f.limit, f.itemId));
   }
 
   // ------------------------------------------------------------ inventário em lote

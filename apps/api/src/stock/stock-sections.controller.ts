@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -22,6 +23,7 @@ import { one, q } from '../common/sql';
 import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
+import { StockCostsService } from './stock-costs.service';
 import { StockOpsService } from './stock-ops.service';
 import { StockService } from './stock.service';
 
@@ -131,6 +133,7 @@ export class StockSectionsController {
     private readonly stock: StockService,
     private readonly ops: StockOpsService,
     private readonly audit: AuditService,
+    private readonly costs: StockCostsService,
   ) {}
 
   @Get('items/:id')
@@ -165,9 +168,28 @@ export class StockSectionsController {
     @CurrentUser() u: AuthenticatedUser,
     @Req() req: Request,
   ) {
-    return this.db.withTenant(ctxOf(t, u), async (tx) => {
-      const it = await one(tx, `SELECT id FROM stock_items WHERE id = $1 FOR UPDATE`, [id]);
+    const ctx = ctxOf(t, u, req);
+    return this.db.withTenant(ctx, async (tx) => {
+      const it = await one(tx, `SELECT id FROM stock_items WHERE id = $1`, [id]);
       if (!it) throw new NotFoundException('Insumo não encontrado');
+      // Ficha circular (o molho leva a massa e a massa leva o molho) deixaria o custo sem fim.
+      if (b.lines.length) {
+        const loop = await one<{ name: string }>(
+          tx,
+          `WITH RECURSIVE up(id) AS (
+             SELECT $1::uuid
+             UNION
+             SELECT r.stock_item_id FROM stock_item_recipes r JOIN up ON r.ingredient_id = up.id)
+           SELECT s.name FROM stock_items s
+            WHERE s.id = ANY($2::uuid[]) AND s.id <> $1 AND s.id IN (SELECT id FROM up) LIMIT 1`,
+          [id, b.lines.map((l) => l.stockItemId)],
+        );
+        if (loop)
+          throw new ConflictException(
+            `${loop.name} já leva este preparo na ficha dele: um não pode levar o outro`,
+          );
+      }
+      const snap = await this.costs.before(tx, [id]);
       await q(tx, `UPDATE stock_items SET recipe_yield = $2 WHERE id = $1`, [id, b.yield]);
       await q(tx, `DELETE FROM stock_item_recipes WHERE stock_item_id = $1`, [id]);
       for (const l of b.lines) {
@@ -186,6 +208,15 @@ export class StockSectionsController {
         data: b,
         ip: req.ip,
       });
+      // O custo do preparo passa a ser o da ficha (e sobe em cascata para quem o usa).
+      if (b.lines.length)
+        await q(
+          tx,
+          `UPDATE stock_items SET avg_cost = stock_prep_cost(id), cost_changed_at = now()
+            WHERE id = $1 AND stock_prep_cost(id) IS NOT NULL AND avg_cost <> stock_prep_cost(id)`,
+          [id],
+        );
+      await this.costs.after(tx, ctx, snap, 'prep_recipe', 'Ficha de preparo alterada');
       return this.stock.item(tx, id);
     });
   }

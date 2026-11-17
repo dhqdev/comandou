@@ -106,7 +106,7 @@ cancelar. Passo a passo em [docs/email.md](docs/email.md).
 | **Caixa** | Abertura por terminal, pagamentos com troco, estornos, sangria e suprimento, fechamento conferido |
 | **Cardápio online** | Loja própria com capa, banners e destaques, contas de cliente com endereços e favoritos, acompanhamento do pedido, aceite manual ou automático |
 | **Entregas** | Áreas desenhadas no mapa (bairro ou raio) com taxa e pedido mínimo, painel do entregador com login ou link, rastreio para o cliente |
-| **Retaguarda** | Equipe e papéis, estoque com ficha técnica e custo médio, contas a pagar e receber, conciliação, relatórios com exportação para Excel |
+| **Retaguarda** | Equipe e papéis, estoque com ficha técnica e custo médio (mudou o preço de um insumo, o custo de todo preparo e item do cardápio que o usa é recalculado sozinho, com histórico e impacto na margem), contas a pagar e receber, conciliação, relatórios com exportação para Excel |
 | **Impressão** | App Comandou Impressão (Windows, Mac e Linux) para impressoras térmicas por rede/Wi-Fi, USB, serial e Bluetooth, com modelos de comanda editáveis |
 | **Integrações** | NFC-e pela Focus NFe, avisos ao cliente pelo WhatsApp (QR Code ou API oficial), e-mail próprio pelo Resend, filas com novas tentativas |
 | **Plataforma** | Painel Super Admin com dois fatores, banco de dados próprio por restaurante, planos e limites, domínio próprio, contratos com assinatura eletrônica, e-mail pelo Resend, site público com teste grátis, atualização pelo painel, backups cifrados no Backblaze B2 com teste de restauração |

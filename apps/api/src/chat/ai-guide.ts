@@ -65,7 +65,7 @@ const SCREENS: { path: string; name: string; perms: string[]; text: string }[] =
     path: '/estoque',
     name: 'Estoque',
     perms: ['stock:read'],
-    text: 'submenu Visão geral (insumos e saldo), Lotes (validade), Produção (preparos da casa), Recebimento (nota do fornecedor), Saída de estoque, Inventário, Fichas técnicas, Fatores de conversão e Precificação (CMV e preço sugerido). A venda baixa os insumos pela ficha técnica.',
+    text: 'submenu Visão geral (insumos e saldo), Lotes (validade), Produção (preparos da casa), Recebimento (nota do fornecedor), Saída de estoque, Inventário, Fichas técnicas, Fatores de conversão e Precificação (CMV e preço sugerido). A venda baixa os insumos pela ficha técnica. Custo automático: quando o custo de um insumo muda (entrada ou recebimento com preço, produção ou o botão **Mudar preço** no detalhe do insumo), o sistema recalcula sozinho o custo de todo preparo da casa que leva o insumo (em cascata) e de todos os itens do cardápio e complementos que usam ele; a margem e o preço sugerido da Precificação já mostram o novo custo. Compra registrada mexe no custo médio (ponderado pelo saldo); para usar o preço novo na hora, use **Mudar preço** (mostra antes o impacto em cada item). Preparo não tem preço manual: o custo dele vem da ficha de preparo. Ficha circular (um preparo levando o outro) é recusada. O histórico fica em Precificação › Mudanças de custo e o detalhe do insumo mostra onde ele é usado. Quando uma compra encarece o custo, gerentes e administradores recebem um aviso com os itens que mais pesam. O preço de venda nunca muda sozinho.',
   },
   {
     path: '/loja-online',

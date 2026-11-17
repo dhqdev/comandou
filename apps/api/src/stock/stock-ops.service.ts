@@ -9,6 +9,7 @@ import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { StockCostsService } from './stock-costs.service';
 import { StockService } from './stock.service';
 
 export interface ReceiptLineInput {
@@ -43,6 +44,7 @@ export class StockOpsService {
     private readonly stock: StockService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
+    private readonly costs: StockCostsService,
   ) {}
 
   private async lock(tx: Tx, ids: string[]) {
@@ -67,6 +69,15 @@ export class StockOpsService {
     },
   ) {
     const res = await this.db.withTenant(ctx, async (tx) => {
+      // Linhas com preço mudam o custo: fotografa antes (trava também os preparos atingidos).
+      const priced = b.lines.filter((l) => l.unitCost != null).map((l) => l.stockItemId);
+      const snap = priced.length
+        ? await this.costs.before(
+            tx,
+            priced,
+            b.lines.map((l) => l.stockItemId),
+          )
+        : null;
       await this.lock(
         tx,
         b.lines.map((l) => l.stockItemId),
@@ -155,7 +166,16 @@ export class StockOpsService {
         data: { code: r!.code, supplier: b.supplier ?? null, lines: b.lines.length, total },
         ip: ctx.ip,
       });
-      return { id: r!.id, code: r!.code, total };
+      const costChange = snap
+        ? await this.costs.after(
+            tx,
+            ctx,
+            snap,
+            'receipt',
+            [`Recebimento ${r!.code}`, b.supplier].filter(Boolean).join(' · '),
+          )
+        : null;
+      return { id: r!.id, code: r!.code, total, costChange };
     });
     this.realtime.publish(ctx.tenantId, { type: 'stock.changed' });
     return res;
@@ -177,6 +197,8 @@ export class StockOpsService {
           ORDER BY l.idx, r.ingredient_id`,
         [ids, b.lines.map((l) => l.quantity)],
       );
+      // O custo do preparo produzido muda: fotografa antes (trava preparos e ingredientes juntos).
+      const snap = await this.costs.before(tx, ids, [...ids, ...needs.map((n) => n.ingredient_id)]);
       await this.lock(tx, [...ids, ...needs.map((n) => n.ingredient_id)]);
       // Saldo suficiente para tudo o que a produção vai gastar (somado entre as linhas).
       const short = await q<{ name: string }>(
@@ -278,6 +300,13 @@ export class StockOpsService {
         data: { lines: b.lines, codes: out.map((o) => o.code) },
         ip: ctx.ip,
       });
+      await this.costs.after(
+        tx,
+        ctx,
+        snap,
+        'production',
+        `Produção ${out.map((o) => o.code).join(', ')}`,
+      );
       return out;
     });
     this.realtime.publish(ctx.tenantId, { type: 'stock.changed' });

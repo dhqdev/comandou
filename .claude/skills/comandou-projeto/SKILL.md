@@ -61,6 +61,14 @@ O dono pede para enviar direto na `main`, sem PR. Antes do push: tudo verde loca
   `apps/web`. Painel em `http://admin.comandou.localhost:5173`, site em `http://comandou.localhost:5173`.
 - O código do autenticador sai de `apps/api/dist/platform/totp.js` (`totpCode(segredo, totpStep())`).
 
+## Custo do estoque (fichas técnicas)
+
+O custo do item do cardápio é sempre lido na hora (quantidade × `stock_items.avg_cost`); nunca
+copie custo para o produto. Preparos são recalculados pelo gatilho `stock_items_cost_cascade`
+(migração 0076). Qualquer código novo que mude `avg_cost` deve envolver a mudança com
+`StockCostsService.before()` / `.after()` na mesma transação, para gravar o histórico
+(`stock_cost_changes`) e avisar os gerentes. Guia: `docs/decisions/0014-custo-automatico-fichas.md`.
+
 ## Mandar e-mail de qualquer módulo
 
 Injete `MailService` (módulo global). Dentro da sua transação: `mail.enqueue(c, {...})` (o

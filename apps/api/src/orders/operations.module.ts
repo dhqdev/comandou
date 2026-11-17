@@ -21,6 +21,7 @@ import { PrintAgentController, PrintingController } from '../printing/printing.c
 import { PrintingService } from '../printing/printing.service';
 import { StockController } from '../stock/stock.controller';
 import { StockService } from '../stock/stock.service';
+import { StockCostsService } from '../stock/stock-costs.service';
 import { StockOpsService } from '../stock/stock-ops.service';
 import { StockSectionsController } from '../stock/stock-sections.controller';
 import { UsersController } from '../users/users.controller';
@@ -115,6 +116,7 @@ import { OrdersService } from './orders.service';
     TabsService,
     KitchenService,
     StockService,
+    StockCostsService,
     StockOpsService,
     PrintingService,
     DeliveryService,

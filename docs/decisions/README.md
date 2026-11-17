@@ -13,3 +13,4 @@
 | [0009](0009-saas-plataforma-planos-backups.md) | SaaS: Super Admin, planos, domínios, backups e deploy | Aceita |
 | [0010](0010-producao-endurecimento.md) | Produção: limites, bloqueio por conta, limpeza de dados e verificação | Aceita |
 | [0011](0011-banco-dedicado-por-cliente.md) | Banco dedicado por cliente (plano Enterprise) | Proposta |
+| [0014](0014-custo-automatico-fichas.md) | Custo automático das fichas técnicas | Aceita |

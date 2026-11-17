@@ -1,4 +1,4 @@
-import { ArrowLeft, ClipboardCheck, PackageMinus, PackagePlus, Pencil } from 'lucide-react';
+import { ArrowLeft, ClipboardCheck, PackageMinus, PackagePlus, Pencil, Tag } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { Alert, Badge, Button, Card, EmptyState, Skeleton } from '../../design-system';
@@ -10,12 +10,13 @@ import { api } from '../../lib/api';
 import { brl } from '../../lib/money';
 import { useDebounced, useRealtime } from '../../lib/realtime';
 import type { StockItem, StockLot, StockMovement } from '../../lib/types';
+import { CostChangesCard, CostModal, UsageCard } from './CostChanges';
 import { EntryModal, ItemModal, type EntryKind } from './ItemModals';
 import { KIND_TONE, kindLabel, originLabel, useStockItems } from './common';
 import { ExpiryBadge, LOT_STATUS } from './LotsSection';
 import { PrepRecipeCard } from './RecipesSection';
 
-type Tab = 'movements' | 'lots' | 'prep';
+type Tab = 'movements' | 'lots' | 'prep' | 'usage' | 'costs';
 const PAGE = 20;
 
 /**
@@ -25,6 +26,7 @@ const PAGE = 20;
 export function ItemDetail() {
   const { id = '' } = useParams();
   const canWrite = useCan('stock:write');
+  const canReports = useCan('reports:read');
   const { items } = useStockItems();
   const [item, setItem] = useState<StockItem | null>(null);
   const [moves, setMoves] = useState<StockMovement[] | null>(null);
@@ -34,6 +36,8 @@ export function ItemDetail() {
   const [page, setPage] = useState(0);
   const [entry, setEntry] = useState<EntryKind | null>(null);
   const [editing, setEditing] = useState(false);
+  const [pricing, setPricing] = useState(false);
+  const canCosts = canWrite || canReports;
 
   const load = useCallback(async () => {
     try {
@@ -99,6 +103,14 @@ export function ItemDetail() {
                 {fmtCost(item.avgCost)}/{item.unit}
               </strong>
             </div>
+            {item.lastCost && (
+              <div>
+                <span>Último custo de entrada</span>
+                <strong>
+                  {fmtCost(item.lastCost)}/{item.unit}
+                </strong>
+              </div>
+            )}
             <div>
               <span>Valor parado</span>
               <strong>{brl(item.stockValue)}</strong>
@@ -134,6 +146,16 @@ export function ItemDetail() {
               >
                 Contar
               </Button>
+              {!item.hasPrep && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  icon={<Tag size={15} />}
+                  onClick={() => setPricing(true)}
+                >
+                  Mudar preço
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="ghost"
@@ -151,6 +173,12 @@ export function ItemDetail() {
               ['movements', 'Movimentação'],
               ['lots', `Lotes${lots?.length ? ` (${lots.length})` : ''}`],
               ['prep', 'Ficha de preparo'],
+              ...(canCosts
+                ? ([
+                    ['usage', 'Onde é usado'],
+                    ['costs', 'Mudanças de custo'],
+                  ] as [Tab, string][])
+                : []),
             ]}
           />
           {tab === 'movements' && (
@@ -282,6 +310,8 @@ export function ItemDetail() {
               )}
             </Card>
           )}
+          {tab === 'usage' && canCosts && <UsageCard item={item} />}
+          {tab === 'costs' && canCosts && <CostChangesCard itemId={item.id} />}
           {tab === 'prep' && items && (
             <PrepRecipeCard item={item} items={items} canWrite={canWrite} onSaved={load} />
           )}
@@ -294,6 +324,16 @@ export function ItemDetail() {
           onClose={() => setEntry(null)}
           onDone={() => {
             setEntry(null);
+            void load();
+          }}
+        />
+      )}
+      {item && pricing && (
+        <CostModal
+          item={item}
+          onClose={() => setPricing(false)}
+          onDone={() => {
+            setPricing(false);
             void load();
           }}
         />

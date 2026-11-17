@@ -472,6 +472,32 @@ export interface StockItem {
   recipeYield: string;
   /** Produzido na casa (tem ficha de preparo). */
   hasPrep: boolean;
+  /** Último custo de entrada (compra, recebimento ou produção) por unidade. */
+  lastCost?: string | null;
+  /** Quando o custo mudou pela última vez. */
+  costChangedAt?: string | null;
+}
+/** Mudança de custo e o que ela recalculou (insumos, preparos e itens do cardápio). */
+export interface CostChange {
+  id: string | null;
+  source: 'purchase' | 'receipt' | 'production' | 'manual' | 'prep_recipe';
+  label: string | null;
+  items: { id: string; name: string; unit: StockUnit; oldCost: string; newCost: string }[];
+  products: {
+    kind: 'product' | 'option';
+    id: string;
+    name: string;
+    price: string;
+    oldCost: string;
+    newCost: string;
+  }[];
+  createdAt: string;
+  createdByName?: string | null;
+}
+/** Onde um insumo é usado, com o custo atual de cada ficha. */
+export interface StockUsage {
+  preps: { id: string; name: string; unit: StockUnit; cost: string }[];
+  menu: { kind: 'product' | 'option'; id: string; name: string; price: string; cost: string }[];
 }
 /** Sessão de inventário (contagem em lote). */
 export interface StockCount {

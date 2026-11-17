@@ -26,8 +26,10 @@ import {
   type PricingStatus,
 } from '../features/pricing';
 import { api } from '../lib/api';
+import { useDebounced, useRealtime } from '../lib/realtime';
 import { brl, parseBrlInput } from '../lib/money';
 import type { PricingData, PricingProduct, PricingSettings } from '../lib/types';
+import { CostChangesCard } from './stock/CostChanges';
 
 const STATUS: Record<
   PricingStatus,
@@ -75,6 +77,11 @@ export function PricingTab() {
   useEffect(() => {
     void load();
   }, [load]);
+  // Custo automático: mudou o custo de um insumo, os custos e margens daqui já mudam.
+  const reload = useDebounced(load);
+  useRealtime((e) => {
+    if (e.type === 'stock.changed') reload();
+  }, load);
 
   const rows = useMemo(() => {
     if (!data) return [];
@@ -316,6 +323,8 @@ export function PricingTab() {
           </div>
         </Card>
       )}
+
+      <CostChangesCard />
 
       {sim && (
         <SimulatorModal

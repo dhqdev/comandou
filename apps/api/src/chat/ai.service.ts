@@ -6,6 +6,7 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { roleHas, type Role } from '@comandou/shared';
 import { Ctx } from '../common/context';
 import { open } from '../common/secret-box';
 import { one, q } from '../common/sql';
@@ -217,6 +218,7 @@ export class AiService {
         ),
       );
       if (!r) return [];
+      const costs = await this.costLines(ctx);
       const out = [
         r.cash_open
           ? `Caixa: ${r.cash_open} aberto(s).`
@@ -234,10 +236,72 @@ export class AiService {
           ? `Impressão: ${r.printers_online} de ${r.printers} computador(es) de impressão online.`
           : 'Impressão: nenhum computador de impressão conectado.',
         `WhatsApp: ${r.whatsapp ? 'ligado' : 'desligado'}.`,
+        ...costs,
       ];
       return out;
     } catch (e) {
       this.logger.warn(`Retrato da operação falhou: ${(e as Error).message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Custos para quem vê custos (estoque ou relatórios): as últimas mudanças automáticas e os
+   * itens do cardápio em que o custo da ficha mais pesa no preço. Assim o assistente responde
+   * "quanto custa fazer o X?" ou "por que minha margem caiu?" com números de verdade.
+   */
+  private async costLines(ctx: Ctx): Promise<string[]> {
+    const role = ctx.user?.role as Role | undefined;
+    if (!role || !(roleHas(role, 'stock:write') || roleHas(role, 'reports:read'))) return [];
+    try {
+      return await this.db.withTenant(ctx, async (tx) => {
+        const changes = await q<{
+          source: string;
+          label: string | null;
+          created_at: Date;
+          items: { name: string; unit: string; oldCost: string; newCost: string }[];
+          products: { name: string }[];
+        }>(
+          tx,
+          `SELECT source, label, created_at, items, products FROM stock_cost_changes
+            WHERE created_at > now() - interval '30 days' AND jsonb_array_length(products) > 0
+            ORDER BY created_at DESC LIMIT 3`,
+        );
+        const menu = await q<{ name: string; price: string; cost: string }>(
+          tx,
+          `SELECT p.name, p.price::text AS price, round(sum(r.quantity * si.avg_cost), 2)::text AS cost
+             FROM products p
+             JOIN product_recipes r ON r.product_id = p.id
+             JOIN stock_items si ON si.id = r.stock_item_id
+            WHERE p.active AND p.price > 0
+            GROUP BY p.id
+            ORDER BY sum(r.quantity * si.avg_cost) / p.price DESC
+            LIMIT 12`,
+        );
+        const out: string[] = [];
+        const when = (d: Date) => d.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+        for (const c of changes) {
+          const it = c.items
+            .slice(0, 3)
+            .map((i) => `${i.name} ${money(i.oldCost)} → ${money(i.newCost)}/${i.unit}`)
+            .join(', ');
+          out.push(
+            `Custo mudou em ${when(c.created_at)} (${c.label ?? c.source}): ${it}; ${c.products.length} item(ns) do cardápio recalculado(s) sozinho(s).`,
+          );
+        }
+        if (menu.length)
+          out.push(
+            `Custo pela ficha técnica agora (itens em que o custo mais pesa no preço): ${menu
+              .map(
+                (m) =>
+                  `${m.name} custa ${money(m.cost)} e vende a ${money(m.price)} (${Math.round((Number(m.cost) / Number(m.price)) * 100)}% do preço)`,
+              )
+              .join('; ')}.`,
+          );
+        return out;
+      });
+    } catch (e) {
+      this.logger.warn(`Custos para o assistente falharam: ${(e as Error).message}`);
       return [];
     }
   }
@@ -322,4 +386,9 @@ export class AiService {
     );
     return { ok: true };
   }
+}
+
+/** "12.5" → "R$ 12,50". */
+function money(v: string): string {
+  return `R$ ${Number(v).toFixed(2).replace('.', ',')}`;
 }

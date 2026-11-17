@@ -9,6 +9,7 @@ import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
 import { DatabaseService, Tx } from '../database/database.service';
 import { RealtimeService } from '../realtime/realtime.service';
+import { StockCostsService, type CostChange } from './stock-costs.service';
 
 /**
  * Insumo com o consumo médio por dia das vendas dos últimos 30 dias ("dailyUsage"), que a tela
@@ -20,7 +21,8 @@ export const ITEM_SELECT = `
          (s.quantity < s.min_quantity) AS low, round(s.quantity * s.avg_cost, 2)::text AS "stockValue",
          s.category, s.supplier, s.counted_at AS "countedAt", u.daily::text AS "dailyUsage",
          s.shelf_life_days AS "shelfLifeDays", s.recipe_yield::text AS "recipeYield",
-         EXISTS (SELECT 1 FROM stock_item_recipes r WHERE r.stock_item_id = s.id) AS "hasPrep"
+         EXISTS (SELECT 1 FROM stock_item_recipes r WHERE r.stock_item_id = s.id) AS "hasPrep",
+         s.last_cost::text AS "lastCost", s.cost_changed_at AS "costChangedAt"
     FROM stock_items s
     LEFT JOIN LATERAL (
       SELECT round(-sum(m.quantity) / 30, 3) AS daily FROM stock_movements m
@@ -43,6 +45,7 @@ export class StockService {
     private readonly db: DatabaseService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
+    private readonly costs: StockCostsService,
   ) {}
 
   /**
@@ -250,6 +253,11 @@ export class StockService {
     b: { kind: StockEntryKind; quantity: string; unitCost?: string; note?: string },
   ) {
     const res = await this.db.withTenant(ctx, async (tx) => {
+      // Entrada com preço pode mudar o custo: fotografa antes (e trava os preparos atingidos).
+      const snap =
+        b.kind === 'purchase' && b.unitCost !== undefined
+          ? await this.costs.before(tx, [itemId])
+          : null;
       const it = await one<{ id: string; quantity: string; allow_negative: boolean; name: string }>(
         tx,
         `SELECT id, name, quantity::text, allow_negative FROM stock_items WHERE id = $1 FOR UPDATE`,
@@ -297,7 +305,10 @@ export class StockService {
         },
         ip: ctx.ip,
       });
-      return this.item(tx, itemId);
+      const costChange: CostChange | null = snap
+        ? await this.costs.after(tx, ctx, snap, 'purchase', b.note ?? 'Entrada')
+        : null;
+      return { ...(await this.item(tx, itemId)), costChange };
     });
     this.realtime.publish(ctx.tenantId, { type: 'stock.changed' });
     return res;
@@ -363,12 +374,16 @@ export class StockService {
     return res;
   }
 
-  /** Custo médio ponderado sobre o saldo positivo existente (chame antes de somar a entrada). */
+  /**
+   * Custo médio ponderado sobre o saldo positivo existente (chame antes de somar a entrada) e o
+   * último custo de entrada. Se o custo médio muda, o gatilho do banco recalcula os preparos.
+   */
   async averageIn(tx: Tx, itemId: string, quantity: string, unitCost: string) {
     await q(
       tx,
       `UPDATE stock_items SET avg_cost = round(
-         (GREATEST(quantity, 0) * avg_cost + $2::numeric * $3::numeric) / (GREATEST(quantity, 0) + $2::numeric), 4)
+         (GREATEST(quantity, 0) * avg_cost + $2::numeric * $3::numeric) / (GREATEST(quantity, 0) + $2::numeric), 4),
+         last_cost = $3::numeric, cost_changed_at = now()
        WHERE id = $1`,
       [itemId, quantity, unitCost],
     );

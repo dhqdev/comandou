@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.143.0',
+    date: '2026-11-17',
+    title: 'Custo das fichas recalculado sozinho',
+    summary:
+      'Mudou o preço de uma matéria-prima, o Comandou recalcula na hora o custo de todo preparo da casa e de todo item do cardápio que a usa, mostra o impacto na margem e guarda o histórico. O assistente de IA passou a conhecer os custos e responde por que a margem mudou.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Custo automático: entrada ou recebimento com preço, produção ou o novo botão Mudar preço recalculam sozinhos os preparos (em cascata, preparo dentro de preparo) e os itens do cardápio e complementos que usam o insumo.',
+      },
+      {
+        tag: 'novo',
+        text: 'Mudar preço no detalhe do insumo: mostra antes quanto cada item do cardápio vai custar e quanto do preço o custo passa a comer, e só depois aplica.',
+      },
+      {
+        tag: 'novo',
+        text: 'Mudanças de custo na Precificação e no insumo: o antes e depois de cada insumo e de cada item recalculado. No insumo, a aba Onde é usado lista os preparos e itens que o levam.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Compra que encarece o custo avisa gerentes e administradores, com os itens em que o custo mais pesa no preço. O preço de venda nunca muda sozinho.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A ficha de preparo define o custo do preparo na hora de salvar, e ficha circular (um preparo levando o outro) é recusada.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Assistente de IA: sabe como o custo automático funciona e vê as últimas mudanças de custo e os itens com custo mais alto no preço.',
+      },
+    ],
+  },
+  {
     version: '0.142.0',
     date: '2026-11-17',
     title: 'E-mail só pelo Resend',
