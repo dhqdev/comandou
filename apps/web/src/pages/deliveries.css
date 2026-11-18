@@ -667,10 +667,3 @@
   width: min(320px, 100%);
   font-size: var(--cm-text-sm);
 }
-@media print {
-  body:has(.cp-receipt) > *:not(dialog[open]),
-  dialog[open]:has(.cp-receipt) footer,
-  dialog[open]:has(.cp-receipt) header button {
-    display: none !important;
-  }
-}

@@ -84,6 +84,13 @@ copie custo para o produto. Preparos são recalculados pelo gatilho `stock_items
 - Demonstração: `seed.ts` lança os caixas (`postCashSession`) e cria o extrato de exemplo; mudou a
   regra, rode `COMANDOU_DEMO=reset` e confira a aba Conciliação.
 
+## Imprimir um pedaço da tela
+
+Para imprimir algo de dentro de um `Modal` (recibo, comprovante), use `printDocument` de
+`apps/web/src/lib/print-doc.ts` (iframe com folha A4 e CSS próprio). Não use `window.print()`
+com `@media print` escondendo o resto: o `<dialog>` mora dentro do `#root`, então a folha sai em
+branco. Bobina térmica: `browserPrint` em `features/ReceiptPreview.tsx`.
+
 ## Mandar e-mail de qualquer módulo
 
 Injete `MailService` (módulo global). Dentro da sua transação: `mail.enqueue(c, {...})` (o

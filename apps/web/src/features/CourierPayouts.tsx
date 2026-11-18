@@ -22,7 +22,15 @@ import {
   Settings2,
   Wallet,
 } from 'lucide-react';
-import { type FormEvent, type ReactNode, useCallback, useEffect, useState } from 'react';
+import {
+  type FormEvent,
+  type ReactNode,
+  type Ref,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   Alert,
   Badge,
@@ -34,9 +42,10 @@ import {
   TextField,
   useToast,
 } from '../design-system';
-import { useCan } from '../app/auth';
+import { useAuth, useCan } from '../app/auth';
 import { api } from '../lib/api';
 import { brl, parseBrlInput } from '../lib/money';
+import { escapeHtml, printDocument } from '../lib/print-doc';
 import { CheckField, SelectField } from './forms';
 import { dateTime } from './format';
 import { kmLabel } from './live-geo';
@@ -191,6 +200,19 @@ export function CourierPayouts() {
   const [editing, setEditing] = useState<Line | null>(null);
   const [paying, setPaying] = useState<Line | null>(null);
   const [receipt, setReceipt] = useState<Payout | null>(null);
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const { me } = useAuth();
+
+  function printReceipt() {
+    const el = receiptRef.current;
+    if (!el || !receipt) return;
+    const store = me?.tenant.name ?? '';
+    printDocument({
+      title: `Recibo - ${receipt.courierName}`,
+      html: `<header class="pr-head">${store ? `<p>${escapeHtml(store)}</p>` : ''}<h1>Recibo de pagamento ao entregador</h1></header>${el.outerHTML}`,
+      css: RECEIPT_PRINT_CSS,
+    });
+  }
 
   const load = useCallback(async () => {
     try {
@@ -475,13 +497,13 @@ export function CourierPayouts() {
             <Button variant="ghost" onClick={() => setReceipt(null)}>
               Fechar
             </Button>
-            <Button icon={<Printer size={16} />} onClick={() => window.print()}>
+            <Button icon={<Printer size={16} />} onClick={printReceipt}>
               Imprimir
             </Button>
           </>
         }
       >
-        {receipt && <ReceiptView p={receipt} />}
+        {receipt && <ReceiptView ref={receiptRef} p={receipt} />}
       </Modal>
     </div>
   );
@@ -1117,9 +1139,27 @@ function Breakdown({
   );
 }
 
-function ReceiptView({ p }: { p: Payout }) {
+/** Visual do recibo na folha impressa (o iframe não carrega o CSS do app). */
+export const RECEIPT_PRINT_CSS = `
+.pr-head{border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:20px}
+.pr-head p{margin:0;font-weight:600;color:#444}
+.pr-head h1{margin:2px 0 0;font-size:20px}
+.cp-receipt{max-width:640px}
+.cp-receipt p{margin:0 0 12px}
+.cm-hint{color:#555;font-size:12px}
+.cp-breakdown{margin:16px 0 0;padding:6px 12px;border:1px solid #bbb;border-radius:6px}
+.cp-breakdown>div{display:flex;justify-content:space-between;gap:12px;padding:6px 0}
+.cp-breakdown>div+div{border-top:1px solid #e3e3e3}
+.cp-breakdown dt{margin:0}
+.cp-breakdown dd{margin:0;white-space:nowrap;font-variant-numeric:tabular-nums}
+.cp-breakdown__total{font-weight:700}
+.cp-breakdown>p{margin:6px 0 0}
+.cp-receipt__sign{margin-top:72px;padding-top:6px;border-top:1px solid #111;width:320px;font-size:13px}
+`;
+
+export function ReceiptView({ p, ref }: { p: Payout; ref?: Ref<HTMLDivElement> }) {
   return (
-    <div className="cp-receipt">
+    <div className="cp-receipt" ref={ref}>
       <p style={{ marginTop: 0 }}>
         Recebi o valor líquido de <strong>{brl(p.net)}</strong> (
         {METHOD_LABEL[p.method] ?? p.method}) referente às entregas de{' '}

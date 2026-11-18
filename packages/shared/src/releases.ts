@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.150.1',
+    date: '2026-11-18',
+    title: 'Recibo do entregador volta a imprimir',
+    summary:
+      'Em Entregas › Pagamento aos entregadores, o botão Imprimir do recibo abria uma folha em branco. Agora sai a folha com o nome da loja, o entregador, o período, a conta do repasse e a linha de assinatura.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Imprimir o recibo de pagamento ao entregador não sai mais em branco: o recibo é impresso numa folha própria, sem o resto da tela.',
+      },
+    ],
+  },
+  {
     version: '0.150.0',
     date: '2026-11-17',
     title: 'E-mails com o panda e nova senha por código',
