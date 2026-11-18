@@ -258,8 +258,15 @@ export interface Order {
   fiadoPhone?: string | null;
   fiadoDueAt?: string | null;
   fiadoAt?: string | null;
-  /** staff = lançado pela equipe; online = cardápio online (cliente final). */
-  source?: 'staff' | 'online';
+  /** staff = lançado pela equipe; online = cardápio online; app = aplicativo de delivery. */
+  source?: 'staff' | 'online' | 'app';
+  /** Aplicativo de delivery (iFood, Keeta…) e o código curto que o cliente vê nele. */
+  appChannel?: string | null;
+  externalCode?: string | null;
+  deliveredBy?: 'merchant' | 'channel' | null;
+  scheduledFor?: string | null;
+  /** Só no detalhe: dados do aplicativo e as ações mandadas a ele. */
+  app?: AppOrderInfo | null;
   paymentHint?: PaymentMethod | null;
   changeFor?: string | null;
   acceptedAt?: string | null;
@@ -285,6 +292,35 @@ export interface Order {
     reason: string | null;
     at: string;
     actorName: string | null;
+  }[];
+}
+
+export interface AppOrderInfo {
+  channel: string;
+  externalId: string;
+  displayCode: string;
+  channelStatus: string | null;
+  deliveredBy: 'merchant' | 'channel';
+  prepaid: boolean;
+  paymentMethod: PaymentMethod | null;
+  paymentBrand: string | null;
+  customerTotal: string;
+  channelDiscount: string;
+  merchantDiscount: string;
+  menuDifference: string | null;
+  unlinkedItems: number;
+  pickupCode: string | null;
+  phoneLocator: string | null;
+  confirmBy: string | null;
+  /** Itens do pedido que chegaram sem vínculo com o cardápio. */
+  unlinked: string[];
+  actions: {
+    id: string;
+    action: string;
+    status: 'pending' | 'sending' | 'sent' | 'confirmed' | 'failed';
+    attempts: number;
+    lastError: string | null;
+    createdAt: string;
   }[];
 }
 

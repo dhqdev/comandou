@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.174.0',
+    version: '0.175.0',
     date: '2026-11-18',
     title: 'Sua conta agora é uma tela, com tudo em botões grandes',
     summary:
@@ -37,6 +37,39 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'melhoria',
         text: 'No celular e no app instalado: o cartão com seu nome, no topo da tela Mais, abre a Conta; os blocos ficam em duas colunas com alvo grande para o dedo. Com o app instalado, aparece "App instalado" no lugar de "Instalar o app".',
+      },
+    ],
+  },
+  {
+    version: '0.174.0',
+    date: '2026-11-18',
+    title: 'Base dos pedidos do iFood e dos outros aplicativos de delivery',
+    summary:
+      'Começou a integração com os aplicativos de delivery. Ainda não chega pedido de nenhum aplicativo de verdade (o iFood vem na próxima versão), mas a base está pronta: a tela Sistema › Aplicativos de delivery, o selo do aplicativo em todo lugar onde o pedido aparece e o caminho que cada pedido de aplicativo vai seguir dentro do Comandou.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Sistema › Aplicativos de delivery: um cartão por aplicativo (iFood, Keeta, 99Food, Rappi, aiqfome e Open Delivery) com a situação, as lojas ligadas, o último evento e o último pedido, e os ajustes "Receber pedidos" e "Aceitar sozinho" de cada loja.',
+      },
+      {
+        tag: 'novo',
+        text: 'Pedido de aplicativo vai entrar como os outros: número do Comandou, cozinha, impressão, baixa de estoque, entrega e caixa. O preço é o que o aplicativo cobrou, e o desconto pago pelo aplicativo não diminui o seu pedido (ele volta no repasse).',
+      },
+      {
+        tag: 'novo',
+        text: 'Item do aplicativo que não bate com o cardápio nunca faz o pedido ser recusado: ele entra com o nome e o preço do aplicativo, marcado "sem vínculo", e aparece na tela para você ligar a um produto. O vínculo vale para os próximos pedidos.',
+      },
+      {
+        tag: 'novo',
+        text: 'Aceitar, pronto, saiu para entrega e pedido de cancelamento feitos no Comandou vão para o aplicativo sozinhos, em ordem. No pedido aparece "enviando…", "enviado" ou "falhou" com o motivo, e o que falhou tem "Tentar de novo" na tela do aplicativo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Super Admin › Credenciais: as credenciais do iFood e dos outros aplicativos ficam no painel, cifradas. As variáveis antigas do iFood no servidor continuam valendo como reserva.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Proteções contra bloqueio pelos aplicativos: busca de pedidos no máximo a cada 30 segundos e por um servidor só, confirmação de recebimento só depois de guardar o pedido, no máximo 10 consultas por pedido, sem repetir chamada recusada e alertas antes de chegar perto dos limites.',
       },
     ],
   },

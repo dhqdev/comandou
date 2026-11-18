@@ -125,7 +125,7 @@ linhas rótulo/valor.
 ## Conta (restaurante)
 
 Tocar no nome no pé do menu abre a **tela Conta** (`pages/AccountPage.tsx`, `account.css`, prefixo
-`acc`), não um menuzinho (pedido do David na 0.174). Topo: cartão com avatar redondo
+`acc`), não um menuzinho (pedido do David na 0.175). Topo: cartão com avatar redondo
 (`--cm-brand-100`), nome, e-mail, papel · restaurante. Embaixo, grupos com título cinza semibold
 (Seu restaurante, Ajuda e novidades, Este aparelho, Segurança) e **blocos grandes** `acc-card`:
 ícone solto (sem quadradinho colorido), título, frase curta, seta; linha fina, afunda ao tocar,
@@ -157,7 +157,7 @@ fiado no PDV (o dono pediu para tirar). Tag Fiado laranja `#E8710A`.
 ## Reservas
 
 `pages/ReservationsPage.tsx` (`reservations.css`, prefixo `rv-`), no jeito da Agenda pessoal, mas
-o painel do lado tem **só Nova reserva e o minicalendário** (pedido do David na 0.174). Situação =
+o painel do lado tem **só Nova reserva e o minicalendário** (pedido do David na 0.175). Situação =
 tags-pílula acima da agenda (`rv-tag`: bolinha na cor da situação, contador, escolhida com fundo
 `color-mix` de 12% da cor); Reservas pelo cardápio é um botão `rv-store` na barra. Cartão que mudou
 por tempo real ganha o contorno `is-fresh` (pseudo-elemento, só opacity). Não volte a pôr resumo,

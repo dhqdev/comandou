@@ -108,7 +108,7 @@ export async function ensureMenus(tx: Tx, tenantId: string): Promise<MenuRow[]> 
     if (m)
       await q(
         tx,
-        `INSERT INTO menu_items (tenant_id, menu_id, product_id) SELECT $1, $2, id FROM products`,
+        `INSERT INTO menu_items (tenant_id, menu_id, product_id) SELECT $1, $2, id FROM products WHERE system_kind IS NULL`,
         [tenantId, m.id],
       );
   }
@@ -179,7 +179,7 @@ export class MenusController {
       } else {
         await q(
           tx,
-          `INSERT INTO menu_items (tenant_id, menu_id, product_id) SELECT $1, $2, id FROM products`,
+          `INSERT INTO menu_items (tenant_id, menu_id, product_id) SELECT $1, $2, id FROM products WHERE system_kind IS NULL`,
           [t.id, m!.id],
         );
       }

@@ -76,6 +76,24 @@ Nota fiscal e WhatsApp saem pela fila. Fila crescendo quase sempre é serviço d
 (Focus NFe, WhatsApp). O pedido nunca trava por isso; as notas ficam "processando" e são
 consultadas de novo. Confira o `ready` da API (WhatsApp) e o status da Focus NFe.
 
+### Aplicativos de delivery
+
+Alertas `ComandouApp*` (ADR 0015). O crítico é **polling parado** (`ComandouAppPollingParado`):
+pedidos do aplicativo não chegam e ele cancela sozinho depois do prazo.
+
+1. `docker service logs comandou_api --since 15m | grep -E 'ChannelsPoller|ChannelsInbox|ChannelsOutbox'`.
+2. Só uma réplica busca cada credencial (trava `channel_poll_leases` no banco central, vale
+   `CHANNELS_LEASE_SECONDS`, 90 s). Réplica caída: outra assume quando a trava vence. Confira
+   `SELECT credential, holder, lease_until, last_poll_at FROM channel_poll_leases` (dono).
+3. `CHANNELS_POLL_SECONDS=0` desliga o polling naquela réplica (as cópias de versão fixa já vêm
+   assim). Pelo menos uma réplica da versão principal precisa estar com ele ligado.
+4. Erro 401: credencial do aplicativo errada (Super Admin › Credenciais). 403: a loja revogou o
+   acesso (o restaurante vê "sem autorização" na tela Aplicativos de delivery). 429 ou muitos 5xx
+   (`ComandouAppPediuParaEsperar`, `ComandouAppErrosNoEndpoint`): o aplicativo está no limite ou
+   fora; o Comandou já espera e repete, não force mais chamadas.
+5. Eventos e ações que falharam de vez aparecem para o restaurante em Sistema › Aplicativos de
+   delivery, com "Tentar de novo". Nunca apague `channel_inbox` à mão: é a prova do que chegou.
+
 ### Backup atrasado
 
 1. `docker service logs comandou_backup --since 30h | grep -E 'ERRO|ok'`.
@@ -133,6 +151,8 @@ servidor separado e confira que a API sobe e o login funciona nesse banco. Ensai
 | Chaves de idempotência | 30 dias | limpeza automática |
 | Última posição do entregador | 30 dias depois da entrega | limpeza automática (apaga só a coordenada) |
 | Pedidos, pagamentos, caixa, notas fiscais | prazo fiscal (mínimo 5 anos) | não são apagados |
+| Evento cru dos aplicativos de delivery (`channel_inbox.payload`) | 90 dias | limpeza automática (a linha fica sem o corpo) |
+| Eventos e ações dos aplicativos já tratados | 400 dias | limpeza automática |
 | Auditoria | 5 anos | manual, com autorização |
 | Backups | regra de ciclo de vida do bucket (sugestão: 35 dias) | B2 |
 

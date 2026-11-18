@@ -93,6 +93,7 @@ export class KitchenService {
         tx,
         `SELECT o.id, o.number, o.channel, o.status, o.notes, o.version, o.created_at AS "createdAt",
                 dt.label AS "tableLabel", tb.number AS "tabNumber", o.customer_name AS "customerName",
+                o.app_channel AS "appChannel", o.external_code AS "externalCode",
                 json_agg(json_build_object('id', i.id, 'name', i.name, 'quantity', i.quantity::text, 'unit', i.unit, 'notes', i.notes,
                   'status', i.status, 'startedAt', i.started_at, 'readyAt', i.ready_at, 'sectorId', i.sector_id,
                   'imageId', (SELECT p.image_id FROM products p WHERE p.id = i.product_id),

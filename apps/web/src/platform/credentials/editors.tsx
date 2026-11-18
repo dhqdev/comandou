@@ -1058,3 +1058,131 @@ export function GithubEditor({ onSaved }: { onSaved(): void }) {
     </Loading>
   );
 }
+
+export interface ChannelCredState {
+  configured: boolean;
+  source?: 'panel' | 'env';
+  last4?: string;
+  mode?: string;
+}
+
+/** Client ID e secret do aplicativo do Comandou num aplicativo de delivery (cifrados). */
+export function ChannelEditor({
+  channel,
+  state,
+  keyConfigured,
+  onSaved,
+}: {
+  channel: string;
+  state: ChannelCredState | undefined;
+  keyConfigured: boolean;
+  onSaved(): void;
+}) {
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  const [mode, setMode] = useState(state?.mode ?? 'centralized');
+  const [webhookSecret, setWebhookSecret] = useState('');
+  const { busy, error, run } = useBusy();
+  const saved = state?.source === 'panel';
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    const r = await run(
+      'save',
+      () =>
+        api(`/platform/credentials/channels/${channel}`, {
+          method: 'PUT',
+          json: {
+            clientId,
+            clientSecret,
+            ...(channel === 'ifood' ? { mode } : {}),
+            ...(webhookSecret ? { webhookSecret } : {}),
+          },
+        }),
+      'Credencial salva',
+    );
+    if (r) {
+      setClientId('');
+      setClientSecret('');
+      setWebhookSecret('');
+      onSaved();
+    }
+  }
+
+  return (
+    <form className="adm-cred__form" onSubmit={save}>
+      <NoKey show={!keyConfigured} />
+      {state?.source === 'env' && (
+        <Alert tone="info">
+          Hoje a credencial vem das variáveis do servidor. Salve aqui para cuidar dela por este
+          painel (o salvo aqui vale no lugar delas).
+        </Alert>
+      )}
+      <div className="adm-backup-grid">
+        <TextField
+          label="Client ID"
+          value={clientId}
+          autoComplete="off"
+          onChange={(e) => setClientId(e.target.value.trim())}
+        />
+        <TextField
+          label={saved ? 'Trocar o Client Secret' : 'Client Secret'}
+          type="password"
+          autoComplete="new-password"
+          value={clientSecret}
+          placeholder={saved ? `•••••••• termina em ${state?.last4}` : undefined}
+          onChange={(e) => setClientSecret(e.target.value.trim())}
+        />
+        {channel === 'ifood' ? (
+          <SelectField label="Modo" value={mode} onChange={(e) => setMode(e.target.value)}>
+            <option value="centralized">
+              Centralizado (a loja autoriza no Portal do Parceiro)
+            </option>
+            <option value="distributed">Distribuído (a loja autoriza com um código)</option>
+          </SelectField>
+        ) : (
+          <TextField
+            label="Segredo do webhook (opcional)"
+            type="password"
+            autoComplete="new-password"
+            value={webhookSecret}
+            onChange={(e) => setWebhookSecret(e.target.value.trim())}
+          />
+        )}
+      </div>
+      {error && <Alert tone="danger">{error}</Alert>}
+      <Actions>
+        {saved && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            loading={busy === 'remove'}
+            disabled={!!busy}
+            onClick={async () => {
+              if (
+                await run(
+                  'remove',
+                  () => api(`/platform/credentials/channels/${channel}/remove`, { method: 'POST' }),
+                  'Credencial apagada',
+                )
+              )
+                onSaved();
+            }}
+          >
+            Apagar
+          </Button>
+        )}
+        <Button
+          type="submit"
+          variant="primary"
+          size="sm"
+          loading={busy === 'save'}
+          disabled={!!busy || clientId.length < 4 || clientSecret.length < 8 || !keyConfigured}
+        >
+          Salvar
+        </Button>
+      </Actions>
+    </form>
+  );
+}

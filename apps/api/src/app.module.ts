@@ -22,6 +22,8 @@ import { DatabaseModule } from './database/database.module';
 import { DomainsModule } from './domains/domains.module';
 import { HealthModule } from './health/health.module';
 import { IfoodModule } from './integrations/ifood/ifood.module';
+import { ChannelCredentialsModule } from './integrations/channels/channel-credentials.service';
+import { ChannelsModule } from './integrations/channels/channels.module';
 import { MailModule } from './mail/mail.module';
 import { MaintenanceModule } from './maintenance/maintenance.service';
 import { PlansModule } from './plans/plans.module';
@@ -96,8 +98,10 @@ export class AppModule {
         QueueModule,
         PlansModule,
         CatalogModule,
+        ChannelCredentialsModule,
         IfoodModule,
         OperationsModule,
+        ChannelsModule,
         ChatModule,
         DomainsModule,
         HealthModule,

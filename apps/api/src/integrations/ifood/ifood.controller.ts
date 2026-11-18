@@ -139,7 +139,7 @@ export class IfoodController {
       throw new UnprocessableEntityException('Envie a foto em JPG ou PNG');
     if (sniff(body) !== mime)
       throw new UnprocessableEntityException('O arquivo não é uma imagem válida');
-    this.ifood.status();
+    await this.ifood.assertConfigured();
     return this.ifood.uploadImages(
       t.id,
       id,
@@ -162,7 +162,7 @@ export class IfoodController {
     );
     if (!exists) throw new NotFoundException('Cardápio do iFood não encontrado');
     // Valida a configuração antes de marcar como "enviando".
-    this.ifood.status();
+    await this.ifood.assertConfigured();
     const summary = await this.ifood.syncMenu(t.id, id);
     await this.record(t.id, u.id, 'ifood.menu_synced', id, { ran: !!summary }, req, 'menu');
     const st = await this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>

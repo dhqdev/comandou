@@ -95,7 +95,56 @@ export interface TransitionExtra {
   receivable?: boolean;
   /** Forma que o entregador recebeu na porta (vai para o acerto). */
   collectMethod?: string | null;
+  /**
+   * A mudança veio do aplicativo de delivery (evento do canal): não volta para o canal pela caixa
+   * de saída, e o saldo do pedido é acertado pelo aplicativo (repasse) ou na entrega.
+   */
+  fromChannel?: boolean;
 }
+
+/** Pedido de aplicativo de delivery, já traduzido (ExternalOrdersService). */
+export interface ExternalOrderInput {
+  channel: OrderChannel;
+  status: 'awaiting' | 'new';
+  appChannel: string;
+  externalCode: string;
+  deliveredBy: 'merchant' | 'channel';
+  scheduledFor: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
+  taxDocument: string | null;
+  deliveryAddress: string | null;
+  deliveryLocation: { lat: number; lng: number } | null;
+  notes: string | null;
+  paymentHint: string | null;
+  changeFor: string | null;
+  subtotal: string;
+  discount: string;
+  surcharge: string;
+  deliveryFee: string;
+  total: string;
+  lines: {
+    productId: string;
+    name: string;
+    quantity: number;
+    unit: 'un' | 'kg';
+    unitPrice: string;
+    total: string;
+    notes: string | null;
+    sectorId: string | null;
+    options: { optionId: string; name: string; priceDelta: string }[];
+  }[];
+}
+
+/** Gancho dentro da transação de cada mudança de estado (ex.: ação para o aplicativo). */
+export type TransitionHook = (
+  tx: Tx,
+  ctx: Ctx,
+  o: OrderRow,
+  from: OrderStatus,
+  to: OrderStatus,
+  extra: TransitionExtra,
+) => Promise<void>;
 
 export interface OrderRow {
   id: string;
@@ -111,6 +160,9 @@ export interface OrderRow {
   payment_status: string;
   tab_id: string | null;
   version: number;
+  /** staff, online ou app (aplicativo de delivery). */
+  source?: string;
+  app_channel?: string | null;
 }
 
 /** Pedido como devolvido pela API (campos principais tipados). */
@@ -132,6 +184,8 @@ export const ORDER_SELECT = `
          o.delivery_address AS "deliveryAddress", o.tax_document AS "taxDocument", o.delivery_lat::text AS "deliveryLat",
          o.delivery_lng::text AS "deliveryLng", o.notes, o.cancel_reason AS "cancelReason",
          o.source, o.payment_hint AS "paymentHint", o.change_for::text AS "changeFor",
+         o.app_channel AS "appChannel", o.external_code AS "externalCode",
+         o.delivered_by AS "deliveredBy", o.scheduled_for AS "scheduledFor",
          o.accepted_at AS "acceptedAt", o.receivable_at AS "receivableAt",
          o.receivable_reason AS "receivableReason",
          o.fiado_name AS "fiadoName", o.fiado_phone AS "fiadoPhone",
@@ -232,6 +286,11 @@ export class OrdersService {
   onCancelInTx(hook: (tx: Tx, ctx: Ctx, orderId: string) => Promise<void>) {
     this.cancelHooks.push(hook);
   }
+  /** Toda mudança de estado, na mesma transação. Erro aqui desfaz a mudança. */
+  private readonly transitionHooks: TransitionHook[] = [];
+  onTransitionInTx(hook: TransitionHook) {
+    this.transitionHooks.push(hook);
+  }
   /** Sem esperar e sem devolver erro: o aviso nunca desfaz a operação. */
   notifyDispatched(ctx: Ctx, orderId: string) {
     for (const h of this.dispatchedHooks) void h(ctx, orderId).catch(() => undefined);
@@ -301,8 +360,42 @@ export class OrdersService {
           [id],
         )
       : [];
+    // Aplicativo de delivery: dados do canal e as ações enviadas a ele (enviando, enviado, falhou).
+    const app = o.appChannel
+      ? {
+          ...(await one(
+            tx,
+            `SELECT channel, external_id AS "externalId", display_code AS "displayCode",
+                    channel_status AS "channelStatus", fulfillment, timing, delivered_by AS "deliveredBy",
+                    scheduled_for AS "scheduledFor", prepare_from AS "prepareFrom",
+                    confirm_by AS "confirmBy", pickup_code AS "pickupCode",
+                    phone_locator AS "phoneLocator", prepaid, payment_method AS "paymentMethod",
+                    payment_brand AS "paymentBrand", change_for::text AS "changeFor",
+                    customer_total::text AS "customerTotal", channel_discount::text AS "channelDiscount",
+                    merchant_discount::text AS "merchantDiscount", menu_difference::text AS "menuDifference",
+                    unlinked_items AS "unlinkedItems"
+               FROM channel_orders WHERE order_id = $1`,
+            [id],
+          )),
+          unlinked: (
+            await q<{ order_item_id: string }>(
+              tx,
+              `SELECT order_item_id FROM channel_order_items WHERE order_id = $1 AND NOT linked`,
+              [id],
+            )
+          ).map((r) => r.order_item_id),
+          actions: await q(
+            tx,
+            `SELECT id, action, status, attempts, last_error AS "lastError", created_at AS "createdAt",
+                    sent_at AS "sentAt", confirmed_at AS "confirmedAt"
+               FROM integration_outbox WHERE order_id = $1 ORDER BY created_at, id`,
+            [id],
+          ),
+        }
+      : null;
     return {
       ...o,
+      app,
       payments,
       history,
       pixReceipts,
@@ -586,6 +679,119 @@ export class OrdersService {
   }
 
   /**
+   * Pedido de aplicativo de delivery (entrada única: ExternalOrdersService.ingest). O preço é o que
+   * o aplicativo cobrou (exceção documentada ao "preço vem do banco", ADR 0015) e o pedido nunca é
+   * recusado: sem limite do plano, sem conferir estoque ou cardápio (o cliente já pagou ou pediu
+   * no aplicativo). Reaproveita o número, o histórico, a baixa de estoque, a cozinha e a auditoria.
+   */
+  async createExternalInTx(tx: Tx, ctx: Ctx, input: ExternalOrderInput) {
+    const number = await nextNumber(tx, ctx.tenantId, 'order');
+    const order = await one<{ id: string }>(
+      tx,
+      `INSERT INTO orders (tenant_id, number, channel, status, customer_name, customer_phone,
+                           delivery_address, notes, subtotal, discount, surcharge, delivery_fee, total,
+                           created_by, source, payment_hint, change_for, accepted_at, delivery_lat,
+                           delivery_lng, tax_document, app_channel, external_code, delivered_by,
+                           scheduled_for)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NULL,'app',$14,$15,
+               CASE WHEN $4 = 'new' THEN now() END,$16,$17,$18,$19,$20,$21,$22)
+       RETURNING id`,
+      [
+        ctx.tenantId,
+        number,
+        input.channel,
+        input.status,
+        input.customerName,
+        input.customerPhone,
+        input.deliveryAddress,
+        input.notes,
+        input.subtotal,
+        input.discount,
+        input.surcharge,
+        input.deliveryFee,
+        input.total,
+        input.paymentHint,
+        input.changeFor,
+        input.deliveryLocation?.lat.toFixed(6) ?? null,
+        input.deliveryLocation?.lng.toFixed(6) ?? null,
+        input.taxDocument,
+        input.appChannel,
+        input.externalCode,
+        input.deliveredBy,
+        input.scheduledFor,
+      ],
+    );
+    const orderId = order!.id;
+    const itemIds: string[] = [];
+    for (const l of input.lines) {
+      const item = await one<{ id: string }>(
+        tx,
+        `INSERT INTO order_items (tenant_id, order_id, product_id, name, quantity, unit_price, total, notes, sector_id, unit)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
+        [
+          ctx.tenantId,
+          orderId,
+          l.productId,
+          l.name,
+          l.quantity,
+          l.unitPrice,
+          l.total,
+          l.notes,
+          l.sectorId,
+          l.unit,
+        ],
+      );
+      for (const o of l.options)
+        await q(
+          tx,
+          `INSERT INTO order_item_options (tenant_id, order_item_id, option_id, name, price_delta) VALUES ($1,$2,$3,$4,$5)`,
+          [ctx.tenantId, item!.id, o.optionId, o.name, o.priceDelta],
+        );
+      itemIds.push(item!.id);
+    }
+    await this.history(
+      tx,
+      ctx,
+      orderId,
+      null,
+      input.status,
+      `Pedido do aplicativo ${input.externalCode}`,
+    );
+    const fx = { stock: 0, print: 0 };
+    fx.stock = await this.stock.consumeForOrder(tx, ctx, orderId);
+    if (input.status === 'new')
+      fx.print = await this.printing.enqueueKitchenTickets(tx, ctx, orderId);
+    await this.audit.record(tx, {
+      tenantId: ctx.tenantId,
+      actorUserId: null,
+      action: 'order.created',
+      entity: 'order',
+      entityId: orderId,
+      data: {
+        number,
+        channel: input.channel,
+        total: input.total,
+        discount: input.discount,
+        source: 'app',
+        app: input.appChannel,
+      },
+      ip: ctx.ip,
+    });
+    return { id: orderId, number, itemIds, fx };
+  }
+
+  /** Avisa as telas depois do COMMIT de um pedido que mudou fora de uma rota (aplicativo). */
+  publishChanged(
+    tenantId: string,
+    orderId: string,
+    extra: { stock?: boolean; print?: boolean } = {},
+  ) {
+    if (extra.stock) this.realtime.publish(tenantId, { type: 'stock.changed' });
+    if (extra.print) this.realtime.publish(tenantId, { type: 'print.changed' });
+    this.realtime.publish(tenantId, { type: 'order.changed', orderId });
+  }
+
+  /**
    * Preço e validação dos itens (produto ativo, no cardápio do canal, com estoque, opções válidas).
    * Preço SEMPRE do banco. Usado ao criar o pedido e ao acrescentar itens na edição.
    */
@@ -805,7 +1011,8 @@ export class OrdersService {
     const o = await one<OrderRow>(
       tx,
       `SELECT id, number, channel, status, total::text, subtotal::text, discount::text, surcharge::text,
-              delivery_fee::text, paid_amount::text, payment_status, tab_id, version
+              delivery_fee::text, paid_amount::text, payment_status, tab_id, version, source,
+              app_channel
          FROM orders WHERE id = $1 FOR UPDATE`,
       [id],
     );
@@ -843,7 +1050,12 @@ export class OrdersService {
     }
     // Concluir com saldo: só a entrega (vai para o acerto do entregador) ou "a receber" pelo gerente.
     const balance = toCents(o.total) - toCents(o.paid_amount);
-    if (to === 'completed' && balance > 0 && o.status !== 'dispatched') {
+    // Pedido de aplicativo: concluído pelo canal ou pago no aplicativo, quem acerta é o repasse.
+    const settledByChannel =
+      o.source === 'app' &&
+      (extra.fromChannel ||
+        !!(await one(tx, `SELECT 1 FROM channel_orders WHERE order_id = $1 AND prepaid`, [o.id])));
+    if (to === 'completed' && balance > 0 && o.status !== 'dispatched' && !settledByChannel) {
       // Fiado marcado (por quem pode dar fiado): conclui como "a receber" sem pedir de novo.
       const fiado = await one<{ fiado_name: string }>(
         tx,
@@ -870,8 +1082,14 @@ export class OrdersService {
     // Recusar um pedido em análise não exige gerente: nada foi produzido, cobrado ou baixado.
     const rejecting = o.status === 'awaiting' && to === 'cancelled';
     if (to === 'cancelled') {
+      // Aplicativo: depois de aceito, o cancelamento é pedido ao aplicativo ("Cancelamento
+      // solicitado") e só vale quando ele confirmar. Cancelar direto deixaria o cliente sem saber.
+      if (o.source === 'app' && !rejecting && !extra.fromChannel)
+        throw new ConflictException(
+          'Pedido de aplicativo: peça o cancelamento ao aplicativo (o pedido fica "Cancelamento solicitado" até ele confirmar)',
+        );
       await this.assertNoLiveFiscalDocument(tx, o.id, 'cancelar o pedido');
-      if (!rejecting && !roleHas(ctx.user.role, 'orders:cancel'))
+      if (!rejecting && !extra.fromChannel && !roleHas(ctx.user.role, 'orders:cancel'))
         throw new ForbiddenException('Cancelamento exige autorização');
       if (toCents(o.paid_amount) > 0) {
         throw new ConflictException(
@@ -958,9 +1176,11 @@ export class OrdersService {
     });
     // Aviso ao cliente pelo WhatsApp: gravado nesta mesma transação (só sai se ela for gravada).
     // O próprio cliente cancelando pelo cardápio (sem usuário da equipe) não recebe aviso.
-    const event = statusEvent(o.status, to, o.channel);
+    // Pedido de aplicativo: quem avisa o cliente é o próprio aplicativo.
+    const event = o.source === 'app' ? null : statusEvent(o.status, to, o.channel);
     if (event && (event !== 'order.cancelled' || ctx.userId))
       await this.messaging.stage(tx, ctx.tenantId, o.id, event);
+    for (const h of this.transitionHooks) await h(tx, ctx, o, o.status, to, extra);
     o.status = to;
     o.version += 1;
   }

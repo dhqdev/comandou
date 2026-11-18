@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   PackagePlus,
   CreditCard,
+  Bike,
   Boxes,
   Bot,
   ChefHat,
@@ -227,6 +228,12 @@ const GROUPS: { key: string; label: string; icon: ReactNode; items: NavItem[] }[
     icon: <SlidersHorizontal />,
     items: [
       { to: '/impressao', label: 'Impressão', icon: <Printer />, perms: ['printing:manage'] },
+      {
+        to: '/integracoes',
+        label: 'Aplicativos de delivery',
+        icon: <Bike />,
+        perms: ['orders:manage'],
+      },
       {
         to: '/whatsapp',
         label: 'WhatsApp',

@@ -9,6 +9,11 @@ import { FOCUS_MASTER_CONTEXT, FocusClient } from '../fiscal/focus.client';
 import { MAIL_SECRET } from '../mail/mail.service';
 import { PLATFORM_TOKEN_CONTEXT } from '../online-pay/online-pay.service';
 import { GITHUB_KEY_CONTEXT } from '../tickets/tickets.service';
+import { KNOWN_CHANNELS } from '@comandou/shared';
+import {
+  ChannelCredentials,
+  type ChannelCredentialInput,
+} from '../integrations/channels/channel-credentials.service';
 import { ADMIN_KEY_CONTEXT, CLIENT_KEY_CONTEXT, OWNER_KEY_CONTEXT } from './ai-keys';
 import type { Actor } from './platform.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
@@ -47,6 +52,7 @@ export class PlatformCredentialsService {
     @Inject(ENV) private readonly env: Env,
     private readonly db: PlatformDb,
     private readonly focus: FocusClient,
+    private readonly channels: ChannelCredentials,
   ) {}
 
   /**
@@ -73,6 +79,7 @@ export class PlatformCredentialsService {
 
   async status() {
     const e = this.env;
+    const channels = await this.channels.status(KNOWN_CHANNELS);
     const [ai, billing, pay, mail, backup, pipeline, focus] = await Promise.all([
       this.one<{ owner: Sealed; clients: Sealed; admin: Sealed }>(
         `SELECT owner_api_key_enc AS owner, api_key_enc AS clients, admin_api_key_enc AS admin
@@ -126,12 +133,6 @@ export class PlatformCredentialsService {
         required: e.CROWDSEC_BOUNCER,
       },
       // ---- Servidor: você coloca no deploy.env
-      {
-        id: 'ifood',
-        configured: !!(e.IFOOD_CLIENT_ID && e.IFOOD_CLIENT_SECRET),
-        required: false,
-        detail: e.IFOOD_APP_MODE === 'centralized' ? 'modo centralizado' : 'modo distribuído',
-      },
       { id: 'update_github', configured: !!e.UPDATE_GITHUB_TOKEN, required: false },
       { id: 'ghcr_agent', configured: null, required: false },
       { id: 'acme_email', configured: null, required: true },
@@ -143,6 +144,24 @@ export class PlatformCredentialsService {
         last4: focus?.last4 ?? undefined,
         detail: !focus && e.FOCUS_NFE_MASTER_TOKEN ? 'vindo do servidor' : undefined,
       },
+      // Aplicativos de delivery (o iFood ainda aceita o .env do servidor como reserva).
+      ...KNOWN_CHANNELS.map((c) => {
+        const st = channels[c]!;
+        return {
+          id: `channel_${c.replace(/-/g, '_')}`,
+          configured: st.configured,
+          required: false,
+          last4: st.last4,
+          detail:
+            [
+              st.mode === 'centralized' && 'modo centralizado',
+              st.mode === 'distributed' && 'modo distribuído',
+              st.source === 'env' && 'vindo do servidor',
+            ]
+              .filter(Boolean)
+              .join(' · ') || undefined,
+        };
+      }),
       { id: 'openrouter_clients', required: true, ...this.key(ai?.clients, CLIENT_KEY_CONTEXT) },
       { id: 'openrouter_owner', required: false, ...this.key(ai?.owner, OWNER_KEY_CONTEXT) },
       { id: 'openrouter_admin', required: false, ...this.key(ai?.admin, ADMIN_KEY_CONTEXT) },
@@ -199,8 +218,20 @@ export class PlatformCredentialsService {
         last4: focus?.last4 ?? null,
         updatedAt: focus?.at ?? null,
       },
+      channels,
       items,
     };
+  }
+
+  /** Credencial do aplicativo do Comandou num canal de delivery (cifrada). Vale na hora. */
+  async saveChannel(channel: string, body: ChannelCredentialInput, a: Actor) {
+    await this.channels.save(channel, body, { adminId: a.admin.id, ip: a.ip });
+    return this.status();
+  }
+
+  async removeChannel(channel: string, a: Actor) {
+    await this.channels.remove(channel, { adminId: a.admin.id, ip: a.ip });
+    return this.status();
   }
 
   /** Salva o token master da Focus NFe (cifrado). Vale na hora, em vez da variável do servidor. */

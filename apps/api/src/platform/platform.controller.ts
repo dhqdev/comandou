@@ -76,6 +76,8 @@ import {
   FocusMasterTest,
   PlatformCredentialsService,
 } from './platform-credentials.service';
+import { KNOWN_CHANNELS } from '@comandou/shared';
+import { ChannelCredentialBody } from '../integrations/channels/channel-credentials.service';
 import { PlatformPasswordResetService } from './platform-password-reset.service';
 import { RESET_REQUEST_LIMIT, RESET_STEP_LIMIT } from '../auth/reset-code';
 import { PlatformDbServersService } from './platform-db-servers.service';
@@ -917,6 +919,8 @@ export class PlatformAiController {
   }
 }
 
+const ChannelParam = z.enum(KNOWN_CHANNELS);
+
 /**
  * Super Admin › Credenciais: a situação de todas as chaves e tokens (nunca o valor) e o token
  * master da Focus NFe, que só se cadastra aqui.
@@ -952,6 +956,22 @@ export class PlatformCredentialsController {
   @Throttle({ default: { ttl: 60_000, limit: 10 } })
   testFocus(@Body(new ZodPipe(FocusMasterTest)) b: z.infer<typeof FocusMasterTest>) {
     return this.svc.testFocusMaster(b.token);
+  }
+
+  /** Aplicativos de delivery: client id e secret do aplicativo do Comandou em cada canal. */
+  @Put('channels/:channel')
+  saveChannel(
+    @Param('channel', new ZodPipe(ChannelParam)) channel: string,
+    @Body(new ZodPipe(ChannelCredentialBody)) b: z.infer<typeof ChannelCredentialBody>,
+    @Req() req: Request,
+  ) {
+    return this.svc.saveChannel(channel, b, actor(req));
+  }
+
+  @Post('channels/:channel/remove')
+  @HttpCode(200)
+  removeChannel(@Param('channel', new ZodPipe(ChannelParam)) channel: string, @Req() req: Request) {
+    return this.svc.removeChannel(channel, actor(req));
   }
 }
 

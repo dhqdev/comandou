@@ -14,6 +14,7 @@ import { one, q } from '../../common/sql';
 import { DatabaseService, type Tx } from '../../database/database.service';
 import { QueueService, type TenantJob } from '../../queue/queue.service';
 import { RealtimeService } from '../../realtime/realtime.service';
+import { ChannelCredentials } from '../channels/channel-credentials.service';
 import {
   type Fetcher,
   IfoodClient,
@@ -60,7 +61,8 @@ interface MenuSyncRow {
 
 /**
  * Integração do cardápio com o iFood: lojas ligadas, autorização e a sincronização.
- * As credenciais do aplicativo vêm da configuração (IFOOD_CLIENT_ID/SECRET), nunca do banco.
+ * As credenciais do aplicativo vêm de Super Admin › Credenciais (cifradas); IFOOD_CLIENT_ID/SECRET
+ * do servidor ficam só como reserva.
  */
 @Injectable()
 export class IfoodService implements OnModuleInit {
@@ -76,38 +78,51 @@ export class IfoodService implements OnModuleInit {
     private readonly db: DatabaseService,
     private readonly queue: QueueService,
     private readonly realtime: RealtimeService,
+    private readonly credentials: ChannelCredentials,
   ) {}
 
   onModuleInit() {
     this.queue.register(SYNC_TENANT_JOB, (d) => this.syncTenant(d));
     // "Conforme o cliente coloca": qualquer mudança no cardápio agenda o envio ao iFood.
     this.realtime.onPublish((tenantId, e) => {
-      if (e.type === 'menu.changed' && this.configured) void this.scheduleTenant(tenantId);
+      if (e.type === 'menu.changed')
+        void this.credentials.get('ifood').then((c) => c && this.scheduleTenant(tenantId));
     });
   }
 
-  get configured() {
-    return !!(this.env.IFOOD_CLIENT_ID && this.env.IFOOD_CLIENT_SECRET);
+  /** Modo do aplicativo: o salvo no painel, senão o do servidor. */
+  async mode(): Promise<'centralized' | 'distributed'> {
+    const c = await this.credentials.get('ifood');
+    return c?.mode === 'distributed' || c?.mode === 'centralized'
+      ? c.mode
+      : this.env.IFOOD_APP_MODE;
   }
 
-  status() {
+  async status() {
+    const c = await this.credentials.get('ifood');
     return {
-      configured: this.configured,
-      mode: this.env.IFOOD_APP_MODE,
+      configured: !!c,
+      mode: await this.mode(),
       // O modo distribuído guarda o refresh token cifrado: precisa da INTEGRATIONS_KEY.
       keyConfigured: !!this.env.INTEGRATIONS_KEY,
     };
   }
 
-  private creds(): IfoodCredentials {
-    if (!this.configured)
+  /** Para a rota responder 503 antes de começar, quando falta a credencial. */
+  async assertConfigured() {
+    await this.creds();
+  }
+
+  async creds(): Promise<IfoodCredentials> {
+    const c = await this.credentials.get('ifood');
+    if (!c)
       throw new ServiceUnavailableException(
-        'Integração com o iFood não configurada no servidor (IFOOD_CLIENT_ID e IFOOD_CLIENT_SECRET)',
+        'Integração com o iFood não configurada (Super Admin › Credenciais › iFood)',
       );
     return {
       baseUrl: this.env.IFOOD_API_URL.replace(/\/$/, ''),
-      clientId: this.env.IFOOD_CLIENT_ID!,
-      clientSecret: this.env.IFOOD_CLIENT_SECRET!,
+      clientId: c.clientId,
+      clientSecret: c.clientSecret,
     };
   }
 
@@ -127,8 +142,8 @@ export class IfoodService implements OnModuleInit {
     return fresh.accessToken;
   }
 
-  private centralClient() {
-    const c = this.creds();
+  async centralClient() {
+    const c = await this.creds();
     return new IfoodClient(
       c,
       () => this.token('central', () => ifoodAuth.clientCredentials(c, this.fetcher)),
@@ -146,9 +161,9 @@ export class IfoodService implements OnModuleInit {
   }
 
   /** Cliente para uma loja ligada (central ou com o refresh token dela). */
-  clientFor(tenantId: string, conn: ConnectionRow) {
+  async clientFor(tenantId: string, conn: ConnectionRow) {
     if (conn.mode === 'centralized') return this.centralClient();
-    const c = this.creds();
+    const c = await this.creds();
     const ctx = `ifood:${tenantId}:${conn.id}`;
     return new IfoodClient(
       c,
@@ -253,11 +268,12 @@ export class IfoodService implements OnModuleInit {
 
   /** Modo centralizado: a loja autorizou o app do Comandou no Portal do Parceiro. */
   async connectCentralized(tenantId: string, userId: string, merchantId: string) {
-    if (this.env.IFOOD_APP_MODE !== 'centralized')
+    if ((await this.mode()) !== 'centralized')
       throw new BadRequestException('Use a autorização com código do iFood');
     let m: { id: string; name: string };
+    const api = await this.centralClient();
     try {
-      m = await this.centralClient().merchant(merchantId);
+      m = await api.merchant(merchantId);
     } catch (e) {
       if (e instanceof IfoodError && (e.status === 403 || e.status === 404))
         throw new BadRequestException(
@@ -275,9 +291,9 @@ export class IfoodService implements OnModuleInit {
 
   /** Modo distribuído, passo 1: código para o lojista digitar no Portal do Parceiro. */
   async startAuthorization(tenantId: string, userId: string) {
-    if (this.env.IFOOD_APP_MODE !== 'distributed')
+    if ((await this.mode()) !== 'distributed')
       throw new BadRequestException('Este servidor liga lojas pelo id do iFood');
-    const c = this.creds();
+    const c = await this.creds();
     const key = this.key();
     let r: Awaited<ReturnType<typeof ifoodAuth.userCode>>;
     try {
@@ -300,7 +316,7 @@ export class IfoodService implements OnModuleInit {
 
   /** Passo 2: o código de autorização que o Portal mostra depois de aprovar. */
   async confirmAuthorization(tenantId: string, userId: string, authorizationCode: string) {
-    const c = this.creds();
+    const c = await this.creds();
     const key = this.key();
     const pending = await this.db.withTenant({ tenantId, userId }, (tx) =>
       one<{ verifier_enc: Buffer }>(
@@ -468,7 +484,7 @@ export class IfoodService implements OnModuleInit {
       ]),
     );
     if (!conn) throw new Error('Loja do iFood não encontrada');
-    const api = this.clientFor(tenantId, conn);
+    const api = await this.clientFor(tenantId, conn);
     const merchant = conn.merchant_id;
 
     const catalogs = await api.catalogs(merchant);
@@ -735,7 +751,7 @@ export class IfoodService implements OnModuleInit {
       ]);
     });
     if (!conn) throw new NotFoundException('Loja do iFood não encontrada');
-    const api = this.clientFor(tenantId, conn);
+    const api = await this.clientFor(tenantId, conn);
     let sent = 0;
     const errors: string[] = [];
     for (const [mediaId, dataUri] of images) {

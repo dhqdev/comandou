@@ -52,3 +52,56 @@ tests:
             exp_annotations:
               summary: 'Nenhum backup bem-sucedido nas últimas 26 h'
               runbook: 'docs/operations.md#backup-atrasado'
+  # Aplicativos: iFood buscando normalmente; Keeta parado com loja ligada; Rappi parado sem loja.
+  - interval: 1m
+    input_series:
+      - series: 'comandou_channel_poll_stores{channel="ifood"}'
+        values: '2x30'
+      - series: 'comandou_channel_poll_stores{channel="keeta"}'
+        values: '1x30'
+      - series: 'comandou_channel_poll_stores{channel="rappi"}'
+        values: '0x30'
+      - series: 'comandou_channel_poll_last_success_timestamp_seconds{channel="ifood"}'
+        values: '0+60x30'
+      - series: 'comandou_channel_poll_last_success_timestamp_seconds{channel="keeta"}'
+        values: '60x30'
+      - series: 'comandou_channel_poll_last_success_timestamp_seconds{channel="rappi"}'
+        values: '60x30'
+      - series: 'comandou_channel_requests_total{channel="ifood",endpoint="events:polling",result="2xx"}'
+        values: '0+100x30'
+      - series: 'comandou_channel_requests_total{channel="ifood",endpoint="events:polling",result="5xx"}'
+        values: '0+20x30'
+      - series: 'comandou_channel_requests_total{channel="ifood",endpoint="events:ack",result="2xx"}'
+        values: '0+100x30'
+      - series: 'comandou_channel_requests_total{channel="keeta",endpoint="orders:details",result="429"}'
+        values: '0x10 1x20'
+      - series: 'comandou_channel_acks_total{channel="ifood",result="ok"}'
+        values: '0+100x30'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: ComandouAppPollingParado
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: ComandouAppPollingParado
+        exp_alerts:
+          - exp_labels: { severity: critical, channel: keeta }
+            exp_annotations:
+              summary: 'Pedidos do keeta não estão sendo buscados há mais de 3 minutos'
+              runbook: 'docs/operations.md#aplicativos-de-delivery'
+      - eval_time: 25m
+        alertname: ComandouAppErrosNoEndpoint
+        exp_alerts:
+          - exp_labels: { severity: warning, channel: ifood, endpoint: 'events:polling' }
+            exp_annotations:
+              summary: 'Mais de 5% de erro em ifood events:polling'
+              runbook: 'docs/operations.md#aplicativos-de-delivery'
+      - eval_time: 18m
+        alertname: ComandouAppPediuParaEsperar
+        exp_alerts:
+          - exp_labels: { severity: warning, channel: keeta, endpoint: 'orders:details' }
+            exp_annotations:
+              summary: 'keeta respondeu 429 em orders:details (perto do limite de chamadas)'
+              runbook: 'docs/operations.md#aplicativos-de-delivery'
+      - eval_time: 25m
+        alertname: ComandouAppAckAtrasado
+        exp_alerts: []

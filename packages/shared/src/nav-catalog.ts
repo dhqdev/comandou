@@ -248,6 +248,17 @@ const SCREENS: StaticEntry[] = [
     perms: ['messaging:manage'],
   },
   {
+    id: 's-integracoes',
+    group: 'Telas',
+    title: 'Aplicativos de delivery',
+    hint: 'iFood e outros aplicativos: lojas, pedidos chegando e itens sem vínculo',
+    words:
+      'ifood keeta 99food 99 food rappi aiqfome open delivery aplicativo app integracao integracoes marketplace pedidos de aplicativo vinculo',
+    icon: 'delivery',
+    to: '/integracoes',
+    perms: ['orders:manage'],
+  },
+  {
     id: 's-assistente-ia',
     group: 'Telas',
     title: 'Assistente de IA',

@@ -195,3 +195,8 @@
     white-space: normal;
   }
 }
+
+/* Selo do aplicativo ao lado do tipo do pedido. */
+.ord-col-type .ch-badge {
+  margin-left: 6px;
+}
