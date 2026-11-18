@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.170.0',
+    date: '2026-11-18',
+    title: 'Filtro escolhido fica na barra e detalhe do pedido mais colorido',
+    summary:
+      'O campo que você escolhe no "+ Filtro" agora fica na barra da lista e continua lá depois de trocar de aba, limpar os filtros ou recarregar. O detalhe do pedido ganhou cores suaves para achar cada informação e cada botão de relance.',
+    notes: [
+      {
+        tag: 'correção',
+        text: '"+ Filtro" em todas as listas: o campo escolhido entra na barra e fica salvo neste navegador (antes sumia ao trocar de aba, limpar os filtros ou recarregar). O alfinete do seletor agora fixa ou tira o campo da barra, e cada filtro tem "Tirar da barra" na caixa dele.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Detalhe do pedido: ícones de cliente, telefone, data, status, pagamento e endereço em tons suaves; tipo do pedido colorido no topo; situação de cada item (pendente, em preparo, pronto) com cor; observação escrita em destaque; valor pago em verde e falta pagar em vermelho.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Botões de baixo do pedido: cada ação (imprimir, via de entrega, editar, desconto, fiado, a receber, cozinha) com um tom próprio e as linhas alinhadas de ponta a ponta; Cancelar pedido e Recusar em vermelho suave.',
+      },
+    ],
+  },
+  {
     version: '0.169.0',
     date: '2026-11-18',
     title: 'Novo jeito de escolher o filtro nas listas',

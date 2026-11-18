@@ -257,7 +257,11 @@ export function serverFilters<T>(fields: readonly ListField<T>[], filters: Filte
 
 /* ------------------------------------------------------------------ escolher campo */
 
-/** Campos que a pessoa fixou, tirou e quantas vezes usou cada um (guardado por lista). */
+/**
+ * Campos da barra de cada lista, guardados no navegador (`cm-lv-campos:<lista>`):
+ * `pins` = campos que a pessoa pôs na barra (na ordem em que escolheu), `unpins` = campos que
+ * ela tirou (inclusive os fixos da tela) e `uses` = quantas vezes escolheu cada um.
+ */
 export interface FieldPrefs {
   pins?: string[];
   unpins?: string[];
@@ -267,19 +271,48 @@ export interface FieldPrefs {
 /** Usou três vezes: o campo sobe sozinho para "Mais usados". */
 export const USES_TO_FAVORITE = 3;
 
-/** O campo fica em "Mais usados"? Fixado pela pessoa, ou (sem ela ter tirado) fixo da tela ou muito usado. */
-export function isFavorite<T>(f: ListField<T>, p: FieldPrefs) {
+/** O campo fica na barra? Escolhido pela pessoa, ou fixo da tela que ela não tirou. */
+export function onBar<T>(f: ListField<T>, p: FieldPrefs) {
   if (p.pins?.includes(f.key)) return true;
-  if (p.unpins?.includes(f.key)) return false;
-  return !!f.pinned || (p.uses?.[f.key] ?? 0) >= USES_TO_FAVORITE;
+  return !!f.pinned && !p.unpins?.includes(f.key);
 }
 
-/** Fixa ou tira o campo de "Mais usados". */
-export function toggleFavorite<T>(f: ListField<T>, p: FieldPrefs): FieldPrefs {
-  const on = isFavorite(f, p);
+/** O campo fica em "Mais usados"? Está na barra ou (sem a pessoa ter tirado) é muito usado. */
+export function isFavorite<T>(f: ListField<T>, p: FieldPrefs) {
+  if (onBar(f, p)) return true;
+  return !p.unpins?.includes(f.key) && (p.uses?.[f.key] ?? 0) >= USES_TO_FAVORITE;
+}
+
+/** Põe o campo na barra (vai para o fim dos escolhidos; o fixo da tela volta ao lugar dele). */
+export function addToBar<T>(f: ListField<T>, p: FieldPrefs): FieldPrefs {
+  const unpins = (p.unpins ?? []).filter((k) => k !== f.key);
+  if (onBar(f, { ...p, unpins })) return { ...p, unpins };
+  return { ...p, pins: [...(p.pins ?? []), f.key], unpins };
+}
+
+/** Tira o campo da barra (e de "Mais usados", até a pessoa escolher de novo). */
+export function removeFromBar<T>(f: ListField<T>, p: FieldPrefs): FieldPrefs {
   const pins = (p.pins ?? []).filter((k) => k !== f.key);
   const unpins = (p.unpins ?? []).filter((k) => k !== f.key);
-  return on ? { ...p, pins, unpins: [...unpins, f.key] } : { ...p, pins: [...pins, f.key], unpins };
+  return { ...p, pins, unpins: [...unpins, f.key] };
+}
+
+/** Alfinete do seletor de campo: põe ou tira da barra. */
+export function toggleBar<T>(f: ListField<T>, p: FieldPrefs): FieldPrefs {
+  return onBar(f, p) ? removeFromBar(f, p) : addToBar(f, p);
+}
+
+/**
+ * Chips da barra, na ordem: fixos da tela, os que a pessoa escolheu (na ordem da escolha) e,
+ * por último, campos fora da barra que estão com filtro (vindo de uma aba, por exemplo).
+ */
+export function barKeys<T>(fields: readonly ListField<T>[], p: FieldPrefs, filters: Filters) {
+  const known = new Set(fields.map((f) => f.key));
+  const fixed = fields.filter((f) => f.pinned && onBar(f, p)).map((f) => f.key);
+  const mine = [...new Set(p.pins ?? [])].filter((k) => known.has(k) && !fixed.includes(k));
+  const taken = new Set([...fixed, ...mine]);
+  const active = fields.filter((f) => !taken.has(f.key) && filters[f.key]?.length);
+  return [...fixed, ...mine, ...active.map((f) => f.key)];
 }
 
 export function countUse(key: string, p: FieldPrefs): FieldPrefs {

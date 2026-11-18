@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  addToBar,
+  barKeys,
   chipText,
   countUse,
   dateBounds,
@@ -8,11 +10,13 @@ import {
   groupFields,
   isFavorite,
   matchAll,
+  onBar,
   optionCounts,
   rangeValue,
+  removeFromBar,
   sameFilters,
   serverFilters,
-  toggleFavorite,
+  toggleBar,
   USES_TO_FAVORITE,
   type FieldPrefs,
   type ListField,
@@ -128,21 +132,49 @@ describe('escolher campo', () => {
     expect(groupFields(fs, {}, 'xyz').favorites).toEqual([]);
   });
 
-  it('fixar e tirar troca o campo de grupo', () => {
-    let p = toggleFavorite(fs[2]!, {});
+  it('o alfinete põe e tira da barra (e de mais usados)', () => {
+    let p = toggleBar(fs[2]!, {});
+    expect(onBar(fs[2]!, p)).toBe(true);
     expect(isFavorite(fs[2]!, p)).toBe(true);
-    p = toggleFavorite(fs[0]!, p);
+    p = toggleBar(fs[0]!, p);
+    expect(onBar(fs[0]!, p)).toBe(false);
     expect(isFavorite(fs[0]!, p)).toBe(false);
-    p = toggleFavorite(fs[0]!, p);
-    expect(isFavorite(fs[0]!, p)).toBe(true);
+    p = toggleBar(fs[0]!, p);
+    expect(onBar(fs[0]!, p)).toBe(true);
   });
 
   it('campo muito usado sobe sozinho, a menos que a pessoa tenha tirado', () => {
     let p: FieldPrefs = {};
     for (let i = 0; i < USES_TO_FAVORITE; i++) p = countUse('mesa', p);
     expect(isFavorite(fs[3]!, p)).toBe(true);
-    p = toggleFavorite(fs[3]!, p);
+    expect(onBar(fs[3]!, p)).toBe(false);
+    p = removeFromBar(fs[3]!, p);
     expect(isFavorite(fs[3]!, countUse('mesa', p))).toBe(false);
+    // Escolheu de novo no "+ Filtro": volta para a barra e para mais usados.
+    p = addToBar(fs[3]!, p);
+    expect(onBar(fs[3]!, p)).toBe(true);
+    expect(isFavorite(fs[3]!, p)).toBe(true);
+  });
+
+  it('o campo escolhido fica na barra, na ordem da escolha, depois dos fixos', () => {
+    let p = addToBar(fs[3]!, {});
+    p = addToBar(fs[2]!, p);
+    p = addToBar(fs[3]!, p); // escolher de novo não duplica nem muda a ordem
+    expect(barKeys(fs, p, {})).toEqual(['data', 'status', 'mesa', 'origem']);
+    // Campo fora da barra com filtro (vindo de uma aba) aparece no fim enquanto tiver valor.
+    expect(barKeys(fs, removeFromBar(fs[2]!, p), { origem: ['x'] })).toEqual([
+      'data',
+      'status',
+      'mesa',
+      'origem',
+    ]);
+    expect(barKeys(fs, removeFromBar(fs[2]!, p), {})).toEqual(['data', 'status', 'mesa']);
+    // Fixo da tela tirado pela pessoa volta ao lugar dele ao ser escolhido.
+    const sem = removeFromBar(fs[1]!, {});
+    expect(barKeys(fs, sem, {})).toEqual(['data']);
+    expect(barKeys(fs, addToBar(fs[1]!, sem), {})).toEqual(['data', 'status']);
+    // Campo que não existe mais na tela (salvo antes) é ignorado.
+    expect(barKeys(fs, { pins: ['sumiu', 'mesa'] }, {})).toEqual(['data', 'status', 'mesa']);
   });
 
   it('mostra o tipo do campo', () => {

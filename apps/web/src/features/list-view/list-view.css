@@ -330,6 +330,13 @@
   text-underline-offset: 2px;
   cursor: pointer;
 }
+/* "Tirar da barra": ação de arrumar a barra, mais apagada que o Limpar. */
+.lv-link--muted {
+  color: var(--cm-text-muted);
+}
+.lv-link--muted:hover {
+  color: var(--cm-text);
+}
 
 /* ---------------------------------------------------------------- caixa dos filtros */
 .lv-pop {

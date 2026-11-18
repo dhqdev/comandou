@@ -21,11 +21,9 @@ import { createPortal } from 'react-dom';
 import { DateInput, Select, Sheet } from '../../design-system';
 import {
   chipText,
-  countUse,
   fieldKind,
   groupFields,
-  isFavorite,
-  toggleFavorite,
+  onBar,
   rangeValue,
   DATE_PRESETS,
   dateBounds,
@@ -299,6 +297,20 @@ function Chip<T>({
   const chosen = lv.filters[field.key];
   const set = !!chosen?.length;
   const isDate = field.kind === 'date';
+  // Campo na barra (fixo da tela ou escolhido no "+ Filtro"): dá para tirar daqui mesmo.
+  const removable = !field.server && onBar(field, lv.prefs);
+  const remove = removable ? (
+    <button
+      type="button"
+      className="lv-link lv-link--muted"
+      onClick={() => {
+        onClose();
+        lv.removeField(field.key);
+      }}
+    >
+      Tirar da barra
+    </button>
+  ) : null;
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
@@ -333,6 +345,7 @@ function Chip<T>({
         {field.dateNote ?? 'Só o De: daí em diante. Só o Até: até esse dia.'}
       </p>
       <div className="lv-date__actions">
+        {remove}
         {set && (
           <button type="button" className="lv-link" onClick={() => apply('')}>
             Limpar
@@ -348,13 +361,16 @@ function Chip<T>({
         </button>
       </div>
     </>
-  ) : (
-    set && (
-      <button type="button" className="lv-link" onClick={() => lv.setField(field.key, [])}>
-        Limpar
-      </button>
-    )
-  );
+  ) : set || remove ? (
+    <>
+      {remove ?? <span />}
+      {set && (
+        <button type="button" className="lv-link" onClick={() => lv.setField(field.key, [])}>
+          Limpar
+        </button>
+      )}
+    </>
+  ) : null;
 
   return (
     <span className="lv-chip" data-set={set || undefined} data-open={open || undefined}>
@@ -408,24 +424,6 @@ function Chip<T>({
   );
 }
 
-const prefsKey = (id: string) => `cm-lv-campos:${id}`;
-
-function readPrefs(id: string): FieldPrefs {
-  try {
-    return JSON.parse(localStorage.getItem(prefsKey(id)) ?? '{}') as FieldPrefs;
-  } catch {
-    return {};
-  }
-}
-
-function writePrefs(id: string, p: FieldPrefs) {
-  try {
-    localStorage.setItem(prefsKey(id), JSON.stringify(p));
-  } catch {
-    /* navegador sem armazenamento: vale só nesta visita */
-  }
-}
-
 /** Um grupo do seletor de campos ("Mais usados" ou "Demais campos"). */
 function FieldGroup<T>({
   title,
@@ -453,7 +451,7 @@ function FieldGroup<T>({
       </h3>
       <div className="lv-fields__grid">
         {fields.map((f) => {
-          const pinned = isFavorite(f, prefs);
+          const pinned = onBar(f, prefs);
           const used = !!lv.filters[f.key]?.length;
           return (
             <div key={f.key} className="lv-field" data-used={used || undefined}>
@@ -466,10 +464,8 @@ function FieldGroup<T>({
                 className="lv-field__pin"
                 data-on={pinned || undefined}
                 aria-pressed={pinned}
-                aria-label={
-                  pinned ? `Tirar ${f.label} dos mais usados` : `Fixar ${f.label} nos mais usados`
-                }
-                title={pinned ? 'Tirar dos mais usados' : 'Fixar nos mais usados'}
+                aria-label={pinned ? `Tirar ${f.label} da barra` : `Fixar ${f.label} na barra`}
+                title={pinned ? 'Tirar da barra' : 'Fixar na barra'}
                 onClick={() => onPin(f)}
               >
                 <Pin size={14} aria-hidden fill={pinned ? 'currentColor' : 'none'} />
@@ -484,30 +480,25 @@ function FieldGroup<T>({
 
 /**
  * "+ Filtro": caixa larga para escolher o campo, com busca pelo título, os mais usados em cima
- * (fixados pela pessoa, fixos da tela ou usados muitas vezes) e os demais embaixo, cada um com o
- * tipo. Escolher abre o filtro daquele campo.
+ * (os da barra e os usados muitas vezes) e os demais embaixo, cada um com o tipo. Escolher põe o
+ * campo na barra (fica salvo) e abre o filtro dele; o alfinete põe ou tira da barra sem abrir.
  */
 function AddFilter<T>({ lv, onPick }: { lv: ListView<T>; onPick(key: string): void }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState('');
-  const [prefs, setPrefs] = useState<FieldPrefs>(() => readPrefs(lv.id));
   if (!lv.fields.length) return null;
-  const save = (p: FieldPrefs) => {
-    setPrefs(p);
-    writePrefs(lv.id, p);
-  };
+  const prefs = lv.prefs;
   const { favorites, others } = groupFields(lv.fields, prefs, term);
   const close = () => {
     setOpen(false);
     setTerm('');
   };
   const pick = (f: ListField<T>) => {
-    save(countUse(f.key, prefs));
     close();
     onPick(f.key);
   };
-  const pin = (f: ListField<T>) => save(toggleFavorite(f, prefs));
+  const pin = (f: ListField<T>) => lv.pinField(f.key);
   const n = lv.fields.length;
   const width = n > 8 ? 820 : n > 4 ? 580 : 340;
   const first = favorites[0] ?? others[0];
@@ -702,9 +693,8 @@ export function ListToolbar<T>({
   }, []);
 
   const sortOpt = lv.sorts.find((s) => s.key === lv.sort.key);
-  const chips = lv.fields.filter((f) => lv.shown.includes(f.key));
-  const pinned = chips.filter((f) => f.pinned);
-  const others = chips.filter((f) => !f.pinned);
+  // Chips na ordem da barra: fixos da tela, os escolhidos pela pessoa e os com filtro de uma aba.
+  const chips = lv.shown.flatMap((k) => lv.fields.filter((f) => f.key === k));
   const canClear = lv.active > 0 || !!lv.query;
 
   const chip = (f: ListField<T>) => (
@@ -779,8 +769,8 @@ export function ListToolbar<T>({
       </div>
 
       <div className="lv-chips">
-        {pinned.map(chip)}
-        {pinned.length > 0 && <span className="lv-sep" aria-hidden />}
+        {chips.map(chip)}
+        {chips.length > 0 && <span className="lv-sep" aria-hidden />}
         <AddFilter
           lv={lv}
           onPick={(key) => {
@@ -789,7 +779,6 @@ export function ListToolbar<T>({
             requestAnimationFrame(() => setOpenKey(key));
           }}
         />
-        {others.map(chip)}
         {canClear && (
           <button type="button" className="lv-clear" onClick={lv.clear}>
             <X size={13} aria-hidden />

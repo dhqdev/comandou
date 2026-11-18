@@ -277,13 +277,21 @@ export function OrderDetailModal({
   const more: MenuAction[] = order
     ? [
         ...(canEdit
-          ? [{ label: 'Editar pedido', icon: <Pencil size={15} />, run: () => setMode('edit') }]
+          ? [
+              {
+                label: 'Editar pedido',
+                icon: <Pencil size={15} />,
+                hue: 'teal' as const,
+                run: () => setMode('edit'),
+              },
+            ]
           : []),
         ...(canAdjust
           ? [
               {
                 label: 'Desconto ou acréscimo',
                 icon: <Percent size={15} />,
+                hue: 'green' as const,
                 run: () => setMode('adjust'),
               },
             ]
@@ -293,6 +301,7 @@ export function OrderDetailModal({
               {
                 label: order.fiadoAt ? 'Editar fiado' : 'Vender fiado',
                 icon: <CalendarClock size={15} />,
+                hue: 'amber' as const,
                 run: () => setMode('fiado'),
               },
             ]
@@ -302,6 +311,7 @@ export function OrderDetailModal({
               {
                 label: 'Concluir a receber',
                 icon: <HandCoins size={15} />,
+                hue: 'rose' as const,
                 run: () => setMode('receivable'),
               },
             ]
@@ -311,6 +321,7 @@ export function OrderDetailModal({
               {
                 label: 'Reimprimir na cozinha',
                 icon: <ChefHat size={15} />,
+                hue: 'slate' as const,
                 run: () => void print('kitchen'),
               },
             ]
@@ -324,14 +335,14 @@ export function OrderDetailModal({
     (nextSteps.length > 0 || canReceive || canSend || canReject || canServe || !!cancelLabel);
 
   const header = order ? (
-    <span className="odh">
+    <span className="odh" data-hue={CHANNEL_HUE[order.channel]}>
       <span className="odh__icon" aria-hidden>
         <ChannelIcon channel={order.channel} />
       </span>
       <span className="odh__text">
         <span className="odh__title">Pedido #{order.number}</span>
         <span className="odh__chips">
-          <span className="odh__chip">{CHANNEL_LABELS[order.channel]}</span>
+          <span className="odh__chip odh__chip--main">{CHANNEL_LABELS[order.channel]}</span>
           {order.tableLabel && <span className="odh__chip">Mesa {order.tableLabel}</span>}
           {order.tabNumber && <span className="odh__chip">Comanda {order.tabNumber}</span>}
           {order.source === 'online' && <span className="odh__chip">Cardápio online</span>}
@@ -350,7 +361,7 @@ export function OrderDetailModal({
         {toCents(order.discount) > 0 && (
           <>
             <dt>Desconto</dt>
-            <dd>− {brl(order.discount)}</dd>
+            <dd className="od-sum__good">− {brl(order.discount)}</dd>
           </>
         )}
         {toCents(order.surcharge) > 0 && (
@@ -370,9 +381,9 @@ export function OrderDetailModal({
         {toCents(order.paidAmount) > 0 && toCents(order.balance) > 0 && (
           <>
             <dt>Pago</dt>
-            <dd>{brl(order.paidAmount)}</dd>
+            <dd className="od-sum__good">{brl(order.paidAmount)}</dd>
             <dt>Falta pagar</dt>
-            <dd>
+            <dd className="od-sum__due">
               <strong>{brl(order.balance)}</strong>
             </dd>
           </>
@@ -390,7 +401,11 @@ export function OrderDetailModal({
             </Button>
           )}
           {canReject && (
-            <Button variant="secondary" onClick={() => setMode('reject')}>
+            <Button
+              variant="secondary"
+              className="od-bar__cancel"
+              onClick={() => setMode('reject')}
+            >
               Recusar
             </Button>
           )}
@@ -431,17 +446,23 @@ export function OrderDetailModal({
       {!mode && (canPrintSlip || more.length > 0) && (
         <div className="od-tools">
           {canPrintSlip && (
-            <button type="button" onClick={() => setPreviewKind('receipt')}>
+            <button type="button" data-hue="blue" onClick={() => setPreviewKind('receipt')}>
               <Printer size={15} aria-hidden /> <span>Imprimir pedido</span>
             </button>
           )}
           {canPrintSlip && order.channel === 'delivery' && (
-            <button type="button" onClick={() => setPreviewKind('delivery')}>
+            <button type="button" data-hue="violet" onClick={() => setPreviewKind('delivery')}>
               <Bike size={15} aria-hidden /> <span>Via de entrega</span>
             </button>
           )}
           {more.map((a) => (
-            <button key={a.label} type="button" disabled={printing} onClick={a.run}>
+            <button
+              key={a.label}
+              type="button"
+              data-hue={a.hue}
+              disabled={printing}
+              onClick={a.run}
+            >
               {a.icon} <span>{a.label}</span>
             </button>
           ))}
@@ -464,22 +485,30 @@ export function OrderDetailModal({
           <div className="od-card">
             <dl className="od-facts">
               {showClient && (
-                <Fact icon={<User size={15} />} label="Cliente">
+                <Fact icon={<User size={15} />} label="Cliente" hue="blue">
                   {order.customerName || '—'}
                 </Fact>
               )}
               {showClient && (
-                <Fact icon={<Phone size={15} />} label="Telefone">
+                <Fact icon={<Phone size={15} />} label="Telefone" hue="green">
                   {order.customerPhone || '—'}
                 </Fact>
               )}
-              <Fact icon={<CalendarClock size={15} />} label="Feito em">
+              <Fact icon={<CalendarClock size={15} />} label="Feito em" hue="violet">
                 {dateTime(order.createdAt)}
               </Fact>
-              <Fact icon={<Timer size={15} />} label="Status do pedido">
+              <Fact
+                icon={<Timer size={15} />}
+                label="Status do pedido"
+                hue={STATUS_TONE[order.status]}
+              >
                 <Badge tone={STATUS_TONE[order.status]}>{ORDER_STATUS_LABELS[order.status]}</Badge>
               </Fact>
-              <Fact icon={<CreditCard size={15} />} label="Pagamento">
+              <Fact
+                icon={<CreditCard size={15} />}
+                label="Pagamento"
+                hue={PAYMENT_STATUS_TONE[order.paymentStatus]}
+              >
                 <span className="od-pay">
                   <Badge tone={PAYMENT_STATUS_TONE[order.paymentStatus]}>
                     {PAYMENT_STATUS_LABEL[order.paymentStatus]}
@@ -487,13 +516,13 @@ export function OrderDetailModal({
                 </span>
               </Fact>
               {order.source === 'online' && order.paymentHint && (
-                <Fact icon={<Wallet size={15} />} label="Vai pagar com">
+                <Fact icon={<Wallet size={15} />} label="Vai pagar com" hue="teal">
                   {PAYMENT_METHOD_LABELS[order.paymentHint]}
                   {order.changeFor && ` · troco para ${brl(order.changeFor)}`}
                 </Fact>
               )}
               {order.pixReceipts?.[0] && (
-                <Fact icon={<Receipt size={15} />} label="Comprovante Pix" wide>
+                <Fact icon={<Receipt size={15} />} label="Comprovante Pix" hue="teal" wide>
                   {dateTime(order.pixReceipts[0].createdAt)}
                   {order.pixReceipts[0].hasFile ? (
                     <>
@@ -520,12 +549,12 @@ export function OrderDetailModal({
                 </Fact>
               )}
               {order.deliveryAddress && (
-                <Fact icon={<MapPin size={15} />} label="Endereço" wide>
+                <Fact icon={<MapPin size={15} />} label="Endereço" hue="rose" wide>
                   {order.deliveryAddress}
                 </Fact>
               )}
             </dl>
-            <div className="od-note">
+            <div className="od-note" data-hue={order.notes ? 'amber' : undefined}>
               <MessageSquare size={15} aria-hidden />
               <div>
                 <span>Observação do pedido</span>
@@ -662,7 +691,9 @@ export function OrderDetailModal({
                       <div className="od-item__main">
                         <div className="od-item__name">
                           <strong>{i.name}</strong>
-                          <span className="od-item__status">{ITEM_STATUS_LABEL[i.status]}</span>
+                          <span className="od-item__status" data-hue={ITEM_STATUS_HUE[i.status]}>
+                            {ITEM_STATUS_LABEL[i.status]}
+                          </span>
                         </div>
                         {i.options.length > 0 && (
                           <div className="od-item__sub">
@@ -731,7 +762,7 @@ export function OrderDetailModal({
                       </div>
                     </div>
                     <span className="od-rows__end">
-                      <strong>{brl(p.amount)}</strong>
+                      <strong className="od-rows__paid">{brl(p.amount)}</strong>
                       {canRefund && toCents(p.amount) > toCents(p.refundedAmount) && (
                         <Button variant="ghost" size="sm" onClick={() => setMode({ refund: p })}>
                           Estornar
@@ -872,6 +903,41 @@ const ITEM_STATUS_LABEL: Record<ItemStatus, string> = {
   cancelled: 'Cancelado',
 };
 
+/**
+ * Tons suaves do detalhe do pedido (data-hue → --hue, em ops.css; cores em tokens.css): os de
+ * apoio diferenciam ações e dados; os de situação repetem os selos (info, sucesso, aviso, perigo).
+ */
+const HUES = [
+  'blue',
+  'violet',
+  'teal',
+  'green',
+  'amber',
+  'rose',
+  'slate',
+  'info',
+  'success',
+  'warning',
+  'danger',
+  'brand',
+  'neutral',
+] as const;
+type Hue = (typeof HUES)[number];
+
+const ITEM_STATUS_HUE: Record<ItemStatus, Hue> = {
+  pending: 'slate',
+  preparing: 'warning',
+  ready: 'success',
+  cancelled: 'danger',
+};
+
+const CHANNEL_HUE: Record<Order['channel'], Hue> = {
+  counter: 'blue',
+  table: 'teal',
+  delivery: 'violet',
+  pickup: 'amber',
+};
+
 function ChannelIcon({ channel }: { channel: Order['channel'] }) {
   if (channel === 'delivery') return <Bike size={18} />;
   if (channel === 'table') return <UtensilsCrossed size={18} />;
@@ -881,6 +947,7 @@ function ChannelIcon({ channel }: { channel: Order['channel'] }) {
 interface MenuAction {
   label: string;
   icon: ReactNode;
+  hue: Hue;
   run(): void;
 }
 
@@ -888,16 +955,18 @@ interface MenuAction {
 function Fact({
   label,
   icon,
+  hue,
   wide,
   children,
 }: {
   label: string;
   icon: ReactNode;
+  hue?: Hue;
   wide?: boolean;
   children: ReactNode;
 }) {
   return (
-    <div className="od-fact" data-wide={wide || undefined}>
+    <div className="od-fact" data-wide={wide || undefined} data-hue={hue}>
       <span className="od-fact__icon" aria-hidden>
         {icon}
       </span>

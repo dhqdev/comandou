@@ -55,6 +55,16 @@
   --cm-danger: #d0312d;
   --cm-danger-bg: #fdefee;
 
+  /* Tons de apoio (suaves, para diferenciar ações e dados sem competir com o laranja da loja):
+     ícone na cor e fundo/contorno com color-mix bem fraco. Uso: atributo data-hue (ops.css). */
+  --cm-tint-blue: #2f63c8;
+  --cm-tint-violet: #6d4fc4;
+  --cm-tint-teal: #0b7f76;
+  --cm-tint-green: #2d7f3f;
+  --cm-tint-amber: #a86200;
+  --cm-tint-rose: #bb3d66;
+  --cm-tint-slate: #56657c;
+
   /* Superfícies */
   --cm-bg: var(--cm-gray-50);
   --cm-surface: var(--cm-gray-0);
@@ -291,6 +301,13 @@ html.cm-kb-open {
   --cm-success-bg: #1b3530;
   --cm-warning-bg: #3a3123;
   --cm-danger-bg: #3d2530;
+  --cm-tint-blue: #7ea6f2;
+  --cm-tint-violet: #ab98f0;
+  --cm-tint-teal: #4cc0b3;
+  --cm-tint-green: #62c584;
+  --cm-tint-amber: #e3ad55;
+  --cm-tint-rose: #ef8eab;
+  --cm-tint-slate: #a9b4c6;
   --cm-shadow-sm: none;
   --cm-shadow-md: none;
   --cm-shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 60%);
@@ -355,6 +372,13 @@ html.cm-kb-open {
     --cm-success-bg: #1b3530;
     --cm-warning-bg: #3a3123;
     --cm-danger-bg: #3d2530;
+    --cm-tint-blue: #7ea6f2;
+    --cm-tint-violet: #ab98f0;
+    --cm-tint-teal: #4cc0b3;
+    --cm-tint-green: #62c584;
+    --cm-tint-amber: #e3ad55;
+    --cm-tint-rose: #ef8eab;
+    --cm-tint-slate: #a9b4c6;
     --cm-shadow-sm: none;
     --cm-shadow-md: none;
     --cm-shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 60%);

@@ -1,10 +1,16 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
+  addToBar,
+  barKeys,
   cleanFilters,
+  countUse,
   fold,
   matchAll,
+  removeFromBar,
   sameFilters,
   serverFilters,
+  toggleBar,
+  type FieldPrefs,
   type Filters,
   type ListField,
   type ListSort,
@@ -35,6 +41,25 @@ function writeStore(id: string, s: Stored) {
   }
 }
 
+const prefsKey = (id: string) => `cm-lv-campos:${id}`;
+
+function readPrefs(id: string): FieldPrefs {
+  try {
+    const p = JSON.parse(localStorage.getItem(prefsKey(id)) ?? '{}') as FieldPrefs | null;
+    return p && typeof p === 'object' ? p : {};
+  } catch {
+    return {};
+  }
+}
+
+function writePrefs(id: string, p: FieldPrefs) {
+  try {
+    localStorage.setItem(prefsKey(id), JSON.stringify(p));
+  } catch {
+    /* navegador sem armazenamento: a barra vale só nesta visita */
+  }
+}
+
 export interface ListViewConfig<T> {
   /** Nome da lista (guarda as abas criadas e a última aba aberta). */
   id: string;
@@ -60,7 +85,9 @@ export function useListView<T>(cfg: ListViewConfig<T>) {
   });
   const tab = tabs.find((t) => t.id === tabId) ?? tabs[0];
   const [filters, setFilters] = useState<Filters>(() => ({ ...(tab?.filters ?? {}) }));
-  const [added, setAdded] = useState<string[]>([]);
+  // Campos da barra escolhidos pela pessoa: ficam salvos no navegador, por lista, e não somem
+  // ao trocar de aba, limpar os filtros ou recarregar a tela.
+  const [prefs, setPrefs] = useState<FieldPrefs>(() => readPrefs(id));
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<Sort>(
     () => defaultSort ?? { key: sorts[0]?.key ?? '', desc: !sorts[0]?.asc },
@@ -74,19 +101,35 @@ export function useListView<T>(cfg: ListViewConfig<T>) {
   const selectTab = (t: ListTab) => {
     setTabId(t.id);
     setFilters({ ...t.filters });
-    setAdded([]);
     persist({ tab: t.id });
   };
 
   const setField = (key: string, values: string[]) => setFilters((f) => ({ ...f, [key]: values }));
-  const addField = (key: string) => setAdded((a) => (a.includes(key) ? a : [...a, key]));
+
+  const changePrefs = (key: string, change: (f: ListField<T>, p: FieldPrefs) => FieldPrefs) => {
+    const f = fields.find((x) => x.key === key);
+    if (!f) return;
+    setPrefs((p) => {
+      const next = change(f, p);
+      writePrefs(id, next);
+      return next;
+    });
+  };
+  /** "+ Filtro": o campo escolhido entra na barra e fica lá (conta um uso para "Mais usados"). */
+  const addField = (key: string) => changePrefs(key, (f, p) => countUse(f.key, addToBar(f, p)));
+  /** Tira o campo da barra e apaga o que estava escolhido nele. */
+  const removeField = (key: string) => {
+    changePrefs(key, removeFromBar);
+    setFilters((f) => ({ ...f, [key]: [] }));
+  };
+  /** Alfinete do seletor: põe ou tira o campo da barra. */
+  const pinField = (key: string) => changePrefs(key, toggleBar);
 
   const clear = () => {
     // Mexeu nos filtros da aba: "Limpar" volta para a aba como ela é. Só buscou: apaga a busca.
     // Já na aba, sem busca: tira tudo, menos os filtros que vêm do servidor (o período carregado).
     if (tab && !sameFilters(filters, tab.filters)) setFilters({ ...tab.filters });
     else if (!query) setFilters((f) => cleanFilters(serverFilters(fields, f)));
-    setAdded([]);
     setQuery('');
   };
 
@@ -100,7 +143,6 @@ export function useListView<T>(cfg: ListViewConfig<T>) {
     const next = [...customTabs, t];
     setCustomTabs(next);
     setTabId(t.id);
-    setAdded([]);
     writeStore(id, { tab: t.id, tabs: next });
   };
 
@@ -148,9 +190,7 @@ export function useListView<T>(cfg: ListViewConfig<T>) {
     return out;
   }, [tabs, rows, fields, filters]);
 
-  const shown = fields
-    .filter((f) => f.pinned || added.includes(f.key) || filters[f.key]?.length)
-    .map((f) => f.key);
+  const shown = barKeys(fields, prefs, filters);
   const dirty = !!tab && !sameFilters(filters, tab.filters);
   const active = fields.filter((f) => !f.server && filters[f.key]?.length).length;
 
@@ -164,7 +204,10 @@ export function useListView<T>(cfg: ListViewConfig<T>) {
     selectTab,
     filters,
     setField,
+    prefs,
     addField,
+    removeField,
+    pinField,
     shown,
     dirty,
     active,

@@ -266,7 +266,46 @@
   gap: 12px;
 }
 /* Detalhe do pedido (gaveta da direita): blocos em cartões discretos, textos pequenos, rótulo
-   apagado em cima e valor embaixo, ícones finos. Cor só nos selos de status. */
+   apagado em cima e valor embaixo, ícones finos. Desde a 0.170 (pedido do David) cada dado e cada
+   ação tem um tom suave próprio (data-hue): ícone na cor e fundo/contorno com color-mix fraco,
+   texto sempre na cor normal. Os de situação (status, pagamento, item) seguem as cores dos selos. */
+[data-hue='blue'] {
+  --hue: var(--cm-tint-blue);
+}
+[data-hue='violet'] {
+  --hue: var(--cm-tint-violet);
+}
+[data-hue='teal'] {
+  --hue: var(--cm-tint-teal);
+}
+[data-hue='green'] {
+  --hue: var(--cm-tint-green);
+}
+[data-hue='amber'] {
+  --hue: var(--cm-tint-amber);
+}
+[data-hue='rose'] {
+  --hue: var(--cm-tint-rose);
+}
+[data-hue='slate'],
+[data-hue='neutral'] {
+  --hue: var(--cm-tint-slate);
+}
+[data-hue='info'] {
+  --hue: var(--cm-info);
+}
+[data-hue='success'] {
+  --hue: var(--cm-success);
+}
+[data-hue='warning'] {
+  --hue: var(--cm-warning);
+}
+[data-hue='danger'] {
+  --hue: var(--cm-danger);
+}
+[data-hue='brand'] {
+  --hue: var(--cm-brand-500);
+}
 .order-detail .section-title {
   display: flex;
   align-items: baseline;
@@ -315,12 +354,12 @@
   flex: none;
   display: inline-grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: var(--cm-surface);
-  border: 1px solid var(--cm-border);
-  color: var(--cm-text-muted);
+  background: color-mix(in srgb, var(--hue, var(--cm-text-muted)) 13%, var(--cm-surface));
+  border: 1px solid color-mix(in srgb, var(--hue, var(--cm-text-muted)) 24%, var(--cm-border));
+  color: var(--hue, var(--cm-text-muted));
 }
 .od-fact__icon svg {
   width: 14px;
@@ -369,10 +408,20 @@
   color: var(--cm-text);
   overflow-wrap: anywhere;
 }
-.od-note[data-tone='warning'] > svg {
-  color: var(--cm-warning);
+.od-note[data-tone='warning'] {
+  --hue: var(--cm-warning);
 }
-.od-note[data-tone='danger'] > svg,
+.od-note[data-tone='danger'] {
+  --hue: var(--cm-danger);
+}
+/* Observação escrita, fiado, a receber e cancelamento: fundo e contorno no tom, para saltar aos olhos. */
+.od-note:is([data-hue], [data-tone]) {
+  border-color: color-mix(in srgb, var(--hue) 30%, var(--cm-border));
+  background: color-mix(in srgb, var(--hue) 8%, var(--cm-surface));
+}
+.od-note:is([data-hue], [data-tone]) > svg {
+  color: var(--hue);
+}
 .od-note[data-tone='danger'] strong {
   color: var(--cm-danger);
 }
@@ -393,11 +442,12 @@
 }
 .od-pill {
   padding: 1px 8px;
-  border: 1px solid var(--cm-border);
+  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 28%, var(--cm-border));
   border-radius: var(--cm-radius-full);
+  background: color-mix(in srgb, var(--cm-brand-500) 9%, var(--cm-surface));
   font-size: var(--cm-text-2xs);
   font-weight: 600;
-  color: var(--cm-text-muted);
+  color: var(--cm-brand-700);
 }
 .od-items,
 .od-rows,
@@ -451,8 +501,8 @@
 .od-item__status {
   padding: 1px 6px;
   border-radius: var(--cm-radius-xs);
-  background: var(--cm-surface-muted);
-  color: var(--cm-text-muted);
+  background: color-mix(in srgb, var(--hue, var(--cm-text-muted)) 13%, var(--cm-surface));
+  color: var(--hue, var(--cm-text-muted));
   font-size: var(--cm-text-2xs);
   font-weight: 600;
   white-space: nowrap;
@@ -528,6 +578,9 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.od-rows__paid {
+  color: var(--cm-success);
+}
 .od-empty {
   margin: 0;
   font-size: var(--cm-text-xs);
@@ -561,6 +614,13 @@
 .od-sum strong {
   color: var(--cm-text);
 }
+.od-sum .od-sum__good {
+  color: var(--cm-success);
+}
+.od-sum .od-sum__due,
+.od-sum .od-sum__due strong {
+  color: var(--cm-danger);
+}
 .od-sum__total {
   padding-top: 6px;
   border-top: 1px solid var(--cm-border);
@@ -584,7 +644,13 @@
   white-space: nowrap;
 }
 .od-bar > .od-bar__cancel {
+  border-color: color-mix(in srgb, var(--cm-danger) 35%, var(--cm-btn-line));
+  background: color-mix(in srgb, var(--cm-danger) 7%, var(--cm-surface));
   color: var(--cm-danger);
+}
+.od-bar > .od-bar__cancel:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--cm-danger) 55%, var(--cm-btn-line));
+  background: color-mix(in srgb, var(--cm-danger) 12%, var(--cm-surface));
 }
 .od-fact__link {
   color: var(--cm-brand-700, var(--cm-brand-600));
@@ -600,8 +666,9 @@ button.od-fact__link {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-/* Ações de apoio (imprimir, desconto, fiado): links discretos numa linha, sem menu escondido. */
-/* Ações de apoio do pedido: botões pequenos de contorno fino, ícone + texto, quebrando a linha. */
+/* Ações de apoio do pedido (imprimir, editar, desconto, fiado, cozinha): botões de contorno fino,
+   cada um num tom suave próprio (data-hue) para achar de relance, ícone na cor e texto normal.
+   Cada linha estica até a borda, sem sobra torta no fim. */
 .od-tools {
   display: flex;
   flex-wrap: wrap;
@@ -610,13 +677,15 @@ button.od-fact__link {
 .od-tools > button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
   gap: 8px;
   min-width: 0;
-  height: 34px;
-  padding: 0 10px;
-  border: 1px solid var(--cm-border);
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--hue, var(--cm-text-muted)) 26%, var(--cm-border));
   border-radius: var(--cm-radius-md);
-  background: var(--cm-surface);
+  background: color-mix(in srgb, var(--hue, var(--cm-text-muted)) 7%, var(--cm-surface));
   color: var(--cm-text);
   font: inherit;
   font-size: var(--cm-text-sm);
@@ -630,15 +699,15 @@ button.od-fact__link {
 }
 .od-tools > button > svg {
   flex: none;
-  color: var(--cm-text-muted);
+  color: var(--hue, var(--cm-text-muted));
 }
 .od-tools > button > span {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.od-tools > button:hover {
-  background: var(--cm-surface-muted);
-  border-color: var(--cm-border-strong);
+.od-tools > button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--hue, var(--cm-text-muted)) 13%, var(--cm-surface));
+  border-color: color-mix(in srgb, var(--hue, var(--cm-text-muted)) 45%, var(--cm-border));
 }
 .od-tools > button:focus-visible {
   outline: 2px solid var(--cm-focus);
@@ -660,6 +729,7 @@ button.od-fact__link {
     height: auto;
     min-height: 44px;
     padding: 6px 10px;
+    justify-content: flex-start;
     white-space: normal;
     text-align: left;
     line-height: 1.25;
@@ -722,9 +792,9 @@ button.od-fact__link {
   width: 36px;
   height: 36px;
   border-radius: var(--cm-radius-md);
-  background: var(--cm-surface-muted);
-  border: 1px solid var(--cm-border);
-  color: var(--cm-text-muted);
+  background: color-mix(in srgb, var(--hue, var(--cm-text-muted)) 13%, var(--cm-surface));
+  border: 1px solid color-mix(in srgb, var(--hue, var(--cm-text-muted)) 28%, var(--cm-border));
+  color: var(--hue, var(--cm-text-muted));
 }
 .odh__text {
   display: grid;
@@ -750,6 +820,11 @@ button.od-fact__link {
   font-size: var(--cm-text-2xs);
   font-weight: 600;
   white-space: nowrap;
+}
+.odh__chip--main {
+  border-color: color-mix(in srgb, var(--hue, var(--cm-text-muted)) 30%, var(--cm-border));
+  background: color-mix(in srgb, var(--hue, var(--cm-text-muted)) 12%, var(--cm-surface));
+  color: var(--hue, var(--cm-text-muted));
 }
 @media (max-width: 640px) {
   .od-facts {

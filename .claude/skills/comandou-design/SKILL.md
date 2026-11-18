@@ -89,10 +89,29 @@ exceções, só no site:
 abre o seletor de campo no jeito do MAX que o David mostrou (0.169): busca "Procurar o campo pelo
 título", grupo **Mais usados** (borda e contador laranja) e **Demais campos**, em grade de 2–3
 colunas (uma no celular, em folha), cada campo com o tipo (`fieldKind`: data/opções) e o alfinete
-que fixa ou tira dos mais usados. Mais usados = fixados pela pessoa, `pinned` da tela ou usados 3
-vezes (`cm-lv-campos:<lista>` no navegador). Tabela que ordena pelo cabeçalho (Pedidos) passa
+que fixa ou tira **da barra**. Desde a 0.170 (pedido do David: "o campo escolhido tem que ficar na
+tela") a barra é dinâmica e salva por lista no navegador (`cm-lv-campos:<lista>`, estado em
+`useListView`: `prefs`, `addField`, `removeField`, `pinField`): escolher no "+ Filtro" põe o campo
+na barra e ele fica lá ao trocar de aba, limpar os filtros e recarregar; sai pelo alfinete ou pelo
+"Tirar da barra" no rodapé da caixa do filtro. Ordem (`barKeys`): fixos da tela (`pinned`, que a
+pessoa também pode tirar), os escolhidos na ordem da escolha e, no fim, campo fora da barra com
+filtro vindo de uma aba; todos antes do traço e do "+ Filtro". Mais usados = os da barra e os
+usados 3 vezes (menos os que a pessoa tirou). Tabela que ordena pelo cabeçalho (Pedidos) passa
 `sortInHeader` e some o "Ordenar por" ao lado da busca (pedido do David: nada de maior/menor e
 Data/Número ali).
+
+## Detalhe do pedido (gaveta da direita)
+
+Exceção pedida pelo David na 0.170: a gaveta do pedido (`OrderDetailModal.tsx`, estilos em
+`app/ops.css`) tem **cores suaves** para achar tudo de relance. Tons de apoio `--cm-tint-*`
+(azul, violeta, verde-água, verde, âmbar, rosa, ardósia; claro e escuro em `tokens.css`) ligados
+por `data-hue` → `--hue`, sempre fracos: ícone ou texto pequeno na cor, fundo `color-mix` de 7–13%
+e contorno de 24–30%; texto principal na cor normal. Topo: ícone e etiqueta do tipo do pedido no
+tom do canal (`CHANNEL_HUE`). Dados: cada ícone redondo num tom (status e pagamento seguem os
+selos). Item: situação pendente/em preparo/pronto com cor. Observação escrita em âmbar. Rodapé:
+desconto e pago em verde, falta pagar em vermelho; Cancelar/Recusar em vermelho suave; as ações de
+apoio (`od-tools`) com um tom cada e esticando até a borda. Fora dessa gaveta, o resto do sistema
+segue neutro; não copie os tons para outras telas sem pedido.
 
 ## Super Admin › Cobrança (calendário)
 
