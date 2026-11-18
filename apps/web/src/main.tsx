@@ -5,6 +5,7 @@ import {
   applyBranding,
   applyTheme,
   cachedBranding,
+  installDecimalEntry,
   installPullToRefresh,
   trackViewport,
 } from './design-system';
@@ -31,6 +32,8 @@ void reloadIfStale();
 trackViewport();
 // App instalado: puxar no topo recarrega; no fim, o conteúdo estica e volta.
 installPullToRefresh();
+// Campos de valor ("0,00"): digitar começa antes da vírgula; a vírgula pula para os centavos.
+installDecimalEntry();
 // Maquininha (Smart POS): botões maiores para o dedo, antes do primeiro desenho.
 applyPosMode();
 

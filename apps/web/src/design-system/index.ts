@@ -10,6 +10,7 @@ export * from './theme';
 export * from './app-frame';
 export * from './pickers';
 export * from './viewport';
+export * from './decimal-entry';
 export * from './brand';
 export * from './panda-live';
 export * from './liquid';

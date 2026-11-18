@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.150.5',
+    date: '2026-11-18',
+    title: 'Campos de valor começam antes da vírgula',
+    summary:
+      'Nos campos de valor que já vêm com 0,00 (Implantação, Mensalidade, preços, frete, desconto e os demais), o número digitado ia para depois do último zero. Agora, ao entrar no campo, o cursor fica antes da vírgula: digitar 3 dá 3,00. Para os centavos, é só digitar a vírgula.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Campos de valor: ao entrar, a parte antes da vírgula já vem selecionada, então digitar 3 em 0,00 dá 3,00 (antes ficava 0,003). Vale no painel do restaurante e no Super Admin.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Digitar a vírgula (ou o ponto) no meio do valor pula para os centavos, já selecionados: 3, vírgula, 50 dá 3,50.',
+      },
+    ],
+  },
+  {
     version: '0.150.4',
     date: '2026-11-18',
     title: 'Menu lateral mais fácil de ler',
