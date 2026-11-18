@@ -147,6 +147,8 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
 
   // Financeiro: conta a pagar e baixa
   await nav(page, 'Financeiro');
+  // O Financeiro abre na Visão geral (gráficos); as contas ficam na aba Contas.
+  await page.getByRole('tab', { name: 'Contas', exact: true }).click();
   await page.getByRole('button', { name: 'Novo lançamento' }).click();
   dialog = page.getByRole('dialog');
   await dialog.getByLabel('Descrição').fill(`Fornecedor ${tag}`);

@@ -13,6 +13,7 @@ import { Alert, Button, Card, Spinner } from '../../design-system';
 import { fmtDate, Tabs } from '../../features/forms';
 import { api } from '../../lib/api';
 import { brl } from '../../lib/money';
+import { Waterfall, type WaterStep } from './charts';
 import type { DreResponse } from './types';
 
 const fmtPct = (v: number | null) => (v === null ? '—' : `${String(v).replace('.', ',')}%`);
@@ -117,6 +118,14 @@ export function DreTab({
         !error && <Spinner />
       ) : (
         <>
+          {waterfall(data) && (
+            <Card title="Do faturamento ao lucro">
+              <Waterfall
+                steps={waterfall(data)!}
+                label="Cascata do DRE: receita líquida, custos e lucro"
+              />
+            </Card>
+          )}
           {data.dre.indicators.length > 0 && (
             <div className="fin-ind">
               {data.dre.indicators.map((i) => (
@@ -230,4 +239,21 @@ export function DreTab({
       )}
     </>
   );
+}
+
+/** Degraus da cascata: receita líquida, cada grupo de custo e o lucro (some o que está zerado). */
+function waterfall(data: DreResponse): WaterStep[] | null {
+  const v = (id: string) => toCents(data.dre.lines.find((l) => l.id === id)?.value ?? '0');
+  const net = v('net');
+  if (net <= 0) return null;
+  const steps: WaterStep[] = [
+    { key: 'net', label: 'Receita líquida', value: net, total: true },
+    { key: 'cmv', label: 'CMV', value: v('cmv') },
+    { key: 'variable', label: 'Variáveis', value: v('variable') },
+    { key: 'fixed', label: 'Fixas', value: v('fixed') },
+    { key: 'other', label: 'Financeiro', value: v('other') },
+    { key: 'net_profit', label: 'Lucro', value: v('net_profit'), total: true },
+  ];
+  // Degrau menor que 0,5% da receita (centavos de sobra de caixa, por exemplo) só polui.
+  return steps.filter((s) => s.total || Math.abs(s.value) >= net * 0.005);
 }

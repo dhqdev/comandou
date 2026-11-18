@@ -20,6 +20,7 @@ import {
   Card,
   EmptyState,
   Modal,
+  Segmented,
   Spinner,
   TextField,
   useToast,
@@ -48,8 +49,20 @@ import type {
   Reconciliation,
 } from '../lib/types';
 import { BankTab } from './finance/BankTab';
-import { ClosingsTab, Stat } from './finance/ClosingsTab';
+import { ClosingsTab, SignedBrl } from './finance/ClosingsTab';
+import {
+  avgDailySales,
+  cumulative,
+  Delta,
+  FlowChart,
+  flowPoints,
+  KpiStrip,
+  Legend,
+  Progress,
+} from './finance/charts';
 import { DreTab } from './finance/DreTab';
+import { change, money } from './finance/insights';
+import { OverviewTab } from './finance/OverviewTab';
 import { TermsModal } from './finance/TermsModal';
 import './finance/finance.css';
 
@@ -60,17 +73,17 @@ const SETTLE_METHODS: [string, string][] = [
 ];
 const methodLabel = (m: string) => SETTLE_METHODS.find(([k]) => k === m)?.[1] ?? m;
 
-const TABS = ['entries', 'closings', 'reconcile', 'flow', 'dre'] as const;
+const TABS = ['overview', 'entries', 'closings', 'reconcile', 'flow', 'dre'] as const;
 type FinanceTab = (typeof TABS)[number];
 
 /**
- * Financeiro: contas a pagar e a receber, fechamentos de caixa (o dia vai sozinho para o
+ * Financeiro: visão geral com gráficos e leituras do mês, contas a pagar e a receber, fechamentos de caixa (o dia vai sozinho para o
  * financeiro ao fechar o caixa), conciliação bancária com o extrato, fluxo de caixa e DRE.
  * O mês financeiro começa no dia que o gerente escolhe (ex.: dia 5, quando o dinheiro entra):
  * os totais do mês, a aba "Do mês" das contas, os fechamentos, o fluxo e o DRE seguem esse período.
  */
 export function FinancePage() {
-  const [tab, setTab] = useState<FinanceTab>('entries');
+  const [tab, setTab] = useState<FinanceTab>('overview');
   useLinkParam('aba', (v) => {
     if ((TABS as readonly string[]).includes(v)) setTab(v as FinanceTab);
   });
@@ -100,8 +113,8 @@ export function FinancePage() {
       <div>
         <h1 className="page-title">Financeiro</h1>
         <p className="page-sub">
-          Contas, fechamentos de caixa, conciliação com o banco, fluxo de caixa e o resultado do mês
-          (DRE).
+          Como o dinheiro do restaurante entra e sai: gráficos do mês, contas, fechamentos de caixa,
+          conciliação com o banco, fluxo de caixa e o resultado (DRE).
         </p>
       </div>
       {settings && period && (
@@ -118,6 +131,7 @@ export function FinancePage() {
         value={tab}
         onChange={setTab}
         items={[
+          ['overview', 'Visão geral'],
           ['entries', 'Contas'],
           ['closings', 'Fechamentos'],
           ['reconcile', 'Conciliação'],
@@ -125,14 +139,24 @@ export function FinancePage() {
           ['dre', 'DRE'],
         ]}
       />
-      {tab === 'entries' ? (
+      {tab === 'overview' ? (
+        <OverviewTab
+          period={period}
+          previous={previous}
+          today={settings?.today ?? todayIso()}
+          onTab={(t) => {
+            setTab(t);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
+      ) : tab === 'entries' ? (
         <EntriesTab period={period} />
       ) : tab === 'closings' ? (
         <ClosingsTab period={period} onDailyCheck={setCheckDay} />
       ) : tab === 'reconcile' ? (
         <BankTab />
       ) : tab === 'flow' ? (
-        <FlowTab period={period} />
+        <FlowTab period={period} previous={previous} today={settings?.today ?? todayIso()} />
       ) : (
         <DreTab period={period} previous={previous} />
       )}
@@ -441,47 +465,7 @@ function EntriesTab({ period }: { period: FinanceMonth | null }) {
   return (
     <>
       {error && <Alert tone="danger">{error}</Alert>}
-      {summary && period && (
-        <Card title={`Mês de ${financeMonthName(period)} · ${financeMonthRange(period)}`}>
-          <div className="stat-grid">
-            <Stat label="Vendas recebidas" value={brl(summary.month.sales)} />
-            <Stat label="Contas recebidas" value={brl(summary.month.received)} />
-            <Stat label="Contas pagas" value={brl(summary.month.paid)} />
-            {toCents(summary.month.fees) > 0 && (
-              <Stat label="Taxas das maquininhas" value={brl(summary.month.fees)} />
-            )}
-            <Stat
-              label="Saldo do mês"
-              value={brl(summary.month.net)}
-              danger={toCents(summary.month.net) < 0}
-            />
-            <Stat label="Ainda a pagar no mês" value={brl(summary.month.payableLeft)} />
-            <Stat label="Ainda a receber no mês" value={brl(summary.month.receivableLeft)} />
-          </div>
-          {toCents(summary.month.refunds) > 0 && (
-            <p className="cm-hint">
-              Saldo já descontados {brl(summary.month.refunds)} de estornos.
-            </p>
-          )}
-        </Card>
-      )}
-      {summary && (
-        <div className="stat-grid">
-          <Stat label="A pagar (em aberto)" value={brl(summary.payableOpen)} />
-          <Stat
-            label="A pagar vencido"
-            value={brl(summary.payableOverdue)}
-            danger={toCents(summary.payableOverdue) > 0}
-          />
-          <Stat label="A pagar em 7 dias" value={brl(summary.payableNext7)} />
-          <Stat label="A receber (em aberto)" value={brl(summary.receivableOpen)} />
-          <Stat
-            label="A receber vencido"
-            value={brl(summary.receivableOverdue)}
-            danger={toCents(summary.receivableOverdue) > 0}
-          />
-        </div>
-      )}
+      {summary && <EntriesSummary summary={summary} />}
       <Card
         title="Contas"
         actions={
@@ -816,10 +800,75 @@ function CancelModal({
   );
 }
 
-function FlowTab({ period }: { period: FinanceMonth | null }) {
+/** Resumo das contas: o que está em aberto, o que vence logo e quanto das contas do mês já foi pago. */
+function EntriesSummary({ summary }: { summary: FinanceSummary }) {
+  const m = summary.month;
+  const due = toCents(m.payableDue);
+  const left = toCents(m.payableLeft);
+  const recDue = toCents(m.receivableDue);
+  const recLeft = toCents(m.receivableLeft);
+  const late = (v: string) =>
+    toCents(v) > 0 ? <span className="fin-neg">{brl(v)} vencido</span> : 'nada vencido';
+  return (
+    <KpiStrip
+      items={[
+        {
+          key: 'payable',
+          label: 'A pagar em aberto',
+          value: brl(summary.payableOpen),
+          sub: late(summary.payableOverdue),
+        },
+        {
+          key: 'next7',
+          label: 'Vence nos próximos 7 dias',
+          value: brl(summary.payableNext7),
+          sub:
+            toCents(summary.receivableNext7) > 0
+              ? `e ${brl(summary.receivableNext7)} a receber`
+              : 'contas a pagar',
+        },
+        {
+          key: 'receivable',
+          label: 'A receber em aberto',
+          value: brl(summary.receivableOpen),
+          sub: late(summary.receivableOverdue),
+        },
+        {
+          key: 'month',
+          label: 'Contas do mês pagas',
+          value: due > 0 ? `${Math.round(((due - left) / due) * 100)}%` : '—',
+          sub: (
+            <span className="fin-kpi__stack">
+              <Progress value={due - left} max={due} label="Contas do mês já pagas" />
+              <span>
+                {due > 0
+                  ? `${brl(fromCents(due - left))} de ${brl(m.payableDue)}`
+                  : 'nenhuma conta no mês'}
+                {recDue > 0 &&
+                  ` · recebido ${brl(fromCents(recDue - recLeft))} de ${brl(m.receivableDue)}`}
+              </span>
+            </span>
+          ),
+        },
+      ]}
+    />
+  );
+}
+
+function FlowTab({
+  period,
+  previous,
+  today,
+}: {
+  period: FinanceMonth | null;
+  previous: FinanceMonth | null;
+  today: string;
+}) {
   // Começa no mês financeiro escolhido em cima; as datas ainda podem ser trocadas à mão.
   const [from, setFrom] = useState(period?.from ?? todayIso(-6));
   const [to, setTo] = useState(period?.to ?? todayIso(7));
+  const [mode, setMode] = useState<'balance' | 'daily'>('balance');
+  const [hideEmpty, setHideEmpty] = useState(true);
   useEffect(() => {
     if (!period) return;
     setFrom(period.from);
@@ -829,7 +878,10 @@ function FlowTab({ period }: { period: FinanceMonth | null }) {
     days: CashFlowDay[];
     totals: Omit<CashFlowDay, 'day'>;
   } | null>(null);
+  const [prev, setPrev] = useState<CashFlowDay[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // O mês anterior só entra no gráfico quando o período é o mês financeiro inteiro.
+  const wholeMonth = Boolean(period && previous && from === period.from && to === period.to);
   useEffect(() => {
     if (!from || !to) return;
     api<typeof data>(`/finance/cash-flow?from=${from}&to=${to}`)
@@ -839,72 +891,215 @@ function FlowTab({ period }: { period: FinanceMonth | null }) {
       })
       .catch((e: Error) => setError(e.message));
   }, [from, to]);
+  useEffect(() => {
+    if (!wholeMonth || !previous) return setPrev(null);
+    api<{ days: CashFlowDay[] }>(`/finance/cash-flow?from=${previous.from}&to=${previous.to}`)
+      .then((d) => setPrev(d.days))
+      .catch(() => setPrev(null));
+  }, [wholeMonth, previous]);
+
+  const t = data?.totals;
+  const inflow = t ? toCents(t.sales) + toCents(t.received) : 0;
+  const outflow = t ? toCents(t.refunds) + toCents(t.fees) + toCents(t.paid) : 0;
+  const prevName = previous ? financeMonthName(previous).split(' de ')[0]! : '';
+  // Mês correndo: compara com os mesmos dias do mês anterior, não com ele inteiro.
+  const elapsed = data ? data.days.filter((d) => d.day <= today).length : 0;
+  const sameDays = Boolean(data && elapsed < data.days.length);
+  const prevCut = prev ? (sameDays ? prev.slice(0, elapsed) : prev) : null;
+  const prevIn = prevCut?.reduce((s, d) => s + toCents(d.sales) + toCents(d.received), 0) ?? 0;
+  const prevOut =
+    prevCut?.reduce((s, d) => s + toCents(d.refunds) + toCents(d.fees) + toCents(d.paid), 0) ?? 0;
+  const vsLabel = sameDays ? `vs mesmos dias de ${prevName}` : `vs ${prevName}`;
+  const perDay = data ? avgDailySales(data.days, today) : 0;
+  const cum = data ? cumulative(flowPoints(data.days, today), perDay) : null;
+  const running = Boolean(data && data.days.some((d) => d.day > today));
+  const rows = data
+    ? hideEmpty
+      ? data.days.filter(
+          (d) =>
+            toCents(d.sales) ||
+            toCents(d.received) ||
+            toCents(d.paid) ||
+            toCents(d.fees) ||
+            toCents(d.refunds) ||
+            toCents(d.expectedIn) ||
+            toCents(d.expectedOut),
+        )
+      : data.days
+    : [];
+
   return (
-    <Card title="Fluxo de caixa" bodyless>
-      <div className="cm-card__body filters">
-        <TextField label="De" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-        <TextField label="Até" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-      </div>
-      {error && (
-        <div className="cm-card__body">
-          <Alert tone="danger">{error}</Alert>
+    <>
+      <div className="fin-toolbar">
+        <div className="filters">
+          <TextField
+            label="De"
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+          />
+          <TextField label="Até" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </div>
+        <Segmented
+          label="Ver o gráfico como"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: 'balance', label: 'Saldo acumulado' },
+            { value: 'daily', label: 'Entradas e saídas' },
+          ]}
+        />
+      </div>
+      {error && <Alert tone="danger">{error}</Alert>}
+      {data && t && (
+        <>
+          <KpiStrip
+            items={[
+              {
+                key: 'in',
+                label: 'Entradas',
+                value: money(inflow),
+                sub: wholeMonth && prev && (
+                  <Delta value={change(inflow, prevIn)} against={vsLabel} />
+                ),
+              },
+              {
+                key: 'out',
+                label: 'Saídas',
+                value: money(outflow),
+                sub: wholeMonth && prev && (
+                  <Delta value={change(outflow, prevOut)} against={vsLabel} invert />
+                ),
+              },
+              {
+                key: 'net',
+                label: 'Saldo do período',
+                value: brl(t.net),
+                danger: toCents(t.net) < 0,
+                sub: `${brl(t.fees)} em taxas · ${brl(t.refunds)} em estornos`,
+              },
+              {
+                key: 'forecast',
+                label: running ? 'Previsão no fim do período' : 'Ainda em aberto',
+                value: running && cum ? money(cum.end) : `+${brl(t.expectedIn)}`,
+                danger: running && cum ? cum.end < 0 : false,
+                sub: running
+                  ? `+${brl(t.expectedIn)} a receber · −${brl(t.expectedOut)} a pagar`
+                  : `e −${brl(t.expectedOut)} a pagar`,
+              },
+            ]}
+          />
+          <Card
+            title={mode === 'balance' ? 'Saldo acumulado' : 'Entradas e saídas por dia'}
+            actions={
+              <Legend
+                items={
+                  mode === 'balance'
+                    ? [
+                        { swatch: 'cur', label: 'Realizado' },
+                        ...(running ? [{ swatch: 'proj', label: 'Previsão' }] : []),
+                        ...(prev ? [{ swatch: 'prev', label: prevName }] : []),
+                      ]
+                    : [
+                        { swatch: 'in', label: 'Entrou' },
+                        { swatch: 'out', label: 'Saiu' },
+                        ...(running ? [{ swatch: 'in-soft', label: 'Previsto' }] : []),
+                      ]
+                }
+              />
+            }
+          >
+            <FlowChart
+              days={data.days}
+              prev={prev}
+              today={today}
+              mode={mode}
+              salesPerDay={perDay}
+              height={260}
+            />
+            {running && mode === 'balance' && (
+              <p className="cm-hint" style={{ margin: 'var(--cm-space-2) 0 0' }}>
+                A previsão soma as contas a vencer de cada dia e a venda líquida média de{' '}
+                {money(perDay)} por dia (média dos dias que já passaram).
+              </p>
+            )}
+          </Card>
+        </>
       )}
-      {data && (
-        <div style={{ overflowX: 'auto' }}>
-          <table className="cm-table">
-            <thead>
-              <tr>
-                <th>Dia</th>
-                <th className="cm-num">Vendas recebidas</th>
-                <th className="cm-num">Contas recebidas</th>
-                <th className="cm-num">Estornos</th>
-                <th className="cm-num">Taxas</th>
-                <th className="cm-num">Contas pagas</th>
-                <th className="cm-num">Saldo do dia</th>
-                <th className="cm-num">Previsto (+/−)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.days.map((d) => (
-                <tr key={d.day}>
-                  <td>{fmtDate(d.day)}</td>
-                  <td className="cm-num">{brl(d.sales)}</td>
-                  <td className="cm-num">{brl(d.received)}</td>
-                  <td className="cm-num">{brl(d.refunds)}</td>
-                  <td className="cm-num">{brl(d.fees)}</td>
-                  <td className="cm-num">{brl(d.paid)}</td>
+      <Card
+        title="Dia a dia"
+        actions={
+          <label className="fin-check">
+            <input
+              type="checkbox"
+              checked={hideEmpty}
+              onChange={(e) => setHideEmpty(e.target.checked)}
+            />
+            Esconder dias sem movimento
+          </label>
+        }
+        bodyless
+      >
+        {data && t && (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="cm-table fin-flow">
+              <thead>
+                <tr>
+                  <th>Dia</th>
+                  <th className="cm-num">Vendas recebidas</th>
+                  <th className="cm-num">Contas recebidas</th>
+                  <th className="cm-num">Estornos</th>
+                  <th className="cm-num">Taxas</th>
+                  <th className="cm-num">Contas pagas</th>
+                  <th className="cm-num">Saldo do dia</th>
+                  <th className="cm-num">Previsto (+/−)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((d) => (
+                  <tr key={d.day} data-future={d.day > today || undefined}>
+                    <td>{fmtDate(d.day)}</td>
+                    <td className="cm-num">{brl(d.sales)}</td>
+                    <td className="cm-num">{brl(d.received)}</td>
+                    <td className="cm-num">{brl(d.refunds)}</td>
+                    <td className="cm-num">{brl(d.fees)}</td>
+                    <td className="cm-num">{brl(d.paid)}</td>
+                    <td className="cm-num">
+                      <strong>
+                        <SignedBrl value={d.net} />
+                      </strong>
+                    </td>
+                    <td className="cm-num cm-hint">
+                      {toCents(d.expectedIn) || toCents(d.expectedOut)
+                        ? `+${brl(d.expectedIn)} / −${brl(d.expectedOut)}`
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+                <tr data-total>
+                  <td>
+                    <strong>Total</strong>
+                  </td>
+                  <td className="cm-num">{brl(t.sales)}</td>
+                  <td className="cm-num">{brl(t.received)}</td>
+                  <td className="cm-num">{brl(t.refunds)}</td>
+                  <td className="cm-num">{brl(t.fees)}</td>
+                  <td className="cm-num">{brl(t.paid)}</td>
                   <td className="cm-num">
-                    <strong>{brl(d.net)}</strong>
+                    <strong>
+                      <SignedBrl value={t.net} />
+                    </strong>
                   </td>
                   <td className="cm-num cm-hint">
-                    {toCents(d.expectedIn) || toCents(d.expectedOut)
-                      ? `+${brl(d.expectedIn)} / −${brl(d.expectedOut)}`
-                      : '—'}
+                    +{brl(t.expectedIn)} / −{brl(t.expectedOut)}
                   </td>
                 </tr>
-              ))}
-              <tr>
-                <td>
-                  <strong>Total</strong>
-                </td>
-                <td className="cm-num">{brl(data.totals.sales)}</td>
-                <td className="cm-num">{brl(data.totals.received)}</td>
-                <td className="cm-num">{brl(data.totals.refunds)}</td>
-                <td className="cm-num">{brl(data.totals.fees)}</td>
-                <td className="cm-num">{brl(data.totals.paid)}</td>
-                <td className="cm-num">
-                  <strong>{brl(data.totals.net)}</strong>
-                </td>
-                <td className="cm-num cm-hint">
-                  +{brl(data.totals.expectedIn)} / −{brl(data.totals.expectedOut)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Card>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    </>
   );
 }
 
