@@ -1,7 +1,8 @@
 # ADR 0015 — Aplicativos de delivery: camada comum de canais
 
-- Status: **Proposta (Fase 0, 2026-11-18)**. Nada disto está no código ainda; cada fase do plano
-  ([pesquisa](../delivery-apps-pesquisa.md)) implementa uma parte e atualiza este registro.
+- Status: **Aceita (Fase 0 revista em 2026-11-18)**. Cada fase do plano
+  ([pesquisa](../delivery-apps-pesquisa.md)) implementa uma parte e atualiza este registro; a
+  seção "Andamento" no fim diz o que já está no código.
 - Contexto anterior: o iFood hoje só recebe o cardápio (`apps/api/src/integrations/ifood/`,
   migração 0049). Nenhum pedido de aplicativo entra no Comandou.
 
@@ -24,6 +25,11 @@ caixa de entrada, caixa de saída, polling com trava, ingestão, métricas e tel
 um adaptador (`channels/adapters/ifood`, `opendelivery`, `keeta`, `rappi`…) que implementa só o
 que o canal tem, pelo contrato abaixo. O que o canal não tem aparece na tela como "o <canal> não
 oferece isso", nunca escondido.
+
+O Open Delivery tem duas versões vivas: a V1 (Keeta, sobre a 1.5.0) e a V2, que exige o Discovery
+(`/.well-known/opendelivery`) e escopos no token. O adaptador `opendelivery` fala as duas: na V2 lê
+o Discovery do aplicativo ao ligar (e de tempos em tempos) e só chama o que o aplicativo declara; na
+V1 usa a configuração do canal. A diferença entre as versões fica num tradutor só.
 
 ```ts
 interface ChannelAdapter {
@@ -61,6 +67,23 @@ Um tipo só para todos os canais, validado por Zod na entrada do adaptador:
   bandeira, troco para, CPF/CNPJ na nota.
 - **Prazos do canal:** confirmar até, preparar a partir de, entregar até.
 - **Bruto:** o JSON original fica só na caixa de entrada (ver 3), nunca no log.
+
+### 2a. Webhooks recebidos
+
+Polling é o caminho principal (iFood, Open Delivery V1/V2 e Keeta oferecem). Quando um canal só
+oferece webhook (Rappi) ou o número de lojas pedir, a rota fica em `channels/webhooks`, `@Public()` +
+`@SkipCsrf()`, com limite por minuto, na lista revisada do `security-sweep.e2e.test.ts`, e:
+
+| Canal | Cabeçalho | Como confere |
+| --- | --- | --- |
+| iFood (só app centralizado) | `X-IFood-Signature` | HMAC-SHA256 do corpo cru (bytes) |
+| Open Delivery V1 | `X-App-Signature` | HMAC-SHA256 do corpo cru, hexadecimal minúsculo, chave = client secret |
+| Keeta | `X-App-Signature` (+ `X-App-Id`, `X-App-MerchantId`) | HMAC-SHA256 em Base64 sobre URL + parâmetros + corpo canonizado (RFC 8785). **Exceção:** o corpo é lido como JSON (com limite) só para canonizar; nada é gravado antes de conferir |
+| Rappi | `Rappi-Signature: t=…,sign=…` | HMAC-SHA256 de `t.corpo cru`; `t` velho (mais de 5 min) é recusado |
+
+Sempre em tempo constante (`timingSafeEqual`), antes de gravar qualquer coisa; assinatura errada
+ou ausente → 401 sem detalhe; evento repetido cai na chave única da caixa de entrada; resposta
+rápida (grava e responde, processa depois).
 
 ### 3. Caixa de entrada (por restaurante): `channel_inbox`
 
@@ -134,7 +157,11 @@ cria a base genérica, com `target` (o canal):
 
 NFC-e de pedido de aplicativo leva `indicador_intermediario = 1`, `cnpj_intermediario` (CNPJ do
 aplicativo, cadastrado por canal no Super Admin) e `id_intermediario` (identificação da loja no
-aplicativo, até 60 caracteres), campos da NT 2020.006 que a Focus já aceita. Forma de pagamento
+aplicativo, de 2 a 60 caracteres), campos da NT 2020.006 que a Focus já aceita. NFC-e só aceita
+`presenca_comprador` 1 ou 4 (rejeição 717): entrega = 4, retirada e no local = 1, os dois com o
+intermediador (regras 434/435/438 da NT 2020.006 v1.31). Venda própria passa a mandar
+`indicador_intermediario = 0` explícito. Toda NFC-e de entrega leva o endereço (Ajuste SINIEF
+9/2026, efeitos desde 03/08/2026). Forma de pagamento
 real (crédito, débito, pix, vale), nunca "99 outros". Uma nota viva por pedido, como hoje.
 Quando emitir (pago no app × na entrega) é configuração do restaurante, com padrão ao concluir.
 
@@ -158,19 +185,24 @@ abaixo de 98% (o limite do iFood é 95%).
 
 ## Tabela de estados
 
-| Comandou | iFood (evento) | Open Delivery / Keeta | Rappi |
-| --- | --- | --- | --- |
-| `awaiting` (em análise) | `PLACED` (PLC) | `CREATED` | `CREATED`, `READY`, `SENT` (6 min para aceitar) |
-| `new` (aceito) | `CONFIRMED` (CFM), depois do `POST /confirm` | `CONFIRMED`, depois do `POST /orders/{id}/confirm` | `TAKEN` (`take` com tempo de preparo) |
-| `in_production` | `startPreparation` (o iFood trata como opcional) | `PREPARING` (`POST /preparing`) | (sem estado próprio) |
-| `ready` | `READY_TO_PICKUP` (RTP) | `READY_FOR_PICKUP` | `READY_FOR_PICKUP` (automático por padrão) |
-| `dispatched` | `DISPATCHED` (DSP), só entrega própria | `DISPATCHED`, `PICKED_UP` (entregador pegou) | (entrega pelo Rappi) |
-| `completed` | `CONCLUDED` (CON), gerado pelo iFood até 2 h depois da entrega | `DELIVERED`, `CONCLUDED` | (sem evento próprio) |
-| `cancel_requested` | `CANCELLATION_REQUESTED` (CAR) depois do `requestCancellation` (202) | `CANCELLATION_REQUESTED` | — |
-| volta ao anterior | `CANCELLATION_REQUEST_FAILED` (CARF) | `CANCELLATION_REQUEST_DENIED` | — |
-| `cancelled` | `CANCELLED` (CAN) | `CANCELLED` | `REJECTED`, `TIMEOUT`, `ORDER_EVENT_CANCEL` |
-| negociação aberta (Fase 3) | `CONSUMER_CANCELLATION_REQUESTED` (CCR), `HANDSHAKE_DISPUTE` (HSD) | Keeta: `USER_REFUND_REQUEST` | — |
-| negociação resolvida | `HANDSHAKE_SETTLEMENT` | `REFUNDED`, `REFUND_FAILED` | — |
+| Comandou | iFood (evento) | Open Delivery V1 / Keeta | Open Delivery V2 | Rappi |
+| --- | --- | --- | --- | --- |
+| `awaiting` (em análise) | `PLACED` (PLC) | `CREATED` | `CREATED` | `CREATED`, `READY`, `SENT` (6 min para aceitar) |
+| `new` (aceito) | `CONFIRMED` (CFM), depois do `POST /confirm` | `CONFIRMED`, depois do `POST /orders/{id}/confirm` | `CONFIRMED` (`POST /confirm`, 202) | `TAKEN` (`take` com tempo de preparo) |
+| `in_production` | `startPreparation` (o iFood trata como opcional) | `PREPARING` (`POST /preparing`); Keeta: `RECOMMENDED_PREPARATION_START` é só aviso | `PREPARATION_REQUESTED` (aviso), `PREPARING` | (sem estado próprio) |
+| `ready` | `READY_TO_PICKUP` (RTP) | `READY_FOR_PICKUP` | `READY_FOR_PICKUP` (`POST /ready-for-pickup`) | `READY_FOR_PICKUP` (automático por padrão) |
+| `dispatched` | `DISPATCHED` (DSP), só entrega própria | `DISPATCHED`, `PICKED_UP`, Keeta `ORDER_COLLECTED` | `DISPATCHED`, `ORDER_COLLECTED` (sem `PICKED_UP`) | (entrega pelo Rappi) |
+| `completed` | `CONCLUDED` (CON), gerado pelo iFood até 2 h depois da entrega | `DELIVERED`, `CONCLUDED` | `DELIVERED`, `CONCLUDED` | (sem evento próprio) |
+| `cancel_requested` | `CANCELLATION_REQUESTED` (CAR) depois do `requestCancellation` (202) | `CANCELLATION_REQUESTED` | `CANCELLATION_REQUESTED` | — |
+| volta ao anterior | `CANCELLATION_REQUEST_FAILED` (CARF) | `CANCELLATION_REQUEST_DENIED` | `CANCELLATION_REQUEST_DENIED` | — |
+| `cancelled` | `CANCELLED` (CAN) | `CANCELLED` | `CANCELLATION_REQUEST_ACCEPTED`, `CANCELLED` | `REJECTED`, `TIMEOUT`, `ORDER_EVENT_CANCEL` |
+| item cancelado (Fase 3) | — | — | `ITEM_CANCELLED` | — |
+| negociação aberta (Fase 3) | `CONSUMER_CANCELLATION_REQUESTED` (CCR), `HANDSHAKE_DISPUTE` (HSD) | Keeta: `USER_REFUND_REQUEST` | — | — |
+| negociação resolvida | `HANDSHAKE_SETTLEMENT` | `REFUNDED`, `REFUND_FAILED` | — | — |
+| entregador do canal (Fase 5) | grupo DELIVERY (`ASSIGN_DRIVER`, `GOING_TO_ORIGIN`…) | `PICKUP_ONGOING`, `RIDER_ARRIVED_AT_STORE` | `PICKUP_ONGOING`, `RIDER_ARRIVED_AT_STORE`, `DELIVERY_ONGOING`, `ARRIVED_AT_CUSTOMER` | — |
+
+O iFood manda `code` (`PLC`) e `fullCode` (`PLACED`) em cada evento: o adaptador aceita os dois.
+Evento que nenhuma linha acima cobre é gravado e marcado `ignored` (ack normal).
 
 ## Modelo de dados (resumo; detalhe por fase no plano)
 
@@ -201,3 +233,21 @@ imprimir e mostrar o selo sem juntar tabelas. Em `payments`: forma `app`, `app_c
   tratar `app` (fora do esperado da gaveta).
 - `ifood_connections` e `ifood_merchant_claims` deixam de ser escritas depois da Fase 1 (dados
   copiados para as tabelas genéricas); a remoção fica para um ADR futuro.
+
+## Decisões de produto (padrões adotados)
+
+O dono pediu para seguir sem esperar OK entre as fases. Onde a pesquisa deixou uma pergunta de
+produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sentido:
+
+| Pergunta | Padrão |
+| --- | --- |
+| Aceite automático | Desligado. Pedido novo toca até alguém atender e mostra quanto falta para o prazo do canal. Ligado por loja, ele confirma sozinho dentro do prazo. |
+| NFC-e viva quando o canal cancela | Cancela a nota sozinho com a justificativa do canal, dentro do prazo da SEFAZ; fora do prazo, avisa na tela. |
+| NFC-e de pedido pago no app | Configurável; padrão: emitir ao concluir. Pago na entrega segue a regra de hoje. |
+| Horários da loja no canal | Só mostra (Fase 4); sincronizar fica como opção desligada. |
+| Responder avaliação pelo Comandou | Fase 8, com proposta antes. |
+
+## Andamento
+
+- **Fase 0** (pesquisa e desenho): feita e revista em 2026-11-18 (Open Delivery V2, assinatura da
+  Keeta e da Rappi, regras da NFC-e).

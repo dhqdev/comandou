@@ -10,6 +10,23 @@ de cada canal (links em cada seção). Onde a documentação se contradiz ou nã
 > HTTP 403), então as páginas foram lidas pelos trechos indexados de cada página oficial. Antes de
 > codar cada fase, os caminhos são conferidos de novo contra o app de teste (sandbox) do iFood.
 
+### Segunda leitura (18/11/2026, validação antes da Fase 1)
+
+A primeira versão foi conferida de novo contra o código e contra as páginas oficiais que abrem
+daqui (o portal do iFood continua fechado para leitura automática, inclusive pela rede deste
+ambiente). O que mudou:
+
+| Onde | Antes | Agora (com a fonte) |
+| --- | --- | --- |
+| Open Delivery | "versão atual 1.7.1" | Existe a **versão 2** do protocolo em [docs.opendelivery.com.br](https://docs.opendelivery.com.br/en/protocol/orders/): Discovery obrigatório (`/.well-known/opendelivery`), escopos `od.orders`/`od.menu`/…, credencial por aplicativo, `GET /merchants`, `ready-for-pickup`, sem `PICKED_UP` e sem `merchantUpdate`. A V1 continua ativa na transição. Ver seção 3. |
+| Keeta | assinatura "SHA-256 do corpo em Base64" | **HMAC-SHA256 em Base64** sobre URL + parâmetros + corpo **canonizado pela RFC 8785** ([Cálculo de assinatura](https://api-docs.mykeeta.com/apis/opendelivery/signature-calculation.md)); webhook responde **204**; três modos de token (`app_level_token`, `shop_level_authorization_code`, `client_credentials` legado). Ver seção 4. |
+| Rappi | assinatura "HMAC-SHA256 com timestamp" | Cabeçalho `Rappi-Signature: t=<ts>,sign=<hex>`, HMAC-SHA256 de `<ts>.<corpo cru>` com o segredo do webhook; eventos novos `PING` e `STORE_CONNECTIVITY` ([Webhooks](https://dev-portal.rappi.com/en/webhook-events/)). |
+| 99Food | "portal público com YAML e sandbox" | O endereço [developer-food.99app.com](https://developer-food.99app.com/pt-BR/openapi) existe, mas só abre com JavaScript: **não deu para confirmar** o conteúdo. Integradores relatam que a 99Food **não manda dados do cliente** e que agendamento vem desligado ([manual Teknisa](https://universidade.teknisa.com/wp-content/uploads/2026/02/RETAIL_INTEGRACAO_99FOOD_TEKNISA_INT99TEKV02_3.pdf)); 99Food e Keeta concluíram a adesão ao Open Delivery em 11/2025 ([ABC da Comunicação](https://www.abcdacomunicacao.com.br/99food-e-keeta-concluem-integracao-ao-open-delivery/)). |
+| iFood, eventos | — | O evento traz `code` (`PLC`) **e** `fullCode` (`PLACED`); integradores relatam comparar o campo errado e perder tudo em silêncio ([relato](https://dev.to/felipebufelli/integracao-com-o-ifood-o-bug-escondido-por-semanas-2ob7)). O adaptador aceita os dois. |
+| iFood, fila | — | Relatos de integradores: quem faz o polling primeiro leva o evento (e o ack tira da fila). Por isso **uma réplica só** por credencial (trava no banco central), e o aviso na tela de ligar a loja: "não deixe outro sistema recebendo pedidos desta loja pelo mesmo aplicativo". |
+| NFC-e | "intermediador 1 + CNPJ + id" | Correto, com dois detalhes: NFC-e só aceita `indPres` **1 ou 4** (rejeição 717); `indIntermed` é exigido com `indPres` 1, 2, 3, 4 ou 9 (rejeição 434, NT 2020.006 v1.31) e proibido fora disso (435). E o **Ajuste SINIEF 9/2026** (efeitos desde 03/08/2026) exige o endereço em toda NFC-e de operação não presencial. Ver seção 8. |
+| Código do Comandou | — | Conferido: `payments.cash_session_id` é `NOT NULL` (0003), `orders.source` só `staff`/`online` (0014), `finance_settlements` com `UNIQUE (tenant_id, cash_session_id, method)` e lista fixa de formas (0077), `fiscal-compose.ts` manda `presenca_comprador` 4/1 sem intermediador, a trava da loja fica em `ifood_merchant_claims` no banco central (`withCentral`) e `TenantDatabaseUnavailable` é o erro de banco em manutenção (é ele que segura o ack). |
+
 ---
 
 ## 1. O que existe hoje no Comandou
@@ -88,9 +105,12 @@ Portal: [developer.ifood.com.br](https://developer.ifood.com.br). Merchant API e
 **Duas URLs de polling (pergunta do plano).** As páginas do módulo **Events** usam
 `/events/v1.0/events:polling` e `/events/v1.0/events/acknowledgment`; a página de **Order**
 (endpoints e guia de implementação) ainda mostra `/order/v1.0/orders:polling` e
-`/order/v1.0/orders:acknowledgment` com corpo `{"acknowledgedEventIds": [...]}`. **Vale o módulo
-Events** (é o que as páginas de Events, Logística, rate limit e uso indevido citam). A confirmar no
-sandbox na Fase 2, com o caminho num só lugar do adaptador.
+`/order/v1.0/orders:acknowledgment` com corpo `{"acknowledgedEventIds": [...]}`. Integradores em
+2025 ainda usam `/order/v1.0/events:polling` e `/order/v1.0/events/acknowledgment`
+([relato](https://dev.to/felipebufelli/integracao-com-o-ifood-o-bug-escondido-por-semanas-2ob7)), e
+a API antiga era `pos-api.ifood.com.br/v3.0/events:polling` ([relato](https://guicommits.com/challenges-on-integrating-ifood/)).
+**Vale o módulo Events** (é o que as páginas de Events, Logística, rate limit e uso indevido citam).
+O caminho fica numa constante só do adaptador (`IFOOD_PATHS`) e é conferido no sandbox na Fase 2.
 
 ### 2.3 Pedido
 
@@ -241,9 +261,40 @@ indefinidamente.
 
 ## 3. Open Delivery (Abrasel)
 
-Versão atual **1.7.1** ([documentação](https://abrasel-nacional.github.io/opendelivery/)). Três
-papéis: **Ordering Application** (o aplicativo de pedidos), **Software Service** (o Comandou) e
-**Logistics Service**.
+Há **duas versões vivas**. A **V1** (última 1.7.1, [documentação antiga](https://abrasel-nacional.github.io/opendelivery/))
+é a que a Keeta usa (1.5.0 com ajustes). A **V2** está em [docs.opendelivery.com.br](https://docs.opendelivery.com.br/en/protocol/orders/)
+e "a V1 continua ativa durante a transição" ([Migração V1→V2](https://docs.opendelivery.com.br/en/guide/migration-v1-v2/)).
+Três papéis: **Ordering Application** (o aplicativo de pedidos), **Software Service** (o Comandou)
+e **Logistics Service**.
+
+**O que a V2 muda (e o adaptador precisa tratar):**
+
+- **Discovery obrigatório:** cada participante publica `GET /.well-known/opendelivery` (público,
+  HTTPS) com versões, modos de autenticação, capacidades, eventos e operações suportadas e se usa
+  webhook e/ou polling ([Discovery](https://docs.opendelivery.com.br/en/protocol/discovery/)). O
+  Comandou lê o do aplicativo ao ligar e de tempos em tempos, e **não chama o que não está lá** (a
+  tela mostra "o canal não oferece isso").
+- **Autenticação:** `POST /oauth/token` (form) com `client_credentials` e `scope` obrigatório
+  (`od.orders`, `od.menu`, `od.logistics`, `od.crm`, `od.all`); credencial **por aplicativo**
+  recomendada (por loja só na transição); lojas autorizadas em `GET /merchants`; authorization code
+  opcional ([Autenticação](https://docs.opendelivery.com.br/en/protocol/authentication/)).
+- **Pedido:** `GET /orders/{id}` é a fonte da verdade (evento é só aviso, pode vir repetido ou fora
+  de ordem: deduplicar por `eventId`); ações `confirm`, `preparing`, `ready-for-pickup`,
+  `dispatch`, `delivered`, `requestCancellation` e cancelamento de item
+  (`POST /orders/{orderId}/items/{itemId}/cancel`) respondem **202** e repetir a mesma ação também
+  dá 202. Eventos: `CREATED`, `CONFIRMED`, `PREPARATION_REQUESTED`, `PREPARING`,
+  `READY_FOR_PICKUP`, `DELIVERED`, `CONCLUDED`, logística (`PICKUP_ONGOING`,
+  `RIDER_ARRIVED_AT_STORE`, `DISPATCHED`, `ORDER_COLLECTED`, `DELIVERY_ONGOING`,
+  `ARRIVED_AT_CUSTOMER`), cancelamento (`CANCELLATION_REQUESTED`, `CANCELLATION_REQUEST_ACCEPTED`,
+  `CANCELLATION_REQUEST_DENIED`, `CANCELLED`) e `ITEM_CANCELLED`. **Saiu na V2:** `PICKED_UP`.
+- **Campos que mudaram de lugar:** `Order.type` → `fulfillment.orderType`; entrega/retirada/no local
+  em `fulfillment.*`; preços em `pricing`; `timing` agrupa `orderTiming`, `schedule` e
+  `preparationStartDateTime`; `items[*].observations` (antes `specialInstructions`).
+- **Cardápio:** acabou o `merchantUpdate` monolítico; agora CRUD por entidade e snapshot.
+
+Decisão: o adaptador Open Delivery fala **V1 e V2**, escolhendo pelo Discovery (V2) ou pela
+configuração do canal (V1, como a Keeta). O que muda entre as duas fica num tradutor só, para o
+resto do Comandou ver o mesmo pedido normalizado. A seguir, o que vale na **V1**:
 
 - O aplicativo hospeda: `GET /events:polling`, `POST /events/acknowledgment`,
   `POST /orders/{id}/confirm`, `/preparing`, `/readyForPickup`, `/pickedUp`, `/dispatch`,
@@ -270,9 +321,27 @@ papéis: **Ordering Application** (o aplicativo de pedidos), **Software Service*
   O modo "client credentials" passou a se chamar `grant_type=app_level_token` (quem já usava
   `client_credentials` continua) ([Changelog](https://api-docs.mykeeta.com/apis/opendelivery/signature-calculation/signature-tools)).
 - **Assinatura em toda chamada** (`X-App-Signature`) e no webhook `POST {baseURL}/v1/newEvent`, que
-  traz `X-App-Id`, `X-App-MerchantId` e `X-App-Signature` = SHA256 do corpo com o client secret,
-  **em Base64** ([newEvent](https://api-docs.mykeeta.com/apis/opendelivery/orderswebhook/newevent.md)).
-  Diferente do Open Delivery (hexadecimal): o adaptador trata as duas.
+  traz `X-App-Id`, `X-App-MerchantId` e `X-App-Signature`
+  ([newEvent](https://api-docs.mykeeta.com/apis/opendelivery/orderswebhook/newevent.md)). A
+  assinatura é **HMAC-SHA256 em Base64** sobre a URL (sem query), os parâmetros e o corpo
+  **canonizado pela RFC 8785 (JCS)**
+  ([Cálculo de assinatura](https://api-docs.mykeeta.com/apis/opendelivery/signature-calculation.md)).
+  Diferente do Open Delivery V1 (HMAC do corpo cru, hexadecimal): o adaptador trata as duas. A
+  ordem exata da junção (separadores, ordenação dos parâmetros) está nas páginas "Processo de
+  geração" e "Implementação de referência", que precisam ser lidas na Fase 10 contra a
+  [ferramenta de assinatura](https://api-docs.mykeeta.com/apis/opendelivery/signature-calculation/signature-tools)
+  da Keeta. **Exceção à regra "assinatura sobre o corpo cru":** na Keeta o corpo é lido como JSON
+  (com limite de tamanho) só para canonizar, e nada é gravado nem processado antes de a assinatura
+  conferir.
+- O webhook deve responder **204** (200 é aceito); 400/403/404/503 com `application/problem+json`.
+- Eventos da Keeta: `CREATED`, `CONFIRMED`, `DISPATCHED`, `READY_FOR_PICKUP`, `PICKUP_ONGOING`,
+  `PICKED_UP`, `DELIVERED`, `CONCLUDED`, `CANCELLATION_REQUESTED`, `CANCELLED`,
+  `USER_REFUND_REQUEST`, `REFUNDED`, `REFUND_FAILED`, `RIDER_ARRIVED_AT_STORE`, `ORDER_COLLECTED`,
+  `RECOMMENDED_PREPARATION_START`; `metadata` é um texto JSON (no `CANCELLED`, `reason` e `code`:
+  `INSUFFICIENT_DISHES`, `SUSPENSION_OF_BUSINESS`, `INSUFFICIENT_MANPOWER`, `OTHERS`).
+- Tokens: `app_level_token` (um para todas as lojas autorizadas), `shop_level_authorization_code`
+  (um por loja, renovado com `refresh_token`) e `client_credentials` (legado, igual ao primeiro)
+  ([Autenticação](https://api-docs.mykeeta.com/apis/opendelivery/development-guides)).
 - **Onboarding obrigatório** antes de qualquer evento: `PUT /v1/merchantOnboarding?merchantId=…`
   liga a loja Keeta ao id da loja no Comandou e registra o webhook
   ([Merchant](https://api-docs.mykeeta.com/apis/opendelivery/merchantendpoints)); autorização e
@@ -291,8 +360,14 @@ papéis: **Ordering Application** (o aplicativo de pedidos), **Software Service*
 
 ## 5. 99Food
 
-- **Agora tem portal público:** [Plataforma Aberta da 99Food](https://developer-food.99app.com/pt-BR/openapi),
-  com APIs e webhooks de autorização, pedidos, lojas e cardápio, arquivo YAML e sandbox.
+- **Portal:** [Plataforma Aberta da 99Food](https://developer-food.99app.com/pt-BR/openapi). Na
+  primeira leitura constava "APIs e webhooks de autorização, pedidos, lojas e cardápio, arquivo YAML
+  e sandbox"; na segunda, a página só abre com JavaScript e **não deu para confirmar**. Pedir o
+  acesso pelo próprio portal e baixar o YAML antes da Fase 11.
+- Relato de integrador (manual da Teknisa, 02/2026): a loja é identificada pelo id do
+  estabelecimento no portal da 99 (Estabelecimentos › Configurações), **a 99Food não manda dados do
+  cliente**, pedido agendado vem desligado (pedido por e-mail) e pausar é fechar a loja no portal
+  ([manual](https://universidade.teknisa.com/wp-content/uploads/2026/02/RETAIL_INTEGRACAO_99FOOD_TEKNISA_INT99TEKV02_3.pdf)).
 - Na vitrine do Open Delivery: padrão de Merchant "pronto para integrar", Logística "em
   desenvolvimento", eventos por webhook e polling
   ([Vitrine de aderentes](https://aderentes.opendelivery.com.br/companies/68f696345e89f79a1563008a)).
@@ -319,10 +394,15 @@ papéis: **Ordering Application** (o aplicativo de pedidos), **Software Service*
 - Estados: `CREATED`, `WEBHOOK`, `READY`, `SENT`, `TAKEN`, `REJECTED`, `READY_FOR_PICKUP` (automático
   depois do `TAKEN`, por padrão), `TIMEOUT`; **6 minutos** para aceitar
   ([Pedidos](https://dev-portal.rappi.com/pt/managing-user-orders/)).
-- Webhooks `NEW_ORDER`, `ORDER_EVENT_CANCEL`, `ORDER_OTHER_EVENT`, `MENU_APPROVED`,
-  `MENU_REJECTED`; assinatura `Rappi-Signature` (HMAC-SHA256 com timestamp), **só se o segredo for
-  configurado** ([Webhooks](https://dev-portal.rappi.com/en/webhook-events/),
-  [Configurar](https://dev-portal.rappi.com/en/api-reference/webhooks/)).
+- Webhooks `NEW_ORDER` (o pedido inteiro, igual ao `getOrders`), `ORDER_EVENT_CANCEL`,
+  `ORDER_OTHER_EVENT`, `MENU_APPROVED`, `MENU_REJECTED`, `PING` e `STORE_CONNECTIVITY`; assinatura
+  `Rappi-Signature: t=<timestamp>,sign=<assinatura>` = HMAC-SHA256 de `<timestamp>.<corpo cru>` com
+  o segredo do webhook (o exemplo é hexadecimal), **só se o segredo for configurado**: o Comandou
+  sempre configura e recusa sem assinatura
+  ([Webhooks](https://dev-portal.rappi.com/en/webhook-events/),
+  [Configurar](https://dev-portal.rappi.com/en/api-reference/webhooks/)). O token precisa de **uma
+  audiência só**, `{domínio do país}/api/v2/restaurants-integrations-public-api`
+  ([Rests API](https://dev-portal.rappi.com/en/rests-api/)).
 - API financeira com 13 endpoints (lojas, pagamento, cancelamentos, contrato)
   ([Financial](https://dev-portal.rappi.com/en/financial/)).
 
@@ -337,10 +417,24 @@ comercial com o aiqfome (Fase 13).
 
 - NT 2020.006 (Ajustes SINIEF 21 e 22/2020): `indIntermed` (0 sem intermediador, 1 em plataforma
   de terceiros), grupo `infIntermed` com `CNPJ` e `idCadIntTran` (identificação da loja no
-  aplicativo, até 60 caracteres). Obrigatório informar `indIntermed` quando `indPres` for 2, 3, 4 ou
-  9 (rejeição **434** sem ele)
-  ([Econet](https://blog.econeteditora.com.br/intermediador-da-operacao-marketplace/),
-  [Oobj 434](https://oobj.com.br/bc/?p=1289)).
+  aplicativo, de 2 a 60 caracteres). Pela v1.31 da NT, `indIntermed` é obrigatório com `indPres`
+  1, 2, 3, 4 ou 9 (rejeição **434**), `indIntermed = 1` é proibido fora dessa lista (435),
+  `infIntermed` é obrigatório com `indIntermed = 1` (438) e proibido sem ele (439); as regras valem
+  para o modelo 65 (NFC-e)
+  ([NT 2020.006 v1.31](https://inventti.com.br/wp-content/uploads/2022/09/NT2020.006-v1.31.pdf),
+  [Econet](https://blog.econeteditora.com.br/intermediador-da-operacao-marketplace/),
+  [rejeições 434/438](https://www.notaas.com.br/blog/post/rejeicao-434-438-nfe-nfce-intermediador-indintermed-infintermed-crt-2-cstat-591/)).
+- **NFC-e só aceita `indPres` 1 (presencial) ou 4 (entrega a domicílio)**: outro valor dá a
+  rejeição 717 ([Cigam 717](https://www.cigam.com.br/wiki/index.php/Como_Resolver_a_Rejei%C3%A7%C3%A3o_717_-_NFC-e_em_opera%C3%A7%C3%A3o_n%C3%A3o_presencial)).
+  Então: entrega de aplicativo = 4 + intermediador; retirada de aplicativo = 1 + intermediador
+  (permitido, porque 1 está na lista da regra 435) — a confirmar com a contabilidade.
+- Pagamento pelo intermediador: no grupo do cartão vai o CNPJ de quem pagou o vendedor
+  (`YA05`, pode ser o do aplicativo) e `tpIntegra` (1 integrado, 2 não integrado) (mesma NT,
+  seção 6.2).
+- **Ajuste SINIEF 9/2026** (efeitos desde 03/08/2026): toda NFC-e de operação **não presencial**
+  (aplicativo, site, WhatsApp) leva o endereço
+  ([Portal SPED](https://portalspedbrasil.com.br/forum/nfc-e-operacoes-nao-presenciais-ajuste-sinief-no-9-de-6-de-abril-de-2026/)).
+  Conferir na Fase 2 se o `recipientPayload` do Comandou manda o endereço em todo delivery.
 - Na Focus: `indicador_intermediario`, `cnpj_intermediario`, `id_intermediario`
   ([Focus NT 2020.006](https://focusnfe.com.br/notas-tecnicas/nfe/2020-006/)).
 - O Comandou manda `presenca_comprador = 4` no delivery e não manda o intermediador (a Focus usa 0
@@ -410,6 +504,13 @@ comercial com o aiqfome (Fase 13).
     Comandou; acompanhar as métricas na primeira semana.
 
 ## 12. Riscos e dúvidas
+
+**De acesso (preciso de você):**
+- A rede deste ambiente de trabalho bloqueia `developer.ifood.com.br` e `merchant-api.ifood.com.br`,
+  e o portal do iFood recusa leitores automáticos. Para eu ler as páginas inteiras (estrutura do
+  pedido, Plataforma de Negociação) e testar no sandbox, libere esses dois domínios em
+  Configurações do projeto › ambiente › Acesso à rede, ou me mande o PDF/print das páginas
+  "Order structure" e "Events". Até lá, tudo roda contra o iFood falso dos testes.
 
 **Técnicas (resolvo investigando):**
 - Caminho do polling/ack do iFood (Events × Order) e `POST` × `PUT` em `readyToPickup`/`dispatch`:
