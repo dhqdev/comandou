@@ -53,6 +53,19 @@ export const RELEASES: readonly Release[] = [
     ],
   },
   {
+    version: '0.172.1',
+    date: '2026-11-18',
+    title: 'Cartões das comandas do Salão inteiros de novo',
+    summary:
+      'No PDV, a aba Comandas do Salão mostrava os cartões cortados em cima, com o texto vazando e uma barra de rolagem sobrando. Agora cada cartão cabe inteiro, no computador e no celular.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Salão › Comandas: o cartão mostra "#número · Mesa" numa linha só e o valor com o tempo ou o nome do cliente na outra; o que não couber termina em reticências, sem empurrar o cartão para fora da linha nem criar barra de rolagem.',
+      },
+    ],
+  },
+  {
     version: '0.172.0',
     date: '2026-11-18',
     title: 'Instale o Comandou no computador e fim do aviso de atualizar que voltava sempre',

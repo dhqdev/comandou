@@ -722,8 +722,10 @@ export function PdvPage() {
                     aria-label={`Comanda ${t.number}`}
                     onClick={() => setTabId(t.id)}
                   >
+                    {/* Na aba Comandas tudo é comanda: só o número, para a mesa caber na mesma
+                        linha do cartão (o nome inteiro fica no aria-label). */}
                     <strong>
-                      Comanda {t.number}
+                      #{t.number}
                       {t.tableLabel && <small> · Mesa {t.tableLabel}</small>}
                     </strong>
                     <span className="pdv-table__info">
