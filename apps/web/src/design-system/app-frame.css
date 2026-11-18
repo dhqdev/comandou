@@ -1030,10 +1030,35 @@
   }
 }
 .cm-menu__card {
+  position: relative;
   padding: 20px;
   border: 1px solid var(--cm-border);
   border-radius: 26px;
   background: var(--cm-surface);
+}
+/* Cartão que abre a tela da conta: o link cobre o cartão todo e afunda ao tocar. */
+.cm-menu__card:has(.cm-menu__card-link) {
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.cm-menu__card:has(.cm-menu__card-link:active) {
+  transform: scale(0.98);
+  background: var(--cm-surface-muted);
+  transition-duration: 0.1s;
+}
+.cm-menu__card-link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+.cm-menu__card-link:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.cm-menu__card-chev {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--cm-text-subtle);
 }
 .cm-menu__who {
   display: flex;

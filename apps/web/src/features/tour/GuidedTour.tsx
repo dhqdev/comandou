@@ -114,7 +114,8 @@ const toRect = (el: HTMLElement | null, pad: number): Rect | null => {
   return { x, y, w: right - x, h: bottom - y };
 };
 
-/** Acha onde a tela fica no menu (primeiro nível, subitem ou tela interna de um subitem). */
+/** Acha onde a tela fica no menu (primeiro nível, subitem, tela de dentro de um item, como
+ * Conta › Ajustes, ou tela interna de um subitem). */
 export function locate(
   items: FrameItem[],
   path: string,
@@ -123,7 +124,7 @@ export function locate(
   if (top && !top.children?.some((c) => c.to === path))
     return { route: top.to ?? path, navKey: top.key, where: top.label };
   for (const g of items) {
-    for (const c of g.children ?? []) {
+    for (const c of [...(g.children ?? []), ...(g.pages ?? [])]) {
       const also = c.also ? (Array.isArray(c.also) ? c.also : [c.also]) : [];
       const hit =
         c.to === path ||

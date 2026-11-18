@@ -986,7 +986,7 @@ export const cashEnds: TourEnds = {
     targets: [{ css: '[data-tour-button]' }],
     text: (
       <>
-        Não tem terminal ainda? Crie em <b>Sistema › Ajustes › Terminais de caixa</b>. {REVIEW}
+        Não tem terminal ainda? Crie em <b>Conta › Ajustes › Terminais de caixa</b>. {REVIEW}
       </>
     ),
   },

@@ -227,7 +227,7 @@ export function CashPage() {
           <EmptyState
             icon={<Wallet size={20} />}
             title="Nenhum terminal de caixa"
-            description="Cadastre um terminal em Sistema › Ajustes › Terminais de caixa (ex.: Caixa 1) e volte aqui para abrir o caixa."
+            description="Cadastre um terminal em Conta › Ajustes › Terminais de caixa (ex.: Caixa 1) e volte aqui para abrir o caixa."
           />
         </Card>
       </>

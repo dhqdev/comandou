@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createApp } from '../src/bootstrap';
 import { ENV, type Env } from '../src/config/env';
 import { DatabaseService } from '../src/database/database.service';
@@ -343,8 +343,14 @@ describe('Canais: falhas', () => {
   it('queda no meio: o evento pego e não terminado volta sozinho', async () => {
     fake.orders.set('P3', sampleOrder('P3', STORE_A, { linkedProductId: fx.prodA }));
     fake.push({ id: 'p3-new', kind: 'order.created', storeId: STORE_A, orderId: 'P3' });
-    // Só o polling (grava e confirma), sem tratar.
-    await poller.tick();
+    // Só o polling (grava e confirma), sem tratar. Com Redis (CI), gravar o evento já põe o
+    // tratamento na fila e o worker trataria antes da "queda" simulada: segura o aviso aqui.
+    const kick = vi.spyOn(inbox, 'kick').mockImplementation(() => undefined);
+    try {
+      await poller.tick();
+    } finally {
+      kick.mockRestore();
+    }
     expect(fake.acked('p3-new')).toBe(true);
     // Simula a réplica que pegou o evento e caiu: reserva de 2 min, sem terminar.
     await ownerQuery(

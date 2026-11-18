@@ -28,6 +28,7 @@ export type StaticIcon =
   | 'plus'
   | 'theme'
   | 'password'
+  | 'account'
   | 'logout'
   | 'external';
 
@@ -272,7 +273,7 @@ const SCREENS: StaticEntry[] = [
     id: 's-plano',
     group: 'Telas',
     title: 'Assinatura',
-    hint: 'Plano, pagamento, contrato e uso do restaurante',
+    hint: 'Conta › Assinatura: plano, pagamento, contrato e uso do restaurante',
     words: 'plano mensalidade pagamento pix boleto cartão fatura limite contrato',
     icon: 'plan',
     to: '/plano',
@@ -292,11 +293,20 @@ const SCREENS: StaticEntry[] = [
     id: 's-ajustes',
     group: 'Telas',
     title: 'Ajustes',
-    hint: 'Mesas, setores e terminais de caixa',
+    hint: 'Conta › Ajustes: mesas, setores e terminais de caixa',
     words: 'configuracoes configurar preferencias',
     icon: 'settings',
     to: '/configuracoes',
     perms: ['settings:manage', 'orders:read'],
+  },
+  {
+    id: 's-conta',
+    group: 'Telas',
+    title: 'Conta',
+    hint: 'Assinatura, ajustes, ajuda, tema, instalar o app, senha e sair',
+    words: 'minha conta perfil usuario meus dados instalar app aplicativo celular pwa sair',
+    icon: 'account',
+    to: '/conta',
   },
   {
     id: 's-novidades',

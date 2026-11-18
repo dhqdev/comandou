@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   ChevronLeft,
+  ChevronRight,
   ChevronsUpDown,
   PanelLeftClose,
   PanelLeftOpen,
@@ -51,6 +52,8 @@ export interface FrameAccount {
   actions: { key: string; label: string; icon: ReactNode; onClick: () => void; danger?: boolean }[];
   /** Texto miúdo no pé da tela (ex.: versão do app). */
   footnote?: ReactNode;
+  /** Tela da conta: o cartão do topo da tela "Mais" vira link para ela. */
+  to?: string;
 }
 export interface FrameLink {
   to: string;
@@ -78,6 +81,9 @@ export interface FrameItem {
    * ícone no menu estreito e nas abas. Troca a bolinha. */
   count?: number;
   children?: FrameLink[];
+  /** Telas que moram dentro da tela do item (ex.: Assinatura e Ajustes, abertas pela Conta):
+   * acendem o item e dão o nome no topo, sem virar submenu. */
+  pages?: FrameLink[];
   /** Conteúdo livre do submenu (ex.: conta do usuário). */
   panel?: ReactNode;
   /** Ação simples (ex.: instalar). */
@@ -107,7 +113,12 @@ const alsoList = (also?: string | string[]) => (also ? (Array.isArray(also) ? al
 const alsoOn = (pathname: string, also?: string | string[]) =>
   alsoList(also).some((a) => isOn(pathname, a, true));
 function itemActive(pathname: string, it: FrameItem) {
-  if (it.to) return isOn(pathname, it.to, it.end) || alsoOn(pathname, it.also);
+  if (it.to)
+    return (
+      isOn(pathname, it.to, it.end) ||
+      alsoOn(pathname, it.also) ||
+      !!it.pages?.some((p) => linkOn(pathname, p))
+    );
   return !!it.children?.some((c) => linkOn(pathname, c));
 }
 function linkOn(pathname: string, l: FrameLink) {
@@ -647,7 +658,7 @@ function currentScreen(pathname: string, all: FrameItem[]) {
   for (const it of all) {
     if (it.to) consider(it.to, it.end, it.label, it.icon);
     if (it.to) for (const a of alsoList(it.also)) consider(a, true, it.label, it.icon);
-    for (const c of it.children ?? []) {
+    for (const c of [...(it.children ?? []), ...(it.pages ?? [])]) {
       consider(c.to, c.end, c.label, c.icon);
       for (const a of alsoList(c.also)) consider(a, true, c.label, c.icon);
     }
@@ -857,6 +868,14 @@ function FrameMenu({
       <h1 className="cm-sr-only">Mais</h1>
       {account && (
         <section className="cm-menu__card" style={{ '--i': i++ } as CSSProperties}>
+          {/* Com a tela da conta, o cartão inteiro abre a conta (alvo grande para o dedo). */}
+          {account.to && (
+            <NavLink
+              to={account.to}
+              className="cm-menu__card-link"
+              aria-label={`Abrir a conta de ${account.name}`}
+            />
+          )}
           <div className="cm-menu__who">
             <div className="cm-menu__avatar" aria-hidden>
               {account.initials}
@@ -865,6 +884,7 @@ function FrameMenu({
               <div className="cm-menu__name">{account.name}</div>
               {account.sub && <div className="cm-menu__sub">{account.sub}</div>}
             </div>
+            {account.to && <ChevronRight className="cm-menu__card-chev" size={22} aria-hidden />}
           </div>
           {(account.role || account.note) && (
             <div className="cm-menu__plan">

@@ -1,5 +1,6 @@
 import { ROLE_LABELS, type OrderStatus, type Role } from '@comandou/shared';
 import {
+  CircleUserRound,
   Bot,
   ArrowRight,
   BarChart3,
@@ -184,6 +185,7 @@ const STATIC_ICON: Record<StaticIcon, ReactNode> = {
   plus: <ListPlus />,
   theme: <Moon />,
   password: <KeyRound />,
+  account: <CircleUserRound />,
   logout: <LogOut />,
   external: <ExternalLink />,
 };

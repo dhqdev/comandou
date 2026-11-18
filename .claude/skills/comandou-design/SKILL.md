@@ -122,10 +122,23 @@ dia com o total curto e bolinhas, fundo `color-mix` de 9% na cor da situação (
 esquerda); cartões do dia ao lado (embaixo abaixo de 1100 px) e a janela "dados da cobrança" com
 linhas rótulo/valor.
 
+## Conta (restaurante)
+
+Tocar no nome no pé do menu abre a **tela Conta** (`pages/AccountPage.tsx`, `account.css`, prefixo
+`acc`), não um menuzinho (pedido do David na 0.175). Topo: cartão com avatar redondo
+(`--cm-brand-100`), nome, e-mail, papel · restaurante. Embaixo, grupos com título cinza semibold
+(Seu restaurante, Ajuda e novidades, Este aparelho, Segurança) e **blocos grandes** `acc-card`:
+ícone solto (sem quadradinho colorido), título, frase curta, seta; linha fina, afunda ao tocar,
+nada sobe no hover. Situação (ex.: assinatura) é bolinha + texto (`acc-card__status`). Duas colunas
+no computador (largura máx. 920 px) e no celular (bloco em pé, ícone em cima, frase em até 3
+linhas, sem seta). Sair é o botão largo vermelho de linha fina no fim. Bloco novo: entrada em
+`sections` com a mesma checagem de permissão do menu. No celular, o cartão do topo da tela Mais
+(`account.to`) abre a Conta e a Mais só guarda o Sair da conta.
+
 ## Agenda pessoal (restaurante)
 
-No menu se chama **Agenda pessoal** e fica sozinha no pé da barra; Novidades vai no menu do perfil
-(`account__action` com a marca `account__new` "novo"; o ponto laranja fica no avatar do perfil).
+No menu se chama **Agenda pessoal** e fica no pé da barra, acima do nome; Novidades vai na tela
+Conta (marca "novo" no bloco; o ponto laranja fica no avatar do perfil).
 
 `pages/agenda/` (`agenda.css`, prefixo `ag-`), no jeito do Google Agenda: painel de 252 px com
 Criar, o `Calendar` do Design System, as tags como filtros (quadradinho na cor da tag) e o cartão
@@ -144,7 +157,7 @@ fiado no PDV (o dono pediu para tirar). Tag Fiado laranja `#E8710A`.
 ## Reservas
 
 `pages/ReservationsPage.tsx` (`reservations.css`, prefixo `rv-`), no jeito da Agenda pessoal, mas
-o painel do lado tem **só Nova reserva e o minicalendário** (pedido do David na 0.173). Situação =
+o painel do lado tem **só Nova reserva e o minicalendário** (pedido do David na 0.175). Situação =
 tags-pílula acima da agenda (`rv-tag`: bolinha na cor da situação, contador, escolhida com fundo
 `color-mix` de 12% da cor); Reservas pelo cardápio é um botão `rv-store` na barra. Cartão que mudou
 por tempo real ganha o contorno `is-fresh` (pseudo-elemento, só opacity). Não volte a pôr resumo,

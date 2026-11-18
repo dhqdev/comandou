@@ -2,7 +2,6 @@ import { BillingBanner } from '../features/BillingBanner';
 import {
   BarChart3,
   Briefcase,
-  Compass,
   LifeBuoy,
   BookOpen,
   CalendarCheck,
@@ -15,10 +14,8 @@ import {
   Bot,
   ChefHat,
   ClipboardList,
-  Download,
   LayoutGrid,
   LogOut,
-  KeyRound,
   Layers,
   MessageCircle,
   FileText,
@@ -31,7 +28,6 @@ import {
   UserCog,
   Settings,
   SlidersHorizontal,
-  Sparkles,
   Smartphone,
   Store,
   Tags,
@@ -48,7 +44,6 @@ import {
   AppFrame,
   Badge,
   FrameAvatar,
-  FrameAccount,
   FrameItem,
   FrameLink,
   ThemeToggle,
@@ -82,6 +77,7 @@ import { useHasUnseenRelease } from '../lib/releases';
 import { ChangePasswordModal } from '../pages/TeamPage';
 import { useInstallApp } from './InstallApp';
 import { useAuth } from './auth';
+import type { AccountTools } from './account-tools';
 import { StoreBrand } from './StoreBrand';
 import { ROLE_HOME } from './role-home';
 import { ErrorBoundary, ErrorFallback } from '../lib/error-boundary';
@@ -251,19 +247,18 @@ const GROUPS: { key: string; label: string; icon: ReactNode; items: NavItem[] }[
         perms: ['settings:manage'],
       },
       { to: '/chamados', label: 'Chamados', icon: <LifeBuoy />, perms: ['plan:read'] },
-      {
-        to: '/plano',
-        label: 'Assinatura',
-        icon: <CreditCard />,
-        perms: ['plan:read'],
-      },
-      {
-        to: '/configuracoes',
-        label: 'Ajustes',
-        icon: <Settings />,
-        perms: ['settings:manage', 'orders:read'],
-      },
     ],
+  },
+];
+
+/** Telas abertas pela Conta (antes ficavam em Sistema): acendem a Conta no menu. */
+const ACCOUNT_PAGES: (FrameLink & { perms?: string[] })[] = [
+  { to: '/plano', label: 'Assinatura', icon: <CreditCard />, perms: ['plan:read'] },
+  {
+    to: '/configuracoes',
+    label: 'Ajustes',
+    icon: <Settings />,
+    perms: ['settings:manage', 'orders:read'],
   },
 ];
 
@@ -371,84 +366,30 @@ export function AppShell() {
   })).filter((g) => g.children.length > 0);
   const tabs = TAB_PREFERENCE.filter((k) => main.some((m) => m.key === k)).slice(0, 4);
 
-  // Mesmas ações no submenu "Conta" (computador) e no fim da tela "Mais" (celular).
-  const accountActions: FrameAccount['actions'] = [
-    // Novidades saiu da barra lateral: fica aqui no perfil (o ponto laranja avisa do que é novo).
-    {
-      key: 'novidades',
-      label: unseen ? 'Novidades · novo' : 'Novidades',
-      icon: <Sparkles />,
-      onClick: () => navigate('/novidades'),
-    },
-    ...(me?.permissions.includes('plan:read')
-      ? [
-          {
-            key: 'suporte',
-            label: 'Falar com a Comandou',
-            icon: <LifeBuoy />,
-            onClick: () => openTeamChat('suporte'),
-          },
-        ]
-      : []),
-    ...(me?.permissions.includes('settings:manage')
-      ? [
-          {
-            key: 'inicio',
-            label: 'Primeiros passos',
-            icon: <Sparkles />,
-            onClick: () => setOnbOpen(true),
-          },
-        ]
-      : []),
-    {
-      key: 'tour',
-      label: 'Rever apresentação',
-      icon: <Compass />,
-      onClick: () => setTourOpen(true),
-    },
-    ...(install.show
-      ? [
-          {
-            key: 'instalar',
-            label: 'Instalar o app',
-            icon: <Download />,
-            onClick: () => void install.start(),
-          },
-        ]
-      : []),
-    { key: 'senha', label: 'Trocar senha', icon: <KeyRound />, onClick: () => setPwOpen(true) },
-    { key: 'sair', label: 'Sair', icon: <LogOut />, onClick: logout, danger: true },
-  ];
-  const account = (
-    <div className="account">
-      <div className="account__who">
-        <div className="account__avatar" aria-hidden>
-          {initials}
-        </div>
-        <div>
-          <div className="account__name">{me?.user.name}</div>
-          <div className="account__sub">
-            {me?.user.roleLabel} · {me?.tenant.name}
-          </div>
-        </div>
-      </div>
-      <div className="account__row">
-        <span>Tema</span>
-        <ThemeToggle />
-      </div>
-      {accountActions.map((a) => (
-        <button key={a.key} type="button" className="account__action" onClick={a.onClick}>
-          {a.icon}
-          {a.key === 'novidades' ? 'Novidades' : a.label}
-          {a.key === 'novidades' && unseen && (
-            <span className="account__new">
-              <span className="cm-sr-only">, </span>novo
-            </span>
-          )}
-        </button>
-      ))}
-    </div>
+  // Conta: tela própria (/conta) com tudo em blocos grandes. As janelas continuam aqui na
+  // moldura (abrem por cima de qualquer tela) e chegam à tela pelo contexto do Outlet.
+  const accountTools: AccountTools = {
+    openPassword: () => setPwOpen(true),
+    openTour: () => setTourOpen(true),
+    openOnboarding: () => setOnbOpen(true),
+    install: { show: install.show, start: () => void install.start() },
+    logout: () => void logout(),
+    unseen,
+  };
+  const accountPages = ACCOUNT_PAGES.filter((p) => allowed(p.perms)).map(
+    ({ perms: _perms, ...p }) => p,
   );
+  const accountItem: FrameItem = {
+    key: 'conta',
+    to: '/conta',
+    label: 'Conta',
+    icon: <FrameAvatar name={me?.user.name} />,
+    dot: unseen,
+    profile: me ? { name: me.user.name, detail: me.user.roleLabel } : undefined,
+    pages: accountPages,
+  };
+  // O tutorial acha Assinatura e Ajustes dentro da Conta (Conta › Ajustes).
+  const tourItems = [...main, ...groups, accountItem];
 
   return (
     <>
@@ -463,14 +404,7 @@ export function AppShell() {
             label: 'Agenda pessoal',
             icon: <CalendarDays />,
           },
-          {
-            key: 'conta',
-            label: 'Conta',
-            icon: <FrameAvatar name={me?.user.name} />,
-            dot: unseen,
-            profile: me ? { name: me.user.name, detail: me.user.roleLabel } : undefined,
-            panel: account,
-          },
+          accountItem,
         ]}
         tabs={tabs}
         account={
@@ -481,7 +415,17 @@ export function AppShell() {
                 initials,
                 role: me.user.roleLabel,
                 note: me.tenant.name,
-                actions: accountActions,
+                to: '/conta',
+                // O resto da conta mora na tela Conta; aqui fica só o Sair, no fim da tela.
+                actions: [
+                  {
+                    key: 'sair',
+                    label: 'Sair',
+                    icon: <LogOut />,
+                    onClick: () => void logout(),
+                    danger: true,
+                  },
+                ],
                 footnote: `Comandou v${__APP_VERSION__}`,
               }
             : undefined
@@ -555,7 +499,7 @@ export function AppShell() {
         <Suspense fallback={<PageLoading />}>
           {/* Erro numa tela fica nela: o menu continua e trocar de tela volta ao normal. */}
           <ErrorBoundary resetKey={location.pathname} fallback={ErrorFallback}>
-            <Outlet />
+            <Outlet context={accountTools} />
           </ErrorBoundary>
         </Suspense>
       </AppFrame>
@@ -583,11 +527,11 @@ export function AppShell() {
           userId={me.user.id}
           userName={me.user.name}
           tenantName={me.tenant.name}
-          items={[...main, ...groups]}
+          items={tourItems}
           tabs={tabs}
         />
       )}
-      {me && <PageTourHost items={[...main, ...groups]} tabs={tabs} />}
+      {me && <PageTourHost items={tourItems} tabs={tabs} />}
       <GlobalSearch
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
