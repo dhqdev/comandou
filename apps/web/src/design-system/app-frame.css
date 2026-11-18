@@ -333,12 +333,13 @@
 }
 
 /* ---------------------------------------------------------------- menu largo (computador)
- * Topo com a logo na altura da barra de cima; itens de 36px com ícone numa coluna fixa;
+ * Topo com a logo na altura da barra de cima; itens de 38px, letra de 15px e ícone de 20px
+ * numa coluna fixa (enxuto e fácil de ler, pedido do David);
  * ativo em cinza com o ícone laranja; subitens recuados num fio fino, alinhados ao texto
  * dos itens; a conta no pé mostra quem está usando. */
 @media (min-width: 861px) {
   .cm-frame[data-rail='wide'] {
-    --rail-w: 240px;
+    --rail-w: 252px;
   }
   .cm-frame[data-rail='wide'] .cm-rail {
     align-items: stretch;
@@ -403,7 +404,7 @@
     width: auto;
     height: auto;
     margin: 0;
-    padding: 16px 10px 6px;
+    padding: 12px 10px 5px;
     background: none;
     color: var(--cm-text-subtle);
     font-size: var(--cm-text-xs);
@@ -425,12 +426,12 @@
     display: flex;
     align-items: center;
     justify-items: start;
-    gap: 10px;
+    gap: 12px;
     width: 100%;
-    min-height: 36px;
+    min-height: 38px;
     padding: 0 10px;
     border-radius: var(--cm-radius-md);
-    font-size: var(--cm-text-sm);
+    font-size: var(--cm-text-md);
     font-weight: 500;
     line-height: 1.2;
     text-align: left;
@@ -450,18 +451,18 @@
   .cm-frame[data-rail='wide'] .cm-rail__item.is-active::after {
     display: none;
   }
-  /* Ícone numa coluna fixa de 20px: os nomes ficam alinhados. */
+  /* Ícone numa coluna fixa de 22px: os nomes ficam alinhados. */
   .cm-frame[data-rail='wide'] .cm-rail__icon {
     flex: none;
-    width: 20px;
+    width: 22px;
     color: var(--cm-text-subtle);
   }
   .cm-frame[data-rail='wide'] .cm-rail__item:hover .cm-rail__icon {
     color: var(--cm-sidebar-text-strong);
   }
   .cm-frame[data-rail='wide'] .cm-rail__icon svg {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
   }
   .cm-frame[data-rail='wide'] .cm-rail__item.is-active .cm-rail__icon {
     color: var(--cm-brand-700);
@@ -494,7 +495,7 @@
   .cm-rail__sub {
     display: grid;
     gap: 1px;
-    margin: 2px 0 6px 19px;
+    margin: 2px 0 6px 20px;
     border-left: 1px solid var(--cm-border-strong);
   }
   .cm-rail__subitem {
@@ -502,12 +503,12 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    min-height: 32px;
+    min-height: 34px;
     margin-left: 6px;
-    padding: 0 8px 0 15px;
+    padding: 0 8px 0 18px;
     border-radius: var(--cm-radius-sm);
     color: var(--cm-sidebar-text);
-    font-size: 0.8125rem;
+    font-size: var(--cm-text-sm);
     font-weight: 500;
     text-decoration: none;
     white-space: nowrap;
@@ -535,8 +536,8 @@
   .cm-rail__subitem.is-active::before {
     content: '';
     position: absolute;
-    top: 7px;
-    bottom: 7px;
+    top: 8px;
+    bottom: 8px;
     left: -8px;
     width: 3px;
     border-radius: 2px;
@@ -575,7 +576,7 @@
   }
   .cm-rail__profile-name {
     color: var(--cm-sidebar-text-strong);
-    font-size: 0.8125rem;
+    font-size: var(--cm-text-sm);
     font-weight: 600;
   }
   .cm-rail__profile-detail {
@@ -586,7 +587,7 @@
   /* Tela baixa (notebook de 768px, Windows com zoom): linhas um pouco mais baixas. */
   @media (max-height: 800px) {
     .cm-frame[data-rail='wide'] .cm-rail__item {
-      min-height: 34px;
+      min-height: 36px;
     }
     .cm-frame[data-rail='wide'] .cm-rail__section {
       padding-top: 12px;
@@ -599,8 +600,12 @@
       min-height: 42px;
     }
     .cm-rail__subitem {
-      min-height: 30px;
+      min-height: 32px;
     }
+  }
+  /* Menu aberto: o painel encosta reto no menu e no topo (sem a curvinha no encontro). */
+  .cm-frame[data-rail='wide'] .cm-frame__panel {
+    border-top-left-radius: 0;
   }
 }
 

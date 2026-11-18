@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.150.4',
+    date: '2026-11-18',
+    title: 'Menu lateral mais fácil de ler',
+    summary:
+      'O menu lateral aberto ficou mais limpo: letras e ícones um pouco maiores, itens bem separados e o encontro do menu com a barra de cima agora é reto, sem a curvinha.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Menu lateral aberto com letra de 15 px, ícones maiores e um pouco mais largo, para nomes como "Grupos de complementos" caberem inteiros.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Com o menu aberto, o painel encosta reto no menu e na barra de cima (sem o canto arredondado).',
+      },
+    ],
+  },
+  {
     version: '0.150.3',
     date: '2026-11-18',
     title: 'Respostas do contrato chegam na sua caixa',
