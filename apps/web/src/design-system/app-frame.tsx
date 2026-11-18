@@ -27,9 +27,10 @@ import './app-frame.css';
 /**
  * Moldura padrão de todos os apps do Comandou (restaurante e painel admin):
  *
- * - Computador/tablet: barra lateral fixa só de ícones (rótulo embaixo) e topo formam uma
- *   peça só; o conteúdo fica num painel com o canto arredondado. Itens com submenu abrem
- *   um painel que "escorre" para fora da barra.
+ * - Computador/tablet: barra lateral e topo formam uma peça só; o conteúdo fica num painel com o
+ *   canto arredondado. A barra abre (ícone + nome, grupos que abrem embaixo) ou recolhe (só os
+ *   ícones), deslizando, e o conteúdo cresce junto. Recolhida, basta encostar o mouse para ela
+ *   abrir por cima do conteúdo e fechar ao sair (o botão do topo a deixa fixa aberta).
  * - Celular/PWA: barra de abas embaixo com alvos grandes. A última aba ("Mais") abre uma tela
  *   própria (/mais) com o cartão da conta no topo e as outras telas em grupos de blocos; o
  *   submenu de uma aba sobe de baixo numa folha (Sheet) que fecha arrastando para baixo.
@@ -192,6 +193,18 @@ export function AppFrame({
       /* navegador sem armazenamento: vale só nesta aba */
     }
   };
+  // Recolhido: encostar o mouse abre a barra por cima do conteúdo (sem empurrar a tela) e sair
+  // fecha. Pequena espera nas duas pontas para não piscar ao passar o mouse de raspão.
+  const [peek, setPeek] = useState(false);
+  const hover = useRef(false);
+  const peekTimer = useRef<number | undefined>(undefined);
+  const schedulePeek = (v: boolean, ms: number) => {
+    window.clearTimeout(peekTimer.current);
+    peekTimer.current = window.setTimeout(() => setPeek(v), ms);
+  };
+  useEffect(() => () => window.clearTimeout(peekTimer.current), []);
+  /** Barra aberta na tela: fixa (`wide`) ou espiando (`peek`). */
+  const expanded = wide || peek;
   // Menu largo: o grupo aberto (um por vez). Começa no grupo da tela atual.
   const groupOf = (path: string) =>
     items.find((i) => i.children?.some((c) => linkOn(path, c)))?.key ?? null;
@@ -201,14 +214,16 @@ export function AppFrame({
   const open = fly && !fly.closing ? fly.key : null;
   const setOpen = (key: string | null) =>
     setFly((f) => (key ? { key, closing: false } : f ? { ...f, closing: true } : null));
-  const [anchor, setAnchor] = useState({ top: 0, bottom: 0 });
+  // `right`: borda da barra no clique. Aberta (ex.: Conta do painel), o submenu sai dela.
+  const [anchor, setAnchor] = useState({ top: 0, bottom: 0, right: 0 });
+  const railEl = useRef<HTMLElement>(null);
   // Rolagem da barra quando o submenu abriu: o aviso de rolagem chega um quadro depois, então
   // um botão trazido à vista no próprio clique não pode fechar o submenu que acabou de abrir.
   const flyScroll = useRef(0);
   const flyRef = useRef<HTMLDivElement>(null);
   const [flyTop, setFlyTop] = useState<number | null>(null);
   const [flySlide, setFlySlide] = useState(false);
-  const rail = useGlider<HTMLDivElement>({ selector: '.cm-rail__item.is-active' });
+  const rail = { ref: useRef<HTMLDivElement>(null) };
   const tabbar = useGlider<HTMLElement>({
     selector: '.cm-tabbar__item.is-active',
   });
@@ -298,6 +313,35 @@ export function AppFrame({
     railShown.current = true;
   }, [pathname]);
 
+  // Barra espiando com o foco ou o toque indo para fora dela (Tab, Esc de uma janela, clique no
+  // conteúdo): recolhe. O mouse em cima segura aberta.
+  useEffect(() => {
+    if (!peek || wide) return;
+    const away = (e: Event) => {
+      const t = e.target as Node | null;
+      if (
+        hover.current ||
+        railEl.current?.contains(t) ||
+        (t as HTMLElement)?.closest?.('.cm-flyout')
+      )
+        return;
+      schedulePeek(false, 0);
+    };
+    document.addEventListener('focusin', away);
+    document.addEventListener('pointerdown', away);
+    return () => {
+      document.removeEventListener('focusin', away);
+      document.removeEventListener('pointerdown', away);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [peek, wide]);
+
+  // Submenu ao lado fechou com o mouse já fora da barra: a barra que espiava recolhe.
+  useEffect(() => {
+    if (!open && peek && !hover.current) schedulePeek(false, 160);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(null);
@@ -320,15 +364,16 @@ export function AppFrame({
       <>
         <span className="cm-rail__icon">
           {it.icon}
-          {it.count && !wide ? (
+          {it.count ? (
             <span className="cm-rail__badge" aria-hidden>
               {badgeText(it.count)}
             </span>
           ) : (
-            it.dot && !it.count && <span className="cm-rail__dot" aria-hidden />
+            it.dot && <span className="cm-rail__dot" aria-hidden />
           )}
         </span>
-        {wide && it.profile ? (
+        {/* Rótulo sempre no lugar: recolher só o esconde (some aos poucos), sem pular a linha. */}
+        {it.profile ? (
           <span className="cm-rail__label cm-rail__profile">
             <span className="cm-rail__profile-name">{it.profile.name}</span>
             {it.profile.detail && (
@@ -336,11 +381,9 @@ export function AppFrame({
             )}
           </span>
         ) : (
-          <span className="cm-rail__label" aria-hidden={it.short && !wide ? true : undefined}>
-            {wide ? it.label : (it.short ?? it.label)}
-          </span>
+          <span className="cm-rail__label">{it.label}</span>
         )}
-        {wide && !!it.count && (
+        {!!it.count && (
           <span className="cm-rail__count" aria-hidden>
             {badgeText(it.count)}
           </span>
@@ -361,35 +404,57 @@ export function AppFrame({
           {body}
         </NavLink>
       );
-    if (wide && it.children) {
-      const expanded = group === it.key;
+    if (it.children) {
+      // Grupo: com a barra aberta, os subitens descem logo abaixo (abrindo e fechando aos poucos).
+      // Recolhida, o mesmo botão abre o submenu ao lado; com mouse, abre a barra direto no grupo.
+      const show = expanded && group === it.key;
+      const children = it.children;
       return (
-        <div key={it.key} className="cm-rail__group" data-open={expanded || undefined}>
+        <div key={it.key} className="cm-rail__group" data-open={show || undefined}>
           <button
             type="button"
+            data-rail-key={expanded ? undefined : it.key}
             data-tour-key={it.key}
-            className={`cm-rail__item ${active && !expanded ? 'is-active' : ''}`}
-            aria-expanded={expanded}
-            onClick={() => setGroup(expanded ? null : it.key)}
+            className={`cm-rail__item ${active && !show ? 'is-active' : ''}`}
+            aria-expanded={expanded ? show : open === it.key}
+            aria-haspopup={expanded ? undefined : 'menu'}
+            onClick={(e) => {
+              if (expanded) return setGroup(show ? null : it.key);
+              if (window.matchMedia?.('(hover: hover)').matches) {
+                window.clearTimeout(peekTimer.current);
+                setGroup(it.key);
+                return setPeek(true);
+              }
+              const r = e.currentTarget.getBoundingClientRect();
+              setAnchor({
+                top: r.top,
+                bottom: r.bottom,
+                right: railEl.current?.getBoundingClientRect().right ?? 0,
+              });
+              flyScroll.current = rail.ref.current?.scrollTop ?? 0;
+              setOpen(open === it.key ? null : it.key);
+            }}
           >
             {body}
             <ChevronDown className="cm-rail__chev" size={16} aria-hidden />
           </button>
-          {expanded && (
-            <div className="cm-rail__sub" role="group" aria-label={it.label}>
-              {it.children.map((c) => (
-                <NavLink
-                  key={c.to}
-                  to={c.to}
-                  end={c.end ?? c.to === '/'}
-                  className={`cm-rail__subitem ${linkOn(pathname, c) ? 'is-active' : ''}`}
-                >
-                  <span>{c.label}</span>
-                  {c.badge}
-                </NavLink>
-              ))}
+          <div className="cm-rail__subwrap" data-show={show || undefined} inert={!show}>
+            <div className="cm-rail__subclip">
+              <div className="cm-rail__sub" role="group" aria-label={it.label}>
+                {children.map((c) => (
+                  <NavLink
+                    key={c.to}
+                    to={c.to}
+                    end={c.end ?? c.to === '/'}
+                    className={`cm-rail__subitem ${linkOn(pathname, c) ? 'is-active' : ''}`}
+                  >
+                    <span>{c.label}</span>
+                    {c.badge}
+                  </NavLink>
+                ))}
+              </div>
             </div>
-          )}
+          </div>
         </div>
       );
     }
@@ -400,20 +465,24 @@ export function AppFrame({
         type="button"
         data-rail-key={it.key}
         data-tour-key={it.key}
-        aria-label={wide && it.profile ? it.label : undefined}
+        aria-label={it.profile ? it.label : undefined}
         className={`cm-rail__item ${active ? 'is-active' : ''}`}
         aria-expanded={hasMenu ? open === it.key : undefined}
         aria-haspopup={hasMenu ? 'menu' : undefined}
         onClick={(e) => {
           if (!hasMenu) return it.onClick?.();
           const r = e.currentTarget.getBoundingClientRect();
-          setAnchor({ top: r.top, bottom: r.bottom });
+          setAnchor({
+            top: r.top,
+            bottom: r.bottom,
+            right: railEl.current?.getBoundingClientRect().right ?? 0,
+          });
           flyScroll.current = rail.ref.current?.scrollTop ?? 0;
           setOpen(open === it.key ? null : it.key);
         }}
       >
         {body}
-        {wide && it.profile && <ChevronsUpDown className="cm-rail__chev" size={15} aria-hidden />}
+        {it.profile && <ChevronsUpDown className="cm-rail__chev" size={15} aria-hidden />}
       </button>
     );
   };
@@ -436,17 +505,39 @@ export function AppFrame({
   const sheetItem = sheet ? all.find((i) => i.key === sheet) : null;
 
   return (
-    <div className={`cm-frame ${className}`} data-rail={wide ? 'wide' : 'narrow'}>
-      <aside className="cm-rail" aria-label="Navegação principal">
+    <div
+      className={`cm-frame ${className}`}
+      data-rail={expanded ? 'wide' : 'narrow'}
+      data-pinned={wide || undefined}
+      data-peek={(peek && !wide) || undefined}
+    >
+      <aside
+        className="cm-rail"
+        aria-label="Navegação principal"
+        ref={railEl}
+        onPointerEnter={(e) => {
+          if (e.pointerType !== 'mouse') return;
+          hover.current = true;
+          if (!wide) schedulePeek(true, peek ? 0 : 90);
+        }}
+        onPointerLeave={(e) => {
+          if (e.pointerType !== 'mouse') return;
+          hover.current = false;
+          // Com o submenu ao lado aberto, a barra espera ele fechar.
+          if (!wide && !open) schedulePeek(false, 160);
+        }}
+      >
         <div className="cm-rail__brand">
           {brand}
           <button
             type="button"
             className="cm-rail__toggle"
-            aria-label={wide ? 'Recolher menu' : 'Expandir menu'}
-            title={wide ? 'Recolher menu' : 'Expandir menu'}
+            aria-label={wide ? 'Recolher menu' : 'Manter o menu aberto'}
+            title={wide ? 'Recolher menu' : 'Manter o menu aberto'}
             onClick={() => {
               setOpen(null);
+              window.clearTimeout(peekTimer.current);
+              setPeek(false);
               setWide(!wide);
             }}
           >
@@ -470,14 +561,13 @@ export function AppFrame({
                 key={`s-${it.section}`}
                 className="cm-rail__section"
                 data-first={i === 0 || undefined}
-                aria-hidden={!wide || undefined}
+                aria-hidden
               >
-                {wide ? it.section : null}
+                <span>{it.section}</span>
               </div>,
               railItem(it),
             ];
           })}
-          {!wide && rail.glider}
         </nav>
         {footer.length > 0 && <div className="cm-rail__foot">{footer.map(railItem)}</div>}
       </aside>
@@ -490,7 +580,12 @@ export function AppFrame({
           aria-label={flyItem.label}
           data-closing={fly?.closing || undefined}
           data-placed={flySlide || undefined}
-          style={{ '--fly-top': `${flyTop ?? anchor.top - 8}px` } as CSSProperties}
+          style={
+            {
+              '--fly-top': `${flyTop ?? anchor.top - 8}px`,
+              '--fly-left': anchor.right ? `${anchor.right + 6}px` : undefined,
+            } as CSSProperties
+          }
           onAnimationEnd={(e) => {
             if (e.animationName === 'cm-fly-out') {
               setFly((f) => (f?.closing ? null : f));

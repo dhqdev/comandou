@@ -17,7 +17,7 @@ Visual de **sistema de trabalho**: sóbrio, limpo e confortável para turnos lon
 - **Movimento:** molas de `tokens.css` (`--cm-spring` para algo nascendo, `--cm-spring-snappy` para toque/liga-desliga/indicador, `--cm-spring-smooth` para folha), com as durações `--cm-spring*-dur`. Curvas geradas por `spring.ts` (o teste confere). Só `transform` e `opacity`; o que se toca afunda (`scale(.96–.98)`) e volta com a mola. **Rápido acima de tudo** (pedido do David): janela abre em ~0,25 s e fecha em ~0,16 s, mola quase sem pulo; nada passa de 300 ms. Janela nunca muda de lugar depois de aberta (carregou mais conteúdo: cresce, não desliza).
 - **Dark mode:** azul-ardósia (slate) no jeito do MAX que o David mostrou (moldura `#1b2230`, fundo `#222a37`, cartão `#283141`, campo/realce `#2e3849`, linha `#354052`; desde a 0.164.1) e laranja suave; escreva só com tokens e ele vem junto. Nada de preto puro ou grafite neutro de volta. `DARK_SURFACE` em `brand.ts` acompanha o cartão. Se criar token novo, defina também no bloco escuro de `tokens.css` (os dois blocos) e confira `brand.ts`.
 - **Tipografia:** Inter, títulos de seção pequenos e discretos, números tabulares; sem caixa alta em rótulos.
-- **Menu lateral aberto (computador):** 252px, itens de 38px com letra de 15px e ícone de 20px, subitens de 14px; o painel encosta reto no menu e no topo (sem canto arredondado no encontro, pedido do David). Recolhido mantém o canto de 18px.
+- **Menu lateral (computador):** uma barra só, com o mesmo desenho aberta e recolhida. Aberta: 252px, itens de 38px com letra de 15px e ícone de 20px, subitens de 14px; o painel encosta reto no menu e no topo (sem canto arredondado no encontro, pedido do David). Recolhida (0.178): 66px, **só os ícones, sem nome** (o ícone fica parado no mesmo lugar; recolher só estreita a barra e apaga os nomes), o painel mantém o canto de 18px. Abrir/fechar fixo anima a coluna do conteúdo (`grid-template-columns`, 360 ms, `--rail-ease`); recolhida, **encostar o mouse abre por cima do conteúdo** (`data-peek`, sombra de camada solta) e sair fecha. Grupos abrem embaixo deslizando (`.cm-rail__subwrap`, 0fr ↔ 1fr). Não troque o desenho entre aberta e recolhida (a animação depende de os itens serem os mesmos).
 - **Celular e PWA:** um campo por linha, alvo de toque 44px, folha que sobe de baixo (padrão Planejai: alça, rodapé fixo, botão principal ocupa o espaço que sobra).
 
 ## Modais e formulários
@@ -130,7 +130,9 @@ Tocar no nome no pé do menu abre a **tela Conta** (`pages/AccountPage.tsx`, `ac
 (Seu restaurante, Ajuda e novidades, Este aparelho, Segurança) e **blocos grandes** `acc-card`:
 ícone solto (sem quadradinho colorido), título, frase curta, seta; linha fina, afunda ao tocar,
 nada sobe no hover. Situação (ex.: assinatura) é bolinha + texto (`acc-card__status`). Duas colunas
-no computador (largura máx. 920 px) e no celular (bloco em pé, ícone em cima, frase em até 3
+em tela média; tela larga (`@container acc` ≥ 960 px, largura máx. 1400 px) põe cada grupo numa
+linha só (grupo de 3+ ocupa a linha, os de 2 ficam lado a lado) com o bloco em pé (ícone em cima, seta
+no canto) e no celular (bloco em pé, ícone em cima, frase em até 3
 linhas, sem seta). Sair é o botão largo vermelho de linha fina no fim. Bloco novo: entrada em
 `sections` com a mesma checagem de permissão do menu. No celular, o cartão do topo da tela Mais
 (`account.to`) abre a Conta e a Mais só guarda o Sair da conta.
@@ -242,7 +244,7 @@ direita em `--cm-brand-50`, hora dentro do balão, dia e aviso em pílula, caixa
 pílula com botão redondo. Sem `bubbles`, o `ChatPane` segue em linha (cardápio, chat da equipe).
 Chamado citado numa mensagem é o cartão `scx-ticket` (ícone de boia, número, bolinha da situação,
 título). Número de avisos num item do menu: `count` no `FrameItem` (pílula `cm-rail__count` na
-frente do nome no menu largo, `cm-rail__badge` no ícone no estreito e nas abas); a bolinha `dot`
+frente do nome no menu aberto, `cm-rail__badge` no ícone no recolhido e nas abas); a bolinha `dot`
 fica para "tem novidade" sem número.
 
 No celular (até 760 px) a caixa é uma coluna só: lista (busca, abas e conversas) na largura toda e,

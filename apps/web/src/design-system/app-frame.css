@@ -287,27 +287,6 @@
   background: color-mix(in srgb, var(--cm-text) 6%, transparent);
   color: var(--cm-sidebar-text-strong);
 }
-/* Estreito: o botão de expandir fica escondido embaixo da logo e aparece ao passar o mouse. */
-.cm-frame[data-rail='narrow'] .cm-rail__toggle {
-  position: absolute;
-  right: -2px;
-  bottom: -6px;
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--cm-border);
-  border-radius: 50%;
-  background: var(--cm-surface);
-  opacity: 0;
-  transition: opacity var(--cm-dur-fast) var(--cm-ease);
-}
-.cm-frame[data-rail='narrow'] .cm-rail:hover .cm-rail__toggle,
-.cm-frame[data-rail='narrow'] .cm-rail__toggle:focus-visible {
-  opacity: 1;
-}
-.cm-frame[data-rail='narrow'] .cm-rail__toggle svg {
-  width: 14px;
-  height: 14px;
-}
 
 /* ---------------------------------------------------------------- logo do restaurante
  * A logo fica inteira (contain) num quadro branco com fio fino: logo larga ou com fundo
@@ -379,44 +358,164 @@
   display: none;
 }
 
-/* ---------------------------------------------------------------- menu largo (computador)
- * Topo com a logo na altura da barra de cima; itens de 38px, letra de 15px e ícone de 20px
- * numa coluna fixa (enxuto e fácil de ler, pedido do David);
- * ativo em cinza com o ícone laranja; subitens recuados num fio fino, alinhados ao texto
- * dos itens; a conta no pé mostra quem está usando. */
+/* ---------------------------------------------------------------- barra lateral (computador)
+ * Uma barra só, que abre (ícone + nome, grupos que descem embaixo) e recolhe (só os ícones).
+ * As duas formas têm o mesmo desenho: recolher só estreita a barra e apaga os nomes, então os
+ * ícones ficam parados no lugar e nada pula. Fixa aberta, a coluna do conteúdo encolhe junto
+ * (grid-template-columns anima); recolhida, encostar o mouse abre a barra POR CIMA do conteúdo
+ * (data-peek), com sombra, sem mexer na tela. Itens de 38px, letra de 15px e ícone de 20px numa
+ * coluna fixa (enxuto e fácil de ler, pedido do David); ativo em cinza com o ícone laranja;
+ * subitens recuados num fio fino; a conta no pé mostra quem está usando. */
 @media (min-width: 861px) {
-  .cm-frame[data-rail='wide'] {
-    --rail-w: 252px;
+  .cm-frame {
+    --rail-open: 252px;
+    /* 66px: o centro do ícone (12 + 10 + 11 = 33px) fica no meio da faixa recolhida. */
+    --rail-closed: 66px;
+    --rail-w: var(--rail-closed);
+    --rail-ease: cubic-bezier(0.32, 0.72, 0, 1);
+    --rail-dur: 360ms;
+    transition: grid-template-columns var(--rail-dur) var(--rail-ease);
+  }
+  .cm-frame[data-pinned] {
+    --rail-w: var(--rail-open);
+  }
+  .cm-frame .cm-rail {
+    justify-self: start;
+    width: var(--rail-closed);
+    transition:
+      width var(--rail-dur) var(--rail-ease),
+      box-shadow var(--rail-dur) var(--rail-ease),
+      z-index 0s linear var(--rail-dur);
   }
   .cm-frame[data-rail='wide'] .cm-rail {
+    width: var(--rail-open);
+  }
+  /* Espiando: por cima do conteúdo (e das partes presas dele), com sombra de camada solta. */
+  .cm-frame[data-peek] .cm-rail {
+    z-index: 35;
+    box-shadow:
+      1px 0 0 var(--cm-border),
+      20px 0 44px -18px rgb(0 0 0 / 0.3);
+    transition-delay: 0s;
+  }
+  /* Nomes, setas, contadores e títulos de seção: aparecem logo depois de a barra começar a abrir e
+     somem rápido ao recolher. */
+  .cm-frame .cm-rail :is(.cm-rail__label, .cm-rail__count, .cm-rail__section > span),
+  .cm-frame .cm-rail__brand :is(.cm-store-brand__name, .adm-brand__name, .cm-rail__toggle) {
+    transition: opacity 220ms var(--cm-ease) 70ms;
+  }
+  .cm-frame[data-rail='narrow'] .cm-rail :is(.cm-rail__label, .cm-rail__count, .cm-rail__chev),
+  .cm-frame[data-rail='narrow'] .cm-rail__section > span,
+  .cm-frame[data-rail='narrow']
+    .cm-rail__brand
+    :is(.cm-store-brand__name, .adm-brand__name, .cm-rail__toggle) {
+    opacity: 0;
+    transition-duration: 100ms;
+    transition-delay: 0s;
+  }
+  .cm-frame .cm-rail__label {
+    text-overflow: clip;
+  }
+  /* Item da grade encolhe junto com a barra (sem isso o nome da conta segurava a largura e o
+     realce passava da borda recolhida). */
+  .cm-frame .cm-rail__item {
+    min-width: 0;
+  }
+  .cm-frame .cm-rail__section {
+    position: relative;
+    white-space: nowrap;
+  }
+  /* Recolhida: no lugar do título da seção, um fio curto centrado no ícone. */
+  .cm-frame .cm-rail__section::after {
+    content: '';
+    position: absolute;
+    top: 55%;
+    left: 11px;
+    width: 20px;
+    height: 1px;
+    background: var(--cm-border-strong);
+    opacity: 0;
+    transition: opacity 160ms var(--cm-ease);
+  }
+  .cm-frame[data-rail='narrow'] .cm-rail__section:not([data-first])::after {
+    opacity: 1;
+  }
+  /* Número de avisos: no ícone com a barra recolhida, na frente do nome com ela aberta. */
+  .cm-frame .cm-rail__icon .cm-rail__badge {
+    transition:
+      opacity 160ms var(--cm-ease),
+      transform 160ms var(--cm-ease);
+  }
+  .cm-frame[data-rail='wide'] .cm-rail__icon .cm-rail__badge {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  /* Celular/tablet sem mouse: o botão de abrir fica à vista, preso na beira da logo. */
+  @media (hover: none) {
+    .cm-frame[data-rail='narrow'] .cm-rail__toggle {
+      position: absolute;
+      top: calc(50% + 6px);
+      left: 40px;
+      width: 22px;
+      height: 22px;
+      border: 1px solid var(--cm-border);
+      border-radius: 50%;
+      background: var(--cm-surface);
+      opacity: 1;
+    }
+    .cm-frame[data-rail='narrow'] .cm-rail__toggle svg {
+      width: 13px;
+      height: 13px;
+    }
+  }
+  /* Fixa aberta: o painel encosta reto no menu e no topo (sem a curvinha no encontro). */
+  .cm-frame .cm-frame__panel {
+    transition: border-top-left-radius var(--rail-dur) var(--rail-ease);
+  }
+  .cm-frame[data-pinned] .cm-frame__panel {
+    border-top-left-radius: 0;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cm-frame,
+    .cm-frame .cm-rail,
+    .cm-frame .cm-frame__panel,
+    .cm-rail__subwrap {
+      transition: none;
+    }
+  }
+  .cm-frame .cm-rail {
     align-items: stretch;
     gap: 0;
     padding: 0 12px 10px;
   }
   /* Topo: mesma altura da barra de cima, logo e botão de recolher centrados na linha. */
-  .cm-frame[data-rail='wide'] .cm-rail__brand {
+  .cm-frame .cm-rail__brand {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    /* Largura fixa da barra aberta: recolhendo, nada se espreme (o nome não vira "Fum…"); a
+       barra só corta o que passa da borda. Logo centrada na faixa recolhida (padding 13px). */
+    flex: none;
+    width: var(--rail-open);
     height: var(--top-h);
     /* Fio de ponta a ponta separa o topo (logo + nome) dos itens do menu. */
     margin: 0 -12px 6px;
-    padding: 0 12px 0 16px;
+    padding: 0 12px 0 13px;
     border-bottom: 1px solid var(--cm-border);
   }
-  .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand {
+  .cm-frame .cm-rail__brand .cm-store-brand {
     flex: 1 1 auto;
     gap: 12px;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo {
+  .cm-frame .cm-rail__brand .cm-store-brand__logo {
     width: 40px;
     height: 40px;
     padding: 3px;
     border-radius: 11px;
   }
   /* Nome do restaurante numa linha; se não couber, termina em "…" (o nome inteiro no title). */
-  .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__name {
+  .cm-frame .cm-rail__brand .cm-store-brand__name {
     display: block;
     flex: 1 1 auto;
     overflow: hidden;
@@ -428,26 +527,26 @@
     text-overflow: ellipsis;
     overflow-wrap: normal;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__brand .cm-store-brand__logo--initial {
+  .cm-frame .cm-rail__brand .cm-store-brand__logo--initial {
     padding: 0;
     font-size: var(--cm-text-lg);
   }
-  .cm-frame[data-rail='wide'] .cm-rail__toggle {
+  .cm-frame .cm-rail__toggle {
     flex-shrink: 0;
     width: 32px;
     height: 32px;
     border-radius: var(--cm-radius-md);
     color: var(--cm-text-subtle);
   }
-  .cm-frame[data-rail='wide'] :is(.cm-rail__nav, .cm-rail__foot) {
+  .cm-frame :is(.cm-rail__nav, .cm-rail__foot) {
     justify-items: stretch;
     padding: 0;
     gap: 1px;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__nav {
+  .cm-frame .cm-rail__nav {
     padding-block: 4px 8px;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__section {
+  .cm-frame .cm-rail__section {
     width: auto;
     height: auto;
     margin: 0;
@@ -458,18 +557,18 @@
     font-weight: 600;
     line-height: 1.2;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__section[data-first] {
+  .cm-frame .cm-rail__section[data-first] {
     display: block;
     padding-top: 8px;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__foot {
+  .cm-frame .cm-rail__foot {
     padding-top: 8px;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__foot::before {
+  .cm-frame .cm-rail__foot::before {
     width: 100%;
     margin: 0 0 7px;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__item {
+  .cm-frame .cm-rail__item {
     display: flex;
     align-items: center;
     justify-items: start;
@@ -483,43 +582,43 @@
     line-height: 1.2;
     text-align: left;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__item:hover:not(.is-active) {
+  .cm-frame .cm-rail__item:hover:not(.is-active) {
     background: color-mix(in srgb, var(--cm-text) 4%, transparent);
   }
-  .cm-frame[data-rail='wide'] .cm-rail__item:active {
+  .cm-frame .cm-rail__item:active {
     transform: none;
   }
   /* Ativo: cinza que aparece nos dois temas (o branco do tema claro sumia no fundo branco). */
-  .cm-frame[data-rail='wide'] .cm-rail__item.is-active {
+  .cm-frame .cm-rail__item.is-active {
     background: color-mix(in srgb, var(--cm-text) 6.5%, transparent);
     color: var(--cm-sidebar-text-strong);
     font-weight: 600;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__item.is-active::after {
+  .cm-frame .cm-rail__item.is-active::after {
     display: none;
   }
   /* Ícone numa coluna fixa de 22px: os nomes ficam alinhados. */
-  .cm-frame[data-rail='wide'] .cm-rail__icon {
+  .cm-frame .cm-rail__icon {
     flex: none;
     width: 22px;
     color: var(--cm-text-subtle);
   }
-  .cm-frame[data-rail='wide'] .cm-rail__item:hover .cm-rail__icon {
+  .cm-frame .cm-rail__item:hover .cm-rail__icon {
     color: var(--cm-sidebar-text-strong);
   }
-  .cm-frame[data-rail='wide'] .cm-rail__icon svg {
+  .cm-frame .cm-rail__icon svg {
     width: 20px;
     height: 20px;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__item.is-active .cm-rail__icon {
+  .cm-frame .cm-rail__item.is-active .cm-rail__icon {
     color: var(--cm-brand-700);
     transform: none;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__label {
+  .cm-frame .cm-rail__label {
     flex: 1 1 auto;
     min-width: 0;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__dot {
+  .cm-frame .cm-rail__dot {
     top: -3px;
     right: -3px;
   }
@@ -527,7 +626,9 @@
     flex: none;
     color: var(--cm-text-subtle);
     opacity: 0.8;
-    transition: transform var(--cm-dur-fast) var(--cm-ease);
+    transition:
+      transform var(--cm-dur-fast) var(--cm-ease),
+      opacity 220ms var(--cm-ease) 70ms;
   }
   .cm-rail__group[data-open] .cm-rail__chev {
     transform: rotate(180deg);
@@ -539,6 +640,23 @@
     color: var(--cm-sidebar-text-strong);
   }
   /* Subitens: fio fino saindo do ícone; o texto começa na mesma coluna dos nomes de cima. */
+  /* Abre e fecha aos poucos (0fr ↔ 1fr): o grupo empurra os itens de baixo sem pular. */
+  .cm-rail__subwrap {
+    display: grid;
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transition:
+      grid-template-rows var(--rail-dur) var(--rail-ease),
+      opacity 200ms var(--cm-ease);
+  }
+  .cm-rail__subwrap[data-show] {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  .cm-rail__subclip {
+    min-height: 0;
+    overflow: hidden;
+  }
   .cm-rail__sub {
     display: grid;
     gap: 1px;
@@ -591,24 +709,25 @@
     background: var(--cm-brand-500);
   }
   /* Conta no pé: avatar, nome e papel. */
-  .cm-frame[data-rail='wide'] .cm-rail__item:has(.cm-rail__profile) {
+  .cm-frame .cm-rail__item:has(.cm-rail__profile) {
     min-height: 46px;
-    padding-left: 6px;
+    padding-left: 5px;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__item:has(.cm-rail__profile) .cm-rail__icon {
-    width: 28px;
+  /* Avatar centrado na faixa recolhida, como os ícones. */
+  .cm-frame .cm-rail__item:has(.cm-rail__profile) .cm-rail__icon {
+    width: 32px;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__avatar {
+  .cm-frame .cm-rail__avatar {
     width: 22px;
     height: 22px;
     font-size: 10px;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__item:has(.cm-rail__profile) .cm-rail__avatar {
+  .cm-frame .cm-rail__item:has(.cm-rail__profile) .cm-rail__avatar {
     width: 28px;
     height: 28px;
     font-size: 11px;
   }
-  .cm-frame[data-rail='wide'] .cm-rail__item.is-active .cm-rail__avatar {
+  .cm-frame .cm-rail__item.is-active .cm-rail__avatar {
     box-shadow: none;
   }
   .cm-rail__profile {
@@ -633,26 +752,22 @@
   }
   /* Tela baixa (notebook de 768px, Windows com zoom): linhas um pouco mais baixas. */
   @media (max-height: 800px) {
-    .cm-frame[data-rail='wide'] .cm-rail__item {
+    .cm-frame .cm-rail__item {
       min-height: 36px;
     }
-    .cm-frame[data-rail='wide'] .cm-rail__section {
+    .cm-frame .cm-rail__section {
       padding-top: 12px;
       padding-bottom: 5px;
     }
-    .cm-frame[data-rail='wide'] .cm-rail__section[data-first] {
+    .cm-frame .cm-rail__section[data-first] {
       padding-top: 4px;
     }
-    .cm-frame[data-rail='wide'] .cm-rail__item:has(.cm-rail__profile) {
+    .cm-frame .cm-rail__item:has(.cm-rail__profile) {
       min-height: 42px;
     }
     .cm-rail__subitem {
       min-height: 32px;
     }
-  }
-  /* Menu aberto: o painel encosta reto no menu e no topo (sem a curvinha no encontro). */
-  .cm-frame[data-rail='wide'] .cm-frame__panel {
-    border-top-left-radius: 0;
   }
 }
 
@@ -660,7 +775,7 @@
 .cm-flyout {
   position: fixed;
   z-index: 40;
-  left: calc(var(--rail-w, 84px) + 6px);
+  left: var(--fly-left, calc(var(--rail-w, 84px) + 6px));
   top: var(--fly-top);
   width: 248px;
   max-height: calc(100dvh - 24px);

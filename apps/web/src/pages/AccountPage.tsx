@@ -15,7 +15,7 @@ import {
   UserRound,
   Wand2,
 } from 'lucide-react';
-import { MouseEvent, ReactNode, useEffect, useState } from 'react';
+import { CSSProperties, MouseEvent, ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useAccountTools } from '../app/account-tools';
 import { useAuth } from '../app/auth';
@@ -256,20 +256,30 @@ export function AccountPage() {
         </div>
       </header>
 
-      {sections
-        .filter((s) => s.items.length > 0)
-        .map((s) => (
-          <section key={s.key} className="acc__group" aria-labelledby={`acc-${s.key}`}>
-            <h2 className="acc__title" id={`acc-${s.key}`}>
-              {s.title}
-            </h2>
-            <div className="acc__grid">
-              {s.items.map((a) => (
-                <ActionCard key={a.key} action={a} />
-              ))}
-            </div>
-          </section>
-        ))}
+      {/* Tela larga (notebook): grupo de 3+ blocos ocupa a linha toda; os de 2 ficam lado a lado,
+          e cada grupo põe os blocos numa linha só (account.css, @container). */}
+      <div className="acc__sections">
+        {sections
+          .filter((s) => s.items.length > 0)
+          .map((s) => (
+            <section
+              key={s.key}
+              className="acc__group"
+              aria-labelledby={`acc-${s.key}`}
+              data-span={s.items.length > 2 || undefined}
+              style={{ '--n': s.items.length } as CSSProperties}
+            >
+              <h2 className="acc__title" id={`acc-${s.key}`}>
+                {s.title}
+              </h2>
+              <div className="acc__grid">
+                {s.items.map((a) => (
+                  <ActionCard key={a.key} action={a} />
+                ))}
+              </div>
+            </section>
+          ))}
+      </div>
 
       <button type="button" className="acc__logout" onClick={tools.logout}>
         <LogOut aria-hidden />

@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.178.0',
+    date: '2026-11-18',
+    title: 'Menu lateral que recolhe e abre ao encostar o mouse',
+    summary:
+      'No computador, o menu lateral recolhe para só os ícones e abre de novo deslizando, com a tela crescendo e encolhendo junto. Recolhido, basta encostar o mouse nele para ver os nomes, sem tirar a tela do lugar. A tela Conta usa melhor a largura do notebook.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Menu recolhido: só os ícones, sem nomes. Encoste o mouse no menu e ele abre por cima da tela; tire o mouse e ele volta. O botão ao lado do nome do restaurante deixa o menu fixo aberto ou recolhido, e o sistema lembra a escolha neste navegador.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Abrir e fechar o menu agora desliza suave, e a tela ganha ou devolve o espaço junto. Os grupos (Cardápio, Estoque, Fiscal, Gestão, Sistema) também abrem e fecham deslizando.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Tela Conta no notebook: blocos maiores, lado a lado, ocupando a largura da tela (até quatro por linha), para achar tudo de relance.',
+      },
+    ],
+  },
+  {
     version: '0.177.0',
     date: '2026-11-18',
     title: 'Mude os seus dados e os do restaurante pela Conta',

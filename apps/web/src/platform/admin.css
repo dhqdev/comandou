@@ -2455,9 +2455,6 @@ button.adm-card:hover {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.cm-frame[data-rail='narrow'] .adm-brand__name {
-  display: none;
-}
 @media (max-width: 860px) {
   .adm-brand__name {
     display: none;
