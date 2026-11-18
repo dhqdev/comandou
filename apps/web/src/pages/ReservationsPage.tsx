@@ -1,6 +1,5 @@
 import {
   CalendarDays,
-  Check,
   ChevronLeft,
   ChevronRight,
   Copy,
@@ -70,7 +69,8 @@ export type { Reservation, ReservationStatus };
 const HOUR_PX = 56;
 const PHONE_MQ = '(max-width: 860px)';
 const VIEW_KEY = 'cm-rv-view';
-const HIDDEN_KEY = 'cm-rv-hidden';
+/** Quanto tempo o cartão que mudou fica marcado depois de um aviso em tempo real. */
+const FRESH_MS = 2400;
 
 const readLocal = <T,>(k: string, fallback: T): T => {
   try {
@@ -145,10 +145,10 @@ export function ReservationsPage() {
   const [tables, setTables] = useState<DiningTable[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [hidden, setHidden] = useState<ReservationStatus[]>(() =>
-    readLocal<ReservationStatus[]>(HIDDEN_KEY, ['cancelled', 'no_show']),
-  );
-  const [onlyPending, setOnlyPending] = useState(false);
+  // Tags de situação no topo: nenhuma escolhida = Todas (sem Cancelada e Não veio).
+  const [picked, setPicked] = useState<ReservationStatus[]>([]);
+  // Reservas que acabaram de mudar por outra pessoa, pelo cliente ou pelo sistema.
+  const [fresh, setFresh] = useState<string[]>([]);
   const [search, setSearch] = useState<string | null>(null);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -181,8 +181,27 @@ export function ReservationsPage() {
       .catch(() => setTables([]));
   }, []);
 
+  const freshTimers = useRef(new Map<string, number>());
+  useEffect(() => {
+    const timers = freshTimers.current;
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, []);
+  const markFresh = (id: string) => {
+    const timers = freshTimers.current;
+    window.clearTimeout(timers.get(id));
+    setFresh((f) => (f.includes(id) ? f : [...f, id]));
+    timers.set(
+      id,
+      window.setTimeout(() => {
+        timers.delete(id);
+        setFresh((f) => f.filter((x) => x !== id));
+      }, FRESH_MS),
+    );
+  };
   useRealtime((e) => {
-    if (e.type === 'reservation.changed') void load();
+    if (e.type !== 'reservation.changed') return;
+    markFresh(e.reservationId);
+    void load();
   }, load);
   // Toca o aviso de novidade quando chega uma reserva do cardápio esperando confirmação.
   useArrivalSound(
@@ -224,14 +243,13 @@ export function ReservationsPage() {
   const all = list ?? [];
   const q = search?.trim().toLowerCase();
   const shown = all.filter((r) => {
-    if (onlyPending ? r.status !== 'pending' : hidden.includes(r.status)) return false;
+    if (picked.length ? !picked.includes(r.status) : !live(r)) return false;
     if (!q) return true;
     return `${r.name} ${r.phone} ${r.code} ${r.tableLabel ?? ''} ${r.occasion ?? ''}`
       .toLowerCase()
       .includes(q);
   });
   const events = useMemo(() => shown.map(toEvent), [shown]);
-  const pending = all.filter((r) => r.status === 'pending');
   const dayList = all.filter((r) => sameDay(new Date(r.startsAt), selected));
   const dayLive = dayList.filter(live);
   const open = all.find((r) => r.id === openId) ?? null;
@@ -262,12 +280,8 @@ export function ReservationsPage() {
     setView('day');
     writeLocal(VIEW_KEY, 'day');
   };
-  const toggleHidden = (s: ReservationStatus) => {
-    const next = hidden.includes(s) ? hidden.filter((x) => x !== s) : [...hidden, s];
-    setHidden(next);
-    writeLocal(HIDDEN_KEY, next);
-    setOnlyPending(false);
-  };
+  const togglePicked = (s: ReservationStatus) =>
+    setPicked((p) => (p.includes(s) ? p.filter((x) => x !== s) : [...p, s]));
   const create = (start?: Date) => {
     const d = start ?? selected;
     setEditing({ r: null, day: isoDay(d), time: start ? hhmm(start) : undefined });
@@ -297,125 +311,114 @@ export function ReservationsPage() {
 
   const cardProps = {
     tables,
+    fresh,
     onUpdate: (r: Reservation, p: Patch, m?: string) => void update(r, p, m),
   };
 
-  const side = (
-    <>
-      <div className="ag-side__block">
-        <Calendar value={dayKey(selected)} onPick={(v) => pick(new Date(`${v}T00:00:00`))} />
-      </div>
-      <div className="ag-side__block">
-        <div className="ag-side__head">
-          <span>
-            {cap(
+  const copyLink = () =>
+    navigator.clipboard
+      ?.writeText(storeLink)
+      .then(() => toast('Link copiado', 'success'))
+      .catch(() => undefined);
+
+  const calendar = (
+    <div className="ag-side__block">
+      <Calendar value={dayKey(selected)} onPick={(v) => pick(new Date(`${v}T00:00:00`))} />
+    </div>
+  );
+
+  /** Reservas pelo cardápio: liga/desliga, regras e o link (abre as configurações). */
+  const storeButton = (
+    <button
+      type="button"
+      className="rv-store"
+      disabled={!canManage}
+      onClick={() => setDialog('settings')}
+      title={
+        settings?.enabled
+          ? settings.autoConfirm
+            ? 'Reservas pelo cardápio ligadas, com confirmação automática'
+            : 'Reservas pelo cardápio ligadas, a equipe confirma'
+          : 'Reservas pelo cardápio desligadas'
+      }
+    >
+      <span className={`ag-wa__dot ${settings?.enabled ? 'is-on' : ''}`} aria-hidden />
+      <Store size={16} aria-hidden />
+      <span className="rv-store__text">Pelo cardápio</span>
+    </button>
+  );
+  const copyButton = settings?.enabled && (
+    <Button
+      variant="ghost"
+      aria-label="Copiar link da reserva"
+      title="Copiar link da reserva"
+      icon={<Copy size={17} />}
+      onClick={copyLink}
+    />
+  );
+
+  // Contagem do período na tela (dia, semana, mês ou os 60 dias da lista).
+  const count = (s: ReservationStatus) => all.filter((r) => r.status === s).length;
+  const allLive = all.filter(live);
+  const tags = (
+    <div className="rv-tags" role="toolbar" aria-label="Filtrar por situação">
+      <button
+        type="button"
+        className="rv-tag"
+        aria-pressed={!picked.length}
+        onClick={() => setPicked([])}
+        title="Todas, menos as canceladas e as que não vieram"
+      >
+        Todas
+        <span className="rv-tag__n">{allLive.length}</span>
+      </button>
+      {STATUS_ORDER.map((st) => {
+        const n = count(st);
+        const on = picked.includes(st);
+        return (
+          <button
+            key={st}
+            type="button"
+            className="rv-tag"
+            aria-pressed={on}
+            data-warn={(st === 'pending' && n > 0) || undefined}
+            style={{ ['--tag' as string]: STATUS_COLOR[st] }}
+            onClick={() => togglePicked(st)}
+          >
+            <span className="rv-tag__dot" aria-hidden />
+            {RESERVATION_STATUS[st].label}
+            {n > 0 && <span className="rv-tag__n">{n}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  // Resumo do dia escolhido (celular, na folha do título; no computador, o cabeçalho dos cartões).
+  const dayPending = dayLive.filter((r) => r.status === 'pending').length;
+  const daySeated = dayLive.filter((r) => r.status === 'seated').length;
+  const summary = (
+    <p className="rv-sum" aria-live="polite">
+      <strong>
+        {sameDay(selected, new Date())
+          ? 'Hoje'
+          : cap(
               selected.toLocaleDateString('pt-BR', {
                 weekday: 'short',
                 day: 'numeric',
                 month: 'short',
               }),
             ).replace(/\./g, '')}
-          </span>
-        </div>
-        <dl className="rv-stats">
-          <div>
-            <dt>Reservas</dt>
-            <dd>{dayLive.length}</dd>
-          </div>
-          <div>
-            <dt>Pessoas</dt>
-            <dd>{people(dayLive)}</dd>
-          </div>
-          <div data-warn={dayLive.some((r) => r.status === 'pending') || undefined}>
-            <dt>Aguardando</dt>
-            <dd>{dayLive.filter((r) => r.status === 'pending').length}</dd>
-          </div>
-          <div>
-            <dt>No salão</dt>
-            <dd>{dayLive.filter((r) => r.status === 'seated').length}</dd>
-          </div>
-        </dl>
-      </div>
-      <div className="ag-side__block">
-        <div className="ag-side__head">
-          <span>Situação</span>
-        </div>
-        <ul className="ag-filter">
-          {STATUS_ORDER.map((s) => {
-            const on = onlyPending ? s === 'pending' : !hidden.includes(s);
-            const n = all.filter((r) => r.status === s).length;
-            return (
-              <li key={s}>
-                <button
-                  type="button"
-                  className="ag-filter__item"
-                  aria-pressed={on}
-                  style={{ ['--tag' as string]: STATUS_COLOR[s] }}
-                  onClick={() => toggleHidden(s)}
-                >
-                  <span className="ag-check" aria-hidden>
-                    {on && <Check size={12} strokeWidth={3} />}
-                  </span>
-                  <span className="ag-filter__name">{RESERVATION_STATUS[s].label}</span>
-                  {n > 0 && <span className="rv-filter-n">{n}</span>}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-      <div className="ag-side__block">
-        <button
-          type="button"
-          className="ag-wa"
-          disabled={!canManage}
-          onClick={() => setDialog('settings')}
-        >
-          <Store size={18} aria-hidden />
-          <span className="ag-wa__text">
-            <span className="ag-wa__title">Reservas pelo cardápio</span>
-            <span className="ag-wa__sub">
-              <span className={`ag-wa__dot ${settings?.enabled ? 'is-on' : ''}`} aria-hidden />
-              {settings?.enabled
-                ? settings.autoConfirm
-                  ? 'Ligadas · confirmação automática'
-                  : 'Ligadas · a equipe confirma'
-                : canManage
-                  ? 'Desligadas · toque para ligar'
-                  : 'Desligadas'}
-            </span>
-          </span>
-        </button>
-        {settings?.enabled && (
-          <button
-            type="button"
-            className="ag-side__link"
-            onClick={() =>
-              navigator.clipboard
-                ?.writeText(storeLink)
-                .then(() => toast('Link copiado', 'success'))
-                .catch(() => undefined)
-            }
-          >
-            <Copy size={15} aria-hidden /> Copiar link da reserva
-          </button>
-        )}
-      </div>
-    </>
-  );
-
-  const pendingPill = pending.length > 0 && (
-    <button
-      type="button"
-      className="rv-pending"
-      aria-pressed={onlyPending}
-      onClick={() => setOnlyPending((v) => !v)}
-      title={onlyPending ? 'Mostrar todas' : 'Mostrar só as que aguardam confirmação'}
-    >
-      <span className="rv-pending__dot" aria-hidden />
-      {pending.length} aguardando
-      {onlyPending && <X size={14} aria-hidden />}
-    </button>
+      </strong>
+      <span>
+        {dayLive.length} {dayLive.length === 1 ? 'reserva' : 'reservas'}
+      </span>
+      <span>
+        <Users size={14} aria-hidden /> {people(dayLive)}
+      </span>
+      {daySeated > 0 && <span>{daySeated} no salão</span>}
+      {dayPending > 0 && <span className="rv-sum__warn">{dayPending} aguardando</span>}
+    </p>
   );
 
   return (
@@ -430,7 +433,7 @@ export function ReservationsPage() {
           >
             Nova reserva
           </Button>
-          {side}
+          {calendar}
         </aside>
       )}
 
@@ -493,8 +496,9 @@ export function ReservationsPage() {
                 />
               </span>
               <h1 className="ag-bar__h1">{title}</h1>
-              {pendingPill}
               <span className="ag-bar__spacer" />
+              {storeButton}
+              {copyButton}
               {search !== null && (
                 <input
                   className="cm-input ag-search"
@@ -517,6 +521,7 @@ export function ReservationsPage() {
             </>
           )}
         </header>
+        {!phone && tags}
         {phone && (
           <>
             <Segmented
@@ -527,7 +532,7 @@ export function ReservationsPage() {
               block
               className="ag-phone-views"
             />
-            {pendingPill}
+            {tags}
           </>
         )}
 
@@ -608,6 +613,7 @@ export function ReservationsPage() {
             r={open}
             plain
             {...cardProps}
+            fresh={fresh.includes(open.id)}
             onEdit={() => {
               setOpenId(null);
               setEditing({ r: open, day: isoDay(new Date(open.startsAt)) });
@@ -651,7 +657,39 @@ export function ReservationsPage() {
               value={search ?? ''}
               onChange={(e) => setSearch(e.target.value || null)}
             />
-            {side}
+            {calendar}
+            {summary}
+            <div className="ag-side__block">
+              <button
+                type="button"
+                className="ag-wa"
+                disabled={!canManage}
+                onClick={() => setDialog('settings')}
+              >
+                <Store size={18} aria-hidden />
+                <span className="ag-wa__text">
+                  <span className="ag-wa__title">Reservas pelo cardápio</span>
+                  <span className="ag-wa__sub">
+                    <span
+                      className={`ag-wa__dot ${settings?.enabled ? 'is-on' : ''}`}
+                      aria-hidden
+                    />
+                    {settings?.enabled
+                      ? settings.autoConfirm
+                        ? 'Ligadas · confirmação automática'
+                        : 'Ligadas · a equipe confirma'
+                      : canManage
+                        ? 'Desligadas · toque para ligar'
+                        : 'Desligadas'}
+                  </span>
+                </span>
+              </button>
+              {settings?.enabled && (
+                <button type="button" className="ag-side__link" onClick={copyLink}>
+                  <Copy size={15} aria-hidden /> Copiar link da reserva
+                </button>
+              )}
+            </div>
           </div>
         </Modal>
       )}
@@ -1075,6 +1113,8 @@ function TimeGrid({
 
 type CardActions = {
   tables: DiningTable[];
+  /** Reservas que acabaram de mudar (o cartão pisca de leve). */
+  fresh: string[];
   onUpdate: (r: Reservation, p: Patch, msg?: string) => void;
   onEdit: (r: Reservation) => void;
 };
@@ -1085,6 +1125,7 @@ function DayLane({
   list,
   onCreate,
   tables,
+  fresh,
   onUpdate,
   onEdit,
 }: CardActions & { day: Date; list: Reservation[]; onCreate: () => void }) {
@@ -1110,6 +1151,7 @@ function DayLane({
               key={r.id}
               r={r}
               tables={tables}
+              fresh={fresh.includes(r.id)}
               onUpdate={onUpdate}
               onEdit={() => onEdit(r)}
             />
@@ -1129,6 +1171,7 @@ function ListView({
   list,
   onCreate,
   tables,
+  fresh,
   onUpdate,
   onEdit,
 }: CardActions & { from: Date; list: Reservation[]; onCreate: () => void }) {
@@ -1175,6 +1218,7 @@ function ListView({
                   key={r.id}
                   r={r}
                   tables={tables}
+                  fresh={fresh.includes(r.id)}
                   onUpdate={onUpdate}
                   onEdit={() => onEdit(r)}
                 />

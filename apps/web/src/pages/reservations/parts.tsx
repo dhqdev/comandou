@@ -113,10 +113,13 @@ export function ReservationCard({
   onUpdate,
   onEdit,
   plain,
+  fresh,
 }: {
   r: Reservation;
   tables: DiningTable[];
   plain?: boolean;
+  /** Acabou de mudar (cliente, sistema ou outra pessoa): pisca de leve para chamar o olho. */
+  fresh?: boolean;
   onUpdate(
     r: Reservation,
     patch: Partial<Reservation> & { tableBusyOk?: boolean },
@@ -129,7 +132,7 @@ export function ReservationCard({
   const wa = `https://wa.me/55${r.phone}`;
   return (
     <article
-      className={`rv-card ${plain ? 'rv-card--plain' : ''}`}
+      className={`rv-card ${plain ? 'rv-card--plain' : ''} ${fresh ? 'is-fresh' : ''}`}
       data-status={r.status}
       aria-label={`Reserva de ${r.name}`}
     >

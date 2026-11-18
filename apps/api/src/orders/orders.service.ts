@@ -84,6 +84,8 @@ export interface CreateOrderInput {
 export interface Settled {
   completed: boolean;
   closedTabId: string | null;
+  /** Reservas sentadas na mesa que terminaram junto com a comanda (avisar a tela de Reservas). */
+  reservationIds?: string[];
 }
 const NOT_SETTLED: Settled = { completed: false, closedTabId: null };
 
@@ -1091,7 +1093,7 @@ export class OrdersService {
       `UPDATE tabs SET status = 'closed', closed_by = $2, closed_at = now() WHERE id = $1`,
       [o.tab_id, ctx.userId],
     );
-    await completeSeatedForTab(tx, o.tab_id);
+    const reservationIds = await completeSeatedForTab(tx, o.tab_id);
     await this.audit.record(tx, {
       tenantId: ctx.tenantId,
       actorUserId: ctx.userId,
@@ -1101,7 +1103,7 @@ export class OrdersService {
       data: { number: left.number, auto: 'pix_paid_and_served' },
       ip: ctx.ip,
     });
-    return { completed: true, closedTabId: o.tab_id };
+    return { completed: true, closedTabId: o.tab_id, reservationIds };
   }
 
   /** Avisos depois do COMMIT de markServed/settleServedIn. */
@@ -1113,6 +1115,13 @@ export class OrdersService {
     });
     if (tabId) this.realtime.publish(ctx.tenantId, { type: 'tab.changed', tabId });
     if (settled.closedTabId) this.notifyTabClosed(ctx, settled.closedTabId);
+    this.publishReservations(ctx, settled.reservationIds);
+  }
+
+  /** A comanda fechou e levou a reserva junto: a tela de Reservas atualiza o cartão na hora. */
+  publishReservations(ctx: Ctx, ids: string[] | undefined) {
+    for (const reservationId of ids ?? [])
+      this.realtime.publish(ctx.tenantId, { type: 'reservation.changed', reservationId });
   }
 
   async transition(

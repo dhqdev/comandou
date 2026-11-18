@@ -260,6 +260,7 @@ export class PixService {
     );
     this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId });
     if (res.settled?.closedTabId) this.orders.notifyTabClosed(ctx, res.settled.closedTabId);
+    this.orders.publishReservations(ctx, res.settled?.reservationIds);
     if (res.paid && b.cashSessionId)
       this.realtime.publish(ctx.tenantId, { type: 'cash.changed', sessionId: b.cashSessionId });
     const tabId = res.order?.tabId;
