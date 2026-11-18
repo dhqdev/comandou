@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.164.0',
+    date: '2026-11-18',
+    title: 'Credenciais com o guia completo e "Chave em uso" nas outras telas',
+    summary:
+      'A aba Credenciais agora traz o guia inteiro para subir o sistema: como funciona, a ordem dos passos e, em cada chave, o que vai em cada campo e como saber que deu certo. As outras telas mostram só qual chave está em uso.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Super Admin › Credenciais: "Como funciona", "Para subir o sistema, na ordem" (DNS, instalador, chave mestra, as necessárias e as opcionais, com a situação de cada uma e atalho para o cartão) e o passo a passo para mudar o deploy.env do servidor.',
+      },
+      {
+        tag: 'novo',
+        text: 'Em cada credencial: o que colar em cada campo, como saber que deu certo e, depois de salva, o final da chave em uso ("termina em 4f2a"), sem nunca mostrar a chave inteira.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Tokens de IA, Cobrança, Pagamentos pelo app, E-mail, Backups, Sites com IA e Chamados mostram só a linha "Chave em uso" (nome, ambiente ou conta e o final da chave), com o nome levando ao cartão em Credenciais.',
+      },
+      {
+        tag: 'correção',
+        text: 'A primeira chave do Resend salva mesmo antes de definir o remetente, e os campos do PagBank não passam mais da tela no celular.',
+      },
+    ],
+  },
+  {
     version: '0.163.0',
     date: '2026-11-18',
     title: 'Vender fiado, com cobrança no WhatsApp',
