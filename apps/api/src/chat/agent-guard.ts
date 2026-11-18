@@ -1,7 +1,7 @@
 /**
  * Proteções e ações da IA que atende o cliente no WhatsApp. Funções puras (testadas à parte):
  * - o que o cliente mandou: tentativa de tirar a IA do papel, mensagem enorme;
- * - o que a IA respondeu: marcas de ação ([[RESERVAR …]], [[CARDAPIO_PDF]] …), link estranho,
+ * - o que a IA respondeu: marcas de ação ([[RESERVAR …]], [[CARDAPIO]] …), link estranho,
  *   pedaço das instruções vazando;
  * - a resposta do cliente a uma confirmação (SIM / NÃO).
  */
@@ -10,7 +10,7 @@
 export const TAGS = {
   handoff: '[[ATENDENTE]]',
   abuse: '[[ABUSO]]',
-  menuPdf: '[[CARDAPIO_PDF]]',
+  menuFile: '[[CARDAPIO]]',
   calendarPdf: '[[CALENDARIO_PDF]]',
 } as const;
 
@@ -27,7 +27,7 @@ export interface AgentActions {
   text: string;
   handoff: boolean;
   abuse: boolean;
-  menuPdf: boolean;
+  menuFile: boolean;
   calendarPdf: boolean;
   reserve: ReserveAction | null;
   /** Código da reserva que o cliente quer cancelar. */
@@ -77,7 +77,7 @@ export function parseActions(text: string): AgentActions {
   return {
     handoff: has(TAGS.handoff),
     abuse: has(TAGS.abuse),
-    menuPdf: has(TAGS.menuPdf),
+    menuFile: has(TAGS.menuFile),
     calendarPdf: has(TAGS.calendarPdf),
     reserve: r ? parseReserve(r[1] ?? '') : null,
     cancel: c ? c[1]!.toUpperCase() : null,
@@ -103,7 +103,7 @@ const INJECTION: RegExp[] = [
   /\bjailbreak\b|\bDAN\b.{0,20}\b(mode|modo)\b/i,
   /\b(a\s+partir\s+de\s+agora|from\s+now\s+on)\b.{0,40}(voc[eê]\s+(?:[eé]|ser[aá])\s|you\s+are|finja|pretend|aja\s+como|act\s+as)/i,
   /\b(finja|pretend|aja\s+como|act\s+as|roleplay)\b.{0,30}\b(que\s+[eé]|ser|to\s+be)?\s*(outr[oa]|um[a]?\s+(ia|assistente|hacker|chatgpt)|chatgpt|gpt)\b/i,
-  /<\s*\/?\s*(system|assistant|instructions?)\s*>|\[\[\s*(ATENDENTE|RESERVAR|CANCELAR|ABUSO|CARDAPIO_PDF|CALENDARIO_PDF)/i,
+  /<\s*\/?\s*(system|assistant|instructions?)\s*>|\[\[\s*(ATENDENTE|RESERVAR|CANCELAR|ABUSO|CARDAPIO|CALENDARIO_PDF)/i,
 ];
 
 export function looksLikeInjection(text: string): boolean {

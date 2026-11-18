@@ -19,10 +19,19 @@ export type PresenceType = 'available' | 'unavailable' | 'composing' | 'recordin
 type MessageContent =
   | { text: string }
   | { react: { text: string; key: WAKey } }
-  | { document: Buffer; mimetype: string; fileName: string; caption?: string };
+  | { document: Buffer; mimetype: string; fileName: string; caption?: string }
+  | { image: Buffer; mimetype: string; caption?: string };
 
-/** Maior arquivo que a API pode mandar pelo WhatsApp (PDF do cardápio, calendário). */
-export const MAX_DOCUMENT_BYTES = 3 * 1024 * 1024;
+/** Maior arquivo que a API pode mandar pelo WhatsApp (cardápio do restaurante, calendário). */
+export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+
+/** Arquivo que a API manda: PDF vai como documento; foto (JPEG/PNG) vai como imagem. */
+export type OutgoingFile = {
+  data: Buffer;
+  fileName: string;
+  mimetype: 'application/pdf' | 'image/jpeg' | 'image/png';
+  caption?: string;
+};
 
 /** O mínimo do socket do Baileys que usamos (permite um socket falso nos testes). */
 export interface SocketLike {
@@ -780,24 +789,22 @@ export class SessionManager {
   }
 
   /**
-   * Envia um PDF (cardápio, calendário de reservas) com legenda opcional. Respeita o mesmo ritmo
-   * do número que o texto. Não entra no cache de reenvio (só texto entra).
+   * Envia um arquivo (cardápio do restaurante, calendário de reservas) com legenda opcional: PDF
+   * como documento, foto como imagem. Respeita o mesmo ritmo do número que o texto. Não entra no
+   * cache de reenvio (só texto entra).
    */
-  async sendDocument(
-    tenantId: string,
-    dest: Target,
-    doc: { data: Buffer; fileName: string; caption?: string },
-  ) {
+  async sendDocument(tenantId: string, dest: Target, doc: OutgoingFile) {
     return this.run(tenantId, async (s, sock) => {
       const jid = await this.target(s, sock, dest);
       await this.pace(s);
+      const caption = doc.caption ? { caption: doc.caption } : {};
       const r = await withTimeout(
-        sock.sendMessage(jid, {
-          document: doc.data,
-          mimetype: 'application/pdf',
-          fileName: doc.fileName,
-          ...(doc.caption ? { caption: doc.caption } : {}),
-        }),
+        sock.sendMessage(
+          jid,
+          doc.mimetype === 'application/pdf'
+            ? { document: doc.data, mimetype: doc.mimetype, fileName: doc.fileName, ...caption }
+            : { image: doc.data, mimetype: doc.mimetype, ...caption },
+        ),
         SEND_TIMEOUT_MS,
         'WhatsApp não confirmou o envio a tempo',
       );

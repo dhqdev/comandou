@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.166.0',
+    date: '2026-11-18',
+    title: 'A IA manda no WhatsApp o cardápio que o restaurante sobe',
+    summary:
+      'O cardápio que a IA manda no WhatsApp agora é o arquivo do próprio restaurante: suba o PDF ou as fotos do cardápio na tela Assistente de IA e a IA manda esses arquivos quando o cliente pedir. O sistema não gera mais um PDF de cardápio sozinho; o calendário de reservas em PDF continua.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Cardápio para mandar no WhatsApp, na tela Assistente de IA: envie o PDF (até 10 MB) ou fotos em JPG ou PNG (até 10 arquivos). A IA manda todos, na ordem da lista, quando o cliente pede o cardápio. Dá para abrir cada arquivo para conferir e apagar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Sem arquivo enviado, a IA não manda cardápio: responde pelos itens liberados e manda o link da loja online.',
+      },
+      {
+        tag: 'segurança',
+        text: 'O tipo do arquivo do cardápio é conferido pelo conteúdo (PDF, JPEG ou PNG de verdade), na API e no serviço do WhatsApp, e só gerente e dono sobem, veem ou apagam.',
+      },
+    ],
+  },
+  {
     version: '0.165.0',
     date: '2026-11-18',
     title: 'Segurança reforçada: links externos, senhas e exclusão de restaurante',

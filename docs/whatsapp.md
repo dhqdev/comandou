@@ -80,10 +80,16 @@ servidor lê e tira antes de enviar.
 | Marca | O que o servidor faz |
 | --- | --- |
 | `[[ATENDENTE]]` | Passa para a equipe (aviso no chat) e a IA fica quieta 12 h nessa conversa. |
-| `[[CARDAPIO_PDF]]` / `[[CALENDARIO_PDF]]` | Gera o PDF (cardápio liberado / dias e horários livres para reserva) e manda depois do texto (`POST /v1/sessions/:id/document` no gateway, só PDF até 3 MB). |
+| `[[CARDAPIO]]` | Manda os arquivos do cardápio que o restaurante subiu (`ai_menu_files`: PDF até 10 MB ou fotos JPEG/PNG até 3 MB, até 10 arquivos e 20 MB), na ordem, depois do texto. Sem arquivo, o prompt nem oferece mandar cardápio. O sistema **não gera** PDF de cardápio. |
+| `[[CALENDARIO_PDF]]` | Gera o PDF do calendário de reservas (dias e horários livres) e manda depois do texto. |
 | `[[RESERVAR data=… hora=… pessoas=… nome="…" obs="…"]]` | Confere o horário com as regras de reserva (`ReservationsService.checkWhatsApp`) e manda o resumo pedindo **SIM**. Nada é gravado ainda. |
 | `[[CANCELAR CODIGO]]` | Só se a reserva é do telefone da conversa; pede **SIM**. |
 | `[[ABUSO]]` | Conta uma tentativa de abuso (veja abaixo). |
+
+Arquivos saem por `POST /v1/sessions/:id/document` no gateway: o tipo vem da assinatura (PDF vai
+como documento; JPEG e PNG, como imagem), até 10 MB. A tela do gerente sobe por
+`POST /ai-agent/menu-files?name=…` com o arquivo no corpo (fotos reduzidas no navegador para
+2400 px em JPEG).
 
 **Reserva só depois do SIM.** O pedido fica em `ai_customer_chats.pending` por 30 minutos. Quando
 o cliente responde SIM (ou "pode confirmar", "ok"…), o **servidor** grava a reserva sem chamar a

@@ -7,6 +7,7 @@ import {
   NotOnWhatsAppError,
   SessionManager,
   TooManyMessagesError,
+  type OutgoingFile,
   type Target,
 } from './sessions.js';
 
@@ -19,13 +20,22 @@ const ROUTE = new RegExp(
 const JID = /^[0-9]{5,20}@(s\.whatsapp\.net|lid)$/;
 const PHONE = /^[0-9]{10,15}$/;
 const MSG_ID = /^[A-Za-z0-9_-]{1,128}$/;
-/** Nome do arquivo enviado: letras, números, espaço, ponto, traço e sublinhado; termina em .pdf. */
-const FILE_NAME = /^[\p{L}\p{N} ._-]{1,80}\.pdf$/u;
+/** Nome do arquivo enviado: letras, números, espaço, ponto, traço e sublinhado; .pdf, .jpg ou .png. */
+const FILE_NAME = /^[\p{L}\p{N} ._-]{1,80}\.(pdf|jpe?g|png)$/iu;
 /** Corpo JSON comum (texto, presença) e o do PDF (base64 deixa ~4/3 maior). */
 const BODY_MAX = 16_384;
 const DOC_BODY_MAX = Math.ceil((MAX_DOCUMENT_BYTES * 4) / 3) + 8_192;
 
 const PDF_MAGIC = Buffer.from('%PDF-');
+const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** Tipo do arquivo pela assinatura dos primeiros bytes. */
+function fileType(b: Buffer): OutgoingFile['mimetype'] | null {
+  if (b.subarray(0, 5).equals(PDF_MAGIC)) return 'application/pdf';
+  if (b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  if (b.subarray(0, 8).equals(PNG_MAGIC)) return 'image/png';
+  return null;
+}
 
 const digest = (s: string) => createHash('sha256').update(s).digest();
 
@@ -98,19 +108,17 @@ export function createGatewayServer(
         if (!FILE_NAME.test(fileName) || caption.length > 1000)
           throw new BadRequest('nome do arquivo ou legenda inválidos');
         const data = Buffer.from(b64, 'base64');
-        // Só PDF de verdade (começa com %PDF-) e dentro do limite.
-        if (
-          !data.length ||
-          data.length > MAX_DOCUMENT_BYTES ||
-          !data.subarray(0, 5).equals(PDF_MAGIC)
-        )
-          throw new BadRequest('arquivo inválido (só PDF até 3 MB)');
+        // O tipo sai do conteúdo (PDF, JPEG ou PNG de verdade), nunca do que veio no pedido.
+        const mimetype = fileType(data);
+        if (!data.length || data.length > MAX_DOCUMENT_BYTES || !mimetype)
+          throw new BadRequest('arquivo inválido (só PDF, JPEG ou PNG até 10 MB)');
         return send(
           res,
           200,
           await sessions.sendDocument(tenantId, dest, {
             data,
             fileName,
+            mimetype,
             caption: caption.trim() || undefined,
           }),
         );
