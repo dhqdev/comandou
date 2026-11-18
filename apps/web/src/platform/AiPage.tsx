@@ -79,18 +79,6 @@ export interface Grant {
   at: string;
 }
 
-export interface SecretItem {
-  id: string;
-  label: string;
-  group: 'ia' | 'pagamentos' | 'fiscal' | 'whatsapp' | 'desenvolvimento' | 'servidor';
-  configured: boolean;
-  required: boolean;
-  where: 'tokens' | 'painel' | 'env';
-  link: string | null;
-  envVar: string | null;
-  hint: string;
-}
-
 export interface AiOverview {
   settings: {
     enabled: boolean;
@@ -120,7 +108,6 @@ export interface AiOverview {
   tenants: TenantUse[];
   log: UsageEntry[];
   grants: Grant[];
-  inventory: SecretItem[];
 }
 
 const int = (n: number) => new Intl.NumberFormat('pt-BR').format(Math.round(n));
@@ -137,9 +124,9 @@ const perM = (m: ModelInfo) =>
     : `US$ ${m.promptPerM.toFixed(2)} entrada · US$ ${m.completionPerM.toFixed(2)} saída por 1 mi`;
 
 /**
- * Tokens (uma aba só para tudo de chave e token): a sua chave do OpenRouter (sistema e esteira) e
- * a dos restaurantes, saldo e uso de cada uma, limite do mês por restaurante, tokens extras que só
- * o Super Admin doa ou retira, extrato de uso e o inventário de todas as chaves do sistema.
+ * Tokens: saldo e uso das duas chaves do OpenRouter (a sua e a dos restaurantes), limite do mês
+ * por restaurante, tokens extras que só o Super Admin doa ou retira e o extrato de uso. As chaves
+ * em si se cadastram em Super Admin › Credenciais.
  */
 export function AiPage() {
   const [fresh, setFresh] = useState(0);
@@ -151,7 +138,7 @@ export function AiPage() {
     <>
       <PageHead
         page
-        title="Tokens e chaves de API"
+        title="Tokens de IA"
         sub={
           <span>
             {o.settings.enabled
@@ -161,10 +148,9 @@ export function AiPage() {
         }
       />
       <StatusSection o={o} onRefresh={() => setFresh(Date.now())} />
-      <KeysSection o={o} onSaved={(n) => data.setData(n)} />
+      <KeysSection o={o} />
       <TenantsSection o={o} onChanged={data.reload} />
       <UsageSection o={o} />
-      <InventorySection items={o.inventory} />
       <SettingsSection o={o} onSaved={(n) => data.setData(n)} />
     </>
   );
@@ -215,7 +201,7 @@ function StatusSection({ o, onRefresh }: { o: AiOverview; onRefresh(): void }) {
       )}
       {s.hasApiKey && !s.keyReadable && s.keyConfigured && (
         <Alert tone="danger">
-          A chave salva não abre com a INTEGRATIONS_KEY atual. Cole a chave de novo abaixo.
+          A chave salva não abre com a INTEGRATIONS_KEY atual. Cole a chave de novo em Credenciais.
         </Alert>
       )}
       {low && (
@@ -584,45 +570,24 @@ function GrantBox({ t, onDone }: { t: TenantUse; onDone(): void }) {
   );
 }
 
-/** Corpo do PUT /settings com os valores atuais, para salvar só uma chave. */
-const settingsBody = (s: AiOverview['settings']) => ({
-  enabled: s.enabled,
-  model: s.model,
-  assistantName: s.assistantName,
-  defaultMonthlyTokens: s.defaultMonthlyTokens,
-  lowBalanceUsd: s.lowBalanceUsd,
-});
-
 /** As duas chaves do OpenRouter: a sua (sistema e esteira) e a dos restaurantes. */
-function KeysSection({ o, onSaved }: { o: AiOverview; onSaved(n: AiOverview): void }) {
+function KeysSection({ o }: { o: AiOverview }) {
   return (
-    <Section title="Chaves de API" sub="OpenRouter · cifradas, nunca aparecem de novo">
+    <Section title="Chaves de API" sub="OpenRouter · gasto de cada chave">
       <div className="adm-ai-keys">
-        <KeyCard kind="owner" o={o} onSaved={onSaved} />
-        <KeyCard kind="clients" o={o} onSaved={onSaved} />
+        <KeyCard kind="owner" o={o} />
+        <KeyCard kind="clients" o={o} />
       </div>
     </Section>
   );
 }
 
-function KeyCard({
-  kind,
-  o,
-  onSaved,
-}: {
-  kind: KeyKind;
-  o: AiOverview;
-  onSaved(n: AiOverview): void;
-}) {
-  const toast = useToast();
+function KeyCard({ kind, o }: { kind: KeyKind; o: AiOverview }) {
   const s = o.settings;
   const owner = kind === 'owner';
   const has = owner ? s.hasOwnerKey : s.hasApiKey;
   const readable = owner ? s.ownerKeyReadable : s.keyReadable;
   const acc = owner ? o.ownerAccount : o.account;
-  const [value, setValue] = useState('');
-  const [busy, setBusy] = useState<'save' | 'test' | 'clear' | null>(null);
-  const [test, setTest] = useState<TestResult | null>(null);
   // Uso no OpenRouter que não passou pelo Comandou (esteira fora do sistema, CI, scripts).
   const tracked = owner ? o.system.costUsd : o.month.costUsd;
   const outside = acc?.keyMonthUsd != null ? Math.max(0, acc.keyMonthUsd - tracked) : null;
@@ -636,58 +601,16 @@ function KeyCard({
         ? 'warn'
         : 'ok';
 
-  async function save(extra: Record<string, unknown>, what: 'save' | 'clear') {
-    setBusy(what);
-    try {
-      const n = await api<AiOverview>('/platform/ai/settings', {
-        method: 'PUT',
-        json: { ...settingsBody(s), ...extra },
-      });
-      onSaved(n);
-      setValue('');
-      setTest(null);
-      toast(what === 'clear' ? 'Sua chave foi apagada' : 'Chave salva', 'success');
-    } catch (err) {
-      toast((err as Error).message, 'danger');
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function runTest() {
-    setBusy('test');
-    setTest(null);
-    try {
-      setTest(
-        await api<TestResult>('/platform/ai/test', {
-          method: 'POST',
-          json: { apiKey: value.trim() || undefined, key: kind, model: s.model },
-        }),
-      );
-    } catch (err) {
-      toast((err as Error).message, 'danger');
-    } finally {
-      setBusy(null);
-    }
-  }
-
   return (
     <Card>
-      <form
-        className="adm-ai-key"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (value.trim())
-            void save(owner ? { ownerApiKey: value.trim() } : { apiKey: value.trim() }, 'save');
-        }}
-      >
+      <div className="adm-ai-key">
         <div className="adm-ai-key__head">
           <KeyRound size={18} aria-hidden />
           <div>
             <strong>{owner ? 'Sua chave' : 'Chave dos restaurantes'}</strong>
             <span className="adm-sub">
               {owner
-                ? 'Esteira de chamados, testes e o que mais o sistema fizer por você. Use a mesma no CI.'
+                ? 'Esteira de chamados, testes e o que mais o sistema fizer por você.'
                 : 'O assistente do chat e do WhatsApp de cada restaurante gasta desta chave.'}
             </span>
           </div>
@@ -728,59 +651,16 @@ function KeyCard({
             ` Fora do Comandou (CI, scripts), aprox.: ${usd(outside)}.`}
         </p>
         {acc?.error && has && <Alert tone="warning">{acc.error}</Alert>}
-        <TextField
-          label={has ? 'Trocar a chave' : 'Colar a chave'}
-          type="password"
-          autoComplete="new-password"
-          value={value}
-          placeholder={has ? '•••••••• (salva)' : 'sk-or-v1-…'}
-          onChange={(e) => setValue(e.target.value.trim())}
-          hint={
-            owner
-              ? 'Crie uma chave só sua em openrouter.ai › Keys (com limite, se quiser).'
-              : 'Crie em openrouter.ai › Keys. Dica: ponha um limite de gasto na própria chave.'
-          }
-        />
-        {test && (
-          <Alert tone={test.ok ? 'info' : 'danger'}>
-            {test.ok
-              ? `Funcionou em ${(test.ms / 1000).toFixed(1)} s${test.usage ? ` · ${test.usage.promptTokens + test.usage.completionTokens} tokens` : ''}`
-              : `Não funcionou: ${test.error}`}
-          </Alert>
-        )}
         <div className="adm-form-actions">
-          {owner && has && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => save({ clearOwnerKey: true }, 'clear')}
-              loading={busy === 'clear'}
-              disabled={!!busy}
-            >
-              Apagar
-            </Button>
-          )}
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={runTest}
-            loading={busy === 'test'}
-            disabled={!!busy || (!value && !readable)}
-          >
-            Testar
-          </Button>
-          <Button type="submit" size="sm" loading={busy === 'save'} disabled={!!busy || !value}>
-            Salvar chave
-          </Button>
+          <Link to={`/credenciais#cred-openrouter_${kind}`}>
+            {has ? 'Trocar a chave em Credenciais' : 'Colocar a chave em Credenciais'}
+          </Link>
         </div>
-      </form>
+      </div>
     </Card>
   );
 }
 
-/** Extrato: cada chamada de IA, de qual chave saiu, quem usou e quanto custou. */
 function UsageSection({ o }: { o: AiOverview }) {
   const [tab, setTab] = useState<'all' | KeyKind | 'grants'>('all');
   const list = tab === 'all' ? o.log : o.log.filter((x) => x.key === tab);
@@ -848,76 +728,6 @@ function UsageSection({ o }: { o: AiOverview }) {
           )}
         </div>
       </div>
-    </Section>
-  );
-}
-
-const GROUP_LABEL: Record<SecretItem['group'], string> = {
-  ia: 'Inteligência artificial',
-  pagamentos: 'Pagamentos e contratos',
-  fiscal: 'Nota fiscal',
-  whatsapp: 'WhatsApp',
-  desenvolvimento: 'Desenvolvimento',
-  servidor: 'Servidor',
-};
-
-/** Todas as chaves e tokens do sistema: o que falta e onde trocar (o valor nunca aparece). */
-function InventorySection({ items }: { items: SecretItem[] }) {
-  const missing = items.filter((i) => i.required && !i.configured);
-  const groups = Object.keys(GROUP_LABEL) as SecretItem['group'][];
-  return (
-    <Section
-      title="Todas as chaves do sistema"
-      sub={`${items.filter((i) => i.configured).length} de ${items.length} configuradas`}
-    >
-      {missing.length > 0 && (
-        <Alert tone="warning">
-          Faltam chaves necessárias: {missing.map((i) => i.label).join(', ')}.
-        </Alert>
-      )}
-      <div className="adm-panel">
-        <div className="adm-rows">
-          {groups.flatMap((g) => {
-            const list = items.filter((i) => i.group === g);
-            if (!list.length) return [];
-            return [
-              <div key={`h-${g}`} className="adm-ai-inv__group">
-                {GROUP_LABEL[g]}
-              </div>,
-              ...list.map((i) => (
-                <div key={i.id} className="adm-row">
-                  <Dot level={i.configured ? 'ok' : i.required ? 'bad' : 'off'} />
-                  <span className="adm-row__main">
-                    <span className="adm-row__title">{i.label}</span>
-                    <span className="adm-row__meta">{i.hint}</span>
-                  </span>
-                  <span className="adm-row__side">
-                    <Tag level={i.configured ? 'ok' : i.required ? 'bad' : undefined}>
-                      {i.configured ? 'configurada' : i.required ? 'falta' : 'opcional'}
-                    </Tag>
-                    <br />
-                    <small>
-                      {i.where === 'tokens' ? (
-                        'nesta aba'
-                      ) : i.where === 'env' ? (
-                        <code>{i.envVar}</code>
-                      ) : i.link ? (
-                        <Link to={i.link}>trocar no painel</Link>
-                      ) : (
-                        'no painel'
-                      )}
-                    </small>
-                  </span>
-                </div>
-              )),
-            ];
-          })}
-        </div>
-      </div>
-      <p className="adm-sub">
-        As marcadas com <code>NOME</code> ficam no arquivo .env do servidor (por segurança, não dá
-        para trocar pelo navegador). As outras você troca nesta aba ou na tela indicada.
-      </p>
     </Section>
   );
 }

@@ -1,10 +1,10 @@
 import { FormEvent, useState } from 'react';
 import { Link } from 'react-router';
 import { Alert, Button, Card, Spinner, TextField, useToast } from '../design-system';
-import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useLoad } from './OverviewPages';
+import { CredentialsNote } from './credentials/CredentialsNote';
 import { ago, Dot, PageHead, Section, Tag, Tile } from './ui';
 
 interface Fee {
@@ -266,22 +266,12 @@ function TenantFeeForm({
 
 type Form = {
   enabled: boolean;
-  environment: 'sandbox' | 'production';
-  platformToken: string;
-  clientId: string;
-  clientSecret: string;
-  receiverAccountId: string;
   feePercent: string;
   feeFixed: string;
 };
 
 const toForm = (s: Overview['settings']): Form => ({
   enabled: s.enabled,
-  environment: s.environment,
-  platformToken: '',
-  clientId: s.clientId ?? '',
-  clientSecret: '',
-  receiverAccountId: s.receiverAccountId ?? '',
   feePercent: s.feePercent,
   feeFixed: s.feeFixed,
 });
@@ -292,6 +282,7 @@ function SettingsSection({ o, onSaved }: { o: Overview; onSaved(n: Overview): vo
   const [f, setF] = useState<Form>(() => toForm(s));
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const ready = s.hasPlatformToken && !!s.clientId && s.hasClientSecret && !!s.receiverAccountId;
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((x) => ({ ...x, [k]: v }));
 
   async function save(e: FormEvent) {
@@ -303,11 +294,9 @@ function SettingsSection({ o, onSaved }: { o: Overview; onSaved(n: Overview): vo
         method: 'PUT',
         json: {
           enabled: f.enabled,
-          environment: f.environment,
-          platformToken: f.platformToken || undefined,
-          clientId: f.clientId || undefined,
-          clientSecret: f.clientSecret || undefined,
-          receiverAccountId: f.receiverAccountId,
+          // Conta, token e aplicação do PagBank ficam em Super Admin › Credenciais.
+          environment: s.environment,
+          receiverAccountId: s.receiverAccountId ?? '',
           feePercent: dec(f.feePercent),
           feeFixed: dec(f.feeFixed),
         },
@@ -322,118 +311,29 @@ function SettingsSection({ o, onSaved }: { o: Overview; onSaved(n: Overview): vo
     }
   }
 
-  async function createApp() {
-    setBusy('app');
-    setError(null);
-    try {
-      const n = await api<Overview>('/platform/online-pay/application', { method: 'POST' });
-      onSaved(n);
-      setF(toForm(n.settings));
-      toast('Aplicação criada no PagBank', 'success');
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(null);
-    }
-  }
-
   return (
     <Section
       title="Configurações"
       sub={s.updatedAt ? `alterado ${ago(s.updatedAt)}` : 'nunca configurado'}
     >
       <Card>
-        {!s.keyConfigured && (
-          <Alert tone="danger">
-            O servidor está sem INTEGRATIONS_KEY. Sem ela não dá para guardar as chaves do PagBank
-            com segurança.
-          </Alert>
-        )}
         <form onSubmit={save}>
           <div className="adm-form-group">
             <h3 className="adm-form-group__title">1. Conta PagBank da Comandou</h3>
             <p className="adm-form-group__lead">
-              É a sua conta. Ela não recebe o dinheiro do pedido: só a taxa, que o PagBank separa na
-              hora de cada pagamento. O restaurante recebe o resto direto na conta dele.
+              A sua conta não recebe o dinheiro do pedido: só a taxa, que o PagBank separa na hora
+              de cada pagamento. O restaurante recebe o resto direto na conta dele.
             </p>
-            <p className="adm-form-group__note">
-              <strong>Antes de ligar:</strong> peça ao comercial do PagBank para liberar a{' '}
-              <em>divisão de pagamento (split)</em> e o <em>PagBank Connect</em> na sua conta. Sem
-              isso, o pagamento com taxa é recusado.
-            </p>
-            <div className="adm-backup-grid">
-              <SelectField
-                label="Ambiente"
-                value={f.environment}
-                onChange={(e) => set('environment', e.target.value as Form['environment'])}
-              >
-                <option value="sandbox">Sandbox (testes, sem dinheiro de verdade)</option>
-                <option value="production">Produção (cobra de verdade)</option>
-              </SelectField>
-              <TextField
-                label="Token da conta PagBank"
-                type="password"
-                autoComplete="new-password"
-                value={f.platformToken}
-                placeholder={s.hasPlatformToken ? '•••••••• (salvo)' : 'Cole o token'}
-                onChange={(e) => set('platformToken', e.target.value.trim())}
-                hint={
-                  s.hasPlatformToken
-                    ? 'Já tem um token salvo: deixe em branco para manter. Fica cifrado e nunca é mostrado de novo.'
-                    : 'No PagBank: Minha conta › Integrações › Gerar token. O de sandbox só funciona no Sandbox.'
-                }
-              />
-              <TextField
-                label="Conta que recebe a taxa"
-                value={f.receiverAccountId}
-                placeholder="ACCO_..."
-                onChange={(e) => set('receiverAccountId', e.target.value.trim())}
-                hint="O id da sua conta PagBank (começa com ACCO_). Às vezes vem sozinho ao criar a aplicação."
-              />
-            </div>
+            <CredentialsNote id="pagbank" level={ready ? 'ok' : 'bad'}>
+              {ready
+                ? `PagBank ${s.environment === 'production' ? 'em produção' : 'no sandbox'} · conta ${s.receiverAccountId}.`
+                : 'Faltam o token, a conta ou a aplicação do PagBank.'}{' '}
+              Ambiente, token e aplicação do Connect ficam em Credenciais.
+            </CredentialsNote>
           </div>
 
           <div className="adm-form-group">
-            <h3 className="adm-form-group__title">2. Aplicação do Connect</h3>
-            <p className="adm-form-group__lead">
-              É por ela que cada restaurante autoriza a Comandou a cobrar em nome dele, sem passar
-              senha. Crie com um clique (usa o token acima) ou cole os dados de uma aplicação que
-              você já tem.
-            </p>
-            <div className="adm-backup-grid">
-              <TextField
-                label="Client id"
-                value={f.clientId}
-                onChange={(e) => set('clientId', e.target.value.trim())}
-              />
-              <TextField
-                label="Client secret"
-                type="password"
-                autoComplete="new-password"
-                value={f.clientSecret}
-                placeholder={s.hasClientSecret ? '•••••••• (salvo)' : ''}
-                onChange={(e) => set('clientSecret', e.target.value.trim())}
-              />
-            </div>
-            <p className="adm-form-group__note">
-              Endereço de retorno da aplicação: <code>{s.redirectUri}</code>
-            </p>
-            <Button
-              type="button"
-              variant="secondary"
-              loading={busy === 'app'}
-              disabled={!s.hasPlatformToken || !!busy}
-              onClick={() => void createApp()}
-            >
-              {s.clientId ? 'Criar outra aplicação no PagBank' : 'Criar aplicação no PagBank'}
-            </Button>
-            {!s.hasPlatformToken && (
-              <p className="adm-form-group__note">Salve o token da conta primeiro.</p>
-            )}
-          </div>
-
-          <div className="adm-form-group">
-            <h3 className="adm-form-group__title">3. Taxa da Comandou</h3>
+            <h3 className="adm-form-group__title">2. Taxa da Comandou</h3>
             <p className="adm-form-group__lead">
               Vale para todo restaurante que não tem taxa própria (troque na lista acima). A taxa do
               PagBank continua sendo do restaurante, como numa maquininha.

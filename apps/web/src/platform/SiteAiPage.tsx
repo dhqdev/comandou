@@ -15,6 +15,7 @@ import {
 import { CheckField, SelectField } from '../features/forms';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
+import { CredentialsNote } from './credentials/CredentialsNote';
 import { ago, levelFor, PageHead, Section, Sparkline, Tag, Tile, type Level } from './ui';
 
 type Kind = 'site' | 'maps' | 'text';
@@ -97,8 +98,8 @@ interface Draft {
 const SOURCE: Record<Kind, string> = { site: 'Site', maps: 'Google Maps', text: 'Descrição' };
 const KEY_LABEL = {
   site: 'a chave desta seção',
-  owner: 'a sua chave (Tokens)',
-  clients: 'a chave dos restaurantes (Tokens)',
+  owner: 'a sua chave',
+  clients: 'a chave dos restaurantes',
 };
 const OFF_TEXT: Record<Exclude<Off, null>, string> = {
   disabled: 'Desligado: o site funciona sem IA, como antes.',
@@ -117,7 +118,7 @@ const pct = (used: number, limit: number) =>
 
 /**
  * Super Admin › Sites com IA: o site do restaurante montado pela IA no comandou.com. Liga só com
- * uma chave do OpenRouter; aqui ficam a chave (opcional, senão vale a de Tokens), o modelo, os
+ * uma chave do OpenRouter (a própria dos sites, em Credenciais, ou a sua); aqui ficam o modelo, os
  * limites de tokens e de sites por visitante, o consumo de cada site e de cada cliente.
  */
 export function SiteAiPage() {
@@ -227,8 +228,6 @@ function SettingsForm({ o, onSaved }: { o: Overview; onSaved(): void }) {
   const s = o.settings;
   const [f, setF] = useState({
     enabled: s.enabled,
-    apiKey: '',
-    clearKey: false,
     model: s.model,
     maxTokensPerSite: String(s.maxTokensPerSite),
     dailyTokens: String(s.dailyTokens),
@@ -251,11 +250,10 @@ function SettingsForm({ o, onSaved }: { o: Overview; onSaved(): void }) {
           dailyTokens: Number(f.dailyTokens) || 0,
           monthlyTokens: Number(f.monthlyTokens) || 0,
           perIpDaily: Number(f.perIpDaily) || 4,
-          ...(f.clearKey ? { apiKey: '' } : f.apiKey.trim() ? { apiKey: f.apiKey.trim() } : {}),
+          // A chave própria dos sites fica em Super Admin › Credenciais (ausente aqui = mantém).
         },
       });
       toast('Sites com IA salvo', 'success');
-      setF((cur) => ({ ...cur, apiKey: '', clearKey: false }));
       onSaved();
     } catch (err) {
       toast((err as Error).message, 'danger');
@@ -276,30 +274,14 @@ function SettingsForm({ o, onSaved }: { o: Overview; onSaved(): void }) {
               onChange={(v) => setF({ ...f, enabled: v })}
             />
           </div>
-          <TextField
-            label="Chave do OpenRouter só para os sites (opcional)"
-            wrapClass="cm-form__wide"
-            type="password"
-            autoComplete="new-password"
-            placeholder={s.hasOwnKey ? 'Salva. Digite para trocar.' : 'sk-or-v1-...'}
-            hint={
-              s.hasOwnKey
-                ? 'Os sites usam esta chave. Sem ela, usam a sua chave de Super Admin › Tokens.'
-                : 'Vazia: os sites usam a sua chave de Super Admin › Tokens. Uma chave própria com limite no OpenRouter separa o gasto.'
-            }
-            value={f.apiKey}
-            onChange={(e) => setF({ ...f, apiKey: e.target.value, clearKey: false })}
-          />
-          {s.hasOwnKey && (
-            <div className="cm-form__block">
-              <CheckField
-                label="Apagar a chave desta seção"
-                description="Os sites voltam a usar a sua chave de Tokens."
-                checked={f.clearKey}
-                onChange={(v) => setF({ ...f, clearKey: v, apiKey: '' })}
-              />
-            </div>
-          )}
+          <div className="cm-form__block">
+            <CredentialsNote id="openrouter_site" level={s.hasOwnKey ? 'ok' : 'off'}>
+              {s.hasOwnKey
+                ? 'Os sites usam a chave própria deles.'
+                : 'Sem chave própria: os sites usam a sua chave (ou a dos restaurantes).'}{' '}
+              A chave fica em Credenciais.
+            </CredentialsNote>
+          </div>
           <TextField
             label="Modelo"
             hint="Precisa responder em JSON. Ex.: google/gemini-2.5-flash ou google/gemini-2.5-flash-lite (mais barato)."

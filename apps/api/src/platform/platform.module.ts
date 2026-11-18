@@ -6,6 +6,7 @@ import {
   PlatformAuthController,
   PlatformCepController,
   PlatformController,
+  PlatformCredentialsController,
   PlatformReceiveController,
   PlatformServerController,
 } from './platform.controller';
@@ -13,6 +14,8 @@ import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
 import { PlatformService } from './platform.service';
 import { PlatformBackupService } from './platform-backup.service';
 import { PlatformAiService } from './platform-ai.service';
+import { PlatformCredentialsService } from './platform-credentials.service';
+import { FocusClient } from '../fiscal/focus.client';
 import { PlatformDatabasesService } from './platform-databases.service';
 import { PlatformDbServersService } from './platform-db-servers.service';
 import { PlatformMigrationsService } from './platform-migrations.service';
@@ -42,6 +45,7 @@ import { CepService } from '../store/cep.service';
     PlatformCepController,
     PlatformController,
     PlatformAiController,
+    PlatformCredentialsController,
     PlatformServerController,
     PlatformReceiveController,
     ContractsController,
@@ -56,6 +60,8 @@ import { CepService } from '../store/cep.service';
     PlatformPasswordResetService,
     PlatformBackupService,
     PlatformAiService,
+    PlatformCredentialsService,
+    FocusClient,
     PlatformDatabasesService,
     PlatformDbServersService,
     PlatformMigrationsService,

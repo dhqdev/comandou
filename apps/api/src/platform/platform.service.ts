@@ -126,12 +126,6 @@ export class PlatformService {
       };
     });
     return {
-      server: {
-        masterToken: !!this.env.FOCUS_NFE_MASTER_TOKEN,
-        integrationsKey: !!this.env.INTEGRATIONS_KEY,
-        urlHomologacao: this.env.FOCUS_NFE_URL_HOMOLOGACAO,
-        urlProducao: this.env.FOCUS_NFE_URL_PRODUCAO,
-      },
       totals: {
         enabled: list.filter((t) => t.fiscal?.enabled).length,
         production: list.filter((t) => t.fiscal?.enabled && t.fiscal.environment === 'producao')

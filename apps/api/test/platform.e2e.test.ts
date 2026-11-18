@@ -1273,3 +1273,50 @@ describe('Backup no Backblaze B2 (painel)', () => {
     }
   });
 });
+
+describe('Credenciais (painel)', () => {
+  it('mostra a situação de todas as chaves sem nenhum valor', async () => {
+    const o = (await pget('/credentials').expect(200)).body;
+    const ids = o.items.map((i: { id: string }) => i.id);
+    expect(ids).toEqual(
+      expect.arrayContaining([
+        'integrations_key',
+        'openrouter_clients',
+        'asaas',
+        'resend',
+        'focus_master',
+        'backblaze',
+      ]),
+    );
+    expect(o.items.find((i: { id: string }) => i.id === 'integrations_key').configured).toBe(true);
+    expect(JSON.stringify(o)).not.toContain(KEY);
+    expect(JSON.stringify(o)).not.toContain(METRICS_TOKEN);
+  });
+
+  it('token master da Focus: salva cifrado, mostra só o final e pode ser apagado', async () => {
+    await psend('put', '/credentials/focus-master', { token: 'curto' }).expect(400);
+    const o = (
+      await psend('put', '/credentials/focus-master', { token: 'focus-master-teste-9876' }).expect(
+        200,
+      )
+    ).body;
+    expect(o.focus).toMatchObject({ saved: true, last4: '9876' });
+    expect(o.items.find((i: { id: string }) => i.id === 'focus_master').configured).toBe(true);
+    expect(JSON.stringify(o)).not.toContain('focus-master-teste');
+    const [row] = await ownerQuery<{ v: Buffer }>(
+      `SELECT value_enc AS v FROM platform_credentials WHERE name = 'focus_master'`,
+    );
+    expect(row.v.toString()).not.toContain('focus-master-teste');
+    const app = new Client({ connectionString: APP_URL });
+    await app.connect();
+    try {
+      await expect(app.query(`SELECT * FROM platform_credentials`)).rejects.toThrow(
+        /permission denied/,
+      );
+    } finally {
+      await app.end();
+    }
+    const r = (await psend('post', '/credentials/focus-master/remove', {}).expect(200)).body;
+    expect(r.focus.saved).toBe(false);
+  });
+});

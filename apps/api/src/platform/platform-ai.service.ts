@@ -128,30 +128,29 @@ export class PlatformAiService {
     const models = this.modelsCache?.value ?? [];
     const accountOf = (kind: KeyKind) =>
       this.account(r, fresh, kind).catch((e: Error) => ({ error: e.message }) as Account);
-    const [account, ownerAccount, tenants, month, system, days, log, grants, inventory] =
-      await Promise.all([
-        accountOf('clients'),
-        accountOf('owner'),
-        this.db.query<{
-          id: string;
-          name: string;
-          slug: string;
-          status: string;
-          enabled: boolean | null;
-          override: number | null;
-          bonus: number;
-          tokens: number;
-          prompt: number;
-          completion: number;
-          bonusUsed: number;
-          cost: string;
-          calls: number;
-          users: number;
-          lastAt: Date | null;
-          totalTokens: number;
-          granted: number;
-        }>(
-          `SELECT t.id, t.name, t.slug, t.status, s.enabled, s.monthly_tokens AS override,
+    const [account, ownerAccount, tenants, month, system, days, log, grants] = await Promise.all([
+      accountOf('clients'),
+      accountOf('owner'),
+      this.db.query<{
+        id: string;
+        name: string;
+        slug: string;
+        status: string;
+        enabled: boolean | null;
+        override: number | null;
+        bonus: number;
+        tokens: number;
+        prompt: number;
+        completion: number;
+        bonusUsed: number;
+        cost: string;
+        calls: number;
+        users: number;
+        lastAt: Date | null;
+        totalTokens: number;
+        granted: number;
+      }>(
+        `SELECT t.id, t.name, t.slug, t.status, s.enabled, s.monthly_tokens AS override,
                   coalesce(s.bonus_tokens, 0)::float8 AS bonus,
                   coalesce(m.tokens, 0)::float8 AS tokens, coalesce(m.prompt, 0)::float8 AS prompt,
                   coalesce(m.completion, 0)::float8 AS completion,
@@ -176,20 +175,20 @@ export class PlatformAiService {
                  FROM platform_ai_token_grants GROUP BY tenant_id) g ON g.tenant_id = t.id
             WHERE t.status <> 'deleting'
             ORDER BY coalesce(m.tokens, 0) DESC, t.name`,
-        ),
-        this.db.query<{ tokens: number; cost: string; calls: number }>(
-          `SELECT coalesce(sum(prompt_tokens + completion_tokens), 0)::float8 AS tokens,
+      ),
+      this.db.query<{ tokens: number; cost: string; calls: number }>(
+        `SELECT coalesce(sum(prompt_tokens + completion_tokens), 0)::float8 AS tokens,
                   coalesce(sum(cost_usd), 0) AS cost, count(*)::int AS calls
              FROM ai_usage WHERE created_at >= ${MONTH_START}`,
-        ),
-        this.db.query<{ source: string; tokens: number; cost: string; calls: number }>(
-          `SELECT source, coalesce(sum(prompt_tokens + completion_tokens), 0)::float8 AS tokens,
+      ),
+      this.db.query<{ source: string; tokens: number; cost: string; calls: number }>(
+        `SELECT source, coalesce(sum(prompt_tokens + completion_tokens), 0)::float8 AS tokens,
                   coalesce(sum(cost_usd), 0) AS cost, count(*)::int AS calls
              FROM platform_ai_usage WHERE created_at >= ${MONTH_START}
             GROUP BY source ORDER BY 2 DESC`,
-        ),
-        this.db.query<{ day: string; tokens: number; cost: string; system: number }>(
-          `SELECT to_char(d, 'YYYY-MM-DD') AS day,
+      ),
+      this.db.query<{ day: string; tokens: number; cost: string; system: number }>(
+        `SELECT to_char(d, 'YYYY-MM-DD') AS day,
                   coalesce((SELECT sum(u.prompt_tokens + u.completion_tokens) FROM ai_usage u
                              WHERE (u.created_at AT TIME ZONE 'America/Sao_Paulo')::date = d), 0)::float8 AS tokens,
                   coalesce((SELECT sum(u.cost_usd) FROM ai_usage u
@@ -199,28 +198,27 @@ export class PlatformAiService {
              FROM generate_series((now() AT TIME ZONE 'America/Sao_Paulo')::date - 29,
                                   (now() AT TIME ZONE 'America/Sao_Paulo')::date, '1 day') d
             ORDER BY d`,
-        ),
-        this.usageLog(),
-        this.db.query<{
-          id: string;
-          tenantId: string;
-          tenantName: string;
-          delta: number;
-          balanceAfter: number;
-          note: string | null;
-          adminName: string | null;
-          at: Date;
-        }>(
-          `SELECT g.id::text, g.tenant_id AS "tenantId", t.name AS "tenantName",
+      ),
+      this.usageLog(),
+      this.db.query<{
+        id: string;
+        tenantId: string;
+        tenantName: string;
+        delta: number;
+        balanceAfter: number;
+        note: string | null;
+        adminName: string | null;
+        at: Date;
+      }>(
+        `SELECT g.id::text, g.tenant_id AS "tenantId", t.name AS "tenantName",
                   g.delta::float8 AS delta, g.balance_after::float8 AS "balanceAfter", g.note,
                   a.name AS "adminName", g.created_at AS at
              FROM platform_ai_token_grants g
              JOIN tenants t ON t.id = g.tenant_id
              LEFT JOIN platform_admins a ON a.id = g.admin_id
             ORDER BY g.created_at DESC, g.id DESC LIMIT 30`,
-        ),
-        this.inventory(),
-      ]);
+      ),
+    ]);
     const price = models.find((m) => m.id === r.model) ?? null;
     const systemTotal = system.reduce(
       (acc, x) => ({
@@ -298,7 +296,6 @@ export class PlatformAiService {
       }),
       log,
       grants,
-      inventory,
     };
   }
 
@@ -337,207 +334,6 @@ export class PlatformAiService {
       sourceLabel: SOURCE_LABEL[x.source] ?? x.source,
       costUsd: Number(cost),
     }));
-  }
-
-  /**
-   * Todas as chaves e tokens que o sistema precisa, num lugar só: se está configurada e onde
-   * se troca (aqui, em outra tela do painel ou no .env do servidor). Nunca devolve o valor.
-   */
-  async inventory() {
-    const [[b], [bk], [ct], [pp]] = await Promise.all([
-      this.db
-        .query<{ api: boolean; hook: boolean; env: string }>(
-          `SELECT api_key_enc IS NOT NULL AS api, webhook_token_enc IS NOT NULL AS hook,
-                  environment AS env FROM platform_billing_settings WHERE id`,
-        )
-        .catch(() => []),
-      this.db
-        .query<{
-          ok: boolean;
-        }>(`SELECT secret_enc IS NOT NULL AS ok FROM platform_backup_settings WHERE id`)
-        .catch(() => []),
-      this.db
-        .query<{ ok: boolean; url: boolean }>(
-          `SELECT webhook_secret_enc IS NOT NULL AS ok, webhook_url <> '' AS url
-             FROM platform_contract_settings WHERE id`,
-        )
-        .catch(() => []),
-      this.db
-        .query<{
-          ok: boolean;
-        }>(`SELECT github_token_enc IS NOT NULL AS ok FROM platform_pipeline_settings WHERE id`)
-        .catch(() => []),
-    ]);
-    const r = await this.row();
-    const e = this.env;
-    type Item = {
-      id: string;
-      label: string;
-      group: 'ia' | 'pagamentos' | 'fiscal' | 'whatsapp' | 'desenvolvimento' | 'servidor';
-      configured: boolean;
-      required: boolean;
-      where: 'tokens' | 'painel' | 'env';
-      link: string | null;
-      envVar: string | null;
-      hint: string;
-    };
-    const items: Item[] = [
-      {
-        id: 'integrations_key',
-        label: 'Chave mestra das integrações',
-        group: 'servidor',
-        configured: !!e.INTEGRATIONS_KEY,
-        required: true,
-        where: 'env',
-        link: null,
-        envVar: 'INTEGRATIONS_KEY',
-        hint: 'Cifra todas as outras chaves no banco. Trocar exige salvar as chaves de novo.',
-      },
-      {
-        id: 'openrouter_owner',
-        label: 'OpenRouter · sua chave (sistema e esteira)',
-        group: 'ia',
-        configured: !!r.owner_api_key_enc,
-        required: false,
-        where: 'tokens',
-        link: null,
-        envVar: null,
-        hint: 'Sem ela, a esteira e os testes usam a chave dos restaurantes.',
-      },
-      {
-        id: 'openrouter_clients',
-        label: 'OpenRouter · chave dos restaurantes',
-        group: 'ia',
-        configured: !!r.api_key_enc,
-        required: true,
-        where: 'tokens',
-        link: null,
-        envVar: null,
-        hint: 'O assistente do chat e do WhatsApp de cada restaurante gasta desta chave.',
-      },
-      {
-        id: 'asaas_api',
-        label: `Asaas · chave da API${b ? ` (${b.env === 'production' ? 'produção' : 'sandbox'})` : ''}`,
-        group: 'pagamentos',
-        configured: !!b?.api,
-        required: true,
-        where: 'painel',
-        link: '/cobranca',
-        envVar: null,
-        hint: 'Gera as faturas dos clientes e confirma o pagamento sozinho.',
-      },
-      {
-        id: 'asaas_webhook',
-        label: 'Asaas · token do webhook',
-        group: 'pagamentos',
-        configured: !!b?.hook,
-        required: true,
-        where: 'painel',
-        link: '/cobranca',
-        envVar: null,
-        hint: 'Sem ele o pagamento não libera o cliente automaticamente.',
-      },
-      {
-        id: 'focus_master',
-        label: 'Focus NFe · token de revenda',
-        group: 'fiscal',
-        configured: !!e.FOCUS_NFE_MASTER_TOKEN,
-        required: false,
-        where: 'env',
-        link: '/fiscal',
-        envVar: 'FOCUS_NFE_MASTER_TOKEN',
-        hint: 'Cadastra as empresas na Focus pelo painel (modo gerenciado). O token de cada restaurante fica na tela Fiscal dele.',
-      },
-      {
-        id: 'whatsapp_gateway',
-        label: 'WhatsApp · token do gateway Baileys',
-        group: 'whatsapp',
-        configured: !!e.WHATSAPP_GATEWAY_TOKEN,
-        required: !!e.WHATSAPP_GATEWAY_URL,
-        where: 'env',
-        link: null,
-        envVar: 'WHATSAPP_GATEWAY_TOKEN',
-        hint: 'A API e o gateway do WhatsApp conversam com este token.',
-      },
-      {
-        id: 'github_pipeline',
-        label: 'GitHub · token da esteira de chamados',
-        group: 'desenvolvimento',
-        configured: !!pp?.ok,
-        required: false,
-        where: 'painel',
-        link: '/chamados',
-        envVar: null,
-        hint: 'A esteira abre PRs no repositório com ele.',
-      },
-      {
-        id: 'github_update',
-        label: 'GitHub · token das atualizações',
-        group: 'desenvolvimento',
-        configured: !!e.UPDATE_GITHUB_TOKEN,
-        required: false,
-        where: 'env',
-        link: '/servidor',
-        envVar: 'UPDATE_GITHUB_TOKEN',
-        hint: 'Lê as versões novas no GitHub (só precisa com repositório privado).',
-      },
-      {
-        id: 'backup_secret',
-        label: 'Backups · segredo do bucket S3',
-        group: 'servidor',
-        configured: !!bk?.ok,
-        required: false,
-        where: 'painel',
-        link: '/backups',
-        envVar: null,
-        hint: 'Envia as cópias do banco para fora do servidor.',
-      },
-      {
-        id: 'contracts_webhook',
-        label: 'Contratos · segredo do webhook',
-        group: 'pagamentos',
-        configured: !!ct?.ok,
-        required: !!ct?.url,
-        where: 'painel',
-        link: '/restaurantes',
-        envVar: null,
-        hint: 'Assina os avisos de contrato enviados para o seu webhook.',
-      },
-      {
-        id: 'host_agent',
-        label: 'Agente do servidor',
-        group: 'servidor',
-        configured: !!e.HOST_AGENT_TOKEN,
-        required: !!e.HOST_AGENT_URL,
-        where: 'env',
-        link: '/servidor',
-        envVar: 'HOST_AGENT_TOKEN',
-        hint: 'Atualizar, reiniciar e ver logs pela tela Servidor.',
-      },
-      {
-        id: 'traefik',
-        label: 'Traefik · domínios próprios',
-        group: 'servidor',
-        configured: !!e.TRAEFIK_PROVIDER_TOKEN,
-        required: false,
-        where: 'env',
-        link: null,
-        envVar: 'TRAEFIK_PROVIDER_TOKEN',
-        hint: 'Libera o HTTPS dos domínios próprios dos restaurantes.',
-      },
-      {
-        id: 'metrics',
-        label: 'Métricas (Prometheus)',
-        group: 'servidor',
-        configured: !!e.METRICS_TOKEN,
-        required: false,
-        where: 'env',
-        link: null,
-        envVar: 'METRICS_TOKEN',
-        hint: 'Protege o endpoint /api/v1/metrics.',
-      },
-    ];
-    return items;
   }
 
   async save(b: AiSettingsInput, a: Actor) {

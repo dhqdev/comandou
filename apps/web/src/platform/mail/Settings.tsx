@@ -1,12 +1,16 @@
 import { Send } from 'lucide-react';
 import { FormEvent, useState } from 'react';
-import { Alert, Button, Card, TextField, useToast } from '../../design-system';
+import { Button, Card, TextField, useToast } from '../../design-system';
 import { CheckField } from '../../features/forms';
 import { api } from '../../lib/api';
+import { CredentialsNote } from '../credentials/CredentialsNote';
 import { Section, Tag } from '../ui';
 import type { MailSettings } from './types';
 
-/** Resend: chave, remetente e o e-mail de teste. Todo e-mail do sistema sai por aqui. */
+/**
+ * Resend: liga e desliga o envio, o remetente e o e-mail de teste. A chave do Resend fica em
+ * Super Admin › Credenciais. Todo e-mail do sistema sai por aqui.
+ */
 export function SettingsTab({
   settings,
   onChanged,
@@ -18,7 +22,8 @@ export function SettingsTab({
     <>
       <SendSettings settings={settings} onSaved={onChanged} />
       <p className="cm-hint mail__guide">
-        Passo a passo do Resend (domínio, DNS e chave): <code>docs/email.md</code> no repositório.
+        Passo a passo do Resend (domínio, DNS e chave) em Super Admin › Credenciais e em{' '}
+        <code>docs/email.md</code> no repositório.
       </p>
     </>
   );
@@ -32,7 +37,6 @@ function SendSettings({ settings: s, onSaved }: { settings: MailSettings; onSave
     fromAddress: s.fromAddress,
     fromName: s.fromName,
     replyTo: s.replyTo,
-    resendKey: '',
   });
   const [busy, setBusy] = useState<'save' | 'test' | null>(null);
   const [to, setTo] = useState('');
@@ -50,11 +54,9 @@ function SendSettings({ settings: s, onSaved }: { settings: MailSettings; onSave
           fromAddress: f.fromAddress.trim(),
           fromName: f.fromName.trim(),
           replyTo: f.replyTo.trim(),
-          ...(f.resendKey ? { resendKey: f.resendKey } : {}),
         },
       });
-      setF((c) => ({ ...c, resendKey: '' }));
-      toast('Resend salvo', 'success');
+      toast('E-mail salvo', 'success');
       onSaved();
       return true;
     } catch (err) {
@@ -77,19 +79,16 @@ function SendSettings({ settings: s, onSaved }: { settings: MailSettings; onSave
     }
   };
 
-  const saved = (set: boolean) => (set ? 'Salva. Digite para trocar.' : '');
-
   return (
     <Section
       title="Resend"
       sub={s.ready ? <Tag level="ok">Funcionando</Tag> : <Tag level="warn">Não configurado</Tag>}
     >
       <Card>
-        {!s.canStoreSecrets && (
-          <Alert tone="warning">
-            O servidor está sem a INTEGRATIONS_KEY: não dá para guardar chaves com segurança.
-          </Alert>
-        )}
+        <CredentialsNote id="resend" level={s.resendKeySet ? 'ok' : 'bad'}>
+          {s.resendKeySet ? 'Chave do Resend salva.' : 'Falta a chave do Resend.'} A chave fica em
+          Credenciais.
+        </CredentialsNote>
         <form className="cm-form" onSubmit={save}>
           <div className="cm-form__block">
             <CheckField
@@ -99,17 +98,6 @@ function SendSettings({ settings: s, onSaved }: { settings: MailSettings; onSave
               onChange={(v) => setF({ ...f, enabled: v })}
             />
           </div>
-          <h3 className="cm-form__section">Chave do Resend</h3>
-          <TextField
-            label="API Key"
-            wrapClass="cm-form__wide"
-            type="password"
-            autoComplete="new-password"
-            placeholder={saved(s.resendKeySet) || 're_...'}
-            hint="resend.com › API Keys, com permissão Sending access."
-            value={f.resendKey}
-            onChange={set('resendKey')}
-          />
           <h3 className="cm-form__section">Remetente</h3>
           <TextField
             label="E-mail remetente"

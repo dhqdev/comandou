@@ -692,19 +692,6 @@ describe('Assistente de IA', () => {
     o = (await pget('/ai').expect(200)).body;
     expect(o.system.calls).toBeGreaterThanOrEqual(1);
     expect(o.log[0]).toMatchObject({ key: 'owner', source: 'teste', ref: 'sua chave' });
-    // Inventário: tudo o que o sistema precisa, sem nenhum valor.
-    const ids = o.inventory.map((i: { id: string }) => i.id);
-    expect(ids).toEqual(
-      expect.arrayContaining([
-        'openrouter_owner',
-        'openrouter_clients',
-        'asaas_api',
-        'focus_master',
-      ]),
-    );
-    expect(o.inventory.find((i: { id: string }) => i.id === 'openrouter_owner').configured).toBe(
-      true,
-    );
     o = (await psend('put', '/ai/settings', { ...base, clearOwnerKey: true }).expect(200)).body;
     expect(o.settings.hasOwnerKey).toBe(false);
     expect(o.systemKey).toBe('clients');
