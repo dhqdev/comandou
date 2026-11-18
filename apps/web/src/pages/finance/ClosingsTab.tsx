@@ -1,15 +1,31 @@
 import { fromCents, toCents, type FinanceMonth } from '@comandou/shared';
 import { ChevronDown, Landmark, Send } from 'lucide-react';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Alert, Badge, Button, Card, EmptyState, Spinner, useToast } from '../../design-system';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Segmented,
+  Spinner,
+  useToast,
+} from '../../design-system';
 import { useCan } from '../../app/auth';
 import { PAYMENT_METHOD_LABELS } from '../../features/format';
 import { fmtDate } from '../../features/forms';
 import { api } from '../../lib/api';
 import { brl } from '../../lib/money';
+import { DayBars, HBars, KpiStrip } from './charts';
+import { methodTotals, money, pctText } from './insights';
 import type { ClosingDay } from './types';
 
+const nextDay = (iso: string) => {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+};
 const time = (iso: string) =>
   new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 const weekday = (day: string) =>
@@ -54,6 +70,7 @@ export function ClosingsTab({
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [posting, setPosting] = useState<string | null>(null);
+  const [metric, setMetric] = useState<'gross' | 'net'>('gross');
 
   const load = useCallback(async () => {
     if (!period) return;
@@ -87,20 +104,100 @@ export function ClosingsTab({
   const sum = (k: 'gross' | 'fee' | 'net' | 'cashDifference') =>
     fromCents((days ?? []).reduce((a, d) => a + toCents(d.totals[k]), 0));
   const pending = (days ?? []).filter((d) => d.status === 'pending').length;
+  const grossC = toCents(sum('gross'));
+  const feeC = toCents(sum('fee'));
+  const orders = (days ?? []).reduce((a, d) => a + d.totals.orders, 0);
+  const methods = methodTotals(days ?? []);
+  // O gráfico vai do dia mais antigo ao mais novo (a lista mostra o mais novo em cima).
+  const byDay = new Map((days ?? []).map((d) => [d.day, d]));
+  const last = (days ?? []).reduce((m, d) => (d.day > m ? d.day : m), '');
+  // Todos os dias do período até o último caixa, com zero onde não abriu caixa (eixo contínuo).
+  const span: string[] = [];
+  if (period && last)
+    for (let d = period.from; d <= last && d <= period.to; d = nextDay(d)) span.push(d);
+  const bars = span
+    .map((day) => byDay.get(day) ?? { day, totals: null })
+    .map((d) => ({
+      day: d.day,
+      value: d.totals ? toCents(metric === 'gross' ? d.totals.gross : d.totals.net) : 0,
+      details: d.totals
+        ? [
+            { label: 'Líquido', value: brl(d.totals.net) },
+            { label: 'Taxas', value: brl(d.totals.fee) },
+            { label: 'Pedidos', value: String(d.totals.orders) },
+          ]
+        : [{ label: 'Sem caixa neste dia', value: '' }],
+    }));
 
   return (
     <>
       {error && <Alert tone="danger">{error}</Alert>}
       {days && days.length > 0 && (
-        <div className="stat-grid fin-stats">
-          <Stat label="Vendas nos caixas" value={brl(sum('gross'))} />
-          <Stat label="Taxas das maquininhas" value={brl(sum('fee'))} />
-          <Stat label="Líquido" value={brl(sum('net'))} />
-          <Stat
-            label="Sobras e faltas de caixa"
-            value={<SignedBrl value={sum('cashDifference')} />}
+        <>
+          <KpiStrip
+            items={[
+              {
+                key: 'gross',
+                label: 'Vendas nos caixas',
+                value: brl(sum('gross')),
+                sub: orders
+                  ? `${orders} pedidos · ticket médio ${money(Math.round(grossC / orders))}`
+                  : `${days.length} ${days.length === 1 ? 'dia' : 'dias'}`,
+              },
+              {
+                key: 'fee',
+                label: 'Taxas das maquininhas',
+                value: brl(sum('fee')),
+                sub: grossC > 0 ? `${pctText((feeC / grossC) * 100, 2)} das vendas` : undefined,
+              },
+              {
+                key: 'net',
+                label: 'Líquido',
+                value: brl(sum('net')),
+                sub: 'o que fica depois das taxas',
+              },
+              {
+                key: 'diff',
+                label: 'Sobras e faltas de caixa',
+                value: <SignedBrl value={sum('cashDifference')} />,
+                sub: 'dinheiro contado × esperado',
+              },
+            ]}
           />
-        </div>
+          <div className="fin-split">
+            <Card
+              title={metric === 'gross' ? 'Vendas por dia' : 'Líquido por dia'}
+              actions={
+                <Segmented
+                  label="Valor do gráfico"
+                  value={metric}
+                  onChange={setMetric}
+                  options={[
+                    { value: 'gross', label: 'Vendas' },
+                    { value: 'net', label: 'Líquido' },
+                  ]}
+                />
+              }
+            >
+              <DayBars
+                items={bars}
+                label={metric === 'gross' ? 'Vendas por dia' : 'Líquido por dia'}
+              />
+            </Card>
+            <Card title="Por forma de pagamento">
+              <HBars
+                label="Vendas por forma de pagamento"
+                rows={methods.map((m, i) => ({
+                  key: m.method,
+                  strong: i === 0,
+                  label: m.name,
+                  value: m.gross,
+                  sub: `${pctText((m.gross / (grossC || 1)) * 100)} das vendas${m.fee > 0 ? ` · taxa ${pctText(m.feePct, 2)}` : ' · sem taxa'}`,
+                }))}
+              />
+            </Card>
+          </div>
+        </>
       )}
       {pending > 0 && (
         <Alert tone="warning">
@@ -283,24 +380,5 @@ export function ClosingsTab({
         )}
       </Card>
     </>
-  );
-}
-
-export function Stat({
-  label,
-  value,
-  danger,
-}: {
-  label: string;
-  value: ReactNode;
-  danger?: boolean;
-}) {
-  return (
-    <div className="stat">
-      <div className="stat__label">{label}</div>
-      <div className="stat__value" style={danger ? { color: 'var(--cm-danger)' } : undefined}>
-        {value}
-      </div>
-    </div>
   );
 }

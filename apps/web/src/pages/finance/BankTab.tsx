@@ -28,7 +28,8 @@ import { fmtDate, SelectField, Tabs, todayIso } from '../../features/forms';
 import { api } from '../../lib/api';
 import { brl, parseBrlInput } from '../../lib/money';
 import type { FinanceEntry } from '../../lib/types';
-import { SignedBrl, Stat } from './ClosingsTab';
+import { KpiStrip } from './charts';
+import { SignedBrl } from './ClosingsTab';
 import type {
   BankAccount,
   BankLine,
@@ -245,17 +246,32 @@ export function BankTab() {
       </div>
 
       {data && pending && (
-        <div className="stat-grid fin-stats">
-          <Stat label="Linhas para conciliar" value={String(data.summary.open)} />
-          <Stat label="Entradas sem conciliar" value={brl(data.summary.openIn)} />
-          <Stat label="Saídas sem conciliar" value={brl(data.summary.openOut)} />
-          <Stat label="A receber das maquininhas" value={brl(pending.totals.pending)} />
-          <Stat
-            label="Atrasado"
-            value={brl(pending.totals.late)}
-            danger={toCents(pending.totals.late) > 0}
-          />
-        </div>
+        <KpiStrip
+          items={[
+            {
+              key: 'open',
+              label: 'Linhas do extrato para conciliar',
+              value: String(data.summary.open),
+              sub: `entradas ${brl(data.summary.openIn)} · saídas ${brl(data.summary.openOut)}`,
+            },
+            {
+              key: 'pending',
+              label: 'A receber das maquininhas',
+              value: brl(pending.totals.pending),
+              sub:
+                toCents(pending.totals.next7) > 0
+                  ? `${brl(pending.totals.next7)} caem nos próximos 7 dias`
+                  : `${pending.totals.count} ${pending.totals.count === 1 ? 'repasse' : 'repasses'}`,
+            },
+            {
+              key: 'late',
+              label: 'Repasses atrasados',
+              value: brl(pending.totals.late),
+              danger: toCents(pending.totals.late) > 0,
+              sub: toCents(pending.totals.late) > 0 ? 'passaram da data prevista' : 'tudo no prazo',
+            },
+          ]}
+        />
       )}
 
       <div className="fin-bank">

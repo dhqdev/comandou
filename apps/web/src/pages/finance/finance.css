@@ -17,17 +17,6 @@
   text-decoration: underline;
 }
 
-/* Números do topo: cinco lado a lado no computador, um pouco menores que o padrão para caber
-   valores de seis dígitos; um valor maior que isso quebra em vez de vazar do cartão. */
-.fin-stats .stat {
-  min-width: 0;
-}
-.fin-stats .stat__value {
-  font-size: var(--cm-text-xl);
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
-}
-
 .fin-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -38,6 +27,9 @@
 .fin-toolbar > .cm-field {
   min-width: 220px;
   margin: 0;
+}
+.fin-toolbar > .filters {
+  flex: 1 1 460px;
 }
 
 /* Fechamentos: um dia por linha, abre para os detalhes. */
@@ -316,12 +308,6 @@
   }
 }
 
-@media (max-width: 860px) {
-  .fin-stats .stat__value {
-    font-size: var(--cm-text-lg);
-  }
-}
-
 /* Celular: o DRE vira uma lista compacta (nome e valor na mesma linha; % e mês anterior
    embaixo), em vez de um cartão com quatro rótulos por linha. */
 @media (max-width: 640px) {
@@ -353,5 +339,694 @@
     display: block;
     font-weight: 400;
     font-size: var(--cm-text-xs);
+  }
+}
+
+/* ===================================================================== gráficos (0.159) */
+
+/* Faixa de números do topo: um quadro só, números separados por linha fina. */
+.fin-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+  overflow: hidden;
+}
+.fin-kpi-strip[data-count='3'] {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.fin-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--cm-space-4) var(--cm-space-5);
+}
+.fin-kpi + .fin-kpi {
+  border-left: 1px solid var(--cm-border);
+}
+.fin-kpi__label {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.fin-kpi__value {
+  font-size: var(--cm-text-2xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+.fin-kpi__value[data-danger] {
+  color: var(--cm-danger);
+}
+.fin-kpi__sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px var(--cm-space-2);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  min-height: 18px;
+}
+.fin-kpi__stack {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  margin-top: 4px;
+}
+.fin-kpi__note {
+  color: var(--cm-text-muted);
+}
+.fin-spark {
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin-top: var(--cm-space-2);
+  overflow: visible;
+}
+.fin-spark__line {
+  fill: none;
+  stroke: var(--cm-brand-500);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.fin-spark__area {
+  fill: color-mix(in srgb, var(--cm-brand-500) 10%, transparent);
+}
+
+/* Variação contra o mês anterior. */
+.fin-delta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 2px;
+  min-width: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.fin-delta[data-good='true'] {
+  color: var(--cm-success);
+}
+.fin-delta[data-good='false'] {
+  color: var(--cm-danger);
+}
+.fin-delta__vs {
+  margin-left: 4px;
+  color: var(--cm-text-subtle);
+  font-weight: 400;
+}
+
+/* Visão geral: gráfico grande + leituras; depois, uma grade de dois. */
+.fin-ov {
+  display: grid;
+  gap: var(--cm-space-4);
+}
+.fin-ov__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.85fr) minmax(300px, 1fr);
+  gap: var(--cm-space-4);
+  align-items: start;
+}
+.fin-ov__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cm-space-4);
+  align-items: start;
+}
+.fin-ov .cm-card {
+  min-width: 0;
+}
+
+/* Cabeçalho do gráfico: o número principal e a legenda. */
+.fin-chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--cm-space-2) var(--cm-space-4);
+  margin-bottom: var(--cm-space-3);
+}
+.fin-chart-head__figure {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.fin-chart-head__figure strong {
+  font-size: var(--cm-text-2xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.fin-chart-head__figure strong[data-neg] {
+  color: var(--cm-danger);
+}
+.fin-chart-head__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--cm-space-2);
+}
+.fin-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  cursor: pointer;
+}
+.fin-check input {
+  accent-color: var(--cm-brand-600);
+  margin: 0;
+}
+
+.fin-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cm-space-1) var(--cm-space-3);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.fin-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.fin-sw {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--cm-brand-500);
+  flex: none;
+}
+.fin-sw--in,
+.fin-sw--cur {
+  background: var(--cm-brand-500);
+}
+.fin-sw--in-soft {
+  background: color-mix(in srgb, var(--cm-brand-500) 35%, transparent);
+}
+.fin-sw--out {
+  background: color-mix(in srgb, var(--cm-text-muted) 70%, var(--cm-surface));
+}
+.fin-sw--proj {
+  background: transparent;
+  border: 1.5px dashed var(--cm-brand-500);
+}
+.fin-sw--prev {
+  background: transparent;
+  border: 1.5px dashed color-mix(in srgb, var(--cm-text-muted) 70%, var(--cm-surface));
+}
+
+/* Gráficos em SVG. */
+.fin-chart {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+.fin-chart svg {
+  display: block;
+  touch-action: pan-y;
+  overflow: visible;
+}
+.fin-grid {
+  stroke: var(--cm-border);
+  stroke-width: 1;
+}
+.fin-zero {
+  stroke: var(--cm-border-strong);
+  stroke-width: 1;
+}
+.fin-avg {
+  stroke: var(--cm-text-subtle);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.fin-axis {
+  fill: var(--cm-text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  /* contorno da cor do fundo: o rótulo continua legível quando passa por cima de uma barra */
+  paint-order: stroke;
+  stroke: var(--cm-surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.fin-axis--strong {
+  fill: var(--cm-text);
+  font-weight: 700;
+}
+.fin-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.fin-line--cur {
+  stroke: var(--cm-brand-500);
+}
+.fin-line--proj {
+  stroke: var(--cm-brand-500);
+  stroke-dasharray: 5 5;
+  opacity: 0.75;
+}
+.fin-line--prev {
+  stroke: color-mix(in srgb, var(--cm-text-muted) 70%, var(--cm-surface));
+  stroke-dasharray: 3 4;
+  stroke-width: 1.5;
+}
+.fin-area {
+  fill: color-mix(in srgb, var(--cm-brand-500) 9%, transparent);
+}
+.fin-cross {
+  stroke: var(--cm-border-strong);
+  stroke-width: 1;
+}
+.fin-dot-cur,
+.fin-dot-proj,
+.fin-dot-prev {
+  stroke: var(--cm-surface);
+  stroke-width: 2;
+}
+.fin-dot-cur {
+  fill: var(--cm-brand-500);
+}
+.fin-dot-proj {
+  fill: var(--cm-surface);
+  stroke: var(--cm-brand-500);
+}
+.fin-dot-prev {
+  fill: color-mix(in srgb, var(--cm-text-muted) 70%, var(--cm-surface));
+}
+.fin-bar {
+  transition: opacity var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.fin-bar--in {
+  fill: var(--cm-brand-500);
+}
+.fin-bar--in-soft {
+  fill: color-mix(in srgb, var(--cm-brand-500) 35%, transparent);
+}
+.fin-bar--out {
+  fill: color-mix(in srgb, var(--cm-text-muted) 70%, var(--cm-surface));
+}
+.fin-bar--out-soft {
+  fill: color-mix(in srgb, var(--cm-text-muted) 30%, var(--cm-surface));
+}
+.fin-bar[data-dim] {
+  opacity: 0.45;
+}
+.fin-bar-g[data-active] .fin-bar {
+  opacity: 0.8;
+}
+
+.fin-tip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 168px;
+  padding: var(--cm-space-2) var(--cm-space-3);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  box-shadow: var(--cm-shadow-md);
+  font-size: var(--cm-text-xs);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  z-index: 2;
+}
+.fin-tip strong::first-letter {
+  text-transform: uppercase;
+}
+.fin-tip > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.fin-tip__muted {
+  color: var(--cm-text-muted);
+}
+
+/* Barras deitadas (despesas, formas de pagamento, dias da semana). */
+.fin-hbars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--cm-space-3);
+}
+.fin-hbars > li {
+  display: grid;
+  gap: 4px;
+}
+.fin-hbars__text {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cm-space-3);
+  font-size: var(--cm-text-sm);
+}
+.fin-hbars__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fin-hbars__value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.fin-hbars__track {
+  height: 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-sunken);
+  overflow: hidden;
+}
+.fin-hbars__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--cm-radius-full);
+  background: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-surface));
+  transform-origin: left;
+  animation: fin-grow var(--cm-spring-smooth-dur) var(--cm-spring-smooth) both;
+}
+.fin-hbars > li[data-strong] .fin-hbars__fill {
+  background: var(--cm-brand-500);
+}
+.fin-hbars > li[data-strong] .fin-hbars__label {
+  font-weight: 600;
+}
+.fin-hbars__sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 4px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+@keyframes fin-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fin-hbars__fill,
+  .fin-wf__bar {
+    animation: none;
+  }
+}
+
+/* Leituras do mês. */
+.fin-insights {
+  list-style: none;
+  margin: calc(var(--cm-space-2) * -1) calc(var(--cm-space-3) * -1) 0;
+  padding: 0;
+}
+.fin-insights > li + li {
+  border-top: 1px solid var(--cm-border);
+}
+.fin-insights__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--cm-space-2);
+  width: 100%;
+  padding: var(--cm-space-3);
+  border: 0;
+  border-radius: var(--cm-radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+button.fin-insights__row {
+  cursor: pointer;
+}
+button.fin-insights__row:hover {
+  background: var(--cm-surface-muted);
+}
+button.fin-insights__row:active {
+  transform: scale(0.98);
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+button.fin-insights__row:focus-visible {
+  outline: 2px solid var(--cm-focus);
+  outline-offset: -2px;
+}
+.fin-insights__row .fin-dot {
+  margin: 6px 0 0;
+}
+.fin-insights__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.fin-insights__text strong {
+  font-size: var(--cm-text-sm);
+}
+.fin-insights__text .cm-hint {
+  font-size: var(--cm-text-xs);
+  line-height: 1.45;
+}
+.fin-insights__go {
+  margin-top: 2px;
+  color: var(--cm-text-subtle);
+}
+.fin-dot[data-status='info'] {
+  background: var(--cm-info);
+}
+
+/* Próximos vencimentos. */
+.fin-due {
+  list-style: none;
+  margin: calc(var(--cm-space-2) * -1) 0 0;
+  padding: 0;
+}
+.fin-due > li {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--cm-space-3);
+  padding: 10px 0;
+}
+.fin-due > li + li {
+  border-top: 1px solid var(--cm-border);
+}
+.fin-due__date {
+  display: flex;
+  flex-direction: column;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: var(--cm-text-sm);
+}
+.fin-due__date em {
+  font-style: normal;
+  font-weight: 500;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-danger);
+}
+.fin-due__main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.fin-due__main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--cm-text-sm);
+}
+.fin-due__main .cm-hint {
+  font-size: var(--cm-text-xs);
+}
+.fin-due__amt {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Cascata do DRE: do faturamento ao lucro. */
+.fin-wf {
+  display: grid;
+  gap: var(--cm-space-2);
+}
+.fin-wf__plot {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: var(--cm-space-2);
+  height: 220px;
+  margin-top: 22px;
+}
+.fin-wf__zero {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--cm-border-strong);
+}
+.fin-wf__col {
+  position: relative;
+  min-width: 0;
+  transition: opacity var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.fin-wf__col[data-dim] {
+  opacity: 0.55;
+}
+.fin-wf__bar {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  border-radius: 4px;
+  transform-origin: bottom;
+  animation: fin-rise var(--cm-spring-smooth-dur) var(--cm-spring-smooth) both;
+}
+.fin-wf__bar[data-kind='total'] {
+  background: var(--cm-brand-500);
+}
+.fin-wf__bar[data-kind='neg-total'] {
+  background: var(--cm-danger);
+}
+.fin-wf__bar[data-kind='out'] {
+  background: color-mix(in srgb, var(--cm-text-muted) 70%, var(--cm-surface));
+}
+.fin-wf__bar[data-kind='in'] {
+  background: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-surface));
+}
+.fin-wf__link {
+  position: absolute;
+  left: 86%;
+  right: calc(-14% - var(--cm-space-2));
+  border-top: 1px dashed var(--cm-border-strong);
+}
+.fin-wf__val {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.fin-wf__val[data-neg] {
+  color: var(--cm-danger);
+}
+.fin-wf__labels {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: var(--cm-space-2);
+  text-align: center;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+}
+.fin-wf__labels > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+}
+.fin-wf__labels em {
+  font-style: normal;
+  color: var(--cm-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+@keyframes fin-rise {
+  from {
+    opacity: 0;
+    transform: scaleY(0.6);
+  }
+}
+
+/* Barra fina de progresso (contas do mês pagas). */
+.fin-progress {
+  height: 6px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface-sunken);
+  overflow: hidden;
+}
+.fin-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-500);
+}
+
+/* Fechamentos e fluxo: gráfico ao lado da lista de formas. */
+.fin-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.85fr) minmax(280px, 1fr);
+  gap: var(--cm-space-4);
+  align-items: start;
+}
+.fin-split > .cm-card {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .fin-ov__main,
+  .fin-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Uma coluna: as leituras do mês vêm antes do gráfico (é o que pede ação). */
+  .fin-ov__main > :last-child {
+    order: -1;
+  }
+}
+@media (max-width: 900px) {
+  .fin-kpi-strip,
+  .fin-kpi-strip[data-count='3'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .fin-kpi:nth-child(odd) {
+    border-left: 0;
+  }
+  .fin-kpi:nth-child(n + 3) {
+    border-top: 1px solid var(--cm-border);
+  }
+  .fin-kpi-strip[data-count='3'] .fin-kpi:last-child {
+    grid-column: 1 / -1;
+  }
+  .fin-ov__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .fin-kpi {
+    padding: var(--cm-space-3);
+  }
+  .fin-kpi__value {
+    font-size: var(--cm-text-lg);
+  }
+  .fin-chart-head__side {
+    align-items: flex-start;
+  }
+  .fin-chart-head__figure strong {
+    font-size: var(--cm-text-xl);
+  }
+  .fin-wf__plot {
+    height: 180px;
+    gap: 4px;
+  }
+  .fin-wf__labels {
+    gap: 4px;
+    font-size: 10px;
+  }
+  .fin-wf__val {
+    font-size: 9.5px;
   }
 }
