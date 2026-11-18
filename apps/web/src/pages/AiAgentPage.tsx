@@ -1,4 +1,13 @@
-import { Bot, CheckCheck, MessageCircle, RotateCcw, Search, Send, Sparkles } from 'lucide-react';
+import {
+  Bot,
+  CheckCheck,
+  FileDown,
+  MessageCircle,
+  RotateCcw,
+  Search,
+  Send,
+  Sparkles,
+} from 'lucide-react';
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import {
@@ -17,6 +26,7 @@ import {
 } from '../design-system';
 import { CheckField } from '../features/forms';
 import { api } from '../lib/api';
+import { downloadFile } from '../lib/download';
 import './ai-agent.css';
 
 type Tone = 'friendly' | 'formal' | 'fun';
@@ -34,6 +44,8 @@ export interface AgentSettings {
   showPrices: boolean;
   sendStoreLink: boolean;
   replyWhen: ReplyWhen;
+  takeReservations: boolean;
+  sendPdfs: boolean;
 }
 
 interface Overview {
@@ -57,7 +69,19 @@ interface Turn {
   role: 'user' | 'assistant';
   content: string;
   handoff?: boolean;
+  actions?: string[];
 }
+
+/** O que a IA faria no WhatsApp, mostrado embaixo da resposta no teste. */
+const ACTION_NOTE: Record<string, string> = {
+  menu_pdf: 'Aqui a IA mandaria o cardápio em PDF.',
+  calendar_pdf: 'Aqui a IA mandaria o calendário de reservas em PDF.',
+  reservation_confirm: 'O horário está livre. No WhatsApp, a reserva só é gravada depois do SIM.',
+  reservation_cancel: 'Aqui a IA pediria o SIM para cancelar a reserva deste número.',
+  reservation_created: 'No WhatsApp, a reserva entraria agora na aba Reservas.',
+  abuse:
+    'Tentativa de tirar a IA do papel ou golpe. Na terceira em 24 horas, a IA para de responder o número por 24 horas e avisa a equipe.',
+};
 
 const TONES: { value: Tone; label: string; example: string }[] = [
   {
@@ -164,6 +188,14 @@ export function AiAgentPage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  /** Prévia do PDF que a IA manda (com o que está salvo). */
+  function pdf(kind: 'menu' | 'calendar') {
+    downloadFile(
+      `/api/v1/ai-agent/pdf/${kind}`,
+      kind === 'menu' ? 'cardapio.pdf' : 'calendario-reservas.pdf',
+    ).catch((e: Error) => toast(e.message, 'danger'));
   }
 
   if (!o || !form) return error ? <Alert tone="danger">{error}</Alert> : <Spinner />;
@@ -335,10 +367,44 @@ export function AiAgentPage() {
               checked={form.sendStoreLink}
               onChange={set('sendStoreLink')}
             />
+            <CheckField
+              label="Fazer reservas de mesa"
+              description="Mostra os horários livres, monta a reserva e só grava depois que o cliente responde SIM. Precisa das reservas ligadas na aba Reservas."
+              checked={form.takeReservations}
+              onChange={set('takeReservations')}
+            />
+            <CheckField
+              label="Mandar o cardápio e o calendário em PDF"
+              description="Quando o cliente pede, a IA manda o arquivo na conversa (o calendário mostra os dias e horários livres para reserva)."
+              checked={form.sendPdfs}
+              onChange={set('sendPdfs')}
+            />
+          </div>
+          <div className="ai-pdfs">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              icon={<FileDown size={16} />}
+              onClick={() => pdf('menu')}
+            >
+              Ver o cardápio em PDF
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              icon={<FileDown size={16} />}
+              onClick={() => pdf('calendar')}
+            >
+              Ver o calendário em PDF
+            </Button>
           </div>
           <p className="cm-hint ai-never">
             Sempre: fala só do que está liberado no cardápio, não inventa preço nem promoção, não
-            fecha pedido, não dá desconto e não pede dados de cartão.
+            fecha pedido, não dá desconto, não pede dados de cartão, não manda link de fora nem
+            chave Pix, recusa assunto que não é do restaurante e não sai do papel. Quem insiste em
+            golpe ou ofensa fica 24 horas sem resposta da IA, e a equipe é avisada.
           </p>
         </Card>
 
@@ -630,16 +696,22 @@ function TestCard({
     setError(null);
     try {
       const { whatsappEnabled: _w, ...d } = draft;
-      const r = await api<{ text: string; handoff: boolean }>('/ai-agent/test', {
-        method: 'POST',
-        json: {
-          messages: next.map(({ role, content: c }) => ({ role, content: c })),
-          draft: Object.fromEntries(
-            Object.entries(d).map(([k, v]) => [k, typeof v === 'string' ? v.trim() || null : v]),
-          ),
+      const r = await api<{ text: string; handoff: boolean; actions?: string[] }>(
+        '/ai-agent/test',
+        {
+          method: 'POST',
+          json: {
+            messages: next.map(({ role, content: c }) => ({ role, content: c })),
+            draft: Object.fromEntries(
+              Object.entries(d).map(([k, v]) => [k, typeof v === 'string' ? v.trim() || null : v]),
+            ),
+          },
         },
-      });
-      setTurns([...next, { role: 'assistant', content: r.text, handoff: r.handoff }]);
+      );
+      setTurns([
+        ...next,
+        { role: 'assistant', content: r.text, handoff: r.handoff, actions: r.actions },
+      ]);
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -649,7 +721,8 @@ function TestCard({
 
   const ideas = [
     'Oi, vocês estão abertos?',
-    'Qual o lanche mais pedido?',
+    'Me manda o cardápio',
+    'Quero reservar uma mesa para sexta',
     'Quero falar com alguém',
   ];
   return (
@@ -700,6 +773,14 @@ function TestCard({
               <em className="ai-msg__note">
                 Aqui a IA chamaria alguém da equipe e ficaria quieta nesta conversa.
               </em>
+            )}
+            {t.actions?.map(
+              (a) =>
+                ACTION_NOTE[a] && (
+                  <em key={a} className="ai-msg__note">
+                    {ACTION_NOTE[a]}
+                  </em>
+                ),
             )}
           </div>
         ))}

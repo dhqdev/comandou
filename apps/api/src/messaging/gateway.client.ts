@@ -89,6 +89,32 @@ export class GatewayClient {
     return { ok: false as const, error: r.body.error ?? `HTTP ${r.http}` };
   }
 
+  /**
+   * Manda um PDF (cardápio, calendário de reservas) na conversa, até 3 MB. Mesmos códigos do
+   * envio de texto (409 = desconectado).
+   */
+  async sendDocument(
+    tenantId: string,
+    to: string,
+    doc: { data: Uint8Array; fileName: string; caption?: string },
+  ) {
+    const r = await this.call<{ id?: string | null }>(
+      tenantId,
+      'POST',
+      '/document',
+      {
+        ...dest(to),
+        fileName: doc.fileName,
+        caption: doc.caption,
+        data: Buffer.from(doc.data).toString('base64'),
+      },
+      45_000,
+    );
+    if (r.http === 200) return { ok: true as const, messageId: r.body.id ?? undefined };
+    if (r.http === 409) throw new WhatsAppUnavailableError(r.body.error ?? 'WhatsApp desconectado');
+    return { ok: false as const, error: r.body.error ?? `HTTP ${r.http}` };
+  }
+
   /** Ações acessórias (digitando, lido, reação, online): falha não interrompe a conversa. */
   private async extra(tenantId: string, path: string, body: unknown) {
     const r = await this.call<{ ok?: boolean }>(tenantId, 'POST', path, body, 10_000);

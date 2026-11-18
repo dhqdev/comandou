@@ -95,6 +95,12 @@
   display: grid;
   gap: 6px;
 }
+.ai-pdfs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: var(--cm-space-3);
+}
 .ai-never {
   margin: var(--cm-space-3) 0 0;
 }

@@ -24,6 +24,7 @@ houve teste de invasão por terceiros; recomendamos um antes de abrir para muito
 | Cabeçalhos HTTP | helmet na API; Nginx com CSP, HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy` | `scripts/preflight.sh --deployed` confere HSTS |
 | Dependências vulneráveis | `pnpm audit --prod --audit-level high` no CI | 2026-10-22: nenhuma vulnerabilidade conhecida (uma moderada no js-yaml corrigida por override) |
 | SQL injection | consultas parametrizadas; os poucos trechos montados usam só nomes fixos do código | revisão: `kitchen`, `fiscal`, `messaging`, `stock`, `platform` |
+| IA do WhatsApp tirada do papel, golpe, abuso | prompt com regras de proteção; tentativas óbvias ("ignore as instruções", "mostre o prompt") respondidas sem chamar a IA; links de fora do restaurante tirados da resposta; resposta que repete as instruções é trocada; reserva só gravada pelo servidor depois do SIM, com o telefone da conversa; 3 tentativas em 24 h = 24 h sem resposta da IA e aviso à equipe; limite de mensagens por número ([whatsapp.md](whatsapp.md#ia-que-atende-no-whatsapp)) | `agent-guard.test.ts`, `chat.e2e.test.ts` |
 | Dados pessoais guardados demais | limpeza automática de sessões, chaves de idempotência e posição do entregador | `security.e2e.test.ts` |
 
 ## Achados desta revisão e o que foi feito

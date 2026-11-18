@@ -45,7 +45,7 @@ certificado digital A1 (.pfx e senha), o CSC da SEFAZ e a inscrição estadual; 
 empresa na Focus (`POST /v2/empresas`) com o seu token e guarda os tokens de homologação e
 produção dela, cifrados. Os endereços da Focus já vêm prontos.
 
-O token salvo no painel (tabela `platform_credentials`, migração 0081) vale na hora em todas as
+O token salvo no painel (tabela `platform_credentials`, migração 0082) vale na hora em todas as
 réplicas (cache de 30 s). Sem ele, a API usa a variável antiga `FOCUS_NFE_MASTER_TOKEN`, então uma
 instalação que já usava a variável continua funcionando sem fazer nada.
 

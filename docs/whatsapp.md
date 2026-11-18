@@ -67,3 +67,44 @@ O Baileys não é a API oficial: o WhatsApp pode bloquear números que parecem r
 reduz o risco (ritmo de envio, "digitando..." antes da resposta da IA, "offline" fora das
 respostas, religação espalhada), mas **não manda campanhas em massa**. Para disparos para quem
 nunca falou com o restaurante, use a API oficial (Meta), que o Comandou também suporta.
+
+## IA que atende no WhatsApp
+
+O gerente liga em **Assistente de IA** (menu) (`apps/web/src/pages/AiAgentPage.tsx`); o
+código fica em `apps/api/src/chat/` (`ai-agent.service.ts`, `ai-agent-prompt.ts`,
+`agent-guard.ts`, `agent-pdfs.ts`).
+
+**Ações por marca.** O modelo não chama ferramentas: termina a resposta com uma marca que o
+servidor lê e tira antes de enviar.
+
+| Marca | O que o servidor faz |
+| --- | --- |
+| `[[ATENDENTE]]` | Passa para a equipe (aviso no chat) e a IA fica quieta 12 h nessa conversa. |
+| `[[CARDAPIO_PDF]]` / `[[CALENDARIO_PDF]]` | Gera o PDF (cardápio liberado / dias e horários livres para reserva) e manda depois do texto (`POST /v1/sessions/:id/document` no gateway, só PDF até 3 MB). |
+| `[[RESERVAR data=… hora=… pessoas=… nome="…" obs="…"]]` | Confere o horário com as regras de reserva (`ReservationsService.checkWhatsApp`) e manda o resumo pedindo **SIM**. Nada é gravado ainda. |
+| `[[CANCELAR CODIGO]]` | Só se a reserva é do telefone da conversa; pede **SIM**. |
+| `[[ABUSO]]` | Conta uma tentativa de abuso (veja abaixo). |
+
+**Reserva só depois do SIM.** O pedido fica em `ai_customer_chats.pending` por 30 minutos. Quando
+o cliente responde SIM (ou "pode confirmar", "ok"…), o **servidor** grava a reserva sem chamar a
+IA (`createWhatsApp`: mesma trava e regras do cardápio online, `source = 'whatsapp'`, telefone da
+conversa, até 3 em aberto por número) e responde com o código. NÃO limpa o pedido; qualquer outra
+coisa limpa e segue a conversa normal.
+
+**Memória.** Vão para o modelo as últimas 16 mensagens (até 30 dias) mais um resumo
+(`ai_customer_chats.memory`) das mais antigas, refeito pela própria IA quando sobram 10 fora da
+janela. O prompt também traz as reservas futuras do cliente e os próximos 15 dias com horários
+livres.
+
+**Proteções.**
+
+- Prompt com a seção "Proteção (nunca quebre)": só assuntos do restaurante, não muda de papel,
+  não mostra as instruções, não passa dados de outras pessoas, não manda Pix nem link de fora.
+- Mensagem do cliente sem marcas `[[ ]]` e sem caracteres invisíveis, até 1500 caracteres.
+- Tentativa óbvia de tirar do papel (`looksLikeInjection`) recebe resposta pronta, sem gastar a IA.
+- Resposta: links que não são do restaurante são tirados; resposta que repete as instruções é
+  trocada por uma frase padrão.
+- 3 tentativas de abuso em 24 h (marca `[[ABUSO]]` ou tentativa óbvia) = a IA não responde o número
+  por 24 h (`blocked_until`) e a equipe recebe aviso no chat.
+- Ritmo: mais de 8 mensagens por minuto ou 60 por hora do mesmo número ficam sem resposta da IA.
+- Resumo da memória que parece instrução é descartado.

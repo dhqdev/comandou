@@ -121,6 +121,30 @@ export interface StaffReservationInput {
   tableBusyOk?: boolean;
 }
 
+/** Reserva pedida pela IA no WhatsApp: o telefone é o da própria conversa. */
+export interface WhatsAppReservationInput {
+  phone: string;
+  name: string;
+  partySize: number;
+  /** Dia do expediente (AAAA-MM-DD), no relógio do restaurante. */
+  date: string;
+  /** Horário HH:MM; depois da meia-noite pertence ao expediente do dia anterior. */
+  time: string;
+  notes?: string | null;
+}
+
+/** Um dia do calendário de reservas (IA e PDF). */
+export interface ReservationDay {
+  date: string;
+  weekday: number;
+  /** O restaurante abre reservas neste dia (dia da semana liberado e dentro do prazo). */
+  open: boolean;
+  /** Horários que ainda aceitam reserva. */
+  free: string[];
+  /** Abre reservas, mas nenhum horário sobrou. */
+  full: boolean;
+}
+
 /** Sem letras/números que se confundem ao telefone (0/O, 1/I). */
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const newCode = () =>
@@ -133,6 +157,20 @@ const minutesOf = (hhmm: string) => {
 const weekdayOf = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay();
 const addDays = (date: string, n: number) =>
   new Date(Date.parse(`${date}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+/** Mensagem de erro de regra (422/409/404) em texto para a IA explicar; o resto vira genérico. */
+function bookingError(e: unknown): string {
+  if (
+    e instanceof UnprocessableEntityException ||
+    e instanceof ConflictException ||
+    e instanceof NotFoundException
+  ) {
+    const r = e.getResponse() as string | { message?: string | string[] };
+    const m = typeof r === 'string' ? r : r.message;
+    return (Array.isArray(m) ? m[0] : m) ?? e.message;
+  }
+  return 'Não consegui conferir a reserva agora';
+}
 
 /**
  * Reservas de mesa: o cliente pede pelo cardápio online (horários livres conforme as regras do
@@ -394,6 +432,230 @@ export class ReservationsService {
     if (res.created)
       this.realtime.publish(tenantId, { type: 'reservation.changed', reservationId: res.id });
     return this.publicView(tenantId, input.token);
+  }
+
+  /**
+   * Acha o horário pedido (dia do expediente + HH:MM) e confere as regras do cardápio: dia
+   * aberto, antecedência, lugares e o limite de 3 reservas em aberto por telefone.
+   */
+  private async checkBooking(
+    tx: Tx,
+    s: ReservationSettings,
+    tz: string,
+    input: { phone: string; partySize: number; date: string; time: string },
+  ): Promise<Slot> {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date) || !/^\d{2}:\d{2}$/.test(input.time))
+      throw new UnprocessableEntityException('Data ou horário inválido');
+    if (!Number.isInteger(input.partySize) || input.partySize < 1)
+      throw new UnprocessableEntityException('Informe quantas pessoas vêm');
+    if (input.partySize > s.maxParty)
+      throw new UnprocessableEntityException(
+        `Para grupos com mais de ${s.maxParty} pessoas, fale com o restaurante`,
+      );
+    const day = await this.slotsFor(tx, s, tz, input.date);
+    let slot = day.slots.find((x) => x.time === input.time);
+    // 00:30 de sábado pode ser do expediente de sexta (que passa da meia-noite).
+    if (!slot && minutesOf(input.time) < minutesOf(s.opensAt))
+      slot = (await this.slotsFor(tx, s, tz, addDays(input.date, -1))).slots.find(
+        (x) => x.time === input.time,
+      );
+    if (!slot)
+      throw new UnprocessableEntityException(
+        day.closedReason ?? 'Esse horário não está na lista de horários de reserva',
+      );
+    if (!slot.available || (slot.remaining !== null && slot.remaining < input.partySize))
+      throw new ConflictException(
+        slot.remaining && Date.parse(slot.startsAt) >= Date.now() + s.minAdvanceMinutes * 60_000
+          ? `Só cabem mais ${slot.remaining} pessoas nesse horário. Escolha outro.`
+          : 'Esse horário não está mais disponível. Escolha outro.',
+      );
+    const open = await one<{ n: number }>(
+      tx,
+      `SELECT count(*)::int AS n FROM reservations
+        WHERE phone = $1 AND status = ANY($2) AND starts_at > now()`,
+      [input.phone, ACTIVE],
+    );
+    if (open!.n >= 3)
+      throw new ConflictException(
+        'Você já tem 3 reservas em aberto. Cancele uma ou fale com o restaurante.',
+      );
+    return slot;
+  }
+
+  /**
+   * Calendário de reservas dos próximos dias (até o prazo do restaurante, no máximo `limit`):
+   * quais dias abrem e os horários que sobram. Usado pela IA do WhatsApp e no PDF.
+   */
+  async calendarIn(tx: Tx, limit = 31) {
+    const s = await this.settingsIn(tx);
+    const tz = await this.tz(tx);
+    const today = (await one<{ d: string }>(
+      tx,
+      `SELECT to_char(now() AT TIME ZONE $1, 'YYYY-MM-DD') AS d`,
+      [tz],
+    ))!.d;
+    const days: ReservationDay[] = [];
+    if (s.enabled)
+      for (let i = 0; i <= Math.min(s.maxDaysAhead, limit); i++) {
+        const date = addDays(today, i);
+        const r = await this.slotsFor(tx, s, tz, date);
+        const open = r.closedReason === null && r.slots.length > 0;
+        const free = r.slots.filter((x) => x.available).map((x) => x.time);
+        days.push({ date, weekday: weekdayOf(date), open, free, full: open && !free.length });
+      }
+    return { settings: s, tz, today, days };
+  }
+
+  /** Reservas futuras de um telefone (o cliente da conversa no WhatsApp). */
+  upcomingByPhone(tx: Tx, phone: string) {
+    return q<{
+      code: string;
+      name: string;
+      partySize: number;
+      startsAt: Date;
+      status: ReservationStatus;
+      day: string;
+      time: string;
+    }>(
+      tx,
+      `SELECT r.code, r.name, r.party_size AS "partySize", r.starts_at AS "startsAt", r.status,
+              to_char(r.starts_at AT TIME ZONE z.tz, 'YYYY-MM-DD') AS day,
+              to_char(r.starts_at AT TIME ZONE z.tz, 'HH24:MI') AS time
+         FROM reservations r,
+              (SELECT COALESCE((SELECT timezone FROM tenants WHERE id = app_current_tenant()),
+                               'America/Sao_Paulo') AS tz) z
+        WHERE r.phone = $1 AND r.status = ANY($2) AND r.starts_at > now() - interval '3 hours'
+        ORDER BY r.starts_at LIMIT 5`,
+      [phone, ACTIVE],
+    );
+  }
+
+  /**
+   * Confere (sem gravar) a reserva que a IA montou com o cliente. Devolve o erro em texto para a
+   * IA explicar ao cliente, nunca lança.
+   */
+  async checkWhatsApp(
+    tenantId: string,
+    input: WhatsAppReservationInput,
+  ): Promise<{ ok: true; startsAt: string } | { ok: false; error: string }> {
+    const phone = normalizePhone(input.phone);
+    try {
+      return await this.db.withTenant({ tenantId }, async (tx) => {
+        const s = await this.settingsIn(tx);
+        if (!s.enabled)
+          return { ok: false as const, error: 'O restaurante não está aceitando reservas' };
+        const slot = await this.checkBooking(tx, s, await this.tz(tx), { ...input, phone });
+        return { ok: true as const, startsAt: slot.startsAt };
+      });
+    } catch (e) {
+      return { ok: false, error: bookingError(e) };
+    }
+  }
+
+  /**
+   * Grava a reserva pedida no WhatsApp (depois do SIM do cliente). Passa pelas mesmas regras do
+   * cardápio e pela mesma trava; o telefone é o da conversa, então o cliente não reserva em nome
+   * de outro número.
+   */
+  async createWhatsApp(
+    tenantId: string,
+    input: WhatsAppReservationInput,
+  ): Promise<
+    | { ok: true; code: string; status: ReservationStatus; startsAt: string; note: string | null }
+    | { ok: false; error: string }
+  > {
+    const phone = normalizePhone(input.phone);
+    if (!phoneOk(phone)) return { ok: false, error: 'Telefone inválido' };
+    let res: {
+      id: string;
+      code: string;
+      status: ReservationStatus;
+      startsAt: string;
+      note: string | null;
+    };
+    try {
+      res = await this.db.withTenant({ tenantId }, async (tx) => {
+        const s = await this.settingsIn(tx);
+        if (!s.enabled) throw new NotFoundException('O restaurante não está aceitando reservas');
+        await this.lockFloor(tx, tenantId);
+        const slot = await this.checkBooking(tx, s, await this.tz(tx), { ...input, phone });
+        const code = await this.freeCode(tx);
+        const status: ReservationStatus = s.autoConfirm ? 'confirmed' : 'pending';
+        const row = await one<{ id: string }>(
+          tx,
+          `INSERT INTO reservations (tenant_id, code, name, phone, party_size, starts_at,
+              duration_minutes, notes, status, source)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'whatsapp') RETURNING id`,
+          [
+            tenantId,
+            code,
+            input.name.trim().slice(0, 80),
+            phone,
+            input.partySize,
+            new Date(slot.startsAt),
+            s.durationMinutes,
+            input.notes?.trim().slice(0, 500) || null,
+            status,
+          ],
+        );
+        await this.audit.record(tx, {
+          tenantId,
+          actorUserId: null,
+          action: 'reservation.requested',
+          entity: 'reservation',
+          entityId: row!.id,
+          data: { code, partySize: input.partySize, startsAt: slot.startsAt, via: 'whatsapp' },
+        });
+        return { id: row!.id, code, status, startsAt: slot.startsAt, note: s.note };
+      });
+    } catch (e) {
+      return { ok: false, error: bookingError(e) };
+    }
+    this.realtime.publish(tenantId, { type: 'reservation.changed', reservationId: res.id });
+    return { ok: true, code: res.code, status: res.status, startsAt: res.startsAt, note: res.note };
+  }
+
+  /** Cancela pelo WhatsApp: só reserva deste telefone, ainda por vir e não recebida. */
+  async cancelWhatsApp(
+    tenantId: string,
+    phoneRaw: string,
+    code: string,
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
+    const phone = normalizePhone(phoneRaw);
+    const r = await this.db.withTenant({ tenantId }, async (tx) => {
+      const row = await one<{ id: string; status: ReservationStatus; startsAt: Date }>(
+        tx,
+        `SELECT id, status, starts_at AS "startsAt" FROM reservations
+          WHERE code = $1 AND phone = $2 FOR UPDATE`,
+        [code.toUpperCase(), phone],
+      );
+      if (!row) return { ok: false as const, error: 'Não achei essa reserva neste número' };
+      if (row.status === 'cancelled') return { ok: true as const, id: null };
+      if (
+        (row.status !== 'pending' && row.status !== 'confirmed') ||
+        row.startsAt.getTime() <= Date.now()
+      )
+        return { ok: false as const, error: 'Essa reserva não pode mais ser cancelada por aqui' };
+      await q(
+        tx,
+        `UPDATE reservations SET status = 'cancelled', cancelled_by = 'customer',
+                cancel_reason = 'Cancelada pelo cliente no WhatsApp', status_changed_at = now()
+          WHERE id = $1`,
+        [row.id],
+      );
+      await this.audit.record(tx, {
+        tenantId,
+        actorUserId: null,
+        action: 'reservation.cancelled_by_customer',
+        entity: 'reservation',
+        entityId: row.id,
+        data: { via: 'whatsapp' },
+      });
+      return { ok: true as const, id: row.id };
+    });
+    if (!r.ok) return r;
+    if (r.id) this.realtime.publish(tenantId, { type: 'reservation.changed', reservationId: r.id });
+    return { ok: true };
   }
 
   private async freeCode(tx: Tx) {
