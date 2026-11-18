@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.160.0',
+    date: '2026-11-18',
+    title: 'IA do WhatsApp faz reserva e manda cardápio e calendário em PDF',
+    summary:
+      'A IA que atende no WhatsApp agora faz reservas de mesa pela conversa (só grava depois que o cliente responde SIM), manda o cardápio e o calendário de reservas em PDF, lembra das conversas antigas com cada cliente e se protege melhor de golpe, assunto indevido e tentativas de tirá-la do papel.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Reserva pelo WhatsApp: a IA vê os dias e horários livres, pergunta o que falta (dia, horário, pessoas e nome) e pede a confirmação. Só depois do SIM a reserva entra na aba Reservas, com o código, pelas mesmas regras do cardápio online (antecedência, lotação, até 3 reservas em aberto por número). O cliente também cancela a própria reserva pela conversa.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cardápio e calendário de reservas em PDF: quando o cliente pede, a IA manda o arquivo na conversa. O calendário mostra o mês com os dias que têm horário livre e a lista dos horários. O gerente vê a prévia dos dois na tela da IA e pode desligar o envio.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Memória da conversa: além das últimas mensagens, a IA guarda um resumo do que importa de cada cliente (nome, preferências, alergias, o que ficou combinado) e sabe as reservas que ele tem.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Proteções da IA: recusa assunto fora do restaurante, não muda de papel nem mostra as instruções, não passa dados de outros clientes, tira da resposta links que não são do restaurante e nunca manda chave Pix ou confirma pagamento. Tentativas de tirar do papel, golpe ou ofensa contam; na terceira em 24 horas a IA para de responder o número por 24 horas e avisa a equipe. Mensagens demais do mesmo número também ficam sem resposta da IA.',
+      },
+    ],
+  },
+  {
     version: '0.159.0',
     date: '2026-11-18',
     title: 'Financeiro com gráficos e leituras do mês',

@@ -48,7 +48,7 @@ export interface Reservation {
   status: ReservationStatus;
   tableId: string | null;
   tableLabel: string | null;
-  source: 'online' | 'staff';
+  source: 'online' | 'staff' | 'whatsapp';
   cancelReason: string | null;
   cancelledBy: 'customer' | 'staff' | null;
   createdAt: string;
@@ -460,9 +460,10 @@ function ReservationCard({
           <span className="rv-card__meta">
             <Users size={14} aria-hidden /> {r.partySize} {r.partySize === 1 ? 'pessoa' : 'pessoas'}
             <span aria-hidden>·</span> #{r.code}
-            {r.source === 'online' && (
+            {r.source !== 'staff' && (
               <>
-                <span aria-hidden>·</span> pelo cardápio
+                <span aria-hidden>·</span>{' '}
+                {r.source === 'whatsapp' ? 'pelo WhatsApp' : 'pelo cardápio'}
               </>
             )}
           </span>

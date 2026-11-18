@@ -28,6 +28,7 @@ class FakeSocket implements SocketLike {
   presences: string[] = [];
   reads: unknown[] = [];
   reacts: unknown[] = [];
+  docs: { jid: string; fileName: string; caption?: string; size: number }[] = [];
   ws = { isOpen: true, on: () => undefined };
   /** Falha o próximo envio como se o socket tivesse morrido por baixo. */
   failNext = false;
@@ -50,10 +51,20 @@ class FakeSocket implements SocketLike {
     for (const h of this.handlers['messages.upsert'] ?? [])
       (h as unknown as (u: unknown) => void)({ messages, type });
   }
-  async sendMessage(jid: string, c: { text: string } | { react: unknown }) {
+  async sendMessage(
+    jid: string,
+    c:
+      | { text: string }
+      | { react: unknown }
+      | { document: Buffer; fileName: string; caption?: string },
+  ) {
     if (this.failNext) {
       this.failNext = false;
       throw Object.assign(new Error('Connection Closed'), { output: { statusCode: 428 } });
+    }
+    if ('document' in c) {
+      this.docs.push({ jid, fileName: c.fileName, caption: c.caption, size: c.document.length });
+      return { key: { id: `DOC${this.docs.length}` } };
     }
     if ('react' in c) {
       this.reacts.push({ jid, ...c });
@@ -184,6 +195,27 @@ describe('sessões e API interna', () => {
       jid: '5511987654321@s.whatsapp.net',
       text: 'Pedido pronto',
     });
+    // PDF (cardápio, calendário): só PDF de verdade, nome .pdf e dentro do limite.
+    const pdf = Buffer.from('%PDF-1.7\nconteudo').toString('base64');
+    const doc = await call(`/v1/sessions/${t}/document`, 'POST', {
+      to: '5511987654321',
+      fileName: 'Cardápio Casa.pdf',
+      caption: 'Nosso cardápio',
+      data: pdf,
+    });
+    expect(doc.status).toBe(200);
+    expect(socks[0].docs[0]).toMatchObject({
+      fileName: 'Cardápio Casa.pdf',
+      caption: 'Nosso cardápio',
+    });
+    for (const bad of [
+      { fileName: 'virus.exe', data: pdf },
+      { fileName: '../x.pdf', data: pdf },
+      { fileName: 'a.pdf', data: Buffer.from('MZ executavel').toString('base64') },
+    ])
+      expect(
+        (await call(`/v1/sessions/${t}/document`, 'POST', { to: '5511987654321', ...bad })).status,
+      ).toBe(422);
     // Outro restaurante não usa a conexão deste.
     expect(
       (
