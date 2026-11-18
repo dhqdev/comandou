@@ -14,7 +14,7 @@ import { brl } from '../lib/money';
 import { CalendarSection } from './BillingCalendar';
 import { useLoad } from './OverviewPages';
 import { KeyInUse } from './credentials/KeyInUse';
-import { ago, Dot, Level, Section, Tag, Tile } from './ui';
+import { ago, Dot, Level, PageHead, Section, Tag, Tile } from './ui';
 
 interface Settings {
   enabled: boolean;
@@ -116,10 +116,30 @@ function tenantLevel(t: TenantRow): Level {
 export function BillingPage() {
   const data = useLoad<Overview>('/platform/billing');
   const o = data.data;
-  if (data.error) return <Alert tone="danger">{data.error}</Alert>;
-  if (!o) return <Spinner />;
+  const head = (
+    <PageHead
+      page
+      title="Cobrança"
+      sub="A mensalidade de cada restaurante: faturas, pagamentos e o bloqueio de quem não paga."
+    />
+  );
+  if (data.error)
+    return (
+      <>
+        {head}
+        <Alert tone="danger">{data.error}</Alert>
+      </>
+    );
+  if (!o)
+    return (
+      <>
+        {head}
+        <Spinner />
+      </>
+    );
   return (
     <>
+      {head}
       <StatusSection o={o} onRan={data.reload} />
       <CalendarSection />
       <TenantsSection o={o} />
@@ -161,11 +181,11 @@ function StatusSection({ o, onRan }: { o: Overview; onRan(): void }) {
   }
   return (
     <Section
-      title="Cobrança"
+      title="Situação"
       sub={
         s.enabled
-          ? `Asaas ${s.environment === 'production' ? 'produção' : 'sandbox'}${s.accountName ? ` · ${s.accountName}` : ''}`
-          : 'desligada'
+          ? `cobrança automática pelo Asaas ${s.environment === 'production' ? '(produção)' : '(sandbox)'}${s.accountName ? ` · ${s.accountName}` : ''}`
+          : 'cobrança automática desligada'
       }
       actions={
         <Button variant="ghost" size="sm" onClick={run} loading={busy} disabled={!s.enabled}>
@@ -203,7 +223,9 @@ function StatusSection({ o, onRan }: { o: Overview; onRan(): void }) {
         <Tile
           label="Bloqueados"
           value={blocked.length}
-          sub={renew.length ? `${renew.length} contrato(s) para renovar` : 'contratos em dia'}
+          sub={
+            renew.length ? `${renew.length} contrato(s) para renovar` : 'nenhum contrato vencendo'
+          }
           level={blocked.length ? 'bad' : 'ok'}
         />
       </div>

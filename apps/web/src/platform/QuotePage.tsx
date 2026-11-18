@@ -7,7 +7,7 @@ import {
   formatUnitBRL,
   toCents,
 } from '@comandou/shared';
-import { Download, FileText, Plus, Settings2, Trash2 } from 'lucide-react';
+import { Building2, Download, FileText, Plus, Settings2, Trash2 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -24,6 +24,7 @@ import { api } from '../lib/api';
 import { downloadFile } from '../lib/download';
 import { brl, parseBrlInput } from '../lib/money';
 import { useLoad } from './OverviewPages';
+import { ContractSettingsModal } from './TenantContracts';
 import { PageHead, Section } from './ui';
 
 interface ExtraCost {
@@ -82,6 +83,7 @@ const pdfUrl = (id: string) => `/api/v1/platform/quotes/${id}/pdf?download=1`;
 export function QuotePage() {
   const { data, error, reload } = useLoad<QuoteOverview>('/platform/quotes');
   const [editing, setEditing] = useState(false);
+  const [provider, setProvider] = useState(false);
   return (
     <>
       <PageHead
@@ -89,11 +91,25 @@ export function QuotePage() {
         title="Orçamento"
         sub="Monte a proposta do cliente com o plano, a nota fiscal e os custos de terceiros, e baixe em PDF."
         actions={
-          <button className="adm-action" onClick={() => setEditing(true)} disabled={!data}>
-            <Settings2 size={15} /> Valores padrão
-          </button>
+          <>
+            <button className="adm-action" onClick={() => setProvider(true)}>
+              <Building2 size={15} /> Dados da sua empresa
+            </button>
+            <button className="adm-action" onClick={() => setEditing(true)} disabled={!data}>
+              <Settings2 size={15} /> Valores padrão
+            </button>
+          </>
         }
       />
+      {provider && (
+        <ContractSettingsModal
+          onClose={() => setProvider(false)}
+          onSaved={() => {
+            setProvider(false);
+            reload();
+          }}
+        />
+      )}
       {error && <Alert tone="danger">{error}</Alert>}
       {!data ? (
         <Card>
@@ -103,15 +119,18 @@ export function QuotePage() {
         <>
           {!data.providerReady && (
             <Alert tone="warning">
-              Os dados da contratada (nome e CNPJ) ainda estão vazios. Preencha em Restaurantes →
-              qualquer cliente → Contrato → Configurar para eles saírem no cabeçalho do PDF.
+              Os dados da sua empresa (nome e CNPJ) ainda estão vazios. Preencha em{' '}
+              <button type="button" className="adm-link" onClick={() => setProvider(true)}>
+                Dados da sua empresa
+              </button>{' '}
+              para eles saírem no cabeçalho do PDF (e nos contratos).
             </Alert>
           )}
           {!data.plan ? (
             <Card>
               <EmptyState
                 title="Nenhum plano ativo"
-                description="Crie ou ative um plano em Planos para montar o orçamento."
+                description="Crie ou ative o plano em Preço para montar o orçamento."
               />
             </Card>
           ) : (

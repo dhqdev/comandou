@@ -614,11 +614,20 @@ export class PlatformController {
     return this.svc.updatePlan(id, b, actor(req));
   }
 
+  /**
+   * Registro do painel. Com `tenantId`, só o daquele restaurante (aba Histórico); com
+   * `scope=platform`, só o que não é de restaurante (Conta › Registro do painel).
+   */
   @Get('audit')
-  audit(@Query('tenantId') tenantId?: string, @Query('limit') limit?: string) {
+  audit(
+    @Query('tenantId') tenantId?: string,
+    @Query('limit') limit?: string,
+    @Query('scope') scope?: string,
+  ) {
     const uuid = /^[0-9a-f-]{36}$/i;
     return this.svc.audit({
       tenantId: tenantId && uuid.test(tenantId) ? tenantId : undefined,
+      platformOnly: scope === 'platform',
       limit: Math.min(Math.max(Number(limit) || 100, 1), 500),
     });
   }

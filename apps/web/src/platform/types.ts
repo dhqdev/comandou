@@ -185,7 +185,6 @@ export interface TenantDetail {
   domains: { id: string; hostname: string; verifiedAt: string | null; lastError: string | null }[];
   owners: { name: string; email: string }[];
   provisioning: { step: string; status: string; attempts: number; lastError: string | null }[];
-  audit: AuditRow[];
   database: TenantDatabase;
 }
 
@@ -193,6 +192,7 @@ export interface AuditRow {
   id: string;
   action: string;
   entity?: string;
+  tenantId?: string | null;
   tenantSlug?: string | null;
   data: Record<string, unknown>;
   ip?: string | null;

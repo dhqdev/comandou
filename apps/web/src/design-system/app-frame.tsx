@@ -129,6 +129,7 @@ export function AppFrame({
   moreActions = [],
   moreActionsTitle = 'Atalhos',
   linksTitle = 'Telas',
+  menuBySection = false,
   account,
 }: {
   /** Topo da barra lateral (logo). */
@@ -161,6 +162,9 @@ export function AppFrame({
   moreActionsTitle?: string;
   /** Título do grupo das telas soltas (sem submenu) que não viraram aba, na tela "Mais". */
   linksTitle?: string;
+  /** Na tela "Mais", separa as telas soltas pela `section` de cada item (um grupo por seção, na
+   * ordem do menu); sem seção, ficam em `linksTitle`. */
+  menuBySection?: boolean;
   /** Conta de quem está usando, para o topo da tela "Mais" (no computador segue o `panel`). */
   account?: FrameAccount;
 }) {
@@ -535,6 +539,7 @@ export function AppFrame({
               actions={moreActions}
               actionsTitle={moreActionsTitle}
               linksTitle={linksTitle}
+              bySection={menuBySection}
             />
           ) : (
             children
@@ -784,6 +789,7 @@ function FrameMenu({
   actions,
   actionsTitle,
   linksTitle,
+  bySection,
 }: {
   items: FrameItem[];
   footer: FrameItem[];
@@ -791,6 +797,7 @@ function FrameMenu({
   actions: TileAction[];
   actionsTitle: string;
   linksTitle: string;
+  bySection?: boolean;
 }) {
   const links = (list: FrameItem[]): TileLink[] =>
     list
@@ -819,7 +826,12 @@ function FrameMenu({
   const sections = (
     [
       { key: 'atalhos', title: actionsTitle, actions },
-      { key: 'telas', title: linksTitle, links: links(loose), actions: plain(loose) },
+      ...(bySection
+        ? [...new Set(loose.map((i) => i.section ?? linksTitle))].map((title) => {
+            const part = loose.filter((i) => (i.section ?? linksTitle) === title);
+            return { key: `telas-${title}`, title, links: links(part), actions: plain(part) };
+          })
+        : [{ key: 'telas', title: linksTitle, links: links(loose), actions: plain(loose) }]),
       ...[...items, ...footer]
         .filter((g) => g.children?.length)
         .map((g) => ({ key: g.key, title: g.label, links: g.children })),

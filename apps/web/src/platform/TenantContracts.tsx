@@ -917,8 +917,11 @@ type SettingsForm = Omit<
   suspendAfterDays: string;
 };
 
-/** Dados da contratada e regras padrão (vale para todos os contratos novos). */
-function ContractSettingsModal({
+/**
+ * Dados da contratada (a sua empresa) e regras padrão: valem para todos os contratos novos e para
+ * o cabeçalho do orçamento. Abre na aba Contrato do restaurante e em Orçamento.
+ */
+export function ContractSettingsModal({
   onClose,
   onSaved,
 }: {

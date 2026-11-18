@@ -193,7 +193,7 @@ export async function seedDemoPlatform(
     if (!settings?.ok || !admin || exists.rowCount) {
       if (!exists.rowCount)
         o.log(
-          'demonstração: contrato não criado (preencha os dados da contratada em Super Admin › Contrato)',
+          'demonstração: contrato não criado (preencha os dados da sua empresa em Super Admin › Orçamento › Dados da sua empresa)',
         );
       return;
     }

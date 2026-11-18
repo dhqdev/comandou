@@ -106,10 +106,12 @@ export function PlansPage() {
               {single.tagline || 'Tudo do sistema por um valor fixo.'}
             </p>
             <ul style={{ margin: 0, paddingLeft: 18, display: 'grid', gap: 4 }}>
-              <li>Sem limite de equipe, produtos e pedidos</li>
-              {single.highlights.map((h) => (
-                <li key={h}>{h}</li>
-              ))}
+              {/* Igual à página de preços: a primeira linha é fixa e não se repete. */}
+              {[...new Set(['Sem limite de equipe, produtos e pedidos', ...single.highlights])].map(
+                (h) => (
+                  <li key={h}>{h}</li>
+                ),
+              )}
             </ul>
           </Card>
           {legacy.length > 0 && (

@@ -15,7 +15,6 @@ import {
   Calculator,
   Globe,
   Mail,
-  Sparkles,
   Wallet,
 } from 'lucide-react';
 import {
@@ -63,10 +62,6 @@ const OverviewPage = lazyPage(
   () => import('./OverviewPages'),
   (m) => m.OverviewPage,
 );
-const AuditPage = lazyPage(
-  () => import('./OverviewPages'),
-  (m) => m.AuditPage,
-);
 const TenantsPage = lazyPage(
   () => import('./TenantsPages'),
   (m) => m.TenantsPage,
@@ -95,13 +90,9 @@ const PlansPage = lazyPage(
   () => import('./PlansPage'),
   (m) => m.PlansPage,
 );
-const SitePage = lazyPage(
-  () => import('./SitePage'),
-  (m) => m.SitePage,
-);
-const SiteAiPage = lazyPage(
-  () => import('./SiteAiPage'),
-  (m) => m.SiteAiPage,
+const SiteArea = lazyPage(
+  () => import('./SiteArea'),
+  (m) => m.SiteArea,
 );
 const QuotePage = lazyPage(
   () => import('./QuotePage'),
@@ -127,13 +118,16 @@ const TicketsBoardPage = lazyPage(
   () => import('./TicketsBoard'),
   (m) => m.TicketsBoardPage,
 );
+const PanelLogModal = lazyPage(
+  () => import('./audit'),
+  (m) => m.PanelLogModal,
+);
 const ContractSignPage = lazyPage(
   () => import('./ContractSign'),
   (m) => m.ContractSignPage,
 );
 const PANEL_PAGES = [
   OverviewPage,
-  AuditPage,
   TenantsPage,
   TenantDetailPage,
   NewTenantPage,
@@ -142,8 +136,7 @@ const PANEL_PAGES = [
   CredentialsPage,
   PlansPage,
   QuotePage,
-  SitePage,
-  SiteAiPage,
+  SiteArea,
   BillingPage,
   OnlinePayPage,
   AiPage,
@@ -344,22 +337,49 @@ function PlatformLogin() {
   );
 }
 
-const NAV = [
+/**
+ * Menu em quatro grupos, na ordem do dia a dia: quem usa (Clientes), como chega gente nova
+ * (Vendas), o dinheiro (Financeiro) e o que mantém tudo de pé (Sistema). O registro de ações
+ * não tem tela própria: o de cada restaurante fica na aba Histórico dele e o do painel em Conta.
+ */
+const NAV: {
+  to: string;
+  label: string;
+  short?: string;
+  icon: typeof Activity;
+  section?: string;
+}[] = [
   { to: '/', label: 'Status', icon: Activity },
-  { to: '/restaurantes', label: 'Restaurantes', short: 'Clientes', icon: Building2 },
-  { to: '/conversas', label: 'Conversas', icon: MessagesSquare },
-  { to: '/chamados', label: 'Chamados', icon: KanbanSquare },
-  { to: '/email', label: 'E-mail', icon: Mail },
-  { to: '/servidor', label: 'Infraestrutura', short: 'Infra', icon: Server },
-  { to: '/planos', label: 'Preço', icon: Tags },
-  { to: '/orcamento', label: 'Orçamento', icon: Calculator },
-  { to: '/site', label: 'Site', icon: Globe },
-  { to: '/sites-ia', label: 'Sites com IA', short: 'Sites IA', icon: Sparkles },
-  { to: '/cobranca', label: 'Cobrança', icon: Wallet },
-  { to: '/pagamentos', label: 'Pagamentos pelo app', short: 'Pagamentos', icon: CreditCard },
-  { to: '/tokens', label: 'Tokens', icon: BrainCircuit },
-  { to: '/credenciais', label: 'Credenciais', icon: KeyRound },
-  { to: '/auditoria', label: 'Auditoria', icon: ScrollText },
+  {
+    to: '/restaurantes',
+    label: 'Restaurantes',
+    short: 'Clientes',
+    icon: Building2,
+    section: 'Clientes',
+  },
+  { to: '/conversas', label: 'Conversas', icon: MessagesSquare, section: 'Clientes' },
+  { to: '/chamados', label: 'Chamados', icon: KanbanSquare, section: 'Clientes' },
+  { to: '/site', label: 'Site', icon: Globe, section: 'Vendas' },
+  { to: '/planos', label: 'Preço', icon: Tags, section: 'Vendas' },
+  { to: '/orcamento', label: 'Orçamento', icon: Calculator, section: 'Vendas' },
+  { to: '/cobranca', label: 'Cobrança', icon: Wallet, section: 'Financeiro' },
+  {
+    to: '/pagamentos',
+    label: 'Pagamentos pelo app',
+    short: 'Pagamentos',
+    icon: CreditCard,
+    section: 'Financeiro',
+  },
+  {
+    to: '/servidor',
+    label: 'Infraestrutura',
+    short: 'Infra',
+    icon: Server,
+    section: 'Sistema',
+  },
+  { to: '/email', label: 'E-mail', icon: Mail, section: 'Sistema' },
+  { to: '/tokens', label: 'Tokens de IA', short: 'Tokens', icon: BrainCircuit, section: 'Sistema' },
+  { to: '/credenciais', label: 'Credenciais', icon: KeyRound, section: 'Sistema' },
 ];
 /** Abas do celular; o resto fica em "Mais". */
 const TABS = ['/', '/restaurantes', '/conversas', '/servidor'];
@@ -404,6 +424,7 @@ function PlatformShell() {
   const toast = useToast();
   const { pathname } = useLocation();
   const [install, setInstall] = useState(false);
+  const [panelLog, setPanelLog] = useState(false);
   const [tick, setTick] = useState(0);
   const [spinning, setSpinning] = useState(false);
   // Depois da primeira tela, baixa as outras quando o navegador fica livre: a troca fica imediata.
@@ -450,12 +471,13 @@ function PlatformShell() {
     else toast('Instalando…', 'success');
   };
 
-  const items: FrameItem[] = NAV.map(({ to, label, short, icon: Icon }) => ({
+  const items: FrameItem[] = NAV.map(({ to, label, short, icon: Icon, section }) => ({
     key: to,
     to,
     label,
     short,
     icon: <Icon />,
+    section,
     count: to === '/conversas' ? supportUnread : undefined,
   }));
   const account = (
@@ -473,6 +495,9 @@ function PlatformShell() {
         <span>Tema</span>
         <ThemeToggle />
       </div>
+      <button type="button" className="account__action" onClick={() => setPanelLog(true)}>
+        <ScrollText size={18} /> Registro do painel
+      </button>
       {!standalone && (
         <button type="button" className="account__action" onClick={doInstall}>
           <Download size={18} /> Instalar app
@@ -506,6 +531,7 @@ function PlatformShell() {
           },
         ]}
         tabs={TABS}
+        menuBySection
         account={
           admin
             ? {
@@ -515,6 +541,12 @@ function PlatformShell() {
                 role: 'Super Admin',
                 note: window.location.hostname,
                 actions: [
+                  {
+                    key: 'registro',
+                    label: 'Registro do painel',
+                    icon: <ScrollText />,
+                    onClick: () => setPanelLog(true),
+                  },
                   ...(!standalone
                     ? [
                         {
@@ -556,6 +588,11 @@ function PlatformShell() {
         </Suspense>
       </AppFrame>
       {install && <InstallSheet onClose={() => setInstall(false)} />}
+      {panelLog && (
+        <Suspense fallback={null}>
+          <PanelLogModal onClose={() => setPanelLog(false)} />
+        </Suspense>
+      )}
     </>
   );
 }
@@ -592,15 +629,18 @@ function Gate() {
         <Route path="fiscal" element={<Navigate to="/credenciais#cred-focus_master" replace />} />
         <Route path="planos" element={<PlansPage />} />
         <Route path="orcamento" element={<QuotePage />} />
-        <Route path="site" element={<SitePage />} />
-        <Route path="sites-ia" element={<SiteAiPage />} />
+        <Route path="site/*" element={<SiteArea />} />
+        {/* Sites com IA virou uma aba do Site. */}
+        <Route path="sites-ia" element={<Navigate to="/site/ia" replace />} />
         <Route path="cobranca" element={<BillingPage />} />
         <Route path="pagamentos" element={<OnlinePayPage />} />
         <Route path="tokens" element={<AiPage />} />
         <Route path="ia" element={<AiPage />} />
         <Route path="chamados" element={<TicketsBoardPage />} />
         <Route path="email/*" element={<MailPage />} />
-        <Route path="auditoria" element={<AuditPage />} />
+        {/* A Auditoria saiu do menu: cada restaurante tem a aba Histórico e o painel, o Registro
+            do painel (em Conta). */}
+        <Route path="auditoria" element={<Navigate to="/restaurantes" replace />} />
         {/* Tela "Mais" do celular: quem desenha é a moldura (AppFrame). */}
         <Route path="mais" element={null} />
         <Route path="*" element={<OverviewPage />} />

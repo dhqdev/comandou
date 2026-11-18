@@ -2,14 +2,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Spinner } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
-import type {
-  AuditRow,
-  BackupSettings,
-  HealthState,
-  Overview,
-  PendingContract,
-  ServerStatus,
-} from './types';
+import type { BackupSettings, HealthState, Overview, PendingContract, ServerStatus } from './types';
 import { ChevronRight } from 'lucide-react';
 import { ago, bytes, Dot, Level, levelFor, PageHead, Section, Tile } from './ui';
 import { useNavigate } from 'react-router';
@@ -107,20 +100,24 @@ export function OverviewPage() {
     if (st === 'error') alerts.push({ level: 'bad', text: `${label} com falha` });
   const bk = backup.data;
   if (bk && !(bk.enabled && bk.configured))
-    alerts.push({ level: 'warn', text: 'Backup no Backblaze não configurado', to: '/backups' });
+    alerts.push({
+      level: 'warn',
+      text: 'Backup no Backblaze não configurado',
+      to: '/servidor/backups',
+    });
   else if (bk && !bk.worker.alive)
-    alerts.push({ level: 'bad', text: 'Serviço de backup parado', to: '/backups' });
+    alerts.push({ level: 'bad', text: 'Serviço de backup parado', to: '/servidor/backups' });
   if (b !== 'ok')
     alerts.push({
       level: b,
       text: `Backup: último bom ${ago(data.backups.backup.lastOkAt)}`,
-      to: '/backups',
+      to: '/servidor/backups',
     });
   if (r !== 'ok')
     alerts.push({
       level: r,
       text: `Teste de restauração: último bom ${ago(data.backups.restoreTest.lastOkAt)}`,
-      to: '/backups',
+      to: '/servidor/backups',
     });
   for (const x of badServices)
     alerts.push({
@@ -181,7 +178,7 @@ export function OverviewPage() {
       level: b,
       value: ago(data.backups.backup.lastOkAt),
       sub: data.backups.backup.lastOkAt ? dateTime(data.backups.backup.lastOkAt) : undefined,
-      to: '/backups',
+      to: '/servidor/backups',
     },
     {
       label: 'Teste de restauração',
@@ -190,7 +187,7 @@ export function OverviewPage() {
       sub: data.backups.restoreTest.lastOkAt
         ? dateTime(data.backups.restoreTest.lastOkAt)
         : undefined,
-      to: '/backups',
+      to: '/servidor/backups',
     },
   ];
 
@@ -252,7 +249,7 @@ export function OverviewPage() {
               style={{ cursor: 'pointer', font: 'inherit' }}
               onClick={() => navigate('/servidor')}
             >
-              Agente do servidor não instalado. Veja “Servidor” para ativar.
+              Agente do servidor não instalado. Veja em Infraestrutura › Servidor como ativar.
             </button>
           ) : (
             <div className="adm-grid adm-grid--2">
@@ -336,80 +333,6 @@ export function OverviewPage() {
           </div>
         </Section>
       </div>
-    </>
-  );
-}
-
-export const ACTION_LABELS: Record<string, string> = {
-  'platform.login': 'Entrou no painel',
-  'platform.login_failed': 'Tentativa de login recusada',
-  'platform.logout': 'Saiu do painel',
-  'platform.admin_created': 'Administrador criado (CLI)',
-  'platform.tenant_created': 'Restaurante criado',
-  'platform.tenant_provision_failed': 'Falha ao criar restaurante',
-  'platform.tenant.suspended': 'Restaurante suspenso',
-  'platform.tenant.reactivated': 'Restaurante reativado',
-  'platform.tenant.renamed': 'Restaurante renomeado',
-  'platform.tenant.support_access': 'Abriu o sistema do restaurante',
-  'platform.tenant.sessions_revoked': 'Encerrou sessões',
-  'platform.user.password_reset': 'Redefiniu senha',
-  'platform.subscription_changed': 'Assinatura alterada',
-  'platform.domain_removed': 'Domínio removido',
-  'platform.plan_created': 'Plano criado',
-  'platform.plan_updated': 'Plano alterado',
-  'platform.server.cleanup': 'Limpeza no servidor',
-  'platform.server.service_restarted': 'Reiniciou serviço',
-  'platform.server.logs_viewed': 'Viu logs de serviço',
-};
-
-const FAIL = new Set(['platform.login_failed', 'platform.tenant_provision_failed']);
-const STRONG = new Set([
-  'platform.tenant.suspended',
-  'platform.user.password_reset',
-  'platform.server.cleanup',
-  'platform.server.service_restarted',
-  'platform.tenant.support_access',
-]);
-
-export function AuditTable({ rows }: { rows: AuditRow[] }) {
-  if (!rows.length) return <div className="adm-empty">Nada registrado</div>;
-  return (
-    <div className="adm-rows">
-      {rows.map((a) => {
-        const details = Object.entries(a.data ?? {})
-          .filter(([, v]) => v !== null && typeof v !== 'object')
-          .map(([k, v]) => `${k}: ${String(v)}`)
-          .join(' · ');
-        return (
-          <div key={a.id} className="adm-row">
-            <Dot level={FAIL.has(a.action) ? 'bad' : STRONG.has(a.action) ? 'warn' : 'off'} />
-            <span className="adm-row__main">
-              <span className="adm-row__title">{ACTION_LABELS[a.action] ?? a.action}</span>
-              <span className="adm-row__meta">
-                {[a.adminName, a.tenantSlug, details, a.ip && `IP ${a.ip}`]
-                  .filter(Boolean)
-                  .join(' · ') || '—'}
-              </span>
-            </span>
-            <span className="adm-row__side">{dateTime(a.createdAt)}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-export function AuditPage() {
-  const { data, error } = useLoad<AuditRow[]>('/platform/audit?limit=300');
-  return (
-    <>
-      <PageHead
-        page
-        title="Auditoria"
-        sub={<span>Toda ação feita no painel fica registrada aqui.</span>}
-      />
-      {error && <Alert tone="danger">{error}</Alert>}
-      <div className="adm-panel">{!data ? <Spinner /> : <AuditTable rows={data} />}</div>
     </>
   );
 }

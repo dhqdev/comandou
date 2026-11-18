@@ -217,8 +217,9 @@ export class PlatformService {
     const h = await this.tenantDbOrConflict(tenantId);
     const [tables, operation, dbSize, traffic, active] = await Promise.all([
       h.query<{ table: string; rows: string; bytes: string }>(
-        `SELECT table_name AS "table", row_count::text AS rows, bytes::text AS bytes
-           FROM platform_tenant_footprint($1) ORDER BY bytes DESC`,
+        // Ordena pela coluna numérica da função (f.bytes): "bytes" sozinho seria o texto da saída.
+        `SELECT f.table_name AS "table", f.row_count::text AS rows, f.bytes::text AS bytes
+           FROM platform_tenant_footprint($1) f ORDER BY f.bytes DESC`,
         [tenantId],
       ),
       h.query<{ op: unknown }>(`SELECT platform_tenant_operation($1) AS op`, [tenantId]),
@@ -422,12 +423,6 @@ export class PlatformService {
          FROM tenant_provisioning_steps WHERE tenant_id = $1 ORDER BY updated_at`,
       [id],
     );
-    const audit = await this.db.query(
-      `SELECT l.id, l.action, l.data, l.created_at AS "createdAt", a.name AS "adminName"
-         FROM platform_audit_log l LEFT JOIN platform_admins a ON a.id = l.admin_id
-        WHERE l.tenant_id = $1 ORDER BY l.created_at DESC LIMIT 30`,
-      [id],
-    );
     return {
       ...t,
       subscription: subscription ?? null,
@@ -436,7 +431,6 @@ export class PlatformService {
       domains,
       owners,
       provisioning,
-      audit,
       database: await this.databases.info(id),
     };
   }
@@ -977,16 +971,16 @@ export class PlatformService {
   }
 
   // ------------------------------------------------------------------ auditoria e backups
-  audit(f: { tenantId?: string; limit: number }) {
+  audit(f: { tenantId?: string; platformOnly?: boolean; limit: number }) {
     const p: unknown[] = [f.limit];
     let where = '';
     if (f.tenantId) {
       p.push(f.tenantId);
       where = `WHERE l.tenant_id = $2`;
-    }
+    } else if (f.platformOnly) where = `WHERE l.tenant_id IS NULL`;
     return this.db.query(
       `SELECT l.id, l.action, l.entity, l.entity_id AS "entityId", l.tenant_id AS "tenantId",
-              t.slug AS "tenantSlug", l.data, l.ip::text AS ip, l.created_at AS "createdAt",
+              t.slug AS "tenantSlug", l.data, host(l.ip) AS ip, l.created_at AS "createdAt",
               a.name AS "adminName", a.email::text AS "adminEmail"
          FROM platform_audit_log l
          LEFT JOIN platform_admins a ON a.id = l.admin_id

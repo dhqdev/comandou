@@ -1,4 +1,4 @@
-import { ExternalLink, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { Link } from 'react-router';
 import {
@@ -117,7 +117,7 @@ const pct = (used: number, limit: number) =>
   limit > 0 ? Math.round((used / limit) * 1000) / 10 : null;
 
 /**
- * Super Admin › Sites com IA: o site do restaurante montado pela IA no comandou.com. Liga só com
+ * Super Admin › Site › Site com IA: a loja montada pela IA no site do Comandou. Liga só com
  * uma chave do OpenRouter (a própria dos sites, em Credenciais, ou a sua); aqui ficam o modelo, os
  * limites de tokens e de sites por visitante, o consumo de cada site e de cada cliente.
  */
@@ -126,16 +126,7 @@ export function SiteAiPage() {
   const [open, setOpen] = useState<string | null>(null);
   return (
     <>
-      <PageHead
-        page
-        title="Sites com IA"
-        sub="Quem chega pelo site cola o link ou descreve o cardápio e a IA monta a loja na hora. Aqui você controla a chave, o modelo e quantos tokens isso pode gastar."
-        actions={
-          <Link className="adm-action" to="/site">
-            <ExternalLink size={15} /> Cadastro pelo site
-          </Link>
-        }
-      />
+      <PageHead sub="Quem chega pelo site cola o link ou descreve o cardápio e a IA monta a loja na hora. Aqui ficam o modelo, quanto isso pode gastar em tokens e o que já foi montado." />
       {error && <Alert tone="danger">{error}</Alert>}
       {!data ? (
         <Card>
@@ -253,7 +244,7 @@ function SettingsForm({ o, onSaved }: { o: Overview; onSaved(): void }) {
           // A chave própria dos sites fica em Super Admin › Credenciais (ausente aqui = mantém).
         },
       });
-      toast('Sites com IA salvo', 'success');
+      toast('Site com IA salvo', 'success');
       onSaved();
     } catch (err) {
       toast((err as Error).message, 'danger');
@@ -268,8 +259,8 @@ function SettingsForm({ o, onSaved }: { o: Overview; onSaved(): void }) {
         <form className="cm-form" onSubmit={save}>
           <div className="cm-form__block">
             <CheckField
-              label="Montar o site com IA no comandou.com"
-              description="Só funciona com uma chave do OpenRouter. Desligado ou sem chave, o site segue como antes, sem IA."
+              label="Montar a loja com IA no site do Comandou"
+              description="Precisa de uma chave do OpenRouter. Desligado ou sem chave, o site segue como antes, sem IA."
               checked={f.enabled}
               onChange={(v) => setF({ ...f, enabled: v })}
             />

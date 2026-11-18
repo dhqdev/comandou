@@ -1,4 +1,3 @@
-import { ExternalLink, Send } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { Link } from 'react-router';
 import { Alert, Button, Card, EmptyState, Spinner, TextField, useToast } from '../design-system';
@@ -63,18 +62,7 @@ export function SitePage() {
   );
   return (
     <>
-      <PageHead
-        page
-        title="Site"
-        sub="Quem chega pelo site cria o próprio restaurante de teste. Aqui você controla o cadastro, o e-mail de boas-vindas e acompanha quem entrou."
-        actions={
-          data && (
-            <a className="adm-action" href={data.settings.siteUrl} target="_blank" rel="noreferrer">
-              <ExternalLink size={15} /> Abrir o site
-            </a>
-          )
-        }
-      />
+      <PageHead sub="Quem chega pelo site cria o próprio restaurante de teste. Aqui você liga o cadastro, vê o tempo de teste e acompanha quem entrou." />
       {error && <Alert tone="danger">{error}</Alert>}
       {!data ? (
         <Card>
@@ -97,8 +85,6 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
     dailyLimit: String(settings.dailyLimit),
   });
   const [busy, setBusy] = useState(false);
-  const [to, setTo] = useState('');
-  const [sending, setSending] = useState<'welcome' | 'customer' | null>(null);
 
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -120,24 +106,6 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
     }
   }
 
-  async function test(kind: 'welcome' | 'customer') {
-    setSending(kind);
-    try {
-      await api(
-        kind === 'welcome' ? '/platform/site/test-email' : '/platform/site/customer-test-email',
-        {
-          method: 'POST',
-          json: { to: to.trim() },
-        },
-      );
-      toast(`E-mail de teste enviado para ${to.trim()}`, 'success');
-    } catch (err) {
-      toast((err as Error).message, 'danger');
-    } finally {
-      setSending(null);
-    }
-  }
-
   return (
     <>
       <Section title="Cadastro pelo site">
@@ -146,7 +114,7 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
             <div className="cm-form__block">
               <CheckField
                 label="Aceitar cadastros pelo site"
-                description="Desligado, o site continua no ar e o botão de criar fica fechado."
+                description="Se desligar, o site continua no ar, mas o botão de criar teste fica fechado."
                 checked={f.signupEnabled}
                 onChange={(v) => setF({ ...f, signupEnabled: v })}
               />
@@ -176,7 +144,7 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
               value={f.dailyLimit}
               onChange={(e) => setF({ ...f, dailyLimit: e.target.value.replace(/\D/g, '') })}
             />
-            <h3 className="cm-form__section">E-mails</h3>
+            <h3 className="cm-form__section">E-mail de boas-vindas</h3>
             <div className="cm-form__block">
               <p className="adm-site-trial" style={{ margin: 0 }}>
                 {settings.emailReady ? (
@@ -184,12 +152,15 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
                 ) : (
                   <Tag level="warn">Envio não configurado</Tag>
                 )}{' '}
-                <Link to="/email/configurar">Configurar em E-mail</Link>
+                <Link to={settings.emailReady ? '/email/modelos' : '/email'}>
+                  {settings.emailReady
+                    ? 'Ver e testar em E-mail › Modelos'
+                    : 'Configurar em E-mail'}
+                </Link>
               </p>
               <span className="cm-hint">
-                O e-mail de boas-vindas (com o login) e o código de nova senha dos clientes saem
-                pelo e-mail do próprio Comandou. Sem envio configurado, o login aparece só na tela e
-                o código vai só pelo WhatsApp da loja.
+                Quem cria o teste recebe o login por e-mail. Sem envio configurado, o login aparece
+                só na tela do site.
               </span>
             </div>
             <div className="cm-form__block" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -202,66 +173,12 @@ function SettingsForm({ settings, onSaved }: { settings: SiteSettings; onSaved()
                 target="_blank"
                 rel="noreferrer"
               >
-                Ver o e-mail
-              </a>
-              <a
-                className="cm-btn cm-btn--secondary"
-                href="/api/v1/platform/site/customer-email-preview"
-                target="_blank"
-                rel="noreferrer"
-              >
-                Ver o e-mail do cliente
+                Ver o e-mail de boas-vindas
               </a>
             </div>
           </form>
         </Card>
       </Section>
-      {settings.emailReady && (
-        <Section title="Testar o envio" sub="Manda o e-mail de exemplo agora">
-          <Card>
-            <form
-              className="cm-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void test('welcome');
-              }}
-            >
-              <TextField
-                label="Enviar para"
-                type="email"
-                placeholder="voce@exemplo.com"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-              />
-              <div className="cm-form__block" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {settings.emailReady && (
-                  <Button
-                    type="submit"
-                    variant="secondary"
-                    loading={sending === 'welcome'}
-                    disabled={!/^\S+@\S+\.\S+$/.test(to.trim()) || !!sending}
-                    icon={<Send size={15} />}
-                  >
-                    Enviar boas-vindas de teste
-                  </Button>
-                )}
-                {settings.emailReady && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    loading={sending === 'customer'}
-                    disabled={!/^\S+@\S+\.\S+$/.test(to.trim()) || !!sending}
-                    icon={<Send size={15} />}
-                    onClick={() => void test('customer')}
-                  >
-                    Enviar código de teste
-                  </Button>
-                )}
-              </div>
-            </form>
-          </Card>
-        </Section>
-      )}
     </>
   );
 }

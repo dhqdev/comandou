@@ -142,7 +142,7 @@ export const CREDENTIALS: CredDef[] = [
         {code('Comandou restaurantes')}. Dica: ponha um limite de gasto na própria chave.
       </>,
       <>Copie a chave (começa com {code('sk-or-v1-')}), cole abaixo, teste e salve.</>,
-      <>O limite de tokens de cada restaurante e o modelo ficam em Super Admin › Tokens.</>,
+      <>O limite de tokens de cada restaurante e o modelo ficam em Super Admin › Tokens de IA.</>,
     ],
     links: [
       { label: 'Chaves do OpenRouter', href: 'https://openrouter.ai/settings/keys' },
@@ -197,8 +197,8 @@ export const CREDENTIALS: CredDef[] = [
     ],
     check: (
       <>
-        Em Sites com IA, a linha <em>Chave em uso</em> mostra “OpenRouter · chave dos sites” com o
-        final dela. Monte um site de teste em comandou.com para conferir.
+        Em Site › Site com IA, a linha <em>Chave em uso</em> mostra “OpenRouter · chave dos sites”
+        com o final dela. Monte um site de teste em comandou.com para conferir.
       </>
     ),
     steps: [
@@ -206,7 +206,9 @@ export const CREDENTIALS: CredDef[] = [
         Crie uma chave só para o site em <strong>openrouter.ai › Settings › Keys</strong>, com um
         limite de gasto baixo: qualquer visitante pode gerar um site.
       </>,
-      <>Cole abaixo e salve. Limites de tokens e o modelo ficam em Super Admin › Sites com IA.</>,
+      <>
+        Cole abaixo e salve. Limites de tokens e o modelo ficam em Super Admin › Site › Site com IA.
+      </>,
     ],
     links: [{ label: 'Chaves do OpenRouter', href: 'https://openrouter.ai/settings/keys' }],
   },

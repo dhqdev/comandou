@@ -201,7 +201,7 @@ export function CredentialsPage() {
           </p>
           <p>
             <strong>Nas outras telas</strong> (Tokens de IA, Cobrança, Pagamentos pelo app, E-mail,
-            Backups, Sites com IA e Chamados) aparece só qual chave está em uso. Cadastrar, trocar e
+            Backups, Site com IA e Chamados) aparece só qual chave está em uso. Cadastrar, trocar e
             testar é sempre aqui.
           </p>
         </div>

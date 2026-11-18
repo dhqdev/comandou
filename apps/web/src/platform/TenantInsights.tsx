@@ -4,6 +4,7 @@ import { brl } from '../lib/money';
 import { Alert, Spinner } from '../design-system';
 import { dateTime } from '../features/format';
 import { useLoad } from './OverviewPages';
+import { isOnline, ROLE } from './TenantOverview';
 import type { Consumption, KeyCount, TeamMember, TenantInsights } from './types';
 import { ago, bytes, Dot, Level, Section, Sparkline, Tile } from './ui';
 
@@ -51,43 +52,143 @@ const GENERIC: Record<string, string> = {
   claimed: 'Em andamento',
   delivered: 'Entregue',
 };
-const ROLE: Record<string, string> = {
-  owner: 'Dono',
-  manager: 'Gerente',
-  cashier: 'Caixa',
-  waiter: 'Garçom',
-  kitchen: 'Cozinha',
-  courier: 'Entregador',
-};
+/** Nome de cada tabela em português (as que guardam dados do restaurante). */
 const TABLE: Record<string, string> = {
-  audit_log: 'Auditoria',
-  orders: 'Pedidos',
-  order_items: 'Itens dos pedidos',
-  order_status_history: 'Histórico de status',
-  payments: 'Pagamentos',
-  products: 'Produtos',
-  sessions: 'Sessões de login',
-  message_outbox: 'Mensagens (WhatsApp)',
-  fiscal_documents: 'Notas fiscais',
-  print_jobs: 'Impressões',
-  stock_movements: 'Movimentos de estoque',
-  categories: 'Categorias',
-  memberships: 'Equipe (vínculos)',
-  tenant_provisioning_steps: 'Cadastro do restaurante',
-  platform_audit_log: 'Auditoria da plataforma',
-  subscriptions: 'Assinatura',
-  tenant_domains: 'Domínios',
-  stock_items: 'Itens de estoque',
-  production_sectors: 'Setores de produção',
-  dining_tables: 'Mesas',
-  tabs: 'Comandas',
-  cash_sessions: 'Turnos de caixa',
+  agenda_events: 'Agenda (compromissos)',
+  agenda_settings: 'Agenda (ajustes)',
+  agenda_tags: 'Agenda (etiquetas)',
+  ai_agent_settings: 'IA do WhatsApp (ajustes)',
+  ai_customer_chats: 'IA do WhatsApp (conversas)',
+  ai_customer_messages: 'IA do WhatsApp (mensagens)',
+  ai_messages: 'Assistente de IA (mensagens)',
+  ai_usage: 'Assistente de IA (uso)',
+  audit_log: 'Registro de ações',
+  backup_runs: 'Backups',
+  bank_accounts: 'Contas bancárias',
+  bank_reconciliations: 'Conciliação bancária',
+  bank_statement_lines: 'Extrato bancário',
+  billing_cards: 'Cartão da mensalidade',
+  billing_customers: 'Cliente no Asaas',
+  billing_invoices: 'Faturas da mensalidade',
   cash_movements: 'Movimentos de caixa',
+  cash_registers: 'Caixas',
+  cash_sessions: 'Turnos de caixa',
+  categories: 'Categorias',
+  chat_conversations: 'Chat da equipe (conversas)',
+  chat_members: 'Chat da equipe (participantes)',
+  chat_messages: 'Chat da equipe (mensagens)',
+  chat_notices: 'Chat da equipe (avisos)',
+  chat_posts: 'Chat da equipe (mural)',
+  courier_pay_settings: 'Pagamento de entregadores (ajustes)',
+  courier_payouts: 'Pagamento de entregadores',
   couriers: 'Entregadores',
+  customer_addresses: 'Endereços de clientes',
+  customer_password_resets: 'Clientes (troca de senha)',
+  customer_sessions: 'Clientes (sessões)',
+  customers: 'Clientes',
   deliveries: 'Entregas',
-  print_agents: 'Agentes de impressão',
-  finance_entries: 'Financeiro',
+  delivery_positions: 'Entregas (posição no mapa)',
+  delivery_zones: 'Áreas de entrega',
+  dining_tables: 'Mesas',
+  finance_entries: 'Financeiro (contas)',
+  finance_reconciliations: 'Financeiro (conferências)',
+  finance_settings: 'Financeiro (ajustes)',
+  finance_settlements: 'Recebíveis das maquininhas',
+  fiscal_documents: 'Notas fiscais',
+  fiscal_events: 'Notas fiscais (eventos)',
+  fiscal_ncm_rules: 'Notas fiscais (regras por NCM)',
+  fiscal_received: 'Notas recebidas',
+  fiscal_rules: 'Notas fiscais (regras)',
+  fiscal_voids: 'Inutilizações de nota',
   idempotency_keys: 'Chaves de repetição',
+  ifood_connections: 'iFood (conexão)',
+  ifood_merchant_claims: 'iFood (lojas)',
+  ifood_pending_auth: 'iFood (autorização)',
+  ifood_sync_map: 'iFood (vínculos)',
+  item_families: 'Famílias de itens',
+  kitchen_settings: 'Cozinha (ajustes)',
+  loyalty_entries: 'Fidelidade (pontos)',
+  loyalty_programs: 'Fidelidade (programa)',
+  loyalty_rewards: 'Fidelidade (prêmios)',
+  mail_outbox: 'E-mails enviados',
+  mascot_prefs: 'Panda (preferências)',
+  media: 'Fotos e arquivos',
+  memberships: 'Equipe (vínculos)',
+  menu_events: 'Cardápios (histórico)',
+  menu_items: 'Cardápios (itens)',
+  menus: 'Cardápios',
+  message_outbox: 'Mensagens de WhatsApp',
+  online_charges: 'Pagamentos pelo app',
+  online_pay_accounts: 'Pagamentos pelo app (conta)',
+  online_pay_states: 'Pagamentos pelo app (conexão)',
+  option_groups: 'Grupos de adicionais',
+  option_recipes: 'Fichas dos adicionais',
+  options: 'Adicionais',
+  order_item_options: 'Adicionais dos pedidos',
+  order_items: 'Itens dos pedidos',
+  order_status_history: 'Histórico de status dos pedidos',
+  orders: 'Pedidos',
+  payment_refunds: 'Estornos',
+  payments: 'Pagamentos',
+  pix_receipts: 'Comprovantes de Pix',
+  platform_ai_token_grants: 'Tokens doados',
+  platform_audit_log: 'Registro do painel',
+  platform_lifecycle_mails: 'Avisos de cobrança enviados',
+  platform_support_chats: 'Suporte (conversas)',
+  platform_support_files: 'Suporte (arquivos)',
+  platform_support_messages: 'Suporte (mensagens)',
+  platform_tickets: 'Chamados',
+  pricing_settings: 'Preços (ajustes)',
+  print_agents: 'Agentes de impressão',
+  print_jobs: 'Impressões',
+  print_templates: 'Modelos de impressão',
+  product_models: 'Modelos 3D dos produtos',
+  product_option_groups: 'Adicionais por produto',
+  product_photos: 'Fotos dos produtos',
+  product_pricing: 'Preço dos produtos',
+  product_recipes: 'Fichas técnicas',
+  product_review_likes: 'Avaliações (curtidas)',
+  product_reviews: 'Avaliações',
+  production_sectors: 'Cozinhas (setores)',
+  products: 'Produtos',
+  reservation_settings: 'Reservas (ajustes)',
+  reservations: 'Reservas',
+  salon_settings: 'Salão (ajustes)',
+  sessions: 'Sessões de login',
+  signup_entry_tokens: 'Entrada pelo site',
+  site_ai_generations: 'Sites montados pela IA',
+  staff_password_resets: 'Equipe (troca de senha)',
+  stock_cost_changes: 'Estoque (mudanças de custo)',
+  stock_counts: 'Estoque (contagens)',
+  stock_item_recipes: 'Estoque (preparos)',
+  stock_items: 'Itens de estoque',
+  stock_lots: 'Estoque (lotes)',
+  stock_movements: 'Movimentos de estoque',
+  stock_productions: 'Estoque (produções)',
+  stock_receipt_lines: 'Entradas de estoque (itens)',
+  stock_receipts: 'Entradas de estoque',
+  stock_unit_factors: 'Estoque (unidades)',
+  store_banners: 'Loja online (banners)',
+  store_chat_files: 'Chat da loja (arquivos)',
+  store_chat_messages: 'Chat da loja (mensagens)',
+  store_chats: 'Chat da loja (conversas)',
+  subscriptions: 'Assinatura',
+  tabs: 'Comandas',
+  tenant_ai_settings: 'Assistente de IA (ajustes)',
+  tenant_contracts: 'Contratos',
+  tenant_counters: 'Numeração',
+  tenant_databases: 'Banco de dados',
+  tenant_db_jobs: 'Tarefas do banco',
+  tenant_domains: 'Domínios',
+  tenant_fiscal_settings: 'Notas fiscais (ajustes)',
+  tenant_messaging_settings: 'WhatsApp (ajustes)',
+  tenant_migrations: 'Migrações',
+  tenant_online_pay_fees: 'Taxa dos pagamentos pelo app',
+  tenant_profiles: 'Cadastro',
+  tenant_provisioning_steps: 'Cadastro do restaurante (passos)',
+  tenant_receptions: 'Recebimentos de outro servidor',
+  tenant_store_settings: 'Loja online (ajustes)',
+  trial_signups: 'Teste criado pelo site',
 };
 
 const pct = (n: number) => `${(n * 100).toFixed(n > 0 && n < 0.001 ? 2 : 1)}%`;
@@ -147,15 +248,21 @@ function Loading({ error }: { error: string | null }) {
   );
 }
 
-/** Dias do período preenchidos com zero, do mais antigo ao de hoje. */
+/**
+ * Dias do período preenchidos com zero, do mais antigo ao de hoje. O dia é o do fuso do
+ * restaurante (o mesmo do banco): em UTC, depois das 21h de Brasília o "hoje" virava amanhã e o
+ * gráfico andava um dia.
+ */
 function dailySeries(
   byDay: { day: string; count: number; revenue: number }[],
   key: 'count' | 'revenue',
+  timeZone: string,
 ) {
   const map = new Map(byDay.map((d) => [d.day.slice(0, 10), d[key]]));
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone, dateStyle: 'short' });
   const out: number[] = [];
   for (let i = 29; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
+    const d = fmt.format(new Date(Date.now() - i * 86_400_000));
     out.push(Number(map.get(d) ?? 0));
   }
   return out;
@@ -166,6 +273,8 @@ export function ConsumptionPanel({ id }: { id: string }) {
   if (!data) return <Loading error={error} />;
   const f = data.footprint;
   const tr = data.traffic;
+  // Maior primeiro (a API devolvia em ordem de texto: "9 KB" passava na frente de "8 MB").
+  const tables = [...f.tables].sort((a, b) => b.bytes - a.bytes);
   return (
     <div className="adm-stack">
       <div className="adm-grid">
@@ -174,7 +283,7 @@ export function ConsumptionPanel({ id }: { id: string }) {
           value={bytes(f.bytes)}
           sub={
             f.database
-              ? `banco próprio: ${bytes(f.databaseBytes)}`
+              ? `banco próprio inteiro: ${bytes(f.databaseBytes)} (com índices)`
               : `${pct(f.share)} do banco central`
           }
         />
@@ -216,7 +325,7 @@ export function ConsumptionPanel({ id }: { id: string }) {
       )}
       <Block title="Tamanho dos dados por tabela (estimado)">
         <Bars
-          rows={f.tables.map((t) => ({
+          rows={tables.map((t) => ({
             key: t.table,
             name: TABLE[t.table] ?? t.table,
             value: t.bytes,
@@ -234,13 +343,21 @@ export function ConsumptionPanel({ id }: { id: string }) {
   );
 }
 
-export function OperationPanel({ id, team }: { id: string; team: TeamMember[] | null }) {
+export function OperationPanel({
+  id,
+  team,
+  timezone,
+}: {
+  id: string;
+  team: TeamMember[] | null;
+  timezone: string;
+}) {
   const { data, error } = useInsights(id);
   if (!data) return <Loading error={error} />;
   const o = data.operation;
   const users = new Map(o.users.map((u) => [u.id, u]));
-  const days = dailySeries(o.byDay, 'count');
-  const revenue = dailySeries(o.byDay, 'revenue');
+  const days = dailySeries(o.byDay, 'count', timezone);
+  const revenue = dailySeries(o.byDay, 'revenue', timezone);
   const hours = Array.from(
     { length: 24 },
     (_, h) => o.byHour.find((x) => x.hour === h)?.count ?? 0,
@@ -293,10 +410,17 @@ export function OperationPanel({ id, team }: { id: string; team: TeamMember[] | 
             {hours.map((n, h) => (
               <i
                 key={h}
-                title={`${h}h: ${n}`}
+                title={`${h}h: ${n} ${n === 1 ? 'pedido' : 'pedidos'}`}
                 style={{ height: `${Math.max((n / Math.max(...hours, 1)) * 100, 3)}%` }}
               />
             ))}
+          </div>
+          <div className="adm-hours__axis" aria-hidden>
+            <span>0h</span>
+            <span>6h</span>
+            <span>12h</span>
+            <span>18h</span>
+            <span>23h</span>
           </div>
         </div>
       </Block>
@@ -416,11 +540,7 @@ export function OperationPanel({ id, team }: { id: string; team: TeamMember[] | 
                 <div key={m.id} className="adm-row">
                   <Dot
                     level={
-                      m.status !== 'active' || m.disabledAt
-                        ? 'off'
-                        : m.activeSessions
-                          ? 'ok'
-                          : 'info'
+                      m.status !== 'active' || m.disabledAt ? 'off' : isOnline(m) ? 'ok' : 'info'
                     }
                   />
                   <span className="adm-row__main">

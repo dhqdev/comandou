@@ -1,5 +1,6 @@
 import {
   ButtonHTMLAttributes,
+  Children,
   ReactNode,
   InputHTMLAttributes,
   forwardRef,
@@ -190,9 +191,14 @@ export function Alert({
         </div>
       </div>
     );
+  // Texto com negrito, código ou link no meio vira um bloco só: solto, cada pedaço virava uma
+  // coluna do flex e a frase quebrava em pedaços lado a lado.
+  const parts = Children.toArray(children);
+  const inline =
+    parts.length > 1 && parts.some((c) => typeof c === 'string' || typeof c === 'number');
   return (
     <div className={`cm-alert cm-alert--${tone}`} role={tone === 'danger' ? 'alert' : 'status'}>
-      {children}
+      {inline ? <span className="cm-alert__text">{children}</span> : children}
     </div>
   );
 }

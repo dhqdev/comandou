@@ -90,7 +90,7 @@ function SendSettings({ settings: s, onSaved }: { settings: MailSettings; onSave
           <div className="cm-form__block">
             <CheckField
               label="Enviar e-mails pelo Resend"
-              description="Desligado, nenhum e-mail do sistema sai (ficam na fila até religar)."
+              description="Se desligar, nenhum e-mail do sistema sai (eles esperam na fila até religar)."
               checked={f.enabled}
               onChange={(v) => setF({ ...f, enabled: v })}
             />

@@ -480,7 +480,7 @@ export class PipelineService implements OnApplicationBootstrap, OnModuleDestroy 
       ctx.set.pain = t.title;
       ctx.set.priority = t.urgency as TicketRow['priority'];
       ctx.out = { note: 'Sem IA: triagem simples' };
-      ctx.log.push('Triagem sem IA (configure a chave em Super Admin › Tokens).');
+      ctx.log.push('Triagem sem IA (configure a chave em Super Admin › Credenciais).');
     }
     // Demanda que você mesmo criou já nasce aprovada.
     if (t.source === 'admin') return { kind: 'goto', stage: 'priorizacao' };

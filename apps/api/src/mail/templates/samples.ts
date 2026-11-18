@@ -181,7 +181,7 @@ export function emailSamples(
     {
       id: 'contract',
       label: 'Contrato para assinar',
-      when: 'Super Admin › Restaurante › Contrato › Enviar',
+      when: 'Super Admin › Restaurantes › (restaurante) › Contrato › Enviar',
       mail: {
         subject: 'Contrato do Comandou para assinar · nº 2026-0042',
         html: contractEmail({

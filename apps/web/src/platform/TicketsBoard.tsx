@@ -1314,7 +1314,7 @@ function PipelineConfig({
         </label>
         <TextField
           label="Modelo dos agentes no OpenRouter"
-          placeholder={`vazio = o mesmo do assistente (${s.effectiveModel || 'Super Admin › Tokens'})`}
+          placeholder={`vazio = o mesmo do assistente (${s.effectiveModel || 'Super Admin › Tokens de IA'})`}
           hint="Para mexer em código, prefira um modelo forte (ex.: anthropic/claude-sonnet-4.5). A chave é a sua, em Super Admin › Credenciais (ou a dos restaurantes, se você não colocou a sua)."
           value={f.model}
           onChange={(e) => set('model', e.target.value)}

@@ -1,4 +1,4 @@
-import { SUBSCRIPTION_LABELS } from '@comandou/shared';
+import { formatDocument, ROLE_LABELS, SUBSCRIPTION_LABELS } from '@comandou/shared';
 import {
   BrainCircuit,
   ChevronRight,
@@ -6,6 +6,7 @@ import {
   Database,
   FileSignature,
   Gauge,
+  Globe,
   IdCard,
   Receipt,
   ShoppingBag,
@@ -13,11 +14,11 @@ import {
 } from 'lucide-react';
 import { ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { dateTime } from '../features/format';
 import { brl } from '../lib/money';
 import type { AiOverview } from './AiPage';
 import type { FiscalOverview } from './types';
 import { useLoad } from './OverviewPages';
+import { maskPhone } from './NewTenant';
 import { CONTRACT_STATUS } from './TenantContracts';
 import { DB_STATUS } from './TenantDatabase';
 import { TenantVersionCard } from './TenantVersion';
@@ -26,6 +27,14 @@ import { ago, bytes, daysUntil, Dot, Level, levelFor, Meter, Tag } from './ui';
 
 export type OverviewTarget =
   'subscription' | 'profile' | 'contract' | 'database' | 'operation' | 'usage' | 'team';
+
+/** Função de cada pessoa na equipe: os mesmos nomes da tela Equipe do restaurante. */
+export const ROLE: Record<string, string> = ROLE_LABELS;
+
+/** "Online" é quem mexeu no sistema nos últimos 15 minutos (o mesmo número da aba Consumo). */
+export const ONLINE_MS = 15 * 60_000;
+export const isOnline = (m: { lastSeenAt: string | null }, now = Date.now()) =>
+  !!m.lastSeenAt && now - new Date(m.lastSeenAt).getTime() < ONLINE_MS;
 
 const SUB_LEVEL: Record<string, Level> = {
   trialing: 'info',
@@ -76,6 +85,25 @@ function Note({ level, children }: { level?: Level; children: ReactNode }) {
     >
       {children}
     </span>
+  );
+}
+
+/** Domínio próprio do restaurante: ligado (DNS conferido), esperando o DNS ou com erro. */
+function DomainRow({ d }: { d: TenantDetail['domains'][number] }) {
+  const [label, level]: [string, Level] = d.verifiedAt
+    ? ['no ar', 'ok']
+    : d.lastError
+      ? ['com erro', 'bad']
+      : ['esperando o DNS', 'warn'];
+  return (
+    <>
+      <dt className="adm-clip" title={d.hostname}>
+        {d.hostname}
+      </dt>
+      <dd title={d.lastError ?? undefined}>
+        <Dot level={level} /> {label}
+      </dd>
+    </>
   );
 }
 
@@ -150,8 +178,16 @@ export function TenantOverview({
   const fx = fiscal.data?.tenants.find((x) => x.id === t.id)?.fiscal ?? null;
   const fxCert = fiscal.data?.tenants.find((x) => x.id === t.id)?.certificateAlert ?? null;
   const aiRow = ai.data?.tenants.find((x) => x.id === t.id) ?? null;
-  const online = team?.filter((m) => m.activeSessions > 0).length ?? 0;
-  const failures = t.usage.fiscalErrors + t.usage.messageFailures;
+  // Equipe com acesso (quem foi removido não conta) e quem mexeu nos últimos 15 minutos.
+  const active = team?.filter((m) => m.status === 'active' && !m.disabledAt) ?? [];
+  const online = active.filter((m) => isOnline(m)).length;
+  const lastSeen =
+    team
+      ?.map((m) => m.lastSeenAt)
+      .filter((x): x is string => !!x)
+      .sort()
+      .at(-1) ?? null;
+  const address = `${t.slug}.${window.location.hostname.replace(/^admin\./, '')}`;
   const [dbLabel, dbLevel] = DB_STATUS[t.database.status] ?? [t.database.status, 'off' as Level];
 
   return (
@@ -171,7 +207,7 @@ export function TenantOverview({
               <dd>{plan ? brl(plan.priceMonthly) : '—'}</dd>
               <dt>{s.status === 'trialing' ? 'Teste até' : 'Pago até'}</dt>
               <dd>{day(until)}</dd>
-              <dt>Cliente desde</dt>
+              <dt>Assinatura desde</dt>
               <dd>{day(s.startedAt)}</dd>
             </dl>
             {leftText && <Note level={leftLevel}>{leftText}</Note>}
@@ -186,7 +222,7 @@ export function TenantOverview({
 
       <Card icon={<Gauge size={16} />} title="Uso do plano" onClick={() => go('subscription')}>
         <Usage label="Equipe ativa" used={t.usage.users} max={plan?.maxUsers ?? null} />
-        <Usage label="Produtos" used={t.usage.products} max={plan?.maxProducts ?? null} />
+        <Usage label="Produtos ativos" used={t.usage.products} max={plan?.maxProducts ?? null} />
         <Usage
           label="Pedidos no mês"
           used={t.usage.ordersMonth}
@@ -240,13 +276,15 @@ export function TenantOverview({
         <span className="adm-card__big">{p.legalName ?? t.name}</span>
         <dl className="adm-kv">
           <dt>CPF/CNPJ</dt>
-          <dd>{p.document ?? '—'}</dd>
+          <dd>{p.document ? formatDocument(p.document) : '—'}</dd>
           <dt>Responsável</dt>
           <dd>{p.contactName ?? t.owners[0]?.name ?? '—'}</dd>
           <dt>Telefone</dt>
-          <dd>{p.phone ?? '—'}</dd>
-          <dt>Cobrança</dt>
-          <dd>{p.billingEmail ?? '—'}</dd>
+          <dd>{p.phone ? maskPhone(p.phone) : '—'}</dd>
+          <dt>E-mail de cobrança</dt>
+          <dd className="adm-clip" title={p.billingEmail ?? undefined}>
+            {p.billingEmail ?? '—'}
+          </dd>
           <dt>Cidade</dt>
           <dd>{p.city ? `${p.city}${p.state ? `/${p.state}` : ''}` : '—'}</dd>
         </dl>
@@ -260,33 +298,37 @@ export function TenantOverview({
         <dl className="adm-kv">
           <dt>Último pedido</dt>
           <dd>{t.usage.lastOrderAt ? ago(t.usage.lastOrderAt) : 'nenhum'}</dd>
-          <dt>Produtos ativos</dt>
-          <dd>{t.usage.products}</dd>
-          <dt>Falhas em 7 dias</dt>
+          <dt>WhatsApp que falhou (7 dias)</dt>
           <dd>
-            {failures ? (
-              <>
-                <Dot level="warn" /> {t.usage.fiscalErrors} nota · {t.usage.messageFailures}{' '}
-                WhatsApp
-              </>
-            ) : (
-              'nenhuma'
-            )}
+            {t.usage.messageFailures ? <Dot level="warn" /> : null} {t.usage.messageFailures}
           </dd>
         </dl>
+        {t.usage.messageFailures > 0 && <Note level="warn">Veja o detalhe na aba Operação.</Note>}
       </Card>
 
-      <Card icon={<Receipt size={16} />} title="Nota fiscal">
+      <Card icon={<Receipt size={16} />} title="Nota fiscal" onClick={() => go('operation')}>
         {fiscal.data === null ? (
-          <Note>carregando…</Note>
+          <Note>{fiscal.error ? 'indisponível' : 'carregando…'}</Note>
         ) : !fx?.enabled ? (
           <>
             <span className="adm-card__big">Desligada</span>
-            <Note>
-              {plan && !plan.featureFiscal
-                ? 'O plano não inclui nota fiscal.'
-                : 'O restaurante ainda não ativou a emissão.'}
-            </Note>
+            {fx && (fx.authorized30d > 0 || fx.failed7d > 0) ? (
+              <>
+                <dl className="adm-kv">
+                  <dt>Autorizadas (30 dias)</dt>
+                  <dd>{fx.authorized30d}</dd>
+                  <dt>Recusadas (7 dias)</dt>
+                  <dd>{fx.failed7d}</dd>
+                </dl>
+                <Note>Emitiu notas e depois desligou a emissão.</Note>
+              </>
+            ) : (
+              <Note>
+                {plan && !plan.featureFiscal
+                  ? 'O plano não inclui nota fiscal.'
+                  : 'O restaurante ainda não ligou a emissão.'}
+              </Note>
+            )}
           </>
         ) : (
           <>
@@ -297,7 +339,7 @@ export function TenantOverview({
             <dl className="adm-kv">
               <dt>Autorizadas (30 dias)</dt>
               <dd>{fx.authorized30d}</dd>
-              <dt>Recusas (7 dias)</dt>
+              <dt>Recusadas (7 dias)</dt>
               <dd>{fx.failed7d}</dd>
               <dt>Certificado até</dt>
               <dd>{day(fx.certificateValidUntil)}</dd>
@@ -331,13 +373,14 @@ export function TenantOverview({
             </span>
             <Usage label="Limite do mês" used={aiRow.tokens} max={aiRow.limit || null} />
             <Note level={levelFor(aiRow.percent, 80, 100)}>
-              {aiRow.calls} conversa(s) · último uso {ago(aiRow.lastAt)}
+              {plural(aiRow.calls, 'resposta da IA', 'respostas da IA')} no mês · último uso{' '}
+              {ago(aiRow.lastAt)}
             </Note>
           </>
         )}
       </Card>
 
-      <Card icon={<Database size={16} />} title="Banco e dados" onClick={() => go('database')}>
+      <Card icon={<Database size={16} />} title="Banco de dados" onClick={() => go('database')}>
         <span className="adm-card__big">
           {t.database.kind === 'dedicated' ? 'Banco próprio' : 'Banco central'}
         </span>
@@ -361,15 +404,38 @@ export function TenantOverview({
 
       <Card icon={<Users size={16} />} title="Equipe e acesso" onClick={() => go('team')}>
         <span className="adm-card__big">
-          {team ? plural(team.length, 'pessoa', 'pessoas') : '…'}
-          {online > 0 && <small className="adm-ai-off"> · {online} online</small>}
+          {team ? plural(active.length, 'pessoa', 'pessoas') : '…'}
+          {online > 0 && <small className="adm-ai-off"> · {online} online agora</small>}
         </span>
         <dl className="adm-kv">
-          <dt>Dono</dt>
-          <dd>{t.owners.map((o) => o.email).join(', ') || '—'}</dd>
-          <dt>Criado em</dt>
-          <dd>{dateTime(t.createdAt)}</dd>
+          <dt>{t.owners.length > 1 ? 'Donos' : 'Dono'}</dt>
+          <dd className="adm-clip" title={t.owners.map((o) => o.email).join(', ') || undefined}>
+            {t.owners.map((o) => o.name).join(', ') || '—'}
+          </dd>
+          <dt>Último acesso</dt>
+          <dd>{lastSeen ? `${ago(lastSeen)}` : 'ninguém entrou ainda'}</dd>
+          {team && team.length > active.length && (
+            <>
+              <dt>Sem acesso</dt>
+              <dd>{team.length - active.length}</dd>
+            </>
+          )}
         </dl>
+      </Card>
+
+      <Card icon={<Globe size={16} />} title="Endereços">
+        <span className="adm-card__big" title={address}>
+          {address}
+        </span>
+        {t.domains.length > 0 ? (
+          <dl className="adm-kv">
+            {t.domains.map((d) => (
+              <DomainRow key={d.id} d={d} />
+            ))}
+          </dl>
+        ) : (
+          <Note>Sem domínio próprio: o sistema abre só no endereço do Comandou.</Note>
+        )}
       </Card>
     </div>
   );

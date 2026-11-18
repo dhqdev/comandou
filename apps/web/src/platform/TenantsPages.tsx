@@ -18,10 +18,11 @@ import { Alert, Button, Modal, Spinner, TextField, useToast, Select } from '../d
 import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
-import { AuditTable, useLoad } from './OverviewPages';
+import { useLoad } from './OverviewPages';
+import { TenantHistory } from './audit';
 import { ConsumptionPanel, OperationPanel } from './TenantInsights';
 import { TenantBillingPanel } from './TenantBilling';
-import { TenantOverview } from './TenantOverview';
+import { isOnline, ROLE, TenantOverview } from './TenantOverview';
 import { DatabasePanel, DatabaseProgress, DeleteTenantModal, dbBusy } from './TenantDatabase';
 import { ProfilePanel, TIMEZONES } from './NewTenant';
 import { ContractsPanel } from './TenantContracts';
@@ -45,18 +46,6 @@ const SUB_LEVEL: Record<string, Level> = {
   active: 'ok',
   past_due: 'warn',
   cancelled: 'off',
-};
-const ROLE: Record<string, string> = {
-  owner: 'Dono',
-  manager: 'Gerente',
-  cashier: 'Caixa',
-  waiter: 'Garçom',
-  kitchen: 'Cozinha',
-  driver: 'Entregador',
-  attendant: 'Atendente',
-  stock: 'Estoque',
-  finance: 'Financeiro',
-  fiscal: 'Fiscal',
 };
 
 /** Domínio base, a partir de admin.<base>. */
@@ -406,8 +395,8 @@ export function TenantDetailPage() {
           sub={
             <>
               <span>{address}</span>
-              <span>{TIMEZONES.find(([v]) => v === t.timezone)?.[1] ?? t.timezone}</span>
-              <span>desde {new Date(t.createdAt).toLocaleDateString('pt-BR')}</span>
+              <span>fuso {TIMEZONES.find(([v]) => v === t.timezone)?.[1] ?? t.timezone}</span>
+              <span>cadastrado em {new Date(t.createdAt).toLocaleDateString('pt-BR')}</span>
             </>
           }
           actions={
@@ -573,7 +562,7 @@ export function TenantDetailPage() {
           <ContractsPanel t={t} initialOpen={params.get('contrato') ?? undefined} />
         )}
         {tab === 'database' && <DatabasePanel t={t} onChanged={setData} />}
-        {tab === 'operation' && <OperationPanel id={t.id} team={team.data} />}
+        {tab === 'operation' && <OperationPanel id={t.id} team={team.data} timezone={t.timezone} />}
         {tab === 'kitchen' && <KitchenPanel t={t} />}
         {tab === 'usage' && <ConsumptionPanel id={t.id} />}
 
@@ -591,24 +580,26 @@ export function TenantDetailPage() {
                   <button key={m.id} className="adm-row" onClick={() => setMember(m)}>
                     <Dot
                       level={
-                        m.status !== 'active' || m.disabledAt
-                          ? 'off'
-                          : m.activeSessions
-                            ? 'ok'
-                            : 'info'
+                        m.status !== 'active' || m.disabledAt ? 'off' : isOnline(m) ? 'ok' : 'info'
                       }
                     />
                     <span className="adm-row__main">
                       <span className="adm-row__title">{m.name}</span>
                       <span className="adm-row__meta">
                         {ROLE[m.role] ?? m.role} · {m.email}
-                        {m.status !== 'active' ? ' · acesso removido' : ''}
+                        {m.status !== 'active' || m.disabledAt ? ' · sem acesso' : ''}
                       </span>
                     </span>
                     <span className="adm-row__side">
-                      {m.activeSessions ? `${m.activeSessions} sessão(ões)` : 'offline'}
+                      {isOnline(m)
+                        ? 'online agora'
+                        : m.lastSeenAt
+                          ? `último acesso ${ago(m.lastSeenAt)}`
+                          : 'nunca entrou'}
                       <br />
-                      {ago(m.lastSeenAt)}
+                      {m.activeSessions === 1
+                        ? '1 aparelho conectado'
+                        : `${m.activeSessions} aparelhos conectados`}
                     </span>
                   </button>
                 ))}
@@ -617,11 +608,7 @@ export function TenantDetailPage() {
           </div>
         )}
 
-        {tab === 'history' && (
-          <div className="adm-panel">
-            <AuditTable rows={t.audit} />
-          </div>
-        )}
+        {tab === 'history' && <TenantHistory tenantId={t.id} plans={plans} />}
       </div>
 
       {/* Suspender / reativar */}
@@ -795,9 +782,9 @@ function MemberSheet({
         <dd>{ROLE[m.role] ?? m.role}</dd>
         <dt>E-mail</dt>
         <dd>{m.email}</dd>
-        <dt>Último uso</dt>
+        <dt>Último acesso</dt>
         <dd>{m.lastSeenAt ? `${dateTime(m.lastSeenAt)} (${ago(m.lastSeenAt)})` : 'nunca'}</dd>
-        <dt>Sessões abertas</dt>
+        <dt>Aparelhos conectados</dt>
         <dd>{m.activeSessions}</dd>
         <dt>Situação</dt>
         <dd>{active ? 'ativo' : 'sem acesso'}</dd>

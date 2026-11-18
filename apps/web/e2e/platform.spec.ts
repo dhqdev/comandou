@@ -4,7 +4,7 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_TOTP, ADMIN_URL, adminLogin } from '
 
 /**
  * Etapa 6 no navegador: painel Super Admin (admin.<base>) com senha + código do autenticador,
- * preço, novo restaurante, assinatura, suspensão/reativação e auditoria; no restaurante, a
+ * preço, novo restaurante, assinatura, suspensão/reativação e histórico; no restaurante, a
  * tela "Plano". O segredo TOTP de teste vem de E2E_ADMIN_TOTP (nunca o de produção).
  */
 const EMAIL = process.env.E2E_EMAIL ?? 'dono@demo.local';
@@ -134,16 +134,22 @@ test('Super Admin: código errado, preço, novo restaurante, assinatura e suspen
   await dialog.getByRole('button', { name: 'Reativar' }).click();
   await expect(page.getByRole('button', { name: 'Suspender' })).toBeVisible();
 
+  // Histórico do restaurante (a antiga tela Auditoria): a suspensão com o motivo e a criação.
+  await page.getByRole('tab', { name: 'Histórico' }).click();
+  await expect(page.getByText(`Motivo: Teste E2E ${tag}`)).toBeVisible();
+  await expect(page.getByText('Restaurante criado').first()).toBeVisible();
+
   // Ranking de consumo na tela do servidor (aparece mesmo sem o agente)
   await nav(page, 'Infraestrutura');
   await expect(page.getByRole('heading', { name: 'Infraestrutura' })).toBeVisible();
   await expect(page.getByText('Consumo por restaurante')).toBeVisible();
   await expect(page.getByRole('link', { name: new RegExp(`Cantina ${tag}`) })).toBeVisible();
 
-  // Auditoria
-  await nav(page, 'Auditoria');
-  await expect(page.getByText(`Teste E2E ${tag}`)).toBeVisible();
-  await expect(page.getByText('Restaurante criado').first()).toBeVisible();
+  // Site: o cadastro pelo site e o site com IA são abas da mesma tela.
+  await nav(page, 'Site');
+  await expect(page.getByRole('heading', { name: 'Site', level: 1 })).toBeVisible();
+  await page.getByRole('tab', { name: 'Site com IA' }).click();
+  await expect(page).toHaveURL(/\/site\/ia$/);
   // Servidor, Bancos e Backups são abas da mesma tela (Infraestrutura).
   await nav(page, 'Infraestrutura');
   await page.getByRole('tab', { name: 'Backups' }).click();
@@ -164,8 +170,22 @@ test('Super Admin: código errado, preço, novo restaurante, assinatura e suspen
     '/servidor/backups',
     '/planos',
     '/cobranca',
-    '/auditoria',
+    '/site',
+    '/site/ia',
+    '/conversas',
   ]);
+  // Conversas: no celular a lista (busca, abas e conversas) ocupa a largura toda da caixa, sem
+  // coluna vazia à direita; no computador, lista e conversa lado a lado.
+  const inbox = await page.locator('.adm-support .sinbox').boundingBox();
+  const list = await page.locator('.sinbox__list').boundingBox();
+  if (info.project.name === 'mobile') expect(list!.width).toBeGreaterThan(inbox!.width - 4);
+  else expect(list!.width).toBeLessThan(inbox!.width / 2);
+
+  // O registro do que não é de restaurante (entradas no painel, ajustes) fica em Conta.
+  await account(page, 'Registro do painel');
+  await expect(page.getByRole('dialog').getByText('Entrou no painel').first()).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 
   await account(page, 'Sair');
   // Entrou com código e "Lembrar este aparelho" marcado: o navegador fica confiável, só senha.
