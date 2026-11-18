@@ -1,213 +1,198 @@
-/* Agenda de reservas da equipe. Cores sempre dos tokens (seguem a cor da loja e o tema). */
-.rv {
+/* Reservas no jeito da Agenda (pages/agenda/agenda.css): painel do lado, barra e as visões.
+   Aqui só o que é das reservas. Cores sempre dos tokens (seguem a cor da loja e o tema). */
+
+/* ---------------------------------------------------------------- painel */
+.rv-stats {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--cm-space-4);
-}
-.rv-head-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.rv-banner {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border-radius: var(--cm-radius-md);
-  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
-  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 30%, transparent);
-  color: var(--cm-text);
-}
-.rv-banner > svg {
-  color: var(--cm-brand-600);
-  flex: none;
-}
-.rv-banner > span {
-  flex: 1;
-}
-
-/* Semana */
-.rv-daybar {
-  display: flex;
-  align-items: center;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
-  flex-wrap: wrap;
-}
-.rv-week {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  grid-template-columns: repeat(7, minmax(64px, 1fr));
-  gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.rv-week__day {
-  display: grid;
-  justify-items: center;
-  gap: 2px;
-  padding: 8px 4px;
-  border-radius: var(--cm-radius-md);
-  border: 1px solid var(--cm-border);
-  background: var(--cm-surface);
-  color: var(--cm-text);
-  cursor: pointer;
-  transition:
-    background var(--cm-dur-fast),
-    border-color var(--cm-dur-fast),
-    transform var(--cm-dur-fast);
-}
-.rv-week__day:hover {
-  border-color: var(--cm-brand-400);
-}
-.rv-week__day:active {
-  transform: scale(0.97);
-}
-.rv-week__day strong {
-  font-size: var(--cm-text-xl);
-  line-height: 1.1;
-}
-.rv-week__wd {
-  font-size: var(--cm-text-xs);
-  color: var(--cm-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.rv-week__count {
-  font-size: var(--cm-text-xs);
-  color: var(--cm-text-muted);
-}
-.rv-week__count[data-pending] {
-  color: var(--cm-brand-700);
-  font-weight: 600;
-}
-.rv-week__day[data-today] .rv-week__wd {
-  color: var(--cm-brand-700);
-  font-weight: 700;
-}
-.rv-week__day[aria-selected='true'] {
-  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
-  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
-  color: var(--cm-text);
-}
-.rv-week__day[aria-selected='true'] .rv-week__wd,
-.rv-week__day[aria-selected='true'] .rv-week__count {
-  color: inherit;
-  opacity: 0.9;
-}
-.rv-datepick {
-  width: 170px;
-}
-
-/* Resumo do dia */
-.rv-summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--cm-space-4);
-  flex-wrap: wrap;
-}
-.rv-summary h2 {
   margin: 0;
-  font-size: var(--cm-text-xl);
 }
-.rv-summary h2::first-letter {
-  text-transform: uppercase;
-}
-.rv-kpis {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.rv-kpi {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 14px 8px 10px;
+.rv-stats > div {
+  display: grid;
+  gap: 1px;
+  padding: 8px 10px;
+  border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-md);
   background: var(--cm-surface);
-  border: 1px solid var(--cm-border);
 }
-.rv-kpi > span:last-child {
-  display: grid;
-  line-height: 1.15;
-}
-.rv-kpi strong {
-  font-size: var(--cm-text-lg);
-}
-.rv-kpi small {
+.rv-stats dt {
   font-size: var(--cm-text-xs);
   color: var(--cm-text-muted);
 }
-.rv-kpi__icon {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--cm-brand-500) 14%, transparent);
-  color: var(--cm-brand-700);
-}
-.rv-kpi[data-tone='warning'] {
-  border-color: color-mix(in srgb, var(--cm-brand-500) 45%, transparent);
-}
-
-.rv-filter {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px;
-  border-radius: var(--cm-radius-full);
-  background: var(--cm-surface-muted);
-  justify-self: start;
-}
-.rv-filter button {
-  border: 0;
-  background: transparent;
-  padding: 6px 14px;
-  border-radius: var(--cm-radius-full);
-  color: var(--cm-text-muted);
-  font: inherit;
-  font-size: var(--cm-text-sm);
-  cursor: pointer;
-}
-.rv-filter button[aria-selected='true'] {
-  background: var(--cm-surface);
-  color: var(--cm-text);
+.rv-stats dd {
+  margin: 0;
+  font-size: var(--cm-text-lg);
   font-weight: 600;
-  box-shadow: var(--cm-shadow-sm);
-}
-
-/* Linha do tempo */
-.rv-timeline {
-  display: grid;
-  gap: var(--cm-space-4);
-}
-.rv-slot {
-  display: grid;
-  grid-template-columns: 84px minmax(0, 1fr);
-  gap: var(--cm-space-3);
-}
-.rv-slot__time {
-  display: grid;
-  align-content: start;
-  gap: 2px;
-  padding-top: 10px;
-  border-top: 3px solid var(--cm-brand-500);
-}
-.rv-slot__time strong {
-  font-size: var(--cm-text-xl);
   font-variant-numeric: tabular-nums;
 }
-.rv-slot__time span {
-  font-size: var(--cm-text-xs);
-  color: var(--cm-text-muted);
+.rv-stats > div[data-warn] {
+  border-color: color-mix(in srgb, var(--cm-warning) 50%, var(--cm-border));
 }
-.rv-slot__cards {
+.rv-stats > div[data-warn] dd {
+  color: var(--cm-warning);
+}
+.rv-filter-n {
+  margin-left: auto;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+.rv-cal .ag-wa:disabled {
+  cursor: default;
+}
+.rv-cal .ag-wa:disabled:hover {
+  background: inherit;
+}
+
+/* ---------------------------------------------------------------- barra */
+.rv-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 30px;
+  margin-left: var(--cm-space-2);
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--cm-warning) 45%, var(--cm-border));
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-warning-bg);
+  color: var(--cm-warning);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.rv-pending:active {
+  transform: scale(0.97);
+}
+.rv-pending[aria-pressed='true'] {
+  border-color: var(--cm-warning);
+}
+.rv-pending__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cm-warning);
+}
+.ag--phone .rv-pending {
+  align-self: flex-start;
+  margin-left: 0;
+}
+
+/* ---------------------------------------------------------------- mês */
+.rv-cell__top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.rv-cell__people {
+  position: absolute;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--cm-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+.rv-chip__n {
+  flex: none;
+  color: var(--cm-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------- dia e semana */
+.rv-day {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.rv-day > .ag-tg {
+  min-width: 0;
+}
+.rv-day--lane {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: var(--cm-space-3);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+}
+.rv-day--lane > .rv-lane {
+  margin: 0;
+  padding: var(--cm-space-3);
+  border-left: 1px solid var(--cm-border);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  align-content: start;
+}
+.rv-tg__count {
+  font-size: 11px;
+  color: var(--cm-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+.rv-ev .ag-ev__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rv-ev__n {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+.rv-ev__tag {
+  justify-self: start;
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 0 6px;
+  border-radius: var(--cm-radius-full);
+  background: color-mix(in srgb, var(--ev) 22%, transparent);
+  font-size: 11px;
+  font-weight: 600;
+}
+.rv-ev[data-status='cancelled'],
+.rv-ev[data-status='no_show'] {
+  opacity: 0.6;
+}
+
+/* ---------------------------------------------------------------- cartões do dia e lista */
+.rv-lane {
+  display: grid;
+  gap: var(--cm-space-2);
+  margin-top: var(--cm-space-4);
+}
+.rv-lane__title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  color: var(--cm-text-subtle);
+}
+.rv-lane__title small {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.rv-lane__cards {
+  display: grid;
+  gap: var(--cm-space-2);
+}
+.rv-lane__cards--grid {
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
+.rv-list .ag-list__day {
+  grid-template-columns: 180px minmax(0, 1fr);
+}
+.rv-list__sum {
+  display: block;
+  margin-top: 2px;
+  color: var(--cm-text-subtle);
+  font-weight: 500;
 }
 
 .rv-card {
@@ -217,19 +202,20 @@
   border-radius: var(--cm-radius-lg);
   background: var(--cm-surface);
   border: 1px solid var(--cm-border);
-  border-left: 4px solid var(--cm-border-strong);
-  box-shadow: var(--cm-shadow-sm);
-  animation: rv-in 0.3s calc(var(--i, 0) * 40ms) both ease-out;
+  animation: rv-in 0.2s both ease-out;
 }
 .rv-card[data-status='pending'] {
-  border-left-color: var(--cm-brand-500);
-  background: color-mix(in srgb, var(--cm-brand-500) 5%, var(--cm-surface));
+  border-color: color-mix(in srgb, var(--cm-warning) 45%, var(--cm-border));
+  background: color-mix(in srgb, var(--cm-warning) 5%, var(--cm-surface));
 }
-.rv-card[data-status='confirmed'] {
-  border-left-color: var(--cm-info);
+.rv-card--plain {
+  padding: 0;
+  border: 0;
+  background: none !important;
+  animation: none;
 }
-.rv-card[data-status='seated'] {
-  border-left-color: var(--cm-success);
+.rv-card--plain[data-status] {
+  opacity: 1;
 }
 .rv-card[data-status='cancelled'],
 .rv-card[data-status='no_show'],
@@ -248,17 +234,38 @@
 }
 .rv-card__head {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   align-items: start;
 }
+.rv-card__time {
+  display: grid;
+  justify-items: center;
+  flex: none;
+  min-width: 52px;
+  padding: 4px 6px;
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface-muted);
+  line-height: 1.15;
+}
+.rv-card__time strong {
+  font-size: var(--cm-text-md);
+  font-variant-numeric: tabular-nums;
+}
+.rv-card__time small {
+  color: var(--cm-text-muted);
+  font-size: 11px;
+}
 .rv-card__who {
+  flex: 1;
   display: grid;
   gap: 2px;
   min-width: 0;
 }
 .rv-card__who strong {
-  font-size: var(--cm-text-lg);
+  font-size: var(--cm-text-md);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .rv-card__meta {
   display: inline-flex;
@@ -443,42 +450,27 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 720px) {
-  /* Números do dia: grade 2 × 2 de cartões iguais (antes cada um tinha a largura do texto). */
-  .rv-kpis {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    flex: 1 1 100%;
-  }
-  .rv-kpis > .rv-kpi {
-    justify-self: stretch;
-  }
-  /* Aviso "reservas desligadas": texto em cima, botão embaixo (antes o texto ficava espremido). */
-  .rv-banner {
-    flex-wrap: wrap;
-    align-items: flex-start;
-  }
-  .rv-banner > span {
-    flex: 1 1 calc(100% - 40px);
-  }
-  .rv-banner > .cm-btn {
-    margin-left: 32px;
-  }
-  .rv-slot {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-  }
-  .rv-slot__time {
+.ag--phone .rv-list .ag-list__day {
+  grid-template-columns: minmax(0, 1fr);
+}
+.rv-cal .ag-bar .cm-seg {
+  flex: none;
+}
+.rv-cal .ag-bar__h1 {
+  min-width: 0;
+}
+/* Tela estreita: só a grade (tocar na reserva abre o cartão). */
+@media (max-width: 1280px) {
+  .rv-day--lane {
     display: flex;
-    align-items: baseline;
-    gap: 8px;
-    padding-top: 6px;
   }
-  .rv-slot__cards {
+  .rv-day--lane > .rv-lane {
+    display: none;
+  }
+}
+@media (max-width: 720px) {
+  .rv-lane__cards--grid {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .rv-datepick {
-    width: 100%;
   }
   .rv-table {
     margin-left: 0;

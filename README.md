@@ -104,7 +104,7 @@ copiar da notificação). Passo a passo em [docs/email.md](docs/email.md).
 | Área | Recursos |
 | --- | --- |
 | **Venda** | PDV com atalhos de teclado, adicionais e variações, pedidos de balcão, mesa, retirada e delivery, descontos com limite por papel, busca global (Ctrl+K) |
-| **Salão** | Mapa de mesas e comandas, reservas, QR Code por mesa, garçom no celular (escaneia a mesa), pedir a conta, transferência, divisão sem perder centavo |
+| **Salão** | Mapa de mesas e comandas, reservas em calendário (dia, semana, mês e lista, arrastar para remarcar), QR Code por mesa, garçom no celular (escaneia a mesa), pedir a conta, transferência, divisão sem perder centavo |
 | **Cozinha** | Fila por setor de produção (KDS) em tempo real, avisos de atraso, avanço por item ou pedido |
 | **Caixa** | Abertura por terminal, pagamentos com troco, estornos, sangria e suprimento, fechamento conferido que vai sozinho para o financeiro (taxa da maquininha e dia em que cai na conta) |
 | **Cardápio online** | Loja própria com capa, banners e destaques, contas de cliente com endereços e favoritos, acompanhamento do pedido, aceite manual ou automático |
