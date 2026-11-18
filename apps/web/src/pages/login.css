@@ -14,22 +14,13 @@
   overflow: hidden;
 }
 
-/* Fundo animado (LoginBackdrop): aurora na cor da marca, grade de pontos e brilho atrás dos campos. */
+/* Fundo (LoginBackdrop): poucos pontinhos flutuando devagar, em volta dos campos. */
 .login__bg {
   position: fixed;
   inset: 0;
   z-index: -1;
   overflow: hidden;
   pointer-events: none;
-  --login-aurora: 0.85;
-  --login-dots: color-mix(in srgb, var(--cm-text) 16%, transparent);
-  --login-glow: color-mix(in srgb, var(--cm-brand-500) 14%, transparent);
-  /* Sem WebGL, um degradê parado no lugar da aurora. */
-  background: radial-gradient(
-    120% 60% at 50% -10%,
-    color-mix(in srgb, var(--cm-brand-500) 22%, transparent),
-    transparent 70%
-  );
 }
 .login__bg-probe {
   position: absolute;
@@ -37,47 +28,19 @@
   height: 0;
   overflow: hidden;
 }
-.login__aurora {
-  position: absolute;
-  inset: 0 0 auto;
-  width: 100%;
-  height: 72%;
-  opacity: var(--login-aurora);
-  /* Some antes de chegar nos campos, para o texto continuar fácil de ler. */
-  mask-image: linear-gradient(to bottom, #000 30%, transparent);
-  animation: login-fade 1.2s var(--cm-ease) both;
-}
-.login__dots {
+.login__particles {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(var(--login-dots) 1px, transparent 1.4px);
-  background-size: 22px 22px;
-  mask-image: radial-gradient(70% 60% at 50% 45%, #000 20%, transparent 75%);
-}
-.login__glow {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: min(720px, 120vw);
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: radial-gradient(closest-side, var(--login-glow), transparent);
+  width: 100%;
+  height: 100%;
+  opacity: 0.8;
+  /* Menos pontos atrás dos campos, para o texto continuar limpo. */
+  mask-image: radial-gradient(closest-side, transparent 30%, #000 85%);
+  animation: login-fade 1.6s var(--cm-ease) both;
 }
 @keyframes login-fade {
   from {
     opacity: 0;
-  }
-}
-/* Tema claro: aurora mais leve (e em cor pura, ver `flat` no Aurora), para não pesar no branco. */
-:root:not([data-theme='dark']) .login__bg {
-  --login-aurora: 0.35;
-  --login-dots: color-mix(in srgb, var(--cm-text) 10%, transparent);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .login__bg {
-    --login-aurora: 0.85;
-    --login-dots: color-mix(in srgb, var(--cm-text) 16%, transparent);
   }
 }
 
@@ -292,7 +255,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .login__body,
-  .login__aurora {
+  .login__particles {
     animation: none;
   }
 }

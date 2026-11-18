@@ -38,11 +38,12 @@ Visual de **sistema de trabalho**: sóbrio, limpo e confortável para turnos lon
 ## Telas de entrada (AuthShell)
 
 Única exceção no sistema: atrás do login (restaurante, garçom, cozinha, entregas e Super Admin) roda
-o `LoginBackdrop` (`pages/LoginBackdrop.tsx`): `Aurora` do React Bits (`pages/reactbits/Aurora.tsx`,
-passado do `ogl` para WebGL puro, sem dependência nova) na cor `--cm-brand-500` da loja, grade de
-pontos e brilho atrás dos campos. Meia resolução, quadro parado com "reduzir movimento", degradê
-em CSS sem WebGL; no tema claro a cor sai pura (`flat`) e mais leve. Os campos e o botão seguem o
-padrão; não ponha cartão nem vidro em volta deles.
+o `LoginBackdrop` (`pages/LoginBackdrop.tsx`): `Particles` do React Bits
+(`pages/reactbits/Particles.tsx`, passado do `ogl` para WebGL puro, sem dependência nova), poucos
+pontinhos na cor `--cm-brand-500` da loja e em `--cm-text-subtle`, com máscara que os afasta dos
+campos. O dono pediu **minimalista**: a aurora com grade e brilho (0.146) foi achada carregada e
+saiu na 0.152.3. Não volte a pôr degradê, grade, brilho, cartão ou vidro; quadro parado com
+"reduzir movimento"; sem WebGL, fundo liso.
 
 ## Site público (comandou.com) e páginas do site
 

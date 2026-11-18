@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.152.3',
+    date: '2026-11-18',
+    title: 'Tela de entrada mais limpa',
+    summary:
+      'A tela de entrada ficou minimalista: saíram a aurora, a grade e o brilho, e no lugar ficaram poucos pontinhos flutuando devagar, na cor da loja e em cinza, longe dos campos.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Fundo da tela de entrada trocado por pontinhos discretos (Particles), em todas as entradas: restaurante, garçom, cozinha, entregas e Super Admin.',
+      },
+    ],
+  },
+  {
     version: '0.152.2',
     date: '2026-11-18',
     title: 'Liga e desliga dos itens no cardápio volta a funcionar',

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { BRAND_CACHED_EVENT, BRAND_EVENT } from '../design-system';
-import Aurora from './reactbits/Aurora';
+import Particles from './reactbits/Particles';
 
 type Rgb = [number, number, number];
 
@@ -13,25 +13,21 @@ function readColor(probe: HTMLElement, cssVar: string): Rgb {
 }
 
 /**
- * Fundo das telas de entrada: aurora na cor da marca (a da loja, quando ela tem uma) descendo do
- * topo, uma grade de pontinhos que some nas bordas e um brilho suave atrás do formulário. Fica
- * atrás de tudo, sem receber clique nem foco.
+ * Fundo das telas de entrada, minimalista: poucos pontinhos flutuando devagar (Particles do React
+ * Bits), metade na cor da marca da loja e metade no cinza do texto. Fica atrás de tudo, sem
+ * receber clique nem foco.
  */
 export function LoginBackdrop() {
   const probe = useRef<HTMLSpanElement>(null);
-  const [stops, setStops] = useState<[Rgb, Rgb, Rgb] | null>(null);
-  const [light, setLight] = useState(false);
+  const [colors, setColors] = useState<Rgb[] | null>(null);
 
   useEffect(() => {
     const read = () => {
       const el = probe.current;
       if (!el) return;
-      // Bordas na cor da marca e o meio um pouco mais claro: dá o brilho sem trazer outra cor.
-      const brand = readColor(el, '--cm-brand-500');
-      const light = brand.map((c) => c + (1 - c) * 0.35) as Rgb;
-      setStops([brand, light, brand]);
-      const [r, g, b] = readColor(el, '--cm-surface');
-      setLight(0.2126 * r + 0.7152 * g + 0.0722 * b > 0.5);
+      const next = [readColor(el, '--cm-brand-500'), readColor(el, '--cm-text-subtle')];
+      // Mesma cor de antes: não recria os pontos (cada leitura sortearia outros lugares).
+      setColors((prev) => (prev && prev.flat().join() === next.flat().join() ? prev : next));
     };
     read();
     // A identidade da loja e o tema (claro/escuro) podem chegar depois do primeiro quadro.
@@ -55,18 +51,16 @@ export function LoginBackdrop() {
   return (
     <div className="login__bg" aria-hidden>
       <span ref={probe} className="login__bg-probe" />
-      {stops && (
-        <Aurora
-          className="login__aurora"
-          colorStops={stops}
-          amplitude={1.1}
-          blend={0.6}
-          speed={0.6}
-          flat={light}
+      {colors && (
+        <Particles
+          className="login__particles"
+          colors={colors}
+          count={160}
+          spread={6}
+          speed={0.08}
+          baseSize={120}
         />
       )}
-      <div className="login__dots" />
-      <div className="login__glow" />
     </div>
   );
 }
