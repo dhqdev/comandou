@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.168.0',
+    date: '2026-11-18',
+    title: 'Super Admin mais arrumado: menu em grupos e histórico em cada restaurante',
+    summary:
+      'A aba Auditoria saiu: o que aconteceu com cada restaurante aparece no Histórico dele, em frases que dá para ler. O menu ficou em grupos, o Site juntou o cadastro e o Site com IA, e cada número da tela do restaurante foi conferido com o sistema.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Restaurantes › restaurante › Histórico: troca de plano, suspensão, acesso de suporte, pagamento, contrato e tokens de IA, com filtro por assunto e quem fez. As entradas no painel e os ajustes gerais ficam em Conta › Registro do painel.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Menu do Super Admin em grupos (Clientes, Vendas, Financeiro e Sistema), também na tela Mais do celular. Site e Site com IA viraram abas da mesma tela, com o botão Abrir o site.',
+      },
+      {
+        tag: 'correção',
+        text: 'Visão geral do restaurante: CNPJ e telefone formatados, endereços e domínios num cartão só, nota fiscal e equipe com os números certos (quem está online agora, último acesso) e nada repetido entre os cartões. Os gráficos de Uso contam o dia no fuso do restaurante e o Consumo vem do maior para o menor.',
+      },
+      {
+        tag: 'correção',
+        text: 'Conversas no celular: a busca, as abas e a lista ocupam a largura toda, sem a coluna vazia que sobrava à direita.',
+      },
+      {
+        tag: 'correção',
+        text: 'Avisos com texto e link não quebram mais a linha no meio, o plano deixou de repetir item na tela Preço e textos que apontavam para telas antigas foram acertados.',
+      },
+    ],
+  },
+  {
     version: '0.167.0',
     date: '2026-11-18',
     title: 'Tokens de IA com o saldo de verdade do OpenRouter',

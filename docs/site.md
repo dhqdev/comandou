@@ -108,7 +108,7 @@ descrição). Lugar sem cardápio (só o Maps) ganha itens sugeridos, sempre sem
 - **Chave.** Super Admin › Credenciais aceita uma chave própria dos sites (dá para criar no OpenRouter uma
   chave com limite de gasto só para isso). Vazia, vale a sua chave (também em Credenciais) e,
   sem ela, a dos restaurantes.
-- **Limites** (Super Admin › Sites com IA): teto de tokens de resposta por site, tokens por dia
+- **Limites** (Super Admin › Site › aba Site com IA): teto de tokens de resposta por site, tokens por dia
   e por mês somando todos os sites (0 = sem limite) e sites por visitante (IP) em 24 horas. Além
   disso, cada IP chama a geração no máximo 6 vezes em 10 minutos.
 - **Consumo.** Cada site montado fica registrado com tokens, custo, de onde veio e, se a pessoa

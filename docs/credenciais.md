@@ -9,7 +9,7 @@ arquivo é a mesma lista, para ler antes do painel existir.
 
 As chaves do painel ficam cifradas no banco com a `INTEGRATIONS_KEY` (AES-256-GCM) e nunca voltam
 para a tela: depois de salva, aparece só o final dela ("termina em 4f2a"), para saber qual está em
-uso. As outras telas (Tokens de IA, Cobrança, Pagamentos pelo app, E-mail, Backups, Sites com IA,
+uso. As outras telas (Tokens de IA, Cobrança, Pagamentos pelo app, E-mail, Backups, Site com IA,
 Chamados) ficam com os ajustes de cada assunto e uma linha **Chave em uso** (nome, ambiente ou
 conta e o final da chave), com o nome levando ao cartão em Credenciais.
 

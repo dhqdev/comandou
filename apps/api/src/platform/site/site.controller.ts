@@ -70,7 +70,7 @@ export class PublicSiteController {
   }
 
   /**
-   * Monta o site do restaurante com IA (só com Super Admin › Sites com IA ligado). Além deste
+   * Monta o site do restaurante com IA (só com Super Admin › Site › Site com IA ligado). Além deste
    * limite por minuto, cada visitante gera poucos sites por dia (painel).
    */
   @Post('ai')
@@ -150,7 +150,7 @@ export class PlatformSiteController {
   }
 }
 
-/** Super Admin › Sites com IA: chave, modelo, limites de tokens e o consumo de cada site. */
+/** Super Admin › Site › Site com IA: chave, modelo, limites de tokens e o consumo de cada site. */
 @Controller({ path: 'platform/site-ai', version: '1' })
 @SkipTenant()
 @Public()

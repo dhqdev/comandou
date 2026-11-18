@@ -83,8 +83,10 @@ cada função abre na sua tela (garçom no Salão, cozinha na Cozinha, entregado
 ## Painel Super Admin
 
 Onde o dono da plataforma cria restaurantes (cada um com banco próprio), acompanha uso, planos,
-cobrança, contratos, servidor, backups e auditoria. Entrada com senha e código do aplicativo
-autenticador.
+cobrança, contratos, servidor e backups. Entrada com senha e código do aplicativo autenticador.
+O menu fica em grupos (Clientes, Vendas, Financeiro, Sistema); o que aconteceu com cada
+restaurante (plano, suspensão, acesso de suporte, contrato) fica na aba **Histórico** dele, e as
+entradas no painel ficam em Conta › Registro do painel.
 
 **Credenciais num lugar só.** A aba **Credenciais** junta todas as chaves, tokens e senhas que o
 Comandou usa (Focus NFe, OpenRouter, Resend, Asaas, PagBank, Backblaze B2, GitHub e os segredos do

@@ -12,7 +12,7 @@ Guia para quem mantém o Comandou no ar. Comandos rodam no manager do Swarm, com
 | Todo dia (automático) | Backup cifrado no bucket | serviço `backup` ([backups](backups.md)) |
 | Todo domingo (automático) | Teste de restauração | serviço `backup` |
 | A cada 6 h (automático) | Limpeza de dados vencidos (sessões antigas, chaves de idempotência, posição do entregador) | API, função `app_purge_expired()` |
-| Todo mês | Ler a auditoria do painel (logins recusados, suspensões) | painel → Auditoria |
+| Todo mês | Ler o registro do painel (entradas, logins recusados) e o histórico dos restaurantes (suspensões, planos, acessos de suporte) | painel → Conta › Registro do painel; Restaurantes › restaurante › Histórico |
 | A cada 3 meses | Ensaio de restauração completo num banco novo e rotação de segredos | seções abaixo |
 
 ## Monitoramento

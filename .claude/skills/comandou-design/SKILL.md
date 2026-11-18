@@ -193,6 +193,22 @@ título). Número de avisos num item do menu: `count` no `FrameItem` (pílula `c
 frente do nome no menu largo, `cm-rail__badge` no ícone no estreito e nas abas); a bolinha `dot`
 fica para "tem novidade" sem número.
 
+No celular (até 760 px) a caixa é uma coluna só: lista (busca, abas e conversas) na largura toda e,
+ao tocar, a conversa por cima da tela. A grade de duas colunas do painel (`.adm-support .sinbox`)
+fica dentro de `@media (min-width: 761px)`; regra de painel mais específica que a do
+`support-inbox.css` sem esse `@media` deixava uma coluna vazia à direita no celular.
+
+## Super Admin › menu e histórico
+
+O `NAV` de `PlatformApp.tsx` tem `section` (Clientes, Vendas, Financeiro, Sistema): no computador
+vira título no menu lateral e, no celular, cada seção é um bloco na tela Mais (`menuBySection` no
+`AppFrame`). Não existe tela de Auditoria: o que é de um restaurante aparece na aba **Histórico**
+dele (`TenantHistory` de `platform/audit.tsx`, com filtro por assunto e frase legível por ação em
+`describe`) e o resto (entradas, ajustes) em Conta › **Registro do painel** (`PanelLogModal`).
+Ação nova no `platformAudit`: dê nome e grupo em `ACTIONS` e, se tiver detalhe, um caso em
+`describe`; nunca mostre id, hash ou token cru na tela. Telas com abas no mesmo endereço base
+(Infraestrutura, Site) usam `Tabs` com a rota mudando junto (`/site` e `/site/ia`).
+
 O chat do sistema (`TeamChat`) fecha no Esc e num clique fora; os botões do topo abrem e fecham
 (`openTeamChat(tab, { toggle: true })`). Camada por cima dele (foto ampliada, janela, menu) não
 fecha o chat.

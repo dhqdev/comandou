@@ -158,7 +158,7 @@ export class SiteService implements OnApplicationBootstrap, OnModuleDestroy {
       trialDays: plan?.trial_days ?? 0,
       demoUrl: demo ? `${this.tenantUrl(demo.slug)}/pedir` : null,
       salesContact: b?.sales_contact ?? '',
-      /** Monta o site com IA (Super Admin › Sites com IA ligado, com chave e dentro do limite). */
+      /** Monta o site com IA (Super Admin › Site › Site com IA ligado, com chave e dentro do limite). */
       ai: signup && (await this.siteAi.available()),
     };
   }

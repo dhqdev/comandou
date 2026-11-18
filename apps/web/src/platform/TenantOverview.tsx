@@ -409,9 +409,15 @@ export function TenantOverview({
         </span>
         <dl className="adm-kv">
           <dt>{t.owners.length > 1 ? 'Donos' : 'Dono'}</dt>
-          <dd className="adm-clip" title={t.owners.map((o) => o.email).join(', ') || undefined}>
-            {t.owners.map((o) => o.name).join(', ') || '—'}
-          </dd>
+          <dd className="adm-clip">{t.owners.map((o) => o.name).join(', ') || '—'}</dd>
+          {t.owners.length > 0 && (
+            <>
+              <dt>E-mail de entrada</dt>
+              <dd className="adm-clip" title={t.owners.map((o) => o.email).join(', ')}>
+                {t.owners.map((o) => o.email).join(', ')}
+              </dd>
+            </>
+          )}
           <dt>Último acesso</dt>
           <dd>{lastSeen ? `${ago(lastSeen)}` : 'ninguém entrou ainda'}</dd>
           {team && team.length > active.length && (
