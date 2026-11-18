@@ -1,5 +1,5 @@
 import { stageInfo } from '@comandou/shared';
-import { Check, Paperclip, X } from 'lucide-react';
+import { Check, Loader2, Paperclip, X } from 'lucide-react';
 import { CSSProperties, useEffect, useRef, useState } from 'react';
 import { useToast } from '../../design-system';
 import { prepareFile, type Prepared } from '../store-chat/chat-media';
@@ -36,17 +36,56 @@ export function AgentAvatar({
   );
 }
 
-/** Fotos e vídeos escolhidos antes de enviar (com prévia e botão de tirar). */
+/** Prévias das fotos e vídeos escolhidos, com o botão de tirar cada um. */
+export function AttachPreviews({
+  files,
+  onChange,
+}: {
+  files: Prepared[];
+  onChange: (f: Prepared[]) => void;
+}) {
+  if (!files.length) return null;
+  return (
+    <ul className="tk-attach__list">
+      {files.map((f, i) => (
+        <li key={f.previewUrl}>
+          {f.kind === 'video' ? (
+            <video src={f.previewUrl} muted playsInline />
+          ) : (
+            <img src={f.previewUrl} alt="" />
+          )}
+          <button
+            type="button"
+            aria-label="Tirar"
+            onClick={() => {
+              URL.revokeObjectURL(f.previewUrl);
+              onChange(files.filter((_, j) => j !== i));
+            }}
+          >
+            <X size={12} />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Fotos e vídeos escolhidos antes de enviar (com prévia e botão de tirar). `compact` mostra só o
+ * clipe (as prévias ficam por conta de quem usa, com `AttachPreviews`).
+ */
 export function AttachPicker({
   files,
   onChange,
   max = 8,
   label = 'Anexar foto ou vídeo',
+  compact = false,
 }: {
   files: Prepared[];
   onChange: (f: Prepared[]) => void;
   max?: number;
   label?: string;
+  compact?: boolean;
 }) {
   const toast = useToast();
   const input = useRef<HTMLInputElement>(null);
@@ -71,31 +110,35 @@ export function AttachPicker({
     setBusy(false);
     if (input.current) input.current.value = '';
   }
+  const field = (
+    <input
+      ref={input}
+      type="file"
+      accept="image/*,video/mp4,video/webm,video/quicktime,.mov"
+      multiple
+      hidden
+      onChange={(e) => void pick(e.target.files)}
+    />
+  );
+  if (compact)
+    return (
+      <>
+        <button
+          type="button"
+          className="tk-icon-btn"
+          onClick={() => input.current?.click()}
+          disabled={busy}
+          aria-label={label}
+          title={`${label} (até 20 MB, uns 30 segundos)`}
+        >
+          {busy ? <Loader2 size={18} className="tk-spin" /> : <Paperclip size={18} />}
+        </button>
+        {field}
+      </>
+    );
   return (
     <div className="tk-attach">
-      {files.length > 0 && (
-        <ul className="tk-attach__list">
-          {files.map((f, i) => (
-            <li key={f.previewUrl}>
-              {f.kind === 'video' ? (
-                <video src={f.previewUrl} muted playsInline />
-              ) : (
-                <img src={f.previewUrl} alt="" />
-              )}
-              <button
-                type="button"
-                aria-label="Tirar"
-                onClick={() => {
-                  URL.revokeObjectURL(f.previewUrl);
-                  onChange(files.filter((_, j) => j !== i));
-                }}
-              >
-                <X size={12} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <AttachPreviews files={files} onChange={onChange} />
       <button
         type="button"
         className="tk-attach__btn"
@@ -104,14 +147,7 @@ export function AttachPicker({
       >
         <Paperclip size={15} /> {busy ? 'Preparando…' : label}
       </button>
-      <input
-        ref={input}
-        type="file"
-        accept="image/*,video/mp4,video/webm,video/quicktime,.mov"
-        multiple
-        hidden
-        onChange={(e) => void pick(e.target.files)}
-      />
+      {field}
       <span className="tk-attach__hint">Fotos e vídeos de até 20 MB (uns 30 segundos).</span>
     </div>
   );

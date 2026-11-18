@@ -5,6 +5,17 @@ O restaurante abre um chamado (texto, fotos e vídeos) em **Sistema › Chamados
 (OpenRouter) que faz a parte dele. Você decide se o chamado será feito; aprovado, ele anda sozinho
 até abrir um PR em rascunho no GitHub, e o cliente vê o andamento a cada etapa.
 
+## Tela do restaurante
+
+- **Lista** (`pages/TicketsPage.tsx`): resumo no topo (em andamento, respostas novas, resolvidos) e
+  o quadro com as seis etapas que o cliente vê. No celular o quadro vira lista e só mostra as
+  etapas que têm chamado. Cancelados e recusados ficam numa lista embaixo.
+- **Chamado aberto**: conversa em tela cheia no jeito de um chat (`features/tickets/TicketChat.tsx`
+  + `ticket-chat.css`): o restaurante à direita, o suporte à esquerda, separador por dia, avisos do
+  andamento no meio e a descrição de abertura como a primeira mensagem. A caixa de escrever fica
+  presa embaixo (Enter envia, Shift + Enter pula linha). Ao lado, o andamento em passos e os
+  detalhes; abaixo de 900 px eles descem para depois da conversa.
+
 ## Etapas
 
 | Etapa           | Agente | O que faz                                                                                                                                 | O cliente vê       |

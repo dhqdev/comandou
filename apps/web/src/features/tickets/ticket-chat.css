@@ -1,0 +1,602 @@
+/*
+ * Chamado aberto (tela do restaurante): conversa em tela cheia à esquerda e o andamento ao lado.
+ * Só tokens --cm-*: segue o tema claro/escuro e a cor da loja.
+ */
+
+/* ---------------------------------------------------------------- página */
+.tkv {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.tkv__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+.tkv__title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.tkv__title h1 {
+  margin: 0;
+  font-size: var(--cm-text-xl);
+  font-weight: 700;
+  letter-spacing: var(--cm-tracking-tight);
+  overflow-wrap: anywhere;
+}
+.tkv__title p {
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.tkv__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+/* ---------------------------------------------------------------- painel da conversa */
+.tkv__chat {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  /* A altura vem do espaço que sobra na tela (--tkv-top é medido ao abrir). */
+  height: max(
+    460px,
+    calc(100dvh - var(--tkv-top, 240px) - 20px - var(--tabbar-h, 0px) - var(--tabbar-pad, 0px))
+  );
+  min-width: 0;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+  overflow: hidden;
+}
+.tkv__scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px clamp(12px, 3vw, 32px) 12px;
+  background: var(--cm-surface-sunken, var(--cm-bg));
+}
+
+/* ---------------------------------------------------------------- mensagens */
+.tkc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tkc__day {
+  display: flex;
+  justify-content: center;
+  margin: 14px 0 10px;
+}
+.tkc__day:first-child {
+  margin-top: 0;
+}
+.tkc__day span {
+  padding: 3px 12px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.tkc__row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  animation: tkc-in var(--cm-spring-dur) var(--cm-spring) both;
+}
+.tkc__row[data-first='true'] {
+  margin-top: 10px;
+}
+.tkc__row--mine {
+  justify-content: flex-end;
+}
+.tkc__avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 700;
+}
+.tkc__row[data-last='true'] .tkc__avatar {
+  color: var(--cm-text-muted);
+  background: var(--cm-surface);
+  box-shadow: inset 0 0 0 1px var(--cm-border);
+}
+.tkc__row[data-last='true'] .tkc__avatar--mine {
+  color: var(--cm-brand-700);
+  background: var(--cm-brand-50);
+  box-shadow: inset 0 0 0 1px var(--cm-brand-100);
+}
+.tkc__stack {
+  display: grid;
+  gap: 3px;
+  max-width: min(640px, 78%);
+  min-width: 0;
+}
+.tkc__row--mine .tkc__stack {
+  justify-items: end;
+}
+.tkc__name {
+  padding: 0 4px;
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.tkc__bubble {
+  display: grid;
+  gap: 6px;
+  min-width: 72px;
+  padding: 9px 12px 6px;
+  border: 1px solid var(--cm-border);
+  border-radius: 16px;
+  background: var(--cm-surface);
+  color: var(--cm-text);
+}
+.tkc__row--them[data-last='true'] .tkc__bubble {
+  border-bottom-left-radius: 4px;
+}
+.tkc__row--mine .tkc__bubble {
+  border-color: var(--cm-brand-100);
+  background: var(--cm-brand-50);
+}
+.tkc__row--mine[data-last='true'] .tkc__bubble {
+  border-bottom-right-radius: 4px;
+}
+.tkc__text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: var(--cm-text-sm);
+  line-height: 1.5;
+}
+.tkc__time {
+  justify-self: end;
+  font-size: 11px;
+  color: var(--cm-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+.tkc__bubble .tk-files {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  min-width: min(300px, 60vw);
+}
+.tkc__sys {
+  display: flex;
+  align-items: center;
+  align-self: center;
+  gap: 6px;
+  max-width: 92%;
+  margin: 12px 0 2px;
+  padding: 5px 12px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  border: 1px solid var(--cm-border);
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+  text-align: center;
+}
+.tkc__sys svg {
+  flex: none;
+  color: var(--cm-text-subtle);
+}
+.tkc__sys time {
+  color: var(--cm-text-subtle);
+  font-variant-numeric: tabular-nums;
+}
+.tkc__empty {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  margin: auto;
+  padding: 48px 16px;
+  color: var(--cm-text-muted);
+  text-align: center;
+  font-size: var(--cm-text-sm);
+}
+.tkc__empty svg {
+  color: var(--cm-text-subtle);
+}
+.tkc__empty b {
+  color: var(--cm-text);
+}
+.tkc__note {
+  align-self: center;
+  max-width: 560px;
+  margin: 16px 0 4px;
+  padding: 10px 14px;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-info-bg);
+  color: var(--cm-text);
+  font-size: var(--cm-text-sm);
+  text-align: center;
+}
+@keyframes tkc-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tkc__row {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------- caixa de escrever */
+.tkv__compose {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+}
+.tkv__compose .tk-attach__list li {
+  width: 56px;
+  height: 56px;
+}
+.tkv__box {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: 22px;
+  background: var(--cm-surface);
+  transition: border-color var(--cm-dur-fast) var(--cm-ease);
+}
+.tkv__box:focus-within {
+  border-color: var(--cm-brand-500);
+  box-shadow: 0 0 0 3px var(--cm-focus);
+}
+.tkv__box textarea {
+  flex: 1;
+  min-width: 0;
+  max-height: 180px;
+  padding: 7px 4px;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  line-height: 1.45;
+}
+.tkv__box textarea::placeholder {
+  color: var(--cm-text-subtle);
+}
+.tk-icon-btn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+  transition:
+    background var(--cm-dur-fast) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.tk-icon-btn:hover:not(:disabled) {
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+}
+.tk-icon-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.tk-icon-btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+.tk-send {
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+}
+.tk-send:hover:not(:disabled) {
+  background: var(--cm-brand-700);
+  color: var(--cm-on-brand);
+}
+.tk-send:disabled {
+  background: var(--cm-surface-muted);
+  color: var(--cm-text-subtle);
+  opacity: 1;
+}
+.tkv__hint {
+  padding: 0 8px;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+}
+.tkv__closed {
+  padding: 14px 16px;
+  border-top: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------- coluna do lado */
+.tkv__side {
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 16px;
+}
+.tkv__card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+}
+.tkv__card h2 {
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.tk-vsteps {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tk-vsteps li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 2px 12px;
+  padding-bottom: 14px;
+}
+.tk-vsteps li:last-child {
+  padding-bottom: 0;
+}
+/* Linha que liga uma bolinha à próxima. */
+.tk-vsteps li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 24px;
+  bottom: 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--cm-border);
+}
+.tk-vsteps li[data-state='done']:not(:last-child)::after {
+  background: var(--cm-success);
+}
+.tk-vsteps__dot {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--cm-border-strong);
+  background: var(--cm-surface);
+  color: transparent;
+}
+.tk-vsteps li[data-state='done'] .tk-vsteps__dot {
+  border-color: var(--cm-success);
+  background: var(--cm-success);
+  color: #fff;
+}
+.tk-vsteps li[data-state='now'] .tk-vsteps__dot {
+  border-color: var(--cm-brand-500);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--cm-brand-500) 18%, transparent);
+}
+.tk-vsteps li[data-state='now'] .tk-vsteps__dot::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cm-brand-500);
+}
+.tk-vsteps li[data-state='now'][data-final='true'] .tk-vsteps__dot {
+  border-color: var(--cm-success);
+  background: var(--cm-success);
+  color: #fff;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--cm-success) 18%, transparent);
+}
+.tk-vsteps li[data-state='now'][data-final='true'] .tk-vsteps__dot::before {
+  content: none;
+}
+.tk-vsteps[data-off='true'] li .tk-vsteps__dot {
+  border-color: var(--cm-border-strong);
+  background: var(--cm-surface-muted);
+  color: var(--cm-text-subtle);
+  box-shadow: none;
+}
+.tk-vsteps[data-off='true'] li .tk-vsteps__dot::before {
+  background: var(--cm-text-subtle);
+}
+.tk-vsteps[data-off='true'] li::after {
+  background: var(--cm-border) !important;
+}
+.tk-vsteps__label {
+  align-self: center;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-subtle);
+}
+.tk-vsteps li[data-state='done'] .tk-vsteps__label {
+  color: var(--cm-text);
+}
+.tk-vsteps li[data-state='now'] .tk-vsteps__label {
+  color: var(--cm-text);
+  font-weight: 600;
+}
+.tk-vsteps__desc {
+  grid-column: 2;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+}
+.tk-facts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+.tk-facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--cm-text-sm);
+}
+.tk-facts dt {
+  color: var(--cm-text-muted);
+}
+.tk-facts dd {
+  margin: 0;
+  font-weight: 500;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.tk-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--tk-c, var(--cm-text-subtle));
+  vertical-align: 1px;
+}
+
+/* ---------------------------------------------------------------- lista */
+.tk-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tk-summary__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.tk-summary__item b {
+  font-size: var(--cm-text-lg);
+  font-weight: 700;
+  color: var(--cm-text);
+  font-variant-numeric: tabular-nums;
+}
+.tk-summary__item[data-hot='true'] b {
+  color: var(--cm-brand-600);
+}
+.tk-card[data-unread='true'] {
+  border-color: color-mix(in srgb, var(--cm-brand-500) 45%, var(--cm-border));
+}
+.tk-card__kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+}
+.tk-card__new {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  color: var(--cm-brand-700);
+}
+.tk-card__new::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--cm-brand-500);
+}
+
+/* ---------------------------------------------------------------- telas menores */
+@media (max-width: 1100px) {
+  .tkv__body {
+    grid-template-columns: minmax(0, 1fr) 280px;
+  }
+}
+@media (max-width: 900px) {
+  .tkv__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tkv__side {
+    position: static;
+  }
+  .tkv__chat {
+    /* No celular, desconta o menu de baixo (barra de abas flutuante). */
+    height: max(
+      380px,
+      calc(100dvh - var(--tkv-top, 200px) - 16px - var(--tabbar-h, 0px) - var(--tabbar-pad, 0px))
+    );
+  }
+  .tkv__head {
+    gap: 8px 12px;
+  }
+  .tkv__head > button:first-child {
+    margin-right: auto;
+  }
+  .tkv__title {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .tkv__title h1 {
+    font-size: var(--cm-text-lg);
+  }
+  .tkv__scroll {
+    padding-inline: 10px;
+  }
+  .tkc__avatar {
+    width: 26px;
+    height: 26px;
+  }
+  .tkc__stack {
+    max-width: 86%;
+  }
+  .tkv__hint {
+    display: none;
+  }
+}
+
+/* Quadro da lista: as colunas descem até o fim da tela, como um quadro de verdade. */
+.tk-board--client {
+  min-height: max(360px, calc(100dvh - 330px));
+}
+@media (max-width: 760px) {
+  /* No celular o quadro vira uma lista por etapa, só com as etapas que têm chamado. */
+  .tk-board--client {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+  .tk-board--client .tk-col:has(.tk-col__empty) {
+    display: none;
+  }
+  .tk-board--client .tk-col__body {
+    max-height: none;
+  }
+  .tk-summary__item {
+    padding: 8px 12px;
+  }
+  .tk-summary__item b {
+    font-size: var(--cm-text-md);
+  }
+}

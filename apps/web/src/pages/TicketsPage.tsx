@@ -1,6 +1,25 @@
-import { CLIENT_STEPS, kindLabel, TICKET_KINDS, TICKET_LEVELS } from '@comandou/shared';
-import { ArrowLeft, LifeBuoy, Plus, Send } from 'lucide-react';
-import { CSSProperties, FormEvent, useCallback, useEffect, useState } from 'react';
+import { CLIENT_STEPS, kindLabel, levelLabel, TICKET_KINDS, TICKET_LEVELS } from '@comandou/shared';
+import {
+  ArrowLeft,
+  Bug,
+  Check,
+  CircleHelp,
+  LifeBuoy,
+  Lightbulb,
+  Loader2,
+  MessageSquare,
+  Plus,
+  Send,
+} from 'lucide-react';
+import {
+  CSSProperties,
+  FormEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
   Alert,
@@ -13,7 +32,8 @@ import {
   useToast,
 } from '../design-system';
 import type { Prepared } from '../features/store-chat/chat-media';
-import { AttachPicker, EventLine, FileGrid } from '../features/tickets/TicketParts';
+import { ago, TicketChat } from '../features/tickets/TicketChat';
+import { AttachPicker, AttachPreviews } from '../features/tickets/TicketParts';
 import {
   type TicketEvent,
   type TicketFile,
@@ -76,6 +96,7 @@ function TicketList() {
   const off = (t: Item) => t.done && t.statusLabel !== 'Resolvido';
   const board = list?.filter((t) => !off(t)) ?? [];
   const closed = list?.filter(off) ?? [];
+  const unread = list?.reduce((n, t) => n + t.unread, 0) ?? 0;
   return (
     <div className="tk-page tk-page--wide">
       <div className="tk-page__head">
@@ -91,6 +112,22 @@ function TicketList() {
         </Button>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
+      {list && list.length > 0 && (
+        <div className="tk-summary" aria-label="Resumo">
+          <span className="tk-summary__item">
+            <b>{board.filter((t) => !t.done).length}</b> em andamento
+          </span>
+          <span className="tk-summary__item" data-hot={unread > 0}>
+            <b>{unread}</b> {unread === 1 ? 'resposta nova' : 'respostas novas'}
+          </span>
+          <span className="tk-summary__item">
+            <b>{list.filter((t) => t.statusLabel === 'Resolvido').length}</b>{' '}
+            {list.filter((t) => t.statusLabel === 'Resolvido').length === 1
+              ? 'resolvido'
+              : 'resolvidos'}
+          </span>
+        </div>
+      )}
       {!list && !error && <Spinner />}
       {list && list.length === 0 && (
         <EmptyState
@@ -155,23 +192,32 @@ function ClientBoard({ items, onOpen }: { items: Item[]; onOpen: (t: Item) => vo
                 <div className="tk-col__empty">Nenhum chamado</div>
               ) : (
                 col.map((t) => (
-                  <button key={t.id} type="button" className="tk-card" onClick={() => onOpen(t)}>
+                  <button
+                    key={t.id}
+                    type="button"
+                    className="tk-card"
+                    data-unread={t.unread > 0}
+                    onClick={() => onOpen(t)}
+                  >
+                    <span className="tk-card__kind">
+                      <KindIcon kind={t.kind} />
+                      {kindLabel(t.kind)}
+                    </span>
                     <span className="tk-card__title">{t.title}</span>
-                    <span className="tk-card__client">{kindLabel(t.kind)}</span>
                     {t.statusLabel !== step && (
                       <span className="tk-card__row">
                         <StatusPill label={t.statusLabel} step={t.step} done={t.done} />
                       </span>
                     )}
                     <span className="tk-card__foot">
-                      <span className="tk-code">{t.code}</span>
                       {t.unread > 0 ? (
-                        <span className="tk-unread" title="Mensagens novas">
-                          {t.unread}
+                        <span className="tk-card__new">
+                          {t.unread === 1 ? '1 resposta nova' : `${t.unread} respostas novas`}
                         </span>
                       ) : (
-                        <span>{when(t.updatedAt)}</span>
+                        <span className="tk-code">{t.code}</span>
                       )}
+                      <span title={when(t.updatedAt)}>{ago(t.updatedAt)}</span>
                     </span>
                   </button>
                 ))
@@ -204,6 +250,18 @@ function TicketItems({ items, onOpen }: { items: Item[]; onOpen: (t: Item) => vo
       ))}
     </ul>
   );
+}
+
+function KindIcon({ kind }: { kind: string }) {
+  const Icon =
+    kind === 'bug'
+      ? Bug
+      : kind === 'improvement'
+        ? Lightbulb
+        : kind === 'question'
+          ? CircleHelp
+          : MessageSquare;
+  return <Icon size={13} aria-hidden />;
 }
 
 function StatusPill({ label, step, done }: { label: string; step: number; done: boolean }) {
@@ -338,6 +396,16 @@ function NewTicket({
   );
 }
 
+/** O que cada passo quer dizer, em palavras de quem abriu o chamado. */
+const STEP_HINTS = [
+  'Chegou para a equipe do Comandou.',
+  'Estamos entendendo o que você precisa.',
+  'Aprovado e na fila para ser feito.',
+  'A equipe está mexendo nisso agora.',
+  'Conferindo se ficou tudo certo.',
+  'Pronto! Já está no sistema.',
+];
+
 function TicketView({ id }: { id: string }) {
   const nav = useNavigate();
   const toast = useToast();
@@ -346,6 +414,10 @@ function TicketView({ id }: { id: string }) {
   const [text, setText] = useState('');
   const [files, setFiles] = useState<Prepared[]>([]);
   const [sending, setSending] = useState(false);
+  const chatRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const boxRef = useRef<HTMLTextAreaElement>(null);
+  const seen = useRef(0);
   const load = useCallback(() => {
     api<Detail>(`${BASE}/${id}`)
       .then((d) => (setT(d), setError(null)))
@@ -357,9 +429,41 @@ function TicketView({ id }: { id: string }) {
     return () => clearInterval(timer);
   }, [load]);
 
-  async function send(e: FormEvent) {
-    e.preventDefault();
-    if (!text.trim() && !files.length) return;
+  // A conversa ocupa a altura que sobra na tela, como um chat.
+  const ready = !!t;
+  useLayoutEffect(() => {
+    const el = chatRef.current;
+    if (!el) return;
+    const fit = () => {
+      const top = el.getBoundingClientRect().top + (el.closest('main')?.scrollTop ?? 0);
+      el.style.setProperty('--tkv-top', `${Math.max(0, Math.round(top))}px`);
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, [ready]);
+
+  // Mensagem nova (ou abriu agora): desce até a última.
+  const count = t?.events.length ?? 0;
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || count === seen.current) return;
+    const nearEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+    if (seen.current === 0 || nearEnd) el.scrollTop = el.scrollHeight;
+    seen.current = count;
+  }, [count]);
+
+  // A caixa cresce com o texto (até um limite) e volta ao tamanho de uma linha depois de enviar.
+  useLayoutEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
+  }, [text]);
+
+  async function send(e?: FormEvent) {
+    e?.preventDefault();
+    if (sending || (!text.trim() && !files.length)) return;
     setSending(true);
     try {
       const ids: string[] = [];
@@ -367,7 +471,9 @@ function TicketView({ id }: { id: string }) {
       await api(`${BASE}/${id}/messages`, { method: 'POST', json: { body: text, fileIds: ids } });
       setText('');
       setFiles([]);
+      seen.current = 0; // a própria mensagem sempre aparece embaixo
       load();
+      boxRef.current?.focus();
     } catch (err) {
       toast((err as Error).message, 'danger');
     } finally {
@@ -389,78 +495,157 @@ function TicketView({ id }: { id: string }) {
   if (!t) return <Spinner />;
   const opening = t.files.filter((f) => f.eventId === null);
   const off = t.statusLabel === 'Não será feito' || t.statusLabel === 'Cancelado';
+  const cancelled = t.statusLabel === 'Cancelado';
+  const canCancel = t.step <= 2 && !t.done;
   return (
-    <div className="tk-page">
-      <div className="tk-page__head">
-        <div>
-          <Button
-            variant="ghost"
-            size="sm"
-            icon={<ArrowLeft size={16} />}
-            onClick={() => nav('/chamados')}
-          >
-            Chamados
-          </Button>
-          <h1 className="page-title" style={{ marginTop: 6 }}>
-            {t.title}
-          </h1>
-          <p className="page-sub">
-            {t.code} · {kindLabel(t.kind)} · aberto em {when(t.createdAt)}
+    <div className="tkv">
+      <header className="tkv__head">
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={<ArrowLeft size={16} />}
+          onClick={() => nav('/chamados')}
+        >
+          Chamados
+        </Button>
+        <div className="tkv__title">
+          <h1>{t.title}</h1>
+          <p>
+            {t.code} · {kindLabel(t.kind)} · aberto {ago(t.createdAt)}
             {t.openedBy ? ` por ${t.openedBy}` : ''}
           </p>
         </div>
         <StatusPill label={t.statusLabel} step={t.step} done={t.done} />
-      </div>
-      <ol className="tk-steps" data-off={off} aria-label="Andamento">
-        {CLIENT_STEPS.map((s, i) => (
-          <li key={s} data-on={i <= t.step}>
-            <span>{s}</span>
-          </li>
-        ))}
-      </ol>
-      {t.decisionNote && <Alert tone="info">Motivo: {t.decisionNote}</Alert>}
-      <div className="tk-detail">
-        {t.description && <p className="tk-desc">{t.description}</p>}
-        <FileGrid files={opening} />
-        <ul className="tk-thread">
-          {t.events.map((e) => (
-            <EventLine
-              key={e.id}
-              e={e}
-              files={t.files.filter((f) => f.eventId === e.id)}
-              mine={e.actor === 'client'}
+      </header>
+      <div className="tkv__body">
+        <section className="tkv__chat" ref={chatRef} aria-label="Conversa com o suporte">
+          <div className="tkv__scroll" ref={scrollRef}>
+            <TicketChat
+              description={t.description}
+              openingFiles={opening}
+              openedBy={t.openedBy}
+              createdAt={t.createdAt}
+              events={t.events}
+              files={t.files}
+              footer={
+                t.decisionNote ? (
+                  <li className="tkc__note">
+                    <b>Motivo:</b> {t.decisionNote}
+                  </li>
+                ) : null
+              }
             />
-          ))}
-        </ul>
-        <form className="tk-compose" onSubmit={send}>
-          <textarea
-            className="cm-input"
-            rows={3}
-            maxLength={4000}
-            aria-label="Mensagem"
-            placeholder="Escreva para a equipe do Comandou…"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          />
-          <div className="tk-compose__row">
-            <AttachPicker files={files} onChange={setFiles} label="Foto ou vídeo" />
-            <div style={{ display: 'flex', gap: 8 }}>
-              {t.step <= 2 && !t.done && (
-                <Button variant="ghost" onClick={() => void cancel()}>
-                  Cancelar chamado
-                </Button>
-              )}
-              <Button
-                type="submit"
-                icon={<Send size={15} />}
-                loading={sending}
-                disabled={!text.trim() && !files.length}
-              >
-                Enviar
-              </Button>
-            </div>
           </div>
-        </form>
+          {cancelled ? (
+            <div className="tkv__closed">
+              Este chamado foi cancelado. Se precisar, abra outro na lista de chamados.
+            </div>
+          ) : (
+            <form className="tkv__compose" onSubmit={send}>
+              <AttachPreviews files={files} onChange={setFiles} />
+              <div className="tkv__box">
+                <AttachPicker
+                  files={files}
+                  onChange={setFiles}
+                  label="Anexar foto ou vídeo"
+                  compact
+                />
+                <textarea
+                  ref={boxRef}
+                  rows={1}
+                  maxLength={4000}
+                  aria-label="Mensagem"
+                  placeholder="Escreva sua mensagem…"
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      e.preventDefault();
+                      void send();
+                    }
+                  }}
+                />
+                <button
+                  type="submit"
+                  className="tk-icon-btn tk-send"
+                  aria-label="Enviar"
+                  title="Enviar"
+                  disabled={sending || (!text.trim() && !files.length)}
+                >
+                  {sending ? <Loader2 size={18} className="tk-spin" /> : <Send size={17} />}
+                </button>
+              </div>
+              <span className="tkv__hint">
+                Enter envia · Shift + Enter pula linha · fotos e vídeos de até 20 MB
+              </span>
+            </form>
+          )}
+        </section>
+        <aside className="tkv__side">
+          <section className="tkv__card">
+            <h2>Andamento</h2>
+            <ol className="tk-vsteps" data-off={off} aria-label="Andamento">
+              {CLIENT_STEPS.map((s, i) => {
+                const state = i < t.step ? 'done' : i === t.step ? 'now' : 'todo';
+                return (
+                  <li
+                    key={s}
+                    data-state={state}
+                    data-final={i === CLIENT_STEPS.length - 1}
+                    aria-current={state === 'now' ? 'step' : undefined}
+                  >
+                    <span className="tk-vsteps__dot">
+                      {(state === 'done' || (state === 'now' && i === CLIENT_STEPS.length - 1)) &&
+                        !off && <Check size={13} strokeWidth={3} />}
+                    </span>
+                    <span className="tk-vsteps__label">{s}</span>
+                    {state === 'now' && (
+                      <span className="tk-vsteps__desc">
+                        {off ? `${t.statusLabel}.` : STEP_HINTS[i]}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+          <section className="tkv__card">
+            <h2>Detalhes</h2>
+            <dl className="tk-facts">
+              <div>
+                <dt>Número</dt>
+                <dd className="tk-code">{t.code}</dd>
+              </div>
+              <div>
+                <dt>Assunto</dt>
+                <dd>{kindLabel(t.kind)}</dd>
+              </div>
+              <div>
+                <dt>Quanto atrapalha</dt>
+                <dd>{levelLabel(t.urgency)}</dd>
+              </div>
+              {t.openedBy && (
+                <div>
+                  <dt>Aberto por</dt>
+                  <dd>{t.openedBy}</dd>
+                </div>
+              )}
+              <div>
+                <dt>Aberto em</dt>
+                <dd>{when(t.createdAt)}</dd>
+              </div>
+              <div>
+                <dt>Última novidade</dt>
+                <dd>{ago(t.updatedAt)}</dd>
+              </div>
+            </dl>
+            {canCancel && (
+              <Button variant="secondary" size="sm" onClick={() => void cancel()}>
+                Cancelar chamado
+              </Button>
+            )}
+          </section>
+        </aside>
       </div>
     </div>
   );

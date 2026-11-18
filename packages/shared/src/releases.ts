@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.152.0',
+    date: '2026-11-18',
+    title: 'Chamados com cara de conversa',
+    summary:
+      'Em Sistema › Chamados, o chamado aberto agora ocupa a tela toda e funciona como um chat: suas mensagens à direita, as do suporte à esquerda, separadas por dia, com o andamento passo a passo ao lado. A lista mostra quantos chamados estão em andamento e quantas respostas novas chegaram.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Chamado aberto em tela cheia, no jeito de um chat: balões com horário, mensagens seguidas juntas, separador de dia e os avisos do andamento no meio da conversa.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Caixa de escrever sempre embaixo, com clipe para foto ou vídeo; Enter envia e Shift + Enter pula linha. A conversa desce sozinha quando chega mensagem nova.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Ao lado da conversa, o andamento em passos (com o que cada um quer dizer) e os detalhes do chamado: número, assunto, quanto atrapalha, quem abriu e a última novidade.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Lista de chamados com o resumo no topo (em andamento, respostas novas e resolvidos), o assunto com ícone em cada cartão, aviso de resposta nova e há quanto tempo mudou. No celular, só aparecem as etapas que têm chamado.',
+      },
+    ],
+  },
+  {
     version: '0.151.0',
     date: '2026-11-18',
     title: 'Orçamento vira proposta comercial formal',

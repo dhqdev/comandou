@@ -106,6 +106,15 @@ recuado, total/resultado em negrito; no celular vira lista compacta com % e mês
 embaixo do nome, sem as colunas). Corpo de janela sem campos soltos: envolva em `fin-modal`
 (grade com espaço). Valor com sinal: `SignedBrl` (sobra verde, falta vermelha, "−" de verdade).
 
+## Chamados (restaurante)
+
+Chamado aberto é um chat (`features/tickets/ticket-chat.css`, prefixos `tkv`/`tkc`): a conversa
+ocupa a altura que sobra na tela (`--tkv-top` medido ao abrir, descontando `--tabbar-h` no
+celular), balão do restaurante em `--cm-brand-50` à direita e do suporte em superfície à esquerda
+com o fone (`Headset`), pílula de dia e de aviso no meio, caixa de escrever em pílula com clipe e
+botão redondo. Coluna do lado (320 px) com os passos verticais `tk-vsteps` e os detalhes
+`tk-facts`. O painel Super Admin segue com o `EventLine` de `TicketParts.tsx`.
+
 ## Antes de entregar
 
 Veja a tela em claro e escuro (o site, só claro), no notebook e em 390px, com os prints do
