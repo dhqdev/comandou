@@ -63,7 +63,15 @@ export function DocumentsList({ kind }: { kind: FiscalKind }) {
           .map(([value, [label]]) => ({ value, label })),
         pinned: true,
       },
-      { key: 'when', label: 'Período', kind: 'date', date: (d) => d.createdAt, pinned: true },
+      {
+        key: 'when',
+        label: 'Período',
+        kind: 'date',
+        // A mesma data da coluna "Quando" (emissão; sem emissão, criação).
+        date: (d) => d.authorizedAt ?? d.createdAt,
+        dateNote: 'A data é a da emissão (ou da criação, se a nota não saiu).',
+        pinned: true,
+      },
       {
         key: 'channel',
         label: 'Venda',

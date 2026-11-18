@@ -146,6 +146,8 @@ export interface CustomerRow {
   orders: number;
   spent: string;
   lastOrderAt: string | null;
+  /** CPF/CNPJ (só números), quando informado. */
+  document?: string | null;
 }
 export interface CustomerList {
   summary: { total: number; new30: number; active30: number };

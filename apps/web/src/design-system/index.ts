@@ -18,3 +18,4 @@ export * from './transition';
 export * from './fix-guide';
 export * from './help-tip';
 export * from './pull-refresh';
+export * from './date-picker';

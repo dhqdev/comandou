@@ -108,9 +108,23 @@ export function dateBounds(value: string | undefined, now = new Date()): [string
         isoDay(new Date(today.getFullYear(), today.getMonth(), 0)),
       ];
   }
-  const m = /^range:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/.exec(value);
-  if (!m) return null;
-  return m[1]! <= m[2]! ? [m[1]!, m[2]!] : [m[2]!, m[1]!];
+  // De/Até livre; uma das pontas pode ficar vazia ("daí em diante" / "até esse dia").
+  const m = /^range:(\d{4}-\d{2}-\d{2})?:(\d{4}-\d{2}-\d{2})?$/.exec(value);
+  if (!m || (!m[1] && !m[2])) return null;
+  const a = m[1] ?? OPEN_FROM;
+  const b = m[2] ?? OPEN_TO;
+  return a <= b ? [a, b] : [b, a];
+}
+
+/** Pontas usadas quando o De ou o Até fica vazio (datas que nenhuma linha tem). */
+const OPEN_FROM = '2000-01-01';
+const OPEN_TO = '2999-12-31';
+
+/** Valor do filtro para um De/Até (qualquer ponta pode vir vazia; invertido, desinverte). */
+export function rangeValue(from: string, to: string) {
+  if (!from && !to) return '';
+  const [a, b] = from && to && from > to ? [to, from] : [from, to];
+  return `range:${a}:${b}`;
 }
 
 const fmtDay = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
@@ -120,8 +134,14 @@ export function dateLabel(value: string | undefined) {
   const preset = [...DATE_PRESETS, ...EXTRA_PRESETS].find((p) => p.value === value);
   if (preset) return preset.label;
   const b = dateBounds(value);
-  if (!b) return 'Qualquer data';
-  return b[0] === b[1] ? fmtDay(b[0]) : `${fmtDay(b[0])} a ${fmtDay(b[1])}`;
+  if (!b) return 'qualquer data';
+  if (b[0] === OPEN_FROM) return `até ${fmtDay(b[1])}`;
+  if (b[1] === OPEN_TO) return `desde ${fmtDay(b[0])}`;
+  // Período que atravessa o ano mostra o ano (01/12/2025 a 15/01/2026).
+  const year =
+    b[0].slice(0, 4) !== b[1].slice(0, 4) || b[0].slice(0, 4) !== String(new Date().getFullYear());
+  const f = (d: string) => (year ? `${fmtDay(d)}/${d.slice(0, 4)}` : fmtDay(d));
+  return b[0] === b[1] ? f(b[0]) : `${f(b[0])} a ${f(b[1])}`;
 }
 
 /** Limites de um dia local AAAA-MM-DD em instantes ISO: [início do primeiro, início do dia seguinte ao último). */
