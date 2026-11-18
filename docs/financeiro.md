@@ -1,8 +1,9 @@
 # Financeiro: fechamento de caixa, conciliação bancária e DRE
 
-Guia de como o financeiro do restaurante funciona por dentro (versão 0.145.0). A tela fica em
-**Gestão › Financeiro**, com as abas **Contas**, **Fechamentos**, **Conciliação**, **Fluxo de
-caixa** e **DRE**, e os botões **Taxas e prazos** e **Dia de início do mês** no topo.
+Guia de como o financeiro do restaurante funciona por dentro (versão 0.145.0; gráficos na
+0.159.0). A tela fica em **Gestão › Financeiro**, com as abas **Visão geral**, **Contas**,
+**Fechamentos**, **Conciliação**, **Fluxo de caixa** e **DRE**, e os botões **Taxas e prazos** e
+**Dia de início do mês** no topo.
 
 ## O caminho do dinheiro
 
@@ -25,6 +26,30 @@ Venda no PDV ──► Caixa ──fechar──► Recebíveis (finance_settleme
    próximos fechamentos.
 3. Caixas fechados **antes** desta versão aparecem em Fechamentos como "Falta lançar", com o
    botão **Lançar no financeiro** (`POST /finance/closings/:sessionId/post`).
+
+## Visão geral, gráficos e leituras do mês (0.159)
+
+A aba **Visão geral** abre primeiro e não tem API própria: junta o que as outras abas já pedem
+(`/finance/summary` do mês e do anterior, `/finance/cash-flow` dos dois, `/finance/closings`,
+`/finance/dre` com o período anterior e `/finance/entries`). Arquivos em
+`apps/web/src/pages/finance/`:
+
+- `charts.tsx`: os gráficos, feitos à mão em SVG/HTML, sem biblioteca. `FlowChart` (saldo
+  acumulado com previsão, ou entradas e saídas por dia), `DayBars` (uma barra por dia, com média e
+  melhor dia), `HBars` (barras deitadas), `Waterfall` (cascata do DRE), `KpiStrip` (números do
+  topo num quadro só), `Sparkline`, `Delta` e `Progress`. Laranja para o que entrou, cinza para o
+  que saiu, tracejado para previsão e mês anterior, um eixo só e dica ao passar o dedo/mouse.
+- `insights.ts`: `buildInsights` monta as **Leituras do mês** (contas vencidas, ritmo de vendas,
+  ponto de equilíbrio, CMV/pessoal/prime fora da referência, despesa que mais subiu, dia da semana
+  mais forte, maquininha mais cara, falta nas gavetas, dias fora do financeiro, o que vence em 7
+  dias, margem). Tudo em centavos inteiros; ordem: ruim, atenção, bom, informação. Testes em
+  `insights.test.ts`.
+- **Previsão do saldo** (`cumulative` + `avgDailySales`): até hoje, o saldo real; depois, as contas
+  a vencer de cada dia mais a venda líquida média por dia corrido (vendas − estornos − taxas dos
+  dias que já passaram, contando os dias fechados).
+- **Comparação com o mês anterior**: com o mês ainda correndo, entradas, saídas e saldo comparam
+  com **os mesmos dias** do mês anterior (dia 1 até hoje), nunca com ele inteiro; lucro e despesas
+  por grupo só comparam com o mês fechado.
 
 ## Conciliação bancária
 

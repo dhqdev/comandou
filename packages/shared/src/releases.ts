@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.159.0',
+    date: '2026-11-18',
+    title: 'Financeiro com gráficos e leituras do mês',
+    summary:
+      'O Financeiro abre numa Visão geral nova: os números do mês comparados com o mês anterior, o saldo acumulado com a previsão até o fim do mês e frases curtas que dizem o que merece atenção. Fechamentos, Fluxo de caixa, DRE, Contas e Conciliação também ganharam gráficos.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Visão geral do Financeiro: saldo do mês, entradas, saídas e lucro líquido com a tendência e a variação contra os mesmos dias do mês anterior; gráfico do saldo acumulado (ou entradas e saídas por dia) com a previsão para o fim do mês e a comparação com o mês anterior.',
+      },
+      {
+        tag: 'novo',
+        text: 'Leituras do mês: o sistema lê os números e avisa em português simples. Contas vencidas, quanto o mês deve fechar de vendas no ritmo atual, quanto falta para o ponto de equilíbrio, CMV ou pessoal acima da referência, a despesa que mais subiu, o dia da semana mais forte, a maquininha mais cara e faltas nas gavetas. Tocar numa leitura abre a aba do assunto.',
+      },
+      {
+        tag: 'novo',
+        text: 'Para onde vai o dinheiro (despesas por grupo, em % da receita), Como os clientes pagam (vendas e taxa de cada forma de pagamento), Vendas por dia da semana e Próximos vencimentos, tudo na Visão geral.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Fechamentos: gráfico de vendas (ou líquido) por dia com a média e o melhor dia, e as vendas por forma de pagamento ao lado. Fluxo de caixa: gráfico do saldo acumulado com previsão ou de entradas e saídas, e a opção de esconder os dias sem movimento.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'DRE: cascata "Do faturamento ao lucro" mostra quanto o CMV, as despesas variáveis e as fixas levam da receita. Contas e Conciliação ganharam um resumo mais limpo no topo, com a parte das contas do mês já paga.',
+      },
+    ],
+  },
+  {
     version: '0.158.1',
     date: '2026-11-18',
     title: 'Chamado mais claro, e a conversa pelo chat',

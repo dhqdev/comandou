@@ -127,7 +127,16 @@ texto (cai no spam e some com imagens bloqueadas).
 ## Financeiro
 
 `apps/web/src/pages/finance/` (`finance.css` só com tokens, prefixo `fin-`). Números do topo em
-`stat-grid fin-stats` (valor um pouco menor, quebra em vez de vazar). Fechamentos: lista
+`KpiStrip` (`fin-kpi-strip`: um quadro só com os números separados por linha fina, variação
+`Delta` e tendência `Sparkline` embaixo; 2 por linha abaixo de 900 px), nunca um cartão por número.
+**Gráficos** (`charts.tsx`, desde a 0.159): SVG/HTML feitos à mão, sem biblioteca. Laranja
+(`--cm-brand-500`) para o que entrou e para o destaque; cinza
+(`color-mix` de `--cm-text-muted` com a superfície) para o que saiu; tracejado para previsão e mês
+anterior; um eixo só (rótulos na calha da esquerda, com contorno da cor do fundo); dica
+`fin-tip` ao passar o dedo/mouse; barras deitadas `HBars` com trilho cinza e só a maior/melhor em
+laranja cheio. Comparação com mês correndo é sempre com os mesmos dias do mês anterior. A Visão
+geral é a primeira aba: números, gráfico + Leituras do mês (`fin-insights`, bolinha de situação,
+toque abre a aba do assunto; numa coluna, as leituras vêm antes do gráfico) e uma grade de dois. Fechamentos: lista
 `fin-days` que abre o dia (cabeçalho em grade; no celular só data, situação e vendas).
 Conciliação: extrato e "a receber" lado a lado (`fin-bank`, uma coluna abaixo de 900 px), linha
 do extrato `fin-line` com a sugestão e Confirmar/Conciliar, escolha de recebíveis `fin-pick`.

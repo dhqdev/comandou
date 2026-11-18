@@ -475,6 +475,16 @@ const SECTIONS: StaticEntry[] = [
   },
   // Financeiro
   {
+    id: 'c-fin-visao',
+    group: 'Seções',
+    title: 'Visão geral do financeiro',
+    hint: 'Financeiro',
+    words: 'graficos grafico painel dashboard previsao leituras resumo do mes lucro saldo',
+    icon: 'finance',
+    to: '/financeiro?aba=overview',
+    perms: ['finance:read'],
+  },
+  {
     id: 'c-fluxo',
     group: 'Seções',
     title: 'Fluxo de caixa',

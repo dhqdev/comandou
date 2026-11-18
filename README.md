@@ -70,7 +70,7 @@ cada função abre na sua tela (garçom no Salão, cozinha na Cozinha, entregado
 
 | Relatórios | Financeiro |
 | --- | --- |
-| ![Relatórios por assunto: vendas, perdas, cardápio, equipe e delivery](docs/assets/screens/relatorios-claro.webp) | ![Resumo do mês, contas a pagar e a receber](docs/assets/screens/financeiro-claro.webp) |
+| ![Relatórios por assunto: vendas, perdas, cardápio, equipe e delivery](docs/assets/screens/relatorios-claro.webp) | ![Visão geral do financeiro: números do mês, saldo com previsão e leituras automáticas](docs/assets/screens/financeiro-claro.webp) |
 | **Estoque** | **Entregas** |
 | ![Insumos com saldo, mínimo, custo médio e quantos dias ainda duram](docs/assets/screens/estoque-escuro.webp) | ![Pedidos prontos para sair e entregadores na rua, no mapa](docs/assets/screens/entregas-claro.webp) |
 | **Clientes** | **Equipe** |
@@ -110,7 +110,7 @@ copiar da notificação). Passo a passo em [docs/email.md](docs/email.md).
 | **Cardápio online** | Loja própria com capa, banners e destaques, contas de cliente com endereços e favoritos, acompanhamento do pedido, aceite manual ou automático |
 | **Entregas** | Áreas desenhadas no mapa (bairro ou raio) com taxa e pedido mínimo, painel do entregador com login ou link, rastreio para o cliente |
 | **Retaguarda** | Equipe e papéis, estoque com ficha técnica e custo médio (mudou o preço de um insumo, o custo de todo preparo e item do cardápio que o usa é recalculado sozinho, com histórico e impacto na margem), relatórios com exportação para Excel |
-| **Financeiro** | Contas a pagar e receber com plano de contas, fechamentos de caixa por dia, taxas e prazos das maquininhas, conciliação bancária pelo extrato OFX (os repasses casam sozinhos), DRE gerencial com CMV e indicadores (CMV, pessoal, ocupação, margem, ponto de equilíbrio), fluxo de caixa |
+| **Financeiro** | Visão geral com gráficos (saldo acumulado com previsão do fim do mês, despesas por grupo, formas de pagamento, dias da semana) e leituras automáticas do mês, contas a pagar e receber com plano de contas, fechamentos de caixa por dia, taxas e prazos das maquininhas, conciliação bancária pelo extrato OFX (os repasses casam sozinhos), DRE gerencial com CMV e indicadores (CMV, pessoal, ocupação, margem, ponto de equilíbrio), fluxo de caixa |
 | **Agenda** | Agenda pessoal de cada pessoa da equipe no jeito do Google Agenda (dia, semana, mês e lista), tags próprias, arrastar para remarcar e lembrete pelo WhatsApp na hora escolhida |
 | **Impressão** | App Comandou Impressão (Windows, Mac e Linux) para impressoras térmicas por rede/Wi-Fi, USB, serial e Bluetooth, com modelos de comanda editáveis |
 | **Integrações** | NFC-e pela Focus NFe, avisos ao cliente pelo WhatsApp (QR Code ou API oficial), e-mail próprio pelo Resend, filas com novas tentativas |
