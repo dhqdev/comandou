@@ -254,3 +254,47 @@ export function serverFilters<T>(fields: readonly ListField<T>[], filters: Filte
   for (const f of fields) if (f.server && filters[f.key]?.length) out[f.key] = filters[f.key]!;
   return out;
 }
+
+/* ------------------------------------------------------------------ escolher campo */
+
+/** Campos que a pessoa fixou, tirou e quantas vezes usou cada um (guardado por lista). */
+export interface FieldPrefs {
+  pins?: string[];
+  unpins?: string[];
+  uses?: Record<string, number>;
+}
+
+/** Usou três vezes: o campo sobe sozinho para "Mais usados". */
+export const USES_TO_FAVORITE = 3;
+
+/** O campo fica em "Mais usados"? Fixado pela pessoa, ou (sem ela ter tirado) fixo da tela ou muito usado. */
+export function isFavorite<T>(f: ListField<T>, p: FieldPrefs) {
+  if (p.pins?.includes(f.key)) return true;
+  if (p.unpins?.includes(f.key)) return false;
+  return !!f.pinned || (p.uses?.[f.key] ?? 0) >= USES_TO_FAVORITE;
+}
+
+/** Fixa ou tira o campo de "Mais usados". */
+export function toggleFavorite<T>(f: ListField<T>, p: FieldPrefs): FieldPrefs {
+  const on = isFavorite(f, p);
+  const pins = (p.pins ?? []).filter((k) => k !== f.key);
+  const unpins = (p.unpins ?? []).filter((k) => k !== f.key);
+  return on ? { ...p, pins, unpins: [...unpins, f.key] } : { ...p, pins: [...pins, f.key], unpins };
+}
+
+export function countUse(key: string, p: FieldPrefs): FieldPrefs {
+  return { ...p, uses: { ...p.uses, [key]: (p.uses?.[key] ?? 0) + 1 } };
+}
+
+/** Tipo do campo como aparece ao lado do nome. */
+export const fieldKind = <T>(f: ListField<T>) => (f.kind === 'date' ? 'data' : 'opções');
+
+/** Campos que batem com a busca pelo título, separados em mais usados e demais. */
+export function groupFields<T>(fields: readonly ListField<T>[], p: FieldPrefs, term: string) {
+  const t = fold(term.trim());
+  const list = t ? fields.filter((f) => fold(f.label).includes(t)) : [...fields];
+  return {
+    favorites: list.filter((f) => isFavorite(f, p)),
+    others: list.filter((f) => !isFavorite(f, p)),
+  };
+}

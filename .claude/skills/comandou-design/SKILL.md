@@ -83,6 +83,17 @@ exceções, só no site:
   o + que vira − nas perguntas seguem o estilo dos elementos de lá, reescritos com os tokens.
 - Nada disso entra nas telas de trabalho (PDV, salão, cozinha, painel): lá continua sóbrio.
 
+## Listas (barra de filtros)
+
+`features/list-view/ListToolbar.tsx` serve todas as listas (abas, busca, chips). O **"+ Filtro"**
+abre o seletor de campo no jeito do MAX que o David mostrou (0.169): busca "Procurar o campo pelo
+título", grupo **Mais usados** (borda e contador laranja) e **Demais campos**, em grade de 2–3
+colunas (uma no celular, em folha), cada campo com o tipo (`fieldKind`: data/opções) e o alfinete
+que fixa ou tira dos mais usados. Mais usados = fixados pela pessoa, `pinned` da tela ou usados 3
+vezes (`cm-lv-campos:<lista>` no navegador). Tabela que ordena pelo cabeçalho (Pedidos) passa
+`sortInHeader` e some o "Ordenar por" ao lado da busca (pedido do David: nada de maior/menor e
+Data/Número ali).
+
 ## Super Admin › Cobrança (calendário)
 
 `platform/BillingCalendar.tsx` (classes `adm-cal*` e `adm-charge*` em `admin.css`), no jeito

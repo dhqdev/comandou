@@ -1,4 +1,12 @@
-import { ArrowDownWideNarrow, ArrowUpNarrowWide, ChevronDown, Plus, Search, X } from 'lucide-react';
+import {
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
+  ChevronDown,
+  Pin,
+  Plus,
+  Search,
+  X,
+} from 'lucide-react';
 import {
   ReactNode,
   RefObject,
@@ -13,6 +21,11 @@ import { createPortal } from 'react-dom';
 import { DateInput, Select, Sheet } from '../../design-system';
 import {
   chipText,
+  countUse,
+  fieldKind,
+  groupFields,
+  isFavorite,
+  toggleFavorite,
   rangeValue,
   DATE_PRESETS,
   dateBounds,
@@ -20,6 +33,7 @@ import {
   matchAll,
   optionCounts,
   presetCounts,
+  type FieldPrefs,
   type ListField,
   type ListTab,
 } from './list-view';
@@ -55,6 +69,7 @@ function Popover({
   children,
   footer,
   width = 280,
+  maxHeight = 440,
   className,
 }: {
   anchor: RefObject<HTMLElement | null>;
@@ -64,6 +79,7 @@ function Popover({
   children: ReactNode;
   footer?: ReactNode;
   width?: number;
+  maxHeight?: number;
   className?: string;
 }) {
   const narrow = useNarrow();
@@ -75,14 +91,20 @@ function Popover({
     const place = () => {
       const r = anchor.current?.getBoundingClientRect();
       if (!r) return;
-      const left = Math.max(8, Math.min(r.left, window.innerWidth - width - 8));
+      const w = Math.min(width, window.innerWidth - 16);
+      const left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8));
       const below = window.innerHeight - r.bottom - 12;
-      setPos({ top: r.bottom + 6, left, width, maxHeight: Math.max(220, Math.min(440, below)) });
+      setPos({
+        top: r.bottom + 6,
+        left,
+        width: w,
+        maxHeight: Math.max(220, Math.min(maxHeight, below)),
+      });
     };
     place();
     window.addEventListener('resize', place);
     return () => window.removeEventListener('resize', place);
-  }, [open, narrow, anchor, width]);
+  }, [open, narrow, anchor, width, maxHeight]);
 
   useEffect(() => {
     if (!open || narrow) return;
@@ -386,15 +408,109 @@ function Chip<T>({
   );
 }
 
-/** "+ Filtro": escolhe qualquer campo da lista para filtrar. */
+const prefsKey = (id: string) => `cm-lv-campos:${id}`;
+
+function readPrefs(id: string): FieldPrefs {
+  try {
+    return JSON.parse(localStorage.getItem(prefsKey(id)) ?? '{}') as FieldPrefs;
+  } catch {
+    return {};
+  }
+}
+
+function writePrefs(id: string, p: FieldPrefs) {
+  try {
+    localStorage.setItem(prefsKey(id), JSON.stringify(p));
+  } catch {
+    /* navegador sem armazenamento: vale só nesta visita */
+  }
+}
+
+/** Um grupo do seletor de campos ("Mais usados" ou "Demais campos"). */
+function FieldGroup<T>({
+  title,
+  fields,
+  lv,
+  prefs,
+  onPick,
+  onPin,
+  favorite,
+}: {
+  title: string;
+  fields: ListField<T>[];
+  lv: ListView<T>;
+  prefs: FieldPrefs;
+  onPick(f: ListField<T>): void;
+  onPin(f: ListField<T>): void;
+  favorite?: boolean;
+}) {
+  if (!fields.length) return null;
+  return (
+    <section className="lv-fields" data-fav={favorite || undefined}>
+      <h3 className="lv-fields__title">
+        {title}
+        <span className="lv-fields__n">{nf.format(fields.length)}</span>
+      </h3>
+      <div className="lv-fields__grid">
+        {fields.map((f) => {
+          const pinned = isFavorite(f, prefs);
+          const used = !!lv.filters[f.key]?.length;
+          return (
+            <div key={f.key} className="lv-field" data-used={used || undefined}>
+              <button type="button" className="lv-field__pick" onClick={() => onPick(f)}>
+                <span className="lv-field__label">{f.label}</span>
+                <span className="lv-field__kind">{fieldKind(f)}</span>
+              </button>
+              <button
+                type="button"
+                className="lv-field__pin"
+                data-on={pinned || undefined}
+                aria-pressed={pinned}
+                aria-label={
+                  pinned ? `Tirar ${f.label} dos mais usados` : `Fixar ${f.label} nos mais usados`
+                }
+                title={pinned ? 'Tirar dos mais usados' : 'Fixar nos mais usados'}
+                onClick={() => onPin(f)}
+              >
+                <Pin size={14} aria-hidden fill={pinned ? 'currentColor' : 'none'} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * "+ Filtro": caixa larga para escolher o campo, com busca pelo título, os mais usados em cima
+ * (fixados pela pessoa, fixos da tela ou usados muitas vezes) e os demais embaixo, cada um com o
+ * tipo. Escolher abre o filtro daquele campo.
+ */
 function AddFilter<T>({ lv, onPick }: { lv: ListView<T>; onPick(key: string): void }) {
   const ref = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState('');
-  const rest = lv.fields.filter((f) => !lv.shown.includes(f.key));
-  if (!rest.length) return null;
-  const t = fold(term.trim());
-  const list = t ? rest.filter((f) => fold(f.label).includes(t)) : rest;
+  const [prefs, setPrefs] = useState<FieldPrefs>(() => readPrefs(lv.id));
+  if (!lv.fields.length) return null;
+  const save = (p: FieldPrefs) => {
+    setPrefs(p);
+    writePrefs(lv.id, p);
+  };
+  const { favorites, others } = groupFields(lv.fields, prefs, term);
+  const close = () => {
+    setOpen(false);
+    setTerm('');
+  };
+  const pick = (f: ListField<T>) => {
+    save(countUse(f.key, prefs));
+    close();
+    onPick(f.key);
+  };
+  const pin = (f: ListField<T>) => save(toggleFavorite(f, prefs));
+  const n = lv.fields.length;
+  const width = n > 8 ? 820 : n > 4 ? 580 : 340;
+  const first = favorites[0] ?? others[0];
   return (
     <>
       <button
@@ -402,39 +518,59 @@ function AddFilter<T>({ lv, onPick }: { lv: ListView<T>; onPick(key: string): vo
         type="button"
         className="lv-add"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="dialog"
+        onClick={() => (open ? close() : setOpen(true))}
       >
         <Plus size={14} aria-hidden />
         Filtro
       </button>
-      <Popover anchor={ref} open={open} title="Filtrar por" onClose={() => setOpen(false)}>
-        {rest.length > 6 && (
+      <Popover
+        anchor={ref}
+        open={open}
+        title="Selecionar campo"
+        onClose={close}
+        width={width}
+        maxHeight={560}
+        className="lv-pop--fields"
+      >
+        <form
+          className="lv-fields__search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (first) pick(first);
+          }}
+        >
+          <Search size={15} aria-hidden />
           <input
-            className="cm-input lv-pop__search"
+            className="cm-input"
             type="search"
             autoFocus={fine()}
-            placeholder="Procurar campo…"
-            aria-label="Procurar campo"
+            placeholder="Procurar o campo pelo título"
+            aria-label="Procurar o campo pelo título"
             value={term}
             onChange={(e) => setTerm(e.target.value)}
           />
+        </form>
+        <FieldGroup
+          title="Mais usados"
+          fields={favorites}
+          lv={lv}
+          prefs={prefs}
+          onPick={pick}
+          onPin={pin}
+          favorite
+        />
+        <FieldGroup
+          title="Demais campos"
+          fields={others}
+          lv={lv}
+          prefs={prefs}
+          onPick={pick}
+          onPin={pin}
+        />
+        {!favorites.length && !others.length && (
+          <p className="lv-opts__empty">Nenhum campo com esse título.</p>
         )}
-        <div className="lv-opts">
-          {list.map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              className="lv-opt lv-opt--btn"
-              onClick={() => {
-                setOpen(false);
-                setTerm('');
-                onPick(f.key);
-              }}
-            >
-              <span className="lv-opt__label">{f.label}</span>
-            </button>
-          ))}
-        </div>
       </Popover>
     </>
   );
@@ -526,6 +662,7 @@ function TabButton<T>({ lv, tab }: { lv: ListView<T>; tab: ListTab }) {
 
 /**
  * Barra de lista no estilo do Frappe: abas com contagem, busca + ordenação e chips de filtro.
+ * "+ Filtro" abre o seletor de campo (busca, mais usados e demais).
  * Fica grudada no topo ao rolar; o cabeçalho da tabela (classe lv-table) gruda logo abaixo.
  */
 export function ListToolbar<T>({
@@ -535,6 +672,7 @@ export function ListToolbar<T>({
   actions,
   summary,
   dateCounts,
+  sortInHeader,
 }: {
   lv: ListView<T>;
   searchLabel: string;
@@ -545,6 +683,8 @@ export function ListToolbar<T>({
   summary?: ReactNode;
   /** Contagem de cada atalho de data vinda do servidor, por campo (ex.: { date: { today: 12 } }). */
   dateCounts?: Record<string, Record<string, number> | null>;
+  /** A tabela ordena pelo cabeçalho das colunas: some o "Ordenar por" ao lado da busca. */
+  sortInHeader?: boolean;
 }) {
   const bar = useRef<HTMLDivElement>(null);
   const [openKey, setOpenKey] = useState<string | null>(null);
@@ -603,7 +743,7 @@ export function ListToolbar<T>({
             onChange={(e) => lv.setQuery(e.target.value)}
           />
         </label>
-        {lv.sorts.length > 0 && (
+        {lv.sorts.length > 0 && !sortInHeader && (
           <div className="lv-sort">
             <button
               type="button"

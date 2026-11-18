@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.169.0',
+    date: '2026-11-18',
+    title: 'Novo jeito de escolher o filtro nas listas',
+    summary:
+      'O "+ Filtro" abre uma caixa larga para escolher o campo: dá para procurar pelo nome, os mais usados ficam em cima e cada campo mostra o tipo. Em Pedidos, a ordenação ao lado da busca saiu: ordene clicando no título da coluna.',
+    notes: [
+      {
+        tag: 'novo',
+        text: '"+ Filtro" em todas as listas (Pedidos, Clientes, Estoque, Financeiro, Notas e Cardápio): busca pelo título do campo, grupo Mais usados e Demais campos, cada um com o tipo (data ou opções). O alfinete fixa ou tira um campo dos mais usados, e o campo que você usa bastante sobe sozinho.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Pedidos: saíram o botão de maior/menor e o menu de ordenar (Data, Número…) ao lado da busca. A ordem continua no título de cada coluna da tabela.',
+      },
+    ],
+  },
+  {
     version: '0.168.0',
     date: '2026-11-18',
     title: 'Super Admin mais arrumado: menu em grupos e histórico em cada restaurante',

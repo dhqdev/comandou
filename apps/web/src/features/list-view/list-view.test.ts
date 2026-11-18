@@ -1,13 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import {
   chipText,
+  countUse,
   dateBounds,
   dateLabel,
+  fieldKind,
+  groupFields,
+  isFavorite,
   matchAll,
   optionCounts,
   rangeValue,
   sameFilters,
   serverFilters,
+  toggleFavorite,
+  USES_TO_FAVORITE,
+  type FieldPrefs,
   type ListField,
 } from './list-view';
 
@@ -98,5 +105,48 @@ describe('list-view', () => {
     expect(dateLabel('range::2026-10-20')).toBe('até 20/10');
     expect(dateLabel('range:2025-12-20:2026-01-10')).toBe('20/12/2025 a 10/01/2026');
     expect(dateLabel('garbage')).toBe('qualquer data');
+  });
+});
+
+describe('escolher campo', () => {
+  type R = { a: string };
+  const fs: ListField<R>[] = [
+    { key: 'data', label: 'Data', kind: 'date', pinned: true },
+    { key: 'status', label: 'Status', pinned: true },
+    { key: 'origem', label: 'Origem' },
+    { key: 'mesa', label: 'Mesa' },
+  ];
+
+  it('começa com os fixos da tela em mais usados', () => {
+    const g = groupFields(fs, {}, '');
+    expect(g.favorites.map((f) => f.key)).toEqual(['data', 'status']);
+    expect(g.others.map((f) => f.key)).toEqual(['origem', 'mesa']);
+  });
+
+  it('busca pelo título sem acento nem maiúscula', () => {
+    expect(groupFields(fs, {}, 'ORIG').others.map((f) => f.key)).toEqual(['origem']);
+    expect(groupFields(fs, {}, 'xyz').favorites).toEqual([]);
+  });
+
+  it('fixar e tirar troca o campo de grupo', () => {
+    let p = toggleFavorite(fs[2]!, {});
+    expect(isFavorite(fs[2]!, p)).toBe(true);
+    p = toggleFavorite(fs[0]!, p);
+    expect(isFavorite(fs[0]!, p)).toBe(false);
+    p = toggleFavorite(fs[0]!, p);
+    expect(isFavorite(fs[0]!, p)).toBe(true);
+  });
+
+  it('campo muito usado sobe sozinho, a menos que a pessoa tenha tirado', () => {
+    let p: FieldPrefs = {};
+    for (let i = 0; i < USES_TO_FAVORITE; i++) p = countUse('mesa', p);
+    expect(isFavorite(fs[3]!, p)).toBe(true);
+    p = toggleFavorite(fs[3]!, p);
+    expect(isFavorite(fs[3]!, countUse('mesa', p))).toBe(false);
+  });
+
+  it('mostra o tipo do campo', () => {
+    expect(fieldKind(fs[0]!)).toBe('data');
+    expect(fieldKind(fs[1]!)).toBe('opções');
   });
 });

@@ -155,6 +155,7 @@ export function useListView<T>(cfg: ListViewConfig<T>) {
   const active = fields.filter((f) => !f.server && filters[f.key]?.length).length;
 
   return {
+    id,
     rows,
     fields,
     tabs,

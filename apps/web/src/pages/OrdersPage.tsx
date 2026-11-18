@@ -241,6 +241,7 @@ export function OrdersPage() {
           lv={lv}
           searchLabel="Buscar pedido"
           dateCounts={{ date: periodCounts }}
+          sortInHeader
           placeholder="Buscar: nº, cliente, telefone, mesa ou item"
           actions={
             <button
