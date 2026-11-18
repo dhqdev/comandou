@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.152.1',
+    date: '2026-11-18',
+    title: 'Colar um valor no campo troca o valor todo',
+    summary:
+      'Depois da 0.150.5, colar ou preencher um valor inteiro (como 50,00) num campo de valor entrava só na parte antes da vírgula e virava 50,00,00. Agora o valor colado substitui o campo inteiro; digitar continua começando antes da vírgula.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Campos de valor: colar ou preencher 50,00 dá 50,00 (antes ficava 50,00,00). Digitar 3 em 0,00 continua dando 3,00.',
+      },
+    ],
+  },
+  {
     version: '0.152.0',
     date: '2026-11-18',
     title: 'Chamados com cara de conversa',

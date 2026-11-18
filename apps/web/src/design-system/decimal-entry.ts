@@ -62,8 +62,41 @@ export function installDecimalEntry(doc: Document = document): void {
     const atEdge = a === b && (a === 0 || a === v.length);
     if (!atEdge && !(a === 0 && b === v.length)) return;
     const r = integerRange(v) ?? (/^\s*0+\s*$/.test(v) ? [0, v.length] : null);
-    if (r) el.setSelectionRange(r[0], r[1]);
+    if (!r) return;
+    el.setSelectionRange(r[0], r[1]);
+    auto.set(el, r);
   };
+
+  // Seleção da parte inteira feita por aqui (e não pela pessoa). Colar ou preencher o valor
+  // inteiro ("50,00") por cima dela troca o campo todo, e não só a parte antes da vírgula.
+  const auto = new WeakMap<HTMLInputElement, [number, number]>();
+  const stillAuto = (el: HTMLInputElement) => {
+    const r = auto.get(el);
+    return !!r && el.selectionStart === r[0] && el.selectionEnd === r[1];
+  };
+  const replaceAll = (el: HTMLInputElement, text: string) => {
+    auto.delete(el);
+    // Pelo "setter" nativo, para o React (campo controlado) ver a mudança no evento input.
+    const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    if (set) set.call(el, text);
+    else el.value = text;
+    el.setSelectionRange(text.length, text.length);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  doc.addEventListener('input', (e) => {
+    if (e.target instanceof HTMLInputElement) auto.delete(e.target);
+  });
+  doc.addEventListener('focusout', (e) => {
+    if (e.target instanceof HTMLInputElement) auto.delete(e.target);
+  });
+  doc.addEventListener('paste', (e) => {
+    const el = e.target;
+    if (!isDecimalInput(el) || !stillAuto(el)) return;
+    const text = e.clipboardData?.getData('text/plain');
+    if (!text) return;
+    e.preventDefault();
+    replaceAll(el, text.trim());
+  });
 
   // Entrou clicando: o cursor só assenta depois de soltar o botão (ou o dedo).
   let pointerOn: EventTarget | null = null;
@@ -108,7 +141,18 @@ export function installDecimalEntry(doc: Document = document): void {
   // Teclado do celular costuma não dizer a tecla no keydown: confere o texto que vai entrar.
   doc.addEventListener('beforeinput', (e) => {
     const el = e.target;
-    if (!isDecimalInput(el) || e.inputType !== 'insertText') return;
+    if (!isDecimalInput(el)) return;
+    // Texto de uma vez (colar, preencher, sugestão do teclado) por cima da nossa seleção.
+    const many = e.inputType === 'insertText' ? (e.data ?? '').length > 1 : true;
+    if (many && e.inputType.startsWith('insert') && stillAuto(el)) {
+      const text = e.data ?? e.dataTransfer?.getData('text/plain') ?? '';
+      if (text) {
+        e.preventDefault();
+        replaceAll(el, text.trim());
+      }
+      return;
+    }
+    if (e.inputType !== 'insertText') return;
     if (e.data && /^[\d,.]$/.test(e.data)) placeCaret(el);
     if (e.data !== ',' && e.data !== '.') return;
     const r = centsRange(el.value, el.selectionStart ?? 0, el.selectionEnd ?? 0);

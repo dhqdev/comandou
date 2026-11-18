@@ -68,4 +68,21 @@ describe('installDecimalEntry', () => {
     await tick();
     expect([el.selectionStart, el.selectionEnd]).toEqual([4, 4]);
   });
+
+  it('preencher o valor inteiro por cima da seleção troca o campo todo', async () => {
+    const el = field('0,00');
+    el.focus();
+    el.setSelectionRange(4, 4);
+    await tick();
+    expect([el.selectionStart, el.selectionEnd]).toEqual([0, 1]);
+    const ev = new InputEvent('beforeinput', {
+      inputType: 'insertText',
+      data: '50,00',
+      bubbles: true,
+      cancelable: true,
+    });
+    el.dispatchEvent(ev);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(el.value).toBe('50,00');
+  });
 });
