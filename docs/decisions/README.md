@@ -14,3 +14,4 @@
 | [0010](0010-producao-endurecimento.md) | Produção: limites, bloqueio por conta, limpeza de dados e verificação | Aceita |
 | [0011](0011-banco-dedicado-por-cliente.md) | Banco dedicado por cliente (plano Enterprise) | Proposta |
 | [0014](0014-custo-automatico-fichas.md) | Custo automático das fichas técnicas | Aceita |
+| [0015](0015-canais-de-delivery.md) | Aplicativos de delivery: camada comum de canais (iFood, Open Delivery, Keeta, 99Food, Rappi) | Proposta |
