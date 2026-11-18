@@ -64,6 +64,8 @@ const StaffFields = z.object({
   notes: optText(300),
   staffNotes: optText(300),
   tableId: uuid.nullable().optional(),
+  /** Tempo do grupo na mesa; sem ele, vale o tempo médio das configurações. */
+  durationMinutes: z.number().int().min(15).max(600).optional(),
   status: z.enum(RESERVATION_STATUSES).optional(),
   cancelReason: optText(200),
   tableBusyOk: z.boolean().optional(),

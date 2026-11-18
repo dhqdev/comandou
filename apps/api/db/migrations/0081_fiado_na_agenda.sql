@@ -15,7 +15,7 @@ ALTER TABLE orders
   ADD COLUMN fiado_due_at timestamptz,
   ADD COLUMN fiado_at     timestamptz,
   ADD COLUMN fiado_by     uuid;
--- Fiados em aberto (seção Fiado do PDV).
+-- Fiados por dia de pagar.
 CREATE INDEX orders_fiado_idx ON orders(tenant_id, fiado_due_at) WHERE fiado_at IS NOT NULL;
 
 ALTER TABLE agenda_events

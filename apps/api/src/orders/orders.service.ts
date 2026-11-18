@@ -324,8 +324,6 @@ export class OrdersService {
       toServe?: boolean;
       /** Cancelados com Pix a devolver (comprovante que ninguém tinha conferido). */
       pixRefund?: boolean;
-      /** Fiados em aberto (seção Fiado do PDV). */
-      fiado?: boolean;
       limit: number;
     },
   ) {
@@ -345,8 +343,6 @@ export class OrdersService {
     if (f.openBalance) where.push(`o.status = 'completed' AND o.paid_amount < o.total`);
     if (f.toServe) where.push(`o.channel = 'table' AND o.status = 'ready' AND o.served_at IS NULL`);
     if (f.pixRefund) where.push(`o.pix_status = 'refund_due'`);
-    if (f.fiado)
-      where.push(`o.fiado_at IS NOT NULL AND o.paid_amount < o.total AND o.status <> 'cancelled'`);
     if (f.channel) {
       p.push(f.channel);
       where.push(`o.channel = $${p.length}`);

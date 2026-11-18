@@ -106,10 +106,10 @@ na esquerda**. Hoje em círculo laranja e a linha da hora atual. Celular (≤860
 bolinhas e a lista do dia tocado embaixo; semana com títulos que quebram; tags, busca e
 lembretes num `Modal` aberto pelo título ou pelo botão de tags.
 
-**Fiado**: formulário `FiadoForm` (`inline-form`, sem moldura dentro de `Modal`) com quem deve,
-WhatsApp e dia/hora (`fiado-form__when`). No PDV, seção `pdv-fiado` reaproveita a grade e os
-cartões do Salão (`pdv-salon__grid` + `pdv-table`): bolinha amarela no prazo, vermelha vencido.
-No pedido, nota `od-note[data-tone='warning']`. Tag Fiado laranja `#E8710A`.
+**Fiado**: na Nova venda é a quinta opção de `nsale__types` (ícone `HandCoins`, só para quem
+pode dar fiado; a grade se ajusta a 4 ou 5 colunas) e abre os campos em `nsale__fiado`. No pedido
+já lançado, `FiadoForm` (`inline-form`) e a nota `od-note[data-tone='warning']`. Não há faixa de
+fiado no PDV (o dono pediu para tirar). Tag Fiado laranja `#E8710A`.
 
 ## Super Admin › E-mail
 

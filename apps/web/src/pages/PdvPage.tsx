@@ -1,21 +1,12 @@
-import {
-  CHANNEL_LABELS,
-  fromCents,
-  type OrderChannel,
-  type OrderStatus,
-  qtyLabel,
-  toCents,
-} from '@comandou/shared';
+import { CHANNEL_LABELS, type OrderChannel, type OrderStatus, qtyLabel } from '@comandou/shared';
 import {
   ArrowRight,
   Bike,
-  CalendarDays,
   Check,
   ChevronDown,
   ChevronRight,
   ExternalLink,
   Globe,
-  HandCoins,
   HandPlatter,
   Link2,
   ListFilter,
@@ -32,7 +23,6 @@ import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 're
 import { Link } from 'react-router';
 import { Alert, Segmented, useToast } from '../design-system';
 import { useAuth, useCan } from '../app/auth';
-import { FiadoDialog } from '../features/FiadoDialog';
 import { NewSaleModal } from '../features/NewSaleModal';
 import { OrderDetailModal } from '../features/OrderDetailModal';
 import { PixReceiptChip, PixReceiptModal } from '../features/PixReceipt';
@@ -41,7 +31,6 @@ import { TabModal } from '../features/salon/TabModal';
 import { sortTables, tableState, type TableState } from '../features/table-state';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
-import { isOfflineResult } from '../lib/offline';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import {
   playSound,
@@ -228,22 +217,12 @@ function OrderCard({
  * pedidos embaixo, em colunas que seguem o andamento (em análise → produção → pronto → saiu), com os
  * totais do dia no cabeçalho dos pedidos. "Nova venda" (F2) abre o lançamento em tela cheia.
  */
-/** "18/11 10:00" (ou "hoje 10:00"). */
-function fiadoWhen(iso: string) {
-  const d = new Date(iso);
-  const hm = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  if (d.toDateString() === new Date().toDateString()) return `hoje ${hm}`;
-  return `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${hm}`;
-}
-
 export function PdvPage() {
   const { me } = useAuth();
   const toast = useToast();
   const canSell = useCan('orders:write');
   const canManage = useCan('orders:manage');
   const canTables = useCan('tables:operate');
-  /** Dar fiado é o mesmo poder do "a receber" (gerente). */
-  const canFiado = useCan('orders:cancel');
   const sound = useSoundSettings();
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [store, setStore] = useState<StoreSettings | null>(null);
@@ -274,10 +253,6 @@ export function PdvPage() {
   const [today, setToday] = useState<{ done: number; cancelled: number } | null>(null);
   /** Cancelados com o comprovante do Pix sem conferir: o cliente pode já ter pago. */
   const [pixRefunds, setPixRefunds] = useState<Order[]>([]);
-  /** Fiados em aberto (seção Fiado) e a venda fiado que acabou de ser lançada. */
-  const [fiados, setFiados] = useState<Order[]>([]);
-  const [sellingFiado, setSellingFiado] = useState(false);
-  const [fiadoOrder, setFiadoOrder] = useState<Order | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -336,9 +311,6 @@ export function PdvPage() {
       api<Order[]>('/orders?pixRefund=true&limit=50')
         .then(setPixRefunds)
         .catch(() => setPixRefunds([]));
-      api<Order[]>('/orders?fiado=true&limit=200')
-        .then(setFiados)
-        .catch(() => setFiados([]));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -764,69 +736,6 @@ export function PdvPage() {
         </section>
       )}
 
-      {(canFiado || fiados.length > 0) && (
-        <section className="pdv-box pdv-fiado" aria-label="Fiado">
-          <header className="pdv-box__head">
-            <h2>Fiado</h2>
-            {fiados.length > 0 && (
-              <span className="pdv-pill">
-                {fiados.length} em aberto ·{' '}
-                {brl(fromCents(fiados.reduce((t, o) => t + toCents(o.balance), 0)))}
-              </span>
-            )}
-            <div className="pdv__spacer" />
-            <Link className="pdv-chip" to="/agenda">
-              <CalendarDays size={14} aria-hidden /> Agenda pessoal
-            </Link>
-            {canFiado && canSell && (
-              <button className="pdv-chip pdv-fiado__new" onClick={() => setSellingFiado(true)}>
-                <HandCoins size={14} aria-hidden /> Vender fiado
-              </button>
-            )}
-          </header>
-          <div className="pdv-salon__grid">
-            {fiados.length ? (
-              [...fiados]
-                .sort((a, b) => (a.fiadoDueAt ?? '').localeCompare(b.fiadoDueAt ?? ''))
-                .map((o) => {
-                  const late = !!o.fiadoDueAt && new Date(o.fiadoDueAt).getTime() < now;
-                  return (
-                    <button
-                      key={o.id}
-                      className="pdv-table"
-                      data-state={late ? 'busy' : 'paying'}
-                      aria-label={`Fiado de ${o.fiadoName}, pedido ${o.number}`}
-                      onClick={() => {
-                        setOpenStep(undefined);
-                        setOpenId(o.id);
-                      }}
-                    >
-                      <strong>
-                        {o.fiadoName}
-                        <small> · #{o.number}</small>
-                      </strong>
-                      <span className="pdv-table__info">
-                        {brl(o.balance)}
-                        {o.fiadoDueAt && (
-                          <em>
-                            {late ? 'venceu ' : 'paga '}
-                            {fiadoWhen(o.fiadoDueAt)}
-                          </em>
-                        )}
-                      </span>
-                    </button>
-                  );
-                })
-            ) : (
-              <p className="pdv-empty">
-                Nenhum fiado em aberto. Em "Vender fiado", a venda vai para a sua Agenda pessoal e o
-                WhatsApp do restaurante cobra o cliente no dia combinado.
-              </p>
-            )}
-          </div>
-        </section>
-      )}
-
       <section className="pdv-box pdv-orders" aria-label="Pedidos">
         <header className="pdv-box__head">
           <h2>Pedidos</h2>
@@ -974,27 +883,6 @@ export function PdvPage() {
         onClose={() => setSelling(false)}
         onCreated={() => {
           setSelling(false);
-          void load();
-        }}
-      />
-      <NewSaleModal
-        open={sellingFiado}
-        title="Vender fiado"
-        onClose={() => setSellingFiado(false)}
-        onCreated={(o) => {
-          setSellingFiado(false);
-          void load();
-          // Sem internet o pedido fica no aparelho: o fiado se marca depois, no próprio pedido.
-          if (isOfflineResult(o))
-            toast('Sem conexão: marque o fiado no pedido quando a internet voltar', 'neutral');
-          else setFiadoOrder(o);
-        }}
-      />
-      <FiadoDialog
-        order={fiadoOrder}
-        onClose={() => setFiadoOrder(null)}
-        onDone={() => {
-          setFiadoOrder(null);
           void load();
         }}
       />

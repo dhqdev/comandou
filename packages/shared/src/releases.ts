@@ -20,19 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.160.0',
+    version: '0.161.0',
     date: '2026-11-18',
     title: 'Vender fiado, com cobrança no WhatsApp',
     summary:
-      'Nova seção Fiado no PDV: a venda fiado vai para a sua Agenda pessoal com a tag Fiado e, no dia e hora combinados, o WhatsApp do restaurante manda a cobrança para quem está devendo. A aba Agenda virou Agenda pessoal, e Novidades foi para o menu do seu perfil.',
+      'Na Nova venda, o Tipo de atendimento ganhou a opção Fiado: a venda vai para a sua Agenda pessoal com a tag Fiado e, no dia e hora combinados, o WhatsApp do restaurante manda a cobrança para quem está devendo. A aba Agenda virou Agenda pessoal, e Novidades foi para o menu do seu perfil.',
     notes: [
       {
         tag: 'novo',
-        text: 'Vender fiado no PDV: o botão Vender fiado abre a venda e, ao lançar, pede quem está devendo, o WhatsApp dele e o dia e a hora para pagar. Os fiados em aberto ficam numa seção própria do PDV, com o valor e o dia (em vermelho quando venceu).',
+        text: 'Fiado na Nova venda: ao lado de Retirada, escolha Fiado e informe quem está devendo, o WhatsApp dele e o dia e a hora para pagar (o nome e o telefone vêm do cliente escolhido). O botão vira Vender fiado.',
       },
       {
         tag: 'novo',
-        text: 'No pedido, o menu de ações ganhou Vender fiado (e Editar fiado). Pedido fiado é concluído com o saldo em aberto sem pedir o motivo de novo: vira "a receber" sozinho.',
+        text: 'Num pedido já lançado, o menu de ações ganhou Vender fiado (e Editar fiado). Pedido fiado é concluído com o saldo em aberto sem pedir o motivo de novo: vira "a receber" sozinho.',
       },
       {
         tag: 'novo',
@@ -45,6 +45,35 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'melhoria',
         text: 'Novidades saiu da barra lateral e foi para o menu que abre ao clicar no seu perfil. Quando tem novidade, aparece um ponto no perfil e a marca "novo" ao lado de Novidades.',
+      },
+    ],
+  },
+  {
+    version: '0.160.0',
+    date: '2026-11-18',
+    title: 'Reservas em calendário, no jeito da Agenda',
+    summary:
+      'A tela de Reservas virou um calendário com as visões Dia, Semana, Mês e Lista, painel do lado com o resumo do dia e o filtro por situação, e as reservas podem ser remarcadas arrastando.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Visões Dia, Semana, Mês e Lista. No Dia, a grade de horários mostra cada reserva do tamanho do tempo na mesa e, ao lado, os cartões com Confirmar, Chegou, Não veio, mesa e WhatsApp. A Lista mostra os próximos 60 dias com os cartões.',
+      },
+      {
+        tag: 'novo',
+        text: 'Painel do lado: Nova reserva, minicalendário, resumo do dia escolhido (reservas, pessoas, aguardando e no salão), filtro por situação com a cor de cada uma e o atalho para as reservas pelo cardápio (ligar, configurar e copiar o link).',
+      },
+      {
+        tag: 'novo',
+        text: 'Arrastar para remarcar (dia e horário, em passos de 15 minutos) e puxar a borda de baixo para mudar o tempo na mesa. Clicar num horário vazio já abre a nova reserva naquele dia e hora.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Tempo na mesa por reserva (no formulário e arrastando), levado em conta para não marcar a mesma mesa em horários que se cruzam. A mesa pequena para o grupo aparece marcada na lista.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Botão "aguardando" no topo mostra só as reservas que esperam confirmação; busca por nome, celular, código ou mesa; o mês mostra quantas pessoas estão reservadas em cada dia.',
       },
     ],
   },

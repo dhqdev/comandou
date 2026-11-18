@@ -50,12 +50,6 @@
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: var(--cm-space-3);
 }
-/* Na janela do PDV o formulário já está dentro do cartão: sem a segunda moldura. */
-.cm-modal .fiado-form {
-  padding: 0;
-  border: 0;
-  background: none;
-}
 .inline-add {
   display: flex;
   flex-wrap: wrap;

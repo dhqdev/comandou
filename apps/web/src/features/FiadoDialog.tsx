@@ -1,6 +1,6 @@
 import { CalendarClock } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Alert, Button, Modal, TextField, useToast } from '../design-system';
+import { Alert, Button, TextField, useToast } from '../design-system';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import type { Order } from '../lib/types';
@@ -21,7 +21,8 @@ function initialDue(order: Order) {
 }
 
 /**
- * Vender fiado: quem deve, o WhatsApp dele e o dia/hora combinados para pagar. Vai para a Agenda
+ * Vender fiado num pedido já lançado (menu de ações do pedido; na venda nova é a opção Fiado do
+ * atendimento, em NewSaleModal): quem deve, o WhatsApp dele e o dia/hora combinados para pagar. Vai para a Agenda
  * pessoal (tag Fiado) e, no dia e hora, o WhatsApp do restaurante manda a cobrança para o cliente.
  */
 export function FiadoForm({
@@ -131,23 +132,5 @@ export function FiadoForm({
         </Button>
       </div>
     </div>
-  );
-}
-
-/** A mesma coisa numa janela (PDV, logo depois de lançar a venda fiado). */
-export function FiadoDialog({
-  order,
-  onClose,
-  onDone,
-}: {
-  order: Order | null;
-  onClose(): void;
-  onDone(o: Order): void;
-}) {
-  if (!order) return null;
-  return (
-    <Modal open title={`Vender fiado — pedido #${order.number}`} onClose={onClose}>
-      <FiadoForm order={order} onCancel={onClose} onDone={onDone} />
-    </Modal>
   );
 }

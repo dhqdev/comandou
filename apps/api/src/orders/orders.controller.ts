@@ -11,11 +11,13 @@ import {
   Post,
   Query,
   Req,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { ORDER_CHANNELS, ORDER_STATUSES, ordersLimitedToOwn, roleHas } from '@comandou/shared';
 import { AgendaService } from '../agenda/agenda.service';
+import { normalizePhone } from '../messaging/messaging.service';
 import { CashService } from '../cash/cash.service';
 import { ctxOf } from '../common/context';
 import {
@@ -30,6 +32,7 @@ import {
   Adjust,
   CreateOrder,
   EditOrderItems,
+  FiadoIn,
   money,
   Payment,
   reason,
@@ -73,11 +76,6 @@ const ListQuery = z.object({
     .enum(['true', 'false'])
     .optional()
     .transform((v) => v === 'true'),
-  /** Fiados em aberto (seção Fiado do PDV). */
-  fiado: z
-    .enum(['true', 'false'])
-    .optional()
-    .transform((v) => v === 'true'),
   limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 
@@ -96,12 +94,6 @@ const CountsQuery = z.object({
 
 const Refund = z.object({ cashSessionId: uuid, amount: money, reason });
 
-const Fiado = z.object({
-  name: z.string().trim().min(1, 'Informe quem está devendo').max(80),
-  phone: z.string().trim().min(8, 'Informe o WhatsApp de quem deve').max(25),
-  dueAt: z.string().datetime({ offset: true }),
-});
-
 /** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
 @AllowWhenBlocked()
 @Controller({ path: 'orders', version: '1' })
@@ -113,7 +105,8 @@ export class OrdersController {
   ) {}
 
   /**
-   * Vender fiado: quem deve, o WhatsApp e quando paga. Vai para a Agenda pessoal de quem vendeu
+   * Vender fiado num pedido já lançado (menu de ações do pedido): quem deve, o WhatsApp e quando
+   * paga. Na venda nova vai junto no POST /orders (`fiado`). Vai para a Agenda pessoal de quem vendeu
    * (tag Fiado) e, no dia e hora, o WhatsApp do restaurante cobra o cliente. Dar fiado é o mesmo
    * poder do "a receber" (gerente).
    */
@@ -122,7 +115,7 @@ export class OrdersController {
   @HttpCode(200)
   async fiado(
     @Param('id', new ParseUUIDPipe()) id: string,
-    @Body(new ZodPipe(Fiado)) b: z.infer<typeof Fiado>,
+    @Body(new ZodPipe(FiadoIn)) b: z.infer<typeof FiadoIn>,
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
     @Req() req: Request,
@@ -169,14 +162,26 @@ export class OrdersController {
   @Post()
   @BlockWhenBilling()
   @RequirePermission('orders:write')
-  create(
+  async create(
     @Body(new ZodPipe(CreateOrder)) b: z.infer<typeof CreateOrder>,
     @Headers('idempotency-key') key: string | undefined,
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
     @Req() req: Request,
   ) {
-    return this.orders.create(ctxOf(t, u, req), b, validIdempotencyKey(key));
+    const { fiado, ...input } = b;
+    const ctx = ctxOf(t, u, req);
+    // Venda fiado: confere tudo ANTES de lançar, para não sobrar pedido sem o fiado.
+    if (fiado) {
+      if (!roleHas(u.role, 'orders:cancel'))
+        throw new ForbiddenException('Vender fiado exige o gerente');
+      if (!normalizePhone(fiado.phone))
+        throw new UnprocessableEntityException('WhatsApp do cliente inválido: use DDD + número');
+    }
+    const order = await this.orders.create(ctx, input, validIdempotencyKey(key));
+    if (!fiado) return order;
+    await this.agenda.fiado(ctx, order.id, fiado);
+    return this.orders.get(ctx, order.id);
   }
 
   /** O garçom só pede cancelamento (com motivo); quem gere pedidos faz as demais transições. */

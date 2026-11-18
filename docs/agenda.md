@@ -38,10 +38,12 @@ Lembrete com horário que já passou, ao salvar, não sai (fica marcado como res
 
 ## Fiado
 
-1. **Vender fiado** no PDV (seção Fiado › Vender fiado: lança a venda e já pede os dados) ou no
-   pedido (menu de ações › Vender fiado / Editar fiado). Pede quem deve, o WhatsApp e o dia e a
-   hora para pagar. Dar fiado é o mesmo poder do "a receber" (`orders:cancel`, gerente).
-2. `POST /api/v1/orders/:id/fiado` (`AgendaService.fiado`) grava `orders.fiado_*` e cria (ou
+1. **Vender fiado** na Nova venda (Tipo de atendimento › **Fiado**, ao lado de Retirada: lança
+   no balcão e pede quem deve, o WhatsApp e o dia e a hora para pagar; vai junto no
+   `POST /orders` como `fiado`, conferido antes de lançar) ou num pedido já lançado (menu de ações ›
+   Vender fiado / Editar fiado, `POST /orders/:id/fiado`). Dar fiado é o mesmo poder do "a
+   receber" (`orders:cancel`, gerente).
+2. `AgendaService.fiado` grava `orders.fiado_*` e cria (ou
    atualiza) **um** compromisso por pedido na agenda de quem vendeu, com a tag **Fiado** (criada
    sozinha, laranja) e a cobrança (`charge_name`, `charge_phone`, `charge_at` = horário do
    compromisso; no dia todo, 9h).
@@ -52,14 +54,14 @@ Lembrete com horário que já passou, ao salvar, não sai (fica marcado como res
    manda e conclui o compromisso. Compromisso concluído: não manda. Erro fica em `charge_error`.
 5. Na agenda, o compromisso mostra o pedido, quanto falta e a situação da cobrança; dá para trocar
    o nome e o WhatsApp. Arrastar para outro dia muda a cobrança junto.
-6. Fiados em aberto: `GET /orders?fiado=true` (seção Fiado do PDV).
+6. Fiados em aberto: Pedidos › Concluídos em aberto (como o "a receber") e a tag Fiado na agenda.
 
 ## Onde fica
 
 | Caminho | O que é |
 | --- | --- |
 | `apps/api/db/migrations/0081_fiado_na_agenda.sql` | `orders.fiado_*` e a cobrança no compromisso (`agenda_events.order_id`, `charge_*`). |
-| `apps/web/src/features/FiadoDialog.tsx` | Formulário do fiado (no pedido e em janela no PDV). |
+| `apps/web/src/features/NewSaleModal.tsx` + `features/FiadoDialog.tsx` | Opção Fiado da Nova venda e o formulário do fiado no pedido já lançado. |
 | `apps/api/db/migrations/0080_agenda.sql` | `agenda_tags`, `agenda_events`, `agenda_settings` (RLS por restaurante; a API filtra por `user_id`). |
 | `apps/api/src/agenda/` | Rotas `/api/v1/agenda/*` e a varredura dos lembretes. |
 | `apps/web/src/pages/agenda/` | Tela (`AgendaPage`), janelas (`EventDialog`, `AgendaDialogs`), contas de data (`agenda-utils.ts`) e `agenda.css`. |

@@ -285,8 +285,55 @@ describe('Agenda', () => {
         dueAt: at(240),
       }).expect(200);
       expect(again.body.event.id).toBe(fiadoEv);
-      const open = (await call('get', 'adminA', '/orders?fiado=true').expect(200)).body;
-      expect(open.map((x: { id: string }) => x.id)).toContain(orderId);
+    });
+
+    it('Nova venda › Fiado: lança o pedido já com o fiado (e confere antes de lançar)', async () => {
+      const body = (fiado: object) => ({
+        channel: 'counter',
+        items: [{ productId: fx.prodA, quantity: 1 }],
+        fiado,
+      });
+      const key = () => `fiado-new-${Date.now()}-${Math.random()}`;
+      const before = (await call('get', 'adminA', '/orders?active=true&limit=500').expect(200)).body
+        .length;
+      // Garçom não vende fiado e número inválido barra antes de lançar: nenhum pedido sobra.
+      await call(
+        'post',
+        'waiterA',
+        '/orders',
+        body({ name: 'Ana', phone: '11955554444', dueAt: at(60) }),
+      )
+        .set('Idempotency-Key', key())
+        .expect(403);
+      await call(
+        'post',
+        'adminA',
+        '/orders',
+        body({ name: 'Ana', phone: '1234-5678', dueAt: at(60) }),
+      )
+        .set('Idempotency-Key', key())
+        .expect(422);
+      expect(
+        (await call('get', 'adminA', '/orders?active=true&limit=500').expect(200)).body.length,
+      ).toBe(before);
+      const r = await call(
+        'post',
+        'adminA',
+        '/orders',
+        body({ name: 'Ana Souza', phone: '(11) 95555-4444', dueAt: at(90) }),
+      )
+        .set('Idempotency-Key', key())
+        .expect(201);
+      expect(r.body).toMatchObject({ fiadoName: 'Ana Souza', fiadoPhone: '5511955554444' });
+      const list = (
+        await call(
+          'get',
+          'adminA',
+          `/agenda/events?from=${encodeURIComponent(at(-60))}&to=${encodeURIComponent(at(600))}`,
+        ).expect(200)
+      ).body;
+      const ev = list.find((e: { order?: { id: string } }) => e.order?.id === r.body.id);
+      expect(ev.charge).toMatchObject({ name: 'Ana Souza', phone: '5511955554444' });
     });
 
     it('fiado conclui com saldo sem pedir o "a receber"', async () => {
