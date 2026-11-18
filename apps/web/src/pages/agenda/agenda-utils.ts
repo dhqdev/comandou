@@ -12,6 +12,16 @@ export interface AgendaEvent {
   remindAt: string | null;
   remindedAt: string | null;
   remindError: string | null;
+  /** Fiado: o pedido e quanto ainda falta pagar. */
+  order?: { id: string; number: number; status: string; balance: string } | null;
+  /** Fiado: a cobrança que vai para o WhatsApp de quem deve, no horário do compromisso. */
+  charge?: {
+    name: string | null;
+    phone: string;
+    at: string;
+    sentAt: string | null;
+    error: string | null;
+  } | null;
 }
 
 export interface AgendaTag {

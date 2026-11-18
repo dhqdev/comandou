@@ -132,6 +132,8 @@ export const ORDER_SELECT = `
          o.source, o.payment_hint AS "paymentHint", o.change_for::text AS "changeFor",
          o.accepted_at AS "acceptedAt", o.receivable_at AS "receivableAt",
          o.receivable_reason AS "receivableReason",
+         o.fiado_name AS "fiadoName", o.fiado_phone AS "fiadoPhone",
+         o.fiado_due_at AS "fiadoDueAt", o.fiado_at AS "fiadoAt",
          o.pix_status AS "pixStatus", o.served_at AS "servedAt",
          CASE WHEN o.pix_status IS NOT NULL THEN (
            SELECT json_build_object('id', r.id, 'status', r.status, 'contentType', r.content_type,
@@ -840,11 +842,21 @@ export class OrdersService {
     // Concluir com saldo: só a entrega (vai para o acerto do entregador) ou "a receber" pelo gerente.
     const balance = toCents(o.total) - toCents(o.paid_amount);
     if (to === 'completed' && balance > 0 && o.status !== 'dispatched') {
+      // Fiado marcado (por quem pode dar fiado): conclui como "a receber" sem pedir de novo.
+      const fiado = await one<{ fiado_name: string }>(
+        tx,
+        `SELECT fiado_name FROM orders WHERE id = $1 AND fiado_at IS NOT NULL`,
+        [o.id],
+      );
+      if (fiado && !extra.receivable) {
+        extra = { ...extra, receivable: true };
+        reason = reason || `Fiado: ${fiado.fiado_name}`;
+      }
       if (!extra.receivable)
         throw new ConflictException(
           'Pedido com saldo a pagar: receba antes de concluir, ou conclua como "a receber"',
         );
-      if (!roleHas(ctx.user.role, 'orders:cancel'))
+      if (!fiado && !roleHas(ctx.user.role, 'orders:cancel'))
         throw new ForbiddenException('Concluir sem pagamento ("a receber") exige o gerente');
       if (!reason) throw new UnprocessableEntityException('Informe o motivo do "a receber"');
       await q(

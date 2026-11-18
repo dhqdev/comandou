@@ -123,6 +123,15 @@
   text-align: left;
   cursor: pointer;
 }
+.account__new {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--cm-brand-50);
+  color: var(--cm-brand-700);
+  font-size: var(--cm-text-xs);
+  font-weight: 650;
+}
 .account__action:hover {
   background: color-mix(in srgb, var(--cm-text) 5%, transparent);
   color: var(--cm-text);

@@ -29,6 +29,13 @@ const OrderItemIn = z.object({
   optionIds: z.array(uuid).max(50).optional(),
 });
 
+/** Fiado: vai para a Agenda pessoal de quem vendeu e o WhatsApp do restaurante cobra no dia. */
+export const FiadoIn = z.object({
+  name: z.string().trim().min(1, 'Informe quem está devendo').max(80),
+  phone: z.string().trim().min(8, 'Informe o WhatsApp de quem deve').max(25),
+  dueAt: z.string().datetime({ offset: true }),
+});
+
 export const CreateOrder = z.object({
   channel: z.enum(ORDER_CHANNELS),
   tabId: uuid.optional(),
@@ -43,6 +50,8 @@ export const CreateOrder = z.object({
   discount: money.optional(),
   surcharge: money.optional(),
   items: z.array(OrderItemIn).min(1).max(200),
+  /** Vender fiado (Nova venda › Fiado): quem deve, o WhatsApp e quando paga. Exige gerente. */
+  fiado: FiadoIn.optional(),
 });
 
 /** Edição do pedido já lançado (acrescentar, mudar quantidade/observação, tirar itens). */

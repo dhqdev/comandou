@@ -41,7 +41,7 @@ import {
 } from 'lucide-react';
 import { ReactNode, Suspense, useCallback, useEffect, useState } from 'react';
 import { PageLoading } from './PageLoading';
-import { Outlet, useLocation } from 'react-router';
+import { Outlet, useLocation, useNavigate } from 'react-router';
 import {
   AppFrame,
   Badge,
@@ -284,6 +284,7 @@ export function AppShell() {
   const [tourOpen, setTourOpen] = useState(false);
   const [onbOpen, setOnbOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const perms = me?.permissions;
   const allowed = useCallback(
     (list?: string[]) => !list || list.some((p) => perms?.includes(p)),
@@ -361,6 +362,13 @@ export function AppShell() {
 
   // Mesmas ações no submenu "Conta" (computador) e no fim da tela "Mais" (celular).
   const accountActions: FrameAccount['actions'] = [
+    // Novidades saiu da barra lateral: fica aqui no perfil (o ponto laranja avisa do que é novo).
+    {
+      key: 'novidades',
+      label: unseen ? 'Novidades · novo' : 'Novidades',
+      icon: <Sparkles />,
+      onClick: () => navigate('/novidades'),
+    },
     ...(me?.permissions.includes('plan:read')
       ? [
           {
@@ -410,7 +418,12 @@ export function AppShell() {
       {accountActions.map((a) => (
         <button key={a.key} type="button" className="account__action" onClick={a.onClick}>
           {a.icon}
-          {a.label}
+          {a.key === 'novidades' ? 'Novidades' : a.label}
+          {a.key === 'novidades' && unseen && (
+            <span className="account__new">
+              <span className="cm-sr-only">, </span>novo
+            </span>
+          )}
         </button>
       ))}
     </div>
@@ -426,20 +439,14 @@ export function AppShell() {
           {
             key: 'agenda',
             to: '/agenda',
-            label: 'Agenda',
+            label: 'Agenda pessoal',
             icon: <CalendarDays />,
-          },
-          {
-            key: 'novidades',
-            to: '/novidades',
-            label: 'Novidades',
-            icon: <Sparkles />,
-            dot: unseen,
           },
           {
             key: 'conta',
             label: 'Conta',
             icon: <FrameAvatar name={me?.user.name} />,
+            dot: unseen,
             profile: me ? { name: me.user.name, detail: me.user.roleLabel } : undefined,
             panel: account,
           },

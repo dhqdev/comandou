@@ -432,7 +432,19 @@
 }
 .nsale__types {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Quatro atendimentos; com Fiado (gerente), cinco na mesma linha. */
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--cm-space-2);
+}
+.nsale__fiado {
+  display: grid;
+  gap: var(--cm-space-3);
+  margin-top: var(--cm-space-1);
+}
+.nsale__fiado-when {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--cm-space-2);
 }
 .nsale__type {

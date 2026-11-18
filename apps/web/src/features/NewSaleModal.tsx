@@ -12,6 +12,7 @@ import {
 import {
   Bike,
   Frown,
+  HandCoins,
   Minus,
   Plus,
   ReceiptText,
@@ -27,6 +28,7 @@ import {
 } from 'lucide-react';
 import { ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Alert, Button, Select, Spinner, TextField, showLiquid, useToast } from '../design-system';
+import { useCan } from '../app/auth';
 import { api, ApiError } from '../lib/api';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { isOfflineResult } from '../lib/offline';
@@ -36,6 +38,7 @@ import './sale-extras.css';
 import { AddressQuick } from './AddressQuick';
 import { CustomerPicker, type OrderCustomer } from './CustomerPicker';
 import { WeighForm } from './WeighForm';
+import { addDays, dayKey, joinLocal } from '../pages/agenda/agenda-utils';
 import type { DiningTable, MenuCategory, MenuProduct, Order } from '../lib/types';
 
 interface CartLine {
@@ -56,6 +59,31 @@ const CHANNEL_ICON: Record<OrderChannel, ReactNode> = {
   pickup: <ShoppingBag size={20} />,
   delivery: <Bike size={20} />,
 };
+
+/** Dados do fiado na Nova venda (nome e WhatsApp vazios = os do cliente escolhido). */
+interface FiadoDraft {
+  name: string;
+  phone: string;
+  day: string;
+  time: string;
+}
+
+/** Fiado novo: cobra amanhã às 10h. */
+function newFiado(): FiadoDraft {
+  return { name: '', phone: '', day: dayKey(addDays(new Date(), 1)), time: '10:00' };
+}
+
+/** O que falta para vender fiado (ou null se está tudo certo). */
+function fiadoIssue(f: FiadoDraft, customer: OrderCustomer): string | null {
+  if (!(f.name || customer.name).trim()) return 'Informe quem está devendo.';
+  if ((f.phone || customer.phone).replace(/\D/g, '').length < 10)
+    return 'Informe o WhatsApp de quem deve, com DDD.';
+  const when = joinLocal(f.day, f.time);
+  if (!f.day || !f.time || Number.isNaN(when.getTime()))
+    return 'Escolha o dia e a hora para pagar.';
+  if (when.getTime() < Date.now()) return 'O dia e a hora para pagar já passaram.';
+  return null;
+}
 
 /** Preço de exibição calculado no cliente; o servidor recalcula e é a fonte oficial. */
 function unitCents(p: MenuProduct, optionIds: string[]) {
@@ -108,6 +136,9 @@ export function NewSaleModal({
   const [deliveryFee, setDeliveryFee] = useState('');
   const [discount, setDiscount] = useState('');
   const [notes, setNotes] = useState('');
+  /** Fiado (quinta opção do atendimento): lança no balcão e cobra no dia pelo WhatsApp. */
+  const canFiado = useCan('orders:cancel');
+  const [fiado, setFiado] = useState<FiadoDraft | null>(null);
   const [busy, setBusy] = useState(false);
   const sending = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -127,6 +158,7 @@ export function NewSaleModal({
     if (!open) return;
     setChannel(preset?.channel ?? 'counter');
     setTableId(preset?.tableId ?? '');
+    setFiado(null);
     setError(null);
     api<DiningTable[]>('/tables')
       .then(setTables)
@@ -213,13 +245,15 @@ export function NewSaleModal({
     setDeliveryFee('');
     setDiscount('');
     setNotes('');
+    setFiado(null);
     setSearch('');
     setIdemKey(newIdempotencyKey());
   }
 
   const needsTable = channel === 'table' && !preset?.tabId && !tableId;
   const needsAddress = channel === 'delivery' && !address.trim();
-  const canSubmit = cart.length > 0 && !needsTable && !needsAddress && total >= 0;
+  const fiadoProblem = fiado ? fiadoIssue(fiado, customer) : null;
+  const canSubmit = cart.length > 0 && !needsTable && !needsAddress && !fiadoProblem && total >= 0;
   const freeOrSame = tables.filter((t) => t.active);
 
   async function submit() {
@@ -243,6 +277,13 @@ export function NewSaleModal({
           deliveryFee: channel === 'delivery' && feeCents ? fromCents(feeCents) : undefined,
           discount: discountCents ? fromCents(discountCents) : undefined,
           notes: notes || undefined,
+          fiado: fiado
+            ? {
+                name: (fiado.name || customer.name).trim(),
+                phone: fiado.phone || customer.phone,
+                dueAt: joinLocal(fiado.day, fiado.time).toISOString(),
+              }
+            : undefined,
           items: cart.map((l) => ({
             productId: l.product.id,
             quantity: l.quantity,
@@ -252,7 +293,13 @@ export function NewSaleModal({
         },
       });
       // Sem internet o pedido fica no aparelho (lib/offline.ts): o aviso sai da faixa offline.
-      if (!isOfflineResult(order)) toast(`Pedido #${order.number} criado`, 'success');
+      if (!isOfflineResult(order))
+        toast(
+          fiado
+            ? `Fiado #${order.number} lançado: está na sua Agenda pessoal e a cobrança sai no WhatsApp no dia`
+            : `Pedido #${order.number} criado`,
+          'success',
+        );
       reset();
       ref.current?.close();
       onCreated(order);
@@ -543,16 +590,71 @@ export function NewSaleModal({
                   key={c}
                   type="button"
                   role="radio"
-                  aria-checked={channel === c}
+                  aria-checked={channel === c && !fiado}
                   className="nsale__type"
                   disabled={!!preset?.tabId && c !== 'table'}
-                  onClick={() => setChannel(c)}
+                  onClick={() => {
+                    setChannel(c);
+                    setFiado(null);
+                  }}
                 >
                   {CHANNEL_ICON[c]}
                   {CHANNEL_LABELS[c]}
                 </button>
               ))}
+              {canFiado && !preset?.tabId && !preset?.tableId && (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={!!fiado}
+                  className="nsale__type"
+                  onClick={() => {
+                    setChannel('counter');
+                    setFiado((f) => f ?? newFiado());
+                  }}
+                >
+                  <HandCoins size={20} />
+                  Fiado
+                </button>
+              )}
             </div>
+            {fiado && (
+              <div className="nsale__fiado">
+                <TextField
+                  label="Quem está devendo"
+                  value={fiado.name || customer.name}
+                  maxLength={80}
+                  onChange={(e) => setFiado({ ...fiado, name: e.target.value })}
+                />
+                <TextField
+                  label="WhatsApp de quem deve"
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="(11) 91234-5678"
+                  value={fiado.phone || customer.phone}
+                  onChange={(e) => setFiado({ ...fiado, phone: e.target.value })}
+                />
+                <div className="nsale__fiado-when">
+                  <TextField
+                    label="Dia para pagar"
+                    type="date"
+                    value={fiado.day}
+                    min={dayKey(new Date())}
+                    onChange={(e) => setFiado({ ...fiado, day: e.target.value })}
+                  />
+                  <TextField
+                    label="Hora da cobrança"
+                    type="time"
+                    value={fiado.time}
+                    onChange={(e) => setFiado({ ...fiado, time: e.target.value })}
+                  />
+                </div>
+                <p className="cm-hint">
+                  Vai para a sua Agenda pessoal com a tag Fiado. No dia e hora, o WhatsApp do
+                  restaurante manda a cobrança para o cliente (se ainda não tiver pago).
+                </p>
+              </div>
+            )}
             {channel === 'table' && !preset?.tabId && (
               <label className="cm-field">
                 <span className="cm-label">Mesa</span>
@@ -634,13 +736,18 @@ export function NewSaleModal({
             <dd className="totals__grand">{brl(fromCents(Math.max(0, total)))}</dd>
           </dl>
           {error && <Alert tone="danger">{error}</Alert>}
-          {(needsTable || needsAddress) && cart.length > 0 && (
+          {(needsTable || needsAddress || fiadoProblem) && cart.length > 0 && (
             <p className="nsale__need">
-              {needsTable ? 'Escolha a mesa para enviar.' : 'Informe o endereço de entrega.'}
+              {needsTable
+                ? 'Escolha a mesa para enviar.'
+                : needsAddress
+                  ? 'Informe o endereço de entrega.'
+                  : fiadoProblem}
             </p>
           )}
           <Button size="lg" block loading={busy} disabled={!canSubmit} onClick={submit}>
-            Enviar pedido <kbd className="kbd nsale__kbd">Ctrl+Enter</kbd>
+            {fiado ? 'Vender fiado' : 'Enviar pedido'}{' '}
+            <kbd className="kbd nsale__kbd">Ctrl+Enter</kbd>
           </Button>
         </footer>
       </aside>

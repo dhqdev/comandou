@@ -8,12 +8,14 @@ import {
   OnModuleDestroy,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { toCents } from '@comandou/shared';
 import type { Ctx } from '../common/context';
 import { one, q } from '../common/sql';
 import { ENV, Env } from '../config/env';
 import { DatabaseService, Tx } from '../database/database.service';
 import { MessagingService, normalizePhone } from '../messaging/messaging.service';
 import { PlatformDb } from '../platform/platform-db.service';
+import { RealtimeService } from '../realtime/realtime.service';
 
 export interface EventInput {
   title: string;
@@ -25,7 +27,21 @@ export interface EventInput {
   done?: boolean;
   /** Quando sai o lembrete pelo WhatsApp (null = sem lembrete). */
   remindAt?: string | null;
+  /** Fiado: nome de quem deve (a mensagem de cobrança vai para ele). */
+  chargeName?: string | null;
+  /** Fiado: WhatsApp de quem deve (null tira a cobrança). */
+  chargePhone?: string | null;
 }
+
+/** Vender fiado: quem deve, o WhatsApp e o dia/hora combinados para pagar. */
+export interface FiadoInput {
+  name: string;
+  phone: string;
+  dueAt: string;
+}
+
+/** Tag criada sozinha na agenda de quem vende fiado. */
+export const FIADO_TAG = { name: 'Fiado', color: '#E8710A' };
 
 interface EventRow {
   id: string;
@@ -39,10 +55,25 @@ interface EventRow {
   remind_at: Date | null;
   reminded_at: Date | null;
   remind_error: string | null;
+  order_id: string | null;
+  charge_name: string | null;
+  charge_phone: string | null;
+  charge_at: Date | null;
+  charge_sent_at: Date | null;
+  charge_error: string | null;
+  order_info: { id: string; number: number; balance: string; status: string } | null;
 }
 
 const EVENT_COLS = `id, title, notes, starts_at, ends_at, all_day, tag_id, done, remind_at, reminded_at,
-  remind_error`;
+  remind_error, order_id, charge_name, charge_phone, charge_at, charge_sent_at, charge_error,
+  (SELECT json_build_object('id', o.id, 'number', o.number, 'status', o.status,
+                            'balance', GREATEST(o.total - o.paid_amount, 0)::text)
+     FROM orders o WHERE o.id = agenda_events.order_id) AS order_info`;
+
+/** Hora da cobrança no compromisso de dia todo: 9h do dia (o começo já vem à meia-noite local). */
+const ALL_DAY_CHARGE_MS = 9 * 3600_000;
+const chargeAtOf = (startsAt: Date, allDay: boolean) =>
+  new Date(startsAt.getTime() + (allDay ? ALL_DAY_CHARGE_MS : 0));
 
 /** Lembrete que perdeu a hora por mais que isto (servidor parado) não sai mais. */
 const LATE_LIMIT_MS = 6 * 3600_000;
@@ -59,6 +90,17 @@ const present = (e: EventRow) => ({
   remindAt: e.remind_at,
   remindedAt: e.reminded_at,
   remindError: e.remind_error,
+  // Fiado: o pedido (com o que falta pagar) e a cobrança que vai para o WhatsApp do cliente.
+  order: e.order_info,
+  charge: e.charge_phone
+    ? {
+        name: e.charge_name,
+        phone: e.charge_phone,
+        at: e.charge_at,
+        sentAt: e.charge_sent_at,
+        error: e.charge_error,
+      }
+    : null,
 });
 
 /**
@@ -77,6 +119,7 @@ export class AgendaService implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly db: DatabaseService,
     private readonly platformDb: PlatformDb,
     private readonly messaging: MessagingService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   onApplicationBootstrap() {
@@ -186,11 +229,28 @@ export class AgendaService implements OnApplicationBootstrap, OnModuleDestroy {
       const remind = changed
         ? this.remindFields(remindAt?.toISOString() ?? null)
         : { at: cur.remind_at, done: cur.reminded_at, error: cur.remind_error };
+      // Fiado: a cobrança sai no horário do compromisso; mudou o horário ou o número, sai de novo.
+      const allDay = b.allDay ?? cur.all_day;
+      let chargePhone = cur.charge_phone;
+      if (b.chargePhone !== undefined) {
+        chargePhone = b.chargePhone ? normalizePhone(b.chargePhone) : null;
+        if (b.chargePhone && !chargePhone)
+          throw new UnprocessableEntityException('WhatsApp do cliente inválido: use DDD + número');
+      }
+      const chargeName = b.chargeName !== undefined ? b.chargeName : cur.charge_name;
+      const chargeAt = chargePhone ? chargeAtOf(startsAt, allDay) : null;
+      const chargeChanged =
+        (chargeAt?.getTime() ?? null) !== (cur.charge_at?.getTime() ?? null) ||
+        chargePhone !== cur.charge_phone;
+      const charge = chargeChanged
+        ? this.remindFields(chargeAt?.toISOString() ?? null)
+        : { at: cur.charge_at, done: cur.charge_sent_at, error: cur.charge_error };
       const row = await one<EventRow>(
         tx,
         `UPDATE agenda_events SET title = $2, notes = $3, starts_at = $4, ends_at = $5,
                 all_day = $6, tag_id = $7, done = $8, remind_at = $9, reminded_at = $10,
-                remind_error = $11
+                remind_error = $11, charge_name = $12, charge_phone = $13, charge_at = $14,
+                charge_sent_at = $15, charge_error = $16
           WHERE id = $1 RETURNING ${EVENT_COLS}`,
         [
           id,
@@ -204,6 +264,11 @@ export class AgendaService implements OnApplicationBootstrap, OnModuleDestroy {
           remind.at,
           remind.done,
           remind.error ?? null,
+          chargePhone ? chargeName : null,
+          chargePhone,
+          charge.at,
+          charge.done,
+          charge.error ?? null,
         ],
       );
       return present(row!);
@@ -218,6 +283,111 @@ export class AgendaService implements OnApplicationBootstrap, OnModuleDestroy {
       ]);
       if (!r.rowCount) throw new NotFoundException('Compromisso não encontrado');
     });
+  }
+
+  // ------------------------------------------------------------------ fiado
+
+  /**
+   * Vender fiado (PDV ou pedido): marca no pedido quem deve, o WhatsApp e quando vai pagar, e põe
+   * a cobrança na agenda pessoal de quem vendeu, com a tag Fiado (criada sozinha). No dia e hora,
+   * o WhatsApp do restaurante manda a cobrança para o cliente (se o pedido ainda tiver saldo).
+   * Marcar de novo o mesmo pedido só muda os dados e o compromisso que já existe.
+   */
+  async fiado(ctx: Ctx, orderId: string, b: FiadoInput) {
+    const phone = normalizePhone(b.phone);
+    if (!phone)
+      throw new UnprocessableEntityException('WhatsApp do cliente inválido: use DDD + número');
+    const name = b.name.trim();
+    const due = new Date(b.dueAt);
+    const res = await this.db.withTenant(ctx, async (tx) => {
+      const o = await one<{
+        id: string;
+        number: number;
+        status: string;
+        total: string;
+        paid_amount: string;
+      }>(
+        tx,
+        `SELECT id, number, status, total::text, paid_amount::text FROM orders WHERE id = $1 FOR UPDATE`,
+        [orderId],
+      );
+      if (!o) throw new NotFoundException('Pedido não encontrado');
+      if (o.status === 'cancelled') throw new ConflictException('Pedido cancelado não vira fiado');
+      const balance = toCents(o.total) - toCents(o.paid_amount);
+      if (balance <= 0) throw new ConflictException('Este pedido já está pago');
+      await tx.$client.query(
+        `UPDATE orders SET fiado_name = $2, fiado_phone = $3, fiado_due_at = $4,
+                fiado_at = COALESCE(fiado_at, now()), fiado_by = COALESCE(fiado_by, $5),
+                customer_name = COALESCE(customer_name, $2)
+          WHERE id = $1`,
+        [o.id, name, phone, due, ctx.userId],
+      );
+      const tagId = await this.fiadoTag(tx, ctx);
+      const title = `Fiado · ${name} · #${o.number}`.slice(0, 120);
+      const notes = `Cobrança do pedido #${o.number}. A mensagem vai para o WhatsApp do cliente no horário do compromisso, se ainda faltar pagar.`;
+      const ends = new Date(due.getTime() + 30 * 60_000);
+      const charge = this.remindFields(due.toISOString());
+      // Um compromisso por pedido: na agenda de quem marcou primeiro.
+      const cur = await one<{ id: string }>(
+        tx,
+        `SELECT id FROM agenda_events WHERE order_id = $1 ORDER BY created_at LIMIT 1 FOR UPDATE`,
+        [o.id],
+      );
+      const row = cur
+        ? await one<EventRow>(
+            tx,
+            `UPDATE agenda_events SET title = $2, starts_at = $3, ends_at = $4, all_day = false,
+                    done = false, charge_name = $5, charge_phone = $6, charge_at = $7,
+                    charge_sent_at = $8, charge_error = NULL
+              WHERE id = $1 RETURNING ${EVENT_COLS}`,
+            [cur.id, title, due, ends, name, phone, charge.at, charge.done],
+          )
+        : await one<EventRow>(
+            tx,
+            `INSERT INTO agenda_events (tenant_id, user_id, title, notes, starts_at, ends_at, tag_id,
+                                        order_id, charge_name, charge_phone, charge_at, charge_sent_at)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING ${EVENT_COLS}`,
+            [
+              ctx.tenantId,
+              ctx.userId,
+              title,
+              notes,
+              due,
+              ends,
+              tagId,
+              o.id,
+              name,
+              phone,
+              charge.at,
+              charge.done,
+            ],
+          );
+      return { event: present(row!), whatsappReady: await this.messaging.canSendText(tx) };
+    });
+    this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId });
+    return res;
+  }
+
+  /** A tag Fiado da pessoa (cria na primeira vez; se ela já tem 50 tags, fica sem tag). */
+  private async fiadoTag(tx: Tx, ctx: Ctx): Promise<string | null> {
+    const t = await one<{ id: string }>(
+      tx,
+      `SELECT id FROM agenda_tags WHERE user_id = $1 AND lower(name) = lower($2)`,
+      [ctx.userId, FIADO_TAG.name],
+    );
+    if (t) return t.id;
+    const n = await one<{ n: string }>(
+      tx,
+      `SELECT count(*) n FROM agenda_tags WHERE user_id = $1`,
+      [ctx.userId],
+    );
+    if (Number(n?.n ?? 0) >= 50) return null;
+    const c = await one<{ id: string }>(
+      tx,
+      `INSERT INTO agenda_tags (tenant_id, user_id, name, color) VALUES ($1,$2,$3,$4) RETURNING id`,
+      [ctx.tenantId, ctx.userId, FIADO_TAG.name, FIADO_TAG.color],
+    );
+    return c!.id;
   }
 
   /** Lembrete com horário que já passou não sai (fica marcado como resolvido). */
@@ -345,7 +515,8 @@ export class AgendaService implements OnApplicationBootstrap, OnModuleDestroy {
   private async tenantsWithWork(): Promise<string[]> {
     if (!this.platformDb.enabled) return [];
     const sql = `SELECT DISTINCT tenant_id FROM agenda_events
-                  WHERE remind_at <= now() AND reminded_at IS NULL`;
+                  WHERE (remind_at <= now() AND reminded_at IS NULL)
+                     OR (charge_at <= now() AND charge_sent_at IS NULL)`;
     const ids = new Set<string>();
     for (const r of await this.platformDb.query<{ tenant_id: string }>(sql)) ids.add(r.tenant_id);
     for (const d of await this.platformDb.eachDedicated<{ tenant_id: string }>(sql))
@@ -421,6 +592,75 @@ export class AgendaService implements OnApplicationBootstrap, OnModuleDestroy {
           ]),
         );
     }
+    return work.due.length + (await this.sweepCharges(tenantId));
+  }
+
+  /**
+   * Cobranças de fiado vencidas: mesma trava dos lembretes (marca antes de mandar). Pedido já pago
+   * não recebe mensagem: o compromisso só fica concluído.
+   */
+  private async sweepCharges(tenantId: string) {
+    const work = await this.db.withTenant({ tenantId }, async (tx) => {
+      const due = await q<{
+        id: string;
+        done: boolean;
+        charge_name: string | null;
+        charge_phone: string;
+        charge_at: Date;
+        number: number | null;
+        balance: string | null;
+        status: string | null;
+        ordered_at: Date | null;
+      }>(
+        tx,
+        `WITH d AS (
+           SELECT id FROM agenda_events
+            WHERE charge_at <= now() AND charge_sent_at IS NULL
+            ORDER BY charge_at LIMIT 50 FOR UPDATE SKIP LOCKED)
+         UPDATE agenda_events e SET charge_sent_at = now()
+           FROM d WHERE e.id = d.id
+         RETURNING e.id, e.done, e.charge_name, e.charge_phone, e.charge_at,
+                   (SELECT o.number FROM orders o WHERE o.id = e.order_id) AS number,
+                   (SELECT GREATEST(o.total - o.paid_amount, 0)::text FROM orders o
+                     WHERE o.id = e.order_id) AS balance,
+                   (SELECT o.status FROM orders o WHERE o.id = e.order_id) AS status,
+                   (SELECT o.created_at FROM orders o WHERE o.id = e.order_id) AS ordered_at`,
+      );
+      return { due, store: due.length ? await this.storeInfo(tx) : null };
+    });
+    for (const e of work.due) {
+      let error: string | null = null;
+      let paid = false;
+      if (e.done) continue;
+      if (e.number === null || e.status === 'cancelled')
+        error = 'O pedido do fiado não existe mais';
+      else if (toCents(e.balance ?? '0') <= 0) paid = true;
+      else if (Date.now() - e.charge_at.getTime() > LATE_LIMIT_MS)
+        error = 'O horário da cobrança passou com o sistema fora do ar';
+      else {
+        const r = await this.messaging.sendText(
+          tenantId,
+          e.charge_phone,
+          chargeText(
+            {
+              name: e.charge_name,
+              number: e.number,
+              balance: e.balance!,
+              orderedAt: e.ordered_at!,
+            },
+            work.store!,
+          ),
+        );
+        if (!r.ok) error = r.error ?? 'Não deu para mandar';
+      }
+      if (error || paid)
+        await this.db.withTenant({ tenantId }, (tx) =>
+          tx.$client.query(
+            `UPDATE agenda_events SET charge_error = $2, done = done OR $3 WHERE id = $1`,
+            [e.id, error?.slice(0, 300) ?? null, paid],
+          ),
+        );
+    }
     return work.due.length;
   }
 }
@@ -462,4 +702,28 @@ export function reminderText(
   ]
     .filter((l) => l !== null)
     .join('\n');
+}
+
+/** Mensagem de cobrança do fiado que vai para o WhatsApp do cliente. */
+export function chargeText(
+  c: { name: string | null; number: number; balance: string; orderedAt: Date },
+  store: { name: string; tz: string },
+) {
+  const first = c.name?.trim().split(/\s+/)[0];
+  const day = c.orderedAt.toLocaleDateString('pt-BR', {
+    timeZone: store.tz,
+    day: '2-digit',
+    month: '2-digit',
+  });
+  const value = (toCents(c.balance) / 100).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+  return [
+    `Olá${first ? `, ${first}` : ''}! Tudo bem? 😊`,
+    '',
+    `Aqui é do *${store.name}*. Passando para lembrar do valor de *${value}* que ficou em aberto no pedido #${c.number}, de ${day}.`,
+    '',
+    'Se já pagou, desconsidere esta mensagem. Qualquer dúvida, é só responder aqui. Obrigado!',
+  ].join('\n');
 }

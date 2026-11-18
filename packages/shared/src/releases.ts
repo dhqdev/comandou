@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.163.0',
+    date: '2026-11-18',
+    title: 'Vender fiado, com cobrança no WhatsApp',
+    summary:
+      'Na Nova venda, o Tipo de atendimento ganhou a opção Fiado: a venda vai para a sua Agenda pessoal com a tag Fiado e, no dia e hora combinados, o WhatsApp do restaurante manda a cobrança para quem está devendo. A aba Agenda virou Agenda pessoal, e Novidades foi para o menu do seu perfil.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Fiado na Nova venda: ao lado de Retirada, escolha Fiado e informe quem está devendo, o WhatsApp dele e o dia e a hora para pagar (o nome e o telefone vêm do cliente escolhido). O botão vira Vender fiado.',
+      },
+      {
+        tag: 'novo',
+        text: 'Num pedido já lançado, o menu de ações ganhou Vender fiado (e Editar fiado). Pedido fiado é concluído com o saldo em aberto sem pedir o motivo de novo: vira "a receber" sozinho.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cada fiado vira um compromisso na sua Agenda pessoal, com a tag Fiado (criada sozinha). No dia e hora do compromisso, o WhatsApp do restaurante (conectado pelo QR Code) manda a cobrança para o cliente. Se o pedido já foi pago, a mensagem não sai e o compromisso fica concluído. Arrastar o compromisso para outro dia muda a cobrança junto.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A aba Agenda agora se chama Agenda pessoal, para não confundir com os calendários do sistema, e ficou sozinha no pé do menu.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Novidades saiu da barra lateral e foi para o menu que abre ao clicar no seu perfil. Quando tem novidade, aparece um ponto no perfil e a marca "novo" ao lado de Novidades.',
+      },
+    ],
+  },
+  {
     version: '0.162.0',
     date: '2026-11-18',
     title: 'Todas as chaves num lugar só: Super Admin › Credenciais',

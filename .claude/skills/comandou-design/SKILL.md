@@ -92,7 +92,10 @@ dia com o total curto e bolinhas, fundo `color-mix` de 9% na cor da situação (
 esquerda); cartões do dia ao lado (embaixo abaixo de 1100 px) e a janela "dados da cobrança" com
 linhas rótulo/valor.
 
-## Agenda (restaurante)
+## Agenda pessoal (restaurante)
+
+No menu se chama **Agenda pessoal** e fica sozinha no pé da barra; Novidades vai no menu do perfil
+(`account__action` com a marca `account__new` "novo"; o ponto laranja fica no avatar do perfil).
 
 `pages/agenda/` (`agenda.css`, prefixo `ag-`), no jeito do Google Agenda: painel de 252 px com
 Criar, o `Calendar` do Design System, as tags como filtros (quadradinho na cor da tag) e o cartão
@@ -102,6 +105,11 @@ tag usa `--cm-brand-500`; fundo `color-mix` de 16–18% e texto misturado com a 
 na esquerda**. Hoje em círculo laranja e a linha da hora atual. Celular (≤860 px): mês com
 bolinhas e a lista do dia tocado embaixo; semana com títulos que quebram; tags, busca e
 lembretes num `Modal` aberto pelo título ou pelo botão de tags.
+
+**Fiado**: na Nova venda é a quinta opção de `nsale__types` (ícone `HandCoins`, só para quem
+pode dar fiado; a grade se ajusta a 4 ou 5 colunas) e abre os campos em `nsale__fiado`. No pedido
+já lançado, `FiadoForm` (`inline-form`) e a nota `od-note[data-tone='warning']`. Não há faixa de
+fiado no PDV (o dono pediu para tirar). Tag Fiado laranja `#E8710A`.
 
 ## Super Admin › E-mail
 

@@ -4,13 +4,13 @@ import { createServer, Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { AgendaService, reminderText } from '../src/agenda/agenda.service';
+import { AgendaService, chargeText, reminderText } from '../src/agenda/agenda.service';
 import { createApp } from '../src/bootstrap';
 import { testEnv, PLATFORM_URL } from './env';
 import { Fixture, ownerQuery, PASSWORD, seedTwoTenants } from './fixtures';
 
 /**
- * Agenda pessoal (aba ao lado de Novidades): compromissos, tags, a permissão dos lembretes pelo
+ * Agenda pessoal (menu, embaixo): compromissos, tags, a permissão dos lembretes pelo
  * WhatsApp e a varredura que manda o lembrete na hora escolhida. Cada pessoa só vê a sua.
  */
 const HOST_A = 'ag-a.comandou.test';
@@ -233,6 +233,188 @@ describe('Agenda', () => {
     expect(list.find((x: { id: string }) => x.id === r.body.id).remindError).toMatch(/desligados/);
     await call('delete', 'adminA', `/agenda/events/${r.body.id}`).expect(204);
     await call('delete', 'adminA', `/agenda/events/${r.body.id}`).expect(404);
+  });
+
+  describe('fiado', () => {
+    let orderId = '';
+    let fiadoEv = '';
+    const newOrder = async () =>
+      (
+        await call('post', 'adminA', '/orders', {
+          channel: 'counter',
+          items: [{ productId: fx.prodA, quantity: 2 }],
+        })
+          .set('Idempotency-Key', `fiado-${Date.now()}-${Math.random()}`)
+          .expect(201)
+      ).body as { id: string; number: number };
+
+    it('vender fiado: vai para a agenda de quem vendeu, com a tag Fiado e a cobrança', async () => {
+      const o = await newOrder();
+      orderId = o.id;
+      // Garçom não dá fiado; número inválido não passa.
+      await call('post', 'waiterA', `/orders/${orderId}/fiado`, {
+        name: 'João',
+        phone: '11912345678',
+        dueAt: at(120),
+      }).expect(403);
+      await call('post', 'adminA', `/orders/${orderId}/fiado`, {
+        name: 'João',
+        phone: '1234-5678',
+        dueAt: at(120),
+      }).expect(422);
+      const r = await call('post', 'adminA', `/orders/${orderId}/fiado`, {
+        name: 'João da Silva',
+        phone: '(11) 91234-5678',
+        dueAt: at(120),
+      }).expect(200);
+      expect(r.body.order).toMatchObject({
+        fiadoName: 'João da Silva',
+        fiadoPhone: '5511912345678',
+      });
+      expect(r.body.event.charge).toMatchObject({ phone: '5511912345678', sentAt: null });
+      expect(r.body.event.order).toMatchObject({ id: orderId, balance: '51.80' });
+      fiadoEv = r.body.event.id;
+      const setup = (await call('get', 'adminA', '/agenda/setup').expect(200)).body;
+      const tag = setup.tags.find((t: { name: string }) => t.name === 'Fiado');
+      expect(tag).toBeTruthy();
+      expect(r.body.event.tagId).toBe(tag.id);
+      // Marcar de novo muda o mesmo compromisso (não cria outro).
+      const again = await call('post', 'adminA', `/orders/${orderId}/fiado`, {
+        name: 'João da Silva',
+        phone: '11912345678',
+        dueAt: at(240),
+      }).expect(200);
+      expect(again.body.event.id).toBe(fiadoEv);
+    });
+
+    it('Nova venda › Fiado: lança o pedido já com o fiado (e confere antes de lançar)', async () => {
+      const body = (fiado: object) => ({
+        channel: 'counter',
+        items: [{ productId: fx.prodA, quantity: 1 }],
+        fiado,
+      });
+      const key = () => `fiado-new-${Date.now()}-${Math.random()}`;
+      const before = (await call('get', 'adminA', '/orders?active=true&limit=500').expect(200)).body
+        .length;
+      // Garçom não vende fiado e número inválido barra antes de lançar: nenhum pedido sobra.
+      await call(
+        'post',
+        'waiterA',
+        '/orders',
+        body({ name: 'Ana', phone: '11955554444', dueAt: at(60) }),
+      )
+        .set('Idempotency-Key', key())
+        .expect(403);
+      await call(
+        'post',
+        'adminA',
+        '/orders',
+        body({ name: 'Ana', phone: '1234-5678', dueAt: at(60) }),
+      )
+        .set('Idempotency-Key', key())
+        .expect(422);
+      expect(
+        (await call('get', 'adminA', '/orders?active=true&limit=500').expect(200)).body.length,
+      ).toBe(before);
+      const r = await call(
+        'post',
+        'adminA',
+        '/orders',
+        body({ name: 'Ana Souza', phone: '(11) 95555-4444', dueAt: at(90) }),
+      )
+        .set('Idempotency-Key', key())
+        .expect(201);
+      expect(r.body).toMatchObject({ fiadoName: 'Ana Souza', fiadoPhone: '5511955554444' });
+      const list = (
+        await call(
+          'get',
+          'adminA',
+          `/agenda/events?from=${encodeURIComponent(at(-60))}&to=${encodeURIComponent(at(600))}`,
+        ).expect(200)
+      ).body;
+      const ev = list.find((e: { order?: { id: string } }) => e.order?.id === r.body.id);
+      expect(ev.charge).toMatchObject({ name: 'Ana Souza', phone: '5511955554444' });
+    });
+
+    it('fiado conclui com saldo sem pedir o "a receber"', async () => {
+      for (const to of ['ready', 'completed'])
+        await call('post', 'adminA', `/orders/${orderId}/status`, { to }).expect(201);
+      const o = (await call('get', 'adminA', `/orders/${orderId}`).expect(200)).body;
+      expect(o.status).toBe('completed');
+      expect(o.receivableReason).toBe('Fiado: João da Silva');
+    });
+
+    it('no dia e hora, o WhatsApp do restaurante cobra o cliente (uma vez só)', async () => {
+      await ownerQuery(
+        `UPDATE agenda_events SET charge_at = now() - interval '1 minute' WHERE id = $1`,
+        [fiadoEv],
+      );
+      const n = gwSent.length;
+      await app.get(AgendaService).sweep();
+      await app.get(AgendaService).sweep();
+      const sent = gwSent.slice(n);
+      expect(sent).toHaveLength(1);
+      expect(sent[0]!.to).toContain('5511912345678');
+      expect(sent[0]!.text).toContain('R$');
+      expect(sent[0]!.text).toContain('51,80');
+      const list = (
+        await call(
+          'get',
+          'adminA',
+          `/agenda/events?from=${encodeURIComponent(at(-60))}&to=${encodeURIComponent(at(600))}`,
+        ).expect(200)
+      ).body;
+      const e = list.find((x: { id: string }) => x.id === fiadoEv);
+      expect(e.charge.sentAt).toBeTruthy();
+      expect(e.charge.error).toBeNull();
+    });
+
+    it('pedido já pago na hora: a cobrança não sai e o compromisso fica concluído', async () => {
+      const o = await newOrder();
+      const r = await call('post', 'adminA', `/orders/${o.id}/fiado`, {
+        name: 'Maria',
+        phone: '11955554444',
+        dueAt: at(60),
+      }).expect(200);
+      await ownerQuery(`UPDATE orders SET paid_amount = total WHERE id = $1`, [o.id]);
+      await ownerQuery(
+        `UPDATE agenda_events SET charge_at = now() - interval '1 minute' WHERE id = $1`,
+        [r.body.event.id],
+      );
+      const n = gwSent.length;
+      await app.get(AgendaService).sweep();
+      expect(gwSent.length).toBe(n);
+      const list = (
+        await call(
+          'get',
+          'adminA',
+          `/agenda/events?from=${encodeURIComponent(at(-60))}&to=${encodeURIComponent(at(600))}`,
+        ).expect(200)
+      ).body;
+      expect(list.find((x: { id: string }) => x.id === r.body.event.id).done).toBe(true);
+      // O outro restaurante não marca fiado em pedido de A.
+      await call('post', 'adminB', `/orders/${o.id}/fiado`, {
+        name: 'X',
+        phone: '11955554444',
+        dueAt: at(60),
+      }).expect(404);
+    });
+
+    it('texto da cobrança', () => {
+      const t = chargeText(
+        {
+          name: 'João da Silva',
+          number: 42,
+          balance: '51.80',
+          orderedAt: new Date('2026-11-18T15:00:00Z'),
+        },
+        { name: 'Fumaça Burger', tz: 'America/Sao_Paulo' },
+      );
+      expect(t).toMatch(/^Olá, João!/);
+      expect(t).toContain('*Fumaça Burger*');
+      expect(t).toContain('pedido #42, de 18/11');
+      expect(t).toMatch(/R\$\s51,80/);
+    });
   });
 
   it('texto do lembrete com dia e hora no fuso do restaurante', () => {

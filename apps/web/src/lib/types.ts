@@ -253,6 +253,11 @@ export interface Order {
   /** Concluído "a receber" (fiado): quando e por quê. */
   receivableAt?: string | null;
   receivableReason?: string | null;
+  /** Vendido fiado: quem deve, o WhatsApp (com 55) e quando combinou de pagar. */
+  fiadoName?: string | null;
+  fiadoPhone?: string | null;
+  fiadoDueAt?: string | null;
+  fiadoAt?: string | null;
   /** staff = lançado pela equipe; online = cardápio online (cliente final). */
   source?: 'staff' | 'online';
   paymentHint?: PaymentMethod | null;

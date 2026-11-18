@@ -11,10 +11,13 @@ import {
   Post,
   Query,
   Req,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
-import { ORDER_CHANNELS, ORDER_STATUSES, ordersLimitedToOwn } from '@comandou/shared';
+import { ORDER_CHANNELS, ORDER_STATUSES, ordersLimitedToOwn, roleHas } from '@comandou/shared';
+import { AgendaService } from '../agenda/agenda.service';
+import { normalizePhone } from '../messaging/messaging.service';
 import { CashService } from '../cash/cash.service';
 import { ctxOf } from '../common/context';
 import {
@@ -29,6 +32,7 @@ import {
   Adjust,
   CreateOrder,
   EditOrderItems,
+  FiadoIn,
   money,
   Payment,
   reason,
@@ -97,7 +101,31 @@ export class OrdersController {
   constructor(
     private readonly orders: OrdersService,
     private readonly cash: CashService,
+    private readonly agenda: AgendaService,
   ) {}
+
+  /**
+   * Vender fiado num pedido já lançado (menu de ações do pedido): quem deve, o WhatsApp e quando
+   * paga. Na venda nova vai junto no POST /orders (`fiado`). Vai para a Agenda pessoal de quem vendeu
+   * (tag Fiado) e, no dia e hora, o WhatsApp do restaurante cobra o cliente. Dar fiado é o mesmo
+   * poder do "a receber" (gerente).
+   */
+  @Post(':id/fiado')
+  @RequirePermission('orders:write')
+  @HttpCode(200)
+  async fiado(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(FiadoIn)) b: z.infer<typeof FiadoIn>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    if (!roleHas(u.role, 'orders:cancel'))
+      throw new ForbiddenException('Vender fiado exige o gerente');
+    const ctx = ctxOf(t, u, req);
+    const r = await this.agenda.fiado(ctx, id, b);
+    return { ...r, order: await this.orders.get(ctx, id) };
+  }
 
   @Get()
   @RequirePermission('orders:read')
@@ -134,14 +162,26 @@ export class OrdersController {
   @Post()
   @BlockWhenBilling()
   @RequirePermission('orders:write')
-  create(
+  async create(
     @Body(new ZodPipe(CreateOrder)) b: z.infer<typeof CreateOrder>,
     @Headers('idempotency-key') key: string | undefined,
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
     @Req() req: Request,
   ) {
-    return this.orders.create(ctxOf(t, u, req), b, validIdempotencyKey(key));
+    const { fiado, ...input } = b;
+    const ctx = ctxOf(t, u, req);
+    // Venda fiado: confere tudo ANTES de lançar, para não sobrar pedido sem o fiado.
+    if (fiado) {
+      if (!roleHas(u.role, 'orders:cancel'))
+        throw new ForbiddenException('Vender fiado exige o gerente');
+      if (!normalizePhone(fiado.phone))
+        throw new UnprocessableEntityException('WhatsApp do cliente inválido: use DDD + número');
+    }
+    const order = await this.orders.create(ctx, input, validIdempotencyKey(key));
+    if (!fiado) return order;
+    await this.agenda.fiado(ctx, order.id, fiado);
+    return this.orders.get(ctx, order.id);
   }
 
   /** O garçom só pede cancelamento (com motivo); quem gere pedidos faz as demais transições. */
