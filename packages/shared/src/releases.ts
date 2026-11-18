@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.166.0',
+    date: '2026-11-18',
+    title: 'Tokens de IA com o saldo de verdade do OpenRouter',
+    summary:
+      'A aba Tokens do Super Admin passa a mostrar o saldo da conta no OpenRouter (com a nova chave de gerenciamento) e separa direitinho quanto o sistema gastou de cada chave.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Super Admin › Credenciais: nova chave opcional "OpenRouter · chave de gerenciamento (saldo)". O OpenRouter só mostra os créditos da conta para esse tipo de chave; com ela, o quadro Saldo no OpenRouter mostra quanto sobra de quanto foi comprado e avisa quando estiver baixo.',
+      },
+      {
+        tag: 'correção',
+        text: 'Sem a chave de gerenciamento, o quadro do topo diz "Sobra no limite da chave" e mostra o limite da chave dos restaurantes (ou da sua), em vez de "sem dados" ou de um aviso de permissão que não tinha como resolver.',
+      },
+      {
+        tag: 'correção',
+        text: 'Quando você não tem a sua chave, a esteira e os testes gastam da chave dos restaurantes: agora esse gasto conta para a chave certa, e o "Fora do Comandou" deixa de acusar como gasto de fora o que foi o próprio sistema. O gasto dos sites com IA com chave própria também deixou de aparecer como sendo da sua chave.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O extrato mostra com qual chave saiu cada chamada do sistema, e ganharam nome as origens Foto do cardápio, Busca no Google Maps e Teste do assistente do WhatsApp. O "Hoje" dos cartões de chave diz que é o dia do OpenRouter (UTC).',
+      },
+    ],
+  },
+  {
     version: '0.165.0',
     date: '2026-11-18',
     title: 'Segurança reforçada: links externos, senhas e exclusão de restaurante',

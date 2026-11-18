@@ -83,6 +83,12 @@ function fakeOpenRouter() {
     req.on('end', () => {
       const body = raw ? (JSON.parse(raw) as Record<string, unknown>) : undefined;
       orCalls.push({ path: req.url!, auth: req.headers.authorization, body });
+      // Chave de gerenciamento: só lê os créditos da conta; não conversa com a IA.
+      if (req.headers.authorization === 'Bearer sk-or-gerencia' && req.url === '/credits') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ data: { total_credits: 20, total_usage: 4.25 } }));
+        return;
+      }
       if (req.headers.authorization !== 'Bearer sk-or-teste') {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: { message: 'No auth' } }));
@@ -509,7 +515,9 @@ describe('Assistente de IA', () => {
     ).body;
     expect(s.settings).toMatchObject({ enabled: true, hasApiKey: true, keyReadable: true });
     expect(JSON.stringify(s)).not.toContain('sk-or-teste');
-    expect(s.account).toMatchObject({ remainingUsd: 7.5, keyLimitUsd: 10 });
+    expect(s.account).toMatchObject({ remainingUsd: 7.5, keyLimitUsd: 10, error: null });
+    // Sem chave de gerenciamento, o topo mostra o que sobra no limite da chave (não o saldo).
+    expect(s.balance).toMatchObject({ from: 'clients', remainingUsd: 7.5, totalUsd: 10 });
     const [row] = await ownerQuery<{ k: Buffer }>(
       `SELECT api_key_enc AS k FROM platform_ai_settings`,
     );
@@ -702,9 +710,54 @@ describe('Assistente de IA', () => {
     o = (await pget('/ai').expect(200)).body;
     expect(o.system.calls).toBeGreaterThanOrEqual(1);
     expect(o.log[0]).toMatchObject({ key: 'owner', source: 'teste', ref: 'sua chave' });
+    expect(o.log[0]).toMatchObject({ via: 'owner' });
+    expect(o.system.byKey.owner).toBeGreaterThan(0);
     o = (await psend('put', '/ai/settings', { ...base, clearOwnerKey: true }).expect(200)).body;
     expect(o.settings.hasOwnerKey).toBe(false);
     expect(o.systemKey).toBe('clients');
+    // Sem a sua chave, o teste do sistema sai da chave dos restaurantes e conta para ela.
+    const before = o.system.byKey.clients;
+    await psend('post', '/ai/test', { key: 'clients', model: 'google/gemini-2.5-flash-lite' });
+    o = (await pget('/ai').expect(200)).body;
+    expect(o.log[0]).toMatchObject({ key: 'owner', via: 'clients' });
+    expect(o.system.byKey.clients).toBeGreaterThan(before);
+  });
+
+  it('chave de gerenciamento mostra o saldo de verdade da conta no OpenRouter', async () => {
+    const base = {
+      enabled: true,
+      model: 'google/gemini-2.5-flash-lite',
+      assistantName: 'Comandinho',
+      defaultMonthlyTokens: 1000,
+      lowBalanceUsd: 2,
+    };
+    const t = (
+      await psend('post', '/ai/test', { apiKey: 'sk-or-gerencia', key: 'admin', model: 'x/y' })
+    ).body;
+    expect(t).toMatchObject({ ok: true, credits: { totalUsd: 20, remainingUsd: 15.75 } });
+    let o = (
+      await psend('put', '/ai/settings', { ...base, adminApiKey: 'sk-or-gerencia' }).expect(200)
+    ).body;
+    expect(o.settings).toMatchObject({ hasAdminKey: true, adminKeyReadable: true });
+    expect(o.balance).toMatchObject({
+      from: 'conta',
+      totalUsd: 20,
+      usedUsd: 4.25,
+      remainingUsd: 15.75,
+    });
+    expect(JSON.stringify(o)).not.toContain('sk-or-gerencia');
+    const [row] = await ownerQuery<{ k: Buffer }>(
+      `SELECT admin_api_key_enc AS k FROM platform_ai_settings`,
+    );
+    expect(row.k.toString()).not.toContain('sk-or-gerencia');
+    const cred = (await pget('/credentials').expect(200)).body;
+    expect(cred.items.find((i: { id: string }) => i.id === 'openrouter_admin')).toMatchObject({
+      configured: true,
+      last4: 'ncia',
+    });
+    o = (await psend('put', '/ai/settings', { ...base, clearAdminKey: true }).expect(200)).body;
+    expect(o.settings.hasAdminKey).toBe(false);
+    expect(o.balance.from).toBe('clients');
   });
 
   it('apaga a própria conversa', async () => {

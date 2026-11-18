@@ -179,6 +179,47 @@ export const CREDENTIALS: CredDef[] = [
     links: [{ label: 'Chaves do OpenRouter', href: 'https://openrouter.ai/settings/keys' }],
   },
   {
+    id: 'openrouter_admin',
+    title: 'OpenRouter · chave de gerenciamento (saldo)',
+    group: 'painel',
+    purpose:
+      'Opcional, mas é o único jeito de ver o saldo da conta. O OpenRouter só mostra os créditos (comprados e gastos) para uma chave de gerenciamento; ela não faz chamada de IA.',
+    fields: [
+      {
+        name: 'Colar a chave',
+        text: (
+          <>
+            a chave de gerenciamento inteira ({code('sk-or-v1-…')}), criada em Management Keys, não
+            em Keys.
+          </>
+        ),
+      },
+    ],
+    check: (
+      <>
+        O <strong>Testar</strong> responde “Funcionou” com o saldo da conta. Salva, o quadro{' '}
+        <em>Saldo no OpenRouter</em> de Tokens de IA passa a mostrar quanto sobra dos créditos e de
+        quanto foi a compra.
+      </>
+    ),
+    steps: [
+      <>
+        Em <strong>openrouter.ai › Settings › Management Keys</strong>, crie uma chave (ex.:{' '}
+        {code('Comandou saldo')}).
+      </>,
+      <>
+        Cole abaixo, teste e salve. Ela fica cifrada e só é usada para ler o saldo, de minuto em
+        minuto quando a aba Tokens está aberta.
+      </>,
+    ],
+    links: [
+      {
+        label: 'Chaves de gerenciamento',
+        href: 'https://openrouter.ai/settings/management-keys',
+      },
+    ],
+  },
+  {
     id: 'openrouter_site',
     title: 'OpenRouter · chave dos sites com IA',
     group: 'painel',

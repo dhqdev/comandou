@@ -33,6 +33,7 @@ Código: `apps/web/src/platform/credentials/` (texto de cada uma em `catalog.tsx
 | **Focus NFe · Token Master** | sim (nota fiscal) | [focusnfe.com.br](https://focusnfe.com.br) › Painel API › Tokens › Token Master. A conta precisa do cadastro de empresas pela API liberado (plano para software house). [Guia da Focus](https://doc.focusnfe.com.br/docs/como-cadastrar-uma-empresa) |
 | **OpenRouter · chave dos restaurantes** | sim (assistente de IA) | [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys), com créditos em [Credits](https://openrouter.ai/settings/credits) |
 | OpenRouter · sua chave | não | a mesma página; separa o gasto do sistema (esteira, testes) |
+| OpenRouter · chave de gerenciamento (saldo) | não | [Management Keys](https://openrouter.ai/settings/management-keys); só lê o saldo da conta (`/credits`), nunca chama a IA. Sem ela, Tokens mostra só o que sobra no limite da chave |
 | OpenRouter · chave dos sites com IA | não | a mesma página; ponha um limite baixo |
 | **Resend · chave de envio** | sim (todo e-mail) | [resend.com/domains](https://resend.com/domains) (verifique o domínio) e [API Keys](https://resend.com/api-keys) com *Sending access*. Remetente em Super Admin › E-mail |
 | **Asaas · chave da API** | sim (mensalidade) | [Integrações › Chaves de API](https://www.asaas.com/customerApiAccessToken/index) (sandbox em sandbox.asaas.com). Depois **Cadastrar webhook no Asaas** no mesmo cartão |

@@ -301,6 +301,7 @@ export class SiteAiService {
       model: r.model,
       usage: result.usage,
       adminId: panel?.admin.id ?? null,
+      key: key.kind,
     }).catch(() => undefined);
     if (!ok)
       throw new UnprocessableEntityException(

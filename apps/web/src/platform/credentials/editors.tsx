@@ -188,7 +188,13 @@ interface AiTest {
   error?: string;
   ms: number;
   usage?: { promptTokens: number; completionTokens: number };
+  credits?: { totalUsd: number | null; remainingUsd: number | null };
 }
+
+const money = (n: number | null | undefined) =>
+  n == null
+    ? '—'
+    : `US$ ${n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const aiBody = (s: AiOverview['settings']) => ({
   enabled: s.enabled,
@@ -198,12 +204,15 @@ const aiBody = (s: AiOverview['settings']) => ({
   lowBalanceUsd: s.lowBalanceUsd,
 });
 
-/** Uma das duas chaves do OpenRouter guardadas em Super Admin › Tokens. */
+/**
+ * Uma das chaves do OpenRouter guardadas em Super Admin › Tokens: a dos restaurantes, a sua e a
+ * de gerenciamento (só lê o saldo da conta).
+ */
 export function OpenRouterEditor({
   kind,
   onSaved,
 }: {
-  kind: 'owner' | 'clients';
+  kind: 'owner' | 'clients' | 'admin';
   onSaved(): void;
 }) {
   const load = useLoad<AiOverview>('/platform/ai');
@@ -228,15 +237,17 @@ function OpenRouterForm({
   o,
   onSaved,
 }: {
-  kind: 'owner' | 'clients';
+  kind: 'owner' | 'clients' | 'admin';
   o: AiOverview;
   onSaved(n: AiOverview): void;
 }) {
   const s = o.settings;
   const owner = kind === 'owner';
-  const has = owner ? s.hasOwnerKey : s.hasApiKey;
-  const readable = owner ? s.ownerKeyReadable : s.keyReadable;
-  const acc = owner ? o.ownerAccount : o.account;
+  const admin = kind === 'admin';
+  const has = admin ? s.hasAdminKey : owner ? s.hasOwnerKey : s.hasApiKey;
+  const readable = admin ? s.adminKeyReadable : owner ? s.ownerKeyReadable : s.keyReadable;
+  const acc = admin ? null : owner ? o.ownerAccount : o.account;
+  const accError = admin ? o.balance.error : acc?.error;
   const [value, setValue] = useState('');
   const [test, setTest] = useState<AiTest | null>(null);
   const { busy, error, run } = useBusy();
@@ -263,7 +274,11 @@ function OpenRouterForm({
       className="adm-cred__form"
       onSubmit={(e) => {
         e.preventDefault();
-        if (value) void save(owner ? { ownerApiKey: value } : { apiKey: value }, 'save');
+        if (value)
+          void save(
+            admin ? { adminApiKey: value } : owner ? { ownerApiKey: value } : { apiKey: value },
+            'save',
+          );
       }}
     >
       <NoKey show={!s.keyConfigured} />
@@ -272,7 +287,13 @@ function OpenRouterForm({
           A chave salva não abre com a INTEGRATIONS_KEY atual. Cole a chave de novo.
         </Alert>
       )}
-      {acc?.error && has && <Alert tone="warning">{acc.error}</Alert>}
+      {accError && has && <Alert tone="warning">{accError}</Alert>}
+      {admin && has && o.balance.from === 'conta' && (
+        <Result ok>
+          Saldo da conta: {money(o.balance.remainingUsd)} de {money(o.balance.totalUsd)} em
+          créditos.
+        </Result>
+      )}
       <div className="adm-backup-grid">
         <TextField
           label={has ? 'Trocar a chave' : 'Colar a chave'}
@@ -285,19 +306,21 @@ function OpenRouterForm({
       </div>
       {test && (
         <Result ok={test.ok}>
-          {test.ok
-            ? `Funcionou em ${(test.ms / 1000).toFixed(1)} s${test.usage ? ` · ${test.usage.promptTokens + test.usage.completionTokens} tokens` : ''}`
-            : `Não funcionou: ${test.error}`}
+          {!test.ok
+            ? `Não funcionou: ${test.error}`
+            : test.credits
+              ? `Funcionou: saldo de ${money(test.credits.remainingUsd)} de ${money(test.credits.totalUsd)} em créditos`
+              : `Funcionou em ${(test.ms / 1000).toFixed(1)} s${test.usage ? ` · ${test.usage.promptTokens + test.usage.completionTokens} tokens` : ''}`}
         </Result>
       )}
       {error && <Alert tone="danger">{error}</Alert>}
       <Actions>
-        {owner && has && (
+        {(owner || admin) && has && (
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => save({ clearOwnerKey: true }, 'clear')}
+            onClick={() => save(admin ? { clearAdminKey: true } : { clearOwnerKey: true }, 'clear')}
             loading={busy === 'clear'}
             disabled={!!busy}
           >

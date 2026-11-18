@@ -112,6 +112,8 @@ export function CredentialsPage() {
         return <OpenRouterEditor kind="clients" onSaved={reload} />;
       case 'openrouter_owner':
         return <OpenRouterEditor kind="owner" onSaved={reload} />;
+      case 'openrouter_admin':
+        return <OpenRouterEditor kind="admin" onSaved={reload} />;
       case 'openrouter_site':
         return <SiteKeyEditor onSaved={reload} />;
       case 'resend':
@@ -261,6 +263,7 @@ export function CredentialsPage() {
                 {jump('backblaze', 'Backblaze B2')}
                 {jump('pagbank', 'PagBank')}
                 {jump('openrouter_owner', 'Sua chave do OpenRouter')}
+                {jump('openrouter_admin', 'Saldo do OpenRouter')}
                 {jump('openrouter_site', 'Chave dos sites')}
                 {jump('github_pipeline', 'GitHub da esteira')}
                 {jump('ifood', 'iFood')}

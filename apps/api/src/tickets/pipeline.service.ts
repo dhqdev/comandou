@@ -8,7 +8,7 @@ import {
 import { levelLabel, nextStage, stageInfo, kindLabel } from '@comandou/shared';
 import type { PoolClient } from 'pg';
 import { ChatTurn, OpenRouterClient } from '../chat/openrouter';
-import { KeyRow, recordSystemUsage, systemKey } from '../platform/ai-keys';
+import { KeyKind, KeyRow, recordSystemUsage, systemKey } from '../platform/ai-keys';
 import { ENV, Env } from '../config/env';
 import { PlatformDb } from '../platform/platform-db.service';
 import { GitHubClient, GitHubError } from './github';
@@ -364,7 +364,11 @@ export class PipelineService implements OnApplicationBootstrap, OnModuleDestroy 
 
   // ------------------------------------------------------------------ IA
   /** A esteira usa a chave do dono (Super Admin › Tokens); sem ela, a dos restaurantes. */
-  private async ai(): Promise<{ client: OpenRouterClient; model: string } | null> {
+  private async ai(): Promise<{
+    client: OpenRouterClient;
+    model: string;
+    key: KeyKind;
+  } | null> {
     const [r] = await this.db.query<KeyRow & { model: string }>(
       `SELECT api_key_enc, owner_api_key_enc, model FROM platform_ai_settings WHERE id`,
     );
@@ -374,6 +378,7 @@ export class PipelineService implements OnApplicationBootstrap, OnModuleDestroy 
     return {
       client: new OpenRouterClient(this.env.OPENROUTER_BASE_URL, k.key),
       model: s.model || r!.model,
+      key: k.kind,
     };
   }
 
@@ -395,6 +400,7 @@ export class PipelineService implements OnApplicationBootstrap, OnModuleDestroy 
       ref: code(ctx.t.number),
       model: ai.model,
       usage: res.usage,
+      key: ai.key,
     }).catch((e: Error) => this.logger.warn(`Uso da esteira não registrado: ${e.message}`));
     const j = parseJson(res.text);
     if (!j) throw new Error('A IA não respondeu no formato combinado; tento de novo');

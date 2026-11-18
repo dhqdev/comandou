@@ -53,9 +53,20 @@ export interface TenantUse {
 
 export type KeyKind = 'owner' | 'clients';
 
+/** Saldo do topo: créditos da conta (chave de gerenciamento) ou o que sobra no limite da chave. */
+export interface Balance {
+  totalUsd: number | null;
+  usedUsd: number | null;
+  remainingUsd: number | null;
+  from: 'conta' | 'clients' | 'owner' | null;
+  error: string | null;
+}
+
 export interface UsageEntry {
   id: string;
   key: KeyKind;
+  /** Chave que pagou: owner, clients, site ou typed (digitada no teste). */
+  via: string;
   source: string;
   sourceLabel: string;
   tenantId: string | null;
@@ -86,6 +97,8 @@ export interface AiOverview {
     keyReadable: boolean;
     hasOwnerKey: boolean;
     ownerKeyReadable: boolean;
+    hasAdminKey: boolean;
+    adminKeyReadable: boolean;
     keyConfigured: boolean;
     model: string;
     modelPrice: ModelInfo | null;
@@ -96,12 +109,14 @@ export interface AiOverview {
   };
   account: Account | null;
   ownerAccount: Account | null;
+  balance: Balance;
   systemKey: KeyKind | null;
   month: { tokens: number; costUsd: number; calls: number };
   system: {
     tokens: number;
     costUsd: number;
     calls: number;
+    byKey: { owner: number; clients: number; site: number };
     bySource: { source: string; label: string; tokens: number; costUsd: number; calls: number }[];
   };
   days: { day: string; tokens: number; costUsd: number; system: number }[];
@@ -158,10 +173,11 @@ export function AiPage() {
 
 function StatusSection({ o, onRefresh }: { o: AiOverview; onRefresh(): void }) {
   const a = o.account;
+  const b = o.balance;
   const s = o.settings;
-  const low = a?.remainingUsd != null && a.remainingUsd <= s.lowBalanceUsd;
+  const low = b.remainingUsd != null && b.remainingUsd <= s.lowBalanceUsd;
   const balancePct =
-    a?.remainingUsd != null && a.totalUsd ? (a.remainingUsd / a.totalUsd) * 100 : null;
+    b.remainingUsd != null && b.totalUsd ? (b.remainingUsd / b.totalUsd) * 100 : null;
   // Passou do limite e sem extras: parou de responder. Com extras, segue gastando deles.
   const overLimit = o.tenants.filter((t) => t.enabled && t.available === 0);
   const onBonus = o.tenants.filter(
@@ -206,11 +222,13 @@ function StatusSection({ o, onRefresh }: { o: AiOverview; onRefresh(): void }) {
       )}
       {low && (
         <Alert tone="warning">
-          Saldo do OpenRouter baixo: {usd(a?.remainingUsd)}. Coloque créditos em openrouter.ai para
-          o assistente não parar.
+          {b.from === 'conta'
+            ? `Saldo do OpenRouter baixo: ${usd(b.remainingUsd)}. Coloque créditos em openrouter.ai para o assistente não parar.`
+            : `Sobra pouco no limite da chave: ${usd(b.remainingUsd)}. Aumente o limite da chave em openrouter.ai para o assistente não parar.`}
         </Alert>
       )}
       {a?.error && s.hasApiKey && <Alert tone="warning">{a.error}</Alert>}
+      {b.error && <Alert tone="warning">{b.error}</Alert>}
       {onBonus.length > 0 && (
         <Alert tone="info">
           {onBonus.map((t) => t.name).join(', ')} já {onBonus.length > 1 ? 'passaram' : 'passou'} do
@@ -227,15 +245,17 @@ function StatusSection({ o, onRefresh }: { o: AiOverview; onRefresh(): void }) {
       )}
       <div className="adm-grid">
         <Tile
-          label="Saldo no OpenRouter"
-          value={usd(a?.remainingUsd ?? o.ownerAccount?.remainingUsd)}
-          level={a?.remainingUsd == null ? 'off' : low ? 'bad' : 'ok'}
+          label={b.from === 'conta' || !b.from ? 'Saldo no OpenRouter' : 'Sobra no limite da chave'}
+          value={usd(b.remainingUsd)}
+          level={b.remainingUsd == null ? 'off' : low ? 'bad' : 'ok'}
           sub={
-            a?.totalUsd != null
-              ? `de ${usd(a.totalUsd)} em créditos`
-              : a?.keyLimitUsd != null
-                ? `limite da chave ${usd(a.keyLimitUsd)}`
-                : 'sem dados'
+            b.from === 'conta'
+              ? `de ${usd(b.totalUsd)} em créditos`
+              : b.from
+                ? `limite de ${usd(b.totalUsd)} na ${b.from === 'owner' ? 'sua chave' : 'chave dos restaurantes'}`
+                : s.hasAdminKey
+                  ? 'sem resposta do OpenRouter'
+                  : 'cadastre a chave de gerenciamento em Credenciais'
           }
           meter={balancePct}
         />
@@ -588,8 +608,9 @@ function KeyCard({ kind, o }: { kind: KeyKind; o: AiOverview }) {
   const has = owner ? s.hasOwnerKey : s.hasApiKey;
   const readable = owner ? s.ownerKeyReadable : s.keyReadable;
   const acc = owner ? o.ownerAccount : o.account;
-  // Uso no OpenRouter que não passou pelo Comandou (esteira fora do sistema, CI, scripts).
-  const tracked = owner ? o.system.costUsd : o.month.costUsd;
+  // Uso no OpenRouter que não passou pelo Comandou (esteira fora do sistema, CI, scripts). O
+  // sistema sem a sua chave gasta da dos restaurantes; o OpenRouter conta o mês em UTC.
+  const tracked = owner ? o.system.byKey.owner : o.month.costUsd + o.system.byKey.clients;
   const outside = acc?.keyMonthUsd != null ? Math.max(0, acc.keyMonthUsd - tracked) : null;
   const level: Level = !has
     ? owner
@@ -626,7 +647,7 @@ function KeyCard({ kind, o }: { kind: KeyKind; o: AiOverview }) {
         </div>
         <dl className="adm-ai-key__stats">
           <div>
-            <dt>Hoje</dt>
+            <dt title="O OpenRouter conta o dia em UTC (vira às 21h de Brasília)">Hoje (UTC)</dt>
             <dd>{usd(acc?.keyDayUsd)}</dd>
           </div>
           <div>
@@ -644,8 +665,8 @@ function KeyCard({ kind, o }: { kind: KeyKind; o: AiOverview }) {
         </dl>
         <p className="adm-sub">
           {owner
-            ? `Pelo sistema este mês: ${usd(o.system.costUsd)} em ${int(o.system.calls)} chamada(s)${o.system.bySource.length ? ` (${o.system.bySource.map((x) => `${x.label} ${compact(x.tokens)}`).join(', ')})` : ''}.`
-            : `Pelos restaurantes este mês: ${usd(o.month.costUsd)} em ${int(o.month.calls)} pergunta(s).`}
+            ? `Pelo sistema este mês: ${usd(o.system.costUsd)} em ${int(o.system.calls)} chamada(s)${o.system.bySource.length ? ` (${o.system.bySource.map((x) => `${x.label} ${compact(x.tokens)}`).join(', ')})` : ''}.${o.system.byKey.clients > 0 ? ` Desse total, ${usd(o.system.byKey.clients, 4)} saiu da chave dos restaurantes.` : ''}${o.system.byKey.site > 0 ? ` ${usd(o.system.byKey.site, 4)} saiu da chave dos sites.` : ''}`
+            : `Pelos restaurantes este mês: ${usd(o.month.costUsd)} em ${int(o.month.calls)} pergunta(s).${o.system.byKey.clients > 0 ? ` O sistema gastou mais ${usd(o.system.byKey.clients, 4)} desta chave.` : ''}`}
           {outside !== null &&
             outside > 0.0001 &&
             ` Fora do Comandou (CI, scripts), aprox.: ${usd(outside)}.`}
@@ -658,6 +679,14 @@ function KeyCard({ kind, o }: { kind: KeyKind; o: AiOverview }) {
     </Card>
   );
 }
+
+/** Com qual chave saiu cada chamada do extrato. */
+const VIA: Record<string, string> = {
+  owner: 'sua chave',
+  clients: 'chave dos restaurantes',
+  site: 'chave dos sites',
+  typed: 'chave digitada no teste',
+};
 
 function UsageSection({ o }: { o: AiOverview }) {
   const [tab, setTab] = useState<'all' | KeyKind | 'grants'>('all');
@@ -711,7 +740,7 @@ function UsageSection({ o }: { o: AiOverview }) {
                     <span className="adm-row__meta">
                       {int(x.tokens)} tokens
                       {x.bonus > 0 ? ` (${int(x.bonus)} dos extras)` : ''} · {x.model} ·{' '}
-                      {x.key === 'owner' ? 'sua chave' : 'chave dos restaurantes'}
+                      {VIA[x.via] ?? 'sua chave'}
                     </span>
                   </span>
                   <span className="adm-row__side">
