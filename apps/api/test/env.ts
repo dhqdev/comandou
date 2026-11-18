@@ -22,6 +22,9 @@ export function testEnv(overrides: Partial<Record<string, string>> = {}): Env {
     DATABASE_OWNER_URL: OWNER_URL,
     COMANDOU_BASE_DOMAIN: 'comandou.test',
     LOG_LEVEL: 'silent',
+    // Polling e varredura dos aplicativos só quando o teste chama (resultado previsível).
+    CHANNELS_POLL_SECONDS: '0',
+    CHANNELS_SWEEP_SECONDS: '0',
     ...overrides,
   });
 }

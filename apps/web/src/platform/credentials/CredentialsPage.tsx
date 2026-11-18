@@ -8,6 +8,8 @@ import { CREDENTIALS, CredDef, CredGroup, TENANT_CREDENTIALS } from './catalog';
 import {
   AsaasEditor,
   BackblazeEditor,
+  ChannelEditor,
+  type ChannelCredState,
   FocusEditor,
   FocusState,
   GithubEditor,
@@ -24,6 +26,7 @@ interface Overview {
   keyConfigured: boolean;
   baseDomain: string;
   focus: FocusState;
+  channels: Record<string, ChannelCredState>;
   items: Status[];
 }
 
@@ -124,6 +127,17 @@ export function CredentialsPage() {
       case 'github_pipeline':
         return <GithubEditor onSaved={reload} />;
       default:
+        if (id.startsWith('channel_')) {
+          const channel = id.slice('channel_'.length);
+          return (
+            <ChannelEditor
+              channel={channel}
+              state={o.channels?.[channel]}
+              keyConfigured={o.keyConfigured}
+              onSaved={reload}
+            />
+          );
+        }
         return null;
     }
   };
@@ -262,7 +276,7 @@ export function CredentialsPage() {
                 {jump('openrouter_owner', 'Sua chave do OpenRouter')}
                 {jump('openrouter_admin', 'Saldo do OpenRouter')}
                 {jump('github_pipeline', 'GitHub da esteira')}
-                {jump('ifood', 'iFood')}
+                {jump('channel_ifood', 'iFood')}
               </div>
             </div>
           </li>

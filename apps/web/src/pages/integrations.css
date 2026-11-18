@@ -1,0 +1,189 @@
+/* Integrações › Aplicativos de delivery (prefixo intg-). Só tokens; a cor de cada aplicativo
+   vem no selo (ChannelBadge). */
+.intg-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.intg-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+}
+
+.intg-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.intg-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--cm-text-muted);
+  font-size: 13px;
+}
+
+.intg-state::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-text-subtle);
+}
+
+.intg-state[data-tone='ok']::before {
+  background: var(--cm-success);
+}
+
+.intg-state[data-tone='warn']::before {
+  background: var(--cm-warning);
+}
+
+.intg-stores {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.intg-store {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--cm-border);
+}
+
+.intg-store__name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--cm-text);
+}
+
+.intg-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 0;
+  font-size: 13px;
+}
+
+.intg-facts dt {
+  color: var(--cm-text-muted);
+}
+
+.intg-facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.intg-error {
+  margin: 0;
+  color: var(--cm-danger);
+  font-size: 13px;
+}
+
+.intg-store__opts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.intg-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--cm-text-muted);
+}
+
+.intg-counts [data-tone='danger'] {
+  color: var(--cm-danger);
+}
+
+.intg-caps summary {
+  cursor: pointer;
+  color: var(--cm-text-muted);
+  font-size: 13px;
+}
+
+.intg-caps ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 4px 12px;
+  font-size: 13px;
+  color: var(--cm-text-subtle);
+}
+
+.intg-caps li::before {
+  content: '–  ';
+}
+
+.intg-caps li[data-on] {
+  color: var(--cm-text);
+}
+
+.intg-caps li[data-on]::before {
+  content: '✓  ';
+  color: var(--cm-success);
+}
+
+.intg-fail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.intg-unlinked {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.intg-unlinked__what {
+  flex: 1 1 260px;
+  align-self: center;
+}
+
+.intg-unlinked__form {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex: 1 1 280px;
+}
+
+.intg-unlinked__form .cm-field {
+  flex: 1;
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .intg-grid {
+    grid-template-columns: 1fr;
+  }
+  .intg-unlinked__form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

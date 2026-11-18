@@ -42,6 +42,7 @@ import {
 import { SupportButton, useSupportUnread } from '../features/store-chat/SupportInbox';
 import type { DiningTable, Order, StoreSettings, Tab } from '../lib/types';
 import '../app/home.css';
+import { ChannelBadge } from '../features/channels/ChannelBadge';
 
 type Filter = 'all' | OrderChannel;
 type Density = 'compact' | 'full';
@@ -145,6 +146,9 @@ function OrderCard({
         <span className="hcard__head">
           <strong>#{order.number}</strong>
           {order.source === 'online' && <span className="hcard__tag">Online</span>}
+          {order.appChannel && (
+            <ChannelBadge channel={order.appChannel} code={order.externalCode} size="sm" />
+          )}
         </span>
         <span className="hcard__pills">
           <span className="hcard__pill">{brl(order.total)}</span>

@@ -11,7 +11,7 @@ import {
   Put,
   Req,
 } from '@nestjs/common';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { Request } from 'express';
 import { z } from 'zod';
 import { isMoneyString } from '@comandou/shared';
@@ -189,7 +189,12 @@ export class CatalogController {
   @RequirePermission('catalog:read')
   listCategories(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
     return this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
-      tx.select().from(categories).orderBy(asc(categories.position), asc(categories.name)),
+      // A categoria técnica dos itens de aplicativo sem vínculo não aparece no cardápio.
+      tx
+        .select()
+        .from(categories)
+        .where(sql`system_kind IS NULL`)
+        .orderBy(asc(categories.position), asc(categories.name)),
     );
   }
 
@@ -269,7 +274,11 @@ export class CatalogController {
   @RequirePermission('catalog:read')
   listProducts(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
     return this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
-      tx.select().from(products).orderBy(asc(products.name)),
+      tx
+        .select()
+        .from(products)
+        .where(sql`system_kind IS NULL`)
+        .orderBy(asc(products.name)),
     );
   }
 

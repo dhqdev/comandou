@@ -38,6 +38,7 @@ Código: `apps/web/src/platform/credentials/` (texto de cada uma em `catalog.tsx
 | **Asaas · chave da API** | sim (mensalidade) | [Integrações › Chaves de API](https://www.asaas.com/customerApiAccessToken/index) (sandbox em sandbox.asaas.com). Depois **Cadastrar webhook no Asaas** no mesmo cartão |
 | PagBank · token, conta e aplicação | não (pagamento pelo app) | [acesso.pagbank.com.br](https://acesso.pagbank.com.br) › Venda online › Integrações › Gerar token; split e Connect liberados pelo comercial. Depois **Criar aplicação no PagBank** |
 | Backblaze B2 · bucket | recomendado | [Buckets](https://secure.backblaze.com/b2_buckets.htm) (privado) e [Application Keys](https://secure.backblaze.com/app_keys.htm) (Read and Write, só o bucket) |
+| iFood, Keeta, 99Food, Rappi, aiqfome, Open Delivery · aplicativo do Comandou | não | Client ID e Client Secret de cada aplicativo (iFood: [Portal do Desenvolvedor](https://developer.ifood.com.br), com o modo centralizado ou distribuído) |
 | GitHub · token da esteira | não | [fine-grained token](https://github.com/settings/personal-access-tokens/new): Contents e Pull requests *Read and write*, Actions *Read-only* |
 
 ### Focus NFe: o que é seu e o que é do restaurante
@@ -51,6 +52,15 @@ produção dela, cifrados. Os endereços da Focus já vêm prontos.
 O token salvo no painel (tabela `platform_credentials`, migração 0082) vale na hora em todas as
 réplicas (cache de 30 s). Sem ele, a API usa a variável antiga `FOCUS_NFE_MASTER_TOKEN`, então uma
 instalação que já usava a variável continua funcionando sem fazer nada.
+
+### Aplicativos de delivery
+
+Cada aplicativo de delivery tem um cartão no painel (`platform_credentials`, nomes `channel_<id>`,
+JSON cifrado com o Client ID, o Client Secret, o modo do iFood e o segredo do webhook quando o
+aplicativo usa um diferente). Vale na hora em todas as réplicas (cache de 30 s). O iFood ainda
+aceita `IFOOD_CLIENT_ID`/`IFOOD_CLIENT_SECRET`/`IFOOD_APP_MODE` do servidor como reserva: o cartão
+mostra "vindo do servidor" até você salvar no painel. O token de cada loja (modo distribuído) fica
+no banco do restaurante, cifrado com o contexto da loja (ADR 0015).
 
 ## Criadas pelo instalador (Docker secrets)
 
@@ -79,7 +89,7 @@ mantém tudo o que já existe.
 
 | Variável | Quando |
 | --- | --- |
-| `IFOOD_CLIENT_ID`, `IFOOD_CLIENT_SECRET`, `IFOOD_APP_MODE` | Cardápio de integração com o iFood ([Portal do Desenvolvedor](https://developer.ifood.com.br)) |
+| `IFOOD_CLIENT_ID`, `IFOOD_CLIENT_SECRET`, `IFOOD_APP_MODE` | Só reserva: o lugar do iFood agora é Super Admin › Credenciais (acima) |
 | `UPDATE_GITHUB_TOKEN` | Repositório privado: o painel acha as versões novas (Contents *Read-only*) |
 | `GHCR_USER`, `GHCR_TOKEN` (e `GITHUB_TOKEN` na instalação) | Imagens privadas no GHCR (token clássico com `read:packages`) |
 | `COMANDOU_ACME_EMAIL` | Avisos do Let's Encrypt, quando o instalador instala o Traefik |

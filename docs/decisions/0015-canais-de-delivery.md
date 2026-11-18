@@ -251,3 +251,42 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
 
 - **Fase 0** (pesquisa e desenho): feita e revista em 2026-11-18 (Open Delivery V2, assinatura da
   Keeta e da Rappi, regras da NFC-e).
+- **Fase 1** (base comum, 0.173.0): migração 0086 e `apps/api/src/integrations/channels/`.
+  - **Adaptador** (`channel-adapter.ts`): `poll`, `ack`, `fetchOrder`, `send`; registro em
+    `ChannelRegistry`. Chamadas só pela `ChannelHttp` (base fixa do canal, tempo limite, repete só
+    rede/429/5xx com espera crescente e o Retry-After, janela de 80% do limite por endpoint).
+  - **Pedido normalizado**: `ExternalOrder` em `packages/shared/src/channels.ts`, conferido por Zod
+    (`external-order.schema.ts`) antes de entrar.
+  - **Entrada única**: `ExternalOrdersService.ingest`/`ingestInTx`, idempotente em (restaurante,
+    canal, id externo) com trava por pedido (`pg_advisory_xact_lock`). Cria o pedido por
+    `OrdersService.createExternalInTx` (`orders.source = 'app'`, `app_channel`, `external_code`):
+    número, histórico, baixa de estoque, cozinha e auditoria iguais aos outros pedidos. Preço do
+    aplicativo; desconto pago pelo aplicativo fica em `channel_orders.channel_discount` e não
+    reduz o pedido. Item sem vínculo entra no produto técnico "Item de aplicativo (sem vínculo)"
+    (`products.system_kind`, inativo e escondido do cardápio) e aparece na tela para ligar
+    (`channel_item_links`, vale para os próximos pedidos). Vínculo automático pelo código do
+    produto e pelo `CMD-<12 hex>` que o Comandou manda no cardápio.
+  - **Caixa de entrada** (`channel_inbox`): grava antes do ack, único por (canal, id do evento);
+    trata em ordem por pedido; reserva de 2 min ao pegar (queda no meio volta sozinha); evento de
+    pedido desconhecido busca o pedido (no máximo 10 consultas por pedido,
+    `channel_order_lookups`); "cancelado/concluído" de pedido que nunca chegou é ignorado; estado só
+    para a frente pelos passos da máquina (`channelPath`).
+  - **Caixa de saída** (`integration_outbox`): gravada na transação da mudança pelo gancho
+    `OrdersService.onTransitionInTx` (só quando a mudança NÃO veio do canal); `SKIP LOCKED`, uma por
+    vez por pedido, 4xx não repete, 403 marca a loja como sem autorização, 8 tentativas e "falhou";
+    vira "confirmado" quando o evento correspondente chega. Pedido de aplicativo aceito não se
+    cancela direto: pede ao aplicativo (`cancel_requested`).
+  - **Polling** (`channel-poller.service.ts`): lojas de `channel_store_claims` (banco central, uma
+    loja num restaurante só) pela função `app_channel_poll_targets()`; trava por credencial
+    (`app_channel_lease`) com intervalo mínimo de 30 s entre réplicas; lotes de 100 lojas; ack só do
+    que foi gravado (banco do restaurante em manutenção: sem ack). Varredura a cada 20 s
+    (`app_channel_tenants()`).
+  - **Credenciais**: Super Admin › Credenciais, `platform_credentials` `channel_<id>` (iFood com o
+    .env de reserva; `IfoodService` passou a ler daí).
+  - **Métricas e alertas**: `comandou_channel_*` (`channel-metrics.ts`) e o grupo `comandou-canais`
+    em `infrastructure/monitoring/alerts.yml` (polling parado é crítico).
+  - **Tela**: Sistema › Aplicativos de delivery (`/integracoes`) e o selo do aplicativo
+    (`ChannelBadge`) em Pedidos, detalhe, PDV, cozinha e entregas.
+  - **Testes**: `test/channels.e2e.test.ts` com o aplicativo falso genérico (`test/fake-channel.ts`).
+  - Ficou para a Fase 2: o adaptador do iFood (pedidos), pagamento do aplicativo fora do caixa,
+    prazo de aceite na tela e o som do pedido de aplicativo.

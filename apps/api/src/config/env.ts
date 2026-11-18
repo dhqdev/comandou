@@ -123,6 +123,17 @@ const schema = z.object({
   ),
   /** Segundos de espera depois de uma alteração antes de mandar ao iFood (junta várias edições). */
   IFOOD_SYNC_DELAY_SECONDS: z.coerce.number().int().min(0).max(3600).default(20),
+  /**
+   * Aplicativos de delivery (ADR 0015). De quantos em quantos segundos buscar eventos (0 = não
+   * busca nesta réplica). Fora dos testes, nunca menos de 30 s (regra do iFood).
+   */
+  CHANNELS_POLL_SECONDS: z.coerce.number().int().min(0).max(3600).default(30),
+  /** Intervalo mínimo entre dois pollings da mesma credencial, entre todas as réplicas. */
+  CHANNELS_POLL_MIN_SECONDS: z.coerce.number().int().min(0).max(3600).default(30),
+  /** Duração da trava do polling: se a réplica cair, outra assume depois disso. */
+  CHANNELS_LEASE_SECONDS: z.coerce.number().int().min(5).max(900).default(90),
+  /** Varredura da caixa de entrada e de saída (o que ficou para trás depois de uma queda). */
+  CHANNELS_SWEEP_SECONDS: z.coerce.number().int().min(0).max(3600).default(20),
   /** API do GitHub usada pela esteira de chamados (troca só nos testes). */
   GITHUB_API_URL: z.string().url().default('https://api.github.com'),
   /** De quantos em quantos segundos a esteira de chamados procura trabalho (0 = parada). */

@@ -1,5 +1,7 @@
 import {
   canTransition,
+  CHANNEL_ACTION_LABELS,
+  type ChannelAction,
   fromCents,
   toCents,
   type ItemStatus,
@@ -26,6 +28,7 @@ import {
   UtensilsCrossed,
   Wallet,
   XCircle,
+  Smartphone,
 } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
@@ -50,7 +53,7 @@ import { mediaUrl } from '../lib/media';
 import { newIdempotencyKey } from '../lib/idempotency';
 import { brl, parseBrlInput } from '../lib/money';
 import { useRealtime } from '../lib/realtime';
-import type { Order, OrderItem, Payment } from '../lib/types';
+import type { AppOrderInfo, Order, OrderItem, Payment } from '../lib/types';
 import {
   CHANNEL_LABELS,
   dateTime,
@@ -73,6 +76,7 @@ import {
   type ReceiptFile,
 } from './PixReceipt';
 import { SidePanel } from './SidePanel';
+import { ChannelBadge } from './channels/ChannelBadge';
 
 const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }[]>> = {
   awaiting: [{ to: 'new', label: 'Aceitar pedido' }],
@@ -346,6 +350,9 @@ export function OrderDetailModal({
           {order.tableLabel && <span className="odh__chip">Mesa {order.tableLabel}</span>}
           {order.tabNumber && <span className="odh__chip">Comanda {order.tabNumber}</span>}
           {order.source === 'online' && <span className="odh__chip">Cardápio online</span>}
+          {order.appChannel && (
+            <ChannelBadge channel={order.appChannel} code={order.externalCode} />
+          )}
         </span>
       </span>
     </span>
@@ -561,6 +568,7 @@ export function OrderDetailModal({
                 <strong>{order.notes || 'Sem observação'}</strong>
               </div>
             </div>
+            {order.app && <AppOrderNote app={order.app} />}
             {order.fiadoAt && (
               <div className="od-note" data-tone="warning">
                 <CalendarClock size={15} aria-hidden />
@@ -694,6 +702,11 @@ export function OrderDetailModal({
                           <span className="od-item__status" data-hue={ITEM_STATUS_HUE[i.status]}>
                             {ITEM_STATUS_LABEL[i.status]}
                           </span>
+                          {order.app?.unlinked.includes(i.id) && (
+                            <Link className="od-item__status" data-hue="amber" to="/integracoes">
+                              sem vínculo
+                            </Link>
+                          )}
                         </div>
                         {i.options.length > 0 && (
                           <div className="od-item__sub">
@@ -1324,6 +1337,53 @@ function RefundForm({
         >
           Confirmar estorno
         </Button>
+      </div>
+    </div>
+  );
+}
+
+const ACTION_STATUS: Record<AppOrderInfo['actions'][number]['status'], string> = {
+  pending: 'na fila',
+  sending: 'enviando…',
+  sent: 'enviado',
+  confirmed: 'confirmado',
+  failed: 'falhou',
+};
+
+/** Pedido de aplicativo: quem paga, o desconto do aplicativo e o que já foi avisado a ele. */
+function AppOrderNote({ app }: { app: AppOrderInfo }) {
+  const failed = app.actions.some((a) => a.status === 'failed');
+  return (
+    <div className="od-note" data-tone={failed || app.unlinkedItems ? 'warning' : undefined}>
+      <Smartphone size={15} aria-hidden />
+      <div>
+        <span>
+          {app.prepaid ? 'Pago no aplicativo' : 'Paga na entrega ou na retirada'}
+          {' · '}
+          {app.deliveredBy === 'channel' ? 'entrega do aplicativo' : 'entrega da loja'}
+          {Number(app.channelDiscount) > 0 &&
+            ` · desconto do aplicativo ${brl(app.channelDiscount)} (volta no repasse)`}
+          {app.pickupCode && ` · código de retirada ${app.pickupCode}`}
+        </span>
+        {app.unlinkedItems > 0 && (
+          <strong>
+            {app.unlinkedItems === 1
+              ? '1 item sem vínculo com o cardápio'
+              : `${app.unlinkedItems} itens sem vínculo com o cardápio`}
+          </strong>
+        )}
+        {app.actions.length > 0 && (
+          <span>
+            {app.actions
+              .map(
+                (a) =>
+                  `${CHANNEL_ACTION_LABELS[a.action as ChannelAction] ?? a.action}: ${ACTION_STATUS[a.status]}${
+                    a.status === 'failed' && a.lastError ? ` (${a.lastError})` : ''
+                  }`,
+              )
+              .join(' · ')}
+          </span>
+        )}
       </div>
     </div>
   );

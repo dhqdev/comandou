@@ -107,6 +107,69 @@ export const CREDENTIALS: CredDef[] = [
     ],
   },
   {
+    id: 'channel_ifood',
+    title: 'iFood · aplicativo do Comandou',
+    group: 'painel',
+    purpose:
+      'Opcional. Recebe os pedidos do iFood e sincroniza o cardápio de integração (uma credencial para todos os restaurantes).',
+    fields: [
+      { name: 'Client ID', text: <>o Client ID do aplicativo, no Portal do Desenvolvedor.</> },
+      { name: 'Client Secret', text: <>o Client Secret do mesmo aplicativo.</> },
+      {
+        name: 'Modo',
+        text: (
+          <>
+            <strong>centralizado</strong>: cada loja autoriza o Comandou no Portal do Parceiro e
+            liga pelo id; <strong>distribuído</strong>: cada loja autoriza com um código.
+          </>
+        ),
+      },
+    ],
+    check: (
+      <>
+        Salvo, este cartão fica verde com o final do segredo. No restaurante, Sistema › Aplicativos
+        de delivery mostra o iFood como disponível. Antes do painel, IFOOD_CLIENT_ID e
+        IFOOD_CLIENT_SECRET do servidor continuam valendo como reserva (aparece “vindo do
+        servidor”).
+      </>
+    ),
+    steps: [
+      <>
+        Crie o aplicativo no{' '}
+        <a href="https://developer.ifood.com.br" target="_blank" rel="noreferrer">
+          Portal do Desenvolvedor do iFood
+        </a>{' '}
+        com os módulos de pedidos, loja, cardápio e financeiro.
+      </>,
+      <>Copie o Client ID e o Client Secret e cole aqui embaixo, com o modo do aplicativo.</>,
+    ],
+    links: [{ label: 'Portal do Desenvolvedor iFood', href: 'https://developer.ifood.com.br' }],
+  },
+  ...(
+    [
+      ['keeta', 'Keeta', 'Portal de desenvolvedores da Keeta (Open Delivery)'],
+      ['99food', '99Food', 'parceria de integração da 99Food'],
+      ['rappi', 'Rappi', 'Rappi Developers (portal de parceiros)'],
+      ['aiqfome', 'aiqfome', 'parceria de integração do aiqfome'],
+      ['opendelivery', 'Open Delivery', 'aplicativo que fala Open Delivery'],
+    ] as const
+  ).map(([id, name, where]): CredDef => ({
+    id: `channel_${id}`,
+    title: `${name} · aplicativo do Comandou`,
+    group: 'painel',
+    purpose: `Opcional. Recebe os pedidos do ${name} quando a integração com ele estiver pronta no Comandou.`,
+    fields: [
+      { name: 'Client ID', text: <>o identificador do aplicativo do Comandou.</> },
+      { name: 'Client Secret', text: <>o segredo do aplicativo.</> },
+      {
+        name: 'Segredo do webhook',
+        text: <>só se o aplicativo assinar os avisos com um segredo diferente do Client Secret.</>,
+      },
+    ],
+    check: <>Salvo, este cartão fica verde com o final do segredo.</>,
+    steps: [<>Peça as credenciais na {where} e cole aqui embaixo.</>],
+  })),
+  {
     id: 'openrouter_clients',
     title: 'OpenRouter · chave dos restaurantes',
     group: 'painel',
@@ -699,41 +762,6 @@ export const CREDENTIALS: CredDef[] = [
     purpose: 'Recebe os avisos dos certificados HTTPS (só quando o instalador instala o Traefik).',
     where: ['COMANDOU_ACME_EMAIL'],
     steps: [<>O instalador pergunta. Use um e-mail que você lê.</>],
-  },
-  {
-    id: 'ifood',
-    title: 'iFood · aplicativo do Comandou',
-    group: 'servidor',
-    purpose:
-      'Opcional. Liga o cardápio de integração com o iFood (pedidos e cardápio sincronizados).',
-    where: ['IFOOD_CLIENT_ID', 'IFOOD_CLIENT_SECRET', 'IFOOD_APP_MODE'],
-    check: (
-      <>
-        Este cartão fica verde com o modo. No restaurante, Cardápio › Cardápios mostra o cardápio do
-        iFood para conectar.
-      </>
-    ),
-    steps: [
-      <>
-        Crie o aplicativo no{' '}
-        <a href="https://developer.ifood.com.br" target="_blank" rel="noreferrer">
-          Portal do Desenvolvedor do iFood
-        </a>
-        . Escolha o modo <strong>centralizado</strong> (um app para todas as lojas, cada loja
-        autoriza no Portal do Parceiro) ou <strong>distribuído</strong> (cada loja autoriza com um
-        código).
-      </>,
-      <>
-        Copie o <strong>Client ID</strong> e o <strong>Client Secret</strong> e ponha no{' '}
-        {code('/etc/comandou/deploy.env')}: {code('IFOOD_CLIENT_ID=…')},{' '}
-        {code('IFOOD_CLIENT_SECRET=…')} e {code('IFOOD_APP_MODE=centralized')} (ou{' '}
-        {code('distributed')}).
-      </>,
-      <>
-        Rode o instalador de novo para aplicar ({code(INSTALL)}): ele mantém tudo o que já existe.
-      </>,
-    ],
-    links: [{ label: 'Portal do Desenvolvedor iFood', href: 'https://developer.ifood.com.br' }],
   },
   {
     id: 'update_github',

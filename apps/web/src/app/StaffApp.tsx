@@ -60,6 +60,10 @@ const WhatsAppPage = lazyPage(
   () => import('../pages/WhatsAppPage'),
   (m) => m.WhatsAppPage,
 );
+const IntegrationsPage = lazyPage(
+  () => import('../pages/IntegrationsPage'),
+  (m) => m.IntegrationsPage,
+);
 const PrintingPage = lazyPage(
   () => import('../pages/PrintingPage'),
   (m) => m.PrintingPage,
@@ -142,6 +146,7 @@ const PANEL_PAGES = [
   PrintingPage,
   FiscalPage,
   WhatsAppPage,
+  IntegrationsPage,
   AiAgentPage,
   PlanPage,
   WaiterApp,
@@ -411,6 +416,14 @@ function Gate() {
             }
           />
           <Route path="nota-fiscal" element={<Navigate to="/fiscal/nfce" replace />} />
+          <Route
+            path="integracoes"
+            element={
+              <Guard path="integracoes">
+                <IntegrationsPage />
+              </Guard>
+            }
+          />
           <Route
             path="whatsapp"
             element={

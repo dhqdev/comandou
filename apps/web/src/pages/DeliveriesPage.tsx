@@ -50,6 +50,7 @@ import { useArrivalSound } from '../lib/sounds';
 import type { Courier, Delivery, Order } from '../lib/types';
 import './deliveries.css';
 import { TourButton } from '../features/tour/PageTour';
+import { ChannelBadge } from '../features/channels/ChannelBadge';
 
 const trackingUrl = (path: string) => `${window.location.origin}${path}`;
 
@@ -621,6 +622,9 @@ function DispatchRow({
       <div className="dl-ready__info">
         <span className="dl-ready__top">
           <strong>#{order.number}</strong>
+          {order.appChannel && (
+            <ChannelBadge channel={order.appChannel} code={order.externalCode} size="sm" />
+          )}
           <span className="dl-ready__name">{order.customerName}</span>
           <span className="dl-ready__wait">há {minutesSince(order.createdAt)} min</span>
           <Badge tone={PAYMENT_STATUS_TONE[order.paymentStatus]}>

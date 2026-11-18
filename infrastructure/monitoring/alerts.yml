@@ -70,3 +70,70 @@ groups:
         annotations:
           summary: 'Nenhum teste de restauração bem-sucedido em 8 dias'
           runbook: 'docs/operations.md#backup-atrasado'
+
+  # Aplicativos de delivery (ADR 0015). "Polling parado" é o crítico: sem ele, pedido do iFood não
+  # chega e o aplicativo cancela sozinho. Os demais avisam ANTES de chegar perto dos limites que
+  # fazem o aplicativo bloquear o Comandou.
+  - name: comandou-canais
+    rules:
+      - alert: ComandouAppPollingParado
+        expr: |
+          max by (channel) (comandou_channel_poll_stores) > 0
+          and on (channel)
+          (time() - max by (channel) (comandou_channel_poll_last_success_timestamp_seconds)) > 180
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: 'Pedidos do {{ $labels.channel }} não estão sendo buscados há mais de 3 minutos'
+          runbook: 'docs/operations.md#aplicativos-de-delivery'
+
+      - alert: ComandouAppErrosNoEndpoint
+        expr: |
+          sum by (channel, endpoint) (rate(comandou_channel_requests_total{result!="2xx"}[10m]))
+            / clamp_min(sum by (channel, endpoint) (rate(comandou_channel_requests_total[10m])), 1e-9)
+            > 0.05
+          and sum by (channel, endpoint) (rate(comandou_channel_requests_total[10m])) > 0.01
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Mais de 5% de erro em {{ $labels.channel }} {{ $labels.endpoint }}'
+          runbook: 'docs/operations.md#aplicativos-de-delivery'
+
+      - alert: ComandouAppPediuParaEsperar
+        expr: sum by (channel, endpoint) (increase(comandou_channel_requests_total{result="429"}[10m])) > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: '{{ $labels.channel }} respondeu 429 em {{ $labels.endpoint }} (perto do limite de chamadas)'
+          runbook: 'docs/operations.md#aplicativos-de-delivery'
+
+      - alert: ComandouAppAckAtrasado
+        expr: |
+          sum by (channel) (rate(comandou_channel_acks_total{result!="ok"}[10m]))
+            / clamp_min(sum by (channel) (rate(comandou_channel_acks_total[10m])), 1e-9) > 0.1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Mais de 10% dos eventos do {{ $labels.channel }} sem ack (o aplicativo vai mandar de novo)'
+          runbook: 'docs/operations.md#aplicativos-de-delivery'
+
+      - alert: ComandouAppAcoesFalhando
+        expr: sum by (channel) (increase(comandou_channel_outbox_total{result="failed"}[30m])) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: 'Ações para o {{ $labels.channel }} falharam de vez (aparecem na tela do restaurante)'
+          runbook: 'docs/operations.md#aplicativos-de-delivery'
+
+      - alert: ComandouAppEventosFalhando
+        expr: sum by (channel) (increase(comandou_channel_events_processed_total{result="failed"}[30m])) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: 'Eventos do {{ $labels.channel }} não foram tratados (aparecem na tela do restaurante)'
+          runbook: 'docs/operations.md#aplicativos-de-delivery'
+
+      - alert: ComandouAppConsultasNoLimite
+        expr: sum by (channel) (increase(comandou_channel_order_lookups_blocked_total[30m])) > 0
+        labels: { severity: warning }
+        annotations:
+          summary: 'Pedido do {{ $labels.channel }} chegou ao limite de 10 consultas'
+          runbook: 'docs/operations.md#aplicativos-de-delivery'

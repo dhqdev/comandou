@@ -37,6 +37,7 @@ import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import type { Order } from '../lib/types';
 import './orders.css';
+import { ChannelBadge } from '../features/channels/ChannelBadge';
 
 const LIMIT = 500;
 
@@ -317,6 +318,9 @@ export function OrdersPage() {
                       <span>
                         {CHANNEL_LABELS[o.channel]}
                         {o.source === 'online' && <span className="ord-tag">online</span>}
+                        {o.appChannel && (
+                          <ChannelBadge channel={o.appChannel} code={o.externalCode} size="sm" />
+                        )}
                       </span>
                     </td>
                     <td className="ord-col-who">

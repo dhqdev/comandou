@@ -18,6 +18,8 @@ export interface PurgeResult {
   pixReceipts: number;
   /** Eventos do pixel do cardápio com mais de 400 dias. */
   menuEvents: number;
+  /** Aplicativos de delivery: evento cru com mais de 90 dias e linhas tratadas com mais de 400. */
+  channelEvents: number;
 }
 
 /**
@@ -60,6 +62,7 @@ export class MaintenanceService implements OnApplicationBootstrap, OnModuleDestr
       deliveryLocations: 0,
       pixReceipts: 0,
       menuEvents: 0,
+      channelEvents: 0,
     };
     const add = (r: PurgeResult) => {
       for (const k of Object.keys(total) as (keyof PurgeResult)[]) total[k] += Number(r[k] ?? 0);

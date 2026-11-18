@@ -72,6 +72,7 @@ import {
 import type { OrderItem } from '../lib/types';
 import '../kitchen/kds.css';
 import { fullscreenSupported, useFullscreen } from '../features/FullscreenTab';
+import { ChannelBadge } from '../features/channels/ChannelBadge';
 
 interface BoardOrder {
   id: string;
@@ -83,6 +84,8 @@ interface BoardOrder {
   tableLabel: string | null;
   tabNumber: number | null;
   customerName: string | null;
+  appChannel?: string | null;
+  externalCode?: string | null;
   items: (Omit<OrderItem, 'options'> & { options: string[] })[];
 }
 interface Board {
@@ -709,6 +712,7 @@ function OrderCard({
     >
       <header className="kds-card__head">
         <strong className="kds-card__num">#{o.number}</strong>
+        {o.appChannel && <ChannelBadge channel={o.appChannel} code={o.externalCode} size="sm" />}
         <span className="kds-chip" data-channel={o.channel}>
           {CHANNEL_ICON[o.channel]}
           {CHANNEL_LABELS[o.channel]}

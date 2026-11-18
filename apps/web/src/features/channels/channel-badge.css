@@ -1,0 +1,26 @@
+.ch-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--ch);
+  color: var(--ch-ink);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.ch-badge--sm {
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.ch-badge__code {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  opacity: 0.85;
+}

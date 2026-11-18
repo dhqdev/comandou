@@ -9,6 +9,8 @@ export type RealtimeEvent =
   | { type: 'tab.changed'; tabId: string }
   | { type: 'cash.changed'; sessionId: string }
   | { type: 'menu.changed' }
+  // Aplicativos de delivery: loja, evento ou item sem vínculo mudou (tela Integrações).
+  | { type: 'channels.changed' }
   // Sincronização de um cardápio com o iFood começou ou terminou.
   | { type: 'ifood.sync'; menuId: string }
   | { type: 'store.changed' }
