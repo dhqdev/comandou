@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.152.2',
+    date: '2026-11-18',
+    title: 'Liga e desliga dos itens no cardápio volta a funcionar',
+    summary:
+      'Em Cardápio › Cardápios, clicar na chavinha verde de um item não fazia nada, então não dava para tirar um item do cardápio. Agora a chavinha responde ao clique; depois é só tocar em Salvar.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Cardápios: a chave de cada item liga e desliga com o clique (o desenho da chave ficava por cima e engolia o clique).',
+      },
+    ],
+  },
+  {
     version: '0.152.1',
     date: '2026-11-18',
     title: 'Colar um valor no campo troca o valor todo',

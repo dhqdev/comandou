@@ -417,7 +417,7 @@ export function MenuEditor() {
                         />
                         <span className="mn-menu-row__diff">{diff ?? ''}</span>
                         <span className="mn-menu-row__acts">
-                          <span className="mn-switch">
+                          <label className="mn-switch">
                             <input
                               type="checkbox"
                               role="switch"
@@ -427,7 +427,7 @@ export function MenuEditor() {
                               onChange={(e) => set(p.id, { on: e.target.checked })}
                             />
                             <span aria-hidden />
-                          </span>
+                          </label>
                           {canWrite && (
                             <Button
                               variant="ghost"

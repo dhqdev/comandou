@@ -402,9 +402,11 @@
   display: inline-flex;
   flex: none;
 }
+/* A caixa invisível fica por cima do trilho desenhado, para o clique chegar nela. */
 .mn-switch input {
   position: absolute;
   inset: 0;
+  z-index: 1;
   margin: 0;
   opacity: 0;
   cursor: pointer;
