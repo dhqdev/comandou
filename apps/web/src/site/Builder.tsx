@@ -575,6 +575,8 @@ export function Builder({
             </span>
           ) : closed ? (
             <span>O cadastro pelo site está fechado no momento. Fale com a gente.</span>
+          ) : mode === 'text' ? (
+            <span>Um item por linha, com o preço no fim.</span>
           ) : (
             <span>Sem site? Use “Vou descrever” e escreva os itens.</span>
           )}

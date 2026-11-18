@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.153.0',
+    date: '2026-11-18',
+    title: 'Novo topo do site',
+    summary:
+      'O começo do site do Comandou foi refeito: título grande no centro, a barra de criar o restaurante num cartão só e, embaixo, a tela da cozinha com o celular da loja na frente, que se endireita conforme a pessoa rola.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Título, frase e selo do teste grátis centralizados, com pontinhos leves ao fundo. Sem espaço vazio sobrando no topo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Criar o restaurante virou um cartão só: a escolha (site, Google Maps ou descrever), o campo com o botão na mesma linha e a dica embaixo. O cartão inteiro acende no foco. Descrevendo, a dica explica como escrever os itens.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Embaixo, a tela de verdade da cozinha com o celular da loja na frente (que continua mostrando o que a pessoa digita). No computador o conjunto chega deitado, fica reto ao rolar e o celular anda mais rápido que a tela de trás. Os avisos não cobrem mais o botão da sacola.',
+      },
+    ],
+  },
+  {
     version: '0.152.3',
     date: '2026-11-18',
     title: 'Tela de entrada mais limpa',

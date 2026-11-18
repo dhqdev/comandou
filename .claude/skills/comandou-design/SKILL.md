@@ -69,6 +69,9 @@ exceções, só no site:
   do aparelho) e um laço por quadro que escreve `--p` nos elementos; o CSS só usa transform e
   opacity e, sem a variável, cai no estado final parado. Cena nova: `useScrollProgress(modo)` e
   uma regra em `scroll.css`. Seções numeradas (`01 / O sistema`) com `SectionHead`.
+- **Topo** (`site/hero.css`): tudo centralizado (selo, título, frase, cartão de criar) e o palco
+  embaixo com a tela da cozinha e o celular da loja na frente. Aviso flutuante nunca cobre o
+  celular. O efeito "deitado que fica reto" é só do palco do topo; não repita em outra seção.
 - **Uiverse** (licença MIT): o efeito de botão físico `.st-press` (borda de baixo mais escura,
   afunda ao apertar), a seta que corre no botão (`CtaButton arrow`), os vistos que se desenham e
   o + que vira − nas perguntas seguem o estilo dos elementos de lá, reescritos com os tokens.

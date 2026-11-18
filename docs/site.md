@@ -12,8 +12,12 @@ O site tem mais movimento que as telas de trabalho, sempre com transform e opaci
 - `motion.ts`: rolagem suave no computador (Lenis; no toque fica a do aparelho, e não age dentro
   de janelas nem de campos de texto) e um único laço por quadro que escreve `--p` (0 a 1) nos
   elementos que andam com a rolagem. `scroll.css` faz o resto.
-- Cenas: o topo sobe e esmaece ao sair (só no computador); a tela do sistema chega deitada e se
-  endireita; a frase grande acende palavra por palavra presa no meio da tela; os três passos se
+- Topo (`hero.css`): selo, título e frase centralizados; a barra de criar o restaurante é um
+  cartão só (escolha, campo com botão e dica). Embaixo, o palco: a tela da cozinha e o celular da
+  loja na frente (o celular mostra o que a pessoa digita), com os avisos sobre a tela de trás. No
+  computador o palco chega deitado e fica reto ao rolar; no celular fica só o celular da loja.
+- Cenas: o texto do topo sobe e esmaece ao sair (só no computador); a tela do sistema cresce ao
+  chegar; a frase grande acende palavra por palavra presa no meio da tela; os três passos se
   empilham (o de baixo encolhe um pouco); as faixas aceleram e viram de lado com a rolagem; a
   marca no rodapé sobe letra por letra; a barra de leitura no topo.
 - React Bits (`site/reactbits/`): `ClickSpark`, `Magnet`, `ShinyText`, `SpotlightCard`,

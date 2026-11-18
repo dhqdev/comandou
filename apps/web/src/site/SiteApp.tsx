@@ -44,6 +44,7 @@ import SpotlightCard from './reactbits/SpotlightCard';
 import StarBorder from './reactbits/StarBorder';
 import './site.css';
 import './scroll.css';
+import './hero.css';
 
 // O site é sempre claro (pedido do dono): não segue o tema do aparelho nem guarda escolha.
 // Roda ao carregar este arquivo, antes do primeiro desenho, para não piscar escuro.
@@ -769,6 +770,7 @@ export function SiteApp() {
 
         <main id="topo">
           <section className="st-hero" ref={hero}>
+            <i className="st-hero__dots" aria-hidden />
             <div className="st-hero__text">
               <span className="st-pill">
                 <i aria-hidden />{' '}
@@ -803,19 +805,37 @@ export function SiteApp() {
               <Builder config={config} onLook={setLook} onMood={react} />
             </div>
             <div className="st-hero__art">
+              {/* O palco anda com a rolagem (deitado no topo, reto ao descer); o de dentro só entra. */}
               <div className="st-stage">
-                <div className="st-peek">
-                  <LivePanda size={120} mood={mood} title="Panda do Comandou" />
+                <div className="st-stage__in">
+                  <div className="st-desk" aria-hidden>
+                    <div className="st-shot__bar">
+                      <i />
+                      <i />
+                      <i />
+                      <span>fumaca.comandou.com/cozinha</span>
+                    </div>
+                    <img
+                      src="/site/cozinha-light.webp"
+                      width={1600}
+                      height={1000}
+                      alt=""
+                      fetchPriority="high"
+                      decoding="async"
+                    />
+                  </div>
+                  <div className="st-phonebox">
+                    <div className="st-peek">
+                      <LivePanda size={112} mood={mood} title="Panda do Comandou" />
+                    </div>
+                    <div className="st-float">
+                      <PhoneMock look={look} />
+                    </div>
+                  </div>
+                  <HeroToasts />
                 </div>
-                <div className="st-float">
-                  <PhoneMock look={look} />
-                </div>
-                <HeroToasts />
               </div>
             </div>
-            <a className="st-scroll" href="#sistema" aria-label="Ver o sistema">
-              <i />
-            </a>
           </section>
 
           <Marquee />

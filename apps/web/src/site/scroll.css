@@ -56,29 +56,12 @@ html.lenis {
   transform: none;
 }
 
-/* ---------------------------------------------------------------- topo sai devagar */
-/* Só no computador: no celular o formulário fica longo e precisa continuar firme na tela. */
-@media (min-width: 901px) {
-  .st-hero__text {
-    transform: translate3d(0, calc(var(--p, 0) * -70px), 0);
-    opacity: calc(1 - var(--p, 0) * 1.1);
-  }
-  .st-hero__art {
-    transform: translate3d(0, calc(var(--p, 0) * -150px), 0) scale(calc(1 - var(--p, 0) * 0.07));
-  }
-  .st-scroll {
-    opacity: calc(1 - var(--p, 0) * 5);
-  }
-}
-
-/* ---------------------------------------------------------------- a tela deita e se endireita */
-.st-rise {
-  perspective: 1600px;
-}
+/* ---------------------------------------------------------------- a tela cresce ao chegar */
+/* (O efeito de deitada e reta fica só no palco do topo, em hero.css.) */
 .st-rise .st-shot {
   transform-origin: 50% 0;
-  transform: translate3d(0, calc((1 - var(--p, 1)) * 48px), 0)
-    rotateX(calc((1 - var(--p, 1)) * 26deg)) scale(calc(0.86 + var(--p, 1) * 0.14));
+  transform: translate3d(0, calc((1 - var(--p, 1)) * 40px), 0)
+    scale(calc(0.93 + var(--p, 1) * 0.07));
   will-change: transform;
 }
 .st-shot__view.glare-hover {
