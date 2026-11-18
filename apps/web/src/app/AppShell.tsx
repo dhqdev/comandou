@@ -6,6 +6,7 @@ import {
   LifeBuoy,
   BookOpen,
   CalendarCheck,
+  CalendarDays,
   ClipboardCheck,
   PackagePlus,
   CreditCard,
@@ -422,6 +423,12 @@ export function AppShell() {
         brandCompact={<StoreBrand name={me?.tenant.name ?? 'Comandou'} compact />}
         items={[...main, ...groups]}
         footer={[
+          {
+            key: 'agenda',
+            to: '/agenda',
+            label: 'Agenda',
+            icon: <CalendarDays />,
+          },
           {
             key: 'novidades',
             to: '/novidades',

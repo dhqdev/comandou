@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.158.0',
+    date: '2026-11-18',
+    title: 'Agenda, no jeito do Google Agenda',
+    summary:
+      'Nova aba Agenda no menu, ao lado de Novidades: cada pessoa da equipe anota o que precisa fazer em cada dia, organiza com as próprias tags e vê tudo por dia, semana, mês ou lista. Se quiser, o assistente lembra pelo WhatsApp na hora escolhida.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Agenda pessoal com as visões Dia, Semana, Mês e Lista: minicalendário do lado, botão Criar, clicar num horário vazio cria ali e dá para arrastar o compromisso para outro dia ou hora (e puxar a borda de baixo para mudar a duração).',
+      },
+      {
+        tag: 'novo',
+        text: 'Tags criadas por você (nome e cor), que também servem de filtro: desmarque uma tag no painel e os compromissos dela somem da tela. Cada compromisso tem anotações e pode ser marcado como concluído.',
+      },
+      {
+        tag: 'novo',
+        text: 'Lembrete pelo WhatsApp: permita uma vez (com o seu número) e escolha em cada compromisso quando avisar: na hora, minutos ou horas antes, na véspera ou num dia e hora à sua escolha. A mensagem sai pelo WhatsApp do restaurante conectado pelo QR Code.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No celular, o mês mostra bolinhas nos dias com compromisso e a lista do dia tocado logo abaixo; tags, busca e lembretes ficam no botão do topo.',
+      },
+    ],
+  },
+  {
     version: '0.157.1',
     date: '2026-11-18',
     title: 'Trocar a senha sem digitar a atual',

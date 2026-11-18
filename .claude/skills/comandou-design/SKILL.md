@@ -92,6 +92,17 @@ dia com o total curto e bolinhas, fundo `color-mix` de 9% na cor da situação (
 esquerda); cartões do dia ao lado (embaixo abaixo de 1100 px) e a janela "dados da cobrança" com
 linhas rótulo/valor.
 
+## Agenda (restaurante)
+
+`pages/agenda/` (`agenda.css`, prefixo `ag-`), no jeito do Google Agenda: painel de 252 px com
+Criar, o `Calendar` do Design System, as tags como filtros (quadradinho na cor da tag) e o cartão
+"Lembretes no WhatsApp" com bolinha de situação; barra com Hoje, setas, título e `Segmented`
+Dia/Semana/Mês/Lista. Cor do compromisso = cor da tag (dado do usuário, em `--ev`/`--tag`), sem
+tag usa `--cm-brand-500`; fundo `color-mix` de 16–18% e texto misturado com a cor, **nunca faixa
+na esquerda**. Hoje em círculo laranja e a linha da hora atual. Celular (≤860 px): mês com
+bolinhas e a lista do dia tocado embaixo; semana com títulos que quebram; tags, busca e
+lembretes num `Modal` aberto pelo título ou pelo botão de tags.
+
 ## Super Admin › E-mail
 
 `apps/web/src/platform/mail/` (`mail.css` só com tokens): três abas, **Resend** (formulário

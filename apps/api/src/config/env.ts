@@ -296,6 +296,8 @@ const schema = z.object({
    */
   TENANT_UPDATE_INTERVAL_SECONDS: z.coerce.number().int().min(0).default(60),
   ONLINE_PAY_INTERVAL_SECONDS: z.coerce.number().int().min(0).default(60),
+  /** Lembretes da Agenda pelo WhatsApp: de quanto em quanto tempo procura os que venceram. 0 desliga. */
+  AGENDA_INTERVAL_SECONDS: z.coerce.number().int().min(0).default(60),
   /** Endereço da API do Asaas (só para testes; o painel escolhe sandbox ou produção). */
   ASAAS_BASE_URL: z.preprocess((v) => (v === '' ? undefined : v), z.string().url().optional()),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),

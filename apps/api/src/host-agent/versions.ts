@@ -11,7 +11,7 @@ import { registryAuthFromEnv, VERSION_RE } from './updater';
  *  - o serviço do Traefik com o nome da versão (comandou-api-v0-108-5) e sem roteadores próprios:
  *    quem manda cada restaurante para ela é o provider HTTP da API principal;
  *  - filas num prefixo próprio e as rotinas de fundo desligadas (cobrança, limpeza, pagamentos
- *    pelo app e chamados rodam só no principal).
+ *    pelo app, lembretes da agenda e chamados rodam só no principal).
  */
 export const PINNED_LABEL = 'comandou.pinned-version';
 
@@ -23,6 +23,7 @@ export const PINNED_ENV: Record<string, string> = {
   MAINTENANCE_INTERVAL_MINUTES: '0',
   BILLING_INTERVAL_MINUTES: '0',
   ONLINE_PAY_INTERVAL_SECONDS: '0',
+  AGENDA_INTERVAL_SECONDS: '0',
   TICKETS_PIPELINE_SECONDS: '0',
   TENANT_UPDATE_INTERVAL_SECONDS: '0',
 };

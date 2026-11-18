@@ -405,6 +405,33 @@ export class MessagingService implements OnModuleInit {
     }
   }
 
+  /**
+   * O WhatsApp da loja consegue mandar texto livre (lembrete da Agenda)? Só pelo QR Code: a API
+   * oficial da Meta exige modelo aprovado para cada mensagem.
+   */
+  async canSendText(tx: Tx) {
+    const s = await this.settingsRow(tx);
+    if (!s?.enabled || s.provider !== 'baileys' || !this.gateway.configured) return false;
+    return this.plans.hasFeature(tx, 'whatsapp');
+  }
+
+  /**
+   * Manda um texto pelo WhatsApp da loja na hora, sem caixa de saída (lembrete da Agenda para a
+   * própria pessoa da equipe). Devolve o motivo quando não deu.
+   */
+  async sendText(tenantId: string, phoneRaw: string, text: string) {
+    const phone = normalizePhone(phoneRaw);
+    if (!phone) return { ok: false, error: 'Número de WhatsApp inválido' };
+    const can = await this.db.withTenant({ tenantId }, (tx) => this.canSendText(tx));
+    if (!can) return { ok: false, error: 'WhatsApp do restaurante desconectado' };
+    try {
+      const r = await this.gateway.send(tenantId, phone, text);
+      return r.ok ? { ok: true } : { ok: false, error: r.error ?? 'erro no envio' };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
   private metaToken(tenantId: string, s: SettingsRow) {
     if (!s.token_enc || !this.env.INTEGRATIONS_KEY) return null;
     try {
