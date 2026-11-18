@@ -287,6 +287,9 @@ export function TenantOverview({
           </dd>
           <dt>Cidade</dt>
           <dd>{p.city ? `${p.city}${p.state ? `/${p.state}` : ''}` : '—'}</dd>
+          {/* O dono também muda estes dados (Conta › Dados do restaurante): quando foi. */}
+          <dt>Atualizado</dt>
+          <dd>{p.updatedAt ? ago(p.updatedAt) : '—'}</dd>
         </dl>
         {missing.length > 0 && <Note level="warn">Falta: {missing.join(', ')}</Note>}
       </Card>

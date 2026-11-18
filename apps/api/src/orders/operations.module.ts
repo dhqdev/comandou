@@ -29,6 +29,7 @@ import { StockCostsService } from '../stock/stock-costs.service';
 import { StockOpsService } from '../stock/stock-ops.service';
 import { StockSectionsController } from '../stock/stock-sections.controller';
 import { UsersController } from '../users/users.controller';
+import { StaffAccountController } from '../users/account.controller';
 import { CashController } from '../cash/cash.controller';
 import { CashService } from '../cash/cash.service';
 import { KitchenController } from '../kitchen/kitchen.controller';
@@ -75,6 +76,7 @@ import { OrdersService } from './orders.service';
 @Module({
   imports: [WhatsAppModule],
   controllers: [
+    StaffAccountController,
     OrdersController,
     PaymentsController,
     TabsController,

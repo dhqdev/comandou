@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.177.0',
+    date: '2026-11-18',
+    title: 'Mude os seus dados e os do restaurante pela Conta',
+    summary:
+      'Na tela Conta tem agora "Meus dados" (seu nome e o e-mail com que você entra) e, para o administrador, "Dados do restaurante" (nome, razão social, CPF ou CNPJ, responsável, telefone, e-mail de cobrança, cidade e UF). O que você muda chega na hora para a equipe do Comandou.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Conta › Dados do restaurante (só o administrador): o mesmo cadastro que o Comandou usa para falar com você e para a cobrança. Trocar o nome do restaurante já muda o topo do sistema.',
+      },
+      {
+        tag: 'novo',
+        text: 'Conta › Meus dados: troque o seu nome e o e-mail de entrada. Para trocar o e-mail, o sistema pede a sua senha atual.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Painel do Comandou: o cadastro do restaurante mostra quando foi atualizado, e o histórico diz quem do restaurante mudou e quais campos.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Só o administrador muda os dados do restaurante, cada um só o do seu; e-mail novo pede a senha atual e não pode ser o de outra conta. As observações internas do Comandou não aparecem nem mudam por aqui.',
+      },
+    ],
+  },
+  {
     version: '0.176.0',
     date: '2026-11-18',
     title: 'Pedidos do iFood chegando sozinhos no Comandou',

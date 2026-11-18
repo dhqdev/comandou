@@ -120,6 +120,8 @@ export const ACTIONS: Record<string, [string, Group]> = {
   'site.trial_created': ['Teste grátis criado pelo site', 'cadastro'],
   'platform.tenant.renamed': ['Restaurante renomeado', 'cadastro'],
   'platform.tenant.profile_updated': ['Cadastro e contato alterados', 'cadastro'],
+  'tenant.profile_updated': ['Dados do restaurante alterados pelo dono', 'cadastro'],
+  'tenant.owner_updated': ['Dono alterou os próprios dados', 'cadastro'],
   'platform.domain_removed': ['Domínio próprio removido', 'cadastro'],
   'platform.tenant.kitchen_created': ['Cozinha criada', 'cadastro'],
   'platform.tenant.kitchen_updated': ['Cozinha alterada', 'cadastro'],
@@ -179,6 +181,8 @@ export function actionLabel(action: string) {
 const groupOf = (action: string): Group => ACTIONS[action]?.[1] ?? 'painel';
 
 const PROFILE_FIELDS: Record<string, string> = {
+  name: 'nome',
+  email: 'e-mail de entrada',
   legalName: 'razão social',
   document: 'CPF/CNPJ',
   contactName: 'responsável',
@@ -295,6 +299,12 @@ export function describe(a: AuditRow, plans: Plan[] = []): string {
         .join(' · ');
     case 'tenant.billing_pay_method':
       return str('method') ? `Agora paga por ${BILLING_TYPE[str('method')!] ?? str('method')}` : '';
+    case 'tenant.profile_updated':
+    case 'tenant.owner_updated': {
+      const f = Array.isArray(d.fields) ? (d.fields as string[]) : [];
+      const renamed = str('from') && str('to') ? ` · ${str('from')} → ${str('to')}` : '';
+      return f.length ? `Campos: ${f.map((k) => PROFILE_FIELDS[k] ?? k).join(', ')}${renamed}` : '';
+    }
     case 'platform.tenant.profile_updated': {
       const f = Array.isArray(d.fields) ? (d.fields as string[]) : [];
       return f.length ? `Campos: ${f.map((k) => PROFILE_FIELDS[k] ?? k).join(', ')}` : '';

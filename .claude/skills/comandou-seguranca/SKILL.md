@@ -38,6 +38,10 @@ cookie, CSRF, corpo gigante e Host estranho.
 - Ação só do dono (plano, equipe, domínio): `ownerOnly(u)` ou papel conferido no serviço.
 - Dado do próprio usuário (agenda, conversa, corridas): filtre por `user_id` no SQL, não só pelo
   restaurante (o RLS separa restaurantes, não pessoas).
+- Cadastro do restaurante (`tenants`/`tenant_profiles`, banco central) pela rota do restaurante:
+  só o dono, só o `t.id` da sessão, nunca `notes` (observação interna do painel), e grave no
+  histórico do painel (`platformAudit` com `by`). Conta da pessoa: só funções que usam
+  `app_current_user()`; trocar e-mail pede a senha atual.
 - `@Public()`: limite próprio (`@Throttle`), token longo (`randomBytes(24+)`, guardado em hash)
   ou cookie do cliente conferido em cada chamada; nunca confie em id vindo do corpo.
 - `@SkipTenant()` desliga a sessão também: só com `PlatformHostGuard` + `PlatformSessionGuard`

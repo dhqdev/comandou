@@ -10,7 +10,9 @@ import {
   Moon,
   Settings,
   Sparkles,
+  Store,
   Sun,
+  UserRound,
   Wand2,
 } from 'lucide-react';
 import { MouseEvent, ReactNode, useEffect, useState } from 'react';
@@ -20,6 +22,7 @@ import { useAuth } from '../app/auth';
 import { clickPoint, switchTheme, useTheme } from '../design-system';
 import { openTeamChat } from '../features/chat/TeamChat';
 import { api } from '../lib/api';
+import { MyDataModal, RestaurantDataModal } from './account/AccountForms';
 import './account.css';
 
 /** Situação da assinatura (o mesmo aviso da faixa do topo). */
@@ -97,11 +100,24 @@ export function AccountPage() {
   }, [seesPlan]);
 
   const nextTheme = theme === 'dark' ? 'light' : 'dark';
+  const [form, setForm] = useState<'me' | 'restaurant' | null>(null);
+  const isOwner = me?.user.role === 'owner';
   const sections: { key: string; title: string; items: Action[] }[] = [
     {
       key: 'restaurante',
       title: 'Seu restaurante',
       items: [
+        ...(isOwner
+          ? [
+              {
+                key: 'dados-restaurante',
+                title: 'Dados do restaurante',
+                text: 'Nome, razão social, CPF ou CNPJ, responsável, telefone e e-mail de cobrança.',
+                icon: <Store />,
+                onClick: () => setForm('restaurant'),
+              },
+            ]
+          : []),
         ...(seesPlan
           ? [
               {
@@ -202,9 +218,16 @@ export function AccountPage() {
       ],
     },
     {
-      key: 'seguranca',
-      title: 'Segurança',
+      key: 'voce',
+      title: 'Você',
       items: [
+        {
+          key: 'meus-dados',
+          title: 'Meus dados',
+          text: 'Seu nome e o e-mail com que você entra no sistema.',
+          icon: <UserRound />,
+          onClick: () => setForm('me'),
+        },
         {
           key: 'senha',
           title: 'Trocar senha',
@@ -253,6 +276,8 @@ export function AccountPage() {
         Sair
       </button>
       <p className="acc__foot">Comandou v{__APP_VERSION__}</p>
+      <MyDataModal open={form === 'me'} onClose={() => setForm(null)} />
+      <RestaurantDataModal open={form === 'restaurant'} onClose={() => setForm(null)} />
     </div>
   );
 }
