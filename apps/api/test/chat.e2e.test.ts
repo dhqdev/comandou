@@ -1089,34 +1089,66 @@ describe('IA que atende o cliente (configurada pelo gerente)', () => {
     expect(bad!.text).toContain('Não consegui esse horário');
   });
 
-  it('WhatsApp: manda o cardápio e o calendário em PDF', async () => {
+  it('WhatsApp: manda o cardápio que o restaurante subiu e o calendário em PDF', async () => {
     const agent = app.get(AiAgentService);
-    agentReply = 'Mandando! [[CARDAPIO_PDF]] [[CALENDARIO_PDF]]';
-    const r = await agent.handle({
-      tenantId: fx.tenantA,
-      from: '5511955550000',
-      text: 'me manda o cardápio e o calendário',
-    });
+    const msg = { tenantId: fx.tenantA, from: '5511955550000', text: 'me manda o cardápio' };
+    const upload = (w: Who, type: string, body: Buffer, name = 'Cardápio da casa.pdf') =>
+      http
+        .post(`/api/v1/ai-agent/menu-files?name=${encodeURIComponent(name)}`)
+        .set('Host', hostOf(w))
+        .set('Cookie', cookies[w])
+        .set(CSRF)
+        .set('Content-Type', type)
+        .send(body);
+    // Sem arquivo do restaurante, a IA não manda cardápio (nem gera um sozinha).
+    agentReply = 'Mandando! [[CARDAPIO]]';
+    const none = await agent.handle(msg);
+    expect(lastSystem()).not.toContain('[[CARDAPIO]]');
+    expect(none!.documents).toEqual([]);
+    // O gerente sobe o PDF e uma foto; o garçom não pode.
+    const pdf = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(4000, 'x')]);
+    const jpg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(2000, 1)]);
+    await upload('waiterA', 'application/pdf', pdf).expect(403);
+    await upload('adminA', 'application/pdf', Buffer.from('<html>oi</html>')).expect(422);
+    await upload('adminA', 'image/png', jpg, 'foto.png').expect(422);
+    await upload('adminA', 'application/pdf', pdf).expect(201);
+    const list = (await upload('adminA', 'image/jpeg', jpg, 'verso.jpeg').expect(201)).body;
+    expect(list.map((f: { fileName: string }) => f.fileName)).toEqual([
+      'Cardápio da casa.pdf',
+      'verso.jpg',
+    ]);
+    // Outro restaurante não vê os arquivos de A.
+    expect((await get('adminB', '/ai-agent/menu-files').expect(200)).body).toEqual([]);
+    await get('adminB', `/ai-agent/menu-files/${list[0].id}`).expect(404);
+    const view = await get('adminA', `/ai-agent/menu-files/${list[0].id}`).expect(200);
+    expect(view.headers['content-type']).toContain('application/pdf');
+
+    agentReply = 'Mandando! [[CARDAPIO]] [[CALENDARIO_PDF]]';
+    const r = await agent.handle({ ...msg, text: 'me manda o cardápio e o calendário' });
+    expect(lastSystem()).toContain('os 2 arquivos');
     expect(r!.text).toBe('Mandando!');
     expect(r!.documents.map((d) => d.fileName)).toEqual([
-      expect.stringMatching(/^Cardápio - .+\.pdf$/),
+      'Cardápio da casa.pdf',
+      'verso.jpg',
       expect.stringMatching(/^Calendário de reservas - .+\.pdf$/),
     ]);
-    for (const d of r!.documents) expect(Buffer.from(d.data.slice(0, 5)).toString()).toBe('%PDF-');
-    // O gerente vê a prévia; o garçom não.
-    await get('waiterA', '/ai-agent/pdf/menu').expect(403);
-    const pdf = await get('adminA', '/ai-agent/pdf/calendar').expect(200);
-    expect(pdf.headers['content-type']).toContain('application/pdf');
+    expect(Buffer.from(r!.documents[0]!.data)).toEqual(pdf);
+    expect(r!.documents[0]!.caption).toContain('Cardápio');
+    expect(r!.documents[1]!.caption).toBeUndefined();
+    // Prévia do calendário só para o gerente.
+    await get('waiterA', '/ai-agent/pdf/calendar').expect(403);
+    const cal = await get('adminA', '/ai-agent/pdf/calendar').expect(200);
+    expect(cal.headers['content-type']).toContain('application/pdf');
     // Desligado pelo gerente: não manda.
     await send('adminA', 'put', '/ai-agent', { sendPdfs: false }).expect(200);
-    agentReply = 'Mandando! [[CARDAPIO_PDF]]';
-    const off = await agent.handle({
-      tenantId: fx.tenantA,
-      from: '5511955550000',
-      text: 'cardápio',
-    });
-    expect(off!.documents).toEqual([]);
+    agentReply = 'Mandando! [[CARDAPIO]]';
+    expect((await agent.handle({ ...msg, text: 'cardápio' }))!.documents).toEqual([]);
     await send('adminA', 'put', '/ai-agent', { sendPdfs: true }).expect(200);
+    // Apagar tira da lista (e só o gerente de A apaga o de A).
+    await send('adminB', 'delete', `/ai-agent/menu-files/${list[1].id}`).expect(404);
+    const left = (await send('adminA', 'delete', `/ai-agent/menu-files/${list[1].id}`).expect(200))
+      .body;
+    expect(left).toHaveLength(1);
   });
 
   it('WhatsApp: tentativa de tirar a IA do papel e link de golpe', async () => {

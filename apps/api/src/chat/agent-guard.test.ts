@@ -9,7 +9,8 @@ import {
   parseActions,
   stripForeignLinks,
 } from './agent-guard';
-import { pdfFileName, renderCalendarPdf, renderMenuPdf } from './agent-pdfs';
+import { pdfFileName, renderCalendarPdf } from './agent-pdfs';
+import { fileTypeOf } from './ai-agent.service';
 import { AGENT_DEFAULTS, customerPrompt, reservationsText } from './ai-agent-prompt';
 import { confirmText } from './ai-agent.service';
 
@@ -26,7 +27,7 @@ describe('parseActions', () => {
       name: 'Maria Silva',
       notes: 'aniversário',
     });
-    expect(a.handoff || a.abuse || a.menuPdf || a.calendarPdf).toBe(false);
+    expect(a.handoff || a.abuse || a.menuFile || a.calendarPdf).toBe(false);
   });
 
   it('reserva incompleta não vira ação', () => {
@@ -40,8 +41,8 @@ describe('parseActions', () => {
   });
 
   it('PDFs, cancelamento, abuso e atendente', () => {
-    const a = parseActions('Segue! [[CARDAPIO_PDF]] [[CALENDARIO_PDF]] [[CANCELAR k7p2m]]');
-    expect(a).toMatchObject({ menuPdf: true, calendarPdf: true, cancel: 'K7P2M', text: 'Segue!' });
+    const a = parseActions('Segue! [[CARDAPIO]] [[CALENDARIO_PDF]] [[CANCELAR k7p2m]]');
+    expect(a).toMatchObject({ menuFile: true, calendarPdf: true, cancel: 'K7P2M', text: 'Segue!' });
     expect(parseActions('Não posso. [[ABUSO]]').abuse).toBe(true);
     expect(parseActions('Já chamo. [[ATENDENTE]]').handoff).toBe(true);
     // Marca desconhecida também some.
@@ -153,9 +154,17 @@ describe('prompt com reservas e memória', () => {
       store,
       now: new Date('2026-11-18T15:00:00Z'),
     };
-    const p = customerPrompt({ ...base, reservations, memory: '- Cliente é alérgico a camarão' });
+    const p = customerPrompt({
+      ...base,
+      reservations,
+      memory: '- Cliente é alérgico a camarão',
+      menuFiles: 2,
+    });
     expect(p).toContain('[[RESERVAR');
-    expect(p).toContain('[[CARDAPIO_PDF]]');
+    expect(p).toContain('[[CARDAPIO]]');
+    expect(p).toContain('os 2 arquivos');
+    // Sem arquivo do restaurante, não promete mandar cardápio.
+    expect(customerPrompt({ ...base, reservations })).not.toContain('[[CARDAPIO]]');
     expect(p).toContain('[[CALENDARIO_PDF]]');
     expect(p).toContain('alérgico a camarão');
     expect(p).toContain('Proteção (nunca quebre)');
@@ -165,7 +174,7 @@ describe('prompt com reservas e memória', () => {
     expect(no).not.toContain('[[CALENDARIO_PDF]]');
     expect(no).toContain('não faz reserva de mesa');
     const noPdf = customerPrompt({ ...base, settings: { ...AGENT_DEFAULTS, sendPdfs: false } });
-    expect(noPdf).not.toContain('[[CARDAPIO_PDF]]');
+    expect(noPdf).not.toContain('[[CARDAPIO]]');
   });
 
   it('texto de confirmação pede SIM', () => {
@@ -183,36 +192,7 @@ describe('prompt com reservas e memória', () => {
 
 describe('PDFs', () => {
   const now = new Date('2026-11-18T15:00:00Z');
-  it('cardápio e calendário saem como PDF', async () => {
-    const menu = await renderMenuPdf({
-      tenantName: 'Casa do Lanche',
-      menu: [
-        {
-          name: 'Lanches',
-          products: [
-            {
-              name: 'X-Burger',
-              description: 'Pão, carne e queijo',
-              price: '25.90',
-              soldOut: false,
-              optionGroups: [
-                {
-                  name: 'Adicionais',
-                  minSelect: 0,
-                  maxSelect: 2,
-                  options: [{ name: 'Bacon', priceDelta: '4' }],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-      showPrices: true,
-      storeUrl: 'https://casa.comandou.com/pedir',
-      now,
-      timezone: 'America/Sao_Paulo',
-    });
-    expect(Buffer.from(menu.slice(0, 5)).toString()).toBe('%PDF-');
+  it('calendário sai como PDF', async () => {
     const days = Array.from({ length: 31 }, (_, i) => {
       const date = new Date(Date.UTC(2026, 10, 18 + i)).toISOString().slice(0, 10);
       return {
@@ -234,6 +214,13 @@ describe('PDFs', () => {
     });
     expect(Buffer.from(cal.slice(0, 5)).toString()).toBe('%PDF-');
     expect(cal.length).toBeLessThan(3 * 1024 * 1024);
+  });
+
+  it('tipo do arquivo do cardápio sai do conteúdo', () => {
+    expect(fileTypeOf(Buffer.from('%PDF-1.7 x'))).toBe('application/pdf');
+    expect(fileTypeOf(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0]))).toBe('image/jpeg');
+    expect(fileTypeOf(Buffer.from('<html>%PDF-'))).toBeNull();
+    expect(fileTypeOf(Buffer.from('RIFF0000WEBPVP8 '))).toBeNull();
   });
 
   it('nome do arquivo aceito pelo WhatsApp', () => {

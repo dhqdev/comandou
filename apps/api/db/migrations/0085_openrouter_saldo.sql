@@ -1,4 +1,4 @@
--- 0084: saldo de verdade do OpenRouter na aba Tokens e o gasto do sistema separado por chave.
+-- 0085: saldo de verdade do OpenRouter na aba Tokens e o gasto do sistema separado por chave.
 -- Somente aditiva.
 --
 -- 1) platform_ai_settings.admin_api_key_enc: chave de gerenciamento do OpenRouter (opcional,

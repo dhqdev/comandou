@@ -4,12 +4,15 @@ import {
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
   OnModuleInit,
   ServiceUnavailableException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { AuditService } from '../audit/audit.service';
 import { menuTreeSql } from '../catalog/menu-sql';
 import { Ctx } from '../common/context';
+import { sniff } from '../common/file-sniff';
 import { open } from '../common/secret-box';
 import { one, q } from '../common/sql';
 import { ENV, Env } from '../config/env';
@@ -32,7 +35,7 @@ import {
   ReserveAction,
   stripForeignLinks,
 } from './agent-guard';
-import { dayLabel, pdfFileName, renderCalendarPdf, renderMenuPdf } from './agent-pdfs';
+import { dayLabel, pdfFileName, renderCalendarPdf } from './agent-pdfs';
 import {
   AGENT_DEFAULTS,
   AgentMenuCategory,
@@ -61,6 +64,28 @@ const STRIKES_TO_BLOCK = 3;
 const BLOCK_HOURS = 24;
 /** Quanto tempo a reserva espera o SIM do cliente. */
 const PENDING_MINUTES = 30;
+/** Cardápio do restaurante: limites por arquivo, quantidade e total. */
+const MENU_PDF_MAX = 10 * 1024 * 1024;
+const MENU_IMAGE_MAX = 3 * 1024 * 1024;
+const MENU_FILES_MAX = 10;
+const MENU_TOTAL_MAX = 20 * 1024 * 1024;
+
+/** Tipo do arquivo pela assinatura (PDF, JPEG ou PNG). */
+export function fileTypeOf(b: Buffer): 'application/pdf' | 'image/jpeg' | 'image/png' | null {
+  if (b.length > 5 && b.toString('latin1', 0, 5) === '%PDF-') return 'application/pdf';
+  const img = sniff(b);
+  return img === 'image/jpeg' || img === 'image/png' ? img : null;
+}
+
+/** Arquivo do cardápio como a tela do gerente vê. */
+interface MenuFileRow {
+  id: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+  createdAt: Date;
+}
+
 /** Telefone fictício do teste do gerente (não reserva nada). */
 const TEST_PHONE = '11900000000';
 /** A IA fica quieta nesta conversa por este tempo depois de chamar alguém da equipe. */
@@ -467,21 +492,27 @@ export class AiAgentService implements OnModuleInit {
     extra: { phone?: string | null; memory?: string | null } = {},
   ) {
     const info = await this.tenantInfo(ctx);
-    const { settings, menu, store, reservations } = await this.db.withTenant(ctx, async (tx) => {
-      const saved = await this.settingsIn(tx);
-      const s = { ...saved, ...(draft ?? {}) };
-      return {
-        settings: s,
-        menu: await this.menuForAi(tx),
-        store: await this.storeIn(tx, info.storeUrl),
-        reservations: await this.reservationsIn(tx, s, extra.phone ?? null),
-      };
-    });
+    const { settings, menu, store, reservations, menuFiles } = await this.db.withTenant(
+      ctx,
+      async (tx) => {
+        const saved = await this.settingsIn(tx);
+        const s = { ...saved, ...(draft ?? {}) };
+        return {
+          settings: s,
+          menu: await this.menuForAi(tx),
+          store: await this.storeIn(tx, info.storeUrl),
+          reservations: await this.reservationsIn(tx, s, extra.phone ?? null),
+          menuFiles: (await one<{ n: number }>(tx, `SELECT count(*)::int AS n FROM ai_menu_files`))!
+            .n,
+        };
+      },
+    );
     return {
       settings,
       store,
       menu,
       reservations,
+      menuFiles,
       tenantName: info.name,
       storeHost: info.storeUrl ? new URL(info.storeUrl).hostname : null,
       system: customerPrompt({
@@ -495,6 +526,7 @@ export class AiAgentService implements OnModuleInit {
         timezone: store.tz,
         reservations,
         memory: extra.memory ?? null,
+        menuFiles,
       }),
     };
   }
@@ -516,25 +548,131 @@ export class AiAgentService implements OnModuleInit {
     }
   }
 
-  // ------------------------------------------------------------ PDFs
+  // ------------------------------------------------------------ cardápio do restaurante (arquivos)
 
-  /** PDF do cardápio liberado para a IA (o mesmo que ela manda no WhatsApp). */
-  async menuPdf(ctx: { tenantId: string }) {
-    const info = await this.tenantInfo(ctx);
-    const { menu, settings, store } = await this.db.withTenant(ctx, async (tx) => ({
-      menu: await this.menuForAi(tx),
-      settings: await this.settingsIn(tx),
-      store: await this.storeIn(tx, info.storeUrl),
-    }));
-    const data = await renderMenuPdf({
-      tenantName: info.name,
-      menu,
-      showPrices: settings.showPrices,
-      storeUrl: settings.sendStoreLink ? store.storeUrl : null,
-      now: new Date(),
-      timezone: store.tz,
+  /** Arquivos do cardápio que o restaurante subiu (sem o conteúdo), na ordem de envio. */
+  listMenuFiles(ctx: Ctx) {
+    return this.db.withTenant(ctx, (tx) => this.menuFilesIn(tx));
+  }
+
+  private menuFilesIn(tx: Tx) {
+    return q<MenuFileRow>(
+      tx,
+      `SELECT id, file_name AS "fileName", content_type AS "contentType", size,
+              created_at AS "createdAt"
+         FROM ai_menu_files ORDER BY position, created_at`,
+    );
+  }
+
+  /**
+   * Guarda um arquivo do cardápio (PDF até 10 MB, foto JPEG/PNG até 3 MB). O tipo sai do
+   * conteúdo, não do que o navegador disse. Até 10 arquivos e 20 MB por restaurante.
+   */
+  async addMenuFile(ctx: Ctx, f: { data: Buffer; contentType: string; name: string }) {
+    const type = fileTypeOf(f.data);
+    if (!type || type !== f.contentType)
+      throw new UnprocessableEntityException('Envie o cardápio em PDF ou foto (JPEG ou PNG)');
+    const max = type === 'application/pdf' ? MENU_PDF_MAX : MENU_IMAGE_MAX;
+    if (f.data.length > max)
+      throw new UnprocessableEntityException(
+        type === 'application/pdf' ? 'O PDF passa de 10 MB' : 'A foto passa de 3 MB',
+      );
+    const ext = type === 'application/pdf' ? 'pdf' : type === 'image/png' ? 'png' : 'jpg';
+    const base =
+      f.name
+        .replace(/\.[a-z0-9]{1,5}$/i, '')
+        .normalize('NFC')
+        .replace(/[^\p{L}\p{N} ._-]/gu, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 70) || 'Cardápio';
+    const fileName = `${base}.${ext}`;
+    await this.db.withTenant(ctx, async (tx) => {
+      // Uma inclusão por vez no restaurante: dois envios juntos não passam do limite.
+      await q(tx, `SELECT pg_advisory_xact_lock(hashtext('ai_menu_files:' || $1::text))`, [
+        ctx.tenantId,
+      ]);
+      const cur = await one<{ n: number; total: number; pos: number }>(
+        tx,
+        `SELECT count(*)::int AS n, COALESCE(sum(size), 0)::int AS total,
+                COALESCE(max(position), -1)::int + 1 AS pos
+           FROM ai_menu_files`,
+      );
+      if (cur!.n >= MENU_FILES_MAX)
+        throw new UnprocessableEntityException(
+          `Até ${MENU_FILES_MAX} arquivos de cardápio. Apague um antes de enviar outro.`,
+        );
+      if (cur!.total + f.data.length > MENU_TOTAL_MAX)
+        throw new UnprocessableEntityException(
+          'Os arquivos do cardápio passam de 20 MB juntos. Apague um ou envie um menor.',
+        );
+      const row = await one<{ id: string }>(
+        tx,
+        `INSERT INTO ai_menu_files (tenant_id, position, file_name, content_type, bytes, size, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+        [ctx.tenantId, cur!.pos, fileName, type, f.data, f.data.length, ctx.userId],
+      );
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'ai_agent.menu_file_added',
+        entity: 'ai_menu_files',
+        entityId: row!.id,
+        data: { fileName, size: f.data.length, type },
+        ip: ctx.ip,
+      });
     });
-    return { data, fileName: pdfFileName('Cardápio', info.name) };
+    return this.listMenuFiles(ctx);
+  }
+
+  async removeMenuFile(ctx: Ctx, id: string) {
+    await this.db.withTenant(ctx, async (tx) => {
+      const r = await one<{ fileName: string }>(
+        tx,
+        `DELETE FROM ai_menu_files WHERE id = $1 RETURNING file_name AS "fileName"`,
+        [id],
+      );
+      if (!r) throw new NotFoundException('Arquivo não encontrado');
+      await this.audit.record(tx, {
+        tenantId: ctx.tenantId,
+        actorUserId: ctx.userId,
+        action: 'ai_agent.menu_file_removed',
+        entity: 'ai_menu_files',
+        entityId: id,
+        data: { fileName: r.fileName },
+        ip: ctx.ip,
+      });
+    });
+    return this.listMenuFiles(ctx);
+  }
+
+  /** Um arquivo com o conteúdo (prévia do gerente). */
+  async menuFile(ctx: Ctx, id: string) {
+    const f = await this.db.withTenant(ctx, (tx) =>
+      one<{ fileName: string; contentType: string; bytes: Buffer }>(
+        tx,
+        `SELECT file_name AS "fileName", content_type AS "contentType", bytes
+           FROM ai_menu_files WHERE id = $1`,
+        [id],
+      ),
+    );
+    if (!f) throw new NotFoundException('Arquivo não encontrado');
+    return f;
+  }
+
+  /** Os arquivos para mandar no WhatsApp, na ordem; a legenda vai só no primeiro. */
+  private async menuDocuments(ctx: { tenantId: string }, tenantName: string) {
+    const rows = await this.db.withTenant(ctx, (tx) =>
+      q<{ fileName: string; bytes: Buffer }>(
+        tx,
+        `SELECT file_name AS "fileName", bytes FROM ai_menu_files ORDER BY position, created_at`,
+      ),
+    );
+    return rows.map((r, i) => ({
+      data: new Uint8Array(r.bytes),
+      fileName: r.fileName,
+      caption: i === 0 ? `Cardápio - ${tenantName}` : undefined,
+    }));
   }
 
   /** PDF do calendário de reservas (próximos dias, horários livres agora). */
@@ -589,7 +727,7 @@ export class AiAgentService implements OnModuleInit {
     const actions: string[] = [];
     let text = out.text;
     if (out.abuse) actions.push('abuse');
-    if (p.settings.sendPdfs && out.menuPdf) actions.push('menu_pdf');
+    if (p.settings.sendPdfs && out.menuFile && p.menuFiles > 0) actions.push('menu_file');
     if (p.settings.sendPdfs && out.calendarPdf && p.reservations) actions.push('calendar_pdf');
     if (out.reserve && p.reservations) {
       const ok = await this.reservations.checkWhatsApp(ctx.tenantId, {
@@ -780,8 +918,8 @@ export class AiAgentService implements OnModuleInit {
 
     // 4) PDFs pedidos pelo cliente.
     const documents: AgentReply['documents'] = [];
-    if (settings.sendPdfs && out.menuPdf)
-      documents.push({ ...(await this.menuPdf(ctx)), caption: `Cardápio - ${p.tenantName}` });
+    if (settings.sendPdfs && out.menuFile && p.menuFiles > 0)
+      documents.push(...(await this.menuDocuments(ctx, p.tenantName)));
     if (settings.sendPdfs && out.calendarPdf && p.reservations)
       documents.push({
         ...(await this.calendarPdf(ctx)),

@@ -56,7 +56,8 @@ class FakeSocket implements SocketLike {
     c:
       | { text: string }
       | { react: unknown }
-      | { document: Buffer; fileName: string; caption?: string },
+      | { document: Buffer; fileName: string; caption?: string }
+      | { image: Buffer; caption?: string },
   ) {
     if (this.failNext) {
       this.failNext = false;
@@ -65,6 +66,10 @@ class FakeSocket implements SocketLike {
     if ('document' in c) {
       this.docs.push({ jid, fileName: c.fileName, caption: c.caption, size: c.document.length });
       return { key: { id: `DOC${this.docs.length}` } };
+    }
+    if ('image' in c) {
+      this.docs.push({ jid, fileName: 'imagem', caption: c.caption, size: c.image.length });
+      return { key: { id: `IMG${this.docs.length}` } };
     }
     if ('react' in c) {
       this.reacts.push({ jid, ...c });
@@ -208,8 +213,21 @@ describe('sessões e API interna', () => {
       fileName: 'Cardápio Casa.pdf',
       caption: 'Nosso cardápio',
     });
+    // Foto do cardápio (JPEG) vai como imagem.
+    const jpg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]).toString('base64');
+    expect(
+      (
+        await call(`/v1/sessions/${t}/document`, 'POST', {
+          to: '5511987654321',
+          fileName: 'Cardápio 1.jpg',
+          data: jpg,
+        })
+      ).status,
+    ).toBe(200);
+    expect(socks[0].docs[1]).toMatchObject({ fileName: 'imagem' });
     for (const bad of [
       { fileName: 'virus.exe', data: pdf },
+      { fileName: 'falso.pdf', data: Buffer.from('<svg onload=x>').toString('base64') },
       { fileName: '../x.pdf', data: pdf },
       { fileName: 'a.pdf', data: Buffer.from('MZ executavel').toString('base64') },
     ])
