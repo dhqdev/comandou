@@ -1,16 +1,58 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Mascot, Spinner, useToast } from '../../design-system';
 import { api } from '../../lib/api';
 import { useRealtimeEvents } from '../../lib/realtime';
 import { ChatMessage, ChatPane, mergeMessages } from '../store-chat/ChatKit';
+import type { ChatTicket } from '../store-chat/chat-media';
 import { HelpMessage, HelpState, helpToKit } from '../store-chat/help-chat';
+
+interface TicketRow {
+  id: string;
+  code: string;
+  title: string;
+  statusLabel: string;
+  done: boolean;
+}
 
 /**
  * Aba "Suporte" do chat: o dono ou gerente fala direto com a equipe da Comandou (dúvida, problema,
  * foto ou vídeo do erro). A Comandou responde pelo Super Admin › Conversas.
  */
-export function HelpTab({ pollMs, onRead }: { pollMs: number; onRead(): void }) {
+export function HelpTab({
+  pollMs,
+  onRead,
+  ticket,
+  onTicket,
+}: {
+  pollMs: number;
+  onRead(): void;
+  /** Chamado que já vem citado (botão "Falar no chat" do chamado). */
+  ticket?: ChatTicket | null;
+  /** Abriu um chamado pelo cartão da mensagem. */
+  onTicket?(): void;
+}) {
   const toast = useToast();
+  const navigate = useNavigate();
+  // Chamados do restaurante para citar pelo clipe (os abertos primeiro).
+  const [tickets, setTickets] = useState<ChatTicket[] | undefined>(undefined);
+  useEffect(() => {
+    api<TicketRow[]>('/support/tickets')
+      .then((rows) =>
+        setTickets(
+          [...rows]
+            .sort((a, b) => Number(a.done) - Number(b.done))
+            .map((r) => ({
+              id: r.id,
+              code: r.code,
+              title: r.title,
+              statusLabel: r.statusLabel,
+              done: r.done,
+            })),
+        ),
+      )
+      .catch(() => setTickets(undefined));
+  }, []);
   const [d, setD] = useState<{
     messages: ChatMessage[];
     hasMore: boolean;
@@ -103,10 +145,20 @@ export function HelpTab({ pollMs, onRead }: { pollMs: number; onRead(): void }) 
           helpToKit(
             await api<HelpMessage>('/help/chat/messages', {
               method: 'POST',
-              json: { body: input.body, fileId: input.fileId ?? null },
+              json: {
+                body: input.body,
+                fileId: input.fileId ?? null,
+                ticketId: input.ticketId ?? null,
+              },
             }),
           )
         }
+        tickets={tickets}
+        initialTicket={ticket}
+        onTicket={(t) => {
+          navigate(`/chamados/${t.id}`);
+          onTicket?.();
+        }}
         onSent={(m) => setD((x) => (x ? { ...x, messages: mergeMessages(x.messages, [m]) } : x))}
         onError={(m) => toast(m, 'danger')}
         placeholder="Escreva para a Comandou"

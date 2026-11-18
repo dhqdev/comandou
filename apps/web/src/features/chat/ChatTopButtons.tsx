@@ -21,7 +21,7 @@ export function ChatTopButtons() {
       <button
         type="button"
         className="tc-top tc-top--ai"
-        onClick={() => openTeamChat('ia')}
+        onClick={() => openTeamChat('ia', { toggle: true })}
         aria-label="Assistente de IA: tire dúvidas e peça ajuda"
         title="Assistente de IA"
       >
@@ -33,7 +33,7 @@ export function ChatTopButtons() {
       <button
         type="button"
         className="tc-top"
-        onClick={() => openTeamChat('conversas')}
+        onClick={() => openTeamChat('conversas', { toggle: true })}
         aria-label={unread ? `Chat: ${unread} não ${unread === 1 ? 'lida' : 'lidas'}` : 'Chat'}
         title="Chat com a equipe, clientes e suporte"
       >

@@ -6,10 +6,8 @@ import {
   CircleHelp,
   LifeBuoy,
   Lightbulb,
-  Loader2,
   MessageSquare,
   Plus,
-  Send,
 } from 'lucide-react';
 import {
   CSSProperties,
@@ -33,7 +31,8 @@ import {
 } from '../design-system';
 import type { Prepared } from '../features/store-chat/chat-media';
 import { ago, TicketChat } from '../features/tickets/TicketChat';
-import { AttachPicker, AttachPreviews } from '../features/tickets/TicketParts';
+import { talkAboutTicket } from '../features/chat/TeamChat';
+import { AttachPicker } from '../features/tickets/TicketParts';
 import {
   type TicketEvent,
   type TicketFile,
@@ -411,12 +410,8 @@ function TicketView({ id }: { id: string }) {
   const toast = useToast();
   const [t, setT] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [text, setText] = useState('');
-  const [files, setFiles] = useState<Prepared[]>([]);
-  const [sending, setSending] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const boxRef = useRef<HTMLTextAreaElement>(null);
   const seen = useRef(0);
   const load = useCallback(() => {
     api<Detail>(`${BASE}/${id}`)
@@ -452,34 +447,6 @@ function TicketView({ id }: { id: string }) {
     if (seen.current === 0 || nearEnd) el.scrollTop = el.scrollHeight;
     seen.current = count;
   }, [count]);
-
-  // A caixa cresce com o texto (até um limite) e volta ao tamanho de uma linha depois de enviar.
-  useLayoutEffect(() => {
-    const el = boxRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
-  }, [text]);
-
-  async function send(e?: FormEvent) {
-    e?.preventDefault();
-    if (sending || (!text.trim() && !files.length)) return;
-    setSending(true);
-    try {
-      const ids: string[] = [];
-      for (const f of files) ids.push((await uploadTicketFile(BASE, id, f)).id);
-      await api(`${BASE}/${id}/messages`, { method: 'POST', json: { body: text, fileIds: ids } });
-      setText('');
-      setFiles([]);
-      seen.current = 0; // a própria mensagem sempre aparece embaixo
-      load();
-      boxRef.current?.focus();
-    } catch (err) {
-      toast((err as Error).message, 'danger');
-    } finally {
-      setSending(false);
-    }
-  }
 
   async function cancel() {
     if (!confirm('Cancelar este chamado?')) return;
@@ -518,7 +485,7 @@ function TicketView({ id }: { id: string }) {
         <StatusPill label={t.statusLabel} step={t.step} done={t.done} />
       </header>
       <div className="tkv__body">
-        <section className="tkv__chat" ref={chatRef} aria-label="Conversa com o suporte">
+        <section className="tkv__chat" ref={chatRef} aria-label="Andamento do chamado">
           <div className="tkv__scroll" ref={scrollRef}>
             <TicketChat
               description={t.description}
@@ -541,44 +508,28 @@ function TicketView({ id }: { id: string }) {
               Este chamado foi cancelado. Se precisar, abra outro na lista de chamados.
             </div>
           ) : (
-            <form className="tkv__compose" onSubmit={send}>
-              <AttachPreviews files={files} onChange={setFiles} />
-              <div className="tkv__box">
-                <AttachPicker
-                  files={files}
-                  onChange={setFiles}
-                  label="Anexar foto ou vídeo"
-                  compact
-                />
-                <textarea
-                  ref={boxRef}
-                  rows={1}
-                  maxLength={4000}
-                  aria-label="Mensagem"
-                  placeholder="Escreva sua mensagem…"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-                      e.preventDefault();
-                      void send();
-                    }
-                  }}
-                />
-                <button
-                  type="submit"
-                  className="tk-icon-btn tk-send"
-                  aria-label="Enviar"
-                  title="Enviar"
-                  disabled={sending || (!text.trim() && !files.length)}
-                >
-                  {sending ? <Loader2 size={18} className="tk-spin" /> : <Send size={17} />}
-                </button>
-              </div>
-              <span className="tkv__hint">
-                Enter envia · Shift + Enter pula linha · fotos e vídeos de até 20 MB
+            // A conversa sobre o chamado é pelo chat (aba Suporte), com o chamado junto.
+            <div className="tkv__talk">
+              <span>
+                <b>Quer falar sobre este chamado?</b>
+                Fale com a Comandou pelo chat. O chamado vai junto na mensagem.
               </span>
-            </form>
+              <Button
+                variant="primary"
+                icon={<MessageSquare size={16} />}
+                onClick={() =>
+                  talkAboutTicket({
+                    id: t.id,
+                    code: t.code,
+                    title: t.title,
+                    statusLabel: t.statusLabel,
+                    done: t.done,
+                  })
+                }
+              >
+                Falar no chat
+              </Button>
+            </div>
           )}
         </section>
         <aside className="tkv__side">

@@ -322,6 +322,26 @@
   font-size: var(--cm-text-xs);
   color: var(--cm-text-subtle);
 }
+.tkv__talk {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+}
+.tkv__talk span {
+  display: grid;
+  gap: 2px;
+  flex: 1 1 240px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+.tkv__talk b {
+  color: var(--cm-text);
+}
 .tkv__closed {
   padding: 14px 16px;
   border-top: 1px solid var(--cm-border);

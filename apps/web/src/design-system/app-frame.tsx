@@ -74,6 +74,9 @@ export interface FrameItem {
   also?: string | string[];
   /** Bolinha de aviso no ícone. */
   dot?: boolean;
+  /** Número de avisos (ex.: conversas com mensagem nova): na frente do nome no menu largo, no
+   * ícone no menu estreito e nas abas. Troca a bolinha. */
+  count?: number;
   children?: FrameLink[];
   /** Conteúdo livre do submenu (ex.: conta do usuário). */
   panel?: ReactNode;
@@ -87,6 +90,7 @@ export interface FrameItem {
 }
 
 const WIDE_KEY = 'cm-rail-wide';
+const badgeText = (n: number) => (n > 99 ? '99+' : String(n));
 /** Menu largo é o padrão; quem recolheu continua recolhido. */
 function readWide() {
   try {
@@ -301,7 +305,13 @@ export function AppFrame({
       <>
         <span className="cm-rail__icon">
           {it.icon}
-          {it.dot && <span className="cm-rail__dot" aria-hidden />}
+          {it.count && !wide ? (
+            <span className="cm-rail__badge" aria-hidden>
+              {badgeText(it.count)}
+            </span>
+          ) : (
+            it.dot && !it.count && <span className="cm-rail__dot" aria-hidden />
+          )}
         </span>
         {wide && it.profile ? (
           <span className="cm-rail__label cm-rail__profile">
@@ -315,6 +325,12 @@ export function AppFrame({
             {wide ? it.label : (it.short ?? it.label)}
           </span>
         )}
+        {wide && !!it.count && (
+          <span className="cm-rail__count" aria-hidden>
+            {badgeText(it.count)}
+          </span>
+        )}
+        {!!it.count && <span className="cm-sr-only">, {it.count} novas</span>}
       </>
     );
     if (it.to)
@@ -536,7 +552,13 @@ export function AppFrame({
               <>
                 <span className="cm-tabbar__icon">
                   {it.icon}
-                  {it.dot && <span className="cm-rail__dot" aria-hidden />}
+                  {it.count ? (
+                    <span className="cm-rail__badge" aria-hidden>
+                      {badgeText(it.count)}
+                    </span>
+                  ) : (
+                    it.dot && <span className="cm-rail__dot" aria-hidden />
+                  )}
                 </span>
                 <span className="cm-tabbar__label">{it.short ?? it.label}</span>
               </>
@@ -779,7 +801,7 @@ function FrameMenu({
         icon: i.icon,
         end: i.end,
         also: i.also,
-        dot: i.dot,
+        dot: i.dot || !!i.count,
       }));
   const plain = (list: FrameItem[]): TileAction[] =>
     list

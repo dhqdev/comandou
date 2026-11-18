@@ -33,6 +33,7 @@ import { SupportDeskService } from './support-desk.service';
 const Message = z.object({
   body: z.string().max(2000).default(''),
   fileId: z.string().uuid().nullable().optional(),
+  ticketId: z.string().uuid().nullable().optional(),
 });
 const Before = z.string().datetime({ offset: true });
 const Dim = z.coerce.number().int().min(1).max(8192).optional();

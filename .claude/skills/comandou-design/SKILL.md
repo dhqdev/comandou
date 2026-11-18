@@ -117,7 +117,26 @@ ocupa a altura que sobra na tela (`--tkv-top` medido ao abrir, descontando `--ta
 celular), balão do restaurante em `--cm-brand-50` à direita e do suporte em superfície à esquerda
 com o fone (`Headset`), pílula de dia e de aviso no meio, caixa de escrever em pílula com clipe e
 botão redondo. Coluna do lado (320 px) com os passos verticais `tk-vsteps` e os detalhes
-`tk-facts`. O painel Super Admin segue com o `EventLine` de `TicketParts.tsx`.
+`tk-facts`. Desde a 0.155 o chamado não tem caixa de escrever: a faixa `tkv__talk` com **Falar no
+chat** leva para o Suporte com o chamado citado. O painel Super Admin segue com o `EventLine` de
+`TicketParts.tsx` na aba Notas.
+
+## Super Admin › Conversas
+
+`platform/SupportPage.tsx` (estilos em `admin.css`, prefixos `sinbox`/`sdesk`): lista de 320 px, a
+conversa e, a partir de 1280 px, a coluna do restaurante (`sdesk`: monograma, endereço, Entrar no
+sistema, Ver cadastro e os detalhes). A conversa usa o `ChatPane` com `bubbles` (classes
+`scx--bubbles`/`scx-thread--bubbles` em `store-chat.css`): mesmo desenho dos Chamados, as suas à
+direita em `--cm-brand-50`, hora dentro do balão, dia e aviso em pílula, caixa de escrever em
+pílula com botão redondo. Sem `bubbles`, o `ChatPane` segue em linha (cardápio, chat da equipe).
+Chamado citado numa mensagem é o cartão `scx-ticket` (ícone de boia, número, bolinha da situação,
+título). Número de avisos num item do menu: `count` no `FrameItem` (pílula `cm-rail__count` na
+frente do nome no menu largo, `cm-rail__badge` no ícone no estreito e nas abas); a bolinha `dot`
+fica para "tem novidade" sem número.
+
+O chat do sistema (`TeamChat`) fecha no Esc e num clique fora; os botões do topo abrem e fecham
+(`openTeamChat(tab, { toggle: true })`). Camada por cima dele (foto ampliada, janela, menu) não
+fecha o chat.
 
 ## Antes de entregar
 

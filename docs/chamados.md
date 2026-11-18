@@ -10,11 +10,23 @@ até abrir um PR em rascunho no GitHub, e o cliente vê o andamento a cada etapa
 - **Lista** (`pages/TicketsPage.tsx`): resumo no topo (em andamento, respostas novas, resolvidos) e
   o quadro com as seis etapas que o cliente vê. No celular o quadro vira lista e só mostra as
   etapas que têm chamado. Cancelados e recusados ficam numa lista embaixo.
-- **Chamado aberto**: conversa em tela cheia no jeito de um chat (`features/tickets/TicketChat.tsx`
-  + `ticket-chat.css`): o restaurante à direita, o suporte à esquerda, separador por dia, avisos do
-  andamento no meio e a descrição de abertura como a primeira mensagem. A caixa de escrever fica
-  presa embaixo (Enter envia, Shift + Enter pula linha). Ao lado, o andamento em passos e os
-  detalhes; abaixo de 900 px eles descem para depois da conversa.
+- **Chamado aberto**: o andamento em tela cheia no jeito de um chat (`features/tickets/TicketChat.tsx`
+  + `ticket-chat.css`): a descrição de abertura, separador por dia, avisos do andamento no meio e
+  as mensagens da equipe (as antigas, de antes da 0.155, continuam aparecendo). **Não tem mais caixa
+  de escrever**: embaixo fica **Falar no chat**, que abre o chat do sistema na aba Suporte com o
+  chamado já citado (`talkAboutTicket` em `features/chat/TeamChat.tsx`). Ao lado, o andamento em
+  passos e os detalhes; abaixo de 900 px eles descem para depois do andamento.
+
+## Conversa sobre o chamado
+
+Desde a 0.155 a conversa de cada chamado mora na conversa de suporte (aba Suporte do chat ›
+Super Admin › Conversas). A mensagem pode levar um chamado junto (`ticket_id` em
+`platform_support_messages`, migração 0079): pelo clipe › **Um chamado** (restaurante: todos os
+chamados dele; painel: os abertos daquele restaurante) ou pelos botões **Falar no chat**
+(restaurante) e **Conversar sobre este chamado** (aba Notas do chamado no painel). O cartão do
+chamado mostra o número, o título e a situação que o cliente vê, e abre o chamado dos dois lados.
+O servidor só aceita chamado do mesmo restaurante; sem texto, a mensagem vira "Sobre o chamado
+#CH-0000". Quando a esteira espera resposta do cliente, a resposta chega pelas Conversas.
 
 ## Etapas
 
@@ -31,7 +43,8 @@ até abrir um PR em rascunho no GitHub, e o cliente vê o andamento a cada etapa
 - **Avança sozinho**: depois de aprovado, o chamado passa de etapa em etapa. Desligue no chamado
   (ou em Configurar, para os novos) para avançar com o botão **Avançar**.
 - **Mover / refazer**: leva o chamado para qualquer etapa e põe o agente dela para trabalhar de novo.
-- **Conversa**: o que você escreve vai para o cliente; marque **Nota interna** para ele não ver.
+- **Notas**: só para a equipe (o cliente não vê). Para falar com o cliente, **Conversar sobre este
+  chamado** abre as Conversas com o chamado citado.
 - Demanda criada por você no painel (**Nova demanda**) já nasce aprovada.
 - Erro numa etapa: tenta 3 vezes (1, 2 e 3 min depois) e então espera você, com o erro no cartão.
 

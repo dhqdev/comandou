@@ -181,6 +181,53 @@
   background: var(--cm-brand-500);
   box-shadow: 0 0 0 2px var(--cm-frame);
 }
+/* Número de avisos: no ícone (menu estreito e abas) ou na frente do nome (menu largo). */
+.cm-rail__badge {
+  position: absolute;
+  top: -6px;
+  right: -9px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 17px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--cm-frame);
+  animation: cm-count-in var(--cm-spring-snappy-dur) var(--cm-spring-snappy) both;
+}
+.cm-rail__count {
+  flex: none;
+  min-width: 22px;
+  height: 20px;
+  margin-left: auto;
+  padding: 0 7px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  animation: cm-count-in var(--cm-spring-snappy-dur) var(--cm-spring-snappy) both;
+}
+@keyframes cm-count-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-rail__badge,
+  .cm-rail__count {
+    animation: none;
+  }
+}
 /* Sem JS do indicador (primeiro quadro), o ativo ainda aparece. */
 .cm-rail__item.is-active::after {
   content: '';

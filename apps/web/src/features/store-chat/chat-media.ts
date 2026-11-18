@@ -17,6 +17,15 @@ export interface ChatFile {
   size: number;
 }
 
+export interface ChatTicket {
+  id: string;
+  /** #CH-0004 */
+  code: string;
+  title: string;
+  statusLabel?: string;
+  done?: boolean;
+}
+
 export interface ChatMessage {
   id: string;
   sender: Sender;
@@ -26,6 +35,8 @@ export interface ChatMessage {
   fileGone: 'image' | 'video' | null;
   orderNumber: number | null;
   orderId: string | null;
+  /** Chamado de que a mensagem fala (só na conversa com a Comandou). */
+  ticket?: ChatTicket | null;
   createdAt: string;
   /** Só na tela: mensagem ainda indo (ou que falhou). */
   pending?: 'sending' | 'failed';

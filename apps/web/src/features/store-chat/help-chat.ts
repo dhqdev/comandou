@@ -1,4 +1,4 @@
-import type { ChatMessage } from './chat-media';
+import type { ChatMessage, ChatTicket } from './chat-media';
 
 /**
  * Conversa do restaurante com a Comandou (suporte da plataforma). Usa a mesma conversa (ChatKit)
@@ -11,6 +11,7 @@ export interface HelpMessage {
   body: string;
   file: ChatMessage['file'];
   fileGone: ChatMessage['fileGone'];
+  ticket?: ChatTicket | null;
   createdAt: string;
 }
 

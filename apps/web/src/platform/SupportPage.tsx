@@ -1,20 +1,25 @@
+import { SUBSCRIPTION_LABELS } from '@comandou/shared';
 import {
   ArrowLeft,
   CheckCircle2,
   ExternalLink,
+  Globe,
+  LogIn,
   MessageCircle,
   RotateCcw,
   Search,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Spinner, useToast } from '../design-system';
 import { SlideTabs } from '../features/SlideTabs';
 import { ChatMessage, ChatPane, mergeMessages } from '../features/store-chat/ChatKit';
+import type { ChatTicket } from '../features/store-chat/chat-media';
 import { HelpMessage, HelpState, helpToKit } from '../features/store-chat/help-chat';
 import '../features/store-chat/support-inbox.css';
 import { api } from '../lib/api';
-import { Monogram, PageHead } from './ui';
+import { TENANT_STATUS, tenantUrl, useOpenTenant } from './TenantsPages';
+import { Level, Monogram, PageHead, Tag } from './ui';
 
 /**
  * Super Admin › Conversas: os restaurantes escrevem pela aba "Suporte" do chat do sistema e a
@@ -36,8 +41,31 @@ interface ChatRow {
 }
 
 interface Detail extends HelpState {
-  tenant: { id: string; name: string; slug: string; status: string };
+  tenant: {
+    id: string;
+    name: string;
+    slug: string;
+    status: string;
+    createdAt?: string;
+    planName?: string | null;
+    subscriptionStatus?: string | null;
+    trialEndsAt?: string | null;
+  };
 }
+
+const SUB_LEVEL: Record<string, Level> = {
+  trialing: 'info',
+  active: 'ok',
+  past_due: 'warn',
+  cancelled: 'off',
+};
+const subLabel = (s: string) => SUBSCRIPTION_LABELS[s as keyof typeof SUBSCRIPTION_LABELS] ?? s;
+const longDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const host = (slug: string) =>
+  tenantUrl(slug)
+    .replace(/^https?:\/\//, '')
+    .replace(/\/$/, '');
 
 const POLL_MS = 8000;
 export const SUPPORT_CHANGED_EVENT = 'cm:admin-support-changed';
@@ -54,8 +82,56 @@ const when = (iso: string | null) => {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 };
 
-function Conversation({ tenantId, onBack }: { tenantId: string; onBack(): void }) {
+interface BoardTicket {
+  id: string;
+  code: string;
+  title: string;
+  state: string;
+  tenant: { id: string };
+}
+
+function Conversation({
+  tenantId,
+  ticketId,
+  onBack,
+}: {
+  tenantId: string;
+  /** Veio do chamado ("Conversar sobre este chamado"): ele já vem citado. */
+  ticketId: string | null;
+  onBack(): void;
+}) {
   const toast = useToast();
+  const navigate = useNavigate();
+  // Chamados abertos deste restaurante, para citar pelo clipe.
+  const [tickets, setTickets] = useState<ChatTicket[] | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    api<{ tickets: BoardTicket[] }>('/platform/tickets')
+      .then((b) => {
+        if (!live) return;
+        setTickets(
+          b.tickets
+            .filter((x) => x.tenant.id === tenantId)
+            .map((x) => ({ id: x.id, code: x.code, title: x.title })),
+        );
+      })
+      .catch(() => live && setTickets(undefined));
+    return () => {
+      live = false;
+    };
+  }, [tenantId]);
+  const [initialTicket, setInitialTicket] = useState<ChatTicket | null>(null);
+  useEffect(() => {
+    if (!ticketId) return;
+    let live = true;
+    api<{ id: string; code: string; title: string }>(`/platform/tickets/${ticketId}`)
+      .then((x) => live && setInitialTicket({ id: x.id, code: x.code, title: x.title }))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [ticketId]);
+  const { open, busy, sheet } = useOpenTenant();
   const [d, setD] = useState<(Omit<Detail, 'messages'> & { messages: ChatMessage[] }) | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,26 +176,36 @@ function Conversation({ tenantId, onBack }: { tenantId: string; onBack(): void }
 
   if (!d) return <div className="sinbox__empty">{error ? <p>{error}</p> : <Spinner />}</div>;
   const t = d.tenant;
+  const [tenantLabel, tenantLevel] = TENANT_STATUS[t.status] ?? [t.status, 'off' as Level];
+  const closed = d.status === 'closed';
   return (
     <div className="sinbox__conv">
       <header className="sinbox__head">
         <button type="button" className="sinbox__back" aria-label="Voltar" onClick={onBack}>
           <ArrowLeft size={18} />
         </button>
-        <Monogram name={t.name} size={34} />
+        <Monogram name={t.name} size={38} />
         <div className="sinbox__who">
           <strong>{t.name}</strong>
           <small>
-            <span>{t.slug}</span>
+            <span className="sinbox__state" data-closed={closed || undefined}>
+              {closed ? 'Conversa encerrada' : 'Conversa aberta'}
+            </span>
+            {t.planName && <span className="sinbox__plan">{t.planName}</span>}
+            <span className="sinbox__host">{host(t.slug)}</span>
           </small>
         </div>
         <div className="sinbox__actions">
-          <Link className="sinbox__btn" to={`/restaurantes/${t.id}`} title="Abrir o restaurante">
+          <Link
+            className="sinbox__btn sinbox__btn--narrow"
+            to={`/restaurantes/${t.id}`}
+            title="Abrir o restaurante"
+          >
             <ExternalLink size={15} />
             <span className="sinbox__btn-text">Restaurante</span>
           </Link>
           {d.messages.length > 0 &&
-            (d.status === 'open' ? (
+            (!closed ? (
               <button
                 type="button"
                 className="sinbox__btn"
@@ -137,51 +223,138 @@ function Conversation({ tenantId, onBack }: { tenantId: string; onBack(): void }
             ))}
         </div>
       </header>
-      <ChatPane
-        key={tenantId}
-        side="staff"
-        names={{ customer: t.name, staff: 'Suporte Comandou' }}
-        messages={d.messages}
-        hasMore={d.hasMore}
-        otherReadAt={d.otherReadAt}
-        autoFocus
-        onLoadMore={async () => {
-          const first = d.messages[0];
-          if (!first) return;
-          const older = await api<{ messages: HelpMessage[]; hasMore: boolean }>(
-            `/platform/support/${tenantId}/messages?before=${encodeURIComponent(first.createdAt)}`,
-          );
-          setD((x) =>
-            x
-              ? {
-                  ...x,
-                  messages: mergeMessages(older.messages.map(helpToKit), x.messages),
-                  hasMore: older.hasMore,
-                }
-              : x,
-          );
-        }}
-        uploadPath={`/platform/support/${tenantId}/files`}
-        send={async (input) =>
-          helpToKit(
-            await api<HelpMessage>(`/platform/support/${tenantId}/messages`, {
-              method: 'POST',
-              json: { body: input.body, fileId: input.fileId ?? null },
-            }),
-          )
-        }
-        onSent={(m) => {
-          setD((x) => (x ? { ...x, messages: mergeMessages(x.messages, [m]) } : x));
-          changed();
-        }}
-        onError={(m) => toast(m, 'danger')}
-        placeholder="Escreva a resposta"
-        empty={
-          <p className="sinbox__hint">
-            Nenhuma mensagem ainda. Escreva para começar a conversa com este restaurante.
+      <div className="sinbox__body">
+        <ChatPane
+          key={tenantId}
+          bubbles
+          side="staff"
+          names={{ customer: t.name, staff: 'Suporte Comandou' }}
+          messages={d.messages}
+          hasMore={d.hasMore}
+          otherReadAt={d.otherReadAt}
+          autoFocus
+          onLoadMore={async () => {
+            const first = d.messages[0];
+            if (!first) return;
+            const older = await api<{ messages: HelpMessage[]; hasMore: boolean }>(
+              `/platform/support/${tenantId}/messages?before=${encodeURIComponent(first.createdAt)}`,
+            );
+            setD((x) =>
+              x
+                ? {
+                    ...x,
+                    messages: mergeMessages(older.messages.map(helpToKit), x.messages),
+                    hasMore: older.hasMore,
+                  }
+                : x,
+            );
+          }}
+          uploadPath={`/platform/support/${tenantId}/files`}
+          tickets={tickets}
+          initialTicket={initialTicket}
+          onTicket={(x) => navigate(`/chamados?chamado=${x.id}`)}
+          send={async (input) =>
+            helpToKit(
+              await api<HelpMessage>(`/platform/support/${tenantId}/messages`, {
+                method: 'POST',
+                json: {
+                  body: input.body,
+                  fileId: input.fileId ?? null,
+                  ticketId: input.ticketId ?? null,
+                },
+              }),
+            )
+          }
+          onSent={(m) => {
+            setD((x) => (x ? { ...x, messages: mergeMessages(x.messages, [m]) } : x));
+            changed();
+          }}
+          onError={(m) => toast(m, 'danger')}
+          placeholder="Escreva a resposta"
+          empty={
+            <div className="sinbox__start">
+              <MessageCircle size={28} aria-hidden />
+              <strong>Nenhuma mensagem ainda</strong>
+              <p>
+                Escreva para começar a conversa. A mensagem chega na aba Suporte do chat do sistema
+                de {t.name}.
+              </p>
+            </div>
+          }
+        />
+        <aside className="sdesk" aria-label="Sobre o restaurante">
+          <div className="sdesk__card sdesk__who">
+            <Monogram name={t.name} size={52} />
+            <strong>{t.name}</strong>
+            <a href={tenantUrl(t.slug)} target="_blank" rel="noreferrer noopener">
+              <Globe size={13} aria-hidden /> {host(t.slug)}
+            </a>
+            <div className="sdesk__btns">
+              <button
+                type="button"
+                className="sinbox__btn"
+                onClick={() => void open(t.id)}
+                disabled={!!busy}
+                title="Abre o sistema do restaurante já entrado, numa nova aba"
+              >
+                <LogIn size={15} /> {busy ? 'Abrindo…' : 'Entrar no sistema'}
+              </button>
+              <Link className="sinbox__btn" to={`/restaurantes/${t.id}`}>
+                <ExternalLink size={15} /> Ver cadastro
+              </Link>
+            </div>
+          </div>
+          <div className="sdesk__card">
+            <h3>Detalhes</h3>
+            <dl className="sdesk__facts">
+              <div>
+                <dt>Situação</dt>
+                <dd>
+                  <Tag level={tenantLevel}>{tenantLabel}</Tag>
+                </dd>
+              </div>
+              <div>
+                <dt>Plano</dt>
+                <dd>{t.planName ?? 'sem plano'}</dd>
+              </div>
+              {t.subscriptionStatus && (
+                <div>
+                  <dt>Assinatura</dt>
+                  <dd>
+                    <Tag level={SUB_LEVEL[t.subscriptionStatus] ?? 'off'}>
+                      {subLabel(t.subscriptionStatus)}
+                    </Tag>
+                  </dd>
+                </div>
+              )}
+              {t.subscriptionStatus === 'trialing' && t.trialEndsAt && (
+                <div>
+                  <dt>Teste até</dt>
+                  <dd>{longDate(t.trialEndsAt)}</dd>
+                </div>
+              )}
+              {t.createdAt && (
+                <div>
+                  <dt>Cliente desde</dt>
+                  <dd>{longDate(t.createdAt)}</dd>
+                </div>
+              )}
+              <div>
+                <dt>Mensagens</dt>
+                <dd>
+                  {d.messages.length}
+                  {d.hasMore ? '+' : ''}
+                </dd>
+              </div>
+            </dl>
+          </div>
+          <p className="sdesk__hint">
+            Encerrar só arruma a lista: se o restaurante escrever de novo, a conversa volta para
+            Abertas.
           </p>
-        }
-      />
+        </aside>
+      </div>
+      {sheet}
     </div>
   );
 }
@@ -302,7 +475,11 @@ export function SupportPage() {
           </aside>
           <section className="sinbox__main">
             {current ? (
-              <Conversation tenantId={current} onBack={() => setCurrent(null)} />
+              <Conversation
+                tenantId={current}
+                ticketId={params.get('chamado')}
+                onBack={() => setCurrent(null)}
+              />
             ) : (
               <div className="sinbox__empty sinbox__empty--main">
                 <MessageCircle size={34} />

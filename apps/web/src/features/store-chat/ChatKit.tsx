@@ -3,6 +3,8 @@ import {
   Camera,
   Check,
   CheckCheck,
+  ChevronRight,
+  LifeBuoy,
   ImageOff,
   Paperclip,
   Play,
@@ -27,7 +29,15 @@ import {
   useState,
 } from 'react';
 import { avatarColors, initials } from '../chat/util';
-import { ChatMessage, mediaFiles, Prepared, prepareFile, Sender, uploadFile } from './chat-media';
+import {
+  ChatMessage,
+  ChatTicket,
+  mediaFiles,
+  Prepared,
+  prepareFile,
+  Sender,
+  uploadFile,
+} from './chat-media';
 import { EMOJI_GROUPS, emojiOnly, recentEmojis, rememberEmoji } from './emoji';
 import './store-chat.css';
 
@@ -187,6 +197,13 @@ export interface ThreadProps {
   onOrder?(m: ChatMessage): void;
   onRetry?(m: ChatMessage): void;
   empty?: ReactNode;
+  /**
+   * Balões (como nos Chamados): as mensagens de quem vê à direita, as do outro lado à esquerda,
+   * com a hora dentro do balão. Sem isso, mensagens em linha (avatar, nome e texto).
+   */
+  bubbles?: boolean;
+  /** Toque no cartão do chamado citado numa mensagem. */
+  onTicket?(t: ChatTicket): void;
 }
 
 function Thread({
@@ -201,6 +218,8 @@ function Thread({
   onOrder,
   onRetry,
   empty,
+  bubbles,
+  onTicket,
 }: ThreadProps) {
   const box = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
@@ -316,7 +335,12 @@ function Thread({
   const lastMineId = messages.findLast((m) => m.sender === side)?.id;
   let prev: ChatMessage | undefined;
   return (
-    <div className="scx-thread" ref={box} onScroll={onScroll} aria-live="polite">
+    <div
+      className={`scx-thread${bubbles ? ' scx-thread--bubbles' : ''}`}
+      ref={box}
+      onScroll={onScroll}
+      aria-live="polite"
+    >
       <div className="scx-float" data-on={day.on || undefined} aria-hidden>
         <span className="scx-day">{day.label}</span>
       </div>
@@ -344,7 +368,7 @@ function Thread({
                 <div className="scx-system">{m.body}</div>
               </Fragment>
             );
-          const big = !m.file && !m.localUrl && !m.orderNumber && emojiOnly(m.body);
+          const big = !m.file && !m.localUrl && !m.orderNumber && !m.ticket && emojiOnly(m.body);
           const read = mine && !m.pending && otherReadAt && m.createdAt <= otherReadAt;
           const who =
             m.authorName ||
@@ -388,11 +412,18 @@ function Thread({
                         <ReceiptText size={15} /> Pedido #{m.orderNumber}
                       </button>
                     )}
+                    {m.ticket && (
+                      <TicketCard
+                        t={m.ticket}
+                        onOpen={onTicket && !m.pending ? () => onTicket(m.ticket!) : undefined}
+                      />
+                    )}
                     {m.body && (
                       <p className="scx-text">
                         <Linkified text={m.body} />
                       </p>
                     )}
+                    {bubbles && <time className="scx-body__time">{hhmm(m.createdAt)}</time>}
                   </div>
                   {m.pending === 'failed' && (
                     <button type="button" className="scx-retry" onClick={() => onRetry?.(m)}>
@@ -436,6 +467,34 @@ function Thread({
       )}
       <Viewer item={viewer} onClose={() => setViewer(null)} />
     </div>
+  );
+}
+
+/** Cartão do chamado dentro da mensagem: número, título e em que pé está. */
+function TicketCard({ t, onOpen }: { t: ChatTicket; onOpen?(): void }) {
+  const inner = (
+    <>
+      <LifeBuoy size={18} className="scx-ticket__icon" aria-hidden />
+      <span className="scx-ticket__text">
+        <small>
+          Chamado {t.code}
+          {t.statusLabel && (
+            <span className="scx-ticket__status" data-done={t.done || undefined}>
+              {t.statusLabel}
+            </span>
+          )}
+        </small>
+        <strong>{t.title}</strong>
+      </span>
+      {onOpen && <ChevronRight size={16} className="scx-ticket__go" aria-hidden />}
+    </>
+  );
+  return onOpen ? (
+    <button type="button" className="scx-ticket" onClick={onOpen} title="Abrir o chamado">
+      {inner}
+    </button>
+  ) : (
+    <div className="scx-ticket">{inner}</div>
   );
 }
 
@@ -489,6 +548,7 @@ export interface SendInput {
   body: string;
   fileId?: string | null;
   orderNumber?: number | null;
+  ticketId?: string | null;
 }
 
 export interface ChatPaneProps extends Omit<ThreadProps, 'onRetry'> {
@@ -505,6 +565,10 @@ export interface ChatPaneProps extends Omit<ThreadProps, 'onRetry'> {
   /** Pedido que vai junto da próxima mensagem. */
   orderNumber?: number | null;
   onClearOrder?(): void;
+  /** Chamados que dá para citar pelo clipe (conversa com a Comandou). */
+  tickets?: ChatTicket[];
+  /** Chamado que já vem citado na próxima mensagem. */
+  initialTicket?: ChatTicket | null;
   /** Texto que já vem no campo. */
   initialText?: string;
   onSent?(m: ChatMessage): void;
@@ -526,6 +590,8 @@ export function ChatPane(props: ChatPaneProps) {
     quickReplies,
     orderNumber,
     onClearOrder,
+    tickets,
+    initialTicket = null,
     initialText = '',
     onSent,
     onError,
@@ -534,12 +600,16 @@ export function ChatPane(props: ChatPaneProps) {
   } = props;
   const [text, setText] = useState(initialText);
   const [file, setFile] = useState<Prepared | null>(null);
+  const [ticket, setTicket] = useState<ChatTicket | null>(initialTicket);
+  useEffect(() => {
+    if (initialTicket) setTicket(initialTicket);
+  }, [initialTicket]);
   const [preparing, setPreparing] = useState(false);
   const [pending, setPending] = useState<
     (ChatMessage & { input: SendInput; prepared?: Prepared })[]
   >([]);
   const [progress, setProgress] = useState<Record<string, number>>({});
-  const [panel, setPanel] = useState<null | 'emoji' | 'attach' | 'quick'>(null);
+  const [panel, setPanel] = useState<null | 'emoji' | 'attach' | 'quick' | 'ticket'>(null);
   const [drag, setDrag] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
   const compose = useRef<HTMLDivElement>(null);
@@ -637,9 +707,13 @@ export function ChatPane(props: ChatPaneProps) {
   function submit() {
     const typingNow = document.activeElement === input.current;
     const body = text.trim();
-    if (disabled || (!body && !file && !orderNumber)) return;
+    if (disabled || (!body && !file && !orderNumber && !ticket)) return;
     const id = `local-${++localSeq}`;
-    const inputData: SendInput = { body, orderNumber: orderNumber ?? null };
+    const inputData: SendInput = {
+      body,
+      orderNumber: orderNumber ?? null,
+      ticketId: ticket?.id ?? null,
+    };
     const prepared = file ?? undefined;
     setPending((p) => [
       ...p,
@@ -653,6 +727,7 @@ export function ChatPane(props: ChatPaneProps) {
         localUrl: prepared?.previewUrl,
         orderNumber: orderNumber ?? null,
         orderId: null,
+        ticket,
         createdAt: new Date().toISOString(),
         pending: 'sending',
         input: inputData,
@@ -661,6 +736,7 @@ export function ChatPane(props: ChatPaneProps) {
     ]);
     setText('');
     setFile(null);
+    setTicket(null);
     setPanel(null);
     onClearOrder?.();
     void deliver(id, inputData, prepared);
@@ -716,11 +792,11 @@ export function ChatPane(props: ChatPaneProps) {
     ...thread.messages,
     ...pending.map((p) => ({ ...p, body: p.body })),
   ];
-  const canSend = !disabled && !preparing && (!!text.trim() || !!file || !!orderNumber);
+  const canSend = !disabled && !preparing && (!!text.trim() || !!file || !!orderNumber || !!ticket);
 
   return (
     <div
-      className="scx"
+      className={`scx${thread.bubbles ? ' scx--bubbles' : ''}`}
       data-drag={drag || undefined}
       onDragOver={(e) => {
         if (disabled || !Array.from(e.dataTransfer.types).includes('Files')) return;
@@ -760,7 +836,7 @@ export function ChatPane(props: ChatPaneProps) {
           <div className="scx-compose__off">{disabledHint}</div>
         ) : (
           <>
-            {(file || preparing || orderNumber) && (
+            {(file || preparing || orderNumber || ticket) && (
               <div className="scx-attach">
                 {preparing && <span className="scx-attach__busy">Preparando arquivo…</span>}
                 {file && (
@@ -788,6 +864,19 @@ export function ChatPane(props: ChatPaneProps) {
                         <X size={14} />
                       </button>
                     )}
+                  </div>
+                )}
+                {ticket && (
+                  <div className="scx-attach__order">
+                    <LifeBuoy size={15} /> Sobre o chamado {ticket.code}
+                    <span className="scx-attach__title">{ticket.title}</span>
+                    <button
+                      type="button"
+                      aria-label="Não citar o chamado"
+                      onClick={() => setTicket(null)}
+                    >
+                      <X size={14} />
+                    </button>
                   </div>
                 )}
               </div>
@@ -837,6 +926,42 @@ export function ChatPane(props: ChatPaneProps) {
                     <button type="button" role="menuitem" onClick={() => choose(video)}>
                       <Video size={18} /> Gravar vídeo
                     </button>
+                    {tickets && (
+                      <button type="button" role="menuitem" onClick={() => setPanel('ticket')}>
+                        <LifeBuoy size={18} /> Um chamado
+                      </button>
+                    )}
+                  </div>
+                )}
+                {panel === 'ticket' && tickets && (
+                  <div className="scx-menu scx-menu--tickets" role="menu" aria-label="Chamados">
+                    {tickets.length === 0 ? (
+                      <p className="scx-menu__empty">
+                        Nenhum chamado ainda. Abra um em Sistema › Chamados.
+                      </p>
+                    ) : (
+                      tickets.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setTicket(t);
+                            setPanel(null);
+                            requestAnimationFrame(() => input.current?.focus());
+                          }}
+                        >
+                          <LifeBuoy size={18} />
+                          <span className="scx-menu__ticket">
+                            <strong>{t.title}</strong>
+                            <small>
+                              {t.code}
+                              {t.statusLabel ? ` · ${t.statusLabel}` : ''}
+                            </small>
+                          </span>
+                        </button>
+                      ))
+                    )}
                   </div>
                 )}
               </div>

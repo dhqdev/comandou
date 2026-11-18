@@ -182,6 +182,40 @@ describe('Conversa do restaurante com a Comandou', () => {
     expect(closed.body.map((c: { tenantId: string }) => c.tenantId)).not.toContain(fx.tenantA);
   });
 
+  it('a mensagem leva o chamado junto; chamado de outro restaurante não entra', async () => {
+    const tk = await tpost(HOST_A, ownerA, '/support/tickets', {
+      title: 'Impressora não imprime',
+      description: 'Desde ontem a impressora da cozinha não sai nada.',
+      kind: 'bug',
+      urgency: 'high',
+    }).expect(201);
+    const other = await tpost(HOST_B, ownerB, '/support/tickets', {
+      title: 'Outro restaurante',
+      description: 'Chamado que não é do restaurante A.',
+      kind: 'question',
+      urgency: 'low',
+    }).expect(201);
+    // Sem texto: a mensagem diz de qual chamado é.
+    const m = await tpost(HOST_A, ownerA, '/help/chat/messages', { ticketId: tk.body.id }).expect(
+      201,
+    );
+    expect(m.body.body).toMatch(/^Sobre o chamado #CH-\d{4}$/);
+    expect(m.body.ticket).toMatchObject({ id: tk.body.id, title: 'Impressora não imprime' });
+    const d = await pget(`/${fx.tenantA}`).expect(200);
+    expect(d.body.messages.at(-1).ticket.id).toBe(tk.body.id);
+    expect(d.body.tenant).toHaveProperty('planName');
+    await tpost(HOST_A, ownerA, '/help/chat/messages', {
+      body: 'olha esse',
+      ticketId: other.body.id,
+    }).expect(422);
+    // O painel também cita o chamado na resposta.
+    const r = await ppost(`/${fx.tenantA}/messages`, {
+      body: 'Já estamos vendo',
+      ticketId: tk.body.id,
+    }).expect(201);
+    expect(r.body.ticket.code).toMatch(/^#CH-/);
+  });
+
   it('sem login do painel não entra; restaurante inexistente dá 404', async () => {
     await http.get('/api/v1/platform/support').set('Host', ADMIN_HOST).expect(401);
     await ppost('/00000000-0000-4000-8000-000000000000/messages', { body: 'x' }).expect(404);

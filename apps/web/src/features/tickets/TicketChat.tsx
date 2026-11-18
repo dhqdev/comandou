@@ -145,8 +145,8 @@ export function TicketChat({
       {lines.length === 0 && (
         <li className="tkc__empty">
           <MessageCircle size={28} />
-          <b>Nenhuma mensagem ainda</b>
-          <span>Escreva abaixo. A equipe do Comandou responde por aqui mesmo.</span>
+          <b>Nenhuma novidade ainda</b>
+          <span>O andamento do chamado aparece aqui. Para conversar, use o chat lá em cima.</span>
         </li>
       )}
       {lines.map((l, i) => {

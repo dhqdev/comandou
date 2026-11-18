@@ -26,8 +26,10 @@ import {
   X,
   XCircle,
   Zap,
+  MessagesSquare,
 } from 'lucide-react';
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Alert, Button, Modal, Select, Spinner, TextField, useToast } from '../design-system';
 import type { Prepared } from '../features/store-chat/chat-media';
 import { AgentAvatar, AttachPicker, EventLine, FileGrid } from '../features/tickets/TicketParts';
@@ -608,7 +610,7 @@ function TicketDrawer({
                 onChange={setTab}
                 items={[
                   ['etapa', 'Etapa atual'],
-                  ['conversa', `Conversa${convo.length ? ` ${convo.length}` : ''}`],
+                  ['conversa', `Notas${convo.length ? ` ${convo.length}` : ''}`],
                   ['atividade', `Atividade${activity.length ? ` ${activity.length}` : ''}`],
                   ['diff', 'Diff'],
                   ['anexos', `Anexos${t.files.length ? ` ${t.files.length}` : ''}`],
@@ -954,8 +956,8 @@ function ConvoTab({ t, events, onSent }: { t: Detail; events: TicketEvent[]; onS
   const toast = useToast();
   const [text, setText] = useState('');
   const [files, setFiles] = useState<Prepared[]>([]);
-  const [internal, setInternal] = useState(false);
   const [sending, setSending] = useState(false);
+  const navigate = useNavigate();
   async function send(e: FormEvent) {
     e.preventDefault();
     setSending(true);
@@ -964,7 +966,7 @@ function ConvoTab({ t, events, onSent }: { t: Detail; events: TicketEvent[]; onS
       for (const f of files) ids.push((await uploadTicketFile(BASE, t.id, f)).id);
       await api(`${BASE}/${t.id}/messages`, {
         method: 'POST',
-        json: { body: text, fileIds: ids, internal },
+        json: { body: text, fileIds: ids, internal: true },
       });
       setText('');
       setFiles([]);
@@ -977,8 +979,22 @@ function ConvoTab({ t, events, onSent }: { t: Detail; events: TicketEvent[]; onS
   }
   return (
     <>
+      {/* A conversa com o restaurante mora em Conversas: o chamado vai junto na mensagem. */}
+      <div className="tk-talk">
+        <p>
+          Para falar com {t.tenant.name}, use as Conversas. O chamado {t.code} vai junto na mensagem
+          e o restaurante abre ele por lá.
+        </p>
+        <Button
+          variant="secondary"
+          icon={<MessagesSquare size={15} />}
+          onClick={() => navigate(`/conversas?r=${t.tenant.id}&chamado=${t.id}`)}
+        >
+          Conversar sobre este chamado
+        </Button>
+      </div>
       {events.length === 0 && (
-        <p className="adm-empty">Ninguém escreveu ainda. O cliente vê o que você mandar aqui.</p>
+        <p className="adm-empty">Nenhuma nota ainda. Notas ficam só para a equipe.</p>
       )}
       <ul className="tk-thread">
         {events.map((e) => (
@@ -996,29 +1012,19 @@ function ConvoTab({ t, events, onSent }: { t: Detail; events: TicketEvent[]; onS
           rows={3}
           maxLength={4000}
           aria-label="Mensagem"
-          placeholder={
-            internal ? 'Nota interna (o cliente não vê)…' : `Escreva para ${t.tenant.name}…`
-          }
+          placeholder="Nota interna (o restaurante não vê)…"
           value={text}
           onChange={(e) => setText(e.target.value)}
         />
         <div className="tk-compose__row">
           <AttachPicker files={files} onChange={setFiles} label="Foto ou vídeo" />
-          <label className="tk-switch">
-            <input
-              type="checkbox"
-              checked={internal}
-              onChange={(e) => setInternal(e.target.checked)}
-            />
-            Nota interna
-          </label>
           <Button
             type="submit"
             icon={<Send size={15} />}
             loading={sending}
             disabled={!text.trim() && !files.length}
           >
-            Enviar
+            Salvar nota
           </Button>
         </div>
       </form>

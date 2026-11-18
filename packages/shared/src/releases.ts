@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.155.0',
+    date: '2026-11-18',
+    title: 'Conversas do suporte mais claras e chamados pelo chat',
+    summary:
+      'A conversa com a Comandou ganhou balões como nos Chamados, e a conversa de cada chamado foi para o chat: o restaurante escolhe qual chamado quer mostrar e ele vai junto na mensagem, como um cartão que abre o chamado. No Super Admin, Conversas mostra o número de conversas com mensagem nova.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Chat › Suporte: pelo clipe, "Um chamado" cita um chamado do restaurante na mensagem. O cartão mostra o número, o título e em que pé está, e abre o chamado com um toque, dos dois lados.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Chamados: a conversa saiu de dentro do chamado. A tela mostra o andamento e o botão Falar no chat, que abre o Suporte com o chamado já citado.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Super Admin › Conversas: mensagens em balões (as suas à direita), coluna com o restaurante (situação, plano, assinatura, cliente desde e Entrar no sistema) e cabeçalho com a situação da conversa.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin: número de conversas com mensagem nova na frente de Conversas (no menu e nas abas do celular), no título da aba do navegador e um aviso quando chega mensagem com outra tela aberta.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Super Admin › Chamados: a aba Conversa virou Notas (só para a equipe) e ganhou Conversar sobre este chamado, que abre a conversa do restaurante com o chamado citado.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Chat do sistema: fecha ao clicar fora dele ou no Esc, e o botão Chat lá em cima abre e fecha.',
+      },
+    ],
+  },
+  {
     version: '0.154.1',
     date: '2026-11-18',
     title: 'Esqueci minha senha confere o e-mail',

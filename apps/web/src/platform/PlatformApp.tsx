@@ -25,6 +25,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   Suspense,
 } from 'react';
@@ -408,12 +409,22 @@ function PlatformShell() {
   // Depois da primeira tela, baixa as outras quando o navegador fica livre: a troca fica imediata.
   useEffect(() => preloadPages(PANEL_PAGES), []);
   const standalone = isStandalone();
-  // Mensagens novas dos restaurantes: bolinha no "Conversas".
+  // Mensagens novas dos restaurantes: número no "Conversas", no título da aba do navegador e um
+  // aviso quando chega conversa nova fora da tela de Conversas.
   const [supportUnread, setSupportUnread] = useState(0);
+  const lastUnread = useRef<number | null>(null);
+  const pathRef = useRef(pathname);
+  pathRef.current = pathname;
   useEffect(() => {
     const load = () =>
       api<{ chats: number }>('/platform/support/unread')
-        .then((r) => setSupportUnread(r.chats))
+        .then((r) => {
+          const before = lastUnread.current;
+          lastUnread.current = r.chats;
+          setSupportUnread(r.chats);
+          if (before !== null && r.chats > before && !pathRef.current.startsWith('/conversas'))
+            toast('Mensagem nova de um restaurante em Conversas', 'neutral');
+        })
         .catch(() => undefined);
     void load();
     const t = setInterval(() => !document.hidden && void load(), 20_000);
@@ -423,6 +434,11 @@ function PlatformShell() {
       window.removeEventListener(SUPPORT_CHANGED_EVENT, load);
     };
   }, []);
+
+  useEffect(() => {
+    const clean = document.title.replace(/^\(\d+\) /, '');
+    document.title = supportUnread > 0 ? `(${supportUnread}) ${clean}` : clean;
+  }, [supportUnread]);
 
   const refresh = () => {
     setTick((t) => t + 1);
@@ -440,7 +456,7 @@ function PlatformShell() {
     label,
     short,
     icon: <Icon />,
-    dot: to === '/conversas' && supportUnread > 0,
+    count: to === '/conversas' ? supportUnread : undefined,
   }));
   const account = (
     <div className="account">

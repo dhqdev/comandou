@@ -1441,6 +1441,195 @@ button.adm-card:hover {
   color: var(--cm-text-muted);
   font-size: var(--cm-text-xs);
 }
+/* Conversa aberta: cabeçalho, a conversa em balões (como nos Chamados) e, no computador largo,
+   a coluna com o restaurante ao lado. */
+.adm-support .sinbox {
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+}
+.adm-support .sinbox__head {
+  min-height: 60px;
+  padding: 10px 16px;
+}
+.adm-support .sinbox__who {
+  gap: 2px;
+}
+.adm-support .sinbox__who strong {
+  font-size: var(--cm-text-md);
+}
+.adm-support .sinbox__who small {
+  align-items: center;
+  gap: 4px 0;
+}
+.adm-support .sinbox__who small > span + span::before {
+  content: '·';
+  margin: 0 7px;
+  color: var(--cm-text-subtle);
+}
+.sinbox__state {
+  gap: 6px;
+  color: var(--cm-text);
+  font-weight: 600;
+}
+.sinbox__state::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--a-ok, var(--cm-success));
+}
+.sinbox__state[data-closed]::before {
+  background: var(--cm-text-subtle);
+}
+.sinbox__state[data-closed] {
+  color: var(--cm-text-muted);
+}
+.adm-support .sinbox__btn {
+  height: 34px;
+  padding: 0 12px;
+  border-color: transparent;
+  background: var(--cm-surface-sunken);
+  font-size: var(--cm-text-sm);
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.adm-support .sinbox__btn:hover {
+  border-color: var(--cm-border-strong);
+}
+.adm-support .sinbox__btn:active {
+  transform: scale(0.97);
+}
+.adm-support .sinbox__btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.sinbox__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.sinbox__body > .scx {
+  flex: 1;
+  min-width: 0;
+}
+.sinbox__start {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  margin: auto;
+  padding: 48px 16px;
+  max-width: 360px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  text-align: center;
+}
+.sinbox__start svg {
+  color: var(--cm-text-subtle);
+}
+.sinbox__start strong {
+  color: var(--cm-text);
+}
+.sinbox__start p {
+  margin: 0;
+}
+
+/* Coluna do restaurante (só com espaço: a partir de 1280 px). */
+.sdesk {
+  display: none;
+}
+@media (min-width: 1280px) {
+  .adm-support .sinbox__btn--narrow {
+    display: none;
+  }
+  .sdesk {
+    flex: none;
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border-left: 1px solid var(--cm-border);
+    background: var(--cm-surface);
+    overflow-y: auto;
+  }
+}
+.sdesk__card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+}
+.sdesk__card h3 {
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.sdesk__who {
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.sdesk__who strong {
+  margin-top: 4px;
+  font-size: var(--cm-text-md);
+  overflow-wrap: anywhere;
+}
+.sdesk__who a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.sdesk__who a:hover {
+  color: var(--cm-text);
+  text-decoration: underline;
+}
+.sdesk__btns {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  margin-top: 8px;
+}
+.sdesk__btns .sinbox__btn {
+  justify-content: center;
+}
+.sdesk__facts {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+.sdesk__facts div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--cm-text-sm);
+}
+.sdesk__facts dt {
+  color: var(--cm-text-muted);
+}
+.sdesk__facts dd {
+  margin: 0;
+  font-weight: 500;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.sdesk__hint {
+  margin: 0;
+  padding: 0 4px;
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+  line-height: 1.45;
+}
+@media (max-width: 760px) {
+  .adm-support .sinbox__host,
+  .adm-support .sinbox__plan {
+    display: none;
+  }
+}
 @media (max-width: 760px) {
   .adm-support {
     min-height: 320px;

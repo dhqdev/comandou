@@ -91,6 +91,15 @@ Para imprimir algo de dentro de um `Modal` (recibo, comprovante), use `printDocu
 com `@media print` escondendo o resto: o `<dialog>` mora dentro do `#root`, então a folha sai em
 branco. Bobina térmica: `browserPrint` em `features/ReceiptPreview.tsx`.
 
+## Conversa de suporte e chamados
+
+A conversa restaurante ↔ Comandou é `support-desk/` (API) + `features/chat/HelpTab.tsx` (aba
+Suporte) + `platform/SupportPage.tsx` (Super Admin › Conversas). Chamados (`tickets/`) não têm
+mais conversa própria: a mensagem de suporte leva `ticketId` (coluna `ticket_id`, migração 0079,
+só chamado do mesmo restaurante) e volta com `ticket` (código, título, situação do cliente). Para
+abrir o Suporte já citando um chamado: `talkAboutTicket(...)` de `features/chat/TeamChat.tsx`; no
+painel, `/conversas?r=<restaurante>&chamado=<id>`. Guia: `docs/chamados.md`.
+
 ## Mandar e-mail de qualquer módulo
 
 Injete `MailService` (módulo global). Dentro da sua transação: `mail.enqueue(c, {...})` (o

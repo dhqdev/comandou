@@ -4,6 +4,7 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { clientStatus, type TicketState } from '@comandou/shared';
 import type { PoolClient } from 'pg';
 import { PlatformDb } from '../platform/platform-db.service';
 import { RealtimeService } from '../realtime/realtime.service';
@@ -35,6 +36,8 @@ export interface SupportMessage {
     size: number;
   } | null;
   fileGone: FileKind | null;
+  /** Chamado de que a mensagem fala (cartão clicável na conversa). */
+  ticket: { id: string; code: string; title: string; statusLabel: string; done: boolean } | null;
   createdAt: string;
 }
 
@@ -54,6 +57,11 @@ interface MessageRow {
   fileSize: number | null;
   width: number | null;
   height: number | null;
+  ticketId: string | null;
+  ticketNumber: number | null;
+  ticketTitle: string | null;
+  ticketStage: string | null;
+  ticketState: TicketState | null;
   createdAt: Date;
 }
 
@@ -65,9 +73,14 @@ interface ChatRow {
 
 const MSG_SELECT = `SELECT m.id, m.sender, m.author_name AS "authorName", m.body,
     m.file_id AS "fileId", m.file_kind AS "fileKind", f.size AS "fileSize", f.width, f.height,
+    tk.id AS "ticketId", tk.number AS "ticketNumber", tk.title AS "ticketTitle",
+    tk.stage AS "ticketStage", tk.state AS "ticketState",
     m.created_at AS "createdAt"
   FROM platform_support_messages m
-  LEFT JOIN platform_support_files f ON f.id = m.file_id`;
+  LEFT JOIN platform_support_files f ON f.id = m.file_id
+  LEFT JOIN platform_tickets tk ON tk.id = m.ticket_id`;
+
+const ticketCode = (n: number) => `#CH-${String(n).padStart(4, '0')}`;
 
 const iso = (d: Date | string | null) => (d ? new Date(d).toISOString() : null);
 
@@ -119,6 +132,16 @@ export class SupportDeskService {
             }
           : null,
       fileGone: !r.fileId && r.fileKind ? r.fileKind : null,
+      ticket:
+        r.ticketId && r.ticketNumber != null && r.ticketState
+          ? {
+              id: r.ticketId,
+              code: ticketCode(r.ticketNumber),
+              title: r.ticketTitle ?? '',
+              statusLabel: clientStatus(r.ticketStage ?? 'inicio', r.ticketState).label,
+              done: ['done', 'rejected', 'cancelled'].includes(r.ticketState),
+            }
+          : null,
       createdAt: iso(r.createdAt)!,
     };
   }
@@ -204,10 +227,10 @@ export class SupportDeskService {
     side: SupportSide,
     tenantId: string,
     author: SupportAuthor,
-    input: { body: string; fileId?: string | null },
+    input: { body: string; fileId?: string | null; ticketId?: string | null },
   ): Promise<SupportMessage> {
     this.need();
-    const body = input.body.trim();
+    let body = input.body.trim();
     const id = await this.pdb.tx(async (c) => {
       await this.ensureChat(c, tenantId);
       let kind: FileKind | null = null;
@@ -224,12 +247,24 @@ export class SupportDeskService {
           throw new UnprocessableEntityException('Arquivo não encontrado; envie de novo');
         kind = f.kind;
       }
+      // Chamado junto: só um chamado deste restaurante. Sem texto, a mensagem diz de qual é.
+      if (input.ticketId) {
+        const tk = (
+          await c.query<{ number: number }>(
+            `SELECT number FROM platform_tickets WHERE id = $1 AND tenant_id = $2`,
+            [input.ticketId, tenantId],
+          )
+        ).rows[0];
+        if (!tk) throw new UnprocessableEntityException('Chamado não encontrado');
+        if (!body) body = `Sobre o chamado ${ticketCode(tk.number)}`;
+      }
       if (!body && !kind) throw new UnprocessableEntityException('Mensagem vazia');
       const m = (
         await c.query<{ id: string; createdAt: Date }>(
           `INSERT INTO platform_support_messages
-             (tenant_id, sender, author_user_id, admin_id, author_name, body, file_id, file_kind)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, created_at AS "createdAt"`,
+             (tenant_id, sender, author_user_id, admin_id, author_name, body, file_id, file_kind,
+              ticket_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, created_at AS "createdAt"`,
           [
             tenantId,
             side,
@@ -239,6 +274,7 @@ export class SupportDeskService {
             body,
             input.fileId ?? null,
             kind,
+            input.ticketId ?? null,
           ],
         )
       ).rows[0]!;
@@ -392,12 +428,29 @@ export class SupportDeskService {
   /** Conversa no painel, com o restaurante (dá para começar uma conversa ainda vazia). */
   async detail(tenantId: string) {
     this.need();
+    // Plano e assinatura vão junto para a coluna de detalhes ao lado da conversa.
     const [tenant] = await this.pdb.query<{
       id: string;
       name: string;
       slug: string;
       status: string;
-    }>(`SELECT id, name, slug, status FROM tenants WHERE id = $1`, [tenantId]);
+      createdAt: string;
+      planName: string | null;
+      subscriptionStatus: string | null;
+      trialEndsAt: string | null;
+    }>(
+      `SELECT t.id, t.name, t.slug, t.status, t.created_at AS "createdAt",
+              p.name AS "planName", s.status AS "subscriptionStatus",
+              s.trial_ends_at AS "trialEndsAt"
+         FROM tenants t
+         LEFT JOIN LATERAL (
+           SELECT plan_id, status, trial_ends_at FROM subscriptions
+            WHERE tenant_id = t.id AND status <> 'cancelled'
+            ORDER BY created_at DESC LIMIT 1) s ON true
+         LEFT JOIN plans p ON p.id = s.plan_id
+        WHERE t.id = $1`,
+      [tenantId],
+    );
     if (!tenant) throw new NotFoundException('Restaurante não encontrado');
     return { tenant, ...(await this.state('admin', tenantId)) };
   }

@@ -21,6 +21,7 @@ import { HelpTab } from './HelpTab';
 import { ConversationList, NewConversation, PeopleList } from './Lists';
 import { AiTab, MuralTab, NoticesTab } from './Tabs';
 import { CustomersInbox, useSupportUnread } from '../store-chat/SupportInbox';
+import type { ChatTicket } from '../store-chat/chat-media';
 import { Avatar } from './util';
 import './chat.css';
 
@@ -32,9 +33,16 @@ export const OPEN_CHAT_EVENT = 'cm:open-chat';
  * Abre o chat da equipe de qualquer lugar (ex.: "Conversas" na folha Mais do celular).
  * `'ia'` abre só o assistente, num painel próprio, sem as outras abas.
  */
-export function openTeamChat(tab?: Tab) {
-  window.dispatchEvent(new CustomEvent(OPEN_CHAT_EVENT, { detail: { tab } }));
+export function openTeamChat(tab?: Tab, opts?: { toggle?: boolean; ticket?: ChatTicket }) {
+  window.dispatchEvent(
+    new CustomEvent(OPEN_CHAT_EVENT, {
+      detail: { tab, toggle: opts?.toggle, ticket: opts?.ticket },
+    }),
+  );
 }
+
+/** Abre a aba Suporte com o chamado já citado na próxima mensagem. */
+export const talkAboutTicket = (ticket: ChatTicket) => openTeamChat('suporte', { ticket });
 
 // Mensagens e avisos não lidos, para as bolinhas do "Conversas" e dos botões do topo no celular.
 // `team`: conversas e avisos da equipe; `help`: suporte da Comandou (`helpOn`: a pessoa tem o
@@ -165,6 +173,9 @@ export function TeamChat({
   const [peek, setPeek] = useState<Peek | null>(null);
   const openRef = useRef(open);
   openRef.current = open;
+  const [helpTicket, setHelpTicket] = useState<ChatTicket | null>(null);
+  const aiOnlyRef = useRef(aiOnly);
+  aiOnlyRef.current = aiOnly;
   const selRef = useRef(selected);
   selRef.current = selected;
   const myId = me?.user.id ?? '';
@@ -214,7 +225,15 @@ export function TeamChat({
   // Outras telas pedem para abrir o chat (ex.: o panda do topo abre a IA).
   useEffect(() => {
     const on = (e: Event) => {
-      const t = (e as CustomEvent<{ tab?: Tab }>).detail?.tab;
+      const detail = (e as CustomEvent<{ tab?: Tab; toggle?: boolean; ticket?: ChatTicket }>)
+        .detail;
+      const t = detail?.tab;
+      if (detail?.ticket) setHelpTicket(detail.ticket);
+      // Botão do topo com o painel já aberto no mesmo modo: fecha (liga e desliga).
+      if (detail?.toggle && openRef.current && (t === 'ia') === aiOnlyRef.current) {
+        setOpen(false);
+        return;
+      }
       if (shell && t === 'ia') {
         setAiOnly(true);
         setOpen(true);
@@ -239,16 +258,32 @@ export function TeamChat({
     setSelected(first.id);
   }, [open, aiOnly, loading, selected, tab, convs]);
 
+  // Fecha no Esc (até escrevendo) e num clique fora do painel, como o David pediu. Não fecha
+  // quando o clique ou o Esc são de outra camada por cima (foto ampliada, janela, menu, aviso)
+  // nem nos botões que abrem o chat (eles cuidam de abrir e fechar).
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      const t = e.target as HTMLElement;
-      if (t.closest('textarea, input')) return;
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      if (document.querySelector('dialog[open]')) return;
+      setOpen(false);
+    };
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as Element | null;
+      if (!t?.isConnected) return;
+      if (
+        t.closest('.tc-panel, .tc-fab, .tc-top, .tc-peek, dialog, [role="dialog"], [role="menu"]')
+      )
+        return;
+      if (t.closest('.cm-toasts, [data-chat-keep]')) return;
       setOpen(false);
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener('pointerdown', onDown);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointerdown', onDown);
+    };
   }, [open]);
 
   useRealtimeEvents((e) => {
@@ -562,7 +597,14 @@ export function TeamChat({
             ) : tab === 'clientes' && canCustomers ? (
               <CustomersInbox />
             ) : tab === 'suporte' && canHelp ? (
-              <HelpTab pollMs={pollMs} onRead={() => setHelp((h) => ({ ...h, unread: 0 }))} />
+              <HelpTab
+                pollMs={pollMs}
+                onRead={() => setHelp((h) => ({ ...h, unread: 0 }))}
+                ticket={helpTicket}
+                onTicket={() => {
+                  if (window.matchMedia?.('(max-width: 640px)').matches) setOpen(false);
+                }}
+              />
             ) : (
               <NoticesTab
                 onOpenConversation={openConversation}

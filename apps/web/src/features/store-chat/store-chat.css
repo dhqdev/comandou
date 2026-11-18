@@ -266,6 +266,114 @@
   cursor: default;
 }
 
+/* Chamado citado na mensagem: cartão com número, situação e título. */
+.scx-ticket {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  align-self: stretch;
+  min-width: min(260px, 100%);
+  max-width: 420px;
+  padding: 8px 10px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-bg);
+  color: var(--cm-text);
+  font: inherit;
+  text-align: left;
+}
+button.scx-ticket {
+  cursor: pointer;
+  transition:
+    border-color var(--cm-dur-fast) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+button.scx-ticket:hover {
+  border-color: var(--cm-border-strong);
+}
+button.scx-ticket:active {
+  transform: scale(0.98);
+}
+.scx-ticket__icon {
+  flex: none;
+  color: var(--cm-brand-600);
+}
+.scx-ticket__text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+.scx-ticket__text small {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+  font-variant-numeric: tabular-nums;
+}
+.scx-ticket__text strong {
+  overflow: hidden;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scx-ticket__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.scx-ticket__status::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cm-brand-500);
+}
+.scx-ticket__status[data-done]::before {
+  background: var(--cm-success);
+}
+.scx-ticket__go {
+  flex: none;
+  color: var(--cm-text-subtle);
+}
+.scx-attach__title {
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--cm-text-muted);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scx-menu--tickets {
+  width: min(340px, calc(100vw - 24px));
+  max-height: 320px;
+  overflow-y: auto;
+}
+.scx-menu__ticket {
+  min-width: 0;
+  display: grid;
+  text-align: left;
+}
+.scx-menu__ticket strong {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.scx-menu__ticket small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+.scx-menu__empty {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+}
+
 /* Foto e vídeo dentro do balão */
 .scx-media {
   position: relative;
@@ -836,5 +944,193 @@
     width: 32px;
     height: 32px;
     font-size: 12px;
+  }
+}
+
+/* ---------------------------------------------------------------- balões (Super Admin)
+ * Mesmo desenho dos Chamados: fundo um tom abaixo, quem vê à direita em --cm-brand-50, o outro
+ * lado à esquerda na superfície com o avatar, dia e aviso em pílula no meio, hora no balão. */
+.scx--bubbles {
+  background: var(--cm-surface-sunken, var(--cm-bg));
+}
+.scx-thread--bubbles .scx-thread__inner {
+  max-width: 1040px;
+  padding: 16px clamp(12px, 3vw, 32px) 12px;
+}
+.scx-thread--bubbles .scx-day {
+  display: block;
+  text-transform: none;
+  align-self: center;
+  margin: 16px 0 8px;
+  padding: 3px 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+}
+.scx-thread--bubbles .scx-day::first-letter {
+  text-transform: uppercase;
+}
+.scx-thread--bubbles .scx-thread__inner > .scx-day::before,
+.scx-thread--bubbles .scx-thread__inner > .scx-day::after {
+  content: none;
+}
+.scx-thread--bubbles .scx-system {
+  margin: 10px 0 2px;
+  padding: 5px 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  text-align: center;
+}
+.scx-thread--bubbles .scx-msg {
+  grid-template-columns: 32px minmax(0, 1fr);
+  column-gap: 8px;
+  max-width: min(680px, 80%);
+  margin: 10px 0 0;
+  padding: 0;
+  animation: scx-bubble-in var(--cm-spring-dur) var(--cm-spring) both;
+}
+.scx-thread--bubbles .scx-msg[data-grouped] {
+  margin-top: 3px;
+}
+.scx-thread--bubbles .scx-msg:hover {
+  background: none;
+}
+.scx-thread--bubbles .scx-msg[data-mine] {
+  grid-template-columns: minmax(0, 1fr);
+  align-self: flex-end;
+}
+.scx-thread--bubbles .scx-msg[data-mine] .scx-msg__side,
+.scx-thread--bubbles .scx-msg__at,
+.scx-thread--bubbles .scx-msg__time {
+  display: none;
+}
+.scx-thread--bubbles .scx-avatar {
+  width: 32px;
+  height: 32px;
+  margin-top: 20px;
+  font-size: 12px;
+}
+.scx-thread--bubbles .scx-msg[data-mine] .scx-msg__main {
+  align-items: flex-end;
+}
+.scx-thread--bubbles .scx-msg__head {
+  padding: 0 4px 3px;
+}
+.scx-thread--bubbles .scx-msg__who,
+.scx-thread--bubbles .scx-msg[data-mine] .scx-msg__who {
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.scx-thread--bubbles .scx-body {
+  gap: 6px;
+  min-width: 72px;
+  padding: 8px 12px 6px;
+  border: 1px solid var(--cm-border);
+  border-radius: 16px;
+  background: var(--cm-surface);
+}
+.scx-thread--bubbles .scx-msg:not([data-mine]):not([data-grouped]) .scx-body {
+  border-top-left-radius: 4px;
+}
+.scx-thread--bubbles .scx-msg[data-mine] .scx-body {
+  border-color: var(--cm-brand-100);
+  background: var(--cm-brand-50);
+}
+.scx-thread--bubbles .scx-msg[data-mine]:not([data-grouped]) .scx-body {
+  border-top-right-radius: 4px;
+}
+/* Foto: o balão abraça a imagem, com uma borda fina em volta. */
+.scx-thread--bubbles .scx-body:has(> .scx-media) {
+  padding: 4px 4px 6px;
+}
+.scx-thread--bubbles .scx-body:has(> .scx-media) .scx-text {
+  padding: 2px 8px 0;
+}
+.scx-thread--bubbles .scx-media {
+  border-radius: 12px;
+}
+.scx-thread--bubbles .scx-body--emoji {
+  border-color: transparent;
+  background: none;
+  padding: 0 2px;
+}
+.scx-thread--bubbles .scx-msg[data-mine] .scx-body--emoji {
+  border-color: transparent;
+  background: none;
+}
+.scx-thread--bubbles .scx-text {
+  font-size: var(--cm-text-sm);
+  line-height: 1.5;
+}
+.scx-body__time {
+  align-self: flex-end;
+  margin: -2px 0 0 auto;
+  padding-right: 4px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cm-text-subtle);
+}
+.scx-thread--bubbles .scx-body:has(> .scx-media) .scx-body__time {
+  padding-right: 8px;
+}
+.scx-thread--bubbles .scx-status,
+.scx-thread--bubbles .scx-retry {
+  padding: 0 4px;
+}
+.scx--bubbles .scx-compose {
+  padding: 10px clamp(12px, 3vw, 32px) calc(12px + var(--scx-safe, 0px));
+  border-top: 1px solid var(--cm-border);
+  background: var(--cm-surface);
+}
+.scx--bubbles .scx-compose > * {
+  max-width: 1040px;
+}
+.scx--bubbles .scx-compose__row {
+  padding: 3px;
+  border-color: var(--cm-border-strong);
+  border-radius: 24px;
+  background: var(--cm-surface);
+}
+.scx--bubbles .scx-compose__row:focus-within {
+  border-color: var(--cm-brand-500);
+  box-shadow: var(--cm-focus);
+}
+.scx--bubbles .scx-icon {
+  border-radius: 50%;
+}
+.scx--bubbles .scx-send {
+  border-radius: 50%;
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+}
+.scx--bubbles .scx-send:hover:not(:disabled) {
+  background: var(--cm-brand-700);
+}
+.scx--bubbles .scx-send:disabled {
+  background: var(--cm-surface-muted, var(--cm-surface-sunken));
+  color: var(--cm-text-subtle);
+  opacity: 1;
+}
+@keyframes scx-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scx-thread--bubbles .scx-msg {
+    animation: none;
+  }
+}
+@media (max-width: 600px) {
+  .scx-thread--bubbles .scx-msg {
+    max-width: 88%;
+  }
+  .scx-thread--bubbles .scx-msg[data-mine] {
+    max-width: 82%;
   }
 }
