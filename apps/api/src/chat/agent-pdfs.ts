@@ -10,11 +10,11 @@ import {
   Writer,
   WIDTH,
 } from '../platform/contracts/contract-pdf';
-import { AgentMenuCategory, brl } from './ai-agent-prompt';
 
 /**
- * PDFs que a IA manda no WhatsApp do restaurante: o cardápio liberado para ela e o calendário de
- * reservas (dias e horários livres). A4, fontes padrão do PDF, laranja do Comandou nos destaques.
+ * PDF que a IA manda no WhatsApp do restaurante: o calendário de reservas (dias e horários
+ * livres). O cardápio não é gerado aqui: é o arquivo que o próprio restaurante sobe. A4, fontes
+ * padrão do PDF, laranja do Comandou nos destaques.
  */
 
 const BRAND = rgb(0.886, 0.227, 0);
@@ -88,88 +88,6 @@ function footer(doc: PDFDocument, f: Fonts, left: string) {
       color: MUTED,
     });
   });
-}
-
-// ------------------------------------------------------------------ cardápio
-
-export async function renderMenuPdf(o: {
-  tenantName: string;
-  menu: AgentMenuCategory[];
-  showPrices: boolean;
-  storeUrl: string | null;
-  now: Date;
-  timezone: string;
-}): Promise<Uint8Array> {
-  const doc = await PDFDocument.create();
-  doc.setTitle(pdfSafe(`Cardápio - ${o.tenantName}`));
-  doc.setProducer('Comandou');
-  const f = await fonts(doc);
-  const w = new Writer(doc, f);
-  const today = o.now.toLocaleDateString('pt-BR', { timeZone: o.timezone });
-  header(w, 'Cardápio', o.tenantName, `Atualizado em ${today}. Itens e preços podem mudar.`);
-
-  for (const c of o.menu) {
-    if (!c.products.length) continue;
-    w.ensure(60);
-    w.y -= 4;
-    w.text(c.name.toUpperCase(), { font: f.bold, size: 11, color: BRAND, gap: 6 });
-    for (const p of c.products) {
-      const price = o.showPrices
-        ? `${brl(p.price)}${p.soldByWeight ? ' o kg' : ''}`
-        : p.soldByWeight
-          ? 'por peso'
-          : '';
-      const size = 10.5;
-      w.ensure(size * 3);
-      const priceW = price ? f.bold.widthOfTextAtSize(pdfSafe(price), size) : 0;
-      const nameLines = w.wrap(
-        p.soldOut ? `${p.name} (esgotado hoje)` : p.name,
-        f.bold,
-        size,
-        WIDTH - priceW - 16,
-      );
-      nameLines.forEach((l, i) => {
-        w.page.drawText(l, {
-          x: MARGIN,
-          y: w.y - size,
-          size,
-          font: f.bold,
-          color: p.soldOut ? MUTED : INK,
-        });
-        if (i === 0 && price)
-          w.page.drawText(pdfSafe(price), {
-            x: MARGIN + WIDTH - priceW,
-            y: w.y - size,
-            size,
-            font: f.bold,
-            color: p.soldOut ? MUTED : INK,
-          });
-        w.y -= size * 1.4;
-      });
-      if (p.description)
-        w.text(p.description.replace(/\s+/g, ' ').slice(0, 300), {
-          size: 9,
-          color: MUTED,
-          gap: 1,
-        });
-      for (const g of p.optionGroups) {
-        if (!g.options.length) continue;
-        const opts = g.options
-          .slice(0, 30)
-          .map((x) =>
-            o.showPrices && Number(x.priceDelta) > 0 ? `${x.name} (+${brl(x.priceDelta)})` : x.name,
-          )
-          .join(', ');
-        w.text(`${g.name}: ${opts}`, { size: 8.5, color: MUTED, indent: 10, gap: 1 });
-      }
-      w.y -= 7;
-    }
-  }
-  if (!o.menu.some((c) => c.products.length))
-    w.text('O cardápio está sendo atualizado. Fale com a gente pelo WhatsApp.', { color: MUTED });
-
-  footer(doc, f, o.storeUrl ? `Peça pelo cardápio online: ${o.storeUrl}` : o.tenantName);
-  return doc.save();
 }
 
 // ------------------------------------------------------------------ calendário de reservas

@@ -20,6 +20,52 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.167.0',
+    date: '2026-11-18',
+    title: 'Tokens de IA com o saldo de verdade do OpenRouter',
+    summary:
+      'A aba Tokens do Super Admin passa a mostrar o saldo da conta no OpenRouter (com a nova chave de gerenciamento) e separa direitinho quanto o sistema gastou de cada chave.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Super Admin › Credenciais: nova chave opcional "OpenRouter · chave de gerenciamento (saldo)". O OpenRouter só mostra os créditos da conta para esse tipo de chave; com ela, o quadro Saldo no OpenRouter mostra quanto sobra de quanto foi comprado e avisa quando estiver baixo.',
+      },
+      {
+        tag: 'correção',
+        text: 'Sem a chave de gerenciamento, o quadro do topo diz "Sobra no limite da chave" e mostra o limite da chave dos restaurantes (ou da sua), em vez de "sem dados" ou de um aviso de permissão que não tinha como resolver.',
+      },
+      {
+        tag: 'correção',
+        text: 'Quando você não tem a sua chave, a esteira e os testes gastam da chave dos restaurantes: agora esse gasto conta para a chave certa, e o "Fora do Comandou" deixa de acusar como gasto de fora o que foi o próprio sistema. O gasto dos sites com IA com chave própria também deixou de aparecer como sendo da sua chave.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O extrato mostra com qual chave saiu cada chamada do sistema, e ganharam nome as origens Foto do cardápio, Busca no Google Maps e Teste do assistente do WhatsApp. O "Hoje" dos cartões de chave diz que é o dia do OpenRouter (UTC).',
+      },
+    ],
+  },
+  {
+    version: '0.166.0',
+    date: '2026-11-18',
+    title: 'A IA manda no WhatsApp o cardápio que o restaurante sobe',
+    summary:
+      'O cardápio que a IA manda no WhatsApp agora é o arquivo do próprio restaurante: suba o PDF ou as fotos do cardápio na tela Assistente de IA e a IA manda esses arquivos quando o cliente pedir. O sistema não gera mais um PDF de cardápio sozinho; o calendário de reservas em PDF continua.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Cardápio para mandar no WhatsApp, na tela Assistente de IA: envie o PDF (até 10 MB) ou fotos em JPG ou PNG (até 10 arquivos). A IA manda todos, na ordem da lista, quando o cliente pede o cardápio. Dá para abrir cada arquivo para conferir e apagar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Sem arquivo enviado, a IA não manda cardápio: responde pelos itens liberados e manda o link da loja online.',
+      },
+      {
+        tag: 'segurança',
+        text: 'O tipo do arquivo do cardápio é conferido pelo conteúdo (PDF, JPEG ou PNG de verdade), na API e no serviço do WhatsApp, e só gerente e dono sobem, veem ou apagam.',
+      },
+    ],
+  },
+  {
     version: '0.165.0',
     date: '2026-11-18',
     title: 'Segurança reforçada: links externos, senhas e exclusão de restaurante',

@@ -6,6 +6,8 @@ import type { PlatformDb } from './platform-db.service';
 export const CLIENT_KEY_CONTEXT = 'ai:openrouter';
 /** Contexto da chave do dono (sistema e esteira); nunca sai do banco central. */
 export const OWNER_KEY_CONTEXT = 'ai:openrouter:owner';
+/** Contexto da chave de gerenciamento (só lê o saldo da conta; nunca faz chamada de IA). */
+export const ADMIN_KEY_CONTEXT = 'ai:openrouter:admin';
 
 export type KeyKind = 'owner' | 'clients';
 
@@ -39,14 +41,27 @@ export function systemKey(
   return cli ? { key: cli, kind: 'clients' } : null;
 }
 
-/** Registra uma chamada feita pelo próprio sistema (esteira, teste) no extrato do Super Admin. */
+/** Com qual chave saiu uma chamada do sistema (`typed` = digitada no teste, ainda não salva). */
+export type UsageKey = KeyKind | 'site' | 'typed';
+
+/**
+ * Registra uma chamada feita pelo próprio sistema (esteira, teste, sites) no extrato do Super
+ * Admin, com a chave que pagou: a aba Tokens confere o gasto de cada chave com o OpenRouter.
+ */
 export async function recordSystemUsage(
   db: PlatformDb,
-  p: { source: string; ref?: string | null; model: string; usage: Usage; adminId?: string | null },
+  p: {
+    source: string;
+    ref?: string | null;
+    model: string;
+    usage: Usage;
+    adminId?: string | null;
+    key: UsageKey;
+  },
 ) {
   await db.query(
-    `INSERT INTO platform_ai_usage (source, ref, model, prompt_tokens, completion_tokens, cost_usd, admin_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    `INSERT INTO platform_ai_usage (source, ref, model, prompt_tokens, completion_tokens, cost_usd, admin_id, key_kind)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [
       p.source,
       p.ref ?? null,
@@ -55,6 +70,7 @@ export async function recordSystemUsage(
       p.usage.completionTokens,
       p.usage.costUsd,
       p.adminId ?? null,
+      p.key,
     ],
   );
 }

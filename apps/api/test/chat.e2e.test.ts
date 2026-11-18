@@ -83,6 +83,12 @@ function fakeOpenRouter() {
     req.on('end', () => {
       const body = raw ? (JSON.parse(raw) as Record<string, unknown>) : undefined;
       orCalls.push({ path: req.url!, auth: req.headers.authorization, body });
+      // Chave de gerenciamento: só lê os créditos da conta; não conversa com a IA.
+      if (req.headers.authorization === 'Bearer sk-or-gerencia' && req.url === '/credits') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ data: { total_credits: 20, total_usage: 4.25 } }));
+        return;
+      }
       if (req.headers.authorization !== 'Bearer sk-or-teste') {
         res.writeHead(401, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: { message: 'No auth' } }));
@@ -509,7 +515,9 @@ describe('Assistente de IA', () => {
     ).body;
     expect(s.settings).toMatchObject({ enabled: true, hasApiKey: true, keyReadable: true });
     expect(JSON.stringify(s)).not.toContain('sk-or-teste');
-    expect(s.account).toMatchObject({ remainingUsd: 7.5, keyLimitUsd: 10 });
+    expect(s.account).toMatchObject({ remainingUsd: 7.5, keyLimitUsd: 10, error: null });
+    // Sem chave de gerenciamento, o topo mostra o que sobra no limite da chave (não o saldo).
+    expect(s.balance).toMatchObject({ from: 'clients', remainingUsd: 7.5, totalUsd: 10 });
     const [row] = await ownerQuery<{ k: Buffer }>(
       `SELECT api_key_enc AS k FROM platform_ai_settings`,
     );
@@ -702,9 +710,54 @@ describe('Assistente de IA', () => {
     o = (await pget('/ai').expect(200)).body;
     expect(o.system.calls).toBeGreaterThanOrEqual(1);
     expect(o.log[0]).toMatchObject({ key: 'owner', source: 'teste', ref: 'sua chave' });
+    expect(o.log[0]).toMatchObject({ via: 'owner' });
+    expect(o.system.byKey.owner).toBeGreaterThan(0);
     o = (await psend('put', '/ai/settings', { ...base, clearOwnerKey: true }).expect(200)).body;
     expect(o.settings.hasOwnerKey).toBe(false);
     expect(o.systemKey).toBe('clients');
+    // Sem a sua chave, o teste do sistema sai da chave dos restaurantes e conta para ela.
+    const before = o.system.byKey.clients;
+    await psend('post', '/ai/test', { key: 'clients', model: 'google/gemini-2.5-flash-lite' });
+    o = (await pget('/ai').expect(200)).body;
+    expect(o.log[0]).toMatchObject({ key: 'owner', via: 'clients' });
+    expect(o.system.byKey.clients).toBeGreaterThan(before);
+  });
+
+  it('chave de gerenciamento mostra o saldo de verdade da conta no OpenRouter', async () => {
+    const base = {
+      enabled: true,
+      model: 'google/gemini-2.5-flash-lite',
+      assistantName: 'Comandinho',
+      defaultMonthlyTokens: 1000,
+      lowBalanceUsd: 2,
+    };
+    const t = (
+      await psend('post', '/ai/test', { apiKey: 'sk-or-gerencia', key: 'admin', model: 'x/y' })
+    ).body;
+    expect(t).toMatchObject({ ok: true, credits: { totalUsd: 20, remainingUsd: 15.75 } });
+    let o = (
+      await psend('put', '/ai/settings', { ...base, adminApiKey: 'sk-or-gerencia' }).expect(200)
+    ).body;
+    expect(o.settings).toMatchObject({ hasAdminKey: true, adminKeyReadable: true });
+    expect(o.balance).toMatchObject({
+      from: 'conta',
+      totalUsd: 20,
+      usedUsd: 4.25,
+      remainingUsd: 15.75,
+    });
+    expect(JSON.stringify(o)).not.toContain('sk-or-gerencia');
+    const [row] = await ownerQuery<{ k: Buffer }>(
+      `SELECT admin_api_key_enc AS k FROM platform_ai_settings`,
+    );
+    expect(row.k.toString()).not.toContain('sk-or-gerencia');
+    const cred = (await pget('/credentials').expect(200)).body;
+    expect(cred.items.find((i: { id: string }) => i.id === 'openrouter_admin')).toMatchObject({
+      configured: true,
+      last4: 'ncia',
+    });
+    o = (await psend('put', '/ai/settings', { ...base, clearAdminKey: true }).expect(200)).body;
+    expect(o.settings.hasAdminKey).toBe(false);
+    expect(o.balance.from).toBe('clients');
   });
 
   it('apaga a própria conversa', async () => {
@@ -1036,34 +1089,66 @@ describe('IA que atende o cliente (configurada pelo gerente)', () => {
     expect(bad!.text).toContain('Não consegui esse horário');
   });
 
-  it('WhatsApp: manda o cardápio e o calendário em PDF', async () => {
+  it('WhatsApp: manda o cardápio que o restaurante subiu e o calendário em PDF', async () => {
     const agent = app.get(AiAgentService);
-    agentReply = 'Mandando! [[CARDAPIO_PDF]] [[CALENDARIO_PDF]]';
-    const r = await agent.handle({
-      tenantId: fx.tenantA,
-      from: '5511955550000',
-      text: 'me manda o cardápio e o calendário',
-    });
+    const msg = { tenantId: fx.tenantA, from: '5511955550000', text: 'me manda o cardápio' };
+    const upload = (w: Who, type: string, body: Buffer, name = 'Cardápio da casa.pdf') =>
+      http
+        .post(`/api/v1/ai-agent/menu-files?name=${encodeURIComponent(name)}`)
+        .set('Host', hostOf(w))
+        .set('Cookie', cookies[w])
+        .set(CSRF)
+        .set('Content-Type', type)
+        .send(body);
+    // Sem arquivo do restaurante, a IA não manda cardápio (nem gera um sozinha).
+    agentReply = 'Mandando! [[CARDAPIO]]';
+    const none = await agent.handle(msg);
+    expect(lastSystem()).not.toContain('[[CARDAPIO]]');
+    expect(none!.documents).toEqual([]);
+    // O gerente sobe o PDF e uma foto; o garçom não pode.
+    const pdf = Buffer.concat([Buffer.from('%PDF-1.7\n'), Buffer.alloc(4000, 'x')]);
+    const jpg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(2000, 1)]);
+    await upload('waiterA', 'application/pdf', pdf).expect(403);
+    await upload('adminA', 'application/pdf', Buffer.from('<html>oi</html>')).expect(422);
+    await upload('adminA', 'image/png', jpg, 'foto.png').expect(422);
+    await upload('adminA', 'application/pdf', pdf).expect(201);
+    const list = (await upload('adminA', 'image/jpeg', jpg, 'verso.jpeg').expect(201)).body;
+    expect(list.map((f: { fileName: string }) => f.fileName)).toEqual([
+      'Cardápio da casa.pdf',
+      'verso.jpg',
+    ]);
+    // Outro restaurante não vê os arquivos de A.
+    expect((await get('adminB', '/ai-agent/menu-files').expect(200)).body).toEqual([]);
+    await get('adminB', `/ai-agent/menu-files/${list[0].id}`).expect(404);
+    const view = await get('adminA', `/ai-agent/menu-files/${list[0].id}`).expect(200);
+    expect(view.headers['content-type']).toContain('application/pdf');
+
+    agentReply = 'Mandando! [[CARDAPIO]] [[CALENDARIO_PDF]]';
+    const r = await agent.handle({ ...msg, text: 'me manda o cardápio e o calendário' });
+    expect(lastSystem()).toContain('os 2 arquivos');
     expect(r!.text).toBe('Mandando!');
     expect(r!.documents.map((d) => d.fileName)).toEqual([
-      expect.stringMatching(/^Cardápio - .+\.pdf$/),
+      'Cardápio da casa.pdf',
+      'verso.jpg',
       expect.stringMatching(/^Calendário de reservas - .+\.pdf$/),
     ]);
-    for (const d of r!.documents) expect(Buffer.from(d.data.slice(0, 5)).toString()).toBe('%PDF-');
-    // O gerente vê a prévia; o garçom não.
-    await get('waiterA', '/ai-agent/pdf/menu').expect(403);
-    const pdf = await get('adminA', '/ai-agent/pdf/calendar').expect(200);
-    expect(pdf.headers['content-type']).toContain('application/pdf');
+    expect(Buffer.from(r!.documents[0]!.data)).toEqual(pdf);
+    expect(r!.documents[0]!.caption).toContain('Cardápio');
+    expect(r!.documents[1]!.caption).toBeUndefined();
+    // Prévia do calendário só para o gerente.
+    await get('waiterA', '/ai-agent/pdf/calendar').expect(403);
+    const cal = await get('adminA', '/ai-agent/pdf/calendar').expect(200);
+    expect(cal.headers['content-type']).toContain('application/pdf');
     // Desligado pelo gerente: não manda.
     await send('adminA', 'put', '/ai-agent', { sendPdfs: false }).expect(200);
-    agentReply = 'Mandando! [[CARDAPIO_PDF]]';
-    const off = await agent.handle({
-      tenantId: fx.tenantA,
-      from: '5511955550000',
-      text: 'cardápio',
-    });
-    expect(off!.documents).toEqual([]);
+    agentReply = 'Mandando! [[CARDAPIO]]';
+    expect((await agent.handle({ ...msg, text: 'cardápio' }))!.documents).toEqual([]);
     await send('adminA', 'put', '/ai-agent', { sendPdfs: true }).expect(200);
+    // Apagar tira da lista (e só o gerente de A apaga o de A).
+    await send('adminB', 'delete', `/ai-agent/menu-files/${list[1].id}`).expect(404);
+    const left = (await send('adminA', 'delete', `/ai-agent/menu-files/${list[1].id}`).expect(200))
+      .body;
+    expect(left).toHaveLength(1);
   });
 
   it('WhatsApp: tentativa de tirar a IA do papel e link de golpe', async () => {

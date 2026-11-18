@@ -1,5 +1,20 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Put, Res } from '@nestjs/common';
-import type { Response } from 'express';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  Query,
+  Req,
+  Res,
+  UnprocessableEntityException,
+} from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 import { ctxOf } from '../common/context';
@@ -8,6 +23,9 @@ import { uuid } from '../common/schemas';
 import { ZodPipe } from '../common/zod.pipe';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { AiAgentService } from './ai-agent.service';
+
+/** Tipos aceitos no cardápio do restaurante (a API confere a assinatura do arquivo). */
+const MENU_TYPES = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 
 const text = (max: number) => z.string().trim().max(max).nullable();
 
@@ -88,24 +106,82 @@ export class AiAgentController {
     return this.agent.setVisible(ctxOf(t, u), b);
   }
 
-  /** Prévia do PDF que a IA manda no WhatsApp: cardápio ou calendário de reservas. */
-  @Get('pdf/:kind')
+  /** Prévia do calendário de reservas em PDF que a IA manda no WhatsApp. */
+  @Get('pdf/calendar')
   @RequirePermission('settings:manage')
-  async pdf(
-    @Param('kind', new ZodPipe(z.enum(['menu', 'calendar']))) kind: 'menu' | 'calendar',
+  async calendarPdf(
     @CurrentTenant() t: ResolvedTenant,
     @CurrentUser() u: AuthenticatedUser,
     @Res() res: Response,
   ) {
-    const ctx = ctxOf(t, u);
-    const f = kind === 'menu' ? await this.agent.menuPdf(ctx) : await this.agent.calendarPdf(ctx);
+    const f = await this.agent.calendarPdf(ctxOf(t, u));
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
-      `inline; filename="${kind === 'menu' ? 'cardapio' : 'calendario-reservas'}.pdf"; filename*=UTF-8''${encodeURIComponent(f.fileName)}`,
+      `inline; filename="calendario-reservas.pdf"; filename*=UTF-8''${encodeURIComponent(f.fileName)}`,
     );
     res.setHeader('Cache-Control', 'no-store');
     res.send(Buffer.from(f.data));
+  }
+
+  /** Arquivos do cardápio que o restaurante subiu para a IA mandar no WhatsApp. */
+  @Get('menu-files')
+  @RequirePermission('settings:manage')
+  menuFiles(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.agent.listMenuFiles(ctxOf(t, u));
+  }
+
+  /** Sobe um arquivo do cardápio: o corpo é o próprio PDF ou foto (JPEG/PNG). */
+  @Post('menu-files')
+  @RequirePermission('settings:manage')
+  @Throttle({ default: { ttl: 60_000, limit: 20 } })
+  addMenuFile(
+    @Body() body: unknown,
+    @Headers('content-type') type: string | undefined,
+    @Query('name', new ZodPipe(z.string().trim().max(120).optional())) name: string | undefined,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    const contentType = (type ?? '').split(';')[0]!.trim().toLowerCase();
+    if (!MENU_TYPES.has(contentType) || !Buffer.isBuffer(body) || !body.length)
+      throw new UnprocessableEntityException('Envie o cardápio em PDF ou foto (JPEG ou PNG)');
+    return this.agent.addMenuFile(ctxOf(t, u, req), {
+      data: body,
+      contentType,
+      name: name || 'Cardápio',
+    });
+  }
+
+  @Delete('menu-files/:id')
+  @RequirePermission('settings:manage')
+  removeMenuFile(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.agent.removeMenuFile(ctxOf(t, u, req), id);
+  }
+
+  /** O arquivo para o gerente conferir (abre no navegador). */
+  @Get('menu-files/:id')
+  @RequirePermission('settings:manage')
+  async menuFile(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    const f = await this.agent.menuFile(ctxOf(t, u), id);
+    res.setHeader('Content-Type', f.contentType);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="cardapio.${f.contentType === 'application/pdf' ? 'pdf' : f.contentType === 'image/png' ? 'png' : 'jpg'}"; filename*=UTF-8''${encodeURIComponent(f.fileName)}`,
+    );
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.send(f.bytes);
   }
 
   @Post('test')

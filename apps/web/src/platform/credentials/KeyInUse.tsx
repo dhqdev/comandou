@@ -18,6 +18,7 @@ const NAMES: Record<string, string> = {
   focus_master: 'Focus NFe · Token Master',
   openrouter_clients: 'OpenRouter · chave dos restaurantes',
   openrouter_owner: 'OpenRouter · sua chave',
+  openrouter_admin: 'OpenRouter · chave de gerenciamento',
   openrouter_site: 'OpenRouter · chave dos sites',
   resend: 'Resend',
   asaas: 'Asaas',

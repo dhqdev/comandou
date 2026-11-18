@@ -2,11 +2,15 @@ import {
   Bot,
   CheckCheck,
   FileDown,
+  FileText,
+  Image as ImageIcon,
   MessageCircle,
   RotateCcw,
   Search,
   Send,
   Sparkles,
+  Trash2,
+  Upload,
 } from 'lucide-react';
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
@@ -74,7 +78,7 @@ interface Turn {
 
 /** O que a IA faria no WhatsApp, mostrado embaixo da resposta no teste. */
 const ACTION_NOTE: Record<string, string> = {
-  menu_pdf: 'Aqui a IA mandaria o cardápio em PDF.',
+  menu_file: 'Aqui a IA mandaria o cardápio que vocês subiram.',
   calendar_pdf: 'Aqui a IA mandaria o calendário de reservas em PDF.',
   reservation_confirm: 'O horário está livre. No WhatsApp, a reserva só é gravada depois do SIM.',
   reservation_cancel: 'Aqui a IA pediria o SIM para cancelar a reserva deste número.',
@@ -190,12 +194,11 @@ export function AiAgentPage() {
     }
   }
 
-  /** Prévia do PDF que a IA manda (com o que está salvo). */
-  function pdf(kind: 'menu' | 'calendar') {
-    downloadFile(
-      `/api/v1/ai-agent/pdf/${kind}`,
-      kind === 'menu' ? 'cardapio.pdf' : 'calendario-reservas.pdf',
-    ).catch((e: Error) => toast(e.message, 'danger'));
+  /** Prévia do calendário de reservas em PDF que a IA manda (com o que está salvo). */
+  function pdf(kind: 'calendar') {
+    downloadFile(`/api/v1/ai-agent/pdf/${kind}`, 'calendario-reservas.pdf').catch((e: Error) =>
+      toast(e.message, 'danger'),
+    );
   }
 
   if (!o || !form) return error ? <Alert tone="danger">{error}</Alert> : <Spinner />;
@@ -374,22 +377,13 @@ export function AiAgentPage() {
               onChange={set('takeReservations')}
             />
             <CheckField
-              label="Mandar o cardápio e o calendário em PDF"
-              description="Quando o cliente pede, a IA manda o arquivo na conversa (o calendário mostra os dias e horários livres para reserva)."
+              label="Mandar o cardápio e o calendário"
+              description="Quando o cliente pede, a IA manda na conversa o cardápio que vocês subiram (logo abaixo) e o calendário de reservas em PDF, com os dias e horários livres."
               checked={form.sendPdfs}
               onChange={set('sendPdfs')}
             />
           </div>
           <div className="ai-pdfs">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              icon={<FileDown size={16} />}
-              onClick={() => pdf('menu')}
-            >
-              Ver o cardápio em PDF
-            </Button>
             <Button
               type="button"
               variant="ghost"
@@ -427,9 +421,172 @@ export function AiAgentPage() {
         )}
       </form>
 
+      <MenuFilesCard />
       <MenuCard />
       <TestCard draft={form} name={name} available={o.available} reason={o.reason} />
     </HelpScope>
+  );
+}
+
+interface MenuFile {
+  id: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+  createdAt: string;
+}
+
+const MB = 1024 * 1024;
+
+/** Foto do cardápio: reduz para até 2400 px no lado maior (texto ainda legível) e vira JPEG. */
+async function menuPhoto(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' }).catch(() => {
+    throw new Error(`Não foi possível ler a foto ${file.name}`);
+  });
+  const scale = Math.min(1, 2400 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const g = canvas.getContext('2d')!;
+  g.fillStyle = '#fff'; // PNG com fundo transparente não fica preto no JPEG
+  g.fillRect(0, 0, canvas.width, canvas.height);
+  g.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  for (const q of [0.88, 0.8, 0.7]) {
+    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, 'image/jpeg', q));
+    if (blob && blob.size <= 3 * MB) return blob;
+  }
+  throw new Error(`A foto ${file.name} ficou grande demais; tente uma menor`);
+}
+
+const sizeText = (n: number) =>
+  n >= MB
+    ? `${(n / MB).toFixed(1).replace('.', ',')} MB`
+    : `${Math.max(1, Math.round(n / 1024))} KB`;
+
+/**
+ * O cardápio que a IA manda no WhatsApp: o próprio arquivo do restaurante (PDF ou fotos), na
+ * ordem em que foi enviado. Sem arquivo, a IA não manda cardápio (só fala dos itens e do link).
+ */
+function MenuFilesCard() {
+  const toast = useToast();
+  const [files, setFiles] = useState<MenuFile[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    api<MenuFile[]>('/ai-agent/menu-files')
+      .then(setFiles)
+      .catch((e: Error) => toast(e.message, 'danger'));
+  }, [toast]);
+
+  async function upload(list: FileList | null) {
+    if (!list?.length) return;
+    setBusy(true);
+    try {
+      for (const f of Array.from(list)) {
+        const isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+        if (!isPdf && !f.type.startsWith('image/'))
+          throw new Error(`${f.name}: envie PDF ou foto (JPG ou PNG)`);
+        if (isPdf && f.size > 10 * MB) throw new Error(`${f.name} passa de 10 MB`);
+        const body = isPdf ? f : await menuPhoto(f);
+        const next = await api<MenuFile[]>(
+          `/ai-agent/menu-files?name=${encodeURIComponent(f.name.slice(0, 120))}`,
+          {
+            method: 'POST',
+            body,
+            headers: { 'Content-Type': isPdf ? 'application/pdf' : 'image/jpeg' },
+          },
+        );
+        setFiles(next);
+      }
+      toast('Cardápio salvo. A IA já manda este arquivo no WhatsApp.', 'success');
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    } finally {
+      setBusy(false);
+      if (input.current) input.current.value = '';
+    }
+  }
+
+  async function remove(f: MenuFile) {
+    try {
+      setFiles(await api<MenuFile[]>(`/ai-agent/menu-files/${f.id}`, { method: 'DELETE' }));
+    } catch (e) {
+      toast((e as Error).message, 'danger');
+    }
+  }
+
+  return (
+    <Card
+      searchId="secao-ia-arquivo"
+      title="Cardápio para mandar no WhatsApp"
+      actions={
+        <Button
+          type="button"
+          size="sm"
+          icon={<Upload size={16} />}
+          loading={busy}
+          disabled={(files?.length ?? 0) >= 10}
+          onClick={() => input.current?.click()}
+        >
+          Enviar arquivo
+        </Button>
+      }
+    >
+      <p className="cm-hint" style={{ marginTop: 0 }}>
+        Suba o cardápio do jeito que vocês já usam: PDF (até 10 MB) ou fotos (JPG ou PNG). Quando o
+        cliente pedir o cardápio, a IA manda estes arquivos na ordem abaixo. Sem arquivo, ela não
+        manda cardápio, só fala dos itens e manda o link da loja online.
+      </p>
+      <input
+        ref={input}
+        type="file"
+        hidden
+        multiple
+        accept="application/pdf,.pdf,image/jpeg,image/png"
+        onChange={(e) => upload(e.target.files)}
+      />
+      {!files ? (
+        <Spinner />
+      ) : files.length === 0 ? (
+        <EmptyState
+          icon={<FileText size={20} />}
+          title="Nenhum arquivo ainda"
+          description="Envie o PDF ou as fotos do cardápio."
+        />
+      ) : (
+        <ul className="ai-files">
+          {files.map((f, i) => (
+            <li key={f.id}>
+              <span className="ai-files__n">{i + 1}</span>
+              {f.contentType === 'application/pdf' ? (
+                <FileText size={18} aria-hidden />
+              ) : (
+                <ImageIcon size={18} aria-hidden />
+              )}
+              <a
+                className="ai-files__name"
+                href={`/api/v1/ai-agent/menu-files/${f.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {f.fileName}
+              </a>
+              <small>{sizeText(f.size)}</small>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                icon={<Trash2 size={16} />}
+                aria-label={`Apagar ${f.fileName}`}
+                onClick={() => remove(f)}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 

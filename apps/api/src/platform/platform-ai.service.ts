@@ -2,9 +2,10 @@ import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common
 import { z } from 'zod';
 import { MONTH_START } from '../chat/ai-quota';
 import { listModels, ModelInfo, OpenRouterClient } from '../chat/openrouter';
-import { seal } from '../common/secret-box';
+import { open, seal } from '../common/secret-box';
 import { ENV, Env } from '../config/env';
 import {
+  ADMIN_KEY_CONTEXT,
   CLIENT_KEY_CONTEXT,
   KeyKind,
   OWNER_KEY_CONTEXT,
@@ -22,6 +23,9 @@ export const AiSettingsBody = z.object({
   ownerApiKey: z.string().trim().max(300).optional(),
   /** Apaga a sua chave (o sistema volta a usar a dos restaurantes). */
   clearOwnerKey: z.boolean().optional(),
+  /** Chave de gerenciamento (só para ler o saldo da conta). Vazio mantém a salva. */
+  adminApiKey: z.string().trim().max(300).optional(),
+  clearAdminKey: z.boolean().optional(),
   model: z
     .string()
     .trim()
@@ -52,7 +56,7 @@ export const TokenGrantBody = z.object({
 export const AiTestBody = z.object({
   apiKey: z.string().trim().max(300).optional(),
   /** Qual chave salva testar quando apiKey vem vazio. */
-  key: z.enum(['owner', 'clients']).default('clients'),
+  key: z.enum(['owner', 'clients', 'admin']).default('clients'),
   model: AiSettingsBody.shape.model,
 });
 
@@ -60,6 +64,7 @@ interface Row {
   enabled: boolean;
   api_key_enc: Buffer | null;
   owner_api_key_enc: Buffer | null;
+  admin_api_key_enc: Buffer | null;
   model: string;
   assistant_name: string;
   default_monthly_tokens: number;
@@ -69,12 +74,25 @@ interface Row {
 
 type Account = Awaited<ReturnType<OpenRouterClient['account']>>;
 
+/** Saldo mostrado no topo da aba Tokens e de onde ele veio. */
+interface Credits {
+  totalUsd: number | null;
+  usedUsd: number | null;
+  remainingUsd: number | null;
+  /** conta = créditos da conta; clients/owner = o que sobra no limite daquela chave. */
+  from: 'conta' | 'clients' | 'owner' | null;
+  error: string | null;
+}
+
 const SOURCE_LABEL: Record<string, string> = {
   chat: 'Chat da equipe',
   whatsapp: 'WhatsApp',
   esteira: 'Esteira de chamados',
   teste: 'Teste no painel',
   menu_import: 'Importar cardápio',
+  menu_photo: 'Foto do cardápio',
+  menu_place: 'Busca no Google Maps',
+  agent_test: 'Teste do assistente do WhatsApp',
   site_page: 'Página do restaurante',
   site_ia: 'Sites com IA (comandou.com)',
 };
@@ -103,7 +121,69 @@ export class PlatformAiService {
     return openKey(this.env.INTEGRATIONS_KEY, r, kind);
   }
 
+  /** A chave de gerenciamento aberta; null se não tem, ou se a INTEGRATIONS_KEY mudou. */
+  private adminKey(r: Row): string | null {
+    if (!r.admin_api_key_enc || !this.env.INTEGRATIONS_KEY) return null;
+    try {
+      return open(this.env.INTEGRATIONS_KEY, r.admin_api_key_enc, ADMIN_KEY_CONTEXT);
+    } catch {
+      return null;
+    }
+  }
+
   private accounts: Partial<Record<KeyKind, { at: number; value: Account }>> = {};
+  private creditsCache: { at: number; value: Credits } | null = null;
+
+  /**
+   * Saldo da conta no OpenRouter. Com a chave de gerenciamento: créditos comprados menos os
+   * gastos (o saldo de verdade). Sem ela, o que sobra no limite da chave dos restaurantes (ou
+   * da sua); sem limite nas chaves, não dá para saber.
+   */
+  private async balance(
+    r: Row,
+    fresh: boolean,
+    account: Account | null,
+    ownerAccount: Account | null,
+  ): Promise<Credits> {
+    const key = this.adminKey(r);
+    if (key) {
+      const hit = this.creditsCache;
+      if (!fresh && hit && Date.now() - hit.at < 60_000) return hit.value;
+      try {
+        const c = await new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key).credits();
+        const value: Credits = { ...c, from: 'conta', error: null };
+        this.creditsCache = { at: Date.now(), value };
+        return value;
+      } catch (e) {
+        return {
+          totalUsd: null,
+          usedUsd: null,
+          remainingUsd: null,
+          from: null,
+          error: `Chave de gerenciamento: ${(e as Error).message}`,
+        };
+      }
+    }
+    // Uma chave comum que por acaso é de gerenciamento já traz os créditos.
+    const acc =
+      account?.totalUsd != null ? account : ownerAccount?.totalUsd != null ? ownerAccount : null;
+    if (acc)
+      return {
+        totalUsd: acc.totalUsd,
+        usedUsd: acc.usedUsd,
+        remainingUsd: acc.remainingUsd,
+        from: 'conta',
+        error: null,
+      };
+    const limited = account?.remainingUsd != null ? account : ownerAccount;
+    return {
+      totalUsd: limited?.keyLimitUsd ?? null,
+      usedUsd: null,
+      remainingUsd: limited?.remainingUsd ?? null,
+      from: limited?.remainingUsd != null ? (limited === account ? 'clients' : 'owner') : null,
+      error: null,
+    };
+  }
 
   /** Saldo e uso da chave no OpenRouter (cache de 1 minuto por chave). */
   private async account(r: Row, fresh = false, kind: KeyKind = 'clients'): Promise<Account | null> {
@@ -181,11 +261,18 @@ export class PlatformAiService {
                   coalesce(sum(cost_usd), 0) AS cost, count(*)::int AS calls
              FROM ai_usage WHERE created_at >= ${MONTH_START}`,
       ),
-      this.db.query<{ source: string; tokens: number; cost: string; calls: number }>(
-        `SELECT source, coalesce(sum(prompt_tokens + completion_tokens), 0)::float8 AS tokens,
+      this.db.query<{
+        source: string;
+        key: string;
+        tokens: number;
+        cost: string;
+        calls: number;
+      }>(
+        `SELECT source, coalesce(key_kind, 'owner') AS key,
+                  coalesce(sum(prompt_tokens + completion_tokens), 0)::float8 AS tokens,
                   coalesce(sum(cost_usd), 0) AS cost, count(*)::int AS calls
              FROM platform_ai_usage WHERE created_at >= ${MONTH_START}
-            GROUP BY source ORDER BY 2 DESC`,
+            GROUP BY 1, 2 ORDER BY 3 DESC`,
       ),
       this.db.query<{ day: string; tokens: number; cost: string; system: number }>(
         `SELECT to_char(d, 'YYYY-MM-DD') AS day,
@@ -220,6 +307,19 @@ export class PlatformAiService {
       ),
     ]);
     const price = models.find((m) => m.id === r.model) ?? null;
+    // Quanto o sistema gastou de cada chave (a esteira cai na dos restaurantes sem a sua).
+    const byKey = { owner: 0, clients: 0, site: 0, typed: 0 } as Record<string, number>;
+    for (const x of system) byKey[x.key] = (byKey[x.key] ?? 0) + Number(x.cost);
+    const bySource = new Map<string, { tokens: number; costUsd: number; calls: number }>();
+    for (const x of system) {
+      const cur = bySource.get(x.source) ?? { tokens: 0, costUsd: 0, calls: 0 };
+      bySource.set(x.source, {
+        tokens: cur.tokens + x.tokens,
+        costUsd: cur.costUsd + Number(x.cost),
+        calls: cur.calls + x.calls,
+      });
+    }
+    const balance = await this.balance(r, fresh, account, ownerAccount);
     const systemTotal = system.reduce(
       (acc, x) => ({
         tokens: acc.tokens + x.tokens,
@@ -236,6 +336,8 @@ export class PlatformAiService {
         keyReadable: !!this.key(r),
         hasOwnerKey: !!r.owner_api_key_enc,
         ownerKeyReadable: ownerReady,
+        hasAdminKey: !!r.admin_api_key_enc,
+        adminKeyReadable: !!this.adminKey(r),
         keyConfigured: !!this.env.INTEGRATIONS_KEY,
         model: r.model,
         modelPrice: price,
@@ -246,6 +348,7 @@ export class PlatformAiService {
       },
       account,
       ownerAccount,
+      balance,
       /** Qual chave o sistema (esteira, testes) está usando agora. */
       systemKey: ownerReady ? 'owner' : this.key(r) ? 'clients' : null,
       month: {
@@ -255,13 +358,11 @@ export class PlatformAiService {
       },
       system: {
         ...systemTotal,
-        bySource: system.map((x) => ({
-          source: x.source,
-          label: SOURCE_LABEL[x.source] ?? x.source,
-          tokens: x.tokens,
-          costUsd: Number(x.cost),
-          calls: x.calls,
-        })),
+        /** US$ do mês que o sistema gastou de cada chave. */
+        byKey: { owner: byKey.owner!, clients: byKey.clients!, site: byKey.site! },
+        bySource: [...bySource]
+          .map(([source, x]) => ({ source, label: SOURCE_LABEL[source] ?? source, ...x }))
+          .sort((a, b) => b.tokens - a.tokens),
       },
       days: days.map((d) => ({
         day: d.day,
@@ -304,6 +405,7 @@ export class PlatformAiService {
     const rows = await this.db.query<{
       id: string;
       key: KeyKind;
+      via: string;
       source: string;
       tenantId: string | null;
       tenantName: string | null;
@@ -315,14 +417,14 @@ export class PlatformAiService {
       at: Date;
     }>(
       `SELECT * FROM (
-         SELECT 'r' || u.id AS id, 'clients' AS key, u.source, u.tenant_id AS "tenantId",
+         SELECT 'r' || u.id AS id, 'clients' AS key, 'clients' AS via, u.source, u.tenant_id AS "tenantId",
                 t.name AS "tenantName", NULL::text AS ref, u.model,
                 (u.prompt_tokens + u.completion_tokens)::float8 AS tokens,
                 u.bonus_tokens::float8 AS bonus, u.cost_usd AS cost, u.created_at AS at
            FROM ai_usage u JOIN tenants t ON t.id = u.tenant_id
           WHERE ($2::uuid IS NULL OR u.tenant_id = $2)
          UNION ALL
-         SELECT 's' || p.id, 'owner', p.source, NULL, NULL, p.ref, p.model,
+         SELECT 's' || p.id, 'owner', coalesce(p.key_kind, 'owner'), p.source, NULL, NULL, p.ref, p.model,
                 (p.prompt_tokens + p.completion_tokens)::float8, 0, p.cost_usd, p.created_at
            FROM platform_ai_usage p
           WHERE $2::uuid IS NULL
@@ -340,7 +442,8 @@ export class PlatformAiService {
     const current = await this.row();
     let enc = current.api_key_enc;
     let ownerEnc = current.owner_api_key_enc;
-    if (b.apiKey || b.ownerApiKey) {
+    let adminEnc = current.admin_api_key_enc;
+    if (b.apiKey || b.ownerApiKey || b.adminApiKey) {
       if (!this.env.INTEGRATIONS_KEY)
         throw new UnprocessableEntityException(
           'Servidor sem INTEGRATIONS_KEY: não é possível guardar a chave com segurança',
@@ -354,13 +457,18 @@ export class PlatformAiService {
     if (b.ownerApiKey)
       ownerEnc = seal(this.env.INTEGRATIONS_KEY!, b.ownerApiKey, OWNER_KEY_CONTEXT);
     if (b.ownerApiKey || b.clearOwnerKey) delete this.accounts.owner;
+    if (b.clearAdminKey) adminEnc = null;
+    if (b.adminApiKey)
+      adminEnc = seal(this.env.INTEGRATIONS_KEY!, b.adminApiKey, ADMIN_KEY_CONTEXT);
+    if (b.adminApiKey || b.clearAdminKey) this.creditsCache = null;
     if (b.enabled && !enc)
       throw new UnprocessableEntityException('Informe a chave do OpenRouter dos restaurantes');
     await this.db.tx(async (c) => {
       await c.query(
         `UPDATE platform_ai_settings SET enabled = $1, api_key_enc = $2, model = $3,
                 assistant_name = $4, default_monthly_tokens = $5, low_balance_usd = $6,
-                owner_api_key_enc = $8, updated_at = now(), updated_by = $7
+                owner_api_key_enc = $8, admin_api_key_enc = $9, updated_at = now(),
+                updated_by = $7
           WHERE id`,
         [
           b.enabled,
@@ -371,14 +479,20 @@ export class PlatformAiService {
           b.lowBalanceUsd,
           a.admin.id,
           ownerEnc,
+          adminEnc,
         ],
       );
-      const { apiKey: _k, ownerApiKey: _o, ...safe } = b;
+      const { apiKey: _k, ownerApiKey: _o, adminApiKey: _a, ...safe } = b;
       await platformAudit(c, {
         adminId: a.admin.id,
         action: 'platform.ai_settings_updated',
         entity: 'ai',
-        data: { ...safe, apiKeyChanged: !!b.apiKey, ownerKeyChanged: !!b.ownerApiKey },
+        data: {
+          ...safe,
+          apiKeyChanged: !!b.apiKey,
+          ownerKeyChanged: !!b.ownerApiKey,
+          adminKeyChanged: !!b.adminApiKey,
+        },
         ip: a.ip,
       });
     });
@@ -479,10 +593,19 @@ export class PlatformAiService {
    */
   async test(b: z.infer<typeof AiTestBody>, a?: Actor) {
     const r = await this.row();
-    const key = b.apiKey || this.key(r, b.key);
+    const key = b.apiKey || (b.key === 'admin' ? this.adminKey(r) : this.key(r, b.key));
     if (!key) throw new UnprocessableEntityException('Informe a chave do OpenRouter');
     const client = new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key);
     const started = Date.now();
+    // A chave de gerenciamento não conversa com a IA: o teste é ler o saldo da conta.
+    if (b.key === 'admin') {
+      try {
+        const credits = await client.credits();
+        return { ok: true, ms: Date.now() - started, credits };
+      } catch (e) {
+        return { ok: false, error: (e as Error).message, ms: Date.now() - started };
+      }
+    }
     try {
       const out = await client.stream(
         b.model,
@@ -500,6 +623,7 @@ export class PlatformAiService {
         model: b.model,
         usage: out.usage,
         adminId: a?.admin.id,
+        key: b.apiKey ? 'typed' : b.key,
       }).catch(() => undefined);
       return {
         ok: true,

@@ -22,7 +22,7 @@ export interface AgentSettings {
   replyWhen: AgentReplyWhen;
   /** Fazer reserva de mesa pela conversa (com o SIM do cliente). */
   takeReservations: boolean;
-  /** Mandar o cardápio e o calendário de reservas em PDF. */
+  /** Mandar o cardápio (arquivo que o restaurante subiu) e o calendário de reservas em PDF. */
   sendPdfs: boolean;
 }
 
@@ -201,6 +201,8 @@ export function customerPrompt(o: {
   reservations?: AgentReservations | null;
   /** Resumo das conversas antigas com este cliente (memória longa). */
   memory?: string | null;
+  /** Quantos arquivos de cardápio o restaurante subiu (0 = nenhum: não há arquivo para mandar). */
+  menuFiles?: number;
 }): string {
   const s = o.settings;
   const name = s.agentName?.trim() || o.fallbackName;
@@ -223,9 +225,14 @@ export function customerPrompt(o: {
       `Para fazer o pedido, mandar o link do cardápio online: ${st.storeUrl} (o cliente monta o pedido, paga e acompanha por lá).`,
     );
   if (s.sendPdfs) {
-    can.push(
-      'Mandar o cardápio em PDF quando o cliente pedir o cardápio, a lista ou o arquivo: diga que está mandando e termine a mensagem com [[CARDAPIO_PDF]].',
-    );
+    if ((o.menuFiles ?? 0) > 0)
+      can.push(
+        `Mandar o cardápio do restaurante (${o.menuFiles === 1 ? 'o arquivo' : `os ${o.menuFiles} arquivos`} que a casa preparou) quando o cliente pedir o cardápio, a lista, as fotos ou o arquivo: diga que está mandando e termine a mensagem com [[CARDAPIO]].`,
+      );
+    else
+      can.push(
+        'Você não tem arquivo do cardápio para mandar: se pedirem o cardápio, responda pelo cardápio abaixo e, se houver, mande o link do cardápio online.',
+      );
     if (o.reservations)
       can.push(
         'Mandar o calendário de reservas em PDF (dias e horários livres) quando o cliente pedir o calendário, as datas ou os horários de reserva: termine a mensagem com [[CALENDARIO_PDF]].',

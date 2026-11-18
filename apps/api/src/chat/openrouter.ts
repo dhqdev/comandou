@@ -251,11 +251,26 @@ export class OpenRouterClient {
   }
 
   /**
-   * Saldo e gasto. /credits pode exigir chave de gerenciamento; /key funciona com a chave comum
-   * (limite e uso da própria chave).
+   * Créditos da conta inteira (comprados e gastos). O OpenRouter só responde com uma chave de
+   * gerenciamento (Settings › Management Keys); a chave comum recebe 403.
+   */
+  async credits() {
+    const c = await this.get('/credits');
+    const totalUsd = num(c.total_credits);
+    const usedUsd = num(c.total_usage);
+    return {
+      totalUsd,
+      usedUsd,
+      remainingUsd: totalUsd != null && usedUsd != null ? totalUsd - usedUsd : null,
+    };
+  }
+
+  /**
+   * Gasto e limite desta chave (/key, funciona com a chave comum). Dia e mês do OpenRouter
+   * contam em UTC. Os créditos da conta (/credits) só vêm se esta chave for de gerenciamento.
    */
   async account() {
-    const [credits, key] = await Promise.allSettled([this.get('/credits'), this.get('/key')]);
+    const [credits, key] = await Promise.allSettled([this.credits(), this.get('/key')]);
     const out = {
       totalUsd: null as number | null,
       usedUsd: null as number | null,
@@ -267,24 +282,21 @@ export class OpenRouterClient {
       keyTotalUsd: null as number | null,
       error: null as string | null,
     };
-    if (credits.status === 'fulfilled') {
-      out.totalUsd = num(credits.value.total_credits);
-      out.usedUsd = num(credits.value.total_usage);
-      if (out.totalUsd != null && out.usedUsd != null)
-        out.remainingUsd = out.totalUsd - out.usedUsd;
-    }
+    if (credits.status === 'fulfilled') Object.assign(out, credits.value);
     if (key.status === 'fulfilled') {
-      out.keyLabel = typeof key.value.label === 'string' ? key.value.label : null;
-      out.keyLimitUsd = num(key.value.limit);
-      out.keyDayUsd = num(key.value.usage_daily);
-      out.keyMonthUsd = num(key.value.usage_monthly);
-      out.keyTotalUsd = num(key.value.usage);
-      if (out.remainingUsd == null) out.remainingUsd = num(key.value.limit_remaining);
+      const k = key.value;
+      out.keyLabel = typeof k.label === 'string' ? k.label : null;
+      out.keyLimitUsd = num(k.limit);
+      out.keyDayUsd = num(k.usage_daily);
+      out.keyMonthUsd = num(k.usage_monthly);
+      out.keyTotalUsd = num(k.usage);
+      // Sem créditos da conta: o que sobra no limite da chave (ou no orçamento que vale para ela).
+      const budget = k.effective_budget as Record<string, unknown> | null | undefined;
+      if (out.remainingUsd == null)
+        out.remainingUsd = num(k.limit_remaining) ?? num(budget?.remaining_usd);
     }
     if (credits.status === 'rejected' && key.status === 'rejected')
       out.error = (key.reason as Error).message || 'Não consegui consultar o OpenRouter';
-    else if (out.remainingUsd == null)
-      out.error = 'O OpenRouter não informou o saldo (a chave precisa de permissão de créditos)';
     return out;
   }
 }
