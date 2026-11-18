@@ -34,10 +34,12 @@ números → senha nova (`apps/web/src/pages/ForgotPassword.tsx`; abre direto co
   prévia** do e-mail: aparece na notificação do celular e na lista da caixa de entrada, dá para
   copiar sem abrir, e o iPhone e o Mac oferecem preencher sozinhos. No corpo ele fica numa caixa
   só, sem espaço no meio (dois toques copiam os 6 números).
-- Vale **15 minutos**, aceita **5 tentativas**, no máximo **5 códigos por hora** por conta (os
-  outros pedidos são ignorados em silêncio) e o limite por aparelho do login. A resposta é a
-  mesma exista a conta ou não. Código certo vira um token de uso único (30 minutos) para gravar
-  a senha nova.
+- Confere o e-mail digitado: se não for de uma conta daquele restaurante (ou do Super Admin), a
+  tela avisa embaixo do campo na hora (404) e nada sai. Quem entra só com PIN não tem e-mail e
+  recebe o mesmo aviso.
+- Vale **15 minutos**, aceita **5 tentativas**, no máximo **5 códigos por hora** por conta (o
+  sexto pedido recebe 429 com o aviso) e o limite por aparelho do login. Código certo vira um
+  token de uso único (30 minutos) para gravar a senha nova.
 - Restaurante (`auth/password-reset.service.ts`, tabela `staff_password_resets` no banco do
   restaurante, função `app_reset_password_with_token`): a conta sai dos outros aparelhos, o
   bloqueio por senhas erradas zera e a pessoa já entra. Conta só de PIN não recebe código.

@@ -2,9 +2,11 @@ import {
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ThrottlerException } from '@nestjs/throttler';
 import { hashPassword } from '../auth/password';
 import {
   cleanCode,
@@ -16,6 +18,7 @@ import {
   RESET_TOKEN_MINUTES,
   resetCodeHash,
   sameHash,
+  TOO_MANY_CODES,
 } from '../auth/reset-code';
 import { hashToken } from '../auth/session.service';
 import { ENV, Env } from '../config/env';
@@ -54,7 +57,11 @@ export class PlatformPasswordResetService {
          FROM platform_admins a WHERE a.email = $1 AND a.disabled_at IS NULL`,
       [email],
     );
-    if (!a || a.recent >= RESET_CODES_PER_HOUR) return done;
+    if (!a)
+      throw new NotFoundException(
+        'Este e-mail não é de nenhum administrador do Comandou. Confira se digitou certo.',
+      );
+    if (a.recent >= RESET_CODES_PER_HOUR) throw new ThrottlerException(TOO_MANY_CODES);
     const code = newResetCode();
     await this.db.tx(async (c) => {
       await c.query(

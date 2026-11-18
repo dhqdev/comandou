@@ -81,12 +81,14 @@ describe('Esqueci minha senha da equipe', () => {
     await post('/auth/login', { email, password: PASSWORD }).expect(200);
   });
 
-  it('e-mail que não é da equipe: mesma resposta e nada sai', async () => {
+  it('e-mail que não é da equipe deste restaurante: avisa na hora e nada sai', async () => {
     const before = mail.sent.length;
-    for (const e of ['ninguem@nsenha-a.test', 'admin@nsenha-b.test'])
-      expect((await post('/auth/password-reset/request', { email: e }).expect(200)).body).toEqual({
-        minutes: 15,
-      });
+    for (const e of ['ninguem@nsenha-a.test', 'admin@nsenha-b.test', 'x@pin.comandou.invalid']) {
+      const r = await post('/auth/password-reset/request', { email: e }).expect(404);
+      expect(r.body.message).toMatch(
+        /^Este e-mail não é de nenhuma conta deste restaurante\. Confira/,
+      );
+    }
     expect(mail.sent.length).toBe(before);
   });
 
@@ -142,8 +144,10 @@ describe('Esqueci minha senha da equipe', () => {
     await ownerQuery(`DELETE FROM staff_password_resets WHERE tenant_id = $1`, [fx.tenantA]);
     const garcom = 'garcom@nsenha-a.test';
     const before = mail.sent.length;
-    for (let i = 0; i < 7; i++)
+    for (let i = 0; i < 5; i++)
       await post('/auth/password-reset/request', { email: garcom }).expect(200);
+    const r = await post('/auth/password-reset/request', { email: garcom }).expect(429);
+    expect(r.body.message).toContain('5 códigos na última hora');
     expect(mail.sent.length - before).toBe(5);
   });
 });
@@ -162,6 +166,12 @@ describe('Esqueci minha senha do Super Admin', () => {
   });
 
   it('troca a senha pelo código, mas o login continua pedindo o autenticador', async () => {
+    const wrong = await post(
+      '/platform/auth/password-reset/request',
+      { email: 'outro@nsenha.test' },
+      ADMIN_HOST,
+    ).expect(404);
+    expect(wrong.body.message).toContain('não é de nenhum administrador');
     await post('/platform/auth/password-reset/request', { email: ADMIN_EMAIL }, ADMIN_HOST).expect(
       200,
     );

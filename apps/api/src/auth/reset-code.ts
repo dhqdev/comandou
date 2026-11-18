@@ -11,6 +11,9 @@ import { hashToken } from './session.service';
 export const RESET_CODE_MINUTES = 15;
 export const RESET_CODE_ATTEMPTS = 5;
 export const RESET_CODES_PER_HOUR = 5;
+/** Passou de RESET_CODES_PER_HOUR na última hora (429). */
+export const TOO_MANY_CODES =
+  'Você já pediu 5 códigos na última hora. Use o último que chegou ou espere um pouco para pedir outro.';
 export const RESET_TOKEN_MINUTES = 30;
 
 export const newResetCode = () => String(randomInt(0, 1_000_000)).padStart(6, '0');

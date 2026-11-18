@@ -19,9 +19,10 @@ const RESEND_SECONDS = 45;
 
 /**
  * "Esqueci minha senha" de qualquer tela de entrada (painel, PDV, cozinha, entregas, garçom com
- * e-mail e Super Admin), em três passos: 1) e-mail, 2) o código de 6 números que chegou (o código
- * vem no assunto do e-mail: dá para copiar da notificação; colar ou o preenchimento automático
- * do celular completam as 6 caixas), 3) a senha nova. Restaurante: já entra. Super Admin: volta
+ * e-mail e Super Admin), em três passos: 1) e-mail (se não for de nenhuma conta, avisa embaixo do
+ * campo), 2) o código de 6 números que chegou (vem no assunto do e-mail: dá para copiar da
+ * notificação; colar ou o preenchimento automático do celular completam as 6 caixas), 3) a senha
+ * nova. Restaurante: já entra. Super Admin: volta
  * para o login, que continua pedindo o código do autenticador.
  */
 export function ForgotPassword(props: {
@@ -46,6 +47,8 @@ export function ForgotPassword(props: {
   const [password, setPassword] = useState('');
   const [repeat, setRepeat] = useState('');
   const [error, setError] = useState<string | null>(null);
+  /** O e-mail digitado não é de nenhuma conta: o aviso fica embaixo do campo. */
+  const [emailWrong, setEmailWrong] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [wait, setWait] = useState(0);
   const [desk] = useState(deskFocus);
@@ -65,6 +68,7 @@ export function ForgotPassword(props: {
   async function send(e?: FormEvent) {
     e?.preventDefault();
     setError(null);
+    setEmailWrong(null);
     setBusy(true);
     try {
       await api(`${props.base}/request`, { method: 'POST', json: { email: email.trim() } });
@@ -72,7 +76,12 @@ export function ForgotPassword(props: {
       setStep('code');
       setWait(RESEND_SECONDS);
     } catch (err) {
-      fail(err);
+      if (err instanceof ApiError && err.status === 404) {
+        setEmailWrong(
+          err.message || 'Este e-mail não é de nenhuma conta. Confira se digitou certo.',
+        );
+        setStep('email');
+      } else fail(err);
     } finally {
       setBusy(false);
     }
@@ -128,6 +137,7 @@ export function ForgotPassword(props: {
       className="login__link"
       onClick={() => {
         setError(null);
+        setEmailWrong(null);
         if (step === 'code') setStep('email');
         else props.onBack();
       }}
@@ -161,7 +171,11 @@ export function ForgotPassword(props: {
               autoComplete="username"
               autoCapitalize="none"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setEmailWrong(null);
+              }}
+              error={emailWrong ?? undefined}
               autoFocus={desk}
               required
             />
@@ -193,7 +207,7 @@ export function ForgotPassword(props: {
               </span>
               <h2>Confira seu e-mail</h2>
               <p>
-                Se <strong>{email.trim()}</strong> tiver conta, o código chega em instantes. Ele
+                Mandamos o código para <strong>{email.trim()}</strong>. Ele chega em instantes e
                 aparece no assunto do e-mail: dá para copiar direto da notificação.
               </p>
             </div>

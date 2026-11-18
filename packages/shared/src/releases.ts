@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.154.1',
+    date: '2026-11-18',
+    title: 'Esqueci minha senha confere o e-mail',
+    summary:
+      'Ao pedir o código da senha nova, o sistema confere o e-mail digitado. Se não for de nenhuma conta do restaurante, avisa na hora embaixo do campo, em vez de mandar esperar um código que nunca chega.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Esqueci minha senha (painel, PDV, cozinha, entregas e Super Admin): se o e-mail não é de nenhuma conta do restaurante, o aviso aparece embaixo do campo e pede para conferir o que foi digitado. Com o e-mail certo, a tela diz para onde o código foi.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Quem pede mais de 5 códigos em uma hora vê o aviso para usar o último que chegou, em vez de ficar esperando.',
+      },
+    ],
+  },
+  {
     version: '0.154.0',
     date: '2026-11-18',
     title: 'PDV mais arrumado e com botão de silenciar',

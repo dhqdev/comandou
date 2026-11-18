@@ -2,10 +2,12 @@ import {
   Inject,
   Injectable,
   Logger,
+  NotFoundException,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { PIN_ONLY_EMAIL_DOMAIN } from '@comandou/shared';
+import { ThrottlerException } from '@nestjs/throttler';
 import { AuditService } from '../audit/audit.service';
 import { one, q } from '../common/sql';
 import { ENV, Env } from '../config/env';
@@ -24,19 +26,26 @@ import {
   RESET_CODES_PER_HOUR,
   resetCodeHash,
   sameHash,
+  TOO_MANY_CODES,
 } from './reset-code';
 import { hashToken, SessionService } from './session.service';
 
 export const MAIL_OFF_STAFF =
   'O envio de e-mail não está ligado. Peça ao administrador do restaurante para criar uma senha nova para você na tela Equipe.';
 
+/** O e-mail digitado não é de ninguém da equipe deste restaurante (nem de quem entra só com PIN). */
+export const STAFF_EMAIL_NOT_FOUND =
+  'Este e-mail não é de nenhuma conta deste restaurante. Confira se digitou certo ou use o e-mail que você usa para entrar.';
+
 /**
  * "Esqueci minha senha" da equipe do restaurante (painel, PDV, cozinha, entregas e o e-mail do
  * garçom): 1) pede o código pelo e-mail, 2) confere o código, 3) grava a senha nova e já entra.
  *
  * Manda um código, nunca uma senha: quem digita o e-mail de outra pessoa não troca a senha dela.
- * A resposta do pedido é a mesma exista a conta ou não. O código vale 15 minutos, aceita 5
- * tentativas e cada conta recebe no máximo 5 por hora (o resto é ignorado em silêncio).
+ * Confere o e-mail digitado: se não for de uma conta deste restaurante, a tela avisa na hora (em
+ * vez de esperar um código que nunca chega). O limite de pedidos por IP do login segura quem tenta
+ * adivinhar e-mails. O código vale 15 minutos, aceita 5 tentativas e cada conta recebe no máximo 5
+ * por hora.
  */
 @Injectable()
 export class StaffPasswordResetService {
@@ -53,13 +62,14 @@ export class StaffPasswordResetService {
   async request(tenant: ResolvedTenant, email: string, ip?: string) {
     if (!(await this.mail.ready())) throw new ServiceUnavailableException(MAIL_OFF_STAFF);
     const done = { minutes: RESET_CODE_MINUTES };
-    if (email.endsWith(`@${PIN_ONLY_EMAIL_DOMAIN}`)) return done;
+    const notFound = () => new NotFoundException(STAFF_EMAIL_NOT_FOUND);
+    if (email.endsWith(`@${PIN_ONLY_EMAIL_DOMAIN}`)) throw notFound();
     const [u] = await this.db.queryTenantDb<{ user_id: string; name: string }>(
       tenant.id,
       'SELECT user_id, name FROM app_find_login($1, $2)',
       [tenant.id, email],
     );
-    if (!u) return done;
+    if (!u) throw notFound();
     const code = newResetCode();
     const issued = await this.db.withTenant({ tenantId: tenant.id }, async (tx) => {
       const r = await one<{ n: number }>(
@@ -91,7 +101,7 @@ export class StaffPasswordResetService {
       });
       return true;
     });
-    if (!issued) return done;
+    if (!issued) throw new ThrottlerException(TOO_MANY_CODES);
     const r = await this.mail.send({
       kind: 'auth.password_reset',
       tenantId: tenant.id,
