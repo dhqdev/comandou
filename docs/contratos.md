@@ -83,6 +83,17 @@ desligado (dá para copiar o link e mandar por WhatsApp).
 O envio do link acontece dentro da transação: se o provedor recusar, o link novo não vale e o
 e-mail é cancelado (não sai mais tarde com um link vencido).
 
+Os avisos depois de uma assinatura (`contract.client_signed`, `contract.signed`) tentam todos os
+destinatários: um endereço recusado não impede a via dos outros. Falha passageira do Resend fica
+na fila e sai sozinha; recusa definitiva aparece no contrato com o endereço e o botão **Reenviar aviso**.
+
+### Respostas do cliente
+
+O remetente (Super Admin › E-mail) não tem caixa de entrada. Por isso todo e-mail de contrato
+leva o **Responder para**: o que vai para o cliente responde para o e-mail de aviso da
+contratada (ou, sem ele, o e-mail da contratada); o que vai para a contratada responde direto
+para quem assinou pelo cliente. Use ali uma caixa que você lê (Gmail, por exemplo).
+
 ## Base legal
 
 Assinatura eletrônica entre as partes: artigo 10, § 2º, da MP nº 2.200-2/2001, Lei nº

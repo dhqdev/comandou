@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.150.3',
+    date: '2026-11-18',
+    title: 'Respostas do contrato chegam na sua caixa',
+    summary:
+      'Os e-mails do contrato saem pelo Resend, de um remetente sem caixa de entrada. Agora cada um leva o "Responder para": quando o cliente responde, a resposta vai para o e-mail de aviso da contratada; quando você responde o aviso de assinatura, vai direto para o cliente.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'E-mails do contrato (envio, recibo, via final e cancelamento) respondem para o e-mail de aviso da contratada, e os avisos para a contratada respondem para quem assinou pelo cliente.',
+      },
+      {
+        tag: 'correção',
+        text: 'Via final do contrato: um endereço recusado não impede mais os outros de receberem o PDF, e o erro mostra qual endereço falhou. Falha passageira do Resend fica na fila e sai sozinha.',
+      },
+      {
+        tag: 'correção',
+        text: 'O número do contrato usa o ano no horário de Brasília (na noite de 31/12 não pula para o ano seguinte).',
+      },
+    ],
+  },
+  {
     version: '0.150.2',
     date: '2026-11-18',
     title: 'Período pago mudado à mão some com a fatura vencida',

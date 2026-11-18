@@ -227,6 +227,8 @@ describe('Contrato do cliente', () => {
     token = s.body.url.split('/').pop();
     const call = mail!.sent.at(-1)!.body;
     expect(call.to).toEqual(['financeiro@ct-a.test']);
+    // Resposta do cliente vai para a caixa real da contratada (o remetente não tem caixa).
+    expect(call.reply_to).toBe('david@comandou.test');
     expect(call.html).toContain(s.body.url);
     expect(call.attachments?.[0]?.content_type).toBe('application/pdf');
     expect(Buffer.from(call.attachments![0]!.content, 'base64').subarray(0, 4).toString()).toBe(
@@ -295,6 +297,8 @@ describe('Contrato do cliente', () => {
       `/restaurantes/${fx.tenantA}?aba=contrato&amp;contrato=${contractId}`,
     );
     expect(calls[0]!.attachments).toBeUndefined();
+    expect(calls[0]!.reply_to).toBe('maria@ct-a.test');
+    expect(calls[1]!.reply_to).toBe('david@comandou.test');
     const p = await pget('/contracts/pending').expect(200);
     expect(p.body.map((x: { id: string }) => x.id)).toContain(contractId);
     // O cliente não consegue trocar a assinatura dele (nem direto no banco).
@@ -360,6 +364,10 @@ describe('Contrato do cliente', () => {
       'maria@ct-a.test',
       'financeiro@ct-a.test',
     ]);
+    // Via final com o PDF para os dois lados; o cliente responde para a contratada.
+    for (const m of calls) expect(m.attachments?.[0]?.filename).toMatch(/-assinado\.pdf$/);
+    expect(calls[0]!.reply_to).toBe('maria@ct-a.test');
+    expect(calls[2]!.reply_to).toBe('david@comandou.test');
     const signed = Buffer.from(calls[0]!.attachments![0]!.content, 'base64');
     expect(createHash('sha256').update(signed).digest('hex')).toBe(d.body.signedPdfSha256);
     const original = await PDFDocument.load(

@@ -185,7 +185,12 @@ export interface WebhookMessage {
   subject: string;
   html: string;
   text: string;
+  /** Para onde vai a resposta (o envio sai de um remetente sem caixa de entrada). */
+  replyTo?: string | null;
 }
+
+/** Caixa real da contratada para receber as respostas do cliente. */
+const providerInbox = (s: SettingsRow) => s.notify_email || s.provider_email || null;
 
 /**
  * Contrato digital de cada cliente: gera (texto congelado + PDF + hash), envia o link de
@@ -310,7 +315,11 @@ export class ContractsService {
    * são canceladas (não saem mais tarde com um link que pode ter deixado de valer) e o erro
    * volta legível. Quem chamou decide (desfaz o link novo, grava o erro, mostra na tela).
    */
-  private async webhook(_s: SettingsRow, payload: Record<string, unknown>) {
+  private async webhook(
+    _s: SettingsRow,
+    payload: Record<string, unknown>,
+    opts: { keepRetrying?: boolean } = {},
+  ) {
     if (!(await this.mail.ready())) throw new UnprocessableEntityException(MAIL_OFF);
     const messages = (payload.messages ?? []) as WebhookMessage[];
     const att = payload.attachment as { fileName: string; mimeType: string; base64: string } | null;
@@ -320,6 +329,7 @@ export class ContractsService {
         await this.mail.enqueue(null, {
           kind: String(payload.event).slice(0, 60),
           to: [{ email: m.to, name: m.toName ?? undefined }],
+          replyTo: m.replyTo ?? undefined,
           subject: m.subject,
           html: m.html,
           text: m.text,
@@ -334,17 +344,22 @@ export class ContractsService {
             : [],
         }),
       );
-    for (const id of ids) {
+    // Tenta todos: um endereço recusado não impede a via dos outros de sair.
+    const failed: { id: string; to: string; error: string }[] = [];
+    for (const [i, id] of ids.entries()) {
       const r = await this.mail.deliver(id);
-      if (!r.ok) {
-        await this.db.query(
-          `UPDATE mail_outbox SET status = 'cancelled', last_error = COALESCE(last_error, $2)
-            WHERE id = ANY($1::uuid[]) AND status IN ('queued', 'failed')`,
-          [ids, r.error ?? 'Cancelado'],
-        );
-        throw new UnprocessableEntityException(`O e-mail não saiu: ${r.error ?? 'erro no envio'}`);
-      }
+      // Aviso depois da assinatura: falha passageira fica na fila e sai sozinha mais tarde.
+      if (r.ok || (opts.keepRetrying && r.queued)) continue;
+      failed.push({ id, to: messages[i]!.to, error: r.error ?? 'erro no envio' });
     }
+    if (!failed.length) return;
+    await this.db.query(
+      `UPDATE mail_outbox SET status = 'cancelled', last_error = COALESCE(last_error, 'Cancelado')
+        WHERE id = ANY($1::uuid[]) AND status IN ('queued', 'failed')`,
+      [failed.map((f) => f.id)],
+    );
+    const who = messages.length > 1 ? ` para ${failed.map((f) => f.to).join(', ')}` : '';
+    throw new UnprocessableEntityException(`O e-mail não saiu${who}: ${failed[0]!.error}`);
   }
 
   // ------------------------------------------------------------------ painel
@@ -673,7 +688,11 @@ export class ContractsService {
     const id = await this.db.tx(async (c) => {
       // Número sequencial por ano (CMD-2026-0001), sem corrida entre dois painéis abertos.
       await c.query(`SELECT pg_advisory_xact_lock(hashtext('tenant_contracts_number'))`);
-      const year = new Date().getFullYear();
+      // Ano no horário de Brasília (o servidor roda em UTC: 31/12 às 22h já seria o ano seguinte).
+      const year = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric',
+      }).format(new Date());
       const [{ n }] = (
         await c.query<{ n: number }>(
           `SELECT count(*)::int + 1 AS n FROM tenant_contracts WHERE number LIKE $1`,
@@ -838,6 +857,7 @@ export class ContractsService {
           {
             to: email,
             toName: who,
+            replyTo: providerInbox(s),
             subject: `Contrato ${r.number} para assinatura · ${content.terms.storeName}`,
             html: this.emailHtml('Seu contrato está pronto para assinar', paragraphs, {
               label: 'Ler e assinar o contrato',
@@ -907,6 +927,7 @@ export class ContractsService {
           {
             to: before.signer_email,
             toName: before.signer_name,
+            replyTo: providerInbox(s),
             subject: `Contrato ${before.number} cancelado`,
             html: this.emailHtml('Contrato cancelado', paragraphs),
             text: paragraphs.join('\n\n'),
@@ -1344,7 +1365,7 @@ export class ContractsService {
     const s = await this.settingsRow();
     const errorOf = (e: unknown) => (e as Error).message.slice(0, 300);
     try {
-      await this.webhook(s, payload);
+      await this.webhook(s, payload, { keepRetrying: true });
       await this.db.tx(async (c) => {
         await c.query(
           `UPDATE tenant_contracts SET notified_at = now(), notify_error = NULL WHERE id = $1`,
@@ -1384,6 +1405,7 @@ export class ContractsService {
       ];
       messages.push({
         to,
+        replyTo: r.signer_email,
         subject: `Falta a sua assinatura · contrato ${r.number} · ${content.terms.storeName}`,
         html: this.emailHtml('O cliente assinou. Falta você.', p, {
           label: 'Conferir e assinar',
@@ -1402,6 +1424,7 @@ export class ContractsService {
       messages.push({
         to: r.signer_email,
         toName: r.signer_name,
+        replyTo: providerInbox(s),
         subject: `Recebemos a sua assinatura · contrato ${r.number}`,
         html: this.emailHtml('Assinatura recebida', p),
         text: p.join('\n\n'),
@@ -1453,6 +1476,7 @@ export class ContractsService {
     if (to)
       messages.push({
         to,
+        replyTo: r.signer_email,
         subject: `Contrato ${r.number} assinado · ${content.terms.storeName}`,
         html: this.emailHtml('Contrato assinado', [
           finalText,
@@ -1476,6 +1500,7 @@ export class ContractsService {
       messages.push({
         to: addr,
         toName: addr === r.signer_email ? r.signer_name : content.parties.customer.representative,
+        replyTo: providerInbox(s),
         subject: `Sua via do contrato ${r.number} assinado`,
         html: this.emailHtml('Contrato assinado com sucesso', [
           `Olá${addr === r.signer_email ? `, ${r.signer_name}` : ''}!`,
