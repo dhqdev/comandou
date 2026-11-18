@@ -86,6 +86,12 @@ Onde o dono da plataforma cria restaurantes (cada um com banco próprio), acompa
 cobrança, contratos, servidor, backups e auditoria. Entrada com senha e código do aplicativo
 autenticador.
 
+**Credenciais num lugar só.** A aba **Credenciais** junta todas as chaves, tokens e senhas que o
+Comandou usa (Focus NFe, OpenRouter, Resend, Asaas, PagBank, Backblaze B2, GitHub e os segredos do
+servidor), diz o que falta para subir o sistema e traz o passo a passo com os links de cada uma.
+As do painel se colam, testam e salvam ali mesmo, cifradas. Lista completa em
+[docs/credenciais.md](docs/credenciais.md).
+
 **E-mail próprio, sem n8n.** Todo e-mail do sistema (boas-vindas do teste, login e senha do
 restaurante criado no painel, código de nova senha, avisos de fim do teste e de mensalidade,
 contratos) sai pelo **Resend**, com o panda do Comandou e modo escuro, por uma fila que tenta de
@@ -206,7 +212,7 @@ docs/                 arquitetura, decisões (ADR), operação, deploy, testes
 - [Arquitetura](docs/architecture.md) · [Roadmap](docs/roadmap.md) · [Riscos](docs/risks.md) · [Decisões (ADR)](docs/decisions/README.md)
 - [Desenvolvimento local](docs/development.md) · [Testes](docs/testing.md) · [Carga](docs/load-testing.md)
 - [Financeiro: fechamento, conciliação e DRE](docs/financeiro.md) · [Site público e teste grátis](docs/site.md) · [E-mail (Resend)](docs/email.md) · [Contratos](docs/contratos.md) · [Cobrança](docs/cobranca.md) · [WhatsApp com muitos restaurantes](docs/whatsapp.md) · [Agenda](docs/agenda.md)
-- [Instalação](docs/install.md) · [Deploy](docs/deploy.md) · [Operação](docs/operations.md) · [Backups e restauração](docs/backups.md) · [Segurança](docs/security.md) · [Auditoria de 2026-11](docs/auditoria-2026-11.md) · [CrowdSec](docs/crowdsec.md)
+- [Credenciais: todas as chaves e como conseguir](docs/credenciais.md) · [Instalação](docs/install.md) · [Deploy](docs/deploy.md) · [Operação](docs/operations.md) · [Backups e restauração](docs/backups.md) · [Segurança](docs/security.md) · [Auditoria de 2026-11](docs/auditoria-2026-11.md) · [CrowdSec](docs/crowdsec.md)
 
 ## Licença
 

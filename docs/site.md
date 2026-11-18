@@ -105,8 +105,8 @@ descrição). Lugar sem cardápio (só o Maps) ganha itens sugeridos, sempre sem
 
 - **Só liga com chave.** Sem chave, desligado ou com o limite esgotado, o site funciona como
   antes, sem IA, e nada aparece de diferente para o visitante.
-- **Chave.** Super Admin › Sites com IA aceita uma chave própria (dá para criar no OpenRouter uma
-  chave com limite de gasto só para isso). Vazia, vale a sua chave de Super Admin › Tokens e,
+- **Chave.** Super Admin › Credenciais aceita uma chave própria dos sites (dá para criar no OpenRouter uma
+  chave com limite de gasto só para isso). Vazia, vale a sua chave (também em Credenciais) e,
   sem ela, a dos restaurantes.
 - **Limites** (Super Admin › Sites com IA): teto de tokens de resposta por site, tokens por dia
   e por mês somando todos os sites (0 = sem limite) e sites por visitante (IP) em 24 horas. Além

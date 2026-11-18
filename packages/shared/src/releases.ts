@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.160.0',
+    date: '2026-11-18',
+    title: 'Todas as chaves num lugar só: Super Admin › Credenciais',
+    summary:
+      'Uma aba nova no Super Admin junta todas as chaves, tokens e senhas que o Comandou usa, com o passo a passo e os links para conseguir cada uma. As do painel se cadastram ali mesmo; as do servidor e do GitHub mostram o nome e o comando. A aba Fiscal saiu: da Focus NFe, você só cadastra o Token Master, agora pelo painel.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Super Admin › Credenciais: situação de cada chave (configurada, faltando ou para conferir fora daqui), o que falta para subir o sistema e, em cada uma, para que serve, como conseguir, os links e o formulário para colar, testar e salvar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Token Master da Focus NFe cadastrado pelo painel (cifrado), com botão Testar. Vale na hora para o cadastro das empresas dos restaurantes; a variável FOCUS_NFE_MASTER_TOKEN do servidor continua valendo enquanto não houver um salvo no painel.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'As chaves saíram das outras telas: OpenRouter (Tokens e Sites com IA), Asaas (Cobrança), PagBank (Pagamentos pelo app), Resend (E-mail), Backblaze B2 (Backups) e GitHub (Chamados) agora ficam só em Credenciais. Cada tela mostra a situação da chave e o atalho Abrir em Credenciais.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A aba Fiscal saiu do menu (o endereço antigo leva para a Focus NFe em Credenciais). A nota fiscal de cada restaurante continua no cartão Nota fiscal da ficha dele.',
+      },
+    ],
+  },
+  {
     version: '0.159.0',
     date: '2026-11-18',
     title: 'Financeiro com gráficos e leituras do mês',

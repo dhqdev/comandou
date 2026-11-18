@@ -74,9 +74,11 @@ um PNG em `apps/web/public/email/panda-*.png` (servido pelo site), desenhado por
 2. O Resend mostra os registros (DKIM, SPF e MX de retorno). Crie-os no DNS (na Cloudflare,
    **sem a nuvem laranja**, só DNS). Espere o domínio ficar *Verified*.
 3. Crie uma API Key com permissão **Sending access**.
-4. No Comandou: Super Admin › E-mail › **Resend**: ligue "Enviar e-mails pelo Resend", cole a
-   chave, informe o remetente (ex.: `nao-responda@comandou.com`, do domínio verificado) e salve.
-5. Use **Enviar teste** para conferir.
+4. No Comandou: Super Admin › **Credenciais** › Resend: cole a chave e salve (a primeira chave já
+   liga o envio).
+5. Super Admin › E-mail › **Resend**: informe o remetente (ex.: `nao-responda@comandou.com`, do
+   domínio verificado) e salve.
+6. Use **Enviar teste** (em Credenciais) para conferir.
 
 A instalação precisa da `INTEGRATIONS_KEY` (o instalador já cria): é ela que cifra a chave do
 Resend no banco. A chave nunca volta para a tela; deixe o campo vazio para manter a salva.
@@ -93,7 +95,7 @@ v=DMARC1; p=quarantine; rua=mailto:dmarc@seudominio.com.br
 
 | Sintoma | O que fazer |
 | --- | --- |
-| "O envio de e-mail não está configurado" | Super Admin › E-mail › Resend: ligue, cole a chave e o remetente |
+| "O envio de e-mail não está configurado" | Chave em Super Admin › Credenciais; ligue e ponha o remetente em Super Admin › E-mail › Resend |
 | Resend `403` / domínio não verificado | Confira os registros do Resend no DNS (sem a nuvem laranja) |
 | E-mail cai no spam | Crie o DMARC; confira SPF e DKIM no painel do Resend |
 | E-mail ficou "Na fila" | Veja o erro em E-mail › Envios; ele sai sozinho quando o Resend voltar |

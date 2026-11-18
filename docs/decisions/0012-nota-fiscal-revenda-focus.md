@@ -12,7 +12,9 @@ deve precisar contratar nem entender a Focus.
 
 O Comandou opera como **revenda/parceiro** da Focus NFe com uma conta só:
 
-- O servidor recebe o **token master** da conta (`FOCUS_NFE_MASTER_TOKEN`, variável ou `_FILE`).
+- O **token master** da conta fica em Super Admin › Credenciais (cifrado, tabela
+  `platform_credentials`, desde a 0.160.0). Sem ele no painel, vale a variável antiga
+  `FOCUS_NFE_MASTER_TOKEN` do servidor.
 - Em Nota fiscal → Configuração, o lojista faz o **cadastro guiado** em 3 etapas: dados da empresa
   (com busca pelo CNPJ), certificado digital **A1** (.pfx + senha) e **CSC** da NFC-e por ambiente.
 - A API chama `POST /v2/empresas` (ou `PUT /v2/empresas/{id}`) com o token master. A Focus valida o

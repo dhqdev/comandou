@@ -172,7 +172,7 @@ services:
       REDIS_URL: redis://redis:6379
       # Chave (32 bytes base64) que cifra tokens da Focus NFe e do WhatsApp no banco.
       INTEGRATIONS_KEY_FILE: /run/secrets/comandou_integrations_key
-      # Opcional: token master da Focus NFe (modo revenda da nota fiscal). Vazio = token por loja.
+      # Opcional e antigo: token master da Focus NFe. Prefira Super Admin › Credenciais (vale no lugar).
       FOCUS_NFE_MASTER_TOKEN: ${FOCUS_NFE_MASTER_TOKEN:-}
       IFOOD_APP_MODE: ${IFOOD_APP_MODE:-centralized}
       IFOOD_CLIENT_ID: ${IFOOD_CLIENT_ID:-}

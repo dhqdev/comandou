@@ -158,6 +158,16 @@ anexado) e os detalhes `tk-facts`. Até 900 px vira uma coluna (`display: conten
 situação, Falar no chat, o que contou, histórico, detalhes; até 600 px as etapas ficam só nas
 barrinhas. O painel Super Admin segue com o `EventLine` de `TicketParts.tsx` na aba Notas.
 
+## Super Admin › Credenciais
+
+`platform/credentials/` (`credentials.css`, prefixo `adm-cred`): resumo em `Tile`s, depois um
+grupo por lugar (painel, instalador, servidor, GitHub) com cartões de linha fina: bolinha da
+situação, título, frase de para que serve e `Tag` (configurada/falta/opcional/confira fora daqui),
+o passo a passo num `<details>` e, se a chave é do painel, o formulário embaixo de uma linha fina
+(`Testar` secondary, `Salvar` primário pequeno). Nas outras telas, a chave nunca aparece: só o
+`CredentialsNote` (bolinha + frase + link "Abrir em Credenciais", `.adm-cred-note` em
+`admin.css`).
+
 ## Super Admin › Conversas
 
 `platform/SupportPage.tsx` (estilos em `admin.css`, prefixos `sinbox`/`sdesk`): lista de 320 px, a
