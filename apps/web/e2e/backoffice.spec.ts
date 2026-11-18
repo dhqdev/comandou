@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { nav, enterPanel, expectNoHorizontalScroll } from './nav';
+import { account, nav, enterPanel, expectNoHorizontalScroll } from './nav';
 
 /**
  * Fluxo da Etapa 4 no navegador: equipe → estoque com ficha técnica → delivery com
@@ -207,8 +207,8 @@ test('retaguarda: equipe, estoque, entrega com rastreio, financeiro e impressão
   await expect(page.locator('li', { hasText: `PC ${tag}` })).toContainText('desativado');
   await shot(page, info.project.name, 'impressao');
 
-  // Novidades
-  await nav(page, /^Novidades/);
+  // Novidades (no menu do perfil desde a 0.159.0)
+  await account(page, 'Novidades');
   await expect(page.getByRole('heading', { name: /0\.3\.0/ })).toBeVisible();
 });
 

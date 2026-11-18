@@ -1,5 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
-import { nav, enterPanel, expectNoHorizontalScroll } from './nav';
+import { account, nav, enterPanel, expectNoHorizontalScroll } from './nav';
 
 /**
  * Fluxo da Etapa 5 no navegador, sem contas reais de Focus NFe ou WhatsApp:
@@ -131,8 +131,8 @@ test('integrações: dados fiscais, NFC-e no pedido e WhatsApp', async ({ page }
   await page.getByRole('tab', { name: 'QR Code (padrão)' }).click();
   await expect(page.getByRole('heading', { name: 'Conexão por QR Code' })).toBeVisible();
 
-  // Novidades
-  await nav(page, /^Novidades/);
+  // Novidades (no menu do perfil desde a 0.159.0)
+  await account(page, 'Novidades');
   await expect(page.getByRole('heading', { name: /0\.4\.0/ })).toBeVisible();
 });
 
