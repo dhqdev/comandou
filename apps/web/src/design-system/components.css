@@ -175,8 +175,9 @@ input[type='date'].cm-input::-webkit-date-and-time-value {
   text-align: left;
   margin: 0;
 }
+/* O calendário nativo não abre: quem abre é o do Comandou (date-picker.tsx). */
 input[type='date'].cm-input::-webkit-calendar-picker-indicator {
-  opacity: 0;
+  display: none;
 }
 
 /* ---------------------------------------------------------------- seletores (pickers.tsx) */
@@ -238,86 +239,298 @@ input[type='date'].cm-input::-webkit-calendar-picker-indicator {
   cursor: default;
 }
 
+/* Calendário (date-picker.tsx): o mesmo na caixa do computador e na folha do celular. */
 .cm-cal {
   display: grid;
-  gap: 14px;
-}
-.cm-cal__quick {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.cm-cal__chip {
-  min-height: 40px;
-  padding: 0 16px;
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-full);
-  background: var(--cm-surface);
-  color: var(--cm-text);
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-.cm-cal__chip.is-on {
-  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
-  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
-  color: var(--cm-brand-700);
-  font-weight: 650;
+  gap: 6px;
+  user-select: none;
 }
 .cm-cal__head {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: space-between;
-  font-size: var(--cm-text-lg);
-}
-.cm-cal__nav {
-  width: 44px;
-  height: 44px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 50%;
-  background: var(--cm-surface-sunken);
-  color: var(--cm-text);
-  cursor: pointer;
-}
-.cm-cal__grid {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
-  justify-items: center;
+  padding-bottom: 4px;
 }
-.cm-cal__dow {
-  padding: 4px 0;
-  font-size: var(--cm-text-xs);
-  font-weight: 650;
-  color: var(--cm-text-subtle);
-}
-.cm-cal__day {
-  width: 100%;
-  max-width: 48px;
-  aspect-ratio: 1;
+.cm-cal__title {
+  justify-self: center;
+  height: 32px;
+  padding: 0 10px;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--cm-radius-sm);
   background: transparent;
   color: var(--cm-text);
   font: inherit;
   font-size: var(--cm-text-md);
+  font-weight: 650;
+  cursor: pointer;
+  transition: background var(--cm-dur-fast) var(--cm-ease);
+}
+.cm-cal__title span {
+  color: var(--cm-text-muted);
+  font-weight: 550;
+}
+.cm-cal__title:hover {
+  background: var(--cm-surface-sunken);
+}
+.cm-cal__nav {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: transparent;
+  color: var(--cm-text-muted);
+  cursor: pointer;
+  transition:
+    background var(--cm-dur-fast) var(--cm-ease),
+    color var(--cm-dur-fast) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.cm-cal__nav:hover {
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+}
+.cm-cal__nav:active,
+.cm-cal__day:active:not(:disabled),
+.cm-cal__month:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.cm-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  row-gap: 2px;
+}
+.cm-cal__dow {
+  padding: 4px 0 6px;
+  text-align: center;
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  color: var(--cm-text-subtle);
+}
+.cm-cal__day {
+  position: relative;
+  height: 36px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: transparent;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
   font-weight: 550;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
+  transition:
+    background var(--cm-dur-fast) var(--cm-ease),
+    color var(--cm-dur-fast) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
 }
+.cm-cal__day:hover:not(:disabled):not(.is-on):not(.is-range):not(.is-edge) {
+  background: var(--cm-surface-sunken);
+}
+.cm-cal__day:focus-visible,
+.cm-cal__month:focus-visible,
+.cm-cal__nav:focus-visible,
+.cm-cal__title:focus-visible,
+.cm-cal__link:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.cm-cal__day.is-other {
+  color: var(--cm-text-subtle);
+  font-weight: 450;
+}
+/* Hoje: número na cor da marca com um pontinho embaixo. */
 .cm-cal__day.is-today {
-  box-shadow: inset 0 0 0 1.5px var(--cm-brand-500);
+  color: var(--cm-brand-700);
+  font-weight: 750;
+}
+.cm-cal__day.is-today::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.cm-cal__day.is-range {
+  border-radius: 0;
+  background: var(--cm-brand-50);
+  color: var(--cm-brand-800);
+}
+.cm-cal__day.is-edge {
+  background: color-mix(in srgb, var(--cm-brand-500) 18%, var(--cm-surface));
+  color: var(--cm-brand-800);
+  font-weight: 700;
+}
+.cm-cal__day.is-start {
+  border-radius: var(--cm-radius-sm) 0 0 var(--cm-radius-sm);
+}
+.cm-cal__day.is-end {
+  border-radius: 0 var(--cm-radius-sm) var(--cm-radius-sm) 0;
 }
 .cm-cal__day.is-on {
   background: var(--cm-brand-600);
   color: var(--cm-on-brand);
   font-weight: 750;
 }
-.cm-cal__day:disabled {
-  opacity: 0.3;
+.cm-cal__day:disabled,
+.cm-cal__month:disabled {
+  opacity: 0.32;
   cursor: default;
+}
+.cm-cal__months {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px 0;
+}
+.cm-cal__month {
+  height: 44px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: transparent;
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--cm-dur-fast) var(--cm-ease),
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.cm-cal__month:hover:not(:disabled):not(.is-on) {
+  background: var(--cm-surface-sunken);
+}
+.cm-cal__month.is-today {
+  color: var(--cm-brand-700);
+}
+.cm-cal__month.is-on {
+  background: var(--cm-brand-600);
+  color: var(--cm-on-brand);
+}
+.cm-cal__foot {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  margin: 2px -12px -4px;
+  padding: 8px 12px 0;
+  border-top: 1px solid var(--cm-border);
+}
+.cm-cal__link {
+  justify-self: start;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--cm-radius-sm);
+  background: transparent;
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--cm-dur-fast) var(--cm-ease);
+}
+.cm-cal__link:hover:not(:disabled) {
+  background: var(--cm-surface-sunken);
+  color: var(--cm-text);
+}
+.cm-cal__today {
+  justify-self: center;
+  color: var(--cm-text);
+  background: var(--cm-surface-sunken);
+}
+.cm-cal__link:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+/* Folha do celular: dias grandes para o dedo. */
+.cm-cal--lg {
+  gap: 10px;
+}
+.cm-cal--lg .cm-cal__title {
+  height: 44px;
+  font-size: var(--cm-text-lg);
+}
+.cm-cal--lg .cm-cal__nav {
+  width: 44px;
+  height: 44px;
+  background: var(--cm-surface-sunken);
+  border-radius: 50%;
+}
+.cm-cal--lg .cm-cal__day {
+  height: 46px;
+  font-size: var(--cm-text-md);
+}
+.cm-cal--lg .cm-cal__month {
+  height: 56px;
+  font-size: var(--cm-text-md);
+}
+.cm-cal--lg .cm-cal__foot {
+  margin: 4px 0 0;
+  padding: 12px 0 0;
+}
+.cm-cal--lg .cm-cal__link {
+  height: 44px;
+  padding: 0 18px;
+  font-size: var(--cm-text-md);
+}
+
+/* Caixa do calendário no computador (camada de cima, popover="manual"). */
+.cm-datepop {
+  position: fixed;
+  inset: auto;
+  top: 0;
+  left: 0;
+  width: 292px;
+  margin: 0;
+  padding: 12px 12px 10px;
+  overflow: visible;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-lg);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  box-shadow: var(--cm-shadow-lg);
+  z-index: 1000;
+  transform-origin: top left;
+  animation: cm-datepop-in var(--cm-spring-snappy-dur) var(--cm-spring-snappy) both;
+}
+.cm-datepop[data-side='top'] {
+  transform-origin: bottom left;
+}
+@keyframes cm-datepop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-datepop {
+    animation: none;
+  }
+}
+/* Campo de data aberto: mesma borda de foco dos outros campos. */
+.cm-date.is-open > .cm-input {
+  border-color: var(--cm-brand-500);
+  box-shadow: var(--cm-focus);
+}
+.cm-date > .cm-input {
+  cursor: pointer;
+}
+.cm-date > .cm-input:disabled {
+  cursor: default;
+}
+
+/* Data e hora: o calendário e a hora lado a lado. */
+.cm-datetime {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px;
+  gap: 8px;
+  min-width: 0;
 }
 
 input[type='checkbox'],

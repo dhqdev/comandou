@@ -340,7 +340,9 @@ const SORTS: ListSort<CustomerRow>[] = [
   { key: 'created', label: 'Cadastro', get: (c) => c.createdAt },
 ];
 
-const searchText = (c: CustomerRow) => `${c.name} ${c.email ?? ''} ${c.phone} ${fmtPhone(c.phone)}`;
+// O servidor também acha pelo CPF/CNPJ: sem ele aqui, a linha vinha e sumia na tela.
+const searchText = (c: CustomerRow) =>
+  `${c.name} ${c.email ?? ''} ${c.phone} ${fmtPhone(c.phone)} ${c.document ?? ''}`;
 
 /** Clientes com conta no cardápio online: quem são, quanto pedem e quando voltaram. */
 export function CustomersPage() {

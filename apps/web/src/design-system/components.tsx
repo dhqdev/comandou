@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { X } from 'lucide-react';
 import { Mascot, type MascotMood } from './mascot';
-import { DateInput } from './pickers';
+import { DateInput, DateTimeInput } from './date-picker';
 import { cachedBranding } from './brand';
 import { canAnimate, useLiquidDialog } from './liquid';
 import { FixSteps, useFixPlan } from './fix-guide';
@@ -95,6 +95,14 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
       )}
       {type === 'date' ? (
         <DateInput
+          ref={ref}
+          id={inputId}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          {...rest}
+        />
+      ) : type === 'datetime-local' ? (
+        <DateTimeInput
           ref={ref}
           id={inputId}
           aria-invalid={error ? true : undefined}

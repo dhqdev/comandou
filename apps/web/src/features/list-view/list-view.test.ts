@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   chipText,
   dateBounds,
+  dateLabel,
   matchAll,
   optionCounts,
+  rangeValue,
   sameFilters,
   serverFilters,
   type ListField,
@@ -80,5 +82,21 @@ describe('list-view', () => {
     expect(chipText(fields[2]!, ['today'])).toBe('Hoje');
     const server = [{ ...fields[2]!, server: true }, fields[0]!];
     expect(serverFilters(server, { at: ['today'], status: ['open'] })).toEqual({ at: ['today'] });
+  });
+
+  it('aceita De ou Até sozinhos no período livre', () => {
+    expect(rangeValue('2026-10-20', '')).toBe('range:2026-10-20:');
+    expect(rangeValue('', '2026-10-20')).toBe('range::2026-10-20');
+    expect(rangeValue('2026-10-20', '2026-10-01')).toBe('range:2026-10-01:2026-10-20');
+    expect(rangeValue('', '')).toBe('');
+    const pick = (v: string) =>
+      rows.filter((r) => matchAll(fields, r, { at: [v] }, undefined, now)).length;
+    expect(pick('range:2026-10-20:')).toBe(2);
+    expect(pick('range::2026-10-19')).toBe(1);
+    expect(dateBounds('range::', now)).toBeNull();
+    expect(dateLabel('range:2026-10-20:')).toBe('desde 20/10');
+    expect(dateLabel('range::2026-10-20')).toBe('até 20/10');
+    expect(dateLabel('range:2025-12-20:2026-01-10')).toBe('20/12/2025 a 10/01/2026');
+    expect(dateLabel('garbage')).toBe('qualquer data');
   });
 });

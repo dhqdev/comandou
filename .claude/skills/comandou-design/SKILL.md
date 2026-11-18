@@ -28,6 +28,12 @@ Visual de **sistema de trabalho**: sóbrio, limpo e confortável para turnos lon
 - **Campo de valor** (dinheiro): `inputMode="decimal"` e valor no formato `0,00`. Não precisa de máscara: `installDecimalEntry` (`design-system/decimal-entry.ts`, ligado no `main.tsx`) põe o cursor antes da vírgula ao entrar (digitar 3 em 0,00 dá 3,00) e a vírgula pula para os centavos. Campo que não é dinheiro nem número com vírgula não usa `inputMode="decimal"`.
 - Liga/desliga e linhas de texto + controle: `cm-form__row`. Bloco solto que deve ocupar a linha toda: `cm-form__block`.
 - Use `TextField`, `SelectField`, `CheckField`; não monte `<label>` na mão.
+- **Campo de data:** sempre `TextField type="date"` (ou `DateInput`); data e hora,
+  `type="datetime-local"` (vira `DateTimeInput`: calendário + hora). Nunca `<input type="date">`
+  solto: o teste `date-picker.test.tsx` acusa. O calendário (`design-system/date-picker.tsx`) abre
+  embaixo do campo no computador (camada `popover`, mora dentro da janela aberta) e numa folha no
+  celular: 6 semanas a partir do domingo, título do mês clicável (escolhe mês/ano), hoje com
+  pontinho, Hoje e Limpar no rodapé. Período De/Até: passe `rangeWith` com a outra ponta.
 - **Cadastro longo vira tela própria com passos**, não janela (janela fecha num clique fora e
   perde tudo). Modelo: Super Admin › Restaurantes › Novo (`NewTenantPage`, classes
   `adm-wizard*`): passos à esquerda no computador (em cima, só números, no celular), um passo

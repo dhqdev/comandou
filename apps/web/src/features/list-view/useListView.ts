@@ -82,8 +82,10 @@ export function useListView<T>(cfg: ListViewConfig<T>) {
   const addField = (key: string) => setAdded((a) => (a.includes(key) ? a : [...a, key]));
 
   const clear = () => {
-    // "Limpar" volta para a aba atual sem nada além dos filtros que vêm do servidor.
-    setFilters((f) => cleanFilters(serverFilters(fields, f)));
+    // Mexeu nos filtros da aba: "Limpar" volta para a aba como ela é. Só buscou: apaga a busca.
+    // Já na aba, sem busca: tira tudo, menos os filtros que vêm do servidor (o período carregado).
+    if (tab && !sameFilters(filters, tab.filters)) setFilters({ ...tab.filters });
+    else if (!query) setFilters((f) => cleanFilters(serverFilters(fields, f)));
     setAdded([]);
     setQuery('');
   };

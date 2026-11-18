@@ -13,6 +13,7 @@ import { createPortal } from 'react-dom';
 import { DateInput, Select, Sheet } from '../../design-system';
 import {
   chipText,
+  rangeValue,
   DATE_PRESETS,
   dateBounds,
   fold,
@@ -89,8 +90,8 @@ function Popover({
     const onDown = (e: PointerEvent) => {
       const t = e.target as Node;
       if (box.current?.contains(t) || anchor.current?.contains(t)) return;
-      // Folha do seletor de data aberta por cima: não fecha a caixa.
-      if ((t as HTMLElement).closest?.('dialog')) return;
+      // Folha ou calendário do campo de data aberto por cima: não fecha a caixa.
+      if ((t as HTMLElement).closest?.('dialog, [data-datepop]')) return;
       onClose();
     };
     const onScroll = (e: Event) => {
@@ -194,6 +195,7 @@ function DateGrid<T>({
   onPick(value: string): void;
 }) {
   const value = lv.filters[field.key]?.[0] ?? '';
+  const toRef = useRef<HTMLInputElement>(null);
   return (
     <div className="lv-date">
       <div className="lv-date__grid" role="radiogroup" aria-label={field.label}>
@@ -218,24 +220,38 @@ function DateGrid<T>({
       <div className="lv-date__range">
         <div className="lv-date__range-title">De / até</div>
         <div className="lv-date__fields">
-          <label className="lv-date__field">
-            <span>De</span>
+          <div className="lv-date__field">
+            <span id={`${field.key}-de`}>De</span>
             <DateInput
+              aria-labelledby={`${field.key}-de`}
               sheetTitle="A partir de"
               value={from}
               max={to || undefined}
-              onChange={(e) => setFrom(e.target.value)}
+              rangeWith={to || undefined}
+              onChange={(e) => {
+                setFrom(e.target.value);
+                // Escolheu o De com o mouse e falta o Até: já abre o calendário dele.
+                const next = toRef.current;
+                if (e.target.value && !to && next && fine())
+                  requestAnimationFrame(() => {
+                    next.focus();
+                    next.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+                  });
+              }}
             />
-          </label>
-          <label className="lv-date__field">
-            <span>Até</span>
+          </div>
+          <div className="lv-date__field">
+            <span id={`${field.key}-ate`}>Até</span>
             <DateInput
+              ref={toRef}
+              aria-labelledby={`${field.key}-ate`}
               sheetTitle="Até"
               value={to}
               min={from || undefined}
+              rangeWith={from || undefined}
               onChange={(e) => setTo(e.target.value)}
             />
-          </label>
+          </div>
         </div>
       </div>
     </div>
@@ -292,7 +308,7 @@ function Chip<T>({
   const footer = isDate ? (
     <>
       <p className="lv-date__note">
-        {field.dateNote ?? `Filtra pela ${field.label.toLowerCase()}.`}
+        {field.dateNote ?? 'Só o De: daí em diante. Só o Até: até esse dia.'}
       </p>
       <div className="lv-date__actions">
         {set && (
@@ -303,11 +319,8 @@ function Chip<T>({
         <button
           type="button"
           className="cm-btn cm-btn--primary cm-btn--sm"
-          disabled={!from || !to}
-          onClick={() => {
-            const [a, b] = from <= to ? [from, to] : [to, from];
-            apply(`range:${a}:${b}`);
-          }}
+          disabled={!from && !to}
+          onClick={() => apply(rangeValue(from, to))}
         >
           Aplicar
         </button>

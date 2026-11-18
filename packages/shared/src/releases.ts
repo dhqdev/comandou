@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.156.0',
+    version: '0.157.0',
     date: '2026-11-18',
     title: 'Calendário de recebimentos mais simples',
     summary:
@@ -37,6 +37,39 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'melhoria',
         text: 'Marcar como pago e Desfazer pagamento agora ficam na janela da cobrança.',
+      },
+    ],
+  },
+  {
+    version: '0.156.0',
+    date: '2026-11-18',
+    title: 'Calendário novo em todo campo de data',
+    summary:
+      'Clicar em qualquer campo de data abre o calendário do Comandou: o mês inteiro, setas para trocar o mês, o dia de hoje marcado e o botão Hoje. Os filtros de período das listas ficaram mais fáceis de usar e foram conferidos um a um.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Todo campo de data (contas, estoque, reservas, relatórios, notas, Super Admin) abre um calendário logo embaixo do campo, no computador, e numa folha grande, no celular. Clique no nome do mês para pular para outro mês ou ano; Hoje e Limpar ficam no rodapé. Dá para continuar digitando a data, e pelo teclado Alt + seta para baixo abre o calendário.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Filtro de período das listas: no De/Até, o calendário marca os dias do período (com prévia ao passar o mouse) e, escolhido o De, já abre o Até. Agora também vale só o De (dali em diante) ou só o Até (até aquele dia).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Agendar atualização no Super Admin: data no calendário e hora ao lado.',
+      },
+      {
+        tag: 'correção',
+        text: 'NFC-e e NF-e: o filtro de período usa a mesma data da coluna Quando (a da emissão), e não mais a da criação da nota.',
+      },
+      {
+        tag: 'correção',
+        text: 'Clientes: buscar pelo CPF ou CNPJ mostrava o cliente por um instante e o escondia logo depois.',
+      },
+      {
+        tag: 'correção',
+        text: 'Limpar filtros com uma aba aberta volta para os filtros da aba (antes apagava os da aba também e a lista não batia com a aba marcada). A nota do filtro de data não diz mais "Filtra pela período".',
       },
     ],
   },
