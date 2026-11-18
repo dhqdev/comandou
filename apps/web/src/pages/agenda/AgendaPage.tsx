@@ -540,7 +540,7 @@ export function AgendaPage() {
         />
       )}
       {dialog === 'side' && (
-        <Modal open title="Agenda" onClose={() => setDialog(null)}>
+        <Modal open title="Agenda pessoal" onClose={() => setDialog(null)}>
           <div className="ag-side ag-side--sheet">
             {search === null ? (
               <Button

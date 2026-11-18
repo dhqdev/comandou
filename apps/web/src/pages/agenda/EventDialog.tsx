@@ -1,8 +1,10 @@
-import { BellRing, Check, Plus, Trash2 } from 'lucide-react';
+import { BellRing, Check, HandCoins, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Alert, Button, Modal, TextField, useToast } from '../../design-system';
 import { CheckField, SelectField } from '../../features/forms';
 import { api } from '../../lib/api';
+import { brl } from '../../lib/money';
+import { localPhone } from '../../features/FiadoDialog';
 import {
   AgendaEvent,
   AgendaSettings,
@@ -36,6 +38,9 @@ interface Form {
   /** '' sem lembrete, minutos antes (REMIND_PRESETS) ou 'custom'. */
   remind: string;
   remindAt: string;
+  /** Fiado: quem deve e o WhatsApp que recebe a cobrança. */
+  chargeName: string;
+  chargePhone: string;
 }
 
 function initial(ev: AgendaEvent | null, draft: Draft | null, remindDefault: string): Form {
@@ -58,6 +63,8 @@ function initial(ev: AgendaEvent | null, draft: Draft | null, remindDefault: str
     done: ev?.done ?? false,
     remind,
     remindAt: remindAt ? `${dayKey(remindAt)}T${hhmm(remindAt)}` : '',
+    chargeName: ev?.charge?.name ?? '',
+    chargePhone: localPhone(ev?.charge?.phone),
   };
 }
 
@@ -117,6 +124,8 @@ export function EventDialog({
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()))
       return setError('Confira o dia e a hora.');
     if (end < start) return setError('O fim vem antes do começo.');
+    if (event?.charge && !f.chargePhone.trim())
+      return setError('Informe o WhatsApp de quem deve (ou exclua a cobrança).');
     const remind = remindDate(start);
     if (f.remind === 'custom' && !remind) return setError('Escolha o dia e a hora do lembrete.');
     if (
@@ -136,6 +145,9 @@ export function EventDialog({
       tagId: f.tagId || null,
       done: f.done,
       remindAt: remind ? remind.toISOString() : null,
+      ...(event?.charge
+        ? { chargeName: f.chargeName.trim() || null, chargePhone: f.chargePhone.trim() || null }
+        : {}),
     };
     try {
       if (event) await api(`/agenda/events/${event.id}`, { method: 'PATCH', json: body });
@@ -365,6 +377,39 @@ export function EventDialog({
           />
         </div>
 
+        {event?.charge && (
+          <>
+            <h3 className="cm-form__section">
+              <HandCoins size={14} aria-hidden /> Fiado
+              {event.order ? ` do pedido #${event.order.number}` : ''}
+            </h3>
+            <TextField
+              label="Quem deve"
+              value={f.chargeName}
+              maxLength={80}
+              onChange={(e) => set({ chargeName: e.target.value })}
+            />
+            <TextField
+              label="WhatsApp de quem deve"
+              type="tel"
+              inputMode="tel"
+              placeholder="(11) 91234-5678"
+              value={f.chargePhone}
+              onChange={(e) => set({ chargePhone: e.target.value })}
+            />
+            <p className="cm-hint cm-form__wide ag-dlg__hint">
+              {chargeStatus(event)}
+              {!settings?.whatsappReady &&
+                ' O WhatsApp do restaurante precisa estar conectado pelo QR Code.'}
+            </p>
+            {event.charge.error && (
+              <div className="cm-form__wide">
+                <Alert tone="warning">A cobrança não saiu: {event.charge.error}.</Alert>
+              </div>
+            )}
+          </>
+        )}
+
         <h3 className="cm-form__section">
           <BellRing size={14} aria-hidden /> Lembrete pelo WhatsApp
         </h3>
@@ -434,4 +479,15 @@ export function EventDialog({
       </div>
     </Modal>
   );
+}
+
+/** Situação da cobrança do fiado, em uma frase. */
+function chargeStatus(ev: AgendaEvent) {
+  const o = ev.order;
+  const left = o ? Number(o.balance) : null;
+  if (o && left !== null && left <= 0) return 'O pedido já foi pago: a cobrança não sai.';
+  const value = left !== null ? ` Falta pagar ${brl(String(left))}.` : '';
+  if (ev.charge?.sentAt && !ev.charge.error)
+    return `Cobrança enviada no WhatsApp do cliente.${value}`;
+  return `No dia e hora deste compromisso, o WhatsApp do restaurante manda a cobrança para o cliente.${value}`;
 }

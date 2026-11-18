@@ -111,12 +111,12 @@ copiar da notificação). Passo a passo em [docs/email.md](docs/email.md).
 | **Entregas** | Áreas desenhadas no mapa (bairro ou raio) com taxa e pedido mínimo, painel do entregador com login ou link, rastreio para o cliente |
 | **Retaguarda** | Equipe e papéis, estoque com ficha técnica e custo médio (mudou o preço de um insumo, o custo de todo preparo e item do cardápio que o usa é recalculado sozinho, com histórico e impacto na margem), relatórios com exportação para Excel |
 | **Financeiro** | Contas a pagar e receber com plano de contas, fechamentos de caixa por dia, taxas e prazos das maquininhas, conciliação bancária pelo extrato OFX (os repasses casam sozinhos), DRE gerencial com CMV e indicadores (CMV, pessoal, ocupação, margem, ponto de equilíbrio), fluxo de caixa |
-| **Agenda** | Agenda pessoal de cada pessoa da equipe no jeito do Google Agenda (dia, semana, mês e lista), tags próprias, arrastar para remarcar e lembrete pelo WhatsApp na hora escolhida |
+| **Agenda pessoal** | Agenda de cada pessoa da equipe no jeito do Google Agenda (dia, semana, mês e lista), tags próprias, arrastar para remarcar e lembrete pelo WhatsApp na hora escolhida. Vender fiado (PDV ou pedido) cria a cobrança na agenda com a tag Fiado e o WhatsApp do restaurante cobra o cliente no dia e hora combinados |
 | **Impressão** | App Comandou Impressão (Windows, Mac e Linux) para impressoras térmicas por rede/Wi-Fi, USB, serial e Bluetooth, com modelos de comanda editáveis |
 | **Integrações** | NFC-e pela Focus NFe, avisos ao cliente pelo WhatsApp (QR Code ou API oficial), e-mail próprio pelo Resend, filas com novas tentativas |
 | **Plataforma** | Painel Super Admin com dois fatores, banco de dados próprio por restaurante, planos e limites, domínio próprio, contratos com assinatura eletrônica, e-mail pelo Resend, site público com teste grátis, atualização pelo painel, backups cifrados no Backblaze B2 com teste de restauração |
 
-O histórico de versões aparece no próprio sistema, na tela **Novidades**.
+O histórico de versões aparece no próprio sistema, na tela **Novidades** (menu do perfil).
 
 ## Garantias
 

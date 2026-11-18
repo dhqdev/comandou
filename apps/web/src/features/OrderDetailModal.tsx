@@ -62,6 +62,7 @@ import {
   STATUS_TONE,
 } from './format';
 import { CloseOrderPanel } from './CloseOrderPanel';
+import { FiadoForm, localPhone } from './FiadoDialog';
 import { OnlineCharges } from './OnlineCharges';
 import { useOpenSessions } from './PaymentModal';
 import {
@@ -133,6 +134,7 @@ export function OrderDetailModal({
     | 'adjust'
     | 'dispatch'
     | 'receivable'
+    | 'fiado'
     | 'edit'
     | { refund: Payment }
     | { cancelItem: OrderItem }
@@ -221,7 +223,13 @@ export function OrderDetailModal({
       ? (NEXT[order.status] ?? []).filter(
           (a) =>
             canTransition(order.status, a.to, order.channel) &&
-            !(a.to === 'completed' && hasBalance && order.status !== 'dispatched') &&
+            // Fiado marcado: conclui com saldo (vira "a receber" sozinho).
+            !(
+              a.to === 'completed' &&
+              hasBalance &&
+              order.status !== 'dispatched' &&
+              !order.fiadoAt
+            ) &&
             // Mesa: "Entregue na mesa" no lugar de concluir (pago, conclui sozinho).
             !(a.to === 'completed' && order.channel === 'table' && !order.servedAt),
         )
@@ -233,10 +241,13 @@ export function OrderDetailModal({
     order.channel === 'table' &&
     order.status === 'ready' &&
     !order.servedAt;
+  // Vender fiado: o mesmo poder do "a receber" (gerente), em qualquer pedido com saldo.
+  const canFiado = !!order && canCancel && hasBalance && order.status !== 'cancelled';
   const canReceivable =
     !!order &&
     canCancel &&
     hasBalance &&
+    !order.fiadoAt &&
     order.status !== 'dispatched' &&
     canTransition(order.status, 'completed', order.channel);
   const activeItems = order ? order.items.filter((i) => i.status !== 'cancelled').length : 0;
@@ -277,10 +288,19 @@ export function OrderDetailModal({
               },
             ]
           : []),
+        ...(canFiado
+          ? [
+              {
+                label: order.fiadoAt ? 'Editar fiado' : 'Vender fiado',
+                icon: <CalendarClock size={15} />,
+                run: () => setMode('fiado'),
+              },
+            ]
+          : []),
         ...(canReceivable
           ? [
               {
-                label: 'Concluir a receber (fiado)',
+                label: 'Concluir a receber',
                 icon: <HandCoins size={15} />,
                 run: () => setMode('receivable'),
               },
@@ -512,6 +532,21 @@ export function OrderDetailModal({
                 <strong>{order.notes || 'Sem observação'}</strong>
               </div>
             </div>
+            {order.fiadoAt && (
+              <div className="od-note" data-tone="warning">
+                <CalendarClock size={15} aria-hidden />
+                <div>
+                  <span>
+                    Fiado
+                    {order.fiadoDueAt ? ` · paga em ${dateTime(order.fiadoDueAt)}` : ''}
+                  </span>
+                  <strong>
+                    {order.fiadoName}
+                    {order.fiadoPhone ? ` · ${localPhone(order.fiadoPhone)}` : ''}
+                  </strong>
+                </div>
+              </div>
+            )}
             {order.receivableAt && (
               <div className="od-note" data-tone="danger">
                 <Wallet size={15} aria-hidden />
@@ -761,6 +796,16 @@ export function OrderDetailModal({
                 setMode(null);
               }}
               onCancel={() => setMode(null)}
+            />
+          )}
+          {mode === 'fiado' && (
+            <FiadoForm
+              order={order}
+              onCancel={() => setMode(null)}
+              onDone={(o) => {
+                setOrder(o);
+                setMode(null);
+              }}
             />
           )}
           {mode === 'receivable' && (

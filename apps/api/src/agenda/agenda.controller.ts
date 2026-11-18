@@ -49,6 +49,9 @@ const Fields = z.object({
   tagId: uuid.nullable().optional(),
   done: z.boolean().optional(),
   remindAt: instant.nullable().optional(),
+  /** Fiado: quem deve e o WhatsApp que recebe a cobrança (null tira a cobrança). */
+  chargeName: optText(80),
+  chargePhone: z.string().trim().max(25).nullable().optional(),
 });
 const Create = Fields.refine(
   (b) => new Date(b.endsAt) >= new Date(b.startsAt),
@@ -66,7 +69,7 @@ const Settings = z.object({
 });
 
 /**
- * Agenda pessoal (menu, ao lado de Novidades): qualquer pessoa da equipe usa a sua, sem
+ * Agenda pessoal (menu, embaixo; Novidades fica no menu do perfil): qualquer pessoa da equipe usa a sua, sem
  * permissão especial. Tudo é filtrado por quem está logado.
  */
 @Controller({ path: 'agenda', version: '1' })

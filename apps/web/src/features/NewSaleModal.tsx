@@ -78,11 +78,14 @@ export function NewSaleModal({
   onClose,
   onCreated,
   preset,
+  title: titleProp,
 }: {
   open: boolean;
   onClose(): void;
   onCreated(o: Order): void;
   preset?: { channel?: OrderChannel; tableId?: string; tabId?: string; label?: string };
+  /** Título da janela (ex.: "Vender fiado"); sem ele, "Nova venda" ou o do preset. */
+  title?: string;
 }) {
   const toast = useToast();
   const titleId = useId();
@@ -271,7 +274,7 @@ export function NewSaleModal({
   }
 
   if (!open) return null;
-  const title = preset?.label ? `Novo pedido — ${preset.label}` : 'Nova venda';
+  const title = titleProp ?? (preset?.label ? `Novo pedido — ${preset.label}` : 'Nova venda');
 
   return (
     <dialog

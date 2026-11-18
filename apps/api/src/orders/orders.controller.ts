@@ -14,7 +14,8 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { z } from 'zod';
-import { ORDER_CHANNELS, ORDER_STATUSES, ordersLimitedToOwn } from '@comandou/shared';
+import { ORDER_CHANNELS, ORDER_STATUSES, ordersLimitedToOwn, roleHas } from '@comandou/shared';
+import { AgendaService } from '../agenda/agenda.service';
 import { CashService } from '../cash/cash.service';
 import { ctxOf } from '../common/context';
 import {
@@ -72,6 +73,11 @@ const ListQuery = z.object({
     .enum(['true', 'false'])
     .optional()
     .transform((v) => v === 'true'),
+  /** Fiados em aberto (seção Fiado do PDV). */
+  fiado: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
   limit: z.coerce.number().int().min(1).max(500).default(100),
 });
 
@@ -90,6 +96,12 @@ const CountsQuery = z.object({
 
 const Refund = z.object({ cashSessionId: uuid, amount: money, reason });
 
+const Fiado = z.object({
+  name: z.string().trim().min(1, 'Informe quem está devendo').max(80),
+  phone: z.string().trim().min(8, 'Informe o WhatsApp de quem deve').max(25),
+  dueAt: z.string().datetime({ offset: true }),
+});
+
 /** Bloqueio por cobrança não trava o que termina a venda já feita (só pedidos novos). */
 @AllowWhenBlocked()
 @Controller({ path: 'orders', version: '1' })
@@ -97,7 +109,30 @@ export class OrdersController {
   constructor(
     private readonly orders: OrdersService,
     private readonly cash: CashService,
+    private readonly agenda: AgendaService,
   ) {}
+
+  /**
+   * Vender fiado: quem deve, o WhatsApp e quando paga. Vai para a Agenda pessoal de quem vendeu
+   * (tag Fiado) e, no dia e hora, o WhatsApp do restaurante cobra o cliente. Dar fiado é o mesmo
+   * poder do "a receber" (gerente).
+   */
+  @Post(':id/fiado')
+  @RequirePermission('orders:write')
+  @HttpCode(200)
+  async fiado(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(Fiado)) b: z.infer<typeof Fiado>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    if (!roleHas(u.role, 'orders:cancel'))
+      throw new ForbiddenException('Vender fiado exige o gerente');
+    const ctx = ctxOf(t, u, req);
+    const r = await this.agenda.fiado(ctx, id, b);
+    return { ...r, order: await this.orders.get(ctx, id) };
+  }
 
   @Get()
   @RequirePermission('orders:read')

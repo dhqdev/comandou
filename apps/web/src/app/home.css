@@ -955,3 +955,11 @@
     display: none;
   }
 }
+
+/* Fiado: cartões do Salão um pouco mais largos (nome + valor + dia de pagar). */
+.pdv-fiado .pdv-salon__grid {
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+}
+.pdv-fiado .pdv-table__info em {
+  min-width: 0;
+}

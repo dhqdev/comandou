@@ -45,6 +45,17 @@
   border-radius: var(--cm-radius-md);
   background: var(--cm-surface-muted);
 }
+.fiado-form__when {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--cm-space-3);
+}
+/* Na janela do PDV o formulário já está dentro do cartão: sem a segunda moldura. */
+.cm-modal .fiado-form {
+  padding: 0;
+  border: 0;
+  background: none;
+}
 .inline-add {
   display: flex;
   flex-wrap: wrap;
@@ -363,6 +374,9 @@
   font-size: var(--cm-text-xs);
   color: var(--cm-text);
   overflow-wrap: anywhere;
+}
+.od-note[data-tone='warning'] > svg {
+  color: var(--cm-warning);
 }
 .od-note[data-tone='danger'] > svg,
 .od-note[data-tone='danger'] strong {

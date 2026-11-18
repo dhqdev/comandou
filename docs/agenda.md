@@ -1,8 +1,9 @@
 # Agenda
 
-Agenda pessoal de cada pessoa da equipe, no jeito do Google Agenda. Fica no menu, embaixo, ao lado
-de Novidades (no celular, em Mais › Conta). Não pede permissão especial: todo mundo tem a sua, e
-ninguém vê a agenda do outro.
+Agenda pessoal de cada pessoa da equipe, no jeito do Google Agenda. Fica no menu, embaixo, com o
+nome **Agenda pessoal** (para não confundir com os calendários do sistema); no celular, em Mais ›
+Conta. Novidades não fica mais na barra: está no menu que abre ao clicar no perfil. Não pede
+permissão especial: todo mundo tem a sua, e ninguém vê a agenda do outro.
 
 ## O que tem
 
@@ -35,11 +36,31 @@ ninguém vê a agenda do outro.
 
 Lembrete com horário que já passou, ao salvar, não sai (fica marcado como resolvido).
 
+## Fiado
+
+1. **Vender fiado** no PDV (seção Fiado › Vender fiado: lança a venda e já pede os dados) ou no
+   pedido (menu de ações › Vender fiado / Editar fiado). Pede quem deve, o WhatsApp e o dia e a
+   hora para pagar. Dar fiado é o mesmo poder do "a receber" (`orders:cancel`, gerente).
+2. `POST /api/v1/orders/:id/fiado` (`AgendaService.fiado`) grava `orders.fiado_*` e cria (ou
+   atualiza) **um** compromisso por pedido na agenda de quem vendeu, com a tag **Fiado** (criada
+   sozinha, laranja) e a cobrança (`charge_name`, `charge_phone`, `charge_at` = horário do
+   compromisso; no dia todo, 9h).
+3. Pedido fiado conclui com saldo sem pedir o motivo: `transitionInTx` marca o "a receber" com
+   `Fiado: <nome>`.
+4. A mesma varredura dos lembretes manda a **cobrança para o cliente** quando `charge_at` vence
+   (`sweepCharges`, mesma trava com `SKIP LOCKED`, texto em `chargeText`). Pedido já pago: não
+   manda e conclui o compromisso. Compromisso concluído: não manda. Erro fica em `charge_error`.
+5. Na agenda, o compromisso mostra o pedido, quanto falta e a situação da cobrança; dá para trocar
+   o nome e o WhatsApp. Arrastar para outro dia muda a cobrança junto.
+6. Fiados em aberto: `GET /orders?fiado=true` (seção Fiado do PDV).
+
 ## Onde fica
 
 | Caminho | O que é |
 | --- | --- |
+| `apps/api/db/migrations/0081_fiado_na_agenda.sql` | `orders.fiado_*` e a cobrança no compromisso (`agenda_events.order_id`, `charge_*`). |
+| `apps/web/src/features/FiadoDialog.tsx` | Formulário do fiado (no pedido e em janela no PDV). |
 | `apps/api/db/migrations/0080_agenda.sql` | `agenda_tags`, `agenda_events`, `agenda_settings` (RLS por restaurante; a API filtra por `user_id`). |
 | `apps/api/src/agenda/` | Rotas `/api/v1/agenda/*` e a varredura dos lembretes. |
 | `apps/web/src/pages/agenda/` | Tela (`AgendaPage`), janelas (`EventDialog`, `AgendaDialogs`), contas de data (`agenda-utils.ts`) e `agenda.css`. |
-| `apps/api/test/agenda.e2e.test.ts` | Isolamento entre pessoas e restaurantes, tags, lembrete que anda junto e a varredura. |
+| `apps/api/test/agenda.e2e.test.ts` | Isolamento entre pessoas e restaurantes, tags, lembrete que anda junto, a varredura e o fiado (tag, concluir com saldo, cobrança uma vez só, pedido já pago). |
