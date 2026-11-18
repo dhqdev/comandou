@@ -1,6 +1,7 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { timingSafeEqual, createHash } from 'node:crypto';
 import {
+  MAX_DOCUMENT_BYTES,
   MAX_TYPING_MS,
   NotConnectedError,
   NotOnWhatsAppError,
@@ -11,13 +12,20 @@ import {
 
 const UUID = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 const ROUTE = new RegExp(
-  `^/v1/sessions/(${UUID})(?:/(start|logout|messages|typing|read|react|presence))?$`,
+  `^/v1/sessions/(${UUID})(?:/(start|logout|messages|document|typing|read|react|presence))?$`,
   'i',
 );
 /** Conversa individual: número (@s.whatsapp.net) ou número escondido (@lid). */
 const JID = /^[0-9]{5,20}@(s\.whatsapp\.net|lid)$/;
 const PHONE = /^[0-9]{10,15}$/;
 const MSG_ID = /^[A-Za-z0-9_-]{1,128}$/;
+/** Nome do arquivo enviado: letras, números, espaço, ponto, traço e sublinhado; termina em .pdf. */
+const FILE_NAME = /^[\p{L}\p{N} ._-]{1,80}\.pdf$/u;
+/** Corpo JSON comum (texto, presença) e o do PDF (base64 deixa ~4/3 maior). */
+const BODY_MAX = 16_384;
+const DOC_BODY_MAX = Math.ceil((MAX_DOCUMENT_BYTES * 4) / 3) + 8_192;
+
+const PDF_MAGIC = Buffer.from('%PDF-');
 
 const digest = (s: string) => createHash('sha256').update(s).digest();
 
@@ -80,8 +88,33 @@ export function createGatewayServer(
     if (req.method === 'POST' && action === 'logout')
       return send(res, 200, await sessions.logout(tenantId));
     if (req.method !== 'POST' || !action) return send(res, 405, { error: 'método não permitido' });
-    const body = await readJson(req);
+    const body = await readJson(req, action === 'document' ? DOC_BODY_MAX : BODY_MAX);
     try {
+      if (action === 'document') {
+        const dest = targetOf(body);
+        const fileName = typeof body?.fileName === 'string' ? body.fileName : '';
+        const caption = typeof body?.caption === 'string' ? body.caption : '';
+        const b64 = typeof body?.data === 'string' ? body.data : '';
+        if (!FILE_NAME.test(fileName) || caption.length > 1000)
+          throw new BadRequest('nome do arquivo ou legenda inválidos');
+        const data = Buffer.from(b64, 'base64');
+        // Só PDF de verdade (começa com %PDF-) e dentro do limite.
+        if (
+          !data.length ||
+          data.length > MAX_DOCUMENT_BYTES ||
+          !data.subarray(0, 5).equals(PDF_MAGIC)
+        )
+          throw new BadRequest('arquivo inválido (só PDF até 3 MB)');
+        return send(
+          res,
+          200,
+          await sessions.sendDocument(tenantId, dest, {
+            data,
+            fileName,
+            caption: caption.trim() || undefined,
+          }),
+        );
+      }
       if (action === 'messages') {
         const dest = targetOf(body);
         const text = typeof body?.text === 'string' ? body.text : '';
@@ -120,12 +153,15 @@ export function createGatewayServer(
   }
 }
 
-async function readJson(req: IncomingMessage): Promise<Record<string, unknown> | null> {
+async function readJson(
+  req: IncomingMessage,
+  max: number,
+): Promise<Record<string, unknown> | null> {
   let size = 0;
   const chunks: Buffer[] = [];
   for await (const c of req) {
     size += (c as Buffer).length;
-    if (size > 16_384) return null;
+    if (size > max) return null;
     chunks.push(c as Buffer);
   }
   try {

@@ -86,6 +86,12 @@ Onde o dono da plataforma cria restaurantes (cada um com banco próprio), acompa
 cobrança, contratos, servidor, backups e auditoria. Entrada com senha e código do aplicativo
 autenticador.
 
+**Credenciais num lugar só.** A aba **Credenciais** junta todas as chaves, tokens e senhas que o
+Comandou usa (Focus NFe, OpenRouter, Resend, Asaas, PagBank, Backblaze B2, GitHub e os segredos do
+servidor), diz o que falta para subir o sistema e traz o passo a passo com os links de cada uma.
+As do painel se colam, testam e salvam ali mesmo, cifradas. Lista completa em
+[docs/credenciais.md](docs/credenciais.md).
+
 **E-mail próprio, sem n8n.** Todo e-mail do sistema (boas-vindas do teste, login e senha do
 restaurante criado no painel, código de nova senha, avisos de fim do teste e de mensalidade,
 contratos) sai pelo **Resend**, com o panda do Comandou e modo escuro, por uma fila que tenta de
@@ -113,6 +119,7 @@ copiar da notificação). Passo a passo em [docs/email.md](docs/email.md).
 | **Financeiro** | Visão geral com gráficos (saldo acumulado com previsão do fim do mês, despesas por grupo, formas de pagamento, dias da semana) e leituras automáticas do mês, contas a pagar e receber com plano de contas, fechamentos de caixa por dia, taxas e prazos das maquininhas, conciliação bancária pelo extrato OFX (os repasses casam sozinhos), DRE gerencial com CMV e indicadores (CMV, pessoal, ocupação, margem, ponto de equilíbrio), fluxo de caixa |
 | **Agenda pessoal** | Agenda de cada pessoa da equipe no jeito do Google Agenda (dia, semana, mês e lista), tags próprias, arrastar para remarcar e lembrete pelo WhatsApp na hora escolhida. Vender fiado (PDV ou pedido) cria a cobrança na agenda com a tag Fiado e o WhatsApp do restaurante cobra o cliente no dia e hora combinados |
 | **Impressão** | App Comandou Impressão (Windows, Mac e Linux) para impressoras térmicas por rede/Wi-Fi, USB, serial e Bluetooth, com modelos de comanda editáveis |
+| **Atendimento com IA** | IA que responde os clientes no WhatsApp com o cardápio liberado pelo gerente, faz e cancela reservas de mesa (grava só depois do SIM do cliente), manda o cardápio e o calendário de reservas em PDF, lembra das conversas antigas e se protege de golpe, assunto indevido e tentativas de tirá-la do papel |
 | **Integrações** | NFC-e pela Focus NFe, avisos ao cliente pelo WhatsApp (QR Code ou API oficial), e-mail próprio pelo Resend, filas com novas tentativas |
 | **Plataforma** | Painel Super Admin com dois fatores, banco de dados próprio por restaurante, planos e limites, domínio próprio, contratos com assinatura eletrônica, e-mail pelo Resend, site público com teste grátis, atualização pelo painel, backups cifrados no Backblaze B2 com teste de restauração |
 
@@ -206,7 +213,7 @@ docs/                 arquitetura, decisões (ADR), operação, deploy, testes
 - [Arquitetura](docs/architecture.md) · [Roadmap](docs/roadmap.md) · [Riscos](docs/risks.md) · [Decisões (ADR)](docs/decisions/README.md)
 - [Desenvolvimento local](docs/development.md) · [Testes](docs/testing.md) · [Carga](docs/load-testing.md)
 - [Financeiro: fechamento, conciliação e DRE](docs/financeiro.md) · [Site público e teste grátis](docs/site.md) · [E-mail (Resend)](docs/email.md) · [Contratos](docs/contratos.md) · [Cobrança](docs/cobranca.md) · [WhatsApp com muitos restaurantes](docs/whatsapp.md) · [Agenda](docs/agenda.md)
-- [Instalação](docs/install.md) · [Deploy](docs/deploy.md) · [Operação](docs/operations.md) · [Backups e restauração](docs/backups.md) · [Segurança](docs/security.md) · [Auditoria de 2026-11](docs/auditoria-2026-11.md) · [CrowdSec](docs/crowdsec.md)
+- [Credenciais: todas as chaves e como conseguir](docs/credenciais.md) · [Instalação](docs/install.md) · [Deploy](docs/deploy.md) · [Operação](docs/operations.md) · [Backups e restauração](docs/backups.md) · [Segurança](docs/security.md) · [Auditoria de 2026-11](docs/auditoria-2026-11.md) · [CrowdSec](docs/crowdsec.md)
 
 ## Licença
 

@@ -14,7 +14,10 @@ escolhe a certa) e criam o Super Admin com o e-mail e a senha que você informar
 - Um domínio com DNS apontando para o IP do servidor: registros **A** para `@`, `*` (e `admin`, se
   não usar o `*`).
 - Um bucket no Backblaze B2 (ou outro S3) para os backups diários; ele é configurado depois, no
-  painel Super Admin → Backups.
+  painel Super Admin → Credenciais.
+- Depois da primeira subida, abra **Super Admin → Credenciais**: ela lista todas as chaves que o
+  sistema usa (Focus NFe, OpenRouter, Resend, Asaas…), o que ainda falta e como conseguir cada
+  uma. Lista completa também em [credenciais.md](credenciais.md).
 
 ## 1. Um comando (recomendado)
 

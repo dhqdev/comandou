@@ -297,12 +297,12 @@ export class FiscalService implements OnModuleInit {
     return one<SettingsRow>(tx, `SELECT ${SETTINGS_COLS} FROM tenant_fiscal_settings`);
   }
 
-  private present(s: SettingsRow | undefined) {
+  private present(s: SettingsRow | undefined, managedAvailable: boolean) {
     return {
       enabled: s?.enabled ?? false,
       mode: s?.mode ?? 'own',
       /** O servidor tem o token master da Focus (cadastro guiado da empresa disponível)? */
-      managedAvailable: this.focus.masterAvailable,
+      managedAvailable,
       company: s?.company ?? null,
       focusRegistered: !!s?.focus_company_id,
       hasHomologToken: !!s && hasTokenFor(s, 'homologacao'),
@@ -335,7 +335,9 @@ export class FiscalService implements OnModuleInit {
   }
 
   getSettings(ctx: Ctx) {
-    return this.db.withTenant(ctx, async (tx) => this.present(await this.settingsRow(tx)));
+    return this.db.withTenant(ctx, async (tx) =>
+      this.present(await this.settingsRow(tx), await this.focus.hasMaster()),
+    );
   }
 
   async saveSettings(ctx: Ctx, b: FiscalSettingsInput) {
@@ -357,7 +359,7 @@ export class FiscalService implements OnModuleInit {
           );
       }
       const mode = b.mode ?? cur.mode;
-      if (mode === 'managed' && cur.mode !== 'managed' && !this.focus.masterAvailable)
+      if (mode === 'managed' && cur.mode !== 'managed' && !(await this.focus.hasMaster()))
         throw new UnprocessableEntityException(
           'O cadastro guiado da Focus NFe não está disponível neste servidor',
         );
@@ -472,14 +474,14 @@ export class FiscalService implements OnModuleInit {
         },
         ip: ctx.ip,
       });
-      return this.present(await this.settingsRow(tx));
+      return this.present(await this.settingsRow(tx), await this.focus.hasMaster());
     });
     return r;
   }
 
   // ------------------------------------------------------------------ empresa na Focus (revenda)
-  private assertManaged() {
-    if (!this.focus.masterAvailable)
+  private async assertManaged() {
+    if (!(await this.focus.hasMaster()))
       throw new UnprocessableEntityException(
         'O cadastro guiado da Focus NFe não está disponível neste servidor',
       );
@@ -492,7 +494,7 @@ export class FiscalService implements OnModuleInit {
 
   /** Busca razão social e endereço pelo CNPJ (consulta pública da Focus) para preencher o cadastro. */
   async lookupCnpj(cnpj: string): Promise<Partial<FiscalCompany> & { simples: boolean | null }> {
-    this.assertManaged();
+    await this.assertManaged();
     let r: { http: number; body: FocusCompanyBody };
     try {
       r = await this.focus.lookupCnpj(cnpj);
@@ -523,7 +525,7 @@ export class FiscalService implements OnModuleInit {
    * A1, a senha e o CSC passam direto para a Focus: nada disso fica no banco.
    */
   async saveCompany(ctx: Ctx, b: FiscalCompanyInput) {
-    this.assertManaged();
+    await this.assertManaged();
     if (!this.env.INTEGRATIONS_KEY)
       throw new UnprocessableEntityException(
         'Servidor sem INTEGRATIONS_KEY: não é possível guardar os tokens com segurança',
@@ -653,7 +655,7 @@ export class FiscalService implements OnModuleInit {
         },
         ip: ctx.ip,
       });
-      return this.present(await this.settingsRow(tx));
+      return this.present(await this.settingsRow(tx), await this.focus.hasMaster());
     });
   }
 
@@ -663,7 +665,7 @@ export class FiscalService implements OnModuleInit {
    * renovado por lá.
    */
   async syncCompany(ctx: Ctx) {
-    this.assertManaged();
+    await this.assertManaged();
     if (!this.env.INTEGRATIONS_KEY)
       throw new UnprocessableEntityException(
         'Servidor sem INTEGRATIONS_KEY: não é possível guardar os tokens com segurança',
@@ -713,7 +715,7 @@ export class FiscalService implements OnModuleInit {
         data: { focusCompanyId: cur.focus_company_id },
         ip: ctx.ip,
       });
-      return this.present(await this.settingsRow(tx));
+      return this.present(await this.settingsRow(tx), await this.focus.hasMaster());
     });
   }
 

@@ -29,7 +29,7 @@ import {
   MessagesSquare,
 } from 'lucide-react';
 import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Alert, Button, Modal, Select, Spinner, TextField, useToast } from '../design-system';
 import type { Prepared } from '../features/store-chat/chat-media';
 import { AgentAvatar, AttachPicker, EventLine, FileGrid } from '../features/tickets/TicketParts';
@@ -40,6 +40,7 @@ import {
   when,
 } from '../features/tickets/ticket-api';
 import { api } from '../lib/api';
+import { CredentialsNote } from './credentials/CredentialsNote';
 import { useLoad } from './OverviewPages';
 import type { TenantRow } from './types';
 import { ago, PageHead, Tabs, useInterval } from './ui';
@@ -296,10 +297,15 @@ export function TicketsBoardPage() {
       {(!s.hasGithubToken || !s.aiReady || !s.enabled) && (
         <Alert tone="warning">
           {!s.enabled ? 'Agentes desligados: os chamados entram e esperam você mover à mão. ' : ''}
-          {!s.aiReady ? 'Falta a chave do OpenRouter (Super Admin › Tokens). ' : ''}
-          {!s.hasGithubToken
-            ? 'Falta o token do GitHub para criar branch e PR (repositório privado): clique em Configurar e siga o passo a passo.'
-            : ''}
+          {!s.aiReady ? 'Falta a chave do OpenRouter (Super Admin › Credenciais). ' : ''}
+          {!s.hasGithubToken ? (
+            <>
+              Falta o token do GitHub para criar branch e PR (repositório privado):{' '}
+              <Link to="/credenciais#cred-github_pipeline">cadastre em Credenciais</Link>.
+            </>
+          ) : (
+            ''
+          )}
         </Alert>
       )}
       <div className="tk-toolbar">
@@ -1257,17 +1263,11 @@ function PipelineConfig({
     model: s.model,
     githubRepo: s.githubRepo,
     githubBase: s.githubBase,
-    githubToken: '',
     branchPrefix: s.branchPrefix,
     allowCodeChanges: s.allowCodeChanges,
     autoAdvance: s.autoAdvance,
   });
   const [busy, setBusy] = useState(false);
-  const [testing, setTesting] = useState(false);
-  const [checks, setChecks] = useState<{
-    ok: boolean;
-    checks: { label: string; ok: boolean; detail?: string }[];
-  } | null>(null);
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF((x) => ({ ...x, [k]: v }));
   async function save(e?: FormEvent) {
     e?.preventDefault();
@@ -1275,7 +1275,8 @@ function PipelineConfig({
     try {
       await api(`${BASE}/settings`, {
         method: 'PUT',
-        json: { ...f, githubToken: f.githubToken || undefined },
+        // O token do GitHub fica em Super Admin › Credenciais (ausente aqui = mantém).
+        json: f,
       });
       toast('Esteira salva', 'success');
       onSaved();
@@ -1285,22 +1286,6 @@ function PipelineConfig({
       setBusy(false);
     }
   }
-  async function test() {
-    setTesting(true);
-    try {
-      setChecks(
-        await api(`${BASE}/settings/test`, {
-          method: 'POST',
-          json: { githubRepo: f.githubRepo, githubToken: f.githubToken || undefined },
-        }),
-      );
-    } catch (err) {
-      toast((err as Error).message, 'danger');
-    } finally {
-      setTesting(false);
-    }
-  }
-  const owner = f.githubRepo.split('/')[0] || 'dhqdev';
   return (
     <Modal
       open
@@ -1311,9 +1296,6 @@ function PipelineConfig({
         <>
           <Button variant="ghost" onClick={onClose}>
             Fechar
-          </Button>
-          <Button variant="ghost" loading={testing} onClick={() => void test()}>
-            Testar GitHub
           </Button>
           <Button loading={busy} onClick={() => void save()}>
             Salvar
@@ -1333,66 +1315,21 @@ function PipelineConfig({
         <TextField
           label="Modelo dos agentes no OpenRouter"
           placeholder={`vazio = o mesmo do assistente (${s.effectiveModel || 'Super Admin › Tokens'})`}
-          hint="Para mexer em código, prefira um modelo forte (ex.: anthropic/claude-sonnet-4.5). A chave é a sua, em Super Admin › Tokens (ou a dos restaurantes, se você não colocou a sua)."
+          hint="Para mexer em código, prefira um modelo forte (ex.: anthropic/claude-sonnet-4.5). A chave é a sua, em Super Admin › Credenciais (ou a dos restaurantes, se você não colocou a sua)."
           value={f.model}
           onChange={(e) => set('model', e.target.value)}
         />
         {!s.aiReady && (
-          <Alert tone="warning">Falta a chave do OpenRouter em Super Admin › Tokens.</Alert>
+          <Alert tone="warning">Falta a chave do OpenRouter em Super Admin › Credenciais.</Alert>
         )}
 
         <h3 className="tk-block__label" style={{ margin: '6px 0 0' }}>
           GitHub (repositório privado)
         </h3>
-        <ol className="tk-howto">
-          <li>
-            Entre no GitHub com a conta dona do repositório e abra{' '}
-            <a
-              href="https://github.com/settings/personal-access-tokens/new"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Settings › Developer settings › Fine-grained tokens › Generate new token
-            </a>
-            .
-          </li>
-          <li>
-            Nome: <code>Comandou esteira</code>. Expiração: 1 ano (anote para renovar). Resource
-            owner: <code>{owner}</code>.
-          </li>
-          <li>
-            Repository access: <b>Only select repositories</b> e escolha <code>{f.githubRepo}</code>
-            . Como o repositório é privado, sem isso o token não enxerga nada.
-          </li>
-          <li>
-            Em Permissions › Repository permissions, marque:
-            <ul>
-              <li>
-                <b>Contents: Read and write</b> (criar a branch e o commit)
-              </li>
-              <li>
-                <b>Pull requests: Read and write</b> (abrir o PR)
-              </li>
-              <li>
-                <b>Actions: Read-only</b> (a etapa Testes acompanha o CI)
-              </li>
-              <li>Metadata: Read-only (o GitHub marca sozinho)</li>
-            </ul>
-          </li>
-          <li>
-            Clique em <b>Generate token</b>, copie o código (começa com <code>github_pat_</code>) e
-            cole abaixo. Ele aparece uma vez só.
-          </li>
-          <li>
-            Clique em <b>Testar GitHub</b>: tudo verde, clique em <b>Salvar</b>. O token fica
-            cifrado e nunca volta para a tela.
-          </li>
-        </ol>
-        <p className="tk-attach__hint" style={{ margin: 0, lineHeight: 1.5 }}>
-          Se a conta for de uma organização que exige aprovação, um dono precisa aprovar o token em
-          Settings › Personal access tokens. O CI do Comandou hoje roda só na main: sem execução
-          para a branch, a Íris monta um roteiro de teste manual.
-        </p>
+        <CredentialsNote id="github_pipeline" level={s.hasGithubToken ? 'ok' : 'bad'}>
+          {s.hasGithubToken ? 'Token do GitHub salvo.' : 'Falta o token do GitHub.'} O token, o
+          passo a passo para criar e o teste ficam em Credenciais.
+        </CredentialsNote>
         <div className="tk-form__two">
           <TextField
             label="Repositório (dono/nome)"
@@ -1405,35 +1342,6 @@ function PipelineConfig({
             onChange={(e) => set('githubBase', e.target.value)}
           />
         </div>
-        <TextField
-          label="Token do GitHub"
-          type="password"
-          autoComplete="off"
-          placeholder={s.hasGithubToken ? 'Salvo. Cole outro para trocar.' : 'github_pat_…'}
-          value={f.githubToken}
-          onChange={(e) => set('githubToken', e.target.value)}
-        />
-        {s.hasGithubToken && !s.tokenReadable && (
-          <Alert tone="danger">
-            O token salvo não abre com a INTEGRATIONS_KEY atual: cole de novo.
-          </Alert>
-        )}
-        {checks && (
-          <ul className="tk-checks">
-            {checks.checks.map((c) => (
-              <li key={c.label}>
-                {c.ok ? (
-                  <CheckCircle2 size={15} color="var(--cm-success)" />
-                ) : (
-                  <XCircle size={15} color="var(--cm-danger)" />
-                )}
-                <span>
-                  {c.label} {c.detail && <small>· {c.detail}</small>}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
         <TextField
           label="Prefixo das branches"
           hint={`Ex.: ${f.branchPrefix || 'chamado'}/12-caixa-nao-fecha`}

@@ -24,7 +24,7 @@ export interface Reservation {
   status: ReservationStatus;
   tableId: string | null;
   tableLabel: string | null;
-  source: 'online' | 'staff';
+  source: 'online' | 'staff' | 'whatsapp';
   cancelReason: string | null;
   cancelledBy: 'customer' | 'staff' | null;
   createdAt: string;
@@ -148,9 +148,10 @@ export function ReservationCard({
               </>
             )}
             <span aria-hidden>·</span> #{r.code}
-            {r.source === 'online' && (
+            {r.source !== 'staff' && (
               <>
-                <span aria-hidden>·</span> pelo cardápio
+                <span aria-hidden>·</span>{' '}
+                {r.source === 'whatsapp' ? 'pelo WhatsApp' : 'pelo cardápio'}
               </>
             )}
           </span>

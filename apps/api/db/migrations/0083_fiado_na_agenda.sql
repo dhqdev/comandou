@@ -1,4 +1,4 @@
--- 0081: Vender fiado ligado à Agenda pessoal (docs/agenda.md › Fiado).
+-- 0083: Vender fiado ligado à Agenda pessoal (docs/agenda.md › Fiado).
 --
 -- 1) orders.fiado_*: quem ficou devendo, o WhatsApp dela e o dia/hora combinados para pagar.
 --    Marcado por quem pode dar fiado (o mesmo poder do "a receber"); depois disso o pedido pode

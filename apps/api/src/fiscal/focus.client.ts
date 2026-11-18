@@ -1,5 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { open } from '../common/secret-box';
 import { ENV, Env } from '../config/env';
+import { PlatformDb } from '../platform/platform-db.service';
+
+/** Contexto da cifra do token master salvo em Super Admin › Credenciais. */
+export const FOCUS_MASTER_CONTEXT = 'fiscal:focus-master';
 
 export type FocusEnvironment = 'homologacao' | 'producao';
 export type FiscalKind = 'nfce' | 'nfe';
@@ -87,7 +92,10 @@ export class FocusUnavailableError extends Error {}
  */
 @Injectable()
 export class FocusClient {
-  constructor(@Inject(ENV) private readonly env: Env) {}
+  constructor(
+    @Inject(ENV) private readonly env: Env,
+    private readonly platform: PlatformDb,
+  ) {}
 
   private base(e: FocusEnvironment) {
     return (
@@ -249,14 +257,69 @@ export class FocusClient {
   // A API de empresas só existe no servidor de produção e usa o token master da conta.
   // Docs: https://doc.focusnfe.com.br/reference/criar_empresa
 
-  /** Há token master configurado no servidor (modo revenda disponível)? */
-  get masterAvailable() {
-    return !!this.env.FOCUS_NFE_MASTER_TOKEN;
+  private masterCache: { at: number; value: string | null } | null = null;
+
+  /**
+   * Token master da conta Focus NFe: o salvo em Super Admin › Credenciais (cifrado) ou, sem ele,
+   * a variável antiga FOCUS_NFE_MASTER_TOKEN. Fica 30 s em memória em cada réplica.
+   */
+  async masterToken(): Promise<string | null> {
+    if (this.masterCache && Date.now() - this.masterCache.at < 30_000)
+      return this.masterCache.value;
+    let value: string | null = null;
+    if (this.platform.enabled && this.env.INTEGRATIONS_KEY) {
+      const [row] = await this.platform
+        .query<{ v: Buffer }>(
+          `SELECT value_enc AS v FROM platform_credentials WHERE name = 'focus_master'`,
+        )
+        .catch(() => []);
+      if (row) {
+        try {
+          value = open(this.env.INTEGRATIONS_KEY, row.v, FOCUS_MASTER_CONTEXT);
+        } catch {
+          value = null;
+        }
+      }
+    }
+    value ??= this.env.FOCUS_NFE_MASTER_TOKEN ?? null;
+    this.masterCache = { at: Date.now(), value };
+    return value;
   }
 
-  private master() {
-    if (!this.env.FOCUS_NFE_MASTER_TOKEN) throw new Error('FOCUS_NFE_MASTER_TOKEN ausente');
-    return this.env.FOCUS_NFE_MASTER_TOKEN;
+  /** Esquece o token em memória (depois de salvar outro no painel). */
+  forgetMaster() {
+    this.masterCache = null;
+  }
+
+  /** Há token master (modo revenda disponível)? */
+  async hasMaster() {
+    return !!(await this.masterToken());
+  }
+
+  private async master() {
+    const t = await this.masterToken();
+    if (!t) throw new Error('Token master da Focus NFe ausente (Super Admin › Credenciais)');
+    return t;
+  }
+
+  /**
+   * Confere um token master na Focus (lista as empresas da conta). Usado pelo botão Testar de
+   * Super Admin › Credenciais, antes ou depois de salvar.
+   */
+  async testMaster(token?: string) {
+    const t = token || (await this.masterToken());
+    if (!t) return { ok: false as const, error: 'Nenhum token salvo' };
+    const r = await this.call('producao', t, 'GET', '/v2/empresas');
+    if (r.http === 200)
+      return { ok: true as const, companies: Array.isArray(r.body) ? r.body.length : null };
+    const b = r.body as FocusCompanyBody;
+    return {
+      ok: false as const,
+      error:
+        r.http === 401 || r.http === 403
+          ? 'A Focus recusou o token. Confira se é o Token Master (Painel API › Tokens) e se a conta tem o cadastro de empresas pela API liberado.'
+          : b.mensagem || `A Focus respondeu ${r.http}`,
+    };
   }
 
   createCompany(payload: Record<string, unknown>) {
@@ -281,7 +344,7 @@ export class FocusClient {
     path: string,
     body?: unknown,
   ): Promise<{ http: number; body: FocusCompanyBody }> {
-    const r = await this.call('producao', this.master(), method, path, body);
+    const r = await this.call('producao', await this.master(), method, path, body);
     return r as { http: number; body: FocusCompanyBody };
   }
 

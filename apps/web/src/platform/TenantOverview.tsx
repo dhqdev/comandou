@@ -16,7 +16,7 @@ import { useNavigate } from 'react-router';
 import { dateTime } from '../features/format';
 import { brl } from '../lib/money';
 import type { AiOverview } from './AiPage';
-import type { FiscalOverview } from './FiscalPage';
+import type { FiscalOverview } from './types';
 import { useLoad } from './OverviewPages';
 import { CONTRACT_STATUS } from './TenantContracts';
 import { DB_STATUS } from './TenantDatabase';
@@ -276,7 +276,7 @@ export function TenantOverview({
         </dl>
       </Card>
 
-      <Card icon={<Receipt size={16} />} title="Nota fiscal" onClick={() => navigate('/fiscal')}>
+      <Card icon={<Receipt size={16} />} title="Nota fiscal">
         {fiscal.data === null ? (
           <Note>carregando…</Note>
         ) : !fx?.enabled ? (

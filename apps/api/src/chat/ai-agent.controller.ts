@@ -1,4 +1,5 @@
-import { Body, Controller, Get, HttpCode, Post, Put } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Put, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { z } from 'zod';
 import { ctxOf } from '../common/context';
@@ -23,6 +24,8 @@ const Settings = z
     showPrices: z.boolean(),
     sendStoreLink: z.boolean(),
     replyWhen: z.enum(['always', 'open']),
+    takeReservations: z.boolean(),
+    sendPdfs: z.boolean(),
   })
   .partial();
 
@@ -83,6 +86,26 @@ export class AiAgentController {
     @CurrentUser() u: AuthenticatedUser,
   ) {
     return this.agent.setVisible(ctxOf(t, u), b);
+  }
+
+  /** Prévia do PDF que a IA manda no WhatsApp: cardápio ou calendário de reservas. */
+  @Get('pdf/:kind')
+  @RequirePermission('settings:manage')
+  async pdf(
+    @Param('kind', new ZodPipe(z.enum(['menu', 'calendar']))) kind: 'menu' | 'calendar',
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Res() res: Response,
+  ) {
+    const ctx = ctxOf(t, u);
+    const f = kind === 'menu' ? await this.agent.menuPdf(ctx) : await this.agent.calendarPdf(ctx);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${kind === 'menu' ? 'cardapio' : 'calendario-reservas'}.pdf"; filename*=UTF-8''${encodeURIComponent(f.fileName)}`,
+    );
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(Buffer.from(f.data));
   }
 
   @Post('test')

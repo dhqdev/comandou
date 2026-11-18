@@ -797,3 +797,31 @@ export interface Receiver {
   /** Só na resposta de "ligar": o token aparece uma vez. */
   token?: string | null;
 }
+
+/** GET /platform/fiscal: a nota fiscal de cada restaurante (cartão da ficha do restaurante). */
+export interface FiscalRow {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  featureFiscal: boolean | null;
+  certificateAlert: 'expired' | 'soon' | null;
+  fiscal: {
+    enabled: boolean;
+    nfeEnabled: boolean;
+    mode: 'own' | 'managed';
+    environment: 'homologacao' | 'producao';
+    cnpj: string | null;
+    focusRegistered: boolean;
+    certificateValidUntil: string | null;
+    authorized30d: number;
+    failed7d: number;
+    pendingNow: number;
+    lastAuthorizedAt: string | null;
+  } | null;
+}
+export interface FiscalOverview {
+  totals: { enabled: number; production: number; failed7d: number; certificateAlerts: number };
+  tenants: FiscalRow[];
+  errors: { dbName: string; error: string }[];
+}

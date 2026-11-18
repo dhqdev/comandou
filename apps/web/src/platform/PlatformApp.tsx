@@ -3,7 +3,7 @@ import {
   BrainCircuit,
   Building2,
   CreditCard,
-  FileText,
+  KeyRound,
   KanbanSquare,
   Download,
   LogOut,
@@ -87,9 +87,9 @@ const InfraPage = lazyPage(
   () => import('./InfraPage'),
   (m) => m.InfraPage,
 );
-const FiscalPage = lazyPage(
-  () => import('./FiscalPage'),
-  (m) => m.FiscalPage,
+const CredentialsPage = lazyPage(
+  () => import('./credentials/CredentialsPage'),
+  (m) => m.CredentialsPage,
 );
 const PlansPage = lazyPage(
   () => import('./PlansPage'),
@@ -139,7 +139,7 @@ const PANEL_PAGES = [
   NewTenantPage,
   SupportPage,
   InfraPage,
-  FiscalPage,
+  CredentialsPage,
   PlansPage,
   QuotePage,
   SitePage,
@@ -351,7 +351,6 @@ const NAV = [
   { to: '/chamados', label: 'Chamados', icon: KanbanSquare },
   { to: '/email', label: 'E-mail', icon: Mail },
   { to: '/servidor', label: 'Infraestrutura', short: 'Infra', icon: Server },
-  { to: '/fiscal', label: 'Fiscal', icon: FileText },
   { to: '/planos', label: 'Preço', icon: Tags },
   { to: '/orcamento', label: 'Orçamento', icon: Calculator },
   { to: '/site', label: 'Site', icon: Globe },
@@ -359,6 +358,7 @@ const NAV = [
   { to: '/cobranca', label: 'Cobrança', icon: Wallet },
   { to: '/pagamentos', label: 'Pagamentos pelo app', short: 'Pagamentos', icon: CreditCard },
   { to: '/tokens', label: 'Tokens', icon: BrainCircuit },
+  { to: '/credenciais', label: 'Credenciais', icon: KeyRound },
   { to: '/auditoria', label: 'Auditoria', icon: ScrollText },
 ];
 /** Abas do celular; o resto fica em "Mais". */
@@ -587,7 +587,9 @@ function Gate() {
         {/* Endereços antigos: Bancos e Backups agora são abas da Infraestrutura. */}
         <Route path="bancos" element={<Navigate to="/servidor/bancos" replace />} />
         <Route path="backups" element={<Navigate to="/servidor/backups" replace />} />
-        <Route path="fiscal" element={<FiscalPage />} />
+        <Route path="credenciais" element={<CredentialsPage />} />
+        {/* A aba Fiscal saiu: o que se configura da Focus NFe fica em Credenciais. */}
+        <Route path="fiscal" element={<Navigate to="/credenciais#cred-focus_master" replace />} />
         <Route path="planos" element={<PlansPage />} />
         <Route path="orcamento" element={<QuotePage />} />
         <Route path="site" element={<SitePage />} />

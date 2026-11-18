@@ -64,10 +64,13 @@ Decisão: [ADR 0013](decisions/0013-pagamento-online-pagbank-split.md).
    regra 1). Pagamentos já feitos continuam no pedido e podem ser estornados enquanto o PagBank
    aceitar, reconectando.
 
-## Configuração no Super Admin (Cobrança → Pagamentos pelo app)
+## Configuração no Super Admin (Credenciais e Pagamentos pelo app)
+
+Os passos 2, 3 e 5 (token, aplicação, conta recebedora e ambiente) ficam em **Super Admin →
+Credenciais → PagBank**; a taxa e o liga e desliga, em **Pagamentos pelo app**.
 
 1. No PagBank: peça ao comercial a **liberação do split de pagamento** para a sua conta.
-2. Crie a **aplicação** do Connect: no painel, cole o token da sua conta PagBank e toque em
+2. Crie a **aplicação** do Connect: em Credenciais, cole o token da sua conta PagBank e toque em
    **Criar aplicação no PagBank** (ou cole `client_id` e `client_secret` de uma aplicação que você
    já tem). O endereço de retorno é `https://admin.<domínio>/api/v1/pagbank/connect/callback`.
 3. Informe o **ID da conta recebedora** da Comandou (`ACCO_...`): é para ela que vai a taxa.

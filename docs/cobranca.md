@@ -66,17 +66,18 @@ comparação usa preço, teste, limites e recursos. O botão "Falar com a gente"
 vendas de Super Admin → Cobrança (número vira WhatsApp). No endereço do restaurante, o botão do
 plano leva para Assinatura já com a troca aberta.
 
-## Configuração (Super Admin → Cobrança)
+## Configuração (Super Admin → Credenciais e Cobrança)
 
 1. No Asaas: Integrações → Chaves de API. Copie a chave do ambiente (sandbox ou produção).
-2. No painel: escolha o ambiente, cole a chave, ajuste os prazos e ligue a cobrança. A chave é
+2. Em **Super Admin → Credenciais → Asaas**: escolha o ambiente, cole a chave e salve. A chave é
    cifrada com a `INTEGRATIONS_KEY` e nunca volta para o navegador.
-3. **Testar conexão** mostra o nome da conta e o saldo.
-4. **Cadastrar webhook no Asaas** cria o webhook apontando para
+3. **Testar conexão** (em Credenciais) mostra o nome da conta e o saldo.
+4. **Cadastrar webhook no Asaas** (em Credenciais) cria o webhook apontando para
    `https://admin.<domínio>/api/v1/platform/billing/asaas/webhook`, com um token gerado pelo
    sistema (cabeçalho `asaas-access-token`). Para cadastrar à mão, **Ver dados do webhook** mostra
    endereço e token (fica na auditoria). O e-mail de aviso vem de Contrato → Configurar.
-5. O cadastro do cliente (aba Cadastro) precisa de razão social e CPF/CNPJ: é com eles que o
+5. Em **Super Admin → Cobrança**, ajuste os prazos e ligue a cobrança.
+6. O cadastro do cliente (aba Cadastro) precisa de razão social e CPF/CNPJ: é com eles que o
    cliente é criado no Asaas na primeira cobrança.
 
 ## Calendário de recebimentos (Super Admin → Cobrança)

@@ -60,7 +60,7 @@ Lembrete com horário que já passou, ao salvar, não sai (fica marcado como res
 
 | Caminho | O que é |
 | --- | --- |
-| `apps/api/db/migrations/0081_fiado_na_agenda.sql` | `orders.fiado_*` e a cobrança no compromisso (`agenda_events.order_id`, `charge_*`). |
+| `apps/api/db/migrations/0083_fiado_na_agenda.sql` | `orders.fiado_*` e a cobrança no compromisso (`agenda_events.order_id`, `charge_*`). |
 | `apps/web/src/features/NewSaleModal.tsx` + `features/FiadoDialog.tsx` | Opção Fiado da Nova venda e o formulário do fiado no pedido já lançado. |
 | `apps/api/db/migrations/0080_agenda.sql` | `agenda_tags`, `agenda_events`, `agenda_settings` (RLS por restaurante; a API filtra por `user_id`). |
 | `apps/api/src/agenda/` | Rotas `/api/v1/agenda/*` e a varredura dos lembretes. |

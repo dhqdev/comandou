@@ -16,7 +16,13 @@ export type SentContent = { conversation: string };
 
 export type PresenceType = 'available' | 'unavailable' | 'composing' | 'recording' | 'paused';
 
-type MessageContent = { text: string } | { react: { text: string; key: WAKey } };
+type MessageContent =
+  | { text: string }
+  | { react: { text: string; key: WAKey } }
+  | { document: Buffer; mimetype: string; fileName: string; caption?: string };
+
+/** Maior arquivo que a API pode mandar pelo WhatsApp (PDF do cardápio, calendário). */
+export const MAX_DOCUMENT_BYTES = 3 * 1024 * 1024;
 
 /** O mínimo do socket do Baileys que usamos (permite um socket falso nos testes). */
 export interface SocketLike {
@@ -770,6 +776,32 @@ export class SessionManager {
       const id = r?.key?.id ?? null;
       if (id) remember(s.recent, id, text, RECENT_MAX);
       return { id, jid };
+    });
+  }
+
+  /**
+   * Envia um PDF (cardápio, calendário de reservas) com legenda opcional. Respeita o mesmo ritmo
+   * do número que o texto. Não entra no cache de reenvio (só texto entra).
+   */
+  async sendDocument(
+    tenantId: string,
+    dest: Target,
+    doc: { data: Buffer; fileName: string; caption?: string },
+  ) {
+    return this.run(tenantId, async (s, sock) => {
+      const jid = await this.target(s, sock, dest);
+      await this.pace(s);
+      const r = await withTimeout(
+        sock.sendMessage(jid, {
+          document: doc.data,
+          mimetype: 'application/pdf',
+          fileName: doc.fileName,
+          ...(doc.caption ? { caption: doc.caption } : {}),
+        }),
+        SEND_TIMEOUT_MS,
+        'WhatsApp não confirmou o envio a tempo',
+      );
+      return { id: r?.key?.id ?? null, jid };
     });
   }
 

@@ -9,11 +9,11 @@ import {
 import { FormEvent, useState } from 'react';
 import { Link } from 'react-router';
 import { Alert, Button, Card, Spinner, TextField, useToast } from '../design-system';
-import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { CalendarSection } from './BillingCalendar';
 import { useLoad } from './OverviewPages';
+import { CredentialsNote } from './credentials/CredentialsNote';
 import { ago, Dot, Level, Section, Tag, Tile } from './ui';
 
 interface Settings {
@@ -298,8 +298,6 @@ function InvoicesSection({ o }: { o: Overview }) {
 
 type Form = {
   enabled: boolean;
-  environment: 'sandbox' | 'production';
-  apiKey: string;
   invoiceDaysBefore: string;
   blockAfterDays: string;
   upgradeDueDays: string;
@@ -310,8 +308,6 @@ type Form = {
 };
 const toForm = (s: Settings): Form => ({
   enabled: s.enabled,
-  environment: s.environment,
-  apiKey: '',
   invoiceDaysBefore: String(s.invoiceDaysBefore),
   blockAfterDays: String(s.blockAfterDays),
   upgradeDueDays: String(s.upgradeDueDays),
@@ -349,7 +345,6 @@ function SettingsSection({ o, onSaved }: { o: Overview; onSaved(n: Overview): vo
   const [f, setF] = useState<Form>(() => toForm(s));
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [hook, setHook] = useState<{ url: string; token: string } | null>(null);
   const set = (k: keyof Form) => (v: string | boolean) => setF((x) => ({ ...x, [k]: v }));
   const num = (k: keyof Form) => (e: { target: { value: string } }) =>
     set(k)(e.target.value.replace(/\D/g, ''));
@@ -363,8 +358,8 @@ function SettingsSection({ o, onSaved }: { o: Overview; onSaved(n: Overview): vo
         method: 'PUT',
         json: {
           enabled: f.enabled,
-          environment: f.environment,
-          apiKey: f.apiKey.trim() || undefined,
+          // Ambiente e chave do Asaas ficam em Super Admin › Credenciais.
+          environment: s.environment,
           invoiceDaysBefore: Number(f.invoiceDaysBefore || 0),
           blockAfterDays: Number(f.blockAfterDays || 0),
           upgradeDueDays: Number(f.upgradeDueDays || 0),
@@ -383,53 +378,25 @@ function SettingsSection({ o, onSaved }: { o: Overview; onSaved(n: Overview): vo
       setBusy(null);
     }
   }
-  async function call<T>(key: string, path: string, ok: (r: T) => string) {
-    setBusy(key);
-    setError(null);
-    try {
-      const r = await api<T>(path, { method: 'POST' });
-      toast(ok(r), 'success');
-      return r;
-    } catch (err) {
-      setError((err as Error).message);
-      return null;
-    } finally {
-      setBusy(null);
-    }
-  }
   return (
-    <Section title="Configurações" sub="Asaas, prazos e regras (só o super admin vê)">
+    <Section title="Configurações" sub="prazos e regras (só o super admin vê)">
       <Card>
         <form onSubmit={save}>
           <div className="adm-form-group">
-            <h3 className="adm-form-group__title">1. Conexão com o Asaas</h3>
+            <h3 className="adm-form-group__title">1. Cobrança automática</h3>
             <p className="adm-form-group__lead">
               O Asaas emite as faturas (Pix, boleto e cartão), manda por e-mail para o restaurante e
               avisa o Comandou quando o pagamento cai.
             </p>
-            <div className="adm-backup-grid">
-              <SelectField
-                label="Ambiente"
-                value={f.environment}
-                onChange={(e) => set('environment')(e.target.value)}
-              >
-                <option value="sandbox">Sandbox (testes, sem dinheiro de verdade)</option>
-                <option value="production">Produção (cobra os clientes de verdade)</option>
-              </SelectField>
-              <TextField
-                label="Chave da API do Asaas"
-                type="password"
-                autoComplete="new-password"
-                value={f.apiKey}
-                placeholder={s.hasApiKey ? '•••••••• (salva)' : '$aact_…'}
-                onChange={(e) => set('apiKey')(e.target.value.trim())}
-                hint={
-                  s.hasApiKey
-                    ? 'Já tem uma chave salva: deixe em branco para manter. Ela fica cifrada e nunca é mostrada de novo.'
-                    : 'No Asaas: Integrações › Chaves de API › Gerar chave. A chave de sandbox só funciona no ambiente Sandbox, e a de produção só em Produção.'
-                }
-              />
-            </div>
+            <CredentialsNote
+              id="asaas"
+              level={!s.hasApiKey ? 'bad' : !s.webhookRegistered ? 'warn' : 'ok'}
+            >
+              {!s.hasApiKey
+                ? 'Falta a chave da API do Asaas.'
+                : `Asaas ${s.environment === 'production' ? 'em produção' : 'no sandbox'}${s.accountName ? ` · ${s.accountName}` : ''}${s.webhookRegistered ? '' : ' · falta cadastrar o webhook'}.`}{' '}
+              Chave, ambiente, teste e webhook ficam em Credenciais.
+            </CredentialsNote>
             <label className="adm-check" style={{ marginTop: 14 }}>
               <input
                 type="checkbox"
@@ -547,66 +514,7 @@ function SettingsSection({ o, onSaved }: { o: Overview; onSaved(n: Overview): vo
             <Button type="submit" loading={busy === 'save'}>
               Salvar
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              loading={busy === 'test'}
-              disabled={!s.hasApiKey}
-              onClick={() =>
-                call<{ ok: boolean; accountName?: string; balance?: number; error?: string }>(
-                  'test',
-                  '/platform/billing/test',
-                  (r) =>
-                    r.ok
-                      ? `Conta ${r.accountName ?? ''} conectada${r.balance != null ? ` · saldo ${brl(r.balance.toFixed(2))}` : ''}`
-                      : `Falhou: ${r.error}`,
-                )
-              }
-            >
-              Testar conexão
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              loading={busy === 'hook'}
-              disabled={!s.hasApiKey}
-              onClick={() =>
-                call<{ url: string }>('hook', '/platform/billing/webhook/register', (r) => {
-                  onSaved({ ...o, settings: { ...s, webhookRegistered: true } });
-                  return `Webhook cadastrado: ${r.url}`;
-                })
-              }
-            >
-              Cadastrar webhook no Asaas
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              loading={busy === 'token'}
-              disabled={!s.hasWebhookToken}
-              onClick={async () => {
-                const r = await call<{ url: string; token: string }>(
-                  'token',
-                  '/platform/billing/webhook/token',
-                  () => 'Token exibido (fica registrado na auditoria)',
-                );
-                if (r) setHook(r);
-              }}
-            >
-              Ver dados do webhook
-            </Button>
           </div>
-          {hook && (
-            <div className="adm-kv" style={{ marginTop: 12 }}>
-              <p className="adm-sub" style={{ whiteSpace: 'normal' }}>
-                Para cadastrar à mão no Asaas (Integrações › Webhooks), use:
-              </p>
-              <code style={{ display: 'block', wordBreak: 'break-all' }}>{hook.url}</code>
-              <code style={{ display: 'block', wordBreak: 'break-all', marginTop: 6 }}>
-                Token: {hook.token}
-              </code>
-            </div>
-          )}
         </form>
       </Card>
     </Section>

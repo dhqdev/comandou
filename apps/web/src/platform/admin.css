@@ -2868,3 +2868,13 @@ button.adm-card:hover {
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
+/* Aviso "isto agora fica em Credenciais" nas telas de cada assunto. */
+.adm-cred-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--a-muted);
+}

@@ -22,15 +22,17 @@ restaurante funcionam igual. O painel mostra o destino, quanto ocupa e o espaço
 contra erro humano e exclusão, mas **não** contra perder a VM: configure o Backblaze para ter uma
 cópia fora. `BACKUP_LOCAL_DIR` muda a pasta (`off` desliga o backup local).
 
-## Configurar (painel Super Admin → Backups)
+## Configurar (painel Super Admin → Credenciais e Backups)
 
 1. No Backblaze: **Buckets → Create a Bucket** (privado). Copie o **Endpoint** do bucket
    (ex.: `https://s3.us-west-004.backblazeb2.com`). Em **Lifecycle Settings**, escolha
    *Keep only the last version of the file*.
 2. **Application Keys → Add a New Application Key**: só esse bucket, *Read and Write*. Copie o
    **keyID** e a **applicationKey** (aparece uma vez).
-3. No painel: endereço, bucket, keyID e applicationKey → **Testar conexão** (grava, confere, lista
-   e apaga um arquivo de teste) → marque **Enviar ao Backblaze** → **Salvar**.
+3. Em **Super Admin → Credenciais → Backblaze B2**: endereço, bucket, keyID e applicationKey →
+   **Testar conexão** (grava, confere, lista e apaga um arquivo de teste) → **Salvar**.
+4. Em **Infraestrutura → Backups**: pasta, horário e retenção, marque **Enviar ao Backblaze** →
+   **Salvar**.
 
 A applicationKey é cifrada com a `INTEGRATIONS_KEY` (AES-256-GCM) antes de ir para o banco
 (`platform_backup_settings`). O painel nunca a devolve e a auditoria só registra que ela mudou.

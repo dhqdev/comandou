@@ -59,7 +59,7 @@ O servidor só aceita chamado do mesmo restaurante; sem texto, a mensagem vira "
   `pnpm-lock.yaml` nem em migrações. Edição que não acha o trecho exato é descartada (fica no
   arquivo do chamado como "não aplicado").
 - O token do GitHub fica cifrado com a `INTEGRATIONS_KEY` (contexto `pipeline:github`) e nunca volta
-  para o navegador. A chave do OpenRouter é a mesma de **Super Admin › IA**; o uso da esteira fica
+  para o navegador. A chave do OpenRouter é a de **Super Admin › Credenciais** (a sua, ou a dos restaurantes); o uso da esteira fica
   no próprio chamado e não conta no limite de IA do restaurante.
 
 ## Token do GitHub (repositório privado)

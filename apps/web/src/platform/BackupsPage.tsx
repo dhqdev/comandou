@@ -1,12 +1,13 @@
-import { CloudUpload, DatabaseBackup, PlugZap, RotateCcw } from 'lucide-react';
+import { CloudUpload, DatabaseBackup, RotateCcw } from 'lucide-react';
 import { FormEvent, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, Spinner, TextField, useToast } from '../design-system';
 import { dateTime } from '../features/format';
 import { SelectField } from '../features/forms';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
-import type { BackupFolders, BackupRun, BackupSettings, BackupTestResult, DbJob } from './types';
+import type { BackupFolders, BackupRun, BackupSettings, DbJob } from './types';
 import { Link } from 'react-router';
+import { CredentialsNote } from './credentials/CredentialsNote';
 import { ago, bytes, Dot, Level, PageHead, Section } from './ui';
 
 const WEEKDAYS = ['Nunca', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
@@ -19,12 +20,7 @@ const TRIGGER: Record<string, string> = {
 
 type Form = {
   enabled: boolean;
-  endpoint: string;
-  region: string;
-  bucket: string;
   prefix: string;
-  keyId: string;
-  applicationKey: string;
   runAt: string;
   retentionDays: string;
   restoreTestWeekday: string;
@@ -32,20 +28,19 @@ type Form = {
 
 const toForm = (s: BackupSettings): Form => ({
   enabled: s.enabled,
-  endpoint: s.endpoint,
-  region: s.region,
-  bucket: s.bucket,
   prefix: s.prefix,
-  keyId: s.keyId,
-  applicationKey: '',
   runAt: s.runAt,
   retentionDays: String(s.retentionDays),
   restoreTestWeekday: String(s.restoreTestWeekday),
 });
 
-const toBody = (f: Form) => ({
+/** O bucket e a chave (endereço, nome, keyID e applicationKey) ficam em Super Admin › Credenciais. */
+const toBody = (s: BackupSettings, f: Form) => ({
   ...f,
-  endpoint: f.endpoint.trim(),
+  endpoint: s.endpoint,
+  region: s.region,
+  bucket: s.bucket,
+  keyId: s.keyId,
   retentionDays: Number(f.retentionDays || 0),
   restoreTestWeekday: Number(f.restoreTestWeekday),
 });
@@ -140,7 +135,8 @@ function StatusSection({
           <span>
             Sem Backblaze, os backups ficam no próprio servidor ({s.local?.dir}, volume{' '}
             <strong>comandou_backups</strong>). Protege contra erro e exclusão, mas{' '}
-            <strong>não</strong> contra perder a VM. Configure o Backblaze abaixo para guardar fora.
+            <strong>não</strong> contra perder a VM. Cadastre o Backblaze em Credenciais para
+            guardar fora.
             {lowDisk ? ' O disco está quase cheio.' : ''}
           </span>
         </Alert>
@@ -177,7 +173,7 @@ function StatusSection({
                   ? `Todo dia às ${s.runAt} (Brasília) para ${s.bucket}/${s.prefix}`
                   : dest === 'local'
                     ? `Todo dia às ${s.runAt} (Brasília) em ${s.local?.dir}/${s.prefix}`
-                    : 'Atualize o serviço de backup ou preencha os dados do bucket abaixo'}
+                    : 'Atualize o serviço de backup ou cadastre o bucket em Credenciais'}
               </span>
             </span>
           </div>
@@ -239,21 +235,19 @@ function StatusSection({
 function SettingsSection({ s, onSaved }: { s: BackupSettings; onSaved(n: BackupSettings): void }) {
   const toast = useToast();
   const [f, setF] = useState<Form>(() => toForm(s));
-  const [busy, setBusy] = useState<'save' | 'test' | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [test, setTest] = useState<BackupTestResult | null>(null);
   const set = (k: keyof Form) => (v: string | boolean) => setF((x) => ({ ...x, [k]: v }));
-  const keyOk = !!f.applicationKey || s.hasApplicationKey;
-  const complete = !!(f.endpoint && f.bucket && f.keyId && keyOk);
+  const complete = !!(s.endpoint && s.bucket && s.keyId && s.hasApplicationKey);
 
   async function save(e: FormEvent) {
     e.preventDefault();
-    setBusy('save');
+    setBusy(true);
     setError(null);
     try {
       const n = await api<BackupSettings>('/platform/backups/settings', {
         method: 'PUT',
-        json: toBody(f),
+        json: toBody(s, f),
       });
       onSaved(n);
       setF(toForm(n));
@@ -261,66 +255,21 @@ function SettingsSection({ s, onSaved }: { s: BackupSettings; onSaved(n: BackupS
     } catch (err) {
       setError((err as Error).message);
     } finally {
-      setBusy(null);
-    }
-  }
-
-  async function runTest() {
-    setBusy('test');
-    setError(null);
-    setTest(null);
-    try {
-      setTest(
-        await api<BackupTestResult>('/platform/backups/test', { method: 'POST', json: toBody(f) }),
-      );
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setBusy(null);
+      setBusy(false);
     }
   }
 
   return (
-    <Section title="Backblaze B2" sub="bucket, chave e agenda">
+    <Section title="Backblaze B2" sub="pasta e agenda">
       <Card>
         <form onSubmit={save}>
-          <div className="adm-backup-grid">
-            <TextField
-              label="Endereço S3 (Endpoint)"
-              placeholder="https://s3.us-west-004.backblazeb2.com"
-              value={f.endpoint}
-              onChange={(e) => set('endpoint')(e.target.value)}
-              hint={
-                s.resolvedRegion && f.endpoint === s.endpoint
-                  ? `Região: ${s.resolvedRegion}`
-                  : 'Aparece nos detalhes do bucket, no site do B2'
-              }
-            />
-            <TextField
-              label="Nome do bucket"
-              value={f.bucket}
-              onChange={(e) => set('bucket')(e.target.value.trim())}
-              hint="Bucket privado"
-            />
-            <TextField
-              label="keyID"
-              autoComplete="off"
-              value={f.keyId}
-              onChange={(e) => set('keyId')(e.target.value.trim())}
-            />
-            <TextField
-              label="applicationKey"
-              type="password"
-              autoComplete="new-password"
-              value={f.applicationKey}
-              placeholder={s.hasApplicationKey ? '•••••••• (salva)' : ''}
-              onChange={(e) => set('applicationKey')(e.target.value.trim())}
-              hint={
-                s.hasApplicationKey
-                  ? 'Deixe em branco para manter a salva. Fica cifrada; nunca é mostrada.'
-                  : 'Mostrada uma vez só no B2, ao criar a chave'
-              }
-            />
+          <CredentialsNote id="backblaze" level={complete ? 'ok' : 'off'}>
+            {complete
+              ? `Bucket ${s.bucket}${s.resolvedRegion ? ` (${s.resolvedRegion})` : ''}.`
+              : 'Nenhum bucket cadastrado: o backup fica só neste servidor.'}{' '}
+            Bucket e chave do Backblaze ficam em Credenciais.
+          </CredentialsNote>
+          <div className="adm-backup-grid" style={{ marginTop: 12 }}>
             <TextField
               label="Pasta no bucket"
               value={f.prefix}
@@ -355,26 +304,12 @@ function SettingsSection({ s, onSaved }: { s: BackupSettings; onSaved(n: BackupS
             <input
               type="checkbox"
               checked={f.enabled}
+              disabled={!complete && !f.enabled}
               onChange={(e) => set('enabled')(e.target.checked)}
             />
             Enviar ao Backblaze (o primeiro sai logo depois de salvar). Desligado, o backup continua
             no próprio servidor.
           </label>
-          {test && (
-            <Alert tone={test.ok ? (test.canDelete ? 'info' : 'warning') : 'danger'}>
-              <div>
-                <strong>{test.ok ? 'Bucket funcionando' : 'Não funcionou'}</strong>
-                <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
-                  {test.steps.map((st) => (
-                    <li key={st.step}>
-                      {st.ok ? 'ok' : 'falhou'}: {st.step}
-                      {st.detail ? `: ${st.detail}` : ''}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </Alert>
-          )}
           {error && <Alert tone="danger">{error}</Alert>}
           <div
             style={{
@@ -386,19 +321,9 @@ function SettingsSection({ s, onSaved }: { s: BackupSettings; onSaved(n: BackupS
             }}
           >
             <Button
-              type="button"
-              variant="ghost"
-              icon={<PlugZap size={16} />}
-              loading={busy === 'test'}
-              disabled={!complete}
-              onClick={runTest}
-            >
-              Testar conexão
-            </Button>
-            <Button
               type="submit"
               icon={<DatabaseBackup size={16} />}
-              loading={busy === 'save'}
+              loading={busy}
               disabled={f.enabled && !complete}
             >
               Salvar
@@ -406,30 +331,10 @@ function SettingsSection({ s, onSaved }: { s: BackupSettings; onSaved(n: BackupS
           </div>
         </form>
       </Card>
-      <details className="adm-help" style={{ marginTop: 12 }}>
-        <summary>Como criar o bucket e a chave no Backblaze</summary>
-        <ol>
-          <li>
-            Em <strong>B2 Cloud Storage → Buckets → Create a Bucket</strong>: nome único, arquivos{' '}
-            <strong>Private</strong>. Copie o <strong>Endpoint</strong> que aparece no bucket.
-          </li>
-          <li>
-            Em <strong>Lifecycle Settings</strong> do bucket, escolha{' '}
-            <em>Keep only the last version of the file</em> (assim o que a retenção apaga sai de
-            vez).
-          </li>
-          <li>
-            Em <strong>Application Keys → Add a New Application Key</strong>: acesso só a esse
-            bucket, <em>Read and Write</em>. Copie o <strong>keyID</strong> e a{' '}
-            <strong>applicationKey</strong> (ela só aparece uma vez).
-          </li>
-          <li>Cole aqui, clique em Testar conexão, marque “Backup ligado” e salve.</li>
-        </ol>
-        <p>
-          Os arquivos vão cifrados (AES-256). Para abrir um backup é preciso a{' '}
-          <strong>INTEGRATIONS_KEY</strong> da stack: guarde uma cópia dela fora do servidor.
-        </p>
-      </details>
+      <p className="adm-sub" style={{ marginTop: 12, whiteSpace: 'normal' }}>
+        Os arquivos vão cifrados (AES-256). Para abrir um backup é preciso a{' '}
+        <strong>INTEGRATIONS_KEY</strong> da stack: guarde uma cópia dela fora do servidor.
+      </p>
     </Section>
   );
 }

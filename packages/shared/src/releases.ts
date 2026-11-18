@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.161.0',
+    version: '0.163.0',
     date: '2026-11-18',
     title: 'Vender fiado, com cobrança no WhatsApp',
     summary:
@@ -45,6 +45,56 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'melhoria',
         text: 'Novidades saiu da barra lateral e foi para o menu que abre ao clicar no seu perfil. Quando tem novidade, aparece um ponto no perfil e a marca "novo" ao lado de Novidades.',
+      },
+    ],
+  },
+  {
+    version: '0.162.0',
+    date: '2026-11-18',
+    title: 'Todas as chaves num lugar só: Super Admin › Credenciais',
+    summary:
+      'Uma aba nova no Super Admin junta todas as chaves, tokens e senhas que o Comandou usa, com o passo a passo e os links para conseguir cada uma. As do painel se cadastram ali mesmo; as do servidor e do GitHub mostram o nome e o comando. A aba Fiscal saiu: da Focus NFe, você só cadastra o Token Master, agora pelo painel.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Super Admin › Credenciais: situação de cada chave (configurada, faltando ou para conferir fora daqui), o que falta para subir o sistema e, em cada uma, para que serve, como conseguir, os links e o formulário para colar, testar e salvar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Token Master da Focus NFe cadastrado pelo painel (cifrado), com botão Testar. Vale na hora para o cadastro das empresas dos restaurantes; a variável FOCUS_NFE_MASTER_TOKEN do servidor continua valendo enquanto não houver um salvo no painel.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'As chaves saíram das outras telas: OpenRouter (Tokens e Sites com IA), Asaas (Cobrança), PagBank (Pagamentos pelo app), Resend (E-mail), Backblaze B2 (Backups) e GitHub (Chamados) agora ficam só em Credenciais. Cada tela mostra a situação da chave e o atalho Abrir em Credenciais.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A aba Fiscal saiu do menu (o endereço antigo leva para a Focus NFe em Credenciais). A nota fiscal de cada restaurante continua no cartão Nota fiscal da ficha dele.',
+      },
+    ],
+  },
+  {
+    version: '0.161.0',
+    date: '2026-11-18',
+    title: 'IA do WhatsApp faz reserva e manda cardápio e calendário em PDF',
+    summary:
+      'A IA que atende no WhatsApp agora faz reservas de mesa pela conversa (só grava depois que o cliente responde SIM), manda o cardápio e o calendário de reservas em PDF, lembra das conversas antigas com cada cliente e se protege melhor de golpe, assunto indevido e tentativas de tirá-la do papel.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Reserva pelo WhatsApp: a IA vê os dias e horários livres, pergunta o que falta (dia, horário, pessoas e nome) e pede a confirmação. Só depois do SIM a reserva entra na aba Reservas, com o código, pelas mesmas regras do cardápio online (antecedência, lotação, até 3 reservas em aberto por número). O cliente também cancela a própria reserva pela conversa.',
+      },
+      {
+        tag: 'novo',
+        text: 'Cardápio e calendário de reservas em PDF: quando o cliente pede, a IA manda o arquivo na conversa. O calendário mostra o mês com os dias que têm horário livre e a lista dos horários. O gerente vê a prévia dos dois na tela da IA e pode desligar o envio.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Memória da conversa: além das últimas mensagens, a IA guarda um resumo do que importa de cada cliente (nome, preferências, alergias, o que ficou combinado) e sabe as reservas que ele tem.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Proteções da IA: recusa assunto fora do restaurante, não muda de papel nem mostra as instruções, não passa dados de outros clientes, tira da resposta links que não são do restaurante e nunca manda chave Pix ou confirma pagamento. Tentativas de tirar do papel, golpe ou ofensa contam; na terceira em 24 horas a IA para de responder o número por 24 horas e avisa a equipe. Mensagens demais do mesmo número também ficam sem resposta da IA.',
       },
     ],
   },

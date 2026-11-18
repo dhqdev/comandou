@@ -26,3 +26,12 @@ Cada reserva tem `duration_minutes`. O cardápio usa o tempo médio das configur
 mandar `durationMinutes` ao criar ou mudar (`StaffFields`). A conta de mesa livre
 (`assertTableFree`) usa o tempo da própria reserva, então esticar uma reserva por cima de outra na
 mesma mesa dá 409 `table_reserved`.
+
+## Reserva pelo WhatsApp
+
+A IA que atende no WhatsApp (tela Assistente de IA, opção "Fazer reservas de mesa") também reserva,
+com as mesmas regras do cardápio (`ReservationsService.checkBooking`: dia aberto, antecedência,
+lugares, até 3 em aberto por telefone). Ela só monta o pedido; o servidor grava depois do SIM do
+cliente (`createWhatsApp`, `source = 'whatsapp'`, telefone da conversa) e o cartão mostra "pelo
+WhatsApp". O cliente cancela pela conversa só reserva do próprio número (`cancelWhatsApp`). Detalhes
+em [whatsapp.md](whatsapp.md#ia-que-atende-no-whatsapp).

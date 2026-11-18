@@ -69,6 +69,11 @@ import {
   TokenGrantBody,
 } from './platform-ai.service';
 import { PlatformDatabasesService } from './platform-databases.service';
+import {
+  FocusMasterBody,
+  FocusMasterTest,
+  PlatformCredentialsService,
+} from './platform-credentials.service';
 import { PlatformPasswordResetService } from './platform-password-reset.service';
 import { RESET_REQUEST_LIMIT, RESET_STEP_LIMIT } from '../auth/reset-code';
 import { PlatformDbServersService } from './platform-db-servers.service';
@@ -892,6 +897,44 @@ export class PlatformAiController {
     @Req() req: Request,
   ) {
     return this.ai.saveTenant(id, b, actor(req));
+  }
+}
+
+/**
+ * Super Admin › Credenciais: a situação de todas as chaves e tokens (nunca o valor) e o token
+ * master da Focus NFe, que só se cadastra aqui.
+ */
+@Controller({ path: 'platform/credentials', version: '1' })
+@SkipTenant()
+@Public()
+@UseGuards(PlatformHostGuard, PlatformSessionGuard)
+export class PlatformCredentialsController {
+  constructor(private readonly svc: PlatformCredentialsService) {}
+
+  @Get()
+  status() {
+    return this.svc.status();
+  }
+
+  @Put('focus-master')
+  saveFocus(
+    @Body(new ZodPipe(FocusMasterBody)) b: z.infer<typeof FocusMasterBody>,
+    @Req() req: Request,
+  ) {
+    return this.svc.saveFocusMaster(b.token, actor(req));
+  }
+
+  @Post('focus-master/remove')
+  @HttpCode(200)
+  removeFocus(@Req() req: Request) {
+    return this.svc.removeFocusMaster(actor(req));
+  }
+
+  @Post('focus-master/test')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
+  testFocus(@Body(new ZodPipe(FocusMasterTest)) b: z.infer<typeof FocusMasterTest>) {
+    return this.svc.testFocusMaster(b.token);
   }
 }
 
