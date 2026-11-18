@@ -58,7 +58,7 @@ function paintBar(theme: Theme = currentTheme()) {
     getComputedStyle(document.documentElement)
       .getPropertyValue(page ? '--cm-bg' : '--cm-frame')
       .trim() ||
-    (page ? (theme === 'dark' ? '#141416' : '#f6f6f7') : theme === 'dark' ? '#0e0e10' : '#ffffff');
+    (page ? (theme === 'dark' ? '#222a37' : '#f6f6f7') : theme === 'dark' ? '#1b2230' : '#ffffff');
   if (meta.content !== color) meta.content = color;
 }
 

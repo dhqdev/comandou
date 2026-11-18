@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.164.1',
+    date: '2026-11-18',
+    title: 'Modo escuro em azul-ardósia',
+    summary:
+      'O modo escuro trocou o grafite quase preto por um cinza-azulado mais suave, com campos, cartões e linhas em tons de azul que se separam melhor. A cor da sua loja continua sendo o destaque.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Fundo, moldura, cartões, campos e linhas do modo escuro em azul-ardósia, com mais diferença entre um nível e outro para enxergar melhor onde termina cada bloco.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Azul, verde, amarelo e vermelho dos avisos e situações ajustados ao novo fundo, todos com leitura confortável (contraste de 4,5:1 ou mais).',
+      },
+    ],
+  },
+  {
     version: '0.164.0',
     date: '2026-11-18',
     title: 'Credenciais com o guia completo e "Chave em uso" nas outras telas',

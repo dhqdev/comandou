@@ -23,7 +23,7 @@ describe('identidade visual: tons gerados a partir da cor do restaurante', () =>
     expect(light['--cm-brand-500']).toBe(hex);
     // Texto/link colorido sobre branco e sobre o cartão escuro.
     expect(contrast(light['--cm-brand-700']!, '#ffffff')).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(dark['--cm-brand-700']!, '#1a1816')).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(dark['--cm-brand-700']!, '#283141')).toBeGreaterThanOrEqual(4.5);
     // Botão principal: escolhe texto escuro ou branco, o que ler melhor.
     expect(contrast(light['--cm-brand-600']!, light['--cm-on-brand']!)).toBeGreaterThanOrEqual(3.9);
     expect(contrast(dark['--cm-brand-600']!, dark['--cm-on-brand']!)).toBeGreaterThanOrEqual(3.9);

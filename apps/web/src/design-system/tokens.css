@@ -233,13 +233,15 @@ html.cm-kb-open {
 }
 
 /*
- * Modo escuro: grafite quente quase preto, a moldura (barra lateral + topo) ainda mais escura.
+ * Modo escuro: azul-ardósia (slate), no jeito do MAX que o David mostrou: fundo e cartões em
+ * cinza-azulado, campos um tom acima e a moldura (barra lateral + topo) um tom mais fechada.
+ * O laranja da loja continua sendo o único destaque.
  * O tema é escolhido no botão sol/lua (data-theme no <html>); sem escolha, segue o sistema.
  */
 :root[data-theme='dark'] {
-  --cm-brand-50: #2a1812;
-  --cm-brand-100: #3a2017;
-  --cm-brand-200: #583020;
+  --cm-brand-50: #3a3741;
+  --cm-brand-100: #453a41;
+  --cm-brand-200: #574041;
   /* Laranja mais suave no escuro: menos saturado e brilhante, para não cansar a vista em turnos
      longos. O botão (600) é um tom mais fechado para o texto branco passar de 4,5:1. */
   --cm-brand-300: #f0a283;
@@ -253,42 +255,42 @@ html.cm-kb-open {
   --cm-accent-400: #d9b44e;
   --cm-accent-500: #cfa73c;
   --cm-focus: 0 0 0 3px color-mix(in srgb, var(--cm-brand-500) 28%, transparent);
-  --cm-btn-line: #47474d;
-  --cm-btn-line-hover: #5a5a61;
+  --cm-btn-line: #475266;
+  --cm-btn-line-hover: #5a667c;
   --cm-btn-shadow: none;
   --cm-btn-fill: rgb(255 255 255 / 8%);
   --cm-btn-fill-hover: rgb(255 255 255 / 12%);
   --cm-btn-fill-press: rgb(255 255 255 / 16%);
-  --cm-frame: #0e0e10;
-  --cm-frame-line: #26262a;
-  --cm-bg: #141416;
-  --cm-surface: #1b1b1e;
-  --cm-surface-muted: #202023;
-  --cm-surface-sunken: #111113;
-  --cm-border: #2a2a2e;
-  --cm-border-strong: #3a3a3f;
-  --cm-text: #ececee;
-  --cm-text-muted: #a6a6ad;
-  --cm-text-subtle: #8c8c94;
-  --cm-gray-0: #1b1b1e;
-  --cm-gray-25: #202023;
-  --cm-gray-50: #141416;
-  --cm-gray-100: #2a2a2e;
-  --cm-gray-200: #3a3a3f;
-  --cm-gray-300: #4a4a50;
-  --cm-gray-700: #d4d4d8;
+  --cm-frame: #1b2230;
+  --cm-frame-line: #2c3545;
+  --cm-bg: #222a37;
+  --cm-surface: #283141;
+  --cm-surface-muted: #2e3849;
+  --cm-surface-sunken: #1e2532;
+  --cm-border: #354052;
+  --cm-border-strong: #465166;
+  --cm-text: #e7eaf0;
+  --cm-text-muted: #a9b3c3;
+  --cm-text-subtle: #9aa6b9;
+  --cm-gray-0: #283141;
+  --cm-gray-25: #2e3849;
+  --cm-gray-50: #222a37;
+  --cm-gray-100: #354052;
+  --cm-gray-200: #465166;
+  --cm-gray-300: #576379;
+  --cm-gray-700: #d3d9e3;
   --cm-sidebar-bg: var(--cm-frame);
-  --cm-sidebar-text: #a6a6ad;
-  --cm-sidebar-text-strong: #ececee;
-  --cm-sidebar-active: #212124;
-  --cm-info: #6f9bea;
-  --cm-success: #4fb56a;
-  --cm-warning: #d9a03c;
-  --cm-danger: #e5675f;
-  --cm-info-bg: #182136;
-  --cm-success-bg: #13261a;
-  --cm-warning-bg: #2a2111;
-  --cm-danger-bg: #2d1816;
+  --cm-sidebar-text: #a9b3c3;
+  --cm-sidebar-text-strong: #e7eaf0;
+  --cm-sidebar-active: #283141;
+  --cm-info: #6ea8fe;
+  --cm-success: #52bf74;
+  --cm-warning: #e0a843;
+  --cm-danger: #f27c74;
+  --cm-info-bg: #1f3354;
+  --cm-success-bg: #1b3530;
+  --cm-warning-bg: #3a3123;
+  --cm-danger-bg: #3d2530;
   --cm-shadow-sm: none;
   --cm-shadow-md: none;
   --cm-shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 60%);
@@ -296,14 +298,14 @@ html.cm-kb-open {
   --cm-glass-border: var(--cm-border-strong);
   --cm-glass-highlight: none;
   --cm-glass-blur: none;
-  --cm-mascot-rim: #5f5f66;
+  --cm-mascot-rim: #64708a;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --cm-brand-50: #2a1812;
-    --cm-brand-100: #3a2017;
-    --cm-brand-200: #583020;
+    --cm-brand-50: #3a3741;
+    --cm-brand-100: #453a41;
+    --cm-brand-200: #574041;
     /* Laranja mais suave no escuro: menos saturado e brilhante, para não cansar a vista em turnos
        longos. O botão (600) é um tom mais fechado para o texto branco passar de 4,5:1. */
     --cm-brand-300: #f0a283;
@@ -317,42 +319,42 @@ html.cm-kb-open {
     --cm-accent-400: #d9b44e;
     --cm-accent-500: #cfa73c;
     --cm-focus: 0 0 0 3px color-mix(in srgb, var(--cm-brand-500) 28%, transparent);
-    --cm-btn-line: #47474d;
-    --cm-btn-line-hover: #5a5a61;
+    --cm-btn-line: #475266;
+    --cm-btn-line-hover: #5a667c;
     --cm-btn-shadow: none;
     --cm-btn-fill: rgb(255 255 255 / 8%);
     --cm-btn-fill-hover: rgb(255 255 255 / 12%);
     --cm-btn-fill-press: rgb(255 255 255 / 16%);
-    --cm-frame: #0e0e10;
-    --cm-frame-line: #26262a;
-    --cm-bg: #141416;
-    --cm-surface: #1b1b1e;
-    --cm-surface-muted: #202023;
-    --cm-surface-sunken: #111113;
-    --cm-border: #2a2a2e;
-    --cm-border-strong: #3a3a3f;
-    --cm-text: #ececee;
-    --cm-text-muted: #a6a6ad;
-    --cm-text-subtle: #8c8c94;
-    --cm-gray-0: #1b1b1e;
-    --cm-gray-25: #202023;
-    --cm-gray-50: #141416;
-    --cm-gray-100: #2a2a2e;
-    --cm-gray-200: #3a3a3f;
-    --cm-gray-300: #4a4a50;
-    --cm-gray-700: #d4d4d8;
+    --cm-frame: #1b2230;
+    --cm-frame-line: #2c3545;
+    --cm-bg: #222a37;
+    --cm-surface: #283141;
+    --cm-surface-muted: #2e3849;
+    --cm-surface-sunken: #1e2532;
+    --cm-border: #354052;
+    --cm-border-strong: #465166;
+    --cm-text: #e7eaf0;
+    --cm-text-muted: #a9b3c3;
+    --cm-text-subtle: #9aa6b9;
+    --cm-gray-0: #283141;
+    --cm-gray-25: #2e3849;
+    --cm-gray-50: #222a37;
+    --cm-gray-100: #354052;
+    --cm-gray-200: #465166;
+    --cm-gray-300: #576379;
+    --cm-gray-700: #d3d9e3;
     --cm-sidebar-bg: var(--cm-frame);
-    --cm-sidebar-text: #a6a6ad;
-    --cm-sidebar-text-strong: #ececee;
-    --cm-sidebar-active: #212124;
-    --cm-info: #6f9bea;
-    --cm-success: #4fb56a;
-    --cm-warning: #d9a03c;
-    --cm-danger: #e5675f;
-    --cm-info-bg: #182136;
-    --cm-success-bg: #13261a;
-    --cm-warning-bg: #2a2111;
-    --cm-danger-bg: #2d1816;
+    --cm-sidebar-text: #a9b3c3;
+    --cm-sidebar-text-strong: #e7eaf0;
+    --cm-sidebar-active: #283141;
+    --cm-info: #6ea8fe;
+    --cm-success: #52bf74;
+    --cm-warning: #e0a843;
+    --cm-danger: #f27c74;
+    --cm-info-bg: #1f3354;
+    --cm-success-bg: #1b3530;
+    --cm-warning-bg: #3a3123;
+    --cm-danger-bg: #3d2530;
     --cm-shadow-sm: none;
     --cm-shadow-md: none;
     --cm-shadow-lg: 0 12px 32px -8px rgb(0 0 0 / 60%);
@@ -360,7 +362,7 @@ html.cm-kb-open {
     --cm-glass-border: var(--cm-border-strong);
     --cm-glass-highlight: none;
     --cm-glass-blur: none;
-    --cm-mascot-rim: #5f5f66;
+    --cm-mascot-rim: #64708a;
     color-scheme: dark;
   }
 }

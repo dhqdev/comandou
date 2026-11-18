@@ -215,6 +215,15 @@ p.sub-muted {
 }
 
 /* ---------------------------------------------------------------- valor único */
+/* No escuro, o fundo do quadro do preço é a moldura azul-ardósia (preto puro destoava). */
+:root[data-theme='dark'] .sub-hero2 {
+  --sub-hero-base: var(--cm-frame);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .sub-hero2 {
+    --sub-hero-base: var(--cm-frame);
+  }
+}
 .sub-hero2 {
   border-radius: 20px;
   padding: var(--cm-space-8) var(--cm-space-6);
@@ -231,7 +240,7 @@ p.sub-muted {
       color-mix(in srgb, var(--cm-brand-300) 22%, transparent),
       transparent 55%
     ),
-    var(--cm-ink);
+    var(--sub-hero-base, var(--cm-ink));
   display: grid;
   gap: var(--cm-space-2);
   justify-items: center;

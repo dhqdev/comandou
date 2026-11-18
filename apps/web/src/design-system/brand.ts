@@ -109,7 +109,13 @@ export function contrast(a: string, b: string) {
 
 const INK = '#1a1613';
 const WHITE = '#ffffff';
-const DARK_SURFACE = '#1a1816';
+const DARK_SURFACE = '#283141';
+
+/** Mistura duas cores em sRGB (k = quanto da primeira). */
+function mix(a: string, b: string, k: number) {
+  const [x, y] = [hexToRgb(a), hexToRgb(b)];
+  return rgbToHex(x.map((v, i) => v * k + y[i]! * (1 - k)) as Rgb);
+}
 
 /** Texto por cima de um fundo colorido: escuro ou branco, o que tiver mais contraste. */
 export const onColor = (bg: string) => (contrast(bg, INK) >= contrast(bg, WHITE) ? INK : WHITE);
@@ -179,9 +185,10 @@ export function brandTokens(brand: string) {
   const d700 = legibleOn([Math.max(dL, 0.72), dC, H], DARK_SURFACE, 5, 1);
   const d700L = rgbToOklch(hexToRgb(d700))[0];
   const dark: Record<string, string> = {
-    '--cm-brand-50': tint(0.22, 0.22),
-    '--cm-brand-100': tint(0.26, 0.3),
-    '--cm-brand-200': tint(0.34, 0.42),
+    // Fundos com um toque da cor: mistura com o cartão azul-ardósia (não vira marrom/roxo escuro).
+    '--cm-brand-50': mix(d500, DARK_SURFACE, 0.1),
+    '--cm-brand-100': mix(d500, DARK_SURFACE, 0.16),
+    '--cm-brand-200': mix(d500, DARK_SURFACE, 0.26),
     '--cm-brand-300': lch(Math.min(0.86, d700L + 0.06), dC * 0.6, H),
     '--cm-brand-400': lch(Math.min(0.8, dL + 0.04), dC * 0.9, H),
     '--cm-brand-500': d500,
