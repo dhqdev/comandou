@@ -22,6 +22,9 @@ export async function clearAppCaches(): Promise<void> {
   }
   try {
     const regs = (await navigator.serviceWorker?.getRegistrations()) ?? [];
+    // O service worker em espera assume antes de sair: sem isso, outra aba (ou o app instalado)
+    // aberta seguraria o antigo e o novo voltaria a ficar esperando depois de recarregar.
+    for (const r of regs) r.waiting?.postMessage({ type: 'SKIP_WAITING' });
     await Promise.all(regs.map((r) => r.unregister()));
   } catch {
     /* sem service worker */

@@ -272,3 +272,24 @@
   font-weight: 600;
   text-decoration: underline;
 }
+
+/* "Instalar o app" do menu de perfil (InstallApp.tsx): passo a passo quando o navegador não
+   abre o pedido de instalação sozinho. */
+.cm-install {
+  display: grid;
+  gap: var(--cm-space-3);
+}
+.cm-install__lead {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  line-height: 1.5;
+}
+.cm-install__steps {
+  display: grid;
+  gap: var(--cm-space-2);
+  margin: 0;
+  padding-left: 20px;
+  font-size: var(--cm-text-sm);
+  line-height: 1.5;
+}

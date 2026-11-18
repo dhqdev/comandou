@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.172.0',
+    date: '2026-11-18',
+    title: 'Instale o Comandou no computador e fim do aviso de atualizar que voltava sempre',
+    summary:
+      'No menu do seu perfil tem agora "Instalar o app": o sistema vira um programa no notebook ou no computador, com ícone e janela própria, e também no celular. E o aviso "Nova versão disponível" parou de aparecer toda vez que você entrava sem ter versão nova.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Perfil › Instalar o app: no Chrome e no Edge abre a instalação do próprio navegador com um clique; no iPhone, no Safari do Mac e nos outros navegadores mostra o passo a passo. Instalado, o PDV abre direto na janela do app, sem a barra do navegador. O item some quando você já está no app.',
+      },
+      {
+        tag: 'correção',
+        text: 'O aviso "Nova versão disponível" voltava a cada entrada (e depois de clicar em Atualizar) quando o navegador guardava uma atualização interna do app esperando. Agora, se a tela já está na versão mais nova, essa atualização entra sozinha, sem aviso, e o aviso só aparece quando há versão nova de verdade.',
+      },
+    ],
+  },
+  {
     version: '0.171.0',
     date: '2026-11-18',
     title: 'Uma chave do OpenRouter a menos: sites com IA usam a dos restaurantes',

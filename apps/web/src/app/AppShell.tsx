@@ -14,6 +14,7 @@ import {
   Bot,
   ChefHat,
   ClipboardList,
+  Download,
   LayoutGrid,
   LogOut,
   KeyRound,
@@ -78,6 +79,7 @@ import { OfflineBanner } from './OfflineBanner';
 import { useRealtimeStatus } from '../lib/realtime';
 import { useHasUnseenRelease } from '../lib/releases';
 import { ChangePasswordModal } from '../pages/TeamPage';
+import { useInstallApp } from './InstallApp';
 import { useAuth } from './auth';
 import { StoreBrand } from './StoreBrand';
 import { ROLE_HOME } from './role-home';
@@ -280,6 +282,8 @@ export function AppShell() {
   const chatUnread = useChatUnread();
   const support = useSupportUnread();
   const [pwOpen, setPwOpen] = useState(false);
+  // "Instalar o app" no perfil: o sistema vira um programa no computador (ou app no celular).
+  const install = useInstallApp();
   const [searchOpen, setSearchOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
   const [onbOpen, setOnbOpen] = useState(false);
@@ -395,6 +399,16 @@ export function AppShell() {
       icon: <Compass />,
       onClick: () => setTourOpen(true),
     },
+    ...(install.show
+      ? [
+          {
+            key: 'instalar',
+            label: 'Instalar o app',
+            icon: <Download />,
+            onClick: () => void install.start(),
+          },
+        ]
+      : []),
     { key: 'senha', label: 'Trocar senha', icon: <KeyRound />, onClick: () => setPwOpen(true) },
     { key: 'sair', label: 'Sair', icon: <LogOut />, onClick: logout, danger: true },
   ];
@@ -539,6 +553,7 @@ export function AppShell() {
         </Suspense>
       </AppFrame>
       <ChangePasswordModal open={pwOpen} onClose={() => setPwOpen(false)} />
+      {install.modal}
       <SupportChatHost />
       {me && (
         <OnboardingChat
