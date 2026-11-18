@@ -1,150 +1,174 @@
 import {
-  CalendarCheck,
   CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
-  Clock,
   Copy,
-  MessageCircle,
-  Phone,
   Plus,
+  Search,
   Settings2,
+  Store,
   Users,
+  X,
 } from 'lucide-react';
-import { CSSProperties, FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
-  Badge,
-  Button,
-  DateInput,
-  EmptyState,
-  Modal,
-  Spinner,
-  TextField,
-  useToast,
-} from '../design-system';
-import { SelectField } from '../features/forms';
+  CSSProperties,
+  PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { useAuth } from '../app/auth';
+import { Alert, Button, Calendar, Modal, Segmented, Spinner, useToast } from '../design-system';
 import { api, ApiError } from '../lib/api';
 import { useRealtime } from '../lib/realtime';
 import { useArrivalSound } from '../lib/sounds';
-import { useAuth } from '../app/auth';
+import {
+  addDays,
+  addMinutes,
+  AgendaEvent,
+  AgendaView,
+  cap,
+  dayKey,
+  hhmm,
+  layoutDay,
+  minutesOfDay,
+  monthGrid,
+  onDay,
+  rangeOf,
+  sameDay,
+  sortEvents,
+  startOfDay,
+  stepCursor,
+  titleOf,
+  weekStart,
+  WEEKDAYS_SHORT,
+} from './agenda/agenda-utils';
+import {
+  DiningTable,
+  isClosed,
+  isoDay,
+  Reservation,
+  RESERVATION_STATUS,
+  ReservationCard,
+  ReservationForm,
+  ReservationStatus,
+  Settings,
+  SettingsModal,
+  STATUS_COLOR,
+  STATUS_ORDER,
+} from './reservations/parts';
+import './agenda/agenda.css';
 import './reservations.css';
 
-export type ReservationStatus =
-  'pending' | 'confirmed' | 'seated' | 'completed' | 'cancelled' | 'no_show';
+export { RESERVATION_STATUS };
+export type { Reservation, ReservationStatus };
 
-export interface Reservation {
-  id: string;
-  code: string;
-  name: string;
-  phone: string;
-  email: string | null;
-  partySize: number;
-  startsAt: string;
-  durationMinutes: number;
-  occasion: string | null;
-  notes: string | null;
-  staffNotes: string | null;
-  status: ReservationStatus;
-  tableId: string | null;
-  tableLabel: string | null;
-  source: 'online' | 'staff';
-  cancelReason: string | null;
-  cancelledBy: 'customer' | 'staff' | null;
-  createdAt: string;
-}
+const HOUR_PX = 56;
+const PHONE_MQ = '(max-width: 860px)';
+const VIEW_KEY = 'cm-rv-view';
+const HIDDEN_KEY = 'cm-rv-hidden';
 
-interface Settings {
-  enabled: boolean;
-  autoConfirm: boolean;
-  weekdays: number[];
-  opensAt: string;
-  closesAt: string;
-  slotMinutes: number;
-  durationMinutes: number;
-  maxParty: number;
-  capacity: number | null;
-  minAdvanceMinutes: number;
-  maxDaysAhead: number;
-  note: string | null;
-}
-
-interface DiningTable {
-  id: string;
-  label: string;
-  seats: number;
-  area: string | null;
-  active?: boolean;
-}
-
-export const RESERVATION_STATUS: Record<
-  ReservationStatus,
-  { label: string; tone: 'warning' | 'info' | 'success' | 'neutral' | 'danger' | 'brand' }
-> = {
-  pending: { label: 'Aguardando', tone: 'warning' },
-  confirmed: { label: 'Confirmada', tone: 'info' },
-  seated: { label: 'Chegou', tone: 'success' },
-  completed: { label: 'Concluída', tone: 'neutral' },
-  cancelled: { label: 'Cancelada', tone: 'danger' },
-  no_show: { label: 'Não veio', tone: 'danger' },
+const readLocal = <T,>(k: string, fallback: T): T => {
+  try {
+    const v = localStorage.getItem(k);
+    return v ? (JSON.parse(v) as T) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+const writeLocal = (k: string, v: unknown) => {
+  try {
+    localStorage.setItem(k, JSON.stringify(v));
+  } catch {
+    /* sem armazenamento */
+  }
 };
 
-const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-const OCCASIONS = ['Aniversário', 'Encontro', 'Negócios', 'Família', 'Comemoração'];
+function usePhone() {
+  const [phone, setPhone] = useState(() => matchMedia(PHONE_MQ).matches);
+  useEffect(() => {
+    const mq = matchMedia(PHONE_MQ);
+    const on = () => setPhone(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return phone;
+}
 
-/** AAAA-MM-DD no fuso do aparelho. */
-const isoDay = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const dayStart = (day: string) => new Date(`${day}T00:00:00`);
-const shiftDay = (day: string, n: number) => {
-  const d = dayStart(day);
-  d.setDate(d.getDate() + n);
-  return isoDay(d);
-};
-const hhmm = (iso: string) =>
-  new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-const fmtPhone = (p: string) =>
-  p.length === 11
-    ? `(${p.slice(0, 2)}) ${p.slice(2, 7)}-${p.slice(7)}`
-    : p.length === 10
-      ? `(${p.slice(0, 2)}) ${p.slice(2, 6)}-${p.slice(6)}`
-      : p;
-const longDay = (day: string) =>
-  dayStart(day).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+/** A reserva no formato da Agenda, para usar as mesmas contas de dia, semana e mês. */
+type RvEvent = AgendaEvent & { r: Reservation };
+const toEvent = (r: Reservation): RvEvent =>
+  ({
+    id: r.id,
+    title: r.name,
+    notes: null,
+    startsAt: r.startsAt,
+    endsAt: new Date(Date.parse(r.startsAt) + r.durationMinutes * 60_000).toISOString(),
+    allDay: false,
+    tagId: r.status,
+    done: isClosed(r.status),
+    remindAt: null,
+    remindedAt: null,
+    remindError: null,
+    r,
+  }) as RvEvent;
 
-/** Agenda de reservas: dia a dia, com a semana em volta, confirmação e mesa de cada grupo. */
+const colorOf = (r: Reservation) =>
+  ({ ['--ev' as string]: STATUS_COLOR[r.status] }) as CSSProperties;
+const live = (r: Reservation) => r.status !== 'cancelled' && r.status !== 'no_show';
+const people = (rs: Reservation[]) => rs.reduce((n, r) => n + r.partySize, 0);
+
+type Patch = Partial<Reservation> & { tableBusyOk?: boolean };
+type Editing = { r: Reservation | null; day: string; time?: string };
+
+/**
+ * Reservas no jeito da Agenda: painel do lado (Nova reserva, minicalendário, resumo do dia,
+ * filtro por situação e reservas pelo cardápio) e as visões Dia, Semana, Mês e Lista. No Dia,
+ * os cartões com as ações ficam ao lado da grade de horários; no celular, o mês mostra
+ * pontinhos e os cartões do dia tocado embaixo.
+ */
 export function ReservationsPage() {
   const { me } = useAuth();
   const toast = useToast();
+  const phone = usePhone();
   const canManage = !!me?.permissions.includes('settings:manage');
-  const [day, setDay] = useState(() => isoDay(new Date()));
+  const [view, setView] = useState<AgendaView>(() =>
+    readLocal<AgendaView>(VIEW_KEY, matchMedia(PHONE_MQ).matches ? 'month' : 'day'),
+  );
+  const [cursor, setCursor] = useState(() => startOfDay(new Date()));
+  const [selected, setSelected] = useState(() => startOfDay(new Date()));
   const [list, setList] = useState<Reservation[] | null>(null);
-  const [week, setWeek] = useState<Reservation[]>([]);
   const [tables, setTables] = useState<DiningTable[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<Reservation | 'new' | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'open' | 'done'>('open');
+  const [hidden, setHidden] = useState<ReservationStatus[]>(() =>
+    readLocal<ReservationStatus[]>(HIDDEN_KEY, ['cancelled', 'no_show']),
+  );
+  const [onlyPending, setOnlyPending] = useState(false);
+  const [search, setSearch] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Editing | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<'settings' | 'side' | null>(null);
 
-  // A semana (domingo a sábado) que contém o dia escolhido.
-  const weekStart = useMemo(() => shiftDay(day, -dayStart(day).getDay()), [day]);
-
+  const range = useMemo(() => rangeOf(view, cursor), [view, cursor]);
+  const seq = useRef(0);
   const load = useCallback(async () => {
+    const n = ++seq.current;
     try {
-      const from = dayStart(weekStart);
-      const to = dayStart(shiftDay(weekStart, 7));
       const all = await api<Reservation[]>(
-        `/reservations?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
+        `/reservations?from=${encodeURIComponent(range.from.toISOString())}&to=${encodeURIComponent(range.to.toISOString())}`,
       );
-      setWeek(all);
-      setList(all.filter((r) => isoDay(new Date(r.startsAt)) === day));
+      if (n !== seq.current) return;
+      setList(all);
       setError(null);
     } catch (e) {
-      setError((e as Error).message);
+      if (n === seq.current) setError((e as Error).message);
     }
-  }, [day, weekStart]);
-
+  }, [range]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -163,18 +187,13 @@ export function ReservationsPage() {
   // Toca o aviso de novidade quando chega uma reserva do cardápio esperando confirmação.
   useArrivalSound(
     'order',
-    list === null ? null : week.filter((r) => r.status === 'pending').map((r) => r.id),
+    list === null ? null : list.filter((r) => r.status === 'pending').map((r) => r.id),
   );
 
-  async function update(
-    r: Reservation,
-    patch: Partial<Reservation> & { tableBusyOk?: boolean },
-    msg?: string,
-  ) {
+  async function update(r: Reservation, patch: Patch, msg?: string): Promise<void> {
     try {
       await api(`/reservations/${r.id}`, { method: 'PATCH', json: patch });
       if (msg) toast(msg, 'success');
-      void load();
     } catch (e) {
       const err = e as ApiError;
       // Grupo chegou e a mesa tem comanda aberta: a equipe confirma se a comanda é deste grupo.
@@ -185,203 +204,423 @@ export function ReservationsPage() {
       )
         return update(r, { ...patch, tableBusyOk: true }, msg);
       toast(err.message, 'danger');
-      void load();
     }
+    void load();
   }
 
-  const counts = useMemo(() => {
-    const live = (list ?? []).filter((r) => !['cancelled', 'no_show'].includes(r.status));
-    return {
-      total: live.length,
-      people: live.reduce((n, r) => n + r.partySize, 0),
-      pending: live.filter((r) => r.status === 'pending').length,
-      seated: live.filter((r) => r.status === 'seated').length,
-    };
-  }, [list]);
+  /** Arrastou para outro dia/horário (ou esticou o tempo na mesa): já mostra e depois grava. */
+  const move = (r: Reservation, start: Date, end: Date) => {
+    const durationMinutes = Math.round((end.getTime() - start.getTime()) / 60_000);
+    setList((l) =>
+      (l ?? []).map((x) =>
+        x.id === r.id ? { ...x, startsAt: start.toISOString(), durationMinutes } : x,
+      ),
+    );
+    const patch: Patch = { startsAt: start.toISOString() };
+    if (durationMinutes !== r.durationMinutes) patch.durationMinutes = durationMinutes;
+    void update(r, patch, 'Reserva remarcada');
+  };
 
-  const shown = (list ?? []).filter((r) =>
-    filter === 'all'
-      ? true
-      : filter === 'open'
-        ? ['pending', 'confirmed', 'seated'].includes(r.status)
-        : ['completed', 'cancelled', 'no_show'].includes(r.status),
-  );
+  const all = list ?? [];
+  const q = search?.trim().toLowerCase();
+  const shown = all.filter((r) => {
+    if (onlyPending ? r.status !== 'pending' : hidden.includes(r.status)) return false;
+    if (!q) return true;
+    return `${r.name} ${r.phone} ${r.code} ${r.tableLabel ?? ''} ${r.occasion ?? ''}`
+      .toLowerCase()
+      .includes(q);
+  });
+  const events = useMemo(() => shown.map(toEvent), [shown]);
+  const pending = all.filter((r) => r.status === 'pending');
+  const dayList = all.filter((r) => sameDay(new Date(r.startsAt), selected));
+  const dayLive = dayList.filter(live);
+  const open = all.find((r) => r.id === openId) ?? null;
 
-  // Reservas agrupadas pelo horário de chegada.
-  const groups = useMemo(() => {
-    const m = new Map<string, Reservation[]>();
-    for (const r of shown) {
-      const k = hhmm(r.startsAt);
-      m.set(k, [...(m.get(k) ?? []), r]);
-    }
-    return [...m.entries()];
-  }, [shown]);
+  const changeView = (v: AgendaView) => {
+    setView(v);
+    writeLocal(VIEW_KEY, v);
+    if (v !== 'month') setCursor(selected);
+  };
+  const go = (dir: number) => {
+    const c = stepCursor(view, cursor, dir);
+    setCursor(c);
+    if (view === 'day') setSelected(c);
+  };
+  const today = () => {
+    const t = startOfDay(new Date());
+    setCursor(t);
+    setSelected(t);
+  };
+  const pick = (d: Date) => {
+    setSelected(d);
+    setCursor(d);
+    if (phone) setDialog(null);
+  };
+  const toDay = (d: Date) => {
+    setSelected(d);
+    setCursor(d);
+    setView('day');
+    writeLocal(VIEW_KEY, 'day');
+  };
+  const toggleHidden = (s: ReservationStatus) => {
+    const next = hidden.includes(s) ? hidden.filter((x) => x !== s) : [...hidden, s];
+    setHidden(next);
+    writeLocal(HIDDEN_KEY, next);
+    setOnlyPending(false);
+  };
+  const create = (start?: Date) => {
+    const d = start ?? selected;
+    setEditing({ r: null, day: isoDay(d), time: start ? hhmm(start) : undefined });
+  };
 
+  // Altura da tela: o que sobra abaixo dela (a grade de horas rola por dentro).
+  const root = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const measure = () =>
+      el.style.setProperty('--ag-top', `${Math.max(0, el.getBoundingClientRect().top)}px`);
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [phone]);
+
+  const views = [
+    { value: 'day' as const, label: 'Dia' },
+    { value: 'week' as const, label: 'Semana' },
+    { value: 'month' as const, label: 'Mês' },
+    { value: 'list' as const, label: 'Lista' },
+  ];
+  const title = view === 'list' ? 'Próximas reservas' : titleOf(view, cursor, phone);
   const storeLink = `${window.location.origin}/pedir/reservar`;
+  const openingHour = settings ? Number(settings.opensAt.slice(0, 2)) : 18;
 
-  return (
-    <div className="rv">
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Reservas</h1>
-          <p className="page-sub">
-            {settings?.enabled
-              ? 'Clientes reservam pelo cardápio online. Confirme, escolha a mesa e receba o grupo.'
-              : 'Lance reservas por telefone ou ligue as reservas pelo cardápio online.'}
-          </p>
-        </div>
-        <div className="rv-head-actions">
-          {canManage && (
-            <Button
-              variant="secondary"
-              icon={<Settings2 size={16} />}
-              onClick={() => setShowSettings(true)}
-            >
-              Configurar
-            </Button>
-          )}
-          <Button icon={<Plus size={16} />} onClick={() => setEditing('new')}>
-            Nova reserva
-          </Button>
-        </div>
+  const cardProps = {
+    tables,
+    onUpdate: (r: Reservation, p: Patch, m?: string) => void update(r, p, m),
+  };
+
+  const side = (
+    <>
+      <div className="ag-side__block">
+        <Calendar value={dayKey(selected)} onPick={(v) => pick(new Date(`${v}T00:00:00`))} />
       </div>
-
-      {settings && !settings.enabled && canManage && (
-        <div className="rv-banner">
-          <CalendarCheck size={20} aria-hidden />
+      <div className="ag-side__block">
+        <div className="ag-side__head">
           <span>
-            <strong>Reservas online desligadas.</strong> Ligue para o cliente reservar mesa direto
-            pelo cardápio, com os horários que você escolher.
+            {cap(
+              selected.toLocaleDateString('pt-BR', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+              }),
+            ).replace(/\./g, '')}
           </span>
-          <Button size="sm" onClick={() => setShowSettings(true)}>
-            Ligar reservas
-          </Button>
         </div>
-      )}
-
-      <div className="rv-daybar">
-        <Button
-          variant="ghost"
-          aria-label="Semana anterior"
-          icon={<ChevronLeft size={18} />}
-          onClick={() => setDay(shiftDay(day, -7))}
-        />
-        <div className="rv-week" role="tablist" aria-label="Dias da semana">
-          {Array.from({ length: 7 }, (_, i) => {
-            const d = shiftDay(weekStart, i);
-            const rs = week.filter(
-              (r) =>
-                isoDay(new Date(r.startsAt)) === d && !['cancelled', 'no_show'].includes(r.status),
-            );
-            const pend = rs.some((r) => r.status === 'pending');
+        <dl className="rv-stats">
+          <div>
+            <dt>Reservas</dt>
+            <dd>{dayLive.length}</dd>
+          </div>
+          <div>
+            <dt>Pessoas</dt>
+            <dd>{people(dayLive)}</dd>
+          </div>
+          <div data-warn={dayLive.some((r) => r.status === 'pending') || undefined}>
+            <dt>Aguardando</dt>
+            <dd>{dayLive.filter((r) => r.status === 'pending').length}</dd>
+          </div>
+          <div>
+            <dt>No salão</dt>
+            <dd>{dayLive.filter((r) => r.status === 'seated').length}</dd>
+          </div>
+        </dl>
+      </div>
+      <div className="ag-side__block">
+        <div className="ag-side__head">
+          <span>Situação</span>
+        </div>
+        <ul className="ag-filter">
+          {STATUS_ORDER.map((s) => {
+            const on = onlyPending ? s === 'pending' : !hidden.includes(s);
+            const n = all.filter((r) => r.status === s).length;
             return (
-              <button
-                key={d}
-                type="button"
-                role="tab"
-                aria-selected={d === day}
-                className="rv-week__day"
-                data-today={d === isoDay(new Date()) || undefined}
-                onClick={() => setDay(d)}
-              >
-                <span className="rv-week__wd">{WEEKDAYS[i]}</span>
-                <strong>{Number(d.slice(8))}</strong>
-                <span className="rv-week__count" data-pending={pend || undefined}>
-                  {rs.length ? `${rs.length} · ${rs.reduce((n, r) => n + r.partySize, 0)}p` : '–'}
-                </span>
-              </button>
+              <li key={s}>
+                <button
+                  type="button"
+                  className="ag-filter__item"
+                  aria-pressed={on}
+                  style={{ ['--tag' as string]: STATUS_COLOR[s] }}
+                  onClick={() => toggleHidden(s)}
+                >
+                  <span className="ag-check" aria-hidden>
+                    {on && <Check size={12} strokeWidth={3} />}
+                  </span>
+                  <span className="ag-filter__name">{RESERVATION_STATUS[s].label}</span>
+                  {n > 0 && <span className="rv-filter-n">{n}</span>}
+                </button>
+              </li>
             );
           })}
-        </div>
-        <Button
-          variant="ghost"
-          aria-label="Próxima semana"
-          icon={<ChevronRight size={18} />}
-          onClick={() => setDay(shiftDay(day, 7))}
-        />
-        <label className="rv-datepick">
-          <span className="cm-sr-only">Ir para o dia</span>
-          <DateInput value={day} onChange={(e) => e.target.value && setDay(e.target.value)} />
-        </label>
+        </ul>
       </div>
-
-      <div className="rv-summary">
-        <h2>{longDay(day)}</h2>
-        <div className="rv-kpis">
-          <Kpi icon={<CalendarDays size={16} />} label="Reservas" value={counts.total} />
-          <Kpi icon={<Users size={16} />} label="Pessoas" value={counts.people} />
-          <Kpi
-            icon={<Clock size={16} />}
-            label="Aguardando"
-            value={counts.pending}
-            tone={counts.pending ? 'warning' : undefined}
-          />
-          <Kpi icon={<CalendarCheck size={16} />} label="No salão" value={counts.seated} />
-        </div>
-      </div>
-
-      <div className="rv-filter" role="tablist" aria-label="Filtro">
-        {(
-          [
-            ['open', 'Em aberto'],
-            ['done', 'Encerradas'],
-            ['all', 'Todas'],
-          ] as const
-        ).map(([v, l]) => (
+      <div className="ag-side__block">
+        <button
+          type="button"
+          className="ag-wa"
+          disabled={!canManage}
+          onClick={() => setDialog('settings')}
+        >
+          <Store size={18} aria-hidden />
+          <span className="ag-wa__text">
+            <span className="ag-wa__title">Reservas pelo cardápio</span>
+            <span className="ag-wa__sub">
+              <span className={`ag-wa__dot ${settings?.enabled ? 'is-on' : ''}`} aria-hidden />
+              {settings?.enabled
+                ? settings.autoConfirm
+                  ? 'Ligadas · confirmação automática'
+                  : 'Ligadas · a equipe confirma'
+                : canManage
+                  ? 'Desligadas · toque para ligar'
+                  : 'Desligadas'}
+            </span>
+          </span>
+        </button>
+        {settings?.enabled && (
           <button
-            key={v}
             type="button"
-            role="tab"
-            aria-selected={filter === v}
-            onClick={() => setFilter(v)}
+            className="ag-side__link"
+            onClick={() =>
+              navigator.clipboard
+                ?.writeText(storeLink)
+                .then(() => toast('Link copiado', 'success'))
+                .catch(() => undefined)
+            }
           >
-            {l}
+            <Copy size={15} aria-hidden /> Copiar link da reserva
           </button>
-        ))}
+        )}
       </div>
+    </>
+  );
 
-      {error && <Alert tone="danger">{error}</Alert>}
-      {!list ? (
-        <Spinner />
-      ) : groups.length === 0 ? (
-        <EmptyState
-          mascot
-          title={list.length ? 'Nada neste filtro' : 'Nenhuma reserva neste dia'}
-          description={
-            settings?.enabled
-              ? 'Quando um cliente reservar pelo cardápio, ela aparece aqui na hora.'
-              : 'Use “Nova reserva” para anotar as reservas feitas por telefone.'
-          }
-        />
-      ) : (
-        <div className="rv-timeline">
-          {groups.map(([t, rs]) => (
-            <section key={t} className="rv-slot">
-              <div className="rv-slot__time">
-                <strong>{t}</strong>
-                <span>{rs.reduce((n, r) => n + r.partySize, 0)} pessoas</span>
-              </div>
-              <div className="rv-slot__cards">
-                {rs.map((r, i) => (
-                  <ReservationCard
-                    key={r.id}
-                    r={r}
-                    i={i}
-                    tables={tables}
-                    onUpdate={update}
-                    onEdit={() => setEditing(r)}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
+  const pendingPill = pending.length > 0 && (
+    <button
+      type="button"
+      className="rv-pending"
+      aria-pressed={onlyPending}
+      onClick={() => setOnlyPending((v) => !v)}
+      title={onlyPending ? 'Mostrar todas' : 'Mostrar só as que aguardam confirmação'}
+    >
+      <span className="rv-pending__dot" aria-hidden />
+      {pending.length} aguardando
+      {onlyPending && <X size={14} aria-hidden />}
+    </button>
+  );
+
+  return (
+    <div className={`ag rv-cal ${phone ? 'ag--phone' : ''}`} ref={root}>
+      {!phone && (
+        <aside className="ag-side" aria-label="Painel das reservas">
+          <Button
+            size="lg"
+            icon={<Plus size={18} />}
+            onClick={() => create()}
+            className="ag-create"
+          >
+            Nova reserva
+          </Button>
+          {side}
+        </aside>
       )}
 
+      <section className="ag-main">
+        <header className="ag-bar">
+          {phone ? (
+            <>
+              <button type="button" className="ag-bar__title" onClick={() => setDialog('side')}>
+                <span>{title}</span>
+              </button>
+              <span className="ag-bar__spacer" />
+              <Button size="sm" variant="secondary" onClick={today}>
+                Hoje
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label="Anterior"
+                icon={<ChevronLeft size={18} />}
+                onClick={() => go(-1)}
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label="Próximo"
+                icon={<ChevronRight size={18} />}
+                onClick={() => go(1)}
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                aria-label="Filtros e configurações"
+                icon={<Settings2 size={18} />}
+                onClick={() => setDialog('side')}
+              />
+              <Button
+                size="sm"
+                aria-label="Nova reserva"
+                icon={<Plus size={18} />}
+                onClick={() => create()}
+              />
+            </>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={today}>
+                Hoje
+              </Button>
+              <span className="ag-bar__arrows">
+                <Button
+                  variant="ghost"
+                  aria-label="Anterior"
+                  icon={<ChevronLeft size={18} />}
+                  onClick={() => go(-1)}
+                />
+                <Button
+                  variant="ghost"
+                  aria-label="Próximo"
+                  icon={<ChevronRight size={18} />}
+                  onClick={() => go(1)}
+                />
+              </span>
+              <h1 className="ag-bar__h1">{title}</h1>
+              {pendingPill}
+              <span className="ag-bar__spacer" />
+              {search !== null && (
+                <input
+                  className="cm-input ag-search"
+                  type="search"
+                  aria-label="Buscar reserva"
+                  placeholder="Nome, celular, código ou mesa…"
+                  autoFocus
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Escape' && setSearch(null)}
+                />
+              )}
+              <Button
+                variant="ghost"
+                aria-label={search === null ? 'Buscar' : 'Fechar a busca'}
+                icon={search === null ? <Search size={18} /> : <X size={18} />}
+                onClick={() => setSearch(search === null ? '' : null)}
+              />
+              <Segmented label="Visualização" value={view} onChange={changeView} options={views} />
+            </>
+          )}
+        </header>
+        {phone && (
+          <>
+            <Segmented
+              label="Visualização"
+              value={view}
+              onChange={changeView}
+              options={views}
+              block
+              className="ag-phone-views"
+            />
+            {pendingPill}
+          </>
+        )}
+
+        {error && <Alert tone="danger">{error}</Alert>}
+        {q && list && !shown.length && (
+          <p className="cm-hint ag-empty" role="status">
+            Nenhuma reserva encontrada para “{search?.trim()}” neste período.
+          </p>
+        )}
+
+        <div className={`ag-body ag-body--${view}`}>
+          {list === null ? (
+            <div className="ag-loading">
+              <Spinner />
+            </div>
+          ) : view === 'month' ? (
+            <MonthView
+              cursor={cursor}
+              selected={selected}
+              events={events}
+              phone={phone}
+              onPick={setSelected}
+              onCreate={(d) => create(addMinutes(startOfDay(d), 20 * 60))}
+              onOpen={setOpenId}
+              onMove={move}
+              onDayView={toDay}
+            />
+          ) : view === 'list' ? (
+            <ListView
+              from={range.from}
+              list={shown}
+              onCreate={() => create()}
+              {...cardProps}
+              onEdit={(r) => setEditing({ r, day: isoDay(new Date(r.startsAt)) })}
+            />
+          ) : (
+            <div className={`rv-day ${view === 'day' && !phone ? 'rv-day--lane' : ''}`}>
+              <TimeGrid
+                days={
+                  view === 'week'
+                    ? Array.from({ length: 7 }, (_, i) => addDays(weekStart(cursor), i))
+                    : [startOfDay(cursor)]
+                }
+                events={events}
+                phone={phone}
+                startHour={openingHour}
+                onCreate={create}
+                onOpen={setOpenId}
+                onMove={move}
+                onOpenDay={toDay}
+              />
+              {view === 'day' && !phone && (
+                <DayLane
+                  day={cursor}
+                  list={shown.filter((r) => sameDay(new Date(r.startsAt), cursor))}
+                  onCreate={() => create()}
+                  onEdit={(r) => setEditing({ r, day: isoDay(new Date(r.startsAt)) })}
+                  {...cardProps}
+                />
+              )}
+            </div>
+          )}
+          {phone && view === 'month' && list && (
+            <DayLane
+              day={selected}
+              list={shown.filter((r) => sameDay(new Date(r.startsAt), selected))}
+              onCreate={() => create()}
+              onEdit={(r) => setEditing({ r, day: isoDay(new Date(r.startsAt)) })}
+              {...cardProps}
+            />
+          )}
+        </div>
+      </section>
+
+      {open && (
+        <Modal open title={`Reserva #${open.code}`} onClose={() => setOpenId(null)}>
+          <ReservationCard
+            r={open}
+            plain
+            {...cardProps}
+            onEdit={() => {
+              setOpenId(null);
+              setEditing({ r: open, day: isoDay(new Date(open.startsAt)) });
+            }}
+          />
+        </Modal>
+      )}
       {editing && (
         <ReservationForm
-          initial={editing === 'new' ? null : editing}
-          day={day}
+          initial={editing.r}
+          day={editing.day}
+          time={editing.time}
+          defaultDuration={settings?.durationMinutes ?? 90}
           tables={tables}
           onClose={() => setEditing(null)}
           onSaved={() => {
@@ -390,550 +629,560 @@ export function ReservationsPage() {
           }}
         />
       )}
-      {showSettings && settings && (
+      {dialog === 'settings' && settings && (
         <SettingsModal
           initial={settings}
           storeLink={storeLink}
-          onClose={() => setShowSettings(false)}
+          onClose={() => setDialog(null)}
           onSaved={(s) => {
             setSettings(s);
-            setShowSettings(false);
+            setDialog(null);
           }}
         />
       )}
+      {dialog === 'side' && (
+        <Modal open title="Reservas" onClose={() => setDialog(null)}>
+          <div className="ag-side ag-side--sheet">
+            <input
+              className="cm-input"
+              type="search"
+              aria-label="Buscar reserva"
+              placeholder="Buscar por nome, celular ou código…"
+              value={search ?? ''}
+              onChange={(e) => setSearch(e.target.value || null)}
+            />
+            {side}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
 
-function Kpi({
-  icon,
-  label,
-  value,
-  tone,
+// ------------------------------------------------------------------ mês
+
+function MonthView({
+  cursor,
+  selected,
+  events,
+  phone,
+  onPick,
+  onCreate,
+  onOpen,
+  onMove,
+  onDayView,
 }: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  tone?: 'warning';
+  cursor: Date;
+  selected: Date;
+  events: RvEvent[];
+  phone: boolean;
+  onPick: (d: Date) => void;
+  onCreate: (d: Date) => void;
+  onOpen: (id: string) => void;
+  onMove: (r: Reservation, start: Date, end: Date) => void;
+  onDayView: (d: Date) => void;
 }) {
+  const grid = monthGrid(cursor);
+  const now = new Date();
+  const [over, setOver] = useState<string | null>(null);
+  const dragged = useRef<RvEvent | null>(null);
+  const max = 3;
   return (
-    <div className="rv-kpi" data-tone={tone}>
-      <span className="rv-kpi__icon">{icon}</span>
-      <span>
-        <strong>{value}</strong>
-        <small>{label}</small>
-      </span>
+    <div className="ag-month" role="grid" aria-label={titleOf('month', cursor)}>
+      <div className="ag-month__head" role="row">
+        {WEEKDAYS_SHORT.map((w) => (
+          <span key={w} role="columnheader">
+            {phone ? w.charAt(0).toUpperCase() : w}
+          </span>
+        ))}
+      </div>
+      <div className="ag-month__grid">
+        {grid.map((d) => {
+          const k = dayKey(d);
+          const list = sortEvents(events.filter((e) => onDay(e, d))) as RvEvent[];
+          const total = people(list.filter((e) => live(e.r)).map((e) => e.r));
+          const out = d.getMonth() !== cursor.getMonth();
+          const isSel = sameDay(d, selected);
+          return (
+            <div
+              key={k}
+              role="gridcell"
+              aria-selected={phone ? isSel : undefined}
+              className={`ag-cell ${out ? 'is-out' : ''} ${isSel && phone ? 'is-sel' : ''} ${over === k ? 'is-over' : ''}`}
+              onClick={(ev) => {
+                // Clique numa reserva ou no número do dia: cada um cuida do seu.
+                if ((ev.target as HTMLElement).closest('button')) return;
+                if (phone) onPick(d);
+                else onCreate(d);
+              }}
+              onDragOver={(ev) => {
+                if (!dragged.current) return;
+                ev.preventDefault();
+                setOver(k);
+              }}
+              onDragLeave={() => setOver((o) => (o === k ? null : o))}
+              onDrop={(ev) => {
+                ev.preventDefault();
+                setOver(null);
+                const e = dragged.current;
+                dragged.current = null;
+                if (!e) return;
+                const s = new Date(e.startsAt);
+                const delta = Math.round(
+                  (startOfDay(d).getTime() - startOfDay(s).getTime()) / 86_400_000,
+                );
+                if (!delta) return;
+                onMove(e.r, addDays(s, delta), addDays(new Date(e.endsAt), delta));
+              }}
+            >
+              <span className="rv-cell__top">
+                <button
+                  type="button"
+                  className={`ag-cell__num ${sameDay(d, now) ? 'is-today' : ''}`}
+                  aria-label={d.toLocaleDateString('pt-BR', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                  })}
+                  onClick={() => (phone ? onPick(d) : onDayView(d))}
+                >
+                  {d.getDate() === 1 && !phone
+                    ? `${d.getDate()} de ${d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}`
+                    : d.getDate()}
+                </button>
+                {!phone && total > 0 && (
+                  <span className="rv-cell__people" title="Pessoas reservadas">
+                    <Users size={11} aria-hidden /> {total}
+                  </span>
+                )}
+              </span>
+              {phone ? (
+                <span className="ag-cell__dots ag-cell__fill" aria-hidden>
+                  {list.slice(0, 4).map((e) => (
+                    <span key={e.id} className="ag-dot" style={colorOf(e.r)} />
+                  ))}
+                </span>
+              ) : (
+                <div className="ag-cell__fill">
+                  {list.slice(0, list.length > max ? max - 1 : max).map((e) => (
+                    <button
+                      key={e.id}
+                      type="button"
+                      draggable={!e.done}
+                      onDragStart={(ev) => {
+                        dragged.current = e;
+                        ev.dataTransfer.effectAllowed = 'move';
+                        ev.dataTransfer.setData('text/plain', e.id);
+                      }}
+                      onDragEnd={() => {
+                        dragged.current = null;
+                        setOver(null);
+                      }}
+                      className={`ag-chip ${e.done ? 'is-done' : ''}`}
+                      style={colorOf(e.r)}
+                      onClick={() => onOpen(e.id)}
+                      title={`${hhmm(new Date(e.startsAt))} · ${e.title} · ${e.r.partySize} pessoas · ${RESERVATION_STATUS[e.r.status].label}`}
+                    >
+                      <span className="ag-dot" aria-hidden />
+                      <span className="ag-chip__time">{hhmm(new Date(e.startsAt))}</span>
+                      <span className="ag-chip__title">{e.title}</span>
+                      <span className="rv-chip__n">{e.r.partySize}p</span>
+                    </button>
+                  ))}
+                  {list.length > max && (
+                    <button type="button" className="ag-more" onClick={() => onDayView(d)}>
+                      Mais {list.length - max + 1}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function ReservationCard({
-  r,
-  i,
+// ------------------------------------------------------------------ dia e semana
+
+interface DragState {
+  ev: RvEvent;
+  mode: 'move' | 'resize';
+  x: number;
+  y: number;
+  dayIdx: number;
+  start: Date;
+  end: Date;
+  moved: boolean;
+}
+
+function TimeGrid({
+  days,
+  events,
+  phone,
+  startHour,
+  onCreate,
+  onOpen,
+  onMove,
+  onOpenDay,
+}: {
+  days: Date[];
+  events: RvEvent[];
+  phone: boolean;
+  /** Abre a grade perto do primeiro horário de reserva. */
+  startHour: number;
+  onCreate: (start: Date) => void;
+  onOpen: (id: string) => void;
+  onMove: (r: Reservation, start: Date, end: Date) => void;
+  onOpenDay: (d: Date) => void;
+}) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const cols = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<DragState | null>(null);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+  // Abre uma hora antes da primeira reserva visível (ou do primeiro horário de reserva).
+  const daysKey = days.map(dayKey).join();
+  const loaded = events.length > 0;
+  useLayoutEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const firsts = days.flatMap((d) =>
+      events
+        .filter((e) => onDay(e, d) && sameDay(new Date(e.startsAt), d))
+        .map((e) => minutesOfDay(new Date(e.startsAt)) / 60),
+    );
+    const first = firsts.length ? Math.min(...firsts) : startHour;
+    el.scrollTop = Math.max(0, Math.floor(first) - 1) * HOUR_PX;
+    // Só ao trocar de dia/semana ou ao chegar a primeira leva: recarregar não pula a grade.
+  }, [daysKey, startHour, loaded]);
+
+  const list = useMemo(
+    () =>
+      drag
+        ? events.map((e) =>
+            e.id === drag.ev.id
+              ? { ...e, startsAt: drag.start.toISOString(), endsAt: drag.end.toISOString() }
+              : e,
+          )
+        : events,
+    [events, drag],
+  );
+
+  const snap = (min: number) => Math.round(min / 15) * 15;
+  const startDrag = (
+    ev: ReactPointerEvent,
+    e: RvEvent,
+    mode: DragState['mode'],
+    dayIdx: number,
+  ) => {
+    if (ev.button !== 0 || ev.pointerType === 'touch' || e.done) return;
+    ev.stopPropagation();
+    (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
+    setDrag({
+      ev: e,
+      mode,
+      x: ev.clientX,
+      y: ev.clientY,
+      dayIdx,
+      start: new Date(e.startsAt),
+      end: new Date(e.endsAt),
+      moved: false,
+    });
+  };
+  const onDragMove = (ev: ReactPointerEvent) => {
+    if (!drag) return;
+    const dy = ev.clientY - drag.y;
+    const dx = ev.clientX - drag.x;
+    if (!drag.moved && Math.abs(dy) < 4 && Math.abs(dx) < 4) return;
+    const mins = snap((dy / HOUR_PX) * 60);
+    const s0 = new Date(drag.ev.startsAt);
+    const e0 = new Date(drag.ev.endsAt);
+    if (drag.mode === 'resize') {
+      const end = addMinutes(e0, mins);
+      const dur = (end.getTime() - s0.getTime()) / 60_000;
+      setDrag({
+        ...drag,
+        moved: true,
+        end: addMinutes(s0, Math.min(600, Math.max(15, dur))),
+      });
+      return;
+    }
+    let dd = 0;
+    const box = cols.current?.getBoundingClientRect();
+    if (box && days.length > 1) {
+      const w = box.width / days.length;
+      const idx = Math.min(days.length - 1, Math.max(0, Math.floor((ev.clientX - box.left) / w)));
+      dd = idx - drag.dayIdx;
+    }
+    setDrag({
+      ...drag,
+      moved: true,
+      start: addMinutes(addDays(s0, dd), mins),
+      end: addMinutes(addDays(e0, dd), mins),
+    });
+  };
+  const endDrag = () => {
+    if (!drag) return;
+    const d = drag;
+    setDrag(null);
+    if (!d.moved) return onOpen(d.ev.id);
+    if (d.start.toISOString() !== d.ev.startsAt || d.end.toISOString() !== d.ev.endsAt)
+      onMove(d.ev.r, d.start, d.end);
+  };
+
+  const hours = Array.from({ length: 24 }, (_, h) => h);
+  const style = {
+    ['--days' as string]: days.length,
+    ['--ag-hour' as string]: `${HOUR_PX}px`,
+  } as CSSProperties;
+
+  return (
+    <div className={`ag-tg ${days.length === 1 ? 'ag-tg--day' : ''}`} style={style}>
+      <div className="ag-tg__head">
+        <span className="ag-tg__gutter" />
+        {days.map((d) => {
+          const dayLive = list.filter((e) => onDay(e, d) && live(e.r)).map((e) => e.r);
+          return (
+            <button
+              type="button"
+              key={dayKey(d)}
+              className={`ag-tg__day ${sameDay(d, now) ? 'is-today' : ''}`}
+              onClick={() => onOpenDay(d)}
+            >
+              <span className="ag-tg__wd">{WEEKDAYS_SHORT[d.getDay()]}</span>
+              <span className="ag-tg__num">{d.getDate()}</span>
+              {dayLive.length > 0 && (
+                <span className="rv-tg__count">
+                  {dayLive.length} · {people(dayLive)}p
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <div className="ag-tg__scroll" ref={scroller}>
+        <div className="ag-tg__grid" style={{ height: 24 * HOUR_PX }}>
+          <div className="ag-tg__gutter ag-tg__hours" aria-hidden>
+            {hours.map((h) => (
+              <span key={h} style={{ top: h * HOUR_PX }}>
+                {h ? `${String(h).padStart(2, '0')}:00` : ''}
+              </span>
+            ))}
+          </div>
+          <div
+            className="ag-tg__cols"
+            ref={cols}
+            onPointerMove={onDragMove}
+            onPointerUp={endDrag}
+            onPointerCancel={() => setDrag(null)}
+          >
+            {days.map((d, i) => {
+              const placed = layoutDay(list, d);
+              const isToday = sameDay(d, now);
+              return (
+                <div
+                  key={dayKey(d)}
+                  className={`ag-tg__col ${isToday ? 'is-today' : ''}`}
+                  onClick={(ev) => {
+                    if (ev.target !== ev.currentTarget) return;
+                    const min = Math.floor((ev.nativeEvent.offsetY / HOUR_PX) * 4) * 15;
+                    onCreate(addMinutes(startOfDay(d), Math.min(min, 23 * 60 + 45)));
+                  }}
+                >
+                  {placed.map((p) => {
+                    const e = p.ev as RvEvent;
+                    const r = e.r;
+                    const h = ((p.bottom - p.top) / 60) * HOUR_PX;
+                    const short = h < 40;
+                    const start = drag?.ev.id === e.id ? drag.start : new Date(e.startsAt);
+                    const end = drag?.ev.id === e.id ? drag.end : new Date(e.endsAt);
+                    return (
+                      <div
+                        key={e.id}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${hhmm(start)}, ${r.name}, ${r.partySize} pessoas, ${RESERVATION_STATUS[r.status].label}`}
+                        className={`ag-ev rv-ev ${short ? 'is-short' : ''} ${e.done ? 'is-done' : ''} ${drag?.ev.id === e.id && drag.moved ? 'is-drag' : ''}`}
+                        data-status={r.status}
+                        style={{
+                          ...colorOf(r),
+                          top: (p.top / 60) * HOUR_PX,
+                          height: Math.max(h - 2, 18),
+                          left: `calc(${(p.col / p.cols) * 100}% + 1px)`,
+                          width: `calc(${100 / p.cols}% - ${p.cols > 1 ? 3 : 6}px)`,
+                        }}
+                        onPointerDown={(ev) => startDrag(ev, e, 'move', i)}
+                        onClick={(ev) => {
+                          // Mouse: abre no soltar (endDrag). Toque, teclado ou encerrada: abre aqui.
+                          ev.stopPropagation();
+                          if (
+                            phone ||
+                            e.done ||
+                            (ev.nativeEvent as PointerEvent).pointerType === 'touch' ||
+                            ev.detail === 0
+                          )
+                            onOpen(e.id);
+                        }}
+                        onKeyDown={(ev) => (ev.key === 'Enter' || ev.key === ' ') && onOpen(e.id)}
+                      >
+                        <span className="ag-ev__title">
+                          {r.name}
+                          <span className="rv-ev__n">
+                            <Users size={11} aria-hidden /> {r.partySize}
+                          </span>
+                        </span>
+                        <span className="ag-ev__time">
+                          {hhmm(start)} – {hhmm(end)}
+                          {r.tableLabel ? ` · Mesa ${r.tableLabel}` : ''}
+                        </span>
+                        {!short && r.status === 'pending' && (
+                          <span className="rv-ev__tag">Aguardando</span>
+                        )}
+                        {!phone && !e.done && (
+                          <span
+                            className="ag-ev__resize"
+                            aria-hidden
+                            title="Arraste para mudar o tempo na mesa"
+                            onPointerDown={(ev) => startDrag(ev, e, 'resize', i)}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                  {isToday && (
+                    <span
+                      className="ag-now"
+                      style={{ top: (minutesOfDay(now) / 60) * HOUR_PX }}
+                      aria-hidden
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ cartões do dia e lista
+
+type CardActions = {
+  tables: DiningTable[];
+  onUpdate: (r: Reservation, p: Patch, msg?: string) => void;
+  onEdit: (r: Reservation) => void;
+};
+
+/** Os cartões do dia, por horário: ao lado da grade (computador) ou embaixo do mês (celular). */
+function DayLane({
+  day,
+  list,
+  onCreate,
   tables,
   onUpdate,
   onEdit,
-}: {
-  r: Reservation;
-  i: number;
-  tables: DiningTable[];
-  onUpdate(
-    r: Reservation,
-    patch: Partial<Reservation> & { tableBusyOk?: boolean },
-    msg?: string,
-  ): void;
-  onEdit(): void;
-}) {
-  const st = RESERVATION_STATUS[r.status];
-  const closed = ['completed', 'cancelled', 'no_show'].includes(r.status);
-  const wa = `https://wa.me/55${r.phone}`;
+}: CardActions & { day: Date; list: Reservation[]; onCreate: () => void }) {
+  const sorted = [...list].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+  const liveOnes = sorted.filter(live);
   return (
-    <article
-      className="rv-card"
-      data-status={r.status}
-      style={{ '--i': i } as CSSProperties}
-      aria-label={`Reserva de ${r.name}`}
-    >
-      <header className="rv-card__head">
-        <div className="rv-card__who">
-          <strong>{r.name}</strong>
-          <span className="rv-card__meta">
-            <Users size={14} aria-hidden /> {r.partySize} {r.partySize === 1 ? 'pessoa' : 'pessoas'}
-            <span aria-hidden>·</span> #{r.code}
-            {r.source === 'online' && (
-              <>
-                <span aria-hidden>·</span> pelo cardápio
-              </>
-            )}
-          </span>
+    <section className="rv-lane" aria-live="polite">
+      <h2 className="rv-lane__title">
+        <span>
+          {cap(day.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }))}
+        </span>
+        {liveOnes.length > 0 && (
+          <small>
+            {liveOnes.length} {liveOnes.length === 1 ? 'reserva' : 'reservas'} · {people(liveOnes)}{' '}
+            pessoas
+          </small>
+        )}
+      </h2>
+      {sorted.length ? (
+        <div className="rv-lane__cards">
+          {sorted.map((r) => (
+            <ReservationCard
+              key={r.id}
+              r={r}
+              tables={tables}
+              onUpdate={onUpdate}
+              onEdit={() => onEdit(r)}
+            />
+          ))}
         </div>
-        <Badge tone={st.tone}>{st.label}</Badge>
-      </header>
-
-      {(r.occasion || r.notes || r.staffNotes || r.cancelReason) && (
-        <div className="rv-card__notes">
-          {r.occasion && <span className="rv-chip">{r.occasion}</span>}
-          {r.notes && <p>“{r.notes}”</p>}
-          {r.staffNotes && (
-            <p className="rv-card__staff">
-              <strong>Equipe:</strong> {r.staffNotes}
-            </p>
-          )}
-          {r.cancelReason && r.status === 'cancelled' && (
-            <p className="rv-card__staff">
-              {r.cancelledBy === 'customer' ? 'Cancelada pelo cliente' : r.cancelReason}
-            </p>
-          )}
-        </div>
+      ) : (
+        <button type="button" className="ag-daylist__empty" onClick={onCreate}>
+          <Plus size={16} aria-hidden /> Nenhuma reserva. Toque para anotar uma.
+        </button>
       )}
-
-      <div className="rv-card__row">
-        <a className="rv-contact" href={`tel:+55${r.phone}`}>
-          <Phone size={14} aria-hidden /> {fmtPhone(r.phone)}
-        </a>
-        <a className="rv-contact" href={wa} target="_blank" rel="noreferrer">
-          <MessageCircle size={14} aria-hidden /> WhatsApp
-        </a>
-        <label className="rv-table">
-          <span>Mesa</span>
-          <select
-            className="cm-input"
-            value={r.tableId ?? ''}
-            disabled={closed}
-            onChange={(e) =>
-              onUpdate(
-                r,
-                { tableId: e.target.value || null },
-                e.target.value ? 'Mesa marcada' : undefined,
-              )
-            }
-          >
-            <option value="">Sem mesa</option>
-            {tables.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label} ({t.seats} lugares{t.area ? ` · ${t.area}` : ''})
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <footer className="rv-card__actions">
-        {r.status === 'pending' && (
-          <Button
-            size="sm"
-            variant="success"
-            onClick={() => onUpdate(r, { status: 'confirmed' }, 'Reserva confirmada')}
-          >
-            Confirmar
-          </Button>
-        )}
-        {(r.status === 'pending' || r.status === 'confirmed') && (
-          <Button size="sm" onClick={() => onUpdate(r, { status: 'seated' }, 'Grupo no salão')}>
-            Chegou
-          </Button>
-        )}
-        {r.status === 'seated' && (
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => onUpdate(r, { status: 'completed' })}
-          >
-            Concluir
-          </Button>
-        )}
-        {(r.status === 'pending' || r.status === 'confirmed') && (
-          <Button size="sm" variant="ghost" onClick={() => onUpdate(r, { status: 'no_show' })}>
-            Não veio
-          </Button>
-        )}
-        {closed && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onUpdate(r, { status: 'confirmed' }, 'Reserva reaberta')}
-          >
-            Reabrir
-          </Button>
-        )}
-        <span className="rv-card__spacer" />
-        <Button size="sm" variant="ghost" onClick={onEdit}>
-          Editar
-        </Button>
-        {!closed && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="rv-danger"
-            onClick={() => {
-              const reason = window.prompt('Motivo do cancelamento (opcional)');
-              if (reason === null) return;
-              onUpdate(
-                r,
-                { status: 'cancelled', cancelReason: reason || null },
-                'Reserva cancelada',
-              );
-            }}
-          >
-            Cancelar
-          </Button>
-        )}
-      </footer>
-    </article>
+    </section>
   );
 }
 
-function ReservationForm({
-  initial,
-  day,
+function ListView({
+  from,
+  list,
+  onCreate,
   tables,
-  onClose,
-  onSaved,
-}: {
-  initial: Reservation | null;
-  day: string;
-  tables: DiningTable[];
-  onClose(): void;
-  onSaved(): void;
-}) {
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [f, setF] = useState({
-    name: initial?.name ?? '',
-    phone: initial ? fmtPhone(initial.phone) : '',
-    partySize: String(initial?.partySize ?? 2),
-    date: initial ? isoDay(new Date(initial.startsAt)) : day,
-    time: initial ? hhmm(initial.startsAt) : '20:00',
-    occasion: initial?.occasion ?? '',
-    notes: initial?.notes ?? '',
-    staffNotes: initial?.staffNotes ?? '',
-    tableId: initial?.tableId ?? '',
-  });
-  const set = (k: keyof typeof f) => (e: { target: { value: string } }) =>
-    setF((x) => ({ ...x, [k]: e.target.value }));
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    const body = {
-      name: f.name.trim(),
-      phone: f.phone,
-      partySize: Number(f.partySize),
-      startsAt: new Date(`${f.date}T${f.time}:00`).toISOString(),
-      occasion: f.occasion.trim() || null,
-      notes: f.notes.trim() || null,
-      staffNotes: f.staffNotes.trim() || null,
-      tableId: f.tableId || null,
-    };
-    try {
-      if (initial) await api(`/reservations/${initial.id}`, { method: 'PATCH', json: body });
-      else await api('/reservations', { method: 'POST', json: body });
-      toast(initial ? 'Reserva atualizada' : 'Reserva anotada', 'success');
-      onSaved();
-    } catch (err) {
-      setError((err as ApiError).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Modal
-      open
-      title={initial ? `Reserva #${initial.code}` : 'Nova reserva'}
-      onClose={onClose}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Fechar
-          </Button>
-          <Button type="submit" form="rv-form" loading={busy}>
-            {initial ? 'Salvar' : 'Anotar reserva'}
-          </Button>
-        </>
-      }
-    >
-      <form id="rv-form" className="cm-form" onSubmit={submit}>
-        {error && <Alert tone="danger">{error}</Alert>}
-        <h3 className="cm-form__section">Cliente</h3>
-        <TextField label="Nome" required maxLength={80} value={f.name} onChange={set('name')} />
-        <TextField
-          label="Celular"
-          required
-          inputMode="tel"
-          placeholder="(11) 98888-7777"
-          value={f.phone}
-          onChange={set('phone')}
-        />
-        <TextField
-          label="Pessoas"
-          type="number"
-          min={1}
-          max={100}
-          required
-          value={f.partySize}
-          onChange={set('partySize')}
-        />
-        <h3 className="cm-form__section">Reserva</h3>
-        <TextField label="Dia" type="date" required value={f.date} onChange={set('date')} />
-        <TextField label="Horário" type="time" required value={f.time} onChange={set('time')} />
-        <SelectField label="Mesa" value={f.tableId} onChange={set('tableId')}>
-          <option value="">Escolher depois</option>
-          {tables.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.label} ({t.seats} lugares)
-            </option>
-          ))}
-        </SelectField>
-        <h3 className="cm-form__section">Detalhes</h3>
-        <TextField
-          label="Ocasião"
-          maxLength={40}
-          list="rv-occasions"
-          placeholder="Aniversário, encontro…"
-          value={f.occasion}
-          onChange={set('occasion')}
-        />
-        <datalist id="rv-occasions">
-          {OCCASIONS.map((o) => (
-            <option key={o} value={o} />
-          ))}
-        </datalist>
-        <TextField
-          label="Pedido do cliente"
-          maxLength={300}
-          placeholder="Cadeira de bebê, perto da janela…"
-          value={f.notes}
-          onChange={set('notes')}
-        />
-        <TextField
-          label="Anotação da equipe"
-          hint="O cliente não vê."
-          maxLength={300}
-          value={f.staffNotes}
-          onChange={set('staffNotes')}
-        />
-      </form>
-    </Modal>
-  );
-}
-
-function SettingsModal({
-  initial,
-  storeLink,
-  onClose,
-  onSaved,
-}: {
-  initial: Settings;
-  storeLink: string;
-  onClose(): void;
-  onSaved(s: Settings): void;
-}) {
-  const toast = useToast();
-  const [s, setS] = useState(initial);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const set = <K extends keyof Settings>(k: K, v: Settings[K]) => setS((x) => ({ ...x, [k]: v }));
-
-  async function save() {
-    setBusy(true);
-    setError(null);
-    try {
-      const out = await api<Settings>('/reservations/settings', {
-        method: 'PATCH',
-        json: { ...s, note: s.note?.trim() || null },
-      });
-      toast('Reservas salvas', 'success');
-      onSaved(out);
-    } catch (e) {
-      setError((e as ApiError).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Modal
-      open
-      size="lg"
-      title="Reservas pelo cardápio"
-      onClose={onClose}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Fechar
-          </Button>
-          <Button loading={busy} onClick={save}>
-            Salvar
-          </Button>
-        </>
-      }
-    >
-      <div className="cm-form">
-        {error && <Alert tone="danger">{error}</Alert>}
-        <RvToggle
-          label="Aceitar reservas pelo cardápio online"
-          hint="Aparece o botão “Reservar mesa” no cardápio. Só reserva quem entra na conta (com as contas de cliente ligadas na Loja online)."
-          checked={s.enabled}
-          onChange={(v) => set('enabled', v)}
-        />
-        <RvToggle
-          label="Confirmar automaticamente"
-          hint="Desligado, cada reserva chega como “Aguardando” para a equipe confirmar."
-          checked={s.autoConfirm}
-          onChange={(v) => set('autoConfirm', v)}
-        />
-
-        <h3 className="cm-form__section">Agenda</h3>
-        <fieldset className="rv-fieldset cm-form__block">
-          <legend>Dias com reserva</legend>
-          <div className="rv-weekdays">
-            {WEEKDAYS.map((w, i) => (
-              <button
-                key={w}
-                type="button"
-                aria-pressed={s.weekdays.includes(i)}
-                onClick={() =>
-                  set(
-                    'weekdays',
-                    s.weekdays.includes(i)
-                      ? s.weekdays.filter((d) => d !== i)
-                      : [...s.weekdays, i].sort(),
-                  )
-                }
-              >
-                {w}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <>
-          <TextField
-            label="Primeiro horário"
-            type="time"
-            value={s.opensAt}
-            onChange={(e) => set('opensAt', e.target.value)}
-          />
-          <TextField
-            label="Último horário"
-            type="time"
-            value={s.closesAt}
-            onChange={(e) => set('closesAt', e.target.value)}
-            hint="Antes do primeiro = passa da meia-noite"
-          />
-          <SelectField
-            label="Intervalo entre horários"
-            value={String(s.slotMinutes)}
-            onChange={(e) => set('slotMinutes', Number(e.target.value))}
-          >
-            <option value="15">15 minutos</option>
-            <option value="30">30 minutos</option>
-            <option value="60">1 hora</option>
-          </SelectField>
-          <TextField
-            label="Tempo médio na mesa (min)"
-            type="number"
-            min={15}
-            max={600}
-            value={String(s.durationMinutes)}
-            onChange={(e) => set('durationMinutes', Number(e.target.value))}
-          />
-          <TextField
-            label="Máximo de pessoas por reserva"
-            type="number"
-            min={1}
-            max={100}
-            value={String(s.maxParty)}
-            onChange={(e) => set('maxParty', Number(e.target.value))}
-          />
-          <TextField
-            label="Lugares para reserva ao mesmo tempo"
-            type="number"
-            min={1}
-            placeholder="Sem limite"
-            value={s.capacity === null ? '' : String(s.capacity)}
-            onChange={(e) => set('capacity', e.target.value ? Number(e.target.value) : null)}
-            hint="Vazio = sem limite"
-          />
-          <TextField
-            label="Antecedência mínima (horas)"
-            type="number"
-            min={0}
-            max={168}
-            step="0.5"
-            value={String(s.minAdvanceMinutes / 60)}
-            onChange={(e) => set('minAdvanceMinutes', Math.round(Number(e.target.value) * 60))}
-          />
-          <TextField
-            label="Abrir agenda para os próximos (dias)"
-            type="number"
-            min={1}
-            max={365}
-            value={String(s.maxDaysAhead)}
-            onChange={(e) => set('maxDaysAhead', Number(e.target.value))}
-          />
-        </>
-        <h3 className="cm-form__section">Cliente</h3>
-        <TextField
-          label="Recado para o cliente"
-          maxLength={300}
-          placeholder="Ex.: tolerância de 15 minutos. Mesas na varanda conforme disponibilidade."
-          value={s.note ?? ''}
-          onChange={(e) => set('note', e.target.value)}
-        />
-        <div className="rv-link">
-          <span>
-            <strong>Link direto da reserva</strong>
-            <small>{storeLink}</small>
-          </span>
-          <Button
-            size="sm"
-            variant="secondary"
-            icon={<Copy size={14} />}
-            onClick={() =>
-              navigator.clipboard
-                ?.writeText(storeLink)
-                .then(() => toast('Link copiado', 'success'))
-                .catch(() => undefined)
-            }
-          >
-            Copiar
-          </Button>
-        </div>
+  onUpdate,
+  onEdit,
+}: CardActions & { from: Date; list: Reservation[]; onCreate: () => void }) {
+  const days = Array.from({ length: 60 }, (_, i) => addDays(from, i))
+    .map((d) => ({
+      d,
+      rs: list
+        .filter((r) => sameDay(new Date(r.startsAt), d))
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
+    }))
+    .filter((x) => x.rs.length);
+  if (!days.length)
+    return (
+      <div className="ag-blank">
+        <CalendarDays size={28} aria-hidden />
+        <p>Nenhuma reserva nos próximos 60 dias.</p>
+        <Button variant="secondary" icon={<Plus size={16} />} onClick={onCreate}>
+          Nova reserva
+        </Button>
       </div>
-    </Modal>
-  );
-}
-
-function RvToggle({
-  label,
-  hint,
-  checked,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  checked: boolean;
-  onChange(v: boolean): void;
-}) {
+    );
+  const now = new Date();
   return (
-    <label className="rv-toggle cm-form__row">
-      <span>
-        <strong>{label}</strong>
-        {hint && <small>{hint}</small>}
-      </span>
-      <span className="rv-switch">
-        <input
-          type="checkbox"
-          role="switch"
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-        />
-        <span aria-hidden />
-      </span>
-    </label>
+    <div className="ag-list rv-list">
+      {days.map(({ d, rs }) => {
+        const l = rs.filter(live);
+        return (
+          <section key={dayKey(d)} className="ag-list__day">
+            <h2 className={`ag-list__date ${sameDay(d, now) ? 'is-today' : ''}`}>
+              <span className="ag-list__num">{d.getDate()}</span>
+              <span>
+                {cap(d.toLocaleDateString('pt-BR', { weekday: 'long' }))} ·{' '}
+                {d.toLocaleDateString('pt-BR', { month: 'long' })}
+                {l.length > 0 && (
+                  <small className="rv-list__sum">
+                    {l.length} {l.length === 1 ? 'reserva' : 'reservas'} · {people(l)} pessoas
+                  </small>
+                )}
+              </span>
+            </h2>
+            <div className="rv-lane__cards rv-lane__cards--grid">
+              {rs.map((r) => (
+                <ReservationCard
+                  key={r.id}
+                  r={r}
+                  tables={tables}
+                  onUpdate={onUpdate}
+                  onEdit={() => onEdit(r)}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </div>
   );
 }

@@ -113,6 +113,8 @@ export interface StaffReservationInput {
   notes?: string | null;
   staffNotes?: string | null;
   tableId?: string | null;
+  /** Tempo na mesa (minutos); sem ele, o tempo médio das configurações. */
+  durationMinutes?: number;
   status?: ReservationStatus;
   cancelReason?: string | null;
   /** A equipe já conferiu: a comanda aberta na mesa é deste grupo (ao marcar "Chegou"). */
@@ -561,9 +563,10 @@ export class ReservationsService {
       await this.checkTable(tx, input.tableId);
       const s = await this.settingsIn(tx);
       const status = input.status ?? 'confirmed';
+      const duration = input.durationMinutes ?? s.durationMinutes;
       if (input.tableId && ACTIVE.includes(status)) {
         await this.lockFloor(tx, ctx.tenantId);
-        await this.assertTableFree(tx, input.tableId, new Date(input.startsAt), s.durationMinutes);
+        await this.assertTableFree(tx, input.tableId, new Date(input.startsAt), duration);
         if (status === 'seated' && !input.tableBusyOk)
           await this.assertTableNotOccupied(tx, input.tableId);
       }
@@ -581,7 +584,7 @@ export class ReservationsService {
           input.email ?? null,
           input.partySize,
           new Date(input.startsAt),
-          s.durationMinutes,
+          duration,
           input.occasion ?? null,
           input.notes ?? null,
           input.staffNotes ?? null,
@@ -629,13 +632,15 @@ export class ReservationsService {
         status: patch.status ?? cur.status,
         tableId: patch.tableId !== undefined ? patch.tableId : cur.tableId,
         startsAt: patch.startsAt !== undefined ? new Date(patch.startsAt) : cur.startsAt,
+        dur: patch.durationMinutes ?? cur.dur,
       };
       if (next.tableId && ACTIVE.includes(next.status)) {
         const moved =
           next.tableId !== cur.tableId ||
           next.startsAt.getTime() !== cur.startsAt.getTime() ||
+          next.dur !== cur.dur ||
           !ACTIVE.includes(cur.status);
-        if (moved) await this.assertTableFree(tx, next.tableId, next.startsAt, cur.dur, id);
+        if (moved) await this.assertTableFree(tx, next.tableId, next.startsAt, next.dur, id);
         const arriving =
           next.status === 'seated' && (cur.status !== 'seated' || next.tableId !== cur.tableId);
         if (arriving && !patch.tableBusyOk) await this.assertTableNotOccupied(tx, next.tableId);
@@ -655,6 +660,7 @@ export class ReservationsService {
       if (patch.email !== undefined) set('email', patch.email);
       if (patch.partySize !== undefined) set('party_size', patch.partySize);
       if (patch.startsAt !== undefined) set('starts_at', new Date(patch.startsAt));
+      if (patch.durationMinutes !== undefined) set('duration_minutes', patch.durationMinutes);
       if (patch.occasion !== undefined) set('occasion', patch.occasion);
       if (patch.notes !== undefined) set('notes', patch.notes);
       if (patch.staffNotes !== undefined) set('staff_notes', patch.staffNotes);

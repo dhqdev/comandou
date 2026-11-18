@@ -316,6 +316,18 @@ describe('Reservas × mesas', () => {
     await patch('adminA', `/reservations/${a.id}`, { status: 'confirmed' }).expect(200);
   });
 
+  it('tempo na mesa próprio da reserva entra na conta da mesa livre', async () => {
+    // Reserva de 2 h (a configuração é 1 h): quem chega 90 min depois conflita.
+    const longa = (await staff('Longa', at(1200), { durationMinutes: 120 }).expect(201)).body;
+    expect(longa.durationMinutes).toBe(120);
+    await staff('Depois', at(1290)).expect(409);
+    // Encurtar para 1 h libera o horário; voltar a esticar por cima do outro é barrado.
+    await patch('adminA', `/reservations/${longa.id}`, { durationMinutes: 60 }).expect(200);
+    await staff('Depois', at(1290)).expect(201);
+    await patch('adminA', `/reservations/${longa.id}`, { durationMinutes: 120 }).expect(409);
+    await patch('adminA', `/reservations/${longa.id}`, { durationMinutes: 5 }).expect(400);
+  });
+
   it('duas pessoas marcando a mesma mesa ao mesmo tempo: só uma fica', async () => {
     const t = at(600);
     const tries = await Promise.all(Array.from({ length: 5 }, (_, i) => staff(`Corrida ${i}`, t)));

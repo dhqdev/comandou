@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.160.0',
+    version: '0.161.0',
     date: '2026-11-18',
     title: 'Todas as chaves num lugar só: Super Admin › Credenciais',
     summary:
@@ -41,6 +41,35 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'melhoria',
         text: 'A aba Fiscal saiu do menu (o endereço antigo leva para a Focus NFe em Credenciais). A nota fiscal de cada restaurante continua no cartão Nota fiscal da ficha dele.',
+      },
+    ],
+  },
+  {
+    version: '0.160.0',
+    date: '2026-11-18',
+    title: 'Reservas em calendário, no jeito da Agenda',
+    summary:
+      'A tela de Reservas virou um calendário com as visões Dia, Semana, Mês e Lista, painel do lado com o resumo do dia e o filtro por situação, e as reservas podem ser remarcadas arrastando.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Visões Dia, Semana, Mês e Lista. No Dia, a grade de horários mostra cada reserva do tamanho do tempo na mesa e, ao lado, os cartões com Confirmar, Chegou, Não veio, mesa e WhatsApp. A Lista mostra os próximos 60 dias com os cartões.',
+      },
+      {
+        tag: 'novo',
+        text: 'Painel do lado: Nova reserva, minicalendário, resumo do dia escolhido (reservas, pessoas, aguardando e no salão), filtro por situação com a cor de cada uma e o atalho para as reservas pelo cardápio (ligar, configurar e copiar o link).',
+      },
+      {
+        tag: 'novo',
+        text: 'Arrastar para remarcar (dia e horário, em passos de 15 minutos) e puxar a borda de baixo para mudar o tempo na mesa. Clicar num horário vazio já abre a nova reserva naquele dia e hora.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Tempo na mesa por reserva (no formulário e arrastando), levado em conta para não marcar a mesma mesa em horários que se cruzam. A mesa pequena para o grupo aparece marcada na lista.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Botão "aguardando" no topo mostra só as reservas que esperam confirmação; busca por nome, celular, código ou mesa; o mês mostra quantas pessoas estão reservadas em cada dia.',
       },
     ],
   },
