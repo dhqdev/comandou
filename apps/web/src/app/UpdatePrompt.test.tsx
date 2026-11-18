@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_BUILD } from '../lib/app-version';
 import { UpdatePrompt } from './UpdatePrompt';
@@ -31,6 +31,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // Sem isso o aviso de um teste continua na página no seguinte.
+  cleanup();
   vi.unstubAllGlobals();
   vi.useRealTimers();
 });
