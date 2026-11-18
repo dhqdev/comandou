@@ -366,18 +366,8 @@ export class CustomersService {
     });
   }
 
-  async changePassword(
-    tenantId: string,
-    c: Customer,
-    current: string,
-    next: string,
-    keepToken?: string,
-  ) {
-    const row = await this.db.withTenant({ tenantId }, (tx) =>
-      one<{ h: string }>(tx, `SELECT password_hash AS h FROM customers WHERE id = $1`, [c.id]),
-    );
-    if (!row || !(await verifyPassword(current, row.h)))
-      throw new UnauthorizedException('Senha atual incorreta');
+  async changePassword(tenantId: string, c: Customer, next: string, keepToken?: string) {
+    // Quem já está dentro da conta não precisa digitar a senha atual.
     const hash = await hashPassword(next);
     await this.db.withTenant({ tenantId }, async (tx) => {
       await q(tx, `UPDATE customers SET password_hash = $2 WHERE id = $1`, [c.id, hash]);

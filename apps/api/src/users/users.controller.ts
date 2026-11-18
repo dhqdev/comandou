@@ -55,7 +55,8 @@ const SetPin = z.object({ pin: pin.optional() });
 const UpdateMember = z
   .object({ role: z.enum(ROLES).optional(), status: z.enum(['active', 'revoked']).optional() })
   .refine((b) => b.role || b.status, 'informe papel ou situação');
-const ChangePassword = z.object({ current: z.string().min(1).max(200), next: password });
+/** `current` ficou opcional e é ignorado: quem já entrou troca a senha sem digitar a atual. */
+const ChangePassword = z.object({ current: z.string().max(200).optional(), next: password });
 const SetMemberPassword = z.object({ password });
 
 const MEMBER_SELECT = `
@@ -284,7 +285,7 @@ export class UsersController {
     });
   }
 
-  /** Troca da própria senha. Exige a senha atual; encerra as outras sessões neste restaurante. */
+  /** Troca da própria senha. Quem já entrou não precisa da atual; encerra as outras sessões neste restaurante. */
   @Post('auth/password')
   @HttpCode(204)
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
@@ -298,9 +299,7 @@ export class UsersController {
     const row = await this.db.withTenant(ctx, (tx) =>
       one<{ hash: string | null }>(tx, `SELECT app_own_password_hash() AS hash`),
     );
-    if (!row?.hash || !(await verifyPassword(b.current, row.hash)))
-      throw new UnauthorizedException('Senha atual incorreta');
-    if (b.current === b.next)
+    if (row?.hash && (await verifyPassword(b.next, row.hash)))
       throw new ConflictException('A nova senha deve ser diferente da atual');
     const hash = await hashPassword(b.next);
     await this.db.withTenant(ctx, async (tx) => {

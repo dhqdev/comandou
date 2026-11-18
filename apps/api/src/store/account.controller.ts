@@ -107,7 +107,8 @@ function sendPhoto(res: Response, f: { type: string; bytes: Buffer }) {
   res.setHeader('Content-Length', String(f.bytes.length));
   res.end(f.bytes);
 }
-const Password = z.object({ current: z.string().min(1).max(200), next: password });
+/** `current` ficou opcional e é ignorado: o cliente já entrou, só escolhe a nova. */
+const Password = z.object({ current: z.string().max(200).optional(), next: password });
 const Forgot = z.object({ phone: z.string().trim().max(25) });
 const Reset = z.object({
   phone: z.string().trim().max(25),
@@ -312,13 +313,7 @@ export class AccountController {
     @Req() req: Request,
   ) {
     const c = await this.who(t, req);
-    return this.customers.changePassword(
-      t.id,
-      c,
-      b.current,
-      b.next,
-      cookieOf(req, CUSTOMER_COOKIE),
-    );
+    return this.customers.changePassword(t.id, c, b.next, cookieOf(req, CUSTOMER_COOKIE));
   }
 
   /** Esqueci minha senha: manda um código pelo WhatsApp da loja (ou diz para falar com ela). */

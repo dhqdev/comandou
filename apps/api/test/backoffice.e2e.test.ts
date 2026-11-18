@@ -220,17 +220,11 @@ describe('Equipe (usuários e papéis)', () => {
     );
   });
 
-  it('troca a própria senha conferindo a atual e encerra as outras sessões', async () => {
+  it('troca a própria senha sem pedir a atual e encerra as outras sessões', async () => {
     const other = await login(HOST_A, 'caixa@bo-a.test');
     cookies.cashier2A = other;
-    await post('cashierA', '/auth/password', {
-      current: 'errada',
-      next: 'nova-senha-caixa',
-    }).expect(401);
-    await post('cashierA', '/auth/password', {
-      current: PASSWORD,
-      next: 'nova-senha-caixa',
-    }).expect(204);
+    await post('cashierA', '/auth/password', { next: PASSWORD }).expect(409);
+    await post('cashierA', '/auth/password', { next: 'nova-senha-caixa' }).expect(204);
     await get('cashierA', '/auth/me').expect(200);
     await get('cashier2A', '/auth/me').expect(401);
     await login(HOST_A, 'caixa@bo-a.test', 'nova-senha-caixa');

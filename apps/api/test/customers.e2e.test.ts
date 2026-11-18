@@ -313,13 +313,8 @@ describe('Conta do cliente', () => {
     );
   });
 
-  it('trocar a senha exige a atual; sair encerra a sessão', async () => {
-    await c
-      .send('post', '/store/account/password', { current: 'x', next: 'nova-senha' }, maria)
-      .expect(401);
-    await c
-      .send('post', '/store/account/password', { current: 'segredo1', next: 'nova-senha' }, maria)
-      .expect(200);
+  it('trocar a senha não pede a atual; sair encerra a sessão', async () => {
+    await c.send('post', '/store/account/password', { next: 'nova-senha' }, maria).expect(200);
     expect((await c.get('/store/account', maria).expect(200)).body.customer).toBeTruthy();
     await c.send('post', '/store/account/logout', {}, maria).expect(204);
     expect((await c.get('/store/account', maria).expect(200)).body.customer).toBeNull();

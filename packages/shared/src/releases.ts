@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.157.1',
+    date: '2026-11-18',
+    title: 'Trocar a senha sem digitar a atual',
+    summary:
+      'Quem já entrou no sistema troca a senha só escolhendo a nova: não precisa mais digitar a senha atual.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Trocar minha senha (equipe): a janela pede só a nova senha e a confirmação. Os outros aparelhos continuam saindo da conta.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cardápio online: na conta do cliente, Trocar senha também pede só a nova.',
+      },
+    ],
+  },
+  {
     version: '0.157.0',
     date: '2026-11-18',
     title: 'Calendário de recebimentos mais simples',

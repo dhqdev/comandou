@@ -445,7 +445,6 @@ function MemberPasswordModal({ member, onClose }: { member: Member | null; onClo
 /** Troca da própria senha (qualquer pessoa da equipe). */
 export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose(): void }) {
   const toast = useToast();
-  const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
@@ -456,9 +455,8 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose(
     setBusy(true);
     setError(null);
     try {
-      await api('/auth/password', { method: 'POST', json: { current, next } });
+      await api('/auth/password', { method: 'POST', json: { next } });
       toast('Senha alterada. Outros aparelhos foram desconectados.', 'success');
-      setCurrent('');
       setNext('');
       setConfirm('');
       onClose();
@@ -479,24 +477,13 @@ export function ChangePasswordModal({ open, onClose }: { open: boolean; onClose(
           <Button variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
-          <Button
-            loading={busy}
-            disabled={!current || next.length < 8 || next !== confirm}
-            onClick={save}
-          >
+          <Button loading={busy} disabled={next.length < 8 || next !== confirm} onClick={save}>
             Salvar
           </Button>
         </>
       }
     >
       {error && <Alert tone="danger">{error}</Alert>}
-      <TextField
-        label="Senha atual"
-        type="password"
-        autoComplete="current-password"
-        value={current}
-        onChange={(e) => setCurrent(e.target.value)}
-      />
       <TextField
         label="Nova senha"
         type="password"

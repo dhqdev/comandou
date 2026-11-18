@@ -832,7 +832,7 @@ export function PasswordScreen() {
   const me = useMe();
   const toast = useToast();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ current: '', next: '' });
+  const [form, setForm] = useState({ next: '' });
   const { busy, error, run } = useAsync();
   if (!me) return null;
   return (
@@ -851,15 +851,6 @@ export function PasswordScreen() {
           }
         }}
       >
-        <Field label="Senha atual">
-          <input
-            type="password"
-            autoComplete="current-password"
-            required
-            value={form.current}
-            onChange={(e) => setForm({ ...form, current: e.target.value })}
-          />
-        </Field>
         <Field label="Nova senha" hint="Pelo menos 6 caracteres.">
           <input
             type="password"
