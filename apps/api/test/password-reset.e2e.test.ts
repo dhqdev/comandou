@@ -221,9 +221,11 @@ describe('Avisos de teste grátis e cobrança', () => {
         WHERE tenant_id = $1 AND status <> 'cancelled' RETURNING id`,
       [fx.tenantB],
     );
+    // Vencimento em dias de Brasília: entre 21h e meia-noite o dia do banco (UTC) já é o seguinte.
     await ownerQuery(
       `INSERT INTO billing_invoices (tenant_id, subscription_id, kind, description, amount, due_date, invoice_url)
-       VALUES ($1, $2, 'manual', 'Mensalidade do Comandou', 149.90, current_date + 2, 'https://pagar.test/x'),
+       VALUES ($1, $2, 'manual', 'Mensalidade do Comandou', 149.90,
+               (now() AT TIME ZONE 'America/Sao_Paulo')::date + 2, 'https://pagar.test/x'),
               ($1, $2, 'manual', 'Mensalidade anterior', 149.90, current_date - 28, NULL)`,
       [fx.tenantB, s!.id],
     );
