@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.150.2',
+    date: '2026-11-18',
+    title: 'Período pago mudado à mão some com a fatura vencida',
+    summary:
+      'Quando o Super Admin estende o "Período pago até" de um restaurante, a mensalidade em aberto que o novo prazo já cobre é cancelada sozinha. O aviso "Há fatura vencida" some do sistema e as datas batem em todas as telas.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Estender o período pago no Super Admin cancela as mensalidades em aberto cujo período inteiro fica dentro do novo prazo (no Asaas também). Antes elas seguiam vencidas e o restaurante via "Há fatura vencida" mesmo liberado.',
+      },
+      {
+        tag: 'correção',
+        text: 'Super Admin › Assinatura: o campo "Período pago até" mostra o dia de Brasília (antes aparecia um dia a mais, e cada Salvar empurrava a data), e o "Liberado até" logo abaixo atualiza na hora em que você salva.',
+      },
+    ],
+  },
+  {
     version: '0.150.1',
     date: '2026-11-18',
     title: 'Recibo do entregador volta a imprimir',

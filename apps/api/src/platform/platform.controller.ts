@@ -498,7 +498,10 @@ export class PlatformController {
     @Body(new ZodPipe(SubscriptionChange)) b: z.infer<typeof SubscriptionChange>,
     @Req() req: Request,
   ) {
-    const r = await this.svc.setSubscription(id, b, actor(req));
+    const a = actor(req);
+    const r = await this.svc.setSubscription(id, b, a);
+    // Período pago estendido à mão: mensalidade em aberto que ele já cobre deixa de ser cobrada.
+    if (b.status !== 'cancelled' && b.currentPeriodEnd) await this.billing.cancelCovered(id, a);
     // Período pago ou situação mudou: o bloqueio automático é conferido na hora.
     await this.billing.refresh(id);
     return r;

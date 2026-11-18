@@ -1348,6 +1348,56 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
     return this.view(inv.tenant_id, true);
   }
 
+  /**
+   * "Período pago até" mudado à mão no painel: as mensalidades em aberto cujo período inteiro já
+   * fica dentro do novo prazo não têm mais o que cobrar e são canceladas (no Asaas também). Sem
+   * isso, a fatura velha seguia "vencida" e o sistema avisava "Há fatura vencida" mesmo liberado.
+   */
+  async cancelCovered(tenantId: string, a: Actor) {
+    if (!this.db.enabled) return 0;
+    const [sub] = await this.db.query<SubRow>(`${SUB_SQL} AND s.tenant_id = $1`, [tenantId]);
+    if (!sub?.current_period_end) return 0;
+    const covered = await this.db.query<{ id: string; provider_id: string | null }>(
+      `SELECT id, provider_id FROM billing_invoices
+        WHERE subscription_id = $1 AND kind = 'monthly' AND status IN ('pending', 'overdue')
+          AND coalesce(period_start, due_date::timestamptz) + make_interval(days => $3) <= $2`,
+      [sub.id, sub.current_period_end, BILLING_PERIOD_DAYS],
+    );
+    let done = 0;
+    for (const inv of covered) {
+      if (inv.provider_id) {
+        try {
+          await this.client(await this.settingsRow()).cancelPayment(inv.provider_id);
+        } catch (e) {
+          if (!(e instanceof AsaasError && e.status === 404)) {
+            this.logger.warn(
+              `cancelar no Asaas a fatura ${inv.id} falhou: ${(e as Error).message}`,
+            );
+            continue;
+          }
+        }
+      }
+      await this.db.tx(async (c) => {
+        await c.query(
+          `UPDATE billing_invoices SET status = 'cancelled'
+            WHERE id = $1 AND status IN ('pending', 'overdue')`,
+          [inv.id],
+        );
+        await platformAudit(c, {
+          adminId: a.admin.id,
+          action: 'platform.billing_invoice_cancelled',
+          entity: 'invoice',
+          entityId: inv.id,
+          tenantId,
+          data: { reason: 'covered_by_paid_period' },
+          ip: a.ip,
+        });
+      });
+      done++;
+    }
+    return done;
+  }
+
   /** Dia do pagamento informado à mão: não pode ser no futuro nem de mais de um ano atrás. */
   private paidDay(paidOn?: string) {
     const today = spDate();

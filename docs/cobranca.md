@@ -103,6 +103,10 @@ plano leva para Assinatura já com a troca aberta.
   Rotas liberadas durante o bloqueio: entrar e sair (`/auth`) e as da assinatura (`/subscription`).
 - No painel, cada fatura tem **Conferir** (consulta o Asaas), **Baixar** (pago fora do Asaas; dá baixa também no Asaas, para o cliente não pagar de novo) e
   **Cancelar** (cancela também no Asaas). Tudo vai para a auditoria.
+- Mudar o **Período pago até** à mão (aba Assinatura) cancela as mensalidades em aberto cujo
+  período inteiro (início + 30 dias) já fica dentro do novo prazo, também no Asaas (auditoria
+  `platform.billing_invoice_cancelled` com `reason: covered_by_paid_period`). Prazo que cobre só
+  parte do período deixa a fatura em aberto.
 - Os limites do plano (equipe, produtos, pedidos no mês) são conferidos com uma trava por
   restaurante: duas criações ao mesmo tempo não passam juntas do limite.
 

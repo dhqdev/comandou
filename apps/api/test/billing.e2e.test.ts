@@ -724,6 +724,53 @@ describe('Contrato reassinado todo ano', () => {
   });
 });
 
+describe('Período pago mudado à mão no painel', () => {
+  it('mensalidade vencida que o novo prazo cobre é cancelada e o aviso some', async () => {
+    const [s] = await ownerQuery<{ id: string }>(
+      `SELECT id FROM subscriptions WHERE tenant_id = $1 AND status <> 'cancelled'`,
+      [fx.tenantB],
+    );
+    const [old] = await ownerQuery<{ id: string }>(
+      `INSERT INTO billing_invoices (tenant_id, subscription_id, kind, plan_id, description, amount,
+                                     period_start, due_date, status)
+       VALUES ($1, $2, 'monthly', $3, 'Mensalidade', 90, now() - interval '4 days',
+               current_date - 4, 'overdue') RETURNING id`,
+      [fx.tenantB, s!.id, plans.basic],
+    );
+    const ownerB = await tenantLogin(HOST_B, 'admin@bl-b.test');
+    expect((await tget(HOST_B, ownerB, '/subscription/notice').expect(200)).body.level).toBe(
+      'warning',
+    );
+    // Prazo curto, que não cobre o período inteiro da fatura: ela continua em aberto.
+    const soon = new Date(Date.now() + 5 * DAY).toISOString();
+    await psend('put', `/tenants/${fx.tenantB}/subscription`, {
+      planId: plans.basic,
+      status: 'active',
+      currentPeriodEnd: soon,
+    }).expect(200);
+    const st = async () =>
+      (
+        await ownerQuery<{ status: string }>(`SELECT status FROM billing_invoices WHERE id = $1`, [
+          old!.id,
+        ])
+      )[0]!.status;
+    expect(await st()).toBe('overdue');
+    // Liberado por dois anos: a mensalidade velha não tem mais o que cobrar.
+    const later = new Date(Date.now() + 730 * DAY).toISOString();
+    await psend('put', `/tenants/${fx.tenantB}/subscription`, {
+      planId: plans.basic,
+      status: 'active',
+      currentPeriodEnd: later,
+    }).expect(200);
+    expect(await st()).toBe('cancelled');
+    const n = await tget(HOST_B, ownerB, '/subscription/notice').expect(200);
+    expect(n.body.level).toBe('none');
+    expect(n.body.openInvoices).toBe(0);
+    const v = await pget(`/billing/tenants/${fx.tenantB}`).expect(200);
+    expect(v.body.subscription.daysLeft).toBeGreaterThan(700);
+  });
+});
+
 describe('Página de preços, cartão automático e plano menor', () => {
   let ownerA = '';
   const card = {

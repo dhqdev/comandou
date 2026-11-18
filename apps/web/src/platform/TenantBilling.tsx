@@ -40,13 +40,16 @@ interface View {
  */
 export function TenantBillingPanel({
   tenantId,
+  revision = 0,
   onChanged,
 }: {
   tenantId: string;
+  /** Muda quando a assinatura é salva acima: recarrega o "Liberado até" e as faturas. */
+  revision?: number;
   onChanged?(): void;
 }) {
   const toast = useToast();
-  const data = useLoad<View | null>(`/platform/billing/tenants/${tenantId}`);
+  const data = useLoad<View | null>(`/platform/billing/tenants/${tenantId}`, [revision]);
   const [busy, setBusy] = useState<string | null>(null);
   const [manual, setManual] = useState(false);
   const [form, setForm] = useState({ description: '', amount: '', dueDate: '' });

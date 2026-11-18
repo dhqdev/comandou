@@ -1,4 +1,4 @@
-import { SUBSCRIPTION_LABELS } from '@comandou/shared';
+import { spDate, SUBSCRIPTION_LABELS } from '@comandou/shared';
 import {
   ArrowLeft,
   Copy,
@@ -254,7 +254,9 @@ export function TenantsPage() {
   );
 }
 
-const toInputDate = (iso: string | null) => (iso ? iso.slice(0, 10) : '');
+// O dia é o de Brasília: o fim do período é gravado como 23:59:59 (-03:00), que em UTC já é o dia
+// seguinte. Cortar o texto ISO mostrava um dia a mais no campo (e a cada "Salvar" a data andava).
+const toInputDate = (iso: string | null) => (iso ? spDate(iso) : '');
 const fromInputDate = (d: string) =>
   d ? new Date(`${d}T23:59:59-03:00`).toISOString() : undefined;
 
@@ -317,6 +319,8 @@ export function TenantDetailPage() {
   const [reason, setReason] = useState('');
   const [newName, setNewName] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
+  // Muda a cada assinatura salva: a parte de Cobrança logo abaixo recarrega junto.
+  const [billingRev, setBillingRev] = useState(0);
   const [sub, setSub] = useState<{
     planId: string;
     status: string;
@@ -374,7 +378,11 @@ export function TenantDetailPage() {
           },
         }),
       form.status === 'cancelled' ? 'Assinatura cancelada' : 'Assinatura salva',
-    ).then((ok) => ok && setSub(null));
+    ).then((ok) => {
+      if (!ok) return;
+      setSub(null);
+      setBillingRev((n) => n + 1);
+    });
   };
 
   const closeSheet = () => {
@@ -556,7 +564,7 @@ export function TenantDetailPage() {
                 </Button>
               </div>
             </form>
-            <TenantBillingPanel tenantId={t.id} />
+            <TenantBillingPanel tenantId={t.id} revision={billingRev} onChanged={reload} />
           </div>
         )}
 
