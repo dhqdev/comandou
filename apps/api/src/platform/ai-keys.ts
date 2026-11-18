@@ -41,7 +41,24 @@ export function systemKey(
   return cli ? { key: cli, kind: 'clients' } : null;
 }
 
-/** Com qual chave saiu uma chamada do sistema (`typed` = digitada no teste, ainda não salva). */
+/**
+ * Chave dos sites com IA (comandou.com): a mesma dos restaurantes; sem ela, a do dono. Desde a
+ * 0.171 não existe mais chave própria dos sites (a que estava salva fica sem uso).
+ */
+export function siteKey(
+  secret: string | undefined,
+  r: KeyRow,
+): { key: string; kind: KeyKind } | null {
+  const cli = openKey(secret, r, 'clients');
+  if (cli) return { key: cli, kind: 'clients' };
+  const own = openKey(secret, r, 'owner');
+  return own ? { key: own, kind: 'owner' } : null;
+}
+
+/**
+ * Com qual chave saiu uma chamada do sistema (`typed` = digitada no teste, ainda não salva;
+ * `site` = a antiga chave própria dos sites, só em registros de antes da 0.171).
+ */
 export type UsageKey = KeyKind | 'site' | 'typed';
 
 /**

@@ -24,9 +24,8 @@ type Off = 'disabled' | 'no_key' | 'daily' | 'monthly' | null;
 interface Overview {
   settings: {
     enabled: boolean;
-    hasOwnKey: boolean;
     keyConfigured: boolean;
-    usingKey: 'site' | 'owner' | 'clients' | null;
+    usingKey: 'owner' | 'clients' | null;
     model: string;
     maxTokensPerSite: number;
     dailyTokens: number;
@@ -97,8 +96,7 @@ interface Draft {
 
 const SOURCE: Record<Kind, string> = { site: 'Site', maps: 'Google Maps', text: 'Descrição' };
 const KEY_LABEL = {
-  site: 'a chave desta seção',
-  owner: 'a sua chave',
+  owner: 'a sua chave (falta a dos restaurantes)',
   clients: 'a chave dos restaurantes',
 };
 const OFF_TEXT: Record<Exclude<Off, null>, string> = {
@@ -163,7 +161,7 @@ function Summary({ o }: { o: Overview }) {
           <span className="adm-sub">
             {o.off
               ? OFF_TEXT[o.off]
-              : `Usando ${KEY_LABEL[s.usingKey ?? 'owner']} e o modelo ${s.model}.`}
+              : `Usando ${KEY_LABEL[s.usingKey ?? 'clients']} e o modelo ${s.model}.`}
           </span>
         </div>
       </div>
@@ -241,7 +239,7 @@ function SettingsForm({ o, onSaved }: { o: Overview; onSaved(): void }) {
           dailyTokens: Number(f.dailyTokens) || 0,
           monthlyTokens: Number(f.monthlyTokens) || 0,
           perIpDaily: Number(f.perIpDaily) || 4,
-          // A chave própria dos sites fica em Super Admin › Credenciais (ausente aqui = mantém).
+          // Os sites usam a chave dos restaurantes (Super Admin › Credenciais).
         },
       });
       toast('Site com IA salvo', 'success');
@@ -266,7 +264,7 @@ function SettingsForm({ o, onSaved }: { o: Overview; onSaved(): void }) {
             />
           </div>
           <div className="cm-form__block">
-            <KeyInUse ids={['openrouter_site', 'openrouter_owner', 'openrouter_clients']} />
+            <KeyInUse ids={['openrouter_clients', 'openrouter_owner']} />
           </div>
           <TextField
             label="Modelo"

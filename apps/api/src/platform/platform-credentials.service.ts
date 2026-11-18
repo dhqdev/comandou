@@ -10,7 +10,6 @@ import { MAIL_SECRET } from '../mail/mail.service';
 import { PLATFORM_TOKEN_CONTEXT } from '../online-pay/online-pay.service';
 import { GITHUB_KEY_CONTEXT } from '../tickets/tickets.service';
 import { ADMIN_KEY_CONTEXT, CLIENT_KEY_CONTEXT, OWNER_KEY_CONTEXT } from './ai-keys';
-import { SITE_KEY_CONTEXT } from './site/site-ai.service';
 import type { Actor } from './platform.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
 
@@ -74,13 +73,10 @@ export class PlatformCredentialsService {
 
   async status() {
     const e = this.env;
-    const [ai, site, billing, pay, mail, backup, pipeline, focus] = await Promise.all([
+    const [ai, billing, pay, mail, backup, pipeline, focus] = await Promise.all([
       this.one<{ owner: Sealed; clients: Sealed; admin: Sealed }>(
         `SELECT owner_api_key_enc AS owner, api_key_enc AS clients, admin_api_key_enc AS admin
            FROM platform_ai_settings WHERE id`,
-      ),
-      this.one<{ key: Sealed }>(
-        `SELECT api_key_enc AS key FROM platform_site_ai_settings WHERE id`,
       ),
       this.one<{ api: Sealed; hook: boolean; registered: boolean; env: string }>(
         `SELECT api_key_enc AS api, webhook_token_enc IS NOT NULL AS hook,
@@ -150,7 +146,6 @@ export class PlatformCredentialsService {
       { id: 'openrouter_clients', required: true, ...this.key(ai?.clients, CLIENT_KEY_CONTEXT) },
       { id: 'openrouter_owner', required: false, ...this.key(ai?.owner, OWNER_KEY_CONTEXT) },
       { id: 'openrouter_admin', required: false, ...this.key(ai?.admin, ADMIN_KEY_CONTEXT) },
-      { id: 'openrouter_site', required: false, ...this.key(site?.key, SITE_KEY_CONTEXT) },
       { id: 'resend', required: true, ...this.key(mail?.key, MAIL_SECRET.resend) },
       {
         id: 'asaas',

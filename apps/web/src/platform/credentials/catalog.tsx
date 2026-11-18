@@ -111,7 +111,7 @@ export const CREDENTIALS: CredDef[] = [
     title: 'OpenRouter · chave dos restaurantes',
     group: 'painel',
     purpose:
-      'O assistente do chat e do WhatsApp de cada restaurante, a importação do cardápio e a busca no Google Maps gastam desta chave.',
+      'O assistente do chat e do WhatsApp de cada restaurante, a importação do cardápio, a busca no Google Maps e o site montado pela IA no comandou.com gastam desta chave.',
     fields: [
       {
         name: 'Colar a chave',
@@ -143,6 +143,10 @@ export const CREDENTIALS: CredDef[] = [
       </>,
       <>Copie a chave (começa com {code('sk-or-v1-')}), cole abaixo, teste e salve.</>,
       <>O limite de tokens de cada restaurante e o modelo ficam em Super Admin › Tokens de IA.</>,
+      <>
+        Os sites com IA usam esta mesma chave; os limites e o modelo deles ficam em Super Admin ›
+        Site › Site com IA.
+      </>,
     ],
     links: [
       { label: 'Chaves do OpenRouter', href: 'https://openrouter.ai/settings/keys' },
@@ -218,40 +222,6 @@ export const CREDENTIALS: CredDef[] = [
         href: 'https://openrouter.ai/settings/management-keys',
       },
     ],
-  },
-  {
-    id: 'openrouter_site',
-    title: 'OpenRouter · chave dos sites com IA',
-    group: 'painel',
-    purpose:
-      'Opcional. O site montado pela IA no comandou.com gasta desta chave. Sem ela, usa a sua chave (ou a dos restaurantes).',
-    fields: [
-      {
-        name: 'Colar a chave',
-        text: (
-          <>
-            uma chave só para o site ({code('sk-or-v1-…')}), com limite baixo. Sem ela, o site usa a
-            sua chave; sem a sua, a dos restaurantes.
-          </>
-        ),
-      },
-    ],
-    check: (
-      <>
-        Em Site › Site com IA, a linha <em>Chave em uso</em> mostra “OpenRouter · chave dos sites”
-        com o final dela. Monte um site de teste em comandou.com para conferir.
-      </>
-    ),
-    steps: [
-      <>
-        Crie uma chave só para o site em <strong>openrouter.ai › Settings › Keys</strong>, com um
-        limite de gasto baixo: qualquer visitante pode gerar um site.
-      </>,
-      <>
-        Cole abaixo e salve. Limites de tokens e o modelo ficam em Super Admin › Site › Site com IA.
-      </>,
-    ],
-    links: [{ label: 'Chaves do OpenRouter', href: 'https://openrouter.ai/settings/keys' }],
   },
   {
     id: 'resend',

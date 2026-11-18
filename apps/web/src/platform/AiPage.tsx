@@ -665,7 +665,7 @@ function KeyCard({ kind, o }: { kind: KeyKind; o: AiOverview }) {
         </dl>
         <p className="adm-sub">
           {owner
-            ? `Pelo sistema este mês: ${usd(o.system.costUsd)} em ${int(o.system.calls)} chamada(s)${o.system.bySource.length ? ` (${o.system.bySource.map((x) => `${x.label} ${compact(x.tokens)}`).join(', ')})` : ''}.${o.system.byKey.clients > 0 ? ` Desse total, ${usd(o.system.byKey.clients, 4)} saiu da chave dos restaurantes.` : ''}${o.system.byKey.site > 0 ? ` ${usd(o.system.byKey.site, 4)} saiu da chave dos sites.` : ''}`
+            ? `Pelo sistema este mês: ${usd(o.system.costUsd)} em ${int(o.system.calls)} chamada(s)${o.system.bySource.length ? ` (${o.system.bySource.map((x) => `${x.label} ${compact(x.tokens)}`).join(', ')})` : ''}.${o.system.byKey.clients > 0 ? ` Desse total, ${usd(o.system.byKey.clients, 4)} saiu da chave dos restaurantes.` : ''}${o.system.byKey.site > 0 ? ` ${usd(o.system.byKey.site, 4)} saiu da antiga chave dos sites.` : ''}`
             : `Pelos restaurantes este mês: ${usd(o.month.costUsd)} em ${int(o.month.calls)} pergunta(s).${o.system.byKey.clients > 0 ? ` O sistema gastou mais ${usd(o.system.byKey.clients, 4)} desta chave.` : ''}`}
           {outside !== null &&
             outside > 0.0001 &&
@@ -684,7 +684,7 @@ function KeyCard({ kind, o }: { kind: KeyKind; o: AiOverview }) {
 const VIA: Record<string, string> = {
   owner: 'sua chave',
   clients: 'chave dos restaurantes',
-  site: 'chave dos sites',
+  site: 'antiga chave dos sites',
   typed: 'chave digitada no teste',
 };
 

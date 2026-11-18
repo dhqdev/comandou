@@ -14,7 +14,6 @@ import {
   OpenRouterEditor,
   PagBankEditor,
   ResendEditor,
-  SiteKeyEditor,
 } from './editors';
 import type { CredentialItem } from './KeyInUse';
 import './credentials.css';
@@ -114,8 +113,6 @@ export function CredentialsPage() {
         return <OpenRouterEditor kind="owner" onSaved={reload} />;
       case 'openrouter_admin':
         return <OpenRouterEditor kind="admin" onSaved={reload} />;
-      case 'openrouter_site':
-        return <SiteKeyEditor onSaved={reload} />;
       case 'resend':
         return <ResendEditor onSaved={reload} />;
       case 'asaas':
@@ -264,7 +261,6 @@ export function CredentialsPage() {
                 {jump('pagbank', 'PagBank')}
                 {jump('openrouter_owner', 'Sua chave do OpenRouter')}
                 {jump('openrouter_admin', 'Saldo do OpenRouter')}
-                {jump('openrouter_site', 'Chave dos sites')}
                 {jump('github_pipeline', 'GitHub da esteira')}
                 {jump('ifood', 'iFood')}
               </div>

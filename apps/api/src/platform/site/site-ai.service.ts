@@ -14,9 +14,8 @@ import { OpenRouterClient, OpenRouterError } from '../../chat/openrouter';
 import { decodeEntities, extractPage, pageForModel } from '../../chat/store-import';
 import { mapsPlaceName } from '../../common/maps-link';
 import { safeFetch, SafeFetchError } from '../../common/safe-fetch';
-import { open, seal } from '../../common/secret-box';
 import { ENV, Env } from '../../config/env';
-import { type KeyRow, recordSystemUsage, systemKey } from '../ai-keys';
+import { type KeyKind, type KeyRow, recordSystemUsage, siteKey } from '../ai-keys';
 import { PlatformDb, platformAudit } from '../platform-db.service';
 import type { Actor } from '../platform.service';
 import {
@@ -28,15 +27,11 @@ import {
   type SiteAiKind,
 } from './site-ai';
 
-export const SITE_KEY_CONTEXT = 'ai:openrouter:site';
-const KEY_CONTEXT = SITE_KEY_CONTEXT;
 /** O rascunho pode ser levado para o cadastro por este tempo depois de gerado. */
 const CLAIM_HOURS = 3;
 
 export const SiteAiSettingsBody = z.object({
   enabled: z.boolean(),
-  /** Ausente: mantém; vazio: apaga (volta a usar a sua chave); texto: troca. */
-  apiKey: z.string().trim().max(300).optional(),
   model: z
     .string()
     .trim()
@@ -57,7 +52,6 @@ export type SiteAiSourceInput = z.infer<typeof SiteAiSource>;
 
 interface SettingsRow {
   enabled: boolean;
-  api_key_enc: Buffer | null;
   model: string;
   max_tokens_per_site: number;
   daily_tokens: string;
@@ -73,7 +67,7 @@ const hash = (token: string) => createHash('sha256').update(token).digest();
 
 /**
  * Site do restaurante criado com IA, no comandou.com. Só funciona com uma chave do OpenRouter
- * (a própria desta seção ou a sua, de Super Admin › Tokens) e dentro dos limites desta seção:
+ * (a dos restaurantes ou, sem ela, a sua, de Super Admin › Credenciais) e dentro dos limites desta seção:
  * tokens por site, por dia e por mês e sites por visitante. Cada site gerado fica registrado
  * (tokens, custo, rascunho) e, se a pessoa criar o restaurante, o rascunho vai junto: os
  * primeiros passos começam por ele sem gastar o limite do restaurante.
@@ -94,23 +88,14 @@ export class SiteAiService {
     return r!;
   }
 
-  /** A chave que vale: a desta seção; sem ela, a sua (Tokens); sem ela, a dos restaurantes. */
-  private async key(
-    r: SettingsRow,
-  ): Promise<{ key: string; kind: 'site' | 'owner' | 'clients' } | null> {
+  /** A chave que vale: a dos restaurantes; sem ela, a sua (as duas de Credenciais). */
+  private async key(): Promise<{ key: string; kind: KeyKind } | null> {
     const secret = this.env.INTEGRATIONS_KEY;
     if (!secret) return null;
-    if (r.api_key_enc) {
-      try {
-        return { key: open(secret, r.api_key_enc, KEY_CONTEXT), kind: 'site' };
-      } catch {
-        /* chave salva com outra INTEGRATIONS_KEY: cai para a de Tokens */
-      }
-    }
     const [k] = await this.db.query<KeyRow>(
       `SELECT api_key_enc, owner_api_key_enc FROM platform_ai_settings WHERE id`,
     );
-    return k ? systemKey(secret, k) : null;
+    return k ? siteKey(secret, k) : null;
   }
 
   private async spent() {
@@ -126,7 +111,7 @@ export class SiteAiService {
 
   private async off(r: SettingsRow): Promise<SiteAiOff> {
     if (!r.enabled) return 'disabled';
-    if (!(await this.key(r))) return 'no_key';
+    if (!(await this.key())) return 'no_key';
     const s = await this.spent();
     if (Number(r.daily_tokens) > 0 && s.day >= Number(r.daily_tokens)) return 'daily';
     if (Number(r.monthly_tokens) > 0 && s.month >= Number(r.monthly_tokens)) return 'monthly';
@@ -238,7 +223,7 @@ export class SiteAiService {
           HttpStatus.TOO_MANY_REQUESTS,
         );
     }
-    const key = (await this.key(r))!;
+    const key = (await this.key())!;
     const { text, images, ref, web } = await this.input(src);
     const client = new OpenRouterClient(this.env.OPENROUTER_BASE_URL, key.key);
     const source = { kind: src.kind, value: src.value.slice(0, 2000) };
@@ -332,7 +317,7 @@ export class SiteAiService {
   async overview() {
     const r = await this.row();
     const [key, off, spent, totals, days, log, clients] = await Promise.all([
-      this.key(r),
+      this.key(),
       this.off(r),
       this.spent(),
       this.db.query<{
@@ -395,7 +380,6 @@ export class SiteAiService {
     return {
       settings: {
         enabled: r.enabled,
-        hasOwnKey: !!r.api_key_enc,
         keyConfigured: !!this.env.INTEGRATIONS_KEY,
         /** Qual chave os sites estão usando agora. */
         usingKey: key?.kind ?? null,
@@ -428,27 +412,15 @@ export class SiteAiService {
   }
 
   async save(b: SiteAiSettingsInput, a: Actor) {
-    if (b.apiKey && !this.env.INTEGRATIONS_KEY)
-      throw new UnprocessableEntityException('Defina a INTEGRATIONS_KEY para guardar a chave');
     await this.db.tx(async (c) => {
+      // A antiga chave própria dos sites sai junto no primeiro salvar (os sites usam a dos
+      // restaurantes desde a 0.171).
       await c.query(
         `UPDATE platform_site_ai_settings
             SET enabled = $1, model = $2, max_tokens_per_site = $3, daily_tokens = $4,
-                monthly_tokens = $5, per_ip_daily = $6,
-                api_key_enc = CASE WHEN $7::boolean THEN NULL
-                                   WHEN $8::bytea IS NOT NULL THEN $8 ELSE api_key_enc END,
-                updated_at = now()
+                monthly_tokens = $5, per_ip_daily = $6, api_key_enc = NULL, updated_at = now()
           WHERE id`,
-        [
-          b.enabled,
-          b.model,
-          b.maxTokensPerSite,
-          b.dailyTokens,
-          b.monthlyTokens,
-          b.perIpDaily,
-          b.apiKey === '',
-          b.apiKey ? seal(this.env.INTEGRATIONS_KEY!, b.apiKey, KEY_CONTEXT) : null,
-        ],
+        [b.enabled, b.model, b.maxTokensPerSite, b.dailyTokens, b.monthlyTokens, b.perIpDaily],
       );
       await platformAudit(c, {
         adminId: a.admin.id,
@@ -461,7 +433,6 @@ export class SiteAiService {
           dailyTokens: b.dailyTokens,
           monthlyTokens: b.monthlyTokens,
           perIpDaily: b.perIpDaily,
-          key: b.apiKey === '' ? 'removed' : b.apiKey ? 'changed' : 'kept',
         },
         ip: a.ip,
       });

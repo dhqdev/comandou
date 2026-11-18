@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.171.0',
+    date: '2026-11-18',
+    title: 'Uma chave do OpenRouter a menos: sites com IA usam a dos restaurantes',
+    summary:
+      'A chave própria dos sites com IA saiu de Credenciais: o site montado pela IA no comandou.com passa a gastar da chave dos restaurantes (e, sem ela, da sua). Os limites e o modelo dos sites continuam em Site › Site com IA.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Super Admin › Credenciais: "OpenRouter · chave dos sites com IA" saiu. Os sites usam a chave dos restaurantes; sem ela, a sua chave. A chave antiga dos sites deixa de ser usada e é apagada no primeiro salvar da aba Site com IA.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Site › Site com IA mostra qual chave está pagando os sites (a dos restaurantes ou a sua) e Tokens de IA chama de "antiga chave dos sites" o gasto que ainda saiu dela neste mês.',
+      },
+    ],
+  },
+  {
     version: '0.170.0',
     date: '2026-11-18',
     title: 'Filtro escolhido fica na barra e detalhe do pedido mais colorido',
