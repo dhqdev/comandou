@@ -1,10 +1,11 @@
 import { ArrowRightLeft, Copy, Database, RotateCcw, Trash2, Truck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { Alert, Modal, Select, Spinner, useToast } from '../design-system';
+import { Alert, Modal, Select, Spinner, TextField, useToast } from '../design-system';
 import { dateTime } from '../features/format';
 import { api } from '../lib/api';
-import type { DbJob, DbServers, TenantDatabase, TenantDetail } from './types';
+import { useLoad } from './OverviewPages';
+import type { BackupSettings, DbJob, DbServers, TenantDatabase, TenantDetail } from './types';
 import { ago, bytes, Dot, Level, Tag } from './ui';
 
 export const DB_STATUS: Record<TenantDatabase['status'], [string, Level]> = {
@@ -400,9 +401,10 @@ export function DatabasePanel({
 }
 
 /**
- * Excluir restaurante em dois toques: abre, confirma e pronto. Não pede para suspender antes
- * (entrar na fila de exclusão já tira o restaurante do ar) nem guarda backup, a não ser que a
- * pessoa marque a caixa. Usado no menu do topo do restaurante e na aba Banco de dados.
+ * Excluir restaurante: pede o código do autenticador (mesmo em navegador confiável, porque não
+ * dá para desfazer) e já vem com "Guardar um backup final" marcado quando o backup está ligado.
+ * Não pede para suspender antes (entrar na fila de exclusão já tira o restaurante do ar).
+ * Usado no menu do topo do restaurante e na aba Banco de dados.
  */
 export function DeleteTenantModal({
   t,
@@ -416,11 +418,17 @@ export function DeleteTenantModal({
   onChanged: (d: TenantDetail) => void;
 }) {
   const toast = useToast();
+  const settings = useLoad<BackupSettings>(open ? '/platform/backups/settings' : null);
+  const backupReady = !!settings.data?.enabled && !!settings.data?.configured;
   const [backup, setBackup] = useState(false);
+  const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (open) setBackup(false);
+    if (open) setCode('');
   }, [open]);
+  useEffect(() => {
+    if (open) setBackup(backupReady);
+  }, [open, backupReady]);
   const can = ['provisioned', 'suspended', 'failed'].includes(t.status);
 
   async function remove() {
@@ -428,7 +436,7 @@ export function DeleteTenantModal({
     try {
       const r = await api<TenantDetail>(`/platform/tenants/${t.id}/delete`, {
         method: 'POST',
-        json: { backup },
+        json: { backup, code },
       });
       toast('Excluindo o restaurante', 'success');
       onChanged(r);
@@ -452,7 +460,7 @@ export function DeleteTenantModal({
           </button>
           <button
             className="adm-action adm-action--danger"
-            disabled={busy || !can}
+            disabled={busy || !can || code.length !== 6}
             onClick={() => void remove()}
           >
             <Trash2 size={14} /> Excluir de vez
@@ -472,15 +480,30 @@ export function DeleteTenantModal({
             <strong>não dá para desfazer</strong>.
           </p>
           <label className="adm-check">
-            <input type="checkbox" checked={backup} onChange={(e) => setBackup(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={backup}
+              disabled={!backupReady}
+              onChange={(e) => setBackup(e.target.checked)}
+            />
             <span>
               <strong>Guardar um backup final antes</strong>
               <span className="adm-sub">
-                Desmarcado, nada é guardado. Marcado, o backup vai para Backups › Bases excluídas
-                (precisa do backup configurado).
+                {backupReady
+                  ? 'Vai para Backups › Bases excluídas. Desmarcado, nada é guardado.'
+                  : 'O backup não está ligado em Backups, então nada será guardado.'}
               </span>
             </span>
           </label>
+          <TextField
+            label="Código do autenticador"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            hint="Os 6 números do aplicativo, pedidos sempre que você exclui um restaurante."
+          />
         </>
       )}
     </Modal>

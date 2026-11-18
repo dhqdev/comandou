@@ -1,5 +1,6 @@
 import { isMoneyString, validateTenantSlug } from '@comandou/shared';
 import { z } from 'zod';
+import { newPassword } from '../common/schemas';
 
 export const LoginInput = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
@@ -89,7 +90,7 @@ export const NewTenant = z.object({
   name: z.string().trim().min(1).max(120),
   adminEmail: z.string().trim().toLowerCase().email().max(254),
   adminName: z.string().trim().min(1).max(120),
-  adminPassword: z.string().min(10).max(200),
+  adminPassword: newPassword(10),
   planCode: z.string().trim().min(1).max(40).optional(),
   timezone: z.enum(BR_TIMEZONES).default('America/Sao_Paulo'),
   profile: TenantProfileBody.optional(),
@@ -103,6 +104,11 @@ export type NewTenantInput = Omit<z.infer<typeof NewTenant>, 'timezone' | 'sendA
 
 /** Excluir restaurante: basta confirmar no painel. Backup final só se pedido. */
 export const DeleteTenant = z.object({
+  /** Código do autenticador, pedido sempre (mesmo em navegador confiável): exclusão não volta. */
+  code: z
+    .string()
+    .trim()
+    .regex(/^[0-9]{6}$/, 'Digite os 6 números do autenticador'),
   confirm: z.string().trim().max(60).optional(),
   reason: z.string().trim().max(300).optional(),
   backup: z.boolean().optional(),
@@ -164,7 +170,7 @@ export const SupportAccess = z.object({ userId: z.string().uuid().optional() });
 export const RevokeSessions = z.object({ userId: z.string().uuid().optional() });
 export const ResetPassword = z.object({
   userId: z.string().uuid(),
-  password: z.string().min(10).max(200),
+  password: newPassword(10),
 });
 export const RenameTenant = z.object({ name: z.string().trim().min(1).max(120) });
 

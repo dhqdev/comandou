@@ -25,6 +25,27 @@ export class HttpExceptionFilter implements ExceptionFilter {
       res.status(status).json({ statusCode: status, ...payload, path: req.originalUrl });
       return;
     }
+    // Erro do leitor do corpo (body-parser/http-errors): corpo grande, JSON quebrado, charset ou
+    // compressão inválidos. É erro de quem mandou (4xx), não do servidor; mensagem própria, sem
+    // repetir o que o leitor disse.
+    const client = exception as { status?: unknown; expose?: unknown; type?: unknown } | null;
+    if (
+      client &&
+      client.expose === true &&
+      typeof client.status === 'number' &&
+      client.status >= 400 &&
+      client.status < 500
+    ) {
+      const status = client.status;
+      const message =
+        status === 413
+          ? 'O envio é grande demais'
+          : status === 415
+            ? 'Formato de envio não aceito'
+            : 'Dados inválidos';
+      res.status(status).json({ statusCode: status, message, path: req.originalUrl });
+      return;
+    }
     // Violações de integridade do Postgres viram 4xx claros (sem expor detalhes do banco).
     const pgCode = (exception as { code?: string } | null)?.code;
     const mapped: Record<string, [number, string]> = {

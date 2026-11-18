@@ -3,6 +3,7 @@
  * JavaScript: leem só as tags do HTML. O Nginx manda o robô para cá (só ele; a pessoa abre o
  * cardápio normal), e esta página leva o nome, a descrição e a foto da loja, e não as do Comandou.
  */
+import { createHash } from 'node:crypto';
 
 export interface LinkPreview {
   title: string;
@@ -34,6 +35,17 @@ const esc = (s: string) =>
 export function oneLine(s: string | null | undefined, max = 200): string {
   const t = (s ?? '').replace(/\s+/g, ' ').trim();
   return t.length > max ? `${t.slice(0, max - 1).trimEnd()}…` : t;
+}
+
+/** O único script da prévia: leva a pessoa para o cardápio. */
+export function previewScript(target: string): string {
+  return `location.replace(${JSON.stringify(target).replace(/</g, '\\u003c')});`;
+}
+
+/** CSP da prévia: só o script acima (pelo hash), sem nada de fora. */
+export function previewCsp(target: string): string {
+  const hash = createHash('sha256').update(previewScript(target)).digest('base64');
+  return `default-src 'none'; script-src 'sha256-${hash}'; img-src https: data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`;
 }
 
 export function linkPreviewHtml(p: LinkPreview): string {
@@ -73,7 +85,7 @@ export function linkPreviewHtml(p: LinkPreview): string {
 <meta name="description" content="${d}" />
 <meta name="robots" content="noindex" />
 ${tags.join('\n')}
-<script>location.replace(${JSON.stringify(p.target).replace(/</g, '\\u003c')});</script>
+<script>${previewScript(p.target)}</script>
 </head>
 <body>
 <p><a href="${target}">${t}</a></p>

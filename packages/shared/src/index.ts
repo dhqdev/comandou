@@ -23,3 +23,4 @@ export * from './online-pay';
 export * from './quote';
 export * from './pin';
 export * from './courier-score';
+export * from './security';

@@ -200,14 +200,17 @@ function AuthForms() {
               />
             </Field>
           )}
-          <Field label="Senha" hint={mode === 'signup' ? 'Pelo menos 6 caracteres.' : undefined}>
+          <Field
+            label="Senha"
+            hint={mode === 'signup' ? 'Pelo menos 8 caracteres, sem senha óbvia.' : undefined}
+          >
             <span className="auth__input">
               <LockKeyhole size={18} aria-hidden />
               <input
                 type={showPass ? 'text' : 'password'}
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 required
-                minLength={mode === 'signup' ? 6 : 1}
+                minLength={mode === 'signup' ? 8 : 1}
                 value={form.password}
                 onChange={set('password')}
               />
@@ -851,12 +854,12 @@ export function PasswordScreen() {
           }
         }}
       >
-        <Field label="Nova senha" hint="Pelo menos 6 caracteres.">
+        <Field label="Nova senha" hint="Pelo menos 8 caracteres, sem senha óbvia.">
           <input
             type="password"
             autoComplete="new-password"
             required
-            minLength={6}
+            minLength={8}
             value={form.next}
             onChange={(e) => setForm({ ...form, next: e.target.value })}
           />
@@ -1003,12 +1006,12 @@ export function ForgotPasswordScreen() {
                 onChange={(e) => setForm({ ...form, code: e.target.value.replace(/\D/g, '') })}
               />
             </Field>
-            <Field label="Nova senha" hint="Pelo menos 6 caracteres.">
+            <Field label="Nova senha" hint="Pelo menos 8 caracteres, sem senha óbvia.">
               <input
                 type="password"
                 autoComplete="new-password"
                 required
-                minLength={6}
+                minLength={8}
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
               />

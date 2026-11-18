@@ -21,6 +21,7 @@ import { CUSTOMER_AVATARS } from '@comandou/shared';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
+import { newPassword, notPersonal } from '../common/schemas';
 import { ctxOf } from '../common/context';
 import { CurrentTenant, CurrentUser, Public, RequirePermission } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
@@ -53,7 +54,8 @@ const phone = z
   .trim()
   .max(25)
   .refine((v) => /^[0-9]{10,11}$/.test(normalizePhone(v)), 'Telefone inválido (DDD + número)');
-const password = z.string().min(6, 'A senha precisa de pelo menos 6 caracteres').max(200);
+// Senha nova do cliente: 8 caracteres e nada óbvio (quem já tem senha de 6 continua entrando).
+const password = newPassword();
 const email = z
   .string()
   .trim()
@@ -62,13 +64,17 @@ const email = z
   .refine((v) => !v || z.string().email().safeParse(v).success, 'E-mail inválido')
   .transform((v) => v || undefined);
 
-const Signup = z.object({
-  name: text(80),
-  phone,
-  email: email.optional(),
-  password,
-  marketingOptIn: z.boolean().optional(),
-});
+const Signup = z
+  .object({
+    name: text(80),
+    phone,
+    email: email.optional(),
+    password,
+    marketingOptIn: z.boolean().optional(),
+  })
+  .superRefine(
+    notPersonal((v) => ({ password: v.password, personal: [v.phone, v.email, v.name] })),
+  );
 const Login = z.object({ phone: z.string().trim().max(25), password: z.string().min(1).max(200) });
 const Profile = z
   .object({
@@ -110,11 +116,13 @@ function sendPhoto(res: Response, f: { type: string; bytes: Buffer }) {
 /** `current` ficou opcional e é ignorado: o cliente já entrou, só escolhe a nova. */
 const Password = z.object({ current: z.string().max(200).optional(), next: password });
 const Forgot = z.object({ phone: z.string().trim().max(25) });
-const Reset = z.object({
-  phone: z.string().trim().max(25),
-  code: z.string().trim().max(12),
-  password,
-});
+const Reset = z
+  .object({
+    phone: z.string().trim().max(25),
+    code: z.string().trim().max(12),
+    password,
+  })
+  .superRefine(notPersonal((v) => ({ password: v.password, personal: [v.phone] })));
 const Address = z.object({
   label: optText(30),
   street: text(120),

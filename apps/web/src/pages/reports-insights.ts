@@ -2,7 +2,7 @@
  * Inteligência dos relatórios: períodos prontos, engenharia de cardápio, curva ABC e os
  * "insights" (frases curtas com o que o gerente deve olhar). Tudo puro, sem tela, para testar.
  */
-import { CHANNEL_LABELS, formatBRL, toCents } from '@comandou/shared';
+import { CHANNEL_LABELS, csvText, formatBRL, toCents } from '@comandou/shared';
 import type { OrderChannel, PaymentMethod } from '@comandou/shared';
 
 export interface PeriodTotals {
@@ -513,7 +513,8 @@ export function productsCsv(rows: InsightProduct[]) {
     'Curva ABC',
     'Engenharia de cardápio',
   ];
-  const esc = (s: string) => (/[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
+  // Nome de produto pode vir de importação ou do iFood: nunca vira fórmula na planilha.
+  const esc = csvText;
   const lines = rows.map((r) =>
     [
       esc(r.name),

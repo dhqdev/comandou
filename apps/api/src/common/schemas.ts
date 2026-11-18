@@ -5,6 +5,8 @@ import {
   ORDER_CHANNELS,
   ORDER_STATUSES,
   PAYMENT_METHODS,
+  PASSWORD_MIN,
+  weakPasswordReason,
 } from '@comandou/shared';
 import { z } from 'zod';
 
@@ -15,6 +17,32 @@ export const money = z
   .refine((v) => !v.startsWith('-'), 'valor não pode ser negativo');
 
 export const uuid = z.string().uuid();
+
+/**
+ * Senha NOVA (cadastro, troca, nova senha): mínimo e recusa das senhas óbvias. O login continua
+ * aceitando qualquer senha já cadastrada, então ninguém fica para fora por causa da regra.
+ */
+export const newPassword = (min = PASSWORD_MIN) =>
+  z
+    .string()
+    .max(200)
+    .superRefine((v, ctx) => {
+      const why = weakPasswordReason(v, [], min);
+      if (why) ctx.addIssue({ code: 'custom', message: why });
+    });
+
+/** A senha não pode ser o e-mail, o telefone ou o nome que vieram no mesmo formulário. */
+export function notPersonal<T extends object>(
+  pick: (v: T) => { password?: string | null; personal: (string | null | undefined)[] },
+) {
+  return (v: T, ctx: z.RefinementCtx) => {
+    const { password, personal } = pick(v);
+    // Senha óbvia por si só já foi recusada pelo newPassword(): não repete o motivo.
+    if (!password || weakPasswordReason(password, [], 0)) return;
+    const why = weakPasswordReason(password, personal, 0);
+    if (why) ctx.addIssue({ code: 'custom', path: ['password'], message: why });
+  };
+}
 export const reason = z.string().trim().min(3).max(300);
 
 const OrderItemIn = z.object({

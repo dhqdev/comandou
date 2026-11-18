@@ -20,6 +20,43 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.165.0',
+    date: '2026-11-18',
+    title: 'Segurança reforçada: links externos, senhas e exclusão de restaurante',
+    summary:
+      'Revisão de segurança com uma varredura automática de todas as rotas do sistema. Fechamos um jeito de um link "disfarçado" chegar na rede interna do servidor, as senhas novas ficaram mais fortes e excluir um restaurante agora pede o código do autenticador.',
+    notes: [
+      {
+        tag: 'segurança',
+        text: 'Links informados no sistema (cardápio por link, site com IA, fotos) não chegam mais na rede interna do servidor com endereço IPv6 que esconde um IPv4 (como [::ffff:169.254.169.254]) nem com DNS que muda de resposta entre a conferência e a conexão: o endereço é conferido na hora de conectar.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Super Admin: excluir restaurante pede o código do autenticador (mesmo em navegador confiável) e já vem com "Guardar um backup final" marcado quando o backup está ligado. Código errado fica na auditoria.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Senha nova do cliente do cardápio com pelo menos 8 caracteres (antes 6). Em todas as senhas novas (cliente, equipe e painel), senhas óbvias como 12345678, senha123, o nome da loja, o e-mail ou o telefone são recusadas. Quem já tem senha continua entrando normalmente.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Respostas da API não ficam guardadas no cache do navegador ou de proxy e saem com uma política de conteúdo fechada; a prévia do link do cardápio só roda o próprio script.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Planilhas exportadas (produtos e DRE): nome que começa com =, +, - ou @ não vira fórmula no Excel ou no Google Planilhas.',
+      },
+      {
+        tag: 'correção',
+        text: 'Envio grande demais ou mal formado responde com aviso claro em vez de "Erro interno", e as telas mostram o motivo de um campo recusado (como "Essa senha é fácil de adivinhar") em vez de só "Dados inválidos".',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Teste automático que varre as mais de 670 rotas a cada mudança: sem login, com a sessão de outro restaurante, com cada perfil da equipe, pelo endereço errado e com entradas hostis (injeção, protótipo, ids de outro restaurante). Rota pública nova só entra depois de revisada.',
+      },
+    ],
+  },
+  {
     version: '0.164.1',
     date: '2026-11-18',
     title: 'Modo escuro em azul-ardósia',

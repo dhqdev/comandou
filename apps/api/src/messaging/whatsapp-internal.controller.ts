@@ -49,8 +49,9 @@ export class WhatsAppInternalController {
 
   @Post('inbound')
   @HttpCode(202)
-  receive(@Req() req: Request, @Body(new ZodPipe(InboundBody)) b: z.infer<typeof InboundBody>) {
+  receive(@Req() req: Request, @Body() body: unknown) {
+    // Token antes do formato: sem ele, a rota é igual a uma que não existe (nem diz o que espera).
     if (!bearerMatches(req, this.env.WHATSAPP_GATEWAY_TOKEN)) throw new NotFoundException();
-    return this.inbound.receive(b);
+    return this.inbound.receive(new ZodPipe(InboundBody).transform(body));
   }
 }

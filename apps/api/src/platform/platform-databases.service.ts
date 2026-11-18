@@ -375,6 +375,22 @@ export class PlatformDatabasesService {
     });
   }
 
+  /** Tentativa de exclusão com o código do autenticador errado: fica na auditoria do painel. */
+  async deleteDenied(tenantId: string, a: Actor) {
+    await this.db.tx(async (c) => {
+      const known = (await c.query(`SELECT 1 FROM tenants WHERE id = $1`, [tenantId])).rowCount;
+      await platformAudit(c, {
+        adminId: a.admin.id,
+        action: 'platform.tenant.delete_denied',
+        entity: 'tenant',
+        entityId: tenantId,
+        tenantId: known ? tenantId : undefined,
+        data: { why: 'código do autenticador' },
+        ip: a.ip,
+      });
+    });
+  }
+
   /** Para o instalador e o painel saberem se o modo de banco próprio está ligado. */
   get mode() {
     return this.env.TENANT_DATABASE_MODE;

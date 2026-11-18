@@ -2317,6 +2317,7 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
    * continua com Pix e boleto, e o motivo fica nela (o restaurante vê na tela Assinatura).
    */
   async chargeCard(invoiceId: string, tenantId?: string): Promise<{ ok: boolean; error?: string }> {
+    if (!this.db.enabled) throw new ServiceUnavailableException('Cobrança não configurada');
     const s = await this.settingsRow();
     if (!s.enabled || !s.card_enabled)
       throw new ConflictException('Cartão automático ainda não disponível');

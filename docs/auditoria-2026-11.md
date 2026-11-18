@@ -32,8 +32,8 @@ Não substitui um teste de invasão por terceiros (continua recomendado, ver [se
 
 | # | Risco | Recomendação |
 | --- | --- | --- |
-| R1 | **Excluir restaurante** (0.138.0) é uma confirmação só, sem backup por padrão e sem o código do autenticador. Uma sessão do painel aberta num aparelho perdido apaga um cliente sem volta. | Pedir o código do autenticador na exclusão (o painel já tem `confirmCode`, usado para assinar contrato) e deixar "Guardar um backup final" marcado por padrão. |
-| R2 | Senha do cliente do cardápio com mínimo de 6 caracteres. | Subir para 8 quando houver a próxima mudança na tela de conta. |
+| R1 | ~~**Excluir restaurante** (0.138.0) é uma confirmação só, sem backup por padrão e sem o código do autenticador.~~ | **Resolvido na 0.165.0**: pede o código do autenticador sempre e o backup final vem marcado quando o backup está ligado ([security.md](security.md#revisão-de-2026-11-18-0165)). |
+| R2 | ~~Senha do cliente do cardápio com mínimo de 6 caracteres.~~ | **Resolvido na 0.165.0**: 8 caracteres e recusa de senha óbvia em toda senha nova. |
 | R3 | Sem teste de invasão externo e sem programa de divulgação de falhas. | Contratar antes de abrir para muitos clientes. |
 | R4 | WhatsApp por QR Code (Baileys) não é oficial; o número pode ser banido. | Já registrado em [risks.md](risks.md). |
 

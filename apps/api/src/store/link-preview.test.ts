@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { linkPreviewHtml, oneLine, previewPath, PRODUCT_PATH_RE } from './link-preview';
+import { createHash } from 'node:crypto';
+import { linkPreviewHtml, oneLine, previewCsp, previewPath, PRODUCT_PATH_RE } from './link-preview';
 
 describe('prévia do link do cardápio', () => {
   it('aceita só caminhos do cardápio', () => {
@@ -54,5 +55,22 @@ describe('prévia do link do cardápio', () => {
       siteName: 'Loja',
     });
     expect(html).not.toContain('og:image');
+  });
+
+  it('CSP libera só o script da própria página (pelo hash), nada injetado roda', () => {
+    const target = '/pedir/produto/</script><script>alert(1)</script>';
+    const html = linkPreviewHtml({
+      title: '"><script>alert(1)</script>',
+      description: 'x',
+      image: null,
+      imageType: null,
+      target,
+      siteName: 'Loja',
+    });
+    const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]!);
+    expect(scripts).toHaveLength(1);
+    const hash = createHash('sha256').update(scripts[0]!).digest('base64');
+    expect(previewCsp(target)).toContain(`script-src 'sha256-${hash}'`);
+    expect(previewCsp(target)).toMatch(/default-src 'none'/);
   });
 });

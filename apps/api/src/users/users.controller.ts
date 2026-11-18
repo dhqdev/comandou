@@ -18,6 +18,7 @@ import { isPinRole, PIN_ONLY_EMAIL_DOMAIN, ROLES } from '@comandou/shared';
 import { randomBytes } from 'node:crypto';
 import type { Request } from 'express';
 import { z } from 'zod';
+import { newPassword } from '../common/schemas';
 import { AuditService } from '../audit/audit.service';
 import { hashPassword, verifyPassword } from '../auth/password';
 import { assignPin } from '../auth/pin';
@@ -29,7 +30,7 @@ import { DatabaseService, Tx } from '../database/database.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { PlanService } from '../plans/plan.service';
 
-const password = z.string().min(8, 'mínimo de 8 caracteres').max(200);
+const password = newPassword();
 const pin = z.string().regex(/^[0-9]{4}$/, 'PIN de 4 números');
 /**
  * Garçom e entregador podem ser cadastrados só com o nome: entram pelo PIN (sorteado ou escolhido).

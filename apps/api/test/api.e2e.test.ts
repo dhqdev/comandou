@@ -284,8 +284,11 @@ describe('Cardápio — isolamento e autorização via API', () => {
       .set('Cookie', cookieA)
       .send({ name: 'Bebidas' })
       .expect(201);
+    // Só os dois restaurantes deste arquivo (outros testes também criam categorias).
     const rows = await ownerQuery<{ tenant_id: string }>(
-      `SELECT tenant_id FROM audit_log WHERE action = 'catalog.category_created'`,
+      `SELECT tenant_id FROM audit_log
+        WHERE action = 'catalog.category_created' AND tenant_id IN ($1, $2)`,
+      [fx.tenantA, fx.tenantB],
     );
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.every((r) => r.tenant_id === fx.tenantA)).toBe(true);

@@ -1342,3 +1342,50 @@ describe('Credenciais (painel)', () => {
     });
   });
 });
+
+describe('Excluir restaurante pede o código do autenticador', () => {
+  it('sem código, com código errado ou repetido recusa; com o código certo vai para a fila', async () => {
+    const { provisionTenant } = await import('../src/provisioning/provision');
+    const { OWNER_URL } = await import('./env');
+    const t = await provisionTenant(OWNER_URL, {
+      slug: 'pf-apagar',
+      name: 'Restaurante para apagar',
+      adminEmail: 'admin@pf-apagar.test',
+      adminName: 'Admin',
+      adminPassword: PASSWORD,
+    });
+    await ownerQuery(`UPDATE platform_admins SET totp_last_step = 0 WHERE email = $1`, [
+      ADMIN_EMAIL,
+    ]);
+    const del = (b: object) => psend('post', `/tenants/${t.tenantId}/delete`, b);
+
+    // Sem código: nem chega a olhar o restaurante.
+    await del({ backup: false }).expect(400);
+    // Código errado: 403, fica na auditoria e o restaurante continua no ar.
+    const wrong = (Number(totpCode(SECRET, totpStep())) + 1) % 1_000_000;
+    await del({ backup: false, code: String(wrong).padStart(6, '0') }).expect(403);
+    const [denied] = await ownerQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM platform_audit_log
+        WHERE action = 'platform.tenant.delete_denied' AND tenant_id = $1`,
+      [t.tenantId],
+    );
+    expect(denied!.n).toBe(1);
+    const [still] = await ownerQuery<{ status: string }>(
+      `SELECT status FROM tenants WHERE id = $1`,
+      [t.tenantId],
+    );
+    expect(still!.status).toBe('provisioned');
+
+    const code = totpCode(SECRET, totpStep());
+    await del({ backup: false, code }).expect(202);
+    const [gone] = await ownerQuery<{ status: string }>(
+      `SELECT status FROM tenants WHERE id = $1`,
+      [t.tenantId],
+    );
+    expect(gone!.status).toBe('deleting');
+    // O mesmo código não serve duas vezes (alguém que o viu na tela não repete a ação).
+    await del({ backup: false, code }).expect(403);
+    // Roda a exclusão da fila (não deixa trabalho pendente para os outros testes).
+    expect(await runQueuedDbJobs()).toEqual(['done']);
+  });
+});

@@ -1,0 +1,107 @@
+---
+name: comandou-seguranca
+description: Checklist de segurança do Comandou (OWASP Top 10:2025, ASVS 5.0 e Top 10 para LLM aplicados a este código) e como rodar a varredura de vulnerabilidades. Use ao criar ou mudar rota, upload, link externo, senha, cookie, exportação, prompt de IA ou tela do Super Admin, e ao fazer revisão ou auditoria de segurança.
+---
+
+# Segurança no Comandou
+
+Base: OWASP Top 10:2025, OWASP ASVS 5.0 (nível 2) e OWASP Top 10 para aplicações com LLM,
+traduzidos para as peças deste projeto. Histórico das revisões: `docs/security.md` e
+`docs/auditoria-2026-11.md`. Teste sempre em banco de teste ou local, **nunca em produção**.
+
+## Rodar a varredura
+
+```bash
+# Postgres 16 e Redis locais com os papéis do passo "Papéis do banco de teste" do ci.yml
+cd apps/api && npx vitest run test/security-sweep.e2e.test.ts   # ~40 s, ~6 mil requisições
+npx vitest run src/common/safe-fetch.test.ts                     # links externos (SSRF)
+cd ../../packages/shared && npx vitest run src/security.test.ts  # senhas e CSV
+pnpm audit --prod --audit-level high                             # dependências (CI)
+pnpm audit                                                       # inclui as de build
+```
+
+`security-sweep.e2e.test.ts` descobre **todas** as rotas pelo Nest (rota nova entra sozinha) e
+confere: sem sessão → 401; sessão de outro restaurante → 401; garçom, cozinha e entregador → 403
+onde não têm a permissão; rotas do painel → 404 no endereço do restaurante e 401 sem a sessão do
+Super Admin; rotas da equipe recusadas no site e no painel; injeção nos parâmetros e corpo hostil
+nunca dão 5xx (só 501/503 de "não configurado") e não mexem no outro restaurante; cabeçalhos,
+cookie, CSRF, corpo gigante e Host estranho.
+
+**Rota pública nova faz o teste falhar** (listas `PUBLIC_TENANT_ROUTES`, `OPEN_WITHOUT_TENANT`,
+`SKIP_CSRF_ROUTES`). Antes de acrescentar na lista, confira o checklist abaixo para ela.
+
+## Checklist por tipo de mudança
+
+### Rota nova (A01 Controle de acesso, ASVS V8)
+- Sem `@Public()` a rota já exige sessão do restaurante pelo Host. Ponha `@RequirePermission(...)`
+  com a permissão mínima; rota sem permissão vale para **qualquer perfil**, até o entregador.
+- Ação só do dono (plano, equipe, domínio): `ownerOnly(u)` ou papel conferido no serviço.
+- Dado do próprio usuário (agenda, conversa, corridas): filtre por `user_id` no SQL, não só pelo
+  restaurante (o RLS separa restaurantes, não pessoas).
+- `@Public()`: limite próprio (`@Throttle`), token longo (`randomBytes(24+)`, guardado em hash)
+  ou cookie do cliente conferido em cada chamada; nunca confie em id vindo do corpo.
+- `@SkipTenant()` desliga a sessão também: só com `PlatformHostGuard` + `PlatformSessionGuard`
+  (painel) ou token próprio conferido **antes** de ler o corpo (`bearerMatches`, tempo constante).
+- `@SkipCsrf()` só para webhook de terceiro com token ou assinatura.
+- Painel: ação que não volta (excluir, produção, assinar) pede `PlatformAuthService.confirmCode`
+  (código do autenticador, mesmo em navegador confiável) e grava a tentativa negada na auditoria.
+
+### Entrada de dados (A05 Injeção, ASVS V1/V2)
+- Corpo sempre por `ZodPipe` (o Zod descarta campo desconhecido: nada de `role`, `tenantId` ou
+  `price` vindos de fora). Parâmetro com `ParseUUIDPipe`. Texto com `.max()`.
+- SQL só parametrizado (`$1`); nome de coluna ou tabela montado só de lista fixa do código.
+- Dinheiro em string decimal (`money`), nunca float; preço sempre do banco.
+- Upload: tipo pelo conteúdo (`sniff`, `sniffVideo`), limite de tamanho, `nosniff`; nunca SVG
+  ou HTML servido inline.
+- Planilha exportada: texto por `csvText` (`@comandou/shared`), nunca concatenado.
+
+### Link ou URL informada por alguém (A01 SSRF, ASVS V15)
+- Sempre `safeFetch` (`common/safe-fetch.ts`). Ele confere o IP **no lookup do socket** (sem
+  DNS rebinding), recusa IPv6 com IPv4 dentro (`[::ffff:169.254.169.254]`), faixas reservadas,
+  portas fora de 80/443, e mede o corpo depois de descompactar. Nunca `fetch(url)` direto com
+  URL vinda de usuário, restaurante ou página externa.
+- `fetch` direto só para endereço fixo do `env` (Asaas, PagBank, Focus, OpenRouter, gateway).
+
+### Senha, sessão e cookie (A07 Autenticação, ASVS V6/V7)
+- Senha nova: `newPassword()` (8; painel `newPassword(10)`) de `common/schemas.ts`; com e-mail,
+  telefone ou nome no mesmo formulário, `.superRefine(notPersonal(...))`. Login aceita qualquer
+  senha já cadastrada (não trave quem tem senha antiga).
+- Hash: `hashPassword` (scrypt). Token: aleatório, só o SHA-256 no banco.
+- Cookie: `httpOnly`, `secure: env.COOKIE_SECURE`, `sameSite`, sem `Domain` (host-only).
+  Login sempre cria token novo (sem fixação); sair apaga no servidor.
+- Limite por IP **e** bloqueio por conta em todo login, PIN e código de verificação.
+
+### Resposta da API (A02 Configuração, ASVS V3/V14)
+- `common/api-headers.ts` põe `Cache-Control: no-store` e CSP `default-src 'none'` em tudo.
+  Rota que pode ter cache (foto, modelo 3D) define o seu. HTML de propósito: CSP própria com hash
+  do script (`previewCsp` em `store/link-preview.ts`). PDF fica sem CSP (leitor do navegador).
+- Erro: lance `HttpException`; o filtro esconde pilha e detalhe do banco. Nunca devolva
+  `e.message` de biblioteca para o cliente.
+- Segredo nunca na resposta, no log (pino já mascara cookie e Authorization) nem na auditoria;
+  guarde cifrado (`seal`/`open`, AES-256-GCM, com contexto) e mostre só `last4`.
+
+### Front (XSS, ASVS V3)
+- React escapa: não use `dangerouslySetInnerHTML`. HTML de terceiros (e-mail) só em
+  `<iframe sandbox="">`.
+- Link vindo de dado: só `https?://` (`linkify`/`Linkified`), com `rel="noopener noreferrer"`.
+- CSP do Nginx em `infrastructure/nginx/security-headers*.conf`: host novo de script ou conexão
+  entra lá (e na `-frame-self`).
+
+### IA (OWASP LLM01, LLM02, LLM05, LLM06)
+- Texto do cliente, de página externa ou de PDF é **dado**, nunca instrução: proteções em
+  `chat/agent-guard.ts`. Ação da IA (reserva, cancelamento) só por marca lida pelo servidor e
+  confirmada pela pessoa (`pending` + SIM); a IA nunca grava direto.
+- Saída da IA validada por Zod e mostrada como texto (nada de HTML ou link de fora).
+- O que entra no prompt respeita a permissão de quem pergunta (`roleHas` antes de montar o
+  contexto): dado que o perfil não vê na tela também não vai para a IA dele.
+
+### Dependência (A03 Cadeia de suprimentos)
+- Versão fixa ou `^` com lockfile; `pnpm audit --prod --audit-level high` no CI.
+- Falha só em ferramenta de build: override em `pnpm-workspace.yaml` com o GHSA no comentário,
+  e confira que `pnpm --filter @comandou/web build` continua gerando o `sw.js`.
+
+## Ao terminar
+
+- Teste de regressão para cada falha achada (no arquivo do módulo ou na varredura).
+- Linha nova em `docs/security.md` (tabela "Como o sistema se protege" e a revisão do dia).
+- Nota `segurança` em `packages/shared/src/releases.ts`.

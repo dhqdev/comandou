@@ -170,6 +170,11 @@ describe('projection', () => {
 describe('productsCsv', () => {
   it('gera CSV com ponto e vírgula e vírgula decimal', () => {
     const csv = productsCsv([{ ...prod('a', 2, 51.8, 10), name: 'X; especial' }]);
-    expect(csv.split('\r\n')[1]).toBe('"X; especial";Lanches;2;51,80;10,00;41,80;0;A;');
+    expect(csv.split('\r\n')[1]).toBe('"X; especial";"Lanches";2;51,80;10,00;41,80;0;A;');
+  });
+
+  it('nome que começa com = + - @ não vira fórmula no Excel', () => {
+    const csv = productsCsv([{ ...prod('a', 1, 10, 0), name: '=HYPERLINK("http://x")' }]);
+    expect(csv.split('\r\n')[1]!.startsWith(`"'=HYPERLINK(""http://x"")";`)).toBe(true);
   });
 });

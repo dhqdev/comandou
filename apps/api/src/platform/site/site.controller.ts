@@ -35,6 +35,10 @@ import {
 
 const actor = (req: Request): Actor => ({ admin: req.platformAdmin!, ip: req.ip });
 
+/** Prévia de e-mail aberta como página no painel: só imagem e estilo, nenhum script. */
+const EMAIL_PREVIEW_CSP =
+  "default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; font-src https: data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
+
 /**
  * Site público (comandou.com), sem login: configuração da página, prévia do site do restaurante
  * e a criação do teste. Atende em qualquer endereço do Comandou; os limites são por IP.
@@ -125,6 +129,7 @@ export class PlatformSiteController {
   @Get('email-preview')
   @Header('Content-Type', 'text/html; charset=utf-8')
   @Header('Cache-Control', 'no-store')
+  @Header('Content-Security-Policy', EMAIL_PREVIEW_CSP)
   emailPreview() {
     return this.svc.emailPreview();
   }
@@ -139,6 +144,7 @@ export class PlatformSiteController {
   @Get('customer-email-preview')
   @Header('Content-Type', 'text/html; charset=utf-8')
   @Header('Cache-Control', 'no-store')
+  @Header('Content-Security-Policy', EMAIL_PREVIEW_CSP)
   customerEmailPreview() {
     return this.svc.customerEmailPreview();
   }

@@ -43,6 +43,10 @@ financeiro, nota fiscal, WhatsApp e o painel Super Admin (`admin.<domínio>`), m
    `pnpm audit --prod --audit-level high`.
 4. **Dependência nova**: versão fixa ou `^` com lockfile atualizado (`pnpm install`), e conferir
    o `pnpm audit`.
+5. **Rota pública nova** (`@Public()`, `@SkipTenant()` ou `@SkipCsrf()`) quebra
+   `apps/api/test/security-sweep.e2e.test.ts` até entrar na lista revisada do teste. Antes,
+   siga o checklist da skill `comandou-seguranca` (limite, token, dono). Link informado por alguém
+   só por `safeFetch`; senha nova só por `newPassword()` de `common/schemas.ts`.
 
 ## Como o GitHub Actions publica
 
@@ -128,5 +132,6 @@ Avisos de teste grátis e cobrança: `billing/lifecycle-mail.service.ts` (uma ve
 - `packages/shared/src/releases.ts` e as versões (acima);
 - `README.md` (o que o sistema faz, documentação, estrutura) quando mudar algo que o cliente vê;
 - o guia em `docs/` do assunto (e `docs/security.md` se mexer em proteção);
+- `comandou-seguranca` quando mexer em rota, login, upload, link externo, IA ou painel;
 - **estas skills**: `comandou-design` (padrão visual e exceções) e esta (mapa, regras, como
   testar). Skill desatualizada ensina o próximo a errar.

@@ -157,7 +157,7 @@ export async function api<T>(
       markServerDown();
       return whenOffline();
     }
-    const msg = (body as { message?: string } | undefined)?.message ?? `Erro ${res.status}`;
+    const msg = errorMessage(body, res.status);
     // Restaurante suspenso no meio do uso: o app troca para a tela de aviso.
     if (isSuspended(body)) window.dispatchEvent(new Event(TENANT_SUSPENDED_EVENT));
     // Mudou de servidor: o site antigo leva cada página para o mesmo lugar no endereço novo.
@@ -170,6 +170,18 @@ export async function api<T>(
   }
   if (offline && method === 'GET') void saveRead(path, body);
   return body as T;
+}
+
+/**
+ * Mensagem para a pessoa. Erro de validação ("Dados inválidos") com um motivo só mostra o motivo
+ * ("Essa senha é fácil de adivinhar"), que diz o que mudar.
+ */
+export function errorMessage(body: unknown, status: number): string {
+  const b = body as { message?: unknown; issues?: { message?: unknown }[] } | undefined;
+  const reasons = Array.isArray(b?.issues) ? [...new Set(b.issues.map((i) => i?.message))] : [];
+  const issue = reasons.length === 1 ? reasons[0] : null;
+  if (b?.message === 'Dados inválidos' && typeof issue === 'string' && issue) return issue;
+  return typeof b?.message === 'string' ? b.message : `Erro ${status}`;
 }
 
 /** Tempo de espera de uma leitura com o modo offline ligado antes de usar o que está guardado. */

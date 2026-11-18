@@ -13,6 +13,7 @@ import { ThrottlerException } from '@nestjs/throttler';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
+import { newPassword } from '../common/schemas';
 import { ROLE_LABELS, DEFAULT_ROLE_PERMISSIONS, PIN_ROLES } from '@comandou/shared';
 import { AuditService } from '../audit/audit.service';
 import { AllowWhenBlocked, CurrentTenant, CurrentUser, Public } from '../common/decorators';
@@ -46,7 +47,7 @@ const ResetRequestSchema = z.object({ email: z.string().trim().toLowerCase().ema
 const ResetVerifySchema = ResetRequestSchema.extend({ code: z.string().trim().min(6).max(12) });
 const ResetCompleteSchema = z.object({
   token: z.string().min(20).max(100),
-  password: z.string().min(8, 'mínimo de 8 caracteres').max(200),
+  password: newPassword(),
   remember: z.boolean().optional().default(true),
 });
 

@@ -35,7 +35,7 @@ import { CepService, isUf } from './cep.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import { cookieOf, CUSTOMER_COOKIE, CustomersService } from './customers.service';
 import { checkReceipt, PixService } from './pix.service';
-import { linkPreviewHtml, previewPath } from './link-preview';
+import { linkPreviewHtml, previewCsp, previewPath } from './link-preview';
 import { SiteCopy } from '../chat/site-page';
 import {
   CORNER_STYLES,
@@ -378,6 +378,7 @@ export class StoreController {
     // Logo e texto trocados aparecem no próximo compartilhamento (o próprio app guarda a prévia).
     res.setHeader('Cache-Control', 'public, max-age=300');
     res.setHeader('X-Robots-Tag', 'noindex');
+    res.setHeader('Content-Security-Policy', previewCsp(data.target));
     res.end(linkPreviewHtml(data));
   }
 

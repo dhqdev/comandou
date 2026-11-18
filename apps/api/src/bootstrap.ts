@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
+import { apiHeaders } from './common/api-headers';
 import { Env } from './config/env';
 import { CHUNK_LIMIT } from './migration/protocol';
 
@@ -22,6 +23,8 @@ export async function createApp(
   app.getHttpAdapter().getInstance().locals.loginRateLimit = env.AUTH_LOGIN_RATE_LIMIT;
   app.disable('x-powered-by');
   app.use(helmet({ contentSecurityPolicy: false })); // CSP do SPA é definida no Nginx.
+  // no-store e CSP fechada em toda resposta (cada rota que precisa de outra põe a sua).
+  app.use(apiHeaders);
   app.use(cookieParser());
   app.useBodyParser('json', { limit: '256kb' });
   // Fotos (POST /media): o corpo é a própria imagem, já reduzida pelo navegador.

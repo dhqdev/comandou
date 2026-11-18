@@ -15,3 +15,8 @@ overrides:
   'multer@>=2.0.0 <2.5.0': ^2.5.0
   # GHSA-mrwp-f3q8-3g9p (vem pelo baileys > axios, no whatsapp-gateway).
   'follow-redirects@>=1.16.0 <1.16.2': ^1.16.2
+  # Só de build (vite-plugin-pwa > workbox-build): GHSA-m5mm-p8h7-m29v, GHSA-3g3m-2fjr-6pw4 e
+  # GHSA-g3hv-75wg-m249. Nenhuma vai para as imagens de produção, mas o build roda no CI.
+  'serialize-javascript@<7.1.3': ^7.1.3
+  'glob@>=9.0.0 <14.0.2': ^14.0.2
+  'minimatch@>=7.0.0 <11.0.1': ^11.0.1

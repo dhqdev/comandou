@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   NotFoundException,
@@ -18,6 +19,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
+import { newPassword } from '../common/schemas';
 import { Public, SkipTenant } from '../common/decorators';
 import { ZodPipe } from '../common/zod.pipe';
 import { ENV, Env } from '../config/env';
@@ -98,7 +100,7 @@ const ResetRequest = z.object({ email: z.string().trim().toLowerCase().email().m
 const ResetVerify = ResetRequest.extend({ code: z.string().trim().min(6).max(12) });
 const ResetComplete = z.object({
   token: z.string().min(20).max(100),
-  password: z.string().min(10, 'mínimo de 10 caracteres').max(200),
+  password: newPassword(10),
 });
 
 /** Login do painel: só em admin.<domínio base>, com senha e código do autenticador. */
@@ -239,6 +241,7 @@ export class PlatformController {
     private readonly migrations: PlatformMigrationsService,
     private readonly receiver: PlatformReceiveService,
     private readonly versions: PlatformVersionsService,
+    private readonly auth: PlatformAuthService,
   ) {}
 
   // ---------------------------------------------------------- versão por restaurante
@@ -424,6 +427,11 @@ export class PlatformController {
     @Body(new ZodPipe(DeleteTenant)) b: z.infer<typeof DeleteTenant>,
     @Req() req: Request,
   ) {
+    // Sessão aberta num aparelho perdido não basta para apagar um cliente: pede o autenticador.
+    if (!(await this.auth.confirmCode(req.platformAdmin!.id, b.code))) {
+      await this.databases.deleteDenied(id, actor(req));
+      throw new ForbiddenException('Código do autenticador inválido ou já usado');
+    }
     await this.databases.remove(id, b, actor(req));
     return this.svc.tenant(id);
   }
