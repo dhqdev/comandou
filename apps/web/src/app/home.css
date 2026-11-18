@@ -61,6 +61,9 @@
   font-weight: 650;
   color: var(--cm-danger);
 }
+.pdv__store-short {
+  display: none;
+}
 .pdv__store[data-open='true'] {
   color: var(--cm-success);
 }
@@ -86,6 +89,60 @@
 .pdv__new {
   flex: none;
   min-height: 40px;
+}
+/* Atalhos da loja (página, cardápio, copiar link) colados num grupo só, com linha fina entre eles. */
+.pdv__links {
+  display: flex;
+}
+.pdv__links > .pdv__icon {
+  border-radius: 0;
+}
+.pdv__links > .pdv__icon + .pdv__icon {
+  margin-left: -1px;
+}
+.pdv__links > .pdv__icon:first-child {
+  border-radius: var(--cm-radius-md) 0 0 var(--cm-radius-md);
+}
+.pdv__links > .pdv__icon:last-child {
+  border-radius: 0 var(--cm-radius-md) var(--cm-radius-md) 0;
+}
+.pdv__links > .pdv__icon:only-child {
+  border-radius: var(--cm-radius-md);
+}
+.pdv__links > .pdv__icon:hover {
+  position: relative;
+}
+/* Silenciar: um toque desliga todos os avisos sonoros; silenciado fica vermelho para ninguém
+   esquecer que não vai ouvir pedido chegando. */
+.pdv__mute {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--cm-border-strong);
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.pdv__mute:hover {
+  color: var(--cm-text);
+  border-color: var(--cm-gray-300);
+}
+.pdv__mute:active {
+  transform: scale(0.97);
+  transition-duration: 0.08s;
+}
+.pdv__mute[data-muted] {
+  border-color: color-mix(in srgb, var(--cm-danger) 45%, var(--cm-border-strong));
+  background: color-mix(in srgb, var(--cm-danger) 8%, var(--cm-surface));
+  color: var(--cm-danger);
 }
 .home__hint {
   margin: 0;
@@ -184,6 +241,31 @@
 .pdv-select:focus-within {
   box-shadow: var(--cm-focus);
 }
+/* Totais do dia ao lado do título dos pedidos. */
+.pdv-today {
+  display: flex;
+  align-items: center;
+  gap: var(--cm-space-3);
+  margin: 0 0 0 var(--cm-space-2);
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+  white-space: nowrap;
+}
+.pdv-today a {
+  color: var(--cm-text-muted);
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+.pdv-today a:hover {
+  color: var(--cm-text);
+}
+.pdv-today b {
+  color: var(--cm-text);
+}
+.pdv-chip--alert {
+  border-color: color-mix(in srgb, var(--cm-danger) 50%, var(--cm-border-strong));
+  color: var(--cm-danger);
+}
 .pdv-pill {
   padding: 3px 9px;
   border-radius: var(--cm-radius-full);
@@ -250,13 +332,21 @@
 
 /* Salão: mesas e comandas em cartões baixos; a cor do estado é a bolinha antes do nome (a mesma da
    legenda), sem faixa colorida no topo. */
+/* Linhas de altura fixa e rolagem que para sempre numa linha inteira: nunca aparece meia mesa
+   cortada embaixo. */
 .pdv-salon__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-auto-rows: 64px;
   gap: var(--cm-space-2);
-  max-height: 152px;
+  max-height: calc(64px * 2 + var(--cm-space-2) + 4px);
   overflow-y: auto;
   padding: 2px;
+  scroll-snap-type: y mandatory;
+  scroll-padding: 2px;
+}
+.pdv-salon__grid > * {
+  scroll-snap-align: start;
 }
 .pdv-table {
   display: grid;
@@ -698,52 +788,8 @@
   outline: 0;
   box-shadow: var(--cm-focus);
 }
-.pdv-foot {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--cm-space-3);
-}
-.pdv-foot__item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--cm-space-2);
-  height: 42px;
-  padding: 0 14px;
-  border: 1px solid var(--cm-border-strong);
-  border-radius: var(--cm-radius-md);
-  background: var(--cm-surface);
-  color: var(--cm-text);
-  font: inherit;
-  font-size: var(--cm-text-sm);
-  font-weight: 650;
-  text-decoration: none;
-  cursor: pointer;
-}
-.pdv-foot__item:hover {
-  border-color: var(--cm-gray-300);
-}
-.pdv-foot__item b {
-  min-width: 22px;
-  height: 22px;
-  padding: 0 7px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: var(--cm-radius-full);
-  background: var(--cm-surface-sunken);
-  font-size: var(--cm-text-2xs);
-}
-.pdv-foot__item[data-alert] {
-  border-color: color-mix(in srgb, var(--cm-danger) 50%, var(--cm-border-strong));
-  color: var(--cm-danger);
-}
-.pdv-foot__item[data-alert] b {
-  background: var(--cm-danger);
-  color: #fff;
-}
-
 /* A tela do PDV cabe inteira na altura da janela, em qualquer tamanho: a barra, o salão e o
-   rodapé ficam do tamanho deles e o quadro de pedidos ocupa o resto. Quem rola é só a lista de
+   cabeçalhos ficam do tamanho deles e o quadro de pedidos ocupa o resto. Quem rola é só a lista de
    cada coluna (e a grade do salão, se tiver muitas mesas). Janela baixa demais: aí sim a página
    rola, para nada ficar espremido. */
 .cm-frame__content:has(> .pdv) {
@@ -752,10 +798,6 @@
 @media (min-width: 861px) {
   .cm-frame__content:has(> .pdv) {
     padding-bottom: var(--cm-space-4);
-  }
-  /* Respiro à direita do rodapé para o botão do chat, no canto, não cobrir o último total. */
-  .pdv-foot {
-    padding-right: 28px;
   }
 }
 .pdv {
@@ -778,13 +820,10 @@
   flex: 1 1 0;
   min-height: 200px;
 }
-.pdv-salon__grid {
-  max-height: clamp(72px, 18dvh, 152px);
-}
 /* Janela baixa: uma linha de mesas (as outras rolam dentro da grade). */
-@media (max-height: 700px) {
+@media (max-height: 760px) {
   .pdv-salon__grid {
-    max-height: 66px;
+    max-height: calc(64px + 4px);
   }
 }
 /* Janela estreita: o "Ver todos" sai para o cabeçalho caber numa linha (o menu Pedidos leva ao
@@ -829,21 +868,6 @@
   .board__head {
     display: none;
   }
-  /* Totais do dia em três quadradinhos lado a lado (número em cima, nome embaixo). */
-  .pdv-foot {
-    gap: var(--cm-space-2);
-  }
-  .pdv-foot__item {
-    flex-direction: column-reverse;
-    justify-content: center;
-    gap: 2px;
-    height: auto;
-    min-height: 50px;
-    padding: 6px 4px;
-    font-size: var(--cm-text-2xs);
-    line-height: 1.15;
-    text-align: center;
-  }
   .pdv-box {
     padding: var(--cm-space-3);
   }
@@ -853,7 +877,7 @@
     display: none;
   }
   .pdv-salon__grid {
-    max-height: 66px;
+    max-height: calc(64px + 4px);
   }
   .pdv-box__head .cm-seg {
     width: auto;
@@ -890,7 +914,22 @@
   .pdv__store {
     margin-right: auto;
   }
-  .pdv__icon {
+  .pdv__links {
+    display: none;
+  }
+  /* Celular: "Aberta" no lugar de "Loja aberta", para o Nova venda caber na mesma linha. */
+  .pdv__store-long {
+    display: none;
+  }
+  .pdv__store-short {
+    display: inline;
+  }
+  /* Silenciar vira só o ícone, do tamanho de um toque. */
+  .pdv__mute {
+    height: 44px;
+    padding: 0 12px;
+  }
+  .pdv__mute-text {
     display: none;
   }
   .pdv__new {
@@ -905,6 +944,7 @@
   }
   .pdv-salon__grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: 58px;
     max-height: 62px;
   }
   .pdv-table {

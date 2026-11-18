@@ -381,9 +381,15 @@ export class StoreService {
     return withinHours(s.hours ?? [], now!.dow, now!.hhmm);
   }
 
+  /** A loja com o "recebe agora" e se a página do restaurante (/site) já foi criada. */
   private async withOpenNow(tx: Tx) {
     const s = await this.settingsIn(tx);
-    return { ...s, openNow: await this.openNowIn(tx, s) };
+    const row = await one<{ site: unknown }>(tx, `SELECT site FROM tenant_store_settings`);
+    return {
+      ...s,
+      openNow: await this.openNowIn(tx, s),
+      hasSite: SiteCopy.safeParse(row?.site).success,
+    };
   }
 
   settings(ctx: Ctx) {

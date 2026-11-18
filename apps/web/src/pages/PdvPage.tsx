@@ -15,6 +15,8 @@ import {
   ShoppingBag,
   Store,
   Utensils,
+  Volume2,
+  VolumeX,
   X,
 } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -30,7 +32,13 @@ import { sortTables, tableState, type TableState } from '../features/table-state
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
-import { playSound, useArrivalSound, useRepeatingSoundForNew } from '../lib/sounds';
+import {
+  playSound,
+  setSoundSettings,
+  useArrivalSound,
+  useRepeatingSoundForNew,
+  useSoundSettings,
+} from '../lib/sounds';
 import { SupportButton, useSupportUnread } from '../features/store-chat/SupportInbox';
 import type { DiningTable, Order, StoreSettings, Tab } from '../lib/types';
 import '../app/home.css';
@@ -207,7 +215,7 @@ function OrderCard({
 /**
  * Tela inicial do PDV, no formato do PedidoJá: o salão (mesas e comandas) em cima e o quadro de
  * pedidos embaixo, em colunas que seguem o andamento (em análise → produção → pronto → saiu), com os
- * totais do dia no rodapé. "Nova venda" (F2) abre o lançamento em tela cheia.
+ * totais do dia no cabeçalho dos pedidos. "Nova venda" (F2) abre o lançamento em tela cheia.
  */
 export function PdvPage() {
   const { me } = useAuth();
@@ -215,6 +223,7 @@ export function PdvPage() {
   const canSell = useCan('orders:write');
   const canManage = useCan('orders:manage');
   const canTables = useCan('tables:operate');
+  const sound = useSoundSettings();
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [store, setStore] = useState<StoreSettings | null>(null);
   const [tables, setTables] = useState<DiningTable[] | null>(null);
@@ -514,6 +523,28 @@ export function PdvPage() {
         </label>
         <div className="pdv__spacer" />
         <SupportButton className="pdv__chat" label="Mensagens" />
+        {/* Silenciar: desliga todos os avisos sonoros deste aparelho (o mesmo do botão de som do
+            topo, onde ficam o volume e cada som). */}
+        <button
+          type="button"
+          className="pdv__mute"
+          data-muted={!sound.enabled || undefined}
+          aria-pressed={!sound.enabled}
+          aria-label="Silenciar os avisos sonoros"
+          title={sound.enabled ? 'Silenciar os avisos sonoros' : 'Ligar os avisos sonoros'}
+          onClick={() => {
+            setSoundSettings({ enabled: !sound.enabled });
+            toast(
+              sound.enabled
+                ? 'Avisos sonoros silenciados neste aparelho'
+                : 'Avisos sonoros ligados',
+              'neutral',
+            );
+          }}
+        >
+          {sound.enabled ? <Volume2 size={17} aria-hidden /> : <VolumeX size={17} aria-hidden />}
+          <span className="pdv__mute-text">{sound.enabled ? 'Silenciar' : 'Silenciado'}</span>
+        </button>
         {store && (
           <label className="switch pdv__store" data-open={store.isOpen}>
             <input
@@ -523,38 +554,44 @@ export function PdvPage() {
               onChange={(e) => patchStore({ isOpen: e.target.checked })}
             />
             <span className="switch__track" aria-hidden />
-            {store.isOpen ? 'Loja aberta' : 'Loja fechada'}
+            <span className="pdv__store-long">{store.isOpen ? 'Loja aberta' : 'Loja fechada'}</span>
+            <span className="pdv__store-short">{store.isOpen ? 'Aberta' : 'Fechada'}</span>
           </label>
         )}
-        <button
-          className="pdv__icon"
-          aria-label="Abrir a página do restaurante"
-          title="Abrir a página do restaurante"
-          onClick={() => window.open('/site', '_blank', 'noopener')}
-        >
-          <Globe size={17} />
-        </button>
-        <button
-          className="pdv__icon"
-          aria-label="Abrir o cardápio online"
-          title="Abrir o cardápio online"
-          onClick={() => window.open('/pedir', '_blank', 'noopener')}
-        >
-          <ExternalLink size={17} />
-        </button>
-        <button
-          className="pdv__icon"
-          aria-label="Copiar o link do cardápio online"
-          title="Copiar o link do cardápio online"
-          onClick={() =>
-            navigator.clipboard
-              ?.writeText(storeLink)
-              .then(() => toast('Link do cardápio copiado', 'success'))
-              .catch(() => toast(storeLink, 'neutral'))
-          }
-        >
-          <Link2 size={17} />
-        </button>
+        {/* Atalhos da loja num grupo só; o da página do restaurante só aparece se ela foi criada. */}
+        <div className="pdv__links" role="group" aria-label="Atalhos da loja">
+          {store?.hasSite && (
+            <button
+              className="pdv__icon"
+              aria-label="Abrir a página do restaurante"
+              title="Abrir a página do restaurante"
+              onClick={() => window.open('/site', '_blank', 'noopener')}
+            >
+              <Globe size={17} />
+            </button>
+          )}
+          <button
+            className="pdv__icon"
+            aria-label="Abrir o cardápio online"
+            title="Abrir o cardápio online"
+            onClick={() => window.open('/pedir', '_blank', 'noopener')}
+          >
+            <ExternalLink size={17} />
+          </button>
+          <button
+            className="pdv__icon"
+            aria-label="Copiar o link do cardápio online"
+            title="Copiar o link do cardápio online"
+            onClick={() =>
+              navigator.clipboard
+                ?.writeText(storeLink)
+                .then(() => toast('Link do cardápio copiado', 'success'))
+                .catch(() => toast(storeLink, 'neutral'))
+            }
+          >
+            <Link2 size={17} />
+          </button>
+        </div>
         {canSell && (
           <button
             className="hbtn hbtn--primary pdv__new"
@@ -598,27 +635,6 @@ export function PdvPage() {
         <section className="pdv-box pdv-salon" aria-label="Salão">
           <header className="pdv-box__head">
             <h2>Salão</h2>
-            <button
-              className="pdv-chip"
-              aria-label={salonOpen ? 'Recolher o salão' : 'Mostrar o salão'}
-              aria-expanded={salonOpen}
-              onClick={() => setSalonOpen((v) => !v)}
-            >
-              <span className="pdv-chip__text">{salonOpen ? 'Recolher' : 'Mostrar'}</span>
-              <ChevronDown size={14} data-flip={salonOpen || undefined} />
-            </button>
-            {salonOpen && (
-              <label className="pdv-mini-search">
-                <Search size={14} aria-hidden />
-                <input
-                  placeholder={salonView === 'tables' ? 'Buscar mesa' : 'Buscar comanda'}
-                  aria-label="Buscar no salão"
-                  value={salonSearch}
-                  onChange={(e) => setSalonSearch(e.target.value)}
-                />
-              </label>
-            )}
-            <div className="pdv__spacer" />
             <ul className="pdv-legend" aria-label="Mesas por estado">
               <li data-state="free">
                 <b>{stateCount('free')}</b> Livres
@@ -630,6 +646,18 @@ export function PdvPage() {
                 <b>{stateCount('paying')}</b> Em pagamento
               </li>
             </ul>
+            <div className="pdv__spacer" />
+            {salonOpen && (
+              <label className="pdv-mini-search">
+                <Search size={14} aria-hidden />
+                <input
+                  placeholder={salonView === 'tables' ? 'Buscar mesa' : 'Buscar comanda'}
+                  aria-label="Buscar no salão"
+                  value={salonSearch}
+                  onChange={(e) => setSalonSearch(e.target.value)}
+                />
+              </label>
+            )}
             <Segmented<SalonView>
               label="Ver no salão"
               value={salonView}
@@ -642,6 +670,15 @@ export function PdvPage() {
                 { value: 'tabs', label: 'Comandas', count: tabs.length },
               ]}
             />
+            <button
+              className="pdv-chip"
+              aria-label={salonOpen ? 'Recolher o salão' : 'Mostrar o salão'}
+              aria-expanded={salonOpen}
+              onClick={() => setSalonOpen((v) => !v)}
+            >
+              <span className="pdv-chip__text">{salonOpen ? 'Recolher' : 'Mostrar'}</span>
+              <ChevronDown size={14} data-flip={salonOpen || undefined} />
+            </button>
           </header>
           {salonOpen && (
             <div className="pdv-salon__grid">
@@ -703,6 +740,30 @@ export function PdvPage() {
         <header className="pdv-box__head">
           <h2>Pedidos</h2>
           <span className="pdv-pill">{activeCount} ativos</span>
+          {/* Totais do dia: ficavam num rodapé de botões grandes, agora tomam só uma linha aqui. */}
+          <p className="pdv-today" aria-label="Pedidos de hoje">
+            Hoje{' '}
+            <Link to="/pedidos">
+              <b>{today?.done ?? 0}</b> concluídos
+            </Link>
+            <Link to="/pedidos">
+              <b>{today?.cancelled ?? 0}</b> cancelados
+            </Link>
+          </p>
+          <div className="pdv__spacer" />
+          {requests.length > 0 && (
+            <button
+              className="pdv-chip pdv-chip--alert"
+              onClick={() => {
+                setOpenStep(undefined);
+                setOpenId(requests[0].id);
+              }}
+            >
+              {requests.length === 1
+                ? '1 pedido quer cancelar'
+                : `${requests.length} pedidos querem cancelar`}
+            </button>
+          )}
           {store && (
             <label className="switch pdv-chip pdv-chip--switch">
               <input
@@ -740,7 +801,6 @@ export function PdvPage() {
             </select>
             <ChevronDown size={14} aria-hidden />
           </label>
-          <div className="pdv__spacer" />
           <Link className="pdv-chip pdv-orders__all" to="/pedidos">
             Ver todos <ChevronRight size={14} />
           </Link>
@@ -811,27 +871,6 @@ export function PdvPage() {
               </section>
             );
           })}
-        </div>
-
-        <div className="pdv-foot">
-          <Link className="pdv-foot__item" to="/pedidos">
-            Concluídos hoje <b>{today?.done ?? 0}</b>
-          </Link>
-          <Link className="pdv-foot__item" to="/pedidos">
-            Cancelados hoje <b>{today?.cancelled ?? 0}</b>
-          </Link>
-          <button
-            className="pdv-foot__item"
-            data-alert={requests.length > 0 || undefined}
-            onClick={() => {
-              if (requests[0]) {
-                setOpenStep(undefined);
-                setOpenId(requests[0].id);
-              } else toast('Nenhum cancelamento solicitado agora', 'neutral');
-            }}
-          >
-            Cancelamento solicitado <b>{requests.length}</b>
-          </button>
         </div>
       </section>
 

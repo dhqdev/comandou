@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.154.0',
+    date: '2026-11-18',
+    title: 'PDV mais arrumado e com botão de silenciar',
+    summary:
+      'A tela inicial do PDV ficou mais limpa: os atalhos da loja viraram um grupo só, os totais do dia subiram para o lado do título Pedidos (o quadro ganhou altura) e o salão mostra só linhas inteiras de mesas. Ganhou também o botão Silenciar, e o atalho da página do restaurante só aparece quando ela foi criada.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'PDV: botão Silenciar ao lado de Mensagens. Um toque desliga todos os avisos sonoros deste aparelho e o botão fica vermelho (Silenciado) até ligar de novo. No celular, só o ícone.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDV: o botão da página do restaurante (o globo) só aparece depois que a página /site é criada em Loja online.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDV: concluídos e cancelados de hoje ficam ao lado do título Pedidos, e o pedido de cancelamento do cliente aparece como aviso vermelho só quando existe. O rodapé de três botões saiu e o quadro ficou mais alto.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDV: a legenda das mesas fica ao lado do título Salão, a busca e o Recolher à direita, e a grade de mesas não mostra mais uma linha cortada pela metade.',
+      },
+    ],
+  },
+  {
     version: '0.153.0',
     date: '2026-11-18',
     title: 'Novo topo do site',

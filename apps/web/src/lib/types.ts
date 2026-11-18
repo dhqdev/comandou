@@ -106,7 +106,8 @@ export interface StoreSettings {
   /** Pedido da mesa pronto: o cliente busca no balcão (em vez de o garçom levar). */
   tableSelfPickup: boolean;
   /** Recebe pedido agora (botão "aberta" + horário). Só na leitura. */
-  openNow?: boolean;
+  openNow?: boolean; /** A página do restaurante (/site) já foi criada. Só na leitura. */
+  hasSite?: boolean;
 }
 /** Um turno do dia (0 = domingo). close menor que open = vira a meia-noite. */
 export interface StoreHour {

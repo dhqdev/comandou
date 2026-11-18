@@ -112,6 +112,20 @@ describe('Loja online: configurações e fotos', () => {
     await patch('adminA', '/store/settings', { etaMin: 60, etaMax: 30 }).expect(422);
   });
 
+  it('diz se a página do restaurante (/site) já foi criada, para o PDV esconder o botão', async () => {
+    expect((await get('adminA', '/store/settings').expect(200)).body.hasSite).toBe(false);
+    await pub.get('/store/site').expect(404);
+    await http
+      .put('/api/v1/store/site')
+      .set('Host', HOST_A)
+      .set('Cookie', cookies.adminA)
+      .set(CSRF)
+      .send({ headline: 'Lanches na brasa', cta: 'Pedir agora' })
+      .expect(200);
+    expect((await get('adminA', '/store/settings').expect(200)).body.hasSite).toBe(true);
+    expect((await get('adminB', '/store/settings').expect(200)).body.hasSite).toBe(false);
+  });
+
   it('identidade visual: cores validadas, públicas e separadas por restaurante', async () => {
     const before = (await pub.get('/store/branding').expect(200)).body;
     expect(before).toMatchObject({ brandColor: null, fontStyle: 'padrao', staffApp: true });
