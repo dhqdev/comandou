@@ -1,0 +1,303 @@
+import {
+  ChevronRight,
+  CircleCheck,
+  Compass,
+  CreditCard,
+  Download,
+  KeyRound,
+  LifeBuoy,
+  LogOut,
+  Moon,
+  Settings,
+  Sparkles,
+  Sun,
+  Wand2,
+} from 'lucide-react';
+import { MouseEvent, ReactNode, useEffect, useState } from 'react';
+import { Link } from 'react-router';
+import { useAccountTools } from '../app/account-tools';
+import { useAuth } from '../app/auth';
+import { clickPoint, switchTheme, useTheme } from '../design-system';
+import { openTeamChat } from '../features/chat/TeamChat';
+import { api } from '../lib/api';
+import './account.css';
+
+/** Situação da assinatura (o mesmo aviso da faixa do topo). */
+interface Notice {
+  level: 'none' | 'info' | 'warning' | 'blocked';
+  trial?: { daysLeft: number } | null;
+}
+
+type Tone = 'success' | 'info' | 'warning' | 'danger';
+
+interface Action {
+  key: string;
+  title: string;
+  text: string;
+  icon: ReactNode;
+  /** Abre uma tela. */
+  to?: string;
+  /** Ou faz algo aqui mesmo (janela, tema, instalar). */
+  onClick?: (e: MouseEvent<HTMLButtonElement>) => void;
+  /** Bolinha + frase curta embaixo (ex.: situação da assinatura). */
+  status?: { tone: Tone; text: string };
+  /** Marca "novo" ao lado do título. */
+  isNew?: boolean;
+  /** Só mostra, sem toque (ex.: app já instalado). */
+  done?: boolean;
+}
+
+function noticeStatus(n: Notice | null): Action['status'] {
+  if (!n) return undefined;
+  if (n.trial) {
+    const d = n.trial.daysLeft;
+    return {
+      tone: d <= 3 ? 'warning' : 'info',
+      text:
+        d <= 0 ? 'Teste grátis termina hoje' : `Teste grátis · ${d} ${d === 1 ? 'dia' : 'dias'}`,
+    };
+  }
+  if (n.level === 'blocked') return { tone: 'danger', text: 'Bloqueado: veja como liberar' };
+  if (n.level === 'warning') return { tone: 'warning', text: 'Precisa de atenção' };
+  if (n.level === 'info') return { tone: 'info', text: 'Fatura perto de vencer' };
+  return { tone: 'success', text: 'Em dia' };
+}
+
+const initialsOf = (name?: string) =>
+  (name ?? '?')
+    .split(' ')
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+/**
+ * Conta (toque no nome, no pé do menu; no celular, no cartão do topo da tela Mais): quem está
+ * usando e, em blocos grandes, tudo o que é da pessoa e do restaurante (assinatura, ajustes,
+ * ajuda, tema, instalar, senha e sair). Cada bloco só aparece para quem tem a permissão.
+ */
+export function AccountPage() {
+  const { me } = useAuth();
+  const tools = useAccountTools();
+  const [theme] = useTheme();
+  const perms = me?.permissions ?? [];
+  const can = (...list: string[]) => list.some((p) => perms.includes(p));
+  const seesPlan = can('plan:read');
+
+  const [notice, setNotice] = useState<Notice | null>(null);
+  useEffect(() => {
+    if (!seesPlan) return;
+    let alive = true;
+    api<Notice>('/subscription/notice')
+      .then((r) => alive && setNotice(r))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [seesPlan]);
+
+  const nextTheme = theme === 'dark' ? 'light' : 'dark';
+  const sections: { key: string; title: string; items: Action[] }[] = [
+    {
+      key: 'restaurante',
+      title: 'Seu restaurante',
+      items: [
+        ...(seesPlan
+          ? [
+              {
+                key: 'assinatura',
+                title: 'Assinatura',
+                text: 'Plano, faturas, forma de pagamento e contrato.',
+                icon: <CreditCard />,
+                to: '/plano',
+                status: noticeStatus(notice),
+              },
+            ]
+          : []),
+        ...(can('settings:manage', 'orders:read')
+          ? [
+              {
+                key: 'ajustes',
+                title: 'Ajustes',
+                text: 'Dados da loja, setores de produção, mesas, caixas e preferências.',
+                icon: <Settings />,
+                to: '/configuracoes',
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      key: 'ajuda',
+      title: 'Ajuda e novidades',
+      items: [
+        {
+          key: 'novidades',
+          title: 'Novidades',
+          text: 'O que mudou em cada versão do Comandou.',
+          icon: <Sparkles />,
+          to: '/novidades',
+          isNew: tools.unseen,
+        },
+        ...(seesPlan
+          ? [
+              {
+                key: 'suporte',
+                title: 'Falar com a Comandou',
+                text: 'Tire dúvidas ou peça ajuda pelo chat com a nossa equipe.',
+                icon: <LifeBuoy />,
+                onClick: () => openTeamChat('suporte'),
+              },
+            ]
+          : []),
+        ...(can('settings:manage')
+          ? [
+              {
+                key: 'inicio',
+                title: 'Primeiros passos',
+                text: 'A IA monta o cardápio e a loja com você, a partir do que já existe.',
+                icon: <Wand2 />,
+                onClick: tools.openOnboarding,
+              },
+            ]
+          : []),
+        {
+          key: 'tour',
+          title: 'Rever apresentação',
+          text: 'Passeio rápido pelas telas, mostrando o que fazer em cada uma.',
+          icon: <Compass />,
+          onClick: tools.openTour,
+        },
+      ],
+    },
+    {
+      key: 'aparelho',
+      title: 'Este aparelho',
+      items: [
+        {
+          key: 'tema',
+          title: theme === 'dark' ? 'Tema escuro' : 'Tema claro',
+          text:
+            nextTheme === 'dark'
+              ? 'Toque para usar o escuro, que cansa menos à noite.'
+              : 'Toque para voltar ao tema claro.',
+          icon: theme === 'dark' ? <Moon /> : <Sun />,
+          onClick: (e) => switchTheme(nextTheme, clickPoint(e, e.currentTarget)),
+        },
+        tools.install.show
+          ? {
+              key: 'instalar',
+              title: 'Instalar o app',
+              text: 'Abre na própria janela, sem a barra do navegador, com ícone na tela.',
+              icon: <Download />,
+              onClick: () => tools.install.start(),
+            }
+          : {
+              key: 'instalado',
+              title: 'App instalado',
+              text: 'Você está usando o Comandou como aplicativo neste aparelho.',
+              icon: <CircleCheck />,
+              done: true,
+            },
+      ],
+    },
+    {
+      key: 'seguranca',
+      title: 'Segurança',
+      items: [
+        {
+          key: 'senha',
+          title: 'Trocar senha',
+          text: 'Escolha uma senha nova para entrar no sistema.',
+          icon: <KeyRound />,
+          onClick: tools.openPassword,
+        },
+      ],
+    },
+  ];
+
+  return (
+    <div className="acc">
+      <header className="acc__me">
+        <div className="acc__avatar" aria-hidden>
+          {initialsOf(me?.user.name)}
+        </div>
+        <div className="acc__who">
+          <h1 className="acc__name">{me?.user.name}</h1>
+          {me?.user.email && <p className="acc__email">{me.user.email}</p>}
+          <p className="acc__role">
+            {me?.user.roleLabel}
+            <span aria-hidden> · </span>
+            {me?.tenant.name}
+          </p>
+        </div>
+      </header>
+
+      {sections
+        .filter((s) => s.items.length > 0)
+        .map((s) => (
+          <section key={s.key} className="acc__group" aria-labelledby={`acc-${s.key}`}>
+            <h2 className="acc__title" id={`acc-${s.key}`}>
+              {s.title}
+            </h2>
+            <div className="acc__grid">
+              {s.items.map((a) => (
+                <ActionCard key={a.key} action={a} />
+              ))}
+            </div>
+          </section>
+        ))}
+
+      <button type="button" className="acc__logout" onClick={tools.logout}>
+        <LogOut aria-hidden />
+        Sair
+      </button>
+      <p className="acc__foot">Comandou v{__APP_VERSION__}</p>
+    </div>
+  );
+}
+
+function ActionCard({ action: a }: { action: Action }) {
+  const body = (
+    <>
+      <span className="acc-card__icon" aria-hidden>
+        {a.icon}
+      </span>
+      <span className="acc-card__body">
+        <span className="acc-card__title">
+          {a.title}
+          {a.isNew && (
+            <span className="acc-card__new">
+              <span className="cm-sr-only">, </span>novo
+            </span>
+          )}
+        </span>
+        <span className="acc-card__text">{a.text}</span>
+        {a.status && (
+          <span className="acc-card__status" data-tone={a.status.tone}>
+            <span className="cm-dot" aria-hidden />
+            {a.status.text}
+          </span>
+        )}
+      </span>
+      {!a.done && <ChevronRight className="acc-card__chev" aria-hidden />}
+    </>
+  );
+  if (a.done)
+    return (
+      <div className="acc-card" data-done>
+        {body}
+      </div>
+    );
+  if (a.to)
+    return (
+      <Link to={a.to} className="acc-card">
+        {body}
+      </Link>
+    );
+  return (
+    <button type="button" className="acc-card" onClick={a.onClick}>
+      {body}
+    </button>
+  );
+}

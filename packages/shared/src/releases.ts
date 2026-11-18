@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.174.0',
+    date: '2026-11-18',
+    title: 'Sua conta agora é uma tela, com tudo em botões grandes',
+    summary:
+      'Tocar no seu nome, no pé do menu, abre a tela Conta em vez do menuzinho: assinatura, ajustes, novidades, falar com a Comandou, primeiros passos, rever apresentação, tema, instalar o app, trocar senha e sair, cada um num bloco grande. Assinatura e Ajustes saíram de Sistema e moram aqui.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Tela Conta: seus dados no topo e os blocos por assunto (Seu restaurante, Ajuda e novidades, Este aparelho, Segurança). A Assinatura mostra a situação na hora (em dia, teste grátis, precisa de atenção). Cada bloco só aparece para quem tem acesso: o caixa, por exemplo, não vê Assinatura nem Primeiros passos.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Assinatura e Ajustes saíram do menu Sistema e ficam em Conta (o menu acende a Conta quando você está nelas). A busca acha as duas como antes.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No celular e no app instalado: o cartão com seu nome, no topo da tela Mais, abre a Conta; os blocos ficam em duas colunas com alvo grande para o dedo. Com o app instalado, aparece "App instalado" no lugar de "Instalar o app".',
+      },
+    ],
+  },
+  {
     version: '0.173.0',
     date: '2026-11-18',
     title: 'Reservas com tags de situação no topo e cartões que mudam na hora',

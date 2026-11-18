@@ -14,7 +14,11 @@ export async function nav(page: Page, name: string | RegExp) {
     const tab = page.locator('.cm-tabbar').getByRole('link', { name, exact });
     if (await tab.count()) return tab.click();
     await page.locator('.cm-tabbar').getByRole('link', { name: 'Mais' }).click();
-    return page.locator('.cm-menu').getByRole('link', { name, exact }).click();
+    await page.locator('.cm-menu').waitFor();
+    const tile = page.locator('.cm-menu').getByRole('link', { name, exact });
+    if (await tile.count()) return tile.click();
+    // Assinatura e Ajustes moram na tela Conta (restaurante).
+    return accountCard(page, name);
   }
   const rail = page.locator('.cm-rail');
   const direct = rail.getByRole('link', { name, exact });
@@ -34,15 +38,51 @@ export async function nav(page: Page, name: string | RegExp) {
     if (await link.count()) return link.click();
     await page.keyboard.press('Escape');
   }
+  // Assinatura e Ajustes moram na tela Conta (restaurante).
+  if (await rail.getByRole('link', { name: 'Conta', exact: true }).count())
+    return accountCard(page, name);
   throw new Error(`item de menu não encontrado: ${String(name)}`);
 }
 
-/** Abre "Conta" (submenu no computador, tela "Mais" no celular) e clica numa ação, ex.: "Sair". */
+/** Abre a tela Conta do restaurante (nome no pé do menu; no celular, o cartão da tela Mais). */
+async function openAccountPage(page: Page) {
+  if (isPhone(page)) {
+    await page.locator('.cm-tabbar').getByRole('link', { name: 'Mais' }).click();
+    await page
+      .locator('.cm-menu')
+      .getByRole('link', { name: /^Abrir a conta/ })
+      .click();
+  } else {
+    await page.locator('.cm-rail').getByRole('link', { name: 'Conta', exact: true }).click();
+  }
+  await page.locator('.acc').waitFor();
+}
+
+/** Toca num bloco da tela Conta (o nome do bloco vem antes da frase de explicação). */
+async function accountCard(page: Page, name: string | RegExp) {
+  if (!(await page.locator('.acc').count())) await openAccountPage(page);
+  const label = typeof name === 'string' ? new RegExp(`^${name}\\b`) : name;
+  const acc = page.locator('.acc');
+  const link = acc.getByRole('link', { name: label });
+  if (await link.count()) return link.first().click();
+  return acc.getByRole('button', { name: label }).first().click();
+}
+
+/**
+ * Clica numa ação da conta, ex.: "Sair". Restaurante: tela Conta (nome no pé do menu; no celular,
+ * o Sair fica no fim da tela "Mais" e o resto na Conta). Super Admin: submenu "Conta" no
+ * computador e tela "Mais" no celular.
+ */
 export async function account(page: Page, action: string) {
   if (isPhone(page)) {
     await page.locator('.cm-tabbar').getByRole('link', { name: 'Mais' }).click();
-    return page.locator('.cm-menu').getByRole('button', { name: action }).click();
+    await page.locator('.cm-menu').waitFor();
+    const here = page.locator('.cm-menu').getByRole('button', { name: action });
+    if (await here.count()) return here.click();
+    return accountCard(page, action);
   }
+  if (await page.locator('.cm-rail').getByRole('link', { name: 'Conta', exact: true }).count())
+    return accountCard(page, action);
   await page.locator('.cm-rail').getByRole('button', { name: 'Conta' }).click();
   await page.getByRole('menu').getByRole('button', { name: action }).click();
 }

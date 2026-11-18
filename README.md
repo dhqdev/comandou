@@ -125,7 +125,7 @@ copiar da notificação). Passo a passo em [docs/email.md](docs/email.md).
 | **Integrações** | NFC-e pela Focus NFe, avisos ao cliente pelo WhatsApp (QR Code ou API oficial), e-mail próprio pelo Resend, filas com novas tentativas |
 | **Plataforma** | Painel Super Admin com dois fatores, banco de dados próprio por restaurante, planos e limites, domínio próprio, contratos com assinatura eletrônica, e-mail pelo Resend, site público com teste grátis, atualização pelo painel, backups cifrados no Backblaze B2 com teste de restauração |
 
-O histórico de versões aparece no próprio sistema, na tela **Novidades** (menu do perfil).
+O histórico de versões aparece no próprio sistema, na tela **Novidades** (tela **Conta**, aberta pelo nome no pé do menu).
 
 ## Garantias
 
