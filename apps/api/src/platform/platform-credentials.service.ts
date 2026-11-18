@@ -1,9 +1,16 @@
 import { Inject, Injectable, UnprocessableEntityException } from '@nestjs/common';
 import type { QueryResultRow } from 'pg';
 import { z } from 'zod';
-import { seal } from '../common/secret-box';
+import { SECRET_CONTEXT as BACKUP_CONTEXT } from '../backup/backup-settings';
+import { KEY_CONTEXT as ASAAS_CONTEXT } from '../billing/billing.service';
+import { open, seal } from '../common/secret-box';
 import { ENV, Env } from '../config/env';
 import { FOCUS_MASTER_CONTEXT, FocusClient } from '../fiscal/focus.client';
+import { MAIL_SECRET } from '../mail/mail.service';
+import { PLATFORM_TOKEN_CONTEXT } from '../online-pay/online-pay.service';
+import { GITHUB_KEY_CONTEXT } from '../tickets/tickets.service';
+import { CLIENT_KEY_CONTEXT, OWNER_KEY_CONTEXT } from './ai-keys';
+import { SITE_KEY_CONTEXT } from './site/site-ai.service';
 import type { Actor } from './platform.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
 
@@ -20,7 +27,13 @@ export interface CredentialStatus {
   required: boolean;
   /** Complemento curto (ambiente, modo, conta), nunca o valor. */
   detail?: string;
+  /** Os 4 últimos caracteres da chave salva, para saber qual está em uso. */
+  last4?: string;
+  /** Salva, mas não abre com a INTEGRATIONS_KEY atual (precisa colar de novo). */
+  unreadable?: boolean;
 }
+
+type Sealed = Buffer | null;
 
 const env2 = (v: string) => (v === 'production' ? 'produção' : 'sandbox');
 
@@ -37,6 +50,21 @@ export class PlatformCredentialsService {
     private readonly focus: FocusClient,
   ) {}
 
+  /**
+   * Situação de uma chave cifrada: salva ou não e os 4 últimos caracteres (abre só aqui dentro,
+   * o valor nunca sai). Se não abre com a chave mestra atual, avisa para colar de novo.
+   */
+  private key(enc: Sealed | undefined, context: string) {
+    if (!enc) return { configured: false };
+    const k = this.env.INTEGRATIONS_KEY;
+    try {
+      const v = k ? open(k, enc, context) : '';
+      return { configured: true, last4: v.length >= 8 ? v.slice(-4) : undefined };
+    } catch {
+      return { configured: true, unreadable: true };
+    }
+  }
+
   private one<T extends QueryResultRow>(sql: string): Promise<T | undefined> {
     return this.db
       .query<T>(sql)
@@ -47,33 +75,33 @@ export class PlatformCredentialsService {
   async status() {
     const e = this.env;
     const [ai, site, billing, pay, mail, backup, pipeline, focus] = await Promise.all([
-      this.one<{ owner: boolean; clients: boolean }>(
-        `SELECT owner_api_key_enc IS NOT NULL AS owner, api_key_enc IS NOT NULL AS clients
+      this.one<{ owner: Sealed; clients: Sealed }>(
+        `SELECT owner_api_key_enc AS owner, api_key_enc AS clients
            FROM platform_ai_settings WHERE id`,
       ),
-      this.one<{ key: boolean }>(
-        `SELECT api_key_enc IS NOT NULL AS key FROM platform_site_ai_settings WHERE id`,
+      this.one<{ key: Sealed }>(
+        `SELECT api_key_enc AS key FROM platform_site_ai_settings WHERE id`,
       ),
-      this.one<{ api: boolean; hook: boolean; registered: boolean; env: string }>(
-        `SELECT api_key_enc IS NOT NULL AS api, webhook_token_enc IS NOT NULL AS hook,
+      this.one<{ api: Sealed; hook: boolean; registered: boolean; env: string }>(
+        `SELECT api_key_enc AS api, webhook_token_enc IS NOT NULL AS hook,
                 webhook_id IS NOT NULL AS registered, environment AS env
            FROM platform_billing_settings WHERE id`,
       ),
-      this.one<{ token: boolean; app: boolean; receiver: boolean; env: string }>(
-        `SELECT platform_token_enc IS NOT NULL AS token,
+      this.one<{ token: Sealed; app: boolean; receiver: string | null; env: string }>(
+        `SELECT platform_token_enc AS token,
                 (client_id IS NOT NULL AND client_secret_enc IS NOT NULL) AS app,
-                receiver_account_id IS NOT NULL AS receiver, environment AS env
+                receiver_account_id AS receiver, environment AS env
            FROM platform_online_pay_settings WHERE id`,
       ),
-      this.one<{ key: boolean }>(
-        `SELECT resend_key_enc IS NOT NULL AS key FROM mail_settings WHERE id`,
-      ),
-      this.one<{ ok: boolean }>(
-        `SELECT (secret_enc IS NOT NULL AND key_id <> '' AND bucket <> '' AND endpoint <> '') AS ok
+      this.one<{ key: Sealed }>(`SELECT resend_key_enc AS key FROM mail_settings WHERE id`),
+      this.one<{ secret: Sealed; ok: boolean; bucket: string }>(
+        `SELECT secret_enc AS secret, bucket,
+                (secret_enc IS NOT NULL AND key_id <> '' AND bucket <> '' AND endpoint <> '') AS ok
            FROM platform_backup_settings WHERE id`,
       ),
-      this.one<{ ok: boolean }>(
-        `SELECT github_token_enc IS NOT NULL AS ok FROM platform_pipeline_settings WHERE id`,
+      this.one<{ token: Sealed; repo: string | null }>(
+        `SELECT github_token_enc AS token, github_repo AS repo
+           FROM platform_pipeline_settings WHERE id`,
       ),
       this.one<{ last4: string; at: string }>(
         `SELECT last4, updated_at AS at FROM platform_credentials WHERE name = 'focus_master'`,
@@ -116,25 +144,18 @@ export class PlatformCredentialsService {
         id: 'focus_master',
         configured: !!focus || !!e.FOCUS_NFE_MASTER_TOKEN,
         required: true,
-        detail: focus
-          ? `termina em ${focus.last4}`
-          : e.FOCUS_NFE_MASTER_TOKEN
-            ? 'vindo do servidor (FOCUS_NFE_MASTER_TOKEN)'
-            : undefined,
+        last4: focus?.last4 ?? undefined,
+        detail: !focus && e.FOCUS_NFE_MASTER_TOKEN ? 'vindo do servidor' : undefined,
       },
-      { id: 'openrouter_clients', configured: !!ai?.clients, required: true },
-      { id: 'openrouter_owner', configured: !!ai?.owner, required: false },
-      { id: 'openrouter_site', configured: !!site?.key, required: false },
-      {
-        id: 'resend',
-        configured: !!mail?.key,
-        required: true,
-      },
+      { id: 'openrouter_clients', required: true, ...this.key(ai?.clients, CLIENT_KEY_CONTEXT) },
+      { id: 'openrouter_owner', required: false, ...this.key(ai?.owner, OWNER_KEY_CONTEXT) },
+      { id: 'openrouter_site', required: false, ...this.key(site?.key, SITE_KEY_CONTEXT) },
+      { id: 'resend', required: true, ...this.key(mail?.key, MAIL_SECRET.resend) },
       {
         id: 'asaas',
-        configured: !!billing?.api,
         required: true,
-        detail: billing ? env2(billing.env) : undefined,
+        ...this.key(billing?.api, ASAAS_CONTEXT),
+        detail: billing?.api ? env2(billing.env) : undefined,
       },
       {
         id: 'asaas_webhook',
@@ -143,12 +164,32 @@ export class PlatformCredentialsService {
       },
       {
         id: 'pagbank',
-        configured: !!pay?.token && !!pay?.app && !!pay?.receiver,
         required: false,
-        detail: pay ? env2(pay.env) : undefined,
+        ...this.key(pay?.token, PLATFORM_TOKEN_CONTEXT),
+        configured: !!pay?.token && !!pay?.app && !!pay?.receiver,
+        detail: pay?.token
+          ? [
+              env2(pay.env),
+              pay.receiver ? `conta ${pay.receiver}` : 'falta a conta',
+              !pay.app && 'falta a aplicação',
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          : undefined,
       },
-      { id: 'backblaze', configured: !!backup?.ok, required: false },
-      { id: 'github_pipeline', configured: !!pipeline?.ok, required: false },
+      {
+        id: 'backblaze',
+        required: false,
+        ...this.key(backup?.secret, BACKUP_CONTEXT),
+        configured: !!backup?.ok,
+        detail: backup?.ok ? `bucket ${backup.bucket}` : undefined,
+      },
+      {
+        id: 'github_pipeline',
+        required: false,
+        ...this.key(pipeline?.token, GITHUB_KEY_CONTEXT),
+        detail: pipeline?.token && pipeline.repo ? pipeline.repo : undefined,
+      },
       // ---- GitHub (Actions) e DNS: ficam fora do sistema
       { id: 'github_deploy', configured: null, required: false },
       { id: 'dns', configured: null, required: true },

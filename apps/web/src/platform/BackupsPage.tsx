@@ -7,7 +7,7 @@ import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
 import type { BackupFolders, BackupRun, BackupSettings, DbJob } from './types';
 import { Link } from 'react-router';
-import { CredentialsNote } from './credentials/CredentialsNote';
+import { KeyInUse } from './credentials/KeyInUse';
 import { ago, bytes, Dot, Level, PageHead, Section } from './ui';
 
 const WEEKDAYS = ['Nunca', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
@@ -263,12 +263,7 @@ function SettingsSection({ s, onSaved }: { s: BackupSettings; onSaved(n: BackupS
     <Section title="Backblaze B2" sub="pasta e agenda">
       <Card>
         <form onSubmit={save}>
-          <CredentialsNote id="backblaze" level={complete ? 'ok' : 'off'}>
-            {complete
-              ? `Bucket ${s.bucket}${s.resolvedRegion ? ` (${s.resolvedRegion})` : ''}.`
-              : 'Nenhum bucket cadastrado: o backup fica só neste servidor.'}{' '}
-            Bucket e chave do Backblaze ficam em Credenciais.
-          </CredentialsNote>
+          <KeyInUse ids={['backblaze']} extra={s.resolvedRegion || undefined} />
           <div className="adm-backup-grid" style={{ marginTop: 12 }}>
             <TextField
               label="Pasta no bucket"

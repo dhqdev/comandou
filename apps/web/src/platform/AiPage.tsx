@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router';
+import { KeyInUse } from './credentials/KeyInUse';
 import { Gift, KeyRound, MinusCircle, RefreshCw } from 'lucide-react';
 import { Alert, Button, Card, LivePanda, Spinner, TextField, useToast } from '../design-system';
 import { api } from '../lib/api';
@@ -651,11 +651,9 @@ function KeyCard({ kind, o }: { kind: KeyKind; o: AiOverview }) {
             ` Fora do Comandou (CI, scripts), aprox.: ${usd(outside)}.`}
         </p>
         {acc?.error && has && <Alert tone="warning">{acc.error}</Alert>}
-        <div className="adm-form-actions">
-          <Link to={`/credenciais#cred-openrouter_${kind}`}>
-            {has ? 'Trocar a chave em Credenciais' : 'Colocar a chave em Credenciais'}
-          </Link>
-        </div>
+        <KeyInUse
+          ids={owner ? ['openrouter_owner', 'openrouter_clients'] : ['openrouter_clients']}
+        />
       </div>
     </Card>
   );

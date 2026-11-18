@@ -160,13 +160,17 @@ barrinhas. O painel Super Admin segue com o `EventLine` de `TicketParts.tsx` na 
 
 ## Super Admin › Credenciais
 
-`platform/credentials/` (`credentials.css`, prefixo `adm-cred`): resumo em `Tile`s, depois um
-grupo por lugar (painel, instalador, servidor, GitHub) com cartões de linha fina: bolinha da
-situação, título, frase de para que serve e `Tag` (configurada/falta/opcional/confira fora daqui),
-o passo a passo num `<details>` e, se a chave é do painel, o formulário embaixo de uma linha fina
-(`Testar` secondary, `Salvar` primário pequeno). Nas outras telas, a chave nunca aparece: só o
-`CredentialsNote` (bolinha + frase + link "Abrir em Credenciais", `.adm-cred-note` em
-`admin.css`).
+`platform/credentials/` (`credentials.css`, prefixo `adm-cred`): resumo em `Tile`s, **Como
+funciona** (texto corrido num quadro), **Para subir o sistema, na ordem** (`adm-cred__order`:
+número, bolinha da situação, texto e atalhos `adm-cred__jump` para os cartões), depois um grupo por
+lugar (painel, instalador, servidor, GitHub) com cartões de linha fina: bolinha, título, frase de
+para que serve, `Tag` (configurada/falta/opcional/confira fora daqui/cole de novo) e "Em uso:
+produção · termina em 4f2a". O `<details>` (aberto quando falta) tem Como conseguir, **O que vai em
+cada campo** (`fields`, `dl.adm-cred__fields`) e **Como saber que deu certo** (`check`); se a
+chave é do painel, o formulário vem embaixo de uma linha fina (`Testar` secondary, `Salvar`
+primário pequeno). Nas outras telas, só a linha `KeyInUse` (`.adm-keyuse` em `admin.css`): bolinha,
+"Chave em uso:", o nome (link para o cartão), ambiente/conta e o final da chave; nada de
+explicação nem campo.
 
 ## Super Admin › Conversas
 

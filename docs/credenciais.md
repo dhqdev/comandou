@@ -1,14 +1,17 @@
 # Credenciais do Comandou (Super Admin › Credenciais)
 
 Tudo o que o Comandou usa de chave, token ou senha, num lugar só. No painel, a aba
-**Credenciais** (`admin.<domínio>/credenciais`) mostra a situação de cada uma (configurada,
-faltando ou para conferir fora daqui), o que falta para subir o sistema e, em cada cartão, para
-que serve, o passo a passo, os links e, quando ela se cadastra pelo painel, o campo para colar,
-**Testar** e **Salvar**. Este guia é a mesma lista, para ler antes do painel existir.
+**Credenciais** (`admin.<domínio>/credenciais`) traz este guia inteiro: como funciona, a ordem para
+subir o sistema, a situação de cada chave (configurada, faltando ou para conferir fora daqui) e, em
+cada cartão, para que serve, o passo a passo, o que vai em cada campo, como saber que deu certo, os
+links e, quando ela se cadastra pelo painel, o campo para colar, **Testar** e **Salvar**. Este
+arquivo é a mesma lista, para ler antes do painel existir.
 
 As chaves do painel ficam cifradas no banco com a `INTEGRATIONS_KEY` (AES-256-GCM) e nunca voltam
-para a tela. As outras telas (Tokens, Cobrança, Pagamentos pelo app, E-mail, Backups, Sites com
-IA, Chamados) ficam só com os ajustes de cada assunto e o atalho **Abrir em Credenciais**.
+para a tela: depois de salva, aparece só o final dela ("termina em 4f2a"), para saber qual está em
+uso. As outras telas (Tokens de IA, Cobrança, Pagamentos pelo app, E-mail, Backups, Sites com IA,
+Chamados) ficam com os ajustes de cada assunto e uma linha **Chave em uso** (nome, ambiente ou
+conta e o final da chave), com o nome levando ao cartão em Credenciais.
 
 Código: `apps/web/src/platform/credentials/` (texto de cada uma em `catalog.tsx`, formulários em
 `editors.tsx`) e `apps/api/src/platform/platform-credentials.service.ts`

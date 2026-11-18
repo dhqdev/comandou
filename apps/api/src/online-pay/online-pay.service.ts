@@ -45,7 +45,7 @@ import {
   SplitReceiver,
 } from './pagbank.client';
 
-const PLATFORM_TOKEN_CONTEXT = 'online-pay:platform-token';
+export const PLATFORM_TOKEN_CONTEXT = 'online-pay:platform-token';
 const CLIENT_SECRET_CONTEXT = 'online-pay:client-secret';
 const ACCESS_CONTEXT = (t: string) => `online-pay:${t}:access`;
 const REFRESH_CONTEXT = (t: string) => `online-pay:${t}:refresh`;

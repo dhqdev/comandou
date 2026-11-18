@@ -15,7 +15,7 @@ import {
 import { CheckField, SelectField } from '../features/forms';
 import { api } from '../lib/api';
 import { useLoad } from './OverviewPages';
-import { CredentialsNote } from './credentials/CredentialsNote';
+import { KeyInUse } from './credentials/KeyInUse';
 import { ago, levelFor, PageHead, Section, Sparkline, Tag, Tile, type Level } from './ui';
 
 type Kind = 'site' | 'maps' | 'text';
@@ -275,12 +275,7 @@ function SettingsForm({ o, onSaved }: { o: Overview; onSaved(): void }) {
             />
           </div>
           <div className="cm-form__block">
-            <CredentialsNote id="openrouter_site" level={s.hasOwnKey ? 'ok' : 'off'}>
-              {s.hasOwnKey
-                ? 'Os sites usam a chave própria deles.'
-                : 'Sem chave própria: os sites usam a sua chave (ou a dos restaurantes).'}{' '}
-              A chave fica em Credenciais.
-            </CredentialsNote>
+            <KeyInUse ids={['openrouter_site', 'openrouter_owner', 'openrouter_clients']} />
           </div>
           <TextField
             label="Modelo"

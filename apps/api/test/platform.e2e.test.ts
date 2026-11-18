@@ -1319,4 +1319,26 @@ describe('Credenciais (painel)', () => {
     const r = (await psend('post', '/credentials/focus-master/remove', {}).expect(200)).body;
     expect(r.focus.saved).toBe(false);
   });
+
+  it('diz qual chave está em uso pelos 4 últimos caracteres, sem mostrar a chave', async () => {
+    const base = {
+      enabled: false,
+      model: 'google/gemini-2.5-flash-lite',
+      assistantName: 'Comandinho',
+      defaultMonthlyTokens: 1000,
+      lowBalanceUsd: 2,
+    };
+    await psend('put', '/ai/settings', { ...base, ownerApiKey: 'sk-or-v1-segredo-ab12' }).expect(
+      200,
+    );
+    const o = (await pget('/credentials').expect(200)).body;
+    const owner = o.items.find((i: { id: string }) => i.id === 'openrouter_owner');
+    expect(owner).toMatchObject({ configured: true, last4: 'ab12' });
+    expect(JSON.stringify(o)).not.toContain('segredo');
+    await psend('put', '/ai/settings', { ...base, clearOwnerKey: true }).expect(200);
+    const after = (await pget('/credentials').expect(200)).body;
+    expect(after.items.find((i: { id: string }) => i.id === 'openrouter_owner')).toMatchObject({
+      configured: false,
+    });
+  });
 });

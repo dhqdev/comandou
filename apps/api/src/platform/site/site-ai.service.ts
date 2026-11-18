@@ -28,7 +28,8 @@ import {
   type SiteAiKind,
 } from './site-ai';
 
-const KEY_CONTEXT = 'ai:openrouter:site';
+export const SITE_KEY_CONTEXT = 'ai:openrouter:site';
+const KEY_CONTEXT = SITE_KEY_CONTEXT;
 /** O rascunho pode ser levado para o cadastro por este tempo depois de gerado. */
 const CLAIM_HOURS = 3;
 

@@ -8,6 +8,12 @@ export interface CredLink {
   href: string;
 }
 
+/** Um campo do formulário e o que colar nele. */
+export interface CredField {
+  name: string;
+  text: ReactNode;
+}
+
 export interface CredDef {
   id: string;
   title: string;
@@ -18,6 +24,10 @@ export interface CredDef {
   where?: string[];
   /** Passo a passo para conseguir e cadastrar. */
   steps: ReactNode[];
+  /** O que vai em cada campo do formulário (só as do painel). */
+  fields?: CredField[];
+  /** Como saber que deu certo. */
+  check?: ReactNode;
   links?: CredLink[];
 }
 
@@ -36,6 +46,25 @@ export const CREDENTIALS: CredDef[] = [
     group: 'painel',
     purpose:
       'Emite a NFC-e e a NF-e dos restaurantes. Com ele o Comandou cadastra a empresa de cada restaurante na sua conta da Focus, sem o lojista precisar de conta lá.',
+    fields: [
+      {
+        name: 'Token Master',
+        text: (
+          <>
+            o token da <strong>conta</strong>, em Painel API › Tokens. Não use o token de uma
+            empresa (homologação ou produção): ele só emite a nota daquela empresa e não cadastra as
+            outras.
+          </>
+        ),
+      },
+    ],
+    check: (
+      <>
+        O <strong>Testar</strong> responde “A Focus aceitou o token” e quantas empresas a conta já
+        tem. Salvo, este cartão fica verde com o final do token. Se a Focus recusar, a conta ainda
+        não tem o cadastro de empresas pela API: peça ao comercial dela.
+      </>
+    ),
     steps: [
       <>
         Crie a conta da Comandou em{' '}
@@ -83,6 +112,23 @@ export const CREDENTIALS: CredDef[] = [
     group: 'painel',
     purpose:
       'O assistente do chat e do WhatsApp de cada restaurante, a importação do cardápio e a busca no Google Maps gastam desta chave.',
+    fields: [
+      {
+        name: 'Colar a chave',
+        text: (
+          <>
+            a chave inteira, começando com {code('sk-or-v1-')}. O OpenRouter mostra uma vez só: se
+            perdeu, crie outra e apague a antiga.
+          </>
+        ),
+      },
+    ],
+    check: (
+      <>
+        O <strong>Testar</strong> responde “Funcionou em X s” e os tokens gastos (centavos). Salva,
+        Super Admin › Tokens de IA passa a mostrar o gasto de hoje, do mês e o limite da chave.
+      </>
+    ),
     steps: [
       <>
         Crie a conta em{' '}
@@ -109,6 +155,19 @@ export const CREDENTIALS: CredDef[] = [
     group: 'painel',
     purpose:
       'Opcional. Esteira de chamados, testes e o que o sistema fizer por você. Sem ela, usa a chave dos restaurantes.',
+    fields: [
+      {
+        name: 'Colar a chave',
+        text: <>outra chave do OpenRouter ({code('sk-or-v1-…')}), só para o sistema.</>,
+      },
+    ],
+    check: (
+      <>
+        O <strong>Testar</strong> responde “Funcionou”. Em Tokens de IA, o cartão Sua chave mostra o
+        gasto do sistema separado do dos restaurantes. <strong>Apagar</strong> volta a usar a chave
+        dos restaurantes.
+      </>
+    ),
     steps: [
       <>
         Em <strong>openrouter.ai › Settings › Keys</strong>, crie outra chave (ex.:{' '}
@@ -125,6 +184,23 @@ export const CREDENTIALS: CredDef[] = [
     group: 'painel',
     purpose:
       'Opcional. O site montado pela IA no comandou.com gasta desta chave. Sem ela, usa a sua chave (ou a dos restaurantes).',
+    fields: [
+      {
+        name: 'Colar a chave',
+        text: (
+          <>
+            uma chave só para o site ({code('sk-or-v1-…')}), com limite baixo. Sem ela, o site usa a
+            sua chave; sem a sua, a dos restaurantes.
+          </>
+        ),
+      },
+    ],
+    check: (
+      <>
+        Em Sites com IA, a linha <em>Chave em uso</em> mostra “OpenRouter · chave dos sites” com o
+        final dela. Monte um site de teste em comandou.com para conferir.
+      </>
+    ),
     steps: [
       <>
         Crie uma chave só para o site em <strong>openrouter.ai › Settings › Keys</strong>, com um
@@ -140,6 +216,28 @@ export const CREDENTIALS: CredDef[] = [
     group: 'painel',
     purpose:
       'Todo e-mail do sistema sai por aqui: acesso do restaurante novo, códigos de senha, avisos de teste grátis e cobrança.',
+    fields: [
+      {
+        name: 'API Key',
+        text: (
+          <>
+            começa com {code('re_')}, com permissão <em>Sending access</em>. O Resend mostra uma vez
+            só.
+          </>
+        ),
+      },
+      {
+        name: 'Mandar um e-mail de teste para',
+        text: <>um e-mail seu, para ver se chega (olhe também o spam).</>,
+      },
+    ],
+    check: (
+      <>
+        O e-mail de teste chega na caixa de entrada. Em Super Admin › E-mail, o Resend aparece como{' '}
+        <em>Funcionando</em> e a aba Envios mostra o e-mail entregue. Caiu no spam: falta o SPF ou o
+        DKIM no DNS do domínio.
+      </>
+    ),
     steps: [
       <>
         Crie a conta em{' '}
@@ -158,8 +256,9 @@ export const CREDENTIALS: CredDef[] = [
         esse domínio. Copie a chave (começa com {code('re_')}): ela aparece uma vez só.
       </>,
       <>
-        Cole abaixo e salve. Depois, em Super Admin › E-mail, escolha o remetente (um endereço do
-        domínio verificado, ex.: {code('nao-responda@comandou.com')}) e mande um teste.
+        Cole abaixo e salve. Depois, em Super Admin › E-mail, escreva o remetente (um endereço do
+        domínio verificado, ex.: {code('nao-responda@comandou.com')}), deixe ligado{' '}
+        <em>Enviar e-mails pelo Resend</em> e salve. Por fim, mande o e-mail de teste aqui embaixo.
       </>,
     ],
     links: [
@@ -173,6 +272,28 @@ export const CREDENTIALS: CredDef[] = [
     group: 'painel',
     purpose:
       'Cobra a mensalidade dos restaurantes: gera as faturas (Pix, boleto e cartão), manda por e-mail e dá baixa sozinho.',
+    fields: [
+      {
+        name: 'Ambiente',
+        text: (
+          <>
+            <strong>Sandbox</strong> para testar (não cobra de verdade) ou <strong>Produção</strong>
+            . A chave precisa ser do mesmo ambiente.
+          </>
+        ),
+      },
+      {
+        name: 'Chave da API',
+        text: <>começa com {code('$aact_')}. O Asaas mostra uma vez só.</>,
+      },
+    ],
+    check: (
+      <>
+        <strong>Testar conexão</strong> responde “Conta (nome) conectada” e o saldo. Depois de{' '}
+        <strong>Cadastrar webhook no Asaas</strong>, este cartão mostra “webhook cadastrado”; no
+        Asaas, ele aparece em Integrações › Webhooks.
+      </>
+    ),
     steps: [
       <>
         Crie a conta da Comandou no{' '}
@@ -212,6 +333,40 @@ export const CREDENTIALS: CredDef[] = [
     group: 'painel',
     purpose:
       'Opcional. Pagamento por cartão e Pix no cardápio online, com a taxa da Comandou separada na hora pelo PagBank.',
+    fields: [
+      {
+        name: 'Ambiente',
+        text: <>Sandbox para testar ou Produção, o mesmo do token.</>,
+      },
+      {
+        name: 'Token da conta PagBank',
+        text: <>o token gerado em Venda online › Integrações.</>,
+      },
+      {
+        name: 'Conta que recebe a taxa',
+        text: (
+          <>
+            o id da sua conta PagBank (começa com {code('ACCO_')}). Às vezes vem sozinho ao criar a
+            aplicação.
+          </>
+        ),
+      },
+      {
+        name: 'Client id e client secret',
+        text: (
+          <>
+            deixe em branco e clique em <strong>Criar aplicação no PagBank</strong>. Só preencha se
+            você já tem uma aplicação do Connect.
+          </>
+        ),
+      },
+    ],
+    check: (
+      <>
+        Com a aplicação criada, este cartão fica verde com o ambiente e a conta. Em Pagamentos pelo
+        app, libere um restaurante de teste e pague um Pix pequeno no cardápio dele.
+      </>
+    ),
     steps: [
       <>
         Peça ao comercial do PagBank para liberar na sua conta a{' '}
@@ -244,6 +399,30 @@ export const CREDENTIALS: CredDef[] = [
     group: 'painel',
     purpose:
       'Opcional, mas recomendado. Leva a cópia diária de todos os bancos para fora do servidor. Sem ele, o backup fica só no próprio servidor.',
+    fields: [
+      {
+        name: 'Endereço S3 (Endpoint)',
+        text: (
+          <>
+            o Endpoint que aparece no bucket, ex.: {code('s3.us-east-005.backblazeb2.com')} (a
+            região sai dele).
+          </>
+        ),
+      },
+      { name: 'Nome do bucket', text: <>o nome exato do bucket que você criou.</> },
+      { name: 'keyID', text: <>o keyID da Application Key (não o da conta).</> },
+      {
+        name: 'applicationKey',
+        text: <>a chave que aparece uma vez só ao criar a Application Key.</>,
+      },
+    ],
+    check: (
+      <>
+        <strong>Testar conexão</strong> responde “Bucket funcionando” com cada passo (gravar, ler e
+        apagar). Depois, em Infraestrutura › Backups, ligue o envio e confira no dia seguinte o
+        último backup enviado.
+      </>
+    ),
     steps: [
       <>
         Em{' '}
@@ -281,6 +460,23 @@ export const CREDENTIALS: CredDef[] = [
     group: 'painel',
     purpose:
       'Opcional. A esteira de chamados cria a branch e abre o PR no repositório com ele (repositório privado).',
+    fields: [
+      {
+        name: 'Token do GitHub',
+        text: (
+          <>
+            começa com {code('github_pat_')}. O repositório (dono/nome) e a branch ficam em Chamados
+            › Configurar.
+          </>
+        ),
+      },
+    ],
+    check: (
+      <>
+        <strong>Testar GitHub</strong> mostra cada permissão com um visto verde. Se uma falhar,
+        edite o token no GitHub, marque a permissão que faltou e teste de novo.
+      </>
+    ),
     steps: [
       <>
         Com a conta dona do repositório, abra{' '}
@@ -460,6 +656,12 @@ export const CREDENTIALS: CredDef[] = [
     title: 'DNS do domínio',
     group: 'servidor',
     purpose: 'Faz o domínio, o admin e cada restaurante chegarem a este servidor.',
+    check: (
+      <>
+        No seu computador, {code('nslookup admin.seudominio.com.br')} responde o IP do servidor.
+        Depois do instalador, o admin abre com o cadeado do HTTPS.
+      </>
+    ),
     steps: [
       <>
         No painel do seu domínio (Registro.br, Cloudflare ou outro), crie registros{' '}
@@ -492,6 +694,12 @@ export const CREDENTIALS: CredDef[] = [
     purpose:
       'Opcional. Liga o cardápio de integração com o iFood (pedidos e cardápio sincronizados).',
     where: ['IFOOD_CLIENT_ID', 'IFOOD_CLIENT_SECRET', 'IFOOD_APP_MODE'],
+    check: (
+      <>
+        Este cartão fica verde com o modo. No restaurante, Cardápio › Cardápios mostra o cardápio do
+        iFood para conectar.
+      </>
+    ),
     steps: [
       <>
         Crie o aplicativo no{' '}

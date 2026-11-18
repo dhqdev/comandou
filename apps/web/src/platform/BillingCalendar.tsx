@@ -322,8 +322,9 @@ export function CalendarSection() {
       {!cal && !error && <Spinner />}
       {cal && !cal.live && (
         <p className="adm-cal__note">
-          Sem baixa sozinha: cadastre o aviso (webhook) do Asaas em Configuração, mais abaixo. Até
-          lá, abra a cobrança e use Marcar como pago.
+          Sem baixa sozinha: cadastre o aviso (webhook) do Asaas em{' '}
+          <Link to="/credenciais#cred-asaas">Credenciais › Asaas</Link>. Até lá, abra a cobrança e
+          use Marcar como pago.
         </p>
       )}
       {cal && (

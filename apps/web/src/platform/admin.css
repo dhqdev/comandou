@@ -2870,11 +2870,40 @@ button.adm-card:hover {
 }
 
 /* Aviso "isto agora fica em Credenciais" nas telas de cada assunto. */
-.adm-cred-note {
+/* Nas telas de cada assunto: só qual chave está em uso (cadastro em Credenciais). */
+.adm-keyuse {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 4px 8px;
+  margin: 0;
   font-size: 13px;
+  line-height: 1.5;
   color: var(--a-muted);
+  min-width: 0;
+}
+.adm-keyuse__name {
+  font-weight: 600;
+  color: var(--a-text);
+  text-decoration: none;
+}
+.adm-keyuse__name:hover {
+  text-decoration: underline;
+}
+.adm-keyuse__fact {
+  overflow-wrap: anywhere;
+}
+.adm-keyuse__fact::before {
+  content: '·';
+  margin-right: 8px;
+  color: var(--a-subtle);
+}
+.adm-keyuse__go {
+  color: var(--a-accent);
+}
+.adm-keyuse--loading {
+  color: var(--a-subtle);
+}
+.adm-keyuse + .cm-form {
+  margin-top: 12px;
 }

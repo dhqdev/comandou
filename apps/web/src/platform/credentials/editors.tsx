@@ -457,8 +457,9 @@ export function ResendEditor({ onSaved }: { onSaved(): void }) {
                     api('/platform/mail/settings', {
                       method: 'PUT',
                       json: {
-                        // Primeira chave: já liga o envio (é o único jeito de mandar e-mail).
-                        enabled: s.enabled || !s.resendKeySet,
+                        // Primeira chave: já liga o envio, se o remetente já existe (sem ele, a
+                        // API recusa; o remetente e o liga e desliga ficam em Super Admin › E-mail).
+                        enabled: s.enabled || (!s.resendKeySet && !!s.fromAddress),
                         fromAddress: s.fromAddress,
                         fromName: s.fromName,
                         replyTo: s.replyTo,

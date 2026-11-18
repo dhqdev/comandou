@@ -3,7 +3,7 @@ import { FormEvent, useState } from 'react';
 import { Button, Card, TextField, useToast } from '../../design-system';
 import { CheckField } from '../../features/forms';
 import { api } from '../../lib/api';
-import { CredentialsNote } from '../credentials/CredentialsNote';
+import { KeyInUse } from '../credentials/KeyInUse';
 import { Section, Tag } from '../ui';
 import type { MailSettings } from './types';
 
@@ -85,10 +85,7 @@ function SendSettings({ settings: s, onSaved }: { settings: MailSettings; onSave
       sub={s.ready ? <Tag level="ok">Funcionando</Tag> : <Tag level="warn">Não configurado</Tag>}
     >
       <Card>
-        <CredentialsNote id="resend" level={s.resendKeySet ? 'ok' : 'bad'}>
-          {s.resendKeySet ? 'Chave do Resend salva.' : 'Falta a chave do Resend.'} A chave fica em
-          Credenciais.
-        </CredentialsNote>
+        <KeyInUse ids={['resend']} />
         <form className="cm-form" onSubmit={save}>
           <div className="cm-form__block">
             <CheckField

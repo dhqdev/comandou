@@ -13,7 +13,7 @@ import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { CalendarSection } from './BillingCalendar';
 import { useLoad } from './OverviewPages';
-import { CredentialsNote } from './credentials/CredentialsNote';
+import { KeyInUse } from './credentials/KeyInUse';
 import { ago, Dot, Level, Section, Tag, Tile } from './ui';
 
 interface Settings {
@@ -173,21 +173,17 @@ function StatusSection({ o, onRan }: { o: Overview; onRan(): void }) {
         </Button>
       }
     >
-      {!s.keyConfigured && (
-        <Alert tone="danger">
-          A API está sem INTEGRATIONS_KEY: não dá para guardar a chave do Asaas com segurança.
-        </Alert>
-      )}
       {!s.enabled && (
         <Alert tone="info">
-          Cobrança automática desligada. Coloque a chave do Asaas abaixo e ligue: restaurantes novos
-          já nascem em cobrança automática; os antigos você liga um a um na aba Assinatura.
+          Cobrança automática desligada. Com a chave do Asaas cadastrada em{' '}
+          <Link to="/credenciais#cred-asaas">Credenciais</Link>, ligue abaixo: restaurantes novos já
+          nascem em cobrança automática; os antigos você liga um a um na aba Assinatura.
         </Alert>
       )}
       {s.enabled && !s.webhookRegistered && (
         <Alert tone="warning">
           Webhook do Asaas não cadastrado: sem ele, o pagamento só é visto no ciclo ou no botão
-          Conferir. Use "Cadastrar webhook no Asaas" abaixo.
+          Conferir. Cadastre em <Link to="/credenciais#cred-asaas">Credenciais › Asaas</Link>.
         </Alert>
       )}
       {s.lastCycleError && <Alert tone="warning">Último ciclo: {s.lastCycleError}</Alert>}
@@ -388,15 +384,13 @@ function SettingsSection({ o, onSaved }: { o: Overview; onSaved(n: Overview): vo
               O Asaas emite as faturas (Pix, boleto e cartão), manda por e-mail para o restaurante e
               avisa o Comandou quando o pagamento cai.
             </p>
-            <CredentialsNote
-              id="asaas"
-              level={!s.hasApiKey ? 'bad' : !s.webhookRegistered ? 'warn' : 'ok'}
-            >
-              {!s.hasApiKey
-                ? 'Falta a chave da API do Asaas.'
-                : `Asaas ${s.environment === 'production' ? 'em produção' : 'no sandbox'}${s.accountName ? ` · ${s.accountName}` : ''}${s.webhookRegistered ? '' : ' · falta cadastrar o webhook'}.`}{' '}
-              Chave, ambiente, teste e webhook ficam em Credenciais.
-            </CredentialsNote>
+            <KeyInUse
+              ids={['asaas']}
+              extra={[s.accountName, s.webhookRegistered ? null : 'falta cadastrar o webhook']
+                .filter(Boolean)
+                .join(' · ')}
+              extraLevel={s.webhookRegistered ? 'ok' : 'warn'}
+            />
             <label className="adm-check" style={{ marginTop: 14 }}>
               <input
                 type="checkbox"

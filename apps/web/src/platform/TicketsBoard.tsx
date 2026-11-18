@@ -40,7 +40,7 @@ import {
   when,
 } from '../features/tickets/ticket-api';
 import { api } from '../lib/api';
-import { CredentialsNote } from './credentials/CredentialsNote';
+import { KeyInUse } from './credentials/KeyInUse';
 import { useLoad } from './OverviewPages';
 import type { TenantRow } from './types';
 import { ago, PageHead, Tabs, useInterval } from './ui';
@@ -1319,17 +1319,12 @@ function PipelineConfig({
           value={f.model}
           onChange={(e) => set('model', e.target.value)}
         />
-        {!s.aiReady && (
-          <Alert tone="warning">Falta a chave do OpenRouter em Super Admin › Credenciais.</Alert>
-        )}
+        <KeyInUse ids={['openrouter_owner', 'openrouter_clients']} label="Chave da IA" />
 
         <h3 className="tk-block__label" style={{ margin: '6px 0 0' }}>
           GitHub (repositório privado)
         </h3>
-        <CredentialsNote id="github_pipeline" level={s.hasGithubToken ? 'ok' : 'bad'}>
-          {s.hasGithubToken ? 'Token do GitHub salvo.' : 'Falta o token do GitHub.'} O token, o
-          passo a passo para criar e o teste ficam em Credenciais.
-        </CredentialsNote>
+        <KeyInUse ids={['github_pipeline']} label="Token em uso" />
         <div className="tk-form__two">
           <TextField
             label="Repositório (dono/nome)"

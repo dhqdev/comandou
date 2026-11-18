@@ -4,7 +4,7 @@ import { Alert, Button, Card, Spinner, TextField, useToast } from '../design-sys
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useLoad } from './OverviewPages';
-import { CredentialsNote } from './credentials/CredentialsNote';
+import { KeyInUse } from './credentials/KeyInUse';
 import { ago, Dot, PageHead, Section, Tag, Tile } from './ui';
 
 interface Fee {
@@ -324,12 +324,7 @@ function SettingsSection({ o, onSaved }: { o: Overview; onSaved(n: Overview): vo
               A sua conta não recebe o dinheiro do pedido: só a taxa, que o PagBank separa na hora
               de cada pagamento. O restaurante recebe o resto direto na conta dele.
             </p>
-            <CredentialsNote id="pagbank" level={ready ? 'ok' : 'bad'}>
-              {ready
-                ? `PagBank ${s.environment === 'production' ? 'em produção' : 'no sandbox'} · conta ${s.receiverAccountId}.`
-                : 'Faltam o token, a conta ou a aplicação do PagBank.'}{' '}
-              Ambiente, token e aplicação do Connect ficam em Credenciais.
-            </CredentialsNote>
+            <KeyInUse ids={['pagbank']} extraLevel={ready ? 'ok' : 'warn'} />
           </div>
 
           <div className="adm-form-group">
