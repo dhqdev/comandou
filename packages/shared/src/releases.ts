@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.173.0',
+    version: '0.174.0',
     date: '2026-11-18',
     title: 'Base dos pedidos do iFood e dos outros aplicativos de delivery',
     summary:
@@ -49,6 +49,31 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'segurança',
         text: 'Proteções contra bloqueio pelos aplicativos: busca de pedidos no máximo a cada 30 segundos e por um servidor só, confirmação de recebimento só depois de guardar o pedido, no máximo 10 consultas por pedido, sem repetir chamada recusada e alertas antes de chegar perto dos limites.',
+      },
+    ],
+  },
+  {
+    version: '0.173.0',
+    date: '2026-11-18',
+    title: 'Reservas com tags de situação no topo e cartões que mudam na hora',
+    summary:
+      'O painel do lado das Reservas ficou só com Nova reserva e o calendário. A situação virou tags em cima da agenda (Todas, Aguardando, Confirmada, Chegou...) com a contagem de cada uma, e o cartão da reserva muda na hora quando o cliente, o sistema ou outra pessoa mexe nela.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Reservas: as caixinhas de Situação viraram tags acima da agenda. Toque numa tag para ver só aquelas reservas (dá para escolher mais de uma); Todas volta para todas, menos as canceladas e as que não vieram. No celular as tags ficam embaixo de Dia/Semana/Mês/Lista e rolam de lado.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Reservas pelo cardápio e Copiar link foram para a barra de cima (botão com a bolinha verde quando estão ligadas). O resumo do dia continua no cabeçalho dos cartões e, no celular, na folha aberta pelo título.',
+      },
+      {
+        tag: 'novo',
+        text: 'Quando uma reserva muda sem você mexer (cliente confirmou ou cancelou, a IA do WhatsApp reservou, outra pessoa da equipe mudou), o cartão ganha um contorno laranja por dois segundos para chamar o olho.',
+      },
+      {
+        tag: 'correção',
+        text: 'Quando a comanda fechava sozinha (Pix do cardápio pago e pedido entregue), a reserva sentada naquela mesa era concluída mas a tela de Reservas só mostrava isso depois de recarregar. Agora atualiza na hora.',
       },
     ],
   },

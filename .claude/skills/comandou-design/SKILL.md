@@ -141,6 +141,15 @@ pode dar fiado; a grade se ajusta a 4 ou 5 colunas) e abre os campos em `nsale__
 já lançado, `FiadoForm` (`inline-form`) e a nota `od-note[data-tone='warning']`. Não há faixa de
 fiado no PDV (o dono pediu para tirar). Tag Fiado laranja `#E8710A`.
 
+## Reservas
+
+`pages/ReservationsPage.tsx` (`reservations.css`, prefixo `rv-`), no jeito da Agenda pessoal, mas
+o painel do lado tem **só Nova reserva e o minicalendário** (pedido do David na 0.173). Situação =
+tags-pílula acima da agenda (`rv-tag`: bolinha na cor da situação, contador, escolhida com fundo
+`color-mix` de 12% da cor); Reservas pelo cardápio é um botão `rv-store` na barra. Cartão que mudou
+por tempo real ganha o contorno `is-fresh` (pseudo-elemento, só opacity). Não volte a pôr resumo,
+filtros ou atalhos no painel do lado.
+
 ## Super Admin › E-mail
 
 `apps/web/src/platform/mail/` (`mail.css` só com tokens): três abas, **Resend** (formulário

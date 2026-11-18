@@ -12,10 +12,17 @@ as contas de data de `agenda-utils.ts` e as classes de `agenda.css`; o que é s�
 - **Dia**: grade de horários (cada reserva do tamanho do tempo na mesa) e, a partir de 1281 px,
   os cartões do dia ao lado com as ações (Confirmar, Chegou, Concluir, Não veio, Reabrir, mesa,
   telefone e WhatsApp). Em tela menor, tocar na reserva abre o mesmo cartão numa janela.
-- **Painel do lado**: Nova reserva, minicalendário, resumo do dia escolhido, filtro por situação
-  (cor de cada uma em `STATUS_COLOR`; Cancelada e Não veio começam escondidas, `cm-rv-hidden`) e
-  o atalho para as reservas pelo cardápio (configurar e copiar o link).
-- **Aguardando**: botão no topo que mostra só as reservas esperando confirmação.
+- **Painel do lado**: só Nova reserva e o minicalendário (desde a 0.173).
+- **Tags de situação** acima da agenda (`rv-tags`): Todas (sem Cancelada e Não veio) e uma tag por
+  situação com a contagem do período na tela (cor em `STATUS_COLOR`). Dá para escolher mais de uma;
+  nenhuma escolhida = Todas. No celular ficam embaixo das visões e rolam de lado.
+- **Reservas pelo cardápio**: botão na barra de cima (bolinha verde quando ligadas) que abre as
+  configurações, com o link; ao lado, Copiar link. No celular, na folha aberta pelo título, junto
+  com a busca, o calendário e o resumo do dia.
+- **Tempo real**: todo `reservation.changed` recarrega a lista e marca o cartão com um contorno
+  laranja por 2,4 s (`is-fresh`). Quem muda reserva fora do `ReservationsService` precisa publicar
+  esse aviso depois do COMMIT (ex.: `completeSeatedForTab` devolve os ids; `publishReservations`
+  do `OrdersService`).
 - **Arrastar** (computador): muda dia e hora em passos de 15 minutos; a borda de baixo muda o tempo
   na mesa (15 min a 10 h). Reserva encerrada não arrasta. Clique num horário vazio abre a nova
   reserva naquele dia e hora; no mês, num dia vazio, às 20h.

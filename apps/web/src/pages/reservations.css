@@ -1,42 +1,137 @@
 /* Reservas no jeito da Agenda (pages/agenda/agenda.css): painel do lado, barra e as visões.
    Aqui só o que é das reservas. Cores sempre dos tokens (seguem a cor da loja e o tema). */
 
-/* ---------------------------------------------------------------- painel */
-.rv-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+/* ---------------------------------------------------------------- filtros (topo) */
+/* Painel do lado só com Nova reserva e o minicalendário; a situação vira tags numa linha acima
+   da agenda e as reservas pelo cardápio, um botão na barra. */
+.rv-tags {
+  display: flex;
+  flex: none;
+  margin-top: calc(-1 * var(--cm-space-1));
   gap: 6px;
-  margin: 0;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
 }
-.rv-stats > div {
-  display: grid;
-  gap: 1px;
-  padding: 8px 10px;
+.rv-tags::-webkit-scrollbar {
+  display: none;
+}
+.rv-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
   border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-md);
+  border-radius: var(--cm-radius-full);
   background: var(--cm-surface);
-}
-.rv-stats dt {
-  font-size: var(--cm-text-xs);
   color: var(--cm-text-muted);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
-.rv-stats dd {
-  margin: 0;
-  font-size: var(--cm-text-lg);
+.rv-tag:hover {
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+}
+.rv-tag:active {
+  transform: scale(0.97);
+}
+.rv-tag:focus-visible {
+  outline: 2px solid var(--cm-brand-500);
+  outline-offset: 2px;
+}
+.rv-tag__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--tag);
+}
+.rv-tag__n {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: var(--cm-radius-full);
+  background: color-mix(in srgb, var(--cm-text-muted) 14%, transparent);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
   font-weight: 600;
+  line-height: 18px;
+  text-align: center;
   font-variant-numeric: tabular-nums;
 }
-.rv-stats > div[data-warn] {
-  border-color: color-mix(in srgb, var(--cm-warning) 50%, var(--cm-border));
+.rv-tag[aria-pressed='true'] {
+  border-color: color-mix(in srgb, var(--tag, var(--cm-brand-500)) 55%, var(--cm-border));
+  background: color-mix(in srgb, var(--tag, var(--cm-brand-500)) 12%, var(--cm-surface));
+  color: var(--cm-text);
+  font-weight: 600;
 }
-.rv-stats > div[data-warn] dd {
+.rv-tag[aria-pressed='true'] .rv-tag__n {
+  background: color-mix(in srgb, var(--tag, var(--cm-brand-500)) 22%, transparent);
+  color: var(--cm-text);
+}
+.rv-tag[data-warn] .rv-tag__n {
+  background: var(--cm-warning-bg);
   color: var(--cm-warning);
 }
-.rv-filter-n {
-  margin-left: auto;
-  font-size: var(--cm-text-xs);
-  color: var(--cm-text-subtle);
+
+.rv-sum {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rv-sum strong {
+  color: var(--cm-text);
+  font-weight: 600;
+}
+.rv-sum > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.rv-sum__warn {
+  color: var(--cm-warning);
+  font-weight: 600;
+}
+
+.rv-store {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--cm-radius-md);
+  background: color-mix(in srgb, var(--cm-text-muted) 10%, transparent);
+  color: var(--cm-text);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.rv-store:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.rv-store:disabled {
+  cursor: default;
+  color: var(--cm-text-muted);
 }
 .rv-cal .ag-wa:disabled {
   cursor: default;
@@ -44,41 +139,20 @@
 .rv-cal .ag-wa:disabled:hover {
   background: inherit;
 }
+/* Notebook: o botão das reservas pelo cardápio vira só ícone. */
+@media (max-width: 1280px) {
+  .rv-store__text {
+    display: none;
+  }
+}
 
-/* ---------------------------------------------------------------- barra */
-.rv-pending {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex: none;
-  height: 30px;
-  margin-left: var(--cm-space-2);
-  padding: 0 12px;
-  border: 1px solid color-mix(in srgb, var(--cm-warning) 45%, var(--cm-border));
-  border-radius: var(--cm-radius-full);
-  background: var(--cm-warning-bg);
-  color: var(--cm-warning);
-  font: inherit;
-  font-size: var(--cm-text-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+/* Celular: as tags rolam de lado embaixo das visões. */
+.ag--phone .rv-tag {
+  height: 36px;
 }
-.rv-pending:active {
-  transform: scale(0.97);
-}
-.rv-pending[aria-pressed='true'] {
-  border-color: var(--cm-warning);
-}
-.rv-pending__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--cm-warning);
-}
-.ag--phone .rv-pending {
-  align-self: flex-start;
-  margin-left: 0;
+.ag-side--sheet .rv-sum {
+  flex-wrap: wrap;
+  white-space: normal;
 }
 
 /* ---------------------------------------------------------------- mês */
@@ -227,8 +301,39 @@
     opacity: 0;
   }
 }
+/* Mudou agora (cliente confirmou, o sistema concluiu, outra pessoa mexeu): um contorno da cor
+   da marca que some devagar, só com opacity. */
+.rv-card {
+  position: relative;
+}
+.rv-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border: 2px solid var(--cm-brand-500);
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--cm-brand-500) 6%, transparent);
+  opacity: 0;
+  pointer-events: none;
+}
+.rv-card.is-fresh::after {
+  animation: rv-fresh 2.4s ease-out both;
+}
+.rv-card--plain::after {
+  display: none;
+}
+@keyframes rv-fresh {
+  0%,
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .rv-card {
+  .rv-card,
+  .rv-card.is-fresh::after {
     animation: none;
   }
 }

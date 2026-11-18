@@ -251,7 +251,7 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
 
 - **Fase 0** (pesquisa e desenho): feita e revista em 2026-11-18 (Open Delivery V2, assinatura da
   Keeta e da Rappi, regras da NFC-e).
-- **Fase 1** (base comum, 0.173.0): migração 0086 e `apps/api/src/integrations/channels/`.
+- **Fase 1** (base comum, 0.174.0): migração 0086 e `apps/api/src/integrations/channels/`.
   - **Adaptador** (`channel-adapter.ts`): `poll`, `ack`, `fetchOrder`, `send`; registro em
     `ChannelRegistry`. Chamadas só pela `ChannelHttp` (base fixa do canal, tempo limite, repete só
     rede/429/5xx com espera crescente e o Retry-After, janela de 80% do limite por endpoint).
