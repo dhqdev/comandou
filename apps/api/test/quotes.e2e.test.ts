@@ -146,6 +146,36 @@ describe('Orçamento', () => {
     expect(row!.total).toBe('400.00');
   });
 
+  it('usa os prazos escolhidos: validade, teste grátis, vigência e implantação', async () => {
+    const r = await psend('post', '/quotes', {
+      clientName: 'Pizzaria dos Prazos',
+      fiscal: false,
+      validityDays: 30,
+      trialDays: 15,
+      termMonths: 6,
+      implementationDays: 10,
+    }).expect(201);
+    const [row] = await ownerQuery<{ content: any }>(
+      `SELECT content FROM platform_quotes WHERE id = $1`,
+      [r.body.id],
+    );
+    const c = row!.content;
+    expect(c.version).toBe(2);
+    expect(c.terms).toMatchObject({
+      validityDays: 30,
+      trialDays: 15,
+      termMonths: 6,
+      implementationDays: 10,
+    });
+    expect(c.plan.trialDays).toBe(15);
+    expect(Date.parse(c.validUntil) - Date.parse(c.issuedAt)).toBe(30 * 86_400_000);
+    expect(c.conditions[0]).toContain('15 (quinze) dias');
+    expect(c.conditions.join(' ')).toContain('6 (seis) meses');
+    expect(c.service.length).toBeGreaterThan(0);
+    await pget(`/quotes/${r.body.id}/pdf`).expect(200);
+    await psend('post', '/quotes', { clientName: 'X', termMonths: 24 }).expect(400);
+  });
+
   it('salva os valores padrão (e o contrato passa a usar)', async () => {
     const body = {
       fiscal: {

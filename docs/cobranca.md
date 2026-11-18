@@ -139,3 +139,12 @@ manual e bloqueio por contrato vencido. `packages/shared/src/billing.test.ts` co
   fiscal com a estimativa, a taxa do pagamento pelo app (se ligado), os custos de terceiros
   (certificado A1, WhatsApp, domínio, equipamentos, editáveis em Valores padrão) e as condições
   do contrato (teste, pagamento, 12 meses, reajuste, cancelamento, SLA e suporte).
+- **Proposta comercial formal (0.151.0):** o PDF virou uma proposta em tom formal, com seções
+  numeradas: destinatário, apresentação, objeto e escopo, investimento, implantação (etapas e
+  prazo), documentos fiscais, recebimentos online, custos de terceiros, condições comerciais
+  (multa e juros do contrato), nível de serviço e LGPD, validade por extenso e aceite com linhas
+  de assinatura. Em **Prazos**, cada orçamento escolhe a validade (atalhos 7/15/30/60 dias), o
+  teste grátis oferecido, a vigência do contrato (1 a 12 meses) e o prazo de implantação em dias
+  úteis; tudo fica congelado em `content.terms` (versão 2). Orçamentos antigos (versão 1) saem no
+  layout novo com os prazos da época. Os textos ficam em `quote-content.ts` (`planIncluded`,
+  `implementationSteps`, `quoteClauses`).

@@ -347,6 +347,12 @@ export const NewQuote = z.object({
   nfcePerMonth: z.number().int().min(0).max(1_000_000).default(0),
   nfePerMonth: z.number().int().min(0).max(1_000_000).default(0),
   validityDays: z.number().int().min(1).max(90).optional(),
+  /** Teste grátis oferecido a este cliente; sem valor, o do plano. */
+  trialDays: z.number().int().min(0).max(90).optional(),
+  /** Vigência do contrato proposta; sem valor, a do contrato padrão. */
+  termMonths: z.number().int().min(1).max(12).optional(),
+  /** Prazo de implantação em dias úteis. */
+  implementationDays: z.number().int().min(1).max(90).optional(),
   notes: z.string().trim().max(2000).optional(),
 });
 export type NewQuoteInput = z.infer<typeof NewQuote>;

@@ -151,6 +151,9 @@ function QuoteForm({ data, onCreated }: { data: QuoteOverview; onCreated(): void
     nfce: '1500',
     nfe: '0',
     validity: String(s.validityDays),
+    trial: String(plan.trialDays),
+    term: '12',
+    implementation: '5',
     notes: s.notes,
   });
   const [f, setF] = useState(blank);
@@ -177,7 +180,17 @@ function QuoteForm({ data, onCreated }: { data: QuoteOverview; onCreated(): void
   const first = monthly + (setup ? toCents(setup) : 0);
   const docLen = digitsOnly(f.clientDocument).length;
   const docOk = docLen === 0 || docLen === 11 || docLen === 14;
-  const valid = !!f.clientName.trim() && !!price && !!setup && docOk && Number(f.validity) >= 1;
+  const trialDays = Number(f.trial || 0);
+  const valid =
+    !!f.clientName.trim() &&
+    !!price &&
+    !!setup &&
+    docOk &&
+    Number(f.validity) >= 1 &&
+    Number(f.validity) <= 90 &&
+    trialDays <= 90 &&
+    Number(f.implementation) >= 1;
+  const validUntil = new Date(Date.now() + Number(f.validity || 0) * 86_400_000);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -200,6 +213,9 @@ function QuoteForm({ data, onCreated }: { data: QuoteOverview; onCreated(): void
           nfcePerMonth: nfce,
           nfePerMonth: nfe,
           validityDays: Number(f.validity),
+          trialDays,
+          termMonths: Number(f.term),
+          implementationDays: Number(f.implementation),
           notes: f.notes.trim(),
         },
       });
@@ -275,11 +291,60 @@ function QuoteForm({ data, onCreated }: { data: QuoteOverview; onCreated(): void
             error={setup ? undefined : 'Ex.: 0,00'}
             hint="0 = sem custo"
           />
+
+          <h3 className="cm-form__section">Prazos</h3>
           <TextField
-            label="Validade (dias)"
+            label="Validade da proposta (dias)"
             inputMode="numeric"
             value={f.validity}
             onChange={(e) => set('validity')(digitsOnly(e.target.value).slice(0, 2))}
+            error={
+              Number(f.validity) >= 1 && Number(f.validity) <= 90 ? undefined : 'De 1 a 90 dias'
+            }
+            hint={
+              Number(f.validity) >= 1
+                ? `Vale até ${validUntil.toLocaleDateString('pt-BR')}`
+                : undefined
+            }
+          />
+          <div className="adm-chips adm-quote__chips" role="group" aria-label="Validade rápida">
+            {[7, 15, 30, 60].map((d) => (
+              <button
+                key={d}
+                type="button"
+                className="adm-chip"
+                aria-pressed={Number(f.validity) === d}
+                onClick={() => set('validity')(String(d))}
+              >
+                {d} dias
+              </button>
+            ))}
+          </div>
+          <TextField
+            label="Teste grátis (dias)"
+            inputMode="numeric"
+            value={f.trial}
+            onChange={(e) => set('trial')(digitsOnly(e.target.value).slice(0, 2))}
+            error={trialDays <= 90 ? undefined : 'Até 90 dias'}
+            hint={`0 = sem teste · plano: ${plan.trialDays} dias`}
+          />
+          <SelectField
+            label="Vigência do contrato"
+            value={f.term}
+            onChange={(e) => set('term')(e.target.value)}
+          >
+            {[1, 3, 6, 12].map((m) => (
+              <option key={m} value={String(m)}>
+                {m === 1 ? '1 mês' : `${m} meses`}
+              </option>
+            ))}
+          </SelectField>
+          <TextField
+            label="Prazo de implantação (dias úteis)"
+            inputMode="numeric"
+            value={f.implementation}
+            onChange={(e) => set('implementation')(digitsOnly(e.target.value).slice(0, 2))}
+            error={Number(f.implementation) >= 1 ? undefined : 'Pelo menos 1 dia'}
           />
 
           <h3 className="cm-form__section">Nota fiscal (Focus NFe)</h3>
@@ -342,14 +407,16 @@ function QuoteForm({ data, onCreated }: { data: QuoteOverview; onCreated(): void
             <dd className="adm-quote__total">{formatBRL(monthly)}</dd>
             <dt>Implantação</dt>
             <dd>{setup && toCents(setup) > 0 ? brl(setup) : 'sem custo'}</dd>
-            {plan.trialDays > 0 && (
-              <>
-                <dt>Teste grátis</dt>
-                <dd>{plan.trialDays} dias</dd>
-              </>
-            )}
+            <dt>Teste grátis</dt>
+            <dd>{trialDays > 0 ? `${trialDays} dias` : 'sem teste'}</dd>
             <dt>Primeiro pagamento</dt>
             <dd>{formatBRL(first)}</dd>
+            <dt>Validade da proposta</dt>
+            <dd>
+              {Number(f.validity) >= 1 ? `até ${validUntil.toLocaleDateString('pt-BR')}` : '—'}
+            </dd>
+            <dt>Vigência</dt>
+            <dd>{f.term === '1' ? '1 mês' : `${f.term} meses`}</dd>
           </dl>
           {fiscalOn && (
             <p className="adm-quote__note">
@@ -379,8 +446,9 @@ function QuoteForm({ data, onCreated }: { data: QuoteOverview; onCreated(): void
             <FileText size={16} /> Gerar PDF
           </Button>
           <p className="adm-quote__note">
-            O PDF sai com o que está incluído, a nota fiscal, os custos de terceiros e as condições
-            do contrato. Fica salvo na lista abaixo.
+            O PDF sai como proposta comercial formal: apresentação, escopo, investimento,
+            implantação, nota fiscal, condições, nível de serviço, validade e campo de aceite. Fica
+            salvo na lista abaixo.
           </p>
         </div>
       </Card>

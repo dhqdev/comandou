@@ -9,7 +9,13 @@ import {
 import { PlatformDb, platformAudit } from '../platform-db.service';
 import type { Actor } from '../platform.service';
 import type { NewQuoteInput, QuoteSettingsInput } from '../platform.schemas';
-import { type ExtraCost, planIncluded, type QuoteContent } from './quote-content';
+import {
+  type ExtraCost,
+  implementationSteps,
+  planIncluded,
+  quoteClauses,
+  type QuoteContent,
+} from './quote-content';
 import { renderQuotePdf } from './quote-pdf';
 
 interface SettingsRow {
@@ -186,13 +192,20 @@ export class QuotesService {
         provider_document: string;
         provider_email: string;
         provider_representative: string;
+        provider_address: string;
         due_day: number;
+        term_months: number;
         sla_percent: string;
         readjust_index: string;
         support_hours: string;
+        late_fee_percent: string;
+        late_interest_percent: string;
+        forum_city: string;
       }>(
         `SELECT provider_name, provider_document, provider_email, provider_representative,
-                due_day, sla_percent::text AS sla_percent, readjust_index, support_hours
+                provider_address, due_day, term_months, sla_percent::text AS sla_percent,
+                readjust_index, support_hours, late_fee_percent::text AS late_fee_percent,
+                late_interest_percent::text AS late_interest_percent, forum_city
            FROM platform_contract_settings WHERE id`,
       ),
     ]);
@@ -208,22 +221,22 @@ export class QuotesService {
     const validity = b.validityDays ?? s.validity_days;
     const validUntil = new Date(issued.getTime() + validity * 86_400_000);
     const p = prov!;
-    const conditions = [
-      plan.trial_days > 0
-        ? `${plan.trial_days} dias de teste grátis. A primeira mensalidade vence no fim do teste.`
-        : 'A primeira mensalidade vence no início do uso.',
-      'Mensalidade antecipada a cada 30 dias, por Pix, boleto ou cartão (pode ficar automático no cartão).',
-      'Contrato de 12 meses, assinado eletronicamente e renovado todo ano.',
-      `Reajuste uma vez por ano pelo ${p.readjust_index || 'IPCA/IBGE'}.`,
-      'Cancelamento sem multa, com aviso de 30 dias. Os dados podem ser exportados em até 30 dias depois do fim.',
-      `Disponibilidade de ${String(p.sla_percent)
-        .replace(/\.?0+$/, '')
-        .replace('.', ',')}% ao mês, com desconto na mensalidade se ficar abaixo.`,
-      `Suporte remoto por WhatsApp, e-mail ou pelo sistema, ${p.support_hours}.`,
-      'Sem pagamento, o sistema fica só para consulta até a regularização. Nenhum dado é apagado.',
-    ];
+    const trialDays = b.trialDays ?? plan.trial_days;
+    const termMonths = b.termMonths ?? Math.min(12, p.term_months || 12);
+    const implementationDays = b.implementationDays ?? 5;
+    const readjust = p.readjust_index || 'IPCA/IBGE';
+    const { conditions, service } = quoteClauses({
+      trialDays,
+      termMonths,
+      setupCents: toCents(setupFee),
+      readjustIndex: readjust,
+      lateFeePercent: p.late_fee_percent || '2',
+      lateInterestPercent: p.late_interest_percent || '1',
+      slaPercent: p.sla_percent || '99.5',
+      supportHours: p.support_hours,
+    });
     const contentBase = {
-      version: 1 as const,
+      version: 2 as const,
       issuedAt: issued.toISOString(),
       validUntil: validUntil.toISOString(),
       provider: {
@@ -231,6 +244,7 @@ export class QuotesService {
         document: p.provider_document || null,
         email: p.provider_email || null,
         representative: p.provider_representative || null,
+        address: p.provider_address || null,
       },
       client: {
         name: b.clientName,
@@ -243,7 +257,7 @@ export class QuotesService {
       plan: {
         name: plan.name,
         priceMonthly: fromCents(toCents(price)),
-        trialDays: plan.trial_days,
+        trialDays,
         included: planIncluded({ ...plan, feature_fiscal: fiscalOn }),
       },
       setupFee: fromCents(toCents(setupFee)),
@@ -258,6 +272,21 @@ export class QuotesService {
       onlinePay: pay,
       extraCosts: s.extra_costs,
       conditions,
+      service,
+      implementation: implementationSteps(fiscalOn),
+      terms: {
+        validityDays: validity,
+        trialDays,
+        termMonths,
+        implementationDays,
+        dueDay: p.due_day,
+        lateFeePercent: p.late_fee_percent,
+        lateInterestPercent: p.late_interest_percent,
+        slaPercent: p.sla_percent,
+        readjustIndex: readjust,
+        supportHours: p.support_hours,
+        forumCity: p.forum_city,
+      },
       notes: b.notes ?? s.notes,
       totals: { monthlyCents, firstPaymentCents: monthlyCents + toCents(setupFee) },
     };

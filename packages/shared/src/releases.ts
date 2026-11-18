@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.151.0',
+    date: '2026-11-18',
+    title: 'Orçamento vira proposta comercial formal',
+    summary:
+      'O PDF do Super Admin › Orçamento agora é uma proposta comercial completa e em tom formal: apresentação, escopo, investimento, implantação com etapas e prazo, nota fiscal, condições comerciais, nível de serviço, validade e aceite com assinatura das duas partes. Em cada orçamento você escolhe a validade, os dias de teste grátis, a vigência do contrato e o prazo de implantação.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Orçamento: novos campos de prazo por cliente (validade com atalhos de 7, 15, 30 e 60 dias, teste grátis, vigência do contrato e prazo de implantação em dias úteis), com a data de validade mostrada na hora.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'PDF do orçamento reescrito como proposta comercial: quadro com mensalidade, implantação, teste e validade, seções numeradas, cláusulas formais (multa, juros, reajuste, rescisão, LGPD) e campo de aceite.',
+      },
+    ],
+  },
+  {
     version: '0.150.5',
     date: '2026-11-18',
     title: 'Campos de valor começam antes da vírgula',
