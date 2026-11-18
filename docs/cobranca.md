@@ -79,6 +79,17 @@ plano leva para Assinatura já com a troca aberta.
 5. O cadastro do cliente (aba Cadastro) precisa de razão social e CPF/CNPJ: é com eles que o
    cliente é criado no Asaas na primeira cobrança.
 
+## Calendário de recebimentos (Super Admin → Cobrança)
+
+`platform/BillingCalendar.tsx` + `GET /platform/billing/calendar?month=AAAA-MM`. Grade do mês
+à esquerda (total do dia, uma bolinha por cobrança e um fundo leve na cor da pior situação) e, ao
+lado, os cartões das cobranças do dia escolhido (abaixo da grade em telas estreitas). Filtro por
+situação: recebido, fatura enviada, vencida e prevista. Clicar no cartão abre a janela com os
+dados da cobrança (descrição, valor e líquido, tipo, plano, forma, vencimento, pago e emitido em,
+envio ao Asaas, links da fatura, do boleto e do restaurante) e as ações Marcar como pago e
+Desfazer. Cada item da resposta já traz esses dados; a previsão vem como "Mensalidade prevista",
+sem fatura. A tela confere sozinha a cada 20 s.
+
 ## Como funciona por dentro
 
 - O ciclo roda a cada `BILLING_INTERVAL_MINUTES` (padrão 30; `0` desliga), uma réplica por vez

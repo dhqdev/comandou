@@ -77,6 +77,15 @@ exceções, só no site:
   o + que vira − nas perguntas seguem o estilo dos elementos de lá, reescritos com os tokens.
 - Nada disso entra nas telas de trabalho (PDV, salão, cozinha, painel): lá continua sóbrio.
 
+## Super Admin › Cobrança (calendário)
+
+`platform/BillingCalendar.tsx` (classes `adm-cal*` e `adm-charge*` em `admin.css`), no jeito
+do print do MAX que o David mandou, porém mais limpo: barra com mês, filtro de situação e "baixa
+sozinha"; uma linha de totais com bolinhas (sem cartões de número); grade do mês num quadro só,
+dia com o total curto e bolinhas, fundo `color-mix` de 9% na cor da situação (nada de faixa na
+esquerda); cartões do dia ao lado (embaixo abaixo de 1100 px) e a janela "dados da cobrança" com
+linhas rótulo/valor.
+
 ## Super Admin › E-mail
 
 `apps/web/src/platform/mail/` (`mail.css` só com tokens): três abas, **Resend** (formulário

@@ -305,11 +305,25 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       billingType: string | null;
       tenantId: string;
       tenantName: string;
+      description: string;
+      netAmount: string | null;
+      invoiceUrl: string | null;
+      bankSlipUrl: string | null;
+      sent: boolean;
+      lastError: string | null;
+      environment: string | null;
+      createdAt: Date;
+      planName: string | null;
     }>(
       `SELECT i.id, i.kind, i.amount::text AS amount, i.due_date::text AS "dueDate",
               i.paid_at AS "paidAt", i.status, i.billing_type AS "billingType",
-              t.id AS "tenantId", t.name AS "tenantName"
+              t.id AS "tenantId", t.name AS "tenantName", i.description,
+              i.net_amount::text AS "netAmount", i.invoice_url AS "invoiceUrl",
+              i.bank_slip_url AS "bankSlipUrl", i.provider_id IS NOT NULL AS sent,
+              i.last_error AS "lastError", i.environment, i.created_at AS "createdAt",
+              p.name AS "planName"
          FROM billing_invoices i JOIN tenants t ON t.id = i.tenant_id
+         LEFT JOIN plans p ON p.id = i.plan_id
         WHERE (i.status = 'paid'
                AND (coalesce(i.paid_at, i.due_date::timestamptz) AT TIME ZONE 'America/Sao_Paulo')::date
                    BETWEEN $1::date AND $2::date)
@@ -331,6 +345,7 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       billedBy.set(b.subscription_id, set);
     }
     const autoBy = new Map(subs.map((x) => [x.tenant_id, x.billing_mode === 'asaas']));
+    const planBy = new Map(subs.map((x) => [x.tenant_id, x.plan_name]));
     const items: {
       date: string;
       tenantId: string;
@@ -342,6 +357,17 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       billingType: string | null;
       invoiceId: string | null;
       planName: string | null;
+      /** Dados da cobrança (janela que abre ao clicar no calendário). */
+      description: string;
+      dueDate: string;
+      paidAt: string | null;
+      createdAt: string | null;
+      netAmount: string | null;
+      invoiceUrl: string | null;
+      bankSlipUrl: string | null;
+      sent: boolean;
+      lastError: string | null;
+      environment: string | null;
     }[] = invoices.map((i) => ({
       date: i.status === 'paid' && i.paidAt ? spDate(i.paidAt) : i.dueDate,
       tenantId: i.tenantId,
@@ -352,7 +378,17 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
       auto: autoBy.get(i.tenantId) ?? false,
       billingType: i.billingType,
       invoiceId: i.id,
-      planName: null,
+      planName: i.planName ?? (i.kind === 'monthly' ? (planBy.get(i.tenantId) ?? null) : null),
+      description: i.description,
+      dueDate: i.dueDate,
+      paidAt: i.paidAt ? new Date(i.paidAt).toISOString() : null,
+      createdAt: new Date(i.createdAt).toISOString(),
+      netAmount: i.netAmount,
+      invoiceUrl: i.invoiceUrl,
+      bankSlipUrl: i.bankSlipUrl,
+      sent: i.sent,
+      lastError: i.lastError,
+      environment: i.environment,
     }));
     for (const x of subs) {
       if (x.tenant_status === 'suspended') continue;
@@ -375,6 +411,16 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
           billingType: x.pay_method === 'card' ? 'CREDIT_CARD' : null,
           invoiceId: null,
           planName: x.scheduled_plan_id ? x.scheduled_plan_name : x.plan_name,
+          description: 'Mensalidade prevista',
+          dueDate: date,
+          paidAt: null,
+          createdAt: null,
+          netAmount: null,
+          invoiceUrl: null,
+          bankSlipUrl: null,
+          sent: false,
+          lastError: null,
+          environment: null,
         });
       }
     }

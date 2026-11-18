@@ -512,6 +512,18 @@ describe('Ciclo: 7 dias de teste, pagou +30 dias, não pagou bloqueia', () => {
       true,
     );
     expect(Number(now.body.totals.paid)).toBeGreaterThan(0);
+    // Cada item traz os dados da cobrança (janela que abre ao clicar).
+    const paidItem = now.body.items.find(
+      (i: Item) => i.tenantId === fx.tenantA && i.status === 'paid',
+    );
+    expect(paidItem).toMatchObject({ description: expect.any(String), sent: expect.any(Boolean) });
+    expect(paidItem.dueDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(paidItem.paidAt).toBeTruthy();
+    expect(paidItem.createdAt).toBeTruthy();
+    expect(second.body.items.find((i: Item) => i.status === 'forecast')).toMatchObject({
+      description: 'Mensalidade prevista',
+      invoiceId: null,
+    });
     // Mês inválido cai no mês atual.
     expect((await cal('2026-13')).body.month).toBe(spDate().slice(0, 7));
   });

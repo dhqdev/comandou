@@ -1947,146 +1947,39 @@ button.adm-card:hover {
 }
 
 /* ---------------------------------------------------------------- Calendário de recebimentos */
+/* Grade do mês à esquerda e as cobranças do dia ao lado (cartões que abrem os dados da
+   cobrança). Sóbrio: cor só na bolinha de situação e num fundo bem leve do dia. */
+.adm-cal__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 10px;
+}
 .adm-cal__nav {
   display: flex;
   align-items: center;
   gap: 2px;
-  margin: 0 0 12px;
 }
 .adm-cal__month {
-  min-width: 150px;
+  min-width: 140px;
   text-align: center;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--a-text);
 }
-.adm-cal {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 4px;
-  margin-top: 14px;
+.adm-cal__bar .cm-picker {
+  width: 200px;
 }
-.adm-cal__wd {
-  padding: 2px 6px;
-  font-size: 11.5px;
-  color: var(--a-subtle);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.adm-cal__day {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 3px;
-  min-width: 0;
-  min-height: 92px;
-  padding: 6px 7px;
-  border: 1px solid var(--a-line);
-  border-radius: var(--cm-radius-md);
-  background: var(--a-panel);
-  color: var(--a-text);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.adm-cal__day:disabled {
-  cursor: default;
-  background: transparent;
-}
-.adm-cal__day:not(:disabled):hover {
-  border-color: var(--a-line-strong);
-}
-.adm-cal__day.is-past:disabled .adm-cal__n {
-  color: var(--a-subtle);
-}
-.adm-cal__day.is-today .adm-cal__n {
-  display: inline-grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: var(--a-accent);
-  color: var(--a-accent-ink);
-}
-.adm-cal__day.is-picked {
-  border-color: var(--a-accent);
-  box-shadow: 0 0 0 1px var(--a-accent);
-}
-.adm-cal__day.is-paid {
-  border-left: 3px solid var(--a-ok);
-}
-.adm-cal__day.is-pending {
-  border-left: 3px solid var(--a-info);
-}
-.adm-cal__day.is-overdue {
-  border-left: 3px solid var(--a-bad);
-}
-.adm-cal__day.is-forecast {
-  border-left: 3px dashed var(--a-line-strong);
-}
-.adm-cal__n {
-  font-size: 12.5px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-.adm-cal__sum {
+.adm-cal__select {
+  min-height: 34px;
   font-size: 13px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.adm-cal__who {
-  display: grid;
-  gap: 1px;
-  min-width: 0;
-  font-size: 11.5px;
-  color: var(--a-muted);
-}
-.adm-cal__who > span {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.adm-cal__who .adm-dot,
-.adm-cal__legend .adm-dot {
-  display: inline-block;
-  vertical-align: middle;
-}
-.adm-cal__short,
-.adm-cal__dots {
-  display: none;
-  gap: 3px;
-  flex-wrap: wrap;
-}
-.adm-cal__legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin: 10px 0 0;
-  font-size: 12px;
-  color: var(--a-muted);
-}
-.adm-cal__head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 10px 14px 6px;
-  border-top: 1px solid var(--a-line);
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--a-muted);
-}
-.adm-panel > div:first-child > .adm-cal__head {
-  border-top: 0;
 }
 .adm-cal__live {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--a-ui);
   font-size: 12.5px;
   color: var(--a-subtle);
 }
@@ -2095,89 +1988,341 @@ button.adm-card:hover {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--a-line);
+  background: var(--a-line-strong);
 }
 .adm-cal__live.is-on::before {
   background: var(--a-ok);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--a-ok) 18%, transparent);
 }
-.adm-cal__row .adm-row__main {
-  color: inherit;
-  text-decoration: none;
-}
-.adm-cal__row .adm-row__main:hover .adm-row__title {
-  text-decoration: underline;
-}
-.adm-cal__row.is-fresh {
-  background: color-mix(in srgb, var(--a-ok) 9%, transparent);
-  transition: background var(--cm-dur-fast) var(--cm-ease);
-}
-.adm-cal__filter {
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--a-line);
+.adm-cal__sums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 0 0 12px;
   font-size: 13px;
   color: var(--a-muted);
 }
-@media (max-width: 860px) {
-  .adm-cal__nav {
-    flex-wrap: wrap;
+.adm-cal__sums strong {
+  color: var(--a-text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.adm-cal__sums .adm-dot,
+.adm-cal__card-meta .adm-dot {
+  display: inline-block;
+  vertical-align: middle;
+}
+.adm-cal__note {
+  margin: 10px 0 0;
+  font-size: 12.5px;
+  color: var(--a-subtle);
+  white-space: normal;
+}
+.adm-cal__bar + .adm-cal__note {
+  margin: 0 0 10px;
+}
+
+.adm-cal__wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.adm-cal__board {
+  padding: 10px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--cm-radius-lg);
+  background: var(--a-panel);
+}
+.adm-cal {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.adm-cal__wd {
+  padding: 2px 6px 6px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  color: var(--a-subtle);
+}
+.adm-cal__day {
+  --day-tint: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  min-height: 76px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--cm-radius-md);
+  background: color-mix(in srgb, var(--day-tint) 9%, transparent);
+  color: var(--a-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.adm-cal__day:hover:not(:disabled) {
+  border-color: var(--a-line-strong);
+}
+.adm-cal__day:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.adm-cal__day:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.adm-cal__day.is-out {
+  cursor: default;
+  color: var(--a-subtle);
+  opacity: 0.55;
+}
+.adm-cal__day.is-paid {
+  --day-tint: var(--a-ok);
+}
+.adm-cal__day.is-pending {
+  --day-tint: var(--a-info);
+}
+.adm-cal__day.is-overdue {
+  --day-tint: var(--a-bad);
+}
+.adm-cal__day.is-forecast {
+  --day-tint: var(--a-subtle);
+}
+.adm-cal__day.is-picked {
+  border-color: var(--a-accent);
+  box-shadow: inset 0 0 0 1px var(--a-accent);
+}
+.adm-cal__day.is-today .adm-cal__n {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  margin: -2px 0 0 -3px;
+  border-radius: 999px;
+  background: var(--a-accent);
+  color: var(--a-accent-ink);
+}
+.adm-cal__n {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.adm-cal__sum {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--a-muted);
+  font-variant-numeric: tabular-nums;
+}
+.adm-cal__dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: auto;
+}
+.adm-cal__dots .adm-dot {
+  width: 6px;
+  height: 6px;
+}
+
+/* Lado: o dia escolhido e as cobranças dele. */
+.adm-cal__side {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.adm-cal__side-head {
+  display: grid;
+  gap: 2px;
+  padding: 0 2px 8px;
+  border-bottom: 1px solid var(--a-line);
+}
+.adm-cal__side-head strong {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--a-text);
+}
+.adm-cal__side-head span {
+  font-size: 12.5px;
+  color: var(--a-muted);
+  font-variant-numeric: tabular-nums;
+}
+.adm-cal__cards {
+  display: grid;
+  gap: 8px;
+  max-height: 560px;
+  overflow-y: auto;
+}
+.adm-cal__card {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid var(--a-line);
+  border-radius: var(--cm-radius-md);
+  background: var(--a-panel);
+  color: var(--a-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.adm-cal__card:hover {
+  border-color: var(--a-line-strong);
+}
+.adm-cal__card:active {
+  transform: scale(0.98);
+}
+.adm-cal__card:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.adm-cal__card.is-fresh {
+  background: color-mix(in srgb, var(--a-ok) 8%, var(--a-panel));
+}
+.adm-cal__card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+.adm-cal__card-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+}
+.adm-cal__card-amount {
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.adm-cal__card-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--a-muted);
+}
+.adm-cal__card-meta .adm-dot {
+  margin-right: 5px;
+}
+
+/* Janela com os dados da cobrança. */
+.adm-charge {
+  display: grid;
+  gap: 14px;
+}
+.adm-charge__facts {
+  display: grid;
+  margin: 0;
+}
+.adm-charge__facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--a-line);
+  font-size: 13.5px;
+}
+.adm-charge__facts > div:last-child {
+  border-bottom: 0;
+}
+.adm-charge__facts dt {
+  color: var(--a-muted);
+}
+.adm-charge__facts dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.adm-charge__facts .adm-dot {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+.adm-charge__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  font-size: 13.5px;
+}
+.adm-charge__links a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--cm-link);
+  font-weight: 500;
+  text-decoration: none;
+}
+.adm-charge__links a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 1100px) {
+  .adm-cal__wrap {
+    grid-template-columns: minmax(0, 1fr);
   }
+  .adm-cal__side {
+    position: static;
+  }
+  .adm-cal__cards {
+    max-height: none;
+  }
+}
+@media (max-width: 860px) {
   .adm-cal__live {
     margin-left: 0;
     flex-basis: 100%;
+  }
+  .adm-cal__bar .cm-picker {
+    flex-basis: 100%;
+    width: auto;
+    order: 2;
+  }
+  .adm-cal__live {
     order: 3;
   }
-  .adm-cal__row {
-    flex-wrap: wrap;
-  }
-  .adm-cal__row .adm-row__main {
-    flex-basis: calc(100% - 40px);
-  }
-  .adm-cal__row .adm-row__side {
-    margin-left: 22px;
-  }
-  .adm-cal__row .cm-btn {
-    margin-left: auto;
+  .adm-cal__board {
+    padding: 6px;
   }
   .adm-cal {
-    gap: 3px;
-  }
-  .adm-cal__day {
-    min-height: 54px;
-    padding: 4px;
-    align-items: center;
+    gap: 2px;
   }
   .adm-cal__wd {
-    padding: 2px 0;
-    text-align: center;
-    font-size: 10.5px;
+    padding: 2px 0 4px;
+    font-size: 11px;
   }
-  .adm-cal__who,
+  .adm-cal__day {
+    align-items: center;
+    min-height: 52px;
+    padding: 5px 2px;
+  }
+  .adm-cal__day.is-today .adm-cal__n {
+    margin: -2px 0 0;
+  }
   .adm-cal__sum {
+    font-size: 10px;
+  }
+  .adm-cal__cur {
     display: none;
   }
-  .adm-cal__short {
-    display: block;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 10.5px;
-    font-weight: 500;
-  }
   .adm-cal__dots {
-    display: flex;
     justify-content: center;
   }
-  .adm-cal__dots .adm-dot {
-    width: 6px;
-    height: 6px;
-  }
-  .adm-cal__day.is-paid,
-  .adm-cal__day.is-pending,
-  .adm-cal__day.is-overdue,
-  .adm-cal__day.is-forecast {
-    border-left-width: 1px;
+  .adm-cal__dots .adm-dot:nth-child(n + 4) {
+    display: none;
   }
 }
 

@@ -5,14 +5,14 @@ import {
   toCents,
   type InvoiceKind,
 } from '@comandou/shared';
-import { Check, ChevronLeft, ChevronRight, RefreshCw, Undo2 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronLeft, ChevronRight, ExternalLink, RefreshCw, Undo2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import { Alert, Button, Modal, Spinner, TextField, useToast } from '../design-system';
+import { Alert, Button, Modal, Select, Spinner, TextField, useToast } from '../design-system';
 import { api } from '../lib/api';
 import { brl } from '../lib/money';
 import { useLoad } from './OverviewPages';
-import { Dot, Level, Section, Tile } from './ui';
+import { Dot, Level, Section } from './ui';
 
 type CalStatus = 'paid' | 'pending' | 'overdue' | 'forecast';
 
@@ -27,6 +27,16 @@ interface CalItem {
   billingType: string | null;
   invoiceId: string | null;
   planName: string | null;
+  description: string;
+  dueDate: string;
+  paidAt: string | null;
+  createdAt: string | null;
+  netAmount: string | null;
+  invoiceUrl: string | null;
+  bankSlipUrl: string | null;
+  sent: boolean;
+  lastError: string | null;
+  environment: string | null;
 }
 
 interface Calendar {
@@ -85,42 +95,64 @@ const short = (cents: number) =>
   cents >= 100_000
     ? `${(cents / 100_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil`
     : `${Math.round(cents / 100).toLocaleString('pt-BR')}`;
+const br = (date: string) => date.split('-').reverse().join('/');
+const brTime = (iso: string) =>
+  new Date(iso).toLocaleString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+/** Ordem de "pior primeiro": a cor do dia segue a situação que mais pede atenção. */
+const WORST: CalStatus[] = ['overdue', 'pending', 'forecast', 'paid'];
+const keyOf = (i: CalItem) => `${i.tenantId}${i.invoiceId ?? i.date}`;
+const totalOf = (items: CalItem[]) => items.reduce((t, i) => t + toCents(i.amount), 0);
 
-function detail(i: CalItem) {
-  const parts: string[] = [STATUS[i.status].label];
-  if (i.kind !== 'monthly') parts.push(INVOICE_KIND_LABELS[i.kind]);
-  if (i.status === 'forecast') {
-    if (i.planName) parts.push(`Plano ${i.planName}`);
-    parts.push(
-      i.billingType === 'CREDIT_CARD'
-        ? 'cartão automático'
-        : i.auto
-          ? 'fatura sai sozinha'
-          : 'cobrança manual',
-    );
-  } else if (i.billingType === 'MANUAL') {
-    parts.push('marcado à mão');
-  } else if (i.billingType && PAY[i.billingType]) {
-    parts.push(i.status === 'paid' ? `por ${PAY[i.billingType]}` : PAY[i.billingType]!);
+/** Semanas do mês a partir do domingo antes do dia 1 (dias do mês vizinho ficam apagados). */
+function gridDays(from: string) {
+  const first = new Date(`${from}T12:00:00Z`);
+  const start = new Date(first.getTime() - first.getUTCDay() * 86_400_000);
+  // Só as semanas que o mês ocupa (5 ou 6, às vezes 4).
+  const [y, m] = from.split('-').map(Number) as [number, number];
+  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const weeks = Math.ceil((first.getUTCDay() + days) / 7);
+  return Array.from({ length: weeks * 7 }, (_, k) =>
+    new Date(start.getTime() + k * 86_400_000).toISOString().slice(0, 10),
+  );
+}
+
+function payLabel(i: CalItem) {
+  if (i.billingType === 'MANUAL') return 'Marcado à mão';
+  if (i.billingType && PAY[i.billingType]) {
+    const p = PAY[i.billingType]!;
+    return p.charAt(0).toUpperCase() + p.slice(1);
   }
-  return parts.join(' · ');
+  if (i.status === 'forecast') return i.auto ? 'Fatura sai sozinha' : 'Cobrança manual';
+  return '—';
 }
 
 /**
  * Calendário de recebimentos: em que dia cada cliente paga e quanto. Junta o que já entrou, as
  * faturas em aberto e a previsão das próximas mensalidades (fim do período de cada cliente).
+ * Grade do mês à esquerda e, ao lado, as cobranças do dia escolhido; clicar numa cobrança abre
+ * os dados dela.
  */
 export function CalendarSection() {
   const [month, setMonth] = useState(() => spDate().slice(0, 7));
   const [picked, setPicked] = useState<string | null>(null);
+  const [filter, setFilter] = useState<CalStatus | 'all'>('all');
   const { data, error, reload } = useLoad<Calendar>(`/platform/billing/calendar?month=${month}`);
   const cal = data?.month === month ? data : null;
   const toast = useToast();
+  const [open, setOpen] = useState<CalItem | null>(null);
   const [marking, setMarking] = useState<CalItem | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   /** Quem acabou de pagar pelo Asaas enquanto a tela estava aberta (fica destacado). */
   const [fresh, setFresh] = useState<Set<string>>(() => new Set());
   const seen = useRef<{ month: string; status: Map<string, CalStatus> } | null>(null);
+  const side = useRef<HTMLElement>(null);
 
   // Confere sozinho de tempos em tempos (e ao voltar para a aba): o pagamento que o Asaas
   // avisa pelo webhook aparece aqui sem precisar recarregar a página.
@@ -185,6 +217,7 @@ export function CalendarSection() {
     try {
       await api(`/platform/billing/invoices/${i.invoiceId}/unpaid`, { method: 'POST' });
       toast('Pagamento desfeito', 'success');
+      setOpen(null);
       reload();
     } catch (e) {
       toast((e as Error).message, 'danger');
@@ -195,41 +228,81 @@ export function CalendarSection() {
 
   const byDay = useMemo(() => {
     const map = new Map<string, CalItem[]>();
-    for (const i of cal?.items ?? []) map.set(i.date, [...(map.get(i.date) ?? []), i]);
+    for (const i of cal?.items ?? [])
+      if (filter === 'all' || i.status === filter) map.set(i.date, [...(map.get(i.date) ?? []), i]);
     return map;
-  }, [cal]);
+  }, [cal, filter]);
 
   const go = (by: number) => {
     setMonth((m) => shiftMonth(m, by));
     setPicked(null);
   };
 
-  const totalOf = (items: CalItem[]) => items.reduce((t, i) => t + toCents(i.amount), 0);
-  const days = cal ? [...byDay.keys()].sort().filter((d) => !picked || d === picked) : [];
+  // Dia aberto ao lado: o escolhido; senão hoje (no mês atual) ou o primeiro dia com cobrança.
+  const day =
+    picked ??
+    (cal
+      ? cal.today.startsWith(month)
+        ? cal.today
+        : ([...byDay.keys()].sort()[0] ?? cal.from)
+      : null);
+  const dayItems = day ? (byDay.get(day) ?? []) : [];
+  const sumOf = (st: CalStatus) => totalOf(dayItems.filter((i) => i.status === st));
+
+  // Item aberto na janela segue a lista mais nova (pagou enquanto estava aberta).
+  const current = open && cal ? (cal.items.find((i) => keyOf(i) === keyOf(open)) ?? open) : open;
 
   return (
     <Section title="Calendário de recebimentos" sub="em que dia cada cliente paga e quanto">
-      <div className="adm-cal__nav">
-        <button
-          type="button"
-          className="adm-icon-btn"
-          onClick={() => go(-1)}
-          aria-label="Mês anterior"
+      <div className="adm-cal__bar">
+        <div className="adm-cal__nav">
+          <button
+            type="button"
+            className="adm-icon-btn"
+            onClick={() => go(-1)}
+            aria-label="Mês anterior"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span className="adm-cal__month">{monthName(month)}</span>
+          <button
+            type="button"
+            className="adm-icon-btn"
+            onClick={() => go(1)}
+            aria-label="Próximo mês"
+          >
+            <ChevronRight size={16} />
+          </button>
+          {month !== spDate().slice(0, 7) && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setMonth(spDate().slice(0, 7));
+                setPicked(null);
+              }}
+            >
+              Hoje
+            </Button>
+          )}
+        </div>
+        <Select
+          className="adm-cal__select"
+          aria-label="Situação"
+          sheetTitle="Situação"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value as CalStatus | 'all')}
         >
-          <ChevronLeft size={16} />
-        </button>
-        <span className="adm-cal__month">{monthName(month)}</span>
-        <button
-          type="button"
-          className="adm-icon-btn"
-          onClick={() => go(1)}
-          aria-label="Próximo mês"
-        >
-          <ChevronRight size={16} />
-        </button>
+          <option value="all">Todas as situações</option>
+          {(Object.keys(STATUS) as CalStatus[]).map((s) => (
+            <option key={s} value={s}>
+              {STATUS[s].label}
+            </option>
+          ))}
+        </Select>
         {cal && (
           <span className={`adm-cal__live${cal.live ? ' is-on' : ''}`}>
-            {cal.live ? 'Baixa sozinha pelo Asaas' : 'Baixa sozinha desligada'} · conferido às{' '}
+            {cal.live ? 'Baixa sozinha pelo Asaas' : 'Baixa sozinha desligada'} ·{' '}
             {new Date(cal.checkedAt).toLocaleTimeString('pt-BR', {
               hour: '2-digit',
               minute: '2-digit',
@@ -248,181 +321,160 @@ export function CalendarSection() {
       {error && <Alert tone="danger">{error}</Alert>}
       {!cal && !error && <Spinner />}
       {cal && !cal.live && (
-        <Alert tone="warning">
-          O calendário só dá baixa sozinho quando o aviso (webhook) do Asaas está cadastrado e a
-          cobrança automática ligada, em Configuração mais abaixo. Até lá, use Marcar como pago.
-        </Alert>
+        <p className="adm-cal__note">
+          Sem baixa sozinha: cadastre o aviso (webhook) do Asaas em Configuração, mais abaixo. Até
+          lá, abra a cobrança e use Marcar como pago.
+        </p>
       )}
       {cal && (
         <>
-          <div className="adm-grid">
-            <Tile label="Recebido" value={brl(cal.totals.paid)} level="ok" sub="já caiu na conta" />
-            <Tile
-              label="Fatura enviada"
-              value={brl(cal.totals.pending)}
-              sub="cliente já recebeu a cobrança"
-            />
-            <Tile
-              label="Previsto"
-              value={brl(cal.totals.forecast)}
-              sub="próximas mensalidades, sem fatura ainda"
-            />
-            <Tile
-              label="Vencido"
-              value={brl(cal.totals.overdue)}
-              level={toCents(cal.totals.overdue) ? 'bad' : 'off'}
-              sub="venceu neste mês e não pagou"
-            />
-          </div>
-
-          <div className="adm-cal" role="grid" aria-label={`Recebimentos de ${monthName(month)}`}>
-            {WEEK.map((w) => (
-              <div key={w} className="adm-cal__wd" role="columnheader">
-                {w}
-              </div>
-            ))}
-            {Array.from({ length: new Date(`${cal.from}T12:00:00`).getDay() }, (_, k) => (
-              <div key={`b${k}`} className="adm-cal__blank" />
-            ))}
-            {Array.from({ length: Number(cal.to.slice(8)) }, (_, k) => {
-              const date = `${month}-${String(k + 1).padStart(2, '0')}`;
-              const items = byDay.get(date) ?? [];
-              const worst: CalStatus | null = items.length
-                ? (['overdue', 'pending', 'forecast', 'paid'] as const).find((s) =>
-                    items.some((i) => i.status === s),
-                  )!
-                : null;
-              const cls = [
-                'adm-cal__day',
-                date === cal.today && 'is-today',
-                date < cal.today && 'is-past',
-                date === picked && 'is-picked',
-                worst && `is-${worst}`,
-              ]
-                .filter(Boolean)
-                .join(' ');
-              return (
-                <button
-                  key={date}
-                  type="button"
-                  role="gridcell"
-                  className={cls}
-                  disabled={!items.length}
-                  aria-pressed={date === picked}
-                  aria-label={
-                    items.length
-                      ? `Dia ${k + 1}: ${items.length} cliente(s), ${brl(fromCents(totalOf(items)))}`
-                      : `Dia ${k + 1}: nada`
-                  }
-                  onClick={() => setPicked((p) => (p === date ? null : date))}
-                >
-                  <span className="adm-cal__n">{k + 1}</span>
-                  {items.length > 0 && (
-                    <>
-                      <span className="adm-cal__sum">{brl(fromCents(totalOf(items)))}</span>
-                      <span className="adm-cal__short">{short(totalOf(items))}</span>
-                      <span className="adm-cal__who">
-                        {items.slice(0, 2).map((i) => (
-                          <span key={`${i.tenantId}${i.invoiceId ?? ''}`}>
-                            <Dot level={STATUS[i.status].level} /> {i.tenantName}
-                          </span>
-                        ))}
-                        {items.length > 2 && <span>+{items.length - 2}</span>}
-                      </span>
-                      <span className="adm-cal__dots" aria-hidden>
-                        {items.slice(0, 4).map((i) => (
-                          <Dot
-                            key={`${i.tenantId}${i.invoiceId ?? ''}`}
-                            level={STATUS[i.status].level}
-                          />
-                        ))}
-                      </span>
-                    </>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <p className="adm-cal__legend">
+          <p className="adm-cal__sums">
             {(Object.keys(STATUS) as CalStatus[]).map((s) => (
               <span key={s}>
-                <Dot level={STATUS[s].level} /> {STATUS[s].label}
+                <Dot level={STATUS[s].level} /> {STATUS[s].label}{' '}
+                <strong>{brl(cal.totals[s])}</strong>
               </span>
             ))}
           </p>
-
-          <div className="adm-panel" style={{ marginTop: 12 }}>
-            {picked && (
-              <div className="adm-cal__filter">
-                Mostrando só {dayName(picked)}.{' '}
-                <button type="button" className="login__link" onClick={() => setPicked(null)}>
-                  Ver o mês inteiro
-                </button>
-              </div>
-            )}
-            {days.map((d) => {
-              const items = byDay.get(d)!;
-              return (
-                <div key={d}>
-                  <div className="adm-cal__head">
-                    <span>{dayName(d)}</span>
-                    <span>{brl(fromCents(totalOf(items)))}</span>
+          <div className="adm-cal__wrap">
+            <div className="adm-cal__board">
+              <div
+                className="adm-cal"
+                role="grid"
+                aria-label={`Recebimentos de ${monthName(month)}`}
+              >
+                {WEEK.map((w) => (
+                  <div key={w} className="adm-cal__wd" role="columnheader">
+                    {w}
                   </div>
-                  <div className="adm-rows">
-                    {items.map((i) => (
-                      <div
-                        key={`${i.tenantId}${i.invoiceId ?? d}`}
-                        className={`adm-row adm-cal__row${
-                          i.invoiceId && fresh.has(i.invoiceId) ? ' is-fresh' : ''
-                        }`}
-                      >
-                        <Dot level={STATUS[i.status].level} />
-                        <Link to={`/restaurantes/${i.tenantId}`} className="adm-row__main">
-                          <span className="adm-row__title">{i.tenantName}</span>
-                          <span className="adm-row__meta">
-                            {i.invoiceId && fresh.has(i.invoiceId) ? 'Acabou de pagar · ' : ''}
-                            {detail(i)}
+                ))}
+                {gridDays(cal.from).map((date) => {
+                  const inMonth = date.startsWith(month);
+                  const items = inMonth ? (byDay.get(date) ?? []) : [];
+                  const worst = items.length
+                    ? WORST.find((s) => items.some((i) => i.status === s))!
+                    : null;
+                  const cls = [
+                    'adm-cal__day',
+                    !inMonth && 'is-out',
+                    date === cal.today && 'is-today',
+                    date === day && inMonth && 'is-picked',
+                    worst && `is-${worst}`,
+                  ]
+                    .filter(Boolean)
+                    .join(' ');
+                  const n = Number(date.slice(8));
+                  return (
+                    <button
+                      key={date}
+                      type="button"
+                      role="gridcell"
+                      className={cls}
+                      disabled={!inMonth}
+                      aria-pressed={inMonth && date === day}
+                      aria-label={
+                        items.length
+                          ? `Dia ${n}: ${items.length} ${items.length === 1 ? 'cobrança' : 'cobranças'}, ${brl(fromCents(totalOf(items)))}`
+                          : `Dia ${n}: nada`
+                      }
+                      onClick={() => {
+                        setPicked(date);
+                        // Tela estreita: o painel do dia fica embaixo da grade; rola até ele.
+                        if (items.length && window.matchMedia('(max-width: 1100px)').matches)
+                          requestAnimationFrame(() =>
+                            side.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+                          );
+                      }}
+                    >
+                      <span className="adm-cal__n">{n}</span>
+                      {items.length > 0 && (
+                        <>
+                          <span className="adm-cal__sum">
+                            <span className="adm-cal__cur">R$ </span>
+                            {short(totalOf(items))}
                           </span>
-                        </Link>
-                        <span className="adm-row__side">{brl(i.amount)}</span>
-                        {i.status !== 'paid' ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            icon={<Check size={14} />}
-                            onClick={() => setMarking(i)}
-                          >
-                            Marcar como pago
-                          </Button>
-                        ) : i.status === 'paid' && i.billingType === 'MANUAL' ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            icon={<Undo2 size={14} />}
-                            loading={busy === `u${i.invoiceId}`}
-                            onClick={() => undo(i)}
-                          >
-                            Desfazer
-                          </Button>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-            {days.length === 0 && <div className="adm-empty">Nenhum recebimento neste mês.</div>}
+                          <span className="adm-cal__dots" aria-hidden>
+                            {items.slice(0, 5).map((i) => (
+                              <Dot key={keyOf(i)} level={STATUS[i.status].level} />
+                            ))}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <aside ref={side} className="adm-cal__side" aria-live="polite">
+              {day && (
+                <header className="adm-cal__side-head">
+                  <strong>{dayName(day)}</strong>
+                  <span>
+                    {dayItems.length === 0
+                      ? 'Nada neste dia'
+                      : WORST.filter((s) => sumOf(s) > 0)
+                          .map(
+                            (s) => `${brl(fromCents(sumOf(s)))} ${STATUS[s].label.toLowerCase()}`,
+                          )
+                          .join(' · ')}
+                  </span>
+                </header>
+              )}
+              <div className="adm-cal__cards">
+                {dayItems.map((i) => (
+                  <button
+                    key={keyOf(i)}
+                    type="button"
+                    className={`adm-cal__card${
+                      i.invoiceId && fresh.has(i.invoiceId) ? ' is-fresh' : ''
+                    }`}
+                    onClick={() => setOpen(i)}
+                  >
+                    <span className="adm-cal__card-top">
+                      <span className="adm-cal__card-name">{i.tenantName}</span>
+                      <span className="adm-cal__card-amount">{brl(i.amount)}</span>
+                    </span>
+                    <span className="adm-cal__card-meta">
+                      <Dot level={STATUS[i.status].level} />
+                      {i.invoiceId && fresh.has(i.invoiceId)
+                        ? 'Acabou de pagar'
+                        : STATUS[i.status].label}
+                      {' · '}
+                      {INVOICE_KIND_LABELS[i.kind]}
+                      {i.planName ? ` · ${i.planName}` : ''}
+                    </span>
+                    <span className="adm-cal__card-meta">
+                      Vence {br(i.dueDate)}
+                      {i.paidAt ? ` · pago ${br(spDate(new Date(i.paidAt)))}` : ''}
+                      {' · '}
+                      {payLabel(i)}
+                    </span>
+                  </button>
+                ))}
+                {day && dayItems.length === 0 && (
+                  <div className="adm-empty">Nenhuma cobrança neste dia.</div>
+                )}
+              </div>
+            </aside>
           </div>
-          <p className="adm-sub" style={{ whiteSpace: 'normal', marginTop: 8 }}>
-            Como a previsão é feita: a mensalidade vence no último dia liberado do cliente (fim do
-            teste ou do período pago) e cada pagamento libera mais 30 dias, então o próximo
-            vencimento é 30 dias depois. Valores brutos, antes da taxa do Asaas. Recebido aparece no
-            dia em que o pagamento caiu; clientes suspensos e planos grátis ficam de fora. Quando o
-            cliente paga pelo app (Pix, boleto ou cartão do Asaas), a baixa é sozinha e esta tela
-            atualiza em alguns segundos. Recebeu por fora? Use Marcar como pago.
+          <p className="adm-cal__note">
+            Previsto: a mensalidade vence no último dia liberado do cliente e cada pagamento libera
+            mais 30 dias. Valores brutos, antes da taxa do Asaas; clientes suspensos e planos grátis
+            ficam de fora.
           </p>
         </>
       )}
+      <ChargeModal
+        item={current}
+        busy={busy}
+        onClose={() => setOpen(null)}
+        onMark={(i) => {
+          setOpen(null);
+          setMarking(i);
+        }}
+        onUndo={undo}
+      />
       <MarkPaidModal
         item={marking}
         today={cal?.today ?? spDate()}
@@ -431,6 +483,113 @@ export function CalendarSection() {
         onConfirm={markPaid}
       />
     </Section>
+  );
+}
+
+/** Dados da cobrança: abre ao clicar numa cobrança do dia. */
+function ChargeModal({
+  item,
+  busy,
+  onClose,
+  onMark,
+  onUndo,
+}: {
+  item: CalItem | null;
+  busy: string | null;
+  onClose: () => void;
+  onMark: (i: CalItem) => void;
+  onUndo: (i: CalItem) => void;
+}) {
+  const rows: [string, ReactNode][] = item
+    ? [
+        [
+          'Situação',
+          <>
+            <Dot level={STATUS[item.status].level} /> {STATUS[item.status].label}
+          </>,
+        ],
+        ['Valor', brl(item.amount)],
+        ...(item.netAmount
+          ? ([['Líquido (depois da taxa)', brl(item.netAmount)]] as [string, string][])
+          : []),
+        ['Descrição', item.description],
+        ['Tipo', INVOICE_KIND_LABELS[item.kind]],
+        ...(item.planName ? ([['Plano', item.planName]] as [string, string][]) : []),
+        ['Forma', payLabel(item)],
+        ['Vencimento', br(item.dueDate)],
+        ...(item.paidAt ? ([['Pago em', brTime(item.paidAt)]] as [string, string][]) : []),
+        ...(item.createdAt ? ([['Emitida em', brTime(item.createdAt)]] as [string, string][]) : []),
+        [
+          'Asaas',
+          item.status === 'forecast'
+            ? 'Ainda sem fatura'
+            : item.billingType === 'MANUAL' && !item.sent
+              ? 'Não enviada (cobrança à mão)'
+              : item.sent
+                ? `Enviada${item.environment === 'sandbox' ? ' (ambiente de teste)' : ''}`
+                : 'Ainda não enviada',
+        ],
+      ]
+    : [];
+  return (
+    <Modal
+      open={!!item}
+      title={item ? item.tenantName : 'Cobrança'}
+      onClose={onClose}
+      footer={
+        item && (
+          <>
+            <Button variant="ghost" onClick={onClose}>
+              Fechar
+            </Button>
+            {item.status === 'paid' && item.billingType === 'MANUAL' && item.invoiceId && (
+              <Button
+                variant="secondary"
+                icon={<Undo2 size={16} />}
+                loading={busy === `u${item.invoiceId}`}
+                onClick={() => onUndo(item)}
+              >
+                Desfazer pagamento
+              </Button>
+            )}
+            {item.status !== 'paid' && (
+              <Button icon={<Check size={16} />} onClick={() => onMark(item)}>
+                Marcar como pago
+              </Button>
+            )}
+          </>
+        )
+      }
+    >
+      {item && (
+        <div className="adm-charge">
+          {item.lastError && <Alert tone="warning">{item.lastError}</Alert>}
+          <dl className="adm-charge__facts">
+            {rows.map(([k, v]) => (
+              <div key={k}>
+                <dt>{k}</dt>
+                <dd>{v}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="adm-charge__links">
+            <Link to={`/restaurantes/${item.tenantId}`} onClick={onClose}>
+              Abrir o restaurante
+            </Link>
+            {item.invoiceUrl && (
+              <a href={item.invoiceUrl} target="_blank" rel="noreferrer">
+                Fatura no Asaas <ExternalLink size={13} aria-hidden />
+              </a>
+            )}
+            {item.bankSlipUrl && (
+              <a href={item.bankSlipUrl} target="_blank" rel="noreferrer">
+                Boleto <ExternalLink size={13} aria-hidden />
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 

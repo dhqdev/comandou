@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.156.0',
+    date: '2026-11-18',
+    title: 'Calendário de recebimentos mais simples',
+    summary:
+      'No Super Admin › Cobrança, o calendário ficou no jeito de agenda: o mês à esquerda com o total de cada dia e, ao lado, as cobranças do dia escolhido. Clicar numa cobrança abre todos os dados dela.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Calendário de recebimentos: grade do mês mais limpa (total do dia e uma bolinha por cobrança, com fundo leve na cor da situação) e filtro por situação (recebido, fatura enviada, vencida ou prevista).',
+      },
+      {
+        tag: 'novo',
+        text: 'Ao clicar num dia, as cobranças aparecem ao lado em cartões (no celular, logo abaixo da grade). Clicar no cartão abre os dados da cobrança: situação, valor e líquido, descrição, tipo, plano, forma, vencimento, quando foi paga e emitida, se foi para o Asaas, e os links da fatura, do boleto e do restaurante.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Marcar como pago e Desfazer pagamento agora ficam na janela da cobrança.',
+      },
+    ],
+  },
+  {
     version: '0.155.0',
     date: '2026-11-18',
     title: 'Conversas do suporte mais claras e chamados pelo chat',
