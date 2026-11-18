@@ -1,5 +1,6 @@
 import { CHANNEL_ACTION_LABELS, type ChannelAction } from '@comandou/shared';
 import { Link2, RotateCcw, Store } from 'lucide-react';
+import { Link } from 'react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, Card, EmptyState, Spinner, useToast } from '../design-system';
 import { useCan } from '../app/auth';
@@ -186,6 +187,13 @@ export function IntegrationsPage() {
                     {st.text}
                   </span>
                 </header>
+                {c.id === 'ifood' && c.available && c.stores.length === 0 && (
+                  <p className="intg-hint">
+                    Ligue a loja do iFood em{' '}
+                    <Link to="/cardapio/cardapios">Cardápio › Cardápios</Link>. Ela aparece aqui e
+                    você marca "Receber pedidos".
+                  </p>
+                )}
                 {c.stores.length > 0 && (
                   <ul className="intg-stores">
                     {c.stores.map((s) => (

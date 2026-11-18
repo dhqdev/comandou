@@ -163,8 +163,9 @@ export class ChannelPoller implements OnApplicationBootstrap, OnModuleDestroy {
         ]),
       );
       let got: ChannelEvent[];
+      const pollBatch = { credential, stores: [...stores.values()] };
       try {
-        got = await adapter.poll({ credential, stores: [...stores.values()] });
+        got = await adapter.poll(pollBatch);
       } catch (e) {
         failed = true;
         this.metrics.pollErrors.inc({ channel });
@@ -181,7 +182,7 @@ export class ChannelPoller implements OnApplicationBootstrap, OnModuleDestroy {
       });
       if (ackable.length && adapter.ack) {
         try {
-          await adapter.ack(credential, ackable);
+          await adapter.ack(pollBatch, ackable);
           acked += ackable.length;
           this.metrics.acks.inc({ channel, result: 'ok' }, ackable.length);
         } catch (e) {

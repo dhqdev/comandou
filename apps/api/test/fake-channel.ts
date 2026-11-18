@@ -143,7 +143,7 @@ export class FakeChannelAdapter implements ChannelAdapter {
     return r.body ?? [];
   }
 
-  async ack(_credential: string, events: ChannelEvent[]) {
+  async ack(_batch: PollBatch, events: ChannelEvent[]) {
     await this.http.request({
       endpoint: 'events:ack',
       method: 'POST',

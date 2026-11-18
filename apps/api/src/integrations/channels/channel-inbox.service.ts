@@ -365,17 +365,21 @@ export class ChannelInboxService implements OnModuleInit {
     if (steps === null)
       return `O aplicativo informou "${ev.kind}" e o pedido está ${o.status}: confira na tela`;
     if (target === 'cancelled' && steps.length) {
-      // Cancelado pelo aplicativo com dinheiro no caixa ou nota emitida: não desfaz sozinho.
+      // Cancelado pelo aplicativo com dinheiro recebido no caixa ou nota emitida: não desfaz
+      // sozinho. O pago dentro do aplicativo some sozinho (quem devolve é o aplicativo).
       const blocker = await one<{ why: string }>(
         tx,
-        `SELECT CASE WHEN o.paid_amount > 0 THEN 'pagamento' ELSE 'nota' END AS why
-           FROM orders o WHERE o.id = $1 AND (o.paid_amount > 0 OR EXISTS (
-             SELECT 1 FROM fiscal_documents f WHERE f.order_id = o.id
+        `SELECT CASE WHEN EXISTS (SELECT 1 FROM payments p WHERE p.order_id = o.id
+                                    AND p.method <> 'app' AND p.amount > p.refunded_amount)
+                     THEN 'pagamento' ELSE 'nota' END AS why
+           FROM orders o WHERE o.id = $1 AND (
+             EXISTS (SELECT 1 FROM payments p WHERE p.order_id = o.id
+                        AND p.method <> 'app' AND p.amount > p.refunded_amount)
+             OR EXISTS (SELECT 1 FROM fiscal_documents f WHERE f.order_id = o.id
                 AND f.status IN ('pending','processing','authorized','cancelling')))`,
         [orderId],
       );
-      if (blocker || toCents(o.paid_amount) > 0)
-        return `Cancelado no aplicativo: estorne o ${blocker?.why ?? 'pagamento'} e cancele no Comandou`;
+      if (blocker) return `Cancelado no aplicativo: estorne o ${blocker.why} e cancele no Comandou`;
     }
     for (const s of steps)
       await this.orders.transitionInTx(tx, ctx, o, s, `Aplicativo: ${ev.kind}`, {

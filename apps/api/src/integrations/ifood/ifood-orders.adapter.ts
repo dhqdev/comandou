@@ -1,0 +1,204 @@
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
+import type { ChannelCapability, ExternalOrder } from '@comandou/shared';
+import { ENV, type Env } from '../../config/env';
+import {
+  ChannelHttpError,
+  ChannelRegistry,
+  type ActionRequest,
+  type ChannelAdapter,
+  type ChannelEvent,
+  type OrderRef,
+  type PollBatch,
+} from '../channels/channel-adapter';
+import { ChannelHttp, RateGate, type ChannelRequest } from '../channels/channel-http';
+import { ChannelMetrics } from '../channels/channel-metrics';
+import {
+  IFOOD_ACK_BATCH,
+  IFOOD_DEFAULT_CANCEL_CODE,
+  IFOOD_LIMITS,
+  IFOOD_PATHS,
+  ifoodEventKind,
+  ifoodToExternal,
+  ifoodVerb,
+  type IfoodOrder,
+} from './ifood-order';
+import { IfoodService } from './ifood.service';
+
+interface IfoodEvent {
+  id?: string;
+  code?: string;
+  fullCode?: string;
+  orderId?: string;
+  merchantId?: string;
+  createdAt?: string;
+  salesChannel?: string;
+  metadata?: Record<string, unknown>;
+}
+
+/** Eventos da negociação: o detalhe (prazo, alternativas) vem no metadata e é preciso na Fase 3. */
+const KEEP_METADATA = new Set(['order.dispute', 'order.dispute_settled']);
+
+/**
+ * Pedidos do iFood (Events + Order API) pela camada comum de canais. Polling a cada 30 s com até
+ * 100 lojas por x-polling-merchants, ack de tudo o que foi gravado, detalhes do pedido e ações
+ * (confirmar, preparo, pronto, saiu, cancelar). Token pela IfoodService (o mesmo do cardápio):
+ * 401 renova o token uma vez e repete; 4xx nunca se repete (regra do iFood contra bloqueio).
+ */
+@Injectable()
+export class IfoodOrdersAdapter implements ChannelAdapter, OnModuleInit {
+  readonly id = 'ifood';
+  readonly capabilities: readonly ChannelCapability[] = [
+    'orders',
+    'polling',
+    'confirm',
+    'reject',
+    'startPreparation',
+    'ready',
+    'dispatch',
+    'cancel',
+    'menu',
+  ];
+  private readonly http: ChannelHttp;
+
+  constructor(
+    @Inject(ENV) env: Env,
+    private readonly ifood: IfoodService,
+    private readonly registry: ChannelRegistry,
+    metrics: ChannelMetrics,
+  ) {
+    this.http = new ChannelHttp(
+      'ifood',
+      env.IFOOD_API_URL,
+      metrics,
+      new RateGate(),
+      () => this.ifood.fetcher,
+      15_000,
+    );
+  }
+
+  onModuleInit() {
+    this.registry.register(this);
+  }
+
+  /** Chamada com o token da credencial; 401 → token novo e uma repetição. */
+  private async call<T>(credential: string, tenantId: string, r: Omit<ChannelRequest, 'token'>) {
+    for (let attempt = 0; ; attempt++) {
+      let token: string;
+      try {
+        token = await this.ifood.bearer(credential, tenantId);
+      } catch (e) {
+        const status = (e as { status?: number }).status;
+        throw new ChannelHttpError(
+          typeof status === 'number' ? status : 0,
+          (e as Error).message?.slice(0, 200) || 'Sem token do iFood',
+        );
+      }
+      try {
+        return await this.http.request<T>({ ...r, token });
+      } catch (e) {
+        if (e instanceof ChannelHttpError && e.status === 401 && attempt === 0) {
+          this.ifood.forgetBearer(credential, tenantId);
+          continue;
+        }
+        throw e;
+      }
+    }
+  }
+
+  async poll(batch: PollBatch): Promise<ChannelEvent[]> {
+    const tenantId = batch.stores[0]?.tenantId ?? '';
+    const r = await this.call<IfoodEvent[] | null>(batch.credential, tenantId, {
+      endpoint: 'events:polling',
+      method: 'GET',
+      path: IFOOD_PATHS.polling,
+      headers: { 'x-polling-merchants': batch.stores.map((s) => s.storeId).join(',') },
+      perMinute: IFOOD_LIMITS.polling,
+      // Polling não repete na hora: a próxima rodada (30 s) é a repetição.
+      retries: 0,
+    });
+    const list = Array.isArray(r.body) ? r.body : [];
+    const out: ChannelEvent[] = [];
+    for (const e of list) {
+      if (!e?.id || typeof e.id !== 'string') continue;
+      const kind = ifoodEventKind(e.code, e.fullCode);
+      out.push({
+        id: e.id.slice(0, 120),
+        code: String(e.fullCode ?? e.code ?? 'UNKNOWN').slice(0, 60),
+        kind,
+        storeId: String(e.merchantId ?? '').toLowerCase(),
+        ...(e.orderId ? { orderId: String(e.orderId).slice(0, 100) } : {}),
+        occurredAt:
+          e.createdAt && Number.isFinite(Date.parse(e.createdAt))
+            ? e.createdAt
+            : new Date().toISOString(),
+        // Sem dados pessoais: o pedido é buscado à parte.
+        payload: {
+          code: e.code ?? null,
+          fullCode: e.fullCode ?? null,
+          salesChannel: e.salesChannel ?? null,
+          ...(KEEP_METADATA.has(kind) && e.metadata ? { metadata: e.metadata } : {}),
+        },
+      });
+    }
+    return out;
+  }
+
+  async ack(batch: PollBatch, events: ChannelEvent[]) {
+    const tenantId = batch.stores[0]?.tenantId ?? '';
+    for (let i = 0; i < events.length; i += IFOOD_ACK_BATCH) {
+      const part = events.slice(i, i + IFOOD_ACK_BATCH);
+      await this.call(batch.credential, tenantId, {
+        endpoint: 'events:ack',
+        method: 'POST',
+        path: IFOOD_PATHS.ack,
+        json: part.map((e) => ({ id: e.id })),
+        perMinute: IFOOD_LIMITS.ack,
+        retries: 2,
+      });
+    }
+  }
+
+  async fetchOrder(ref: OrderRef): Promise<ExternalOrder> {
+    const r = await this.call<IfoodOrder>(ref.credential, ref.tenantId, {
+      endpoint: 'orders:details',
+      method: 'GET',
+      path: IFOOD_PATHS.order(ref.externalOrderId),
+      perMinute: IFOOD_LIMITS.order,
+      // Cada consulta conta no limite de 10 por pedido: a repetição fica com a caixa de entrada.
+      retries: 0,
+    });
+    if (!r.body || typeof r.body !== 'object' || !r.body.id)
+      throw new ChannelHttpError(502, 'O iFood devolveu o pedido vazio');
+    const o = ifoodToExternal(r.body);
+    if (!o.storeId) o.storeId = ref.storeId;
+    return o;
+  }
+
+  async send(req: ActionRequest) {
+    const verb = ifoodVerb(req.action);
+    if (!verb) return;
+    const cancel = verb === 'requestCancellation';
+    const reason = typeof req.payload.reason === 'string' ? req.payload.reason.trim() : '';
+    const code =
+      typeof req.payload.cancellationCode === 'string' &&
+      /^\d{3}$/.test(req.payload.cancellationCode)
+        ? req.payload.cancellationCode
+        : IFOOD_DEFAULT_CANCEL_CODE;
+    await this.call(req.credential, req.tenantId, {
+      endpoint: `orders:${verb}`,
+      method: 'POST',
+      path: IFOOD_PATHS.action(req.externalOrderId, verb),
+      ...(cancel
+        ? {
+            json: {
+              reason: (reason || 'Pedido cancelado pelo restaurante').slice(0, 250),
+              cancellationCode: code,
+            },
+          }
+        : {}),
+      perMinute: cancel ? IFOOD_LIMITS.cancellation : IFOOD_LIMITS.action,
+      // A caixa de saída repete com espera crescente (5xx/429); aqui não.
+      retries: 0,
+    });
+  }
+}

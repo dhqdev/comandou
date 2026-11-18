@@ -80,8 +80,8 @@ export interface ChannelAdapter {
   readonly capabilities: readonly ChannelCapability[];
   /** Busca os eventos novos das lojas do lote. Sem polling (só webhook): não implementa. */
   poll?(batch: PollBatch): Promise<ChannelEvent[]>;
-  /** Confirma o recebimento (só dos eventos já gravados). */
-  ack?(credential: string, events: ChannelEvent[]): Promise<void>;
+  /** Confirma o recebimento (só dos eventos já gravados), com a credencial e as lojas do lote. */
+  ack?(batch: PollBatch, events: ChannelEvent[]): Promise<void>;
   /** Detalhes do pedido, traduzidos para o pedido normalizado. */
   fetchOrder(ref: OrderRef): Promise<ExternalOrder>;
   /** Manda uma ação. Erro → ChannelHttpError (a caixa de saída decide se repete). */

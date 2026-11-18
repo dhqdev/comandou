@@ -9,6 +9,9 @@ import {
   fromCents,
   OrderChannel,
   PAYMENT_METHOD_LABELS,
+  channelInfo,
+  recordedPaymentLabel,
+  type RecordedPaymentMethod,
   PaymentMethod,
   toCents,
   qtyTicket,
@@ -402,9 +405,15 @@ export class PrintingService {
     // Um pedido por vez: a transação tem uma conexão só.
     const items = [];
     for (const id of orderIds) items.push(...(await this.items(tx, id)));
-    const paid = await q<{ method: PaymentMethod; amount: string; tendered: string | null }>(
+    const paid = await q<{
+      method: RecordedPaymentMethod;
+      amount: string;
+      tendered: string | null;
+      app_channel: string | null;
+      app_method: PaymentMethod | null;
+    }>(
       tx,
-      `SELECT method, (amount - refunded_amount)::text AS amount, tendered::text
+      `SELECT method, (amount - refunded_amount)::text AS amount, tendered::text, app_channel, app_method
          FROM payments WHERE order_id = ANY($1::uuid[]) AND amount > refunded_amount ORDER BY created_at`,
       [orderIds],
     );
@@ -440,7 +449,7 @@ export class PrintingService {
       pagamentos: paid.map((p) => {
         const troco = p.tendered ? Math.max(0, num(p.tendered) - num(p.amount)) : 0;
         return {
-          forma: PAYMENT_METHOD_LABELS[p.method] ?? p.method,
+          forma: paidLabel(p),
           valor: num(p.amount),
           valor_formatado: formatMoney(p.amount),
           troco,
@@ -529,7 +538,7 @@ export class PrintingService {
       let received = 0;
       for (const p of paid) {
         received += Number(p.amount);
-        out.push(row(`Pago (${PAYMENT_METHOD_LABELS[p.method] ?? p.method})`, p.amount));
+        out.push(row(`Pago (${paidLabel(p)})`, p.amount));
         if (p.tendered && Number(p.tendered) > Number(p.amount))
           out.push(row('  Troco', String(Number(p.tendered) - Number(p.amount))));
       }
@@ -609,7 +618,7 @@ export class PrintingService {
       }
     } else {
       out.push(row('TOTAL:', o.total), center('*** PAGO - NÃO COBRAR ***'));
-      const methods = [...new Set(paid.map((p) => PAYMENT_METHOD_LABELS[p.method] ?? p.method))];
+      const methods = [...new Set(paid.map((p) => paidLabel(p)))];
       if (methods.length) out.push(`Pago com: ${methods.join(', ')}`);
     }
     if (o.notes) out.push(...wrap(`Obs.: ${o.notes}`));
@@ -1186,4 +1195,16 @@ export class PrintingService {
     this.realtime.publish(tenantId, { type: 'print.changed' });
     return r;
   }
+}
+
+/** Forma impressa: o pago no aplicativo sai como "Pago no iFood · PIX". */
+function paidLabel(p: {
+  method: RecordedPaymentMethod;
+  app_channel: string | null;
+  app_method: PaymentMethod | null;
+}) {
+  return recordedPaymentLabel(p.method, {
+    channelLabel: p.app_channel ? channelInfo(p.app_channel).label : null,
+    method: p.app_method,
+  });
 }

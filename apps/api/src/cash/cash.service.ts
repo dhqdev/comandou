@@ -718,11 +718,20 @@ export class CashService {
           const o = await this.orders.lock(tx, ref.order_id);
           orderId = o.id;
           await this.orders.assertNoLiveFiscalDocument(tx, o.id, 'estornar');
-          const pay = await one<{ amount: string; refunded_amount: string; method: PaymentMethod }>(
+          const pay = await one<{
+            amount: string;
+            refunded_amount: string;
+            method: PaymentMethod | 'app';
+          }>(
             tx,
             `SELECT amount::text, refunded_amount::text, method FROM payments WHERE id = $1 FOR UPDATE`,
             [paymentId],
           );
+          // Pago no aplicativo: quem devolve ao cliente é o aplicativo (some sozinho quando ele cancela).
+          if (pay!.method === 'app')
+            throw new ConflictException(
+              'Pagamento feito no aplicativo: o estorno é feito pelo aplicativo, não pelo caixa',
+            );
           const cents = toCents(b.amount);
           const available = toCents(pay!.amount) - toCents(pay!.refunded_amount);
           if (cents <= 0) throw new UnprocessableEntityException('Valor deve ser maior que zero');

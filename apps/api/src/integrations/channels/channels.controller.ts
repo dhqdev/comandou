@@ -65,6 +65,8 @@ export class ChannelsController {
   @Get()
   @RequirePermission('orders:manage')
   async overview(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    // Lojas ligadas antes (ex.: iFood só com cardápio) entram na camada de canais.
+    await this.stores.sync(t.id);
     const data = await this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
       const stores = await q<{ channel: string }>(
         tx,

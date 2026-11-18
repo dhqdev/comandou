@@ -950,8 +950,10 @@ export class FiscalService implements OnModuleInit {
     }));
     const payments = await q<{ method: string; net: string }>(
       tx,
-      `SELECT method, sum(amount - refunded_amount)::text AS net FROM payments
-        WHERE order_id = ANY($1::uuid[]) GROUP BY method HAVING sum(amount - refunded_amount) > 0 ORDER BY method`,
+      // Pago no aplicativo: a nota leva a forma real (crédito, pix...), nunca "outros".
+      `SELECT CASE WHEN method = 'app' THEN app_method ELSE method END AS method,
+              sum(amount - refunded_amount)::text AS net FROM payments
+        WHERE order_id = ANY($1::uuid[]) GROUP BY 1 HAVING sum(amount - refunded_amount) > 0 ORDER BY 1`,
       [orderIds],
     );
     // Delivery pago na entrega: a nota sai antes, com a forma que o cliente escolheu (a receber).

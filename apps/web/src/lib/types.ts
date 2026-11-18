@@ -219,13 +219,17 @@ export interface OrderItem {
 }
 export interface Payment {
   id: string;
-  method: PaymentMethod;
+  /** 'app' = pago dentro do aplicativo de delivery (fora da gaveta, sem sessão de caixa). */
+  method: PaymentMethod | 'app';
   amount: string;
   tendered: string | null;
   refundedAmount: string;
-  cashSessionId: string;
+  cashSessionId: string | null;
   createdAt: string;
   createdByName: string | null;
+  appChannel?: string | null;
+  appMethod?: PaymentMethod | null;
+  appBrand?: string | null;
 }
 export interface Order {
   id: string;
@@ -265,6 +269,8 @@ export interface Order {
   externalCode?: string | null;
   deliveredBy?: 'merchant' | 'channel' | null;
   scheduledFor?: string | null;
+  /** Pedido de aplicativo em análise: até quando aceitar (depois o aplicativo cancela sozinho). */
+  appConfirmBy?: string | null;
   /** Só no detalhe: dados do aplicativo e as ações mandadas a ele. */
   app?: AppOrderInfo | null;
   paymentHint?: PaymentMethod | null;

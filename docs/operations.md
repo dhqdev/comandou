@@ -93,6 +93,12 @@ pedidos do aplicativo não chegam e ele cancela sozinho depois do prazo.
    fora; o Comandou já espera e repete, não force mais chamadas.
 5. Eventos e ações que falharam de vez aparecem para o restaurante em Sistema › Aplicativos de
    delivery, com "Tentar de novo". Nunca apague `channel_inbox` à mão: é a prova do que chegou.
+6. **iFood** (Fase 2): o polling usa `GET /events/v1.0/events:polling` com `x-polling-merchants`
+   (até 100 lojas) e o ack `POST /events/v1.0/events/acknowledgment`; os caminhos ficam em
+   `IFOOD_PATHS` (`integrations/ifood/ifood-order.ts`). Se o iFood mudar o caminho, troque só ali.
+   Credencial `ifood:central` (modo centralizado, um token para todas as lojas) ou
+   `ifood:conn:<id>` (distribuído, um token por loja, refresh token cifrado em `ifood_connections`).
+   Pedido que o iFood não acha (404) é consultado no máximo 10 vezes e depois fica "falhou".
 
 ### Backup atrasado
 

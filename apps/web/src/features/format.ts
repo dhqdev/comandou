@@ -2,7 +2,10 @@ import {
   CHANNEL_LABELS,
   ORDER_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
+  channelInfo,
+  recordedPaymentLabel,
   type OrderStatus,
+  type PaymentMethod,
   type PaymentStatus,
 } from '@comandou/shared';
 
@@ -64,3 +67,15 @@ export function elapsed(min: number): string {
 
 export const qty = (q: string) =>
   Number.isInteger(Number(q)) ? String(Number(q)) : q.replace('.', ',');
+
+/** Nome de um pagamento gravado; o pago no aplicativo diz qual e a forma ("Pago no iFood · PIX"). */
+export function paymentLabel(p: {
+  method: PaymentMethod | 'app';
+  appChannel?: string | null;
+  appMethod?: PaymentMethod | null;
+}): string {
+  return recordedPaymentLabel(p.method, {
+    channelLabel: p.appChannel ? channelInfo(p.appChannel).label : null,
+    method: p.appMethod ?? null,
+  });
+}

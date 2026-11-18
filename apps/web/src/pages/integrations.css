@@ -187,3 +187,9 @@
     align-items: stretch;
   }
 }
+
+.intg-hint {
+  margin: 0;
+  color: var(--cm-text-muted);
+  font-size: 14px;
+}

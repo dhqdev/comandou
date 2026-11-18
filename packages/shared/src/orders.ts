@@ -73,6 +73,24 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   other: 'Outro',
 };
 
+/**
+ * Forma gravada num pagamento: as do caixa mais 'app', o valor pago dentro do aplicativo de
+ * delivery (fora da gaveta: sem sessão de caixa nem movimento; ADR 0015 §7).
+ */
+export type RecordedPaymentMethod = PaymentMethod | 'app';
+
+/** Nome de uma forma gravada; 'app' mostra o aplicativo e a forma real ("Pago no iFood · PIX"). */
+export function recordedPaymentLabel(
+  method: RecordedPaymentMethod,
+  app?: { channelLabel?: string | null; method?: PaymentMethod | null } | null,
+): string {
+  if (method !== 'app') return PAYMENT_METHOD_LABELS[method];
+  const where = app?.channelLabel ? `Pago no ${app.channelLabel}` : 'Pago no aplicativo';
+  return app?.method && app.method !== 'other'
+    ? `${where} · ${PAYMENT_METHOD_LABELS[app.method]}`
+    : where;
+}
+
 export function paymentStatusFor(totalCents: number, paidCents: number): PaymentStatus {
   if (paidCents <= 0) return 'unpaid';
   if (paidCents < totalCents) return 'partial';

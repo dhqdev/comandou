@@ -14,7 +14,8 @@ export type SoundKind =
   | 'delivered'
   | 'bill'
   | 'cancel'
-  | 'message';
+  | 'message'
+  | 'app_order';
 
 export const SOUND_INFO: { kind: SoundKind; label: string; hint: string }[] = [
   { kind: 'order', label: 'Novo pedido', hint: 'Pedido do cardápio online esperando aceite' },
@@ -26,6 +27,11 @@ export const SOUND_INFO: { kind: SoundKind; label: string; hint: string }[] = [
   { kind: 'bill', label: 'Pediu a conta', hint: 'Uma mesa pediu para fechar' },
   { kind: 'cancel', label: 'Cancelamento', hint: 'Cliente pediu para cancelar um pedido' },
   { kind: 'message', label: 'Mensagem de cliente', hint: 'Cliente escreveu pelo cardápio online' },
+  {
+    kind: 'app_order',
+    label: 'Pedido de aplicativo',
+    hint: 'Pedido do iFood ou de outro aplicativo esperando aceite (o aplicativo tem prazo)',
+  },
 ];
 
 /** Timbres prontos que o usuário pode escolher para qualquer aviso, além do padrão de cada um. */
@@ -43,7 +49,7 @@ export const TONE_INFO: { tone: SoundTone; label: string }[] = [
 ];
 
 /** Avisos que ficam tocando de novo enquanto ninguém resolve (aceitar o pedido, responder o cancelamento). */
-export const REPEATING_KINDS: SoundKind[] = ['order', 'cancel', 'message'];
+export const REPEATING_KINDS: SoundKind[] = ['order', 'cancel', 'message', 'app_order'];
 
 export interface SoundSettings {
   enabled: boolean;
@@ -276,6 +282,14 @@ const PATTERNS: Record<SoundKind, Note[]> = {
     { at: 0.12, freq: A5, dur: 0.4, inst: 'kalimba' },
     { at: 0.24, freq: E6, dur: 0.5, inst: 'kalimba' },
     { at: 0.4, freq: B5 * 2, dur: 1.1, inst: 'glass', gain: 0.45 },
+  ],
+  // Três sinos rápidos subindo e a campainha: pedido de aplicativo, com prazo para aceitar.
+  app_order: [
+    { at: 0, freq: C6, dur: 0.35, inst: 'glass' },
+    { at: 0.12, freq: E6, dur: 0.35, inst: 'glass' },
+    { at: 0.24, freq: G6, dur: 0.5, inst: 'glass' },
+    { at: 0.62, freq: E6, dur: 0.9 },
+    { at: 0.94, freq: C6, dur: 1.3 },
   ],
 };
 

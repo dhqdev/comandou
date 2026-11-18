@@ -61,6 +61,7 @@ import {
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABEL,
   PAYMENT_STATUS_TONE,
+  paymentLabel,
   qty,
   STATUS_TONE,
 } from './format';
@@ -76,6 +77,7 @@ import {
   type ReceiptFile,
 } from './PixReceipt';
 import { SidePanel } from './SidePanel';
+import { AcceptDeadline } from './channels/AcceptDeadline';
 import { ChannelBadge } from './channels/ChannelBadge';
 
 const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }[]>> = {
@@ -246,7 +248,10 @@ export function OrderDetailModal({
     order.status === 'ready' &&
     !order.servedAt;
   // Vender fiado: o mesmo poder do "a receber" (gerente), em qualquer pedido com saldo.
-  const canFiado = !!order && canCancel && hasBalance && order.status !== 'cancelled';
+  // Pedido de aplicativo: itens, valores e cobrança mandam no aplicativo (sem fiado, desconto ou
+  // troca de itens aqui; a observação interna continua).
+  const isApp = order?.source === 'app';
+  const canFiado = !!order && !isApp && canCancel && hasBalance && order.status !== 'cancelled';
   const canReceivable =
     !!order &&
     canCancel &&
@@ -256,17 +261,19 @@ export function OrderDetailModal({
     canTransition(order.status, 'completed', order.channel);
   const activeItems = order ? order.items.filter((i) => i.status !== 'cancelled').length : 0;
   const canCancelItem =
-    !!order && !mode && canCancel && !['completed', 'cancelled'].includes(order.status);
+    !!order && !mode && !isApp && canCancel && !['completed', 'cancelled'].includes(order.status);
   const canReceive =
     !!order && !mode && canPay && order.status !== 'cancelled' && toCents(order.balance) > 0;
   const canSend =
     !!order && !mode && order.channel === 'delivery' && order.status === 'ready' && canDispatch;
   const canReject = !!order && !mode && order.status === 'awaiting' && canWrite;
   const leadIsStep = !canReceive && !canSend;
-  const canAdjust = !!order && !['completed', 'cancelled', 'awaiting'].includes(order.status);
+  const canAdjust =
+    !!order && !isApp && !['completed', 'cancelled', 'awaiting'].includes(order.status);
   // Editar itens: pedido aceito que ainda não saiu nem fechou (o servidor confere o resto).
   const canManage = useCan('orders:manage');
-  const canEdit = !!order && canManage && ['new', 'in_production', 'ready'].includes(order.status);
+  const canEdit =
+    !!order && !isApp && canManage && ['new', 'in_production', 'ready'].includes(order.status);
   const cancelLabel = !order
     ? null
     : order.status === 'cancel_requested'
@@ -568,7 +575,7 @@ export function OrderDetailModal({
                 <strong>{order.notes || 'Sem observação'}</strong>
               </div>
             </div>
-            {order.app && <AppOrderNote app={order.app} />}
+            {order.app && <AppOrderNote app={order.app} order={order} />}
             {order.fiadoAt && (
               <div className="od-note" data-tone="warning">
                 <CalendarClock size={15} aria-hidden />
@@ -767,20 +774,24 @@ export function OrderDetailModal({
                 {order.payments.map((p) => (
                   <li key={p.id}>
                     <div>
-                      <strong>{PAYMENT_METHOD_LABELS[p.method]}</strong>
+                      <strong>{paymentLabel(p)}</strong>
                       <div className="od-item__sub">
                         {dateTime(p.createdAt)}
                         {p.createdByName && ` · ${p.createdByName}`}
+                        {p.appBrand && ` · ${p.appBrand}`}
+                        {p.method === 'app' && ' · fora do caixa, volta no repasse'}
                         {toCents(p.refundedAmount) > 0 && ` · estornado ${brl(p.refundedAmount)}`}
                       </div>
                     </div>
                     <span className="od-rows__end">
                       <strong className="od-rows__paid">{brl(p.amount)}</strong>
-                      {canRefund && toCents(p.amount) > toCents(p.refundedAmount) && (
-                        <Button variant="ghost" size="sm" onClick={() => setMode({ refund: p })}>
-                          Estornar
-                        </Button>
-                      )}
+                      {canRefund &&
+                        p.method !== 'app' &&
+                        toCents(p.amount) > toCents(p.refundedAmount) && (
+                          <Button variant="ghost" size="sm" onClick={() => setMode({ refund: p })}>
+                            Estornar
+                          </Button>
+                        )}
                     </span>
                   </li>
                 ))}
@@ -1292,7 +1303,7 @@ function RefundForm({
   }
   return (
     <div className="inline-form">
-      <strong>Estornar {PAYMENT_METHOD_LABELS[payment.method]}</strong>
+      <strong>Estornar {paymentLabel(payment)}</strong>
       {sessions?.length === 0 && (
         <Alert tone="warning">Abra um caixa para registrar o estorno.</Alert>
       )}
@@ -1351,19 +1362,31 @@ const ACTION_STATUS: Record<AppOrderInfo['actions'][number]['status'], string> =
 };
 
 /** Pedido de aplicativo: quem paga, o desconto do aplicativo e o que já foi avisado a ele. */
-function AppOrderNote({ app }: { app: AppOrderInfo }) {
+function AppOrderNote({ app, order }: { app: AppOrderInfo; order: Order }) {
   const failed = app.actions.some((a) => a.status === 'failed');
+  const method = app.paymentMethod ? PAYMENT_METHOD_LABELS[app.paymentMethod] : null;
+  // Troco calculado (o iFood exige mostrar): "troco para" menos o que o cliente paga na entrega.
+  const due = toCents(order.balance);
+  const change = order.changeFor ? toCents(order.changeFor) - due : 0;
   return (
     <div className="od-note" data-tone={failed || app.unlinkedItems ? 'warning' : undefined}>
       <Smartphone size={15} aria-hidden />
       <div>
+        {order.status === 'awaiting' && app.confirmBy && <AcceptDeadline until={app.confirmBy} />}
         <span>
-          {app.prepaid ? 'Pago no aplicativo' : 'Paga na entrega ou na retirada'}
+          {app.prepaid
+            ? `Pago no aplicativo${method ? ` (${method}${app.paymentBrand ? ` ${app.paymentBrand}` : ''})` : ''}`
+            : `Cobrar na entrega${method ? `: ${method}${app.paymentBrand ? ` ${app.paymentBrand}` : ''}` : ''}${
+                due > 0 ? ` ${brl(order.balance)}` : ''
+              }${change > 0 ? `, levar troco de ${brl(fromCents(change))}` : ''}`}
           {' · '}
           {app.deliveredBy === 'channel' ? 'entrega do aplicativo' : 'entrega da loja'}
           {Number(app.channelDiscount) > 0 &&
-            ` · desconto do aplicativo ${brl(app.channelDiscount)} (volta no repasse)`}
+            ` · cupom pago pelo aplicativo ${brl(app.channelDiscount)} (volta no repasse)`}
+          {Number(app.merchantDiscount) > 0 &&
+            ` · cupom pago pela loja ${brl(app.merchantDiscount)}`}
           {app.pickupCode && ` · código de retirada ${app.pickupCode}`}
+          {order.taxDocument && ` · CPF/CNPJ na nota ${order.taxDocument}`}
         </span>
         {app.unlinkedItems > 0 && (
           <strong>

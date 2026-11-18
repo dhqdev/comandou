@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canTransition, paymentStatusFor, splitCents } from './orders';
+import { canTransition, paymentStatusFor, recordedPaymentLabel, splitCents } from './orders';
 
 describe('orders', () => {
   it('aplica a máquina de estados', () => {
@@ -19,5 +19,18 @@ describe('orders', () => {
     expect(splitCents(1, 2)).toEqual([1, 0]);
     expect(splitCents(9999, 4).reduce((a, b) => a + b)).toBe(9999);
     expect(() => splitCents(100, 0)).toThrow();
+  });
+});
+
+describe('recordedPaymentLabel', () => {
+  it('pago no aplicativo diz qual e a forma real', () => {
+    expect(recordedPaymentLabel('pix')).toBe('PIX');
+    expect(recordedPaymentLabel('app', { channelLabel: 'iFood', method: 'credit' })).toBe(
+      'Pago no iFood · Cartão de crédito',
+    );
+    expect(recordedPaymentLabel('app', { channelLabel: 'iFood', method: 'other' })).toBe(
+      'Pago no iFood',
+    );
+    expect(recordedPaymentLabel('app')).toBe('Pago no aplicativo');
   });
 });

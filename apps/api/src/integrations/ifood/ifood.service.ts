@@ -15,6 +15,7 @@ import { DatabaseService, type Tx } from '../../database/database.service';
 import { QueueService, type TenantJob } from '../../queue/queue.service';
 import { RealtimeService } from '../../realtime/realtime.service';
 import { ChannelCredentials } from '../channels/channel-credentials.service';
+import { ChannelStoresService } from '../channels/channel-stores.service';
 import {
   type Fetcher,
   IfoodClient,
@@ -39,6 +40,10 @@ import {
 } from './ifood-sync';
 
 const SYNC_TENANT_JOB = 'ifood.sync-tenant';
+/** Credencial do polling: uma para todas as lojas (centralizado) ou uma por loja (distribuído). */
+export const IFOOD_CENTRAL = 'ifood:central';
+export const ifoodCredentialOf = (conn: { id: string; mode: string }) =>
+  conn.mode === 'centralized' ? IFOOD_CENTRAL : `ifood:conn:${conn.id}`;
 const MAX_ERRORS = 20;
 
 export interface ConnectionRow {
@@ -79,10 +84,12 @@ export class IfoodService implements OnModuleInit {
     private readonly queue: QueueService,
     private readonly realtime: RealtimeService,
     private readonly credentials: ChannelCredentials,
+    private readonly stores: ChannelStoresService,
   ) {}
 
   onModuleInit() {
     this.queue.register(SYNC_TENANT_JOB, (d) => this.syncTenant(d));
+    this.stores.onSync((tenantId) => this.ensureChannelStores(tenantId));
     // "Conforme o cliente coloca": qualquer mudança no cardápio agenda o envio ao iFood.
     this.realtime.onPublish((tenantId, e) => {
       if (e.type === 'menu.changed')
@@ -167,31 +174,56 @@ export class IfoodService implements OnModuleInit {
     const ctx = `ifood:${tenantId}:${conn.id}`;
     return new IfoodClient(
       c,
-      () =>
-        this.token(ctx, async () => {
-          const row = await this.db.withTenant({ tenantId }, (tx) =>
-            one<{ refresh_token_enc: Buffer | null }>(
-              tx,
-              `SELECT refresh_token_enc FROM ifood_connections WHERE id = $1`,
-              [conn.id],
-            ),
-          );
-          if (!row?.refresh_token_enc)
-            throw new IfoodError(403, 'Autorize a loja do iFood de novo');
-          const refresh = open(this.key(), row.refresh_token_enc, ctx);
-          const t = await ifoodAuth.refresh(c, refresh, this.fetcher);
-          if (t.refreshToken && t.refreshToken !== refresh)
-            await this.db.withTenant({ tenantId }, (tx) =>
-              q(tx, `UPDATE ifood_connections SET refresh_token_enc = $2 WHERE id = $1`, [
-                conn.id,
-                seal(this.key(), t.refreshToken!, ctx),
-              ]),
-            );
-          return t;
-        }),
+      () => this.connectionToken(tenantId, conn.id),
       () => this.tokens.delete(ctx),
       this.fetcher,
     );
+  }
+
+  /** Token de uma loja do modo distribuído (refresh token cifrado dela). */
+  private async connectionToken(tenantId: string, connId: string) {
+    const c = await this.creds();
+    const ctx = `ifood:${tenantId}:${connId}`;
+    return this.token(ctx, async () => {
+      const row = await this.db.withTenant({ tenantId }, (tx) =>
+        one<{ refresh_token_enc: Buffer | null }>(
+          tx,
+          `SELECT refresh_token_enc FROM ifood_connections WHERE id = $1`,
+          [connId],
+        ),
+      );
+      if (!row?.refresh_token_enc) throw new IfoodError(403, 'Autorize a loja do iFood de novo');
+      const refresh = open(this.key(), row.refresh_token_enc, ctx);
+      const t = await ifoodAuth.refresh(c, refresh, this.fetcher);
+      if (t.refreshToken && t.refreshToken !== refresh)
+        await this.db.withTenant({ tenantId }, (tx) =>
+          q(tx, `UPDATE ifood_connections SET refresh_token_enc = $2 WHERE id = $1`, [
+            connId,
+            seal(this.key(), t.refreshToken!, ctx),
+          ]),
+        );
+      return t;
+    });
+  }
+
+  /**
+   * Token para os pedidos (polling, detalhes e ações). `credential` é a de channel_store_claims:
+   * 'ifood:central' (um token para todas as lojas) ou 'ifood:conn:<id>' (modo distribuído).
+   */
+  async bearer(credential: string, tenantId: string): Promise<string> {
+    if (credential === IFOOD_CENTRAL) {
+      const c = await this.creds();
+      return this.token('central', () => ifoodAuth.clientCredentials(c, this.fetcher));
+    }
+    const connId = credential.startsWith('ifood:conn:') ? credential.slice(11) : '';
+    if (!/^[0-9a-f-]{36}$/.test(connId)) throw new IfoodError(403, 'Credencial do iFood inválida');
+    return this.connectionToken(tenantId, connId);
+  }
+
+  /** O iFood respondeu 401: o próximo pedido de token busca um novo. */
+  forgetBearer(credential: string, tenantId: string) {
+    if (credential === IFOOD_CENTRAL) this.tokens.delete('central');
+    else this.tokens.delete(`ifood:${tenantId}:${credential.slice(11)}`);
   }
 
   // ------------------------------------------------------------------ lojas ligadas
@@ -245,7 +277,7 @@ export class IfoodService implements OnModuleInit {
     refreshToken?: string,
   ) {
     await this.claim(tenantId, m.id);
-    return this.db.withTenant({ tenantId, userId }, async (tx) => {
+    const saved = await this.db.withTenant({ tenantId, userId }, async (tx) => {
       const row = await one<{ id: string }>(
         tx,
         `INSERT INTO ifood_connections (tenant_id, merchant_id, merchant_name, mode, created_by)
@@ -264,6 +296,42 @@ export class IfoodService implements OnModuleInit {
       this.tokens.delete(`ifood:${tenantId}:${row!.id}`);
       return { id: row!.id, merchantId: m.id.toLowerCase(), merchantName: m.name };
     });
+    // Loja também na camada de canais (pedidos). Receber pedidos começa desligado.
+    await this.stores.connect(tenantId, userId, {
+      channel: 'ifood',
+      storeId: saved.merchantId,
+      name: m.name || 'Loja iFood',
+      credential: ifoodCredentialOf({ id: saved.id, mode }),
+      ifoodConnectionId: saved.id,
+    });
+    return saved;
+  }
+
+  /**
+   * Lojas ligadas antes dos pedidos do iFood (só cardápio): entram na camada de canais na primeira
+   * vez que alguém abre a tela de aplicativos. Idempotente.
+   */
+  async ensureChannelStores(tenantId: string) {
+    const missing = await this.db.withTenant({ tenantId }, (tx) =>
+      q<{ id: string; merchant_id: string; merchant_name: string; mode: string }>(
+        tx,
+        `SELECT c.id, c.merchant_id, c.merchant_name, c.mode FROM ifood_connections c
+          WHERE NOT EXISTS (SELECT 1 FROM channel_stores s
+                             WHERE s.channel = 'ifood' AND s.store_id = c.merchant_id)`,
+      ),
+    );
+    for (const c of missing)
+      await this.stores
+        .connect(tenantId, null, {
+          channel: 'ifood',
+          storeId: c.merchant_id,
+          name: c.merchant_name,
+          credential: ifoodCredentialOf(c),
+          ifoodConnectionId: c.id,
+        })
+        .catch((e) =>
+          this.logger.warn(`loja do iFood não entrou nos canais: ${(e as Error).message}`),
+        );
   }
 
   /** Modo centralizado: a loja autorizou o app do Comandou no Portal do Parceiro. */
@@ -360,6 +428,8 @@ export class IfoodService implements OnModuleInit {
     });
     if (!row) throw new NotFoundException('Loja do iFood não encontrada');
     await this.releaseClaim(tenantId, row.merchant_id);
+    // A loja da camada de canais saiu junto (FK em cascata); solta a reserva do polling.
+    await this.stores.release(tenantId, 'ifood', row.merchant_id);
     this.tokens.delete(`ifood:${tenantId}:${id}`);
     return row;
   }

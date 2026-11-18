@@ -290,3 +290,36 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
   - **Testes**: `test/channels.e2e.test.ts` com o aplicativo falso genérico (`test/fake-channel.ts`).
   - Ficou para a Fase 2: o adaptador do iFood (pedidos), pagamento do aplicativo fora do caixa,
     prazo de aceite na tela e o som do pedido de aplicativo.
+- **Fase 2** (pedidos do iFood, 0.176.0): migração 0087 e `apps/api/src/integrations/ifood/`.
+  - **Adaptador** `IfoodOrdersAdapter` (`ifood-orders.adapter.ts`): polling com
+    `x-polling-merchants`, ack em lotes de até 2.000 ids, `GET /order/v1.0/orders/{id}` e as ações
+    `confirm`, `startPreparation`, `readyToPickup`, `dispatch` e `requestCancellation` (com
+    `reason` e `cancellationCode`, padrão 509 até a Fase 3 trazer a lista por pedido). "Entregue"
+    não existe no iFood (ele conclui com CONCLUDED): a caixa de saída não grava ação que o canal
+    não tem (`capabilities`). Token pela `IfoodService.bearer` (o mesmo do cardápio); 401 renova
+    uma vez e repete. Caminhos e limites em `IFOOD_PATHS`/`IFOOD_LIMITS` (`ifood-order.ts`).
+  - **Tradução** `ifoodToExternal` (pura, testada em `ifood-order.test.ts`): reais → centavos sem
+    float; `benefits[].sponsorshipValues` MERCHANT/CHAIN = desconto da loja, o resto = do iFood;
+    `payments.methods` → pago no app ou na entrega, com bandeira e troco; prazo de aceite = 8 min
+    da criação (agendado: do `preparationStartDateTime`); retirada e no local são entregues pela
+    loja.
+  - **Lojas**: ligar a loja do iFood (cardápio) também a registra na camada de canais
+    (`ChannelStoresService.connect`, credencial `ifood:central` ou `ifood:conn:<id>`); as ligadas
+    antes entram ao abrir a tela (`ChannelStoresService.sync` → `IfoodService.ensureChannelStores`).
+  - **Dinheiro** (§7): pagamento `payments.method = 'app'` sem sessão nem movimento de caixa
+    (fora do esperado da gaveta), com `app_channel`, `app_method` (forma real, usada na NFC-e) e
+    `app_brand`. Valor = total do Comandou − o que o cliente paga na entrega (pago online + cupom
+    do aplicativo). Cancelamento (do canal ou recusa) zera esses pagamentos
+    (`OrdersService.voidAppPaymentsInTx`, sem `payment_refunds`); estorno de `app` no caixa é
+    recusado. Ainda sem sessão de caixa para o fechamento mostrar "pago no app" (Fase 7).
+  - **Pedido de aplicativo travado**: desconto/acréscimo, troca e cancelamento de item, fiado e
+    estorno de pagamento do app respondem 409.
+  - **Telas**: prazo de aceite (`AcceptDeadline`) no PDV e no pedido; som `app_order` repetindo
+    enquanto houver pedido de aplicativo em análise; "cancelamento solicitado" de pedido de
+    aplicativo não toca o som de cancelamento (foi o restaurante que pediu); no pedido, forma e
+    bandeira, troco a levar, cupom e quem paga, código de retirada e CPF/CNPJ.
+  - **Testes**: `test/ifood-orders.e2e.test.ts` com o iFood falso (`test/fake-ifood.ts`).
+  - Fica para depois: lista de motivos de cancelamento e negociação (Fase 3), situação e pausa da
+    loja (Fase 4), rastreio do entregador (Fase 5), NFC-e com intermediador (próxima fase) e conferir os
+    caminhos e o corpo de `requestCancellation` no sandbox do iFood (o portal está bloqueado na
+    rede deste ambiente).

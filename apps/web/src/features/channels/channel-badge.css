@@ -24,3 +24,21 @@
   font-weight: 500;
   opacity: 0.85;
 }
+
+/* Prazo para aceitar pedido de aplicativo: cinza, laranja nos 3 últimos minutos, vermelho no fim. */
+.ch-deadline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--cm-text-muted);
+  white-space: nowrap;
+}
+.ch-deadline[data-tone='warning'] {
+  color: var(--cm-warning);
+}
+.ch-deadline[data-tone='danger'] {
+  color: var(--cm-danger);
+}

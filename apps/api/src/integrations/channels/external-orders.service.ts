@@ -115,6 +115,13 @@ export class ExternalOrdersService {
           .slice(0, 500)
       : null;
     const status = store.auto_accept ? 'new' : 'awaiting';
+    // O aplicativo paga ao restaurante tudo menos o que o cliente paga na entrega (pago online e o
+    // desconto bancado pelo aplicativo). Isso vira um pagamento 'app', fora da gaveta do caixa.
+    const dueOnDelivery = o.payments
+      .filter((p) => !p.prepaid)
+      .reduce((n, p) => n + toCents(p.amount), 0);
+    const appCents = Math.max(0, toCents(t.total) - dueOnDelivery);
+    const firstPrepaid = o.payments.find((p) => p.prepaid);
     const created = await this.orders.createExternalInTx(tx, ctx, {
       channel: orderChannelOf(o.fulfillment),
       status,
@@ -139,6 +146,13 @@ export class ExternalOrdersService {
       deliveryFee: t.deliveryFee,
       total: t.total,
       lines,
+      appPayment: appCents
+        ? {
+            amount: fromCents(appCents),
+            method: firstPrepaid?.method ?? 'other',
+            brand: firstPrepaid?.brand ?? null,
+          }
+        : null,
     });
     fx.stock += created.fx.stock;
     fx.print += created.fx.print;

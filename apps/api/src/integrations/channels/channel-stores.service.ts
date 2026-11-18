@@ -38,7 +38,18 @@ export const STORE_COLUMNS = `id, channel, store_id, name, ifood_connection_id, 
  */
 @Injectable()
 export class ChannelStoresService {
+  private readonly syncs: ((tenantId: string) => Promise<void>)[] = [];
+
   constructor(private readonly db: DatabaseService) {}
+
+  /** Um canal com lojas ligadas fora daqui (iFood) se registra para trazê-las (idempotente). */
+  onSync(fn: (tenantId: string) => Promise<void>) {
+    this.syncs.push(fn);
+  }
+
+  async sync(tenantId: string) {
+    for (const fn of this.syncs) await fn(tenantId).catch(() => undefined);
+  }
 
   get(tx: Tx, id: string) {
     return one<StoreRow>(tx, `SELECT ${STORE_COLUMNS} FROM channel_stores WHERE id = $1`, [id]);
@@ -79,7 +90,9 @@ export class ChannelStoresService {
         `INSERT INTO channel_stores (id, tenant_id, channel, store_id, name, ifood_connection_id, created_by)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT (tenant_id, channel, store_id) DO UPDATE
-           SET name = EXCLUDED.name, status = 'connected', last_error = NULL
+           SET name = EXCLUDED.name, status = 'connected', last_error = NULL,
+               ifood_connection_id = COALESCE(EXCLUDED.ifood_connection_id,
+                                              channel_stores.ifood_connection_id)
          RETURNING ${STORE_COLUMNS}`,
         [
           id,

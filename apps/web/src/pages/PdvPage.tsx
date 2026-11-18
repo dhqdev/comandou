@@ -42,6 +42,7 @@ import {
 import { SupportButton, useSupportUnread } from '../features/store-chat/SupportInbox';
 import type { DiningTable, Order, StoreSettings, Tab } from '../lib/types';
 import '../app/home.css';
+import { AcceptDeadline } from '../features/channels/AcceptDeadline';
 import { ChannelBadge } from '../features/channels/ChannelBadge';
 
 type Filter = 'all' | OrderChannel;
@@ -148,6 +149,9 @@ function OrderCard({
           {order.source === 'online' && <span className="hcard__tag">Online</span>}
           {order.appChannel && (
             <ChannelBadge channel={order.appChannel} code={order.externalCode} size="sm" />
+          )}
+          {order.status === 'awaiting' && order.appConfirmBy && (
+            <AcceptDeadline until={order.appConfirmBy} compact />
           )}
         </span>
         <span className="hcard__pills">
@@ -380,19 +384,25 @@ export function PdvPage() {
     'delivery',
     ids((o) => o.status === 'ready' && o.channel === 'delivery'),
   );
+  // "Cancelamento solicitado" de pedido de aplicativo foi o restaurante que pediu: não apita.
   useArrivalSound(
     'cancel',
-    ids((o) => o.status === 'cancel_requested'),
+    ids((o) => o.status === 'cancel_requested' && o.source !== 'app'),
   );
   // Fica apitando enquanto houver pedido esperando aceite ou pedido de cancelamento sem resposta.
   // Só pelo que chegou depois de abrir a tela: o que já estava esperando não faz o sino tocar ao abrir.
+  // Pedido de aplicativo tem som próprio (e prazo: o aplicativo cancela se ninguém aceitar).
   useRepeatingSoundForNew(
     'order',
-    ids((o) => o.status === 'awaiting'),
+    ids((o) => o.status === 'awaiting' && o.source !== 'app'),
+  );
+  useRepeatingSoundForNew(
+    'app_order',
+    ids((o) => o.status === 'awaiting' && o.source === 'app'),
   );
   useRepeatingSoundForNew(
     'cancel',
-    ids((o) => o.status === 'cancel_requested'),
+    ids((o) => o.status === 'cancel_requested' && o.source !== 'app'),
   );
   // Cliente esperando resposta pelo cardápio: avisa até alguém abrir a conversa (só pelo que
   // chegou depois de abrir a tela, como os pedidos).

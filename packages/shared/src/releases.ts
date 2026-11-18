@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.176.0',
+    date: '2026-11-18',
+    title: 'Pedidos do iFood chegando sozinhos no Comandou',
+    summary:
+      'Os pedidos do iFood agora entram sozinhos: aparecem em Pedidos e no PDV com o selo do iFood, tocam um som próprio, mostram quanto falta para aceitar e seguem para cozinha, impressão, entrega e estoque. Aceitar, preparo, pronto, saiu e cancelamento feitos no Comandou vão para o iFood. O que o cliente pagou no iFood fica fora da gaveta do caixa.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Ligue a loja do iFood em Cardápio › Cardápios (como já fazia para o cardápio) e marque "Receber pedidos" em Sistema › Aplicativos de delivery. A loja que já estava ligada aparece lá sozinha.',
+      },
+      {
+        tag: 'novo',
+        text: 'Pedido do iFood em análise mostra "Aceite em X min" no PDV e no pedido (o iFood cancela depois de 8 minutos) e toca o som "Pedido de aplicativo" até alguém aceitar. Dá para trocar o som em Sons.',
+      },
+      {
+        tag: 'novo',
+        text: 'Pago no iFood vira "Pago no iFood · Cartão de crédito" no pedido, na impressão e na nota fiscal, sem entrar no dinheiro esperado do caixa. Dinheiro ou maquininha na entrega continua sendo cobrado no caixa como sempre, e o cupom pago pelo iFood já conta como pago.',
+      },
+      {
+        tag: 'novo',
+        text: 'No pedido do iFood aparecem a forma de pagamento com a bandeira, o troco que o entregador deve levar, o cupom e quem paga (iFood ou loja), o código de retirada e o CPF/CNPJ da nota.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Recusar ou pedir cancelamento no Comandou avisa o iFood com o motivo. Quando o iFood cancela, o pedido cancela aqui, o estoque volta e o valor pago no iFood some do pedido, sem estorno no caixa (quem devolve ao cliente é o iFood).',
+      },
+      {
+        tag: 'segurança',
+        text: 'Itens e valores de pedido de aplicativo não mudam no Comandou (desconto, troca de itens, fiado e estorno no caixa ficam travados), para nunca ficar diferente do que o cliente pagou e do repasse.',
+      },
+    ],
+  },
+  {
     version: '0.174.0',
     date: '2026-11-18',
     title: 'Base dos pedidos do iFood e dos outros aplicativos de delivery',

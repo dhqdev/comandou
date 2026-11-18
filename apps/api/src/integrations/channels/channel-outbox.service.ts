@@ -1,5 +1,9 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { actionForTransition, type ChannelAction } from '@comandou/shared';
+import {
+  actionForTransition,
+  CHANNEL_ACTION_CAPABILITY,
+  type ChannelAction,
+} from '@comandou/shared';
 import { one, q } from '../../common/sql';
 import { DatabaseService, type Tx } from '../../database/database.service';
 import { OrdersService } from '../../orders/orders.service';
@@ -64,6 +68,9 @@ export class ChannelOutboxService implements OnModuleInit {
       if (!link) return;
       const action = actionForTransition(from, to, link.delivered_by);
       if (!action) return;
+      // O canal não tem essa ação (ex.: "entregue" no iFood, que conclui sozinho): não manda.
+      const adapter = this.registry.get(link.channel);
+      if (adapter && !adapter.capabilities.includes(CHANNEL_ACTION_CAPABILITY[action])) return;
       await this.enqueueInTx(tx, ctx.tenantId, o.id, action, {
         ...(to === 'cancelled' || to === 'cancel_requested'
           ? { reason: (await this.reasonOf(tx, o.id)) ?? undefined }

@@ -17,6 +17,7 @@ import {
   ordersLimitedToOwn,
   OrderStatus,
   paymentStatusFor,
+  type PaymentMethod,
   roleHas,
   toCents,
   isValidKg,
@@ -87,6 +88,17 @@ export interface Settled {
   /** Reservas sentadas na mesa que terminaram junto com a comanda (avisar a tela de Reservas). */
   reservationIds?: string[];
 }
+/**
+ * Pedido de aplicativo: itens e valores são os do aplicativo (ADR 0015 §6). Mudar aqui deixaria o
+ * Comandou diferente do que o cliente pagou e do repasse.
+ */
+function assertNotAppOrder(o: { source?: string | null }, what: string) {
+  if (o.source === 'app')
+    throw new ConflictException(
+      `Pedido de aplicativo: não dá para ${what} no Comandou. Itens e valores mudam só no aplicativo.`,
+    );
+}
+
 const NOT_SETTLED: Settled = { completed: false, closedTabId: null };
 
 /** Opções de uma transição que não cabem no motivo. */
@@ -134,6 +146,11 @@ export interface ExternalOrderInput {
     sectorId: string | null;
     options: { optionId: string; name: string; priceDelta: string }[];
   }[];
+  /**
+   * O que o aplicativo paga ao restaurante por este pedido (pago online + desconto do aplicativo).
+   * Vira um pagamento 'app', fora da gaveta do caixa.
+   */
+  appPayment?: { amount: string; method: PaymentMethod; brand: string | null } | null;
 }
 
 /** Gancho dentro da transação de cada mudança de estado (ex.: ação para o aplicativo). */
@@ -186,6 +203,8 @@ export const ORDER_SELECT = `
          o.source, o.payment_hint AS "paymentHint", o.change_for::text AS "changeFor",
          o.app_channel AS "appChannel", o.external_code AS "externalCode",
          o.delivered_by AS "deliveredBy", o.scheduled_for AS "scheduledFor",
+         CASE WHEN o.source = 'app' AND o.status = 'awaiting'
+              THEN (SELECT c.confirm_by FROM channel_orders c WHERE c.order_id = o.id) END AS "appConfirmBy",
          o.accepted_at AS "acceptedAt", o.receivable_at AS "receivableAt",
          o.receivable_reason AS "receivableReason",
          o.fiado_name AS "fiadoName", o.fiado_phone AS "fiadoPhone",
@@ -318,7 +337,8 @@ export class OrdersService {
     const payments = await q(
       tx,
       `SELECT p.id, p.method, p.amount::text, p.tendered::text, p.refunded_amount::text AS "refundedAmount",
-              p.cash_session_id AS "cashSessionId", p.created_at AS "createdAt", u.name AS "createdByName"
+              p.cash_session_id AS "cashSessionId", p.created_at AS "createdAt", u.name AS "createdByName",
+              p.app_channel AS "appChannel", p.app_method AS "appMethod", p.app_brand AS "appBrand"
          FROM payments p LEFT JOIN users u ON u.id = p.created_by
         WHERE p.order_id = $1 ORDER BY p.created_at`,
       [id],
@@ -757,6 +777,30 @@ export class OrdersService {
       input.status,
       `Pedido do aplicativo ${input.externalCode}`,
     );
+    const appPaid = input.appPayment ? toCents(input.appPayment.amount) : 0;
+    if (input.appPayment && appPaid > 0) {
+      // Pago no aplicativo: sem sessão nem movimento de caixa (não é dinheiro da gaveta).
+      const paidCents = Math.min(appPaid, toCents(input.total));
+      await q(
+        tx,
+        `INSERT INTO payments (tenant_id, order_id, cash_session_id, method, amount, created_by,
+                               app_channel, app_method, app_brand)
+         VALUES ($1, $2, NULL, 'app', $3, NULL, $4, $5, $6)`,
+        [
+          ctx.tenantId,
+          orderId,
+          fromCents(paidCents),
+          input.appChannel,
+          input.appPayment.method,
+          input.appPayment.brand?.slice(0, 40) || null,
+        ],
+      );
+      await q(tx, `UPDATE orders SET paid_amount = $2, payment_status = $3 WHERE id = $1`, [
+        orderId,
+        fromCents(paidCents),
+        paymentStatusFor(toCents(input.total), paidCents),
+      ]);
+    }
     const fx = { stock: 0, print: 0 };
     fx.stock = await this.stock.consumeForOrder(tx, ctx, orderId);
     if (input.status === 'new')
@@ -778,6 +822,48 @@ export class OrdersService {
       ip: ctx.ip,
     });
     return { id: orderId, number, itemIds, fx };
+  }
+
+  /**
+   * Pedido de aplicativo cancelado: o valor pago dentro do aplicativo volta ao cliente pelo próprio
+   * aplicativo. Zera esses pagamentos (refunded_amount = amount), sem estorno no caixa.
+   */
+  async voidAppPaymentsInTx(tx: Tx, ctx: Ctx, o: OrderRow) {
+    await q(
+      tx,
+      `UPDATE payments SET refunded_amount = amount
+        WHERE order_id = $1 AND method = 'app' AND refunded_amount < amount`,
+      [o.id],
+    );
+    return this.refreshPaidInTx(tx, ctx, o);
+  }
+
+  /** Recalcula o pago do pedido a partir dos pagamentos (depois de zerar os do aplicativo). */
+  private async refreshPaidInTx(tx: Tx, ctx: Ctx, o: OrderRow) {
+    const r = await one<{ paid: string }>(
+      tx,
+      `SELECT COALESCE(sum(amount - refunded_amount), 0)::text AS paid FROM payments WHERE order_id = $1`,
+      [o.id],
+    );
+    const paid = toCents(r!.paid);
+    if (paid === toCents(o.paid_amount)) return;
+    const status = paymentStatusFor(toCents(o.total), paid);
+    await q(tx, `UPDATE orders SET paid_amount = $2, payment_status = $3 WHERE id = $1`, [
+      o.id,
+      fromCents(paid),
+      status,
+    ]);
+    await this.audit.record(tx, {
+      tenantId: ctx.tenantId,
+      actorUserId: ctx.userId,
+      action: 'payment.app_voided',
+      entity: 'order',
+      entityId: o.id,
+      data: { number: o.number, before: o.paid_amount, after: fromCents(paid) },
+      ip: ctx.ip,
+    });
+    o.paid_amount = fromCents(paid);
+    o.payment_status = status;
   }
 
   /** Avisa as telas depois do COMMIT de um pedido que mudou fora de uma rota (aplicativo). */
@@ -1091,6 +1177,8 @@ export class OrdersService {
       await this.assertNoLiveFiscalDocument(tx, o.id, 'cancelar o pedido');
       if (!rejecting && !extra.fromChannel && !roleHas(ctx.user.role, 'orders:cancel'))
         throw new ForbiddenException('Cancelamento exige autorização');
+      // Pago no aplicativo: o aplicativo devolve ao cliente; aqui só some o pago.
+      if (o.source === 'app') await this.voidAppPaymentsInTx(tx, ctx, o);
       if (toCents(o.paid_amount) > 0) {
         throw new ConflictException(
           'Pedido com pagamento: estorne os pagamentos antes de cancelar',
@@ -1382,6 +1470,7 @@ export class OrdersService {
       const o = await this.lock(tx, id);
       if (o.status === 'completed' || o.status === 'cancelled')
         throw new ConflictException('Pedido encerrado');
+      assertNotAppOrder(o, 'mudar valores');
       await this.assertNoLiveFiscalDocument(tx, o.id, 'mudar o valor');
       const subtotal = toCents(o.subtotal);
       const discount = b.discount !== undefined ? toCents(b.discount) : toCents(o.discount);
@@ -1458,6 +1547,7 @@ export class OrdersService {
       const o = await this.lock(tx, orderId);
       if (o.status === 'completed' || o.status === 'cancelled')
         throw new ConflictException('Pedido encerrado: não dá para cancelar item');
+      assertNotAppOrder(o, 'cancelar um item');
       await this.assertNoLiveFiscalDocument(tx, o.id, 'cancelar um item');
       const item = await one<{ name: string; status: string; total: string }>(
         tx,
@@ -1589,6 +1679,8 @@ export class OrdersService {
         throw new ConflictException(
           'O pedido mudou enquanto você editava. Confira e tente de novo.',
         );
+      // Pedido de aplicativo: a observação interna pode; itens e valores mandam no aplicativo.
+      if (add.length || change.length || remove.length) assertNotAppOrder(o, 'mudar os itens');
       if (!['new', 'in_production', 'ready'].includes(o.status))
         throw new ConflictException(
           o.status === 'awaiting'
