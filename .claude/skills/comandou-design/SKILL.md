@@ -138,14 +138,16 @@ embaixo do nome, sem as colunas). Corpo de janela sem campos soltos: envolva em 
 
 ## Chamados (restaurante)
 
-Chamado aberto é um chat (`features/tickets/ticket-chat.css`, prefixos `tkv`/`tkc`): a conversa
-ocupa a altura que sobra na tela (`--tkv-top` medido ao abrir, descontando `--tabbar-h` no
-celular), balão do restaurante em `--cm-brand-50` à direita e do suporte em superfície à esquerda
-com o fone (`Headset`), pílula de dia e de aviso no meio, caixa de escrever em pílula com clipe e
-botão redondo. Coluna do lado (320 px) com os passos verticais `tk-vsteps` e os detalhes
-`tk-facts`. Desde a 0.155 o chamado não tem caixa de escrever: a faixa `tkv__talk` com **Falar no
-chat** leva para o Suporte com o chamado citado. O painel Super Admin segue com o `EventLine` de
-`TicketParts.tsx` na aba Notas.
+Chamado aberto **não é chat** desde a 0.158.1 (`features/tickets/ticket-chat.css`, prefixos
+`tkv`/`tkh`; pedido do David: a conversa fica só no chat). Cartões `tkv__card` com linha fina:
+situação no topo (`tkv__now`: bolinha na cor do estado, nome grande, frase curta, "Etapa N de 6" e
+as barrinhas horizontais `tk-hsteps`), **O que você contou** (texto em `pre-wrap` e anexos em
+miniaturas de 150 px) e **Histórico** em linha do tempo `tkh` (mais novo em cima, ícone em círculo
+cinza, resposta da equipe num bloco cinza, "Ver o histórico todo" depois de 5). Coluna de 320 px
+com o cartão **Falar no chat** (`tkv__talk`, botão primário largo, abre o Suporte com o chamado
+anexado) e os detalhes `tk-facts`. Até 900 px vira uma coluna (`display: contents` + `order`):
+situação, Falar no chat, o que contou, histórico, detalhes; até 600 px as etapas ficam só nas
+barrinhas. O painel Super Admin segue com o `EventLine` de `TicketParts.tsx` na aba Notas.
 
 ## Super Admin › Conversas
 

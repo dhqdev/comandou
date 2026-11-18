@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.158.1',
+    date: '2026-11-18',
+    title: 'Chamado mais claro, e a conversa pelo chat',
+    summary:
+      'A tela de um chamado aberto ficou mais simples de ler: a situação no topo com as etapas, o que você contou com as fotos e vídeos, e o histórico do andamento. Para conversar sobre o chamado, o botão Falar no chat abre o chat de Suporte com o chamado já anexado.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Sem a conversa no meio da tela do chamado: em Sistema › Chamados, cada chamado mostra a situação atual com a barra das seis etapas, a descrição e os anexos em tamanho bom, e um histórico do mais novo para o mais antigo (com as respostas da equipe).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Falar no chat ganhou um cartão próprio, logo ao lado (no celular, logo abaixo da situação): abre o Suporte com o chamado já anexado, é só escrever.',
+      },
+      {
+        tag: 'correção',
+        text: 'No chat, o "Sobre o chamado #CH-0000" não quebra mais em três linhas no celular: o título do chamado é que encurta.',
+      },
+    ],
+  },
+  {
     version: '0.158.0',
     date: '2026-11-18',
     title: 'Agenda, no jeito do Google Agenda',

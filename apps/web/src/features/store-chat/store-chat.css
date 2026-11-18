@@ -339,7 +339,16 @@ button.scx-ticket:active {
   flex: none;
   color: var(--cm-text-subtle);
 }
+.scx-attach__order > svg,
+.scx-attach__order > button {
+  flex: none;
+}
+/* "Sobre o chamado #CH-0001" numa linha só; o título é que encurta com reticências. */
+.scx-attach__label {
+  white-space: nowrap;
+}
 .scx-attach__title {
+  min-width: 0;
   max-width: 220px;
   overflow: hidden;
   color: var(--cm-text-muted);
@@ -735,6 +744,8 @@ button.scx-ticket:active {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  max-width: 100%;
+  min-width: 0;
   padding: 4px 4px 4px 10px;
   border-radius: var(--cm-radius-full);
   background: var(--cm-surface-sunken);

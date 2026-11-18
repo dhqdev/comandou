@@ -868,7 +868,8 @@ export function ChatPane(props: ChatPaneProps) {
                 )}
                 {ticket && (
                   <div className="scx-attach__order">
-                    <LifeBuoy size={15} /> Sobre o chamado {ticket.code}
+                    <LifeBuoy size={15} />
+                    <span className="scx-attach__label">Sobre o chamado {ticket.code}</span>
                     <span className="scx-attach__title">{ticket.title}</span>
                     <button
                       type="button"

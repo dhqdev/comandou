@@ -1,37 +1,44 @@
 /*
- * Chamado aberto (tela do restaurante): conversa em tela cheia à esquerda e o andamento ao lado.
+ * Chamado aberto (tela do restaurante): situação, o que o cliente contou e o histórico à
+ * esquerda; Falar no chat e os detalhes ao lado. Não tem conversa aqui: ela mora no chat.
  * Só tokens --cm-*: segue o tema claro/escuro e a cor da loja.
  */
 
 /* ---------------------------------------------------------------- página */
 .tkv {
   display: grid;
-  gap: 16px;
+  gap: 20px;
   min-width: 0;
+  max-width: 1180px;
 }
 .tkv__head {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px 16px;
 }
 .tkv__title {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
   flex: 1;
 }
-.tkv__title h1 {
-  margin: 0;
-  font-size: var(--cm-text-xl);
-  font-weight: 700;
-  letter-spacing: var(--cm-tracking-tight);
-  overflow-wrap: anywhere;
-}
-.tkv__title p {
-  margin: 0;
+.tkv__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--cm-text-sm);
   color: var(--cm-text-muted);
+}
+.tkv__eyebrow .tk-code {
+  font-size: var(--cm-text-xs);
+}
+.tkv__title h1 {
+  margin: 0;
+  font-size: var(--cm-text-2xl);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: var(--cm-tracking-tight);
+  overflow-wrap: anywhere;
 }
 .tkv__body {
   display: grid;
@@ -39,245 +46,299 @@
   gap: 16px;
   align-items: start;
 }
-
-/* ---------------------------------------------------------------- painel da conversa */
-.tkv__chat {
+.tkv__main {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  /* A altura vem do espaço que sobra na tela (--tkv-top é medido ao abrir). */
-  height: max(
-    460px,
-    calc(100dvh - var(--tkv-top, 240px) - 20px - var(--tabbar-h, 0px) - var(--tabbar-pad, 0px))
-  );
+  gap: 16px;
   min-width: 0;
+}
+.tkv__side {
+  display: grid;
+  gap: 16px;
+  position: sticky;
+  top: 16px;
+}
+
+/* ---------------------------------------------------------------- cartões */
+.tkv__card {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
   border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-lg);
   background: var(--cm-surface);
-  overflow: hidden;
+  min-width: 0;
 }
-.tkv__scroll {
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 20px clamp(12px, 3vw, 32px) 12px;
-  background: var(--cm-surface-sunken, var(--cm-bg));
+.tkv__card h2 {
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.tkv__desc {
+  margin: 0;
+  font-size: var(--cm-text-md);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tkv__muted {
+  margin: 0;
+  color: var(--cm-text-subtle);
+}
+.tkv__files {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--cm-border);
+}
+.tkv__files h3 {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
+.tkv__files h3 span {
+  font-weight: 400;
+  color: var(--cm-text-subtle);
+  font-size: var(--cm-text-xs);
+}
+.tkv__files .tk-files {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.tkv__files .tk-files li {
+  border: 1px solid var(--cm-border);
 }
 
-/* ---------------------------------------------------------------- mensagens */
-.tkc {
+/* ---------------------------------------------------------------- situação agora */
+.tkv__now {
+  --tk-now: var(--cm-brand-500);
+}
+.tkv__now[data-tone='ok'] {
+  --tk-now: var(--cm-success);
+}
+.tkv__now[data-tone='off'] {
+  --tk-now: var(--cm-text-subtle);
+}
+.tkv__now-head {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.tkv__now-head > div {
+  display: grid;
   gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.tkv__now-head b {
+  font-size: var(--cm-text-lg);
+  font-weight: 700;
+}
+.tkv__now-head > div span {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.tkv__now-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-top: 8px;
+  border-radius: 50%;
+  background: var(--tk-now);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--tk-now) 18%, transparent);
+}
+.tkv__now-count {
+  flex: none;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+.tkv__reason {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-muted);
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.tkv__reason b {
+  color: var(--cm-text);
+}
+
+/* Passos na horizontal: uma barrinha por etapa com o nome embaixo. */
+.tk-hsteps {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-.tkc__day {
-  display: flex;
-  justify-content: center;
-  margin: 14px 0 10px;
-}
-.tkc__day:first-child {
-  margin-top: 0;
-}
-.tkc__day span {
-  padding: 3px 12px;
-  border-radius: var(--cm-radius-full);
-  background: var(--cm-surface);
-  border: 1px solid var(--cm-border);
-  font-size: var(--cm-text-xs);
-  font-weight: 600;
-  color: var(--cm-text-muted);
-}
-.tkc__row {
-  display: flex;
-  align-items: flex-end;
+.tk-hsteps li {
+  display: grid;
   gap: 8px;
-  animation: tkc-in var(--cm-spring-dur) var(--cm-spring) both;
-}
-.tkc__row[data-first='true'] {
-  margin-top: 10px;
-}
-.tkc__row--mine {
-  justify-content: flex-end;
-}
-.tkc__avatar {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  font-size: 12px;
-  font-weight: 700;
-}
-.tkc__row[data-last='true'] .tkc__avatar {
-  color: var(--cm-text-muted);
-  background: var(--cm-surface);
-  box-shadow: inset 0 0 0 1px var(--cm-border);
-}
-.tkc__row[data-last='true'] .tkc__avatar--mine {
-  color: var(--cm-brand-700);
-  background: var(--cm-brand-50);
-  box-shadow: inset 0 0 0 1px var(--cm-brand-100);
-}
-.tkc__stack {
-  display: grid;
-  gap: 3px;
-  max-width: min(640px, 78%);
   min-width: 0;
 }
-.tkc__row--mine .tkc__stack {
-  justify-items: end;
-}
-.tkc__name {
-  padding: 0 4px;
-  font-size: var(--cm-text-xs);
-  font-weight: 600;
-  color: var(--cm-text-muted);
-}
-.tkc__bubble {
-  display: grid;
-  gap: 6px;
-  min-width: 72px;
-  padding: 9px 12px 6px;
-  border: 1px solid var(--cm-border);
-  border-radius: 16px;
-  background: var(--cm-surface);
-  color: var(--cm-text);
-}
-.tkc__row--them[data-last='true'] .tkc__bubble {
-  border-bottom-left-radius: 4px;
-}
-.tkc__row--mine .tkc__bubble {
-  border-color: var(--cm-brand-100);
-  background: var(--cm-brand-50);
-}
-.tkc__row--mine[data-last='true'] .tkc__bubble {
-  border-bottom-right-radius: 4px;
-}
-.tkc__text {
-  margin: 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font-size: var(--cm-text-sm);
-  line-height: 1.5;
-}
-.tkc__time {
-  justify-self: end;
-  font-size: 11px;
-  color: var(--cm-text-subtle);
-  font-variant-numeric: tabular-nums;
-}
-.tkc__bubble .tk-files {
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  min-width: min(300px, 60vw);
-}
-.tkc__sys {
-  display: flex;
-  align-items: center;
-  align-self: center;
-  gap: 6px;
-  max-width: 92%;
-  margin: 12px 0 2px;
-  padding: 5px 12px;
+.tk-hsteps__bar {
+  height: 6px;
   border-radius: var(--cm-radius-full);
-  background: var(--cm-surface);
-  border: 1px solid var(--cm-border);
+  background: var(--cm-surface-muted);
+}
+.tk-hsteps li[data-state='done'] .tk-hsteps__bar {
+  background: var(--cm-success);
+}
+.tk-hsteps li[data-state='now'] .tk-hsteps__bar {
+  background: var(--cm-brand-500);
+}
+.tk-hsteps[data-off='true'] li .tk-hsteps__bar {
+  background: var(--cm-border-strong);
+}
+.tk-hsteps[data-off='true'] li[data-state='todo'] .tk-hsteps__bar {
+  background: var(--cm-surface-muted);
+}
+.tk-hsteps__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: var(--cm-text-xs);
-  color: var(--cm-text-muted);
-  text-align: center;
+  color: var(--cm-text-subtle);
+  line-height: 1.3;
 }
-.tkc__sys svg {
+.tk-hsteps__label svg {
   flex: none;
-  color: var(--cm-text-subtle);
+  color: var(--cm-success);
 }
-.tkc__sys time {
-  color: var(--cm-text-subtle);
-  font-variant-numeric: tabular-nums;
-}
-.tkc__empty {
-  display: grid;
-  justify-items: center;
-  gap: 6px;
-  margin: auto;
-  padding: 48px 16px;
+.tk-hsteps li[data-state='done'] .tk-hsteps__label {
   color: var(--cm-text-muted);
-  text-align: center;
-  font-size: var(--cm-text-sm);
 }
-.tkc__empty svg {
-  color: var(--cm-text-subtle);
-}
-.tkc__empty b {
+.tk-hsteps li[data-state='now'] .tk-hsteps__label {
   color: var(--cm-text);
-}
-.tkc__note {
-  align-self: center;
-  max-width: 560px;
-  margin: 16px 0 4px;
-  padding: 10px 14px;
-  border-radius: var(--cm-radius-md);
-  background: var(--cm-info-bg);
-  color: var(--cm-text);
-  font-size: var(--cm-text-sm);
-  text-align: center;
-}
-@keyframes tkc-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .tkc__row {
-    animation: none;
-  }
+  font-weight: 600;
 }
 
-/* ---------------------------------------------------------------- caixa de escrever */
-.tkv__compose {
-  display: grid;
-  gap: 8px;
-  padding: 10px 12px 12px;
-  border-top: 1px solid var(--cm-border);
-  background: var(--cm-surface);
-}
-.tkv__compose .tk-attach__list li {
-  width: 56px;
-  height: 56px;
-}
-.tkv__box {
-  display: flex;
-  align-items: flex-end;
+/* ---------------------------------------------------------------- falar no chat */
+.tkv__talk {
   gap: 6px;
-  padding: 6px;
-  border: 1px solid var(--cm-border-strong);
-  border-radius: 22px;
-  background: var(--cm-surface);
-  transition: border-color var(--cm-dur-fast) var(--cm-ease);
+  justify-items: start;
 }
-.tkv__box:focus-within {
-  border-color: var(--cm-brand-500);
-  box-shadow: 0 0 0 3px var(--cm-focus);
+.tkv__talk-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 6px;
+  border-radius: 50%;
+  background: var(--cm-surface-muted);
+  color: var(--cm-text-muted);
 }
-.tkv__box textarea {
-  flex: 1;
+.tkv__talk b {
+  font-size: var(--cm-text-md);
+}
+.tkv__talk span {
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+  line-height: 1.5;
+}
+.tkv__talk .cm-btn,
+.tkv__talk button {
+  justify-self: stretch;
+  margin-top: 10px;
+}
+
+/* ---------------------------------------------------------------- histórico */
+.tkh {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tkh__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 12px;
+  padding-bottom: 18px;
+}
+.tkh__item:last-child {
+  padding-bottom: 0;
+}
+/* Linha que liga um aviso ao próximo. */
+.tkh__item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 30px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--cm-border);
+}
+.tkh__dot {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--cm-surface-muted);
+  color: var(--cm-text-muted);
+}
+.tkh__item[data-first='true'] .tkh__dot {
+  background: color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-surface));
+  color: var(--cm-brand-700);
+}
+.tkh__main {
+  display: grid;
+  gap: 6px;
   min-width: 0;
-  max-height: 180px;
-  padding: 7px 4px;
+  padding-top: 4px;
+}
+.tkh__text,
+.tkh__who {
+  font-size: var(--cm-text-sm);
+  overflow-wrap: anywhere;
+}
+.tkh__who {
+  font-weight: 600;
+}
+.tkh__quote {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-muted);
+  font-size: var(--cm-text-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.tkh__time {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-subtle);
+}
+.tkh .tk-files {
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+}
+.tkh__more {
+  justify-self: start;
+  min-height: 38px;
+  padding: 0 14px;
   border: 0;
-  outline: 0;
-  resize: none;
-  background: transparent;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface-muted);
   color: var(--cm-text);
   font: inherit;
   font-size: var(--cm-text-sm);
-  line-height: 1.45;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur, 0.2s) var(--cm-spring-snappy, ease);
 }
-.tkv__box textarea::placeholder {
-  color: var(--cm-text-subtle);
+.tkh__more:active {
+  transform: scale(0.97);
 }
+
+/* ---------------------------------------------------------------- botão de ícone (anexar) */
 .tk-icon-btn {
   display: grid;
   place-items: center;
@@ -304,168 +365,8 @@
   cursor: default;
   opacity: 0.5;
 }
-.tk-send {
-  background: var(--cm-brand-600);
-  color: var(--cm-on-brand);
-}
-.tk-send:hover:not(:disabled) {
-  background: var(--cm-brand-700);
-  color: var(--cm-on-brand);
-}
-.tk-send:disabled {
-  background: var(--cm-surface-muted);
-  color: var(--cm-text-subtle);
-  opacity: 1;
-}
-.tkv__hint {
-  padding: 0 8px;
-  font-size: var(--cm-text-xs);
-  color: var(--cm-text-subtle);
-}
-.tkv__talk {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px 16px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--cm-border);
-  background: var(--cm-surface);
-}
-.tkv__talk span {
-  display: grid;
-  gap: 2px;
-  flex: 1 1 240px;
-  color: var(--cm-text-muted);
-  font-size: var(--cm-text-sm);
-}
-.tkv__talk b {
-  color: var(--cm-text);
-}
-.tkv__closed {
-  padding: 14px 16px;
-  border-top: 1px solid var(--cm-border);
-  background: var(--cm-surface);
-  font-size: var(--cm-text-sm);
-  color: var(--cm-text-muted);
-  text-align: center;
-}
 
-/* ---------------------------------------------------------------- coluna do lado */
-.tkv__side {
-  display: grid;
-  gap: 12px;
-  position: sticky;
-  top: 16px;
-}
-.tkv__card {
-  display: grid;
-  gap: 12px;
-  padding: 16px;
-  border: 1px solid var(--cm-border);
-  border-radius: var(--cm-radius-lg);
-  background: var(--cm-surface);
-}
-.tkv__card h2 {
-  margin: 0;
-  font-size: var(--cm-text-sm);
-  font-weight: 600;
-  color: var(--cm-text-muted);
-}
-.tk-vsteps {
-  display: grid;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.tk-vsteps li {
-  position: relative;
-  display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
-  gap: 2px 12px;
-  padding-bottom: 14px;
-}
-.tk-vsteps li:last-child {
-  padding-bottom: 0;
-}
-/* Linha que liga uma bolinha à próxima. */
-.tk-vsteps li:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  left: 10px;
-  top: 24px;
-  bottom: 2px;
-  width: 2px;
-  border-radius: 1px;
-  background: var(--cm-border);
-}
-.tk-vsteps li[data-state='done']:not(:last-child)::after {
-  background: var(--cm-success);
-}
-.tk-vsteps__dot {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2px solid var(--cm-border-strong);
-  background: var(--cm-surface);
-  color: transparent;
-}
-.tk-vsteps li[data-state='done'] .tk-vsteps__dot {
-  border-color: var(--cm-success);
-  background: var(--cm-success);
-  color: #fff;
-}
-.tk-vsteps li[data-state='now'] .tk-vsteps__dot {
-  border-color: var(--cm-brand-500);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--cm-brand-500) 18%, transparent);
-}
-.tk-vsteps li[data-state='now'] .tk-vsteps__dot::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--cm-brand-500);
-}
-.tk-vsteps li[data-state='now'][data-final='true'] .tk-vsteps__dot {
-  border-color: var(--cm-success);
-  background: var(--cm-success);
-  color: #fff;
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--cm-success) 18%, transparent);
-}
-.tk-vsteps li[data-state='now'][data-final='true'] .tk-vsteps__dot::before {
-  content: none;
-}
-.tk-vsteps[data-off='true'] li .tk-vsteps__dot {
-  border-color: var(--cm-border-strong);
-  background: var(--cm-surface-muted);
-  color: var(--cm-text-subtle);
-  box-shadow: none;
-}
-.tk-vsteps[data-off='true'] li .tk-vsteps__dot::before {
-  background: var(--cm-text-subtle);
-}
-.tk-vsteps[data-off='true'] li::after {
-  background: var(--cm-border) !important;
-}
-.tk-vsteps__label {
-  align-self: center;
-  font-size: var(--cm-text-sm);
-  color: var(--cm-text-subtle);
-}
-.tk-vsteps li[data-state='done'] .tk-vsteps__label {
-  color: var(--cm-text);
-}
-.tk-vsteps li[data-state='now'] .tk-vsteps__label {
-  color: var(--cm-text);
-  font-weight: 600;
-}
-.tk-vsteps__desc {
-  grid-column: 2;
-  font-size: var(--cm-text-xs);
-  color: var(--cm-text-muted);
-}
+/* ---------------------------------------------------------------- detalhes */
 .tk-facts {
   display: grid;
   gap: 10px;
@@ -554,44 +455,62 @@
   }
 }
 @media (max-width: 900px) {
+  /* Uma coluna: situação, Falar no chat, o que contou, histórico e detalhes, nessa ordem. */
   .tkv__body {
+    display: grid;
     grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
   }
+  .tkv__main,
   .tkv__side {
-    position: static;
+    display: contents;
   }
-  .tkv__chat {
-    /* No celular, desconta o menu de baixo (barra de abas flutuante). */
-    height: max(
-      380px,
-      calc(100dvh - var(--tkv-top, 200px) - 16px - var(--tabbar-h, 0px) - var(--tabbar-pad, 0px))
-    );
+  .tkv__main > :first-child {
+    order: 1;
+  }
+  .tkv__talk {
+    order: 2;
+  }
+  .tkv__main > * {
+    order: 3;
+  }
+  .tkv__side > :not(.tkv__talk) {
+    order: 4;
   }
   .tkv__head {
-    gap: 8px 12px;
-  }
-  .tkv__head > button:first-child {
-    margin-right: auto;
-  }
-  .tkv__title {
-    order: 3;
-    flex-basis: 100%;
+    flex-direction: column;
+    gap: 8px;
   }
   .tkv__title h1 {
-    font-size: var(--cm-text-lg);
+    font-size: var(--cm-text-xl);
   }
-  .tkv__scroll {
-    padding-inline: 10px;
+  .tkv__card {
+    padding: 16px;
   }
-  .tkc__avatar {
-    width: 26px;
-    height: 26px;
-  }
-  .tkc__stack {
-    max-width: 86%;
-  }
-  .tkv__hint {
+  /* No celular o cartão do chat fica logo abaixo da situação, com o botão na largura toda. */
+  .tkv__talk-icon {
     display: none;
+  }
+  .tkv__talk .cm-btn,
+  .tkv__talk button {
+    min-height: 44px;
+  }
+}
+@media (max-width: 600px) {
+  /* Os nomes das etapas não cabem: fica só a barrinha e o nome da etapa atual. */
+  .tk-hsteps {
+    gap: 4px;
+  }
+  .tk-hsteps__label {
+    display: none;
+  }
+  .tkv__now-head {
+    flex-wrap: wrap;
+  }
+  .tkv__now-count {
+    order: -1;
+    flex-basis: 100%;
+    margin: 0 0 -4px 22px;
   }
 }
 

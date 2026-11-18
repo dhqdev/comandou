@@ -4,20 +4,13 @@ import {
   Bug,
   Check,
   CircleHelp,
+  Headset,
   LifeBuoy,
   Lightbulb,
   MessageSquare,
   Plus,
 } from 'lucide-react';
-import {
-  CSSProperties,
-  FormEvent,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
+import { CSSProperties, FormEvent, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
   Alert,
@@ -30,9 +23,9 @@ import {
   useToast,
 } from '../design-system';
 import type { Prepared } from '../features/store-chat/chat-media';
-import { ago, TicketChat } from '../features/tickets/TicketChat';
+import { ago, TicketHistory } from '../features/tickets/TicketHistory';
 import { talkAboutTicket } from '../features/chat/TeamChat';
-import { AttachPicker } from '../features/tickets/TicketParts';
+import { AttachPicker, FileGrid } from '../features/tickets/TicketParts';
 import {
   type TicketEvent,
   type TicketFile,
@@ -410,9 +403,6 @@ function TicketView({ id }: { id: string }) {
   const toast = useToast();
   const [t, setT] = useState<Detail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const chatRef = useRef<HTMLDivElement>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const seen = useRef(0);
   const load = useCallback(() => {
     api<Detail>(`${BASE}/${id}`)
       .then((d) => (setT(d), setError(null)))
@@ -423,30 +413,6 @@ function TicketView({ id }: { id: string }) {
     const timer = setInterval(() => document.visibilityState === 'visible' && load(), 15_000);
     return () => clearInterval(timer);
   }, [load]);
-
-  // A conversa ocupa a altura que sobra na tela, como um chat.
-  const ready = !!t;
-  useLayoutEffect(() => {
-    const el = chatRef.current;
-    if (!el) return;
-    const fit = () => {
-      const top = el.getBoundingClientRect().top + (el.closest('main')?.scrollTop ?? 0);
-      el.style.setProperty('--tkv-top', `${Math.max(0, Math.round(top))}px`);
-    };
-    fit();
-    window.addEventListener('resize', fit);
-    return () => window.removeEventListener('resize', fit);
-  }, [ready]);
-
-  // Mensagem nova (ou abriu agora): desce até a última.
-  const count = t?.events.length ?? 0;
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || count === seen.current) return;
-    const nearEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
-    if (seen.current === 0 || nearEnd) el.scrollTop = el.scrollHeight;
-    seen.current = count;
-  }, [count]);
 
   async function cancel() {
     if (!confirm('Cancelar este chamado?')) return;
@@ -464,6 +430,18 @@ function TicketView({ id }: { id: string }) {
   const off = t.statusLabel === 'Não será feito' || t.statusLabel === 'Cancelado';
   const cancelled = t.statusLabel === 'Cancelado';
   const canCancel = t.step <= 2 && !t.done;
+  const last = CLIENT_STEPS.length - 1;
+  const finished = !off && (t.step >= last || t.statusLabel === 'Resolvido');
+  const tone = off ? 'off' : finished ? 'ok' : 'run';
+  const talk = () =>
+    talkAboutTicket({
+      id: t.id,
+      code: t.code,
+      title: t.title,
+      statusLabel: t.statusLabel,
+      done: t.done,
+    });
+
   return (
     <div className="tkv">
       <header className="tkv__head">
@@ -476,90 +454,108 @@ function TicketView({ id }: { id: string }) {
           Chamados
         </Button>
         <div className="tkv__title">
+          <span className="tkv__eyebrow">
+            <KindIcon kind={t.kind} /> {kindLabel(t.kind)} ·{' '}
+            <span className="tk-code">{t.code}</span>
+          </span>
           <h1>{t.title}</h1>
-          <p>
-            {t.code} · {kindLabel(t.kind)} · aberto {ago(t.createdAt)}
-            {t.openedBy ? ` por ${t.openedBy}` : ''}
-          </p>
         </div>
-        <StatusPill label={t.statusLabel} step={t.step} done={t.done} />
       </header>
+
       <div className="tkv__body">
-        <section className="tkv__chat" ref={chatRef} aria-label="Andamento do chamado">
-          <div className="tkv__scroll" ref={scrollRef}>
-            <TicketChat
-              description={t.description}
-              openingFiles={opening}
-              openedBy={t.openedBy}
-              createdAt={t.createdAt}
-              events={t.events}
-              files={t.files}
-              footer={
-                t.decisionNote ? (
-                  <li className="tkc__note">
-                    <b>Motivo:</b> {t.decisionNote}
-                  </li>
-                ) : null
-              }
-            />
-          </div>
-          {cancelled ? (
-            <div className="tkv__closed">
-              Este chamado foi cancelado. Se precisar, abra outro na lista de chamados.
+        <div className="tkv__main">
+          {/* Onde o chamado está agora, em uma olhada. */}
+          <section className="tkv__card tkv__now" data-tone={tone} aria-label="Situação">
+            <div className="tkv__now-head">
+              <span className="tkv__now-dot" aria-hidden />
+              <div>
+                <b>{t.statusLabel}</b>
+                <span>
+                  {off
+                    ? cancelled
+                      ? 'Este chamado foi cancelado. Se precisar, abra outro na lista.'
+                      : 'A equipe decidiu não fazer este pedido.'
+                    : STEP_HINTS[Math.min(t.step, last)]}
+                </span>
+              </div>
+              {!off && (
+                <span className="tkv__now-count">
+                  Etapa {Math.min(t.step, last) + 1} de {CLIENT_STEPS.length}
+                </span>
+              )}
             </div>
-          ) : (
-            // A conversa sobre o chamado é pelo chat (aba Suporte), com o chamado junto.
-            <div className="tkv__talk">
-              <span>
-                <b>Quer falar sobre este chamado?</b>
-                Fale com a Comandou pelo chat. O chamado vai junto na mensagem.
-              </span>
-              <Button
-                variant="primary"
-                icon={<MessageSquare size={16} />}
-                onClick={() =>
-                  talkAboutTicket({
-                    id: t.id,
-                    code: t.code,
-                    title: t.title,
-                    statusLabel: t.statusLabel,
-                    done: t.done,
-                  })
-                }
-              >
-                Falar no chat
-              </Button>
-            </div>
-          )}
-        </section>
-        <aside className="tkv__side">
-          <section className="tkv__card">
-            <h2>Andamento</h2>
-            <ol className="tk-vsteps" data-off={off} aria-label="Andamento">
+            <ol className="tk-hsteps" data-off={off} aria-label="Andamento">
               {CLIENT_STEPS.map((s, i) => {
-                const state = i < t.step ? 'done' : i === t.step ? 'now' : 'todo';
+                const state =
+                  i < t.step || (finished && i === last) ? 'done' : i === t.step ? 'now' : 'todo';
                 return (
                   <li
                     key={s}
                     data-state={state}
-                    data-final={i === CLIENT_STEPS.length - 1}
                     aria-current={state === 'now' ? 'step' : undefined}
                   >
-                    <span className="tk-vsteps__dot">
-                      {(state === 'done' || (state === 'now' && i === CLIENT_STEPS.length - 1)) &&
-                        !off && <Check size={13} strokeWidth={3} />}
+                    <span className="tk-hsteps__bar" />
+                    <span className="tk-hsteps__label">
+                      {state === 'done' && !off && <Check size={12} strokeWidth={3} />}
+                      {s}
                     </span>
-                    <span className="tk-vsteps__label">{s}</span>
-                    {state === 'now' && (
-                      <span className="tk-vsteps__desc">
-                        {off ? `${t.statusLabel}.` : STEP_HINTS[i]}
-                      </span>
-                    )}
                   </li>
                 );
               })}
             </ol>
+            {t.decisionNote && (
+              <p className="tkv__reason">
+                <b>Motivo:</b> {t.decisionNote}
+              </p>
+            )}
           </section>
+
+          <section className="tkv__card">
+            <h2>O que você contou</h2>
+            {t.description ? (
+              <p className="tkv__desc">{t.description}</p>
+            ) : (
+              <p className="tkv__muted">Sem descrição.</p>
+            )}
+            {opening.length > 0 && (
+              <div className="tkv__files">
+                <h3>
+                  {opening.length === 1 ? '1 anexo' : `${opening.length} anexos`}
+                  <span>Abra para ver maior</span>
+                </h3>
+                <FileGrid files={opening} />
+              </div>
+            )}
+          </section>
+
+          <section className="tkv__card">
+            <h2>Histórico</h2>
+            <TicketHistory
+              description={t.description}
+              openedBy={t.openedBy}
+              createdAt={t.createdAt}
+              events={t.events}
+              files={t.files}
+            />
+          </section>
+        </div>
+
+        <aside className="tkv__side">
+          {!cancelled && (
+            // A conversa sobre o chamado é pelo chat (aba Suporte), com o chamado já anexado.
+            <section className="tkv__card tkv__talk">
+              <div className="tkv__talk-icon" aria-hidden>
+                <Headset size={20} />
+              </div>
+              <b>Quer falar sobre este chamado?</b>
+              <span>
+                Abre o chat com a Comandou com o chamado {t.code} já anexado. É só escrever.
+              </span>
+              <Button variant="primary" icon={<MessageSquare size={16} />} onClick={talk}>
+                Falar no chat
+              </Button>
+            </section>
+          )}
           <section className="tkv__card">
             <h2>Detalhes</h2>
             <dl className="tk-facts">
@@ -587,7 +583,7 @@ function TicketView({ id }: { id: string }) {
               </div>
               <div>
                 <dt>Última novidade</dt>
-                <dd>{ago(t.updatedAt)}</dd>
+                <dd title={when(t.updatedAt)}>{ago(t.updatedAt)}</dd>
               </div>
             </dl>
             {canCancel && (

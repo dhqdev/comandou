@@ -97,7 +97,8 @@ branco. Bobina térmica: `browserPrint` em `features/ReceiptPreview.tsx`.
 A conversa restaurante ↔ Comandou é `support-desk/` (API) + `features/chat/HelpTab.tsx` (aba
 Suporte) + `platform/SupportPage.tsx` (Super Admin › Conversas). Chamados (`tickets/`) não têm
 mais conversa própria: a mensagem de suporte leva `ticketId` (coluna `ticket_id`, migração 0079,
-só chamado do mesmo restaurante) e volta com `ticket` (código, título, situação do cliente). Para
+só chamado do mesmo restaurante) e volta com `ticket` (código, título, situação do cliente). A tela do chamado no restaurante
+não mostra conversa: só o botão Falar no chat. Para
 abrir o Suporte já citando um chamado: `talkAboutTicket(...)` de `features/chat/TeamChat.tsx`; no
 painel, `/conversas?r=<restaurante>&chamado=<id>`. Guia: `docs/chamados.md`.
 

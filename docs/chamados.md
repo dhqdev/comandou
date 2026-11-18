@@ -10,12 +10,15 @@ até abrir um PR em rascunho no GitHub, e o cliente vê o andamento a cada etapa
 - **Lista** (`pages/TicketsPage.tsx`): resumo no topo (em andamento, respostas novas, resolvidos) e
   o quadro com as seis etapas que o cliente vê. No celular o quadro vira lista e só mostra as
   etapas que têm chamado. Cancelados e recusados ficam numa lista embaixo.
-- **Chamado aberto**: o andamento em tela cheia no jeito de um chat (`features/tickets/TicketChat.tsx`
-  + `ticket-chat.css`): a descrição de abertura, separador por dia, avisos do andamento no meio e
-  as mensagens da equipe (as antigas, de antes da 0.155, continuam aparecendo). **Não tem mais caixa
-  de escrever**: embaixo fica **Falar no chat**, que abre o chat do sistema na aba Suporte com o
-  chamado já citado (`talkAboutTicket` em `features/chat/TeamChat.tsx`). Ao lado, o andamento em
-  passos e os detalhes; abaixo de 900 px eles descem para depois do andamento.
+- **Chamado aberto** (`TicketView` em `pages/TicketsPage.tsx`, estilos em
+  `features/tickets/ticket-chat.css`): **não tem conversa nem caixa de escrever** (desde a 0.158.1).
+  No topo, a situação atual com a barra das seis etapas; depois **O que você contou** (descrição e
+  anexos de abertura) e o **Histórico** (`features/tickets/TicketHistory.tsx`), do mais novo para o
+  mais antigo, com os avisos do andamento e as respostas da equipe (as antigas, de antes da 0.155,
+  continuam aparecendo ali). Ao lado, o cartão **Falar no chat**, que abre o chat do sistema na aba
+  Suporte com o chamado já anexado (`talkAboutTicket` em `features/chat/TeamChat.tsx`), e os
+  detalhes. Abaixo de 900 px vira uma coluna: situação, Falar no chat, o que contou, histórico e
+  detalhes; abaixo de 600 px as etapas ficam só nas barrinhas.
 
 ## Conversa sobre o chamado
 
