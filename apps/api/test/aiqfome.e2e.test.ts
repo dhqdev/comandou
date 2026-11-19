@@ -355,12 +355,14 @@ describe('aiqfome: pedidos', () => {
   });
 
   it('token de acesso vencido: renova uma vez (o de renovação troca) e segue sem perder evento', async () => {
-    aiq.expireAccess();
+    // Lê o token e a contagem ANTES de vencer o acesso: se a busca de fundo renovar primeiro,
+    // a renovação continua sendo uma só e o token continua sendo outro (antes, o teste falhava).
     const before = aiq.refreshes;
     const [old] = await ownerQuery<{ t: Buffer }>(
       `SELECT token_enc AS t FROM channel_stores WHERE id = $1`,
       [storeRef],
     );
+    aiq.expireAccess();
     const o = await newOrder('68689248');
     expect(o.status).toBe('awaiting');
     expect(aiq.refreshes).toBe(before + 1);
