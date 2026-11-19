@@ -485,3 +485,31 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
     `ifood-review.test.ts`.
   - Fica para depois: conferir no sandbox o nome dos campos (`customerName`, `replies[].from`,
     `order.shortId`); aviso no sino para nota baixa; respostas prontas (modelos) para a equipe.
+- **Fase 9** (homologação do iFood, 0.188.0): migração 0096, `channels/channel-usage.service.ts`
+  e Super Admin › Aplicativos de delivery (`/aplicativos`).
+  - **Contagem de uso** (`channel_usage`, banco central): por canal e hora, as chamadas por
+    endpoint e resultado (`2xx`, `401`, `403`, `429`, `4xx`, `5xx`, `network`), os pollings (vazio,
+    com eventos, erro), se cada polling com eventos terminou com ack de tudo (`poll_acked`
+    all/partial/none), os eventos e acks (ok, falhou, guardado para depois) e as consultas por
+    pedido (rótulo = número da consulta; `blocked` quando bateu no limite). Só canal, hora e
+    rótulos fixos: nada de loja, pedido ou cliente. `ChannelMetrics.record` soma em memória e a
+    `ChannelUsageService` grava a cada minuto e ao desligar, pela função `app_channel_usage_add`
+    (SECURITY DEFINER, lote de até 2.000, rótulo conferido pelo CHECK, apaga o que passou de 35
+    dias); se o banco falhar, a contagem volta para a memória. A API não lê nem escreve a tabela
+    direto; o painel (`comandou_platform`) só lê.
+  - **Regras** (`packages/shared/src/channel-usage.ts`, `usageReport`): ack ≥ 95% (meta 99%), erro
+    do polling e do status da loja ≤ 1%, até 10 consultas por pedido (6 ou mais é atenção), 4xx
+    repetido é atenção (mais de 50 no período, vermelho). Endpoint sem regra publicada fica em
+    atenção acima de 10% de erro.
+  - **Roteiro** (`IFOOD_HOMOLOGATION_STEPS`): conta no Portal do Parceiro, chaves de teste, pedidos
+    de teste (dinheiro com troco, cartão, cupom, retirada, agendado), cancelamento e cancelamento
+    negado, negociação, loja/entrega/cardápio, 24 horas dentro das regras (conferido pelas
+    métricas), app de produção e o assistente de homologação, módulos (Catálogo, Avaliações,
+    Financeiro) e a primeira loja de verdade. A equipe marca cada passo com observação
+    (`platform_channel_homologation`; auditoria `platform.channel_homologation`).
+  - **Rotas**: `GET /platform/channels/usage?hours=1..720`, `GET /platform/channels/homologation`,
+    `PUT /platform/channels/homologation/:canal/:passo` (sessão do painel e CSRF).
+  - **Testes**: `test/channel-usage.e2e.test.ts` (7) e 1 em `test/ifood-orders.e2e.test.ts` (o fluxo
+    real conta), 6 em `packages/shared/src/channel-usage.test.ts`.
+  - Fica para depois: alerta no Prometheus a partir de `channel_usage` (o grupo `comandou-canais`
+    já avisa polling parado); rodar o roteiro de verdade com a conta do Comandou no Portal.

@@ -160,7 +160,10 @@ export class ChannelInboxService implements OnModuleInit {
         for (const { ev } of list) out.set(ev.id, 'unavailable');
       }
     }
-    for (const r of out.values()) this.metrics.events.inc({ channel, result: r });
+    for (const r of out.values()) {
+      this.metrics.events.inc({ channel, result: r });
+      this.metrics.record(channel, 'event', r);
+    }
     if (events.length) this.metrics.lastEvent.set({ channel }, Date.now() / 1000);
     return out;
   }
@@ -347,8 +350,10 @@ export class ChannelInboxService implements OnModuleInit {
         [tenantId, store.channel, externalId, MAX_ORDER_LOOKUPS],
       ),
     );
+    if (count) this.metrics.record(store.channel, 'order_lookup', String(count.lookups));
     if (!count) {
       this.metrics.lookupsBlocked.inc({ channel: store.channel });
+      this.metrics.record(store.channel, 'order_lookup', 'blocked');
       throw new ChannelHttpError(429, 'Pedido já consultado 10 vezes no aplicativo');
     }
     const credential = await this.db.withCentral({ tenantId }, (tx) =>

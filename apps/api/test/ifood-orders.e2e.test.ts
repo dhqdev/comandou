@@ -7,6 +7,7 @@ import { ChannelFinanceService } from '../src/integrations/channels/channel-fina
 import { ChannelInboxService } from '../src/integrations/channels/channel-inbox.service';
 import { ChannelOutboxService } from '../src/integrations/channels/channel-outbox.service';
 import { ChannelPoller } from '../src/integrations/channels/channel-poller.service';
+import { ChannelUsageService } from '../src/integrations/channels/channel-usage.service';
 import { testEnv } from './env';
 import { FakeIfoodServer, ifoodSample } from './fake-ifood';
 import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
@@ -1389,5 +1390,29 @@ describe('iFood: avaliações', () => {
     ifood.failNext.review!.push(500, 500);
     await reread();
     expect((await list()).stores[0]!.error).toMatch(/avaliações/);
+  });
+});
+
+describe('iFood: uso contado para o Super Admin', () => {
+  it('pollings, acks, chamadas e consultas por pedido vão para channel_usage, sem loja nem pedido', async () => {
+    await app.get(ChannelUsageService).flush();
+    const rows = await ownerQuery<{ metric: string; label: string; n: number }>(
+      `SELECT metric, label, sum(count)::int AS n FROM channel_usage WHERE channel = 'ifood'
+        GROUP BY 1, 2`,
+    );
+    const n = (metric: string, label: string) =>
+      rows.find((r) => r.metric === metric && r.label === label)?.n ?? 0;
+    expect(n('request', 'events:polling|2xx')).toBeGreaterThan(0);
+    expect(n('request', 'events:ack|2xx')).toBeGreaterThan(0);
+    expect(n('request', 'orders:details|2xx')).toBeGreaterThan(0);
+    expect(n('poll', 'with_events')).toBeGreaterThan(0);
+    expect(n('poll_acked', 'all')).toBeGreaterThan(0);
+    expect(n('ack', 'ok')).toBeGreaterThan(0);
+    expect(n('order_lookup', '1')).toBeGreaterThan(0);
+    // Nada que identifique loja, pedido ou cliente nos rótulos.
+    for (const r of rows) {
+      expect(r.label).not.toContain(MERCHANT);
+      expect(r.label).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/);
+    }
   });
 });

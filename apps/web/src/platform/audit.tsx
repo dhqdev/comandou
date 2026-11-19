@@ -47,6 +47,7 @@ export const ACTIONS: Record<string, [string, Group]> = {
   'platform.online_pay.settings_updated': ['Pagamentos pelo app: ajustes salvos', 'painel'],
   'platform.online_pay.application_created': ['Aplicativo do PagBank criado', 'painel'],
   'platform.ai_settings_updated': ['Ajustes do assistente de IA salvos', 'painel'],
+  'platform.channel_homologation': ['Homologação de aplicativo: passo atualizado', 'painel'],
   'platform.backup_settings_updated': ['Ajustes do backup salvos', 'painel'],
   'platform.backup_requested': ['Pediu um backup agora', 'painel'],
   'platform.restore_test_requested': ['Pediu um teste de restauração', 'painel'],
@@ -286,6 +287,8 @@ export function describe(a: AuditRow, plans: Plan[] = []): string {
       return typeof d.count === 'number'
         ? plural(d.count, 'sessão encerrada', 'sessões encerradas')
         : '';
+    case 'platform.channel_homologation':
+      return `${str('title') ?? str('step') ?? ''}${d.done === true ? ' · feito' : d.done === false ? ' · a fazer' : ''}`;
     case 'platform.tenant.renamed':
       return `${str('from') ?? '?'} → ${str('to') ?? '?'}`;
     case 'tenant.plan_upgraded':

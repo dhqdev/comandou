@@ -10,6 +10,7 @@ import { ChannelMetrics } from './channel-metrics';
 import { ChannelOutboxService } from './channel-outbox.service';
 import { ChannelPoller } from './channel-poller.service';
 import { ChannelReviewsService } from './channel-reviews.service';
+import { ChannelUsageService } from './channel-usage.service';
 import { ChannelStoreStateService } from './channel-store-state.service';
 import { ChannelStoresService } from './channel-stores.service';
 import { ChannelsController } from './channels.controller';
@@ -33,6 +34,7 @@ import { ExternalOrdersService } from './external-orders.service';
     ChannelDriversService,
     ChannelFinanceService,
     ChannelReviewsService,
+    ChannelUsageService,
     ChannelInboxService,
     ChannelPoller,
   ],
@@ -47,6 +49,7 @@ import { ExternalOrdersService } from './external-orders.service';
     ChannelDriversService,
     ChannelFinanceService,
     ChannelReviewsService,
+    ChannelUsageService,
     ChannelInboxService,
     ChannelPoller,
   ],

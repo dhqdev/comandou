@@ -2,6 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { Counter, Gauge } from 'prom-client';
 import { Metrics } from '../../health/metrics';
 
+/** Métricas guardadas por hora no banco central (tabela channel_usage, migração 0096). */
+export type UsageMetric = 'request' | 'poll' | 'poll_acked' | 'event' | 'ack' | 'order_lookup';
+export interface UsageRow {
+  channel: string;
+  hour: string;
+  metric: UsageMetric;
+  label: string;
+  count: number;
+}
+
 /**
  * Métricas dos aplicativos de delivery. Rótulos só com o canal, o endpoint (nome fixo, sem ids)
  * e o resultado: nada de loja, pedido ou cliente (privacidade e cardinalidade).
@@ -89,6 +99,45 @@ export class ChannelMetrics {
       labelNames: ['channel'],
       registers: r,
     });
+  }
+
+  /** Contagem por hora ainda não gravada (ChannelUsageService grava a cada minuto). */
+  private usage = new Map<string, UsageRow>();
+
+  /**
+   * Conta para o painel (uso indevido do iFood). Rótulos fixos e curtos, nunca ids: o banco
+   * recusa o que não for letra minúscula, número ou `:_|.-`.
+   */
+  record(channel: string, metric: UsageMetric, raw: string, n = 1) {
+    if (n <= 0) return;
+    const label =
+      raw
+        .toLowerCase()
+        .replace(/[^a-z0-9:_|.-]/g, '_')
+        .slice(0, 120) || 'x';
+    const d = new Date();
+    d.setUTCMinutes(0, 0, 0);
+    const hour = d.toISOString();
+    const key = `${channel}\u0000${hour}\u0000${metric}\u0000${label}`;
+    const row = this.usage.get(key);
+    if (row) row.count += n;
+    else this.usage.set(key, { channel, hour, metric, label, count: n });
+  }
+
+  /** Entrega o que foi contado e zera (se a gravação falhar, quem chamou devolve com `restore`). */
+  drain(): UsageRow[] {
+    const rows = [...this.usage.values()];
+    this.usage = new Map();
+    return rows;
+  }
+
+  restore(rows: UsageRow[]) {
+    for (const r of rows) {
+      const key = `${r.channel}\u0000${r.hour}\u0000${r.metric}\u0000${r.label}`;
+      const cur = this.usage.get(key);
+      if (cur) cur.count += r.count;
+      else this.usage.set(key, { ...r });
+    }
   }
 
   /** Resultado de uma chamada, agrupado (sem o número exato para não abrir séries demais). */

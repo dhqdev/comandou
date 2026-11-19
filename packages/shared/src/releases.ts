@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.188.0',
+    date: '2026-11-19',
+    title: 'Comandou pronto para a homologação do iFood',
+    summary:
+      'A equipe do Comandou acompanha, num painel, se o uso do iFood está dentro das regras (para o iFood nunca bloquear a integração) e segue o roteiro oficial de homologação, passo a passo.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'O Comandou conta, hora a hora, as confirmações dos pedidos do iFood, os erros em cada chamada e quantas vezes cada pedido foi consultado. Nada de loja, pedido ou cliente vai junto: só os números.',
+      },
+      {
+        tag: 'novo',
+        text: 'No painel da equipe, a tela Aplicativos de delivery mostra esses números contra as regras do iFood (confirmação de 95% ou mais, erro de até 1%, até 10 consultas por pedido) e o roteiro de homologação para marcar o que já foi feito.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Os números ficam guardados por 35 dias e só a equipe do Comandou vê. Cada passo marcado fica no registro do painel.',
+      },
+    ],
+  },
+  {
     version: '0.187.0',
     date: '2026-11-19',
     title: 'Avaliações do iFood no Comandou',

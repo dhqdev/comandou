@@ -171,10 +171,12 @@ export class ChannelPoller implements OnApplicationBootstrap, OnModuleDestroy {
       } catch (e) {
         failed = true;
         this.metrics.pollErrors.inc({ channel });
+        this.metrics.record(channel, 'poll', 'error');
         this.logger.warn(`polling de ${channel} falhou: ${(e as Error).message}`);
         continue;
       }
       events += got.length;
+      this.metrics.record(channel, 'poll', got.length ? 'with_events' : 'empty');
       if (!got.length) continue;
       const results = await this.inbox.store(channel, got, stores);
       // Ack só do que ficou gravado (ou já estava, ou não é de nenhum restaurante nosso).
@@ -182,18 +184,31 @@ export class ChannelPoller implements OnApplicationBootstrap, OnModuleDestroy {
         const r = results.get(e.id);
         return r === 'stored' || r === 'duplicate' || r === 'orphan';
       });
+      let ackedNow = 0;
       if (ackable.length && adapter.ack) {
         try {
           await adapter.ack(pollBatch, ackable);
           acked += ackable.length;
+          ackedNow = ackable.length;
           this.metrics.acks.inc({ channel, result: 'ok' }, ackable.length);
+          this.metrics.record(channel, 'ack', 'ok', ackable.length);
         } catch (e) {
           this.metrics.acks.inc({ channel, result: 'failed' }, ackable.length);
+          this.metrics.record(channel, 'ack', 'failed', ackable.length);
           this.logger.warn(`ack de ${channel} falhou: ${(e as Error).message}`);
         }
       }
       const pending = got.length - ackable.length;
-      if (pending) this.metrics.acks.inc({ channel, result: 'held' }, pending);
+      if (pending) {
+        this.metrics.acks.inc({ channel, result: 'held' }, pending);
+        this.metrics.record(channel, 'ack', 'held', pending);
+      }
+      // Regra do iFood: polling com eventos tem de terminar com ack (meta ≥ 95%).
+      this.metrics.record(
+        channel,
+        'poll_acked',
+        ackedNow === got.length ? 'all' : ackedNow > 0 ? 'partial' : 'none',
+      );
     }
     if (!failed) this.metrics.lastPoll.set({ channel }, Date.now() / 1000);
     return { events, acked };

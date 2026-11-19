@@ -128,6 +128,14 @@ pedidos do aplicativo não chegam e ele cancela sozinho depois do prazo.
     cada hora por loja (`channel_stores.reviews_at`; erro em `reviews_error`). O iFood só aceita
     resposta em avaliação `NOT_REPLIED` e uma por avaliação: 409 = já respondida (no portal ou
     antes). Não responda pelo banco nem automatize: a resposta é pública no iFood.
+13. **Uso do iFood fora das regras** (Fase 9): Super Admin › Aplicativos de delivery mostra ack,
+    erro por chamada e consultas por pedido das últimas 24 horas (ou 7/30 dias). Ack abaixo de 95%:
+    veja se algum banco de restaurante está em manutenção (o evento fica guardado sem ack) e a fila
+    `channel_inbox`. Erro de polling acima de 1%: veja o 5xx/rede do iFood e a saúde da API. 401/403
+    repetidos: chave trocada no Portal ou loja que tirou a autorização (cole a chave de novo em
+    Credenciais ou desligue a loja). Pedido "no limite" de consultas: o pedido não veio do iFood
+    depois de 10 tentativas; não force mais consultas. A contagem fica 35 dias; não edite
+    `channel_usage` à mão.
 
 ### Backup atrasado
 

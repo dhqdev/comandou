@@ -247,6 +247,16 @@ primário pequeno). Nas outras telas, só a linha `KeyInUse` (`.adm-keyuse` em `
 "Chave em uso:", o nome (link para o cartão), ambiente/conta e o final da chave; nada de
 explicação nem campo.
 
+## Super Admin › Aplicativos de delivery
+
+`platform/ChannelsPage.tsx` (`channels-admin.css`, prefixo `adm-chs`): por aplicativo, a linha de
+situação (bolinha, "dentro das regras/perto do limite/fora das regras", chave e lojas) com o
+`Segmented` 24 horas/7 dias/30 dias ao lado (embaixo, largura toda, no celular); os números em
+`adm-grid` + `Tile` com a regra na linha de apoio (quebra em vez de cortar); a tabela de chamadas
+(`cm-table`, nome em português e o rótulo técnico embaixo, bolinha no erro, resultados em `Tag`); e o
+roteiro de homologação numa lista numerada (`adm-chs__step`: número em círculo, visto verde quando
+feito, abre o como fazer e a observação; o próximo passo já vem aberto).
+
 ## Super Admin › Conversas
 
 `platform/SupportPage.tsx` (estilos em `admin.css`, prefixos `sinbox`/`sdesk`): lista de 320 px, a

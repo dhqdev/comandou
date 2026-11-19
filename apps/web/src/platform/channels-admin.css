@@ -1,0 +1,153 @@
+/* Super Admin › Aplicativos de delivery (ChannelsPage.tsx): uso contra as regras e homologação.
+   Só tokens do painel (--a-*), linha fina, bolinha de situação. */
+
+.adm-chs__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+.adm-chs__note {
+  margin: 0;
+  font-family: var(--a-ui);
+  font-size: 13px;
+  color: var(--a-subtle);
+}
+.adm-chs__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0;
+  font-family: var(--a-ui);
+  font-size: 14px;
+}
+.adm-chs__status > span:last-child {
+  color: var(--a-subtle);
+}
+
+.adm-chs__table {
+  overflow-x: auto;
+}
+.adm-chs__table .cm-table {
+  margin: 0;
+}
+.adm-chs__table td {
+  vertical-align: top;
+}
+.adm-chs__err {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.adm-chs__results {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* Roteiro: lista numerada; cada passo abre o como fazer e a observação. */
+.adm-chs__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.adm-chs__step + .adm-chs__step {
+  border-top: 1px solid var(--a-line);
+}
+.adm-chs__step-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 18px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--cm-dur-fast) var(--cm-ease);
+}
+.adm-chs__step-head:hover {
+  background: var(--a-panel-2);
+}
+.adm-chs__step-head:focus-visible {
+  outline: none;
+  box-shadow: inset var(--cm-focus);
+}
+.adm-chs__num {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--a-line-strong);
+  border-radius: 50%;
+  font-family: var(--a-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--a-muted);
+  font-variant-numeric: tabular-nums;
+}
+.adm-chs__step[data-done='true'] .adm-chs__num {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--a-ok) 14%, transparent);
+  color: var(--a-ok);
+}
+.adm-chs__step[data-done='true'] .adm-row__title {
+  color: var(--a-muted);
+}
+.adm-chs__auto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--a-ui);
+  font-size: 13px;
+  color: var(--a-muted);
+  white-space: nowrap;
+}
+.adm-chs__body {
+  display: grid;
+  gap: 8px;
+  padding: 0 18px 16px 56px;
+}
+.adm-chs__how {
+  margin: 0 0 4px;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--a-text);
+}
+.adm-chs__body textarea {
+  resize: vertical;
+}
+.adm-chs__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .adm-chs__bar > :last-child {
+    width: 100%;
+  }
+  .adm-chs__hide {
+    display: none;
+  }
+  .adm-chs__body {
+    padding-left: 18px;
+  }
+  .adm-chs__actions > * {
+    flex: 1;
+  }
+}
+
+/* No celular os números ficam em duas colunas: a linha de apoio quebra em vez de cortar. */
+.adm-chs__grid .adm-sub {
+  white-space: normal;
+}

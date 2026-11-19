@@ -107,11 +107,9 @@ export class ChannelHttp {
       } finally {
         clearTimeout(timer);
       }
-      this.metrics.requests.inc({
-        channel: this.channel,
-        endpoint: r.endpoint,
-        result: ChannelMetrics.resultOf(status),
-      });
+      const result = ChannelMetrics.resultOf(status);
+      this.metrics.requests.inc({ channel: this.channel, endpoint: r.endpoint, result });
+      this.metrics.record(this.channel, 'request', `${r.endpoint}|${result}`);
       if (res && status >= 200 && status < 300) {
         const text = await res.text().catch(() => '');
         let body: unknown = null;

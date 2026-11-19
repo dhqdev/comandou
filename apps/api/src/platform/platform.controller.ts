@@ -90,6 +90,7 @@ import { PlatformReceiveService } from './platform-receive.service';
 import { PlatformVersionsService } from './platform-versions.service';
 import { CHUNK_LIMIT, type Manifest } from '../migration/protocol';
 import { CepService } from '../store/cep.service';
+import { HOMOLOGATION, PlatformChannelsService } from './platform-channels.service';
 import {
   KitchenDisplayBody,
   KitchenSectorBody,
@@ -1045,5 +1046,45 @@ export class PlatformReceiveController {
   async discard(@Req() req: Request, @Param('id') id: string) {
     await this.auth(req);
     return this.svc.discard(id);
+  }
+}
+
+const UsageQuery = z.object({ hours: z.coerce.number().int().min(1).max(720).default(24) });
+const HomologationChannel = z.enum(Object.keys(HOMOLOGATION) as [string, ...string[]]);
+const HomologationStepParam = z.string().regex(/^[a-z0-9_]{1,40}$/);
+const HomologationBody = z.object({
+  done: z.boolean(),
+  note: z.string().trim().max(500).nullish(),
+});
+
+/**
+ * Super Admin › Aplicativos: uso dos aplicativos de delivery contra as regras de uso indevido e o
+ * roteiro de homologação (ADR 0015, Fase 9).
+ */
+@Controller({ path: 'platform/channels', version: '1' })
+@SkipTenant()
+@Public()
+@UseGuards(PlatformHostGuard, PlatformSessionGuard)
+export class PlatformChannelsController {
+  constructor(private readonly svc: PlatformChannelsService) {}
+
+  @Get('usage')
+  usage(@Query(new ZodPipe(UsageQuery)) q: z.infer<typeof UsageQuery>) {
+    return this.svc.usage(q.hours);
+  }
+
+  @Get('homologation')
+  homologation() {
+    return this.svc.homologation();
+  }
+
+  @Put('homologation/:channel/:step')
+  mark(
+    @Param('channel', new ZodPipe(HomologationChannel)) channel: string,
+    @Param('step', new ZodPipe(HomologationStepParam)) step: string,
+    @Body(new ZodPipe(HomologationBody)) b: z.infer<typeof HomologationBody>,
+    @Req() req: Request,
+  ) {
+    return this.svc.mark(channel, step, b, actor(req));
   }
 }

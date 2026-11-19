@@ -1,6 +1,7 @@
 import {
   Activity,
   BrainCircuit,
+  Bike,
   Building2,
   CreditCard,
   KeyRound,
@@ -127,6 +128,10 @@ const PanelLogModal = lazyPage(
   () => import('./audit'),
   (m) => m.PanelLogModal,
 );
+const ChannelsPage = lazyPage(
+  () => import('./ChannelsPage'),
+  (m) => m.ChannelsPage,
+);
 const ContractSignPage = lazyPage(
   () => import('./ContractSign'),
   (m) => m.ContractSignPage,
@@ -148,6 +153,7 @@ const PANEL_PAGES = [
   AiPage,
   TicketsBoardPage,
   MailPage,
+  ChannelsPage,
 ];
 /** Mesmo nome de SupportPage.tsx (fica aqui para o painel não baixar a tela de conversas). */
 const SUPPORT_CHANGED_EVENT = 'cm:admin-support-changed';
@@ -384,6 +390,13 @@ const NAV: {
     label: 'Infraestrutura',
     short: 'Infra',
     icon: Server,
+    section: 'Sistema',
+  },
+  {
+    to: '/aplicativos',
+    label: 'Aplicativos de delivery',
+    short: 'Aplicativos',
+    icon: Bike,
     section: 'Sistema',
   },
   { to: '/email', label: 'E-mail', icon: Mail, section: 'Sistema' },
@@ -659,6 +672,7 @@ function Gate() {
         <Route path="bancos" element={<Navigate to="/servidor/bancos" replace />} />
         <Route path="backups" element={<Navigate to="/servidor/backups" replace />} />
         <Route path="credenciais" element={<CredentialsPage />} />
+        <Route path="aplicativos" element={<ChannelsPage />} />
         {/* A aba Fiscal saiu: o que se configura da Focus NFe fica em Credenciais. */}
         <Route path="fiscal" element={<Navigate to="/credenciais#cred-focus_master" replace />} />
         <Route path="planos" element={<PlansPage />} />

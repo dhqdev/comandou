@@ -5,6 +5,7 @@ import {
   PlatformAiController,
   PlatformAuthController,
   PlatformCepController,
+  PlatformChannelsController,
   PlatformController,
   PlatformCredentialsController,
   PlatformReceiveController,
@@ -36,6 +37,7 @@ import { PlatformSitesService } from './platform-sites.service';
 import { GatewayClient } from '../messaging/gateway.client';
 import { PlatformKitchenService } from './platform-kitchen.service';
 import { CepService } from '../store/cep.service';
+import { PlatformChannelsService } from './platform-channels.service';
 
 /** Painel Super Admin (admin.<domínio base>): caminho privilegiado separado e auditado. */
 @Module({
@@ -43,6 +45,7 @@ import { CepService } from '../store/cep.service';
   controllers: [
     PlatformAuthController,
     PlatformCepController,
+    PlatformChannelsController,
     PlatformController,
     PlatformAiController,
     PlatformCredentialsController,
@@ -74,6 +77,7 @@ import { CepService } from '../store/cep.service';
     PlatformSitesService,
     PlatformKitchenService,
     CepService,
+    PlatformChannelsService,
     GatewayClient,
     ServerAgentClient,
     ReleaseFeed,
