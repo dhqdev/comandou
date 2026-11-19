@@ -428,3 +428,36 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
   - Fica para depois: conferir no sandbox o formato de `GET /categories/{id}/items`; trazer a foto
     do item do iFood (hoje vem sem foto, e o próximo envio de um item trazido que for editado vai
     sem `imagePath`); preço diferente por cardápio na importação (entra o do iFood como preço base).
+- **Fase 7** (repasse, 0.186.0): migração 0094 e `channels/channel-finance.service.ts`.
+  - **Leitura** pela API financeira do iFood (`/financial/v3.0`, tradução pura em
+    `ifood/ifood-finance.ts`): vendas dos últimos 8 dias (limite do iFood por chamada, até 20
+    páginas) e repasses com data de pagamento de 35 dias para trás a 35 para a frente. A varredura
+    dos canais (`ChannelPoller.onSweep`) lê cada loja no máximo a cada 6 horas
+    (`channel_stores.finance_at`; erro em `finance_error`, 403 marca a loja como revogada) e
+    "Atualizar agora" no máximo a cada 5 minutos. Os dados da conta bancária (`accountDetails`)
+    nunca são guardados.
+  - **Por pedido** (`channel_orders.fin_*`): bruto (itens + entrega cobrada do cliente; a taxa de
+    serviço é do iFood), o que fica com a loja (`saleBalance`, só depois que o iFood fecha a conta
+    da venda: até lá fica vazio), o descontado (bruto − líquido) e os lançamentos (só tipo e valor).
+    Vai na gaveta do pedido para quem tem `finance:read` (`GET /channels/orders/:id/finance`).
+  - **Repasses** (`channel_payouts`, id estável = resumo do período, tipo e data original): cada
+    repasse com valor vira uma conta a receber "Repasse de vendas" (fora do DRE, vencimento = dia
+    em que cai; antecipado cai na data e no valor da antecipação). Valor e vencimento não se editam:
+    se o iFood muda, a conta aberta é cancelada e outra é aberta; repasse que falhou cancela a
+    aberta; conta paga ou cancelada por uma pessoa fica como está. Pago pelo iFood há 2 dias ou
+    mais e ainda aberto: baixa sozinha na data do pagamento. A Conciliação bancária liga a linha do
+    extrato pela regra de sempre (mesmo valor, data perto).
+  - **DRE**: pago dentro do aplicativo (`payments.method = 'app'`, sem o estornado) entra como
+    "Vendas · iFood (pago no aplicativo)" e o descontado pelo aplicativo como "Comissões e taxas
+    dos aplicativos" (despesa variável). Antes a venda paga no app não aparecia no DRE.
+  - **Caixa**: o resumo do caixa mostra "Pago no iFood ... fora da gaveta" do período em que o
+    caixa ficou aberto; nunca entra no esperado.
+  - **Telas**: Financeiro › Aplicativos (números do mês, repasses com a situação: a cair, pago pelo
+    iFood, conferido no extrato, não foi feito; pedidos do mês por aplicativo; "Atualizar
+    agora"), a nota "Repasse do iFood" na gaveta do pedido e a linha no resumo do caixa.
+  - **Testes**: 3 novos em `test/ifood-orders.e2e.test.ts` (o iFood falso tem vendas e repasses),
+    4 em `ifood-finance.test.ts` e 1 no DRE (`finance-plan.test.ts`).
+  - Fica para depois: conferir no sandbox (homologação própria do financeiro, cabeçalho
+    `x-request-homologation`) os nomes de `type` e `status` dos `closingItems` e dos
+    `billingEntries`; ler eventos financeiros (`/financial/v3.0/.../events`) para ajustes depois do
+    fechamento; repasse negativo (débito do iFood) só aparece na tela, sem conta a pagar.

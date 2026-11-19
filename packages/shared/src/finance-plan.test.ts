@@ -165,6 +165,29 @@ describe('DRE', () => {
     expect(d.notes.join(' ')).toContain('ficaram fora');
   });
 
+  it('pago no aplicativo entra como venda e a taxa do aplicativo como despesa variável', () => {
+    const base = buildDre(raw());
+    const d = buildDre(
+      raw({
+        appSales: [
+          { app: 'ifood', amount: '5000.00', orders: 100 },
+          { app: 'rappi', amount: '0.00', orders: 0 },
+        ],
+        appFees: '1250.00',
+      }),
+    );
+    expect(toCents(d.totals.grossRevenue) - toCents(base.totals.grossRevenue)).toBe(500000);
+    const line = d.lines.find((l) => l.id === 'sales_app_ifood')!;
+    expect(line).toMatchObject({ label: 'Vendas · iFood (pago no aplicativo)', value: '5000.00' });
+    expect(d.lines.some((l) => l.id === 'sales_app_rappi')).toBe(false);
+    expect(d.lines.find((l) => l.id === 'app_fees')!.value).toBe('-1250.00');
+    expect(toCents(d.totals.variable) - toCents(base.totals.variable)).toBe(125000);
+    // Ticket médio com os pedidos dos aplicativos.
+    const t = d.indicators.find((i) => i.reference?.endsWith('pedidos'))!;
+    expect(t.reference).toBe('1100 pedidos');
+    expect(base.lines.some((l) => l.id === 'app_fees')).toBe(false);
+  });
+
   it('margem negativa não tem ponto de equilíbrio', () => {
     const d = buildDre(raw({ cardFees: '90000.00' }));
     const be = d.indicators.find((i) => i.id === 'breakeven')!;

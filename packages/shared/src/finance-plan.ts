@@ -9,6 +9,7 @@
  * Referências do setor (Abrasel, Sebrae e mercado): CMV de 25% a 35% (pratos até 40%), pessoal
  * até 30%, ocupação até 10%, CMV + pessoal ("prime cost") até 65% e margem líquida de 10% ou mais.
  */
+import { channelInfo } from './channels';
 import { fromCents, toCents } from './money';
 import { CHANNEL_LABELS, type OrderChannel, type PaymentMethod } from './orders';
 
@@ -408,6 +409,13 @@ export interface DreRaw {
   stockLosses: string;
   /** Sobras (+) e faltas (−) de dinheiro nos fechamentos de caixa. */
   cashBreaks: string;
+  /**
+   * Pago dentro dos aplicativos de delivery (fora da gaveta), por aplicativo, já sem o que o
+   * aplicativo estornou. Entra como venda; o dinheiro chega depois, no repasse.
+   */
+  appSales?: { app: string; amount: string; orders: number }[];
+  /** O que os aplicativos descontaram das vendas (comissão, taxas, entrega, promoções). */
+  appFees?: string;
 }
 
 export type DreLineKind = 'total' | 'group' | 'item' | 'result';
@@ -475,7 +483,11 @@ export function buildDre(raw: DreRaw): Dre {
   const salesByChannel = new Map<string, number>();
   for (const s of raw.sales)
     salesByChannel.set(s.channel, (salesByChannel.get(s.channel) ?? 0) + c(s.amount));
-  const sales = [...salesByChannel.values()].reduce((a, b) => a + b, 0);
+  const appSales = (raw.appSales ?? []).filter((s) => c(s.amount) !== 0);
+  const sales =
+    [...salesByChannel.values()].reduce((a, b) => a + b, 0) +
+    appSales.reduce((a, s) => a + c(s.amount), 0);
+  const orders = raw.orders + appSales.reduce((a, s) => a + s.orders, 0);
   const otherIncome = g('other_income');
   const gross = sales + otherIncome;
   const taxes = g('taxes');
@@ -490,8 +502,9 @@ export function buildDre(raw: DreRaw): Dre {
   const grossProfit = net - cmv;
 
   const cardFees = c(raw.cardFees);
+  const appFees = c(raw.appFees ?? '0');
   const selling = g('selling');
-  const variable = cardFees + selling;
+  const variable = cardFees + appFees + selling;
   const contribution = grossProfit - variable;
 
   const payroll = g('payroll');
@@ -520,6 +533,14 @@ export function buildDre(raw: DreRaw): Dre {
       v,
       'Recebido no caixa, em todas as formas de pagamento.',
     );
+  for (const s of [...appSales].sort((a, b) => c(b.amount) - c(a.amount)))
+    add(
+      `sales_app_${s.app}`,
+      `Vendas · ${channelInfo(s.app).label} (pago no aplicativo)`,
+      'item',
+      c(s.amount),
+      'Pago dentro do aplicativo: não passa pela gaveta e chega no repasse.',
+    );
   if (otherIncome) add('other_income', DRE_GROUP_LABELS.other_income, 'item', otherIncome);
   add('deductions', 'Deduções', 'group', -(taxes + refunds));
   add('taxes', DRE_GROUP_LABELS.taxes, 'item', -taxes, 'DAS, ICMS, ISS e outros sobre a venda.');
@@ -547,6 +568,14 @@ export function buildDre(raw: DreRaw): Dre {
     -cardFees,
     'Calculadas no fechamento do caixa pelas taxas cadastradas, com os acertos da conciliação.',
   );
+  if (appFees)
+    add(
+      'app_fees',
+      'Comissões e taxas dos aplicativos',
+      'item',
+      -appFees,
+      'O que o aplicativo desconta de cada venda (comissão, taxa de pagamento, entrega, promoções), lido do financeiro dele.',
+    );
   add('selling', DRE_GROUP_LABELS.selling, 'item', -selling);
   add('contribution', 'Margem de contribuição', 'result', contribution);
   add('fixed', 'Despesas fixas', 'group', -fixed);
@@ -579,7 +608,7 @@ export function buildDre(raw: DreRaw): Dre {
     );
   if (g('sales_received') > 0)
     notes.push(
-      `${brlText(g('sales_received'))} em contas a receber de repasse de vendas (cartão, aplicativo) ficaram fora: as vendas já entram pelos caixas. Para conferir o repasse, use a Conciliação.`,
+      `${brlText(g('sales_received'))} em contas a receber de repasse de vendas (cartão, aplicativo) ficaram fora: as vendas já entram pelos caixas e pelos pedidos dos aplicativos. Para conferir o repasse, use a Conciliação.`,
     );
   if (!taxes && sales > 0)
     notes.push('Nenhum imposto no período: lance o DAS como conta a pagar na categoria Impostos.');
@@ -653,13 +682,13 @@ export function buildDre(raw: DreRaw): Dre {
           : 'Quanto é preciso vender no período para pagar as despesas fixas, sem lucro nem prejuízo.',
     });
   }
-  if (raw.orders > 0 && sales > 0)
+  if (orders > 0 && sales > 0)
     indicators.push({
       id: 'ticket',
       label: 'Ticket médio',
-      value: fromCents(Math.round(sales / raw.orders)),
+      value: fromCents(Math.round(sales / orders)),
       unit: 'brl',
-      reference: `${raw.orders} ${raw.orders === 1 ? 'pedido' : 'pedidos'}`,
+      reference: `${orders} ${orders === 1 ? 'pedido' : 'pedidos'}`,
       status: 'none',
       explain: 'Quanto cada pedido deixou, em média.',
     });

@@ -447,6 +447,8 @@ export interface CashSession {
   differences?: Partial<Record<PaymentMethod, string>> | null;
   closingNote?: string | null;
   byKind?: { kind: string; method: PaymentMethod; count: number; total: string }[];
+  /** Pago dentro dos aplicativos enquanto o caixa esteve aberto (fora da gaveta). */
+  appSales?: { channel: string; orders: number; total: string }[];
   movements?: {
     id: string;
     kind: 'opening' | 'sale' | 'supply' | 'withdrawal' | 'refund';

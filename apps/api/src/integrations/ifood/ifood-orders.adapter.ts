@@ -12,6 +12,8 @@ import {
   type ActionRequest,
   type ChannelAdapter,
   type ChannelEvent,
+  type ChannelPayout,
+  type ChannelSaleFinance,
   type ChannelStoreStatus,
   type ChannelTracking,
   type DriverQuote,
@@ -37,6 +39,12 @@ import {
   type IfoodOrder,
 } from './ifood-order';
 import { ifoodDriverUpdate, ifoodQuote, ifoodTracking } from './ifood-delivery';
+import {
+  IFOOD_FINANCE_PATHS,
+  IFOOD_SALES_MAX_PAGES,
+  ifoodPayouts,
+  ifoodSalesPage,
+} from './ifood-finance';
 import { ifoodShifts, ifoodStoreStatus } from './ifood-merchant';
 import { IfoodService } from './ifood.service';
 
@@ -76,6 +84,7 @@ export class IfoodOrdersAdapter implements ChannelAdapter, OnModuleInit {
     'pause',
     'openingHours',
     'menu',
+    'settlements',
   ];
   readonly maxPauseMinutes = IFOOD_MAX_PAUSE_MINUTES;
   private readonly http: ChannelHttp;
@@ -277,6 +286,46 @@ export class IfoodOrdersAdapter implements ChannelAdapter, OnModuleInit {
       retries: 0,
     });
     return ifoodShifts(r.body);
+  }
+
+  /**
+   * Vendas do período na API financeira (no máximo 8 dias por chamada; 204 = nenhuma). Uma página
+   * por vez, sem repetir na hora (a próxima varredura repete).
+   */
+  async financeSales(ref: StoreRef, from: string, to: string): Promise<ChannelSaleFinance[]> {
+    const out: ChannelSaleFinance[] = [];
+    for (let page = 1, pages = 1; page <= pages && page <= IFOOD_SALES_MAX_PAGES; page++) {
+      const qs = new URLSearchParams({
+        beginSalesDate: from,
+        endSalesDate: to,
+        page: String(page),
+      });
+      const r = await this.call<unknown>(ref.credential, ref.tenantId, {
+        endpoint: 'financial:sales',
+        method: 'GET',
+        path: `${IFOOD_FINANCE_PATHS.sales(ref.storeId)}?${qs}`,
+        perMinute: IFOOD_LIMITS.financial,
+        retries: 1,
+      });
+      if (r.status === 204 || !r.body) break;
+      const p = ifoodSalesPage(r.body);
+      out.push(...p.sales);
+      pages = p.pageCount;
+    }
+    return out;
+  }
+
+  /** Repasses com data de pagamento no período (sem os dados da conta bancária). */
+  async financePayouts(ref: StoreRef, from: string, to: string): Promise<ChannelPayout[]> {
+    const qs = new URLSearchParams({ beginPaymentDate: from, endPaymentDate: to });
+    const r = await this.call<unknown>(ref.credential, ref.tenantId, {
+      endpoint: 'financial:settlements',
+      method: 'GET',
+      path: `${IFOOD_FINANCE_PATHS.settlements(ref.storeId)}?${qs}`,
+      perMinute: IFOOD_LIMITS.financial,
+      retries: 1,
+    });
+    return r.status === 204 ? [] : ifoodPayouts(ref.storeId, r.body);
   }
 
   /** Previsões do entregador do iFood (404 antes de ele existir = sem previsão ainda). */

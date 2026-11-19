@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import {
@@ -22,7 +23,7 @@ import { z } from 'zod';
 import { AuditService } from '../../audit/audit.service';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../../common/decorators';
 import { one, q } from '../../common/sql';
-import { money } from '../../common/schemas';
+import { isoDate, money } from '../../common/schemas';
 import { ZodPipe } from '../../common/zod.pipe';
 import { DatabaseService } from '../../database/database.service';
 import { RealtimeService } from '../../realtime/realtime.service';
@@ -31,6 +32,7 @@ import { ChannelRegistry } from './channel-adapter';
 import { ChannelCredentials } from './channel-credentials.service';
 import { ChannelDisputesService } from './channel-disputes.service';
 import { ChannelDriversService } from './channel-drivers.service';
+import { ChannelFinanceService } from './channel-finance.service';
 import { ChannelInboxService } from './channel-inbox.service';
 import { ChannelOutboxService } from './channel-outbox.service';
 import { ChannelStoreStateService } from './channel-store-state.service';
@@ -75,6 +77,9 @@ const DisputeBody = z.discriminatedUnion('decision', [
     timeReason: Code.optional(),
   }),
 ]);
+const FinancePeriod = z
+  .object({ from: isoDate, to: isoDate })
+  .refine((p) => p.from <= p.to, 'período inválido');
 const DriverRequest = z.object({ quoteId: z.string().trim().min(1).max(100) });
 const DriverCancel = z.object({ code: Code.optional(), reason: Reason });
 const UnlinkBody = z.object({
@@ -104,6 +109,7 @@ export class ChannelsController {
     private readonly outbox: ChannelOutboxService,
     private readonly disputes: ChannelDisputesService,
     private readonly drivers: ChannelDriversService,
+    private readonly finance: ChannelFinanceService,
     private readonly storeState: ChannelStoreStateService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
@@ -396,6 +402,34 @@ export class ChannelsController {
     @Req() req: Request,
   ) {
     return this.drivers.cancel(t.id, u.id, orderId, b, req.ip);
+  }
+
+  /** Repasses dos aplicativos no período (pela data em que caem) e o que os pedidos renderam. */
+  @Get('finance')
+  @RequirePermission('finance:read')
+  financeSummary(
+    @Query(new ZodPipe(FinancePeriod)) p: z.infer<typeof FinancePeriod>,
+    @CurrentTenant() t: ResolvedTenant,
+  ) {
+    return this.finance.summary(t.id, p.from, p.to);
+  }
+
+  /** Lê de novo o financeiro dos aplicativos (cada loja no máximo a cada 5 minutos). */
+  @Post('finance/refresh')
+  @HttpCode(200)
+  @RequirePermission('finance:write')
+  financeRefresh(@CurrentTenant() t: ResolvedTenant) {
+    return this.finance.refreshNow(t.id);
+  }
+
+  /** O que um pedido de aplicativo rende (bruto, taxas e o que fica com a loja). */
+  @Get('orders/:orderId/finance')
+  @RequirePermission('finance:read')
+  orderFinance(
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @CurrentTenant() t: ResolvedTenant,
+  ) {
+    return this.finance.order(t.id, orderId);
   }
 
   /** Itens que chegaram sem vínculo (um por item do aplicativo), do mais recente. */

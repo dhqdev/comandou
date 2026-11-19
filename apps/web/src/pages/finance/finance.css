@@ -1030,3 +1030,22 @@ button.fin-insights__row:focus-visible {
     font-size: 9.5px;
   }
 }
+
+/* Aplicativos: repasses e o que os pedidos renderam. */
+.fin-apps__hint {
+  margin: 0 0 var(--cm-space-3);
+}
+.fin-apps__store {
+  display: flex;
+  align-items: center;
+  margin: 0 0 var(--cm-space-2);
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.fin-apps__scroll {
+  overflow-x: auto;
+  margin-bottom: var(--cm-space-3);
+}
+.fin-apps td {
+  font-variant-numeric: tabular-nums;
+}

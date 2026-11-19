@@ -3,6 +3,7 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/bootstrap';
+import { ChannelFinanceService } from '../src/integrations/channels/channel-finance.service';
 import { ChannelInboxService } from '../src/integrations/channels/channel-inbox.service';
 import { ChannelOutboxService } from '../src/integrations/channels/channel-outbox.service';
 import { ChannelPoller } from '../src/integrations/channels/channel-poller.service';
@@ -951,5 +952,264 @@ describe('iFood: entrega', () => {
       `SELECT status FROM channel_inbox WHERE event_id = 'ev-adr-x'`,
     );
     expect(ig!.status).toBe('ignored');
+  });
+});
+
+describe('iFood: repasse', () => {
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  const plus = (n: number) => {
+    const d = new Date(`${today}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+  const entryOf = async (payoutId: string) => {
+    const [r] = await ownerQuery<{
+      id: string;
+      status: string;
+      amount: string;
+      due: string;
+      category: string;
+      counterparty: string;
+      description: string;
+    }>(
+      `SELECT e.id, e.status, e.amount::text, to_char(e.due_date, 'YYYY-MM-DD') AS due, e.category,
+              e.counterparty, e.description
+         FROM channel_payouts p JOIN finance_entries e ON e.id = p.entry_id WHERE p.id = $1`,
+      [payoutId],
+    );
+    return r!;
+  };
+  const settlement = (amount: number, date: string, status: string, over = {}) => ({
+    startDateCalculation: plus(-14),
+    endDateCalculation: plus(-8),
+    closingItems: [
+      {
+        type: 'REPASSE',
+        originalPaymentAmount: amount,
+        originalPaymentDate: date,
+        status,
+        accountDetails: {
+          bankName: 'Banco X',
+          accountNumber: '12345-6',
+          document: '12.345.678/0001-90',
+        },
+        ...over,
+      },
+    ],
+  });
+
+  it('lê vendas e repasses do iFood, guarda o que cada pedido rende e cria a conta a receber', async () => {
+    const id6 = (await orderOf(ID(6))).id;
+    const id7 = (await orderOf(ID(7))).id;
+    ifood.sales.set(MERCHANT, [
+      {
+        id: ID(6),
+        shortId: '4860',
+        createdAt: new Date().toISOString(),
+        saleGrossValue: { bag: 61.8, deliveryFee: 5, serviceFee: 0.99 },
+        benefits: { totalValue: 5 },
+        billingSummary: {
+          saleBalance: 52.1,
+          billingEntries: [
+            { type: 'COMMISSION', value: -8 },
+            { type: 'PAYMENT_FEE', value: -2.07 },
+            { type: 'PROMOTION', value: -4.63 },
+          ],
+        },
+      },
+      // Venda que o iFood ainda não fechou: saldo 0 e sem lançamentos.
+      {
+        id: ID(7),
+        saleGrossValue: { bag: 61.8, deliveryFee: 5 },
+        billingSummary: { saleBalance: 0, billingEntries: [] },
+      },
+      // Pedido que não passou pelo Comandou: ignorado.
+      { id: 'fora-do-comandou', saleGrossValue: { bag: 10 }, billingSummary: { saleBalance: 8 } },
+    ]);
+    ifood.settlements.set(MERCHANT, [
+      settlement(310.5, plus(-10), 'PAID'),
+      settlement(420.75, plus(5), 'SCHEDULED', {
+        type: 'ANTECIPACAO',
+        anticipatedPaymentAmount: 410.2,
+        anticipatedPaymentDate: plus(2),
+        feeAmount: 10.55,
+      }),
+    ]);
+    const r = await send('post', 'adminA', '/channels/finance/refresh').expect(200);
+    expect(r.body.read).toBe(1);
+    const sales = ifood.financeCalls.find((c) => c.kind === 'sales')!;
+    expect(sales.query).toMatchObject({ beginSalesDate: plus(-7), endSalesDate: today, page: '1' });
+    const sett = ifood.financeCalls.find((c) => c.kind === 'settlements')!;
+    expect(sett.query).toEqual({ beginPaymentDate: plus(-35), endPaymentDate: plus(35) });
+
+    // O que o pedido rende (só com a permissão do Financeiro; outro restaurante não vê).
+    const f6 = (await get('adminA', `/channels/orders/${id6}/finance`).expect(200)).body;
+    expect(f6).toMatchObject({ gross: '66.80', net: '52.10', fees: '14.70' });
+    expect(f6.entries).toEqual([
+      { label: 'Comissão do iFood', amount: '-8.00' },
+      { label: 'Taxa de pagamento', amount: '-2.07' },
+      { label: 'Promoção da loja', amount: '-4.63' },
+    ]);
+    const f7 = (await get('adminA', `/channels/orders/${id7}/finance`).expect(200)).body;
+    expect(f7).toMatchObject({ gross: '66.80', net: null, fees: null });
+    await get('adminB', `/channels/orders/${id6}/finance`).expect(404);
+
+    // Repasses: nada da conta bancária guardado; cada um vira conta a receber "Repasse de vendas".
+    const rows = await ownerQuery<Record<string, unknown>>(
+      `SELECT * FROM channel_payouts WHERE tenant_id = $1 ORDER BY expected_date`,
+      [fx.tenantA],
+    );
+    expect(rows).toHaveLength(2);
+    expect(JSON.stringify(rows)).not.toMatch(/12345-6|Banco X|0001-90/);
+    const view = (
+      await get('adminA', `/channels/finance?from=${plus(-30)}&to=${plus(30)}`).expect(200)
+    ).body as {
+      payouts: {
+        id: string;
+        amount: string;
+        status: string;
+        expectedDate: string;
+        entryStatus: string;
+        originalDate: string | null;
+        anticipationFee: string | null;
+      }[];
+      sales: { channel: string; closed: number; net: string; fees: string }[];
+      stores: { financeAt: string | null; financeError: string | null }[];
+    };
+    const [early, late] = [...view.payouts].sort((a, b) =>
+      a.expectedDate.localeCompare(b.expectedDate),
+    );
+    expect(early).toMatchObject({ amount: '310.50', status: 'paid', expectedDate: plus(-10) });
+    // Antecipado: cai antes, com o valor antecipado e a taxa da antecipação.
+    expect(late).toMatchObject({
+      amount: '410.20',
+      status: 'scheduled',
+      expectedDate: plus(2),
+      originalDate: plus(5),
+      anticipationFee: '10.55',
+    });
+    // Pago pelo iFood há mais de 2 dias: baixa sozinha; o agendado fica a receber.
+    expect(await entryOf(early!.id)).toMatchObject({
+      status: 'paid',
+      amount: '310.50',
+      due: plus(-10),
+      category: 'Repasse de vendas',
+      counterparty: 'iFood',
+    });
+    const lateEntry = await entryOf(late!.id);
+    expect(lateEntry).toMatchObject({ status: 'open', amount: '410.20', due: plus(2) });
+    expect(lateEntry.description).toMatch(/^Antecipação iFood .* · Loja iFood A$/);
+    expect(view.sales.find((s) => s.channel === 'ifood')).toMatchObject({
+      closed: 1,
+      net: '52.10',
+      fees: '14.70',
+    });
+    expect(view.stores[0]).toMatchObject({ financeError: null });
+    expect(view.stores[0]!.financeAt).toBeTruthy();
+
+    // Atualizar de novo logo em seguida: não chama o iFood (no máximo a cada 5 minutos).
+    const calls = ifood.financeCalls.length;
+    expect((await send('post', 'adminA', '/channels/finance/refresh').expect(200)).body.read).toBe(
+      0,
+    );
+    expect(ifood.financeCalls.length).toBe(calls);
+    // Outro restaurante não vê os repasses.
+    const b = (
+      await get('adminB', `/channels/finance?from=${plus(-30)}&to=${plus(30)}`).expect(200)
+    ).body as { payouts: unknown[] };
+    expect(b.payouts).toHaveLength(0);
+    await get('adminA', `/channels/finance?from=${plus(1)}&to=${plus(-1)}`).expect(400);
+  });
+
+  it('o iFood mudou o valor do repasse: troca a conta aberta; repasse que falhou cancela', async () => {
+    const [late] = await ownerQuery<{ id: string; entry_id: string }>(
+      `SELECT id, entry_id FROM channel_payouts WHERE tenant_id = $1 AND status = 'scheduled'`,
+      [fx.tenantA],
+    );
+    ifood.settlements.set(MERCHANT, [
+      settlement(310.5, plus(-10), 'PAID'),
+      settlement(420.75, plus(5), 'SCHEDULED', {
+        type: 'ANTECIPACAO',
+        anticipatedPaymentAmount: 405.9,
+        anticipatedPaymentDate: plus(2),
+        feeAmount: 14.85,
+      }),
+    ]);
+    await ownerQuery(
+      `UPDATE channel_stores SET finance_at = now() - interval '7 hours' WHERE tenant_id = $1`,
+      [fx.tenantA],
+    );
+    await app.get(ChannelFinanceService).refreshTenant(fx.tenantA);
+    const [old] = await ownerQuery<{ status: string; cancel_reason: string }>(
+      `SELECT status, cancel_reason FROM finance_entries WHERE id = $1`,
+      [late!.entry_id],
+    );
+    expect(old).toMatchObject({ status: 'cancelled' });
+    expect(old!.cancel_reason).toMatch(/mudou o valor/);
+    expect(await entryOf(late!.id)).toMatchObject({ status: 'open', amount: '405.90' });
+    // Mesmo repasse lido de novo, sem mudança: não cria outra conta.
+    const [{ n: before }] = await ownerQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM finance_entries WHERE tenant_id = $1 AND category = 'Repasse de vendas'`,
+      [fx.tenantA],
+    );
+    await ownerQuery(`UPDATE channel_stores SET finance_at = NULL WHERE tenant_id = $1`, [
+      fx.tenantA,
+    ]);
+    await app.get(ChannelFinanceService).refreshTenant(fx.tenantA);
+    const [{ n: after }] = await ownerQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM finance_entries WHERE tenant_id = $1 AND category = 'Repasse de vendas'`,
+      [fx.tenantA],
+    );
+    expect(after).toBe(before);
+    // O iFood avisou que não pagou: a conta aberta é cancelada.
+    ifood.settlements.set(MERCHANT, [
+      settlement(310.5, plus(-10), 'PAID'),
+      settlement(420.75, plus(5), 'FAILED', {
+        type: 'ANTECIPACAO',
+        anticipatedPaymentAmount: 405.9,
+        anticipatedPaymentDate: plus(2),
+        feeAmount: 14.85,
+      }),
+    ]);
+    await ownerQuery(`UPDATE channel_stores SET finance_at = NULL WHERE tenant_id = $1`, [
+      fx.tenantA,
+    ]);
+    await app.get(ChannelFinanceService).refreshTenant(fx.tenantA);
+    const e = await entryOf(late!.id);
+    expect(e.status).toBe('cancelled');
+    // A conta já paga não muda.
+    const [paid] = await ownerQuery<{ status: string }>(
+      `SELECT e.status FROM channel_payouts p JOIN finance_entries e ON e.id = p.entry_id
+        WHERE p.tenant_id = $1 AND p.status = 'paid'`,
+      [fx.tenantA],
+    );
+    expect(paid!.status).toBe('paid');
+  });
+
+  it('erro do iFood fica na loja e não para a varredura; DRE com a venda e a taxa do aplicativo', async () => {
+    ifood.failNext.finance!.push(500, 500);
+    await ownerQuery(`UPDATE channel_stores SET finance_at = NULL WHERE tenant_id = $1`, [
+      fx.tenantA,
+    ]);
+    await app.get(ChannelFinanceService).refreshTenant(fx.tenantA);
+    const [st] = await ownerQuery<{ finance_error: string | null }>(
+      `SELECT finance_error FROM channel_stores WHERE tenant_id = $1 AND channel = 'ifood'`,
+      [fx.tenantA],
+    );
+    expect(st!.finance_error).toMatch(/financeiro/);
+
+    const dre = (await get('adminA', `/finance/dre?from=${today}&to=${today}`).expect(200))
+      .body as {
+      dre: { lines: { id: string; value: string }[] };
+    };
+    const line = (id: string) => dre.dre.lines.find((l) => l.id === id)?.value;
+    const [{ total }] = await ownerQuery<{ total: string }>(
+      `SELECT COALESCE(sum(amount - refunded_amount), 0)::numeric(14,2)::text AS total
+         FROM payments WHERE tenant_id = $1 AND method = 'app'`,
+      [fx.tenantA],
+    );
+    expect(Number(total)).toBeGreaterThan(0);
+    expect(line('sales_app_ifood')).toBe(total);
+    expect(line('app_fees')).toBe('-14.70');
   });
 });

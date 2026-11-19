@@ -1069,6 +1069,10 @@ button.pay-part {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
+.cash-summary__note {
+  font-weight: 400;
+  color: var(--cm-text-muted);
+}
 .cash-timeline {
   min-width: 0;
 }

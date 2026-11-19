@@ -213,6 +213,8 @@ toque abre a aba do assunto; numa coluna, as leituras vêm antes do gráfico) e 
 `fin-days` que abre o dia (cabeçalho em grade; no celular só data, situação e vendas).
 Conciliação: extrato e "a receber" lado a lado (`fin-bank`, uma coluna abaixo de 900 px), linha
 do extrato `fin-line` com a sugestão e Confirmar/Conciliar, escolha de recebíveis `fin-pick`.
+Aplicativos (`AppsTab.tsx`, classes `fin-apps*`): `KpiStrip` do mês, cartão Repasses (linha da
+loja com `fin-dot`, tabela `cm-table` com a situação em `Badge`) e pedidos por aplicativo.
 DRE: indicadores `fin-ind` com bolinha de situação (`fin-dot`) e a tabela `fin-dre` (item
 recuado, total/resultado em negrito; no celular vira lista compacta com % e mês anterior
 embaixo do nome, sem as colunas). Corpo de janela sem campos soltos: envolva em `fin-modal`

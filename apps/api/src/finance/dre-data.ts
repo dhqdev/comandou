@@ -81,6 +81,26 @@ export async function loadDreRaw(
       WHERE ${inPeriod('m.created_at')}`,
     [from, to],
   );
+  // Pago dentro dos aplicativos (forma 'app', sem caixa): venda pelo dia do pagamento, sem o que
+  // o aplicativo estornou. As taxas vêm do financeiro do aplicativo (só vendas já fechadas lá).
+  const app = await q<{ app: string; amount: string; orders: number }>(
+    tx,
+    `WITH tz AS (SELECT timezone FROM tenants)
+     SELECT p.app_channel AS app, sum(p.amount - p.refunded_amount)::numeric(14,2)::text AS amount,
+            count(DISTINCT p.order_id) FILTER (WHERE p.amount > p.refunded_amount)::int AS orders
+       FROM payments p CROSS JOIN tz
+      WHERE p.method = 'app' AND ${inPeriod('p.created_at')}
+      GROUP BY 1`,
+    [from, to],
+  );
+  const appFees = await one<{ total: string }>(
+    tx,
+    `WITH tz AS (SELECT timezone FROM tenants)
+     SELECT COALESCE(sum(co.fin_fees), 0)::numeric(14,2)::text AS total
+       FROM channel_orders co JOIN orders o ON o.id = co.order_id CROSS JOIN tz
+      WHERE co.fin_fees IS NOT NULL AND ${inPeriod('o.created_at')}`,
+    [from, to],
+  );
   const breaks = await one<{ total: string }>(
     tx,
     `WITH tz AS (SELECT timezone FROM tenants)
@@ -99,5 +119,7 @@ export async function loadDreRaw(
     stockCmv: stock!.cmv,
     stockLosses: stock!.losses,
     cashBreaks: breaks!.total,
+    appSales: app,
+    appFees: appFees!.total,
   };
 }

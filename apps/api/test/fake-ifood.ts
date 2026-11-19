@@ -51,6 +51,10 @@ export class FakeIfoodServer {
   readonly quotes = new Map<string, unknown>();
   readonly shippingCalls: { orderId: string; verb: string; body: unknown }[] = [];
   readonly driverCancelReasons = new Map<string, { cancelCodeId: string; description: string }[]>();
+  /** Financeiro: vendas (uma página) e repasses por merchant, e o que foi pedido. */
+  readonly sales = new Map<string, unknown[]>();
+  readonly settlements = new Map<string, unknown[]>();
+  readonly financeCalls: { merchant: string; kind: string; query: Record<string, string> }[] = [];
   readonly polls: { merchants: string; auth?: string }[] = [];
   readonly acks: unknown[] = [];
   /** Próximas respostas forçadas por rota: 'poll', 'ack', 'order', 'action'. */
@@ -62,6 +66,7 @@ export class FakeIfoodServer {
     status: [],
     pause: [],
     shipping: [],
+    finance: [],
   };
 
   async start() {
@@ -116,6 +121,28 @@ export class FakeIfoodServer {
         if (s) send(s, { message: `falha forçada ${s}` });
         return !!s;
       };
+      const fin = /^\/financial\/v3\.0\/merchants\/([^/]+)\/(sales|settlements)$/.exec(path);
+      if (fin && req.method === 'GET') {
+        const id = fin[1]!.toLowerCase();
+        const query = Object.fromEntries(new URL(req.url!, 'http://x').searchParams);
+        this.financeCalls.push({ merchant: id, kind: fin[2]!, query });
+        if (fail('finance')) return;
+        if (fin[2] === 'sales') {
+          const list = this.sales.get(id) ?? [];
+          if (!list.length) return send(204);
+          return send(200, {
+            page: 1,
+            size: list.length,
+            total: list.length,
+            pageCount: 1,
+            sales: list,
+          });
+        }
+        return send(200, {
+          merchantId: id,
+          settlements: this.settlements.get(id) ?? [],
+        });
+      }
       const ms =
         /^\/merchant\/v1\.0\/merchants\/([^/]+)\/(status|interruptions|opening-hours)(?:\/([^/]+))?$/.exec(
           path,

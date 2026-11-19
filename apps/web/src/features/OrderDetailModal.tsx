@@ -80,6 +80,7 @@ import { SidePanel } from './SidePanel';
 import { AcceptDeadline } from './channels/AcceptDeadline';
 import { AppCancelForm, AppDisputeCard } from './channels/AppDispute';
 import { AppDriverCard, appDriverTakes } from './channels/AppDriver';
+import { AppOrderFinance } from './channels/AppOrderFinance';
 import { ChannelBadge } from './channels/ChannelBadge';
 
 const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }[]>> = {
@@ -115,6 +116,7 @@ export function OrderDetailModal({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const canDispatch = useCan('delivery:manage');
+  const canFinance = useCan('finance:read');
   const canWrite = useCan('orders:write');
   const canManagePrint = useCan('printing:manage');
   const canPrint = canWrite || canManagePrint;
@@ -596,6 +598,9 @@ export function OrderDetailModal({
               </div>
             </div>
             {order.app && <AppOrderNote app={order.app} order={order} />}
+            {order.app && canFinance && order.status !== 'awaiting' && (
+              <AppOrderFinance orderId={order.id} />
+            )}
             {order.app && order.channel === 'delivery' && (
               <AppDriverCard orderId={order.id} canManage={canManage} />
             )}

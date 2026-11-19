@@ -29,7 +29,8 @@ import {
 } from './insights';
 import type { ClosingDay, DreResponse } from './types';
 
-export type FinanceTabId = 'overview' | 'entries' | 'closings' | 'reconcile' | 'flow' | 'dre';
+export type FinanceTabId =
+  'overview' | 'entries' | 'closings' | 'apps' | 'reconcile' | 'flow' | 'dre';
 
 interface Data {
   summary: FinanceSummary;

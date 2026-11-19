@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.186.0',
+    date: '2026-11-19',
+    title: 'Repasse do iFood no Financeiro',
+    summary:
+      'O Comandou lê o financeiro do iFood: quanto cada pedido rende depois das taxas, quando cada repasse cai na conta e se o extrato já conferiu. A venda paga no aplicativo entra no DRE, com a comissão do iFood como despesa.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Financeiro › Aplicativos: o que foi vendido nos aplicativos no mês, quanto o iFood descontou, o que fica com a loja e cada repasse, com a data em que cai e a situação (a cair, pago pelo iFood, conferido no extrato).',
+      },
+      {
+        tag: 'novo',
+        text: 'Cada repasse do iFood vira uma conta a receber "Repasse de vendas", e a Conciliação bancária confere com o extrato sozinha. Se o iFood muda o valor ou antecipa, a conta acompanha.',
+      },
+      {
+        tag: 'novo',
+        text: 'Na gaveta do pedido do iFood, quem vê o Financeiro enxerga quanto a venda rende: o que fica com a loja, o que foi descontado e cada taxa (comissão, pagamento, promoção).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O DRE agora conta as vendas pagas dentro do aplicativo e a comissão e as taxas do iFood. Antes, a venda paga no iFood não aparecia no resultado.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O resumo do caixa mostra quanto foi pago no iFood durante o turno, separado e fora da gaveta, para conferir sem confundir o dinheiro contado.',
+      },
+    ],
+  },
+  {
     version: '0.185.0',
     date: '2026-11-19',
     title: 'Cardápio do iFood conferido e trazido para o Comandou',

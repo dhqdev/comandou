@@ -1,4 +1,5 @@
 import {
+  channelInfo,
   CHANNEL_LABELS,
   fromCents,
   PAYMENT_METHODS,
@@ -407,6 +408,21 @@ export function CashPage() {
               <dt>Sangrias</dt>
               <dd>{brl(t.withdrawals)}</dd>
             </div>
+            {!multi &&
+              session?.appSales?.map((a) => (
+                <div
+                  key={a.channel}
+                  title="Pago dentro do aplicativo: não entra na gaveta e chega no repasse"
+                >
+                  <dt>Pago no {channelInfo(a.channel).label}</dt>
+                  <dd>
+                    {brl(a.total)}{' '}
+                    <span className="cash-summary__note">
+                      {a.orders} {a.orders === 1 ? 'pedido' : 'pedidos'}, fora da gaveta
+                    </span>
+                  </dd>
+                </div>
+              ))}
           </dl>
         </section>
       )}

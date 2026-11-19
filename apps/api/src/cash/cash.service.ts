@@ -228,6 +228,17 @@ export class CashService {
       [id],
     );
     const expected = toStrings(await this.expected(tx, id));
+    // Pago dentro dos aplicativos enquanto este caixa esteve aberto: só para conferir, nunca entra
+    // no esperado da gaveta (o dinheiro chega no repasse do aplicativo).
+    const appSales = await q(
+      tx,
+      `SELECT p.app_channel AS channel, count(DISTINCT p.order_id)::int AS orders,
+              sum(p.amount - p.refunded_amount)::numeric(14,2)::text AS total
+         FROM payments p
+        WHERE p.method = 'app' AND p.created_at >= $1 AND p.created_at < COALESCE($2, now())
+        GROUP BY 1 HAVING sum(p.amount - p.refunded_amount) > 0 ORDER BY 1`,
+      [s.openedAt, s.closedAt ?? null],
+    );
     const movements = withMovements
       ? await q(
           tx,
@@ -242,7 +253,7 @@ export class CashService {
       s.closedExpected as MethodStrings | null,
       s.counted as MethodStrings | null,
     );
-    return { ...(s as { id: string }), expected, byKind, movements, differences };
+    return { ...(s as { id: string }), expected, byKind, appSales, movements, differences };
   }
 
   /**

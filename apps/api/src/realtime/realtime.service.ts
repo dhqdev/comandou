@@ -11,6 +11,8 @@ export type RealtimeEvent =
   | { type: 'menu.changed' }
   // Aplicativos de delivery: loja, evento ou item sem vínculo mudou (tela Integrações).
   | { type: 'channels.changed' }
+  // Repasses e o que os pedidos dos aplicativos renderam foram lidos de novo.
+  | { type: 'channels.finance' }
   // Sincronização de um cardápio com o iFood começou ou terminou.
   | { type: 'ifood.sync'; menuId: string }
   | { type: 'store.changed' }

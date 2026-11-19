@@ -113,6 +113,39 @@ export interface DriverQuote {
   expiresAt?: string;
 }
 
+/**
+ * O que uma venda rende no canal (API financeira). Valores em texto decimal. `net` e `fees` ficam
+ * null enquanto o canal não fecha a conta da venda.
+ */
+export interface ChannelSaleFinance {
+  externalId: string;
+  /** Itens + entrega cobrada do cliente. */
+  gross: string;
+  /** O que fica com o restaurante. */
+  net: string | null;
+  /** Bruto − líquido (comissão, taxa de pagamento, entrega do canal, promoções…). */
+  fees: string | null;
+  /** Lançamentos do canal (só tipo e valor). */
+  entries: { label: string; amount: string }[];
+}
+
+/** Um repasse do canal (dinheiro que cai na conta do restaurante). Sem dados da conta. */
+export interface ChannelPayout {
+  externalId: string;
+  kind: string;
+  periodStart?: string;
+  periodEnd?: string;
+  /** Quando cai (AAAA-MM-DD). */
+  expectedDate: string;
+  /** Quanto cai (pode ser negativo: débito do canal). */
+  amount: string;
+  originalAmount?: string;
+  originalDate?: string;
+  anticipationFee?: string;
+  status: 'scheduled' | 'paid' | 'failed';
+  channelStatus?: string;
+}
+
 /** Uma loja no canal (situação, pausa, horários). */
 export interface StoreRef {
   tenantId: string;
@@ -179,6 +212,10 @@ export interface ChannelAdapter {
   cancelDriver?(ref: OrderRef, c: { code?: string; reason: string }): Promise<void>;
   /** Motivos aceitos para cancelar o entregador chamado. */
   driverCancelReasons?(ref: OrderRef): Promise<ChannelCancelReason[]>;
+  /** Vendas do período (AAAA-MM-DD, até 8 dias no iFood) com o que cada pedido rende. */
+  financeSales?(ref: StoreRef, from: string, to: string): Promise<ChannelSaleFinance[]>;
+  /** Repasses com data de pagamento no período (AAAA-MM-DD). */
+  financePayouts?(ref: StoreRef, from: string, to: string): Promise<ChannelPayout[]>;
 }
 
 /** Adaptadores ativos. Cada canal se registra ao subir (e os testes registram o falso). */

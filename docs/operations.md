@@ -118,6 +118,12 @@ pedidos do aplicativo não chegam e ele cancela sozinho depois do prazo.
     (`menus.ifood_drift_at`; erro em `ifood_drift_error`). Preço ou pausa mudados no portal: o
     restaurante usa "Mandar o do Comandou". Item que não sai do iFood quando acaba o estoque: veja se
     o cardápio do iFood está ativo e se o item tem ficha técnica (sem ficha, só "esgotado" à mão).
+11. **Repasse do iFood não aparece ou está diferente** (Fase 7): o financeiro é lido a cada 6 horas
+    por loja (`channel_stores.finance_at`; erro em `finance_error`). Venda "sem fechar" é normal nos
+    primeiros dias: o iFood só fecha a conta da venda depois. Repasse que mudou de valor cancela a
+    conta aberta e abre outra (veja o motivo do cancelamento em Contas). Não edite
+    `channel_payouts` nem a conta "Repasse de vendas" pelo banco: a próxima leitura refaz. 403 no
+    financeiro = a loja não autorizou o módulo financeiro do Comandou no Portal do Parceiro.
 
 ### Backup atrasado
 

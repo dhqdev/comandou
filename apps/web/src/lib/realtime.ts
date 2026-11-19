@@ -12,6 +12,8 @@ export type RealtimeEvent =
   | { type: 'cash.changed'; sessionId: string }
   | { type: 'menu.changed' }
   | { type: 'channels.changed' }
+  // Repasses e o que os pedidos dos aplicativos renderam foram lidos de novo.
+  | { type: 'channels.finance' }
   | { type: 'ifood.sync'; menuId: string }
   | { type: 'store.changed' }
   | { type: 'stock.changed' }

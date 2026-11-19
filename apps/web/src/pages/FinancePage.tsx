@@ -60,6 +60,7 @@ import {
   Legend,
   Progress,
 } from './finance/charts';
+import { AppsTab } from './finance/AppsTab';
 import { DreTab } from './finance/DreTab';
 import { change, money } from './finance/insights';
 import { OverviewTab } from './finance/OverviewTab';
@@ -73,7 +74,7 @@ const SETTLE_METHODS: [string, string][] = [
 ];
 const methodLabel = (m: string) => SETTLE_METHODS.find(([k]) => k === m)?.[1] ?? m;
 
-const TABS = ['overview', 'entries', 'closings', 'reconcile', 'flow', 'dre'] as const;
+const TABS = ['overview', 'entries', 'closings', 'apps', 'reconcile', 'flow', 'dre'] as const;
 type FinanceTab = (typeof TABS)[number];
 
 /**
@@ -134,6 +135,7 @@ export function FinancePage() {
           ['overview', 'Visão geral'],
           ['entries', 'Contas'],
           ['closings', 'Fechamentos'],
+          ['apps', 'Aplicativos'],
           ['reconcile', 'Conciliação'],
           ['flow', 'Fluxo de caixa'],
           ['dre', 'DRE'],
@@ -153,6 +155,8 @@ export function FinancePage() {
         <EntriesTab period={period} />
       ) : tab === 'closings' ? (
         <ClosingsTab period={period} onDailyCheck={setCheckDay} />
+      ) : tab === 'apps' ? (
+        <AppsTab period={period} />
       ) : tab === 'reconcile' ? (
         <BankTab />
       ) : tab === 'flow' ? (
