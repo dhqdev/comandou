@@ -29,7 +29,14 @@ const CERT = Buffer.from('pfx-falso-de-teste').toString('base64');
 const companies = new Map<string, Record<string, unknown>>();
 
 type Mode =
-  'authorize' | 'processing' | 'reject' | 'fail-once' | 'ref-used' | 'down' | 'contingency';
+  | 'authorize'
+  | 'processing'
+  | 'processing-reject'
+  | 'reject'
+  | 'fail-once'
+  | 'ref-used'
+  | 'down'
+  | 'contingency';
 /** Contingência offline: a SEFAZ já recebeu a nota que a Focus emitiu sem ela? */
 let contingencySettled = false;
 let mode: Mode = 'authorize';
@@ -221,6 +228,11 @@ function focusHandler(req: IncomingMessage, res: ServerResponse) {
         notes.set(ref, { ...r, offline: true });
         return send(201, r);
       }
+      if (mode === 'processing-reject') {
+        // NF-e é assíncrona: a recusa só aparece na consulta.
+        notes.set(ref, { status: 'processando_autorizacao', pending: true, rejectNext: true });
+        return send(202, { status: 'processando_autorizacao' });
+      }
       if (mode === 'processing') {
         notes.set(ref, { status: 'processando_autorizacao', pending: true });
         return send(202, { status: 'processando_autorizacao' });
@@ -236,6 +248,15 @@ function focusHandler(req: IncomingMessage, res: ServerResponse) {
       if (!n)
         return send(404, { codigo: 'nao_encontrado', mensagem: 'Nota fiscal não encontrada' });
       if (req.method === 'GET') {
+        if (n.pending && n.rejectNext) {
+          const r = {
+            status: 'erro_autorizacao',
+            status_sefaz: '778',
+            mensagem_sefaz: 'NCM inexistente',
+          };
+          notes.set(ref, r);
+          return send(200, r);
+        }
         if (n.pending) {
           const r = authorized(ref);
           notes.set(ref, r);
@@ -827,6 +848,34 @@ describe('Emissão de NFC-e', () => {
     const ok = await waitDoc(again.id, (s) => s === 'authorized');
     expect(ok.attempts).toBe(2);
     expect(ok.issues).toEqual([]);
+  });
+
+  it('recusada na consulta e reemitida: a nova consulta roda (não é descartada pela fila)', async () => {
+    // A 1ª consulta termina e fica guardada na fila; a da reemissão precisa de um trabalho novo.
+    mode = 'processing-reject';
+    const o = await paidOrder();
+    const d = (await post('adminA', `/orders/${o.id}/nfce`).expect(202)).body;
+    await waitDoc(d.id, (s) => s === 'rejected');
+    mode = 'processing';
+    const again = (await post('adminA', `/fiscal/documents/${d.id}/reissue`).expect(202)).body;
+    expect(again.id).toBe(d.id);
+    const ok = await waitDoc(d.id, (s) => s === 'authorized');
+    expect(ok.accessKey).toMatch(/^NFe/);
+  });
+
+  it('"Atualizar" junto com o envio não autoriza nem imprime duas vezes', async () => {
+    mode = 'authorize';
+    const o = await paidOrder();
+    const d = (await post('adminA', `/orders/${o.id}/nfce`).expect(202)).body;
+    // Um segundo envio da mesma nota enquanto o primeiro ainda está na fila.
+    await post('adminA', `/fiscal/documents/${d.id}/sync`).catch(() => undefined);
+    await waitDoc(d.id, (s) => s === 'authorized');
+    await new Promise((r) => setTimeout(r, 1500));
+    const [row] = await ownerQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM audit_log WHERE entity_id = $1 AND action = 'fiscal.nfce_authorized'`,
+      [d.id],
+    );
+    expect(row.n).toBe(1);
   });
 
   it('NCM ausente é recusado antes de enviar, listando o produto', async () => {

@@ -788,9 +788,13 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
         pix?.expiresAt && !Number.isNaN(Date.parse(pix.expiresAt)) ? new Date(pix.expiresAt) : null,
       ],
     );
-    if (c.status !== 'pending') return;
     const next = chargeStatusOf(ch?.status);
     if (!next) return;
+    // Tentativa que demos por vencida (o cliente trocou de forma, ou o PagBank não respondeu a
+    // tempo) mas que o PagBank diz que foi paga: o dinheiro entrou, então não pode ser ignorada.
+    // Cai no "pago" abaixo, que devolve se o pedido já foi pago por outra tentativa ou cancelado.
+    const latePaid = c.status === 'expired' && next === 'paid';
+    if (c.status !== 'pending' && !latePaid) return;
     if (next === 'declined' || next === 'expired') {
       await q(tx, `UPDATE online_charges SET status = $2, decline_reason = $3 WHERE id = $1`, [
         chargeId,
@@ -984,7 +988,7 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
     if (res.reference_id && res.reference_id !== chargeId) return;
     const before = pre.c.status;
     await this.db.withTenant(ctx, (tx) => this.applyOrderIn(tx, ctx, chargeId, res));
-    if (before === 'pending') this.publishOrder(tenantId, pre.c.order_id);
+    if (before === 'pending' || before === 'expired') this.publishOrder(tenantId, pre.c.order_id);
   }
 
   /**
@@ -1133,8 +1137,14 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
     const work = await this.db.withTenant({ tenantId }, async (tx) => ({
       pending: await q<{ id: string }>(
         tx,
-        `SELECT id FROM online_charges WHERE status = 'pending' AND created_at < now() - interval '1 minute'
-            AND pagbank_order_id IS NOT NULL ORDER BY created_at LIMIT 50`,
+        // Também o Pix trocado por outra forma enquanto o QR Code ainda vale: se o aviso do
+        // PagBank se perder, a conferência acha o pagamento (e devolve, se for o caso).
+        `SELECT id FROM online_charges
+          WHERE pagbank_order_id IS NOT NULL
+            AND ((status = 'pending' AND created_at < now() - interval '1 minute')
+                 OR (status = 'expired' AND method = 'pix'
+                     AND pix_expires_at > now() - interval '10 minutes'))
+          ORDER BY created_at LIMIT 50`,
       ),
       lost: await q<{ id: string; order_id: string }>(
         tx,

@@ -1267,9 +1267,12 @@ export class FiscalService implements OnModuleInit {
         `SELECT ${DOC_COLS} FROM fiscal_documents
           WHERE kind = 'nfce' AND status IN ('rejected','error')
             AND provider_status IS DISTINCT FROM 'denegado'
+            -- Nota de outro ambiente (ex.: recusada em homologação antes de ir para produção)
+            -- não é reaproveitada: a nova sai no ambiente atual.
+            AND environment = $3
             AND (CASE WHEN $2::uuid IS NULL THEN order_id = $1 AND tab_id IS NULL ELSE tab_id = $2 END)
           ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
-        [o.id, scope.tabId],
+        [o.id, scope.tabId, s.environment],
       );
       const extra = await one<{
         customer_id: string | null;
@@ -1454,6 +1457,12 @@ export class FiscalService implements OnModuleInit {
     const orderId = await this.db.withTenant(ctx, async (tx) => {
       const d = await this.lockEditable(tx, id);
       const s = await this.assertReady(tx, d.kind);
+      // A nota guarda o ambiente em que foi montada: reemitir depois da troca mandaria uma nota
+      // de homologação (sem valor fiscal) achando que é de produção, ou o contrário.
+      if (d.environment !== s.environment)
+        throw new ConflictException(
+          `Esta nota foi montada em ${d.environment === 'producao' ? 'produção' : 'homologação'} e a emissão agora é em ${s.environment === 'producao' ? 'produção' : 'homologação'}: apague esta nota e emita uma nova pela venda.`,
+        );
       await this.assertPaid(tx, { orderId: d.order_id, tabId: d.tab_id });
       const { lines: _l, ...op } = d.operation ?? {};
       const r = await this.store(
@@ -1576,8 +1585,10 @@ export class FiscalService implements OnModuleInit {
         job,
         { tenantId, documentId },
         {
-          // Id fixo evita o mesmo trabalho duplicado na fila; o manual ganha um sufixo próprio.
-          jobId: `${job}-${documentId}${manual ? `-${Date.now()}` : ''}`,
+          // Id fixo só no primeiro envio (evita mandar a mesma nota duas vezes). Consultas e o
+          // envio manual ganham um sufixo: o BullMQ guarda os trabalhos terminados e descartaria
+          // calado um trabalho novo com o mesmo id (a nota ficaria parada em "processando").
+          jobId: `${job}-${documentId}${manual || job !== EMIT_JOB ? `-${Date.now()}` : ''}`,
           attempts:
             job === CHECK_JOB ? CHECK_ATTEMPTS : job === CONTINGENCY_JOB ? CONTINGENCY_ATTEMPTS : 5,
           delayMs: job === CHECK_JOB ? 3000 : job === CONTINGENCY_JOB ? (manual ? 0 : 60_000) : 0,
@@ -1618,19 +1629,26 @@ export class FiscalService implements OnModuleInit {
     }
   }
 
+  /**
+   * Grava campos da nota. Com `expect`, só grava se a nota ainda estiver num desses estados
+   * (dois trabalhos com a mesma resposta não autorizam, imprimem nem mandam e-mail duas vezes).
+   * Devolve se gravou.
+   */
   private async setDoc(
     tenantId: string,
     id: string,
     fields: Record<string, unknown>,
     audit?: string,
-  ) {
+    expect?: FiscalStatus[],
+  ): Promise<boolean> {
     const cols = Object.keys(fields);
     const sets = cols.map((c, i) => `${c} = $${i + 2}`).join(', ');
+    const guard = expect ? ` AND status = ANY($${cols.length + 2})` : '';
     const row = await this.db.withTenant({ tenantId }, async (tx) => {
       const r = await one<{ order_id: string; status: string }>(
         tx,
-        `UPDATE fiscal_documents SET ${sets} WHERE id = $1 RETURNING order_id, status`,
-        [id, ...cols.map((c) => fields[c])],
+        `UPDATE fiscal_documents SET ${sets} WHERE id = $1${guard} RETURNING order_id, status`,
+        [id, ...cols.map((c) => fields[c]), ...(expect ? [expect] : [])],
       );
       if (r && audit)
         await this.audit.record(tx, {
@@ -1643,6 +1661,7 @@ export class FiscalService implements OnModuleInit {
       return r;
     });
     if (row) this.changed(tenantId, id, row.order_id);
+    return !!row;
   }
 
   /** Aplica o retorno da Focus ao documento. Devolve o novo status. */
@@ -1681,7 +1700,7 @@ export class FiscalService implements OnModuleInit {
             );
           return 'authorized';
         }
-        await this.setDoc(
+        const first = await this.setDoc(
           tenantId,
           doc.id,
           {
@@ -1701,7 +1720,10 @@ export class FiscalService implements OnModuleInit {
             contingency_settled_at: offline && settled ? new Date() : null,
           },
           offline ? `fiscal.${label}_authorized_contingency` : `fiscal.${label}_authorized`,
+          ['pending', 'processing'],
         );
+        // Outro trabalho já autorizou esta nota (ex.: "Atualizar" junto com o envio): nada a repetir.
+        if (!first) return 'authorized';
         void this.emailOnAuthorize(tenantId, doc);
         if (label === 'nfce') void this.printOnAuthorize(tenantId, doc);
         if (offline && !settled) await this.enqueue(tenantId, doc.id, CONTINGENCY_JOB);

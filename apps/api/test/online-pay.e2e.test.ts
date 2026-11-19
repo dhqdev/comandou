@@ -673,6 +673,56 @@ describe('Pix pelo app', () => {
     expect(done!.status).toBe('refunded');
   });
 
+  it('trocou o Pix pelo cartão e pagou o Pix antigo também: o Pix é devolvido, não some', async () => {
+    const o = await placePickup('pix');
+    const r = await pub.post(`/store/orders/${o.token}/pay/pix`, payer).expect(200);
+    const pbId = /pix-(ORDE_[a-f0-9]+)/.exec(r.body.pix.code)![1]!;
+    // O cliente troca para o cartão (o Pix fica "vencido" aqui, mas o QR Code ainda vale no banco).
+    await pub
+      .post(`/store/orders/${o.token}/pay/card`, {
+        encryptedCard: CARD_OK,
+        holderName: 'Bia Pagadora',
+        ...payer,
+      })
+      .expect(200);
+    payPix(pbId);
+    await http
+      .post('/api/v1/store/pagbank/notify')
+      .set('Host', HOST_A)
+      .send({ id: pbId })
+      .expect(200);
+    const rows = await ownerQuery<{ method: string; status: string }>(
+      `SELECT method, status FROM online_charges WHERE order_id = $1 ORDER BY created_at`,
+      [o.id],
+    );
+    expect(rows).toEqual([
+      { method: 'pix', status: 'refund_due' },
+      { method: 'card', status: 'paid' },
+    ]);
+    const n = fake.cancels.length;
+    await pay.sweep();
+    expect(fake.cancels.length).toBe(n + 1);
+  });
+
+  it('Pix trocado e pago sem o aviso do PagBank: a conferência acha o pagamento', async () => {
+    const o = await placePickup('pix');
+    const r = await pub.post(`/store/orders/${o.token}/pay/pix`, payer).expect(200);
+    const pbId = /pix-(ORDE_[a-f0-9]+)/.exec(r.body.pix.code)![1]!;
+    // Venceu aqui (troca de forma), mas o cliente paga o QR Code antigo e o aviso se perde.
+    await ownerQuery(
+      `UPDATE online_charges SET status = 'expired', pix_expires_at = now() + interval '5 minutes'
+        WHERE order_id = $1`,
+      [o.id],
+    );
+    payPix(pbId);
+    await pay.sweep();
+    const [c] = await ownerQuery<{ status: string }>(
+      `SELECT status FROM online_charges WHERE order_id = $1`,
+      [o.id],
+    );
+    expect(c!.status).toBe('paid');
+  });
+
   it('sem pagamento em 20 minutos, o pedido cancela sozinho', async () => {
     const o = await placePickup('credit', { payInApp: true });
     await ownerQuery(`UPDATE orders SET created_at = now() - interval '21 minutes' WHERE id = $1`, [

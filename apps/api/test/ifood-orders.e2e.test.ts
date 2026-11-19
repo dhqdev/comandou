@@ -497,6 +497,27 @@ describe('iFood: motivo do cancelamento, cancelamento negado e negociação', ()
     expect(h!.reason).toMatch(/cancelamento negado/);
   });
 
+  it('depois da negativa, pedir o cancelamento de novo chega ao iFood', async () => {
+    const o = await orderOf(ID(5));
+    const before = ifood.actions.filter(
+      (a) => a.orderId === ID(5) && a.verb === 'requestCancellation',
+    ).length;
+    await send('post', 'adminA', `/orders/${o.id}/status`, {
+      to: 'cancel_requested',
+      reason: 'Acabou o queijo de novo',
+      channelReason: '503',
+    }).expect(201);
+    await flush();
+    const calls = ifood.actions.filter(
+      (a) => a.orderId === ID(5) && a.verb === 'requestCancellation',
+    );
+    expect(calls.length).toBe(before + 1);
+    expect(calls.at(-1)!.body).toEqual({
+      reason: 'Acabou o queijo de novo',
+      cancellationCode: '503',
+    });
+  });
+
   it('negociação aberta aparece no pedido com prazo, alternativas e motivos (sem dados do cliente)', async () => {
     dispute('ev-hsd-1', {
       disputeId: 'disp-1',

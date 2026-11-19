@@ -72,18 +72,27 @@ export class ChannelOutboxService implements OnModuleInit {
       const adapter = this.registry.get(link.channel);
       if (adapter && !adapter.capabilities.includes(CHANNEL_ACTION_CAPABILITY[action])) return;
       if (adapter?.skipsAction?.(action, o.channel)) return;
-      await this.enqueueInTx(tx, ctx.tenantId, o.id, action, {
-        // Aceite: o número do pedido no Comandou (o Open Delivery pede o código externo).
-        ...(action === 'confirm' ? { orderCode: String(o.number) } : {}),
-        // Pronto: o tipo do pedido (o aiqfome só aceita "pronto para retirar" na retirada).
-        ...(action === 'ready' ? { orderType: o.channel } : {}),
-        ...(to === 'cancelled' || to === 'cancel_requested'
-          ? {
-              reason: (await this.reasonOf(tx, o.id)) ?? undefined,
-              ...(extra.channelReason ? { cancellationCode: extra.channelReason } : {}),
-            }
-          : {}),
-      });
+      await this.enqueueInTx(
+        tx,
+        ctx.tenantId,
+        o.id,
+        action,
+        {
+          // Aceite: o número do pedido no Comandou (o Open Delivery pede o código externo).
+          ...(action === 'confirm' ? { orderCode: String(o.number) } : {}),
+          // Pronto: o tipo do pedido (o aiqfome só aceita "pronto para retirar" na retirada).
+          ...(action === 'ready' ? { orderType: o.channel } : {}),
+          ...(to === 'cancelled' || to === 'cancel_requested'
+            ? {
+                reason: (await this.reasonOf(tx, o.id)) ?? undefined,
+                ...(extra.channelReason ? { cancellationCode: extra.channelReason } : {}),
+              }
+            : {}),
+        },
+        // Pedir o cancelamento de novo depois que o aplicativo negou é outro pedido: com a mesma
+        // chave ele seria descartado calado e o pedido ficaria em "Cancelamento solicitado".
+        action === 'request_cancellation' ? `:v${o.version}` : '',
+      );
     });
   }
 
