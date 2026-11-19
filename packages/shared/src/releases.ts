@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.199.2',
+    date: '2026-11-19',
+    title: 'Botões do restaurante cabem no celular (Super Admin)',
+    summary:
+      'No Super Admin pelo celular, os botões do restaurante (Abrir sistema, Conversar, Limpar cache e os outros) agora descem para a linha de baixo em vez de ficarem cortados.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Detalhe do restaurante no celular: a linha de ações quebra em duas quando não cabe, e nenhum botão fica escondido fora da tela.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'As abas do restaurante esmaecem na direita no celular, para mostrar que dá para arrastar e ver as outras.',
+      },
+    ],
+  },
+  {
     version: '0.199.1',
     date: '2026-11-19',
     title: 'Logo do Comandou dentro do e-mail',

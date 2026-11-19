@@ -1340,6 +1340,13 @@ details.adm-fieldset[open] > summary::before {
   }
   .adm-head:not(.adm-head--page) .adm-head__actions {
     flex-basis: 100%;
+    flex-wrap: wrap;
+  }
+  /* Abas que não cabem rolam de lado; o esmaecido na direita avisa que tem mais. */
+  .adm-tabs {
+    padding-right: 24px;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
   }
 }
 
