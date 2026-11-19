@@ -16,6 +16,8 @@ export async function createApp(
 ): Promise<INestApplication> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(env), {
     bufferLogs: true,
+    // Corpo cru do JSON em req.rawBody: os webhooks dos aplicativos assinam o corpo como veio.
+    rawBody: true,
     logger: opts.logger === false ? false : undefined,
   });
   if (opts.logger !== false) app.useLogger(app.get(Logger));

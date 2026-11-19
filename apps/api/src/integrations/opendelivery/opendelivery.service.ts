@@ -26,6 +26,16 @@ import {
 /** Canais do padrão Open Delivery que o restaurante liga pelo Comandou. */
 export const OD_CHANNELS = ['keeta', '99food', 'opendelivery'] as const;
 export type OdChannel = (typeof OD_CHANNELS)[number];
+/** Canais em que o restaurante liga a loja pelo código do aplicativo (Open Delivery e Rappi). */
+export const CONNECT_CHANNELS = [...OD_CHANNELS, 'rappi'] as const;
+export type ConnectChannel = (typeof CONNECT_CHANNELS)[number];
+const NUMERIC_STORE = new Set<string>(['keeta', '99food', 'rappi']);
+
+/** O que ligar a loja precisa do adaptador (Open Delivery e Rappi implementam). */
+interface Connectable {
+  onboard(storeId: string, channelStoreId: string): Promise<void>;
+  dialect?: { token: string };
+}
 
 /**
  * Keeta, 99Food e Open Delivery (ADR 0015, Fases 10 e 11): registra os adaptadores na camada de
@@ -83,21 +93,23 @@ export class OpenDeliveryService implements OnModuleInit {
   async connect(
     tenantId: string,
     userId: string,
-    b: { channel: OdChannel; storeId: string; name: string },
+    b: { channel: ConnectChannel; storeId: string; name: string },
     ip?: string,
   ) {
-    const adapter = this.adapters[b.channel];
+    const adapter = this.registry.get(b.channel) as (Connectable & object) | undefined;
+    if (!adapter || typeof adapter.onboard !== 'function')
+      throw new BadRequestException('Aplicativo não disponível neste servidor');
     const label = channelInfo(b.channel).label;
     const storeId = b.storeId.trim().toLowerCase();
-    if ((b.channel === 'keeta' || b.channel === '99food') && !/^\d{1,20}$/.test(storeId))
-      throw new BadRequestException(`O código da loja na ${label} tem só números`);
+    if (NUMERIC_STORE.has(b.channel) && !/^\d{1,20}$/.test(storeId))
+      throw new BadRequestException(`O código da loja ${withArticle(label, 'no')} tem só números`);
     try {
       // Keeta: o id da loja no Comandou é o próprio código da Keeta (é ele que vai no polling).
       // 99Food: é o id que o app do Comandou deu à loja ao vincular (o mesmo número da loja).
       await adapter.onboard(storeId, storeId);
     } catch (e) {
       const status = e instanceof ChannelHttpError ? e.status : 0;
-      const perStore = adapter.dialect.token === 'store';
+      const perStore = adapter.dialect?.token === 'store';
       throw new UnprocessableEntityException(
         perStore && status >= 400 && status < 500
           ? `A loja ainda não está vinculada ao Comandou na ${label}, ou o código está errado. Peça o vínculo ao suporte do Comandou.`

@@ -164,6 +164,7 @@ const OPEN_WITHOUT_TENANT = [
 const SKIP_CSRF_ROUTES = [
   'POST /api/v1/internal/whatsapp/inbound',
   'POST /api/v1/platform/billing/asaas/webhook',
+  'POST /api/v1/platform/channels/webhooks/rappi/:hook',
   'POST /api/v1/store/pagbank/notify',
 ];
 
@@ -337,7 +338,7 @@ describe('Inventário de rotas', () => {
       (r) =>
         isPlatform(r) &&
         !r.guards.includes('PlatformSessionGuard') &&
-        !/^\/api\/v1\/(platform\/(auth|receive|sign|billing\/asaas)|pagbank\/connect)\b/.test(
+        !/^\/api\/v1\/(platform\/(auth|receive|sign|billing\/asaas|channels\/webhooks)|pagbank\/connect)\b/.test(
           r.path,
         ),
     );

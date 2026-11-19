@@ -4,10 +4,10 @@ import { z } from 'zod';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../../common/decorators';
 import { ZodPipe } from '../../common/zod.pipe';
 import type { AuthenticatedUser, ResolvedTenant } from '../../tenancy/tenant.types';
-import { OD_CHANNELS, OpenDeliveryService } from './opendelivery.service';
+import { CONNECT_CHANNELS, OpenDeliveryService } from './opendelivery.service';
 
 const ConnectBody = z.object({
-  channel: z.enum(OD_CHANNELS),
+  channel: z.enum(CONNECT_CHANNELS),
   storeId: z
     .string()
     .trim()
@@ -15,7 +15,7 @@ const ConnectBody = z.object({
   name: z.string().trim().max(160).default(''),
 });
 
-/** Aplicativos de delivery › Keeta e Open Delivery: ligar uma loja pelo código do aplicativo. */
+/** Aplicativos de delivery › Keeta, 99Food, Rappi e Open Delivery: ligar uma loja pelo código. */
 @Controller({ path: 'channels', version: '1' })
 export class OpenDeliveryController {
   constructor(private readonly svc: OpenDeliveryService) {}

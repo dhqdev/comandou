@@ -150,6 +150,14 @@ pedidos do aplicativo não chegam e ele cancela sozinho depois do prazo.
     Cada loja só pode estar vinculada a um app de produção: se outro sistema tem a loja, a 99Food
     não entrega os pedidos aqui. 400 no polling = a 99Food mudou o formato de `eventType`/`fromTime`
     (veja Super Admin › Aplicativos de delivery, erro por chamada).
+16. **Rappi: pedido não chega, cancelamento não chega ou webhook recusado** (Fase 12): pedido novo
+    só se busca uma vez; se sumiu, veja `channel_inbox` (evento `<pedido>:new`) e o log "pedido da
+    Rappi não está mais na lista": passou dos 10 minutos da lista dos SENT antes de entrar (banco
+    do restaurante fora por muito tempo); recupere pelo portal da Rappi. Cancelamento só chega por
+    webhook: confira se os 5 endereços estão cadastrados na Rappi
+    (`admin.<domínio>/api/v1/platform/channels/webhooks/rappi/<aviso>`) e se o segredo é o mesmo do
+    cartão Rappi em Credenciais. "webhook da Rappi recusado: bad_signature" no log = segredo
+    diferente ou relógio fora (mais de 10 minutos). Não desligue a assinatura.
 
 ### Backup atrasado
 

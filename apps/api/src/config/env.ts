@@ -120,6 +120,8 @@ const schema = z.object({
   KEETA_API_URL: z.string().url().default('https://open.mykeeta.com/api/open/opendelivery'),
   /** 99Food pelo Open Delivery (token por loja, polling): base da API. Chaves em Credenciais. */
   FOOD99_API_URL: z.string().url().default('https://openapi.99food.com/v4/opendelivery'),
+  /** Rappi (Orders Rests API): domínio do Brasil. Chaves e segredo do webhook em Credenciais. */
+  RAPPI_API_URL: z.string().url().default('https://api.rappi.com.br'),
   IFOOD_CLIENT_ID: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(8).optional()),
   IFOOD_CLIENT_SECRET: z.preprocess(
     (v) => (v === '' ? undefined : v),

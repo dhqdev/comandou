@@ -47,6 +47,11 @@ cookie, CSRF, corpo gigante e Host estranho.
 - `@SkipTenant()` desliga a sessão também: só com `PlatformHostGuard` + `PlatformSessionGuard`
   (painel) ou token próprio conferido **antes** de ler o corpo (`bearerMatches`, tempo constante).
 - `@SkipCsrf()` só para webhook de terceiro com token ou assinatura.
+  Modelo para webhook de aplicativo de delivery: `RappiWebhookController` (admin.<base>, prefixo
+  `/api/v1/platform/channels/webhooks/`, `PlatformHostGuard`, limite por minuto, HMAC sobre
+  `req.rawBody` em tempo constante com prazo de 10 minutos, segredo cifrado em Credenciais e
+  recusa tudo sem segredo; grava antes de responder 200). Rota nova entra em `SKIP_CSRF_ROUTES`
+  da `security-sweep.e2e.test.ts`.
 - Painel: ação que não volta (excluir, produção, assinar) pede `PlatformAuthService.confirmCode`
   (código do autenticador, mesmo em navegador confiável) e grava a tentativa negada na auditoria.
 

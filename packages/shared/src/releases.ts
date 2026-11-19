@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.191.0',
+    date: '2026-11-19',
+    title: 'Pedidos da Rappi chegando no Comandou',
+    summary:
+      'A loja liga o id dela na Rappi e os pedidos chegam sozinhos. Aceitar, recusar e pronto voltam para a Rappi, e o cancelamento feito na Rappi cancela o pedido aqui na hora, por um aviso assinado.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Em Aplicativos de delivery, o cartão da Rappi tem "Ligar uma loja": cole o id da loja na Rappi.',
+      },
+      {
+        tag: 'novo',
+        text: 'O pedido da Rappi entra com itens e complementos, taxa de entrega, gorjeta, cupom de quem pagou e o dinheiro a cobrar na entrega. Recusar mostra os motivos que a Rappi aceita.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Os avisos da Rappi só entram com a assinatura certa e recente; o segredo fica cifrado no painel da equipe. Pedido novo nunca se perde se o sistema do restaurante estiver fora por alguns minutos.',
+      },
+    ],
+  },
+  {
     version: '0.190.0',
     date: '2026-11-19',
     title: 'Pedidos da 99Food chegando no Comandou',

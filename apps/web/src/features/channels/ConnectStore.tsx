@@ -5,8 +5,8 @@ import { Button, TextField, useToast } from '../../design-system';
 import { api } from '../../lib/api';
 
 /** Canais em que a loja liga aqui, pelo código que o aplicativo deu (ADR 0015, Fases 10 e 11). */
-export const CONNECT_HERE = new Set(['keeta', '99food', 'opendelivery']);
-const NUMERIC = new Set(['keeta', '99food']);
+export const CONNECT_HERE = new Set(['keeta', '99food', 'rappi', 'opendelivery']);
+const NUMERIC = new Set(['keeta', '99food', 'rappi']);
 
 const HINT: Record<string, { field: string; help: string; pattern?: string }> = {
   keeta: {
@@ -17,6 +17,11 @@ const HINT: Record<string, { field: string; help: string; pattern?: string }> = 
   '99food': {
     field: 'Número da loja na 99Food',
     help: 'Peça ao suporte do Comandou o vínculo da loja na 99Food e cole aqui o número da loja (aparece no portal da 99Food, nos dados da loja).',
+    pattern: '[0-9]{1,20}',
+  },
+  rappi: {
+    field: 'Id da loja na Rappi',
+    help: 'Copie o id numérico da loja no portal de parceiros da Rappi (o mesmo que aparece nos pedidos).',
     pattern: '[0-9]{1,20}',
   },
   opendelivery: {

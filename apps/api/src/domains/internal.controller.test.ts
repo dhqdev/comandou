@@ -85,8 +85,8 @@ describe('traefikConfig com CrowdSec', () => {
     >;
     const open = Object.values(routers).filter((r) => r.rule.includes('asaas/webhook'));
     expect(open.map((r) => r.rule)).toEqual([
-      'Host(`admin.comandou.com`) && (PathPrefix(`/api/v1/health/`) || Path(`/api/v1/platform/billing/asaas/webhook`) || Path(`/api/v1/metrics`))',
-      'Host(`demo.comandou.com`) && (PathPrefix(`/api/v1/health/`) || Path(`/api/v1/platform/billing/asaas/webhook`) || Path(`/api/v1/metrics`))',
+      'Host(`admin.comandou.com`) && (PathPrefix(`/api/v1/health/`) || Path(`/api/v1/platform/billing/asaas/webhook`) || PathPrefix(`/api/v1/platform/channels/webhooks/`) || Path(`/api/v1/metrics`))',
+      'Host(`demo.comandou.com`) && (PathPrefix(`/api/v1/health/`) || Path(`/api/v1/platform/billing/asaas/webhook`) || PathPrefix(`/api/v1/platform/channels/webhooks/`) || Path(`/api/v1/metrics`))',
     ]);
     for (const r of open) {
       expect(r.middlewares).toBeUndefined();
@@ -130,7 +130,7 @@ describe('traefikConfig com CrowdSec', () => {
     ]);
     const r = routers['cm-wildcard-open'];
     expect(r.rule).toBe(
-      'HostRegexp(`^[a-z0-9-]+\\.comandou\\.com$`) && (PathPrefix(`/api/v1/health/`) || Path(`/api/v1/platform/billing/asaas/webhook`) || Path(`/api/v1/metrics`))',
+      'HostRegexp(`^[a-z0-9-]+\\.comandou\\.com$`) && (PathPrefix(`/api/v1/health/`) || Path(`/api/v1/platform/billing/asaas/webhook`) || PathPrefix(`/api/v1/platform/channels/webhooks/`) || Path(`/api/v1/metrics`))',
     );
   });
 });

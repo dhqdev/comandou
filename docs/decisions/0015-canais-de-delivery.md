@@ -583,3 +583,41 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
     financeiro, página de autorização da loja); conferir no sandbox o formato do token (formulário)
     e do `eventType` (repetido na query), que a doc não mostra em exemplo; entrega pelo entregador
     da 99Food (o rastreio dela é webhook).
+- **Fase 12** (Rappi, 0.191.0): `integrations/rappi/` (`RappiAdapter`, `rappi-order.ts`,
+  `RappiService`, `RappiWebhookController`), base `RAPPI_API_URL` (padrão `https://api.rappi.com.br`;
+  no teste, o "Endereço da API" do cartão em Credenciais), sem migração nova.
+  - **Token** `POST /restaurants/auth/v1/token/login/integrations` (JSON `client_id`/`client_secret`),
+    no cabeçalho `x-authorization: Bearer <token>`; guardado até 5 minutos antes de vencer, 401
+    renova uma vez.
+  - **Busca única**: `GET /restaurants/orders/v1/stores/{loja}/orders` devolve os pedidos novos
+    UMA vez (a busca os marca SENT). Por isso o polling guarda o pedido **na memória** do adaptador
+    (15 minutos, até 2.000) até ele entrar no Comandou (o evento na caixa de entrada continua sem
+    dado pessoal), e a cada rodada também lê `GET /orders/status/sent` (SENT dos últimos 10
+    minutos): se o banco do restaurante estava fora ou outra réplica trata o evento, o pedido volta
+    por aí. Id do evento `<pedido>:new`, então busca, lista dos SENT e webhook não duplicam.
+  - **Ações**: aceitar = `PUT …/take` (ou `…/cooking_time/{min}/take`); recusar = `PUT
+    …/cancel_type/{motivo}/reject` com `{description, additional_info: {}}` e os motivos da Rappi
+    (`ITEM_STOCKOUT`, `STORE_CLOSED`…); pronto = `POST …/ready-for-pickup` (sem repetir: mais de 3
+    avisos contam como abuso; 409/422 = já pronto). A API não cancela pedido já aceito: a loja
+    cancela no portal da Rappi, e o aviso de cancelamento volta pelo webhook.
+  - **Primeiro webhook dos aplicativos**: `POST admin.<base>/api/v1/platform/channels/webhooks/rappi/
+    {new-order|cancel|other|ping|store}` (`PlatformHostGuard`, `@Public`, `@SkipCsrf`, 600 por
+    minuto). Confere `Rappi-Signature: t=..,sign=..` = HMAC-SHA256 hexadecimal de `t.corpo cru`
+    com o segredo do webhook (cifrado em Credenciais; sem segredo, tudo é recusado), em tempo
+    constante e com até 10 minutos de diferença (t em segundos ou milissegundos). O corpo cru vem
+    de `rawBody: true` no `createApp`. Depois é como o polling: grava na caixa de entrada do
+    restaurante e só então responde 200; banco fora = 503 (a Rappi manda de novo); loja que não é
+    nossa = 200. `cancel` cancela o pedido; `other`, `ping` e `store` só respondem. A rota entrou
+    na varredura de segurança e nos caminhos que o CrowdSec não bloqueia
+    (`/api/v1/platform/channels/webhooks/`).
+  - **Pedido** (`rappiToExternal`): valores em reais (os exemplos de erro da Rappi trazem 123.13),
+    `delivery` = entregador da Rappi, `marketplace` = entrega da loja, `pickup` = retirada;
+    complementos (`subitems`) por unidade do item; gorjeta como taxa; cupom dividido por
+    `amount_by_rappi` (aplicativo) e `amount_by_partner` (loja); `total_to_pay` = dinheiro a cobrar
+    na entrega, o resto pago no app. Nome do cliente com a inicial do sobrenome.
+  - **Testes**: `test/rappi.e2e.test.ts` (8, com a Rappi falsa `test/fake-rappi.ts` que entrega o
+    pedido novo uma vez só) e `rappi-order.test.ts` (4, com a assinatura conferida à parte).
+  - Fica de fora: conferir no sandbox os valores (reais) e o formato `x-authorization` (a doc
+    mostra "Bearer:" com dois-pontos numa tabela); cadastrar os webhooks pela API da Rappi (hoje a
+    equipe cadastra os endereços); cardápio, disponibilidade, abrir/fechar loja e financeiro da
+    Rappi; QR/código de entrega (`handoff`) e a confirmação de sacolas.

@@ -33,10 +33,11 @@ O bloqueio dura 4 horas (padrão do CrowdSec). Robôs bons (Google, Bing) nunca 
 
 ## O que nunca é bloqueado
 
-- **Webhook do Asaas** (`/api/v1/platform/billing/asaas/webhook`), **teste de status do Super
-  Admin** e health checks (`/api/v1/health/...`) e **métricas** (`/api/v1/metrics`): chegam por
-  roteadores próprios no Traefik, sem o plugin. Mesmo que o IP esteja bloqueado, passam. Todos já
-  exigem token ou não mostram dados.
+- **Webhook do Asaas** (`/api/v1/platform/billing/asaas/webhook`), **webhooks dos aplicativos de
+  delivery** (`/api/v1/platform/channels/webhooks/...`, hoje os da Rappi), **teste de status do
+  Super Admin** e health checks (`/api/v1/health/...`) e **métricas** (`/api/v1/metrics`): chegam
+  por roteadores próprios no Traefik, sem o plugin. Mesmo que o IP esteja bloqueado, passam. Todos
+  já exigem token ou assinatura, ou não mostram dados.
 - **A Focus NFe** não manda webhook para o Comandou: é o Comandou que consulta a Focus. Nada a liberar.
 - **O próprio servidor e a rede do Docker** (10.x, 172.16-31.x, 192.168.x, 127.x).
 - **IPs que você escolher** (o escritório, por exemplo): `CROWDSEC_TRUSTED_IPS` em

@@ -167,7 +167,7 @@ describe('Keeta: ligar a loja', () => {
     await send('post', 'adminA', '/channels/stores', { channel: 'keeta', storeId: 'abc' }).expect(
       400,
     );
-    await send('post', 'adminA', '/channels/stores', { channel: 'rappi', storeId: '1' }).expect(
+    await send('post', 'adminA', '/channels/stores', { channel: 'aiqfome', storeId: '1' }).expect(
       400,
     );
     keeta.failNext.onboarding!.push(403);

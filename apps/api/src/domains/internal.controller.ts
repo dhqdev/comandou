@@ -13,11 +13,12 @@ export const CROWDSEC_MIDDLEWARE = 'comandou-crowdsec';
 
 /**
  * Caminhos que o CrowdSec nunca bloqueia: chegam por roteadores de prioridade maior, sem o
- * middleware. Webhook do Asaas (pagamentos), teste de status do Super Admin e health checks
- * (/api/v1/health/...) e as métricas do Prometheus. Todos já exigem token ou não expõem dados.
+ * middleware. Webhooks do Asaas (pagamentos) e dos aplicativos de delivery (assinados), teste de
+ * status do Super Admin e health checks (/api/v1/health/...) e as métricas do Prometheus. Todos
+ * já exigem token ou assinatura, ou não expõem dados.
  */
 export const CROWDSEC_OPEN_PATHS =
-  'PathPrefix(`/api/v1/health/`) || Path(`/api/v1/platform/billing/asaas/webhook`) || Path(`/api/v1/metrics`)';
+  'PathPrefix(`/api/v1/health/`) || Path(`/api/v1/platform/billing/asaas/webhook`) || PathPrefix(`/api/v1/platform/channels/webhooks/`) || Path(`/api/v1/metrics`)';
 
 /** Redes que nunca são bloqueadas: o próprio servidor, a rede do Docker e a rede local. */
 const PRIVATE_NETS = ['127.0.0.0/8', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '::1/128'];

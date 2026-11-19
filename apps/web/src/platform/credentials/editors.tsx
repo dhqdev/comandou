@@ -1087,6 +1087,8 @@ export function ChannelEditor({
   const [baseUrl, setBaseUrl] = useState('');
   const { busy, error, run } = useBusy();
   const needsBase = channel === 'opendelivery';
+  // Rappi: endereço só para o ambiente de teste (sem ele vale o domínio do Brasil).
+  const optionalBase = channel === 'rappi';
   // Keeta, 99Food e Open Delivery buscam por polling: não há segredo de webhook para guardar.
   const polling = channel === 'keeta' || channel === '99food' || needsBase;
   const saved = state?.source === 'panel';
@@ -1103,7 +1105,7 @@ export function ChannelEditor({
             clientSecret,
             ...(channel === 'ifood' ? { mode } : {}),
             ...(webhookSecret && !polling ? { webhookSecret } : {}),
-            ...(needsBase ? { baseUrl } : {}),
+            ...(needsBase || (optionalBase && baseUrl) ? { baseUrl } : {}),
           },
         }),
       'Credencial salva',
@@ -1127,13 +1129,19 @@ export function ChannelEditor({
         </Alert>
       )}
       <div className="adm-backup-grid">
-        {needsBase && (
+        {(needsBase || optionalBase) && (
           <TextField
-            label="Endereço da API"
+            label={optionalBase ? 'Endereço da API (só no teste)' : 'Endereço da API'}
             inputMode="url"
             autoComplete="off"
             value={baseUrl}
-            placeholder={state?.host ? `Em uso: ${state.host}` : 'https://api.aplicativo.com.br'}
+            placeholder={
+              state?.host
+                ? `Em uso: ${state.host}`
+                : optionalBase
+                  ? 'https://api.dev.rappi.com'
+                  : 'https://api.aplicativo.com.br'
+            }
             onChange={(e) => setBaseUrl(e.target.value.trim())}
           />
         )}
@@ -1160,7 +1168,7 @@ export function ChannelEditor({
           </SelectField>
         ) : polling ? null : (
           <TextField
-            label="Segredo do webhook (opcional)"
+            label={channel === 'rappi' ? 'Segredo do webhook' : 'Segredo do webhook (opcional)'}
             type="password"
             autoComplete="new-password"
             value={webhookSecret}
