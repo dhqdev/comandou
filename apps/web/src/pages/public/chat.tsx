@@ -50,9 +50,10 @@ export const useStoreChat = () => useContext(Ctx);
  * responde com o cliente em outra tela. O tempo real só abre depois que existe uma conversa.
  */
 export function StoreChatProvider({ children }: { children: ReactNode }) {
-  const { menu, account } = useStore();
+  const { account, rules } = useStore();
   const toast = useToast();
-  const enabled = menu.appearance.chatEnabled !== false;
+  // Regras do cardápio: na mesa não há conversa (store-rules.ts).
+  const enabled = rules.chat;
   const [unread, setUnread] = useState(0);
   const [hasChat, setHasChat] = useState(false);
   const open = useRef(false);

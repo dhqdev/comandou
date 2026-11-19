@@ -59,6 +59,7 @@ import { track } from './pixel';
 import { LoopRail } from './LoopRail';
 import { LoyaltyStrip } from './LoyaltyScreens';
 import { ReserveCard } from './ReservationScreens';
+import { TableWelcome } from './TableWelcome';
 import { HeartButton, Photo } from './ui';
 
 /** Produto sem escolha obrigatória pode ir direto para a sacola pelo "+" (por peso abre o item). */
@@ -283,7 +284,7 @@ function StoreInfo({ open, onClose }: { open: boolean; onClose(): void }) {
           <li>
             <Clock size={18} aria-hidden />
             <span>
-              <strong>Tempo de preparo e entrega</strong>
+              <strong>{table ? 'Tempo de preparo' : 'Tempo de preparo e entrega'}</strong>
               {s.etaMin}–{s.etaMax} min
             </span>
           </li>
@@ -409,7 +410,7 @@ function FilterSheet({
  * abre as informações da loja.
  */
 function StoreHeader({ onInfo }: { onInfo(): void }) {
-  const { menu, account, count, table } = useStore();
+  const { menu, account, count, table, rules } = useStore();
   const r = menu.restaurant;
   const s = menu.store;
   const first = account?.customer?.name.split(' ')[0];
@@ -422,7 +423,7 @@ function StoreHeader({ onInfo }: { onInfo(): void }) {
           <div className="sf-cover__art" />
         )}
         <div className="sf-cover__bar">
-          {menu.appearance.accountsEnabled ? (
+          {rules.accountTab ? (
             <Link className="sf-glass" to="/pedir/conta" aria-label="Minha conta">
               {first ? first[0]!.toUpperCase() : <UserRound size={19} />}
             </Link>
@@ -771,7 +772,7 @@ function CategoryChips({ sections, show }: { sections: Section[]; show: boolean 
 let keptScroll = 0;
 
 export function HomeScreen() {
-  const { menu, product, table } = useStore();
+  const { menu, product, table, rules } = useStore();
   const layout = useLayout();
   const phone = layout === 'phone';
   const nav = useNavigationType();
@@ -867,7 +868,11 @@ export function HomeScreen() {
         <StoreHeader onInfo={() => setSheet('info')} />
         {phone && (
           <div className="sf-wrap sf-ridewrap">
-            <RideTile onInfo={() => setSheet('info')} />
+            {table ? (
+              <TableWelcome onInfo={() => setSheet('info')} />
+            ) : (
+              <RideTile onInfo={() => setSheet('info')} />
+            )}
           </div>
         )}
         {!menu.store.isOpen && (
@@ -944,17 +949,23 @@ export function HomeScreen() {
         ) : (
           <>
             <div className="sf-perks">
-              {recent[0] && (
+              {/* Na mesa, os pedidos enviados ficam no bloco da mesa. */}
+              {recent[0] && !table && (
                 <Link className="ongoing" to={`/pedido/${recent[0].token}`}>
                   <span className="ongoing__dot" aria-hidden />
                   Pedido #{recent[0].number}
                   <ChevronRight size={16} />
                 </Link>
               )}
-              {!phone && <RideTile onInfo={() => setSheet('info')} />}
+              {!phone &&
+                (table ? (
+                  <TableWelcome onInfo={() => setSheet('info')} />
+                ) : (
+                  <RideTile onInfo={() => setSheet('info')} />
+                ))}
               <LoyaltyStrip />
-              {/* Quem já está sentado na mesa não precisa reservar. */}
-              {!table && <ReserveCard />}
+              {/* Quem já está sentado na mesa não precisa reservar (store-rules.ts). */}
+              {rules.reservations && <ReserveCard />}
             </div>
             <Banners banners={menu.banners} onPick={pickBanner} />
 

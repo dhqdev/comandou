@@ -24,8 +24,9 @@ const day = (iso: string) =>
 
 /** Programa ligado, ou null (carregando ou desligado). */
 export function useLoyalty(): LoyaltyOn | null {
-  const { loyalty } = useStore();
-  return loyalty?.enabled ? loyalty : null;
+  const { loyalty, rules } = useStore();
+  // Cardápio da mesa não mostra fidelidade (regras em store-rules.ts).
+  return rules.loyalty && loyalty?.enabled ? loyalty : null;
 }
 
 /** Recompensa mais barata que o cliente ainda não alcança (a "próxima meta"). */
