@@ -17,7 +17,9 @@ describe('e-mails do Comandou', () => {
     const pre = /<div style="display:none[^>]*>([^<]*)/.exec(m.html)![1]!;
     expect(pre.startsWith('Código 482915 para criar uma nova senha em Fumaça Burger')).toBe(true);
     expect(m.html).toContain('>482915</div>');
-    expect(m.html).toContain(`${ASSETS}/email/panda-codigo.png`);
+    expect(m.html).toContain(`${ASSETS}/email/hero-codigo.jpg`);
+    // Botão "Copiar código": abre a página que copia com um toque (o código vai depois do #).
+    expect(m.html).toContain(`href="${ASSETS}/codigo#482915"`);
     expect(m.text).toContain('\n482915\n');
   });
 

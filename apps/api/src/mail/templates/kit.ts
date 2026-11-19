@@ -63,11 +63,11 @@ export interface Shell {
   preheader: string;
   /** Site do Comandou (https://comandou.com): de onde vêm as imagens. */
   assets: string;
-  /** Panda da assinatura (cada assunto tem o seu). */
+  /** Pose do panda da capa do topo (email/hero-<pose>.jpg); cada assunto tem a sua. */
   panda?: PandaPose;
   /** Marca no topo: o Comandou (padrão) ou o nome do restaurante (e-mail para o cliente dele). */
   brand?: { name: string } | null;
-  /** Assunto curto no canto do cabeçalho ("Segurança da conta", "Mensalidade"). */
+  /** Assunto curto em cima do título ("Segurança da conta", "Mensalidade"). */
   topic?: string;
   heading: string;
   lead?: string;
@@ -100,6 +100,7 @@ ${pre}.em-ink, ${pre}.em-ink a { color:${DARK.ink} !important; }
 ${pre}.em-muted, ${pre}.em-muted a { color:${DARK.muted} !important; }
 ${pre}.em-faint, ${pre}.em-faint a { color:${DARK.faint} !important; }
 ${pre}.em-brand, ${pre}.em-brand a { color:${DARK.brand} !important; }
+${pre}.em-copybtn { background:${DARK.ink} !important; } ${pre}.em-copybtn a { color:#171412 !important; }
 ${pre}.em-step { border-color:${DARK.line} !important; color:${DARK.ink} !important; }`;
 
 const CSS = `
@@ -114,7 +115,8 @@ a { text-decoration: none; }
   .em-out { padding-left: 4px !important; padding-right: 4px !important; }
   .em-h1 { font-size: 22px !important; line-height: 29px !important; }
   .em-codebig { font-size: 32px !important; letter-spacing: 6px !important; }
-  .em-topic { display: none !important; }
+  .em-codecell, .em-copy { display: block !important; width: auto !important; }
+  .em-copy { padding: 4px 24px 6px !important; text-align: left !important; }
   .em-rl { display: block !important; width: auto !important; padding: 13px 0 1px !important; border-bottom: 0 !important; }
   .em-rv { display: block !important; width: auto !important; text-align: left !important; padding: 0 0 13px !important; border-top: 0 !important; }
   .em-fig { display: block !important; width: 100% !important; border-left: 0 !important; padding: 12px 0 !important; }
@@ -133,7 +135,20 @@ export function shell(s: Shell): string {
     : `<td style="padding-right:9px;" valign="middle"><img src="${esc(assets)}/icons/icon-192.png" width="26" height="26" alt="" style="display:block;border:0;border-radius:7px;width:26px;height:26px;"></td>
           <td class="em-ink" valign="middle" style="${f(700, 17, 24)}color:${C.ink};letter-spacing:-0.3px;">comandou</td>`;
 
-  // Assinatura: o panda pequeno do assunto ao lado de quem manda.
+  // Topo: a capa do Comandou com o panda do assunto (imagem com o nome no texto alternativo) ou,
+  // no e-mail que sai com o nome do restaurante, só o nome dele numa linha.
+  const top =
+    !s.brand && s.panda
+      ? `<tr><td bgcolor="#171412" style="background:#171412;border-radius:13px 13px 0 0;font-size:0;line-height:0;">
+  <img src="${esc(assets)}/email/hero-${s.panda}.jpg" width="558" alt="Comandou" style="display:block;width:100%;max-width:558px;height:auto;border:0;border-radius:13px 13px 0 0;color:#FFFFFF;font-family:${FONT};font-size:22px;font-weight:800;line-height:60px;text-align:center;">
+</td></tr>`
+      : `<tr><td class="em-pad em-line" style="padding:22px 40px 20px;border-bottom:1px solid ${C.line};">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+    ${brand}
+  </tr></table>
+</td></tr>`;
+
+  // Assinatura: quem manda, com o ícone do Comandou.
   const signoff = s.brand
     ? `<tr><td class="em-pad em-line" style="padding:22px 40px 26px;border-top:1px solid ${C.line};">
     <div class="em-ink" style="${f(600, 14, 20)}color:${C.ink};">${esc(s.brand.name)}</div>
@@ -141,7 +156,7 @@ export function shell(s: Shell): string {
   </td></tr>`
     : `<tr><td class="em-pad em-line" style="padding:20px 40px 24px;border-top:1px solid ${C.line};">
     <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-      ${s.panda ? `<td valign="middle" style="padding-right:12px;"><img src="${esc(assets)}/email/panda-${s.panda}.png" width="44" height="44" alt="" style="display:block;border:0;width:44px;height:44px;"></td>` : ''}
+      <td valign="middle" style="padding-right:12px;"><img src="${esc(assets)}/icons/icon-192.png" width="36" height="36" alt="" style="display:block;border:0;width:36px;height:36px;border-radius:9px;"></td>
       <td valign="middle">
         <div class="em-ink" style="${f(600, 14, 20)}color:${C.ink};">Equipe Comandou</div>
         <div class="em-faint" style="${f(400, 13, 19)}color:${C.faint};">Sistema para restaurantes</div>
@@ -176,16 +191,10 @@ export function shell(s: Shell): string {
 <tr><td>
 <table role="presentation" class="em-card" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.card}" style="background:${C.card};border:1px solid ${C.line};border-radius:14px;">
 
-<tr><td class="em-pad em-line" style="padding:22px 40px 20px;border-bottom:1px solid ${C.line};">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-    <td valign="middle"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-          ${brand}
-    </tr></table></td>
-    ${s.topic ? `<td class="em-topic em-faint" align="right" valign="middle" style="${f(500, 13, 18)}color:${C.faint};white-space:nowrap;">${esc(s.topic)}</td>` : ''}
-  </tr></table>
-</td></tr>
+${top}
 
-<tr><td class="em-pad" style="padding:36px 40px 18px;">
+<tr><td class="em-pad" style="padding:34px 40px 18px;">
+  ${s.topic ? `<div class="em-brand" style="margin:0 0 8px;${f(600, 13, 18)}color:${C.brand};">${esc(s.topic)}</div>` : ''}
   <h1 class="em-ink em-h1" style="margin:0 0 12px;${f(700, 25, 32)}color:${C.ink};letter-spacing:-0.5px;">${s.heading}</h1>
   ${s.lead ? `<p class="em-muted" style="margin:0 0 26px;${f(400, 15, 24)}color:${C.muted};">${s.lead}</p>` : ''}
   ${s.body.join('\n  ')}
@@ -235,14 +244,25 @@ const dot = (color: string) =>
 
 /**
  * O código grande, numa caixa só, sem espaço no meio: dois toques (ou tocar e segurar) seleciona
- * os 6 números de uma vez para copiar. Embaixo, a validade com a bolinha laranja.
+ * os 6 números de uma vez. Com `copyUrl`, vem o botão "Copiar código" (e-mail não roda script:
+ * o botão abre a página /codigo do Comandou, que copia com um toque). Embaixo, a validade.
  */
-export function codeBox(code: string, caption: string) {
+export function codeBox(code: string, caption: string, copyUrl?: string) {
+  const copy = copyUrl
+    ? `<td class="em-copy" align="right" valign="middle" style="padding:20px 24px 0 0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td class="em-copybtn" bgcolor="${C.ink}" style="background:${C.ink};border-radius:9px;mso-padding-alt:11px 18px;">
+        <a href="${esc(copyUrl)}" target="_blank" style="display:inline-block;padding:11px 18px;${f(600, 14, 18)}color:#FFFFFF;text-decoration:none;border-radius:9px;white-space:nowrap;">Copiar código</a>
+      </td></tr></table>
+    </td>`
+    : '';
   return `<table role="presentation" class="em-box" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${C.box}" style="margin:0 0 24px;background:${C.box};border:1px solid ${C.line};border-radius:12px;">
-  <tr><td style="padding:22px 24px 4px;">
-    <div class="em-ink em-code em-codebig" style="${f(700, 38, 46, MONO)}letter-spacing:9px;color:${C.ink};">${esc(code)}</div>
-  </td></tr>
-  <tr><td class="em-muted" style="padding:6px 24px 20px;${f(400, 13, 19)}color:${C.muted};">${dot(C.brand)}${caption}</td></tr>
+  <tr>
+    <td class="em-codecell" valign="middle" style="padding:20px 24px 4px;">
+      <div class="em-ink em-code em-codebig" style="${f(700, 38, 46, MONO)}letter-spacing:9px;color:${C.ink};">${esc(code)}</div>
+    </td>
+    ${copy}
+  </tr>
+  <tr><td${copyUrl ? ' colspan="2"' : ''} class="em-muted" style="padding:8px 24px 20px;${f(400, 13, 19)}color:${C.muted};">${dot(C.brand)}${caption}</td></tr>
 </table>`;
 }
 

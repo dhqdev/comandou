@@ -37,6 +37,14 @@ const Hello = (name: string | null | undefined) => {
   return n ? `Oi, ${esc(n)}!` : 'Oi!';
 };
 
+/**
+ * Botão "Copiar código": e-mail não roda script, então o botão abre a página /codigo do site, que
+ * copia com um toque. O código vai depois do `#`, que o navegador não manda ao servidor (não cai
+ * em log) e a página apaga do endereço assim que abre.
+ */
+export const copyCodeUrl = (assets: string, code: string) =>
+  `${assets.replace(/\/+$/, '')}/codigo#${encodeURIComponent(code)}`;
+
 // ------------------------------------------------------------------ boas-vindas
 
 export interface WelcomeEmailInput {
@@ -239,9 +247,15 @@ export function passwordCodeEmail(i: PasswordCodeInput): Mail {
     panda: 'codigo',
     topic: 'Segurança da conta',
     heading: 'Seu código para criar uma nova senha',
-    lead: `${hello(i.name)}${i.name ? 'digite' : 'Digite'} este código na tela de nova senha de ${strong(i.place)}.`,
     body: [
-      codeBox(i.code, `Vale por ${i.minutes} minutos e só funciona uma vez`),
+      codeBox(
+        i.code,
+        `Vale por ${i.minutes} minutos e só funciona uma vez`,
+        copyCodeUrl(i.assets, i.code),
+      ),
+      p(
+        `${hello(i.name)}${i.name ? 'cole' : 'Cole'} ou digite este código na tela de nova senha de ${strong(i.place)}.`,
+      ),
       p(
         'Sua senha continua a mesma até você digitar o código e escolher a nova. Depois disso, a conta sai dos outros aparelhos.',
         { small: true },
@@ -282,9 +296,13 @@ export function customerResetEmail(i: CustomerResetInput): Mail {
     panda: 'codigo',
     topic: 'Segurança da conta',
     heading: `${firstName(i.customerName) ? `${esc(firstName(i.customerName))}, aqui está` : 'Aqui está'} o seu código`,
-    lead: `Digite este código na tela de nova senha do cardápio de ${strong(i.restaurant)}.`,
     body: [
-      codeBox(i.code, `Vale por ${i.minutes} minutos e só funciona uma vez`),
+      codeBox(
+        i.code,
+        `Vale por ${i.minutes} minutos e só funciona uma vez`,
+        copyCodeUrl(i.assets, i.code),
+      ),
+      p(`Cole ou digite este código na tela de nova senha do cardápio de ${strong(i.restaurant)}.`),
       p(
         'Sua senha continua a mesma até você digitar o código e escolher a nova. Não pediu? É só ignorar este e-mail.',
         { small: true },

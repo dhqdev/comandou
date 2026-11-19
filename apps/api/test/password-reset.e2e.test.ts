@@ -71,7 +71,8 @@ describe('Esqueci minha senha da equipe', () => {
     // Na prévia (preheader) e no corpo, sem espaço no meio: dá para copiar de uma vez.
     expect(m.html).toContain(`Código ${code} para criar uma nova senha`);
     expect(m.html).toContain(`>${code}</div>`);
-    expect(m.html).toContain('panda-codigo.png');
+    expect(m.html).toContain('hero-codigo.jpg');
+    expect(m.html).toContain(`/codigo#${code}`);
     // A fila não guarda o código depois de enviado.
     const [o] = await ownerQuery<{ html: string | null; sensitive: boolean }>(
       `SELECT html, sensitive FROM mail_outbox WHERE kind = 'auth.password_reset'

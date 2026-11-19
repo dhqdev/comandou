@@ -226,8 +226,10 @@ O link "Esqueci minha senha" fica à direita, logo abaixo do campo da senha (`Fo
 Não seguem os tokens do app (e-mail não lê CSS variável): cores fixas em `mail/templates/kit.ts`
 (`C`), fundo `#F5F4F2`, cartão branco com linha fina e raio 14, cabeçalho com a marca e o assunto
 (`topic`) separado por linha, título e texto à esquerda, um botão laranja por e-mail, dados como
-comanda (`rows`, tracejado), avisos com bolinha de cor (sem emoji) e o panda pequeno só na
-assinatura (nada de ilustração grande no topo: o David achou "nada a ver"). Modo escuro pelas
+comanda (`rows`, tracejado), avisos com bolinha de cor (sem emoji). Topo: a capa escura
+`email/hero-<pose>.jpg` (0.199, pedido do David: "imagem top com o Comandou"), não o panda
+grande sobre fundo rosado de antes. Código de senha antes do texto, com o botão Copiar código
+(`/codigo#…`). Modo escuro pelas
 classes `em-*`, no azul-ardósia do app. Nada de imagem com
 texto (cai no spam e some com imagens bloqueadas).
 

@@ -133,7 +133,7 @@ transação: `mail.send({...})`. Conteúdo com senha ou código: `sensitive: tru
 O **desenho** de todo e-mail sai de `apps/api/src/mail/templates/`: `shell(...)` + blocos do
 `kit.ts` (botão, código, tabela, passos, aviso), uma função por e-mail em `emails.ts` e o exemplo
 em `samples.ts` (vira prévia na aba Super Admin › E-mail › Modelos). Nunca monte HTML de e-mail
-solto no módulo. O panda de cada assunto é PNG (`apps/web/public/email/panda-*.png`, gerado por
+solto no módulo. A capa de cada assunto (`apps/web/public/email/hero-*.jpg`) e o panda (`panda-*.png`) saem de
 `node tools/email-pandas/render.mjs`); endereços com `siteUrlOf`/`tenantUrlOf` (`templates/urls.ts`).
 Código de verificação: no começo do assunto e no preheader (copiável da notificação).
 Avisos de teste grátis e cobrança: `billing/lifecycle-mail.service.ts` (uma vez só por

@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.199.0',
+    date: '2026-11-19',
+    title: 'E-mails com capa do Comandou e botão de copiar o código',
+    summary:
+      'Os e-mails do Comandou abrem com uma capa nova, com a marca e o panda de cada assunto. No e-mail de nova senha, o código vem logo no começo, com o botão Copiar código.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Botão Copiar código nos e-mails de nova senha (equipe, Super Admin e cliente do cardápio online): abre uma página que já copia o código; é só voltar e colar na tela de nova senha.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O código aparece logo no começo do e-mail, antes de qualquer explicação.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Capa nova no topo dos e-mails do Comandou, com o nome do sistema e o panda de cada assunto (chave na senha, relógio no vencimento, confete no pagamento).',
+      },
+    ],
+  },
+  {
     version: '0.198.5',
     date: '2026-11-19',
     title: 'Aplicativos de delivery com cara nova',

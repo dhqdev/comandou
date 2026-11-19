@@ -76,6 +76,14 @@ assinatura "Equipe Comandou". E-mail para o cliente do restaurante (`brand`) ass
 loja, sem panda. Fonte em propriedades separadas (`font-family`, `font-size`...), porque o Outlook
 do Windows ignora o atalho `font:`. Sem emoji no assunto nem no corpo.
 
+Desde a 0.199 os e-mails do Comandou abrem com a **capa** `email/hero-<pose>.jpg` (fundo escuro, o
+nome do Comandou e o panda do assunto; texto alternativo "Comandou"), gerada pelo mesmo
+`tools/email-pandas/render.mjs`. O assunto curto (`topic`) fica em laranja em cima do título. No
+e-mail de código, o código vem antes de qualquer explicação, com o botão **Copiar código**: como
+e-mail não roda script, o botão abre `/codigo#<código>` (`pages/copy-code/CopyCodePage.tsx`, em
+qualquer endereço), que copia sozinha ou com um toque. O código vai depois do `#` (não chega ao
+servidor nem ao log) e sai do endereço assim que a página abre.
+
 ## 1. Configurar o Resend (grátis até 3.000 e-mails por mês)
 
 1. Crie a conta em [resend.com](https://resend.com) e adicione o domínio em *Domains*.

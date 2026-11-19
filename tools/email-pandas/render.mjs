@@ -1,5 +1,6 @@
 /**
- * Desenha o panda dos e-mails (apps/web/public/email/panda-*.png).
+ * Desenha o panda dos e-mails (apps/web/public/email/panda-*.png) e a capa do topo de cada
+ * assunto (hero-*.jpg).
  *
  * E-mail não mostra SVG (o Gmail e o Outlook cortam), então cada pose vira um PNG transparente
  * de 240×240 (aparece com 120×120: nítido em tela de celular). Mesmo panda do `Mascot`
@@ -8,7 +9,7 @@
  * Rodar depois de mudar o desenho (usa o Chromium do Playwright do apps/web):
  *   node tools/email-pandas/render.mjs
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -79,7 +80,7 @@ const paw = (cx, cy, r = 5.4, rot = 0) =>
 /** Cena: fundo + corpo + cabeça + objetos (antes e depois da cabeça). */
 function scene({ mood, behind = '', front = '', bodyOn = true }) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="240" height="240">
-<circle cx="50" cy="52" r="47" fill="${HALO}"/>
+<circle class="halo" cx="50" cy="52" r="47" fill="${HALO}"/>
 ${behind}
 ${bodyOn ? body : ''}
 <g transform="translate(17 8)">${head(mood)}</g>
@@ -191,5 +192,62 @@ for (const [name, svg] of Object.entries(POSES)) {
   const png = await page.locator('svg').screenshot({ omitBackground: true });
   writeFileSync(join(out, `panda-${name}.png`), png);
   console.log(`panda-${name}.png`);
+}
+await page.close();
+
+/*
+ * Capa do topo de cada e-mail do Comandou (hero-<pose>.jpg): fundo escuro com o brilho laranja,
+ * o ícone e o nome do Comandou à esquerda e o panda do assunto sentado na "lua" laranja à direita.
+ * 1120×336 (aparece com 560×168). A fonte (Inter) vai embutida para sair igual em qualquer máquina.
+ */
+const font = readFileSync(
+  join(
+    here,
+    '../../apps/web/node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2',
+  ),
+).toString('base64');
+const icon = readFileSync(join(here, '../../apps/web/public/icons/icon-192.png')).toString(
+  'base64',
+);
+const hero = (svg) => `<html><head><style>
+@font-face { font-family: 'InterE'; src: url(data:font/woff2;base64,${font}) format('woff2'); font-weight: 100 900; }
+* { box-sizing: border-box; margin: 0; }
+body { width: 560px; height: 168px; overflow: hidden; background: #171412; font-family: 'InterE', sans-serif; }
+.hero { position: relative; width: 560px; height: 168px; overflow: hidden;
+  background:
+    radial-gradient(circle at 86% 120%, rgba(255,98,31,.55) 0, rgba(226,58,0,.18) 34%, transparent 62%),
+    radial-gradient(circle at 0% 0%, rgba(255,255,255,.06) 0, transparent 40%),
+    #171412; }
+.dots { position: absolute; inset: 0; opacity: .5;
+  background-image: radial-gradient(rgba(255,255,255,.10) 1px, transparent 1.2px);
+  background-size: 14px 14px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 45%, #000 70%, transparent 100%); }
+.brand { position: absolute; left: 40px; top: 50px; display: flex; align-items: center; gap: 12px; }
+.brand img { width: 42px; height: 42px; border-radius: 11px; box-shadow: 0 0 0 1px rgba(255,255,255,.12); }
+.brand b { color: #fff; font-size: 34px; font-weight: 800; letter-spacing: -1.4px; line-height: 1; }
+.brand b i { font-style: normal; color: #FF6A2B; }
+.tag { position: absolute; left: 40px; top: 106px; color: rgba(255,255,255,.55); font-size: 13px; font-weight: 500; letter-spacing: .1px; }
+.moon { position: absolute; right: -6px; bottom: -118px; width: 236px; height: 236px; border-radius: 50%;
+  background: radial-gradient(circle at 40% 30%, #FF7A3D, #E23A00 60%, #B92F00); }
+.ring { position: absolute; right: -40px; bottom: -152px; width: 304px; height: 304px; border-radius: 50%; border: 1px solid rgba(255,122,61,.28); }
+.ring.r2 { right: -78px; bottom: -190px; width: 380px; height: 380px; border-color: rgba(255,122,61,.14); }
+.panda { position: absolute; right: 26px; bottom: -14px; width: 176px; height: 176px; }
+.panda svg { width: 176px; height: 176px; }
+.panda .halo { display: none; }
+</style></head><body><div class="hero">
+<div class="dots"></div>
+<div class="ring r2"></div><div class="ring"></div><div class="moon"></div>
+<div class="brand"><img src="data:image/png;base64,${icon}" alt=""><b>comandou<i>.</i></b></div>
+<div class="tag">Sistema para restaurantes</div>
+<div class="panda">${svg}</div>
+</div></body></html>`;
+
+const wide = await browser.newPage({ viewport: { width: 560, height: 168 }, deviceScaleFactor: 2 });
+for (const [name, svg] of Object.entries(POSES)) {
+  await wide.setContent(hero(svg));
+  await wide.evaluate(() => document.fonts.ready);
+  const jpg = await wide.locator('.hero').screenshot({ type: 'jpeg', quality: 88 });
+  writeFileSync(join(out, `hero-${name}.jpg`), jpg);
+  console.log(`hero-${name}.jpg`);
 }
 await browser.close();
