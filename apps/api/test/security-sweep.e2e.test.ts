@@ -419,7 +419,9 @@ describe('Varredura de acesso (todas as rotas)', () => {
   });
 });
 
-describe('Entradas hostis (todas as rotas, como administrador)', () => {
+// Cada teste passa por todas as rotas com entradas hostis e fica mais lento a cada rota nova
+// (16 s aqui na 0.192.0); o limite padrão de 20 s estourou no runner do GitHub.
+describe('Entradas hostis (todas as rotas, como administrador)', { timeout: 120_000 }, () => {
   const PARAMS = [
     "1' OR '1'='1",
     '1; DROP TABLE orders; --',
