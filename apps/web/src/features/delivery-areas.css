@@ -27,7 +27,7 @@
 .areas__map[data-drawing] {
   cursor: crosshair;
   border-color: var(--cm-brand-500);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cm-brand-500) 25%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--cm-brand-500) 25%, transparent);
 }
 .areas__map .leaflet-container,
 .areas__map.leaflet-container {

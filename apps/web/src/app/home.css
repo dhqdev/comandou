@@ -98,7 +98,8 @@
   border-radius: 0;
 }
 .pdv__links > .pdv__icon + .pdv__icon {
-  margin-left: -1px;
+  /* Sem sobrepor as linhas (margem -1px): com a linha transparente a sobreposição escurece. */
+  border-left-width: 0;
 }
 .pdv__links > .pdv__icon:first-child {
   border-radius: var(--cm-radius-md) 0 0 var(--cm-radius-md);
@@ -140,8 +141,8 @@
   transition-duration: 0.08s;
 }
 .pdv__mute[data-muted] {
-  border-color: color-mix(in srgb, var(--cm-danger) 45%, var(--cm-border-strong));
-  background: color-mix(in srgb, var(--cm-danger) 8%, var(--cm-surface));
+  border-color: color-mix(in oklab, var(--cm-danger) 45%, var(--cm-border-strong));
+  background: color-mix(in oklab, var(--cm-danger) 8%, var(--cm-surface));
   color: var(--cm-danger);
 }
 .home__hint {
@@ -263,13 +264,13 @@
   color: var(--cm-text);
 }
 .pdv-chip--alert {
-  border-color: color-mix(in srgb, var(--cm-danger) 50%, var(--cm-border-strong));
+  border-color: color-mix(in oklab, var(--cm-danger) 50%, var(--cm-border-strong));
   color: var(--cm-danger);
 }
 .pdv-pill {
   padding: 3px 9px;
   border-radius: var(--cm-radius-full);
-  background: color-mix(in srgb, var(--cm-brand-500) 10%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, transparent);
   color: var(--cm-brand-700);
   font-size: var(--cm-text-xs);
   font-weight: 700;
@@ -605,7 +606,7 @@
   border-color: var(--cm-gray-300);
 }
 .hcard[data-status='awaiting'] {
-  border-color: color-mix(in srgb, var(--cm-info) 45%, var(--cm-border-strong));
+  border-color: color-mix(in oklab, var(--cm-info) 45%, var(--cm-border-strong));
 }
 .hcard__channel {
   grid-row: 1 / span 2;
@@ -615,7 +616,7 @@
   height: 30px;
   margin-top: 2px;
   border-radius: var(--cm-radius-sm);
-  background: color-mix(in srgb, var(--cm-info) 10%, transparent);
+  background: color-mix(in oklab, var(--cm-info) 10%, transparent);
   color: var(--cm-info);
 }
 .hcard__main {
@@ -663,7 +664,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  background: color-mix(in srgb, var(--cm-brand-500) 10%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, transparent);
   color: var(--cm-brand-700);
 }
 .hcard__pills {
@@ -788,7 +789,7 @@
   margin: 2px 4px 2px 0;
   padding: 2px 8px;
   min-height: 28px;
-  border: 1px solid color-mix(in srgb, var(--cm-warning) 40%, transparent);
+  border: 1px solid color-mix(in oklab, var(--cm-warning) 40%, transparent);
   border-radius: var(--cm-radius-sm);
   background: var(--cm-surface);
   color: inherit;

@@ -236,8 +236,8 @@ button.st-kpi:active {
   border: 1px solid var(--cm-border);
 }
 .st-preview > div[data-tone] {
-  background: color-mix(in srgb, var(--tone) 9%, var(--cm-surface));
-  border-color: color-mix(in srgb, var(--tone) 30%, var(--cm-border));
+  background: color-mix(in oklab, var(--tone) 9%, var(--cm-surface));
+  border-color: color-mix(in oklab, var(--tone) 30%, var(--cm-border));
 }
 .st-preview > div[data-tone='brand'] {
   --tone: var(--cm-brand-500);
@@ -280,7 +280,7 @@ button.st-kpi:active {
 }
 .st-chip[aria-pressed='true'] {
   border-color: var(--cm-brand-500);
-  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 12%, var(--cm-surface));
   color: var(--cm-brand-700);
 }
 
@@ -342,7 +342,7 @@ button.st-kpi:active {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--cm-brand-700);
-  background: color-mix(in srgb, var(--cm-brand-500) 8%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 8%, var(--cm-surface));
   border-bottom: 1px solid var(--cm-border);
 }
 .st-count__title span {
@@ -364,11 +364,11 @@ button.st-kpi:active {
 }
 .st-count__row[data-diff='neg'] {
   border-left-color: var(--cm-danger);
-  background: color-mix(in srgb, var(--cm-danger) 5%, transparent);
+  background: color-mix(in oklab, var(--cm-danger) 5%, transparent);
 }
 .st-count__row[data-diff='pos'] {
   border-left-color: var(--cm-success);
-  background: color-mix(in srgb, var(--cm-success) 5%, transparent);
+  background: color-mix(in oklab, var(--cm-success) 5%, transparent);
 }
 .st-count__name {
   display: grid;
@@ -525,8 +525,8 @@ button.st-kpi:active {
   gap: var(--cm-space-3);
   padding: var(--cm-space-4);
   border-radius: var(--cm-radius-md);
-  border: 1px dashed color-mix(in srgb, var(--cm-brand-500) 50%, var(--cm-border));
-  background: color-mix(in srgb, var(--cm-brand-500) 6%, var(--cm-surface));
+  border: 1px dashed color-mix(in oklab, var(--cm-brand-500) 50%, var(--cm-border));
+  background: color-mix(in oklab, var(--cm-brand-500) 6%, var(--cm-surface));
 }
 .st-suggest > div {
   display: grid;

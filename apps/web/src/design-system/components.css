@@ -54,10 +54,10 @@
   color: var(--cm-on-brand);
 }
 .cm-btn--primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--cm-brand-600) 88%, black);
+  background: color-mix(in oklab, var(--cm-brand-600) 88%, black);
 }
 .cm-btn--primary:active:not(:disabled) {
-  background: color-mix(in srgb, var(--cm-brand-600) 82%, black);
+  background: color-mix(in oklab, var(--cm-brand-600) 82%, black);
 }
 /* Secundário: botão "em relevo" do Mac. Contorno firme e uma sombra de 1px, para se ver tanto no
    cartão branco quanto no fundo cinza da tela. */
@@ -96,14 +96,14 @@
   color: #fff;
 }
 .cm-btn--danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--cm-danger) 85%, black);
+  background: color-mix(in oklab, var(--cm-danger) 85%, black);
 }
 .cm-btn--success {
   background: var(--cm-success);
   color: #fff;
 }
 .cm-btn--success:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--cm-success) 85%, black);
+  background: color-mix(in oklab, var(--cm-success) 85%, black);
 }
 
 /* =============================================================== Formulário */
@@ -232,7 +232,7 @@ input[type='date'].cm-input::-webkit-calendar-picker-indicator {
   background: var(--cm-surface-sunken);
 }
 .cm-option.is-on {
-  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, transparent);
+  border-color: color-mix(in oklab, var(--cm-brand-500) 55%, transparent);
   background: var(--cm-brand-50);
   color: var(--cm-brand-700);
   font-weight: 600;
@@ -366,7 +366,7 @@ input[type='date'].cm-input::-webkit-calendar-picker-indicator {
   color: var(--cm-brand-800);
 }
 .cm-cal__day.is-edge {
-  background: color-mix(in srgb, var(--cm-brand-500) 18%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 18%, var(--cm-surface));
   color: var(--cm-brand-800);
   font-weight: 700;
 }
@@ -644,7 +644,7 @@ input[type='radio'] {
 }
 @keyframes cm-pulse {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 50%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 50%, transparent);
   }
   70%,
   100% {
@@ -669,17 +669,17 @@ input[type='radio'] {
 .cm-alert--danger {
   background: var(--cm-danger-bg);
   color: var(--cm-danger);
-  border-color: color-mix(in srgb, var(--cm-danger) 22%, transparent);
+  border-color: color-mix(in oklab, var(--cm-danger) 22%, transparent);
 }
 .cm-alert--warning {
   background: var(--cm-warning-bg);
   color: var(--cm-warning);
-  border-color: color-mix(in srgb, var(--cm-warning) 22%, transparent);
+  border-color: color-mix(in oklab, var(--cm-warning) 22%, transparent);
 }
 .cm-alert--info {
   background: var(--cm-info-bg);
   color: var(--cm-info);
-  border-color: color-mix(in srgb, var(--cm-info) 18%, transparent);
+  border-color: color-mix(in oklab, var(--cm-info) 18%, transparent);
 }
 
 /* =============================================================== Vazio / carregando */
@@ -715,7 +715,7 @@ input[type='radio'] {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2px solid color-mix(in srgb, currentColor 20%, transparent);
+  border: 2px solid color-mix(in oklab, currentColor 20%, transparent);
   border-top-color: currentColor;
   animation: cm-spin 0.7s linear infinite;
 }
@@ -852,8 +852,8 @@ input[type='radio'] {
   border-color: var(--cm-border-strong);
 }
 .check-field[data-checked] {
-  border-color: color-mix(in srgb, var(--cm-brand-500) 45%, var(--cm-border));
-  background: color-mix(in srgb, var(--cm-brand-500) 6%, var(--cm-surface));
+  border-color: color-mix(in oklab, var(--cm-brand-500) 45%, var(--cm-border));
+  background: color-mix(in oklab, var(--cm-brand-500) 6%, var(--cm-surface));
 }
 .check-field input {
   flex-shrink: 0;
@@ -1540,7 +1540,7 @@ input[type='radio'] {
   padding: 14px 14px 14px 16px;
   background: var(--cm-surface);
   color: var(--cm-text);
-  border: 1px solid color-mix(in srgb, var(--cm-danger) 35%, var(--cm-border));
+  border: 1px solid color-mix(in oklab, var(--cm-danger) 35%, var(--cm-border));
   box-shadow: var(--cm-shadow-lg);
   font-weight: 400;
   /* Só o botão e o fechar recebem toque: o resto do aviso não bloqueia a tela de baixo. */
@@ -1626,8 +1626,8 @@ input[type='radio'] {
 }
 /* Escolha marcada: tom suave da cor da loja com contorno, sem bloco forte de cor. */
 .cm-glider--brand {
-  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
-  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
+  background: color-mix(in oklab, var(--cm-brand-500) 12%, var(--cm-surface));
+  border-color: color-mix(in oklab, var(--cm-brand-500) 55%, var(--cm-border));
   backdrop-filter: none;
 }
 
@@ -1658,7 +1658,8 @@ input[type='radio'] {
   min-height: 32px;
   padding: 0 14px;
   border: 0;
-  border-radius: var(--cm-radius-sm);
+  /* Raio concêntrico: o de fora (8px) menos a folga do trilho (3px). */
+  border-radius: calc(var(--cm-radius-md) - 3px);
   background: transparent;
   color: var(--cm-text-muted);
   font-weight: 600;
@@ -1681,7 +1682,7 @@ input[type='radio'] {
   font-size: var(--cm-text-2xs);
   display: inline-grid;
   place-items: center;
-  background: color-mix(in srgb, var(--cm-text) 8%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 8%, transparent);
 }
 .cm-seg--lg .cm-seg__item {
   min-height: 40px;
@@ -2007,8 +2008,8 @@ input[type='radio'] {
 .cm-help:hover,
 .cm-help[aria-expanded='true'] {
   color: var(--cm-text);
-  border-color: color-mix(in srgb, var(--cm-brand-500) 60%, var(--cm-border-strong));
-  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  border-color: color-mix(in oklab, var(--cm-brand-500) 60%, var(--cm-border-strong));
+  background: color-mix(in oklab, var(--cm-brand-500) 12%, var(--cm-surface));
 }
 .cm-help:focus-visible {
   outline: 2px solid var(--cm-brand-500);

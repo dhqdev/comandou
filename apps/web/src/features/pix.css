@@ -91,7 +91,7 @@ span.pix-chip {
 }
 button.pix-chip {
   cursor: pointer;
-  border-color: color-mix(in srgb, var(--cm-info) 45%, var(--cm-border-strong));
+  border-color: color-mix(in oklab, var(--cm-info) 45%, var(--cm-border-strong));
   color: var(--cm-info);
   transition:
     transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),

@@ -829,7 +829,7 @@ function KitchenChooser({
           className="kds-choose__icon"
           style={
             color
-              ? { color, background: `color-mix(in srgb, ${color} 12%, transparent)` }
+              ? { color, background: `color-mix(in oklab, ${color} 12%, transparent)` }
               : undefined
           }
           aria-hidden

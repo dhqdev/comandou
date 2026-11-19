@@ -141,7 +141,7 @@
     background-color var(--cm-dur) var(--cm-ease);
 }
 .cm-rail__item:hover:not(.is-active) {
-  background: color-mix(in srgb, var(--cm-text) 5%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 5%, transparent);
   color: var(--cm-sidebar-text-strong);
 }
 .cm-rail__item:active {
@@ -235,7 +235,7 @@
   inset: 0;
   z-index: -2;
   border-radius: inherit;
-  background: color-mix(in srgb, var(--cm-text) 6.5%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 6.5%, transparent);
 }
 /* Com o indicador deslizante na tela, o fundo de reserva sai (senão o cinza dobra). */
 .cm-rail__nav:has(.cm-glider[data-ready]) .cm-rail__item.is-active::after {
@@ -245,7 +245,7 @@
   border-radius: var(--cm-radius-lg);
   /* Mesmo cinza do ativo do menu largo: no tema claro o vidro branco sumia no fundo branco. */
   border-color: transparent;
-  background: color-mix(in srgb, var(--cm-text) 6.5%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 6.5%, transparent);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -284,7 +284,7 @@
   cursor: pointer;
 }
 .cm-rail__toggle:hover {
-  background: color-mix(in srgb, var(--cm-text) 6%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 6%, transparent);
   color: var(--cm-sidebar-text-strong);
 }
 
@@ -583,14 +583,14 @@
     text-align: left;
   }
   .cm-frame .cm-rail__item:hover:not(.is-active) {
-    background: color-mix(in srgb, var(--cm-text) 4%, transparent);
+    background: color-mix(in oklab, var(--cm-text) 4%, transparent);
   }
   .cm-frame .cm-rail__item:active {
     transform: none;
   }
   /* Ativo: cinza que aparece nos dois temas (o branco do tema claro sumia no fundo branco). */
   .cm-frame .cm-rail__item.is-active {
-    background: color-mix(in srgb, var(--cm-text) 6.5%, transparent);
+    background: color-mix(in oklab, var(--cm-text) 6.5%, transparent);
     color: var(--cm-sidebar-text-strong);
     font-weight: 600;
   }
@@ -695,7 +695,7 @@
     text-overflow: ellipsis;
   }
   .cm-rail__subitem:hover:not(.is-active) {
-    background: color-mix(in srgb, var(--cm-text) 4%, transparent);
+    background: color-mix(in oklab, var(--cm-text) 4%, transparent);
     color: var(--cm-sidebar-text-strong);
   }
   /* Ativo: texto forte e um traço laranja sobre o fio. */
@@ -787,7 +787,8 @@
   max-height: calc(100dvh - 24px);
   overflow-y: auto;
   padding: 8px;
-  border-radius: var(--cm-radius-lg);
+  /* Raio concêntrico: o dos links (8px) + folga (8px) + linha (1px). */
+  border-radius: calc(var(--cm-radius-md) + 9px);
   background: var(--cm-surface);
   border: 1px solid var(--cm-border);
   box-shadow: var(--cm-shadow-lg);
@@ -877,7 +878,7 @@
   color: var(--cm-text-subtle);
 }
 .cm-flyout__link:hover:not(.active) {
-  background: color-mix(in srgb, var(--cm-text) 5%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 5%, transparent);
   color: var(--cm-text);
 }
 .cm-flyout__link.active {
@@ -1087,7 +1088,7 @@
   hyphens: auto;
 }
 .cm-tile.active {
-  border-color: color-mix(in srgb, var(--cm-brand-500) 50%, var(--cm-border));
+  border-color: color-mix(in oklab, var(--cm-brand-500) 50%, var(--cm-border));
   background: var(--cm-brand-50);
 }
 .cm-tile.active .cm-tile__icon {
@@ -1329,7 +1330,7 @@
   transition: background-color var(--cm-dur) var(--cm-ease);
 }
 .cm-theme-toggle:hover {
-  background: color-mix(in srgb, var(--cm-text) 6%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 6%, transparent);
   color: var(--cm-text);
 }
 .cm-theme-toggle svg {
@@ -1390,7 +1391,7 @@
     cursor: pointer;
   }
   .cm-frame__back:active {
-    background: color-mix(in srgb, var(--cm-text) 8%, transparent);
+    background: color-mix(in oklab, var(--cm-text) 8%, transparent);
   }
   .cm-frame__compact[data-back] {
     display: none;

@@ -91,7 +91,7 @@
 /* Os outros apps: quadradinhos cinza. */
 .sf-install__screen > i {
   border-radius: 4px;
-  background: color-mix(in srgb, var(--cm-text) 12%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 12%, transparent);
 }
 /* Monitor: mais largo e baixo, com o pé. */
 .sf-install__art[data-device='desktop'] {
@@ -129,7 +129,7 @@
   border-radius: 4px;
   background: var(--cm-brand-600);
   color: var(--cm-on-brand);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--cm-brand-500) 30%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--cm-brand-500) 30%, transparent);
   animation: si-drop 280ms 120ms var(--cm-spring) both;
 }
 .sf-install__slot img {
@@ -185,7 +185,7 @@
   height: 20px;
   vertical-align: -5px;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--cm-brand-500) 14%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 14%, transparent);
   color: var(--cm-brand-700);
   animation: si-nudge 700ms 700ms ease-in-out 2;
 }

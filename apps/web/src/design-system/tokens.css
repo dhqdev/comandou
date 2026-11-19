@@ -3,7 +3,7 @@
  *
  * Identidade: sistema sóbrio e minimalista. Neutros limpos, laranja (#e23a00) só no que importa
  * (ação principal, item ativo, foco). Sem gradiente, brilho nem sombra forte; separação por
- * linha fina. Cantos discretos (6–12px). O lojista pode trocar a cor (brand.ts).
+ * linha fina (com transparência). Misturas de cor (color-mix) em oklab, degradês em oklch. Cantos discretos (6–12px). O lojista pode trocar a cor (brand.ts).
  *
  * Regra: telas nunca usam cor, raio, sombra ou fonte "na mão"; sempre estas variáveis.
  */
@@ -70,8 +70,11 @@
   --cm-surface: var(--cm-gray-0);
   --cm-surface-muted: var(--cm-gray-25);
   --cm-surface-sunken: var(--cm-gray-100);
-  --cm-border: var(--cm-gray-100);
-  --cm-border-strong: var(--cm-gray-200);
+  /* Linhas com transparência (não cinza chapado): a mesma linha serve sobre o cartão, o fundo,
+     a foto e a cor da loja, sempre um tom acima do que está atrás. Sobre o branco dão os mesmos
+     #efeff1 e #e3e3e6 de antes. */
+  --cm-border: rgb(24 24 27 / 7%);
+  --cm-border-strong: rgb(24 24 27 / 12%);
   /* Campos (input, select, textarea): fundo, linha e texto. O modo escuro clareia os três para
      o campo saltar do cartão. --cm-field-* é o campo compacto dos formulários no computador. */
   --cm-input-bg: var(--cm-surface);
@@ -91,7 +94,7 @@
   --cm-sidebar-text: var(--cm-gray-600);
   --cm-sidebar-text-strong: var(--cm-gray-900);
   --cm-sidebar-active: var(--cm-surface);
-  --cm-focus: 0 0 0 3px color-mix(in srgb, var(--cm-brand-500) 22%, transparent);
+  --cm-focus: 0 0 0 3px color-mix(in oklab, var(--cm-brand-500) 22%, transparent);
   /* Botões: contorno do secundário e fundo cinza do simples (ghost), fáceis de enxergar. */
   --cm-btn-line: #d4d4d9;
   --cm-btn-line-hover: #b9b9c0;
@@ -166,6 +169,11 @@
 
   /* Folga do risco de baixo do iPhone; com o teclado aberto ela some (viewport.ts). */
   --cm-sab: env(safe-area-inset-bottom, 0px);
+
+  /* Foto de produto: no claro, a foto se mistura (multiply) num cinza bem leve, e o fundo branco
+     da foto vira o mesmo cinza do quadro em vez de um retângulo branco. No escuro, foto normal. */
+  --cm-photo-bg: #f3f3f4;
+  --cm-photo-blend: multiply;
 }
 html.cm-kb-open {
   --cm-sab: 0px;
@@ -271,7 +279,7 @@ html.cm-kb-open {
   --cm-link: #ee8f6b;
   --cm-accent-400: #d9b44e;
   --cm-accent-500: #cfa73c;
-  --cm-focus: 0 0 0 3px color-mix(in srgb, var(--cm-brand-500) 28%, transparent);
+  --cm-focus: 0 0 0 3px color-mix(in oklab, var(--cm-brand-500) 28%, transparent);
   --cm-btn-line: #5a667c;
   --cm-btn-line-hover: #707d95;
   --cm-btn-shadow: none;
@@ -284,8 +292,9 @@ html.cm-kb-open {
   --cm-surface: #283141;
   --cm-surface-muted: #2e3849;
   --cm-surface-sunken: #1e2532;
-  --cm-border: #3e4a5e;
-  --cm-border-strong: #56627a;
+  /* Sobre o cartão dão os mesmos #3e4a5e e #56627a de antes. */
+  --cm-border: rgb(150 174 210 / 20%);
+  --cm-border-strong: rgb(184 202 243 / 32%);
   --cm-text: #f2f4f8;
   --cm-text-muted: #b8c1cf;
   --cm-text-subtle: #a3aec0;
@@ -329,6 +338,8 @@ html.cm-kb-open {
   --cm-glass-highlight: none;
   --cm-glass-blur: none;
   --cm-mascot-rim: #64708a;
+  --cm-photo-bg: var(--cm-surface-muted);
+  --cm-photo-blend: normal;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -348,7 +359,7 @@ html.cm-kb-open {
     --cm-link: #ee8f6b;
     --cm-accent-400: #d9b44e;
     --cm-accent-500: #cfa73c;
-    --cm-focus: 0 0 0 3px color-mix(in srgb, var(--cm-brand-500) 28%, transparent);
+    --cm-focus: 0 0 0 3px color-mix(in oklab, var(--cm-brand-500) 28%, transparent);
     --cm-btn-line: #5a667c;
     --cm-btn-line-hover: #707d95;
     --cm-btn-shadow: none;
@@ -361,8 +372,9 @@ html.cm-kb-open {
     --cm-surface: #283141;
     --cm-surface-muted: #2e3849;
     --cm-surface-sunken: #1e2532;
-    --cm-border: #3e4a5e;
-    --cm-border-strong: #56627a;
+    /* Sobre o cartão dão os mesmos #3e4a5e e #56627a de antes. */
+    --cm-border: rgb(150 174 210 / 20%);
+    --cm-border-strong: rgb(184 202 243 / 32%);
     --cm-text: #f2f4f8;
     --cm-text-muted: #b8c1cf;
     --cm-text-subtle: #a3aec0;
@@ -406,6 +418,8 @@ html.cm-kb-open {
     --cm-glass-highlight: none;
     --cm-glass-blur: none;
     --cm-mascot-rim: #64708a;
+    --cm-photo-bg: var(--cm-surface-muted);
+    --cm-photo-blend: normal;
     color-scheme: dark;
   }
 }

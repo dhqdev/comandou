@@ -10,7 +10,7 @@
   align-items: end;
   justify-items: center;
   padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
-  background: color-mix(in srgb, var(--cm-bg) 55%, transparent);
+  background: color-mix(in oklab, var(--cm-bg) 55%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   animation: sf-here-fade 160ms ease-out both;
@@ -72,7 +72,7 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--cm-brand-500) 14%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 14%, transparent);
   color: var(--cm-brand-700);
   transition:
     background 200ms,

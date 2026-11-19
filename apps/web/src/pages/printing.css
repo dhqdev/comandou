@@ -5,7 +5,7 @@
   gap: var(--cm-space-6);
   padding: var(--cm-space-6);
   border-radius: var(--cm-radius-lg);
-  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 28%, var(--cm-border));
+  border: 1px solid color-mix(in oklab, var(--cm-brand-500) 28%, var(--cm-border));
   background: var(--cm-surface);
 }
 .print-hero__intro {
@@ -22,7 +22,7 @@
   place-items: center;
   background: var(--cm-brand-600);
   color: var(--cm-on-brand);
-  box-shadow: 0 10px 24px -10px color-mix(in srgb, var(--cm-brand-600) 80%, transparent);
+  box-shadow: 0 10px 24px -10px color-mix(in oklab, var(--cm-brand-600) 80%, transparent);
 }
 .print-hero__title {
   margin: 0;
@@ -86,7 +86,7 @@
   font-size: var(--cm-text-xs);
   background: var(--cm-brand-50);
   color: var(--cm-brand-700);
-  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 35%, transparent);
+  border: 1px solid color-mix(in oklab, var(--cm-brand-500) 35%, transparent);
 }
 .print-setup {
   display: grid;

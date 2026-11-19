@@ -174,10 +174,10 @@
   cursor: pointer;
 }
 .cs-kind button[aria-selected='true'] {
-  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 12%, var(--cm-surface));
   color: var(--cm-brand-700);
   font-weight: 650;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--cm-brand-500) 55%, var(--cm-border));
 }
 .cs-pad {
   position: relative;

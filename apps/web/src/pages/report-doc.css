@@ -14,7 +14,7 @@
   --rd-c: var(--cm-success);
 }
 .rd-c5 {
-  --rd-c: color-mix(in srgb, var(--cm-info) 45%, #a23bb5);
+  --rd-c: color-mix(in oklab, var(--cm-info) 45%, #a23bb5);
 }
 .rd-c6 {
   --rd-c: var(--cm-gray-500);
@@ -68,7 +68,7 @@
     transform var(--cm-dur-fast) var(--cm-ease);
 }
 .rd-card:hover {
-  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
+  border-color: color-mix(in oklab, var(--cm-brand-500) 55%, var(--cm-border));
   box-shadow: var(--cm-shadow-md);
 }
 .rd-card:focus-visible {
@@ -169,7 +169,7 @@
   display: block;
   width: 100%;
   border-radius: 4px 4px 0 0;
-  background: color-mix(in srgb, var(--cm-brand-500) 50%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 50%, var(--cm-surface));
   transition: background var(--cm-dur-fast) var(--cm-ease);
 }
 .rd-col[data-top] .rd-col__bar,

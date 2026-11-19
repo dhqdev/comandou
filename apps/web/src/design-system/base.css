@@ -119,7 +119,7 @@ svg {
   flex-shrink: 0;
 }
 ::selection {
-  background: color-mix(in srgb, var(--cm-brand-500) 22%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 22%, transparent);
 }
 :focus-visible {
   outline: none;

@@ -48,7 +48,7 @@
   max-width: min(320px, calc(100% - 32px));
   padding: 10px 14px;
   border-radius: var(--cm-radius-md);
-  background: color-mix(in srgb, var(--cm-surface) 92%, transparent);
+  background: color-mix(in oklab, var(--cm-surface) 92%, transparent);
   color: var(--cm-text-muted);
   font-size: var(--cm-text-sm);
   text-align: center;

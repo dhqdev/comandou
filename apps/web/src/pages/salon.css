@@ -131,7 +131,7 @@
   background:
     radial-gradient(
         circle,
-        color-mix(in srgb, var(--cm-text) 9%, transparent) 1px,
+        color-mix(in oklab, var(--cm-text) 9%, transparent) 1px,
         transparent 1.2px
       )
       0 0 / 16px 16px,
@@ -158,7 +158,7 @@
     transform var(--cm-dur-fast) var(--cm-ease);
 }
 .tbl:hover {
-  background: color-mix(in srgb, var(--cm-surface) 80%, transparent);
+  background: color-mix(in oklab, var(--cm-surface) 80%, transparent);
   border-color: var(--cm-border);
 }
 .tbl:active {
@@ -211,7 +211,7 @@
   stroke: var(--state-color);
 }
 .tbl[data-state='free']:hover .tglyph__chair {
-  stroke: color-mix(in srgb, var(--state-color) 70%, transparent);
+  stroke: color-mix(in oklab, var(--state-color) 70%, transparent);
 }
 .tbl:not([data-state='free']) .tglyph__top {
   fill: var(--state-bg);
@@ -219,7 +219,7 @@
   stroke-dasharray: none;
 }
 .tbl:not([data-state='free']) .tglyph__chair {
-  fill: color-mix(in srgb, var(--state-color) 55%, transparent);
+  fill: color-mix(in oklab, var(--state-color) 55%, transparent);
   stroke: none;
 }
 .tbl[data-state='paying'] .tglyph__top {
@@ -347,7 +347,7 @@
 }
 .ticket[data-paying] {
   --ticket-bg: var(--cm-warning-bg);
-  border-color: color-mix(in srgb, var(--cm-warning) 50%, transparent);
+  border-color: color-mix(in oklab, var(--cm-warning) 50%, transparent);
 }
 .ticket__top {
   display: flex;
@@ -399,7 +399,7 @@
   max-width: 50%;
   padding: 2px 9px;
   border-radius: var(--cm-radius-full);
-  background: color-mix(in srgb, var(--cm-text) 6%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 6%, transparent);
   font-size: var(--cm-text-xs);
   font-weight: 600;
   white-space: nowrap;
@@ -472,7 +472,7 @@
   max-width: 120px;
   height: 4px;
   border-radius: 99px;
-  background: color-mix(in srgb, var(--cm-text) 10%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 10%, transparent);
   overflow: hidden;
 }
 .ticket__bar i {
@@ -514,7 +514,7 @@
   transform: scale(0.98);
 }
 .order-card[data-step='2'] {
-  border-color: color-mix(in srgb, var(--cm-success) 55%, transparent);
+  border-color: color-mix(in oklab, var(--cm-success) 55%, transparent);
 }
 .order-card[data-alert] {
   border-color: var(--cm-warning);

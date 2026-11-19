@@ -65,7 +65,7 @@ const gradient = (color: string, opacity: number, variant: Variant, softness: nu
   const stops = Array.from({ length: 33 }, (_, index) => {
     const t = index / 32;
     const alpha = Math.round(Math.min(1, profile(t, softness) * opacity) * 1000) / 10;
-    return `color-mix(in srgb, ${color} ${alpha}%, transparent) ${(t * 100).toFixed(1)}%`;
+    return `color-mix(in oklab, ${color} ${alpha}%, transparent) ${(t * 100).toFixed(1)}%`;
   });
   return `linear-gradient(90deg, ${stops.join(', ')})`;
 };

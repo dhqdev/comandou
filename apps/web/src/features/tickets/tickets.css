@@ -13,8 +13,8 @@
   border-radius: 50%;
   font-weight: 700;
   color: var(--tk-c);
-  background: color-mix(in srgb, var(--tk-c) 18%, var(--cm-surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tk-c) 40%, transparent);
+  background: color-mix(in oklab, var(--tk-c) 18%, var(--cm-surface));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tk-c) 40%, transparent);
   line-height: 1;
 }
 .tk-avatar__ok {
@@ -186,10 +186,10 @@
   line-height: 1.45;
 }
 .tk-msg--mine .tk-msg__body {
-  background: color-mix(in srgb, var(--cm-brand-500) 16%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 16%, var(--cm-surface));
 }
 .tk-msg--note .tk-msg__body {
-  background: color-mix(in srgb, var(--cm-warning) 14%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-warning) 14%, var(--cm-surface));
 }
 .tk-msg .tk-files {
   grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
@@ -531,7 +531,7 @@
 }
 .tk-card[data-state='approval'],
 .tk-card[data-state='waiting'] {
-  border-color: color-mix(in srgb, var(--cm-warning) 55%, var(--cm-border));
+  border-color: color-mix(in oklab, var(--cm-warning) 55%, var(--cm-border));
 }
 .tk-card__title {
   font-weight: 600;
@@ -675,7 +675,13 @@
   padding: 18px 22px 14px;
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--tk-c, var(--cm-brand-500)) 14%, var(--cm-bg)),
+    color-mix(in oklab, var(--tk-c, var(--cm-brand-500)) 14%, var(--cm-bg)),
+    var(--cm-bg)
+  );
+  /* Degradê em OKLCH (o navegador antigo fica com a linha de cima). */
+  background: linear-gradient(
+    in oklch 180deg,
+    color-mix(in oklab, var(--tk-c, var(--cm-brand-500)) 14%, var(--cm-bg)),
     var(--cm-bg)
   );
 }
@@ -963,10 +969,10 @@ button.tk-chip {
   white-space: pre;
 }
 .tk-diff .add {
-  background: color-mix(in srgb, var(--cm-success) 14%, transparent);
+  background: color-mix(in oklab, var(--cm-success) 14%, transparent);
 }
 .tk-diff .del {
-  background: color-mix(in srgb, var(--cm-danger) 14%, transparent);
+  background: color-mix(in oklab, var(--cm-danger) 14%, transparent);
 }
 .tk-diff .hunk {
   color: var(--cm-info);

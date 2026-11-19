@@ -94,7 +94,7 @@
 }
 .adm-chs__step[data-done='true'] .adm-chs__num {
   border-color: transparent;
-  background: color-mix(in srgb, var(--a-ok) 14%, transparent);
+  background: color-mix(in oklab, var(--a-ok) 14%, transparent);
   color: var(--a-ok);
 }
 .adm-chs__step[data-done='true'] .adm-row__title {

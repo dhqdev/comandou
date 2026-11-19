@@ -232,12 +232,12 @@ p.sub-muted {
   background:
     radial-gradient(
       120% 140% at 100% 100%,
-      color-mix(in srgb, var(--cm-brand-500) 55%, transparent),
+      color-mix(in oklab, var(--cm-brand-500) 55%, transparent),
       transparent 60%
     ),
     radial-gradient(
       90% 120% at 0% 0%,
-      color-mix(in srgb, var(--cm-brand-300) 22%, transparent),
+      color-mix(in oklab, var(--cm-brand-300) 22%, transparent),
       transparent 55%
     ),
     var(--sub-hero-base, var(--cm-ink));

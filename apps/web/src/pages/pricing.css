@@ -4,7 +4,7 @@
  */
 .pr-page {
   --pr-bg: var(--cm-ink);
-  --pr-card: color-mix(in srgb, var(--cm-gray-800) 70%, var(--cm-ink));
+  --pr-card: color-mix(in oklab, var(--cm-gray-800) 70%, var(--cm-ink));
   --pr-line: rgb(255 255 255 / 9%);
   --pr-text: #fff;
   --pr-muted: rgb(255 255 255 / 66%);
@@ -38,7 +38,7 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: var(--cm-space-4) var(--cm-space-6);
-  background: color-mix(in srgb, var(--pr-bg) 82%, transparent);
+  background: color-mix(in oklab, var(--pr-bg) 82%, transparent);
   backdrop-filter: blur(12px);
 }
 .pr-brand {
@@ -110,12 +110,12 @@
   background:
     radial-gradient(
       60% 80% at 15% 0%,
-      color-mix(in srgb, var(--cm-brand-500) 38%, transparent),
+      color-mix(in oklab, var(--cm-brand-500) 38%, transparent),
       transparent 70%
     ),
     radial-gradient(
       50% 70% at 90% 10%,
-      color-mix(in srgb, var(--cm-accent-500) 22%, transparent),
+      color-mix(in oklab, var(--cm-accent-500) 22%, transparent),
       transparent 70%
     );
 }
@@ -196,6 +196,16 @@
   background:
     linear-gradient(var(--pr-card), var(--pr-card)) padding-box,
     linear-gradient(160deg, var(--cm-brand-400), var(--cm-accent-400) 60%, var(--cm-brand-600))
+      border-box;
+  /* Degradê em OKLCH: o meio do laranja ao mostarda fica vivo, sem o cinza do sRGB. */
+  background:
+    linear-gradient(var(--pr-card), var(--pr-card)) padding-box,
+    linear-gradient(
+        in oklch 160deg,
+        var(--cm-brand-400),
+        var(--cm-accent-400) 60%,
+        var(--cm-brand-600)
+      )
       border-box;
   border: 1px solid transparent;
   box-shadow: 0 30px 80px -40px var(--cm-brand-500);

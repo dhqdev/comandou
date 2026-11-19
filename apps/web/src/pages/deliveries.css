@@ -238,8 +238,8 @@
   gap: 8px;
   padding: 10px 12px;
   border-radius: var(--cm-radius-md);
-  border: 1px solid color-mix(in srgb, var(--cm-warning) 35%, var(--cm-border));
-  background: color-mix(in srgb, var(--cm-warning-bg) 60%, var(--cm-surface));
+  border: 1px solid color-mix(in oklab, var(--cm-warning) 35%, var(--cm-border));
+  background: color-mix(in oklab, var(--cm-warning-bg) 60%, var(--cm-surface));
 }
 .dl-ready__info {
   display: grid;
@@ -350,7 +350,7 @@
 }
 .dl-run[data-selected] {
   border-color: var(--rider);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--rider) 22%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--rider) 22%, transparent);
 }
 .dl-run__main {
   display: grid;
@@ -387,7 +387,7 @@
   min-width: 0;
   padding: 1px 8px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--rider) 14%, transparent);
+  background: color-mix(in oklab, var(--rider) 14%, transparent);
   font-size: var(--cm-text-xs);
   font-weight: 600;
   overflow: hidden;
@@ -445,14 +445,14 @@
 }
 .dl-run__live[data-signal='live'] .dl-run__signal {
   background: var(--cm-success);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--cm-success) 60%, transparent);
+  box-shadow: 0 0 0 0 color-mix(in oklab, var(--cm-success) 60%, transparent);
   animation: dl-blink 1.6s ease-out infinite;
 }
 .dl-run__live[data-signal='late'] .dl-run__signal {
   background: var(--cm-warning);
 }
 .dl-run__live[data-signal='lost'] {
-  color: color-mix(in srgb, var(--cm-danger) 85%, var(--cm-text));
+  color: color-mix(in oklab, var(--cm-danger) 85%, var(--cm-text));
 }
 .dl-run__live[data-signal='lost'] .dl-run__signal {
   background: var(--cm-danger);

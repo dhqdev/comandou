@@ -4,9 +4,9 @@
   display: grid;
   gap: 6px;
   padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--hue) 26%, var(--cm-border));
+  border: 1px solid color-mix(in oklab, var(--hue) 26%, var(--cm-border));
   border-radius: var(--cm-radius-sm);
-  background: color-mix(in srgb, var(--hue) 7%, var(--cm-surface));
+  background: color-mix(in oklab, var(--hue) 7%, var(--cm-surface));
   font-size: var(--cm-text-sm);
   color: var(--cm-text-muted);
 }

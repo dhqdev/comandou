@@ -77,7 +77,7 @@ const falloff = (color: string, softness: number) => {
   const soft = clamp(softness, 0, 1);
   const core = (1 - soft) ** 1.5 * 0.85;
   const stop = (alpha: number, at: number) =>
-    `color-mix(in srgb, ${color} ${(alpha * 100).toFixed(2)}%, transparent) ${(at * 100).toFixed(2)}%`;
+    `color-mix(in oklab, ${color} ${(alpha * 100).toFixed(2)}%, transparent) ${(at * 100).toFixed(2)}%`;
   const list = [stop(1, 0)];
   for (let i = 0; i <= 14; i++) {
     const t = core + ((1 - core) * i) / 14;

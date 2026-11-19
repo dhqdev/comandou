@@ -61,7 +61,7 @@
   padding: var(--cm-space-2) var(--cm-space-6);
   font-size: var(--cm-text-sm);
   font-weight: 600;
-  border-bottom: 1px solid color-mix(in srgb, var(--cm-warning) 20%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--cm-warning) 20%, transparent);
 }
 
 /* Conta (submenu do avatar na barra; folha no celular) */
@@ -133,7 +133,7 @@
   font-weight: 650;
 }
 .account__action:hover {
-  background: color-mix(in srgb, var(--cm-text) 5%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 5%, transparent);
   color: var(--cm-text);
 }
 .account__action svg {

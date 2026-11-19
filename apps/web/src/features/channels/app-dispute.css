@@ -11,8 +11,8 @@
 }
 .app-dispute[data-open] {
   --hue: var(--cm-warning);
-  border-color: color-mix(in srgb, var(--hue) 30%, var(--cm-border));
-  background: color-mix(in srgb, var(--hue) 9%, var(--cm-surface));
+  border-color: color-mix(in oklab, var(--hue) 30%, var(--cm-border));
+  background: color-mix(in oklab, var(--hue) 9%, var(--cm-surface));
 }
 .app-dispute__head {
   display: flex;

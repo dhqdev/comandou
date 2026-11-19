@@ -8,10 +8,10 @@
  * Trocar a cor da loja repinta tudo; nada de amarelo, verde ou vermelho fixo.
  */
 .art {
-  --art-ink: color-mix(in srgb, var(--cm-brand-800) 88%, #000);
+  --art-ink: color-mix(in oklab, var(--cm-brand-800) 88%, #000);
   --art-0: #fff;
-  --art-1: color-mix(in srgb, var(--cm-brand-500) 12%, #fff);
-  --art-2: color-mix(in srgb, var(--cm-brand-500) 32%, #fff);
+  --art-1: color-mix(in oklab, var(--cm-brand-500) 12%, #fff);
+  --art-2: color-mix(in oklab, var(--cm-brand-500) 32%, #fff);
   --art-3: var(--cm-brand-500);
   --art-4: var(--cm-brand-700);
   display: block;
@@ -20,10 +20,10 @@
   overflow: visible;
 }
 :root[data-theme='dark'] .art {
-  --art-ink: color-mix(in srgb, var(--cm-brand-500) 30%, #0d0d0f);
-  --art-0: color-mix(in srgb, var(--cm-brand-500) 6%, #f4f4f5);
-  --art-1: color-mix(in srgb, var(--cm-brand-500) 22%, #e9e9ec);
-  --art-2: color-mix(in srgb, var(--cm-brand-500) 45%, #d4d4d8);
+  --art-ink: color-mix(in oklab, var(--cm-brand-500) 30%, #0d0d0f);
+  --art-0: color-mix(in oklab, var(--cm-brand-500) 6%, #f4f4f5);
+  --art-1: color-mix(in oklab, var(--cm-brand-500) 22%, #e9e9ec);
+  --art-2: color-mix(in oklab, var(--cm-brand-500) 45%, #d4d4d8);
 }
 .art .art-ink {
   stroke: var(--art-ink);

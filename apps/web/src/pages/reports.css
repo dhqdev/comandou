@@ -40,7 +40,7 @@
 }
 .rp-kpi[data-main] {
   background: var(--cm-brand-50);
-  border-color: color-mix(in srgb, var(--cm-brand-500) 30%, var(--cm-border));
+  border-color: color-mix(in oklab, var(--cm-brand-500) 30%, var(--cm-border));
 }
 .rp-kpi__label {
   font-size: var(--cm-text-sm);
@@ -78,8 +78,8 @@
   align-items: flex-start;
   padding: 12px 14px;
   border-radius: var(--cm-radius-md);
-  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
-  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 30%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, var(--cm-surface));
+  border: 1px solid color-mix(in oklab, var(--cm-brand-500) 30%, transparent);
   font-size: var(--cm-text-sm);
 }
 .rp-warn svg {
@@ -119,7 +119,7 @@
   border-radius: var(--cm-radius-md);
   border: 1px solid var(--cm-border);
   background: color-mix(
-    in srgb,
+    in oklab,
     var(--cm-brand-500) calc(var(--heat, 0%) * 0.32),
     var(--cm-surface)
   );
@@ -250,7 +250,7 @@
   color: var(--cm-success);
 }
 .rp-margin[data-level='ok'] {
-  background: color-mix(in srgb, var(--cm-brand-500) 14%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 14%, transparent);
   color: var(--cm-brand-800);
 }
 .rp-margin[data-level='low'] {
@@ -282,7 +282,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 55%, var(--cm-surface));
   transition: width 0.5s var(--cm-ease);
 }
 .rp-bar[data-top] .rp-bar__fill {
@@ -311,7 +311,7 @@
 .rp-hours__col > span {
   width: 100%;
   border-radius: 4px 4px 0 0;
-  background: color-mix(in srgb, var(--cm-brand-500) 50%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 50%, var(--cm-surface));
 }
 .rp-hours__col[data-top] > span {
   background: var(--cm-brand-600);
@@ -400,8 +400,8 @@
   border-color: var(--cm-border-strong);
 }
 .rp-chip[aria-pressed='true'] {
-  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
-  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
+  background: color-mix(in oklab, var(--cm-brand-500) 12%, var(--cm-surface));
+  border-color: color-mix(in oklab, var(--cm-brand-500) 55%, var(--cm-border));
   color: var(--cm-text);
 }
 .rp-filters__row {
@@ -632,7 +632,7 @@
   stroke-dasharray: 4 4;
 }
 .rp-area {
-  fill: color-mix(in srgb, var(--cm-brand-500) 10%, transparent);
+  fill: color-mix(in oklab, var(--cm-brand-500) 10%, transparent);
 }
 .rp-cross {
   stroke: var(--cm-border-strong);
@@ -703,7 +703,7 @@
   font-weight: 600;
   color: var(--cm-text);
   background: color-mix(
-    in srgb,
+    in oklab,
     var(--cm-brand-600) calc(8% + var(--heat) * 0.85),
     var(--cm-surface)
   );

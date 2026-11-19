@@ -8,7 +8,7 @@
   max-width: 100%;
   overflow-x: auto;
   scrollbar-width: none;
-  background: color-mix(in srgb, var(--cm-text) 5%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 5%, transparent);
   border: 1px solid var(--cm-border);
   border-radius: var(--cm-radius-md);
   isolation: isolate;
@@ -66,7 +66,7 @@
   display: inline-grid;
   place-items: center;
   font-size: 11px;
-  background: color-mix(in srgb, var(--cm-text) 8%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 8%, transparent);
 }
 .slide-tabs__tab[aria-selected='true'] .slide-tabs__count {
   background: var(--cm-brand-600);

@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.198.3',
+    date: '2026-11-19',
+    title: 'Acabamento: linhas, cores e fotos mais limpas',
+    summary:
+      'Linhas finas que se ajustam a qualquer fundo, misturas de cor mais limpas, cantos que acompanham o cartão e fotos de produto sem o retângulo branco no cardápio.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'As linhas que separam cartões, listas e campos agora são levemente transparentes: ficam do mesmo jeito sobre o branco e acompanham fotos, cor da loja e cartões sobre cartões, no claro e no escuro.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'As misturas e degradês de cor (fundos suaves, selos, a cor da loja) passaram a ser calculados em OKLCH/OKLab, que segue o olho humano: os tons claros da cor da loja ficam mais limpos, sem puxar para o cinza.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cardápio online: foto de produto com fundo branco não aparece mais como um retângulo branco; ela se mistura ao cinza do quadro (só no modo claro).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cantos concêntricos: a foto dentro do cartão do cardápio, as opções do seletor e o submenu do menu lateral agora têm cantos que acompanham o de fora.',
+      },
+    ],
+  },
+  {
     version: '0.198.2',
     date: '2026-11-19',
     title: 'Cartão pelo app não cobra duas vezes quando o PagBank demora',

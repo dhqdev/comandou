@@ -175,7 +175,7 @@
   cursor: pointer;
 }
 .rsv-chips button[aria-pressed='true'] {
-  background: color-mix(in srgb, var(--cm-brand-500) 16%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 16%, var(--cm-surface));
   border-color: var(--cm-brand-500);
   color: var(--cm-brand-800);
 }
@@ -183,7 +183,7 @@
   margin: 14px 0 0;
   padding: 10px 12px;
   border-radius: var(--sf-r-sm);
-  background: color-mix(in srgb, var(--cm-brand-500) 8%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 8%, var(--cm-surface));
   font-size: var(--cm-text-sm);
   color: var(--cm-text);
 }
@@ -225,7 +225,7 @@
   border-radius: var(--cm-radius-full);
   font-weight: 800;
   font-size: var(--cm-text-sm);
-  background: color-mix(in srgb, var(--cm-brand-500) 16%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 16%, transparent);
   color: var(--cm-brand-800);
 }
 .rsv-ticket[data-status='confirmed'] .rsv-status,

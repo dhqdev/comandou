@@ -58,7 +58,7 @@
 }
 @media (hover: hover) and (pointer: fine) {
   .dshell__btn:hover {
-    background: color-mix(in srgb, var(--cm-text) 6%, transparent);
+    background: color-mix(in oklab, var(--cm-text) 6%, transparent);
     color: var(--cm-text);
   }
 }
@@ -87,6 +87,6 @@
 
 /* Faixa de sem internet / alterações na fila (app/OfflineBanner.tsx) */
 .courier-page__offline {
-  border: 1px solid color-mix(in srgb, var(--cm-warning) 20%, transparent);
+  border: 1px solid color-mix(in oklab, var(--cm-warning) 20%, transparent);
   border-radius: var(--cm-radius-md, 10px);
 }

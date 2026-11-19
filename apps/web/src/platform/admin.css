@@ -348,19 +348,19 @@ a.adm-row:hover {
 }
 .adm-tag--ok {
   color: var(--a-ok);
-  background: color-mix(in srgb, var(--a-ok) 10%, transparent);
+  background: color-mix(in oklab, var(--a-ok) 10%, transparent);
 }
 .adm-tag--warn {
   color: var(--a-warn);
-  background: color-mix(in srgb, var(--a-warn) 12%, transparent);
+  background: color-mix(in oklab, var(--a-warn) 12%, transparent);
 }
 .adm-tag--bad {
   color: var(--a-bad);
-  background: color-mix(in srgb, var(--a-bad) 10%, transparent);
+  background: color-mix(in oklab, var(--a-bad) 10%, transparent);
 }
 .adm-tag--info {
   color: var(--a-info);
-  background: color-mix(in srgb, var(--a-info) 10%, transparent);
+  background: color-mix(in oklab, var(--a-info) 10%, transparent);
 }
 
 /* Abas internas */
@@ -439,8 +439,8 @@ a.adm-row:hover {
   color: var(--a-bad);
 }
 .adm-action--danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--a-bad) 6%, transparent);
-  border-color: color-mix(in srgb, var(--a-bad) 35%, transparent);
+  background: color-mix(in oklab, var(--a-bad) 6%, transparent);
+  border-color: color-mix(in oklab, var(--a-bad) 35%, transparent);
 }
 
 .adm-search {
@@ -2087,7 +2087,7 @@ button.adm-card:hover {
   padding: 7px 8px;
   border: 1px solid transparent;
   border-radius: var(--cm-radius-md);
-  background: color-mix(in srgb, var(--day-tint) 9%, transparent);
+  background: color-mix(in oklab, var(--day-tint) 9%, transparent);
   color: var(--a-text);
   font: inherit;
   text-align: left;
@@ -2216,7 +2216,7 @@ button.adm-card:hover {
   box-shadow: var(--cm-focus);
 }
 .adm-cal__card.is-fresh {
-  background: color-mix(in srgb, var(--a-ok) 8%, var(--a-panel));
+  background: color-mix(in oklab, var(--a-ok) 8%, var(--a-panel));
 }
 .adm-cal__card-top {
   display: flex;

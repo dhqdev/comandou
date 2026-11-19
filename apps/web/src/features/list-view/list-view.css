@@ -113,7 +113,7 @@
   height: 26px;
   margin-left: 6px;
   padding: 0 9px;
-  border: 1px dashed color-mix(in srgb, var(--cm-brand-500) 50%, var(--cm-border));
+  border: 1px dashed color-mix(in oklab, var(--cm-brand-500) 50%, var(--cm-border));
   border-radius: var(--cm-radius-full);
   background: none;
   color: var(--cm-link);
@@ -276,7 +276,7 @@
   cursor: pointer;
 }
 .lv-chip__x:hover {
-  background: color-mix(in srgb, var(--cm-brand-500) 16%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 16%, transparent);
 }
 .lv-sep {
   width: 1px;
@@ -688,7 +688,7 @@
   border-color: var(--cm-brand-500);
 }
 .lv-chip[data-set] {
-  border-color: color-mix(in srgb, var(--cm-brand-500) 35%, transparent);
+  border-color: color-mix(in oklab, var(--cm-brand-500) 35%, transparent);
 }
 
 /* ------------------------------------------------------------------ seletor de campo ("+ Filtro") */
@@ -721,7 +721,7 @@
   overflow: hidden;
 }
 .lv-fields[data-fav] {
-  border-color: color-mix(in srgb, var(--cm-brand-500) 40%, var(--cm-border));
+  border-color: color-mix(in oklab, var(--cm-brand-500) 40%, var(--cm-border));
 }
 .lv-fields__title {
   display: flex;

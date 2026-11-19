@@ -13,8 +13,8 @@
   gap: 2px;
   padding: var(--cm-space-3) var(--cm-space-4);
   border-radius: var(--cm-radius-md);
-  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
-  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 22%, var(--cm-border));
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, var(--cm-surface));
+  border: 1px solid color-mix(in oklab, var(--cm-brand-500) 22%, var(--cm-border));
 }
 .te-stats strong {
   font-size: var(--cm-text-2xl);
@@ -124,7 +124,7 @@
   overflow: visible;
 }
 .te-drawing__top {
-  fill: color-mix(in srgb, var(--cm-brand-500) 18%, var(--cm-surface));
+  fill: color-mix(in oklab, var(--cm-brand-500) 18%, var(--cm-surface));
   stroke: var(--cm-brand-500);
   stroke-width: 2.5;
 }
@@ -195,7 +195,7 @@
   cursor: pointer;
 }
 .te-stepper button:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 14%, var(--cm-surface));
   color: var(--cm-brand-700);
 }
 .te-stepper button:disabled {
@@ -248,7 +248,7 @@
 }
 .te-shape[aria-checked='true'] {
   border-color: var(--cm-brand-500);
-  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, var(--cm-surface));
   box-shadow: 0 0 0 1px var(--cm-brand-500);
 }
 .te-area {

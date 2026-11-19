@@ -39,7 +39,7 @@
   font-size: var(--cm-text-sm);
 }
 .offline-sync__item.is-failed {
-  border-color: color-mix(in srgb, var(--cm-danger) 40%, transparent);
+  border-color: color-mix(in oklab, var(--cm-danger) 40%, transparent);
 }
 .offline-sync__when {
   color: var(--cm-text-muted);

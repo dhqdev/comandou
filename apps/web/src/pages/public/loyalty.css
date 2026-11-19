@@ -22,7 +22,7 @@
   height: 36px;
   flex: none;
   border-radius: var(--sf-r-sm);
-  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 12%, var(--cm-surface));
   color: var(--cm-brand-700);
 }
 /* Tela */

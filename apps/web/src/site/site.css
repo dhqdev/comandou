@@ -46,7 +46,7 @@ html:has(.st) {
   width: min(calc(100% - 2 * var(--st-pad)), var(--st-max));
   border: 1px solid var(--cm-border);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--cm-surface) 82%, transparent);
+  background: color-mix(in oklab, var(--cm-surface) 82%, transparent);
   backdrop-filter: saturate(1.6) blur(16px);
   -webkit-backdrop-filter: saturate(1.6) blur(16px);
   box-shadow: 0 1px 2px rgb(24 24 27 / 4%);
@@ -57,7 +57,7 @@ html:has(.st) {
 }
 .st-nav.is-scrolled {
   top: 8px;
-  background: color-mix(in srgb, var(--cm-surface) 92%, transparent);
+  background: color-mix(in oklab, var(--cm-surface) 92%, transparent);
   box-shadow:
     0 1px 2px rgb(24 24 27 / 6%),
     0 12px 32px -16px rgb(24 24 27 / 28%);
@@ -622,7 +622,7 @@ html:has(.st) {
 .st-phone__ph {
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--st-brand) 12%, var(--cm-surface));
+  background: color-mix(in oklab, var(--st-brand) 12%, var(--cm-surface));
   color: var(--st-brand);
   font-weight: 700;
 }
@@ -1356,7 +1356,7 @@ html:has(.st) {
   top: 0;
   height: 2px;
   background: var(--st-brand);
-  box-shadow: 0 0 18px 3px color-mix(in srgb, var(--st-brand) 45%, transparent);
+  box-shadow: 0 0 18px 3px color-mix(in oklab, var(--st-brand) 45%, transparent);
   animation: st-scan 1.6s ease-in-out infinite alternate;
 }
 @keyframes st-scan {

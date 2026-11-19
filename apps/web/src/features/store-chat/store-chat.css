@@ -127,7 +127,7 @@
 }
 @media (hover: hover) {
   .scx-msg:hover {
-    background: color-mix(in srgb, var(--cm-text) 4%, transparent);
+    background: color-mix(in oklab, var(--cm-text) 4%, transparent);
   }
 }
 .scx-msg__side {
@@ -253,9 +253,9 @@
   gap: 6px;
   align-self: flex-start;
   padding: 6px 10px;
-  border: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+  border: 1px solid color-mix(in oklab, currentColor 25%, transparent);
   border-radius: var(--cm-radius-md);
-  background: color-mix(in srgb, currentColor 8%, transparent);
+  background: color-mix(in oklab, currentColor 8%, transparent);
   color: inherit;
   font: inherit;
   font-size: var(--cm-text-sm);
@@ -585,7 +585,7 @@ button.scx-ticket:active {
   place-items: center;
   border: 2px dashed var(--cm-brand-500);
   border-radius: var(--cm-radius-lg);
-  background: color-mix(in srgb, var(--cm-surface) 88%, transparent);
+  background: color-mix(in oklab, var(--cm-surface) 88%, transparent);
   color: var(--cm-text);
   font-weight: 700;
   pointer-events: none;
@@ -935,7 +935,7 @@ button.scx-ticket:active {
   color: var(--cm-brand-600);
 }
 .scx-send:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--cm-brand-500) 10%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, transparent);
 }
 .scx-send:disabled {
   color: var(--cm-text-subtle);

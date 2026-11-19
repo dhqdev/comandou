@@ -117,12 +117,12 @@
 }
 .kds-stat[data-tone='ok'] {
   color: var(--cm-success);
-  border-color: color-mix(in srgb, var(--cm-success) 35%, transparent);
+  border-color: color-mix(in oklab, var(--cm-success) 35%, transparent);
   background: var(--cm-success-bg);
 }
 .kds-stat[data-tone='late'] {
   color: var(--cm-danger);
-  border-color: color-mix(in srgb, var(--cm-danger) 35%, transparent);
+  border-color: color-mix(in oklab, var(--cm-danger) 35%, transparent);
   background: var(--cm-danger-bg);
 }
 .kds-stat[data-tone='late'] strong {
@@ -254,7 +254,7 @@
   width: 28px;
   height: 28px;
   border-radius: var(--cm-radius-sm);
-  background: color-mix(in srgb, var(--col) 12%, transparent);
+  background: color-mix(in oklab, var(--col) 12%, transparent);
   color: var(--col);
 }
 .kds__head-label {
@@ -267,7 +267,7 @@
   display: grid;
   place-items: center;
   border-radius: var(--cm-radius-full);
-  background: color-mix(in srgb, var(--col) 12%, transparent);
+  background: color-mix(in oklab, var(--col) 12%, transparent);
   color: var(--col);
   font-variant-numeric: tabular-nums;
 }
@@ -308,7 +308,7 @@
 }
 .kds-card[data-level='late'] {
   --lvl: var(--cm-danger);
-  border-color: color-mix(in srgb, var(--cm-danger) 40%, var(--cm-border-strong));
+  border-color: color-mix(in oklab, var(--cm-danger) 40%, var(--cm-border-strong));
   border-left-color: var(--cm-danger);
 }
 .kds-card[data-col='done'] {
@@ -468,7 +468,7 @@
 }
 [data-status='preparing'] > .kds-item {
   background: var(--cm-warning-bg);
-  border-color: color-mix(in srgb, var(--cm-warning) 45%, transparent);
+  border-color: color-mix(in oklab, var(--cm-warning) 45%, transparent);
 }
 [data-status='ready'] > .kds-item {
   background: var(--cm-success-bg);

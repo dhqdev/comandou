@@ -240,12 +240,12 @@
   background: var(--cm-surface-sunken);
 }
 .ag-chip--solid {
-  background: color-mix(in srgb, var(--ev) 16%, var(--cm-surface));
-  color: color-mix(in srgb, var(--ev) 70%, var(--cm-text));
+  background: color-mix(in oklab, var(--ev) 16%, var(--cm-surface));
+  color: color-mix(in oklab, var(--ev) 70%, var(--cm-text));
   font-weight: 600;
 }
 .ag-chip--solid:hover {
-  background: color-mix(in srgb, var(--ev) 24%, var(--cm-surface));
+  background: color-mix(in oklab, var(--ev) 24%, var(--cm-surface));
 }
 .ag-chip__time {
   color: var(--cm-text-muted);
@@ -320,7 +320,7 @@
   color: var(--cm-text-subtle);
 }
 .ag-cell.is-over {
-  background: color-mix(in srgb, var(--cm-brand-500) 8%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 8%, var(--cm-surface));
 }
 .ag-cell__num {
   align-self: center;
@@ -470,7 +470,7 @@
   /* linhas das horas (cheias) e das meias horas (bem leves) */
   background-image:
     linear-gradient(var(--cm-border) 1px, transparent 1px),
-    linear-gradient(color-mix(in srgb, var(--cm-border) 45%, transparent) 1px, transparent 1px);
+    linear-gradient(color-mix(in oklab, var(--cm-border) 45%, transparent) 1px, transparent 1px);
   background-size:
     100% var(--ag-hour),
     100% calc(var(--ag-hour) / 2);
@@ -482,7 +482,7 @@
   touch-action: pan-y;
 }
 .ag-tg__col.is-today {
-  background: color-mix(in srgb, var(--cm-brand-500) 3%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 3%, transparent);
 }
 .ag-ev {
   position: absolute;
@@ -492,10 +492,10 @@
   min-width: 0;
   padding: 3px 6px;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--ev) 18%, var(--cm-surface));
+  background: color-mix(in oklab, var(--ev) 18%, var(--cm-surface));
   /* separa compromissos lado a lado sem faixa colorida */
   box-shadow: 0 0 0 1px var(--cm-surface);
-  color: color-mix(in srgb, var(--ev) 72%, var(--cm-text));
+  color: color-mix(in oklab, var(--ev) 72%, var(--cm-text));
   font-size: var(--cm-text-xs);
   line-height: 1.25;
   overflow: hidden;
@@ -504,7 +504,7 @@
   touch-action: pan-y;
 }
 .ag-ev:hover {
-  background: color-mix(in srgb, var(--ev) 26%, var(--cm-surface));
+  background: color-mix(in oklab, var(--ev) 26%, var(--cm-surface));
 }
 .ag-ev:focus-visible {
   outline: 2px solid var(--cm-focus);
@@ -764,7 +764,7 @@
 }
 .ag-tagpick__item[aria-checked='true'] {
   border-color: var(--tag, var(--cm-text));
-  background: color-mix(in srgb, var(--tag, var(--cm-text)) 12%, var(--cm-surface));
+  background: color-mix(in oklab, var(--tag, var(--cm-text)) 12%, var(--cm-surface));
   font-weight: 600;
 }
 .ag-tagpick__add {
@@ -948,7 +948,7 @@
   background: none;
 }
 .ag--phone .ag-cell.is-sel .ag-cell__num:not(.is-today) {
-  background: color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 14%, var(--cm-surface));
   color: var(--cm-brand-700);
 }
 .ag--phone .ag-cell__num {

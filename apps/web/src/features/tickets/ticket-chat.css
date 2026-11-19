@@ -147,7 +147,7 @@
   margin-top: 8px;
   border-radius: 50%;
   background: var(--tk-now);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--tk-now) 18%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--tk-now) 18%, transparent);
 }
 .tkv__now-count {
   flex: none;
@@ -286,7 +286,7 @@
   color: var(--cm-text-muted);
 }
 .tkh__item[data-first='true'] .tkh__dot {
-  background: color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 14%, var(--cm-surface));
   color: var(--cm-brand-700);
 }
 .tkh__main {
@@ -424,7 +424,7 @@
   color: var(--cm-brand-600);
 }
 .tk-card[data-unread='true'] {
-  border-color: color-mix(in srgb, var(--cm-brand-500) 45%, var(--cm-border));
+  border-color: color-mix(in oklab, var(--cm-brand-500) 45%, var(--cm-border));
 }
 .tk-card__kind {
   display: inline-flex;

@@ -61,7 +61,7 @@
   color: var(--cm-brand-700);
 }
 .mnav__item[data-on] .mnav__icon {
-  background: color-mix(in srgb, var(--cm-brand-500) 13%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 13%, transparent);
 }
 .mnav__item[data-on] .mnav__label {
   font-weight: 700;

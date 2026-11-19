@@ -286,6 +286,7 @@ html.cm-kb-open .sfchat .scx {
 .sfchat-store__cover {
   height: 84px;
   background: linear-gradient(135deg, var(--cm-brand-500), var(--cm-brand-800));
+  background: linear-gradient(in oklch 135deg, var(--cm-brand-500), var(--cm-brand-800));
 }
 .sfchat-store__img {
   display: block;
@@ -367,15 +368,15 @@ html.cm-kb-open .sfchat .scx {
     transform 0.2s var(--cm-ease);
 }
 .sfchat-order:hover {
-  border-color: color-mix(in srgb, var(--cm-brand-500) 45%, var(--cm-border));
-  background: color-mix(in srgb, var(--cm-brand-500) 5%, var(--cm-surface));
+  border-color: color-mix(in oklab, var(--cm-brand-500) 45%, var(--cm-border));
+  background: color-mix(in oklab, var(--cm-brand-500) 5%, var(--cm-surface));
 }
 .sfchat-order:active {
   transform: scale(0.98);
 }
 .sfchat-order[aria-pressed='true'] {
   border-color: var(--cm-brand-500);
-  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, var(--cm-surface));
 }
 .sfchat-order:focus-visible {
   outline: 2px solid var(--cm-brand-500);
@@ -388,7 +389,7 @@ html.cm-kb-open .sfchat .scx {
   width: 36px;
   height: 36px;
   border-radius: 11px;
-  background: color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 14%, var(--cm-surface));
   color: var(--cm-brand-700);
 }
 .sfchat-order__txt {
@@ -421,8 +422,8 @@ html.cm-kb-open .sfchat .scx {
 .sfchat-help__art {
   margin: -16px -16px 12px;
   padding: 16px 28px 8px;
-  border-bottom: 1px solid color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-border));
-  background: color-mix(in srgb, var(--cm-brand-500) 9%, var(--cm-surface));
+  border-bottom: 1px solid color-mix(in oklab, var(--cm-brand-500) 14%, var(--cm-border));
+  background: color-mix(in oklab, var(--cm-brand-500) 9%, var(--cm-surface));
 }
 .sfchat-help__art .art {
   max-width: 210px;

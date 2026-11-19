@@ -57,7 +57,7 @@
   display: block;
   height: 100%;
   border-radius: var(--cm-radius-lg);
-  background: color-mix(in srgb, var(--cm-brand-500) 11%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 11%, transparent);
 }
 .wt-tabs:not([data-tab]) .wt-tabs__pill {
   opacity: 0;
@@ -166,7 +166,7 @@
   padding: 10px;
   border-radius: var(--cm-radius-md);
   background: var(--cm-brand-50);
-  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 22%, transparent);
+  border: 1px solid color-mix(in oklab, var(--cm-brand-500) 22%, transparent);
   color: inherit;
   text-decoration: none;
 }
@@ -219,7 +219,7 @@
   background: var(--cm-surface-muted);
 }
 .wt-side__link.active {
-  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 12%, var(--cm-surface));
   color: var(--cm-brand-700);
   font-weight: 650;
 }
@@ -399,7 +399,7 @@
   display: block;
   height: 6px;
   border-radius: var(--cm-radius-full);
-  background: color-mix(in srgb, var(--cm-text) 10%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 10%, transparent);
   overflow: hidden;
 }
 .wt-bar > span {
@@ -498,7 +498,7 @@
   gap: 4px;
   min-height: 96px;
   padding: 12px 12px 12px 16px;
-  border: 1.5px solid color-mix(in srgb, var(--state-color) 50%, transparent);
+  border: 1.5px solid color-mix(in oklab, var(--state-color) 50%, transparent);
   border-radius: var(--cm-radius-md);
   background: var(--state-bg);
   color: var(--cm-text);
@@ -579,7 +579,7 @@
   cursor: pointer;
 }
 .wt-row[data-paying] {
-  border-color: color-mix(in srgb, var(--cm-warning) 60%, transparent);
+  border-color: color-mix(in oklab, var(--cm-warning) 60%, transparent);
   background: var(--cm-warning-bg);
 }
 .wt-row__badge {
@@ -621,7 +621,7 @@
   gap: 14px;
   min-height: 68px;
   padding: 12px 16px;
-  border: 1.5px solid color-mix(in srgb, var(--cm-brand-500) 45%, transparent);
+  border: 1.5px solid color-mix(in oklab, var(--cm-brand-500) 45%, transparent);
   border-radius: var(--cm-radius-md);
   background: var(--cm-surface);
   color: var(--cm-brand-600);
@@ -702,8 +702,8 @@
 }
 .wt-cat[aria-selected='true'] {
   /* escolha marcada: tom suave, não bloco de cor (padrão das telas) */
-  border-color: color-mix(in srgb, var(--cm-brand-500) 55%, var(--cm-border));
-  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  border-color: color-mix(in oklab, var(--cm-brand-500) 55%, var(--cm-border));
+  background: color-mix(in oklab, var(--cm-brand-500) 12%, var(--cm-surface));
   color: var(--cm-brand-700);
   font-weight: 650;
 }
@@ -807,7 +807,7 @@
   height: 34px;
   border: 0;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--cm-on-brand) 16%, transparent);
+  background: color-mix(in oklab, var(--cm-on-brand) 16%, transparent);
   color: inherit;
   cursor: pointer;
 }
@@ -872,7 +872,7 @@
   height: 28px;
   padding: 0 6px;
   border-radius: var(--cm-radius-full);
-  background: color-mix(in srgb, var(--cm-on-brand) 22%, transparent);
+  background: color-mix(in oklab, var(--cm-on-brand) 22%, transparent);
 }
 .wt-order__cart {
   position: sticky;
@@ -1178,14 +1178,14 @@
   height: 4px;
   margin: 0 2px;
   border-radius: 2px;
-  background: color-mix(in srgb, var(--cm-text) 12%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 12%, transparent);
 }
 .wt-track__step[data-earned] + .wt-track__step[data-earned]::before {
   background: var(--cm-brand-500);
 }
 .wt-track__step[data-current] .wt-seal {
   transform: scale(1.25);
-  filter: drop-shadow(0 3px 8px color-mix(in srgb, var(--cm-brand-500) 50%, transparent));
+  filter: drop-shadow(0 3px 8px color-mix(in oklab, var(--cm-brand-500) 50%, transparent));
 }
 .wt-section {
   display: grid;
@@ -1226,7 +1226,7 @@
   background: var(--cm-surface);
 }
 .wt-challenge[data-done] {
-  border-color: color-mix(in srgb, var(--cm-success) 55%, transparent);
+  border-color: color-mix(in oklab, var(--cm-success) 55%, transparent);
   background: var(--cm-success-bg);
 }
 .wt-challenge__icon {
@@ -1372,7 +1372,7 @@ button.wt-admin__who {
   cursor: pointer;
 }
 .wt-admin__toggle:hover {
-  background: color-mix(in srgb, var(--cm-text) 8%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 8%, transparent);
 }
 .wt-admin__toggle svg {
   transition: transform var(--cm-dur-fast) var(--cm-ease);
@@ -1438,7 +1438,7 @@ button.wt-admin__who {
   padding: 14px;
   border-radius: var(--cm-radius-md);
   background: var(--cm-brand-50);
-  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 22%, transparent);
+  border: 1px solid color-mix(in oklab, var(--cm-brand-500) 22%, transparent);
 }
 .wt-share > div:first-child {
   display: grid;
@@ -1480,7 +1480,7 @@ button.wt-admin__who {
   display: grid;
   gap: 8px;
   padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--cm-success) 35%, transparent);
+  border: 1px solid color-mix(in oklab, var(--cm-success) 35%, transparent);
   border-radius: var(--cm-radius-lg);
   background: var(--cm-success-bg);
 }

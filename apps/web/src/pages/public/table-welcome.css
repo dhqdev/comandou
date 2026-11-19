@@ -52,7 +52,7 @@
   height: 58px;
   padding: 0 8px;
   border-radius: 16px;
-  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, var(--cm-surface));
   color: var(--cm-brand-600);
   line-height: 1;
   animation: tw-pop var(--cm-spring-dur) var(--cm-spring) 60ms both;

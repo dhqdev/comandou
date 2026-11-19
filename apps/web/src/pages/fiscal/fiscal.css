@@ -482,8 +482,8 @@
   cursor: pointer;
 }
 .fi-radio[data-on] {
-  border-color: color-mix(in srgb, var(--cm-brand-500) 45%, var(--cm-border));
-  background: color-mix(in srgb, var(--cm-brand-500) 6%, var(--cm-surface));
+  border-color: color-mix(in oklab, var(--cm-brand-500) 45%, var(--cm-border));
+  background: color-mix(in oklab, var(--cm-brand-500) 6%, var(--cm-surface));
 }
 .fi-radio input {
   flex-shrink: 0;

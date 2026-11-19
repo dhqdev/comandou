@@ -37,7 +37,7 @@
 [data-tone='off'].conn-signal,
 .conn-panel[data-tone='off'] {
   --conn-tone: var(--cm-text-muted);
-  --conn-bg: color-mix(in srgb, var(--cm-text) 6%, transparent);
+  --conn-bg: color-mix(in oklab, var(--cm-text) 6%, transparent);
 }
 .conn-panel {
   --conn-tone: var(--cm-success);

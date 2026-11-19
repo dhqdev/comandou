@@ -63,7 +63,7 @@
   height: 10px;
   border-radius: 50%;
   background: var(--cm-success);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--cm-success) 60%, transparent);
+  box-shadow: 0 0 0 0 color-mix(in oklab, var(--cm-success) 60%, transparent);
   animation: pulse 1.8s infinite;
 }
 @keyframes pulse {
@@ -92,7 +92,7 @@
 .ph {
   position: relative;
   overflow: hidden;
-  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface-muted));
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, var(--cm-surface-muted));
 }
 .ph img {
   position: absolute;
@@ -103,15 +103,21 @@
   opacity: 0;
   transition: opacity 0.35s;
 }
+.ph[data-state='ok'] {
+  background: var(--cm-photo-bg);
+}
+/* Foto que tem fundo branco não vira um retângulo branco: no claro ela se mistura (multiply) com o
+   cinza do quadro; no escuro, --cm-photo-blend é normal. */
 .ph[data-state='ok'] img {
   opacity: 1;
+  mix-blend-mode: var(--cm-photo-blend);
 }
 .ph[data-state='loading'] {
   animation: shimmer 1.4s infinite linear;
   background-image: linear-gradient(
     90deg,
     transparent 0,
-    color-mix(in srgb, var(--cm-surface) 60%, transparent) 50%,
+    color-mix(in oklab, var(--cm-surface) 60%, transparent) 50%,
     transparent 100%
   );
   background-size: 200% 100%;
@@ -129,7 +135,7 @@
   font-weight: 750;
   font-size: 1.25rem;
   letter-spacing: 0.02em;
-  color: color-mix(in srgb, var(--cm-brand-700) 70%, var(--cm-text-subtle));
+  color: color-mix(in oklab, var(--cm-brand-700) 70%, var(--cm-text-subtle));
 }
 
 .sum {
@@ -301,7 +307,7 @@
   border-radius: 50%;
   color: #fff;
   background: var(--tone, var(--cm-brand-600));
-  box-shadow: 0 0 0 8px color-mix(in srgb, var(--tone, var(--cm-brand-600)) 16%, transparent);
+  box-shadow: 0 0 0 8px color-mix(in oklab, var(--tone, var(--cm-brand-600)) 16%, transparent);
   margin-bottom: 8px;
 }
 .track__art {

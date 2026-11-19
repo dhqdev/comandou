@@ -14,7 +14,7 @@
   width: 40px;
   height: 40px;
   border-radius: var(--cm-radius-md);
-  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 12%, var(--cm-surface));
   color: var(--cm-brand-600);
   flex: none;
 }

@@ -87,7 +87,7 @@
   background: var(--cm-surface-sunken);
 }
 .sinbox__item[aria-current] {
-  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, var(--cm-surface));
 }
 .sinbox__avatar {
   flex: none;
@@ -96,7 +96,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 14%, var(--cm-surface));
   color: var(--cm-brand-700);
   font-weight: 800;
 }
@@ -389,7 +389,7 @@
 }
 .sbtn[data-waiting] {
   border-color: var(--cm-brand-500);
-  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, var(--cm-surface));
   color: var(--cm-brand-700);
 }
 .sbtn[data-waiting] svg {

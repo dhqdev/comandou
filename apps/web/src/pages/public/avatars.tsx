@@ -19,10 +19,10 @@ const HAIR = {
 // Roupa, boné e fundo só nos tons da cor da loja (o admin troca a cor e os avatares acompanham).
 const BRAND = 'var(--cm-brand-500)';
 const ACCENT = 'var(--cm-brand-700)';
-const SHIRT_SOFT = 'color-mix(in srgb, var(--cm-brand-500) 45%, #fff)';
-const BRAND_SOFT = 'color-mix(in srgb, var(--cm-brand-500) 16%, #fff)';
-const BG_2 = 'color-mix(in srgb, var(--cm-brand-500) 9%, #fff)';
-const BG_3 = 'color-mix(in srgb, var(--cm-brand-500) 24%, #fff)';
+const SHIRT_SOFT = 'color-mix(in oklab, var(--cm-brand-500) 45%, #fff)';
+const BRAND_SOFT = 'color-mix(in oklab, var(--cm-brand-500) 16%, #fff)';
+const BG_2 = 'color-mix(in oklab, var(--cm-brand-500) 9%, #fff)';
+const BG_3 = 'color-mix(in oklab, var(--cm-brand-500) 24%, #fff)';
 
 type Hair = 'curto' | 'cacheado' | 'longo' | 'coque' | 'crespo' | 'lateral' | 'nenhum';
 type Hat = 'chef' | 'bone' | 'gorro' | 'capacete';

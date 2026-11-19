@@ -22,12 +22,12 @@
   border-radius: 12px;
   box-shadow:
     0 0 0 2px var(--cm-brand-500),
-    0 0 0 6px color-mix(in srgb, var(--cm-brand-500) 28%, transparent);
+    0 0 0 6px color-mix(in oklab, var(--cm-brand-500) 28%, transparent);
   pointer-events: none;
   animation: tourx-pulse 1.8s var(--cm-ease) infinite;
 }
 .tourx__ring--menu {
-  box-shadow: 0 0 0 2px color-mix(in srgb, #fff 85%, var(--cm-brand-500));
+  box-shadow: 0 0 0 2px color-mix(in oklab, #fff 85%, var(--cm-brand-500));
   animation: none;
 }
 
@@ -122,7 +122,7 @@
   padding: 10px 12px;
   border-radius: 12px;
   background: var(--cm-brand-50);
-  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 22%, transparent);
+  border: 1px solid color-mix(in oklab, var(--cm-brand-500) 22%, transparent);
 }
 .tourx__todo-label {
   display: block;
@@ -176,7 +176,7 @@
   transition: background-color var(--cm-dur) var(--cm-ease);
 }
 .tourx__dots .is-past {
-  background: color-mix(in srgb, var(--cm-brand-500) 45%, var(--cm-surface-sunken));
+  background: color-mix(in oklab, var(--cm-brand-500) 45%, var(--cm-surface-sunken));
 }
 .tourx__dots .is-on {
   background: var(--cm-brand-500);
@@ -207,7 +207,7 @@
   50% {
     box-shadow:
       0 0 0 2px var(--cm-brand-500),
-      0 0 0 10px color-mix(in srgb, var(--cm-brand-500) 12%, transparent);
+      0 0 0 10px color-mix(in oklab, var(--cm-brand-500) 12%, transparent);
   }
 }
 @media (prefers-reduced-motion: reduce) {

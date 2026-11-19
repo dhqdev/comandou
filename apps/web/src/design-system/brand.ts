@@ -197,7 +197,7 @@ export function brandTokens(brand: string) {
     '--cm-brand-800': lch(Math.min(0.92, d700L + 0.08), dC * 0.7, H),
     '--cm-on-brand': onColor(d600),
     '--cm-link': d700,
-    '--cm-focus': `0 0 0 3px color-mix(in srgb, ${d500} 26%, transparent)`,
+    '--cm-focus': `0 0 0 3px color-mix(in oklab, ${d500} 26%, transparent)`,
   };
   return { light, dark };
 }

@@ -291,7 +291,7 @@ html.sf-root {
   height: 34px;
   width: 0;
   border-radius: var(--cm-radius-full);
-  background: color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 14%, var(--cm-surface));
   pointer-events: none;
   transition:
     transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
@@ -389,7 +389,7 @@ html.sf-root {
   border-color: var(--cm-brand-500);
   color: var(--cm-brand-600);
   box-shadow:
-    0 0 0 4px color-mix(in srgb, var(--cm-brand-500) 14%, transparent),
+    0 0 0 4px color-mix(in oklab, var(--cm-brand-500) 14%, transparent),
     var(--cm-shadow-sm);
 }
 .searchbox input {
@@ -590,9 +590,9 @@ html.sf-root {
   z-index: -1;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--sf-shade) 88%, transparent) 0%,
-    color-mix(in srgb, var(--sf-shade) 62%, transparent) 50%,
-    color-mix(in srgb, var(--sf-shade) 8%, transparent) 100%
+    color-mix(in oklab, var(--sf-shade) 88%, transparent) 0%,
+    color-mix(in oklab, var(--sf-shade) 62%, transparent) 50%,
+    color-mix(in oklab, var(--sf-shade) 8%, transparent) 100%
   );
 }
 .banner__text {
@@ -678,8 +678,8 @@ html.sf-root {
 .sf[data-layout='phone'] .banner[data-img]::before {
   background: linear-gradient(
     to top,
-    color-mix(in srgb, var(--sf-shade) 82%, transparent) 0%,
-    color-mix(in srgb, var(--sf-shade) 30%, transparent) 55%,
+    color-mix(in oklab, var(--sf-shade) 82%, transparent) 0%,
+    color-mix(in oklab, var(--sf-shade) 30%, transparent) 55%,
     transparent 100%
   );
 }
@@ -744,7 +744,7 @@ html.sf-root {
   min-width: 0;
   padding: 6px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--cm-border) 80%, transparent);
+  border: 1px solid color-mix(in oklab, var(--cm-border) 80%, transparent);
   border-radius: var(--sf-card-r);
   background: var(--cm-surface);
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
@@ -789,7 +789,8 @@ html.sf-root {
 .pcard__media {
   position: relative;
   overflow: hidden;
-  border-radius: calc(var(--sf-card-r) - 5px);
+  /* Raio concêntrico: o do cartão menos a folga (6px) e a linha (1px). */
+  border-radius: calc(var(--sf-card-r) - 7px);
 }
 .pcard__photo {
   border-radius: 0;
@@ -910,7 +911,7 @@ html.sf-root {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  box-shadow: 0 6px 14px -8px color-mix(in srgb, var(--cm-brand-600) 80%, transparent);
+  box-shadow: 0 6px 14px -8px color-mix(in oklab, var(--cm-brand-600) 80%, transparent);
 }
 /* "Adicionar" escrito só no tablet (botão largo, como no totem). */
 .addbtn__txt {
@@ -947,7 +948,7 @@ html.sf-root {
   width: fit-content;
   padding: 3px 9px;
   border-radius: var(--cm-radius-full);
-  background: color-mix(in srgb, var(--cm-brand-500) 18%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 18%, var(--cm-surface));
   color: var(--cm-brand-700);
   font-size: var(--cm-text-2xs);
   font-weight: 800;
@@ -966,7 +967,7 @@ html.sf-root {
   place-items: center;
   border: 0;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--cm-surface) 90%, transparent);
+  background: color-mix(in oklab, var(--cm-surface) 90%, transparent);
   color: var(--cm-text-muted);
   cursor: pointer;
 }
@@ -1982,7 +1983,7 @@ html.sf-root {
      observação, a barra subia ao rolar o item até o fim. A folga medida a traz de volta. */
   bottom: calc(-1 * var(--cm-fixgap, 0px));
   padding: 12px 16px calc(12px + var(--sf-safe));
-  background: color-mix(in srgb, var(--cm-surface) 92%, transparent);
+  background: color-mix(in oklab, var(--cm-surface) 92%, transparent);
   backdrop-filter: var(--cm-glass-blur);
   border-top: 1px solid var(--cm-border);
   box-shadow: 0 -10px 30px -18px rgb(0 0 0 / 35%);
@@ -2018,7 +2019,7 @@ html.sf-root {
 .addbar__price {
   padding: 4px 10px;
   border-radius: var(--cm-radius-full);
-  background: color-mix(in srgb, var(--cm-on-brand) 12%, transparent);
+  background: color-mix(in oklab, var(--cm-on-brand) 12%, transparent);
   animation: sf-pop 0.26s var(--cm-ease-liquid);
 }
 
@@ -2383,7 +2384,7 @@ html.sf-root {
   margin-top: 12px;
   padding: 12px 14px;
   border-radius: var(--sf-r-sm);
-  background: color-mix(in srgb, var(--cm-brand-500) 12%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 12%, var(--cm-surface));
   color: var(--cm-text);
   font-size: var(--cm-text-sm);
   text-decoration: none;
@@ -2398,9 +2399,9 @@ html.sf-root {
   gap: 12px;
   margin-top: 12px;
   padding: 12px 12px 12px 14px;
-  border: 1px solid color-mix(in srgb, var(--cm-brand-500) 30%, var(--cm-border));
+  border: 1px solid color-mix(in oklab, var(--cm-brand-500) 30%, var(--cm-border));
   border-radius: var(--sf-r);
-  background: color-mix(in srgb, var(--cm-brand-500) 8%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 8%, var(--cm-surface));
   animation: sf-rise 180ms ease-out both;
 }
 .ck-pixlogin__icon {
@@ -2410,7 +2411,7 @@ html.sf-root {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--cm-brand-500) 16%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 16%, transparent);
   color: var(--cm-brand-700);
 }
 .ck-pixlogin__text {
@@ -2483,7 +2484,7 @@ html.sf-root {
 }
 .addr-opt[aria-checked='true'] {
   border-color: var(--cm-brand-500);
-  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, var(--cm-surface));
 }
 .addr-opt[aria-checked='true'] svg {
   color: var(--cm-brand-700);
@@ -2547,7 +2548,7 @@ html.sf-root {
   height: 64px;
   margin-bottom: 6px;
   border-radius: var(--sf-r-lg);
-  background: color-mix(in srgb, var(--cm-brand-500) 14%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 14%, var(--cm-surface));
   color: var(--cm-brand-700);
 }
 
@@ -2634,7 +2635,7 @@ html.sf-root {
   color: var(--cm-warning);
 }
 .ostatus[data-tone='brand'] {
-  background: color-mix(in srgb, var(--cm-brand-500) 16%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 16%, var(--cm-surface));
   color: var(--cm-brand-700);
 }
 .ostatus[data-tone='info'] {
@@ -2675,7 +2676,7 @@ html.sf-root {
   background: var(--cm-surface);
   box-shadow:
     0 0 0 1px var(--cm-border),
-    0 10px 26px -16px color-mix(in srgb, var(--cm-brand-600) 70%, transparent);
+    0 10px 26px -16px color-mix(in oklab, var(--cm-brand-600) 70%, transparent);
 }
 .auth__logo .ph {
   width: 100%;
@@ -2799,7 +2800,7 @@ html.sf-root {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--cm-text) 7%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-text) 7%, var(--cm-surface));
   color: var(--cm-text);
 }
 .label-chips {
@@ -2817,7 +2818,7 @@ html.sf-root {
 .acct {
   /* 18 no padrão; acompanha o "reto"/"arredondado" da loja. */
   --acct-r: calc(var(--sf-r-lg) * 1.5);
-  --acct-chip: color-mix(in srgb, var(--cm-text) 7%, var(--cm-surface));
+  --acct-chip: color-mix(in oklab, var(--cm-text) 7%, var(--cm-surface));
   display: grid;
   gap: 16px;
   align-content: start;
@@ -3257,7 +3258,7 @@ html.sf-root {
 @media (hover: hover) {
   .acct__out:hover {
     background: var(--cm-danger-bg);
-    border-color: color-mix(in srgb, var(--cm-danger) 30%, var(--cm-border));
+    border-color: color-mix(in oklab, var(--cm-danger) 30%, var(--cm-border));
   }
 }
 /* Tablet e notebook: 4 blocos por linha, quadrados; a fidelidade ocupa a linha toda. */
@@ -3430,7 +3431,7 @@ html.sf-root {
 
 /* ---------------------------------------------------------------- modo escuro: capa menos "lamacenta" */
 :root[data-theme='dark'] .sf-cover__art {
-  background: color-mix(in srgb, var(--cm-brand-800) 45%, var(--cm-surface-sunken));
+  background: color-mix(in oklab, var(--cm-brand-800) 45%, var(--cm-surface-sunken));
 }
 
 /* Endereço com CEP: o resto (campo, lista de ruas) está em features/street-hits.css */
@@ -3599,7 +3600,7 @@ html.sf-root {
 /* Bloco com algo faltando: borda vermelha e uma tremidinha a cada toque em "Fazer pedido". */
 .ck-card[data-invalid] {
   border-color: var(--cm-danger);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cm-danger) 14%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--cm-danger) 14%, transparent);
 }
 .ck-card[data-invalid] .form-error {
   margin: 10px 0 0;

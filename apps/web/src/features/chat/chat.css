@@ -17,7 +17,7 @@
   background: var(--cm-brand-600);
   color: var(--cm-on-brand);
   box-shadow:
-    0 8px 24px -6px color-mix(in srgb, var(--cm-brand-700) 55%, transparent),
+    0 8px 24px -6px color-mix(in oklab, var(--cm-brand-700) 55%, transparent),
     0 2px 6px rgb(0 0 0 / 12%);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
@@ -740,7 +740,7 @@
   margin: 6px 0;
   padding: 3px 10px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--cm-surface) 80%, transparent);
+  background: color-mix(in oklab, var(--cm-surface) 80%, transparent);
   color: var(--cm-text-subtle);
   font-size: 12px;
   text-align: center;
@@ -761,7 +761,7 @@
 }
 .tc-msg:hover,
 .tc-msg:focus-within {
-  background: color-mix(in srgb, var(--cm-text) 4%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 4%, transparent);
 }
 .tc-msg.is-pending .tc-msg__main {
   opacity: 0.6;
@@ -772,7 +772,7 @@
 @keyframes tc-flash {
   0%,
   40% {
-    background: color-mix(in srgb, var(--cm-accent-400) 30%, transparent);
+    background: color-mix(in oklab, var(--cm-accent-400) 30%, transparent);
   }
 }
 .tc-msg__side {
@@ -857,7 +857,7 @@
 .tc-mention {
   padding: 0 3px;
   border-radius: 4px;
-  background: color-mix(in srgb, var(--cm-brand-500) 12%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 12%, transparent);
   color: var(--cm-brand-700);
   font-weight: 600;
 }
@@ -905,7 +905,7 @@
 }
 .tc-reacts button.is-mine {
   border-color: var(--cm-brand-400);
-  background: color-mix(in srgb, var(--cm-brand-500) 8%, var(--cm-surface));
+  background: color-mix(in oklab, var(--cm-brand-500) 8%, var(--cm-surface));
 }
 /* Ações da mensagem: barrinha que aparece no canto de cima da linha. */
 .tc-msg__actions {
@@ -1150,7 +1150,7 @@
   flex-shrink: 0;
 }
 .tc-send:not(:disabled):hover {
-  background: color-mix(in srgb, var(--cm-brand-500) 10%, transparent);
+  background: color-mix(in oklab, var(--cm-brand-500) 10%, transparent);
 }
 .tc-send:disabled {
   color: var(--cm-text-subtle);
@@ -1322,7 +1322,7 @@
   cursor: pointer;
 }
 .tc-post.is-pinned {
-  border-color: color-mix(in srgb, var(--cm-brand-500) 45%, var(--cm-border));
+  border-color: color-mix(in oklab, var(--cm-brand-500) 45%, var(--cm-border));
   box-shadow: inset 3px 0 0 var(--cm-brand-500);
 }
 .tc-post header {
@@ -1374,7 +1374,7 @@
   cursor: pointer;
 }
 .tc-notice.is-new {
-  border-color: color-mix(in srgb, var(--cm-brand-500) 35%, var(--cm-border));
+  border-color: color-mix(in oklab, var(--cm-brand-500) 35%, var(--cm-border));
 }
 .tc-notice__icon {
   display: grid;
@@ -1678,7 +1678,7 @@
 }
 @media (hover: hover) {
   .tc-top:hover {
-    background: color-mix(in srgb, var(--cm-text) 6%, transparent);
+    background: color-mix(in oklab, var(--cm-text) 6%, transparent);
     color: var(--cm-text);
   }
   .tc-top--ai:hover {
@@ -1686,7 +1686,7 @@
   }
 }
 .tc-top:active {
-  background: color-mix(in srgb, var(--cm-text) 6%, transparent);
+  background: color-mix(in oklab, var(--cm-text) 6%, transparent);
 }
 .tc-top:focus-visible {
   outline: none;

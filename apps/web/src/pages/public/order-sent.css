@@ -64,7 +64,7 @@
   bottom: 0;
   height: 3px;
   width: 100%;
-  background: color-mix(in srgb, var(--cm-on-brand) 50%, transparent);
+  background: color-mix(in oklab, var(--cm-on-brand) 50%, transparent);
   transform-origin: left;
   animation: osent-bar var(--osent-ms, 2.6s) linear both;
 }
