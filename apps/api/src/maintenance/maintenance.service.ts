@@ -24,12 +24,14 @@ export interface PurgeResult {
   channelDrivers: number;
   /** Avaliações dos aplicativos: primeiro nome em 90 dias (a avaliação sai em 2 anos). */
   channelReviews: number;
+  /** Avisos da equipe com mais de 7 dias. */
+  notices: number;
 }
 
 /**
  * Limpeza periódica de dados vencidos (função app_purge_expired, migração 0008): sessões
  * encerradas há mais de 90 dias, chaves de idempotência com mais de 30 dias, a última posição
- * do entregador 30 dias depois da entrega o arquivo do comprovante do Pix depois de 5 anos e o pixel do cardápio depois de 400 dias. Rodar em várias réplicas ao mesmo tempo é seguro.
+ * do entregador 30 dias depois da entrega o arquivo do comprovante do Pix depois de 5 anos, o pixel do cardápio depois de 400 dias e os avisos da equipe depois de 7 dias. Rodar em várias réplicas ao mesmo tempo é seguro.
  */
 @Injectable()
 export class MaintenanceService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -69,6 +71,7 @@ export class MaintenanceService implements OnApplicationBootstrap, OnModuleDestr
       channelEvents: 0,
       channelDrivers: 0,
       channelReviews: 0,
+      notices: 0,
     };
     const add = (r: PurgeResult) => {
       for (const k of Object.keys(total) as (keyof PurgeResult)[]) total[k] += Number(r[k] ?? 0);

@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.202.0',
+    date: '2026-11-19',
+    title: 'Avisos que somem ao abrir',
+    summary:
+      'Na aba Avisos do chat, clicar num aviso já abre o que ele aponta e tira o aviso da lista na hora. Os avisos que ficarem somem sozinhos depois de 7 dias.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Aviso aberto sai da lista na mesma hora, sem esperar o servidor; o botão "Limpar todos" esvazia a lista.',
+      },
+      {
+        tag: 'novo',
+        text: 'Avisos da equipe (menções, grupos, mural e IA) são apagados sozinhos 7 dias depois de chegar.',
+      },
+    ],
+  },
+  {
     version: '0.201.1',
     date: '2026-11-19',
     title: 'Detalhe do pedido mais fácil de usar',

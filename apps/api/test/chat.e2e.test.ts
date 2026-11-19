@@ -460,6 +460,8 @@ describe('Chat da equipe', () => {
     expect(n.some((x: { kind: string }) => x.kind === 'post')).toBe(true);
     await send('adminA', 'post', '/chat/notices/read', {}).expect(200);
     expect((await get('adminA', '/chat/summary').expect(200)).body.notices).toBe(0);
+    // Aviso aberto sai da lista.
+    expect((await get('adminA', '/chat/notices').expect(200)).body).toEqual([]);
     await send('waiterA', 'delete', `/chat/posts/${p.id}`).expect(200);
   });
 

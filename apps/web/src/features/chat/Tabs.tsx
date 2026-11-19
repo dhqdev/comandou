@@ -245,20 +245,22 @@ export function NoticesTab({
   useRealtimeEvents((e) => {
     if (e.type === 'chat.notice') void load();
   }, false);
-  const unread = items?.filter((n) => !n.readAt).length ?? 0;
-  const readAll = async () => {
+  // A lista só tem avisos ainda não abertos: ao clicar, o aviso sai na hora (antes da resposta
+  // do servidor) e a tela já abre o que ele aponta. Avisos com mais de 7 dias somem sozinhos.
+  const unread = items?.length ?? 0;
+  const clearAll = async () => {
+    setItems([]);
     await chatApi.readNotices().catch(() => undefined);
-    await load();
     onChanged();
   };
-  const open = async (n: Notice) => {
-    if (!n.readAt) {
-      await chatApi.readNotices([n.id]).catch(() => undefined);
-      onChanged();
-    }
+  const open = (n: Notice) => {
+    setItems((list) => list?.filter((x) => x.id !== n.id) ?? list);
+    void chatApi
+      .readNotices([n.id])
+      .catch(() => undefined)
+      .then(onChanged);
     if (n.conversationId) onOpenConversation(n.conversationId);
     else if (n.postId) onOpenMural();
-    else void load();
   };
   return (
     <div className="tc-page">
@@ -270,8 +272,8 @@ export function NoticesTab({
         </div>
         <span className="tc-spacer" />
         {unread > 0 && (
-          <button className="tc-link" onClick={readAll}>
-            <CheckCheck size={15} /> Marcar todos como lidos
+          <button className="tc-link" onClick={clearAll}>
+            <CheckCheck size={15} /> Limpar todos
           </button>
         )}
       </header>
@@ -280,15 +282,14 @@ export function NoticesTab({
           <div className="tc-page__empty">
             <LivePanda size={72} mood="happy" />
             <p>Nenhum aviso por aqui.</p>
-            <small>Menções, grupos novos e recados do mural aparecem aqui.</small>
+            <small>
+              Menções, grupos novos e recados do mural aparecem aqui. Ao abrir, o aviso sai da
+              lista; os que ficarem somem sozinhos em 7 dias.
+            </small>
           </div>
         )}
         {items?.map((n) => (
-          <button
-            key={n.id}
-            className={`tc-notice ${n.readAt ? '' : 'is-new'}`}
-            onClick={() => open(n)}
-          >
+          <button key={n.id} className="tc-notice is-new" onClick={() => open(n)}>
             <span className={`tc-notice__icon tc-notice__icon--${n.kind}`}>
               {NOTICE_ICON[n.kind]}
             </span>
@@ -297,7 +298,7 @@ export function NoticesTab({
               {n.body && <span>{n.body}</span>}
               <time>{shortWhen(n.createdAt)}</time>
             </span>
-            {!n.readAt && <i className="tc-notice__dot" />}
+            <i className="tc-notice__dot" />
           </button>
         ))}
       </div>

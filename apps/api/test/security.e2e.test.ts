@@ -181,6 +181,24 @@ describe('Limpeza de dados vencidos', () => {
     expect(await payments()).toBe(before);
   });
 
+  it('avisos da equipe somem depois de 7 dias', async () => {
+    const [user] = await ownerQuery<{ id: string }>(
+      `SELECT id FROM users WHERE email = 'admin@sec-b.test'`,
+    );
+    await ownerQuery(
+      `INSERT INTO chat_notices (tenant_id, user_id, kind, title, created_at)
+       VALUES ($1, $2, 'system', 'sec-aviso-velho', now() - interval '8 days'),
+              ($1, $2, 'system', 'sec-aviso-novo', now() - interval '6 days')`,
+      [fx.tenantB, user.id],
+    );
+    const r = await app.get(MaintenanceService).purge();
+    expect(r.notices).toBeGreaterThanOrEqual(1);
+    const left = await ownerQuery<{ title: string }>(
+      `SELECT title FROM chat_notices WHERE title LIKE 'sec-aviso-%' ORDER BY title`,
+    );
+    expect(left.map((x) => x.title)).toEqual(['sec-aviso-novo']);
+  });
+
   it('a API não apaga direto: só pela função de limpeza', async () => {
     const { Client } = await import('pg');
     const { APP_URL } = await import('./env');

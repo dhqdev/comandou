@@ -18,6 +18,8 @@ export const REACTIONS = ['❤️', '👍', '😂', '😮', '😢', '🙏', '�
 /** Visto por último há menos disso = "online". */
 const ONLINE_MS = 5 * 60_000;
 const PAGE = 50;
+/** Por quanto tempo um aviso da equipe fica na lista (depois a limpeza periódica apaga). */
+const NOTICE_TTL = "interval '7 days'";
 
 export interface Person {
   id: string;
@@ -748,7 +750,8 @@ export class ChatService {
               JOIN chat_members me ON me.conversation_id = x.conversation_id AND me.user_id = $1
              WHERE x.created_at > me.last_read_at AND NOT me.muted
                AND x.author_id IS DISTINCT FROM $1 AND x.deleted_at IS NULL AND NOT x.system) AS unread,
-           (SELECT count(*)::int FROM chat_notices WHERE user_id = $1 AND read_at IS NULL) AS notices`,
+           (SELECT count(*)::int FROM chat_notices
+             WHERE user_id = $1 AND read_at IS NULL AND created_at > now() - ${NOTICE_TTL}) AS notices`,
         [ctx.userId],
       );
       return r!;
@@ -875,6 +878,8 @@ export class ChatService {
   }
 
   // ---------- avisos ----------
+  // A lista mostra só os avisos ainda não abertos: abriu (ou "Limpar todos"), sai da lista.
+  // Avisos com mais de 7 dias também somem e a limpeza periódica apaga (migração 0099).
 
   async notices(ctx: Ctx) {
     return this.db.withTenant(ctx, (tx) =>
@@ -884,7 +889,8 @@ export class ChatService {
                 n.post_id AS "postId", n.created_at AS "createdAt", n.read_at AS "readAt",
                 u.name AS "actorName"
            FROM chat_notices n LEFT JOIN users u ON u.id = n.actor_id
-          WHERE n.user_id = $1 ORDER BY n.created_at DESC LIMIT 60`,
+          WHERE n.user_id = $1 AND n.read_at IS NULL AND n.created_at > now() - ${NOTICE_TTL}
+          ORDER BY n.created_at DESC LIMIT 60`,
         [ctx.userId],
       ),
     );
