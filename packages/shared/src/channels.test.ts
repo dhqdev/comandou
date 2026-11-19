@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  shiftsLabel,
   actionForTransition,
   channelPath,
   channelInfo,
@@ -90,5 +91,17 @@ describe('channelPath', () => {
   it('cancelar depois de sair para entrega não dá', () => {
     expect(channelPath('dispatched', 'cancelled', 'delivery')).toBeNull();
     expect(channelPath('new', 'cancelled', 'delivery')).toEqual(['cancelled']);
+  });
+});
+
+describe('horários da loja no aplicativo', () => {
+  it('ordena por dia e passa da meia-noite sem quebrar', () => {
+    expect(
+      shiftsLabel([
+        { day: 5, start: '18:00', minutes: 420 },
+        { day: 1, start: '11:00', minutes: 660 },
+      ]),
+    ).toBe('Seg 11:00–22:00 · Sex 18:00–01:00');
+    expect(shiftsLabel([])).toBe('');
   });
 });

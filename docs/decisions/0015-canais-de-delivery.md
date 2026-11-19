@@ -348,3 +348,25 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
     (`ifoodDispute` tolera as variações conhecidas) e cancelar parte dos itens no Comandou quando o
     restaurante aceita um cancelamento parcial (hoje o iFood ajusta o repasse; o pedido aqui fica
     como estava).
+- **Fase 4** (loja aberta, fechada ou pausada, 0.180.0): migração 0090 e
+  `channel-store-state.service.ts`.
+  - **Contrato**: `ChannelAdapter.storeStatus`, `pauseStore`, `resumeStore`, `openingHours` e
+    `maxPauseMinutes` (opcionais). iFood: `GET /merchants/{id}/status` (a operação DELIVERY manda;
+    OK/WARNING/CLOSED/ERROR) + `GET /interruptions` (pausa valendo agora), `POST /interruptions`
+    `{id, description, start, end}` e `DELETE /interruptions/{id}` (404 = já não existe), horários em
+    `GET /opening-hours`. Tradução pura em `ifood-merchant.ts`.
+  - **Com calma** (o iFood mede a taxa de erro do status): a tela lê de novo só o que passou de 1
+    minuto (no máximo 3 s de espera), a varredura a cada 5 minutos por loja, horários a cada 6
+    horas; falha não repete, só guarda `state_error`.
+  - **Pausa**: "Pausar no iFood" (15 min a "até eu reabrir" = 7 dias, o máximo do iFood) com motivo,
+    só no aplicativo. "Loja fechada" no PDV pausa as lojas com `follow_store_open` (padrão ligado) e
+    "Loja aberta" tira só a pausa que o Comandou fez (`pause_by_store`); pausa feita no portal
+    aparece, mas não é mexida. O gancho é `StoreService.onOpenChanged` e roda depois de gravar,
+    sem segurar a resposta.
+  - **Telas**: em Aplicativos de delivery, a situação de cada loja (bolinha, frase do iFood, pausa e
+    horários), Pausar/Reabrir e "Fechar junto com a loja do Comandou"; no PDV, uma pílula por loja ao
+    lado do "Loja aberta" (`GET /channels/stores/state`).
+  - **Testes**: 5 novos em `test/ifood-orders.e2e.test.ts`, 3 em `ifood-merchant.test.ts`.
+  - Fica para depois: mandar os horários do Comandou para o iFood (padrão do ADR: só mostrar) e
+    conferir no sandbox o formato de data aceito no `start`/`end` da interrupção (mandamos ISO em
+    UTC).

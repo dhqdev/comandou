@@ -622,3 +622,152 @@ describe('iFood: motivo do cancelamento, cancelamento negado e negociação', ()
     });
   });
 });
+
+describe('iFood: loja aberta, fechada ou pausada', () => {
+  type StoreView = {
+    id: string;
+    channelState: string | null;
+    stateTitle: string | null;
+    stateError: string | null;
+    pausedHere: boolean;
+    pauseUntil: string | null;
+    pauseReason: string | null;
+    pauseByStore: boolean;
+    followStoreOpen: boolean;
+    openingHours: { day: number; start: string; minutes: number }[] | null;
+  };
+  const storeA = async () =>
+    (
+      (await get('adminA', '/channels').expect(200)).body as {
+        channels: { id: string; stores: StoreView[] }[];
+      }
+    ).channels
+      .find((c) => c.id === 'ifood')!
+      .stores.find((s) => s.id === storeRef)!;
+  const stale = () =>
+    ownerQuery(`UPDATE channel_stores SET state_at = NULL WHERE id = $1`, [storeRef]);
+  const pauses = () => ifood.interruptions.get(MERCHANT) ?? [];
+
+  it('lê a situação e os horários do iFood, no máximo uma vez por minuto', async () => {
+    ifood.status.set(MERCHANT, [
+      { operation: 'TAKEOUT', available: false, state: 'CLOSED' },
+      {
+        operation: 'DELIVERY',
+        salesChannel: 'IFOOD',
+        available: true,
+        state: 'WARNING',
+        message: { title: 'Loja aberta', subtitle: 'Raio de entrega reduzido' },
+        validations: [{ id: 'is-connected', state: 'OK' }],
+      },
+    ]);
+    ifood.hours.set(MERCHANT, {
+      storeId: MERCHANT,
+      shifts: [{ dayOfWeek: 'MONDAY', start: '10:00:00', duration: 720 }],
+    });
+    // Horários: no máximo a cada 6 horas (a primeira tela já leu, vazio).
+    await ownerQuery(`UPDATE channel_stores SET hours_at = NULL WHERE id = $1`, [storeRef]);
+    await stale();
+    const before = ifood.statusReads;
+    const s = await storeA();
+    expect(s).toMatchObject({
+      channelState: 'warning',
+      stateTitle: 'Loja aberta',
+      stateError: null,
+      followStoreOpen: true,
+      openingHours: [{ day: 1, start: '10:00', minutes: 720 }],
+    });
+    await storeA();
+    expect(ifood.statusReads - before).toBe(1);
+  });
+
+  it('pausar só no iFood cria a interrupção; reabrir tira a pausa', async () => {
+    await send('post', 'adminA', `/channels/stores/${storeRef}/pause`, {
+      minutes: 30,
+      reason: 'x',
+    }).expect(400);
+    const r = await send('post', 'adminA', `/channels/stores/${storeRef}/pause`, {
+      minutes: 30,
+      reason: 'Falta de gás',
+    }).expect(200);
+    expect(pauses()).toHaveLength(1);
+    const p = pauses()[0]!;
+    expect(p.description).toBe('Falta de gás');
+    const mins = (Date.parse(p.end) - Date.parse(p.start)) / 60_000;
+    expect(Math.round(mins)).toBe(30);
+    expect(r.body.until).toBe(p.end);
+    ifood.status.set(MERCHANT, [{ operation: 'DELIVERY', available: false, state: 'CLOSED' }]);
+    await stale();
+    expect(await storeA()).toMatchObject({
+      channelState: 'paused',
+      pausedHere: true,
+      pauseReason: 'Falta de gás',
+      pauseByStore: false,
+    });
+    ifood.status.set(MERCHANT, [{ operation: 'DELIVERY', available: true, state: 'OK' }]);
+    await send('post', 'adminA', `/channels/stores/${storeRef}/resume`).expect(200);
+    expect(pauses()).toHaveLength(0);
+    expect(await storeA()).toMatchObject({
+      channelState: 'open',
+      pausedHere: false,
+      pauseUntil: null,
+    });
+  });
+
+  it('fechar a loja no Comandou pausa no iFood (até 7 dias); reabrir tira a pausa', async () => {
+    await send('patch', 'adminA', '/store/settings', { isOpen: false }).expect(200);
+    await waitFor(() => pauses().length === 1);
+    const p = pauses()[0]!;
+    expect(p.description).toBe('Loja fechada no Comandou');
+    expect(Math.round((Date.parse(p.end) - Date.parse(p.start)) / 3_600_000)).toBe(7 * 24);
+    await waitFor(async () => (await storeA()).pauseByStore);
+    await send('patch', 'adminA', '/store/settings', { isOpen: true }).expect(200);
+    await waitFor(() => pauses().length === 0);
+    await waitFor(async () => !(await storeA()).pausedHere);
+  });
+
+  it('pausa feita no portal fica; quem desliga "seguir a loja" não pausa junto', async () => {
+    // Pausa do próprio restaurante no portal: o Comandou mostra, mas não tira ao reabrir.
+    const end = new Date(Date.now() + 3600_000).toISOString();
+    pauses().push({
+      id: 'portal-1',
+      description: 'Fechado para reforma',
+      start: new Date().toISOString(),
+      end,
+    });
+    ifood.status.set(MERCHANT, [{ operation: 'DELIVERY', available: false, state: 'CLOSED' }]);
+    await stale();
+    expect(await storeA()).toMatchObject({
+      channelState: 'paused',
+      pausedHere: false,
+      pauseReason: 'Fechado para reforma',
+      pauseUntil: end,
+    });
+    await send('patch', 'adminA', `/channels/stores/${storeRef}`, {
+      followStoreOpen: false,
+    }).expect(200);
+    const calls = ifood.interruptionCalls.length;
+    await send('patch', 'adminA', '/store/settings', { isOpen: false }).expect(200);
+    await send('patch', 'adminA', '/store/settings', { isOpen: true }).expect(200);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(ifood.interruptionCalls.length).toBe(calls);
+    expect(pauses().map((x) => x.id)).toEqual(['portal-1']);
+    pauses().length = 0;
+  });
+
+  it('iFood fora do ar: guarda o aviso sem repetir; pausa recusada vira mensagem clara', async () => {
+    ifood.failNext.status!.push(503);
+    await stale();
+    const s = await storeA();
+    expect(s.stateError).toMatch(/Não deu para ler a situação/);
+    ifood.failNext.pause!.push(400);
+    const r = await send('post', 'adminA', `/channels/stores/${storeRef}/pause`, {
+      minutes: 15,
+      reason: 'Muitos pedidos',
+    }).expect(409);
+    expect(r.body.message).toMatch(/recusou \(400\)/);
+    // O PDV vê a situação das lojas que recebem pedidos; o garçom não pausa.
+    const pdv = await get('adminA', '/channels/stores/state').expect(200);
+    expect(pdv.body).toHaveLength(1);
+    expect(pdv.body[0]).toMatchObject({ id: storeRef, channel: 'ifood' });
+  });
+});

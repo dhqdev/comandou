@@ -103,6 +103,10 @@ pedidos do aplicativo não chegam e ele cancela sozinho depois do prazo.
    responde no pedido. Resposta que falhou aparece em Aplicativos de delivery com "Tentar de
    novo"; depois do prazo o iFood decide sozinho (`timeout_action` em `channel_disputes`). Não
    responda negociação pelo banco nem automatize: o iFood recomenda resposta de uma pessoa.
+8. **Loja fechada no iFood** (Fase 4): a situação vem de `GET /merchants/{id}/status` e as pausas
+   são interrupções do iFood. Se o restaurante diz que fechou no Comandou e o iFood segue aberto,
+   veja `channel_stores.state_error` e `follow_store_open` da loja; pausa feita no portal do iFood
+   o Comandou só mostra. Pausa mais longa que o iFood aceita: 7 dias.
 
 ### Backup atrasado
 

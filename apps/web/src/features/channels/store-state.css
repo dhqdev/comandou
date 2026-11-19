@@ -1,0 +1,74 @@
+/* Loja no aplicativo: aberta, fechada ou pausada (Aplicativos de delivery e PDV). */
+.ch-store-state {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+}
+.ch-store-state__main {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--cm-text);
+}
+.ch-store-state__main::before,
+.ch-store-chip::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-text-subtle);
+}
+:is(.ch-store-state__main, .ch-store-chip)[data-tone='ok']::before {
+  background: var(--cm-success);
+}
+:is(.ch-store-state__main, .ch-store-chip)[data-tone='warn']::before {
+  background: var(--cm-warning);
+}
+:is(.ch-store-state__main, .ch-store-chip)[data-tone='danger']::before {
+  background: var(--cm-danger);
+}
+.ch-store-state__sub {
+  color: var(--cm-text-muted);
+  overflow-wrap: anywhere;
+}
+.ch-store-state__error {
+  color: var(--cm-danger);
+}
+.ch-store-pause {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* PDV: uma pílula por loja de aplicativo ao lado do "Loja aberta". */
+.ch-store-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.ch-store-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.ch-store-chip:hover {
+  background: var(--cm-surface-sunken);
+}
+@media (max-width: 600px) {
+  .ch-store-chip {
+    min-height: 36px;
+  }
+}

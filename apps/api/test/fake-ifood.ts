@@ -34,10 +34,27 @@ export class FakeIfoodServer {
   /** Motivos de cancelamento por pedido (vazio = 404, e o Comandou usa a lista padrão). */
   readonly cancelReasons = new Map<string, { cancelCodeId: string; description: string }[]>();
   reasonLookups = 0;
+  /** Situação da loja por merchant (resposta do /status) e quantas leituras. */
+  readonly status = new Map<string, unknown>();
+  statusReads = 0;
+  /** Interrupções (pausas) por merchant, como o iFood guarda. */
+  readonly interruptions = new Map<
+    string,
+    { id: string; description: string; start: string; end: string }[]
+  >();
+  readonly interruptionCalls: { merchant: string; verb: string; body: unknown }[] = [];
+  readonly hours = new Map<string, unknown>();
   readonly polls: { merchants: string; auth?: string }[] = [];
   readonly acks: unknown[] = [];
   /** Próximas respostas forçadas por rota: 'poll', 'ack', 'order', 'action'. */
-  readonly failNext: Record<string, number[]> = { poll: [], ack: [], order: [], action: [] };
+  readonly failNext: Record<string, number[]> = {
+    poll: [],
+    ack: [],
+    order: [],
+    action: [],
+    status: [],
+    pause: [],
+  };
 
   async start() {
     this.server = createServer((req, res) => this.handle(req, res));
@@ -91,6 +108,43 @@ export class FakeIfoodServer {
         if (s) send(s, { message: `falha forçada ${s}` });
         return !!s;
       };
+      const ms =
+        /^\/merchant\/v1\.0\/merchants\/([^/]+)\/(status|interruptions|opening-hours)(?:\/([^/]+))?$/.exec(
+          path,
+        );
+      if (ms) {
+        const id = ms[1]!.toLowerCase();
+        if (ms[2] === 'status') {
+          this.statusReads++;
+          if (fail('status')) return;
+          return send(200, this.status.get(id) ?? []);
+        }
+        if (ms[2] === 'opening-hours') return send(200, this.hours.get(id) ?? { shifts: [] });
+        const list = this.interruptions.get(id) ?? [];
+        this.interruptions.set(id, list);
+        if (req.method === 'GET') return send(200, list);
+        if (req.method === 'POST') {
+          if (fail('pause')) return;
+          const b = JSON.parse(raw) as {
+            id: string;
+            description: string;
+            start: string;
+            end: string;
+          };
+          this.interruptionCalls.push({ merchant: id, verb: 'create', body: b });
+          if (!b.id || !b.description || !b.start || !b.end)
+            return send(400, { message: 'interrupção inválida' });
+          list.push(b);
+          return send(201, b);
+        }
+        if (req.method === 'DELETE' && ms[3]) {
+          this.interruptionCalls.push({ merchant: id, verb: 'delete', body: ms[3] });
+          const i = list.findIndex((x) => x.id === decodeURIComponent(ms[3]!));
+          if (i < 0) return send(404, { message: 'não existe' });
+          list.splice(i, 1);
+          return send(204);
+        }
+      }
       const m = /^\/merchant\/v1\.0\/merchants\/([^/]+)$/.exec(path);
       if (m) {
         const name = this.merchants.get(m[1]!);

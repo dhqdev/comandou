@@ -5,6 +5,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Badge, Button, Card, EmptyState, Spinner, useToast } from '../design-system';
 import { useCan } from '../app/auth';
 import { ChannelBadge } from '../features/channels/ChannelBadge';
+import {
+  StorePauseControls,
+  StoreStateLine,
+  type ChannelStoreStateView,
+} from '../features/channels/StoreState';
 import { dateTime } from '../features/format';
 import { CheckField, SelectField } from '../features/forms';
 import { api, type Product } from '../lib/api';
@@ -12,12 +17,8 @@ import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import './integrations.css';
 
-interface StoreView {
-  id: string;
-  channel: string;
+interface StoreView extends ChannelStoreStateView {
   storeId: string;
-  name: string;
-  status: 'connected' | 'revoked';
   receiveOrders: boolean;
   autoAccept: boolean;
   lastError: string | null;
@@ -94,6 +95,7 @@ export function IntegrationsPage() {
   const toast = useToast();
   const canConfigure = useCan('settings:manage');
   const canLink = useCan('catalog:write');
+  const canPause = useCan('orders:manage');
   const [channels, setChannels] = useState<ChannelView[] | null>(null);
   const [problems, setProblems] = useState<Problems | null>(null);
   const [unlinked, setUnlinked] = useState<Unlinked[]>([]);
@@ -203,6 +205,12 @@ export function IntegrationsPage() {
                           <strong>{s.name}</strong>
                           {s.status === 'revoked' && <Badge tone="danger">sem autorização</Badge>}
                         </div>
+                        {c.capabilities.some((x) => x.id === 'storeStatus' && x.on) && (
+                          <StoreStateLine store={s} />
+                        )}
+                        {canPause && c.capabilities.some((x) => x.id === 'pause' && x.on) && (
+                          <StorePauseControls store={s} onChanged={() => void load()} />
+                        )}
                         <dl className="intg-facts">
                           <dt>Último evento</dt>
                           <dd>{s.lastEventAt ? dateTime(s.lastEventAt) : 'nenhum ainda'}</dd>
@@ -229,6 +237,21 @@ export function IntegrationsPage() {
                               void call(`/channels/stores/${s.id}`, { autoAccept: v }, 'PATCH')
                             }
                           />
+                          {c.capabilities.some((x) => x.id === 'pause' && x.on) && (
+                            <CheckField
+                              label="Fechar junto com a loja do Comandou"
+                              description={`"Loja fechada" no PDV pausa o ${c.label} e "Loja aberta" tira a pausa.`}
+                              checked={s.followStoreOpen}
+                              disabled={!canConfigure}
+                              onChange={(v) =>
+                                void call(
+                                  `/channels/stores/${s.id}`,
+                                  { followStoreOpen: v },
+                                  'PATCH',
+                                )
+                              }
+                            />
+                          )}
                         </div>
                       </li>
                     ))}

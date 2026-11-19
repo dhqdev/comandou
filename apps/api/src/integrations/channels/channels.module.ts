@@ -7,6 +7,7 @@ import { ChannelInboxService } from './channel-inbox.service';
 import { ChannelMetrics } from './channel-metrics';
 import { ChannelOutboxService } from './channel-outbox.service';
 import { ChannelPoller } from './channel-poller.service';
+import { ChannelStoreStateService } from './channel-store-state.service';
 import { ChannelStoresService } from './channel-stores.service';
 import { ChannelsController } from './channels.controller';
 import { ExternalOrdersService } from './external-orders.service';
@@ -22,6 +23,7 @@ import { ExternalOrdersService } from './external-orders.service';
     ChannelRegistry,
     ChannelMetrics,
     ChannelStoresService,
+    ChannelStoreStateService,
     ChannelOutboxService,
     ExternalOrdersService,
     ChannelDisputesService,
@@ -32,6 +34,7 @@ import { ExternalOrdersService } from './external-orders.service';
     ChannelRegistry,
     ChannelMetrics,
     ChannelStoresService,
+    ChannelStoreStateService,
     ChannelOutboxService,
     ExternalOrdersService,
     ChannelDisputesService,

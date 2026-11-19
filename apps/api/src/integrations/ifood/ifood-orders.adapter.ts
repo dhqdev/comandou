@@ -1,5 +1,10 @@
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
-import type { ChannelCancelReason, ChannelCapability, ExternalOrder } from '@comandou/shared';
+import type {
+  ChannelCancelReason,
+  ChannelCapability,
+  ChannelShift,
+  ExternalOrder,
+} from '@comandou/shared';
 import { ENV, type Env } from '../../config/env';
 import {
   ChannelHttpError,
@@ -7,8 +12,10 @@ import {
   type ActionRequest,
   type ChannelAdapter,
   type ChannelEvent,
+  type ChannelStoreStatus,
   type OrderRef,
   type PollBatch,
+  type StoreRef,
 } from '../channels/channel-adapter';
 import { ChannelHttp, RateGate, type ChannelRequest } from '../channels/channel-http';
 import { ChannelMetrics } from '../channels/channel-metrics';
@@ -17,6 +24,7 @@ import {
   IFOOD_CANCEL_REASONS,
   IFOOD_DEFAULT_CANCEL_CODE,
   IFOOD_LIMITS,
+  IFOOD_MAX_PAUSE_MINUTES,
   IFOOD_PATHS,
   ifoodCancelReasons,
   ifoodDispute,
@@ -26,6 +34,7 @@ import {
   ifoodVerb,
   type IfoodOrder,
 } from './ifood-order';
+import { ifoodShifts, ifoodStoreStatus } from './ifood-merchant';
 import { IfoodService } from './ifood.service';
 
 interface IfoodEvent {
@@ -58,8 +67,12 @@ export class IfoodOrdersAdapter implements ChannelAdapter, OnModuleInit {
     'dispatch',
     'cancel',
     'disputes',
+    'storeStatus',
+    'pause',
+    'openingHours',
     'menu',
   ];
+  readonly maxPauseMinutes = IFOOD_MAX_PAUSE_MINUTES;
   private readonly http: ChannelHttp;
 
   constructor(
@@ -193,6 +206,69 @@ export class IfoodOrdersAdapter implements ChannelAdapter, OnModuleInit {
     } catch {
       return IFOOD_CANCEL_REASONS;
     }
+  }
+
+  /** Situação da loja (operação de entrega) e a pausa ativa, numa leitura de cada. */
+  async storeStatus(ref: StoreRef): Promise<ChannelStoreStatus> {
+    const status = await this.call<unknown>(ref.credential, ref.tenantId, {
+      endpoint: 'merchant:status',
+      method: 'GET',
+      path: IFOOD_PATHS.status(ref.storeId),
+      perMinute: IFOOD_LIMITS.status,
+      retries: 0,
+    });
+    const pauses = await this.call<unknown>(ref.credential, ref.tenantId, {
+      endpoint: 'merchant:interruptions',
+      method: 'GET',
+      path: IFOOD_PATHS.interruptions(ref.storeId),
+      perMinute: IFOOD_LIMITS.interruptions,
+      retries: 0,
+    });
+    return ifoodStoreStatus(status.body, pauses.body);
+  }
+
+  /** Pausa = interrupção no iFood (de 1 minuto a 7 dias), com o id gerado aqui. */
+  async pauseStore(ref: StoreRef, p: { id: string; reason: string; until: string }) {
+    await this.call(ref.credential, ref.tenantId, {
+      endpoint: 'merchant:interruptions:create',
+      method: 'POST',
+      path: IFOOD_PATHS.interruptions(ref.storeId),
+      json: {
+        id: p.id,
+        description: p.reason.slice(0, 200),
+        start: new Date().toISOString(),
+        end: p.until,
+      },
+      perMinute: IFOOD_LIMITS.interruptions,
+      retries: 0,
+    });
+    return p.id;
+  }
+
+  async resumeStore(ref: StoreRef, pauseId: string) {
+    try {
+      await this.call(ref.credential, ref.tenantId, {
+        endpoint: 'merchant:interruptions:delete',
+        method: 'DELETE',
+        path: IFOOD_PATHS.interruption(ref.storeId, pauseId),
+        perMinute: IFOOD_LIMITS.interruptions,
+        retries: 0,
+      });
+    } catch (e) {
+      // Já não existe (venceu ou tiraram no portal): a loja já está sem essa pausa.
+      if (!(e instanceof ChannelHttpError && e.status === 404)) throw e;
+    }
+  }
+
+  async openingHours(ref: StoreRef): Promise<ChannelShift[]> {
+    const r = await this.call<unknown>(ref.credential, ref.tenantId, {
+      endpoint: 'merchant:opening-hours',
+      method: 'GET',
+      path: IFOOD_PATHS.openingHours(ref.storeId),
+      perMinute: IFOOD_LIMITS.openingHours,
+      retries: 0,
+    });
+    return ifoodShifts(r.body);
   }
 
   async send(req: ActionRequest) {

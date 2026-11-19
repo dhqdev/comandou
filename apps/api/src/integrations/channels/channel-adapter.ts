@@ -4,6 +4,8 @@ import type {
   ChannelCancelReason,
   ChannelCapability,
   ChannelEventKind,
+  ChannelShift,
+  ChannelStoreState,
   DisputeAlternative,
   ExternalOrder,
 } from '@comandou/shared';
@@ -81,6 +83,23 @@ export interface OrderRef {
   externalOrderId: string;
 }
 
+/** Uma loja no canal (situação, pausa, horários). */
+export interface StoreRef {
+  tenantId: string;
+  storeId: string;
+  credential: string;
+}
+
+/** Situação da loja no canal, já traduzida. */
+export interface ChannelStoreStatus {
+  state: ChannelStoreState;
+  /** Frase do canal (ex.: "Loja fechada", "Fora do horário"). */
+  title?: string;
+  detail?: string;
+  /** Pausa ativa no canal (feita pelo Comandou ou no portal do aplicativo). */
+  pause?: { id: string; until?: string; reason?: string } | null;
+}
+
 /**
  * Erro de uma chamada ao canal. 0 = rede/tempo esgotado. Repetir só em rede, 429 e 5xx; 4xx
  * nunca se repete (o canal recusou: repetir só aumenta a taxa de erro e pode bloquear o app).
@@ -110,6 +129,16 @@ export interface ChannelAdapter {
   send(req: ActionRequest): Promise<void>;
   /** Motivos de cancelamento aceitos para este pedido (sem isso, a tela pede só o texto). */
   cancellationReasons?(ref: OrderRef): Promise<ChannelCancelReason[]>;
+  /** Situação da loja (aberta, fechada, pausada). Leia com calma: a varredura e a tela já espaçam. */
+  storeStatus?(ref: StoreRef): Promise<ChannelStoreStatus>;
+  /** Pausa a loja no canal até `until` (id da pausa gerado pelo Comandou, quando o canal aceita). */
+  pauseStore?(ref: StoreRef, p: { id: string; reason: string; until: string }): Promise<string>;
+  /** Tira a pausa feita antes. */
+  resumeStore?(ref: StoreRef, pauseId: string): Promise<void>;
+  /** Pausa mais longa que o canal aceita, em minutos (iFood: 7 dias). */
+  readonly maxPauseMinutes?: number;
+  /** Horários de funcionamento cadastrados no canal (só para mostrar). */
+  openingHours?(ref: StoreRef): Promise<ChannelShift[]>;
 }
 
 /** Adaptadores ativos. Cada canal se registra ao subir (e os testes registram o falso). */

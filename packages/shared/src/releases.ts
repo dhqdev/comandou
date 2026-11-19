@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.180.0',
+    date: '2026-11-19',
+    title: 'Loja aberta, fechada ou pausada no iFood',
+    summary:
+      'Veja se a sua loja está aberta, fechada ou pausada no iFood sem sair do Comandou, pause só o iFood quando a cozinha apertar e, ao fechar a loja no PDV, o iFood fecha junto.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Em Aplicativos de delivery, cada loja mostra a situação no iFood (aberta, fechada, pausada, com aviso), o motivo que o iFood dá e os horários cadastrados lá.',
+      },
+      {
+        tag: 'novo',
+        text: 'Pausar só no iFood: escolha por quanto tempo (15 minutos a "até eu reabrir") e o motivo. O cardápio online e o salão continuam funcionando. "Reabrir no iFood" tira a pausa.',
+      },
+      {
+        tag: 'novo',
+        text: '"Loja fechada" no PDV também pausa o iFood, e "Loja aberta" tira a pausa. Dá para desligar por loja em "Fechar junto com a loja do Comandou". Pausa feita no portal do iFood aparece aqui e não é mexida.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No PDV, ao lado de "Loja aberta", uma pílula por loja de aplicativo mostra se ela está aberta ou pausada (e até quando).',
+      },
+      {
+        tag: 'segurança',
+        text: 'A situação é lida com calma (no máximo uma vez por minuto pela tela e a cada 5 minutos sozinha) e falha não se repete na hora, para o iFood não bloquear o Comandou.',
+      },
+    ],
+  },
+  {
     version: '0.179.0',
     date: '2026-11-19',
     title: 'Cancelamento e negociação com o cliente do iFood',

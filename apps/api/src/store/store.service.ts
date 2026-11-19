@@ -359,6 +359,17 @@ export class StoreService {
     private readonly onlinePay: OnlinePayService,
   ) {}
 
+  private readonly openHooks: ((
+    tenantId: string,
+    userId: string | null,
+    isOpen: boolean,
+  ) => Promise<void>)[] = [];
+
+  /** "Loja aberta" mudou (aplicativos de delivery pausam ou reabrem junto). Roda depois de gravar. */
+  onOpenChanged(fn: (tenantId: string, userId: string | null, isOpen: boolean) => Promise<void>) {
+    this.openHooks.push(fn);
+  }
+
   async settingsIn(tx: Tx): Promise<StoreSettings> {
     const s = await one<StoreSettings>(tx, `SELECT ${SETTINGS_COLS} FROM tenant_store_settings`);
     return s ?? { ...DEFAULTS };
@@ -560,9 +571,11 @@ export class StoreService {
 
   async updateSettings(ctx: Ctx, patch: Partial<StoreSettings>) {
     const accepted: string[] = [];
+    let openChanged: boolean | null = null;
     const res = await this.db.withTenant(ctx, async (tx) => {
       const cur = await this.settingsIn(tx);
       const next = { ...cur, ...patch };
+      if (next.isOpen !== cur.isOpen) openChanged = next.isOpen;
       if (next.etaMax < next.etaMin)
         throw new UnprocessableEntityException('O tempo máximo deve ser maior que o mínimo');
       // Chave Pix no formato do Pix (o mesmo texto vai no QR Code do cliente).
@@ -621,6 +634,13 @@ export class StoreService {
       return this.withOpenNow(tx);
     });
     this.realtime.publish(ctx.tenantId, { type: 'store.changed' });
+    if (openChanged !== null) {
+      const isOpen: boolean = openChanged;
+      // Não segura a resposta: o aplicativo pode demorar; o resultado aparece na tela dele.
+      void Promise.all(
+        this.openHooks.map((h) => h(ctx.tenantId, ctx.userId, isOpen).catch(() => undefined)),
+      );
+    }
     for (const id of accepted)
       this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId: id, status: 'new' });
     if (accepted.length) {

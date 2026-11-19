@@ -317,6 +317,60 @@ export interface ChannelCancelReason {
   label: string;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Loja no aplicativo: aberta, fechada ou pausada (Fase 4)
+
+export const CHANNEL_STORE_STATES = [
+  'open',
+  'closed',
+  'paused',
+  'warning',
+  'error',
+  'unknown',
+] as const;
+export type ChannelStoreState = (typeof CHANNEL_STORE_STATES)[number];
+
+export const CHANNEL_STORE_STATE_LABELS: Record<ChannelStoreState, string> = {
+  open: 'Aberta',
+  closed: 'Fechada',
+  paused: 'Pausada',
+  warning: 'Aberta, com aviso',
+  error: 'Com problema',
+  unknown: 'Sem informação',
+};
+
+/** Turno de funcionamento no aplicativo (só para mostrar). day: 0 = domingo. */
+export interface ChannelShift {
+  day: number;
+  start: string;
+  minutes: number;
+}
+
+/** Durações de pausa oferecidas na tela, em minutos (null = até reabrir, no máximo do canal). */
+export const CHANNEL_PAUSE_OPTIONS: { minutes: number | null; label: string }[] = [
+  { minutes: 15, label: '15 minutos' },
+  { minutes: 30, label: '30 minutos' },
+  { minutes: 60, label: '1 hora' },
+  { minutes: 120, label: '2 horas' },
+  { minutes: null, label: 'Até eu reabrir' },
+];
+
+const DAY_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
+/** "Seg 10:00–22:00 · Ter 10:00–22:00…" (dias sem turno ficam de fora). */
+export function shiftsLabel(shifts: readonly ChannelShift[]): string {
+  const fmt = (m: number) =>
+    `${String(Math.floor(m / 60) % 24).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+  return [...shifts]
+    .sort((a, b) => a.day - b.day || a.start.localeCompare(b.start))
+    .map((s) => {
+      const [h, m] = s.start.split(':').map(Number);
+      const from = (h ?? 0) * 60 + (m ?? 0);
+      return `${DAY_SHORT[s.day] ?? '?'} ${fmt(from)}–${fmt(from + s.minutes)}`;
+    })
+    .join(' · ');
+}
+
 export const OUTBOX_STATUSES = ['pending', 'sending', 'sent', 'confirmed', 'failed'] as const;
 export type OutboxStatus = (typeof OUTBOX_STATUSES)[number];
 

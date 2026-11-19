@@ -13,6 +13,7 @@ import { ChannelRegistry, type ChannelEvent, type PollStore } from './channel-ad
 import { ChannelInboxService } from './channel-inbox.service';
 import { ChannelMetrics } from './channel-metrics';
 import { ChannelOutboxService } from './channel-outbox.service';
+import { ChannelStoreStateService, STATE_SWEEP_SECONDS } from './channel-store-state.service';
 
 /** Até 100 lojas por chamada de polling (limite do iFood no x-polling-merchants). */
 export const POLL_BATCH = 100;
@@ -58,6 +59,7 @@ export class ChannelPoller implements OnApplicationBootstrap, OnModuleDestroy {
     private readonly inbox: ChannelInboxService,
     private readonly outbox: ChannelOutboxService,
     private readonly metrics: ChannelMetrics,
+    private readonly storeState: ChannelStoreStateService,
   ) {}
 
   /** Intervalo mínimo entre dois pollings da mesma credencial (30 s; menos só nos testes). */
@@ -206,6 +208,8 @@ export class ChannelPoller implements OnApplicationBootstrap, OnModuleDestroy {
     for (const t of tenants) {
       await this.inbox.process(t.tenant_id).catch(() => undefined);
       await this.outbox.deliver(t.tenant_id).catch(() => undefined);
+      // Situação das lojas nos aplicativos: no máximo a cada 5 minutos por loja.
+      await this.storeState.refreshTenant(t.tenant_id, STATE_SWEEP_SECONDS).catch(() => undefined);
     }
   }
 }

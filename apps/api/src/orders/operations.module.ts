@@ -151,6 +151,6 @@ import { OrdersService } from './orders.service';
     OnlinePayAdminService,
   ],
   // A camada dos aplicativos de delivery cria e move pedidos pelas mesmas regras.
-  exports: [OrdersService],
+  exports: [OrdersService, StoreService],
 })
 export class OperationsModule {}

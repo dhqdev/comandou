@@ -142,15 +142,16 @@ export class ChannelStoresService {
     tenantId: string,
     userId: string,
     id: string,
-    o: { receiveOrders?: boolean; autoAccept?: boolean },
+    o: { receiveOrders?: boolean; autoAccept?: boolean; followStoreOpen?: boolean },
   ) {
     const row = await this.db.withTenant({ tenantId, userId }, (tx) =>
       one<StoreRow>(
         tx,
         `UPDATE channel_stores SET receive_orders = COALESCE($2, receive_orders),
-                auto_accept = COALESCE($3, auto_accept)
+                auto_accept = COALESCE($3, auto_accept),
+                follow_store_open = COALESCE($4, follow_store_open)
           WHERE id = $1 RETURNING ${STORE_COLUMNS}`,
-        [id, o.receiveOrders ?? null, o.autoAccept ?? null],
+        [id, o.receiveOrders ?? null, o.autoAccept ?? null, o.followStoreOpen ?? null],
       ),
     );
     if (!row) throw new NotFoundException('Loja do aplicativo não encontrada');

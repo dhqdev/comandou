@@ -30,6 +30,11 @@ export const IFOOD_PATHS = {
     `/order/v1.0/disputes/${encodeURIComponent(id)}/${verb}`,
   alternative: (id: string, alt: string) =>
     `/order/v1.0/disputes/${encodeURIComponent(id)}/alternatives/${encodeURIComponent(alt)}`,
+  status: (m: string) => `/merchant/v1.0/merchants/${encodeURIComponent(m)}/status`,
+  interruptions: (m: string) => `/merchant/v1.0/merchants/${encodeURIComponent(m)}/interruptions`,
+  interruption: (m: string, id: string) =>
+    `/merchant/v1.0/merchants/${encodeURIComponent(m)}/interruptions/${encodeURIComponent(id)}`,
+  openingHours: (m: string) => `/merchant/v1.0/merchants/${encodeURIComponent(m)}/opening-hours`,
 } as const;
 
 /** Limites do iFood por minuto (a janela usa 80%). */
@@ -40,7 +45,13 @@ export const IFOOD_LIMITS = {
   action: 3000,
   cancellation: 300,
   dispute: 1000,
+  status: 20000,
+  interruptions: 100,
+  openingHours: 100,
 } as const;
+
+/** Pausa (interrupção) mais longa que o iFood aceita: 7 dias. */
+export const IFOOD_MAX_PAUSE_MINUTES = 7 * 24 * 60;
 
 /** Até 100 lojas por x-polling-merchants e 2.000 ids por ack. */
 export const IFOOD_ACK_BATCH = 2000;

@@ -32,11 +32,27 @@ import { ChannelCredentials } from './channel-credentials.service';
 import { ChannelDisputesService } from './channel-disputes.service';
 import { ChannelInboxService } from './channel-inbox.service';
 import { ChannelOutboxService } from './channel-outbox.service';
+import { ChannelStoreStateService } from './channel-store-state.service';
 import { ChannelStoresService } from './channel-stores.service';
 
 const StoreOptions = z
-  .object({ receiveOrders: z.boolean().optional(), autoAccept: z.boolean().optional() })
-  .refine((b) => b.receiveOrders !== undefined || b.autoAccept !== undefined, 'nada a mudar');
+  .object({
+    receiveOrders: z.boolean().optional(),
+    autoAccept: z.boolean().optional(),
+    followStoreOpen: z.boolean().optional(),
+  })
+  .refine(
+    (b) =>
+      b.receiveOrders !== undefined ||
+      b.autoAccept !== undefined ||
+      b.followStoreOpen !== undefined,
+    'nada a mudar',
+  );
+const PauseBody = z.object({
+  // null = até reabrir (no máximo o que o aplicativo aceita: 7 dias no iFood).
+  minutes: z.number().int().min(1).max(10080).nullable(),
+  reason: z.string().trim().min(3).max(200),
+});
 const LinkBody = z.object({
   channel: z.string().regex(CHANNEL_ID_RE),
   itemKey: z.string().min(1).max(200),
@@ -63,6 +79,13 @@ const UnlinkBody = z.object({
   itemKey: z.string().min(1).max(200),
 });
 
+/** Situação da loja no aplicativo, como a tela recebe. */
+const STATE_COLUMNS = `s.channel_state AS "channelState", s.state_title AS "stateTitle",
+  s.state_detail AS "stateDetail", s.state_at AS "stateAt", s.state_error AS "stateError",
+  (s.pause_id IS NOT NULL) AS "pausedHere", s.pause_until AS "pauseUntil",
+  s.pause_reason AS "pauseReason", s.pause_by_store AS "pauseByStore",
+  s.follow_store_open AS "followStoreOpen", s.opening_hours AS "openingHours"`;
+
 /**
  * Integrações › Aplicativos de delivery: um cartão por aplicativo (o que ele oferece, lojas,
  * último evento, erros e ajustes) e os itens que chegaram sem vínculo com o cardápio.
@@ -77,6 +100,7 @@ export class ChannelsController {
     private readonly inbox: ChannelInboxService,
     private readonly outbox: ChannelOutboxService,
     private readonly disputes: ChannelDisputesService,
+    private readonly storeState: ChannelStoreStateService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
   ) {}
@@ -86,13 +110,19 @@ export class ChannelsController {
   async overview(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
     // Lojas ligadas antes (ex.: iFood só com cardápio) entram na camada de canais.
     await this.stores.sync(t.id);
+    // Situação nos aplicativos: lê de novo o que passou de 1 minuto, sem segurar a tela (até 3 s).
+    await Promise.race([
+      this.storeState.refreshTenant(t.id).catch(() => undefined),
+      new Promise((r) => setTimeout(r, 3000)),
+    ]);
     const data = await this.db.withTenant({ tenantId: t.id, userId: u.id }, async (tx) => {
       const stores = await q<{ channel: string }>(
         tx,
         `SELECT s.id, s.channel, s.store_id AS "storeId", s.name, s.status,
                 s.receive_orders AS "receiveOrders", s.auto_accept AS "autoAccept",
                 s.last_error AS "lastError", s.last_event_at AS "lastEventAt",
-                s.last_order_at AS "lastOrderAt", s.created_at AS "createdAt"
+                s.last_order_at AS "lastOrderAt", s.created_at AS "createdAt",
+                ${STATE_COLUMNS}
            FROM channel_stores s ORDER BY s.channel, s.name`,
       );
       const problems = await q<{ channel: string; kind: string; n: number }>(
@@ -235,6 +265,46 @@ export class ChannelsController {
     if (!row) throw new NotFoundException('Evento não encontrado');
     this.inbox.kick(t.id);
     return { ok: true };
+  }
+
+  /** Lojas nos aplicativos para o PDV: aberta, fechada ou pausada (só as que recebem pedidos). */
+  @Get('stores/state')
+  @RequirePermission('orders:write')
+  storesState(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {
+    return this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
+      q(
+        tx,
+        `SELECT s.id, s.channel, s.name, s.status, ${STATE_COLUMNS}
+           FROM channel_stores s WHERE s.receive_orders ORDER BY s.channel, s.name`,
+      ),
+    );
+  }
+
+  /** Pausar a loja só no aplicativo (o Comandou continua aberto). */
+  @Post('stores/:id/pause')
+  @HttpCode(200)
+  @RequirePermission('orders:manage')
+  pause(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(PauseBody)) b: z.infer<typeof PauseBody>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.storeState.pause(t.id, u.id, id, b, req.ip);
+  }
+
+  /** Tirar a pausa que o Comandou fez. */
+  @Post('stores/:id/resume')
+  @HttpCode(200)
+  @RequirePermission('orders:manage')
+  resume(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.storeState.resume(t.id, u.id, id, req.ip);
   }
 
   /** Motivos de cancelamento que o aplicativo aceita para este pedido (lista vazia: só o texto). */

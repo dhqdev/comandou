@@ -44,6 +44,7 @@ import type { DiningTable, Order, StoreSettings, Tab } from '../lib/types';
 import '../app/home.css';
 import { AcceptDeadline } from '../features/channels/AcceptDeadline';
 import { ChannelBadge } from '../features/channels/ChannelBadge';
+import { AppStoreChips } from '../features/channels/StoreState';
 
 type Filter = 'all' | OrderChannel;
 type Density = 'compact' | 'full';
@@ -581,6 +582,7 @@ export function PdvPage() {
             <span className="pdv__store-short">{store.isOpen ? 'Aberta' : 'Fechada'}</span>
           </label>
         )}
+        <AppStoreChips />
         {/* Atalhos da loja num grupo só; o da página do restaurante só aparece se ela foi criada. */}
         <div className="pdv__links" role="group" aria-label="Atalhos da loja">
           {store?.hasSite && (

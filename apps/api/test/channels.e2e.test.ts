@@ -10,6 +10,7 @@ import { ChannelInboxService } from '../src/integrations/channels/channel-inbox.
 import { ChannelMetrics } from '../src/integrations/channels/channel-metrics';
 import { ChannelOutboxService } from '../src/integrations/channels/channel-outbox.service';
 import { ChannelPoller } from '../src/integrations/channels/channel-poller.service';
+import { ChannelStoreStateService } from '../src/integrations/channels/channel-store-state.service';
 import { ChannelStoresService } from '../src/integrations/channels/channel-stores.service';
 import { testEnv } from './env';
 import { FAKE_CHANNEL, FakeChannelAdapter, FakeChannelServer, sampleOrder } from './fake-channel';
@@ -472,7 +473,15 @@ describe('Canais: polling com trava', () => {
   it('duas réplicas: só uma busca; se ela sair, a outra assume', async () => {
     const env = app.get<Env>(ENV);
     const make = () =>
-      new ChannelPoller(env, db, app.get(ChannelRegistry), inbox, outbox, app.get(ChannelMetrics));
+      new ChannelPoller(
+        env,
+        db,
+        app.get(ChannelRegistry),
+        inbox,
+        outbox,
+        app.get(ChannelMetrics),
+        app.get(ChannelStoreStateService),
+      );
     const r1 = make();
     const r2 = make();
     // A réplica principal do teste segura a trava de antes: solta.
@@ -498,6 +507,7 @@ describe('Canais: polling com trava', () => {
       inbox,
       outbox,
       app.get(ChannelMetrics),
+      app.get(ChannelStoreStateService),
     );
     await db.queryUnscoped('SELECT app_channel_lease_release($1)', [poller.holder]);
     const before = fake.polls;
