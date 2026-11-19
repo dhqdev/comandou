@@ -1,7 +1,7 @@
 {
   "name": "comandou-impressao",
   "productName": "Comandou Impressão",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Liga o Comandou às impressoras térmicas do restaurante e imprime as comandas em segundo plano.",
   "author": "Comandou",
   "license": "UNLICENSED",
@@ -27,6 +27,9 @@
       "core.mjs",
       "printers.mjs",
       "devices.mjs",
+      "mdns.mjs",
+      "usb.mjs",
+      "bluetooth.mjs",
       "escpos.mjs",
       "desktop/**/*",
       "package.json"
@@ -44,7 +47,8 @@
         {
           "target": "nsis",
           "arch": [
-            "x64"
+            "x64",
+            "arm64"
           ]
         }
       ],
@@ -72,7 +76,14 @@
       "identity": "-",
       "artifactName": "Comandou-Impressao.${ext}",
       "extendInfo": {
-        "LSUIElement": true
+        "LSUIElement": true,
+        "NSBluetoothAlwaysUsageDescription": "O Comandou Impressão usa o Bluetooth para imprimir as comandas nas impressoras térmicas portáteis.",
+        "NSLocalNetworkUsageDescription": "O Comandou Impressão procura as impressoras térmicas na rede do restaurante.",
+        "NSBonjourServices": [
+          "_pdl-datastream._tcp",
+          "_printer._tcp",
+          "_ipp._tcp"
+        ]
       }
     },
     "linux": {

@@ -14,9 +14,10 @@
 //                          maiúsculas, sem acentos, com "_" no lugar de espaços.
 //   POLL_MS                intervalo de busca (padrão 3000)
 import { PrintAgent, parseConnectionCode } from './core.mjs';
-import { describePrinter, printText, targetEnvName } from './printers.mjs';
+import { printResilient } from './devices.mjs';
+import { describePrinter, targetEnvName } from './printers.mjs';
 
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 
 let url = (process.env.COMANDOU_URL ?? '').replace(/\/+$/, '');
 let token = process.env.COMANDOU_AGENT_TOKEN ?? '';
@@ -44,7 +45,14 @@ const agent = new PrintAgent({
   token,
   version: VERSION,
   printerFor,
-  print: printText,
+  // Impressora de rede com ?mac=... que mudou de IP é achada na rede e segue imprimindo.
+  print: (spec, text) =>
+    printResilient(spec, text, {
+      onMoved: (from, to) =>
+        console.warn(
+          `A impressora mudou de IP: ${describePrinter(from)} → ${describePrinter(to)}. Atualize a variável.`,
+        ),
+    }),
   pollMs: Math.max(1000, Number(process.env.POLL_MS ?? 3000)),
 });
 

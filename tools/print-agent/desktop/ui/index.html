@@ -278,6 +278,12 @@
                   </li>
                 </ol>
                 <p class="g-tip">
+                  <strong>Mais fácil:</strong> ligue o cabo e abra
+                  <strong>Adicionar impressora › USB</strong>. Se ela aparecer em "Ligadas no cabo,
+                  ainda sem driver", clique em <strong>Instalar</strong>: o aplicativo instala com o
+                  "Generic / Text Only" do próprio Windows (clique em Sim no aviso de permissão).
+                </p>
+                <p class="g-tip">
                   Alguns modelos (Elgin, Bematech, Daruma) instalam como "porta COM virtual". Se for
                   o seu caso, escolha
                   <button type="button" class="link" data-goto="serial">Serial (COM)</button>.
@@ -300,6 +306,10 @@
                     Aqui: <strong>Adicionar impressora › USB</strong> → escolha → Imprimir teste.
                   </li>
                 </ol>
+                <p class="g-tip">
+                  <strong>Mais fácil:</strong> com o cabo ligado, se ela aparecer em "Ligadas no
+                  cabo, ainda sem driver", clique em <strong>Instalar</strong> (o Mac pede a senha).
+                </p>
               </div>
               <div class="os" data-os="linux">
                 <ol class="g-steps">
@@ -335,12 +345,13 @@
                 </li>
                 <li>
                   Aqui: <strong>Adicionar impressora › Rede</strong>. O aplicativo procura sozinho
-                  as impressoras da rede. Se ela não aparecer, digite o IP; a porta é
-                  <strong>9100</strong>.
+                  as impressoras da rede (porta 9100 e Bonjour). Se ela não aparecer, digite o IP e
+                  clique em <strong>Testar este IP</strong>: o aplicativo descobre a porta sozinho.
                 </li>
                 <li>
                   <strong>Deixe o IP fixo.</strong> No roteador, reserve o IP para a impressora
-                  ("reserva de DHCP" ou "IP fixo"). Se o IP mudar, as comandas param de sair.
+                  ("reserva de DHCP" ou "IP fixo"). Se o IP mudar mesmo assim, o aplicativo procura
+                  a impressora na rede pelo endereço físico dela e continua imprimindo no IP novo.
                 </li>
               </ol>
               <p class="g-tip">
@@ -458,8 +469,15 @@
                 a cozinha longe, use rede.
               </p>
               <p class="g-tip">
-                Impressoras só "BLE" (algumas portáteis baratas) não criam porta COM. Nesse caso use
-                o cabo USB que vem com elas.
+                <strong>Pareou e não apareceu?</strong> O aplicativo mostra em "Pareadas, mas sem
+                porta" e ajuda a criar a porta: no Windows abre a tela de Portas COM; no Linux cria
+                o <code>/dev/rfcomm</code> e deixa fixo.
+              </p>
+              <p class="g-tip">
+                <strong>Impressora só BLE</strong> (portáteis que não criam porta COM): em
+                <strong>Adicionar impressora › Bluetooth</strong>, clique em
+                <strong>Procurar por BLE</strong>, escolha na lista e imprima o teste. Não precisa
+                parear no sistema. Se o aplicativo for reaberto, ele religa sozinho.
               </p>
             </section>
 
@@ -520,6 +538,12 @@
               <h4>Problemas comuns</h4>
               <details>
                 <summary>Não saiu nada</summary>
+                <p>
+                  A bolinha ao lado de cada impressora mostra se ela está ao alcance (o aplicativo
+                  confere a cada 2 minutos, sem imprimir). Na rede,
+                  <strong>Trocar › Ver situação</strong> diz se falta papel ou se a tampa está
+                  aberta.
+                </p>
                 <p>
                   Confira se a impressora está ligada, com papel e a tampa fechada. Na rede, imprima
                   a folha de autoteste e veja se o IP é o mesmo que está aqui (o IP pode ter

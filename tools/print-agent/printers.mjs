@@ -7,6 +7,8 @@
 //   tcp://IP:PORTA       impressora térmica em rede, com cabo ou Wi-Fi (porta 9100)
 //   serial:PORTA         porta serial: Bluetooth pareado (COM5, /dev/cu.MPT-II, /dev/rfcomm0),
 //                        cabo RS-232 ou adaptador USB-serial (COM3, /dev/ttyUSB0)
+//   ble:ID               Bluetooth de baixo consumo (BLE), sem porta COM: só no aplicativo de
+//                        computador, que registra o transporte (registerTransport)
 //   file:/dev/usb/lp0    USB direto no Linux, sem driver (ou qualquer arquivo, na linha de comando)
 //   stdout               mostra no terminal (testes sem impressora)
 //   none                 não imprime (o trabalho é confirmado e descartado)
@@ -15,6 +17,8 @@
 //   papel=58             bobina de 58 mm (fonte menor para caber as 42 colunas)
 //   acentos=850|ascii    outra página de código, ou sem acentos
 //   baud=9600            velocidade da porta serial (padrão 9600; Bluetooth ignora)
+//   mac=00-11-22-33-44-55  endereço físico da impressora de rede: se o IP mudar, o aplicativo
+//                        procura a impressora pela rede e segue imprimindo (devices.mjs)
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { appendFile, mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -53,14 +57,26 @@ export function parseSpec(spec) {
     raw = Object.fromEntries(new URLSearchParams(s.slice(q + 1)));
   }
   const baud = Number(raw.baud);
+  const mac = normalizeMac(raw.mac ?? '');
   return {
     base,
     opts: {
       paper: raw.papel === '58' ? 58 : 80,
       codepage: raw.acentos === '850' || raw.acentos === 'ascii' ? raw.acentos : '860',
       baud: BAUD_RATES.includes(baud) ? baud : 9600,
+      ...(mac ? { mac } : {}),
     },
   };
+}
+
+/** "0:11:22:a:b:c" ou "00-11-22-0A-0B-0C" → "00-11-22-0A-0B-0C"; inválido ou vazio → "". */
+export function normalizeMac(raw) {
+  const parts = String(raw ?? '')
+    .trim()
+    .split(/[:-]/);
+  if (parts.length !== 6 || !parts.every((p) => /^[0-9a-fA-F]{1,2}$/.test(p))) return '';
+  const mac = parts.map((p) => p.padStart(2, '0').toUpperCase()).join('-');
+  return mac === '00-00-00-00-00-00' || mac === 'FF-FF-FF-FF-FF-FF' ? '' : mac;
 }
 
 /** Junta impressora e ajustes, deixando de fora o que é padrão. */
@@ -70,6 +86,7 @@ export function withOptions(base, opts = {}) {
   if (opts.codepage === '850' || opts.codepage === 'ascii') p.set('acentos', opts.codepage);
   if (base.startsWith('serial:') && BAUD_RATES.includes(opts.baud) && opts.baud !== 9600)
     p.set('baud', String(opts.baud));
+  if (base.startsWith('tcp://') && normalizeMac(opts.mac)) p.set('mac', normalizeMac(opts.mac));
   const q = p.toString();
   return q ? `${base}?${q}` : base;
 }
@@ -89,6 +106,11 @@ export function validSerialPort(port) {
   );
 }
 
+/** Identificador de um aparelho BLE (endereço no Windows/Linux, UUID no macOS). */
+export function validBleId(id) {
+  return /^[A-Za-z0-9:_-]{1,64}$/.test(String(id ?? ''));
+}
+
 /** USB direto (sem driver) e porta paralela no Linux. */
 export function validDirectDevice(path) {
   return /^\/dev\/(usb\/)?lp\d{1,2}$/.test(path);
@@ -103,6 +125,7 @@ export function describePrinter(spec) {
   if (base.startsWith('tcp://')) return `Rede ${base.slice(6)}`;
   if (base.startsWith('serial:')) return `Porta ${base.slice(7)}`;
   if (base.startsWith('file:')) return `USB direto ${base.slice(5)}`;
+  if (base.startsWith('ble:')) return `Bluetooth BLE ${base.slice(4)}`;
   return spec;
 }
 
@@ -348,6 +371,17 @@ async function sendFile(path, data) {
   }
 }
 
+/** @type {Map<string, (base: string, data: Buffer, opts: object) => Promise<void>>} */
+const transports = new Map();
+
+/**
+ * Liga um jeito de imprimir que só existe no aplicativo de computador (ex.: "ble:", que usa o
+ * Bluetooth do Chromium). Na linha de comando ele não existe e a impressão falha com aviso claro.
+ */
+export function registerTransport(prefix, send) {
+  transports.set(prefix, send);
+}
+
 /** Imprime `text` (já formatado em colunas) na impressora descrita por `spec`. */
 export async function printText(spec, text) {
   if (!spec || spec === 'none') return;
@@ -365,6 +399,12 @@ export async function printText(spec, text) {
   if (base.startsWith('printer:')) return sendSystemPrinter(base.slice(8), data);
   if (base.startsWith('serial:')) return sendSerial(base.slice(7), opts.baud, data);
   if (base.startsWith('file:')) return sendFile(base.slice(5), data);
+  for (const [prefix, send] of transports)
+    if (base.startsWith(prefix)) return send(base, data, opts);
+  if (base.startsWith('ble:'))
+    throw new Error(
+      'Bluetooth BLE só funciona no aplicativo Comandou Impressão, não na linha de comando.',
+    );
   throw new Error(`Impressora não suportada: ${base}`);
 }
 

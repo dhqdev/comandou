@@ -94,7 +94,7 @@ jobs:
       - name: Testes da API e do Web (Vitest)
         run: pnpm test
       - name: Testes do agente de impressão
-        run: node --test tools/print-agent/escpos.test.mjs tools/print-agent/core.test.mjs tools/print-agent/devices.test.mjs
+        run: node --test tools/print-agent/escpos.test.mjs tools/print-agent/core.test.mjs tools/print-agent/devices.test.mjs tools/print-agent/discovery.test.mjs
       - name: Build de produção
         run: pnpm build
       - name: Auditoria de dependências (alta/crítica)

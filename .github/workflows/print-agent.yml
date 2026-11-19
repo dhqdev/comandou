@@ -1,6 +1,7 @@
 name: Aplicativo de impressão (instaladores)
 
-# Gera o "Comandou Impressão" para Windows, macOS e Linux e publica na Release fixa "impressora".
+# Gera o "Comandou Impressão" para Windows (x64 e ARM num instalador só), macOS (Intel e Apple
+# Silicon) e Linux (x64 e ARM) e publica na Release fixa "impressora".
 # O botão "Baixar" da tela Impressão aponta para
 #   https://github.com/<dono>/comandou/releases/download/impressora/<arquivo>
 # então os nomes dos arquivos nunca mudam; cada build substitui os anteriores.
@@ -33,6 +34,8 @@ jobs:
           - os: ubuntu-latest
             args: --linux
             file: Comandou-Impressao.AppImage
+            # Linux em ARM (notebooks com Snapdragon, Raspberry Pi 4/5 com tela)
+            extra: Comandou-Impressao-arm64.AppImage
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -54,11 +57,16 @@ jobs:
         run: npx electron-builder ${{ matrix.args }} --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Gerar o instalador ARM (Linux)
+        if: matrix.extra
+        run: npx electron-builder --linux AppImage --arm64 --publish never -c.linux.artifactName='Comandou-Impressao-arm64.${ext}'
       - name: Guardar o instalador
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.file }}
-          path: tools/print-agent/dist/${{ matrix.file }}
+          path: |
+            tools/print-agent/dist/${{ matrix.file }}
+            ${{ matrix.extra && format('tools/print-agent/dist/{0}', matrix.extra) || '' }}
           if-no-files-found: error
 
   publish:

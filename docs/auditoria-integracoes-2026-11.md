@@ -1,4 +1,4 @@
-# Auditoria das integrações e da nota fiscal (0.197.1)
+# Auditoria das integrações e da nota fiscal (0.198.1)
 
 Revisão feita em 19/11/2026 sobre a versão 0.197.0: leitura do código de cada integração, conferência
 contra a documentação dos parceiros onde havia dúvida, e os testes de ponta a ponta rodando com

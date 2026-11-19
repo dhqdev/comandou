@@ -161,6 +161,6 @@ Ainda em aberto (precisa de decisão ou da contabilidade): CNPJ dos outros aplic
 intermediador, DIFAL na NF-e interestadual para consumidor final, Pix estático
 como forma 20, crédito do Simples no CSOSN 101 e a taxa de serviço como base do ICMS.
 
-Auditoria das integrações (0.197.1): nota parada em "processando" depois de reemitir uma NF-e,
+Auditoria das integrações (0.198.1): nota parada em "processando" depois de reemitir uma NF-e,
 nota de homologação reaproveitada em produção e cupom impresso duas vezes foram corrigidos. Os
 pontos que seguem em aberto estão em [auditoria-integracoes-2026-11.md](auditoria-integracoes-2026-11.md).
