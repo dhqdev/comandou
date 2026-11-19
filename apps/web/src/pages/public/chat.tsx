@@ -12,6 +12,7 @@ import { io, Socket } from 'socket.io-client';
 import { useToast } from '../../design-system';
 import { api } from '../../lib/api';
 import { playSound } from '../../lib/sounds';
+import { checkCacheEpoch, wipeTenantCache } from '../../lib/tenant-cache';
 import { useStore } from './context';
 
 /** Evento da conversa (o servidor só manda ids; a tela busca as mensagens pela API). */
@@ -88,13 +89,16 @@ export function StoreChatProvider({ children }: { children: ReactNode }) {
       withCredentials: true,
     });
     let live = false;
-    socket.on('ready', () => {
+    socket.on('ready', (r?: { cacheEpoch?: string | null }) => {
+      if (checkCacheEpoch(r?.cacheEpoch)) return;
       live = true;
       listeners.current.forEach((l) => l({ type: 'ready' }));
       refresh();
     });
     socket.on('disconnect', () => (live = false));
-    socket.on('event', (e: ChatEvent) => {
+    socket.on('event', (e: ChatEvent | { type: 'cache.clear'; at: string }) => {
+      // O Super Admin limpou o cache da loja: o cardápio recarrega do servidor.
+      if (e.type === 'cache.clear') return void wipeTenantCache(e.at);
       listeners.current.forEach((l) => l(e));
       if (e.type === 'support.message' && e.sender !== 'customer') {
         if (open.current && document.visibilityState === 'visible') return;

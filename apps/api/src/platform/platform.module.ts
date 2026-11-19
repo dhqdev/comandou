@@ -38,6 +38,7 @@ import { GatewayClient } from '../messaging/gateway.client';
 import { PlatformKitchenService } from './platform-kitchen.service';
 import { CepService } from '../store/cep.service';
 import { PlatformChannelsService } from './platform-channels.service';
+import { PlatformCacheService } from './platform-cache.service';
 
 /** Painel Super Admin (admin.<domínio base>): caminho privilegiado separado e auditado. */
 @Module({
@@ -78,6 +79,7 @@ import { PlatformChannelsService } from './platform-channels.service';
     PlatformKitchenService,
     CepService,
     PlatformChannelsService,
+    PlatformCacheService,
     GatewayClient,
     ServerAgentClient,
     ReleaseFeed,

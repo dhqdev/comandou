@@ -111,6 +111,7 @@ export const ACTIONS: Record<string, [string, Group]> = {
   // Acesso e equipe
   'platform.tenant.support_access': ['Abriu o sistema do restaurante', 'acesso'],
   'platform.tenant.sessions_revoked': ['Encerrou sessões', 'acesso'],
+  'platform.tenant.cache_cleared': ['Limpou o cache', 'sistema'],
   'platform.user.password_reset': ['Redefiniu a senha de alguém', 'acesso'],
   'platform.tenant.suspended': ['Restaurante suspenso', 'acesso'],
   'platform.tenant.reactivated': ['Restaurante reativado', 'acesso'],
@@ -282,6 +283,10 @@ export function describe(a: AuditRow, plans: Plan[] = []): string {
     case 'platform.user.password_reset':
       return typeof d.sessionsRevoked === 'number'
         ? `${plural(d.sessionsRevoked, 'sessão encerrada', 'sessões encerradas')}`
+        : '';
+    case 'platform.tenant.cache_cleared':
+      return typeof d.screens === 'number'
+        ? plural(d.screens, 'tela aberta recarregada', 'telas abertas recarregadas')
         : '';
     case 'platform.tenant.sessions_revoked':
       return typeof d.count === 'number'

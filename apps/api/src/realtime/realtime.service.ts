@@ -45,11 +45,21 @@ export type RealtimeEvent =
   | { type: 'support.typing'; chatId: string; by: 'customer' | 'staff'; name?: string }
   // Conversa do restaurante com a Comandou (suporte da plataforma): o dono/gerente busca pela API.
   | { type: 'help.message'; messageId: string; sender: string }
-  | { type: 'help.read' };
+  | { type: 'help.read' }
+  // O Super Admin limpou o cache deste restaurante: a tela apaga o que guardou e recarrega.
+  | { type: 'cache.clear'; at: string };
 
 export const tenantRoom = (tenantId: string) => `t:${tenantId}`;
 /** Sala de uma pessoa (todas as abas/aparelhos dela neste restaurante). */
 export const userRoom = (tenantId: string, userId: string) => `u:${tenantId}:${userId}`;
+/**
+ * Sala de TODAS as conexões do restaurante (equipe, entregador e cliente na conversa). Só recebe
+ * o aviso `cache.clear`, que não leva dado nenhum da operação.
+ */
+export const tenantAllRoom = (tenantId: string) => `a:${tenantId}`;
+
+/** Aviso entre as réplicas da API (pelo adapter Redis): limpar o cache deste restaurante. */
+const CACHE_CLEAR_SIGNAL = 'tenant.cache.clear';
 
 /**
  * Publica eventos para os clientes de UM restaurante (sala do tenant).
@@ -68,8 +78,59 @@ export class RealtimeService {
     this.listeners.push(fn);
   }
 
+  private readonly cacheHooks: ((tenantId: string) => void)[] = [];
+
   attach(server: Server) {
     this.server = server;
+    // Outra réplica mandou limpar: esta apaga o próprio cache (a memória é de cada réplica).
+    server.on(CACHE_CLEAR_SIGNAL, (tenantId: unknown) => {
+      if (typeof tenantId === 'string') this.runCacheHooks(tenantId);
+    });
+  }
+
+  /** Cache em memória de um restaurante (local, banco, bloqueio): apagado ao limpar pelo painel. */
+  onCacheClear(fn: (tenantId: string) => void) {
+    this.cacheHooks.push(fn);
+  }
+
+  private runCacheHooks(tenantId: string) {
+    for (const fn of this.cacheHooks) {
+      try {
+        fn(tenantId);
+      } catch (err) {
+        this.logger.warn(`limpeza de cache falhou: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  /**
+   * Limpa o cache do restaurante nesta réplica e nas outras, e manda toda tela aberta dele
+   * (equipe, cozinha, entregador, cliente na conversa) apagar o que guardou e recarregar.
+   */
+  clearTenantCaches(tenantId: string, at: string) {
+    this.runCacheHooks(tenantId);
+    if (!this.server) return;
+    try {
+      this.server.serverSideEmit(CACHE_CLEAR_SIGNAL, tenantId);
+    } catch {
+      /* uma réplica só (sem Redis): não há outras para avisar */
+    }
+    try {
+      this.server.to(tenantAllRoom(tenantId)).emit('event', { type: 'cache.clear', at });
+    } catch (err) {
+      this.logger.warn(`falha ao publicar evento: ${(err as Error).message}`);
+    }
+  }
+
+  /** Quantas telas do restaurante estão conectadas agora (todas as réplicas; 0 se não souber). */
+  async connectedCount(tenantId: string): Promise<number> {
+    if (!this.server) return 0;
+    try {
+      const sockets = await this.server.in(tenantAllRoom(tenantId)).timeout(3000).fetchSockets();
+      return sockets.length;
+    } catch {
+      return 0;
+    }
   }
 
   publish(tenantId: string, event: RealtimeEvent) {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { emitRealtimeReady } from './realtime-ready';
+import { checkCacheEpoch, wipeTenantCache } from './tenant-cache';
 
 export { onRealtimeReady } from './realtime-ready';
 
@@ -42,7 +43,9 @@ export type RealtimeEvent =
   | { type: 'support.read'; chatId: string; by: 'customer' | 'staff' }
   | { type: 'support.typing'; chatId: string; by: 'customer' | 'staff'; name?: string }
   | { type: 'help.message'; messageId: string; sender: string }
-  | { type: 'help.read' };
+  | { type: 'help.read' }
+  // O Super Admin limpou o cache do restaurante: apaga o que o aparelho guardou e recarrega.
+  | { type: 'cache.clear'; at: string };
 
 type Listener = (e: RealtimeEvent) => void;
 type StatusListener = (s: RealtimeStatus) => void;
@@ -67,14 +70,18 @@ function setStatus(s: RealtimeStatus) {
 function ensureSocket() {
   if (socket || typeof window === 'undefined') return;
   socket = io({ path: '/api/ws', transports: ['websocket', 'polling'], withCredentials: true });
-  socket.on('ready', () => {
+  socket.on('ready', (r?: { cacheEpoch?: string | null }) => {
+    if (checkCacheEpoch(r?.cacheEpoch)) return;
     setStatus('live');
     reconnectListeners.forEach((l) => l());
     emitRealtimeReady();
   });
   socket.on('disconnect', () => setStatus('offline'));
   socket.on('connect_error', () => setStatus('offline'));
-  socket.on('event', (e: RealtimeEvent) => listeners.forEach((l) => l(e)));
+  socket.on('event', (e: RealtimeEvent) => {
+    if (e.type === 'cache.clear') return void wipeTenantCache(e.at);
+    listeners.forEach((l) => l(e));
+  });
 }
 
 export function closeRealtime() {

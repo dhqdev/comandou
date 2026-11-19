@@ -10,6 +10,7 @@ import {
   Pencil,
   Play,
   Plus,
+  RefreshCcw,
   Trash2,
 } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
@@ -302,7 +303,7 @@ export function TenantDetailPage() {
         : 'overview',
   );
   const [sheetKind, setSheetKind] = useState<
-    'suspended' | 'provisioned' | 'rename' | 'sessions' | 'delete' | null
+    'suspended' | 'provisioned' | 'rename' | 'sessions' | 'cache' | 'delete' | null
   >(null);
   const [member, setMember] = useState<TeamMember | null>(null);
   const [reason, setReason] = useState('');
@@ -413,6 +414,11 @@ export function TenantDetailPage() {
               <button className="adm-action" onClick={() => navigate(`/conversas?r=${t.id}`)}>
                 <MessagesSquare size={15} /> Conversar
               </button>
+              {(t.status === 'provisioned' || t.status === 'suspended') && (
+                <button className="adm-action" onClick={() => setSheetKind('cache')}>
+                  <RefreshCcw size={15} /> Limpar cache
+                </button>
+              )}
               {t.status === 'provisioned' && (
                 <button
                   className="adm-action adm-action--danger"
@@ -722,6 +728,62 @@ export function TenantDetailPage() {
         <p style={{ marginTop: 0 }}>
           Todo mundo do restaurante precisa entrar de novo (computadores, tablets e celulares). Útil
           se um aparelho foi perdido ou alguém saiu da equipe.
+        </p>
+      </Modal>
+
+      {/* Limpar o cache do restaurante (API e todas as telas abertas) */}
+      <Modal
+        open={sheetKind === 'cache'}
+        title="Limpar cache do restaurante"
+        onClose={closeSheet}
+        footer={
+          <>
+            <Button variant="ghost" onClick={closeSheet}>
+              Voltar
+            </Button>
+            <Button
+              loading={busy === 'cache'}
+              onClick={async () => {
+                const r = await run(
+                  'cache',
+                  () =>
+                    api<{ clearedAt: string; screens: number }>(
+                      `/platform/tenants/${t.id}/cache/clear`,
+                      { method: 'POST', json: {} },
+                    ),
+                  'Cache limpo',
+                );
+                if (r) {
+                  closeSheet();
+                  toast(
+                    r.screens === 1
+                      ? '1 tela aberta está recarregando'
+                      : r.screens > 1
+                        ? `${r.screens} telas abertas estão recarregando`
+                        : 'Nenhuma tela aberta agora: cada aparelho limpa ao abrir',
+                    'neutral',
+                  );
+                }
+              }}
+            >
+              Limpar agora
+            </Button>
+          </>
+        }
+      >
+        <p style={{ marginTop: 0 }}>
+          Apaga tudo que fica guardado deste restaurante: no servidor e em todas as telas abertas
+          (sistema, app instalado, cozinha, garçom, entregador e cardápio online). Cada tela
+          recarrega sozinha em seguida, direto do servidor. Aparelho fechado ou sem internet limpa
+          quando abrir de novo.
+        </p>
+        <Alert tone="warning">
+          Quem estiver no meio de uma venda perde o que ainda não salvou. Prefira um horário com
+          pouco movimento.
+        </Alert>
+        <p style={{ marginBottom: 0 }}>
+          Nada é apagado do banco. Ficam no aparelho as vendas feitas sem internet que ainda não
+          subiram, o login e os ajustes de cada aparelho (impressora, setor da cozinha, tema).
         </p>
       </Modal>
 

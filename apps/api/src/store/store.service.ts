@@ -651,8 +651,8 @@ export class StoreService {
   }
 
   /** Situação da loja agora (aberta, entrega, retirada): o cardápio aberto confere de tempos em tempos. */
-  publicStatus(tenantId: string) {
-    return this.db.withTenant({ tenantId }, async (tx) => {
+  async publicStatus(tenantId: string) {
+    const status = await this.db.withTenant({ tenantId }, async (tx) => {
       const s = await this.settingsIn(tx);
       if (!s.enabled) throw new NotFoundException('Cardápio online desativado');
       return {
@@ -661,6 +661,11 @@ export class StoreService {
         acceptsPickup: s.acceptsPickup,
       };
     });
+    // Quando o Super Admin limpou o cache da loja: o cardápio aberto limpa e recarrega.
+    const [epoch] = await this.db
+      .queryUnscoped<{ at: Date | null }>('SELECT app_tenant_cache_epoch($1) AS at', [tenantId])
+      .catch(() => []);
+    return { ...status, cacheEpoch: epoch?.at ? new Date(epoch.at).toISOString() : null };
   }
 
   /**

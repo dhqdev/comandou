@@ -1,10 +1,11 @@
 import 'reflect-metadata';
 import type { INestApplication } from '@nestjs/common';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { Client } from 'pg';
 import request from 'supertest';
+import { io, Socket } from 'socket.io-client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/bootstrap';
 import { hashPassword } from '../src/auth/password';
@@ -1029,6 +1030,58 @@ describe('Controle do restaurante e acesso de suporte', () => {
       `SELECT data FROM platform_audit_log WHERE action = 'platform.tenant.renamed' ORDER BY id DESC LIMIT 1`,
     );
     expect(log!.data.to).toBe('Cantina B');
+  });
+});
+
+describe('Limpar cache do restaurante', () => {
+  const connect = async (host: string, cookie: string) => {
+    const srv = app.getHttpServer() as Server;
+    if (!srv.listening) await new Promise<void>((r) => srv.listen(0, '127.0.0.1', () => r()));
+    const { port } = srv.address() as AddressInfo;
+    return new Promise<{ s: Socket; ready: { cacheEpoch?: string | null } }>((resolve, reject) => {
+      const s = io(`http://127.0.0.1:${port}`, {
+        path: '/api/ws',
+        transports: ['websocket'],
+        extraHeaders: { Host: host, Cookie: cookie },
+        reconnection: false,
+        timeout: 3000,
+      });
+      s.on('ready', (ready) => resolve({ s, ready }));
+      s.on('connect_error', (e) => reject(e));
+    });
+  };
+
+  it('manda toda tela aberta limpar e recarregar, guarda a data e fica no Histórico', async () => {
+    const { cookie } = await tenantLogin(HOST_A, 'admin@pf-a.test');
+    const first = await connect(HOST_A, cookie);
+    const got: { type: string; at?: string }[] = [];
+    first.s.on('event', (e) => got.push(e));
+    try {
+      // Sem sessão do painel, nada; restaurante que não existe, 404.
+      await psend('post', `/tenants/${fx.tenantA}/cache/clear`, {}, '').expect(401);
+      await psend('post', `/tenants/${randomUUID()}/cache/clear`, {}).expect(404);
+      const r = await psend('post', `/tenants/${fx.tenantA}/cache/clear`, {}).expect(200);
+      expect(r.body.screens).toBeGreaterThanOrEqual(1);
+      await expect.poll(() => got.find((e) => e.type === 'cache.clear')?.at).toBe(r.body.clearedAt);
+      // O aparelho que conectar depois fica sabendo da limpeza (estava fechado na hora).
+      const later = await connect(HOST_A, cookie);
+      expect(later.ready.cacheEpoch).toBe(r.body.clearedAt);
+      later.s.close();
+      const [log] = await ownerQuery<{ n: number }>(
+        `SELECT count(*)::int AS n FROM platform_audit_log
+          WHERE action = 'platform.tenant.cache_cleared' AND tenant_id = $1`,
+        [fx.tenantA],
+      );
+      expect(log!.n).toBe(1);
+      // Nada de cache no outro restaurante.
+      const [b] = await ownerQuery<{ at: Date | null }>(
+        `SELECT cache_cleared_at AS at FROM tenants WHERE id = $1`,
+        [fx.tenantB],
+      );
+      expect(b!.at).toBeNull();
+    } finally {
+      first.s.close();
+    }
   });
 });
 

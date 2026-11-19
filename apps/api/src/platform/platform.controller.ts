@@ -82,6 +82,7 @@ import { PlatformPasswordResetService } from './platform-password-reset.service'
 import { RESET_REQUEST_LIMIT, RESET_STEP_LIMIT } from '../auth/reset-code';
 import { PlatformDbServersService } from './platform-db-servers.service';
 import { PlatformDb, platformAudit } from './platform-db.service';
+import { PlatformCacheService } from './platform-cache.service';
 import { ReleaseFeed, ServerAgentClient } from './server-agent.service';
 import { BillingService } from '../billing/billing.service';
 import { PlatformSitesService } from './platform-sites.service';
@@ -245,6 +246,7 @@ export class PlatformController {
     private readonly receiver: PlatformReceiveService,
     private readonly versions: PlatformVersionsService,
     private readonly auth: PlatformAuthService,
+    private readonly cache: PlatformCacheService,
   ) {}
 
   // ---------------------------------------------------------- versão por restaurante
@@ -558,6 +560,17 @@ export class PlatformController {
     @Req() req: Request,
   ) {
     return this.svc.revokeSessions(id, b.userId, actor(req));
+  }
+
+  /**
+   * Limpa o cache do restaurante: o da API (todas as réplicas) e o de toda tela aberta dele, que
+   * recarrega. Não apaga dado nenhum nem o que ainda não subiu; fica no Histórico.
+   */
+  @Post('tenants/:id/cache/clear')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 6 } })
+  clearCache(@Param('id', new ParseUUIDPipe()) id: string, @Req() req: Request) {
+    return this.cache.clear(id, actor(req));
   }
 
   @Post('tenants/:id/password')

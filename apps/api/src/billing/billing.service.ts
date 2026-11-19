@@ -660,6 +660,11 @@ export class BillingService implements OnApplicationBootstrap, OnModuleDestroy {
   }
 
   // ------------------------------------------------------------------ bloqueio
+  /** Esquece o bloqueio guardado (Super Admin › Limpar cache): a próxima escrita lê de novo. */
+  forgetBlock(tenantId: string) {
+    this.blockCache.delete(tenantId);
+  }
+
   /** Motivo do bloqueio do restaurante (cache de 30 s). null = liberado. */
   async blockOf(tenantId: string): Promise<BlockReason | null> {
     if (!this.db.enabled) return null;

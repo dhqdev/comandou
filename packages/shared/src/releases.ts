@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.195.0',
+    date: '2026-11-19',
+    title: 'Limpar o cache do restaurante pelo Super Admin',
+    summary:
+      'Um botão no Super Admin apaga tudo que fica guardado de um restaurante, no servidor e em todas as telas abertas dele, que recarregam sozinhas direto do servidor.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Super Admin › restaurante › Limpar cache: com confirmação, limpa o cache da API (em todas as réplicas) e manda o sistema, o app instalado, a cozinha, o garçom, o entregador e o cardápio online apagarem os arquivos do app e as leituras guardadas e recarregarem.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Aparelho que estava fechado ou sem internet na hora limpa sozinho quando abrir de novo. As vendas feitas sem internet que ainda não subiram, o login e os ajustes do aparelho ficam.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Só o Super Admin limpa, com limite por minuto, e cada limpeza fica no Histórico do restaurante com quantas telas recarregaram.',
+      },
+    ],
+  },
+  {
     version: '0.194.0',
     date: '2026-11-19',
     title: 'Todos os aplicativos de delivery num lugar só',

@@ -14,7 +14,8 @@ import { DatabaseService } from '../database/database.service';
 import { chatForCookies, chatRoom, GUEST_COOKIE } from '../store-chat/store-chat.service';
 import { CUSTOMER_COOKIE } from '../store/customers.service';
 import { TenantResolverService } from '../tenancy/tenant-resolver.service';
-import { RealtimeService, tenantRoom, userRoom } from './realtime.service';
+import { PlatformDb } from '../platform/platform-db.service';
+import { RealtimeService, tenantAllRoom, tenantRoom, userRoom } from './realtime.service';
 
 const REVALIDATE_MS = 60_000;
 
@@ -40,7 +41,22 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     private readonly sessions: SessionService,
     private readonly db: DatabaseService,
     @Inject(ENV) private readonly env: Env,
-  ) {}
+    platformDb: PlatformDb,
+  ) {
+    // Onde fica o banco do restaurante (guardado alguns segundos por réplica).
+    realtime.onCacheClear((tenantId) => {
+      db.router.forget(tenantId);
+      platformDb.router?.forget(tenantId);
+    });
+  }
+
+  /** Quando o painel mandou limpar o cache pela última vez (o aparelho confere ao conectar). */
+  private async cacheEpoch(tenantId: string): Promise<string | null> {
+    const rows = await this.db
+      .queryUnscoped<{ at: Date | null }>('SELECT app_tenant_cache_epoch($1) AS at', [tenantId])
+      .catch(() => []);
+    return rows[0]?.at ? new Date(rows[0].at).toISOString() : null;
+  }
 
   async afterInit(server: Server) {
     this.realtime.attach(server);
@@ -113,10 +129,10 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     return true;
   }
 
-  private customerConnection(socket: Socket, tenantId: string) {
+  private async customerConnection(socket: Socket, tenantId: string) {
     const chatId = socket.data.chatId as string;
-    void socket.join(chatRoom(tenantId, chatId));
-    socket.emit('ready', { chat: true });
+    await socket.join([chatRoom(tenantId, chatId), tenantAllRoom(tenantId)]);
+    socket.emit('ready', { chat: true, cacheEpoch: await this.cacheEpoch(tenantId) });
     // A cada minuto: a conversa ainda é deste aparelho (saiu da conta) e a loja segue ativa.
     const timer = setInterval(() => {
       Promise.all([
@@ -146,8 +162,9 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     }
     if (socket.data.chatId) return this.customerConnection(socket, tenantId);
     const own = userRoom(tenantId, socket.data.userId as string);
-    await socket.join(socket.data.personal ? [own] : [tenantRoom(tenantId), own]);
-    socket.emit('ready', { tenantId });
+    const all = tenantAllRoom(tenantId);
+    await socket.join(socket.data.personal ? [own, all] : [tenantRoom(tenantId), own, all]);
+    socket.emit('ready', { tenantId, cacheEpoch: await this.cacheEpoch(tenantId) });
     // A cada minuto: sessão ainda válida e restaurante ainda ativo (suspenso desconecta).
     const timer = setInterval(() => {
       Promise.all([

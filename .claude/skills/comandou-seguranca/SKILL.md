@@ -60,6 +60,8 @@ cookie, CSRF, corpo gigante e Host estranho.
   Token de renovação de terceiro fica cifrado (contexto com restaurante e loja) e, se ele troca a
   cada uso, a renovação trava a linha (`FOR UPDATE`). A volta entra na exceção de
   "rota do painel sem sessão" da varredura (`channels/oauth`).
+- Aviso para TODAS as conexões do restaurante (sala `tenantAllRoom`, que inclui o cliente do
+  cardápio) só sem dado da operação, como o `cache.clear`; evento com dado vai em `tenantRoom`.
 - Painel: ação que não volta (excluir, produção, assinar) pede `PlatformAuthService.confirmCode`
   (código do autenticador, mesmo em navegador confiável) e grava a tentativa negada na auditoria.
 

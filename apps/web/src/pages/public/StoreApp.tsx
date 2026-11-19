@@ -31,6 +31,7 @@ import { applyTheme, Mascot, setPullRefreshHandler, Spinner } from '../../design
 import { api, ApiError } from '../../lib/api';
 import { lazyPage, preloadPages } from '../../lib/lazy-page';
 import { brl } from '../../lib/money';
+import { checkCacheEpoch } from '../../lib/tenant-cache';
 import { CustomerAvatar } from './avatars';
 import { StoreChatProvider, useStoreChat } from './chat';
 import { StoreProvider, useStore } from './context';
@@ -434,8 +435,10 @@ export function StoreApp() {
   // para a aba, para o cliente não montar um pedido que não vai entrar.
   const loaded = !!menu;
   const refreshStatus = useCallback(async () => {
-    const st = await api<StoreStatus>('/store/status').catch(() => null);
-    if (!st) return;
+    const st = await api<StoreStatus & { cacheEpoch?: string | null }>('/store/status').catch(
+      () => null,
+    );
+    if (!st || checkCacheEpoch(st.cacheEpoch)) return;
     setMenu((m) =>
       !m ||
       (m.store.isOpen === st.isOpen &&

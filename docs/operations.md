@@ -50,6 +50,18 @@ Guia para quem mantém o Comandou no ar. Comandos rodam no manager do Swarm, com
    o Traefik tira a réplica do balanceamento sozinho.
 4. Se começou depois de um deploy: [rollback](deploy.md#rollback).
 
+### Restaurante com tela velha ou dado que não atualiza
+
+Super Admin › restaurante › **Limpar cache** (`POST /platform/tenants/:id/cache/clear`,
+`platform-cache.service.ts`). Apaga o cache da API daquele restaurante em todas as réplicas
+(onde fica o banco dele e o bloqueio da assinatura, pelo aviso entre réplicas do adapter Redis do
+socket.io) e manda o aviso `cache.clear` para a sala `a:<restaurante>`, onde entram todas as
+conexões dele (equipe, cozinha, entregador, cliente na conversa). A tela apaga o Cache Storage, o
+service worker e a gaveta `cache` do modo offline (`lib/tenant-cache.ts`) e recarrega. A data fica
+em `tenants.cache_cleared_at` (0098): o aparelho que estava fechado limpa ao conectar (vem no
+`ready`) e o cardápio online aberto, no `GET /store/status`. Não apaga a fila do offline
+(`outbox`), o login nem os ajustes do aparelho. Fica no Histórico como "Limpou o cache".
+
 ### Erros 5xx
 
 O log tem a pilha do erro (`"level":50`). Erros do banco viram 409/422 claros; 5xx é bug ou
