@@ -182,8 +182,11 @@ O link "Esqueci minha senha" fica à direita, logo abaixo do campo da senha (`Fo
 ## E-mails
 
 Não seguem os tokens do app (e-mail não lê CSS variável): cores fixas em `mail/templates/kit.ts`
-(`C`), fundo creme `#F4F1EE`, cartão branco com raio 20, panda no topo sobre `#FFF4EE`, um botão
-laranja por e-mail, título centralizado. Modo escuro pelas classes `em-*`. Nada de imagem com
+(`C`), fundo `#F5F4F2`, cartão branco com linha fina e raio 14, cabeçalho com a marca e o assunto
+(`topic`) separado por linha, título e texto à esquerda, um botão laranja por e-mail, dados como
+comanda (`rows`, tracejado), avisos com bolinha de cor (sem emoji) e o panda pequeno só na
+assinatura (nada de ilustração grande no topo: o David achou "nada a ver"). Modo escuro pelas
+classes `em-*`, no azul-ardósia do app. Nada de imagem com
 texto (cai no spam e some com imagens bloqueadas).
 
 ## Financeiro

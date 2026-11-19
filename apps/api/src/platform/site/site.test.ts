@@ -64,7 +64,7 @@ describe('teste criado pelo site', () => {
       trialEndsAt: new Date('2026-11-18T18:00:00Z'),
       siteUrl: 'https://comandou.com',
     });
-    expect(m.subject).toBe('Bar <b>do</b> Zé já está no ar no Comandou 🎉');
+    expect(m.subject).toBe('Bar <b>do</b> Zé já está no ar no Comandou');
     expect(m.html).toContain('abcd-efgh-2345');
     expect(m.html).toContain('href="https://bar-do-ze.comandou.com"');
     expect(m.html).not.toContain('<b>do</b>');

@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.181.0',
+    date: '2026-11-19',
+    title: 'E-mails com visual novo, mais profissional',
+    summary:
+      'Todos os e-mails do sistema ganharam um desenho mais limpo e sóbrio: código de nova senha, boas-vindas do teste, acesso ao restaurante, lembretes e avisos de mensalidade, pagamento recebido, contratos e o e-mail do cardápio online.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Visual novo em todos os e-mails: cabeçalho com a marca e o assunto, texto alinhado à esquerda, dados no jeito de uma comanda (rótulo de um lado, valor do outro) e o panda pequeno na assinatura, sem a ilustração grande no topo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'O código de nova senha aparece numa caixa discreta com a validade logo embaixo, fácil de ler e de copiar. Os avisos usam uma bolinha de cor no lugar de emojis.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Modo escuro no mesmo azul-ardósia do sistema e leitura melhor no celular e no Outlook do Windows.',
+      },
+    ],
+  },
+  {
     version: '0.180.0',
     date: '2026-11-19',
     title: 'Loja aberta, fechada ou pausada no iFood',

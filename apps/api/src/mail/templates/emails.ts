@@ -63,12 +63,13 @@ export function welcomeEmail(i: WelcomeEmailInput): Mail {
   const host = i.url.replace(/^https?:\/\//, '');
   const ends = trialEndLabel(i.trialEndsAt);
   const contact = i.salesContact?.trim();
-  const subject = `${i.restaurant} já está no ar no Comandou 🎉`;
+  const subject = `${i.restaurant} já está no ar no Comandou`;
   const html = shell({
     title: subject,
     preheader: `Seu endereço, login e senha estão aqui. O teste grátis vale por ${i.trialDays} dias.`,
     assets: i.siteUrl,
     panda: 'ola',
+    topic: 'Teste grátis',
     heading: `${name ? `${esc(name)}, boas-vindas` : 'Boas-vindas'} ao Comandou!`,
     lead: `O ${strong(i.restaurant)} já está no ar. Ele é seu por ${i.trialDays} dias para testar tudo: cardápio online, pedidos, salão, cozinha, caixa e entregas.`,
     body: [
@@ -82,7 +83,6 @@ export function welcomeEmail(i: WelcomeEmailInput): Mail {
       ]),
       button('Abrir meu restaurante', i.url),
       p('Guarde este e-mail. Você troca a senha quando quiser em Configurações.', {
-        center: true,
         small: true,
       }),
       divider(),
@@ -108,7 +108,7 @@ export function welcomeEmail(i: WelcomeEmailInput): Mail {
         'Para começar com o pé direito',
       ),
       note(
-        `⏳ O teste vai até <strong>${esc(ends)}</strong>. Gostou? ${contact ? `Fale com a gente pelo <strong>${esc(contact)}</strong>` : 'Responda este e-mail'} e o restaurante continua no ar, com tudo o que você cadastrou.`,
+        `O teste vai até <strong>${esc(ends)}</strong>. Gostou? ${contact ? `Fale com a gente pelo <strong>${esc(contact)}</strong>` : 'Responda este e-mail'} e o restaurante continua no ar, com tudo o que você cadastrou.`,
         'warn',
       ),
     ],
@@ -157,6 +157,7 @@ export function accessEmail(i: AccessEmailInput): Mail {
     preheader: 'O endereço do seu restaurante, o login e a senha estão aqui.',
     assets: i.siteUrl,
     panda: 'ola',
+    topic: 'Acesso',
     heading: `${name ? `${esc(name)}, o ` : 'O '}${esc(i.restaurant)} está pronto no Comandou!`,
     lead: 'Criamos o seu restaurante. Guarde este e-mail: aqui estão o endereço, o seu login e a senha para entrar.',
     body: [
@@ -171,7 +172,7 @@ export function accessEmail(i: AccessEmailInput): Mail {
       button('Abrir meu restaurante', i.url),
       p(
         'Troque a senha quando quiser em Configurações. Se você já tinha conta no Comandou com este e-mail, entre com a senha de sempre. A página ainda não abriu? Espere um minutinho: o restaurante está terminando de ser preparado.',
-        { center: true, small: true },
+        { small: true },
       ),
       divider(),
       steps(
@@ -236,16 +237,17 @@ export function passwordCodeEmail(i: PasswordCodeInput): Mail {
     preheader: `Código ${i.code} para criar uma nova senha em ${i.place}. Vale por ${i.minutes} minutos.`,
     assets: i.assets,
     panda: 'codigo',
+    topic: 'Segurança da conta',
     heading: 'Seu código para criar uma nova senha',
     lead: `${hello(i.name)}${i.name ? 'digite' : 'Digite'} este código na tela de nova senha de ${strong(i.place)}.`,
     body: [
       codeBox(i.code, `Vale por ${i.minutes} minutos e só funciona uma vez`),
       p(
         'Sua senha continua a mesma até você digitar o código e escolher a nova. Depois disso, a conta sai dos outros aparelhos.',
-        { center: true, small: true },
+        { small: true },
       ),
       note(
-        `🔒 Não pediu? É só ignorar este e-mail: nada muda na sua conta. Ninguém do Comandou pede este código${i.ip ? ` (pedido feito do IP ${esc(i.ip)})` : ''}.`,
+        `Não pediu? É só ignorar este e-mail: nada muda na sua conta. Ninguém do Comandou pede este código${i.ip ? ` (pedido feito do IP ${esc(i.ip)})` : ''}.`,
         'info',
       ),
     ],
@@ -278,13 +280,14 @@ export function customerResetEmail(i: CustomerResetInput): Mail {
     assets: i.assets,
     brand: { name: i.restaurant },
     panda: 'codigo',
+    topic: 'Segurança da conta',
     heading: `${firstName(i.customerName) ? `${esc(firstName(i.customerName))}, aqui está` : 'Aqui está'} o seu código`,
     lead: `Digite este código na tela de nova senha do cardápio de ${strong(i.restaurant)}.`,
     body: [
       codeBox(i.code, `Vale por ${i.minutes} minutos e só funciona uma vez`),
       p(
         'Sua senha continua a mesma até você digitar o código e escolher a nova. Não pediu? É só ignorar este e-mail.',
-        { center: true, small: true },
+        { small: true },
       ),
     ],
   });
@@ -315,12 +318,13 @@ export function passwordChangedEmail(i: {
     preheader: `A senha de ${i.place} foi trocada ${when}. Foi você? Então está tudo certo.`,
     assets: i.assets,
     panda: 'codigo',
-    heading: 'Senha nova, tudo certo',
+    topic: 'Segurança da conta',
+    heading: 'Sua senha foi trocada',
     lead: `${hello(i.name)}${i.name ? 'a' : 'A'} senha para entrar em ${strong(i.place)} foi trocada ${esc(when)}${i.ip ? ` (IP ${esc(i.ip)})` : ''}.`,
     body: [
       button('Entrar com a senha nova', i.loginUrl),
       note(
-        '⚠️ Não foi você? Peça um código novo na tela de entrada (Esqueci minha senha) e troque a senha agora. Depois, avise o administrador do restaurante.',
+        'Não foi você? Peça um código novo na tela de entrada (Esqueci minha senha) e troque a senha agora. Depois, avise o administrador do restaurante.',
         'warn',
       ),
     ],
@@ -361,6 +365,7 @@ export function trialEndingEmail(i: LifecycleBase & { endsAt: Date; price?: stri
     preheader: `O teste do ${i.restaurant} vai até ${ends}. Continue sem perder nada do que você cadastrou.`,
     assets: i.assets,
     panda: 'relogio',
+    topic: 'Teste grátis',
     heading: 'Seu teste acaba amanhã',
     lead: `${Hello(i.name)} O teste grátis do ${strong(i.restaurant)} vai até ${strong(ends)}.`,
     body: [
@@ -369,7 +374,7 @@ export function trialEndingEmail(i: LifecycleBase & { endsAt: Date; price?: stri
       ),
       ...(i.price ? [bigFigures([{ label: 'Mensalidade', value: i.price }])] : []),
       button('Continuar com o Comandou', i.planUrl),
-      p(contactLine(i.contact), { center: true, small: true }),
+      p(contactLine(i.contact), { small: true }),
     ],
     footer: `Você recebeu este aviso porque é o responsável pelo ${esc(i.restaurant)} no Comandou.`,
   });
@@ -391,6 +396,7 @@ export function trialEndedEmail(i: LifecycleBase): Mail {
     preheader: 'Nada foi apagado: cardápio, pedidos e clientes estão esperando por você.',
     assets: i.assets,
     panda: 'dormindo',
+    topic: 'Teste grátis',
     heading: 'Seu teste grátis terminou',
     lead: `${Hello(i.name)} O ${strong(i.restaurant)} está pausado, mas fica tudo guardado: cardápio, fotos, pedidos, clientes e configurações.`,
     body: [
@@ -405,7 +411,7 @@ export function trialEndedEmail(i: LifecycleBase): Mail {
         },
       ]),
       button('Reativar meu restaurante', i.planUrl),
-      p(contactLine(i.contact), { center: true, small: true }),
+      p(contactLine(i.contact), { small: true }),
     ],
     footer: `Você recebeu este aviso porque é o responsável pelo ${esc(i.restaurant)} no Comandou.`,
   });
@@ -437,6 +443,7 @@ export function paymentDueEmail(i: LifecycleBase & InvoiceInfo & { daysLeft: num
     preheader: `${i.amount} com vencimento em ${shortDate(i.dueDate)}. Pague por PIX, boleto ou cartão em um toque.`,
     assets: i.assets,
     panda: 'relogio',
+    topic: 'Mensalidade',
     heading: `Sua mensalidade vence ${when}`,
     lead: `${Hello(i.name)} Passando para lembrar da mensalidade do ${strong(i.restaurant)}.`,
     body: [
@@ -444,11 +451,10 @@ export function paymentDueEmail(i: LifecycleBase & InvoiceInfo & { daysLeft: num
         { label: 'Valor', value: i.amount },
         { label: 'Vencimento', value: shortDate(i.dueDate) },
       ]),
-      ...(i.description ? [p(esc(i.description), { center: true, small: true })] : []),
+      ...(i.description ? [p(esc(i.description), { small: true })] : []),
       button('Pagar agora', url),
       fallbackLink(url),
       p('Já pagou? Pode ignorar este lembrete: a baixa é automática.', {
-        center: true,
         small: true,
       }),
     ],
@@ -479,6 +485,7 @@ export function paymentOverdueEmail(
       : `${i.amount} em aberto. Pague para não ter o sistema pausado.`,
     assets: i.assets,
     panda: 'alerta',
+    topic: 'Mensalidade',
     heading: i.blocked ? 'Seu restaurante está pausado' : 'Sua mensalidade venceu',
     lead: i.blocked
       ? `${Hello(i.name)} O ${strong(i.restaurant)} foi pausado porque a mensalidade não foi paga. Nada foi apagado.`
@@ -499,7 +506,6 @@ export function paymentOverdueEmail(
       button(i.blocked ? 'Pagar e voltar ao ar' : 'Pagar agora', url),
       fallbackLink(url),
       p(`Já pagou? Pode ignorar: a baixa é automática. ${contactLine(i.contact)}`, {
-        center: true,
         small: true,
       }),
     ],
@@ -523,13 +529,14 @@ export function paymentOverdueEmail(
 export function paymentReceivedEmail(
   i: LifecycleBase & { amount: string; paidOn: string; until?: Date | null },
 ): Mail {
-  const subject = `Pagamento recebido. Obrigado! ✅`;
+  const subject = `Pagamento recebido. Obrigado!`;
   const html = shell({
     title: subject,
     preheader: `Recebemos ${i.amount} do ${i.restaurant}.${i.until ? ` Tudo liberado até ${shortDate(i.until)}.` : ''}`,
     assets: i.assets,
     panda: 'festa',
-    heading: 'Pagamento recebido!',
+    topic: 'Mensalidade',
+    heading: 'Pagamento recebido',
     lead: `${Hello(i.name)} Obrigado por continuar com a gente. O ${strong(i.restaurant)} segue no ar.`,
     body: [
       bigFigures([
@@ -539,7 +546,6 @@ export function paymentReceivedEmail(
       ]),
       button('Ver meu plano', i.planUrl),
       p('O comprovante fica na tela Plano, junto com as faturas anteriores.', {
-        center: true,
         small: true,
       }),
     ],
@@ -569,6 +575,7 @@ export function contractEmail(i: {
     preheader: i.preheader ?? i.paragraphs.find((x) => !/^Olá/.test(x)) ?? i.heading,
     assets: i.assets,
     panda: 'contrato',
+    topic: 'Contrato',
     heading: esc(i.heading),
     body: [
       ...i.paragraphs.map((x) => p(esc(x))),
@@ -587,12 +594,12 @@ export function testEmail(assets: string): Mail {
       preheader: 'Se este e-mail chegou, o envio pelo Resend está funcionando.',
       assets,
       panda: 'festa',
-      heading: 'Chegou! O envio está funcionando',
+      topic: 'Teste de envio',
+      heading: 'O envio de e-mail está funcionando',
       lead: 'Este é um e-mail de teste enviado pelo painel do Comandou.',
       body: [
         p(
           'Boas-vindas do teste, códigos de nova senha, lembretes de mensalidade e contratos saem por aqui, pelo Resend.',
-          { center: true },
         ),
       ],
     }),

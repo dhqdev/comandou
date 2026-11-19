@@ -68,6 +68,14 @@ exemplo da aba Modelos). Tabelas e estilo na própria tag; o modo escuro vem de
 um PNG em `apps/web/public/email/panda-*.png` (servido pelo site), desenhado por
 `node tools/email-pandas/render.mjs`: e-mail não mostra SVG.
 
+Desde a 0.181 o desenho é sóbrio: cabeçalho com a marca à esquerda e o assunto curto à direita
+(`topic`), texto alinhado à esquerda, um botão laranja só, dados no jeito de uma comanda (`rows`:
+rótulo à esquerda, valor à direita, tracejado entre as linhas; no celular o valor desce para baixo
+do rótulo), avisos em caixa cinza com a bolinha da cor do estado (`note`) e o panda pequeno na
+assinatura "Equipe Comandou". E-mail para o cliente do restaurante (`brand`) assina com o nome da
+loja, sem panda. Fonte em propriedades separadas (`font-family`, `font-size`...), porque o Outlook
+do Windows ignora o atalho `font:`. Sem emoji no assunto nem no corpo.
+
 ## 1. Configurar o Resend (grátis até 3.000 e-mails por mês)
 
 1. Crie a conta em [resend.com](https://resend.com) e adicione o domínio em *Domains*.
