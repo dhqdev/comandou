@@ -1,4 +1,4 @@
-import { ExternalLink, Link2 } from 'lucide-react';
+import { ExternalLink, Link2, Plus, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { maskCep, useCepAutofill } from '../lib/cep';
 import { StreetHits } from './StreetHits';
@@ -65,130 +65,145 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  const toggle = (k: StoreFlag, label: string, hint?: string) => (
+    <label key={k} className="os-toggle">
+      <span>
+        <strong>{label}</strong>
+        {hint && <small>{hint}</small>}
+      </span>
+      <span className="switch">
+        <input
+          type="checkbox"
+          checked={s[k]}
+          disabled={!canManage || busy}
+          onChange={(e) => save({ [k]: e.target.checked })}
+        />
+        <span className="switch__track" aria-hidden />
+      </span>
+    </label>
+  );
+
   return (
-    <Card
-      title="Funcionamento"
-      actions={
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button
-            variant="ghost"
-            icon={<Link2 size={16} />}
-            onClick={() =>
-              navigator.clipboard
-                ?.writeText(link)
-                .then(() => toast('Link copiado', 'success'))
-                .catch(() => toast(link))
-            }
-          >
-            Copiar link
-          </Button>
-          <a className="cm-btn cm-btn--secondary" href="/pedir" target="_blank" rel="noreferrer">
-            <ExternalLink size={16} /> Abrir
-          </a>
-        </div>
-      }
-    >
-      <div style={{ display: 'grid', gap: 16 }}>
-        <p className="cm-hint" style={{ margin: 0 }}>
+    <div className="os-stack">
+      <Card
+        title="Pedidos pelo cardápio"
+        actions={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={<Link2 size={16} />}
+              onClick={() =>
+                navigator.clipboard
+                  ?.writeText(link)
+                  .then(() => toast('Link copiado', 'success'))
+                  .catch(() => toast(link))
+              }
+            >
+              Copiar link
+            </Button>
+            <a
+              className="cm-btn cm-btn--secondary cm-btn--sm"
+              href="/pedir"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <ExternalLink size={16} /> Abrir
+            </a>
+          </div>
+        }
+      >
+        <p className="cm-hint os-link">
           Link para divulgar no Instagram e no WhatsApp: <strong>{link}</strong>
         </p>
-        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-          {(
-            [
-              ['enabled', 'Cardápio online ligado'],
-              ['isOpen', s.hoursEnabled ? 'Loja aberta (no horário)' : 'Loja aberta agora'],
-              ['autoAccept', 'Aceitar pedidos automaticamente'],
-              ['acceptsDelivery', 'Faz entrega'],
-              ['acceptsPickup', 'Aceita retirada'],
-            ] as const
-          ).map(([k, label]) => (
-            <label key={k} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                type="checkbox"
-                checked={s[k]}
-                disabled={!canManage || busy}
-                onChange={(e) => save({ [k]: e.target.checked })}
-              />
-              {label}
-            </label>
-          ))}
+        <div className="os-toggles os-toggles--cols">
+          {toggle('enabled', 'Cardápio online ligado')}
+          {toggle('isOpen', s.hoursEnabled ? 'Loja aberta (no horário)' : 'Loja aberta agora')}
+          {toggle('autoAccept', 'Aceitar pedidos automaticamente')}
+          {toggle('acceptsDelivery', 'Faz entrega')}
+          {toggle('acceptsPickup', 'Aceita retirada')}
         </div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!fee || !min) return;
-            void save({
-              deliveryFee: fee,
-              minOrder: min,
-              etaMin: Number(form.etaMin),
-              etaMax: Number(form.etaMax),
-              address: form.address.trim() || null,
-              whatsapp: form.whatsapp.trim() || null,
-              city: form.city.trim() || null,
-              state: form.state.trim().toUpperCase() || null,
-            });
-          }}
-          style={{
-            display: 'grid',
-            gap: 12,
-            gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-          }}
-        >
-          <TextField
-            label="Taxa de entrega"
-            inputMode="decimal"
-            value={form.deliveryFee}
-            onChange={set('deliveryFee')}
-            error={!fee ? 'Use o formato 5,00' : undefined}
-            disabled={!canManage}
-          />
-          <TextField
-            label="Pedido mínimo"
-            inputMode="decimal"
-            value={form.minOrder}
-            onChange={set('minOrder')}
-            error={!min ? 'Use o formato 20,00' : undefined}
-            disabled={!canManage}
-          />
-          <TextField
-            label="Tempo mínimo (min)"
-            type="number"
-            min={1}
-            max={600}
-            value={form.etaMin}
-            onChange={set('etaMin')}
-            disabled={!canManage}
-          />
-          <TextField
-            label="Tempo máximo (min)"
-            type="number"
-            min={1}
-            max={600}
-            value={form.etaMax}
-            onChange={set('etaMax')}
-            disabled={!canManage}
-          />
-          <TextField
-            label="WhatsApp da loja"
-            inputMode="tel"
-            value={form.whatsapp}
-            onChange={set('whatsapp')}
-            maxLength={30}
-            disabled={!canManage}
-          />
-          <StoreAddressFields
-            value={form}
-            onChange={(p) => setForm((f) => ({ ...f, ...p }))}
-            disabled={!canManage}
-          />
-          {canManage && (
-            <div>
-              <Button type="submit" loading={busy} disabled={!fee || !min}>
-                Salvar
-              </Button>
-            </div>
-          )}
-        </form>
+      </Card>
+
+      <Card title="Entrega, contato e endereço">
+        <div className="os-form-host">
+          <form
+            className="cm-form os-form6"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!fee || !min) return;
+              void save({
+                deliveryFee: fee,
+                minOrder: min,
+                etaMin: Number(form.etaMin),
+                etaMax: Number(form.etaMax),
+                address: form.address.trim() || null,
+                whatsapp: form.whatsapp.trim() || null,
+                city: form.city.trim() || null,
+                state: form.state.trim().toUpperCase() || null,
+              });
+            }}
+          >
+            <TextField
+              label="Taxa de entrega"
+              inputMode="decimal"
+              value={form.deliveryFee}
+              onChange={set('deliveryFee')}
+              error={!fee ? 'Use o formato 5,00' : undefined}
+              disabled={!canManage}
+            />
+            <TextField
+              label="Pedido mínimo"
+              inputMode="decimal"
+              value={form.minOrder}
+              onChange={set('minOrder')}
+              error={!min ? 'Use o formato 20,00' : undefined}
+              disabled={!canManage}
+            />
+            <TextField
+              label="Tempo mínimo (min)"
+              type="number"
+              min={1}
+              max={600}
+              value={form.etaMin}
+              onChange={set('etaMin')}
+              disabled={!canManage}
+            />
+            <TextField
+              label="Tempo máximo (min)"
+              type="number"
+              min={1}
+              max={600}
+              value={form.etaMax}
+              onChange={set('etaMax')}
+              disabled={!canManage}
+            />
+            <TextField
+              label="WhatsApp da loja"
+              inputMode="tel"
+              value={form.whatsapp}
+              onChange={set('whatsapp')}
+              maxLength={30}
+              wrapClass="os-span2"
+              disabled={!canManage}
+            />
+            <StoreAddressFields
+              value={form}
+              onChange={(p) => setForm((f) => ({ ...f, ...p }))}
+              disabled={!canManage}
+            />
+            {canManage && (
+              <div className="os-form-actions">
+                <Button type="submit" variant="primary" loading={busy} disabled={!fee || !min}>
+                  Salvar
+                </Button>
+              </div>
+            )}
+          </form>
+        </div>
+      </Card>
+
+      <Card title="Horário de funcionamento">
         <HoursEditor
           key={JSON.stringify(s.hours) + s.hoursEnabled}
           settings={s}
@@ -196,45 +211,36 @@ export function StoreSettingsCard({ canManage }: { canManage: boolean }) {
           busy={busy}
           onSave={(patch) => save(patch, 'Horário salvo')}
         />
-        <div style={{ display: 'grid', gap: 10 }}>
-          <strong>Pedido pela mesa (QR Code)</strong>
-          {(
-            [
-              [
-                'tableCheckLocation',
-                'Conferir se o cliente está no restaurante',
-                s.storeLat && s.storeLng
-                  ? 'Antes de pedir, o celular confirma a localização perto do ponto da loja no mapa.'
-                  : 'Marque o ponto da loja no mapa (Entregas › Áreas de entrega) para a conferência valer.',
-              ],
-              [
-                'tableSelfPickup',
-                'Cliente busca o pedido pronto no balcão',
-                'Sem garçom levando: o cliente vê "Pronto" no celular, busca e toca em "Já peguei".',
-              ],
-            ] as const
-          ).map(([k, label, hint]) => (
-            <label key={k} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-              <input
-                type="checkbox"
-                style={{ marginTop: 3 }}
-                checked={s[k]}
-                disabled={!canManage || busy}
-                onChange={(e) => save({ [k]: e.target.checked })}
-              />
-              <span>
-                {label}
-                <span className="cm-hint" style={{ display: 'block' }}>
-                  {hint}
-                </span>
-              </span>
-            </label>
-          ))}
+      </Card>
+
+      <Card title="Pedido pela mesa (QR Code)">
+        <div className="os-toggles">
+          {toggle(
+            'tableCheckLocation',
+            'Conferir se o cliente está no restaurante',
+            s.storeLat && s.storeLng
+              ? 'Antes de pedir, o celular confirma a localização perto do ponto da loja no mapa.'
+              : 'Marque o ponto da loja no mapa (Entregas › Áreas de entrega) para a conferência valer.',
+          )}
+          {toggle(
+            'tableSelfPickup',
+            'Cliente busca o pedido pronto no balcão',
+            'Sem garçom levando: o cliente vê "Pronto" no celular, busca e toca em "Já peguei".',
+          )}
         </div>
-      </div>
-    </Card>
+      </Card>
+    </div>
   );
 }
+
+type StoreFlag =
+  | 'enabled'
+  | 'isOpen'
+  | 'autoAccept'
+  | 'acceptsDelivery'
+  | 'acceptsPickup'
+  | 'tableCheckLocation'
+  | 'tableSelfPickup';
 
 const DAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -265,73 +271,80 @@ function HoursEditor({
     setHours((hs) => hs.map((h, j) => (j === i ? { ...h, ...patch } : h)));
   const order = [1, 2, 3, 4, 5, 6, 0];
   return (
-    <div style={{ display: 'grid', gap: 10 }}>
-      <label style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <input
-          type="checkbox"
-          checked={enabled}
-          disabled={!canManage || busy}
-          onChange={(e) => setEnabled(e.target.checked)}
-        />
-        <strong>Abrir e fechar sozinha no horário</strong>
+    <div className="os-hours">
+      <label className="os-toggle">
+        <span>
+          <strong>Abrir e fechar sozinha no horário</strong>
+          <small>
+            {settings.hoursEnabled
+              ? `Agora: ${settings.openNow ? 'recebendo pedidos' : 'fechada para pedidos'}${
+                  !settings.isOpen ? ' (o botão "Loja aberta" está desligado)' : ''
+                }.`
+              : 'Com isso ligado, a loja abre e fecha sozinha nos horários abaixo.'}
+          </small>
+        </span>
+        <span className="switch">
+          <input
+            type="checkbox"
+            checked={enabled}
+            disabled={!canManage || busy}
+            onChange={(e) => setEnabled(e.target.checked)}
+          />
+          <span className="switch__track" aria-hidden />
+        </span>
       </label>
-      {settings.hoursEnabled && (
-        <p className="cm-hint" style={{ margin: 0 }}>
-          Agora: {settings.openNow ? 'recebendo pedidos' : 'fechada para pedidos'}
-          {!settings.isOpen && ' (o botão "Loja aberta" está desligado)'}.
-        </p>
-      )}
       {enabled && (
-        <div style={{ display: 'grid', gap: 6 }}>
+        <div className="os-days">
           {order.map((day) => {
             const shifts = hours.map((h, i) => ({ h, i })).filter((x) => x.h.day === day);
             return (
-              <div
-                key={day}
-                style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}
-              >
-                <span style={{ width: 80 }}>{DAYS[day]}</span>
-                {shifts.length === 0 && <span className="cm-hint">Fechado</span>}
-                {shifts.map(({ h, i }) => (
-                  <span key={i} style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
-                    <input
-                      type="time"
-                      aria-label={`${DAYS[day]}: abre`}
-                      value={h.open}
-                      disabled={!canManage}
-                      onChange={(e) => update(i, { open: e.target.value })}
-                    />
-                    às
-                    <input
-                      type="time"
-                      aria-label={`${DAYS[day]}: fecha`}
-                      value={h.close}
-                      disabled={!canManage}
-                      onChange={(e) => update(i, { close: e.target.value })}
-                    />
-                    {canManage && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        aria-label={`Tirar turno de ${DAYS[day]}`}
-                        onClick={() => setHours((hs) => hs.filter((_, j) => j !== i))}
-                      >
-                        ×
-                      </Button>
-                    )}
-                  </span>
-                ))}
-                {canManage && shifts.length < 3 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      setHours((hs) => [...hs, { day, open: '18:00', close: '23:00' }])
-                    }
-                  >
-                    + turno
-                  </Button>
-                )}
+              <div key={day} className="os-day">
+                <span className="os-day__name">{DAYS[day]}</span>
+                <div className="os-day__shifts">
+                  {shifts.length === 0 && <span className="cm-hint">Fechado</span>}
+                  {shifts.map(({ h, i }) => (
+                    <span key={i} className="os-shift">
+                      <input
+                        type="time"
+                        className="cm-input os-time"
+                        aria-label={`${DAYS[day]}: abre`}
+                        value={h.open}
+                        disabled={!canManage}
+                        onChange={(e) => update(i, { open: e.target.value })}
+                      />
+                      <span className="os-muted">às</span>
+                      <input
+                        type="time"
+                        className="cm-input os-time"
+                        aria-label={`${DAYS[day]}: fecha`}
+                        value={h.close}
+                        disabled={!canManage}
+                        onChange={(e) => update(i, { close: e.target.value })}
+                      />
+                      {canManage && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          aria-label={`Tirar turno de ${DAYS[day]}`}
+                          icon={<X size={16} />}
+                          onClick={() => setHours((hs) => hs.filter((_, j) => j !== i))}
+                        />
+                      )}
+                    </span>
+                  ))}
+                  {canManage && shifts.length < 3 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={<Plus size={16} />}
+                      onClick={() =>
+                        setHours((hs) => [...hs, { day, open: '18:00', close: '23:00' }])
+                      }
+                    >
+                      Turno
+                    </Button>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -341,7 +354,7 @@ function HoursEditor({
         </div>
       )}
       {canManage && (
-        <div>
+        <div className="os-form-actions">
           <Button
             variant="secondary"
             loading={busy}
@@ -411,7 +424,7 @@ function StoreAddressFields({
         }}
         disabled={disabled}
       />
-      <div className="street-field" style={{ gridColumn: '1 / -1' }}>
+      <div className="street-field os-span3">
         <TextField
           ref={addressRef}
           label="Endereço (aparece na retirada)"

@@ -57,9 +57,23 @@
   align-items: end;
   margin-bottom: var(--cm-space-4);
 }
+/* Campo de texto até 320px e número estreito: nada de campo esticado na largura da tela. */
 .inline-add .cm-field {
   min-width: 140px;
-  flex: 1;
+  flex: 0 1 320px;
+}
+.inline-add .cm-field.inline-add__num {
+  min-width: 0;
+  flex: 0 0 120px;
+}
+.inline-add .cm-field.inline-add__num--wide {
+  flex-basis: 170px;
+}
+.inline-add:has(+ .inline-add__hint) {
+  margin-bottom: var(--cm-space-2);
+}
+.inline-add__hint {
+  margin: 0 0 var(--cm-space-4);
 }
 /* Campos, escolhas e botão com a mesma altura, alinhados pela base. */
 .inline-add .chip,
@@ -1449,4 +1463,7 @@ button.pay-part {
   .od-foot > :not(.od-sum) {
     grid-column: 1;
   }
+}
+.settings-link + .inline-add {
+  margin-top: var(--cm-space-4);
 }

@@ -64,9 +64,97 @@
   display: grid;
   gap: 2px;
 }
+.os-toggle strong {
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+}
 .os-toggle small {
   color: var(--cm-text-muted);
+  font-size: var(--cm-text-xs);
+}
+
+/* Funcionamento: link, interruptores lado a lado e formulário compacto em 6 colunas. */
+.os-link {
+  margin: 0 0 var(--cm-space-2);
+  overflow-wrap: anywhere;
+}
+.os-toggles--cols {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  column-gap: var(--cm-space-6);
+}
+.os-toggles--cols .os-toggle + .os-toggle {
+  border-top: 0;
+}
+.os-toggles--cols .os-toggle {
+  border-bottom: 1px solid var(--cm-border);
+}
+.os-form-host {
+  container: os-form / inline-size;
+}
+.os-form-actions {
+  display: flex;
+  gap: var(--cm-space-2);
+}
+@container os-form (min-width: 720px) {
+  .cm-form.os-form6 {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .cm-form.os-form6 > .os-span2 {
+    grid-column: span 2;
+  }
+  .cm-form.os-form6 > .os-span3 {
+    grid-column: span 3;
+  }
+}
+
+/* Horário de funcionamento: um dia por linha, turnos com campos de hora estreitos. */
+.os-hours {
+  display: grid;
+  gap: var(--cm-space-3);
+}
+.os-days {
+  display: grid;
+  gap: 2px;
+}
+.os-day {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--cm-space-3);
+  min-height: 42px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--cm-border);
+}
+.os-day__name {
   font-size: var(--cm-text-sm);
+  font-weight: 550;
+}
+.os-day__shifts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px var(--cm-space-4);
+}
+.os-shift {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--cm-text-sm);
+}
+.cm-input.os-time {
+  width: 128px;
+  padding: 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+@media (pointer: fine) {
+  .cm-input.os-time {
+    min-height: 34px;
+    height: 34px;
+    font-size: var(--cm-text-sm);
+  }
+}
+.os-days > .cm-hint {
+  margin-top: 6px;
 }
 
 /* Banners */
@@ -242,6 +330,11 @@
   .os-images,
   .os-grid2 {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .os-day {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    padding: 8px 0;
   }
   .os-banner {
     grid-template-columns: 96px minmax(0, 1fr) auto;

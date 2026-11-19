@@ -26,6 +26,12 @@ Visual de **sistema de trabalho**: sóbrio, limpo e confortável para turnos lon
 - Campos soltos no corpo do `Modal` ou dentro de `<div className="cm-form">` seguem o padrão sozinhos: **rótulo em cima do campo**; no notebook (≥901px, mouse) o modal abre **mais largo** e os campos se distribuem em até **3 colunas**. Em notebook largo (≥1100px, mouse) as janelas `lg`/`xl` abrem bem mais largas (1120/1360px) e os formulários vão a **4 colunas**: o David quer janela **deitada**, sem rolar a não ser que precise. Blocos que cabem lado a lado (ex.: PIS/COFINS e Outros no padrão fiscal, `.fi-pair`) ficam lado a lado.
 - Agrupe por assunto com `<h3 className="cm-form__section">`. Campo longo (observação, endereço) ocupa a linha toda com `wrapClass="cm-form__wide"` ou `<textarea>`.
 - **Campo de valor** (dinheiro): `inputMode="decimal"` e valor no formato `0,00`. Não precisa de máscara: `installDecimalEntry` (`design-system/decimal-entry.ts`, ligado no `main.tsx`) põe o cursor antes da vírgula ao entrar (digitar 3 em 0,00 dá 3,00) e a vírgula pula para os centavos. Campo que não é dinheiro nem número com vírgula não usa `inputMode="decimal"`.
+- **Formulário de tela** (fora de janela, ex.: Loja online › Funcionamento): um cartão por
+  assunto, campos compactos em `cm-form` e, em cartão largo, grade de 6 colunas por container
+  query (`os-form6` + `os-span2/3` em `online-store.css`); liga/desliga com `os-toggle` (em
+  colunas: `os-toggles--cols`), nunca caixinha solta. `.cm-field` já alinha no topo: o vizinho
+  com dica longa não estica o campo. Linha de "adicionar" (`inline-add`): campo de texto até
+  320px e número com `inline-add__num` (120px).
 - Liga/desliga e linhas de texto + controle: `cm-form__row`. Bloco solto que deve ocupar a linha toda: `cm-form__block`.
 - Use `TextField`, `SelectField`, `CheckField`; não monte `<label>` na mão.
 - **Campo de data:** sempre `TextField type="date"` (ou `DateInput`); data e hora,
