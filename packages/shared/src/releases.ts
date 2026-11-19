@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.198.5',
+    date: '2026-11-19',
+    title: 'Aplicativos de delivery com cara nova',
+    summary:
+      'A tela Aplicativos de delivery ficou mais clara: números no topo, um cartão por aplicativo ligado com os ajustes de cada loja em interruptores e os que faltam ligar separados.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Aplicativos de delivery: no topo, quantos aplicativos estão recebendo pedidos, quantas lojas estão ligadas, quantas estão pausadas e o que falhou na semana.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cada aplicativo ligado ganhou um cartão com o nome na cor da marca, a situação da loja, o último pedido e os ajustes (Receber pedidos, Aceitar sozinho, Fechar junto com a loja) em interruptores, lado a lado no computador.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Os aplicativos ainda sem loja ficam num grupo separado, cada um dizendo o que fazer para ligar; os que ainda vão chegar aparecem numa linha só. "O que funciona" mostra com visto o que cada aplicativo oferece e numa frase o que ele não oferece.',
+      },
+    ],
+  },
+  {
     version: '0.198.4',
     date: '2026-11-19',
     title: 'Site: começo e aplicativos de delivery redesenhados',

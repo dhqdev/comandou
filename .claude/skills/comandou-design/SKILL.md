@@ -291,7 +291,15 @@ situação (bolinha, "dentro das regras/perto do limite/fora das regras", chave 
 roteiro de homologação numa lista numerada (`adm-chs__step`: número em círculo, visto verde quando
 feito, abre o como fazer e a observação; o próximo passo já vem aberto).
 
-No restaurante (Aplicativos de delivery, `pages/IntegrationsPage.tsx`), o aplicativo em que a
+No restaurante (Aplicativos de delivery, `pages/IntegrationsPage.tsx`, `integrations.css`, refeita
+na 0.198.5 porque o David achou feia): números do topo num quadro só (`intg-overview`: recebendo,
+lojas, pausadas, falhas), grupo **Ligados** com um cartão largo por aplicativo com loja (`intg-ch`:
+nome no bloco da marca `ChannelMark`, situação com bolinha, cada loja em `intg-store` com situação,
+último pedido, pausa e, ao lado a partir de 760px de cartão, os ajustes em interruptores
+`intg-toggle` + `.switch` num quadro afundado), grupo **Ligar mais um aplicativo** (`intg-new`,
+frase do que fazer e o botão) e **Em breve** numa linha com `ChannelBadge`. "O que funciona" é um
+`<details>` com contador, pílulas com visto e uma frase com o que o aplicativo não oferece. A
+situação nunca fala de Super Admin para o restaurante ("Ainda não liberado"). O aplicativo em que a
 própria loja liga o cadastro (Keeta, 99Food, Open Delivery: `CONNECT_HERE` em
 `features/channels/ConnectStore.tsx`) tem "Ligar uma loja" secondary que abre, dentro do cartão, o
 formulário `intg-connect` (frase de onde achar o código, código e nome um por linha, Cancelar e

@@ -1,7 +1,12 @@
-import { CHANNEL_ACTION_LABELS, type ChannelAction } from '@comandou/shared';
-import { Link2, RotateCcw, Store } from 'lucide-react';
+import {
+  CHANNEL_ACTION_LABELS,
+  channelInfo,
+  withArticle,
+  type ChannelAction,
+} from '@comandou/shared';
+import { ArrowRight, Check, ChevronDown, Link2, RotateCcw, Store } from 'lucide-react';
 import { Link } from 'react-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Alert, Badge, Button, Card, EmptyState, Spinner, useToast } from '../design-system';
 import { useCan } from '../app/auth';
 import { AppReviewsCard } from '../features/channels/AppReviews';
@@ -13,11 +18,12 @@ import {
   type ChannelStoreStateView,
 } from '../features/channels/StoreState';
 import { dateTime } from '../features/format';
-import { CheckField, SelectField } from '../features/forms';
+import { SelectField } from '../features/forms';
 import { api, type Product } from '../lib/api';
 import { useLinkParam } from '../lib/deep-link';
 import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
+import '../app/home.css';
 import './integrations.css';
 
 interface StoreView extends ChannelStoreStateView {
@@ -81,7 +87,7 @@ interface LinkRow {
 /** Situação do aplicativo em uma frase, com a bolinha de cor. */
 function situation(c: ChannelView): { tone: 'ok' | 'warn' | 'off'; text: string } {
   if (!c.available) return { tone: 'off', text: 'Em breve no Comandou' };
-  if (!c.configured) return { tone: 'warn', text: 'Falta a credencial no Super Admin' };
+  if (!c.configured) return { tone: 'warn', text: 'Ainda não liberado' };
   if (!c.stores.length) return { tone: 'warn', text: 'Nenhuma loja ligada' };
   if (c.stores.some((s) => s.status === 'revoked'))
     return { tone: 'warn', text: 'Loja sem autorização' };
@@ -165,6 +171,10 @@ export function IntegrationsPage() {
     [channels],
   );
   const failures = (problems?.events.length ?? 0) + (problems?.actions.length ?? 0);
+  // Com loja: cartão grande. Disponível sem loja: cartão de ligar. O resto: "Em breve".
+  const live = ordered.filter((c) => c.available && c.stores.length > 0);
+  const setup = ordered.filter((c) => c.available && c.stores.length === 0);
+  const soon = ordered.filter((c) => !c.available);
 
   return (
     <>
@@ -189,113 +199,56 @@ export function IntegrationsPage() {
       {channels === null ? (
         <Spinner />
       ) : (
-        <div className="intg-grid">
-          {ordered.map((c) => {
-            const st = situation(c);
-            return (
-              <section key={c.id} className="intg-card" data-search-id={`canal-${c.id}`}>
-                <header className="intg-card__head">
-                  <ChannelBadge channel={c.id} label={c.label} />
-                  <span className="intg-state" data-tone={st.tone}>
-                    {st.text}
-                  </span>
-                </header>
-                {c.id === 'ifood' && c.available && c.stores.length === 0 && (
-                  <p className="intg-hint">
-                    Ligue a loja do iFood em{' '}
-                    <Link to="/cardapio/cardapios">Cardápio › Cardápios</Link>. Ela aparece aqui e
-                    você marca "Receber pedidos".
-                  </p>
-                )}
-                {connectsHere(c.id) && c.available && c.configured && canConfigure && (
-                  <ConnectStore channel={c.id} label={c.label} onDone={() => void load()} />
-                )}
-                {c.stores.length > 0 && (
-                  <ul className="intg-stores">
-                    {c.stores.map((s) => (
-                      <li key={s.id} className="intg-store">
-                        <div className="intg-store__name">
-                          <Store size={16} aria-hidden />
-                          <strong>{s.name}</strong>
-                          {s.status === 'revoked' && <Badge tone="danger">sem autorização</Badge>}
-                        </div>
-                        {c.capabilities.some((x) => x.id === 'storeStatus' && x.on) && (
-                          <StoreStateLine store={s} />
-                        )}
-                        {canPause && c.capabilities.some((x) => x.id === 'pause' && x.on) && (
-                          <StorePauseControls store={s} onChanged={() => void load()} />
-                        )}
-                        <dl className="intg-facts">
-                          <dt>Último evento</dt>
-                          <dd>{s.lastEventAt ? dateTime(s.lastEventAt) : 'nenhum ainda'}</dd>
-                          <dt>Último pedido</dt>
-                          <dd>{s.lastOrderAt ? dateTime(s.lastOrderAt) : 'nenhum ainda'}</dd>
-                        </dl>
-                        {s.lastError && <p className="intg-error">{s.lastError}</p>}
-                        <div className="intg-store__opts">
-                          <CheckField
-                            label="Receber pedidos"
-                            description="Busca os pedidos desta loja a cada 30 segundos."
-                            checked={s.receiveOrders}
-                            disabled={!canConfigure || s.status === 'revoked'}
-                            onChange={(v) =>
-                              void call(`/channels/stores/${s.id}`, { receiveOrders: v }, 'PATCH')
-                            }
-                          />
-                          <CheckField
-                            label="Aceitar sozinho"
-                            description="Sem isso, o pedido chega em análise e alguém aceita na tela de Pedidos."
-                            checked={s.autoAccept}
-                            disabled={!canConfigure}
-                            onChange={(v) =>
-                              void call(`/channels/stores/${s.id}`, { autoAccept: v }, 'PATCH')
-                            }
-                          />
-                          {c.capabilities.some((x) => x.id === 'pause' && x.on) && (
-                            <CheckField
-                              label="Fechar junto com a loja do Comandou"
-                              description={`"Loja fechada" no PDV pausa o ${c.label} e "Loja aberta" tira a pausa.`}
-                              checked={s.followStoreOpen}
-                              disabled={!canConfigure}
-                              onChange={(v) =>
-                                void call(
-                                  `/channels/stores/${s.id}`,
-                                  { followStoreOpen: v },
-                                  'PATCH',
-                                )
-                              }
-                            />
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {(c.failedEvents > 0 || c.failedActions > 0 || c.pendingActions > 0) && (
-                  <p className="intg-counts">
-                    {c.pendingActions > 0 && <span>{c.pendingActions} enviando</span>}
-                    {c.failedActions > 0 && (
-                      <span data-tone="danger">{c.failedActions} ações falharam</span>
-                    )}
-                    {c.failedEvents > 0 && (
-                      <span data-tone="danger">{c.failedEvents} eventos falharam</span>
-                    )}
-                  </p>
-                )}
-                <details className="intg-caps">
-                  <summary>O que funciona com {c.label}</summary>
-                  <ul>
-                    {c.capabilities.map((k) => (
-                      <li key={k.id} data-on={k.on || undefined}>
-                        {k.label}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              </section>
-            );
-          })}
-        </div>
+        <>
+          <Overview channels={ordered} failures={failures} />
+
+          {live.length > 0 && (
+            <section className="intg-group" aria-labelledby="intg-live">
+              <h2 id="intg-live" className="intg-group__title">
+                Ligados
+              </h2>
+              <div className="intg-live">
+                {live.map((c) => (
+                  <LiveChannel
+                    key={c.id}
+                    channel={c}
+                    canConfigure={canConfigure}
+                    canPause={canPause}
+                    onChanged={() => void load()}
+                    onPatch={(id, json) => call(`/channels/stores/${id}`, json, 'PATCH')}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {setup.length > 0 && (
+            <section className="intg-group" aria-labelledby="intg-setup">
+              <h2 id="intg-setup" className="intg-group__title">
+                {live.length ? 'Ligar mais um aplicativo' : 'Ligue o seu primeiro aplicativo'}
+              </h2>
+              <div className="intg-setup">
+                {setup.map((c) => (
+                  <SetupChannel
+                    key={c.id}
+                    channel={c}
+                    canConfigure={canConfigure}
+                    onDone={() => void load()}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {soon.length > 0 && (
+            <p className="intg-soon">
+              <span>Em breve:</span>
+              {soon.map((c) => (
+                <ChannelBadge key={c.id} channel={c.id} label={c.label} size="sm" />
+              ))}
+            </p>
+          )}
+        </>
       )}
 
       <AppReviewsCard canReply={canPause} />
@@ -448,5 +401,276 @@ function UnlinkedRow({
         </div>
       )}
     </li>
+  );
+}
+
+/** Nome do aplicativo num bloco na cor da marca (cor de marca é dado: igual no claro e no escuro). */
+function ChannelMark({ channel, label }: { channel: string; label: string }) {
+  const info = channelInfo(channel, label);
+  return (
+    <span
+      className="intg-mark"
+      style={{ '--ch': info.color, '--ch-ink': info.ink } as CSSProperties}
+    >
+      {info.label}
+    </span>
+  );
+}
+
+/** Um quadro só com os números da tela, separados por linha fina. */
+function Overview({ channels, failures }: { channels: ChannelView[]; failures: number }) {
+  const available = channels.filter((c) => c.available);
+  const receiving = available.filter((c) => situation(c).tone === 'ok').length;
+  const stores = available.flatMap((c) => c.stores);
+  const paused = stores.filter(
+    (s) => s.pausedHere || s.channelState === 'paused' || s.channelState === 'closed',
+  ).length;
+  const items: { label: string; value: string; note: string; tone?: 'ok' | 'warn' | 'danger' }[] = [
+    {
+      label: 'Recebendo pedidos',
+      value: `${receiving} de ${available.length}`,
+      note: available.length === 1 ? 'aplicativo' : 'aplicativos',
+      tone: receiving > 0 ? 'ok' : undefined,
+    },
+    {
+      label: 'Lojas ligadas',
+      value: String(stores.length),
+      note: stores.length === 1 ? 'loja' : 'lojas',
+    },
+    {
+      label: 'Pausadas agora',
+      value: String(paused),
+      note: paused ? 'nos aplicativos' : 'tudo aberto',
+      tone: paused ? 'warn' : undefined,
+    },
+    {
+      label: 'Falhas em 7 dias',
+      value: String(failures),
+      note: failures ? 'veja embaixo' : 'nada falhou',
+      tone: failures ? 'danger' : undefined,
+    },
+  ];
+  return (
+    <div className="intg-overview">
+      {items.map((i) => (
+        <div key={i.label} className="intg-overview__item">
+          <span className="intg-overview__label" data-tone={i.tone}>
+            {i.label}
+          </span>
+          <strong>{i.value}</strong>
+          <small>{i.note}</small>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Liga/desliga com nome e frase (a linha inteira é o toque). */
+function Toggle({
+  label,
+  description,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange(v: boolean): void;
+}) {
+  return (
+    <label className="intg-toggle" data-disabled={disabled || undefined}>
+      <span>
+        <strong>{label}</strong>
+        <small>{description}</small>
+      </span>
+      <span className="switch">
+        <input
+          type="checkbox"
+          role="switch"
+          checked={checked}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+        <span className="switch__track" aria-hidden />
+      </span>
+    </label>
+  );
+}
+
+/** O que funciona com o aplicativo: o que tem com visto e, embaixo, o que ele não oferece. */
+function Capabilities({ channel }: { channel: ChannelView }) {
+  const on = channel.capabilities.filter((k) => k.on);
+  const off = channel.capabilities.filter((k) => !k.on);
+  return (
+    <details className="intg-caps">
+      <summary>
+        O que funciona com {channel.label}
+        <span className="intg-caps__count">
+          {on.length} de {channel.capabilities.length}
+        </span>
+        <ChevronDown size={16} aria-hidden className="intg-caps__chev" />
+      </summary>
+      {on.length > 0 && (
+        <ul className="intg-caps__on">
+          {on.map((k) => (
+            <li key={k.id}>
+              <Check size={14} strokeWidth={2.4} aria-hidden />
+              {k.label}
+            </li>
+          ))}
+        </ul>
+      )}
+      {off.length > 0 && (
+        <p className="intg-caps__off">
+          {withArticle(channel.label, 'O')} não oferece: {off.map((k) => k.label).join(', ')}.
+        </p>
+      )}
+    </details>
+  );
+}
+
+/** Aplicativo com loja ligada: situação, cada loja com os ajustes e o que funciona. */
+function LiveChannel({
+  channel: c,
+  canConfigure,
+  canPause,
+  onChanged,
+  onPatch,
+}: {
+  channel: ChannelView;
+  canConfigure: boolean;
+  canPause: boolean;
+  onChanged(): void;
+  onPatch(storeId: string, json: object): Promise<boolean>;
+}) {
+  const st = situation(c);
+  const has = (id: string) => c.capabilities.some((x) => x.id === id && x.on);
+  return (
+    <article className="intg-ch" data-search-id={`canal-${c.id}`}>
+      <header className="intg-ch__head">
+        <ChannelMark channel={c.id} label={c.label} />
+        <span className="intg-state" data-tone={st.tone}>
+          {st.text}
+        </span>
+        {(c.failedEvents > 0 || c.failedActions > 0 || c.pendingActions > 0) && (
+          <span className="intg-counts">
+            {c.pendingActions > 0 && <span>{c.pendingActions} enviando</span>}
+            {c.failedActions > 0 && (
+              <span data-tone="danger">
+                {c.failedActions === 1 ? '1 ação falhou' : `${c.failedActions} ações falharam`}
+              </span>
+            )}
+            {c.failedEvents > 0 && (
+              <span data-tone="danger">
+                {c.failedEvents === 1 ? '1 evento falhou' : `${c.failedEvents} eventos falharam`}
+              </span>
+            )}
+          </span>
+        )}
+      </header>
+
+      {c.stores.map((s) => (
+        <div key={s.id} className="intg-store">
+          <div className="intg-store__main">
+            <div className="intg-store__name">
+              <Store size={18} aria-hidden />
+              <strong>{s.name}</strong>
+              {s.status === 'revoked' && <Badge tone="danger">sem autorização</Badge>}
+            </div>
+            {has('storeStatus') && <StoreStateLine store={s} />}
+            <dl className="intg-facts">
+              <div>
+                <dt>Último pedido</dt>
+                <dd>{s.lastOrderAt ? dateTime(s.lastOrderAt) : 'nenhum ainda'}</dd>
+              </div>
+              <div>
+                <dt>Último contato</dt>
+                <dd>{s.lastEventAt ? dateTime(s.lastEventAt) : 'nenhum ainda'}</dd>
+              </div>
+            </dl>
+            {s.lastError && <p className="intg-error">{s.lastError}</p>}
+            {canPause && has('pause') && <StorePauseControls store={s} onChanged={onChanged} />}
+          </div>
+          <div className="intg-store__opts">
+            <Toggle
+              label="Receber pedidos"
+              description="Busca os pedidos desta loja a cada 30 segundos."
+              checked={s.receiveOrders}
+              disabled={!canConfigure || s.status === 'revoked'}
+              onChange={(v) => void onPatch(s.id, { receiveOrders: v })}
+            />
+            <Toggle
+              label="Aceitar sozinho"
+              description="Desligado, o pedido chega em análise e alguém aceita na tela de Pedidos."
+              checked={s.autoAccept}
+              disabled={!canConfigure}
+              onChange={(v) => void onPatch(s.id, { autoAccept: v })}
+            />
+            {has('pause') && (
+              <Toggle
+                label="Fechar junto com a loja do Comandou"
+                description={`"Loja fechada" no PDV pausa ${withArticle(c.label, 'o')} e "Loja aberta" tira a pausa.`}
+                checked={s.followStoreOpen}
+                disabled={!canConfigure}
+                onChange={(v) => void onPatch(s.id, { followStoreOpen: v })}
+              />
+            )}
+          </div>
+        </div>
+      ))}
+
+      <footer className="intg-ch__foot">
+        <Capabilities channel={c} />
+        {connectsHere(c.id) && c.configured && canConfigure && (
+          <ConnectStore channel={c.id} label={c.label} onDone={onChanged} />
+        )}
+      </footer>
+    </article>
+  );
+}
+
+/** Aplicativo disponível ainda sem loja: o que fazer para ligar. */
+function SetupChannel({
+  channel: c,
+  canConfigure,
+  onDone,
+}: {
+  channel: ChannelView;
+  canConfigure: boolean;
+  onDone(): void;
+}) {
+  const st = situation(c);
+  const on = c.capabilities.filter((k) => k.on).length;
+  const here = connectsHere(c.id) && c.configured;
+  return (
+    <article className="intg-new" data-search-id={`canal-${c.id}`}>
+      <div className="intg-new__head">
+        <ChannelMark channel={c.id} label={c.label} />
+        <span className="intg-state" data-tone={st.tone}>
+          {st.text}
+        </span>
+      </div>
+      <p className="intg-new__text">
+        {!c.configured
+          ? `${withArticle(c.label, 'O')} ainda não foi liberado para o seu restaurante. Fale com o suporte do Comandou.`
+          : c.id === 'ifood'
+            ? 'A loja do iFood se liga no cardápio. Depois ela aparece aqui e você liga "Receber pedidos".'
+            : here && !canConfigure
+              ? 'Quem cuida dos ajustes do restaurante liga a loja aqui.'
+              : `Pedidos ${withArticle(c.label, 'do')} entram na mesma fila da cozinha, com ${on} recursos funcionando daqui.`}
+      </p>
+      <div className="intg-new__foot">
+        {c.configured && c.id === 'ifood' && (
+          <Link className="cm-btn cm-btn--secondary cm-btn--sm" to="/cardapio/cardapios">
+            Ligar no Cardápio
+            <ArrowRight size={14} aria-hidden />
+          </Link>
+        )}
+        {here && canConfigure && <ConnectStore channel={c.id} label={c.label} onDone={onDone} />}
+        <Capabilities channel={c} />
+      </div>
+    </article>
   );
 }
