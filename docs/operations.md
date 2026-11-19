@@ -114,6 +114,10 @@ pedidos do aplicativo não chegam e ele cancela sozinho depois do prazo.
    recusado com 403: a loja não tem o Sob Demanda liberado no iFood (é contrato com o iFood, não
    erro do Comandou). Não mude `driver_status` pelo banco: o despacho com motoboy da loja fica
    travado enquanto ele estiver em andamento.
+10. **Cardápio do iFood diferente do Comandou** (Fase 6): a conferência roda a cada 30 minutos
+    (`menus.ifood_drift_at`; erro em `ifood_drift_error`). Preço ou pausa mudados no portal: o
+    restaurante usa "Mandar o do Comandou". Item que não sai do iFood quando acaba o estoque: veja se
+    o cardápio do iFood está ativo e se o item tem ficha técnica (sem ficha, só "esgotado" à mão).
 
 ### Backup atrasado
 

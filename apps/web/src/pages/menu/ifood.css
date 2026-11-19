@@ -122,3 +122,76 @@
   border: 1px dashed var(--cm-border-strong);
   border-radius: var(--cm-radius-md);
 }
+
+/* Conferência com o portal do iFood (o que mudaram lá e o que só existe lá). */
+.ifd-drift__ok {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.ifd-drift__ok::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-success);
+}
+.ifd-drift__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  color: var(--cm-text);
+}
+.ifd-drift__title::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-warning);
+}
+.ifd-drift,
+.ifd-only {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+}
+.ifd-drift li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 0;
+  border-top: 1px solid var(--cm-border);
+  font-size: var(--cm-text-sm);
+}
+.ifd-drift li:first-child {
+  border-top: 0;
+}
+.ifd-drift li span {
+  color: var(--cm-text-muted);
+  overflow-wrap: anywhere;
+}
+.ifd-only {
+  max-height: 360px;
+  overflow-y: auto;
+}
+.ifd-only li {
+  border-top: 1px solid var(--cm-border);
+  padding: 2px 0;
+}
+.ifd-drift__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 600px) {
+  .ifd-drift__actions > * {
+    flex: 1 1 100%;
+    min-height: 44px;
+  }
+}

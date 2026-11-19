@@ -210,6 +210,15 @@ export class ChannelPoller implements OnApplicationBootstrap, OnModuleDestroy {
       await this.outbox.deliver(t.tenant_id).catch(() => undefined);
       // Situação das lojas nos aplicativos: no máximo a cada 5 minutos por loja.
       await this.storeState.refreshTenant(t.tenant_id, STATE_SWEEP_SECONDS).catch(() => undefined);
+      // Tarefas de cada aplicativo (ex.: conferir o cardápio do iFood), cada uma com o seu ritmo.
+      for (const fn of this.sweeps) await fn(t.tenant_id).catch(() => undefined);
     }
+  }
+
+  private readonly sweeps: ((tenantId: string) => Promise<unknown>)[] = [];
+
+  /** Acrescenta uma tarefa à varredura por restaurante (ela decide se já está na hora). */
+  onSweep(fn: (tenantId: string) => Promise<unknown>) {
+    this.sweeps.push(fn);
   }
 }

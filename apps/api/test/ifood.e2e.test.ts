@@ -6,6 +6,7 @@ import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../src/bootstrap';
+import { IfoodCatalogService } from '../src/integrations/ifood/ifood-catalog.service';
 import { testEnv } from './env';
 import { Fixture, PASSWORD, ownerQuery, seedTwoTenants } from './fixtures';
 
@@ -27,6 +28,29 @@ interface Call {
   auth?: string;
 }
 const calls: Call[] = [];
+/** O que está "no iFood": categorias criadas e itens enviados (o portal pode mexer aqui). */
+interface RemoteItemPut {
+  item: {
+    id: string;
+    categoryId: string;
+    status: string;
+    price: { value: number };
+    externalCode?: string;
+    productId: string;
+  };
+  products: {
+    id: string;
+    name: string;
+    description?: string;
+    optionGroups?: { id: string; min: number; max: number }[];
+  }[];
+  optionGroups: { id: string; name: string; status: string; optionIds: string[] }[];
+  options: { id: string; productId: string; status: string; price: { value: number } }[];
+}
+const remote = {
+  categories: new Map<string, { id: string; name: string; externalCode?: string }>(),
+  items: new Map<string, RemoteItemPut>(),
+};
 let ifood: Server;
 let app: INestApplication;
 let http: ReturnType<typeof request>;
@@ -62,16 +86,41 @@ function handler(req: IncomingMessage, res: ServerResponse) {
     const base = `/catalog/v2.0/merchants/${MERCHANT}`;
     if (path === `${base}/catalogs`)
       return send(200, [{ catalogId: 'catalogo-1', context: ['DEFAULT'], status: 'AVAILABLE' }]);
-    if (req.method === 'POST' && path === `${base}/catalogs/catalogo-1/categories`)
-      return send(201, { id: randomUUID(), ...(body as object) });
+    if (req.method === 'POST' && path === `${base}/catalogs/catalogo-1/categories`) {
+      const c = { id: randomUUID(), ...(body as { name: string; externalCode?: string }) };
+      remote.categories.set(c.id, c);
+      return send(201, c);
+    }
+    if (req.method === 'GET' && path === `${base}/catalogs/catalogo-1/categories`)
+      return send(200, [...remote.categories.values()]);
+    const ci = new RegExp(`^${base}/categories/([^/]+)/items$`).exec(path);
+    if (req.method === 'GET' && ci) {
+      const list = [...remote.items.values()].filter((x) => x.item.categoryId === ci[1]);
+      return send(200, {
+        categoryId: ci[1],
+        items: list.map((x) => x.item),
+        products: list.flatMap((x) => x.products),
+        optionGroups: list.flatMap((x) => x.optionGroups),
+        options: list.flatMap((x) => x.options),
+      });
+    }
     if (req.method === 'PATCH' && path.startsWith(`${base}/catalogs/catalogo-1/categories/`))
       return send(200, {});
-    if (req.method === 'PUT' && path === `${base}/items`) return send(200, body);
+    if (req.method === 'PUT' && path === `${base}/items`) {
+      const b = structuredClone(body) as RemoteItemPut;
+      remote.items.set(b.item.id, b);
+      return send(200, body);
+    }
     if (
       req.method === 'PATCH' &&
       (path === `${base}/items/price` || path === `${base}/items/status`)
-    )
+    ) {
+      const b = body as { itemId: string; price?: { value: number }; status?: string };
+      const it = remote.items.get(b.itemId);
+      if (it && b.price) it.item.price = b.price;
+      if (it && b.status) it.item.status = b.status;
       return send(200, {});
+    }
     if (req.method === 'POST' && path === `${base}/image/upload`)
       return send(201, { imagePath: `${MERCHANT}/foto.jpeg` });
     send(404, { message: `rota falsa ausente: ${req.method} ${path}` });
@@ -341,6 +390,164 @@ describe('iFood: cardápio de integração', () => {
     );
     const s = (await get('adminA', `/ifood/menus/${menuId}/sync`).expect(200)).body;
     expect(s.merchantName).toBe('Teste - Loja iFood');
+  });
+
+  it('item sem estoque pela ficha técnica fica indisponível no iFood e volta sozinho', async () => {
+    const catalog = app.get(IfoodCatalogService);
+    const [st] = await ownerQuery<{ id: string }>(
+      `INSERT INTO stock_items (tenant_id, name, unit, quantity) VALUES ($1, 'Pão', 'un', 0) RETURNING id`,
+      [fx.tenantA],
+    );
+    await ownerQuery(
+      `INSERT INTO product_recipes (tenant_id, product_id, stock_item_id, quantity) VALUES ($1,$2,$3,1)`,
+      [fx.tenantA, fx.prodA, st!.id],
+    );
+    const n = calls.length;
+    expect(await catalog.stockChanged(fx.tenantA)).toBe(true);
+    await waitFor(() =>
+      since(n).some(
+        (c) =>
+          c.path.endsWith('/items/status') &&
+          (c.body as { status: string }).status === 'UNAVAILABLE',
+      ),
+    );
+    await new Promise((r) => setTimeout(r, 500));
+    // Já está igual no iFood: não agenda de novo.
+    expect(await catalog.stockChanged(fx.tenantA)).toBe(false);
+    await ownerQuery(`UPDATE stock_items SET quantity = 10 WHERE id = $1`, [st!.id]);
+    const n2 = calls.length;
+    expect(await catalog.stockChanged(fx.tenantA)).toBe(true);
+    await waitFor(() =>
+      since(n2).some(
+        (c) =>
+          c.path.endsWith('/items/status') && (c.body as { status: string }).status === 'AVAILABLE',
+      ),
+    );
+    await new Promise((r) => setTimeout(r, 500));
+    // Daqui para a frente, envio só manual (testes previsíveis).
+    await send('patch', 'adminA', `/menus/${menuId}`, { active: false }).expect(200);
+    await new Promise((r) => setTimeout(r, 2500));
+  });
+
+  it('mudança feita no portal do iFood aparece e "Mandar o do Comandou" corrige', async () => {
+    const [row] = await ownerQuery<{ remote_id: string }>(
+      `SELECT remote_id FROM ifood_sync_map WHERE menu_id = $1 AND entity = 'item' AND local_id = $2`,
+      [menuId, fx.prodA],
+    );
+    const it = remote.items.get(row!.remote_id)!;
+    it.item.price = { value: 99.9 };
+    it.item.status = 'UNAVAILABLE';
+    const fresh = () =>
+      ownerQuery(`UPDATE menus SET ifood_drift_at = NULL WHERE id = $1`, [menuId]);
+    await fresh();
+    const d = (await get('adminA', `/ifood/menus/${menuId}/drift`).expect(200)).body;
+    const a = d.changed.find((c: { localId: string }) => c.localId === fx.prodA);
+    expect(a.changes).toEqual(
+      expect.arrayContaining([
+        { field: 'price', remote: '99.90', local: '31.00' },
+        { field: 'status', remote: 'unavailable', local: 'available' },
+      ]),
+    );
+    // Garçom não manda; outro restaurante não vê.
+    await send('post', 'waiterA', `/ifood/menus/${menuId}/drift/resend`).expect(403);
+    await get('adminB', `/ifood/menus/${menuId}/drift`).expect(404);
+    const n = calls.length;
+    const r = (await send('post', 'adminA', `/ifood/menus/${menuId}/drift/resend`).expect(200))
+      .body;
+    expect(r.resent).toBeGreaterThanOrEqual(1);
+    const put = since(n).find(
+      (c) => c.method === 'PUT' && (c.body as RemoteItemPut).item.id === row!.remote_id,
+    );
+    expect((put!.body as RemoteItemPut).item).toMatchObject({
+      price: { value: 31 },
+      status: 'AVAILABLE',
+    });
+    await fresh();
+    const d2 = (await send('post', 'adminA', `/ifood/menus/${menuId}/drift/check`).expect(200))
+      .body;
+    expect(d2.changed).toEqual([]);
+    // Conferir de novo logo em seguida não lê o iFood outra vez.
+    const n2 = calls.length;
+    await send('post', 'adminA', `/ifood/menus/${menuId}/drift/check`).expect(200);
+    expect(since(n2).filter((c) => c.path.includes('/categories'))).toHaveLength(0);
+  });
+
+  it('item que só existe no iFood é trazido para o Comandou, já ligado', async () => {
+    const catId = randomUUID();
+    remote.categories.set(catId, { id: catId, name: 'Sobremesas do iFood' });
+    remote.items.set('item-portal-1', {
+      item: {
+        id: 'item-portal-1',
+        categoryId: catId,
+        status: 'AVAILABLE',
+        price: { value: 18.5 },
+        externalCode: 'PORTAL-77',
+        productId: 'prod-portal-1',
+      },
+      products: [
+        {
+          id: 'prod-portal-1',
+          name: 'Pudim',
+          description: 'Pudim de leite',
+          optionGroups: [{ id: 'grp-portal-1', min: 0, max: 1 }],
+        },
+        { id: 'prod-opt-1', name: 'Calda extra' },
+      ],
+      optionGroups: [
+        {
+          id: 'grp-portal-1',
+          name: 'Adicionais',
+          status: 'AVAILABLE',
+          optionIds: ['opt-portal-1'],
+        },
+      ],
+      options: [
+        { id: 'opt-portal-1', productId: 'prod-opt-1', status: 'AVAILABLE', price: { value: 2.5 } },
+      ],
+    });
+    await ownerQuery(`UPDATE menus SET ifood_drift_at = NULL WHERE id = $1`, [menuId]);
+    const d = (await send('post', 'adminA', `/ifood/menus/${menuId}/drift/check`).expect(200)).body;
+    const only = d.onlyRemote as { id: string; name: string; price: string }[];
+    expect(only.map((x) => x.id)).toEqual(['item-portal-1']);
+    expect(only[0]).toMatchObject({ name: 'Pudim', price: '18.50' });
+    await send('post', 'adminA', `/ifood/menus/${menuId}/import`, { itemIds: ['outro'] }).expect(
+      409,
+    );
+    await send('post', 'adminB', `/ifood/menus/${menuId}/import`, {
+      itemIds: ['item-portal-1'],
+    }).expect(404);
+    const r = (
+      await send('post', 'adminA', `/ifood/menus/${menuId}/import`, {
+        itemIds: ['item-portal-1'],
+      }).expect(200)
+    ).body;
+    expect(r.imported).toBe(1);
+    const [p] = await ownerQuery<{ name: string; price: string; category: string }>(
+      `SELECT p.name, p.price::text, c.name AS category FROM products p
+         JOIN categories c ON c.id = p.category_id WHERE p.id = $1`,
+      [r.productIds[0]],
+    );
+    expect(p).toEqual({ name: 'Pudim', price: '18.50', category: 'Sobremesas do iFood' });
+    const [g] = await ownerQuery<{ name: string; options: string[] }>(
+      `SELECT g.name, array_agg(o.name || ' ' || o.price_delta) AS options
+         FROM product_option_groups pog JOIN option_groups g ON g.id = pog.group_id
+         JOIN options o ON o.group_id = g.id WHERE pog.product_id = $1 GROUP BY g.name`,
+      [r.productIds[0]],
+    );
+    expect(g).toEqual({ name: 'Adicionais', options: ['Calda extra 2.50'] });
+    const [link] = await ownerQuery<{ item_key: string }>(
+      `SELECT item_key FROM channel_item_links WHERE product_id = $1`,
+      [r.productIds[0]],
+    );
+    expect(link!.item_key).toBe('code:PORTAL-77');
+    // O próximo envio não cria outro igual no iFood (nem a categoria).
+    const n = calls.length;
+    const s = (await send('post', 'adminA', `/ifood/menus/${menuId}/sync`).expect(200)).body;
+    expect(s.status).toBe('ok');
+    const writes = since(n).filter((c) => c.method !== 'GET' && !c.path.includes('oauth'));
+    expect(writes).toEqual([]);
+    const d2 = (await get('adminA', `/ifood/menus/${menuId}/drift`).expect(200)).body;
+    expect(d2.onlyRemote).toEqual([]);
   });
 
   it('isolamento: outro restaurante não vê nem sincroniza o cardápio', async () => {

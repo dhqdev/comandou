@@ -25,6 +25,7 @@ import { MENUS_HELP } from '../../features/help/menu-help';
 import { CategoryModal, categoryIcon } from './CategoryModal';
 import { kindWhere, MENU_KIND, priceDiff, toInput, type MenuDef } from './menu-data';
 import { IfoodConnectionField } from './IfoodConnections';
+import { IfoodDriftCard } from './IfoodDriftCard';
 import { IfoodSyncCard } from './IfoodSyncCard';
 import { PriceAdjustModal } from './PriceAdjustModal';
 import {
@@ -372,6 +373,13 @@ export function MenuEditor() {
                 active={menu.active}
                 canWrite={canWrite}
                 dirty={unsaved}
+              />
+            )}
+            {menu.kind === 'ifood' && menu.ifoodConnectionId && (
+              <IfoodDriftCard
+                key={`drift-${menu.ifoodConnectionId}`}
+                menuId={menu.id}
+                canWrite={canWrite}
               />
             )}
             <Card title={`Itens no cardápio (${onCount} de ${products.length})`} bodyless>

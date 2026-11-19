@@ -21,6 +21,7 @@ import { ZodPipe } from '../../common/zod.pipe';
 import { DatabaseService } from '../../database/database.service';
 import { sniff } from '../../store/store.controller';
 import type { AuthenticatedUser, ResolvedTenant } from '../../tenancy/tenant.types';
+import { IfoodCatalogService } from './ifood-catalog.service';
 import { IfoodService } from './ifood.service';
 import { summaryText, type SyncSummary } from './ifood-sync';
 
@@ -31,12 +32,17 @@ const Connect = z.object({
     .regex(/^[0-9a-fA-F-]{8,64}$/, 'id da loja no iFood (ex.: 1a2b3c4d-…)'),
 });
 const Confirm = z.object({ authorizationCode: z.string().trim().min(4).max(200) });
+const ResendBody = z.object({ localIds: z.array(z.string().uuid()).min(1).max(200).optional() });
+const ImportBody = z.object({
+  itemIds: z.array(z.string().trim().min(1).max(100)).min(1).max(200),
+});
 /** Cardápio de integração com o iFood: lojas ligadas e sincronização. */
 @Controller({ path: 'ifood', version: '1' })
 export class IfoodController {
   constructor(
     private readonly db: DatabaseService,
     private readonly ifood: IfoodService,
+    private readonly catalog: IfoodCatalogService,
     private readonly audit: AuditService,
   ) {}
 
@@ -169,6 +175,59 @@ export class IfoodController {
       this.ifood.syncState(tx, id),
     );
     return withText({ ...st, busy: !summary });
+  }
+
+  /** Conferência do cardápio do iFood: o que mudaram no portal e o que só existe lá. */
+  @Get('menus/:id/drift')
+  @RequirePermission('catalog:read')
+  drift(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.catalog.drift(t.id, u.id, id);
+  }
+
+  /** Conferir agora (no máximo uma leitura por minuto). */
+  @Post('menus/:id/drift/check')
+  @HttpCode(200)
+  @RequirePermission('catalog:write')
+  async checkDrift(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    await this.ifood.assertConfigured();
+    return this.catalog.checkNow(t.id, u.id, id);
+  }
+
+  /** Mandar o do Comandou de novo para os itens mudados no portal (todos ou os escolhidos). */
+  @Post('menus/:id/drift/resend')
+  @HttpCode(200)
+  @RequirePermission('catalog:write')
+  async resend(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(ResendBody)) b: z.infer<typeof ResendBody>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    await this.ifood.assertConfigured();
+    return this.catalog.resend(t.id, u.id, id, b.localIds, req.ip);
+  }
+
+  /** Trazer para o Comandou itens que só existem no iFood. */
+  @Post('menus/:id/import')
+  @HttpCode(200)
+  @RequirePermission('catalog:write')
+  importItems(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(ImportBody)) b: z.infer<typeof ImportBody>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.catalog.importItems(t.id, u.id, id, b.itemIds, req.ip);
   }
 
   private record(

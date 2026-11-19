@@ -24,6 +24,7 @@ import { RealtimeService } from '../realtime/realtime.service';
 import { ensureMenus } from './menus.controller';
 import { categories, products } from '../database/schema';
 import { PlanService } from '../plans/plan.service';
+import { nextItemCode } from './item-code';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 
 const money = z
@@ -139,15 +140,6 @@ const ProductUpdate = z
   .partial()
   .refine((o) => Object.keys(o).length > 0, 'nada para atualizar');
 const ProductMenus = z.object({ menus: z.array(MenuPrice).max(20) });
-
-/** Próximo código livre no padrão IT-000001 (os digitados à mão em outro formato não contam). */
-async function nextItemCode(tx: Tx) {
-  const r = await one<{ n: number }>(
-    tx,
-    `SELECT COALESCE(max(substring(code from '^IT-([0-9]{1,9})$')::int), 0) + 1 AS n FROM products`,
-  );
-  return `IT-${String(r?.n ?? 1).padStart(6, '0')}`;
-}
 
 /** Cozinha (setor de produção) do restaurante; outra id vira 404, não erro de banco. */
 async function assertSector(tx: Tx, sectorId: string) {

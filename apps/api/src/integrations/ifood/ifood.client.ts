@@ -178,6 +178,13 @@ export class IfoodClient {
       body,
     );
   }
+  /** Itens de uma categoria no formato normalizado (itens, produtos, grupos e opções). */
+  categoryItems(merchantId: string, categoryId: string) {
+    return this.request<unknown>(
+      'GET',
+      `${this.m(merchantId)}/categories/${encodeURIComponent(categoryId)}/items`,
+    );
+  }
   /** Cria ou atualiza o item inteiro: item + produtos + grupos + opções. */
   putItem(merchantId: string, payload: unknown) {
     return this.request<unknown>('PUT', `${this.m(merchantId)}/items`, payload);

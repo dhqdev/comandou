@@ -66,6 +66,8 @@ const hash = (v: unknown) =>
 const hex = (id: string, n = 12) => id.replace(/-/g, '').slice(0, n);
 /** Reais decimais para o iFood (numeric "12.90" → 12.9). */
 export const reais = (v: string) => Math.round(Number(v) * 100) / 100;
+/** Impressão do preço como ele vai ao iFood (a mesma de `fingerprints().offer`). */
+export const offerHashOf = (value: number) => hash({ value });
 
 export const itemExternalCode = (i: Pick<LocalItem, 'id' | 'code'>) => i.code ?? `CMD-${hex(i.id)}`;
 export const categoryExternalCode = (id: string) => `CAT-${hex(id)}`;

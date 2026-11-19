@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.185.0',
+    date: '2026-11-19',
+    title: 'Cardápio do iFood conferido e trazido para o Comandou',
+    summary:
+      'O Comandou avisa quando alguém muda preço, pausa ou nome no portal do iFood e põe de volta o que está aqui com um toque. Itens criados direto no iFood podem ser trazidos para o Comandou, com complementos.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Em Cardápio › Cardápios › iFood, a "Conferência com o portal do iFood" mostra o que foi mudado lá (preço, pausa, nome ou item apagado). "Mandar o do Comandou" põe de volta no iFood o que está aqui.',
+      },
+      {
+        tag: 'novo',
+        text: 'Itens que só existem no iFood aparecem na lista: escolha e toque em "Trazer para o Comandou". Eles vêm com o preço do iFood, a categoria e os complementos, e os pedidos do iFood com esses itens já chegam ligados ao cardápio.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Item que acaba no estoque pela ficha técnica sai do iFood sozinho, e volta quando chega mercadoria. Antes só saía quando marcado como esgotado à mão.',
+      },
+    ],
+  },
+  {
     version: '0.184.0',
     date: '2026-11-19',
     title: 'Entregador do iFood no pedido',

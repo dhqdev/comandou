@@ -14,6 +14,7 @@ import { one, q } from '../../common/sql';
 import { DatabaseService, type Tx } from '../../database/database.service';
 import { QueueService, type TenantJob } from '../../queue/queue.service';
 import { RealtimeService } from '../../realtime/realtime.service';
+import { PRODUCT_STOCK_OUT } from '../../stock/availability-sql';
 import { ChannelCredentials } from '../channels/channel-credentials.service';
 import { ChannelStoresService } from '../channels/channel-stores.service';
 import {
@@ -888,7 +889,7 @@ export class IfoodService implements OnModuleInit {
       }>(
         tx,
         `SELECT p.id, p.code, p.name, p.description, COALESCE(mi.price, p.price)::text AS price,
-                p.category_id, p.sold_out, p.image_id, p.position,
+                p.category_id, (p.sold_out OR ${PRODUCT_STOCK_OUT}) AS sold_out, p.image_id, p.position,
                 COALESCE((SELECT json_agg(json_build_object(
                     'id', g.id, 'name', g.name, 'min', g.min_select, 'max', g.max_select,
                     'options', COALESCE((SELECT json_agg(json_build_object('id', o.id, 'name', o.name,

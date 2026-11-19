@@ -400,3 +400,31 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
   - Fica para depois: conferir no sandbox os caminhos e corpos do Sob Demanda (`shipping/v1.0`), as
     unidades do rastreio e o nome dos campos do entregador no ADR (`workerName`,
     `workerVehicleType`); mapa com a posição do entregador do aplicativo (hoje só a previsão).
+- **Fase 6** (cardápio, 0.185.0): migração 0093 e `ifood/ifood-catalog.service.ts`.
+  - **Disponibilidade pelo estoque**: o envio ao iFood usa a mesma regra do PDV (esgotado à mão OU
+    sem estoque pela ficha técnica, `PRODUCT_STOCK_OUT`). A cada `stock.changed` (juntando 3 s por
+    restaurante) o Comandou confere no banco se algum item do cardápio do iFood ativo ficou com a
+    disponibilidade diferente da que foi mandada e, só então, agenda o envio (`stockChanged`).
+  - **Conferência com o portal**: lê o cardápio do iFood (`GET /catalogs`, `GET
+    /catalogs/{id}/categories` e `GET /categories/{id}/items`, formato normalizado) e compara com o
+    `ifood_sync_map`: preço pela mesma impressão do envio (`offerHashOf`), disponibilidade,
+    nome e item apagado lá. O resultado fica em `menus.ifood_drift` (e `ifood_drift_at`,
+    `ifood_drift_error`); a varredura dos canais (`ChannelPoller.onSweep`) confere cada cardápio
+    ativo a cada 30 minutos, a tela lê de novo se passou de 10 e "Conferir agora" no máximo uma
+    vez por minuto. Durante o envio não confere. Tradução pura em `ifood-catalog-read.ts`.
+  - **Quem vence** (§9): o Comandou. "Mandar o do Comandou" (`POST /ifood/menus/:id/drift/resend`)
+    limpa as impressões dos itens mudados (vão inteiros no próximo envio) e apaga o vínculo do
+    item apagado lá (é criado de novo); nada do portal muda o Comandou sem uma pessoa pedir.
+  - **Trazer do iFood** (`POST /ifood/menus/:id/import`, `catalog:write`): só itens da última
+    conferência (lida pelo servidor, nunca da tela). Categoria pelo nome (ou nova), produto com o
+    preço e a descrição do iFood, complementos como grupos e opções (pausados no iFood entram
+    inativos), entra nos cardápios Principal/Delivery e neste do iFood, respeita o limite do plano.
+    O vínculo (`ifood_sync_map` com os ids do iFood e as impressões do que está lá) faz o próximo
+    envio não criar outro igual; `channel_item_links` faz o pedido já chegar ligado.
+  - **Telas**: em Cardápio › Cardápios › iFood, o cartão "Conferência com o portal do iFood" com o
+    que mudou, "Mandar o do Comandou", os itens que só existem lá e "Trazer para o Comandou".
+  - **Testes**: 3 novos em `test/ifood.e2e.test.ts` (o iFood falso agora guarda o que recebeu) e 2
+    em `ifood-catalog-read.test.ts`.
+  - Fica para depois: conferir no sandbox o formato de `GET /categories/{id}/items`; trazer a foto
+    do item do iFood (hoje vem sem foto, e o próximo envio de um item trazido que for editado vai
+    sem `imagePath`); preço diferente por cardápio na importação (entra o do iFood como preço base).
