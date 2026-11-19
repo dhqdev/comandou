@@ -145,13 +145,83 @@ export const CREDENTIALS: CredDef[] = [
     ],
     links: [{ label: 'Portal do Desenvolvedor iFood', href: 'https://developer.ifood.com.br' }],
   },
+  {
+    id: 'channel_keeta',
+    title: 'Keeta · aplicativo do Comandou',
+    group: 'painel',
+    purpose:
+      'Opcional. Recebe os pedidos da Keeta (Open Delivery). Uma credencial para todos os restaurantes; cada loja autoriza o Comandou no portal da Keeta.',
+    fields: [
+      { name: 'Client ID', text: <>o clientId do aplicativo, no portal de desenvolvedores.</> },
+      {
+        name: 'Client Secret',
+        text: <>o clientSecret do mesmo aplicativo (também assina cada chamada).</>,
+      },
+    ],
+    check: (
+      <>
+        Salvo, este cartão fica verde. No restaurante, Sistema › Aplicativos de delivery deixa ligar
+        a loja da Keeta pelo código dela; se a Keeta recusar a chave, o aviso diz para falar com o
+        suporte.
+      </>
+    ),
+    steps: [
+      <>
+        Assine o NDA e crie a conta no{' '}
+        <a
+          href="https://api-docs.mykeeta.com/apis/opendelivery/keeta-developer-portal"
+          target="_blank"
+          rel="noreferrer"
+        >
+          portal de desenvolvedores da Keeta
+        </a>
+        ; faça o autoteste e o teste integrado com a Keeta antes da produção.
+      </>,
+      <>Copie o clientId e o clientSecret do aplicativo e cole aqui embaixo.</>,
+    ],
+    links: [
+      {
+        label: 'Keeta Open Delivery API',
+        href: 'https://api-docs.mykeeta.com/apis/opendelivery',
+      },
+    ],
+  },
+  {
+    id: 'channel_opendelivery',
+    title: 'Open Delivery · aplicativo do Comandou',
+    group: 'painel',
+    purpose:
+      'Opcional. Recebe os pedidos de um aplicativo que fala o padrão Open Delivery (versão 1), pelo endereço da API dele.',
+    fields: [
+      {
+        name: 'Endereço da API',
+        text: <>a base HTTPS que o aplicativo informou (sem barra no fim nem parâmetros).</>,
+      },
+      { name: 'Client ID', text: <>o identificador do Comandou nesse aplicativo.</> },
+      { name: 'Client Secret', text: <>o segredo do mesmo cadastro.</> },
+    ],
+    check: (
+      <>
+        Salvo, este cartão fica verde com o servidor da API. No restaurante, a loja liga pelo id que
+        o aplicativo deu a ela.
+      </>
+    ),
+    steps: [
+      <>Peça ao aplicativo o cadastro do Comandou como Software Service (Open Delivery V1).</>,
+      <>Cole o endereço da API, o Client ID e o Client Secret aqui embaixo.</>,
+    ],
+    links: [
+      {
+        label: 'Padrão Open Delivery',
+        href: 'https://docs.opendelivery.com.br',
+      },
+    ],
+  },
   ...(
     [
-      ['keeta', 'Keeta', 'Portal de desenvolvedores da Keeta (Open Delivery)'],
       ['99food', '99Food', 'parceria de integração da 99Food'],
       ['rappi', 'Rappi', 'Rappi Developers (portal de parceiros)'],
       ['aiqfome', 'aiqfome', 'parceria de integração do aiqfome'],
-      ['opendelivery', 'Open Delivery', 'aplicativo que fala Open Delivery'],
     ] as const
   ).map(([id, name, where]): CredDef => ({
     id: `channel_${id}`,

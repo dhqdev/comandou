@@ -272,6 +272,7 @@ export const DISPUTE_KIND_LABELS: Record<string, string> = {
   PARTIAL_CANCELLATION: 'O cliente pede para cancelar parte do pedido',
   PROPOSED_AMOUNT_REFUND: 'O cliente pede reembolso de parte do valor',
   PROPOSED_ADDITIONAL_TIME: 'O aplicativo pede mais tempo para a entrega',
+  REFUND_REQUEST: 'O cliente pede reembolso do pedido',
 };
 
 export function disputeKindLabel(kind: string): string {

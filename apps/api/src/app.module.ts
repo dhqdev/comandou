@@ -22,6 +22,7 @@ import { DatabaseModule } from './database/database.module';
 import { DomainsModule } from './domains/domains.module';
 import { HealthModule } from './health/health.module';
 import { IfoodModule } from './integrations/ifood/ifood.module';
+import { OpenDeliveryModule } from './integrations/opendelivery/opendelivery.module';
 import { ChannelCredentialsModule } from './integrations/channels/channel-credentials.service';
 import { ChannelsModule } from './integrations/channels/channels.module';
 import { MailModule } from './mail/mail.module';
@@ -101,6 +102,7 @@ export class AppModule {
         CatalogModule,
         ChannelCredentialsModule,
         IfoodModule,
+        OpenDeliveryModule,
         OperationsModule,
         ChannelsModule,
         ChatModule,

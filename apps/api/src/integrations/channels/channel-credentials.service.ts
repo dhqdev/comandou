@@ -13,6 +13,8 @@ export interface AppCredential {
   mode?: string;
   /** Segredo de assinatura dos webhooks, quando o canal usa um diferente do clientSecret. */
   webhookSecret?: string;
+  /** Open Delivery: endereço da API do aplicativo. */
+  baseUrl?: string;
   /** De onde veio: Super Admin › Credenciais ou o .env do servidor (reserva). */
   source: 'panel' | 'env';
   last4: string;
@@ -23,6 +25,32 @@ export const ChannelCredentialBody = z.object({
   clientSecret: z.string().trim().min(8).max(500),
   mode: z.enum(['centralized', 'distributed']).optional(),
   webhookSecret: z.string().trim().min(8).max(500).optional(),
+  /**
+   * Open Delivery: endereço da API do aplicativo (o Comandou só chama aqui). HTTPS e um nome de
+   * servidor (nada de IP ou localhost), para o painel não virar porta para a rede interna.
+   */
+  baseUrl: z
+    .string()
+    .trim()
+    .max(300)
+    .url()
+    .refine((v) => {
+      try {
+        const u = new URL(v);
+        return (
+          u.protocol === 'https:' &&
+          !u.username &&
+          !u.password &&
+          !u.search &&
+          !u.hash &&
+          /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(u.hostname) &&
+          !/(^|\.)localhost$|\.local$|\.internal$/i.test(u.hostname)
+        );
+      } catch {
+        return false;
+      }
+    }, 'Use o endereço HTTPS da API do aplicativo (sem IP, usuário ou parâmetros)')
+    .optional(),
 });
 export type ChannelCredentialInput = z.infer<typeof ChannelCredentialBody>;
 
@@ -94,13 +122,19 @@ export class ChannelCredentials {
   async status(channels: readonly string[]) {
     const out: Record<
       string,
-      { configured: boolean; source?: string; last4?: string; mode?: string }
+      { configured: boolean; source?: string; last4?: string; mode?: string; host?: string }
     > = {};
     for (const c of channels) {
       this.forget(c);
       const v = await this.get(c);
       out[c] = v
-        ? { configured: true, source: v.source, last4: v.last4, mode: v.mode }
+        ? {
+            configured: true,
+            source: v.source,
+            last4: v.last4,
+            mode: v.mode,
+            ...(v.baseUrl ? { host: new URL(v.baseUrl).host } : {}),
+          }
         : { configured: false };
     }
     return out;

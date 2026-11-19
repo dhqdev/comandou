@@ -221,7 +221,10 @@ export class ExternalOrdersService {
         ],
       );
     // Aceite automático: o aplicativo precisa saber que aceitamos.
-    if (status === 'new') await this.outbox.enqueueInTx(tx, tenantId, created.id, 'confirm');
+    if (status === 'new')
+      await this.outbox.enqueueInTx(tx, tenantId, created.id, 'confirm', {
+        orderCode: String(created.number),
+      });
     await q(tx, `UPDATE channel_stores SET last_order_at = now() WHERE id = $1`, [store.id]);
     return { orderId: created.id, created: true };
   }

@@ -257,6 +257,12 @@ situação (bolinha, "dentro das regras/perto do limite/fora das regras", chave 
 roteiro de homologação numa lista numerada (`adm-chs__step`: número em círculo, visto verde quando
 feito, abre o como fazer e a observação; o próximo passo já vem aberto).
 
+No restaurante (Aplicativos de delivery, `pages/IntegrationsPage.tsx`), o aplicativo em que a
+própria loja liga o cadastro (Keeta, Open Delivery: `CONNECT_HERE` em
+`features/channels/ConnectStore.tsx`) tem "Ligar loja" secondary que abre, dentro do cartão, o
+formulário `intg-connect` (frase de onde achar o código, código e nome um por linha, Cancelar e
+Ligar loja embaixo à direita); o erro do aplicativo aparece em português no próprio formulário.
+
 ## Super Admin › Conversas
 
 `platform/SupportPage.tsx` (estilos em `admin.css`, prefixos `sinbox`/`sdesk`): lista de 320 px, a

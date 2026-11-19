@@ -1,6 +1,19 @@
 import { ChannelHttpError } from './channel-adapter';
 import { ChannelMetrics } from './channel-metrics';
 
+/**
+ * Assinatura por chamada (Keeta: X-App-Signature). Recebe a URL sem a query, os parâmetros e o corpo
+ * exatamente como vão; devolve os cabeçalhos a acrescentar.
+ */
+export type ChannelSigner = (r: {
+  url: string;
+  params: Record<string, string>;
+  body: string | undefined;
+}) => Record<string, string>;
+
+/** Corpo JSON como vai pela rede (com assinatura, o canônico; sem, o JSON.stringify). */
+export type JsonEncoder = (v: unknown) => string;
+
 export type Fetcher = typeof fetch;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -64,6 +77,8 @@ export class ChannelHttp {
     private readonly gate: RateGate,
     private readonly fetcher: () => Fetcher,
     private readonly timeoutMs = 10_000,
+    private readonly signer?: ChannelSigner,
+    private readonly encode: JsonEncoder = JSON.stringify,
   ) {
     this.base = baseUrl.replace(/\/$/, '');
   }
@@ -91,7 +106,20 @@ export class ChannelHttp {
           body = new URLSearchParams(r.form).toString();
         } else if (r.json !== undefined) {
           headers['Content-Type'] = 'application/json';
-          body = JSON.stringify(r.json);
+          body = this.encode(r.json);
+        }
+        if (this.signer) {
+          const u = new URL(`${this.base}${r.path}`);
+          const params: Record<string, string> = {};
+          u.searchParams.forEach((v, k) => (params[k] = v));
+          Object.assign(
+            headers,
+            this.signer({
+              url: `${u.origin}${u.pathname}`,
+              params,
+              body: r.form ? undefined : body,
+            }),
+          );
         }
         res = await this.fetcher()(`${this.base}${r.path}`, {
           method: r.method,
@@ -136,8 +164,13 @@ async function messageOf(channel: string, status: number, res?: Response): Promi
   if (status === 0) return 'Sem resposta do aplicativo (rede ou tempo esgotado)';
   let msg = '';
   try {
-    const b = (await res!.json()) as { message?: unknown; error?: { message?: unknown } };
-    const m = b?.message ?? b?.error?.message;
+    const b = (await res!.json()) as {
+      message?: unknown;
+      title?: unknown;
+      error?: { message?: unknown };
+    };
+    // problem+json (Open Delivery, Keeta) traz o motivo em `title`.
+    const m = b?.message ?? b?.error?.message ?? b?.title;
     if (typeof m === 'string') msg = m.slice(0, 160);
   } catch {
     /* corpo sem JSON */

@@ -116,6 +116,8 @@ const schema = z.object({
    */
   IFOOD_API_URL: z.string().url().default('https://merchant-api.ifood.com.br'),
   IFOOD_APP_MODE: z.enum(['centralized', 'distributed']).default('centralized'),
+  /** Keeta (Open Delivery 1.5 com ajustes): base da API. As chaves ficam em Super Admin › Credenciais. */
+  KEETA_API_URL: z.string().url().default('https://open.mykeeta.com/api/open/opendelivery'),
   IFOOD_CLIENT_ID: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(8).optional()),
   IFOOD_CLIENT_SECRET: z.preprocess(
     (v) => (v === '' ? undefined : v),

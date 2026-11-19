@@ -513,3 +513,38 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
     real conta), 6 em `packages/shared/src/channel-usage.test.ts`.
   - Fica para depois: alerta no Prometheus a partir de `channel_usage` (o grupo `comandou-canais`
     já avisa polling parado); rodar o roteiro de verdade com a conta do Comandou no Portal.
+- **Fase 10** (Keeta e Open Delivery, 0.189.0): `integrations/opendelivery/` com um adaptador só
+  (`OpenDeliveryAdapter`) e dois dialetos, sem migração nova.
+  - **Keeta** (Open Delivery 1.5 com ajustes, base `KEETA_API_URL`, padrão
+    `https://open.mykeeta.com/api/open/opendelivery`): token `app_level_token` em JSON, guardado até
+    5 minutos antes de vencer e renovado uma vez num 401; `X-App-Signature` em **toda** chamada
+    (HMAC-SHA256 em Base64 com o Client Secret sobre URL sem query + `&chave=valor` em ordem +
+    `&` + corpo); o corpo que sai é JSON canônico (chaves em ordem, `jcs`), que serve às duas
+    leituras da regra. Ligar a loja chama `PUT /v1/merchantOnboarding?merchantId=<código>` (sem
+    isso a Keeta não manda nada) e só depois grava em `channel_stores`; o id da loja no Comandou é
+    o próprio código numérico da Keeta. Polling `GET /v1/events:polling` com
+    `x-polling-merchants` **uma loja por chamada** (o evento não diz de qual loja é); ack em lote
+    de até 500 (`POST /v1/events/acknowledgment`). Ações: `confirm` (com `orderExternalCode` = nº
+    do pedido no Comandou), `readyForPickup`, `dispatch`, `delivered`, `requestCancellation`
+    (`{reason, code, mode: MANUAL}`; 422 = já feito, ignorado), `acceptRefund`/`rejectRefund`.
+    Pedido de reembolso do cliente (`USER_REFUND_REQUEST`) vira disputa `REFUND_REQUEST` que a
+    pessoa aceita ou recusa na gaveta; `REFUNDED`/`REFUND_FAILED` encerram.
+  - **Open Delivery genérico** (`opendelivery`): mesmo adaptador, token `client_credentials` em
+    formulário, sem assinatura, com `preparing`, sem disputas; a base vem da credencial
+    ("Endereço da API": só https, sem usuário, query, IP, localhost, `.local` ou `.internal`).
+  - **Pedido** (`od-order.ts`, `odToExternal`): preços `{value, currency}`, taxa de entrega e
+    demais taxas, desconto por quem paga (`MARKETPLACE` = aplicativo, `MERCHANT` = loja),
+    pagamento `PREPAID` (no app, fora do caixa) ou `PENDING` (troco só no dinheiro). Nome cifrado
+    vira "Cliente Keeta"; telefone só se for número. Eventos de entregador viram
+    `delivery.update`.
+  - **Credenciais**: cartões próprios `channel_keeta` e `channel_opendelivery` em Super Admin ›
+    Credenciais (sem segredo de webhook). **Restaurante**: Aplicativos de delivery › "Ligar loja"
+    (`ConnectStore.tsx`, `POST /channels/stores`, `settings:manage`), com o erro da Keeta em
+    português (401 = chaves recusadas; 403/404 = a loja ainda não autorizou o Comandou).
+  - **Testes**: `test/keeta.e2e.test.ts` (7, com a Keeta falsa `test/fake-keeta.ts` que confere a
+    assinatura e o corpo canônico de toda chamada) e `od-order.test.ts` (5, com a assinatura
+    conferida à parte).
+  - Fica de fora: Open Delivery **V2** (o esquema do pedido não está publicado e não há app V2
+    para testar); webhooks (só polling, que já cumpre o prazo); cardápio, status/pausa da loja e
+    `GET /v1/merchant` da Keeta; `batchDecrypt` dos dados cifrados do cliente; mais de um app
+    Open Delivery genérico ao mesmo tempo.

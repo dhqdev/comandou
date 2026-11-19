@@ -72,6 +72,8 @@ export class ChannelOutboxService implements OnModuleInit {
       const adapter = this.registry.get(link.channel);
       if (adapter && !adapter.capabilities.includes(CHANNEL_ACTION_CAPABILITY[action])) return;
       await this.enqueueInTx(tx, ctx.tenantId, o.id, action, {
+        // Aceite: o número do pedido no Comandou (o Open Delivery pede o código externo).
+        ...(action === 'confirm' ? { orderCode: String(o.number) } : {}),
         ...(to === 'cancelled' || to === 'cancel_requested'
           ? {
               reason: (await this.reasonOf(tx, o.id)) ?? undefined,

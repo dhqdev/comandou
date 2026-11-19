@@ -1064,6 +1064,8 @@ export interface ChannelCredState {
   source?: 'panel' | 'env';
   last4?: string;
   mode?: string;
+  /** Open Delivery: servidor da API cadastrada. */
+  host?: string;
 }
 
 /** Client ID e secret do aplicativo do Comandou num aplicativo de delivery (cifrados). */
@@ -1082,7 +1084,11 @@ export function ChannelEditor({
   const [clientSecret, setClientSecret] = useState('');
   const [mode, setMode] = useState(state?.mode ?? 'centralized');
   const [webhookSecret, setWebhookSecret] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
   const { busy, error, run } = useBusy();
+  const needsBase = channel === 'opendelivery';
+  // Keeta e Open Delivery buscam por polling: não há segredo de webhook para guardar.
+  const polling = channel === 'keeta' || needsBase;
   const saved = state?.source === 'panel';
 
   async function save(e: FormEvent) {
@@ -1096,7 +1102,8 @@ export function ChannelEditor({
             clientId,
             clientSecret,
             ...(channel === 'ifood' ? { mode } : {}),
-            ...(webhookSecret ? { webhookSecret } : {}),
+            ...(webhookSecret && !polling ? { webhookSecret } : {}),
+            ...(needsBase ? { baseUrl } : {}),
           },
         }),
       'Credencial salva',
@@ -1105,6 +1112,7 @@ export function ChannelEditor({
       setClientId('');
       setClientSecret('');
       setWebhookSecret('');
+      setBaseUrl('');
       onSaved();
     }
   }
@@ -1119,6 +1127,16 @@ export function ChannelEditor({
         </Alert>
       )}
       <div className="adm-backup-grid">
+        {needsBase && (
+          <TextField
+            label="Endereço da API"
+            inputMode="url"
+            autoComplete="off"
+            value={baseUrl}
+            placeholder={state?.host ? `Em uso: ${state.host}` : 'https://api.aplicativo.com.br'}
+            onChange={(e) => setBaseUrl(e.target.value.trim())}
+          />
+        )}
         <TextField
           label="Client ID"
           value={clientId}
@@ -1140,7 +1158,7 @@ export function ChannelEditor({
             </option>
             <option value="distributed">Distribuído (a loja autoriza com um código)</option>
           </SelectField>
-        ) : (
+        ) : polling ? null : (
           <TextField
             label="Segredo do webhook (opcional)"
             type="password"
@@ -1178,7 +1196,13 @@ export function ChannelEditor({
           variant="primary"
           size="sm"
           loading={busy === 'save'}
-          disabled={!!busy || clientId.length < 4 || clientSecret.length < 8 || !keyConfigured}
+          disabled={
+            !!busy ||
+            clientId.length < 4 ||
+            clientSecret.length < 8 ||
+            !keyConfigured ||
+            (needsBase && !/^https:\/\/[^\s/]+\.[^\s/]+/.test(baseUrl))
+          }
         >
           Salvar
         </Button>

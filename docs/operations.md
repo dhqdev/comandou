@@ -136,6 +136,13 @@ pedidos do aplicativo não chegam e ele cancela sozinho depois do prazo.
     Credenciais ou desligue a loja). Pedido "no limite" de consultas: o pedido não veio do iFood
     depois de 10 tentativas; não force mais consultas. A contagem fica 35 dias; não edite
     `channel_usage` à mão.
+14. **Loja da Keeta (ou de outro app Open Delivery) não recebe pedidos** (Fase 10): confira em
+    Super Admin › Credenciais o cartão Keeta (verde e com o Client Secret certo; 401 em toda chamada
+    = assinatura ou chave errada). Ao ligar a loja, 403/404 quer dizer que o restaurante ainda não
+    autorizou o Comandou no portal da Keeta: autorizar e ligar de novo (o cadastro
+    `merchantOnboarding` é refeito). Sem esse cadastro a Keeta não entrega nenhum evento. O código
+    da loja é o número que aparece no portal da Keeta (Loja › Informações). Pedido parado em "Em
+    análise" no app: veja `channel_outbox` (ação `confirm` com erro) e a coluna `last_error` da loja.
 
 ### Backup atrasado
 

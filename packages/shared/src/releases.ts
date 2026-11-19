@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.189.0',
+    date: '2026-11-19',
+    title: 'Pedidos da Keeta chegando no Comandou',
+    summary:
+      'A loja liga o cadastro da Keeta em Aplicativos de delivery e os pedidos passam a chegar sozinhos, com aceitar, pronto, saiu para entrega, cancelar e pedido de reembolso feitos daqui. Aplicativos que seguem o padrão Open Delivery entram pelo mesmo caminho.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Em Aplicativos de delivery, o cartão da Keeta tem "Ligar loja": cole o código da loja que aparece no portal da Keeta e o Comandou faz o cadastro lá. Se a loja ainda não autorizou o Comandou, o aviso diz o que fazer.',
+      },
+      {
+        tag: 'novo',
+        text: 'O pedido da Keeta entra como os do iFood: itens, taxa de entrega, cupom de quem pagou (aplicativo ou loja), pagamento no app fora do caixa e dinheiro com troco. Aceitar, pronto, saiu, entregue e cancelar voltam para a Keeta.',
+      },
+      {
+        tag: 'novo',
+        text: 'Quando o cliente pede reembolso na Keeta, o pedido mostra o pedido de reembolso e uma pessoa da loja aceita ou recusa.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Toda chamada à Keeta vai assinada com a chave do Comandou, guardada cifrada no painel da equipe. Nome e telefone do cliente que vierem cifrados não são guardados.',
+      },
+    ],
+  },
+  {
     version: '0.188.0',
     date: '2026-11-19',
     title: 'Comandou pronto para a homologação do iFood',

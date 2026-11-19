@@ -6,6 +6,7 @@ import { Alert, Badge, Button, Card, EmptyState, Spinner, useToast } from '../de
 import { useCan } from '../app/auth';
 import { AppReviewsCard } from '../features/channels/AppReviews';
 import { ChannelBadge } from '../features/channels/ChannelBadge';
+import { CONNECT_HERE, ConnectStore } from '../features/channels/ConnectStore';
 import {
   StorePauseControls,
   StoreStateLine,
@@ -196,6 +197,9 @@ export function IntegrationsPage() {
                     <Link to="/cardapio/cardapios">Cardápio › Cardápios</Link>. Ela aparece aqui e
                     você marca "Receber pedidos".
                   </p>
+                )}
+                {CONNECT_HERE.has(c.id) && c.available && c.configured && canConfigure && (
+                  <ConnectStore channel={c.id} onDone={() => void load()} />
                 )}
                 {c.stores.length > 0 && (
                   <ul className="intg-stores">
