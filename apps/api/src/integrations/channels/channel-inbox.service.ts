@@ -1,11 +1,13 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import {
+  canTransition,
   channelPath,
   statusForEvent,
   toCents,
   type ChannelAction,
   type ChannelEventKind,
   type ExternalOrder,
+  type OrderStatus,
 } from '@comandou/shared';
 import { one, q } from '../../common/sql';
 import { DatabaseService, type Tx } from '../../database/database.service';
@@ -18,6 +20,8 @@ import {
   type ChannelEvent,
   type PollStore,
 } from './channel-adapter';
+import { ChannelDisputesService } from './channel-disputes.service';
+import type { ChannelDispute, ChannelSettlement } from './channel-adapter';
 import { ChannelMetrics } from './channel-metrics';
 import { ChannelOutboxService } from './channel-outbox.service';
 import { channelCtx, STORE_COLUMNS, type StoreRow } from './channel-stores.service';
@@ -40,6 +44,7 @@ interface InboxRow {
   external_order_id: string | null;
   attempts: number;
   occurred_at: Date;
+  payload: Record<string, unknown> | null;
 }
 
 /** Evento do canal → ação nossa que ele confirma (a caixa de saída marca "confirmado"). */
@@ -51,6 +56,8 @@ const CONFIRMS: Partial<Record<ChannelEventKind, ChannelAction[]>> = {
   'order.delivered': ['delivered'],
   'order.concluded': ['delivered'],
   'order.cancelled': ['reject', 'request_cancellation'],
+  'order.cancellation_denied': ['request_cancellation'],
+  'order.dispute_settled': ['dispute_accept', 'dispute_reject', 'dispute_alternative'],
 };
 
 /** Espera até a próxima tentativa de um evento: 10 s, 20 s, 40 s… até 15 min. */
@@ -78,6 +85,7 @@ export class ChannelInboxService implements OnModuleInit {
     private readonly queue: QueueService,
     private readonly realtime: RealtimeService,
     private readonly registry: ChannelRegistry,
+    private readonly disputes: ChannelDisputesService,
     private readonly metrics: ChannelMetrics,
   ) {}
 
@@ -177,7 +185,7 @@ export class ChannelInboxService implements OnModuleInit {
                       FOR UPDATE SKIP LOCKED) d
               WHERE x.id = d.id
               RETURNING x.id, x.channel, x.event_id, x.kind, x.store_id, x.external_order_id,
-                        x.attempts, x.occurred_at`,
+                        x.attempts, x.occurred_at, x.payload`,
           ),
         );
         if (!due.length) break;
@@ -358,6 +366,22 @@ export class ChannelInboxService implements OnModuleInit {
       ev.kind,
     ]);
     await this.outbox.confirmInTx(tx, orderId, CONFIRMS[ev.kind] ?? []);
+    if (ev.kind === 'order.dispute')
+      return this.disputes.openInTx(
+        tx,
+        tenantId,
+        orderId,
+        ev.channel,
+        ev.payload?.dispute as ChannelDispute | null | undefined,
+      );
+    if (ev.kind === 'order.dispute_settled')
+      return this.disputes.settleInTx(
+        tx,
+        ev.channel,
+        ev.payload?.settlement as ChannelSettlement | null | undefined,
+      );
+    if (ev.kind === 'order.cancellation_denied')
+      return this.cancellationDeniedInTx(tx, ctx, orderId);
     const target = statusForEvent(ev.kind);
     if (!target) return undefined;
     const o = await this.orders.lock(tx, orderId);
@@ -386,5 +410,42 @@ export class ChannelInboxService implements OnModuleInit {
         fromChannel: true,
       });
     return undefined;
+  }
+
+  /**
+   * O aplicativo negou o cancelamento que pedimos: o pedido sai de "Cancelamento solicitado" e
+   * volta para onde estava (a cozinha continua). Já cancelado aqui: só avisa.
+   */
+  private async cancellationDeniedInTx(
+    tx: Tx,
+    ctx: ReturnType<typeof channelCtx>,
+    orderId: string,
+  ): Promise<string | undefined> {
+    const o = await this.orders.lock(tx, orderId);
+    if (o.status !== 'cancel_requested')
+      return o.status === 'cancelled'
+        ? 'O aplicativo negou o cancelamento, mas o pedido já está cancelado aqui: confira no aplicativo'
+        : undefined;
+    const prev = await one<{ from_status: OrderStatus | null }>(
+      tx,
+      `SELECT from_status FROM order_status_history
+        WHERE order_id = $1 AND to_status = 'cancel_requested' ORDER BY id DESC LIMIT 1`,
+      [orderId],
+    );
+    const back: OrderStatus =
+      prev?.from_status &&
+      prev.from_status !== 'awaiting' &&
+      canTransition('cancel_requested', prev.from_status, o.channel)
+        ? prev.from_status
+        : 'new';
+    await this.orders.transitionInTx(
+      tx,
+      ctx,
+      o,
+      back,
+      'Aplicativo: cancelamento negado (o pedido continua)',
+      { fromChannel: true },
+    );
+    return 'O aplicativo negou o cancelamento: o pedido continua';
   }
 }

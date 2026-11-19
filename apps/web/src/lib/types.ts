@@ -1,5 +1,6 @@
 import type {
   ChargeRule,
+  DisputeAlternative,
   ItemStatus,
   OrderChannel,
   OnlineChargeStatus,
@@ -271,6 +272,8 @@ export interface Order {
   scheduledFor?: string | null;
   /** Pedido de aplicativo em análise: até quando aceitar (depois o aplicativo cancela sozinho). */
   appConfirmBy?: string | null;
+  /** Negociação do cliente esperando resposta: até quando dá para responder. */
+  appDisputeUntil?: string | null;
   /** Só no detalhe: dados do aplicativo e as ações mandadas a ele. */
   app?: AppOrderInfo | null;
   paymentHint?: PaymentMethod | null;
@@ -320,6 +323,8 @@ export interface AppOrderInfo {
   confirmBy: string | null;
   /** Itens do pedido que chegaram sem vínculo com o cardápio. */
   unlinked: string[];
+  /** Negociações do cliente (cancelar, reembolso, mais tempo), a mais nova primeiro. */
+  disputes?: AppDispute[];
   actions: {
     id: string;
     action: string;
@@ -328,6 +333,22 @@ export interface AppOrderInfo {
     lastError: string | null;
     createdAt: string;
   }[];
+}
+
+export interface AppDispute {
+  id: string;
+  channel: string;
+  kind: string;
+  message: string | null;
+  expiresAt: string | null;
+  timeoutAction: string | null;
+  alternatives: DisputeAlternative[];
+  acceptReasons: string[];
+  status: 'open' | 'accepted' | 'rejected' | 'alternative' | 'settled';
+  decidedAt: string | null;
+  outcome: string | null;
+  settledAt: string | null;
+  createdAt: string;
 }
 
 export interface PixReceipt {

@@ -153,6 +153,9 @@ function OrderCard({
           {order.status === 'awaiting' && order.appConfirmBy && (
             <AcceptDeadline until={order.appConfirmBy} compact />
           )}
+          {order.appDisputeUntil && (
+            <AcceptDeadline until={order.appDisputeUntil} kind="answer" compact />
+          )}
         </span>
         <span className="hcard__pills">
           <span className="hcard__pill">{brl(order.total)}</span>
@@ -400,9 +403,15 @@ export function PdvPage() {
     'app_order',
     ids((o) => o.status === 'awaiting' && o.source === 'app'),
   );
+  // Negociação do cliente do aplicativo (cancelar, reembolso...) apita até alguém responder.
   useRepeatingSoundForNew(
     'cancel',
-    ids((o) => o.status === 'cancel_requested' && o.source !== 'app'),
+    orders
+      ? [
+          ...ids((o) => o.status === 'cancel_requested' && o.source !== 'app')!,
+          ...orders.filter((o) => o.appDisputeUntil).map((o) => `${o.id}@${o.appDisputeUntil}`),
+        ]
+      : null,
   );
   // Cliente esperando resposta pelo cardápio: avisa até alguém abrir a conversa (só pelo que
   // chegou depois de abrir a tela, como os pedidos).

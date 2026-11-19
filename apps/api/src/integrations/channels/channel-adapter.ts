@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import type {
   ChannelAction,
+  ChannelCancelReason,
   ChannelCapability,
   ChannelEventKind,
+  DisputeAlternative,
   ExternalOrder,
 } from '@comandou/shared';
 
@@ -39,6 +41,26 @@ export interface ChannelEvent {
   occurredAt: string;
   /** O que guardar do evento, SEM dados pessoais (o pedido em si é buscado à parte). */
   payload?: Record<string, unknown>;
+}
+
+/**
+ * Negociação aberta pelo cliente depois do pedido (cancelar, reembolso, mais tempo), já traduzida.
+ * Vai no `payload.dispute` do evento `order.dispute`. Sem fotos nem dados do cliente.
+ */
+export interface ChannelDispute {
+  externalId: string;
+  kind: string;
+  message?: string;
+  expiresAt?: string;
+  timeoutAction?: string;
+  alternatives: DisputeAlternative[];
+  acceptReasons: string[];
+}
+
+/** Fim da negociação (`payload.settlement` do evento `order.dispute_settled`). */
+export interface ChannelSettlement {
+  externalId: string;
+  outcome: string;
 }
 
 /** Ação que sai pela caixa de saída. */
@@ -86,6 +108,8 @@ export interface ChannelAdapter {
   fetchOrder(ref: OrderRef): Promise<ExternalOrder>;
   /** Manda uma ação. Erro → ChannelHttpError (a caixa de saída decide se repete). */
   send(req: ActionRequest): Promise<void>;
+  /** Motivos de cancelamento aceitos para este pedido (sem isso, a tela pede só o texto). */
+  cancellationReasons?(ref: OrderRef): Promise<ChannelCancelReason[]>;
 }
 
 /** Adaptadores ativos. Cada canal se registra ao subir (e os testes registram o falso). */

@@ -22,12 +22,14 @@ import { z } from 'zod';
 import { AuditService } from '../../audit/audit.service';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../../common/decorators';
 import { one, q } from '../../common/sql';
+import { money } from '../../common/schemas';
 import { ZodPipe } from '../../common/zod.pipe';
 import { DatabaseService } from '../../database/database.service';
 import { RealtimeService } from '../../realtime/realtime.service';
 import type { AuthenticatedUser, ResolvedTenant } from '../../tenancy/tenant.types';
 import { ChannelRegistry } from './channel-adapter';
 import { ChannelCredentials } from './channel-credentials.service';
+import { ChannelDisputesService } from './channel-disputes.service';
 import { ChannelInboxService } from './channel-inbox.service';
 import { ChannelOutboxService } from './channel-outbox.service';
 import { ChannelStoresService } from './channel-stores.service';
@@ -40,6 +42,22 @@ const LinkBody = z.object({
   itemKey: z.string().min(1).max(200),
   productId: z.string().uuid(),
 });
+const Reason = z.string().trim().min(1).max(250);
+const Code = z
+  .string()
+  .trim()
+  .regex(/^[A-Z][A-Z_]{1,60}$/);
+const DisputeBody = z.discriminatedUnion('decision', [
+  z.object({ decision: z.literal('accept'), reason: Code.optional() }),
+  z.object({ decision: z.literal('reject'), reason: Reason }),
+  z.object({
+    decision: z.literal('alternative'),
+    alternativeId: z.string().trim().min(1).max(100),
+    amount: money.optional(),
+    minutes: z.number().int().positive().max(240).optional(),
+    timeReason: Code.optional(),
+  }),
+]);
 const UnlinkBody = z.object({
   channel: z.string().regex(CHANNEL_ID_RE),
   itemKey: z.string().min(1).max(200),
@@ -58,6 +76,7 @@ export class ChannelsController {
     private readonly stores: ChannelStoresService,
     private readonly inbox: ChannelInboxService,
     private readonly outbox: ChannelOutboxService,
+    private readonly disputes: ChannelDisputesService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
   ) {}
@@ -216,6 +235,31 @@ export class ChannelsController {
     if (!row) throw new NotFoundException('Evento não encontrado');
     this.inbox.kick(t.id);
     return { ok: true };
+  }
+
+  /** Motivos de cancelamento que o aplicativo aceita para este pedido (lista vazia: só o texto). */
+  @Get('orders/:orderId/cancel-reasons')
+  @RequirePermission('orders:write')
+  async cancelReasons(
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return { reasons: await this.disputes.cancelReasons(t.id, u.id, orderId) };
+  }
+
+  /** Resposta de uma pessoa à negociação do cliente (aceitar, recusar ou propor). */
+  @Post('disputes/:id/decision')
+  @HttpCode(200)
+  @RequirePermission('orders:manage')
+  decide(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body(new ZodPipe(DisputeBody)) b: z.infer<typeof DisputeBody>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.disputes.decide(t.id, u.id, id, b, req.ip);
   }
 
   /** Itens que chegaram sem vínculo (um por item do aplicativo), do mais recente. */

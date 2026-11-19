@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.179.0',
+    date: '2026-11-19',
+    title: 'Cancelamento e negociação com o cliente do iFood',
+    summary:
+      'Cancelar ou recusar um pedido do iFood agora usa os motivos que o iFood aceita para aquele pedido. Se o iFood negar o cancelamento, o pedido volta para onde estava. Quando o cliente pede para cancelar, quer reembolso ou o app pede mais tempo, o pedido mostra o pedido do cliente com o prazo, e você aceita, recusa ou faz uma proposta ali mesmo.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Negociação com o cliente: no pedido aparece o que o cliente pediu, a mensagem dele, quanto tempo falta para responder e o que acontece se ninguém responder. Botões Aceitar, Recusar e as propostas que o iFood oferece (reembolso parcial até o valor permitido, cupom ou mais tempo).',
+      },
+      {
+        tag: 'novo',
+        text: 'No PDV, o pedido com o cliente esperando resposta mostra "Responda ao cliente em N min" e o som de cancelamento fica tocando até alguém responder.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cancelar ou recusar pedido do iFood: escolha o motivo na lista que o iFood aceita para aquele pedido (o cliente vê). O pedido fica "Cancelamento solicitado" até o iFood confirmar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Se o iFood negar o cancelamento, o pedido volta sozinho para onde estava (em produção, pronto...) e a cozinha continua.',
+      },
+      {
+        tag: 'segurança',
+        text: 'A resposta ao cliente é sempre de uma pessoa (como o iFood recomenda) e só vale dentro do prazo e do que o iFood ofereceu. Fotos e dados do cliente da reclamação não são guardados.',
+      },
+    ],
+  },
+  {
     version: '0.178.0',
     date: '2026-11-18',
     title: 'Menu lateral que recolhe e abre ao encostar o mouse',

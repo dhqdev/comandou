@@ -29,6 +29,11 @@ export class FakeIfoodServer {
   readonly orders = new Map<string, IfoodOrder>();
   readonly lookups = new Map<string, number>();
   readonly actions: { orderId: string; verb: string; body: unknown }[] = [];
+  /** Respostas à negociação: aceitar, recusar ou alternativa (com o corpo). */
+  readonly disputeCalls: { disputeId: string; verb: string; altId?: string; body: unknown }[] = [];
+  /** Motivos de cancelamento por pedido (vazio = 404, e o Comandou usa a lista padrão). */
+  readonly cancelReasons = new Map<string, { cancelCodeId: string; description: string }[]>();
+  reasonLookups = 0;
   readonly polls: { merchants: string; auth?: string }[] = [];
   readonly acks: unknown[] = [];
   /** Próximas respostas forçadas por rota: 'poll', 'ack', 'order', 'action'. */
@@ -109,6 +114,25 @@ export class FakeIfoodServer {
         return send(202);
       }
       const o = /^\/order\/v1\.0\/orders\/([^/]+)(?:\/([A-Za-z]+))?$/.exec(path);
+      if (o && req.method === 'GET' && o[2] === 'cancellationReasons') {
+        this.reasonLookups++;
+        const list = this.cancelReasons.get(o[1]!);
+        return list ? send(200, list) : send(404, { message: 'sem motivos' });
+      }
+      const d =
+        /^\/order\/v1\.0\/disputes\/([^/]+)\/(accept|reject|alternatives)(?:\/([^/]+))?$/.exec(
+          path,
+        );
+      if (d && req.method === 'POST') {
+        if (fail('action')) return;
+        this.disputeCalls.push({
+          disputeId: decodeURIComponent(d[1]!),
+          verb: d[2]!,
+          ...(d[3] ? { altId: decodeURIComponent(d[3]) } : {}),
+          body: raw ? JSON.parse(raw) : null,
+        });
+        return send(201);
+      }
       if (o && req.method === 'GET' && !o[2]) {
         this.lookups.set(o[1]!, (this.lookups.get(o[1]!) ?? 0) + 1);
         if (fail('order')) return;

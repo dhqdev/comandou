@@ -1,5 +1,5 @@
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
-import type { ChannelCapability, ExternalOrder } from '@comandou/shared';
+import type { ChannelCancelReason, ChannelCapability, ExternalOrder } from '@comandou/shared';
 import { ENV, type Env } from '../../config/env';
 import {
   ChannelHttpError,
@@ -14,10 +14,14 @@ import { ChannelHttp, RateGate, type ChannelRequest } from '../channels/channel-
 import { ChannelMetrics } from '../channels/channel-metrics';
 import {
   IFOOD_ACK_BATCH,
+  IFOOD_CANCEL_REASONS,
   IFOOD_DEFAULT_CANCEL_CODE,
   IFOOD_LIMITS,
   IFOOD_PATHS,
+  ifoodCancelReasons,
+  ifoodDispute,
   ifoodEventKind,
+  ifoodSettlement,
   ifoodToExternal,
   ifoodVerb,
   type IfoodOrder,
@@ -34,9 +38,6 @@ interface IfoodEvent {
   salesChannel?: string;
   metadata?: Record<string, unknown>;
 }
-
-/** Eventos da negociação: o detalhe (prazo, alternativas) vem no metadata e é preciso na Fase 3. */
-const KEEP_METADATA = new Set(['order.dispute', 'order.dispute_settled']);
 
 /**
  * Pedidos do iFood (Events + Order API) pela camada comum de canais. Polling a cada 30 s com até
@@ -56,6 +57,7 @@ export class IfoodOrdersAdapter implements ChannelAdapter, OnModuleInit {
     'ready',
     'dispatch',
     'cancel',
+    'disputes',
     'menu',
   ];
   private readonly http: ChannelHttp;
@@ -136,7 +138,9 @@ export class IfoodOrdersAdapter implements ChannelAdapter, OnModuleInit {
           code: e.code ?? null,
           fullCode: e.fullCode ?? null,
           salesChannel: e.salesChannel ?? null,
-          ...(KEEP_METADATA.has(kind) && e.metadata ? { metadata: e.metadata } : {}),
+          // Negociação: só o necessário para responder (prazo, alternativas, motivos).
+          ...(kind === 'order.dispute' ? { dispute: ifoodDispute(e.metadata) } : {}),
+          ...(kind === 'order.dispute_settled' ? { settlement: ifoodSettlement(e.metadata) } : {}),
         },
       });
     }
@@ -174,14 +178,32 @@ export class IfoodOrdersAdapter implements ChannelAdapter, OnModuleInit {
     return o;
   }
 
+  /** Motivos que o iFood aceita para cancelar este pedido (a lista muda por pedido). */
+  async cancellationReasons(ref: OrderRef): Promise<ChannelCancelReason[]> {
+    try {
+      const r = await this.call<unknown>(ref.credential, ref.tenantId, {
+        endpoint: 'orders:cancellationReasons',
+        method: 'GET',
+        path: IFOOD_PATHS.cancelReasons(ref.externalOrderId),
+        perMinute: IFOOD_LIMITS.cancellation,
+        retries: 0,
+      });
+      const list = ifoodCancelReasons(r.body);
+      return list.length ? list : IFOOD_CANCEL_REASONS;
+    } catch {
+      return IFOOD_CANCEL_REASONS;
+    }
+  }
+
   async send(req: ActionRequest) {
     const verb = ifoodVerb(req.action);
     if (!verb) return;
+    if (verb === 'dispute') return this.sendDispute(req);
     const cancel = verb === 'requestCancellation';
     const reason = typeof req.payload.reason === 'string' ? req.payload.reason.trim() : '';
     const code =
       typeof req.payload.cancellationCode === 'string' &&
-      /^\d{3}$/.test(req.payload.cancellationCode)
+      /^[A-Za-z0-9_-]{1,40}$/.test(req.payload.cancellationCode)
         ? req.payload.cancellationCode
         : IFOOD_DEFAULT_CANCEL_CODE;
     await this.call(req.credential, req.tenantId, {
@@ -198,6 +220,54 @@ export class IfoodOrdersAdapter implements ChannelAdapter, OnModuleInit {
         : {}),
       perMinute: cancel ? IFOOD_LIMITS.cancellation : IFOOD_LIMITS.action,
       // A caixa de saída repete com espera crescente (5xx/429); aqui não.
+      retries: 0,
+    });
+  }
+
+  /** Resposta à negociação: aceitar, recusar ou propor uma alternativa (valores em centavos). */
+  private async sendDispute(req: ActionRequest) {
+    const p = req.payload as {
+      disputeId?: string;
+      reason?: string;
+      alternativeId?: string;
+      type?: string;
+      amountCents?: number;
+      minutes?: number;
+      timeReason?: string;
+    };
+    if (!p.disputeId) throw new ChannelHttpError(400, 'Negociação sem id');
+    const reason = p.reason?.trim().slice(0, 250);
+    let path: string;
+    let json: Record<string, unknown> = {};
+    if (req.action === 'dispute_alternative') {
+      if (!p.alternativeId) throw new ChannelHttpError(400, 'Proposta sem alternativa');
+      path = IFOOD_PATHS.alternative(p.disputeId, p.alternativeId);
+      json =
+        p.type === 'ADDITIONAL_TIME'
+          ? {
+              type: p.type,
+              metadata: {
+                additionalTimeInMinutes: String(p.minutes ?? ''),
+                ...(p.timeReason ? { additionalTimeReason: p.timeReason } : {}),
+              },
+            }
+          : {
+              type: p.type,
+              metadata: { amount: { value: String(p.amountCents ?? 0), currency: 'BRL' } },
+            };
+    } else {
+      path = IFOOD_PATHS.dispute(
+        p.disputeId,
+        req.action === 'dispute_accept' ? 'accept' : 'reject',
+      );
+      if (reason) json = { reason };
+    }
+    await this.call(req.credential, req.tenantId, {
+      endpoint: `disputes:${req.action.replace('dispute_', '')}`,
+      method: 'POST',
+      path,
+      json,
+      perMinute: IFOOD_LIMITS.dispute,
       retries: 0,
     });
   }

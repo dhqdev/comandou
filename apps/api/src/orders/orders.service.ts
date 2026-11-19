@@ -112,6 +112,8 @@ export interface TransitionExtra {
    * de saída, e o saldo do pedido é acertado pelo aplicativo (repasse) ou na entrega.
    */
   fromChannel?: boolean;
+  /** Pedido de aplicativo: código do motivo de cancelamento escolhido (vai para o aplicativo). */
+  channelReason?: string;
 }
 
 /** Pedido de aplicativo de delivery, já traduzido (ExternalOrdersService). */
@@ -205,6 +207,11 @@ export const ORDER_SELECT = `
          o.delivered_by AS "deliveredBy", o.scheduled_for AS "scheduledFor",
          CASE WHEN o.source = 'app' AND o.status = 'awaiting'
               THEN (SELECT c.confirm_by FROM channel_orders c WHERE c.order_id = o.id) END AS "appConfirmBy",
+         CASE WHEN o.source = 'app' THEN (
+           SELECT COALESCE(d.expires_at, d.created_at + interval '15 minutes') FROM channel_disputes d
+            WHERE d.order_id = o.id AND d.status = 'open'
+              AND COALESCE(d.expires_at, d.created_at + interval '15 minutes') > now()
+            ORDER BY d.created_at DESC LIMIT 1) END AS "appDisputeUntil",
          o.accepted_at AS "acceptedAt", o.receivable_at AS "receivableAt",
          o.receivable_reason AS "receivableReason",
          o.fiado_name AS "fiadoName", o.fiado_phone AS "fiadoPhone",
@@ -404,6 +411,15 @@ export class OrdersService {
               [id],
             )
           ).map((r) => r.order_item_id),
+          // Negociações do cliente (cancelar, reembolso, mais tempo): a pessoa responde na tela.
+          disputes: await q(
+            tx,
+            `SELECT id, channel, kind, message, expires_at AS "expiresAt", timeout_action AS "timeoutAction",
+                    alternatives, accept_reasons AS "acceptReasons", status, decision,
+                    decided_at AS "decidedAt", outcome, settled_at AS "settledAt", created_at AS "createdAt"
+               FROM channel_disputes WHERE order_id = $1 ORDER BY created_at DESC`,
+            [id],
+          ),
           actions: await q(
             tx,
             `SELECT id, action, status, attempts, last_error AS "lastError", created_at AS "createdAt",
@@ -1436,7 +1452,12 @@ export class OrdersService {
     ctx: Ctx,
     id: string,
     to: OrderStatus,
-    opts: { reason?: string; expectedVersion?: number; receivable?: boolean },
+    opts: {
+      reason?: string;
+      expectedVersion?: number;
+      receivable?: boolean;
+      channelReason?: string;
+    },
   ) {
     const res = await this.db.withTenant(ctx, async (tx) => {
       const o = await this.lock(tx, id);
@@ -1449,7 +1470,10 @@ export class OrdersService {
       // Recusar pedido online em análise: o cliente vê o motivo no acompanhamento.
       if (to === 'cancelled' && o.status === 'awaiting' && !opts.reason?.trim())
         throw new UnprocessableEntityException('Informe o motivo da recusa (o cliente vê)');
-      await this.transitionInTx(tx, ctx, o, to, opts.reason, { receivable: opts.receivable });
+      await this.transitionInTx(tx, ctx, o, to, opts.reason, {
+        receivable: opts.receivable,
+        ...(opts.channelReason ? { channelReason: opts.channelReason } : {}),
+      });
       return this.detail(tx, id);
     });
     this.realtime.publish(ctx.tenantId, { type: 'order.changed', orderId: id, status: to });

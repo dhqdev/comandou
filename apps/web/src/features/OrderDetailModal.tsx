@@ -78,6 +78,7 @@ import {
 } from './PixReceipt';
 import { SidePanel } from './SidePanel';
 import { AcceptDeadline } from './channels/AcceptDeadline';
+import { AppCancelForm, AppDisputeCard } from './channels/AppDispute';
 import { ChannelBadge } from './channels/ChannelBadge';
 
 const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }[]>> = {
@@ -179,14 +180,19 @@ export function OrderDetailModal({
     }
   }
 
-  async function go(to: OrderStatus, reason?: string, receivable?: boolean) {
+  async function go(
+    to: OrderStatus,
+    reason?: string,
+    receivable?: boolean,
+    channelReason?: string,
+  ) {
     if (!order) return;
     setBusy(true);
     try {
       setOrder(
         await api<Order>(`/orders/${order.id}/status`, {
           method: 'POST',
-          json: { to, reason, expectedVersion: order.version, receivable },
+          json: { to, reason, expectedVersion: order.version, receivable, channelReason },
         }),
       );
       setMode(null);
@@ -274,17 +280,22 @@ export function OrderDetailModal({
   const canManage = useCan('orders:manage');
   const canEdit =
     !!order && !isApp && canManage && ['new', 'in_production', 'ready'].includes(order.status);
+  // Pedido de aplicativo: o cancelamento é pedido ao aplicativo e só vale quando ele confirmar.
   const cancelLabel = !order
     ? null
-    : order.status === 'cancel_requested'
-      ? canCancel
-        ? 'Aprovar cancelamento'
+    : isApp
+      ? ['new', 'in_production', 'ready'].includes(order.status) && canWrite
+        ? 'Pedir cancelamento'
         : null
-      : ['completed', 'cancelled', 'awaiting'].includes(order.status)
-        ? null
-        : canCancel
-          ? 'Cancelar pedido'
-          : 'Solicitar cancelamento';
+      : order.status === 'cancel_requested'
+        ? canCancel
+          ? 'Aprovar cancelamento'
+          : null
+        : ['completed', 'cancelled', 'awaiting'].includes(order.status)
+          ? null
+          : canCancel
+            ? 'Cancelar pedido'
+            : 'Solicitar cancelamento';
   const more: MenuAction[] = order
     ? [
         ...(canEdit
@@ -576,6 +587,14 @@ export function OrderDetailModal({
               </div>
             </div>
             {order.app && <AppOrderNote app={order.app} order={order} />}
+            {order.app?.disputes?.slice(0, 3).map((d) => (
+              <AppDisputeCard
+                key={d.id}
+                dispute={d}
+                canAnswer={canManage}
+                onDone={() => void load()}
+              />
+            ))}
             {order.fiadoAt && (
               <div className="od-note" data-tone="warning">
                 <CalendarClock size={15} aria-hidden />
@@ -810,7 +829,26 @@ export function OrderDetailModal({
             />
           </div>
 
-          {mode === 'cancel' && (
+          {mode === 'cancel' && isApp && (
+            <AppCancelForm
+              orderId={order.id}
+              confirm="Pedir cancelamento ao aplicativo"
+              note='O pedido fica "Cancelamento solicitado" até o aplicativo confirmar. Se ele negar, o pedido volta para onde estava.'
+              busy={busy}
+              onCancel={() => setMode(null)}
+              onConfirm={(r, code) => go('cancel_requested', r, undefined, code)}
+            />
+          )}
+          {mode === 'reject' && isApp && (
+            <AppCancelForm
+              orderId={order.id}
+              confirm="Recusar pedido"
+              busy={busy}
+              onCancel={() => setMode(null)}
+              onConfirm={(r, code) => go('cancelled', r, undefined, code)}
+            />
+          )}
+          {mode === 'cancel' && !isApp && (
             <ReasonForm
               label="Motivo do cancelamento (opcional)"
               confirm={
@@ -823,7 +861,7 @@ export function OrderDetailModal({
               onConfirm={(r) => go(canCancel ? 'cancelled' : 'cancel_requested', r)}
             />
           )}
-          {mode === 'reject' && (
+          {mode === 'reject' && !isApp && (
             <ReasonForm
               label="Por que recusar? (o cliente vê este motivo)"
               confirm="Recusar pedido"

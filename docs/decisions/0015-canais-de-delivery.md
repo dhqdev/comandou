@@ -323,3 +323,28 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
     loja (Fase 4), rastreio do entregador (Fase 5), NFC-e com intermediador (próxima fase) e conferir os
     caminhos e o corpo de `requestCancellation` no sandbox do iFood (o portal está bloqueado na
     rede deste ambiente).
+- **Fase 3** (cancelamento e negociação, 0.179.0): migração 0089 e `channel-disputes.service.ts`.
+  - **Motivo do cancelamento**: `GET /channels/orders/:id/cancel-reasons` busca a lista do pedido no
+    canal (`ChannelAdapter.cancellationReasons`; iFood `/cancellationReasons`, com a lista padrão
+    501–513 se falhar). O código escolhido vai em `channelReason` no `POST /orders/:id/status` e
+    chega ao canal como `cancellationCode` (só `[A-Za-z0-9_-]{1,40}`).
+  - **Cancelamento negado** (`order.cancellation_denied`, iFood CARF): o pedido sai de
+    "Cancelamento solicitado" e volta ao estado de antes (último `order_status_history` que entrou
+    em `cancel_requested`), com a nota "cancelamento negado". Já cancelado aqui: só avisa.
+  - **Negociação** (`order.dispute`, iFood HANDSHAKE_DISPUTE): o adaptador guarda só o necessário
+    em `payload.dispute` (tipo, mensagem do cliente, prazo, o que acontece sem resposta,
+    alternativas e motivos; nada de fotos) e a caixa de entrada grava em `channel_disputes`
+    (repetida atualiza enquanto aberta). A resposta é SEMPRE de uma pessoa (o iFood recomenda não
+    automatizar): `POST /channels/disputes/:id/decision` (`orders:manage`) confere prazo e o que o
+    canal ofereceu (valor até o máximo, minutos e motivos da lista) e manda pela caixa de saída
+    (`dispute_accept`, `dispute_reject`, `dispute_alternative`, uma por negociação).
+    HANDSHAKE_SETTLEMENT fecha como "resolvido" e confirma a ação.
+  - **Telas**: na gaveta do pedido, o cartão da negociação com o prazo e Aceitar, Recusar e as
+    propostas; pedido de aplicativo cancela com "Pedir cancelamento" (lista de motivos do canal) e
+    não tem "Aprovar cancelamento". No PDV, "Responda ao cliente em N min" e o som de cancelamento
+    repetindo até alguém responder (`appDisputeUntil` no pedido).
+  - **Testes**: 5 novos em `test/ifood-orders.e2e.test.ts` e 2 em `ifood-order.test.ts`.
+  - Fica para depois: conferir no sandbox do iFood os nomes exatos dos campos da negociação
+    (`ifoodDispute` tolera as variações conhecidas) e cancelar parte dos itens no Comandou quando o
+    restaurante aceita um cancelamento parcial (hoje o iFood ajusta o repasse; o pedido aqui fica
+    como estava).

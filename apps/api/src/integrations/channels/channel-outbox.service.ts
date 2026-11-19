@@ -73,7 +73,10 @@ export class ChannelOutboxService implements OnModuleInit {
       if (adapter && !adapter.capabilities.includes(CHANNEL_ACTION_CAPABILITY[action])) return;
       await this.enqueueInTx(tx, ctx.tenantId, o.id, action, {
         ...(to === 'cancelled' || to === 'cancel_requested'
-          ? { reason: (await this.reasonOf(tx, o.id)) ?? undefined }
+          ? {
+              reason: (await this.reasonOf(tx, o.id)) ?? undefined,
+              ...(extra.channelReason ? { cancellationCode: extra.channelReason } : {}),
+            }
           : {}),
       });
     });

@@ -107,6 +107,12 @@ export const Transition = z.object({
   expectedVersion: z.number().int().positive().optional(),
   /** Concluir com saldo como "a receber" (exige gerente e motivo). */
   receivable: z.boolean().optional(),
+  /** Pedido de aplicativo: código do motivo de cancelamento que o aplicativo aceita (ex.: 503). */
+  channelReason: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9_-]{1,40}$/)
+    .optional(),
 });
 
 export const Adjust = z

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { HealthModule } from '../../health/health.module';
 import { OperationsModule } from '../../orders/operations.module';
 import { ChannelRegistry } from './channel-adapter';
+import { ChannelDisputesService } from './channel-disputes.service';
 import { ChannelInboxService } from './channel-inbox.service';
 import { ChannelMetrics } from './channel-metrics';
 import { ChannelOutboxService } from './channel-outbox.service';
@@ -23,6 +24,7 @@ import { ExternalOrdersService } from './external-orders.service';
     ChannelStoresService,
     ChannelOutboxService,
     ExternalOrdersService,
+    ChannelDisputesService,
     ChannelInboxService,
     ChannelPoller,
   ],
@@ -32,6 +34,7 @@ import { ExternalOrdersService } from './external-orders.service';
     ChannelStoresService,
     ChannelOutboxService,
     ExternalOrdersService,
+    ChannelDisputesService,
     ChannelInboxService,
     ChannelPoller,
   ],

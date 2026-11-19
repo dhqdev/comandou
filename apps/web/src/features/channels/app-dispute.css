@@ -1,0 +1,57 @@
+/* Negociação do cliente do aplicativo (gaveta do pedido): tom suave, mais forte enquanto espera. */
+.app-dispute {
+  --hue: var(--cm-text-muted);
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+}
+.app-dispute[data-open] {
+  --hue: var(--cm-warning);
+  border-color: color-mix(in srgb, var(--hue) 30%, var(--cm-border));
+  background: color-mix(in srgb, var(--hue) 9%, var(--cm-surface));
+}
+.app-dispute__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.app-dispute__head > svg {
+  flex: none;
+  color: var(--hue);
+}
+.app-dispute__head strong {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text);
+}
+.app-dispute__msg {
+  margin: 0;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text);
+  overflow-wrap: anywhere;
+}
+.app-dispute__hint {
+  margin: 0;
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+}
+.app-dispute__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.app-dispute .inline-form {
+  margin-top: 2px;
+}
+@media (max-width: 600px) {
+  .app-dispute__actions > * {
+    flex: 1 1 calc(50% - 6px);
+    min-height: 44px;
+  }
+}

@@ -211,6 +211,9 @@ export const CHANNEL_ACTIONS = [
   'dispatch',
   'delivered',
   'request_cancellation',
+  'dispute_accept',
+  'dispute_reject',
+  'dispute_alternative',
 ] as const;
 export type ChannelAction = (typeof CHANNEL_ACTIONS)[number];
 
@@ -222,6 +225,9 @@ export const CHANNEL_ACTION_LABELS: Record<ChannelAction, string> = {
   dispatch: 'Saiu para entrega',
   delivered: 'Entregue',
   request_cancellation: 'Pedido de cancelamento',
+  dispute_accept: 'Aceite do pedido do cliente',
+  dispute_reject: 'Recusa do pedido do cliente',
+  dispute_alternative: 'Proposta ao cliente',
 };
 
 export const CHANNEL_ACTION_CAPABILITY: Record<ChannelAction, ChannelCapability> = {
@@ -232,6 +238,9 @@ export const CHANNEL_ACTION_CAPABILITY: Record<ChannelAction, ChannelCapability>
   dispatch: 'dispatch',
   delivered: 'delivered',
   request_cancellation: 'cancel',
+  dispute_accept: 'disputes',
+  dispute_reject: 'disputes',
+  dispute_alternative: 'disputes',
 };
 
 /**
@@ -251,6 +260,61 @@ export function actionForTransition(
   if (to === 'completed' && from === 'dispatched' && deliveredBy === 'merchant') return 'delivered';
   if (to === 'cancel_requested') return 'request_cancellation';
   return null;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Negociação: o cliente pede algo depois do pedido (cancelar, reembolso...) e o restaurante responde
+
+export const DISPUTE_KIND_LABELS: Record<string, string> = {
+  CANCELLATION: 'O cliente pede para cancelar o pedido',
+  PARTIAL_CANCELLATION: 'O cliente pede para cancelar parte do pedido',
+  PROPOSED_AMOUNT_REFUND: 'O cliente pede reembolso de parte do valor',
+  PROPOSED_ADDITIONAL_TIME: 'O aplicativo pede mais tempo para a entrega',
+};
+
+export function disputeKindLabel(kind: string): string {
+  return DISPUTE_KIND_LABELS[kind] ?? 'O cliente pediu algo sobre o pedido';
+}
+
+/** O que o canal faz se o restaurante não responder no prazo. */
+export function disputeTimeoutLabel(action: string | null | undefined): string | null {
+  if (!action) return null;
+  if (/^ACCEPT/.test(action)) return 'Sem resposta, o aplicativo aceita sozinho';
+  if (/^REJECT/.test(action)) return 'Sem resposta, o aplicativo recusa sozinho';
+  return null;
+}
+
+export type DisputeAlternativeType = 'REFUND' | 'BENEFIT' | 'ADDITIONAL_TIME' | (string & {});
+
+export interface DisputeAlternative {
+  id: string;
+  type: DisputeAlternativeType;
+  /** REFUND/BENEFIT: até quanto pode propor (string decimal). */
+  maxAmount?: string;
+  /** ADDITIONAL_TIME: minutos que o canal aceita. */
+  minutes?: number[];
+  /** ADDITIONAL_TIME: motivos que o canal aceita. */
+  reasons?: string[];
+}
+
+export const DISPUTE_ALTERNATIVE_LABELS: Record<string, string> = {
+  REFUND: 'Propor reembolso parcial',
+  BENEFIT: 'Propor cupom para o cliente',
+  ADDITIONAL_TIME: 'Pedir mais tempo',
+};
+
+export const DISPUTE_STATUS_LABELS: Record<string, string> = {
+  open: 'Esperando sua resposta',
+  accepted: 'Você aceitou',
+  rejected: 'Você recusou',
+  alternative: 'Você fez uma proposta',
+  settled: 'Resolvido no aplicativo',
+};
+
+/** Motivo de cancelamento que o canal aceita (iFood: lista por pedido). */
+export interface ChannelCancelReason {
+  code: string;
+  label: string;
 }
 
 export const OUTBOX_STATUSES = ['pending', 'sending', 'sent', 'confirmed', 'failed'] as const;

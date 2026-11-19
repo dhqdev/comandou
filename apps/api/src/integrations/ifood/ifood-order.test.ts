@@ -2,7 +2,15 @@ import { comandouTotals } from '@comandou/shared';
 import { describe, expect, it } from 'vitest';
 import { parseExternalOrder } from '../channels/external-order.schema';
 import { ifoodSample } from '../../../test/fake-ifood';
-import { ifoodCents, ifoodEventKind, ifoodToExternal, ifoodVerb } from './ifood-order';
+import {
+  ifoodCancelReasons,
+  ifoodCents,
+  ifoodDispute,
+  ifoodEventKind,
+  ifoodSettlement,
+  ifoodToExternal,
+  ifoodVerb,
+} from './ifood-order';
 
 describe('iFood: eventos', () => {
   it('traduz o código curto e o longo', () => {
@@ -144,5 +152,59 @@ describe('iFood: pedido', () => {
     });
     expect(o.customer.taxDocument).toBeUndefined();
     expect(o.displayCode).toBe('x-1');
+  });
+});
+
+describe('iFood: negociação e motivos', () => {
+  it('guarda só o necessário da negociação (sem fotos), com limites e códigos limpos', () => {
+    const d = ifoodDispute({
+      disputeId: 'd-1',
+      action: 'proposed_amount_refund',
+      message: '  Veio frio  ',
+      expiresAt: '2026-11-18T19:05:00.000Z',
+      timeoutAction: 'REJECT_CANCELLATION',
+      evidences: [{ url: 'https://foto/1.jpg' }],
+      alternatives: [
+        { id: 'a1', type: 'REFUND', metadata: { maxAmount: { value: 1250, currency: 'BRL' } } },
+        {
+          id: 'a2',
+          type: 'ADDITIONAL_TIME',
+          metadata: { allowedsAdditionalTimeInMinutes: [10, 999] },
+        },
+        { id: '', type: 'BENEFIT' },
+      ],
+      metadata: { acceptCancellationReasons: ['customer_request', '<x>'] },
+    });
+    expect(d).toEqual({
+      externalId: 'd-1',
+      kind: 'PROPOSED_AMOUNT_REFUND',
+      message: 'Veio frio',
+      expiresAt: '2026-11-18T19:05:00.000Z',
+      timeoutAction: 'REJECT_CANCELLATION',
+      alternatives: [
+        { id: 'a1', type: 'REFUND', maxAmount: '12.50' },
+        { id: 'a2', type: 'ADDITIONAL_TIME', minutes: [10] },
+      ],
+      acceptReasons: ['CUSTOMER_REQUEST'],
+    });
+    expect(JSON.stringify(d)).not.toContain('foto');
+    expect(ifoodDispute({})).toBeNull();
+    expect(ifoodSettlement({ disputeId: 'd-1', status: 'ACCEPTED' })).toEqual({
+      externalId: 'd-1',
+      outcome: 'ACCEPTED',
+    });
+  });
+
+  it('motivos de cancelamento: só código válido e texto legível', () => {
+    expect(
+      ifoodCancelReasons([
+        { cancelCodeId: '503', description: 'ITEM INDISPONIVEL' },
+        { cancelCodeId: 'a b', description: 'ruim' },
+        { code: '509', name: 'Dificuldades internas' },
+      ]),
+    ).toEqual([
+      { code: '503', label: 'Item indisponivel' },
+      { code: '509', label: 'Dificuldades internas' },
+    ]);
   });
 });

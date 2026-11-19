@@ -1,6 +1,8 @@
 import {
   fromCents,
   type ChannelAction,
+  type ChannelCancelReason,
+  type DisputeAlternative,
   type ChannelEventKind,
   type ExternalDiscount,
   type ExternalItem,
@@ -8,6 +10,7 @@ import {
   type ExternalOrder,
   type ExternalPayment,
 } from '@comandou/shared';
+import type { ChannelDispute, ChannelSettlement } from '../channels/channel-adapter';
 
 /**
  * Pedido e eventos do iFood → pedido e eventos normalizados do Comandou (ADR 0015). Só tradução,
@@ -22,6 +25,11 @@ export const IFOOD_PATHS = {
   ack: '/events/v1.0/events/acknowledgment',
   order: (id: string) => `/order/v1.0/orders/${encodeURIComponent(id)}`,
   action: (id: string, verb: string) => `/order/v1.0/orders/${encodeURIComponent(id)}/${verb}`,
+  cancelReasons: (id: string) => `/order/v1.0/orders/${encodeURIComponent(id)}/cancellationReasons`,
+  dispute: (id: string, verb: 'accept' | 'reject') =>
+    `/order/v1.0/disputes/${encodeURIComponent(id)}/${verb}`,
+  alternative: (id: string, alt: string) =>
+    `/order/v1.0/disputes/${encodeURIComponent(id)}/alternatives/${encodeURIComponent(alt)}`,
 } as const;
 
 /** Limites do iFood por minuto (a janela usa 80%). */
@@ -31,6 +39,7 @@ export const IFOOD_LIMITS = {
   order: 3000,
   action: 3000,
   cancellation: 300,
+  dispute: 1000,
 } as const;
 
 /** Até 100 lojas por x-polling-merchants e 2.000 ids por ack. */
@@ -111,10 +120,137 @@ export function ifoodVerb(action: ChannelAction): string | null {
     case 'reject':
     case 'request_cancellation':
       return 'requestCancellation';
+    case 'dispute_accept':
+    case 'dispute_reject':
+    case 'dispute_alternative':
+      return 'dispute';
     default:
       // Entregue: quem conclui é o iFood (CONCLUDED até 2 h depois da entrega).
       return null;
   }
+}
+
+/**
+ * Motivos que o iFood aceita para cancelar ESTE pedido (lista por pedido). Usada quando a consulta
+ * falha: a mesma lista pública da Order API.
+ */
+export const IFOOD_CANCEL_REASONS: ChannelCancelReason[] = [
+  { code: '501', label: 'Problemas de sistema' },
+  { code: '502', label: 'Pedido em duplicidade' },
+  { code: '503', label: 'Item indisponível' },
+  { code: '504', label: 'Restaurante sem entregador' },
+  { code: '505', label: 'Cardápio desatualizado' },
+  { code: '506', label: 'Pedido fora da área de entrega' },
+  { code: '507', label: 'Cliente golpista ou trote' },
+  { code: '508', label: 'Fora do horário de entrega' },
+  { code: '509', label: 'Dificuldades internas do restaurante' },
+  { code: '511', label: 'Área de risco' },
+  { code: '512', label: 'Restaurante abre mais tarde' },
+  { code: '513', label: 'Restaurante fechou' },
+];
+
+/** Resposta de cancellationReasons → lista normalizada (formatos tolerados). */
+export function ifoodCancelReasons(body: unknown): ChannelCancelReason[] {
+  const list = Array.isArray(body) ? body : [];
+  const out: ChannelCancelReason[] = [];
+  for (const r of list) {
+    const x = r as {
+      cancelCodeId?: unknown;
+      code?: unknown;
+      description?: unknown;
+      name?: unknown;
+    };
+    const code = String(x.cancelCodeId ?? x.code ?? '').trim();
+    const label = String(x.description ?? x.name ?? '').trim();
+    if (/^[A-Za-z0-9_-]{1,40}$/.test(code) && label)
+      out.push({ code, label: label.charAt(0) + label.slice(1).toLowerCase() });
+  }
+  return out.slice(0, 40);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Negociação (Plataforma de Negociação / handshake)
+
+export type NormalizedDispute = ChannelDispute;
+
+const UP = (v: unknown) => {
+  const t = typeof v === 'string' ? v.trim().toUpperCase() : '';
+  return /^[A-Z][A-Z_]{1,60}$/.test(t) ? t : undefined;
+};
+
+/** metadata do HANDSHAKE_DISPUTE → negociação normalizada (sem fotos nem dados do cliente). */
+export function ifoodDispute(meta: unknown): NormalizedDispute | null {
+  const m = (meta ?? {}) as Record<string, unknown>;
+  const id = typeof m.disputeId === 'string' ? m.disputeId.trim().slice(0, 100) : '';
+  if (!id) return null;
+  const inner = (m.metadata ?? {}) as Record<string, unknown>;
+  const alternatives: DisputeAlternative[] = [];
+  for (const a of Array.isArray(m.alternatives) ? m.alternatives : []) {
+    const x = (a ?? {}) as Record<string, unknown>;
+    const altId = typeof x.id === 'string' ? x.id.slice(0, 100) : '';
+    const type = UP(x.type);
+    if (!altId || !type) continue;
+    const md = (x.metadata ?? {}) as Record<string, unknown>;
+    const max = (md.maxAmount ?? {}) as { value?: unknown };
+    const cents = Number(max.value);
+    const minutes = (
+      Array.isArray(md.allowedsAdditionalTimeInMinutes)
+        ? md.allowedsAdditionalTimeInMinutes
+        : Array.isArray(md.allowedAdditionalTimeInMinutes)
+          ? md.allowedAdditionalTimeInMinutes
+          : []
+    )
+      .map(Number)
+      .filter((n) => Number.isInteger(n) && n > 0 && n <= 240)
+      .slice(0, 10);
+    const reasons = (
+      Array.isArray(md.allowedsAdditionalTimeReasons)
+        ? md.allowedsAdditionalTimeReasons
+        : Array.isArray(md.additionalTimeReasons)
+          ? md.additionalTimeReasons
+          : []
+    )
+      .map((r) => UP(r))
+      .filter((r): r is string => !!r)
+      .slice(0, 10);
+    alternatives.push({
+      id: altId,
+      type,
+      ...(Number.isInteger(cents) && cents > 0 ? { maxAmount: fromCents(cents) } : {}),
+      ...(minutes.length ? { minutes } : {}),
+      ...(reasons.length ? { reasons } : {}),
+    });
+  }
+  const reasons = (
+    Array.isArray(inner.acceptCancellationReasons)
+      ? inner.acceptCancellationReasons
+      : Array.isArray(m.acceptCancellationReasons)
+        ? m.acceptCancellationReasons
+        : []
+  )
+    .map((r) => UP(r))
+    .filter((r): r is string => !!r)
+    .slice(0, 20);
+  const message = typeof m.message === 'string' ? m.message.trim().slice(0, 1000) : '';
+  const expiresAt = validIso(typeof m.expiresAt === 'string' ? m.expiresAt : undefined);
+  const timeout = UP(m.timeoutAction);
+  return {
+    externalId: id,
+    kind: UP(m.action) ?? 'CANCELLATION',
+    ...(message ? { message } : {}),
+    ...(expiresAt ? { expiresAt } : {}),
+    ...(timeout ? { timeoutAction: timeout } : {}),
+    alternatives: alternatives.slice(0, 10),
+    acceptReasons: reasons,
+  };
+}
+
+/** metadata do HANDSHAKE_SETTLEMENT → qual negociação e como terminou. */
+export function ifoodSettlement(meta: unknown): ChannelSettlement | null {
+  const m = (meta ?? {}) as Record<string, unknown>;
+  const id = typeof m.disputeId === 'string' ? m.disputeId.trim().slice(0, 100) : '';
+  if (!id) return null;
+  return { externalId: id, outcome: UP(m.status) ?? UP(m.action) ?? 'SETTLED' };
 }
 
 /** Motivo padrão da recusa: "Dificuldades internas do restaurante" (a lista por pedido vem na Fase 3). */

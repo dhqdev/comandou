@@ -99,6 +99,10 @@ pedidos do aplicativo não chegam e ele cancela sozinho depois do prazo.
    Credencial `ifood:central` (modo centralizado, um token para todas as lojas) ou
    `ifood:conn:<id>` (distribuído, um token por loja, refresh token cifrado em `ifood_connections`).
    Pedido que o iFood não acha (404) é consultado no máximo 10 vezes e depois fica "falhou".
+7. **Negociação do iFood** (Fase 3): o cliente pede cancelamento ou reembolso e o restaurante
+   responde no pedido. Resposta que falhou aparece em Aplicativos de delivery com "Tentar de
+   novo"; depois do prazo o iFood decide sozinho (`timeout_action` em `channel_disputes`). Não
+   responda negociação pelo banco nem automatize: o iFood recomenda resposta de uma pessoa.
 
 ### Backup atrasado
 

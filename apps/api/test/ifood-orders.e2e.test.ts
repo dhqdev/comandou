@@ -424,3 +424,201 @@ describe('iFood: dinheiro na entrega e cancelamentos', () => {
     expect(ifood.lookups.get(ID(4))).toBeLessThanOrEqual(10);
   });
 });
+
+describe('iFood: motivo do cancelamento, cancelamento negado e negociação', () => {
+  const inFive = () => new Date(Date.now() + 5 * 60_000).toISOString();
+  const dispute = (ev: string, meta: Record<string, unknown>) =>
+    ifood.push({
+      id: ev,
+      code: 'HSD',
+      fullCode: 'HANDSHAKE_DISPUTE',
+      orderId: ID(5),
+      merchantId: MERCHANT,
+      metadata: meta,
+    });
+  const disputesOf = async (orderId: string) =>
+    (await get('adminA', `/orders/${orderId}`).expect(200)).body.app.disputes as {
+      id: string;
+      kind: string;
+      status: string;
+      message: string | null;
+      timeoutAction: string | null;
+      alternatives: { id: string; type: string; maxAmount?: string; minutes?: number[] }[];
+      acceptReasons: string[];
+      outcome: string | null;
+    }[];
+
+  it('motivos por pedido vêm do iFood; o código escolhido vai no pedido de cancelamento', async () => {
+    sample(5);
+    placed(5);
+    await cycle();
+    const o = await orderOf(ID(5));
+    await send('post', 'adminA', `/orders/${o.id}/status`, { to: 'new' }).expect(201);
+    await send('post', 'adminA', `/orders/${o.id}/status`, { to: 'in_production' }).expect(201);
+    await flush();
+    ifood.cancelReasons.set(ID(5), [
+      { cancelCodeId: '503', description: 'ITEM INDISPONIVEL' },
+      { cancelCodeId: '<script>', description: 'código estranho fica de fora' },
+    ]);
+    const r = await get('adminA', `/channels/orders/${o.id}/cancel-reasons`).expect(200);
+    expect(r.body.reasons).toEqual([{ code: '503', label: 'Item indisponivel' }]);
+    // Código fora do formato nem passa da validação.
+    await send('post', 'adminA', `/orders/${o.id}/status`, {
+      to: 'cancel_requested',
+      channelReason: '<script>',
+    }).expect(400);
+    await send('post', 'adminA', `/orders/${o.id}/status`, {
+      to: 'cancel_requested',
+      reason: 'Acabou o queijo',
+      channelReason: '503',
+    }).expect(201);
+    await flush();
+    const call = ifood.actions.find((a) => a.orderId === ID(5) && a.verb === 'requestCancellation');
+    expect(call!.body).toEqual({ reason: 'Acabou o queijo', cancellationCode: '503' });
+  });
+
+  it('o iFood nega o cancelamento: o pedido volta para onde estava', async () => {
+    event(5, 'CARF', 'CANCELLATION_REQUEST_FAILED', 'ev-carf-5');
+    await cycle();
+    const o = await orderOf(ID(5));
+    expect(o.status).toBe('in_production');
+    const [h] = await ownerQuery<{ reason: string }>(
+      `SELECT reason FROM order_status_history WHERE order_id = $1 ORDER BY id DESC LIMIT 1`,
+      [o.id],
+    );
+    expect(h!.reason).toMatch(/cancelamento negado/);
+  });
+
+  it('negociação aberta aparece no pedido com prazo, alternativas e motivos (sem dados do cliente)', async () => {
+    dispute('ev-hsd-1', {
+      disputeId: 'disp-1',
+      action: 'CANCELLATION',
+      message: 'Demorou demais',
+      timeoutAction: 'ACCEPT_CANCELLATION',
+      expiresAt: inFive(),
+      evidences: [{ url: 'https://foto.example/cliente.jpg' }],
+      alternatives: [
+        { id: 'alt-1', type: 'REFUND', metadata: { maxAmount: { value: 1000, currency: 'BRL' } } },
+        {
+          id: 'alt-2',
+          type: 'ADDITIONAL_TIME',
+          metadata: {
+            allowedsAdditionalTimeInMinutes: [10, 20],
+            allowedsAdditionalTimeReasons: ['HIGH_STORE_DEMAND'],
+          },
+        },
+      ],
+      metadata: { acceptCancellationReasons: ['CUSTOMER_REQUEST'] },
+    });
+    // Repetido (mesmo id de evento) não abre outra.
+    await cycle();
+    const o = await orderOf(ID(5));
+    const [d] = await disputesOf(o.id);
+    expect(d).toMatchObject({
+      kind: 'CANCELLATION',
+      status: 'open',
+      message: 'Demorou demais',
+      timeoutAction: 'ACCEPT_CANCELLATION',
+      acceptReasons: ['CUSTOMER_REQUEST'],
+      alternatives: [
+        { id: 'alt-1', type: 'REFUND', maxAmount: '10.00' },
+        { id: 'alt-2', type: 'ADDITIONAL_TIME', minutes: [10, 20] },
+      ],
+    });
+    const [raw] = await ownerQuery<{ payload: unknown }>(
+      `SELECT payload FROM channel_inbox WHERE event_id = 'ev-hsd-1'`,
+    );
+    expect(JSON.stringify(raw!.payload)).not.toContain('foto.example');
+    const detail = await get('adminA', `/orders/${o.id}`).expect(200);
+    expect(detail.body.appDisputeUntil).toBeTruthy();
+  });
+
+  it('a pessoa propõe um reembolso dentro do limite; responder de novo não vale', async () => {
+    const o = await orderOf(ID(5));
+    const [d] = await disputesOf(o.id);
+    const url = `/channels/disputes/${d!.id}/decision`;
+    await send('post', 'adminA', url, { decision: 'accept' }).expect(422);
+    await send('post', 'adminA', url, {
+      decision: 'alternative',
+      alternativeId: 'alt-1',
+      amount: '15.00',
+    }).expect(422);
+    await send('post', 'adminA', url, {
+      decision: 'alternative',
+      alternativeId: 'alt-9',
+      amount: '5.00',
+    }).expect(422);
+    await send('post', 'adminA', url, {
+      decision: 'alternative',
+      alternativeId: 'alt-1',
+      amount: '8.50',
+    }).expect(200);
+    await send('post', 'adminA', url, { decision: 'reject', reason: 'Não' }).expect(409);
+    await flush();
+    expect(ifood.disputeCalls).toEqual([
+      {
+        disputeId: 'disp-1',
+        verb: 'alternatives',
+        altId: 'alt-1',
+        body: { type: 'REFUND', metadata: { amount: { value: '850', currency: 'BRL' } } },
+      },
+    ]);
+    // O iFood encerra: fica "resolvido" e a ação, confirmada.
+    ifood.push({
+      id: 'ev-hss-1',
+      code: 'HSS',
+      fullCode: 'HANDSHAKE_SETTLEMENT',
+      orderId: ID(5),
+      merchantId: MERCHANT,
+      metadata: { disputeId: 'disp-1', status: 'ALTERNATIVE_ACCEPTED' },
+    });
+    await cycle();
+    const [after] = await disputesOf(o.id);
+    expect(after).toMatchObject({ status: 'settled', outcome: 'ALTERNATIVE_ACCEPTED' });
+    const [act] = await ownerQuery<{ status: string }>(
+      `SELECT status FROM integration_outbox WHERE order_id = $1 AND action = 'dispute_alternative'`,
+      [o.id],
+    );
+    expect(act!.status).toBe('confirmed');
+    expect((await get('adminA', `/orders/${o.id}`)).body.appDisputeUntil).toBeNull();
+  });
+
+  it('recusar manda o motivo; prazo vencido não aceita resposta; outro restaurante não vê', async () => {
+    dispute('ev-hsd-2', {
+      disputeId: 'disp-2',
+      action: 'PARTIAL_CANCELLATION',
+      expiresAt: inFive(),
+    });
+    dispute('ev-hsd-3', {
+      disputeId: 'disp-3',
+      action: 'CANCELLATION',
+      expiresAt: new Date(Date.now() - 60_000).toISOString(),
+    });
+    await cycle();
+    const o = await orderOf(ID(5));
+    const list = await disputesOf(o.id);
+    const d2 = list.find((d) => d.kind === 'PARTIAL_CANCELLATION')!;
+    const d3 = list.find((d) => d.status === 'open' && d.kind === 'CANCELLATION')!;
+    await send('post', 'adminB', `/channels/disputes/${d2.id}/decision`, {
+      decision: 'reject',
+      reason: 'x',
+    }).expect(404);
+    await send('post', 'adminA', `/channels/disputes/${d2.id}/decision`, {
+      decision: 'reject',
+      reason: '',
+    }).expect(400);
+    await send('post', 'adminA', `/channels/disputes/${d2.id}/decision`, {
+      decision: 'reject',
+      reason: 'O pedido já saiu para entrega',
+    }).expect(200);
+    await send('post', 'adminA', `/channels/disputes/${d3.id}/decision`, {
+      decision: 'accept',
+    }).expect(409);
+    await flush();
+    expect(ifood.disputeCalls.at(-1)).toEqual({
+      disputeId: 'disp-2',
+      verb: 'reject',
+      body: { reason: 'O pedido já saiu para entrega' },
+    });
+  });
+});
