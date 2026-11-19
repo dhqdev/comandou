@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.181.1',
+    date: '2026-11-19',
+    title: 'Nota fiscal revisada: menos recusas da SEFAZ',
+    summary:
+      'Revisamos as regras e os campos da NFC-e e da NF-e. O sistema agora avisa antes de enviar quando o padrão fiscal tem algo que a SEFAZ recusaria, e corrige sozinho alguns campos que geravam recusa.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Antes de enviar, a nota avisa quando o CFOP ou o CSOSN/CST não serve para a NFC-e, quando falta alíquota do ICMS, do PIS ou da COFINS, e quando um item com substituição tributária está sem CEST.',
+      },
+      {
+        tag: 'correção',
+        text: 'NFC-e com CNPJ de empresa no cupom não é mais recusada por "destinatário contribuinte": ela sai sempre como consumidor final.',
+      },
+      {
+        tag: 'correção',
+        text: 'NF-e de delivery não usa mais "entrega a domicílio" (opção só da NFC-e), e a NF-e para outro estado usa o CFOP certo para consumidor final (6107/6108) e para bebidas com substituição tributária (6404).',
+      },
+      {
+        tag: 'correção',
+        text: 'Reforma tributária: a classificação de bares e restaurantes (200047, redução de 40%) entrou na lista, a de "alimentos" estava com o código errado, e a alíquota reduzida agora vai na nota com o valor certo.',
+      },
+      {
+        tag: 'correção',
+        text: 'Nota denegada pela SEFAZ não fica mais tentando reenviar com o mesmo número; a venda pode receber uma nota nova.',
+      },
+    ],
+  },
+  {
     version: '0.181.0',
     date: '2026-11-19',
     title: 'E-mails com visual novo, mais profissional',

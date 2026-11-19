@@ -172,6 +172,7 @@ interface DocRow {
   number: string | null;
   contingency: boolean;
   contingency_settled_at: Date | null;
+  provider_status: string | null;
 }
 
 const SETTINGS_COLS = `enabled, environment, cnpj, token_enc, token_last4, default_cfop, default_code,
@@ -180,7 +181,7 @@ const SETTINGS_COLS = `enabled, environment, cnpj, token_enc, token_last4, defau
   nfe_nature, additional_info, auto_emit_nfce, print_nfce, email_customer, received_version::text, received_synced_at, contingency_offline`;
 
 const DOC_COLS = `id, order_id, tab_id, kind, ref, environment, status, attempts, request_payload, cancel_reason,
-  recipient, operation, customer_id, number, contingency, contingency_settled_at`;
+  recipient, operation, customer_id, number, contingency, contingency_settled_at, provider_status`;
 
 /** Contexto do valor cifrado: um token não decifra se for trocado de ambiente ou de restaurante. */
 const tokenContext = (tenantId: string, kind: 'own' | FocusEnvironment) =>
@@ -1247,6 +1248,7 @@ export class FiscalService implements OnModuleInit {
         tx,
         `SELECT ${DOC_COLS} FROM fiscal_documents
           WHERE kind = 'nfce' AND status IN ('rejected','error')
+            AND provider_status IS DISTINCT FROM 'denegado'
             AND (CASE WHEN $2::uuid IS NULL THEN order_id = $1 AND tab_id IS NULL ELSE tab_id = $2 END)
           ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
         [o.id, scope.tabId],
@@ -1352,7 +1354,8 @@ export class FiscalService implements OnModuleInit {
       const operation: Operation = {
         nature: s.nfe_nature,
         purpose: '1',
-        presence: extra.channel === 'delivery' ? '4' : extra.source === 'online' ? '2' : '1',
+        // "4" (entrega a domicílio) só existe na NFC-e; delivery em NF-e é "não presencial".
+        presence: extra.source === 'online' ? '2' : extra.channel === 'delivery' ? '9' : '1',
         finalConsumer: recipient?.ieIndicator !== 1,
         info: null,
       };
@@ -1382,6 +1385,11 @@ export class FiscalService implements OnModuleInit {
     if (!d) throw new NotFoundException('Nota não encontrada');
     if (!EDITABLE.includes(d.status))
       throw new ConflictException('Só nota em rascunho, rejeitada ou com erro pode ser alterada');
+    // Denegada: o número fica gasto na SEFAZ e a nota não pode ser corrigida nem reenviada.
+    if (d.provider_status === 'denegado')
+      throw new ConflictException(
+        'Nota denegada pela SEFAZ: o número fica registrado e ela não pode ser reemitida. Fale com a contabilidade; a venda pode receber uma nota nova.',
+      );
     return d;
   }
 

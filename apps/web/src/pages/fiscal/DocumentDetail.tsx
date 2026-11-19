@@ -448,7 +448,8 @@ export function DocumentDetail() {
                 disabled={!editable}
                 onChange={(e) => setO('presence', e.target.value)}
               >
-                {PRESENCE.map(([v, l]) => (
+                {/* "4" (entrega a domicílio) é só da NFC-e: a NF-e recusa (rejeição 794). */}
+                {PRESENCE.filter(([v]) => v !== '4' || op.presence === '4').map(([v, l]) => (
                   <option key={v} value={v}>
                     {l}
                   </option>

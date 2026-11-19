@@ -125,3 +125,33 @@ de fechamento (conferência de conta), a comanda da cozinha e o rodapé do cupom
 - Campos da reforma tributária (IBS e CBS, alíquotas de teste de 2026) já entram na nota.
 - Corrigido nesta versão: a mensagem de cancelamento recusado às vezes vinha vazia.
 - Novo nesta versão: contingência offline, com duas vias e sem permitir cancelar antes da hora.
+
+## Auditoria de regras e campos (0.181.1)
+
+Conferido contra o MOC, as notas técnicas 2023.003 (CFOP da NFC-e) e 2025.002 (IBS/CBS) e a tabela
+oficial de cClassTrib. O que agora é barrado **antes** de ir para a SEFAZ, com a explicação na tela:
+
+- NFC-e com CFOP fora da lista aceita (5101, 5102, 5103, 5104, 5115, 5405, 5656, 5667, 5933; 5949
+  só em RS, SP, ES e AM, para gorjeta; 5403 só no CE). Rejeição 725.
+- NFC-e com CSOSN 101, 201, 202, 203 ou CST 10, 30, 51, 70 (regras 382 e 386).
+- CST 00, 10, 20 e 70 do ICMS sem alíquota; CST 20 e 70 sem redução da base; PIS/COFINS 01 e 02
+  sem alíquota.
+- Item com ICMS-ST (CST 10, 30, 60, 70; CSOSN 201, 202, 203, 500) sem CEST (rejeição 806).
+- IBS/CBS sem classificação, ou CST 200 com classificação sem redução conhecida.
+
+Corrigido:
+
+- NFC-e manda o destinatário sempre como não contribuinte (indicador 9, sem IE): rejeição 789.
+- NF-e de delivery não usa mais a presença "4" (só da NFC-e, rejeição 794): vai "2" (internet) ou
+  "9" (outros).
+- NF-e interestadual: 5405 vira 6404 (não existe 6405); para não contribuinte, 5101 vira 6107 e
+  5102 vira 6108.
+- IBS/CBS com CST 200: a nota leva a redução (`pRedAliq`) e a alíquota efetiva (`pAliqEfet`), e o
+  valor sai da alíquota efetiva. A lista tinha o 200030 como "alimentos", mas ele é de dispositivos
+  médicos; entraram 200047 (bares e restaurantes, 40%), 200034 (Anexo VII, 60%) e 410019 (gorjeta).
+- Nota denegada (301/302) não é mais reemitida com o mesmo número: o número fica gasto, não aparece
+  como "pulado" para inutilizar, e a venda pode receber uma nota nova.
+
+Ainda em aberto (precisa de decisão ou da contabilidade): intermediador (iFood) na nota
+(`indIntermed` e CNPJ do iFood), DIFAL na NF-e interestadual para consumidor final, Pix estático
+como forma 20, crédito do Simples no CSOSN 101 e a taxa de serviço como base do ICMS.

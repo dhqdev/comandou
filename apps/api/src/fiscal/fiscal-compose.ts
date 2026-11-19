@@ -2,10 +2,13 @@ import {
   allocateCents,
   FiscalIssue,
   fromCents,
+  IBS_CBS_REDUCTIONS,
   icmsMatchesRegime,
   interstateCfop,
   isValidCnpj,
   isValidCpf,
+  nfceCfopAllowed,
+  nfceIcmsAllowed,
   PAYMENT_CODES,
   toCents,
 } from '@comandou/shared';
@@ -215,7 +218,8 @@ function recipientPayload(kind: 'nfce' | 'nfe', r: Recipient | null) {
   const cpf = digits(r.cpf);
   const cnpj = digits(r.cnpj);
   const hasAddress = !!(r.street && r.number && r.city && r.state);
-  const ind = r.ieIndicator ?? 9;
+  // A NFC-e só vai para não contribuinte (rejeição 789): indicador 9 e sem IE.
+  const ind = kind === 'nfce' ? 9 : (r.ieIndicator ?? 9);
   const out: Record<string, unknown> = {
     ...(r.name ? { nome_destinatario: r.name.slice(0, 60) } : {}),
     ...(cnpj ? { cnpj_destinatario: cnpj } : cpf ? { cpf_destinatario: cpf } : {}),
@@ -237,6 +241,53 @@ function recipientPayload(kind: 'nfce' | 'nfe', r: Recipient | null) {
   }
   if (r.phone && kind === 'nfe') out.telefone_destinatario = digits(r.phone);
   if (r.email && kind === 'nfe') out.email_destinatario = r.email;
+  return out;
+}
+
+/** Alíquota depois da redução (pAliqEfet), com até 4 casas. */
+function effectiveRate(rate: string | null, reduction: number | undefined): string {
+  const r = Number(rate ?? 0);
+  if (reduction === undefined) return rate ?? '0';
+  return String(Math.round(r * (100 - reduction) * 100) / 10000);
+}
+
+/** CSTs do ICMS próprio que exigem alíquota (e base) na nota. */
+const ICMS_NEEDS_RATE = new Set(['00', '10', '20', '70']);
+/** ICMS com substituição tributária: o item precisa do CEST (rejeição 806). */
+const ICMS_ST = new Set(['10', '30', '60', '70', '201', '202', '203', '500']);
+
+/** O que falta no padrão fiscal para a nota passar na SEFAZ (alíquotas, CEST, CFOP). */
+function ruleIssues(
+  kind: 'nfce' | 'nfe',
+  rule: FiscalRule,
+  cfop: string,
+  issuerUf: string | null,
+): string[] {
+  const out: string[] = [];
+  if (kind === 'nfce' && !nfceCfopAllowed(cfop, issuerUf))
+    out.push(`o CFOP ${cfop} não é aceito na NFC-e (use 5101, 5102 ou 5405, por exemplo)`);
+  if (kind === 'nfce' && !nfceIcmsAllowed(rule.icmsCst))
+    out.push(
+      `o ${rule.icmsCst.length === 3 ? 'CSOSN' : 'CST'} ${rule.icmsCst} não é aceito na NFC-e`,
+    );
+  if (ICMS_NEEDS_RATE.has(rule.icmsCst) && !rule.icmsRate)
+    out.push(`o CST ${rule.icmsCst} do ICMS precisa da alíquota`);
+  if (['20', '70'].includes(rule.icmsCst) && !Number(rule.icmsBaseReduction ?? 0))
+    out.push(`o CST ${rule.icmsCst} do ICMS precisa da redução da base`);
+  if (['01', '02'].includes(rule.pisCst) && !rule.pisRate)
+    out.push(`o CST ${rule.pisCst} do PIS precisa da alíquota`);
+  if (['01', '02'].includes(rule.cofinsCst) && !rule.cofinsRate)
+    out.push(`o CST ${rule.cofinsCst} da COFINS precisa da alíquota`);
+  if (rule.ibsCbsCst && !rule.ibsCbsClass)
+    out.push('o IBS/CBS precisa da classificação tributária');
+  if (
+    rule.ibsCbsCst === '200' &&
+    rule.ibsCbsClass &&
+    IBS_CBS_REDUCTIONS[rule.ibsCbsClass] === undefined
+  )
+    out.push(
+      `a classificação ${rule.ibsCbsClass} não é de alíquota reduzida conhecida (use 200047 para bar e restaurante)`,
+    );
   return out;
 }
 
@@ -281,9 +332,12 @@ function taxFields(kind: 'nfce' | 'nfe', rule: FiscalRule, baseCents: number) {
       });
   }
   if (rule.ibsCbsCst) {
-    const cbs = pct(baseCents, rule.cbsRate);
-    const uf = pct(baseCents, rule.ibsUfRate);
-    const mun = pct(baseCents, rule.ibsMunRate);
+    // CST 200 (alíquota reduzida): a nota leva a redução e a alíquota efetiva, e o valor sai dela.
+    const red = rule.ibsCbsCst === '200' ? IBS_CBS_REDUCTIONS[rule.ibsCbsClass ?? ''] : undefined;
+    const eff = (rate: string | null) => effectiveRate(rate, red);
+    const cbs = pct(baseCents, eff(rule.cbsRate));
+    const uf = pct(baseCents, eff(rule.ibsUfRate));
+    const mun = pct(baseCents, eff(rule.ibsMunRate));
     Object.assign(out, {
       ibs_cbs_situacao_tributaria: rule.ibsCbsCst,
       ...(rule.ibsCbsClass ? { ibs_cbs_classificacao_tributaria: rule.ibsCbsClass } : {}),
@@ -295,6 +349,16 @@ function taxFields(kind: 'nfce' | 'nfe', rule: FiscalRule, baseCents: number) {
       ibs_mun_aliquota: rule.ibsMunRate ?? '0',
       ibs_mun_valor: money(mun),
       ibs_valor_total: money(uf + mun),
+      ...(red !== undefined
+        ? {
+            cbs_percentual_reducao_aliquota: String(red),
+            cbs_aliquota_efetiva: eff(rule.cbsRate),
+            ibs_uf_percentual_reducao_aliquota: String(red),
+            ibs_uf_aliquota_efetiva: eff(rule.ibsUfRate),
+            ibs_mun_percentual_reducao_aliquota: String(red),
+            ibs_mun_aliquota_efetiva: eff(rule.ibsMunRate),
+          }
+        : {}),
     });
   }
   if (rule.benefitCode) out.codigo_beneficio_fiscal = rule.benefitCode;
@@ -413,6 +477,7 @@ export function composeNote(input: ComposeInput) {
   const others = ok ? allocateCents(otherCents, totals) : totals.map(() => 0);
   const freights = ok ? allocateCents(freightCents, totals) : totals.map(() => 0);
 
+  const nonContributor = (recipient?.ieIndicator ?? 9) === 9;
   const recipientUf = (recipient?.state ?? '').toUpperCase();
   const interstate =
     kind === 'nfe' &&
@@ -420,11 +485,19 @@ export function composeNote(input: ComposeInput) {
     !!recipientUf &&
     recipientUf !== input.issuerUf.toUpperCase();
 
+  const ruleProblems = new Set<string>();
+  const legacyCfops = new Set<string>();
   const payloadItems = items.map((i, n) => {
     const rule = resolved[n];
     const base = totals[n] - discounts[n] + others[n] + freights[n];
     const cfopIn = rule?.cfop ?? i.legacyCfop ?? settings.defaultCfop;
-    const cfop = interstate ? (rule?.cfopInterstate ?? interstateCfop(cfopIn)) : cfopIn;
+    const cfop = interstate
+      ? (rule?.cfopInterstate ?? interstateCfop(cfopIn, nonContributor))
+      : cfopIn;
+    if (rule)
+      for (const p of ruleIssues(kind, rule, cfop, input.issuerUf))
+        ruleProblems.add(`${rule.code}: ${p}`);
+    else if (kind === 'nfce' && !nfceCfopAllowed(cfop, input.issuerUf)) legacyCfops.add(cfop);
     return {
       numero_item: String(n + 1),
       codigo_produto: i.productId,
@@ -448,6 +521,32 @@ export function composeNote(input: ComposeInput) {
       ...(rule ? taxFields(kind, rule, base) : {}),
     };
   });
+
+  if (ruleProblems.size)
+    issues.push({
+      title: 'Padrão fiscal incompleto',
+      detail: `A SEFAZ recusaria a nota: ${[...ruleProblems].join('; ')}. Corrija em Fiscal → Padrões fiscais.`,
+      fix: 'rules',
+    });
+  if (legacyCfops.size)
+    issues.push({
+      title: 'CFOP não aceito na NFC-e',
+      detail: `A NFC-e não aceita o CFOP ${[...legacyCfops].join(', ')}. Corrija o CFOP padrão em Fiscal → Configuração.`,
+      fix: 'settings',
+    });
+  const noCest = [
+    ...new Set(
+      items
+        .filter((i, n) => !i.cest && ICMS_ST.has(resolved[n]?.icmsCst ?? i.legacyCode ?? ''))
+        .map((i) => i.name),
+    ),
+  ];
+  if (noCest.length)
+    issues.push({
+      title: noCest.length === 1 ? 'Item com ICMS-ST sem CEST' : 'Itens com ICMS-ST sem CEST',
+      detail: `Item com substituição tributária precisa do CEST no cadastro (rejeição 806): ${noCest.join(', ')}.`,
+      fix: 'items',
+    });
 
   const info = [settings.additionalInfo, operation.info].filter((x) => x && x.trim()).join(' ');
   const payload: Record<string, unknown> = {
@@ -480,8 +579,15 @@ export function composeNote(input: ComposeInput) {
       tipo_documento: '1',
       finalidade_emissao: purpose,
       consumidor_final: operation.finalConsumer === false ? '0' : '1',
+      // "4" (entrega a domicílio) é só da NFC-e: na NF-e a SEFAZ recusa (rejeição 794).
       presenca_comprador:
-        operation.presence ?? (delivery ? '4' : order.source === 'online' ? '2' : '1'),
+        operation.presence && operation.presence !== '4'
+          ? operation.presence
+          : order.source === 'online'
+            ? '2'
+            : delivery || operation.presence === '4'
+              ? '9'
+              : '1',
       local_destino: interstate ? '2' : '1',
       modalidade_frete: operation.freight ?? (freightCents > 0 ? '0' : '9'),
       ...(purpose !== '1' && operation.referencedKey

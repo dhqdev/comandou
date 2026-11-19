@@ -106,10 +106,24 @@ export const CST_IBS_CBS: CodeList = [
 /** Classificação tributária do IBS/CBS (cClassTrib) mais usada por bares e restaurantes. */
 export const IBS_CBS_CLASSES: CodeList = [
   ['000001', '000001 · Situações tributadas integralmente pelo IBS e CBS'],
-  ['200030', '200030 · Alíquota reduzida em 60% (alimentos destinados ao consumo humano)'],
-  ['200003', '200003 · Alíquota reduzida em 100% (produtos da cesta básica)'],
+  ['200047', '200047 · Bares e restaurantes, alíquota reduzida em 40% (CST 200)'],
+  ['200034', '200034 · Alimentos do Anexo VII, alíquota reduzida em 60% (CST 200)'],
+  ['200003', '200003 · Cesta básica (Anexo I), alíquota reduzida em 100% (CST 200)'],
+  ['410019', '410019 · Gorjeta fora da base no fornecimento de alimentação (CST 410)'],
   ['410999', '410999 · Operações não onerosas sem previsão de tributação'],
 ];
+
+/**
+ * Redução das alíquotas do IBS e da CBS (pRedAliq) de cada classificação com CST 200, conforme a
+ * tabela oficial de cClassTrib. Com CST 200 a nota leva a redução e a alíquota efetiva.
+ */
+export const IBS_CBS_REDUCTIONS: Readonly<Record<string, number>> = {
+  '200003': 100,
+  '200014': 100,
+  '200034': 60,
+  '200036': 60,
+  '200047': 40,
+};
 
 /** Alíquotas de teste de 2026 (sem recolhimento): CBS 0,9% e IBS estadual 0,1%. */
 export const IBS_CBS_TEST_RATES = { cbs: '0.9', ibsUf: '0.1', ibsMun: '0' } as const;
@@ -214,9 +228,61 @@ export function icmsMatchesRegime(code: string, regime: number | null | undefine
   return regime === 3 ? code.length === 2 : code.length === 3;
 }
 
-/** CFOP interestadual equivalente (5xxx → 6xxx). */
-export function interstateCfop(cfop: string): string {
+/**
+ * CFOP interestadual equivalente (5xxx → 6xxx). O 5405 não tem 6405: vira 6404. Venda para
+ * não contribuinte de outro estado usa 6107 (produção) e 6108 (mercadoria de terceiros).
+ */
+export function interstateCfop(cfop: string, nonContributor = false): string {
+  if (nonContributor && cfop === '5101') return '6107';
+  if (nonContributor && cfop === '5102') return '6108';
+  if (cfop === '5405') return '6404';
   return cfop.startsWith('5') ? `6${cfop.slice(1)}` : cfop;
+}
+
+/** CFOPs que a NFC-e aceita (regra 725), mais as exceções de cada estado (NT 2023.003). */
+const NFCE_CFOPS = new Set([
+  '5101',
+  '5102',
+  '5103',
+  '5104',
+  '5115',
+  '5405',
+  '5656',
+  '5667',
+  '5933',
+]);
+const NFCE_CFOPS_UF: Record<string, string[]> = {
+  '5949': ['RS', 'SP', 'ES', 'AM'],
+  '5403': ['CE'],
+};
+
+/** A NFC-e aceita este CFOP no estado do restaurante? (UF desconhecida: aceita as exceções). */
+export function nfceCfopAllowed(cfop: string, uf: string | null | undefined): boolean {
+  if (NFCE_CFOPS.has(cfop)) return true;
+  const ufs = NFCE_CFOPS_UF[cfop];
+  return !!ufs && (!uf || ufs.includes(uf.toUpperCase()));
+}
+
+/**
+ * CST/CSOSN aceitos na NFC-e (regras 382 e 386): venda ao consumidor final não leva ICMS-ST
+ * retido na própria nota, diferimento nem crédito do Simples.
+ */
+const NFCE_ICMS = new Set([
+  '00',
+  '20',
+  '40',
+  '41',
+  '60',
+  '90',
+  '102',
+  '103',
+  '300',
+  '400',
+  '500',
+  '900',
+]);
+export function nfceIcmsAllowed(code: string): boolean {
+  return NFCE_ICMS.has(code);
 }
 
 /** CPF válido (dígitos verificadores). */

@@ -69,7 +69,8 @@ export class FiscalExtraService {
         `WITH used AS (
            SELECT kind, series::int AS series, number::int AS n FROM fiscal_documents
             WHERE environment = $1 AND number ~ '^[0-9]{1,9}$' AND series ~ '^[0-9]{1,3}$'
-              AND status IN ('authorized','cancelling','cancelled')
+              AND (status IN ('authorized','cancelling','cancelled')
+                   OR (status = 'rejected' AND provider_status = 'denegado'))
          ), bounds AS (
            SELECT kind, series, min(n) AS lo, max(n) AS hi FROM used GROUP BY kind, series
          )
@@ -97,7 +98,9 @@ export class FiscalExtraService {
         tx,
         `SELECT number FROM fiscal_documents
           WHERE kind = $1 AND environment = $2 AND series = $3::text AND number ~ '^[0-9]+$'
-            AND number::int BETWEEN $4 AND $5 AND status IN ('authorized','cancelling','cancelled','processing')
+            AND number::int BETWEEN $4 AND $5
+            AND (status IN ('authorized','cancelling','cancelled','processing')
+                 OR (status = 'rejected' AND provider_status = 'denegado'))
           LIMIT 1`,
         [b.kind, env, String(b.series), b.from, b.to],
       ),

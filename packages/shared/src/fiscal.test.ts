@@ -6,6 +6,8 @@ import {
   interstateCfop,
   isValidCnpj,
   isValidCpf,
+  nfceCfopAllowed,
+  nfceIcmsAllowed,
   suggestedRules,
 } from './fiscal';
 
@@ -41,6 +43,16 @@ describe('fiscal', () => {
     expect(icmsMatchesRegime('00', 3)).toBe(true);
     expect(icmsMatchesRegime('102', null)).toBe(true);
     expect(interstateCfop('5102')).toBe('6102');
+    expect(interstateCfop('5102', true)).toBe('6108');
+    expect(interstateCfop('5101', true)).toBe('6107');
+    expect(interstateCfop('5405')).toBe('6404');
+    expect(nfceCfopAllowed('5102', 'PR')).toBe(true);
+    expect(nfceCfopAllowed('5929', 'SP')).toBe(false);
+    expect(nfceCfopAllowed('5949', 'SP')).toBe(true);
+    expect(nfceCfopAllowed('5949', 'PR')).toBe(false);
+    expect(nfceIcmsAllowed('102')).toBe(true);
+    expect(nfceIcmsAllowed('101')).toBe(false);
+    expect(nfceIcmsAllowed('10')).toBe(false);
     expect(suggestedRules(1).filter((r) => r.isDefault)).toHaveLength(1);
     expect(suggestedRules(3)[0].icmsCst).toBe('00');
   });
