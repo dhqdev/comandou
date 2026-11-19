@@ -296,7 +296,8 @@ describe('Contrato do cliente', () => {
     expect(calls[0]!.html).toContain(
       `/restaurantes/${fx.tenantA}?aba=contrato&amp;contrato=${contractId}`,
     );
-    expect(calls[0]!.attachments).toBeUndefined();
+    // Sem PDF: só a capa e o ícone do Comandou, embutidos no e-mail.
+    expect((calls[0]!.attachments ?? []).filter((a) => !a.content_id)).toEqual([]);
     expect(calls[0]!.reply_to).toBe('maria@ct-a.test');
     expect(calls[1]!.reply_to).toBe('david@comandou.test');
     const p = await pget('/contracts/pending').expect(200);

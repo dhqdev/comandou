@@ -9,7 +9,7 @@
  * Rodar depois de mudar o desenho (usa o Chromium do Playwright do apps/web):
  *   node tools/email-pandas/render.mjs
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -182,7 +182,9 @@ ${paw(36, 80, 5.2)}${paw(64, 80, 5.2)}`,
   }),
 };
 
+const apiOut = join(here, '../../apps/api/assets/email');
 mkdirSync(out, { recursive: true });
+mkdirSync(apiOut, { recursive: true });
 const browser = await chromium.launch(
   process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
 );
@@ -248,6 +250,9 @@ for (const [name, svg] of Object.entries(POSES)) {
   await wide.evaluate(() => document.fonts.ready);
   const jpg = await wide.locator('.hero').screenshot({ type: 'jpeg', quality: 88 });
   writeFileSync(join(out, `hero-${name}.jpg`), jpg);
+  // Cópia para a API: vai embutida no e-mail na hora de enviar (mail/inline-images.ts).
+  writeFileSync(join(apiOut, `hero-${name}.jpg`), jpg);
   console.log(`hero-${name}.jpg`);
 }
+copyFileSync(join(here, '../../apps/web/public/icons/icon-192.png'), join(apiOut, 'icon-192.png'));
 await browser.close();

@@ -12,6 +12,7 @@ import { open, seal } from '../common/secret-box';
 import { ENV, Env } from '../config/env';
 import { PlatformDb } from '../platform/platform-db.service';
 import { Address, cleanHeader, domainOf, isEmail, normalizeMessageId } from './address';
+import { inlineImages } from './inline-images';
 import {
   Fetcher,
   MailSendError,
@@ -315,6 +316,9 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
           WHERE outbox_id = $1 ORDER BY created_at, id`,
         [r.id],
       );
+      // Capa e ícone do Comandou vão embutidos no e-mail (cid:), não por link do site.
+      const inline = html ? inlineImages(html) : { html, attachments: [] };
+      html = inline.html;
       const from = r.from_address || s.from_address;
       const rfcId =
         r.rfc_id ?? `<${randomUUID()}@${domainOf(from) || this.env.COMANDOU_BASE_DOMAIN}>`;
@@ -331,12 +335,15 @@ export class MailService implements OnApplicationBootstrap, OnModuleDestroy {
           text,
           rfcId,
           headers: r.headers ?? {},
-          attachments: attachments.map((a) => ({
-            filename: a.filename,
-            contentType: a.content_type,
-            contentId: a.content_id,
-            data: a.data,
-          })),
+          attachments: [
+            ...attachments.map((a) => ({
+              filename: a.filename,
+              contentType: a.content_type,
+              contentId: a.content_id,
+              data: a.data,
+            })),
+            ...inline.attachments,
+          ],
         },
         this.fetcher,
       );

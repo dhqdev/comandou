@@ -20,6 +20,19 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.199.1',
+    date: '2026-11-19',
+    title: 'Logo do Comandou dentro do e-mail',
+    summary:
+      'A capa e o ícone do Comandou agora vão dentro do próprio e-mail, pelo Resend, e aparecem mesmo quando o programa de e-mail bloqueia imagens de fora.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Capa e logo embutidas no e-mail: aparecem no Outlook e em quem bloqueia imagens de links, sem depender do site estar no ar.',
+      },
+    ],
+  },
+  {
     version: '0.199.0',
     date: '2026-11-19',
     title: 'E-mails com capa do Comandou e botão de copiar o código',

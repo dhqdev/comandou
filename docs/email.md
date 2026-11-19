@@ -84,6 +84,16 @@ e-mail não roda script, o botão abre `/codigo#<código>` (`pages/copy-code/Cop
 qualquer endereço), que copia sozinha ou com um toque. O código vai depois do `#` (não chega ao
 servidor nem ao log) e sai do endereço assim que a página abre.
 
+Desde a 0.199.1 a capa e o ícone vão **embutidos** no e-mail: na hora de entregar,
+`mail/inline-images.ts` troca o link dessas imagens por `cid:` e manda os arquivos de
+`apps/api/assets/email` como anexo embutido do Resend (`content_id`). O HTML da fila e a prévia
+do Super Admin continuam com o link do site. Rodou `render.mjs`? Ele grava nos dois lugares.
+
+**Logo na bolinha da caixa de entrada** (o "C" colorido ao lado do remetente) não sai do e-mail:
+é o BIMI, configurado no DNS do domínio do remetente (DMARC em `quarantine` ou `reject`, a logo
+em SVG Tiny P/S num registro `default._bimi`) e, para o Gmail e o Apple Mail, um certificado de
+marca (VMC ou CMC) pago, emitido por DigiCert ou Entrust.
+
 ## 1. Configurar o Resend (grátis até 3.000 e-mails por mês)
 
 1. Crie a conta em [resend.com](https://resend.com) e adicione o domínio em *Domains*.

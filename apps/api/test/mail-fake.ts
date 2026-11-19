@@ -17,7 +17,12 @@ export interface SentMail {
     html?: string;
     text?: string;
     headers?: Record<string, string>;
-    attachments?: { filename: string; content: string; content_type: string }[];
+    attachments?: {
+      filename: string;
+      content: string;
+      content_type: string;
+      content_id?: string;
+    }[];
   };
 }
 
