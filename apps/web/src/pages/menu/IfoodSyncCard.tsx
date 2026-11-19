@@ -136,7 +136,7 @@ export function IfoodSyncCard({
           )}
           <p className="cm-hint">
             {dirty
-              ? 'Salve o cardápio para as alterações irem ao iFood.'
+              ? 'Salvando o cardápio; em seguida as alterações vão ao iFood.'
               : active
                 ? 'Envio automático ligado: cada alteração em itens, preços, complementos e disponibilidade vai sozinha para o iFood em instantes.'
                 : 'Envio automático pausado: só vai ao iFood quando você tocar em Sincronizar.'}

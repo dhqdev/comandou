@@ -213,7 +213,7 @@ export function PriceAdjustModal({
             </Alert>
           )}
           {blocked && (
-            <Alert tone="warning">Salve as alterações do cardápio antes de reajustar.</Alert>
+            <Alert tone="warning">Espere o cardápio terminar de salvar para reajustar.</Alert>
           )}
           {error && <Alert tone="danger">{error}</Alert>}
           <div className="mn-adjust__preview" aria-live="polite">

@@ -1,6 +1,6 @@
 import { toCents } from '@comandou/shared';
 import { ArrowLeft, Pause, Pencil, Percent, Play, Plus, Search, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import {
   Alert,
@@ -13,6 +13,8 @@ import {
   useToast,
   HelpLabel,
   HelpScope,
+  SaveNote,
+  type SaveNoteState,
 } from '../../design-system';
 import { useCan } from '../../app/auth';
 import { api, type Category, type Product } from '../../lib/api';
@@ -25,15 +27,22 @@ import { kindWhere, MENU_KIND, priceDiff, toInput, type MenuDef } from './menu-d
 import { IfoodConnectionField } from './IfoodConnections';
 import { IfoodSyncCard } from './IfoodSyncCard';
 import { PriceAdjustModal } from './PriceAdjustModal';
+import {
+  describeMenuChanges,
+  invalidPrices,
+  itemsChanged,
+  nameChanged,
+  type MenuRow as Row,
+  type MenuSnapshot,
+} from './menu-changes';
 
-interface Row {
-  on: boolean;
-  price: string;
-}
+/** Espera depois da última mudança antes de gravar (dá tempo de terminar de digitar o preço). */
+const AUTOSAVE_MS = 800;
 
 /**
  * Editor do cardápio: categorias em abas, itens com foto, preço próprio e liga/desliga.
  * Reajustar preços muda vários de uma vez; Nova categoria cria com ícone e cozinha.
+ * Sem botão Salvar: cada mudança é gravada sozinha e um cartão pequeno embaixo diz o que mudou.
  */
 export function MenuEditor() {
   const { id = '' } = useParams();
@@ -48,8 +57,8 @@ export function MenuEditor() {
   const [rows, setRows] = useState<Record<string, Row>>({});
   const [catSel, setCatSel] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [note, setNote] = useState<SaveNoteState | null>(null);
   const [adjusting, setAdjusting] = useState(false);
   const [catModal, setCatModal] = useState<Category | 'new' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +83,8 @@ export function MenuEditor() {
         map[prod.id] = { on: !!it, price: toInput(it?.price) };
       }
       setRows(map);
-      setDirty(false);
+      saved.current = { name: m.name, rows: map };
+      current.current = { name: m.name, rows: map };
     } catch (e) {
       setError((e as Error).message);
     }
@@ -108,17 +118,14 @@ export function MenuEditor() {
     [categories, products, term, catSel],
   );
   const set = (pid: string, r: Partial<Row>) => {
-    setDirty(true);
     setRows((x) => ({ ...x, [pid]: { ...x[pid]!, ...r } }));
   };
   const visibleIds = grouped.flatMap((g) => g.items.map((p) => p.id));
   const onCount = Object.values(rows).filter((r) => r.on).length;
-  const invalid = Object.values(rows).some((r) => r.on && r.price && !parseBrlInput(r.price));
   const countIn = (cid: string) =>
     products.filter((p) => p.categoryId === cid && rows[p.id]?.on).length;
 
   function bulk(r: Partial<Row>) {
-    setDirty(true);
     setRows((x) => {
       const copy = { ...x };
       for (const pid of visibleIds) copy[pid] = { ...copy[pid]!, ...r };
@@ -126,38 +133,111 @@ export function MenuEditor() {
     });
   }
 
-  /** Sai para outra tela; com alterações não salvas, pergunta antes. */
-  function leave(to: string) {
-    if (dirty && !window.confirm('Sair sem salvar as alterações do cardápio?')) return;
-    navigate(to);
-  }
+  // Salvamento automático. `saved` é o que o servidor tem; `current`, o que está na tela.
+  // Uma gravação por vez: mudança no meio de uma gravação entra na seguinte.
+  const saved = useRef<MenuSnapshot | null>(null);
+  const current = useRef<MenuSnapshot | null>(null);
+  const products$ = useRef(products);
+  const inFlight = useRef(false);
+  const again = useRef(false);
+  const noteId = useRef(0);
+  products$.current = products;
+  if (saved.current) current.current = { name, rows };
+  const pending = (snap = current.current) =>
+    !!saved.current &&
+    !!snap &&
+    (nameChanged(saved.current, snap) || itemsChanged(saved.current, snap));
+  const unsaved = saving || pending({ name, rows });
+  const show = (state: SaveNoteState['state'], lines: string[]) =>
+    setNote({ id: ++noteId.current, state, lines });
 
-  async function save() {
-    if (!menu) return;
-    setBusy(true);
-    try {
-      if (name.trim() && name.trim() !== menu.name)
-        await api(`/menus/${id}`, { method: 'PATCH', json: { name: name.trim() } });
-      await api(`/menus/${id}/items`, {
-        method: 'PUT',
-        json: {
-          items: Object.entries(rows)
-            .filter(([, r]) => r.on)
-            .map(([productId, r]) => ({
-              productId,
-              price: r.price ? parseBrlInput(r.price) : null,
-            })),
-        },
-      });
-      setDirty(false);
-      setMenu({ ...menu, name: name.trim() || menu.name });
-      toast('Cardápio salvo', 'success');
-    } catch (e) {
-      toast((e as Error).message, 'danger');
-    } finally {
-      setBusy(false);
+  const flush = useCallback(async (): Promise<void> => {
+    const base = saved.current;
+    const snap = current.current;
+    if (!base || !snap) return;
+    if (inFlight.current) {
+      again.current = true;
+      return;
     }
-  }
+    const bad = invalidPrices(snap, products$.current);
+    if (bad.length) {
+      show(
+        'invalid',
+        bad.map((p) => `Preço de ${p.name}: use o formato 12,90`),
+      );
+      return;
+    }
+    const doName = nameChanged(base, snap);
+    const doItems = itemsChanged(base, snap);
+    if (!doName && !doItems) return;
+    inFlight.current = true;
+    setSaving(true);
+    show('saving', []);
+    try {
+      if (doName) await api(`/menus/${id}`, { method: 'PATCH', json: { name: snap.name.trim() } });
+      if (doItems)
+        await api(`/menus/${id}/items`, {
+          method: 'PUT',
+          json: {
+            items: Object.entries(snap.rows)
+              .filter(([, r]) => r.on)
+              .map(([productId, r]) => ({
+                productId,
+                price: r.price ? parseBrlInput(r.price) : null,
+              })),
+          },
+        });
+      const lines = describeMenuChanges(base, snap, products$.current);
+      saved.current = {
+        name: doName ? snap.name.trim() : base.name,
+        rows: doItems ? snap.rows : base.rows,
+      };
+      if (doName) setMenu((m) => (m ? { ...m, name: snap.name.trim() } : m));
+      show('saved', lines);
+    } catch (e) {
+      show('error', [(e as Error).message]);
+      again.current = false;
+      return;
+    } finally {
+      inFlight.current = false;
+      setSaving(false);
+    }
+    // Mudou algo enquanto gravava: grava de novo.
+    if (again.current || pending()) {
+      again.current = false;
+      await flush();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // Cada mudança (nome, liga/desliga, preço) agenda a gravação.
+  useEffect(() => {
+    if (!canWrite || !saved.current) return;
+    if (!pending({ name, rows })) {
+      // Voltou ao que já estava salvo: o aviso de "corrija" não vale mais.
+      setNote((n) => (n?.state === 'invalid' ? null : n));
+      return;
+    }
+    const t = setTimeout(() => void flush(), AUTOSAVE_MS);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, rows, canWrite, flush]);
+
+  // Saindo da tela (outra página do sistema) com algo esperando: grava na hora.
+  useEffect(
+    () => () => {
+      if (pending()) void flush();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [flush],
+  );
+  // Fechando a aba ou recarregando no meio de uma gravação: o navegador pergunta antes.
+  useEffect(() => {
+    if (!unsaved) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [unsaved]);
 
   async function toggleActive() {
     if (!menu) return;
@@ -239,9 +319,6 @@ export function MenuEditor() {
               >
                 <span className="mn-btn-text">Nova categoria</span>
               </Button>
-              <Button loading={busy} disabled={invalid || !dirty} onClick={save}>
-                Salvar
-              </Button>
             </div>
           )}
         </div>
@@ -257,10 +334,8 @@ export function MenuEditor() {
                   value={name}
                   maxLength={60}
                   disabled={!canWrite}
-                  onChange={(e) => {
-                    setName(e.target.value);
-                    setDirty(true);
-                  }}
+                  onChange={(e) => setName(e.target.value)}
+                  onBlur={() => void flush()}
                 />
                 <div className="cm-field">
                   <HelpLabel as="span">Vale em</HelpLabel>
@@ -296,7 +371,7 @@ export function MenuEditor() {
                 menuId={menu.id}
                 active={menu.active}
                 canWrite={canWrite}
-                dirty={dirty}
+                dirty={unsaved}
               />
             )}
             <Card title={`Itens no cardápio (${onCount} de ${products.length})`} bodyless>
@@ -357,7 +432,7 @@ export function MenuEditor() {
                       size="sm"
                       icon={<Plus size={14} />}
                       onClick={() =>
-                        leave(`/cardapio/itens/novo${catSel ? `?categoria=${catSel}` : ''}`)
+                        navigate(`/cardapio/itens/novo${catSel ? `?categoria=${catSel}` : ''}`)
                       }
                     >
                       Novo item
@@ -414,6 +489,7 @@ export function MenuEditor() {
                           value={r.price}
                           aria-invalid={(r.price && !parsed) || undefined}
                           onChange={(e) => set(p.id, { price: e.target.value })}
+                          onBlur={() => void flush()}
                         />
                         <span className="mn-menu-row__diff">{diff ?? ''}</span>
                         <span className="mn-menu-row__acts">
@@ -435,7 +511,7 @@ export function MenuEditor() {
                               aria-label={`Editar ${p.name}`}
                               title="Editar item"
                               icon={<Pencil size={15} />}
-                              onClick={() => leave(`/cardapio/itens/${p.id}`)}
+                              onClick={() => navigate(`/cardapio/itens/${p.id}`)}
                             />
                           )}
                         </span>
@@ -453,7 +529,7 @@ export function MenuEditor() {
             menuId={menu.id}
             menuName={menu.name}
             categories={categories}
-            blocked={dirty}
+            blocked={unsaved}
             initialCategoryId={catSel}
             onClose={() => setAdjusting(false)}
             onApplied={async (r) => {
@@ -464,6 +540,7 @@ export function MenuEditor() {
             }}
           />
         )}
+        <SaveNote note={note} onRetry={() => void flush()} />
         <CategoryModal
           open={catModal !== null}
           category={catModal === 'new' ? null : catModal}

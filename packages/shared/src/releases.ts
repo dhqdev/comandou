@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.182.0',
+    date: '2026-11-19',
+    title: 'Cardápio salva sozinho',
+    summary:
+      'Na tela de cada cardápio não tem mais botão Salvar: ligar ou desligar um item, mudar um preço ou o nome do cardápio grava sozinho, e um cartão pequeno embaixo da tela diz o que foi alterado.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Cardápios: cada mudança é gravada em instantes (ou na hora, ao sair do campo de preço ou do nome). O cartão embaixo mostra "Salvando…" e depois o que mudou, por exemplo "Chopp: R$ 15,90" ou "IPA entrou no cardápio".',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Preço digitado errado (ex.: "12,,9") não é gravado: o cartão avisa qual item corrigir. Se a internet cair, o cartão mostra "Não foi salvo" com o botão Tentar de novo.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Abrir um item ou sair da tela não pergunta mais "Sair sem salvar?": o que estiver esperando é gravado antes.',
+      },
+    ],
+  },
+  {
     version: '0.181.1',
     date: '2026-11-19',
     title: 'Nota fiscal revisada: menos recusas da SEFAZ',

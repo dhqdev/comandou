@@ -40,6 +40,14 @@ Visual de **sistema de trabalho**: sóbrio, limpo e confortável para turnos lon
   por vez com Voltar/Continuar, último passo "Conferir e criar" com Alterar em cada linha,
   rascunho em `sessionStorage` (nunca a senha) e uma tela final dizendo o que aconteceu.
 - Troca de tema: fade de cores (`switchTheme`), nunca captura de tela nem onda em tela cheia.
+- **Tela que salva sozinha** (modelo: editor de cardápio, `pages/menu/MenuEditor.tsx`): sem
+  botão Salvar; grava ~0,8 s depois da última mudança e na hora ao sair do campo (`onBlur`), uma
+  gravação por vez (mudança no meio entra na seguinte), grava o que falta ao sair da tela e avisa
+  no `beforeunload`. O retorno é o `SaveNote` (`design-system/save-note.tsx`), cartão pequeno
+  embaixo no meio (acima das abas do celular): "Salvando…", "Salvo" + o que mudou em frases curtas
+  (muitos itens viram contagem; `pages/menu/menu-changes.ts`), "Não salvo: corrija" com o campo e
+  "Não foi salvo" com Tentar de novo. Campo inválido não grava. Cadastro novo (criar) continua
+  com botão.
 
 ## Telas de entrada (AuthShell)
 

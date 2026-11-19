@@ -2080,3 +2080,90 @@ input[type='radio'] {
   align-items: center;
   gap: 6px;
 }
+
+/* =============================================================== Salvamento automático
+ * Cartão pequeno embaixo, no meio: diz o que foi gravado (save-note.tsx). Acima da barra de abas
+ * do celular (--tabbar-h vem da moldura). */
+.cm-save-note {
+  position: fixed;
+  left: 50%;
+  bottom: calc(
+    var(--tabbar-h, 0px) + var(--tabbar-pad, 0px) + var(--cm-space-4) + env(safe-area-inset-bottom)
+  );
+  transform: translateX(-50%);
+  z-index: 55;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: max-content;
+  min-width: 200px;
+  max-width: min(420px, calc(100vw - 2 * var(--cm-space-4)));
+  padding: 10px 14px;
+  border-radius: var(--cm-radius-md);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  border: 1px solid var(--cm-border);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 16%);
+  font-size: var(--cm-text-sm);
+  line-height: 1.35;
+  animation: cm-pop var(--cm-dur) var(--cm-ease) both;
+}
+.cm-save-note__icon {
+  display: inline-flex;
+  margin-top: 1px;
+  color: var(--cm-text-subtle);
+}
+.cm-save-note--saved .cm-save-note__icon {
+  color: var(--cm-success);
+}
+.cm-save-note--error .cm-save-note__icon,
+.cm-save-note--invalid .cm-save-note__icon {
+  color: var(--cm-danger);
+}
+.cm-save-note--error,
+.cm-save-note--invalid {
+  border-color: var(--cm-danger);
+}
+.cm-save-note__body {
+  min-width: 0;
+}
+.cm-save-note__body strong {
+  font-weight: 600;
+}
+.cm-save-note__body ul {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--cm-text-muted);
+}
+.cm-save-note__body li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cm-save-note__retry {
+  align-self: center;
+  margin-left: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+  background: transparent;
+  color: var(--cm-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cm-save-note__retry:focus-visible {
+  outline: none;
+  box-shadow: var(--cm-focus);
+}
+.cm-save-note__spin {
+  animation: cm-spin 0.9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cm-save-note,
+  .cm-save-note__spin {
+    animation: none;
+  }
+}
