@@ -410,9 +410,13 @@ const NETWORK_DOWN = /fora do ar|não respondeu|IP errado/;
  * Imprime e, se a impressora de rede sumiu do IP de sempre, procura pelo MAC e imprime no IP
  * novo. `onMoved(antigo, novo)` recebe as duas impressoras para salvar a troca.
  */
-export async function printResilient(spec, text, { onMoved, find = findByMac } = {}) {
+export async function printResilient(
+  spec,
+  text,
+  { onMoved, find = findByMac, print = printText } = {},
+) {
   try {
-    return await printText(spec, text);
+    return await print(spec, text);
   } catch (e) {
     const { base, opts } = parseSpec(spec);
     const t = base.startsWith('tcp://') ? parseTcp(base) : null;
@@ -420,7 +424,7 @@ export async function printResilient(spec, text, { onMoved, find = findByMac } =
     const ip = await find(opts.mac, t.port).catch(() => null);
     if (!ip || ip === t.host) throw e;
     const moved = withOptions(`tcp://${ip}:${t.port}`, opts);
-    await printText(moved, text);
+    await print(moved, text);
     await onMoved?.(spec, moved);
   }
 }

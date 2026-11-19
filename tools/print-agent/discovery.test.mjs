@@ -149,26 +149,37 @@ test('situação ESC/POS pela rede: manda só os pedidos DLE EOT', async () => {
 });
 
 test('IP mudou: acha pelo MAC, imprime no novo e avisa a troca', async () => {
-  let printed = 0;
-  const srv = net.createServer((s) => s.on('data', () => printed++));
-  srv.listen(0, '127.0.0.1');
-  await once(srv, 'listening');
-  const { port } = srv.address();
-  // "IP antigo": 127.0.0.2 recusa a conexão (o servidor só escuta no 127.0.0.1).
-  const old = `tcp://127.0.0.2:${port}?mac=00-11-22-33-44-55`;
+  const sent = [];
+  // Impressora falsa: o IP antigo está fora do ar, o novo imprime.
+  const print = async (spec, text) => {
+    if (spec.startsWith('tcp://10.0.0.5:'))
+      throw new Error('Impressora 10.0.0.5:9100 fora do ar ou IP errado.');
+    sent.push([spec, text]);
+  };
+  const old = 'tcp://10.0.0.5:9100?papel=58&mac=00-11-22-33-44-55';
   let moved;
   await printResilient(old, 'Pedido', {
-    find: async (mac, p) => (mac === '00-11-22-33-44-55' && p === port ? '127.0.0.1' : null),
+    print,
+    find: async (mac, p) => (mac === '00-11-22-33-44-55' && p === 9100 ? '10.0.0.9' : null),
     onMoved: (from, to) => (moved = [from, to]),
   });
-  await new Promise((r) => setTimeout(r, 50));
-  srv.close();
-  assert.ok(printed > 0);
-  assert.deepEqual(moved, [old, `tcp://127.0.0.1:${port}?mac=00-11-22-33-44-55`]);
+  const now = 'tcp://10.0.0.9:9100?papel=58&mac=00-11-22-33-44-55';
+  assert.deepEqual(sent, [[now, 'Pedido']]);
+  assert.deepEqual(moved, [old, now]);
   // Sem MAC: o erro original volta, sem procurar.
   await assert.rejects(
-    printResilient(`tcp://127.0.0.2:${port}`, 'x', { find: async () => assert.fail() }),
+    printResilient('tcp://10.0.0.5:9100', 'x', { print, find: async () => assert.fail() }),
     /fora do ar/,
+  );
+  // Outro tipo de erro (ex.: sem papel no spooler) também não procura.
+  await assert.rejects(
+    printResilient(old, 'x', {
+      print: async () => {
+        throw new Error('Impressora "Caixa" não encontrada');
+      },
+      find: async () => assert.fail(),
+    }),
+    /não encontrada/,
   );
 });
 
