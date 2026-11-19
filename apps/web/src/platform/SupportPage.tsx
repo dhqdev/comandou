@@ -19,7 +19,7 @@ import { HelpMessage, HelpState, helpToKit } from '../features/store-chat/help-c
 import '../features/store-chat/support-inbox.css';
 import { api } from '../lib/api';
 import { TENANT_STATUS, tenantUrl, useOpenTenant } from './TenantsPages';
-import { Level, Monogram, PageHead, Tag } from './ui';
+import { Level, Monogram, Tag } from './ui';
 
 /**
  * Super Admin › Conversas: os restaurantes escrevem pela aba "Suporte" do chat do sistema e a
@@ -395,11 +395,7 @@ export function SupportPage() {
 
   return (
     <div className="adm-support-page">
-      <PageHead
-        page
-        title="Conversas"
-        sub="Mensagens dos restaurantes pela aba Suporte do chat do sistema"
-      />
+      <h1 className="cm-sr-only">Conversas</h1>
       <div className="adm-support">
         <div className="sinbox" data-open={current ? '' : undefined}>
           <aside className="sinbox__list" aria-label="Conversas">

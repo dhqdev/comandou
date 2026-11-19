@@ -14,9 +14,9 @@
   gap: var(--cm-space-2);
   height: 44px;
   padding: 0 var(--cm-space-3);
-  border: 1px solid var(--cm-border-strong);
+  border: 1px solid var(--cm-input-line);
   border-radius: var(--cm-radius-md);
-  background: var(--cm-surface);
+  background: var(--cm-input-bg);
   color: var(--cm-text-subtle);
 }
 .cpick__search:focus-within {

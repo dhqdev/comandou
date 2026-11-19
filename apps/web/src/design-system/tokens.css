@@ -72,6 +72,13 @@
   --cm-surface-sunken: var(--cm-gray-100);
   --cm-border: var(--cm-gray-100);
   --cm-border-strong: var(--cm-gray-200);
+  /* Campos (input, select, textarea): fundo, linha e texto. O modo escuro clareia os três para
+     o campo saltar do cartão. --cm-field-* é o campo compacto dos formulários no computador. */
+  --cm-input-bg: var(--cm-surface);
+  --cm-input-line: var(--cm-border-strong);
+  --cm-input-text: var(--cm-text);
+  --cm-field-bg: var(--cm-surface-sunken);
+  --cm-field-line: transparent;
   --cm-text: var(--cm-gray-900);
   --cm-text-muted: var(--cm-gray-600);
   /* Texto de apoio: um tom acima do gray-500 para passar de 4,5:1 sobre branco e sobre o fundo. */
@@ -265,8 +272,8 @@ html.cm-kb-open {
   --cm-accent-400: #d9b44e;
   --cm-accent-500: #cfa73c;
   --cm-focus: 0 0 0 3px color-mix(in srgb, var(--cm-brand-500) 28%, transparent);
-  --cm-btn-line: #475266;
-  --cm-btn-line-hover: #5a667c;
+  --cm-btn-line: #5a667c;
+  --cm-btn-line-hover: #707d95;
   --cm-btn-shadow: none;
   --cm-btn-fill: rgb(255 255 255 / 8%);
   --cm-btn-fill-hover: rgb(255 255 255 / 12%);
@@ -277,17 +284,23 @@ html.cm-kb-open {
   --cm-surface: #283141;
   --cm-surface-muted: #2e3849;
   --cm-surface-sunken: #1e2532;
-  --cm-border: #354052;
-  --cm-border-strong: #465166;
-  --cm-text: #e7eaf0;
-  --cm-text-muted: #a9b3c3;
-  --cm-text-subtle: #9aa6b9;
+  --cm-border: #3e4a5e;
+  --cm-border-strong: #56627a;
+  --cm-text: #f2f4f8;
+  --cm-text-muted: #b8c1cf;
+  --cm-text-subtle: #a3aec0;
+  /* Campo um tom acima do cartão, com linha clara e texto branco: salta à vista no escuro. */
+  --cm-input-bg: #323d50;
+  --cm-input-line: #66728a;
+  --cm-input-text: #ffffff;
+  --cm-field-bg: #323d50;
+  --cm-field-line: #56627a;
   --cm-gray-0: #283141;
   --cm-gray-25: #2e3849;
   --cm-gray-50: #222a37;
-  --cm-gray-100: #354052;
-  --cm-gray-200: #465166;
-  --cm-gray-300: #576379;
+  --cm-gray-100: #3e4a5e;
+  --cm-gray-200: #56627a;
+  --cm-gray-300: #707d95;
   --cm-gray-700: #d3d9e3;
   --cm-sidebar-bg: var(--cm-frame);
   --cm-sidebar-text: #a9b3c3;
@@ -336,8 +349,8 @@ html.cm-kb-open {
     --cm-accent-400: #d9b44e;
     --cm-accent-500: #cfa73c;
     --cm-focus: 0 0 0 3px color-mix(in srgb, var(--cm-brand-500) 28%, transparent);
-    --cm-btn-line: #475266;
-    --cm-btn-line-hover: #5a667c;
+    --cm-btn-line: #5a667c;
+    --cm-btn-line-hover: #707d95;
     --cm-btn-shadow: none;
     --cm-btn-fill: rgb(255 255 255 / 8%);
     --cm-btn-fill-hover: rgb(255 255 255 / 12%);
@@ -348,17 +361,23 @@ html.cm-kb-open {
     --cm-surface: #283141;
     --cm-surface-muted: #2e3849;
     --cm-surface-sunken: #1e2532;
-    --cm-border: #354052;
-    --cm-border-strong: #465166;
-    --cm-text: #e7eaf0;
-    --cm-text-muted: #a9b3c3;
-    --cm-text-subtle: #9aa6b9;
+    --cm-border: #3e4a5e;
+    --cm-border-strong: #56627a;
+    --cm-text: #f2f4f8;
+    --cm-text-muted: #b8c1cf;
+    --cm-text-subtle: #a3aec0;
+    /* Campo um tom acima do cartão, com linha clara e texto branco: salta à vista no escuro. */
+    --cm-input-bg: #323d50;
+    --cm-input-line: #66728a;
+    --cm-input-text: #ffffff;
+    --cm-field-bg: #323d50;
+    --cm-field-line: #56627a;
     --cm-gray-0: #283141;
     --cm-gray-25: #2e3849;
     --cm-gray-50: #222a37;
-    --cm-gray-100: #354052;
-    --cm-gray-200: #465166;
-    --cm-gray-300: #576379;
+    --cm-gray-100: #3e4a5e;
+    --cm-gray-200: #56627a;
+    --cm-gray-300: #707d95;
     --cm-gray-700: #d3d9e3;
     --cm-sidebar-bg: var(--cm-frame);
     --cm-sidebar-text: #a9b3c3;

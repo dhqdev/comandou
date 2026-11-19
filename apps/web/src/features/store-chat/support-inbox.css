@@ -37,9 +37,9 @@
   gap: 8px;
   height: var(--cm-control);
   padding: 0 10px;
-  border: 1px solid var(--cm-border-strong);
+  border: 1px solid var(--cm-input-line);
   border-radius: var(--cm-radius-md);
-  background: var(--cm-bg);
+  background: var(--cm-input-bg);
   color: var(--cm-text-muted);
 }
 .sinbox__search:focus-within {

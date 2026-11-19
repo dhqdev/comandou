@@ -1438,9 +1438,10 @@ button.adm-card:hover {
   align-content: stretch;
   min-height: 0;
 }
+/* Sem título no topo: no computador a conversa usa quase a tela toda (margens curtas). */
 @media (min-width: 761px) {
   .cm-frame__content:has(> .adm-support-page) {
-    padding-bottom: var(--cm-space-5);
+    padding: var(--cm-space-3);
   }
 }
 .adm-support-page {
@@ -1473,7 +1474,7 @@ button.adm-card:hover {
    conversa por cima). Sem o @media, esta regra ganhava e sobrava uma coluna vazia à direita. */
 @media (min-width: 761px) {
   .adm-support .sinbox {
-    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    grid-template-columns: minmax(240px, 290px) minmax(0, 1fr);
   }
 }
 .adm-support .sinbox__head {
@@ -1571,7 +1572,7 @@ button.adm-card:hover {
   }
   .sdesk {
     flex: none;
-    width: 300px;
+    width: 272px;
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -2402,15 +2403,15 @@ button.adm-card:hover {
     font-size: var(--cm-text-sm);
   }
   .adm-frame .cm-frame__content .cm-input {
-    border-color: transparent;
-    background-color: var(--cm-surface-sunken);
+    border-color: var(--cm-field-line);
+    background-color: var(--cm-field-bg);
   }
   .adm-frame .cm-frame__content .cm-input:hover:not(:disabled):not(:focus) {
     border-color: var(--cm-border-strong);
   }
   .adm-frame .cm-frame__content .cm-input:focus {
     border-color: var(--cm-brand-500);
-    background-color: var(--cm-surface);
+    background-color: var(--cm-input-bg);
   }
   .adm-frame .cm-frame__content .cm-input[aria-invalid='true'] {
     border-color: var(--cm-danger);

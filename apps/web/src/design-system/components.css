@@ -121,9 +121,10 @@
   min-height: var(--cm-touch);
   width: 100%;
   padding: 0 var(--cm-space-3);
-  border: 1px solid var(--cm-border-strong);
+  border: 1px solid var(--cm-input-line);
   border-radius: var(--cm-radius-sm);
-  background: var(--cm-surface);
+  background: var(--cm-input-bg);
+  color: var(--cm-input-text);
   font-size: var(--cm-text-md);
   transition:
     border-color var(--cm-dur-fast) var(--cm-ease),
@@ -1307,15 +1308,15 @@ input[type='radio'] {
     background-position: right 9px center;
   }
   :is(.cm-form, .cm-modal__body > .cm-field) .cm-input {
-    border-color: transparent;
-    background-color: var(--cm-surface-sunken);
+    border-color: var(--cm-field-line);
+    background-color: var(--cm-field-bg);
   }
   :is(.cm-form, .cm-modal__body > .cm-field) .cm-input:hover:not(:disabled):not(:focus) {
     border-color: var(--cm-border-strong);
   }
   :is(.cm-form, .cm-modal__body > .cm-field) .cm-input:focus {
     border-color: var(--cm-brand-500);
-    background-color: var(--cm-surface);
+    background-color: var(--cm-input-bg);
   }
   :is(.cm-form, .cm-modal__body > .cm-field) .cm-input:disabled {
     background-color: var(--cm-surface-muted);
@@ -1342,6 +1343,27 @@ input[type='radio'] {
 .cm-hint,
 .cm-error-text {
   line-height: 1.4;
+}
+/* Notebook largo (mouse): janelas mais deitadas que em pé. As grandes ganham largura, o corpo
+   usa mais da altura e os formulários vão a 4 colunas, para caber sem rolar (rola só se
+   precisar). Confirmações curtas (md sem formulário) continuam estreitas. */
+@media (min-width: 1100px) and (pointer: fine) {
+  .cm-modal--md:has(.cm-form, .cm-modal__body > .cm-field) {
+    width: min(900px, calc(100vw - 64px));
+  }
+  .cm-modal--lg,
+  .cm-modal--lg:has(.cm-form, .cm-modal__body > .cm-field) {
+    width: min(1120px, calc(100vw - 64px));
+  }
+  .cm-modal--xl {
+    width: min(1360px, calc(100vw - 64px));
+  }
+  .cm-modal__body {
+    max-height: calc(100dvh - 150px);
+  }
+  :is(.cm-modal--lg, .cm-modal--xl) :is(.cm-form, .cm-modal__body:has(> .cm-field)) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 /* =============================================================== Toast */
@@ -1850,9 +1872,9 @@ input[type='radio'] {
   gap: var(--cm-space-2);
   height: 40px;
   padding: 0 var(--cm-space-3);
-  border: 1px solid var(--cm-border-strong);
+  border: 1px solid var(--cm-input-line);
   border-radius: var(--cm-radius-md);
-  background: var(--cm-surface);
+  background: var(--cm-input-bg);
   color: var(--cm-text-subtle);
 }
 .cm-search:focus-within {

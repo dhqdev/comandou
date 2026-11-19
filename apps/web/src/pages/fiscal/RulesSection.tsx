@@ -590,76 +590,82 @@ function RuleEditor({
                 </Alert>
               )}
 
-              <h3 className="fi-sub">PIS e COFINS</h3>
-              <div className="fi-fields">
-                <SelectField
-                  label="CST do PIS"
-                  value={f.pisCst}
-                  onChange={(e) => set('pisCst', e.target.value)}
-                >
-                  <Options list={CST_PIS_COFINS} />
-                </SelectField>
-                {pisWithRate && (
-                  <TextField
-                    label="Alíquota do PIS (%)"
-                    inputMode="decimal"
-                    value={f.pisRate}
-                    onChange={(e) => set('pisRate', e.target.value)}
-                    placeholder="0,65"
-                  />
-                )}
-                <SelectField
-                  label="CST da COFINS"
-                  value={f.cofinsCst}
-                  onChange={(e) => set('cofinsCst', e.target.value)}
-                >
-                  <Options list={CST_PIS_COFINS} />
-                </SelectField>
-                {cofinsWithRate && (
-                  <TextField
-                    label="Alíquota da COFINS (%)"
-                    inputMode="decimal"
-                    value={f.cofinsRate}
-                    onChange={(e) => set('cofinsRate', e.target.value)}
-                    placeholder="3"
-                  />
-                )}
-              </div>
-
-              <h3 className="fi-sub">Outros</h3>
-              <div className="fi-fields">
-                {f.scope !== 'nfce' && (
-                  <SelectField
-                    label="CST do IPI (NF-e)"
-                    value={f.ipiCst}
-                    onChange={(e) => set('ipiCst', e.target.value)}
-                  >
-                    <Options list={CST_IPI} empty="Sem IPI" />
-                  </SelectField>
-                )}
-                {f.scope !== 'nfce' && f.ipiCst && (
-                  <TextField
-                    label="Alíquota do IPI (%)"
-                    inputMode="decimal"
-                    value={f.ipiRate}
-                    onChange={(e) => set('ipiRate', e.target.value)}
-                  />
-                )}
-                <TextField
-                  label="Tributos aproximados (%)"
-                  inputMode="decimal"
-                  value={f.approxTaxRate}
-                  onChange={(e) => set('approxTaxRate', e.target.value)}
-                  hint="Valor que sai no cupom (Lei da transparência)"
-                />
-                <TextField
-                  label="Anotação"
-                  wrapClass="fi-w2"
-                  value={f.notes}
-                  maxLength={500}
-                  onChange={(e) => set('notes', e.target.value)}
-                  hint="Só para a equipe. Não sai na nota"
-                />
+              {/* Notebook: PIS/COFINS e Outros lado a lado, para caber sem rolar. */}
+              <div className="fi-pair">
+                <section className="fi-tab">
+                  <h3 className="fi-sub">PIS e COFINS</h3>
+                  <div className="fi-fields">
+                    <SelectField
+                      label="CST do PIS"
+                      value={f.pisCst}
+                      onChange={(e) => set('pisCst', e.target.value)}
+                    >
+                      <Options list={CST_PIS_COFINS} />
+                    </SelectField>
+                    {pisWithRate && (
+                      <TextField
+                        label="Alíquota do PIS (%)"
+                        inputMode="decimal"
+                        value={f.pisRate}
+                        onChange={(e) => set('pisRate', e.target.value)}
+                        placeholder="0,65"
+                      />
+                    )}
+                    <SelectField
+                      label="CST da COFINS"
+                      value={f.cofinsCst}
+                      onChange={(e) => set('cofinsCst', e.target.value)}
+                    >
+                      <Options list={CST_PIS_COFINS} />
+                    </SelectField>
+                    {cofinsWithRate && (
+                      <TextField
+                        label="Alíquota da COFINS (%)"
+                        inputMode="decimal"
+                        value={f.cofinsRate}
+                        onChange={(e) => set('cofinsRate', e.target.value)}
+                        placeholder="3"
+                      />
+                    )}
+                  </div>
+                </section>
+                <section className="fi-tab">
+                  <h3 className="fi-sub">Outros</h3>
+                  <div className="fi-fields">
+                    {f.scope !== 'nfce' && (
+                      <SelectField
+                        label="CST do IPI (NF-e)"
+                        value={f.ipiCst}
+                        onChange={(e) => set('ipiCst', e.target.value)}
+                      >
+                        <Options list={CST_IPI} empty="Sem IPI" />
+                      </SelectField>
+                    )}
+                    {f.scope !== 'nfce' && f.ipiCst && (
+                      <TextField
+                        label="Alíquota do IPI (%)"
+                        inputMode="decimal"
+                        value={f.ipiRate}
+                        onChange={(e) => set('ipiRate', e.target.value)}
+                      />
+                    )}
+                    <TextField
+                      label="Tributos aproximados (%)"
+                      inputMode="decimal"
+                      value={f.approxTaxRate}
+                      onChange={(e) => set('approxTaxRate', e.target.value)}
+                      hint="Valor que sai no cupom (Lei da transparência)"
+                    />
+                    <TextField
+                      label="Anotação"
+                      wrapClass="fi-w2"
+                      value={f.notes}
+                      maxLength={500}
+                      onChange={(e) => set('notes', e.target.value)}
+                      hint="Só para a equipe. Não sai na nota"
+                    />
+                  </div>
+                </section>
               </div>
             </>
           )}

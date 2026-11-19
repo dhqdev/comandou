@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.182.1',
+    date: '2026-11-19',
+    title: 'Modo escuro mais nítido e janelas mais largas no notebook',
+    summary:
+      'No modo escuro os campos e as bordas ficaram mais claros e fáceis de ver. No notebook, as janelas (como a do padrão fiscal) abrem mais largas, para caber sem rolar. No Super Admin, a tela de Conversas usa a tela toda para o chat.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Modo escuro: campos um tom mais claros que o cartão, com borda visível e texto em branco; bordas, divisórias e textos secundários também ficaram mais claros.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No notebook, as janelas grandes abrem mais largas e os formulários vão até 4 campos por linha. A janela do padrão fiscal mostra PIS/COFINS e Outros lado a lado e cabe na tela sem rolar.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Super Admin › Conversas: saiu o título do topo e o chat ocupa quase a tela toda no computador.',
+      },
+    ],
+  },
+  {
     version: '0.182.0',
     date: '2026-11-19',
     title: 'Cardápio salva sozinho',
