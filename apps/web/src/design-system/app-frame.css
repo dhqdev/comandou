@@ -641,17 +641,23 @@
   }
   /* Subitens: fio fino saindo do ícone; o texto começa na mesma coluna dos nomes de cima. */
   /* Abre e fecha aos poucos (0fr ↔ 1fr): o grupo empurra os itens de baixo sem pular. */
+  /* Fechado também fica invisível (visibility, depois de fechar): os links escondidos saem da
+     leitura de tela e do clique, e o e2e não acha um "Itens" que ninguém vê. */
   .cm-rail__subwrap {
     display: grid;
     grid-template-rows: 0fr;
     opacity: 0;
+    visibility: hidden;
     transition:
       grid-template-rows var(--rail-dur) var(--rail-ease),
-      opacity 200ms var(--cm-ease);
+      opacity 200ms var(--cm-ease),
+      visibility 0s linear var(--rail-dur);
   }
   .cm-rail__subwrap[data-show] {
     grid-template-rows: 1fr;
     opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
   }
   .cm-rail__subclip {
     min-height: 0;
