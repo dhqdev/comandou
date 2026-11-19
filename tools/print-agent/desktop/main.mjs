@@ -12,22 +12,36 @@ import {
   shell,
   Tray,
 } from 'electron';
+import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PrintAgent, parseConnectionCode } from '../core.mjs';
-import { listDirectDevices, listSerialPorts, scanNetwork } from '../devices.mjs';
+import { bindRfcomm, listPairedWithoutPort, validBtMac } from '../bluetooth.mjs';
+import {
+  checkHost,
+  listDirectDevices,
+  listSerialPorts,
+  printResilient,
+  probe,
+  scanNetwork,
+  statusText,
+  tcpStatus,
+} from '../devices.mjs';
 import {
   describePrinter,
   parseSpec,
   parseTcp,
-  printText,
+  registerTransport,
   testPageText,
+  validBleId,
   validDirectDevice,
   validSerialPort,
 } from '../printers.mjs';
+import { installUsb, listUninstalledUsb, validCupsUri, validWinPort } from '../usb.mjs';
+import { BleBridge } from './ble.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PROTOCOL = 'comandou-impressao';
@@ -36,10 +50,21 @@ const CONFIG = join(app.getPath('userData'), 'config.json');
 const MAX_LOG = 40;
 
 app.setAppUserModelId('br.com.comandou.impressao');
+// Linux: o Bluetooth BLE do Chromium ainda fica atrás desta opção.
+if (process.platform === 'linux')
+  app.commandLine.appendSwitch('enable-experimental-web-platform-features');
 
 /** @type {{ url?: string, token?: string, tokenEnc?: string, agentName?: string, restaurant?: string,
- *   printers: { default: string, routes: Record<string, string> }, autostart: boolean, seenTargets: string[] }} */
-let config = { printers: { default: '', routes: {} }, autostart: true, seenTargets: [] };
+ *   printers: { default: string, routes: Record<string, string> }, autostart: boolean, seenTargets: string[],
+ *   bleNames: Record<string, string> }} */
+let config = {
+  printers: { default: '', routes: {} },
+  autostart: true,
+  seenTargets: [],
+  bleNames: {},
+};
+/** Situação de cada impressora configurada: { [spec]: { ok, text, at } }. */
+let health = {};
 /** @type {PrintAgent | undefined} */
 let agent;
 let status = { state: 'idle' };
@@ -55,7 +80,12 @@ async function loadConfig() {
     const c = JSON.parse(await readFile(CONFIG, 'utf8'));
     if (c.tokenEnc && safeStorage.isEncryptionAvailable())
       c.token = safeStorage.decryptString(Buffer.from(c.tokenEnc, 'base64'));
-    config = { ...config, ...c, printers: { default: '', routes: {}, ...c.printers } };
+    config = {
+      ...config,
+      ...c,
+      printers: { default: '', routes: {}, ...c.printers },
+      bleNames: { ...c.bleNames },
+    };
   } catch {
     /* primeira vez */
   }
@@ -72,6 +102,33 @@ async function saveConfig() {
   }
   await mkdir(dirname(CONFIG), { recursive: true });
   await writeFile(CONFIG, JSON.stringify(out, null, 2), { mode: 0o600 });
+}
+
+// ------------------------------------------------------------------ impressão
+const ble = new BleBridge({ onDevices: (list) => win?.webContents.send('ble-devices', list) });
+registerTransport('ble:', (base, data) => ble.write(base.slice(4), data));
+
+/** Troca uma impressora por outra em todos os setores (ex.: o roteador deu outro IP). */
+async function replacePrinter(from, to) {
+  if (config.printers.default === from) config.printers.default = to;
+  for (const [t, spec] of Object.entries(config.printers.routes))
+    if (spec === from) config.printers.routes[t] = to;
+  delete health[from];
+  await saveConfig();
+  push();
+}
+
+/** Imprime; impressora de rede que mudou de IP é achada pelo MAC e salva no IP novo. */
+function print(spec, text) {
+  return printResilient(spec, text, {
+    onMoved: async (from, to) => {
+      await replacePrinter(from, to);
+      notify(
+        'A impressora mudou de IP',
+        `Achamos ${describePrinter(to)} e ela continua imprimindo. Reserve o IP no roteador para não mudar mais.`,
+      );
+    },
+  });
 }
 
 const printerFor = (target) => config.printers.routes[target] || config.printers.default || 'none';
@@ -92,7 +149,7 @@ function startAgent() {
     version: VERSION,
     printerFor,
     canPrint,
-    print: printText,
+    print,
   });
   agent.on('status', async (s) => {
     status = s;
@@ -118,6 +175,11 @@ function startAgent() {
   agent.on('job', async (j) => {
     jobs = [{ ...j, printerLabel: describePrinter(j.printer) }, ...jobs].slice(0, MAX_LOG);
     if (!j.ok) notify(`Falha ao imprimir em ${j.target}`, j.error);
+    health[j.printer] = {
+      ok: j.ok,
+      text: j.ok ? 'Imprimiu agora há pouco.' : j.error,
+      at: Date.now(),
+    };
     if (!config.seenTargets.includes(j.target)) {
       config.seenTargets.push(j.target);
       await saveConfig();
@@ -147,6 +209,8 @@ function publicState() {
     targets,
     jobs,
     autostart: config.autostart,
+    health,
+    bleNames: config.bleNames,
   };
 }
 
@@ -205,6 +269,7 @@ function showWindow() {
   });
   win.loadFile(join(here, 'ui', 'index.html'));
   win.once('ready-to-show', () => win.show());
+  win.on('show', () => void checkAll());
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//.test(url)) void shell.openExternal(url);
     return { action: 'deny' };
@@ -282,7 +347,7 @@ async function connect(code) {
     token: c.token,
     version: VERSION,
     printerFor,
-    print: printText,
+    print,
   });
   let hb;
   try {
@@ -312,14 +377,15 @@ async function testPrint(spec) {
     at: Date.now(),
   };
   try {
-    await printText(spec, testPageText(describePrinter(spec), spec));
-    jobs = [{ ...ev, ok: true, printerLabel: describePrinter(spec) }, ...jobs].slice(0, MAX_LOG);
+    await print(spec, testPageText(printerName(spec), spec));
+    health[spec] = { ok: true, text: 'Teste impresso.', at: Date.now() };
+    jobs = [{ ...ev, ok: true, printerLabel: printerName(spec) }, ...jobs].slice(0, MAX_LOG);
     push();
   } catch (e) {
-    jobs = [
-      { ...ev, ok: false, error: e.message, printerLabel: describePrinter(spec) },
-      ...jobs,
-    ].slice(0, MAX_LOG);
+    jobs = [{ ...ev, ok: false, error: e.message, printerLabel: printerName(spec) }, ...jobs].slice(
+      0,
+      MAX_LOG,
+    );
     push();
     throw e;
   }
@@ -334,7 +400,100 @@ function validSpec(spec) {
   // USB direto só aponta para impressora (/dev/usb/lp0), nunca para um arquivo qualquer.
   if (base.startsWith('file:'))
     return process.platform === 'linux' && validDirectDevice(base.slice(5));
+  if (base.startsWith('ble:')) return validBleId(base.slice(4));
   return false;
+}
+
+/** Nome para mostrar (BLE guarda o nome que a impressora anunciou). */
+function printerName(spec) {
+  const { base } = parseSpec(spec);
+  if (base.startsWith('ble:') && config.bleNames[base.slice(4)])
+    return `${config.bleNames[base.slice(4)]} (Bluetooth)`;
+  return describePrinter(spec);
+}
+
+// ------------------------------------------------------------------ situação das impressoras
+let systemNames = [];
+
+async function systemPrinters() {
+  const wc = win && !win.isDestroyed() ? win.webContents : (await ble.ready()).webContents;
+  const list = await wc.getPrintersAsync();
+  systemNames = list.map((p) => p.name);
+  return list;
+}
+
+/** Confere se a impressora está ao alcance sem imprimir nada. */
+async function checkOne(spec) {
+  const { base } = parseSpec(spec);
+  if (base.startsWith('tcp://')) {
+    const t = parseTcp(base);
+    return (await probe(t.host, t.port, 2000))
+      ? { ok: true, text: 'Ligada na rede.' }
+      : { ok: false, text: `Não responde em ${t.host}. Ela está ligada e na mesma rede?` };
+  }
+  if (base.startsWith('serial:')) {
+    const port = base.slice(7).toUpperCase();
+    const found = (await listSerialPorts()).some((p) => p.path.toUpperCase() === port);
+    return found
+      ? { ok: true, text: 'Porta encontrada.' }
+      : {
+          ok: false,
+          text: `A porta ${base.slice(7)} sumiu: a impressora foi desconectada ou despareada.`,
+        };
+  }
+  if (base.startsWith('file:'))
+    return existsSync(base.slice(5))
+      ? { ok: true, text: 'Cabo USB conectado.' }
+      : { ok: false, text: 'Não achei a impressora USB. O cabo está conectado e ela, ligada?' };
+  if (base.startsWith('printer:')) {
+    await systemPrinters().catch(() => undefined);
+    return systemNames.includes(base.slice(8))
+      ? { ok: true, text: 'Instalada no sistema.' }
+      : { ok: false, text: 'Não está mais instalada no sistema. Escolha de novo.' };
+  }
+  return null; // BLE: só se sabe imprimindo (ligar por BLE a cada minuto gasta a bateria dela)
+}
+
+let checking;
+/** A cada 2 minutos (e ao abrir a janela): uma bolinha verde ou vermelha em cada impressora. */
+function checkAll() {
+  checking ??= (async () => {
+    const specs = new Set(
+      [config.printers.default, ...Object.values(config.printers.routes)].filter(
+        (s) => s && s !== 'none',
+      ),
+    );
+    for (const spec of specs) {
+      const r = await checkOne(spec).catch(() => null);
+      if (r) health[spec] = { ...r, at: Date.now() };
+    }
+    for (const k of Object.keys(health)) if (!specs.has(k)) delete health[k];
+    push();
+  })().finally(() => (checking = undefined));
+  return checking;
+}
+
+function openBluetoothSettings(what) {
+  if (process.platform === 'win32') {
+    if (what === 'com')
+      spawn('rundll32.exe', ['shell32.dll,Control_RunDLL', 'bthprops.cpl,,2'], {
+        detached: true,
+        stdio: 'ignore',
+      }).unref();
+    else void shell.openExternal('ms-settings:bluetooth');
+  } else if (process.platform === 'darwin')
+    void shell.openExternal('x-apple.systempreferences:com.apple.BluetoothSettings');
+  else
+    for (const [cmd, args] of [
+      ['gnome-control-center', ['bluetooth']],
+      ['blueman-manager', []],
+      ['systemsettings', ['kcm_bluetooth']],
+    ]) {
+      const p = spawn(cmd, args, { detached: true, stdio: 'ignore' });
+      p.on('error', () => undefined);
+      p.unref();
+      if (p.pid) break;
+    }
 }
 
 let scanning;
@@ -358,7 +517,7 @@ function registerIpc() {
     return publicState();
   });
   ipcMain.handle('printers', async () => {
-    const list = win ? await win.webContents.getPrintersAsync() : [];
+    const list = await systemPrinters().catch(() => []);
     return list.map((p) => ({
       name: p.name,
       label: p.displayName || p.name,
@@ -374,6 +533,7 @@ function registerIpc() {
     await saveConfig();
     agent?.poke();
     push();
+    void checkAll();
     return publicState();
   });
   ipcMain.handle('ports', async () => ({
@@ -387,6 +547,57 @@ function registerIpc() {
     }).finally(() => (scanning = undefined));
     return scanning;
   });
+  ipcMain.handle('check-host', (_e, host) => {
+    host = String(host ?? '').trim();
+    if (!/^[a-zA-Z0-9.-]{1,253}$/.test(host)) throw new Error('IP inválido.');
+    return checkHost(host);
+  });
+  ipcMain.handle('printer-status', async (_e, spec) => {
+    spec = String(spec ?? '');
+    if (!validSpec(spec)) throw new Error('Impressora inválida.');
+    const t = parseTcp(spec);
+    if (t) {
+      const s = await tcpStatus(t.host, t.port);
+      const r = {
+        ok: s.reachable && s.online !== false && !s.paperOut && !s.coverOpen,
+        text: statusText(s),
+      };
+      health[spec] = { ...r, at: Date.now() };
+      push();
+      return r;
+    }
+    const r = await checkOne(spec);
+    if (r) health[spec] = { ...r, at: Date.now() };
+    push();
+    return r ?? { ok: true, text: 'Imprima um teste para conferir.' };
+  });
+  ipcMain.handle('check-all', () => checkAll().then(() => publicState()));
+  ipcMain.handle('usb-candidates', () => listUninstalledUsb());
+  ipcMain.handle('usb-install', async (_e, id, label) => {
+    id = String(id ?? '');
+    if (!(process.platform === 'win32' ? validWinPort(id) : validCupsUri(id)))
+      throw new Error('Impressora USB inválida.');
+    const name = await installUsb(id, String(label ?? 'USB').slice(0, 80));
+    return { spec: `printer:${name}` };
+  });
+  ipcMain.handle('bt-paired', () => listPairedWithoutPort());
+  ipcMain.handle('bt-bind', async (_e, mac) => {
+    if (process.platform !== 'linux') throw new Error('Só no Linux.');
+    if (!validBtMac(String(mac))) throw new Error('Endereço Bluetooth inválido.');
+    return { port: await bindRfcomm(String(mac)) };
+  });
+  ipcMain.handle('bt-settings', (_e, what) => openBluetoothSettings(String(what ?? '')));
+  ipcMain.handle('ble-scan', async () => {
+    const r = await ble.scan();
+    if (r) {
+      config.bleNames[r.id] = (r.name || 'Impressora Bluetooth').slice(0, 60);
+      await saveConfig();
+      push();
+    }
+    return r;
+  });
+  ipcMain.handle('ble-choose', (_e, id) => ble.choose(String(id ?? '')));
+  ipcMain.handle('ble-cancel', () => ble.cancel());
   ipcMain.handle('test-print', (_e, spec) => {
     spec = String(spec ?? '');
     if (!validSpec(spec)) throw new Error('Impressora inválida.');
@@ -456,6 +667,8 @@ if (!app.requestSingleInstanceLock()) {
     // Volta da suspensão ou rede trocou: tenta na hora em vez de esperar o próximo ciclo.
     powerMonitor.on('resume', () => agent?.poke());
     powerMonitor.on('unlock-screen', () => agent?.poke());
+    void checkAll();
+    setInterval(() => void checkAll(), 120_000);
   });
   app.on('window-all-closed', () => {
     /* continua na bandeja */

@@ -6,7 +6,16 @@ import { readdir, readFile, realpath } from 'node:fs/promises';
 import net from 'node:net';
 import { networkInterfaces } from 'node:os';
 import { dirname, join } from 'node:path';
-import { powershell } from './printers.mjs';
+import { browsePrinters } from './mdns.mjs';
+import {
+  normalizeMac,
+  parseSpec,
+  parseTcp,
+  powershell,
+  printText,
+  run,
+  withOptions,
+} from './printers.mjs';
 
 /**
  * @typedef {{ path: string, label: string, kind: 'bluetooth' | 'usb' | 'serial' }} SerialPortInfo
@@ -152,18 +161,57 @@ export async function listDirectDevices(platform = process.platform) {
 
 // ------------------------------------------------------------------ rede
 
-/** Redes locais (IPv4) deste computador, como "192.168.0" (/24 ao redor do próprio IP). */
+const ipNum = (h) => h.split('.').reduce((n, x) => n * 256 + Number(x || 0), 0) >>> 0;
+const numIp = (n) => [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join('.');
+const maskBits = (mask) =>
+  String(mask ?? '')
+    .split('.')
+    .reduce((b, x) => b + (Number(x) >>> 0).toString(2).replace(/0/g, '').length, 0);
+
+/**
+ * Redes locais (IPv4) deste computador. O padrão é a /24 ao redor do próprio IP
+ * ("192.168.0"); rede maior até /22 (até 1022 endereços, comum em roteador de provedor) entra
+ * inteira em `range`. Rede maior que isso continua na /24 (procurar 65 mil endereços demora).
+ */
 export function localSubnets(ifaces = networkInterfaces()) {
   const nets = new Map();
   for (const list of Object.values(ifaces))
     for (const a of list ?? []) {
       if (a.family !== 'IPv4' && a.family !== 4) continue;
       if (a.internal || a.address.startsWith('169.254.')) continue;
-      const prefix = a.address.split('.').slice(0, 3).join('.');
-      if (!nets.has(prefix)) nets.set(prefix, new Set());
-      nets.get(prefix).add(a.address);
+      const bits = a.netmask ? maskBits(a.netmask) : 24;
+      const wide = bits >= 22 && bits < 24;
+      const key = wide
+        ? `${numIp((ipNum(a.address) & (~0 << (32 - bits))) >>> 0)}/${bits}`
+        : a.address.split('.').slice(0, 3).join('.');
+      if (!nets.has(key))
+        nets.set(key, {
+          prefix: a.address.split('.').slice(0, 3).join('.'),
+          own: [],
+          ...(wide
+            ? {
+                range: {
+                  start: ((ipNum(a.address) & (~0 << (32 - bits))) >>> 0) + 1,
+                  count: 2 ** (32 - bits) - 2,
+                },
+              }
+            : {}),
+        });
+      nets.get(key).own.push(a.address);
     }
-  return [...nets].map(([prefix, own]) => ({ prefix, own: [...own] }));
+  return [...nets.values()];
+}
+
+/** Endereços a procurar em cada rede local, sem os do próprio computador. */
+export function subnetHosts(nets = localSubnets()) {
+  const out = new Set();
+  for (const n of nets) {
+    const list = n.range
+      ? Array.from({ length: n.range.count }, (_, i) => numIp(n.range.start + i))
+      : Array.from({ length: 254 }, (_, i) => `${n.prefix}.${i + 1}`);
+    for (const h of list) if (!n.own.includes(h)) out.add(h);
+  }
+  return [...out];
 }
 
 /** A porta responde? Só abre e fecha a conexão: nada é enviado (não imprime nada). */
@@ -193,32 +241,186 @@ async function webTitle(host, timeoutMs = 1500) {
 }
 
 /**
- * Procura impressoras na rede local: quem tem a porta 9100 aberta (padrão das térmicas em rede,
- * com cabo ou Wi-Fi). 254 endereços por rede, em paralelo; leva poucos segundos.
+ * Tabela ARP do sistema (IP → endereço físico), dos três formatos:
+ *   Linux   /proc/net/arp     "192.168.0.50  0x1  0x2  00:11:22:33:44:55  *  eth0"
+ *   Windows arp -a            "  192.168.0.50     00-11-22-33-44-55     dinâmico"
+ *   macOS   arp -a -n         "? (192.168.0.50) at 0:11:22:33:44:55 on en0 ifscope [ethernet]"
+ */
+export function parseArp(text) {
+  const out = new Map();
+  const re =
+    /(\d{1,3}(?:\.\d{1,3}){3})\)?\s+(?:at\s+|0x\w+\s+0x\w+\s+)?([0-9a-fA-F]{1,2}(?:[:-][0-9a-fA-F]{1,2}){5})/g;
+  for (const m of String(text).matchAll(re)) {
+    const mac = normalizeMac(m[2]);
+    if (mac && !mac.startsWith('01-00-5E')) out.set(m[1], mac);
+  }
+  return out;
+}
+
+export async function arpTable(platform = process.platform) {
+  try {
+    if (platform === 'linux') return parseArp(await readFile('/proc/net/arp', 'utf8'));
+    return parseArp(
+      await run('arp', platform === 'win32' ? ['-a'] : ['-a', '-n'], { timeoutMs: 8000 }),
+    );
+  } catch {
+    return new Map();
+  }
+}
+
+/**
+ * Procura impressoras na rede local, de dois jeitos ao mesmo tempo:
+ *   - quem tem a porta 9100 aberta (padrão das térmicas em rede, com cabo ou Wi-Fi);
+ *   - quem se anuncia como impressora pelo mDNS/Bonjour (nome e modelo de fábrica).
+ * Também guarda o endereço físico (MAC) de cada uma, que segue igual se o IP mudar.
  *
  * @param {{ port?: number, hosts?: string[], timeoutMs?: number, concurrency?: number,
- *   onProgress?: (done: number, total: number) => void }} [o]
- * @returns {Promise<{ host: string, port: number, name: string }[]>}
+ *   mdns?: boolean, onProgress?: (done: number, total: number) => void }} [o]
+ * @returns {Promise<{ host: string, port: number, name: string, mac?: string, via?: string }[]>}
  */
 export async function scanNetwork(o = {}) {
   const port = o.port ?? 9100;
-  const hosts =
-    o.hosts ??
-    localSubnets().flatMap(({ prefix, own }) =>
-      Array.from({ length: 254 }, (_, i) => `${prefix}.${i + 1}`).filter((h) => !own.includes(h)),
-    );
-  const found = [];
+  const skipMdns = o.mdns === false || (o.hosts && o.mdns !== true);
+  const bonjour = skipMdns ? Promise.resolve([]) : browsePrinters().catch(() => []);
+  const hosts = [...(o.hosts ?? subnetHosts())];
+  const found = new Map();
   let next = 0;
   let done = 0;
   const worker = async () => {
     while (next < hosts.length) {
       const host = hosts[next++];
-      if (await probe(host, port, o.timeoutMs ?? 700)) found.push({ host, port, name: '' });
+      if (await probe(host, port, o.timeoutMs ?? 700))
+        found.set(host, { host, port, name: '', via: 'porta' });
       o.onProgress?.(++done, hosts.length);
     }
   };
   await Promise.all(Array.from({ length: Math.min(o.concurrency ?? 96, hosts.length) }, worker));
-  await Promise.all(found.map(async (f) => (f.name = await webTitle(f.host))));
-  const num = (h) => h.split('.').reduce((n, x) => n * 256 + Number(x || 0), 0);
-  return found.sort((a, b) => num(a.host) - num(b.host));
+
+  // Bonjour: dá o nome; impressora RAW de outra faixa (que não entrou na varredura) também vale.
+  for (const b of await bonjour) {
+    if (o.hosts && !o.hosts.includes(b.host)) continue;
+    const cur = found.get(b.host);
+    if (cur) {
+      if (!cur.name || b.service === 'pdl-datastream') cur.name = b.name;
+    } else if (b.service === 'pdl-datastream' && b.port) {
+      if (await probe(b.host, b.port, 1200))
+        found.set(b.host, { host: b.host, port: b.port, name: b.name, via: 'bonjour' });
+    }
+  }
+  const list = [...found.values()];
+  await Promise.all(
+    list.filter((f) => !f.name).map(async (f) => (f.name = await webTitle(f.host))),
+  );
+  const arp = o.hosts ? new Map() : await arpTable();
+  for (const f of list) if (arp.has(f.host)) f.mac = arp.get(f.host);
+  return list.sort((a, b) => ipNum(a.host) - ipNum(b.host));
+}
+
+/** Portas que as impressoras de rede costumam usar: RAW (9100–9102), LPD (515) e IPP (631). */
+export const NETWORK_PORTS = [9100, 9101, 9102, 515, 631];
+
+/** Testa um IP digitado: quais portas de impressora estão abertas e o MAC dele. */
+export async function checkHost(host, ports = NETWORK_PORTS) {
+  const open = [];
+  await Promise.all(ports.map(async (p) => (await probe(host, p, 1500)) && open.push(p)));
+  open.sort((a, b) => ports.indexOf(a) - ports.indexOf(b));
+  const mac = (await arpTable()).get(host);
+  return { host, open, raw: open.find((p) => p >= 9100 && p <= 9102) ?? null, mac: mac ?? null };
+}
+
+// ------------------------------------------------------------------ situação (ESC/POS)
+
+/**
+ * Lê as respostas do DLE EOT 1, 2 e 4 (situação, motivo de estar parada, sensor do papel).
+ * Cada byte de situação tem os bits 1 e 4 ligados e 0 e 7 desligados; o que não bate é lixo.
+ */
+export function parseStatus(bytes) {
+  const b = [...bytes].filter((x) => (x & 0x93) === 0x12);
+  if (b.length < 3)
+    return { answered: b.length > 0, online: b[0] !== undefined ? !(b[0] & 0x08) : null };
+  const [printer, offline, paper] = b;
+  return {
+    answered: true,
+    online: !(printer & 0x08),
+    coverOpen: !!(offline & 0x04),
+    paperOut: !!(paper & 0x60) || !!(offline & 0x20),
+    paperLow: !!(paper & 0x0c),
+    error: !!(offline & 0x40),
+  };
+}
+
+/** Texto curto da situação, para a tela. */
+export function statusText(s) {
+  if (!s.reachable) return 'Fora do ar: não respondeu na rede.';
+  if (!s.answered)
+    return 'Ligada na rede. Ela não informa papel e tampa (normal em alguns modelos).';
+  if (s.coverOpen) return 'Tampa aberta: feche a tampa.';
+  if (s.paperOut) return 'Sem papel: troque a bobina.';
+  if (s.error) return 'Com erro: desligue e ligue a impressora.';
+  if (s.online === false) return 'Parada (offline): confira papel e tampa.';
+  if (s.paperLow) return 'Pronta, mas o papel está acabando.';
+  return 'Pronta para imprimir.';
+}
+
+/**
+ * Pergunta à impressora de rede como ela está (papel, tampa, erro). Manda só os pedidos de
+ * situação do ESC/POS, que não imprimem nada. Usado no botão "Ver situação".
+ */
+export function tcpStatus(host, port = 9100, timeoutMs = 2000) {
+  return new Promise((resolve) => {
+    const got = [];
+    let reachable = false;
+    const s = net.connect({ host, port });
+    const done = () => {
+      s.destroy();
+      clearTimeout(timer);
+      resolve({ reachable, ...parseStatus(got) });
+    };
+    const timer = setTimeout(done, timeoutMs);
+    s.once('connect', () => {
+      reachable = true;
+      s.write(Buffer.from([0x10, 0x04, 0x01, 0x10, 0x04, 0x02, 0x10, 0x04, 0x04]));
+    });
+    s.on('data', (d) => {
+      got.push(...d);
+      if (got.length >= 3) done();
+    });
+    s.once('error', done);
+  });
+}
+
+// ------------------------------------------------------------------ IP que mudou
+
+/** Acha na rede a impressora com este MAC (o roteador deu outro IP para ela). */
+export async function findByMac(mac, port = 9100, o = {}) {
+  const want = normalizeMac(mac);
+  if (!want) return null;
+  // Primeiro a tabela ARP (instantâneo); se não estiver lá, procura na rede, o que enche a tabela.
+  for (const [ip, m] of await arpTable())
+    if (m === want && (await probe(ip, port, 1200))) return ip;
+  await scanNetwork({ port, mdns: false, ...o });
+  for (const [ip, m] of await arpTable())
+    if (m === want && (await probe(ip, port, 1200))) return ip;
+  return null;
+}
+
+const NETWORK_DOWN = /fora do ar|não respondeu|IP errado/;
+
+/**
+ * Imprime e, se a impressora de rede sumiu do IP de sempre, procura pelo MAC e imprime no IP
+ * novo. `onMoved(antigo, novo)` recebe as duas impressoras para salvar a troca.
+ */
+export async function printResilient(spec, text, { onMoved, find = findByMac } = {}) {
+  try {
+    return await printText(spec, text);
+  } catch (e) {
+    const { base, opts } = parseSpec(spec);
+    const t = base.startsWith('tcp://') ? parseTcp(base) : null;
+    if (!t || !opts.mac || !NETWORK_DOWN.test(e.message)) throw e;
+    const ip = await find(opts.mac, t.port).catch(() => null);
+    if (!ip || ip === t.host) throw e;
+    const moved = withOptions(`tcp://${ip}:${t.port}`, opts);
+    await printText(moved, text);
+    await onMoved?.(spec, moved);
+  }
 }

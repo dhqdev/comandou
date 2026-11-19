@@ -6,6 +6,8 @@ const api = window.agent;
 let state = null;
 let systemPrinters = [];
 let ports = { serial: [], direct: [] };
+let usbFree = []; // ligadas no cabo, sem driver
+let btPaired = []; // pareadas sem porta serial
 let busy = false;
 
 const STATUS = {
@@ -112,12 +114,14 @@ function splitSpec(spec) {
     raw = new URLSearchParams(s.slice(q + 1));
   }
   const baud = Number(raw.get('baud'));
+  const mac = /^[0-9A-F]{2}(-[0-9A-F]{2}){5}$/.test(raw.get('mac') ?? '') ? raw.get('mac') : '';
   return {
     base,
     opts: {
       paper: raw.get('papel') === '58' ? 58 : 80,
       codepage: ['850', 'ascii'].includes(raw.get('acentos')) ? raw.get('acentos') : '860',
       baud: BAUDS.includes(baud) ? baud : 9600,
+      mac,
     },
   };
 }
@@ -127,6 +131,7 @@ function joinSpec(base, opts) {
   if (opts.paper === 58) p.set('papel', '58');
   if (opts.codepage !== '860') p.set('acentos', opts.codepage);
   if (base.startsWith('serial:') && opts.baud !== 9600) p.set('baud', String(opts.baud));
+  if (base.startsWith('tcp://') && opts.mac) p.set('mac', opts.mac);
   const q = p.toString();
   return q ? `${base}?${q}` : base;
 }
@@ -154,7 +159,19 @@ function info(spec) {
     };
   }
   if (base.startsWith('tcp://'))
-    return { type: 'network', title: base.slice(6), detail: `Rede (cabo ou Wi-Fi)${tail}` };
+    return {
+      type: 'network',
+      title: base.slice(6),
+      detail: `Rede (cabo ou Wi-Fi)${opts.mac ? ' · acha sozinho se o IP mudar' : ''}${tail}`,
+    };
+  if (base.startsWith('ble:')) {
+    const name = state?.bleNames?.[base.slice(4)];
+    return {
+      type: 'bluetooth',
+      title: name || 'Impressora Bluetooth',
+      detail: `Bluetooth BLE · ${base.slice(4)}${tail}`,
+    };
+  }
   if (base.startsWith('serial:')) {
     const port = base.slice(7);
     const p = ports.serial.find((x) => x.path.toUpperCase() === port.toUpperCase());
@@ -224,10 +241,23 @@ function mainPrinter() {
       { class: 'tile__body' },
       el('strong', { class: 'tile__title', text: i.title }),
       el('span', { class: 'muted tile__detail', text: i.detail }),
-      last && !last.ok ? el('span', { class: 'tile__error', text: last.error }) : null,
+      healthLine(spec) ??
+        (last && !last.ok ? el('span', { class: 'tile__error', text: last.error }) : null),
     ),
     el('button', { class: 'btn', onclick: (e) => runTest(spec, e.currentTarget) }, 'Testar'),
     el('button', { class: 'btn btn--ghost', onclick: () => openPicker(null) }, 'Trocar'),
+  );
+}
+
+/** Bolinha e frase da última conferência da impressora (feita a cada 2 minutos, sem imprimir). */
+function healthLine(spec) {
+  const h = state.health?.[spec];
+  if (!h) return null;
+  return el(
+    'span',
+    { class: `health ${h.ok ? 'health--ok' : 'health--fail'}` },
+    el('span', { class: `dot dot--${h.ok ? 'ok' : 'fail'}` }),
+    h.text,
   );
 }
 
@@ -236,12 +266,20 @@ function routeRow(target) {
   const effective = own || state.printers.default || '';
   const i = own ? info(own) : null;
   const last = state.jobs.find((j) => j.target === target);
+  const h = effective ? state.health?.[effective] : null;
+  const ok = h ? h.ok : last ? last.ok : null;
   return el(
     'div',
     { class: 'route' },
     el('span', {
-      class: `dot ${last ? (last.ok ? 'dot--ok' : 'dot--fail') : ''}`,
-      title: last ? (last.ok ? 'Última impressão ok' : last.error) : 'Nada impresso ainda',
+      class: `dot ${ok === null ? '' : ok ? 'dot--ok' : 'dot--fail'}`,
+      title: h
+        ? h.text
+        : last
+          ? last.ok
+            ? 'Última impressão ok'
+            : last.error
+          : 'Nada impresso ainda',
     }),
     el('div', { class: 'route__name' }, target),
     el(
@@ -390,6 +428,12 @@ async function refreshPorts() {
   }
 }
 
+/** Listas mais lentas (USB sem driver, Bluetooth pareado sem porta): só dentro do passo a passo. */
+async function refreshExtras(type) {
+  if (type === 'usb') usbFree = await api.usbCandidates().catch(() => []);
+  if (type === 'bluetooth') btPaired = await api.btPaired().catch(() => []);
+}
+
 // ---------------------------------------------------------------- adicionar / trocar impressora
 const TYPES = [
   {
@@ -408,7 +452,7 @@ const TYPES = [
     id: 'bluetooth',
     icon: 'bluetooth',
     title: 'Bluetooth',
-    text: 'Pareada com este computador. Comum nas portáteis.',
+    text: 'Pareada com o computador, ou BLE sem parear. Comum nas portáteis.',
   },
   {
     id: 'serial',
@@ -442,6 +486,7 @@ function typeOf(base) {
   if (base.startsWith('printer:')) return 'usb';
   if (base.startsWith('tcp://')) return 'network';
   if (base.startsWith('file:')) return 'direct';
+  if (base.startsWith('ble:')) return 'bluetooth';
   if (base.startsWith('serial:')) {
     const p = ports.serial.find((x) => x.path.toUpperCase() === base.slice(7).toUpperCase());
     return p?.kind === 'bluetooth' ? 'bluetooth' : 'serial';
@@ -462,6 +507,9 @@ async function openPicker(target) {
     scan: null,
     manualIp: '',
     manualPort: '9100',
+    hostCheck: null,
+    status: null,
+    ble: null,
   });
   if (base.startsWith('tcp://')) {
     const m = /^tcp:\/\/([^:]+):?(\d*)$/.exec(base);
@@ -490,6 +538,14 @@ async function openPicker(target) {
 function go(stage) {
   pick.stage = stage;
   if (stage === 'device' && pick.type === 'network' && !pick.scan) void scan();
+  if (stage === 'device' && (pick.type === 'usb' || pick.type === 'bluetooth')) {
+    pick.extrasLoading = true;
+    void refreshExtras(pick.type).then(() => {
+      pick.extrasLoading = false;
+      if (pick.stage === 'device') renderPicker();
+    });
+  }
+  if (stage !== 'device' && pick.ble?.running) void api.bleCancel();
   renderPicker();
   $('pick-body').scrollTop = 0;
 }
@@ -514,13 +570,15 @@ api.onScanProgress?.(({ done, total }) => {
   if (bar) bar.style.width = `${Math.round((done / total) * 100)}%`;
 });
 
-const choose = (base) => {
+const choose = (base, extra = {}) => {
   pick.base = base;
+  pick.opts.mac = extra.mac ?? '';
   pick.tested = null;
+  pick.status = null;
   renderPicker();
 };
 
-function option({ base, iconName, title, detail, badge }) {
+function option({ base, iconName, title, detail, badge, mac }) {
   const on = pick.base === base;
   return el(
     'button',
@@ -528,7 +586,7 @@ function option({ base, iconName, title, detail, badge }) {
       type: 'button',
       class: `opt${on ? ' is-on' : ''}`,
       'aria-pressed': on ? 'true' : 'false',
-      onclick: () => choose(base),
+      onclick: () => choose(base, { mac }),
     },
     el('span', { class: 'opt__radio' }),
     el('span', { class: 'opt__icon' }, icon(iconName, 18)),
@@ -604,17 +662,17 @@ const DEVICE_HELP = {
     win: [
       'Ligue a impressora perto do computador.',
       'Pareie em Configurações › Bluetooth e dispositivos › Adicionar dispositivo (PIN 0000 ou 1234).',
-      'Volte aqui e clique em Atualizar a lista.',
+      'Volte aqui e clique em Atualizar a lista. Portátil que não pareia? Use "Procurar por BLE".',
     ],
     mac: [
       'Ligue a impressora perto do computador.',
       'Pareie em Ajustes do Sistema › Bluetooth (PIN 0000 ou 1234).',
-      'Volte aqui e clique em Atualizar a lista.',
+      'Volte aqui e clique em Atualizar a lista. Portátil que não pareia? Use "Procurar por BLE".',
     ],
     linux: [
       'Pareie a impressora pelo menu Bluetooth (ou bluetoothctl).',
-      'Crie a porta no terminal: sudo rfcomm bind 0 ENDEREÇO 1',
-      'Volte aqui e clique em Atualizar a lista.',
+      'Ela aparece em "Pareadas, mas sem porta": clique em Criar porta (pede a senha).',
+      'Portátil que não pareia? Use "Procurar por BLE".',
     ],
   },
   serial: {
@@ -668,17 +726,15 @@ function deviceStage() {
           )
         : emptyList('Nenhuma impressora instalada neste computador.'),
     );
+    parts.push(...usbUninstalled());
   }
 
-  if (t === 'bluetooth' || t === 'serial') {
-    const list = ports.serial.filter((p) => (t === 'bluetooth' ? p.kind === 'bluetooth' : true));
+  if (t === 'bluetooth') parts.push(...bluetoothLists());
+
+  if (t === 'serial') {
+    const list = ports.serial;
     parts.push(
-      el(
-        'div',
-        { class: 'list-head' },
-        el('h4', { text: t === 'bluetooth' ? 'Impressoras Bluetooth pareadas' : 'Portas seriais' }),
-        refreshButton(),
-      ),
+      el('div', { class: 'list-head' }, el('h4', { text: 'Portas seriais' }), refreshButton()),
     );
     parts.push(
       list.length
@@ -695,11 +751,7 @@ function deviceStage() {
               }),
             ),
           )
-        : emptyList(
-            t === 'bluetooth'
-              ? 'Nenhuma impressora Bluetooth pareada com porta serial. Pareie e clique em Procurar de novo.'
-              : 'Nenhuma porta serial encontrada. Confira o cabo e o driver do adaptador.',
-          ),
+        : emptyList('Nenhuma porta serial encontrada. Confira o cabo e o driver do adaptador.'),
     );
   }
 
@@ -748,7 +800,10 @@ function deviceStage() {
         el(
           'div',
           { class: 'scan' },
-          el('p', { class: 'muted', text: 'Procurando impressoras na rede (porta 9100)…' }),
+          el('p', {
+            class: 'muted',
+            text: 'Procurando impressoras na rede (porta 9100 e Bonjour)… leva uns segundos.',
+          }),
           el('div', { class: 'scan__bar' }, bar),
         ),
       );
@@ -762,7 +817,9 @@ function deviceStage() {
               base: `tcp://${f.host}:${f.port}`,
               iconName: 'network',
               title: f.name || 'Impressora de rede',
-              detail: `${f.host} · porta ${f.port}`,
+              detail: `${f.host} · porta ${f.port}${f.mac ? ` · ${f.mac}` : ''}`,
+              badge: f.via === 'bonjour' ? 'Bonjour' : '',
+              mac: f.mac,
             }),
           ),
         ),
@@ -806,12 +863,305 @@ function deviceStage() {
           { class: 'net-fields' },
           el('label', {}, el('span', { class: 'label', text: 'IP da impressora' }), ip),
           el('label', {}, el('span', { class: 'label', text: 'Porta' }), port),
+          el(
+            'button',
+            {
+              type: 'button',
+              class: 'btn btn--sm net-fields__check',
+              disabled: !pick.manualIp || !!pick.hostCheck?.running,
+              onclick: () => checkManualHost(),
+            },
+            pick.hostCheck?.running ? 'Testando…' : 'Testar este IP',
+          ),
         ),
+        pick.hostCheck?.text
+          ? el('p', {
+              class: `host-check ${pick.hostCheck.ok ? 'host-check--ok' : 'host-check--fail'}`,
+              text: pick.hostCheck.text,
+            })
+          : null,
       ),
     );
   }
   return parts;
 }
+
+async function checkManualHost() {
+  pick.hostCheck = { running: true };
+  renderPicker();
+  try {
+    const r = await api.checkHost(pick.manualIp);
+    if (r.raw) {
+      pick.manualPort = String(r.raw);
+      syncManual();
+      pick.opts.mac = r.mac ?? '';
+      pick.hostCheck = {
+        ok: true,
+        text: `Achei! Impressora respondendo na porta ${r.raw}.${r.mac ? ' Se o IP mudar, o aplicativo acha ela de novo sozinho.' : ''}`,
+      };
+    } else if (r.open.length)
+      pick.hostCheck = {
+        ok: false,
+        text: `Esse IP responde (portas ${r.open.join(', ')}), mas não na 9100. Para térmica, ative "RAW/9100" no programa do fabricante ou confira o IP na folha de autoteste.`,
+      };
+    else
+      pick.hostCheck = {
+        ok: false,
+        text: 'Nada respondeu nesse IP. Confira na folha de autoteste e se o começo do IP é igual ao deste computador.',
+      };
+  } catch (e) {
+    pick.hostCheck = { ok: false, text: errMsg(e) };
+  }
+  renderPicker();
+}
+
+/** Botão de ação dentro da lista (instalar, criar porta), com "trabalhando…" e erro em aviso. */
+function actionButton(label, busyLabel, work, cls = 'btn btn--sm') {
+  return el(
+    'button',
+    {
+      type: 'button',
+      class: cls,
+      onclick: async (e) => {
+        const b = e.currentTarget;
+        b.disabled = true;
+        b.textContent = busyLabel;
+        try {
+          await work();
+        } catch (err) {
+          toast(errMsg(err), 'danger');
+          b.disabled = false;
+          b.textContent = label;
+        }
+      },
+    },
+    label,
+  );
+}
+
+function actionRow(iconName, title, detail, button) {
+  return el(
+    'div',
+    { class: 'opt opt--action' },
+    el('span', { class: 'opt__icon' }, icon(iconName, 18)),
+    el(
+      'span',
+      { class: 'opt__body' },
+      el('strong', { text: title }),
+      el('span', { class: 'muted', text: detail }),
+    ),
+    button,
+  );
+}
+
+/** USB ligadas no cabo, sem driver: o aplicativo instala com o driver que já vem no sistema. */
+function usbUninstalled() {
+  if (pick.extrasLoading)
+    return [el('p', { class: 'muted list-empty', text: 'Procurando impressoras USB sem driver…' })];
+  if (!usbFree.length) return [];
+  return [
+    el('div', { class: 'list-head' }, el('h4', { text: 'Ligadas no cabo, ainda sem driver' })),
+    el(
+      'div',
+      { class: 'opts' },
+      ...usbFree.map((u) =>
+        actionRow(
+          'usb',
+          u.label,
+          u.detail,
+          actionButton(
+            'Instalar',
+            'Instalando…',
+            async () => {
+              const { spec } = await api.usbInstall(u.id, u.label);
+              await Promise.all([refreshPrinters(), refreshExtras('usb')]);
+              toast('Impressora instalada. Agora imprima um teste.');
+              choose(spec);
+              go('adjust');
+            },
+            'btn btn--primary btn--sm',
+          ),
+        ),
+      ),
+    ),
+    el('p', {
+      class: 'muted field__hint',
+      text:
+        OS() === 'win'
+          ? 'Usa o driver "Generic / Text Only" do próprio Windows. Se o Windows perguntar, clique em Sim.'
+          : 'Cria uma fila direta (RAW) no sistema. Pode pedir a senha do computador.',
+    }),
+  ];
+}
+
+const NO_PORT_HINT = {
+  win: 'Falta a porta COM "De saída". Clique em Criar porta → Adicionar → De saída → esta impressora → OK, e volte aqui.',
+  linux: 'Falta a porta /dev/rfcomm. O aplicativo cria e deixa fixa (pede a senha do computador).',
+  mac: 'O macOS não criou porta serial para ela. Procure por BLE logo abaixo ou use o cabo USB.',
+};
+
+/** Bluetooth: pareadas com porta, pareadas sem porta (com o atalho para criar) e BLE. */
+function bluetoothLists() {
+  const os = OS();
+  const parts = [];
+  const options = [
+    ...ports.serial
+      .filter((p) => p.kind === 'bluetooth')
+      .map((p) =>
+        option({
+          base: `serial:${p.path}`,
+          iconName: 'bluetooth',
+          title: p.label,
+          detail: p.path,
+          badge: 'Bluetooth',
+        }),
+      ),
+    ...Object.entries(state.bleNames ?? {}).map(([id, name]) =>
+      option({ base: `ble:${id}`, iconName: 'bluetooth', title: name, detail: id, badge: 'BLE' }),
+    ),
+  ];
+  parts.push(
+    el(
+      'div',
+      { class: 'list-head' },
+      el('h4', { text: 'Prontas para imprimir' }),
+      el(
+        'span',
+        { class: 'list-head__actions' },
+        el(
+          'button',
+          { type: 'button', class: 'btn btn--ghost btn--sm', onclick: () => api.btSettings('') },
+          'Abrir o Bluetooth do sistema',
+        ),
+        refreshButton(),
+      ),
+    ),
+    options.length
+      ? el('div', { class: 'opts' }, ...options)
+      : el('p', {
+          class: 'list-empty muted',
+          text: 'Nenhuma impressora Bluetooth pronta ainda. Pareie no sistema e clique em Atualizar, ou procure por BLE logo abaixo.',
+        }),
+  );
+
+  if (pick.extrasLoading)
+    parts.push(el('p', { class: 'muted list-empty', text: 'Conferindo aparelhos pareados…' }));
+  else if (btPaired.length)
+    parts.push(
+      el(
+        'div',
+        { class: 'list-head' },
+        el('h4', { text: 'Pareadas, mas sem porta para imprimir' }),
+      ),
+      el(
+        'div',
+        { class: 'opts' },
+        ...btPaired.map((d) =>
+          actionRow(
+            'bluetooth',
+            d.name,
+            NO_PORT_HINT[os],
+            os === 'mac'
+              ? null
+              : os === 'win'
+                ? el(
+                    'button',
+                    { type: 'button', class: 'btn btn--sm', onclick: () => api.btSettings('com') },
+                    'Criar porta',
+                  )
+                : actionButton('Criar porta', 'Criando…', async () => {
+                    const { port } = await api.btBind(d.mac);
+                    await Promise.all([refreshPorts(), refreshExtras('bluetooth')]);
+                    toast(`Porta ${port} criada. Agora imprima um teste.`);
+                    choose(`serial:${port}`);
+                    go('adjust');
+                  }),
+          ),
+        ),
+      ),
+    );
+
+  // BLE: procura ao vivo, sem parear no sistema.
+  const b = pick.ble;
+  parts.push(
+    el(
+      'div',
+      { class: 'list-head' },
+      el('h4', { text: 'Bluetooth BLE (sem parear)' }),
+      el(
+        'button',
+        {
+          type: 'button',
+          class: 'btn btn--ghost btn--sm',
+          onclick: () => (b?.running ? api.bleCancel() : startBle()),
+        },
+        b?.running ? 'Parar' : 'Procurar por BLE',
+      ),
+    ),
+  );
+  if (b?.running)
+    parts.push(
+      b.devices.length
+        ? el(
+            'div',
+            { class: 'opts' },
+            ...b.devices.map((d) =>
+              el(
+                'button',
+                { type: 'button', class: 'opt', onclick: () => api.bleChoose(d.id) },
+                el('span', { class: 'opt__radio' }),
+                el('span', { class: 'opt__icon' }, icon('bluetooth', 18)),
+                el(
+                  'span',
+                  { class: 'opt__body' },
+                  el('strong', { text: d.name || 'Aparelho sem nome' }),
+                  el('span', { class: 'muted', text: d.id }),
+                ),
+              ),
+            ),
+          )
+        : el(
+            'div',
+            { class: 'scan' },
+            el('p', {
+              class: 'muted',
+              text: 'Procurando por perto… ligue a impressora e deixe perto do computador.',
+            }),
+          ),
+    );
+  else
+    parts.push(
+      el('p', {
+        class: 'muted field__hint',
+        text: 'Para impressoras portáteis que não aparecem como porta COM. Clique em Procurar, escolha a impressora na lista e imprima um teste.',
+      }),
+    );
+  return parts;
+}
+
+async function startBle() {
+  pick.ble = { running: true, devices: [] };
+  renderPicker();
+  try {
+    const r = await api.bleScan();
+    pick.ble = null;
+    if (r) {
+      state = await api.state();
+      choose(`ble:${r.id}`);
+      toast(`${r.name || 'Impressora'} encontrada. Avance e imprima um teste.`);
+    } else renderPicker();
+  } catch (e) {
+    pick.ble = null;
+    toast(errMsg(e), 'danger');
+    renderPicker();
+  }
+}
+
+api.onBleDevices?.((list) => {
+  if (!pick.ble?.running) return;
+  pick.ble.devices = list;
+  if (pick.stage === 'device') renderPicker();
+});
 
 function syncManual() {
   const ok =
@@ -819,6 +1169,7 @@ function syncManual() {
     Number(pick.manualPort) > 0 &&
     Number(pick.manualPort) < 65536;
   pick.base = ok ? `tcp://${pick.manualIp}:${Number(pick.manualPort)}` : '';
+  pick.opts.mac = '';
   pick.tested = null;
   document.querySelectorAll('#pick .opt').forEach((o) => {
     o.classList.remove('is-on');
@@ -943,7 +1294,37 @@ function adjustStage() {
       {
         class: `test-box${pick.tested === true ? ' is-ok' : pick.tested === false ? ' is-fail' : ''}`,
       },
-      test,
+      el(
+        'div',
+        { class: 'test-box__actions' },
+        test,
+        pick.base.startsWith('ble:')
+          ? null
+          : el(
+              'button',
+              {
+                type: 'button',
+                class: 'btn btn--ghost',
+                onclick: async (e) => {
+                  const b = e.currentTarget;
+                  b.disabled = true;
+                  try {
+                    pick.status = await api.printerStatus(spec);
+                  } catch (err) {
+                    pick.status = { ok: false, text: errMsg(err) };
+                  }
+                  renderPicker();
+                },
+              },
+              'Ver situação',
+            ),
+      ),
+      pick.status
+        ? el('p', {
+            class: `host-check ${pick.status.ok ? 'host-check--ok' : 'host-check--fail'}`,
+            text: pick.status.text,
+          })
+        : null,
       el(
         'p',
         {},
@@ -1101,6 +1482,9 @@ async function saveRoute(spec) {
 function closePicker() {
   $('pick').close();
 }
+$('pick').addEventListener('close', () => {
+  if (pick.ble?.running) void api.bleCancel();
+});
 $('pick-close').addEventListener('click', closePicker);
 
 // ---------------------------------------------------------------- ajuda

@@ -1002,6 +1002,67 @@ textarea {
   border-color: color-mix(in srgb, var(--danger) 30%, transparent);
 }
 
+.test-box {
+  flex-wrap: wrap;
+}
+.test-box__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: none;
+}
+.test-box p {
+  flex: 1;
+  min-width: 220px;
+}
+.test-box .host-check {
+  flex-basis: 100%;
+}
+.net-fields:has(.net-fields__check) {
+  grid-template-columns: 1fr 110px auto;
+  align-items: end;
+}
+.host-check {
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin: 0;
+}
+.host-check--ok {
+  background: var(--success-bg);
+  color: var(--success);
+}
+.host-check--fail {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+.opt--action {
+  cursor: default;
+}
+.opt--action:hover {
+  background: var(--surface);
+  border-color: var(--border);
+}
+.list-head__actions {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.health {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  margin-top: 2px;
+}
+.health--ok {
+  color: var(--success);
+}
+.health--fail {
+  color: var(--danger);
+}
+
 /* ------------------------------------------------------------ ajuda */
 .dialog--guide {
   width: min(920px, calc(100vw - 32px));

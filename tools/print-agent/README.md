@@ -31,21 +31,39 @@ Linux) e os problemas mais comuns.
 
 ### Tipos de ligação
 
-| Tipo | Como o aplicativo fala com ela | Impressora guardada como |
-| --- | --- | --- |
-| USB com driver (ou "Generic / Text Only"), compartilhada, paralela | spooler do Windows em modo RAW; CUPS (`lp -o raw`) no macOS/Linux | `printer:NOME` |
-| Rede com cabo ou Wi-Fi | TCP na porta 9100 (RAW/JetDirect); **Procurar na rede** acha sozinho quem tem a 9100 aberta, sem imprimir nada | `tcp://IP:9100` |
-| Bluetooth (perfil serial, SPP) | porta COM que o Windows cria ao parear; `/dev/cu.NOME` no macOS; `/dev/rfcomm0` no Linux | `serial:COM5` |
-| Serial RS-232, USB-serial, COM virtual | .NET `SerialPort` no Windows; `stty` + escrita na porta no macOS/Linux | `serial:COM3?baud=19200` |
-| USB direto, sem driver (Linux) | escreve em `/dev/usb/lp0` | `file:/dev/usb/lp0` |
+| Tipo | Como o aplicativo acha | Como o aplicativo fala com ela | Impressora guardada como |
+| --- | --- | --- | --- |
+| USB com driver (ou "Generic / Text Only"), compartilhada, paralela | impressoras instaladas no sistema | spooler do Windows em modo RAW; CUPS (`lp -o raw`) no macOS/Linux | `printer:NOME` |
+| USB **sem driver** | Windows: porta `USB001…` sem impressora; macOS/Linux: backend `usb` do CUPS | botão **Instalar**: cria a fila com o "Generic / Text Only" (Windows, pede permissão) ou RAW (`lpadmin -m raw`, pede a senha) | `printer:Comandou_MODELO` |
+| Rede com cabo ou Wi-Fi | **Procurar na rede**: porta 9100 em toda a rede local (até /22) + Bonjour/mDNS (`_pdl-datastream`, `_printer`, `_ipp`), sem imprimir nada; **Testar este IP** descobre a porta (9100–9102, 515, 631) | TCP na porta 9100 (RAW/JetDirect) | `tcp://IP:9100?mac=…` |
+| Bluetooth pareado (perfil serial, SPP) | porta COM do Windows, `/dev/cu.NOME` no macOS, `/dev/rfcommN` no Linux; pareada **sem porta** aparece com **Criar porta** (Windows abre a tela Portas COM; Linux cria o rfcomm e deixa fixo com systemd) | porta serial | `serial:COM5` |
+| Bluetooth **BLE** (portáteis sem porta COM) | **Procurar por BLE** (Web Bluetooth do Chromium, sem parear no sistema) | escreve na característica de escrita (serviços `18f0`, `ff00`, `ffe0`, `fff0`, `ae30`, ISSC…) em pedaços de 20 bytes; religa sozinho pelo endereço salvo | `ble:ENDEREÇO` |
+| Serial RS-232, USB-serial, COM virtual | portas seriais do sistema | .NET `SerialPort` no Windows; `stty` + escrita na porta no macOS/Linux | `serial:COM3?baud=19200` |
+| USB direto, sem driver (Linux) | `/dev/usb/lp*` | escreve no aparelho | `file:/dev/usb/lp0` |
 
 Ajustes por impressora, no fim do texto: `papel=58` (bobina de 58 mm: fonte B, para caber as 42
-colunas), `acentos=850` ou `acentos=ascii` (impressora que não tem a CP860), `baud=...` (serial).
+colunas), `acentos=850` ou `acentos=ascii` (impressora que não tem a CP860), `baud=...` (serial),
+`mac=00-11-22-33-44-55` (rede: guardado sozinho ao escolher da lista ou testar o IP).
 A página de teste traz uma régua de 42 colunas e uma linha de acentos para conferir no papel.
 
+**IP que mudou:** impressora de rede com `mac=` que deixa de responder é procurada pela tabela ARP
+e, se preciso, por uma nova varredura; achou, imprime no IP novo, salva a troca em todos os setores
+e avisa para reservar o IP no roteador (`printResilient` em `devices.mjs`; a linha de comando
+também usa, só avisando no log).
+
+**Situação das impressoras:** a cada 2 minutos (e ao abrir a janela) o aplicativo confere, sem
+imprimir, se cada impressora está ao alcance (rede responde, porta COM existe, fila ainda instalada,
+cabo USB ligado) e mostra uma bolinha verde ou vermelha com o motivo. Em rede, **Ver situação**
+pergunta à impressora (DLE EOT do ESC/POS, não imprime) se falta papel, se a tampa está aberta ou se
+há erro. BLE não é conferido em segundo plano (gastaria a bateria da impressora).
+
 Impressoras aceitas: térmicas ESC/POS (Elgin, Bematech, Epson, Daruma, Tanca, Knup, genéricas de
-58/80 mm). Impressoras só BLE (Bluetooth Low Energy, sem perfil serial) não criam porta COM: use o
-cabo USB delas.
+58/80 mm).
+
+**Sistemas:** Windows 10/11 em Intel, AMD ou ARM (um instalador com as duas versões), macOS Intel e
+Apple Silicon (o macOS pede permissão de Bluetooth e de rede local na primeira vez) e Linux x64 ou
+ARM (AppImage; o de ARM é `Comandou-Impressao-arm64.AppImage` na mesma Release). No Linux, o BLE do
+Chromium precisa do BlueZ e liga a opção `enable-experimental-web-platform-features` sozinho.
 
 Os instaladores não são assinados digitalmente ainda: no Windows, o SmartScreen pode pedir
 "Mais informações → Executar assim mesmo"; no macOS, clique com o botão direito → Abrir.
@@ -56,14 +74,20 @@ Os instaladores não são assinados digitalmente ainda: no Windows, o SmartScree
 cd tools/print-agent
 npm ci
 npm start          # abre o aplicativo
-npm test           # testes (node --test)
+npm test           # testes (node --test; sem impressora: rede, mDNS, ARP, USB e Bluetooth simulados)
 npm run dist       # gera o instalador do sistema atual em dist/
 ```
 
 - `core.mjs`: conexão com a API e laço de busca (usado pelo app e pela linha de comando).
 - `printers.mjs`: saídas (`printer:NOME`, `tcp://IP:PORTA`, `serial:PORTA`, `file:/caminho`,
   `stdout`, `none`) e os ajustes (`?papel=58&acentos=850&baud=9600`).
-- `devices.mjs`: descoberta (portas seriais e Bluetooth, USB direto, procura na rede).
+- `devices.mjs`: descoberta (portas seriais e Bluetooth, USB direto, procura na rede com MAC),
+  situação ESC/POS pela rede e a impressão que segue o IP novo (`printResilient`).
+- `mdns.mjs`: Bonjour/mDNS sem dependências (pergunta e leitura dos pacotes).
+- `usb.mjs`: impressora USB sem driver (lista e instala a fila RAW em cada sistema).
+- `bluetooth.mjs`: pareadas sem porta serial e o `rfcomm bind` fixo do Linux.
+- `desktop/ble.mjs` + `desktop/ble/`: Bluetooth BLE pela janela escondida (Web Bluetooth); a
+  escolha do aparelho é feita no evento `select-bluetooth-device`.
 - `escpos.mjs`: texto → ESC/POS (CP860, acentos do PT-BR).
 - `desktop/`: aplicativo Electron (bandeja, janela de configuração, link
   `comandou-impressao://`).

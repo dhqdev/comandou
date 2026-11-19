@@ -18,7 +18,7 @@ export const PRINT_AGENT_DOWNLOADS: Record<
   windows: {
     label: 'Windows',
     file: 'Comandou-Impressao-Setup.exe',
-    note: 'Windows 10 ou 11',
+    note: 'Windows 10 ou 11 (Intel, AMD ou ARM)',
   },
   mac: { label: 'macOS', file: 'Comandou-Impressao.dmg', note: 'Intel e Apple Silicon' },
   linux: { label: 'Linux', file: 'Comandou-Impressao.AppImage', note: 'AppImage (x64)' },
