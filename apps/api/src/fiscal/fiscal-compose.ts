@@ -110,6 +110,11 @@ export interface ComposeInput {
   };
   recipient: Recipient | null;
   operation: Operation;
+  /**
+   * Venda feita por aplicativo de delivery (marketplace): CNPJ do aplicativo e o código da loja
+   * nele (idCadIntTran). Vai no grupo do intermediador (indIntermed = 1).
+   */
+  intermediary?: { cnpj: string; storeId: string } | null;
 }
 
 const pct = (cents: number, rate: string | null | undefined) =>
@@ -566,6 +571,14 @@ export function composeNote(input: ComposeInput) {
       };
     }),
     ...(info ? { informacoes_adicionais_contribuinte: info.slice(0, 2000) } : {}),
+    // Pedido de aplicativo (iFood): a venda foi intermediada (rejeições 434 e 438 da NT 2020.006).
+    ...(input.intermediary
+      ? {
+          indicador_intermediario: '1',
+          cnpj_intermediario: input.intermediary.cnpj,
+          id_intermediario: input.intermediary.storeId.slice(0, 60),
+        }
+      : {}),
   };
   if (kind === 'nfce') {
     Object.assign(payload, {
@@ -583,7 +596,7 @@ export function composeNote(input: ComposeInput) {
       presenca_comprador:
         operation.presence && operation.presence !== '4'
           ? operation.presence
-          : order.source === 'online'
+          : order.source === 'online' || order.source === 'app'
             ? '2'
             : delivery || operation.presence === '4'
               ? '9'

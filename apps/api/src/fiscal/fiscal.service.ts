@@ -10,7 +10,13 @@ import {
   ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { explainFiscalError, FiscalIssue, fromCents, toCents } from '@comandou/shared';
+import {
+  explainFiscalError,
+  FiscalIssue,
+  fromCents,
+  INTERMEDIARY_CNPJS,
+  toCents,
+} from '@comandou/shared';
 import { randomUUID } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
 import { CashService } from '../cash/cash.service';
@@ -965,8 +971,20 @@ export class FiscalService implements OnModuleInit {
       if (cur) cur.net = fromCents(toCents(cur.net) + due);
       else payments.push({ method, net: fromCents(due) });
     }
+    // Pedido de aplicativo: o aplicativo é o intermediador da venda (só os de CNPJ conferido).
+    const link = await one<{ channel: string; store_id: string }>(
+      tx,
+      `SELECT channel, store_id FROM channel_orders WHERE order_id = ANY($1::uuid[])
+        ORDER BY created_at LIMIT 1`,
+      [orderIds],
+    );
+    const intermediaryCnpj = link ? INTERMEDIARY_CNPJS[link.channel] : undefined;
     const res = composeNote({
       kind,
+      intermediary:
+        intermediaryCnpj && link && link.store_id.length >= 2
+          ? { cnpj: intermediaryCnpj, storeId: link.store_id }
+          : null,
       cnpj: s.cnpj ?? '',
       issuerUf: s.company?.uf ?? null,
       regime: s.company?.regimeTributario ?? null,
@@ -1355,7 +1373,12 @@ export class FiscalService implements OnModuleInit {
         nature: s.nfe_nature,
         purpose: '1',
         // "4" (entrega a domicílio) só existe na NFC-e; delivery em NF-e é "não presencial".
-        presence: extra.source === 'online' ? '2' : extra.channel === 'delivery' ? '9' : '1',
+        presence:
+          extra.source === 'online' || extra.source === 'app'
+            ? '2'
+            : extra.channel === 'delivery'
+              ? '9'
+              : '1',
         finalConsumer: recipient?.ieIndicator !== 1,
         info: null,
       };

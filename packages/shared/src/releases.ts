@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.192.1',
+    date: '2026-11-19',
+    title: 'Nota fiscal de pedido do iFood com o intermediador',
+    summary:
+      'A NFC-e e a NF-e de pedidos que chegam pelo iFood agora informam que a venda foi intermediada pelo aplicativo, com o CNPJ do iFood e o código da sua loja nele, como pede a SEFAZ.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Pedido do iFood: a nota sai com o intermediador (CNPJ do iFood e o código da loja no iFood), como exige a nota técnica 2020.006.',
+      },
+      {
+        tag: 'correção',
+        text: 'NF-e de pedido de aplicativo sai como venda pela internet (presença 2).',
+      },
+    ],
+  },
+  {
     version: '0.192.0',
     date: '2026-11-19',
     title: 'Pedidos do aiqfome e de outros aplicativos Open Delivery',

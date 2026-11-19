@@ -152,6 +152,11 @@ Corrigido:
 - Nota denegada (301/302) não é mais reemitida com o mesmo número: o número fica gasto, não aparece
   como "pulado" para inutilizar, e a venda pode receber uma nota nova.
 
-Ainda em aberto (precisa de decisão ou da contabilidade): intermediador (iFood) na nota
-(`indIntermed` e CNPJ do iFood), DIFAL na NF-e interestadual para consumidor final, Pix estático
+Intermediador (0.192.1): pedido do iFood (`channel_orders`) sai com `indicador_intermediario = 1`,
+`cnpj_intermediario` (14.380.200/0001-21, em `INTERMEDIARY_CNPJS`) e `id_intermediario` (o código
+da loja no iFood). Os outros aplicativos entram na lista quando o CNPJ deles for conferido; até lá
+saem sem o grupo, como antes. NF-e de pedido de aplicativo vai com presença 2 (internet).
+
+Ainda em aberto (precisa de decisão ou da contabilidade): CNPJ dos outros aplicativos como
+intermediador, DIFAL na NF-e interestadual para consumidor final, Pix estático
 como forma 20, crédito do Simples no CSOSN 101 e a taxa de serviço como base do ICMS.

@@ -207,6 +207,14 @@ export const IE_INDICATORS: CodeList = [
   ['2', 'Contribuinte isento de IE'],
 ];
 
+/**
+ * CNPJ de cada aplicativo de delivery como intermediador da venda (grupo infIntermed, NT 2020.006).
+ * Só entram CNPJs conferidos; aplicativo fora da lista sai sem o grupo, como antes.
+ */
+export const INTERMEDIARY_CNPJS: Readonly<Record<string, string>> = {
+  ifood: '14380200000121',
+};
+
 /** Meio de pagamento (tPag) a partir da forma do Comandou. */
 export const PAYMENT_CODES: Record<string, string> = {
   cash: '01',

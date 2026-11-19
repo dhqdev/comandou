@@ -189,4 +189,35 @@ describe('composeNote', () => {
     expect(cfop(rule())).toBe('6108');
     expect(cfop(rule({ cfop: '5405', icmsCst: '500' }))).toBe('6404');
   });
+
+  it('pedido do iFood leva o intermediador (CNPJ do iFood e o código da loja)', () => {
+    const { payload } = composeNote(
+      input({ intermediary: { cnpj: '14380200000121', storeId: 'loja-123' } }),
+    );
+    expect(payload).toMatchObject({
+      indicador_intermediario: '1',
+      cnpj_intermediario: '14380200000121',
+      id_intermediario: 'loja-123',
+    });
+    expect(composeNote(input()).payload.indicador_intermediario).toBeUndefined();
+  });
+
+  it('NF-e de pedido de aplicativo sai como venda pela internet', () => {
+    const base = input({
+      kind: 'nfe',
+      recipient: {
+        name: 'Cliente',
+        cpf: '52998224725',
+        street: 'Rua A',
+        number: '1',
+        district: 'Centro',
+        city: 'São Paulo',
+        state: 'SP',
+        cep: '01001000',
+      },
+    });
+    base.order.source = 'app';
+    base.order.channel = 'delivery';
+    expect(composeNote(base).payload.presenca_comprador).toBe('2');
+  });
 });
