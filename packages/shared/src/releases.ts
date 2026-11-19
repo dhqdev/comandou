@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.192.2',
+    date: '2026-11-19',
+    title: 'Detalhe do pedido mais largo e organizado',
+    summary:
+      'No computador, a gaveta que abre ao clicar num pedido ficou bem mais larga: o pedido e os itens à esquerda, pagamentos, nota fiscal e histórico à direita, e os totais ao lado dos botões.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Gaveta do pedido ocupa boa parte da tela no computador, em duas colunas, com o histórico já aberto. No celular e no tablet segue como antes.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cada item mostra quantidade, preço e total na mesma linha, e quando entrou em preparo ou ficou pronto.',
+      },
+      {
+        tag: 'novo',
+        text: 'O detalhe mostra quem lançou o pedido, há quanto tempo foi feito, o horário agendado e quando foi entregue na mesa. Telefone sai formatado e some quando não foi informado.',
+      },
+    ],
+  },
+  {
     version: '0.192.1',
     date: '2026-11-19',
     title: 'Nota fiscal de pedido do iFood com o intermediador',

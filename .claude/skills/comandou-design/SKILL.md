@@ -121,6 +121,13 @@ desconto e pago em verde, falta pagar em vermelho; Cancelar/Recusar em vermelho 
 apoio (`od-tools`) com um tom cada e esticando até a borda. Fora dessa gaveta, o resto do sistema
 segue neutro; não copie os tons para outras telas sem pedido.
 
+Largura (0.192.2, pedido do David): a partir de 1100 px a gaveta ocupa ~74% da tela (até 1180 px)
+e, com o corpo em contêiner (`container: od`) de 820 px ou mais, vira duas colunas: `.od-main`
+(dados, itens, formulários das ações) à esquerda e `.od-side` (pagamentos, nota, histórico já
+aberto) à direita; o rodapé repete as colunas (botões embaixo do pedido, resumo embaixo do
+dinheiro) e o item fica numa linha (nome | quantidade × preço e total). Abaixo disso, uma coluna.
+Bloco novo do detalhe: decida se é do pedido (main) ou do dinheiro (side).
+
 ## Super Admin › Cobrança (calendário)
 
 `platform/BillingCalendar.tsx` (classes `adm-cal*` e `adm-charge*` em `admin.css`), no jeito

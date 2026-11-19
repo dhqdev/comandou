@@ -1355,3 +1355,98 @@ button.pay-part {
 .od-block__title:has(.od-block__edit) {
   justify-content: flex-start;
 }
+.od-fact__muted {
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--cm-text-muted);
+}
+.od-main,
+.od-side {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-width: 0;
+}
+/* Gaveta do pedido larga no computador (0.193, pedido do David): ocupa boa parte da tela, com o
+   pedido (dados, itens, ações abertas) à esquerda e o dinheiro (pagamentos, nota, histórico) à
+   direita. O rodapé repete as duas colunas: botões embaixo do pedido, resumo embaixo do dinheiro.
+   Abaixo de 1100 px (tablet, celular) segue a gaveta de uma coluna de antes. */
+@media (min-width: 1100px) {
+  .side-panel:has(.order-detail) {
+    width: clamp(600px, 74vw, 1180px);
+  }
+  .side-panel:has(.order-detail) :is(.side-panel__body, .side-panel__foot) {
+    container: od / inline-size;
+    padding-inline: 24px;
+  }
+  .side-panel:has(.order-detail) .side-panel__body {
+    padding-block: 20px;
+  }
+  .side-panel:has(.order-detail) .side-panel__head {
+    padding: 14px 24px;
+  }
+}
+@container od (min-width: 820px) {
+  .order-detail {
+    grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  .od-main,
+  .od-side {
+    gap: 16px;
+  }
+  .od-side {
+    position: sticky;
+    top: 0;
+  }
+  .od-card {
+    padding: 16px 18px;
+  }
+  .od-facts {
+    gap: 16px 18px;
+  }
+  .od-block__title {
+    font-size: var(--cm-text-md);
+  }
+  /* Item numa linha só: foto e nome | quantidade × preço | total, e o cancelar no fim. */
+  .od-item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px 20px;
+    padding: 12px 16px;
+  }
+  .od-item__top {
+    grid-column: 1;
+    gap: 12px;
+  }
+  .od-item__bottom {
+    grid-column: 2;
+    grid-row: 1;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    padding-top: 0;
+    border-top: 0;
+    text-align: right;
+  }
+  .od-item__bottom strong {
+    font-size: var(--cm-text-md);
+  }
+  .od-item > :not(.od-item__top, .od-item__bottom) {
+    grid-column: 1 / -1;
+  }
+  .od-foot {
+    grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr);
+    grid-template-rows: auto 1fr;
+    column-gap: 20px;
+    align-items: start;
+  }
+  .od-foot > .od-sum {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+  .od-foot > :not(.od-sum) {
+    grid-column: 1;
+  }
+}
