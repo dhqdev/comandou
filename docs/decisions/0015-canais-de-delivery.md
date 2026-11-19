@@ -677,7 +677,7 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
     caixa de saída (mesma repetição e idempotência por `orderId`), andamento na mesma linha do
     entregador e a taxa lançada como despesa de entrega. Depende de uma empresa parceira para
     testar; não entra nesta fase.
-- **Fase 14** (fechamento, 0.193.0): sem migração.
+- **Fase 14** (fechamento, 0.194.0): sem migração.
   - **Relatório "Vendas por aplicativo"** (Relatórios › Delivery, `reports/catalog/apps.ts`):
     pedidos, vendido, ticket, % do vendido, cancelados, taxas e líquido de cada aplicativo
     (`orders.app_channel`), com a venda própria numa linha à parte para comparar e o período

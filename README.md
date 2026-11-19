@@ -175,7 +175,9 @@ Em produção ela fica em `fumaca.<domínio>`; detalhes e como desligar em
 
 Desenvolvimento sem Docker, testes e migrações: [docs/development.md](docs/development.md).
 Quem trabalha com o Claude Code no projeto tem as skills em [`.claude/skills`](.claude/skills)
-(padrão visual e o mapa do projeto, mantidos junto com o código).
+(padrão visual e o mapa do projeto, mantidos junto com o código). Para o site público há também a
+[Impeccable](https://github.com/pbakaus/impeccable) (Apache 2.0), skill de design de páginas de
+venda, usada como régua de acabamento abaixo da `comandou-design`.
 
 ## Tecnologia
 

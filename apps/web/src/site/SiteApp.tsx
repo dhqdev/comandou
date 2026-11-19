@@ -26,7 +26,16 @@ import { brl } from '../lib/money';
 import { contactHref, INCLUDED_IN_ALL, type PublicPlan } from '../pages/pricing-data';
 import { Builder, PhoneMock, type Look } from './Builder';
 import { loadSiteConfig, type SiteConfig } from './host';
-import { FEATURES, SAMPLE_ITEMS, SITE_FAQ, STEPS, TOUR } from './site-data';
+import {
+  APP_FEATURES,
+  APP_ORDERS,
+  DELIVERY_APPS,
+  FEATURES,
+  SAMPLE_ITEMS,
+  SITE_FAQ,
+  STEPS,
+  TOUR,
+} from './site-data';
 import {
   calmMotion,
   scrollToEl,
@@ -39,7 +48,6 @@ import {
 import ClickSpark from './reactbits/ClickSpark';
 import GlareHover from './reactbits/GlareHover';
 import Magnet from './reactbits/Magnet';
-import ShinyText from './reactbits/ShinyText';
 import SpotlightCard from './reactbits/SpotlightCard';
 import StarBorder from './reactbits/StarBorder';
 import './site.css';
@@ -458,15 +466,15 @@ function HeroToasts() {
       <div className="st-toast st-toast--a">
         <b className="st-toast__dot" />
         <span>
-          <strong>Novo pedido</strong>
-          <small>Mesa 4 · 2 itens</small>
+          <strong>Novo pedido do iFood</strong>
+          <small>#7421 · R$ 71,80</small>
         </span>
       </div>
       <div className="st-toast st-toast--b">
         <Check size={14} />
         <span>
           <strong>Pix aprovado</strong>
-          <small>R$ 71,80</small>
+          <small>Mesa 4 · R$ 128,40</small>
         </span>
       </div>
       <div className="st-toast st-toast--c">
@@ -481,15 +489,13 @@ function HeroToasts() {
 }
 
 /**
- * Cabeçalho de seção: o número da seção em cinza (como um índice) e o título que sobe palavra por
- * palavra de trás de uma máscara quando a seção chega na tela.
+ * Cabeçalho de seção: o título sobe palavra por palavra de trás de uma máscara quando a seção
+ * chega na tela, e uma frase curta embaixo diz o que a seção prova. Sem número nem rótulo em
+ * cima do título (a skill impeccable proíbe o "eyebrow"; o título fala sozinho).
  */
-function SectionHead({ n, label, title }: { n: number; label: string; title: string }) {
+function SectionHead({ title, text }: { title: string; text?: string }) {
   return (
     <div className="st-sec__head st-reveal">
-      <span className="st-num">
-        {String(n).padStart(2, '0')} <i aria-hidden>/</i> {label}
-      </span>
       <h2 className="st-split" aria-label={title}>
         {title.split(' ').map((w, i) => (
           <Fragment key={w + i}>
@@ -500,6 +506,7 @@ function SectionHead({ n, label, title }: { n: number; label: string; title: str
           </Fragment>
         ))}
       </h2>
+      {text && <p>{text}</p>}
     </div>
   );
 }
@@ -603,38 +610,61 @@ function Steps() {
   );
 }
 
-/** Frase enorme que corre de lado e acelera com a rolagem, perto do fim da página. */
-function BigLine() {
-  const track = useVelocityMarquee<HTMLDivElement>(48);
-  const line = ['Pedido', 'Mesa', 'Cozinha', 'Caixa', 'Entrega', 'Nota fiscal'];
-  return (
-    <div className="st-bigline" aria-hidden>
-      <div className="st-bigline__track" ref={track}>
-        {[0, 1].map((copy) => (
-          <span key={copy}>
-            {line.map((w) => (
-              <span key={w}>
-                {w}
-                <i />
-              </span>
-            ))}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
+/** Links do menu (e do rodapé, os quatro primeiros). */
+const NAV: [string, string][] = [
+  ['#sistema', 'O sistema'],
+  ['#aplicativos', 'Aplicativos'],
+  ['#como', 'Como funciona'],
+  ['#preco', 'Preço'],
+  ['#perguntas', 'Perguntas'],
+];
 
-/** A marca enorme no rodapé: as letras sobem uma a uma quando o fim da página aparece. */
-function Wordmark() {
-  const ref = useScrollProgress<HTMLDivElement>('reveal');
+/**
+ * Aplicativos de delivery: à esquerda a fila de pedidos como aparece no Comandou (cada linha
+ * com o aplicativo de onde veio, entrando uma a uma quando a seção chega); à direita o que dá
+ * para fazer sem abrir o portal de cada aplicativo.
+ */
+function Apps() {
   return (
-    <div className="st-mark" ref={ref} aria-hidden>
-      {'Comandou'.split('').map((c, i) => (
-        <span key={i} style={{ '--i': i } as React.CSSProperties}>
-          {c}
-        </span>
-      ))}
+    <div className="st-apps">
+      <div className="st-apps__feed st-reveal" aria-hidden>
+        <div className="st-apps__bar">
+          <strong>Pedidos</strong>
+          <span>
+            <i /> Ao vivo
+          </span>
+        </div>
+        <ul>
+          {APP_ORDERS.map((o, k) => (
+            <li key={o.n} style={{ '--k': k } as React.CSSProperties}>
+              <span className="st-apps__app">{o.app}</span>
+              <span className="st-apps__who">
+                <strong>#{o.n}</strong>
+                <small>{o.items}</small>
+              </span>
+              <span className="st-apps__val">
+                <strong>R$ {o.total}</strong>
+                <small className={`st-apps__st st-apps__st--${o.tone}`}>{o.status}</small>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="st-apps__side st-reveal">
+        <ul className="st-apps__names" aria-label="Aplicativos que funcionam com o Comandou">
+          {DELIVERY_APPS.map((a) => (
+            <li key={a}>{a}</li>
+          ))}
+        </ul>
+        <dl className="st-apps__list">
+          {APP_FEATURES.map((f) => (
+            <div key={f.title}>
+              <dt>{f.title}</dt>
+              <dd>{f.text}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
     </div>
   );
 }
@@ -718,10 +748,11 @@ export function SiteApp() {
               <span>Comandou</span>
             </a>
             <nav className="st-nav__links" aria-label="Seções">
-              <a href="#sistema">O sistema</a>
-              <a href="#como">Como funciona</a>
-              <a href="#preco">Preço</a>
-              <a href="#perguntas">Perguntas</a>
+              {NAV.map(([href, label]) => (
+                <a key={href} href={href}>
+                  {label}
+                </a>
+              ))}
             </nav>
             <div className="st-nav__end">
               <Button variant="ghost" className="st-nav__enter" onClick={() => setEnter(true)}>
@@ -743,12 +774,7 @@ export function SiteApp() {
             </div>
           </div>
           <nav id="st-menu" className="st-nav__sheet" aria-label="Menu" hidden={!menu}>
-            {[
-              ['#sistema', 'O sistema'],
-              ['#como', 'Como funciona'],
-              ['#preco', 'Preço'],
-              ['#perguntas', 'Perguntas'],
-            ].map(([href, label]) => (
+            {NAV.map(([href, label]) => (
               <a key={href} href={href} onClick={() => setMenu(false)}>
                 {label}
               </a>
@@ -770,18 +796,7 @@ export function SiteApp() {
 
         <main id="topo">
           <section className="st-hero" ref={hero}>
-            <i className="st-hero__dots" aria-hidden />
             <div className="st-hero__text">
-              <span className="st-pill">
-                <i aria-hidden />{' '}
-                <ShinyText
-                  text={`${free}, sem cartão`}
-                  color="#3f3f46"
-                  shineColor="#E23A00"
-                  speed={3.2}
-                  delay={1.4}
-                />
-              </span>
               <h1 className="st-h1">
                 <span className="st-h1__row">
                   <Words text="Seu restaurante" from={0} />
@@ -803,6 +818,14 @@ export function SiteApp() {
                 )}
               </p>
               <Builder config={config} onLook={setLook} onMood={react} />
+              <ul className="st-hero__facts">
+                <li>
+                  <Check size={15} aria-hidden /> {free}, sem cartão
+                </li>
+                <li>
+                  <Check size={15} aria-hidden /> Recebe pedidos do iFood, 99Food, Keeta e Rappi
+                </li>
+              </ul>
             </div>
             <div className="st-hero__art">
               {/* O palco anda com a rolagem (deitado no topo, reto ao descer); o de dentro só entra. */}
@@ -841,30 +864,38 @@ export function SiteApp() {
           <Marquee />
 
           <section className="st-sec" id="sistema">
-            <SectionHead n={1} label="O sistema" title="Tudo numa tela só." />
+            <SectionHead
+              title="Tudo numa tela só."
+              text="Balcão, salão, cozinha, caixa e entrega conversando entre si, sem planilha no meio."
+            />
             <div className="st-reveal">
               <Tour dark={false} />
             </div>
           </section>
 
+          <section className="st-sec st-sec--tint" id="aplicativos">
+            <SectionHead
+              title="Os pedidos dos aplicativos caem aqui."
+              text="Ligue a sua loja do iFood, 99Food, Keeta, Rappi ou aiqfome e pare de pular entre tablets. O pedido entra na mesma fila da cozinha."
+            />
+            <Apps />
+          </section>
+
           <Manifesto />
 
-          <section className="st-sec st-sec--tint">
-            <SectionHead n={2} label="Os detalhes" title="Feito para o balcão." />
+          <section className="st-sec">
+            <SectionHead title="Feito para o balcão." />
             <Details />
           </section>
 
           <section className="st-sec st-sec--steps" id="como">
-            <SectionHead n={3} label="Como funciona" title="Três passos." />
+            <SectionHead title="Três passos." />
             <Steps />
           </section>
 
           <section className="st-sec st-sec--tint" id="preco">
             <div className="st-price st-reveal">
               <div className="st-price__left">
-                <span className="st-num">
-                  04 <i aria-hidden>/</i> Preço
-                </span>
                 <h2>Um preço só. Tudo dentro.</h2>
                 <p>{free}, sem cartão e sem limite de pedidos.</p>
                 <div className="st-price__value">
@@ -930,7 +961,7 @@ export function SiteApp() {
           </section>
 
           <section className="st-sec st-sec--narrow" id="perguntas">
-            <SectionHead n={5} label="Perguntas" title="Ficou alguma dúvida?" />
+            <SectionHead title="Ficou alguma dúvida?" />
             <div className="st-faq st-reveal">
               {SITE_FAQ.map((f) => (
                 <details key={f.q}>
@@ -944,43 +975,70 @@ export function SiteApp() {
             </div>
           </section>
 
-          <BigLine />
-
-          <section className="st-end st-reveal">
-            <div className="st-end__panda">
-              <LivePanda size={84} mood="happy" />
-            </div>
-            <h2>Vamos colocar o seu no ar?</h2>
-            <div className="st-end__cta">
-              <CtaButton size="lg" arrow onClick={toBuilder}>
-                Criar meu restaurante
-              </CtaButton>
-              {config?.demoUrl && (
-                <a className="cm-btn cm-btn--secondary cm-btn--lg" href={config.demoUrl}>
-                  Ver um cardápio de exemplo
-                </a>
-              )}
+          <section className="st-end">
+            <div className="st-end__in st-reveal">
+              <div className="st-end__text">
+                <h2>Vamos colocar o seu no ar?</h2>
+                <p>
+                  {free}, sem cartão. Em poucos minutos o cardápio está no ar e o primeiro pedido
+                  chega na cozinha.
+                </p>
+                <div className="st-end__cta">
+                  <CtaButton size="lg" arrow onClick={toBuilder}>
+                    Criar meu restaurante
+                  </CtaButton>
+                  {config?.demoUrl && (
+                    <a className="cm-btn cm-btn--secondary cm-btn--lg" href={config.demoUrl}>
+                      Ver um cardápio de exemplo
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div className="st-end__panda" aria-hidden>
+                <LivePanda size={150} mood="happy" />
+              </div>
             </div>
           </section>
         </main>
 
         <footer className="st-foot">
           <div className="st-foot__in">
-            <span className="st-brand">
-              <Mascot size={24} badge />
-              <span>Comandou</span>
-            </span>
-            <nav aria-label="Rodapé">
-              <a href="#sistema">O sistema</a>
-              <a href="#preco">Preço</a>
+            <div className="st-foot__about">
+              <a className="st-brand" href="#topo" aria-label="Comandou, voltar ao início">
+                <Mascot size={28} badge />
+                <span>Comandou</span>
+              </a>
+              <p>
+                Sistema para restaurante: cardápio online, PDV, salão, cozinha, caixa, entrega e os
+                pedidos dos aplicativos no mesmo lugar.
+              </p>
+            </div>
+            <nav className="st-foot__col" aria-label="Produto">
+              <h3>Produto</h3>
+              {NAV.slice(0, 4).map(([href, label]) => (
+                <a key={href} href={href}>
+                  {label}
+                </a>
+              ))}
+            </nav>
+            <nav className="st-foot__col" aria-label="Ajuda">
+              <h3>Ajuda</h3>
               <a href="#perguntas">Perguntas</a>
+              <a href="/precos">Planos</a>
+              {contact && (
+                <a href={contact} target="_blank" rel="noreferrer">
+                  Falar com a gente
+                </a>
+              )}
               <button type="button" onClick={() => setEnter(true)}>
-                Entrar
+                Entrar no meu restaurante
               </button>
             </nav>
-            <small>Pedidos, salão, cozinha e caixa no mesmo lugar.</small>
           </div>
-          <Wordmark />
+          <div className="st-foot__base">
+            <small>© {new Date().getFullYear()} Comandou</small>
+            <small>Feito no Brasil, para quem vive de balcão.</small>
+          </div>
         </footer>
 
         <EnterModal open={enter} onClose={() => setEnter(false)} />

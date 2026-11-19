@@ -20,7 +20,7 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
-    version: '0.193.0',
+    version: '0.194.0',
     date: '2026-11-19',
     title: 'Todos os aplicativos de delivery num lugar só',
     summary:
@@ -45,6 +45,77 @@ export const RELEASES: readonly Release[] = [
       {
         tag: 'melhoria',
         text: 'Guia novo para ligar cada aplicativo de delivery, com o que cada um faz e o que fazer nos problemas mais comuns.',
+      },
+    ],
+  },
+  {
+    version: '0.193.0',
+    date: '2026-11-19',
+    title: 'Site novo: começo, fim e os aplicativos de delivery',
+    summary:
+      'O site do Comandou ganhou um começo mais direto (o celular da loja aparece ao lado do cadastro e muda enquanto você digita), um final com rodapé de verdade e uma seção mostrando os pedidos do iFood, 99Food, Keeta, Rappi e aiqfome entrando na mesma fila da cozinha.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Site: seção Aplicativos, com a fila de pedidos de cada aplicativo e o que dá para fazer sem abrir o portal deles.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Site: topo em duas colunas no computador, com o cadastro de um lado e o celular da loja do outro, já mostrando o que você escreve.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Site: final com um convite só e o rodapé com links de Produto e Ajuda, no lugar das frases gigantes.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Site: nova pergunta sobre os pedidos do iFood e dos outros aplicativos.',
+      },
+    ],
+  },
+  {
+    version: '0.192.3',
+    date: '2026-11-19',
+    title: 'Campos menores e alinhados nas telas de ajuste',
+    summary:
+      'Loja online › Funcionamento ficou mais arrumada: campos menores e na mesma altura, agrupados por assunto, e os liga/desliga lado a lado. Ajustes também ganhou campos do tamanho certo.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Funcionamento da loja online dividido em blocos (Pedidos pelo cardápio, Entrega e endereço, Horário, Pedido pela mesa), com campos compactos e liga/desliga no lugar das caixinhas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Horário de funcionamento: um dia por linha, com os horários alinhados.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Ajustes: nome do setor, avisos e taxa de serviço com largura certa, sem campo esticado na tela toda.',
+      },
+      {
+        tag: 'correção',
+        text: 'Campo ao lado de outro com dica mais longa não fica mais alto que os vizinhos.',
+      },
+    ],
+  },
+  {
+    version: '0.192.2',
+    date: '2026-11-19',
+    title: 'Detalhe do pedido mais largo e organizado',
+    summary:
+      'No computador, a gaveta que abre ao clicar num pedido ficou bem mais larga: o pedido e os itens à esquerda, pagamentos, nota fiscal e histórico à direita, e os totais ao lado dos botões.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Gaveta do pedido ocupa boa parte da tela no computador, em duas colunas, com o histórico já aberto. No celular e no tablet segue como antes.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cada item mostra quantidade, preço e total na mesma linha, e quando entrou em preparo ou ficou pronto.',
+      },
+      {
+        tag: 'novo',
+        text: 'O detalhe mostra quem lançou o pedido, há quanto tempo foi feito, o horário agendado e quando foi entregue na mesa. Telefone sai formatado e some quando não foi informado.',
       },
     ],
   },

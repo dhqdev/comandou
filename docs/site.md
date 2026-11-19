@@ -12,15 +12,20 @@ O site tem mais movimento que as telas de trabalho, sempre com transform e opaci
 - `motion.ts`: rolagem suave no computador (Lenis; no toque fica a do aparelho, e não age dentro
   de janelas nem de campos de texto) e um único laço por quadro que escreve `--p` (0 a 1) nos
   elementos que andam com a rolagem. `scroll.css` faz o resto.
-- Topo (`hero.css`): selo, título e frase centralizados; a barra de criar o restaurante é um
-  cartão só (escolha, campo com botão e dica). Embaixo, o palco: a tela da cozinha e o celular da
-  loja na frente (o celular mostra o que a pessoa digita), com os avisos sobre a tela de trás. No
-  computador o palco chega deitado e fica reto ao rolar; no celular fica só o celular da loja.
-- Cenas: o texto do topo sobe e esmaece ao sair (só no computador); a tela do sistema cresce ao
-  chegar; a frase grande acende palavra por palavra presa no meio da tela; os três passos se
-  empilham (o de baixo encolhe um pouco); as faixas aceleram e viram de lado com a rolagem; a
-  marca no rodapé sobe letra por letra; a barra de leitura no topo.
-- React Bits (`site/reactbits/`): `ClickSpark`, `Magnet`, `ShinyText`, `SpotlightCard`,
+- Topo (`hero.css`): no computador, título, frase e o cartão de criar o restaurante à esquerda
+  (com duas linhas embaixo: teste sem cartão e os aplicativos de delivery) e, à direita, o
+  celular da loja (mostra o que a pessoa digita) na frente da tela da cozinha, que passa da borda
+  da página, com os avisos sobre a tela de trás. No tablet e no celular tudo empilha; no celular
+  fica só o celular da loja.
+- Seções: O sistema (telas que passam sozinhas), **Aplicativos** (pedidos do iFood, 99Food,
+  Keeta, Rappi, aiqfome e Open Delivery na mesma fila; lista em `site-data.ts`), a frase grande,
+  os detalhes, os três passos, o preço, as perguntas e o fim (convite com o panda e o rodapé com
+  colunas).
+- Cenas: o celular e os avisos do topo sobem um pouco mais rápido que a tela de trás; a tela do
+  sistema cresce ao chegar; a frase grande acende palavra por palavra presa no meio da tela; os
+  três passos se empilham (o de baixo encolhe um pouco); a faixa do que vem junto acelera com a
+  rolagem; a fila dos aplicativos entra linha por linha; a barra de leitura no topo.
+- React Bits (`site/reactbits/`): `ClickSpark`, `Magnet`, `SpotlightCard`,
   `StarBorder` (luz que corre na borda do quadro do preço) e `GlareHover` (brilho na tela do
   sistema). ScrollReveal, ScrollStack e ScrollVelocity pedem gsap ou motion, então foram refeitos
   em `motion.ts` com a mesma ideia e sem dependência.

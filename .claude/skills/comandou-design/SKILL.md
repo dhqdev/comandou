@@ -5,7 +5,7 @@ description: Padrão visual do Comandou (minimalista e clean, laranja #E23A00, s
 
 # Design do Comandou
 
-Visual de **sistema de trabalho**: sóbrio, limpo e confortável para turnos longos. Este guia manda sobre as outras skills de design desta pasta (`frontend-design`, `web-design-guidelines`, `emil-design-eng`), que servem de referência de acabamento, não de estilo: aqui nada de ousadia, gradiente ou vidro.
+Visual de **sistema de trabalho**: sóbrio, limpo e confortável para turnos longos. Este guia manda sobre as outras skills de design desta pasta (`frontend-design`, `web-design-guidelines`, `emil-design-eng`, `impeccable`), que servem de referência de acabamento, não de estilo: aqui nada de ousadia, gradiente ou vidro.
 
 ## Regras
 
@@ -26,6 +26,12 @@ Visual de **sistema de trabalho**: sóbrio, limpo e confortável para turnos lon
 - Campos soltos no corpo do `Modal` ou dentro de `<div className="cm-form">` seguem o padrão sozinhos: **rótulo em cima do campo**; no notebook (≥901px, mouse) o modal abre **mais largo** e os campos se distribuem em até **3 colunas**. Em notebook largo (≥1100px, mouse) as janelas `lg`/`xl` abrem bem mais largas (1120/1360px) e os formulários vão a **4 colunas**: o David quer janela **deitada**, sem rolar a não ser que precise. Blocos que cabem lado a lado (ex.: PIS/COFINS e Outros no padrão fiscal, `.fi-pair`) ficam lado a lado.
 - Agrupe por assunto com `<h3 className="cm-form__section">`. Campo longo (observação, endereço) ocupa a linha toda com `wrapClass="cm-form__wide"` ou `<textarea>`.
 - **Campo de valor** (dinheiro): `inputMode="decimal"` e valor no formato `0,00`. Não precisa de máscara: `installDecimalEntry` (`design-system/decimal-entry.ts`, ligado no `main.tsx`) põe o cursor antes da vírgula ao entrar (digitar 3 em 0,00 dá 3,00) e a vírgula pula para os centavos. Campo que não é dinheiro nem número com vírgula não usa `inputMode="decimal"`.
+- **Formulário de tela** (fora de janela, ex.: Loja online › Funcionamento): um cartão por
+  assunto, campos compactos em `cm-form` e, em cartão largo, grade de 6 colunas por container
+  query (`os-form6` + `os-span2/3` em `online-store.css`); liga/desliga com `os-toggle` (em
+  colunas: `os-toggles--cols`), nunca caixinha solta. `.cm-field` já alinha no topo: o vizinho
+  com dica longa não estica o campo. Linha de "adicionar" (`inline-add`): campo de texto até
+  320px e número com `inline-add__num` (120px).
 - Liga/desliga e linhas de texto + controle: `cm-form__row`. Bloco solto que deve ocupar a linha toda: `cm-form__block`.
 - Use `TextField`, `SelectField`, `CheckField`; não monte `<label>` na mão.
 - **Campo de data:** sempre `TextField type="date"` (ou `DateInput`); data e hora,
@@ -73,8 +79,7 @@ exceções, só no site:
   a folha `.st-nav__sheet`. É o único lugar do site com fundo translúcido.
 - **React Bits** (`site/reactbits/`, licença MIT + Commons Clause: usar dentro do Comandou pode,
   revender o componente não): `ClickSpark` (faíscas no clique, cobre a página inteira),
-  `Magnet` (botão principal segue o ponteiro, via `CtaButton`), `ShinyText` (brilho no selo do
-  teste), `SpotlightCard` (holofote nos cartões), `StarBorder` (luz na borda do quadro do preço)
+  `Magnet` (botão principal segue o ponteiro, via `CtaButton`), `SpotlightCard` (holofote nos cartões), `StarBorder` (luz na borda do quadro do preço)
   e `GlareHover` (brilho na tela do sistema). Copie o arquivo do repositório
   DavidHDev/react-bits (`src/ts-default/...`) com o cabeçalho de crédito; prefira os que não
   pedem gsap, motion ou three (os de rolagem que pedem, como ScrollReveal, ScrollStack e
@@ -82,10 +87,25 @@ exceções, só no site:
 - **Rolagem** (`site/motion.ts` + `site/scroll.css`): Lenis no computador (no toque, a rolagem
   do aparelho) e um laço por quadro que escreve `--p` nos elementos; o CSS só usa transform e
   opacity e, sem a variável, cai no estado final parado. Cena nova: `useScrollProgress(modo)` e
-  uma regra em `scroll.css`. Seções numeradas (`01 / O sistema`) com `SectionHead`.
-- **Topo** (`site/hero.css`): tudo centralizado (selo, título, frase, cartão de criar) e o palco
-  embaixo com a tela da cozinha e o celular da loja na frente. Aviso flutuante nunca cobre o
-  celular. O efeito "deitado que fica reto" é só do palco do topo; não repita em outra seção.
+  uma regra em `scroll.css`. Título de seção com `SectionHead` (título + uma frase opcional),
+  **sem número nem rótulo em cima** (desde a 0.193: o "01 / O sistema" era o eyebrow que a
+  skill `impeccable` proíbe e deixava o site com cara de modelo pronto).
+- **Topo** (`site/hero.css`, refeito na 0.193 a pedido do David, que achava o começo esquisito):
+  no computador (≥1080px) duas colunas, à esquerda título, frase, cartão de criar e duas linhas
+  com visto (teste sem cartão e os aplicativos de delivery); à direita o celular da loja, ao lado
+  do cartão para a pessoa ver o site mudar enquanto digita, na frente da tela da cozinha, que passa
+  da borda direita da página. Abaixo disso tudo empilha centralizado (no celular só o celular da
+  loja). Sem selo em pílula e sem fundo de pontinhos. Aviso flutuante nunca cobre o celular.
+- **Fim** (0.193): um bloco só (convite, botões e o panda num painel claro com linha fina) e o
+  rodapé de verdade (marca e o que é, colunas Produto e Ajuda, linha de baixo com o ano). Nada de
+  frase gigante correndo nem a marca enorme no rodapé: foi o que deixou o final esquisito.
+- **Aplicativos** (`#aplicativos`, 0.193): a fila de pedidos com o aplicativo de cada um e o que
+  dá para fazer sem abrir o portal. Os nomes dos aplicativos vão como texto (sem logo de terceiros)
+  e a lista sai de `DELIVERY_APPS`/`APP_FEATURES` em `site-data.ts`: aplicativo novo ligado, entra
+  lá.
+- **Impeccable** (`.claude/skills/impeccable`, Apache 2.0, de pbakaus/impeccable): no site vale o
+  modo *Persuade* e o `reference/craft-floor.md` (contraste, espaçamento, nada de eyebrow, nada de
+  cartões iguais como estrutura da página), sempre abaixo destas regras.
 - **Uiverse** (licença MIT): o efeito de botão físico `.st-press` (borda de baixo mais escura,
   afunda ao apertar), a seta que corre no botão (`CtaButton arrow`), os vistos que se desenham e
   o + que vira − nas perguntas seguem o estilo dos elementos de lá, reescritos com os tokens.
@@ -120,6 +140,13 @@ selos). Item: situação pendente/em preparo/pronto com cor. Observação escrit
 desconto e pago em verde, falta pagar em vermelho; Cancelar/Recusar em vermelho suave; as ações de
 apoio (`od-tools`) com um tom cada e esticando até a borda. Fora dessa gaveta, o resto do sistema
 segue neutro; não copie os tons para outras telas sem pedido.
+
+Largura (0.192.2, pedido do David): a partir de 1100 px a gaveta ocupa ~74% da tela (até 1180 px)
+e, com o corpo em contêiner (`container: od`) de 820 px ou mais, vira duas colunas: `.od-main`
+(dados, itens, formulários das ações) à esquerda e `.od-side` (pagamentos, nota, histórico já
+aberto) à direita; o rodapé repete as colunas (botões embaixo do pedido, resumo embaixo do
+dinheiro) e o item fica numa linha (nome | quantidade × preço e total). Abaixo disso, uma coluna.
+Bloco novo do detalhe: decida se é do pedido (main) ou do dinheiro (side).
 
 ## Super Admin › Cobrança (calendário)
 
