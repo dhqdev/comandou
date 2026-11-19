@@ -110,6 +110,10 @@ export interface Payer {
 
 const sha = (s: string) => createHash('sha256').update(s).digest();
 const minutesAgo = (d: Date) => (Date.now() - new Date(d).getTime()) / 60_000;
+/** Erro em que não dá para saber se o PagBank criou o pedido (rede, tempo esgotado, 5xx). */
+const uncertain = (e: PagBankError) => e.status === 0 || e.status >= 500;
+/** Espera antes de repetir o envio sem resposta. */
+const PAGBANK_RETRY_MS = 1500;
 
 /**
  * Pagamento pelo app com PagBank e split (docs/pagamento-online.md): o restaurante conecta a conta
@@ -611,8 +615,8 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
       if (o.status === 'cancelled') throw new ConflictException('Este pedido foi cancelado');
       const cs = await q<ChargeRow & { pix_text: string | null; pix_expires_at: Date | null }>(
         tx,
-        `SELECT id, method, status, pix_text, pix_expires_at, created_at FROM online_charges
-          WHERE order_id = $1 ORDER BY created_at`,
+        `SELECT id, method, status, pix_text, pix_expires_at, pagbank_order_id, created_at
+           FROM online_charges WHERE order_id = $1 ORDER BY created_at`,
         [orderId],
       );
       if (cs.some((c) => c.status === 'paid'))
@@ -628,8 +632,19 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
           new Date(pending.pix_expires_at).getTime() > Date.now() + 60_000
         )
           return { reuse: pending.id } as const;
+        // Cartão que o PagBank não respondeu: pode ter sido cobrado, e só o aviso do PagBank diz.
+        // Outro cartão agora poderia cobrar duas vezes, então só o Pix fica liberado (se o cartão
+        // tiver passado, o que chegar por último é devolvido sozinho).
+        const unconfirmedCard =
+          pending.method === 'card' &&
+          !pending.pagbank_order_id &&
+          minutesAgo(pending.created_at) < ONLINE_PAY_WINDOW_MINUTES;
+        if (unconfirmedCard && p.method === 'card')
+          throw new ConflictException(
+            'O PagBank ainda não confirmou o cartão anterior. Para não cobrar duas vezes, pague com Pix ou aguarde alguns minutos.',
+          );
         // Trocou de forma (ou o Pix venceu): a tentativa anterior deixa de valer.
-        if (pending.method === 'pix' || minutesAgo(pending.created_at) > 2)
+        if (pending.method === 'pix' || unconfirmedCard || minutesAgo(pending.created_at) > 2)
           await q(
             tx,
             `UPDATE online_charges SET status = 'expired', last_error = 'trocou a forma de pagamento'
@@ -698,30 +713,42 @@ export class OnlinePayService implements OnApplicationBootstrap, OnModuleDestroy
     const pb = this.client(cfg.environment);
     let res: PagBankOrder | null = null;
     let err: PagBankError | null = null;
-    try {
-      res =
-        p.method === 'card'
-          ? await pb.cardOrder(prep.token, {
-              referenceId: prep.chargeId,
-              description,
-              customer: p.payer,
-              cents: prep.due,
-              encryptedCard: p.encryptedCard,
-              holder: { name: p.holderName, taxId: p.payer.taxId },
-              receivers,
-              notifyUrl,
-            })
-          : await pb.pixOrder(prep.token, {
-              referenceId: prep.chargeId,
-              description,
-              customer: p.payer,
-              cents: prep.due,
-              expiresAt: new Date(Date.now() + ONLINE_PAY_WINDOW_MINUTES * 60_000),
-              receivers,
-              notifyUrl,
-            });
-    } catch (e) {
-      err = e instanceof PagBankError ? e : new PagBankError((e as Error).message, 0);
+    const expiresAt = new Date(Date.now() + ONLINE_PAY_WINDOW_MINUTES * 60_000);
+    const send = () =>
+      p.method === 'card'
+        ? pb.cardOrder(prep.token, {
+            referenceId: prep.chargeId,
+            description,
+            customer: p.payer,
+            cents: prep.due,
+            encryptedCard: p.encryptedCard,
+            holder: { name: p.holderName, taxId: p.payer.taxId },
+            receivers,
+            notifyUrl,
+          })
+        : pb.pixOrder(prep.token, {
+            referenceId: prep.chargeId,
+            description,
+            customer: p.payer,
+            cents: prep.due,
+            expiresAt,
+            receivers,
+            notifyUrl,
+          });
+    // Sem resposta (rede, tempo esgotado ou erro do PagBank): o pedido pode ter sido criado e o
+    // cartão cobrado. Repete UMA vez o mesmo envio, com a mesma chave de idempotência (o id da
+    // tentativa): se o PagBank já tinha criado, devolve o mesmo pedido em vez de cobrar de novo.
+    // O cartão cifrado só existe nesta requisição, então é a única hora de repetir.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        res = await send();
+        err = null;
+        break;
+      } catch (e) {
+        err = e instanceof PagBankError ? e : new PagBankError((e as Error).message, 0);
+        if (!uncertain(err) || attempt > 0) break;
+        await new Promise((r) => setTimeout(r, PAGBANK_RETRY_MS));
+      }
     }
     // 3) Resultado.
     await this.db.withTenant(ctx, async (tx) => {

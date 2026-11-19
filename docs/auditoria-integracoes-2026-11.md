@@ -1,4 +1,4 @@
-# Auditoria das integrações e da nota fiscal (0.198.1)
+# Auditoria das integrações e da nota fiscal (0.198.1 e 0.198.2)
 
 Revisão feita em 19/11/2026 sobre a versão 0.197.0: leitura do código de cada integração, conferência
 contra a documentação dos parceiros onde havia dúvida, e os testes de ponta a ponta rodando com
@@ -9,8 +9,8 @@ ganhou um teste que **falhava antes da correção** e passa depois.
 
 | Integração | Onde | Resultado |
 | --- | --- | --- |
-| Nota fiscal (Focus NFe): NFC-e, NF-e, cancelamento, contingência, inutilização, carta de correção, notas recebidas, cadastro da empresa | `apps/api/src/fiscal/` | 3 correções (C2, C4, C5); 4 pontos em aberto |
-| Pagamento pelo app (PagBank: cartão e Pix, split, estorno, aviso) | `apps/api/src/online-pay/` | 1 correção (C1); 1 ponto em aberto |
+| Nota fiscal (Focus NFe): NFC-e, NF-e, cancelamento, contingência, inutilização, carta de correção, notas recebidas, cadastro da empresa | `apps/api/src/fiscal/` | 3 correções (C2, C4, C5); 5 pontos em aberto |
+| Pagamento pelo app (PagBank: cartão e Pix, split, estorno, aviso) | `apps/api/src/online-pay/` | 2 correções (C1, C6) |
 | Cobrança da assinatura (Asaas) | `apps/api/src/billing/` | Sem falhas encontradas |
 | Aplicativos de delivery (iFood, Keeta, 99Food, Rappi, aiqfome, Open Delivery) | `apps/api/src/integrations/` | 1 correção (C3); 1 ponto em aberto |
 
@@ -23,19 +23,19 @@ ganhou um teste que **falhava antes da correção** e passa depois.
 | C3 | Média | **Pedir o cancelamento de novo ao aplicativo não chegava.** Depois que o iFood (ou outro aplicativo) negava o pedido de cancelamento, pedir de novo mudava o pedido para "Cancelamento solicitado" no Comandou, mas a caixa de saída descartava o envio por ter a mesma chave do primeiro. O pedido ficava parado e o aplicativo seguia com ele ativo. | `channel-outbox.service.ts` | A chave do pedido de cancelamento leva a versão do pedido, então cada novo pedido é outro envio. Teste em `ifood-orders.e2e.test.ts`. |
 | C4 | Média | **Nota de homologação reaproveitada em produção.** A nota guarda o ambiente em que foi montada. Uma NFC-e recusada em homologação e emitida de novo depois de o restaurante passar para produção saía em homologação, sem valor fiscal, e aparecia como autorizada. | `fiscal.service.ts`, `request` e `reissue` | A NFC-e só reaproveita nota do ambiente atual; senão sai uma nota nova. A reemissão de NF-e de outro ambiente é recusada com a explicação: apague o rascunho e emita outra. |
 | C5 | Baixa | **Cupom impresso duas vezes.** Tocar em Atualizar enquanto a nota ainda estava sendo enviada criava um segundo envio. Os dois recebiam "autorizada" e cada um imprimia o cupom, mandava o e-mail ao cliente e gravava o histórico. | `fiscal.service.ts`, `setDoc` e `apply` | A gravação da autorização só vale se a nota ainda está "pendente" ou "processando". Quem chega depois não repete impressão, e-mail nem histórico. Teste em `fiscal.e2e.test.ts`. |
+| C6 | Média | **Cartão cobrado duas vezes quando o PagBank demorava.** Se o PagBank não respondia a tempo (rede, 20 s esgotados ou erro do lado dele), a tentativa ficava sem o número do PagBank. Dois minutos depois o cliente podia tentar outro cartão, e se a primeira cobrança tivesse passado ele pagava duas vezes. | `online-pay.service.ts`, `pay` | O envio sem resposta é repetido uma vez, na hora, com a mesma chave de idempotência (o id da tentativa): se o PagBank já tinha criado o pedido, devolve o mesmo em vez de cobrar de novo. Se continuar sem resposta, outro cartão fica bloqueado enquanto o pedido está aberto (só o Pix fica liberado), e quando o aviso do PagBank chega o cartão que passou vira "a devolver" pela C1. Testes em `online-pay.e2e.test.ts` (resposta perdida uma vez e sempre). |
 
 ## Pontos em aberto (recomendações, sem mudança no código)
 
 | # | Gravidade | Ponto | Recomendação |
 | --- | --- | --- | --- |
-| A1 | Média | **Cartão sem resposta do PagBank.** Se o PagBank não responde a tempo (20 s), a tentativa fica sem o número do PagBank. Depois de 2 minutos o cliente pode tentar de novo, e se a primeira cobrança tiver passado ele paga duas vezes. Com a C1, a primeira agora é achada quando o aviso do PagBank chega e vira "a devolver". Sem o aviso, ela só aparece no log do servidor. | Antes de liberar a nova tentativa, repetir o mesmo envio com a mesma chave de idempotência (o `x-idempotency-key` já é o id da tentativa): o PagBank devolve o pedido que criou, sem cobrar de novo. Mostrar essa situação na tela da equipe em vez de só no log. |
-| A2 | Média | **NFC-e de entrega pede CPF e endereço** (rejeição 787). O Comandou confere isso antes de enviar, o que está certo. Mas pedidos do iFood e de outros aplicativos quase sempre chegam sem CPF, então a emissão automática deixa essas notas em "erro" até alguém preencher o CPF. Alguns estados nem aceitam NFC-e com entrega a domicílio (rejeição 785). | Decidir com a contabilidade: pedir CPF na nota no aplicativo, emitir NF-e nesses casos, ou outra saída que o estado aceite. |
-| A3 | Baixa | **Cancelar nota autorizada** pede só a permissão de emitir, então qualquer caixa cancela. Fica registrado no histórico. | Avaliar exigir a permissão de gerenciar o fiscal (gerente ou dono) para cancelar. |
-| A4 | Baixa | **Cadastro da empresa na Focus (modo revenda).** Se a Focus cria a empresa e a resposta se perde, o próximo Salvar tenta criar de novo e a Focus recusa porque o CNPJ já existe. Não há botão para achar a empresa que já está lá. | Antes de criar, procurar a empresa pelo CNPJ na conta da Focus e ligar a que existir. |
-| A5 | Baixa | **NFC-e só com o nome do cliente, sem CPF**, manda o nome do destinatário sem documento. Pelo leiaute da SEFAZ, o grupo do destinatário pede CPF ou CNPJ. Não foi possível confirmar se a Focus omite o grupo nesse caso. | Testar uma NFC-e de balcão com nome e sem CPF em homologação. Se recusar, mandar o nome só quando houver CPF ou CNPJ. |
-| A6 | Baixa | **Nota parada sem a fila.** Se o trabalho da fila se perder (Redis apagado), a nota fica "pendente" ou "processando" até alguém tocar em Atualizar, porque não há varredura que retome notas paradas. A consulta automática de uma nota em processamento dura cerca de 4 minutos, e não os 8 que o comentário do código diz. | Uma varredura a cada poucos minutos que reenfileire notas paradas há mais de 10 minutos. |
-| A7 | Baixa | **Tempo limite das chamadas aos aplicativos** (`channel-http.ts`) cobre a resposta, mas não a leitura do corpo. Um aplicativo que responde devagar pode segurar a rodada. | Manter o mesmo `AbortController` ativo até terminar de ler o corpo. |
-| A8 | Info | Pendências fiscais já listadas no [guia fiscal](fiscal-guia.md): CNPJ dos outros aplicativos como intermediador, DIFAL, Pix estático, crédito do Simples e taxa de serviço na base do ICMS. | Seguem com a contabilidade. |
+| A1 | Média | **NFC-e de entrega pede CPF e endereço** (rejeição 787). O Comandou confere isso antes de enviar, o que está certo. Mas pedidos do iFood e de outros aplicativos quase sempre chegam sem CPF, então a emissão automática deixa essas notas em "erro" até alguém preencher o CPF. Alguns estados nem aceitam NFC-e com entrega a domicílio (rejeição 785). | Decidir com a contabilidade: pedir CPF na nota no aplicativo, emitir NF-e nesses casos, ou outra saída que o estado aceite. |
+| A2 | Baixa | **Cancelar nota autorizada** pede só a permissão de emitir, então qualquer caixa cancela. Fica registrado no histórico. | Avaliar exigir a permissão de gerenciar o fiscal (gerente ou dono) para cancelar. |
+| A3 | Baixa | **Cadastro da empresa na Focus (modo revenda).** Se a Focus cria a empresa e a resposta se perde, o próximo Salvar tenta criar de novo e a Focus recusa porque o CNPJ já existe. Não há botão para achar a empresa que já está lá. | Antes de criar, procurar a empresa pelo CNPJ na conta da Focus e ligar a que existir. |
+| A4 | Baixa | **NFC-e só com o nome do cliente, sem CPF**, manda o nome do destinatário sem documento. Pelo leiaute da SEFAZ, o grupo do destinatário pede CPF ou CNPJ. Não foi possível confirmar se a Focus omite o grupo nesse caso. | Testar uma NFC-e de balcão com nome e sem CPF em homologação. Se recusar, mandar o nome só quando houver CPF ou CNPJ. |
+| A5 | Baixa | **Nota parada sem a fila.** Se o trabalho da fila se perder (Redis apagado), a nota fica "pendente" ou "processando" até alguém tocar em Atualizar, porque não há varredura que retome notas paradas. A consulta automática de uma nota em processamento dura cerca de 4 minutos, e não os 8 que o comentário do código diz. | Uma varredura a cada poucos minutos que reenfileire notas paradas há mais de 10 minutos. |
+| A6 | Baixa | **Tempo limite das chamadas aos aplicativos** (`channel-http.ts`) cobre a resposta, mas não a leitura do corpo. Um aplicativo que responde devagar pode segurar a rodada. | Manter o mesmo `AbortController` ativo até terminar de ler o corpo. |
+| A7 | Info | Pendências fiscais já listadas no [guia fiscal](fiscal-guia.md): CNPJ dos outros aplicativos como intermediador, DIFAL, Pix estático, crédito do Simples e taxa de serviço na base do ICMS. | Seguem com a contabilidade. |
 
 ## Conferido e certo
 
@@ -50,8 +50,8 @@ ganhou um teste que **falhava antes da correção** e passa depois.
 Com Postgres 16 e Redis (fila real):
 
 - `fiscal.e2e.test.ts`: 41 testes, incluindo os 2 novos.
-- `online-pay.e2e.test.ts`: 17 testes, incluindo os 2 novos.
+- `online-pay.e2e.test.ts`: 19 testes, incluindo os 4 novos.
 - `ifood-orders`, `channels`, `keeta`, `food99`, `rappi`, `aiqfome`, `custom-od`, `ifood`, `billing` e `channel-usage`: 137 testes, incluindo o novo.
 - Testes de unidade de `src/fiscal`, `src/integrations` e `src/online-pay`: 88 testes.
 
-Os novos testes foram rodados também sem a correção, para confirmar que pegavam a falha: C2 parava em "processando", C1 deixava o Pix pago como "vencido" e C3 não chegava ao iFood.
+Os novos testes foram rodados também sem a correção, para confirmar que pegavam a falha: C2 parava em "processando", C1 deixava o Pix pago como "vencido", C3 não chegava ao iFood e C6 aceitava o segundo cartão.

@@ -87,6 +87,13 @@ Credenciais → PagBank**; a taxa e o liga e desliga, em **Pagamentos pelo app**
 - **Cobrança:** `POST /orders` no PagBank com o token do restaurante, uma cobrança por tentativa,
   `reference_id` = id da cobrança no Comandou e `splits` com os dois recebedores (método `FIXED`).
   Cada tentativa é gravada antes de chamar o PagBank; resposta perdida é consultada depois.
+- **Sem resposta do PagBank (0.198.2):** o envio é repetido uma vez, na hora, com o mesmo
+  `x-idempotency-key` (o id da tentativa), e o PagBank devolve o pedido que já tinha criado. Se
+  continuar sem resposta, outro cartão fica bloqueado enquanto o pedido está aberto (só o Pix
+  passa), para não cobrar duas vezes; o aviso do PagBank decide a tentativa depois.
+- **Tentativa vencida que foi paga (0.198.1):** Pix trocado por outra forma, ou cartão que o
+  PagBank aprovou depois, entra como pago ou vira `refund_due` se o pedido já foi pago ou
+  cancelado. A conferência consulta o Pix trocado por mais 10 minutos depois do vencimento.
 - **Aviso do PagBank:** `notification_urls` aponta para
   `<endereço do restaurante>/api/v1/store/pagbank/notify`. A API **não confia no corpo**: pega o id
   do pedido do PagBank e consulta a situação real com o token do restaurante.

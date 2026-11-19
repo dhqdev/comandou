@@ -20,6 +20,23 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.198.2',
+    date: '2026-11-19',
+    title: 'Cartão pelo app não cobra duas vezes quando o PagBank demora',
+    summary:
+      'Quando o PagBank não responde a tempo, o Comandou repete o mesmo envio sem risco de cobrar de novo e não deixa o cliente passar outro cartão enquanto a primeira cobrança não se resolve.',
+    notes: [
+      {
+        tag: 'correção',
+        text: 'Pagamento pelo app: se o PagBank demorava a responder, o cliente podia tentar outro cartão e pagar duas vezes. Agora o envio sem resposta é repetido na hora com a mesma chave, e o PagBank devolve o pedido que já tinha criado em vez de cobrar de novo.',
+      },
+      {
+        tag: 'correção',
+        text: 'Se o PagBank continuar sem responder, outro cartão fica bloqueado nesse pedido e o cliente pode pagar com Pix. Se o cartão tiver passado, o valor é devolvido sozinho.',
+      },
+    ],
+  },
+  {
     version: '0.198.1',
     date: '2026-11-19',
     title: 'Auditoria das integrações e da nota fiscal',

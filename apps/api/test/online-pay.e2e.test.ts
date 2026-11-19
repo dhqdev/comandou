@@ -57,6 +57,11 @@ interface FakeOrder {
 }
 const fake = {
   orders: new Map<string, FakeOrder>(),
+  /** Pedido criado por chave de idempotência (repetir a chave devolve o mesmo pedido). */
+  byIdem: new Map<string, string>(),
+  /** Resposta perdida: 'once' = só o primeiro envio de cada chave; 'always' = todos. */
+  lose: null as null | 'once' | 'always',
+  lost: new Set<string>(),
   cancels: [] as { chargeId: string; value: number; auth: string }[],
   tokenCalls: [] as {
     auth: string;
@@ -106,6 +111,18 @@ async function pagbankHandler(req: IncomingMessage, res: ServerResponse) {
   if (req.method === 'POST' && url === '/orders') {
     fake.auths.push(auth);
     if (auth !== `Bearer ${SELLER_TOKEN}`) return send(401, {});
+    const key = String(req.headers['x-idempotency-key'] ?? '');
+    const lose = () => {
+      if (fake.lose === 'always') return true;
+      if (fake.lose === 'once' && !fake.lost.has(key)) return !!fake.lost.add(key);
+      return false;
+    };
+    const known = key ? fake.orders.get(fake.byIdem.get(key) ?? '') : undefined;
+    if (known) {
+      // Mesma chave: o PagBank devolve o pedido que já criou (não cobra de novo).
+      if (lose()) return send(502, {});
+      return send(201, { id: known.id, reference_id: known.reference_id, charges: known.charges });
+    }
     const id = `ORDE_${randomBytes(6).toString('hex')}`;
     const charges = (body.charges as Record<string, unknown>[] | undefined) ?? [];
     const o: FakeOrder = { id, reference_id: String(body.reference_id), body, charges: [] };
@@ -127,6 +144,9 @@ async function pagbankHandler(req: IncomingMessage, res: ServerResponse) {
       ];
     }
     fake.orders.set(id, o);
+    if (key) fake.byIdem.set(key, id);
+    // Criou o pedido (e cobrou), mas a resposta não chega.
+    if (lose()) return send(502, {});
     return send(201, {
       id,
       reference_id: o.reference_id,
@@ -212,6 +232,15 @@ const pub = {
     return r.send(body);
   },
 };
+/** O mesmo cliente vindo de outro IP (cada rota de pagamento tem limite por minuto e por IP). */
+const from = (ip: string) => ({
+  get: (url: string) => pub.get(url).set('X-Forwarded-For', ip),
+  post: (url: string, body: object) => {
+    const r = http.post(`/api/v1${url}`).set('Host', HOST_A).set(CSRF).set('X-Forwarded-For', ip);
+    if (shopper.cookie) r.set('Cookie', shopper.cookie);
+    return r.send(body);
+  },
+});
 
 const settings = {
   enabled: true,
@@ -282,6 +311,7 @@ beforeAll(async () => {
       PAGBANK_API_URL_SANDBOX: pbUrl,
       PAGBANK_CONNECT_URL_SANDBOX: `${pbUrl}/oauth2/authorize`,
       ONLINE_PAY_INTERVAL_SECONDS: '0',
+      TRUST_PROXY: 'true',
     }),
     { logger: false },
   );
@@ -597,6 +627,79 @@ describe('Cartão pelo app', () => {
   });
 });
 
+describe('Cartão sem resposta do PagBank', () => {
+  it('a resposta se perde: repete com a mesma chave e acha o pedido, sem cobrar de novo', async () => {
+    const o = await placePickup('credit', { payInApp: true });
+    fake.lose = 'once';
+    const before = fake.orders.size;
+    const r = await from('10.9.0.1')
+      .post(`/store/orders/${o.token}/pay/card`, {
+        encryptedCard: CARD_OK,
+        holderName: 'Bia Pagadora',
+        ...payer,
+      })
+      .expect(200);
+    fake.lose = null;
+    expect(r.body).toMatchObject({ status: 'paid' });
+    expect(fake.orders.size).toBe(before + 1);
+    const rows = await ownerQuery<{ status: string }>(
+      `SELECT status FROM online_charges WHERE order_id = $1`,
+      [o.id],
+    );
+    expect(rows).toEqual([{ status: 'paid' }]);
+  });
+
+  it('sem resposta nenhuma: outro cartão espera, o Pix pode, e o cartão que passou é devolvido', async () => {
+    const o = await placePickup('credit', { payInApp: true });
+    fake.lose = 'always';
+    const r = await from('10.9.0.1')
+      .post(`/store/orders/${o.token}/pay/card`, {
+        encryptedCard: CARD_OK,
+        holderName: 'Bia Pagadora',
+        ...payer,
+      })
+      .expect(200);
+    fake.lose = null;
+    expect(r.body).toMatchObject({ status: 'pending' });
+    const [card] = await ownerQuery<{ id: string }>(
+      `SELECT id FROM online_charges WHERE order_id = $1`,
+      [o.id],
+    );
+    // Outro cartão agora poderia cobrar duas vezes.
+    const again = await from('10.9.0.1').post(`/store/orders/${o.token}/pay/card`, {
+      encryptedCard: CARD_OK,
+      holderName: 'Bia Pagadora',
+      ...payer,
+    });
+    expect(again.status).toBe(409);
+    expect(again.body.message).toMatch(/não cobrar duas vezes/);
+    // O Pix fica liberado e o cliente paga por ele.
+    const pix = await from('10.9.0.1').post(`/store/orders/${o.token}/pay/pix`, payer).expect(200);
+    const pixId = /pix-(ORDE_[a-f0-9]+)/.exec(pix.body.pix.code)![1]!;
+    payPix(pixId);
+    await http
+      .post('/api/v1/store/pagbank/notify')
+      .set('Host', HOST_A)
+      .send({ id: pixId })
+      .expect(200);
+    // Chega o aviso do cartão que tinha passado: vira "a devolver".
+    const cardOrder = fake.orders.get(fake.byIdem.get(card!.id)!)!;
+    await http
+      .post('/api/v1/store/pagbank/notify')
+      .set('Host', HOST_A)
+      .send({ id: cardOrder.id, reference_id: card!.id })
+      .expect(200);
+    const rows = await ownerQuery<{ method: string; status: string }>(
+      `SELECT method, status FROM online_charges WHERE order_id = $1 ORDER BY created_at`,
+      [o.id],
+    );
+    expect(rows).toEqual([
+      { method: 'card', status: 'refund_due' },
+      { method: 'pix', status: 'paid' },
+    ]);
+  });
+});
+
 describe('Pix pelo app', () => {
   it('QR Code do PagBank, confirmado pelo aviso que só dispara consulta', async () => {
     await ssend('adminA', 'patch', '/store/settings', { autoAccept: true }).expect(200);
@@ -675,10 +778,10 @@ describe('Pix pelo app', () => {
 
   it('trocou o Pix pelo cartão e pagou o Pix antigo também: o Pix é devolvido, não some', async () => {
     const o = await placePickup('pix');
-    const r = await pub.post(`/store/orders/${o.token}/pay/pix`, payer).expect(200);
+    const r = await from('10.9.0.2').post(`/store/orders/${o.token}/pay/pix`, payer).expect(200);
     const pbId = /pix-(ORDE_[a-f0-9]+)/.exec(r.body.pix.code)![1]!;
     // O cliente troca para o cartão (o Pix fica "vencido" aqui, mas o QR Code ainda vale no banco).
-    await pub
+    await from('10.9.0.2')
       .post(`/store/orders/${o.token}/pay/card`, {
         encryptedCard: CARD_OK,
         holderName: 'Bia Pagadora',
@@ -706,7 +809,7 @@ describe('Pix pelo app', () => {
 
   it('Pix trocado e pago sem o aviso do PagBank: a conferência acha o pagamento', async () => {
     const o = await placePickup('pix');
-    const r = await pub.post(`/store/orders/${o.token}/pay/pix`, payer).expect(200);
+    const r = await from('10.9.0.2').post(`/store/orders/${o.token}/pay/pix`, payer).expect(200);
     const pbId = /pix-(ORDE_[a-f0-9]+)/.exec(r.body.pix.code)![1]!;
     // Venceu aqui (troca de forma), mas o cliente paga o QR Code antigo e o aviso se perde.
     await ownerQuery(
@@ -729,7 +832,7 @@ describe('Pix pelo app', () => {
       o.id,
     ]);
     await pay.sweep();
-    const view = (await pub.get(`/store/orders/${o.token}`).expect(200)).body;
+    const view = (await from('10.9.0.2').get(`/store/orders/${o.token}`).expect(200)).body;
     expect(view.status).toBe('cancelled');
     expect(view.cancelReason).toBe('Pagamento não concluído');
   });
