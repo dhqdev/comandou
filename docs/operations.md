@@ -107,6 +107,13 @@ pedidos do aplicativo não chegam e ele cancela sozinho depois do prazo.
    são interrupções do iFood. Se o restaurante diz que fechou no Comandou e o iFood segue aberto,
    veja `channel_stores.state_error` e `follow_store_open` da loja; pausa feita no portal do iFood
    o Comandou só mostra. Pausa mais longa que o iFood aceita: 7 dias.
+9. **Entregador do iFood** (Fase 5): a situação vem dos eventos de entrega e a previsão de
+   `GET /orders/{id}/tracking` (no máximo a cada 30 s por pedido, quando alguém abre o pedido).
+   "Não achou entregador" (RDF) aparece no pedido; o restaurante chama de novo ou entrega com o
+   motoboy dele (cancelar o chamado libera o "Saiu para entrega"). "Chamar entregador do iFood"
+   recusado com 403: a loja não tem o Sob Demanda liberado no iFood (é contrato com o iFood, não
+   erro do Comandou). Não mude `driver_status` pelo banco: o despacho com motoboy da loja fica
+   travado enquanto ele estiver em andamento.
 
 ### Backup atrasado
 

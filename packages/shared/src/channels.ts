@@ -58,6 +58,7 @@ export const CHANNEL_CAPABILITIES = [
   'cancel',
   'disputes',
   'tracking',
+  'courier',
   'storeStatus',
   'pause',
   'openingHours',
@@ -81,6 +82,7 @@ export const CAPABILITY_LABELS: Record<ChannelCapability, string> = {
   cancel: 'Cancelar pelo Comandou',
   disputes: 'Pedido de cancelamento ou reembolso do cliente',
   tracking: 'Rastreio da entrega',
+  courier: 'Chamar entregador do aplicativo',
   storeStatus: 'Loja aberta ou fechada',
   pause: 'Pausar a loja',
   openingHours: 'Horários',
@@ -316,6 +318,61 @@ export interface ChannelCancelReason {
   code: string;
   label: string;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Entregador do aplicativo (Fase 5)
+
+export const DRIVER_STATUSES = [
+  'requested',
+  'request_failed',
+  'assigned',
+  'to_store',
+  'at_store',
+  'collected',
+  'at_customer',
+  'cancelled',
+] as const;
+export type DriverStatus = (typeof DRIVER_STATUSES)[number];
+
+export const DRIVER_STATUS_LABELS: Record<DriverStatus, string> = {
+  requested: 'Procurando entregador',
+  request_failed: 'Não achou entregador',
+  assigned: 'Entregador a caminho',
+  to_store: 'Entregador a caminho',
+  at_store: 'Entregador chegou na loja',
+  collected: 'Pedido com o entregador',
+  at_customer: 'Entregador chegou no cliente',
+  cancelled: 'Entregador cancelado',
+};
+
+/** Ordem do caminho do entregador: evento atrasado não volta a situação. */
+const DRIVER_RANK: Record<DriverStatus, number> = {
+  requested: 1,
+  request_failed: 1,
+  cancelled: 1,
+  assigned: 2,
+  to_store: 3,
+  at_store: 4,
+  collected: 5,
+  at_customer: 6,
+};
+
+/** Vale trocar a situação do entregador de `from` para `to`? (falha e cancelamento sempre valem) */
+export function driverMovesForward(from: DriverStatus | null, to: DriverStatus): boolean {
+  if (!from || to === 'request_failed' || to === 'cancelled') return true;
+  if (from === 'request_failed' || from === 'cancelled') return true;
+  return DRIVER_RANK[to] > DRIVER_RANK[from];
+}
+
+/** Entregador em andamento (o restaurante não despacha com entregador próprio). */
+export const DRIVER_ACTIVE: readonly DriverStatus[] = [
+  'requested',
+  'assigned',
+  'to_store',
+  'at_store',
+  'collected',
+  'at_customer',
+];
 
 // ---------------------------------------------------------------------------------------------
 // Loja no aplicativo: aberta, fechada ou pausada (Fase 4)

@@ -7,6 +7,7 @@ import {
   UnprocessableEntityException,
 } from '@nestjs/common';
 import {
+  DRIVER_ACTIVE,
   COURIER_SCORE_DAYS,
   courierScore,
   deliveryPay,
@@ -164,6 +165,19 @@ export class DeliveryService {
       const o = await this.orders.lock(tx, orderId);
       if (o.channel !== 'delivery')
         throw new ConflictException('Só pedidos de delivery saem para entrega');
+      // Pedido de aplicativo que o entregador do aplicativo leva: o motoboy da loja não sai com ele.
+      const app = await one<{ delivered_by: string | null; driver: string | null }>(
+        tx,
+        `SELECT o.delivered_by, c.driver_status AS driver
+           FROM orders o LEFT JOIN channel_orders c ON c.order_id = o.id WHERE o.id = $1`,
+        [orderId],
+      );
+      if (app?.delivered_by === 'channel')
+        throw new ConflictException('Quem entrega este pedido é o entregador do aplicativo');
+      if (app?.driver && (DRIVER_ACTIVE as readonly string[]).includes(app.driver))
+        throw new ConflictException(
+          'Um entregador do aplicativo foi chamado para este pedido. Cancele o chamado antes de mandar o seu.',
+        );
       if (o.status !== 'ready')
         throw new ConflictException(
           self
@@ -251,8 +265,12 @@ export class DeliveryService {
                   WHERE i.order_id = o.id AND i.status <> 'cancelled') AS items
            FROM orders o
           WHERE o.channel = 'delivery' AND o.status = 'ready'
+            AND o.delivered_by IS DISTINCT FROM 'channel'
             AND NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.order_id = o.id AND d.status = 'out')
+            AND NOT EXISTS (SELECT 1 FROM channel_orders c WHERE c.order_id = o.id
+                             AND c.driver_status = ANY($1::text[]))
           ORDER BY "readyAt" NULLS LAST, o.number LIMIT 50`,
+        [DRIVER_ACTIVE],
       );
       if (!rows.length) return [];
       const store = await storePoint(tx);

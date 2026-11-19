@@ -21,7 +21,8 @@ import {
   type PollStore,
 } from './channel-adapter';
 import { ChannelDisputesService } from './channel-disputes.service';
-import type { ChannelDispute, ChannelSettlement } from './channel-adapter';
+import type { ChannelDispute, ChannelDriverUpdate, ChannelSettlement } from './channel-adapter';
+import { ChannelDriversService } from './channel-drivers.service';
 import { ChannelMetrics } from './channel-metrics';
 import { ChannelOutboxService } from './channel-outbox.service';
 import { channelCtx, STORE_COLUMNS, type StoreRow } from './channel-stores.service';
@@ -86,6 +87,7 @@ export class ChannelInboxService implements OnModuleInit {
     private readonly realtime: RealtimeService,
     private readonly registry: ChannelRegistry,
     private readonly disputes: ChannelDisputesService,
+    private readonly drivers: ChannelDriversService,
     private readonly metrics: ChannelMetrics,
   ) {}
 
@@ -267,7 +269,7 @@ export class ChannelInboxService implements OnModuleInit {
         `UPDATE channel_inbox SET status = $2, processed_at = now(), last_error = $3 WHERE id = $1`,
         [ev.id, status, note ?? null],
       );
-    if (!ev.external_order_id || ev.kind === 'other' || ev.kind === 'delivery.update') {
+    if (!ev.external_order_id || ev.kind === 'other') {
       await this.db.withTenant({ tenantId }, (tx) => mark(tx, 'ignored'));
       return 'ignored';
     }
@@ -294,9 +296,19 @@ export class ChannelInboxService implements OnModuleInit {
     let orderId = known.link?.order_id;
     let fresh: ExternalOrder | null = null;
     if (!orderId) {
-      if (['order.cancelled', 'order.concluded', 'order.delivered'].includes(ev.kind)) {
+      if (
+        ['order.cancelled', 'order.concluded', 'order.delivered', 'delivery.update'].includes(
+          ev.kind,
+        )
+      ) {
         await this.db.withTenant({ tenantId }, (tx) =>
-          mark(tx, 'ignored', 'Pedido encerrado no aplicativo antes de chegar'),
+          mark(
+            tx,
+            'ignored',
+            ev.kind === 'delivery.update'
+              ? 'Entregador de um pedido que não está aqui'
+              : 'Pedido encerrado no aplicativo antes de chegar',
+          ),
         );
         return 'ignored';
       }
@@ -361,6 +373,13 @@ export class ChannelInboxService implements OnModuleInit {
    */
   private async applyInTx(tx: Tx, tenantId: string, orderId: string, ev: InboxRow) {
     const ctx = channelCtx(tenantId);
+    // Entregador não muda a situação do pedido no canal (só a dele).
+    if (ev.kind === 'delivery.update')
+      return this.drivers.updateInTx(
+        tx,
+        orderId,
+        ev.payload?.delivery as ChannelDriverUpdate | null | undefined,
+      );
     await q(tx, `UPDATE channel_orders SET channel_status = $2 WHERE order_id = $1`, [
       orderId,
       ev.kind,

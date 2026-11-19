@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.184.0',
+    date: '2026-11-19',
+    title: 'Entregador do iFood no pedido',
+    summary:
+      'Veja quem é o entregador do iFood, onde ele está e quando chega, com o código de coleta em destaque. Na entrega da loja, chame um entregador do iFood com o valor na tela antes de confirmar.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'No pedido do iFood com entrega, um cartão mostra o entregador: a caminho, chegou na loja, saiu com o pedido, chegou no cliente. Aparece o primeiro nome, o veículo, a previsão de chegada e o código de coleta para conferir antes de entregar o pedido.',
+      },
+      {
+        tag: 'novo',
+        text: 'Entrega da loja: "Chamar entregador do iFood" mostra o valor, o tempo e a distância antes de confirmar. Dá para cancelar o chamado com o motivo e, se o iFood não achar ninguém, o pedido avisa para chamar de novo ou mandar o seu motoboy.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'No PDV, o pedido do iFood mostra em que pé está o entregador. Em Entregas, o pedido que o entregador do iFood leva aparece como "Quem leva é o entregador do iFood" e não pode sair com o motoboy da loja por engano.',
+      },
+      {
+        tag: 'segurança',
+        text: 'Do entregador, só o primeiro nome e o veículo ficam guardados, e saem depois de 30 dias. A taxa do entregador chamado é sempre a da cotação do iFood, nunca um valor vindo da tela.',
+      },
+    ],
+  },
+  {
     version: '0.183.0',
     date: '2026-11-19',
     title: 'WhatsApp no Super Admin',

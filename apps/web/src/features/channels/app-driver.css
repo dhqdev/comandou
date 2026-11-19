@@ -1,0 +1,109 @@
+/* Entregador do aplicativo (gaveta do pedido): tom suave na cor da situação. */
+.app-driver {
+  --hue: var(--cm-text-muted);
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--hue) 26%, var(--cm-border));
+  border-radius: var(--cm-radius-sm);
+  background: color-mix(in srgb, var(--hue) 7%, var(--cm-surface));
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
+.app-driver[data-tone='ok'] {
+  --hue: var(--cm-success);
+}
+.app-driver[data-tone='warn'] {
+  --hue: var(--cm-warning);
+}
+.app-driver[data-tone='danger'] {
+  --hue: var(--cm-danger);
+}
+.app-driver[data-tone='off'] {
+  border-color: var(--cm-border);
+  background: var(--cm-surface);
+}
+.app-driver__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+.app-driver__head > svg {
+  flex: none;
+  color: var(--hue);
+}
+.app-driver__head strong {
+  color: var(--cm-text);
+}
+.app-driver__who {
+  color: var(--cm-text);
+}
+.app-driver__sub {
+  overflow-wrap: anywhere;
+}
+.app-driver__code {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  color: var(--cm-text);
+}
+.app-driver__code b {
+  font-size: var(--cm-text-lg, 18px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+.app-driver__code span {
+  font-size: var(--cm-text-xs);
+  color: var(--cm-text-muted);
+}
+.app-driver__quote {
+  display: grid;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--cm-border);
+  color: var(--cm-text);
+}
+.app-driver__quote b {
+  font-variant-numeric: tabular-nums;
+}
+.app-driver__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+@media (max-width: 600px) {
+  .app-driver__actions > * {
+    flex: 1 1 calc(50% - 6px);
+    min-height: 44px;
+  }
+}
+
+/* PDV e Entregas: pílula curta com bolinha. */
+.app-driver-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cm-text-muted);
+  white-space: nowrap;
+}
+.app-driver-tag::before {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--cm-radius-full);
+  background: var(--cm-text-subtle);
+}
+.app-driver-tag[data-tone='ok']::before {
+  background: var(--cm-success);
+}
+.app-driver-tag[data-tone='warn']::before {
+  background: var(--cm-warning);
+}
+.app-driver-tag[data-tone='danger']::before {
+  background: var(--cm-danger);
+}

@@ -7,6 +7,7 @@ import type {
   ChannelShift,
   ChannelStoreState,
   DisputeAlternative,
+  DriverStatus,
   ExternalOrder,
 } from '@comandou/shared';
 
@@ -83,6 +84,35 @@ export interface OrderRef {
   externalOrderId: string;
 }
 
+/**
+ * Aviso do entregador do canal (vai no `payload.delivery` do evento `delivery.update`). Só o
+ * primeiro nome e o veículo: nada de telefone, foto ou documento.
+ */
+export interface ChannelDriverUpdate {
+  status: DriverStatus;
+  name?: string;
+  vehicle?: string;
+}
+
+/** Rastreio do entregador do canal: só as previsões (a posição não é guardada). */
+export interface ChannelTracking {
+  /** Quando deve chegar no cliente. */
+  eta?: string;
+  /** Quando deve chegar na loja para buscar. */
+  pickupEta?: string;
+}
+
+/** Cotação de entregador do canal para um pedido com entrega da loja (Sob Demanda). */
+export interface DriverQuote {
+  id: string;
+  /** Valor cobrado do restaurante (string decimal). */
+  fee: string;
+  minMinutes?: number;
+  maxMinutes?: number;
+  distanceM?: number;
+  expiresAt?: string;
+}
+
 /** Uma loja no canal (situação, pausa, horários). */
 export interface StoreRef {
   tenantId: string;
@@ -139,6 +169,16 @@ export interface ChannelAdapter {
   readonly maxPauseMinutes?: number;
   /** Horários de funcionamento cadastrados no canal (só para mostrar). */
   openingHours?(ref: StoreRef): Promise<ChannelShift[]>;
+  /** Previsões do entregador do canal (no iFood, no máximo uma chamada a cada 30 s por pedido). */
+  tracking?(ref: OrderRef): Promise<ChannelTracking | null>;
+  /** Cotação de entregador do canal para pedido com entrega da loja. */
+  quoteDriver?(ref: OrderRef): Promise<DriverQuote>;
+  /** Chama o entregador com a cotação aceita. */
+  requestDriver?(ref: OrderRef, quoteId: string): Promise<void>;
+  /** Cancela o entregador chamado. */
+  cancelDriver?(ref: OrderRef, c: { code?: string; reason: string }): Promise<void>;
+  /** Motivos aceitos para cancelar o entregador chamado. */
+  driverCancelReasons?(ref: OrderRef): Promise<ChannelCancelReason[]>;
 }
 
 /** Adaptadores ativos. Cada canal se registra ao subir (e os testes registram o falso). */

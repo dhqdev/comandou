@@ -42,6 +42,7 @@ import {
 import { SupportButton, useSupportUnread } from '../features/store-chat/SupportInbox';
 import type { DiningTable, Order, StoreSettings, Tab } from '../lib/types';
 import '../app/home.css';
+import { AppDriverTag, appDriverTakes } from '../features/channels/AppDriver';
 import { AcceptDeadline } from '../features/channels/AcceptDeadline';
 import { ChannelBadge } from '../features/channels/ChannelBadge';
 import { AppStoreChips } from '../features/channels/StoreState';
@@ -94,6 +95,8 @@ function nextAction(
   // Mesa: o pedido pronto vai para a mesa (a conta é paga na comanda, não no cartão do pedido).
   if (o.status === 'ready' && o.channel === 'table')
     return { label: 'Entregue na mesa', serve: true, icon: <HandPlatter size={16} /> };
+  // Quem leva é o entregador do aplicativo: o pedido sai sozinho quando ele coleta.
+  if (o.status === 'ready' && o.channel === 'delivery' && appDriverTakes(o)) return null;
   if (o.status === 'ready' && o.channel === 'delivery')
     return { label: 'Despachar', icon: <Bike size={16} /> };
   // Com saldo em aberto, finalizar abre o pedido para receber (não conclui sem pagamento).
@@ -157,6 +160,12 @@ function OrderCard({
           {order.appDisputeUntil && (
             <AcceptDeadline until={order.appDisputeUntil} kind="answer" compact />
           )}
+          {order.appChannel &&
+            order.channel === 'delivery' &&
+            (appDriverTakes(order) || order.appDriverStatus === 'request_failed') &&
+            !['completed', 'cancelled'].includes(order.status) && (
+              <AppDriverTag channel={order.appChannel} status={order.appDriverStatus} />
+            )}
         </span>
         <span className="hcard__pills">
           <span className="hcard__pill">{brl(order.total)}</span>

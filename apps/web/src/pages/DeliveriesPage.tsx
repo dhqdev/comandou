@@ -12,6 +12,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
+import { channelInfo } from '@comandou/shared';
 import {
   Alert,
   Badge,
@@ -50,6 +51,7 @@ import { useArrivalSound } from '../lib/sounds';
 import type { Courier, Delivery, Order } from '../lib/types';
 import './deliveries.css';
 import { TourButton } from '../features/tour/PageTour';
+import { AppDriverTag, appDriverTakes } from '../features/channels/AppDriver';
 import { ChannelBadge } from '../features/channels/ChannelBadge';
 
 const trackingUrl = (path: string) => `${window.location.origin}${path}`;
@@ -635,25 +637,32 @@ function DispatchRow({
           <MapPin size={13} /> {order.deliveryAddress ?? 'Endereço não informado'}
         </span>
       </div>
-      <div className="dl-ready__go">
-        <Select
-          className="cm-input"
-          aria-label={`Entregador do pedido ${order.number}`}
-          value={courierId}
-          onChange={(e) => setCourierId(e.target.value)}
-        >
-          <option value="">Escolha o entregador…</option>
-          {couriers.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-              {!c.userId && !c.linkCreatedAt ? ' (sem app)' : ''}
-            </option>
-          ))}
-        </Select>
-        <Button loading={busy} disabled={!courierId} icon={<Bike size={16} />} onClick={go}>
-          Saiu para entrega
-        </Button>
-      </div>
+      {order.appChannel && appDriverTakes(order) ? (
+        <div className="dl-ready__go dl-ready__app">
+          <AppDriverTag channel={order.appChannel} status={order.appDriverStatus} />
+          <span>Quem leva é o entregador do {channelInfo(order.appChannel).label}</span>
+        </div>
+      ) : (
+        <div className="dl-ready__go">
+          <Select
+            className="cm-input"
+            aria-label={`Entregador do pedido ${order.number}`}
+            value={courierId}
+            onChange={(e) => setCourierId(e.target.value)}
+          >
+            <option value="">Escolha o entregador…</option>
+            {couriers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+                {!c.userId && !c.linkCreatedAt ? ' (sem app)' : ''}
+              </option>
+            ))}
+          </Select>
+          <Button loading={busy} disabled={!courierId} icon={<Bike size={16} />} onClick={go}>
+            Saiu para entrega
+          </Button>
+        </div>
+      )}
     </li>
   );
 }

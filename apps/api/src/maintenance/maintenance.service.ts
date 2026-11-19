@@ -20,6 +20,8 @@ export interface PurgeResult {
   menuEvents: number;
   /** Aplicativos de delivery: evento cru com mais de 90 dias e linhas tratadas com mais de 400. */
   channelEvents: number;
+  /** Nome e veículo do entregador do aplicativo, 30 dias depois do último aviso. */
+  channelDrivers: number;
 }
 
 /**
@@ -63,6 +65,7 @@ export class MaintenanceService implements OnApplicationBootstrap, OnModuleDestr
       pixReceipts: 0,
       menuEvents: 0,
       channelEvents: 0,
+      channelDrivers: 0,
     };
     const add = (r: PurgeResult) => {
       for (const k of Object.keys(total) as (keyof PurgeResult)[]) total[k] += Number(r[k] ?? 0);

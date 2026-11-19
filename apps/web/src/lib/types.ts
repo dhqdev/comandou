@@ -1,6 +1,7 @@
 import type {
   ChargeRule,
   DisputeAlternative,
+  DriverStatus,
   ItemStatus,
   OrderChannel,
   OnlineChargeStatus,
@@ -274,6 +275,8 @@ export interface Order {
   appConfirmBy?: string | null;
   /** Negociação do cliente esperando resposta: até quando dá para responder. */
   appDisputeUntil?: string | null;
+  /** Entregador do aplicativo: em que pé está (null = não chamado / sem aviso). */
+  appDriverStatus?: DriverStatus | null;
   /** Só no detalhe: dados do aplicativo e as ações mandadas a ele. */
   app?: AppOrderInfo | null;
   paymentHint?: PaymentMethod | null;

@@ -44,6 +44,13 @@ export class FakeIfoodServer {
   >();
   readonly interruptionCalls: { merchant: string; verb: string; body: unknown }[] = [];
   readonly hours = new Map<string, unknown>();
+  /** Rastreio por pedido (resposta do /tracking) e quantas leituras. */
+  readonly tracking = new Map<string, unknown>();
+  trackingReads = 0;
+  /** Cotação do Sob Demanda por pedido (resposta do deliveryAvailabilities). */
+  readonly quotes = new Map<string, unknown>();
+  readonly shippingCalls: { orderId: string; verb: string; body: unknown }[] = [];
+  readonly driverCancelReasons = new Map<string, { cancelCodeId: string; description: string }[]>();
   readonly polls: { merchants: string; auth?: string }[] = [];
   readonly acks: unknown[] = [];
   /** Próximas respostas forçadas por rota: 'poll', 'ack', 'order', 'action'. */
@@ -54,6 +61,7 @@ export class FakeIfoodServer {
     action: [],
     status: [],
     pause: [],
+    shipping: [],
   };
 
   async start() {
@@ -167,7 +175,28 @@ export class FakeIfoodServer {
         for (const e of this.events) if (body.some((b) => b.id === e.id)) e.acked = true;
         return send(202);
       }
+      const sh = /^\/shipping\/v1\.0\/orders\/([^/]+)\/([A-Za-z]+)$/.exec(path);
+      if (sh) {
+        const [, id, verb] = sh as unknown as [string, string, string];
+        if (fail('shipping')) return;
+        this.shippingCalls.push({ orderId: id, verb, body: raw ? JSON.parse(raw) : null });
+        if (req.method === 'GET' && verb === 'deliveryAvailabilities') {
+          const qt = this.quotes.get(id);
+          return qt ? send(200, qt) : send(400, { message: 'sem entregador na região' });
+        }
+        if (req.method === 'GET' && verb === 'cancellationReasons') {
+          const list = this.driverCancelReasons.get(id);
+          return list ? send(200, list) : send(404, { message: 'sem motivos' });
+        }
+        if (req.method === 'POST' && (verb === 'requestDriver' || verb === 'cancelRequestDriver'))
+          return send(202);
+      }
       const o = /^\/order\/v1\.0\/orders\/([^/]+)(?:\/([A-Za-z]+))?$/.exec(path);
+      if (o && req.method === 'GET' && o[2] === 'tracking') {
+        this.trackingReads++;
+        const t = this.tracking.get(o[1]!);
+        return t ? send(200, t) : send(404, { message: 'sem rastreio' });
+      }
       if (o && req.method === 'GET' && o[2] === 'cancellationReasons') {
         this.reasonLookups++;
         const list = this.cancelReasons.get(o[1]!);

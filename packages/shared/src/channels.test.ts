@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  driverMovesForward,
   shiftsLabel,
   actionForTransition,
   channelPath,
@@ -103,5 +104,17 @@ describe('horários da loja no aplicativo', () => {
       ]),
     ).toBe('Seg 11:00–22:00 · Sex 18:00–01:00');
     expect(shiftsLabel([])).toBe('');
+  });
+});
+
+describe('entregador do aplicativo', () => {
+  it('só anda para a frente; falha e cancelamento sempre valem', () => {
+    expect(driverMovesForward(null, 'assigned')).toBe(true);
+    expect(driverMovesForward('at_store', 'to_store')).toBe(false);
+    expect(driverMovesForward('to_store', 'at_store')).toBe(true);
+    expect(driverMovesForward('collected', 'cancelled')).toBe(true);
+    expect(driverMovesForward('request_failed', 'assigned')).toBe(true);
+    expect(driverMovesForward('assigned', 'requested')).toBe(false);
+    expect(driverMovesForward('cancelled', 'requested')).toBe(true);
   });
 });

@@ -370,3 +370,33 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
   - Fica para depois: mandar os horários do Comandou para o iFood (padrão do ADR: só mostrar) e
     conferir no sandbox o formato de data aceito no `start`/`end` da interrupção (mandamos ISO em
     UTC).
+- **Fase 5** (entrega, 0.184.0): migração 0092 e `channel-drivers.service.ts`.
+  - **Entregador do aplicativo**: eventos de entrega (`delivery.update`; iFood ADR, GTO, AAO, CLT,
+    AAD, RDS, RDF) viram `channel_orders.driver_status` pela caixa de entrada, só para a frente
+    (`driverMovesForward`); evento atrasado não volta a situação, mas o nome e o veículo dele
+    valem. Guardamos só o primeiro nome e o veículo (nada de telefone, foto ou documento) e
+    `app_purge_expired` apaga os dois 30 dias depois (`channelDrivers`). Entregador de pedido que
+    não está aqui: ack e ignorado. Não mexe em `channel_status` do pedido.
+  - **Rastreio**: `GET /channels/orders/:id/driver` (`orders:write`) lê `GET /orders/{id}/tracking`
+    do iFood no máximo a cada 30 s por pedido (`tracking_at`; falha também conta) e guarda só as
+    previsões (chegada na loja e no cliente), nunca a posição. Tradução pura em
+    `ifood-delivery.ts`.
+  - **Entrega da loja**: "Saiu para entrega" e "Entregue" do fluxo de Entregas já avisam o canal
+    (`actionForTransition` com `delivered_by = 'merchant'`). Pedido que o entregador do aplicativo
+    leva (ou com entregador do aplicativo chamado) não sai com o motoboy da loja: `dispatch` responde
+    409 e ele não aparece em "Disponíveis" do app do entregador.
+  - **Chamar entregador do aplicativo** (iFood Sob Demanda, `orders:manage`): `POST .../driver/quote`
+    (`GET /shipping/v1.0/orders/{id}/deliveryAvailabilities`) guarda a cotação no servidor;
+    `POST .../driver {quoteId}` só aceita a cotação guardada e ainda válida e chama `requestDriver`
+    (a taxa gravada é a da cotação, nunca a da tela); `POST .../driver/cancel` manda
+    `cancelRequestDriver` com o motivo (lista em `.../driver/cancel-reasons`). Uma chamada por
+    clique (nada se repete sozinho); 403 vira "o Sob Demanda não está liberado para esta loja".
+  - **Telas**: na gaveta do pedido de aplicativo com entrega, o cartão do entregador (situação,
+    nome e veículo, previsão, código de coleta em destaque, taxa) com "Chamar entregador do iFood"
+    (mostra o valor e o tempo antes de confirmar) e "Cancelar entregador". No PDV, a bolinha com a
+    situação do entregador e sem o atalho de despachar; em Entregas, "Quem leva é o entregador do
+    iFood" no lugar da escolha do motoboy (`appDriverStatus` no pedido).
+  - **Testes**: 3 novos em `test/ifood-orders.e2e.test.ts` e 3 em `ifood-delivery.test.ts`.
+  - Fica para depois: conferir no sandbox os caminhos e corpos do Sob Demanda (`shipping/v1.0`), as
+    unidades do rastreio e o nome dos campos do entregador no ADR (`workerName`,
+    `workerVehicleType`); mapa com a posição do entregador do aplicativo (hoje só a previsão).

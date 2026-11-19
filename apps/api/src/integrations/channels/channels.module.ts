@@ -3,6 +3,7 @@ import { HealthModule } from '../../health/health.module';
 import { OperationsModule } from '../../orders/operations.module';
 import { ChannelRegistry } from './channel-adapter';
 import { ChannelDisputesService } from './channel-disputes.service';
+import { ChannelDriversService } from './channel-drivers.service';
 import { ChannelInboxService } from './channel-inbox.service';
 import { ChannelMetrics } from './channel-metrics';
 import { ChannelOutboxService } from './channel-outbox.service';
@@ -27,6 +28,7 @@ import { ExternalOrdersService } from './external-orders.service';
     ChannelOutboxService,
     ExternalOrdersService,
     ChannelDisputesService,
+    ChannelDriversService,
     ChannelInboxService,
     ChannelPoller,
   ],
@@ -38,6 +40,7 @@ import { ExternalOrdersService } from './external-orders.service';
     ChannelOutboxService,
     ExternalOrdersService,
     ChannelDisputesService,
+    ChannelDriversService,
     ChannelInboxService,
     ChannelPoller,
   ],

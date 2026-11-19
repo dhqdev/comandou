@@ -771,3 +771,185 @@ describe('iFood: loja aberta, fechada ou pausada', () => {
     expect(pdv.body[0]).toMatchObject({ id: storeRef, channel: 'ifood' });
   });
 });
+
+describe('iFood: entrega', () => {
+  type DriverView = {
+    deliveredBy: string;
+    status: string | null;
+    name: string | null;
+    vehicle: string | null;
+    eta: string | null;
+    pickupEta: string | null;
+    fee: string | null;
+    pickupCode: string | null;
+    canRequest: boolean;
+    canCancel: boolean;
+  };
+  const driverOf = async (orderId: string, who = 'adminA') =>
+    (await get(who, `/channels/orders/${orderId}/driver`).expect(200)).body as DriverView;
+  const delivery = (n: number, code: string, fullCode: string, ev: string, meta = {}) =>
+    ifood.push({ id: ev, code, fullCode, orderId: ID(n), merchantId: MERCHANT, metadata: meta });
+  let courierId = '';
+
+  /** Pedido aceito e pronto no Comandou. */
+  const readyOrder = async (n: number, deliveredBy: 'IFOOD' | 'MERCHANT') => {
+    sample(n, {
+      delivery: { ...ifoodSample().delivery!, deliveredBy },
+    } as Parameters<typeof ifoodSample>[0]);
+    placed(n);
+    await cycle();
+    const o = await orderOf(ID(n));
+    for (const to of ['new', 'in_production', 'ready'])
+      await send('post', 'adminA', `/orders/${o.id}/status`, { to }).expect(201);
+    await flush();
+    return o.id;
+  };
+
+  beforeAll(async () => {
+    const c = await send('post', 'adminA', '/couriers', { name: 'Motoboy da Loja' }).expect(201);
+    courierId = c.body.id;
+  });
+
+  it('entregador do iFood: quem vem, quando chega e o código de coleta; o motoboy da loja não sai', async () => {
+    const id = await readyOrder(6, 'IFOOD');
+    delivery(6, 'ADR', 'ASSIGN_DRIVER', 'ev-adr-6', {
+      workerName: 'João da Silva',
+      workerPhone: '11999990000',
+      workerVehicleType: 'MOTORCYCLE',
+    });
+    delivery(6, 'AAO', 'ARRIVED_AT_ORIGIN', 'ev-aao-6');
+    await cycle();
+    // Evento atrasado não volta a situação.
+    delivery(6, 'GTO', 'GOING_TO_ORIGIN', 'ev-gto-6');
+    await cycle();
+    const eta = new Date(Date.now() + 25 * 60_000).toISOString();
+    ifood.tracking.set(ID(6), { expectedDelivery: eta, latitude: -23.5, longitude: -46.6 });
+    const reads = ifood.trackingReads;
+    const d = await driverOf(id);
+    expect(d).toMatchObject({
+      deliveredBy: 'channel',
+      status: 'at_store',
+      name: 'João',
+      vehicle: 'Moto',
+      eta,
+      pickupCode: '7788',
+      canRequest: false,
+      canCancel: false,
+    });
+    // No máximo uma leitura do rastreio a cada 30 s.
+    await driverOf(id);
+    expect(ifood.trackingReads - reads).toBe(1);
+    // Nada do telefone do entregador guardado.
+    const [row] = await ownerQuery<Record<string, unknown>>(
+      `SELECT * FROM channel_orders WHERE order_id = $1`,
+      [id],
+    );
+    expect(JSON.stringify(row)).not.toContain('99999');
+    const order = (await get('adminA', `/orders/${id}`).expect(200)).body;
+    expect(order.appDriverStatus).toBe('at_store');
+    // O motoboy da loja não leva pedido do entregador do iFood (nem aparece para ele pegar).
+    const r = await send('post', 'adminA', `/orders/${id}/dispatch`, { courierId }).expect(409);
+    expect(r.body.message).toMatch(/entregador do aplicativo/);
+    // Outro restaurante não vê.
+    await get('adminB', `/channels/orders/${id}/driver`).expect(404);
+  });
+
+  it('entrega da loja: chamar entregador do iFood com a cotação guardada e cancelar', async () => {
+    const id = await readyOrder(7, 'MERCHANT');
+    expect(await driverOf(id)).toMatchObject({
+      deliveredBy: 'merchant',
+      status: null,
+      canRequest: true,
+    });
+    ifood.quotes.set(ID(7), {
+      id: 'quote-7',
+      quote: { grossValue: 9.99, netValue: 8.49 },
+      deliveryTime: { min: 1200, max: 1800 },
+      distance: 2300,
+      expirationAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+    });
+    const q = await send('post', 'adminA', `/channels/orders/${id}/driver/quote`).expect(200);
+    expect(q.body).toMatchObject({ id: 'quote-7', fee: '8.49', minMinutes: 20, maxMinutes: 30 });
+    // Cotação que não é a guardada não vale.
+    await send('post', 'adminA', `/channels/orders/${id}/driver`, { quoteId: 'outra' }).expect(409);
+    await send('post', 'adminA', `/channels/orders/${id}/driver`, { quoteId: 'quote-7' }).expect(
+      200,
+    );
+    expect(
+      ifood.shippingCalls.find((c) => c.orderId === ID(7) && c.verb === 'requestDriver')?.body,
+    ).toEqual({ quoteId: 'quote-7' });
+    expect(await driverOf(id)).toMatchObject({
+      status: 'requested',
+      fee: '8.49',
+      canRequest: false,
+      canCancel: true,
+    });
+    // Com entregador do iFood chamado, o motoboy da loja não sai.
+    await send('post', 'adminA', `/orders/${id}/dispatch`, { courierId }).expect(409);
+    // O iFood achou alguém.
+    delivery(7, 'ADR', 'ASSIGN_DRIVER', 'ev-adr-7', {
+      workerName: 'Ana',
+      workerVehicleType: 'BICYCLE',
+    });
+    await cycle();
+    expect(await driverOf(id)).toMatchObject({
+      status: 'assigned',
+      name: 'Ana',
+      vehicle: 'Bicicleta',
+    });
+    // Cancelar o entregador: vai o motivo; depois o motoboy da loja pode sair.
+    await send('post', 'adminA', `/channels/orders/${id}/driver/cancel`, { reason: '' }).expect(
+      400,
+    );
+    await send('post', 'adminA', `/channels/orders/${id}/driver/cancel`, {
+      reason: 'Meu entregador vai levar',
+    }).expect(200);
+    expect(
+      ifood.shippingCalls.find((c) => c.orderId === ID(7) && c.verb === 'cancelRequestDriver')
+        ?.body,
+    ).toEqual({ reason: 'Meu entregador vai levar' });
+    expect(await driverOf(id)).toMatchObject({ status: 'cancelled', fee: null, canRequest: true });
+    await send('post', 'adminA', `/orders/${id}/dispatch`, { courierId }).expect(201);
+    await flush();
+    // Saiu com o motoboy da loja: o iFood fica sabendo.
+    expect(ifood.actions.some((a) => a.orderId === ID(7) && a.verb === 'dispatch')).toBe(true);
+    // Depois que saiu, não dá para chamar entregador.
+    await send('post', 'adminA', `/channels/orders/${id}/driver/quote`).expect(409);
+  });
+
+  it('iFood sem entregador ou sem Sob Demanda: mensagem clara, sem repetir; aviso de falha', async () => {
+    const id = await readyOrder(8, 'MERCHANT');
+    const before = ifood.shippingCalls.length;
+    const r = await send('post', 'adminA', `/channels/orders/${id}/driver/quote`).expect(422);
+    expect(r.body.message).toMatch(/recusou \(400\)/);
+    ifood.failNext.shipping!.push(403);
+    const r2 = await send('post', 'adminA', `/channels/orders/${id}/driver/quote`).expect(409);
+    expect(r2.body.message).toMatch(/Sob Demanda/);
+    ifood.failNext.shipping!.push(503);
+    const r3 = await send('post', 'adminA', `/channels/orders/${id}/driver/quote`).expect(422);
+    expect(r3.body.message).toMatch(/não respondeu/);
+    // Uma chamada por clique (4xx e 5xx não se repetem aqui).
+    expect(ifood.shippingCalls.length - before).toBe(1);
+    // O iFood avisa que não achou entregador: fica na tela e dá para chamar de novo.
+    await ownerQuery(`UPDATE channel_orders SET driver_status = 'requested' WHERE order_id = $1`, [
+      id,
+    ]);
+    delivery(8, 'RDF', 'REQUEST_DRIVER_FAILED', 'ev-rdf-8');
+    await cycle();
+    expect(await driverOf(id)).toMatchObject({ status: 'request_failed', canRequest: true });
+    // Aviso de entrega de pedido que não está aqui: ack e ignora.
+    ifood.push({
+      id: 'ev-adr-x',
+      code: 'ADR',
+      fullCode: 'ASSIGN_DRIVER',
+      orderId: '0e0e0e0e-0000-4000-8000-0000000000ff',
+      merchantId: MERCHANT,
+    });
+    await cycle();
+    expect(ifood.acked('ev-adr-x')).toBe(true);
+    const [ig] = await ownerQuery<{ status: string }>(
+      `SELECT status FROM channel_inbox WHERE event_id = 'ev-adr-x'`,
+    );
+    expect(ig!.status).toBe('ignored');
+  });
+});

@@ -261,7 +261,7 @@ describe('Avisos de teste grátis e cobrança', () => {
           'financeiro@nsenha-b.test',
           expect.stringMatching(/^Sua mensalidade do Comandou vence em 2 dias/),
         ],
-        ['financeiro@nsenha-b.test', 'Pagamento recebido. Obrigado! ✅'],
+        ['financeiro@nsenha-b.test', 'Pagamento recebido. Obrigado!'],
       ]),
     );
     expect(ours(before)).toHaveLength(3);

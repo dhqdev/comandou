@@ -13,6 +13,8 @@ import {
   type ChannelAdapter,
   type ChannelEvent,
   type ChannelStoreStatus,
+  type ChannelTracking,
+  type DriverQuote,
   type OrderRef,
   type PollBatch,
   type StoreRef,
@@ -34,6 +36,7 @@ import {
   ifoodVerb,
   type IfoodOrder,
 } from './ifood-order';
+import { ifoodDriverUpdate, ifoodQuote, ifoodTracking } from './ifood-delivery';
 import { ifoodShifts, ifoodStoreStatus } from './ifood-merchant';
 import { IfoodService } from './ifood.service';
 
@@ -67,6 +70,8 @@ export class IfoodOrdersAdapter implements ChannelAdapter, OnModuleInit {
     'dispatch',
     'cancel',
     'disputes',
+    'tracking',
+    'courier',
     'storeStatus',
     'pause',
     'openingHours',
@@ -153,6 +158,9 @@ export class IfoodOrdersAdapter implements ChannelAdapter, OnModuleInit {
           salesChannel: e.salesChannel ?? null,
           // Negociação: só o necessário para responder (prazo, alternativas, motivos).
           ...(kind === 'order.dispute' ? { dispute: ifoodDispute(e.metadata) } : {}),
+          ...(kind === 'delivery.update'
+            ? { delivery: ifoodDriverUpdate(e.code, e.fullCode, e.metadata) }
+            : {}),
           ...(kind === 'order.dispute_settled' ? { settlement: ifoodSettlement(e.metadata) } : {}),
         },
       });
@@ -269,6 +277,76 @@ export class IfoodOrdersAdapter implements ChannelAdapter, OnModuleInit {
       retries: 0,
     });
     return ifoodShifts(r.body);
+  }
+
+  /** Previsões do entregador do iFood (404 antes de ele existir = sem previsão ainda). */
+  async tracking(ref: OrderRef): Promise<ChannelTracking | null> {
+    try {
+      const r = await this.call<unknown>(ref.credential, ref.tenantId, {
+        endpoint: 'orders:tracking',
+        method: 'GET',
+        path: IFOOD_PATHS.tracking(ref.externalOrderId),
+        perMinute: IFOOD_LIMITS.tracking,
+        retries: 0,
+      });
+      return ifoodTracking(r.body);
+    } catch (e) {
+      if (e instanceof ChannelHttpError && e.status === 404) return null;
+      throw e;
+    }
+  }
+
+  async quoteDriver(ref: OrderRef): Promise<DriverQuote> {
+    const r = await this.call<unknown>(ref.credential, ref.tenantId, {
+      endpoint: 'shipping:deliveryAvailabilities',
+      method: 'GET',
+      path: IFOOD_PATHS.shipping(ref.externalOrderId, 'deliveryAvailabilities'),
+      perMinute: IFOOD_LIMITS.shipping,
+      retries: 0,
+    });
+    const q = ifoodQuote(r.body);
+    if (!q) throw new ChannelHttpError(422, 'O iFood não mandou uma cotação válida');
+    return q;
+  }
+
+  async requestDriver(ref: OrderRef, quoteId: string) {
+    await this.call(ref.credential, ref.tenantId, {
+      endpoint: 'shipping:requestDriver',
+      method: 'POST',
+      path: IFOOD_PATHS.shipping(ref.externalOrderId, 'requestDriver'),
+      json: { quoteId },
+      perMinute: IFOOD_LIMITS.shipping,
+      retries: 0,
+    });
+  }
+
+  async cancelDriver(ref: OrderRef, c: { code?: string; reason: string }) {
+    await this.call(ref.credential, ref.tenantId, {
+      endpoint: 'shipping:cancelRequestDriver',
+      method: 'POST',
+      path: IFOOD_PATHS.shipping(ref.externalOrderId, 'cancelRequestDriver'),
+      json: {
+        reason: c.reason.slice(0, 250),
+        ...(c.code ? { cancellationCode: c.code } : {}),
+      },
+      perMinute: IFOOD_LIMITS.shipping,
+      retries: 0,
+    });
+  }
+
+  async driverCancelReasons(ref: OrderRef): Promise<ChannelCancelReason[]> {
+    try {
+      const r = await this.call<unknown>(ref.credential, ref.tenantId, {
+        endpoint: 'shipping:cancellationReasons',
+        method: 'GET',
+        path: IFOOD_PATHS.shipping(ref.externalOrderId, 'cancellationReasons'),
+        perMinute: IFOOD_LIMITS.shipping,
+        retries: 0,
+      });
+      return ifoodCancelReasons(r.body);
+    } catch {
+      return [];
+    }
   }
 
   async send(req: ActionRequest) {

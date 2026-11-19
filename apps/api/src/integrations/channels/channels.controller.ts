@@ -30,6 +30,7 @@ import type { AuthenticatedUser, ResolvedTenant } from '../../tenancy/tenant.typ
 import { ChannelRegistry } from './channel-adapter';
 import { ChannelCredentials } from './channel-credentials.service';
 import { ChannelDisputesService } from './channel-disputes.service';
+import { ChannelDriversService } from './channel-drivers.service';
 import { ChannelInboxService } from './channel-inbox.service';
 import { ChannelOutboxService } from './channel-outbox.service';
 import { ChannelStoreStateService } from './channel-store-state.service';
@@ -74,6 +75,8 @@ const DisputeBody = z.discriminatedUnion('decision', [
     timeReason: Code.optional(),
   }),
 ]);
+const DriverRequest = z.object({ quoteId: z.string().trim().min(1).max(100) });
+const DriverCancel = z.object({ code: Code.optional(), reason: Reason });
 const UnlinkBody = z.object({
   channel: z.string().regex(CHANNEL_ID_RE),
   itemKey: z.string().min(1).max(200),
@@ -100,6 +103,7 @@ export class ChannelsController {
     private readonly inbox: ChannelInboxService,
     private readonly outbox: ChannelOutboxService,
     private readonly disputes: ChannelDisputesService,
+    private readonly drivers: ChannelDriversService,
     private readonly storeState: ChannelStoreStateService,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
@@ -330,6 +334,68 @@ export class ChannelsController {
     @Req() req: Request,
   ) {
     return this.disputes.decide(t.id, u.id, id, b, req.ip);
+  }
+
+  /** Entregador do aplicativo para este pedido: situação, previsões e o que dá para fazer. */
+  @Get('orders/:orderId/driver')
+  @RequirePermission('orders:write')
+  driver(
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.drivers.view(t.id, u.id, orderId);
+  }
+
+  /** Quanto custa um entregador do aplicativo (Sob Demanda) para este pedido. */
+  @Post('orders/:orderId/driver/quote')
+  @HttpCode(200)
+  @RequirePermission('orders:manage')
+  driverQuote(
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return this.drivers.quote(t.id, u.id, orderId);
+  }
+
+  /** Chama o entregador do aplicativo com a cotação que a pessoa viu. */
+  @Post('orders/:orderId/driver')
+  @HttpCode(200)
+  @RequirePermission('orders:manage')
+  driverRequest(
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @Body(new ZodPipe(DriverRequest)) b: z.infer<typeof DriverRequest>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.drivers.request(t.id, u.id, orderId, b.quoteId, req.ip);
+  }
+
+  /** Motivos para cancelar o entregador chamado (lista vazia: só o texto). */
+  @Get('orders/:orderId/driver/cancel-reasons')
+  @RequirePermission('orders:manage')
+  async driverCancelReasons(
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+  ) {
+    return { reasons: await this.drivers.cancelReasons(t.id, u.id, orderId) };
+  }
+
+  /** Cancela o entregador chamado (antes de ele sair com o pedido). */
+  @Post('orders/:orderId/driver/cancel')
+  @HttpCode(200)
+  @RequirePermission('orders:manage')
+  driverCancel(
+    @Param('orderId', new ParseUUIDPipe()) orderId: string,
+    @Body(new ZodPipe(DriverCancel)) b: z.infer<typeof DriverCancel>,
+    @CurrentTenant() t: ResolvedTenant,
+    @CurrentUser() u: AuthenticatedUser,
+    @Req() req: Request,
+  ) {
+    return this.drivers.cancel(t.id, u.id, orderId, b, req.ip);
   }
 
   /** Itens que chegaram sem vínculo (um por item do aplicativo), do mais recente. */

@@ -212,6 +212,8 @@ export const ORDER_SELECT = `
             WHERE d.order_id = o.id AND d.status = 'open'
               AND COALESCE(d.expires_at, d.created_at + interval '15 minutes') > now()
             ORDER BY d.created_at DESC LIMIT 1) END AS "appDisputeUntil",
+         CASE WHEN o.source = 'app' THEN (SELECT c.driver_status FROM channel_orders c
+                                           WHERE c.order_id = o.id) END AS "appDriverStatus",
          o.accepted_at AS "acceptedAt", o.receivable_at AS "receivableAt",
          o.receivable_reason AS "receivableReason",
          o.fiado_name AS "fiadoName", o.fiado_phone AS "fiadoPhone",

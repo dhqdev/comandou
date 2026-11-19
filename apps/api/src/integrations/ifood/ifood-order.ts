@@ -35,6 +35,8 @@ export const IFOOD_PATHS = {
   interruption: (m: string, id: string) =>
     `/merchant/v1.0/merchants/${encodeURIComponent(m)}/interruptions/${encodeURIComponent(id)}`,
   openingHours: (m: string) => `/merchant/v1.0/merchants/${encodeURIComponent(m)}/opening-hours`,
+  tracking: (id: string) => `/order/v1.0/orders/${encodeURIComponent(id)}/tracking`,
+  shipping: (id: string, verb: string) => `/shipping/v1.0/orders/${encodeURIComponent(id)}/${verb}`,
 } as const;
 
 /** Limites do iFood por minuto (a janela usa 80%). */
@@ -48,6 +50,8 @@ export const IFOOD_LIMITS = {
   status: 20000,
   interruptions: 100,
   openingHours: 100,
+  tracking: 5000,
+  shipping: 100,
 } as const;
 
 /** Pausa (interrupção) mais longa que o iFood aceita: 7 dias. */
@@ -89,7 +93,7 @@ const KIND: Record<string, ChannelEventKind> = {
   HANDSHAKE_SETTLEMENT: 'order.dispute_settled',
 };
 
-/** Eventos do grupo de entrega (entregador do iFood a caminho, chegou...): só registro na Fase 2. */
+/** Eventos do grupo de entrega (entregador do iFood a caminho, chegou...): `ifood-delivery.ts`. */
 const DELIVERY_CODES = new Set([
   'ADR',
   'ASSIGN_DRIVER',
@@ -103,6 +107,10 @@ const DELIVERY_CODES = new Set([
   'ARRIVED_AT_DESTINATION',
   'RDA',
   'REQUEST_DRIVER_AVAILABILITY',
+  'RDS',
+  'REQUEST_DRIVER_SUCCESS',
+  'RDF',
+  'REQUEST_DRIVER_FAILED',
   'DELIVERY_DROP_CODE_REQUESTED',
   'DELIVERY_PICKUP_CODE_REQUESTED',
 ]);

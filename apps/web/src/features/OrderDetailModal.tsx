@@ -79,6 +79,7 @@ import {
 import { SidePanel } from './SidePanel';
 import { AcceptDeadline } from './channels/AcceptDeadline';
 import { AppCancelForm, AppDisputeCard } from './channels/AppDispute';
+import { AppDriverCard, appDriverTakes } from './channels/AppDriver';
 import { ChannelBadge } from './channels/ChannelBadge';
 
 const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }[]>> = {
@@ -270,8 +271,16 @@ export function OrderDetailModal({
     !!order && !mode && !isApp && canCancel && !['completed', 'cancelled'].includes(order.status);
   const canReceive =
     !!order && !mode && canPay && order.status !== 'cancelled' && toCents(order.balance) > 0;
+  // Pedido que o entregador do aplicativo leva (ou com entregador do aplicativo chamado) não sai
+  // com o motoboy da loja.
+  const appTakes = !!order && appDriverTakes(order);
   const canSend =
-    !!order && !mode && order.channel === 'delivery' && order.status === 'ready' && canDispatch;
+    !!order &&
+    !mode &&
+    order.channel === 'delivery' &&
+    order.status === 'ready' &&
+    canDispatch &&
+    !appTakes;
   const canReject = !!order && !mode && order.status === 'awaiting' && canWrite;
   const leadIsStep = !canReceive && !canSend;
   const canAdjust =
@@ -587,6 +596,9 @@ export function OrderDetailModal({
               </div>
             </div>
             {order.app && <AppOrderNote app={order.app} order={order} />}
+            {order.app && order.channel === 'delivery' && (
+              <AppDriverCard orderId={order.id} canManage={canManage} />
+            )}
             {order.app?.disputes?.slice(0, 3).map((d) => (
               <AppDisputeCard
                 key={d.id}

@@ -309,6 +309,16 @@
   min-height: 36px;
   white-space: nowrap;
 }
+/* Pedido de aplicativo que o entregador do aplicativo leva: só a situação, sem escolher motoboy. */
+.dl-ready__go.dl-ready__app {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-height: 36px;
+  font-size: var(--cm-text-sm);
+  color: var(--cm-text-muted);
+}
 /* Coluna estreita: escolher o entregador numa linha e o botão embaixo, nada cortado. */
 .dl-ready {
   container-type: inline-size;
