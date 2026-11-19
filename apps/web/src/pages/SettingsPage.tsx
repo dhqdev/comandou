@@ -188,40 +188,46 @@ function ServiceFeeForm({ disabled }: { disabled?: boolean }) {
   const value = v.trim().replace(',', '.') || '0';
   const valid = /^\d{1,2}(\.\d{1,2})?$/.test(value) && Number(value) <= 30;
   return (
-    <form
-      className="inline-add"
-      data-search-id="taxa-servico"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setBusy(true);
-        try {
-          await api('/salon/settings', { method: 'PATCH', json: { serviceFeePercent: value } });
-          toast(
-            Number(value) > 0
-              ? `Taxa de serviço de ${v}% nas comandas novas`
-              : 'Taxa de serviço desligada',
-            'success',
-          );
-        } catch (err) {
-          toast((err as Error).message, 'danger');
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      <TextField
-        label="Taxa de serviço (%)"
-        inputMode="decimal"
-        value={v}
-        onChange={(e) => setV(e.target.value.replace(/[^\d,.]/g, ''))}
-        maxLength={5}
-        disabled={disabled}
-        hint="Entra sozinha nas comandas novas (ex.: 10). Na comanda dá para tirar. 0 desliga."
-      />
-      <Button type="submit" loading={busy} disabled={disabled || !valid}>
-        Salvar
-      </Button>
-    </form>
+    <>
+      <form
+        className="inline-add"
+        data-search-id="taxa-servico"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          try {
+            await api('/salon/settings', { method: 'PATCH', json: { serviceFeePercent: value } });
+            toast(
+              Number(value) > 0
+                ? `Taxa de serviço de ${v}% nas comandas novas`
+                : 'Taxa de serviço desligada',
+              'success',
+            );
+          } catch (err) {
+            toast((err as Error).message, 'danger');
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <TextField
+          label="Taxa de serviço (%)"
+          inputMode="decimal"
+          value={v}
+          onChange={(e) => setV(e.target.value.replace(/[^\d,.]/g, ''))}
+          maxLength={5}
+          disabled={disabled}
+          wrapClass="inline-add__num inline-add__num--wide"
+          aria-describedby="taxa-servico-dica"
+        />
+        <Button type="submit" loading={busy} disabled={disabled || !valid}>
+          Salvar
+        </Button>
+      </form>
+      <p id="taxa-servico-dica" className="cm-hint inline-add__hint">
+        Entra sozinha nas comandas novas (ex.: 10). Na comanda dá para tirar. 0 desliga.
+      </p>
+    </>
   );
 }
 
@@ -295,6 +301,7 @@ function SectorForm({
       />
       <TextField
         label="Aviso (min)"
+        wrapClass="inline-add__num"
         type="number"
         min={0}
         max={600}
@@ -304,6 +311,7 @@ function SectorForm({
       />
       <TextField
         label="Atraso (min)"
+        wrapClass="inline-add__num"
         type="number"
         min={0}
         max={600}

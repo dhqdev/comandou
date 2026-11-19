@@ -109,6 +109,8 @@
 /* =============================================================== Formulário */
 .cm-field {
   display: grid;
+  /* Numa grade, o vizinho com dica mais longa não estica o campo: rótulo e campo ficam no topo. */
+  align-content: start;
   gap: 6px;
   min-width: 0;
 }

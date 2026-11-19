@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.192.3',
+    date: '2026-11-19',
+    title: 'Campos menores e alinhados nas telas de ajuste',
+    summary:
+      'Loja online › Funcionamento ficou mais arrumada: campos menores e na mesma altura, agrupados por assunto, e os liga/desliga lado a lado. Ajustes também ganhou campos do tamanho certo.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Funcionamento da loja online dividido em blocos (Pedidos pelo cardápio, Entrega e endereço, Horário, Pedido pela mesa), com campos compactos e liga/desliga no lugar das caixinhas.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Horário de funcionamento: um dia por linha, com os horários alinhados.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Ajustes: nome do setor, avisos e taxa de serviço com largura certa, sem campo esticado na tela toda.',
+      },
+      {
+        tag: 'correção',
+        text: 'Campo ao lado de outro com dica mais longa não fica mais alto que os vizinhos.',
+      },
+    ],
+  },
+  {
     version: '0.192.2',
     date: '2026-11-19',
     title: 'Detalhe do pedido mais largo e organizado',
