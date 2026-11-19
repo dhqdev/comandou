@@ -20,6 +20,39 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.198.0',
+    date: '2026-11-19',
+    title: 'Aplicativo de impressão acha a impressora sozinho: rede, USB e Bluetooth',
+    summary:
+      'O Comandou Impressão 1.3 encontra impressoras pela rede (até pelo nome de fábrica), instala a USB que está sem driver, liga as Bluetooth que não criam porta e mostra se cada impressora está pronta. Agora também em notebooks com processador ARM.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Rede e Wi-Fi: a procura usa a porta 9100 e o Bonjour (mostra o nome e o modelo), cobre redes maiores de roteador e tem o botão Testar este IP, que descobre a porta sozinho.',
+      },
+      {
+        tag: 'novo',
+        text: 'Se o roteador der outro IP para a impressora, o aplicativo acha ela pelo endereço físico, continua imprimindo e salva o IP novo em todos os setores.',
+      },
+      {
+        tag: 'novo',
+        text: 'USB sem driver: a impressora ligada no cabo aparece com o botão Instalar, que usa o driver do próprio sistema (Windows, macOS e Linux).',
+      },
+      {
+        tag: 'novo',
+        text: 'Bluetooth: impressora pareada sem porta aparece com Criar porta (Windows abre a tela certa; Linux cria e deixa fixa), e as portáteis só BLE ligam sem parear, pelo botão Procurar por BLE.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Cada impressora ganha uma bolinha verde ou vermelha com o motivo, conferida a cada 2 minutos sem imprimir; em rede, Ver situação avisa se falta papel ou se a tampa está aberta.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Instaladores para Windows em ARM (no mesmo instalador) e Linux em ARM; no Mac, o aplicativo pede as permissões de Bluetooth e rede local.',
+      },
+    ],
+  },
+  {
     version: '0.197.0',
     date: '2026-11-19',
     title: 'Cada cardápio com as suas regras: o da mesa é só pedir',
