@@ -1,3 +1,4 @@
+import { isCustomOd } from '@comandou/shared';
 import { Injectable } from '@nestjs/common';
 import type {
   ChannelAction,
@@ -271,5 +272,18 @@ export class ChannelRegistry {
 
   all(): ChannelAdapter[] {
     return [...this.adapters.values()];
+  }
+
+  /**
+   * Nome dado no Super Admin a cada aplicativo Open Delivery cadastrado (`od-<nome>` → "Anota
+   * AI"), para telas e relatórios que só têm o id do canal. Os conhecidos têm nome fixo no shared.
+   */
+  labels(): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const a of this.adapters.values()) {
+      const label = (a as { label?: string }).label;
+      if (label && isCustomOd(a.id)) out[a.id] = label;
+    }
+    return out;
   }
 }

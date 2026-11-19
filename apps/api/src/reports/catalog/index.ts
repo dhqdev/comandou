@@ -1,5 +1,6 @@
 import { findReport, type ReportDoc } from '@comandou/shared';
 import type { Tx } from '../../database/database.service';
+import { aplicativos } from './apps';
 import { type Built, type Period, resolvePeriod } from './kit';
 import { bairros, clientes, engenharia, equipe, frete, horarios, motoboys, produtos } from './more';
 import { garcons } from './waiters';
@@ -22,6 +23,7 @@ const BUILDERS: Record<string, (p: Period) => Promise<Built>> = {
   bairros,
   motoboys,
   frete,
+  aplicativos,
   clientes,
 };
 
@@ -32,9 +34,10 @@ export async function buildReport(
   id: string,
   from: string,
   to: string,
+  labels: Record<string, string> = {},
 ): Promise<ReportDoc> {
   const info = findReport(id)!;
-  const p = await resolvePeriod(tx, from, to);
+  const p = { ...(await resolvePeriod(tx, from, to)), labels };
   const built = await BUILDERS[id]!(p);
   return {
     id,

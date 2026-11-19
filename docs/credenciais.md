@@ -38,7 +38,8 @@ Código: `apps/web/src/platform/credentials/` (texto de cada uma em `catalog.tsx
 | **Asaas · chave da API** | sim (mensalidade) | [Integrações › Chaves de API](https://www.asaas.com/customerApiAccessToken/index) (sandbox em sandbox.asaas.com). Depois **Cadastrar webhook no Asaas** no mesmo cartão |
 | PagBank · token, conta e aplicação | não (pagamento pelo app) | [acesso.pagbank.com.br](https://acesso.pagbank.com.br) › Venda online › Integrações › Gerar token; split e Connect liberados pelo comercial. Depois **Criar aplicação no PagBank** |
 | Backblaze B2 · bucket | recomendado | [Buckets](https://secure.backblaze.com/b2_buckets.htm) (privado) e [Application Keys](https://secure.backblaze.com/app_keys.htm) (Read and Write, só o bucket) |
-| iFood, Keeta, 99Food, Rappi, aiqfome, Open Delivery · aplicativo do Comandou | não | Client ID e Client Secret de cada aplicativo (iFood: [Portal do Desenvolvedor](https://developer.ifood.com.br), com o modo centralizado ou distribuído) |
+| iFood, Keeta, 99Food, Rappi, aiqfome, Open Delivery · aplicativo do Comandou | não | Client ID e Client Secret de cada aplicativo: iFood no [Portal do Desenvolvedor](https://developer.ifood.com.br) (modo centralizado ou distribuído), 99Food na [Plataforma Aberta](https://developer-food.99app.com/pt-BR/openapi), Keeta no [portal da Keeta](https://api-docs.mykeeta.com/apis/opendelivery), Rappi no [Rappi Developers](https://dev-portal.rappi.com/) (mais o segredo do webhook), aiqfome no [portal do desenvolvedor](https://developer.aiqfome.com/) (mais a Redirect URI). Guia de cada um em [delivery-apps.md](delivery-apps.md) |
+| Outros aplicativos Open Delivery | não | nome, endereço HTTPS da API, Client ID e Client Secret que o aplicativo deu ao Comandou (Software Service, Open Delivery V1); cada um vira um canal `od-<nome>` |
 | GitHub · token da esteira | não | [fine-grained token](https://github.com/settings/personal-access-tokens/new): Contents e Pull requests *Read and write*, Actions *Read-only* |
 
 ### Focus NFe: o que é seu e o que é do restaurante
@@ -59,8 +60,19 @@ Cada aplicativo de delivery tem um cartão no painel (`platform_credentials`, no
 JSON cifrado com o Client ID, o Client Secret, o modo do iFood e o segredo do webhook quando o
 aplicativo usa um diferente). Vale na hora em todas as réplicas (cache de 30 s). O iFood ainda
 aceita `IFOOD_CLIENT_ID`/`IFOOD_CLIENT_SECRET`/`IFOOD_APP_MODE` do servidor como reserva: o cartão
-mostra "vindo do servidor" até você salvar no painel. O token de cada loja (modo distribuído) fica
-no banco do restaurante, cifrado com o contexto da loja (ADR 0015).
+mostra "vindo do servidor" até você salvar no painel. O token de cada loja (iFood distribuído e
+aiqfome) fica no banco do restaurante, cifrado com o contexto da loja (ADR 0015).
+
+O que vai fora do Comandou, em cada aplicativo:
+
+- **Rappi**: os 5 endereços de webhook (`https://admin.<domínio>/api/v1/platform/channels/webhooks/rappi/`
+  + `new-order`, `cancel`, `other`, `ping`, `store`) com o mesmo segredo salvo no cartão.
+- **aiqfome**: a Redirect URI `https://admin.<domínio>/api/v1/platform/channels/oauth/aiqfome/callback`
+  no aplicativo de integração.
+- **99Food**: o vínculo de cada loja ao app do Comandou (app_shop_id = número da loja).
+- **Outros Open Delivery**: o cadastro do Comandou como Software Service no aplicativo.
+
+Como ligar cada um e os problemas comuns: [delivery-apps.md](delivery-apps.md).
 
 ## Criadas pelo instalador (Docker secrets)
 
@@ -104,4 +116,6 @@ Em *Settings › Secrets and variables › Actions*: `DEPLOY_SSH_KEY`, `DEPLOY_K
 ## Cada restaurante cadastra no sistema dele
 
 Certificado A1, CSC e inscrição estadual (Fiscal › Configuração › Empresa), a conta PagBank (Loja
-online › Pagamentos), o WhatsApp (QR Code) e a autorização do iFood.
+online › Pagamentos), o WhatsApp (QR Code) e as lojas dos aplicativos de delivery (Sistema ›
+Aplicativos de delivery: iFood pelo cardápio, aiqfome pelo ID Magalu, os outros pelo código da
+loja).

@@ -20,6 +20,35 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.193.0',
+    date: '2026-11-19',
+    title: 'Todos os aplicativos de delivery num lugar só',
+    summary:
+      'Uma aba Aplicativos em Pedidos junta os pedidos do iFood, 99Food, Keeta, Rappi, aiqfome e dos outros aplicativos, e o relatório Vendas por aplicativo mostra quanto cada um vendeu, cobrou de taxa e deixou de líquido.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Relatórios › Delivery › Vendas por aplicativo: pedidos, vendido, ticket médio, cancelados, taxas e líquido de cada aplicativo, com a venda própria e o período anterior para comparar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Pedidos › aba Aplicativos: os pedidos de todos os aplicativos de delivery de hoje juntos, com o filtro e a coluna Aplicativo para ver um só.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A busca de Pedidos acha pelo nome do aplicativo e pelo código do pedido nele.',
+      },
+      {
+        tag: 'correção',
+        text: 'Aplicativo Open Delivery cadastrado no painel aparece com o nome dado (ex.: Anota AI) no selo dos pedidos, na cozinha, nas entregas e nos relatórios.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Guia novo para ligar cada aplicativo de delivery, com o que cada um faz e o que fazer nos problemas mais comuns.',
+      },
+    ],
+  },
+  {
     version: '0.192.1',
     date: '2026-11-19',
     title: 'Nota fiscal de pedido do iFood com o intermediador',

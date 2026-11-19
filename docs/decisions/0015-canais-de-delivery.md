@@ -677,3 +677,29 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
     caixa de saída (mesma repetição e idempotência por `orderId`), andamento na mesma linha do
     entregador e a taxa lançada como despesa de entrega. Depende de uma empresa parceira para
     testar; não entra nesta fase.
+- **Fase 14** (fechamento, 0.193.0): sem migração.
+  - **Relatório "Vendas por aplicativo"** (Relatórios › Delivery, `reports/catalog/apps.ts`):
+    pedidos, vendido, ticket, % do vendido, cancelados, taxas e líquido de cada aplicativo
+    (`orders.app_channel`), com a venda própria numa linha à parte para comparar e o período
+    anterior ao lado. Vendido segue a regra dos outros relatórios (`SOLD`: sem cancelados e sem
+    os ainda em análise) e é o valor que o aplicativo cobrou. Taxas e líquido vêm de
+    `channel_orders.fin_*` (repasse lido na Fase 7) e ficam em branco no pedido sem repasse; o
+    número de cima diz de quantos pedidos veio.
+  - **Pedidos › "todos os aplicativos"**: aba **Aplicativos** (hoje, origem = aplicativos de
+    delivery), a origem "Aplicativos de delivery" no filtro, o campo **Aplicativo** (filtro e
+    coluna, com o nome dado no Super Admin para os `od-<nome>`) e a busca pelo nome do aplicativo
+    e pelo código do pedido nele.
+  - **Documentação**: guia de operação [delivery-apps.md](../delivery-apps.md) (como ligar cada
+    canal, o que cada um faz e problemas comuns), [credenciais.md](../credenciais.md) com cada
+    aplicativo e o que vai fora do Comandou, README e as skills.
+  - **Nome dos aplicativos cadastrados**: `ChannelRegistry.labels()` dá o nome dado no Super Admin
+    a cada `od-<nome>`; `GET /channels/labels` leva à tela (selo `ChannelBadge`, filtro e busca de
+    Pedidos, por `features/channels/app-labels.ts`, uma carga a cada 10 minutos) e o relatório o
+    recebe pelo `ModuleRef` (o módulo dos canais depende do de operações, então não há import).
+    Antes, "Anota AI" aparecia como "Anotaai" fora de Aplicativos de delivery.
+  - **Testes**: o relatório no `test/aiqfome.e2e.test.ts` (12), o nome no
+    `test/custom-od.e2e.test.ts` (4) e o `reports-catalog.int.test.ts` (todos os relatórios rodam).
+  - Fica para depois (de todas as fases): o que cada fase listou em "Fica de fora", com destaque
+    para conferir nos sandboxes os campos que a documentação deixa em dúvida (Rappi, aiqfome,
+    99Food) antes da primeira loja real, a logística do Open Delivery e cardápio/financeiro dos
+    aplicativos além do iFood.

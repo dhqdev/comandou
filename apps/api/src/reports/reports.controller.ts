@@ -1,10 +1,12 @@
 import { Controller, Get, NotFoundException, Param, Query, Res } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import type { Response } from 'express';
 import { z } from 'zod';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../common/decorators';
 import { one, q } from '../common/sql';
 import { ZodPipe } from '../common/zod.pipe';
 import { DatabaseService } from '../database/database.service';
+import { ChannelRegistry } from '../integrations/channels/channel-adapter';
 import type { AuthenticatedUser, ResolvedTenant } from '../tenancy/tenant.types';
 import { buildReport, hasReport } from './catalog';
 import { reportPdfFileName, reportToPdf } from './report-pdf';
@@ -79,7 +81,22 @@ const Range = z
  */
 @Controller({ path: 'reports', version: '1' })
 export class ReportsController {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly moduleRef: ModuleRef,
+  ) {}
+
+  /**
+   * Nomes dos aplicativos Open Delivery cadastrados. O registro mora no módulo dos canais (que
+   * depende deste), então é buscado na hora, sem importar o módulo; sem ele, vale o id.
+   */
+  private appLabels(): Record<string, string> {
+    try {
+      return this.moduleRef.get(ChannelRegistry, { strict: false }).labels();
+    } catch {
+      return {};
+    }
+  }
 
   @Get('sales')
   @RequirePermission('reports:read')
@@ -465,7 +482,7 @@ export class ReportsController {
   ) {
     if (!hasReport(id)) throw new NotFoundException('Relatório não encontrado');
     return this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
-      buildReport(tx, id, r.from, r.to),
+      buildReport(tx, id, r.from, r.to, this.appLabels()),
     );
   }
 
@@ -481,7 +498,7 @@ export class ReportsController {
   ) {
     if (!hasReport(id)) throw new NotFoundException('Relatório não encontrado');
     const doc = await this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
-      buildReport(tx, id, r.from, r.to),
+      buildReport(tx, id, r.from, r.to, this.appLabels()),
     );
     const name = reportFileName(doc);
     res.setHeader(
@@ -508,7 +525,7 @@ export class ReportsController {
   ) {
     if (!hasReport(id)) throw new NotFoundException('Relatório não encontrado');
     const doc = await this.db.withTenant({ tenantId: t.id, userId: u.id }, (tx) =>
-      buildReport(tx, id, r.from, r.to),
+      buildReport(tx, id, r.from, r.to, this.appLabels()),
     );
     const name = reportPdfFileName(doc);
     res.setHeader('Content-Type', 'application/pdf');

@@ -125,6 +125,16 @@ export class ChannelsController {
     private readonly realtime: RealtimeService,
   ) {}
 
+  /**
+   * Nomes dos aplicativos Open Delivery cadastrados (`od-<nome>` → nome dado no Super Admin), para
+   * o selo e o filtro "Aplicativo" onde o pedido aparece (Pedidos, PDV, cozinha, entregas).
+   */
+  @Get('labels')
+  @RequirePermission('orders:read', 'orders:write', 'kitchen:operate', 'delivery:operate')
+  labels() {
+    return { labels: this.registry.labels() };
+  }
+
   @Get()
   @RequirePermission('orders:manage')
   async overview(@CurrentTenant() t: ResolvedTenant, @CurrentUser() u: AuthenticatedUser) {

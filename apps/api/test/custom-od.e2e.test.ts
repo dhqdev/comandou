@@ -212,6 +212,24 @@ describe('Outros aplicativos Open Delivery', () => {
     expect(actions).toEqual([{ orderId: 'od-1', verb: 'confirm' }]);
   });
 
+  it('o nome dado no Super Admin aparece no selo dos pedidos e no relatório por aplicativo', async () => {
+    const labels = await http
+      .get('/api/v1/channels/labels')
+      .set('Host', HOST_A)
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(labels.body).toEqual({ labels: { 'od-anotaai': 'Anota AI' } });
+    const today = new Date().toISOString().slice(0, 10);
+    const doc = await http
+      .get(`/api/v1/reports/catalog/aplicativos?from=${today}&to=${today}`)
+      .set('Host', HOST_A)
+      .set('Cookie', cookie)
+      .expect(200);
+    expect(doc.body.tables[0].rows).toEqual([
+      expect.objectContaining({ channel: 'Anota AI', orders: 1, sold: 29 }),
+    ]);
+  });
+
   it('apagado no Super Admin: sai do sistema na próxima releitura', async () => {
     await app.get(ChannelCredentials).remove('od-anotaai', { adminId });
     await app.get(OpenDeliveryService).syncCustom();

@@ -37,6 +37,7 @@ import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import type { Order } from '../lib/types';
 import './orders.css';
+import { appLabel, hasCustomApp, useAppLabels } from '../features/channels/app-labels';
 import { ChannelBadge } from '../features/channels/ChannelBadge';
 
 const LIMIT = 500;
@@ -101,7 +102,14 @@ const FIELDS: ListField<Order>[] = [
     options: [
       { value: 'staff', label: 'Equipe' },
       { value: 'online', label: 'Cardápio online' },
+      { value: 'app', label: 'Aplicativos de delivery' },
     ],
+  },
+  {
+    // Cada aplicativo pelo nome (iFood, 99Food, aiqfome...); as opções vêm dos pedidos da lista.
+    key: 'app',
+    label: 'Aplicativo',
+    value: (o) => (o.appChannel ? appLabel(o.appChannel) : null),
   },
   {
     key: 'paymentHint',
@@ -136,6 +144,8 @@ const TABS: ListTab[] = [
     filters: { date: ['30d'], status: ['completed'], payment: ['unpaid', 'partial'] },
   },
   { id: 'semana', label: 'Últimos 7 dias', filters: { date: ['7d'] } },
+  // Todos os aplicativos de delivery juntos (o filtro "Aplicativo" separa um por um).
+  { id: 'aplicativos', label: 'Aplicativos', filters: { date: ['today'], source: ['app'] } },
 ];
 
 const SORTS: ListSort<Order>[] = [
@@ -153,13 +163,20 @@ const SORTS: ListSort<Order>[] = [
 ];
 
 const searchText = (o: Order) =>
-  `#${o.number} ${who(o)} ${o.customerName ?? ''} ${digits(o.customerPhone ?? '')} ${itemsSummary(o)}`;
+  `#${o.number} ${who(o)} ${o.customerName ?? ''} ${digits(o.customerPhone ?? '')} ${itemsSummary(o)} ${
+    o.appChannel ? `${appLabel(o.appChannel)} ${o.externalCode ?? ''}` : ''
+  }`;
 
 export function OrdersPage() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   useLinkParam('abrir', setOpenId);
+  // Aplicativo Open Delivery cadastrado: o filtro e a busca usam o nome dado no Super Admin.
+  const labelsVersion = useAppLabels(hasCustomApp(orders?.map((o) => o.appChannel) ?? []));
+  useEffect(() => {
+    if (labelsVersion) setOrders((list) => (list ? [...list] : list));
+  }, [labelsVersion]);
   const lv = useListView({
     id: 'pedidos',
     rows: orders,

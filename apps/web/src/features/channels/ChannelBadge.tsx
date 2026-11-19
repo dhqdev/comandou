@@ -1,5 +1,6 @@
-import { channelInfo } from '@comandou/shared';
+import { channelInfo, isCustomOd } from '@comandou/shared';
 import type { CSSProperties } from 'react';
+import { customAppName, useAppLabels } from './app-labels';
 import './channel-badge.css';
 
 /**
@@ -19,7 +20,9 @@ export function ChannelBadge({
   code?: string | null;
   size?: 'sm' | 'md';
 }) {
-  const info = channelInfo(channel, label);
+  // Aplicativo Open Delivery cadastrado: o nome dado no Super Admin (carrega uma vez).
+  useAppLabels(!label && isCustomOd(channel));
+  const info = channelInfo(channel, label ?? customAppName(channel));
   return (
     <span
       className={`ch-badge ch-badge--${size}`}

@@ -17,6 +17,8 @@ export interface Period {
   pa: Date;
   tz: string;
   restaurant: string;
+  /** Nome dos aplicativos Open Delivery cadastrados (`od-<nome>`), quando o relatório usa. */
+  labels?: Record<string, string>;
 }
 
 export type Built = Pick<ReportDoc, 'kpis' | 'charts' | 'tables' | 'notes'>;

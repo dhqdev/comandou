@@ -379,6 +379,20 @@ describe('aiqfome: pedidos', () => {
     expect((await orderOf('68689249')).status).toBe('awaiting');
   });
 
+  it('Relatórios › Vendas por aplicativo: o aiqfome numa linha, separado da venda própria', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const doc = (
+      await get('adminA', `/reports/catalog/aplicativos?from=${today}&to=${today}`).expect(200)
+    ).body as {
+      kpis: { label: string; value: number }[];
+      tables: { rows: Record<string, unknown>[] }[];
+    };
+    const row = doc.tables[0]!.rows.find((r) => r.channel === 'aiqfome')!;
+    // Pedidos de 29,00: contam os aceitos (2); em análise (2) e o cancelado no gestor, não.
+    expect(row).toMatchObject({ orders: 2, sold: 58, ticket: 29, cancelled: 1, fees: null });
+    expect(doc.kpis[0]).toMatchObject({ label: 'Vendido pelos aplicativos', value: 58 });
+  });
+
   it('a loja tirou a autorização: para de buscar e a tela pede para ligar de novo', async () => {
     aiq.revokeAll();
     await poller.tick();

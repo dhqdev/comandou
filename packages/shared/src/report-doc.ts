@@ -229,6 +229,12 @@ export const REPORT_GROUPS: readonly ReportGroup[] = [
         title: 'Frete arrecadado',
         description: 'Contas com taxa de entrega no período.',
       },
+      {
+        id: 'aplicativos',
+        title: 'Vendas por aplicativo',
+        description:
+          'iFood, 99Food, Keeta, Rappi, aiqfome e os outros lado a lado: pedidos, vendido, ticket, cancelados, taxas e líquido do repasse.',
+      },
     ],
   },
   {
