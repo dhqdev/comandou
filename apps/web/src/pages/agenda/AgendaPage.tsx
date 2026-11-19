@@ -23,6 +23,7 @@ import {
 import { useAuth } from '../../app/auth';
 import { Alert, Button, Calendar, Modal, Segmented, Spinner, useToast } from '../../design-system';
 import { api } from '../../lib/api';
+import { useLiveData } from '../../lib/realtime';
 import { TagsDialog, WhatsAppDialog } from './AgendaDialogs';
 import {
   addDays,
@@ -143,6 +144,11 @@ export function AgendaPage() {
   useEffect(() => {
     void loadSetup();
   }, [loadSetup]);
+  // Compromisso salvo em outro aparelho ou aba da mesma pessoa chega sozinho.
+  useLiveData(['agenda'], () => {
+    void load();
+    void loadSetup();
+  });
   // Lembrete enviado muda a situação do compromisso: relê de vez em quando com a tela aberta.
   useEffect(() => {
     const t = setInterval(() => document.visibilityState === 'visible' && void load(), 60_000);

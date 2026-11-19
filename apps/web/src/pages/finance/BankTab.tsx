@@ -27,6 +27,7 @@ import { PAYMENT_METHOD_LABELS } from '../../features/format';
 import { fmtDate, SelectField, Tabs, todayIso } from '../../features/forms';
 import { api } from '../../lib/api';
 import { brl, parseBrlInput } from '../../lib/money';
+import { useLiveData } from '../../lib/realtime';
 import type { FinanceEntry } from '../../lib/types';
 import { KpiStrip } from './charts';
 import { SignedBrl } from './ClosingsTab';
@@ -103,6 +104,7 @@ export function BankTab() {
   useEffect(() => {
     void load();
   }, [load]);
+  useLiveData(['finance'], () => void load(), ['cash.changed', 'channels.finance']);
 
   const stById = useMemo(() => new Map((pending?.rows ?? []).map((s) => [s.id, s])), [pending]);
   const entryById = useMemo(() => new Map(entries.map((e) => [e.id, e])), [entries]);

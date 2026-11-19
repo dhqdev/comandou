@@ -1,0 +1,138 @@
+/* Sinal da conexão no topo (as barrinhas do Wi-Fi). */
+.conn-signal {
+  --conn-tone: var(--cm-success);
+  --conn-bg: var(--cm-success-bg);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  height: 30px;
+  padding: 0 10px 0 8px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--conn-bg);
+  color: var(--conn-tone);
+  font: inherit;
+  font-size: var(--cm-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color var(--cm-dur) var(--cm-ease),
+    color var(--cm-dur) var(--cm-ease);
+}
+.conn-signal:focus-visible {
+  outline: 2px solid var(--conn-tone);
+  outline-offset: 2px;
+}
+[data-tone='ok'].conn-signal,
+.conn-panel[data-tone='ok'] {
+  --conn-tone: var(--cm-warning);
+  --conn-bg: var(--cm-warning-bg);
+}
+[data-tone='bad'].conn-signal,
+.conn-panel[data-tone='bad'] {
+  --conn-tone: var(--cm-danger);
+  --conn-bg: var(--cm-danger-bg);
+}
+[data-tone='off'].conn-signal,
+.conn-panel[data-tone='off'] {
+  --conn-tone: var(--cm-text-muted);
+  --conn-bg: color-mix(in srgb, var(--cm-text) 6%, transparent);
+}
+.conn-panel {
+  --conn-tone: var(--cm-success);
+  display: grid;
+  gap: var(--cm-space-4);
+}
+
+.signal-bars rect {
+  fill: currentColor;
+  opacity: 0.22;
+  transition: opacity var(--cm-dur) var(--cm-ease);
+}
+.signal-bars rect[data-on] {
+  opacity: 1;
+}
+.conn-panel .signal-bars {
+  color: var(--conn-tone);
+  flex-shrink: 0;
+}
+
+.conn-panel__head {
+  display: flex;
+  gap: var(--cm-space-3);
+  align-items: flex-start;
+}
+.conn-panel__head strong {
+  font-size: var(--cm-text-lg);
+  color: var(--conn-tone);
+}
+.conn-panel__head p {
+  margin: 2px 0 0;
+}
+.conn-panel__facts {
+  display: grid;
+  gap: var(--cm-space-2);
+  margin: 0;
+}
+.conn-panel__facts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--cm-space-3);
+  padding-bottom: var(--cm-space-2);
+  border-bottom: 1px solid var(--cm-border);
+}
+.conn-panel__facts dt {
+  color: var(--cm-text-muted);
+}
+.conn-panel__facts dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.conn-panel__history {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 40px;
+}
+.conn-panel__history span {
+  flex: 1;
+  border-radius: 3px;
+  background: var(--cm-success);
+  opacity: 0.85;
+}
+.conn-panel__history span[data-tone='ok'] {
+  background: var(--cm-warning);
+}
+.conn-panel__history span[data-tone='bad'] {
+  background: var(--cm-danger);
+}
+.conn-panel__actions {
+  display: flex;
+  gap: var(--cm-space-2);
+  justify-content: flex-end;
+}
+
+@media (max-width: 860px) {
+  /* Celular: só as barrinhas, para o nome da tela caber no topo. */
+  .conn-signal {
+    width: 30px;
+    padding: 0;
+    justify-content: center;
+  }
+  .conn-signal__text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .conn-signal,
+  .signal-bars rect {
+    transition: none;
+  }
+}

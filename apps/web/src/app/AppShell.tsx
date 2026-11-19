@@ -70,9 +70,8 @@ import { api } from '../lib/api';
 import { PageTourHost } from '../features/tour/PageTour';
 import { useSearchSpotlight } from '../lib/deep-link';
 import { rememberStaffApp } from '../lib/staff-app';
-import { useOnline } from '../lib/connectivity';
+import { ConnectionSignal } from '../features/ConnectionSignal';
 import { OfflineBanner } from './OfflineBanner';
-import { useRealtimeStatus } from '../lib/realtime';
 import { useHasUnseenRelease } from '../lib/releases';
 import { ChangePasswordModal } from '../pages/TeamPage';
 import { useInstallApp } from './InstallApp';
@@ -278,8 +277,6 @@ export function AppShell() {
       );
     }
   };
-  const online = useOnline();
-  const live = useRealtimeStatus();
   const unseen = useHasUnseenRelease();
   const chatUnread = useChatUnread();
   const support = useSupportUnread();
@@ -461,16 +458,8 @@ export function AppShell() {
             </div>
             <GlobalSearchTrigger onOpen={() => setSearchOpen(true)} />
             <div className="topbar__spacer" />
-            {!online ? (
-              <Badge tone="warning">Sem conexão</Badge>
-            ) : live === 'live' ? (
-              <span className="cm-badge cm-badge--success topbar__live" title="Tempo real">
-                <span className="cm-dot cm-dot--pulse" />{' '}
-                <span className="topbar__live-text">Tempo real</span>
-              </span>
-            ) : (
-              <Badge tone="warning">Reconectando…</Badge>
-            )}
+            {/* Sinal da conexão (barrinhas): mede o tempo de resposta e o tempo real. */}
+            <ConnectionSignal />
             <GlobalSearchTrigger icon onOpen={() => setSearchOpen(true)} />
             {location.pathname !== '/' && location.pathname !== '/pdv' && (
               <SupportButton className="topbar__support" />

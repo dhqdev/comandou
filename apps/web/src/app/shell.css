@@ -222,23 +222,6 @@
   .topbar__tenant {
     display: none;
   }
-  /* Celular: "Tempo real" vira só a bolinha verde, para o nome da tela caber inteiro no topo. */
-  .topbar__live {
-    flex-shrink: 0;
-    width: 22px;
-    height: 22px;
-    padding: 0;
-    justify-content: center;
-    border-radius: 50%;
-  }
-  .topbar__live-text {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
   .offline-banner {
     padding: var(--cm-space-2) var(--cm-space-4);
   }
