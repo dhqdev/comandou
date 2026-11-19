@@ -48,6 +48,7 @@ import { FiscalSection } from './FiscalSection';
 import { OrderEditor } from './OrderEditor';
 import { OrderLiveMap } from './OrderLiveMap';
 import { api } from '../lib/api';
+import { maskPhone } from '../lib/br-format';
 import { ReceiptPreview } from './ReceiptPreview';
 import { mediaUrl } from '../lib/media';
 import { newIdempotencyKey } from '../lib/idempotency';
@@ -57,6 +58,8 @@ import type { AppOrderInfo, Order, OrderItem, Payment } from '../lib/types';
 import {
   CHANNEL_LABELS,
   dateTime,
+  elapsed,
+  minutesSince,
   ORDER_STATUS_LABELS,
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABEL,
@@ -64,6 +67,7 @@ import {
   paymentLabel,
   qty,
   STATUS_TONE,
+  time,
 } from './format';
 import { CloseOrderPanel } from './CloseOrderPanel';
 import { FiadoForm, localPhone } from './FiadoDialog';
@@ -269,6 +273,8 @@ export function OrderDetailModal({
     !order.fiadoAt &&
     order.status !== 'dispatched' &&
     canTransition(order.status, 'completed', order.channel);
+  // Quem lançou: o primeiro passo do histórico (sem situação anterior).
+  const launchedBy = order?.history?.find((h) => h.from === null)?.actorName ?? null;
   const activeItems = order ? order.items.filter((i) => i.status !== 'cancelled').length : 0;
   const canCancelItem =
     !!order && !mode && !isApp && canCancel && !['completed', 'cancelled'].includes(order.status);
@@ -519,171 +525,76 @@ export function OrderDetailModal({
         !error && <Spinner />
       ) : (
         <div className="order-detail">
-          <div className="od-card">
-            <dl className="od-facts">
-              {showClient && (
-                <Fact icon={<User size={15} />} label="Cliente" hue="blue">
-                  {order.customerName || '—'}
-                </Fact>
-              )}
-              {showClient && (
-                <Fact icon={<Phone size={15} />} label="Telefone" hue="green">
-                  {order.customerPhone || '—'}
-                </Fact>
-              )}
-              <Fact icon={<CalendarClock size={15} />} label="Feito em" hue="violet">
-                {dateTime(order.createdAt)}
-              </Fact>
-              <Fact
-                icon={<Timer size={15} />}
-                label="Status do pedido"
-                hue={STATUS_TONE[order.status]}
-              >
-                <Badge tone={STATUS_TONE[order.status]}>{ORDER_STATUS_LABELS[order.status]}</Badge>
-              </Fact>
-              <Fact
-                icon={<CreditCard size={15} />}
-                label="Pagamento"
-                hue={PAYMENT_STATUS_TONE[order.paymentStatus]}
-              >
-                <span className="od-pay">
-                  <Badge tone={PAYMENT_STATUS_TONE[order.paymentStatus]}>
-                    {PAYMENT_STATUS_LABEL[order.paymentStatus]}
-                  </Badge>
-                </span>
-              </Fact>
-              {order.source === 'online' && order.paymentHint && (
-                <Fact icon={<Wallet size={15} />} label="Vai pagar com" hue="teal">
-                  {PAYMENT_METHOD_LABELS[order.paymentHint]}
-                  {order.changeFor && ` · troco para ${brl(order.changeFor)}`}
-                </Fact>
-              )}
-              {order.pixReceipts?.[0] && (
-                <Fact icon={<Receipt size={15} />} label="Comprovante Pix" hue="teal" wide>
-                  {dateTime(order.pixReceipts[0].createdAt)}
-                  {order.pixReceipts[0].hasFile ? (
-                    <>
-                      {' · '}
-                      <button
-                        type="button"
-                        className="od-fact__link"
-                        onClick={() =>
-                          setReceiptView(
-                            receiptFile(
-                              order.id,
-                              order.pixReceipts![0],
-                              `Comprovante do Pix · Pedido #${order.number}`,
-                            ),
-                          )
-                        }
-                      >
-                        Abrir
-                      </button>
-                    </>
-                  ) : (
-                    ' · arquivo já apagado'
+          {/* Gaveta larga (computador): o pedido à esquerda e o dinheiro à direita (ops.css). */}
+          <div className="od-main">
+            <div className="od-card">
+              <dl className="od-facts">
+                {showClient && (
+                  <Fact icon={<User size={15} />} label="Cliente" hue="blue">
+                    {order.customerName || '—'}
+                  </Fact>
+                )}
+                {order.customerPhone && (
+                  <Fact icon={<Phone size={15} />} label="Telefone" hue="green">
+                    {maskPhone(localPhone(order.customerPhone))}
+                  </Fact>
+                )}
+                <Fact icon={<CalendarClock size={15} />} label="Feito em" hue="violet">
+                  {dateTime(order.createdAt)}
+                  {OPEN_STATUSES.has(order.status) && (
+                    <span className="od-fact__muted">
+                      {' '}
+                      · há {elapsed(minutesSince(order.createdAt))}
+                    </span>
                   )}
                 </Fact>
-              )}
-              {order.deliveryAddress && (
-                <Fact icon={<MapPin size={15} />} label="Endereço" hue="rose" wide>
-                  {order.deliveryAddress}
+                {launchedBy && (
+                  <Fact icon={<User size={15} />} label="Lançado por" hue="slate">
+                    {launchedBy}
+                  </Fact>
+                )}
+                {order.scheduledFor && (
+                  <Fact icon={<CalendarClock size={15} />} label="Agendado para" hue="amber">
+                    {dateTime(order.scheduledFor)}
+                  </Fact>
+                )}
+                {order.servedAt && (
+                  <Fact icon={<UtensilsCrossed size={15} />} label="Entregue na mesa" hue="green">
+                    {time(order.servedAt)}
+                  </Fact>
+                )}
+                <Fact
+                  icon={<Timer size={15} />}
+                  label="Status do pedido"
+                  hue={STATUS_TONE[order.status]}
+                >
+                  <Badge tone={STATUS_TONE[order.status]}>
+                    {ORDER_STATUS_LABELS[order.status]}
+                  </Badge>
                 </Fact>
-              )}
-            </dl>
-            <div className="od-note" data-hue={order.notes ? 'amber' : undefined}>
-              <MessageSquare size={15} aria-hidden />
-              <div>
-                <span>Observação do pedido</span>
-                <strong>{order.notes || 'Sem observação'}</strong>
-              </div>
-            </div>
-            {order.app && <AppOrderNote app={order.app} order={order} />}
-            {order.app && canFinance && order.status !== 'awaiting' && (
-              <AppOrderFinance orderId={order.id} />
-            )}
-            {order.app && ['completed', 'cancelled'].includes(order.status) && (
-              <OrderReviewNote orderId={order.id} />
-            )}
-            {order.app && order.channel === 'delivery' && (
-              <AppDriverCard orderId={order.id} canManage={canManage} />
-            )}
-            {order.app?.disputes?.slice(0, 3).map((d) => (
-              <AppDisputeCard
-                key={d.id}
-                dispute={d}
-                canAnswer={canManage}
-                onDone={() => void load()}
-              />
-            ))}
-            {order.fiadoAt && (
-              <div className="od-note" data-tone="warning">
-                <CalendarClock size={15} aria-hidden />
-                <div>
-                  <span>
-                    Fiado
-                    {order.fiadoDueAt ? ` · paga em ${dateTime(order.fiadoDueAt)}` : ''}
+                <Fact
+                  icon={<CreditCard size={15} />}
+                  label="Pagamento"
+                  hue={PAYMENT_STATUS_TONE[order.paymentStatus]}
+                >
+                  <span className="od-pay">
+                    <Badge tone={PAYMENT_STATUS_TONE[order.paymentStatus]}>
+                      {PAYMENT_STATUS_LABEL[order.paymentStatus]}
+                    </Badge>
                   </span>
-                  <strong>
-                    {order.fiadoName}
-                    {order.fiadoPhone ? ` · ${localPhone(order.fiadoPhone)}` : ''}
-                  </strong>
-                </div>
-              </div>
-            )}
-            {order.receivableAt && (
-              <div className="od-note" data-tone="danger">
-                <Wallet size={15} aria-hidden />
-                <div>
-                  <span>Concluído a receber · {dateTime(order.receivableAt)}</span>
-                  <strong>{order.receivableReason || '—'}</strong>
-                </div>
-              </div>
-            )}
-            {order.cancelReason && (
-              <div className="od-note" data-tone="danger">
-                <XCircle size={15} aria-hidden />
-                <div>
-                  <span>Motivo do cancelamento</span>
-                  <strong>{order.cancelReason}</strong>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {order.payOnline && <OnlineCharges order={order} onDone={(o) => setOrder(o)} />}
-
-          {order.pixStatus && (
-            <section className="od-block od-card">
-              <h3 className="od-block__title">
-                Pix pelo cardápio <PixReceiptChip order={order} />
-              </h3>
-              {order.pixReceipts?.[0] ? (
-                <PixReceiptReview
-                  key={order.pixReceipts[0].id}
-                  order={order}
-                  receipt={order.pixReceipts[0]}
-                  onDone={(o) => setOrder(o)}
-                />
-              ) : (
-                <p className="od-empty">
-                  O cliente escolheu Pix e ainda não mandou o comprovante. Ele pode mandar pelo
-                  acompanhamento do pedido.
-                </p>
-              )}
-              {(order.pixReceipts?.length ?? 0) > 1 && (
-                <ul className="pix-history" aria-label="Comprovantes anteriores">
-                  {order.pixReceipts!.slice(1).map((r) => (
-                    <li key={r.id}>
-                      {dateTime(r.createdAt)} ·{' '}
-                      {r.status === 'replaced'
-                        ? 'trocado pelo cliente'
-                        : r.status === 'rejected'
-                          ? `recusado${r.rejectReason ? `: ${r.rejectReason}` : ''}`
-                          : r.status === 'refunded'
-                            ? 'devolvido'
-                            : r.status}{' '}
-                      {r.hasFile && (
+                </Fact>
+                {order.source === 'online' && order.paymentHint && (
+                  <Fact icon={<Wallet size={15} />} label="Vai pagar com" hue="teal">
+                    {PAYMENT_METHOD_LABELS[order.paymentHint]}
+                    {order.changeFor && ` · troco para ${brl(order.changeFor)}`}
+                  </Fact>
+                )}
+                {order.pixReceipts?.[0] && (
+                  <Fact icon={<Receipt size={15} />} label="Comprovante Pix" hue="teal" wide>
+                    {dateTime(order.pixReceipts[0].createdAt)}
+                    {order.pixReceipts[0].hasFile ? (
+                      <>
+                        {' · '}
                         <button
                           type="button"
                           className="od-fact__link"
@@ -691,273 +602,407 @@ export function OrderDetailModal({
                             setReceiptView(
                               receiptFile(
                                 order.id,
-                                r,
-                                `Comprovante anterior · Pedido #${order.number}`,
+                                order.pixReceipts![0],
+                                `Comprovante do Pix · Pedido #${order.number}`,
                               ),
                             )
                           }
                         >
-                          ver
+                          Abrir
+                        </button>
+                      </>
+                    ) : (
+                      ' · arquivo já apagado'
+                    )}
+                  </Fact>
+                )}
+                {order.deliveryAddress && (
+                  <Fact icon={<MapPin size={15} />} label="Endereço" hue="rose" wide>
+                    {order.deliveryAddress}
+                  </Fact>
+                )}
+              </dl>
+              <div className="od-note" data-hue={order.notes ? 'amber' : undefined}>
+                <MessageSquare size={15} aria-hidden />
+                <div>
+                  <span>Observação do pedido</span>
+                  <strong>{order.notes || 'Sem observação'}</strong>
+                </div>
+              </div>
+              {order.app && <AppOrderNote app={order.app} order={order} />}
+              {order.app && canFinance && order.status !== 'awaiting' && (
+                <AppOrderFinance orderId={order.id} />
+              )}
+              {order.app && ['completed', 'cancelled'].includes(order.status) && (
+                <OrderReviewNote orderId={order.id} />
+              )}
+              {order.app && order.channel === 'delivery' && (
+                <AppDriverCard orderId={order.id} canManage={canManage} />
+              )}
+              {order.app?.disputes?.slice(0, 3).map((d) => (
+                <AppDisputeCard
+                  key={d.id}
+                  dispute={d}
+                  canAnswer={canManage}
+                  onDone={() => void load()}
+                />
+              ))}
+              {order.fiadoAt && (
+                <div className="od-note" data-tone="warning">
+                  <CalendarClock size={15} aria-hidden />
+                  <div>
+                    <span>
+                      Fiado
+                      {order.fiadoDueAt ? ` · paga em ${dateTime(order.fiadoDueAt)}` : ''}
+                    </span>
+                    <strong>
+                      {order.fiadoName}
+                      {order.fiadoPhone ? ` · ${localPhone(order.fiadoPhone)}` : ''}
+                    </strong>
+                  </div>
+                </div>
+              )}
+              {order.receivableAt && (
+                <div className="od-note" data-tone="danger">
+                  <Wallet size={15} aria-hidden />
+                  <div>
+                    <span>Concluído a receber · {dateTime(order.receivableAt)}</span>
+                    <strong>{order.receivableReason || '—'}</strong>
+                  </div>
+                </div>
+              )}
+              {order.cancelReason && (
+                <div className="od-note" data-tone="danger">
+                  <XCircle size={15} aria-hidden />
+                  <div>
+                    <span>Motivo do cancelamento</span>
+                    <strong>{order.cancelReason}</strong>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {order.payOnline && <OnlineCharges order={order} onDone={(o) => setOrder(o)} />}
+
+            {order.pixStatus && (
+              <section className="od-block od-card">
+                <h3 className="od-block__title">
+                  Pix pelo cardápio <PixReceiptChip order={order} />
+                </h3>
+                {order.pixReceipts?.[0] ? (
+                  <PixReceiptReview
+                    key={order.pixReceipts[0].id}
+                    order={order}
+                    receipt={order.pixReceipts[0]}
+                    onDone={(o) => setOrder(o)}
+                  />
+                ) : (
+                  <p className="od-empty">
+                    O cliente escolheu Pix e ainda não mandou o comprovante. Ele pode mandar pelo
+                    acompanhamento do pedido.
+                  </p>
+                )}
+                {(order.pixReceipts?.length ?? 0) > 1 && (
+                  <ul className="pix-history" aria-label="Comprovantes anteriores">
+                    {order.pixReceipts!.slice(1).map((r) => (
+                      <li key={r.id}>
+                        {dateTime(r.createdAt)} ·{' '}
+                        {r.status === 'replaced'
+                          ? 'trocado pelo cliente'
+                          : r.status === 'rejected'
+                            ? `recusado${r.rejectReason ? `: ${r.rejectReason}` : ''}`
+                            : r.status === 'refunded'
+                              ? 'devolvido'
+                              : r.status}{' '}
+                        {r.hasFile && (
+                          <button
+                            type="button"
+                            className="od-fact__link"
+                            onClick={() =>
+                              setReceiptView(
+                                receiptFile(
+                                  order.id,
+                                  r,
+                                  `Comprovante anterior · Pedido #${order.number}`,
+                                ),
+                              )
+                            }
+                          >
+                            ver
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
+
+            {order.channel === 'delivery' && order.status === 'dispatched' && canDispatch && (
+              <OrderLiveMap orderId={order.id} />
+            )}
+
+            <section className="od-block">
+              <h3 className="od-block__title">
+                {mode === 'edit' ? 'Editar itens do pedido' : 'Itens do pedido'}
+                {mode !== 'edit' && (
+                  <span className="od-pill">
+                    {order.items.length} {order.items.length === 1 ? 'item' : 'itens'}
+                  </span>
+                )}
+                {canEdit && !mode && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="od-block__edit"
+                    icon={<Pencil size={14} />}
+                    onClick={() => setMode('edit')}
+                  >
+                    Editar
+                  </Button>
+                )}
+              </h3>
+              {mode === 'edit' ? (
+                <OrderEditor order={order} onSaved={setOrder} onClose={() => setMode(null)} />
+              ) : (
+                <ul className="od-items">
+                  {order.items.map((i) => (
+                    <li
+                      key={i.id}
+                      className="od-item"
+                      data-cancelled={i.status === 'cancelled' || undefined}
+                    >
+                      <div className="od-item__top">
+                        <ItemThumb src={mediaUrl(i.imageId)} name={i.name} size={32} />
+                        <div className="od-item__main">
+                          <div className="od-item__name">
+                            <strong>{i.name}</strong>
+                            <span className="od-item__status" data-hue={ITEM_STATUS_HUE[i.status]}>
+                              {ITEM_STATUS_LABEL[i.status]}
+                            </span>
+                            {order.app?.unlinked.includes(i.id) && (
+                              <Link className="od-item__status" data-hue="amber" to="/integracoes">
+                                sem vínculo
+                              </Link>
+                            )}
+                          </div>
+                          {i.options.length > 0 && (
+                            <div className="od-item__sub">
+                              {i.options.map((o) => o.name).join(' · ')}
+                            </div>
+                          )}
+                          {i.notes && <div className="od-item__sub">Obs.: {i.notes}</div>}
+                          {i.status !== 'cancelled' && (i.readyAt || i.startedAt) && (
+                            <div className="od-item__sub">
+                              {i.readyAt
+                                ? `Pronto às ${time(i.readyAt)}`
+                                : `Em preparo desde ${time(i.startedAt!)}`}
+                            </div>
+                          )}
+                          {i.cancelReason && (
+                            <div className="od-item__sub">Cancelado: {i.cancelReason}</div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="od-item__bottom">
+                        <span>
+                          {i.unit === 'kg'
+                            ? `${qtyLabel(i.quantity, 'kg')} × ${brl(i.unitPrice)}/kg`
+                            : `${qty(i.quantity)} UN × ${brl(i.unitPrice)}`}
+                        </span>
+                        <strong>{brl(i.total)}</strong>
+                      </div>
+                      {canCancelItem && i.status !== 'cancelled' && (
+                        <button
+                          type="button"
+                          className="od-item__cancel"
+                          aria-label={`Cancelar ${i.name}`}
+                          onClick={() =>
+                            // O último item só sai cancelando o pedido inteiro (regra do servidor).
+                            setMode(activeItems > 1 ? { cancelItem: i } : 'cancel')
+                          }
+                        >
+                          <XCircle size={14} aria-hidden /> Cancelar item
                         </button>
                       )}
+                      {mode &&
+                        typeof mode === 'object' &&
+                        'cancelItem' in mode &&
+                        mode.cancelItem.id === i.id && (
+                          <ReasonForm
+                            label={`Motivo do cancelamento de ${i.name} (opcional)`}
+                            confirm="Cancelar item"
+                            danger
+                            optional
+                            busy={busy}
+                            onCancel={() => setMode(null)}
+                            onConfirm={(r) => void cancelItem(i, r)}
+                          />
+                        )}
                     </li>
                   ))}
                 </ul>
               )}
             </section>
-          )}
 
-          {order.channel === 'delivery' && order.status === 'dispatched' && canDispatch && (
-            <OrderLiveMap orderId={order.id} />
-          )}
-
-          <section className="od-block">
-            <h3 className="od-block__title">
-              {mode === 'edit' ? 'Editar itens do pedido' : 'Itens do pedido'}
-              {mode !== 'edit' && (
-                <span className="od-pill">
-                  {order.items.length} {order.items.length === 1 ? 'item' : 'itens'}
-                </span>
-              )}
-              {canEdit && !mode && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="od-block__edit"
-                  icon={<Pencil size={14} />}
-                  onClick={() => setMode('edit')}
-                >
-                  Editar
-                </Button>
-              )}
-            </h3>
-            {mode === 'edit' ? (
-              <OrderEditor order={order} onSaved={setOrder} onClose={() => setMode(null)} />
-            ) : (
-              <ul className="od-items">
-                {order.items.map((i) => (
-                  <li
-                    key={i.id}
-                    className="od-item"
-                    data-cancelled={i.status === 'cancelled' || undefined}
-                  >
-                    <div className="od-item__top">
-                      <ItemThumb src={mediaUrl(i.imageId)} name={i.name} size={32} />
-                      <div className="od-item__main">
-                        <div className="od-item__name">
-                          <strong>{i.name}</strong>
-                          <span className="od-item__status" data-hue={ITEM_STATUS_HUE[i.status]}>
-                            {ITEM_STATUS_LABEL[i.status]}
-                          </span>
-                          {order.app?.unlinked.includes(i.id) && (
-                            <Link className="od-item__status" data-hue="amber" to="/integracoes">
-                              sem vínculo
-                            </Link>
-                          )}
-                        </div>
-                        {i.options.length > 0 && (
-                          <div className="od-item__sub">
-                            {i.options.map((o) => o.name).join(' · ')}
-                          </div>
-                        )}
-                        {i.notes && <div className="od-item__sub">Obs.: {i.notes}</div>}
-                        {i.cancelReason && (
-                          <div className="od-item__sub">Cancelado: {i.cancelReason}</div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="od-item__bottom">
-                      <span>
-                        {i.unit === 'kg'
-                          ? `${qtyLabel(i.quantity, 'kg')} × ${brl(i.unitPrice)}/kg`
-                          : `${qty(i.quantity)} UN × ${brl(i.unitPrice)}`}
-                      </span>
-                      <strong>{brl(i.total)}</strong>
-                    </div>
-                    {canCancelItem && i.status !== 'cancelled' && (
-                      <button
-                        type="button"
-                        className="od-item__cancel"
-                        aria-label={`Cancelar ${i.name}`}
-                        onClick={() =>
-                          // O último item só sai cancelando o pedido inteiro (regra do servidor).
-                          setMode(activeItems > 1 ? { cancelItem: i } : 'cancel')
-                        }
-                      >
-                        <XCircle size={14} aria-hidden /> Cancelar item
-                      </button>
-                    )}
-                    {mode &&
-                      typeof mode === 'object' &&
-                      'cancelItem' in mode &&
-                      mode.cancelItem.id === i.id && (
-                        <ReasonForm
-                          label={`Motivo do cancelamento de ${i.name} (opcional)`}
-                          confirm="Cancelar item"
-                          danger
-                          optional
-                          busy={busy}
-                          onCancel={() => setMode(null)}
-                          onConfirm={(r) => void cancelItem(i, r)}
-                        />
-                      )}
-                  </li>
-                ))}
-              </ul>
+            {mode === 'cancel' && isApp && (
+              <AppCancelForm
+                orderId={order.id}
+                confirm="Pedir cancelamento ao aplicativo"
+                note='O pedido fica "Cancelamento solicitado" até o aplicativo confirmar. Se ele negar, o pedido volta para onde estava.'
+                busy={busy}
+                onCancel={() => setMode(null)}
+                onConfirm={(r, code) => go('cancel_requested', r, undefined, code)}
+              />
             )}
-          </section>
-
-          <section className="od-block od-card">
-            <h3 className="od-block__title">Pagamentos</h3>
-            {order.payments && order.payments.length > 0 ? (
-              <ul className="od-rows">
-                {order.payments.map((p) => (
-                  <li key={p.id}>
-                    <div>
-                      <strong>{paymentLabel(p)}</strong>
-                      <div className="od-item__sub">
-                        {dateTime(p.createdAt)}
-                        {p.createdByName && ` · ${p.createdByName}`}
-                        {p.appBrand && ` · ${p.appBrand}`}
-                        {p.method === 'app' && ' · fora do caixa, volta no repasse'}
-                        {toCents(p.refundedAmount) > 0 && ` · estornado ${brl(p.refundedAmount)}`}
-                      </div>
-                    </div>
-                    <span className="od-rows__end">
-                      <strong className="od-rows__paid">{brl(p.amount)}</strong>
-                      {canRefund &&
-                        p.method !== 'app' &&
-                        toCents(p.amount) > toCents(p.refundedAmount) && (
-                          <Button variant="ghost" size="sm" onClick={() => setMode({ refund: p })}>
-                            Estornar
-                          </Button>
-                        )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="od-empty">Nenhum pagamento registrado.</p>
+            {mode === 'reject' && isApp && (
+              <AppCancelForm
+                orderId={order.id}
+                confirm="Recusar pedido"
+                busy={busy}
+                onCancel={() => setMode(null)}
+                onConfirm={(r, code) => go('cancelled', r, undefined, code)}
+              />
             )}
-          </section>
-
-          <div className="od-card">
-            <FiscalSection
-              orderId={order.id}
-              paid={order.paymentStatus === 'paid'}
-              cancelled={order.status === 'cancelled' || order.status === 'cancel_requested'}
-              taxDocument={order.taxDocument ?? null}
-            />
+            {mode === 'cancel' && !isApp && (
+              <ReasonForm
+                label="Motivo do cancelamento (opcional)"
+                confirm={
+                  order.status === 'cancel_requested' ? 'Aprovar cancelamento' : 'Cancelar pedido'
+                }
+                danger
+                optional
+                busy={busy}
+                onCancel={() => setMode(null)}
+                onConfirm={(r) => go(canCancel ? 'cancelled' : 'cancel_requested', r)}
+              />
+            )}
+            {mode === 'reject' && !isApp && (
+              <ReasonForm
+                label="Por que recusar? (o cliente vê este motivo)"
+                confirm="Recusar pedido"
+                danger
+                busy={busy}
+                onCancel={() => setMode(null)}
+                onConfirm={(r) => go('cancelled', r)}
+              />
+            )}
+            {mode === 'dispatch' && (
+              <DispatchForm
+                order={order}
+                onCancel={() => setMode(null)}
+                onDone={() => {
+                  setMode(null);
+                  void load();
+                }}
+              />
+            )}
+            {mode === 'adjust' && (
+              <AdjustForm
+                order={order}
+                onDone={(o) => {
+                  setOrder(o);
+                  setMode(null);
+                }}
+                onCancel={() => setMode(null)}
+              />
+            )}
+            {mode === 'fiado' && (
+              <FiadoForm
+                order={order}
+                onCancel={() => setMode(null)}
+                onDone={(o) => {
+                  setOrder(o);
+                  setMode(null);
+                }}
+              />
+            )}
+            {mode === 'receivable' && (
+              <ReasonForm
+                label={`Por que concluir com ${brl(order.balance)} em aberto? (fica em "Concluídos em aberto")`}
+                confirm="Concluir a receber"
+                busy={busy}
+                onCancel={() => setMode(null)}
+                onConfirm={(r) => go('completed', r, true)}
+              />
+            )}
+            {mode && typeof mode === 'object' && 'refund' in mode && (
+              <RefundForm
+                payment={mode.refund}
+                onCancel={() => setMode(null)}
+                onDone={() => {
+                  setMode(null);
+                  void load();
+                }}
+              />
+            )}
           </div>
 
-          {mode === 'cancel' && isApp && (
-            <AppCancelForm
-              orderId={order.id}
-              confirm="Pedir cancelamento ao aplicativo"
-              note='O pedido fica "Cancelamento solicitado" até o aplicativo confirmar. Se ele negar, o pedido volta para onde estava.'
-              busy={busy}
-              onCancel={() => setMode(null)}
-              onConfirm={(r, code) => go('cancel_requested', r, undefined, code)}
-            />
-          )}
-          {mode === 'reject' && isApp && (
-            <AppCancelForm
-              orderId={order.id}
-              confirm="Recusar pedido"
-              busy={busy}
-              onCancel={() => setMode(null)}
-              onConfirm={(r, code) => go('cancelled', r, undefined, code)}
-            />
-          )}
-          {mode === 'cancel' && !isApp && (
-            <ReasonForm
-              label="Motivo do cancelamento (opcional)"
-              confirm={
-                order.status === 'cancel_requested' ? 'Aprovar cancelamento' : 'Cancelar pedido'
-              }
-              danger
-              optional
-              busy={busy}
-              onCancel={() => setMode(null)}
-              onConfirm={(r) => go(canCancel ? 'cancelled' : 'cancel_requested', r)}
-            />
-          )}
-          {mode === 'reject' && !isApp && (
-            <ReasonForm
-              label="Por que recusar? (o cliente vê este motivo)"
-              confirm="Recusar pedido"
-              danger
-              busy={busy}
-              onCancel={() => setMode(null)}
-              onConfirm={(r) => go('cancelled', r)}
-            />
-          )}
-          {mode === 'dispatch' && (
-            <DispatchForm
-              order={order}
-              onCancel={() => setMode(null)}
-              onDone={() => {
-                setMode(null);
-                void load();
-              }}
-            />
-          )}
-          {mode === 'adjust' && (
-            <AdjustForm
-              order={order}
-              onDone={(o) => {
-                setOrder(o);
-                setMode(null);
-              }}
-              onCancel={() => setMode(null)}
-            />
-          )}
-          {mode === 'fiado' && (
-            <FiadoForm
-              order={order}
-              onCancel={() => setMode(null)}
-              onDone={(o) => {
-                setOrder(o);
-                setMode(null);
-              }}
-            />
-          )}
-          {mode === 'receivable' && (
-            <ReasonForm
-              label={`Por que concluir com ${brl(order.balance)} em aberto? (fica em "Concluídos em aberto")`}
-              confirm="Concluir a receber"
-              busy={busy}
-              onCancel={() => setMode(null)}
-              onConfirm={(r) => go('completed', r, true)}
-            />
-          )}
-          {mode && typeof mode === 'object' && 'refund' in mode && (
-            <RefundForm
-              payment={mode.refund}
-              onCancel={() => setMode(null)}
-              onDone={() => {
-                setMode(null);
-                void load();
-              }}
-            />
-          )}
+          <div className="od-side">
+            <section className="od-block od-card">
+              <h3 className="od-block__title">Pagamentos</h3>
+              {order.payments && order.payments.length > 0 ? (
+                <ul className="od-rows">
+                  {order.payments.map((p) => (
+                    <li key={p.id}>
+                      <div>
+                        <strong>{paymentLabel(p)}</strong>
+                        <div className="od-item__sub">
+                          {dateTime(p.createdAt)}
+                          {p.createdByName && ` · ${p.createdByName}`}
+                          {p.appBrand && ` · ${p.appBrand}`}
+                          {p.method === 'app' && ' · fora do caixa, volta no repasse'}
+                          {toCents(p.refundedAmount) > 0 && ` · estornado ${brl(p.refundedAmount)}`}
+                        </div>
+                      </div>
+                      <span className="od-rows__end">
+                        <strong className="od-rows__paid">{brl(p.amount)}</strong>
+                        {canRefund &&
+                          p.method !== 'app' &&
+                          toCents(p.amount) > toCents(p.refundedAmount) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setMode({ refund: p })}
+                            >
+                              Estornar
+                            </Button>
+                          )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="od-empty">Nenhum pagamento registrado.</p>
+              )}
+            </section>
 
-          {order.history && order.history.length > 0 && (
-            <details className="od-block od-history">
-              <summary className="od-block__title">Histórico</summary>
-              <ol className="od-timeline">
-                {order.history.map((h, i) => (
-                  <li key={i}>
-                    <strong>{ORDER_STATUS_LABELS[h.to]}</strong>
-                    <span className="od-item__sub">
-                      {[h.actorName, dateTime(h.at)].filter(Boolean).join(' · ')}
-                    </span>
-                    {h.reason && <span className="od-item__sub">{h.reason}</span>}
-                  </li>
-                ))}
-              </ol>
-            </details>
-          )}
+            <div className="od-card">
+              <FiscalSection
+                orderId={order.id}
+                paid={order.paymentStatus === 'paid'}
+                cancelled={order.status === 'cancelled' || order.status === 'cancel_requested'}
+                taxDocument={order.taxDocument ?? null}
+              />
+            </div>
+
+            {order.history && order.history.length > 0 && (
+              <details className="od-block od-history" open={wideDrawer()}>
+                <summary className="od-block__title">Histórico</summary>
+                <ol className="od-timeline">
+                  {order.history.map((h, i) => (
+                    <li key={i}>
+                      <strong>{ORDER_STATUS_LABELS[h.to]}</strong>
+                      <span className="od-item__sub">
+                        {[h.actorName, dateTime(h.at)].filter(Boolean).join(' · ')}
+                      </span>
+                      {h.reason && <span className="od-item__sub">{h.reason}</span>}
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            )}
+          </div>
           <CloseOrderPanel
             order={order}
             open={paying}
@@ -978,6 +1023,19 @@ export function OrderDetailModal({
     </Frame>
   );
 }
+
+/** Pedido ainda andando: mostra há quanto tempo foi feito ao lado da hora. */
+const OPEN_STATUSES = new Set<Order['status']>([
+  'awaiting',
+  'new',
+  'in_production',
+  'ready',
+  'dispatched',
+]);
+
+/** Gaveta larga (computador, ops.css): o histórico já vem aberto na coluna da direita. */
+const wideDrawer = () =>
+  typeof window !== 'undefined' && !!window.matchMedia?.('(min-width: 1100px)').matches;
 
 const ITEM_STATUS_LABEL: Record<ItemStatus, string> = {
   pending: 'Pendente',
