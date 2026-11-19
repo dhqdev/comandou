@@ -76,7 +76,7 @@ exceções, só no site:
   `BookingPublic.tsx` (sem gravar escolha, para não mudar o app do restaurante). Página nova do
   site faz o mesmo.
 - **Menu solto.** `.st-nav` é uma pílula flutuante (sticky, afastada do topo e das laterais),
-  compacta e com sombra depois de rolar (`is-scrolled`); abaixo de 860 px vira o botão de menu com
+  compacta e com sombra depois de rolar (`is-scrolled`); abaixo de 1080 px vira o botão de menu com
   a folha `.st-nav__sheet`. É o único lugar do site com fundo translúcido.
 - **React Bits** (`site/reactbits/`, licença MIT + Commons Clause: usar dentro do Comandou pode,
   revender o componente não): `ClickSpark` (faíscas no clique, cobre a página inteira),
@@ -91,19 +91,25 @@ exceções, só no site:
   uma regra em `scroll.css`. Título de seção com `SectionHead` (título + uma frase opcional),
   **sem número nem rótulo em cima** (desde a 0.193: o "01 / O sistema" era o eyebrow que a
   skill `impeccable` proíbe e deixava o site com cara de modelo pronto).
-- **Topo** (`site/hero.css`, refeito na 0.193 a pedido do David, que achava o começo esquisito):
-  no computador (≥1080px) duas colunas, à esquerda título, frase, cartão de criar e duas linhas
-  com visto (teste sem cartão e os aplicativos de delivery); à direita o celular da loja, ao lado
-  do cartão para a pessoa ver o site mudar enquanto digita, na frente da tela da cozinha, que passa
-  da borda direita da página. Abaixo disso tudo empilha centralizado (no celular só o celular da
-  loja). Sem selo em pílula e sem fundo de pontinhos. Aviso flutuante nunca cobre o celular.
+- **Topo** (`site/hero.css`, refeito na 0.198.4 a pedido do David, que achou o anterior "feio e mal
+  feito": tela da cozinha cortada na borda e avisos amontoados): no computador (≥1080px) duas
+  colunas, à esquerda título, frase, cartão de criar e duas linhas com visto; à direita **um quadro
+  só** (`.st-stage`, raio 32, tom quente bem fraco, círculos finos atrás) com o celular da loja
+  cortado embaixo pelo quadro, o panda espiando atrás dele e, à direita, o cartão "Pedidos agora"
+  (`LiveOrders` em `SiteApp.tsx`, `HERO_ORDERS` em `site-data.ts`: um pedido novo a cada 3,4 s,
+  os de baixo andam com FLIP, só transform) e as vendas do dia. Nada passa da borda do quadro nem
+  cobre o conteúdo do celular além da beira. No celular, só o celular da loja no quadro. Sem
+  screenshot do sistema no topo, sem selo em pílula e sem fundo de pontinhos.
 - **Fim** (0.193): um bloco só (convite, botões e o panda num painel claro com linha fina) e o
   rodapé de verdade (marca e o que é, colunas Produto e Ajuda, linha de baixo com o ano). Nada de
   frase gigante correndo nem a marca enorme no rodapé: foi o que deixou o final esquisito.
-- **Aplicativos** (`#aplicativos`, 0.193): a fila de pedidos com o aplicativo de cada um e o que
-  dá para fazer sem abrir o portal. Os nomes dos aplicativos vão como texto (sem logo de terceiros)
-  e a lista sai de `DELIVERY_APPS`/`APP_FEATURES` em `site-data.ts`: aplicativo novo ligado, entra
-  lá.
+- **Aplicativos** (`#aplicativos`, refeito na 0.198.4): faixa com os nomes dos aplicativos entre
+  duas linhas finas (texto grande, bolinha no tom `--cm-tint-*` de `APP_HUE`, sem logo de
+  terceiros), embaixo a fila no jeito da tela de Pedidos (abas, selo do aplicativo no tom dele,
+  cliente, tempo, Aceitar nos novos, situação em pílula fraca) e, ao lado, o que dá para fazer
+  sem o portal com ícone solto. A lista sai de `DELIVERY_APPS`/`APP_FEATURES` (+ ícone em
+  `APP_FEATURE_ICONS`, mesma ordem) em `site-data.ts`: aplicativo novo ligado, entra lá e em
+  `APP_HUE`.
 - **Impeccable** (`.claude/skills/impeccable`, Apache 2.0, de pbakaus/impeccable): no site vale o
   modo *Persuade* e o `reference/craft-floor.md` (contraste, espaçamento, nada de eyebrow, nada de
   cartões iguais como estrutura da página), sempre abaixo destas regras.

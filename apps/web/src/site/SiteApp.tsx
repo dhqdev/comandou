@@ -1,18 +1,22 @@
 import {
   ArrowRight,
+  Bike,
   Check,
-  ChefHat,
+  CheckCheck,
   Cloud,
   FileText,
   Globe,
+  Layers,
   Link2,
   Menu,
   QrCode,
   Sparkles,
+  Store,
+  Wallet,
   WifiOff,
   X,
 } from 'lucide-react';
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   applyTheme,
   Button,
@@ -28,9 +32,11 @@ import { Builder, PhoneMock, type Look } from './Builder';
 import { loadSiteConfig, type SiteConfig } from './host';
 import {
   APP_FEATURES,
+  APP_HUE,
   APP_ORDERS,
   DELIVERY_APPS,
   FEATURES,
+  HERO_ORDERS,
   SAMPLE_ITEMS,
   SITE_FAQ,
   STEPS,
@@ -459,30 +465,90 @@ function Words({ text, from, accent }: { text: string; from: number; accent?: bo
   );
 }
 
-/** Avisos que surgem em volta do celular, como o sistema avisa no dia a dia. */
-function HeroToasts() {
+/** Situação do pedido pela posição na fila: o de cima acabou de chegar. */
+const HERO_STATUS = [
+  ['Novo', 'new'],
+  ['Preparando', 'cook'],
+  ['Pronto', 'ready'],
+  ['Pronto', 'ready'],
+] as const;
+
+/**
+ * Quadro "Pedidos agora" do topo: a cada poucos segundos chega um pedido de um canal diferente
+ * (mesa, balcão, cardápio online, aplicativos), os de baixo andam uma casa (FLIP, só transform)
+ * e as vendas do dia sobem junto. Com "reduzir movimento", fica parado.
+ */
+function LiveOrders() {
+  const [head, setHead] = useState(0);
+  const list = useRef<HTMLUListElement>(null);
+  const tops = useRef(new Map<string, number>());
+  useEffect(() => {
+    if (calmMotion()) return;
+    const t = window.setInterval(() => {
+      if (!document.hidden) setHead((h) => h + 1);
+    }, 3400);
+    return () => window.clearInterval(t);
+  }, []);
+  useLayoutEffect(() => {
+    const ul = list.current;
+    if (!ul) return;
+    for (const li of Array.from(ul.children) as HTMLElement[]) {
+      const k = li.dataset.k ?? '';
+      const prev = tops.current.get(k);
+      const top = li.offsetTop;
+      if (prev !== undefined && prev !== top)
+        li.animate([{ transform: `translateY(${prev - top}px)` }, { transform: 'none' }], {
+          duration: 320,
+          easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+        });
+      tops.current.set(k, top);
+    }
+  }, [head]);
+  const n = HERO_ORDERS.length;
+  const rows = HERO_STATUS.map((st, i) => {
+    const at = head - i;
+    return { o: HERO_ORDERS[((at % n) + n) % n]!, key: String(at), st };
+  });
+  // Vendas do dia: um valor de partida e cada pedido que chega soma.
+  let sold = 2184.6;
+  let count = 48;
+  for (let i = 1; i <= head; i++) {
+    sold += HERO_ORDERS[i % n]!.total;
+    count += 1;
+  }
   return (
-    <div className="st-toasts" aria-hidden>
-      <div className="st-toast st-toast--a">
-        <b className="st-toast__dot" />
-        <span>
-          <strong>Novo pedido do iFood</strong>
-          <small>#7421 · R$ 71,80</small>
-        </span>
+    <div className="st-live" aria-hidden>
+      <div className="st-live__card">
+        <div className="st-live__bar">
+          <strong>Pedidos agora</strong>
+          <span>
+            <i /> Ao vivo
+          </span>
+        </div>
+        <ul ref={list}>
+          {rows.map(({ o, key, st }, i) => (
+            <li
+              key={key}
+              data-k={key}
+              className={i === 0 && head > 0 ? 'is-new' : undefined}
+              style={{ '--hue': `var(--cm-tint-${o.hue})` } as React.CSSProperties}
+            >
+              <span className="st-live__ch">{o.ch}</span>
+              <span className="st-live__st" data-tone={st[1]}>
+                {st[0]}
+              </span>
+              <span className="st-live__items">
+                #{o.n} · {o.items}
+              </span>
+              <strong className="st-live__val">{brl(o.total.toFixed(2))}</strong>
+            </li>
+          ))}
+        </ul>
       </div>
-      <div className="st-toast st-toast--b">
-        <Check size={14} />
-        <span>
-          <strong>Pix aprovado</strong>
-          <small>Mesa 4 · R$ 128,40</small>
-        </span>
-      </div>
-      <div className="st-toast st-toast--c">
-        <ChefHat size={14} />
-        <span>
-          <strong>Cozinha</strong>
-          <small>Pedido #128 pronto</small>
-        </span>
+      <div className="st-live__card st-live__day">
+        <span>Vendas de hoje</span>
+        <strong key={head}>{brl(sold.toFixed(2))}</strong>
+        <small>{count} pedidos no mesmo caixa</small>
       </div>
     </div>
   );
@@ -619,51 +685,85 @@ const NAV: [string, string][] = [
   ['#perguntas', 'Perguntas'],
 ];
 
+/** Ícone de cada item de APP_FEATURES (mesma ordem). */
+const APP_FEATURE_ICONS = [Layers, CheckCheck, Bike, Store, Wallet];
+
 /**
- * Aplicativos de delivery: à esquerda a fila de pedidos como aparece no Comandou (cada linha
- * com o aplicativo de onde veio, entrando uma a uma quando a seção chega); à direita o que dá
+ * Aplicativos de delivery: em cima os nomes dos aplicativos ligados (texto, sem logo de
+ * terceiros, cada um com a sua bolinha de cor); embaixo, à esquerda, a fila de pedidos como
+ * aparece no Comandou (as linhas entram uma a uma quando a seção chega) e, à direita, o que dá
  * para fazer sem abrir o portal de cada aplicativo.
  */
 function Apps() {
+  const hue = (app: string) =>
+    ({ '--hue': `var(--cm-tint-${APP_HUE[app] ?? 'slate'})` }) as React.CSSProperties;
   return (
     <div className="st-apps">
-      <div className="st-apps__feed st-reveal" aria-hidden>
-        <div className="st-apps__bar">
-          <strong>Pedidos</strong>
-          <span>
-            <i /> Ao vivo
-          </span>
+      <ul
+        className="st-apps__names st-reveal"
+        aria-label="Aplicativos que funcionam com o Comandou"
+      >
+        {DELIVERY_APPS.map((a, k) => (
+          <li key={a} style={{ ...hue(a), '--k': k } as React.CSSProperties}>
+            <i aria-hidden />
+            {a}
+          </li>
+        ))}
+      </ul>
+      <div className="st-apps__grid">
+        <div className="st-apps__feed st-reveal" aria-hidden>
+          <div className="st-apps__bar">
+            <strong>Pedidos</strong>
+            <span className="st-apps__tabs">
+              <b>
+                Todos <em>{APP_ORDERS.length}</em>
+              </b>
+              <span>Salão</span>
+              <span>Aplicativos</span>
+            </span>
+            <span className="st-apps__live">
+              <i /> Ao vivo
+            </span>
+          </div>
+          <ul>
+            {APP_ORDERS.map((o, k) => (
+              <li key={o.n} style={{ ...hue(o.app), '--k': k } as React.CSSProperties}>
+                <span className="st-apps__app">{o.app}</span>
+                <span className="st-apps__who">
+                  <strong>
+                    #{o.n} <span>· {o.who}</span>
+                  </strong>
+                  <small>{o.items}</small>
+                </span>
+                <span className="st-apps__val">
+                  <strong>R$ {o.total}</strong>
+                  <small>{o.time}</small>
+                </span>
+                {o.tone === 'new' ? (
+                  <span className="st-apps__act">Aceitar</span>
+                ) : (
+                  <span className="st-apps__st" data-tone={o.tone}>
+                    {o.status}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
-        <ul>
-          {APP_ORDERS.map((o, k) => (
-            <li key={o.n} style={{ '--k': k } as React.CSSProperties}>
-              <span className="st-apps__app">{o.app}</span>
-              <span className="st-apps__who">
-                <strong>#{o.n}</strong>
-                <small>{o.items}</small>
-              </span>
-              <span className="st-apps__val">
-                <strong>R$ {o.total}</strong>
-                <small className={`st-apps__st st-apps__st--${o.tone}`}>{o.status}</small>
-              </span>
-            </li>
-          ))}
+        <ul className="st-apps__list st-reveal">
+          {APP_FEATURES.map((f, i) => {
+            const Icon = APP_FEATURE_ICONS[i] ?? Check;
+            return (
+              <li key={f.title} style={{ '--k': i } as React.CSSProperties}>
+                <Icon size={20} strokeWidth={1.8} aria-hidden />
+                <div>
+                  <h3>{f.title}</h3>
+                  <p>{f.text}</p>
+                </div>
+              </li>
+            );
+          })}
         </ul>
-      </div>
-      <div className="st-apps__side st-reveal">
-        <ul className="st-apps__names" aria-label="Aplicativos que funcionam com o Comandou">
-          {DELIVERY_APPS.map((a) => (
-            <li key={a}>{a}</li>
-          ))}
-        </ul>
-        <dl className="st-apps__list">
-          {APP_FEATURES.map((f) => (
-            <div key={f.title}>
-              <dt>{f.title}</dt>
-              <dd>{f.text}</dd>
-            </div>
-          ))}
-        </dl>
       </div>
     </div>
   );
@@ -828,34 +928,23 @@ export function SiteApp() {
               </ul>
             </div>
             <div className="st-hero__art">
-              {/* O palco anda com a rolagem (deitado no topo, reto ao descer); o de dentro só entra. */}
+              {/* Um quadro só: o celular da loja (mostra o que a pessoa digita) e os pedidos chegando. */}
               <div className="st-stage">
                 <div className="st-stage__in">
-                  <div className="st-desk" aria-hidden>
-                    <div className="st-shot__bar">
-                      <i />
-                      <i />
-                      <i />
-                      <span>fumaca.comandou.com/cozinha</span>
-                    </div>
-                    <img
-                      src="/site/cozinha-light.webp"
-                      width={1600}
-                      height={1000}
-                      alt=""
-                      fetchPriority="high"
-                      decoding="async"
-                    />
-                  </div>
+                  <span className="st-stage__rings" aria-hidden>
+                    <i />
+                    <i />
+                    <i />
+                  </span>
                   <div className="st-phonebox">
                     <div className="st-peek">
-                      <LivePanda size={112} mood={mood} title="Panda do Comandou" />
+                      <LivePanda size={104} mood={mood} title="Panda do Comandou" />
                     </div>
                     <div className="st-float">
                       <PhoneMock look={look} />
                     </div>
                   </div>
-                  <HeroToasts />
+                  <LiveOrders />
                 </div>
               </div>
             </div>

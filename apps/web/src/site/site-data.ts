@@ -138,55 +138,93 @@ export const APP_FEATURES: { title: string; text: string }[] = [
   },
 ];
 
+/** Tom suave de cada canal (tokens `--cm-tint-*`): só a bolinha e um fundo bem fraco. */
+export type Hue = 'rose' | 'amber' | 'green' | 'violet' | 'blue' | 'teal' | 'slate';
+export const APP_HUE: Record<string, Hue> = {
+  iFood: 'rose',
+  '99Food': 'amber',
+  Keeta: 'green',
+  Rappi: 'violet',
+  aiqfome: 'blue',
+  'Open Delivery': 'slate',
+};
+
 /** A fila de exemplo da seção Aplicativos. */
 export const APP_ORDERS: {
   app: string;
   n: string;
+  who: string;
   items: string;
   total: string;
   status: string;
+  time: string;
   tone: 'new' | 'cook' | 'ready';
 }[] = [
   {
     app: 'iFood',
     n: '7421',
+    who: 'Isadora Q.',
     items: '2× Smash duplo, Batata',
     total: '71,80',
     status: 'Novo',
+    time: 'agora',
     tone: 'new',
   },
   {
     app: '99Food',
     n: '3108',
+    who: 'Bruno M.',
     items: 'Fumaça (o da casa)',
     total: '38,90',
     status: 'Novo',
+    time: '1 min',
     tone: 'new',
   },
   {
     app: 'Keeta',
     n: '5530',
+    who: 'Lívia S.',
     items: 'Combo Fumaça, Limonada',
     total: '54,90',
     status: 'Preparando',
+    time: '6 min',
     tone: 'cook',
   },
   {
     app: 'Rappi',
     n: '9914',
+    who: 'Caio R.',
     items: '3× Smash duplo',
     total: '98,70',
     status: 'Preparando',
+    time: '9 min',
     tone: 'cook',
   },
   {
     app: 'aiqfome',
     n: '2276',
+    who: 'Elisa F.',
     items: 'Batata frita',
     total: '18,00',
     status: 'Pronto',
+    time: '14 min',
     tone: 'ready',
   },
+];
+
+/**
+ * Pedidos que chegam no quadro do topo do site, um de cada canal, em roda: mesa, balcão,
+ * cardápio online e aplicativos caindo no mesmo lugar.
+ */
+export const HERO_ORDERS: { ch: string; hue: Hue; n: string; items: string; total: number }[] = [
+  { ch: 'iFood', hue: 'rose', n: '7421', items: '2× Smash duplo, Batata', total: 71.8 },
+  { ch: 'Mesa 4', hue: 'blue', n: '128', items: 'Combo Clássico, Limonada', total: 54.9 },
+  { ch: 'Cardápio online', hue: 'teal', n: '129', items: 'Fumaça (o da casa)', total: 38.9 },
+  { ch: '99Food', hue: 'amber', n: '3108', items: '3× Smash duplo', total: 98.7 },
+  { ch: 'Balcão', hue: 'slate', n: '130', items: 'Batata frita, Refri', total: 25 },
+  { ch: 'Keeta', hue: 'green', n: '5530', items: 'Combo Fumaça', total: 49.9 },
+  { ch: 'Mesa 7', hue: 'blue', n: '131', items: '2× Fumaça, 2× Limonada', total: 101.8 },
+  { ch: 'Rappi', hue: 'violet', n: '9914', items: 'Smash duplo', total: 32.9 },
 ];
 
 export interface MockItem {

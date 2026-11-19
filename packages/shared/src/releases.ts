@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.198.4',
+    date: '2026-11-19',
+    title: 'Site: começo e aplicativos de delivery redesenhados',
+    summary:
+      'O topo do comandou.com ficou mais limpo: o celular da loja num quadro só, com os pedidos chegando ao lado. A seção dos aplicativos de delivery ganhou a faixa com os nomes e uma fila de pedidos mais caprichada.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Topo do site: saiu a tela da cozinha cortada na borda e os avisos amontoados. Agora o celular da loja (que mostra o que você digita) fica num quadro de tom quente, com o cartão "Pedidos agora" ao lado: a cada poucos segundos chega um pedido de um canal diferente (mesa, balcão, cardápio online, iFood, 99Food…) e as vendas do dia sobem junto.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Seção Aplicativos do site: os nomes dos aplicativos numa faixa só, a fila de pedidos com o aplicativo de cada um, cliente, tempo, Aceitar nos novos e a situação dos outros, e a lista do que dá para fazer sem abrir o portal, com ícones.',
+      },
+      {
+        tag: 'correção',
+        text: 'Menu do site em notebook estreito: os links não quebram mais em duas linhas nem empurram o botão para fora da tela (vira o botão de menu abaixo de 1080 px).',
+      },
+    ],
+  },
+  {
     version: '0.198.3',
     date: '2026-11-19',
     title: 'Acabamento: linhas, cores e fotos mais limpas',
