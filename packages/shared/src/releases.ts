@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.197.0',
+    date: '2026-11-19',
+    title: 'Cada cardápio com as suas regras: o da mesa é só pedir',
+    summary:
+      'O cardápio aberto pelo QR Code da mesa mostra só o que o cliente sentado precisa: escolher, enviar e acompanhar. Conversa, entrega, reserva, favoritos, fidelidade e conta ficam no cardápio online.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Cardápio da mesa: bloco de boas-vindas com o número da mesa em destaque e os três passos (Escolha, Envie, Chega na mesa ou Busque no balcão), que acendem conforme o cliente avança, com a taxa de serviço e como pagar.',
+      },
+      {
+        tag: 'novo',
+        text: 'Aba "Minha mesa" no lugar de Pedidos: os pedidos que o celular mandou para a mesa, com o andamento de cada um (atualiza sozinho), o total já pedido e o botão Pedir mais.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Na mesa saem a aba Conversa, Favoritos, Conta, a fidelidade, a reserva, o aviso de instalar o app e o "Falar com a loja" do acompanhamento: quem resolve é o garçom. A conta só aparece quando o cliente escolhe pagar pelo Pix no app.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'As regras de cada cardápio (mesa e online) ficam num lugar só, lido pela API e pelo cardápio, e o endereço de uma tela que o cardápio não tem volta para o início.',
+      },
+    ],
+  },
+  {
     version: '0.196.0',
     date: '2026-11-19',
     title: 'Limpar o cache do restaurante pelo Super Admin',

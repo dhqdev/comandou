@@ -9,6 +9,7 @@ import { ChevronLeft, Heart, Minus, Plus, Trash2 } from 'lucide-react';
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { initials } from './store';
+import { useStore } from './context';
 
 /** Foto com proporção fixa, carregamento preguiçoso, fade-in e plano B com iniciais. */
 export function Photo({
@@ -180,6 +181,8 @@ export function HeartButton({
   onToggle(): void;
   className?: string;
 }) {
+  // Cardápio da mesa não tem favoritos (store-rules.ts).
+  if (!useStore().rules.favorites) return null;
   return (
     <button
       type="button"

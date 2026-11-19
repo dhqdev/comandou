@@ -81,6 +81,7 @@ export function CartScreen() {
     leaveTable,
     here,
     setHere,
+    rules,
   } = useStore();
   const loyalty = useLoyalty();
   const [rewardId, setRewardId] = useState<string | null>(null);
@@ -406,7 +407,14 @@ export function CartScreen() {
       }
       if (rewardId) setRewardId(null);
       if (loyalty) void refreshLoyalty();
-      rememberOrder({ token, number: r.number, at: new Date().toISOString() });
+      rememberOrder({
+        token,
+        number: r.number,
+        at: new Date().toISOString(),
+        tableId: atTable ? table?.id : undefined,
+        totalCents: r.total ? toCents(r.total) : total,
+        items: count,
+      });
       track('purchase', { value: (r.total ? toCents(r.total) : total) / 100, quantity: count });
       attempt.current = null;
       setSent({
@@ -477,7 +485,11 @@ export function CartScreen() {
       <div className="sf-wrap sf-page">
         <ScreenHeader title="Sacola" />
         <div className="empty-state">
-          <MotoboyArt ride className="empty-state__art" />
+          {atTable ? (
+            <WaiterArt live className="empty-state__art" />
+          ) : (
+            <MotoboyArt ride className="empty-state__art" />
+          )}
           <strong>Sua sacola está vazia</strong>
           <p>Escolha algo gostoso no cardápio.</p>
           <Link className="cta cta--inline" to="/pedir">
@@ -614,7 +626,8 @@ export function CartScreen() {
                     />
                   </Field>
                 </div>
-                {menu.appearance.accountsEnabled && (
+                {/* Na mesa não pede conta: só o Pix no app pede login (no bloco da mesa). */}
+                {rules.accountTab && (
                   <Link className="ck-login" to="/pedir/conta" state={{ back: 'checkout' }}>
                     <span>
                       <strong>Tem conta?</strong> Entrar

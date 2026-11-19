@@ -70,6 +70,8 @@ export interface PublicMenu {
   pix?: PublicPix | null;
   /** Cartão e Pix pelo app (PagBank conectado). null = como antes. */
   onlinePay?: PublicOnlinePay | null;
+  /** Cardápio de mesa (QR Code) ou online (entrega e retirada). */
+  mode?: 'table' | 'online';
   appearance: {
     theme: 'auto' | 'light' | 'dark';
     headline: string | null;
@@ -308,10 +310,17 @@ export interface RecentOrder {
   token: string;
   number: number;
   at: string;
+  /** Mesa do QR Code em que o pedido foi feito (a aba Pedidos da mesa mostra só os dela). */
+  tableId?: string;
+  /** Total do pedido em centavos e quantos itens (resumo da mesa, sem buscar no servidor). */
+  totalCents?: number;
+  items?: number;
 }
 const RECENT = 'cm-store-orders';
 export const recentOrders = () =>
   read<RecentOrder[]>(RECENT, []).filter((o) => Date.now() - Date.parse(o.at) < 2 * 86_400_000);
+/** Pedidos deste aparelho para a mesa, do mais novo ao mais antigo. */
+export const tableOrders = (tableId: string) => recentOrders().filter((o) => o.tableId === tableId);
 export function rememberOrder(o: RecentOrder) {
   write(RECENT, [o, ...recentOrders().filter((x) => x.token !== o.token)].slice(0, 10));
 }
