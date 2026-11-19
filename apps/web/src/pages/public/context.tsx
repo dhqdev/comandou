@@ -1,4 +1,4 @@
-import { kgToGrams, ONLINE_WEIGHT_MAX_G } from '@comandou/shared';
+import { kgToGrams, ONLINE_WEIGHT_MAX_G, storeRules, type StoreRules } from '@comandou/shared';
 import {
   createContext,
   ReactNode,
@@ -33,6 +33,8 @@ import {
 
 export interface StoreCtx {
   menu: PublicMenu;
+  /** O que este cardápio mostra (mesa: só pedir e acompanhar; online: tudo o que a loja ligou). */
+  rules: StoreRules;
   /** Mesa do QR Code: o pedido vai para a comanda dela (null fora da mesa). */
   table: PublicTable | null;
   /** "Não estou nesta mesa": volta para entrega e retirada. */
@@ -151,6 +153,10 @@ export function StoreProvider({
     [tableId],
   );
   const [loyalty, setLoyalty] = useState<PublicLoyalty | null>(null);
+  const rules = useMemo(
+    () => storeRules(tableId ? 'table' : 'online', menu.appearance),
+    [tableId, menu.appearance],
+  );
 
   const index = useMemo(() => {
     const m = new Map<string, PublicProduct & { categoryId: string }>();
@@ -243,8 +249,8 @@ export function StoreProvider({
     [],
   );
   useEffect(() => {
-    if (account) void refreshLoyalty();
-  }, [account === null, customerId, refreshLoyalty]);
+    if (account && rules.loyalty) void refreshLoyalty();
+  }, [account === null, customerId, refreshLoyalty, rules.loyalty]);
 
   const addToCart = useCallback(
     (line: CartLine, from?: HTMLElement | null) => {
@@ -277,6 +283,7 @@ export function StoreProvider({
 
   const value: StoreCtx = {
     menu,
+    rules,
     table: menu.table ?? null,
     leaveTable,
     here,

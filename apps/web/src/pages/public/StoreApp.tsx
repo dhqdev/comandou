@@ -1,6 +1,7 @@
-import { fromCents } from '@comandou/shared';
+import { fromCents, storeScreenAllowed } from '@comandou/shared';
 import {
   ChevronRight,
+  HandPlatter,
   Heart,
   House,
   MessageCircle,
@@ -16,10 +17,12 @@ import {
   useLayoutEffect,
   useMemo,
   useState,
+  type ReactElement,
 } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   Link,
+  Navigate,
   NavLink,
   Route,
   Routes,
@@ -113,7 +116,7 @@ const LATER_SCREENS = [
 
 /** Abas do cardápio: embaixo no celular, no topo no tablet e no menu lateral no notebook. */
 function useNavTabs(): MagicTab[] {
-  const { menu, account } = useStore();
+  const { account, rules } = useStore();
   const chat = useStoreChat();
   const me = account?.customer ?? null;
   const name = me?.name.split(' ')[0];
@@ -134,14 +137,24 @@ function useNavTabs(): MagicTab[] {
         : UserRound,
     [me],
   );
+  // Cada cardápio só mostra as abas que as regras dele deixam (store-rules.ts): na mesa, só o
+  // cardápio e os pedidos da mesa.
+  const atTable = rules.mode === 'table';
   return [
     { to: '/pedir', label: 'Cardápio', icon: House, end: true, badge: 0 },
-    { to: '/pedir/favoritos', label: 'Favoritos', icon: Heart, badge: 0 },
-    { to: '/pedir/pedidos', label: 'Pedidos', icon: ReceiptText, badge: 0 },
+    ...(rules.favorites
+      ? [{ to: '/pedir/favoritos', label: 'Favoritos', icon: Heart, badge: 0 }]
+      : []),
+    {
+      to: '/pedir/pedidos',
+      label: atTable ? 'Minha mesa' : 'Pedidos',
+      icon: atTable ? HandPlatter : ReceiptText,
+      badge: 0,
+    },
     ...(chat.enabled
       ? [{ to: '/pedir/conversa', label: 'Conversa', icon: MessageCircle, badge: chat.unread }]
       : []),
-    ...(menu.appearance.accountsEnabled
+    ...(rules.accountTab
       ? [{ to: '/pedir/conta', label: name ?? 'Entrar', icon: meIcon, badge: 0 }]
       : []),
   ];
@@ -252,6 +265,12 @@ const TAB_ORDER = [
 ];
 const tabIndex = (path: string) => TAB_ORDER.indexOf(path.replace(/\/+$/, '') || '/pedir');
 
+/** Tela que o cardápio aberto não tem (ex.: conversa na mesa): volta para o início. */
+function Allowed({ screen, el }: { screen: string; el: ReactElement }) {
+  const { rules } = useStore();
+  return storeScreenAllowed(rules, screen) ? el : <Navigate to="/pedir" replace />;
+}
+
 /** Tela que ainda não chegou (só se o cliente tocar antes de ela baixar). */
 function ScreenLoading() {
   return (
@@ -294,18 +313,24 @@ function Screens() {
           <Route index element={<HomeScreen />} />
           <Route path="produto/:id" element={<ProductScreen />} />
           <Route path="sacola" element={<CartScreen />} />
-          <Route path="favoritos" element={<FavoritesScreen />} />
+          <Route
+            path="favoritos"
+            element={<Allowed screen="favoritos" el={<FavoritesScreen />} />}
+          />
           <Route path="pedidos" element={<OrdersScreen />} />
           <Route path="pedidos/:id" element={<PublicOrderPage />} />
-          <Route path="reservar" element={<ReserveScreen />} />
+          <Route path="reservar" element={<Allowed screen="reservar" el={<ReserveScreen />} />} />
           <Route path="reserva/:token" element={<ReservationStatusScreen />} />
-          <Route path="conversa" element={<ChatScreen />} />
+          <Route path="conversa" element={<Allowed screen="conversa" el={<ChatScreen />} />} />
           <Route path="conta" element={<AccountScreen />} />
           <Route path="conta/dados" element={<ProfileScreen />} />
           <Route path="conta/enderecos" element={<AddressesScreen />} />
           <Route path="conta/senha" element={<PasswordScreen />} />
           <Route path="conta/esqueci-senha" element={<ForgotPasswordScreen />} />
-          <Route path="fidelidade" element={<LoyaltyScreen />} />
+          <Route
+            path="fidelidade"
+            element={<Allowed screen="fidelidade" el={<LoyaltyScreen />} />}
+          />
           <Route path="*" element={<HomeScreen />} />
         </Routes>
       </Suspense>
@@ -321,7 +346,7 @@ function Chrome() {
   const layout = useLayout();
   const { pathname } = useLocation();
   const tabs = useNavTabs();
-  const { menu, table, here } = useStore();
+  const { menu, table, here, rules } = useStore();
   // Mesa do QR Code que confere a localização: antes de pedir, o cliente confirma que está aqui.
   const confirmHere = !!table?.confirmLocation && !here;
   // Cardápio na tela: as outras telas baixam quando o navegador fica livre.
@@ -332,7 +357,12 @@ function Chrome() {
   // Telas de escolher produto (início e favoritos): no notebook largo a sacola fica ao lado.
   const browse = /^\/pedir(\/favoritos)?\/?$/.test(pathname);
   return (
-    <main className="sf" data-layout={layout} data-browse={browse || undefined}>
+    <main
+      className="sf"
+      data-layout={layout}
+      data-mode={rules.mode}
+      data-browse={browse || undefined}
+    >
       {layout === 'desktop' && <SideBar tabs={tabs} dot={dot} />}
       <div className="sf-main">
         {layout === 'tablet' && <TopBar />}
@@ -346,7 +376,7 @@ function Chrome() {
           <BottomNav />
         </>
       )}
-      {installSpot && !confirmHere && (
+      {installSpot && !confirmHere && rules.installHint && (
         <InstallHint name={menu.restaurant.name} logoUrl={menu.restaurant.logoUrl} />
       )}
       {confirmHere && <TableHere />}

@@ -26,3 +26,4 @@ export * from './courier-score';
 export * from './security';
 export * from './channels';
 export * from './channel-usage';
+export * from './store-rules';

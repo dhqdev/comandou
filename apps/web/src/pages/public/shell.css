@@ -247,6 +247,7 @@
 }
 /* Com o bloco da moto (ou da mesa) na tela, o tempo e a entrega saem da capa (em todas as telas). */
 .sf-home:has(.sf-tile--ride) .sf-head__eta,
+.sf-home:has(.tw) .sf-head__eta,
 .sf[data-layout='phone'] .sf-head__line,
 .sf[data-layout='phone'] .sf-head__info {
   display: none;

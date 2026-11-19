@@ -1,0 +1,264 @@
+/*
+ * Boas-vindas da mesa (TableWelcome.tsx): a mesa em destaque e os três passos do pedido. Entra
+ * subindo de leve, os passos acendem um depois do outro e o da vez pulsa devagar. Só transform e
+ * opacity; com "reduzir movimento", tudo parado no estado final.
+ */
+.tw {
+  display: grid;
+  gap: 12px;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: var(--sf-card-r, 18px);
+  background: var(--cm-surface);
+  color: var(--cm-text);
+  animation: tw-in var(--cm-spring-dur) var(--cm-spring) both;
+}
+@keyframes tw-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+.tw__top {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.tw__top:active {
+  transform: scale(0.98);
+  transition-duration: 80ms;
+}
+.tw__top:focus-visible {
+  outline: 2px solid var(--cm-brand-500);
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+/* Número da mesa grande, na cor da loja: o cliente confere de relance que está na mesa certa. */
+.tw__badge {
+  display: grid;
+  place-items: center;
+  min-width: 58px;
+  height: 58px;
+  padding: 0 8px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--cm-brand-500) 10%, var(--cm-surface));
+  color: var(--cm-brand-600);
+  line-height: 1;
+  animation: tw-pop var(--cm-spring-dur) var(--cm-spring) 60ms both;
+}
+.tw__badge small {
+  font-size: var(--cm-text-2xs);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.tw__badge strong {
+  margin-top: -6px;
+  font-size: var(--cm-text-2xl);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  max-width: 7ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@keyframes tw-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+
+.tw__text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.tw__text strong {
+  font-size: var(--cm-text-md);
+}
+.tw__text small {
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  line-height: 1.35;
+}
+.tw__art {
+  height: 58px;
+  width: auto;
+}
+
+/* Passos: três bolinhas ligadas por uma linha que enche até o passo da vez. */
+.tw__steps {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tw__steps::before,
+.tw__steps::after {
+  content: '';
+  position: absolute;
+  top: 17px;
+  left: calc(100% / 6);
+  right: calc(100% / 6);
+  height: 2px;
+  border-radius: 2px;
+  background: var(--cm-border);
+}
+.tw__steps::after {
+  background: var(--cm-brand-500);
+  transform-origin: left center;
+  transform: scaleX(calc(var(--now, 0) / 2));
+  transition: transform var(--cm-spring-smooth-dur) var(--cm-spring-smooth);
+}
+.tw__step {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  text-align: center;
+  animation: tw-step var(--cm-spring-dur) var(--cm-spring) both;
+  animation-delay: calc(120ms + var(--i, 0) * 60ms);
+}
+@keyframes tw-step {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.tw__dot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 2px solid var(--cm-border);
+  border-radius: 50%;
+  background: var(--cm-surface);
+  color: var(--cm-text-subtle);
+  transition:
+    transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy),
+    background-color var(--cm-dur),
+    border-color var(--cm-dur),
+    color var(--cm-dur);
+}
+.tw__label {
+  font-size: var(--cm-text-xs);
+  font-weight: 600;
+  color: var(--cm-text-muted);
+}
+.tw__step[data-state='done'] .tw__dot {
+  border-color: var(--cm-brand-500);
+  background: var(--cm-brand-500);
+  color: var(--cm-on-brand);
+}
+.tw__step[data-state='now'] .tw__dot {
+  border-color: var(--cm-brand-500);
+  color: var(--cm-brand-600);
+  transform: scale(1.06);
+}
+.tw__step[data-state='now'] .tw__label {
+  color: var(--cm-text);
+}
+/* O passo da vez respira: um anel que cresce e some, devagar. */
+.tw__step[data-state='now'] .tw__dot::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 2px solid var(--cm-brand-500);
+  animation: tw-ring 2.2s ease-out infinite;
+}
+@keyframes tw-ring {
+  0% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+
+/* Pedidos já enviados desta mesa (deste aparelho): atalho para acompanhar. */
+.tw__sent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: var(--cm-surface-muted);
+  color: var(--cm-text);
+  font-size: var(--cm-text-sm);
+  text-decoration: none;
+  animation: tw-step var(--cm-spring-dur) var(--cm-spring) 260ms both;
+  transition: transform var(--cm-spring-snappy-dur) var(--cm-spring-snappy);
+}
+.tw__sent:active {
+  transform: scale(0.98);
+}
+.tw__sent span {
+  flex: 1;
+  min-width: 0;
+}
+.tw__sent b {
+  color: var(--cm-brand-600);
+  font-weight: 600;
+}
+
+/* No tablet e no notebook o bloco fica ao lado dos outros do início, mais largo. */
+.sf-perks > .tw {
+  grid-column: 1 / -1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tw,
+  .tw__badge,
+  .tw__step,
+  .tw__sent,
+  .tw__step[data-state='now'] .tw__dot::after {
+    animation: none;
+  }
+  .tw__steps::after {
+    transition: none;
+  }
+}
+
+/* Aba "Minha mesa": quanto já foi pedido deste celular. */
+.tw-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--cm-border);
+  border-radius: 14px;
+  background: var(--cm-surface);
+  color: var(--cm-text-muted);
+  font-size: var(--cm-text-sm);
+  animation: tw-step var(--cm-spring-dur) var(--cm-spring) both;
+}
+.tw-total strong {
+  color: var(--cm-text);
+  font-size: var(--cm-text-lg);
+  font-variant-numeric: tabular-nums;
+}
+.tw-total__hint {
+  margin: 12px 0;
+}

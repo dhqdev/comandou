@@ -471,7 +471,8 @@ export function PublicOrderPage() {
           </section>
 
           <div className="track__actions">
-            {o.restaurant.chat ? (
+            {/* Pedido da mesa: quem resolve é o garçom (sem conversa nem WhatsApp). */}
+            {o.channel === 'table' ? null : o.restaurant.chat ? (
               <Link className="btn-line" to={`/pedir/conversa?pedido=${o.number}`}>
                 <MessageCircle size={16} /> Falar com a loja
               </Link>
@@ -492,16 +493,19 @@ export function PublicOrderPage() {
                 <XCircle size={16} /> {cancelling ? 'Cancelando…' : 'Cancelar pedido'}
               </button>
             )}
-            {!live && (
+            {/* Na mesa dá para pedir mais a qualquer hora (vai para a mesma conta). */}
+            {(!live || o.channel === 'table') && (
               <Link className="btn-line" to="/pedir">
-                Fazer outro pedido
+                {o.channel === 'table' ? 'Pedir mais' : 'Fazer outro pedido'}
               </Link>
             )}
           </div>
         </div>
       </div>
       {/* Esperando a comida: bom momento para sugerir o app (acompanha daqui na próxima vez). */}
-      <InstallHint name={o.restaurant.name} logoUrl={o.restaurant.logoUrl} delay={2500} />
+      {o.channel !== 'table' && (
+        <InstallHint name={o.restaurant.name} logoUrl={o.restaurant.logoUrl} delay={2500} />
+      )}
     </main>
   );
 }

@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useMemo, useRef } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router';
 import { SlideTabs } from '../../features/SlideTabs';
 import { brl } from '../../lib/money';
-import { MotoboyArt } from './art';
+import { MotoboyArt, WaiterArt } from './art';
 import { useStore } from './context';
 import type { MagicTab } from './MagicNav';
 import { buildSections, requestJump, sectionPhoto, useActiveSection } from './sections';
@@ -224,7 +224,11 @@ export function CartPanel() {
 
       {cart.length === 0 ? (
         <div className="sf-cart__empty">
-          <MotoboyArt ride={s.isOpen} className="sf-cart__art" />
+          {table ? (
+            <WaiterArt live className="sf-cart__art" />
+          ) : (
+            <MotoboyArt ride={s.isOpen} className="sf-cart__art" />
+          )}
           <strong>Sua sacola está vazia</strong>
           <p>Toque no + dos produtos para montar o seu pedido.</p>
         </div>

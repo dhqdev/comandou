@@ -14,6 +14,7 @@ import {
   normalizePixKey,
   PIX_KEY_TYPE_LABELS,
   pixBrCode,
+  storeRules,
   type PixKeyType,
   type PixReceiptStatus,
 } from '@comandou/shared';
@@ -760,6 +761,8 @@ export class StoreService {
       );
       const region = await this.regionIn(tx, s);
       const visible = categories.filter((c) => c.products.length > 0);
+      // Regras do cardápio (mesa ou online): o que cada um mostra (store-rules.ts, no shared).
+      const rules = storeRules(table ? 'table' : 'online', s);
       const productIds = new Set(visible.flatMap((c) => c.products.map((p) => p.id)));
       const categoryIds = new Set(visible.map((c) => c.id));
       return {
@@ -801,8 +804,10 @@ export class StoreService {
           headline: s.headline,
           featuredTitle: s.featuredTitle,
           accountsEnabled: s.accountsEnabled,
-          chatEnabled: s.chatEnabled,
+          // Na mesa não há conversa: quem resolve é o garçom.
+          chatEnabled: rules.chat,
         },
+        mode: rules.mode,
         // Banner que aponta para produto/categoria fora do cardápio vira banner sem link.
         banners: banners.map(({ imageId, active: _a, position: _p, ...b }) => {
           const ok =
@@ -1108,8 +1113,8 @@ export class StoreService {
         name: tenantName,
         whatsapp: s.whatsapp,
         logoUrl: mediaUrl(s.logoImageId),
-        // Conversa pelo cardápio no lugar do WhatsApp.
-        chat: s.chatEnabled && s.enabled,
+        // Conversa pelo cardápio no lugar do WhatsApp (pedido de mesa não tem: é com o garçom).
+        chat: storeRules(atTable ? 'table' : 'online', s).chat && s.enabled,
       },
       etaMin: s.etaMin,
       etaMax: s.etaMax,
