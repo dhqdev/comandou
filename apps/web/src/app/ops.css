@@ -600,7 +600,9 @@
   font-size: var(--cm-text-xs);
   color: var(--cm-text-muted);
 }
-/* Rodapé fixo: resumo de valores e, embaixo, todos os botões numa linha só. */
+/* Rodapé fixo: resumo de valores e a barra dos botões que decidem o pedido (0.201.1, pedido do
+   David): Cancelar sozinho à esquerda, os passos e o botão principal à direita, cada um do tamanho
+   do texto. As ações de apoio moram na fileira od-tools, no topo do pedido. */
 .od-foot {
   display: grid;
   gap: 10px;
@@ -645,17 +647,27 @@
 .od-bar {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
 }
 .od-bar > .cm-btn {
-  flex: 1 1 auto;
-  min-width: max-content;
+  flex: 0 0 auto;
   height: 38px;
   min-height: 38px;
-  padding: 0 14px;
+  padding: 0 16px;
   white-space: nowrap;
+}
+.od-bar > .cm-btn.cm-btn--primary {
+  min-width: 150px;
+}
+/* Cancelar/Recusar ficam à esquerda, separados dos que levam o pedido adiante. */
+.od-bar > .od-bar__cancel {
+  margin-right: auto;
+}
+.od-bar > .od-bar__cancel:has(+ .od-bar__cancel) {
+  margin-right: 0;
 }
 .od-bar > .od-bar__cancel {
   border-color: color-mix(in oklab, var(--cm-danger) 35%, var(--cm-btn-line));
@@ -680,9 +692,9 @@ button.od-fact__link {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-/* Ações de apoio do pedido (imprimir, editar, desconto, fiado, cozinha): botões de contorno fino,
-   cada um num tom suave próprio (data-hue) para achar de relance, ícone na cor e texto normal.
-   Cada linha estica até a borda, sem sobra torta no fim. */
+/* Ações de apoio do pedido (imprimir, editar, desconto, fiado, cozinha): fileira de botões
+   pequenos no topo do pedido (0.201.1), cada um do tamanho do texto e num tom suave próprio
+   (data-hue) para achar de relance, ícone na cor e texto normal. */
 .od-tools {
   display: flex;
   flex-wrap: wrap;
@@ -692,11 +704,11 @@ button.od-fact__link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex: 1 1 auto;
-  gap: 8px;
+  flex: 0 0 auto;
+  gap: 7px;
   min-width: 0;
-  height: 36px;
-  padding: 0 12px;
+  height: 32px;
+  padding: 0 11px;
   border: 1px solid color-mix(in oklab, var(--hue, var(--cm-text-muted)) 26%, var(--cm-border));
   border-radius: var(--cm-radius-md);
   background: color-mix(in oklab, var(--hue, var(--cm-text-muted)) 7%, var(--cm-surface));
@@ -734,19 +746,20 @@ button.od-fact__link {
   opacity: 0.5;
   cursor: default;
 }
+/* Celular: uma fileira só que corre de lado, sem empurrar o pedido para baixo. */
 @media (max-width: 640px) {
   .od-tools {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin-inline: calc(-1 * var(--cm-space-3));
+    padding: 2px var(--cm-space-3);
+    scrollbar-width: none;
+  }
+  .od-tools::-webkit-scrollbar {
+    display: none;
   }
   .od-tools > button {
-    height: auto;
-    min-height: 44px;
-    padding: 6px 10px;
-    justify-content: flex-start;
-    white-space: normal;
-    text-align: left;
-    line-height: 1.25;
+    height: 40px;
   }
 }
 .od-block__edit {
@@ -848,6 +861,9 @@ button.od-fact__link {
     flex: 1 1 40%;
     height: 46px;
     min-height: 46px;
+  }
+  .od-bar > .od-bar__cancel {
+    margin-right: 0;
   }
 }
 .pay-balance,
@@ -1387,7 +1403,7 @@ button.pay-part {
    Abaixo de 1100 px (tablet, celular) segue a gaveta de uma coluna de antes. */
 @media (min-width: 1100px) {
   .side-panel:has(.order-detail) {
-    width: clamp(600px, 74vw, 1180px);
+    width: clamp(600px, 66vw, 1040px);
   }
   .side-panel:has(.order-detail) :is(.side-panel__body, .side-panel__foot) {
     container: od / inline-size;
@@ -1454,7 +1470,7 @@ button.pay-part {
     grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr);
     grid-template-rows: auto 1fr;
     column-gap: 20px;
-    align-items: start;
+    align-items: end;
   }
   .od-foot > .od-sum {
     grid-column: 2;

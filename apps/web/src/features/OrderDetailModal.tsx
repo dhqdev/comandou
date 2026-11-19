@@ -316,16 +316,7 @@ export function OrderDetailModal({
             : 'Solicitar cancelamento';
   const more: MenuAction[] = order
     ? [
-        ...(canEdit
-          ? [
-              {
-                label: 'Editar pedido',
-                icon: <Pencil size={15} />,
-                hue: 'teal' as const,
-                run: () => setMode('edit'),
-              },
-            ]
-          : []),
+        // Editar itens não entra aqui: o botão Editar fica ao lado de "Itens do pedido".
         ...(canAdjust
           ? [
               {
@@ -395,6 +386,29 @@ export function OrderDetailModal({
   ) : (
     'Pedido'
   );
+
+  // Ações de apoio (imprimir, editar, desconto, fiado, cozinha): uma fileira de botões pequenos no
+  // topo do pedido, à vista e longe dos botões que decidem o pedido (rodapé).
+  const tools =
+    order && !mode && (canPrintSlip || more.length > 0) ? (
+      <div className="od-tools" role="toolbar" aria-label="Ações do pedido">
+        {canPrintSlip && (
+          <button type="button" data-hue="blue" onClick={() => setPreviewKind('receipt')}>
+            <Printer size={15} aria-hidden /> <span>Imprimir pedido</span>
+          </button>
+        )}
+        {canPrintSlip && order.channel === 'delivery' && (
+          <button type="button" data-hue="violet" onClick={() => setPreviewKind('delivery')}>
+            <Bike size={15} aria-hidden /> <span>Via de entrega</span>
+          </button>
+        )}
+        {more.map((a) => (
+          <button key={a.label} type="button" data-hue={a.hue} disabled={printing} onClick={a.run}>
+            {a.icon} <span>{a.label}</span>
+          </button>
+        ))}
+      </div>
+    ) : null;
 
   const footer = order ? (
     <div className="od-foot">
@@ -485,32 +499,6 @@ export function OrderDetailModal({
           )}
         </div>
       )}
-      {/* Ações de apoio: uma linha discreta, sem menu escondido. */}
-      {!mode && (canPrintSlip || more.length > 0) && (
-        <div className="od-tools">
-          {canPrintSlip && (
-            <button type="button" data-hue="blue" onClick={() => setPreviewKind('receipt')}>
-              <Printer size={15} aria-hidden /> <span>Imprimir pedido</span>
-            </button>
-          )}
-          {canPrintSlip && order.channel === 'delivery' && (
-            <button type="button" data-hue="violet" onClick={() => setPreviewKind('delivery')}>
-              <Bike size={15} aria-hidden /> <span>Via de entrega</span>
-            </button>
-          )}
-          {more.map((a) => (
-            <button
-              key={a.label}
-              type="button"
-              data-hue={a.hue}
-              disabled={printing}
-              onClick={a.run}
-            >
-              {a.icon} <span>{a.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
     </div>
   ) : undefined;
 
@@ -527,6 +515,7 @@ export function OrderDetailModal({
         <div className="order-detail">
           {/* Gaveta larga (computador): o pedido à esquerda e o dinheiro à direita (ops.css). */}
           <div className="od-main">
+            {tools}
             <div className="od-card">
               <dl className="od-facts">
                 {showClient && (

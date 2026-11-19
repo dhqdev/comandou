@@ -20,6 +20,27 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.201.1',
+    date: '2026-11-19',
+    title: 'Detalhe do pedido mais fácil de usar',
+    summary:
+      'A janela do pedido ficou um pouco menor e os botões ganharam lugar certo: as ações de apoio numa fileira no topo e, embaixo, só Cancelar à esquerda e o próximo passo à direita.',
+    notes: [
+      {
+        tag: 'melhoria',
+        text: 'Imprimir, desconto, fiado, a receber e reimprimir na cozinha agora ficam numa fileira de botões pequenos no topo do pedido (no celular, uma fileira que corre de lado).',
+      },
+      {
+        tag: 'melhoria',
+        text: 'Rodapé do pedido com os botões do tamanho do texto: Cancelar pedido sozinho à esquerda e Fechar conta (ou o próximo passo) à direita, ao lado do total.',
+      },
+      {
+        tag: 'melhoria',
+        text: 'A janela do pedido no computador ficou mais estreita (até 1040 px) e o Editar fica só ao lado de Itens do pedido, sem botão repetido.',
+      },
+    ],
+  },
+  {
     version: '0.201.0',
     date: '2026-11-19',
     title: 'Perfil do cliente com gráficos',

@@ -144,11 +144,16 @@ por `data-hue` → `--hue`, sempre fracos: ícone ou texto pequeno na cor, fundo
 e contorno de 24–30%; texto principal na cor normal. Topo: ícone e etiqueta do tipo do pedido no
 tom do canal (`CHANNEL_HUE`). Dados: cada ícone redondo num tom (status e pagamento seguem os
 selos). Item: situação pendente/em preparo/pronto com cor. Observação escrita em âmbar. Rodapé:
-desconto e pago em verde, falta pagar em vermelho; Cancelar/Recusar em vermelho suave; as ações de
-apoio (`od-tools`) com um tom cada e esticando até a borda. Fora dessa gaveta, o resto do sistema
+desconto e pago em verde, falta pagar em vermelho; Cancelar/Recusar em vermelho suave.
+**Botões (0.201.1, pedido do David):** as ações de apoio (`od-tools`: imprimir, desconto, fiado, a
+receber, cozinha) são uma fileira de botões pequenos (32px, do tamanho do texto, um tom cada) no
+**topo** de `.od-main`, e no celular uma fileira só que corre de lado; o rodapé (`od-bar`) só tem o
+que decide o pedido: Cancelar/Recusar à esquerda, passos e o primário à direita, sem esticar.
+Editar itens fica só no botão Editar ao lado de "Itens do pedido" (não repita na fileira). Fora dessa gaveta, o resto do sistema
 segue neutro; não copie os tons para outras telas sem pedido.
 
-Largura (0.192.2, pedido do David): a partir de 1100 px a gaveta ocupa ~74% da tela (até 1180 px)
+Largura (0.192.2; reduzida na 0.201.1, pedido do David): a partir de 1100 px a gaveta ocupa ~66%
+da tela (até 1040 px)
 e, com o corpo em contêiner (`container: od`) de 820 px ou mais, vira duas colunas: `.od-main`
 (dados, itens, formulários das ações) à esquerda e `.od-side` (pagamentos, nota, histórico já
 aberto) à direita; o rodapé repete as colunas (botões embaixo do pedido, resumo embaixo do
@@ -160,7 +165,7 @@ Bloco novo do detalhe: decida se é do pedido (main) ou do dinheiro (side).
 `pages/CustomersPage.tsx` + `pages/customers/` (`customers.css`, prefixo `cl-`; pedido do David na
 0.201). Topo e ficha usam o quadro de números `cl-kpis` (um quadro só, linha fina entre os números,
 2 por linha no estreito). A lista tem a coluna **Mais pede** (`topItem` da API) e "há X dias" no
-último pedido. A ficha abre na `SidePanel` larga (74% a partir de 1100px, como a gaveta do pedido)
+último pedido. A ficha abre na `SidePanel` larga (74% a partir de 1100px)
 e, com o contêiner `cl` ≥ 820px, vira duas colunas: gráficos à esquerda (`cl-main`) e pedidos,
 endereços, nota e observações à direita (`cl-side`, separada por linha fina). Contato um dado por
 linha, com ícone solto. Gráficos em `CustomerInsights.tsx`, feitos à mão em HTML: ranking
