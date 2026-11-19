@@ -122,6 +122,10 @@ const schema = z.object({
   FOOD99_API_URL: z.string().url().default('https://openapi.99food.com/v4/opendelivery'),
   /** Rappi (Orders Rests API): domínio do Brasil. Chaves e segredo do webhook em Credenciais. */
   RAPPI_API_URL: z.string().url().default('https://api.rappi.com.br'),
+  /** aiqfome (camada Open Delivery dele, ADR 0015 Fase 13): base da API. Chaves em Credenciais. */
+  AIQFOME_API_URL: z.string().url().default('https://plataforma.aiqfome.com/api/od'),
+  /** ID Magalu: onde a loja do aiqfome autoriza o Comandou (/login) e onde se troca o token. */
+  AIQFOME_AUTH_URL: z.string().url().default('https://id.magalu.com'),
   IFOOD_CLIENT_ID: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(8).optional()),
   IFOOD_CLIENT_SECRET: z.preprocess(
     (v) => (v === '' ? undefined : v),

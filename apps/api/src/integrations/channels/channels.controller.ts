@@ -178,7 +178,8 @@ export class ChannelsController {
         data.problems.find((p) => p.channel === id && p.kind === kind)?.n ?? 0;
       channels.push({
         id,
-        ...channelInfo(id),
+        // Aplicativo Open Delivery cadastrado: o nome dado no Super Admin.
+        ...channelInfo(id, (adapter as { label?: string } | undefined)?.label),
         available: !!adapter,
         configured: !!(await this.credentials.get(id)),
         capabilities: CHANNEL_CAPABILITIES.map((c) => ({

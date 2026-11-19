@@ -52,6 +52,14 @@ cookie, CSRF, corpo gigante e Host estranho.
   `req.rawBody` em tempo constante com prazo de 10 minutos, segredo cifrado em Credenciais e
   recusa tudo sem segredo; grava antes de responder 200). Rota nova entra em `SKIP_CSRF_ROUTES`
   da `security-sweep.e2e.test.ts`.
+- Autorização OAuth de terceiro (PagBank Connect, aiqfome pelo ID Magalu): `state` longo
+  (`<restaurante>.randomBytes(32)`), guardado só em hash, de uso único, com prazo (15 minutos) e
+  preso a quem começou (`user_id`). A volta fixa em admin.<base> (`@Public`, `PlatformHostGuard`,
+  limite por minuto) **não troca nada**: só acha o endereço do restaurante pelo state e redireciona;
+  a troca do código acontece no endereço do restaurante, com a sessão da equipe e a permissão.
+  Token de renovação de terceiro fica cifrado (contexto com restaurante e loja) e, se ele troca a
+  cada uso, a renovação trava a linha (`FOR UPDATE`). A volta entra na exceção de
+  "rota do painel sem sessão" da varredura (`channels/oauth`).
 - Painel: ação que não volta (excluir, produção, assinar) pede `PlatformAuthService.confirmCode`
   (código do autenticador, mesmo em navegador confiável) e grava a tentativa negada na auditoria.
 

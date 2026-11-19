@@ -9,6 +9,8 @@ import {
   AsaasEditor,
   BackblazeEditor,
   ChannelEditor,
+  CustomOdEditor,
+  type CustomOdApp,
   type ChannelCredState,
   FocusEditor,
   FocusState,
@@ -27,6 +29,7 @@ interface Overview {
   baseDomain: string;
   focus: FocusState;
   channels: Record<string, ChannelCredState>;
+  customOd?: CustomOdApp[];
   items: Status[];
 }
 
@@ -126,6 +129,14 @@ export function CredentialsPage() {
         return <BackblazeEditor onSaved={reload} />;
       case 'github_pipeline':
         return <GithubEditor onSaved={reload} />;
+      case 'channel_od_apps':
+        return (
+          <CustomOdEditor
+            apps={o.customOd ?? []}
+            keyConfigured={o.keyConfigured}
+            onSaved={reload}
+          />
+        );
       default:
         if (id.startsWith('channel_')) {
           const channel = id.slice('channel_'.length);

@@ -212,6 +212,11 @@ export interface ChannelAdapter {
   fetchOrder(ref: OrderRef): Promise<ExternalOrder>;
   /** Manda uma ação. Erro → ChannelHttpError (a caixa de saída decide se repete). */
   send(req: ActionRequest): Promise<void>;
+  /**
+   * O aplicativo não tem esta ação para este tipo de pedido (ex.: "pronto para retirar" só na
+   * retirada do aiqfome): a caixa de saída nem grava, para a tela não mostrar "enviado".
+   */
+  skipsAction?(action: ChannelAction, orderType: string): boolean;
   /** Motivos de cancelamento aceitos para este pedido (sem isso, a tela pede só o texto). */
   cancellationReasons?(ref: OrderRef): Promise<ChannelCancelReason[]>;
   /** Situação da loja (aberta, fechada, pausada). Leia com calma: a varredura e a tela já espaçam. */
@@ -253,6 +258,11 @@ export class ChannelRegistry {
 
   register(a: ChannelAdapter) {
     this.adapters.set(a.id, a);
+  }
+
+  /** Aplicativo Open Delivery apagado no Super Admin: para de buscar e de mandar ações. */
+  unregister(id: string) {
+    this.adapters.delete(id);
   }
 
   get(id: string): ChannelAdapter | undefined {

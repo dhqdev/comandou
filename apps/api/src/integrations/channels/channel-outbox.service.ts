@@ -71,9 +71,12 @@ export class ChannelOutboxService implements OnModuleInit {
       // O canal não tem essa ação (ex.: "entregue" no iFood, que conclui sozinho): não manda.
       const adapter = this.registry.get(link.channel);
       if (adapter && !adapter.capabilities.includes(CHANNEL_ACTION_CAPABILITY[action])) return;
+      if (adapter?.skipsAction?.(action, o.channel)) return;
       await this.enqueueInTx(tx, ctx.tenantId, o.id, action, {
         // Aceite: o número do pedido no Comandou (o Open Delivery pede o código externo).
         ...(action === 'confirm' ? { orderCode: String(o.number) } : {}),
+        // Pronto: o tipo do pedido (o aiqfome só aceita "pronto para retirar" na retirada).
+        ...(action === 'ready' ? { orderType: o.channel } : {}),
         ...(to === 'cancelled' || to === 'cancel_requested'
           ? {
               reason: (await this.reasonOf(tx, o.id)) ?? undefined,

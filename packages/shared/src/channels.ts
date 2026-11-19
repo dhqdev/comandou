@@ -21,6 +21,22 @@ export type KnownChannel = (typeof KNOWN_CHANNELS)[number];
 export const CHANNEL_ID_RE = /^[a-z0-9][a-z0-9_-]{1,30}$/;
 export type ChannelId = KnownChannel | (string & {});
 
+/** Aplicativo Open Delivery cadastrado no Super Admin: `od-` + letras e números (2 a 27). */
+export const CUSTOM_OD_RE = /^od-[a-z0-9]{2,27}$/;
+export const isCustomOd = (channel: string) => CUSTOM_OD_RE.test(channel);
+
+/** Id de um aplicativo Open Delivery novo a partir do nome ("Anota AI" → "od-anotaai"). */
+export function customOdId(name: string): string | null {
+  const slug = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 27);
+  const id = `od-${slug}`;
+  return CUSTOM_OD_RE.test(id) ? id : null;
+}
+
 export interface ChannelInfo {
   label: string;
   /** Cor do selo (fundo) e do texto, iguais no claro e no escuro (são cores de marca). */
@@ -41,7 +57,11 @@ export const CHANNEL_INFO: Record<KnownChannel, ChannelInfo> = {
 export function channelInfo(channel: string, name?: string): ChannelInfo {
   const known = (CHANNEL_INFO as Record<string, ChannelInfo>)[channel];
   if (known) return known;
-  return { label: name || channel, color: '#475569', ink: '#FFFFFF' };
+  // Open Delivery cadastrado sem o nome à mão: o id sem o "od-" ("od-anotaai" → "Anotaai").
+  const fallback = isCustomOd(channel)
+    ? channel.slice(3, 4).toUpperCase() + channel.slice(4)
+    : channel;
+  return { label: name || fallback, color: '#475569', ink: '#FFFFFF' };
 }
 
 /** Aplicativos que se fala no feminino ("a Keeta", "a 99Food", "a Rappi"). */

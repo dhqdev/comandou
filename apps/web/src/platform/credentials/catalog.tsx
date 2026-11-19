@@ -294,26 +294,73 @@ export const CREDENTIALS: CredDef[] = [
       },
     ],
   },
-  ...([['aiqfome', 'aiqfome', 'parceria de integração do aiqfome']] as const).map(
-    ([id, name, where]): CredDef => ({
-      id: `channel_${id}`,
-      title: `${name} · aplicativo do Comandou`,
-      group: 'painel',
-      purpose: `Opcional. Recebe os pedidos do ${name} quando a integração com ele estiver pronta no Comandou.`,
-      fields: [
-        { name: 'Client ID', text: <>o identificador do aplicativo do Comandou.</> },
-        { name: 'Client Secret', text: <>o segredo do aplicativo.</> },
-        {
-          name: 'Segredo do webhook',
-          text: (
-            <>só se o aplicativo assinar os avisos com um segredo diferente do Client Secret.</>
-          ),
-        },
-      ],
-      check: <>Salvo, este cartão fica verde com o final do segredo.</>,
-      steps: [<>Peça as credenciais na {where} e cole aqui embaixo.</>],
-    }),
-  ),
+  {
+    id: 'channel_aiqfome',
+    title: 'aiqfome · aplicativo do Comandou',
+    group: 'painel',
+    purpose:
+      'Opcional. Recebe os pedidos do aiqfome (e do Magalu Delivery) pela camada Open Delivery dele, buscando a cada 30 segundos. Cada loja autoriza o Comandou no ID Magalu.',
+    fields: [
+      { name: 'Client ID', text: <>o Client ID do aplicativo de integração do Comandou.</> },
+      {
+        name: 'Client Secret',
+        text: <>o Client Secret do mesmo cadastro (o portal mostra uma vez só).</>,
+      },
+    ],
+    check: (
+      <>
+        Salvo, este cartão fica verde. No portal do aiqfome, a Redirect URI do aplicativo é
+        admin.&lt;domínio&gt;/api/v1/platform/channels/oauth/aiqfome/callback (com https). No
+        restaurante, Sistema › Aplicativos de delivery › aiqfome › Ligar uma loja leva ao ID Magalu
+        e volta com a loja ligada.
+      </>
+    ),
+    steps: [
+      <>
+        Entre no{' '}
+        <a href="https://developer.aiqfome.com/" target="_blank" rel="noreferrer">
+          portal do desenvolvedor do aiqfome
+        </a>{' '}
+        com o ID Magalu da empresa e crie um Aplicativo de Integração (escopos Loja e Pedidos).
+      </>,
+      <>Cadastre a Redirect URI abaixo e cole o Client ID e o Client Secret aqui embaixo.</>,
+    ],
+    links: [
+      { label: 'Portal do aiqfome', href: 'https://developer.aiqfome.com/' },
+      {
+        label: 'Open Delivery no aiqfome',
+        href: 'https://developer.aiqfome.com/docs/category/api-open-delivery',
+      },
+    ],
+  },
+  {
+    id: 'channel_od_apps',
+    title: 'Outros aplicativos Open Delivery',
+    group: 'painel',
+    purpose:
+      'Opcional. Qualquer outro aplicativo ou cardápio que fale o padrão Open Delivery (versão 1) passa a mandar pedidos só com este cadastro, sem mudar o sistema. Cada um vira um cartão em Aplicativos de delivery.',
+    fields: [
+      { name: 'Nome', text: <>como o aplicativo aparece nas telas e nos pedidos.</> },
+      {
+        name: 'Endereço da API',
+        text: <>a base HTTPS que o aplicativo informou (sem barra no fim nem parâmetros).</>,
+      },
+      { name: 'Client ID', text: <>o identificador do Comandou nesse aplicativo.</> },
+      { name: 'Client Secret', text: <>o segredo do mesmo cadastro.</> },
+    ],
+    check: (
+      <>
+        Salvo, o aplicativo aparece na lista com o servidor e o final do segredo, e em até um minuto
+        ganha um cartão em Aplicativos de delivery nos restaurantes. A loja liga pelo id que o
+        aplicativo deu a ela.
+      </>
+    ),
+    steps: [
+      <>Peça ao aplicativo o cadastro do Comandou como Software Service (Open Delivery V1).</>,
+      <>Dê um nome, cole o endereço da API, o Client ID e o Client Secret aqui embaixo.</>,
+    ],
+    links: [{ label: 'Padrão Open Delivery', href: 'https://docs.opendelivery.com.br' }],
+  },
   {
     id: 'openrouter_clients',
     title: 'OpenRouter · chave dos restaurantes',

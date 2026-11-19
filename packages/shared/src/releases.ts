@@ -20,6 +20,31 @@ export interface Release {
 
 export const RELEASES: readonly Release[] = [
   {
+    version: '0.192.0',
+    date: '2026-11-19',
+    title: 'Pedidos do aiqfome e de outros aplicativos Open Delivery',
+    summary:
+      'A loja do aiqfome liga com a autorização no ID Magalu e os pedidos chegam sozinhos. Outros aplicativos que falam o padrão Open Delivery passam a funcionar só com o cadastro no Super Admin.',
+    notes: [
+      {
+        tag: 'novo',
+        text: 'Sistema › Aplicativos de delivery › aiqfome: "Ligar uma loja" pede o código da loja e leva ao ID Magalu; a pessoa autoriza e volta com a loja ligada. Os pedidos chegam a cada 30 segundos, e aceitar, pronto (na retirada), saiu e entregue voltam para o aiqfome.',
+      },
+      {
+        tag: 'novo',
+        text: 'Pedido cancelado no gestor do aiqfome cancela aqui também. Recusar e cancelar continuam no gestor do aiqfome, que não oferece isso para o sistema.',
+      },
+      {
+        tag: 'novo',
+        text: 'Super Admin › Credenciais › Outros aplicativos Open Delivery: com nome, endereço da API e chaves, o aplicativo ganha um cartão em Aplicativos de delivery em até um minuto, sem atualizar o sistema.',
+      },
+      {
+        tag: 'segurança',
+        text: 'A autorização do aiqfome usa um código de uso único, com prazo de 15 minutos e preso a quem começou. Os tokens de cada loja ficam cifrados e a renovação é travada para nunca se perder.',
+      },
+    ],
+  },
+  {
     version: '0.191.0',
     date: '2026-11-19',
     title: 'Pedidos da Rappi chegando no Comandou',

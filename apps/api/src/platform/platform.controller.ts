@@ -76,7 +76,7 @@ import {
   FocusMasterTest,
   PlatformCredentialsService,
 } from './platform-credentials.service';
-import { KNOWN_CHANNELS } from '@comandou/shared';
+import { CUSTOM_OD_RE, KNOWN_CHANNELS } from '@comandou/shared';
 import { ChannelCredentialBody } from '../integrations/channels/channel-credentials.service';
 import { PlatformPasswordResetService } from './platform-password-reset.service';
 import { RESET_REQUEST_LIMIT, RESET_STEP_LIMIT } from '../auth/reset-code';
@@ -920,7 +920,8 @@ export class PlatformAiController {
   }
 }
 
-const ChannelParam = z.enum(KNOWN_CHANNELS);
+// Os conhecidos ou um aplicativo Open Delivery cadastrado aqui (`od-<nome>`).
+const ChannelParam = z.union([z.enum(KNOWN_CHANNELS), z.string().regex(CUSTOM_OD_RE)]);
 
 /**
  * Super Admin › Credenciais: a situação de todas as chaves e tokens (nunca o valor) e o token

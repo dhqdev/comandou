@@ -80,6 +80,8 @@ export class PlatformCredentialsService {
   async status() {
     const e = this.env;
     const channels = await this.channels.status(KNOWN_CHANNELS);
+    // Outros aplicativos Open Delivery cadastrados aqui (`od-<nome>`): nome, servidor e final.
+    const customOd = await this.channels.customOd();
     const [ai, billing, pay, mail, backup, pipeline, focus] = await Promise.all([
       this.one<{ owner: Sealed; clients: Sealed; admin: Sealed }>(
         `SELECT owner_api_key_enc AS owner, api_key_enc AS clients, admin_api_key_enc AS admin
@@ -162,6 +164,12 @@ export class PlatformCredentialsService {
               .join(' · ') || undefined,
         };
       }),
+      {
+        id: 'channel_od_apps',
+        configured: customOd.length > 0,
+        required: false,
+        detail: customOd.length ? customOd.map((c) => c.name).join(' · ') : undefined,
+      },
       { id: 'openrouter_clients', required: true, ...this.key(ai?.clients, CLIENT_KEY_CONTEXT) },
       { id: 'openrouter_owner', required: false, ...this.key(ai?.owner, OWNER_KEY_CONTEXT) },
       { id: 'openrouter_admin', required: false, ...this.key(ai?.admin, ADMIN_KEY_CONTEXT) },
@@ -219,6 +227,7 @@ export class PlatformCredentialsService {
         updatedAt: focus?.at ?? null,
       },
       channels,
+      customOd,
       items,
     };
   }

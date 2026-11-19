@@ -9,14 +9,17 @@ import './channel-badge.css';
 export function ChannelBadge({
   channel,
   code,
+  label,
   size = 'md',
 }: {
   channel: string;
+  /** Nome do aplicativo quando não é um dos conhecidos (Open Delivery cadastrado). */
+  label?: string;
   /** Código curto do pedido no aplicativo (ex.: 4821). */
   code?: string | null;
   size?: 'sm' | 'md';
 }) {
-  const info = channelInfo(channel);
+  const info = channelInfo(channel, label);
   return (
     <span
       className={`ch-badge ch-badge--${size}`}

@@ -621,3 +621,59 @@ produto, vale o padrão abaixo, que o restaurante muda na tela quando fizer sent
     mostra "Bearer:" com dois-pontos numa tabela); cadastrar os webhooks pela API da Rappi (hoje a
     equipe cadastra os endereços); cardápio, disponibilidade, abrir/fechar loja e financeiro da
     Rappi; QR/código de entrega (`handoff`) e a confirmação de sacolas.
+- **Fase 13** (aiqfome e outros Open Delivery, 0.192.0): migração **0097** e
+  `integrations/aiqfome/` (`AiqfomeService`, `AiqfomeController`, `AiqfomeCallbackController`).
+  - **aiqfome** (e Magalu Delivery, mesmas credenciais e rotas): a documentação saiu
+    ([developer.aiqfome.com](https://developer.aiqfome.com/docs/category/api-open-delivery)), e o
+    aiqfome tem uma **camada Open Delivery**. O Comandou usa o mesmo `OpenDeliveryAdapter` com o
+    dialeto `AIQFOME_DIALECT` (base `AIQFOME_API_URL`, padrão
+    `https://plataforma.aiqfome.com/api/od`): polling por loja sem `x-polling-merchants`, ack com
+    `id`, `orderId` e `eventType` (os três são obrigatórios lá), aceite (`confirm` com
+    `createdAt`/`orderExternalCode`/`preparationTime`), `ready-for-pickup` (kebab-case, **só** no
+    pedido de retirada: `skipsAction` do adaptador faz a caixa de saída nem gravar o "pronto" do pedido de entrega, e o `orderType` no payload é a segunda trava), `dispatch` e
+    `delivered`. Recusar e cancelar ficam no gestor do aiqfome (a camada não oferece), e o
+    `CANCELLED` de lá cancela no Comandou.
+  - **Autorização por loja** (OAuth com código no ID Magalu, `AIQFOME_AUTH_URL`, padrão
+    `https://id.magalu.com`): o restaurante digita o código da loja e vai a
+    `/login?client_id&response_type=code&redirect_uri&scope&state&choose_tenants=true`; a volta é
+    fixa em `admin.<base>/api/v1/platform/channels/oauth/aiqfome/callback` (cadastrada no portal),
+    que só acha o endereço do restaurante pelo `state` e manda o navegador para
+    `/api/v1/channels/aiqfome/finish` lá, onde a sessão da equipe (`settings:manage`) confere o
+    `state` (tabela `channel_oauth_states`: só o hash, 15 minutos, uso único, deste restaurante e
+    de quem começou), troca o código, faz o `PUT /v1/merchantOnboarding/{loja}` no modo polling
+    (sem `ordersWebhookURL`) e liga a loja (a reserva no banco central recusa loja de outro
+    restaurante). Mesmo desenho do Connect do PagBank.
+  - **Tokens da loja**: o de acesso (2 horas) e o de renovação ficam **cifrados** em
+    `channel_stores.token_enc`/`access_enc` (contexto `aiqfome:<restaurante>:<loja>`). O de
+    renovação troca a cada uso: a renovação trava a linha da loja (`FOR UPDATE`) e grava o par
+    novo antes de soltar, então duas réplicas nunca gastam o mesmo; quem esperava lê o token já
+    renovado. 401 renova uma vez; renovação recusada (400/401) apaga os tokens, marca a loja como
+    "sem autorização" e ela sai do polling até ligar de novo.
+  - **Outros aplicativos Open Delivery só com configuração**: Super Admin › Credenciais › "Outros
+    aplicativos Open Delivery" cadastra nome, endereço da API (HTTPS com nome de servidor), Client
+    ID e Client Secret. Cada um vira o canal `od-<nome>` (`customOdId`: só letras e números, até
+    27) com o dialeto padrão V1; `OpenDeliveryService.syncCustom` relê a lista a cada minuto (e na
+    hora de ligar uma loja) e registra ou tira o adaptador (`ChannelRegistry.unregister`). O cartão
+    em Aplicativos de delivery e o selo dos pedidos usam o nome dado. Nada no banco muda: o id do
+    canal já era livre (`^[a-z0-9][a-z0-9_-]{1,30}$`).
+  - **Testes**: `test/aiqfome.e2e.test.ts` (11, com o aiqfome falso `test/fake-aiqfome.ts`: ID
+    Magalu com código de uso único e renovação que troca, camada OD com token por loja),
+    `test/custom-od.e2e.test.ts` (3) e 2 em `channels.test.ts`; a volta da autorização entrou na
+    varredura de segurança.
+  - Fica de fora: confirmar no sandbox do aiqfome os nomes dos escopos (a doc mostra dois
+    conjuntos), o host da API (só aparece nos exemplos de `orderURL`) e o caminho do
+    `merchantOnboarding`; webhook do aiqfome (`ordersWebhookURL`, sem assinatura documentada:
+    polling cumpre o prazo); API própria V2 (cardápio, loja, financeiro e aiqEntrega); recusar e
+    cancelar pela API.
+  - **Logística do Open Delivery (avaliação, para uma fase futura)**: a API de Logística do padrão
+    (ex.: [Husky](https://docs.gohusky.net/api-open-delivery/entregas/delivery), v1.2.0) deixa o
+    restaurante pedir um entregador de uma empresa de entrega para **pedido próprio** (balcão,
+    WhatsApp, cardápio online): `POST /v1/logistics/delivery` com `orderId`, endereços de retirada
+    e entrega, veículo (`MOTORBIKE_BAG`, `CAR`…), valor, peso e pagamento (`ONLINE` ou `OFFLINE`
+    com troco), resposta 202 com `deliveryId` e previsão; o andamento volta por eventos. Proposta:
+    um "operador de entrega" por empresa cadastrado como os `od-<nome>` (endereço + chaves no
+    Super Admin), o botão "Chamar entregador" que já existe para o iFood Sob Demanda
+    (`ChannelDriversService`) passa a oferecer também os operadores ligados, cotação e pedido pela
+    caixa de saída (mesma repetição e idempotência por `orderId`), andamento na mesma linha do
+    entregador e a taxa lançada como despesa de entrega. Depende de uma empresa parceira para
+    testar; não entra nesta fase.

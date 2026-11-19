@@ -1,5 +1,6 @@
 import { Body, Controller, Post, Req } from '@nestjs/common';
 import type { Request } from 'express';
+import { CUSTOM_OD_RE } from '@comandou/shared';
 import { z } from 'zod';
 import { CurrentTenant, CurrentUser, RequirePermission } from '../../common/decorators';
 import { ZodPipe } from '../../common/zod.pipe';
@@ -7,7 +8,8 @@ import type { AuthenticatedUser, ResolvedTenant } from '../../tenancy/tenant.typ
 import { CONNECT_CHANNELS, OpenDeliveryService } from './opendelivery.service';
 
 const ConnectBody = z.object({
-  channel: z.enum(CONNECT_CHANNELS),
+  // Os conhecidos ou um aplicativo Open Delivery cadastrado no Super Admin (`od-<nome>`).
+  channel: z.union([z.enum(CONNECT_CHANNELS), z.string().regex(CUSTOM_OD_RE)]),
   storeId: z
     .string()
     .trim()

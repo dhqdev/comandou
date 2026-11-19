@@ -338,7 +338,7 @@ describe('Inventário de rotas', () => {
       (r) =>
         isPlatform(r) &&
         !r.guards.includes('PlatformSessionGuard') &&
-        !/^\/api\/v1\/(platform\/(auth|receive|sign|billing\/asaas|channels\/webhooks)|pagbank\/connect)\b/.test(
+        !/^\/api\/v1\/(platform\/(auth|receive|sign|billing\/asaas|channels\/webhooks|channels\/oauth)|pagbank\/connect)\b/.test(
           r.path,
         ),
     );

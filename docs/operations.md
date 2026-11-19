@@ -158,6 +158,19 @@ pedidos do aplicativo não chegam e ele cancela sozinho depois do prazo.
     (`admin.<domínio>/api/v1/platform/channels/webhooks/rappi/<aviso>`) e se o segredo é o mesmo do
     cartão Rappi em Credenciais. "webhook da Rappi recusado: bad_signature" no log = segredo
     diferente ou relógio fora (mais de 10 minutos). Não desligue a assinatura.
+17. **aiqfome: a loja não liga ou parou de receber** (Fase 13): "aiqfome=erro" na volta com
+    "venceu ou já foi usada" = passou dos 15 minutos ou a pessoa recarregou a página; ligue de
+    novo. "Não aceitou o cadastro desta loja" = o código digitado não é o da loja escolhida no ID
+    Magalu (a pessoa precisa entrar com o e-mail de dono da loja no Geraldo). Erro do ID Magalu
+    sobre a Redirect URI = cadastre no portal do aiqfome exatamente
+    `https://admin.<domínio>/api/v1/platform/channels/oauth/aiqfome/callback`. Loja "sem
+    autorização" = a renovação do token foi recusada (o lojista tirou o acesso ou ficou muito tempo
+    sem uso): ligue de novo pelo ID Magalu; os tokens ficam cifrados em `channel_stores` e nunca
+    aparecem no log. Recusar e cancelar pedido do aiqfome é no gestor do aiqfome.
+18. **Outro aplicativo Open Delivery não aparece** (Fase 13): o cadastro em Super Admin ›
+    Credenciais › Outros aplicativos Open Delivery é relido a cada minuto; confira o nome (vira
+    `od-<letras e números>`), o endereço HTTPS e as chaves. Apagar tira o aplicativo de todos os
+    restaurantes (as lojas param de buscar).
 
 ### Backup atrasado
 

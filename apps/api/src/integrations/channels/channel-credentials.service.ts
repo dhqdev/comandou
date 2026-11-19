@@ -1,5 +1,5 @@
 import { Global, Inject, Injectable, Module, UnprocessableEntityException } from '@nestjs/common';
-import { CHANNEL_ID_RE } from '@comandou/shared';
+import { CHANNEL_ID_RE, isCustomOd } from '@comandou/shared';
 import { z } from 'zod';
 import { open, seal } from '../../common/secret-box';
 import { ENV, Env } from '../../config/env';
@@ -15,6 +15,8 @@ export interface AppCredential {
   webhookSecret?: string;
   /** Open Delivery: endereço da API do aplicativo. */
   baseUrl?: string;
+  /** Aplicativo Open Delivery cadastrado (`od-<nome>`): o nome que aparece nas telas. */
+  name?: string;
   /** De onde veio: Super Admin › Credenciais ou o .env do servidor (reserva). */
   source: 'panel' | 'env';
   last4: string;
@@ -25,6 +27,14 @@ export const ChannelCredentialBody = z.object({
   clientSecret: z.string().trim().min(8).max(500),
   mode: z.enum(['centralized', 'distributed']).optional(),
   webhookSecret: z.string().trim().min(8).max(500).optional(),
+  /** Aplicativo Open Delivery cadastrado (`od-<nome>`): o nome nas telas. */
+  name: z
+    .string()
+    .trim()
+    .min(2)
+    .max(40)
+    .regex(/^[\p{L}\p{N} .&'-]+$/u, 'Use só letras, números e espaço no nome')
+    .optional(),
   /**
    * Open Delivery: endereço da API do aplicativo (o Comandou só chama aqui). HTTPS e um nome de
    * servidor (nada de IP ou localhost), para o painel não virar porta para a rede interna.
@@ -113,6 +123,30 @@ export class ChannelCredentials {
     return null;
   }
 
+  /** Aplicativos Open Delivery cadastrados no Super Admin (`od-<nome>`), com o nome e a base. */
+  async customOd(): Promise<{ channel: string; name: string; host?: string; last4: string }[]> {
+    if (!this.platform.enabled) return [];
+    const rows = await this.platform
+      .query<{ name: string }>(
+        `SELECT name FROM platform_credentials WHERE name LIKE 'channel\\_od\\_%' ORDER BY name LIMIT 50`,
+      )
+      .catch(() => []);
+    const out = [];
+    for (const r of rows) {
+      const channel = `od-${r.name.slice('channel_od_'.length)}`;
+      if (!isCustomOd(channel)) continue;
+      const v = await this.get(channel);
+      if (!v?.baseUrl) continue;
+      out.push({
+        channel,
+        name: v.name ?? channel,
+        host: new URL(v.baseUrl).host,
+        last4: v.last4,
+      });
+    }
+    return out;
+  }
+
   forget(channel?: string) {
     if (channel) this.cache.delete(channel);
     else this.cache.clear();
@@ -146,6 +180,10 @@ export class ChannelCredentials {
     actor: { adminId: string; ip?: string },
   ) {
     if (!CHANNEL_ID_RE.test(channel)) throw new UnprocessableEntityException('Canal inválido');
+    if (isCustomOd(channel) && (!body.name || !body.baseUrl))
+      throw new UnprocessableEntityException(
+        'Aplicativo Open Delivery precisa do nome e do endereço da API',
+      );
     const key = this.env.INTEGRATIONS_KEY;
     if (!key)
       throw new UnprocessableEntityException(

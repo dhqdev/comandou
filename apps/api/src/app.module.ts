@@ -24,6 +24,7 @@ import { HealthModule } from './health/health.module';
 import { IfoodModule } from './integrations/ifood/ifood.module';
 import { OpenDeliveryModule } from './integrations/opendelivery/opendelivery.module';
 import { RappiModule } from './integrations/rappi/rappi.module';
+import { AiqfomeModule } from './integrations/aiqfome/aiqfome.module';
 import { ChannelCredentialsModule } from './integrations/channels/channel-credentials.service';
 import { ChannelsModule } from './integrations/channels/channels.module';
 import { MailModule } from './mail/mail.module';
@@ -105,6 +106,7 @@ export class AppModule {
         IfoodModule,
         OpenDeliveryModule,
         RappiModule,
+        AiqfomeModule,
         OperationsModule,
         ChannelsModule,
         ChatModule,

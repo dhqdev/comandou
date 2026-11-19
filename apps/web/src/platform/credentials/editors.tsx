@@ -1,4 +1,5 @@
 import { CheckCircle2, XCircle } from 'lucide-react';
+import { customOdId } from '@comandou/shared';
 import { FormEvent, ReactNode, useState } from 'react';
 import { Alert, Button, Spinner, TextField, useToast } from '../../design-system';
 import { SelectField } from '../../features/forms';
@@ -1089,8 +1090,8 @@ export function ChannelEditor({
   const needsBase = channel === 'opendelivery';
   // Rappi: endereço só para o ambiente de teste (sem ele vale o domínio do Brasil).
   const optionalBase = channel === 'rappi';
-  // Keeta, 99Food e Open Delivery buscam por polling: não há segredo de webhook para guardar.
-  const polling = channel === 'keeta' || channel === '99food' || needsBase;
+  // Keeta, 99Food, aiqfome e Open Delivery buscam por polling: não há segredo de webhook.
+  const polling = channel === 'keeta' || channel === '99food' || channel === 'aiqfome' || needsBase;
   const saved = state?.source === 'panel';
 
   async function save(e: FormEvent) {
@@ -1216,5 +1217,155 @@ export function ChannelEditor({
         </Button>
       </Actions>
     </form>
+  );
+}
+
+/** Aplicativo Open Delivery cadastrado no painel (`od-<nome>`), como GET /platform/credentials. */
+export interface CustomOdApp {
+  channel: string;
+  name: string;
+  host?: string;
+  last4: string;
+}
+
+/**
+ * Outros aplicativos Open Delivery: a lista dos cadastrados (nome, servidor e final do segredo,
+ * com Apagar) e o formulário de um novo. Cada um vira um canal `od-<nome>` nos restaurantes.
+ */
+export function CustomOdEditor({
+  apps,
+  keyConfigured,
+  onSaved,
+}: {
+  apps: CustomOdApp[];
+  keyConfigured: boolean;
+  onSaved(): void;
+}) {
+  const [name, setName] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  const { busy, error, run } = useBusy();
+  const channel = customOdId(name);
+  const taken = !!channel && apps.some((a) => a.channel === channel);
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    if (!channel) return;
+    const r = await run(
+      'save',
+      () =>
+        api(`/platform/credentials/channels/${channel}`, {
+          method: 'PUT',
+          json: { name: name.trim(), baseUrl, clientId, clientSecret },
+        }),
+      'Aplicativo cadastrado',
+    );
+    if (r) {
+      setName('');
+      setBaseUrl('');
+      setClientId('');
+      setClientSecret('');
+      onSaved();
+    }
+  }
+
+  return (
+    <div className="adm-cred__form">
+      <NoKey show={!keyConfigured} />
+      {apps.length > 0 && (
+        <ul className="adm-cred__apps">
+          {apps.map((a) => (
+            <li key={a.channel} className="adm-cred__app">
+              <div>
+                <strong>{a.name}</strong>
+                <span className="adm-cred__app-meta">
+                  {a.host} · termina em {a.last4}
+                </span>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                loading={busy === a.channel}
+                disabled={!!busy}
+                onClick={async () => {
+                  if (
+                    await run(
+                      a.channel,
+                      () =>
+                        api(`/platform/credentials/channels/${a.channel}/remove`, {
+                          method: 'POST',
+                        }),
+                      `${a.name} apagado`,
+                    )
+                  )
+                    onSaved();
+                }}
+              >
+                Apagar
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form onSubmit={save}>
+        <div className="adm-backup-grid">
+          <TextField
+            label="Nome"
+            value={name}
+            maxLength={40}
+            autoComplete="off"
+            placeholder="Ex.: Anota AI"
+            hint={
+              taken
+                ? 'Já existe um aplicativo com esse nome: salvar troca as chaves dele.'
+                : undefined
+            }
+            onChange={(e) => setName(e.target.value)}
+          />
+          <TextField
+            label="Endereço da API"
+            inputMode="url"
+            autoComplete="off"
+            value={baseUrl}
+            placeholder="https://api.aplicativo.com.br"
+            onChange={(e) => setBaseUrl(e.target.value.trim())}
+          />
+          <TextField
+            label="Client ID"
+            value={clientId}
+            autoComplete="off"
+            onChange={(e) => setClientId(e.target.value.trim())}
+          />
+          <TextField
+            label="Client Secret"
+            type="password"
+            autoComplete="new-password"
+            value={clientSecret}
+            onChange={(e) => setClientSecret(e.target.value.trim())}
+          />
+        </div>
+        {error && <Alert tone="danger">{error}</Alert>}
+        <Actions>
+          <Button
+            type="submit"
+            variant="primary"
+            size="sm"
+            loading={busy === 'save'}
+            disabled={
+              !!busy ||
+              !channel ||
+              clientId.length < 4 ||
+              clientSecret.length < 8 ||
+              !keyConfigured ||
+              !/^https:\/\/[^\s/]+\.[^\s/]+/.test(baseUrl)
+            }
+          >
+            {taken ? 'Trocar as chaves' : 'Cadastrar aplicativo'}
+          </Button>
+        </Actions>
+      </form>
+    </div>
   );
 }

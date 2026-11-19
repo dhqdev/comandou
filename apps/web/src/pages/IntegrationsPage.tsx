@@ -6,7 +6,7 @@ import { Alert, Badge, Button, Card, EmptyState, Spinner, useToast } from '../de
 import { useCan } from '../app/auth';
 import { AppReviewsCard } from '../features/channels/AppReviews';
 import { ChannelBadge } from '../features/channels/ChannelBadge';
-import { CONNECT_HERE, ConnectStore } from '../features/channels/ConnectStore';
+import { ConnectStore, connectsHere } from '../features/channels/ConnectStore';
 import {
   StorePauseControls,
   StoreStateLine,
@@ -15,6 +15,7 @@ import {
 import { dateTime } from '../features/format';
 import { CheckField, SelectField } from '../features/forms';
 import { api, type Product } from '../lib/api';
+import { useLinkParam } from '../lib/deep-link';
 import { brl } from '../lib/money';
 import { useDebounced, useRealtime } from '../lib/realtime';
 import './integrations.css';
@@ -131,6 +132,14 @@ export function IntegrationsPage() {
       .then((p) => setProducts(p.filter((x) => x.active)))
       .catch(() => undefined);
   }, [canLink]);
+  // Volta da autorização do aiqfome: ?aiqfome=ok|erro|cancelado (&motivo=...).
+  useLinkParam('aiqfome', (r) => {
+    const reason = new URLSearchParams(window.location.search).get('motivo');
+    if (r === 'ok')
+      toast('Loja do aiqfome ligada. Marque "Receber pedidos" para começar.', 'success');
+    else if (r === 'cancelado') toast('Autorização do aiqfome cancelada');
+    else toast(reason ?? 'Não deu para ligar a loja do aiqfome', 'danger');
+  });
   const reload = useDebounced(load);
   useRealtime((e) => {
     if (e.type === 'channels.changed' || e.type === 'order.changed') reload();
@@ -186,7 +195,7 @@ export function IntegrationsPage() {
             return (
               <section key={c.id} className="intg-card" data-search-id={`canal-${c.id}`}>
                 <header className="intg-card__head">
-                  <ChannelBadge channel={c.id} />
+                  <ChannelBadge channel={c.id} label={c.label} />
                   <span className="intg-state" data-tone={st.tone}>
                     {st.text}
                   </span>
@@ -198,8 +207,8 @@ export function IntegrationsPage() {
                     você marca "Receber pedidos".
                   </p>
                 )}
-                {CONNECT_HERE.has(c.id) && c.available && c.configured && canConfigure && (
-                  <ConnectStore channel={c.id} onDone={() => void load()} />
+                {connectsHere(c.id) && c.available && c.configured && canConfigure && (
+                  <ConnectStore channel={c.id} label={c.label} onDone={() => void load()} />
                 )}
                 {c.stores.length > 0 && (
                   <ul className="intg-stores">

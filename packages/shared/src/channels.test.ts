@@ -6,6 +6,8 @@ import {
   withArticle,
   channelPath,
   channelInfo,
+  customOdId,
+  isCustomOd,
   channelMovesForward,
   comandouTotals,
   type ExternalOrder,
@@ -123,5 +125,23 @@ describe('entregador do aplicativo', () => {
     expect(driverMovesForward('request_failed', 'assigned')).toBe(true);
     expect(driverMovesForward('assigned', 'requested')).toBe(false);
     expect(driverMovesForward('cancelled', 'requested')).toBe(true);
+  });
+});
+
+describe('outros aplicativos Open Delivery', () => {
+  it('o nome vira um id od-<letras e números>; nome sem letras não vira nada', () => {
+    expect(customOdId('Anota AI')).toBe('od-anotaai');
+    expect(customOdId('Cardápio Fácil!')).toBe('od-cardapiofacil');
+    expect(customOdId('x')).toBeNull();
+    expect(customOdId('***')).toBeNull();
+    expect(isCustomOd('od-anotaai')).toBe(true);
+    expect(isCustomOd('opendelivery')).toBe(false);
+    expect(isCustomOd('od-Anota')).toBe(false);
+  });
+
+  it('o selo usa o nome cadastrado e, sem ele, o id sem o od-', () => {
+    expect(channelInfo('od-anotaai', 'Anota AI').label).toBe('Anota AI');
+    expect(channelInfo('od-anotaai').label).toBe('Anotaai');
+    expect(channelInfo('aiqfome').label).toBe('aiqfome');
   });
 });

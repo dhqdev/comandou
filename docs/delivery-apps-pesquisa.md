@@ -408,10 +408,28 @@ resto do Comandou ver o mesmo pedido normalizado. A seguir, o que vale na **V1**
 
 ## 7. aiqfome
 
-Sem documentação pública de API. Os sistemas que integram (Saipos, Cardápio Web) fazem por
-parceria, e o cancelamento continua no gestor do aiqfome
-([Cardápio Web](https://ajuda.cardapioweb.com/automacao/integracoes/aiqfome)). Precisa de contato
-comercial com o aiqfome (Fase 13).
+Atualizado na Fase 13: o aiqfome publicou o
+[portal do desenvolvedor](https://developer.aiqfome.com/docs/guides/versions). A API V1 sai em
+07/04/2026 e a V2 usa o **ID Magalu** ([guia de transição](https://aiqfomedev.discourse.group/t/guia-de-transicao-api-v2-aiqfome-impactos-e-mudancas/27)).
+
+- **Credenciais**: Aplicativo de Integração no portal (login com ID Magalu, escopos Loja e
+  Pedidos), Client ID e Client Secret (mostrado uma vez só)
+  ([Passo 1](https://developer.aiqfome.com/docs/guides/get-started/step-1)).
+- **Autorização por loja**: `GET https://id.magalu.com/login?client_id&response_type=code&redirect_uri&scope&state&choose_tenants=true`;
+  a volta traz `code` e `state`; `POST https://id.magalu.com/oauth/token` (formulário,
+  `authorization_code` ou `refresh_token`) devolve `access_token` (7.200 s) e `refresh_token`, que
+  troca a cada renovação; um par por loja
+  ([Autenticação](https://developer.aiqfome.com/docs/guides/opendelivery/authentication)).
+- **Camada Open Delivery** (aiqfome e Magalu Delivery): `PUT /v1/merchantOnboarding/{id}` com
+  `orderingAppMerchantId` (sem `ordersWebhookURL` = polling)
+  ([Software Service](https://developer.aiqfome.com/docs/guides/opendelivery/merchant-onboarding));
+  `GET /api/od/v1/events:polling` (até 100, 48 horas), `POST /api/od/v1/events/acknowledgment`
+  (`id`, `orderId` e `eventType` obrigatórios), `GET /api/od/v1/orders/{id}` e as ações `confirm`,
+  `ready-for-pickup` (só retirada), `dispatch` e `delivered`; eventos `CREATED`, `CONFIRMED`,
+  `READY_FOR_PICKUP`, `DISPATCHED`, `DELIVERED`, `CANCELLED` e `CONCLUDED`
+  ([Pedidos](https://developer.aiqfome.com/docs/guides/opendelivery/order-lifecycle)). Não há
+  recusa nem cancelamento nessa camada: continuam no gestor do aiqfome.
+- Suporte de integração: integracao@aiqfome.zendesk.com.
 
 ## 8. Nota fiscal com intermediador
 
@@ -475,7 +493,7 @@ comercial com o aiqfome (Fase 13).
 | Keeta | NDA, conta de desenvolvedor, app de teste, teste integrado (SIT), credencial de produção | time de API da Keeta |
 | 99Food | Conta na Plataforma Aberta, credenciais de sandbox e produção; confirmar o "um app por integradora" | [developer-food.99app.com](https://developer-food.99app.com/pt-BR/openapi) e o contato da vitrine Open Delivery |
 | Rappi | Acesso ao Portal, `client_id`/`client_secret` do Brasil, segredo dos webhooks | [dev-portal.rappi.com](https://dev-portal.rappi.com/) |
-| aiqfome | Acesso à API (não há documentação pública) | contato comercial/parcerias do aiqfome |
+| aiqfome | Aplicativo de Integração no portal do desenvolvedor (ID Magalu), Client ID e Secret, Redirect URI do Comandou | developer.aiqfome.com e integracao@aiqfome.zendesk.com |
 | Open Delivery | Nada obrigatório; opcional entrar na vitrine de aderentes | Abrasel |
 | Nota fiscal | CNPJ de cada aplicativo como intermediador e a regra de presença/emissão | contabilidade do restaurante (e o contrato de cada aplicativo) |
 
@@ -540,4 +558,4 @@ comercial com o aiqfome (Fase 13).
   o restaurante valem o despacho, o rastreio do entregador do iFood e o Sob Demanda (Shipping).
 - **Fase 8:** não há API de chat com o cliente na documentação lida; avaliações e promoções existem.
 - **Fase 11:** a 99Food já tem portal público e é aderente ao Open Delivery.
-- **Fase 13:** aiqfome continua sem documentação pública.
+- **Fase 13:** o aiqfome publicou a documentação (camada Open Delivery e ID Magalu); ver a seção 7.

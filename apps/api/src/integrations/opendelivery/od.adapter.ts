@@ -1,4 +1,9 @@
-import type { ChannelCancelReason, ChannelCapability, ExternalOrder } from '@comandou/shared';
+import type {
+  ChannelAction,
+  ChannelCancelReason,
+  ChannelCapability,
+  ExternalOrder,
+} from '@comandou/shared';
 import { channelInfo, withArticle } from '@comandou/shared';
 import {
   ChannelHttpError,
@@ -51,16 +56,19 @@ interface OdEvent {
  * dá um token por loja e pede os tipos de evento e o início da janela no polling.
  */
 export interface OdDialect {
-  /** 'keeta', '99food' ou 'opendelivery' (ou um `od-<nome>` no futuro). */
+  /** 'keeta', '99food', 'aiqfome', 'opendelivery' ou um `od-<nome>` cadastrado no Super Admin. */
   channel: string;
+  /** Nome na tela, quando não é um canal conhecido (os `od-<nome>`). */
+  label?: string;
   /** Keeta: X-App-Signature em toda chamada e corpo canônico (RFC 8785). */
   signed: boolean;
   /**
    * Keeta: token do aplicativo por JSON com `app_level_token`; padrão V1: formulário com
    * `client_credentials`; 99Food ('store'): o mesmo formulário, mas um token por loja, com
-   * `client_id` = `<App ID>_<id da loja>`.
+   * `client_id` = `<App ID>_<id da loja>`. aiqfome ('oauth'): um token por loja, que a própria
+   * loja autorizou no ID Magalu (renovação cifrada em channel_stores, ver `StoreTokenSource`).
    */
-  token: 'keeta' | 'form' | 'store';
+  token: 'keeta' | 'form' | 'store' | 'oauth';
   /** Keeta: a loja precisa do PUT /v1/merchantOnboarding antes de receber eventos. */
   onboarding: boolean;
   /** Parâmetros do polling (99Food: eventType e fromTime são obrigatórios). */
@@ -69,6 +77,10 @@ export interface OdDialect {
   pickedUp?: boolean;
   /** Pedidos de token por minuto que o Comandou se permite (token por loja precisa de mais). */
   tokenPerMinute?: number;
+  /** Caminho de uma ação quando o aplicativo foge do padrão (aiqfome: `ready-for-pickup`). */
+  verbs?: Partial<Record<string, string>>;
+  /** aiqfome: "pronto para retirar" só existe no pedido de retirada. */
+  readyOnlyPickup?: boolean;
   capabilities: readonly ChannelCapability[];
 }
 
@@ -137,6 +149,31 @@ export const FOOD99_DIALECT: OdDialect = {
   ],
 };
 
+/**
+ * aiqfome (e Magalu Delivery) pela camada Open Delivery deles: polling por loja com o token que a
+ * loja autorizou no ID Magalu, ack com id + pedido + tipo, aceite, pronto (só retirada), saiu e
+ * entregue. Recusar e cancelar ficam no gestor do aiqfome (a camada não oferece).
+ */
+export const AIQFOME_DIALECT: OdDialect = {
+  channel: 'aiqfome',
+  signed: false,
+  token: 'oauth',
+  onboarding: true,
+  verbs: { readyForPickup: 'ready-for-pickup' },
+  readyOnlyPickup: true,
+  capabilities: ['orders', 'polling', 'confirm', 'ready', 'dispatch', 'delivered'],
+};
+
+/** Aplicativo Open Delivery cadastrado no Super Admin (`od-<nome>`): o padrão V1, sem ajustes. */
+export function customOdDialect(channel: string, label: string): OdDialect {
+  return { ...OPEN_DELIVERY_DIALECT, channel, label };
+}
+
+/** Token de uma loja que autorizou o Comandou (aiqfome): guardado cifrado, renovado com trava. */
+export interface StoreTokenSource {
+  get(tenantId: string, storeId: string, forget: boolean): Promise<string>;
+}
+
 /** Credencial de polling: um token do aplicativo para todas as lojas autorizadas. */
 export const odCredential = (channel: string) => `${channel}:app`;
 
@@ -149,7 +186,7 @@ export const odCredential = (channel: string) => `${channel}:app`;
 export class OpenDeliveryAdapter implements ChannelAdapter {
   readonly id: string;
   readonly capabilities: readonly ChannelCapability[];
-  private readonly label: string;
+  readonly label: string;
   private http?: { base: string; client: ChannelHttp };
   /** Tokens guardados: '*' = do aplicativo; na 99Food, um por loja. */
   private readonly tokens = new Map<string, { value: string; until: number; key: string }>();
@@ -162,10 +199,16 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
     /** Base da API: fixa (Keeta, pelo .env) ou a cadastrada em Credenciais (padrão). */
     private readonly baseOf: () => Promise<string | null>,
     private readonly fetcher: () => Fetcher = () => fetch,
+    private readonly storeTokens?: StoreTokenSource,
   ) {
     this.id = dialect.channel;
     this.capabilities = dialect.capabilities;
-    this.label = channelInfo(dialect.channel).label;
+    this.label = channelInfo(dialect.channel, dialect.label).label;
+  }
+
+  /** Token por loja (99Food e aiqfome): cada loja busca, dá ack e age com o dela. */
+  private get perStore() {
+    return this.dialect.token === 'store' || this.dialect.token === 'oauth';
   }
 
   private async app() {
@@ -213,9 +256,15 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
   private async bearer(
     forget = false,
     storeId?: string,
+    tenantId?: string,
   ): Promise<{ token: string; http: ChannelHttp }> {
     const c = await this.app();
     const http = await this.client(c.clientSecret);
+    if (this.dialect.token === 'oauth') {
+      if (!storeId || !tenantId || !this.storeTokens)
+        throw new ChannelHttpError(400, 'Loja não informada');
+      return { token: await this.storeTokens.get(tenantId, storeId, forget), http };
+    }
     const perStore = this.dialect.token === 'store';
     if (perStore && !storeId) throw new ChannelHttpError(400, 'Loja não informada');
     const scope = perStore ? storeId! : '*';
@@ -258,9 +307,9 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
   }
 
   /** Chamada com o token do aplicativo (ou da loja); 401 → token novo e uma repetição. */
-  async call<T>(r: Omit<ChannelRequest, 'token'>, storeId?: string) {
+  async call<T>(r: Omit<ChannelRequest, 'token'>, storeId?: string, tenantId?: string) {
     for (let attempt = 0; ; attempt++) {
-      const { token, http } = await this.bearer(attempt > 0, storeId);
+      const { token, http } = await this.bearer(attempt > 0, storeId, tenantId);
       try {
         return await http.request<T>({ ...r, token });
       } catch (e) {
@@ -282,18 +331,19 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
       let list: OdEvent[];
       try {
         const q = this.dialect.pollQuery?.(new Date());
-        const perStore = this.dialect.token === 'store';
+        const perStore = this.perStore;
         const r = await this.call<OdEvent[] | null>(
           {
             endpoint: 'events:polling',
             method: 'GET',
             path: q ? `${OD_PATHS.polling}?${q}` : OD_PATHS.polling,
-            // Token por loja (99Food) já diz de quem são os eventos.
+            // Token por loja (99Food, aiqfome) já diz de quem são os eventos.
             ...(perStore ? {} : { headers: { 'x-polling-merchants': s.storeId } }),
             perMinute: OD_LIMITS.polling,
             retries: 0,
           },
           s.storeId,
+          s.tenantId,
         );
         list = Array.isArray(r.body) ? r.body : [];
         ok++;
@@ -333,11 +383,12 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
     return out;
   }
 
-  async ack(_batch: PollBatch, events: ChannelEvent[]) {
-    // Token por loja (99Food): o ack de cada loja vai com o token dela.
+  async ack(batch: PollBatch, events: ChannelEvent[]) {
+    // Token por loja (99Food, aiqfome): o ack de cada loja vai com o token dela.
     const groups = new Map<string | undefined, ChannelEvent[]>();
+    const tenantOf = new Map(batch.stores.map((s) => [s.storeId.toLowerCase(), s.tenantId]));
     for (const e of events) {
-      const k = this.dialect.token === 'store' ? e.storeId : undefined;
+      const k = this.perStore ? e.storeId : undefined;
       groups.set(k, [...(groups.get(k) ?? []), e]);
     }
     for (const [storeId, list] of groups)
@@ -357,6 +408,7 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
             retries: 2,
           },
           storeId,
+          storeId ? tenantOf.get(storeId.toLowerCase()) : undefined,
         );
       }
   }
@@ -371,6 +423,7 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
         retries: 0,
       },
       ref.storeId,
+      ref.tenantId,
     );
     if (!r.body || typeof r.body !== 'object' || !r.body.id)
       throw new ChannelHttpError(502, `${withArticle(this.label, 'O')} devolveu o pedido vazio`);
@@ -378,6 +431,11 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
     // O id da loja no pedido é o do aplicativo; a loja que buscou é a que vale.
     o.storeId = ref.storeId;
     return o;
+  }
+
+  skipsAction(action: ChannelAction, orderType: string) {
+    if (action === 'picked_up') return !this.dialect.pickedUp;
+    return action === 'ready' && !!this.dialect.readyOnlyPickup && orderType !== 'pickup';
   }
 
   async cancellationReasons(): Promise<ChannelCancelReason[]> {
@@ -392,10 +450,14 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
       createdAt?: string;
       preparationMinutes?: number;
       disputeId?: string;
+      orderType?: string;
     };
     const verb = odVerb(req.action, p.disputeId);
     // Sem esse aviso no aplicativo (ex.: retirada no balcão fora da 99Food): nada a mandar.
     if (!verb || (verb === 'pickedUp' && !this.dialect.pickedUp)) return;
+    // aiqfome: pedido de entrega não tem "pronto para retirar" (segue com saiu e entregue).
+    if (verb === 'readyForPickup' && this.dialect.readyOnlyPickup && p.orderType !== 'pickup')
+      return;
     let json: Record<string, unknown> | undefined;
     if (verb === 'confirm') {
       json = {
@@ -425,13 +487,14 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
         {
           endpoint: `orders:${verb.toLowerCase()}`,
           method: 'POST',
-          path: OD_PATHS.action(req.externalOrderId, verb),
+          path: OD_PATHS.action(req.externalOrderId, this.dialect.verbs?.[verb] ?? verb),
           ...(json ? { json } : {}),
           perMinute: OD_LIMITS.action,
           // A caixa de saída repete com espera crescente (5xx/429); aqui não.
           retries: 0,
         },
         req.storeId,
+        req.tenantId,
       );
     } catch (e) {
       // 422 = a mesma instrução já foi aceita antes (o padrão pede para não repetir).
@@ -445,6 +508,11 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
    * 99Food: confere que a loja está vinculada ao app do Comandou pedindo o token dela.
    */
   async onboard(storeId: string, channelStoreId: string) {
+    if (this.dialect.token === 'oauth')
+      throw new ChannelHttpError(
+        400,
+        `A loja ${withArticle(this.label, 'do')} liga pela autorização`,
+      );
     if (this.dialect.token === 'store') {
       await this.bearer(true, storeId);
       return;
@@ -461,5 +529,24 @@ export class OpenDeliveryAdapter implements ChannelAdapter {
       perMinute: OD_LIMITS.onboarding,
       retries: 1,
     });
+  }
+
+  /**
+   * aiqfome: depois da autorização, põe a loja no modo polling (sem `ordersWebhookURL`). O id da
+   * loja no Comandou é o próprio código do aiqfome (é ele que volta nos eventos e no `state`).
+   */
+  async onboardAuthorized(tenantId: string, storeId: string) {
+    await this.call(
+      {
+        endpoint: 'merchant:onboarding',
+        method: 'PUT',
+        path: `${OD_PATHS.onboarding}/${encodeURIComponent(storeId)}`,
+        json: { orderingAppMerchantId: storeId },
+        perMinute: OD_LIMITS.onboarding,
+        retries: 1,
+      },
+      storeId,
+      tenantId,
+    );
   }
 }

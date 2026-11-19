@@ -2,10 +2,12 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
+  OnModuleDestroy,
   OnModuleInit,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { channelInfo, withArticle } from '@comandou/shared';
+import { channelInfo, isCustomOd, withArticle } from '@comandou/shared';
 import { AuditService } from '../../audit/audit.service';
 import { ENV, type Env } from '../../config/env';
 import { DatabaseService } from '../../database/database.service';
@@ -20,12 +22,15 @@ import {
   KEETA_DIALECT,
   OPEN_DELIVERY_DIALECT,
   OpenDeliveryAdapter,
+  customOdDialect,
   odCredential,
 } from './od.adapter';
 
 /** Canais do padrão Open Delivery que o restaurante liga pelo Comandou. */
 export const OD_CHANNELS = ['keeta', '99food', 'opendelivery'] as const;
 export type OdChannel = (typeof OD_CHANNELS)[number];
+/** De quanto em quanto tempo os aplicativos Open Delivery cadastrados no Super Admin são relidos. */
+const CUSTOM_SYNC_MS = 60_000;
 /** Canais em que o restaurante liga a loja pelo código do aplicativo (Open Delivery e Rappi). */
 export const CONNECT_CHANNELS = [...OD_CHANNELS, 'rappi'] as const;
 export type ConnectChannel = (typeof CONNECT_CHANNELS)[number];
@@ -44,15 +49,19 @@ interface Connectable {
  * loja); no padrão, a loja é o id que o aplicativo deu. Receber pedidos começa desligado.
  */
 @Injectable()
-export class OpenDeliveryService implements OnModuleInit {
+export class OpenDeliveryService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger('OpenDelivery');
   readonly adapters: Record<OdChannel, OpenDeliveryAdapter>;
+  /** Aplicativos Open Delivery cadastrados no Super Admin (`od-<nome>`), pelo nome em uso. */
+  private readonly custom = new Map<string, string>();
+  private timer?: NodeJS.Timeout;
   /** Trocado nos testes. */
   fetcher: Fetcher = (...a) => fetch(...a);
 
   constructor(
     @Inject(ENV) env: Env,
-    creds: ChannelCredentials,
-    metrics: ChannelMetrics,
+    private readonly creds: ChannelCredentials,
+    private readonly metrics: ChannelMetrics,
     private readonly registry: ChannelRegistry,
     private readonly stores: ChannelStoresService,
     private readonly db: DatabaseService,
@@ -87,19 +96,60 @@ export class OpenDeliveryService implements OnModuleInit {
 
   onModuleInit() {
     for (const a of Object.values(this.adapters)) this.registry.register(a);
+    void this.syncCustom().catch(() => undefined);
+    this.timer = setInterval(() => void this.syncCustom().catch(() => undefined), CUSTOM_SYNC_MS);
+    this.timer.unref();
+  }
+
+  onModuleDestroy() {
+    if (this.timer) clearInterval(this.timer);
+  }
+
+  /**
+   * Outros aplicativos Open Delivery: cada credencial `od-<nome>` do Super Admin vira um adaptador
+   * do padrão (mesmo polling, ack e ações), sem código novo. Apagado lá, sai daqui.
+   */
+  async syncCustom() {
+    const list = await this.creds.customOd();
+    const seen = new Set<string>();
+    for (const c of list) {
+      seen.add(c.channel);
+      if (this.custom.get(c.channel) === c.name && this.registry.get(c.channel)) continue;
+      const channel = c.channel;
+      this.registry.register(
+        new OpenDeliveryAdapter(
+          customOdDialect(channel, c.name),
+          this.creds,
+          this.metrics,
+          async () => (await this.creds.get(channel))?.baseUrl ?? null,
+          () => this.fetcher,
+        ),
+      );
+      this.custom.set(channel, c.name);
+      this.logger.log(`aplicativo Open Delivery ${channel} pronto`);
+    }
+    for (const channel of [...this.custom.keys()])
+      if (!seen.has(channel)) {
+        this.registry.unregister(channel);
+        this.custom.delete(channel);
+      }
+    return list;
   }
 
   /** Liga uma loja do aplicativo a este restaurante (e, na Keeta, faz o cadastro dela lá). */
   async connect(
     tenantId: string,
     userId: string,
-    b: { channel: ConnectChannel; storeId: string; name: string },
+    b: { channel: string; storeId: string; name: string },
     ip?: string,
   ) {
-    const adapter = this.registry.get(b.channel) as (Connectable & object) | undefined;
+    // Aplicativo cadastrado agora há pouco no Super Admin: não espera a próxima releitura.
+    if (isCustomOd(b.channel) && !this.registry.get(b.channel)) await this.syncCustom();
+    const adapter = this.registry.get(b.channel) as
+      (Connectable & { label?: string; capabilities?: unknown }) | undefined;
     if (!adapter || typeof adapter.onboard !== 'function')
       throw new BadRequestException('Aplicativo não disponível neste servidor');
-    const label = channelInfo(b.channel).label;
+    const label = channelInfo(b.channel, adapter.label).label;
     const storeId = b.storeId.trim().toLowerCase();
     if (NUMERIC_STORE.has(b.channel) && !/^\d{1,20}$/.test(storeId))
       throw new BadRequestException(`O código da loja ${withArticle(label, 'no')} tem só números`);
